@@ -2573,3 +2573,46 @@ five statements and two definitions that must widen. [SKETCH.md](SKETCH.md)
 has the table (200-250 lemmas, 5-6 lanes planned), two new findings (no
 body keeps a blank line above its first line; a `then` or `else` may
 stand at the column of the block before it) and the recommendation.
+
+### Part 15 (Fable, 15 Nov 2026): expressions are spelled (D3621, lane 1 of 6)
+
+A 25-minute lane. Goal E2 is proved for expressions:
+`Fmt/SpellProofs.sw` (56 theorems, new file; `audit Toy`: 1104
+theorems, 0 failed, the same 16 warnings). No program changed.
+
+- **`exprSpells`**: the events of an expression, seen after whatever
+  trivia waits, are views (`Seen`), and tokens with those views spell
+  the expression (`Spelled`) at the layout, wherever its statement
+  starts: every form inside brackets, every form but `if` outside them
+  (`Covered`). With it `itemsSpell`, `bodySpells` (a branch inside
+  brackets), `inlineSpells` (a body on its keyword's line, any layout),
+  `bareSpells` (a statement that is an expression, from its line start:
+  the first token is the layout's start, the rest have rising offsets),
+  `spellsBracketed` (from `viewsOf`, the newest first).
+- `HeadedFile` and its family moved from the sketch into this file
+  (`Headed` is `HeadedExpr`: `StringProofs.sw` has a `Headed`).
+- The sketch still has five open goals; E2's comment says what is no
+  longer part of it. [SKETCH.md](SKETCH.md), "After lane 1", has the
+  count against the estimate (56 against 45-50), what was found, and
+  the new estimate (180-220 lemmas left).
+
+**Not done:** `if` outside brackets (statement change 1, which is
+larger than part 14 said: a block's end is a fact about the tokens
+after it, and `Spelled` has none); `EndsExpression`; blocks, lines,
+declarations.
+
+**Friction** (beyond parts 1 to 14):
+
+72. Good: 1,400 lines of proof terms checked with four small errors,
+    none in the ten-arm induction. Taking a list apart by continuation
+    (`viewsCons goal tokens … (first rest … => …)`) needed no `rewrite`
+    and no casts of hypotheses.
+73. A `match` inside a lambda passed as an argument has "no definition
+    to lift it into" (`E-MATCH-MOTIVE`); `h.left` did it.
+74. `match h: a == a, sameOffset a with` is refused (one scrutinee's
+    type mentions another); a helper with the equation as a parameter
+    does it (`firstComments`).
+75. A new `def` named like a constructor elsewhere in the namespace
+    (`Plain`) breaks the patterns that use the constructor, with an
+    error at each of them and none at the `def`.
+
