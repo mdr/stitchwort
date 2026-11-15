@@ -33440,14 +33440,14 @@
     {
       "id": 3091,
       "title": "[DeepSeek] STITCHWORT_STD_DIR set but empty makes the CLI behave as if it were set; treat empty as unset (SW-3067 finding 3)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -37985,7 +37985,7 @@
     {
       "id": 3420,
       "title": "[DeepSeek] Message: a DecEq.sound note blames the match instead of the unknown instance (SW-758 item 3, 2024 day 11)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -38165,7 +38165,7 @@
     {
       "id": 3432,
       "title": "[DeepSeek] Messages, small: Parse.pick with eight choices says expected '(' or '[' or …' (use a comma list); the errors print twice when a namespace fails to load; a goal prints a Map's whole internal tree over thousands of characters (SW-963 item 1, SW-973 item 6)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
