@@ -1234,7 +1234,20 @@ impl<'t> Parser<'t> {
         }
         self.modes.guard_start.is_some_and(|start| {
             self.tokens.get(i).is_some_and(|t| t.tok == Tok::FatArrow)
-                && self.bracket_depth(start, i) <= 0
+                && (self.bracket_depth(start, i) <= 0 || self.left_open_between(start, i))
+        })
+    }
+
+    /// Whether a bracket opened in `start..i` is still open at `i` and has
+    /// no partner anywhere in the declaration: someone left it open, so a
+    /// guard's `=>` after it still ends the guard rather than being read as
+    /// a lambda's arrow inside the bracket.
+    fn left_open_between(&self, start: usize, i: usize) -> bool {
+        (start..i).any(|k| {
+            matches!(
+                self.tokens[k].tok,
+                Tok::LParen | Tok::LBracket | Tok::LBrace
+            ) && self.matching[k] == NO_PARTNER
         })
     }
 
@@ -1377,6 +1390,29 @@ impl<'t> Parser<'t> {
         } else {
             Err(self.unexpected(what).into())
         }
+    }
+
+    /// `expect` a closing bracket opened at token `open`. If the bracket's
+    /// contents ran out at an R1 gap, the closer counts as present
+    /// (docs/proposals/syntax-error-recovery.md §2.2), so the gap is the
+    /// one error rather than a second missing-closer error at the token
+    /// that stopped it.
+    fn expect_closer(&mut self, open: u32, tok: Tok, what: &str) -> Result<()> {
+        if self.peek() != Some(&tok) && self.bracket_ran_out(open) {
+            return Ok(());
+        }
+        self.expect(tok, what)?;
+        Ok(())
+    }
+
+    /// Whether a bracket opened at token `open` ran out: the last recovery
+    /// reported an R1 gap at or after the opener, and nothing read since.
+    fn bracket_ran_out(&self, open: u32) -> bool {
+        self.modes.recover
+            && self.recovered.last().is_some_and(|recovery| {
+                recovery.point == RecoveryPoint::RanOut
+                    && recovery.at.start >= self.tokens[open as usize].span.start
+            })
     }
 
     /// The column of the first token on the line that token `i` is on.
@@ -5012,7 +5048,7 @@ impl<'t> Parser<'t> {
                 }
             }
         }
-        self.expect(Tok::RBracket, "`,` or `]`")?;
+        self.expect_closer(start, Tok::RBracket, "`,` or `]`")?;
         self.node(start, NodeKind::List);
         Ok(spread)
     }
@@ -5235,7 +5271,7 @@ impl<'t> Parser<'t> {
                     self.node(start, NodeKind::Annotation);
                     return Ok(());
                 }
-                self.expect(Tok::RParen, "`)`")?;
+                self.expect_closer(start, Tok::RParen, "`)`")?;
                 self.node(start, NodeKind::Paren);
             }
             Some(Tok::LBracket)
@@ -7503,6 +7539,55 @@ mod tests {
             let at = errors[0].primary_span().unwrap();
             assert_eq!((at.start, at.end), (step, step + 1), "{text:?}");
         }
+    }
+
+    /// Two shapes where a bracket left open at the end of a line runs out
+    /// at the next line: a call's `(` with a `let` at the block's column
+    /// after it, and a guard's `[` with the guard's `=>` after it. Each is
+    /// one R1 error at the gap, not a second error for the missing closer
+    /// at the token that stopped it, and the rest of the declaration still
+    /// parses (SW-3289).
+    #[test]
+    fn a_bracket_left_open_at_the_end_of_a_line_runs_out_once() {
+        let call = "def f (x: Nat): Nat :=\n  g (\n  let y := 1\n  y\n";
+        let guard =
+            "def h (x: List Nat): Nat := match x with\n  | a if a == [\n    => 1\n  | _ => 2\n";
+        // The gap after `(`: the end of the line with the open bracket. The
+        // guard's `=>` is the stop, and R1 reports the error at the stop
+        // (as it does at a `calc` step).
+        let call_gap = call.find("(\n").unwrap() + 1;
+        let arrow = guard.find("=>").unwrap();
+        for (text, at) in [
+            (call, (call_gap, call_gap)),
+            (guard, (arrow, arrow + "=>".len())),
+        ] {
+            let (_, errors, points) = recovered(text);
+            assert_eq!(errors.len(), 1, "{text:?}: {errors:?}");
+            assert_eq!(points, [vec![RecoveryPoint::RanOut]], "{text:?}");
+            let span = errors[0].primary_span().unwrap();
+            assert_eq!(
+                (span.start, span.end),
+                (at.0 as u32, at.1 as u32),
+                "{text:?}"
+            );
+        }
+        // The call's line is a missing argument, then the block's `let`
+        // and its body are still there.
+        let (module, _, _) = recovered(call);
+        let Expr::Seq(_, rest) = equation_rhs(&module, "f") else {
+            panic!("{module:?}")
+        };
+        assert!(matches!(**rest, Expr::Let { .. }), "{rest:?}");
+        // The match keeps both arms, its first arm having read the `=>`.
+        let (module, _, _) = recovered(guard);
+        let Expr::Match { alts, .. } = equation_rhs(&module, "h") else {
+            panic!("{module:?}")
+        };
+        assert_eq!(alts.len(), 2, "{alts:?}");
+        assert!(
+            alts[0].guard.is_some() && alts[0].body.is_some(),
+            "{alts:?}"
+        );
     }
 
     #[test]

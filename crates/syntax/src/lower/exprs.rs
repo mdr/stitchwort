@@ -121,7 +121,10 @@ impl<'f> Lower<'f> {
     fn paren(&self, node: Node<'f>) -> Lowering<Expr> {
         at_most(node, 3)?;
         let inner = node.after(&Tok::LParen);
-        self.expr(required(inner, NodeKind::Paren, "its expression")?)
+        // An unclosed bracket whose contents ran out (R1) has no inner
+        // element: it is a missing expression, and the rest of the
+        // declaration still parses.
+        self.part_or_missing(inner, node, "its expression")
     }
 
     /// `(e : T)`
