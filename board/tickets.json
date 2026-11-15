@@ -36749,16 +36749,17 @@
     {
       "id": 3328,
       "title": "[Sonnet] Native code applies no number_words charge (the machine's number_cost for big-number ops), so with number_words on native and machine step counts differ (SW-3327 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Found in SW-3327. Expected: 1 h (Sonnet).\n\nNotes (lane): number_words is turned on only by the counterexample search (SW-907); native step counts are meant to match the machine exactly (n1 tests sweep every limit), so native now charges number_cost: Context.number_words, charge_prim adds prims::number_cost, charges_steps covers numeric ops. Test n1::big_number_operations_cost_their_words_natively (failed before, passes after). n1:: 20 pass, pinned 5 pass. Instructions off: pidigits +0.05%, mapops +0.16%. Commit 1b93ca94d.\n",
+      "body": "Found in SW-3327. number_words is the counterexample search's; native must stop at the machine's step (D1253). Instructions with it off within noise. Model result: Sonnet, worked, ~15 min (est. 60).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
-        "1b93ca94d"
+        "1b93ca94d",
+        "5c2eabeb7388f9742527d95c368fe55a32a98c76"
       ]
     },
     {
