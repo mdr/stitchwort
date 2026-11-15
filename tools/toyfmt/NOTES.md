@@ -973,6 +973,141 @@ against it.
 18. The audit's search reports "no input made the hypotheses true" for
     any theorem whose hypothesis is about a parser state.
 
+### Part 4 (Fable, 15 Nov 2026): what the parser guarantees (WF), and the readings (layer A)
+
+A 1-hour lane, on the two untried layers. WF's shape half is proved, not
+checked; layer A's refinement is done; layer E was designed against the
+new `Reads` but none of it is proved.
+
+**Proved** (no open goals, no axioms; `audit Toy`: 305 theorems, 0
+failed, the same 9 warnings as before; `audit:touched -- Std.Parse`
+clean):
+
+- Std, `Parse/ReadsOperators.sw`: the soundness half for
+  `Parse.operators`, the converse of `runsOperators`.
+  `Parse.readsOperators`: an invariant of the values `operators` builds.
+  Given `chain lowest highest` (what the loop holds on its left while it
+  reads operators of levels `lowest` to `highest`) and `grouped lowest`
+  (what comes of operators of level `lowest` or tighter), if every operand
+  is `atom`, an atom is a chain, a chain is grouped, and joining a chain
+  by an operator in its range to a right side grouped as the operator's
+  associativity asks gives a chain up to that level, then whatever
+  `operators` gives is `grouped 0`. Also `Parse.readsRecursiveWith` (as
+  `readsRecursive`, per argument) and `Parse.readsThenOf`
+  (`readsThen` with the two parsers named).
+- `Syntax/ShapeProofs.sw`, **`parseShaped`**: `parse source = Ok file →
+  ShapedFile file`, for every source. Every expression in every tree the
+  parser gives is `Shaped` (operators grouped by precedence and chaining
+  from the left, a call's callee and a field's target postfix, `-` before
+  an operand), in every declaration, block and `if` branch. On the way:
+  `givesExpression` (`expression layout` gives a `Shaped` expression,
+  whatever the tokens), `givesChain` (by `readsOperators`), `givesAtom`,
+  `givesSuffixes`, `givesNegations`, `givesItems`, `givesBodyFuel`,
+  `givesBlock`, `givesStatement`, `givesDeclaration`, `givesSourceFile`.
+  So the read-back theorems' `Shaped` hypothesis needs no run-time walk.
+- `Shaped` now covers an `if` with block branches (`ShapedBody` in its
+  `if` arm; `ShapedInline` is gone, `SpelledInline` already said the
+  branch is one expression).
+- `Doc/Readings.sw`, layer A's refinement, **`printIsReading`**: `print
+  doc width` is the text of a reading, at every width. A reading
+  (`StepsTo`, `Reads`) is a run of the printer in which each question
+  asked of the width is answered either way: a fill separator is a space
+  (only with no comment waiting) or a break, a group goes flat (only with
+  no hard break in it) or breaks, a broken fill's first item goes either
+  way, a broken choice takes any option (`IsOption`). Every other step is
+  the printer's own (`printDoc`, which for those nodes doesn't look at
+  the width). `stepIsReading`, `runIsReading`. With the budget and
+  comment lemmas of parts 1 and 2, layer A is finished: nothing about
+  `fits` is left to prove, and changing `fits` (the follow-up that makes
+  it less conservative after a comment) can't break anything beyond the
+  budget proofs.
+
+**Restructured, same behaviour** (98 tests pass, goldens and messages
+included): `atomOf`, `callAfter`, `fieldAfter`, `functionLine`,
+`valueLine` and `noteStep` are functions of their own (a call per atom,
+suffix, declaration and comment); `Printer.start` names the empty
+printer.
+
+**Checked against a broken program:** with `Parse.nextLowest` giving a
+left-associative operator its own level, std's `runsOperatorsExample`
+fails and an `omega` goal fails with it; the run stopped at std's error,
+so whether `chainStep` is the `omega` that fails was not isolated. No
+other mutation was tried in this lane.
+
+**What made WF cheap.** The value-only form: a spec `taken value => P
+value` ignores what was read, so each parser needs one lemma, `Gives
+parser P`, and the combinators are three (`givesThen`, `givesDone`,
+`givesOptional`). A parser that looks ahead (`peek`) is proved from the
+raw run: `match e: state.at.rest with`, then each arm's hypothesis has
+computed to that arm's parser, and the lemma for it applies. Arms that
+fail (`Parse.expected`, `stop`) are left out: the checker sees their
+hypothesis is `Err … = Ok …`. 67 theorems in `ShapeProofs.sw`, a few
+check runs.
+
+**WF, what is left** (the texts, not the shape):
+
+1. A `Name`'s text is a word and no keyword, a `Number`'s digits, a
+   `Str` closes, a comment is `--` to the line's end with no line break:
+   facts about the lexer's tokens (`Parse.readsLocated`,
+   `Parse.tokensReads` are the std lemmas), carried through the parser by
+   the same `Gives` lemmas with a stronger predicate (each tree text is
+   some token's text). About 30-40 lemmas [estimated from this lane's
+   pace].
+2. Bodies: a body is one `Bare` or a block whose first line has no blank
+   above it and whose last line is a statement. `givesBlock` and
+   `shapedNoted` have the structure; about 10 lemmas.
+
+**Layer E, as it now stands** (designed, not started). State it against
+`Reads`: for every tree with `ShapedFile` and lexable texts, and every
+`final` with `Reads (Printer.start width) fuel [Print 0 Break
+file.layout] final`, the pieces `final.flushSuffixes.out` are lines of
+token texts whose tokens spell the tree (`Spelled`, `SpelledBody`,
+`SpelledLines`). The proof is an invariant of `StepsTo` over the
+printer and its work list; the pieces are already separate in `out`
+(token texts, `" "`, `"\n"`, indentation, comments), so layer B's
+remaining half (`assemble` over a line) is a statement about that list,
+not about characters. The comment lemmas (`textAfterComment`,
+`spacesAfterComment`, `continuationDeeper`) and layer C's scans are the
+facts the invariant uses. Untried, so still the estimate with the least
+behind it: 50-70 lemmas.
+
+**Re-estimate** [estimated; this lane proved 79 theorems (7 in std, 72
+in the toy), almost all on the first or second check]:
+
+| Layer | Left | Lemmas |
+|---|---|---|
+| A, engine | nothing | 0 |
+| WF | token texts, body structure | 40-50 |
+| D, parser | `if` with a block branch; the file from its spelling | 30-40 |
+| B, lexing | `covers`, a digit is no word start, `assemble` over pieces | 40-60 |
+| E, rules to tokens | all of it | 50-70 |
+| Glue | `formatDirect`, round trip, idempotence | 10 |
+
+Two lanes: one for E with B's `assemble` (they share the pieces
+invariant), one for the rest of WF, D and the glue. `formatDirect` is two
+lanes away, not one, because E is still untried.
+
+**Friction** (beyond parts 1 to 3):
+
+19. **`Parse.readsThen` infers its two parsers from the goal** and fails
+    with a long conversion error where the goal only computes to `j
+    (p())` (a `let x := f (effect())`, or a branch reached by a rewrite);
+    `readsThenOf` takes them as arguments. It does infer through a
+    `match` after an effect and a `let (a, b) :=`, which a lambda in a
+    proof can't write, so both are needed.
+20. **`let y := pure (effect())` is two binds**, and `bind (bind p f) k`
+    is not `bind p (x => k (f x))` by computation: `parametersOf
+    (Parse.optional parameterList)` had to be read as one parser.
+21. **A definition whose `match` is on a `let` after a peek** doesn't
+    compute at fuel `Zero` (`suffixesFrom`), where one that matches
+    `fuel, peek()` does (`negationsFrom`, `operatorsFrom`); the zero case
+    repeats the whole case split.
+22. **`W-LAMBDA-SHADOW` on `read`** (`Files.read`) for every spec
+    written `(read value => …)`, the spelling std's own lemmas use.
+23. `cases` proves `expr.isPostfix = True → expr.isOperand = True` but
+    not `expr.isOperand = True → expr.chainLevel = 7`; a `match` with
+    the impossible arms left out does.
+
 ## Every comment placed (SW-3450, D3618, D3619)
 
 Every token now holds its comments in the tree (`Comments = { above,
