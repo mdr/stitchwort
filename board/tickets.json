@@ -38697,12 +38697,12 @@
     {
       "id": 3472,
       "title": "[Sonnet] Main red (Overmind rolling check, b36f71699): stitchwort-syntax::it trivia::trivia_rebuilds_every_file fails on SW-3462's golden crates/fmt/tests/it/golden/lambda-param-comment-before-closer.before.sw: '[a:-- c' rebuilds as '[a: -- c'; the lossless tree must rebuild every file byte for byte",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\n\nNote (lane/SW-3472): cause was the test helper rebuild() in crates/syntax/tests/it/trivia.rs, which always wrote one space before a trailing comment; the lexer is lossless (Comment.span). Fixed by copying text[end..c.span.start]. Added trailing_comment_gap_is_kept_exactly. Commit f0228e777.\n",
+      "body": "\n\nNote (lane/SW-3472): cause was the test helper rebuild() in crates/syntax/tests/it/trivia.rs, which always wrote one space before a trailing comment; the lexer is lossless (Comment.span). Fixed by copying text[end..c.span.start]. Added trailing_comment_gap_is_kept_exactly. Commit f0228e777.\n\nModel result: sonnet, worked, 4 min (est. 20). Test-helper bug, not a lexer bug.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
