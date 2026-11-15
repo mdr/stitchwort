@@ -1,13 +1,13 @@
 ---
-source: crates/cli/tests/running/examples.rs
+source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-TYPE-MISMATCH] Error: type mismatch
-    ╭─[ reject/reads-chain-swapped-pair.sw:16:69 ]
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/reads-chain-swapped-pair.sw:17:69 ]
     │
- 16 │     Parse.readsDone (second, first) _ (rewrite firstIs, secondIs in rfl)))
+ 17 │     Parse.readsDone (second, first) _ (rewrite firstIs, secondIs in rfl)))
     │                                                                     ─┬─  
-    │                                                                      ╰─── `rfl` proves an equation, but the expected type is `?24 [first] first firstIs letter1 [second] second secondIs letter2 [] (second, first)`
+    │                                                                      ╰─── `[first, second]` and `[second, first]` aren't equal
     │ 
-    │ Note: `t` was taken as `Char` from the expected type
+    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ────╯

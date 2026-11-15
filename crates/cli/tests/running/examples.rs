@@ -560,7 +560,6 @@ const PRINTS_UNKNOWNS: &[&str] = &[
     "reject/pipe-wrong-type.sw",
     "reject/plus-unknown-against-itself.sw",
     "reject/plus-unknown-against-zero.sw",
-    "reject/reads-chain-swapped-pair.sw",
     "reject/rewrite-inside-function-no-lemma.sw",
     "reject/rewrite-under-binder.sw",
     "reject/row-defaulted.sw",

@@ -249,6 +249,8 @@ pub(crate) struct Settled {
     /// made if the call fails.
     pub(crate) param: stitchwort_core::Name,
     pub(crate) given: Value,
+    /// `given` printed, set with `note`: to tell whether an error is about it.
+    pub(crate) given_shown: Option<String>,
     /// What an error from the call is given if the body fails with it,
     /// made when the call fails, while its unknowns are still solved.
     pub(crate) note: Option<String>,

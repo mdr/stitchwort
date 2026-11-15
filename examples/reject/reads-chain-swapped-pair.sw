@@ -1,6 +1,7 @@
--- expect-error: E-TYPE-MISMATCH
+-- expect-error: E-REFL
 -- A last step that builds the pair the wrong way round is blamed at its
--- proof, not at the chain's first lemma (SW-3281).
+-- proof, not at the chain's first lemma (SW-3281), and the message shows the
+-- spec the equation comes from, not an unknown (SW-3299).
 import Std (Char, List, Parse)
 
 def twoLetters(): {Parse Char} (Char, Char) :=

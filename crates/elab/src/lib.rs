@@ -6339,14 +6339,48 @@ fn settle_note(e: Diagnostic, settled: &[state::Settled]) -> Diagnostic {
     let Some(at) = e.primary_span().filter(|_| e.code == "E-TYPE-MISMATCH") else {
         return e;
     };
-    let note = settled
+    let entry = settled
         .iter()
         .filter(|s| s.note.is_some() && lift::within(s.span, at))
-        .min_by_key(|s| s.span.end - s.span.start)
-        .and_then(|s| s.note.clone());
-    match note {
-        Some(note) => e.with_note(note),
-        None => e,
+        .min_by_key(|s| s.span.end - s.span.start);
+    match entry {
+        Some(entry)
+            if entry
+                .given_shown
+                .as_deref()
+                .is_some_and(|g| is_about(&e, g)) =>
+        {
+            let note = entry.note.clone().unwrap_or_default();
+            e.with_note(note)
+        }
+        _ => e,
+    }
+}
+
+/// Whether the type mismatch `e` is about `given`, a type taken from the
+/// expected type: it is where the two sides differ, or named in a message
+/// that has no sides. A mismatch elsewhere in the call (the other
+/// ability's argument, the result) isn't explained by where `given` came
+/// from, and the note would only send the reader after it.
+fn is_about(e: &Diagnostic, given: &str) -> bool {
+    let names = |text: &str| {
+        text.match_indices(given).any(|(i, _)| {
+            let before = text[..i].chars().next_back();
+            let after = text[i + given.len()..].chars().next();
+            let part = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_');
+            !part(before) && !part(after)
+        })
+    };
+    if let Some(differ) = e.notes.iter().find(|n| n.contains("they first differ at")) {
+        return names(differ);
+    }
+    let text = e.labels.first().map_or("", |l| l.message.as_str());
+    let sides = text
+        .strip_prefix("expected `")
+        .and_then(|rest| rest.split_once("`, but this has type `"));
+    match sides {
+        Some((expected, found)) => names(expected) && !names(found),
+        None => names(&e.message) || names(text),
     }
 }
 
