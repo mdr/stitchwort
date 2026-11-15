@@ -1,5 +1,5 @@
 {
-  "next": 3435,
+  "next": 3437,
   "tickets": [
     {
       "id": 47,
@@ -38191,6 +38191,32 @@
     {
       "id": 3434,
       "title": "[Opus paper] Toy++ (Matt, 15 Nov 2026: an intermediate step between the toy and the real formatter, whose formatter does more, e.g. changes tokens; 'Don't start that yet, but do have a think'): plan Sprig++ on the toy: rewrites that change the tree (drop redundant brackets, merge parameters, a cosmetic keyword like ∀) with 'same program' as an abstract tree via a lowering; commas added/dropped by layout; comments inside rewritten nodes; text blocks whose lines move; left-as-written fallback; proved directly per SW-3418. Wait for SW-3418's result and Matt's go",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3435,
+      "title": "[Opus] cases: also use equations x = t the user wrote (not only ones it took apart), after the rolling check has run over SW-3344; and give the facts cases adds a writable name so cases in t can use them (SW-3344 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3436,
+      "title": "[Sonnet] toyfmt: stableInjective := cases, formatChecked's inline proof via cases in DecEq.sound c, delete printedOr (SW-3344 makes them one word); after SW-3418 merges",
       "status": "backlog",
       "agent": "",
       "where": "",
