@@ -1,5 +1,5 @@
 {
-  "next": 3400,
+  "next": 3401,
   "tickets": [
     {
       "id": 47,
@@ -37703,6 +37703,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3400,
+      "title": "[Sonnet] Parse follow-ups (SW-3367): a classifier-based Parse.operators (item → Option (level, associativity, combine)) to remove the 7% table scan; Reads/Runs lemmas for operators, manyToEnd, locatedToEnd, recursiveWith, tokensWith, lastRead; an unknown Helper.f after import A (..) hints 'A.Helper is a namespace: write import A (Helper)'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
