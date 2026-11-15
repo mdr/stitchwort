@@ -381,27 +381,47 @@ fn a_project_audits_namespaces_and_names_with_its_own_allowlist() {
     );
 }
 
-/// A namespace with no theorems, or one the project doesn't have, must not
-/// look like an empty clean audit (SW-3453).
+/// A lane runs `audit:touched` over the namespaces it touched, and some
+/// (an AoC day's program namespace, say) have no theorems: that is a note,
+/// not a failure. A namespace the project doesn't have is still an error.
 #[test]
-fn a_namespace_that_matches_no_theorem_says_so() {
+fn a_namespace_with_no_theorems_is_noted_but_not_an_error() {
     let dir = folder("empty-namespace");
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(dir.join("stitchwort.yaml"), "").unwrap();
     std::fs::write(dir.join("src/a.sw"), "namespace Bare\n\ndef x: Nat := 1\n").unwrap();
+    std::fs::write(dir.join("src/b.sw"), format!("namespace Other\n\n{CLEAN}")).unwrap();
     let empty = stitchwort(&dir, &["audit", "--no-search", "Bare"]);
+    let mixed = stitchwort(&dir, &["audit", "--no-search", "Bare", "Other"]);
     let unknown = stitchwort(&dir, &["audit", "--no-search", "Nope"]);
     let _ = std::fs::remove_dir_all(&dir);
     assert_eq!(
         empty.status.code(),
-        Some(1),
-        "{}",
-        String::from_utf8_lossy(&empty.stdout)
-    );
-    assert!(
-        String::from_utf8_lossy(&empty.stderr).contains("no theorems matched 'Bare'"),
+        Some(0),
         "{}",
         String::from_utf8_lossy(&empty.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&empty.stderr).contains("no theorems in `Bare`"),
+        "{}",
+        String::from_utf8_lossy(&empty.stderr)
+    );
+    assert_eq!(
+        mixed.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&mixed.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&mixed.stderr).contains("no theorems in `Bare`"),
+        "{}",
+        String::from_utf8_lossy(&mixed.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&mixed.stdout)
+            .contains("audited 1 theorem: 0 failed, 0 with warnings, 1 passed"),
+        "{}",
+        String::from_utf8_lossy(&mixed.stdout)
     );
     assert_eq!(unknown.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&unknown.stderr);

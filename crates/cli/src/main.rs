@@ -4098,13 +4098,13 @@ fn audit_loaded(
             audits.push(failed);
         }
     }
-    // A namespace (or a namespace prefix) with no theorem must never look
-    // like an empty pass, as `check`'s unknown namespace and `test`'s target
-    // that matches no test don't.
+    // A lane audits every namespace it touched, and some (an AoC day's
+    // program namespace, say) have no theorems: say so and carry on, so the
+    // namespaces that do have theorems are still audited. A namespace the
+    // project doesn't have is an error before this (`E-NAMESPACE-UNKNOWN`).
     for root in roots {
         if !audits.iter().any(|a| is_under(&a.name, root)) {
-            eprintln!("warning: no theorems matched '{root}'");
-            return Err(ExitCode::FAILURE);
+            eprintln!("note: no theorems in `{root}`");
         }
     }
     Ok(audits)
