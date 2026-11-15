@@ -36695,12 +36695,12 @@
     {
       "id": 3324,
       "title": "[Opus] Nested matches in proofs: an inner arm inside an outer catch-all keeps the outer case's shape and counts only its own cases (5 where there are 10); combine the arm-as-written display across nesting (SW-3317 review)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Lane (Opus, est. 2 h, ~35 min): commit ec2213be2 on lane/SW-3324. Inner arms replay their splits from the outer arm as written (same() rule at each boundary, so a body change before the inner match stays); arms inside a recorded arm are always recorded; counts are the product along the chain; the error note names every level (\"in 4 cases ... where `o` is `None` and `r` is `Some False`\"). New example examples/goals/arm-as-written-nested-match.sw with running + goal-index snapshots; no existing snapshot changed; hash_stability unchanged. Product overcounts when an inner match's tree differs per outer leaf (not seen in probes; lifted inner matches check every arm per outer leaf, so the product is right there).\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
