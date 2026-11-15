@@ -10,7 +10,7 @@
 
 All three print the same output and fail the same way, which the repository's tests check on every example program: the reference evaluator is the oracle, and the other two are compared with it. Tests use the fast runtime too (`stitchwort test --reference` uses the reference).
 
-Exit codes: 0 on success; 1 when the program doesn't check, or `main` fails with `Fail`; 2 when it fails while running: an `IO` error, or running out of resources (a deep recursion, a huge number). How deep a recursion may go depends on the runner (D3450): `stitchwort run` allows 2 million pending calls, native code (`run --native`, `build --native`) allows 16 million, or fewer if a function's frames are so wide that 16 million wouldn't fit the 64 GiB cap on a native stack. The limit is the same on every run of a build, so a program fails at the same depth each time. A native run that recurses to its limit uses memory in proportion to the depth: several GB for a few million pending calls of a hundred bytes or more.
+Exit codes: 0 on success; 1 when the program doesn't check, or `main` fails with `Fail`, or returns `ExitStatus.failure` (see [An exit status](#an-exit-status)); 2 when it fails while running: an `IO` error, or running out of resources (a deep recursion, a huge number). How deep a recursion may go depends on the runner (D3450): `stitchwort run` allows 2 million pending calls, native code (`run --native`, `build --native`) allows 16 million, or fewer if a function's frames are so wide that 16 million wouldn't fit the 64 GiB cap on a native stack. The limit is the same on every run of a build, so a program fails at the same depth each time. A native run that recurses to its limit uses memory in proportion to the depth: several GB for a few million pending calls of a hundred bytes or more.
 
 `stitchwort run --native` is a fourth, experimental way: the functions `main` calls run as native code where they and everything they reach compile, and on the fast runtime otherwise (`--verbose` says which). It needs a build with the `native` feature, which `task build` makes. `stitchwort test --native` runs tests the same way ([chapter 9](09-testing.md#two-runtimes)).
 
@@ -46,6 +46,33 @@ A run that's too slow to wait for can be stopped: Ctrl-C, or `timeout 30 stitchw
 ## A standalone executable
 
 `stitchwort build FILE` (or a project folder, or a function's full name) writes an executable that runs `main` and needs neither `stitchwort` nor the source. It links with the system's C compiler (`$CC`, or `cc`). `-o` names the executable; `--native` compiles `main` and everything it reaches to native code, and fails if any of it can't be.
+
+## An exit status
+
+`main` may return an `ExitStatus` instead of `()`, and the program then ends with that number: `stitchwort run`, `--reference`, `--js`, `--native`, built executables and the playground (which shows `exit status 3` below the output when it isn't 0) all do. It is the way for a tool to say more than "worked" and "failed": `stitchwort fmt --check` exits 1 when a file would change and 2 when it can't read one.
+
+<!-- snippet: exit-status.sw#main -->
+```stitchwort
+-- 0: nothing to fix; 1: something to fix; 3: no file named.
+def verdict (arguments: List Text): ExitStatus := match arguments with
+  | [] => ExitStatus.of 3
+  | ["clean", ..rest] => ExitStatus.success
+  | _ => ExitStatus.failure
+
+def main(): {IO} ExitStatus :=
+  let status := verdict (IO.args ())
+  IO.print "exit status ${status}"
+  status
+```
+
+<!-- output: run exit-status.sw -- clean -->
+```text
+exit status 0
+```
+
+With no argument it prints `exit status 3` and the shell sees 3.
+
+`ExitStatus` holds a number from 0 to 255 (a `Fin 256`): a bigger one means different things on different systems, so `ExitStatus.of 300` is refused when the program is checked, and a number computed at run time goes through `ExitStatus.ofNatCheck`, which gives `None` when it is too big. The library names two statuses, `ExitStatus.success` (0, the only code that means the same everywhere) and `ExitStatus.failure` (1); a program names the others itself. A status is an ordinary value, so tests read it: `(IO.simulate [] program).snd` is the status a program would end with, and `(verdict []).toNat == 3` states it directly. `Fail` that nothing handles is still status 1, and a runtime error is still 2, so a program that returns 2 itself can't be told apart from one that ran out of resources.
 
 ## A command line
 

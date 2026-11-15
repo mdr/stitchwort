@@ -244,6 +244,10 @@ pub fn report(error: &RunError) -> (i32, String) {
     if let RunError::Failed(msg) = error {
         return (EXIT_FAIL, format!("error: {msg}\n"));
     }
+    // `main` returned an `ExitStatus`: its code, and nothing to say.
+    if let RunError::Exit(code) = error {
+        return (i32::from(*code), String::new());
+    }
     let diagnostic = error.diagnostic(stitchwort_syntax::Span::NOWHERE);
     let mut text = format!("[{}] Error: {}\n", diagnostic.code, diagnostic.message);
     for note in &diagnostic.notes {

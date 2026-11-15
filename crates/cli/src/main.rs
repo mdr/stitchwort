@@ -4461,6 +4461,8 @@ fn run_main(session: &mut Session, main: &Main, runner: Runner) -> ExitCode {
     drop(restore);
     match result {
         Ok(()) => ExitCode::SUCCESS,
+        // `main` returned an `ExitStatus`.
+        Err(stitchwort_cli::run::RunError::Exit(code)) => ExitCode::from(code),
         // `main` failed and nothing handled it (D1048): not a runtime error.
         Err(stitchwort_cli::run::RunError::Failed(msg)) => {
             eprintln!("error: {msg}");
@@ -4607,7 +4609,7 @@ fn run_main_native(
 /// directory and runs it with Node, which inherits standard input, output
 /// and error.
 fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
-    use stitchwort_js::run::{EXIT_FAIL, EXIT_IO, EXIT_RESOURCE};
+    use stitchwort_js::run::{EXIT_FAIL, EXIT_IO, EXIT_RESOURCE, EXIT_STATUS};
     let program = match session.extract_program(&main) {
         Ok(program) => program,
         Err(diagnostic) => {
@@ -4672,6 +4674,8 @@ fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
             eprintln!("error: {msg}");
             ExitCode::FAILURE
         }
+        // `main` returned an `ExitStatus`: its number is in the error file.
+        Some(EXIT_STATUS) => ExitCode::from(message().parse::<u8>().unwrap_or(2)),
         Some(EXIT_IO) => {
             report(&session.sources, &[Diagnostic::error("E-IO", message())]);
             ExitCode::from(2)

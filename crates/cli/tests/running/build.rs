@@ -235,6 +235,36 @@ def main(): {Files, IO} () :=
     );
 }
 
+/// A `main` returning an `ExitStatus`: a built executable exits with it, as
+/// `run` does.
+#[test]
+fn a_main_returning_an_exit_status_exits_with_it_in_a_built_executable() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("exit-status");
+    let source = include_str!("../../../../examples/accept/main-exit-status.sw");
+    let inputs: [&[u8]; 3] = [b"", b"ok\n", b"no\n"];
+    let (exe, first) = same_as_run(&dir, "status.sw", source, &inputs);
+    assert_eq!(first.status.code(), Some(3));
+    assert_eq!(run_executable(&exe, b"ok\n").status.code(), Some(0));
+    assert_eq!(run_executable(&exe, b"no\n").status.code(), Some(1));
+}
+
+/// The same with `--native`: the executable, `run --native` and `run` agree.
+#[cfg(feature = "native")]
+#[test]
+fn a_main_returning_an_exit_status_exits_with_it_in_native_code() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("exit-status-native");
+    let source = include_str!("../../../../examples/accept/main-exit-status.sw");
+    let (_, built) = native_same_as_run(&dir, "status.sw", source, b"");
+    assert_eq!(text(&built.stdout), "checking\n");
+    assert_eq!(built.status.code(), Some(3));
+}
+
 /// `IO`, `Fail`, `Files` and `Partial` together, in a built executable as
 /// under `run`.
 #[test]

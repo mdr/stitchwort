@@ -431,3 +431,16 @@ fn the_arguments_after_a_double_dash_are_the_programs() {
         assert_eq!(text(&output.stdout), "1|two words\n");
     }
 }
+
+/// A `main` returning an `ExitStatus` ends with that status, on the machine
+/// and in the reference evaluator (docs/proposals/exit-status.md).
+#[test]
+fn a_main_returning_an_exit_status_exits_with_it() {
+    let path = examples().join("main-exit-status.sw");
+    for (input, code) in [(&b""[..], 3), (b"ok\n", 0), (b"no\n", 1)] {
+        let fast = same_both_ways(&path, input, true);
+        assert_eq!(text(&fast.stdout), "checking\n");
+        assert_eq!(text(&fast.stderr), "");
+        assert_eq!(fast.status.code(), Some(code));
+    }
+}

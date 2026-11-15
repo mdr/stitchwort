@@ -2,12 +2,12 @@
 source: crates/cli/tests/running/run.rs
 expression: "stderr(&run(&path, b\"\")).replace(path.to_str().unwrap(), \"main-type.sw\")"
 ---
-[E-MAIN-TYPE] Error: `main` must have type `() -> {IO} ()`, with any of `Fail`, `Files` and `Partial` added to the row
+[E-MAIN-TYPE] Error: `main` must have type `() -> {IO} ()` or `() -> {IO} ExitStatus`, with any of `Fail`, `Files` and `Partial` added to the row
    ╭─[ main-type.sw:4:1 ]
    │
  4 │ def main () : {IO, Abort} () := abort ()
    │ ──────────────┬─────────────  
    │               ╰─────────────── this has type `() → {IO, Abort} ()`
    │ 
-   │ Note: for example `() -> {Files, IO, Fail} ()`; a pure `main: () -> ()` is allowed too; other abilities must be handled inside `main`
+   │ Note: for example `() -> {Files, IO, Fail} ()`, or `() -> {IO} ExitStatus` to choose the exit status; a pure `main: () -> ()` is allowed too; other abilities must be handled inside `main`
 ───╯

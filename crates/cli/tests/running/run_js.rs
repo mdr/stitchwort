@@ -1059,3 +1059,16 @@ fn the_arguments_after_a_double_dash_are_the_programs() {
     assert!(output.status.success(), "{}", text(&output.stderr));
     assert_eq!(text(&output.stdout), "1|two words|--js\n");
 }
+
+/// A `main` returning an `ExitStatus` ends with that status under `--js`:
+/// the worker passes it in the error file, since 70 to 72 are its own codes.
+#[test]
+fn a_main_returning_an_exit_status_exits_with_it() {
+    let path = examples().join("main-exit-status.sw");
+    for (input, code) in [(&b""[..], 3), (b"ok\n", 0), (b"no\n", 1)] {
+        let js = same_both_ways(&path, input, true);
+        assert_eq!(text(&js.stdout), "checking\n");
+        assert_eq!(text(&js.stderr), "");
+        assert_eq!(js.status.code(), Some(code));
+    }
+}

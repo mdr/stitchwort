@@ -123,7 +123,8 @@ impl Main {
 ///
 /// Each is `name ()` in `{IO, Partial}` with some of `Fail` and `Files`
 /// added ([`MainRow::ALL`]), the smallest first, so that a `main` runs in
-/// the smallest row it fits. No handler goes around it: the runner performs
+/// the smallest row it fits; then the same rows for a `main` returning an
+/// `ExitStatus`. No handler goes around it: the runner performs
 /// `Fail.stop msg` itself, as it performs `IO.print`, and stops with
 /// [`RunError::Failed`] (docs/proposals/partial-stage-2.md §3); it performs
 /// `Files`' operations on the real disk (docs/proposals/file-io-and-text.md
@@ -131,20 +132,38 @@ impl Main {
 /// take an operation that reaches the bottom of the run apart by the row
 /// ([`MainRow::layout`]).
 fn main_calls(name: &str) -> Vec<(String, MainRow)> {
-    MainRow::ALL
+    let call = |row: MainRow, body: String, result: &str| {
+        let abilities: Vec<String> = row.abilities().iter().map(|a| format!("Std.{a}")).collect();
+        (
+            format!(
+                "((u => {body}) : () -> {{{}, Partial}} {result}) ()",
+                abilities.join(", ")
+            ),
+            row,
+        )
+    };
+    let unit = MainRow::ALL
         .iter()
-        .map(|&row| {
-            let abilities: Vec<String> =
-                row.abilities().iter().map(|a| format!("Std.{a}")).collect();
-            (
-                format!(
-                    "((u => {name} ()) : () -> {{{}, Partial}} ()) ()",
-                    abilities.join(", ")
-                ),
-                row,
-            )
-        })
-        .collect()
+        .map(|&row| call(row, format!("{name} ()"), "()"));
+    // A `main` returning an `ExitStatus` runs as its number, which the
+    // runners read as the program's status. These come after every row of
+    // `()`, so a program that doesn't use `ExitStatus` never loads it.
+    let status = MainRow::ALL
+        .iter()
+        .map(|&row| call(row, format!("Std.ExitStatus.toNat ({name} ())"), "Std.Nat"));
+    unit.chain(status).collect()
+}
+
+/// What a finished `main` asks for: `()` is status 0; a `main` returning an
+/// `ExitStatus` is called through `Std.ExitStatus.toNat` ([`main_calls`]),
+/// so its result is a number, [`RunError::Exit`] unless it is 0.
+fn exit_of(result: &stitchwort_core::Value) -> Result<(), RunError> {
+    match result {
+        stitchwort_core::Value::Nat(n) if n.bits() > 0 => {
+            Err(RunError::Exit(u8::try_from(&**n).unwrap_or(u8::MAX)))
+        }
+        _ => Ok(()),
+    }
 }
 
 /// Why a call of a definition to run didn't check.
@@ -178,11 +197,11 @@ impl Session {
             Err(CallError::Other(d)) => Err(d),
             Err(CallError::Type { span, ty }) => Err(Diagnostic::error(
                 "E-MAIN-TYPE",
-                "`main` must have type `() -> {IO} ()`, with any of `Fail`, `Files` and `Partial` added to the row",
+                "`main` must have type `() -> {IO} ()` or `() -> {IO} ExitStatus`, with any of `Fail`, `Files` and `Partial` added to the row",
             )
             .with_label(span, format!("this has type `{ty}`"))
             .with_note(
-                "for example `() -> {Files, IO, Fail} ()`; a pure `main: () -> ()` is allowed too; other abilities must be handled inside `main`",
+                "for example `() -> {Files, IO, Fail} ()`, or `() -> {IO} ExitStatus` to choose the exit status; a pure `main: () -> ()` is allowed too; other abilities must be handled inside `main`",
             )),
         }
     }
@@ -577,7 +596,7 @@ impl Session {
             // Perform operations until the step ends.
             loop {
                 match obs {
-                    Obs::Now(_) => return Ok(Outcome::Finished),
+                    Obs::Now(result) => return exit_of(&result).map(|()| Outcome::Finished),
                     Obs::Later(rest) => {
                         // A limit of `n` allows exactly `n` ticks (docs/proposals/partial.md
                         // §7.4.3): stop on needing the next one.

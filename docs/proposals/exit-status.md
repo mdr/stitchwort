@@ -225,3 +225,40 @@ gives other values no meaning), while 2 for misuse is a convention
 argparse, Go `flag`) with a deprecated rival, `EX_USAGE` 64
 ([sysexits(3)](https://man.freebsd.org/cgi/man.cgi?query=sysexits&sektion=3)).
 Programs name their own codes; `Args.run` documents its 2. Stages: SW-3402, SW-3403.
+
+## As built, stage 1 (SW-3402)
+
+- **std:** `std/ExitStatus/ExitStatus.sw` (a library file, loaded when a
+  program names `ExitStatus`): `type ExitStatus = { code: Fin 256 }`,
+  `ExitStatus.of` (with `[auto ok: code < 256]`, then `Fin.ofNatLt`: it
+  can't use `Fin.ofNat`, whose own automatic proof would be asked for a
+  variable `code`), `ExitStatus.ofNatCheck : Nat -> Option ExitStatus`,
+  `ExitStatus.toNat`, `success`, `failure`, `Show` and `==` (derived).
+  `ExitStatus.of 300` is `[E-AUTO-FALSE]`; the better note of §6 is not
+  done (`examples/reject/exit-status-over-255.sw` pins today's message).
+- **`main`'s check:** `main_calls` (`crates/driver/src/run.rs`) tries each
+  row with result `()`, then each row with `Std.ExitStatus.toNat (main ())`
+  as a `Nat`. So a `main` that returns a status runs as a number, and no
+  runner needs to know the type: it reads the finished value, which is a
+  `Nat` (a `()` is a tag). The `ExitStatus` forms come last, so a program
+  that doesn't use the type never loads it. `MainRow` is unchanged.
+- **How a runner sees it:** a new `RunError::Exit(u8)` for a nonzero
+  status (0 is `Ok(())`), made where the machine's runner
+  (`crates/rt/src/run.rs`, `exit_of`), the live run
+  (`run/live.rs`) and the reference evaluator (`crates/driver/src/run.rs`)
+  get the finished value. It is not a fault: nothing is printed, and the
+  existing `Result<(), RunError>` signatures stay. `run` (machine,
+  `--reference`, `--native`, `--profile`) exits with it; `report` in
+  `stitchwort_standalone` returns it for `build` and `build --native`
+  executables; the playground (`stitchwort_web`, one-shot and live) shows
+  `exit status N` where an error would be shown, below the output.
+- **`--js`:** the worker exits 73 (`EXIT_STATUS`) when `main`'s result is a
+  nonzero `bigint`, with the number in the error file; the CLI exits with
+  it. 70 to 72 are unchanged.
+- **Tests:** the std file's `test`s and a theorem through `IO.simulate`;
+  `examples/accept/main-exit-status.sw` (swept by the examples tests and
+  the run/reference/JS comparisons), a CLI test per runner (machine and
+  reference, `--js`, built executable, `--native` executable and
+  `run --native`), the web playground's, and the reject example.
+- **Not done:** the better note for a status over 255; `Args.run` and the
+  toy formatter (SW-3403).

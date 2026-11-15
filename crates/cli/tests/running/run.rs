@@ -422,7 +422,7 @@ fn a_main_may_have_fail_with_partial_and_nothing_else() {
     assert!(
         stderr(&output).contains("[E-MAIN-TYPE]")
             && stderr(&output)
-                .contains("`() -> {IO} ()`, with any of `Fail`, `Files` and `Partial`"),
+                .contains("`() -> {IO} ()` or `() -> {IO} ExitStatus`, with any of `Fail`, `Files` and `Partial`"),
         "{}",
         stderr(&output)
     );

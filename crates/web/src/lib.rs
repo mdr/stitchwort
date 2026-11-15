@@ -610,6 +610,8 @@ fn run_main_in(
             .with_note("`IO.readLine()` gives `None` at the end of the input"),
             // Unhandled `Fail` (D1048): shown like the CLI prints it.
             RunError::Failed(msg) => return format!("error: {msg}\n"),
+            // `main` returned an `ExitStatus` that isn't 0.
+            RunError::Exit(code) => return format!("exit status {code}\n"),
             error => error.diagnostic(main),
         };
         rendered(&session, &[error])
@@ -1261,6 +1263,21 @@ mod tests {
         assert_eq!(
             run(total, "", 1000),
             r#"{"ok":false,"errors":"error: expected a whole number, got 'x3'\n","output":"reading the numbers\n"}"#
+        );
+    }
+
+    /// A `main` returning an `ExitStatus` that isn't 0 shows its output, then
+    /// the status; 0 is an ordinary finish.
+    #[test]
+    fn a_main_returning_an_exit_status_shows_it_unless_it_is_zero() {
+        let source = include_str!("../../../examples/accept/main-exit-status.sw");
+        assert_eq!(
+            run(source, "", 1000),
+            r#"{"ok":false,"errors":"exit status 3\n","output":"checking\n"}"#
+        );
+        assert_eq!(
+            run(source, "ok\n", 1000),
+            r#"{"ok":true,"output":"checking\n"}"#
         );
     }
 
