@@ -204,7 +204,8 @@ tags!(
         TextNative::TextSplit,
         TextNative::TextJoin,
         TextNative::NatToText,
-        TextNative::TextToNat
+        TextNative::TextToNat,
+        TextNative::TextRepeat
     ]
 );
 

@@ -609,6 +609,33 @@ def main(): {IO} () :=
     assert_eq!(lines[7], "T F F F F F F F F F");
 }
 
+/// `Text.repeat` agrees with its definition on the edge cases: a count of 0
+/// or 1, the empty text, and multi-byte and astral characters.
+pub fn text_repeat_agrees() {
+    let (out, result) = both_ways(
+        r#"
+import Std (Nat, Text, List)
+
+def texts: List Text := ["", "a", "ab", "h\u{E9}llo", "\u{1F600}", "a\u{1F600}b", "\u{10FFFF}\u{D7FF}"]
+def counts: List Nat := [0, 1, 2, 3, 5]
+
+def main(): {IO} () :=
+  let line := (t: Text) => Text.join (counts.map (n => "[" ++ Text.repeat t n ++ "]")) ' '
+  IO.print (Text.join (texts.map line) '|')
+  IO.print (Nat.toText (Text.length (Text.repeat "h\u{E9}\u{1F600}" 1000)))
+"#,
+        b"",
+    );
+    assert_eq!(result, Ok(()));
+    let lines: Vec<&str> = out.lines().collect();
+    assert_eq!(lines.len(), 2, "{out}");
+    assert!(
+        lines[0].starts_with("[] [] [] [] []|[] [a] [aa] [aaa] [aaaaa]|[] [ab] [abab]"),
+        "{out}"
+    );
+    assert_eq!(lines[1], "3000");
+}
+
 /// Reuse in place (stage 4) only ever changes a cell nobody else can see: a
 /// list that's still used after a `map`, `filter` or sort over it, one a
 /// closure captured, one a constant holds, and one bound twice, is
@@ -934,6 +961,7 @@ macro_rules! differential_tests {
             a_list_built_as_a_loop_is_an_ordinary_value
             map_under_a_handler_that_resumes_twice
             text_take_drop_and_contains_agree
+            text_repeat_agrees
             reuse_leaves_shared_values_alone
             known_constructors_keep_their_type
             capture_free_lambdas_are_shared

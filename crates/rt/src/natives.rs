@@ -41,6 +41,7 @@ pub enum TextNative {
     TextJoin,
     NatToText,
     TextToNat,
+    TextRepeat,
 }
 
 /// Each text native, the prelude definition it replaces, and that
@@ -134,6 +135,11 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
         Builtin::TextToNat,
         TextNative::TextToNat,
         "1d1e755952df72b7a810de03191f63919a7f0ba30e607cd26db7968a48846b73",
+    ),
+    (
+        Builtin::TextRepeat,
+        TextNative::TextRepeat,
+        "c0cd3a04b086f6ccbbe6320b95613614a0179030f4e61d6b8911d03e7f364800",
     ),
 ];
 

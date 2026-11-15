@@ -735,6 +735,22 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
                 None => args[0].clone(),
             }
         }
+        // `Text.repeat text n`: one allocation of the final size. An empty
+        // text, or a count of 0, gives the empty text without allocating.
+        TextRepeat => {
+            let t = text_of(args[0]);
+            let n = match args[1] {
+                Value::Nat(n) => usize::try_from(*n).unwrap_or(usize::MAX),
+                _ => usize::MAX,
+            };
+            if t.is_empty() || n == 0 {
+                Value::text("".into())
+            } else if n == 1 {
+                args[0].clone()
+            } else {
+                Value::text(t.repeat(n).into())
+            }
+        }
         // The text after its first `n` characters, or the empty text.
         TextDrop => {
             let t = text_of(args[0]);

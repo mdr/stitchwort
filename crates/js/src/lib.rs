@@ -5925,6 +5925,9 @@ fn text_native_js(op: TextNative) -> &'static str {
   return t.slice(start, end);
 }"#
         }
+        // The text `n` times over. Repeating whole strings keeps the pairs
+        // of a well-formed string together.
+        TextNative::TextRepeat => r#"(t) => (n) => t === "" ? "" : t.repeat(Number(n))"#,
         // The first `n` scalar values, or the whole text: a text has at most
         // as many scalar values as code units, so a count that reaches its
         // `length` takes it all without counting, and any other count is a
