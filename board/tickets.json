@@ -37402,7 +37402,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "D3613 (Matt, 15 Nov 2026): \"happy to go with your suggestion [G1: recursion relying on another function must start with a match]. It feels like we're maybe treading uncharted territory a little bit here, so I think it would be good to be carefully reviewing these changes.\" So every kernel stage of recursion-through-map gets a Fable soundness review before merge, plus the oracle/P1/P2 tests before stage 2 merges. Fable review of this stage before merge.\n\nProgress (lane, 15 Nov 2026, 10:48-11:12, est. 3 h): built on `lane/SW-3376`, commit 0c4dc20e3. Rule 3 as pinned: `Walker::wrapped` / `part_of` / `strictly_inside` in `crates/core/src/termination.rs`, with `Info::parent` set only by `case`. Accepted: `examples/accept/text-patterns-prefix-recursion.sw` (count, pairs, a lexer loop, a one-field record), each with a List twin as referee (tests agree); refused by main's binary, accepted now. Must-reject: ten `examples/reject/termination-wrapper-*.sw`. Mutation check: dropping the one-field test makes two-fields and proof-field accepted. Tests: test:example terminat,decreasing,text-pattern,recurs (7 pass), hash_stability (only the new example's snapshot added; no existing hash moved), core `termination::` (21 pass), clippy core/elab clean. Docs: core.md (rule, rank invariant, open-term invariant), syntax.md prefix patterns, guide ch. 7. Waiting for the Fable review before merge.\n",
+      "body": "D3613 (Matt, 15 Nov 2026): \"happy to go with your suggestion [G1: recursion relying on another function must start with a match]. It feels like we're maybe treading uncharted territory a little bit here, so I think it would be good to be carefully reviewing these changes.\" So every kernel stage of recursion-through-map gets a Fable soundness review before merge, plus the oracle/P1/P2 tests before stage 2 merges. Fable review of this stage before merge.\n\nProgress (lane, 15 Nov 2026, 10:48-11:12, est. 3 h): built on `lane/SW-3376`, commit 0c4dc20e3. Rule 3 as pinned: `Walker::wrapped` / `part_of` / `strictly_inside` in `crates/core/src/termination.rs`, with `Info::parent` set only by `case`. Accepted: `examples/accept/text-patterns-prefix-recursion.sw` (count, pairs, a lexer loop, a one-field record), each with a List twin as referee (tests agree); refused by main's binary, accepted now. Must-reject: ten `examples/reject/termination-wrapper-*.sw`. Mutation check: dropping the one-field test makes two-fields and proof-field accepted. Tests: test:example terminat,decreasing,text-pattern,recurs (7 pass), hash_stability (only the new example's snapshot added; no existing hash moved), core `termination::` (21 pass), clippy core/elab clean. Docs: core.md (rule, rank invariant, open-term invariant), syntax.md prefix patterns, guide ch. 7. Waiting for the Fable review before merge.\n\nReview folded in (lane, 11:35-11:44, est. 40 min): commit 8382920b9 on `lane/SW-3376`. Fable's review (docs/reviews/SW-3376-wrapper-rule-soundness.md) committed. F1: open-term argument replaced by the size/eta-depth argument in termination.rs and core.md (termination invariant + Unfolding policy); p07 as accept/termination-wrapper-changing-instance.sw plus reject/...-open.sw (E-REFL, stuck on `es`). F3: guard in `wrapped` (unreachable today, so no fail-before test; reject/termination-wrapper-function-field.sw covers the programs). §5 probes added (accept/termination-wrapper-honest.sw, six grouped reject files); F2's p09-p11 left to SW-3388. Tests: test:example termination-wrapper,text-pattern,terminat,recurs 7/7; hash_stability::examples (two new snapshots); core termination:: 21/21; clippy clean.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37529,12 +37529,12 @@
     {
       "id": 3386,
       "title": "[Sonnet] SW-3370 review follow-ups (docs/reviews/SW-3370-linear-derived-order.md): check derive_rebuild's builtins once at the top instead of Ok(()) then expect-panic (derive.rs 915-1052); derived-equality.md header (D3609 answered); drop stale T.%differ mentions (SW-3002 body, research/inductives.md:726); make Ordering.tagsTransBy not restate Nat.compare; step guard prints counts; derive.rs:114 module doc; derive_ord.rs:170 hoist",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Expected: 1 h (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37581,12 +37581,12 @@
     {
       "id": 3390,
       "title": "[Sonnet] stitchwort test FILE for a file inside a project loads the project and runs only that file's tests (as goal --at / search --at already resolve via project_of_file); update docs/projects.md's 'a path argument is always file mode'; E-FILE-MODE note; test that fails before. Orchestrator's call, option (b) from SW-3377. Also: Text.splitOnce lemma (t = a ++ sep ++ b); toyfmt NOTES stage C items 4-5 stale",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "",
+      "body": "DeepSeek run in scratch clone sw-3390. Expected: 45 min.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
