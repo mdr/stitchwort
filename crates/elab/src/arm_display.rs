@@ -20,6 +20,12 @@
 //! A part of the state the arm's own body has changed since (a hypothesis
 //! it rewrote, a goal it stepped) is left as it is: only what still equals
 //! the leaf's own state is replaced by the arm's.
+//!
+//! A `match` in an arm's right-hand side starts its splits from that arm's
+//! leaf, so an arm of the inner `match` is shown by replaying its splits
+//! from the outer arm as written instead (the same rule again: only what
+//! the outer arm's body left as the leaf had it), and it is checked once
+//! per leaf of each: the counts multiply.
 
 use std::rc::Rc;
 
@@ -218,7 +224,8 @@ pub(crate) fn enter_split<'e>(
 
 /// A leaf's arm is about to be checked: what [`view`] needs of it. Returns
 /// what [`leave_arm`] puts back. Nothing is kept for an arm that needs
-/// nothing undone and is checked once, which is nearly all of them.
+/// nothing undone, is checked once and is in no arm that does, which is
+/// nearly all of them.
 pub(crate) fn enter_arm(
     cx: &Ctx,
     unsplit: &[usize],
@@ -227,11 +234,13 @@ pub(crate) fn enter_arm(
     let mut goals = cx.e.goals.borrow_mut();
     let path = goals.split_path.take();
     let arm = match &path {
-        Some(path) if !unsplit.is_empty() || cases > 1 => Some(Rc::new(Arm {
-            path: path.clone(),
-            unsplit: unsplit.to_vec(),
-            cases,
-        })),
+        Some(path) if !unsplit.is_empty() || cases > 1 || goals.arm.is_some() => {
+            Some(Rc::new(Arm {
+                path: path.clone(),
+                unsplit: unsplit.to_vec(),
+                cases,
+            }))
+        }
         _ => None,
     };
     let saved_arm = match arm {
@@ -248,18 +257,28 @@ pub(crate) fn leave_arm(cx: &Ctx, saved: (Option<Rc<Split>>, Option<Rc<Arm>>)) {
     goals.arm = saved.1;
 }
 
-/// The state as the case tree left it at `path`, with the splits of the
-/// levels in `skip` not made. `cx` stands in for what the tree didn't
-/// record (variables an indexed family's split or a guard bound).
-fn replay(cx: &Ctx, path: &Split, skip: &[usize]) -> Option<(Vec<Value>, Vec<Value>, Value)> {
+/// The variables' values and types, and the goal.
+type State = (Vec<Value>, Vec<Value>, Value);
+
+/// The state its case tree started from.
+fn root_state(path: &Split) -> State {
+    let root = &path.root;
+    (root.env.clone(), root.types.clone(), root.goal.clone())
+}
+
+/// The state as the case tree left it at `path`, starting from `start`
+/// (the tree's own, or that state as an outer arm is written), with the
+/// splits of the levels in `skip` not made. `cx` stands in for what the
+/// tree didn't record (variables an indexed family's split or a guard
+/// bound).
+fn replay(cx: &Ctx, path: &Split, skip: &[usize], start: State) -> Option<State> {
     let g = cx.g();
     let mut chain = vec![path];
     while let Some(parent) = &chain.last()?.parent {
         chain.push(parent);
     }
     chain.reverse();
-    let root = &chain[0].root;
-    let (mut env, mut types, mut goal) = (root.env.clone(), root.types.clone(), root.goal.clone());
+    let (mut env, mut types, mut goal) = start;
     for node in chain {
         while env.len() < node.base {
             let l = env.len();
@@ -299,26 +318,71 @@ fn same(cx: &Ctx, a: &Value, b: &Value) -> bool {
     }
 }
 
+/// `arm` and the arms it is in, innermost first.
+fn arms(arm: Rc<Arm>) -> Vec<Rc<Arm>> {
+    let mut out = vec![arm];
+    while let Some(outer) = out.last().and_then(|a| a.path.root.outer.clone()) {
+        out.push(outer);
+    }
+    out
+}
+
+/// The levels of `match e:` equations: they keep what the leaf has, as
+/// their proofs are about the case, which `rewrite` can use.
+fn equations(cx: &Ctx) -> Vec<usize> {
+    (cx.e.goals.borrow().scrutinees.iter())
+        .filter_map(|s| s.equation)
+        .collect()
+}
+
+/// `arm`'s leaf state, and that state with the splits undone that neither
+/// it nor an arm it is in needed.
+fn leaf_and_shown(cx: &Ctx, arm: &Arm, equations: &[usize]) -> Option<(State, State)> {
+    let leaf = replay(cx, &arm.path, &[], root_state(&arm.path))?;
+    let shown = replay(cx, &arm.path, &arm.unsplit, shown_start(cx, arm, equations))?;
+    Some((leaf, shown))
+}
+
+/// Where `arm`'s splits start for the display: its tree's starting state,
+/// with what still equals the enclosing arm's leaf (what that arm's body
+/// left alone before this `match`) as the enclosing arm is written.
+fn shown_start(cx: &Ctx, arm: &Arm, equations: &[usize]) -> State {
+    let mut start = root_state(&arm.path);
+    let Some((leaf, shown)) =
+        (arm.path.root.outer.as_ref()).and_then(|outer| leaf_and_shown(cx, outer, equations))
+    else {
+        return start;
+    };
+    let (env, types, goal) = &mut start;
+    for l in 0..env.len().min(leaf.0.len()).min(shown.0.len()) {
+        if same(cx, &env[l], &leaf.0[l]) {
+            env[l] = shown.0[l].clone();
+        }
+        if !equations.contains(&l) && same(cx, &types[l], &leaf.1[l]) {
+            types[l] = shown.1[l].clone();
+        }
+    }
+    if same(cx, goal, &leaf.2) {
+        *goal = shown.2;
+    }
+    start
+}
+
 /// How a goal at a hole in the current arm is shown: `None` if there is
 /// nothing to say about the arm (the usual case).
 pub(crate) fn view(cx: &Ctx, expected: &Value) -> Option<View> {
     let innermost = cx.e.goals.borrow().arm.clone()?;
+    let arms = arms(innermost.clone());
     let mut view = View {
         env: cx.env.clone(),
         types: cx.types.clone(),
         goal: None,
         computed: None,
-        cases: 1,
+        cases: arms.iter().map(|a| a.cases).product(),
         changed: false,
     };
-    let mut goal = expected.clone();
-    let mut current = Some(innermost);
-    while let Some(arm) = current {
-        view.cases *= arm.cases;
-        if !arm.unsplit.is_empty() {
-            undo(cx, &arm, &mut view, &mut goal);
-        }
-        current = arm.path.root.outer.clone();
+    if arms.iter().any(|a| !a.unsplit.is_empty()) {
+        undo(cx, &arms, &mut view, expected);
     }
     if view.changed {
         scrutinee_expressions(cx, &mut view);
@@ -326,21 +390,16 @@ pub(crate) fn view(cx: &Ctx, expected: &Value) -> Option<View> {
     Some(view)
 }
 
-/// `view` with `arm`'s unneeded splits undone, where the state is still the
-/// leaf's. `goal` is the goal as the arms inside this one left it.
-fn undo(cx: &Ctx, arm: &Arm, view: &mut View, goal: &mut Value) {
-    let Some((all_env, all_types, all_goal)) = replay(cx, &arm.path, &[]) else {
+/// `view` with the unneeded splits of `arms` (innermost first) undone,
+/// where the state is still the leaf's.
+fn undo(cx: &Ctx, arms: &[Rc<Arm>], view: &mut View, goal: &Value) {
+    let equations = equations(cx);
+    let Some(((all_env, all_types, all_goal), (env, types, shown_goal))) =
+        leaf_and_shown(cx, &arms[0], &equations)
+    else {
         return;
     };
-    let Some((env, types, shown_goal)) = replay(cx, &arm.path, &arm.unsplit) else {
-        return;
-    };
-    // A `match e:` equation keeps what the leaf has: its proof is about the
-    // case, which `rewrite` can use.
-    let equations: Vec<usize> = (cx.e.goals.borrow().scrutinees.iter())
-        .filter_map(|s| s.equation)
-        .collect();
-    for l in 0..all_env.len().min(view.env.len()) {
+    for l in 0..all_env.len().min(view.env.len()).min(env.len()) {
         if same(cx, &view.env[l], &all_env[l]) {
             view.changed |= !same(cx, &env[l], &all_env[l]);
             view.env[l] = env[l].clone();
@@ -351,29 +410,55 @@ fn undo(cx: &Ctx, arm: &Arm, view: &mut View, goal: &mut Value) {
         }
     }
     if same(cx, goal, &all_goal) && !same(cx, &shown_goal, &all_goal) {
-        view.computed = computed_back(cx, arm, view, &all_env, goal, &shown_goal);
+        view.computed = computed_back(cx, arms, view, &all_env, goal, &shown_goal);
         view.changed = true;
-        *goal = shown_goal.clone();
         view.goal = Some(shown_goal);
     }
 }
 
-/// The levels the arm's path binds as fields of a split.
-fn skipped_fields(arm: &Arm) -> Vec<usize> {
+/// The levels the arms' paths bind as fields of a split.
+fn skipped_fields(arms: &[Rc<Arm>]) -> Vec<usize> {
     let mut fields = Vec::new();
-    let mut node = Some(&arm.path);
-    while let Some(n) = node {
-        fields.extend(n.base..n.base + n.fields.len());
-        node = n.parent.as_ref();
+    for arm in arms {
+        let mut node = Some(&arm.path);
+        while let Some(n) = node {
+            fields.extend(n.base..n.base + n.fields.len());
+            node = n.parent.as_ref();
+        }
     }
     fields
 }
 
+/// The levels bound as fields of a split `arm` didn't need, or of a split
+/// of such a field: cells of a variable the arm left alone.
+fn fields_of_unsplit(arm: &Arm) -> Vec<usize> {
+    let mut nodes = Vec::new();
+    let mut node = Some(&arm.path);
+    while let Some(n) = node {
+        nodes.push(n);
+        node = n.parent.as_ref();
+    }
+    let mut fields = Vec::new();
+    for n in nodes.into_iter().rev() {
+        if arm.unsplit.contains(&n.x) || fields.contains(&n.x) {
+            fields.extend(n.base..n.base + n.fields.len());
+        }
+    }
+    fields
+}
+
+/// The levels the arms' patterns left alone.
+fn unsplit(arms: &[Rc<Arm>]) -> Vec<usize> {
+    arms.iter()
+        .flat_map(|a| a.unsplit.iter().copied())
+        .collect()
+}
+
 /// What `leaf_goal` computes to, with each value the leaf gave a variable the
-/// arm left alone written as that variable.
+/// arms left alone written as that variable.
 fn computed_back(
     cx: &Ctx,
-    arm: &Arm,
+    arms: &[Rc<Arm>],
     view: &View,
     leaf_env: &[Value],
     leaf_goal: &Value,
@@ -384,8 +469,8 @@ fn computed_back(
     let mut term = quote(&g, level, leaf_goal).ok()?;
     // Nothing computed: the leaf's goal is the shown one with the case's
     // values put in, which the shown goal already says.
-    let values: Vec<(usize, Term)> = arm
-        .unsplit
+    let unsplit = unsplit(arms);
+    let values: Vec<(usize, Term)> = unsplit
         .iter()
         .filter_map(|&x| Some((x, quote(&g, level, leaf_env.get(x)?).ok()?)))
         .collect();
@@ -404,8 +489,8 @@ fn computed_back(
     if crate::matching::same(&term, &instance) {
         return None;
     }
-    let fields = skipped_fields(arm);
-    for &x in &arm.unsplit {
+    let fields = skipped_fields(arms);
+    for &x in &unsplit {
         // Only where the user can write the variable, and for a value that
         // has cells of its own (`MkText [MkChar code✝ valid✝, ..tail✝]`),
         // which nothing else could be mistaken for: a closed value like
@@ -487,48 +572,64 @@ fn scrutinee_expressions(cx: &Ctx, view: &mut View) {
     }
 }
 
-/// Where the arm is checked, for a goal's or an error's note: what each
-/// variable the arm left alone is, here. `None` if the arm is checked once.
+/// Where the arm is checked, for a goal's or an error's note: how many
+/// times (with the arms it is in), and what each variable they left alone
+/// is, here. `None` if the arm is checked once.
 pub(crate) fn case_note(cx: &Ctx) -> Option<(usize, Option<String>)> {
-    let arm = cx.e.goals.borrow().arm.clone()?;
-    if arm.cases < 2 {
+    let innermost = cx.e.goals.borrow().arm.clone()?;
+    let mut arms = arms(innermost);
+    let cases: usize = arms.iter().map(|a| a.cases).product();
+    if cases < 2 {
         return None;
     }
-    let (env, _, _) = replay(cx, &arm.path, &[])?;
-    // The fields of a split say nothing the variable they are part of
-    // doesn't.
-    let fields = skipped_fields(&arm);
+    // A matched expression is named as the arms are written: in a `match x`
+    // inside an arm that leaves `x` alone, as `x`, not the outer case.
+    let shown_env = leaf_and_shown(cx, &arms[0], &equations(cx))
+        .map(|(_, (env, _, _))| env)
+        .unwrap_or_else(|| cx.env.clone());
+    arms.reverse();
     let names = cx.shown_names(false);
     let noted: Vec<(usize, usize, Term)> = (cx.e.goals.borrow().scrutinees.iter())
         .map(|s| (s.x, s.vars, s.term.clone()))
         .collect();
     let g = cx.g();
     let mut parts = Vec::new();
-    for &x in arm.unsplit.iter().filter(|x| !fields.contains(x)) {
-        let value = env.get(x)?;
-        if matches!(value, Value::Neutral(stitchwort_core::value::Head::Var(l, _), s) if *l == x && s.is_empty())
-        {
-            continue;
+    let mut named = Vec::new();
+    for arm in &arms {
+        let (env, _, _) = replay(cx, &arm.path, &[], root_state(&arm.path))?;
+        // The fields of a split say nothing the variable they are part of
+        // doesn't.
+        let fields = fields_of_unsplit(arm);
+        for &x in arm.unsplit.iter().filter(|x| !fields.contains(x)) {
+            let value = env.get(x)?;
+            if matches!(value, Value::Neutral(stitchwort_core::value::Head::Var(l, _), s) if *l == x && s.is_empty())
+            {
+                continue;
+            }
+            let name = match noted.iter().find(|(l, _, _)| *l == x) {
+                Some((_, vars, term)) => eval(&g, &shown_env[..(*vars).min(shown_env.len())], term)
+                    .ok()
+                    .map(|v| cx.show(&v)),
+                None => match cx.name_of_level(x) {
+                    Some(n) => Some(n.to_string()),
+                    None if !names[x].starts_with('%') && !names[x].contains('✝') => {
+                        Some(names[x].to_string())
+                    }
+                    None => None,
+                },
+            };
+            // An inner `match` on an outer arm's variable matches a value
+            // standing for it, which has its own case.
+            let name = name.filter(|n| !named.contains(n));
+            named.extend(name.clone());
+            parts.push(match name {
+                Some(name) => format!("`{name}` is `{}`", case_text(&cx.show(value))),
+                None => format!("the matched value is `{}`", case_text(&cx.show(value))),
+            });
         }
-        let name = match noted.iter().find(|(l, _, _)| *l == x) {
-            Some((_, vars, term)) => eval(&g, &cx.env[..(*vars).min(cx.env.len())], term)
-                .ok()
-                .map(|v| cx.show(&v)),
-            None => match cx.name_of_level(x) {
-                Some(n) => Some(n.to_string()),
-                None if !names[x].starts_with('%') && !names[x].contains('✝') => {
-                    Some(names[x].to_string())
-                }
-                None => None,
-            },
-        };
-        parts.push(match name {
-            Some(name) => format!("`{name}` is `{}`", case_text(&cx.show(value))),
-            None => format!("the matched value is `{}`", case_text(&cx.show(value))),
-        });
     }
     let case = (!parts.is_empty()).then(|| format!("where {}", parts.join(" and ")));
-    Some((arm.cases, case))
+    Some((cases, case))
 }
 
 /// `error` from the arm's right-hand side, saying which case it is in when
