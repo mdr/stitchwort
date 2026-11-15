@@ -1,5 +1,5 @@
 {
-  "next": 3335,
+  "next": 3336,
   "tickets": [
     {
       "id": 47,
@@ -36611,15 +36611,17 @@
     {
       "id": 3318,
       "title": "[Opus] A proof's catch-all after number literals shows no n ≠ 5 fact (catch-all-goals.md finding); look at what the arm knows and whether to show it",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From catch-all-goals.md. Expected: 1.5 h (Opus).",
+      "body": "Paper docs/proposals/catch-all-facts.md (Opus, ~5 min): numbers use NumCase with a mark, no proof term; rec B (auto proves x ≠ lit) + A (show the facts), no syntax/kernel/hash change; orchestrator's call: accepted, filed SW-3335.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "178d0387e5059c57b006a53405bf043bc57035d3"
+      ]
     },
     {
       "id": 3319,
@@ -36853,6 +36855,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-3325. Expected: 45 min (Sonnet).",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3335,
+      "title": "[Sonnet] catch-all-facts.md B+A (orchestrator's call, no syntax): an auto step proves x ≠ lit in a literal catch-all (by the J/match term in the note), and the catch-all goal lists the facts (m ≠ 5) from the case tree; check obligations solved after the declaration still see the case's marks; guide and syntax.md; Opus review after. Also byDecision's stuck error names the scrutinee (n ≠ 5) where the goal shows the arm's binder (m)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
