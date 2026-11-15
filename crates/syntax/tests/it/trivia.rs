@@ -92,7 +92,7 @@ fn rebuild(text: &str, lexed: &Lexed) -> String {
         out.push_str(&text[start..end]);
         prev_end = end;
         if let Some(c) = &trivia.trailing {
-            out.push(' ');
+            out.push_str(&text[end..c.span.start as usize]);
             out.push_str(&c.text);
         }
     }
@@ -187,6 +187,25 @@ fn trivia_rebuilds_every_file() {
         files.len()
     );
     assert!(checked > 100, "found only {checked} lexable .sw files");
+}
+
+/// A trailing comment keeps the gap before it, none included: `x-- c` is not
+/// `x -- c`.
+#[test]
+fn trailing_comment_gap_is_kept_exactly() {
+    for text in [
+        "def f := [a:-- c\n 1]\n",
+        "def f := x-- c\n",
+        "def f := (-- c\n 1)\n",
+        "def f := [1,-- c\n 2]\n",
+        "def f := x   -- c\n",
+        "def f := x -- c\n",
+    ] {
+        let mut sources = SourceMap::new();
+        let file = sources.add("t.sw", text);
+        let lexed = lex_with_trivia(file, text).expect("lexes");
+        assert_eq!(rebuild(text, &lexed), text);
+    }
 }
 
 #[test]
