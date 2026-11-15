@@ -37672,12 +37672,12 @@
     {
       "id": 3397,
       "title": "[Sonnet] Constructor names, option 1 (D3615): the E-AMBIGUOUS error names the candidates and suggests the qualified spellings (Token.Str); a warning where a file's own constructor hides an imported one (its None hiding Option's); goals print a clashing constructor qualified (ctor_written) so they paste back; docs/syntax.md and the guide state the rule (one meaning per file; qualify on a clash; keep lexer and printer in separate files). Tests failing before",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3615 (Matt, 15 Nov 2026): \"option one plus a discipline to avoid files that need to import multiple clashing names unless it's code that genuinely must use both. The code organization habit. We can maybe think about going back to this dot shorthand as Lean does in three in the future, potentially. But yeah, for now, let's proceed with your suggestion.\" Not type-directed resolution (Matt: one name, one meaning per file, readable at a glance). Expected: 2.5 h.\n\nLane notes (Sonnet, 15 Nov 2026): E-AMBIGUOUS for constructors now says \"write `Doc.Str` or `Token.Str`\" with a note (imports vs own declarations); new W-CTOR-HIDES where a file's constructor hides an imported or prelude one (naming both), and the later pattern mismatch says which name hid which; the goal printer (NameScope::ctor_name, used by goals, hover, messages, counterexample values) writes a constructor qualified when its short name means something else; docs/syntax.md and guide chapter 3 (\"Two types with one constructor name\") updated. Branch lane/SW-3397.\n",
+      "body": "Model result: sonnet, worked, 60 min (est. 150).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
