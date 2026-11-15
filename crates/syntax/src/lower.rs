@@ -91,6 +91,8 @@ mod matching;
 mod patterns;
 mod proofs;
 pub(crate) mod sections;
+#[cfg(test)]
+mod tests;
 mod types;
 
 /// What the lowering couldn't lower: the first such thing it met in a
