@@ -1,5 +1,5 @@
 {
-  "next": 3404,
+  "next": 3405,
   "tickets": [
     {
       "id": 47,
@@ -37756,6 +37756,19 @@
       "labels": [],
       "epic": "std-library",
       "body": "D3616 (Matt, 15 Nov 2026): \"yes, with Fin and just success and failure\". ExitStatus = { code: Fin 256 } (std's Fin, a machine number at run time; Fin.ofNat's auto proof), named values ExitStatus.success (0) and ExitStatus.failure (1) only; other codes are named by each program (2 for usage is a convention, not a rule: Bash builtins, argparse, Go flag; sysexits' EX_USAGE 64 is deprecated). Args.run documents that it uses 2. After SW-3402. Expected: 1 h.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3404,
+      "title": "[Sonnet] A failed [auto] proof (E-AUTO-FALSE) names the proposition and the call: ExitStatus.of 300 says '300 < 256 is false', not '`False = True` is false' (SW-3402 and SW-3345 findings; supersedes the earlier duplicate)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
