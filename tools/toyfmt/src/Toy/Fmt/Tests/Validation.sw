@@ -24,3 +24,17 @@ test "the lexemes of an awkward source cover it" :=
 
 test "an empty source lexes to no lexemes, which cover it" :=
   lex "" |> .map (lexed => (lexed.lexemes.length, covers "" lexed.lexemes)) == Ok (0, True)
+
+test "a minus before a minus is spaced, so the two don't print as a comment" :=
+  ["let y = - -x\n", "let y = - - -f(x)\n", "let y = -(-x) - -x\n"].all (source =>
+    format source 80 |> .toOption |> .map (printed => printed.text) == Some source)
+
+--| A comment ending an `if` inside brackets belongs to the `if`'s last
+--| branch; a `,` or closing bracket printed after it would take it.
+test "a comma or closing bracket after an if's trailing comment goes on the next line" :=
+  ["let y = f(if a then b else c -- k\n, d)\n", "let y = [a, if b then c else d -- k\n]\n",
+    "let y = (if a then b else c -- k\n)\n", "let y = f(if a then b else if c then d else e -- k\n, x)\n"].all
+    (source =>
+      match format source 80 with
+        | Stable printed => (format printed.text 80).toOption == Some printed
+        | Refused _ => False)

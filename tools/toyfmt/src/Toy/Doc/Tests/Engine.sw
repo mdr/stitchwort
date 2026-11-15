@@ -48,3 +48,6 @@ test "a trailing comment waits for the end of its line" :=
 
 test "a group that would put code after a trailing comment breaks" :=
   print (Doc.group (Doc.concat [t "f a", LineSuffix "-- c", Line, t "b"])) 120 == "f a -- c\nb"
+
+test "a group after a waiting trailing comment breaks rather than put code after it" :=
+  print (Doc.concat [t "f a", LineSuffix "-- c", Doc.group (Doc.concat [Line, t "b"])]) 120 == "f a -- c\nb"

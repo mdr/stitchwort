@@ -556,3 +556,137 @@ about 5% of lexing (0.05 s per MB), cheap enough to keep always.
    "rewriting the rewritten tree changes nothing" to be part of what the
    check tests, as the plan's theorem 2 says.
 
+
+## Proving the printer directly (SW-3418)
+
+The goal: `parse (print width tree) = Ok tree` for every tree the parser
+produces and every width, so `format` can drop its re-parse. A 3-hour
+experiment; the theorem is not complete, so `format` keeps its check and
+there is no `formatDirect` yet.
+
+### The plan
+
+Five layers, each independent of the others' internals:
+
+- **A. The engine.** `print` refines a width-free reading of `Doc` (each
+  group flat or broken, each choice any option, each fill separator a
+  space or a break), so width only chooses among readings and every later
+  layer holds at every width for free. Needs: budgets that never run out
+  (done), and that a waiting trailing comment is never followed by text on
+  its line, which is where `fits` has to be exactly right.
+- **B. Lexing.** The text of a reading lexes to the tree's tokens, with
+  line starts and columns from the breaks. Needs std lemmas about `Text`
+  and about the lexer's `locatedToEnd`, and the munch conditions between
+  neighbouring chunks (no `-` before `-`: bug 1 below).
+- **C. The layout rule.** Which breaks land at a statement's own column:
+  only before `else`, `)` and `]`. A structural fact about the rules, with
+  no width in it (done, rule side).
+- **D. The parser reads it back**, by induction over the tree with std's
+  `Parse.Runs` (atoms and suffix ends done). Every expression form above an
+  atom goes through `Parse.operators`, which has no `Runs` lemma yet; that
+  lemma (precedence climbing with backtracking, fuel and depth) is the
+  gate for the rest of D.
+- **WF.** What the parser guarantees about its trees (names aren't
+  keywords, chains are shaped by precedence, a body's last line isn't a
+  note, ...), as a predicate D assumes. Either proved of the parser (as
+  long again as D) or checked at run time (a linear walk, far cheaper than
+  a re-parse, but still a check).
+
+### What is proved
+
+- `LayoutProofs.sw` (layer C): every statement and laid-out declaration
+  breaks at its own column only before `else`, `)` or `]`
+  (`statementScan`, `declarationScan`).
+- `CommentProofs.sw` (the rules' half of "comments keep their owners"):
+  in every document the rules build for a tree whose comments stand where
+  the parser puts them, every trailing comment is followed by a line break
+  before any text or another comment, whichever way groups, choices and
+  fills go; and a document ends with a comment waiting exactly when its
+  tree does (`exprSuffix`, `statementSuffix`, `declarationSuffix`).
+- `ParserProofs.sw` (layer D, first pieces): a name token reads back as
+  `Var` (`runsAtomName`); suffixes stop at a token that isn't `(` or `.`
+  (`runsSuffixesEnd`).
+- `Doc/Proofs.sw` (layer A, budgets): `print`'s 3 * size + 3 is enough
+  for the printer's steps and for every `fits` it asks, so a larger
+  budget prints the same text (`printBudgetEnough`). This rules out `fits`
+  answering "fits" because it ran out.
+
+Each was checked to fail when the rule or budget it depends on is broken
+(a block not one level deeper, `closeAfter` without its line break, a
+fill's size counted once).
+
+### Bugs the proof work found
+
+The first two were caught at run time by the re-parse (`format` answered
+`Refused`), so no output was ever wrong; with the check gone they would
+have been.
+
+1. `let y = - -x` printed `--x`, which reads as a comment. `Negate` now
+   puts a space before an operand that starts with `-`.
+2. A comma or closing bracket after an `if` whose last branch ends in a
+   trailing comment went on the comment's line, inside the comment. It now
+   goes on the next line (`closeAfter`).
+
+3. In the engine: `fits` started every measurement with no comment
+   waiting, so a group that began with a line straight after a trailing
+   comment could stay flat and print code after the comment
+   (`f a -- c` then a group `[Line, b]` printed `f a b -- c`). Groups,
+   fill items and choices now measure with the waiting comment counted
+   (`Printer.fitsHere`). The rules never build that shape (the comment
+   proofs say what follows a comment is a break, and in the rules it is
+   always a hard line, a fill separator or a line in the same group), so
+   no output changes; the engine proof needs it.
+
+### Estimate [estimated, low confidence]
+
+From the calibration here (layer C's rule side about 20 min for 15
+lemmas; each parser atom lemma about 10 min; the comment group about
+40 min; the budgets about 15 min):
+
+| Layer | Left | Estimate |
+|---|---|---|
+| A | the suffix simulation over `run` and `fits`; the refinement | 2-4 days |
+| B | lexing, with std `Text` and `locatedToEnd` lemmas | 2-4 days |
+| C | reading the layout back as the same body | 0.5-1 day |
+| D | `Parse.operators` `Runs` lemma (3-6 h), then items, if/else, blocks, declarations | 4-8 days |
+| WF | proved of the parser, or a run-time walk | 2-4 days, or 0.5 day |
+| Glue | `formatDirect`, its round trip and idempotence | 0.5 day |
+
+About 2-4 weeks of lane time for the toy. The expensive layers (A, B, D)
+don't depend on the style rules; only C-like structural lemmas and the
+comment group do, and those were the cheap ones, so changing the style
+needn't break the expensive proofs.
+
+For the real formatter (94 node kinds, rewrites, the left-as-written
+fallback): D, WF and the rule-side lemmas grow with the number of node
+kinds, about 5-6 times the toy's 17 forms (10 expressions, 3 statements,
+4 declarations); A doesn't grow (one engine) and B grows with the token
+kinds. That gives roughly 2-4 months of lane time [estimated, very low
+confidence: no piece of the real formatter was tried]. Rewrites each need
+a proof that they keep the tree's meaning; the fallback is cheap (text
+kept as written lexes the same, part of B).
+
+The engine proof (A's suffix half) also needs a well-formedness predicate
+on documents, since the engine is only safe on documents built the way
+the rules build them: a group's `hard` flag must be `forcesBreak` (as
+`Doc.group` sets it), because `fits` answers "fits" at a `OneLineBelow`
+without looking inside it, and a `Flatten` is measured only where a
+choice measures it.
+
+### Friction
+
+1. **`W-ARROW-FORALL` fires on every `theorem name ∀ (x: T) …`** in
+   `tools/toyfmt` (68 on `Toy.Fmt.Proofs`), the form the proving guide
+   uses. Spurious.
+2. **Inner `match`es over list patterns with record fields get stuck**:
+   `[{ line, .. }]` patterns had to replace `body.single`-style helpers,
+   and multi-statement arms were enumerated by hand.
+3. **`rewrite … at` needs a local name**, so a proof term is bound with
+   `let` before it can be rewritten.
+4. **No `Runs` lemmas for `Parse.operators`, `recursiveWith`, `lastRead`
+   or `locatedToEnd`.** The first gates layer D.
+5. **Peek-based parsers prove by computing**: `rewrite starts` then `rfl`
+   reads a `Parse.peek` branch without a lemma.
+6. **`omega` can't see through `_` arguments**: a bound passed to a lemma
+   with `_` for the bound gives "needs to know the goal"; writing the bound
+   out fixes it.

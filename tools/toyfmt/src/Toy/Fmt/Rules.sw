@@ -94,16 +94,52 @@ def Expr.layout: Expr → Doc
   | Var name => Doc.text name
   | NumberLiteral digits => Doc.text digits
   | StringLiteral written => Doc.text written
-  | Bracketed inner => Doc.concat [Doc.text "(", inner.layout, Doc.text ")"]
+  | Bracketed inner => Doc.concat [Doc.text "(", inner.layout, closeAfter inner (Doc.text ")")]
   | ListLiteral items => listLayout items
   | Call callee arguments => Doc.concat [callee.layout, argumentsLayout arguments]
   | Field target name => Doc.concat [target.layout, Doc.text ".${name}"]
-  | Negate operand => Doc.concat [Doc.text "-", operand.layout]
+  | Negate operand => Doc.concat [Doc.text (if operand.startsWithMinus then "- " else "-"), operand.layout]
   | Binary operator left right =>
     match chainParts operator.level left ++ [link operator right.layout] with
       | [first, ..links] => Doc.group (Doc.concat [first, Nest 2 (Doc.concat links)])
       | [] => Empty
   | If condition whenTrue whenFalse => ifLayout condition whenTrue whenFalse
+
+--| Whether the expression's text starts with `-`. A `-` right before it
+--| would make `--`, which starts a comment, so `Negate` spaces them apart.
+def Expr.startsWithMinus: Expr → Bool
+  | Negate _ => True
+  | Binary _ left _ => left.startsWithMinus
+  | Call callee _ => callee.startsWithMinus
+  | Field target _ => target.startsWithMinus
+  | _ => False
+
+--| Whether the expression's text ends in a trailing comment: an `if` whose
+--| last branch is one expression with a comment after it (the comment is
+--| that branch's, Tree.sw).
+def Expr.endsWithComment: Expr → Bool
+  | If _ _ whenFalse => whenFalse.endsWithComment
+  | _ => False
+
+def Body.endsWithComment: Body → Bool
+  | { statements } => statementsEndWithComment statements
+
+--| Whether the last of the statements ends in a trailing comment.
+def statementsEndWithComment: List (Spaced Statement) → Bool
+  | [] => False
+  | [{ line, .. }] => line.endsWithComment
+  | [_, ..rest] => statementsEndWithComment rest
+
+def Statement.endsWithComment: Statement → Bool
+  | Bare _ (Some _) => True
+  | Bare value None => value.endsWithComment
+  | Let _ body => body.endsWithComment
+  | StatementNote _ => False
+
+--| `closer` (a `,` or closing bracket) after `expr`: on the line below if
+--| `expr` ends in a trailing comment, which would otherwise end up after the
+--| closer and so belong to whatever ends there.
+def closeAfter (expr: Expr) (closer: Doc): Doc := if expr.endsWithComment then Doc.concat [HardLine, closer] else closer
 
 --| P6: an operator chain of one level, from its left-nested tree: `a - b +
 --| c` is `a`, then `- b` and `+ c` each after a line break. Operands of
@@ -168,7 +204,8 @@ def listLayout: List Item → Doc
       | _ => Empty
     let closing := match items.last with
       | Some { trailing = Some _, .. } => Doc.concat [HardLine, Doc.text "]"]
-      | _ => Doc.text "]"
+      | Some { value, .. } => closeAfter value (Doc.text "]")
+      | None => Doc.text "]"
     Doc.group (Doc.concat [Doc.text "[", Nest 2 (Fill (itemDocs items |> withFirst opening)), closing])
 
 def withFirst (docs: List Doc) (opening: Doc): List Doc := match docs with
@@ -180,7 +217,8 @@ def withFirst (docs: List Doc) (opening: Doc): List Doc := match docs with
 def itemDocs: List Item → List Doc
   | [] => []
   | [{ comments, value, trailing }] => [itemDoc comments value.layout Empty trailing]
-  | [{ comments, value, trailing }, ..rest] => [itemDoc comments value.layout (Doc.text ",") trailing, ..itemDocs rest]
+  | [{ comments, value, trailing }, ..rest] =>
+    [itemDoc comments value.layout (closeAfter value (Doc.text ",")) trailing, ..itemDocs rest]
 
 def itemDoc (comments: List Comment) (value comma: Doc) (trailing: Option Comment): Doc :=
   let above := comments.map (comment => Doc.concat [Doc.text comment.text, HardLine])
