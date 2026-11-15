@@ -38299,12 +38299,12 @@
     {
       "id": 3442,
       "title": "[Sonnet] Bug: std self-test 'Args.run: a mistake fails with the complaint, and prints nothing' fails on main since SW-3403 (Args.run exits 2 via Args.misuse); fix the test or the code to match D3616's design, and check the other Args tests",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Lane note: the test was stale (Args.run now prints the complaint to stderr and returns Args.misuse = ExitStatus 2). Rewrote it to check stdout empty and status == Args.misuse; code matches D3616. Self-test and hash_stability::prelude pass. Commit 551bb50af on lane/SW-3442.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
