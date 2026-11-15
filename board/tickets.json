@@ -36598,7 +36598,7 @@
     {
       "id": 3319,
       "title": "[DeepSeek] Guide 03-data.md:113 says 'as above' under a record now on one line (after the 14 Nov reformat); reword (SW-3298 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -36611,7 +36611,7 @@
     {
       "id": 3320,
       "title": "[DeepSeek] Docs citing parser.rs line ranges are stale after T3 (SW-3316): parser-end-state.md §6 table and others; point them at functions or the new modules",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
