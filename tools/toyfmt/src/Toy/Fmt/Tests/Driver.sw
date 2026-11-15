@@ -23,27 +23,18 @@ def project: Disk := Disk.fromList [
 
 def options (check: Bool) (paths: List Text): Options := { check, width = 80, paths = paths.map Text.toPath }
 
---| Runs `prog` letting every `Files` operation through, and counts the
---| writes. The count is how a test shows a file was left alone, not just
---| rewritten with the same text.
-def countingWrites (prog: () → {Files | e} a): {Files | e} (Nat, a) :=
-  let run: Nat → {Files | e} (Nat, a) :=
-    handle prog() with
-      | return x => count => (count, x)
-      | Files.read path, k => count => k (Files.read path) count
-      | Files.write request, k => count => k (Files.write request) (count + 1)
-      | Files.list path, k => count => k (Files.list path) count
-      | Files.info path, k => count => k (Files.info path) count
-  run 0
+--| The disk afterwards, whose `writes` say which files were written, and
+--| the outcomes of formatting `paths`.
+def runOn (disk: Disk) (check: Bool) (paths: List Text): (Disk, List Outcome) :=
+  Files.simulate disk (() => formatPaths (options check paths) (options check paths).paths)
 
---| The disk, the number of writes and the outcomes of formatting `paths`.
-def runOn (disk: Disk) (check: Bool) (paths: List Text): (Disk, (Nat, List Outcome)) :=
-  Files.simulate disk (() => countingWrites (() => formatPaths (options check paths) (options check paths).paths))
+--| The paths, as the disk records the writes to them.
+def written (paths: List Text): List Path := paths.map Text.toPath
 
 def formatted (path: Text) (change: Change): Outcome := Formatted path.toPath change 0
 
 test "a folder is walked: files are rewritten, formatted ones aren't written, the broken one is reported" :=
-  let (after, (writes, outcomes)) := runOn project False ["src"]
+  let (after, outcomes) := runOn project False ["src"]
   outcomes
     == [
       formatted "src/a.sprig" Rewritten,
@@ -51,58 +42,56 @@ test "a folder is walked: files are rewritten, formatted ones aren't written, th
       Problem "src/bad.sprig:1:8: expected an expression, got the end of the input",
       formatted "src/deep/c.sprig" Rewritten
     ]
-    && writes == 2
     && after
-      == Disk.fromList [
+      == { Disk.fromList [
         ("src/a.sprig".toPath, tidy),
         ("src/b.sprig".toPath, tidy),
         ("src/bad.sprig".toPath, broken),
         ("src/deep/c.sprig".toPath, tidy),
         ("src/notes.txt".toPath, untidy)
-      ]
+      ] |
+        writes = written ["src/a.sprig", "src/deep/c.sprig"]
+      }
 
 test "a second run changes nothing and writes nothing" :=
-  let (after, (writes, outcomes)) := runOn project False ["src"]
-  let (again, (moreWrites, moreOutcomes)) := runOn after False ["src"]
-  moreWrites == 0
-    && again == after
+  let (after, outcomes) := runOn project False ["src"]
+  let (again, moreOutcomes) := runOn after False ["src"]
+  again == after
     && moreOutcomes.all (match
       | Formatted _ Unchanged _ => True
       | Problem _ => True
       | _ => False)
 
 test "--check writes nothing and says which files would change" :=
-  let (after, (writes, outcomes)) := runOn project True ["src"]
-  writes == 0
-    && after == project
+  let (after, outcomes) := runOn project True ["src"]
+  after == project
     && outcomes.filter (match
       | Formatted _ WouldChange _ => True
       | _ => False)
       == [formatted "src/a.sprig" WouldChange, formatted "src/deep/c.sprig" WouldChange]
 
 test "a missing path is a problem, and the other paths are still done" :=
-  let (after, (writes, outcomes)) := runOn project False ["nowhere", "src/a.sprig"]
-  outcomes == [Problem "nowhere: no such file or folder", formatted "src/a.sprig" Rewritten] && writes == 1
+  let (after, outcomes) := runOn project False ["nowhere", "src/a.sprig"]
+  outcomes == [Problem "nowhere: no such file or folder", formatted "src/a.sprig" Rewritten]
+    && after.writes == written ["src/a.sprig"]
 
 test "a file named on the command line is formatted whatever its extension" :=
-  let (after, (writes, outcomes)) := runOn project False ["src/notes.txt"]
+  let (after, outcomes) := runOn project False ["src/notes.txt"]
   outcomes == [formatted "src/notes.txt" Rewritten] && after.read "src/notes.txt".toPath == Ok tidy
 
 test "a parse error leaves the disk as it was and names the line and column" :=
-  let (after, (writes, outcomes)) := runOn project False ["src/bad.sprig"]
-  writes == 0
-    && after == project
-    && outcomes == [Problem "src/bad.sprig:1:8: expected an expression, got the end of the input"]
+  let (after, outcomes) := runOn project False ["src/bad.sprig"]
+  after == project && outcomes == [Problem "src/bad.sprig:1:8: expected an expression, got the end of the input"]
 
 test "a folder holding a file where a folder was wanted is reported" :=
-  let (after, (writes, outcomes)) := runOn project False ["src/a.sprig/inside"]
-  outcomes == [Problem "src/a.sprig/inside: is a file, not a folder"] && writes == 0
+  let (after, outcomes) := runOn project False ["src/a.sprig/inside"]
+  outcomes == [Problem "src/a.sprig/inside: is a file, not a folder"] && after == project
 
 test "a folder nested past the bound is reported, not entered" :=
   let deepPath := List.range 0 40 |> .map (n => "d") |> .joinWith "/"
   let disk := Disk.fromList [("${deepPath}/x.sprig".toPath, untidy)]
-  let (after, (writes, outcomes)) := runOn disk False ["d"]
-  writes == 0 && outcomes.length == 1
+  let (after, outcomes) := runOn disk False ["d"]
+  after == disk && outcomes.length == 1
 
 test "the arguments: flags, a width, paths" :=
   parseArguments ["--check", "--width", "40", "a", "b/c"] Options.start

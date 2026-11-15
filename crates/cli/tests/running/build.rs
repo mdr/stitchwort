@@ -619,6 +619,30 @@ fn a_project_folder_builds_its_main() {
     );
 }
 
+/// A project folder with two namespaces that declare `main` is not guessed
+/// at: the error names both, and the note shows how to pick one.
+#[test]
+fn a_project_folder_with_two_mains_names_them() {
+    let dir = work_dir("two-mains");
+    let project = dir.join("pair");
+    std::fs::create_dir_all(project.join("src")).expect("make the project");
+    std::fs::write(project.join("stitchwort.yaml"), "sources: [src]\n").expect("write");
+    for namespace in ["Fmt", "Timing"] {
+        std::fs::write(
+            project.join(format!("src/{namespace}.sw")),
+            format!("namespace {namespace}\nimport Std (IO)\n\ndef main(): {{IO}} () := IO.print \"{namespace}\"\n"),
+        )
+        .expect("write");
+    }
+    let output = stitchwort(&dir, &["build", "pair"], b"");
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        text(&output.stderr),
+        "error: more than one namespace of project pair/ declares `main`: Fmt, Timing\n  note: \
+         name the one to build, as in `stitchwort build Fmt.main --project pair`\n"
+    );
+}
+
 /// A copy of the roguelike in `dir`, seeded with a constant instead of
 /// `IO.randomSeed`, so that every run plays the same game.
 fn seeded_rogue(dir: &Path) -> PathBuf {

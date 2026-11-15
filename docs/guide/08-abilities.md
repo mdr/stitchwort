@@ -418,7 +418,7 @@ test "tidy leaves a tidy file alone" :=
 test "tidy of a missing file" := (Files.simulate Disk.empty (() => tidy notes)).snd == Err (NotFound notes)
 ```
 
-The pretend disk is ordinary data, so proofs are about it too: the library's laws (`Files.simulateRead`, `Files.simulateWriteOk` and the rest) say what each operation does to a `Disk`, by computing. A test of a program that uses both abilities nests the handlers: `IO.simulate input (() => Files.simulate disk prog)`.
+The pretend disk is ordinary data, so proofs are about it too: the library's laws (`Files.simulateRead`, `Files.simulateWriteOk` and the rest) say what each operation does to a `Disk`, by computing. To see which operations a program made, wrap it in `Files.tracing`, which passes each one on and gives the list of them (`Reads path`, `Writes path`, `Lists path`, `Infos path`) with the result: `Files.simulate disk (() => Files.tracing prog)`. A test of a program that uses both abilities nests the handlers: `IO.simulate input (() => Files.simulate disk prog)`.
 
 ## How it runs
 

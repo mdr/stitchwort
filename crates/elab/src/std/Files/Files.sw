@@ -24,7 +24,8 @@
 --| `""` or `.`, means what it would in text. A part may be `..`, which the
 --| host takes as the folder above; [`Files.simulate`]'s disk refuses it.
 --|
---| Paths sort by their parts, as lists of texts, then relative before
+--| `Path` has `==` and is `Ord`, so `<`, `.sort`, `Set Path` and `Map Path` work on
+--| it. Paths compare by their parts, as lists of texts, then relative before
 --| absolute. Since a list sorts just before the lists it starts, a folder
 --| sorts just before what is in it.
 type Path = { parts: List Text, absolute: Bool }
@@ -177,18 +178,21 @@ ability Files where
 -- The pretend disk
 
 --| A disk held in memory, for [`Files.simulate`]: each file's text by path,
---| and the folders, each path normal ([`Path.normal`]). The starting folder
+--| the folders, each path normal ([`Path.normal`]), and the paths written so
+--| far, oldest first, each one as written to ([`Disk.write`]). The starting folder
 --| and the root (the paths with no parts) are always folders, and need not
 --| be listed. The operations read a path through [`Path.normal`], as the
 --| host does, and refuse one with a `..` part ([`Disk.noClimbing`]), where
 --| the host would go to the folder above. A path is taken as written
 --| otherwise, so `a.txt` is not `/home/a.txt`. Disks are equal when they hold
---| the same files with the same texts, and the same folders, so a test can
---| compare a disk after a run with the one it expects.
-type Disk = { files: Map Path Text, folders: Set Path }
+--| the same files with the same texts, the same folders and the same writes,
+--| so a test can compare a disk after a run with the one it expects:
+--| `after == before` says nothing was written, not even a file's own text
+--| again, and `after.writes` says what was.
+type Disk = { files: Map Path Text, folders: Set Path, writes: List Path }
 
---| A disk with no files, and no folders but the starting folder and the root.
-def Disk.empty: Disk := { files = Map.empty, folders = Set.empty }
+--| A disk with no files, no writes, and no folders but the starting folder and the root.
+def Disk.empty: Disk := { files = Map.empty, folders = Set.empty, writes = [] }
 
 --| The folders `path` is in, outermost first, the starting folder and the
 --| root left out: `a` and `a/b` for `a/b/c.txt`.
@@ -199,7 +203,7 @@ def Disk.foldersAbove (path: Path): List Path := match path.parts with
     List.range 1 (above.length + 1) |> .map (n => { parts = above.take n, absolute = path.absolute })
 
 --| The disk with these files, and every folder they are in, each path
---| normal. A path given as a file stays a file even if another file is
+--| normal; none of them counts as written. A path given as a file stays a file even if another file is
 --| given under it, which then can't be reached.
 def Disk.fromList (files: List (Path, Text)): Disk :=
   let normal := files.map (entry => (entry.fst.normal, entry.snd))
@@ -208,7 +212,8 @@ def Disk.fromList (files: List (Path, Text)): Disk :=
     files = fileMap,
     folders = normal.concatMap (entry => Disk.foldersAbove entry.fst)
       |> .filter (folder => !fileMap.contains folder)
-      |> Set.fromList
+      |> Set.fromList,
+    writes = []
   }
 
 --| Whether the normal path `place` is a folder on the disk.
@@ -243,6 +248,8 @@ def Disk.read (disk: Disk) (path: Path): Result Text FileError :=
 
 --| The disk after [`Files.write`], or why the write fails: there's a folder
 --| at the path, a file in the way, or the folder it would go in is missing.
+--| A write that works adds the path, normal, to `writes`, even if the text
+--| is what the file already held.
 def Disk.write (disk: Disk) (path: Path) (text: Text): Result Disk FileError :=
   let place := path.normal
   if Disk.climbs path then Err (Disk.noClimbing path)
@@ -251,7 +258,8 @@ def Disk.write (disk: Disk) (path: Path) (text: Text): Result Disk FileError :=
   else
     match place.parent with
       | Some folder =>
-        if disk.isFolder folder then Ok { disk | files = disk.files.insert place text } else Err (NotFound path)
+        if disk.isFolder folder then Ok { disk | files = disk.files.insert place text, writes = disk.writes ++ [place] }
+        else Err (NotFound path)
       | None => Err (NotFound path)
 
 --| Whether `child` is directly in the folder `folder`.
@@ -295,6 +303,32 @@ def Files.simulate (disk: Disk) (prog: () → {Files | e} a): {e} (Disk, a) :=
       | Files.info path, k => now => k (now.info path) now
   run disk
 
+-- Watching a program
+
+--| One call a program made to [`Files`], without its reply: the path it was
+--| about, which every constructor has as `path`. [`Files.tracing`] lists them in the order they happened.
+type FileOp =
+  | Reads (path: Path)
+  | Writes (path: Path)
+  | Lists (path: Path)
+  | Infos (path: Path)
+
+--| Runs `prog` with every `Files` operation passed on unchanged, and gives
+--| the operations it made, oldest first, with its result. The operations are
+--| performed by whatever handler is outside, so `Files.simulate disk (()
+--| => Files.tracing prog)` watches a program on a pretend disk. A test uses
+--| it to show what a program didn't do: no reads of a file, or a count of
+--| writes (`ops.filter (match | Writes _ => True | _ => False)`).
+def Files.tracing (prog: () → {Files | e} a): {Files | e} (List FileOp, a) :=
+  let run: List FileOp → {Files | e} (List FileOp, a) :=
+    handle prog() with
+      | return x => seen => (seen, x)
+      | Files.read path, k => seen => k (Files.read path) (seen ++ [Reads path])
+      | Files.write request, k => seen => k (Files.write request) (seen ++ [Writes request.fst])
+      | Files.list path, k => seen => k (Files.list path) (seen ++ [Lists path])
+      | Files.info path, k => seen => k (Files.info path) (seen ++ [Infos path])
+  run []
+
 -- Laws. A handled computation computes, so each holds by `rfl` or after one
 -- rewrite: they are what a proof about a file loop is built from.
 
@@ -328,3 +362,40 @@ theorem Files.simulateWriteErr ∀ (disk: Disk) (path: Path) (text: Text) (error
 theorem Files.simulateReadThen ∀ (disk: Disk) (path: Path) (rest: Result Text FileError → {Files} a):
     Files.simulate disk (() => rest (Files.read path)) = Files.simulate disk (() => rest (disk.read path)) :=
   rfl
+
+--| A program that makes no operation leaves an empty trace.
+theorem Files.tracingPure ∀ (disk: Disk) (x: a):
+    Files.simulate disk (() => Files.tracing (() => x)) = (disk, ([], x)) :=
+  rfl
+
+test "tracing lists each operation in order and changes nothing" :=
+  let disk := Disk.fromList [("a.txt".toPath, "x")]
+  let prog := () =>
+    Files.tracing (() =>
+      let first := Files.read "a.txt".toPath
+      let second := Files.write ("b.txt".toPath, "y")
+      let third := Files.list ".".toPath
+      (first, second, third))
+  let (after, (ops, (first, second, third))) := Files.simulate disk prog
+  ops == [Reads "a.txt".toPath, Writes "b.txt".toPath, Lists ".".toPath]
+    && first == Ok "x"
+    && second == Ok ()
+    && after.read "b.txt".toPath == Ok "y"
+
+test "the disk records each write, in order, even of the text already there" :=
+  let disk := Disk.fromList [("a.txt".toPath, "x")]
+  let (after, replies) := Files.simulate disk (() =>
+    (Files.write ("a.txt".toPath, "x"), Files.write ("./b.txt".toPath, "y"), Files.write ("a.txt".toPath, "z")))
+  after.writes == ["a.txt".toPath, "b.txt".toPath, "a.txt".toPath]
+    && after.files == (Disk.fromList [("a.txt".toPath, "z"), ("b.txt".toPath, "y")]).files
+
+test "a refused write and the other operations leave the disk equal" :=
+  let disk := Disk.fromList [("a.txt".toPath, "x")]
+  let (after, replies) := Files.simulate disk (() =>
+    (
+      Files.write ("no/such/b.txt".toPath, "y"),
+      Files.read "a.txt".toPath,
+      Files.list ".".toPath,
+      Files.info "a.txt".toPath
+    ))
+  after == disk
