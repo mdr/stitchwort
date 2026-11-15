@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-UNKNOWN-NAME] Error: unknown name `Spec`
@@ -11,7 +11,7 @@ expression: output
    │ 
    │ Note 1: `Spec` is the namespace `Shop.Spec`, imported as a qualifier: write `Spec.x` for a name `x` in it
    │ 
-   │ Note 2: the library has `Std.Map.Spec`: write it in full, or `import Std.Map (Spec)`
+   │ Note 2: the library has `Std.Args.Spec` or `Std.Map.Spec`: write it in full, or `import Std.Args (Spec)`
 ───╯
 [E-UNKNOWN-NAME] Error: unknown name `Spec.total`
    ╭─[ import-namespace-item-alone/src/tests.sw:3:17 ]

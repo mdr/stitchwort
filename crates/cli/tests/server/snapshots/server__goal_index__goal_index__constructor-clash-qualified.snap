@@ -1,0 +1,41 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "t",
+          "type": "Text"
+        }
+      ],
+      "lemma": "theorem mkIsGoal1 (t: Text): mk t = Doc.Str t := ?",
+      "target": "mk t = Doc.Str t"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "t: Text\n⊢ mk t = Doc.Str t",
+        "range": [
+          9,
+          46,
+          9,
+          47
+        ]
+      }
+    ],
+    "message": "in `mkIs`",
+    "notes": [],
+    "range": [
+      9,
+      46,
+      9,
+      47
+    ],
+    "severity": "goal"
+  }
+]
