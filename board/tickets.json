@@ -37332,12 +37332,12 @@
     {
       "id": 3371,
       "title": "[Opus] Derived equality stage 3 (derived-equality.md): derive for types defined together and through any earlier non-indexed data type; < and ${…} refused with a note through a container with its own instance; syntax.md and guide. After stage 2",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "D3609 (Matt, 15 Nov 2026): \"Yes, agree with this recommendation for now, let's see how it goes\" (keep derived ==, <, ${…} automatic for every data type, std included).",
+      "body": "Started 12:18; unblocks toy stage D (SW-3343). Expected: 4 h (Opus). Opus review before merge (generates kernel terms).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
