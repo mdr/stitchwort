@@ -79,12 +79,19 @@ def readLexeme (lexeme: Lexeme): {Parse Char} Lexeme := match lexeme with
     StrayLexeme
 
 --| One character of an operator run; a run stops before a comment's `--`.
-def operatorChar(): {Parse Char} () := match Parse.mark().rest with
-  | ['-', '-', .._] => Empty.absurd Parse.stop()
-  | [char, .._] if isOperatorChar char =>
+def operatorChar(): {Parse Char} () :=
+  if operatorNext Parse.mark().rest then
     let read := Parse.next (char => True)
     ()
-  | _ => Empty.absurd Parse.stop()
+  else Empty.absurd Parse.stop()
+
+--| Whether an operator run goes on into `rest`: an operator character
+--| comes next, and no comment starts there.
+-- Apart from `operatorChar` and without abilities, as `lexemeStart` is.
+def operatorNext (rest: List Char): Bool := match rest with
+  | ['-', '-', .._] => False
+  | [char, .._] if isOperatorChar char => True
+  | _ => False
 
 --| A string, which must close on the line it starts on: plain runs and
 --| the escapes `\"`, `\\` and `\n` between quotes.
