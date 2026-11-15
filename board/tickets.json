@@ -37410,15 +37410,22 @@
     {
       "id": 3377,
       "title": "[Sonnet] Std from toy stage C (SW-3342): a forwarding/tracing Files handler and a Disk that records writes; Text split-once; docs say Path is Ord; stitchwort test FILE resolves the project's namespaces; a project with two mains builds by folder",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Orchestrator's call: started before SW-3367 because the profiling lane (SW-3383) may touch std Parse. Expected: 2.5 h (Sonnet).",
+      "body": "Orchestrator's call: started before SW-3367 because the profiling lane (SW-3383) may touch std Parse. Expected: 2.5 h (Sonnet).\n\n\nLane notes (Sonnet): items 1-4 and 6 done on lane/SW-3377. `Files.tracing` (a `List FileOp` log of `Reads`/`Writes`/`Lists`/`Infos`), `Disk.writes`, `Text.splitOnce`, Path-is-Ord docs, a test for the two-mains build error (the error and its note already existed; no code fix needed). Item 5 (`stitchwort test FILE` resolving the project) not done: docs/projects.md makes \"a path argument is always file mode\" a documented design, so it needs a decision (see report).\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "7d3ad686a",
+        "d0f7def3e",
+        "a15a84799",
+        "8ceec0cf4",
+        "e770b3006",
+        "2e2f9b727"
+      ]
     },
     {
       "id": 3378,
