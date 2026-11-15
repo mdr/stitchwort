@@ -1,5 +1,5 @@
 {
-  "next": 3406,
+  "next": 3407,
   "tickets": [
     {
       "id": 47,
@@ -37776,6 +37776,19 @@
     {
       "id": 3405,
       "title": "[Sonnet] SW-3371 findings: < on a type with no Ord gives E-TYPE-MISMATCH without the 'why not derived' note Ord.compare shows; the Ord/Show refusal note can tell 'its module wrote one' from 'it has none'; derive_nested induction principles, Finite and decided records for mutual groups; a field default using == on its own group misses the derived instance",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3406,
+      "title": "[Sonnet] SW-3371 review F1-F4 (docs/reviews/SW-3371-derived-mutual.md): run every group type's field defaults after the group is derived (lib.rs:2358/2696; also fixes E-INTERNAL on main for a default using a later type's constructor); a container with a proof field allows == / < through it (derive.rs:703, note wording); an own DecEq on one group type stops Ord only for that type (derive_ord.rs:108); dedupe own/refuse code, comment the unreachable refusal (derive.rs:444), name When as Guard.When in notes",
       "status": "backlog",
       "agent": "",
       "where": "",
