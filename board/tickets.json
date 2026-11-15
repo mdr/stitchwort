@@ -1,5 +1,5 @@
 {
-  "next": 3330,
+  "next": 3331,
   "tickets": [
     {
       "id": 47,
@@ -36325,7 +36325,7 @@
     {
       "id": 3299,
       "title": "[Sonnet] Message quality: a readsThen proof with its pair built the wrong way round prints an unknown (?21 … [] (second, first)) as the expected type instead of the spec (examples/reject/reads-chain-swapped-pair.sw, on PRINTS_UNKNOWNS) (SW-3281 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -36334,7 +36334,8 @@
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
-        "acdeffbef"
+        "acdeffbef",
+        "b05acc566a924ea0a067837c2bfc65e6dd6a3969"
       ]
     },
     {
@@ -36425,16 +36426,17 @@
     {
       "id": 3306,
       "title": "[Sonnet] When a parser's t differs from the goal's, the error's note tells the reader to give [a := …], which misleads (docs/reviews/SW-3282-settle-from-expected.md S2); also stage 0's reject example reads-chain-unknown-name-last-step hides a second error (its True is the Bool, so Trivial fails)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "With SW-3299 in one lane (lane/SW-3306). Expected: 1.5 h (Sonnet).\n\nLane notes (15 Nov, acdeffbef): both problems were still present on the current code. The `[a := …]` advice: dropped from an unknown's origin note when the two types clash somewhere no unknown could mend (`Tok` against `Char`). The \"`t` was taken as `X` from the expected type\" note: shown only when the mismatch is about X (X is on the expected side and not the found side, or in the message's \"first differ\" note). reads-chain-unknown-name-last-step: fixed to test only the unknown name (Spec is now `made.length = 3`, proof `rfl`). Snapshots changed: wrong-row and weaken-over-map-implicits lose the t note; match-equation-leaves-solution loses the advice.\n",
+      "body": "With SW-3299. Opus review docs/reviews/SW-3306-error-notes.md: no correct program fails; type clashes gave worse errors -> fixed (undo on a type clash). Day 2: readsLine -14% steps (term changed, migration cost), runsPieces +0.12%. Model result: Sonnet, needed fixes (type-clash undo), ~45 min (est. 90). Filed SW-3330.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
-        "acdeffbef"
+        "acdeffbef",
+        "b05acc566a924ea0a067837c2bfc65e6dd6a3969"
       ]
     },
     {
@@ -36765,6 +36767,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3330,
+      "title": "[Opus] unify_what_agrees: undo a failed nested comparison of two calls of the same definition inside the unifier's step, so a failed comparison's partial solutions never stay (SW-3306 review fix 2; today safe only because the final comparison compares those calls argument by argument)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
