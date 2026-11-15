@@ -38268,15 +38268,17 @@
     {
       "id": 3439,
       "title": "[Sonnet] Spurious W-ARROW-FORALL on every theorem name ∀ (x: T) … (68 on Toy.Fmt.Proofs) (SW-3418 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Now 1,609 warnings on Toy.Fmt.Proofs whenever anything fails (SW-3418 part 7); they bury the errors. Raised priority.\n\nPart 12: W-ARROW-FORALL fires on every binder of every theorem name ∀ (x: T) … header, several lines each, so proof lanes filter check output with awk. Also want: a way to silence one warning code in check.",
+      "body": "Now 1,609 warnings on Toy.Fmt.Proofs whenever anything fails (SW-3418 part 7); they bury the errors. Raised priority.\n\nPart 12: W-ARROW-FORALL fires on every binder of every theorem name ∀ (x: T) … header, several lines each, so proof lanes filter check output with awk. Also want: a way to silence one warning code in check.\n\n\nLane (Sonnet, 15 Nov 2026, 22:05-22:40): commit 30f4df084 on lane/SW-3439. Cause: check_project_namespace skipped the statement-style filter (keep_written_arrows) when the namespace had parse errors, so the recovered header parameters kept their W-ARROW-FORALL candidates (a single file with errors already filtered, driver.rs). Fix: filter in that branch too. Test: examples/projects/reject/parse-error-header-parameters (snapshot fails without the fix with the extra warning). toyfmt now parses clean, so its count is 0 before and after; the 1,600 appear only while a toyfmt file has a syntax error. No check flag silences a warning code (only check: open-goals: in stitchwort.yaml); none added.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "30f4df084"
+      ]
     },
     {
       "id": 3440,
