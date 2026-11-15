@@ -36598,7 +36598,7 @@
     {
       "id": 3319,
       "title": "[DeepSeek] Guide 03-data.md:113 says 'as above' under a record now on one line (after the 14 Nov reformat); reword (SW-3298 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -36606,20 +36606,24 @@
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "2f58ef0606b59311d1751f71f02305d43c4b8367"
+      ]
     },
     {
       "id": 3320,
       "title": "[DeepSeek] Docs citing parser.rs line ranges are stale after T3 (SW-3316): parser-end-state.md §6 table and others; point them at functions or the new modules",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "After SW-3316. DeepSeek replaced parser.rs line citations in 32 docs with function names (new files where moved); bare ':1037'-style shorthand citations remain in parser-end-state.md and parse-recovery.md. Model result: DeepSeek, worked, ~20 min (est. 30, with SW-3319).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "2f58ef0606b59311d1751f71f02305d43c4b8367"
+      ]
     }
   ]
 }
