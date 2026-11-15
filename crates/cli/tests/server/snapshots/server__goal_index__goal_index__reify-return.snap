@@ -80,6 +80,7 @@ expression: json
           "type": "Text"
         }
       ],
+      "lemma": "theorem toResultThenGoal2 (a: Type) (b: Type) (t: () → {Fail} a) (k: a → {Fail} b) (msg: Text): (Err msg: Result b Text) = Err msg := ?",
       "target": "Err msg = Err msg"
     },
     "labels": [

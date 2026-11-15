@@ -1571,7 +1571,7 @@ impl Elaborator {
             lines.push(format!("  computes to {}", cut_computed(&target)));
         }
         let lemma = if known {
-            self.lemma_of(p, &hypotheses, &target).ok()
+            self.lemma_of(p, &hypotheses, &target, &show).ok()
         } else {
             None
         };
@@ -1629,6 +1629,7 @@ impl Elaborator {
         p: &Pending,
         hypotheses: &[Hypothesis],
         target: &str,
+        show: &dyn Fn(&Value) -> String,
     ) -> Result<(&'static str, String), &'static str> {
         let keyword = match p.prop {
             Some(true) => "theorem",
@@ -1661,7 +1662,7 @@ impl Elaborator {
         let levels: Vec<usize> = p.context.iter().map(|e| e.level).collect();
         let mut declarations = Vec::new();
         let mut ctors = Vec::new();
-        let mut writable = |v: &Value, shown: &[usize]| {
+        let mut writable = |v: &Value, shown: &[usize], ascribable: bool| {
             let Ok(term) = quote_shown(g, level, v) else {
                 return false;
             };
@@ -1674,7 +1675,11 @@ impl Elaborator {
                 // An equation's type isn't written, but inferred from a
                 // side: two constructor terms that name no type's parameters
                 // leave it open (`Err msg = Err msg`, `[] = []`).
-                Term::Eq(_, a, b) => !(loose_ctor(g, a) && loose_ctor(g, b)),
+                // The target's own equation is written with an ascription
+                // on its left side (below); a nested one isn't.
+                Term::Eq(_, a, b) => {
+                    !(loose_ctor(g, a) && loose_ctor(g, b)) || (ascribable && binders == 0)
+                }
                 Term::Def(id) if id.0 < g.env.defs().len() => {
                     declarations.push(Declaration::Def(*id));
                     true
@@ -1691,10 +1696,10 @@ impl Elaborator {
                 _ => true,
             })
         };
-        if !writable(&p.expected, &levels) {
+        if !writable(&p.expected, &levels, true) {
             return Err("target mentions a hidden variable");
         }
-        if !(p.context.iter().enumerate()).all(|(k, e)| writable(&e.ty, &levels[..k])) {
+        if !(p.context.iter().enumerate()).all(|(k, e)| writable(&e.ty, &levels[..k], false)) {
             return Err("hypothesis mentions a hidden or later variable");
         }
         // Every declaration it names, it names as the top level of the file
@@ -1742,6 +1747,22 @@ impl Elaborator {
                 ty.to_string()
             }
         };
+        // An equation whose two sides leave its type open can't be pasted
+        // back as `Err msg = Err msg`: the left side says it, `(Err msg: Result b Text) = Err msg`.
+        let ascribed = match force(g, p.expected.clone()) {
+            Ok(Value::Eq(ty, a, b))
+                if (quote_shown(g, level, &a).is_ok_and(|t| loose_ctor(g, &t)))
+                    && (quote_shown(g, level, &b).is_ok_and(|t| loose_ctor(g, &t))) =>
+            {
+                let (ty, a, b) = (show(&ty), show(&a), show(&b));
+                if target != format!("{a} = {b}") || unwritable(&ty) {
+                    return Err("equation with an open type that can't be ascribed");
+                }
+                Some(format!("({a}: {ty}) = {b}"))
+            }
+            _ => None,
+        };
+        let target = ascribed.as_deref().unwrap_or(target);
         let mut rest = String::new();
         for h in hypotheses {
             rest.push_str(&format!(" ({}: {})", h.name, bracketed(&h.ty)));

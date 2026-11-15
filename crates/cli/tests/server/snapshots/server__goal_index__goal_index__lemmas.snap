@@ -2,7 +2,7 @@
 source: crates/cli/tests/server/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-91 lemmas, 33 goals without one
+92 lemmas, 32 goals without one
 
 arm-as-written-computes goal 1: no lemma
 arm-as-written-computes goal 2: theorem stepsGoal2: 0 ≠ 0 ∨ "" = "" := ?
@@ -111,7 +111,7 @@ record-update goal 1: theorem renamedKeepsRefGoal1 (shape: Shape) (newId: Text):
 record-update goal 2: theorem renamedTwiceGoal1 (shape: Shape) (other: Shape) (newId: Text) (newRef: Nat): ({ pick shape other | id = newId, ref = newRef } = { other | ref = newRef, id = newId }) := ?
 record-update goal 3: theorem paidGoal1 (player: Player) (amount: Nat) (same: ({ player | gold = amount } = player)): ({ player | hitPoints = 3, gold = amount } = { player | hitPoints = 3 }) := ?
 reify-return goal 1: no lemma
-reify-return goal 2: no lemma
+reify-return goal 2: theorem toResultThenGoal2 (a: Type) (b: Type) (t: () → {Fail} a) (k: a → {Fail} b) (msg: Text): (Err msg: Result b Text) = Err msg := ?
 reify-return goal 3: no lemma
 sections goal 1: no lemma
 sections goal 2: theorem countBelowGoal1 (xs: List Nat) (n: Nat): xs.count (< n) ≤ xs.length := ?
