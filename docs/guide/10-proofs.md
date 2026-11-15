@@ -337,6 +337,13 @@ def clamp (lo hi x: Nat): Nat :=
 theorem clampBelow ∀ (lo hi x: Nat) (ordered: lo ≤ hi): clamp lo hi x ≤ hi := cases
 ```
 
+Two values made by the same constructor are equal only when their fields are, so from `h: Some x = Some y` `cases` learns `x = y`, and puts `x` in place of `y` in the goal and in the other hypotheses:
+
+<!-- snippet: proofs.sw#cases-constructors -->
+```stitchwort
+theorem someSame ∀ (f: Nat → Nat) (x y: Nat) (h: Some x = Some y): f x = f y := cases
+```
+
 `cases in t` tries the proof `t` in each case first, for the cases that `cases` can't close alone. When a case can't be closed, the error names it by its splits and shows what that case knows:
 
 <!-- snippet: errors/cases.sw -->

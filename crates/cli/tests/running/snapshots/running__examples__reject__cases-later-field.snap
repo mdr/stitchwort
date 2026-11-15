@@ -9,11 +9,11 @@ expression: output
    │   ──┬──  
    │     ╰──── this `cases`
    │ 
-   │ Note 1: h: [x, ..xs] = [y, ..ys]
+   │ Note 1: fact 1 (added by `cases`): x = y
    │ 
-   │ Note 2: %fact1: x = y
+   │ Note 2: fact 2 (added by `cases`): xs = ys
    │ 
-   │ Note 3: %fact2: xs = ys
+   │ Note 3: h: [x, ..xs] = [x, ..xs]
    │ 
    │ Note 4: goal: xs.length = 5
    │ 

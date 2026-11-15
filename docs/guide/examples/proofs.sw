@@ -86,6 +86,10 @@ def clamp (lo hi x: Nat): Nat :=
 theorem clampBelow ∀ (lo hi x: Nat) (ordered: lo ≤ hi): clamp lo hi x ≤ hi := cases
 -- end cases
 
+-- begin cases-constructors
+theorem someSame ∀ (f: Nat → Nat) (x y: Nat) (h: Some x = Some y): f x = f y := cases
+-- end cases-constructors
+
 -- begin spec
 -- The specification: the plain recursive sum.
 def sumTo: Nat → Nat
