@@ -66,7 +66,7 @@ impl Elaborator {
         let (Some(ord), Some(dec_eq)) = (interfaces::ord(self), interfaces::dec_eq(self)) else {
             return Ok(());
         };
-        if self.unit.loading_prelude || generated || self.declares_instance_of(ord) {
+        if generated || self.declares_instance_of(ord) {
             return Ok(());
         }
         // `Ord`'s `eq` is `T`'s `DecEq` instance, found when the instance is

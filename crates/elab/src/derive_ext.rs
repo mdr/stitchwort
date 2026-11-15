@@ -45,6 +45,8 @@ impl Elaborator {
     /// it can be generated and the module doesn't declare one.
     pub(crate) fn derive_record_ext(&mut self, d: DataId) -> Result<()> {
         let data = self.kernel.data(d);
+        // The lazy-loading index lists a library file's names from its source,
+        // so a generated `T.ext` would be a name it doesn't promise.
         if self.unit.loading_prelude
             || data.sort() == Sort::Prop
             || data.group().len() > 1

@@ -37306,12 +37306,12 @@
     {
       "id": 3369,
       "title": "[Sonnet] Derived equality stage 1 (derived-equality.md): std types outside the core derive ==, <, ${…}; delete Files' and Key's hand-written instances and their public plumbing; confirm the lazy-loading index and check cache find derived std instances",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Expected: 2 h (Sonnet).",
+      "body": "Expected: 2 h (Sonnet).\n\nNotes (Sonnet lane, 15 Nov 2026): lifted the loading_prelude skip in derive.rs, derive_ord.rs, derive_show.rs, derive_finite.rs (derive_ext.rs keeps it: the lazy index lists names from source, so a generated `T.ext` would be an unpromised name). Deleted Files' and Key's hand DecEq plus plumbing (FileKind.position/ofPosition/fromPosition, FileError.parts/ofParts/fromParts, Key.position/charOrSpace/ofParts/..., Entry.ext, FileInfo.ext, Disk.ext), and Path.instDecEq/instOrd, Disk.instDecEq; Path.ext stays. Docs moved into the types' doc comments. New example examples/accept/derived-std-instances.sw (Terminal.Size ==, <, ${}, Key, FileError, Path order, Disk). Prelude snapshot: 24 hand-written names removed, 26 rehashed (Disk, Files.simulate*, ...), ~750 added. Std check (--no-cache, 81 files): 15.5 s before, 16-18 s after (load 9, noisy). Tests: hash_stability|pinned, examples files/key/io/derived-std, running files::, guide:: all pass.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
