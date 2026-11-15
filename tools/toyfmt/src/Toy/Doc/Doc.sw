@@ -60,6 +60,14 @@ def Doc.concat (docs: List Doc): Doc := match docs.filter (doc => not doc.isEmpt
   | [only] => only
   | several => Concat several
 
+--| The docs with `separator` between each two.
+def joined (docs: List Doc) (separator: Doc): Doc := Doc.concat (Doc.joinedWith separator docs)
+
+def Doc.joinedWith (separator: Doc): (docs: List Doc) → List Doc
+  | [] => []
+  | [only] => [only]
+  | [doc, ..docs] => [doc, separator, ..Doc.joinedWith separator docs]
+
 def Doc.isEmpty: Doc → Bool := matches | Empty
 
 --| Whether printing this always breaks a line, so a group around it can't
