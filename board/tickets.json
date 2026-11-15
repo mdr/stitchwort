@@ -1,5 +1,5 @@
 {
-  "next": 3356,
+  "next": 3358,
   "tickets": [
     {
       "id": 47,
@@ -36895,7 +36895,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "D3587 yes (Matt, 15 Nov 2026): \"Yes, we should start fast text and Files.\" Expected: 5.5 h (Opus).",
+      "body": "Opus review docs/reviews/SW-3337-fast-text.md: merge after fixes 2 (Text.repeat never truncates), 4 (native_abi offsets), 5 (docs/lemma). Fix 1 (text_of in SW-3338's lines) done by SW-3338 when it merges main after this. Filed SW-3356 SW-3357.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37129,6 +37129,32 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3356,
+      "title": "[Sonnet] Texts over 2^32-1 characters (IO.readAll, Files.read, ++, concat, join) give a clean resource error checked before allocating, not an internal-error panic (SW-3337 review 3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3357,
+      "title": "[Sonnet] After fast text: check bench:aoc allocation counts (two allocations per text now), consider one allocation after T2; contains without converting to UTF-8; trim spare capacity of read text (SW-3337 review 6)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
