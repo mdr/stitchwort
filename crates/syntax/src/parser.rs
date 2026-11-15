@@ -925,6 +925,10 @@ struct Parser<'t> {
     /// Where each error in [`Self::errors`] was recovered from, and how: a
     /// declaration with any is failed ([`crate::tree::Node::recoveries`]).
     recovered: Vec<Recovery>,
+    /// The token position of the last R1 gap ([`Self::ran_out`]): a
+    /// bracket whose contents ran out there and has read nothing since was
+    /// left open ([`Self::close_bracket`]).
+    ran_out_at: Option<usize>,
 }
 
 const NO_PARTNER: u32 = u32::MAX;
@@ -1029,6 +1033,7 @@ impl<'t> Parser<'t> {
             marks: Vec::new(),
             errors: Vec::new(),
             recovered: Vec::new(),
+            ran_out_at: None,
         }
     }
 
@@ -1234,7 +1239,19 @@ impl<'t> Parser<'t> {
         }
         self.modes.guard_start.is_some_and(|start| {
             self.tokens.get(i).is_some_and(|t| t.tok == Tok::FatArrow)
-                && self.bracket_depth(start, i) <= 0
+                && (self.bracket_depth(start, i) <= 0 || self.left_open_between(start, i))
+        })
+    }
+
+    /// Whether a bracket opened in `start..i` has no partner anywhere in the
+    /// declaration: someone left it open, so a guard's `=>` after it still
+    /// ends the guard rather than being read inside the bracket.
+    fn left_open_between(&self, start: usize, i: usize) -> bool {
+        (start..i).any(|k| {
+            matches!(
+                self.tokens[k].tok,
+                Tok::LParen | Tok::LBracket | Tok::LBrace
+            ) && self.matching[k] == NO_PARTNER
         })
     }
 
@@ -1574,9 +1591,7 @@ impl<'t> Parser<'t> {
         if self.peek() == Some(&Tok::Colon) {
             return Err(self.tuple_annotation().into());
         }
-        self.expect(Tok::RParen, "`)`")?;
-        self.node(start, NodeKind::Tuple);
-        Ok(())
+        self.close_bracket(start, Tok::RParen, "`)`", NodeKind::Tuple)
     }
 
     /// The same for patterns.
@@ -1700,6 +1715,24 @@ impl<'t> Parser<'t> {
             None => self.unexpected(expected),
         };
         self.report(RecoveryPoint::RanOut, error);
+        self.ran_out_at = Some(self.pos);
+        Ok(())
+    }
+
+    /// Ends the bracketed construct of kind `kind` that started at token
+    /// `start`, whose closer `tok` is next. A closer that isn't there
+    /// because the contents ran out at an R1 gap (nothing read since) is no
+    /// second error: the gap is the one error, and the unclosed bracket is
+    /// an `Error` node, not a `kind` node, so that a declaration holding it
+    /// is failed and nothing is checked against a bracket that was never
+    /// closed (SW-3289).
+    fn close_bracket(&mut self, start: u32, tok: Tok, what: &str, kind: NodeKind) -> Result<()> {
+        if self.peek() != Some(&tok) && self.modes.recover && self.ran_out_at == Some(self.pos) {
+            self.node(start, NodeKind::Error);
+            return Ok(());
+        }
+        self.expect(tok, what)?;
+        self.node(start, kind);
         Ok(())
     }
 
@@ -5012,8 +5045,7 @@ impl<'t> Parser<'t> {
                 }
             }
         }
-        self.expect(Tok::RBracket, "`,` or `]`")?;
-        self.node(start, NodeKind::List);
+        self.close_bracket(start, Tok::RBracket, "`,` or `]`", NodeKind::List)?;
         Ok(spread)
     }
 
@@ -5235,8 +5267,7 @@ impl<'t> Parser<'t> {
                     self.node(start, NodeKind::Annotation);
                     return Ok(());
                 }
-                self.expect(Tok::RParen, "`)`")?;
-                self.node(start, NodeKind::Paren);
+                self.close_bracket(start, Tok::RParen, "`)`", NodeKind::Paren)?;
             }
             Some(Tok::LBracket)
                 if matches!(self.peek_at(1), Some(Tok::Lower(_) | Tok::KwDecreasing))
@@ -7502,6 +7533,34 @@ mod tests {
             let step = (after + text[after..].find('_').unwrap()) as u32;
             let at = errors[0].primary_span().unwrap();
             assert_eq!((at.start, at.end), (step, step + 1), "{text:?}");
+        }
+    }
+
+    /// A bracket left open at the end of a line, with another line at the
+    /// block's column or a guard's `=>` after it, is one error at the gap,
+    /// not a second one for the closer missing at the token that stopped
+    /// it: the call's `(` with a `let` after it, and a guard's `[` with the
+    /// arm's `=>` on the next line (SW-3289).
+    #[test]
+    fn a_bracket_left_open_at_a_line_end_is_one_error() {
+        let call = "def f (x: Nat): Nat :=\n  g (\n  let y := 1\n  y\n";
+        let guard =
+            "def h (x: List Nat): Nat := match x with\n  | a if a == [\n    => 1\n  | _ => 2\n";
+        let call_gap = call.find("(\n").unwrap() + 1;
+        let arrow = guard.find("=>").unwrap();
+        for (text, at) in [
+            (call, (call_gap, call_gap)),
+            (guard, (arrow, arrow + "=>".len())),
+        ] {
+            let (_, errors, points) = recovered(text);
+            assert_eq!(errors.len(), 1, "{text:?}: {errors:?}");
+            assert_eq!(points, [vec![RecoveryPoint::RanOut]], "{text:?}");
+            let span = errors[0].primary_span().unwrap();
+            assert_eq!(
+                (span.start, span.end),
+                (at.0 as u32, at.1 as u32),
+                "{text:?}"
+            );
         }
     }
 

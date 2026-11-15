@@ -1322,6 +1322,35 @@ def f (n: Nat): Nat :=
         );
     }
 
+    /// A bracket left open at a line end is an `Error` node, not a `Paren`
+    /// or a `List`, and the rest of the declaration still parses: the block's
+    /// next statement, the match's next arm (SW-3289).
+    #[test]
+    fn a_bracket_left_open_stays_an_error_node() {
+        let text = "def f (x: Nat): Nat :=\n  g (\n  let y := 1\n  y\n";
+        let parsed = tree(text);
+        let stats = parsed.check_round_trip(text).unwrap();
+        assert_eq!((stats.errors, stats.misnested), (0, 0), "{stats:?}");
+        let root = parsed.decls().next().unwrap();
+        let shape = compact(root, text);
+        assert!(shape.contains("App[g Error[(]]"), "{shape}");
+        assert!(shape.contains("Let["), "{shape}");
+
+        let text =
+            "def h (x: List Nat): Nat := match x with\n  | a if a == [\n    => 1\n  | _ => 2\n";
+        let parsed = tree(text);
+        let stats = parsed.check_round_trip(text).unwrap();
+        assert_eq!((stats.errors, stats.misnested), (0, 0), "{stats:?}");
+        let shape = compact(parsed.decls().next().unwrap(), text);
+        assert!(shape.contains("Guard["), "{shape}");
+        assert!(shape.contains("Error[["), "{shape}");
+        assert_eq!(
+            shape.matches("Alt").count() + shape.matches("Arm[").count(),
+            2,
+            "{shape}"
+        );
+    }
+
     /// An arm that breaks after one that parsed: the arms are an `Error`
     /// node from the first `|`, and the arm that finished nests in it.
     #[test]

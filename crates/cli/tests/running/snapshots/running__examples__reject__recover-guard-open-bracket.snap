@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected an expression, but found `=>`
+   ╭─[ reject/recover-guard-open-bracket.sw:7:5 ]
+   │
+ 7 │     => 1
+   │     ─┬  
+   │      ╰── expected an expression, but found `=>`
+   │ 
+   │ Note: to pass a lambda as an argument, put it in brackets: `List.map xs (x => …)`
+───╯
