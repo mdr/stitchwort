@@ -36714,12 +36714,12 @@
     {
       "id": 3325,
       "title": "[Sonnet] Arm-as-written display gaps (SW-3317 review): holes under a lambda or inside an application show the arm's context against one case's goal with no note; indexed-family splits not recorded; or-pattern arms show only the first alternative",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Lane notes (Sonnet, ~25 min, est. 120): holes under a lambda show the arm's goal after the lambda's arguments (Pi peeled by position, argument types too); a hole whose goal isn't the arm's keeps the leaf's context and gets the 'last of them' note; or-pattern alternatives count as one arm (cases keyed by right-hand side, not span); family splits recorded with the indices they solved. New example goals/arm-as-written-gaps.sw; no existing snapshot changed. Display only.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
