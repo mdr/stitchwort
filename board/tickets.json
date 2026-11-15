@@ -36346,7 +36346,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Overmind job 3 (15 Nov), bench part: parent of SW-3281's merge (db0538f5f) vs e41f08839. Checker steps +0.9% (~+11.2k on ~1.25M) on the 7 check-closed-* rows, all others identical; run-machine instructions within ±0.1%; peak heap equal. Under the 5% bar; likely the extra std (Parse) each closed check loads. Wall-time part pending (~07:00).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
