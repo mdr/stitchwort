@@ -122,9 +122,19 @@ def Expr.endsWithComment: Expr → Bool
   | _ => False
 
 def Body.endsWithComment: Body → Bool
-  | { statements = [{ line = Bare _ (Some _), .. }] } => True
-  | { statements = [{ line = Bare value None, .. }] } => value.endsWithComment
-  | _ => False
+  | { statements } => statementsEndWithComment statements
+
+--| Whether the last of the statements ends in a trailing comment.
+def statementsEndWithComment: List (Spaced Statement) → Bool
+  | [] => False
+  | [{ line, .. }] => line.endsWithComment
+  | [_, ..rest] => statementsEndWithComment rest
+
+def Statement.endsWithComment: Statement → Bool
+  | Bare _ (Some _) => True
+  | Bare value None => value.endsWithComment
+  | Let _ body => body.endsWithComment
+  | StatementNote _ => False
 
 --| `closer` (a `,` or closing bracket) after `expr`: on the line below if
 --| `expr` ends in a trailing comment, which would otherwise end up after the
