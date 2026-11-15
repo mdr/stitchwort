@@ -36499,12 +36499,12 @@
     {
       "id": 3312,
       "title": "[Sonnet] SW-3295's 'this text pattern made it a Text' label is per declaration: any Text-vs-other mismatch in a definition with a fallback pattern gets it, even an unrelated one; track it by the metavariable the pattern solved",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Follow-up to SW-3295. Expected: 1 h (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
