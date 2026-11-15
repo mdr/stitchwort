@@ -1,5 +1,5 @@
 {
-  "next": 3437,
+  "next": 3439,
   "tickets": [
     {
       "id": 47,
@@ -38116,14 +38116,14 @@
     {
       "id": 3429,
       "title": "[Sonnet] Re-run the repros the friction bundles left (SW-954 to SW-999) and record which still fail (SW-2015)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "aoc"
       ],
       "epic": "aoc-older",
-      "body": "From the triage of the day-findings bundles (SW-2015). Several items are probably fixed by postponement, goal-as-written and search work but nothing says so. Run each repro by name (no suites), one command at a time, and for each write fixed or still failing here. Still-failing ones get their own small ticket. Items: (1) search --at after a constructor match, context order (SW-969 item 1; aoc/NOTES-2021.md:3186); (2) P.ext _ _ cases cases (SW-969 item 2); (3) lambda before a later argument fixes its type (SW-963 item 2, SW-971 item 1; docs/proposals/postponement.md:3319-3327 has the cases); (4) cases on x ≤ 8 runs out of cases, and a _ arm gives omega no bound (SW-954 item 1; likely SW-1550, SW-3335); (5) bitsOf checking doubles per bit (SW-976 item 1, 8-line repro in NOTES-2021 Day 16); (6) negative literal in a Nat-looking list (SW-978 item 4, postponement.md:3108); (7) the pair.fst same-type message (SW-809 item 3); (8) cases reports a phantom match for adjacent … = True (SW-960 item 2); (9) rewrite with a function equation shows a hidden difference (SW-973 item 4); (10) search '(?b: Bool) ≠ True → ?b = False' and 'List.find _ _ = None → _' patterns (SW-967 item 7, SW-969 item 4); (11) an unsolved hole shows only in an omega goal (SW-971 item 1).",
+      "body": "From the triage of the day-findings bundles (SW-2015). Several items are probably fixed by postponement, goal-as-written and search work but nothing says so. Run each repro by name (no suites), one command at a time, and for each write fixed or still failing here. Still-failing ones get their own small ticket. Items: (1) search --at after a constructor match, context order (SW-969 item 1; aoc/NOTES-2021.md:3186); (2) P.ext _ _ cases cases (SW-969 item 2); (3) lambda before a later argument fixes its type (SW-963 item 2, SW-971 item 1; docs/proposals/postponement.md:3319-3327 has the cases); (4) cases on x ≤ 8 runs out of cases, and a _ arm gives omega no bound (SW-954 item 1; likely SW-1550, SW-3335); (5) bitsOf checking doubles per bit (SW-976 item 1, 8-line repro in NOTES-2021 Day 16); (6) negative literal in a Nat-looking list (SW-978 item 4, postponement.md:3108); (7) the pair.fst same-type message (SW-809 item 3); (8) cases reports a phantom match for adjacent … = True (SW-960 item 2); (9) rewrite with a function equation shows a hidden difference (SW-973 item 4); (10) search '(?b: Bool) ≠ True → ?b = False' and 'List.find _ _ = None → _' patterns (SW-967 item 7, SW-969 item 4); (11) an unsolved hole shows only in an omega goal (SW-971 item 1).\n\n\nResults (Sonnet lane, 15 Nov 2026, main's release binary; repros in /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw3429):\n1. search --at after a constructor match: FIXED (item1.sw; goal lists line before h; search --at lists closers, 19 s cold).\n2. P.ext _ _ cases cases: FIXED (item2.sw checks, 1.1 s).\n3. lambda before a later argument: MOSTLY FIXED. rflUnderHole, omega-before-later (both shapes) check. Still failing: lambdaFirst in a let (E-OMEGA, rule 2 missing): SW-3437. congruence-holes.sw viaRewrite/viaTrans still fail (postponement case 6; SW-1009 covers).\n4. cases on x ≤ 8 / wildcard arm and omega: STILL FAILING (E-CASES-BUDGET; omega can't see catch-all facts): SW-3438.\n5. bitsOf checking: FIXED (15 and 19 bits both 0.28 s with --no-cache).\n6. negative literal in a Nat-looking list: FIXED (literal-tuples checks).\n7. pair.fst same-type message: CAN'T REPRODUCE (item7.sw: the day-23 call checks as body, in a let and in a match arm; no failing state to read the message from).\n8. cases phantom E-MATCH-MOTIVE for adjacent … = True: FIXED (item8.sw checks).\n9. rewrite with a function equation: FIXED (item9.sw; and in a scratch copy of Day 15 Answers.sw, `rewrite same in found` and `rewrite <- sameTarget in found` check).\n10. search patterns: FIXED. '(?b: Bool) ≠ True → ?b = False' lists Bool.falseOfNotTrue first; 'List.find _ _ = None → _' finds List.findNoneNotMem, but at rank 24 of 28 ('premise' matches rank below 'whole'), outside the default 10.\n11. unsolved hole shows only in an omega goal: FIXED for the cases tried (omega-before-later checks; the lambdaFirst failure now names the unknowns: \"the goal still has unknowns the compiler hasn't worked out\"; the remaining failure is SW-3437).\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -38223,6 +38223,36 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3437,
+      "title": "[Opus] A proof search inside a lambda still runs before a later argument fixes its type (postponement rule 2): lambdaFirst in a let fails E-OMEGA (SW-963 item 2; SW-3429)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elaborator"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From the SW-3429 retest (main binary, 15 Nov 2026). Postponement stage 7's rule 1 (proof searches last) landed and fixes `rflUnderHole` and both SW-971 shapes (omega-before-later.sw checks). Rule 2 (docs/proposals/postponement.md:3319-3327, case 4: a failed `rewrite`/`cases`/`omega` inside a lambda waits on any unsolved unknown) is still missing.\n\nRepro: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw3429/item3-lambda-before-later.sw (docs/proposals/postponement/stage7/lambda-before-later.sw with `Option.someInjective found` updated for the implicit-argument signature). The failing part:\n\n```stitchwort\nimport Std (Eq, List, Nat, Option, Void)\n\ndef next (n: Nat): Option Nat := Some (n + 1)\n\ntheorem eachStep ∀ (f: Nat → Option Nat)\n    (each: (x: Nat) → (y: Nat) → f x = Some y → x < y) (xs: List Nat)\n    (ran: List.map xs f = List.map xs next) (x y: Nat)\n    (h: f x = Some y):\n    x < y :=\n  each x y h\n\ndef lambdaFirst (xs: List Nat) (x y: Nat) (h: next x = Some y): Nat :=\n  let fact := eachStep _ (a b found => rewrite <- Option.someInjective found in omega) xs rfl x y h\n  0\n```\n\n`nice -n 19 target/release/stitchwort check FILE` gives `E-OMEGA: omega needs to know the goal ... the goal still has unknowns the compiler hasn't worked out` at the `omega`. Expected: it checks (as it does as a theorem's body, where the after-expected path retries): the lambda's proof search should wait for `_` (`f`), which `rfl` for `ran` fixes later.\n\nFix direction: rule 2 of the stage 7 design: a failed search (`rewrite`, `cases`, `omega`, `ring`) waits on any unsolved unknown, not only the queue's. Opus (elaborator).\n",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3438,
+      "title": "[Opus] cases can't close 'x ≤ 8, so x is one of 0..8' (E-CASES-BUDGET), and a catch-all arm gives omega no bound (SW-954 item 1; SW-3429)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "epic": "proof-automation",
+      "body": "From the SW-3429 retest (main binary, 15 Nov 2026). Both halves of SW-954 item 1 still fail; day 6's `oneTimer` still uses `Succ (Succ (… above))` (aoc/src/Aoc/Year2021/Day06/Proofs/Proofs.sw:97-117). SW-1550 and SW-3335 fixed neighbouring things (Int comparisons as atoms; catch-all facts for `byDecision`/`auto`).\n\nRepro: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw3429/item4.sw\n\n```stitchwort\nimport Std (Bool, Nat)\n\ntheorem oneTimerCases ∀ (x: Nat) (bounded: x ≤ 8):\n    Bool.toNat (x == 0) + Bool.toNat (x == 1) + Bool.toNat (x == 2) + Bool.toNat (x == 3)\n      + Bool.toNat (x == 4) + Bool.toNat (x == 5) + Bool.toNat (x == 6) + Bool.toNat (x == 7)\n      + Bool.toNat (x == 8) = 1 :=\n  cases\n\ntheorem oneTimerWild ∀ (x: Nat) (bounded: x ≤ 8):\n    Bool.toNat (x == 0) + Bool.toNat (x == 1) + Bool.toNat (x == 2) + Bool.toNat (x == 3)\n      + Bool.toNat (x == 4) + Bool.toNat (x == 5) + Bool.toNat (x == 6) + Bool.toNat (x == 7)\n      + Bool.toNat (x == 8) = 1 :=\n  match x with\n    | 0 => rfl\n    | 1 => rfl\n    | 2 => rfl\n    | 3 => rfl\n    | 4 => rfl\n    | 5 => rfl\n    | 6 => rfl\n    | 7 => rfl\n    | 8 => rfl\n    | _ => omega\n```\n\n- `oneTimerCases`: `E-CASES-BUDGET`, \"it split on 9: `(x.decEq 0).holds`, `x.equal 1`, …\"; the first open case has `x.equal 3 = True, x.equal 4 = True, …` together (two `Yes` splits that exclude each other). Fix: after a `Yes` split of `x.decEq k` substitute `x = k`, so the later splits compute (or give `cases` the congruence step of SW-904).\n- `oneTimerWild`: `E-OMEGA`, \"facts: `x ≤ 8` (bounded)\", model `x = 0`. The `_` arm's `x ≠ 0 … x ≠ 8` marks (SW-3335) aren't visible to `omega`, as docs/syntax.md says (\"the facts aren't hypotheses with names\"). A smaller repro: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw3429/item4c.sw (`wildOmega` fails; `wildLet`, which adds `let n0: x ≠ 0 := byDecision` per literal, checks). Fix: have `omega` read the arm's catch-all marks as facts (`x ≠ k`), so the wildcard needs no `Succ`×9 pattern or `byDecision` lets.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
