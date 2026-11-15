@@ -36360,12 +36360,12 @@
     {
       "id": 3302,
       "title": "[Sonnet] Std.Parse internals write the character literal record inline 62 times ({ items = X, same = Text.sameChar }); a std-internal helper would tidy it (if it would be public, its name is Matt's) (SW-3282 finding)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Found in SW-3282. Expected: 1 h (Sonnet).",
+      "body": "Found in SW-3282. Stopped (Sonnet, 5 min): std has no private marker ('There is no private', guide 06), so a helper would be a public std name (Parse.charLiteral?), Matt's call. Low value; parked until there's a reason to bring it, or a private marker.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
