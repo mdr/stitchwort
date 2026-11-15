@@ -36657,12 +36657,12 @@
     {
       "id": 3322,
       "title": "[Sonnet] Goal-at-point panics (MetaStore::solution out of bounds) after an undone speculative attempt: undo::Snapshot doesn't restore the probe's pending context (SW-3311 review S1 part 2, probe w2.sw in scratchpad/sw3311-review); the language server catches it but shows no answer",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "From the SW-3311 review (S1 part 2). Expected: 45 min (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36724,12 +36724,12 @@
     {
       "id": 3327,
       "title": "[Sonnet] The native-code backend calls prims::eval without charging steps, so a huge Text.repeat or Array.replicate count can hit a Rust capacity-overflow panic there (the machine charges first) (SW-3273 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "",
+      "body": "Found in SW-3273. Expected: 1 h (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
