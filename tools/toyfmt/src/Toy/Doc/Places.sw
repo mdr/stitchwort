@@ -1127,3 +1127,8 @@ theorem printLaysExample ∀ (width: Nat):
     (Concat [Chunk "f" 1, Nest 2 (Concat [HardLine, Chunk "x" 1])])
     width
     (Both rfl (Both rfl rfl))
+
+--| `putMid`'s and `putSpaces`' hypothesis can be met: after `f` at the
+--| start, the printer is in the middle of an unindented line.
+theorem midExample: Agrees ((Printer.start 80).put "f" 1) (Mid 0) [{ word = "f", start = Some 0 }] :=
+  putStart (Printer.start 80) "f" 1 0 [] (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl rfl)))))) rfl

@@ -23,6 +23,7 @@ by stage. Compiler built from `main` at e2b1cb075, 15 November 2026.
 | `Toy.Doc.Proofs`, `Toy.Fmt.Proofs` | `Doc/Words.sw`, `Doc/Columns.sw`, `Fmt/WordProofs.sw` | SW-3418 part 5: every reading writes the document's words in order; the rules' document has the file's tokens and comments; the printer's column is the text's |
 | `Toy.Fmt.Proofs` | `Fmt/TextProofs.sw`, `Fmt/JoinProofs.sw`, `Fmt/RuleJoinProofs.sw` | SW-3418 part 7: the lexer's texts as predicates; every rule joins; a file with the lexer's texts, printed at any width, lexes to its pieces (`printedLexes`) |
 | `Toy.Fmt.Proofs` | `Fmt/LexTextProofs.sw`, `Fmt/StringProofs.sw`, `Fmt/ParsedProofs.sw` | SW-3418 parts 8 and 9: the lexer's tokens have the lexer's texts; the parser copies them into the tree (`parseLexical`); a parsed file, printed at any width, lexes to its pieces (`parsedPrintLexes`) |
+| `Toy.Doc.Proofs`, `Toy.Fmt.Proofs`, `Toy.Fmt.Tests` | `Doc/Places.sw`, `Fmt/PlaceProofs.sw`, `Fmt/Tests/Places.sw` | SW-3418 part 10: the printed tokens from the pieces alone, each with its line start and column (`placed`, `parsedPrintTokens`); every word of a print is where its document lays it (`Lays`, `printLays`); a runnable probe of `Lays` over the goldens |
 | `Toy.Timing` | `Timing/Timing.sw` | A generated file printed, then lexed, parsed or formatted, for timings |
 
 Stage C adds the `{Files}` driver and `main`, calling `Toy.Fmt.format
@@ -1879,6 +1880,158 @@ read-back; (2) spelling the tree, the rest of D and the glue.
 53. **The release binary reads std from the checkout**, so `task build`
     did nothing after a new std file and the checks saw it anyway;
     worth a line in the workflow notes.
+
+### Part 10 (Fable, 15 Nov 2026): where the printed tokens are (layer B done), and the engine's half of positions
+
+A 25-minute lane on positions. Layer B is finished: the tokens the
+printed text lexes to are a function of the printed pieces alone, each
+with its `startsLine` and `column` (`parsedPrintTokens`). The engine's
+half of "where each word is" is proved too (`printLays`), with a probe
+that the rules' documents meet it. The rules' half (that a file's layout
+lays its words where the parser's layout rule wants them) is designed
+below and not started, so nothing yet says a printed statement's first
+token is at its block's column, and there is no `formatDirect`.
+
+**Proved** (no open goals, no axioms; `audit Toy`: 891 theorems, 0 failed, 16 warnings: the 14 of part 9, and `putMid` and `putSpaces`, where the search finds no printer in the middle of a line; `midExample` is one):
+
+- `Fmt/PlaceProofs.sw` (27 theorems, new file), layer B's last part.
+  - `placed out`: the tokens of the pieces `out` (the last first), with
+    no source: a piece of spaces is nothing, a line break puts a blank
+    line waiting if its line was blank, a comment waits for the next
+    token if alone on its line and goes on the newest token otherwise,
+    and any other word is a token of the kind its text spells
+    (`lexemeKind (lexemeOf piece) piece`), with `startsLine = lineBlank
+    earlier` (only spaces before it on its line) and `column =
+    lineWidth earlier` (part 5's width of the line so far, the printer's
+    own column by `readingTracks`), `offset` the characters before it.
+  - **`piecesTokens`**: for a source that is proper pieces joined,
+    `assemble source (locatedSteps 0 (stepsOnto out []))` is `placed
+    out`'s tokens and end trivia. On the way: `assembleLaid` (reading
+    neighbouring pieces of spaces as one lexeme changes nothing:
+    `gapFold`, `addPieceFold`, `ontoFold`), `addPlaced` (one piece:
+    `Assembly.add` is `placePiece`, the line is then blank and as wide
+    as `lineBlank` and `lineWidth` say), `laidPlaced` (the fold, with
+    `lineStart + lineWidth out = charsLength out`), `charsOntoSplit`,
+    `codeToken`.
+  - **`joinedPlaced`**, **`printedTokens`**, **`parsedPrintTokens`**:
+    `parse source = Ok file` gives, at every width, `(file.print
+    width).text = pieces.joinWith ""`, `wordsOf pieces = wordsOf
+    file.pieces` and `lex` of the text `= Ok` with `tokens = (placed
+    pieces.reverse).tokens.reverse`, where `pieces` is `printedPieces
+    file.layout width`, the pieces `print` joins, named so that other
+    theorems speak of the same ones.
+  - The token each class of word is placed as: `namePlaced` (`IsName
+    text` gives a `Name text` token), `digitsPlaced`, `stringPlaced`,
+    `keywordPlaced`, `signPlaced`, `operatorPlaced` (as `codePlaced`,
+    the one shape of a code token), `ownLinePlaced`, `trailingPlaced`,
+    `wordPlaced` (a piece that isn't layout goes through `placeWord`).
+    `placedExample` computes three tokens' line starts and columns.
+- `Doc/Places.sw` (62 theorems, new file), positions, engine half.
+  - `eventsOf out`: the words of the output in order, each with `start =
+    Some column` if only spaces come before it on its line, else `None`:
+    exactly the `startsLine` and `column` `placed` gives a token.
+  - `Lays doc indent place trace next`, in continuation style as
+    `Joins`: from `place` (`AtStart indent`: nothing on the line, the
+    next word starts it at that column; `Mid indent`: words on a line
+    indented so; `Held indent`: also a trailing comment waiting) with
+    `trace` printed, every way `doc` may print appends each word to the
+    trace with where it starts its line, and hands every place it may
+    leave to `next`. A word after a waiting comment starts a line at
+    `max indent (line + 2)` (the comment break); `CommentEnd` goes back
+    to the line's indentation; `OneLineBelow` is a line two deeper.
+  - **`printLays`**: `Lays doc 0 (AtStart 0) [] spec` gives, at every
+    width, `spec place (eventsOf (printedPieces doc width).reverse)` for
+    some place: whatever the document says of its whole trace holds of
+    the printed pieces. **`readingLays`** is the same of every reading
+    with the steps to finish. On the way: `Agrees` (the printer is at a
+    place and trace: line blank, indentation owed, line indent, the
+    waiting comment already in the trace), one lemma per printer
+    operation (`putStart`, `putMid`, `putSpaces`, `newlineAgrees`,
+    `writeStays`, `sepSpace`, `lineStartStays`, `hereAgrees`,
+    `blankStays`, `suffixStays`, `flushAgrees`), `stepLays` (26 arms),
+    `laysWeaker` and the work-list lemmas, as in `Joins.sw`.
+    `printLaysExample`: `f`, then `x` on its own line two in, has the
+    trace `f` at `Some 0`, `x` at `Some 2`, at every width.
+  - `Doc/Joins.sw`: **`printedJoins`**, `printJoins` of `printedPieces`.
+- `Fmt/Tests/Places.sw` (4 tests): `reach`, `Lays` as a set of places
+  without the trace, so that it runs. Every golden's and every comment
+  probe's layout lays, whichever way groups, fills and choices go: the
+  rules never reach a case `Lays` refuses.
+
+**`Lays` refuses** (is `False` at) four things, none of which the rules
+do on the goldens or probes: a chunk of spaces at a line start (the next
+word would start its line one column on); a `Line` or fill separator at
+a line start (a space there, or a blank line the tree doesn't have); a
+trailing comment at a line start (it would lex as an own-line comment);
+a second trailing comment while one waits (as `Joins`). Like `Joins` it
+doesn't follow modes: a `Line` may be a space or a break anywhere.
+
+**Checked against a broken program:** with `newline` owing one column
+more than it was asked, `newlineAgrees` fails (with part 6's
+`newlineSound`). No program changed in this part.
+
+**What is left of E: the rules' half, as one induction.** With
+`printLays` and `parsedPrintTokens` about the same pieces, spelling the
+tree is a statement about `Lays file.layout 0 (AtStart 0) [] spec`:
+
+1. Per rule, a lemma in `Lays`' own continuation style, as the `Joins`
+   lemmas of part 7: for an expression in a statement at column `C`,
+   printed in a construct indented `indent ≥ C` from a place whose line
+   is indented at least `C`, `(∀ place events => Events C expr events →
+   C ≤ place.indent → next place (trace ++ events)) → Lays expr.layout
+   indent place trace next`. `Events` is the tree's words in order with
+   what the parser's layout rule needs of each start: `None` or `Some
+   deeper` for a token of the statement (`Layout.allows`), `Some C` also
+   for `else`, anything inside brackets, the first token of each
+   statement of a block at `Some B` for one `B > C`. This is layer C's
+   scan (`LayoutProofs.sw`) said of positions; the scan itself isn't
+   used. About 45 lemmas (one per rule, as `RuleJoinProofs.sw`).
+2. A relation between `placed`'s tokens and events (same words, a code
+   word's token has `startsLine` iff `start` is `Some`, and then that
+   column; comments on the tokens the tree has them on), from
+   `namePlaced` and the others, by induction over the pieces. About 15.
+3. `Spelled`, `SpelledBody`, `SpelledLines` of the tokens from 1 and 2,
+   then part 4's `runs…Spelled`. About 25. Blank lines (`blankBefore`
+   against the `"\n"` pieces `Printer.blank` writes) aren't in the
+   trace; they need `Blank` counted in `Lays` or a lemma of their own.
+
+| Layer | Left | Lemmas |
+|---|---|---|
+| A, engine | nothing | 0 |
+| B, lexing | nothing | 0 |
+| E, rules to tokens | the rules' half of positions (45), tokens against events (15), spelling the tree with blank lines (25-35) | 85-95 |
+| WF | nothing | 0 |
+| D, parser | `if` with a block branch; the file from its spelling | 30-40 |
+| Glue | `formatDirect`, round trip, idempotence | 10 |
+
+Two lanes at this pace [estimated; this lane proved 90 theorems in
+about 25 minutes of the clock]: (1) the rules' half and tokens against
+events; (2) spelling, the rest of D and the glue.
+
+**Friction** (beyond parts 1 to 9):
+
+54. **A `match` with a `let`-bound proof as a second scrutinee is
+    refused** (`E-MATCH-MOTIVE`, "the type of one scrutinee mentions
+    another"), where the same proof as a theorem's parameter is
+    accepted: `match waiting: printer.suffixes.isEmpty, known with`
+    worked only after `known` became a parameter of a helper lemma
+    (`writeStart`, `writeMid`, `writeHeld`).
+55. **`rewrite` after an earlier rule finds terms only as the goal then
+    computes**: after `widthPiece`, `(" ".repeat (Succ less)).length`
+    had become `(List.replicate less [' ']).concat.length + … + 1` and
+    `indentLength` no longer matched. Proving the equation apart with
+    `omega` over `let`-bound facts, then rewriting once, worked.
+56. **A `match name: condition` computes one side of an equation and
+    not the other**: in `trimEvents` the goal became `if isLayout last …
+    = if (decEq …).holds …`, which `rfl` refuses. A helper taking the
+    Boolean and its equation as parameters (`trimEventsBy`) and
+    rewriting with small equations (`trimKeep`, `trimDrop`) did it.
+57. **`False` in a `Prop`-valued `def` is the Boolean** (`False =
+    True`), so an impossible arm is `Void.exfalso (Bool.falseNotTrue
+    never)`, not `Void.exfalso never`.
+58. **A constructor is shadowed by a type of the same name in the
+    importing namespace**: `Chunk` in `Toy.Fmt.Tests` is the disturber's
+    type, so the pattern needed `Doc.Chunk`.
 
 ## Every comment placed (SW-3450, D3618, D3619)
 
