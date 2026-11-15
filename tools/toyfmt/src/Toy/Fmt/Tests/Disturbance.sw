@@ -1,8 +1,7 @@
---| The disturber over the goldens' formatted texts, 50 seeds each. The test
---| that matters, that each disturbed text formats back to the golden, needs
---| the parser: stage A runs `Golden.survivesDisturbance` with `format`.
---| Until then these test the disturber itself: that it changes layout and
---| nothing else.
+--| The disturber over the goldens' formatted texts, 50 seeds each. These
+--| tests check the disturber itself, that it changes layout and nothing
+--| else; `Parsing.sw` runs the test that matters, that each disturbed text
+--| formats back to the golden.
 
 namespace Toy.Fmt.Tests
 import Toy.Syntax (..)
