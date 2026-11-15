@@ -151,7 +151,7 @@ small helper definition, where no hypothesis is in scope, and state the
 theorem about the helper (as `Parse.oneValue` does for `Parse.runsOneStep` in
 `crates/elab/src/std/Parse/Runs.sw`):
 
-```sw
+```
 -- warns W-UNREACHABLE on `| None`: `selected` rules that arm out
 theorem selectedIsValue ∀ (chosen: Option Nat) (value: Nat) (selected: chosen = Some value):
     (match chosen with
