@@ -1704,15 +1704,33 @@ impl Elaborator {
         near.sort_unstable();
         near.dedup();
         let meant = meaning_suggestions(key, member, |full| self.scope.get(full).is_some());
-        let near: Vec<String> = if meant.is_empty() {
-            near.iter().take(3).map(|(_, m)| format!("`{m}`")).collect()
+        let mut suggestions: Vec<String> = self.conversion_suggestions(key, member);
+        if !meant.is_empty() {
+            suggestions.extend(meant.iter().map(|m| format!("`{shown}.{m}`")));
         } else {
-            meant.iter().map(|m| format!("`{shown}.{m}`")).collect()
-        };
-        if !near.is_empty() {
-            d = d.with_note(format!("did you mean {}?", or_list(&near)));
+            suggestions.extend(near.iter().take(3).map(|(_, m)| format!("`{m}`")));
+        }
+        if !suggestions.is_empty() {
+            d = d.with_note(format!("did you mean {}?", or_list(&suggestions)));
         }
         d
+    }
+
+    /// The other direction's name for a missing conversion `T.ofX`: the
+    /// library spells `Int.ofNat` `Nat.toInt` (SW-3346). Empty when no
+    /// `X.toT` is declared.
+    fn conversion_suggestions(&self, key: &str, member: &str) -> Vec<String> {
+        let Some(source) = member.strip_prefix("of").filter(|s| !s.is_empty()) else {
+            return Vec::new();
+        };
+        let target = format!("to{}", short(key));
+        for prefix in ["Std.", ""] {
+            let full = format!("{prefix}{source}.{target}");
+            if self.scope.get(&full).is_some() {
+                return vec![format!("`{}`", display(&full))];
+            }
+        }
+        Vec::new()
     }
 
     /// What `written` names, if it names one declaration exactly.
