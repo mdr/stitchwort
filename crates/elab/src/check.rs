@@ -451,6 +451,7 @@ impl<'e> Ctx<'e> {
 
     /// Binds a variable that can't be referred to by name.
     pub fn bind_hidden(&mut self, name: Name, ty: Value) {
+        self.forget_text_fixed_from(self.level());
         self.env.push(Value::var(self.level()));
         self.types.push(ty);
         self.names.push(name);
@@ -494,6 +495,7 @@ impl<'e> Ctx<'e> {
             Some(v) => v,
             None => self.deferred(&value)?,
         };
+        self.forget_text_fixed_from(self.level());
         if let Some(name) = name {
             self.scope.push((name.to_string(), self.level()));
         }
@@ -564,11 +566,24 @@ impl<'e> Ctx<'e> {
         }
     }
 
+    /// A new binder at `level` ends the variables fixed by text patterns
+    /// at that level or deeper: their scopes are over, and the level is
+    /// reused by an unrelated variable (SW-3315).
+    fn forget_text_fixed_from(&self, level: usize) {
+        let mut fixed = self.e.decl.text_fixed_vars.borrow_mut();
+        if !fixed.is_empty() {
+            fixed.retain(|(l, _)| *l < level);
+        }
+    }
+
     /// A use of the variable at `level`: remembered when a text pattern
     /// fixed its type to `Text`, so that an error at the use points at the
     /// pattern (SW-3315).
     pub(crate) fn note_text_fixed_use(&self, level: usize, at: Span) {
         let fixed = self.e.decl.text_fixed_vars.borrow();
+        if fixed.is_empty() {
+            return;
+        }
         if let Some(&(_, pattern)) = fixed.iter().find(|(l, _)| *l == level) {
             self.e.decl.text_fixed_uses.borrow_mut().push((at, pattern));
         }
