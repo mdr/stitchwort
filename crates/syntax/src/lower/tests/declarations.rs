@@ -64,6 +64,32 @@ fn a_record_declaration_is_one_constructor() {
 }
 
 #[test]
+fn an_ability_row_in_a_record_type_says_it_cannot_be_named() {
+    let e = parse_error("type World = {IO, Fail}\n");
+    assert_eq!(e.code, "E-PARSE");
+    assert_eq!(
+        e.message,
+        "an ability row like `{IO, Fail}` can't be given a name with `type` yet; write the \
+         row where it's used, such as `() -> {IO, Fail} Nat`"
+    );
+    // The error is labelled at the brace.
+    assert_eq!(
+        e.primary_span().map(|span| (span.start, span.end)),
+        Some((13, 14))
+    );
+    // One ability, and several, are named as written.
+    let e = parse_error("type World = {IO}\n");
+    assert!(e.message.contains("`{IO}`"), "{e:?}");
+    let e = parse_error("type World = {IO, Fail, Rand}\n");
+    assert!(e.message.contains("`{IO, Fail, Rand}`"), "{e:?}");
+    // An ability with arguments after the first is elided.
+    let e = parse_error("type World = {IO, State s}\n");
+    assert!(e.message.contains("`{IO, …}`"), "{e:?}");
+    // A record type whose first entry is a field still parses.
+    parse("type P = { x: Nat, y: Nat }\n");
+}
+
+#[test]
 fn a_constructor_declared_with_its_fields_in_braces() {
     let module = parse(
         "type Event =\n  | Meeting { title : Text, minutes : Nat := 30 }\n  | Reminder (title : Text)\n  | Node [n : Nat] { x : Nat }\n",

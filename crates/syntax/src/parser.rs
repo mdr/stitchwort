@@ -1871,6 +1871,20 @@ impl<'t> Parser<'t> {
             return Ok(NodeKind::TypeSynonym);
         }
         if self.peek() == Some(&Tok::LBrace) {
+            if let Some(row) = self.ability_row_in_braces() {
+                return Err(Diagnostic::error(
+                    "E-PARSE",
+                    format!(
+                        "an ability row like `{{{row}}}` can't be given a name with `type` \
+                         yet; write the row where it's used, such as `() -> {{{row}}} Nat`"
+                    ),
+                )
+                .with_label(
+                    self.here(),
+                    "this `{` starts an ability row, not a record type",
+                )
+                .into());
+            }
             self.braced_fields()?;
             return Ok(NodeKind::RecordType);
         }
@@ -1948,6 +1962,42 @@ impl<'t> Parser<'t> {
                 .into());
         }
         Ok(NodeKind::DataType)
+    }
+
+    /// The abilities in a record type's braces at the cursor, if they hold an
+    /// ability row instead of fields: a capitalised name followed by `,` or
+    /// `}`, as in `{IO, Fail}` or `{IO}`. A row can't be named with `type`
+    /// yet, so the parser reports it rather than reading `IO` as a field name.
+    fn ability_row_in_braces(&self) -> Option<String> {
+        let (Some(Tok::Upper(first)), Some(Tok::Comma | Tok::RBrace)) =
+            (self.peek_at(1), self.peek_at(2))
+        else {
+            return None;
+        };
+        let mut names = vec![first.clone()];
+        let mut at = self.pos + 2;
+        while self.tokens.get(at).map(|t| &t.tok) == Some(&Tok::Comma) {
+            // Only a plain ability name, followed by `,` or `}`: an entry
+            // with arguments (`State s`) is named by its first ability only.
+            match (
+                self.tokens.get(at + 1).map(|t| &t.tok),
+                self.tokens.get(at + 2).map(|t| &t.tok),
+            ) {
+                (Some(Tok::Upper(name)), Some(Tok::Comma | Tok::RBrace)) => {
+                    names.push(name.clone())
+                }
+                _ => break,
+            }
+            at += 2;
+        }
+        let row = names.join(", ");
+        Some(
+            if self.tokens.get(at).map(|t| &t.tok) == Some(&Tok::RBrace) {
+                row
+            } else {
+                format!("{row}, …")
+            },
+        )
     }
 
     /// Fields in braces, `{ name : Text, step : Nat := 1 }`, each with its
