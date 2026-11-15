@@ -37754,12 +37754,12 @@
     {
       "id": 3403,
       "title": "[Sonnet] Exit status stage 2 (D3616): Args.run exits 2 for a bad command line (documented as its convention); toyfmt exits 0 / 1 (--check would change) / 2 (couldn't read or parse), as stitchwort fmt does; tests",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3616 (Matt, 15 Nov 2026): \"yes, with Fin and just success and failure\". ExitStatus = { code: Fin 256 } (std's Fin, a machine number at run time; Fin.ofNat's auto proof), named values ExitStatus.success (0) and ExitStatus.failure (1) only; other codes are named by each program (2 for usage is a convention, not a rule: Bash builtins, argparse, Go flag; sysexits' EX_USAGE 64 is deprecated). Args.run documents that it uses 2. After SW-3402. Expected: 1 h.\n\nLane notes (Sonnet, 15 Nov 2026): done in f257fa23f. Args.runStatus/runStatusOn (body returns ExitStatus), run/runOn keep () body and return ExitStatus; Args.misuse = 2; toyfmt clean/wouldChange/couldNotFormat; e2e test asserts 0/1/2 under run and built; hash snapshot updated; docs, guide, NOTES updated. Tests: toyfmt `stitchwort test` 85 pass; toyfmt_formats e2e pass; hash_stability pass after accepting the prelude snapshot; guide:: 4 pass.\n",
+      "body": "D3616 (Matt, 15 Nov 2026): \"yes, with Fin and just success and failure\". ExitStatus = { code: Fin 256 } (std's Fin, a machine number at run time; Fin.ofNat's auto proof), named values ExitStatus.success (0) and ExitStatus.failure (1) only; other codes are named by each program (2 for usage is a convention, not a rule: Bash builtins, argparse, Go flag; sysexits' EX_USAGE 64 is deprecated). Args.run documents that it uses 2. After SW-3402. Expected: 1 h.\n\nLane notes (Sonnet, 15 Nov 2026): done in f257fa23f. Args.runStatus/runStatusOn (body returns ExitStatus), run/runOn keep () body and return ExitStatus; Args.misuse = 2; toyfmt clean/wouldChange/couldNotFormat; e2e test asserts 0/1/2 under run and built; hash snapshot updated; docs, guide, NOTES updated. Tests: toyfmt `stitchwort test` 85 pass; toyfmt_formats e2e pass; hash_stability pass after accepting the prelude snapshot; guide:: 4 pass.\n\nModel result: sonnet, worked, 40 min (est. 60). Orchestrator's call: keep both Args.run (() body) and Args.runStatus (ExitStatus body).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
