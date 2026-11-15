@@ -40,13 +40,21 @@ def Layout.comments (layout: Layout) (token: Parse.Located Token): Comments :=
     | _ => ownLineComments token.value.above
   { above, after = token.value.trailing.map (comment => comment.value) }
 
-def selectAllowed (layout: Layout) (select: Kind → Option a) (token: Parse.Located Token): Option (a, Comments) :=
-  if layout.allows token then select token.value.kind |> .map (value => (value, layout.comments token)) else None
+def selectAllowed (layout: Layout) (select: Kind → Option a) (token: Parse.Located Token): Option a :=
+  if layout.allows token then select token.value.kind else None
+
+--| `select`'s value for `token`, and its comments, if the layout allows it.
+def selectWithComments (layout: Layout) (select: Kind → Option a) (token: Parse.Located Token): Option (a, Comments) :=
+  selectAllowed layout select token |> .map (value => (value, layout.comments token))
+
+--| The comments of `token`, if the layout allows it and `select` takes it.
+def selectComments (layout: Layout) (select: Kind → Option a) (token: Parse.Located Token): Option Comments :=
+  selectAllowed layout select token |> .map (found => layout.comments token)
 
 --| The next token's value from `select` and its comments, if the layout
 --| allows it there, else "expected `what`".
 def take (layout: Layout) (what: Text) (select: Kind → Option a): {Parse (Parse.Located Token)} (a, Comments) :=
-  Parse.one what (selectAllowed layout select)
+  Parse.one what (selectWithComments layout select)
 
 def peek(): {Parse (Parse.Located Token)} Option (Parse.Located Token) := Parse.mark().rest.head
 
@@ -64,15 +72,17 @@ def signIs (wanted: Punctuation): Kind → Option ()
   | Sign found => if found == wanted then Some () else None
   | _ => None
 
+--| The sign `wanted`'s comments, if it comes next and the layout allows it
+--| there, else "expected `what`".
 def sign (layout: Layout) (what: Text) (wanted: Punctuation): {Parse (Parse.Located Token)} Comments :=
-  take layout what (signIs wanted) |> .snd
+  Parse.one what (selectComments layout (signIs wanted))
 
 def keywordIs (wanted: Keyword): Kind → Option ()
   | Reserved found => if found == wanted then Some () else None
   | _ => None
 
 def keyword (layout: Layout) (wanted: Keyword): {Parse (Parse.Located Token)} Comments :=
-  take layout "'${wanted.spelling}'" (keywordIs wanted) |> .snd
+  Parse.one "'${wanted.spelling}'" (selectComments layout (keywordIs wanted))
 
 --| The own-line comments in `trivia` as lines of a list, each knowing if a
 --| blank line was above it, and whether one is above what follows them.
@@ -377,10 +387,14 @@ def declarationLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse
 --| come, as `Parse.sepBy1` reads them but keeping each comma's comments.
 def parameterList(): {Parse (Parse.Located Token)} ((Text, Comments), List (Comments, (Text, Comments))) :=
   let first := name InBrackets
-  let others := Parse.many (() =>
-    let comma := sign InBrackets "','" Comma
-    (comma, name InBrackets))
+  let others := Parse.many parameterStep
   (first, others)
+
+--| A comma and the parameter after it.
+def parameterStep(): {Parse (Parse.Located Token)} (Comments, (Text, Comments)) :=
+  let comma := sign InBrackets "','" Comma
+  let named := name InBrackets
+  (comma, named)
 
 def parametersOf (found: Option ((Text, Comments), List (Comments, (Text, Comments)))): List Parameter :=
   match found with
