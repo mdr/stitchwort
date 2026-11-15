@@ -501,42 +501,43 @@ theorem nestFill ∀ (zone: Zone) (docs: List Doc) (spec: List Event → Prop)
   indent place trace next inside ended onward =>
     fill (indent + 2) place trace next (holdsMore zone indent 2 inside) (endedSeated zone place ended) onward
 
---| A call's arguments (P4): on the call's line, or one a line two deeper.
-theorem nestJoined ∀ (zone: Zone) (docs: List Doc) (spec: List Event → Prop)
+--| A call's arguments (P4) or a declaration's parameters (P2): on the
+--| line, or one a line deeper.
+theorem nestJoined ∀ (zone: Zone) (more: Nat) (docs: List Doc) (spec: List Event → Prop)
     (fill: FillRule zone docs spec):
-    Rule zone.holds (Nest 2 (Doc.concat [SoftLine, joined docs Line])) (Ended zone) spec (Ended zone) :=
+    Rule zone.holds (Nest more (Doc.concat [SoftLine, joined docs Line])) (Ended zone) spec (Ended zone) :=
   indent place trace next inside ended onward =>
     concatLays
       [SoftLine, joined docs Line]
-      (indent + 2)
+      (indent + more)
       place
       trace
       next
       (softSeats zone
-        (indent + 2)
+        (indent + more)
         place
         trace
-        (after later => LaysAll [joined docs Line] (indent + 2) after later next)
-        (holdsMore zone indent 2 inside)
+        (after later => LaysAll [joined docs Line] (indent + more) after later next)
+        (holdsMore zone indent more inside)
         (endedSeated zone place ended)
         (middle seated =>
           concatLays
             (Doc.joinedWith Line docs)
-            (indent + 2)
+            (indent + more)
             middle
             trace
-            (after later => LaysAll [] (indent + 2) after later next)
+            (after later => LaysAll [] (indent + more) after later next)
             (joinedFill docs
-              (indent + 2)
+              (indent + more)
               middle
               trace
-              (after later => LaysAll [] (indent + 2) after later next)
+              (after later => LaysAll [] (indent + more) after later next)
               (fill
-                (indent + 2)
+                (indent + more)
                 middle
                 trace
-                (after later => LaysAll [] (indent + 2) after later next)
-                (holdsMore zone indent 2 inside)
+                (after later => LaysAll [] (indent + more) after later next)
+                (holdsMore zone indent more inside)
                 seated
                 onward))))
 
@@ -617,13 +618,6 @@ theorem chainLaid ∀ (parts: List Doc) (first: Doc) (links: List Doc) (indent: 
             (reached written same => same)
             all))
       whole)
-
-theorem chainNever ∀ (parts: List Doc) (indent: Nat) (place: Place)
-    (trace: List Event) (next: Place → List Event → Prop)
-    (found: parts = [])
-    (lays: ChainLays parts indent place trace next):
-    Void :=
-  Bool.falseNotTrue (chainCast parts [] indent place trace next found lays)
 
 --| A link of a chain (P6): its operator after a `Line`, a space, its
 --| operand.
@@ -1350,7 +1344,7 @@ theorem exprLays ∀ (expr: Expr)
                     (Ended zone)
                     (ItemEvents zone.inside [first, ..rest])
                     (TokenAt anyStart close ")")
-                    (nestJoined zone
+                    (nestJoined zone 2
                       (itemDocs [first, ..rest])
                       (ItemEvents zone.inside [first, ..rest])
                       (fillItems first rest lexArguments zone))
@@ -1465,16 +1459,6 @@ theorem exprLays ∀ (expr: Expr)
               next
               found
               parts
-          | [] =>
-            Void.exfalso
-              (chainNever
-                (chainParts operator.level left ++ [link operator sign right.layout])
-                indent
-                place
-                trace
-                next
-                found
-                parts)
     | If ifComments condition thenComments whenTrue elseComments whenFalse, Both fineIf
         (Both lexCondition (Both fineThen (Both lexTrue (Both fineElse lexFalse)))) =>
       head indent place trace next inside seated isHead onward =>
@@ -1981,3 +1965,634 @@ theorem statementLays ∀ (statement: Statement)
         next
         (commentSolid comment.text fine)
         (onward (Mid column) [{ word = comment.text, start = Some column }] rfl (ownHolds column))
+
+-- Declarations and the file.
+
+--| A declaration's parameters between their brackets: each name, and
+--| the comma after each but the last.
+def ParameterEvents (parameters: List Parameter): List Event → Prop := match parameters with
+  | [] => Done
+  | [{ name, comments, .. }] => TokenAt anyStart comments name
+  | [{ name, comments, comma }, ..rest] =>
+    Then (TokenAt anyStart comments name) (Then (TokenAt anyStart comma ",") (ParameterEvents rest))
+
+--| A declaration, from the start of a line at column 0: its first token
+--| starts that line, the others stand in it as a statement's do. A
+--| function is `fn name (`, the parameters, then `) =` and the body.
+def DeclarationEvents (declaration: Declaration): List Event → Prop := match declaration with
+  | Function fnComments name nameComments open parameters close equals body =>
+    Then
+      (Then
+        (TokenAt (atColumn 0) fnComments "fn")
+        (Then (TokenAt (Deeper 0).allows nameComments name) (TokenAt (Deeper 0).allows open "(")))
+      (Then
+        (ParameterEvents parameters)
+        (Then (TokenAt anyStart close ")") (Then (TokenAt (Deeper 0).allows equals "=") (BodyEvents (Deeper 0) body))))
+  | Value letComments name nameComments equals body =>
+    Then
+      (TokenAt (atColumn 0) letComments "let")
+      (Then
+        (TokenAt (Deeper 0).allows nameComments name)
+        (Then (TokenAt (Deeper 0).allows equals "=") (BodyEvents (Deeper 0) body)))
+  | DeclarationNote comment => events => events = [{ word = comment.text, start = Some 0 }]
+
+--| A file's declarations, one after another.
+def DeclarationsEvents (declarations: List (Spaced Declaration)): List Event → Prop := match declarations with
+  | [] => Done
+  | [{ line, .. }, ..rest] => Then (DeclarationEvents line) (DeclarationsEvents rest)
+
+--| The events of a file: what the rules lay for it, whichever way its
+--| groups, fills and choices go.
+def FileEvents (file: SourceFile): List Event → Prop := DeclarationsEvents file.declarations
+
+theorem solidFn: Solid "fn" := Both rfl (Both rfl rfl)
+
+--| Documents laid one after another may be taken in two parts.
+theorem allAppend ∀ (front back: List Doc) (indent: Nat) (place: Place)
+    (trace: List Event) (next: Place → List Event → Prop)
+    (lays: LaysAll (front ++ back) indent place trace next):
+    LaysAll front indent place trace (after later => LaysAll back indent after later next) :=
+  match front, lays with
+    | [], lays => lays
+    | [doc, ..rest], lays =>
+      laysWeaker doc indent place trace
+        (after later => LaysAll (rest ++ back) indent after later next)
+        (after later => LaysAll rest indent after later (reached written => LaysAll back indent reached written next))
+        (after later all => allAppend rest back indent after later next all)
+        lays
+
+--| A token inside brackets.
+theorem tokenInside ∀ (zone: Zone) (comments: Comments) (text: Text)
+    (fine: Fine comments)
+    (solid: Solid text):
+    Rule zone.holds (token comments text) (Seated zone) (TokenAt anyStart comments text) (Ended zone) :=
+  headInside zone
+    (token comments text)
+    comments.above
+    (head => TokenAt head comments text)
+    (tokenHead zone.inside comments text fine solid)
+
+--| A parameter and its comma.
+theorem parameterRule ∀ (zone: Zone) (name: Text) (comments comma: Comments)
+    (isName: IsName name)
+    (fine: Fine comments)
+    (fineComma: Fine comma):
+    Rule zone.holds
+      (Doc.concat [token comments name, token comma ","])
+      (Seated zone)
+      (Then (TokenAt anyStart comments name) (TokenAt anyStart comma ","))
+      (Ended zone) :=
+  ruleConcat zone.holds
+    [token comments name, token comma ","]
+    (Seated zone)
+    (Ended zone)
+    (Then (TokenAt anyStart comments name) (TokenAt anyStart comma ","))
+    (ruleCons zone.holds
+      (token comments name)
+      [token comma ","]
+      (Seated zone)
+      (Ended zone)
+      (Ended zone)
+      (TokenAt anyStart comments name)
+      (TokenAt anyStart comma ",")
+      (tokenInside zone comments name fine (nameSolid name isName))
+      (ruleLast zone.holds
+        (token comma ",")
+        (Ended zone)
+        (Ended zone)
+        (TokenAt anyStart comma ",")
+        (fromEnded zone zone.holds
+          (token comma ",")
+          (TokenAt anyStart comma ",")
+          (Ended zone)
+          (tokenInside zone comma "," fineComma solidComma))))
+
+theorem sepsParameters ∀ (parameters: List Parameter)
+    (lexical: LexicalParameters parameters)
+    (zone: Zone) (indent: Nat) (place: Place) (trace: List Event)
+    (next: Place → List Event → Prop) (inside: zone.holds indent)
+    (ended: Ended zone place)
+    (onward: ∀ (after: Place) (events: List Event) => ParameterEvents parameters events
+      → Ended zone after
+      → next after (trace ++ events)):
+    SepsLay (parameterDocs parameters) indent place trace next :=
+  match parameters, lexical, onward with
+    | [], _, onward => rewrite <- List.appendNil trace in onward place [] rfl ended
+    | [{ name, comments, comma }], Both isName (Both fine _), onward =>
+      sepSeats zone indent place trace
+        (middle between =>
+          Lays (token comments name) indent middle between (after later => SepsLay [] indent after later next))
+        inside
+        ended
+        (middle seated =>
+          tokenInside zone comments name fine
+            (nameSolid name isName)
+            indent
+            middle
+            trace
+            (after later => SepsLay [] indent after later next)
+            inside
+            seated
+            onward)
+    | [{ name, comments, comma }, second, ..more], Both isName (Both fine (Both fineComma others)), onward =>
+      sepSeats zone indent place trace
+        (middle between =>
+          Lays (Doc.concat [token comments name, token comma ","]) indent middle between (after later =>
+            SepsLay (parameterDocs [second, ..more]) indent after later next))
+        inside
+        ended
+        (middle seated =>
+          parameterRule zone name comments comma isName fine fineComma indent middle trace
+            (after later => SepsLay (parameterDocs [second, ..more]) indent after later next)
+            inside
+            seated
+            (after events isParameter reached =>
+              sepsParameters
+                [second, ..more]
+                others
+                zone
+                indent
+                after
+                (trace ++ events)
+                next
+                inside
+                reached
+                (last rest areParameters met =>
+                  rewrite List.appendAssoc trace events rest in
+                    onward last
+                      (events ++ rest)
+                      (thenAssoc
+                        (TokenAt anyStart comments name)
+                        (TokenAt anyStart comma ",")
+                        (ParameterEvents [second, ..more])
+                        events
+                        rest
+                        isParameter
+                        areParameters)
+                      met)))
+
+--| A declaration's parameters, as a fill lays them.
+theorem fillParameters ∀ (first: Parameter) (rest: List Parameter)
+    (lexical: LexicalParameters [first, ..rest]) (zone: Zone):
+    FillRule zone (parameterDocs [first, ..rest]) (ParameterEvents [first, ..rest]) :=
+  match first, rest, lexical with
+    | { name, comments, comma }, [], Both isName (Both fine _) => indent place trace next inside seated onward =>
+      tokenInside zone comments name fine
+        (nameSolid name isName)
+        indent
+        place
+        trace
+        (after later => SepsLay [] indent after later next)
+        inside
+        seated
+        onward
+    | { name, comments, comma }, [second, ..more], Both isName (Both fine (Both fineComma others)) =>
+      indent place trace next inside seated onward =>
+        parameterRule zone name comments comma isName fine fineComma indent place trace
+          (after later => SepsLay (parameterDocs [second, ..more]) indent after later next)
+          inside
+          seated
+          (after events isParameter reached =>
+            sepsParameters
+              [second, ..more]
+              others
+              zone
+              indent
+              after
+              (trace ++ events)
+              next
+              inside
+              reached
+              (last later areParameters met =>
+                rewrite List.appendAssoc trace events later in
+                  onward last
+                    (events ++ later)
+                    (thenAssoc
+                      (TokenAt anyStart comments name)
+                      (TokenAt anyStart comma ",")
+                      (ParameterEvents [second, ..more])
+                      events
+                      later
+                      isParameter
+                      areParameters)
+                    met))
+
+--| `fn name (`: the keyword starts as `head` says.
+theorem openingRule ∀ (zone: Zone) (fnComments: Comments) (name: Text) (nameComments open: Comments)
+    (fineFn: Fine fnComments)
+    (isName: IsName name)
+    (fineName: Fine nameComments)
+    (fineOpen: Fine open):
+    HeadRule zone
+      (Doc.concat [token fnComments "fn", Doc.text " ", token nameComments name, token open "("])
+      fnComments.above
+      (head =>
+        Then
+          (TokenAt head fnComments "fn")
+          (Then (TokenAt zone.allows nameComments name) (TokenAt zone.allows open "("))) :=
+  headCons zone
+    (token fnComments "fn")
+    [Doc.text " ", token nameComments name, token open "("]
+    fnComments.above
+    (head => TokenAt head fnComments "fn")
+    (Then (TokenAt zone.allows nameComments name) (TokenAt zone.allows open "("))
+    (tokenHead zone fnComments "fn" fineFn solidFn)
+    (spaceAll zone zone.holds
+      [token nameComments name, token open "("]
+      (Then (TokenAt zone.allows nameComments name) (TokenAt zone.allows open "("))
+      (Ended zone)
+      (ruleCons zone.holds
+        (token nameComments name)
+        [token open "("]
+        (Ended zone)
+        (Ended zone)
+        (Ended zone)
+        (TokenAt zone.allows nameComments name)
+        (TokenAt zone.allows open "(")
+        (tokenAfter zone nameComments name fineName (nameSolid name isName))
+        (ruleLast zone.holds
+          (token open "(")
+          (Ended zone)
+          (Ended zone)
+          (TokenAt zone.allows open "(")
+          (tokenAfter zone open "(" fineOpen solidOpenParen))))
+
+--| `) =` and the body after it.
+theorem closingLays ∀ (zone: Zone) (close equals: Comments) (bodyDoc: Doc) (body: Body)
+    (fineClose: Fine close)
+    (fineEquals: Fine equals)
+    (bodyRule: BodyRule zone bodyDoc equals.after body)
+    (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop) (inside: zone.holds indent)
+    (seated: Seated zone place)
+    (onward: ∀ (reached: Place) (events: List Event) => Then
+      (TokenAt anyStart close ")")
+      (Then (TokenAt zone.allows equals "=") (BodyEvents zone body))
+      events
+      → Ended zone reached
+      → next reached (trace ++ events)):
+    Lays (Doc.concat [closer close ")", Doc.text " ", token equals "="]) indent place trace (after later =>
+      LaysAll [bodyDoc] indent after later next) :=
+  concatLays
+    [closer close ")", Doc.text " ", token equals "="]
+    indent
+    place
+    trace
+    (after later => LaysAll [bodyDoc] indent after later next)
+    (allAppend
+      [closer close ")", Doc.text " ", token equals "="]
+      [bodyDoc]
+      indent
+      place
+      trace
+      next
+      (ruleCons zone.holds
+        (closer close ")")
+        [Doc.text " ", token equals "=", bodyDoc]
+        (Seated zone)
+        (Ended zone)
+        (Ended zone)
+        (TokenAt anyStart close ")")
+        (Then (TokenAt zone.allows equals "=") (BodyEvents zone body))
+        (closerRule zone close ")" fineClose solidCloseParen)
+        (spaceAll zone zone.holds
+          [token equals "=", bodyDoc]
+          (Then (TokenAt zone.allows equals "=") (BodyEvents zone body))
+          (Ended zone)
+          (keyLast zone equals "=" bodyDoc body zone.allows
+            (Ended zone)
+            fineEquals
+            solidEquals
+            (endedStarts zone equals.above)
+            bodyRule))
+        indent
+        place
+        trace
+        next
+        inside
+        seated
+        onward))
+
+--| A function declaration (P2), from the start of its line.
+theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments open: Comments) (parameters: List Parameter)
+    (close equals: Comments) (body: Body)
+    (lexical: LexicalDeclaration (Function fnComments name nameComments open parameters close equals body))
+    (trace: List Event) (next: Place → List Event → Prop)
+    (onward: ∀ (reached: Place) (events: List Event) => DeclarationEvents
+      (Function fnComments name nameComments open parameters close equals body)
+      events
+      → Ended (Deeper 0) reached
+      → next reached (trace ++ events)):
+    Lays
+      (Declaration.layout (Function fnComments name nameComments open parameters close equals body))
+      0
+      (AtStart 0)
+      trace
+      next :=
+  match lexical with
+    | Both fineFn
+        (Both isName (Both fineName (Both fineOpen (Both lexParameters (Both fineClose (Both fineEquals lexBody)))))) =>
+      let opening := Doc.concat [token fnComments "fn", Doc.text " ", token nameComments name, token open "("]
+      let closing := Doc.concat [closer close ")", Doc.text " ", token equals "="]
+      let bodyRule := afterEqualsLays (Deeper 0) equals body lexBody
+      match parameters, lexParameters, onward with
+        | [], _, onward =>
+          concatLays
+            [Doc.concat [opening, closing], body.afterEquals equals]
+            0
+            (AtStart 0)
+            trace
+            next
+            (concatLays
+              [opening, closing]
+              0
+              (AtStart 0)
+              trace
+              (after later => LaysAll [body.afterEquals equals] 0 after later next)
+              (openingRule
+                (Deeper 0)
+                fnComments
+                name
+                nameComments
+                open
+                fineFn
+                isName
+                fineName
+                fineOpen
+                (atColumn 0)
+                0
+                (AtStart 0)
+                trace
+                (after later =>
+                  LaysAll [closing] 0 after later (reached written =>
+                    LaysAll [body.afterEquals equals] 0 reached written next))
+                (ownHolds 0)
+                (ownHolds 0)
+                (startAt 0 0 fnComments.above)
+                (after events isOpening ended =>
+                  closingLays
+                    (Deeper 0)
+                    close
+                    equals
+                    (body.afterEquals equals)
+                    body
+                    fineClose
+                    fineEquals
+                    bodyRule
+                    0
+                    after
+                    (trace ++ events)
+                    next
+                    (ownHolds 0)
+                    (endedSeated (Deeper 0) after ended)
+                    (reached rest isClosing met =>
+                      rewrite List.appendAssoc trace events rest in
+                        onward reached
+                          (events ++ rest)
+                          (Witness events
+                            (Witness rest
+                              (Both rfl
+                                (Both isOpening
+                                  (doneThen
+                                    (Then
+                                      (TokenAt anyStart close ")")
+                                      (Then (TokenAt (Deeper 0).allows equals "=") (BodyEvents (Deeper 0) body)))
+                                    rest
+                                    isClosing)))))
+                          met))))
+        | [first, ..others], lexParameters, onward =>
+          let listed := Nest 4 (Doc.concat [SoftLine, joined (parameterDocs [first, ..others]) Line])
+          concatLays
+            [Doc.group (Doc.concat [opening, listed, SoftLine, closing]), body.afterEquals equals]
+            0
+            (AtStart 0)
+            trace
+            next
+            (concatLays
+              [opening, listed, SoftLine, closing]
+              0
+              (AtStart 0)
+              trace
+              (after later => LaysAll [body.afterEquals equals] 0 after later next)
+              (openingRule
+                (Deeper 0)
+                fnComments
+                name
+                nameComments
+                open
+                fineFn
+                isName
+                fineName
+                fineOpen
+                (atColumn 0)
+                0
+                (AtStart 0)
+                trace
+                (after later =>
+                  LaysAll [listed, SoftLine, closing] 0 after later (reached written =>
+                    LaysAll [body.afterEquals equals] 0 reached written next))
+                (ownHolds 0)
+                (ownHolds 0)
+                (startAt 0 0 fnComments.above)
+                (after events isOpening ended =>
+                  nestJoined
+                    (Deeper 0)
+                    4
+                    (parameterDocs [first, ..others])
+                    (ParameterEvents [first, ..others])
+                    (fillParameters first others lexParameters (Deeper 0))
+                    0
+                    after
+                    (trace ++ events)
+                    (middle between =>
+                      LaysAll [SoftLine, closing] 0 middle between (reached written =>
+                        LaysAll [body.afterEquals equals] 0 reached written next))
+                    (ownHolds 0)
+                    ended
+                    (listEnd listedEvents areParameters listEnded =>
+                      softSeats
+                        (Deeper 0)
+                        0
+                        listEnd
+                        ((trace ++ events) ++ listedEvents)
+                        (middle between =>
+                          LaysAll [closing] 0 middle between (reached written =>
+                            LaysAll [body.afterEquals equals] 0 reached written next))
+                        (ownHolds 0)
+                        (endedSeated (Deeper 0) listEnd listEnded)
+                        (middle seated =>
+                          closingLays
+                            (Deeper 0)
+                            close
+                            equals
+                            (body.afterEquals equals)
+                            body
+                            fineClose
+                            fineEquals
+                            bodyRule
+                            0
+                            middle
+                            ((trace ++ events) ++ listedEvents)
+                            next
+                            (ownHolds 0)
+                            seated
+                            (reached rest isClosing met =>
+                              rewrite List.appendAssoc (trace ++ events) listedEvents rest in
+                                rewrite List.appendAssoc trace events (listedEvents ++ rest) in
+                                  onward reached
+                                    (events ++ (listedEvents ++ rest))
+                                    (Witness events
+                                      (Witness
+                                        (listedEvents ++ rest)
+                                        (Both rfl
+                                          (Both isOpening
+                                            (Witness listedEvents
+                                              (Witness rest (Both rfl (Both areParameters isClosing))))))))
+                                    met))))))
+
+--| A declaration, from the start of its line at column 0.
+theorem declarationLays ∀ (declaration: Declaration)
+    (lexical: LexicalDeclaration declaration)
+    (trace: List Event) (next: Place → List Event → Prop)
+    (onward: ∀ (reached: Place) (events: List Event) => DeclarationEvents declaration events
+      → Ended (Deeper 0) reached
+      → next reached (trace ++ events)):
+    Lays declaration.layout 0 (AtStart 0) trace next :=
+  match declaration, lexical, onward with
+    | Function fnComments name nameComments open parameters close equals body, lexical, onward =>
+      functionLays fnComments name nameComments open parameters close equals body lexical trace next onward
+    | Value letComments name nameComments equals body, Both fineLet
+        (Both isName (Both fineName (Both fineEquals lexBody))), onward =>
+      bindingRule
+        (Deeper 0)
+        letComments
+        name
+        nameComments
+        equals
+        body
+        fineLet
+        isName
+        fineName
+        fineEquals
+        (afterEqualsLays (Deeper 0) equals body lexBody)
+        (atColumn 0)
+        0
+        (AtStart 0)
+        trace
+        next
+        (ownHolds 0)
+        (ownHolds 0)
+        (startAt 0 0 letComments.above)
+        onward
+    | DeclarationNote comment, fine, onward =>
+      wordLays 0 comment.text
+        (AtStart 0)
+        trace
+        next
+        (commentSolid comment.text fine)
+        (onward (Mid 0) [{ word = comment.text, start = Some 0 }] rfl (ownHolds 0))
+
+--| A file's declarations (P9), the first of them the `index`th: each
+--| starts its line at column 0.
+theorem declarationsLay ∀ (index: Nat) (first: Spaced Declaration) (rest: List (Spaced Declaration))
+    (lexical: LexicalDeclarations [first, ..rest])
+    (place: Place) (trace: List Event) (next: Place → List Event → Prop)
+    (fresh: (index == 0) = True → place = AtStart 0)
+    (onward: ∀ (reached: Place) (events: List Event) => DeclarationsEvents [first, ..rest] events
+      → Ended (Deeper 0) reached
+      → next reached (trace ++ events)):
+    LaysAll (declarationLines index [first, ..rest]) 0 place trace next :=
+  match first, rest, lexical, onward with
+    | { blankBefore, line }, [], Both lexLine _, onward =>
+      concatLays
+        [lineStart index blankBefore, line.layout]
+        0
+        place
+        trace
+        (after later => LaysAll [] 0 after later next)
+        (lineStartLays index blankBefore 0 place trace
+          (after later => LaysAll [line.layout] 0 after later (reached written => LaysAll [] 0 reached written next))
+          fresh
+          (declarationLays line lexLine trace
+            (after later => LaysAll [] 0 after later (reached written => LaysAll [] 0 reached written next))
+            (reached events isLine ended =>
+              onward reached events (thenDone (DeclarationEvents line) events isLine) ended)))
+    | { blankBefore, line }, [second, ..more], Both lexLine others, onward =>
+      concatLays
+        [lineStart index blankBefore, line.layout]
+        0
+        place
+        trace
+        (after later => LaysAll (declarationLines (index + 1) [second, ..more]) 0 after later next)
+        (lineStartLays index blankBefore 0 place trace
+          (after later =>
+            LaysAll [line.layout] 0 after later (reached written =>
+              LaysAll (declarationLines (index + 1) [second, ..more]) 0 reached written next))
+          fresh
+          (declarationLays line lexLine trace
+            (after later =>
+              LaysAll [] 0 after later (reached written =>
+                LaysAll (declarationLines (index + 1) [second, ..more]) 0 reached written next))
+            (reached events isLine ended =>
+              declarationsLay
+                (index + 1)
+                second
+                more
+                others
+                reached
+                (trace ++ events)
+                next
+                (zero => Void.exfalso (succNotZero index zero))
+                (last later areLines met =>
+                  rewrite List.appendAssoc trace events later in
+                    onward last
+                      (events ++ later)
+                      (Witness events (Witness later (Both rfl (Both isLine areLines))))
+                      met))))
+
+--| Every way a file's layout may print lays the file's events.
+theorem fileLays ∀ (file: SourceFile)
+    (lexical: LexicalFile file)
+    (next: Place → List Event → Prop)
+    (onward: ∀ (reached: Place) (events: List Event) => FileEvents file events → next reached events):
+    Lays file.layout 0 (AtStart 0) [] next :=
+  match file, lexical, onward with
+    | { declarations = [] }, _, onward => onward (AtStart 0) [] rfl
+    | { declarations = [first, ..rest] }, lexical, onward =>
+      concatLays
+        [Doc.concat (declarationLines 0 [first, ..rest]), HardLine]
+        0
+        (AtStart 0)
+        []
+        next
+        (concatLays
+          (declarationLines 0 [first, ..rest])
+          0
+          (AtStart 0)
+          []
+          (after later => LaysAll [HardLine] 0 after later next)
+          (declarationsLay 0 first rest lexical
+            (AtStart 0)
+            []
+            (after later => LaysAll [HardLine] 0 after later next)
+            (zero => rfl)
+            (reached events areLines ended => onward (AtStart 0) events areLines)))
+
+--| Where the rules put every word of a file that satisfies what the
+--| parser guarantees: at every width, the words of the printed pieces
+--| in order, each with where it starts its line if it does, are the
+--| file's events.
+theorem printedEvents ∀ (file: SourceFile) (width: Nat)
+    (lexical: LexicalFile file):
+    FileEvents file (eventsOf (printedPieces file.layout width).reverse) :=
+  match printLays
+    (place events => FileEvents file events)
+    file.layout
+    width
+    (fileLays file lexical (place events => FileEvents file events) (reached events holds => holds)) with
+    | Witness place holds => holds
+
+--| `printedEvents` of every parsed file.
+theorem parsedPrintEvents ∀ (source: Text) (file: SourceFile) (width: Nat)
+    (parsed: parse source = Ok file):
+    FileEvents file (eventsOf (printedPieces file.layout width).reverse) :=
+  printedEvents file width (parseLexical source file parsed)
