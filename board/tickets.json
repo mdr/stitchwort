@@ -1,5 +1,5 @@
 {
-  "next": 3397,
+  "next": 3399,
   "tickets": [
     {
       "id": 47,
@@ -221,14 +221,14 @@
     {
       "id": 510,
       "title": "Constructor names: should they live inside their type (Quit vs GaveUp ambiguity), or be resolved by expected type?",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "decision"
       ],
       "epic": "syntax-language",
-      "body": "Opus paper started 12:00, expected 1.5 h: design note docs/proposals/constructor-names.md ahead of the full formatter.\n\n12:10 review: docs/proposals/constructor-names.md written (not committed). Probed today: bare clashing constructors are E-AMBIGUOUS in patterns, values, arguments, lists, record updates and comparisons even with the type known; a file's own `None` breaks `| None` on an Option. Options (a) expected type first, (a') type as tie-break, (b) `.Ctor` only, (c) both, (d) status quo. Recommends (a): the known type's constructor wins, ambiguous names wait on the queue when the type isn't known yet; terms and hashes unchanged. Four stages, ~8-9 h (Sonnet 1.5 h, Opus 2 h, Opus 2-3 h, Sonnet 1.5 h). Question: D3615 (adopt (a)? rec yes).\n",
+      "body": "D3615 (Matt, 15 Nov 2026): \"option one plus a discipline to avoid files that need to import multiple clashing names unless it's code that genuinely must use both. The code organization habit. We can maybe think about going back to this dot shorthand as Lean does in three in the future, potentially. But yeah, for now, let's proceed with your suggestion.\" Not type-directed resolution (Matt: one name, one meaning per file, readable at a glance). Built as SW-3397; .C shorthand parked as SW-3398.",
       "created": "2026-10-25",
       "updated": "2026-11-15",
       "commits": []
@@ -37664,6 +37664,32 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3397,
+      "title": "[Sonnet] Constructor names, option 1 (D3615): the E-AMBIGUOUS error names the candidates and suggests the qualified spellings (Token.Str); a warning where a file's own constructor hides an imported one (its None hiding Option's); goals print a clashing constructor qualified (ctor_written) so they paste back; docs/syntax.md and the guide state the rule (one meaning per file; qualify on a clash; keep lexer and printer in separate files). Tests failing before",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "D3615 (Matt, 15 Nov 2026): \"option one plus a discipline to avoid files that need to import multiple clashing names unless it's code that genuinely must use both. The code organization habit. We can maybe think about going back to this dot shorthand as Lean does in three in the future, potentially. But yeah, for now, let's proceed with your suggestion.\" Not type-directed resolution (Matt: one name, one meaning per file, readable at a glance). Expected: 2.5 h.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3398,
+      "title": "[Idea, later] Constructor .C shorthand (Lean/Swift style, resolved by expected type), option 3 of constructor-names.md; revisit in the future per D3615",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",

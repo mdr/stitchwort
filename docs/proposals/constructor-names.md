@@ -276,3 +276,12 @@ and expressions, in the four stages above? [rec: yes]**
 - [R2] Rust error index, E0659. https://doc.rust-lang.org/error_codes/E0659.html
 - [H1] Haskell 2010 Report, chapter 5 (§5.2, §5.5.2).
   https://www.haskell.org/onlinereport/haskell2010/haskellch5.html
+
+## Decision (D3615, Matt, 15 Nov 2026)
+
+Option (d), not (a): "I think it's probably not wise to support the same name
+having different meanings within the same file ... it's really hard to look
+and glance know what it is." Built as SW-3397: clearer E-AMBIGUOUS, a warning
+where a file's constructor hides an imported one, goals printed qualified;
+plus the habit of organising code so a file rarely imports two clashing
+types. The `.C` shorthand may be revisited later (SW-3398).
