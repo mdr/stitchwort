@@ -36862,12 +36862,12 @@
     {
       "id": 3335,
       "title": "[Sonnet] catch-all-facts.md B+A (orchestrator's call, no syntax): an auto step proves x ≠ lit in a literal catch-all (by the J/match term in the note), and the catch-all goal lists the facts (m ≠ 5) from the case tree; check obligations solved after the declaration still see the case's marks; guide and syntax.md; Opus review after. Also byDecision's stuck error names the scrutinee (n ≠ 5) where the goal shows the arm's binder (m)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "From catch-all-facts.md (SW-3318). Expected: 3 h (Sonnet), Opus review after.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
