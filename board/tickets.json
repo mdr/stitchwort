@@ -1,5 +1,5 @@
 {
-  "next": 3394,
+  "next": 3395,
   "tickets": [
     {
       "id": 47,
@@ -37626,6 +37626,19 @@
       "labels": [],
       "epic": "std-library",
       "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3394,
+      "title": "[Idea, parked] Mixing Rust and native Stitchwort in the stitchwort binary (e.g. fmt handing off to a Stitchwort formatter): routes (1) a separate shipped executable, (2) linked in via a library mode + bootstrap build, (3) embedded bytecode run by the in-process JIT. Not pursued for now (Matt, 15 Nov 2026: 'Let's not pursue this for now, but it's an interesting possible direction into the future')",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Facts checked 15 Nov: native code is Cranelift objects linked against crates/rt with a C main calling sw_native_manifest (crates/native/src/lib.rs, aot.rs; crates/rt/src/native_aot.rs); run --native JITs in-process.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
