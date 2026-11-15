@@ -523,6 +523,9 @@ expression: json
     "code": "GOAL",
     "file": 0,
     "goal": {
+      "facts": [
+        "other ≠ \"ab\""
+      ],
       "hypotheses": [
         {
           "name": "p",
@@ -533,13 +536,13 @@ expression: json
           "type": "Text"
         }
       ],
-      "lemma": "theorem writtenGoal2 (p: Text → Prop) (other: Text): p other := ?",
+      "lemma": "theorem writtenGoal2 (p: Text → Prop) (other: Text) (h: other ≠ \"ab\"): p other := ?",
       "target": "p other"
     },
     "labels": [
       {
         "file": 0,
-        "message": "p: Text → Prop\nother: Text\n⊢ p other",
+        "message": "p: Text → Prop\nother: Text\nother ≠ \"ab\"\n⊢ p other",
         "range": [
           37,
           14,
@@ -550,7 +553,8 @@ expression: json
     ],
     "message": "in `written`",
     "notes": [
-      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case"
+      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
     ],
     "range": [
       37,

@@ -100,6 +100,7 @@ fn goal_of(session: &Session, id: DefId) -> Option<FoundGoal> {
         file: None,
         data: GoalData {
             hypotheses,
+            facts: Vec::new(),
             target,
             written: None,
             prop: Some(true),

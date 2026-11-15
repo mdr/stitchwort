@@ -68,20 +68,24 @@ expression: json
     "code": "GOAL",
     "file": 0,
     "goal": {
+      "facts": [
+        "s ≠ \"ab\"",
+        "s ≠ \"\""
+      ],
       "hypotheses": [
         {
           "name": "s",
           "type": "Text"
         }
       ],
-      "lemma": "theorem stepsGoal3 (s: Text): 2 ≠ 0 ∨ s = \"\" := ?",
+      "lemma": "theorem stepsGoal3 (s: Text) (h: s ≠ \"ab\") (h2: s ≠ \"\"): 2 ≠ 0 ∨ s = \"\" := ?",
       "target": "f s ≠ 0 ∨ s = \"\"",
       "targetComputed": "2 ≠ 0 ∨ s = \"\""
     },
     "labels": [
       {
         "file": 0,
-        "message": "s: Text\n⊢ f s ≠ 0 ∨ s = \"\"\n  computes to 2 ≠ 0 ∨ s = \"\"",
+        "message": "s: Text\ns ≠ \"ab\"\ns ≠ \"\"\n⊢ f s ≠ 0 ∨ s = \"\"\n  computes to 2 ≠ 0 ∨ s = \"\"",
         "range": [
           14,
           9,
@@ -92,7 +96,8 @@ expression: json
     ],
     "message": "in `steps`",
     "notes": [
-      "this arm is checked in 4 cases; the goal shown is the arm as written, not any one case"
+      "this arm is checked in 4 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
     ],
     "range": [
       14,
@@ -140,6 +145,9 @@ expression: json
     "code": "GOAL",
     "file": 0,
     "goal": {
+      "facts": [
+        "s ≠ \"ab\""
+      ],
       "hypotheses": [
         {
           "name": "p",
@@ -160,7 +168,7 @@ expression: json
     "labels": [
       {
         "file": 0,
-        "message": "p: Text → Prop\ns: Text\ntail✝: List Char\n⊢ p s ∧ s.length = s.length\n  computes to p s ∧ Succ (List.length tail✝) = Succ (List.length tail✝)",
+        "message": "p: Text → Prop\ns: Text\ntail✝: List Char\ns ≠ \"ab\"\n⊢ p s ∧ s.length = s.length\n  computes to p s ∧ Succ (List.length tail✝) = Succ (List.length tail✝)",
         "range": [
           20,
           9,
@@ -171,7 +179,8 @@ expression: json
     ],
     "message": "in `length`",
     "notes": [
-      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case"
+      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
     ],
     "range": [
       20,

@@ -25,9 +25,9 @@ expression: json
         "file": 0,
         "message": "shape: Shape\nnewId: Text\n⊢ { shape | id = newId ++ \"!\" }.ref = shape.ref",
         "range": [
-          8,
+          10,
           107,
-          8,
+          10,
           108
         ]
       }
@@ -35,9 +35,9 @@ expression: json
     "message": "in `renamedKeepsRef`",
     "notes": [],
     "range": [
-      8,
+      10,
       107,
-      8,
+      10,
       108
     ],
     "severity": "goal"
@@ -72,9 +72,9 @@ expression: json
         "file": 0,
         "message": "shape: Shape\nother: Shape\nnewId: Text\nnewRef: Nat\n⊢ { pick shape other | id = newId, ref = newRef } = { other | ref = newRef, id = newId }",
         "range": [
-          12,
+          14,
           2,
-          12,
+          14,
           3
         ]
       }
@@ -82,9 +82,9 @@ expression: json
     "message": "in `renamedTwice`",
     "notes": [],
     "range": [
-      12,
+      14,
       2,
-      12,
+      14,
       3
     ],
     "severity": "goal"
@@ -115,9 +115,9 @@ expression: json
         "file": 0,
         "message": "player: Player\namount: Nat\nsame: { player | gold = amount } = player\n⊢ { player | hitPoints = 3, gold = amount } = { player | hitPoints = 3 }",
         "range": [
-          17,
+          19,
           2,
-          17,
+          19,
           3
         ]
       }
@@ -125,9 +125,9 @@ expression: json
     "message": "in `paid`",
     "notes": [],
     "range": [
-      17,
+      19,
       2,
-      17,
+      19,
       3
     ],
     "severity": "goal"

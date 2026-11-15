@@ -112,6 +112,11 @@ impl MissingCases {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GoalData {
     pub hypotheses: Vec<Hypothesis>,
+    /// What the arm's variables are known not to be (`m ≠ 5`), listed
+    /// between the hypotheses and the target. They are facts of the arms
+    /// above, not variables of the context; the lemma takes them as
+    /// hypotheses.
+    pub facts: Vec<String>,
     /// What must be shown, as after `⊢`, computed as the checker sees it
     /// (a call that matches at once is replaced by what it steps to). The
     /// proof search and the lemma are made from this text; a reader is

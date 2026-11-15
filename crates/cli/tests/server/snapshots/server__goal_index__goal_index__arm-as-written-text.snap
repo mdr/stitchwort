@@ -76,6 +76,10 @@ expression: json
     "code": "GOAL",
     "file": 0,
     "goal": {
+      "facts": [
+        "s ≠ \"ab\"",
+        "s ≠ \"\""
+      ],
       "hypotheses": [
         {
           "name": "p",
@@ -86,13 +90,13 @@ expression: json
           "type": "Text"
         }
       ],
-      "lemma": "theorem plainGoal3 (p: Text → Prop) (s: Text): p s := ?",
+      "lemma": "theorem plainGoal3 (p: Text → Prop) (s: Text) (h: s ≠ \"ab\") (h2: s ≠ \"\"): p s := ?",
       "target": "p s"
     },
     "labels": [
       {
         "file": 0,
-        "message": "p: Text → Prop\ns: Text\n⊢ p s",
+        "message": "p: Text → Prop\ns: Text\ns ≠ \"ab\"\ns ≠ \"\"\n⊢ p s",
         "range": [
           10,
           9,
@@ -103,7 +107,8 @@ expression: json
     ],
     "message": "in `plain`",
     "notes": [
-      "this arm is checked in 4 cases; the goal shown is the arm as written, not any one case"
+      "this arm is checked in 4 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
     ],
     "range": [
       10,
@@ -155,6 +160,9 @@ expression: json
     "code": "GOAL",
     "file": 0,
     "goal": {
+      "facts": [
+        "s ≠ \"ab\""
+      ],
       "hypotheses": [
         {
           "name": "p",
@@ -169,13 +177,13 @@ expression: json
           "type": "p s"
         }
       ],
-      "lemma": "theorem withHypothesisGoal2 (p: Text → Prop) (s: Text) (h: p s): p s := ?",
+      "lemma": "theorem withHypothesisGoal2 (p: Text → Prop) (s: Text) (h: p s) (h2: s ≠ \"ab\"): p s := ?",
       "target": "p s"
     },
     "labels": [
       {
         "file": 0,
-        "message": "p: Text → Prop\ns: Text\nh: p s\n⊢ p s",
+        "message": "p: Text → Prop\ns: Text\nh: p s\ns ≠ \"ab\"\n⊢ p s",
         "range": [
           15,
           9,
@@ -186,7 +194,8 @@ expression: json
     ],
     "message": "in `withHypothesis`",
     "notes": [
-      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case"
+      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
     ],
     "range": [
       15,
@@ -234,6 +243,9 @@ expression: json
     "code": "GOAL",
     "file": 0,
     "goal": {
+      "facts": [
+        "other ≠ \"ab\""
+      ],
       "hypotheses": [
         {
           "name": "p",
@@ -244,13 +256,13 @@ expression: json
           "type": "Text"
         }
       ],
-      "lemma": "theorem namedGoal2 (p: Text → Prop) (other: Text): p other := ?",
+      "lemma": "theorem namedGoal2 (p: Text → Prop) (other: Text) (h: other ≠ \"ab\"): p other := ?",
       "target": "p other"
     },
     "labels": [
       {
         "file": 0,
-        "message": "p: Text → Prop\nother: Text\n⊢ p other",
+        "message": "p: Text → Prop\nother: Text\nother ≠ \"ab\"\n⊢ p other",
         "range": [
           20,
           13,
@@ -261,7 +273,8 @@ expression: json
     ],
     "message": "in `named`",
     "notes": [
-      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case"
+      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
     ],
     "range": [
       20,
@@ -434,6 +447,9 @@ expression: json
     "code": "GOAL",
     "file": 0,
     "goal": {
+      "facts": [
+        "s✝ ≠ \"ab\""
+      ],
       "hypotheses": [
         {
           "name": "p",
@@ -449,7 +465,7 @@ expression: json
     "labels": [
       {
         "file": 0,
-        "message": "p: Text → Prop\ns✝: Text\n⊢ p s✝",
+        "message": "p: Text → Prop\ns✝: Text\ns✝ ≠ \"ab\"\n⊢ p s✝",
         "range": [
           31,
           9,
@@ -460,7 +476,8 @@ expression: json
     ],
     "message": "in `clauses`",
     "notes": [
-      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case"
+      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
     ],
     "range": [
       31,
@@ -508,6 +525,9 @@ expression: json
     "code": "GOAL",
     "file": 0,
     "goal": {
+      "facts": [
+        "c ≠ 'a'"
+      ],
       "hypotheses": [
         {
           "name": "p",
@@ -518,13 +538,13 @@ expression: json
           "type": "Char"
         }
       ],
-      "lemma": "theorem characterGoal2 (p: Char → Prop) (c: Char): p c := ?",
+      "lemma": "theorem characterGoal2 (p: Char → Prop) (c: Char) (h: c ≠ 'a'): p c := ?",
       "target": "p c"
     },
     "labels": [
       {
         "file": 0,
-        "message": "p: Char → Prop\nc: Char\n⊢ p c",
+        "message": "p: Char → Prop\nc: Char\nc ≠ 'a'\n⊢ p c",
         "range": [
           36,
           9,
@@ -534,7 +554,9 @@ expression: json
       }
     ],
     "message": "in `character`",
-    "notes": [],
+    "notes": [
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
     "range": [
       36,
       9,

@@ -1617,7 +1617,14 @@ impl Elaborator {
             lines.push(format!("  computes to {}", cut_computed(&target)));
         }
         let lemma = if known {
-            self.lemma_of(p, &hypotheses, &target, &show).ok()
+            self.lemma_of(
+                p,
+                &hypotheses,
+                arm.map_or(&[][..], |a| a.facts.as_slice()),
+                &target,
+                &show,
+            )
+            .ok()
         } else {
             None
         };
@@ -1655,6 +1662,7 @@ impl Elaborator {
         }
         diagnostic.detail_mut().goal = Some(GoalData {
             hypotheses,
+            facts: arm.map(|a| a.facts.clone()).unwrap_or_default(),
             target,
             written,
             prop: p.prop,
@@ -1682,6 +1690,7 @@ impl Elaborator {
         &self,
         p: &Pending,
         hypotheses: &[Hypothesis],
+        facts: &[String],
         target: &str,
         show: &dyn Fn(&Value) -> String,
     ) -> Result<(&'static str, String), &'static str> {
@@ -1705,7 +1714,10 @@ impl Elaborator {
                     .skip(1)
                     .any(|after| after.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
         };
-        if unwritable(target) || hypotheses.iter().any(|h| unwritable(&h.ty)) {
+        if unwritable(target)
+            || hypotheses.iter().any(|h| unwritable(&h.ty))
+            || facts.iter().any(|f| unwritable(f))
+        {
             return Err("unwritable text");
         }
         // Every variable the goal mentions is one it shows, a hypothesis's
@@ -1764,6 +1776,7 @@ impl Elaborator {
         // named.
         let text: Vec<&str> = std::iter::once(target)
             .chain(hypotheses.iter().map(|h| h.ty.as_str()))
+            .chain(facts.iter().map(String::as_str))
             .collect();
         for declaration in declarations {
             let full = self.full_name(declaration);
@@ -1820,6 +1833,23 @@ impl Elaborator {
         let mut rest = String::new();
         for h in hypotheses {
             rest.push_str(&format!(" ({}: {})", h.name, bracketed(&h.ty)));
+        }
+        // The facts are hypotheses of the lemma, named `h`, `h2`, … clear of
+        // the goal's own names.
+        let mut n = 0;
+        for fact in facts {
+            let name = loop {
+                n += 1;
+                let name = if n == 1 {
+                    "h".to_string()
+                } else {
+                    format!("h{n}")
+                };
+                if !hypotheses.iter().any(|h| h.name == name) {
+                    break name;
+                }
+            };
+            rest.push_str(&format!(" ({name}: {fact})"));
         }
         rest.push_str(&format!(": {} := ?", bracketed(target)));
         Ok((keyword, rest))
