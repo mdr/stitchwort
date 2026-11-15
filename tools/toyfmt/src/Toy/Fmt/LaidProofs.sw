@@ -66,12 +66,14 @@ theorem concatLays ∀ (docs: List Doc) (indent: Nat) (place: Place) (trace: Lis
 --| comment break, after a waiting comment.
 def wordStart (indent: Nat) (place: Place): Option Nat := match place with
   | AtStart at => Some at
+  | Broken at => Some at
   | Mid _ => None
   | Held at => Some (Nat.max indent (at + 2))
 
 --| The indentation of the line a word written at `place` is on.
 def wordLine (indent: Nat) (place: Place): Nat := match place with
   | AtStart at => at
+  | Broken at => at
   | Mid at => at
   | Held at => Nat.max indent (at + 2)
 
@@ -89,6 +91,7 @@ theorem wordLays ∀ (indent: Nat) (text: Text) (place: Place) (trace: List Even
             | False, _, oneLine =>
               match place, reached with
                 | AtStart at, reached => Both oneLine reached
+                | Broken at, reached => Both oneLine reached
                 | Mid at, reached => Both oneLine reached
                 | Held at, reached => Both oneLine reached
 
@@ -99,6 +102,7 @@ theorem wordLays ∀ (indent: Nat) (text: Text) (place: Place) (trace: List Even
 --| comment break.
 def breakColumn (indent: Nat) (place: Place): Nat := match place with
   | AtStart at => at
+  | Broken at => at
   | Mid at => Nat.max indent (at + 2)
   | Held at => Nat.max indent (at + 2)
 
@@ -123,6 +127,12 @@ def aboveEnd (indent: Nat) (place: Place) (above: List Comment): Place := match 
 def trailEnd (line: Nat) (after: Option Comment): Place := match after with
   | None => Mid line
   | Some _ => Held line
+
+--| After a token, with or without a trailing comment, words are on the
+--| line.
+theorem trailMid ∀ (line: Nat) (after: Option Comment): (trailEnd line after).midLine = True := match after with
+  | None => rfl
+  | Some _ => rfl
 
 theorem notesLay ∀ (comments: List Comment) (indent column: Nat) (trace: List Event) (next: Place → List Event → Prop)
     (fine: FineAbove comments) (reached: next (AtStart column) (trace ++ aboveEvents column comments)):
@@ -154,12 +164,15 @@ theorem notesLay ∀ (comments: List Comment) (indent column: Nat) (trace: List 
                 written
                 next))
           (commentSolid comment.text first)
-          (notesLay rest indent column
-            (trace ++ [{ word = comment.text, start = Some column }])
-            next
-            others
-            (rewrite List.appendAssoc trace [{ word = comment.text, start = Some column }] (aboveEvents column rest) in
-              reached)))
+          (Both rfl
+            (notesLay rest indent column
+              (trace ++ [{ word = comment.text, start = Some column }])
+              next
+              others
+              (rewrite List.appendAssoc trace
+                    [{ word = comment.text, start = Some column }]
+                    (aboveEvents column rest) in
+                reached))))
 
 --| The comments above a token: each on a line of its own at one column,
 --| where the token then starts its line.
@@ -179,6 +192,7 @@ theorem aboveLays ∀ (above: List Comment) (indent: Nat) (place: Place)
         next
         (match place, reached with
           | AtStart at, reached => notesLay [comment, ..rest] indent at trace next fine reached
+          | Broken at, reached => notesLay [comment, ..rest] indent at trace next fine reached
           | Mid at, reached => notesLay [comment, ..rest] indent (Nat.max indent (at + 2)) trace next fine reached
           | Held at, reached => notesLay [comment, ..rest] indent (Nat.max indent (at + 2)) trace next fine reached)
 
@@ -271,6 +285,7 @@ def Zone.under (zone: Zone) (indent: Nat): Prop := match zone with
 --| deeper if nothing is on it yet.
 def Inner (zone: Zone) (place: Place): Prop := match place with
   | AtStart at => zone.under at
+  | Broken _ => False
   | Mid at => zone.holds at
   | Held at => zone.holds at
 
@@ -278,6 +293,7 @@ def Inner (zone: Zone) (place: Place): Prop := match place with
 --| indented no less than the statement.
 def Ended (zone: Zone) (place: Place): Prop := match place with
   | AtStart _ => False
+  | Broken _ => False
   | Mid at => zone.holds at
   | Held at => zone.holds at
 
@@ -461,6 +477,7 @@ theorem nothingRule ∀ (within: Nat → Prop) (pre: Place → Prop): Rule withi
 --| A place whose line is indented no less than the zone's statement.
 def Seated (zone: Zone) (place: Place): Prop := match place with
   | AtStart at => zone.holds at
+  | Broken _ => False
   | Mid at => zone.holds at
   | Held at => zone.holds at
 
@@ -497,30 +514,33 @@ theorem lineSeats ∀ (zone: Zone): Rule zone.holds Line (Ended zone) Done (Seat
           (rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside)
       | Held at, ended => rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside
 
---| A `SoftLine`: nothing, or a line break to the indentation in force.
-theorem softRule ∀ (zone: Zone): Rule zone.holds SoftLine (Seated zone) Done (Seated zone) :=
+--| A `SoftLine` after a token: nothing, or a line break to the
+--| indentation in force.
+theorem softRule ∀ (zone: Zone): Rule zone.holds SoftLine (Ended zone) Done (Seated zone) :=
   indent place trace next inside seated onward =>
     match place, seated with
-      | AtStart at, seated =>
-        Both
-          (rewrite <- List.appendNil trace in onward (AtStart at) [] rfl seated)
-          (rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside)
       | Mid at, seated =>
         Both
           (rewrite <- List.appendNil trace in onward (Mid at) [] rfl seated)
           (rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside)
       | Held at, seated => rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside
 
---| A `HardLine`: a line at the indentation in force.
-theorem hardRule ∀ (zone: Zone) (pre: Place → Prop): Rule zone.holds HardLine pre Done (Seated zone) :=
-  indent place trace next inside holds onward =>
-    rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside
+--| After a token there are words on the line.
+theorem endedMid ∀ (zone: Zone) (place: Place) (ended: Ended zone place): place.midLine = True :=
+  match place, ended with
+    | Mid at, _ => rfl
+    | Held at, _ => rfl
 
---| A `HardLine` in a nest of the statement: a line deeper than the
---| statement.
-theorem hardUnder ∀ (zone: Zone) (pre: Place → Prop): Rule zone.under HardLine pre Done (Inner zone) :=
-  indent place trace next inside holds onward =>
-    rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside
+--| A `HardLine` after a token: a line at the indentation in force.
+theorem hardRule ∀ (zone: Zone): Rule zone.holds HardLine (Ended zone) Done (Seated zone) :=
+  indent place trace next inside ended onward =>
+    Both (endedMid zone place ended) (Inr (rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside))
+
+--| A `HardLine` after a token, in a nest of the statement: a line deeper
+--| than the statement.
+theorem hardUnder ∀ (zone: Zone): Rule zone.under HardLine (Ended zone) Done (Inner zone) :=
+  indent place trace next inside ended onward =>
+    Both (endedMid zone place ended) (Inr (rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside))
 
 -- A closing bracket.
 
@@ -576,14 +596,16 @@ theorem closerNotes ∀ (comment: Comment) (rest: List Comment) (indent: Nat)
                 later
                 next)
             (commentSolid comment.text first)
-            (closerNotes second more indent
-              (trace ++ [{ word = comment.text, start = Some indent }])
-              next
-              others
-              (rewrite List.appendAssoc trace
-                    [{ word = comment.text, start = Some indent }]
-                    (aboveEvents indent [second, ..more]) in
-                reached))
+            (Both rfl
+              (Inr
+                (closerNotes second more indent
+                  (trace ++ [{ word = comment.text, start = Some indent }])
+                  next
+                  others
+                  (rewrite List.appendAssoc trace
+                        [{ word = comment.text, start = Some indent }]
+                        (aboveEvents indent [second, ..more]) in
+                    reached))))
 
 --| A closing bracket with its comments (`closer`): own-line comments
 --| above it at the items' column, the bracket then on a line of its own;
@@ -646,22 +668,24 @@ theorem closerRule ∀ (zone: Zone) (comments: Comments) (text: Text)
                     LaysAll [] (indent + 2) left laid (out all =>
                       LaysAll [HardLine, Doc.text text, trailingComment after] indent out all next)))
                 fineAbove
-                (wordLays indent text
-                  (AtStart indent)
-                  (trace ++ notes)
-                  (reached written => LaysAll [trailingComment after] indent reached written next)
-                  solid
-                  (trailingLays after indent indent
-                    ((trace ++ notes) ++ [word])
-                    next
-                    fineAfter
-                    (rewrite List.appendAssoc (trace ++ notes) [word] (afterEvents after) in
-                      rewrite List.appendAssoc trace notes ([word] ++ afterEvents after) in
-                        onward
-                          (trailEnd indent after)
-                          (notes ++ [word, ..afterEvents after])
-                          (Witness (indent + 2) (Witness (Some indent) (Both rfl rfl)))
-                          (trailEnded zone indent after inside)))))))
+                (Both rfl
+                  (Inr
+                    (wordLays indent text
+                      (AtStart indent)
+                      (trace ++ notes)
+                      (reached written => LaysAll [trailingComment after] indent reached written next)
+                      solid
+                      (trailingLays after indent indent
+                        ((trace ++ notes) ++ [word])
+                        next
+                        fineAfter
+                        (rewrite List.appendAssoc (trace ++ notes) [word] (afterEvents after) in
+                          rewrite List.appendAssoc trace notes ([word] ++ afterEvents after) in
+                            onward
+                              (trailEnd indent after)
+                              (notes ++ [word, ..afterEvents after])
+                              (Witness (indent + 2) (Witness (Some indent) (Both rfl rfl)))
+                              (trailEnded zone indent after inside)))))))))
 
 -- Rules put together.
 

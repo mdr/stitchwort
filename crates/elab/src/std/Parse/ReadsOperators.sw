@@ -270,3 +270,170 @@ theorem Parse.readsOperators ∀ (what: Text) (levels: List (Parse.Level t a)) (
           (at.left + 1)
           0)
         (taken value isGrouped => isGrouped))
+
+--| `operatorsFrom` builds on its `left`: what is `kept` of `left` is kept
+--| of the value it gives, when joining a right side to a value keeps it
+--| (`keep`), whatever the right operands are (`readsRight`).
+theorem Parse.readsOperatorsFromLeft ∀ (what: Text) (levels: List (Parse.Level t a)) (count: Nat)
+    (operand: () → {Parse t} a) (kept: a → Prop)
+    (keep: ∀ (level: Nat) (associativity: Parse.Associativity) (combine: a
+      → a
+      → a) (item: t) (left right: a) => Parse.operatorFrom item 0 levels = Some (level, associativity, combine)
+      → kept left
+      → kept (combine left right)) (depth: Nat)
+    (readsRight: ∀ (lowest: Nat) => Parse.Reads
+      (() => Parse.operandsFrom depth what levels count operand lowest)
+      (taken value => True))
+    (fuel lowest highest: Nat) (left: a) (holds: kept left):
+    Parse.Reads (() => Parse.operatorsFrom fuel depth what levels count operand lowest highest left) (taken value =>
+      kept value) :=
+  match fuel with
+    | Zero => state value after honest h =>
+      let same := Result.okInjective h
+      let valueSame: left = value := Pair.mkInjectiveFst same
+      let atSame: (state.note (Expected what)).at = after := Pair.mkInjectiveSnd same
+      Witness [] (rewrite <- valueSame, <- atSame, Parse.noteAt state (Expected what) in Both rfl (Both honest holds))
+    | Succ more => state value after honest h =>
+      match Parse.operatorsFromOk more depth what levels count operand lowest highest left state value after h with
+        | Inl (Both valueSame atSame) => Witness [] (rewrite valueSame, atSame in Both rfl (Both honest holds))
+        | Inr
+            (Witness item
+              (Witness level (Witness associativity (Witness combine (Both found (Both above (Both below ran))))))) =>
+          let readsTried: Parse.Reads
+            (() =>
+              Parse.optional (() =>
+                let operator := Parse.next (item => True)
+                Parse.operandsFrom depth what levels count operand (Parse.nextLowest associativity level)))
+            (Parse.Maybe (taken right => True)) :=
+            Parse.readsOptional
+              (Parse.readsThenOf
+                (() => Parse.next (item => True))
+                (operator =>
+                  Parse.operandsFrom depth what levels count operand (Parse.nextLowest associativity level)) _
+                (taken right => True)
+                (Parse.readsNext (item => True))
+                (firstRead operator facts =>
+                  Parse.readsWeaken (readsRight (Parse.nextLowest associativity level)) (taken right any => any)))
+          let readsRound: Parse.Reads
+            (() =>
+              Parse.operatorsAfter more depth what levels count operand lowest level combine left
+                (Parse.optional (() =>
+                  let operator := Parse.next (item => True)
+                  Parse.operandsFrom depth what levels count operand (Parse.nextLowest associativity level))))
+            (taken value => kept value) :=
+            Parse.readsThenOf
+              (() =>
+                Parse.optional (() =>
+                  let operator := Parse.next (item => True)
+                  Parse.operandsFrom depth what levels count operand (Parse.nextLowest associativity level)))
+              (Parse.operatorsAfter more depth what levels count operand lowest level combine left) _
+              (taken value => kept value)
+              readsTried
+              (firstRead tried facts =>
+                match tried with
+                  | Some right =>
+                    Parse.readsWeaken
+                      (Parse.readsOperatorsFromLeft what levels count operand kept keep depth readsRight more lowest
+                          level
+                          (combine left right)
+                          (keep level associativity combine item left right found holds))
+                      (taken value isKept => isKept)
+                  | None => Parse.readsDone left _ holds)
+          readsRound state value after honest ran
+
+--| `operandsFrom` reads its first operand first and builds on it: what
+--| it read starts with what that operand read (`first` of it), and the
+--| value keeps what `kept` says of that operand's value.
+theorem Parse.readsOperandsFromLeft ∀ (what: Text) (levels: List (Parse.Level t a)) (count: Nat)
+    (operand: () → {Parse t} a) (first: List t → a → Prop) (kept: a → a → Prop)
+    (readsOperand: Parse.Reads operand first)
+    (same: ∀ (value: a) => kept value value)
+    (keep: ∀ (start: a) (level: Nat) (associativity: Parse.Associativity) (combine: a
+      → a
+      → a) (item: t) (left right: a) => Parse.operatorFrom item 0 levels = Some (level, associativity, combine)
+      → kept start left
+      → kept start (combine left right)) (depth lowest: Nat):
+    Parse.Reads (() => Parse.operandsFrom depth what levels count operand lowest) (taken value =>
+      ∃ (firstRead: List t) => ∃ (more: List t) => ∃ (start: a) => taken = firstRead ++ more
+        ∧ first firstRead start
+        ∧ kept start value) :=
+  match depth with
+    | Zero =>
+      Parse.readsThenOf operand
+        (Parse.operandsAfter Zero what levels count operand lowest) _ _
+        readsOperand
+        (firstRead start isFirst =>
+          Parse.readsDone start _
+            (Witness firstRead (Witness [] (Witness start (Both rfl (Both isFirst (same start)))))))
+    | Succ inner =>
+      Parse.readsThenOf operand
+        (Parse.operandsAfter (Succ inner) what levels count operand lowest) _ _
+        readsOperand
+        (firstRead start isFirst =>
+          match within: lowest < count with
+            | False =>
+              Parse.readsDone start _
+                (Witness firstRead (Witness [] (Witness start (Both rfl (Both isFirst (same start))))))
+            | True =>
+              Parse.readsThenOf
+                (() => Parse.mark())
+                (at => Parse.operatorsFrom (at.left + 1) inner what levels count operand lowest (count - 1) start) _ _
+                Parse.readsMark
+                (markRead at none =>
+                  Parse.readsWeaken
+                    (Parse.readsOperatorsFromLeft what levels count operand
+                      (kept start)
+                      (keep start)
+                      inner
+                      (nested =>
+                        Parse.readsOperandsFrom what levels count operand
+                          (value => True)
+                          (level value => True)
+                          (level highest value => True)
+                          (Parse.readsWeaken readsOperand (taken value any => rfl))
+                          (level highest value any => rfl)
+                          (level highest value any => rfl)
+                          (level highest found associativity combine item left right isOperator above below one other =>
+                            rfl)
+                          inner
+                          nested)
+                      (at.left + 1)
+                      lowest
+                      (count - 1)
+                      start
+                      (same start))
+                    (taken value isKept =>
+                      Witness firstRead
+                        (Witness (markRead ++ taken) (Witness start (Both rfl (Both isFirst isKept)))))))
+
+--| `Parse.operators` reads its first operand first and builds on it:
+--| what it read starts with what that operand read, and whatever `kept`
+--| says of that operand's value it says of the value given, when `kept`
+--| holds of a value and itself (`same`) and joining a right side to a
+--| value keeps it (`keep`). With `kept start value` saying the two have
+--| the same leftmost part, this is "the tree's leftmost leaf is the
+--| first thing read", which [`Parse.readsOperators`], an invariant of
+--| values alone, can't say.
+theorem Parse.readsOperatorsLeft ∀ (what: Text) (levels: List (Parse.Level t a)) (operand: () → {Parse t} a)
+    (first: List t → a → Prop) (kept: a → a → Prop)
+    (readsOperand: Parse.Reads operand first)
+    (same: ∀ (value: a) => kept value value)
+    (keep: ∀ (start: a) (level: Nat) (associativity: Parse.Associativity) (combine: a
+      → a
+      → a) (item: t) (left right: a) => Parse.operatorFrom item 0 levels = Some (level, associativity, combine)
+      → kept start left
+      → kept start (combine left right)):
+    Parse.Reads (() => Parse.operators what levels operand) (taken value =>
+      ∃ (firstRead: List t) => ∃ (more: List t) => ∃ (start: a) => taken = firstRead ++ more
+        ∧ first firstRead start
+        ∧ kept start value) :=
+  Parse.readsThenOf
+    (() => Parse.mark())
+    (at => Parse.operandsFrom (at.left + 1) what levels levels.length operand 0) _ _
+    Parse.readsMark
+    (markRead at none =>
+      Parse.readsWeaken
+        (Parse.readsOperandsFromLeft what levels levels.length operand first kept readsOperand same keep
+          (at.left + 1)
+          0)
+        (taken value found => rewrite none in found))
