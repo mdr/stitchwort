@@ -1,5 +1,5 @@
 {
-  "next": 3333,
+  "next": 3334,
   "tickets": [
     {
       "id": 47,
@@ -36804,19 +36804,34 @@
     {
       "id": 3331,
       "title": "[Opus] same_heads' sealed-call branch (hidden opaque calls, calls of the group being checked) also leaves a failed nested comparison's solutions; apply SW-3330's mark/restore there",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-3330. Expected: 45 min (Opus).",
+      "body": "From SW-3330. Steps identical on day 2/18 proofs. Model result: Opus, worked, ~14 min (est. 45). Filed SW-3333.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": [
+        "564e0181302f251a4dc663f766c3cea9ea02fc14"
+      ]
+    },
+    {
+      "id": 3332,
+      "title": "[Sonnet] Aoc.Year2020.Day16.Proofs.runsNotes rose +9.5M checker steps (Day16 +6.2%) between db0538f5f (before SW-3281) and e41f08839 (Overmind's quiet A/B, 15 Nov); smaller rises in 2020 day 3 (+3.8%), 2021 days 10 and 3 (+3.3%, +3.2%). Measure on current main (SW-3307/SW-3311 settle changes landed after e41f08839), and if still up, find which checker change did it (propagation SW-3281, settling, solved_calls) by profiling, not bisecting blindly",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
     },
     {
-      "id": 3332,
-      "title": "[Sonnet] Aoc.Year2020.Day16.Proofs.runsNotes rose +9.5M checker steps (Day16 +6.2%) between db0538f5f (before SW-3281) and e41f08839 (Overmind's quiet A/B, 15 Nov); smaller rises in 2020 day 3 (+3.8%), 2021 days 10 and 3 (+3.3%, +3.2%). Measure on current main (SW-3307/SW-3311 settle changes landed after e41f08839), and if still up, find which checker change did it (propagation SW-3281, settling, solved_calls) by profiling, not bisecting blindly",
+      "id": 3333,
+      "title": "[Opus] Should a successful sealed-call comparison in same_heads record its solutions with note_lossy, as the stuck-call branch does? Check what readers of solved_lossily expect (SW-3331 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
