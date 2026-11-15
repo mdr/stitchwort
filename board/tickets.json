@@ -37672,7 +37672,7 @@
     {
       "id": 3397,
       "title": "[Sonnet] Constructor names, option 1 (D3615): the E-AMBIGUOUS error names the candidates and suggests the qualified spellings (Token.Str); a warning where a file's own constructor hides an imported one (its None hiding Option's); goals print a clashing constructor qualified (ctor_written) so they paste back; docs/syntax.md and the guide state the rule (one meaning per file; qualify on a clash; keep lexer and printer in separate files). Tests failing before",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
