@@ -35837,15 +35837,17 @@
     {
       "id": 3265,
       "title": "[Sonnet] 'return _' isn't accepted in 'match reify' (E-PARSE) (SW-3262 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Found in SW-3262. Shared clause parser, so handlers' return _ also accepted (was E-PARSE too). Model result: DeepSeek, worked, ~25 min (est. 40).",
       "created": "2026-11-14",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "fb51bafb11748ca249e655a5339ff067782e71ab"
+      ]
     },
     {
       "id": 3266,
