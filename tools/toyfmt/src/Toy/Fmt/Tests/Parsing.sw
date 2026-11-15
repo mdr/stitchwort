@@ -10,8 +10,7 @@ import Std (List, Option, Result, Text)
 def Golden.formats (golden: Golden) (text: Text): Option Text :=
   format text golden.width |> .toOption |> .map (printed => printed.text)
 
-def Golden.parsesToTree (golden: Golden): Bool :=
-  (parse golden.source |> .map (file => file.dump)) == Ok golden.tree.dump
+def Golden.parsesToTree (golden: Golden): Bool := parse golden.source == Ok golden.tree
 
 test "each golden's source parses to its tree" := goldens.all Golden.parsesToTree
 
