@@ -264,12 +264,22 @@ def atom (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout):
 def items (self: Layout → {Parse (Parse.Located Token)} Expr) (closer: Punctuation):
     {Parse (Parse.Located Token)} List Item :=
   let closing := "'${closer.spelling}'"
-  match Parse.optional (() => sign InBrackets closing closer) with
-    | Some () => []
-    | None =>
-      let found := itemsFrom (Parse.mark().left) self []
-      sign InBrackets closing closer
-      found
+  if signInBrackets closing closer then []
+  else
+    let found := itemsFrom (Parse.mark().left) self []
+    sign InBrackets closing closer
+    found
+
+--| Whether the sign `wanted` comes next, read if it does, else noted as
+--| expected: `Parse.optional (() => sign InBrackets what wanted)` without
+--| the handler, since reading one token can't fail halfway.
+def signInBrackets (what: Text) (wanted: Punctuation): {Parse (Parse.Located Token)} Bool := match peek() with
+  | Some token if (signIs wanted token.value.kind).isSome =>
+    skip()
+    True
+  | _ =>
+    Parse.note (Parse.Problem.Expected what)
+    False
 
 --| Items while each is followed by a comma, at most `fuel` more. `found`
 --| is newest first.
@@ -287,7 +297,7 @@ def item (self: Layout → {Parse (Parse.Located Token)} Expr): {Parse (Parse.Lo
   let start := Parse.mark()
   let comments := start.rest.head |> .map (token => ownLineComments token.value.above) |> .getOrElse []
   let value := self InBrackets
-  let comma := Parse.optional (() => sign InBrackets "','" Comma) |> .isSome
+  let comma := signInBrackets "','" Comma
   let trailing := if comma then lastTrailing start else trailingSince start value
   ({ comments, value, trailing }, comma)
 
