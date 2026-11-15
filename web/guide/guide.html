@@ -116,6 +116,11 @@
   <pre data-src="19-fail.sw"></pre>
 </section>
 
+<section data-slug="files" data-title="Files: the disk as an ability">
+  <p><code>Files</code> reads and writes whole files, lists folders and says what a path is. It is an ability of its own, beside <code>IO</code>, so a type says whether code can touch the disk at all. Every operation gives a <code>Result</code>: a missing file is a value to handle, not a crash. A <code>main</code> of type <code>{Files, IO} ()</code> runs on the real disk; a test runs the same code on a pretend one with <code>Files.simulate</code>, and checks what it did. Checking and testing never touch a real file. (The playground has no disk yet, so here only the tests run.)</p>
+  <pre data-src="42-files.sw"></pre>
+</section>
+
 <section data-slug="parse" data-title="Parse: reading structured text">
   <p><code>Parse</code> is an ability for reading text. A parser is ordinary straight-line code: <code>nat()</code> reads a number, <code>char 'x'</code> a given character, and <code>oneOf</code>, <code>optional</code> and <code>many</code> choose and repeat. A runner such as <code>Parse.eachLine</code> gives it the input and turns a failure into a <code>Fail</code> that names the line and column and says what was expected there.</p>
   <pre data-src="20-parse.sw"></pre>

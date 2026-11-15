@@ -562,7 +562,7 @@ fn run_lines_agree_with_the_reference_evaluator() {
                     .ctor(stitchwort_core::registry::Builtin::MkPair)
                     .expect("pairs");
                 let entry = Term::Ctor(pair, 0, vec![Rc::new(term), Rc::new(expected)]);
-                let program = lower_main(g, session.elab.options.limits, &entry, MainRow::Io)
+                let program = lower_main(g, session.elab.options.limits, &entry, MainRow::IO)
                     .unwrap_or_else(|e| panic!("lowering `{source}`: {e:?}"));
                 let mut m = Machine::new(&program, Limits::from_core(session.elab.options.limits));
                 let got = m.entry().unwrap_or_else(|e| panic!("`{source}`: {e}"));

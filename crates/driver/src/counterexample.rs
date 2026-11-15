@@ -263,7 +263,7 @@ pub fn run_fast(
     }
     let tuples: Vec<Term> = inputs.iter().map(|input| tuple(input)).collect();
     let entry = mk_pair(checker.clone(), tree(&tuples, &mk_pair));
-    let Ok(program) = stitchwort_rt::lower_main(g, limits, &entry, stitchwort_rt::MainRow::Io)
+    let Ok(program) = stitchwort_rt::lower_main(g, limits, &entry, stitchwort_rt::MainRow::IO)
     else {
         return false;
     };

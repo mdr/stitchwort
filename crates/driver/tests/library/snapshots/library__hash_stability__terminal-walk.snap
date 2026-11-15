@@ -46,7 +46,7 @@ Main.view 2228cb2dceb4ec2217e79d67ce581c494c6dbae5f4dacab4ad20e4bd0ccde0ce
 Main.walk a625e2094ba4e67c9022592320e30b5dbbb567221c07f54994a89e2b38a47eb9
 Main.walk.%match1 b75de2a4f93205900542794f2c454fd590e27ee645e6c46ee4394e7c1d100ea5
 Main.steps 4036b3aa5bf3386ce870eeae79619dc2477ed20e3d82d33596a8ba8ebc382292
-Main.main 8e2e5141b0895bf6fe35836669149f0ae8264352b7bf67606406193567b235ea
+Main.main bee7bd045d3cd9a2c23293699df48dd97a512b65a4270d9205df0d8c6df4ed64
 Main.finalOf fbbef2a142288f00d04e01ee6855de6358bffdc231fa1e4e4fbf92b0bd17b245
 Main.test "the arrows and hjkl move" 649df736acf9810aadec596623e5e49949eea6fa5aba34d16a76b7bf0d4120e6
 Main.test "walls stop it" 63fccf56c9af46e96d193e66d99380347156813615ba540615fd28385acb8b58
@@ -54,4 +54,4 @@ Main.test "the far walls too" ff1b0cbf63f7d9794090acb98f1678dce86f0e946848e5d524
 Main.test "other keys do nothing" b700fd0692c0cececeb2b63bc1a4dfd029a7bad713eb8e25009c44b034bbcc4f
 Main.test "q stops it" 2fa2ccf950f273ba0f3bb6175c553b297df371c636a9bb6e12c9d77ea8c5e9b6
 Main.test "one frame per key, and one at the start" 30f233c7ca42561cba88e9b2e05271a29484c36b10105ab44207fb95c29b36ac
-Main.test "main on piped input" e2fc08bce4d55aa21cbd1ab0ec82110ee3e63e73a6679648625e2e8a677ad4ca
+Main.test "main on piped input" 28d91f3b02bfca955925792f475ec65024fccad2f5e9e7a094b66e1e38b32d35

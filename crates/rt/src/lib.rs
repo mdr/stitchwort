@@ -25,6 +25,7 @@ pub mod codec;
 pub mod dispatch;
 pub mod effect;
 pub mod erasure;
+pub mod files;
 pub mod fusion;
 pub mod hoist;
 pub mod host;

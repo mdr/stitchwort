@@ -44,7 +44,7 @@ use crate::wire::{BUILD_HASH, CodecError, Read, Reader, Writer, bad, read_shapes
 const MAGIC: &[u8; 4] = b"SWTB";
 
 /// Bumped when the layout changes.
-pub const FORMAT_VERSION: u8 = 2;
+pub const FORMAT_VERSION: u8 = 3;
 
 /// What the runtime around native code needs to know about a program: its
 /// shapes and `main`'s row (for the runner), each global's kind and each
@@ -275,10 +275,7 @@ pub fn encode(program: &Program, image: &Image, limits: &Limits) -> Vec<u8> {
     w.u8(u8::from(crate::erasure::check_rebuilds()));
     w.uint(limits.steps);
     w.usize(limits.frames);
-    w.u8(match program.main_row {
-        MainRow::Io => 0,
-        MainRow::FailIo => 1,
-    });
+    w.u8(program.main_row.tag());
     write_shapes(&mut w, &program.shapes);
     w.usize(program.globals.len());
     for (global, code) in program.globals.iter().zip(&image.global_code) {
@@ -443,10 +440,12 @@ pub fn decode(bytes: &[u8]) -> Result<Linked, CodecError> {
         // Only the counterexample search counts words; it builds nothing.
         number_words: false,
     };
-    let main_row = match r.u8()? {
-        0 => MainRow::Io,
-        1 => MainRow::FailIo,
-        t => return bad(format!("no main row tagged {t}")),
+    let main_row = {
+        let t = r.u8()?;
+        match MainRow::from_tag(t) {
+            Some(row) => row,
+            None => return bad(format!("no main row tagged {t}")),
+        }
     };
     let shapes = read_shapes(&mut r)?;
     let n = r.count()?;

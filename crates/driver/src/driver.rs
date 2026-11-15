@@ -1032,6 +1032,16 @@ impl Session {
         &self,
         main: &crate::run::Main,
     ) -> Result<stitchwort_js::run::Program, Diagnostic> {
+        if main.row.files {
+            return Err(Diagnostic::error(
+                "E-JS-FILES",
+                "a `main` that uses `Files` can't run under `--js` yet",
+            )
+            .with_label(main.span, "this `main` has `Files` in its row")
+            .with_note(
+                "run it without `--js`: `stitchwort run` and built executables perform `Files`",
+            ));
+        }
         stitchwort_js::run::generate_program(
             &self.elab.backend(),
             self.elab.options.limits,
