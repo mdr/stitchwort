@@ -1,5 +1,5 @@
 {
-  "next": 3462,
+  "next": 3464,
   "tickets": [
     {
       "id": 47,
@@ -38555,6 +38555,32 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3462,
+      "title": "[Sonnet] Bug: stitchwort fmt not idempotent with comments in a lambda's parameter list (Overmind fuzz:fmt seed 0x12b COMMENTS=0.3 case 413554, on 3d65b641f): def f: Nat → Nat := [a:-- c / Type-- c / ] (x:-- c / a) => x — pass 1 puts the body x on its own line, pass 2 pulls it up to 'a) => x'. Repro: task fuzz:fmt SEED=0x12b COMMENTS=0.3 CASE=413554",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3463,
+      "title": "[DeepSeek] fmt fuzzer COMMENTS mode: 1M cases take 18-40 s vs 144 s without, so many cases may be refused or fail to parse early; count and print how many cases parsed and were formatted, per mode, and if most don't parse, make comment insertion keep more inputs parseable (SW-3451 follow-up, Overmind)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
