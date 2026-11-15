@@ -544,9 +544,11 @@ fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
 fn arm_goal(cx: &Ctx, expected: &Value, shown_names: &[Name]) -> Option<Box<ArmGoal>> {
     let view = crate::arm_display::view(cx, expected)?;
     // The count matters where the goal depends on the case: a proof, or a
-    // goal the arm's patterns changed.
+    // goal the arm's patterns or the case tree's splits changed.
     let says_cases = view.cases > 1
-        && (view.goal.is_some() || crate::rewrite::is_proof_type(cx, expected).unwrap_or(false));
+        && (view.goal.is_some()
+            || view.depends
+            || crate::rewrite::is_proof_type(cx, expected).unwrap_or(false));
     let cases = says_cases
         .then(|| crate::arm_display::case_note(cx))
         .flatten()
