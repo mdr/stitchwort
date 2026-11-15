@@ -37319,12 +37319,12 @@
     {
       "id": 3370,
       "title": "[Opus] Derived equality stage 2 (derived-equality.md §5.6): derived Ord and DecEq linear in the constructor count (positions first, then fields); profile first; 94 constructors from 13 s to under 1 s",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Expected: 4 h (Opus).",
+      "body": "Expected: 4 h (Opus).\n\nProgress (lane, 15 Nov 2026, 10:07 → ~11:10):\n- Profiled first (STITCHWORT_TIMINGS + per-group timing): at 47 constructors `T.%trans` was 2.4 s of 3.0 s; every law and DecEq proof matched both values with an n² catch-all.\n- Built §5.6 for DecEq and Ord, two constructors or more: match the first value only, tags first (`if Nat.equal (tag r) (tag s) then T.%fields r s else Nat.compare …`; `same (C a…) s = Nat.equal c (tag s) && …`), second value's fields by projection. Proofs: core lemmas `Ordering.tagsEqual/tagsFlip/tagsTrans`, `DecEq.tagsSame`; per type `T.%C%k%at` (kernel-built, tag-equation projections), `T.%view` (kernel-built NumCase), `T.%eta`/`T.%etaAt` (source, n × rfl + one J). `T.%differ`, `T.%unfold` and core `byTagTrans`/`andThenTransWhen`/`notBothEqual`/`bothEqual` gone. Records unchanged.\n- Measured: 94 constructors 12.3 s → 0.17 s (158 M → 1.76 M steps); enumeration 94: 1.78 → 0.46 s (rest is derived Finite, still n²); 94 × three fields 19.7 → 2.65 s. Small typical types faster; 2-3 constructors with three fields incl. a nested list ~1.7× slower (24 → 41 ms). Runtime sort/== micro-bench unchanged. Performance-log entry added.\n- Commit 4c057ad07 on lane/SW-3370.\n- Tests: new example derive-many-constructors.sw (laws, readings, rfl); driver library test `derived_instances_grow_linearly_with_constructors`; examples derive,ord,deceq,compare,sort + eqeq,nested-data,show,finite,… pass; hash_stability passes after regenerating (101 example snapshots moved, prelude only gained/lost the lemmas); guide:: run once.\n- AoC risk for the verifier: every derived instance's hash changed; proofs that unfold a derived `==`/`compare` on a partly known pair now see `Nat.equal c (tag s) && …` / an `if` instead of a stuck two-sided match.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []

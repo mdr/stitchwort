@@ -15,43 +15,52 @@
 //! after it. Why not is kept for the note when an `Ord` is needed for `T`.
 //!
 //! The laws are put together from lemmas in the core, proved once
-//! (`Ordering.thenEqual`, `Ordering.thenFlip`, `Ord.thenTrans`, …): each
-//! constructor's case follows its fields, one lemma per field. For
+//! (`Ordering.thenEqual`, `Ordering.thenFlip`, `Ord.thenTrans`,
+//! `Ordering.tagsTrans`, …): each constructor's case follows its fields, one
+//! lemma per field. With two constructors or more the tags are compared
+//! first, and the fields only for the same constructor, so only the first
+//! value is matched and each law has one equation per constructor, not one
+//! per pair (docs/proposals/derived-equality.md §5.6). For
 //! `type T a = | C1 … | C2 x y | …`, with `x: Nat` and `y: T a`:
 //!
 //! ```text
 //! T.%compare : [a : _] -> [auto ord: Ord a] -> (%r %s : T a) -> Ordering
-//! T.%compare (C2 a0 a1) (C2 b0 b1) = Ordering.andThen (Ord.compare a0 b0) (T.%compare a1 b1)
+//! T.%compare r s = if Nat.equal (T.%tag r) (T.%tag s) then T.%fields r s else Nat.compare (T.%tag r) (T.%tag s)
+//! T.%fields (C2 a0 a1) s = Ordering.andThen (Ord.compare a0 (T.%C2%0 a0 s)) (T.%compare a1 (T.%C2%1 a1 s))
 //! …   -- one equation for each constructor
-//! T.%compare r s = Nat.compare (T.%tag r) (T.%tag s)
 //!
 //! T.%equal : … -> (%r %s : T a) -> T.%compare r s = Equal -> r = s
 //! T.%flip : … -> (%r %s : T a) -> T.%compare s r = Ordering.flip (T.%compare r s)
-//! T.%unfold : … -> (%r %s : T a) -> T.%compare r s = Ordering.andThen (Nat.compare (T.%tag r) (T.%tag s)) (T.%compare r s)
 //! T.%trans : … -> (%r %s %u : T a) -> T.%compare r s = Less -> T.%compare s u = Less -> T.%compare r u = Less
 //!
 //! instance T.%instOrd : … -> Ord (T a) := Ord.fromCompare T.%compare T.%equal T.%flip T.%trans
 //! ```
+//!
+//! `if`, not `Ordering.andThen` of the tags' comparison, so a run compares
+//! the fields only when the tags are equal. `Ordering.tagsEqual`,
+//! `tagsFlip` and `tagsTrans` deal with the tags: where they differ,
+//! `Nat.compare`'s laws decide; where they're equal, the law's equation
+//! for `C2 a0 a1` is given `T.%tag s = 1` (and `T.%tag u = 1`), and
+//! `T.%etaAt` (`derive.rs`) turns `s` into `C2 b0 b1`, its fields read by
+//! `T.%C2%k%at`, so the fields' laws apply as when both values are matched.
+//! With one constructor both values are matched, as `T.%compare (C a0 a1)
+//! (C b0 b1)`. An enumeration (no fields at all) is just its tags:
+//! `T.%compare r s = Nat.compare (T.%tag r) (T.%tag s)`, with `Nat`'s laws,
+//! and `equal` is `T.%etaAt` of `Nat.compareEqual`.
 //!
 //! A nested type gets `T.%m1%compare` and its laws for each container it's
 //! in, as `DecEq` does (`derive.rs`), each kind defined together with `T`'s:
 //! `List`'s constructors in order (`Nil` first) then its fields is
 //! `List.compareLex`, and likewise `Option.compareWith` and
 //! `Pair.compareWith`, so a nested list compares as a list.
-//!
-//! For values of different constructors the last equation of each applies,
-//! and the tags decide: `equal` refutes `Nat.compare i j = Equal` for two
-//! different numbers, `flip` is `Nat.compare`'s, and `trans` is
-//! `Ordering.byTagTrans` through `T.%unfold` (which is `rfl` in every case,
-//! but the third value may not have been matched yet). An enumeration (no
-//! fields at all) is just its tags: `T.%compare r s = Nat.compare (T.%tag r)
-//! (T.%tag s)`, with `Nat`'s laws, and only `equal` looks at constructors.
 
 use stitchwort_core::DataId;
 use stitchwort_syntax::Span;
 use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, Pattern};
 
-use crate::derive::{Field, Plan, fields_equal, member_prefix};
+use num_bigint::BigUint;
+
+use crate::derive::{Field, Plan, fields_equal, let_in, member_prefix};
 use crate::module::Status;
 use crate::{Elaborator, Global, Result, interfaces};
 
@@ -144,7 +153,8 @@ impl Elaborator {
                 return Ok(());
             }
         };
-        // The helpers `DecEq` declares, in case it didn't.
+        // The helpers `DecEq` declares, in case it didn't (its module wrote
+        // its own instance).
         let ctors = self.kernel.data(d).ctors().len();
         if ctors > 1 && !self.has_member(d, "%tag") {
             self.derive_tag(d)?;
@@ -157,10 +167,18 @@ impl Elaborator {
                 }
             }
         }
-        for (m, nested) in plan.nested.iter().enumerate() {
-            self.derive_member_helpers(d, m + 1, &nested.member, false)?;
+        for c in 0..ctors {
+            for (k, field) in plan.fields[c].iter().enumerate() {
+                let member = format!("%{}%{k}", self.kernel.data(d).ctors()[c].name);
+                if ctors > 1 && *field != Field::Proof && !self.has_member(d, &member) {
+                    self.derive_field(d, c, k)?;
+                }
+            }
         }
-        let mut result = Ok(());
+        for (m, nested) in plan.nested.iter().enumerate() {
+            self.derive_member_helpers(d, m + 1, &nested.member, true)?;
+        }
+        let mut result = self.derive_rebuild(d, &plan);
         for group in self.ord_source(d, &plan) {
             self.clear_metas();
             result = result.and_then(|()| self.definitions(&group));
@@ -186,30 +204,21 @@ impl Elaborator {
         self.scope.get(&key).is_some()
     }
 
-    /// The source of `T.%compare`, `T.%equal`, `T.%flip`, `T.%unfold` (with
-    /// two constructors or more, not all without fields), `T.%trans` and
-    /// `T.%instOrd`, in that order, as groups of definitions admitted
-    /// together. For a nested type, each container it's in (member `m`)
-    /// gets its own `T.%m{m}%compare` and the rest, in the group of `T`'s.
+    /// The source of `T.%compare` (with `T.%fields`), `T.%equal`,
+    /// `T.%flip`, `T.%trans` and `T.%instOrd`, in that order, as groups of
+    /// definitions admitted together. For a nested type, each container it's
+    /// in (member `m`) gets its own `T.%m{m}%compare` and the rest, in the
+    /// group of `T`'s.
     fn ord_source(&self, d: DataId, plan: &Plan) -> Vec<Vec<Definition>> {
         let members = 1 + plan.nested.len();
-        let mut groups: Vec<Vec<Definition>> = vec![Vec::new(); 5];
+        let mut groups: Vec<Vec<Definition>> = vec![Vec::new(); 4];
         for m in 0..members {
             for (kind, definition) in self.ord_member_source(d, plan, m) {
                 groups[kind].push(definition);
             }
         }
-        let mut out: Vec<Vec<Definition>> = Vec::new();
-        for (kind, group) in groups.into_iter().enumerate() {
-            if kind == 3 {
-                // `unfold`s don't call each other.
-                out.extend(group.into_iter().map(|u| vec![u]));
-            } else if !group.is_empty() {
-                out.push(group);
-            }
-        }
-        out.push(vec![self.ord_instance_source(d, plan)]);
-        out
+        groups.push(vec![self.ord_instance_source(d, plan)]);
+        groups
     }
 
     /// `T.%instOrd`.
@@ -237,9 +246,9 @@ impl Elaborator {
         )
     }
 
-    /// Member `m`'s `compare` (0), `equal` (1), `flip` (2), `unfold` (3,
-    /// with two constructors or more, not all without fields) and `trans`
-    /// (4), each with its kind.
+    /// Member `m`'s `compare` (with `fields`, for two constructors or more,
+    /// not all without fields) (0), `equal` (1), `flip` (2) and `trans` (3),
+    /// each with its kind.
     fn ord_member_source(&self, d: DataId, plan: &Plan, m: usize) -> Vec<(usize, Definition)> {
         let data = self.kernel.data(d);
         let ty_name = self.relative_to_root(data.name());
@@ -271,11 +280,11 @@ impl Elaborator {
         let b = |k: usize| format!("%b{k}");
         let c = |k: usize| format!("%c{k}");
         let of = |t: usize, f: &str| format!("{}{f}", member_prefix(&ty_name, t));
-        let (compare, equal, flip, unfold, trans) = (
+        let (compare, fields_of, equal, flip, trans) = (
             of(m, "compare"),
+            of(m, "fields"),
             of(m, "equal"),
             of(m, "flip"),
-            of(m, "unfold"),
             of(m, "trans"),
         );
         let with_params = ord_params(&s, data, plan);
@@ -301,6 +310,19 @@ impl Elaborator {
                 s.span,
             )
         };
+        // `(C %a0 … : T %p0 …)`, constructor `ctor` of the `a`s.
+        let first = |ctor: usize| {
+            let ct = &ctor_list[ctor];
+            Expr::Ann(
+                Box::new(s.app(
+                    s.var(&format!("{ctor_prefix}.{}", ct.name)),
+                    (0..ct.fields.len()).map(|k| s.var(&a(k))).collect(),
+                )),
+                Box::new(this.clone()),
+                s.span,
+            )
+        };
+        let number = |ctor: usize| Expr::Num(BigUint::from(ctor), s.span);
         // The data fields of each constructor, in order.
         let data_fields: Vec<Vec<usize>> = member_fields
             .iter()
@@ -316,81 +338,37 @@ impl Elaborator {
             _ => None,
         };
         // Field `k`'s comparison of `x` and `y`.
-        let cmp = |ctor: usize, k: usize, x: &str, y: &str| match recursive(ctor, k) {
-            Some(t) => call(&of(t, "compare"), &[x, y]),
-            None => call("Std.Ord.compare", &[x, y]),
+        let cmp = |ctor: usize, k: usize, x: Expr, y: Expr| match recursive(ctor, k) {
+            Some(t) => s.app(s.var(&of(t, "compare")), vec![x, y]),
+            None => s.app(s.var("Std.Ord.compare"), vec![x, y]),
         };
-        // The comparison of the data fields from position `t` on.
-        let chain =
-            |ctor: usize, t: usize, x: &dyn Fn(usize) -> String, y: &dyn Fn(usize) -> String| {
-                let fields = &data_fields[ctor];
-                let mut result: Option<Expr> = None;
-                for &k in fields[t..].iter().rev() {
-                    let here = cmp(ctor, k, &x(k), &y(k));
-                    result = Some(match result {
-                        None => here,
-                        Some(rest) => s.app(s.var("Std.Ordering.andThen"), vec![here, rest]),
-                    });
-                }
-                result.unwrap_or_else(|| ordering("Equal"))
-            };
+        // The comparison of the data fields of `ctor`: `x(k)` with `y(k)`.
+        let chain = |ctor: usize, x: &dyn Fn(usize) -> Expr, y: &dyn Fn(usize) -> Expr| {
+            let mut result: Option<Expr> = None;
+            for &k in data_fields[ctor].iter().rev() {
+                let here = cmp(ctor, k, x(k), y(k));
+                result = Some(match result {
+                    None => here,
+                    Some(rest) => s.app(s.var("Std.Ordering.andThen"), vec![here, rest]),
+                });
+            }
+            result.unwrap_or_else(|| ordering("Equal"))
+        };
+        let va = |k: usize| s.var(&a(k));
+        let vb = |k: usize| s.var(&b(k));
         let signature = |name: &str, ty: Expr| s.signature(name, ty, false);
         let mut out: Vec<(usize, Definition)> = Vec::new();
 
-        // T.%compare
-        let ty = values(&["%r", "%s"], s.var("Std.Ordering"));
-        let mut equations = Vec::new();
-        if enumeration {
-            equations.push(equation(
-                &compare,
-                vars(&["%r", "%s"]),
-                tags("Std.Nat.compare", &["%r", "%s"]),
-            ));
-        } else {
-            for ctor in 0..ctors {
-                equations.push(equation(
-                    &compare,
-                    vec![ctor_pattern(ctor, &a), ctor_pattern(ctor, &b)],
-                    chain(ctor, 0, &a, &b),
-                ));
-            }
-            if tagged {
-                equations.push(equation(
-                    &compare,
-                    vars(&["%r", "%s"]),
-                    tags("Std.Nat.compare", &["%r", "%s"]),
-                ));
-            }
-        }
-        out.push((0, (signature(&compare, ty), equations)));
-
-        // Values of different constructors don't compare `Equal`.
-        let differ = || {
-            let equal_tags = s.app(
-                tags("Std.Nat.compareEqual", &["%r", "%s"]),
-                vec![s.var("%h")],
-            );
-            let refuted = s.app(
-                tags("Std.Nat.equalFalse", &["%r", "%s"]),
-                vec![s.var("rfl"), equal_tags],
-            );
-            s.app(s.var("Std.Void.exfalso"), vec![refuted])
-        };
-
-        // T.%equal
-        let ty = values(
-            &["%r", "%s"],
-            s.arrow(
-                s.eq(call(&compare, &["%r", "%s"]), ordering("Equal")),
-                s.eq(s.var("%r"), s.var("%s")),
-            ),
-        );
-        let mut equations = Vec::new();
-        for (ctor, fields) in data_fields.iter().enumerate() {
+        // Each constructor's part of the laws, once `b` (and `c`) name the
+        // fields of the values compared with the `a`s, as the same
+        // constructor: `equal` from `%f`, the comparison's `Equal`; `flip`;
+        // and `trans` from `h1` and `h2`.
+        let equal_fields = |ctor: usize, f: &str| {
+            let fields = &data_fields[ctor];
             let count = fields.len();
-            // The proof that field `fields[t]`'s comparison is `Equal`, from
-            // `%h`, the whole comparison's, by `Ordering.thenEqual`.
-            let mut rest = s.var("%h");
+            // The proof that field `fields[t]`'s comparison is `Equal`,
+            // from the whole comparison's, by `Ordering.thenEqual`.
+            let mut rest = s.var(f);
             let mut equals: Vec<Expr> = Vec::new();
             for t in 0..count {
                 if t + 1 == count {
@@ -414,7 +392,7 @@ impl Elaborator {
                 s.app(call(&law, &[&a(k), &b(k)]), vec![equals[t].clone()])
             };
             let ctor_name = &ctor_list[ctor].name;
-            let proof = fields_equal(
+            fields_equal(
                 s.span,
                 &format!("{ctor_prefix}.{ctor_name}"),
                 &format!("{prefix}{ctor_name}"),
@@ -425,19 +403,225 @@ impl Elaborator {
                 &b,
                 &field_equal,
                 &|j| format!("%p{j}"),
-            );
-            equations.push(equation(
-                &equal,
-                vec![
-                    ctor_pattern(ctor, &a),
-                    ctor_pattern(ctor, &b),
-                    Pattern::Var(s.n("%h")),
-                ],
-                proof,
+            )
+        };
+        let flip_fields = |ctor: usize| {
+            let mut proof: Option<Expr> = None;
+            for &k in data_fields[ctor].iter().rev() {
+                let law = match recursive(ctor, k) {
+                    Some(target) => of(target, "flip"),
+                    None => "Std.Ord.flip".to_string(),
+                };
+                let here = call(&law, &[&a(k), &b(k)]);
+                proof = Some(match proof {
+                    None => here,
+                    Some(rest) => s.app(s.var("Std.Ordering.thenFlip"), vec![here, rest]),
+                });
+            }
+            proof.unwrap_or_else(|| s.var("rfl"))
+        };
+        let trans_fields = |ctor: usize, h1: Expr, h2: Expr| {
+            let fields = &data_fields[ctor];
+            let count = fields.len();
+            // From position `t` on, given `h1` and `h2` for the rest.
+            let mut proof: Option<Box<dyn Fn(Expr, Expr) -> Expr + '_>> = None;
+            for t in (0..count).rev() {
+                let k = fields[t];
+                let (ak, bk, ck) = (a(k), b(k), c(k));
+                let (p, q) = (format!("%p{t}"), format!("%q{t}"));
+                let next = proof.take();
+                let rec = recursive(ctor, k);
+                let s = &s;
+                let of = &of;
+                proof = Some(Box::new(move |h1: Expr, h2: Expr| {
+                    let law = match rec {
+                        Some(target) => of(target, "trans"),
+                        None => "Std.Ord.trans".to_string(),
+                    };
+                    let Some(next) = &next else {
+                        return s.app(call(&law, &[&ak, &bk, &ck]), vec![h1, h2]);
+                    };
+                    let rest = s.lam(&[&p, &q], next(s.var(&p), s.var(&q)));
+                    if let Some(target) = rec {
+                        let (compare, equal) = (of(target, "compare"), of(target, "equal"));
+                        let (e, x, y) = (format!("%e{t}"), format!("%x{t}"), format!("%y{t}"));
+                        s.app(
+                            s.var("Std.Ordering.thenTransBy"),
+                            vec![
+                                s.var(&compare),
+                                s.var(&ak),
+                                s.var(&bk),
+                                s.var(&ck),
+                                h1,
+                                h2,
+                                s.lam(&[&x, &y], call(&law, &[&ak, &bk, &ck, &x, &y])),
+                                s.lam(&[&e], call(&equal, &[&ak, &bk, &e])),
+                                s.lam(&[&e], call(&equal, &[&bk, &ck, &e])),
+                                rest,
+                            ],
+                        )
+                    } else {
+                        s.app(
+                            call("Std.Ord.thenTrans", &[&ak, &bk, &ck]),
+                            vec![h1, h2, rest],
+                        )
+                    }
+                }));
+            }
+            match &proof {
+                Some(proof) => proof(h1, h2),
+                None => s.app(
+                    s.var("Std.Void.exfalso"),
+                    vec![s.app(s.var("Std.Ordering.equalNotLess"), vec![h1])],
+                ),
+            }
+        };
+        // `let %b0 := T.%C%0%at %s %e …` (or `%c`s) around `body`.
+        let known = |ctor: usize, names: &dyn Fn(usize) -> String, x: &str, e: &str, body: Expr| {
+            let ct = &ctor_list[ctor];
+            (0..ct.fields.len()).rev().fold(body, |body, k| {
+                let at = format!("{prefix}{}%{k}%at", ct.name);
+                let_in(s.span, &names(k), None, call(&at, &[x, e]), body)
+            })
+        };
+        let eta_at = |x: &str, ctor: usize, e: &str| {
+            s.app(
+                s.var(&of(m, "etaAt")),
+                vec![s.var(x), number(ctor), s.var(e)],
+            )
+        };
+        let sym = |x: Expr| s.app(s.var("Std.Eq.sym"), vec![x]);
+        let tag_is = |x: &str, ctor: usize| s.eq(tag(x), number(ctor));
+
+        // T.%compare
+        let ty = values(&["%r", "%s"], s.var("Std.Ordering"));
+        if tagged {
+            // T.%compare %r %s = if Nat.equal (T.%tag %r) (T.%tag %s) then T.%fields %r %s else Nat.compare (T.%tag %r) (T.%tag %s)
+            // T.%fields (C %a0 …) %s = <the a's compared with T.%C%k %ak %s>
+            let rhs = Expr::If {
+                binder: None,
+                cond: Box::new(tags("Std.Nat.equal", &["%r", "%s"])),
+                then: Box::new(call(&fields_of, &["%r", "%s"])),
+                otherwise: Box::new(tags("Std.Nat.compare", &["%r", "%s"])),
+                span: s.span,
+            };
+            out.push((
+                0,
+                (
+                    signature(&compare, ty.clone()),
+                    vec![equation(&compare, vars(&["%r", "%s"]), rhs)],
+                ),
             ));
+            let equations = (0..ctors)
+                .map(|ctor| {
+                    let projected = |k: usize| {
+                        let field = format!("{prefix}{}%{k}", ctor_list[ctor].name);
+                        call(&field, &[&a(k), "%s"])
+                    };
+                    equation(
+                        &fields_of,
+                        vec![ctor_pattern(ctor, &a), Pattern::Var(s.n("%s"))],
+                        chain(ctor, &va, &projected),
+                    )
+                })
+                .collect();
+            out.push((0, (signature(&fields_of, ty), equations)));
+        } else if enumeration {
+            let rhs = tags("Std.Nat.compare", &["%r", "%s"]);
+            out.push((
+                0,
+                (
+                    signature(&compare, ty),
+                    vec![equation(&compare, vars(&["%r", "%s"]), rhs)],
+                ),
+            ));
+        } else {
+            let equations = vec![equation(
+                &compare,
+                vec![ctor_pattern(0, &a), ctor_pattern(0, &b)],
+                chain(0, &va, &vb),
+            )];
+            out.push((0, (signature(&compare, ty), equations)));
         }
-        if ctors > 1 {
-            equations.push(equation(&equal, vars(&["%r", "%s", "%h"]), differ()));
+
+        // T.%equal
+        let ty = values(
+            &["%r", "%s"],
+            s.arrow(
+                s.eq(call(&compare, &["%r", "%s"]), ordering("Equal")),
+                s.eq(s.var("%r"), s.var("%s")),
+            ),
+        );
+        let mut equations = Vec::new();
+        for ctor in 0..ctors {
+            let second = Pattern::Var(s.n("%s"));
+            let patterns = |second| vec![ctor_pattern(ctor, &a), second, Pattern::Var(s.n("%h"))];
+            if enumeration {
+                // T.%equal C %s %h = T.%etaAt %s c (Eq.sym (Nat.compareEqual c (T.%tag %s) %h))
+                let tags_equal = s.app(
+                    s.var("Std.Nat.compareEqual"),
+                    vec![number(ctor), tag("%s"), s.var("%h")],
+                );
+                let proof = s.app(
+                    s.var(&of(m, "etaAt")),
+                    vec![s.var("%s"), number(ctor), sym(tags_equal)],
+                );
+                equations.push(equation(&equal, patterns(second), proof));
+            } else if tagged {
+                // T.%equal (C %a0 …) %s %h =
+                //   let %t := Ordering.tagsEqual c (T.%tag %s) (T.%fields (C %a0 …) %s) %h
+                //   let %e : T.%tag %s = c := Eq.sym (And.left %t)
+                //   let %b0 := T.%C%0%at %s %e …
+                //   let %f : <the a's compared with the b's> = Equal :=
+                //     J (%y %q => T.%fields (C %a0 …) %y = Equal) (And.right %t) (Eq.sym (T.%etaAt %s c %e))
+                //   Eq.trans <C %a0 … = C %b0 …, from %f> (T.%etaAt %s c %e)
+                let split = s.app(
+                    s.var("Std.Ordering.tagsEqual"),
+                    vec![
+                        number(ctor),
+                        tag("%s"),
+                        s.app(s.var(&fields_of), vec![first(ctor), s.var("%s")]),
+                        s.var("%h"),
+                    ],
+                );
+                let motive = s.lam(
+                    &["%y", "%q"],
+                    s.eq(
+                        s.app(s.var(&fields_of), vec![first(ctor), s.var("%y")]),
+                        ordering("Equal"),
+                    ),
+                );
+                let viewed = s.app(
+                    s.var("J"),
+                    vec![
+                        motive,
+                        s.app(s.var("Std.And.right"), vec![s.var("%t")]),
+                        sym(eta_at("%s", ctor, "%e")),
+                    ],
+                );
+                let body = s.app(
+                    s.var("Std.Eq.trans"),
+                    vec![equal_fields(ctor, "%f"), eta_at("%s", ctor, "%e")],
+                );
+                let viewed_ty = s.eq(chain(ctor, &va, &vb), ordering("Equal"));
+                let body = let_in(s.span, "%f", Some(viewed_ty), viewed, body);
+                let body = known(ctor, &b, "%s", "%e", body);
+                let body = let_in(
+                    s.span,
+                    "%e",
+                    Some(tag_is("%s", ctor)),
+                    sym(s.app(s.var("Std.And.left"), vec![s.var("%t")])),
+                    body,
+                );
+                let body = let_in(s.span, "%t", None, split, body);
+                equations.push(equation(&equal, patterns(second), body));
+            } else {
+                equations.push(equation(
+                    &equal,
+                    patterns(ctor_pattern(ctor, &b)),
+                    equal_fields(ctor, "%h"),
+                ));
+            }
         }
         out.push((1, (signature(&equal, ty), equations)));
 
@@ -452,63 +636,66 @@ impl Elaborator {
                 ),
             ),
         );
-        let by_tags = || tags("Std.Nat.compareFlip", &["%r", "%s"]);
         let mut equations = Vec::new();
         if enumeration {
-            equations.push(equation(&flip, vars(&["%r", "%s"]), by_tags()));
-        } else {
-            for (ctor, fields) in data_fields.iter().enumerate() {
-                let mut proof: Option<Expr> = None;
-                for &k in fields.iter().rev() {
-                    let law = match recursive(ctor, k) {
-                        Some(target) => of(target, "flip"),
-                        None => "Std.Ord.flip".to_string(),
-                    };
-                    let here = call(&law, &[&a(k), &b(k)]);
-                    proof = Some(match proof {
-                        None => here,
-                        Some(rest) => s.app(s.var("Std.Ordering.thenFlip"), vec![here, rest]),
-                    });
-                }
+            equations.push(equation(
+                &flip,
+                vars(&["%r", "%s"]),
+                tags("Std.Nat.compareFlip", &["%r", "%s"]),
+            ));
+        } else if tagged {
+            // T.%flip (C %a0 …) %s = Ordering.tagsFlip c (T.%tag %s) (T.%fields (C %a0 …) %s) (T.%fields %s (C %a0 …))
+            //   (%t => let %e : T.%tag %s = c := Eq.sym %t
+            //     let %b0 := T.%C%0%at %s %e …
+            //     J (%y %q => T.%fields %y (C %a0 …) = Ordering.flip (T.%fields (C %a0 …) %y)) <flip of the fields> (T.%etaAt %s c %e))
+            for ctor in 0..ctors {
+                let fields = |x: Expr, y: Expr| s.app(s.var(&fields_of), vec![x, y]);
+                let motive = s.lam(
+                    &["%y", "%q"],
+                    s.eq(
+                        fields(s.var("%y"), first(ctor)),
+                        s.app(
+                            s.var("Std.Ordering.flip"),
+                            vec![fields(first(ctor), s.var("%y"))],
+                        ),
+                    ),
+                );
+                let proof = s.app(
+                    s.var("J"),
+                    vec![motive, flip_fields(ctor), eta_at("%s", ctor, "%e")],
+                );
+                let proof = known(ctor, &b, "%s", "%e", proof);
+                let proof = let_in(
+                    s.span,
+                    "%e",
+                    Some(tag_is("%s", ctor)),
+                    sym(s.var("%t")),
+                    proof,
+                );
+                let rhs = s.app(
+                    s.var("Std.Ordering.tagsFlip"),
+                    vec![
+                        number(ctor),
+                        tag("%s"),
+                        fields(first(ctor), s.var("%s")),
+                        fields(s.var("%s"), first(ctor)),
+                        s.lam(&["%t"], proof),
+                    ],
+                );
                 equations.push(equation(
                     &flip,
-                    vec![ctor_pattern(ctor, &a), ctor_pattern(ctor, &b)],
-                    proof.unwrap_or_else(|| s.var("rfl")),
+                    vec![ctor_pattern(ctor, &a), Pattern::Var(s.n("%s"))],
+                    rhs,
                 ));
             }
-            if tagged {
-                equations.push(equation(&flip, vars(&["%r", "%s"]), by_tags()));
-            }
+        } else {
+            equations.push(equation(
+                &flip,
+                vec![ctor_pattern(0, &a), ctor_pattern(0, &b)],
+                flip_fields(0),
+            ));
         }
         out.push((2, (signature(&flip, ty), equations)));
-
-        // T.%unfold: a comparison is its tags' then itself.
-        if tagged {
-            let ty = values(
-                &["%r", "%s"],
-                s.eq(
-                    call(&compare, &["%r", "%s"]),
-                    s.app(
-                        s.var("Std.Ordering.andThen"),
-                        vec![
-                            tags("Std.Nat.compare", &["%r", "%s"]),
-                            call(&compare, &["%r", "%s"]),
-                        ],
-                    ),
-                ),
-            );
-            let mut equations: Vec<Decl> = (0..ctors)
-                .map(|ctor| {
-                    equation(
-                        &unfold,
-                        vec![ctor_pattern(ctor, &a), ctor_pattern(ctor, &b)],
-                        s.var("rfl"),
-                    )
-                })
-                .collect();
-            equations.push(equation(&unfold, vars(&["%r", "%s"]), s.var("rfl")));
-            out.push((3, (signature(&unfold, ty), equations)));
-        }
 
         // T.%trans
         let is_less = |x: &str, y: &str| s.eq(call(&compare, &[x, y]), less());
@@ -529,118 +716,98 @@ impl Elaborator {
                     vec![s.var("%h1"), s.var("%h2")],
                 ),
             ));
-        } else {
-            for (ctor, fields) in data_fields.iter().enumerate() {
-                let count = fields.len();
-                // From position `t` on, given `h1` and `h2` for the rest.
-                let mut proof: Option<Box<dyn Fn(Expr, Expr) -> Expr + '_>> = None;
-                for t in (0..count).rev() {
-                    let k = fields[t];
-                    let (ak, bk, ck) = (a(k), b(k), c(k));
-                    let (p, q) = (format!("%p{t}"), format!("%q{t}"));
-                    let next = proof.take();
-                    let rec = recursive(ctor, k);
-                    let s = &s;
-                    let of = &of;
-                    proof = Some(Box::new(move |h1: Expr, h2: Expr| {
-                        let law = match rec {
-                            Some(target) => of(target, "trans"),
-                            None => "Std.Ord.trans".to_string(),
-                        };
-                        let Some(next) = &next else {
-                            return s.app(call(&law, &[&ak, &bk, &ck]), vec![h1, h2]);
-                        };
-                        let rest = s.lam(&[&p, &q], next(s.var(&p), s.var(&q)));
-                        if let Some(target) = rec {
-                            let (compare, equal) = (of(target, "compare"), of(target, "equal"));
-                            let (e, x, y) = (format!("%e{t}"), format!("%x{t}"), format!("%y{t}"));
-                            s.app(
-                                s.var("Std.Ordering.thenTransBy"),
-                                vec![
-                                    s.var(&compare),
-                                    s.var(&ak),
-                                    s.var(&bk),
-                                    s.var(&ck),
-                                    h1,
-                                    h2,
-                                    s.lam(&[&x, &y], call(&law, &[&ak, &bk, &ck, &x, &y])),
-                                    s.lam(&[&e], call(&equal, &[&ak, &bk, &e])),
-                                    s.lam(&[&e], call(&equal, &[&bk, &ck, &e])),
-                                    rest,
-                                ],
-                            )
-                        } else {
-                            s.app(
-                                call("Std.Ord.thenTrans", &[&ak, &bk, &ck]),
-                                vec![h1, h2, rest],
-                            )
-                        }
-                    }));
-                }
-                let body = match &proof {
-                    Some(proof) => proof(s.var("%h1"), s.var("%h2")),
-                    None => s.app(
-                        s.var("Std.Void.exfalso"),
-                        vec![s.app(s.var("Std.Ordering.equalNotLess"), vec![s.var("%h1")])],
-                    ),
-                };
-                let mut patterns = vec![
-                    ctor_pattern(ctor, &a),
-                    ctor_pattern(ctor, &b),
-                    ctor_pattern(ctor, &c),
-                ];
-                patterns.extend(vars(&["%h1", "%h2"]));
-                equations.push(equation(&trans, patterns, body));
-            }
-            if tagged {
-                // Not all of one constructor: the tags decide.
-                let through = |x: &str, y: &str, h: &str| {
-                    s.app(
-                        s.var("Std.Eq.trans"),
-                        vec![
-                            s.app(s.var("Std.Eq.sym"), vec![call(&unfold, &[x, y])]),
-                            s.var(h),
-                        ],
+        } else if tagged {
+            // T.%trans (C %a0 …) %s %u %h1 %h2 = Ordering.tagsTrans c (T.%tag %s) (T.%tag %u)
+            //     (T.%fields (C %a0 …) %s) (T.%fields %s %u) (T.%fields (C %a0 …) %u)
+            //   (%t1 %t2 => let %e : T.%tag %s = c := Eq.sym %t1
+            //     let %eu : T.%tag %u = c := Eq.sym (Eq.trans %t1 %t2)
+            //     let %b0 := T.%C%0%at %s %e …; let %c0 := T.%C%0%at %u %eu …
+            //     J (%x %q => M %x %u) (J (%y %q => M (T.%view %s c %e) %y) (%l1 %l2 => <trans of the fields>) (T.%etaAt %u c %eu)) (T.%etaAt %s c %e))
+            //   %h1 %h2
+            // where M x y = T.%fields (C %a0 …) x = Less -> T.%fields x y = Less -> T.%fields (C %a0 …) y = Less.
+            for ctor in 0..ctors {
+                let fields = |x: Expr, y: Expr| s.app(s.var(&fields_of), vec![x, y]);
+                let is_less = |e: Expr| s.eq(e, less());
+                let claim = |x: Expr, y: Expr| {
+                    s.arrow(
+                        is_less(fields(first(ctor), x.clone())),
+                        s.arrow(
+                            is_less(fields(x, y.clone())),
+                            is_less(fields(first(ctor), y)),
+                        ),
                     )
                 };
-                let never = s.lam(
-                    &["%e1", "%e2", "%p", "%q"],
-                    s.app(
-                        s.var("Std.Void.exfalso"),
-                        vec![s.app(
-                            s.var("Std.Ordering.notBothEqual"),
-                            vec![
-                                tags("Std.Nat.compare", &["%r", "%s"]),
-                                tags("Std.Nat.compare", &["%s", "%u"]),
-                                s.var("rfl"),
-                                s.var("%e1"),
-                                s.var("%e2"),
-                            ],
-                        )],
-                    ),
+                let viewed_s = s.app(
+                    s.var(&of(m, "view")),
+                    vec![s.var("%s"), number(ctor), s.var("%e")],
                 );
-                let mut args: Vec<Expr> = ["%r", "%s", "%u"].iter().map(|x| tag(x)).collect();
-                args.extend([
-                    call(&compare, &["%r", "%s"]),
-                    call(&compare, &["%s", "%u"]),
-                    call(&compare, &["%r", "%u"]),
-                    through("%r", "%s", "%h1"),
-                    through("%s", "%u", "%h2"),
-                    never,
-                ]);
-                let by_tags = s.app(s.var("Std.Ordering.byTagTrans"), args);
-                let body = s.app(
-                    s.var("Std.Eq.trans"),
-                    vec![call(&unfold, &["%r", "%u"]), by_tags],
+                let inner = s.app(
+                    s.var("J"),
+                    vec![
+                        s.lam(&["%y", "%q"], claim(viewed_s, s.var("%y"))),
+                        s.lam(
+                            &["%l1", "%l2"],
+                            trans_fields(ctor, s.var("%l1"), s.var("%l2")),
+                        ),
+                        eta_at("%u", ctor, "%eu"),
+                    ],
                 );
-                equations.push(equation(
-                    &trans,
-                    vars(&["%r", "%s", "%u", "%h1", "%h2"]),
-                    body,
-                ));
+                let proof = s.app(
+                    s.var("J"),
+                    vec![
+                        s.lam(&["%x", "%q"], claim(s.var("%x"), s.var("%u"))),
+                        inner,
+                        eta_at("%s", ctor, "%e"),
+                    ],
+                );
+                let proof = known(ctor, &c, "%u", "%eu", proof);
+                let proof = known(ctor, &b, "%s", "%e", proof);
+                let proof = let_in(
+                    s.span,
+                    "%eu",
+                    Some(tag_is("%u", ctor)),
+                    sym(s.app(s.var("Std.Eq.trans"), vec![s.var("%t1"), s.var("%t2")])),
+                    proof,
+                );
+                let proof = let_in(
+                    s.span,
+                    "%e",
+                    Some(tag_is("%s", ctor)),
+                    sym(s.var("%t1")),
+                    proof,
+                );
+                let rhs = s.app(
+                    s.var("Std.Ordering.tagsTrans"),
+                    vec![
+                        number(ctor),
+                        tag("%s"),
+                        tag("%u"),
+                        fields(first(ctor), s.var("%s")),
+                        fields(s.var("%s"), s.var("%u")),
+                        fields(first(ctor), s.var("%u")),
+                        s.lam(&["%t1", "%t2"], proof),
+                        s.var("%h1"),
+                        s.var("%h2"),
+                    ],
+                );
+                let mut patterns = vec![ctor_pattern(ctor, &a)];
+                patterns.extend(vars(&["%s", "%u", "%h1", "%h2"]));
+                equations.push(equation(&trans, patterns, rhs));
             }
+        } else {
+            let mut patterns = vec![
+                ctor_pattern(0, &a),
+                ctor_pattern(0, &b),
+                ctor_pattern(0, &c),
+            ];
+            patterns.extend(vars(&["%h1", "%h2"]));
+            equations.push(equation(
+                &trans,
+                patterns,
+                trans_fields(0, s.var("%h1"), s.var("%h2")),
+            ));
         }
-        out.push((4, (signature(&trans, ty), equations)));
+        out.push((3, (signature(&trans, ty), equations)));
         out
     }
 }

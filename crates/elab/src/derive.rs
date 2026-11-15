@@ -39,29 +39,30 @@
 //!   `y = y'`;
 //! - `T.%C2%P%k : (a : Type) -> (fields before k) -> Prop` for each proof
 //!   field: its type, so the generated source can state it;
-//! - and, as source (two constructors or more for `T.%differ`):
+//! - with two constructors or more, `T.%C2%k%at`, `T.%view`, `T.%eta` and
+//!   `T.%etaAt` ([`Elaborator::derive_rebuild`]): field `k` of a value known
+//!   to be a `C2`, and the proof that a value whose tag is a number `c` is
+//!   constructor `c` of those fields;
+//! - and, as source:
 //!
 //! ```text
-//! T.%differ : [a : _] -> (r : T a) -> (s : T a) ->
-//!   Nat.equal (T.%tag r) (T.%tag s) = False -> Not (r = s)
-//! T.%differ r s t e = Nat.equalFalse (T.%tag r) (T.%tag s) t (Eq.cong T.%tag e)
-//!
 //! T.%same : [a : _] -> [auto decEq: DecEq a] -> (r : T a) -> (s : T a) -> Bool
-//! T.%same (C2 a0 a1) (C2 b0 b1) = (DecEq.decide a0 b0).holds && (DecEq.decide a1 b1).holds
-//! T.%same C1 C1 = True   -- a constructor without data fields
+//! T.%same C1 s = Nat.equal 0 (T.%tag s)   -- a constructor without data fields
+//! T.%same (C2 a0 a1) s = Nat.equal 1 (T.%tag s) &&
+//!   (DecEq.decide a0 (T.%C2%0 a0 s)).holds && (DecEq.decide a1 (T.%C2%1 a1 s)).holds
 //! …   -- one equation for each constructor
-//! T.%same r s = False
 //!
 //! T.%sameSound : … -> (r : T a) -> (s : T a) -> T.%same r s = True -> r = s
-//! T.%sameSound (C2 a0 a1) (C2 b0 b1) h =
-//!   Decidable.sound (Decidable.map (Decidable.andThen (DecEq.decide a0 b0) (u => DecEq.decide a1 b1))
-//!     (q => J (y q => (C2 a0 a1 : T a) = C2 b0 y) (J … rfl (And.left q)) (And.right q))
-//!     (e => Both (Eq.cong (T.%C2%0 a0) e) (Eq.cong (T.%C2%1 a1) e))) h
-//! T.%sameSound r s h = Void.exfalso (Bool.falseNotTrue h)
+//! T.%sameSound (C2 a0 a1) s h =
+//!   let e : T.%tag s = 1 := Eq.sym (DecEq.tagsSame 1 (T.%tag s) h)
+//!   let b0 := T.%C2%0%at s e; let b1 := T.%C2%1%at s e
+//!   let v : (DecEq.decide a0 b0).holds && (DecEq.decide a1 b1).holds = True :=
+//!     J (y q => T.%same (C2 a0 a1) y = True) h (Eq.sym (T.%etaAt s 1 e))
+//!   Eq.trans (Decidable.sound (… : Decidable (C2 a0 a1 = C2 b0 b1)) v) (T.%etaAt s 1 e)
 //!
 //! T.%sameComplete : … -> (r : T a) -> (s : T a) -> r = s -> T.%same r s = True
-//! T.%sameComplete (C2 a0 a1) (C2 b0 b1) e = Decidable.complete (… as above …) e
-//! T.%sameComplete r s e = Void.exfalso (T.%differ r s rfl e)
+//! T.%sameComplete (C2 a0 a1) s e =
+//!   J (y q => T.%same (C2 a0 a1) y = True) (Decidable.complete (… : Decidable (C2 a0 a1 = C2 a0 a1)) rfl) e
 //!
 //! T.%decide : … -> (r : T a) -> (s : T a) -> Decidable (r = s)
 //! T.%decide r s = { holds = T.%same r s, sound = T.%sameSound r s, complete = T.%sameComplete r s }
@@ -84,14 +85,15 @@
 //! The proofs state each constructor's decision once, from `Decidable.map`
 //! and `andThen` over the fields' decisions (a field of type `T a` has one
 //! made of `T.%same` and the proofs), so that its `holds` is exactly the
-//! test, and take its `sound` and `complete`. The last equation of each
-//! covers every pair of different constructors: the case tree checks it
-//! once for each, where the test is `False` (so `sameSound` has nothing to
-//! prove) and the tags are two different numbers, so `rfl` proves `Nat.equal`
-//! of them is `False`. (That's n² - n checks for n constructors, which is
-//! why that proof is in `T.%differ`, checked once.) `T.%sameSound` and
-//! `T.%sameComplete` are defined after `T.%same` and together, since their
-//! types mention it.
+//! test, and take its `sound` and `complete`. With one constructor both
+//! values are matched (`T.%same (C a0 a1) (C b0 b1)`). With more, only the
+//! first is, and the second's fields are read by projection, once the tags
+//! agree: `T.%etaAt s c e` turns `s`, whose tag is `c`, into the constructor
+//! `c` of its fields, so each equation's proof is about two values of one
+//! constructor. Matching both values would make a case tree of n² leaves
+//! for n constructors, each checked; this is n leaves (docs/proposals/
+//! derived-equality.md §5.6). `T.%sameSound` and `T.%sameComplete` are
+//! defined after `T.%same` and together, since their types mention it.
 //!
 //! With proof fields, the proof that equal data gives equal values goes in
 //! two steps. First, for any proofs `z` of the proof fields' types (with
@@ -109,7 +111,7 @@
 //! T)` both lists; for `Option (T, Nat)` the option and the pair), is a
 //! *member*, numbered from 1, with the same generated functions under
 //! `T.%m1%`: `T.%m1%type` (its type, so source can name it),
-//! `T.%m1%tag`, `T.%m1%Cons%0`, `T.%m1%differ`, `T.%m1%same` and its two
+//! `T.%m1%tag`, `T.%m1%Cons%0`, `T.%m1%view`, `T.%m1%same` and its two
 //! proofs, made as
 //! for a data type whose fields are its constructors' with the container's
 //! arguments: `T.%m1%same (Cons a0 a1) (Cons b0 b1)` tests `a0` by
@@ -135,9 +137,9 @@ use stitchwort_core::Ev;
 use crate::kernel;
 use num_bigint::BigUint;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::term::Branch;
+use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{eval, force, quote, unused};
-use stitchwort_core::{DataId, Icit, Name, Sort, Term, Value};
+use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::Span;
 use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, Pattern};
 
@@ -288,11 +290,7 @@ impl Elaborator {
         }
         self.clear_metas();
         let source = self.eq_source(d, &plan);
-        let mut result = Ok(());
-        for (signature, equation) in source.differs {
-            self.clear_metas();
-            result = result.and_then(|()| self.definition(&signature, &[equation]));
-        }
+        let mut result = self.derive_rebuild(d, &plan);
         self.clear_metas();
         result = result.and_then(|()| self.definitions(&source.tests));
         self.clear_metas();
@@ -811,7 +809,7 @@ impl Elaborator {
 
     /// Declares `T.%C%k : [params] -> A -> T params -> A`: field `k` of a
     /// `C`, or the first argument for another constructor.
-    fn derive_field(&mut self, d: DataId, c: usize, k: usize) -> Result<()> {
+    pub(crate) fn derive_field(&mut self, d: DataId, c: usize, k: usize) -> Result<()> {
         self.derive_field_in(d, d, "%", c, k)
     }
 
@@ -874,6 +872,360 @@ impl Elaborator {
         );
         let member = format!("{prefix}{}%{k}", ctor.name);
         self.declare_member(owner, d, &member, ty, body)
+    }
+
+    /// The definition `T.member` in `T`'s (`owner`'s) namespace.
+    fn member_def(&self, owner: DataId, member: &str) -> Option<DefId> {
+        let key = Self::member_key(&self.data_key(owner), member);
+        match self.scope.get(&key) {
+            Some((Global::Def(id), _)) => Some(id),
+            _ => None,
+        }
+    }
+
+    /// `def` applied to the parameters `0..np` of a context `depth` deep,
+    /// as implicit arguments: how a member over `D`'s parameters is called.
+    fn at_params(def: DefId, np: usize, depth: usize) -> Term {
+        (0..np).fold(Term::Def(def), |f, j| {
+            Term::app_icit(f, Term::Var(depth - 1 - j), Icit::Implicit)
+        })
+    }
+
+    /// Declares `T.{prefix}C%k%at : [params] -> (s : D params) -> T.{prefix}tag
+    /// s = c -> A`, field `k` of `s`, known to be a `C` (constructor `c`):
+    /// for any other constructor the equation of the tags is refuted. A
+    /// field's type that mentions earlier fields mentions `C%j%at s h` for
+    /// them. For `D` (`d`) `T` itself or a container of it, in `T`'s
+    /// (`owner`'s) namespace; every earlier field's must be declared.
+    fn derive_at_in(
+        &mut self,
+        owner: DataId,
+        d: DataId,
+        prefix: &str,
+        c: usize,
+        k: usize,
+    ) -> Result<()> {
+        let reg = self.kernel.env.registry();
+        let (Some(nat), Some(absurd), Some(exfalso), Some(unequal)) = (
+            reg.data(Builtin::Nat),
+            reg.def(Builtin::VoidAbsurd),
+            reg.def(Builtin::VoidExfalso),
+            reg.def(Builtin::NatNeq),
+        ) else {
+            return Ok(());
+        };
+        let Some(tag) = self.member_def(owner, &format!("{prefix}tag")) else {
+            return Ok(());
+        };
+        let ctor_name = self.kernel.data(d).ctors()[c].name.clone();
+        let earlier: Vec<DefId> = (0..k)
+            .map(|j| self.member_def(owner, &format!("{prefix}{ctor_name}%{j}%at")))
+            .collect::<Option<_>>()
+            .expect("earlier fields' `at`s are declared first");
+        let g = &self.ev();
+        let data = g.data(d);
+        let np = data.params().len();
+        let ctor = &data.ctors()[c];
+        // The field's type, in the context `params, s, h`.
+        let here: Vec<Value> = (0..np + 2).map(Value::var).collect();
+        let mut env: Vec<Value> = (0..np).map(Value::var).collect();
+        for &at in &earlier {
+            let call = Term::app(
+                Term::app(Self::at_params(at, np, np + 2), Term::Var(1)),
+                Term::Var(0),
+            );
+            env.push(eval(g, &here, &call)?);
+        }
+        let field = eval(g, &env, &ctor.fields[k].1)?;
+        let prop = ctor.field_sorts[k] == Sort::Prop;
+        let params: Vec<Term> = (0..np).map(|j| Term::Var(np - 1 - j)).collect();
+        let tag_of_s = Term::app(Self::at_params(tag, np, np + 1), Term::Var(0));
+        let ty = Term::Pi(
+            "s".into(),
+            Icit::Explicit,
+            Rc::new(Term::data(d, params)),
+            Rc::new(Term::Pi(
+                "h".into(),
+                Icit::Explicit,
+                Rc::new(Term::Eq(
+                    Some(Rc::new(Term::data(nat, Vec::new()))),
+                    Rc::new(tag_of_s),
+                    Rc::new(Term::Nat(Rc::new(BigUint::from(c)))),
+                )),
+                Rc::new(quote(g, np + 2, &field)?),
+            )),
+        );
+        let mut branches = Vec::new();
+        for (other, o) in data.ctors().iter().enumerate() {
+            let n = o.fields.len();
+            let body = if other == c {
+                Term::Var(n - 1 - k)
+            } else {
+                // `Nat.equalFalse other c rfl h : Void`, `h` read as `other = c`.
+                let number = |x: usize| Term::Nat(Rc::new(BigUint::from(x)));
+                let refuted = Term::app(
+                    Term::app(
+                        Term::app(Term::app(Term::Def(unequal), number(other)), number(c)),
+                        Term::Refl,
+                    ),
+                    Term::Var(n),
+                );
+                let elim = if prop { exfalso } else { absurd };
+                Term::app(
+                    Term::app_icit(
+                        Term::Def(elim),
+                        quote(g, np + 2 + n, &field)?,
+                        Icit::Implicit,
+                    ),
+                    refuted,
+                )
+            };
+            branches.push(Branch {
+                body: Some(Rc::new(body)),
+                names: o.fields.iter().map(|(x, _)| x.clone()).collect(),
+            });
+        }
+        let body = Term::Lam(
+            "s".into(),
+            Icit::Explicit,
+            Rc::new(Term::Lam(
+                "h".into(),
+                Icit::Explicit,
+                Rc::new(Term::Case(1, d, branches.into())),
+            )),
+        );
+        let member = format!("{prefix}{ctor_name}%{k}%at");
+        self.declare_member(owner, d, &member, ty, body)
+    }
+
+    /// Declares `T.{prefix}view : [params] -> (s : D params) -> (t : Nat) ->
+    /// T.{prefix}tag s = t -> D params`: for `t` the position of a
+    /// constructor `C`, `C` of `C%0%at s h …`; else `s`. So `view s t h`
+    /// computes to a constructor whenever `t` is a number, whatever `s` is,
+    /// and `T.{prefix}etaAt` proves it is `s`. Every field's `at` must be
+    /// declared.
+    fn derive_view_in(&mut self, owner: DataId, d: DataId, prefix: &str) -> Result<()> {
+        let Some(nat) = self.kernel.env.registry().data(Builtin::Nat) else {
+            return Ok(());
+        };
+        let Some(tag) = self.member_def(owner, &format!("{prefix}tag")) else {
+            return Ok(());
+        };
+        let data = self.kernel.data(d);
+        let np = data.params().len();
+        let shapes: Vec<(Name, usize)> = data
+            .ctors()
+            .iter()
+            .map(|c| (c.name.clone(), c.fields.len()))
+            .collect();
+        let params =
+            |depth: usize| -> Vec<Term> { (0..np).map(|j| Term::Var(depth - 1 - j)).collect() };
+        let nat_ty = || Rc::new(Term::data(nat, Vec::new()));
+        let tag_of_s = Term::app(Self::at_params(tag, np, np + 2), Term::Var(1));
+        let ty = Term::Pi(
+            "s".into(),
+            Icit::Explicit,
+            Rc::new(Term::data(d, params(np))),
+            Rc::new(Term::Pi(
+                "t".into(),
+                Icit::Explicit,
+                nat_ty(),
+                Rc::new(Term::Pi(
+                    "h".into(),
+                    Icit::Explicit,
+                    Rc::new(Term::Eq(
+                        Some(nat_ty()),
+                        Rc::new(tag_of_s),
+                        Rc::new(Term::Var(0)),
+                    )),
+                    Rc::new(Term::data(d, params(np + 3))),
+                )),
+            )),
+        );
+        // In the context `params, s, t, h`.
+        let mut arms = Vec::new();
+        for (c, (name, count)) in shapes.iter().enumerate() {
+            let mut fields = Vec::new();
+            for k in 0..*count {
+                let at = self
+                    .member_def(owner, &format!("{prefix}{name}%{k}%at"))
+                    .expect("every field's `at` is declared first");
+                fields.push(Term::app(
+                    Term::app(Self::at_params(at, np, np + 3), Term::Var(2)),
+                    Term::Var(0),
+                ));
+            }
+            arms.push(NumArm {
+                value: Rc::new(BigUint::from(c)),
+                body: Rc::new(Term::ctor(d, c, fields)),
+            });
+        }
+        let body = ["s", "t", "h"].iter().rev().fold(
+            Term::NumCase(1, arms.into(), Rc::new(Term::Var(2))),
+            |body, x| Term::Lam((*x).into(), Icit::Explicit, Rc::new(body)),
+        );
+        self.declare_member(owner, d, &format!("{prefix}view"), ty, body)
+    }
+
+    /// For each member of `T` (`d`) with two constructors or more, what the
+    /// derived tests and orders compare a value's fields with when its tag
+    /// is known, unless declared already: `T.{prefix}C%k%at` for every field,
+    /// `T.{prefix}view`, and, as source, `T.{prefix}eta` and
+    /// `T.{prefix}etaAt`:
+    ///
+    /// ```text
+    /// T.%eta : [%p0 : _] -> … -> (%s : T %p0 …) -> T.%view %s (T.%tag %s) rfl = %s
+    /// T.%eta (C %a0 …) = rfl   -- one equation for each constructor
+    ///
+    /// T.%etaAt : … -> (%s : T %p0 …) -> (%t : Nat) -> (%h : T.%tag %s = %t) -> T.%view %s %t %h = %s
+    /// T.%etaAt %s %t %h = J (%y %q => T.%view %s %y %q = %s) (T.%eta %s) %h
+    /// ```
+    ///
+    /// Each is linear in the number of constructors: `etaAt` at a number
+    /// `k` turns any `s` whose tag is `k` into a constructor, so a proof
+    /// about `C %a…` and `s` needs to match only the first.
+    pub(crate) fn derive_rebuild(&mut self, d: DataId, plan: &Plan) -> Result<()> {
+        for m in 0..=plan.nested.len() {
+            let (matched, prefix) = if m == 0 {
+                (d, "%".to_string())
+            } else {
+                (plan.nested[m - 1].member.data, format!("%m{m}%"))
+            };
+            let shapes: Vec<(String, usize)> = self
+                .kernel
+                .data(matched)
+                .ctors()
+                .iter()
+                .map(|c| (c.name.to_string(), c.fields.len()))
+                .collect();
+            if shapes.len() < 2 {
+                continue;
+            }
+            for (c, (name, count)) in shapes.iter().enumerate() {
+                for k in 0..*count {
+                    if !self.has_member(d, &format!("{prefix}{name}%{k}%at")) {
+                        self.derive_at_in(d, matched, &prefix, c, k)?;
+                    }
+                }
+            }
+            if !self.has_member(d, &format!("{prefix}view")) {
+                self.derive_view_in(d, matched, &prefix)?;
+            }
+            if !self.has_member(d, &format!("{prefix}etaAt")) {
+                for definition in self.eta_source(d, plan, m) {
+                    self.clear_metas();
+                    self.definition(&definition.0, &definition.1)?;
+                }
+                self.clear_metas();
+            }
+        }
+        Ok(())
+    }
+
+    /// The source of member `m`'s `eta` and `etaAt` ([`Self::derive_rebuild`]).
+    fn eta_source(&self, d: DataId, plan: &Plan, m: usize) -> Vec<(Decl, Vec<Decl>)> {
+        let data = self.kernel.data(d);
+        let ty_name = self.relative_to_root(data.name());
+        let s = crate::derive_ord::Src { span: data.span() };
+        let np = data.params().len();
+        let prefix = member_prefix(&ty_name, m);
+        let (matched, ctor_prefix, this) = if m == 0 {
+            (d, ty_name.clone(), s.this(&ty_name, data))
+        } else {
+            let container = plan.nested[m - 1].member.data;
+            (
+                container,
+                self.kernel.data(container).path().to_string(),
+                s.app(
+                    s.var(&format!("{prefix}type")),
+                    (0..np).map(|j| s.var(&format!("%p{j}"))).collect(),
+                ),
+            )
+        };
+        let with_params = |mut ty: Expr| {
+            for j in (0..np).rev() {
+                ty = s.pi(&[&format!("%p{j}")], true, false, Expr::Hole(s.span), ty);
+            }
+            ty
+        };
+        let (eta, eta_at, view, tag) = (
+            format!("{prefix}eta"),
+            format!("{prefix}etaAt"),
+            format!("{prefix}view"),
+            format!("{prefix}tag"),
+        );
+        let call = |f: &str, args: Vec<Expr>| s.app(s.var(f), args);
+        let eta_ty = with_params(s.pi(
+            &["%s"],
+            false,
+            false,
+            this.clone(),
+            s.eq(
+                call(
+                    &view,
+                    vec![s.var("%s"), call(&tag, vec![s.var("%s")]), s.var("rfl")],
+                ),
+                s.var("%s"),
+            ),
+        ));
+        let eta_equations = self
+            .kernel
+            .data(matched)
+            .ctors()
+            .iter()
+            .map(|ctor| {
+                let pattern = Pattern::Ctor(
+                    s.n(&format!("{ctor_prefix}.{}", ctor.name)),
+                    (0..ctor.fields.len())
+                        .map(|k| Pattern::Var(s.n(&format!("%a{k}"))))
+                        .collect(),
+                    s.span,
+                );
+                s.equation(&eta, vec![pattern], s.var("rfl"))
+            })
+            .collect();
+        let tag_is = s.eq(call(&tag, vec![s.var("%s")]), s.var("%t"));
+        let at_ty = with_params(s.pi(
+            &["%s"],
+            false,
+            false,
+            this,
+            s.pi(
+                &["%t"],
+                false,
+                false,
+                s.var("Std.Nat"),
+                s.pi(
+                    &["%h"],
+                    false,
+                    false,
+                    tag_is,
+                    s.eq(
+                        call(&view, vec![s.var("%s"), s.var("%t"), s.var("%h")]),
+                        s.var("%s"),
+                    ),
+                ),
+            ),
+        ));
+        let motive = s.lam(
+            &["%y", "%q"],
+            s.eq(
+                call(&view, vec![s.var("%s"), s.var("%y"), s.var("%q")]),
+                s.var("%s"),
+            ),
+        );
+        let at_body = call(
+            "J",
+            vec![motive, call(&eta, vec![s.var("%s")]), s.var("%h")],
+        );
+        let vars = |xs: &[&str]| xs.iter().map(|x| Pattern::Var(s.n(x))).collect::<Vec<_>>();
+        vec![
+            (s.signature(&eta, eta_ty, false), eta_equations),
+            (
+                s.signature(&eta_at, at_ty, false),
+                vec![s.equation(&eta_at, vars(&["%s", "%t", "%h"]), at_body)],
+            ),
+        ]
     }
 
     /// Declares `T.%C%P%k : (params) -> (fields before k) -> Prop`, the type
@@ -948,10 +1300,9 @@ impl Elaborator {
         Ok(())
     }
 
-    /// The source of `T.%differ` (with two constructors or more), of
-    /// `T.%same`, its proofs and `T.%instDecEq`; for a nested type, also
-    /// `T.%m1%differ`, `T.%m1%same` and its proofs for each container it's
-    /// in, the `same`s defined together.
+    /// The source of `T.%same`, its proofs and `T.%instDecEq`; for a nested
+    /// type, also `T.%m1%same` and its proofs for each container it's in,
+    /// the `same`s defined together.
     fn eq_source(&self, d: DataId, plan: &Plan) -> Source {
         let data = self.kernel.data(d);
         let ty_name = self.relative_to_root(data.name());
@@ -1048,7 +1399,6 @@ impl Elaborator {
                 .collect(),
         );
 
-        let mut differs = Vec::new();
         let mut tests = Vec::new();
         let mut proofs = Vec::new();
         let mut readings = Vec::new();
@@ -1140,192 +1490,233 @@ impl Elaborator {
                     }
                     x
                 };
-                let proof = fields_equal(
-                    span,
-                    &ctor_name,
-                    &format!("{prefix}{}", ctor.name),
-                    &is_proof,
-                    np,
-                    &this,
-                    &a,
-                    &b,
-                    &part,
-                    &|j| format!("%p{j}"),
-                );
                 // The test: the fields' tests joined by `&&`, each run
-                // only once those before it hold.
-                let test = |k: usize| match kinds[k] {
-                    Field::Recursive(target) => {
-                        apps(var(&same_of(target)), vec![var(&a(k)), var(&b(k))])
-                    }
+                // only once those before it hold; `y(k)` is what `%ak` is
+                // compared with.
+                let test = |k: usize, y: &dyn Fn(usize) -> Expr| match kinds[k] {
+                    Field::Recursive(target) => apps(var(&same_of(target)), vec![var(&a(k)), y(k)]),
                     _ => apps(
                         var("Std.Decidable.holds"),
-                        vec![apps(var("Std.DecEq.decide"), vec![var(&a(k)), var(&b(k))])],
+                        vec![apps(var("Std.DecEq.decide"), vec![var(&a(k)), y(k)])],
                     ),
                 };
-                // The decision of one field, for the proofs (which are
-                // erased): a recursive field's is made from `T.%same` and
-                // its two proofs, called on a part of the argument.
-                let decision = |k: usize| match kinds[k] {
-                    Field::Recursive(target) => {
-                        let call = |f: String, x: &str| {
-                            apps(var(&f), vec![var(&a(k)), var(&b(k)), var(x)])
-                        };
-                        Expr::Record {
-                            base: None,
-                            fields: vec![
-                                (
-                                    n("holds"),
-                                    apps(var(&same_of(target)), vec![var(&a(k)), var(&b(k))]),
-                                ),
-                                (n("sound"), lam(&["%x"], call(sound_of(target), "%x"))),
-                                (n("complete"), lam(&["%x"], call(complete_of(target), "%x"))),
-                            ],
-                            span,
+                let tests = |y: &dyn Fn(usize) -> Expr| {
+                    let mut fields = data_fields.iter().rev();
+                    let Some(&k) = fields.next() else {
+                        return var("Std.Bool.True");
+                    };
+                    fields.fold(test(k, y), |rest, &k| {
+                        Expr::Binary(BinOp::And, Box::new(test(k, y)), Box::new(rest))
+                    })
+                };
+                // The decision that `C %a… = C %b…`, with `b` the names of
+                // the right side's fields, stated, so the proofs' types are
+                // known. Its `holds` is the test.
+                let whole = |b: &dyn Fn(usize) -> String| {
+                    let proof = fields_equal(
+                        span,
+                        &ctor_name,
+                        &format!("{prefix}{}", ctor.name),
+                        &is_proof,
+                        np,
+                        &this,
+                        &a,
+                        b,
+                        &part,
+                        &|j| format!("%p{j}"),
+                    );
+                    // The decision of one field, for the proofs (which are
+                    // erased): a recursive field's is made from `T.%same`
+                    // and its two proofs, called on a part of the argument.
+                    let decision = |k: usize| match kinds[k] {
+                        Field::Recursive(target) => {
+                            let call = |f: String, x: &str| {
+                                apps(var(&f), vec![var(&a(k)), var(&b(k)), var(x)])
+                            };
+                            Expr::Record {
+                                base: None,
+                                fields: vec![
+                                    (
+                                        n("holds"),
+                                        apps(var(&same_of(target)), vec![var(&a(k)), var(&b(k))]),
+                                    ),
+                                    (n("sound"), lam(&["%x"], call(sound_of(target), "%x"))),
+                                    (n("complete"), lam(&["%x"], call(complete_of(target), "%x"))),
+                                ],
+                                span,
+                            }
                         }
-                    }
-                    _ => apps(var("Std.DecEq.decide"), vec![var(&a(k)), var(&b(k))]),
-                };
-                let cong = |k: usize| {
-                    let field = format!("{prefix}{}%{k}", ctor.name);
-                    apps(
-                        var("Std.Eq.cong"),
-                        vec![apps(var(&field), vec![var(&a(k))]), var("%e")],
-                    )
-                };
-                let (rhs, whole) = if data_fields.is_empty() {
-                    (
-                        var("Std.Bool.True"),
-                        apps(var("Std.Decidable.yes"), vec![proof]),
-                    )
-                } else {
-                    let mut tests = test(data_fields[last]);
-                    let mut all = decision(data_fields[last]);
-                    let mut equal = cong(data_fields[last]);
-                    for &k in data_fields[..last].iter().rev() {
-                        tests = Expr::Binary(BinOp::And, Box::new(test(k)), Box::new(tests));
-                        all = apps(
-                            var("Std.Decidable.andThen"),
-                            vec![decision(k), lam(&["%u"], all)],
-                        );
-                        equal = apps(var("Std.And.Both"), vec![cong(k), equal]);
-                    }
-                    (
-                        tests,
+                        _ => apps(var("Std.DecEq.decide"), vec![var(&a(k)), var(&b(k))]),
+                    };
+                    let cong = |k: usize| {
+                        let field = format!("{prefix}{}%{k}", ctor.name);
+                        apps(
+                            var("Std.Eq.cong"),
+                            vec![apps(var(&field), vec![var(&a(k))]), var("%e")],
+                        )
+                    };
+                    let whole = if data_fields.is_empty() {
+                        apps(var("Std.Decidable.yes"), vec![proof])
+                    } else {
+                        let mut all = decision(data_fields[last]);
+                        let mut equal = cong(data_fields[last]);
+                        for &k in data_fields[..last].iter().rev() {
+                            all = apps(
+                                var("Std.Decidable.andThen"),
+                                vec![decision(k), lam(&["%u"], all)],
+                            );
+                            equal = apps(var("Std.And.Both"), vec![cong(k), equal]);
+                        }
                         apps(
                             var("Std.Decidable.map"),
                             vec![all, lam(&["%q"], proof), lam(&["%e"], equal)],
+                        )
+                    };
+                    let applied = |f: &dyn Fn(usize) -> String| {
+                        apps(var(&ctor_name), (0..count).map(|k| var(&f(k))).collect())
+                    };
+                    let claim = apps(
+                        var("Std.Decidable"),
+                        vec![eq(
+                            Expr::Ann(Box::new(applied(&a)), Box::new(this.clone()), span),
+                            applied(b),
+                        )],
+                    );
+                    Expr::Ann(Box::new(whole), Box::new(claim), span)
+                };
+                let equation =
+                    |name: &ast::Name, patterns: Vec<Pattern>, rhs: Expr| Decl::Equation {
+                        guard: None,
+                        name: name.clone(),
+                        patterns,
+                        rhs: Some(rhs),
+                        arm: None,
+                        span,
+                    };
+                let with = |second: Pattern, extra: Option<&str>| {
+                    let mut patterns = vec![pattern(&a), second];
+                    patterns.extend(extra.map(|x| Pattern::Var(n(x))));
+                    patterns
+                };
+                if ctors.len() == 1 {
+                    let both = |extra| with(pattern(&b), extra);
+                    let by_b = |k: usize| var(&b(k));
+                    same_equations.push(equation(&same_name, both(None), tests(&by_b)));
+                    sound_equations.push(equation(
+                        &sound_name,
+                        both(Some("%h")),
+                        apps(var("Std.Decidable.sound"), vec![whole(&b), var("%h")]),
+                    ));
+                    complete_equations.push(equation(
+                        &complete_name,
+                        both(Some("%e")),
+                        apps(var("Std.Decidable.complete"), vec![whole(&b), var("%e")]),
+                    ));
+                    continue;
+                }
+                // Two constructors or more: the tags first, then the fields
+                // of the first value with the second's, by projection. The
+                // proofs turn the second into a `C` by `T.%etaAt`.
+                let number = Expr::Num(BigUint::from(c), span);
+                let tag = format!("{prefix}tag");
+                let tag_s = apps(var(&tag), vec![var("%s")]);
+                let projected = |k: usize| {
+                    let field = format!("{prefix}{}%{k}", ctor.name);
+                    apps(var(&field), vec![var(&a(k)), var("%s")])
+                };
+                let tags_equal = apps(var("Std.Nat.equal"), vec![number.clone(), tag_s.clone()]);
+                let rhs = if data_fields.is_empty() {
+                    tags_equal
+                } else {
+                    Expr::Binary(
+                        BinOp::And,
+                        Box::new(tags_equal),
+                        Box::new(tests(&projected)),
+                    )
+                };
+                let second = || Pattern::Var(n("%s"));
+                same_equations.push(equation(&same_name, with(second(), None), rhs));
+                // T.%sameSound (C %a0 …) %s %h =
+                //   let %e : T.%tag %s = c := Eq.sym (DecEq.tagsSame c (T.%tag %s) %h)
+                //   let %b0 := T.%C%0%at %s %e …
+                //   let %v := J (%y %q => T.%same (C %a0 …) %y = True) %h (Eq.sym (T.%etaAt %s c %e))
+                //   Eq.trans (Decidable.sound (… : Decidable (C %a0 … = C %b0 …)) %v) (T.%etaAt %s c %e)
+                let first = Expr::Ann(
+                    Box::new(apps(
+                        var(&ctor_name),
+                        (0..count).map(|k| var(&a(k))).collect(),
+                    )),
+                    Box::new(this.clone()),
+                    span,
+                );
+                let same_as = |y: &str| {
+                    lam(
+                        &[y, "%q"],
+                        eq(
+                            apps(var(&same_name.text), vec![first.clone(), var(y)]),
+                            var("Std.Bool.True"),
                         ),
                     )
                 };
-                // The decision is stated, so the proofs' types are known.
-                let applied = |f: &dyn Fn(usize) -> String| {
-                    apps(var(&ctor_name), (0..count).map(|k| var(&f(k))).collect())
-                };
-                let claim = apps(
-                    var("Std.Decidable"),
-                    vec![eq(
-                        Expr::Ann(Box::new(applied(&a)), Box::new(this.clone()), span),
-                        applied(&b),
-                    )],
+                let eta_at = apps(
+                    var(&format!("{prefix}etaAt")),
+                    vec![var("%s"), number.clone(), var("%e")],
                 );
-                let whole = Expr::Ann(Box::new(whole), Box::new(claim), span);
-                let equation = |name: &ast::Name, extra: Option<&str>, rhs: Expr| {
-                    let mut patterns = vec![pattern(&a), pattern(&b)];
-                    patterns.extend(extra.map(|x| Pattern::Var(n(x))));
-                    Decl::Equation {
-                        guard: None,
-                        name: name.clone(),
-                        patterns,
-                        rhs: Some(rhs),
-                        arm: None,
-                        span,
-                    }
+                let tags_same = if data_fields.is_empty() {
+                    apps(
+                        var("Std.Nat.equalSound"),
+                        vec![number.clone(), tag_s.clone(), var("%h")],
+                    )
+                } else {
+                    apps(
+                        var("Std.DecEq.tagsSame"),
+                        vec![number.clone(), tag_s.clone(), var("%h")],
+                    )
                 };
-                same_equations.push(equation(&same_name, None, rhs));
-                sound_equations.push(equation(
-                    &sound_name,
-                    Some("%h"),
-                    apps(var("Std.Decidable.sound"), vec![whole.clone(), var("%h")]),
-                ));
+                let viewed = apps(
+                    var("J"),
+                    vec![
+                        same_as("%y"),
+                        var("%h"),
+                        apps(var("Std.Eq.sym"), vec![eta_at.clone()]),
+                    ],
+                );
+                let mut body = apps(
+                    var("Std.Eq.trans"),
+                    vec![
+                        apps(var("Std.Decidable.sound"), vec![whole(&b), var("%v")]),
+                        eta_at,
+                    ],
+                );
+                let by_b = |k: usize| var(&b(k));
+                let viewed_ty = eq(tests(&by_b), var("Std.Bool.True"));
+                body = let_in(span, "%v", Some(viewed_ty), viewed, body);
+                for k in (0..count).rev() {
+                    let field = format!("{prefix}{}%{k}%at", ctor.name);
+                    body = let_in(
+                        span,
+                        &b(k),
+                        None,
+                        apps(var(&field), vec![var("%s"), var("%e")]),
+                        body,
+                    );
+                }
+                body = let_in(
+                    span,
+                    "%e",
+                    Some(eq(tag_s.clone(), number.clone())),
+                    apps(var("Std.Eq.sym"), vec![tags_same]),
+                    body,
+                );
+                sound_equations.push(equation(&sound_name, with(second(), Some("%h")), body));
+                // T.%sameComplete (C %a0 …) %s %e =
+                //   J (%y %q => T.%same (C %a0 …) %y = True) (Decidable.complete (… : Decidable (C %a0 … = C %a0 …)) rfl) %e
+                let refl = apps(var("Std.Decidable.complete"), vec![whole(&a), var("rfl")]);
                 complete_equations.push(equation(
                     &complete_name,
-                    Some("%e"),
-                    apps(var("Std.Decidable.complete"), vec![whole, var("%e")]),
+                    with(second(), Some("%e")),
+                    apps(var("J"), vec![same_as("%y"), refl, var("%e")]),
                 ));
-            }
-            if ctors.len() > 1 {
-                // Different constructors: their tags differ. Proved once, by
-                // `T.%differ`, which each pair of constructors gives `rfl`:
-                //
-                // T.%differ : [%p0 : _] -> … -> (%r %s : T %p0 …) ->
-                //   Nat.equal (T.%tag %r) (T.%tag %s) = False -> Not (%r = %s)
-                // T.%differ %r %s %t %e = Nat.equalFalse (T.%tag %r) (T.%tag %s) %t (Eq.cong T.%tag %e)
-                let tag = format!("{prefix}tag");
-                let tag_of = |x: &str| apps(var(&tag), vec![var(x)]);
-                let differ_name = n(&format!("{prefix}differ"));
-                let unequal = eq(
-                    apps(var("Std.Nat.equal"), vec![tag_of("%r"), tag_of("%s")]),
-                    var("Std.Bool.False"),
-                );
-                let ty = with_params(
-                    Expr::Pi {
-                        names: vec![n("%r"), n("%s")],
-                        implicit: false,
-                        auto: false,
-                        dom: Box::new(this.clone()),
-                        cod: Box::new(Expr::Arrow(
-                            Box::new(unequal),
-                            Box::new(apps(var("Std.Not"), vec![eq(var("%r"), var("%s"))])),
-                        )),
-                        span,
-                    },
-                    false,
-                );
-                let cong = apps(var("Std.Eq.cong"), vec![var(&tag), var("%e")]);
-                let rhs = apps(
-                    var("Std.Nat.equalFalse"),
-                    vec![tag_of("%r"), tag_of("%s"), var("%t"), cong],
-                );
-                differs.push((
-                    signature(&differ_name, ty, false),
-                    Decl::Equation {
-                        guard: None,
-                        name: differ_name,
-                        patterns: ["%r", "%s", "%t", "%e"]
-                            .iter()
-                            .map(|x| Pattern::Var(n(x)))
-                            .collect(),
-                        rhs: Some(rhs),
-                        arm: None,
-                        span,
-                    },
-                ));
-                // Different constructors: the test is `False`.
-                let catch_all = |name: &ast::Name, extra: Option<&str>, rhs: Expr| {
-                    let mut patterns = vec![Pattern::Var(n("%r")), Pattern::Var(n("%s"))];
-                    patterns.extend(extra.map(|x| Pattern::Var(n(x))));
-                    Decl::Equation {
-                        guard: None,
-                        name: name.clone(),
-                        patterns,
-                        rhs: Some(rhs),
-                        arm: None,
-                        span,
-                    }
-                };
-                let exfalso = |x: Expr| apps(var("Std.Void.exfalso"), vec![x]);
-                let differ = apps(
-                    var(&format!("{prefix}differ")),
-                    vec![var("%r"), var("%s"), var("rfl"), var("%e")],
-                );
-                same_equations.push(catch_all(&same_name, None, var("Std.Bool.False")));
-                sound_equations.push(catch_all(
-                    &sound_name,
-                    Some("%h"),
-                    exfalso(apps(var("Std.Bool.falseNotTrue"), vec![var("%h")])),
-                ));
-                complete_equations.push(catch_all(&complete_name, Some("%e"), exfalso(differ)));
             }
             tests.push((same_signature, same_equations));
             proofs.push((sound_signature, sound_equations));
@@ -1459,7 +1850,6 @@ impl Elaborator {
             }],
         );
         Source {
-            differs,
             tests,
             proofs,
             decide,
@@ -1586,11 +1976,22 @@ pub(crate) fn fields_equal(
     proof
 }
 
+/// `let x : ty := value` then `body`, in generated source.
+pub(crate) fn let_in(span: Span, x: &str, ty: Option<Expr>, value: Expr, body: Expr) -> Expr {
+    Expr::Let {
+        name: ast::Name {
+            text: x.to_string(),
+            span,
+        },
+        ty: ty.map(Box::new),
+        value: Box::new(value),
+        body: Box::new(body),
+        span,
+    }
+}
+
 /// The source [`Elaborator::eq_source`] generates.
 struct Source {
-    /// `T.%differ`, then each container's (`T.%m1%differ`), for each with
-    /// two constructors or more.
-    differs: Vec<(Decl, Decl)>,
     /// `T.%same`, then each container's, defined together.
     tests: Vec<(Decl, Vec<Decl>)>,
     /// `T.%sameSound` and `T.%sameComplete`, then each container's, defined
