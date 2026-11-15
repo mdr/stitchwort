@@ -36089,15 +36089,18 @@
     {
       "id": 3283,
       "title": "[Sonnet] Generic Parse stage 2 (generic-parse.md §4): tokens: Parse.Located, located, one, span1, Parse.tokens and messages, lemmas; guide section 'Lex, then parse' and a feature-tour page. After stage 1",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "review",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-3283",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Stage 2 built on lane/SW-3283 (95a311a82, f0941c512). Std: Parse.one, span1 (Parse.sw), Located/located/tokens (Tokens.sw), lemmas readsOne/runsOne/declinesOne, readsSpan1/runsSpan1/declinesSpan1, readsLiteralSame (+List.stripPrefixByRelated), readsLocated, runsFromLocated, tokensReads, runsTokens. Guide ch.8 'Lex, then parse', web/guide/41, accept parse-lex-then-parse, reject parse-tokens-character-parser. Tests: std Parse check, guide quote/examples, hash_stability (prelude +58 lines), reads_chain_cost, example filters. Finding: record pattern in a clause lambda given to Parse.one fails E-CANNOT-INFER (t only known after the call).",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
-      "commits": []
+      "updated": "2026-11-15",
+      "commits": [
+        "95a311a82",
+        "f0941c512"
+      ]
     },
     {
       "id": 3284,
