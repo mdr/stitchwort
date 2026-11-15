@@ -5055,7 +5055,8 @@ impl Gen<'_, '_> {
         let out = self.spill_erased(o.len());
         if abi::charges_steps(prim_op) {
             // The helper charges the steps of a result sized by an
-            // argument, and sets the error if they run out.
+            // argument, or of big numbers' words when they count, and sets
+            // the error if they run out.
             steps_out(&mut self.b, self.ctx);
             self.call_helper(self.helpers.prim, &[self.ctx, op, array, n, out]);
             steps_in(&mut self.b, self.ctx);
