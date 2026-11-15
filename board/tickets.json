@@ -36388,15 +36388,17 @@
     {
       "id": 3304,
       "title": "[Opus] Writing [t := Char] [b := List Nat] by hand on a readsThen breaks a proof that checks with neither or either alone: knowing every type early changes which arguments wait for the expected type (pre-existing; SW-3282 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Found in SW-3282; repro c3tb.sw in docs/reviews/SW-3282-settle-from-expected.md S3 (probes in the scratch sw3282-review folder). Fixing it unblocks SW-3307 (settle every type parameter). Expected: 2 h (Opus).",
+      "body": "Found in SW-3282; repro c3tb.sw in docs/reviews/SW-3282-settle-from-expected.md S3 (probes in the scratch sw3282-review folder). Fixing it unblocks SW-3307 (settle every type parameter). Expected: 2 h (Opus).\n\n**Progress (lane, 15 Nov 2026, 02:16-03:15).** Done; commit 1b949c461 on `lane/SW-3304`.\n\n- **Cause (traced):** not the review's guess. Written implicits keep a call off `propagation_plan` altogether (the written result mentions them), so with `[t := …]` or `[b := …]` every step goes through `fallback_inferred`: `readsNat` fails in place, the `rest` lambda is held, and `finish_application` compares the step's `Reads (() => bind (?p ()) ?j) ?spec` with the goal by `unify_solving_arguments`. The goal's parser is the outer step's `?j x0`, solved as `bind (nat ()) (x1 => …)`. `same_calls` only fires for two unforced `Value::Call`s, so a call against a *solved unknown* standing for a call of the same definition was unfolded on both sides, through `runFrom`'s handlers, until `?p ()` met `Parse.nat`'s `match` over the state: no solution. With `b` unknown it passed by accident: `?b`, solved at the `value` binder, made the `bind` call stale, `values_differ` re-read both sides, and the re-read put the solution back as a call.\n- **Fix:** `unify_step` looks through a solved unknown at either head; two calls of one definition go to `same_calls`. Only while solving from arguments (without that limit day 2 +2.2%, Std.Parse +0.4%). Which arguments wait is unchanged.\n- **Numbers** (`STITCHWORT_TIMINGS=decls check --no-cache`, summed per namespace, before -> after; nodes identical everywhere): day 2 proofs 6,890,500 -> 6,896,050 (+0.08%); day 7 6,609,827 -> 6,607,194 (-0.04%); day 18 2,236,096 unchanged; Std.Parse 99,478,662 -> 99,482,727 (+0.004%).\n- **Tests:** new accept example `reads-chain-written-type-arguments` (all eight combinations of `t`/`a`/`b` written; two fail before) + hash snapshot; `binary(library) & test(/hash_stability|reads_chain_cost/)` 11/11, no other snapshot changed; elab `unify|propagat|implicit|settle` 43/43; examples `reads-chain,parse-row` and `unknown-solved,dictionary,from-expected,reads-` accept+reject pass; all 18 SW-3282 review probes and the reject examples give byte-identical output to the binary before the fix (c3tb now checks); `check --no-cache` of 2020 days 2, 7, 18 pass.\n- **SW-3307 measurement (not committed):** dropping `settle_from_expected`'s row condition (so `b` is given too): day 2 proofs 6.90M -> 4.83M (-30%; `runsPieces` 6.17M -> 4.10M, about 24% under its pre-generic 5.41M), day 7 -9.1%, day 18 -0.9%, Std.Parse -1.4%. All three days check; all eight combos check. But nodes change (Std.Parse 702,774 -> 702,751; day 7 +12), so hashes move, and one reject example regresses: `reads-nested-binds-unknown-field` gives E-TYPE-MISMATCH at the final `rfl` (`?3 read value`) instead of E-UNKNOWN-FIELD at `first`. Errors also change in review probes g1, g2, g8, r1, t2 (unreviewed). `reads-chain-swapped-pair` differs only in a meta number.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "1b949c461"
+      ]
     },
     {
       "id": 3305,

@@ -1357,7 +1357,38 @@ fn unify_step(
     {
         return Ok(answer);
     }
+    if let Some((a, b)) = solved_calls(g, a, b)?
+        && let Some(answer) = same_calls(g, level, &a, &b)?
+    {
+        return Ok(answer);
+    }
     unify_step_rest(g, level, a, b, work, mode)
+}
+
+/// `a` and `b` with a solved unknown at either head replaced by its
+/// solution, if that makes them two calls of the same definition: `?j x`,
+/// solved as `bind (nat ()) k`, against `bind (?p ()) k'`. Compared as
+/// calls, by [`same_calls`], as two calls written out are; otherwise
+/// [`force`] would unfold both, and an unknown among the arguments (`?p`)
+/// would meet what the other call's argument computes to inside the
+/// unfolding, not the argument itself. Only while solving from arguments
+/// ([`unify_solving_arguments`]): elsewhere [`same_calls`] keeps only a
+/// match that solves nothing, so the look costs steps and rarely helps.
+fn solved_calls(g: &Unifier<'_>, a: &Value, b: &Value) -> Result<Option<(Value, Value)>> {
+    let solved =
+        |v: &Value| matches!(v, Value::Neutral(Head::Meta(m), _) if g.meta_solution(*m).is_some());
+    if !g.attempt.solving_arguments.get()
+        || !(solved(a) || solved(b))
+        || !matches!(a, Value::Call(..) | Value::Neutral(Head::Meta(_), _))
+        || !matches!(b, Value::Call(..) | Value::Neutral(Head::Meta(_), _))
+    {
+        return Ok(None);
+    }
+    let (a, b) = (force_solved(g, a.clone())?, force_solved(g, b.clone())?);
+    Ok(match (&a, &b) {
+        (Value::Call(i1, _, _), Value::Call(i2, _, _)) if i1 == i2 => Some((a, b)),
+        _ => None,
+    })
 }
 
 /// [`unify_step`]'s rules for two calls `a` and `b` of the same definition:
