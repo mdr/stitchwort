@@ -9,4 +9,4 @@ def lexToken(): {Parse Char} Parse.Located Nat := Parse.located (() => nat())
 
 def total(): {Parse Char} Nat := nat()
 
-def parse (input: Text): {Fail} Nat := Parse.tokens input (() => Parse.many lexToken) total
+def parse (input: Text): {Fail} Nat := Parse.tokens [a := Nat] input (() => Parse.many lexToken) total
