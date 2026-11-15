@@ -658,12 +658,20 @@ comment group do, and those were the cheap ones, so changing the style
 needn't break the expensive proofs.
 
 For the real formatter (94 node kinds, rewrites, the left-as-written
-fallback), scaling D, WF and the rule-side lemmas by the number of node
-kinds (about 9x the toy's 10 expression and 4 statement forms) and A by
-nothing (one engine): roughly 3-6 months of lane time [estimated, very low
-confidence: no piece of the real formatter was tried]. Rewrites add a
-proof that each rewrite keeps the meaning; the fallback is cheap (text
-kept as written re-lexes the same, part of B).
+fallback): D, WF and the rule-side lemmas grow with the number of node
+kinds, about 5-6 times the toy's 17 forms (10 expressions, 3 statements,
+4 declarations); A doesn't grow (one engine) and B grows with the token
+kinds. That gives roughly 2-4 months of lane time [estimated, very low
+confidence: no piece of the real formatter was tried]. Rewrites each need
+a proof that they keep the tree's meaning; the fallback is cheap (text
+kept as written lexes the same, part of B).
+
+The engine proof (A's suffix half) also needs a well-formedness predicate
+on documents, since the engine is only safe on documents built the way
+the rules build them: a group's `hard` flag must be `forcesBreak` (as
+`Doc.group` sets it), because `fits` answers "fits" at a `OneLineBelow`
+without looking inside it, and a `Flatten` is measured only where a
+choice measures it.
 
 ### Friction
 
