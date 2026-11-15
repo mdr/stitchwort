@@ -36767,15 +36767,17 @@
     {
       "id": 3329,
       "title": "[Sonnet] Print a type ascription in a goal's lemma when both sides of an equation leave the type open ((Err msg: Result b Text) = Err msg), instead of printing no lemma (SW-3326 drops it); also the lemmas_check_as_the_same_goal test takes 5-6 min: cut its per-example writes or sample",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-3326. Expected: 1 h (Sonnet).",
+      "body": "From SW-3326. Model result: Sonnet, worked, ~10 min (est. 60).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "a4c549ccb536d4ae8f944f4ac6c61c51a28bd738"
+      ]
     },
     {
       "id": 3330,
