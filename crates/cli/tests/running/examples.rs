@@ -666,9 +666,13 @@ fn paste_listed_arms(example: &Example) -> Vec<usize> {
                     .count();
                 let pasted: usize = rounds.iter().sum();
                 assert_eq!(goals, pasted, "{}: one open goal per arm", example.name);
+                // The example's own `Opt` hides Option's constructors.
+                let others = (session.warnings.iter())
+                    .filter(|d| d.severity != Severity::Goal && d.code != "W-CTOR-HIDES")
+                    .count();
                 assert_eq!(
-                    session.warnings.len(),
-                    goals,
+                    others,
+                    0,
                     "{}: only goals remain:\n{}",
                     example.name,
                     rendered(&session.sources, &session.warnings)
@@ -678,7 +682,10 @@ fn paste_listed_arms(example: &Example) -> Vec<usize> {
             Err(diagnostics) => diagnostics,
         };
         let output = rendered(&session.sources, &diagnostics);
-        let [d] = diagnostics.as_slice() else {
+        let errors: Vec<_> = (diagnostics.iter())
+            .filter(|d| d.severity == Severity::Error)
+            .collect();
+        let [d] = errors.as_slice() else {
             panic!("{}: one error expected:\n{output}", example.name);
         };
         assert_eq!(d.code, "E-NONEXHAUSTIVE", "{}:\n{output}", example.name);
