@@ -1,5 +1,5 @@
 {
-  "next": 3321,
+  "next": 3322,
   "tickets": [
     {
       "id": 47,
@@ -36624,6 +36624,19 @@
       "commits": [
         "2f58ef0606b59311d1751f71f02305d43c4b8367"
       ]
+    },
+    {
+      "id": 3321,
+      "title": "[DeepSeek] dev breaks prints nothing until it finishes, so a long run that's killed loses everything and shows no progress (Overmind, 15 Nov: 4 h examples run): stream results as JSON lines per break (or per file) and print progress to stderr",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
     }
   ]
 }
