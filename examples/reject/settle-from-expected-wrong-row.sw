@@ -2,7 +2,8 @@
 -- A lemma's ability arguments are taken from the goal before its arguments
 -- are checked, so a parser whose row doesn't fit is blamed where it is
 -- passed, with the two rows side by side, rather than the whole call with
--- the goal unfolded or the numeral `5` (SW-3282, SW-3305).
+-- the goal unfolded or the numeral `5` (SW-3282, SW-3305). Where the body
+-- fails elsewhere without them, a second label says where (SW-3311).
 import Std (List, Nat, Char, Bool)
 
 ability St (s: Type) where

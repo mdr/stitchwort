@@ -2763,9 +2763,85 @@ impl Elaborator {
         mut attempt: impl FnMut(&mut Self) -> Result<T>,
     ) -> Result<T> {
         let outer = std::mem::take(&mut *self.decl.builds.borrow_mut());
-        let result = self.local_retries(key, owner, &mut attempt);
+        let result = self.settle_retried(|e| e.local_retries(key, owner, &mut attempt));
         *self.decl.builds.borrow_mut() = outer;
         result
+    }
+
+    /// Runs `attempt`, the elaboration of a body; if it fails after
+    /// `check::settle_from_expected` gave some call type arguments from its
+    /// expected type, runs it once more with none given. The guess is
+    /// right whenever a call's type matches its expected type argument by
+    /// argument, but a match may need unfolding (`Ph Nat 0` against `Ph Char
+    /// 0`, where `Ph` doesn't use its type parameter), so a body is
+    /// accepted whenever it is without settling. One retry for the whole
+    /// body, not one per call: inside a chain of lemmas most failures are
+    /// speculative (an argument held for after the expected type, a plan
+    /// redone from the start), and a retry at each would make a failing
+    /// nested chain cost more than linear time.
+    ///
+    /// `attempt` starts by forgetting every metavariable, and makes its own
+    /// local definitions and helpers again (`Self::local_retries`); what is
+    /// left of the first attempt is put back here: its goals, the types and
+    /// steps noted for presentation, its warnings, the other bad branches'
+    /// errors and the flags its messages set.
+    ///
+    /// If both fail, the first error is mostly given ([`settled_error_first`]):
+    /// it blames the argument whose row clashes with the goal's, where the
+    /// second blames the whole call with the goal unfolded, or an unrelated
+    /// argument. Where the second failed somewhere else, the error also says
+    /// so ([`settle_note`]).
+    fn settle_retried<T>(&mut self, mut attempt: impl FnMut(&mut Self) -> Result<T>) -> Result<T> {
+        if self.decl.no_settling.get() {
+            return attempt(self);
+        }
+        let outer = self.decl.settled.take();
+        let warnings = self.unit.warnings.len();
+        let lambda_warnings = self.attempt.lambda_warnings.borrow().len();
+        let branch_errors = self.attempt.branch_errors.borrow().len();
+        let flags = (
+            self.decl.failed_mentioned.get(),
+            self.decl.stuck_on_goal.borrow().clone(),
+        );
+        let first = attempt(self);
+        let settled = self.decl.settled.replace(outer);
+        let e = match first {
+            Err(e) if !settled.is_empty() && !undo::fatal(&e) && e.code != goals::UNFINISHED => e,
+            first => return first,
+        };
+        // Pending since `attempt`'s first `clear_metas`, so all its own.
+        self.drop_goals_since(0);
+        self.drop_local_types_since(0);
+        self.drop_steps_since(0);
+        self.unit.warnings.truncate(warnings);
+        self.attempt
+            .lambda_warnings
+            .borrow_mut()
+            .truncate(lambda_warnings);
+        let first_branches = self
+            .attempt
+            .branch_errors
+            .borrow_mut()
+            .split_off(branch_errors);
+        let first_flags = (
+            self.decl.failed_mentioned.replace(flags.0),
+            self.decl.stuck_on_goal.replace(flags.1),
+        );
+        self.decl.no_settling.set(true);
+        let again = attempt(self);
+        self.decl.no_settling.set(false);
+        match again {
+            Err(again) if !undo::fatal(&again) && settled_error_first(&e, &again) => {
+                let mut branches = self.attempt.branch_errors.borrow_mut();
+                branches.truncate(branch_errors);
+                branches.extend(first_branches);
+                drop(branches);
+                self.decl.failed_mentioned.set(first_flags.0);
+                *self.decl.stuck_on_goal.borrow_mut() = first_flags.1;
+                Err(settle_note(e, &again, &settled))
+            }
+            again => again,
+        }
     }
 
     /// [`Self::with_local_retries`]'s loop. A body that fails where a
@@ -6175,6 +6251,50 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
 
 /// Whether a row in `expr` mentions ability `name`. Uses a work list: the
 /// expression can nest more deeply than recursion could follow.
+/// Whether a body's error `e`, elaborated with type arguments taken from
+/// calls' expected types, is given rather than `again`, its error without
+/// them ([`Elaborator::settle_retried`]). Not when `again` stands for open
+/// goals: without settling, the body is only unfinished.
+fn settled_error_first(_e: &Diagnostic, again: &Diagnostic) -> bool {
+    again.code != goals::UNFINISHED
+}
+
+/// `e`, the error of a body elaborated with type arguments taken from
+/// calls' expected types, when elaborating it without them failed too,
+/// with `again`: if that failed somewhere else, labels saying where the
+/// type argument was taken (the innermost of the `settled` calls around
+/// `e`), and where and how the body fails without it. The settling may
+/// have been the mistake, and the other error then the real one
+/// (`Ph Char 0 := ph natSrc True`, with `True` given for a `Nat`). Not
+/// when the other error is around the first (the whole call), which says
+/// nothing more.
+fn settle_note(e: Diagnostic, again: &Diagnostic, settled: &[(Span, Name)]) -> Diagnostic {
+    let (Some(at), Some(there)) = (e.primary_span(), again.primary_span()) else {
+        return e;
+    };
+    if lift::within(there, at) {
+        return e;
+    }
+    let call = settled
+        .iter()
+        .filter(|(call, _)| lift::within(*call, at))
+        .min_by_key(|(call, _)| call.end - call.start);
+    let e = match call {
+        Some((call, name)) => e.with_label(
+            *call,
+            format!("`{name}` was taken from this call's expected type"),
+        ),
+        None => e,
+    };
+    e.with_label(
+        there,
+        format!(
+            "without type arguments taken from expected types, the error is here instead: {}",
+            again.labels[0].message
+        ),
+    )
+}
+
 pub(crate) fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
     use ast::Expr;
     let mut pending = vec![expr];
