@@ -1,5 +1,5 @@
 {
-  "next": 3451,
+  "next": 3452,
   "tickets": [
     {
       "id": 47,
@@ -38408,6 +38408,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3451,
+      "title": "[DeepSeek] fmt fuzzer: a comment-heavy mode (insert -- comments, trailing and own-line, at random token boundaries at a set rate) to test D3618's every-comment-placed formatting for idempotence and refusals; today -- is 1 of ~60 inserted tokens (Overmind, 15 Nov 2026)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
