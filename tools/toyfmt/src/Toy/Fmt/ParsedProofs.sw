@@ -8,8 +8,11 @@
 --| from std's `Parse.ReadsAmong`, soundness over items known to be good.
 
 namespace Toy.Fmt.Proofs
+import Toy.Doc (..)
+import Toy.Doc.Proofs (..)
 import Toy.Syntax (..)
 import Toy.Syntax.Proofs (..)
+import Toy.Fmt (..)
 import Std.Parse.Associativity (LeftAssociative)
 import Std (And, Bool, Eq, List, NonEmptyList, Option, Pair, Parse, Result, Text, Void)
 
@@ -1295,3 +1298,62 @@ theorem fairSourceFile ∀ (endTrivia: List Trivia)
       (Parse.amongMany declaration (taken lines => LexicalDeclarations lines) fairDeclaration)
       (taken found each => eachLexicalDeclarations found taken each))
     (found all => fairFileEnd found.concat endTrivia fine (lexicalDeclarationsConcat found all))
+
+-- From the source.
+
+theorem goodKind ∀ (kind: Kind) (fine: FineKind kind): GoodKind kind := match kind, fine with
+  | Name text, isName => isName
+  | Number digits, isDigits => isDigits
+  | Str written, read => stringReadClosed written read
+  | Reserved keyword, _ => rfl
+  | Sign punctuation, _ => rfl
+  | Op operator, _ => rfl
+  | Stray text, _ => rfl
+
+--| The lexer's tokens are good ones.
+theorem goodTokens ∀ (tokens: List (Parse.Located Token)) (fine: FineTokens tokens): List.All Good tokens :=
+  match tokens, fine with
+    | [], _ => ()
+    | [token, ..rest], Both (Both kind (Both above trailing)) others =>
+      Both (Both (goodKind token.value.kind kind) (Both above trailing)) (goodTokens rest others)
+
+--| What the parser guarantees about its trees' texts: in every file
+--| `parse` gives, whatever the source, every name is a word that spells
+--| no keyword, every number is digits, every string is closed by its
+--| second quote whatever follows, every comment is `--` and the rest of
+--| its line, and every body ends in a statement (`LexicalFile`). So the
+--| printer's lexing theorems hold of every parsed tree, with no check at
+--| run time.
+theorem parseLexical ∀ (source: Text) (file: SourceFile) (parsed: parse source = Ok file): LexicalFile file :=
+  match lexed: lex source with
+    | Ok tokens =>
+      match whole: Parse.whole tokens.tokens (() => sourceFile tokens.endTrivia) with
+        | Ok found =>
+          let same: found = file := Result.okInjective parsed
+          let texts := lexTexts source tokens lexed
+          rewrite <- same in
+            Parse.wholeAmong Good tokens.tokens
+              (() => sourceFile tokens.endTrivia)
+              (taken value => LexicalFile value)
+              found
+              (fairSourceFile tokens.endTrivia texts.right)
+              (goodTokens tokens.tokens texts.left)
+              whole
+
+--| A parsed file printed, at every width, lexes to its pieces:
+--| [`printedLexes`] from `parse` alone. For the file of any source that
+--| parses, the printed text is `pieces` joined, the pieces that aren't
+--| layout are the file's tokens and comments in order, and `lex` of the
+--| text gives the pieces as lexemes (neighbouring spaces as one) and the
+--| tokens `assemble` makes of them.
+theorem parsedPrintLexes ∀ (source: Text) (file: SourceFile) (width: Nat)
+    (parsed: parse source = Ok file):
+    ∃ (pieces: List Text) => (file.print width).text = pieces.joinWith ""
+      ∧ wordsOf pieces = wordsOf file.pieces
+      ∧ lex (file.print width).text
+        = Ok {
+          lexemes = Parse.locatedSteps 0 (stepsOnto pieces.reverse []),
+          tokens = (assemble (file.print width).text (Parse.locatedSteps 0 (stepsOnto pieces.reverse []))).fst,
+          endTrivia = (assemble (file.print width).text (Parse.locatedSteps 0 (stepsOnto pieces.reverse []))).snd
+        } :=
+  printedLexes file width (parseLexical source file parsed)
