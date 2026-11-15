@@ -35824,14 +35824,14 @@
     {
       "id": 3264,
       "title": "[Sonnet] 'type World = {IO, Fail}' gives a message about record fields; say rows can't be named (yet) (SW-3262 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
