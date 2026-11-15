@@ -199,7 +199,7 @@ theorem fairItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (lexical: LexicalItems found):
     Fair (() => itemsFrom fuel self found) LexicalItems :=
   match fuel with
-    | Zero => fairDone found.reverse LexicalItems (lexicalItemsReverse found lexical)
+    | Zero => fairDone [] LexicalItems rfl
     | Succ more =>
       fairThen
         (() => item self)
