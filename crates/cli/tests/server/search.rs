@@ -600,6 +600,8 @@ fn what_closes_a_goal_in_a_project() {
     let mut report = report;
     report["budget"]["candidates"] = "(the library's size)".into();
     report["budget"]["checks"] = "(varies)".into();
+    report["budget"]["matched"] = "(varies)".into();
+    report["budget"]["tried"] = "(varies)".into();
     insta::assert_snapshot!(serde_json::to_string_pretty(&report).unwrap());
     // `--project` naming another project than the file's is refused.
     let other = shop("at-project-other");
