@@ -4265,6 +4265,7 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
 
     let mut failure = false;
     let mut would_change = false;
+    let mut left_as_written = 0usize;
     if stdin {
         let mut text = String::new();
         if let Err(err) = std::io::stdin().read_to_string(&mut text) {
@@ -4275,6 +4276,7 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
         let id = sources.add("-", text.clone());
         match stitchwort_fmt::format_in(id, &text) {
             Ok(formatted) => {
+                report_verbatim("-", &formatted.verbatim_at, &mut left_as_written);
                 // Always the whole text, changed or not: an editor replaces
                 // its buffer with what this prints.
                 let formatted = formatted.text;
@@ -4295,13 +4297,19 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
     }
 
     for path in &paths {
-        failure |= !format_file(path, check, &mut would_change);
+        failure |= !format_file(path, check, &mut would_change, &mut left_as_written);
     }
 
     if skipped > 0 {
         eprintln!(
             "{skipped} file{} skipped as deliberately unformatted",
             if skipped == 1 { "" } else { "s" }
+        );
+    }
+    if left_as_written > 0 {
+        eprintln!(
+            "{left_as_written} declaration{} left as written",
+            if left_as_written == 1 { "" } else { "s" }
         );
     }
 
@@ -4362,9 +4370,26 @@ fn deliberately_unformatted(path: &Path) -> bool {
         .any(|excluded| relative.starts_with(excluded))
 }
 
+/// Warns, on standard error, about each declaration the formatter left as
+/// written: its file and line, its name and the check it failed.
+fn report_verbatim(path: &str, decls: &[stitchwort_fmt::printer::VerbatimDecl], total: &mut usize) {
+    for decl in decls {
+        eprintln!(
+            "{path}:{}: declaration `{}` left as written ({})",
+            decl.line, decl.name, decl.reason
+        );
+    }
+    *total += decls.len();
+}
+
 /// Formats `path` in place, unless `check`; prints it if it changed. Returns
 /// whether the file was formatted (or, with `check`, would be).
-fn format_file(path: &Path, check: bool, would_change: &mut bool) -> bool {
+fn format_file(
+    path: &Path,
+    check: bool,
+    would_change: &mut bool,
+    left_as_written: &mut usize,
+) -> bool {
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
         Err(err) => {
@@ -4376,6 +4401,11 @@ fn format_file(path: &Path, check: bool, would_change: &mut bool) -> bool {
     let id = sources.add(path.display().to_string(), text.clone());
     match stitchwort_fmt::format_in(id, &text) {
         Ok(formatted) => {
+            report_verbatim(
+                &path.display().to_string(),
+                &formatted.verbatim_at,
+                left_as_written,
+            );
             let formatted = formatted.text;
             if formatted == text {
                 return true;
@@ -5130,8 +5160,13 @@ fn fmt_tree_command(paths: &[PathBuf], print: bool, verbose: bool) -> ExitCode {
             println!("{}: formatting twice differs from once", file.display());
         }
         if verbose {
-            for (line, reason) in &gate.stats.verbatim_at {
-                println!("{}:{line}: left as written ({reason})", file.display());
+            for decl in &gate.stats.verbatim_at {
+                println!(
+                    "{}:{}: left as written ({})",
+                    file.display(),
+                    decl.line,
+                    decl.reason
+                );
             }
         }
     }

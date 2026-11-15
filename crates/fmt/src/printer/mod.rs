@@ -32,6 +32,17 @@ use crate::{Error, check};
 /// The width lines are fitted to (D1014).
 pub const WIDTH: usize = 120;
 
+/// A declaration left exactly as written, and why.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VerbatimDecl {
+    /// Its first line in the file, from 1.
+    pub line: usize,
+    /// Its name, or its first token when no name can be read.
+    pub name: String,
+    /// The check it failed.
+    pub reason: &'static str,
+}
+
 /// What the tree printer did with a file.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TreeStats {
@@ -39,8 +50,8 @@ pub struct TreeStats {
     /// Declarations left as written because their printed text failed a
     /// check, by the first check failed.
     pub verbatim: BTreeMap<&'static str, usize>,
-    /// Where each of those is: its first line (from 1) and the check.
-    pub verbatim_at: Vec<(usize, &'static str)>,
+    /// Where each of those is, and which declaration.
+    pub verbatim_at: Vec<VerbatimDecl>,
     /// Nodes printed as written because no rule covers their kind yet.
     pub unruled: BTreeMap<NodeKind, usize>,
     /// Parameter groups made by merging parameters of one type (D3565).
@@ -225,7 +236,11 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
                             );
                         }
                         *stats.verbatim.entry(reason).or_default() += 1;
-                        stats.verbatim_at.push((first_line, reason));
+                        stats.verbatim_at.push(VerbatimDecl {
+                            line: first_line,
+                            name: decl_name(&tree, &input, range.clone()),
+                            reason,
+                        });
                         before.to_string()
                     }
                 }
@@ -377,4 +392,36 @@ mod tests;
 /// is exactly its text, interpolated text included.
 pub(crate) fn token_text_range(token: &stitchwort_syntax::Token) -> std::ops::Range<usize> {
     token.span.start as usize..token.span.end as usize
+}
+
+/// The name of the declaration in `range`, for a report: the name token after
+/// its keyword (a definition's, theorem's, type's or test's), or its first
+/// token when there is none.
+fn decl_name(tree: &SyntaxFile, text: &str, range: std::ops::Range<usize>) -> String {
+    let tokens = &tree.tokens()[range];
+    let keyword = tokens.iter().position(|token| {
+        matches!(
+            token.tok,
+            Tok::KwDef
+                | Tok::KwTheorem
+                | Tok::KwType
+                | Tok::KwInterface
+                | Tok::KwInstance
+                | Tok::KwTest
+                | Tok::KwAbility
+        )
+    });
+    keyword
+        .and_then(|at| {
+            tokens[at + 1..].iter().find_map(|token| match &token.tok {
+                Tok::Lower(name) | Tok::Upper(name) | Tok::Str(name) => Some(name.clone()),
+                _ => None,
+            })
+        })
+        .or_else(|| {
+            tokens
+                .first()
+                .map(|token| text[token_text_range(token)].to_string())
+        })
+        .unwrap_or_default()
 }
