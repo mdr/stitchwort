@@ -1285,6 +1285,144 @@ E's first half alone was 100, small ones.
     `spacesAfterComment` (a text of spaces while a comment waits);
     `spacesAfterCommentExample` is an instance.
 
+### Part 6 (Fable, 15 Nov 2026): what the printer puts next to what (engine), lexing from pieces
+
+A 1-hour lane on layer E's adjacency half and layer B's lexing from the
+pieces. The engine's side of adjacency and the lexer's side of "pieces
+lex to themselves" are proved; the rules' side (which chunks the rules
+put next to which) and the glue between the two are designed below and
+not started, so "the printed text lexes to the file's tokens" is not yet
+a theorem and there is still no `formatDirect`.
+
+**Proved** (no open goals, no axioms; `audit Toy`: see the ticket):
+
+- `Doc/Joins.sw` (62 theorems), layer E's adjacency, engine half.
+  **`printJoins`**: for a `Uniform` document that joins from a line
+  start (`Joins follows doc (Clear None) (after => True)`), at every
+  width, `print` is pieces joined where no piece is empty, the pieces'
+  words are the document's, and each piece that isn't layout is followed
+  by nothing, by a line break, or by a piece `p` with `follows piece (gapOr
+  p)` (`Pairs`; `gapOr` turns spaces of any length into one space).
+  `follows` is any relation the caller picks; the engine asks nothing of
+  it. **`readingJoins`** is the same of every reading, however far it
+  gets. On the way: `stepJoins` (one step keeps the printer `Sound` and
+  hands the edge it leaves to the work list), one lemma per printer
+  operation (`putSound`, `newlineSound`, `writeHolds`, `lineStartHolds`,
+  `blankHolds`, `suffixHolds`, `flushedPairs`, `finalPairs`), and
+  `joinsWeaker` (a weaker continuation still holds; with `allWeaker`,
+  `fillWeaker`, `sepsWeaker`, `optionsWeaker`).
+- `Syntax/StandProofs.sw` (15 theorems), layer B. `Stands lexeme read
+  rest`: `read` is shaped as that lexeme and `rest` doesn't continue it
+  (`StopsAt`: `rest` is empty or its first character fails the lexeme's
+  test; a comment stops only at a line break or the end).
+  **`standingRun`**: steps that each stand before the rest are
+  `Parse.LexemesRun lexemeAt`; **`standingLex`**: so a source made of
+  them lexes to them, with the tokens `assemble` makes. What the printer
+  writes stands: `operatorStands` (each of the twelve operators before
+  text that starts with no operator character), `definesStands`,
+  `keywordStands`, `signStands`; and `minusBeforeMinus`: a `-` straight
+  before a `-` does not stand (bug 1 of part 1, as a theorem).
+
+**Checked against a broken program:** with `write` putting text after a
+waiting comment on its line, `writeHolds` fails (with part 5's
+`writeWords`); with `flushOne` leaving out the space before the comment,
+`flushOnePairs` fails.
+
+**The design as built** (it differs from part 5's sketch in three
+places).
+
+- The edge is `Clear touching` (no comment waits; `touching` is the last
+  piece if it isn't layout) or `Waiting`. `Fresh` and "after spaces" are
+  both `Clear None`: nothing is asked of what follows layout.
+- One relation, not two. `follows word next` covers a chunk after a
+  chunk and a space after a chunk (`follows word " "`), so "a comment
+  ends its line" is just that nobody can prove `follows comment " "` or
+  `follows comment text`: after an own-line comment's chunk only a line
+  break joins. A line break after a piece asks nothing.
+- `Joins` over-approximates in one place: a `Line` asks `follows word
+  " "` whether or not its group is flat (modes aren't tracked). The
+  rules never put a `Line` after a comment's chunk, so nothing is lost.
+- What `Sound` carries between steps: `Pairs` of the output; indentation
+  owed only at a line start; a line marked as only started has nothing
+  on it (`Fresh`: the output is empty or ends in a line break; `Tracks`
+  of part 5 says the same by widths, this one needs no `Measured`); at
+  most one comment waits, it isn't empty, and a space may follow the
+  output once its trailing spaces are dropped (`trimmedReady` gets that
+  from `Pairs`, since spaces after a word already asked `follows word
+  " "`).
+- **Two waiting trailing comments are refused**: `SuffixJoins` is
+  `False` at `Waiting`. So the rules' half can only be proved for trees
+  where no token has both a trailing comment and a next token whose
+  trailing comment arrives before a line break, which is the open point
+  from part 5 for the WF lane (don't build on the opposite).
+- An empty trailing comment is refused too (`Joins` asks
+  `comment.isEmpty = False`): an empty piece would hide what stands
+  next to what.
+
+**What is left of "the printed text lexes to the file's tokens".**
+
+1. **The rules' half of adjacency** (about 40 lemmas, as part 5
+   counted): `Joins standsBefore file.layout (Clear None) (after =>
+   True)`, with `standsBefore word next := ∀ later => Stands (lexemeOf
+   word) word.toList (next.toList ++ later)` and `lexemeOf word` the
+   lexeme `lexemeStart` finds. Per expression form: from which edges it
+   joins and which it leaves (`Clear (Some lastToken)` or `Waiting`). The
+   pairs the rules make without a space are few: a last token before
+   `(`, `)`, `,`, `.`, `]`; `(` and `[` before a first token or the
+   closer; `.` before a name; `-` before an operand that doesn't start
+   with `-` (`operatorStands` with `startsWithMinus`). Everything else is
+   `follows token " "`. Needs WF's token texts (a name is a word, digits
+   are digits, a string is a string, a comment starts with `--` and has
+   no line break) to turn "a name" into `Stands WordLexeme`. A chunk
+   whose text is a variable needs `text.isEmpty = False` to compute
+   `WriteJoins`; a helper lemma per token class will do.
+2. **The glue** (about 20 lemmas): from `Pairs standsBefore
+   pieces.reverse` and each word standing before a line break and
+   before the end, `StepsStand` of the pieces as steps, adjacent pieces
+   of spaces merged into one `Spaces` step. Designed as a fold from the
+   last piece (`stepsOnto out steps`, `addPiece` merging a gap into a
+   `Spaces` step at the head), so `Pairs`' order (the last first) is the
+   induction's and no lemma reverses a list. Needs: a non-`Spaces` step
+   doesn't start with a space (by cases on `Stands`), `List.all` over an
+   append, and `(pieces.joinWith "").toList` as the pieces' characters
+   (not looked for in std).
+3. Then `standingLex` gives `lex (file.print width).text = Ok` of those
+   steps, and `assemble` over them is the positions half
+   (`readingTracks`).
+
+**Re-estimate** [estimated; this lane proved 77 theorems in about 20
+minutes of the clock, all but four on the first check]:
+
+| Layer | Left | Lemmas |
+|---|---|---|
+| A, engine | nothing | 0 |
+| B, lexing | the glue (20); `assemble` over the steps (15-20) | 35-40 |
+| E, rules to tokens | adjacency, rules half (40), positions (25), layer C read back (30), spelling the tree (40) | 130-140 |
+| WF | token texts, body structure, no two waiting comments | 40-50 |
+| D, parser | `if` with a block branch; the file from its spelling | 30-40 |
+| Glue | `formatDirect`, round trip, idempotence | 10 |
+
+Still three lanes at this pace: (1) the rules' half with WF's token
+texts and the glue, ending in "the printed text lexes to these steps";
+(2) positions, `assemble` and layer C's read-back; (3) spelling the
+tree, the rest of D and the glue.
+
+**Friction** (beyond parts 1 to 5):
+
+30. **`False` as a proposition is `False = True`**, so an impossible
+    arm is `Void.exfalso (Bool.falseNotTrue never)`, not `Void.exfalso
+    never`; the error says so.
+31. **A function with character-literal patterns doesn't compute on an
+    unknown character** even when a test on it is known; its equation
+    lemmas (`operatorNext.eq2`, `lexemeStart.eq8`) do the work, and a
+    wrong argument's error prints their whole signature, which is how
+    they were found.
+32. **Continuation-style predicates just work**: `Joins` recurses under
+    a lambda (`after => JoinsAll follows rest after next`) through four
+    mutual definitions, and the termination checker and `rfl` took all
+    of it. `match e, hypothesis with` rewrites `e` inside the
+    hypothesis also through an unfolded definition (`printer.edge`).
+
 ## Every comment placed (SW-3450, D3618, D3619)
 
 Every token now holds its comments in the tree (`Comments = { above,
