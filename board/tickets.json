@@ -36628,15 +36628,17 @@
     {
       "id": 3321,
       "title": "[DeepSeek] dev breaks prints nothing until it finishes, so a long run that's killed loses everything and shows no progress (Overmind, 15 Nov: 4 h examples run): stream results as JSON lines per break (or per file) and print progress to stderr",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "From Overmind's lost job 2a (15 Nov). Progress line per file on stderr; --jsonl PATH appends each file's figures, flushed. Model result: DeepSeek, worked, ~15 min (est. 40).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "59b16f70c332bd31eb59c654a7d092c0e575da8a"
+      ]
     },
     {
       "id": 3322,
