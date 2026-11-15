@@ -1,43 +1,68 @@
---| Short ways to build Sprig trees by hand, for the goldens.
+--| Short ways to build Sprig trees by hand, for the goldens. Tokens have
+--| no comments unless a helper says so.
 
 namespace Toy.Fmt.Tests
 import Toy.Syntax (..)
 import Std (List, Option, Text)
 
-def v (name: Text): Expr := Var name
+def none: Comments := Comments.none
 
-def num (digits: Text): Expr := NumberLiteral digits
+--| A token's comments: a trailing one.
+def after (text: Text): Comments := { above = [], after = Some { text } }
+
+--| A token's comments: own-line ones above it.
+def above (texts: List Text): Comments := { above = texts.map (text => { text }), after = None }
+
+def v (name: Text): Expr := Var name none
+
+def num (digits: Text): Expr := NumberLiteral digits none
 
 --| A string literal of `text`, which has no quotes or backslashes.
-def str (text: Text): Expr := StringLiteral "\"${text}\""
+def str (text: Text): Expr := StringLiteral "\"${text}\"" none
 
 --| `target.a.b…`
-def dots (target: Text) (names: List Text): Expr := names.foldLeft (Var target) Field
+def dots (target: Text) (names: List Text): Expr :=
+  names.foldLeft (v target) (target name => Field target none name none)
 
-def item (value: Expr): Item := { comments = [], value, trailing = None }
+def item (value: Expr): Item := { value, comma = none }
 
-def call (callee: Text) (arguments: List Expr): Expr := Call (Var callee) (arguments.map item)
+def callOn (callee: Expr) (arguments: List Expr): Expr := Call callee none (arguments.map item) none
 
-def list (items: List Expr): Expr := ListLiteral (items.map item)
+def call (callee: Text) (arguments: List Expr): Expr := callOn (v callee) arguments
 
-def op (operator: Operator) (left right: Expr): Expr := Binary operator left right
+def list (items: List Expr): Expr := ListLiteral none (items.map item) none
+
+def op (operator: Operator) (left right: Expr): Expr := Binary operator none left right
+
+def paren (inner: Expr): Expr := Bracketed none inner none
+
+def neg (operand: Expr): Expr := Negate none operand
+
+def ifThen (condition: Expr) (whenTrue whenFalse: Body): Expr := If none condition none whenTrue none whenFalse
 
 def plain (line: a): Spaced a := { blankBefore = False, line }
 
 def afterBlank (line: a): Spaced a := { blankBefore = True, line }
 
 --| A body of one expression.
-def expr (value: Expr): Body := { statements = [plain (Bare value None)] }
+def expr (value: Expr): Body := { statements = [plain (Bare value)] }
 
 def block (statements: List (Spaced Statement)): Body := { statements }
 
-def bare (value: Expr): Spaced Statement := plain (Bare value None)
+def bare (value: Expr): Spaced Statement := plain (Bare value)
 
-def letIn (name: Text) (value: Expr): Spaced Statement := plain (Let name (expr value))
+def letBody (name: Text) (body: Body): Statement := Let none name none none body
 
-def fn (name: Text) (parameters: List Text) (body: Body): Spaced Declaration := plain (Function name parameters body)
+def letIn (name: Text) (value: Expr): Spaced Statement := plain (letBody name (expr value))
 
-def value (name: Text) (body: Expr): Spaced Declaration := plain (Value name (expr body))
+def parameter (name: Text): Parameter := { name, comments = none, comma = none }
+
+def fn (name: Text) (parameters: List Text) (body: Body): Spaced Declaration :=
+  plain (Function none name none none (parameters.map parameter) none none body)
+
+def valueBody (name: Text) (body: Body): Declaration := Value none name none none body
+
+def value (name: Text) (body: Expr): Spaced Declaration := plain (valueBody name (expr body))
 
 def note (text: Text): Spaced Declaration := plain (DeclarationNote { text })
 

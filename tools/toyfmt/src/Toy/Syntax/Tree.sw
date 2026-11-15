@@ -13,19 +13,16 @@
 --|   line or below it, is a `Body` of one `Bare` statement; a block is a
 --|   `Body` of its statements in order. Its first statement has no blank
 --|   line before it, and its last isn't a comment.
---| - A trailing comment (after code on its line) belongs to the innermost
---|   list item, argument or `Bare` statement whose last token is the last
---|   token before the comment; an item's comma is its last token. So in
---|   `let x = f(a) -- c` it is the statement's, and in `[1, 2, -- c` the
---|   item `2`'s. The printer keeps it right after that token, so the owner
---|   is the same when the output is parsed again. If no item or statement
---|   ends there (after `=`, `then` or `[`), it is a comment anywhere else.
---| - An own-line comment belongs to the item below it: a declaration or
---|   statement (as its own `Note` line in the list) or a list item or
---|   argument (in its `comments`).
---| - A comment anywhere else makes the whole declaration `AsWritten`, its
---|   text cut from the source from its first character to the end of its
---|   last line, without the line break.
+--| - Every comment is held by the token the lexer gave it to, in that
+--|   token's `Comments` in the tree: an own-line comment by the token below
+--|   it, a trailing comment by the token before it on its line. The parser
+--|   copies them there as it reads each token and decides nothing from
+--|   them, so every source that parses has a tree, and the tree holds every
+--|   comment once.
+--| - The own-line comments above a declaration's or statement's first
+--|   token are the exception: they are lines of the vertical list
+--|   (`DeclarationNote`, `StatementNote`), each with its kept blank line,
+--|   and that token's own `above` is empty.
 --| - A blank line is kept (`blankBefore`) between declarations and between
 --|   statements, however many there were; anywhere else it is dropped.
 --| - Line starts inside brackets don't matter to layout.
@@ -35,6 +32,12 @@ import Std (List, Option, Text)
 
 --| A `--` comment as written, `--` included.
 type Comment = { text: Text }
+
+--| The comments a token holds: the own-line comments above it, in order,
+--| and the trailing comment after it on its line.
+type Comments = { above: List Comment, after: Option Comment }
+
+def Comments.none: Comments := { above = [], after = None }
 
 --| Binary operators, by precedence level, loosest first.
 type Operator =
@@ -74,49 +77,63 @@ def Operator.level: Operator → Nat
   | Plus | Minus => 5
   | Times | Divide | Remainder => 6
 
+--| Each `Comments` field is the comments of one token of the construct,
+--| named after it: `open` for `(` or `[`, `close` for `)` or `]`.
 type Expr =
-  | Var (name: Text)
-  | NumberLiteral (digits: Text)
+  | Var (name: Text) (comments: Comments)
+  | NumberLiteral (digits: Text) (comments: Comments)
   --| With its quotes and escapes, as written.
-  | StringLiteral (written: Text)
+  | StringLiteral (written: Text) (comments: Comments)
   --| `( … )`: brackets are kept as written.
-  | Bracketed (inner: Expr)
-  | ListLiteral (items: List Item)
-  | Call (callee: Expr) (arguments: List Item)
-  | Field (target: Expr) (name: Text)
-  | Negate (operand: Expr)
+  | Bracketed (open: Comments) (inner: Expr) (close: Comments)
+  | ListLiteral (open: Comments) (items: List Item) (close: Comments)
+  | Call (callee: Expr) (open: Comments) (arguments: List Item) (close: Comments)
+  | Field (target: Expr) (dot: Comments) (name: Text) (nameComments: Comments)
+  | Negate (minus: Comments) (operand: Expr)
   --| Left-nested for a chain of one level: `a - b + c` is `(a - b) + c`.
-  | Binary (operator: Operator) (left: Expr) (right: Expr)
-  | If (condition: Expr) (whenTrue: Body) (whenFalse: Body)
+  | Binary (operator: Operator) (sign: Comments) (left: Expr) (right: Expr)
+  | If
+      (ifComments: Comments)
+      (condition: Expr)
+      (thenComments: Comments)
+      (whenTrue: Body)
+      (elseComments: Comments)
+      (whenFalse: Body)
 
---| A list item or a call's argument, with the own-line comments above it and
---| the trailing comment that ends its line.
-type Item = { comments: List Comment, value: Expr, trailing: Option Comment }
+--| A list item or a call's argument, and the comments of the comma after it
+--| (none for the last item, which has no comma).
+type Item = { value: Expr, comma: Comments }
+
+--| A declaration's parameter, its name's comments, and the comments of the
+--| comma after it (none for the last).
+type Parameter = { name: Text, comments: Comments, comma: Comments }
 
 --| A line of a vertical list (a file's declarations, a block's statements),
 --| and whether the author left a blank line above it.
 type Spaced (a: Type) = { blankBefore: Bool, line: a }
 
+--| `Let`'s comments are its tokens': `let`, the name and `=`.
 type Statement =
-  | Let (name: Text) (body: Body)
-  | Bare (value: Expr) (trailing: Option Comment)
+  | Let (letComments: Comments) (name: Text) (nameComments: Comments) (equals: Comments) (body: Body)
+  | Bare (value: Expr)
   | StatementNote (comment: Comment)
 
 --| What follows `=`: one or more statements.
 type Body = { statements: List (Spaced Statement) }
 
+--| The comments are the tokens': `fn` or `let`, the name, the brackets
+--| around the parameters and `=`.
 type Declaration =
-  | Function (name: Text) (parameters: List Text) (body: Body)
-  | Value (name: Text) (body: Body)
+  | Function
+      (fnComments: Comments)
+      (name: Text)
+      (nameComments: Comments)
+      (open: Comments)
+      (parameters: List Parameter)
+      (close: Comments)
+      (equals: Comments)
+      (body: Body)
+  | Value (letComments: Comments) (name: Text) (nameComments: Comments) (equals: Comments) (body: Body)
   | DeclarationNote (comment: Comment)
-  --| A declaration with a comment where no rule places one, printed as
-  --| written.
-  | AsWritten (text: Text)
 
 type SourceFile = { declarations: List (Spaced Declaration) }
-
---| The expression and trailing comment of a body that is one plain
---| expression; `None` for a block.
-def Body.single (body: Body): Option (Expr, Option Comment) := match body.statements with
-  | [{ line = Bare value trailing, .. }] => Some (value, trailing)
-  | _ => None

@@ -175,7 +175,7 @@ def operators: Golden :=
       let sum = alphaValue * betaValue + gammaValue * deltaValue - epsilonValue
       """,
     tree = sprig [
-      value "mixed" (op Minus (op Times (Bracketed (op Plus (v "a") (v "b"))) (v "c")) (v "d")),
+      value "mixed" (op Minus (op Times (paren (op Plus (v "a") (v "b"))) (v "c")) (v "d")),
       value "check"
         (op And
           (op And (op And (dots "first" ["ready"]) (dots "second" ["ready"])) (dots "third" ["ready"]))
@@ -214,20 +214,20 @@ def conditionals: Golden :=
       fn pick(flag) = if flag then computeTheFirstAnswer(alpha, beta) else 0
       """,
     tree = sprig [
-      fn "sign" ["x"] (expr (If (op LessThan (v "x") (num "0")) (expr (Negate (num "1"))) (expr (num "1")))),
+      fn "sign" ["x"] (expr (ifThen (op LessThan (v "x") (num "0")) (expr (neg (num "1"))) (expr (num "1")))),
       fn "describe"
         ["count"]
-        (expr (If (op EqualTo (v "count") (num "0")) (expr (str "nothing at all")) (expr (str "some things")))),
+        (expr (ifThen (op EqualTo (v "count") (num "0")) (expr (str "nothing at all")) (expr (str "some things")))),
       fn "classify"
         ["n"]
         (expr
-          (If
+          (ifThen
             (op LessThan (v "n") (num "10"))
             (expr (str "small"))
-            (expr (If (op LessThan (v "n") (num "100")) (expr (str "medium")) (expr (str "large")))))),
+            (expr (ifThen (op LessThan (v "n") (num "100")) (expr (str "medium")) (expr (str "large")))))),
       fn "pick"
         ["flag"]
-        (expr (If (v "flag") (expr (call "computeTheFirstAnswer" [v "alpha", v "beta"])) (expr (num "0"))))
+        (expr (ifThen (v "flag") (expr (call "computeTheFirstAnswer" [v "alpha", v "beta"])) (expr (num "0"))))
     ],
     formatted = """
       fn sign(x) = if x < 0 then -1 else 1
@@ -247,8 +247,8 @@ def conditionals: Golden :=
 
 test "P7: an if puts else at its column, and a long branch below" := conditionals.printed == conditionals.formatted
 
---| P8: own-line comments above their item, trailing ones after it, and a
---| comment no rule places leaves its declaration as written.
+--| P8: own-line comments above their token, trailing ones after it, the
+--| layout breaking where a comment needs it.
 def comments: Golden :=
   {
     width = 40,
@@ -271,19 +271,24 @@ def comments: Golden :=
         ["order"]
         (block [
           plain (StatementNote { text = "-- the base price" }),
-          plain
-            (Let "base" {
-              statements = [plain (Bare (call "sum" [dots "order" ["items"]]) (Some { text = "-- before tax" }))]
-            }),
+          plain (letBody "base" (expr (Call (v "sum") none [item (dots "order" ["items"])] (after "-- before tax")))),
           bare (op Plus (v "base") (call "tax" [v "base"]))
         ]),
       value "weights"
-        (ListLiteral [
-          { comments = [{ text = "-- light" }], value = num "1", trailing = None },
-          { comments = [], value = num "2", trailing = Some { text = "-- two" } },
-          item (num "3")
-        ]),
-      plain (AsWritten "fn odd(x) = -- why\n  x  %  2")
+        (ListLiteral
+          none
+          [item (NumberLiteral "1" (above ["-- light"])), { value = num "2", comma = after "-- two" }, item (num "3")]
+          none),
+      plain
+        (Function
+          none
+          "odd"
+          none
+          none
+          [parameter "x"]
+          none
+          (after "-- why")
+          (expr (op Remainder (v "x") (num "2"))))
     ],
     formatted = """
       -- Totals for one order.
@@ -296,13 +301,11 @@ def comments: Golden :=
         1, 2, -- two
         3]
       fn odd(x) = -- why
-        x  %  2
+        x % 2
       """
   }
 
 test "P8: comments stay with their items" := comments.printed == comments.formatted
-
-test "P8: a declaration left as written is counted" := (comments.tree.print comments.width).asWritten == 1
 
 --| P9: blank lines kept, as one, between declarations and statements.
 def blankLines: Golden :=
@@ -326,8 +329,8 @@ def blankLines: Golden :=
       """,
     tree = sprig [
       value "a" (num "1"),
-      afterBlank (Value "b" (expr (num "2"))),
-      fn "f" [] (block [letIn "x" (num "1"), afterBlank (Let "y" (expr (num "2"))), bare (op Plus (v "x") (v "y"))])
+      afterBlank (valueBody "b" (expr (num "2"))),
+      fn "f" [] (block [letIn "x" (num "1"), afterBlank (letBody "y" (expr (num "2"))), bare (op Plus (v "x") (v "y"))])
     ],
     formatted = """
       let a = 1
@@ -386,25 +389,20 @@ def order: Golden :=
       fn "total"
         ["order", "rates"]
         (block [
-          letIn "base" (call "sum" [Call (dots "order" ["items", "map"]) [item (v "price")]]),
+          letIn "base" (call "sum" [callOn (dots "order" ["items", "map"]) [v "price"]]),
           letIn "tax" (op Divide (op Times (v "base") (dots "rates" ["tax"])) (num "100")),
           afterBlank
             (Bare
-              (If
+              (ifThen
                 (op LessThan (dots "rates" ["threshold"]) (v "base"))
-                {
-                  statements = [
-                    plain
-                      (Bare
-                        (op Minus (op Plus (v "base") (v "tax")) (call "discount" [v "order", v "rates"]))
-                        (Some { text = "-- loyal" }))
-                  ]
-                }
-                (expr (op Plus (v "base") (v "tax"))))
-              None)
+                (expr
+                  (op Minus
+                    (op Plus (v "base") (v "tax"))
+                    (Call (v "discount") none [item (v "order"), item (v "rates")] (after "-- loyal"))))
+                (expr (op Plus (v "base") (v "tax")))))
         ]),
       afterBlank
-        (Value "names" (expr (list (["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta"].map str))))
+        (valueBody "names" (expr (list (["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta"].map str))))
     ],
     formatted = """
       -- Totals for one order.
@@ -436,7 +434,7 @@ def route: Golden :=
         ["map", "start"]
         (block [
           letIn "path" (call "search" [v "map", v "start", list [v "north", v "south", v "east", v "west"]]),
-          bare (If (call "empty" [v "path"]) (expr (call "fail" [str "no route from here"])) (expr (v "path")))
+          bare (ifThen (call "empty" [v "path"]) (expr (call "fail" [str "no route from here"])) (expr (v "path")))
         ])
     ],
     formatted = """
@@ -458,7 +456,7 @@ test "mixed: nesting in a narrow width" := route.printed == route.formatted
 
 test "P8: a trailing comment on a list's last item puts the ] below" :=
   let tree := sprig [
-    value "pair" (ListLiteral [item (num "1"), { comments = [], value = num "2", trailing = Some { text = "-- two" } }])
+    value "pair" (ListLiteral none [item (num "1"), item (NumberLiteral "2" (after "-- two"))] none)
   ]
   (tree.print 40).text == "let pair = [1, 2 -- two\n]\n"
 

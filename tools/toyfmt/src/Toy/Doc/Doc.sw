@@ -44,9 +44,19 @@ type Doc =
   --| taken only if the doc fits flat on that one line.
   | OneLineBelow (inner: Doc)
   --| A trailing comment: printed, after one space, at the end of the line
-  --| it is on, after any closing brackets and commas that end up there. A
-  --| group that would put anything else after it breaks.
+  --| it is on. A group that would put anything after it breaks; text that
+  --| still follows it on the line starts the next line instead (a comment
+  --| break), indented as a continuation line.
   | LineSuffix (comment: Text)
+  --| A line break here unless at the start of a line: before an own-line
+  --| comment. A line started this way is a comment break, and the lines up
+  --| to the next code, that code's included, are indented as continuation
+  --| lines.
+  | LineStart
+  --| A line break at the indentation in force, or at the start of a line,
+  --| that line moved there: own-line comments before a closing bracket, at
+  --| its items' indentation.
+  | LineStartHere
   --| Forces every group around it to break.
   | BreakParent
 
@@ -74,6 +84,8 @@ def Doc.isEmpty: Doc → Bool := matches | Empty
 --| be flat.
 def Doc.forcesBreak: Doc → Bool
   | HardLine => True
+  | LineStart => True
+  | LineStartHere => True
   | BreakParent => True
   | OneLineBelow _ => True
   | Group _ hard => hard

@@ -33,48 +33,53 @@ def measure (phase source: Text): Text := match phase with
       | Refused message => message
   | _ => "nothing more"
 
-def name (text: Text): Item := { comments = [], value = Var text, trailing = None }
+def none: Comments := Comments.none
+
+def name (text: Text): Item := { value = Var text none, comma = none }
 
 def plainLine (line: a): Spaced a := { blankBefore = False, line }
+
+def var (text: Text): Expr := Var text none
+
+def binary (operator: Operator) (left right: Expr): Expr := Binary operator none left right
+
+def field (target: Expr) (named: Text): Expr := Field target none named none
+
+def bare (value: Expr): Body := { statements = [plainLine (Bare value)] }
 
 --| A function with a block, an `if`, operators and calls, and a long list:
 --| about 400 characters printed.
 def sample (index: Nat): List (Spaced Declaration) :=
   let suffix := "${index}"
-  let total := Function "total${suffix}" ["order", "rates"] {
+  let parameters := ["order", "rates"].map (text => { name = text, comments = none, comma = none })
+  let total := Function none "total${suffix}" none none parameters none none {
     statements = [
-      plainLine (Let "base" { statements = [plainLine (Bare (Call (Var "sum") [name "order", name "items"]) None)] }),
+      plainLine (Let none "base" none none (bare (Call (var "sum") none [name "order", name "items"] none))),
       plainLine
-        (Let "tax" {
-          statements = [
-            plainLine
-              (Bare (Binary Divide (Binary Times (Var "base") (Field (Var "rates") "tax")) (NumberLiteral "100")) None)
-          ]
-        }),
+        (Let none "tax" none none
+          (bare (binary Divide (binary Times (var "base") (field (var "rates") "tax")) (NumberLiteral "100" none)))),
       {
         blankBefore = True,
         line = Bare
-          (If
-            (Binary LessThan (Field (Var "rates") "threshold") (Var "base"))
-            {
-              statements = [
-                plainLine
-                  (Bare
-                    (Binary Minus
-                      (Binary Plus (Var "base") (Var "tax"))
-                      (Call (Var "discount") [name "order", name "rates"]))
-                    (Some { text = "-- loyal" }))
-              ]
-            }
-            { statements = [plainLine (Bare (Binary Plus (Var "base") (Var "tax")) None)] })
-          None
+          (If none
+            (binary LessThan (field (var "rates") "threshold") (var "base"))
+            none
+            (bare
+              (binary Minus
+                (binary Plus (var "base") (var "tax"))
+                (Call (var "discount") none [name "order", name "rates"] {
+                  above = [],
+                  after = Some { text = "-- loyal" }
+                })))
+            none
+            (bare (binary Plus (var "base") (var "tax"))))
       }
     ]
   }
   let names := ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa"].map (word =>
-    { comments = [], value = StringLiteral "\"${word}${suffix}\"", trailing = None })
+    { value = StringLiteral "\"${word}${suffix}\"" none, comma = none })
   [
     plainLine (DeclarationNote { text = "-- Totals for one order." }),
     plainLine total,
-    { blankBefore = True, line = Value "names${suffix}" { statements = [plainLine (Bare (ListLiteral names) None)] } }
+    { blankBefore = True, line = Value none "names${suffix}" none none (bare (ListLiteral none names none)) }
   ]

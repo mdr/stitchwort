@@ -44,7 +44,25 @@ test "a choice takes the first option whose first line fits" :=
     && print hugged 5 == "f\n  a\n  (x => body)"
 
 test "a trailing comment waits for the end of its line" :=
-  print (Doc.concat [t "x", LineSuffix "-- c", t ")", HardLine, t "y"]) 120 == "x) -- c\ny"
+  print (Doc.concat [t "x", LineSuffix "-- c", HardLine, t "y"]) 120 == "x -- c\ny"
+
+--| Sprig gives a trailing comment to the token before it, so not even a
+--| closing bracket may follow it on its line: that would take the comment.
+test "code after a trailing comment starts a continuation line, without the space before it" :=
+  print (Doc.concat [t "x", LineSuffix "-- c", t ")", HardLine, t "y"]) 120 == "x -- c\n  )\ny"
+    && print (Nest 6 (Doc.concat [t "x", LineSuffix "-- c", t " ", t "y"])) 120 == "x -- c\n      y"
+
+test "an own-line comment no layout broke for starts a continuation line" :=
+  let comment := Doc.concat [t "f", LineStart, t "-- c", HardLine, t "x"]
+  print comment 120 == "f\n  -- c\n  x"
+    && print (Doc.concat [comment, HardLine, t "y"]) 120 == "f\n  -- c\n  x\ny"
+    && print (Doc.concat [t "f", HardLine, LineStart, t "-- c", HardLine, t "x"]) 120 == "f\n-- c\nx"
+    && print (Doc.concat [t "f + ", LineStart, t "-- c", HardLine, t "x"]) 120 == "f +\n  -- c\n  x"
+
+test "comments before a closer go at the indentation in force" :=
+  let comments := Nest 2 (Doc.concat [LineStartHere, t "-- c"])
+  print (Doc.concat [t "[x", comments, HardLine, t "]"]) 120 == "[x\n  -- c\n]"
+    && print (Doc.concat [t "[x", HardLine, comments, HardLine, t "]"]) 120 == "[x\n  -- c\n]"
 
 test "a group that would put code after a trailing comment breaks" :=
   print (Doc.group (Doc.concat [t "f a", LineSuffix "-- c", Line, t "b"])) 120 == "f a -- c\nb"

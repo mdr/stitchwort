@@ -7,7 +7,7 @@
 --| than any print needs, and running out is unreachable.
 
 namespace Toy.Doc
-import Std (List, Option, Text)
+import Std (List, Nat, Option, Text)
 
 type Mode = | Flat | Break
 
@@ -32,6 +32,11 @@ type Printer = {
   atLineStart: Bool,
   --| Trailing comments waiting for the end of the line, in order.
   suffixes: List Text,
+  --| The indentation of the line being printed.
+  lineIndent: Nat,
+  --| After an own-line comment that had to start its line: the least
+  --| indentation of the lines up to the next code.
+  commentFloor: Option Nat,
   --| How many line breaks `out` ends with, for `Blank`.
   newlinesAtEnd: Nat,
   started: Bool
@@ -39,8 +44,18 @@ type Printer = {
 
 --| `doc` printed in `width` columns.
 def print (doc: Doc) (width: Nat): Text :=
-  let start: Printer :=
-    { width, out = [], column = 0, owed = None, atLineStart = True, suffixes = [], newlinesAtEnd = 0, started = False }
+  let start: Printer := {
+    width,
+    out = [],
+    column = 0,
+    owed = None,
+    atLineStart = True,
+    suffixes = [],
+    lineIndent = 0,
+    commentFloor = None,
+    newlinesAtEnd = 0,
+    started = False
+  }
   let fuel := 3 * doc.size + 3
   let done := start.run fuel fuel [Print 0 Break doc] |> .flushSuffixes
   done.out.reverse.joinWith ""
@@ -55,7 +70,7 @@ def Printer.run (printer: Printer) (total fuel: Nat) (stack: List Cmd): Printer 
 def Printer.step (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cmd): (Printer, List Cmd) := match cmd with
   | FillSep indent item =>
     if printer.suffixes.isEmpty && fits total [(Flat, item)] rest (printer.left - 1) then
-      (printer.write " " 1, [Print indent Flat item, ..rest])
+      (printer.write indent " " 1, [Print indent Flat item, ..rest])
     else (printer.newline indent, [Print indent Break item, ..rest])
   | Print indent mode doc => printer.printDoc total indent mode doc rest
 
@@ -64,16 +79,21 @@ def Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: D
   match doc with
     | Empty => (printer, rest)
     | BreakParent => (printer, rest)
-    | Chunk text width => (printer.write text width, rest)
+    | Chunk text width => (printer.write indent text width, rest)
     -- A trailing comment that is waiting ends its line at a `Line` or
     -- `SoftLine` even in a flat group. `fits` already keeps such a group
     -- from being flat; breaking here too makes "no code after a comment on
     -- its line" hold of the printer by these two lines alone, without a
     -- proof about `fits`.
     | Line =>
-      if mode.isFlat && printer.suffixes.isEmpty then (printer.write " " 1, rest) else (printer.newline indent, rest)
+      if mode.isFlat && printer.suffixes.isEmpty then (printer.write indent " " 1, rest)
+      else (printer.newline indent, rest)
     | SoftLine => if mode.isFlat && printer.suffixes.isEmpty then (printer, rest) else (printer.newline indent, rest)
     | HardLine => (printer.newline indent, rest)
+    | LineStart => (printer.lineStart indent, rest)
+    | LineStartHere =>
+      if printer.atLineStart then ({ printer | owed = Some indent, lineIndent = indent }, rest)
+      else (printer.newline indent, rest)
     | Blank => (printer.blank, rest)
     | Nest more inner => (printer, [Print (indent + more) mode inner, ..rest])
     | OneLineBelow inner => (printer, [Print (indent + 2) mode HardLine, Print (indent + 2) mode inner, ..rest])
@@ -126,17 +146,37 @@ def Printer.payIndent (printer: Printer): Printer := match printer.owed with
   | Some 0 => { printer | owed = None, column = 0 }
   | Some indent => { printer | out = [" ".repeat indent, ..printer.out], owed = None, column = indent }
 
-def Printer.write (printer: Printer) (text: Text) (width: Nat): Printer :=
+--| `text`, `width` columns wide, in a construct indented `indent`. Text
+--| after a trailing comment waiting on its line starts the next line (a
+--| comment break), and spaces there are dropped: no code follows a comment
+--| on its line.
+def Printer.write (printer: Printer) (indent: Nat) (text: Text) (width: Nat): Printer :=
   if text.isEmpty then printer
+  else if printer.suffixes.isEmpty || printer.atLineStart then printer.put text width
+  else if text.all (char => char == ' ') then printer
+  else (printer.newline (printer.continuation indent)).put text width
+
+def Printer.put (printer: Printer) (text: Text) (width: Nat): Printer :=
+  let paid := printer.payIndent
+  { paid |
+    out = [text, ..paid.out],
+    column = paid.column + width,
+    atLineStart = False,
+    commentFloor = if text.startsWith "--" then paid.commentFloor else None,
+    newlinesAtEnd = 0,
+    started = True
+  }
+
+--| The indentation of a comment break in a construct indented `indent`:
+--| deeper than the line being broken, so what follows continues it.
+def Printer.continuation (printer: Printer) (indent: Nat): Nat := Nat.max indent (printer.lineIndent + 2)
+
+--| A comment break before an own-line comment, unless a line starts here.
+def Printer.lineStart (printer: Printer) (indent: Nat): Printer :=
+  if printer.atLineStart then printer
   else
-    let paid := printer.payIndent
-    { paid |
-      out = [text, ..paid.out],
-      column = paid.column + width,
-      atLineStart = False,
-      newlinesAtEnd = 0,
-      started = True
-    }
+    let floor := printer.continuation indent
+    { printer.newline floor | commentFloor = Some floor }
 
 def Printer.flushSuffixes (printer: Printer): Printer :=
   printer.suffixes.foldLeft { printer | suffixes = [] } (at comment =>
@@ -144,15 +184,26 @@ def Printer.flushSuffixes (printer: Printer): Printer :=
     { spaced | out = [comment, ..spaced.out], atLineStart = False, newlinesAtEnd = 0, started = True })
 
 def Printer.newline (printer: Printer) (indent: Nat): Printer :=
-  let flushed := printer.flushSuffixes
+  let at := printer.commentFloor.map (floor => Nat.max indent floor) |> .getOrElse indent
+  let flushed := { printer | out = trimSpaces printer.out }.flushSuffixes
   { flushed |
     out = ["\n", ..flushed.out],
     column = 0,
-    owed = Some indent,
+    owed = Some at,
     atLineStart = True,
+    lineIndent = at,
     newlinesAtEnd = flushed.newlinesAtEnd + 1,
     started = True
   }
+
+--| The pieces printed (the last first) without the spaces they end in: a
+--| space the layout put before a break it didn't plan, a comment break,
+--| would end its line.
+def trimSpaces (out: List Text): List Text := match out with
+  | [last, ..earlier] if last.endsWith " " && not (last.startsWith "--") =>
+    let kept := Text.fromList (last.toList.reverse.dropWhile (char => char == ' ') |> .reverse)
+    if kept.isEmpty then trimSpaces earlier else [kept, ..earlier]
+  | _ => out
 
 def Printer.blank (printer: Printer): Printer :=
   if printer.atLineStart && printer.started && printer.newlinesAtEnd < 2 then
@@ -167,8 +218,8 @@ def Printer.blank (printer: Printer): Printer :=
 def fits (fuel: Nat) (next: List (Mode, Doc)) (rest: List Cmd) (left: Nat): Bool := fitsFrom fuel next rest left False
 
 --| `fits`, where `suffix` says a trailing comment is waiting for the end of
---| the line: anything but closing brackets and commas after it would move
---| it.
+--| the line: any text after it would start a new line (a comment break),
+--| so the line ends there for the measure's purposes, and doesn't fit.
 def fitsFrom (fuel: Nat) (stack: List (Mode, Doc)) (rest: List Cmd) (left: Nat) (suffix: Bool): Bool := match fuel with
   | 0 => True
   | Succ more =>
@@ -185,11 +236,12 @@ def fitsFrom (fuel: Nat) (stack: List (Mode, Doc)) (rest: List Cmd) (left: Nat) 
           | LineSuffix _ => fitsFrom more stack rest left True
           | BreakParent => not mode.isFlat && fitsFrom more stack rest left suffix
           | Chunk text width =>
-            if suffix && not (text.all isCloser) then False
-            else width <= left && fitsFrom more stack rest (left - width) suffix
+            if suffix then False else width <= left && fitsFrom more stack rest (left - width) suffix
           | Line => not mode.isFlat || (not suffix && 1 <= left && fitsFrom more stack rest (left - 1) suffix)
           | SoftLine => not mode.isFlat || (not suffix && fitsFrom more stack rest left suffix)
           | HardLine => not mode.isFlat
+          | LineStart => not mode.isFlat
+          | LineStartHere => not mode.isFlat
           | Nest _ inner => fitsFrom more [(mode, inner), ..stack] rest left suffix
           | Flatten inner => fitsFrom more [(Flat, inner), ..stack] rest left suffix
           | Group inner hard =>
@@ -214,8 +266,6 @@ def fitsFrom (fuel: Nat) (stack: List (Mode, Doc)) (rest: List Cmd) (left: Nat) 
             match (if mode.isFlat then options.head else options.last) with
               | None => fitsFrom more stack rest left suffix
               | Some option => fitsFrom more [(mode, option), ..stack] rest left suffix
-
-def isCloser (char: Char): Bool := char == ')' || char == ']' || char == '}' || char == ','
 
 --| Whether `doc`, printed flat, fits in `left` columns.
 def fitsFlat (fuel: Nat) (doc: Doc) (left: Nat): Bool := fits fuel [(Flat, doc)] [] left
