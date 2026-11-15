@@ -154,6 +154,12 @@ theorem Option.orElseSome ∀ (v: a) (y: Option a): Option.orElse (Some v) y = S
 
 theorem Option.noneOrElse ∀ (y: Option a): Option.orElse None y = y := rfl
 
+--| `getOr` on a `Some` gives the value, whatever the fallback.
+theorem Option.getOrSome ∀ (x fallback: a): Option.getOr (Some x) fallback = x := rfl
+
+--| `getOr` on a `None` gives the fallback.
+theorem Option.getOrNone ∀ (fallback: a): Option.getOr (None: Option a) fallback = fallback := rfl
+
 --| If `map f x` is `Some v`, then `x` held some `u` with `f u = v`.
 theorem Option.mapEqSome [goal: Prop]:
     ∀ (x: Option a) (f: a → b) (v: b) => Option.map x f = Some v

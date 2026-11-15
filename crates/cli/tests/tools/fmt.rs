@@ -175,6 +175,32 @@ fn a_folder_walk_skips_deliberately_unformatted_files() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A declaration the formatter leaves as written is reported: its file, line,
+/// name and the check it failed, then the count.
+#[test]
+fn warns_about_a_declaration_left_as_written() {
+    let dir = temp("verbatim");
+    let file = dir.join("f.sw");
+    let path = file.display().to_string();
+    let kept = "def x: Nat := f\n  -- why\n  a\n";
+    std::fs::write(&file, kept).unwrap();
+
+    let output = stitchwort(&dir, &["fmt", "--check", &path], None);
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert_eq!(text(&output), "", "nothing would change");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(&format!(
+            "{path}:1: declaration `x` left as written (comment no rule places)"
+        )),
+        "{stderr}"
+    );
+    assert!(stderr.contains("1 declaration left as written"), "{stderr}");
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), kept);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// The repository's own `.sw` sources are formatted. The reject and
 /// soundness examples are left out: their layout may be what's tested.
 #[test]

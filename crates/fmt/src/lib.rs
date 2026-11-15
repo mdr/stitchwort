@@ -86,6 +86,9 @@ pub struct Stats {
 pub struct Formatted {
     pub text: String,
     pub stats: Stats,
+    /// Each declaration left exactly as written, with its line, name and the
+    /// check it failed.
+    pub verbatim_at: Vec<printer::VerbatimDecl>,
 }
 
 /// Formats a whole file.
@@ -103,13 +106,15 @@ pub fn format_with_stats(text: &str) -> Result<Formatted, Error> {
 /// file.
 pub fn format_in(file: FileId, text: &str) -> Result<Formatted, Error> {
     let printed = printer::format_tree_in(file, text)?;
+    let stats = Stats {
+        decls: printed.stats.decls,
+        verbatim_decls: printed.stats.verbatim_decls(),
+        unruled_nodes: printed.stats.unruled.values().sum(),
+    };
     Ok(Formatted {
         text: printed.text,
-        stats: Stats {
-            decls: printed.stats.decls,
-            verbatim_decls: printed.stats.verbatim_decls(),
-            unruled_nodes: printed.stats.unruled.values().sum(),
-        },
+        stats,
+        verbatim_at: printed.stats.verbatim_at,
     })
 }
 
