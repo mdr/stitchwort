@@ -1178,9 +1178,13 @@ impl<'e> Ctx<'e> {
         self.unrefined_hint(d, expected, found)
     }
 
-    /// When one side is `Text` and the other isn't, points at the text
+    /// When `Text` is expected and the found type isn't, points at the text
     /// pattern that made a value of a not yet known type a `Text`, if the
-    /// declaration has one (SW-3295).
+    /// declaration has one (SW-3295). Only the expected side: the pattern
+    /// fixes a type that later uses are checked against, while a found
+    /// `Text` is as likely a string literal unrelated to the pattern, and
+    /// by then the solved unknown can't be told from any other `Text`
+    /// (SW-3312).
     fn with_text_fallback_label(
         &self,
         d: Diagnostic,
@@ -1195,7 +1199,7 @@ impl<'e> Ctx<'e> {
             matches!(force(&g, v.clone()), Ok(Value::Data(t, _))
                 if g.env.registry().data(Builtin::Text) == Some(t))
         };
-        if is_text(expected) == is_text(found) {
+        if !is_text(expected) || is_text(found) {
             return d;
         }
         d.with_label(

@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/text-patterns-fixed-unrelated-mismatch.sw:7:17 ]
+   │
+ 7 │   let g: Nat := "x"
+   │                 ─┬─  
+   │                  ╰─── expected `Nat`, but this has type `Text`
+───╯
