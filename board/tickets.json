@@ -38669,12 +38669,12 @@
     {
       "id": 3470,
       "title": "[Sonnet] fmt fuzzer: about 83% of mutated cases don't parse and are skipped (seed 0x300: 16,616 of 20,000 skipped, no comments), so 1M cases is ~170k formatted; make the mutator keep more inputs parseable (mutate at token boundaries, prefer swaps of same-class tokens, or re-draw a case that doesn't parse) and report the formatted count (SW-3463 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "Note (lane, Sonnet): re-draw approach in crates/fmt/tests/it/fuzz.rs `generate`: up to 8 attempts, max edits 4,4,3,3,2,2,1,1, comment rate halved each time; soup 1 in 8 (was 1 in 2). SEED=0x300 CASES=20000: no comments 3384 -> 16429 formatted (17% -> 82%); COMMENTS=0.3 2139 -> 14477 (11% -> 72%). 0 refused, no failures. Commit de0979da1.\n",
+      "body": "Note (lane, Sonnet): re-draw approach in crates/fmt/tests/it/fuzz.rs `generate`: up to 8 attempts, max edits 4,4,3,3,2,2,1,1, comment rate halved each time; soup 1 in 8 (was 1 in 2). SEED=0x300 CASES=20000: no comments 3384 -> 16429 formatted (17% -> 82%); COMMENTS=0.3 2139 -> 14477 (11% -> 72%). 0 refused, no failures. Commit de0979da1.\n\nModel result: sonnet, worked, 3 min (est. 25). Existing seeds now give different cases.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
