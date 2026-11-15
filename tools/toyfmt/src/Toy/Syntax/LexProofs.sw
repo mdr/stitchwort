@@ -256,3 +256,130 @@ theorem runsSymbolsLexeme ∀ (run rest: List Char)
         rest
         (Parse.stepValues (charSteps run))
         (Parse.runsMany operatorChar (charSteps run) rest (operatorRunSteps run rest isRun))
+
+-- Strings.
+
+--| A string's escape: a backslash and one of `"`, `\` and `n`.
+theorem runsEscapeSegment ∀ (escaped: Char) (rest: List Char)
+    (allowed: isEscaped escaped = True):
+    Parse.Runs stringSegment ['\\', escaped] rest () :=
+  state starts honest =>
+    let core :=
+      Parse.runsBind
+        (() => Parse.char '\\')
+        (read =>
+          let escaped1 := Parse.satisfy "'\"', '\\' or 'n' after '\\'" isEscaped
+          ())
+        ['\\']
+        [escaped]
+        ['\\', escaped]
+        rest
+        ()
+        ()
+        rfl
+        (Parse.runsChar '\\' ([escaped] ++ rest))
+        (Parse.runsMap
+          (() => Parse.satisfy "'\"', '\\' or 'n' after '\\'" isEscaped)
+          (escaped1 => ())
+          [escaped]
+          rest
+          escaped
+          (Parse.runsSatisfy "'\"', '\\' or 'n' after '\\'" isEscaped escaped rest allowed))
+    match core state starts honest with
+      | Witness m (Both ran after) => Witness m (Both (rewrite starts in ran) after)
+
+--| A string's plain run: characters up to a quote, a backslash or the end
+--| of the line.
+theorem runsPlainSegment ∀ (first: Char) (others rest: List Char)
+    (plainStart: segmentStart ([first, ..others] ++ rest) = Some PlainSegment)
+    (plain: [first, ..others].all isPlainChar = True)
+    (ends: rest.takeWhile isPlainChar = []):
+    Parse.Runs stringSegment [first, ..others] rest () :=
+  state starts honest =>
+    let core :=
+      Parse.runsMap
+        (() => Parse.span isPlainChar)
+        (read => ())
+        [first, ..others]
+        rest
+        [first, ..others]
+        (Parse.runsSpan isPlainChar [first, ..others] rest plain ends)
+    match core state starts honest with
+      | Witness m (Both ran after) => Witness m (Both (rewrite starts, plainStart in ran) after)
+
+theorem stringSegmentStops ∀ (state: Parse.State Char)
+    (none: segmentStart state.at.rest = None):
+    Parse.runFrom state (() => (Parse.optional stringSegment, Parse.mark())) = Ok (None, state.at) :=
+  rewrite none in rfl
+
+--| A string's pieces end at its closing quote.
+theorem stringSegmentDeclines ∀ (rest: List Char): Parse.Declines stringSegment (['"'] ++ rest) :=
+  state starts honest => stringSegmentStops state (rewrite starts in rfl)
+
+--| `lexemeAt` reads a string: a quote, its pieces (plain runs and
+--| escapes, `steps`), and the closing quote.
+theorem runsStringLexeme ∀ (steps: List (List Char, ())) (rest: List Char)
+    (manyRuns: Parse.ManyRuns stringSegment steps (['"'] ++ rest)):
+    Parse.Runs
+      (() => lexemeAt (['"', ..Parse.joinReads steps ++ ['"']] ++ rest))
+      ['"', ..Parse.joinReads steps ++ ['"']]
+      rest
+      StringLexeme :=
+  Parse.runsMap
+    (() => stringLexeme())
+    (read => StringLexeme)
+    ['"', ..Parse.joinReads steps ++ ['"']]
+    rest
+    ()
+    (Parse.runsBind
+      (() => Parse.char '"')
+      (read =>
+        let segments := Parse.many stringSegment
+        stringClosed (Parse.next (char => char == '"')))
+      ['"']
+      (Parse.joinReads steps ++ ['"'])
+      ['"', ..Parse.joinReads steps ++ ['"']]
+      rest
+      ()
+      ()
+      rfl
+      (Parse.runsChar '"' ((Parse.joinReads steps ++ ['"']) ++ rest))
+      (Parse.runsBind
+        (() => Parse.many stringSegment)
+        (segments => stringClosed (Parse.next (char => char == '"')))
+        (Parse.joinReads steps)
+        ['"']
+        (Parse.joinReads steps ++ ['"'])
+        rest
+        (Parse.stepValues steps)
+        ()
+        rfl
+        (Parse.runsMany stringSegment steps (['"'] ++ rest) manyRuns)
+        (Parse.runsBind
+          (() => Parse.next (char => char == '"'))
+          (found => stringClosed found)
+          ['"']
+          []
+          ['"']
+          rest
+          (Some '"')
+          ()
+          rfl
+          (Parse.runsNext (char => char == '"') '"' rest rfl)
+          (Parse.runsPure () rest))))
+
+--| An instance: the string `"a\n"`, a plain run and an escape.
+theorem runsStringExample ∀ (rest: List Char):
+    Parse.Runs
+      (() => lexemeAt (['"', 'a', '\\', 'n', '"'] ++ rest))
+      ['"', 'a', '\\', 'n', '"']
+      rest
+      StringLexeme :=
+  runsStringLexeme [(['a'], ()), (['\\', 'n'], ())] rest
+    (Both
+      (same => cases)
+      (Both
+        (runsPlainSegment 'a' [] (['\\', 'n', '"'] ++ rest) rfl rfl rfl)
+        (Both
+          (same => cases)
+          (Both (runsEscapeSegment 'n' (['"'] ++ rest) rfl) (stringSegmentDeclines rest)))))
