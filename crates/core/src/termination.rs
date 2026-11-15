@@ -29,7 +29,14 @@
 //!   to exactly the fields that match bound (in the branch where `m` is
 //!   `Succ n`, `Succ n` *is* `m`), each field possibly rebuilt the same way
 //!   (in the branch for `Cons x (Cons y (Cons z more))`, `Cons y (Cons z
-//!   more)` is the tail).
+//!   more)` is the tail); and a one-field constructor around a strict part
+//!   ([`Walker::wrapped`]): `C u` where an enclosing match took `s` (`≤` or
+//!   `<` parameter `i`) apart as `C v`, `C`'s type isn't a proposition, `C`
+//!   has exactly one field, counting implicit, proof and erased ones, that
+//!   field is relevant data (not a proof or a type), and `u` is reached from
+//!   `v` by one or more matched fields of relevant data, never through a
+//!   proof, a lambda's variable, a `let` or another function's result (after
+//!   `MkText [c, ..r]`, `MkText r`; see "Relevant data only").
 //! - **`≤`**: parameter `i` itself, or the constructor of a match on parameter
 //!   `i` itself, rebuilt exactly as above. Both are equal to the parameter.
 //! - **unknown**: anything else, including lambda-bound variables, other
@@ -39,12 +46,17 @@
 //! Each argument is related to at most one parameter, the one it was matched
 //! out of, so each graph has at most one arc into each position.
 //!
-//! **The invariant** (docs/proposals/nested-data-types.md §6.4): `<` relates
-//! two variables only when, in every run, the first's value is a proper
-//! constructor subvalue of the second's: a field of it, a field of a field
-//! and so on, or the result of applying a recursive function field of it. It
-//! is the transitive closure of immediate field containment on one
-//! particular value, never a relation computed from the data types. So for
+//! **The invariant** (docs/proposals/nested-data-types.md §6.4,
+//! recursion-through-map.md §4): `<` relates two values only when, in every
+//! run, the first's *rank* is below the second's, and `≤` only when it is
+//! at most the second's. A value's rank is the height of its constructor
+//! tree: one more than the least upper bound of its fields' ranks and of the
+//! ranks of every result of its recursive function fields (an ordinal). A
+//! field, a field of a field and so on, and a recursive function field
+//! applied are below; a rebuilt constructor is equal; a one-field `C u` is
+//! rank(`u`) + 1, below rank(`v`) + 1 = rank(`s`) when `u` is strictly
+//! inside `v`. Evidence comes from the terms of one particular value, never
+//! from a relation computed from the data types. So for
 //! a nested type (`Packets (items: List Packet)`), that `Packet`, `List
 //! Packet` and `Packet` again repeat in the *types* doesn't matter: for
 //! values, `p > items > q`, and `q` is never `p`. The one type-directed step
@@ -54,14 +66,58 @@
 //! can't be matched (a quotient form gives no evidence of descent).
 //!
 //! Why that's sound, assuming that every data type's values are well
-//! founded, that is, contain no infinite chain of constructor subvalues: a
-//! decrease in every way of repeating the calls would then be an infinite
-//! descent through one value. For a type that is strictly positive and not
-//! nested this is standard. For a nested type it rests on the type being
-//! isomorphic to its mutual encoding (the type with a private copy of each
-//! container), whose values are well founded; that isomorphism is the usual
-//! constructor-for-constructor relabelling, believed but not proved for
-//! Stitchwort (nested-data-types.md §6.3, C1).
+//! founded, that is, contain no infinite chain of constructor subvalues, so
+//! that every value has a rank: a decrease in every way of repeating the
+//! calls would then be an infinite descent of ordinals. For a type that is
+//! strictly positive and not nested this is standard. For a nested type it
+//! rests on the type being isomorphic to its mutual encoding (the type with
+//! a private copy of each container), whose values are well founded; that
+//! isomorphism is the usual constructor-for-constructor relabelling,
+//! believed but not proved for Stitchwort (nested-data-types.md §6.3, C1).
+//!
+//! **On open terms** (the unfolding policy, docs/core.md), an accepted cycle
+//! can't unfold for ever, but not because some `case` on the way is always
+//! stuck: with eta records on the whole chain, and the type changing from
+//! call to call, none is (`examples/accept/termination-wrapper-changing-instance.sw`,
+//! where only a `case` on a type equation outside the chain stops it). The
+//! reason (docs/reviews/SW-3376-wrapper-rule-soundness.md §3.1) is a size
+//! of open values: a constructor is one more than the sum of its fields'
+//! sizes, and an unknown of type `A` counts as `A`'s eta depth (1 plus the
+//! sum over its fields' types if `A` is an eta record, else 0). A `case`
+//! that fires lowers it: it takes away a constructor, or one eta layer of an
+//! unknown. Every `<` comes from cases that fired (a `≤` keeps the value),
+//! and `C u` has size 1 + size(`u`), below 1 + size(`v`), whether `s` was a
+//! constructor or an unknown of an eta type. So each turn of an accepted
+//! cycle lowers the size of the value on its thread, or is stuck. Eta depth is finite because eta
+//! records aren't recursive, index unification solves with an occurs check
+//! and never takes a type former apart, and a type computed from a proof
+//! needs a proposition that doesn't mention itself (D1980). That is also
+//! why the steps from `v` to `u` must be matched fields: a lambda's variable
+//! or an accessor's result has no `case` behind it (the review of SW-3359,
+//! R7.3).
+//!
+//! **Relevant data only** (the one-field rule's conditions on proofs). Rank
+//! reads the terms the kernel evaluates, proofs included, but conversion
+//! skips proofs (docs/proposals/proof-irrelevance.md §7.1) and a run erases
+//! them, so a `case` on one takes its branch without looking. Where `C`'s
+//! one field is a proof (`MkBox (h: Loop)`), or `C`'s type is a
+//! proposition (`MkSquash (x: List Nat)`), every `C x` of one type is the
+//! same value to the kernel, and calling `f (MkBox n)` from `f b` with `n` a
+//! part of `b`'s proof is calling `f` on its own argument: the descent is
+//! one the evaluator's equality can't see, the trap of Agda #8699
+//! (`examples/soundness/proof-irrelevance-07-descent-through-a-proof.sw`;
+//! the lesson in docs/proposals/mutual-recursion.md §6.7, that the order
+//! must agree with conversion). The same goes for a part reached through a
+//! proof anywhere on the way from `v` to `u`: it's a part of a proof. So
+//! the one field and every step from `v` to `u` must be a field of relevant
+//! data ([`Binder::relevant`]). The other condition stays as it was, every
+//! field counting towards "one field", proofs included: the rank argument
+//! needs rank(`C u`) = rank(`u`) + 1 on the terms, and a field of a proof is
+//! a part of its value for the plain rule, so a proof beside `u` can carry a
+//! bigger value back (`examples/reject/termination-wrapper-proof-beside.sw`
+//! loops if `MkD xs q` counts as one field). Recursion on a proof itself
+//! (`Loop → Void` by `MkLoop n => f n`) is a plain field, not this rule,
+//! and stays allowed (D1980).
 //!
 //! **Every occurrence of a member is a call**, wherever it is: under lambdas,
 //! inside types and inside the arguments of other calls. Each application
@@ -85,7 +141,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 use crate::budget::ResourceError;
 use crate::pretty;
 use crate::sct::{self, Label, Outcome};
-use crate::term::{DataId, DefId, Icit, Name, Term};
+use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
 
 /// Checks that `body`, the checked body of definition `self_id` (which hasn't
 /// got a body yet), terminates: a group of one.
@@ -207,6 +263,7 @@ fn check_members(
                     smaller_than: None,
                     recursive_fn: false,
                     alias: None,
+                    parent: None,
                 })
                 .collect(),
             calls: Vec::new(),
@@ -311,6 +368,37 @@ struct Info {
     /// For a parameter of an inlined member, the variable its argument is
     /// equal to ([`Walker::rebuilt`]).
     alias: Option<(usize, Pins)>,
+    /// For a relevant field bound by a `case` ([`Binder::relevant`]), the
+    /// level of the variable it was matched out of: in every run its value
+    /// is a field of that variable's value. Only `case` sets it, never a
+    /// `let`, a lambda or an inlined parameter, so following it goes through
+    /// matched fields only ([`Walker::strictly_inside`]), and never through
+    /// a proof: comparison skips proofs, so a part of one isn't smaller
+    /// than anything conversion can tell apart (the header, "Relevant data
+    /// only").
+    parent: Option<usize>,
+}
+
+/// A variable [`Walker::under`] binds.
+struct Binder {
+    name: Name,
+    /// It's a recursive function field of a matched constructor.
+    recursive_fn: bool,
+    /// It's relevant data: a field that isn't a proof or a type, of a
+    /// constructor of a type that isn't a proposition. Only such a field is
+    /// a part for rule 3 ([`Info::parent`]).
+    relevant: bool,
+}
+
+impl Binder {
+    /// A lambda's or a Π's variable.
+    fn plain(name: &Name) -> Binder {
+        Binder {
+            name: name.clone(),
+            recursive_fn: false,
+            relevant: false,
+        }
+    }
 }
 
 /// Walks the body of member `from`, recording its calls.
@@ -423,10 +511,10 @@ impl Walker<'_> {
                     self.walk(arg)?;
                 }
             }
-            Term::Lam(x, _, body) => self.under(&[(x.clone(), false)], None, body)?,
+            Term::Lam(x, _, body) => self.under(&[Binder::plain(x)], None, None, body)?,
             Term::Pi(x, _, dom, cod) => {
                 self.walk(dom)?;
-                self.under(&[(x.clone(), false)], None, cod)?;
+                self.under(&[Binder::plain(x)], None, None, cod)?;
             }
             // A quotient form, `Quot.lift` included, gives no evidence of
             // descent (it isn't a match), like `J`: calls in its arguments
@@ -458,6 +546,7 @@ impl Walker<'_> {
                     smaller_than,
                     recursive_fn: false,
                     alias: None,
+                    parent: None,
                 });
                 let result = self.walk(body);
                 self.vars.pop();
@@ -478,15 +567,25 @@ impl Walker<'_> {
                         ctor: c,
                         fields: level..level + branch.names.len(),
                     });
-                    let fields: Vec<(Name, bool)> = branch
+                    // Only relevant data is a part for rule 3's chains: a
+                    // proposition's fields, and a proof or type field of
+                    // anything, get no parent ([`Info::parent`]).
+                    let data = g.data(*d);
+                    let ctor = &data.ctors[c];
+                    let fields: Vec<Binder> = branch
                         .names
                         .iter()
-                        .zip(&g.data(*d).ctors[c].fields)
-                        .map(|(x, (_, ty))| (x.clone(), is_recursive_fn(g, ty, *d)))
+                        .zip(&ctor.fields)
+                        .zip(&ctor.field_erased)
+                        .map(|((x, (_, ty)), erased)| Binder {
+                            name: x.clone(),
+                            recursive_fn: is_recursive_fn(g, ty, *d),
+                            relevant: data.sort != Sort::Prop && !erased,
+                        })
                         .collect();
                     // An impossible branch has nothing to walk.
                     let result = match &branch.body {
-                        Some(body) => self.under(&fields, source, body),
+                        Some(body) => self.under(&fields, source, Some(level - 1 - ix), body),
                         None => Ok(()),
                     };
                     self.matched.pop();
@@ -581,6 +680,7 @@ impl Walker<'_> {
                     smaller_than,
                     recursive_fn,
                     alias: self.rebuilt(arg),
+                    parent: None,
                 }
             })
             .collect();
@@ -618,9 +718,96 @@ impl Walker<'_> {
                     None
                 }
             }
-            Term::Ctor(..) => related(&self.vars[self.rebuilt(arg)?.0]),
+            Term::Ctor(..) => self
+                .rebuilt(arg)
+                .and_then(|(level, _)| related(&self.vars[level]))
+                .or_else(|| self.wrapped(arg)),
             _ => None,
         }
+    }
+
+    /// A one-field constructor around a strict part (rule 3,
+    /// docs/proposals/recursion-through-map.md §3, D3612): `C u` is smaller
+    /// than whatever `s` is at most, if an enclosing match took `s` apart as
+    /// `C v`, `C`'s type isn't a proposition, `C` has exactly one field
+    /// (implicit, proof and erased fields count, so `MkChar code valid` has
+    /// two) which is relevant data and isn't a recursive function field, and
+    /// `u` is strictly inside `v` through relevant fields
+    /// ([`Walker::part_of`], [`Walker::strictly_inside`]; the header,
+    /// "Relevant data only"). Read as rank,
+    /// the height of a value's constructor tree: rank(`C u`) = rank(`u`) + 1
+    /// < rank(`v`) + 1 = rank(`s`). So `MkText r` with `r` a tail of the
+    /// matched text's characters is smaller than the text.
+    fn wrapped(&self, term: &Term) -> Option<(usize, Label)> {
+        let Term::Ctor(d, c, args) = term.strip_loc() else {
+            return None;
+        };
+        let [u] = &args[..] else {
+            return None;
+        };
+        // A recursive function field as the one field would break rank(`C
+        // v`) = rank(`v`) + 1: `Sup kids`'s rank is above every result of
+        // `kids`, not above `kids`.
+        // A proof or type as the one field, or a proposition as `C`'s type,
+        // would make every `C x` of one type the same value to conversion,
+        // which skips proofs: no `C u` is smaller than `C v` there (the
+        // header, "Relevant data only").
+        let data = self.g.data(*d);
+        let ctor = &data.ctors[*c];
+        if ctor.fields.len() != 1
+            || ctor.field_erased[0]
+            || data.sort == Sort::Prop
+            || is_recursive_fn(self.g, &ctor.fields[0].1, *d)
+        {
+            return None;
+        }
+        let inner = self.part_of(u)?;
+        self.matched.iter().rev().find_map(|m| {
+            if m.data != *d || m.ctor != *c || !self.strictly_inside(inner, m.fields.start) {
+                return None;
+            }
+            let s = &self.vars[m.scrutinee];
+            s.param.or(s.smaller_than).map(|i| (i, Label::Lt))
+        })
+    }
+
+    /// The level of a variable whose strict parts include `u`'s value, or
+    /// are it: `u` itself if it's a variable or a rebuilt constructor (then
+    /// equal to that variable), or for a recursive function field applied
+    /// (`rest y`), the field (`rest y` is then strictly inside the value
+    /// `rest` was matched out of, so to be strictly inside `v`, `rest` must
+    /// be too). Nothing else: not a lambda's variable applied, nor any other
+    /// function's result (an accessor's included).
+    fn part_of(&self, u: &Term) -> Option<usize> {
+        match u.strip_loc() {
+            Term::App(..) => {
+                let Term::Var(ix) = u.spine().0 else {
+                    return None;
+                };
+                let level = self.vars.len().checked_sub(ix + 1)?;
+                let info = &self.vars[level];
+                info.recursive_fn
+                    .then(|| info.alias.map_or(level, |(l, _)| l))
+            }
+            _ => self.rebuilt(u).map(|(level, _)| level),
+        }
+    }
+
+    /// Whether the variable at `level` is strictly inside the one at `v`:
+    /// reached from it by one or more matched fields of relevant data,
+    /// following [`Info::parent`] (through inlined parameters to the
+    /// variables they equal).
+    fn strictly_inside(&self, level: usize, v: usize) -> bool {
+        let resolve = |l: usize| self.vars[l].alias.map_or(l, |(a, _)| a);
+        let v = resolve(v);
+        let mut at = resolve(level);
+        while let Some(parent) = self.vars[at].parent {
+            at = resolve(parent);
+            if at == v {
+                return true;
+            }
+        }
+        false
     }
 
     /// The level of the variable `term` is equal to: a variable itself, or a
@@ -683,21 +870,24 @@ impl Walker<'_> {
         }
     }
 
-    /// Walks `body` under new binders: a name, and whether it's a recursive
-    /// function field, for each.
+    /// Walks `body` under new binders. `parent` is the level of the variable
+    /// a match took apart to bind them, if they're its fields; it's recorded
+    /// only for the relevant ones.
     fn under(
         &mut self,
-        binders: &[(Name, bool)],
+        binders: &[Binder],
         smaller_than: Option<usize>,
+        parent: Option<usize>,
         body: &Term,
     ) -> Result<(), Diagnostic> {
-        for (name, recursive_fn) in binders {
+        for binder in binders {
             self.vars.push(Info {
-                name: name.clone(),
+                name: binder.name.clone(),
                 param: None,
                 smaller_than,
-                recursive_fn: *recursive_fn,
+                recursive_fn: binder.recursive_fn,
                 alias: None,
+                parent: parent.filter(|_| binder.relevant),
             });
         }
         let result = self.walk(body);

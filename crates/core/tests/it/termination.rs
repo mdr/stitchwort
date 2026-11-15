@@ -11,9 +11,9 @@ use std::rc::Rc;
 use crate::common::*;
 use stitchwort_core::check::{self, define_def};
 use stitchwort_core::hash::def_hash;
-use stitchwort_core::term::{NumArm, Term};
+use stitchwort_core::term::{NumArm, Sort, Term};
 use stitchwort_core::value::{eval, quote};
-use stitchwort_core::{BigUint, DefId, Icit, Kernel, Limits, termination};
+use stitchwort_core::{BigUint, DataId, DefId, Icit, Kernel, Limits, termination};
 
 /// `Nat -> … -> Nat` with `n` parameters.
 fn nats_to_nat(p: &Prelude, n: usize) -> Term {
@@ -897,4 +897,80 @@ fn accepts_everything_the_structural_checker_accepted() {
     assert!(old_recursive >= 100, "{old_recursive}");
     assert!(only_new >= 50, "{only_new}");
     assert_eq!(both + partial, old_accepts);
+}
+
+/// `Loop: Prop = MkLoop (next: Loop)`, and a `Type` with one field, `h`,
+/// of type `field` (a function of `Loop`'s type).
+fn loop_and_wrapper(p: &mut Prelude, field: impl FnOnce(Term) -> Term) -> (DataId, DataId) {
+    let lp = data(&mut p.g, "Loop", vec![], Sort::Prop);
+    let loop_ty = Term::Data(lp, vec![]);
+    check::define_ctors(
+        &mut p.g,
+        lp,
+        vec![ctor("MkLoop", vec![("next", loop_ty.clone())])],
+    )
+    .unwrap();
+    let w = data(&mut p.g, "W", vec![], Sort::Type(0));
+    check::define_ctors(&mut p.g, w, vec![ctor("MkW", vec![("h", field(loop_ty))])]).unwrap();
+    (lp, w)
+}
+
+#[test]
+fn a_one_field_wrapper_around_a_part_of_a_proof_is_not_smaller() {
+    // f (b: W) = case b of MkW l -> case l of MkLoop n -> f (MkW n), with
+    // W's one field a proof (soundness/proof-irrelevance-07): comparison
+    // skips proofs, so every `MkW x` is the same value to the kernel, and
+    // `MkW n` isn't smaller than `b`.
+    let mut p = Prelude::new();
+    let (lp, w) = loop_and_wrapper(&mut p, |loop_ty| loop_ty);
+    let ty = arrow(Term::Data(w, vec![]), Term::Data(lp, vec![]));
+    let r = define_rec(&mut p, "f", ty, |f| {
+        lam(
+            "b",
+            case(
+                0,
+                w,
+                vec![(
+                    vec!["l"],
+                    case(
+                        0,
+                        lp,
+                        vec![(vec!["n"], app(f, [Term::ctor(w, 0, vec![v(0)])]))],
+                    ),
+                )],
+            ),
+        )
+    });
+    assert_eq!(code(r), "E-TERMINATION");
+}
+
+#[test]
+fn a_one_field_wrapper_around_a_part_of_data_is_smaller() {
+    // The same shape with W's field a number: f (MkW (Succ n)) = f (MkW n).
+    let mut p = Prelude::new();
+    let nat_ty = p.nat_ty();
+    let (nat, z) = (p.nat, zero(&p));
+    let (_, w) = loop_and_wrapper(&mut p, |_| nat_ty);
+    let ty = arrow(Term::Data(w, vec![]), p.nat_ty());
+    let r = define_rec(&mut p, "f", ty, |f| {
+        lam(
+            "b",
+            case(
+                0,
+                w,
+                vec![(
+                    vec!["x"],
+                    case(
+                        0,
+                        nat,
+                        vec![
+                            (vec![], z),
+                            (vec!["n"], app(f, [Term::ctor(w, 0, vec![v(0)])])),
+                        ],
+                    ),
+                )],
+            ),
+        )
+    });
+    assert_eq!(code(r), "ok");
 }

@@ -247,6 +247,14 @@ t.length` with `auto` proving each call, works **[run]**.
 3. every step is a matched field or a recursive function field applied, **not** a signed
    lambda's variable or an accessor (otherwise F2 returns in a form G1's root test misses:
    `| MkW v => tails v (u => f (MkW u))`),
+4. *(added by SW-3412, after SW-3376 was reverted for accepting
+   `soundness/proof-irrelevance-07`)* `C`'s type isn't a proposition, its one field is relevant
+   data (not a proof or a type), and every step from `v` to `u` is a field of relevant data:
+   comparison skips proofs and a run erases them, so every `MkBox x` with `MkBox (h: Loop)` is
+   the same value to the kernel, and a part of a proof isn't smaller (Agda #8699's trap;
+   `termination.rs`'s header, "Relevant data only"). Condition 1 still counts proof fields: a
+   field of a proof is a part for the plain rule, so a proof beside `u` could carry a bigger value
+   back (`reject/termination-wrapper-proof-beside.sw`),
 
 then `C u < i`, whether `s` is `≤` or `<` `i`. Soundness by rank, the height of a value's constructor tree (it exists because values are
 well founded, the assumption the check already makes): rank(`C u`) = rank(`u`) + 1 < rank(`v`) + 1

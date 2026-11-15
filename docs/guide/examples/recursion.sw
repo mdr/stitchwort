@@ -21,6 +21,14 @@ def reverseOnto (done: List a): List a → List a
 test "an accumulator" := reverseOnto [] [1, 2, 3] == [3, 2, 1]
 -- end accumulator
 
+-- begin text-rest
+def leadingDashes: Text → Nat
+  | "-" ++ rest => 1 + leadingDashes rest
+  | _ => 0
+
+test "text rest" := leadingDashes "--verbose" == 2
+-- end text-rest
+
 -- begin decreasing
 def digits (n: Nat): List Nat
     decreasing n
