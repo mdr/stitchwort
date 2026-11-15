@@ -1,5 +1,5 @@
 {
-  "next": 3310,
+  "next": 3311,
   "tickets": [
     {
       "id": 47,
@@ -36458,6 +36458,19 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3310,
+      "title": "[Sonnet] Rolling check red at 63ef3f3ff: std_library::the_library_has_no_unreachable_arms flags std/Parse/Runs.sw:452 (Parse.runsOneStep's statement spells out one's match, whose None arm the checker proves impossible from 'selected'); restate without the impossible arm (SW-3283)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Found by Overmind's rolling check at 63ef3f3ff. Expected: 40 min (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
