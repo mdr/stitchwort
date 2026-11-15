@@ -36804,12 +36804,12 @@
     {
       "id": 3331,
       "title": "[Opus] same_heads' sealed-call branch (hidden opaque calls, calls of the group being checked) also leaves a failed nested comparison's solutions; apply SW-3330's mark/restore there",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane (Opus, 15 Nov): 76752eced. Sealed-call branch of same_heads now takes g.attempt.mark() before the nested shortcut comparison of arguments and restores on failure (no note_lossy on success, as before). Test a_failed_comparison_of_sealed_calls_solves_nothing (opaque pick; failed before the fix). Unify/elaboration filter 48/48, examples mutual,opaque,unify,reads 7/7, hash_stability 10/10; 2020 day 2 and day 18 proofs: identical steps before/after (121,309,693 and 118,892,231). ~14 min (est. 45).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
