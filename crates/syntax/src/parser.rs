@@ -1515,14 +1515,25 @@ impl<'t> Parser<'t> {
                 );
             }
             Some(_) if self.ends_guard(self.pos) => {
-                return error(
+                let diagnostic = error(
                     self.here(),
                     format!("expected {expected}, but the guard's `=>` starts here"),
-                )
-                .with_note(
-                    "a guard's condition runs up to its arm's `=>`, even inside brackets: was a \
-                     bracket in the guard left open?",
                 );
+                let left_open = self
+                    .modes
+                    .guard_start
+                    .is_some_and(|start| self.left_open_between(start, self.pos));
+                return if left_open {
+                    diagnostic.with_note(
+                        "a guard's condition runs up to its arm's `=>`, even inside brackets: was \
+                         a bracket in the guard left open?",
+                    )
+                } else {
+                    diagnostic.with_note(
+                        "the guard's condition is incomplete: it needs a complete expression \
+                         before the arm's `=>`",
+                    )
+                };
             }
             Some(token) if self.is_stop(self.pos) && !self.ends_construct(self.pos) => {
                 let diagnostic = error(
@@ -7605,6 +7616,39 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// A guard that runs out at its own `=>` with no bracket open: the guard
+    /// message, but the bracket note is only for an unclosed bracket
+    /// (SW-3308).
+    #[test]
+    fn a_guard_that_runs_out_without_a_bracket_has_no_bracket_note() {
+        let text = "def h (x: Nat): Nat := match x with\n  | a if a +\n    => 1\n  | _ => 2\n";
+        let (_, errors, points) = recovered(text);
+        assert_eq!(errors.len(), 1, "{text:?}: {errors:?}");
+        assert_eq!(points, [vec![RecoveryPoint::RanOut]], "{text:?}");
+        assert!(
+            errors[0].message.contains("the guard's `=>` starts here"),
+            "{errors:?}"
+        );
+        assert!(
+            !errors[0].notes.iter().any(|n| n.contains("bracket")),
+            "{errors:?}"
+        );
+        assert!(
+            errors[0]
+                .notes
+                .iter()
+                .any(|n| n.contains("condition is incomplete")),
+            "{errors:?}"
+        );
+        let arrow = text.find("=>").unwrap();
+        let span = errors[0].primary_span().unwrap();
+        assert_eq!(
+            (span.start, span.end),
+            (arrow as u32, (arrow + 2) as u32),
+            "{text:?}"
+        );
     }
 
     /// The other brackets closed by [`Parser::close_bracket`]: a record's
