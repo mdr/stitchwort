@@ -1026,14 +1026,17 @@ theorem Fail.toResultThen (t: () -> {Fail} a) (k: a -> {Fail} b):
 Characters are Unicode scalar values, as for `Text.length`. The text comes last.
 
 - `Text.take t n`, `Text.drop t n`: the first `n` characters, and the rest (all of `t`, or `""`, if it is shorter).
-- `Text.get t i`: the character at index `i`, counting from 0, or `None` past the end.
+- `Text.get t i`: the character at index `i`, counting from 0, or `None` past the end. `Text.getOr t i c` gives `c` past the end instead, and `Text.getLt t i` takes a proof that `i < t.length`, found by `auto`, as `Array`'s do.
+- `Text.slice t from to`: the characters from `from` up to, not including, `to` (`"hello".slice 1 3` is `"el"`); it stops at the end, and is empty when `to ≤ from`. Its definition is `(t.drop from).take (to - from)`.
+- `Text.concat ts`: the texts one after another, one new text of the total length (`Text.joinWith ts ""`).
+- **Cost when run.** On the machine, native code and built executables a text is a shared buffer of characters with a start and a length, so `get`, `getOr`, `getLt`, `slice`, `take`, `drop`, `uncons` and `length` take O(1) and a slice copies nothing (a slice of at most 32 characters, cut from a buffer of 1,024 or more, is copied, so a short piece doesn't keep a large text alive). `++` copies both sides, so a loop of appends is quadratic; join the pieces once with `Text.concat`. The checker and `run --reference` run the definitions, on the list of characters. Under `run --js` a text is a JavaScript string: `length`, `take` and `drop` walk it, and `get`, `getOr`, `getLt`, `slice` and `concat` run their definitions.
 - `Text.count t p`, `Text.any t p`, `Text.all t p`: how many characters satisfy `p`, whether some do, and whether all do; each is the `List` version on `Text.toList`, and a lemma says so.
 - `Text.startsWith t p`, `Text.endsWith t s`, `Text.contains t p`: `Bool`s. The empty text starts, ends and occurs in every text.
 - `Text.stripPrefix t p`, `Text.stripSuffix t s`: `Some` of `t` without `p` (or `s`), or `None`.
 - `Text.splitOn t sep`: splits at each whole occurrence of `sep`, left to right without overlaps: `"a, b".splitOn ", "` is `["a", "b"]`, `"aaa"` on `"aa"` is `["", "a"]`. There is always at least one piece. An empty `sep` doesn't split: the result is `[t]` (as Lean's `String.splitOn`). `Text.split` splits on one `Char`.
 - These take the text being examined first and the pattern second, so `line.stripPrefix "L"`, `line |> Text.stripPrefix "L"` and `Text.stripPrefix line "L"` all say the same: `Some` of `line` without a leading `"L"`. Read `t.startsWith p` as "`t` starts with `p`"; `p.startsWith t` is the other way round and type-checks, since both are `Text`, so mind which one is the subject.
 
-Proved: `Text.stripPrefix (p ++ t) p = Some t`, `Text.startsWith (p ++ t) p = True`, `Text.take t n ++ Text.drop t n = t`.
+Proved: `Text.stripPrefix (p ++ t) p = Some t`, `Text.startsWith (p ++ t) p = True`, `Text.take t n ++ Text.drop t n = t`, `t.slice from mid ++ t.slice mid to = t.slice from to` for `from ≤ mid ≤ to` (`Text.sliceAppend`), `(t.slice from to).length = to - from` for `to ≤ t.length` (`Text.lengthSlice`), and `(Text.concat ts).toList = List.concat (ts.map Text.toList)`.
 
 ## `Option` helpers
 

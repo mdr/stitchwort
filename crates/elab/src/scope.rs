@@ -3170,7 +3170,6 @@ const MEANING_TABLE: &[(&str, &[&str], &[&str])] = &[
     ("Text", &["strip"], &["trim"]),
     ("Text", &["parseInt"], &["toInt", "toNat"]),
     ("Text", &["parseNat"], &["toNat"]),
-    ("Text", &["concat"], &["append"]),
     ("Text", &["empty", "null"], &["isEmpty"]),
     ("Text", &["splitBy"], &["split"]),
     ("Text", &["chars"], &["toList"]),

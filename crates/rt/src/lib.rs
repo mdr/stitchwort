@@ -45,6 +45,7 @@ pub mod run;
 pub mod shared;
 pub mod specialise;
 pub mod sums;
+pub mod text;
 pub mod trmc;
 mod validate;
 pub mod value;

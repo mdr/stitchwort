@@ -60,6 +60,20 @@ theorem List.dropAt ∀ (d: a) (xs: List a) (k: Nat)
     | [x, ..xs], Zero => rfl
     | [x, ..xs], Succ k => List.dropAt d xs k h
 
+--| The element at `index` of a list longer than `index`: no fallback is needed.
+@[tailrec]
+def List.getLt: (xs: List a) → (index: Nat) → [auto ok: index < List.length xs] → a
+  | [x, ..xs], Zero => x
+  | [x, ..xs], Succ index => List.getLt xs index [ok := ok]
+
+--| `getLt` finds what `get` finds.
+theorem List.getLtGet ∀ (xs: List a) (i: Nat)
+    (ok: i < List.length xs):
+    List.get xs i = Some (List.getLt xs i [ok := ok]) :=
+  match xs, i with
+    | [x, ..xs], Zero => rfl
+    | [x, ..xs], Succ i => List.getLtGet xs i ok
+
 --| `getOr` is `List.get` with the fallback for `None` (`List.get`'s lemmas
 --| are in Lemmas.sw).
 theorem List.getOrGet ∀ (xs: List a) (k: Nat) (d: a): List.getOr xs k d = Option.getOrElse (List.get xs k) d :=
