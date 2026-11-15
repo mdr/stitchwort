@@ -1,5 +1,5 @@
 {
-  "next": 3379,
+  "next": 3381,
   "tickets": [
     {
       "id": 47,
@@ -37423,12 +37423,38 @@
     {
       "id": 3378,
       "title": "[Opus paper] Std Args: a command-line library (options as a record with names, defaults, help; parse, usage text and errors generated; maybe on generic Parse over argument tokens); first users toyfmt and the self-hosted formatter (stitchwort fmt's options)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 15 Nov 2026: \"Yeah, I think an Args library might be quite nice.\" Paper lane. Expected: 1.5 h (Opus).",
+      "body": "Matt, 15 Nov 2026: \"Yeah, I think an Args library might be quite nice.\" Paper lane. Expected: 1.5 h (Opus).\n\nProgress (lane, 15 Nov): draft 1 in docs/proposals/args.md (uncommitted, in the main checkout). Record-driven options (derived `Args.Command` from an `@[args.command]` record) over applicative combinators (`Args.Spec`, prototype checked in scratchpad); pure `Args.parse`, errors as values, generated usage/--help, exit 1 until SW-3345 then 2. Stages A1 combinators (Sonnet 3-4 h), A2 derive (Opus 4-6 h), A3 subcommands/short/did-you-mean (Sonnet 3 h), A4 proofs (2-4 h). Open: D3614 (record form, rec yes), D3615 (help from --| docs, rec yes). Finding: unannotated lambda into a generic param fixed only by a later pipe is E-TYPE-MISMATCH against ?0.\n",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3379,
+      "title": "[Opus] Postponement: an unannotated lambda passed to a generic parameter that only a later pipe pins down fails E-TYPE-MISMATCH against ?0, while a record literal there waits; let lambdas wait too (SW-3378 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3380,
+      "title": "[Sonnet] Std Text.editDistance (for 'did you mean' suggestions, Args stage A3) with lemmas (SW-3378 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
