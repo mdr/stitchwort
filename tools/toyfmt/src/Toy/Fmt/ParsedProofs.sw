@@ -605,6 +605,29 @@ theorem fairChain ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
     (lowest highest value lexical => lexical)
     (lexicalStep layout)
 
+theorem fineCleared ∀ (comments: Comments) (fine: Fine comments): Fine { comments | above = [] } := Both rfl fine.right
+
+--| Clearing the comments above the first token keeps the lexer's texts.
+theorem lexicalCleared ∀ (expr: Expr) (lexical: Lexical expr): Lexical expr.withoutFirstAbove :=
+  match expr, lexical with
+    | Var name comments, Both isName fine => Both isName (fineCleared comments fine)
+    | NumberLiteral digits comments, Both isDigits fine => Both isDigits (fineCleared comments fine)
+    | StringLiteral written comments, Both isString fine => Both isString (fineCleared comments fine)
+    | Bracketed open inner close, Both fine others => Both (fineCleared open fine) others
+    | ListLiteral open items close, Both fine others => Both (fineCleared open fine) others
+    | Call callee open arguments close, Both lexicalCallee others => Both (lexicalCleared callee lexicalCallee) others
+    | Field target dot name nameComments, Both lexicalTarget others => Both (lexicalCleared target lexicalTarget) others
+    | Negate minus operand, Both fine others => Both (fineCleared minus fine) others
+    | Binary operator sign left right, Both fine (Both lexicalLeft lexicalRight) =>
+      Both fine (Both (lexicalCleared left lexicalLeft) lexicalRight)
+    | If ifComments condition thenComments whenTrue elseComments whenFalse, Both fine others =>
+      Both (fineCleared ifComments fine) others
+
+theorem lexicalHeaded ∀ (layout: Layout) (expr: Expr) (lexical: Lexical expr): Lexical (layout.headed expr) :=
+  match layout with
+    | InBrackets => lexical
+    | InStatement column start => lexicalCleared expr lexical
+
 -- Bodies and blocks.
 
 --| A statement with the lexer's texts that isn't a comment line.
@@ -613,8 +636,13 @@ def CodedLexical (line: Statement): Prop := LexicalStatement line ∧ Coded line
 theorem fairBare ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Fair (() => self inner) Lexical):
     Fair (() => bareStatement self layout) CodedLexical :=
-  fairThen (() => self layout) (value => Bare value) Lexical CodedLexical (nested layout) (value lexical =>
-    fairDone _ CodedLexical (Both lexical rfl))
+  fairThen
+    (() => self layout)
+    (value => Bare (layout.headed value))
+    Lexical
+    CodedLexical
+    (nested layout)
+    (value lexical => fairDone _ CodedLexical (Both (lexicalHeaded layout value lexical) rfl))
 
 theorem fairInline ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Fair (() => self inner) Lexical):

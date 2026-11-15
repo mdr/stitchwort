@@ -478,3 +478,121 @@ theorem placedExample: ((placed ["y", "  ", "\n", "x", " ", "f"]).tokens.map (to
       (token.value.startsLine, token.value.column)))
       = [(True, 2), (False, 2), (True, 0)] :=
   rfl
+
+-- The placed tokens' offsets.
+
+--| Each number below the one before it: the offsets of tokens listed
+--| the newest first.
+def Descending: List Nat → Prop
+  | [] => True
+  | [only] => True
+  | [newer, older, ..rest] => older < newer ∧ Descending [older, ..rest]
+
+--| `Descending`, and the first number is below `bound`.
+def DescendingBelow (bound: Nat): List Nat → Prop
+  | [] => True
+  | [newest, ..older] => newest < bound ∧ DescendingBelow newest older
+
+theorem belowDescending ∀ (bound: Nat) (offsets: List Nat) (below: DescendingBelow bound offsets): Descending offsets :=
+  match offsets, below with
+    | [], below => rfl
+    | [only], below => rfl
+    | [newer, older, ..rest], Both first (Both second others) =>
+      Both second (belowDescending newer [older, ..rest] (Both second others))
+
+theorem belowWider ∀ (bound wider: Nat) (offsets: List Nat)
+    (grows: bound ≤ wider)
+    (below: DescendingBelow bound offsets):
+    DescendingBelow wider offsets :=
+  match offsets, below with
+    | [], below => rfl
+    | [newest, ..older], Both first others => Both (omega [first, grows]) others
+
+--| A piece that isn't all spaces has a character.
+theorem wordLength ∀ (piece: Text) (word: piece.all (char => char == ' ') = False): 0 < piece.length :=
+  match piece, word with
+    | MkText [], never => Void.exfalso (Bool.falseNotTrue (Eq.sym never))
+    | MkText [first, ..rest], word => omega
+
+theorem withTrailingOffsets ∀ (tokens: List (Parse.Located Token)) (comment: Parse.Located Comment):
+    (withTrailing tokens comment).map (token => token.offset) = tokens.map (token => token.offset) :=
+  match tokens with
+    | [] => rfl
+    | [last, ..earlier] => rfl
+
+--| A word adds no token (a comment), or one at its own offset.
+theorem wordOffsets ∀ (placed: Placed) (piece: Text) (blank: Bool) (column offset: Nat):
+    (placeWord placed piece blank column offset).tokens.map (token => token.offset)
+      = placed.tokens.map (token => token.offset)
+      ∨ (placeWord placed piece blank column offset).tokens.map (token => token.offset)
+        = [offset, ..placed.tokens.map (token => token.offset)] :=
+  match lexeme: lexemeOf piece with
+    | CommentLexeme =>
+      match blank with
+        | True => Inl rfl
+        | False => Inl (withTrailingOffsets placed.tokens { value = { text = piece }, offset, length = piece.length })
+    | Spaces => Inr rfl
+    | LineBreak => Inr rfl
+    | WordLexeme => Inr rfl
+    | DigitsLexeme => Inr rfl
+    | StringLexeme => Inr rfl
+    | SignLexeme => Inr rfl
+    | SymbolsLexeme => Inr rfl
+    | StrayLexeme => Inr rfl
+
+--| A piece adds no token, or, if it isn't spaces, one at its own offset.
+theorem pieceOffsets ∀ (placed: Placed) (piece: Text) (blank: Bool) (column offset: Nat):
+    (placePiece placed piece blank column offset).tokens.map (token => token.offset)
+      = placed.tokens.map (token => token.offset)
+      ∨ ((placePiece placed piece blank column offset).tokens.map (token => token.offset)
+        = [offset, ..placed.tokens.map (token => token.offset)]
+        ∧ piece.all (char => char == ' ') = False) :=
+  match gap: piece.all (char => char == ' ') with
+    | True => Inl rfl
+    | False =>
+      match isBreak: piece == "\n" with
+        | True => Inl rfl
+        | False =>
+          match wordOffsets placed piece blank column offset with
+            | Inl same => Inl same
+            | Inr pushed => Inr (Both pushed rfl)
+
+--| The placed tokens' offsets fall from the newest, which is inside the
+--| text so far.
+theorem placedBelow ∀ (out: List Text):
+    DescendingBelow (charsLength out) ((placed out).tokens.map (token => token.offset)) :=
+  match out with
+    | [] => rfl
+    | [piece, ..earlier] =>
+      let before := placedBelow earlier
+      match pieceOffsets (placed earlier) piece (lineBlank earlier) (lineWidth earlier) (charsLength earlier) with
+        | Inl same =>
+          let wider: DescendingBelow
+            (charsLength earlier + piece.length)
+            ((placePiece
+              (placed earlier)
+              piece
+              (lineBlank earlier)
+              (lineWidth earlier)
+              (charsLength earlier)).tokens.map
+              (token => token.offset)) :=
+            rewrite same in belowWider (charsLength earlier) (charsLength earlier + piece.length) _ omega before
+          wider
+        | Inr (Both pushed word) =>
+          let longer: DescendingBelow
+            (charsLength earlier + piece.length)
+            ((placePiece
+              (placed earlier)
+              piece
+              (lineBlank earlier)
+              (lineWidth earlier)
+              (charsLength earlier)).tokens.map
+              (token => token.offset)) :=
+            rewrite pushed in Both (omega [wordLength piece word]) before
+          longer
+
+--| The tokens of printed pieces have falling offsets (newest first), so
+--| no two share one: the parser tells a statement's first token from the
+--| others by its offset (`Layout.allows`, `Layout.comments`).
+theorem placedOffsets ∀ (out: List Text): Descending ((placed out).tokens.map (token => token.offset)) :=
+  belowDescending (charsLength out) _ (placedBelow out)

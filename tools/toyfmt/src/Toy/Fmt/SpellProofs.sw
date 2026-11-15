@@ -1767,7 +1767,7 @@ theorem bodySpells ∀ (zone: Zone) (body: Body) (events: List Event)
                   (Eq.sym (Eq.cong firstBlankBefore unspaced))
                   (Both
                     (blockAheadBrackets tokens)
-                    (spells 0 tokens same (bracketLeads anyStart value.firstAbove tokens))))))
+                    (Both (spells 0 tokens same (bracketLeads anyStart value.firstAbove tokens)) rfl)))))
     | { statements = [] }, _, _, Both _ (Both _ one), _ => Void.exfalso (Bool.falseNotTrue (one rfl))
     | { statements = [{ blankBefore, line = Let _ _ _ _ _ }] }, _, _, Both _ (Both _ one), _ =>
       Void.exfalso (Bool.falseNotTrue (one rfl))
@@ -1904,6 +1904,16 @@ theorem inlineAhead ∀ (layout: Layout) (tokens: List (Parse.Located Token)) (f
           notStarting column from found rest
             (Eq.trans (Eq.cong ((view: TokenView) => view.start) foundSame) (unstarted rfl)))
 
+--| Clearing the comments above an expression's first token
+--| (`Layout.headed`) changes nothing in a tree that holds none there
+--| outside brackets.
+theorem headedOfNoAbove ∀ (layout: Layout) (value: Expr)
+    (none: bracketedOf layout = False → value.firstAbove = []):
+    layout.headed value = value :=
+  match layout, none with
+    | InBrackets, none => rfl
+    | InStatement column start, none => noAboveCleared value (none rfl)
+
 --| Tokens with the views of a body laid on its keyword's line spell the
 --| body as one expression, at any layout: outside brackets its first
 --| token doesn't start a line (the tree holds no comments above it), so
@@ -1940,21 +1950,24 @@ theorem inlineSpells ∀ (zone: Zone) (layout: Layout) (value: Expr) (events: Li
                   (Both
                     (inlineAhead (restart layout from) tokens first others same (outside =>
                       starts.right (noAbove (Eq.trans (Eq.sym (bracketedRestart layout from)) outside))))
-                    (spells from tokens same
-                      (leadsWider
-                        (restart layout from)
-                        []
-                        zone.allows
-                        (inlineHead zone value)
-                        value.firstAbove
-                        tokens
-                        (start held => held.left)
-                        (innerLeads zone
+                    (Both
+                      (spells from tokens same
+                        (leadsWider
                           (restart layout from)
+                          []
+                          zone.allows
+                          (inlineHead zone value)
                           value.firstAbove
                           tokens
-                          (suitsRestart zone layout from suits)
-                          apart)))))))
+                          (start held => held.left)
+                          (innerLeads zone
+                            (restart layout from)
+                            value.firstAbove
+                            tokens
+                            (suitsRestart zone layout from suits)
+                            apart)))
+                      (headedOfNoAbove (restart layout from) value (outside =>
+                        noAbove (Eq.trans (Eq.sym (bracketedRestart layout from)) outside))))))))
 
 theorem leadsCast ∀ (layout: Layout) (pending: List Trivia) (head: Option Nat → Prop)
     (above: List Comment) (tokens: List (Parse.Located Token))

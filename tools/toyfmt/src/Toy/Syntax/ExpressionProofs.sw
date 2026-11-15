@@ -504,7 +504,7 @@ theorem settledBack ∀ (layout: Layout) (front back rest: List (Parse.Located T
 --| start a block).
 def SpelledInline (layout: Layout) (found: Body) (tokens: List (Parse.Located Token)): Prop := match found with
   | { statements = [{ blankBefore, line = Bare value }] } =>
-    blankBefore = False ∧ blockAhead layout tokens = False ∧ Spelled layout value tokens
+    blankBefore = False ∧ blockAhead layout tokens = False ∧ Spelled layout value tokens ∧ layout.headed value = value
   | _ => False
 
 --| `tokens` spell the items of a list or the arguments of a call, between
@@ -1576,6 +1576,214 @@ theorem spelledStart ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Loca
             | Witness first (Witness others (Both leftSplit startKind)) =>
               Witness first
                 (Witness (others ++ [sign, ..rightTokens]) (Both (rewrite split, leftSplit in rfl) startKind))
+
+-- Clearing the comments above an expression's first token
+-- (`Layout.headed`, which `bareStatement` applies) changes nothing where
+-- none are there, and keeps the parser's shape.
+
+--| The own-line comments the first of `tokens` holds at `layout`.
+def headAbove (layout: Layout) (tokens: List (Parse.Located Token)): List Comment := match tokens with
+  | [first, .._] => (layout.comments first).above
+  | [] => []
+
+theorem noAboveCleared ∀ (expr: Expr) (none: expr.firstAbove = []): expr.withoutFirstAbove = expr :=
+  match expr, none with
+    | Var name { above, after }, none => rewrite none in rfl
+    | NumberLiteral digits { above, after }, none => rewrite none in rfl
+    | StringLiteral written { above, after }, none => rewrite none in rfl
+    | Bracketed ({ above, after }) inner close, none => rewrite none in rfl
+    | ListLiteral ({ above, after }) items close, none => rewrite none in rfl
+    | Call callee open arguments close, none => rewrite noAboveCleared callee none in rfl
+    | Field target dot name nameComments, none => rewrite noAboveCleared target none in rfl
+    | Negate ({ above, after }) operand, none => rewrite none in rfl
+    | Binary operator sign left right, none => rewrite noAboveCleared left none in rfl
+    | If ({ above, after }) condition thenComments whenTrue elseComments whenFalse, none => rewrite none in rfl
+
+--| The comments above a spelled expression are those of its first token.
+theorem spelledFirstAbove ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token))
+    (shaped: Shaped expr)
+    (spelled: Spelled layout expr tokens):
+    expr.firstAbove = headAbove layout tokens :=
+  match expr with
+    | If ifComments condition thenComments whenTrue elseComments whenFalse =>
+      match spelled with
+        | Witness ifToken
+            (Witness conditionTokens
+              (Witness thenToken
+                (Witness trueTokens
+                  (Witness elseToken
+                    (Witness falseTokens
+                      (Both split
+                        (Both isIfToken
+                          (Both ifAllowed
+                            (Both isThen
+                              (Both thenAllowed
+                                (Both isElse
+                                  (Both elseAllowed
+                                    (Both spelledCondition
+                                      (Both spelledTrue (Both spelledFalse (Both ifCommented others)))))))))))))))) =>
+          rewrite split, ifCommented in rfl
+    | Var name comments =>
+      match spelled with
+        | Witness token (Both split (Both kind (Both allowed commented))) => rewrite split, commented in rfl
+    | NumberLiteral digits comments =>
+      match spelled with
+        | Witness token (Both split (Both kind (Both allowed commented))) => rewrite split, commented in rfl
+    | StringLiteral written comments =>
+      match spelled with
+        | Witness token (Both split (Both kind (Both allowed commented))) => rewrite split, commented in rfl
+    | Bracketed opened inner closed =>
+      match spelled with
+        | Witness open
+            (Witness innerTokens
+              (Witness close
+                (Both split
+                  (Both opens (Both allowed (Both closes (Both spelledInner (Both openCommented others)))))))) =>
+          rewrite split, openCommented in rfl
+    | ListLiteral opened listed closed =>
+      match spelled with
+        | Witness open
+            (Witness itemTokens
+              (Witness close
+                (Both split
+                  (Both opens (Both allowed (Both closes (Both spelledItems (Both openCommented others)))))))) =>
+          rewrite split, openCommented in rfl
+    | Negate minusComments operand =>
+      match spelled with
+        | Witness minus
+            (Witness operandTokens (Both split (Both kind (Both allowed (Both spelledOperand commented))))) =>
+          rewrite split, commented in rfl
+    | Field target dotComments name nameComments =>
+      match spelled with
+        | Witness targetTokens
+            (Witness dot
+              (Witness named
+                (Both split
+                  (Both dotted
+                    (Both dotAllowed
+                      (Both isName (Both nameAllowed (Both spelledTarget (Both dotCommented nameCommented))))))))) =>
+          match spelledStart layout target targetTokens shaped.right spelledTarget with
+            | Witness first (Witness others (Both targetSplit startKind)) =>
+              let inner := spelledFirstAbove layout target targetTokens shaped.right spelledTarget
+              rewrite split, targetSplit in (rewrite targetSplit at inner in inner)
+    | Call callee opened arguments closed =>
+      match spelled with
+        | Witness calleeTokens
+            (Witness open
+              (Witness argumentTokens
+                (Witness close
+                  (Both split
+                    (Both opens
+                      (Both allowed
+                        (Both closes
+                          (Both spelledCallee (Both spelledArguments (Both openCommented closeCommented)))))))))) =>
+          match spelledStart layout callee calleeTokens shaped.right.left spelledCallee with
+            | Witness first (Witness others (Both calleeSplit startKind)) =>
+              let inner := spelledFirstAbove layout callee calleeTokens shaped.right.left spelledCallee
+              rewrite split, calleeSplit in (rewrite calleeSplit at inner in inner)
+    | Binary operator signComments left right =>
+      match shaped, spelled with
+        | Both leftLevel
+            (Both rightLevel (Both leftChain (Both rightChain (Both shapedLeft shapedRight)))), Witness leftTokens
+            (Witness sign
+              (Witness rightTokens
+                (Both split (Both kind (Both allowed (Both spelledLeft (Both spelledRight signCommented))))))) =>
+          match spelledStart layout left leftTokens shapedLeft spelledLeft with
+            | Witness first (Witness others (Both leftSplit startKind)) =>
+              let inner := spelledFirstAbove layout left leftTokens shapedLeft spelledLeft
+              rewrite split, leftSplit in (rewrite leftSplit at inner in inner)
+
+theorem ownOffset ∀ (offset: Nat): (offset == offset) = True := omega
+
+--| A statement's first token holds no comments above it in the tree.
+theorem startAbove ∀ (column: Nat) (first: Parse.Located Token):
+    ((InStatement column first.offset).comments first).above = [] :=
+  rewrite ownOffset first.offset in rfl
+
+--| Clearing changes nothing where the first token holds no comments.
+theorem spelledHeaded ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token))
+    (shaped: Shaped expr)
+    (spelled: Spelled layout expr tokens)
+    (none: headAbove layout tokens = []):
+    layout.headed expr = expr :=
+  match layout, spelled, none with
+    | InBrackets, spelled, none => rfl
+    | InStatement column start, spelled, none =>
+      noAboveCleared expr (Eq.trans (spelledFirstAbove (InStatement column start) expr tokens shaped spelled) none)
+
+theorem clearedPostfix ∀ (expr: Expr): expr.withoutFirstAbove.isPostfix = expr.isPostfix := match expr with
+  | Var _ _ => rfl
+  | NumberLiteral _ _ => rfl
+  | StringLiteral _ _ => rfl
+  | Bracketed _ _ _ => rfl
+  | ListLiteral _ _ _ => rfl
+  | Call _ _ _ _ => rfl
+  | Field _ _ _ _ => rfl
+  | Negate _ _ => rfl
+  | Binary _ _ _ _ => rfl
+  | If _ _ _ _ _ _ => rfl
+
+theorem clearedOperand ∀ (expr: Expr): expr.withoutFirstAbove.isOperand = expr.isOperand := match expr with
+  | Var _ _ => rfl
+  | NumberLiteral _ _ => rfl
+  | StringLiteral _ _ => rfl
+  | Bracketed _ _ _ => rfl
+  | ListLiteral _ _ _ => rfl
+  | Call _ _ _ _ => rfl
+  | Field _ _ _ _ => rfl
+  | Negate _ _ => rfl
+  | Binary _ _ _ _ => rfl
+  | If _ _ _ _ _ _ => rfl
+
+theorem clearedChain ∀ (expr: Expr): expr.withoutFirstAbove.isChain = expr.isChain := match expr with
+  | Var _ _ => rfl
+  | NumberLiteral _ _ => rfl
+  | StringLiteral _ _ => rfl
+  | Bracketed _ _ _ => rfl
+  | ListLiteral _ _ _ => rfl
+  | Call _ _ _ _ => rfl
+  | Field _ _ _ _ => rfl
+  | Negate _ _ => rfl
+  | Binary _ _ _ _ => rfl
+  | If _ _ _ _ _ _ => rfl
+
+theorem clearedLevel ∀ (expr: Expr): expr.withoutFirstAbove.chainLevel = expr.chainLevel := match expr with
+  | Var _ _ => rfl
+  | NumberLiteral _ _ => rfl
+  | StringLiteral _ _ => rfl
+  | Bracketed _ _ _ => rfl
+  | ListLiteral _ _ _ => rfl
+  | Call _ _ _ _ => rfl
+  | Field _ _ _ _ => rfl
+  | Negate _ _ => rfl
+  | Binary _ _ _ _ => rfl
+  | If _ _ _ _ _ _ => rfl
+
+theorem shapedCleared ∀ (expr: Expr) (shaped: Shaped expr): Shaped expr.withoutFirstAbove := match expr, shaped with
+  | Var name comments, shaped => shaped
+  | NumberLiteral digits comments, shaped => shaped
+  | StringLiteral written comments, shaped => shaped
+  | Bracketed open inner close, shaped => shaped
+  | ListLiteral open items close, shaped => shaped
+  | Call callee open arguments close, Both postfix (Both shapedCallee others) =>
+    Both (Eq.trans (clearedPostfix callee) postfix) (Both (shapedCleared callee shapedCallee) others)
+  | Field target dot name nameComments, Both postfix shapedTarget =>
+    Both (Eq.trans (clearedPostfix target) postfix) (shapedCleared target shapedTarget)
+  | Negate minus operand, shaped => shaped
+  | Binary operator sign left right, Both leftLevel
+      (Both rightLevel (Both leftChain (Both rightChain (Both shapedLeft shapedRight)))) =>
+    Both
+      (rewrite clearedLevel left in leftLevel)
+      (Both rightLevel
+        (Both
+          (Eq.trans (clearedChain left) leftChain)
+          (Both rightChain (Both (shapedCleared left shapedLeft) shapedRight))))
+  | If ifComments condition thenComments whenTrue elseComments whenFalse, shaped => shaped
+
+theorem shapedHeaded ∀ (layout: Layout) (expr: Expr) (shaped: Shaped expr): Shaped (layout.headed expr) :=
+  match layout with
+    | InBrackets => shaped
+    | InStatement column start => shapedCleared expr shaped
 
 --| The signs that close a list or a call's arguments.
 def bracketSign: Punctuation → Bool

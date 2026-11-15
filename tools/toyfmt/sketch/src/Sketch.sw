@@ -23,19 +23,10 @@ def formatDirect (source: Text) (width: Nat): FormatResult := match parse source
   | Err message => Refused message
   | Ok tree => Stable (tree.print width)
 
--- Layer E, the last of the printed tokens: their offsets.
-
---| Each number below the one before it: the offsets of tokens listed
---| the newest first.
-def Descending: List Nat → Prop
-  | [] => True
-  | [only] => True
-  | [newer, older, ..rest] => older < newer ∧ Descending [older, ..rest]
-
---| OPEN (E1). The tokens of printed pieces have growing offsets, so no
---| two share one: the parser tells a statement's first token from the
---| others by its offset (`Layout.allows`, `Layout.comments`).
-theorem placedOffsets ∀ (out: List Text): Descending ((placed out).tokens.map (token => token.offset)) := ?
+-- Layer E, the last of the printed tokens: their offsets. E1 is proved:
+-- `placedOffsets` (`Toy.Fmt.Proofs`, `PlaceProofs.sw`) says the tokens of
+-- printed pieces have falling offsets (`Descending`), so no two share
+-- one.
 
 --| `parsedPrintViews` with the offsets: the same witnesses.
 theorem parsedPrintPlaced ∀ (source: Text) (file: SourceFile) (width: Nat)
@@ -72,103 +63,19 @@ theorem parsedPrintPlaced ∀ (source: Text) (file: SourceFile) (width: Nat)
 -- `Toy.Fmt.Proofs` (`SpellProofs.sw`), where the spelling of expressions
 -- uses them.
 
---| OPEN (D1). Every parsed file is `HeadedFile`: part 13's parser facts
---| (a), (b) and (c), and the blank-line fact (d) this sketch found.
-theorem parseHeaded ∀ (source: Text) (file: SourceFile) (parsed: parse source = Ok file): HeadedFile file := ?
+-- D1 is proved: `parseHeaded` (`Toy.Fmt.Proofs`, `HeadProofs.sw`) says
+-- every parsed file is `HeadedFile`: part 13's parser facts (a), (b) and
+-- (c), and the blank-line fact (d) this sketch found. `bareStatement`
+-- clears the comments above its expression's first token outside
+-- brackets (`Layout.headed`), so (a) and (b) are facts about the tree it
+-- built. See SKETCH.md, "After lane 3".
 
 -- Layer D, the file from its spelling.
 
-def firstBlankOf (isFirst: Bool) (lines: List (Spaced a)): List (Spaced a) := match isFirst with
-  | True => withoutFirstBlank lines
-  | False => lines
-
---| `tokens`, to the end of the file, spell the declarations `lines` that
---| come after the notes in `pending`, and `endTrivia` the comment lines
---| after the last: as `SpelledLines` at column 0, with a function's
---| parameters as the parameter parser reads them.
-def SpelledDeclarations (isFirst: Bool) (pending lines: List (Spaced Declaration))
-    (tokens: List (Parse.Located Token)) (endTrivia: List Trivia):
-    Prop :=
-  match lines with
-    | [] => tokens = [] ∧ firstBlankOf isFirst (spacedNotes DeclarationNote endTrivia).fst = pending
-    | [{ blankBefore, line = DeclarationNote comment }, ..more] =>
-      SpelledDeclarations isFirst (pending ++ [{ blankBefore, line = DeclarationNote comment }]) more tokens endTrivia
-    | [{ blankBefore, line = Value letComments name nameComments equalsComments inner }, ..more] =>
-      ∃ (first: Parse.Located Token) => ∃ (named: Parse.Located Token) => ∃ (equals: Parse.Located Token) =>
-        ∃ (bodyTokens: List (Parse.Located Token)) => ∃ (later: List (Parse.Located Token)) => tokens
-          = [first, named, equals, ..bodyTokens ++ later]
-          ∧ (first.value.startsLine && first.value.column == 0) = True
-          ∧ first.value.kind = Reserved LetKeyword
-          ∧ named.value.kind = Name name
-          ∧ (InStatement 0 first.offset).allows named = True
-          ∧ equals.value.kind = Sign Defines
-          ∧ (InStatement 0 first.offset).allows equals = True
-          ∧ letComments = (InStatement 0 first.offset).comments first
-          ∧ nameComments = (InStatement 0 first.offset).comments named
-          ∧ equalsComments = (InStatement 0 first.offset).comments equals
-          ∧ firstBlankOf isFirst
-            (notedDeclaration first.value.above (Value letComments name nameComments equalsComments inner))
-            = pending ++ [{ blankBefore, line = Value letComments name nameComments equalsComments inner }]
-          ∧ SpelledBody (InStatement 0 first.offset) inner bodyTokens later
-          ∧ SpelledDeclarations False [] more later endTrivia
-    | [
-        {
-          blankBefore,
-          line = Function fnComments name nameComments openComments parameters closeComments equalsComments inner
-        },
-        ..more
-      ] =>
-      ∃ (first: Parse.Located Token) => ∃ (named: Parse.Located Token) => ∃ (open: Parse.Located Token) =>
-        ∃ (close: Parse.Located Token) => ∃ (equals: Parse.Located Token) =>
-          ∃ (parameterTokens: List (Parse.Located Token)) => ∃ (bodyTokens: List (Parse.Located Token)) =>
-            ∃ (later: List (Parse.Located Token)) =>
-              ∃ (listed: Option ((Text, Comments), List (Comments, (Text, Comments)))) => tokens
-                = [first, named, open, ..parameterTokens ++ ([close, equals, ..bodyTokens] ++ later)]
-                ∧ (first.value.startsLine && first.value.column == 0) = True
-                ∧ first.value.kind = Reserved FnKeyword
-                ∧ named.value.kind = Name name
-                ∧ (InStatement 0 first.offset).allows named = True
-                ∧ open.value.kind = Sign OpenParen
-                ∧ (InStatement 0 first.offset).allows open = True
-                ∧ close.value.kind = Sign CloseParen
-                ∧ equals.value.kind = Sign Defines
-                ∧ (InStatement 0 first.offset).allows equals = True
-                ∧ Parse.Runs
-                  (() => Parse.optional parameterList)
-                  parameterTokens
-                  ([close, equals, ..bodyTokens] ++ later)
-                  listed
-                ∧ parameters = parametersOf listed
-                ∧ fnComments = (InStatement 0 first.offset).comments first
-                ∧ nameComments = (InStatement 0 first.offset).comments named
-                ∧ openComments = (InStatement 0 first.offset).comments open
-                ∧ closeComments = Layout.comments InBrackets close
-                ∧ equalsComments = (InStatement 0 first.offset).comments equals
-                ∧ firstBlankOf isFirst
-                  (notedDeclaration first.value.above
-                    (Function fnComments name nameComments openComments parameters closeComments equalsComments inner))
-                  = pending
-                    ++ [
-                      {
-                        blankBefore,
-                        line = Function fnComments name nameComments openComments parameters closeComments
-                            equalsComments inner
-                      }
-                    ]
-                ∧ SpelledBody (InStatement 0 first.offset) inner bodyTokens later
-                ∧ SpelledDeclarations False [] more later endTrivia
-
---| `tokens` and `endTrivia` (both in source order) spell `file`.
-def SpelledFile (file: SourceFile) (tokens: List (Parse.Located Token)) (endTrivia: List Trivia): Prop :=
-  SpelledDeclarations True [] file.declarations tokens endTrivia
-
---| OPEN (D2). The parser reads back what spells a file: `linesRun` for
---| declarations, then `runsSourceFile`.
-theorem runsFileSpelled ∀ (file: SourceFile) (tokens: List (Parse.Located Token)) (endTrivia: List Trivia)
-    (shaped: ShapedFile file)
-    (spelled: SpelledFile file tokens endTrivia):
-    Parse.Runs (() => sourceFile endTrivia) tokens [] file :=
-  ?
+-- D2 is proved: `runsFileSpelled` (`Toy.Syntax.Proofs`, `FileProofs.sw`,
+-- with `SpelledFile` and `SpelledDeclarations`) says the parser reads
+-- back what spells a file: `declarationsRun` for the declarations, then
+-- `runsSourceFile`.
 
 -- D3 and D4 are proved in `Toy.Syntax.Proofs` (`BlockProofs.sw`), with
 -- the statement change they needed: `Spelled`'s arm for `If` asks

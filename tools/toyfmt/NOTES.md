@@ -2673,3 +2673,58 @@ a step before it.
     about the nested parser except what it reads; "it declines here"
     needed the fuel induction copied (`runsExpressionFuel`).
 
+### Part 17 (Fable, 15 Nov 2026): the parser clears first-token comments; D1, E1 and D2 (lane 3 of 6)
+
+A 20-minute lane. Three of the sketch's four goals are discharged:
+`audit Toy`: 1210 theorems, 0 failed, 18 warnings (as before). The
+sketch has one open goal, E2 (`spellsFile`). One program change, the one
+decided for D1: `bareStatement` clears the comments above its
+expression's first token outside brackets (`Layout.headed`). Goldens,
+probes and messages are unchanged (103 tests, run without the cache).
+
+- **D1** (`parseHeaded`, `Fmt/HeadProofs.sw`): every parsed file is
+  `HeadedFile`. `ShapeProofs.sw`'s walk again, with `HeadedExpr
+  (bracketedOf layout)` for `Shaped`. Facts (a) and (b) come from the
+  clearing (`headedBare`) and, for `let` and `fn`, from
+  `Layout.comments` at the statement's own start (`startAbove`); (c)
+  from `bodyFuel` inside brackets reading `inlineBody`; (d) from
+  `withoutFirstBlank` (`unspacedWithout`).
+- **The read-back keeps up**: `runsBareStatement` takes
+  `layout.headed value = value`. `SpelledOne` and `SpelledInline` ask
+  it; a statement's own expression has it from its spelling
+  (`spelledFirstAbove`: the comments above a spelled expression are its
+  first token's; `spelledHeaded`). `Shaped` and `Lexical` survive
+  clearing (`shapedCleared`, `lexicalCleared`).
+- **E1** (`placedOffsets`, `Fmt/PlaceProofs.sw`): each new token is at
+  the length of the text before it, and a piece that isn't spaces has a
+  character, so the newest token's offset is below the text's length and
+  above the one before (`placedBelow`).
+- **D2** (`runsFileSpelled`, `Syntax/FileProofs.sw`): `declarationsRun`
+  is `linesRun` for the file's repetition; no fuel or bound, since
+  `runsValueSpelled` and `runsFunctionSpelled` read each declaration
+  whole.
+
+Counts against the estimates, the new obligation (`layout.headed value
+= value` in `SpelledOne`, met from `HeadedStatement`) and the
+re-estimate (E2 40-45, glue 8-13) are in `SKETCH.md`, "After lane 3".
+
+**Not done:** E2's blocks, lines, declarations and `if` outside
+brackets; the glue.
+
+**Friction** (beyond parts 1 to 16):
+
+81. A constructor pattern with a record pattern as a non-last argument
+    (`Bracketed { above, after } inner close`) is a parse error that
+    names the fix (`({ … })`), but the file's other 400 warnings
+    (`W-ARROW-FORALL`, as in 76) buried it again.
+82. `givesDone _ holds proof` inferred the value from the proof's type
+    where the predicate ignores part of the value (`HeadedExpr` of a
+    `Negate` is its operand's), and failed far from the cause; naming
+    the value fixed it.
+83. Good: 50 theorems cloned from `ShapeProofs.sw` with a different
+    predicate checked after two errors; `placedBelow` and
+    `declarationsRun` (with its 28-deep pattern) checked first time.
+84. `stitchwort test` said "103 from the cache" after `bareStatement`
+    changed (`--no-cache` then ran and passed all 103). Either the
+    cache key misses a changed definition the tests reach, or it is
+    cleverer than I know; worth a look.
