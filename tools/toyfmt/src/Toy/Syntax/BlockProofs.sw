@@ -757,13 +757,14 @@ theorem endsAtReserved ∀ (layout: Layout) (token: Parse.Located Token)
 theorem runsInlineSpelled ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (bound: Nat)
     (nested: ReadsNested self bound)
     (found: Body) (tokens rest: List (Parse.Located Token))
-    (shaped: ShapedInline found)
+    (shaped: ShapedBody found)
     (spelled: SpelledInline layout found tokens)
     (ends: EndsExpression layout rest)
     (small: tokens.length < bound):
     Parse.Runs (() => body self layout) tokens rest found :=
   match found, shaped, spelled with
-    | { statements = [{ blankBefore, line = Bare value }] }, shaped, Both noBlank (Both inline valueSpelled) =>
+    | { statements = [{ blankBefore, line = Bare value }] }, Both shaped none, Both noBlank
+        (Both inline valueSpelled) =>
       match spelledStart layout value tokens shaped valueSpelled with
         | Witness first (Witness others (Both split startKind)) =>
           let runsValue := nested layout value tokens rest shaped valueSpelled ends small
@@ -996,7 +997,7 @@ theorem runsIfExample: Parse.run
         c
       ]
       []
-      (Both rfl (Both rfl rfl))
+      (Both rfl (Both (Both rfl rfl) (Both rfl rfl)))
       (Witness
         (exampleToken (Reserved IfKeyword) 0)
         (Witness
@@ -1034,19 +1035,6 @@ theorem runsIfExample: Parse.run
 def firstBlank (isFirst: Bool) (lines: List (Spaced Statement)): List (Spaced Statement) := match isFirst with
   | True => withoutFirstBlank lines
   | False => lines
-
---| Each expression in the body is of the parser's shape.
-def ShapedBody: Body → Prop
-  | { statements } => ShapedLines statements
-
-def ShapedLines: List (Spaced Statement) → Prop
-  | [] => True
-  | [{ line, .. }, ..rest] => ShapedStatement line ∧ ShapedLines rest
-
-def ShapedStatement: Statement → Prop
-  | Let _ _ _ _ inner => ShapedBody inner
-  | Bare value => Shaped value
-  | StatementNote _ => True
 
 --| `tokens`, followed by `rest`, spell the body `found` after `=` at
 --| `layout`: one expression that doesn't start a line deeper than the

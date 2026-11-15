@@ -87,12 +87,15 @@ def keyword (layout: Layout) (wanted: Keyword): {Parse (Parse.Located Token)} Co
 --| The own-line comments in `trivia` as lines of a list, each knowing if a
 --| blank line was above it, and whether one is above what follows them.
 def spacedNotes (note: Comment → a) (trivia: List Trivia): (List (Spaced a), Bool) :=
-  trivia.foldLeft
-    (([], False): (List (Spaced a), Bool))
-    (((lines, blank) piece =>
-      match piece with
-        | BlankLine => (lines, True)
-        | OwnLine comment => (lines ++ [{ blankBefore = blank, line = note comment }], False)))
+  trivia.foldLeft (([], False): (List (Spaced a), Bool)) (noteStep note)
+
+--| `spacedNotes` after one more piece: a comment is a line, with the blank
+--| line seen before it; a blank line is remembered for the next line.
+-- A function of its own so that proofs (ShapeProofs.sw) can name it.
+def noteStep (note: Comment → a) (found: (List (Spaced a), Bool)) (piece: Trivia): (List (Spaced a), Bool) :=
+  match piece with
+    | BlankLine => (found.fst, True)
+    | OwnLine comment => (found.fst ++ [{ blankBefore = found.snd, line = note comment }], False)
 
 def ownLineComments (trivia: List Trivia): List Comment := trivia.filterMap (match some | OwnLine comment => comment)
 
@@ -174,16 +177,10 @@ def suffixesFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Exp
     | _ => (Stray "", Comments.none)
   match fuel, next with
     | Succ more, (Sign OpenParen, open) =>
-      let call := Parse.optional (() =>
-        skip()
-        let (arguments, close) := items self CloseParen
-        Call target open arguments close)
+      let call := Parse.optional (() => callAfter self target open)
       suffixesAfter more self layout target call
     | Succ more, (Sign Dot, dot) =>
-      let field := Parse.optional (() =>
-        skip()
-        let (named, nameComments) := name layout
-        Field target dot named nameComments)
+      let field := Parse.optional (() => fieldAfter layout target dot)
       suffixesAfter more self layout target field
     | _, _ =>
       Parse.note (Parse.Problem.Expected "'('")
@@ -203,29 +200,47 @@ def suffixesAfter (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Ex
 
 def atom (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout): {Parse (Parse.Located Token)} Expr :=
   match peek() with
-    | Some token if layout.allows token =>
-      let comments := layout.comments token
-      match token.value.kind with
-        | Name text =>
-          skip()
-          Var text comments
-        | Number digits =>
-          skip()
-          NumberLiteral digits comments
-        | Str written =>
-          skip()
-          StringLiteral written comments
-        | Sign OpenParen =>
-          skip()
-          let inner := self InBrackets
-          let close := sign InBrackets "')'" CloseParen
-          Bracketed comments inner close
-        | Sign OpenSquare =>
-          skip()
-          let (found, close) := items self CloseSquare
-          ListLiteral comments found close
-        | _ => Parse.expected "an expression"
+    | Some token if layout.allows token => atomOf self (layout.comments token) token.value.kind
     | _ => Parse.expected "an expression"
+
+--| The atom whose first token is of `kind` and holds `comments`.
+-- A function of its own so that proofs (ShapeProofs.sw) can name it; so
+-- are `callAfter` and `fieldAfter`.
+def atomOf (self: Layout → {Parse (Parse.Located Token)} Expr) (comments: Comments) (kind: Kind):
+    {Parse (Parse.Located Token)} Expr :=
+  match kind with
+    | Name text =>
+      skip()
+      Var text comments
+    | Number digits =>
+      skip()
+      NumberLiteral digits comments
+    | Str written =>
+      skip()
+      StringLiteral written comments
+    | Sign OpenParen =>
+      skip()
+      let inner := self InBrackets
+      let close := sign InBrackets "')'" CloseParen
+      Bracketed comments inner close
+    | Sign OpenSquare =>
+      skip()
+      let (found, close) := items self CloseSquare
+      ListLiteral comments found close
+    | _ => Parse.expected "an expression"
+
+--| A call of `target`, from its `(`, whose comments are `open`.
+def callAfter (self: Layout → {Parse (Parse.Located Token)} Expr) (target: Expr) (open: Comments):
+    {Parse (Parse.Located Token)} Expr :=
+  skip()
+  let (arguments, close) := items self CloseParen
+  Call target open arguments close
+
+--| A field of `target`, from its `.`, whose comments are `dot`.
+def fieldAfter (layout: Layout) (target: Expr) (dot: Comments): {Parse (Parse.Located Token)} Expr :=
+  skip()
+  let (named, nameComments) := name layout
+  Field target dot named nameComments
 
 --| A list's items or a call's arguments, then `closer` and its comments;
 --| the opening bracket has been read.
@@ -365,23 +380,31 @@ def declaration(): {Parse (Parse.Located Token)} List (Spaced Declaration) := ma
 -- are `notedDeclaration` and `fileEnd`.
 def declarationLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse.Located Token)} Declaration :=
   match first.value.kind with
-    | Reserved FnKeyword =>
-      skip()
-      let (declared, nameComments) := name layout
-      let open := sign layout "'('" OpenParen
-      let parameters := parametersOf (Parse.optional parameterList)
-      let close := sign InBrackets "')'" CloseParen
-      let equals := sign layout "'='" Defines
-      Function (layout.comments first) declared nameComments open parameters close equals (body expression layout)
-    | Reserved LetKeyword =>
-      skip()
-      let (declared, nameComments) := name layout
-      let equals := sign layout "'='" Defines
-      Value (layout.comments first) declared nameComments equals (body expression layout)
+    | Reserved FnKeyword => functionLine layout first
+    | Reserved LetKeyword => valueLine layout first
     | _ =>
       Parse.note (Parse.Problem.Literal "fn")
       Parse.note (Parse.Problem.Literal "let")
       Empty.absurd Parse.stop()
+
+--| A function declaration, from its `fn`, the token `first`.
+-- A function of its own so that proofs (ShapeProofs.sw) can name it; so
+-- is `valueLine`.
+def functionLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse.Located Token)} Declaration :=
+  skip()
+  let (declared, nameComments) := name layout
+  let open := sign layout "'('" OpenParen
+  let parameters := parametersOf (Parse.optional parameterList)
+  let close := sign InBrackets "')'" CloseParen
+  let equals := sign layout "'='" Defines
+  Function (layout.comments first) declared nameComments open parameters close equals (body expression layout)
+
+--| A value declaration, from its `let`, the token `first`.
+def valueLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse.Located Token)} Declaration :=
+  skip()
+  let (declared, nameComments) := name layout
+  let equals := sign layout "'='" Defines
+  Value (layout.comments first) declared nameComments equals (body expression layout)
 
 --| A header's parameters: a name, then a comma and a name as long as both
 --| come, as `Parse.sepBy1` reads them but keeping each comma's comments.
