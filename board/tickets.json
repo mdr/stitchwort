@@ -1,5 +1,5 @@
 {
-  "next": 3328,
+  "next": 3329,
   "tickets": [
     {
       "id": 47,
@@ -36724,12 +36724,27 @@
     {
       "id": 3327,
       "title": "[Sonnet] The native-code backend calls prims::eval without charging steps, so a huge Text.repeat or Array.replicate count can hit a Rust capacity-overflow panic there (the machine charges first) (SW-3273 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Found in SW-3273. Expected: 1 h (Sonnet).",
+      "body": "Found in SW-3273. charge_prim in native_abi.rs (sw_prim and the apply path); n1.rs spills steps only around those two ops. Model result: Sonnet, worked, ~10 min (est. 60). Filed SW-3328.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": [
+        "83d0944d771a997aee4e277c993af6465ebcd524"
+      ]
+    },
+    {
+      "id": 3328,
+      "title": "[Sonnet] Native code applies no number_words charge (the machine's number_cost for big-number ops), so with number_words on native and machine step counts differ (SW-3327 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
