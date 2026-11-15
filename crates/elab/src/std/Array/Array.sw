@@ -63,12 +63,6 @@ def Array.get (array: Array a) (index: Nat): Option a := List.get array.toList i
 --| The element at `index`, or `fallback` past the end. O(1) when run.
 def Array.getOr (array: Array a) (index: Nat) (fallback: a): a := List.getOr array.toList index fallback
 
---| The element at `index` of a list longer than `index`: no fallback is needed.
-@[tailrec]
-def List.getLt: (xs: List a) → (index: Nat) → [auto ok: index < List.length xs] → a
-  | [x, ..xs], Zero => x
-  | [x, ..xs], Succ index => List.getLt xs index [ok := ok]
-
 --| The element at an index in range, with the proof found by `auto` or passed
 --| by name: `array.getLt 2` when `array` is known to have more than 2
 --| elements. O(1) when run.
@@ -180,14 +174,6 @@ theorem Array.fromListToList ∀ (array: Array a): Array.fromList array.toList =
 
 --| The size is the list's length.
 theorem Array.sizeToList ∀ (array: Array a): array.size = List.length array.toList := rfl
-
---| `getLt` finds what `get` finds.
-theorem List.getLtGet ∀ (xs: List a) (i: Nat)
-    (ok: i < List.length xs):
-    List.get xs i = Some (List.getLt xs i [ok := ok]) :=
-  match xs, i with
-    | [x, ..xs], Zero => rfl
-    | [x, ..xs], Succ i => List.getLtGet xs i ok
 
 --| `getLt` finds what `get` finds.
 theorem Array.getLtGet ∀ (array: Array a) (i: Nat)

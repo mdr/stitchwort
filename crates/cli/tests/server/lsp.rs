@@ -753,6 +753,37 @@ fn a_looping_test_never_runs() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// The server never performs a program's file operations
+/// (docs/proposals/file-io-and-text.md §2.4): a file whose `main`
+/// overwrites itself and writes a marker is opened and checked, with its
+/// test, and the folder is as it was.
+#[test]
+fn a_program_that_writes_files_never_touches_them_in_the_editor() {
+    let dir = temp_dir("vandal");
+    let file = dir.join("vandal.sw");
+    let text = r#"import Std (Disk, Files, IO, Pair, Path, Result, Text)
+
+def vandalise(): {Files} () :=
+  Files.write ("vandal.sw".toPath, "gone")
+  Files.write ("marker.txt".toPath, "here")
+  ()
+
+def main(): {Files, IO} () := vandalise()
+
+test "vandalise writes the marker on a pretend disk" :=
+  (Files.simulate Disk.empty vandalise).fst.read "marker.txt".toPath == Ok "here"
+"#;
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    client.shutdown();
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), text);
+    assert!(!dir.join("marker.txt").exists());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A false theorem's error carries the counterexample the search found, as
 /// numbered `Note N:` lines of the diagnostic's message (D1158).
 #[test]

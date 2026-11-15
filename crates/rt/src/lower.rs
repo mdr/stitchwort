@@ -27,8 +27,8 @@ use crate::erasure::{
 use crate::fusion::StateFusion;
 use crate::hoist::SigMaps;
 use crate::ir::{
-    Arm, Body, CtorInfo, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MainRow,
-    MatchKind, PrimOp, Program, Reuse, Shapes, Slot, TypeId, TypeInfo,
+    Arm, Body, CtorInfo, Expr, FileShapes, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit,
+    MainRow, MatchKind, PrimOp, Program, Reuse, Shapes, Slot, TypeId, TypeInfo,
 };
 use crate::natives::{
     ArrayNative, FinNative, FloatPrim, IntNative, Representation, TextNative, bind_array,
@@ -46,14 +46,19 @@ fn internal(message: impl Into<String>) -> Diagnostic {
 }
 
 /// Lowers the program that runs `main`: the closed term of type
-/// `{IO, Partial} ()` (`row` [`MainRow::Io`]) or `{IO, Fail, Partial} ()`
-/// ([`MainRow::FailIo`]) that `stitchwort run` runs (`Main`'s term and row
-/// in the driver), with every definition it uses. Uses at most
+/// `{IO, Partial} ()`, with `Fail` and `Files` in the row as `row` says
+/// ([`MainRow`]), that `stitchwort run` runs (`Main`'s term and row in the
+/// driver), with every definition it uses. Uses at most
 /// `limits.stack` bytes of stack: a definition nested too deeply for that
 /// is an `E-RESOURCE` error.
 pub fn lower_main(g: &Ev, limits: Limits, main: &Term, row: MainRow) -> Result<Program> {
-    if row == MainRow::FailIo && g.env.registry().loaded_data(Builtin::Fail).is_none() {
+    if row.fail && g.env.registry().loaded_data(Builtin::Fail).is_none() {
         return Err(internal("a `main` that may fail, with `Fail` not loaded"));
+    }
+    if row.files && g.env.registry().loaded_data(Builtin::Files).is_none() {
+        return Err(internal(
+            "a `main` that uses files, with `Files` not loaded",
+        ));
     }
     let mut program = lower_program(g, limits, main)?;
     program.main_row = row;
@@ -189,7 +194,7 @@ fn lower_roots(g: &Ev, limits: Limits, roots: Vec<DefId>, entry: &Term) -> Resul
         lambdas: cx.lambdas,
         types: cx.types,
         entry,
-        main_row: MainRow::Io,
+        main_row: MainRow::IO,
         shapes: shapes(g)?,
     };
     optimize(&mut program, types);
@@ -273,10 +278,47 @@ fn shapes(g: &Ev) -> Result<Shapes> {
         console_record: nth(Builtin::Console, 0, 4)?,
         random_seed: ctor(Builtin::RandomSeed, 1)?,
         args: ctor(Builtin::Args, 1)?,
+        print_error: ctor(Builtin::PrintError, 1)?,
         stop: match g.env.registry().loaded_data(Builtin::Fail) {
             Some(d) => shape(g, d, 0, 1)?,
             None => u32::MAX,
         },
+        files: match g.env.registry().loaded_data(Builtin::Files) {
+            Some(_) => file_shapes(g)?,
+            None => FileShapes::NONE,
+        },
+    })
+}
+
+/// [`FileShapes`], once `Files`' library file has loaded.
+fn file_shapes(g: &Ev) -> Result<FileShapes> {
+    let missing = |b: Builtin| internal(format!("the library doesn't declare `{}`", b.name()));
+    let ctor = |b: Builtin, fields: usize| -> Result<u32> {
+        let (d, c) = g.env.registry().ctor(b).ok_or_else(|| missing(b))?;
+        shape(g, d, c, fields)
+    };
+    let record = |b: Builtin, fields: usize| -> Result<u32> {
+        let d = g.env.registry().data(b).ok_or_else(|| missing(b))?;
+        shape(g, d, 0, fields)
+    };
+    Ok(FileShapes {
+        read: ctor(Builtin::FilesRead, 1)?,
+        write: ctor(Builtin::FilesWrite, 1)?,
+        list: ctor(Builtin::FilesList, 1)?,
+        info: ctor(Builtin::FilesInfo, 1)?,
+        ok: ctor(Builtin::ResultOk, 1)?,
+        err: ctor(Builtin::ResultErr, 1)?,
+        file: ctor(Builtin::FileKindFile, 0)?,
+        folder: ctor(Builtin::FileKindFolder, 0)?,
+        other: ctor(Builtin::FileKindOther, 0)?,
+        entry: record(Builtin::FileEntry, 2)?,
+        info_record: record(Builtin::FileInfo, 2)?,
+        not_found: ctor(Builtin::FileNotFound, 1)?,
+        not_permitted: ctor(Builtin::FileNotPermitted, 1)?,
+        not_a_file: ctor(Builtin::FileNotAFile, 1)?,
+        not_a_folder: ctor(Builtin::FileNotAFolder, 1)?,
+        not_text: ctor(Builtin::FileNotText, 1)?,
+        other_error: ctor(Builtin::FileOtherError, 2)?,
     })
 }
 

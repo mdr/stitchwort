@@ -206,6 +206,12 @@ def Text.joinWith: (texts: List Text) → (separator: Text) → Text
   | [text, ..texts], separator =>
     MkText (Text.joinTextChars (Text.toList separator) (Text.toList text) (Text.charListsOf texts))
 
+--| The texts one after another: `Text.concat ["ab", "", "c"]` is `"abc"`. When
+--| a program runs it makes one text of the total length, so joining many
+--| pieces once is linear where `++` in a loop copies what came before each
+--| time ([`Text.concatToList`]).
+def Text.concat (texts: List Text): Text := Text.joinWith texts ""
+
 --| `Text.joinWith` as a function of the list, so it pipes:
 --| `[1, 2].map (.toText) |> .joinWith ", "` is `"1, 2"`.
 def List.joinWith (texts: List Text) (separator: Text): Text := Text.joinWith texts separator

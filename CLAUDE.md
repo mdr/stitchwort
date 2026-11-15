@@ -302,6 +302,10 @@ of work to fit it:
   `games/rogue` belongs in std (Matt, 7 Nov 2026: "a really rich standard
   library with a lot of proven facts"), and the same few lines in two AoC
   days belong in `aoc/src/Aoc/Common` with a lemma (D2381).
+- Every bug fix carries a test: the smallest one (a unit test, an example
+  file, a snapshot) that fails before the fix and passes after; show it
+  failing without the fix. If a test already caught the bug, name that test
+  in the report instead (D3608, Matt, 15 Nov 2026: "Yes, yes.").
 - Before committing, run `stitchwort fmt` on the `.sw` files you touched,
   plus `cargo fmt` and clippy.
 

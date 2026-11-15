@@ -70,6 +70,7 @@ use crate::effect::{EffectCounts, EffectOp, Handler, Resume};
 use crate::ir::{MainRow, PrimOp, Program, Shapes};
 use crate::linked::{Kind, Outline};
 use crate::shared::{Limits, NumTable};
+use crate::text::Text;
 use crate::value::{Fields, Fun, Value};
 
 // ------------------------------------------------------------ the layout
@@ -105,8 +106,12 @@ pub const VALUE_SIZE: usize = 24;
 pub const CTOR_TAG_AT: i32 = 4;
 /// Where a number, or an `Rc`'s address, is.
 pub const PAYLOAD_AT: i32 = 8;
-/// Where a slice's length is (`Value::Data`'s cell, `Value::Text`).
+/// Where a slice's length is (`Value::Data`'s cell).
 pub const LEN_AT: i32 = 16;
+/// Where a text's start and length are, each a `u32` count of characters
+/// into its buffer, whose `Rc` address is at [`PAYLOAD_AT`].
+pub const TEXT_START_AT: i32 = 16;
+pub const TEXT_LEN_AT: i32 = 20;
 /// In an `Rc`'s allocation: the strong and weak counts, then the value.
 pub const STRONG_AT: i32 = 0;
 /// Invariant: no `Weak` is ever made to a runtime value, so the weak count
@@ -136,9 +141,9 @@ fn words(v: &Value) -> [u64; 3] {
     // SAFETY: reads within the 24 bytes of `v`, and only bytes its variant
     // initialises: the tag byte always, a constructor's `u32` tag at bytes
     // 4-7 for `Tag` and `Data`, the payload at bytes 8-15 for every variant
-    // that has one, the length at bytes 16-23 for `Data` and `Text`. The
-    // padding (bytes 1-3, and 4-7 elsewhere) is never read; the words it
-    // would fill stay 0.
+    // that has one, the length at bytes 16-23 for `Data`, and the start and
+    // length at bytes 16-19 and 20-23 for `Text`. The padding (bytes 1-3,
+    // and 4-7 elsewhere) is never read; the words it would fill stay 0.
     unsafe {
         let mut out = [0u64; 3];
         out[0] = u64::from(*p);
@@ -250,7 +255,7 @@ fn probe() -> Result<(), String> {
             Value::int(num_bigint::BigInt::from(i64::MIN) - 1),
             TAG_BIG_INT,
         ),
-        (Value::Text("abc".into()), TAG_TEXT),
+        (Value::Text(Text::from("abc")), TAG_TEXT),
         (Value::float(1.5), TAG_FLOAT),
         (Value::Tag(3), TAG_TAG),
         (Value::data(5, [Value::Nat(1), Value::Nat(2)]), TAG_DATA),
@@ -296,12 +301,15 @@ fn probe() -> Result<(), String> {
         counts_at(allocation(&data)) == (1, 1),
         "a cell's counts after a drop",
     )?;
-    let text: Rc<str> = "hello".into();
-    let tv = Value::Text(text.clone());
+    let text = Text::from("hello");
+    let tv = Value::Text(text.clone().slice(1, 4));
     let tw = words(&tv);
+    let half = |at: i32| (tw[at as usize / 8] >> (at % 8 * 8)) as u32;
     check(
-        tw[1] + RC_VALUE_AT as u64 == Rc::as_ptr(&text).cast::<u8>() as u64 && tw[2] == 5,
-        "a text's address and length",
+        tw[1] + RC_VALUE_AT as u64 == text.units_address() as u64
+            && half(TEXT_START_AT) == 1
+            && half(TEXT_LEN_AT) == 3,
+        "a text's buffer address, start and length",
     )?;
     check(counts_at(allocation(&tv)).0 == 2, "a text's count")?;
     // A spare capacity, so the capacity word can't be mistaken for the length.
@@ -2904,11 +2912,11 @@ pub unsafe extern "C" fn sw_eff_state(
 }
 
 /// For the compiled `Text.fold` (stage NO1 of docs/proposals/native-only.md),
-/// a leaf: the last character of the text at `t` (borrowed) before byte
+/// a leaf: the last character of the text at `t` (borrowed) before position
 /// `end` (`u64::MAX` for the whole text), as the machine's `fold_step`
 /// takes it, written to `out` as a `Char` (`prims::char_value`); returns
-/// where it starts, the next call's `end`. `u64::MAX`, with nothing
-/// written, if there is none left.
+/// its position, the next call's `end`. `u64::MAX`, with nothing written,
+/// if there is none left.
 ///
 /// # Safety
 /// `context` is the running context; `t` points at a `Text`; `out` at space
@@ -2933,12 +2941,12 @@ pub unsafe extern "C" fn sw_text_last(
     } else {
         end as usize
     };
-    match text[..end].chars().next_back() {
+    match end.checked_sub(1).and_then(|i| Some((i, text.get(i)?))) {
         None => u64::MAX,
-        Some(c) => {
+        Some((i, c)) => {
             // SAFETY: the caller's contract.
             unsafe { out.write(crate::prims::char_value(shapes, c)) };
-            (end - c.len_utf8()) as u64
+            i as u64
         }
     }
 }

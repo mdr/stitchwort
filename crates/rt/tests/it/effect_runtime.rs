@@ -262,7 +262,7 @@ fn every_shape_runs_at_a_million_elements() {
         let p = &export.program;
         let (result, _) = export.call(limits, vec![Value::Nat(n), list(p, n)]);
         match result.expect("failsLast") {
-            Value::Data(1, f) => assert!(matches!(&f[0], Value::Text(t) if &**t == "last")),
+            Value::Data(1, f) => assert!(matches!(&f[0], Value::Text(t) if t.to_str() == "last")),
             other => panic!("failsLast: {other:?}"),
         }
     });
@@ -562,7 +562,7 @@ fn run_lines_agree_with_the_reference_evaluator() {
                     .ctor(stitchwort_core::registry::Builtin::MkPair)
                     .expect("pairs");
                 let entry = Term::Ctor(pair, 0, vec![Rc::new(term), Rc::new(expected)]);
-                let program = lower_main(g, session.elab.options.limits, &entry, MainRow::Io)
+                let program = lower_main(g, session.elab.options.limits, &entry, MainRow::IO)
                     .unwrap_or_else(|e| panic!("lowering `{source}`: {e:?}"));
                 let mut m = Machine::new(&program, Limits::from_core(session.elab.options.limits));
                 let got = m.entry().unwrap_or_else(|e| panic!("`{source}`: {e}"));

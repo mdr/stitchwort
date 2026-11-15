@@ -302,7 +302,7 @@ test "toIO: the size, unknown on a pipe" :=
 --| order. Like the real host, `keysMode` does nothing when the mode is already
 --| as asked, and `print` leaves keys mode first. There are no lines to read:
 --| `readLine` gives `None`, `readAll` "", `randomSeed` 0, and `args` no
---| arguments.
+--| arguments. What `printError` writes isn't recorded.
 -- (D1260)
 def Terminal.scriptedHost (console: Console) (reads: List (List Nat)) (prog: () → {IO | e} a): {e} Pair (List Text) a :=
   let run: List (List Nat) → Bool → List Text → {e} Pair (List Text) a :=
@@ -323,6 +323,7 @@ def Terminal.scriptedHost (console: Console) (reads: List (List Nat)) (prog: () 
       | IO.write text, resume => readsLeft keysOn written => resume () readsLeft keysOn [text, ..written]
       | IO.randomSeed u, resume => readsLeft keysOn written => resume 0 readsLeft keysOn written
       | IO.args u, resume => readsLeft keysOn written => resume [] readsLeft keysOn written
+      | IO.printError text, resume => readsLeft keysOn written => resume () readsLeft keysOn written
   run reads False []
 
 --| A terminal of 20 columns and 2 rows for the tests below.

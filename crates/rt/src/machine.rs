@@ -84,11 +84,11 @@ struct EffRet {
     ret: Ret,
 }
 
-/// A `Text.fold f z t` in progress: `f` is applied to each character of
-/// `t[..end]` and the accumulator, from the last.
+/// A `Text.fold f z t` in progress: `f` is applied to each of the first
+/// `end` characters of `t` and the accumulator, from the last.
 struct Fold {
     f: Value,
-    text: Rc<str>,
+    text: crate::text::Text,
     end: usize,
     ret: Ret,
 }
@@ -756,10 +756,10 @@ impl State {
         acc: Value,
         mut fold: Fold,
     ) -> Result<Pending> {
-        let Some(c) = fold.text[..fold.end].chars().next_back() else {
+        let Some(c) = fold.end.checked_sub(1).and_then(|i| fold.text.get(i)) else {
             return Ok(Some((acc, fold.ret)));
         };
-        fold.end -= c.len_utf8();
+        fold.end -= 1;
         let f = fold.f.clone();
         self.regs.push(prims::char_value(&program.shapes, c));
         self.regs.push(acc);
@@ -1660,7 +1660,7 @@ fn still_owned(v: &Value) {
         Value::Array(a) => Rc::strong_count(a),
         Value::BigNat(n) => Rc::strong_count(n),
         Value::BigInt(i) => Rc::strong_count(i),
-        Value::Text(t) => Rc::strong_count(t),
+        Value::Text(t) => t.references(),
         _ => usize::MAX,
     };
     assert!(

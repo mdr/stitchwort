@@ -330,7 +330,7 @@ The rest of the library (`findAll`, `grid`, `Parse.token` (spaces around a parse
 
 ## `IO` and `main`
 
-`IO`'s main operations are `IO.print` (writes a line), `IO.readLine()` (the next line, or `None` at the end of the input) and `IO.readAll()` (the rest of the input). `IO.readAllLines()` is the input as a list of lines. `IO.args()` gives the program's arguments (those after `--` in `stitchwort run Main.main -- a b`), `IO.randomSeed()` a fresh number each run, and a few lower-level operations (`write`, `console`, `keysMode`, `readBytes`) are for programs that drive a terminal ([syntax.md, IO](../syntax.md#io)).
+`IO`'s main operations are `IO.print` (writes a line), `IO.readLine()` (the next line, or `None` at the end of the input) and `IO.readAll()` (the rest of the input). `IO.readAllLines()` is the input as a list of lines. `IO.args()` gives the program's arguments (those after `--` in `stitchwort run Main.main -- a b`), `IO.randomSeed()` a fresh number each run, `IO.printError` writes a line on standard error (for a warning that shouldn't mix with the output; `IO.simulate` drops it), and a few lower-level operations (`write`, `console`, `keysMode`, `readBytes`) are for programs that drive a terminal ([syntax.md, IO](../syntax.md#io)).
 
 `main` has the type `{IO} ()`, and may also be `{IO, Fail} ()`: a failure that reaches the top is printed to standard error as `error: …`, after whatever was printed before it, and the exit status is 1. The shop from [chapter 6](06-namespaces-and-library.md), on an order it can't parse:
 
@@ -364,8 +364,64 @@ A handler still can't go around partial code, so `Fail.toResult` can't catch a f
 
 To test code that performs `IO`, handle it: `IO.simulate` runs a computation against a list of input lines and returns what it printed ([chapter 9](09-testing.md)).
 
+## Files
+
+`Files` is the ability for the disk, separate from `IO`: a function whose row says `{IO}` can't touch a file, and one that says `{Files}` can't print. It has four operations, each on a whole file or one folder, and each returns a `Result`, so a missing file is a value to handle rather than a crash:
+
+- `Files.read path` gives the file's text (`NotText` if its bytes aren't UTF-8);
+- `Files.write (path, text)` replaces the file whole, or creates it, but never creates a folder. The text goes to a temporary file that is then renamed over the old one, so a program stopped halfway never leaves a half-written file;
+- `Files.list path` gives a folder's entries (`Entry`: a `name` and a `kind`, `File`, `Folder` or `Other`), sorted by name;
+- `Files.info path` gives a `FileInfo`: the `kind` and the `size` in bytes.
+
+A `Path` is a small record of its parts, not a bare `Text`: `"notes/today.txt".toPath` (or `Path.parse`) makes one, `folder.child "today.txt"` puts a name inside a folder (and `folder.childPath other` a relative path), and `path.name`, `path.parent`, `path.extension` and `path.show` take it apart. `/` separates parts on every system, and a path that doesn't start with `/` is relative to the folder the program was started in. A failure is a `FileError`: `NotFound`, `NotPermitted`, `NotAFile` (a folder where a file was wanted), `NotAFolder` (a file where a folder was wanted), `NotText`, or `OtherError` with the system's own message. Each holds its path, and `${error}` says what went wrong for people.
+
+`main` may have `Files` in its row beside `IO` (and `Fail` and `Partial`), and then `stitchwort run` and a built executable perform it on the real disk, with your permissions, as a program in any other language would. Under `--js` it isn't supported yet. This one counts the lines of the files it's given:
+
+<!-- snippet: files.sw#count -->
+```stitchwort
+def lineCount (path: Path): {Files} Result Nat FileError := Files.read path |> .map (text => text.lines.length)
+
+def main(): {Files, IO} () := IO.args().forEach (name =>
+  match lineCount name.toPath with
+    | Ok count => IO.print "${name}: ${count} lines"
+    | Err error => IO.printError "${error}")
+```
+
+<!-- output: run files.sw -- hello.input missing.txt -->
+```text
+hello.input: 2 lines
+missing.txt: no such file or folder
+```
+
+Checking, testing and the editor never touch the disk: they treat `Files` as data, as they do `IO`, so checking someone else's project is safe whatever it says. To test file code, run it on a pretend disk: `Files.simulate disk prog` runs `prog` against a `Disk` held in memory (`Disk.fromList` of paths and texts, with the folders they're in; `Disk.empty`), and gives the disk afterwards with the result. Here a tool tidies a file in place, and the tests check what it did to the disk:
+
+<!-- snippet: files.sw#tidy -->
+```stitchwort
+-- Each line without the spaces at its ends; written back only if that
+-- changes anything. `Ok True` if it did.
+def tidy (path: Path): {Files} Result Bool FileError := match Files.read path with
+  | Err error => Err error
+  | Ok text =>
+    let tidied := text.lines.map (line => line.trim) |> .joinWith "\n"
+    if tidied == text then Ok False else Files.write (path, tidied) |> .map (done => True)
+
+def notes: Path := "docs".toPath.child "notes.txt"
+
+test "tidy rewrites an untidy file" :=
+  let (disk, changed) := Files.simulate (Disk.fromList [(notes, " a \nb")]) (() => tidy notes)
+  changed == Ok True ∧ disk.read notes == Ok "a\nb"
+
+test "tidy leaves a tidy file alone" :=
+  let tidyDisk := Disk.fromList [(notes, "a\nb")]
+  Files.simulate tidyDisk (() => tidy notes) == (tidyDisk, Ok False)
+
+test "tidy of a missing file" := (Files.simulate Disk.empty (() => tidy notes)).snd == Err (NotFound notes)
+```
+
+The pretend disk is ordinary data, so proofs are about it too: the library's laws (`Files.simulateRead`, `Files.simulateWriteOk` and the rest) say what each operation does to a `Disk`, by computing. A test of a program that uses both abilities nests the handlers: `IO.simulate input (() => Files.simulate disk prog)`.
+
 ## How it runs
 
 Before the kernel sees a program, a computation with abilities is translated into ordinary data: a tree of operations, each with the rest of the computation as a function ([core.md, Abilities](../core.md#abilities)). A handler is a fold over that tree, so the kernel's usual termination check is what shows that handlers finish. A use of an effect-polymorphic function with a pure callback is plain pure code. A pure function stays pure: a handler used inside it doesn't show in its type, so `collectLog` can be called from a test.
 
-More: [syntax.md, Abilities](../syntax.md#abilities), [`Abort`](../syntax.md#abort), [`Fail` and `Result`](../syntax.md#fail-and-result), [`Each`](../syntax.md#each), and the design notes [abilities.md](../proposals/abilities.md), [effect-polymorphism.md](../proposals/effect-polymorphism.md), [errors.md](../proposals/errors.md) and [parser-combinators.md](../proposals/parser-combinators.md).
+More: [syntax.md, Abilities](../syntax.md#abilities), [`Abort`](../syntax.md#abort), [`Fail` and `Result`](../syntax.md#fail-and-result), [`Each`](../syntax.md#each), [`Files`](../syntax.md#files), and the design notes [file-io-and-text.md](../proposals/file-io-and-text.md), [abilities.md](../proposals/abilities.md), [effect-polymorphism.md](../proposals/effect-polymorphism.md), [errors.md](../proposals/errors.md) and [parser-combinators.md](../proposals/parser-combinators.md).

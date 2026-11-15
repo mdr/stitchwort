@@ -140,9 +140,12 @@ fn build(dir: &Path, args: &[&str]) {
     assert_eq!(text(&output.stderr), "");
 }
 
-/// The executable `exe` on `input`.
+/// The executable `exe` on `input`, in its own folder, where `stitchwort`
+/// runs too.
 fn run_executable(exe: &Path, input: &[u8]) -> Output {
-    run_with_input(Command::new(exe), input)
+    let mut command = Command::new(exe);
+    command.current_dir(exe.parent().expect("in a folder"));
+    run_with_input(command, input)
 }
 
 /// Writes `source` as `name` in `dir`, builds it, and checks that the
@@ -199,6 +202,50 @@ fn an_io_program_runs_as_it_does_under_run() {
         "got one\ngot two\ngot three\ndone, 0 left\n"
     );
     assert_eq!(first.status.code(), Some(0));
+}
+
+/// A `main` with `Files` performs it in a built executable as under `run`,
+/// on the folder it is started in; `IO.printError` writes to standard error.
+#[test]
+fn a_files_program_runs_as_it_does_under_run() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("files");
+    let source = r#"import Std (FileError, Files, IO, Path, Result, Text)
+
+def say (result: Result Text FileError): {IO} () := match result with
+  | Ok text => IO.print text
+  | Err error => IO.printError "${error}"
+
+def main(): {Files, IO} () :=
+  Files.write ("out.txt".toPath, "written é")
+  say (Files.read "out.txt".toPath)
+  say (Files.read "missing.txt".toPath)
+"#;
+    let (_, first) = same_as_run(&dir, "files.sw", source, &[b""]);
+    assert_eq!(text(&first.stdout), "written é\n");
+    assert_eq!(text(&first.stderr), "missing.txt: no such file or folder\n");
+    // The executable writes in the folder it is started in.
+    std::fs::remove_file(dir.join("out.txt")).expect("the runs wrote it");
+    run_executable(&dir.join("program"), b"");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("out.txt")).expect("the executable wrote it"),
+        "written é"
+    );
+}
+
+/// `IO`, `Fail`, `Files` and `Partial` together, in a built executable as
+/// under `run`.
+#[test]
+fn a_main_with_every_ability_runs_as_it_does_under_run() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("every-ability");
+    let (_, first) = same_as_run(&dir, "every.sw", crate::files::EVERY_ABILITY, &[b""]);
+    assert_eq!(first.status.code(), Some(1));
+    assert_eq!(text(&first.stderr), "counting\nerror: lift-off failed\n");
 }
 
 /// `IO.args` gives an executable's arguments after its name, as `run` gives

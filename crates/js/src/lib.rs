@@ -2331,13 +2331,14 @@ impl<'g> Gen<'g> {
         let Representation {
             nat,
             text,
-            text_natives,
+            mut text_natives,
             int,
             int_natives,
             float,
             float_natives,
         } = Representation::new(g, options.native_text, options.native_int)
             .map_err(Diagnostic::from)?;
+        text_natives.retain(|_, op| op.in_js());
         // All or nothing, and loud, as on the machine: an array without its
         // natives would run each O(1) operation as an O(n) one on its list.
         let arrays = bind_array(g).map_err(Diagnostic::from)?;
@@ -5854,6 +5855,13 @@ fn array_native_js(op: ArrayNative) -> &'static str {
 /// `MkPair`'s `fst` and `snd`).
 fn text_native_js(op: TextNative) -> &'static str {
     match op {
+        TextNative::TextGet
+        | TextNative::TextGetOr
+        | TextNative::TextGetLt
+        | TextNative::TextSlice
+        | TextNative::TextConcat => {
+            unreachable!("internal error: {op:?} has no JS (`TextNative::in_js`)")
+        }
         TextNative::TextToList => "charsOfText",
         TextNative::TextFromList => "textOfChars",
         TextNative::TextAppend => "(a) => (b) => a + b",

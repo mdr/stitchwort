@@ -840,8 +840,8 @@ impl<'a> Compiler<'a> {
                 let v = match lit {
                     Lit::Nat(n) => Value::nat(n.clone()),
                     Lit::Int(n) => Value::int(n.clone()),
-                    Lit::Text(t) => Value::Text(t.clone()),
-                    Lit::Chars(t) => crate::prims::chars(&self.program.shapes, t),
+                    Lit::Text(t) => Value::Text(crate::text::Text::from(&**t)),
+                    Lit::Chars(t) => crate::prims::str_chars(&self.program.shapes, t),
                     Lit::Float(bits) => Value::float(f64::from_bits(*bits)),
                 };
                 let k = self.constant(v);

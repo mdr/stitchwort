@@ -8,6 +8,7 @@ mod aoc_answers;
 mod build;
 mod effect_runtime;
 mod examples;
+mod files;
 mod float;
 mod float_paths;
 #[cfg(unix)]

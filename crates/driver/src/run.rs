@@ -28,7 +28,9 @@ use stitchwort_core::value::{eval, expand_step, force};
 use stitchwort_core::{DataId, ResourceError, Term, Value, native};
 use stitchwort_rt::MainRow;
 pub use stitchwort_rt::host::{ConsoleInfo, NoTerminal, Terminal};
-use stitchwort_rt::host::{args, random_seed, read_all, read_bytes, read_line, write_text};
+use stitchwort_rt::host::{
+    args, print_error, random_seed, read_all, read_bytes, read_line, write_text,
+};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::driver::Session;
@@ -40,14 +42,14 @@ pub const MAIN_TYPE: &str = "() -> {IO, Fail, Partial} ()";
 
 /// A program's `main`, ready to run.
 pub struct Main {
-    /// `main ()`, as a computation in the row `{IO, Partial}`, or
-    /// `{IO, Fail, Partial}` for a `main` that may fail.
+    /// `main ()`, as a computation in the row `{IO, Partial}`, with `Fail`
+    /// and `Files` as [`Main::row`] says.
     term: Term,
     /// Where `main` is defined.
     pub span: Span,
     /// Whether `main`'s own type is `Partial`.
     pub partial: bool,
-    /// The row `term` is in: [`MainRow::FailIo`] for a `main` that may fail.
+    /// The row `term` is in: which of `Fail` and `Files` it has beside `IO`.
     pub row: MainRow,
 }
 
@@ -72,6 +74,10 @@ pub enum Event {
     RandomSeed(u64),
     /// `args`, and what it gave.
     Args(Vec<String>),
+    /// `printError` of this payload.
+    PrintError(String),
+    /// A `Files` operation on this path.
+    File(std::path::PathBuf),
     /// A tick: one recursive call.
     Tick,
 }
@@ -110,28 +116,35 @@ impl Main {
     }
 }
 
-/// The calls of `name` to try, in order. The lambda lets a pure or total
-/// `main` through: calling one from code in a row with more abilities is
-/// allowed. The library's names are written from `Std`, which always means
-/// the library, whatever the program declares.
+/// The calls of `name` to try, in order, each with the row it is in. The
+/// lambda lets a pure or total `main` through: calling one from code in a
+/// row with more abilities is allowed. The library's names are written from
+/// `Std`, which always means the library, whatever the program declares.
 ///
-/// 1. `name ()` in `{IO, Partial}`, for a `name` with abilities among `IO`
-///    and `Partial`.
-/// 2. `name ()` in `{IO, Fail, Partial}` ([`MAIN_TYPE`]), for a `name` that
-///    may also fail. No handler goes around it: the runner
-///    performs `Fail.stop msg` itself, as it performs `IO.print`, and stops
-///    with [`RunError::Failed`] (docs/proposals/partial-stage-2.md §3).
-///
-/// The first is tried first so that a `main` without `Fail` runs in the row
-/// it always has. The reference evaluator, `stitchwort-rt` and the JS runner
-/// each take an operation that reaches the bottom of the run apart in
-/// either row (`{IO}` is `Plus IO NoOp`, and `{Fail, IO}` is
-/// `Plus Fail (Plus IO NoOp)`).
-fn main_calls(name: &str) -> [String; 2] {
-    [
-        format!("((u => {name} ()) : () -> {{Std.IO, Partial}} ()) ()"),
-        format!("((u => {name} ()) : () -> {{Std.IO, Std.Fail, Partial}} ()) ()"),
-    ]
+/// Each is `name ()` in `{IO, Partial}` with some of `Fail` and `Files`
+/// added ([`MainRow::ALL`]), the smallest first, so that a `main` runs in
+/// the smallest row it fits. No handler goes around it: the runner performs
+/// `Fail.stop msg` itself, as it performs `IO.print`, and stops with
+/// [`RunError::Failed`] (docs/proposals/partial-stage-2.md §3); it performs
+/// `Files`' operations on the real disk (docs/proposals/file-io-and-text.md
+/// §2). The reference evaluator, `stitchwort-rt` and the JS runner each
+/// take an operation that reaches the bottom of the run apart by the row
+/// ([`MainRow::layout`]).
+fn main_calls(name: &str) -> Vec<(String, MainRow)> {
+    MainRow::ALL
+        .iter()
+        .map(|&row| {
+            let abilities: Vec<String> =
+                row.abilities().iter().map(|a| format!("Std.{a}")).collect();
+            (
+                format!(
+                    "((u => {name} ()) : () -> {{{}, Partial}} ()) ()",
+                    abilities.join(", ")
+                ),
+                row,
+            )
+        })
+        .collect()
 }
 
 /// Why a call of a definition to run didn't check.
@@ -165,11 +178,11 @@ impl Session {
             Err(CallError::Other(d)) => Err(d),
             Err(CallError::Type { span, ty }) => Err(Diagnostic::error(
                 "E-MAIN-TYPE",
-                "`main` must have type `() -> {IO} ()`, `() -> {IO, Partial} ()`, `() -> {IO, Fail} ()`, or `() -> {IO, Fail, Partial} ()`",
+                "`main` must have type `() -> {IO} ()`, with any of `Fail`, `Files` and `Partial` added to the row",
             )
             .with_label(span, format!("this has type `{ty}`"))
             .with_note(
-                "a pure `main: () -> ()` is allowed too; other abilities must be handled inside `main`",
+                "for example `() -> {Files, IO, Fail} ()`; a pure `main: () -> ()` is allowed too; other abilities must be handled inside `main`",
             )),
         }
     }
@@ -219,10 +232,7 @@ impl Session {
             .elab
             .is_partial(stitchwort_core::DefId(index))
             .unwrap_or(false);
-        for (call, row) in main_calls(name)
-            .into_iter()
-            .zip([MainRow::Io, MainRow::FailIo])
-        {
+        for (call, row) in main_calls(name) {
             let expr = self
                 .parse_internal("<main>", &call)
                 .map_err(CallError::Other)?;
@@ -246,7 +256,7 @@ impl Session {
 
     /// Finds the definition a project's `run` names by its full name
     /// (`Day05.main`), and checks that it can be run: a function from `()`
-    /// to `()` with abilities among `IO`, `Fail` and `Partial`.
+    /// to `()` with abilities among `IO`, `Fail`, `Files` and `Partial`.
     pub fn main_named(&mut self, name: &str, project: &str) -> Result<Main, Diagnostic> {
         self.elab.leave_namespace();
         let Some(id) = self.elab.lookup_def(name) else {
@@ -284,7 +294,7 @@ impl Session {
             )
             .with_label(span, "defined here")
             .with_note(
-                "a function to run takes `()` and returns `()`, with abilities among IO, Fail and Partial: `() -> {IO} ()`, `() -> {IO, Partial} ()`, `() -> {IO, Fail} ()`, `() -> {IO, Fail, Partial} ()` or `() -> ()`",
+                "a function to run takes `()` and returns `()`, with abilities among IO, Fail, Files and Partial: for example `() -> {IO} ()`, `() -> {IO, Fail} ()`, `() -> {Files, IO, Fail, Partial} ()` or `() -> ()`",
             )),
         }
     }
@@ -592,10 +602,9 @@ impl Session {
         }
     }
 
-    /// Performs operation `o`, of `{IO}` or of `{Fail, IO}` (see
-    /// [`main_calls`]): its reply. `Fail.stop msg` stops the run with
-    /// [`RunError::Failed`]; it returns `Empty`, so there's nothing to resume
-    /// with.
+    /// Performs operation `o`, of the row of [`main_calls`]: its reply.
+    /// `Fail.stop msg` stops the run with [`RunError::Failed`]; it returns
+    /// `Empty`, so there's nothing to resume with.
     #[allow(clippy::too_many_arguments)]
     fn perform(
         &self,
@@ -608,13 +617,13 @@ impl Session {
         trace: &mut dyn FnMut(Event),
     ) -> Result<Value, RunError> {
         let g = &self.elab.ev();
-        // `{IO}` is `Plus IO NoOp`, and `{Fail, IO}` is
-        // `Plus Fail (Plus IO NoOp)`: an operation is `L` of an `IO` or `Fail`
-        // operation, or `R (L …)` of an `IO` one.
+        // A row is `Plus A (Plus B … NoOp)`: an operation is `L` of one of
+        // the first ability's, or `R` of one of the rest's. Each ability is
+        // known by its data type.
         let mut o = force(g, o)?;
         let op = loop {
             let Value::Ctor(_, side, fields) = o else {
-                unreachable!("an operation in `{{IO}}` or `{{Fail, IO}}`")
+                unreachable!("an operation in `main`'s row")
             };
             let inner = force(g, fields[0].clone())?;
             if side == 0 {
@@ -625,6 +634,16 @@ impl Session {
         Ok(match op {
             Value::Ctor(d, _, payload) if Some(d) == s.fail => {
                 return Err(RunError::Failed(s.text_to_string(self, &payload[0])?));
+            }
+            Value::Ctor(d, c, payload) if s.files.as_ref().is_some_and(|f| f.ops == d) => {
+                return self.perform_files(s, c, &payload[0], trace);
+            }
+            Value::Ctor(d, c, payload) if d == s.io && c == s.print_error => {
+                let text = s.text_to_string(self, &payload[0])?;
+                terminal.keys_mode(false, output)?;
+                print_error(output, &text)?;
+                trace(Event::PrintError(text));
+                s.unit()
             }
             Value::Ctor(d, c, payload) if d == s.io && c == s.print => {
                 let text = s.text_to_string(self, &payload[0])?;
@@ -715,7 +734,95 @@ impl Session {
                 }
                 list
             }
-            _ => unreachable!("an `IO` or `Fail` operation"),
+            _ => unreachable!("an `IO`, `Fail` or `Files` operation"),
+        })
+    }
+
+    /// Performs `Files`' operation `c` on `arg`, its argument, on the real
+    /// disk ([`stitchwort_rt::files`], which the machine shares): its reply,
+    /// a `Result` whose error carries the operation's own path.
+    fn perform_files(
+        &self,
+        s: &Shapes,
+        c: usize,
+        arg: &Value,
+        trace: &mut dyn FnMut(Event),
+    ) -> Result<Value, RunError> {
+        use stitchwort_rt::files::{self, Failure, Kind};
+        let g = &self.elab.ev();
+        let f = s.files.as_ref().expect("`Files` is loaded");
+        let arg = force(g, arg.clone())?;
+        // `write`'s argument is a pair of the path and the text.
+        let (path, text) = if c == f.write {
+            let Value::Ctor(_, 0, pair) = &arg else {
+                unreachable!("`write` of a pair")
+            };
+            (force(g, pair[0].clone())?, Some(pair[1].clone()))
+        } else {
+            (arg, None)
+        };
+        let host = {
+            let Value::Ctor(_, 0, fields) = &path else {
+                unreachable!("a `Path`")
+            };
+            let mut parts = Vec::new();
+            let mut list = expand_step(g, force(g, fields[0].clone())?);
+            while let Value::Ctor(_, 1, cell) = list {
+                parts.push(s.text_to_string(self, &cell[0])?);
+                list = expand_step(g, force(g, cell[1].clone())?);
+            }
+            let absolute =
+                matches!(force(g, fields[1].clone())?, Value::Ctor(_, b, _) if b == s.true_);
+            files::host_path(&parts, absolute)
+        };
+        trace(Event::File(host.clone()));
+        let kind = |k: Kind| {
+            let c = match k {
+                Kind::File => f.file,
+                Kind::Folder => f.folder,
+                Kind::Other => f.other,
+            };
+            Value::Ctor(f.kind, c, Vec::new().into())
+        };
+        let reply = if c == f.read {
+            files::read(&host).map(|text| s.text(&text))
+        } else if c == f.write {
+            let text = s.text_to_string(self, &text.expect("a pair"))?;
+            files::write(&host, &text).map(|()| s.unit())
+        } else if c == f.list {
+            files::list(&host).map(|entries| {
+                let mut list = Value::Ctor(s.list, 0, Vec::new().into());
+                for (name, k) in entries.into_iter().rev() {
+                    let entry = Value::Ctor(f.entry, 0, [s.text(&name), kind(k)].into());
+                    list = Value::Ctor(s.list, 1, [entry, list].into());
+                }
+                list
+            })
+        } else if c == f.info {
+            files::info(&host).map(|(k, size)| {
+                Value::Ctor(
+                    f.info_record,
+                    0,
+                    [kind(k), native::nat_value(size.into())].into(),
+                )
+            })
+        } else {
+            unreachable!("a `Files` operation")
+        };
+        Ok(match reply {
+            Ok(value) => Value::Ctor(f.result, f.ok, [value].into()),
+            Err(failure) => {
+                let (c, fields): (usize, Vec<Value>) = match failure {
+                    Failure::NotFound => (f.not_found, vec![path]),
+                    Failure::NotPermitted => (f.not_permitted, vec![path]),
+                    Failure::NotAFile => (f.not_a_file, vec![path]),
+                    Failure::NotAFolder => (f.not_a_folder, vec![path]),
+                    Failure::NotText => (f.not_text, vec![path]),
+                    Failure::Other(message) => (f.other_error, vec![path, s.text(&message)]),
+                };
+                let error = Value::Ctor(f.error, c, fields.into());
+                Value::Ctor(f.result, f.err, [error].into())
+            }
         })
     }
 }
@@ -742,14 +849,44 @@ struct Shapes {
     false_: usize,
     random_seed: usize,
     args: usize,
+    print_error: usize,
     /// `Fail`, once its library file has loaded: a `main` that may fail
     /// loads it.
     fail: Option<DataId>,
+    /// `Files` and what its replies are built from, once its library file
+    /// has loaded: a `main` that uses files loads it.
+    files: Option<FileShapes>,
     unit: DataId,
     maybe: DataId,
     text: DataId,
     list: DataId,
     char: DataId,
+}
+
+/// `Files`' operations and the data types of its replies, with their
+/// constructors' indexes.
+struct FileShapes {
+    ops: DataId,
+    read: usize,
+    write: usize,
+    list: usize,
+    info: usize,
+    result: DataId,
+    ok: usize,
+    err: usize,
+    kind: DataId,
+    file: usize,
+    folder: usize,
+    other: usize,
+    entry: DataId,
+    info_record: DataId,
+    error: DataId,
+    not_found: usize,
+    not_permitted: usize,
+    not_a_file: usize,
+    not_a_folder: usize,
+    not_text: usize,
+    other_error: usize,
 }
 
 impl Shapes {
@@ -773,7 +910,31 @@ impl Shapes {
             false_: ctor(Builtin::False),
             random_seed: ctor(Builtin::RandomSeed),
             args: ctor(Builtin::Args),
+            print_error: ctor(Builtin::PrintError),
             fail: r.loaded_data(Builtin::Fail),
+            files: r.loaded_data(Builtin::Files).map(|ops| FileShapes {
+                ops,
+                read: ctor(Builtin::FilesRead),
+                write: ctor(Builtin::FilesWrite),
+                list: ctor(Builtin::FilesList),
+                info: ctor(Builtin::FilesInfo),
+                result: data(Builtin::ResultData),
+                ok: ctor(Builtin::ResultOk),
+                err: ctor(Builtin::ResultErr),
+                kind: data(Builtin::FileKind),
+                file: ctor(Builtin::FileKindFile),
+                folder: ctor(Builtin::FileKindFolder),
+                other: ctor(Builtin::FileKindOther),
+                entry: data(Builtin::FileEntry),
+                info_record: data(Builtin::FileInfo),
+                error: data(Builtin::FileError),
+                not_found: ctor(Builtin::FileNotFound),
+                not_permitted: ctor(Builtin::FileNotPermitted),
+                not_a_file: ctor(Builtin::FileNotAFile),
+                not_a_folder: ctor(Builtin::FileNotAFolder),
+                not_text: ctor(Builtin::FileNotText),
+                other_error: ctor(Builtin::FileOtherError),
+            }),
             unit: data(Builtin::UnitType),
             maybe: data(Builtin::Option),
             text: data(Builtin::Text),
