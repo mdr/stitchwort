@@ -36611,12 +36611,12 @@
     {
       "id": 3318,
       "title": "[Opus] A proof's catch-all after number literals shows no n ≠ 5 fact (catch-all-goals.md finding); look at what the arm knows and whether to show it",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "From catch-all-goals.md. Expected: 1.5 h (Opus).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36847,12 +36847,12 @@
     {
       "id": 3334,
       "title": "[Sonnet] is_proof_type is false for a goal headed by a local p: … → Prop, so notes depending on it vanish for such goals; check its other callers; and the or-pattern error note can't say which alternative failed (SW-3325 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "From SW-3325. Expected: 45 min (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
