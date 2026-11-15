@@ -8,7 +8,7 @@ the rest, from the goal down, and checks that the statements fit.
 
 `sketch/src/Sketch.sw` (namespace `Toy.Sketch`) defines `formatDirect`
 (parse, print, no check of any kind) and proves, from its open lemmas
-(five when written, four after lane 2) and what `src/` has proved:
+(five when written, four after lane 2, one after lane 3) and what `src/` has proved:
 
 | Theorem | Says |
 |---|---|
@@ -218,6 +218,65 @@ Re-estimate: E2 40-45 left (blocks, lines, notes and blank lines 17;
 newest-first against `Rising` 5), E1 5, D1 75-85 (25-30 with the
 program change), D2 12-15, glue 8-13: **140-165 lemmas** (90-110 with
 the program change), 2 lanes at the measured pace, 3-4 planned.
+
+## After lane 3 (part 17): D1, E1 and D2 are proved
+
+`stitchwort check` in `sketch/` now says "1 goal open": E2
+(`spellsFile`). `parseHeaded`, `placedOffsets` and `runsFileSpelled` are
+theorems of `src/` (in `Toy`'s audit: 1210 theorems, 0 failed), and the
+sketch uses them as it used its own open statements; no statement of
+the three changed.
+
+| Goal | Estimated | Proved | Theorems |
+|---|---|---|---|
+| D1 with the program change | 25-30 | 65 | the walk, `Fmt/HeadProofs.sw` (50: `parseHeaded`, `givesHeadedExpression`, one `givesHeaded…` per parser function, `headedBare`, `headedCleared`, `clearedFirstAbove`, the list lemmas); clearing changes nothing where nothing is, and keeps `Shaped` and `Lexical` (15: `noAboveCleared`, `spelledFirstAbove`, `startAbove`, `spelledHeaded`, `shapedCleared`, `shapedHeaded`, four `cleared…`, `ownOffset`, `lexicalCleared`, `lexicalHeaded`, `fineCleared`, `headedOfNoAbove`) |
+| E1 | 5 | 8 | `placedOffsets`, `placedBelow`, `pieceOffsets`, `wordOffsets`, `withTrailingOffsets`, `wordLength`, `belowDescending`, `belowWider` (`Fmt/PlaceProofs.sw`) |
+| D2 | 12-15 | 6 | `runsFileSpelled`, `declarationsRun`, `groupValues`, `fileOfNotes`, `firstBlankOfAppend`, `groupSomeOf` (`Syntax/FileProofs.sw`, with `SpelledFile` and `SpelledDeclarations` moved from the sketch) |
+
+D1 is over its count and under its time: 45 of the 50 are
+`ShapeProofs.sw`'s lemmas again with `HeadedExpr` for `Shaped`, written
+in one pass. The estimate counted the new ideas (about 20), not the
+walk's one lemma per parser function. D2 is under because
+`runsValueSpelled` and `runsFunctionSpelled` already did each
+declaration.
+
+The program change, as made:
+
+- **`bareStatement` gives `Bare (layout.headed value)`**:
+  `Layout.headed` is the identity inside brackets and
+  `Expr.withoutFirstAbove` (down the left spine: a call's callee, a
+  field's target, an operator's left side) outside. So "the first token
+  of a statement that is an expression, or of a body's one expression,
+  holds no comments above it" is a fact about the tree `bareStatement`
+  built, with no account of which token was read first. The 103 tests
+  (goldens, probes, the disturber, messages) pass unchanged, run without
+  the cache.
+- **The `let` and `fn` lines are not changed.** Their keyword's comments
+  are `layout.comments first` at the layout whose start is `first`'s own
+  offset, and `Layout.comments` gives none above there by computation
+  (`startAbove`, one line). Clearing them would have been a second
+  program change for nothing.
+- `Expr.firstAbove` moved from `Fmt/EventProofs.sw` to `Parser.sw`,
+  beside `withoutFirstAbove`.
+
+New obligations. Outside the sketch's goals: none. Inside E2, one, and
+it is met already: `SpelledOne` and `SpelledInline` (a body that is one
+expression) each ask one more fact, `layout.headed value = value`
+(clearing changes nothing), which the read-back needs because the
+parser now clears. E2 gives it from `HeadedStatement`, which it has as
+a hypothesis (`headedOfNoAbove`; `inlineSpells` and `bodySpells` are
+updated). A statement's own expression needs no such clause:
+its first token is the statement's start, so `spelledHeaded` proves it
+from the spelling (`linesRun`). E2's remaining parts will meet the
+clause wherever they build a `SpelledOne`: one line each, from the
+`headed` hypothesis.
+
+Re-estimate: **E2 40-45 lemmas left** (unchanged: blocks, lines, notes
+and blank lines 17; `if` outside brackets, in that induction, 6;
+`Settled` and `EndsExpression` at each end 4-6; declarations and
+parameters 8; newest-first against `Rising` 5), glue 8-13: **50-60
+lemmas**, 1 lane at the measured pace, 2 planned (E2's block induction
+is the part no lane has attempted).
 
 ## Lanes
 
