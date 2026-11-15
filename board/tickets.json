@@ -1,5 +1,5 @@
 {
-  "next": 3302,
+  "next": 3305,
   "tickets": [
     {
       "id": 47,
@@ -36342,6 +36342,45 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3302,
+      "title": "[Sonnet] Std.Parse internals write the character literal record inline 62 times ({ items = X, same = Text.sameChar }); a std-internal helper would tidy it (if it would be public, its name is Matt's) (SW-3282 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3303,
+      "title": "[Sonnet] Effect rows printed by show_row (effects.rs) drop ability arguments ({Parse} for {Parse Char}); print them as written (SW-3282 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3304,
+      "title": "[Opus] Writing [t := Char] [b := List Nat] by hand on a readsThen breaks a proof that checks with neither or either alone: knowing every type early changes which arguments wait for the expected type (pre-existing; SW-3282 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
