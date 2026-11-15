@@ -716,16 +716,22 @@ program is broken: `Parse.nextLowest` for a left-associative level,
   `runsRecursive`), `Parse.runsNext`, and `Parse.runsLocatedToEnd`: on
   input a lexeme parser reads lexeme by lexeme to its end,
   `locatedToEnd` gives each lexeme with its offset and length.
-- `Syntax/ExpressionProofs.sw`, `runsExpression`: on tokens that spell an
-  expression at a layout (`Spelled`: its tokens in order, each of its
-  kind and allowed by the layout) of the parser's shape (`Shaped`: a
-  field's target is a postfix expression, `-` stands before an operand,
-  operators grouped by precedence and chaining from the left), followed
-  by no call, field or operator, `expression layout` reads exactly those
-  tokens and gives the expression. Covers names, numbers, strings,
-  brackets, fields, negation and operator chains, nested to any depth.
-  Lists, calls and `if` are not covered yet: `Spelled` and `Shaped` are
-  `False` for them, so the theorem says nothing there.
+- `Syntax/ExpressionProofs.sw` and `Syntax/ItemProofs.sw`,
+  `runsExpression`: on tokens that spell an expression at a layout
+  (`Spelled`: its tokens in order, each of its kind and allowed by the
+  layout, and an item's comments where the parser takes them from: its
+  own-line comments above its first token, its trailing comment on its
+  comma, or on its last token for the last item) of the parser's shape
+  (`Shaped`: a field's target and a call's callee are postfix
+  expressions, `-` stands before an operand, operators grouped by
+  precedence and chaining from the left), followed by no call, field or
+  operator, `expression layout` reads exactly those tokens and gives the
+  expression. Covers every expression but `if`, nested to any depth:
+  names, numbers, strings, brackets, lists, calls, fields, negation and
+  operator chains. `Spelled` and `Shaped` are `False` for an `if`, so the
+  theorem says nothing there. `runsExpressionExample` is an instance, the
+  six tokens of `f(a) + b`. Std's `Parse.lastReadAfter` (what
+  `Parse.lastRead` gives after a read) was needed for the comments.
 - `Doc/Proofs.sw`: `lineAfterComment`, `softLineAfterComment`,
   `fillSepAfterComment`: a `Line`, `SoftLine` or fill separator reached
   while a trailing comment waits prints a line break, in a flat group too.
@@ -747,8 +753,8 @@ each change adds a call per lexeme or operator):
 - Std's `operandsFrom`, `operatorsFrom` and `locatedToEndFrom`, and the
   toy's `suffixesFrom` and `negationsFrom`, call named functions
   (`operandsAfter`, `operatorsAfter`, `nextLowest`, `locatedToEndRound`,
-  `suffixesAfter`, `postfix`) where they had a `match` or `if` after an
-  effect. A `match` written inside a recursive definition can't be named
+  `suffixesAfter`, `postfix`, `itemsAfter`, `commentsAbove`) where they
+  had a `match` or `if` after an effect. A `match` written inside a recursive definition can't be named
   by a lemma (std's `manyRound` exists for the same reason).
 - The lexer chooses its lexeme in a pure function (`lexemeStart`), then
   reads it (`readLexeme`). A definition that performs abilities gets no
@@ -765,14 +771,15 @@ each change adds a call per lexeme or operator):
 | A, engine | `print` is the text of one reading of the document (each `Line` a space or a break, each choice an option); the comment half is done | 20-30 |
 | B, lexing | `lexemeAt` for the other 8 lexemes (strings are the long one); `assemble`'s fold (line starts, columns, comments onto tokens); `Parse.all` from `runsLocatedToEnd`; texts joined and sliced | 50-70 |
 | E, rules to tokens (new; was hidden between B and C) | the tokens of any reading of a tree's document spell the tree (`Spelled`), with the columns from layer C and the comments from the comment proofs | 50-70 |
-| D, parser | items, calls, lists (with their comments and `Parse.lastRead`), `if` and bodies, blocks, statements, declarations, the file | 40-50 |
+| D, parser | `if` and bodies, blocks (`many1`, the notes above a statement, kept blank lines), statements, declarations, the file | 30-40 |
 | WF | the parser gives `Shaped` trees, and the lexer's tokens can be lexed again (a name is a word and no keyword, a string closes) | 50-70, or a run-time walk |
 | Glue | `formatDirect`, round trip, idempotence | 10 |
 
-About 230-300 lemmas. This lane proved 62 theorems (33 in std, 29 in the
-toy) in about 35 minutes on the clock, most first time; what took longer
-was finding each restructuring. At that pace the rest is 3 to 5 more
-lanes of this length **[estimated, from this lane's measured pace; the
+About 220-290 lemmas. This lane proved 78 theorems (22 in std, 56 in the
+toy) in about 50 minutes on the clock, most first time; what took longer
+was finding each restructuring. Its length was set by the model's context,
+not the clock: a lane's worth is about 80 lemmas. At that rate the rest is
+3 to 4 more lanes like this one **[estimated, from this lane's measured pace; the
 string lexeme, `assemble` and layer E have not been tried]**: days, not
 weeks.
 
@@ -802,7 +809,7 @@ it, or stay a run-time check.
 7. **A `match` or `if` after an effect in a recursive definition can't be
    named**, and a lambda in a proof can't hold a `match`
    (`E-MATCH-MOTIVE`), so each such step needs a helper `def` in the
-   program. Six were added here. The error's notes say so clearly.
+   program. Eight were added here. The error's notes say so clearly.
 8. **No equations for a definition that performs abilities** ("stage
    1a"), so a parser that chooses by patterns must keep the choice pure.
 9. **`rewrite starts` reaches only the reads a computation has got to.**

@@ -1486,3 +1486,53 @@ theorem runsSuffixesCall ∀ (more: Nat) (self: Layout → {Parse (Parse.Located
         runsMore
     match core state starts honest with
       | Witness m (Both ran others) => Witness m (Both (rewrite starts, allowed, opens in ran) others)
+
+-- An instance of `runsExpression`: the six tokens of `f(a) + b`.
+
+def exampleToken (kind: Kind) (offset: Nat): Parse.Located Token :=
+  { value = { kind, startsLine = False, column = offset, above = [], trailing = None }, offset, length = 1 }
+
+def exampleTokens: List (Parse.Located Token) := [
+  exampleToken (Name "f") 0,
+  exampleToken (Sign OpenParen) 1,
+  exampleToken (Name "a") 2,
+  exampleToken (Sign CloseParen) 3,
+  exampleToken (Op Plus) 5,
+  exampleToken (Name "b") 7
+]
+
+def exampleExpr: Expr := Binary Plus (Call (Var "f") [{ comments = [], value = Var "a", trailing = None }]) (Var "b")
+
+theorem runsExpressionExample: Parse.run exampleTokens (() => expression InBrackets) = Ok exampleExpr :=
+  let f := exampleToken (Name "f") 0
+  let open := exampleToken (Sign OpenParen) 1
+  let a := exampleToken (Name "a") 2
+  let close := exampleToken (Sign CloseParen) 3
+  let plus := exampleToken (Op Plus) 5
+  let b := exampleToken (Name "b") 7
+  let spelledCall: Spelled InBrackets (Call (Var "f") [{ comments = [], value = Var "a", trailing = None }]) [f, open,
+    a, close] :=
+    Witness
+      [f]
+      (Witness open
+        (Witness
+          [a]
+          (Witness close
+            (Both rfl
+              (Both rfl
+                (Both rfl
+                  (Both rfl
+                    (Both
+                      (Witness f (Both rfl (Both rfl (rfl))))
+                      (Both (Witness a (Both rfl (Both rfl (rfl)))) (Both rfl (rfl)))))))))))
+  Parse.runsRun
+    (() => expression InBrackets)
+    exampleTokens
+    exampleExpr
+    (runsExpression InBrackets exampleExpr exampleTokens []
+      (Both (omega []) (Both (omega []) (Both rfl (Both rfl (Both (Both rfl (Both rfl (Both rfl rfl))) rfl)))))
+      (Witness
+        [f, open, a, close]
+        (Witness plus
+          (Witness [b] (Both rfl (Both rfl (Both rfl (Both spelledCall (Witness b (Both rfl (Both rfl (rfl)))))))))))
+      (Both rfl rfl))
