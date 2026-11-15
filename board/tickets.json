@@ -1,5 +1,5 @@
 {
-  "next": 3473,
+  "next": 3474,
   "tickets": [
     {
       "id": 47,
@@ -37557,12 +37557,12 @@
     {
       "id": 3388,
       "title": "[Opus] Termination checker records a false < at proof positions (rebuilt lets a field pinned through a proof parameter be any term); harmless only because of two positivity rules (no field depends on one holding D; nestable condition 5). State the dependency in termination.rs and docs/core.md and pin it with tests p09/p10/p11 (docs/reviews/SW-3376-wrapper-rule-soundness.md F2). Pre-existing on main",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Add from the SW-3412 Fable review: F1 state the invariant as two orders (rank on terms vs height with proofs counted as nothing) with b4.sw as the example, and tests tying the positivity rules (E-POSITIVITY) to termination; F2 header and core.md wording: the steps from v to u are data while s may sit inside a proof; F3 kernel unit tests for the squash condition and a chain through a proof field, six probes as reject examples (listed in the review), and syntax.md + guide 07-recursion say the one field must be data.\n\nLane (Opus, 15 Nov, 22:10-22:30, est. 35 min): done on lane/SW-3388 (8380701da). Header + core.md state two orders (term vs relevant rank), b4 as accept example termination-pinned-proof-replaced, a5 as termination-wrapper-inside-proof; soundness/termination-relies-on-positivity-01..05 (b1, b2, b5, p09, p11, each with its looping theorem); reject: six probes + p10 (termination-rebuilt-pinned-proof); kernel tests for squash and chain through a proof field; syntax.md + guide 07. Found by hand-patching check.rs (reverted): nestable condition 2 also guards the direct case (T sits inside Tag/PBox, whose later param mentions a); with the direct rule and condition 2 both off, 01/04 are accepted and rfl on 04 hangs. Tests: 4 kernel tests by name, the new examples by name, examples::soundness set: all pass.\n",
+      "body": "Add from the SW-3412 Fable review: F1 state the invariant as two orders (rank on terms vs height with proofs counted as nothing) with b4.sw as the example, and tests tying the positivity rules (E-POSITIVITY) to termination; F2 header and core.md wording: the steps from v to u are data while s may sit inside a proof; F3 kernel unit tests for the squash condition and a chain through a proof field, six probes as reject examples (listed in the review), and syntax.md + guide 07-recursion say the one field must be data.\n\nLane (Opus, 15 Nov, 22:10-22:30, est. 35 min): done on lane/SW-3388 (8380701da). Header + core.md state two orders (term vs relevant rank), b4 as accept example termination-pinned-proof-replaced, a5 as termination-wrapper-inside-proof; soundness/termination-relies-on-positivity-01..05 (b1, b2, b5, p09, p11, each with its looping theorem); reject: six probes + p10 (termination-rebuilt-pinned-proof); kernel tests for squash and chain through a proof field; syntax.md + guide 07. Found by hand-patching check.rs (reverted): nestable condition 2 also guards the direct case (T sits inside Tag/PBox, whose later param mentions a); with the direct rule and condition 2 both off, 01/04 are accepted and rfl on 04 hangs. Tests: 4 kernel tests by name, the new examples by name, examples::soundness set: all pass.\n\nModel result: opus, worked, 20 min (est. 35). Guarded by three positivity conditions (direct rule, nestable 2 and 5), not two. SW-3473 filed.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -38714,6 +38714,19 @@
       "commits": [
         "f0228e777"
       ]
+    },
+    {
+      "id": 3473,
+      "title": "[Sonnet] With the positivity checks relaxed (nestable conditions 2/5 and the direct rule off), generating the induction principle fails with E-INTERNAL 'malformed core term' rather than a clean error; unreachable today, but make it a clean refusal or an assert with a message for whoever relaxes nestability (SW-3388 finding; patch in its scratch disable-positivity.patch)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
     }
   ]
 }
