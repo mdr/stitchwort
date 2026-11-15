@@ -97,6 +97,8 @@ theorem Text.joinTextCharsEmpty ∀ (field: List Char) (fields: List (List Char)
     | [] => Eq.sym (List.appendNil field)
     | [next, ..later] => Eq.cong (List.append field) (Text.joinTextCharsEmpty next later)
 
+--| `Text.charListsOf`, the helper `joinWith` is defined with, is mapping
+--| `Text.toList`.
 theorem Text.charListsOfMap ∀ (texts: List Text): Text.charListsOf texts = texts.map Text.toList := match texts with
   | [] => rfl
   | [text, ..texts] => Eq.cong (Cons text.toList) (Text.charListsOfMap texts)

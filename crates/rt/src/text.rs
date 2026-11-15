@@ -329,6 +329,12 @@ impl Text {
             return self.clone();
         }
         let len = self.len().saturating_mul(n);
+        // Callers charge `prims::text_repeat_cost` first, which runs out of
+        // steps before a result this long.
+        assert!(
+            len <= u32::MAX as usize,
+            "internal error: a text of {len} characters, more than a text can hold"
+        );
         let width = self.width();
         Text::whole(units_of(width, len, (0..n).flat_map(|_| self.chars())))
     }

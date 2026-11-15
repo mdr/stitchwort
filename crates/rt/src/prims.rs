@@ -746,9 +746,6 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
             if n == 1 {
                 args[0].clone()
             } else {
-                // The machine has charged for the size already; a caller
-                // that hasn't gets the largest text that fits.
-                let n = n.min(u32::MAX as usize / t.len().max(1));
                 Value::text(t.repeat(n))
             }
         }
@@ -926,12 +923,16 @@ fn unshared(items: &mut Rc<Vec<Value>>) -> &mut Vec<Value> {
 
 /// The steps `Text.repeat text count` is charged: a step per byte made (an
 /// empty text, whose definition still counts to `count`, a step per copy),
-/// and a count too big for a `u64`, or a product that overflows, more than
-/// any limit. Charged before the text is built, so a huge result runs out
-/// of steps rather than asking for the memory.
+/// and more than any limit for a count too big for a `u64`, or a result
+/// longer than a text can hold (`u32::MAX` characters). Charged before the
+/// text is built, so a huge result runs out of steps rather than asking for
+/// the memory, and is never cut short.
 pub fn text_repeat_cost(text: &Value, count: &Value) -> u64 {
+    let text = text_of(text);
     match count {
-        Value::Nat(n) => n.saturating_mul((text_of(text).utf8_len() as u64).max(1)),
+        Value::Nat(n) if n.saturating_mul(text.len() as u64) <= u64::from(u32::MAX) => {
+            n.saturating_mul((text.utf8_len() as u64).max(1))
+        }
         _ => u64::MAX,
     }
 }

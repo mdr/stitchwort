@@ -8,9 +8,9 @@
 --| length, so `get`, `getOr`, `getLt`, `slice`, `take`, `drop`, `uncons` and
 --| `length` take O(1), and a slice shares its text's characters rather than
 --| copying them. A slice keeps the whole buffer alive, except that one of at
---| most 32 characters, from a text of 1,024 or more, is copied. To proofs, as
---| everywhere, a text is its list of characters, and each operation here is
---| defined on that list (docs/proposals/file-io-and-text.md §4).
+--| most 32 characters, from a buffer of 1,024 or more, is copied. To proofs,
+--| as everywhere, a text is its list of characters, and each operation here
+--| is defined on that list (docs/proposals/file-io-and-text.md §4).
 -- A file of its own, so that programs using `take` and `drop` don't check
 -- these lemmas.
 
@@ -33,12 +33,15 @@ theorem Text.sliceToList ∀ (text: Text) (from to: Nat):
     (text.slice from to).toList = (text.toList.drop from).take (to - from) :=
   rfl
 
---| Within the text, a slice has `to - from` characters.
+--| Ending within the text, a slice has `to - from` characters (none when
+--| `to < from`).
 theorem Text.lengthSlice ∀ (text: Text) (from to: Nat)
-    (ordered: from ≤ to)
     (within: to ≤ text.length):
     (text.slice from to).length = to - from :=
-  List.lengthTake (text.toList.drop from) (to - from) (omega [List.lengthDrop text.toList from (omega)])
+  List.lengthTake
+    (text.toList.drop from)
+    (to - from)
+    (if ordered: from ≤ to then omega [List.lengthDrop text.toList from (omega)] else omega)
 
 --| Two slices that meet join into one: the lexer's theorem in miniature,
 --| since tokens cut at increasing positions and joined give back the text.

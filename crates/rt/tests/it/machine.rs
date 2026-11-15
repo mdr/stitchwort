@@ -440,6 +440,30 @@ def main(): {{IO}} () := IO.print (Nat.toText (Text.length (Text.repeat "{text}"
     }
 }
 
+/// A result longer than a text can hold (2^32 - 1 characters) runs out of
+/// steps, however many it is given, rather than coming back cut short:
+/// here 2^32 characters cost 2^32 steps, well inside the limit.
+#[test]
+fn text_repeat_past_the_longest_text_runs_out_of_steps() {
+    let (out, result) = on_the_machine_with(
+        r#"
+import Std (Nat, Text, IO)
+
+def main(): {IO} () := IO.print (Nat.toText (Text.length (Text.repeat "ab" 2147483648)))
+"#,
+        Limits {
+            steps: 10_000_000_000,
+            frames: 100,
+            native_frames: 100,
+            number_words: false,
+        },
+        b"",
+    );
+    assert_eq!(out, "");
+    let error = result.expect_err("runs out of steps");
+    assert!(error.contains("evaluation steps"), "{error}");
+}
+
 /// `Parse.many` is linear in what it reads: 20,000 digits (AoC 2024 day
 /// 9's input) take a few steps each. Its end value was once computed every
 /// round, quadratic: about 2×10⁸ steps here (SW-1055; 0.6 s to 12 s on the
