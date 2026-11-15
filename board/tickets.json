@@ -36345,12 +36345,12 @@
     {
       "id": 3300,
       "title": "[Overmind job] Measure SW-3281's checker change outside the parser library: whole-AoC and std step counts before (its parent) and after the merge, to confirm no regression (docs/reviews/SW-3281-propagation.md S1)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Overmind job 3 (15 Nov). Bench: checker steps +0.9% on 7 check-closed rows, rest identical, run-machine within noise. Quiet A/B steps over whole AoC (11,770 common declarations): -1.17% total (parent 1.221G -> 1.206G); 2,230 up, 93 down; Std.Parse -4.8%, Day07/19/21 down (sources changed); rises Day16 +6.2% (runsNotes +9.5M), 2020 Day03 +3.8%, 2021 Day10 +3.3%, Day03 +3.2%. Filed SW-3332. Wall-time A/B: pending.",
+      "body": "Quiet wall-time A/B, whole AoC check --no-cache, 3 alternating reps: parent 147.9 s, new 147.6 s (-0.2%, spread <1%). Rolling loop's 142 -> 156-160 s was load. Conclusion: no slowdown >5% anywhere except Day16 steps +6.2% (SW-3332).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
