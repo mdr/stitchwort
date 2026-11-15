@@ -6254,9 +6254,14 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
 /// Whether a body's error `e`, elaborated with type arguments taken from
 /// calls' expected types, is given rather than `again`, its error without
 /// them ([`Elaborator::settle_retried`]). Not when `again` stands for open
-/// goals: without settling, the body is only unfinished.
-fn settled_error_first(_e: &Diagnostic, again: &Diagnostic) -> bool {
+/// goals: without settling, the body is only unfinished. Nor when `e` is a
+/// type mismatch and `again` something more particular (a misnamed field):
+/// the guess may have moved the failure off the slip, which the first
+/// attempt then meets only as a type that doesn't fit, as in
+/// `reads-nested-binds-unknown-field.sw`.
+fn settled_error_first(e: &Diagnostic, again: &Diagnostic) -> bool {
     again.code != goals::UNFINISHED
+        && !(e.code == "E-TYPE-MISMATCH" && again.code != "E-TYPE-MISMATCH")
 }
 
 /// `e`, the error of a body elaborated with type arguments taken from
