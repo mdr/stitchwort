@@ -11,9 +11,10 @@
 --| every width; the theorems here say the rules' documents pass, for every
 --| tree whose comments stand where the parser puts them (`CommentsApart`).
 --|
---| What the engine adds: a `Line` that a flat group prints as a space must
---| not come after a waiting comment. `fits` ensures that (a waiting comment
---| makes a later space not fit), so it is the engine's part of the proof.
+--| What the engine adds: a `Line` or `SoftLine` after a waiting comment
+--| breaks, whatever its group's mode (`Printer.printDoc` tests for a waiting
+--| comment there, as `FillSep` does), so the scan's line breaks are line
+--| breaks in the output.
 
 namespace Toy.Fmt.Proofs
 import Toy.Doc (..)
