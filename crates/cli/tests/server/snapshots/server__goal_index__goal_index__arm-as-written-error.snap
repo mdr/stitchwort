@@ -82,7 +82,7 @@ expression: json
           "type": "∀ (c: Char) => p (MkText [c])"
         }
       ],
-      "lemma": "def oneCharacterGoal2 (p: Text → Prop) (hp: ∀ (c: Char) => p (MkText [c])): p \"\" := ?",
+      "lemma": "theorem oneCharacterGoal2 (p: Text → Prop) (hp: ∀ (c: Char) => p (MkText [c])): p \"\" := ?",
       "target": "p \"\""
     },
     "labels": [

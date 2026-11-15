@@ -275,8 +275,8 @@ fn goal_at_steps() {
     );
     assert!(
         step_at(&dir, "18:9").contains("in `swap`, `let left`\n")
-            && step_at(&dir, "18:9").contains("  + left: p := pq.left\n"),
-        "a `let`"
+            && step_at(&dir, "18:9").contains("  + left: p\n"),
+        "a `let` of a proof shows its statement only"
     );
     assert!(
         step_at(&dir, "22:20")

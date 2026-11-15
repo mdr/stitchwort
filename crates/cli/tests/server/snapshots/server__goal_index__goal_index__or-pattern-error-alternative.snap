@@ -1,0 +1,130 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "E-TYPE-MISMATCH",
+    "file": 0,
+    "labels": [
+      {
+        "file": 0,
+        "message": "expected `p \"\" (Some True)`, but this has type `p \"\" None`",
+        "range": [
+          8,
+          31,
+          8,
+          35
+        ]
+      },
+      {
+        "file": 0,
+        "message": "the error is in the case this alternative matches",
+        "range": [
+          8,
+          17,
+          8,
+          26
+        ]
+      }
+    ],
+    "message": "type mismatch",
+    "notes": [
+      "this arm is checked in 12 cases, and this error is in the case where `s` is `\"\"`"
+    ],
+    "range": [
+      8,
+      31,
+      8,
+      35
+    ],
+    "severity": "error"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Option Bool → Prop"
+        },
+        {
+          "name": "hn",
+          "type": "∀ (s: Text) => p s None"
+        }
+      ],
+      "target": "p \"ab\" (Some False)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Option Bool → Prop\nhn: ∀ (s: Text) => p s None\n⊢ p \"ab\" (Some False)",
+        "range": [
+          7,
+          26,
+          7,
+          27
+        ]
+      }
+    ],
+    "message": "in `alternatives`",
+    "notes": [],
+    "range": [
+      7,
+      26,
+      7,
+      27
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Option Bool → Prop"
+        },
+        {
+          "name": "hn",
+          "type": "∀ (s: Text) => p s None"
+        },
+        {
+          "name": "s",
+          "type": "Text"
+        },
+        {
+          "name": "o",
+          "type": "Option Bool"
+        }
+      ],
+      "lemma": "theorem alternativesGoal2 (p: Text → Option Bool → Prop) (hn: ∀ (s: Text) => p s None) (s: Text) (o: Option Bool): p s o := ?",
+      "target": "p s o"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Option Bool → Prop\nhn: ∀ (s: Text) => p s None\ns: Text\no: Option Bool\n⊢ p s o",
+        "range": [
+          9,
+          14,
+          9,
+          15
+        ]
+      }
+    ],
+    "message": "in `alternatives`",
+    "notes": [
+      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      9,
+      14,
+      9,
+      15
+    ],
+    "severity": "goal"
+  }
+]

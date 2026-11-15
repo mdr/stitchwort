@@ -47,7 +47,7 @@ expression: json
           "type": "Text → Prop"
         }
       ],
-      "lemma": "def plainGoal2 (p: Text → Prop): p \"\" := ?",
+      "lemma": "theorem plainGoal2 (p: Text → Prop): p \"\" := ?",
       "target": "p \"\""
     },
     "labels": [
@@ -86,7 +86,7 @@ expression: json
           "type": "Text"
         }
       ],
-      "lemma": "def plainGoal3 (p: Text → Prop) (s: Text): p s := ?",
+      "lemma": "theorem plainGoal3 (p: Text → Prop) (s: Text): p s := ?",
       "target": "p s"
     },
     "labels": [
@@ -169,7 +169,7 @@ expression: json
           "type": "p s"
         }
       ],
-      "lemma": "def withHypothesisGoal2 (p: Text → Prop) (s: Text) (h: p s): p s := ?",
+      "lemma": "theorem withHypothesisGoal2 (p: Text → Prop) (s: Text) (h: p s): p s := ?",
       "target": "p s"
     },
     "labels": [
@@ -244,7 +244,7 @@ expression: json
           "type": "Text"
         }
       ],
-      "lemma": "def namedGoal2 (p: Text → Prop) (other: Text): p other := ?",
+      "lemma": "theorem namedGoal2 (p: Text → Prop) (other: Text): p other := ?",
       "target": "p other"
     },
     "labels": [
@@ -518,7 +518,7 @@ expression: json
           "type": "Char"
         }
       ],
-      "lemma": "def characterGoal2 (p: Char → Prop) (c: Char): p c := ?",
+      "lemma": "theorem characterGoal2 (p: Char → Prop) (c: Char): p c := ?",
       "target": "p c"
     },
     "labels": [
@@ -591,7 +591,7 @@ expression: json
           "type": "List Char"
         }
       ],
-      "lemma": "def charactersGoal2 (p: List Char → Prop) (l: List Char): p l := ?",
+      "lemma": "theorem charactersGoal2 (p: List Char → Prop) (l: List Char): p l := ?",
       "target": "p l"
     },
     "labels": [

@@ -1,0 +1,168 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "h",
+          "type": "p n"
+        }
+      ],
+      "lemma": "theorem holeGoal1 (p: Nat → Prop) (n: Nat) (h: p n): p n := ?",
+      "target": "p n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\nn: Nat\nh: p n\n⊢ p n",
+        "range": [
+          5,
+          57,
+          5,
+          58
+        ]
+      }
+    ],
+    "message": "in `hole`",
+    "notes": [],
+    "range": [
+      5,
+      57,
+      5,
+      58
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        },
+        {
+          "name": "h",
+          "type": "p n"
+        }
+      ],
+      "lemma": "theorem lambdaBoundGoal1 (n: Nat) (p: Nat → Prop) (h: p n): p n := ?",
+      "target": "p n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\np: Nat → Prop\nh: p n\n⊢ p n",
+        "range": [
+          7,
+          75,
+          7,
+          76
+        ]
+      }
+    ],
+    "message": "in `lambdaBound`",
+    "notes": [],
+    "range": [
+      7,
+      75,
+      7,
+      76
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Prop"
+        }
+      ],
+      "lemma": "theorem inArmsGoal1 (p: Option Bool → Prop): p (Some True) := ?",
+      "target": "p (Some True)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Prop\n⊢ p (Some True)",
+        "range": [
+          10,
+          17,
+          10,
+          18
+        ]
+      }
+    ],
+    "message": "in `inArms`",
+    "notes": [],
+    "range": [
+      10,
+      17,
+      10,
+      18
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Prop"
+        },
+        {
+          "name": "o",
+          "type": "Option Bool"
+        }
+      ],
+      "lemma": "theorem inArmsGoal2 (p: Option Bool → Prop) (o: Option Bool): p o := ?",
+      "target": "p o"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Prop\no: Option Bool\n⊢ p o",
+        "range": [
+          11,
+          9,
+          11,
+          10
+        ]
+      }
+    ],
+    "message": "in `inArms`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      11,
+      9,
+      11,
+      10
+    ],
+    "severity": "goal"
+  }
+]

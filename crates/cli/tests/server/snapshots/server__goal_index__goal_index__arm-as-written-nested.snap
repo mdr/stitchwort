@@ -13,7 +13,7 @@ expression: json
           "type": "Option Bool → Prop"
         }
       ],
-      "lemma": "def someTrueGoal1 (p: Option Bool → Prop): p (Some True) := ?",
+      "lemma": "theorem someTrueGoal1 (p: Option Bool → Prop): p (Some True) := ?",
       "target": "p (Some True)"
     },
     "labels": [
@@ -52,7 +52,7 @@ expression: json
           "type": "Option Bool"
         }
       ],
-      "lemma": "def someTrueGoal2 (p: Option Bool → Prop) (o: Option Bool): p o := ?",
+      "lemma": "theorem someTrueGoal2 (p: Option Bool → Prop) (o: Option Bool): p o := ?",
       "target": "p o"
     },
     "labels": [
@@ -89,7 +89,7 @@ expression: json
           "type": "Option Nat → Prop"
         }
       ],
-      "lemma": "def someNumberGoal1 (p: Option Nat → Prop): p (Some 3) := ?",
+      "lemma": "theorem someNumberGoal1 (p: Option Nat → Prop): p (Some 3) := ?",
       "target": "p (Some 3)"
     },
     "labels": [
@@ -128,7 +128,7 @@ expression: json
           "type": "Option Nat"
         }
       ],
-      "lemma": "def someNumberGoal2 (p: Option Nat → Prop) (o: Option Nat): p o := ?",
+      "lemma": "theorem someNumberGoal2 (p: Option Nat → Prop) (o: Option Nat): p o := ?",
       "target": "p o"
     },
     "labels": [
@@ -203,7 +203,7 @@ expression: json
           "type": "Option Text"
         }
       ],
-      "lemma": "def someTextGoal2 (p: Option Text → Prop) (o: Option Text): p o := ?",
+      "lemma": "theorem someTextGoal2 (p: Option Text → Prop) (o: Option Text): p o := ?",
       "target": "p o"
     },
     "labels": [
@@ -244,7 +244,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "def singletonGoal1 (p: List Nat → Prop) (x: Nat): p [x] := ?",
+      "lemma": "theorem singletonGoal1 (p: List Nat → Prop) (x: Nat): p [x] := ?",
       "target": "p [x]"
     },
     "labels": [
@@ -283,7 +283,7 @@ expression: json
           "type": "List Nat"
         }
       ],
-      "lemma": "def singletonGoal2 (p: List Nat → Prop) (l: List Nat): p l := ?",
+      "lemma": "theorem singletonGoal2 (p: List Nat → Prop) (l: List Nat): p l := ?",
       "target": "p l"
     },
     "labels": [
@@ -328,7 +328,7 @@ expression: json
           "type": "Char"
         }
       ],
-      "lemma": "def pairGoal1 (p: Nat → Char → Prop) (n: Nat) (c: Char): p n c := ?",
+      "lemma": "theorem pairGoal1 (p: Nat → Char → Prop) (n: Nat) (c: Char): p n c := ?",
       "target": "p n c"
     },
     "labels": [
@@ -371,7 +371,7 @@ expression: json
           "type": "Char"
         }
       ],
-      "lemma": "def pairGoal2 (p: Nat → Char → Prop) (n: Nat) (c: Char): p n c := ?",
+      "lemma": "theorem pairGoal2 (p: Nat → Char → Prop) (n: Nat) (c: Char): p n c := ?",
       "target": "p n c"
     },
     "labels": [
@@ -387,7 +387,9 @@ expression: json
       }
     ],
     "message": "in `pair`",
-    "notes": [],
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the last of them"
+    ],
     "range": [
       26,
       9,
@@ -456,7 +458,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "def expressionGoal2 (p: Text → Prop) (q: Nat → Text) (s: Nat): p (q s) := ?",
+      "lemma": "theorem expressionGoal2 (p: Text → Prop) (q: Nat → Text) (s: Nat): p (q s) := ?",
       "target": "p (q s)"
     },
     "labels": [
@@ -531,7 +533,7 @@ expression: json
           "type": "Text"
         }
       ],
-      "lemma": "def writtenGoal2 (p: Text → Prop) (other: Text): p other := ?",
+      "lemma": "theorem writtenGoal2 (p: Text → Prop) (other: Text): p other := ?",
       "target": "p other"
     },
     "labels": [
