@@ -1,5 +1,5 @@
 {
-  "next": 3419,
+  "next": 3434,
   "tickets": [
     {
       "id": 47,
@@ -783,14 +783,14 @@
     {
       "id": 741,
       "title": "Day 8 findings: ring [h] with coefficients (linear_combination); compare ignoring proof args of / and %; lambda param types in proof args (Eq.cong (x => 4*x) h); rfl on same-body lifted matches; auto: Nat.toInt g ≠ 0 from g != 0; let after rewrite … in; std gcd/Int/subset-size lemmas, List.each/contains",
-      "status": "next",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "aoc-older",
-      "body": "",
+      "body": "\n\nTriage, 15 Nov (Sonnet, SW-2015; checked by reading code, docs and tickets, no builds):\n- DONE: ring [h] with coefficients: docs/syntax.md:2572-2582 (ring [4 * h1, -h2, c * h3]; examples/accept/ring-coefficients.sw). The message for a mistaken coefficient is SW-1496 (backlog).\n- DONE: auto Nat.toInt d ≠ 0 from d ≠ 0 (SW-1443); std gcd/Int/subset-size lemmas, List.each/contains (SW-1011).\n- DONE/COVERED: comparing ignoring proof args of / and % and the same-body stuck calls: proof irrelevance (SW-1250, SW-1429) and SW-2256/SW-2268; total division is docs/proposals/total-division.md.\n- COVERED: let after rewrite … in: same shape as SW-1648 (backlog).\n- NOT REPRODUCED / stale: lambda parameter types in proof args (Eq.cong (x => 4*x) h): postponement stages 4-7 (SW-986, SW-987) took the lambda-order problems; the retest list is SW-3429.\n",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -809,40 +809,40 @@
     {
       "id": 758,
       "title": "Day 11 findings: E-ARITY should name the definition that unfolded to add arguments; rewrite occurrence selection (focus one part); DecEq.sound note blames match instead of the unknown instance; occurrencesFlatMap/permFlatMap/sumBy-one=length lemmas; Parse's next in scope unimported",
-      "status": "next",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "aoc-older",
-      "body": "\n\nFrom docs/proposals/rewrite-occurrence.md: the occurrence item moves to SW-2033; drop it from the title once that lands.",
+      "body": "\n\nFrom docs/proposals/rewrite-occurrence.md: the occurrence item moves to SW-2033; drop it from the title once that lands.\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE: std lemmas occurrencesFlatMap, permFlatMap, sumBy-one = length (SW-1011; in List/Lemmas.sw, List/SortLemmas.sw).\n- COVERED: E-ARITY naming the definition that unfolded: SW-2012 (backlog; SW-842 did the E-MATCH-MOTIVE half). Rewrite occurrence selection: SW-2033 (backlog; design done in SW-2011). Parse's next in scope unimported: SW-2017.\n- SPLIT: DecEq.sound note blames match instead of the unknown instance: SW-3420.\n",
       "created": "2026-10-28",
-      "updated": "2026-11-07",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
       "id": 762,
       "title": "Day 13 findings: match on an expression not in the goal silently does nothing (warn); Int (d*a)/d = a and List.minimum lemmas, natAbsMul/natAbsZero to std; labelWhole reports at the furthest point (missing blank line between sections); import … as aliases",
-      "status": "next",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "aoc-older",
-      "body": "Day 13 findings: match on an expression not in the goal silently does nothing (warn); Int (d*a)/d = a and List.minimum lemmas, natAbsMul/natAbsZero to std; labelWhole reports at the furthest point (missing blank line between sections); import … as aliases\n\nUpdate 1 Nov 2026 (AoC corpus review): std has had the List.minimum lemmas since 28 Oct (List.minimumSome, List.minimumExists, List.minimumAllEqual in List/Lemmas.sw); day 16 local copies being removed in SW-1021. Remaining items are the non-std ones.\n\nBoard audit (5 Nov 2026): partly done: natAbsMul is in std/Int/Lemmas.sw.",
+      "body": "Day 13 findings: match on an expression not in the goal silently does nothing (warn); Int (d*a)/d = a and List.minimum lemmas, natAbsMul/natAbsZero to std; labelWhole reports at the furthest point (missing blank line between sections); import … as aliases\n\nUpdate 1 Nov 2026 (AoC corpus review): std has had the List.minimum lemmas since 28 Oct (List.minimumSome, List.minimumExists, List.minimumAllEqual in List/Lemmas.sw); day 16 local copies being removed in SW-1021. Remaining items are the non-std ones.\n\nBoard audit (5 Nov 2026): partly done: natAbsMul is in std/Int/Lemmas.sw.\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE: Int (d*a)/d = a, natAbsMul/natAbsZero, List.minimum lemmas in std (SW-1011, 1 Nov audit); match on an expression not in the goal warns (SW-1485, SW-1575, SW-1719); import … as aliases: import M (x as y) exists (docs/syntax.md:453; docs/proposals/import-aliases.md), and 'import M as A' is deliberately E-PARSE with a note giving the item form.\n- DONE: labelWhole reporting at the furthest point after a blank line: SW-1262 (parse errors after an extra blank line); the labelWhole cost is SW-2501/SW-3249 (backlog).\n",
       "created": "2026-10-28",
-      "updated": "2026-11-05",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
       "id": 771,
       "title": "Day 16 findings: Set.popMin and the generic Dijkstra + proof into std (after the Set lane); share part 1's search with part 2; E-MATCH-MOTIVE on a match keeping its equation (queue.min); rewrite-introduced terms not refined by match; lambdas inferred after other arguments; importing a constructor by name note",
-      "status": "next",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "aoc-older",
-      "body": "Day 16 findings: Set.popMin and the generic Dijkstra + proof into std (after the Set lane); share part 1's search with part 2; E-MATCH-MOTIVE on a match keeping its equation (queue.min); rewrite-introduced terms not refined by match; lambdas inferred after other arguments; importing a constructor by name note\n\nUpdate 1 Nov 2026 (AoC corpus review): std has had the List.minimum lemmas since 28 Oct (List.minimumSome, List.minimumExists, List.minimumAllEqual in List/Lemmas.sw); day 16 local copies being removed in SW-1021. Remaining items are the non-std ones.\n\nBoard audit (5 Nov 2026): partly done: Set.popMin, its proof and Graph.distances (Dijkstra) are in std/Graph/Search.sw. Check what's left.",
+      "body": "Day 16 findings: Set.popMin and the generic Dijkstra + proof into std (after the Set lane); share part 1's search with part 2; E-MATCH-MOTIVE on a match keeping its equation (queue.min); rewrite-introduced terms not refined by match; lambdas inferred after other arguments; importing a constructor by name note\n\nUpdate 1 Nov 2026 (AoC corpus review): std has had the List.minimum lemmas since 28 Oct (List.minimumSome, List.minimumExists, List.minimumAllEqual in List/Lemmas.sw); day 16 local copies being removed in SW-1021. Remaining items are the non-std ones.\n\nBoard audit (5 Nov 2026): partly done: Set.popMin, its proof and Graph.distances (Dijkstra) are in std/Graph/Search.sw. Check what's left.\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE: Set.popMin and the generic Dijkstra + proof in std (Graph/Search.sw; SW-2370, SW-2394 for later work); sharing part 1's search with part 2: aoc/src/Aoc/Year2024/Day16/Day16.sw has part1From/part2From over one fromStart.\n- DONE: importing a constructor by name: SW-2798 (import lists may name constructors).\n- COVERED: E-MATCH-MOTIVE on a match keeping its equation (queue.min): SW-2030 (decreasing with hypothesis, done) and SW-2708/SW-2833 (match on d.does); lambdas inferred after other arguments and rewrite-introduced terms not refined by match: postponement case 7 (docs/proposals/postponement.md:3325, 3652); re-test list is SW-3429.\n",
       "created": "2026-10-28",
-      "updated": "2026-11-05",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -1073,27 +1073,27 @@
     {
       "id": 808,
       "title": "Day 22 findings: built-in Nat xor/and/or/shifts in the runtime (4.3 µs per xor); lazy unfolding when comparing large closed definitions (130,321-element list hangs, no part2 name); omega facts for % by a literal; hangs should name their declaration (time budget); 'f -2' message suggests brackets; rewrite notes print % not Nat.divFuel; low-bits xor lemmas into Nat/Bits.sw; array with constant-time indexing",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "aoc-older",
-      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: low-bits xor lemmas into Nat/Bits.sw (f7264e47; Nat.xorMod, Nat.xorDiv at Nat/Bits.sw:73-80).\n- SPLIT: 'f -2' message -> SW-840 (reproduced); hangs name their declaration -> SW-843.\n- DUPLICATE: array with constant-time indexing -> SW-112.\n- DONE since: hangs name their declaration (SW-843), 'f -2' message (SW-840).\n- OPEN here: built-in Nat xor/and/or/shifts in the runtime (4.3 µs per xor); lazy unfolding when comparing large closed definitions (130,321-element list hangs); omega facts for % by a literal; rewrite notes print % not Nat.divFuel.\n\nSW-1603 (docs/proposals/nat-map.md, 7 Nov): Nat bit operations are written in Stitchwort (4.3 us per XOR); worth making native on their own, whatever happens to the map work.",
+      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: low-bits xor lemmas into Nat/Bits.sw (f7264e47; Nat.xorMod, Nat.xorDiv at Nat/Bits.sw:73-80).\n- SPLIT: 'f -2' message -> SW-840 (reproduced); hangs name their declaration -> SW-843.\n- DUPLICATE: array with constant-time indexing -> SW-112.\n- DONE since: hangs name their declaration (SW-843), 'f -2' message (SW-840).\n- OPEN here: built-in Nat xor/and/or/shifts in the runtime (4.3 µs per xor); lazy unfolding when comparing large closed definitions (130,321-element list hangs); omega facts for % by a literal; rewrite notes print % not Nat.divFuel.\n\nSW-1603 (docs/proposals/nat-map.md, 7 Nov): Nat bit operations are written in Stitchwort (4.3 us per XOR); worth making native on their own, whatever happens to the map work.\n\nFinal triage, 15 Nov (Sonnet, SW-2015), on top of the 28 Oct triage above:\n- COVERED: built-in Nat xor/and/or/shifts: SW-2010 (backlog, Sonnet, 60 min; also SW-1603's note). Lazy unfolding when comparing large closed definitions, and hangs naming the declaration: SW-1788 (closed statements) and SW-2009 (done); rewrite notes printing % not Nat.divFuel: bounded readback SW-1831/SW-1836 (goal-as-written epic). The 130,321-element list case is the first thing to retest after SW-1788.\n- DONE: omega facts for % by a literal: docs/syntax.md (Arithmetic: x / k and x % k, SW-997, SW-1669).\n",
       "created": "2026-10-28",
-      "updated": "2026-11-07",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
       "id": 809,
       "title": "Day 23 findings: 'match found:' in a definition can't be stepped through (E-REWRITE/MATCH-MOTIVE; see D1439); a 100-line theorem 16 s vs 2.2 s with let-bound proofs moved out (why?); lambda needing a later argument for pair.fst gives a same-type mismatch message; Set membership Iff lemmas; dependent if choosing between proofs (E-UNIVERSE); Set.sizeIntersect lemmas; Char.isAsciiLowercase",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "aoc-older",
-      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: Char.isAsciiLowercase (f7264e47; std/Text/Basics.sw:40). Set membership Iff lemmas largely exist (Set/Spec.sw: containsToList, memToList, extIff, containsUnion, containsIntersect).\n- SPLIT: Set.sizeIntersect lemmas -> SW-841.\n- DUPLICATE: 'match found:' stepping -> SW-802 (D1439); dependent if choosing between proofs -> SW-373.\n- OPEN here: a 100-line theorem 16 s vs 2.2 s with let-bound proofs moved out (why?); lambda needing a later argument for pair.fst gives a same-type mismatch message (may be fixed by the SW-822 lane).\n\nBacklog review, 4 Nov 2026: nothing newer than the triage above; the OPEN items are the list of what is left (the pair.fst message may be fixed by the SW-822 lane: re-test).\n\nFrom docs/proposals/decreasing-with-hypothesis.md: the match found: case for decreasing definitions moves to SW-2030.",
+      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: Char.isAsciiLowercase (f7264e47; std/Text/Basics.sw:40). Set membership Iff lemmas largely exist (Set/Spec.sw: containsToList, memToList, extIff, containsUnion, containsIntersect).\n- SPLIT: Set.sizeIntersect lemmas -> SW-841.\n- DUPLICATE: 'match found:' stepping -> SW-802 (D1439); dependent if choosing between proofs -> SW-373.\n- OPEN here: a 100-line theorem 16 s vs 2.2 s with let-bound proofs moved out (why?); lambda needing a later argument for pair.fst gives a same-type mismatch message (may be fixed by the SW-822 lane).\n\nBacklog review, 4 Nov 2026: nothing newer than the triage above; the OPEN items are the list of what is left (the pair.fst message may be fixed by the SW-822 lane: re-test).\n\nFrom docs/proposals/decreasing-with-hypothesis.md: the match found: case for decreasing definitions moves to SW-2030.\n\nFinal triage, 15 Nov (Sonnet, SW-2015), on top of the 28 Oct triage:\n- SPLIT: the 100-line theorem 16 s vs 2.2 s with let-bound proofs moved out: SW-3427 (Opus, investigate).\n- COVERED: 'match found:' stepping: SW-2030 (D2870 decided; SW-2096, SW-2097); lambda needing a later argument for pair.fst message: re-test in SW-3429 (SW-822 lane).\n",
       "created": "2026-10-28",
-      "updated": "2026-11-07",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -1185,14 +1185,14 @@
     {
       "id": 816,
       "title": "Day 24 findings: repair misses in 4/110 generated adders (try every output in the faulty bit); a user constructor And/Or hiding the prelude's needs a message naming what was found; omega given goals expanded into Nat.divFuel; Text.padLeft, Option.toList, list-of-options sequence; E-MATCH-MOTIVE/E-ARITY name the unfolded definition; Ok { … } bracket hint; parse 'got' shows next token; --no-cache flag for the project only; searching lemmas by type; List builders (map, filter, append, …) overflow the stack on 3M items",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "aoc-older",
-      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: Text.padLeft, Option.toList, list-of-options sequence as List.allSome (f7264e47). Ok { … } bracket hint: E-UNKNOWN-FIELD note 2 already says write Ok ({ … }) (checked).\n- SPLIT: parse 'got' next token; E-MATCH-MOTIVE/E-ARITY naming the unfolded definition -> SW-842.\n- NOT REPRODUCED: user constructors And/Or beside the prelude's (type T = | And | Or with p ∧ q checks fine); needs the day's exact case.\n- OPEN here: repair misses in 4/110 generated adders (AoC program; see the 30 Oct clarification); omega given goals expanded into Nat.divFuel; --no-cache for the project only; searching lemmas by type (search exists since SW-915/989; re-test).\n- DONE since (backlog review, 4 Nov 2026): 'List builders (map, filter, append, …) overflow the stack on 3M items' was SW-863 (done); the {IO}-callback case is SW-868.\n\n\nClarified 30 Oct (orchestrator, checked against aoc/NOTES-2024.md and Proofs/Part2.sw): the 'repair misses' item is incompleteness, not wrong answers. part2Sound/part2Correct prove that any answer returned is a correct repair (at most four swaps, adds for every x and y). After SW-830, 117 of 120 generated cases are found; the 3 misses return None, all with swaps spread across bits. Not proved: completeness (false today) and uniqueness (false in general). Day 24 has no real input in the repo (Matt's inputs stop at day 10). Backlog, not urgent (Matt): to close it, make repair backtrack across bits within the four-swap budget, then prove completeness.\n\n\nUpdate 1 Nov 2026 (SW-1006): the Text.padLeft, Option.toList and list-of-options sequence item is done — all three are in std: Text.padLeft (std/Text/Text.sw:21), Option.toList (std/Option/Option.sw:87), List.allSome (std/List/Toolkit.sw:318).\n",
+      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: Text.padLeft, Option.toList, list-of-options sequence as List.allSome (f7264e47). Ok { … } bracket hint: E-UNKNOWN-FIELD note 2 already says write Ok ({ … }) (checked).\n- SPLIT: parse 'got' next token; E-MATCH-MOTIVE/E-ARITY naming the unfolded definition -> SW-842.\n- NOT REPRODUCED: user constructors And/Or beside the prelude's (type T = | And | Or with p ∧ q checks fine); needs the day's exact case.\n- OPEN here: repair misses in 4/110 generated adders (AoC program; see the 30 Oct clarification); omega given goals expanded into Nat.divFuel; --no-cache for the project only; searching lemmas by type (search exists since SW-915/989; re-test).\n- DONE since (backlog review, 4 Nov 2026): 'List builders (map, filter, append, …) overflow the stack on 3M items' was SW-863 (done); the {IO}-callback case is SW-868.\n\n\nClarified 30 Oct (orchestrator, checked against aoc/NOTES-2024.md and Proofs/Part2.sw): the 'repair misses' item is incompleteness, not wrong answers. part2Sound/part2Correct prove that any answer returned is a correct repair (at most four swaps, adds for every x and y). After SW-830, 117 of 120 generated cases are found; the 3 misses return None, all with swaps spread across bits. Not proved: completeness (false today) and uniqueness (false in general). Day 24 has no real input in the repo (Matt's inputs stop at day 10). Backlog, not urgent (Matt): to close it, make repair backtrack across bits within the four-swap budget, then prove completeness.\n\n\nUpdate 1 Nov 2026 (SW-1006): the Text.padLeft, Option.toList and list-of-options sequence item is done — all three are in std: Text.padLeft (std/Text/Text.sw:21), Option.toList (std/Option/Option.sw:87), List.allSome (std/List/Toolkit.sw:318).\n\nFinal triage, 15 Nov (Sonnet, SW-2015), on top of the 28 Oct triage:\n- SPLIT: repair misses in 4/110 generated adders (completeness): SW-3428.\n- DONE: omega goals expanded into Nat.divFuel (SW-997 and bounded readback, gap 4 of docs/reviews/aoc-gaps-status-2026-11-07.md); parse 'got' shows the next token and E-ARITY/E-MATCH-MOTIVE naming the definition (SW-842; the E-ARITY remainder is SW-2012); searching lemmas by type (SW-915 and later search work); List builders overflowing on 3M items (SW-863); --no-cache for the project only: the flag exists on check (crates/cli/src/main.rs:2101).\n- NOT REPRODUCED (28 Oct): a user constructor And/Or hiding the prelude's; needs the day's exact case, not filed.\n",
       "created": "2026-10-28",
-      "updated": "2026-11-04",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -1593,7 +1593,7 @@
     {
       "id": 954,
       "title": "Day 6 friction: cases on bounded Nat (x ≤ 8) runs out of cases; match wildcard gives omega no bound; omega messages unfolded; And tuple hint; std count lemmas",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1601,30 +1601,30 @@
         "diagnostics"
       ],
       "epic": "aoc-older",
-      "body": "From AoC 2021 day 6 (aoc/NOTES-2021.md, 31 Oct 2026). (1) cases can't prove \"x ≤ 8, so x is one of 0..8\": it splits all nine comparisons without seeing x == 0 and x == 1 exclude each other, and runs out of cases; a match with patterns 0..8 works but a final `_ => omega` fails because the wildcard doesn't tell omega x ≥ 9 (nine nested Succs needed). (2) omega prints List.count and == unfolded. (3) (rfl, rest) for an And gives \"add a type annotation\"; the note should mention Both. Std candidates: List.count of replicate, countSum, a simulation-through-Nat.iterate lemma. Also: the parser rejects timers > 8 but no theorem says so (same pattern as day 5's diagonals): consider proving parser postconditions.\n",
+      "body": "From AoC 2021 day 6 (aoc/NOTES-2021.md, 31 Oct 2026). (1) cases can't prove \"x ≤ 8, so x is one of 0..8\": it splits all nine comparisons without seeing x == 0 and x == 1 exclude each other, and runs out of cases; a match with patterns 0..8 works but a final `_ => omega` fails because the wildcard doesn't tell omega x ≥ 9 (nine nested Succs needed). (2) omega prints List.count and == unfolded. (3) (rfl, rest) for an And gives \"add a type annotation\"; the note should mention Both. Std candidates: List.count of replicate, countSum, a simulation-through-Nat.iterate lemma. Also: the parser rejects timers > 8 but no theorem says so (same pattern as day 5's diagonals): consider proving parser postconditions.\n\nTriage, 15 Nov (Sonnet, SW-2015; read-only checks):\n- SPLIT: And tuple hint (rfl, rest) should mention Both: SW-3419. Cases on x ≤ 8 and the wildcard arm giving omega no bound: re-test in SW-3429 (SW-1550 and the catch-all facts, SW-3335, are the likely fixes).\n- COVERED: omega printing unfolded: bounded readback (SW-1831, SW-1836). Std count lemmas (count of replicate, countSum): SW-2170 (backlog) and SW-3430. Parser postcondition theorems (timers > 8): epic parser-proofs (SW-1649 family).\n",
       "created": "2026-10-31",
-      "updated": "2026-10-31",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
       "id": 957,
       "title": "Day 7: std min-fold/sumBy/div-monotone/List.maximum lemmas; inconsistent d ≠ 0 conventions; cold-cache search slow",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "stdlib"
       ],
       "epic": "aoc-older",
-      "body": "From AoC 2021 day 7 (aoc/NOTES-2021.md, 31 Oct 2026). Std candidates: foldMinLe / foldMinLeMember (Nat.min versions of List.foldMaxGe / List.leFoldMax), sumByLeMember (sumByLe when terms are smaller only on members), division monotone (a ≤ b → a / d ≤ b / d), List.maximum lemmas. Also: Nat.divMulLe takes d ≠ 0 explicitly unlike Nat.leDivOfMulLe (inconsistent argument conventions). Search: the first search on a cold cache was slow (52 s pattern, 71 s --at, machine under load); warm --at 2-3 s.\n\n7 Nov: docs/reviews/SW-2159-aoc-lemmas-to-std.md says which of its lanes absorbs this (SW-2169-SW-2175).",
+      "body": "From AoC 2021 day 7 (aoc/NOTES-2021.md, 31 Oct 2026). Std candidates: foldMinLe / foldMinLeMember (Nat.min versions of List.foldMaxGe / List.leFoldMax), sumByLeMember (sumByLe when terms are smaller only on members), division monotone (a ≤ b → a / d ≤ b / d), List.maximum lemmas. Also: Nat.divMulLe takes d ≠ 0 explicitly unlike Nat.leDivOfMulLe (inconsistent argument conventions). Search: the first search on a cold cache was slow (52 s pattern, 71 s --at, machine under load); warm --at 2-3 s.\n\n7 Nov: docs/reviews/SW-2159-aoc-lemmas-to-std.md says which of its lanes absorbs this (SW-2169-SW-2175).\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE: foldMinLe (List/Lemmas.sw), division monotone (Nat.divMonoLeft, Nat/Arith.sw), List.maximum lemmas (SW-983; maximumSome); SW-2171 (Nat/Int/Bool arithmetic lemmas, done) absorbed the rest of N1. sumByLeMem (the bound only on members): SW-2170 (backlog).\n- STALE: cold-cache search slowness (52 s / 71 s under load): search was reworked since (SW-1082, SW-1017, SW-993); the kept search session is the editor-playground epic's SW-1818 to SW-1823.\n- Not filed: Nat.divMulLe takes d ≠ 0 explicitly (std now states (n / d) * d ≤ n with no side condition: Nat/Arith.sw:185).\n",
       "created": "2026-10-31",
-      "updated": "2026-11-07",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
       "id": 958,
       "title": "Day 8: slow checks don't say which definition is unfolding; _ for Perm lists / Bool predicates not inferred; rewrite budget on big sides; std permutation-reindexing lemmas",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1632,9 +1632,9 @@
         "diagnostics"
       ],
       "epic": "aoc-older",
-      "body": "From AoC 2021 day 8 (aoc/NOTES-2021.md, 31 Oct 2026). (1) Nothing reports which definition is being unfolded when a check runs for minutes: Entry.wiring had to be found by bisecting with ?, then made opaque (check 2 min+ -> 7.1 s cold). A slow-check report naming the unfolding definition (or a time budget that says where) would help. (2) a _ for a List.Perm's lists doesn't infer (Perm unfolded to counts first); a _ for a Bool predicate doesn't infer. (3) rewrite with equations whose sides compute to big terms hits E-REWRITE-BUDGET where Eq.trans chains work. Std candidates: List.all of map, member of a Bool all, reindexing count/sum/all by a permutation, find over withIndex finding nothing (copied on days 5, 6, 8). search --at closed nothing on day 8 (44 s on one goal).\n",
+      "body": "From AoC 2021 day 8 (aoc/NOTES-2021.md, 31 Oct 2026). (1) Nothing reports which definition is being unfolded when a check runs for minutes: Entry.wiring had to be found by bisecting with ?, then made opaque (check 2 min+ -> 7.1 s cold). A slow-check report naming the unfolding definition (or a time budget that says where) would help. (2) a _ for a List.Perm's lists doesn't infer (Perm unfolded to counts first); a _ for a Bool predicate doesn't infer. (3) rewrite with equations whose sides compute to big terms hits E-REWRITE-BUDGET where Eq.trans chains work. Std candidates: List.all of map, member of a Bool all, reindexing count/sum/all by a permutation, find over withIndex finding nothing (copied on days 5, 6, 8). search --at closed nothing on day 8 (44 s on one goal).\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE: a slow check names what it is unfolding: SW-2009 (done). A _ for a Perm's lists or a Bool predicate: postponement (SW-986, SW-987); re-test in SW-3429.\n- COVERED: rewrite budget on big sides: bounded readback and goal-as-written stages (goal-as-written epic). Std permutation-reindexing and find-over-withIndex lemmas: SW-3430. search --at closing nothing on day 8: SW-993 and SW-2182.\n",
       "created": "2026-10-31",
-      "updated": "2026-10-31",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -1657,7 +1657,7 @@
     {
       "id": 960,
       "title": "Day 9: Graph states recomputed; cases reports phantom match; Bool </==/!= lemma map; project search ambiguity (--in); std grid module",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1665,9 +1665,9 @@
         "friction"
       ],
       "epic": "aoc-older",
-      "body": "From AoC 2021 day 9 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) Building a Graph record computes its `states` list (only there for termination) every time: building it per low point cost 2.3 s of a 3.0 s run. Workaround: build once. Fix: document at Graph (small) or erase proof-only data (large).\n(2) `cases` on `adjacent {row = Succ row, column} {row, column} = True` reports E-MATCH-MOTIVE \"this `match` can't be given a type\" for a match not in the source. Fix: report it as `cases` failing (small-medium).\n(3) Bool forms of <, ==, != each need different lemmas: Decidable.toBoolSound mismatch on a Nat `<` (which is Nat.leq, printed alike); Nat.equalRefl doesn't fit `==` (needs DecEq.refl/sound); nothing turns `!=` back into an equation. Fix: a note mapping each form to its lemma + DecEq lemmas for != (small).\n(4) No eta for pairs: `entry.fst entry.snd` for `entry` mismatched; workaround match (small: mention in note).\n(5) A `_` for a lambda didn't infer against a function computed into projections (small).\n(6) Membership goals print unfolded as `List.Any (y => y = x) …` (small).\n(7) Project search: `search '(a: Position) = b'` is E-AMBIGUOUS (11 days define Position; verified). Generated `Position.ext` not indexed by --definitions. Fix: `--in NAMESPACE`, index T.ext (small each).\n(8) search --at closed nothing; 41-42 s with open ?s in the namespace; on `length (keys r) = size r` found nothing although `search --rewrite 'Map.size _'` lists Map.sizeToList. Fix: offer rewrites on a function in the goal even when they don't close it (medium).\nStd candidates: List.length (Map.keys m) = Map.size m; findIndexedNone (now copied on days 5, 6, 8, 9); != lemmas; a grid module with 4-neighbours + adjacency lemmas (~60 lines here; 2024 days 10,12,16,18,20 each roll their own) (medium).\n",
+      "body": "From AoC 2021 day 9 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) Building a Graph record computes its `states` list (only there for termination) every time: building it per low point cost 2.3 s of a 3.0 s run. Workaround: build once. Fix: document at Graph (small) or erase proof-only data (large).\n(2) `cases` on `adjacent {row = Succ row, column} {row, column} = True` reports E-MATCH-MOTIVE \"this `match` can't be given a type\" for a match not in the source. Fix: report it as `cases` failing (small-medium).\n(3) Bool forms of <, ==, != each need different lemmas: Decidable.toBoolSound mismatch on a Nat `<` (which is Nat.leq, printed alike); Nat.equalRefl doesn't fit `==` (needs DecEq.refl/sound); nothing turns `!=` back into an equation. Fix: a note mapping each form to its lemma + DecEq lemmas for != (small).\n(4) No eta for pairs: `entry.fst entry.snd` for `entry` mismatched; workaround match (small: mention in note).\n(5) A `_` for a lambda didn't infer against a function computed into projections (small).\n(6) Membership goals print unfolded as `List.Any (y => y = x) …` (small).\n(7) Project search: `search '(a: Position) = b'` is E-AMBIGUOUS (11 days define Position; verified). Generated `Position.ext` not indexed by --definitions. Fix: `--in NAMESPACE`, index T.ext (small each).\n(8) search --at closed nothing; 41-42 s with open ?s in the namespace; on `length (keys r) = size r` found nothing although `search --rewrite 'Map.size _'` lists Map.sizeToList. Fix: offer rewrites on a function in the goal even when they don't close it (medium).\nStd candidates: List.length (Map.keys m) = Map.size m; findIndexedNone (now copied on days 5, 6, 8, 9); != lemmas; a grid module with 4-neighbours + adjacency lemmas (~60 lines here; 2024 days 10,12,16,18,20 each roll their own) (medium).\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE: (1) Graph states recomputed: SW-2028 (erase data only proofs use, done); (3) Bool </==/!= lemma map: Bool as proposition stages (SW-3079 and its siblings; DecEq readings SW-3044); (4) no eta for pairs and records: record eta (SW-1642, SW-2068); (6) membership goals printed unfolded and (7) project search ambiguity (--in NAMESPACE, T.ext indexing): SW-993; std grid module: Aoc.Common.Grid (SW-984), SW-810.\n- COVERED: (8) search --at offering rewrites that do not close: SW-2186.\n- Re-test in SW-3429: (2) cases reports a phantom E-MATCH-MOTIVE for a match not in the source. Std: List.length (Map.keys m) = Map.size m and findIndexedNone in SW-3430.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -1704,7 +1704,7 @@
     {
       "id": 963,
       "title": "Day 10: Std.Parse has no reading lemmas; lambda arg elaborated before later arg fixes type; absurd pattern in multi-column match; ++ normaliser; median/injectivity std",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1712,9 +1712,9 @@
         "friction"
       ],
       "epic": "aoc-older",
-      "body": "From AoC 2021 day 10 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) Std.Parse has no lemmas about what it reads: a Parse.eachLine/many1/pick parser gave right answers but couldn't be proved, so the parser was rewritten by hand to prove parseReadsLines (D2108). Fix: std lemmas for eachLine, many1, pick (medium-large). Also `pick` with 8 choices says \"expected '(' or '[' or …\"; a comma list reads better (small).\n(2) Elaboration order: a lambda argument checked before a later argument fixed its type (hypothesis showed `?8 … = Ok token`; rewrite found nothing). Workaround: put the lambda parameter last. `firstIllegalOfScan _ Curly rfl` failed E-REFL with `scan [] […, …]` but checked with the line written (guess, unverified: rfl checked before the hole was solved; the … hid what was stuck). Relevant to postponement (SW-817).\n(3) Absurd pattern `()` in a multi-column match arm: E-NOT-EMPTY shows a type not refined by the other columns' patterns; two unrelated later arms then get false W-REDUNDANT. Nested `match h with | ()` was a parse error blaming the next arm. Workaround `h => cases`. Fix: refine by other columns; failed arm doesn't count toward coverage (medium).\n(4) Implicit argument not found through a definition: fitting `Completes line (Cons …)` into a constructor failed because `map` was computed one step before unifying; workaround explicit `[closers := …]` (medium).\n(5) No normaliser for `++` shapes: chains of appendAssoc (medium).\n(6) Small: no \"did you mean foldLeft\" for `foldl`; goals print `Legal` unfolded as ∃; search printed a type with an unreduced `(x => …) y`; search --at \"applicable\" list includes Bool.canonicalTrue which leaves the goal unchanged (drop no-op results).\nStd candidates: getOrMem, countAtMostLength, countSplit, traverseMap, mapSndWithIndex (small each); median lemmas (≤ k below index k of a sorted list; odd-count median unique) (medium); generated constructor injectivity lemmas (medium).\n",
+      "body": "From AoC 2021 day 10 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) Std.Parse has no lemmas about what it reads: a Parse.eachLine/many1/pick parser gave right answers but couldn't be proved, so the parser was rewritten by hand to prove parseReadsLines (D2108). Fix: std lemmas for eachLine, many1, pick (medium-large). Also `pick` with 8 choices says \"expected '(' or '[' or …\"; a comma list reads better (small).\n(2) Elaboration order: a lambda argument checked before a later argument fixed its type (hypothesis showed `?8 … = Ok token`; rewrite found nothing). Workaround: put the lambda parameter last. `firstIllegalOfScan _ Curly rfl` failed E-REFL with `scan [] […, …]` but checked with the line written (guess, unverified: rfl checked before the hole was solved; the … hid what was stuck). Relevant to postponement (SW-817).\n(3) Absurd pattern `()` in a multi-column match arm: E-NOT-EMPTY shows a type not refined by the other columns' patterns; two unrelated later arms then get false W-REDUNDANT. Nested `match h with | ()` was a parse error blaming the next arm. Workaround `h => cases`. Fix: refine by other columns; failed arm doesn't count toward coverage (medium).\n(4) Implicit argument not found through a definition: fitting `Completes line (Cons …)` into a constructor failed because `map` was computed one step before unifying; workaround explicit `[closers := …]` (medium).\n(5) No normaliser for `++` shapes: chains of appendAssoc (medium).\n(6) Small: no \"did you mean foldLeft\" for `foldl`; goals print `Legal` unfolded as ∃; search printed a type with an unreduced `(x => …) y`; search --at \"applicable\" list includes Bool.canonicalTrue which leaves the goal unchanged (drop no-op results).\nStd candidates: getOrMem, countAtMostLength, countSplit, traverseMap, mapSndWithIndex (small each); median lemmas (≤ k below index k of a sorted list; odd-count median unique) (medium); generated constructor injectivity lemmas (medium).\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE: (1) Std.Parse reading lemmas: SW-998, SW-1002, SW-1225; (3) absurd pattern () in a multi-column match arm: SW-2984, SW-2989; median/injectivity std: partly SW-1215 (Cons head injectivity); search applicable-list no-op results: SW-993.\n- COVERED: (2) lambda argument checked before a later argument fixes its type: postponement (docs/proposals/postponement.md:3322-3323, docs/proposals/postpone-fixed-point.md:544 says it closes this); re-test in SW-3429. (4) implicit argument through a definition: same family.\n- SPLIT: (5) ++ normaliser and generated constructor injectivity lemmas: SW-3433. Small messages (pick's comma list): SW-3432. Std candidates (getOrMem exists in List/Index.sw; median, countAtMostLength, countSplit, traverseMap, mapSndWithIndex): SW-3430.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -1735,7 +1735,7 @@
     {
       "id": 965,
       "title": "Day 11: match on bounded search hits E-RESOURCE; pure map in Fail code; search --at sees unfolded goal; std grid + least-fixed-point toolkit",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1743,9 +1743,9 @@
         "friction"
       ],
       "epic": "aoc-older",
-      "body": "From AoC 2021 day 11 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) `match solvePart2 levels with …` failed E-RESOURCE \"a value was too large to show … a call of `solvePart2`\": checking the match unfolds the 10,000-step search bound. Lane has a 13-line repro (bound 100: 0.11 s, 1000: 0.68 s, 10000: fails). Workaround: pass the Option to a helper. Fix: don't compute a scrutinee stuck on a variable; name the match in the message (medium).\n(2) A pure `map` at the end of `{Fail}` code runs in Fail: proofs see `Effect.foldComp … Done` not `Ok (List.map …)`, so Result.okInjective doesn't fit. Workaround: pure helper. Fix: pure-argument calls get the empty effect, or a std lemma (small-medium).\n(3) search --at searched the unfolded goal: at neighboursMono (44 s) it missed List.countLeMem because List.count had been unfolded to foldLeft. Fix: search with definitions folded (medium). An \"applicable\" result offered byDecision for an equation over variables, which it can't decide (small).\n(4) The lane rewrote lemmas the project had (countLeLength = day 10's countAtMostLength; allMapBool = day 8's allMapped) and imported Aoc.Year2021.Day09.Proofs for findIndexedNone/sameOfNotDiffer: shared helpers belong in std.\nStd candidates: grid module (~210 lines here: mapCells, cellAt, gridCells after mapCells, distinct positions, eight neighbours with membership/distinctness/count lemmas; extends SW-960's); a least-fixed-point toolkit (most of Day11/…/Cascade.sw, 160 lines, is generic); a one-pass stencil or O(1) array (run 4.1 s interpreted, mostly list neighbour lookups) (medium-large).\nGood: `if` between proofs gives E-UNIVERSE with the exact match to write; E-ARITY names parameters to add; cases closed all six adjacency facts (day 9 hit E-MATCH-MOTIVE on similar goals).\n",
+      "body": "From AoC 2021 day 11 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) `match solvePart2 levels with …` failed E-RESOURCE \"a value was too large to show … a call of `solvePart2`\": checking the match unfolds the 10,000-step search bound. Lane has a 13-line repro (bound 100: 0.11 s, 1000: 0.68 s, 10000: fails). Workaround: pass the Option to a helper. Fix: don't compute a scrutinee stuck on a variable; name the match in the message (medium).\n(2) A pure `map` at the end of `{Fail}` code runs in Fail: proofs see `Effect.foldComp … Done` not `Ok (List.map …)`, so Result.okInjective doesn't fit. Workaround: pure helper. Fix: pure-argument calls get the empty effect, or a std lemma (small-medium).\n(3) search --at searched the unfolded goal: at neighboursMono (44 s) it missed List.countLeMem because List.count had been unfolded to foldLeft. Fix: search with definitions folded (medium). An \"applicable\" result offered byDecision for an equation over variables, which it can't decide (small).\n(4) The lane rewrote lemmas the project had (countLeLength = day 10's countAtMostLength; allMapBool = day 8's allMapped) and imported Aoc.Year2021.Day09.Proofs for findIndexedNone/sameOfNotDiffer: shared helpers belong in std.\nStd candidates: grid module (~210 lines here: mapCells, cellAt, gridCells after mapCells, distinct positions, eight neighbours with membership/distinctness/count lemmas; extends SW-960's); a least-fixed-point toolkit (most of Day11/…/Cascade.sw, 160 lines, is generic); a one-pass stencil or O(1) array (run 4.1 s interpreted, mostly list neighbour lookups) (medium-large).\nGood: `if` between proofs gives E-UNIVERSE with the exact match to write; E-ARITY names parameters to add; cases closed all six adjacency facts (day 9 hit E-MATCH-MOTIVE on similar goals).\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- SPLIT: (1) match on a bounded search hits E-RESOURCE: SW-3421; (2) pure map in Fail code runs in Fail: SW-3422; least-fixed-point toolkit: SW-3423; std gaps: SW-3430.\n- DONE: (3) search --at on the unfolded goal and an applicable result offering byDecision for an equation over variables: SW-993, SW-989, SW-2186; grid module: Aoc.Common.Grid (SW-984, SW-1335); shared helpers out of the days: SW-2003, SW-2169, SW-2171.\n- COVERED: one-pass stencil / O(1) array: arrays SW-1637, SW-1638; interpreter speed SW-813.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -1766,7 +1766,7 @@
     {
       "id": 967,
       "title": "Day 12: lifted match in decreasing defs blocks proofs; BUG lambda arg becomes unknown x in termination goal; printer captures variables; congruence args not inferred; cross-day lemma imports",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1774,9 +1774,9 @@
         "friction"
       ],
       "epic": "aoc-older",
-      "body": "From AoC 2021 day 12 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) `match e:` inside a `decreasing` definition is lifted to an unnamed function taking `rfl`; matching on the same call in a proof gives E-MATCH-MOTIVE (\"`rfl` can't prove this\") and the suggested fix (helper with a written signature) can't be followed since the lifted match has no name. Workaround: depth cap instead of decreasing. Fix: generalise the rfl along with the scrutinee, as Lean does (medium-large).\n(2) BUG: a lambda in a recursive call's argument, inside sumBy's callback, becomes an unknown `x` in the termination goal (`⊢ List.length x < List.length xs`); a let is as opaque. Lane has a 3-line repro (in NOTES-2021 day 12). Workaround: top-level helper. Fix: keep the argument in the goal (medium).\n(3) Couldn't prove counting search = length of listing search: `List.sumByCong (next cave) _ _ (…)` left both function args as holes; writing the lambda out makes a different lifted match. Workaround: list then count (2.0 s vs 1.3 s). Fix: infer a congruence lemma's function args from the expected type first (near SW-963 item 2) (medium).\n(4) `decreasing` takes at most two parts; needed three (small).\n(5) After `match e:`, [GOAL] showed the goal unrefined while rewrite at the same spot reported it refined. Printed goals capture variables: `List.Any (y => y = y) …`; search --at printed `(c => c == c)` (small each; capture is a printer correctness bug).\n(6) No generated constructor injectivity/disjointness lemmas (also SW-963) (medium).\n(7) `search '(?b: Bool) ≠ True → ?b = False'` doesn't find Bool.falseOfNotTrue; conclusion-only pattern lists it third. Cause unknown (small-medium).\n(8) audit warns on every theorem about a successful parse (random texts never parse). Fix: counterexample search tries the namespace's test inputs (small-medium).\n(9) Minor inference: List.distinctNil after rewrite needed [a := Text]; let-bound lambda has no expected type so rewrite inside fails; depth argument hole not inferred (small).\nCross-day/cross-year imports now carry shared lemmas: day 12 imports 2024 day 24's filterNoLonger and 2021 day 10's toNatAtMostOne.\nStd candidates: List.lookup on a table built by map; filter length ≤ and strict when a member is filtered out; Bool.toNat b ≤ 1 (3 copies); count ≥ 1 for a member, count along ++; withoutMem; List.flatMapCong; a generic graph-walk listing module.\nsearch --at closed 4 of 5 goals (2-7 s) when used; noisy \"applies\" list (Bool.canonicalTrue again).\n",
+      "body": "From AoC 2021 day 12 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) `match e:` inside a `decreasing` definition is lifted to an unnamed function taking `rfl`; matching on the same call in a proof gives E-MATCH-MOTIVE (\"`rfl` can't prove this\") and the suggested fix (helper with a written signature) can't be followed since the lifted match has no name. Workaround: depth cap instead of decreasing. Fix: generalise the rfl along with the scrutinee, as Lean does (medium-large).\n(2) BUG: a lambda in a recursive call's argument, inside sumBy's callback, becomes an unknown `x` in the termination goal (`⊢ List.length x < List.length xs`); a let is as opaque. Lane has a 3-line repro (in NOTES-2021 day 12). Workaround: top-level helper. Fix: keep the argument in the goal (medium).\n(3) Couldn't prove counting search = length of listing search: `List.sumByCong (next cave) _ _ (…)` left both function args as holes; writing the lambda out makes a different lifted match. Workaround: list then count (2.0 s vs 1.3 s). Fix: infer a congruence lemma's function args from the expected type first (near SW-963 item 2) (medium).\n(4) `decreasing` takes at most two parts; needed three (small).\n(5) After `match e:`, [GOAL] showed the goal unrefined while rewrite at the same spot reported it refined. Printed goals capture variables: `List.Any (y => y = y) …`; search --at printed `(c => c == c)` (small each; capture is a printer correctness bug).\n(6) No generated constructor injectivity/disjointness lemmas (also SW-963) (medium).\n(7) `search '(?b: Bool) ≠ True → ?b = False'` doesn't find Bool.falseOfNotTrue; conclusion-only pattern lists it third. Cause unknown (small-medium).\n(8) audit warns on every theorem about a successful parse (random texts never parse). Fix: counterexample search tries the namespace's test inputs (small-medium).\n(9) Minor inference: List.distinctNil after rewrite needed [a := Text]; let-bound lambda has no expected type so rewrite inside fails; depth argument hole not inferred (small).\nCross-day/cross-year imports now carry shared lemmas: day 12 imports 2024 day 24's filterNoLonger and 2021 day 10's toNatAtMostOne.\nStd candidates: List.lookup on a table built by map; filter length ≤ and strict when a member is filtered out; Bool.toNat b ≤ 1 (3 copies); count ≥ 1 for a member, count along ++; withoutMem; List.flatMapCong; a generic graph-walk listing module.\nsearch --at closed 4 of 5 goals (2-7 s) when used; noisy \"applies\" list (Bool.canonicalTrue again).\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE/COVERED: (1) lifted match in decreasing defs blocks proofs: SW-2030 (D2870 decided: SW-2029 to SW-2032, SW-2096), SW-2208 and SW-2220; (4) decreasing takes two parts: lexicographic pairs are done in SW-199 (more parts only on trigger); (5) goal printing captures variables: SW-1000; (6) constructor injectivity lemmas: SW-3433; cross-day imports: SW-2003, SW-2169.\n- SPLIT: (2) BUG lambda arg becomes unknown x in the termination goal: SW-3424. \n- COVERED: (3) congruence function args not inferred: postponement case 6 (postponement.md:3324, 3654); (7) search misses Bool.falseOfNotTrue: SW-2186 and the SW-3429 retest; (8) audit warns on every theorem about a successful parse: SW-1317, SW-1210, SW-1063.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -1799,7 +1799,7 @@
     {
       "id": 969,
       "title": "Day 13: search --at fails after constructor match (context order); cases arg solves holes before expected type; foldRight not structural; x✝ name clashes",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1807,9 +1807,9 @@
         "friction"
       ],
       "epic": "aoc-older",
-      "body": "From AoC 2021 day 13 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) search --at refuses goals after a match on a constructor with fields: `E-SEARCH-AT … unknown name 'line'`. The goal context lists a refined hypothesis before the pattern variable it mentions (`h: line < 3` above `line: Nat`); equation-style inductions do the same. 13-line repro in NOTES-2021 day 13. No workaround. Fix: order the context by dependency in the goal display and in search (small-medium). High value: it blocks search --at on most proofs after a match.\n(2) A `cases` argument solved its call's holes before the expected type: `P.ext _ _ cases cases` said \"expected `q = shift b p`, but this has type `q = q`\". 6-line repro in notes. Workaround: write the values. Fix: unify result with expected type before checking proof arguments (medium; same family as SW-963 (2), SW-967 (3)).\n(3) List.foldRight doesn't compute on Cons (it's foldLeft over the reverse), so omega can't use it. Workaround: lemmas from List.foldRightCons. Fix: note at foldRight or a structural definition (small).\n(4) Search pattern `P → _` seems to match P only as the first premise: `List.find _ _ = None → _` missed List.findNoneNotMem (small).\n(5) cases prints two different variables both as x✝/y✝ (`spot = { x = x✝, … }, dot = { x = x✝, … }`). Fix: number them (small).\n(6) Definitions/theorems whose result is a defined function type need a pattern for the hidden argument; the message explains it well; worth a doc line (small).\n(7) New evidence for SW-967 (8): audit also warns when a hypothesis is membership in a function's output.\nSeen again: no eta for records (SW-960 (4)).\nStd candidates: List.get of map over List.range (Some below n, None past it); List.get (List.range n) i; members below the list maximum.\n",
+      "body": "From AoC 2021 day 13 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) search --at refuses goals after a match on a constructor with fields: `E-SEARCH-AT … unknown name 'line'`. The goal context lists a refined hypothesis before the pattern variable it mentions (`h: line < 3` above `line: Nat`); equation-style inductions do the same. 13-line repro in NOTES-2021 day 13. No workaround. Fix: order the context by dependency in the goal display and in search (small-medium). High value: it blocks search --at on most proofs after a match.\n(2) A `cases` argument solved its call's holes before the expected type: `P.ext _ _ cases cases` said \"expected `q = shift b p`, but this has type `q = q`\". 6-line repro in notes. Workaround: write the values. Fix: unify result with expected type before checking proof arguments (medium; same family as SW-963 (2), SW-967 (3)).\n(3) List.foldRight doesn't compute on Cons (it's foldLeft over the reverse), so omega can't use it. Workaround: lemmas from List.foldRightCons. Fix: note at foldRight or a structural definition (small).\n(4) Search pattern `P → _` seems to match P only as the first premise: `List.find _ _ = None → _` missed List.findNoneNotMem (small).\n(5) cases prints two different variables both as x✝/y✝ (`spot = { x = x✝, … }, dot = { x = x✝, … }`). Fix: number them (small).\n(6) Definitions/theorems whose result is a defined function type need a pattern for the hidden argument; the message explains it well; worth a doc line (small).\n(7) New evidence for SW-967 (8): audit also warns when a hypothesis is membership in a function's output.\nSeen again: no eta for records (SW-960 (4)).\nStd candidates: List.get of map over List.range (Some below n, None past it); List.get (List.range n) i; members below the list maximum.\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE: (1) search --at after a constructor match (context order): SW-989 (stop --at refusals) and SW-1000; (5) cases printing x✝ for two variables: SW-1000; (2) cases argument solving holes before the expected type: postponement fixes it (postponement.md:3295, 3319). All three retested in SW-3429.\n- COVERED: (4) search pattern P → _ matching P only as the first premise: SW-2186; (6) documentation line for a defined function type result: not filed (small; guide pass). \n- Not filed: (3) List.foldRight not computing on Cons is by design (foldLeft over the reverse); std has List.foldRightCons and SW-2851 adds foldRight lemmas.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -1832,7 +1832,7 @@
     {
       "id": 971,
       "title": "Day 14: unsolved holes surface only in omega goals; search --at no symmetric/IH candidates; %match1 names printed; class laws unsearchable; no Decidable List.Distinct; List.maximum lemmas",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1840,9 +1840,9 @@
         "friction"
       ],
       "epic": "aoc-older",
-      "body": "From AoC 2021 day 14 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) Holes appear only inside a failing omega goal, with no error at the hole: a lambda's `entry.snd` became `?15 …` (lambda before the argument fixing its type; workaround annotate); an `[auto eq: DecEq a]` argument still unsolved when a later omega argument was checked (workaround: prove the fact first in a typed let). Same family as SW-963 (2), SW-967 (3), SW-969 (2), new symptom. Fix: solve auto arguments first, or name the unsolved hole (medium).\n(2) search --at doesn't try a lemma backwards: missed Eq.sym (List.sumByFlatMap …) though plain search lists it first. Fix: try each closing candidate's symmetric form (small-medium).\n(3) Lifted matches/fields print by internal names in goals and search --at: expand.%match1, Map.lookupLast.%match1, Ord.%compare, Add.%zero, DecEq.%decide. Fix: fold back to the definition (small-medium).\n(4) Class laws aren't searchable: `search 'Ord.compare ?x ?y = Equal → ?x = ?y'` finds nothing (law is record field ord.equal). Fix: index class laws as lemmas (small-medium).\n(5) search --at can't offer the induction hypothesis (medium).\n(6) No Decidable (List.Distinct xs); audit message says it twice (\"nothing decides X: no way to decide X\") (small).\n(7) No List.maximum lemmas though List.minimum has them; copied for Nat (small).\nStd candidates: membership ↔ 0 < count; sumByPositive; Map.lookupLast on distinct keys = find; weighted sum after Map.insertWith Nat.add; Ord.compare x y = Equal → x = y; element count from zipWithNext; List.maximum lemmas.\nsearch --at: 5 goals, closed none; once its applies list had the right next step.\n\nBoard audit (5 Nov 2026): the goals-printing-%match1 item is SW-1004's; dropped here.",
+      "body": "From AoC 2021 day 14 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) Holes appear only inside a failing omega goal, with no error at the hole: a lambda's `entry.snd` became `?15 …` (lambda before the argument fixing its type; workaround annotate); an `[auto eq: DecEq a]` argument still unsolved when a later omega argument was checked (workaround: prove the fact first in a typed let). Same family as SW-963 (2), SW-967 (3), SW-969 (2), new symptom. Fix: solve auto arguments first, or name the unsolved hole (medium).\n(2) search --at doesn't try a lemma backwards: missed Eq.sym (List.sumByFlatMap …) though plain search lists it first. Fix: try each closing candidate's symmetric form (small-medium).\n(3) Lifted matches/fields print by internal names in goals and search --at: expand.%match1, Map.lookupLast.%match1, Ord.%compare, Add.%zero, DecEq.%decide. Fix: fold back to the definition (small-medium).\n(4) Class laws aren't searchable: `search 'Ord.compare ?x ?y = Equal → ?x = ?y'` finds nothing (law is record field ord.equal). Fix: index class laws as lemmas (small-medium).\n(5) search --at can't offer the induction hypothesis (medium).\n(6) No Decidable (List.Distinct xs); audit message says it twice (\"nothing decides X: no way to decide X\") (small).\n(7) No List.maximum lemmas though List.minimum has them; copied for Nat (small).\nStd candidates: membership ↔ 0 < count; sumByPositive; Map.lookupLast on distinct keys = find; weighted sum after Map.insertWith Nat.add; Ord.compare x y = Equal → x = y; element count from zipWithNext; List.maximum lemmas.\nsearch --at: 5 goals, closed none; once its applies list had the right next step.\n\nBoard audit (5 Nov 2026): the goals-printing-%match1 item is SW-1004's; dropped here.\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE: (1) unsolved holes appearing only in omega goals: postponement (postponement.md:3295, 3320-3321); (2) search --at symmetric and induction-hypothesis candidates, (4) class laws unsearchable: SW-993; (3) %match1 names: SW-1004/SW-2154 (done); (6) Decidable List.Distinct and (7) List.maximum lemmas: SW-983.\n- COVERED: remaining std candidates (membership ↔ 0 < count, sumByPositive, weighted sum after insertWith): SW-2170, SW-2174.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-05",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -1865,7 +1865,7 @@
     {
       "id": 973,
       "title": "Day 15: Map/Set slow in interpreter (heap PQ for Dijkstra); hoisting field reads 2x speed; counterexample search skips records with functions; rewrite fn-equation hidden diff; division needs nonzero proof",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1873,9 +1873,9 @@
         "friction"
       ],
       "epic": "aoc-older",
-      "body": "From AoC 2021 day 15 (aoc/NOTES-2021.md, 1 Nov 2026). Run: 17.6 s interpreted (20.3 s --no-cache; ~50 s in the loaded merge tier, now daily-only), 4.5 s --native, 2.9 s --js.\n(1) Std Map/Set are slow in the interpreter: 250,000 ordered inserts into Map Nat Nat ~1.7 s, ~3.8 s with Position keys; most of part 2's search time. Building every edge 1.6 s. Fix: heap-based priority queue for Graph.distances (medium); runtime-backed maps (large).\n(2) A field read inside a lambda is recomputed every call: `position.row % cave.height` recomputed rows.length 4x per call; 31.7 s -> 17.6 s by hoisting `let height := cave.height`. Nothing warns. Fix: performance doc line (small); lift such reads when compiling (medium).\n(3) Counterexample search skips the main theorems: \"no inputs for `risks`\" (record with a function field) and \"nothing decides\" Rectangle (∀ over list members). Fix: decide that ∀ as xs.all (small-medium); generate function fields from finite tables (medium).\n(4) rewrite with an equation between functions fails with a hidden difference: `rewrite same in …` (same: levelAt cave = cave.risks.levelAt) E-TYPE-MISMATCH with both sides printed the same (difference inside …); `rewrite <- height` likewise; J with explicit motive works. Cause speculative. Fix: print the first differing subterm (small-medium).\n(5) / and % need a nonzero-divisor proof: nested `if tall: … if wide:` in program and spec, Nat.decEq matches in proofs. Fix: total division as in Lean, or variants (design question; ties to division track).\n(6) Messages: Bool.andLeft _ _ rest2 on a refined rest2 gave E-UNSOLVED without the helpful \"already refined\" note (small). A goal printed a Map's internal tree over thousands of characters (small). Errors printed twice when a namespace failed to load (small).\n(7) search --at couldn't see Graph.distancesShortest closes the minimality goal because the conclusion is a defined Prop of two conjuncts; fix: index each conjunct (medium). Plain search missed Nat.divLeOfLtMul (stated with Succ b * d, ≤ b).\nStd candidates: Graph.distancesReach (small); grid module: day 15 imports day 9's Position just for its lemmas (medium; SW-960, SW-965).\n",
+      "body": "From AoC 2021 day 15 (aoc/NOTES-2021.md, 1 Nov 2026). Run: 17.6 s interpreted (20.3 s --no-cache; ~50 s in the loaded merge tier, now daily-only), 4.5 s --native, 2.9 s --js.\n(1) Std Map/Set are slow in the interpreter: 250,000 ordered inserts into Map Nat Nat ~1.7 s, ~3.8 s with Position keys; most of part 2's search time. Building every edge 1.6 s. Fix: heap-based priority queue for Graph.distances (medium); runtime-backed maps (large).\n(2) A field read inside a lambda is recomputed every call: `position.row % cave.height` recomputed rows.length 4x per call; 31.7 s -> 17.6 s by hoisting `let height := cave.height`. Nothing warns. Fix: performance doc line (small); lift such reads when compiling (medium).\n(3) Counterexample search skips the main theorems: \"no inputs for `risks`\" (record with a function field) and \"nothing decides\" Rectangle (∀ over list members). Fix: decide that ∀ as xs.all (small-medium); generate function fields from finite tables (medium).\n(4) rewrite with an equation between functions fails with a hidden difference: `rewrite same in …` (same: levelAt cave = cave.risks.levelAt) E-TYPE-MISMATCH with both sides printed the same (difference inside …); `rewrite <- height` likewise; J with explicit motive works. Cause speculative. Fix: print the first differing subterm (small-medium).\n(5) / and % need a nonzero-divisor proof: nested `if tall: … if wide:` in program and spec, Nat.decEq matches in proofs. Fix: total division as in Lean, or variants (design question; ties to division track).\n(6) Messages: Bool.andLeft _ _ rest2 on a refined rest2 gave E-UNSOLVED without the helpful \"already refined\" note (small). A goal printed a Map's internal tree over thousands of characters (small). Errors printed twice when a namespace failed to load (small).\n(7) search --at couldn't see Graph.distancesShortest closes the minimality goal because the conclusion is a defined Prop of two conjuncts; fix: index each conjunct (medium). Plain search missed Nat.divLeOfLtMul (stated with Succ b * d, ≤ b).\nStd candidates: Graph.distancesReach (small); grid module: day 15 imports day 9's Position just for its lemmas (medium; SW-960, SW-965).\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE/COVERED: (1) Map/Set slow in the interpreter and heap PQ for Graph.distances: SW-2370 (done), SW-2372 (Std.Heap, backlog), native Map SW-1824 to SW-1827; (2) field reads recomputed: SW-1814 (compiler hoisting, parked), docs line in SW-3431; (3) counterexample search skips function-field records and ∀ over list members: SW-1063, SW-1247, SW-1317; (5) division needs a nonzero proof: docs/proposals/total-division.md (SW-1238); (7) search indexing each conjunct: SW-2186.\n- SPLIT: (4) rewrite with a function equation shows a hidden difference: re-test in SW-3429; (6) small messages: SW-3432; Graph.distancesReach std: SW-3430.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -1918,7 +1918,7 @@
     {
       "id": 976,
       "title": "Day 16: bitsOf check time doubles per bit; rewrite of x/2 rewrites inside x%2; catch-all arm learns nothing; search --at fails on ✝ names",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1926,9 +1926,9 @@
         "friction"
       ],
       "epic": "aoc-older",
-      "body": "From AoC 2021 day 16 (aoc/NOTES-2021.md, 1 Nov 2026). The cases panic is its own ticket (see below in the board).\n(1) Checking `bitsOf w n` on an unknown n doubles in time per bit: 8-line repro in NOTES (0.15 s at 9 bits, 0.63 s at 15, 10.1 s at 19). Guess, unverified: nested / 2 and % 2 copy the term. Day 16 proofs take 14 s cold because of it. Workaround: state each step over variables (medium).\n(2) rewrite ran out of budget comparing a term with itself (fields vs fields), a side effect of (1). Fix: syntactic comparison first (small).\n(3) E-RESOURCE \"a value was too large to show … Eq.trans\" with no location where a type mismatch belonged: `_` arguments inferred from an already-computed expected type. Same family as SW-963 (2), SW-969 (2), SW-971 (1) (medium).\n(4) rewrite of `x / 2` also rewrote inside `x % 2` (which computes to x - x / 2 * 2). Workaround: rewrite % first. Docs line (small).\n(5) In `match n with | 0 … | 7 … | _`, the `_` arm learns nothing about n; omega found the model n = 5. Workaround: Succ×8 pattern. Fix: give the catch-all arm the facts n ≠ 0 … n ≠ 7 (small-medium).\n(6) Decreasing through an earlier recursive call's result isn't possible; run-time length guards stand in. Docs example (small); results carrying their decrease (large).\n(7) Goals list every superseded `read✝` after each match (small).\n(8) search --at: refused a goal after a `_` pattern (\"E-PARSE: unexpected character `✝`\", new, small); refused another \"unknown name `group`\" (SW-967 (5)); didn't offer a hypothesis as a rewrite (small-medium). ~14 s per query from re-checking the slow namespace.\nNew evidence SW-960 (3): Bool `a > b` on Nat isn't Nat.decLessThan.\nProof found a real decoder bug (a total-length operator whose length ran past the transmission was accepted; all tests passed).\nStd candidates: fixed-width Nat.toBits with round-trip lemmas; takeAppend/dropAppend with a length hypothesis; Some (a, b) injectivity; List.maximum lemmas (imported day 14's maximumSome; SW-971 (7)).\n",
+      "body": "From AoC 2021 day 16 (aoc/NOTES-2021.md, 1 Nov 2026). The cases panic is its own ticket (see below in the board).\n(1) Checking `bitsOf w n` on an unknown n doubles in time per bit: 8-line repro in NOTES (0.15 s at 9 bits, 0.63 s at 15, 10.1 s at 19). Guess, unverified: nested / 2 and % 2 copy the term. Day 16 proofs take 14 s cold because of it. Workaround: state each step over variables (medium).\n(2) rewrite ran out of budget comparing a term with itself (fields vs fields), a side effect of (1). Fix: syntactic comparison first (small).\n(3) E-RESOURCE \"a value was too large to show … Eq.trans\" with no location where a type mismatch belonged: `_` arguments inferred from an already-computed expected type. Same family as SW-963 (2), SW-969 (2), SW-971 (1) (medium).\n(4) rewrite of `x / 2` also rewrote inside `x % 2` (which computes to x - x / 2 * 2). Workaround: rewrite % first. Docs line (small).\n(5) In `match n with | 0 … | 7 … | _`, the `_` arm learns nothing about n; omega found the model n = 5. Workaround: Succ×8 pattern. Fix: give the catch-all arm the facts n ≠ 0 … n ≠ 7 (small-medium).\n(6) Decreasing through an earlier recursive call's result isn't possible; run-time length guards stand in. Docs example (small); results carrying their decrease (large).\n(7) Goals list every superseded `read✝` after each match (small).\n(8) search --at: refused a goal after a `_` pattern (\"E-PARSE: unexpected character `✝`\", new, small); refused another \"unknown name `group`\" (SW-967 (5)); didn't offer a hypothesis as a rewrite (small-medium). ~14 s per query from re-checking the slow namespace.\nNew evidence SW-960 (3): Bool `a > b` on Nat isn't Nat.decLessThan.\nProof found a real decoder bug (a total-length operator whose length ran past the transmission was accepted; all tests passed).\nStd candidates: fixed-width Nat.toBits with round-trip lemmas; takeAppend/dropAppend with a length hypothesis; Some (a, b) injectivity; List.maximum lemmas (imported day 14's maximumSome; SW-971 (7)).\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- COVERED: (1) bitsOf check time doubles per bit and (2) rewrite budget comparing a term with itself: SW-554 (divFuel duplicates its argument), SW-2603 (kernel shortcut); re-test in SW-3429. (3) E-RESOURCE without a location: not reproduced (postponement.md:3327). (5) catch-all arm learns nothing: done (SW-3335, SW-3364 catch-all facts). (7) superseded read✝ in goals, (8) search --at on ✝ names: SW-1000, SW-993, SW-1518.\n- SPLIT: (4) rewrite x / 2 also rewrites x % 2, (6) decreasing through an earlier call's result: docs lines in SW-3431.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -1951,7 +1951,7 @@
     {
       "id": 978,
       "title": "Day 17: omega blind to Int.subNatNatFrom and Bool ||; negative literal fixed as Nat too early (K4); record literal after theorem colon parsed as ability row",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1959,9 +1959,9 @@
         "friction"
       ],
       "epic": "aoc-older",
-      "body": "From AoC 2021 day 17 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) [seen twice: also SW-995 item 1, from SW-992] omega fails on `i.toInt + 1 - 1` (both `0 ≤ i.toInt + 1 - 1` and `= i.toInt`): the goal computes to `Int.subNatNatFrom (i + 1) 1 (0 - i)` before omega reads it, an atom it knows nothing about. `0 ≤ i.toInt - 1 + 1` works. 4-line repro in NOTES. Workaround: ring or a lemma over a variable. Fix: read arithmetic as written, or teach omega that call (small-medium).\n(2) omega doesn't handle `(p || q) = True` as goal or fact; cases then hit its 64-case budget. Workaround: split into named parts + Bool.orElim/orLeft/orRight. Fix: split such facts, try each side of such goals (small).\n(3) New evidence SW-965 (3): search --at missed List.distinctFlatMap because flatMap had computed to List.concat (List.map …).\n(4) A negative literal is rejected as Nat too early: in `[(7,2), …, (17,-4)].map (…)`, `-4` gets \"a `Nat` can't be negative\"; without -4 the numbers become Int. Workaround: annotate List (Int, Int). This is exactly what postponement step 4.3 (K4, number literals wait; branch kept, D2110 pending) addresses; recheck after it lands.\n(5) DONE (SW-1015, b0a6af373 / 5b9c4b50e): ~~A record literal right after a theorem's `:` is read as an ability row: E-PARSE \"expected `}`, but found `=`\", no hint.~~\n(6) cases open-case output lists fallback splits like `top = n✝.toInt`, `n✝ ≤ n✝` (small).\nStd candidates: Nat.iterateCong (2024 day 22 has a copy too), Nat.iterateKeeps, Int.toNat round-trip lemmas, Int.signCases, 0 ≤ d*(d+1) on Int, 2 * Nat.sumBetween 1 k = k*(k+1).\nsearch --at: 4 goals; correct \"omega closes it\" on a base case; right next step on hittingDistinct; first query 56 s (index build), later ~2 s.\n",
+      "body": "From AoC 2021 day 17 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) [seen twice: also SW-995 item 1, from SW-992] omega fails on `i.toInt + 1 - 1` (both `0 ≤ i.toInt + 1 - 1` and `= i.toInt`): the goal computes to `Int.subNatNatFrom (i + 1) 1 (0 - i)` before omega reads it, an atom it knows nothing about. `0 ≤ i.toInt - 1 + 1` works. 4-line repro in NOTES. Workaround: ring or a lemma over a variable. Fix: read arithmetic as written, or teach omega that call (small-medium).\n(2) omega doesn't handle `(p || q) = True` as goal or fact; cases then hit its 64-case budget. Workaround: split into named parts + Bool.orElim/orLeft/orRight. Fix: split such facts, try each side of such goals (small).\n(3) New evidence SW-965 (3): search --at missed List.distinctFlatMap because flatMap had computed to List.concat (List.map …).\n(4) A negative literal is rejected as Nat too early: in `[(7,2), …, (17,-4)].map (…)`, `-4` gets \"a `Nat` can't be negative\"; without -4 the numbers become Int. Workaround: annotate List (Int, Int). This is exactly what postponement step 4.3 (K4, number literals wait; branch kept, D2110 pending) addresses; recheck after it lands.\n(5) DONE (SW-1015, b0a6af373 / 5b9c4b50e): ~~A record literal right after a theorem's `:` is read as an ability row: E-PARSE \"expected `}`, but found `=`\", no hint.~~\n(6) cases open-case output lists fallback splits like `top = n✝.toInt`, `n✝ ≤ n✝` (small).\nStd candidates: Nat.iterateCong (2024 day 22 has a copy too), Nat.iterateKeeps, Int.toNat round-trip lemmas, Int.signCases, 0 ≤ d*(d+1) on Int, 2 * Nat.sumBetween 1 k = k*(k+1).\nsearch --at: 4 goals; correct \"omega closes it\" on a base case; right next step on hittingDistinct; first query 56 s (index build), later ~2 s.\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE: (1) omega blind to Int.subNatNatFrom and (2) Bool ||: SW-997; (5) record literal after a theorem colon: SW-1015 (already struck out above); (3) search --at missing List.distinctFlatMap: SW-993, SW-1469; std candidates Nat.iterateCong, iterateKeeps, Int.signCases exist (Nat/Iterate.sw, Int/Lemmas.sw).\n- COVERED: (4) negative literal fixed as Nat too early: postponement step 4.3 (SW-986, done); retest in SW-3429 (postponement.md:3108 said it still needed an annotation before that). (6) cases open-case output: small, not filed.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-04",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -1982,7 +1982,7 @@
     {
       "id": 980,
       "title": "Day 18: printed goals not valid source (record after constructor, %match names); no per-arm equations; stale variable names in goals; two if forms",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -1990,9 +1990,9 @@
         "friction"
       ],
       "epic": "aoc-older",
-      "body": "From AoC 2021 day 18 (aoc/NOTES-2021.md, 1 Nov 2026). Termination of snailfish reduction left open (fuel 1000 per sum; completeness up to budget proved).\n(1) Printed goals aren't valid source: a record passed to a constructor prints `Cons { value = … } rest` / `Some { found | … }`, which search --at can't read back (E-PARSE: braces after Cons name its fields). Fix: print in brackets (small).\n(2) search --at fails on a hidden name: a goal mentioning `split.%match1` gives E-PARSE \"expected a field name after '.'\" (new effect of SW-971 (3)).\n(3) The program had to be reshaped to prove one arm: with a specific `Pair (Regular a) (Regular b)` arm before the general Pair arm, the general arm's equation can't be stated (a written-out match is a different hidden function, E-REFL). Workaround: named helper explodeIn. Fix: generate an equation per arm, like Lean's f.eq_3 (medium).\n(4) A goal showed the previous arm's variable names: last arm binds `left1 right1` but goal printed `Pair left right = Pair left2 right2` (printer bug, small-medium).\n(5) `if 4 ≤ depth` stays a Bool if (only Nat.leq matching refines it) while `if 10 ≤ value` becomes Decidable.elim (Nat.decLessThan 9 value). Cause guessed. Fix: one form or a proving-guide line (small).\n(6) audit can't satisfy `f x = Some y` with y free; fix: compute y from f x rather than random (small-medium; different from SW-967 (8)).\n(7) Small: `import Std (Pair)` hides a local Pair constructor (clear message); braces after a constructor bit three times (LSP quick fix); no multi-line string literals (example is Text.join of a list); a recursive {Parse} function needs an explicit bound.\nSeen again: no record eta (SW-960 (4)); holes before expected type (SW-969 (2)); context order breaks search --at (SW-969 (1)); search misses DecEq.soundFalse / Nat.equalFalse for == facts (SW-960 (3)); day 14's maximumSome imported again (SW-971 (7)).\nStd candidates: xs ≠ Nil → xs ++ ys ≠ Nil (both sides); findIndexFrom = None → p false on every element; List.maximum lemmas.\n\nBoard audit (5 Nov 2026): the goals-printing-%match1 item is SW-1004's; dropped here.",
+      "body": "From AoC 2021 day 18 (aoc/NOTES-2021.md, 1 Nov 2026). Termination of snailfish reduction left open (fuel 1000 per sum; completeness up to budget proved).\n(1) Printed goals aren't valid source: a record passed to a constructor prints `Cons { value = … } rest` / `Some { found | … }`, which search --at can't read back (E-PARSE: braces after Cons name its fields). Fix: print in brackets (small).\n(2) search --at fails on a hidden name: a goal mentioning `split.%match1` gives E-PARSE \"expected a field name after '.'\" (new effect of SW-971 (3)).\n(3) The program had to be reshaped to prove one arm: with a specific `Pair (Regular a) (Regular b)` arm before the general Pair arm, the general arm's equation can't be stated (a written-out match is a different hidden function, E-REFL). Workaround: named helper explodeIn. Fix: generate an equation per arm, like Lean's f.eq_3 (medium).\n(4) A goal showed the previous arm's variable names: last arm binds `left1 right1` but goal printed `Pair left right = Pair left2 right2` (printer bug, small-medium).\n(5) `if 4 ≤ depth` stays a Bool if (only Nat.leq matching refines it) while `if 10 ≤ value` becomes Decidable.elim (Nat.decLessThan 9 value). Cause guessed. Fix: one form or a proving-guide line (small).\n(6) audit can't satisfy `f x = Some y` with y free; fix: compute y from f x rather than random (small-medium; different from SW-967 (8)).\n(7) Small: `import Std (Pair)` hides a local Pair constructor (clear message); braces after a constructor bit three times (LSP quick fix); no multi-line string literals (example is Text.join of a list); a recursive {Parse} function needs an explicit bound.\nSeen again: no record eta (SW-960 (4)); holes before expected type (SW-969 (2)); context order breaks search --at (SW-969 (1)); search misses DecEq.soundFalse / Nat.equalFalse for == facts (SW-960 (3)); day 14's maximumSome imported again (SW-971 (7)).\nStd candidates: xs ≠ Nil → xs ++ ys ≠ Nil (both sides); findIndexFrom = None → p false on every element; List.maximum lemmas.\n\nBoard audit (5 Nov 2026): the goals-printing-%match1 item is SW-1004's; dropped here.\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE: (1) printed goals not valid source and (4) stale arm variable names: SW-1000, SW-2143; (2) search --at on %match names: SW-1004, SW-2154; (3) per-arm equations for overlapped arms: SW-1028, SW-1071, docs/proposals/function-equations.md (SW-980 item 3); (7) multi-line string literals: text blocks (docs/syntax.md:1661); braces after a constructor: SW-1661 to SW-1663.\n- COVERED: (5) two if forms: SW-2210; (6) audit cannot satisfy f x = Some y with y free: SW-1210 (done), SW-1317. Std: xs ≠ Nil → xs ++ ys ≠ Nil, findIndexFrom = None, List.maximum: SW-2170, SW-983.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-05",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -2145,16 +2145,16 @@
     {
       "id": 990,
       "title": "Friction from Aoc.Common.Grid (SW-984): Up.turnRight unknown name; if h: on a Bool refused; 'at' keyword in rewrite lists; std filterMap/distinctOfMap/mapConcat lemmas",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "friction"
       ],
       "epic": "aoc-older",
-      "body": "From the SW-984 lane, 1 Nov 2026. (1) Up.turnRight gives an unknown-name error; must write Direction.turnRight Up (dot notation on a constructor value). (2) if h: b with b: Bool is refused; the message says drop h:, but the proof was wanted; if h: b = True works (suggest that in the message). (3) A variable named at can't be used inside a rewrite rule list (at is a keyword there). (4) No record eta (seen again, SW-960 4). Std candidates proved locally in Aoc.Common.Proofs: distinctOfMap, mapConcat, a filterMap length lemma (lengthFilterMapLe) or filterMap = map of filter; Map.byPosition get lemma. Not migrated: 2024 days 8, 14, 15, 18 (Int or x/y positions), 16 (compass directions), 10 (own neighbours proofs).",
+      "body": "From the SW-984 lane, 1 Nov 2026. (1) Up.turnRight gives an unknown-name error; must write Direction.turnRight Up (dot notation on a constructor value). (2) if h: b with b: Bool is refused; the message says drop h:, but the proof was wanted; if h: b = True works (suggest that in the message). (3) A variable named at can't be used inside a rewrite rule list (at is a keyword there). (4) No record eta (seen again, SW-960 4). Std candidates proved locally in Aoc.Common.Proofs: distinctOfMap, mapConcat, a filterMap length lemma (lengthFilterMapLe) or filterMap = map of filter; Map.byPosition get lemma. Not migrated: 2024 days 8, 14, 15, 18 (Int or x/y positions), 16 (compass directions), 10 (own neighbours proofs).\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE: (2) if h: b on a Bool: SW-1015 (same item as SW-999 (2)); (4) record eta: SW-1642; std lemmas distinctOfMap, mapConcat, lengthFilterMapLe: List/Lemmas.sw (SW-2169).\n- COVERED: (1) Up.turnRight (dot notation on a bare constructor; also SW-995 (4)): SW-1651; (3) a variable named at in a rewrite list: SW-1480.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -2222,16 +2222,16 @@
     {
       "id": 995,
       "title": "Friction from Offset lane (SW-992): omega and (n+1).toInt - 1; type nickname lost through record fields; rewrite misses an inner call after the outer computed; dot notation on a bare constructor",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "friction"
       ],
       "epic": "aoc-older",
-      "body": "From SW-992, 1 Nov 2026. (1) omega can't prove (n + 1).toInt - 1 = n.toInt: reduces to Int.subNatNatFrom (n + 1) 1 (0 - n), an atom (same as SW-978 item 1; second sighting). (2) A type nickname is lost through record fields: warehouse.robot declared Cell (def Cell: Type := Offset) has type Offset, so .widen/.step aren't found. (3) rewrite couldn't find moved.step direction inside (moved.step direction).step Right because the inner step had computed to a record literal (E-REWRITE-NOTHING); Eq.cong worked. Fix: also look for the left side in the goal as written. (4) Up.offset unknown: dot notation on a bare constructor (also SW-990's Up.turnRight). Design note: 2024 day 15 keeps Int cells as def Cell: Type := Offset, because its theorems hold for every warehouse and Nat steps up from row 0 would need an off-map rule or a walled-in hypothesis.",
+      "body": "From SW-992, 1 Nov 2026. (1) omega can't prove (n + 1).toInt - 1 = n.toInt: reduces to Int.subNatNatFrom (n + 1) 1 (0 - n), an atom (same as SW-978 item 1; second sighting). (2) A type nickname is lost through record fields: warehouse.robot declared Cell (def Cell: Type := Offset) has type Offset, so .widen/.step aren't found. (3) rewrite couldn't find moved.step direction inside (moved.step direction).step Right because the inner step had computed to a record literal (E-REWRITE-NOTHING); Eq.cong worked. Fix: also look for the left side in the goal as written. (4) Up.offset unknown: dot notation on a bare constructor (also SW-990's Up.turnRight). Design note: 2024 day 15 keeps Int cells as def Cell: Type := Offset, because its theorems hold for every warehouse and Nat steps up from row 0 would need an off-map rule or a walled-in hypothesis.\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE: (1) omega and (n+1).toInt - 1: SW-997 (second sighting of SW-978 (1)); (3) rewrite missing an inner call after the outer computed: goal-as-written stage 1 (SW-1627, rewrite searches the goal as written first).\n- SPLIT: (2) type nickname lost through record fields: SW-3425. COVERED: (4) dot notation on a bare constructor: SW-1651.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -2286,16 +2286,16 @@
     {
       "id": 999,
       "title": "Friction from the trip-journal example (SW-996): record literals in theorem statements; if h: P in proofs; Float printing in test output and notes; derive Decidable for Prop records; Float Bool-form order lemmas",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "friction"
       ],
       "epic": "aoc-older",
-      "body": "From SW-996, 1 Nov 2026. (1) DONE (SW-1015, b0a6af373 / 5b9c4b50e): ~~Record literals/updates can't appear in a theorem statement: { l | start = … } or { id = 2, … } is a parse error ('expected }, found ='); workaround a def (also SW-978 item 5).~~ (2) DONE (SW-1015, SW-373-style): ~~if h: P then … else … can't produce a proof: misleading E-UNIVERSE; workaround match on a decision (also the grid lane's if h: on Bool).~~ (3) No record eta: per-record take-apart lemmas (SW-960 item 4, seen again). (4) Failing-test output prints Floats inside lists as { bits = …, valid = ?1 }; a lone Float prints as 0.4: use toSource. (5) Type-mismatch notes on Float order show the unfolded Int-key form instead of t <= hi: fold Float.leq/less when printing. (6) DONE (SW-1015): ~~The counterexample search can't run on mergeSelf/mergeWellFormed because nothing decides WellFormed (a record of Props): derive Decidable for Prop records with decidable fields.~~ (7) 'at' as a variable clashes with rewrite … at (also SW-990). Std candidates: Float.leOfNotLess, Float.leTotal, Float.notLessOfLe (Bool forms); distinctAppendLeft/Right/Apart, appendNewBy key lemmas, filterMapMapSelf, permSym, anyIntro. Open by design: where an item lands in a moved leg needs a relative-error law for Float + and - (std Float.Theory has the rounding spec but no such law).",
+      "body": "From SW-996, 1 Nov 2026. (1) DONE (SW-1015, b0a6af373 / 5b9c4b50e): ~~Record literals/updates can't appear in a theorem statement: { l | start = … } or { id = 2, … } is a parse error ('expected }, found ='); workaround a def (also SW-978 item 5).~~ (2) DONE (SW-1015, SW-373-style): ~~if h: P then … else … can't produce a proof: misleading E-UNIVERSE; workaround match on a decision (also the grid lane's if h: on Bool).~~ (3) No record eta: per-record take-apart lemmas (SW-960 item 4, seen again). (4) Failing-test output prints Floats inside lists as { bits = …, valid = ?1 }; a lone Float prints as 0.4: use toSource. (5) Type-mismatch notes on Float order show the unfolded Int-key form instead of t <= hi: fold Float.leq/less when printing. (6) DONE (SW-1015): ~~The counterexample search can't run on mergeSelf/mergeWellFormed because nothing decides WellFormed (a record of Props): derive Decidable for Prop records with decidable fields.~~ (7) 'at' as a variable clashes with rewrite … at (also SW-990). Std candidates: Float.leOfNotLess, Float.leTotal, Float.notLessOfLe (Bool forms); distinctAppendLeft/Right/Apart, appendNewBy key lemmas, filterMapMapSelf, permSym, anyIntro. Open by design: where an item lands in a moved leg needs a relative-error law for Float + and - (std Float.Theory has the rounding spec but no such law).\n\nTriage, 15 Nov (Sonnet, SW-2015):\n- DONE: (1), (2), (6) by SW-1015 (already struck out above); (3) record eta: SW-1642; Float Bool-form order lemmas: SW-1016; distinctAppend lemmas: List/Lemmas.sw; (7) at as a variable: SW-1480.\n- SPLIT: (4) Float printing in failing tests and (5) Float order notes unfolded: SW-3426.\n- Left by design: where an item lands in a moved leg needs a relative-error law for Float + and - (std Float.Theory has no such law); a std-library question for the float-laws work (SW-652, SW-638, SW-639), not filed.\n",
       "created": "2026-11-01",
-      "updated": "2026-11-04",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -17812,15 +17812,15 @@
     {
       "id": 2015,
       "title": "[Sonnet] Triage the old day-findings bundles (SW-808 and similar), which epic aoc-older lists as next but no ticket covers",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "aoc"
       ],
-      "body": "From docs/research/aoc-friction-synthesis.md. 45 min.",
+      "body": "From docs/research/aoc-friction-synthesis.md. 45 min.\n\n15 Nov (Sonnet paper lane): triaged 23 bundles (SW-741, 758, 762, 771, 808, 809, 816, 954, 957, 958, 960, 963, 965, 967, 969, 971, 973, 976, 978, 980, 990, 995, 999; SW-745 was already done), all moved to done with a per-item note. New tickets: SW-3419 to SW-3433. Nothing was run or built; \"done\" means found in code, docs or a done ticket; unverified items are in the re-test ticket SW-3429.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -37959,6 +37959,231 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "Matt, 15 Nov 2026, on the goal: \"proving the toy printer's correctness directly is a good ambition ... if a program can be parsed, so it's a valid program, then it should be the same program before and after. Formatting for some concept of sameness ... presumably it's going to be the same AST ... idempotence is another key property which I think we want a formatter.\" So the target theorems: (1) for every program the parser accepts, format's output parses to the same program (the erased tree in the toy); (2) idempotence; no run-time re-parse.\n\nEscalation (Matt, 15 Nov 2026): if Opus gets stuck, rerun on Fable from the lane's branch (\"if it gets stuck, we might want to sort of throw Fable at it\").",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3419,
+      "title": "[DeepSeek] Message: (rfl, rest) for an And goal says 'add a type annotation'; the note should mention Both (SW-954 item 3, 2021 day 6)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "epic": "diagnostics",
+      "body": "From the triage of SW-954 (SW-2015). Repro: write (rfl, rest) where an And proof is expected (2021 day 6, aoc/NOTES-2021.md:1452 on). The error asks for a type annotation and does not say the pair is the constructor Both. Fix: add the note (small); re-test the repro first in case a later message change already did.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3420,
+      "title": "[DeepSeek] Message: a DecEq.sound note blames the match instead of the unknown instance (SW-758 item 3, 2024 day 11)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "epic": "diagnostics",
+      "body": "From the triage of SW-758 (SW-2015). The note for a DecEq.sound use whose instance is unknown names the match, not the instance that couldn't be found. Re-test first: derived DecEq changed a lot since (SW-2968, SW-3044, SW-3054). If it still reads wrong, say which instance is unknown.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3421,
+      "title": "[Opus] match on a call of a bounded search (solvePart2 levels, a 10,000-step bound) fails E-RESOURCE 'a value was too large to show': don't compute a scrutinee that is stuck on a variable; name the match in the message (SW-965 item 1, 2021 day 11)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From the triage of SW-965 (SW-2015). Checking match solvePart2 levels with | Some .. | None .. unfolds the search bound: bound 100 takes 0.11 s, 1000 0.68 s, 10000 fails with E-RESOURCE naming a call of solvePart2. Workaround in the day: pass the Option to a helper. 13-line repro: aoc/NOTES-2021.md:2655-2670 (Day 11). Fix: don't compute a match scrutinee past a variable it is stuck on, and name the match in the resource message. May overlap SW-2009 (slow checks name what they compute; done): re-test first and say what is left.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3422,
+      "title": "[Opus] A pure map at the end of {Fail} code runs in Fail: proofs see Effect.foldComp … Done instead of Ok (List.map …), so Result.okInjective doesn't fit (SW-965 item 2, 2021 day 11)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From the triage of SW-965 (SW-2015). Workaround in the day: a pure helper. Fix options: calls with only pure arguments get the empty effect, or a std lemma. Related: SW-553 (an unannotated lambda in an {IO} body makes List.map run at {IO}) and SW-1564 (done). Repro: aoc/NOTES-2021.md Day 11 section (2493 on). Re-test first.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3423,
+      "title": "[Sonnet] Std: a least-fixed-point toolkit from 2021 day 11's Cascade.sw (about 160 generic lines) (SW-965)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "epic": "std-library",
+      "body": "From the triage of SW-965 (SW-2015). Most of aoc/src/Aoc/Year2021/Day11/.../Cascade.sw is generic: iterate a step until nothing changes, with the fuel-free statement and the lemmas. Move the generic part into std with its spec, and point day 11 at it. Check what SW-2175 (folds and Nat.iterate) already adds, so the two don't overlap.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3424,
+      "title": "[Opus] BUG: a lambda in a recursive call's argument inside sumBy's callback becomes an unknown x in the termination goal (⊢ List.length x < List.length xs) (SW-967 item 2, 2021 day 12)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "proof-automation",
+      "body": "From the triage of SW-967 (SW-2015). 3-line repro in aoc/NOTES-2021.md Day 12 section (2762 on). A let is as opaque. Workaround in the day: a top-level helper. Fix: keep the argument in the termination goal. Re-test first: decreasing was reworked (SW-2029 to SW-2032, SW-2208, SW-2220); close if it now checks.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3425,
+      "title": "[Opus] A type nickname is lost through record fields: warehouse.robot declared Cell (def Cell: Type := Offset) has type Offset, so .widen and .step are not found (SW-995 item 2, from SW-992)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From the triage of SW-995 (SW-2015). docs/syntax.md (dot notation) says a nickname's functions are found where the value's type mentions the nickname; a record field declared with the nickname should count. Re-test with 2024 day 15's Cell and Warehouse first, then fix.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3426,
+      "title": "[DeepSeek] Float printing: failing-test output prints Floats inside lists as { bits = …, valid = ?1 } (use toSource), and type-mismatch notes on Float order show the unfolded Int-key form, not t <= hi (SW-999 items 4 and 5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "epic": "diagnostics",
+      "body": "From the triage of SW-999 (SW-2015). Both from the trip-journal example (examples/projects/accept). SW-2076 and SW-2152 (Proj printing after record eta) may cover the second; re-test first and fold Float.leq/less when printing if not.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3427,
+      "title": "[Opus] Investigate: a 100-line theorem takes 16 s but 2.2 s once its let-bound proofs are moved out (SW-809 item 2, 2024 day 23)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "performance"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From the triage of SW-809 (SW-2015). No cause is known. Find the theorem (2024 day 23 proofs, 28 Oct), time it with --profile, and find out why let-bound proofs cost so much (are lets re-elaborated per case? kept as values?). Profile before changing anything (docs/performance).",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3428,
+      "title": "[Sonnet] 2024 day 24: make repair backtrack across bits within the four-swap budget, then prove completeness (SW-816 item 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "epic": "aoc-older",
+      "body": "From the triage of SW-816 (SW-2015); see its 30 Oct clarification. After SW-830, 117 of 120 generated adders are repaired; the 3 misses return None, all with swaps spread across bits. part2Sound and part2Correct prove any returned answer is a correct repair. To close: backtrack across bits within the budget, then prove completeness (Matt: backlog, not urgent). Day 24 has no real input in the repo.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3429,
+      "title": "[Sonnet] Re-run the repros the friction bundles left (SW-954 to SW-999) and record which still fail (SW-2015)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "epic": "aoc-older",
+      "body": "From the triage of the day-findings bundles (SW-2015). Several items are probably fixed by postponement, goal-as-written and search work but nothing says so. Run each repro by name (no suites), one command at a time, and for each write fixed or still failing here. Still-failing ones get their own small ticket. Items: (1) search --at after a constructor match, context order (SW-969 item 1; aoc/NOTES-2021.md:3186); (2) P.ext _ _ cases cases (SW-969 item 2); (3) lambda before a later argument fixes its type (SW-963 item 2, SW-971 item 1; docs/proposals/postponement.md:3319-3327 has the cases); (4) cases on x ≤ 8 runs out of cases, and a _ arm gives omega no bound (SW-954 item 1; likely SW-1550, SW-3335); (5) bitsOf checking doubles per bit (SW-976 item 1, 8-line repro in NOTES-2021 Day 16); (6) negative literal in a Nat-looking list (SW-978 item 4, postponement.md:3108); (7) the pair.fst same-type message (SW-809 item 3); (8) cases reports a phantom match for adjacent … = True (SW-960 item 2); (9) rewrite with a function equation shows a hidden difference (SW-973 item 4); (10) search '(?b: Bool) ≠ True → ?b = False' and 'List.find _ _ = None → _' patterns (SW-967 item 7, SW-969 item 4); (11) an unsolved hole shows only in an omega goal (SW-971 item 1).",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3430,
+      "title": "[Sonnet] Std gaps from the day bundles that SW-2169 to SW-2175 do not list: withIndex find finding nothing (copied on 2021 days 5, 6, 8, 9), median lemmas, Graph.distancesReach, List.length (Map.keys m) = Map.size m, reindexing count/sum/all by a permutation, countAtMostLength (SW-957, SW-958, SW-960, SW-963, SW-973)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "epic": "std-library",
+      "body": "From the triage (SW-2015). Check each against std first (some may exist under another name, as Nat.divMonoLeft does): findIndexedNone, medianLe-style lemmas (at most k below index k of a sorted list; the odd-count median is unique), Graph.distancesReach, Map keys length, permutation reindexing, countAtMostLength, getOrMem, countSplit, traverseMap, mapSndWithIndex, withoutMem. Add what is missing with proofs.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3431,
+      "title": "[DeepSeek] Docs lines from the 2021 notes: rewrite x / 2 also rewrites inside x % 2 (rewrite % first), a field read inside a lambda is recomputed on every call (hoist it: 31.7 s to 17.6 s on day 15), and decreasing cannot go through an earlier recursive call's result (SW-976 items 4 and 6, SW-973 item 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From the triage (SW-2015). Check docs/proving-guide.md and docs/performance first; add a short line or example for each that is missing. SW-1814 (hoisting by the compiler) is parked, so the performance line stays useful.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3432,
+      "title": "[DeepSeek] Messages, small: Parse.pick with eight choices says expected '(' or '[' or …' (use a comma list); the errors print twice when a namespace fails to load; a goal prints a Map's whole internal tree over thousands of characters (SW-963 item 1, SW-973 item 6)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "epic": "diagnostics",
+      "body": "From the triage (SW-2015). Re-test each first; fix the ones still wrong.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3433,
+      "title": "[Opus] Consider a ++ normaliser for chains of appendAssoc, and generated constructor injectivity and disjointness lemmas for user types (SW-963 items 5 and 6, SW-967 item 6)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proof"
+      ],
+      "epic": "proof-automation",
+      "body": "From the triage (SW-2015). 2021 day 10 and 12 proofs spent many lines on appendAssoc chains and hand-written injectivity/disjointness lemmas. Check whether record eta, rewrite or search now make these cheap; if not, write a short design note (a ++ normal form for omega-style closing, or auto-generated T.%inj / disjoint lemmas for derived types) with a recommendation.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
