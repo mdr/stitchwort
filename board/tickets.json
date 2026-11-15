@@ -36527,15 +36527,17 @@
     {
       "id": 3314,
       "title": "[Sonnet] Proving guide: a theorem statement that spells out a match gets W-UNREACHABLE when a hypothesis in scope rules out an arm; say how to avoid it (a helper definition holding the match, as Parse.oneValue) (SW-3310 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "Found in SW-3310. Model result: DeepSeek, worked, ~15 min (est. 25); example verified both ways with the release binary.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "9f8c64212b14e5a5ae6d091bd82caafc5111cfd7"
+      ]
     }
   ]
 }
