@@ -72,9 +72,12 @@ theorem parsedPrintPlaced ∀ (source: Text) (file: SourceFile) (width: Nat)
 -- `Toy.Fmt.Proofs` (`SpellProofs.sw`), where the spelling of expressions
 -- uses them.
 
---| OPEN (D1). Every parsed file is `HeadedFile`: part 13's parser facts
---| (a), (b) and (c), and the blank-line fact (d) this sketch found.
-theorem parseHeaded ∀ (source: Text) (file: SourceFile) (parsed: parse source = Ok file): HeadedFile file := ?
+-- D1 is proved: `parseHeaded` (`Toy.Fmt.Proofs`, `HeadProofs.sw`) says
+-- every parsed file is `HeadedFile`: part 13's parser facts (a), (b) and
+-- (c), and the blank-line fact (d) this sketch found. `bareStatement`
+-- clears the comments above its expression's first token outside
+-- brackets (`Layout.headed`), so (a) and (b) are facts about the tree it
+-- built. See SKETCH.md, "After lane 3".
 
 -- Layer D, the file from its spelling.
 

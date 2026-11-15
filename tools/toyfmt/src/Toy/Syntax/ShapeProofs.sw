@@ -636,8 +636,13 @@ def CodedShaped (line: Statement): Prop := ShapedStatement line ∧ Coded line
 theorem givesBare ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):
     Gives (() => bareStatement self layout) CodedShaped :=
-  givesThen (() => self layout) (value => Bare value) Shaped CodedShaped (nested layout) (value shaped =>
-    givesDone _ CodedShaped (Both shaped rfl))
+  givesThen
+    (() => self layout)
+    (value => Bare (layout.headed value))
+    Shaped
+    CodedShaped
+    (nested layout)
+    (value shaped => givesDone _ CodedShaped (Both (shapedHeaded layout value shaped) rfl))
 
 theorem givesInline ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):

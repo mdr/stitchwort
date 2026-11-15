@@ -32,19 +32,6 @@ def Zone.reaches (zone: Zone) (start: Option Nat): Prop := match start with
 --| A start of a line at `column`: a statement's first token in its block.
 def atColumn (column: Nat) (start: Option Nat): Prop := start = Some column
 
---| The own-line comments above the expression's leftmost token.
-def Expr.firstAbove: Expr → List Comment
-  | Var _ comments => comments.above
-  | NumberLiteral _ comments => comments.above
-  | StringLiteral _ comments => comments.above
-  | Bracketed open _ _ => open.above
-  | ListLiteral open _ _ => open.above
-  | Call callee _ _ _ => callee.firstAbove
-  | Field target _ _ _ => target.firstAbove
-  | Negate minus _ => minus.above
-  | Binary _ _ left _ => left.firstAbove
-  | If ifComments _ _ _ _ _ => ifComments.above
-
 --| How the first token of a body's one expression starts when the body
 --| is printed on its keyword's line: where the zone allows, and not at a
 --| line start unless comments above it put it on a comment break.

@@ -328,7 +328,44 @@ def inlineBody (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: La
 def bareStatement (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout):
     {Parse (Parse.Located Token)} Statement :=
   let value := self layout
-  Bare value
+  Bare (layout.headed value)
+
+--| The own-line comments above the expression's leftmost token.
+def Expr.firstAbove: Expr → List Comment
+  | Var _ comments => comments.above
+  | NumberLiteral _ comments => comments.above
+  | StringLiteral _ comments => comments.above
+  | Bracketed open _ _ => open.above
+  | ListLiteral open _ _ => open.above
+  | Call callee _ _ _ => callee.firstAbove
+  | Field target _ _ _ => target.firstAbove
+  | Negate minus _ => minus.above
+  | Binary _ _ left _ => left.firstAbove
+  | If ifComments _ _ _ _ _ => ifComments.above
+
+--| The expression with no own-line comments above its leftmost token.
+def Expr.withoutFirstAbove: Expr → Expr
+  | Var name comments => Var name { comments | above = [] }
+  | NumberLiteral digits comments => NumberLiteral digits { comments | above = [] }
+  | StringLiteral written comments => StringLiteral written { comments | above = [] }
+  | Bracketed open inner close => Bracketed { open | above = [] } inner close
+  | ListLiteral open items close => ListLiteral { open | above = [] } items close
+  | Call callee open arguments close => Call callee.withoutFirstAbove open arguments close
+  | Field target dot name nameComments => Field target.withoutFirstAbove dot name nameComments
+  | Negate minus operand => Negate { minus | above = [] } operand
+  | Binary operator sign left right => Binary operator sign left.withoutFirstAbove right
+  | If ifComments condition thenComments whenTrue elseComments whenFalse =>
+    If { ifComments | above = [] } condition thenComments whenTrue elseComments whenFalse
+
+--| An expression read as a statement or as a body's one expression, as
+--| the tree keeps it. Outside brackets its first token holds no own-line
+--| comments: above a statement they are the block's note lines, and a
+--| body on its keyword's line has none above it. So there this changes
+--| nothing the parser reads; it makes that a fact about the tree which
+--| needs no account of which token was read first.
+def Layout.headed (layout: Layout) (value: Expr): Expr := match layout with
+  | InBrackets => value
+  | InStatement _ _ => value.withoutFirstAbove
 
 --| Statements starting lines at `column`, with the comments above them.
 def block (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (column: Nat):
