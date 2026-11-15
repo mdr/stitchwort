@@ -1,12 +1,11 @@
 //! The lowering: the compiler's tree ([`crate::ast`]) built from the
-//! lossless tree ([`crate::tree`]), steps 3 and 4 of
-//! docs/proposals/syntax-tree-architecture.md, designed in
+//! lossless tree ([`crate::tree`]), as designed in
+//! docs/proposals/syntax-tree-architecture.md and
 //! docs/proposals/syntax-tree-lowering.md.
 //!
 //! The public parse functions ([`crate::parse_module_recovering`],
 //! [`crate::parse_expression_within`] and the rest) build the lossless tree
-//! and lower it: the parser only marks where constructs start and end
-//! (step 4). A declaration the lowering can't lower ([`Unsupported`]) is an
+//! and lower it: the parser only marks where constructs start and end. A declaration the lowering can't lower ([`Unsupported`]) is an
 //! error on the public route: one the lowering raises itself
 //! ([`Unsupported::Invalid`]), `E-RESOURCE` if it ran out of stack,
 //! otherwise an internal error.
@@ -25,8 +24,8 @@
 //!   `=>`), not by position (`lower/access.rs`): with error recovery, a
 //!   child may be missing, and reading by position would put the next child
 //!   in its slot.
-//! - **Spans are the ones the parser used to give**, quirks included: the
-//!   hash snapshots and messages depend on them.
+//! - **Spans are what the hash snapshots and messages depend on**, quirks
+//!   included.
 //! - **Errors about meaning are the lowering's.** The parser checks only
 //!   what decides how tokens group; a check on what has been grouped, such
 //!   as a parameter named twice, is the lowering's
@@ -91,6 +90,8 @@ mod matching;
 mod patterns;
 mod proofs;
 pub(crate) mod sections;
+#[cfg(test)]
+mod tests;
 mod types;
 
 /// What the lowering couldn't lower: the first such thing it met in a

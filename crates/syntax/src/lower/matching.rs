@@ -238,7 +238,7 @@ pub(super) fn no_guard_without_body(guard: Option<&Guard>, body: Option<&Expr>) 
 mod tests {
     use crate::lower::coverage::report;
 
-    /// Lane L4's kinds lower whole: every pattern kind in the places whose
+    /// Every pattern and match kind lowers whole: every pattern kind in the places whose
     /// spans differ (brackets round a constructor or a negative number,
     /// the cells of lists and tuples), `match` with named scrutinees,
     /// guards and absurd arms, `handle`, `match reify`, `match induct`,
