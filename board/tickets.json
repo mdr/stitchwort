@@ -41124,12 +41124,12 @@
     {
       "id": 3655,
       "title": "[Sonnet] Stage 2 follow-ups (SW-3642): LSP code action for expand (CLI --expand-repeatedly exists, shared printer expand_file); std's name index (library.rs) and rules declarations; hover shows a set's type as (); a set named like a field (words vs Printer.words) gives E-MUTUAL-SIGNATURE via dot-notation dependency analysis; expand drops definition one-step unfolds. Failing-first tests",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Lane notes (Sonnet, commit d7f7bead8 on lane/SW-3655):\n- Expand code action: offered on a line holding `rewrite repeatedly`; runs as a queued search (fresh check, steps recorded, no check cache), edits the outermost call at the cursor via new `expand_call` beside `expand_file`.\n- Std name index: a `rules` declaration in a library file already indexes, loads and is found by name; test added, no code change.\n- Hover on a set: members shown, kind `rules`.\n- Set named like a field: rule sets are skipped as dot-notation dependency candidates; example accept/rule-set-named-like-field.sw (E-MUTUAL-SIGNATURE before).\n- Not done: \"expand drops definition one-step unfolds\" (in the title; no tests or change); docs page for sets; hover on a set's name inside a call.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
