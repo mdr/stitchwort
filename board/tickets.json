@@ -41009,12 +41009,12 @@
     {
       "id": 3647,
       "title": "[Opus paper] Rewrite syntax options (D3666, open): Matt, 16 Nov 2026, leaning towards a 'using' style ('rewrite repeatedly using words', 'rewrite h repeatedly using words', plain 'rewrite using e' / 'rewrite h using e') but 'maybe it does deserve some more thought and consideration of options'. Note in docs/proposals/rewrite-syntax.md: options (today's rules-first + at; using-style; others), how Lean/Isabelle/Rocq/Agda write rewrite and simp, counts of each rewrite shape in std/aoc/toyfmt/rogue, real proofs shown in each option, interaction with then, <-, 'in', multiple targets, named sets, calc steps, the editor's actions; recommendation. Paper only",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "16 Nov 18:19-18:35 (Opus paper lane, est. 40 min): note docs/proposals/rewrite-syntax.md on lane/SW-3647 (049c094f3 + fixup). Counts: 5,023 rewrites, 89% on the goal, 71% one rule, 94% of goal rewrites have then, 14% of rules use <-, then-rewrite chains rare (96). Five options on six real proofs; rec: E (today's rules-first + at, rewrite repeatedly's brackets dropped: rewrite repeatedly steps, words); B (using, whole) runner-up; C (mixed) to avoid. Findings: 1,374 goal rewrites end 'then byComputing' (redundant); 89 'then rewrite' chains could be commas.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
