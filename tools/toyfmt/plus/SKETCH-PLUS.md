@@ -382,7 +382,7 @@ and **[estimated]** are mine.
 | `formatRefuses`, `formatRefusesOnly` (P14, both ways) | `Toy/Fmt/DirectProofs.sw` | by computing |
 | `Degenerate.sw` (P15): `identityNotSameTree`, `deleteCommentsLosesOne`, `oneLineDoesNotParse`, and nine tree examples | `Toy/Fmt/Degenerate.sw` | computed examples |
 | `readsOperatorsRead`: what `Parse.operators` read | `Toy/Syntax/OperatorReads.sw` | 4 lemmas |
-| the walk's spec and its chain lemmas (`Onto`, `thenFresh`, `thenInner`, `ontoDone`, `keptAllAppend`) | `Toy/Fmt/CarryProofs.sw` | 16 lemmas |
+| the walk's spec and its chain lemmas (`Onto`, `thenFresh`, `thenInner`, `ontoDone`, `keptAllAppend`) | `Toy/Fmt/CarryProofs.sw` | 15 lemmas |
 
 `Degenerate.sw` restates each theorem for any formatter (`SameTree`,
 `KeepsComments`, `RoundTrips`), so "breaks the theorem" is a proof of
