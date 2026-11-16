@@ -1,5 +1,5 @@
 {
-  "next": 3626,
+  "next": 3627,
   "tickets": [
     {
       "id": 47,
@@ -40724,6 +40724,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3626,
+      "title": "[Fable paper] Formatter properties worth proving (D3662, Matt, 16 Nov 2026: 'don't go overboard with the contract', but every way the real formatter has failed should be covered by a theorem, incl. every comment kept; a paper lane to evaluate candidate properties: most valuable, less valuable, how hard, so Matt can choose the proof surface). For Toy++ (and later the real formatter). Est. 40 min",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
