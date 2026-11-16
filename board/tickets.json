@@ -1,5 +1,5 @@
 {
-  "next": 3613,
+  "next": 3615,
   "tickets": [
     {
       "id": 47,
@@ -40555,6 +40555,32 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3613,
+      "title": "[Sonnet] Errors E13, colour (Matt, 16 Nov 2026: 'It'd be nice to improve our color ... makes it feel nice to use from a human point of view'): colour labels and the code in them (ariadne Label::with_color: primary red, secondary blue/other), highlight E1's first difference in a long mismatch (keeping the ^^), dim notes' lead word, honour NO_COLOR and add --color=always|never|auto (helpful-errors.md §3.5); colour never the only signal; plain/snapshot output unchanged. Show before/after captures with --color=always in the report",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3614,
+      "title": "[Sonnet] REPL errors (Matt asked, 16 Nov 2026): (1) 'def …' gives E-PARSE 'expected an expression, but found def' with no hint — either accept definitions in the REPL or say 'the REPL evaluates expressions; put definitions in a file and :load it / import it'; (2) every error shows a full ariadne box headed <input>:1:1 for a one-line input — a compact form for single-line input (caret under the input, no box or file name); (3) same colour as E13. Investigate what the REPL supports first (:load? multi-line?) and propose in the report before building (1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
