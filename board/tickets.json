@@ -34249,14 +34249,14 @@
     {
       "id": 3153,
       "title": "[DeepSeek] LSP 'Add missing arms' (crates/lsp/src/arms.rs) finds arms by scanning text lines for '| ' at a column; lines inside a \"\"\" text block could fool it. Add a test with a text block containing '| ' lines and fix (use tokens/spans) (SW-3152 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -34303,14 +34303,14 @@
     {
       "id": 3157,
       "title": "[DeepSeek] ast.rs's header says the tree is 'as written by the user' but it holds five expansions (let (a, b), chained comparisons, .f sections, tuples, interpolation); correct the doc comment (SW-3155 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -38810,7 +38810,7 @@
     {
       "id": 3480,
       "title": "[DeepSeek] Proving guide: say that [x, ..xs ++ ys] and [x, ..xs] ++ ys are the same to the checker (motives can rely on it), with a two-line example (SW-3418 lane 4 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
