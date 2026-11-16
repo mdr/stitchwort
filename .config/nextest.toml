@@ -353,3 +353,10 @@ priority = 100
 [[profile.default.overrides]]
 filter = 'binary(proofs) & test(/^differential::/)'
 slow-timeout = { period = "60s", terminate-after = 30 }
+
+# The fuzzers run as single long tests sized by their task's counts
+# (`task fuzz:*`), so the ten-minute hang cap would stop a big run; they get
+# four hours, enough for any overnight seed while still ending a real hang.
+[[profile.default.overrides]]
+filter = 'binary(soundness_fuzz) | (binary(it) & test(/^fuzz::/))'
+slow-timeout = { period = "60s", terminate-after = 240 }
