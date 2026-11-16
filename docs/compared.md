@@ -120,12 +120,12 @@ proof facility.
 
 **Stitchwort** states and proves theorems in the same language as programs, as terms.
 There is no tactic language: the automation is a few proof terms the compiler fills
-in, `auto`, `omega`, `ring`, `cases`, `rewrite` and `calc`, each writing an ordinary
+in, `auto`, `arithmetic`, `algebra`, `cases`, `rewrite` and `calc`, each writing an ordinary
 proof that the kernel checks ([docs/syntax.md](syntax.md#calc)):
 
 ```
 theorem appendLength: (xs ys: List a) -> length (xs ++ ys) = length xs + length ys
-  | [],      ys => rfl
+  | [],      ys => byComputing
   | x :: xs, ys => Eq.cong Succ (appendLength xs ys)
 ```
 
@@ -208,7 +208,7 @@ can remove. The checker never runs effectful code
   prelude and the Advent of Code files in [aoc/](../aoc/).
 - **Tactics and automation.** Lean's `simp`, `omega` and `grind` halved the AoC proof
   ([aoc-day01.md](comparisons/aoc-day01.md)). Stitchwort has `auto` for decidable facts,
-  `omega` for linear arithmetic, `ring` for polynomial equations and `cases` for case
+  `arithmetic` for linear arithmetic, `algebra` for polynomial equations and `cases` for case
   splits, but nothing like `simp` or `grind`.
 - **Tooling.** Unison has `ucm` and a local web UI ([README](https://github.com/unisonweb/unison)).
   Stitchwort has a CLI (with lemma search and `doc`), the playground, a language server

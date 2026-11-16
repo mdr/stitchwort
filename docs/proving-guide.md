@@ -130,7 +130,7 @@ same list, so a motive may rely on either form.
 
 ```stitchwort
 theorem same (x: Nat) (xs ys: List Nat):
-    [x, ..xs ++ ys] = [x, ..xs] ++ ys := rfl
+    [x, ..xs ++ ys] = [x, ..xs] ++ ys := byComputing
 ```
 
 Values that a lemma's own hypotheses or result determine go in square
@@ -179,7 +179,7 @@ theorem selectedIsValue ∀ (chosen: Option Nat) (value: Nat) (selected: chosen 
     (match chosen with
       | Some value => value
       | None => 0) = value :=
-  rewrite selected in rfl
+  rewrite selected then byComputing
 
 -- no warning: the match is in a definition, out of `selected`'s scope
 def oneValue (chosen: Option Nat): Nat :=
@@ -189,7 +189,7 @@ def oneValue (chosen: Option Nat): Nat :=
 
 theorem selectedIsValueViaHelper ∀ (chosen: Option Nat) (value: Nat) (selected: chosen = Some value):
     oneValue chosen = value :=
-  rewrite selected in rfl
+  rewrite selected then byComputing
 ```
 
 ## 2. Workflow
@@ -201,7 +201,7 @@ theorem selectedIsValueViaHelper ∀ (chosen: Option Nat) (value: Nat) (selected
    ```
    theorem lengthAppend ∀ (xs: List Nat) (ys: List Nat): List.length (List.append xs ys) = List.length xs + List.length ys :=
      match xs with
-       | Nil => rfl
+       | Nil => byComputing
        | Cons x rest => ?
    ```
 
@@ -238,7 +238,7 @@ theorem selectedIsValueViaHelper ∀ (chosen: Option Nat) (value: Nat) (selected
 
    - `✗` **counterexample**: the statement is false. Fix the statement (or
      the program), not the proof.
-   - `!` **hypotheses held in no case**: `theorem vacuous (n: Nat) (h: n + 1 = 0): n = 42 := omega`
+   - `!` **hypotheses held in no case**: `theorem vacuous (n: Nat) (h: n + 1 = 0): n = 42 := arithmetic`
      checks, and proves nothing. Printed even without `--verbose` when the
      proof checked. Narrow hypotheses (a list of exactly 50 elements) can
      also hold in no case; read the statement and say which it is.
@@ -263,7 +263,7 @@ theorem selectedIsValueViaHelper ∀ (chosen: Option Nat) (value: Nat) (selected
    (aoc/NOTES-2024.md:1497–1500). A lemma stated for any list that has a
    property, instantiated once at the end, avoided a 130,321-element list
    being computed (aoc/NOTES-2024.md:7290–7298). One fact per lemma also
-   makes `omega [lemma …]` and `cases in t` easy to feed.
+   makes `arithmetic [lemma …]` and `cases then t` easy to feed.
 4. **`stitchwort test` for programs.** Tests are run-time checks of closed
    `Bool` expressions, not proofs. Use them for parsers, examples and the
    puzzle answers; prove the rest. Results are cached; `--no-cache` runs
@@ -292,10 +292,10 @@ Import what you use: std's theorems live in namespaces that need an import
 
 | Goal | Tool |
 |---|---|
-| Both sides compute to the same value | `rfl` |
+| Both sides compute to the same value | `byComputing` |
 | Finitely many cases, each closed by computation, a hypothesis or arithmetic | `cases` |
-| Linear arithmetic on `Nat`/`Int` from facts in scope | `omega`, `omega [facts]` |
-| An equation of polynomials | `ring`, `ring [h]` |
+| Linear arithmetic on `Nat`/`Int` from facts in scope | `arithmetic`, `arithmetic [facts]` |
+| An equation of polynomials | `algebra`, `algebra [h]` |
 | A closed decidable proposition | `byDecision` |
 | A `Bool` property of every value of a finite type, more than 64 cases | `Finite.check` |
 | Replace one side of an equation inside the goal | `rewrite` |
@@ -303,34 +303,34 @@ Import what you use: std's theorems live in namespaces that need an import
 | Induction | recursion in the theorem (structural, or `decreasing`) |
 | Induction over a nested type (`List T` inside `T`) | `T.induct`, `T.inductMem`, `T.size` |
 
-- **`rfl`** proves `a = b` only when both sides compute to the same value.
+- **`byComputing`** proves `a = b` only when both sides compute to the same value.
   `+` recurses on its first argument, so `1 + c` computes to `Succ c` and
   `c + 1` doesn't (aoc/NOTES-2024.md:824–836). A goal stuck on a variable
   needs a `match`, `cases` or a lemma.
 - **`cases`** finds what the goal is stuck on (a variable or call of a type
   with two or more constructors), splits it as a `match` would, and closes
   each case by computation, a contradictory hypothesis, a hypothesis of the
-  goal's type, `omega`, or by running the goal's decision procedure (as
+  goal's type, `arithmetic`, or by running the goal's decision procedure (as
   `byDecision` does). It introduces a goal's leading binders itself
   (`theorem t: (x: Bool) → P x := cases`). When nothing is stuck and nothing
   closes it, it falls back to splitting a variable the goal mentions, the
-  one that makes the fewest cases. `cases in t` tries `t` in every case
+  one that makes the fewest cases. `cases then t` tries `t` in every case
   first, and splits the condition of an `if` the goal shows before what it
   is stuck on inside definitions, so each case's goal keeps the calls `t`
   names. A hypothesis `h: Some x = Some y` (any one constructor on both
   sides) gives `x = y`, and `cases` then replaces `y` by `x` in the goal and
-  the hypotheses, so `f x = f y` needs no `rewrite` or `Eq.cong`; a term
-  after `in` may still name `y`. An equation with no variable side (`f x =
+  the hypotheses, so `f x = f y` needs no `rewrite` or `Eq.cong`; in
+  `cases then t`, `t` may still name `y`. An equation with no variable side (`f x =
   f y`) is only kept as a fact, not rewritten with. An `Int` `==` that a test depends on (`if x + 1 == y then …`) is
-  split as one `Bool`, true or false, and `omega` reads it in each case;
+  split as one `Bool`, true or false, and `arithmetic` reads it in each case;
   `cases` doesn't take the `Int` apart into `OfNat` and `NegSucc`. At most
   **64 cases**, then `E-CASES-BUDGET`. It doesn't do
   induction (`List`, `Nat`). Examples: `examples/accept/cases-*.sw`.
-- **`omega`** proves `<=`, `<`, `=` on `Nat` and `Int` (and contradictions)
+- **`arithmetic`** proves `<=`, `<`, `=` on `Nat` and `Int` (and contradictions)
   from every arithmetic fact in scope: parameters, pattern variables, a
   plain `if`'s condition and a `match`'s equation in a `decreasing`
   definition (neither needs a name), and `let`s. Pass other facts as
-  `omega [lemma a b]`. It knows `-`, `max`, `min`, multiplication by a literal, and `x / k`
+  `arithmetic [lemma a b]`. It knows `-`, `max`, `min`, multiplication by a literal, and `x / k`
   by a literal only by its two bounds (`(x / k) * k ≤ x ≤ (x / k) * k + k -
   1`); `x * y`, `x % k`, `List.length xs` and calls are atoms it knows
   nothing about. It reads a hypothesis `x ∈ a ..< b` (or `..=`) as `a ≤ x` and
@@ -346,7 +346,7 @@ Import what you use: std's theorems live in namespaces that need an import
   argument, from evidence given by name, a hypothesis in scope of exactly
   that type, or a decision procedure (DESIGN.md "`auto` and `Decidable`").
   Its search stops after 8 levels of nested decisions; past that, pass the
-  proof (`d.sound rfl`), as the roguelike did for its 7th key
+  proof (`d.sound byComputing`), as the roguelike did for its 7th key
   (games/rogue/PROOFS.md:192). An `if h: …` puts `h` in scope for `auto`.
 - **A decision is a record**, `{ holds: Bool, sound: holds = True → p,
   complete: p → holds = True }` (D3483, SW-2746). Build one test first,
@@ -362,7 +362,7 @@ Import what you use: std's theorems live in namespaces that need an import
   becomes `x = y` with `DecEq.sound e` (or `d.sound e`). `d.holds` is the
   `Bool` a decision stands for. A goal that holds the decision itself (the
   `if h:` of a program whose branch uses `h`) splits by a `match` on the
-  record, `| { holds = True, sound = s, complete = _ } => … s rfl …`, or,
+  record, `| { holds = True, sound = s, complete = _ } => … s byComputing …`, or,
   when that is refused (`E-MATCH-MOTIVE`: the decision computes to its
   fields), by a `match` on what its test waits for (`match h: cave.height
   with | Zero | Succ _`; `aoc/src/Aoc/Year2021/Day15/Proofs/Levels.sw`).
@@ -370,12 +370,12 @@ Import what you use: std's theorems live in namespaces that need an import
   proves a closed proposition by running its decision procedure. False is
   `E-AUTO-FALSE`; stuck on a variable is `E-AUTO-STUCK`, so split the
   variable with `cases` or use `Finite.check`.
-- **`Finite.check p rfl x`** proves `p x = True` for every `x` of a finite
+- **`Finite.check p byComputing x`** proves `p x = True` for every `x` of a finite
   type by computing `p` on each value of `Finite.all`. Put several variables
   in one record or pair. It is the way past `cases`' 64 cases: 2^10 values
   take about 0.1 s, 2^16 about 12 s (`examples/accept/finite-check.sw`).
   Data types without recursion or `Nat` fields get `Finite` derived.
-- **`rewrite p in t`** replaces `p`'s left side by its right side in the
+- **`rewrite p then t`** replaces `p`'s left side by its right side in the
   goal and checks `t` against the result; `rewrite <- p`, `rewrite p at h`.
   It needs a known goal (`E-REWRITE-NO-GOAL` otherwise). It replaces every
   occurrence of the first instance it matches. It looks for the left side
@@ -402,7 +402,7 @@ Import what you use: std's theorems live in namespaces that need an import
   to a constructor) they replace what that search finds, and the arms'
   goals hold no calls (`examples/accept/match-as-written.sw`).
 - **`calc`** chains steps `_ = e := proof`, `_ <= e`, `_ < e`; a step with
-  no proof is `rfl`. Use it when `rewrite` picks the wrong occurrence, or
+  no proof is `byComputing`. Use it when `rewrite` picks the wrong occurrence, or
   to say exactly which form you want.
 - **Induction is recursion.** A theorem that calls itself on a smaller
   argument is a proof by induction; the recursive call is the induction
@@ -410,7 +410,7 @@ Import what you use: std's theorems live in namespaces that need an import
   after the type: each recursive call needs a proof that the measure went
   down, from `auto` (a guard `if next < n` in scope) or `[decreasing :=
   proof]`. `f.unfold x` is a `decreasing` definition's own equation, for
-  `rewrite f.unfold x in …`; on unknown arguments `f x` doesn't unfold by
+  `rewrite f.unfold x then …`; on unknown arguments `f x` doesn't unfold by
   itself.
 - **Arms have equations.** Every `def` with arms gets `f.eq1`, `f.eq2`, …
   (one for each arm, in the order written): the call on that arm's patterns
@@ -421,7 +421,7 @@ Import what you use: std's theorems live in namespaces that need an import
   They help where `f`'s call is stuck: on a variable (`rewrite f.eq3 x h1 h2
   in …`, the hypotheses proved by `omega` or `rfl`), and in `decreasing` and
   `opaque` definitions. A call with constructors already computes, so
-  `rewrite f.eq2 in …` there is `E-REWRITE-NOTHING`: let `rfl` or `cases`
+  `rewrite f.eq2 then …` there is `E-REWRITE-NOTHING`: let `byComputing` or `cases`
   compute it. Adding an arm renumbers the ones after it, and a name that no
   longer exists is `E-UNKNOWN-NAME` pointing at `doc`.
 - **Nested types**: for `type Packet = | Number (value: Nat) | Packets (items: List Packet)`,
@@ -432,7 +432,7 @@ Import what you use: std's theorems live in namespaces that need an import
   (`examples/accept/nested-data-induction.sw`).
 - **Hypotheses are ordinary values.** Pass them on, take them apart with
   a tuple pattern (`let (x, a, b) := h`), `match`, `.left`, `.right`;
-  `Void.exfalso` from a contradiction.
+  `Void.impossible` from a contradiction.
 
 ## 4. Common errors and what they usually mean
 
@@ -454,10 +454,10 @@ Each was run on the example named; the output is quoted, shortened.
   `Nat.addComm`), or the statement is false; check the counterexample note.
 
   ```
-  [E-REFL] Error: `rfl` can't prove this
-    │ theorem plusComm (n: Nat) (m: Nat): n + m = m + n := rfl
+  [E-REFL] Error: `byComputing` can't prove this
+    │ theorem plusComm (n: Nat) (m: Nat): n + m = m + n := byComputing
     │                                                       ╰─── `n + m` and `m + n` aren't equal
-    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note: `byComputing` proves `a = b` only when both sides compute to the same value
   ```
   (`examples/reject/plus-comm-by-rfl.sw`.)
 - **`E-CASES`**: a case nothing closed. The notes give that case's
@@ -471,17 +471,17 @@ Each was run on the example named; the output is quoted, shortened.
     Note 5: this statement is false; a counterexample: a = True, n = 3
   ```
   (`examples/reject/cases-open-case.sw`.) If it's true, give the case's
-  proof with `cases in t`.
+  proof with `cases then t`.
 - **`E-CASES-BUDGET`**: more than 64 cases. The note says what it split,
   and, when every variable is finite, points at `Finite.check`
   (`examples/reject/cases-budget.sw`). Otherwise prove a fact that decides
-  several cases at once and pass it with `cases in t`, or `match` by hand.
+  several cases at once and pass it with `cases then t`, or `match` by hand.
   The same error comes sooner when a case grows too large to split: a
   goal and hypotheses that, written out in full, have more than a million
   parts (`examples/reject/cases-split-too-large.sw`).
-- **`E-OMEGA`**: the facts don't give the goal. "an integer model …
+- **`E-ARITHMETIC`**: the facts don't give the goal. "an integer model …
   satisfies the facts" names values for the atoms; often a fact is missing
-  (pass it in `omega […]`) or an atom hides arithmetic (`x % 2`, `x / 2`,
+  (pass it in `arithmetic […]`) or an atom hides arithmetic (`x % 2`, `x / 2`,
   a call). With a counterexample note, the statement is false
   (`examples/reject/omega-integer-model.sw`).
 - **`E-MATCH-MOTIVE`**: generalising a `match`'s scrutinee makes the type
@@ -498,7 +498,7 @@ Each was run on the example named; the output is quoted, shortened.
     (`examples/reject/rewrite-refined-by-match.sw`). A proof follows a
     program's `if` by matching on its `Bool` (its condition), or on the
     comparison's decision when the arms need its proofs; also for `if a && b`: one
-    `match e: a && b with` refines the goal, and `omega` reads `e` as
+    `match e: a && b with` refines the goal, and `arithmetic` reads `e` as
     `a ∧ b` or `¬(a ∧ b)` (`examples/accept/match-if-and.sw`). Usually the goal
     unfolded the definition first: rewrite with a lemma about the unfolded
     form, or state the step with `calc`.
@@ -519,9 +519,9 @@ Each was run on the example named; the output is quoted, shortened.
     it. Rewrite a larger term (`xs.getLt i`), or use `calc`
     (`examples/reject/rewrite-motive-auto.sw`).
   - `E-REWRITE-PREMISE`: the rule matched but its premise (`x ≤ n`) isn't a
-    hypothesis and `omega` can't prove it; give it in the rule
+    hypothesis and `arithmetic` can't prove it; give it in the rule
     (`examples/reject/rewrite-premise-unproved.sw`).
-  - `E-REWRITE-NO-GOAL`: no expected type; ascribe it, `(rewrite p in t: a = b)`,
+  - `E-REWRITE-NO-GOAL`: no expected type; ascribe it, `(rewrite p then t: a = b)`,
     or use `rewrite p at h`.
   - `E-REWRITE-BUDGET`: the comparisons were too expensive. That says
     nothing about whether the occurrence is there; use a more specific rule
@@ -581,12 +581,12 @@ Each was run on the example named; the output is quoted, shortened.
   failed test; the checker gave up within its limits. In proofs it usually
   means a definition is being computed in full, on a big literal or on
   unknown arguments. Run on a scratch file
-  (`theorem countBig: count 10000000 = 10000000 := rfl`, with `count` a
+  (`theorem countBig: count 10000000 = 10000000 := byComputing`, with `count` a
   recursive copy of the identity):
 
   ```
   [E-RESOURCE] Error: ran out of resources: it recursed more deeply than allowed
-    │ theorem countBig: count 10000000 = 10000000 := rfl
+    │ theorem countBig: count 10000000 = 10000000 := byComputing
     │                       ╰─────────────────────── while checking this
     │ Note 1: this isn't a type error or a failed test: there's no answer within the limits
     │ Note 2: it happened while checking `countBig`
@@ -751,7 +751,7 @@ program can be an enormous term.
   games/rogue/NOTES.md:283–305). Split the statement so the big term is a
   variable (§2, item 3), compare by name, or make it opaque.
 - **A statement with no parameters is computed when it is declared.**
-  `theorem t: countdown 0 100000000 = countdown 0 100000000 := rfl` runs
+  `theorem t: countdown 0 100000000 = countdown 0 100000000 := byComputing` runs
   the whole loop before the proof is looked at (minutes; at 1,000,000
   steps, 1.2 s): the kernel evaluates a closed statement in full. Give the
   theorem a parameter (state it for any count, as days usually do) or name
@@ -759,14 +759,14 @@ program can be an enormous term.
   for now (D2448); the design and a patch that removes the cost are in
   [glued-closed-types.md](proposals/glued-closed-types.md).
 - **Leave rules no open arguments you could give.** On a scratch file with
-  an opaque `lcg`, `rewrite lcg.unfold in …` took 25 s to check, and
-  `rewrite lcg.unfold seed in …` and `unfolding lcg` took 0.2 s each (run
+  an opaque `lcg`, `rewrite lcg.unfold then …` took 25 s to check, and
+  `rewrite lcg.unfold seed then …` and `unfolding lcg` took 0.2 s each (run
   30 Oct 2026; which step took the time wasn't established).
   `STITCHWORT_REWRITE_METRICS=1` prints what each `rewrite` did.
 - **When `opaque` is honest.** Make a definition opaque when its proofs
   need its *name* and its *properties*, not its computation: a hash, a
   random generator, a search whose result is described by a spec. Then:
-  `rewrite f.unfold x in …` takes one step into it; `unfolding f` after a
+  `rewrite f.unfold x then …` takes one step into it; `unfolding f` after a
   theorem's type opens it for that theorem only
   ([syntax.md](syntax.md#opaque-definitions)). It is honest when the
   comment says why and the report mentions it. It is not honest when it

@@ -92,7 +92,7 @@ def halvings (n: Nat): Nat := if n ≤ 1 then 0 else 1 + halvings (n / 2)
 1 error: in `halvings`
 ```
 
-`decreasing e` after the result type names a number `e`, made from the parameters, that gets smaller at every recursive call. Each call then needs a proof that it does. The compiler looks for one itself, from the facts in scope, and tries `omega` ([chapter 10](10-proofs.md)), which proves most arithmetic facts. Here the `else` branch knows `n` isn't below 10, which is enough for `n / 10 < n`:
+`decreasing e` after the result type names a number `e`, made from the parameters, that gets smaller at every recursive call. Each call then needs a proof that it does. The compiler looks for one itself, from the facts in scope, and tries `arithmetic` ([chapter 10](10-proofs.md)), which proves most arithmetic facts. Here the `else` branch knows `n` isn't below 10, which is enough for `n / 10 < n`:
 
 <!-- snippet: recursion.sw#decreasing -->
 ```stitchwort
@@ -128,7 +128,7 @@ def countDown (n step: Nat): Nat
 1 error: in `countDown`
 ```
 
-The message shows the fact as you wrote it. The note gives the usual fix: test the fact with an `if`. In a definition with `decreasing`, an `if` puts its condition in scope for the recursive calls under it, true in the `then` branch and false in the `else`, and the call finds it there. The test needs no name; `if h: … then … else …` still works when a proof needs `h` itself. Euclid's algorithm needs this, since `omega` doesn't reason about `%` by a variable: `a % b < b` holds whenever `b != 0`, and the test puts it in scope:
+The message shows the fact as you wrote it. The note gives the usual fix: test the fact with an `if`. In a definition with `decreasing`, an `if` puts its condition in scope for the recursive calls under it, true in the `then` branch and false in the `else`, and the call finds it there. The test needs no name; `if h: … then … else …` still works when a proof needs `h` itself. Euclid's algorithm needs this, since `arithmetic` doesn't reason about `%` by a variable: `a % b < b` holds whenever `b != 0`, and the test puts it in scope:
 
 <!-- snippet: recursion.sw#gcd -->
 ```stitchwort
@@ -142,7 +142,7 @@ test "gcd" := gcd 84 36 == 12
 
 Here the `else` runs only when `b` is 0 (`a % 0` is `a`, [chapter 2](02-values-and-definitions.md#dividing-by-zero)), where `gcd a 0` is `a` anyway; the test is there to give the compiler the fact. Proofs about `gcd` see the `if` as written, without the fact it gave the call.
 
-A `match` does the same for its arms: a recursive call in one has the `match`'s equation in scope, here `set.popMin = Some (least, rest)`. `omega` can't read that one, but the library's `Set.sizePopMin` turns it into `rest.size < set.size`, so the `match` names it, `found:`, to pass it to the lemma:
+A `match` does the same for its arms: a recursive call in one has the `match`'s equation in scope, here `set.popMin = Some (least, rest)`. `arithmetic` can't read that one, but the library's `Set.sizePopMin` turns it into `rest.size < set.size`, so the `match` names it, `found:`, to pass it to the lemma:
 
 <!-- snippet: recursion.sw#match-fact -->
 ```stitchwort
@@ -156,9 +156,9 @@ def total (set: Set Nat): Nat
 test "total" := total [3, 1, 2].toSet == 6
 ```
 
-An equation `omega` can read needs no name: with `decreasing n - k`, `match n - k with | Zero => k | Succ j => countUp n (k + 1)` is proved from `n - k = Succ j`. Either way, proofs about `total` see `match set.popMin with` as written, without the equation, and can match on `set.popMin` themselves.
+An equation `arithmetic` can read needs no name: with `decreasing n - k`, `match n - k with | Zero => k | Succ j => countUp n (k + 1)` is proved from `n - k = Succ j`. Either way, proofs about `total` see `match set.popMin with` as written, without the equation, and can match on `set.popMin` themselves.
 
-A proof can also be given directly, as `[decreasing := proof]` after the call. With a pair of measures, `decreasing (m, n)`, each call makes `m` smaller, or keeps `m` and makes `n` smaller, as in Ackermann's function, whose calls `omega` proves:
+A proof can also be given directly, as `[decreasing := proof]` after the call. With a pair of measures, `decreasing (m, n)`, each call makes `m` smaller, or keeps `m` and makes `n` smaller, as in Ackermann's function, whose calls `arithmetic` proves:
 
 <!-- snippet: recursion.sw#lexicographic -->
 ```stitchwort
