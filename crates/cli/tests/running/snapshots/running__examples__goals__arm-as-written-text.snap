@@ -1,5 +1,6 @@
 ---
 source: crates/cli/tests/running/examples.rs
+assertion_line: 352
 expression: output
 ---
 [GOAL] Goal: in `plain`
@@ -113,6 +114,7 @@ expression: output
     │ 
     │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ────╯
+try: write ∀ instead of ->
 [GOAL] Goal: in `clauses`
     ╭─[ goals/arm-as-written-text.sw:31:13 ]
     │

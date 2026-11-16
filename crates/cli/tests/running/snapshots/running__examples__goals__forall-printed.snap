@@ -1,5 +1,6 @@
 ---
 source: crates/cli/tests/running/examples.rs
+assertion_line: 352
 expression: output
 ---
 [W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
@@ -11,6 +12,7 @@ expression: output
     │ 
     │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ────╯
+try: write ∀ instead of ->
 [W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
     ╭─[ goals/forall-printed.sw:13:24 ]
     │
@@ -20,6 +22,7 @@ expression: output
     │ 
     │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ────╯
+try: write ∀ instead of ->
 [W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
     ╭─[ goals/forall-printed.sw:13:12 ]
     │
@@ -29,6 +32,7 @@ expression: output
     │ 
     │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ────╯
+try: write ∀ instead of ->
 [W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
     ╭─[ goals/forall-printed.sw:13:62 ]
     │
@@ -38,6 +42,7 @@ expression: output
     │ 
     │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ────╯
+try: write ∀ instead of ->
 [W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
     ╭─[ goals/forall-printed.sw:16:5 ]
     │
@@ -47,6 +52,7 @@ expression: output
     │ 
     │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ────╯
+try: write ∀ instead of ->
 [GOAL] Goal: in `shown`
     ╭─[ goals/forall-printed.sw:17:3 ]
     │

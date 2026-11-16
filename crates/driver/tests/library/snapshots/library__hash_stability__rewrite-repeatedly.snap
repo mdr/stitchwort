@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.regroup ee2469e860e5a105dd0734c6c9f9b054415141d9bfb9d53a276aecb3d1b9d979
@@ -10,4 +11,4 @@ Main.picked e1bb6449cf49724bdca1ae41647549b30b22d6a96700014351dfb10f8518154b
 Main.double c414829fcf948e152547254fc0230633967d54f7573e5a51086a043fc952c88e
 Main.doubled cde1a2859ca5bb9cdb661efbed7818737aaa72b350fb0c1af247d2fb2bf31b22
 Main.fromHypothesis 966b4c3fc5e6149e928431e516d188e44275b4855f394343c9e31116d95e71c7
-Main.thenArithmetic 9f2c565cb252b703c393dff99727244c2b8c423e65eb8f636b2d950c20a57ea4
+Main.thenArithmetic 2bed5bd87342aecef71759e884206dbc705b18b8e19d91a475b21100ecfe9aa4
