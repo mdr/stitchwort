@@ -1,5 +1,5 @@
 {
-  "next": 3578,
+  "next": 3580,
   "tickets": [
     {
       "id": 47,
@@ -39998,12 +39998,12 @@
     {
       "id": 3570,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x920 case 18424): a trailing comment after a constructor field's colon plus a comment line after → in its function type gives 'formatter bug: output doesn't parse: expected ), found →'. Minimal: type Stream: Type = | MkStream (head: Nat) (rest:-- c / Nat → / -- c / Stream). Repro: task fuzz:fmt SEED=0x920 COMMENTS=0.3 CASE=18424. Add as a fmt test",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Probably same cause (Overmind, seed 0x92b case 35752, message 'expected ->, but the line starting with → is at or left of the enclosing block's column'): def first: [a: Type-- c / ] →-- c /  [b: Type] → a → b → a := [a b: Type] (x: a) (y: /  b) => x. Fix both; test both.\n\nThird arrow case (Overmind, seed 0x92f case 8213, 'expected := … but found →'): fmtbugs/arrows.sw — def-- c / many: Nat → Nat → / -- c / Nat → … →-- c / Nat → NaZE. Also 0x92c (line-start →).",
+      "body": "Probably same cause (Overmind, seed 0x92b case 35752, message 'expected ->, but the line starting with → is at or left of the enclosing block's column'): def first: [a: Type-- c / ] →-- c /  [b: Type] → a → b → a := [a b: Type] (x: a) (y: /  b) => x. Fix both; test both.\n\nThird arrow case (Overmind, seed 0x92f case 8213, 'expected := … but found →'): fmtbugs/arrows.sw — def-- c / many: Nat → Nat → / -- c / Nat → … →-- c / Nat → NaZE. Also 0x92c (line-start →).\n\nModel result: sonnet, worked, 21 min (est. 60). All 8 fuzz cases pass; 0x930 20k: 14,659 formatted, 12 refused, 0 internal. 5 tests failing-first. Follow-ups SW-3578.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40011,7 +40011,7 @@
     {
       "id": 3571,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x921 case 13977): a calc whose first expression carries two trailing comments ('calc a ∨-- c / b-- c') gives 'formatter bug: output doesn't parse: expected a step _ = e on the next line'. Repro: task fuzz:fmt SEED=0x921 COMMENTS=0.3 CASE=13977. Add as a fmt test",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -40024,7 +40024,7 @@
     {
       "id": 3572,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, plain seed 0x9ff case 52434): a header whose return type is swallowed by a -- comment ('def collatzSteps (n: Nat): {Partial} --Nat :=') with an if/else-if/else body formats to output where 'else' is at or left of the enclosing block's column → 'expected else'. Repro file: def collatzSteps (n: Nat): {Partial} --Nat := / if n ≤ 1 then 0 / else if … / else …; task fuzz:fmt SEED=0x9ff CASE=52434. Possibly interacts with SW-3538 (if indent from the if's line). Add as a fmt test",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -40037,7 +40037,7 @@
     {
       "id": 3573,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x923 case 63183): a match inside a constructor field's type, after a comment line, places '|' at or left of the enclosing block's column → 'expected | and an alternative'. Minimal: type Box = | MkBox (n: / -- c /  match 1 with | 0 => Nat | Succ m => Nat). Add as a fmt test",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -40050,7 +40050,7 @@
     {
       "id": 3574,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x925 case 3292): a let in a match arm whose value breaks over a comment line before '1; j * 2' → output where ';' has no expression after it. Minimal: def inArm (o: Option Nat): Nat := match o with /   | Some k => let j := k + / -- c /  1; j * 2. Possibly SW-3540 (let keeps its value on the := line) meeting rule N. Add as a fmt test",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -40063,7 +40063,7 @@
     {
       "id": 3575,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x928 case 19800): a nested record literal as a field value, after a comment line, with a trailing comment after 'name =' → output reads as a record update ('expected | and the fields to update, found ,'). Minimal: def greenOuter: Outer := { thing = / -- c /  { color = Green, name =-- c /  \"g\" } / }. Add as a fmt test",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -40089,6 +40089,32 @@
     {
       "id": 3577,
       "title": "[Sonnet] After E2 (unknowns print as _name), code that tests printed text for '?' to detect unknowns is stale: crates/driver/src/search_at.rs lines ~1100, 1490, 1722, 1744 (search may now accept a call or goal with unknowns). Replace with a real check for unsolved metas, as check.rs's partial_callback now does; add a test that fails before",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3578,
+      "title": "[Sonnet] Formatter polish from SW-3570: (1) after a header comment the ':' can land alone on its line (':' then the type below); keep ': ' with the type; (2) look again at Doc::Displaced's reach (applied wherever a node has a leading/before-trailing comment)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3579,
+      "title": "[Sonnet] Error headline for reads-then-wrong-first shows an unfolded internal parser 'Call (L (%mark ())) (r => Done r)' (E1 headline from a ReadsIn mismatch); show the parser as written (Parse.mark ()) or fall back to the plain headline when a side mentions %-names",
       "status": "backlog",
       "agent": "",
       "where": "",
