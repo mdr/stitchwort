@@ -4999,14 +4999,17 @@ const REPL_HELP: &str = "  expression         evaluate it and show its value and
                      that isn't finished asks for more lines (`...`), and a
                      blank line gives up. Declaring a name again replaces
                      it: definitions made earlier keep the one they used
+  Tab                complete a name in scope, a member after a dot
+                     (`[1, 2].` gives `length`, `map`, …; `xs.` by the type
+                     of `xs`), a namespace after `import`, or a `:` command
   :help              this list
   :q                 quit";
 
 #[inline(never)]
 fn repl(path: Option<&Path>) -> ExitCode {
-    let mut session = new_session(false);
+    let session = std::rc::Rc::new(std::cell::RefCell::new(new_session(false)));
     if let Some(path) = path
-        && !load_for_evaluation(&mut session, path)
+        && !load_for_evaluation(&mut session.borrow_mut(), path)
     {
         return ExitCode::FAILURE;
     }
@@ -5017,7 +5020,10 @@ fn repl(path: Option<&Path>) -> ExitCode {
     >::new()
     {
         Ok(mut editor) => {
-            editor.set_helper(Some(stitchwort_cli::repl_color::ReplHelper { color }));
+            editor.set_helper(Some(stitchwort_cli::repl_color::ReplHelper {
+                color,
+                session: session.clone(),
+            }));
             editor
         }
         Err(err) => {
@@ -5046,7 +5052,7 @@ fn repl(path: Option<&Path>) -> ExitCode {
         if starts_declaration(&input) {
             // A declaration may take several lines: more are asked for
             // while what was typed stops in the middle.
-            while needs_more_input(&mut session, &input) {
+            while needs_more_input(&mut session.borrow_mut(), &input) {
                 match editor.readline("...> ") {
                     Ok(more) if more.trim().is_empty() => break,
                     Ok(more) => {
@@ -5064,17 +5070,18 @@ fn repl(path: Option<&Path>) -> ExitCode {
                 continue;
             }
             let _ = editor.add_history_entry(input.replace('\n', " "));
-            match session.add_declarations("<input>", &input) {
+            let added = session.borrow_mut().add_declarations("<input>", &input);
+            match added {
                 Ok((declared, reported)) => {
-                    report_input(&session.sources, &reported);
+                    report_input(&session.borrow().sources, &reported);
                     for name in declared {
                         // What the name now stands for, as a reminder.
-                        if let Ok(shown) = evaluate_parts(&mut session, &name, true) {
+                        if let Ok(shown) = evaluate_parts(&mut session.borrow_mut(), &name, true) {
                             println!("{}", show_result(shown, color));
                         }
                     }
                 }
-                Err(diagnostics) => report_input(&session.sources, &diagnostics),
+                Err(diagnostics) => report_input(&session.borrow().sources, &diagnostics),
             }
             continue;
         }
@@ -5082,9 +5089,9 @@ fn repl(path: Option<&Path>) -> ExitCode {
         let input = input.as_str();
         if input == "import" || input.starts_with("import ") {
             // Imports accumulate over the session, as a file's do.
-            let diagnostics = session.add_imports("<input>", input);
+            let diagnostics = session.borrow_mut().add_imports("<input>", input);
             if !diagnostics.is_empty() {
-                report_input(&session.sources, &diagnostics);
+                report_input(&session.borrow().sources, &diagnostics);
             }
             continue;
         }
@@ -5095,13 +5102,13 @@ fn repl(path: Option<&Path>) -> ExitCode {
                 continue;
             }
             _ => match input.strip_prefix(":t ") {
-                Some(expr) => evaluate_parts(&mut session, expr, true),
-                None => evaluate_parts(&mut session, input, false),
+                Some(expr) => evaluate_parts(&mut session.borrow_mut(), expr, true),
+                None => evaluate_parts(&mut session.borrow_mut(), input, false),
             },
         };
         match result {
             Ok(parts) => println!("{}", show_result(parts, color)),
-            Err(diagnostic) => report_input(&session.sources, &[diagnostic]),
+            Err(diagnostic) => report_input(&session.borrow().sources, &[diagnostic]),
         }
     }
 }

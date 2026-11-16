@@ -28,6 +28,7 @@ rustyline.workspace = true
 mimalloc.workspace = true
 # The language server (`stitchwort lsp`, docs/proposals/language-server.md).
 stitchwort-lsp.workspace = true
+lsp-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 # `program.o` for `stitchwort build` (docs/proposals/standalone-executables.md).

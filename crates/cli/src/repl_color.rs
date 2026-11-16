@@ -3,12 +3,16 @@
 //! the lexical counterpart of the language server's semantic tokens.
 
 use std::borrow::Cow;
+use std::cell::RefCell;
+use std::rc::Rc;
 
+use rustyline::Context;
 use rustyline::Helper;
-use rustyline::completion::Completer;
+use rustyline::completion::{Completer, Pair};
 use rustyline::highlight::{CmdKind, Highlighter};
 use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
+use stitchwort_driver::driver::Session;
 use stitchwort_driver::marks::{Lexical, lexical_marks};
 
 const RESET: &str = "\x1b[0m";
@@ -70,9 +74,11 @@ pub fn colour_result(value: &str, ty: &str) -> String {
     )
 }
 
-/// The line editor's helper: colours the input and the prompts when `color`.
+/// The line editor's helper: colours the input and the prompts when
+/// `color`, and completes from the session the REPL evaluates in.
 pub struct ReplHelper {
     pub color: bool,
+    pub session: Rc<RefCell<Session>>,
 }
 
 impl Highlighter for ReplHelper {
@@ -102,7 +108,20 @@ impl Highlighter for ReplHelper {
 }
 
 impl Completer for ReplHelper {
-    type Candidate = String;
+    type Candidate = Pair;
+
+    fn complete(
+        &self,
+        line: &str,
+        pos: usize,
+        _ctx: &Context<'_>,
+    ) -> rustyline::Result<(usize, Vec<Pair>)> {
+        // The REPL isn't evaluating while a line is read, so the session is free.
+        let Ok(mut session) = self.session.try_borrow_mut() else {
+            return Ok((pos, Vec::new()));
+        };
+        Ok(crate::repl_complete::complete(&mut session, line, pos))
+    }
 }
 impl Hinter for ReplHelper {
     type Hint = String;
@@ -116,12 +135,18 @@ mod tests {
 
     #[test]
     fn highlights_keyword_number_and_constructor() {
-        let on = ReplHelper { color: true };
+        let on = ReplHelper {
+            color: true,
+            session: Rc::default(),
+        };
         assert_eq!(
             on.highlight("if Some 1", 0),
             "\x1b[35mif\x1b[0m \x1b[33mSome\x1b[0m \x1b[36m1\x1b[0m"
         );
-        let off = ReplHelper { color: false };
+        let off = ReplHelper {
+            color: false,
+            session: Rc::default(),
+        };
         assert_eq!(off.highlight("if Some 1", 0), "if Some 1");
         assert_eq!(off.highlight_prompt("sw> ", true), "sw> ");
     }

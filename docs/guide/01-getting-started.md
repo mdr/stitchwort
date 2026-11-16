@@ -110,6 +110,8 @@ describe: Nat → Text
 
 The REPL also takes declarations: `def`, `theorem`, `type`, `interface`, `instance`, `ability` and `test`. They are added to the session, and each prints what it declared with its type. A declaration that stops in the middle (after `:=`, say) asks for more lines with `...>`, and a blank line gives up. Declaring a name again replaces it for what you type from then on; definitions made earlier keep the one they used. A declaration that fails changes nothing, and a `theorem` with a `?` reports its open goal as `check` does. `:help` lists all of this.
 
+Tab completes what you are typing. It offers the names in scope (the prelude's, the imports you have typed and the declarations you have added), the members after a dot (`[1, 2].` and Tab lists `length`, `map` and the rest, found from the type of what comes before the dot, and `List.` lists the namespace's), the namespaces after `import` and the names inside its brackets, and the `:` commands. It uses the same completion as the language server, so the two agree.
+
 <!-- snippet: repl-declarations.txt -->
 ```text
 def half (n: Nat): Nat := n / 2
