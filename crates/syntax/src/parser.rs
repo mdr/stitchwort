@@ -1133,8 +1133,9 @@ impl<'t> Parser<'t> {
             if self.text_at(self.pos as u32) == "deriving" {
                 return Err(error
                     .with_note(
-                        "there's no `deriving`: a declared type gets `DecEq`, `Ord`, `Show` and \
-                         `Finite` derived when it is declared, so delete this line",
+                        "there's no `deriving`: a declared type gets `==`, `<` and `${…}` derived \
+                         when its fields have them (and `Finite` when they're all finite), \
+                         so delete this line",
                     )
                     .into());
             }
