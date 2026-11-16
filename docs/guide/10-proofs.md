@@ -713,7 +713,7 @@ theorem bigWhenNot ∀ (n: Nat) (h: isSmall n = False): 3 < n := h
    │
  5 │ theorem bigWhenNot ∀ (n: Nat) (h: isSmall n = False): 3 < n := h
    │                                                                ┬
-   │                                                                ╰── expected `4 ≤ n`, but this has type `isSmall n = False`
+   │                                                                ╰── expected `3 < n`, but this has type `isSmall n = False`
    │
    │ Note: this is the test fact `isSmall n = False`, which reads as `3 < n`: add `.read` to use it as that
 ───╯
