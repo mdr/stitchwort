@@ -39466,7 +39466,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Stage 0 of simp (simp-revisited.md §1.2, §8), with SW-3530.\n\nD3647: the simp tactic will be spelled 'rewrite repeatedly' (stage 1 onward).",
+      "body": "Stage 0 of simp (simp-revisited.md §1.2, §8), with SW-3530.\n\nD3647: the simp tactic will be spelled 'rewrite repeatedly' (stage 1 onward).\n\nModel result: opus, worked, 37 min (est. 45). Orchestrator's calls: (1) every-call-kept read-back as first rewrite search, and (2) plain cases splitting a visible if first: both deferred to simp stage 1's design (they could change existing proofs; measure there). Opus review before merge (rewrite/cases build proof terms).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39695,7 +39695,7 @@
     {
       "id": 3547,
       "title": "[Opus] Errors E1: type mismatches lead with the difference: first-difference search on every long E-TYPE-MISMATCH, headline names it, aligned expected:/found: rows; expected type as declared (docs/proposals/helpful-errors.md §5 rank 1; check the six places in crates/elab that read message text first). Est. 1.5 h",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
