@@ -3049,6 +3049,10 @@ impl<'t> Parser<'t> {
     /// limit is measured in stack).
     #[inline(never)]
     fn if_expr(&mut self, start: u32) -> Result<()> {
+        // `then` and `else` may start a line, as long as it's indented at
+        // least as far as the line `if` is on (not the line its binder is
+        // on, when a comment puts that on a later line).
+        let indent = self.line_indent(self.pos - 1);
         // `if h : P then …` binds a proof; `if c then …` tests a `Bool`.
         let binder =
             if matches!(self.peek(), Some(Tok::Lower(_))) && self.peek_at(1) == Some(&Tok::Colon) {
@@ -3058,9 +3062,6 @@ impl<'t> Parser<'t> {
             } else {
                 None
             };
-        // `then` and `else` may start a line, as long as it's indented at
-        // least as far as the line `if` is on.
-        let indent = self.line_indent(self.pos - 1);
         self.expr()?;
         let bool_test = self.peek() == Some(&Tok::Equals);
         self.expect_keyword(Tok::KwThen, "`then`", indent)
