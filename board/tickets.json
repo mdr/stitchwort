@@ -1,5 +1,5 @@
 {
-  "next": 3581,
+  "next": 3582,
   "tickets": [
     {
       "id": 47,
@@ -39684,7 +39684,7 @@
     {
       "id": 3546,
       "title": "[DeepSeek] Messages: The suggested import (Detail.import) never reaches check's JSON output (from SW-3539, helpful-errors.md)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -39738,12 +39738,12 @@
     {
       "id": 3550,
       "title": "[Sonnet] Errors E4: fixes in check's JSON ({range, replacement, applicability}) from what the LSP computes and the did-you-means, and try: lines in text (D3646 (docs/proposals/helpful-errors.md §5 rank 4). Est. 1.5 h",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\n\nProgress (Sonnet lane, 16 Nov 2026): done, in review. driver::fixes shared by LSP, check --index (version 4, fixes list) and try: lines. Covered: import, missing arms, both style fixes, likely field name (new, check). Not covered: scope.rs did-you-mean on member names (span covers the qualified name), goal fills/splits (search). Model result: sonnet, worked, ~75 min (est. 60).\n",
+      "body": "\n\nProgress (Sonnet lane, 16 Nov 2026): done, in review. driver::fixes shared by LSP, check --index (version 4, fixes list) and try: lines. Covered: import, missing arms, both style fixes, likely field name (new, check). Not covered: scope.rs did-you-mean on member names (span covers the qualified name), goal fills/splits (search). Model result: sonnet, worked, ~75 min (est. 60).\n\nModel result: sonnet, worked, 75 min (est. 60; load 20-36 slowed LSP tests). Five fix kinds; honesty test LSP == JSON; 22 reject snapshots gain try: lines. Covers SW-3546 (Detail.import in JSON). Follow-ups SW-3581.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40128,6 +40128,19 @@
     {
       "id": 3580,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x946 case 35095): record update with trailing comments after the base and after '|' → 'comments: the comment -- c moved'. Minimal (fmtbugs/update.sw): def / bad (t: Timed Int): Timed Nat := { t-- c / |-- c / start = Int.toNat t.start }. Retest on main after SW-3570 first. Add as a fmt test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3581,
+      "title": "[Sonnet] Errors follow-ups from E4 (SW-3550): (1) member did-you-mean (List.lenght, scope.rs) as a structured fix (label covers the qualified name; replace only the member); (2) structure the other 'did you mean' notes (attributes.rs, doc_links.rs, project.rs, run.rs); (3) audit 'needs import' notes that don't call with_import, so every one carries the fix",
       "status": "backlog",
       "agent": "",
       "where": "",
