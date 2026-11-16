@@ -6,10 +6,11 @@
 //!
 //! Each declaration is turned into a layout document by the rule for each
 //! construct ([`rules`]) and printed in 120 columns ([`engine`]). The whole
-//! printed file must have the input's tokens (the input being the file
-//! after the tidy passes, [`crate::passes`], which include D2307's dropped
-//! brackets and D3565's merged parameters), its comments attached to the
-//! same tokens, and parse to the same tree; a file that doesn't is
+//! printed file must have the tokens of the file after the tidy passes
+//! ([`crate::passes`], which include D2307's dropped brackets and D3565's
+//! merged parameters) with its comments attached to the same tokens, the
+//! original file's comments, and parse to the original's tree up to the
+//! passes' changes ([`crate::same_program`]); a file that doesn't is
 //! [`Error::Internal`] and the caller keeps it as it was, so a bug in the
 //! rules is never a wrong program on disk. [`gate`] runs the same checks and
 //! also that formatting twice changes nothing.
@@ -19,8 +20,7 @@ mod rules;
 
 use stitchwort_syntax::tree::NodeKind;
 use stitchwort_syntax::{
-    DEFAULT_STACK, Diagnostic, FileId, Lexed, SourceMap, Tok, equivalence, lex_with_trivia,
-    parse_module_within,
+    DEFAULT_STACK, Diagnostic, FileId, Lexed, SourceMap, Tok, lex_with_trivia, parse_module_within,
 };
 
 use crate::{Error, check};
@@ -59,7 +59,17 @@ pub fn format_tree(text: &str) -> Result<TreeFormatted, Error> {
 
 /// Like [`format_tree`], with `file` in the diagnostics of a refused file.
 pub fn format_tree_in(file: FileId, text: &str) -> Result<TreeFormatted, Error> {
-    let printed = print_file(file, text)?;
+    format_with_passes(file, text, &crate::passes::PASSES)
+}
+
+/// Like [`format_tree_in`], with `passes` for the tidy passes: tests give
+/// it a wrong pass to see the checks refuse what it does.
+fn format_with_passes(
+    file: FileId,
+    text: &str,
+    passes: &[crate::passes::Pass],
+) -> Result<TreeFormatted, Error> {
+    let printed = print_file(file, text, passes)?;
     check_file(file, text, &printed.input, &printed.text).map_err(Error::Internal)?;
     Ok(TreeFormatted {
         text: printed.text,
@@ -85,9 +95,9 @@ pub struct Gate {
 /// syntax tree, and the same text when formatted again.
 pub fn gate(text: &str) -> Result<Gate, Error> {
     let file = SourceMap::new().add("input.sw", text);
-    let printed = print_file(file, text)?;
+    let printed = print_file(file, text, &crate::passes::PASSES)?;
     let check = check_file(file, text, &printed.input, &printed.text);
-    let idempotent = match print_file(file, &printed.text) {
+    let idempotent = match print_file(file, &printed.text, &crate::passes::PASSES) {
         Ok(again) => again.text == printed.text,
         Err(_) => false,
     };
@@ -106,17 +116,22 @@ pub fn gate(text: &str) -> Result<Gate, Error> {
 }
 
 struct PrintedFile {
-    /// The input after the tidy passes: what the output is compared with.
+    /// The input after the tidy passes: what the output's tokens are
+    /// compared with.
     input: String,
     text: String,
     stats: TreeStats,
 }
 
-fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
+fn print_file(
+    file: FileId,
+    text: &str,
+    passes: &[crate::passes::Pass],
+) -> Result<PrintedFile, Error> {
     lex_with_trivia(file, text).map_err(|d| Error::Refused(vec![d]))?;
     parse_module_within(file, text, DEFAULT_STACK).map_err(Error::Refused)?;
-    let tidied = crate::passes::run(file, text, &crate::passes::PASSES);
-    let merge_at = crate::passes::PASSES
+    let tidied = crate::passes::run(file, text, passes);
+    let merged_groups = passes
         .iter()
         .position(|pass| {
             std::ptr::fn_addr_eq(
@@ -124,8 +139,7 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
                 crate::passes::merge_parameters as crate::passes::Pass,
             )
         })
-        .expect("P4 is in PASSES");
-    let merged_groups = tidied.edits[merge_at];
+        .map_or(0, |at| tidied.edits[at]);
     let input = tidied.text;
     let tree = tidied.tree;
     let (trivia, eof) = crate::tidy::place_comments(tree.tokens(), tree.trivia(), tree.eof());
@@ -243,27 +257,12 @@ fn compare(
     }
 }
 
-/// What differs first between two syntax tree dumps, as the output's line
-/// and the input's, or nothing when they are the same.
-fn first_difference(before: &str, after: &str) -> Option<String> {
-    if before == after {
-        return None;
-    }
-    let (mut x, mut y) = (before.lines(), after.lines());
-    loop {
-        let (a, b) = (x.next(), y.next());
-        if a != b {
-            return Some(format!(
-                "the output parses to a different tree: the input has `{}` where the output has `{}`",
-                a.map_or("nothing", str::trim),
-                b.map_or("nothing", str::trim)
-            ));
-        }
-    }
-}
-
 /// The checks on `after`, the printed `original`, whose tidied text is
-/// `before`.
+/// `before`. Tokens and comment anchors are compared with `before`, since
+/// the passes rewrite tokens; the comments as written and the tree are
+/// compared with `original` ([`check::same_comments`],
+/// [`crate::same_program`]), so a wrong pass can't hide behind its own
+/// result.
 fn check_file(file: FileId, original: &str, before: &str, after: &str) -> Result<(), String> {
     if let (Ok(a), Ok(b)) = (
         lex_with_trivia(file, original),
@@ -272,17 +271,14 @@ fn check_file(file: FileId, original: &str, before: &str, after: &str) -> Result
         check::same_comments(&a, &b).map_err(|e| format!("comments: {e}"))?;
     }
     compare(file, before, after, || {
-        let a = parse_module_within(file, before, DEFAULT_STACK)
+        let a = parse_module_within(file, original, DEFAULT_STACK)
             .map_err(|_| "the input doesn't parse".to_string())?;
         let b = parse_module_within(file, after, DEFAULT_STACK).map_err(|errors| {
             errors.first().map_or(String::new(), |d| {
                 format!("the output doesn't parse: {}", d.message)
             })
         })?;
-        Ok(first_difference(
-            &equivalence::shape(&a),
-            &equivalence::shape(&b),
-        ))
+        crate::same_program::difference(&a, &b)
     })
     .map_err(|(reason, detail)| format!("{reason}: {detail}"))
 }

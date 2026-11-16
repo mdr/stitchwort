@@ -15,6 +15,7 @@ mod merge;
 mod parens;
 pub mod passes;
 pub mod printer;
+mod same_program;
 mod spacing;
 pub mod tidy;
 
