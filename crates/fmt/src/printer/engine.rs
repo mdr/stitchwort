@@ -46,6 +46,13 @@ pub enum Doc {
     /// ending in `;` followed by a line at its block's column ends the
     /// block instead of continuing the sequence.
     AlignInset(Box<Doc>),
+    /// An element a comment moves to a line of its own (a trailing comment
+    /// before it, or own-line comments): its continuation lines are
+    /// indented from where its first line lands, not from the construct
+    /// that holds it, since a line left of that first line would end the
+    /// block the element opens there (`a` then `→ b` in column 4 after `a`
+    /// in column 8).
+    Displaced(Box<Doc>),
     /// Printed flat if it fits, otherwise with every line in it broken. The
     /// flag says it holds a hard break, so it never prints flat.
     Group(Box<Doc>, bool),
@@ -115,6 +122,10 @@ impl Doc {
         Doc::Text(text, width)
     }
 
+    pub fn displaced(doc: Doc) -> Doc {
+        Doc::Displaced(Box::new(doc))
+    }
+
     pub fn nest(indent: usize, doc: Doc) -> Doc {
         Doc::Nest(indent, Box::new(doc))
     }
@@ -179,9 +190,11 @@ impl Doc {
             Doc::NarrowGroup(_, _, hard) => *hard,
             Doc::IfBroken { broken, flat, .. } => broken.forces_break() && flat.forces_break(),
             Doc::OneLineBelow(_) => true,
-            Doc::Nest(_, doc) | Doc::Align(doc) | Doc::AlignInset(doc) | Doc::Flat(doc) => {
-                doc.forces_break()
-            }
+            Doc::Nest(_, doc)
+            | Doc::Align(doc)
+            | Doc::AlignInset(doc)
+            | Doc::Displaced(doc)
+            | Doc::Flat(doc) => doc.forces_break(),
             Doc::Concat(docs) | Doc::Fill(docs) => docs.iter().any(Doc::forces_break),
             Doc::Choice(options) => options.iter().all(Doc::forces_break),
         }
@@ -322,6 +335,16 @@ impl Printer {
                         indent + 2
                     } else {
                         self.column
+                    };
+                    stack.push(Cmd::Doc(column, mode, inner));
+                }
+                Doc::Displaced(inner) => {
+                    let column = if self.at_line_start {
+                        indent.max(self.owed.unwrap_or(indent))
+                    } else if !self.suffixes.is_empty() {
+                        self.continuation(indent)
+                    } else {
+                        indent
                     };
                     stack.push(Cmd::Doc(column, mode, inner));
                 }
@@ -642,7 +665,9 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
             }
             Doc::HardLine | Doc::LineStart | Doc::LineStartHere => return mode == Mode::Break,
             Doc::Nest(more, inner) => stack.push((indent + more, mode, inner)),
-            Doc::Align(inner) | Doc::AlignInset(inner) => stack.push((indent, mode, inner)),
+            Doc::Align(inner) | Doc::AlignInset(inner) | Doc::Displaced(inner) => {
+                stack.push((indent, mode, inner))
+            }
             Doc::Shared(inner, _) => stack.push((indent, mode, inner)),
             Doc::Flat(inner) => stack.push((indent, Mode::Flat, inner)),
             Doc::OneLineBelow(_) => return true,

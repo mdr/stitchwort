@@ -815,3 +815,70 @@ fn an_else_may_line_up_with_an_if_whose_binder_a_comment_moved_down() {
         "def f (b: Bool): Nat :=\n  if\n    -- c\n    h: b then\n    1\n  else 0\n",
     );
 }
+
+#[test]
+fn a_type_a_comment_moved_to_its_own_line_continues_from_where_it_lands() {
+    // SW-3570, SW-3573, SW-3575: the lines after a first line that a comment
+    // displaced stay right of it, or they would end the block it opens.
+    check(
+        "type Stream: Type = | MkStream (head: Nat) (rest:-- c\n Nat →\n-- c\n Stream)\n",
+        "type Stream: Type =\n  | MkStream\n      (head: Nat)\n      (rest: -- c\n        Nat\n          -- c\n          → Stream)\n",
+    );
+    check(
+        "type Box = | MkBox (n:\n-- c\n match 1 with | 0 => Nat | Succ m => Nat)\n",
+        "type Box =\n  | MkBox\n      (n:\n        -- c\n        match 1 with\n          | 0 => Nat\n          | Succ m => Nat)\n",
+    );
+    check(
+        "def greenOuter: Outer := { thing =\n-- c\n { color = Green, name =-- c\n \"g\" }\n}\n",
+        "def greenOuter: Outer := {\n  thing =\n    -- c\n    {\n      color = Green,\n      name = -- c\n        \"g\"\n    }\n}\n",
+    );
+}
+
+#[test]
+fn an_if_chain_after_a_trailing_comment_keeps_its_else_lines_with_it() {
+    // SW-3572: the `if` is on a line of its own after the comment.
+    check(
+        "def collatzSteps (n: Nat): {Partial} --Nat :=\n  if n ≤ 1 then 0\n  else if n % 2 == 0 then 1 + collatzSteps (n / 2)\n  else 1 + collatzSteps (3 * n + 1)\n",
+        "def collatzSteps (n: Nat):\n    {Partial} --Nat :=\n      if n ≤ 1 then 0\n      else if n % 2 == 0 then 1 + collatzSteps (n / 2)\n      else 1 + collatzSteps (3 * n + 1)\n",
+    );
+}
+
+#[test]
+fn a_comment_after_the_last_parameter_puts_the_body_below_the_header() {
+    // SW-3571: the `:` can't join the comment's line, so the header's last
+    // line is a continuation, and a `calc` on it would measure its steps
+    // from there.
+    check(
+        "theorem andChain ∀ (a b: Bool)-- c\n  : (a ∧ b) = (a ∧ b) := calc a ∧ b\n    _ = a ∧-- c\n b\n",
+        "theorem andChain ∀ (a b: Bool) -- c\n    :\n    (a ∧ b) = (a ∧ b) :=\n  calc a ∧ b\n    _ = a ∧ -- c\n      b\n",
+    );
+    // The same after a word of the head.
+    check(
+        "theorem-- c\n bad (a: Nat) (h: a = a): a = a :=\n  calc a\n    _ = a := h\n",
+        "theorem -- c\n    bad ∀ (a: Nat)\n    (h: a = a):\n    a = a :=\n  calc a\n    _ = a := h\n",
+    );
+}
+
+#[test]
+fn a_let_whose_value_breaks_over_a_comment_keeps_its_semicolon_after_it() {
+    // SW-3574: a value starting its own line is a block, which the `;`
+    // after it would end as a sequence's.
+    check(
+        "def inArm (o: Option Nat): Nat := match o with\n  | Some k => let j := k +\n-- c\n 1; j * 2\n",
+        "def inArm (o: Option Nat): Nat := match o with\n  | Some k =>\n    let j := k\n      +\n        -- c\n        1;\n    j * 2\n",
+    );
+}
+
+#[test]
+fn a_comment_after_an_arrow_goes_before_it_and_a_long_chain_stays_one_chain() {
+    // SW-3570: the operand after `→ -- c` would start a line, a block that
+    // the next arrow at the chain's column ends.
+    check(
+        "def many: Nat → Nat →-- c\n Nat → Nat → Nat → Nat\n",
+        "def many: Nat\n      → Nat\n      -- c\n      → Nat\n      → Nat\n      → Nat\n      → Nat\n",
+    );
+    check(
+        "def many: Nat → Nat\n  -- c\n  → Nat → Nat →-- c\n Nat → Nat\n",
+        "def many: Nat\n      → Nat\n      -- c\n      → Nat\n      → Nat\n      -- c\n      → Nat\n      → Nat\n",
+    );
+}
