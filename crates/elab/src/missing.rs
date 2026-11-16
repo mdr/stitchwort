@@ -12,7 +12,7 @@ use stitchwort_core::collections::{HashMap, HashSet};
 
 use num_bigint::BigUint;
 use stitchwort_core::DataId;
-use stitchwort_core::registry::Builtin;
+use stitchwort_core::registry::{Builtin, Registry};
 use stitchwort_syntax::{Diagnostic, MissingCases, Span};
 
 use crate::{Elaborator, Result, Tree};
@@ -189,6 +189,11 @@ pub(crate) fn merge<T>(cx: &crate::check::Ctx, start: usize, result: Result<T>) 
     let first = kept.next().expect("the error returned");
     cx.e.attempt.branch_errors.borrow_mut().extend(kept);
     Err(first)
+}
+
+/// Whether `d` is `∧` or `∃`, whose proofs patterns write as tuples.
+fn proof_pair(reg: &Registry, d: DataId) -> bool {
+    reg.is_data(Builtin::And, d) || reg.is_data(Builtin::Exists, d)
 }
 
 /// The hole for a field called `name`: `‹name›` when that is a name the
@@ -542,6 +547,29 @@ impl Elaborator {
                     }
                     _ => break,
                 }
+            }
+            items.push(self.show_column(rest, shapes, false));
+            return format!("({})", items.join(", "));
+        }
+        // A proof of `∧` or `∃` is a tuple, as a pattern writes it: `Both a
+        // (Witness x p)` is `(a, x, p)`, the chain running down the last
+        // part (docs/proposals/proof-tuples.md).
+        if proof_pair(reg, d) && fields.len() == 2 {
+            let mut items = vec![self.show_column(fields[0], shapes, false)];
+            let mut rest = fields[1];
+            while let Some(Shape::Ctor { d, c, base }) = shapes.get(&rest)
+                && proof_pair(reg, *d)
+            {
+                let ctor = &g.data(*d).ctors()[*c];
+                let explicit: Vec<usize> = (0..ctor.fields.len())
+                    .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
+                    .map(|i| base + i)
+                    .collect();
+                if explicit.len() != 2 {
+                    break;
+                }
+                items.push(self.show_column(explicit[0], shapes, false));
+                rest = explicit[1];
             }
             items.push(self.show_column(rest, shapes, false));
             return format!("({})", items.join(", "));
