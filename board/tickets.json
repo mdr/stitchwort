@@ -39373,7 +39373,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3638 (Matt, 16 Nov 2026): 'I'm happy to reverse the no simp decision' (D2541's 'no simp' clause goes). Rules question (D3639) under discussion.\n\nD3639 (Matt, 16 Nov 2026): yes. Named rule sets declared once (rules words := [...]); no attribute, no default set, no bare simp. Option 3 (an attribute adding to a named set) is the natural next step if stage 4 shows long lists.\n\nD3640 (Matt, 16 Nov 2026): yes, 'let's keep propext out for the time being (we can revisit later if we learn more)'. ↔ via congruence lemmas (SW-2706 = stage 3); stage 4 counts missing-congruence hits for a later propext-as-fallback decision.",
+      "body": "D3638 (Matt, 16 Nov 2026): 'I'm happy to reverse the no simp decision' (D2541's 'no simp' clause goes). Rules question (D3639) under discussion.\n\nD3639 (Matt, 16 Nov 2026): yes. Named rule sets declared once (rules words := [...]); no attribute, no default set, no bare simp. Option 3 (an attribute adding to a named set) is the natural next step if stage 4 shows long lists.\n\nD3640 (Matt, 16 Nov 2026): yes, 'let's keep propext out for the time being (we can revisit later if we learn more)'. ↔ via congruence lemmas (SW-2706 = stage 3); stage 4 counts missing-congruence hits for a later propext-as-fallback decision.\n\nD3647 (Matt, 16 Nov 2026): the tactic is spelled 'rewrite repeatedly [rules]' ('rewrite repeatedly is nice'; preferred over simplify and simp: names should convey what happens). Forms: rewrite repeatedly [..] in t / at h. Error codes follow (E-REWRITE-REPEATEDLY…, orchestrator's call in stage 1). A preference, revisit if stage 4 finds it too long (fallback: simplify).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39466,7 +39466,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Stage 0 of simp (simp-revisited.md §1.2, §8), with SW-3530.",
+      "body": "Stage 0 of simp (simp-revisited.md §1.2, §8), with SW-3530.\n\nD3647: the simp tactic will be spelled 'rewrite repeatedly' (stage 1 onward).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
