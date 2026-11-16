@@ -6,8 +6,9 @@
 //!
 //! Each declaration is turned into a layout document by the rule for each
 //! construct ([`rules`]) and printed in 120 columns ([`engine`]). The
-//! printed declaration must have the input's tokens (up to the deliberate
-//! rewrites: D1012's commas, D3472's `∀` and D3565's merged parameters,
+//! printed declaration must have the input's tokens (the input being the
+//! file after the tidy passes, [`crate::passes`], and, until they become
+//! passes too, D2307's dropped brackets and D3565's merged parameters,
 //! [`merge`], checked on their own), its comments attached to the
 //! same tokens, and parse to the same tree; one that doesn't is left as
 //! written and counted, so a gap in the rules costs an unformatted
@@ -147,7 +148,7 @@ pub fn gate(text: &str) -> Result<Gate, Error> {
 }
 
 struct PrintedFile {
-    /// The input with D3472's `∀`s added and D3565's parameters merged:
+    /// The input after the tidy passes and D3565's parameters merged:
     /// what the output is compared with.
     input: String,
     /// How the merge of parameters checked; a failed one isn't made.
@@ -157,25 +158,32 @@ struct PrintedFile {
 }
 
 fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
-    let lexed = lex_with_trivia(file, text).map_err(|d| Error::Refused(vec![d]))?;
+    lex_with_trivia(file, text).map_err(|d| Error::Refused(vec![d]))?;
     parse_module_within(file, text, DEFAULT_STACK).map_err(Error::Refused)?;
-    let mut input =
-        crate::insert_theorem_foralls(text, &lexed.tokens).unwrap_or_else(|| text.to_string());
+    let tidied = crate::passes::run(file, text, &crate::passes::PASSES);
+    let mut input = tidied.text;
     let mut merges = Ok(());
     let mut merged_groups = 0;
+    let mut changed = false;
     if let Some((dropped, _)) = parens::drop_parens(&input)
         && merge::check(&input, &dropped).is_ok()
     {
         input = dropped;
+        changed = true;
     }
     if let Some((merged, groups)) = merge::merge(&input) {
         merges = merge::check(&input, &merged);
         if merges.is_ok() {
             input = merged;
             merged_groups = groups;
+            changed = true;
         }
     }
-    let tree = parse_tree(file, &input, DEFAULT_STACK);
+    let tree = if changed {
+        parse_tree(file, &input, DEFAULT_STACK)
+    } else {
+        tidied.tree
+    };
     let (trivia, eof) = crate::tidy::place_comments(tree.tokens(), tree.trivia(), tree.eof());
     let mut printer = rules::Rules::new(&tree, &trivia, &input);
     let mut stats = TreeStats {
@@ -282,23 +290,20 @@ fn decl_source<'t>(tree: &SyntaxFile, text: &'t str, first: usize, end: usize) -
 
 /// Every comment with the token it belongs to, read by rule N
 /// ([`crate::tidy`]): an own-line comment's token is the one after it, a
-/// trailing one's the one it follows. Tokens are counted without commas,
-/// which D1012 adds and drops (N leaves them no comments).
+/// trailing one's the one it follows.
 fn comment_anchors(lexed: &Lexed) -> Vec<(String, bool, usize)> {
     let tokens = &lexed.tokens;
     let (trivia, eof) = crate::tidy::place_comments(tokens, &lexed.trivia, &lexed.eof);
     let mut out = Vec::new();
     let mut n = 0;
-    for (token, trivia) in tokens.iter().zip(trivia) {
+    for trivia in trivia {
         for comment in trivia.leading {
             out.push((comment.text, false, n));
         }
         if let Some(comment) = trivia.trailing {
             out.push((comment.text, true, n));
         }
-        if token.tok != Tok::Comma {
-            n += 1;
-        }
+        n += 1;
     }
     for comment in eof.leading {
         out.push((comment.text, false, n));

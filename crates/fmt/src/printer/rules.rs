@@ -1035,7 +1035,8 @@ impl<'a> Rules<'a> {
             prefix = Doc::concat([prefix, space, base, Doc::concat(comment)]);
             inside = &inside[bar + 1..];
         }
-        // Items between commas; a comma before the closer is dropped.
+        // Items between commas. The last has no comma after it (tidy pass
+        // P2); a bracket that ends in one has nothing to print.
         let mut items: Vec<(Vec<Element>, Option<Element>)> = Vec::new();
         let mut current = Vec::new();
         for &el in inside {
@@ -1045,18 +1046,14 @@ impl<'a> Rules<'a> {
                 current.push(el);
             }
         }
-        let mut dropped = None;
         if current.is_empty() {
-            if let Some((_, comma)) = items.last_mut() {
-                dropped = comma.take();
-            }
-        } else {
-            items.push((current, None));
+            return self.as_written(node);
         }
+        items.push((current, None));
         // D3572: a list of only plain values fills its lines, the bracket
         // staying on the first.
         let plain = node.kind() == NodeKind::List
-            && inside.len() == items.len() * 2 - usize::from(dropped.is_none())
+            && inside.len() == items.len() * 2 - 1
             && !self.holds_trailing_comment(node)
             && items.iter().all(|(item, _)| {
                 matches!(item.as_slice(), [el @ Element::Leaf(_)]
