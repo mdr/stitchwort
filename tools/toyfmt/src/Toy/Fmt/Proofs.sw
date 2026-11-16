@@ -16,12 +16,8 @@ import Toy.Syntax (..)
 import Toy.Fmt (..)
 import Std (DecEq, Disk, Eq, FileError, Files, Map, Path, Result, Text, Void)
 
-def printedOr (fallback: Printed): FormatResult → Printed
-  | Stable printed => printed
-  | Refused _ => fallback
-
 --| `Stable` holds one printed file: two equal answers have equal files.
-theorem stableInjective ∀ (a b: Printed) (h: Stable a = Stable b): a = b := Eq.cong (printedOr a) h
+theorem stableInjective ∀ (a b: Printed) (h: Stable a = Stable b): a = b := cases
 
 --| If `format source width` answers `Stable output`, the source parses to
 --| some `tree`, `output` is that tree printed at `width`, and `output`'s text
@@ -33,7 +29,7 @@ theorem formatChecked ∀ (source: Text) (width: Nat) (output: Printed)
     | Ok tree =>
       match c: parse (tree.print width).text == Ok tree with
         | True =>
-          let same := stableInjective (tree.print width) output h
+          let same: tree.print width = output := cases
           Witness tree (Both rfl (Both (Eq.sym same) (rewrite <- same in DecEq.sound c)))
 
 --| Round trip: if `format source width` answers `Stable output`, the source
