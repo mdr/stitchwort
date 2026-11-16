@@ -156,7 +156,7 @@ theorem evenS ∀ (n: Nat): even (S n) = negb (even n) := ?
 -- Stitchwort's `rewrite` takes the equation as a proof, written in
 -- place:
 
-theorem mult0Plus' ∀ (n m: Nat): mult (plus (plus n O) O) m = mult n m := rewrite plusN0 n, plusN0 n then byComputing
+theorem mult0Plus' ∀ (n m: Nat): mult (plus (plus n O) O) m = mult n m := rewrite plusN0 n, plusN0 n
 
 -- Here `plusN0 n` proves `plus n O = n`, which rewrites `plus (plus n O)
 -- O` to `plus n O` and then to `n`. A fact with no lemma to cite can be
@@ -180,8 +180,7 @@ theorem mult0Plus' ∀ (n m: Nat): mult (plus (plus n O) O) m = mult n m := rewr
 -- The book uses `replace` to point at the right `+`. In Stitchwort, give
 -- the rule its arguments, and it rewrites `plus n m` and nothing else:
 
-theorem plusRearrange ∀ (n m p q: Nat): plus (plus n m) (plus p q) = plus (plus m n) (plus p q) :=
-  rewrite addComm n m then byComputing
+theorem plusRearrange ∀ (n m p q: Nat): plus (plus n m) (plus p q) = plus (plus m n) (plus p q) := rewrite addComm n m
 
 -- # Formal vs. Informal Proof
 --

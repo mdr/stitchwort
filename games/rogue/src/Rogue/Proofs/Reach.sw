@@ -37,7 +37,7 @@ theorem walkEast ∀ (level: Level) (row steps column: Nat)
     (floor: ∀ (j: Nat) => column < j → j ≤ column + steps → isWall level { row, column = j } = False):
     Walk level { row, column } (List.replicate steps East) { row, column = column + steps } :=
   match steps with
-    | Zero => rewrite Nat.addZero column then byComputing
+    | Zero => rewrite Nat.addZero column
     | Succ steps =>
       let shift: column + Succ steps = (column + 1) + steps := arithmetic
       Both
@@ -48,7 +48,7 @@ theorem walkWest ∀ (level: Level) (row steps column: Nat)
     (floor: ∀ (j: Nat) => column ≤ j → j < column + steps → isWall level { row, column = j } = False):
     Walk level { row, column = column + steps } (List.replicate steps West) { row, column } :=
   match steps with
-    | Zero => rewrite Nat.addZero column then byComputing
+    | Zero => rewrite Nat.addZero column
     | Succ steps =>
       let back: column + Succ steps - 1 = column + steps := arithmetic
       rewrite back then
@@ -60,7 +60,7 @@ theorem walkSouth ∀ (level: Level) (column steps row: Nat)
     (floor: ∀ (i: Nat) => row < i → i ≤ row + steps → isWall level { row = i, column } = False):
     Walk level { row, column } (List.replicate steps South) { row = row + steps, column } :=
   match steps with
-    | Zero => rewrite Nat.addZero row then byComputing
+    | Zero => rewrite Nat.addZero row
     | Succ steps =>
       let shift: row + Succ steps = (row + 1) + steps := arithmetic
       Both
@@ -71,7 +71,7 @@ theorem walkNorth ∀ (level: Level) (column steps row: Nat)
     (floor: ∀ (i: Nat) => row ≤ i → i < row + steps → isWall level { row = i, column } = False):
     Walk level { row = row + steps, column } (List.replicate steps North) { row, column } :=
   match steps with
-    | Zero => rewrite Nat.addZero row then byComputing
+    | Zero => rewrite Nat.addZero row
     | Succ steps =>
       let back: row + Succ steps - 1 = row + steps := arithmetic
       rewrite back then
@@ -89,7 +89,7 @@ theorem containsOf ∀ (area: Area) (position: Position)
     (left: area.corner.column ≤ position.column)
     (right: position.column ≤ area.corner.column + area.across):
     area.contains position = True :=
-  rewrite top, bottom, left, right then byComputing
+  rewrite top, bottom, left, right
 
 --| What `contains` says, as four facts.
 type Inside (area: Area) (position: Position): Prop = {
@@ -147,7 +147,7 @@ theorem walkAcross ∀ (level: Level) (area: Area)
         { row = origin.row, column = origin.column + (target.column - origin.column) }
         { row = origin.row, column = target.column }
         (positionEta origin).flipped
-        (rewrite (arithmetic: origin.column + (target.column - origin.column) = target.column) then byComputing)
+        (rewrite (arithmetic: origin.column + (target.column - origin.column) = target.column))
         walk
     | False =>
       let walk := walkWest level origin.row (origin.column - target.column) target.column (j after before =>
@@ -201,7 +201,7 @@ theorem walkDown ∀ (level: Level) (area: Area)
         { row = origin.row, column = target.column }
         { row = target.row, column = target.column }
         target
-        (rewrite (arithmetic: target.row + (origin.row - target.row) = origin.row) then byComputing)
+        (rewrite (arithmetic: target.row + (origin.row - target.row) = origin.row))
         (positionEta target).flipped
         walk
 
@@ -224,11 +224,9 @@ theorem walkWithin ∀ (level: Level) (area: Area)
 
 theorem openCorridor ∀ (level: Level) (area: Area) (listed: List.Mem area level.corridors): Open level area :=
   position contained =>
-    rewrite List.anyOfMem level.corridors (.contains position) area contained listed,
-        Bool.orTrue (level.rooms.any (.contains position)),
-        Bool.orTrue (level.exit.contains position),
-        Bool.orTrue (level.entrance.contains position) then
-      byComputing
+    rewrite List.anyOfMem level.corridors (.contains position) area contained listed, Bool.orTrue
+      (level.rooms.any (.contains position)), Bool.orTrue (level.exit.contains position), Bool.orTrue
+      (level.entrance.contains position)
 
 theorem minDistanceLeft ∀ (m n: Nat): m ≤ Nat.min m n + distanceBetween m n := match below: Nat.leq m n with
   | True => arithmetic

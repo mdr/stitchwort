@@ -532,7 +532,7 @@ theorem mult0L ∀ (n: Nat): mult O n = O := byComputing
 --
 -- This theorem is a bit more interesting:
 
-theorem plusIdExample ∀ (n m: Nat) (h: n = m): plus n n = plus m m := rewrite h then byComputing
+theorem plusIdExample ∀ (n m: Nat) (h: n = m): plus n n = plus m m := rewrite h
 
 -- It isn't a claim about all numbers `n` and `m`, but a more specialised
 -- property that only holds when `n = m`. Rocq writes the hypothesis with
@@ -576,7 +576,7 @@ theorem plusIdExercise ∀ (n m o: Nat) (h1: n = m) (h2: m = o): plus n m = plus
 -- left side in the goal. The book rewrites with `<- mult_n_O`, right to
 -- left, because the lemma is stated `0 = n * 0`; so does `<-` here.
 
-theorem multN0M0 ∀ (p q: Nat): plus (mult p O) (mult q O) = O := rewrite <- multNO p, <- multNO q then byComputing
+theorem multN0M0 ∀ (p q: Nat): plus (mult p O) (mult q O) = O := rewrite <- multNO p, <- multNO q
 
 -- Exercise: 1 star, standard (mult_n_1)
 --

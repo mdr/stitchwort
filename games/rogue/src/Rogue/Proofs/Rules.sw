@@ -25,7 +25,7 @@ theorem resolveFinished ∀ (dice: Dice) (state: State) (command: Command)
 theorem resolveQuit ∀ (dice: Dice) (state: State)
     (playing: state.phase = Playing):
     (resolve dice state Quit).phase = GaveUp :=
-  rewrite playing then byComputing
+  rewrite playing
 
 --| The most the monsters next to `player` could do in one turn: each one's
 --| strength.
@@ -76,7 +76,7 @@ theorem threatNone ∀ (player: Position) (monsters: List Monster)
     threat player monsters = 0 :=
   match monsters, none with
     | [], none => byComputing
-    | [monster, ..rest], Both far others => rewrite far, threatNone player rest others then byComputing
+    | [monster, ..rest], Both far others => rewrite far, threatNone player rest others
 
 theorem monstersTurnNoHeal ∀ (dice: Dice) (state: State): (monstersTurn dice state).hitPoints ≤ state.hitPoints :=
   match phase: state.phase with
@@ -147,5 +147,5 @@ theorem resolveMoves ∀ (dice: Dice) (state: State) (direction: Direction)
     (vacant: monsterAt (state.player.toward direction) state.monsters = None)
     (open: isWall state.level (state.player.toward direction) = False):
     (resolve dice state (Move direction)).player = state.player.toward direction :=
-  rewrite playing, monstersTurnPlayer dice (playerMoves dice state direction) then
-    rewrite vacant, open then enterPlayer state (state.player.toward direction)
+  rewrite playing, monstersTurnPlayer dice (playerMoves dice state direction), vacant, open then
+    enterPlayer state (state.player.toward direction)
