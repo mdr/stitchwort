@@ -1,5 +1,5 @@
 {
-  "next": 3635,
+  "next": 3636,
   "tickets": [
     {
       "id": 47,
@@ -40839,6 +40839,19 @@
       "id": 3634,
       "title": "[Sonnet] Lexical colouring follow-ups (SW-3618): the LSP falls back to lexical_marks for text not yet resolved (instant colour before a check); a tolerant per-line lexer so a half-typed string keeps the rest of the REPL line coloured; a REPL test for --color=never/NO_COLOR",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3635,
+      "title": "[Sonnet] Terminal colour palette audit (Matt, 16 Nov 2026: the REPL's blue operators are 'really hard to see against the black'; consider bold; audit how the best Python REPLs and Ammonite do it): paper first — survey ptpython, IPython, bpython, Ammonite (sources cited), contrast of each ANSI colour we use on black and white and common themes (WCAG ratios), bright vs normal variants, bold; recommend one palette shared by REPL highlighting (SW-3618) and error messages (SW-3613, whose secondary labels are also blue). Then implement it with before/after captures",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
