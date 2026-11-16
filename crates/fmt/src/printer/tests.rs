@@ -850,7 +850,7 @@ fn a_comment_after_the_last_parameter_puts_the_body_below_the_header() {
     // from there.
     check(
         "theorem andChain ∀ (a b: Bool)-- c\n  : (a ∧ b) = (a ∧ b) := calc a ∧ b\n    _ = a ∧-- c\n b\n",
-        "theorem andChain ∀ (a b: Bool) -- c\n    :\n    (a ∧ b) = (a ∧ b) :=\n  calc a ∧ b\n    _ = a ∧ -- c\n      b\n",
+        "theorem andChain ∀ (a b: Bool) -- c\n    : (a ∧ b) = (a ∧ b) :=\n  calc a ∧ b\n    _ = a ∧ -- c\n      b\n",
     );
     // The same after a word of the head.
     check(
@@ -880,5 +880,28 @@ fn a_comment_after_an_arrow_goes_before_it_and_a_long_chain_stays_one_chain() {
     check(
         "def many: Nat → Nat\n  -- c\n  → Nat → Nat →-- c\n Nat → Nat\n",
         "def many: Nat\n      → Nat\n      -- c\n      → Nat\n      → Nat\n      -- c\n      → Nat\n      → Nat\n",
+    );
+}
+
+#[test]
+fn a_record_update_with_comments_after_its_base_and_after_the_bar_keeps_both() {
+    // SW-3580: the base's comment follows the `|` and the bar's own has
+    // nowhere else to go, so it starts the line below.
+    check(
+        "def bad (t: Timed Int): Timed Nat := { t -- a\n  | -- b\n  start = 1 }\n",
+        "def bad (t: Timed Int): Timed Nat := { t | -- a\n  -- b\n  start = 1\n}\n",
+    );
+}
+
+#[test]
+fn a_result_colon_after_own_line_comments_stays_with_its_type() {
+    // SW-3578: the `:` started its line and the type went below it.
+    check(
+        "def f (a: Nat)\n  -- c\n  : Nat := a\n",
+        "def f (a: Nat)\n    -- c\n    : Nat :=\n  a\n",
+    );
+    check(
+        "def f (a: Nat) -- c\n  : Nat := a\n",
+        "def f (a: Nat) -- c\n    : Nat := a\n",
     );
 }

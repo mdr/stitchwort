@@ -690,9 +690,17 @@ impl<'a> Rules<'a> {
     ) -> Doc {
         let head_doc = self.join(head);
         let mut comment_after_colon = false;
+        // A comment before the `:` (own-line, or ending the line before it)
+        // leaves it to start a line, so its type stays on that line.
+        let mut colon_apart = false;
+        let mut colon_below_comment = false;
         let (colon, ty) = match result {
             Some(Element::Node(result)) => {
                 let inner: Vec<Element> = result.children().collect();
+                let first = Self::first(inner[0]);
+                colon_below_comment = self.has_leading(inner[0]);
+                colon_apart = !params.is_empty()
+                    && (colon_below_comment || self.ends_line_with_comment_before(first));
                 comment_after_colon = self.trivia[Self::last(inner[0])].trailing.is_some();
                 let colon = self.el(inner[0]);
                 let ty = self.join(&inner[1..]);
@@ -730,6 +738,7 @@ impl<'a> Rules<'a> {
         for (k, &param) in params.iter().enumerate() {
             let mut doc = self.el(param);
             if k == last
+                && !colon_below_comment
                 && let Some(colon) = &colon
             {
                 doc = Doc::concat([doc, colon.clone()]);
@@ -776,7 +785,16 @@ impl<'a> Rules<'a> {
             parts.push(run);
         }
         if let Some(ty) = ty {
-            parts.push(Doc::Line);
+            if colon_below_comment && let Some(colon) = colon {
+                // Own-line comments make the `:` start a line at 4.
+                parts.push(Doc::Line);
+                parts.push(colon);
+            }
+            parts.push(match (colon_apart, comment_after_colon) {
+                (false, _) => Doc::Line,
+                (true, false) => Doc::text(" "),
+                (true, true) => Doc::HardLine,
+            });
             parts.push(ty);
         }
         if let Some(unfolding) = unfolding {

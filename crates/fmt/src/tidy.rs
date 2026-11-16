@@ -24,6 +24,9 @@ use stitchwort_syntax::{Comment, Tok, Token, Trivia};
 ///    stops early, staying on a closer or bar that starts its line, when
 ///    going further would pass that token's own-line comments or land on a
 ///    token that already ends its line with a comment.
+///    A bar's trailing comment that stays where it is although the base
+///    before it ends its line with a comment becomes an own-line comment of
+///    the token after the bar.
 /// 2. A comma's own-line comments, and the trailing comment of a comma that
 ///    starts its line, become own-line comments of the token after it, with
 ///    their blank lines.
@@ -56,6 +59,13 @@ pub fn place_comments(tokens: &[Token], trivia: &[Trivia], eof: &Trivia) -> (Vec
         }
         if j != i {
             out[j].trailing = out[i].trailing.take();
+        } else if tokens[i].tok == Tok::Pipe && i > 0 && out[i - 1].trailing.is_some() {
+            // The base's comment is printed after the bar, so the bar's own
+            // would run into it on one line: it starts the line below.
+            if let Some(mut comment) = out[i].trailing.take() {
+                comment.blank_lines_before = 0;
+                out[i + 1].leading.insert(0, comment);
+            }
         }
     }
     for i in 0..out.len() {
