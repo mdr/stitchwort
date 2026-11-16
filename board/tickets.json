@@ -1,5 +1,5 @@
 {
-  "next": 3484,
+  "next": 3485,
   "tickets": [
     {
       "id": 47,
@@ -38854,7 +38854,20 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "The mutation: one name swapped, List.memRangeFrom → List.memRangeBounds in 'let columnSmall := List.memRangeBounds column lab.width 0 columnMember' (Part2.sw positionsOnlyOnMap). So a wrong lemma name/arity in a let before omega takes >90 s to reject instead of a quick type error. Full mutant: copy positionsOnlyOnMap and swap that one name. Likely omega or the elaborator searching hard with an ill-typed hypothesis (or unifying memRangeBounds' arguments).",
+      "body": "The mutation: one name swapped, List.memRangeFrom → List.memRangeBounds in 'let columnSmall := List.memRangeBounds column lab.width 0 columnMember' (Part2.sw positionsOnlyOnMap). So a wrong lemma name/arity in a let before omega takes >90 s to reject instead of a quick type error. Full mutant: copy positionsOnlyOnMap and swap that one name. Likely omega or the elaborator searching hard with an ill-typed hypothesis (or unifying memRangeBounds' arguments).\n\nSecond family (Overmind seed 0x708, mutant 1664, 91 s each): aoc Year2024/Day04/Proofs/Part1.sw:108 throughEmpty2 (rewrite three zipWith4NilSecond lemmas, then rfl). Mutants: (1) statement '= 0' → '= 1', proof unchanged; (2) statement's first and third swapped (countThrough third [] first fourth), proof unchanged; (3) whole proof → 'cases'. All three are failing checks that take >90 s, as is family 1 (a wrong lemma name in a let before omega). Suspect a shared expensive error path (unfolding countThrough for the mismatch message or a failing rfl normalising deeply, or cases' search) rather than four separate bugs; profile mutant (1) first: a wrong numeral after rfl should fail fast.",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3484,
+      "title": "[DeepSeek] toyfmt: delete the checked format (it re-parses its output) and rename formatDirect to format, with its theorems (formatDirectRoundTrip → formatRoundTrip etc.); formatAgrees goes; tests point at the new format. Matt, 16 Nov 2026: 'yes, delete it and rename formatDirect to format'",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
