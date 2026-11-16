@@ -540,9 +540,10 @@ theorem Map.toListFilterList ∀ [auto ord: Ord k] (m: Map k v) (p: k → v → 
 
 --| Filtering a map just to count it: the size of the filter is `count`.
 theorem Map.sizeFilter ∀ [auto ord: Ord k] (m: Map k v) (p: k → v → Bool): Map.size (Map.filter m p) = Map.count m p :=
-  Eq.trans
-    (Map.sizeToList (Map.filter m p))
-    (Eq.trans (Eq.cong List.length (Map.toListFilterList m p)) (List.lengthFilter (Map.toList m) (e => p e.fst e.snd)))
+  calc (m.filter p).size
+    _ = (m.filter p).toList.length := Map.sizeToList (Map.filter m p)
+    _ = (m.toList.filter (e => p e.fst e.snd)).length := Eq.cong List.length (Map.toListFilterList m p)
+    _ = m.toList.count (e => p e.fst e.snd) := List.lengthFilter (Map.toList m) (e => p e.fst e.snd)
 
 theorem Map.toListUnion ∀ [auto ord: Ord k] (a b: Map k v):
     Map.toList (Map.union a b) = Map.Spec.union (Map.toList a) (Map.toList b) :=
@@ -976,13 +977,13 @@ theorem Map.getAdjustOther ∀ [auto ord: Ord k] (m: Map k v) (key other: k)
 --| `filter` keeps the value at `key` if `p` holds of it.
 theorem Map.getFilter ∀ [auto ord: Ord k] (m: Map k v) (key: k) (p: k → v → Bool):
     Map.get (Map.filter m p) key = Option.filter (Map.get m key) (p key) :=
-  Eq.trans
-    (Map.getToList (Map.filter m p) key)
-    (Eq.trans
-      (Eq.cong (Map.Tree.lookupList key) (Map.toListFilterList m p))
-      (Eq.trans
-        (Map.Spec.lookupFilter p key None (Map.toList m) (Map.toListSorted m))
-        (Eq.cong (.filter (p key)) (Map.getToList m key).flipped)))
+  calc (m.filter p).get key
+    _ = Map.Tree.lookupList key (m.filter p).toList := Map.getToList (Map.filter m p) key
+    _ = Map.Tree.lookupList key (m.toList.filter (e => p e.fst e.snd)) :=
+      Eq.cong (Map.Tree.lookupList key) (Map.toListFilterList m p)
+    _ = (Map.Tree.lookupList key m.toList).filter (p key) :=
+      Map.Spec.lookupFilter p key None (Map.toList m) (Map.toListSorted m)
+    _ = (m.get key).filter (p key) := Eq.cong (.filter (p key)) (Map.getToList m key).flipped
 
 --| A key is in a filtered map exactly when it is in the map with a value `p`
 --| keeps.
@@ -1529,13 +1530,16 @@ theorem Map.insertComm ∀ [auto ord: Ord k] (a: k) (x: v) (b: k) (y: v)
           (Eq.flipped (Eq.trans (Map.getInsertOther a x b (e => ne e.flipped) (m.insert b y)) (Map.getInsert b y m)))
     else if ha: key = a then
       rewrite ha then
-        Eq.trans
-          (Eq.trans (Map.getInsertOther b y a ne (m.insert a x)) (Map.getInsert a x m))
-          (Eq.flipped (Map.getInsert a x (m.insert b y)))
+        calc ((m.insert a x).insert b y).get a
+          _ = (m.insert a x).get a := Map.getInsertOther b y a ne (m.insert a x)
+          _ = Some x := Map.getInsert a x m
+          _ = ((m.insert b y).insert a x).get a := Eq.flipped (Map.getInsert a x (m.insert b y))
     else
-      Eq.trans
-        (Eq.trans (Map.getInsertOther b y key hb (m.insert a x)) (Map.getInsertOther a x key ha m))
-        (Eq.flipped (Eq.trans (Map.getInsertOther a x key ha (m.insert b y)) (Map.getInsertOther b y key hb m))))
+      calc ((m.insert a x).insert b y).get key
+        _ = (m.insert a x).get key := Map.getInsertOther b y key hb (m.insert a x)
+        _ = m.get key := Map.getInsertOther a x key ha m
+        _ = ((m.insert b y).insert a x).get key :=
+          Eq.flipped (Eq.trans (Map.getInsertOther a x key ha (m.insert b y)) (Map.getInsertOther b y key hb m)))
 
 --| Inserting the value a key already has changes nothing.
 theorem Map.insertGet ∀ [auto ord: Ord k] (m: Map k v) (key: k) (value: v)
@@ -1552,9 +1556,10 @@ theorem Map.insertInsert ∀ [auto ord: Ord k] (key: k) (x y: v) (m: Map k v):
     if e: other = key then
       rewrite e then Eq.trans (Map.getInsert key y (m.insert key x)) (Map.getInsert key y m).flipped
     else
-      Eq.trans
-        (Map.getInsertOther key y other e (m.insert key x))
-        (Eq.trans (Map.getInsertOther key x other e m) (Eq.flipped (Map.getInsertOther key y other e m))))
+      calc ((m.insert key x).insert key y).get other
+        _ = (m.insert key x).get other := Map.getInsertOther key y other e (m.insert key x)
+        _ = m.get other := Map.getInsertOther key x other e m
+        _ = (m.insert key y).get other := Eq.flipped (Map.getInsertOther key y other e m))
 
 --| Removing a key just inserted removes it from the map before.
 theorem Map.removeInsert ∀ [auto ord: Ord k] (key: k) (value: v) (m: Map k v):
@@ -1563,9 +1568,10 @@ theorem Map.removeInsert ∀ [auto ord: Ord k] (key: k) (value: v) (m: Map k v):
     if e: other = key then
       rewrite e then Eq.trans (Map.getRemove (m.insert key value) key) (Map.getRemove m key).flipped
     else
-      Eq.trans
-        (Map.getRemoveOther (m.insert key value) key other e)
-        (Eq.trans (Map.getInsertOther key value other e m) (Map.getRemoveOther m key other e).flipped))
+      calc ((m.insert key value).remove key).get other
+        _ = (m.insert key value).get other := Map.getRemoveOther (m.insert key value) key other e
+        _ = m.get other := Map.getInsertOther key value other e m
+        _ = (m.remove key).get other := (Map.getRemoveOther m key other e).flipped)
 
 -- Induction over maps
 

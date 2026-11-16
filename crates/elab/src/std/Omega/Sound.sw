@@ -49,9 +49,10 @@ theorem Omega.dotUnitInt ∀ (i: Nat) (vs: List Int): Omega.dot (Omega.unit i) v
   | Zero, [x, ..xs] => Eq.trans (Int.addZero (Int.mul (OfNat 1) x)) (Int.oneMul x)
   | Succ i, [] => byComputing
   | Succ i, [x, ..xs] =>
-    Eq.trans
-      (Eq.cong (t => Int.add t (Omega.dot (Omega.unit i) xs)) (Int.zeroMul x))
-      (Eq.trans (Int.zeroAdd (Omega.dot (Omega.unit i) xs)) (Omega.dotUnitInt i xs))
+    calc 0 * x + Omega.dot (Omega.unit i) xs
+      _ = 0 + Omega.dot (Omega.unit i) xs := Eq.cong (t => Int.add t (Omega.dot (Omega.unit i) xs)) (Int.zeroMul x)
+      _ = Omega.dot (Omega.unit i) xs := Int.zeroAdd (Omega.dot (Omega.unit i) xs)
+      _ = Omega.intAt i xs := Omega.dotUnitInt i xs
 
 theorem Omega.isZeroEq ∀ (x: Int) (h: Omega.isZero x = True): x = OfNat 0 := match x with | OfNat Zero => byComputing
 
@@ -69,11 +70,11 @@ theorem Omega.divExact ∀ (d: Nat) (a: Int)
     (h: Omega.isZero (a % OfNat (Succ d)) = True):
     a = OfNat (Succ d) * (a / OfNat (Succ d)) :=
   Eq.flipped
-    (Eq.trans
-      (Eq.flipped (Int.addZero (OfNat (Succ d) * (a / OfNat (Succ d)))))
-      (Eq.trans
-        (Eq.cong (Int.add (OfNat (Succ d) * (a / OfNat (Succ d)))) (Eq.flipped (Omega.isZeroEq (a % OfNat (Succ d)) h)))
-        (Int.divAddMod a (OfNat (Succ d)))))
+    (calc (Succ d).toInt * (a / (Succ d).toInt)
+      _ = (Succ d).toInt * (a / (Succ d).toInt) + 0 := Eq.flipped (Int.addZero (OfNat (Succ d) * (a / OfNat (Succ d))))
+      _ = (Succ d).toInt * (a / (Succ d).toInt) + (a % (Succ d).toInt) :=
+        Eq.cong (Int.add (OfNat (Succ d) * (a / OfNat (Succ d)))) (Eq.flipped (Omega.isZeroEq (a % OfNat (Succ d)) h))
+      _ = a := Int.divAddMod a (OfNat (Succ d)))
 
 theorem Omega.dotDiv ∀ (d: Nat) (as vs: List Int)
     (h: Omega.allDiv d as = True):
@@ -139,30 +140,30 @@ theorem Omega.linEval ∀ (env: Omega.Env) (t: Omega.NTerm):
     Omega.Row.eval env (Omega.NTerm.lin t) = OfNat (Omega.NTerm.eval env t) :=
   match t with
     | NV i =>
-      Eq.trans
-        (Int.zeroAdd (Int.add (Omega.dot (Omega.unit i) (Omega.toInts (Omega.Env.nats env))) (OfNat 0)))
-        (Eq.trans
-          (Int.addZero (Omega.dot (Omega.unit i) (Omega.toInts (Omega.Env.nats env))))
-          (Omega.dotUnit i (Omega.Env.nats env)))
+      calc 0 + (Omega.dot (Omega.unit i) (Omega.toInts env.nats) + 0)
+        _ = Omega.dot (Omega.unit i) (Omega.toInts env.nats) + 0 :=
+          Int.zeroAdd (Int.add (Omega.dot (Omega.unit i) (Omega.toInts (Omega.Env.nats env))) (OfNat 0))
+        _ = Omega.dot (Omega.unit i) (Omega.toInts env.nats) :=
+          Int.addZero (Omega.dot (Omega.unit i) (Omega.toInts (Omega.Env.nats env)))
+        _ = (Omega.natAt i env.nats).toInt := Omega.dotUnit i (Omega.Env.nats env)
     | NLit n => Int.addZero (OfNat n)
     | NAdd a b =>
       Eq.trans
         (Omega.evalAdd env (Omega.NTerm.lin a) (Omega.NTerm.lin b))
         (Int.addCong (Omega.linEval env a) (Omega.linEval env b))
     | NSucc a =>
-      Eq.trans
-        (Omega.evalAdd env (Omega.NTerm.lin a) Omega.Row.one)
-        (Eq.trans
-          (Eq.cong (t => Int.add t (OfNat 1)) (Omega.linEval env a))
-          (Eq.cong OfNat (Nat.addOne (Omega.NTerm.eval env a))))
+      calc Omega.Row.eval env (a.lin.add Omega.Row.one)
+        _ = Omega.Row.eval env a.lin + Omega.Row.eval env Omega.Row.one :=
+          Omega.evalAdd env (Omega.NTerm.lin a) Omega.Row.one
+        _ = (Omega.NTerm.eval env a + 1).toInt := Eq.cong (t => Int.add t (OfNat 1)) (Omega.linEval env a)
+        _ = (Omega.NTerm.eval env a + 1).toInt := Eq.cong OfNat (Nat.addOne (Omega.NTerm.eval env a))
     | MulLeft k t =>
       Eq.trans (Omega.evalScale env (OfNat k) (Omega.NTerm.lin t)) (Eq.cong (Int.mul (OfNat k)) (Omega.linEval env t))
     | MulRight t k =>
-      Eq.trans
-        (Omega.evalScale env (OfNat k) (Omega.NTerm.lin t))
-        (Eq.trans
-          (Eq.cong (Int.mul (OfNat k)) (Omega.linEval env t))
-          (Eq.cong OfNat (Nat.mulComm k (Omega.NTerm.eval env t))))
+      calc Omega.Row.eval env (Omega.Row.scale k.toInt t.lin)
+        _ = k.toInt * Omega.Row.eval env t.lin := Omega.evalScale env (OfNat k) (Omega.NTerm.lin t)
+        _ = (k * Omega.NTerm.eval env t).toInt := Eq.cong (Int.mul (OfNat k)) (Omega.linEval env t)
+        _ = (Omega.NTerm.eval env t * k).toInt := Eq.cong OfNat (Nat.mulComm k (Omega.NTerm.eval env t))
 
 --| The convention: `a <= b` gives the row `b - a >= 0`.
 theorem Omega.leRowHolds ∀ (env: Omega.Env) (a b: Omega.NTerm)
@@ -184,37 +185,42 @@ theorem Omega.ilinEval ∀ (env: Omega.Env) (t: Omega.ITerm):
     Omega.Row.eval env (Omega.ITerm.lin t) = Omega.ITerm.eval env t :=
   match t with
     | IV i =>
-      Eq.trans
-        (Int.zeroAdd (Int.add (OfNat 0) (Omega.dot (Omega.unit i) (Omega.Env.ints env))))
-        (Eq.trans
-          (Int.zeroAdd (Omega.dot (Omega.unit i) (Omega.Env.ints env)))
-          (Omega.dotUnitInt i (Omega.Env.ints env)))
+      calc 0 + (0 + Omega.dot (Omega.unit i) env.ints)
+        _ = 0 + Omega.dot (Omega.unit i) env.ints :=
+          Int.zeroAdd (Int.add (OfNat 0) (Omega.dot (Omega.unit i) (Omega.Env.ints env)))
+        _ = Omega.dot (Omega.unit i) env.ints := Int.zeroAdd (Omega.dot (Omega.unit i) (Omega.Env.ints env))
+        _ = Omega.intAt i env.ints := Omega.dotUnitInt i (Omega.Env.ints env)
     | IOfNat t => Omega.linEval env t
     | INegSucc t =>
-      Eq.trans
-        (Omega.evalSub env (MkRow (NegSucc 0) [] []) (Omega.NTerm.lin t))
-        (Eq.trans
-          (Eq.cong (x => Int.add (NegSucc 0) (Int.neg x)) (Omega.linEval env t))
-          (Omega.negSuccOfNat (Omega.NTerm.eval env t)))
+      calc Omega.Row.eval env ((MkRow (-1) [] []).sub t.lin)
+        _ = Omega.Row.eval env (MkRow (-1) [] []) + (-Omega.Row.eval env t.lin) :=
+          Omega.evalSub env (MkRow (NegSucc 0) [] []) (Omega.NTerm.lin t)
+        _ = -1 + (-(Omega.NTerm.eval env t).toInt) :=
+          Eq.cong (x => Int.add (NegSucc 0) (Int.neg x)) (Omega.linEval env t)
+        _ = -(Omega.NTerm.eval env t + 1).toInt := Omega.negSuccOfNat (Omega.NTerm.eval env t)
     | IAdd a b =>
       Eq.trans
         (Omega.evalAdd env (Omega.ITerm.lin a) (Omega.ITerm.lin b))
         (Int.addCong (Omega.ilinEval env a) (Omega.ilinEval env b))
     | INeg a =>
-      Eq.trans
-        (Omega.evalScale env (NegSucc 0) (Omega.ITerm.lin a))
-        (Eq.trans (Int.negOneMul (Omega.Row.eval env (Omega.ITerm.lin a))) (Eq.cong Int.neg (Omega.ilinEval env a)))
+      calc Omega.Row.eval env (Omega.Row.scale (-1) a.lin)
+        _ = -1 * Omega.Row.eval env a.lin := Omega.evalScale env (NegSucc 0) (Omega.ITerm.lin a)
+        _ = -Omega.Row.eval env a.lin := Int.negOneMul (Omega.Row.eval env (Omega.ITerm.lin a))
+        _ = -Omega.ITerm.eval env a := Eq.cong Int.neg (Omega.ilinEval env a)
     | IMulLeft k t => Eq.trans (Omega.evalScale env k (Omega.ITerm.lin t)) (Eq.cong (Int.mul k) (Omega.ilinEval env t))
     | IMulRight t k =>
-      Eq.trans
-        (Omega.evalScale env k (Omega.ITerm.lin t))
-        (Eq.trans (Eq.cong (Int.mul k) (Omega.ilinEval env t)) (Int.mulComm k (Omega.ITerm.eval env t)))
+      calc Omega.Row.eval env (Omega.Row.scale k t.lin)
+        _ = k * Omega.Row.eval env t.lin := Omega.evalScale env k (Omega.ITerm.lin t)
+        _ = k * Omega.ITerm.eval env t := Eq.cong (Int.mul k) (Omega.ilinEval env t)
+        _ = Omega.ITerm.eval env t * k := Int.mulComm k (Omega.ITerm.eval env t)
     | ISubNat a b =>
-      Eq.trans
-        (Omega.evalSub env (Omega.NTerm.lin a) (Omega.NTerm.lin b))
-        (Eq.trans
-          (Int.addCong (Omega.linEval env a) (Eq.cong Int.neg (Omega.linEval env b)))
-          (Int.addNegOfNat (Omega.NTerm.eval env a) (Omega.NTerm.eval env b)))
+      calc Omega.Row.eval env (a.lin.sub b.lin)
+        _ = Omega.Row.eval env a.lin + (-Omega.Row.eval env b.lin) :=
+          Omega.evalSub env (Omega.NTerm.lin a) (Omega.NTerm.lin b)
+        _ = (Omega.NTerm.eval env a).toInt + (-(Omega.NTerm.eval env b).toInt) :=
+          Int.addCong (Omega.linEval env a) (Eq.cong Int.neg (Omega.linEval env b))
+        _ = Int.subNatNat (Omega.NTerm.eval env a) (Omega.NTerm.eval env b) :=
+          Int.addNegOfNat (Omega.NTerm.eval env a) (Omega.NTerm.eval env b)
 
 -- `Int`'s order, by cases on the constructors down to `Nat`'s.
 

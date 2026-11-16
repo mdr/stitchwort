@@ -857,11 +857,13 @@ theorem Map.Tree.getBalance ∀ [auto ord: Ord k] (key: k) (lo hi: Option k) (l:
     (wl: Map.Tree.Within ord lo (Some kk) l)
     (wr: Map.Tree.Within ord (Some kk) hi r):
     Map.Tree.get key (Map.Tree.balance l kk vv r) = Map.Tree.get key (Map.Tree.bin l kk vv r) :=
-  Eq.trans
-    (Map.Tree.getLookup key lo hi (Map.Tree.balance l kk vv r) (Map.Tree.balanceWithin ord lo hi l kk vv r ab be wl wr))
-    (Eq.trans
-      (Eq.cong (Map.Tree.lookupList key) (Map.Tree.rebuildOnto (Map.Tree.shape l r) l kk vv r []))
-      (Eq.flipped (Map.Tree.getLookup key lo hi (Map.Tree.bin l kk vv r) (Both (Both ab be) (Both wl wr)))))
+  calc Map.Tree.get key (l.balance kk vv r)
+    _ = Map.Tree.lookupList key ((l.balance kk vv r).toListOnto []) :=
+      Map.Tree.getLookup key lo hi (Map.Tree.balance l kk vv r) (Map.Tree.balanceWithin ord lo hi l kk vv r ab be wl wr)
+    _ = Map.Tree.lookupList key ((l.bin kk vv r).toListOnto []) :=
+      Eq.cong (Map.Tree.lookupList key) (Map.Tree.rebuildOnto (Map.Tree.shape l r) l kk vv r [])
+    _ = Map.Tree.get key (l.bin kk vv r) :=
+      Eq.flipped (Map.Tree.getLookup key lo hi (Map.Tree.bin l kk vv r) (Both (Both ab be) (Both wl wr)))
 
 --| What `insertWith` stores: `value`, or `f value old`.
 def Map.Tree.combine (f: v → v → v) (value: v): (old: Option v) → v

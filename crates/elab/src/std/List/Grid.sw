@@ -152,11 +152,12 @@ theorem List.transposeFillColumns ∀ (rows: List (List a)) (fill: a):
 --| `transposeFill` gives as many columns as the longest row is long.
 theorem List.lengthTransposeFill ∀ (rows: List (List a)) (fill: a):
     List.length (List.transposeFill rows fill) = List.maxLength rows :=
-  Eq.trans
-    (Eq.cong List.length (List.transposeFillColumns rows fill))
-    (Eq.trans
-      (List.lengthMap (List.range 0 (List.maxLength rows)) (c => List.map rows (row => List.getOr row c fill)))
-      (List.lengthRangeFrom (List.maxLength rows) 0))
+  calc (rows.transposeFill fill).length
+    _ = ((0 ..< rows.maxLength).map (c => rows.map (row => row.getOr c fill))).length :=
+      Eq.cong List.length (List.transposeFillColumns rows fill)
+    _ = (0 ..< rows.maxLength).length :=
+      List.lengthMap (List.range 0 (List.maxLength rows)) (c => List.map rows (row => List.getOr row c fill))
+    _ = rows.maxLength := List.lengthRangeFrom (List.maxLength rows) 0
 
 --| Column c (c < maxLength) of `transposeFill` is `getOr c fill` of every row.
 theorem List.getOrTransposeFill ∀ (rows: List (List a)) (fill: a) (c: Nat)

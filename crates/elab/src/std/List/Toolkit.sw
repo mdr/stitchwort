@@ -1037,9 +1037,10 @@ theorem List.flatMapEqConcatMap ∀ (f: a → List b) (xs: List a): List.flatMap
 theorem List.flatMapCong ∀ (xs: List a) (f1 f2: a → List b)
     (ef: ∀ (x: a) => f1 x = f2 x):
     List.flatMap xs f1 = List.flatMap xs f2 :=
-  Eq.trans
-    (List.flatMapEqConcatMap f1 xs)
-    (Eq.trans (Eq.cong List.concat (List.mapCong xs f1 f2 ef)) (List.flatMapEqConcatMap f2 xs).flipped)
+  calc xs.flatMap f1
+    _ = (xs.map f1).concat := List.flatMapEqConcatMap f1 xs
+    _ = (xs.map f2).concat := Eq.cong List.concat (List.mapCong xs f1 f2 ef)
+    _ = xs.flatMap f2 := (List.flatMapEqConcatMap f2 xs).flipped
 
 --| Every pair, the first elements in order and the second elements within each:
 --| `[1, 2].cross ["a", "b"]` is `[(1, "a"), (1, "b"), (2, "a"), (2, "b")]`.

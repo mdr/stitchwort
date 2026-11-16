@@ -302,16 +302,20 @@ theorem Vec.traverseOptionCons ∀ (f: a → Option b) (x: a) (xs: Vec a n) (y: 
       Void.impossible
         (Option.noneNotSome
           (VCons y ys)
-          (Eq.trans
-            (Eq.cong (.flatMap (z => Option.map (Vec.traverseOption xs f) (zs => VCons z zs))) e.flipped)
-            (Eq.trans (Vec.traverseOptionVCons f x xs).flipped h)))
+          (calc Option.flatMap None (z => Option.map (Vec.traverseOption xs f) (zs => VCons z zs))
+            _ = Option.flatMap (f x) (z => Option.map (Vec.traverseOption xs f) (zs => VCons z zs)) :=
+              Eq.cong (.flatMap (z => Option.map (Vec.traverseOption xs f) (zs => VCons z zs))) e.flipped
+            _ = Vec.traverseOption (VCons x xs) f := (Vec.traverseOptionVCons f x xs).flipped
+            _ = Some (VCons y ys) := h))
     | Some z =>
       let parts :=
         Vec.ofListCons z y ys
           (Vec.traverseOption xs f)
-          (Eq.trans
-            (Eq.cong (.flatMap (z => Option.map (Vec.traverseOption xs f) (zs => VCons z zs))) e.flipped)
-            (Eq.trans (Vec.traverseOptionVCons f x xs).flipped h))
+          (calc Option.flatMap (Some z) (w => Option.map (Vec.traverseOption xs f) (zs => VCons w zs))
+            _ = Option.flatMap (f x) (w => Option.map (Vec.traverseOption xs f) (zs => VCons w zs)) :=
+              Eq.cong (.flatMap (w => Option.map (Vec.traverseOption xs f) (zs => VCons w zs))) e.flipped
+            _ = Vec.traverseOption (VCons x xs) f := (Vec.traverseOptionVCons f x xs).flipped
+            _ = Some (VCons y ys) := h)
       Both (Eq.trans e (Eq.cong Some parts.left)) parts.right
 
 theorem Vec.traverseOptionGet ∀ (f: a → Option b):

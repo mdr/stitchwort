@@ -209,11 +209,10 @@ theorem Array.getOrSet ∀ (array: Array a) (i: Nat) (v d: a) (h: i < array.size
 theorem Array.getOrSetOther ∀ (array: Array a) (i: Nat) (v: a) (j: Nat) (d: a)
     (h: j ≠ i):
     (array.set i v).getOr j d = array.getOr j d :=
-  Eq.trans
-    (Array.getOrGet (array.set i v) j d)
-    (Eq.trans
-      (Eq.cong (o => Option.getOrElse o d) (Array.getSetOther array i v j h))
-      (Array.getOrGet array j d).flipped)
+  calc (array.set i v).getOr j d
+    _ = ((array.set i v).get j).getOrElse d := Array.getOrGet (array.set i v) j d
+    _ = (array.get j).getOrElse d := Eq.cong (o => Option.getOrElse o d) (Array.getSetOther array i v j h)
+    _ = array.getOr j d := (Array.getOrGet array j d).flipped
 
 --| Past the end, `set` leaves the array unchanged.
 theorem Array.setPast ∀ (array: Array a) (i: Nat) (v: a) (h: array.size ≤ i): array.set i v = array :=

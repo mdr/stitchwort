@@ -140,10 +140,12 @@ theorem Float.Theory.magUnitsField ∀ (e f: Nat)
 theorem Float.Theory.magUnitsFieldNext ∀ (e f: Nat)
     (h: f < 4503599627370496):
     Float.Theory.magUnits (e * 4503599627370496 + 4503599627370496 + f) = Nat.pow 2 e * (f + 4503599627370496) :=
-  Eq.trans
-    (Eq.cong Float.Theory.magUnits
-      (arithmetic: e * 4503599627370496 + 4503599627370496 + f = (e + 1) * 4503599627370496 + f))
-    (Eq.trans (Float.Theory.magUnitsField (e + 1) f h) byComputing)
+  calc Float.Theory.magUnits (e * 4503599627370496 + f + 4503599627370496)
+    _ = Float.Theory.magUnits (e * 4503599627370496 + f + 4503599627370496) :=
+      Eq.cong Float.Theory.magUnits
+        (arithmetic: e * 4503599627370496 + 4503599627370496 + f = (e + 1) * 4503599627370496 + f)
+    _ = Nat.pow 2 e * (f + 4503599627370496) := Float.Theory.magUnitsField (e + 1) f h
+    _ = Nat.pow 2 e * (f + 4503599627370496) := byComputing
 
 --| A subnormal's units are its bits.
 theorem Float.Theory.magUnitsLow ∀ (q: Nat) (h: q < 4503599627370496): Float.Theory.magUnits q = q :=
@@ -155,22 +157,23 @@ theorem Float.Theory.magUnitsNormal ∀ (e q: Nat)
     (lo: 4503599627370496 ≤ q)
     (hi: q < 9007199254740992):
     Float.Theory.magUnits (e * 4503599627370496 + q) = Nat.pow 2 e * q :=
-  Eq.trans
-    (Eq.cong Float.Theory.magUnits
-      (arithmetic: e * 4503599627370496 + q = e * 4503599627370496 + 4503599627370496 + (q - 4503599627370496)))
-    (Eq.trans
-      (Float.Theory.magUnitsFieldNext e (q - 4503599627370496) arithmetic)
-      (Eq.cong (t => Nat.pow 2 e * t) (arithmetic: q - 4503599627370496 + 4503599627370496 = q)))
+  calc Float.Theory.magUnits (e * 4503599627370496 + q)
+    _ = Float.Theory.magUnits (e * 4503599627370496 + (q - 4503599627370496) + 4503599627370496) :=
+      Eq.cong Float.Theory.magUnits
+        (arithmetic: e * 4503599627370496 + q = e * 4503599627370496 + 4503599627370496 + (q - 4503599627370496))
+    _ = Nat.pow 2 e * (q - 4503599627370496 + 4503599627370496) :=
+      Float.Theory.magUnitsFieldNext e (q - 4503599627370496) arithmetic
+    _ = Nat.pow 2 e * q := Eq.cong (t => Nat.pow 2 e * t) (arithmetic: q - 4503599627370496 + 4503599627370496 = q)
 
 --| The first pattern of exponent field `e + 1`, and of `e + 2`.
 theorem Float.Theory.magUnitsWholeAt ∀ (e z: Nat)
     (hz: z = 0):
     Float.Theory.magUnits (e * 4503599627370496 + 4503599627370496 + z) = Nat.pow 2 e * 4503599627370496 :=
-  Eq.trans
-    (Float.Theory.magUnitsFieldNext e z (arithmetic: z < 4503599627370496))
-    (Eq.trans
+  calc Float.Theory.magUnits (e * 4503599627370496 + z + 4503599627370496)
+    _ = Nat.pow 2 e * (z + 4503599627370496) := Float.Theory.magUnitsFieldNext e z (arithmetic: z < 4503599627370496)
+    _ = z * Nat.pow 2 e + (Nat.pow 2 e * 4503599627370496) :=
       (algebra: Nat.pow 2 e * (z + 4503599627370496) = z * Nat.pow 2 e + Nat.pow 2 e * 4503599627370496)
-      (Eq.cong (t => t * Nat.pow 2 e + Nat.pow 2 e * 4503599627370496) hz))
+    _ = Nat.pow 2 e * 4503599627370496 := Eq.cong (t => t * Nat.pow 2 e + Nat.pow 2 e * 4503599627370496) hz
 
 theorem Float.Theory.magUnitsWhole ∀ (e: Nat):
     Float.Theory.magUnits (e * 4503599627370496 + 4503599627370496) = Nat.pow 2 e * 4503599627370496 :=
@@ -181,14 +184,13 @@ theorem Float.Theory.magUnitsWhole ∀ (e: Nat):
 
 theorem Float.Theory.magUnitsCarry ∀ (e: Nat):
     Float.Theory.magUnits (e * 4503599627370496 + 9007199254740992) = Nat.pow 2 e * 9007199254740992 :=
-  Eq.trans
-    (Eq.cong Float.Theory.magUnits
-      (arithmetic: e * 4503599627370496 + 9007199254740992 = (e + 1) * 4503599627370496 + 4503599627370496))
-    (Eq.trans
-      (Float.Theory.magUnitsWhole (e + 1))
-      (Eq.trans
-        (Eq.cong (t => Nat.pow 2 t * 4503599627370496) (Nat.addOne e))
-        (algebra: Nat.pow 2 e * 2 * 4503599627370496 = Nat.pow 2 e * 9007199254740992)))
+  calc Float.Theory.magUnits (e * 4503599627370496 + 9007199254740992)
+    _ = Float.Theory.magUnits (e * 4503599627370496 + 9007199254740992) :=
+      Eq.cong Float.Theory.magUnits
+        (arithmetic: e * 4503599627370496 + 9007199254740992 = (e + 1) * 4503599627370496 + 4503599627370496)
+    _ = Nat.pow 2 e * 2 * 4503599627370496 := Float.Theory.magUnitsWhole (e + 1)
+    _ = Nat.pow 2 e * 2 * 4503599627370496 := Eq.cong (t => Nat.pow 2 t * 4503599627370496) (Nat.addOne e)
+    _ = Nat.pow 2 e * 9007199254740992 := (algebra: Nat.pow 2 e * 2 * 4503599627370496 = Nat.pow 2 e * 9007199254740992)
 
 --| A pattern as its exponent field and fraction.
 theorem Float.Theory.magUnitsSplit ∀ (m e: Nat)
@@ -876,13 +878,12 @@ theorem Float.Theory.powChain ∀ (p q r s u v w: Nat)
     (ih: p * s * r = u * v)
     (step: u * q * 2 = w * s):
     s * (p * q * (r * 2)) = s * (w * v) :=
-  Eq.trans
-    (algebra: s * (p * q * (r * 2)) = p * s * r * (q * 2))
-    (Eq.trans
-      (Eq.cong (x => x * (q * 2)) ih)
-      (Eq.trans
-        (algebra: u * v * (q * 2) = v * (u * q * 2))
-        (Eq.trans (Eq.cong (x => v * x) step) (algebra: v * (w * s) = s * (w * v)))))
+  calc s * (p * q * (r * 2))
+    _ = p * s * r * (q * 2) := (algebra: s * (p * q * (r * 2)) = p * s * r * (q * 2))
+    _ = u * v * (q * 2) := Eq.cong (x => x * (q * 2)) ih
+    _ = v * (u * q * 2) := (algebra: u * v * (q * 2) = v * (u * q * 2))
+    _ = v * (w * s) := Eq.cong (x => v * x) step
+    _ = s * (w * v) := (algebra: v * (w * s) = s * (w * v))
 
 --| `j` steps up multiply it by 2^j.
 theorem Float.Theory.powShift ∀ (k: Int) (j: Nat):
@@ -1036,9 +1037,10 @@ theorem Float.Theory.subNatNatCancel ∀ (x a: Nat): Int.subNatNat (x + a) a = O
 theorem Float.Theory.shiftCross ∀ (n den u v us vs x: Nat)
     (rel: u * vs * x = us * v):
     x * (n * u) * (den * vs) = n * us * (den * v) :=
-  Eq.trans
-    (algebra: x * (n * u) * (den * vs) = n * den * (u * vs * x))
-    (Eq.trans (Eq.cong (y => n * den * y) rel) (algebra: n * den * (us * v) = n * us * (den * v)))
+  calc x * (n * u) * (den * vs)
+    _ = n * den * (u * vs * x) := (algebra: x * (n * u) * (den * vs) = n * den * (u * vs * x))
+    _ = n * den * (us * v) := Eq.cong (y => n * den * y) rel
+    _ = n * us * (den * v) := (algebra: n * den * (us * v) = n * us * (den * v))
 
 theorem Float.Theory.finishAt ∀ (n den: Nat) (s sh: Int) (e: Nat)
     (pn: 0 < n)
@@ -1787,28 +1789,28 @@ theorem Float.Theory.addRestComm ∀ (a b: Nat): Float.Theory.addRest a b = Floa
       Float.Theory.orCase
         (Float.Theory.boolCases (Float.Model.isInfinite b))
         (ib =>
-          Eq.trans
-            (Float.Theory.addRestInfA a b ia)
-            (Eq.trans (Float.Theory.addInfComm a b ia ib) (Float.Theory.addRestInfA b a ib).flipped))
+          calc Float.Theory.addRest a b
+            _ = Float.Theory.addInf a b := Float.Theory.addRestInfA a b ia
+            _ = Float.Theory.addInf b a := Float.Theory.addInfComm a b ia ib
+            _ = Float.Theory.addRest b a := (Float.Theory.addRestInfA b a ib).flipped)
         (ib =>
-          Eq.trans
-            (Float.Theory.addRestInfA a b ia)
-            (Eq.trans
-              (rewrite ib then byComputing: Float.Theory.addInf a b = a)
-              (Eq.flipped (Float.Theory.addRestInfB b a ib ia)))))
+          calc Float.Theory.addRest a b
+            _ = Float.Theory.addInf a b := Float.Theory.addRestInfA a b ia
+            _ = a := (rewrite ib then byComputing: Float.Theory.addInf a b = a)
+            _ = Float.Theory.addRest b a := Eq.flipped (Float.Theory.addRestInfB b a ib ia)))
     (ia =>
       Float.Theory.orCase
         (Float.Theory.boolCases (Float.Model.isInfinite b))
         (ib =>
-          Eq.trans
-            (Float.Theory.addRestInfB a b ia ib)
-            (Eq.trans
-              (Eq.flipped (rewrite ia then byComputing: Float.Theory.addInf b a = b))
-              (Float.Theory.addRestInfA b a ib).flipped))
+          calc Float.Theory.addRest a b
+            _ = b := Float.Theory.addRestInfB a b ia ib
+            _ = Float.Theory.addInf b a := Eq.flipped (rewrite ia then byComputing: Float.Theory.addInf b a = b)
+            _ = Float.Theory.addRest b a := (Float.Theory.addRestInfA b a ib).flipped)
         (ib =>
-          Eq.trans
-            (Float.Theory.addRestFin a b ia ib)
-            (Eq.trans (Float.Theory.addFinComm a b) (Eq.flipped (Float.Theory.addRestFin b a ib ia)))))
+          calc Float.Theory.addRest a b
+            _ = Float.Theory.addFin a b := Float.Theory.addRestFin a b ia ib
+            _ = Float.Theory.addFin b a := Float.Theory.addFinComm a b
+            _ = Float.Theory.addRest b a := Eq.flipped (Float.Theory.addRestFin b a ib ia)))
 
 theorem Float.Theory.addBitsComm ∀ (a b: Nat): Float.Model.addBits a b = Float.Model.addBits b a :=
   Float.Theory.orCase
@@ -1819,12 +1821,12 @@ theorem Float.Theory.addBitsComm ∀ (a b: Nat): Float.Model.addBits a b = Float
         (Eq.flipped
           (Float.Theory.addBitsNaN b a (Eq.trans (Bool.orComm (Float.Model.isNaN b) (Float.Model.isNaN a)) n))))
     (n =>
-      Eq.trans
-        (Float.Theory.addBitsRest a b n)
-        (Eq.trans
-          (Float.Theory.addRestComm a b)
-          (Eq.flipped
-            (Float.Theory.addBitsRest b a (Eq.trans (Bool.orComm (Float.Model.isNaN b) (Float.Model.isNaN a)) n)))))
+      calc Float.Model.addBits a b
+        _ = Float.Theory.addRest a b := Float.Theory.addBitsRest a b n
+        _ = Float.Theory.addRest b a := Float.Theory.addRestComm a b
+        _ = Float.Model.addBits b a :=
+          Eq.flipped
+            (Float.Theory.addBitsRest b a (Eq.trans (Bool.orComm (Float.Model.isNaN b) (Float.Model.isNaN a)) n)))
 
 -- Order keys of patterns
 
@@ -2207,17 +2209,18 @@ theorem Float.Theory.addNegZeroBits ∀ (a: Nat)
           (Float.Theory.boolCases (Float.Model.isInfinite a))
           (ia => Eq.trans (Float.Theory.addRestInfA a 9223372036854775808 ia) byComputing)
           (ia =>
-            Eq.trans
-              (Float.Theory.addRestFin a 9223372036854775808 ia byComputing)
-              (Eq.trans
-                (Float.Theory.finWithCong
+            calc Float.Theory.addRest a 9223372036854775808
+              _ = Float.Theory.addFin a 9223372036854775808 :=
+                Float.Theory.addRestFin a 9223372036854775808 ia byComputing
+              _ = Float.Theory.finWith (Float.Model.units a) (Float.Model.signBit a) :=
+                Float.Theory.finWithCong
                   (Int.add (Float.Model.units a) (OfNat 0))
                   (Float.Model.units a)
                   (Float.Model.signBit a ∧ True)
                   (Float.Model.signBit a)
                   (Int.addZero (Float.Model.units a))
-                  (Float.Theory.andTrueRight (Float.Model.signBit a)))
-                (Float.Theory.roundRatioUnitsBits a (Float.Theory.finiteOf a va n ia))))))
+                  (Float.Theory.andTrueRight (Float.Model.signBit a))
+              _ = a := Float.Theory.roundRatioUnitsBits a (Float.Theory.finiteOf a va n ia))))
 
 --| Reading a valid pattern back.
 theorem Float.Theory.ofBitsFromBits ∀ (b: Nat) (c: Bool)

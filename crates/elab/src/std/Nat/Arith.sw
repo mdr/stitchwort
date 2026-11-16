@@ -16,12 +16,11 @@ theorem Nat.addCancelLeft ∀ (a b c: Nat) (h: a + b = a + c): b = c := match a 
   | Zero => h
   | Succ a => Nat.addCancelLeft a b c (Nat.succInjective h)
 
-theorem Nat.mulDistribLeft ∀ (a b c: Nat): a * (b + c) = a * b + a * c :=
-  Eq.trans
-    (Nat.mulComm a (b + c))
-    (Eq.trans
-      (Nat.mulDistribRight b c a)
-      (Eq.trans (Eq.cong (t => t + c * a) (Nat.mulComm b a)) (Eq.cong (t => a * b + t) (Nat.mulComm c a))))
+theorem Nat.mulDistribLeft ∀ (a b c: Nat): a * (b + c) = a * b + a * c := calc a * (b + c)
+  _ = (b + c) * a := Nat.mulComm a (b + c)
+  _ = b * a + (c * a) := Nat.mulDistribRight b c a
+  _ = a * b + (c * a) := Eq.cong (t => t + c * a) (Nat.mulComm b a)
+  _ = a * b + (a * c) := Eq.cong (t => a * b + t) (Nat.mulComm c a)
 
 theorem Nat.zeroLe ∀ (n: Nat): 0 ≤ n := byComputing
 
@@ -291,10 +290,10 @@ theorem Nat.subSuccRight ∀ (j t: Nat) (h: Succ j ≤ t): t - j = Succ (t - Suc
 
 --| `n + 1 - m` (the size of the interval `m..n`): one more than `n - m` when
 --| `m <= n`, and 0 otherwise.
-theorem Nat.addOneSub ∀ (n m: Nat) (h: m ≤ n): n + 1 - m = n - m + 1 :=
-  Eq.trans
-    (Eq.cong (t => t - m) (Nat.addOne n))
-    (Eq.trans (Nat.subSuccRight m (Succ n) h) (Eq.flipped (Nat.addOne (n - m))))
+theorem Nat.addOneSub ∀ (n m: Nat) (h: m ≤ n): n + 1 - m = n - m + 1 := calc Succ n - m
+  _ = Succ n - m := Eq.cong (t => t - m) (Nat.addOne n)
+  _ = Succ (n - m) := Nat.subSuccRight m (Succ n) h
+  _ = Succ (n - m) := Eq.flipped (Nat.addOne (n - m))
 
 theorem Nat.addOneSubEqZero ∀ (n m: Nat) (h: Nat.leq m n = False): n + 1 - m = 0 :=
   Eq.trans (Eq.cong (t => t - m) (Nat.addOne n)) (Nat.subEqZero (Succ n) m h.read)
@@ -357,16 +356,12 @@ theorem Nat.halfDouble ∀ (n: Nat): (n + n) / 2 = n :=
 -- changing the remainder, and a sum can be reduced early.
 
 --| Adding a multiple of `d` adds to the quotient and leaves the remainder.
-theorem Nat.addMulDivMod ∀ (a b d: Nat): a + b * d = (a / d + b) * d + a % d :=
-  Eq.trans
-    (Eq.cong (t => t + b * d) (Nat.divModEq a d))
-    (Eq.trans
-      (Nat.addAssoc ((a / d) * d) (a % d) (b * d))
-      (Eq.trans
-        (Eq.cong (t => (a / d) * d + t) (Nat.addComm (a % d) (b * d)))
-        (Eq.trans
-          (Eq.flipped (Nat.addAssoc ((a / d) * d) (b * d) (a % d)))
-          (Eq.cong (t => t + a % d) (Eq.flipped (Nat.mulDistribRight (a / d) b d))))))
+theorem Nat.addMulDivMod ∀ (a b d: Nat): a + b * d = (a / d + b) * d + a % d := calc a + (b * d)
+  _ = a / d * d + (a % d) + (b * d) := Eq.cong (t => t + b * d) (Nat.divModEq a d)
+  _ = a / d * d + (a % d + (b * d)) := Nat.addAssoc ((a / d) * d) (a % d) (b * d)
+  _ = a / d * d + (b * d + (a % d)) := Eq.cong (t => (a / d) * d + t) (Nat.addComm (a % d) (b * d))
+  _ = a / d * d + (b * d) + (a % d) := Eq.flipped (Nat.addAssoc ((a / d) * d) (b * d) (a % d))
+  _ = (a / d + b) * d + (a % d) := Eq.cong (t => t + a % d) (Eq.flipped (Nat.mulDistribRight (a / d) b d))
 
 --| `(a + b * d) % d = a % d`
 theorem Nat.modAddMul ∀ (a b d: Nat): (a + b * d) % d = a % d := match d with
@@ -395,40 +390,40 @@ theorem Nat.modAddMod ∀ (a b d: Nat): (a % d + b) % d = (a + b) % d :=
     (Eq.trans
       (Eq.cong
         (t => t % d)
-        (Eq.trans
-          (Eq.cong (t => t + b) (Nat.divModEq a d))
-          (Eq.trans (Nat.addAssoc ((a / d) * d) (a % d) b) (Nat.addComm ((a / d) * d) (a % d + b)))))
+        (calc a + b
+          _ = a / d * d + (a % d) + b := Eq.cong (t => t + b) (Nat.divModEq a d)
+          _ = a / d * d + (a % d + b) := Nat.addAssoc ((a / d) * d) (a % d) b
+          _ = a % d + b + (a / d * d) := Nat.addComm ((a / d) * d) (a % d + b)))
       (Nat.modAddMul (a % d + b) (a / d) d))
 
 --| `(a + b % d) % d = (a + b) % d`: the second.
-theorem Nat.addModMod ∀ (a b d: Nat): (a + b % d) % d = (a + b) % d :=
-  Eq.trans
-    (Eq.cong (t => t % d) (Nat.addComm a (b % d)))
-    (Eq.trans (Nat.modAddMod b a d) (Eq.cong (t => t % d) (Nat.addComm b a)))
+theorem Nat.addModMod ∀ (a b d: Nat): (a + b % d) % d = (a + b) % d := calc (a + (b % d)) % d
+  _ = (b % d + a) % d := Eq.cong (t => t % d) (Nat.addComm a (b % d))
+  _ = (b + a) % d := Nat.modAddMod b a d
+  _ = (a + b) % d := Eq.cong (t => t % d) (Nat.addComm b a)
 
 --| `a * b` in two parts: the product of the remainder, and whole multiples of `d`.
-theorem Nat.mulSplit ∀ (a b d: Nat): a * b = a % d * b + (a / d * b) * d :=
-  Eq.trans
-    (Eq.cong (t => t * b) (Nat.divModEq a d))
-    (Eq.trans
-      (Nat.mulDistribRight (a / d * d) (a % d) b)
-      (Eq.trans
-        (Nat.addComm ((a / d * d) * b) (a % d * b))
-        (Eq.cong
-          (t => a % d * b + t)
-          (Eq.trans
-            (Nat.mulAssoc (a / d) d b)
-            (Eq.trans (Eq.cong (t => a / d * t) (Nat.mulComm d b)) (Eq.flipped (Nat.mulAssoc (a / d) b d)))))))
+theorem Nat.mulSplit ∀ (a b d: Nat): a * b = a % d * b + (a / d * b) * d := calc a * b
+  _ = (a / d * d + (a % d)) * b := Eq.cong (t => t * b) (Nat.divModEq a d)
+  _ = a / d * d * b + (a % d * b) := Nat.mulDistribRight (a / d * d) (a % d) b
+  _ = a % d * b + (a / d * d * b) := Nat.addComm ((a / d * d) * b) (a % d * b)
+  _ = a % d * b + (a / d * b * d) :=
+    (Eq.cong
+      (t => a % d * b + t)
+      (calc a / d * d * b
+        _ = a / d * (d * b) := Nat.mulAssoc (a / d) d b
+        _ = a / d * (b * d) := Eq.cong (t => a / d * t) (Nat.mulComm d b)
+        _ = a / d * b * d := Eq.flipped (Nat.mulAssoc (a / d) b d)))
 
 --| `(a % d * b) % d = (a * b) % d`: reducing the first factor early.
 theorem Nat.modMulMod ∀ (a b d: Nat): (a % d * b) % d = (a * b) % d :=
   Eq.flipped (Eq.trans (Eq.cong (t => t % d) (Nat.mulSplit a b d)) (Nat.modAddMul (a % d * b) (a / d * b) d))
 
 --| `(a * (b % d)) % d = (a * b) % d`: the second.
-theorem Nat.mulModMod ∀ (a b d: Nat): (a * (b % d)) % d = (a * b) % d :=
-  Eq.trans
-    (Eq.cong (t => t % d) (Nat.mulComm a (b % d)))
-    (Eq.trans (Nat.modMulMod b a d) (Eq.cong (t => t % d) (Nat.mulComm b a)))
+theorem Nat.mulModMod ∀ (a b d: Nat): (a * (b % d)) % d = (a * b) % d := calc a * (b % d) % d
+  _ = b % d * a % d := Eq.cong (t => t % d) (Nat.mulComm a (b % d))
+  _ = b * a % d := Nat.modMulMod b a d
+  _ = a * b % d := Eq.cong (t => t % d) (Nat.mulComm b a)
 
 theorem Nat.leqFalseOfLess ∀ (a b: Nat) (h: a < b): Nat.leq b a = False :=
   Bool.inspect
@@ -581,12 +576,11 @@ theorem Nat.addSuccLeSucc ∀ (k w n: Nat) (h: k + Succ w ≤ Succ n): k + w ≤
 theorem Nat.leOfAddLe ∀ (k w n: Nat) (h: k + w ≤ n): k ≤ n := Nat.leTrans k (k + w) n (Nat.leAddRight k w) h
 
 --| Cancelling a positive factor; doubles; stepping along a run `s .. s + c`.
-theorem Nat.mulSuccCancel ∀ (b v m: Nat) (e: b * Succ m = v * Succ m): b = v :=
-  Eq.trans
-    (Eq.flipped (Nat.divUnique (b * Succ m) (Succ m) b 0 byComputing (Eq.flipped (Nat.addZero (b * Succ m)))))
-    (Eq.trans
-      (Eq.cong (t => t / Succ m) e)
-      (Nat.divUnique (v * Succ m) (Succ m) v 0 byComputing (Eq.flipped (Nat.addZero (v * Succ m)))))
+theorem Nat.mulSuccCancel ∀ (b v m: Nat) (e: b * Succ m = v * Succ m): b = v := calc b
+  _ = b * Succ m / Succ m :=
+    Eq.flipped (Nat.divUnique (b * Succ m) (Succ m) b 0 byComputing (Eq.flipped (Nat.addZero (b * Succ m))))
+  _ = v * Succ m / Succ m := Eq.cong (t => t / Succ m) e
+  _ = v := Nat.divUnique (v * Succ m) (Succ m) v 0 byComputing (Eq.flipped (Nat.addZero (v * Succ m)))
 
 theorem Nat.mulCancelLeft: ∀ (n: Nat) => 1 ≤ n → ∀ (a b: Nat) => n * a = n * b → a = b
   | Zero, h, a, b, e => cases

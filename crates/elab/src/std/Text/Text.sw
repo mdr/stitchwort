@@ -271,11 +271,12 @@ theorem Text.linesPlainLineReturn ∀ (middle rest: List Char)
     Eq.trans
       (Eq.cong Text.endLine (List.reverseAppend middle ['\r']))
       (Eq.cong MkText (List.reverseOntoTwice middle []))
-  Eq.trans
-    (Eq.cong (l => Text.lines (MkText l)) (Eq.flipped (List.appendAssoc middle ['\r'] ['\n', ..rest])))
-    (Eq.trans
-      (Text.linesLine (middle ++ ['\r']) rest noFeed)
-      (Eq.cong (e => [e, ..Text.lines (MkText rest)]) endsPlain))
+  calc (MkText (middle ++ ['\r', '\n', ..rest])).lines
+    _ = (MkText ((middle ++ ['\r']) ++ ['\n', ..rest])).lines :=
+      Eq.cong (l => Text.lines (MkText l)) (Eq.flipped (List.appendAssoc middle ['\r'] ['\n', ..rest]))
+    _ = [Text.endLine (middle ++ ['\r']).reverse, ..(MkText rest).lines] :=
+      Text.linesLine (middle ++ ['\r']) rest noFeed
+    _ = [MkText middle, ..(MkText rest).lines] := Eq.cong (e => [e, ..Text.lines (MkText rest)]) endsPlain
 
 theorem Text.linesFromNoFeed: ∀ (chars: List Char) => List.All (c => Char.isLineFeedCode (Char.toNat c) = False) chars
       → ∀ (line: List Char) (acc: List Text) => Text.linesFrom line acc chars
