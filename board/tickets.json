@@ -1,5 +1,5 @@
 {
-  "next": 3500,
+  "next": 3501,
   "tickets": [
     {
       "id": 47,
@@ -39058,6 +39058,19 @@
       "id": 3499,
       "title": "[DeepSeek] fmt passes L6: formatter docs for the pass architecture. Last. Est. 15 min",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3500,
+      "title": "[Fable paper] Why is the toy proof 16x its program? (D3627, Matt, 16 Nov 2026): intrinsic to the task, our approach, or Stitchwort's gaps. Literature on verified pretty printers/parsers/formatters and their tricks; published proof-to-code ratios; how the toy proof would go in idiomatic Lean 4 and Coq/Rocq, layer by layer; verdict per cause; whether to run a measured Lean port of one layer",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
