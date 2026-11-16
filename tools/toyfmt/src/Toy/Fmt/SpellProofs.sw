@@ -613,14 +613,15 @@ theorem bracketedRestart ∀ (layout: Layout) (from: Nat): bracketedOf (restart 
 --| The events of `expr`, seen with `pending` waiting, are views (one at
 --| least) that leave nothing waiting, and tokens with those views that
 --| lead (`Leads`) spell the expression at `layout`, wherever the
---| statement starts; the first view
---| starts as `head` says.
+--| statement starts; the first view starts as `head` says, with the
+--| comments above the expression's first token after what was waiting.
 def Spells (layout: Layout) (pending: List Trivia) (head: Option Nat → Prop) (expr: Expr) (events: List Event): Prop :=
   ∃ (first: TokenView) => ∃ (others: List TokenView) => Seen pending events [first, ..others]
     ∧ (∀ (from: Nat) (tokens: List (Parse.Located Token)) => tokens.map viewOf = [first, ..others]
       → Leads (restart layout from) pending head expr.firstAbove tokens
       → Spelled (restart layout from) expr tokens)
     ∧ head first.start
+    ∧ first.above = (waiting pending expr.firstAbove).reverse
 
 --| One token with a leaf's view is the leaf's token.
 theorem leafSpells ∀ (layout: Layout) (pending: List Trivia) (head: Option Nat → Prop) (above: List Comment)
@@ -691,7 +692,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                       same
                       allowed
                       leads)
-                  allowed)))
+                  (Both allowed rfl))))
     | NumberLiteral text { above, after }, _, Both isDigits fine, _, _, laid =>
       match tokenSeen head
         { above, after }
@@ -721,7 +722,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                       same
                       allowed
                       leads)
-                  allowed)))
+                  (Both allowed rfl))))
     | StringLiteral text { above, after }, _, Both isString fine, _, _, laid =>
       match tokenSeen head
         { above, after }
@@ -751,7 +752,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                       same
                       allowed
                       leads)
-                  allowed)))
+                  (Both allowed rfl))))
     | Bracketed ({ above, after }) inner close, shapedInner, Both fineOpen
         (Both innerLexical fineClose), headedInner, _, Witness front
         (Witness back
@@ -849,7 +850,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                                                     (innerSpells 0 innerTokens innerSame
                                                       (bracketLeads anyStart inner.firstAbove innerTokens))
                                                     (Both openNotes closeNotes))))))))))))
-                  openAllowed)))
+                  (Both openAllowed rfl))))
     | ListLiteral ({ above, after }) items close, Both shapedItems bare, Both fineOpen
         (Both itemsLexical fineClose), headedItems, _, Witness front
         (Witness back
@@ -945,7 +946,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                                                   (Both
                                                     (itemsSpelled itemTokens itemsSame)
                                                     (Both openNotes closeNotes))))))))))))
-                  openAllowed)))
+                  (Both openAllowed rfl))))
     | Call callee open arguments close, Both _ (Both shapedCallee (Both shapedArguments bare)), Both calleeLexical
         (Both fineOpen (Both argumentsLexical fineClose)), Both headedCallee headedArguments, plain, Witness front
         (Witness back
@@ -1312,7 +1313,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                                             (suitsRestart zone layout from suits)
                                             apart))
                                         minusNotes)))))))
-                  minusAllowed)))
+                  (Both minusAllowed rfl))))
     | Binary operator sign left right, Both _ (Both _ (Both _ (Both _ (Both shapedLeft shapedRight)))), Both fineSign
         (Both leftLexical rightLexical), Both headedLeft headedRight, plain, Witness front
         (Witness back
@@ -1658,7 +1659,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                                                                                 (Both ifNotes
                                                                                   (Both thenNotes
                                                                                       elseNotes)))))))))))))))))))))))
-                      ifAllowed)))
+                      (Both ifAllowed rfl))))
 
 --| Tokens with the views of the events of items between brackets spell
 --| the items.
@@ -1949,7 +1950,7 @@ theorem inlineSpells ∀ (zone: Zone) (layout: Layout) (value: Expr) (events: Li
                 Both rfl
                   (Both
                     (inlineAhead (restart layout from) tokens first others same (outside =>
-                      starts.right (noAbove (Eq.trans (Eq.sym (bracketedRestart layout from)) outside))))
+                      starts.left.right (noAbove (Eq.trans (Eq.sym (bracketedRestart layout from)) outside))))
                     (Both
                       (spells from tokens same
                         (leadsWider
@@ -2012,7 +2013,7 @@ theorem bareSpells ∀ (column: Nat) (value: Expr) (events: List Event) (pending
           Witness firstView
             (Witness others
               (Both seen
-                (Both starts (first rest same rising =>
+                (Both starts.left (first rest same rising =>
                   spells first.offset
                     [first, ..rest]
                     same
