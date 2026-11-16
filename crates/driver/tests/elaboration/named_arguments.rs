@@ -156,6 +156,7 @@ impl Walk {
                 }
             }
             Decl::Test { expr, .. } => self.expr(expr),
+            Decl::Rules { rules, .. } => rules.iter().for_each(|r| self.expr(&r.proof)),
             Decl::Data { params, ctors, .. } => {
                 for b in params {
                     b.names.iter().for_each(|n| {

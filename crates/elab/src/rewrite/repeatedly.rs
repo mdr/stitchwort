@@ -1766,4 +1766,84 @@ mod tests {
         );
         assert_eq!(rule_name(&rule("h", true)), "<- h");
     }
+
+    /// The span of the `n`th (from 0) occurrence of `part` in `text`.
+    fn at(file: stitchwort_syntax::FileId, text: &str, part: &str, n: usize) -> Span {
+        let start = text.match_indices(part).nth(n).expect("in the text").0;
+        Span::new(file, start as u32, (start + part.len()) as u32)
+    }
+
+    fn written(span: Span, order: usize) -> ExpandedRule {
+        ExpandedRule {
+            source: RuleSource::Written(span),
+            fields: Vec::new(),
+            reverse: false,
+            order,
+        }
+    }
+
+    #[test]
+    fn expand_file_prints_chains_targets_and_closers() {
+        let text = "a := rewrite repeatedly [P, Q]\nb := rewrite repeatedly [S] at H then H\n";
+        let mut sources = stitchwort_syntax::SourceMap::new();
+        let file = sources.add("t.sw", text);
+        // The first call's span ends at its last rule, before the `]`.
+        let first = Span::new(file, 5, text.find("Q]").unwrap() as u32 + 1);
+        let second_start = text.find("rewrite repeatedly [S]").unwrap();
+        let second = Span::new(file, second_start as u32, text.len() as u32 - 1);
+        let p = written(at(file, text, "P", 0), 0);
+        let q = written(at(file, text, "Q", 0), 1);
+        let set_member = ExpandedRule {
+            source: RuleSource::Named("List.appendNil".into()),
+            fields: vec!["eq2".into()],
+            reverse: true,
+            order: 0,
+        };
+        let expansions = [
+            Expansion {
+                call: first,
+                rules: vec![p.clone(), q, p],
+                target: None,
+                closer: Closer::Hypothesis("h".into()),
+            },
+            Expansion {
+                call: second,
+                rules: vec![set_member],
+                target: Some(at(file, text, "H", 0)),
+                closer: Closer::Body(at(file, text, "H", 1)),
+            },
+        ];
+        let (out, done, refused) = expand_file(text, file, &expansions);
+        assert_eq!(
+            out,
+            "a := rewrite P, Q, P then h\nb := rewrite <- List.appendNil.eq2 at H then H\n"
+        );
+        assert_eq!((done, refused), (2, Vec::new()));
+    }
+
+    #[test]
+    fn expand_file_joins_cases_that_differ() {
+        let text = "a := cases then rewrite repeatedly [P, Q, R], x";
+        let mut sources = stitchwort_syntax::SourceMap::new();
+        let file = sources.add("t.sw", text);
+        let call = Span::new(file, 16, text.find("R]").unwrap() as u32 + 1);
+        let [p, q, r] = ["P", "Q", "R"].map(|n| at(file, text, n, 0));
+        let case = |rules: Vec<ExpandedRule>| Expansion {
+            call,
+            rules,
+            target: None,
+            closer: Closer::Computing,
+        };
+        // Rules no case used are left out; the rest stay in their order.
+        let checks = [
+            case(vec![written(r, 2)]),
+            case(vec![written(p, 0), written(r, 2)]),
+        ];
+        let (out, done, _) = expand_file(text, file, &checks);
+        assert_eq!(out, "a := cases then rewrite repeatedly [P, R], x");
+        assert_eq!(done, 1);
+        // One chain followed by a comma is bracketed.
+        let (out, _, _) = expand_file(text, file, &[case(vec![written(q, 1)])]);
+        assert_eq!(out, "a := cases then (rewrite Q), x");
+    }
 }

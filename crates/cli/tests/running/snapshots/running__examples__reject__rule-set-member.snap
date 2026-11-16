@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-RULE-SET] Error: a set's rules are named lemmas, definitions or other sets
+   ╭─[ reject/rule-set-member.sw:7:19 ]
+   │
+ 7 │ rules applied := [List.appendNil [1]]
+   │                   ─────────┬────────  
+   │                            ╰────────── not the name of a lemma or definition
+   │ 
+   │ Note: a set is used wherever it is named, so it can't hold a hypothesis or a lemma applied to arguments; list those in the `rewrite repeatedly` itself
+───╯

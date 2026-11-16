@@ -168,6 +168,20 @@ theorem joined ∀ (xs ys: List Nat) (h: xs ++ ys = ys): (xs ++ []) ++ ys = ys :
 
 A rule is anything `rewrite` takes: a lemma with its arguments left open, a hypothesis, a `Bool` fact (which rewrites its test to `True`), or `<- p`; a definition's name, `f`, is one step of `f`. There is no default set of rules: every `rewrite repeatedly` lists its own, so a proof means the same thing until something it names changes. A rule that would fit its own result again forever, such as `Nat.addComm`, is refused; reordering a sum is `algebra`'s job. With `then t`, `t` proves what the rules leave, and `then ?` shows it as a goal. Since what is left depends on the rules, follow it with a closer that doesn't depend on its exact shape (`arithmetic`, `cases`) or state it (`then (t: P)`); otherwise the compiler warns. `stitchwort goal --at` on a rule shows each rewrite it made, before and after.
 
+Rules used together often can be named once, with a `rules` declaration, and listed by that name, alone or beside others. A set may name other sets. `rewrite repeatedly [rules] at h then t` rewrites the hypothesis `h` instead of the goal, as `rewrite … at h` does:
+
+<!-- snippet: proofs.sw#rule-sets -->
+```stitchwort
+rules appends := [List.appendAssoc, List.appendNil]
+
+theorem regroupFrom ∀ (xs ys zs: List Nat) (h: ys = zs): (xs ++ ys) ++ [] = xs ++ zs := rewrite repeatedly [h, appends]
+
+theorem fromFact ∀ (xs ys: List Nat) (h: (xs ++ ys) ++ [] = [1]): xs ++ ys = [1] :=
+  rewrite repeatedly [appends] at h then h
+```
+
+A listed rule (or a set) that never rewrote anything gets a warning, so lists stay honest. And `stitchwort check --expand-repeatedly` replaces each `rewrite repeatedly` in a file by the plain `rewrite` steps it made, for a proof that mustn't change when a set does.
+
 `calc` writes a proof as a chain of steps, each with its own justification, like a calculation on paper. The chain may mix `=`, `<=` and `<`:
 
 <!-- snippet: proofs.sw#calc -->

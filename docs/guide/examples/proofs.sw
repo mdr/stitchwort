@@ -37,6 +37,15 @@ theorem regroup ∀ (xs ys zs: List Nat): ((xs ++ ys) ++ zs) ++ [] = xs ++ (ys +
 theorem joined ∀ (xs ys: List Nat) (h: xs ++ ys = ys): (xs ++ []) ++ ys = ys := rewrite repeatedly [List.appendNil]
 -- end rewrite-repeatedly
 
+-- begin rule-sets
+rules appends := [List.appendAssoc, List.appendNil]
+
+theorem regroupFrom ∀ (xs ys zs: List Nat) (h: ys = zs): (xs ++ ys) ++ [] = xs ++ zs := rewrite repeatedly [h, appends]
+
+theorem fromFact ∀ (xs ys: List Nat) (h: (xs ++ ys) ++ [] = [1]): xs ++ ys = [1] :=
+  rewrite repeatedly [appends] at h then h
+-- end rule-sets
+
 -- begin calc
 theorem chain ∀ (a b c: Nat) (ab: a = b) (bc: b ≤ c) (small: c < 10): a < 10 := calc a
   _ = b := ab
