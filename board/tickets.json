@@ -39007,15 +39007,17 @@
     {
       "id": 3495,
       "title": "[Sonnet] fmt passes L2: pass runner; ∀ (C1) and trailing comma (C2) as passes; golden for the dropped-final-comma comment bug, failing first. After L1. Est. 45 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Progress (Sonnet, 16 Nov): crates/fmt/src/passes.rs has the runner and P1 and P2; commas count in the token and comment checks. No failing golden: a comma that starts its line before a closer does not parse (L1). The fuzzer found one bug in the first cut (attributes before `theorem`), now with a unit test. Tests: golden, printer::tests, tidy, passes, api all pass; fuzz 0x805 and 0x80e at 20000 pass. Model result: Sonnet, worked, ~10 min (est. 45).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "68b7eb26c"
+      ]
     },
     {
       "id": 3496,
