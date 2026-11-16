@@ -1,5 +1,5 @@
 {
-  "next": 3672,
+  "next": 3674,
   "tickets": [
     {
       "id": 47,
@@ -41258,7 +41258,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Add from SW-3670 finding 4 (after this run, via --continue): fields left as _ show fst✝/snd✝ instead of left✝/right✝ (lib.rs:5044); an unopenable test fact gives the generic 'match a Pair' instead of E-NO-READING (lib.rs:6798); three more shapes in proof_tuples_hash_as_witness_and_both.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41331,12 +41331,12 @@
     {
       "id": 3670,
       "title": "[Opus paper] Review SW-3566 (generates kernel terms, D2364): the tuple marker and check_tree's switch to ∧/∃ or a reading; lambda_arg's recheck of a lambda over an unknown proposition; can a marked split ever become the wrong constructor. 20 min",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Review: docs/reviews/SW-3566-tuple-patterns.md. Sound (nothing past the kernel). Findings: 1 medium (written MkPair in a later row read as Both, row-order dependent), 3 low (nested lambda still commits to Pair via untyped pruned meta; tuple row + Both row refused; fst/snd names and lost E-NO-READING message). 3 tickets proposed.\n",
+      "body": "Review: docs/reviews/SW-3566-tuple-patterns.md. Sound (nothing past the kernel). Findings: 1 medium (written MkPair in a later row read as Both, row-order dependent), 3 low (nested lambda still commits to Pair via untyped pruned meta; tuple row + Both row refused; fst/snd names and lost E-NO-READING message). 3 tickets proposed.\n\nModel result: opus, worked, 7 min (est. 25). Filed SW-3672 SW-3673; finding 4 added to SW-3664.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41344,6 +41344,32 @@
     {
       "id": 3671,
       "title": "[Sonnet] From Toy++ T2a: E-TERMINATION refuses a bare function argument (parameters.flatMap Parameter.allComments, .map Named.dump) once a same-named method elsewhere is recursive, where a lambda works; and std gets toyfmt's innerOptional (what optional p reads) beside the readsAt helpers",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3672,
+      "title": "[Sonnet] Tuple marker scope (SW-3670 review findings 1, 3; docs/reviews/SW-3566-tuple-patterns.md): mark a split as a tuple only when every row splitting that column wrote a tuple, so a written MkPair isn't read as Both by row order; a tuple row followed by a written Both row should work. Reject + accept examples, failing first",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3673,
+      "title": "[Opus] prop_unknown misses metas made by pruning (unify.rs:3257 has no recorded type), so a tuple lambda nested in another lambda still commits to Pair (SW-3670 finding 2): give the pruned meta a type or decide from the variable's sort; also the lambda_arg recheck catches any E-CANNOT-INFER and costs 2^n on nested failures: narrow it",
       "status": "backlog",
       "agent": "",
       "where": "",
