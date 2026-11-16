@@ -1,5 +1,5 @@
 {
-  "next": 3595,
+  "next": 3598,
   "tickets": [
     {
       "id": 47,
@@ -40210,12 +40210,12 @@
     {
       "id": 3586,
       "title": "[Opus] Hammer stage 0 (D3655, Matt, 16 Nov 2026: 'yes, run a hammer experiment'): measured experiment, no product. Translate goal + hypotheses + top-k search lemmas to SMT-LIB, ask cvc5 (nix) for an unsat core, map back to Stitchwort names, then try Stitchwort's own closers (omega/arithmetic, cases, rewrite chain, calc) with exactly those facts. Fixed rule: writes Stitchwort source; no solver at check time; trusted base unchanged. Corpus: real goals from lanes (holes / goal --at at proof steps in std, AoC and the toy), report success rate by goal kind, core sizes, time, and what the written proofs look like. docs/research/readable-proofs.md §3.3, R9. Est. 90 min",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Lane notes (Opus, 16 Nov 2026, 13:45-14:50):\n- Write-up: docs/research/hammer-stage0.md (commit 4d7b6ab02 on lane/SW-3586). Scripts and raw data in the lane scratchpad (sw3586/).\n- Corpus: 160 leaf goals (82 AoC 2020, 78 toy) via goal --at at closing steps. Std left out: goal --at doesn't answer in std files.\n- cvc5 unsat 45/160 (28%), median 0.02 s; reconstructed with Stitchwort closers 29 (64% of unsat), 27 arithmetic + 2 cases. Plain arithmetic/cases baseline 64/153. Hammer-only closures: 0. Baseline-only: 38.\n- Cause: the solver can't see computation (definitions unfold for arithmetic/cases, not for an uninterpreted translation); the facts that mattered (nonlinear lemmas, inductive/recursion facts) are out of a first-order translation's reach.\n- D candidate: stop at stage 0; add premise selection (search hits, unified, into arithmetic [..]) to search --at instead. Bar for reopening in the doc, sec. 6.\n- Worktree fast-forwarded to main 67f20b28e mid-lane (SW-3564 vocabulary change broke the first run); used a frozen copy of the release CLI.\n",
+      "body": "Lane notes (Opus, 16 Nov 2026, 13:45-14:50):\n- Write-up: docs/research/hammer-stage0.md (commit 4d7b6ab02 on lane/SW-3586). Scripts and raw data in the lane scratchpad (sw3586/).\n- Corpus: 160 leaf goals (82 AoC 2020, 78 toy) via goal --at at closing steps. Std left out: goal --at doesn't answer in std files.\n- cvc5 unsat 45/160 (28%), median 0.02 s; reconstructed with Stitchwort closers 29 (64% of unsat), 27 arithmetic + 2 cases. Plain arithmetic/cases baseline 64/153. Hammer-only closures: 0. Baseline-only: 38.\n- Cause: the solver can't see computation (definitions unfold for arithmetic/cases, not for an uninterpreted translation); the facts that mattered (nonlinear lemmas, inductive/recursion facts) are out of a first-order translation's reach.\n- D candidate: stop at stage 0; add premise selection (search hits, unified, into arithmetic [..]) to search --at instead. Bar for reopening in the doc, sec. 6.\n- Worktree fast-forwarded to main 67f20b28e mid-lane (SW-3564 vocabulary change broke the first run); used a frozen copy of the release CLI.\n\nModel result: opus, worked, ~60 min (est. 90). 160 leaf goals: cvc5 proved 45, reconstruction closed 29, all also closed by plain arithmetic/cases; 0 net gain. D candidate (premise selection in search --at instead; bar to reopen SMT) to Matt after D3659. Process lesson: lanes using target/release/stitchwort for long runs should copy it first (merges rebuild it). Follow-ups SW-3595 SW-3596 SW-3597.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40319,6 +40319,45 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3595,
+      "title": "[Sonnet] goal --at can't answer in std files ('nothing was checked there'); found by SW-3586",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3596,
+      "title": "[Sonnet] check --only: a name that isn't a top-level theorem gives E-UNKNOWN-THEOREM and in a batch seemed to leave the other named theorems unchecked; confirm and fix (SW-3586)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3597,
+      "title": "[Sonnet] Warning for facts listed in arithmetic [..] that it doesn't use (e.g. Toy chainTree's [leftLevel, range.left] closes without them); SW-3586",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
