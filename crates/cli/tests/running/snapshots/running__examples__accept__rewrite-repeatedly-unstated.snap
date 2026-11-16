@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: warnings
+---
+[W-REWRITE-REPEATEDLY-UNSTATED] Warning: the proof after `rewrite repeatedly … then` depends on exactly what the rules left
+   ╭─[ accept/rewrite-repeatedly-unstated.sw:8:77 ]
+   │
+ 8 │ theorem unstated ∀ (xs ys: List Nat) (h: xs = ys): (xs ++ []) ++ [] = ys := rewrite repeatedly [List.appendNil] then h
+   │                                                                             ─────────────────┬────────────────       ┬  
+   │                                                                                              ╰────────────────────────── what this leaves isn't written in the proof
+   │                                                                                                                      │  
+   │                                                                                                                      ╰── this proves it as it is now
+   │ 
+   │ Note: if a rule changes, this step breaks with no goal to compare against; state what is left, `then (t: P)` or a typed `let`, or end with a closer (`arithmetic`, `cases`)
+───╯

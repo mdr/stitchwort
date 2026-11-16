@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REWRITE-REPEATEDLY-BUDGET] Error: `rewrite repeatedly` made 500 rewrites without finishing
+    ╭─[ reject/rewrite-repeatedly-budget-walk.sw:13:3 ]
+    │
+ 13 │   rewrite repeatedly [sg, sh]
+    │   ─────────────┬────────────  
+    │                ╰────────────── the rules keep applying
+    │ 
+    │ Note 1: the last rules applied: `sg`, `sh`, `sg`, `sh`, `sg`, `sh`, `sg`, `sh`
+    │ 
+    │ Note 2: `sg`, `sh` keep applying in turn, and the goal keeps changing
+    │ 
+    │ Note 3: the goal now: `g 100 = 7`
+    │ 
+    │ Note 4: rules that keep making new places to apply never finish: rewrite a set number of times with `rewrite`, or prove the general fact by induction and use that
+────╯

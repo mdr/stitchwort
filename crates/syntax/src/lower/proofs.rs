@@ -84,7 +84,16 @@ impl<'f> Lower<'f> {
     pub(super) fn rewrite(&self, node: Node<'f>) -> Lowering<Expr> {
         let kind = NodeKind::Rewrite;
         let keyword = required(node.first_leaf_is(&Tok::KwRewrite), kind, "`rewrite`")?.span();
-        let rules = node
+        let repeated = node.child(NodeKind::RewriteRules);
+        let repeatedly = match repeated {
+            Some(_) => node
+                .own_leaves()
+                .find(|leaf| matches!(leaf.tok(), Tok::Lower(word) if word == "repeatedly"))
+                .map(|leaf| leaf.span()),
+            None => None,
+        };
+        let rules = repeated
+            .unwrap_or(node)
             .child_nodes()
             .filter(|child| child.kind() == NodeKind::RewriteRule)
             .map(|rule| self.rewrite_rule(rule))
@@ -119,6 +128,7 @@ impl<'f> Lower<'f> {
             target,
             body,
             keyword,
+            repeatedly,
             at: at.map(|at| at.span()),
             then: then.map(|then| then.span()),
             span: keyword.to(end),
@@ -137,6 +147,7 @@ impl<'f> Lower<'f> {
         let start = required(first, kind, "tokens")?.span;
         Ok(RewriteRule {
             reverse,
+            unfold: false,
             span: start.to(proof.span()),
             proof,
         })

@@ -176,6 +176,11 @@
   <pre data-src="25-calc-rewrite.sw"></pre>
 </section>
 
+<section data-slug="rewrite-repeatedly" data-title="rewrite repeatedly">
+  <p><code>rewrite repeatedly [r1, r2]</code> is <code>rewrite</code> on repeat: it uses each rule wherever its left side is, as often as it fits, in whatever order that takes, and stops when none fits. Then it finishes the proof by computing, or by a fact you have. The rules are equations from the library, your own facts, or a definition's name for one step of it. You list the rules every time, so a proof never changes because someone added a lemma somewhere else. The proof it builds is the chain of single <code>rewrite</code>s, checked like any other.</p>
+  <pre data-src="44-rewrite-repeatedly.sw"></pre>
+</section>
+
 <section data-slug="induct" data-title="Induction that follows a function">
   <p>A recursive function comes with an induction principle shaped like its own equations: one case for each branch, with a hypothesis for each recursive call. <code>match induct (f args)</code> proves a statement about <code>f</code> by those cases, so a proof about a function with an <code>if</code> in it needs no case analysis of its own. The equations are theorems you can name too, such as <code>countAbove.eq2.ifFalse</code>.</p>
   <pre data-src="26-induct.sw"></pre>

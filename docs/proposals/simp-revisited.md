@@ -2,6 +2,11 @@
 
 **Status:** design note, nothing built. Ticket SW-3522, from D3637 (Matt,
 16 Nov 2026: "Yes, let's revisit SIMP with a new Fable Design note").
+**Naming.** Matt chose the spelling `rewrite repeatedly [rules]` (D3647),
+with `then` to sequence (D3648) and "state, don't chain" (D3656); §2, §3,
+§6 and §8 use it. "`simp`" below is the working name, and Lean's and
+Isabelle's tools. Stage 1 is built: see "As built" at the end.
+
 Whether and how `simp` is built comes back to Matt: three questions in
 [§9](#9-decisions-for-matt).
 
@@ -134,18 +139,18 @@ with 2,244 uses of `Eq.cong`, `Eq.trans` and `Eq.flipped` **[measured, by
 
 ## 2. The design
 
-### 2.1 What `simp` is
+### 2.1 What `rewrite repeatedly` is
 
-`simp` is a keyword and a proof term, like `rewrite`, `arithmetic` and
+`rewrite repeatedly` is a keyword and a proof term, like `rewrite`, `arithmetic` and
 `cases`:
 
 | Form | Meaning |
 |---|---|
-| `simp [r1, r2]` | rewrite the goal with the rules until none applies, then close it (§2.4) |
-| `simp [r1, r2] then t` | the same, then `t` proves what is left |
-| `simp [r1, r2] at h` | the fact `h` (or any term) with its type rewritten, as `rewrite … at` |
-| `simp [r1, r2] at h then t` | `h` rebound for `t` |
-| `simp [r1, r2] then ?` | shows what is left, as a goal |
+| `rewrite repeatedly [r1, r2]` | rewrite the goal with the rules until none applies, then close it (§2.4) |
+| `rewrite repeatedly [r1, r2] then t` | the same, then `t` proves what is left |
+| `rewrite repeatedly [r1, r2] at h` | the fact `h` (or any term) with its type rewritten, as `rewrite … at` |
+| `rewrite repeatedly [r1, r2] at h then t` | `h` rebound for `t` |
+| `rewrite repeatedly [r1, r2] then ?` | shows what is left, as a goal |
 
 A **rule** is one of:
 
@@ -174,7 +179,7 @@ unchanged.
 
 ### 2.2 How it rewrites
 
-- **Only what is visible.** `simp` matches a rule's left side against
+- **Only what is visible.** `rewrite repeatedly` matches a rule's left side against
   the goal as written (calls kept, the form `stitchwort goal` prints),
   by the function at its head and then by filling the rule's open
   arguments. It never computes the goal to find a match and never looks
@@ -201,7 +206,7 @@ unchanged.
   `List.allIff: (∀ x => p x ↔ q x) → (List.All p xs ↔ List.All q xs)`,
   found by name. Where `P` is under something with no such lemma, the
   rule doesn't fire, and if the goal stays open the message says so
-  (`E-SIMP`, note "`stackUniformAppend` could apply inside `Reads …`,
+  (`E-REWRITE-REPEATEDLY`, note "`stackUniformAppend` could apply inside `Reads …`,
   but `Reads` has no `readsIff` lemma"). This is Rocq's generalized
   rewriting **[cited: R1, R2]** cut down to one relation, `↔`, and a
   by-name lookup in place of its typeclass search.
@@ -216,26 +221,26 @@ rules words :=
 
 A `rules` declaration names a list of rules. It is declared once,
 exported and imported like any name, may include other sets, and is used
-as `simp [words]` or `simp [steps, words]`. There is **no attribute, no
-default set and no bare `simp`**: every `simp` names what it uses, and
-"what does `simp [words]` do" is answered by jumping to one
+as `rewrite repeatedly [words]` or `rewrite repeatedly [steps, words]`. There is **no attribute, no
+default set and no bare `rewrite repeatedly`**: every `rewrite repeatedly` names what it uses, and
+"what does `rewrite repeatedly [words]` do" is answered by jumping to one
 declaration. §4 gives the reasons.
 
-### 2.4 Closing, and what `simp` doesn't do
+### 2.4 Closing, and what `rewrite repeatedly` doesn't do
 
-After rewriting, `simp [..]` closes the goal by the first of: both
+After rewriting, `rewrite repeatedly [..]` closes the goal by the first of: both
 sides compute to the same value (`byComputing`, so **computing still decides**);
 two hypotheses contradict each other; a hypothesis, or a side of one
 that is a conjunction, is the goal; from stage 3, a goal that is a
 conjunction whose parts each close this way. These are `cases`' closers
 **[checked: `docs/syntax.md`, "Closing a case"]** without `arithmetic` and
-without the decision closer; for those write `simp [..] then arithmetic`.
+without the decision closer; for those write `rewrite repeatedly [..] then arithmetic`.
 
 It does **not**:
 
 - unfold definitions on its own, or have reducibility settings (D2541's
   "no Lean-style transparency system" stands);
-- split cases. `cases then simp [..]` and `simp [..] then cases` give either
+- split cases. `cases then rewrite repeatedly [..]` and `rewrite repeatedly [..] then cases` give either
   order, as simp.md §7 recommended; Lean's `simp` doesn't split either
   **[cited: simp.md §4.2]**, Isabelle's does, in its looper **[cited:
   I1]**;
@@ -247,47 +252,47 @@ It does **not**:
 
 ### 2.5 How it fits what exists
 
-| Tool | Is for | With `simp` |
+| Tool | Is for | With `rewrite repeatedly` |
 |---|---|---|
-| conversion, `byComputing` | what computes | `simp`'s closer; `simp` is for what doesn't compute: facts about stuck terms |
-| `rewrite` | one chosen step; fails if the term isn't there | `simp` is many steps to a fixed point; a rule that doesn't fit is skipped. Every `simp` can be printed as a `rewrite` chain |
-| `cases` | splitting on what is stuck | composes: `cases then simp [..]` |
-| `arithmetic`, `algebra` | arithmetic | compose: `simp [..] then arithmetic`; `arithmetic` already discharges rules' premises |
-| `byDecision`, `Finite.check` | closed decidable facts | unchanged; `simp` doesn't decide |
+| conversion, `byComputing` | what computes | `rewrite repeatedly`'s closer; `rewrite repeatedly` is for what doesn't compute: facts about stuck terms |
+| `rewrite` | one chosen step; fails if the term isn't there | `rewrite repeatedly` is many steps to a fixed point; a rule that doesn't fit is skipped. Every `rewrite repeatedly` can be printed as a `rewrite` chain |
+| `cases` | splitting on what is stuck | composes: `cases then rewrite repeatedly [..]` |
+| `arithmetic`, `algebra` | arithmetic | compose: `rewrite repeatedly [..] then arithmetic`; `arithmetic` already discharges rules' premises |
+| `byDecision`, `Finite.check` | closed decidable facts | unchanged; `rewrite repeatedly` doesn't decide |
 
 **D2541, exactly.** Stays: "Computing stays the way to decide:
 conversion, `byComputing`, `decide`, `byDecision`, `cases`, tests and the
 counterexample search. No Lean-style transparency system." Goes: "and
-no `simp`". Added: "`simp` rewrites with named rules on the goal as
+no `rewrite repeatedly`". Added: "`rewrite repeatedly` rewrites with named rules on the goal as
 written and closes by computing; it never unfolds to search."
 **D2542** stays and is applied more strictly (no fallback inside
-definitions for `simp`); §1.2's two gaps are places where `rewrite` and
+definitions for `rewrite repeatedly`); §1.2's two gaps are places where `rewrite` and
 `cases` don't yet follow it.
 
 ## 3. Termination, budgets, messages, and what you see
 
 ### 3.1 Termination
 
-- **Budget.** At most 500 rule applications in one `simp` (the toy's
+- **Budget.** At most 500 rule applications in one `rewrite repeatedly` (the toy's
   arms use 1 to 5 **[measured, §1.2]**). Past that it is
-  `E-SIMP-BUDGET`, with the last rules applied and, when they repeat,
+  `E-REWRITE-REPEATEDLY-BUDGET`, with the last rules applied and, when they repeat,
   the cycle ("`a`, `b`, `a`, `b` …"). A limit fails with a message and
   never returns a half-simplified goal as if finished (D2543). Lean's
   limit is 100,000 visited subterms **[cited: L5]**; Isabelle has no
   step limit and only "notices certain simple forms of nontermination"
   **[cited: I1]**; Rocq's `autorewrite` "may loop" **[cited: R3]**.
 - **Rules that loop on their own** are refused where they are listed
-  (`E-SIMP-RULE`): one whose right side contains an instance of its own
+  (`E-REWRITE-REPEATEDLY-RULE`): one whose right side contains an instance of its own
   left side (`a + b = b + a`). Lean has a lint for this (`simpComm`)
   **[cited: L8]**; here it is an error, since there is no ordered
   rewriting to make such a rule useful.
-- **Premises** are not proved by a recursive `simp`, so there is no
+- **Premises** are not proved by a recursive `rewrite repeatedly`, so there is no
   depth to limit (Lean: depth 2 **[cited: L5]**; Isabelle: 100 **[cited:
   I1]**).
 
 ### 3.2 When it doesn't close
 
-`E-SIMP` shows, in this order:
+`E-REWRITE-REPEATEDLY` shows, in this order:
 
 1. the goal that is left, as written, and (as `E-REFL` does) where its
    two sides first differ;
@@ -302,17 +307,17 @@ definitions for `simp`); §1.2's two gaps are places where `rewrite` and
    existing search, it is shown, so a wrong rule set and a false lemma
    look different.
 
-`simp [..] then ?` shows the same left-over goal as an ordinary goal.
+`rewrite repeatedly [..] then ?` shows the same left-over goal as an ordinary goal.
 
 ### 3.3 How a reader learns why a step holds
 
-- `stitchwort goal --at` on a `simp` prints its steps: each rule with
+- `stitchwort goal --at` on a `rewrite repeatedly` prints its steps: each rule with
   the arguments it found, the subterm before and after.
-- **Expand**: a CLI flag and code action that replaces a `simp [..]` by
+- **Expand**: a CLI flag and code action that replaces a `rewrite repeatedly [..]` by
   the `rewrite` chain it wrote, as source that checks. This is Lean's
-  `simp?` **[cited: L2]** and Aesop's `aesop?` **[cited: L9]**, with one
+  `rewrite repeatedly?` **[cited: L2]** and Aesop's `aesop?` **[cited: L9]**, with one
   difference: the output is not a narrower call to the same search but
-  a search-free proof, since `simp`'s term *is* a `rewrite` chain. Use
+  a search-free proof, since `rewrite repeatedly`'s term *is* a `rewrite` chain. Use
   it where a proof must not change when a rule set does, and to read a
   proof someone else compressed.
 - A rule listed by itself (not through a set) that never applies is a
@@ -326,21 +331,21 @@ definitions for `simp`); §1.2's two gaps are places where `rewrite` and
   step than today's `rewrite`, whose comparisons compute and share an
   evaluation budget **[checked: `docs/syntax.md`, "Cost"]**.
 - The kernel re-checks one `J` per step. Lean's version of the engine
-  slice checked 60% slower with `simp` than without (2.1 s against
-  1.3 s) **[measured, SW-3513]**; `simp` was 15% of Mathlib's build
+  slice checked 60% slower with `rewrite repeatedly` than without (2.1 s against
+  1.3 s) **[measured, SW-3513]**; `rewrite repeatedly` was 15% of Mathlib's build
   time in one 2024 profile **[cited: L10]**. Explicit rule sets keep
   the candidate rules few; stage 1's acceptance measures it (§8).
 
-### 3.5 What `simp` needs from `cases` and `rewrite`
+### 3.5 What `rewrite repeatedly` needs from `cases` and `rewrite`
 
 - `cases then t` must give `t` each case's goal as written, with the
   split value put in, not the computed goal (§1.2). Without that,
-  `cases then simp [..]` can't see the calls its rules are about.
+  `cases then rewrite repeatedly [..]` can't see the calls its rules are about.
 - `cases` should split a visible `if`'s condition before going inside
   definitions for something stuck.
 - `rewrite` with open arguments should find a visible call even when
-  the call can compute (§1.2). `simp` gets this by construction;
-  `rewrite` should match it so that an expanded `simp` checks.
+  the call can compute (§1.2). `rewrite repeatedly` gets this by construction;
+  `rewrite` should match it so that an expanded `rewrite repeatedly` checks.
 
 ## 4. Rules: listed, named sets, or an attribute
 
@@ -411,7 +416,7 @@ counted in non-blank characters by a script, before and after
 | `stepWords` (toy) | 65, 2,628 | 28, 1,181 | 44% | **[measured]** for 23 of 26 arms (§1.2); the 3 `if` arms need §3.5 |
 | `stepUniform` (toy) | 53, 2,238 | 30, 1,275 | 56% | **[inferred]**: needs stage 3 (`↔` rules, closing a conjunction) |
 | `List.reverseSnoc` (std) | 4, 125 | 3, 76 | 60% | **[measured]**: `rewrite List.reverseCons, reverseSnoc rest x, List.reverseCons then byComputing` checks |
-| `List.sumTakeMono` (std) | 11, 396 | 6, 179 | 45% | **[measured]** for the chains; `simp … at` is new |
+| `List.sumTakeMono` (std) | 11, 396 | 6, 179 | 45% | **[measured]** for the chains; `rewrite repeatedly … at` is new |
 | `List.sumDropTakeLe` (std) | 12, 430 | 7, 189 | 43% | **[inferred]**, same shape |
 | **Total** | **165, 6,783** | **85, 3,376** | **50%** | |
 
@@ -420,13 +425,13 @@ Two examples of the "after" text:
 ```
 theorem suffixWords ∀ (printer: Printer) (comment: Text):
     ({ printer | suffixes = printer.suffixes ++ [comment] }).words = printer.words ++ wordsOf [comment] :=
-  simp [List.filterAppend, List.appendAssoc]
+  rewrite repeatedly [List.filterAppend, List.appendAssoc]
 
 -- in stepWords, with `rules words` as in §2.3:
-        | Chunk text width, steps, _ => simp [steps, words]
-        | Line, steps, _ => cases then simp [steps, words]
-        | Concat docs, steps, _ => simp [steps, words]
-        | Fill [first, ..others], Inr (Both _ (Witness firstMode broken)), _ => simp [broken, words]
+        | Chunk text width, steps, _ => rewrite repeatedly [steps, words]
+        | Line, steps, _ => cases then rewrite repeatedly [steps, words]
+        | Concat docs, steps, _ => rewrite repeatedly [steps, words]
+        | Fill [first, ..others], Inr (Both _ (Witness firstMode broken)), _ => rewrite repeatedly [broken, words]
 ```
 
 Also gone: `keepsWords`, `addsWords`, `eitherWords` and `eitherUniform`
@@ -436,7 +441,7 @@ lines to 1 by proof-automation.md §1.4 **[cited; not rechecked]**.
 
 **What this sample is.** These proofs were picked because they rewrite;
 half the toy's proofs are three lines or fewer and many are a `match`
-with `byComputing` arms, which `simp` doesn't shorten. So:
+with `byComputing` arms, which `rewrite repeatedly` doesn't shorten. So:
 
 - **The engine slice** (17,184 characters of proof **[measured,
   SW-3513]**): the sample's toy proofs save about 2,900 and the helpers
@@ -453,7 +458,7 @@ with `byComputing` arms, which `simp` doesn't shorten. So:
   Lean writes `all_goals` once where Stitchwort writes an arm per case;
   with "the remaining cases by `t`" it would be about 10 lines. The
   `Fill` and `Choice` arms are `grind` in Lean. Those are ranks 2 to 4
-  of §4.3 there, and `simp` makes each of them worth more: a script
+  of §4.3 there, and `rewrite repeatedly` makes each of them worth more: a script
   shared by 14 cases has to be one that skips rules that don't fit.
 
 ## 7. Prior art
@@ -518,9 +523,9 @@ changes, D2364).
 | Stage | What | Lane | Time | Acceptance |
 |---|---|---|---|---|
 | 0 | The two gaps of §1.2, as bug fixes with tests: open-argument `rewrite` finds a visible call that can compute; `cases then t` gives `t` the folded goal and splits a visible `if` first | Opus (tactics: D2506) | 1.5 h | §1.2's failing arms check as written there |
-| 1 | `simp [rules]`, `… in t`, `… in ?`: equations, hypotheses, `Bool` facts, `f`; visible matching; closers; budget; `E-SIMP`, `E-SIMP-BUDGET`, `E-SIMP-RULE`; steps in `stitchwort goal --at`. `docs/syntax.md`, guide, a tour page | Opus, then Opus review | 4 h + 1 h | The five small equation proofs of §6 (`suffixWords`, `writeLayoutWords`, `stackWordsAppend`, `flushEachWritten`, `List.reverseSnoc`) check as written there. `Words.sw` converted on a branch: proof characters down 15% or more, check time within 1.5 times today's. One reject example per message |
-| 2 | `rules` declarations; `simp … at h`; expand (CLI flag and code action) | Sonnet | 2.5 h | `stepWords` and `List.sumTakeMono` as in §6. Expanding every `simp` in `Words.sw` gives a file that checks |
-| 3 | `↔` under the connectives, for `rewrite` and `simp` (SW-2706); registered `…Iff` lemmas; conjunction closer | Opus (short as-built design first), then Opus review | 4 h + 1 h | `stepUniform` as in §6. `stitchwort axioms` on it: none. The missing-lemma note fires in a reject example |
+| 1 | `rewrite repeatedly [rules]`, `… then t`, `… then ?`: equations, hypotheses, `Bool` facts, `f`; visible matching; closers; budget; `E-REWRITE-REPEATEDLY`, `E-REWRITE-REPEATEDLY-BUDGET`, `E-REWRITE-REPEATEDLY-RULE`; steps in `stitchwort goal --at`. `docs/syntax.md`, guide, a tour page | Opus, then Opus review | 4 h + 1 h | The five small equation proofs of §6 (`suffixWords`, `writeLayoutWords`, `stackWordsAppend`, `flushEachWritten`, `List.reverseSnoc`) check as written there. `Words.sw` converted on a branch: proof characters down 15% or more, check time within 1.5 times today's. One reject example per message |
+| 2 | `rules` declarations; `rewrite repeatedly … at h`; expand (CLI flag and code action) | Sonnet | 2.5 h | `stepWords` and `List.sumTakeMono` as in §6. Expanding every `rewrite repeatedly` in `Words.sw` gives a file that checks |
+| 3 | `↔` under the connectives, for `rewrite` and `rewrite repeatedly` (SW-2706); registered `…Iff` lemmas; conjunction closer | Opus (short as-built design first), then Opus review | 4 h + 1 h | `stepUniform` as in §6. `stitchwort axioms` on it: none. The missing-lemma note fires in a reject example |
 | 4 | Convert the engine slice (`Readings.sw`, `Words.sw`, the 11 theorems of `Proofs.sw`) and re-run SW-3513's script; choose std's first sets; count missing-congruence notes | Sonnet | 2 h | Target: proof characters at 80% of today's or less (§6 estimates 71 to 78%). The table of toy-proof-complexity.md §5.1 gains a fourth column |
 
 About 16 agent-hours **[estimated]**. Stages 0 to 2 are useful alone.
@@ -533,17 +538,17 @@ After stage 4, with numbers: std sets and sweeps of std and AoC; the
 - *Visible matching is too strict.* A lemma stated about `f x` won't
   fire on a goal where `f x` has already computed. That is the intent
   (D2542), but it may mean lemmas restated about the computed form.
-  Stage 1's conversion of `Words.sw` will show it; the `E-SIMP` note
+  Stage 1's conversion of `Words.sw` will show it; the `E-REWRITE-REPEATEDLY` note
   for "appears only inside a definition" is the mitigation.
-- *Sets grow into a default set by habit* (`simp [everything]`). Keep
+- *Sets grow into a default set by habit* (`rewrite repeatedly [everything]`). Keep
   std's sets small and named for what they normalise.
-- *Proofs that pass for the wrong reason.* A `simp` that closes a goal
+- *Proofs that pass for the wrong reason.* A `rewrite repeatedly` that closes a goal
   no longer says which rule mattered. Expand (§3.3) is the answer; the
   kernel check means it is never a soundness question.
-- *Agents over-use it.* The Lean port's `simp` version failed six times
+- *Agents over-use it.* The Lean port's `rewrite repeatedly` version failed six times
   before passing, the plain one never **[measured, SW-3513]**. The
   proving guide should say: `byComputing` first, then one `rewrite`, then
-  `simp` with a set.
+  `rewrite repeatedly` with a set.
 
 ## 9. Decisions for Matt
 
@@ -642,3 +647,64 @@ Web, fetched 16 Nov 2026 by a research sub-agent:
 - **[A3]** Agda, with-abstraction (`rewrite`): https://agda.readthedocs.io/en/latest/language/with-abstraction.html
 - **[D1]** Idris 2 tutorial, theorem proving: https://idris2.readthedocs.io/en/latest/tutorial/theorems.html
 - **[D2]** Idris 2 `Language.Reflection`: https://idris2docs.sinyax.net/data/base/docs/Language.Reflection.html
+
+## As built (stage 1, SW-3602)
+
+- **Syntax.** `rewrite repeatedly [r1, r2]`, `… then t`, `… then ?`.
+  `repeatedly` is a word only after `rewrite` and before `[`. `… at h` is
+  `E-PARSE` ("isn't built yet"): stage 2.
+- **Rules.** Equations, hypotheses and `Bool` facts, `<-`, and `f`. For a
+  definition by arms, `f` means its arm equations, minus those whose left
+  side computes at once (constructor patterns), which would only rewrite a
+  term to itself. Otherwise `f` is one delta step, proved by `Refl`.
+- **Matching.** Not visible-only as §2.2 proposed. Each rule uses
+  `rewrite`'s own search (`rewrite_once`), in two passes per goal (review
+  L1): first every rule in turn as written only (`as_written::first`), and
+  only when none fits there, the full search (as written, then the
+  computed goal, then the rescue). The computed goal is read back once per
+  goal. Two more things were added:
+  - a rewrite that leaves the goal *as written* unchanged is no progress;
+  - the goal as written is carried along (each step's sides are replaced
+    in it), so a rule written in the goal is still seen after another
+    rule's step has read the goal back computed.
+
+  The rules aren't confluent, and the two passes changed the order: one
+  converted `stepWords` arm needed `List.appendAssoc` moved to a second
+  `rewrite repeatedly`. There is no bottom-up traversal: each rule
+  rewrites every occurrence of the instance it finds.
+- **Closers.** `byComputing`, contradicting hypotheses, then a hypothesis
+  (or a part of one) of the goal's type: `cases`' closers without
+  splitting.
+- **Errors.**
+  - `E-REWRITE-REPEATEDLY`: lists what is left, where its sides first
+    differ, the rules applied (with counts), and why each other rule never
+    applied.
+  - `E-REWRITE-REPEATEDLY-BUDGET`: 500 steps; lists the last rules and the
+    goal now, and names a cycle only when the goal comes back.
+  - `E-REWRITE-REPEATEDLY-RULE`: not an equation, no head, a self-loop such
+    as `Nat.addComm`, a right side with an unknown the left side doesn't
+    fix, or a definition with no arm equations.
+  - `W-REWRITE-REPEATEDLY-UNSTATED`: R7.
+- **Steps.** `goal --at` shows each step (`StepForm::RepeatedRule`,
+  `rewriteRepeatedly` in JSON).
+- **Toy formatter.** `Toy.Doc.Proofs` (Words.sw) was converted.
+  - Proof characters fell from 13,783 to 11,706 (−15.1%) **[measured]**.
+  - Check time of the file's declarations rose from about 0.24 s to about
+    0.9 s (3.6×) **[measured, `STITCHWORT_TIMINGS=decls`]**, against a bar
+    of 1.5×. Nearly all of the extra time was the computed-goal search for
+    printer lemmas (`writeWords`, `writeLayoutWords`). Their left sides
+    unfold into the printer's whole state, so comparing them by computing
+    is expensive, and is paid again in each arm of `stepWords`.
+  - After the review: the two passes, one read-back per goal, and closing
+    (without `then`) before the full pass brought it to 0.66 s (2.8×)
+    **[measured]**, `stepWords` 0.41 s against 0.08 s. Still over the bar, so
+    the conversion is not merged; it is kept as a patch for the speed
+    follow-up.
+- **Stage 2** keeps:
+  - `rules` sets;
+  - `at h`;
+  - expand;
+  - the unused-rule warning.
+
+  Also open: whether repeated rewriting should look only as written, which
+  is the cost question above.

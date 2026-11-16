@@ -3222,6 +3222,26 @@ impl<'t> Parser<'t> {
     #[inline(never)]
     fn rewrite_body(&mut self, start: u32) -> Result<()> {
         let column = self.tokens[self.pos - 1].column;
+        // `rewrite repeatedly [r1, r2]`: `repeatedly` is a word only here,
+        // before a `[`, so a rule called `repeatedly` still reads as one.
+        if matches!(self.peek(), Some(Tok::Lower(w)) if w == "repeatedly")
+            && self.peek_at(1) == Some(&Tok::LBracket)
+        {
+            self.bump();
+            self.repeated_rules()?;
+            if matches!(self.peek(), Some(Tok::Lower(x)) if x == "at") {
+                return Err(error(
+                    self.here(),
+                    "`rewrite repeatedly … at h` isn't built yet",
+                )
+                .with_note(
+                    "rewrite the fact's type rule by rule with `rewrite r1, r2 at h`, or state \
+                     the fact you want and prove it with `rewrite repeatedly [..]`",
+                )
+                .into());
+            }
+            return self.rewrite_then(start, column);
+        }
         loop {
             let rule_start = self.mark();
             let reverse = self.peek() == Some(&Tok::Lt)
@@ -3256,6 +3276,41 @@ impl<'t> Parser<'t> {
             self.modes.rewrite_rule = None;
             target?;
         }
+        self.rewrite_then(start, column)
+    }
+
+    /// The rules of `rewrite repeatedly [r1, <- r2]`, from the `[`: each a
+    /// rule as in `rewrite`, `<-` allowed, in a `RewriteRules` node.
+    fn repeated_rules(&mut self) -> Result<()> {
+        let open = self.mark();
+        self.bump();
+        if self.peek() == Some(&Tok::RBracket) {
+            return Err(error(
+                self.here(),
+                "`rewrite repeatedly` needs at least one rule between its brackets",
+            )
+            .into());
+        }
+        loop {
+            let rule_start = self.mark();
+            let reverse = self.peek() == Some(&Tok::Lt)
+                && self.peek_at(1) == Some(&Tok::Minus)
+                && self.tokens[self.pos].span.end == self.tokens[self.pos + 1].span.start;
+            if reverse {
+                self.bump();
+                self.bump();
+            }
+            self.expr()?;
+            self.node(rule_start, NodeKind::RewriteRule);
+            if !self.eat(&Tok::Comma) || self.peek() == Some(&Tok::RBracket) {
+                break;
+            }
+        }
+        self.close_bracket(open, Tok::RBracket, "`,` or `]`", NodeKind::RewriteRules)
+    }
+
+    /// A `rewrite`'s optional `then t`, after its rules (and target).
+    fn rewrite_then(&mut self, start: u32, column: u32) -> Result<()> {
         // `then` may also start a line of its own, at the `rewrite`'s column
         // or right of it, where the enclosing block's column would end the
         // expression: no statement starts with `then`.

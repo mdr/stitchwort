@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REWRITE-REPEATEDLY-RULE] Error: this rule's right side has an unknown its left side doesn't fix
+    ╭─[ reject/rewrite-repeatedly-rule-unfixed.sw:10:93 ]
+    │
+ 10 │ theorem bad ∀ (a: Nat) (h: ∀ (x y: Nat) => f x = y + x): f a = 3 + a := rewrite repeatedly [h]
+    │                                                                                             ┬  
+    │                                                                                             ╰── it rewrites `f _` to `_ + _`, and finding the left side doesn't say what `y` is
+    │ 
+    │ Note: give the arguments the right side needs, as in `h _ 3`
+────╯

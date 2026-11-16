@@ -307,6 +307,8 @@ pub enum NodeKind {
     Rewrite,
     /// One rule of a `rewrite`.
     RewriteRule,
+    /// `[r1, r2]`, the rules of `rewrite repeatedly`.
+    RewriteRules,
     /// `arithmetic [h]`
     Omega,
     /// `algebra [h]`

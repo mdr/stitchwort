@@ -338,6 +338,7 @@ Import what you use: std's theorems live in namespaces that need an import
 | A closed decidable proposition | `byDecision` |
 | A `Bool` property of every value of a finite type, more than 64 cases | `Finite.check` |
 | Replace one side of an equation inside the goal | `rewrite` |
+| Rewrite with several equations until none fits, then close | `rewrite repeatedly [rules]` |
 | A chain of `=`, `<=`, `<` steps | `calc` |
 | Induction | recursion in the theorem (structural, or `decreasing`) |
 | Induction over a nested type (`List T` inside `T`) | `T.induct`, `T.inductMem`, `T.size` |
@@ -414,6 +415,19 @@ Import what you use: std's theorems live in namespaces that need an import
   in one record or pair. It is the way past `cases`' 64 cases: 2^10 values
   take about 0.1 s, 2^16 about 12 s (`examples/accept/finite-check.sw`).
   Data types without recursion or `Nat` fields get `Finite` derived.
+- **`rewrite repeatedly [rules]`** (docs/syntax.md, "`rewrite repeatedly`")
+  is for a goal that needs the same few lemmas in several places, in an
+  order you would otherwise work out by hand: `List.appendAssoc` and
+  `List.filterAppend` across a list of pieces, or a printer lemma and the
+  recursive call in each arm. Reach for `byComputing` first (what computes
+  needs no rule), then one `rewrite` where one step does it, then
+  `rewrite repeatedly`. List lemmas with their arguments left open, unless
+  `match` or `cases` has computed the goal past the lemma's left side as
+  written: then give the arguments (`wordsSnoc comment [" ", ..out]`), or the
+  search compares by computing, which is slow for large terms and may not
+  find it. A rule that fits its own result (`Nat.addComm`) is refused; use
+  `algebra`. After `then`, state what is left (`then (t: P)`) or close with
+  `arithmetic` or `cases` (W-REWRITE-REPEATEDLY-UNSTATED).
 - **`rewrite p then t`** replaces `p`'s left side by its right side in the
   goal and checks `t` against the result; `rewrite <- p`, `rewrite p at h`.
   It needs a known goal (`E-REWRITE-NO-GOAL` otherwise). It replaces every

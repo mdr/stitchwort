@@ -723,6 +723,12 @@ impl Step {
                 Some(h) => format!("{} of `rewrite … at {h}`", numbered("rule")),
                 None => format!("{} of `rewrite`", numbered("rule")),
             },
+            StepForm::RepeatedRule => {
+                format!(
+                    "{} of `rewrite repeatedly`, by `{written}`",
+                    numbered("step")
+                )
+            }
             StepForm::CalcLine => format!("{} of `calc`, `{written}`", numbered("line")),
             StepForm::Lambda => format!("parameter `{written}`"),
             StepForm::Let => format!("`let {written}`"),
