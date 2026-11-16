@@ -3,9 +3,11 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
-   ╭─[ reject/bool-ne-read-as-prop.sw:5:83 ]
+   ╭─[ reject/bool-ne-read-as-prop.sw:4:83 ]
    │
- 5 │ def neSymm (a: Nat) (b: Nat) (h: ((a != b): Bool) = True): (a != b) = (b != a) := h
+ 4 │ def neSymm (a: Nat) (b: Nat) (h: ((a != b): Bool) = True): (a != b) = (b != a) := h
    │                                                                                   ┬  
    │                                                                                   ╰── expected `(a ≠ b) = (b ≠ a)`, but this has type `(a.decEq b).not.holds = True`
+   │ 
+   │ Note: `!=` here is the proposition `≠`; for the `Bool` test write `((a != b): Bool)`
 ───╯

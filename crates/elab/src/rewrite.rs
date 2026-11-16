@@ -2380,7 +2380,7 @@ fn nothing_found(
         1 => " after the rule before this one".to_string(),
         _ => format!(" after the {index} rules before this one"),
     };
-    if ne_read_as_prop(cx, goal, lhs) {
+    if ne_read_as_prop(&goal_text, &shown_lhs) {
         error = error.with_note(NE_AS_PROP_NOTE);
     }
     match as_written.map(|t| written(cx, &t)) {
@@ -2530,11 +2530,8 @@ fn budget_error(
 }
 
 /// `d` with the `!=` note when a `Bool` `!=` (`lhs`) was read as `≠` in `goal`.
-/// The motive is printed under two binders rather than evaluated, so this
-/// reads the shown text; the type-mismatch path decides from the term
-/// (SW-3125).
 fn ne_note(d: Diagnostic, goal: &str, lhs: &str) -> Diagnostic {
-    if goal.contains(" ≠ ") && lhs.contains(".holds") {
+    if ne_read_as_prop(goal, lhs) {
         d.with_note(NE_AS_PROP_NOTE)
     } else {
         d

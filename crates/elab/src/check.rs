@@ -1223,7 +1223,7 @@ impl<'e> Ctx<'e> {
         } else {
             d
         };
-        let d = if ne_read_as_prop(self, expected, found) {
+        let d = if ne_read_as_prop(&expected_shown, &found_shown) {
             d.with_note(NE_AS_PROP_NOTE)
         } else {
             d
@@ -1885,24 +1885,11 @@ fn written_comparison(g: &Ev, term: &Term) -> bool {
 pub(crate) const NE_AS_PROP_NOTE: &str =
     "`!=` here is the proposition `≠`; for the `Bool` test write `((a != b): Bool)`";
 
-/// Whether `value` is a `Bool` test, `e = True` or `e = False`: the form the
-/// `!=` note asks the user to write (SW-3125).
-fn is_bool_test(cx: &Ctx, value: &Value) -> bool {
-    let g = cx.g();
-    let Ok(Value::Eq(ty, _, _)) = force(&g, value.clone()) else {
-        return false;
-    };
-    matches!(force(&g, (*ty).clone()), Ok(Value::Data(d, _))
-        if g.env.registry().is_data(Builtin::Bool, d))
-}
-
 /// Whether the expected type mentions a proposition `≠` and what was found
-/// is not already the `Bool` test `((a != b): Bool) = True`: a `Bool` `!=`
-/// that was read as `≠` because it sits beside `=` in a statement. The note
-/// asks for the `Bool` test, so it isn't given when the term is one
-/// (SW-3125).
-pub(crate) fn ne_read_as_prop(cx: &Ctx, expected: &Value, found: &Value) -> bool {
-    cx.show(expected).contains(" ≠ ") && !is_bool_test(cx, found)
+/// is a `Bool` test (`Decidable.holds …`, or `….holds`): a `Bool` `!=` that was read as `≠`
+/// because it sits beside `=` in a statement.
+pub(crate) fn ne_read_as_prop(expected: &str, found: &str) -> bool {
+    expected.contains(" ≠ ") && (found.contains("Decidable.holds") || found.contains(".holds"))
 }
 
 /// Whether two forced types are built by the same outermost former (the
