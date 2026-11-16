@@ -21,9 +21,10 @@ theorem comboAgrees ∀ (registers: Registers) (operand: Nat):
 
 --| `Nat.xor` is the puzzle's bitwise XOR.
 theorem xorBitwise ∀ (x y: Nat): BitwiseXor x y (x.xor y) := i =>
-  Eq.trans
-    (Eq.flipped (Nat.testBitDiv (x.xor y) i))
-    (Eq.trans (Nat.testBitXor i x y) (rewrite Nat.testBitDiv x i, Nat.testBitDiv y i then byComputing))
+  calc bitSet (x.xor y) i
+    _ = Nat.testBit (x.xor y) i := Eq.flipped (Nat.testBitDiv (x.xor y) i)
+    _ = Bool.xor (Nat.testBit x i) (Nat.testBit y i) := Nat.testBitXor i x y
+    _ = Bool.xor (bitSet x i) (bitSet y i) := rewrite Nat.testBitDiv x i, Nat.testBitDiv y i then byComputing
 
 --| An instruction with a combo operand, made by `make`, does what `happens`
 --| says of the operand's value.

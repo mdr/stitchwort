@@ -224,14 +224,15 @@ theorem sumOverTrailheads ∀ (map: TopographicMap) (programValue specValue: Pos
     (agree: ∀ (start: Position) => map.heightAt start = Some 0 → programValue start = specValue start)
     (none: ∀ (start: Position) => (trailsFrom map start).length = 0 → specValue start = 0):
     map.trailheads.sumBy programValue = (trailheads map).sumBy specValue :=
-  Eq.trans
-    (List.sumByFilter map.positions programValue (position => map.heightAt position == Some 0))
-    (Eq.trans
-      (List.sumByCong map.positions
+  calc map.trailheads.sumBy programValue
+    _ = map.positions.sumBy (start => if map.heightAt start == Some 0 then programValue start else Add.zero) :=
+      List.sumByFilter map.positions programValue (position => map.heightAt position == Some 0)
+    _ = map.positions.sumBy (start => if startsTrail map start then specValue start else Add.zero) :=
+      List.sumByCong map.positions
         (start => if map.heightAt start == Some 0 then programValue start else Add.zero)
         (start => if startsTrail map start then specValue start else Add.zero)
-        (trailheadValue map programValue specValue agree none))
-      (Eq.flipped (List.sumByFilter map.positions specValue (startsTrail map))))
+        (trailheadValue map programValue specValue agree none)
+    _ = (trailheads map).sumBy specValue := Eq.flipped (List.sumByFilter map.positions specValue (startsTrail map))
 
 theorem part1Correct ∀ (map: TopographicMap): solvePart1 map = part1 map :=
   sumOverTrailheads map map.score (score map) (scoreCorrect map) (start empty =>

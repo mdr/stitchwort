@@ -39,9 +39,8 @@ theorem salesGetOr ∀ (count: Nat) (key: Changes) (buyer: Nat):
 
 theorem totalsBananas ∀ (count: Nat) (buyers: List Nat) (key: Changes):
     (bananasBySequence count buyers).getOr key 0 = bananas count buyers key :=
-  Eq.trans
-    (totalsGetOr count key buyers Map.empty)
-    (Eq.trans
-      (arithmetic: 0 + buyers.sumBy (buyer => (firstSales (prices count buyer)).getOr key 0)
-        = buyers.sumBy (buyer => (firstSales (prices count buyer)).getOr key 0))
-      (List.sumByCong buyers _ _ (salesGetOr count key)))
+  calc (bananasBySequence count buyers).getOr key 0
+    _ = 0 + buyers.sumBy (buyer => (firstSales (prices count buyer)).getOr key 0) :=
+      totalsGetOr count key buyers Map.empty
+    _ = buyers.sumBy (buyer => (firstSales (prices count buyer)).getOr key 0) := arithmetic
+    _ = bananas count buyers key := List.sumByCong buyers _ _ (salesGetOr count key)
