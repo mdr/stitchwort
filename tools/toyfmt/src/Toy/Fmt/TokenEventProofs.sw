@@ -124,30 +124,38 @@ theorem breakViews ∀ (earlier: List Text) (blank: Bool)
     (placed ["\n", ..earlier]).views = viewsOf (eventsOf ["\n", ..earlier]) :=
   match blank, is with
     | True, is =>
-      Eq.trans
-        (Eq.cong
-          ((kept: Bool) =>
-            ({
-              views = (placed earlier).tokens.map viewOf,
-              pending = if kept then addBlank (placed earlier).pending else (placed earlier).pending
-            }: Views))
-          is)
-        (Eq.trans
-          (Eq.cong ((seen: Views) => viewEvent seen Event.blankLine) rest)
-          (Eq.flipped
-            (Eq.trans
-              (Eq.cong viewsOf (eventsBlank earlier is))
-              (viewsSnoc { views = [], pending = [] } (eventsOf earlier) Event.blankLine))))
+      calc (placed ["\n", ..earlier]).views
+        _ = ({
+            views = (placed earlier).tokens.map viewOf,
+            pending = if True then addBlank (placed earlier).pending else (placed earlier).pending
+          }: Views) :=
+          Eq.cong
+            ((kept: Bool) =>
+              ({
+                views = (placed earlier).tokens.map viewOf,
+                pending = if kept then addBlank (placed earlier).pending else (placed earlier).pending
+              }: Views))
+            is
+        _ = viewEvent (viewsOf (eventsOf earlier)) Event.blankLine :=
+          Eq.cong ((seen: Views) => viewEvent seen Event.blankLine) rest
+        _ = viewsOf (eventsOf earlier ++ [Event.blankLine]) :=
+          Eq.flipped (viewsSnoc { views = [], pending = [] } (eventsOf earlier) Event.blankLine)
+        _ = viewsOf (eventsOf ["\n", ..earlier]) := Eq.flipped (Eq.cong viewsOf (eventsBlank earlier is))
     | False, is =>
-      Eq.trans
-        (Eq.cong
-          ((kept: Bool) =>
-            ({
-              views = (placed earlier).tokens.map viewOf,
-              pending = if kept then addBlank (placed earlier).pending else (placed earlier).pending
-            }: Views))
-          is)
-        (Eq.trans rest (Eq.flipped (Eq.cong viewsOf (eventsBreak earlier is))))
+      calc (placed ["\n", ..earlier]).views
+        _ = ({
+            views = (placed earlier).tokens.map viewOf,
+            pending = if False then addBlank (placed earlier).pending else (placed earlier).pending
+          }: Views) :=
+          Eq.cong
+            ((kept: Bool) =>
+              ({
+                views = (placed earlier).tokens.map viewOf,
+                pending = if kept then addBlank (placed earlier).pending else (placed earlier).pending
+              }: Views))
+            is
+        _ = viewsOf (eventsOf earlier) := rest
+        _ = viewsOf (eventsOf ["\n", ..earlier]) := Eq.flipped (Eq.cong viewsOf (eventsBreak earlier is))
 
 theorem pieceViews ∀ (piece: Text) (earlier: List Text) (spaces isBreak: Bool)
     (gap: piece.all (char => char == ' ') = spaces)
@@ -156,27 +164,28 @@ theorem pieceViews ∀ (piece: Text) (earlier: List Text) (spaces isBreak: Bool)
     (placed [piece, ..earlier]).views = viewsOf (eventsOf [piece, ..earlier]) :=
   match spaces, isBreak, gap, broken with
     | True, _, gap, _ =>
-      Eq.trans
-        (Eq.cong Placed.views
-          (gapPlaced piece (placed earlier) (lineBlank earlier) (lineWidth earlier) (charsLength earlier) gap))
-        (Eq.trans rest (Eq.flipped (Eq.cong viewsOf (eventsGap piece earlier gap))))
+      calc (placed [piece, ..earlier]).views
+        _ = (placed earlier).views :=
+          Eq.cong Placed.views
+            (gapPlaced piece (placed earlier) (lineBlank earlier) (lineWidth earlier) (charsLength earlier) gap)
+        _ = viewsOf (eventsOf earlier) := rest
+        _ = viewsOf (eventsOf [piece, ..earlier]) := Eq.flipped (Eq.cong viewsOf (eventsGap piece earlier gap))
     | False, True, _, broken =>
       let same: piece = "\n" := DecEq.sound broken
       rewrite same then breakViews earlier (lineBlank earlier) byComputing rest
     | False, False, gap, broken =>
       let word: isLayout piece = False := wordNotLayout piece gap broken
       let event: Event := { word = piece, start = if lineBlank earlier then Some (lineWidth earlier) else None }
-      Eq.trans
-        (Eq.cong Placed.views
-          (wordPlaced piece (placed earlier) (lineBlank earlier) (lineWidth earlier) (charsLength earlier) word))
-        (Eq.trans
-          (wordViews piece (placed earlier) (lineBlank earlier) (lineWidth earlier) (charsLength earlier) broken)
-          (Eq.trans
-            (Eq.cong ((seen: Views) => viewEvent seen event) rest)
-            (Eq.flipped
-              (Eq.trans
-                (Eq.cong viewsOf (eventsWord piece earlier word))
-                (viewsSnoc { views = [], pending = [] } (eventsOf earlier) event)))))
+      calc (placed [piece, ..earlier]).views
+        _ = (placeWord (placed earlier) piece (lineBlank earlier) (lineWidth earlier) (charsLength earlier)).views :=
+          Eq.cong Placed.views
+            (wordPlaced piece (placed earlier) (lineBlank earlier) (lineWidth earlier) (charsLength earlier) word)
+        _ = viewEvent (placed earlier).views event :=
+          wordViews piece (placed earlier) (lineBlank earlier) (lineWidth earlier) (charsLength earlier) broken
+        _ = viewEvent (viewsOf (eventsOf earlier)) event := Eq.cong ((seen: Views) => viewEvent seen event) rest
+        _ = viewsOf (eventsOf earlier ++ [event]) :=
+          Eq.flipped (viewsSnoc { views = [], pending = [] } (eventsOf earlier) event)
+        _ = viewsOf (eventsOf [piece, ..earlier]) := Eq.flipped (Eq.cong viewsOf (eventsWord piece earlier word))
 
 --| The tokens of printed pieces, without their offsets, are the views of
 --| the pieces' events: what the lexer makes of the text is a function of
