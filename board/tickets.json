@@ -24861,7 +24861,7 @@
     {
       "id": 2467,
       "title": "Memory runaway: a Fin literal pattern of 2^128 (fuzz case 12893, seed 0x2468) makes check use 11+ GB in 15 s; likely the exhaustiveness check or Fin-literal lowering unfolding the literal into nested FSucc/Succ",
-      "status": "doing",
+      "status": "backlog",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [
