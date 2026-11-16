@@ -468,10 +468,13 @@ fn metavariables_under_int_operations() {
             let mut case =
                 |body: &str| load(&mut session, &mark, &format!("{CHECK4}\n{body}\n"), natives);
             // Solved first: by the argument written before.
-            assert_eq!(case("def t : Unit := check4 5 rfl"), Vec::<&str>::new());
-            // Never solved: `rfl` fails rather than solving `_` by inverting `subNatNat`.
             assert_eq!(
-                case("def t : Unit := check4 _ rfl"),
+                case("def t : Unit := check4 5 byComputing"),
+                Vec::<&str>::new()
+            );
+            // Never solved: `byComputing` fails rather than solving `_` by inverting `subNatNat`.
+            assert_eq!(
+                case("def t : Unit := check4 _ byComputing"),
                 ["E-REFL"],
                 "natives {natives}"
             );

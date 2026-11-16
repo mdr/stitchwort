@@ -65,8 +65,8 @@ opaque def ou [a: Prop] (b: Box a): a := Box.unbox b
 
 def fnEq (n: Nat) (h: Void → Void): (Nat → Nat) = (Nat → Nat) :=
   match n with
-    | Zero => rfl
-    | Succ m => rfl
+    | Zero => byComputing
+    | Succ m => byComputing
 
 def applyAt (f: Nat → Nat) (x: Nat): Nat := f x
 
@@ -126,9 +126,9 @@ def boxR (a: Prop) (p: a) (q: a): Box a := MkBox q
 def t19L (a: Prop) (p: a) (q: a): a := Box.unbox (MkBox p)
 def t19R (a: Prop) (p: a) (q: a): a := Box.unbox (MkBox q)
 -- Test 17: `cast` computes with `h`, so it isn't skipped.
-def t17L (a: Type) (h: a = a) (x: a): a := cast a a rfl x
+def t17L (a: Type) (h: a = a) (x: a): a := cast a a byComputing x
 def t17R (a: Type) (h: a = a) (x: a): a := cast a a h x
-def t17pL (a: Type) (h: a = a) (x: a): a := cast a a rfl x
+def t17pL (a: Type) (h: a = a) (x: a): a := cast a a byComputing x
 def t17pR (a: Type) (h: a = a) (x: a): a := x
 -- Test 18: `tokNat` takes `t` apart.
 def t18L (t: Tok): Nat := tokNat t 0
@@ -136,20 +136,20 @@ def t18R (t: Tok): Nat := tokNat MkTok 0
 -- Test 21 and its partner.
 def t21L (t: Tok) (u: Tok): Nat := tokNat t 0
 def t21R (t: Tok) (u: Tok): Nat := tokNat u 0
-def t21pL (p: 0 ≠ 0) (q: 0 ≠ 0): Nat := Void.absurd (p rfl)
-def t21pR (p: 0 ≠ 0) (q: 0 ≠ 0): Nat := Void.absurd (q rfl)
+def t21pL (p: 0 ≠ 0) (q: 0 ≠ 0): Nat := Void.absurd (p byComputing)
+def t21pR (p: 0 ≠ 0) (q: 0 ≠ 0): Nat := Void.absurd (q byComputing)
 -- Test 27: comparing by case trees doesn't compare impossible scrutinees.
-def t27aL (p: 0 ≠ 0) (q: 0 ≠ 0): Nat := Void.absurd (q rfl)
-def t27aR (p: 0 ≠ 0) (q: 0 ≠ 0): Nat := myAbsurd (q rfl)
-def t27bL (p: 0 ≠ 0) (q: 0 ≠ 0): Nat := Void.absurd (p rfl)
-def t27bR (p: 0 ≠ 0) (q: 0 ≠ 0): Nat := myAbsurd (q rfl)
+def t27aL (p: 0 ≠ 0) (q: 0 ≠ 0): Nat := Void.absurd (q byComputing)
+def t27aR (p: 0 ≠ 0) (q: 0 ≠ 0): Nat := myAbsurd (q byComputing)
+def t27bL (p: 0 ≠ 0) (q: 0 ≠ 0): Nat := Void.absurd (p byComputing)
+def t27bR (p: 0 ≠ 0) (q: 0 ≠ 0): Nat := myAbsurd (q byComputing)
 -- Test 23: a parameter stored in a field isn't inert.
 def t23L (d: Nat) (p: d ≠ 0) (q: d ≠ 0): d ≠ 0 := Box.unbox (keep d p)
 def t23R (d: Nat) (p: d ≠ 0) (q: d ≠ 0): d ≠ 0 := Box.unbox (keep d q)
 def t23pL (d: Nat) (p: d ≠ 0) (q: d ≠ 0): Box (d ≠ 0) := keep d p
 def t23pR (d: Nat) (p: d ≠ 0) (q: d ≠ 0): Box (d ≠ 0) := keep d q
 -- Test 24: masks stop at the arity.
-def t24L (n: Nat) (h: 0 = 0): Bool := g n rfl
+def t24L (n: Nat) (h: 0 = 0): Bool := g n byComputing
 def t24R (n: Nat) (h: 0 = 0): Bool := g n h
 -- Test 25: a hidden call compares its arguments in shortcut mode.
 def t25L (a: Prop) (p: a) (q: a): a := ou (MkBox p)

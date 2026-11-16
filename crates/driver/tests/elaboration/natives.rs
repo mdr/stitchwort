@@ -52,7 +52,7 @@ fn compare(g: &mut Kernel, op: Native, args: &[Value]) {
 }
 
 /// `op`'s arguments: the numbers `nums`, and for `eqNatSound` its proof,
-/// `rfl` when the numbers are equal and otherwise a variable (level 0), as
+/// `byComputing` when the numbers are equal and otherwise a variable (level 0), as
 /// there's no closed proof then.
 fn with_proof(op: Native, nums: &[Value]) -> Vec<Value> {
     let mut args = nums.to_vec();
@@ -580,19 +580,19 @@ const COPIES: &str = "\
 import Std (Bool, Nat, Void)
 
 theorem myEqNatRefl : (n : Nat) -> Nat.equal n n = True
-  | Zero   => rfl
+  | Zero   => byComputing
   | Succ n => myEqNatRefl n
 
 theorem myEqNatSound : (m : Nat) -> (n : Nat) -> Nat.equal m n = True -> m = n
-  | Zero,   Zero,   h => rfl
-  | Zero,   Succ n, h => Void.exfalso (Bool.falseNotTrue h)
-  | Succ m, Zero,   h => Void.exfalso (Bool.falseNotTrue h)
+  | Zero,   Zero,   h => byComputing
+  | Zero,   Succ n, h => Void.impossible (Bool.falseNotTrue h)
+  | Succ m, Zero,   h => Void.impossible (Bool.falseNotTrue h)
   | Succ m, Succ n, h => Std.Eq.cong Succ (myEqNatSound m n h)
 ";
 
 const BIG: &str = "1180591620717411303424"; // 2^70
 
-/// `rfl` proves a native's result equal to its definition's, for the natives
+/// `byComputing` proves a native's result equal to its definition's, for the natives
 /// that return proofs.
 #[test]
 fn rfl_proves_proof_natives_equal_to_their_definitions() {
@@ -600,8 +600,8 @@ fn rfl_proves_proof_natives_equal_to_their_definitions() {
     for n in ["0", "1", "7"] {
         source += &format!(
             "\n\
-             theorem sameRefl{n} : myEqNatRefl {n} = Nat.equalRefl {n} := rfl\n\n\
-             theorem sameSound{n} : myEqNatSound {n} {n} rfl = Nat.equalSound {n} {n} rfl := rfl\n"
+             theorem sameRefl{n} : myEqNatRefl {n} = Nat.equalRefl {n} := byComputing\n\n\
+             theorem sameSound{n} : myEqNatSound {n} {n} byComputing = Nat.equalSound {n} {n} byComputing := byComputing\n"
         );
     }
     accepts(&source);

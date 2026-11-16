@@ -92,7 +92,7 @@ pub struct Ctx<'e> {
     /// re-create the `let` (docs/proposals/let.md §A.4).
     pub lets: Vec<Option<Rc<LetDef>>>,
     /// The type of the definition body being checked, as written, with the
-    /// number of variables in scope where it makes sense. A failed `rfl`
+    /// number of variables in scope where it makes sense. A failed `byComputing`
     /// shows the sides of an `=` as they were written, if this is the type.
     pub goal: Option<(usize, Rc<Term>)>,
     /// Set by `calc` just before it checks a step's proof that is a
@@ -607,7 +607,7 @@ impl<'e> Ctx<'e> {
     }
 
     /// Every local definition that can be referred to: its name, its term in
-    /// the current context, and its type (for `omega`, which reads them as
+    /// the current context, and its type (for `arithmetic`, which reads them as
     /// facts).
     pub(crate) fn visible_locals(&self) -> Result<Vec<(String, Term, Value)>> {
         let mut out = Vec::new();
@@ -909,7 +909,7 @@ impl<'e> Ctx<'e> {
 
     /// `d` with a note for each hypothesis `h: e = C` (`C` a constructor)
     /// whose `e` occurs inside a function in `values`, as they compute
-    /// (SW-882): `rfl` and `cases` compute and split, but don't rewrite with
+    /// (SW-882): `byComputing` and `cases` compute and split, but don't rewrite with
     /// `h`, so `anyRemoved (ys => ok x && …) rest` keeps its `ok x` though
     /// `step: ok x = True` is in scope. `rewrite h` reaches it, since `e`
     /// can't mention the function's parameter. If `e` is a `match`'s
@@ -980,9 +980,9 @@ impl<'e> Ctx<'e> {
                 String::new()
             };
             d = d.with_note(format!(
-                "`{shown}` is inside a function here, where `{name}: {ty}` isn't used: `rfl` \
+                "`{shown}` is inside a function here, where `{name}: {ty}` isn't used: `byComputing` \
                  and `cases` compute, but don't rewrite with a hypothesis.{why} `rewrite \
-                 {name} in …` does, as `{shown}` doesn't mention the function's parameter"
+                 {name} then …` does, as `{shown}` doesn't mention the function's parameter"
             ));
         }
         d
@@ -1647,7 +1647,7 @@ impl<'e> Ctx<'e> {
                     && let Ok(side) = self.eval(l)
                 {
                     d = d.with_note(format!(
-                        "both sides of what's expected are `{}`, so `rfl` proves it",
+                        "both sides of what's expected are `{}`, so `byComputing` proves it",
                         self.show(&side)
                     ));
                 } else if let Some(note) = name_it {
@@ -2319,7 +2319,7 @@ pub(crate) fn pure_first(
             };
             if !effectful {
                 // A row nothing has settled yet is the empty one: the value
-                // is used where it stands, and a proof about it (`rfl` in a
+                // is used where it stands, and a proof about it (`byComputing` in a
                 // `calc` step) needs the plain function now. The type is then
                 // the value type: `CompIn Empty T` stays stuck as a value until
                 // it's evaluated again.
@@ -2928,7 +2928,8 @@ fn infer_unusual_name_app(
     }
     // The built-ins have no declaration but `Builtins.sw`'s, which
     // navigation is pointed to (SW-1146).
-    if matches!(name.text.as_str(), "rfl" | "J") || crate::quot::head_form(cx, &name.text).is_some()
+    if matches!(name.text.as_str(), "byComputing" | "J")
+        || crate::quot::head_form(cx, &name.text).is_some()
     {
         cx.e.note_builtin(name);
     }
@@ -2936,10 +2937,10 @@ fn infer_unusual_name_app(
         return Some(crate::quot::elaborate(cx, form, args, None));
     }
     match name.text.as_str() {
-        "rfl" => Some(Err(cx.error(
+        "byComputing" => Some(Err(cx.error(
             "E-CANNOT-INFER",
-            "can't work out what `rfl` proves here",
-            "add a type annotation: `(rfl: a = b)`",
+            "can't work out what `byComputing` proves here",
+            "add a type annotation: `(byComputing: a = b)`",
         ))),
         "J" => {
             let [
@@ -4038,7 +4039,7 @@ fn explicit_arg_ready<'a>(
     };
     let (dom, cod) = function_parts(cx, &ty)
         .map_err(|e| not_a_function_hint(cx, &term, previous_function_name, value, e))?;
-    // A proof search (`omega`, `cases`, `ring`, `rewrite`, `rfl`) is
+    // A proof search (`arithmetic`, `cases`, `algebra`, `rewrite`, `byComputing`) is
     // checked last, once the other arguments, the application's
     // own waiting checks, the expected type and the instances
     // now findable have fixed its goal (stage 7, rule 1;
@@ -4070,7 +4071,7 @@ fn explicit_arg_ready<'a>(
     // unknowns is checked again once the application's type has
     // been compared with the type expected of it, as a lambda is
     // above: a proof found from its goal, as in
-    // `Eq.cong Some (omega)` against `Some a = Some b`, or a
+    // `Eq.cong Some (arithmetic)` against `Some a = Some b`, or a
     // proof about a `_` that only the expected type fixes, as in
     // `walk _ rest (snocStep moved)` against
     // `P (walk outcome (Cons x rest))`. Whether the type has
@@ -4379,18 +4380,18 @@ fn finish_application(
 }
 
 /// Whether `value`, an argument, is a proof search that rule 1 of stage 7
-/// checks after the rest of its application: `omega`, `cases`, `ring` or
-/// `rewrite`, or the builtin `rfl`, bracketed or not.
+/// checks after the rest of its application: `arithmetic`, `cases`, `algebra` or
+/// `rewrite`, or the builtin `byComputing`, bracketed or not.
 ///
-/// `rfl` is a comparison, not a search, but checked early it chooses as a
+/// `byComputing` is a comparison, not a search, but checked early it chooses as a
 /// search does: against a goal whose unknowns the call will fix, it can
-/// only solve them by equating its sides, a guess (`Eq.cong (Call o) rfl`
+/// only solve them by equating its sides, a guess (`Eq.cong (Call o) byComputing`
 /// against `Call o f = Call o g` made `g` be `f`), and a goal computed
 /// before a `_` was solved stays stuck (SW-1007).
 fn proof_search(cx: &Ctx, value: &Expr) -> bool {
     match value {
         Expr::Omega { .. } | Expr::Cases { .. } | Expr::Ring { .. } | Expr::Rewrite { .. } => true,
-        Expr::Var(name) => name.text == "rfl" && cx.lookup("rfl").is_none(),
+        Expr::Var(name) => name.text == "byComputing" && cx.lookup("byComputing").is_none(),
         Expr::Bracketed(inner, _) => proof_search(cx, inner),
         _ => false,
     }
@@ -4432,7 +4433,7 @@ fn hold_argument(
 /// Only the application's own instances are found here, those made since
 /// it began (`metas_from`), as W1 resumes only its own checks (invariant
 /// 3). One of a call around it may belong to a lambda whose literal still
-/// waits for that call's W1 (`Eq.cong (x => x + 5) (f (Succ k) (omega))`):
+/// waits for that call's W1 (`Eq.cong (x => x + 5) (f (Succ k) (arithmetic))`):
 /// found now, the outer call's type would compute through it to a value
 /// stuck on the literal's placeholder (`Succ (k + ?5)`), which isn't
 /// computed again once the literal is filled, and so no longer matches
@@ -6009,11 +6010,13 @@ pub(crate) fn check_value(
         ) => typed_lambda(cx, name, Icit::Explicit, ann, body, dom, cod),
         (Expr::Lam(names, _, span), _) => lambda_not_function(cx, expr, names, *span, &expected),
         (Expr::Var(name), Value::Eq(_, a, b))
-            if name.text == "rfl" && cx.lookup("rfl").is_none() =>
+            if name.text == "byComputing" && cx.lookup("byComputing").is_none() =>
         {
             rfl_against_equation(cx, name, a, b)
         }
-        (Expr::Var(name), _) if name.text == "rfl" && cx.lookup("rfl").is_none() => {
+        (Expr::Var(name), _)
+            if name.text == "byComputing" && cx.lookup("byComputing").is_none() =>
+        {
             rfl_against_other(cx, name, &expected)
         }
         (Expr::List(items, span), Value::Data(d, params)) if is_non_empty_list(cx, *d) => {
@@ -6338,7 +6341,7 @@ fn explicit_lambda(
     ))
 }
 
-/// The builtin `rfl` checked against the equation `a = b`.
+/// The builtin `byComputing` checked against the equation `a = b`.
 #[inline(never)]
 fn rfl_against_equation(cx: &mut Ctx, name: &AstName, a: &Value, b: &Value) -> Result<Term> {
     cx.e.note_builtin(name);
@@ -6356,12 +6359,12 @@ fn rfl_against_equation(cx: &mut Ctx, name: &AstName, a: &Value, b: &Value) -> R
     }
 }
 
-/// The builtin `rfl` checked against `expected`, which isn't an equation.
+/// The builtin `byComputing` checked against `expected`, which isn't an equation.
 #[inline(never)]
 fn rfl_against_other(cx: &mut Ctx, name: &AstName, expected: &Value) -> Result<Term> {
     cx.e.note_builtin(name);
     // The expected type is a placeholder its check hasn't filled (a
-    // number group waiting for its type, stage 4): `rfl` is `?x = ?x`,
+    // number group waiting for its type, stage 4): `byComputing` is `?x = ?x`,
     // compared with it, which waits for it (stage 6).
     if crate::queue::headed_by_pending(cx, expected)? {
         let ty = cx.fresh_meta();
@@ -6379,7 +6382,7 @@ fn rfl_against_other(cx: &mut Ctx, name: &AstName, expected: &Value) -> Result<T
         "E-TYPE-MISMATCH",
         "type mismatch",
         format!(
-            "`rfl` proves an equation, but the expected type is `{}`",
+            "`byComputing` proves an equation, but the expected type is `{}`",
             cx.show(expected)
         ),
     ))
@@ -6436,7 +6439,7 @@ fn list_literal(
     // chunk plus the logarithm of their number (SW-62).
     // Chunking is a fallback: evaluating the `append`s costs about
     // 200 steps an element, so a literal that fits the stack as one
-    // chain stays one (SW-332: `rfl` on a 20,000-element literal got
+    // chain stays one (SW-332: `byComputing` on a 20,000-element literal got
     // six times dearer).
     let count: usize = parts
         .iter()
@@ -6563,7 +6566,7 @@ fn quotient_against(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term>
     compare(cx, term, &ty, expected)
 }
 
-/// `'a'` is `MkChar 97 rfl`: the kernel checks that 97 is a scalar value by
+/// `'a'` is `MkChar 97 byComputing`: the kernel checks that 97 is a scalar value by
 /// computing `isScalar 97`.
 fn char_term(cx: &Ctx, c: char) -> Result<Term> {
     let (char_data, mk_char) = builtin_ctor(cx, Builtin::MkChar)?;
@@ -8271,7 +8274,7 @@ fn propagation_plan<'a>(
 /// that isn't a lambda (`True` in `chooseFirst 5 True` at `Int`) keeps the
 /// second's message, which says how its type was fixed, unless the first
 /// isn't a type mismatch: then the argument was checked against what it
-/// must be and failed at that (`rfl` in `Decidable.yes rfl`, `E-REFL`), where
+/// must be and failed at that (`byComputing` in `Decidable.yes byComputing`, `E-REFL`), where
 /// the second only had an unknown to check it against.
 fn in_same_argument(args: &[Arg], first: &Diagnostic, second: &Diagnostic) -> bool {
     let whole_ok = first.code != "E-TYPE-MISMATCH";
@@ -8553,7 +8556,7 @@ pub(crate) fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
         return Some((Term::Var(cx.level() - 1 - level), cx.types[level].clone()));
     }
     if as_fields(cx, name).is_some()
-        || matches!(name.text.as_str(), "rfl" | "J")
+        || matches!(name.text.as_str(), "byComputing" | "J")
         || crate::quot::head_form(cx, &name.text).is_some()
     {
         return None;
@@ -9411,10 +9414,10 @@ fn written_sides(cx: &Ctx, a: &Value, b: &Value) -> Option<(String, String)> {
     Some((show(ga), show(gb)))
 }
 
-/// Whether `rfl` proves `a = b` once the dictionaries whose types are known
+/// Whether `byComputing` proves `a = b` once the dictionaries whose types are known
 /// by now are found: a side computed over one still to be found is stuck on
-/// it (`List.all Finite.all p = True` in `Finite.check p rfl x`), as in
-/// [`compare`]. Only reached where `rfl` would otherwise fail.
+/// it (`List.all Finite.all p = True` in `Finite.check p byComputing x`), as in
+/// [`compare`]. Only reached where `byComputing` would otherwise fail.
 #[inline(never)]
 pub(crate) fn refl_after_instances(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
     if cx.e.tables.interfaces.is_empty() || !cx.e.solve_ready_instances()? {
@@ -9450,7 +9453,7 @@ fn same_function(cx: &Ctx, a: &NoteSide, b: &NoteSide) -> Option<String> {
 }
 
 /// SW-1538: inside a generalised `match`, `a = b` that the `match`'s
-/// equation states, where `rfl` fails because the goal came to mention the
+/// equation states, where `byComputing` fails because the goal came to mention the
 /// scrutinee only after the `match` refined it (after a `rewrite`, say): the
 /// equation proves it. Unnamed, the note says to name it.
 fn match_equation_note(cx: &Ctx, a: &NoteSide, b: &NoteSide) -> Option<String> {
@@ -9484,7 +9487,7 @@ fn match_equation_note(cx: &Ctx, a: &NoteSide, b: &NoteSide) -> Option<String> {
                 true => format!("the `match`'s equation `{name}` proves it: pass `{name}`"),
                 false => format!(
                     "the `match`'s equation `{name}` proves it the other way round: pass \
-                 `Eq.sym {name}`"
+                 `Eq.flipped {name}`"
                 ),
             })
         })
@@ -9576,7 +9579,7 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     let unclear = |x: &str, y: &str| x == y || x.contains('…') || y.contains('…');
     let difference = !hidden
         && (unclear(&side_a, &side_b) || computed.is_some() && unclear(&normal_a, &normal_b));
-    let mut error = cx.error("E-REFL", "`rfl` can't prove this", label);
+    let mut error = cx.error("E-REFL", "`byComputing` can't prove this", label);
     if hidden {
         error = error.with_note(
             "the two sides differ only in arguments the compiler fills in, shown here in \
@@ -9607,8 +9610,8 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     if let Some(note) = stuck_side_note(cx, a, b) {
         error = error.with_note(note);
     }
-    let error =
-        error.with_note("`rfl` proves `a = b` only when both sides compute to the same value");
+    let error = error
+        .with_note("`byComputing` proves `a = b` only when both sides compute to the same value");
     let error = match match_equation_note(cx, &sides[0], &sides[1]) {
         Some(note) => error.with_note(note),
         None => error,

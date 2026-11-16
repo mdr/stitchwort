@@ -1,4 +1,4 @@
-//! The search behind `omega` (docs/proposals/omega.md §6.6, §6.8): untrusted,
+//! The search behind `arithmetic` (docs/proposals/omega.md §6.6, §6.8): untrusted,
 //! it only has to find a certificate that `Std.Omega.check` accepts. A wrong
 //! answer here can lose a proof or waste time, never prove something false.
 //!
@@ -193,14 +193,14 @@ pub(crate) enum Failure {
     Budget,
 }
 
-/// The limits of one `omega`.
+/// The limits of one `arithmetic`.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Limits {
     /// Rows the whole search may make.
     pub rows: usize,
     /// How deep splits may nest.
     pub depth: usize,
-    /// How many disjunctions among the facts `omega` may split on
+    /// How many disjunctions among the facts `arithmetic` may split on
     /// (`omega.rs`, `linear_split`), each split a search per case.
     pub splits: usize,
 }

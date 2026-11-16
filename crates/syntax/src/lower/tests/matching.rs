@@ -28,7 +28,7 @@ fn match_induct_names_a_case_and_its_binders() {
 #[test]
 fn handler_and_reify_return_clauses_accept_a_wildcard() {
     let e = rhs(
-        "def f (t : () -> {Fail} a) : P := match reify t with\n  | return _ => rfl\n  | Fail.stop msg, k => k\n",
+        "def f (t : () -> {Fail} a) : P := match reify t with\n  | return _ => byComputing\n  | Fail.stop msg, k => k\n",
     );
     let Expr::Reify { clauses, .. } = &e else {
         panic!("expected a `match reify`, got {e:?}")

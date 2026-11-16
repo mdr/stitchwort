@@ -156,8 +156,8 @@ fn a_let_can_define_a_type() {
     );
 }
 
-/// The value is visible: `let n := 2; (rfl : n + n = 4)` checks, but the
-/// function form, `(n => (rfl : n + n = 4)) 2`, which checks the body for
+/// The value is visible: `let n := 2; (byComputing : n + n = 4)` checks, but the
+/// function form, `(n => (byComputing : n + n = 4)) 2`, which checks the body for
 /// every `n`, doesn't.
 #[test]
 fn the_body_sees_the_value() {
@@ -192,7 +192,7 @@ fn a_proof_let_can_be_used_twice() {
 }
 
 /// A dependent function after a `let`, whose type is used outside it:
-/// `let n := 2; (m => rfl : (m : Nat) -> n + m = n + m)`. Its type, quoted
+/// `let n := 2; (m => byComputing : (m : Nat) -> n + m = n + m)`. Its type, quoted
 /// at depth 0, mentions only its own binder, and is `(m : Nat) -> 2 + m = 2
 /// + m`.
 #[test]
@@ -256,7 +256,7 @@ fn nested_lets_under_binders() {
         code(define(&mut p.g, "nested", ty.clone(), body.clone())),
         "ok"
     );
-    // Its normal form is `a => b => rfl`: no `let` is quoted back.
+    // Its normal form is `a => b => byComputing`: no `let` is quoted back.
     let value = eval(&p.g.ev(), &[], &body).unwrap();
     let normal = quote(&p.g.ev(), 0, &value).unwrap();
     assert_eq!(
@@ -299,7 +299,7 @@ fn rejects_an_annotation_that_isnt_a_type() {
     );
 }
 
-/// The value is known exactly: `let n := 3; (rfl : n = 4)` is refused.
+/// The value is known exactly: `let n := 3; (byComputing : n = 4)` is refused.
 #[test]
 fn rejects_a_claim_about_the_value_that_is_false() {
     let p = Prelude::new();
@@ -487,7 +487,7 @@ fn deeply_nested_lets_finish_under_the_budget() {
     let g = &p.g;
     let depth = 20;
     // Under the lets: x_depth is variable 0, …, a is variable `depth`.
-    // `let proof : x20 = rhs := rfl; 0`.
+    // `let proof : x20 = rhs := byComputing; 0`.
     let claim = |rhs: Term| let_("proof", eq(None, v(0), rhs), Term::Refl, p.num(0));
     let build = |innermost: Term| {
         let mut body = innermost;

@@ -258,17 +258,17 @@ test('search for a proof: picks show the proof text, best first; the messages an
     range: { start: { line: 1, character: 4 }, end: { line: 1, character: 5 } },
     proofs: [
       { title: 'Replace ? with `Nat.addComm m n` (exact, Std.Nat.addComm)', newText: 'Nat.addComm m n' },
-      { title: 'Replace ? with `omega` (closes it alone)', newText: 'omega' },
+      { title: 'Replace ? with `arithmetic` (closes it alone)', newText: 'arithmetic' },
     ],
   };
   const picks = cfg.proofPicks(answer);
   assert.deepStrictEqual(
     picks.map((p) => [p.label, p.description]),
-    [['Nat.addComm m n', 'exact, Std.Nat.addComm'], ['omega', 'closes it alone']],
+    [['Nat.addComm m n', 'exact, Std.Nat.addComm'], ['arithmetic', 'closes it alone']],
   );
   assert.strictEqual(picks[0].proof, answer.proofs[0]);
   assert.deepStrictEqual(cfg.proofPicks({ proofs: [] }), []);
-  assert.strictEqual(cfg.provedMessage('rfl'), 'Proved by `rfl`');
+  assert.strictEqual(cfg.provedMessage('byComputing'), 'Proved by `byComputing`');
   assert.ok(cfg.provedMessage('x'.repeat(100)).length < 80);
   assert.strictEqual(cfg.noProofMessage(5000), 'No proof found within 5 s');
   assert.strictEqual(cfg.noProofMessage(1500), 'No proof found within 1.5 s');

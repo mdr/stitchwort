@@ -374,7 +374,7 @@ impl Prelude {
             le_trans: def(Builtin::LeTrans)?,
             le_refl: def(Builtin::LeRefl)?,
             absurd: def(Builtin::VoidAbsurd)?,
-            exfalso: def(Builtin::VoidExfalso)?,
+            exfalso: def(Builtin::VoidImpossible)?,
             false_not_true: def(Builtin::FalseNotTrue)?,
             elim: def(Builtin::ElimDec)?,
             elim_cong: def(Builtin::ElimDecCong)?,
@@ -2952,7 +2952,7 @@ fn in_scope(cx: &Ctx, d: Diagnostic) -> Diagnostic {
     if unnamed {
         d.with_note(
             "to use the `match`'s fact in a proof, name it, `match found: … with`, and pass \
-             `found` to a lemma: `[decreasing := omega [lemma found]]`",
+             `found` to a lemma: `[decreasing := arithmetic [lemma found]]`",
         )
     } else {
         d
@@ -2980,8 +2980,8 @@ fn explain_lex(cx: &mut Ctx, goal: &Value, error: Diagnostic) -> Diagnostic {
     ));
     in_scope(cx, d).with_note(
         "give a proof with `[decreasing := Nat.LexLess.First …]` (the first got smaller) or \
-         `[decreasing := Nat.LexLess.Second rfl …]` (the first stayed the same); \
-         `[decreasing := omega]` finds either from the facts in scope",
+         `[decreasing := Nat.LexLess.Second byComputing …]` (the first stayed the same); \
+         `[decreasing := arithmetic]` finds either from the facts in scope",
     )
 }
 

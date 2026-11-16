@@ -135,11 +135,11 @@ def toInert (n: Nat) (h: 0 ≠ n): Nat := passOn n h
 def inLetType (n: Nat) (h: 0 ≠ n): Nat :=
   let k: PBox (0 ≠ n) h := MkPBox
   n
-def absurdly (h: 0 ≠ 0): Nat := Void.absurd (h rfl)
+def absurdly (h: 0 ≠ 0): Nat := Void.absurd (h byComputing)
 def ignored (n: Nat) (h: 0 = 0): Nat := n
 
 def takenApart (h: 0 = 0): Nat := J (y e => Nat) 0 h
-def applied (h: 0 ≠ 0): Void := h rfl
+def applied (h: 0 ≠ 0): Void := h byComputing
 def returned (h: 0 = 0): 0 = 0 := h
 def stored (h: 0 = 0): Box (0 = 0) := MkBox h
 def toLocal (h: 0 = 0): Box (0 = 0) := (x => MkBox x) h

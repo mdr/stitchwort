@@ -2042,7 +2042,7 @@ fn generated_effect_programs_agree_on_every_backend() {
 }
 
 /// A module whose check takes far more steps than any limit, by
-/// construction: `rfl` must unfold the naive, doubly recursive `fib 40`,
+/// construction: `byComputing` must unfold the naive, doubly recursive `fib 40`,
 /// which is about 3 * 10^8 calls, some 50 steps each (measured on `fib 22`),
 /// however fast one step becomes, since the checker has no memo table to
 /// share its two recursive calls.
@@ -2052,7 +2052,7 @@ def fib: Nat -> Nat
   | 1 => 1
   | Succ (Succ n) => fib n + fib (Succ n)
 
-theorem fibForty: fib 40 = 102334155 := rfl
+theorem fibForty: fib 40 = 102334155 := byComputing
 
 def main(): {IO} () := ()
 ";

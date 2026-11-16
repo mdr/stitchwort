@@ -69,8 +69,8 @@ fn project(name: &str) -> PathBuf {
          | k, Circle r => Circle (k * r)\n  \
          | k, Square a => Square (k * a)\n\n\
          theorem Shape.scaleOne: (s: Shape) → Shape.scale 1 s = s\n  \
-         | Circle r => rfl\n  \
-         | Square a => rfl\n",
+         | Circle r => byComputing\n  \
+         | Square a => byComputing\n",
     )
     .unwrap();
     dir
@@ -219,7 +219,7 @@ fn a_theorem_with_an_error_is_not_offered() {
     // is wrong, so search doesn't offer it as an open theorem would be.
     let file = dir.join("src/shapes.sw");
     let mut text = std::fs::read_to_string(&file).unwrap();
-    text.push_str("\ntheorem Shape.scaleAbc: (s: Shape) → Shape.scale 1 s = s := rfl\n");
+    text.push_str("\ntheorem Shape.scaleAbc: (s: Shape) → Shape.scale 1 s = s := byComputing\n");
     std::fs::write(&file, text).unwrap();
     let (_, report) = json(&dir, &["Shape.scale _ _ = _"]);
     let found = names(&report);
@@ -253,7 +253,7 @@ def twice (xs: List Nat): List Nat := List.append xs xs
 theorem twiceLength (xs: List Nat): List.length (twice xs) = List.length xs + List.length xs :=
   List.lengthAppend xs xs
 
-theorem broken (n: Nat): n = n + 1 := rfl
+theorem broken (n: Nat): n = n + 1 := byComputing
 ";
 
 #[test]
@@ -265,7 +265,7 @@ fn a_file_is_searched_with_its_own_names_even_if_it_doesnt_check() {
     // One line, with the first error, not the errors in full (SW-935).
     assert_eq!(
         err.trim_end(),
-        "warning: the file doesn't check (1 error; the first at a.sw:8: [E-REFL] `rfl` can't \
+        "warning: the file doesn't check (1 error; the first at a.sw:8: [E-REFL] `byComputing` can't \
          prove this): only what checked is searched; `stitchwort check` shows the errors",
     );
     assert_eq!(
@@ -531,14 +531,14 @@ fn shop(name: &str) -> PathBuf {
          import Std (Nat)\n\n\
          def double (n: Nat): Nat := n + n\n\n\
          theorem doubleSwap (m: Nat) (n: Nat): double (m + n) = double (n + m) :=\n  \
-         rewrite Nat.addComm m n in rfl\n",
+         rewrite Nat.addComm m n then byComputing\n",
     );
     write(
         "src/Shop/Proofs/Proofs.sw",
         "namespace Shop.Proofs\n\
          import Shop.Spec (double as twice)\n\
          import Std (Nat)\n\n\
-         theorem twiceTwo (a: Nat): twice a = a + a := rfl\n\n\
+         theorem twiceTwo (a: Nat): twice a = a + a := byComputing\n\n\
          theorem swapped (a: Nat) (b: Nat): twice (a + b) = twice (b + a) := ?\n\n\
          theorem swappedAgain (a: Nat) (b: Nat): twice (a + b) = twice (b + a) := swapped a b\n",
     );
@@ -574,7 +574,7 @@ fn what_closes_a_goal_in_a_project() {
         ),
         "{out}"
     );
-    assert!(out.contains("rewrite twiceTwo (a + b) in ?"), "{out}");
+    assert!(out.contains("rewrite twiceTwo (a + b) then ?"), "{out}");
     assert!(
         !out.contains("swappedAgain") && !out.contains("swappedHere"),
         "{out}"

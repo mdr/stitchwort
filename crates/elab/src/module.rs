@@ -3599,7 +3599,7 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
                 body.extend(names_and_proofs(work));
             }
             // A recursive call with no `[decreasing := …]` is proved by
-            // `auto`, which tries `omega` when nothing else proves it.
+            // `auto`, which tries `arithmetic` when nothing else proves it.
             if decreasing.is_some() && unproved_recursive_call(name, &body) {
                 body.push(Ref::Name(&REWRITE_MARKER));
             }
@@ -3731,12 +3731,12 @@ impl<'a> Receiver<'a> {
 }
 
 /// A reference no declaration can have: a `rewrite` is here, or another
-/// proof that may be `omega`'s (a `cases`, or a recursive call of a
+/// proof that may be `arithmetic`'s (a `cases`, or a recursive call of a
 /// definition with `decreasing` that gives no proof). A program's module
-/// loads `omega`'s library for it ([`Elaborator::dependencies`]);
-/// a library file doesn't, since `omega`'s library is built on files that
+/// loads `arithmetic`'s library for it ([`Elaborator::dependencies`]);
+/// a library file doesn't, since `arithmetic`'s library is built on files that
 /// use `rewrite` (an edge back would be a cycle), so there a premise is
-/// proved by `omega` only where the file loads it anyway.
+/// proved by `arithmetic` only where the file loads it anyway.
 pub(crate) static REWRITE_MARKER: std::sync::LazyLock<ast::Name> =
     std::sync::LazyLock::new(|| ast::Name {
         text: "%rewrite".to_string(),
@@ -4115,18 +4115,18 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 }
                 stack.push(Work::Expr(e));
             }
-            // What the proof `omega` writes refers to (crates/elab/src/omega.rs).
+            // What the proof `arithmetic` writes refers to (crates/elab/src/omega.rs).
             Expr::Omega { facts, .. } => {
                 out.extend(crate::omega::LIBRARY_NAMES.iter().map(Ref::Name));
                 then(&mut stack, facts.iter().map(Work::Expr).collect());
             }
-            // `cases` closes cases by `omega` (crates/elab/src/cases.rs): as
+            // `cases` closes cases by `arithmetic` (crates/elab/src/cases.rs): as
             // for `rewrite`, a program's `cases` loads its library.
             Expr::Cases { body, .. } => {
                 out.push(Ref::Name(&REWRITE_MARKER));
                 then(&mut stack, body.iter().map(|b| Work::Expr(b)).collect());
             }
-            // And `ring` (crates/elab/src/ring.rs).
+            // And `algebra` (crates/elab/src/ring.rs).
             Expr::Ring { facts, .. } => {
                 out.extend(crate::ring::LIBRARY_NAMES.iter().map(Ref::Name));
                 then(&mut stack, facts.iter().map(Work::Expr).collect());
@@ -4145,7 +4145,7 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 body,
                 ..
             } => {
-                // `rewrite` proves a rule's premises by `omega` (rewrite.rs,
+                // `rewrite` proves a rule's premises by `arithmetic` (rewrite.rs,
                 // `discharge`): a program's `rewrite` loads its library
                 // ([`REWRITE_MARKER`]).
                 out.push(Ref::Name(&REWRITE_MARKER));

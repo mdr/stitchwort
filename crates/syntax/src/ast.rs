@@ -248,12 +248,12 @@ pub enum Expr {
         steps: Vec<CalcStep>,
         span: Span,
     },
-    /// `rewrite p, <- q in t` (docs/syntax.md, rewrite): `t` proves the
+    /// `rewrite p, <- q then t` (docs/syntax.md, rewrite): `t` proves the
     /// expected proposition with each rule's left side replaced by its right
-    /// side, the rules applied left to right. Without `in t`, `t` is `rfl`.
+    /// side, the rules applied left to right. Without `in t`, `t` is `byComputing`.
     ///
     /// With `at h` (docs/proposals/rewrite-hypothesis.md) the rules rewrite
-    /// the type of `h` instead: `rewrite p at h in t` checks `t` with `h`
+    /// the type of `h` instead: `rewrite p at h then t` checks `t` with `h`
     /// rebound to the rewritten fact, and `rewrite p at h` is that fact.
     Rewrite {
         rules: Vec<RewriteRule>,
@@ -263,11 +263,11 @@ pub enum Expr {
         keyword: Span,
         /// The `at` keyword's span, with a target.
         at: Option<Span>,
-        /// The `in` keyword's span, with a body.
-        in_: Option<Span>,
+        /// The `then` keyword's span, with a body.
+        then: Option<Span>,
         span: Span,
     },
-    /// `omega`, or `omega [e1, e2]` with extra facts (docs/syntax.md,
+    /// `arithmetic`, or `arithmetic [e1, e2]` with extra facts (docs/syntax.md,
     /// omega): a proof of a linear arithmetic goal from the facts in scope
     /// and the ones listed, found by the compiler and checked by the kernel
     /// (docs/proposals/omega.md).
@@ -275,15 +275,15 @@ pub enum Expr {
         facts: Vec<Expr>,
         span: Span,
     },
-    /// `cases`, or `cases in t` (docs/syntax.md, cases): a proof found by
+    /// `cases`, or `cases then t` (docs/syntax.md, cases): a proof found by
     /// splitting on what the goal and the hypotheses are stuck on, each case
-    /// closed by computation, a contradiction, `omega`, or `t`
+    /// closed by computation, a contradiction, `arithmetic`, or `t`
     /// (docs/proposals/simp.md §5). The proof is the `match`es it writes.
     Cases {
         body: Option<Box<Expr>>,
         span: Span,
     },
-    /// `ring`, or `ring [h1, h2]` with hypotheses (docs/syntax.md, ring): a
+    /// `algebra`, or `algebra [h1, h2]` with hypotheses (docs/syntax.md, algebra): a
     /// proof of an equation between polynomials over `Nat` or `Int`, checked
     /// by the kernel normalising both sides
     /// (docs/proposals/proof-automation.md §6.2).

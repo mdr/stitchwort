@@ -24,7 +24,7 @@ pub(crate) enum Role {
     /// A `-` starting a statement, right after a line that ends an operand:
     /// its gap after is kept, since `-y` there could read as an argument.
     StatementMinus,
-    /// The `-` of `<-` in `rewrite <- h in …`, which touches the `<`.
+    /// The `-` of `<-` in `rewrite <- h then …`, which touches the `<`.
     RewriteArrow,
 }
 

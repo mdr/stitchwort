@@ -490,7 +490,7 @@ impl Elaborator {
         for (c, ctor_c) in ctors.iter().enumerate() {
             // Down the fields: `C %a0 …` is in its part.
             let count = ctor_c.fields.len();
-            let mut proof = s.app(s.var("Std.Or.Inl"), vec![s.var("rfl")]);
+            let mut proof = s.app(s.var("Std.Or.Inl"), vec![s.var("byComputing")]);
             for j in (0..count).rev() {
                 proof = s.app(
                     s.var("Std.List.memConcatMap"),

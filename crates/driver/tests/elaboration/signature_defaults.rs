@@ -232,7 +232,8 @@ def unused (n: Nat): Nat := padded (n * 3) (total := 1)
 /// leaving a parameter out commits to its default.
 #[test]
 fn a_default_must_work_for_any_earlier_values() {
-    let assumed = refused("def board (size: Nat := 8) (square: size = 8 := rfl): Nat := size");
+    let assumed =
+        refused("def board (size: Nat := 8) (square: size = 8 := byComputing): Nat := size");
     assert!(
         assumed.starts_with("E-REFL") && assumed.contains("must work for any values"),
         "{assumed}"
@@ -371,14 +372,14 @@ def written: (a: Nat) -> (c: Nat) -> Nat := (a: Nat) (c: Nat) => f a c
 def givenByName: (a: Nat) -> (c: Nat) -> Nat := (a: Nat) (c: Nat) => f a (b := 7) c
 def keptOpen: (a: Nat) -> (b: Nat) -> (c: Nat) -> Nat := (a: Nat) (b: Nat) (c: Nat) => f a (b := b) c
 
-theorem bareIsWritten: bare = written := rfl
-theorem bareIsGivenByName: bare = givenByName := rfl
+theorem bareIsWritten: bare = written := byComputing
+theorem bareIsGivenByName: bare = givenByName := byComputing
 
 def rangeFrom0: (stop: Nat) -> List Nat := range 0
 def rangeWritten: (stop: Nat) -> List Nat := (stop: Nat) => range 0 stop
 def rangeOpen: (stop: Nat) -> (step: Nat) -> List Nat := (stop: Nat) (step: Nat) => range 0 stop (step := step)
 
-theorem rangeFrom0IsWritten: rangeFrom0 = rangeWritten := rfl
+theorem rangeFrom0IsWritten: rangeFrom0 = rangeWritten := byComputing
 "#;
         let session = load(text).unwrap();
         assert_eq!(lambda_names(&session, "bare"), ["a"]);

@@ -149,12 +149,12 @@ fn an_indexed_search_changes_its_tables_in_place() {
          decode = k => Some k,\n  \
          below = k i numbered =>\n    \
          match lt: k < n with\n      \
-         | True => rewrite <- Option.someInjective numbered in omega\n      \
-         | False => Void.exfalso (Option.noneNotSome i numbered),\n  \
+         | True => rewrite <- Option.someInjective numbered then arithmetic\n      \
+         | False => Void.impossible (Option.noneNotSome i numbered),\n  \
          roundTrip = k i numbered =>\n    \
          match lt: k < n with\n      \
-         | True => rewrite <- Option.someInjective numbered in rfl\n      \
-         | False => Void.exfalso (Option.noneNotSome i numbered)\n\
+         | True => rewrite <- Option.someInjective numbered then byComputing\n      \
+         | False => Void.impossible (Option.noneNotSome i numbered)\n\
          }\n\n\
          def chain (n: Nat): Graph Nat := Graph.fromEdges (k => [(k + 1, 2), (k + 2, 3)]) (List.range 0 n)\n\n\
          def main (): {IO} () :=\n  \

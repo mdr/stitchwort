@@ -287,13 +287,13 @@ fn the_rules_are_only_for_the_librarys_add() {
     let ok = session.load(
         "copy.sw",
         "def myAdd: Nat → Nat → Nat\n  | Zero, n => n\n  | Succ m, n => Succ (myAdd m n)\n\n\
-         theorem first (x: Nat): myAdd 1 x = Succ x := rfl\n",
+         theorem first (x: Nat): myAdd 1 x = Succ x := byComputing\n",
     );
     assert!(ok.is_ok(), "{ok:?}");
     let refused = session.load(
         "copy2.sw",
         "def myAdd2: Nat → Nat → Nat\n  | Zero, n => n\n  | Succ m, n => Succ (myAdd2 m n)\n\n\
-         theorem second (x: Nat): myAdd2 x 1 = Succ x := rfl\n",
+         theorem second (x: Nat): myAdd2 x 1 = Succ x := byComputing\n",
     );
     let codes: Vec<&str> = refused
         .err()
@@ -341,35 +341,35 @@ fn the_unifier_peels_succs_off_a_sum_stuck_on_an_unknown() {
     let mut session = Session::new();
     let ok = session.load(
         "peel.sw",
-        "def three (x: Nat) (f: (d: Nat) → x + d = x + 3 → Nat): Nat := f _ rfl\n\
-         def left (x: Nat) (t: Nat) (f: (d: Nat) → d + x = Succ (t + x) → Nat): Nat := f _ rfl\n\
-         theorem solved (x: Nat): three x (d p => d) = 3 := rfl\n",
+        "def three (x: Nat) (f: (d: Nat) → x + d = x + 3 → Nat): Nat := f _ byComputing\n\
+         def left (x: Nat) (t: Nat) (f: (d: Nat) → d + x = Succ (t + x) → Nat): Nat := f _ byComputing\n\
+         theorem solved (x: Nat): three x (d p => d) = 3 := byComputing\n",
     );
     assert!(ok.is_ok(), "{ok:?}");
     for (name, source) in [
         // `?d` inside the other side: `?d := Succ ?d'` would go on for ever.
         (
             "occurs",
-            "def occurs (x: Nat) (f: (d: Nat) → x + d = Succ d → Nat): Nat := f _ rfl\n",
+            "def occurs (x: Nat) (f: (d: Nat) → x + d = Succ d → Nat): Nat := f _ byComputing\n",
         ),
         // Both summands unknown: `?c := Succ ?c'` would do as well.
         (
             "both",
-            "def both (x: Nat) (f: (c: Nat) → (d: Nat) → c + d = Succ x → Nat): Nat := f _ _ rfl\n",
+            "def both (x: Nat) (f: (c: Nat) → (d: Nat) → c + d = Succ x → Nat): Nat := f _ _ byComputing\n",
         ),
         // The known summand mentions an unknown, so may yet be a `Succ`.
         (
             "inside",
-            "def inside (x: Nat) (f: (c: Nat) → (d: Nat) → (c + x) + d = 3 + x → Nat): Nat := f _ _ rfl\n",
+            "def inside (x: Nat) (f: (c: Nat) → (d: Nat) → (c + x) + d = 3 + x → Nat): Nat := f _ _ byComputing\n",
         ),
         // Nothing to peel: `0` isn't a `Succ`, and `x` alone is left alone.
         (
             "zero",
-            "def zero (x: Nat) (f: (d: Nat) → x + d = 0 → Nat): Nat := f _ rfl\n",
+            "def zero (x: Nat) (f: (d: Nat) → x + d = 0 → Nat): Nat := f _ byComputing\n",
         ),
         (
             "itself",
-            "def itself (x: Nat) (f: (d: Nat) → x + d = x → Nat): Nat := f _ rfl\n",
+            "def itself (x: Nat) (f: (d: Nat) → x + d = x → Nat): Nat := f _ byComputing\n",
         ),
     ] {
         let refused = session.load(&format!("{name}.sw"), source);

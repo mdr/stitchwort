@@ -325,7 +325,7 @@ fn opaque_and_unfolding() {
         assert_eq!(found, names, "{source}");
         assert!(module.decls.len() >= 2, "{source}");
     }
-    let module = parse("theorem t: f 1 = 1\n    unfolding f\n  := rfl\n");
+    let module = parse("theorem t: f 1 = 1\n    unfolding f\n  := byComputing\n");
     assert!(matches!(
         &module.decls[0],
         Decl::Signature { theorem: true, opaque: false, unfolding, .. } if unfolding.len() == 1
@@ -333,7 +333,7 @@ fn opaque_and_unfolding() {
     // A type that starts on its own line is a block; the clause on a line
     // at the block's column still ends it.
     for source in [
-        "theorem t:\n  f 1 = 1\n  unfolding f\n  := rfl\n",
+        "theorem t:\n  f 1 = 1\n  unfolding f\n  := byComputing\n",
         "opaque def g (n: Nat):\n  Nat\n  decreasing n\n  unfolding f\n  := n\n",
     ] {
         let module = parse(source);
@@ -344,7 +344,7 @@ fn opaque_and_unfolding() {
     }
     for (source, message) in [
         (
-            "opaque theorem t: 1 = 1 := rfl\n",
+            "opaque theorem t: 1 = 1 := byComputing\n",
             "a theorem can't be `opaque`",
         ),
         (
@@ -379,13 +379,13 @@ fn opaque_and_unfolding() {
 #[test]
 fn a_theorem_may_say_forall_before_its_parameters() {
     // D3472: cosmetic, so the same tree as without it.
-    let with = parse("theorem t ∀ (n: Nat) (h: n < 1): n = 0 := rfl\n");
-    let without = parse("theorem t (n: Nat) (h: n < 1): n = 0 := rfl\n");
+    let with = parse("theorem t ∀ (n: Nat) (h: n < 1): n = 0 := byComputing\n");
+    let without = parse("theorem t (n: Nat) (h: n < 1): n = 0 := byComputing\n");
     assert_eq!(
         crate::equivalence::shape(&with),
         crate::equivalence::shape(&without)
     );
-    let ascii = parse("theorem t forall [a: Type] (n: Nat): n = n := rfl\n");
+    let ascii = parse("theorem t forall [a: Type] (n: Nat): n = n := byComputing\n");
     assert_eq!(ascii.decls.len(), 2);
 }
 
@@ -400,13 +400,16 @@ fn forall_before_the_parameters_is_for_theorems_with_a_parameter() {
 #[test]
 fn a_theorem_statement_compares_the_pipeline() {
     for (source, want) in [
-        ("theorem t: xs |> .length = n := rfl\n", "(Eq xs.length n)"),
         (
-            "theorem t: xs |> List.length = n := rfl\n",
+            "theorem t: xs |> .length = n := byComputing\n",
+            "(Eq xs.length n)",
+        ),
+        (
+            "theorem t: xs |> List.length = n := byComputing\n",
             "(Eq (|> xs List.length) n)",
         ),
         (
-            "theorem t:\n  xs\n    |> .map f\n    |> .length = n\n  := rfl\n",
+            "theorem t:\n  xs\n    |> .map f\n    |> .length = n\n  := byComputing\n",
             "(Eq (xs.map f).length n)",
         ),
     ] {
@@ -552,11 +555,11 @@ fn recovery_keeps_good_declarations_and_names_the_broken() {
 #[test]
 fn recovery_keeps_the_header_of_a_body_that_does_not_parse() {
     let text = "def double (n: Nat): Nat := n + n\n\n\
-                @[simp] theorem doubleTwo: double 2 = 4 := (rfl\n\n\
+                @[simp] theorem doubleTwo: double 2 = 4 := (byComputing\n\n\
                 export def arms: Nat -> Nat\n  | 0 => 1\n  | n => (n\n\n\
                 def trailing: Nat := 1 )\n\n\
                 def local: Nat :=\n  def inner: Nat := 1\n  inner +\n\n\
-                theorem header: double 2 = := rfl\n\n\
+                theorem header: double 2 = := byComputing\n\n\
                 instance inst: Inhabited Nat := (0\n\n\
                 def last: Nat := 2\n";
     let mut sources = SourceMap::new();
@@ -588,9 +591,9 @@ fn recovery_keeps_the_header_of_a_body_that_does_not_parse() {
             ("last", None, 1),
         ]
     );
-    // The error is where the parser reported it: the end of `(rfl`.
+    // The error is where the parser reported it: the end of `(byComputing`.
     let line = &text[..at(0).unwrap().start as usize];
-    assert!(line.ends_with("(rfl"), "{line:?}");
+    assert!(line.ends_with("(byComputing"), "{line:?}");
     let signature = |name: &str| {
         module
             .decls

@@ -243,7 +243,7 @@ mod tests {
     /// the cells of lists and tuples), `match` with named scrutinees,
     /// guards and absurd arms, `handle`, `match reify`, `match induct`,
     /// `calc` in both directions, `rewrite` with each optional part,
-    /// `omega`, `ring` and `cases`.
+    /// `arithmetic`, `algebra` and `cases`.
     #[test]
     fn matching_and_proofs_lower() {
         let text = "\
@@ -271,7 +271,7 @@ theorem r: P := match reify t with
   | Fail.stop msg, k => k
 theorem i: P := match induct (f a b) with
   | eq1 x _ ih => ih
-  | eq2 => rfl
+  | eq2 => byComputing
 theorem c: a = d := calc a
   _ = b := p
   _ <= c
@@ -280,13 +280,13 @@ theorem c2: a > d := calc a
   _ > b := p
   _ = (c) := (q)
   _ >= d
-theorem w: P := rewrite h, <- (g x) at k in t
+theorem w: P := rewrite h, <- (g x) at k then t
 theorem w2: P := rewrite h at (k)
 theorem w3: P := rewrite <- h
   in t
-theorem w4: P := rewrite at, h at at in at
-theorem o: P := omega [h, (0 ..< n)] && ring [(a)] && ring && omega
-theorem s: P := cases in (t)
+theorem w4: P := rewrite at, h at at then at
+theorem o: P := arithmetic [h, (0 ..< n)] && algebra [(a)] && algebra && arithmetic
+theorem s: P := cases then (t)
 theorem s2: P := f cases
 ";
         let report = report(text);

@@ -995,7 +995,7 @@ impl Elaborator {
         self.session.library.as_ref().map(|lib| lib.index.clone())
     }
 
-    /// Whether `auto` may try `omega` now (the unit's setting; for tests).
+    /// Whether `auto` may try `arithmetic` now (the unit's setting; for tests).
     #[doc(hidden)]
     pub fn omega_for_auto(&self) -> bool {
         self.unit.omega_for_auto
@@ -1153,7 +1153,7 @@ impl Elaborator {
     }
 
     /// Whether the files `needs` names, with the files those need, declare
-    /// everything the proofs `omega` writes use. It depends only on the
+    /// everything the proofs `arithmetic` writes use. It depends only on the
     /// module's own needs, not on what happens to be loaded, so `auto`
     /// proves the same things however the module is reached.
     pub(crate) fn needs_reach_omega(&self, needs: &Needs) -> bool {

@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! rewrite p in t        -- t proves the goal with p's left side replaced
-//! rewrite p             -- the same as `rewrite p in rfl`
+//! rewrite p             -- the same as `rewrite p then byComputing`
 //! rewrite p, <- q in t  -- p, then q right to left, then t
 //! rewrite p at h in t   -- in t, h has its type with p's left side replaced
 //! rewrite p at h        -- the rewritten h itself
@@ -10,7 +10,7 @@
 //!
 //! Given `p: a = b` and the goal `G`, the occurrences of `a` in `G` are
 //! found (below), abstracted into a motive `M x := G[x]`, and the result is
-//! `J M t (Eq.sym p)`, with `t` checked against `G[b]`. Elaboration only: the
+//! `J M t (Eq.flipped p)`, with `t` checked against `G[b]`. Elaboration only: the
 //! kernel re-checks the `J`.
 //!
 //! The search runs first over the goal and `a` as written (calls kept), and
@@ -145,7 +145,7 @@ fn infer_rewrite_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         rules[0].span,
         "there is no expected type here to look for this rule's left side in",
     )
-    .with_note("write the type with an ascription: `(rewrite p in t: a = b)`")
+    .with_note("write the type with an ascription: `(rewrite p then t: a = b)`")
     .with_note(
         "the goal is known where a proof is checked against a type: an argument, a definition's \
          body, a `calc` step",
@@ -153,7 +153,7 @@ fn infer_rewrite_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     .with_note("to rewrite the type of a fact `t` instead of a goal, write `rewrite p at t`"))
 }
 
-/// `rewrite p at h in t` and `rewrite p at h`: the rules rewrite the type
+/// `rewrite p at h then t` and `rewrite p at h`: the rules rewrite the type
 /// of `h`, and `t` (if any) is checked with `h` rebound to the result.
 fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value)> {
     let Expr::Rewrite {
@@ -162,13 +162,13 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
         body,
         keyword,
         at,
-        in_,
+        then,
         span,
     } = expr
     else {
         unreachable!("only called on a rewrite with a target");
     };
-    let extra = [Some(*keyword), *at, *in_]
+    let extra = [Some(*keyword), *at, *then]
         .into_iter()
         .flatten()
         .collect::<Vec<_>>();
@@ -179,7 +179,7 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
     if body.is_some() && name.is_none() {
         return Err(Diagnostic::error(
             "E-REWRITE-TARGET",
-            "`rewrite … at … in` needs a local name after `at`",
+            "`rewrite … at … then` needs a local name after `at`",
         )
         .with_label(
             target.span(),
@@ -302,7 +302,7 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         body,
         keyword,
         at,
-        in_,
+        then,
         span,
     } = expr
     else {
@@ -311,7 +311,7 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     if target.is_some() {
         return Ok(rewrite_at(cx, expr, Some(expected))?.0);
     }
-    let extra = [Some(*keyword), *at, *in_]
+    let extra = [Some(*keyword), *at, *then]
         .into_iter()
         .flatten()
         .collect::<Vec<_>>();
@@ -371,15 +371,15 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         Some(body) => check(cx, body, &goal)?,
         None => {
             let rfl = Expr::Var(AstName {
-                text: "rfl".into(),
+                text: "byComputing".into(),
                 span: rules.last().expect("a rule").span,
             });
-            // The `rfl` is the compiler's, at the last rule's span: noting it
+            // The `byComputing` is the compiler's, at the last rule's span: noting it
             // would replace that rule's own reference.
             match crate::Elaborator::unnoted_in(cx, |cx| check(cx, &rfl, &goal)) {
                 Err(e) if e.code == "E-REFL" => {
                     return Err(e.with_note(format!(
-                        "this is the goal after rewriting; `rewrite p` without `in` closes it with `rfl`: `{}`",
+                        "this is the goal after rewriting; `rewrite p` without `then` closes it with `byComputing`: `{}`",
                         cx.show(&goal)
                     )));
                 }
@@ -628,7 +628,7 @@ fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equa
             span: rule.proof.span(),
             dot: false,
         };
-        lemma(cx, Builtin::EqSym, &[piped])?
+        lemma(cx, Builtin::EqFlipped, &[piped])?
     };
     Ok(Equation {
         carrier,
@@ -642,7 +642,7 @@ fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equa
 
 /// Proves the premises of a rule that has matched which matching left
 /// unknown, in order: each by a hypothesis in scope of its type (the facts
-/// a congruence lemma gives among them), or else by `omega`. The last
+/// a congruence lemma gives among them), or else by `arithmetic`. The last
 /// `recent` variables are those bound by the functions the rule is inside,
 /// for the message.
 fn discharge(
@@ -776,7 +776,7 @@ fn unproved_premise(
     )
     .with_note(
         "a premise left as `_`, or left off the end, is proved by a hypothesis in scope of \
-         exactly its type, or else by `omega`; neither did",
+         exactly its type, or else by `arithmetic`; neither did",
     );
     let level = cx.level();
     let facts: Vec<String> = (level - recent..level)
@@ -820,7 +820,7 @@ fn rewrite_once(
     place: Place,
     goal: &Value,
     written: Option<Term>,
-    // The term after `in`, if there is one: a rule that finds nothing can
+    // The term after `then`, if there is one: a rule that finds nothing can
     // check whether it already proves the goal.
     body: Option<&Expr>,
     remaining: &mut u64,
@@ -1424,8 +1424,8 @@ fn replace_occurrences_carrying(
     // them unsolved, so it is computed again with their solutions, and the
     // new goal holds them as the values they are. Left as solved unknowns,
     // nothing the body is compared with is ever identical to them, so a
-    // comparison `rfl`-close to the goal unfolds both sides in full
-    // (SW-917: `rewrite lcg.unfold in …`, whose `% 2147483648` unfolds a
+    // comparison `byComputing`-close to the goal unfolds both sides in full
+    // (SW-917: `rewrite lcg.unfold then …`, whose `% 2147483648` unfolds a
     // `Nat.divFuel` step per `Succ` of the `+ 12345`, took 24 s).
     // Only when the new goal reads back the same either way: one that
     // computes further now would change what the body (and a later rule)
@@ -1977,7 +1977,7 @@ pub(crate) fn key(term: &Term, under: usize) -> Option<Key> {
         Term::Pi(..) => Key::Other("function type"),
         Term::Lam(..) => Key::Other("function"),
         Term::Eq(..) => Key::Other("equation"),
-        Term::Refl => Key::Other("rfl"),
+        Term::Refl => Key::Other("byComputing"),
         Term::J(..) => Key::Other("J"),
         Term::Proj(..) => Key::Other("projection"),
         Term::Quot(form, ..) => Key::Other(form.name()),
@@ -2224,7 +2224,7 @@ fn shown_computed(cx: &Ctx, value: &Value) -> String {
     }
 }
 
-/// Whether the goal, an equation, already holds by computing (`rfl`):
+/// Whether the goal, an equation, already holds by computing (`byComputing`):
 /// within what is left of the search budget, and solving nothing.
 fn holds_by_computing(cx: &mut Ctx, goal: &Value, remaining: &mut u64) -> Result<bool> {
     let g = cx.g();
@@ -2327,11 +2327,11 @@ struct Searched<'a> {
     /// The rule written the other way round would rewrite something in the
     /// goal: the direction is the mistake, not the search.
     other_direction: bool,
-    /// The term after `in` proves the goal as it is, without this rule.
+    /// The term after `then` proves the goal as it is, without this rule.
     without_rewrite: bool,
 }
 
-/// Whether `body`, the term after `in`, already checks against `goal` as it
+/// Whether `body`, the term after `then`, already checks against `goal` as it
 /// stands: the goal may already have computed past the rule (`depth + Succ
 /// more` is `Succ (depth + more)`). Tried within what is left of the search
 /// budget, and undone either way; a failed attempt reports nothing.
@@ -2503,7 +2503,7 @@ fn nothing_found(
     {
         error = error.with_note(format!(
             "`{name}` has `{shown_lhs}`: to rewrite a hypothesis rather than the goal, name it \
-             with `at`, as `rewrite … at {name} in …`"
+             with `at`, as `rewrite … at {name} then …`"
         ));
     }
     if let Some(equation) = crate::equation_notes::rule_equation(&rule.proof) {
@@ -2517,14 +2517,14 @@ fn nothing_found(
         ));
     }
     if done && !without_rewrite {
-        // Only a goal is tested (an equation `rfl` would prove). When the
+        // Only a goal is tested (an equation `byComputing` would prove). When the
         // proof already checks without the rewrite, the note above says so
         // more specifically, and this one would say nearly the same.
         error = error.with_note(match index {
-            0 => "the goal already holds by computing, so `rfl` proves it without a `rewrite`"
+            0 => "the goal already holds by computing, so `byComputing` proves it without a `rewrite`"
                 .to_string(),
             _ => format!(
-                "the goal already holds by computing{after}, so `rfl` proves it: this rule and \
+                "the goal already holds by computing{after}, so `byComputing` proves it: this rule and \
                  what follows it aren't needed"
             ),
         });

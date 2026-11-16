@@ -179,7 +179,7 @@ fn foreign_namespace() {
 #[test]
 fn a_failed_declaration_stops_only_what_uses_it() {
     let lib = "namespace Lib\n\ndef f: Nat := True\n\ndef k: Nat := 1\n";
-    let day = "namespace Day\n\nimport Lib (f, k)\n\ndef g: Nat := f\n\ntheorem gIs: g = 1 := rfl\n\ntheorem fIs: f + 1 = 2 := rfl\n\ndef fine: Nat := k\n\ndef wrong: Nat := False\n";
+    let day = "namespace Day\n\nimport Lib (f, k)\n\ndef g: Nat := f\n\ntheorem gIs: g = 1 := byComputing\n\ntheorem fIs: f + 1 = 2 := byComputing\n\ndef fine: Nat := k\n\ndef wrong: Nat := False\n";
     let other = "namespace Other\n\ndef h: Nat := 1\n\ntest \"h\" := h == 1\n";
     let files = [("lib.sw", lib), ("day.sw", day), ("other.sw", other)];
     let found = errors(&files);
@@ -214,9 +214,8 @@ fn a_failed_declaration_stops_only_what_uses_it() {
 /// for one, by full name, with what each needs.
 #[test]
 fn the_errors_of_a_load_name_what_has_one_and_what_waits() {
-    let lib =
-        "namespace Lib\n\ndef f: Nat := True\n\ndef k: Nat := 1\n\ntheorem wrong: k = 2 := rfl\n";
-    let day = "namespace Day\n\nimport Lib (f, k)\n\ndef g: Nat := f\n\ntheorem tg: g = 1 := rfl\n\ntest \"own\" := k == True\n\ntest \"uses g\" := g == 1\n\ntest \"fine\" := k == 1\n";
+    let lib = "namespace Lib\n\ndef f: Nat := True\n\ndef k: Nat := 1\n\ntheorem wrong: k = 2 := byComputing\n";
+    let day = "namespace Day\n\nimport Lib (f, k)\n\ndef g: Nat := f\n\ntheorem tg: g = 1 := byComputing\n\ntest \"own\" := k == True\n\ntest \"uses g\" := g == 1\n\ntest \"fine\" := k == 1\n";
     let (session, result) = load_target(&[("lib.sw", lib), ("day.sw", day)], &Target::Everything);
     assert!(result.is_err());
     let errors = session.errors();

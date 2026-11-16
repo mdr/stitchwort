@@ -414,7 +414,7 @@ fn the_cache_replays_parameter_defaults() {
     assert!(cold.dump.contains("\naccepted true\n"), "{}", cold.dump);
     let report = copy.join("src/report.sw");
     let mut text = std::fs::read_to_string(&report).unwrap();
-    text.push_str("\ntheorem fourColumns: columns 4 = 7 := rfl\n");
+    text.push_str("\ntheorem fourColumns: columns 4 = 7 := byComputing\n");
     std::fs::write(&report, text).unwrap();
     let warm = run(&copied, false, Some(&cache));
     let _ = std::fs::remove_dir_all(&copy);
@@ -445,7 +445,7 @@ fn the_cache_keeps_an_interface_without_eta() {
     std::fs::write(
         project.join("src/use.sw"),
         "namespace Use\n\nimport Sizes (Sized)\n\n\
-         theorem dictEta (s: Sized Nat): s = { size = s.size } := rfl\n",
+         theorem dictEta (s: Sized Nat): s = { size = s.size } := byComputing\n",
     )
     .unwrap();
     let source = Source::Project("no-eta".into(), project.clone());
@@ -1256,10 +1256,10 @@ fn quotient_forms_round_trip_through_the_cache() {
                   def AllTrue (x: Bool) (y: Bool): Prop := Unit\n\
                   def Q: Type := Quot Bool AllTrue\n\
                   theorem same: (Quot.mk False: Q) = Quot.mk True := Quot.sound Trivial\n\
-                  def zeroOf (q: Q): Nat := Quot.lift (b => 0) (x y r => rfl) q\n\
+                  def zeroOf (q: Q): Nat := Quot.lift (b => 0) (x y r => byComputing) q\n\
                   theorem alwaysZero (q: Q): zeroOf q = 0 :=\n  \
-                  Quot.ind [p := q => zeroOf q = 0] (b => rfl) q\n\
-                  theorem zeroOfTrue: zeroOf (Quot.mk True) = 0 := rfl\n";
+                  Quot.ind [p := q => zeroOf q = 0] (b => byComputing) q\n\
+                  theorem zeroOfTrue: zeroOf (Quot.mk True) = 0 := byComputing\n";
     let dir = temp_project("quotients", &[("src/Quotients.sw", source)]);
     let project = Source::Project("p".to_string(), dir.clone());
     let fresh = run(&project, true, None);
@@ -1461,13 +1461,13 @@ fn identical_updates_are_equal_cold_and_warm() {
                  type Shape =\n  | Dot (ref: Nat) (id: Nat)\n  | Circle (ref: Nat) (id: Nat) (radius: Nat)\n\n\
                  def setId (c: Shape) (x: Nat): Shape := { c | id = x }\n\n\
                  theorem idRead (c: Shape) (x: Nat): ({ c | id = x }).id = x :=\n  \
-                 match c with\n    | Dot _ _ => rfl\n    | Circle _ _ _ => rfl\n",
+                 match c with\n    | Dot _ _ => byComputing\n    | Circle _ _ _ => byComputing\n",
             ),
             (
                 "src/User.sw",
                 "namespace User\n\nimport Shapes (Shape, setId, idRead)\n\n\
                  def setIdAgain (c: Shape) (x: Nat): Shape := { c | id = x }\n\n\
-                 theorem same (c: Shape) (x: Nat): setId c x = setIdAgain c x := rfl\n\n\
+                 theorem same (c: Shape) (x: Nat): setId c x = setIdAgain c x := byComputing\n\n\
                  theorem read (c: Shape) (x: Nat): (setIdAgain c x).id = x := idRead c x\n",
             ),
         ],

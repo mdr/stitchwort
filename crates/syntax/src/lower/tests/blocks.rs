@@ -93,12 +93,12 @@ fn a_statement_may_start_with_a_record() {
         ty.clone()
     };
     for text in [
-        "theorem t (p: P): { p | x = 3 }.x = 3 := rfl\n",
-        "theorem t: { id = 2, x = 1 }.x = 1 := rfl\n",
-        "theorem t: { id = 2, x = 1 } = p := rfl\n",
-        "theorem t (p: P): { p | x }.x = x := rfl\n",
-        "theorem t (r: R): {} = r := rfl\n",
-        "def f: Nat -> { p | x = 3 }.x = 3 := rfl\n",
+        "theorem t (p: P): { p | x = 3 }.x = 3 := byComputing\n",
+        "theorem t: { id = 2, x = 1 }.x = 1 := byComputing\n",
+        "theorem t: { id = 2, x = 1 } = p := byComputing\n",
+        "theorem t (p: P): { p | x }.x = x := byComputing\n",
+        "theorem t (r: R): {} = r := byComputing\n",
+        "def f: Nat -> { p | x = 3 }.x = 3 := byComputing\n",
     ] {
         let ty = result(text);
         assert!(matches!(ty, Expr::Binary(BinOp::Eq, ..)), "{text}: {ty:?}");

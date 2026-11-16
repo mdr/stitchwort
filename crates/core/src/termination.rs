@@ -102,7 +102,7 @@
 //! positivity rules**: without them a looping definition passes, every call
 //! recorded smaller (`examples/soundness/termination-relies-on-positivity-*.sw`;
 //! with the direct rule and condition 2 both removed by hand, 01 and 04 are
-//! accepted and `rfl` on 04 never finishes; `reject/termination-rebuilt-pinned-proof.sw`
+//! accepted and `byComputing` on 04 never finishes; `reject/termination-rebuilt-pinned-proof.sw`
 //! is a refused loop whose error names such a false `<`). Which order
 //! counts: a function that returns data takes apart only proofs whose
 //! fields are all proofs (`E-PROP-ELIM`, D1980), so every data argument it

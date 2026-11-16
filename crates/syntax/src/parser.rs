@@ -269,8 +269,8 @@ struct Modes {
     /// `_` is the next step, not an argument of the line before.
     calc_depth: u32,
     /// While a `rewrite` rule or target is being parsed: the token it starts
-    /// at. An `in` outside brackets ends it (`in` is an ordinary name
-    /// elsewhere).
+    /// at. A `then` outside brackets ends it, and so does an `in`, so that
+    /// the old spelling `rewrite h in t` gets an error naming `then`.
     rewrite_rule: Option<usize>,
     /// While an arm's guard is being parsed: the token it starts at. A `=>`
     /// outside brackets ends it, so `| x if flag => e` is not a lambda.
@@ -641,7 +641,7 @@ impl<'t> Parser<'t> {
     }
 
     /// Whether the token at `i` belongs to an enclosing construct, whatever
-    /// its column: the next `calc` step, the `in` or `at` ending a `rewrite`
+    /// its column: the next `calc` step, the `then` or `at` ending a `rewrite`
     /// rule, a guard's `=>`. No block starts there.
     fn ends_construct(&self, i: usize) -> bool {
         if self.modes.calc_depth > 0 && self.starts_calc_step(i) {
@@ -688,14 +688,14 @@ impl<'t> Parser<'t> {
             .is_some_and(|t| t.column == limit && self.is_infix_only(&t.tok))
     }
 
-    /// Whether the token at `i` is the `in` (or, in a rule, the `at`) that
-    /// ends the `rewrite` rule or target starting at token `start`: one not
+    /// Whether the token at `i` is the `then` or `in` (or, in a rule, the
+    /// `at`) that ends the `rewrite` rule or target starting at token `start`: one not
     /// inside brackets opened since, nor a field (`p.at`). An `at` that starts
-    /// the rule is a name (`rewrite at b h in t`).
+    /// the rule is a name (`rewrite at b h then t`).
     #[inline(never)]
     fn ends_rewrite_rule(&self, i: usize, start: usize) -> bool {
         let word = match self.tokens.get(i).map(|t| &t.tok) {
-            Some(Tok::KwIn) => true,
+            Some(Tok::KwThen | Tok::KwIn) => true,
             Some(Tok::Lower(w)) => w == "at" && self.modes.rewrite_at && i > start,
             _ => false,
         };
@@ -3195,11 +3195,11 @@ impl<'t> Parser<'t> {
         Ok(())
     }
 
-    /// `rewrite p, <- q at h in t`, after `rewrite`: rules separated by
+    /// `rewrite p, <- q at h then t`, after `rewrite`: rules separated by
     /// commas, each optionally `<-`, then (optionally) `at` and the target,
-    /// then (optionally) `in` and the body. `at` and `in` are only special
-    /// where a rule could end: outside brackets, inside a rule (and `in`
-    /// inside the target).
+    /// then (optionally) `then` and the body. `at` and `then` are only
+    /// special where a rule could end: outside brackets, inside a rule (and
+    /// `then` inside the target).
     #[inline(never)]
     fn rewrite_expr(&mut self, start: u32) -> Result<()> {
         let saved = (self.modes.rewrite_rule.take(), self.modes.rewrite_at);
@@ -3232,7 +3232,11 @@ impl<'t> Parser<'t> {
         }
         if matches!(self.peek(), Some(Tok::Lower(x)) if x == "at") {
             let at = self.bump().span;
-            if self.peek().is_none_or(|t| *t == Tok::KwIn) || self.is_stop(self.pos) {
+            if self
+                .peek()
+                .is_none_or(|t| matches!(t, Tok::KwThen | Tok::KwIn))
+                || self.is_stop(self.pos)
+            {
                 return Err(rewrite_at_without_target(at).into());
             }
             self.modes.rewrite_rule = Some(self.pos);
@@ -3241,76 +3245,38 @@ impl<'t> Parser<'t> {
             self.modes.rewrite_rule = None;
             target?;
         }
-        // `in` may also start a line of its own, at the `rewrite`'s column or
-        // right of it, where the enclosing block's column would end the
-        // expression: no statement starts with `in`.
-        let own_line = self
-            .tokens
-            .get(self.pos)
-            .is_some_and(|t| t.tok == Tok::KwIn && t.line_start && t.column >= column);
-        if self.peek() == Some(&Tok::KwIn) || own_line {
-            let first = self.bump().span;
-            let body_start = self.mark();
+        // `then` may also start a line of its own, at the `rewrite`'s column
+        // or right of it, where the enclosing block's column would end the
+        // expression: no statement starts with `then`.
+        let own_line = |tok: Tok| {
+            self.tokens
+                .get(self.pos)
+                .is_some_and(|t| t.tok == tok && t.line_start && t.column >= column)
+        };
+        if self.peek() == Some(&Tok::KwIn) || own_line(Tok::KwIn) {
+            return Err(old_in(self.tokens[self.pos].span, "rewrite").into());
+        }
+        if self.peek() == Some(&Tok::KwThen) || own_line(Tok::KwThen) {
+            self.bump();
             self.expr()?;
-            self.rewrite_membership(body_start, first)?;
         }
         self.node(start, NodeKind::Rewrite);
         Ok(())
     }
 
-    /// `cases` or `cases in t`, after the `cases` (docs/proposals/simp.md
+    /// `cases` or `cases then t`, after the `cases` (docs/proposals/simp.md
     /// §5.1). As for `rewrite`, the body runs to the end of the expression.
     fn cases_expr(&mut self, start: u32) -> Result<()> {
-        if self.peek() != Some(&Tok::KwIn) {
+        if self.peek() == Some(&Tok::KwIn) {
+            return Err(old_in(self.tokens[self.pos].span, "cases").into());
+        }
+        if self.peek() != Some(&Tok::KwThen) {
             return Ok(());
         }
         self.bump();
         self.expr()?;
         self.node(start, NodeKind::Cases);
         Ok(())
-    }
-
-    /// A `rewrite` body that is a membership test, `x in xs`, its `in` not
-    /// in brackets: `rewrite h x in xs in t` reads as the rule `h x` and the
-    /// body `xs in t`, since a bare `in` ends a rule. Whichever was meant,
-    /// brackets say it (D1201). The body starts at token `body_start` and
-    /// ends at the last token read.
-    #[inline(never)]
-    fn rewrite_membership(&self, body_start: u32, first: Span) -> Result<()> {
-        let end = self.pos as u32;
-        // The body is a membership test if the outermost construct it is,
-        // the last marked from its start to its end, is one.
-        let whole = self
-            .marks
-            .iter()
-            .rev()
-            .take_while(|m| m.end == end)
-            .find(|m| m.start == body_start);
-        if whole.is_none_or(|m| m.kind != NodeKind::Membership) {
-            return Ok(());
-        }
-        // Its operator follows its left operand: the longest construct
-        // marked from the body's start that ends before the body does, or
-        // else its first token.
-        let operand_end = self
-            .marks
-            .iter()
-            .filter(|m| m.start == body_start && m.end < end)
-            .map(|m| m.end)
-            .max()
-            .unwrap_or(body_start + 1);
-        let op = self.tokens[operand_end as usize].span;
-        Err(Diagnostic::error(
-            "E-PARSE",
-            "a membership test in a `rewrite` needs brackets",
-        )
-        .with_label(first, "this `in` ends the rewrite rule")
-        .with_label(op, "so this `in` is read as a membership test in the body")
-        .with_note(
-            "a bare `in` ends a `rewrite` rule, so membership in a rule is written in brackets, \
-             `rewrite h (x in xs) in …`; a membership test as the body is bracketed too, \
-             `rewrite h in (x in xs)`",
-        ).into())
     }
 
     /// `(x : A) -> B` or `[x : A] -> B`. Out of line, as `if_expr` is.
@@ -4303,7 +4269,10 @@ impl<'t> Parser<'t> {
             self.node(start, NodeKind::Section);
         }
         if self.peek() == Some(&Tok::KwCases) && self.peek_at(1) == Some(&Tok::KwIn) {
-            return Err(self.cases_in_argument().into());
+            return Err(old_in(self.tokens[self.pos + 1].span, "cases").into());
+        }
+        if self.peek() == Some(&Tok::KwCases) && self.peek_at(1) == Some(&Tok::KwThen) {
+            return Err(self.cases_then_argument().into());
         }
         Ok(())
     }
@@ -4346,8 +4315,8 @@ impl<'t> Parser<'t> {
                     | Tok::Str(_)
                     | Tok::StrStart(_)
                     | Tok::KwInclude
-                    | Tok::KwOmega
-                    | Tok::KwRing
+                    | Tok::KwArithmetic
+                    | Tok::KwAlgebra
                     | Tok::TypeU
                     | Tok::Prop
                     | Tok::LParen
@@ -4375,23 +4344,24 @@ impl<'t> Parser<'t> {
         argument_prefix(self.tokens, i) && !self.is_stop(i)
     }
 
-    /// Whether the next token is a `cases` with no `in` after it, which is
-    /// a whole term and so can be an argument, as `omega` can.
+    /// Whether the next token is a `cases` with no `then` after it, which
+    /// is a whole term and so can be an argument, as `arithmetic` can.
     fn bare_cases(&self) -> bool {
-        self.peek() == Some(&Tok::KwCases) && self.peek_at(1) != Some(&Tok::KwIn)
+        self.peek() == Some(&Tok::KwCases)
+            && !matches!(self.peek_at(1), Some(Tok::KwThen | Tok::KwIn))
     }
 
-    /// `f cases in t`: a `cases in` as an argument, whose body would take
+    /// `f cases then t`: a `cases then` as an argument, whose body would take
     /// the rest of the line.
     #[inline(never)]
-    fn cases_in_argument(&self) -> Diagnostic {
+    fn cases_then_argument(&self) -> Diagnostic {
         error(
             self.tokens[self.pos].span,
-            "`cases in …` as an argument needs brackets",
+            "`cases then …` as an argument needs brackets",
         )
         .with_note(
-            "the body of `cases in` runs to the end of the expression, so as an argument \
-             it's written `(cases in t)`",
+            "the body of `cases then` runs to the end of the expression, so as an argument \
+             it's written `(cases then t)`",
         )
     }
 
@@ -4649,7 +4619,7 @@ impl<'t> Parser<'t> {
         Ok(true)
     }
 
-    /// The facts of `omega [..]`, `ring [..]` and the like: a list of terms
+    /// The facts of `arithmetic [..]`, `algebra [..]` and the like: a list of terms
     /// with no spread.
     fn fact_list(&mut self) -> Result<()> {
         if let Some((dots, end)) = self.list_expr(self.mark())? {
@@ -4776,17 +4746,17 @@ impl<'t> Parser<'t> {
                     }
                 }
             }
-            Some(Tok::KwOmega) => {
+            Some(Tok::KwArithmetic) => {
                 self.bump();
-                // `omega [e1, e2]`: extra facts, by term.
+                // `arithmetic [e1, e2]`: extra facts, by term.
                 if self.peek() == Some(&Tok::LBracket) {
                     self.fact_list()?;
                     self.node(start, NodeKind::Omega);
                 }
             }
-            Some(Tok::KwRing) => {
+            Some(Tok::KwAlgebra) => {
                 self.bump();
-                // `ring [h1, h2]`: hypotheses, by term.
+                // `algebra [h1, h2]`: hypotheses, by term.
                 if self.peek() == Some(&Tok::LBracket) {
                     self.fact_list()?;
                     self.node(start, NodeKind::Ring);
@@ -4960,8 +4930,8 @@ fn describe(tok: &Tok) -> String {
         Tok::KwNamespace => "`namespace`".into(),
         Tok::KwCalc => "`calc`".into(),
         Tok::KwRewrite => "`rewrite`".into(),
-        Tok::KwOmega => "`omega`".into(),
-        Tok::KwRing => "`ring`".into(),
+        Tok::KwArithmetic => "`arithmetic`".into(),
+        Tok::KwAlgebra => "`algebra`".into(),
         Tok::KwCases => "`cases`".into(),
         Tok::KwDecreasing => "`decreasing`".into(),
         Tok::KwOpaque => "`opaque`".into(),
@@ -5007,7 +4977,7 @@ fn lambda_result_type(colon: Span) -> Diagnostic {
     )
 }
 
-/// `rewrite h at in t`: the `at` after a rule starts the hypothesis to
+/// `rewrite h at then t`: the `at` after a rule starts the hypothesis to
 /// rewrite, so a hypothesis called `at` can't be an argument of the rule.
 fn rewrite_at_without_target(at: Span) -> Diagnostic {
     error(
@@ -5018,6 +4988,15 @@ fn rewrite_at_without_target(at: Span) -> Diagnostic {
         "`at` is reserved after a rule, so a hypothesis called `at` can't be passed to the rule: \
          give the hypothesis another name",
     )
+}
+
+/// `rewrite h in t` or `cases in t`: the spelling before `then` replaced
+/// `in` there (D3648), so `in` is only membership.
+fn old_in(at: Span, construct: &str) -> Diagnostic {
+    error(at, format!("write `then`, not `in`, after `{construct}`")).with_note(format!(
+        "the proof that follows a `{construct}` comes after `then`: `{construct} … then t`; \
+         `in` is only a membership test"
+    ))
 }
 
 /// An `E-PARSE` error at `span`, labelled with its message.

@@ -391,8 +391,8 @@ fn refused_after_editing_the_core(from: &str, to: &str) -> Vec<stitchwort_syntax
 #[test]
 fn a_renamed_binder_of_a_shaped_builtin_is_refused() {
     let errors = refused_after_editing_the_core(
-        "(yesEq: ∀ (h: p) => y h = z) (noEq: ∀ (r: ¬p) => n r = z): Decidable.elim d y n = z :=\n  match d with\n    | { holds = True, sound = s, complete = c } => yesEq (s rfl)",
-        "(yesEqual: ∀ (h: p) => y h = z) (noEq: ∀ (r: ¬p) => n r = z): Decidable.elim d y n = z :=\n  match d with\n    | { holds = True, sound = s, complete = c } => yesEqual (s rfl)",
+        "(yesEq: ∀ (h: p) => y h = z) (noEq: ∀ (r: ¬p) => n r = z): Decidable.elim d y n = z :=\n  match d with\n    | { holds = True, sound = s, complete = c } => yesEq (s byComputing)",
+        "(yesEqual: ∀ (h: p) => y h = z) (noEq: ∀ (r: ¬p) => n r = z): Decidable.elim d y n = z :=\n  match d with\n    | { holds = True, sound = s, complete = c } => yesEqual (s byComputing)",
     );
     let e = errors
         .iter()

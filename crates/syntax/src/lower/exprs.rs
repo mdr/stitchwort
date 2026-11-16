@@ -722,7 +722,7 @@ fn include(node: Node<'_>) -> Lowering<Expr> {
 }
 
 /// An expression of one token: a name, a literal, `_`, `?`, `Type`, `Prop`,
-/// and `omega`, `ring` and `cases` without their parts.
+/// and `arithmetic`, `algebra` and `cases` without their parts.
 fn leaf_expr(leaf: Leaf<'_>) -> Lowering<Expr> {
     let span = leaf.span();
     Ok(match leaf.tok() {
@@ -735,11 +735,11 @@ fn leaf_expr(leaf: Leaf<'_>) -> Lowering<Expr> {
         Tok::Question => Expr::Goal(span),
         Tok::TypeU => Expr::Type(0, span),
         Tok::Prop => Expr::Prop(span),
-        Tok::KwOmega => Expr::Omega {
+        Tok::KwArithmetic => Expr::Omega {
             facts: Vec::new(),
             span,
         },
-        Tok::KwRing => Expr::Ring {
+        Tok::KwAlgebra => Expr::Ring {
             facts: Vec::new(),
             span,
         },
@@ -937,7 +937,7 @@ mod tests {
             "[1, ..xs, 3]",
             "[]",
             "include \"x.txt\"",
-            "omega",
+            "arithmetic",
         ];
         let text: String = bodies
             .iter()

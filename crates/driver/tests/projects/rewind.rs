@@ -961,9 +961,9 @@ const GAP_A: &str = "namespace Gap.A\n\ndef one: Nat := 1\n\ndef two: Nat := 2\n
 /// it can be checked against a stand-in for `one`; `oneIs` must compute
 /// `one`, so it waits for it.
 const GAP_B: &str = "namespace Gap.B\n\nimport Gap.A (one, two)\n\n\
-    theorem twoIs: two = 2 := rfl\n\n\
-    theorem oneSame: one = one := rfl\n\n\
-    theorem oneIs: one = 1 := rfl\n";
+    theorem twoIs: two = 2 := byComputing\n\n\
+    theorem oneSame: one = one := byComputing\n\n\
+    theorem oneIs: one = 1 := byComputing\n";
 
 fn gap_files(a: &str, nonce: &str) -> BTreeMap<String, String> {
     BTreeMap::from([

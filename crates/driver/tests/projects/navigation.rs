@@ -526,7 +526,7 @@ fn shared_fields() {
 fn update_lemmas() {
     let source = "type Shape =\n  | Dot (id: Text)\n  | Circle (count: Nat) (id: Text)\n\n\
                   theorem renamed (s: Shape): ({ s | id = \"a\" }).id = \"a\" :=\n  \
-                    rewrite Shape.id.update.id in rfl\n";
+                    rewrite Shape.id.update.id then byComputing\n";
     let mut session = Session::navigable();
     session.load("one.sw", source).expect("checks");
     let index = index_of(&session);
@@ -593,7 +593,7 @@ fn a_declared_lowercase_name_in_a_signature_is_not_a_variable() {
 
 /// Every name in a rewrite list refers to its own declaration, whatever its
 /// position, direction or `in` target (SW-2586): a term the rewrite
-/// generates (the closing `rfl`) must not take a written name's place.
+/// generates (the closing `byComputing`) must not take a written name's place.
 #[test]
 fn every_name_in_a_rewrite_list() {
     let source = "import Std (Nat)\n\n\
@@ -602,7 +602,7 @@ fn every_name_in_a_rewrite_list() {
                     | [] => 0\n  \
                     | [item, ..rest] => item.price + totalOf rest\n\n\
                   theorem totalAppend (others: List Item): (items: List Item) -> totalOf (items ++ others) = totalOf items + totalOf others\n  \
-                    | [] => rfl\n  \
+                    | [] => byComputing\n  \
                     | [item, ..rest] => rewrite totalAppend others rest, Nat.addAssoc\n\n\
                   theorem forward (a b c d: Nat): ((a + b) + c) + d = a + (b + (c + d)) :=\n  \
                     rewrite Nat.addAssoc a b c, Nat.addAssoc a (b + c) d, Nat.addAssoc b c d\n\n\
@@ -611,9 +611,9 @@ fn every_name_in_a_rewrite_list() {
                   theorem back (a b c d: Nat): a + (b + (c + d)) = ((a + b) + c) + d :=\n  \
                     rewrite <- Nat.addAssoc b c d, <- Nat.addAssoc a (b + c) d, <- Nat.addAssoc a b c\n\n\
                   theorem within (a b c: Nat) (h: (a + b) + c = 0): a + (b + c) = 0 :=\n  \
-                    rewrite <- Nat.addAssoc a b c in h\n\n\
+                    rewrite <- Nat.addAssoc a b c then h\n\n\
                   theorem at_h (a b c: Nat) (h: a + (b + c) = 0): (a + b) + c = 0 :=\n  \
-                    rewrite <- Nat.addAssoc a b c at h in h\n";
+                    rewrite <- Nat.addAssoc a b c at h then h\n";
     let mut session = Session::navigable();
     session.load("one.sw", source).expect("checks");
     let index = index_of(&session);
@@ -651,9 +651,9 @@ fn the_function_in_match_induct() {
                     | [x, ..xs] => if k ≤ x then Succ (countAbove k xs) else countAbove k xs\n\n\
                   theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=\n  \
                     match induct (countAbove k xs) with\n    \
-                      | eq1 => omega\n    \
+                      | eq1 => arithmetic\n    \
                       | eq2IfTrue y ys h ih => ih\n    \
-                      | eq2IfFalse y ys h ih => omega\n";
+                      | eq2IfFalse y ys h ih => arithmetic\n";
     let mut session = Session::navigable();
     session.load("one.sw", source).expect("checks");
     let index = index_of(&session);

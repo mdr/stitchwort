@@ -336,7 +336,7 @@ type Fn = { at: Nat → Nat }
 
 def NatEq (a: Nat) (b: Nat): Prop := a = b
 
-def liftFn (q: Quot Nat NatEq): Fn := Quot.lift (b => { at = y => b }) (x y h => rewrite h in rfl) q
+def liftFn (q: Quot Nat NatEq): Fn := Quot.lift (b => { at = y => b }) (x y h => rewrite h then byComputing) q
 
 type Box = { value: Nat }
 
@@ -352,7 +352,7 @@ def countDown (x: Nat): Box
 :=
   match x with
     | Zero => { value = 0 }
-    | Succ m => countDown m [decreasing := omega]
+    | Succ m => countDown m [decreasing := arithmetic]
 
 def valueOf (x: Nat): Nat := (countDown x).value
 
@@ -361,21 +361,21 @@ def leafOf (x: Nat): Nat
 :=
   match x with
     | Zero => (countDown x).value
-    | Succ m => leafOf m [decreasing := omega]
+    | Succ m => leafOf m [decreasing := arithmetic]
 
 def inner (x: Nat): Box
   decreasing x
 :=
   match x with
     | Zero => { value = 1 }
-    | Succ m => inner m [decreasing := omega]
+    | Succ m => inner m [decreasing := arithmetic]
 
 def outer (x: Nat): Box
   decreasing x
 :=
   match x with
     | Zero => inner x
-    | Succ m => outer m [decreasing := omega]
+    | Succ m => outer m [decreasing := arithmetic]
 
 def onOuter (x: Nat): Nat :=
   match (outer x).value with
@@ -387,14 +387,14 @@ def innerN (x: Nat): Nat
 :=
   match x with
     | Zero => 1
-    | Succ m => innerN m [decreasing := omega]
+    | Succ m => innerN m [decreasing := arithmetic]
 
 def outerN (x: Nat): Nat
   decreasing x
 :=
   match x with
     | Zero => innerN x
-    | Succ m => outerN m [decreasing := omega]
+    | Succ m => outerN m [decreasing := arithmetic]
 
 def onOuterN (x: Nat): Nat :=
   match outerN x with
@@ -407,19 +407,19 @@ theorem reflInner (x: Nat): x = x
   decreasing x
 :=
   match x with
-    | Zero => rfl
-    | Succ m => rewrite reflInner m [decreasing := omega] in rfl
+    | Zero => byComputing
+    | Succ m => rewrite reflInner m [decreasing := arithmetic] then byComputing
 
 theorem reflOuter (x: Nat): x = x
   decreasing x
 :=
   match x with
     | Zero => reflInner x
-    | Succ m => rewrite reflOuter m [decreasing := omega] in rfl
+    | Succ m => rewrite reflOuter m [decreasing := arithmetic] then byComputing
 
 def withProof (x: Nat): Nat := keepProof x (reflOuter x)
 
-def jOuter (x: Nat): Nat := J (y e => Nat) (outerN x) (rfl: x = x)
+def jOuter (x: Nat): Nat := J (y e => Nat) (outerN x) (byComputing: x = x)
 
 def jRefl (x: Nat): Nat := J (y e => Nat) x (reflOuter x)
 
@@ -430,14 +430,14 @@ def dictInner (x: Nat): Dict
 :=
   match x with
     | Zero => { size = y => y }
-    | Succ m => dictInner m [decreasing := omega]
+    | Succ m => dictInner m [decreasing := arithmetic]
 
 def dictOuter (x: Nat): Dict
   decreasing x
 :=
   match x with
     | Zero => dictInner x
-    | Succ m => dictOuter m [decreasing := omega]
+    | Succ m => dictOuter m [decreasing := arithmetic]
 
 def dict: Dict := dictOuter 2
 
@@ -446,7 +446,7 @@ def liftLeaf (q: Quot Nat NatEq) (x: Nat): Fn
 :=
   match x with
     | Zero => liftFn q
-    | Succ m => liftLeaf q m [decreasing := omega]
+    | Succ m => liftLeaf q m [decreasing := arithmetic]
 "#;
 
 /// The operations on fields of calls. `liftFn` takes the context's `t` as
@@ -697,11 +697,11 @@ def idD (x: Nat) (k: Nat): Nat
 :=
   match k with
     | Zero => x
-    | Succ m => idD x m [decreasing := omega]
+    | Succ m => idD x m [decreasing := arithmetic]
 
 def idDict: Id Nat := { it = x => x }
 
-def liftId (q: Quot Nat NatEq) (x: Nat): Nat := Quot.lift (b => x) (a b h => rfl) q
+def liftId (q: Quot Nat NatEq) (x: Nat): Nat := Quot.lift (b => x) (a b h => byComputing) q
 
 def q0: Quot Nat NatEq := Quot.mk 0
 
@@ -710,7 +710,7 @@ def boxId (x: Nat) (k: Nat): Box
 :=
   match k with
     | Zero => { value = x }
-    | Succ m => boxId x m [decreasing := omega]
+    | Succ m => boxId x m [decreasing := arithmetic]
 
 def numMatch (n: Nat): Nat :=
   match n with
@@ -1296,20 +1296,20 @@ def two (x: Nat): Nat
 :=
   match x with
     | Zero => 2
-    | Succ m => two m [decreasing := omega]
+    | Succ m => two m [decreasing := arithmetic]
 
 def isPos (n: Nat): Nat :=
   match n with
     | Zero => 0
     | Succ _ => 1
 
-theorem nested (x y: Nat): x + (y + two 0) = x + y + 2 := rfl
+theorem nested (x y: Nat): x + (y + two 0) = x + y + 2 := byComputing
 
-theorem deeper (x y z: Nat): x + (y + (z + two 0)) = Succ (Succ (x + (y + z))) := rfl
+theorem deeper (x y z: Nat): x + (y + (z + two 0)) = Succ (Succ (x + (y + z))) := byComputing
 
-theorem twice (x y: Nat): x + (two 0 + (y + two 0)) = x + (y + 4) := rfl
+theorem twice (x y: Nat): x + (two 0 + (y + two 0)) = x + (y + 4) := byComputing
 
-theorem matched (x y: Nat): isPos (x + (y + two 0)) = 1 := rfl
+theorem matched (x y: Nat): isPos (x + (y + two 0)) = 1 := byComputing
 
 def small (n: Nat): Nat :=
   match n with
@@ -1318,9 +1318,9 @@ def small (n: Nat): Nat :=
     | _ => 12
 
 -- Numeral arms: a `NumCase`, which reads the sum for its `Succ`s.
-theorem numberMatched (x y: Nat): small (x + (y + two 0)) = 12 := rfl
+theorem numberMatched (x y: Nat): small (x + (y + two 0)) = 12 := byComputing
 
-theorem nestedInt (x y: Nat): (x + (y + two 0)).toInt = x.toInt + y.toInt + 2 := rfl
+theorem nestedInt (x y: Nat): (x + (y + two 0)).toInt = x.toInt + y.toInt + 2 := byComputing
 "#;
 
 #[test]
@@ -1345,7 +1345,8 @@ fn load_nested(extra: &str) -> (Result<(), String>, u64) {
 /// error, not acceptance and not E-RESOURCE.
 #[test]
 fn nested_sum_with_a_folded_number_is_still_told_apart() {
-    let (result, _) = load_nested("theorem wrong (x y: Nat): x + (y + two 0) = x + y + 3 := rfl\n");
+    let (result, _) =
+        load_nested("theorem wrong (x y: Nat): x + (y + two 0) = x + y + 3 := byComputing\n");
     let err = result.expect_err("rejected");
     assert!(!err.contains("E-RESOURCE"), "{err}");
     assert!(err.contains("E-REFL"), "{err}");
@@ -1357,8 +1358,8 @@ fn nested_sum_with_a_folded_number_is_still_told_apart() {
 #[test]
 fn nested_sum_leaves_a_large_folded_product() {
     let (result, steps) = load_nested(
-        "theorem big (x y z: Nat): x + (y + 9007199254740992 * z) = x + (y + 9007199254740992 * z) := rfl\n\
-         theorem bigDiffers (x y z: Nat): x + (y + 9007199254740992 * z) = x + (z + 9007199254740992 * y) := rfl\n",
+        "theorem big (x y z: Nat): x + (y + 9007199254740992 * z) = x + (y + 9007199254740992 * z) := byComputing\n\
+         theorem bigDiffers (x y z: Nat): x + (y + 9007199254740992 * z) = x + (z + 9007199254740992 * y) := byComputing\n",
     );
     let err = result.expect_err("bigDiffers is rejected");
     assert!(!err.contains("E-RESOURCE"), "{err}");
@@ -1372,13 +1373,13 @@ fn nested_sum_leaves_a_large_folded_product() {
 /// (about 137,000 and 411,000 when written).
 #[test]
 fn nested_sum_reads_a_long_unfolded_chain() {
-    let chain = "def f (m: Nat) (y: Nat): Nat\n    decreasing m\n:=\n  match m with\n    | Zero => 0\n    | Succ k => y + f k y [decreasing := omega]\n";
+    let chain = "def f (m: Nat) (y: Nat): Nat\n    decreasing m\n:=\n  match m with\n    | Zero => 0\n    | Succ k => y + f k y [decreasing := arithmetic]\n";
     let (result, same_steps) = load_nested(&format!(
-        "{chain}\ntheorem same (x y: Nat): x + f 200 y = x + f 200 y := rfl\n"
+        "{chain}\ntheorem same (x y: Nat): x + f 200 y = x + f 200 y := byComputing\n"
     ));
     result.expect("same is accepted");
     let (result, differ_steps) = load_nested(&format!(
-        "{chain}\ntheorem differ (x y: Nat): x + f 200 y = x + f 199 y := rfl\n"
+        "{chain}\ntheorem differ (x y: Nat): x + f 200 y = x + f 199 y := byComputing\n"
     ));
     let err = result.expect_err("differ is rejected");
     assert!(!err.contains("E-RESOURCE"), "{err}");
@@ -1400,7 +1401,7 @@ const REP_END: &str = "def repEnd (n: Nat) (x: Nat) (e: Nat): Nat :=\n  match n 
 #[test]
 fn nested_sum_walks_a_plain_chain_once() {
     let (result, steps) = load_nested(&format!(
-        "{REP_END}\ntheorem same (x y: Nat): repEnd 400 x y = repEnd 399 x (x + y) := rfl\n"
+        "{REP_END}\ntheorem same (x y: Nat): repEnd 400 x y = repEnd 399 x (x + y) := byComputing\n"
     ));
     result.expect("same is accepted");
     eprintln!("steps: {steps}");
@@ -1413,7 +1414,7 @@ fn nested_sum_walks_a_plain_chain_once() {
 #[test]
 fn nested_sum_tells_plain_chains_apart() {
     let (result, _) = load_nested(&format!(
-        "{REP_END}\ntheorem differ (x y: Nat): repEnd 400 x y = repEnd 400 x x := rfl\n"
+        "{REP_END}\ntheorem differ (x y: Nat): repEnd 400 x y = repEnd 400 x x := byComputing\n"
     ));
     let err = result.expect_err("differ is rejected");
     assert!(!err.contains("E-RESOURCE"), "{err}");
@@ -1689,7 +1690,7 @@ fn nested_stuck_calls_of_one_definition_differ_quickly() {
 fn nested_stuck_calls_of_one_definition_are_a_mismatch_in_the_elaborator() {
     let nested = |base: &str| (0..DEEP).fold(base.to_string(), |t, _| format!("pred ({t})"));
     let source = format!(
-        "{PRED_PROGRAM}\ndef bad (a: Nat) (b: Nat): {} = {} := rfl\n",
+        "{PRED_PROGRAM}\ndef bad (a: Nat) (b: Nat): {} = {} := byComputing\n",
         nested("a"),
         nested("b")
     );

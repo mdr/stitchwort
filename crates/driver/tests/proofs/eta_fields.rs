@@ -20,7 +20,7 @@ def countAfter (blinks: Nat) (stones: List Nat): Nat :=
 
 def solve (stones: List Nat): Nat := countAfter 24 stones
 
-theorem same (stones: List Nat): solve stones = countAfter 24 stones := rfl
+theorem same (stones: List Nat): solve stones = countAfter 24 stones := byComputing
 "#;
 
 #[test]

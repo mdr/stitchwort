@@ -482,7 +482,7 @@ impl<'a> Walk<'a> {
                 body,
                 keyword,
                 at,
-                in_,
+                then,
                 span,
             } => {
                 self.tagged(what, *span, why);
@@ -497,8 +497,8 @@ impl<'a> Walk<'a> {
                 if let Some(at) = at {
                     self.span("Rewrite at", *at);
                 }
-                if let Some(in_) = in_ {
-                    self.span("Rewrite in", *in_);
+                if let Some(then) = then {
+                    self.span("Rewrite then", *then);
                 }
                 if let Some(body) = body {
                     self.expr(body);

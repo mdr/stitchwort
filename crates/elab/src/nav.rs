@@ -601,7 +601,7 @@ impl Elaborator {
         }
     }
 
-    /// A built-in name (`rfl`, `J`, `Quot`, …): its reference is to the
+    /// A built-in name (`byComputing`, `J`, `Quot`, …): its reference is to the
     /// declaration `std/core/Builtins.sw` documents it with (SW-1146). It's
     /// found by its key, not by scope: the library's names aren't all in
     /// scope in a program, and these mean the built-in wherever they're written.

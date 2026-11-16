@@ -1404,7 +1404,7 @@ pub(crate) fn no_reading(
                 ));
             }
             // `True` as a proposition is the test fact `True = True`, which
-            // `rfl` proves by computation (SW-3455).
+            // `byComputing` proves by computation (SW-3455).
             if polarity
                 && matches!(
                     force(&g, test.clone()),
@@ -1412,7 +1412,7 @@ pub(crate) fn no_reading(
                         if Some((d, c)) == g.env.registry().ctor(Builtin::True)
                 )
             {
-                d = d.with_note("`rfl` proves this: the fact computes to `True = True`");
+                d = d.with_note("`byComputing` proves this: the fact computes to `True = True`");
             }
             d.with_note("a test fact can always be matched by a name")
         }
@@ -1628,7 +1628,7 @@ fn refutes(cx: &Ctx, h: &Term, test: &Value) -> Result<(Term, Value)> {
     let imp = Icit::Implicit;
     let sym = [bool_up.clone(), e_up.clone(), ctor(Builtin::False)]
         .into_iter()
-        .fold(def(Builtin::EqSym), |t, a| Term::app_icit(t, a, imp));
+        .fold(def(Builtin::EqFlipped), |t, a| Term::app_icit(t, a, imp));
     let sym = Term::app(sym, h_up);
     let trans = [bool_up, ctor(Builtin::False), e_up, ctor(Builtin::True)]
         .into_iter()

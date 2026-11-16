@@ -369,7 +369,7 @@ impl Logs for SessionLogs<'_> {
 /// for lifting (`motive later`); and, step 4.2, `rewrite` rules whose own
 /// checks still waited after resuming (`rule settled`) and the defaults
 /// applied to them (`rule defaulted`), `rewrite`s and `cases` that waited
-/// (`tactic waited`), and runs of `omega`, `ring` and `auto` on a goal
+/// (`tactic waited`), and runs of `arithmetic`, `algebra` and `auto` on a goal
 /// holding an unknown the declaration will still settle, and of those the
 /// failures (`… on pending`, `… failed on pending`); and, for stage 5, the
 /// "infer the other side" catch it keeps (`leaf uninferred`).
@@ -474,14 +474,17 @@ impl Stats {
             ("rule settled", rule_settled.load(Ordering::Relaxed)),
             ("rule defaulted", rule_defaulted.load(Ordering::Relaxed)),
             ("tactic waited", tactic_waited.load(Ordering::Relaxed)),
-            ("omega on pending", omega_pending.load(Ordering::Relaxed)),
             (
-                "omega failed on pending",
+                "arithmetic on pending",
+                omega_pending.load(Ordering::Relaxed),
+            ),
+            (
+                "arithmetic failed on pending",
                 omega_pending_failed.load(Ordering::Relaxed),
             ),
-            ("ring on pending", ring_pending.load(Ordering::Relaxed)),
+            ("algebra on pending", ring_pending.load(Ordering::Relaxed)),
             (
-                "ring failed on pending",
+                "algebra failed on pending",
                 ring_pending_failed.load(Ordering::Relaxed),
             ),
             ("auto on pending", auto_pending.load(Ordering::Relaxed)),

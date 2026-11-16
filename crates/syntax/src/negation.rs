@@ -25,8 +25,8 @@ pub fn closes_operand(tok: &Tok) -> bool {
             | Question
             | TypeU
             | Prop
-            | KwOmega
-            | KwRing
+            | KwArithmetic
+            | KwAlgebra
             | KwCases
     )
 }

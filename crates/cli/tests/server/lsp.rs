@@ -486,9 +486,9 @@ fn built_in_names_lead_to_the_file_that_documents_them() {
 
 def mk (n: Nat): Quot Nat (a b => a = b) := Quot.mk n
 
-def same (n: Nat): n = n := rfl
+def same (n: Nat): n = n := byComputing
 
-theorem back (a b: Nat) (p: a = b): b = a := J (y q => y = a) rfl p
+theorem back (a b: Nat) (p: a = b): b = a := J (y q => y = a) byComputing p
 ";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
@@ -501,7 +501,7 @@ theorem back (a b: Nat) (p: a = b): b = a := J (y q => y = a) rfl p
     for (line, needle, name, doc) in [
         (0, "Quot", "Quot", "quotient of `a` by the relation"),
         (2, "Quot.mk", "Quot.mk", "element of the quotient"),
-        (4, "rfl", "rfl", "value equals itself"),
+        (4, "byComputing", "byComputing", "value equals itself"),
         (6, "J (", "J", "Transport along an equality"),
     ] {
         let col = lines[line].find(needle).unwrap() as u32;
@@ -790,7 +790,7 @@ test "vandalise writes the marker on a pretend disk" :=
 fn a_false_theorem_gets_a_counterexample_note() {
     let dir = temp_dir("counterexample");
     let file = dir.join("false.sw");
-    let text = "theorem subAdd (a: Nat) (b: Nat): (a - b) + b = a := rfl\n";
+    let text = "theorem subAdd (a: Nat) (b: Nat): (a - b) + b = a := byComputing\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
     let mut client = Client::start();
@@ -812,7 +812,7 @@ fn a_false_theorem_gets_a_counterexample_note() {
 fn several_notes_are_numbered_like_the_command_line() {
     let dir = temp_dir("numbered-notes");
     let file = dir.join("notes.sw");
-    let text = "def f (a: Nat) (b: Nat): List Nat := [a, b, 1]\n\ntheorem g (a: Nat) (b: Nat): f a b = [a, b, 2] := rfl\n";
+    let text = "def f (a: Nat) (b: Nat): List Nat := [a, b, 1]\n\ntheorem g (a: Nat) (b: Nat): f a b = [a, b, 2] := byComputing\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
     let mut client = Client::start();
@@ -2058,9 +2058,9 @@ fn selecting_a_type_declaration_shows_no_derived_types() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// `Eq.sym` and `Eq.trans` have results that do not depend on their explicit
+/// `Eq.flipped` and `Eq.trans` have results that do not depend on their explicit
 /// arguments, so they are elaborated by propagation (SW-301).
-const EQ_PROGRAM: &str = "import Std (Eq)\ntheorem t [x y z: Nat] (p: x = y) (q: y = z): z = x := Eq.sym (Eq.trans p q)\n";
+const EQ_PROGRAM: &str = "import Std (Eq)\ntheorem t [x y z: Nat] (p: x = y) (q: y = z): z = x := Eq.flipped (Eq.trans p q)\n";
 
 #[test]
 fn eq_sym_and_eq_trans_navigate_to_their_definitions() {
@@ -2072,7 +2072,7 @@ fn eq_sym_and_eq_trans_navigate_to_their_definitions() {
     client.open(&uri, EQ_PROGRAM);
     assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
     let line = EQ_PROGRAM.lines().nth(1).unwrap();
-    for name in ["Eq.sym", "Eq.trans"] {
+    for name in ["Eq.flipped", "Eq.trans"] {
         let ch = line.find(name).unwrap() as u32 + 4;
         let definition = client.at("textDocument/definition", &uri, 1, ch);
         assert!(!definition.is_null(), "no definition for {name}");
@@ -2088,7 +2088,7 @@ fn eq_sym_and_eq_trans_navigate_to_their_definitions() {
 const LOGIC_PROGRAM: &str = "import Std (Exists, Iff)
 theorem a (x: Nat) (xs: List Nat) (h: x in xs): x ∈ xs := h
 theorem b (p: Prop): p <-> p := { forward = h => h, backward = h => h }
-theorem c: exists (n: Nat) => n = 1 := Std.Exists.Witness 1 rfl
+theorem c: exists (n: Nat) => n = 1 := Std.Exists.Witness 1 byComputing
 theorem d (x: Nat): x ∉ Nil := none => none
 ";
 
@@ -2284,7 +2284,7 @@ fn an_open_goal_is_an_information_diagnostic() {
     );
 
     // The proof written: the goal is gone.
-    client.change(&uri, 2, &with_goal.replace("?", "rfl"));
+    client.change(&uri, 2, &with_goal.replace("?", "byComputing"));
     let found = client.diagnostics(&uri, 2);
     assert!(goals(&found).is_empty(), "{found:?}");
     client.shutdown();
@@ -2324,7 +2324,7 @@ fn goals_stay_while_their_declaration_does_not_parse() {
     // Broken, then the `?` replaced: the goal goes with the fix.
     client.change(&uri, 5, &broken);
     client.diagnostics(&uri, 5);
-    client.change(&uri, 6, &with_goal.replace("?", "rfl"));
+    client.change(&uri, 6, &with_goal.replace("?", "byComputing"));
     let found = client.diagnostics(&uri, 6);
     assert!(found.is_empty(), "{found:?}");
 
@@ -2340,7 +2340,7 @@ fn goals_stay_while_their_declaration_does_not_parse() {
         &uri,
         8,
         &with_goal
-            .replace(":= ?", ":= rfl")
+            .replace(":= ?", ":= byComputing")
             .replace("def other: Nat := 1", "def other: Nat := (1"),
     );
     let found = client.diagnostics(&uri, 8);
@@ -2390,7 +2390,7 @@ fn goal_at_answers_for_the_goal_at_or_near_the_cursor() {
     assert_eq!(goal_at(&mut client, 4, 2)["range"]["start"]["line"], 4);
 
     // After the proof is written: no goal.
-    client.change(&uri, 3, &text.replace('?', "rfl"));
+    client.change(&uri, 3, &text.replace('?', "byComputing"));
     client.diagnostics(&uri, 3);
     assert_eq!(goal_at(&mut client, 3, 2), Value::Null);
     client.shutdown();
@@ -2447,8 +2447,7 @@ fn context_at_answers_anywhere_in_an_expression() {
 fn context_at_says_whether_the_type_is_a_proposition() {
     let dir = temp_dir("context-at-kind");
     let file = dir.join("kind.sw");
-    let text =
-        "def double (n: Nat): Nat := n + n\n\ntheorem twice (n: Nat): double n = n + n :=\n  rfl\n";
+    let text = "def double (n: Nat): Nat := n + n\n\ntheorem twice (n: Nat): double n = n + n :=\n  byComputing\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
     let mut client = Client::start();
@@ -2476,7 +2475,7 @@ fn context_at_says_whether_the_type_is_a_proposition() {
 fn context_at_a_step_and_has_type() {
     let dir = temp_dir("context-at-step");
     let file = dir.join("step.sw");
-    let text = "theorem flip (a b: Nat) (h: a = b): b = a :=\n  rewrite h in rfl\n\n\
+    let text = "theorem flip (a b: Nat) (h: a = b): b = a :=\n  rewrite h then byComputing\n\n\
                 def widen (n: Nat): Int := n\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
@@ -2512,9 +2511,9 @@ fn context_at_a_step_and_has_type() {
 fn context_at_a_rewrite_keyword_shows_the_rule_step() {
     let dir = temp_dir("context-at-rewrite-keyword");
     let file = dir.join("keyword.sw");
-    let text = "theorem flip (a b: Nat) (h: a = b): b = a :=\n  rewrite h in rfl\n\n\
-                theorem twice (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=\n  rewrite h1, h2 in rfl\n\n\
-                theorem atH (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=\n  rewrite h2 at h1 in h1\n";
+    let text = "theorem flip (a b: Nat) (h: a = b): b = a :=\n  rewrite h then byComputing\n\n\
+                theorem twice (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=\n  rewrite h1, h2 then byComputing\n\n\
+                theorem atH (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=\n  rewrite h2 at h1 then h1\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
     let mut client = Client::start();
@@ -2680,12 +2679,12 @@ fn a_code_action_at_a_goal_in_a_project_offers_what_closes_it() {
          import Std (Nat)\n\n\
          def double (n: Nat): Nat := n + n\n\n\
          theorem doubleSwap (m: Nat) (n: Nat): double (m + n) = double (n + m) :=\n  \
-         rewrite Nat.addComm m n in rfl\n",
+         rewrite Nat.addComm m n then byComputing\n",
     );
     let saved = "namespace Shop.Proofs\n\
                  import Shop.Spec (double as twice)\n\
                  import Std (Nat)\n\n\
-                 theorem twiceTwo (a: Nat): twice a = a + a := rfl\n";
+                 theorem twiceTwo (a: Nat): twice a = a + a := byComputing\n";
     write("src/Shop/Proofs/Proofs.sw", saved);
     let file = dir.join("src/Shop/Proofs/Proofs.sw");
     let uri = uri(&file);
@@ -2840,7 +2839,7 @@ fn hover_on_a_call_lists_the_defaults_it_used() {
                 def b: Nat := scaled 3\n\
                 def c: List Nat := range 0 10 (step := 2) (label := \"c\")\n\
                 def d: List Nat := 0 |> range 10\n\
-                theorem e (a: Nat) (b: Nat): range a b = [a, b, 1] := rfl\n\
+                theorem e (a: Nat) (b: Nat): range a b = [a, b, 1] := byComputing\n\
                 type Clip = { length: Nat }\n\
                 def Clip.trimmed (clip: Clip) (by: Nat := 1): Nat := clip.length - by\n\
                 def f (clip: Clip): Nat := clip.trimmed\n";
@@ -3088,7 +3087,7 @@ fn ask_in_library(client: &mut Client, path: &str, needle: &str, offset: u32) ->
 fn projections_on_locals_navigate_in_library_documents() {
     let dir = temp_dir("projections");
     let file = dir.join("proj.sw");
-    let text = "import Std (Map, Set)\n\ndef f: Set Nat := Set.empty\n\ndef g: Bool := f == f\n\ndef h: Ordering := compare (Map.empty: Map Nat Nat) Map.empty\n\ntheorem t [auto ord: Ord k] (s: Set k) (key: k):\n    Set.toList (Set.insert s key) = Set.toList (Set.insert s key) :=\n  Std.Eq.trans (Set.toListInsert s key) (Std.Eq.sym (Set.toListInsert s key))\n";
+    let text = "import Std (Map, Set)\n\ndef f: Set Nat := Set.empty\n\ndef g: Bool := f == f\n\ndef h: Ordering := compare (Map.empty: Map Nat Nat) Map.empty\n\ntheorem t [auto ord: Ord k] (s: Set k) (key: k):\n    Set.toList (Set.insert s key) = Set.toList (Set.insert s key) :=\n  Std.Eq.trans (Set.toListInsert s key) (Std.Eq.flipped (Set.toListInsert s key))\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
     let mut client = Client::start();

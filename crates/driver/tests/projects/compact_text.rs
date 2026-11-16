@@ -1,6 +1,6 @@
 //! Compact text in the evaluator (docs/proposals/compact-text.md, option B1):
 //! a text literal's characters are one `Term::Chars`, standing for
-//! `Cons (MkChar c rfl) … Nil`, and nothing the kernel or the elaborator does
+//! `Cons (MkChar c byComputing) … Nil`, and nothing the kernel or the elaborator does
 //! may tell the two apart.
 //!
 //! The tests are in three tiers, as the proposal plans them:
@@ -18,7 +18,7 @@
 //!   here, and laws.
 //!
 //! Then the representation's own cases: ranges of a buffer, the kernel's
-//! treatment of proofs that aren't `rfl`, unification through the
+//! treatment of proofs that aren't `byComputing`, unification through the
 //! elaborator, termination, hashing, printing, memory retention and the
 //! binding to the prelude.
 
@@ -479,7 +479,7 @@ fn a_million_character_literal_checks_and_runs() {
          test \"commas\" := countFrom 0 ',' (Text.toList big) == {commas}\n\
          test \"length\" := lengthFrom 0 (Text.toList big) == {n}\n\
          test \"last\" := Text.fromList (dropChars {} (Text.toList big)) == \"{}\"\n\
-         theorem bigIsBig : countFrom 0 ',' (Text.toList big) = {commas} := rfl\n",
+         theorem bigIsBig : countFrom 0 ',' (Text.toList big) = {commas} := byComputing\n",
         n - 1,
         text.chars().last().unwrap()
     );
@@ -523,11 +523,17 @@ fn laws_hold_on_long_texts() {
     let differs = long[..999_999].to_string() + "c";
     let (t, o) = (literal(&long), literal(&differs));
     assert_eq!(
-        codes(&mut session, &format!("theorem same : {t} = {o} := rfl\n")),
+        codes(
+            &mut session,
+            &format!("theorem same : {t} = {o} := byComputing\n")
+        ),
         ["E-REFL"]
     );
     assert_eq!(
-        codes(&mut session, &format!("theorem same2 : {t} = {t} := rfl\n")),
+        codes(
+            &mut session,
+            &format!("theorem same2 : {t} = {t} := byComputing\n")
+        ),
         Vec::<&str>::new()
     );
 }
@@ -566,7 +572,7 @@ fn a_range_means_the_list_of_its_characters() {
         if !text.is_empty() {
             assert!(!value::conv(g, 0, &compact, &shorter.unwrap()).unwrap());
         }
-        // `rfl` proves them equal: the kernel's conversion, from a type.
+        // `byComputing` proves them equal: the kernel's conversion, from a type.
         let proof = Term::Ann(
             Rc::new(Term::Refl),
             Rc::new(Term::Eq(
@@ -575,7 +581,7 @@ fn a_range_means_the_list_of_its_characters() {
                 Rc::new(expansion(text)),
             )),
         );
-        infer_closed(g, &proof, span()).expect("`rfl` proves it");
+        infer_closed(g, &proof, span()).expect("`byComputing` proves it");
     }
     // An empty range is `Nil`, holding no buffer.
     let empty = value::eval(g, &[], &range(3, 3)).unwrap();
@@ -725,21 +731,21 @@ fn proofs_in_characters_are_skipped() {
     assert_eq!(
         codes(
             &mut session,
-            "import Std (Char, Text)\ntheorem anyProof (h : Char.isScalar 97 = True) : Text.toList \"a\" = Cons (MkChar 97 h) Nil := rfl\n"
+            "import Std (Char, Text)\ntheorem anyProof (h : Char.isScalar 97 = True) : Text.toList \"a\" = Cons (MkChar 97 h) Nil := byComputing\n"
         ),
         Vec::<&str>::new()
     );
     assert_eq!(
         codes(
             &mut session,
-            "import Std (Char, Text)\ntheorem bad (h : Char.isScalar 98 = True) : Text.toList \"a\" = Cons (MkChar 98 h) Nil := rfl\n"
+            "import Std (Char, Text)\ntheorem bad (h : Char.isScalar 98 = True) : Text.toList \"a\" = Cons (MkChar 98 h) Nil := byComputing\n"
         ),
         ["E-REFL"]
     );
     assert_eq!(
         codes(
             &mut session,
-            "import Std (Text)\ntheorem good : Text.toList \"a\" = Cons (MkChar 97 rfl) Nil := rfl\n"
+            "import Std (Text)\ntheorem good : Text.toList \"a\" = Cons (MkChar 97 byComputing) Nil := byComputing\n"
         ),
         Vec::<&str>::new()
     );
@@ -770,23 +776,25 @@ def headOf [c : Char] [t : List Char] (p : Cons c t = Text.toList "ab") : Char :
 
 def restOf [c : Char] [t : List Char] (p : Cons c t = Text.toList "ab") : List Char := t
 
-theorem heads : headOf rfl = 'a' := rfl
+theorem heads : headOf byComputing = 'a' := byComputing
 
-theorem tails : restOf rfl = ['b'] := rfl
+theorem tails : restOf byComputing = ['b'] := byComputing
 
-theorem tailsCompact : restOf rfl = Text.toList "b" := rfl
+theorem tailsCompact : restOf byComputing = Text.toList "b" := byComputing
 
 def codeOf [n : Nat] [p : Char.isScalar n = True] (e : Cons (MkChar n p) Nil = Text.toList "a") : Nat := n
 
-theorem codes : codeOf rfl = 97 := rfl
+theorem codes : codeOf byComputing = 97 := byComputing
 
 def codeAt (n : Nat) [p : Char.isScalar n = True] (e : Cons (MkChar n p) Nil = Text.toList "a") : Nat := n
 
-theorem codesKnown : codeAt 97 rfl = 97 := rfl
+theorem codesKnown : codeAt 97 byComputing = 97 := byComputing
 "#,
     );
     // The solution for `?t` is the range after `a`.
-    let expr = session.parse_expression("<t>", "restOf rfl").unwrap();
+    let expr = session
+        .parse_expression("<t>", "restOf byComputing")
+        .unwrap();
     let (term, _) = session.elab.infer_expr(&expr).unwrap();
     assert_eq!(
         term.subterms()
@@ -796,11 +804,17 @@ theorem codesKnown : codeAt 97 rfl = 97 := rfl
     );
     // With a different code known first, there's no solution.
     assert_eq!(
-        codes(&mut session, "theorem no : codeAt 98 rfl = 98 := rfl\n"),
+        codes(
+            &mut session,
+            "theorem no : codeAt 98 byComputing = 98 := byComputing\n"
+        ),
         ["E-REFL"]
     );
     assert_eq!(
-        codes(&mut session, "theorem no2 : headOf rfl = 'b' := rfl\n"),
+        codes(
+            &mut session,
+            "theorem no2 : headOf byComputing = 'b' := byComputing\n"
+        ),
         ["E-REFL"]
     );
 }
@@ -921,38 +935,41 @@ fn compact_lists_print_as_literals() {
 #[test]
 fn must_reject_examples_still_are() {
     for (source, expected) in [
-        ("theorem t : \"a\" = \"b\" := rfl\n", vec!["E-REFL"]),
-        ("theorem t : \"ab\" = \"a\" ++ \"b\" := rfl\n", vec![]),
+        ("theorem t : \"a\" = \"b\" := byComputing\n", vec!["E-REFL"]),
         (
-            "theorem t : Text.less \"\\u{10000}\" \"\\u{E000}\" = True := rfl\n",
-            vec!["E-REFL"],
-        ),
-        (
-            "theorem t : Text.less \"\\u{10000}\" \"\\u{E000}\" = False := rfl\n",
+            "theorem t : \"ab\" = \"a\" ++ \"b\" := byComputing\n",
             vec![],
         ),
         (
-            "def bad : List Char := Cons (MkChar 55296 rfl) (Text.toList \"ab\")\n",
+            "theorem t : Text.less \"\\u{10000}\" \"\\u{E000}\" = True := byComputing\n",
             vec!["E-REFL"],
         ),
         (
-            "def bad : List Char := Cons (MkChar 57343 rfl) (Text.toList \"ab\")\n",
+            "theorem t : Text.less \"\\u{10000}\" \"\\u{E000}\" = False := byComputing\n",
+            vec![],
+        ),
+        (
+            "def bad : List Char := Cons (MkChar 55296 byComputing) (Text.toList \"ab\")\n",
             vec!["E-REFL"],
         ),
         (
-            "def bad : List Char := Cons (MkChar 1114112 rfl) (Text.toList \"ab\")\n",
+            "def bad : List Char := Cons (MkChar 57343 byComputing) (Text.toList \"ab\")\n",
             vec!["E-REFL"],
         ),
         (
-            "def bad : List Char := Cons (MkChar 4294967393 rfl) (Text.toList \"ab\")\n",
+            "def bad : List Char := Cons (MkChar 1114112 byComputing) (Text.toList \"ab\")\n",
             vec!["E-REFL"],
         ),
         (
-            "def bad : List Char := Cons (MkChar 18446744073709551713 rfl) (Text.toList \"ab\")\n",
+            "def bad : List Char := Cons (MkChar 4294967393 byComputing) (Text.toList \"ab\")\n",
             vec!["E-REFL"],
         ),
         (
-            "def good : List Char := Cons (MkChar 1114111 rfl) (Text.toList \"ab\")\n",
+            "def bad : List Char := Cons (MkChar 18446744073709551713 byComputing) (Text.toList \"ab\")\n",
+            vec!["E-REFL"],
+        ),
+        (
+            "def good : List Char := Cons (MkChar 1114111 byComputing) (Text.toList \"ab\")\n",
             vec![],
         ),
     ] {
@@ -963,7 +980,7 @@ fn must_reject_examples_still_are() {
 
 /// `isScalar` is true of exactly the code points a Rust `char` can hold, up
 /// to U+10FFFF and a little beyond: the forward property the expansion's
-/// `rfl` relies on. (The hash binding is what fixes it on every number.)
+/// `byComputing` relies on. (The hash binding is what fixes it on every number.)
 #[test]
 fn is_scalar_agrees_with_rust_on_every_code_point() {
     let session = Session::new();
@@ -1026,7 +1043,7 @@ fn a_changed_builtin_isnt_bound() {
     // Literals still work, as constructors.
     load(
         &mut session,
-        "import Std (List, Text)\ntest \"length\" := List.length (Text.toList \"abc\") == 3\ntheorem t : Text.toList \"ab\" = ['a', 'b'] := rfl\n",
+        "import Std (List, Text)\ntest \"length\" := List.length (Text.toList \"abc\") == 3\ntheorem t : Text.toList \"ab\" = ['a', 'b'] := byComputing\n",
     );
     let expr = session.parse_expression("<t>", "\"abc\"").unwrap();
     let (term, _) = session.elab.infer_expr(&expr).unwrap();

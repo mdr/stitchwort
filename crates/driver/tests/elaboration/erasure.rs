@@ -269,9 +269,9 @@ def Box.value : [n : Nat] -> Box n -> Nat
 
 def castBox [a b : Nat] (p : a = b) (x : Box a) : Box b := J (y q => Box y) x p
 
-test "transport keeps the payload" := Box.value (castBox (rfl : 2 + 2 = 4) (MkBox 7)) == 7
+test "transport keeps the payload" := Box.value (castBox (byComputing : 2 + 2 = 4) (MkBox 7)) == 7
 test "and through a symmetric proof" :=
-  Box.value (castBox (Std.Eq.sym (rfl : 2 + 2 = 4)) (MkBox 9)) == 9
+  Box.value (castBox (Std.Eq.flipped (byComputing : 2 + 2 = 4)) (MkBox 9)) == 9
 "#,
         2,
     );
@@ -289,9 +289,9 @@ type Both2 (p : Prop) (q : Prop) : Prop =
 def pick : [p q : Prop] -> Both2 p q -> Nat
   | MkBoth2 x y => 5
 
-theorem twoProofs : Both2 (1 = 1) (2 = 2) := MkBoth2 rfl rfl
+theorem twoProofs : Both2 (1 = 1) (2 = 2) := MkBoth2 byComputing byComputing
 
-test "a literal proof" := pick (MkBoth2 (rfl : 1 = 1) (rfl : 3 = 3)) == 5
+test "a literal proof" := pick (MkBoth2 (byComputing : 1 = 1) (byComputing : 3 = 3)) == 5
 test "a theorem as the proof" := pick twoProofs == 5
 "#,
         2,
@@ -305,7 +305,7 @@ fn type_and_proof_arguments_are_skipped() {
         r#"
 def const (a : Type) (n : Nat) (p : n < 10) : Nat := n + 1
 
-theorem small : 3 < 10 := rfl
+theorem small : 3 < 10 := byComputing
 
 test "type and proof arguments" := const Nat 3 small == 4
 test "a type computed by a function" := const (List Nat) 3 small == 4
@@ -320,7 +320,7 @@ fn an_expensive_proof_in_data_isnt_run() {
     let (with, without) = tests_pass_both_ways(
         r#"
 theorem addZero : (n : Nat) -> n + 0 = n
-  | Zero   => rfl
+  | Zero   => byComputing
   | Succ k => Std.Eq.cong Succ (addZero k)
 
 type Wit = { n : Nat, ok : n + 0 = n }
@@ -351,7 +351,7 @@ def slow : Nat -> Nat
 -- The proof's value runs `slow k` (a lambda's argument isn't erased), unless
 -- the `let` is.
 def withProof (k : Nat) : Nat :=
-  let h : k = k := ((u => rfl) : Nat -> k = k) (slow k)
+  let h : k = k := ((u => byComputing) : Nat -> k = k) (slow k)
   let m := k + 1
   m
 
@@ -432,8 +432,8 @@ def QTy: Type 1 := Quot (Type 0) (a b => a = b)
     // skipped by the `let`'s own flag): the lift is erased whole.
     let proof_lift = r#"
 def proofLift (k: Nat): Nat :=
-  J (y p => Nat) (k + 1) (Quot.lift [b := k = k] (b => ((u => rfl): Nat -> k = k) (slow k))
-    (x y related => rfl) (Quot.mk False: Q))
+  J (y p => Nat) (k + 1) (Quot.lift [b := k = k] (b => ((u => byComputing): Nat -> k = k) (slow k))
+    (x y related => byComputing) (Quot.mk False: Q))
 
 test "a proof-valued lift" := proofLift 2000 == 2001
 "#;
@@ -441,7 +441,7 @@ test "a proof-valued lift" := proofLift 2000 == 2001
     // constant doesn't need it.
     let type_rep = r#"
 def typeRep (k: Nat): Nat :=
-  Quot.lift (a => k + 2) (a b same => rfl) (Quot.mk (((u => Nat): Nat -> Type 0) (slow k)): QTy)
+  Quot.lift (a => k + 2) (a b same => byComputing) (Quot.mk (((u => Nat): Nat -> Type 0) (slow k)): QTy)
 
 test "a representative that's a type" := typeRep 2000 == 2002
 "#;

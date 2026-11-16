@@ -37,8 +37,8 @@ def down (n: Nat) (acc: Nat): Nat
     decreasing n
 :=
   if h: n = 0 then acc
-  else if small: n < 5 then down (n - 1) (acc + 1) [decreasing := omega]
-  else down (n - 2) (acc + 2) [decreasing := omega]
+  else if small: n < 5 then down (n - 1) (acc + 1) [decreasing := arithmetic]
+  else down (n - 2) (acc + 2) [decreasing := arithmetic]
 
 -- A lifted `match` on an expression, with a field.
 def lastOr (d: Nat): List Nat → Nat
@@ -334,9 +334,9 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
     (shrinks: (x: s) → (y: s) → (v: a) → step x = Some (MkPair v y) → measure y < measure x):
     step seed = None → List.unfold seed step measure shrinks = [] :=
   List.unfold.induct (seed step measure shrinks result => step seed = None → result = [])
-    (seed step measure shrinks found same => rfl)
+    (seed step measure shrinks found same => byComputing)
     (seed step measure shrinks v next found ih same =>
-      Void.exfalso (Option.noneNotSome (MkPair v next) (rewrite same at found in found)))
+      Void.impossible (Option.noneNotSome (MkPair v next) (rewrite same at found then found)))
     seed step measure shrinks
 "#;
     with_source(source.to_string(), |s| {
@@ -518,16 +518,16 @@ fn using_them_and_their_names() {
         r#"
 theorem downGe (n: Nat) (acc: Nat): acc ≤ down n acc :=
   down.induct (n acc r => acc ≤ r)
-    (n acc h => omega)
-    (n acc h small ih => omega)
-    (n acc h small ih => omega)
+    (n acc h => arithmetic)
+    (n acc h small ih => arithmetic)
+    (n acc h small ih => arithmetic)
     n acc
 
 theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs :=
   countAbove.induct k (xs r => r ≤ List.length xs)
-    omega
-    (x xs h ih => omega)
-    (x xs h ih => omega)
+    arithmetic
+    (x xs h ih => arithmetic)
+    (x xs h ih => arithmetic)
     xs
 
 theorem firstBigBig (xs: List Nat) (y: Nat): firstBig xs = Some y → Nat.leq 10 y = True :=

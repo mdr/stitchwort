@@ -1820,7 +1820,7 @@ fn unify_shapes(
         }
         // A range against anything else but a metavariable (which is solved
         // with the range itself, above): its first cell, as a constructor.
-        // So `Cons ?c ?tail ~ "ab"` solves `?c` with `MkChar 97 rfl` and
+        // So `Cons ?c ?tail ~ "ab"` solves `?c` with `MkChar 97 byComputing` and
         // `?tail` with the range `"b"`.
         (Value::Chars(_), _) => {
             work.push(Task::Values(level, expand_step(g, a.clone()), b.clone()));
@@ -5250,7 +5250,7 @@ mod tests {
         }
     }
 
-    /// A rigid proof variable stays distinct from `rfl`, against the compact
+    /// A rigid proof variable stays distinct from `byComputing`, against the compact
     /// list as against its expansion.
     #[test]
     fn a_rigid_proof_is_not_rfl() {

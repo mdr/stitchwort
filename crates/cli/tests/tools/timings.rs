@@ -74,7 +74,7 @@ fn declarations_are_listed_slowest_first_with_full_names() {
     // `slow` computes a long list while checking; the rest are trivial.
     let mut source = String::from(
         "import Std (List, Nat)\n\n\
-         theorem slow: List.length (List.range 0 3000) = 3000 := rfl\n\n\
+         theorem slow: List.length (List.range 0 3000) = 3000 := byComputing\n\n\
          def even: Nat -> Bool\n  | Zero => True\n  | Succ n => odd n\n\n\
          def odd: Nat -> Bool\n  | Zero => False\n  | Succ n => even n\n\n\
          test \"small\" := 1 + 1 == 2\n",
@@ -146,7 +146,7 @@ fn the_largest_read_back_and_deepest_frames_are_reported() {
              | Succ n, x => Cons x (replicate n x)\n\n\
              opaque def big (n: Nat): List Nat := replicate {k} n\n\n\
              theorem t (n: Nat): big n = big n unfolding big := \
-             rewrite (rfl: big n = big n) in rfl\n"
+             rewrite (byComputing: big n = big n) then byComputing\n"
         )
     };
     let theorem = |k: usize| {
@@ -167,7 +167,7 @@ fn the_largest_read_back_and_deepest_frames_are_reported() {
         let list = format!("[{}]", items.join(", "));
         let path = source_file(
             &format!("frames{n}.sw"),
-            &format!("import Std (List, Nat)\n\ntheorem l: {list} = {list} := rfl\n"),
+            &format!("import Std (List, Nat)\n\ntheorem l: {list} = {list} := byComputing\n"),
         );
         let (rows, _) = declaration_rows(&path, "decls");
         rows.into_iter()

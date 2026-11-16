@@ -112,8 +112,8 @@ fn handler_code_does_not_warn() {
 
 #[test]
 fn proofs_do_not_warn() {
-    let text = "theorem zeroAdd (n: Nat): 0 + n = n :=\n  let m := n\n  rfl\n\n\
-                theorem viaRewrite (a b: Nat) (h: a = b): b = a :=\n  let k := h\n  rewrite k in rfl\n";
+    let text = "theorem zeroAdd (n: Nat): 0 + n = n :=\n  let m := n\n  byComputing\n\n\
+                theorem viaRewrite (a b: Nat) (h: a = b): b = a :=\n  let k := h\n  rewrite k then byComputing\n";
     assert!(warnings(text).is_empty(), "{:#?}", warnings(text));
 }
 

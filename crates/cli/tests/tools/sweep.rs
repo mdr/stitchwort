@@ -52,7 +52,7 @@ namespace Laws
 import Std (Nat, Void, Bool, Eq)
 
 theorem leAntisym: ∀ (a b: Nat) => a ≤ b → b ≤ a → a = b
-  | Zero, Zero, h1, h2 => rfl
+  | Zero, Zero, h1, h2 => byComputing
   | Succ a, Succ b, h1, h2 => Eq.cong Succ (leAntisym a b h1 h2)
 
 theorem addZ: ∀ (n: Nat) => n + 0 = n := Nat.addZero
@@ -70,7 +70,7 @@ namespace Laws
 import Std (Nat, Void, Bool, Eq)
 
 theorem leAntisym ∀ (a b: Nat) (h1: a ≤ b) (h2: b ≤ a): a = b := match a, b with
-  | Zero, Zero => rfl
+  | Zero, Zero => byComputing
   | Succ a, Succ b => Eq.cong Succ (leAntisym a b h1 h2)
 
 theorem addZ: ∀ (n: Nat) => n + 0 = n := Nat.addZero
@@ -129,9 +129,9 @@ namespace Laws
 
 import Std (Nat, Void, Bool, Eq)
 
-theorem ident: ∀ (n: Nat) => n = n := n => rfl
+theorem ident: ∀ (n: Nat) => n = n := n => byComputing
 
-theorem both ∀ (a: Nat): ∀ (b: Nat) => b = b := b => rfl
+theorem both ∀ (a: Nat): ∀ (b: Nat) => b = b := b => byComputing
 
 theorem addZ: ∀ (n: Nat) => n + 0 = n := Nat.addZero
 
@@ -141,9 +141,9 @@ def limit: Nat := checked 100 (addZ 100)
 
 theorem memOf: ∀ (n: Nat) => 0 < n → ∀ (k: Nat) => k ≤ k + n := n h k => Nat.leAddRight k n
 ";
-    const SINGLE_AFTER: &str = "theorem ident ∀ (n: Nat): n = n := rfl";
+    const SINGLE_AFTER: &str = "theorem ident ∀ (n: Nat): n = n := byComputing";
     // A header that already says `∀` keeps it as the statement's `∀` moves in.
-    const BOTH_AFTER: &str = "theorem both ∀ (a: Nat) (b: Nat): b = b := rfl";
+    const BOTH_AFTER: &str = "theorem both ∀ (a: Nat) (b: Nat): b = b := byComputing";
     let dir = scratch("files");
     std::fs::write(dir.join("laws.sw"), SINGLE_BEFORE).unwrap();
 

@@ -7,8 +7,8 @@
 //! one, `<` and `≤`, `=` and `≠`, `∧` and `∨`, `+` and `*`, `True` and
 //! `False`, two variables swapped, a hypothesis dropped) and keeps its proof,
 //! or keeps the statement and changes the *proof* (a lemma swapped for
-//! another of the same namespace, the proof replaced by a closer: `rfl`,
-//! `omega`, `cases`, `ring`, `byDecision`), or does both. Each mutant is
+//! another of the same namespace, the proof replaced by a closer: `byComputing`,
+//! `arithmetic`, `cases`, `algebra`, `byDecision`), or does both. Each mutant is
 //! checked in full (elaborator and kernel). A mutant that is still accepted
 //! is searched for a counterexample, as `stitchwort audit` does
 //! (`Session::audit`): an accepted theorem with a counterexample is a
@@ -490,7 +490,13 @@ impl Mutation {
     }
 }
 
-const CLOSERS: &[&str] = &["rfl", "omega", "cases", "ring", "Std.byDecision"];
+const CLOSERS: &[&str] = &[
+    "byComputing",
+    "arithmetic",
+    "cases",
+    "algebra",
+    "Std.byDecision",
+];
 
 /// Relations and connectives, and what each may become.
 const OPERATORS: &[(&str, &[&str])] = &[
@@ -1645,7 +1651,7 @@ fn void_attempts() -> Vec<Attempt> {
     out.push(attempt(
         "proof-irrelevance",
         "type P: Prop =\n  | A\n  | B\n\ntheorem noAB: A = B → Void\n  | ()\n\n\
-         theorem boom: Void := noAB rfl"
+         theorem boom: Void := noAB byComputing"
             .to_string(),
     ));
 
@@ -1681,7 +1687,13 @@ fn void_attempts() -> Vec<Attempt> {
         "Nat.pow 3 100 = Nat.pow 3 100 + 1",
     ];
     for f in falsehoods {
-        for closer in ["rfl", "omega", "cases", "ring", "byDecision"] {
+        for closer in [
+            "byComputing",
+            "arithmetic",
+            "cases",
+            "algebra",
+            "byDecision",
+        ] {
             out.push(attempt(
                 "false-equation",
                 format!("theorem boom: {f} := {closer}"),
@@ -1711,7 +1723,13 @@ fn void_attempts() -> Vec<Attempt> {
         "(n: Nat): Nat.pow 2 n > n * n",
     ];
     for s in open {
-        for closer in ["rfl", "omega", "cases", "ring", "byDecision"] {
+        for closer in [
+            "byComputing",
+            "arithmetic",
+            "cases",
+            "algebra",
+            "byDecision",
+        ] {
             out.push(attempt(
                 "false-for-some",
                 format!("theorem boom {s} := {closer}"),
@@ -1762,7 +1780,7 @@ fn void_attempts() -> Vec<Attempt> {
         ": (0.1: Float) + 0.2 - 0.3 = 0.0",
     ];
     for s in kernel_arith {
-        for closer in ["rfl", "byDecision", "cases"] {
+        for closer in ["byComputing", "byDecision", "cases"] {
             out.push(attempt(
                 "kernel arithmetic",
                 format!("theorem boom{s} := {closer}"),
@@ -1772,7 +1790,7 @@ fn void_attempts() -> Vec<Attempt> {
     out.push(attempt(
         "kernel arithmetic",
         "def first: Text → Char\n  | MkText (Cons c _) => c\n  | MkText Nil => 'z'\n\n\
-         theorem boom: first \"abc\" = 'b' := rfl"
+         theorem boom: first \"abc\" = 'b' := byComputing"
             .to_string(),
     ));
     // Number patterns and termination.
@@ -1793,11 +1811,11 @@ fn void_attempts() -> Vec<Attempt> {
     // (docs/research/kernel.md §5.4).
     out.push(attempt(
         "conversion",
-        "theorem boom (y: Nat): ((x: Nat) => x) = (z => y) := rfl".to_string(),
+        "theorem boom (y: Nat): ((x: Nat) => x) = (z => y) := byComputing".to_string(),
     ));
     out.push(attempt(
         "conversion",
-        "theorem boom (f: Nat → Nat) (x: Nat) (y: Nat): MkPair (f x) (f y) = MkPair (f x) (f x) := rfl"
+        "theorem boom (f: Nat → Nat) (x: Nat) (y: Nat): MkPair (f x) (f y) = MkPair (f x) (f x) := byComputing"
             .to_string(),
     ));
 
@@ -1808,7 +1826,7 @@ fn void_attempts() -> Vec<Attempt> {
             format!(
                 "def loop (n: Nat): {{Partial}} Nat := loop n\n\n\
                  def count (n: Nat): Nat := {call}\n\n\
-                 theorem boom: count 0 = count 0 + 1 := omega"
+                 theorem boom: count 0 = count 0 + 1 := arithmetic"
             ),
         ));
     }
@@ -1818,7 +1836,7 @@ fn void_attempts() -> Vec<Attempt> {
         "ability Ping where\n  ping: () → {Ping} ()\n\n\
          def forever (prog: () → {Ping} Nat): Nat :=\n  handle prog() with\n    \
          | return x => x\n    | ping(), k => forever prog\n\n\
-         theorem boom: forever (() => ping()) = 0 + 1 := rfl"
+         theorem boom: forever (() => ping()) = 0 + 1 := byComputing"
             .to_string(),
     ));
     out.push(attempt(
@@ -1846,9 +1864,9 @@ fn void_attempts() -> Vec<Attempt> {
     // Quotients: lifting a function that doesn't respect the relation,
     // matching, forging.
     for (lift, proof) in [
-        ("(b => b)", "(x y related => rfl)"),
+        ("(b => b)", "(x y related => byComputing)"),
         ("(b => b)", "(x y related => related)"),
-        ("(b => !b)", "(x y related => rfl)"),
+        ("(b => !b)", "(x y related => byComputing)"),
     ] {
         out.push(attempt(
             "quotient",
@@ -1880,7 +1898,7 @@ fn void_attempts() -> Vec<Attempt> {
     ));
 
     // Opaque definitions seen through.
-    for proof in ["rfl", "omega", "byDecision", "cases"] {
+    for proof in ["byComputing", "arithmetic", "byDecision", "cases"] {
         out.push(attempt(
             "opaque",
             format!("opaque def k: Nat := 3\n\ntheorem boom: k = 4 := {proof}"),
@@ -1902,7 +1920,7 @@ fn void_attempts() -> Vec<Attempt> {
     out.push(attempt(
         "instance",
         "type Two: Type =\n  | A\n  | B\n\n\
-         instance Two.instDecEq: DecEq Two := { decide = (x y => Decidable.yes rfl) }\n\n\
+         instance Two.instDecEq: DecEq Two := { decide = (x y => Decidable.yes byComputing) }\n\n\
          theorem boom: A = B := byDecision"
             .to_string(),
     ));
@@ -1911,16 +1929,16 @@ fn void_attempts() -> Vec<Attempt> {
     out.push(attempt(
         "record",
         "type Dial: Type = { position: Nat, inRange: position ≤ 9 }\n\n\
-         def bad: Dial := { position = 12, inRange = rfl }\n\n\
-         theorem boom: Void := omega [bad.inRange]"
+         def bad: Dial := { position = 12, inRange = byComputing }\n\n\
+         theorem boom: Void := arithmetic [bad.inRange]"
             .to_string(),
     ));
     out.push(attempt(
         "record",
         "type Dial: Type = { position: Nat, inRange: position ≤ 9 }\n\n\
-         def good: Dial := { position = 3, inRange = omega }\n\n\
+         def good: Dial := { position = 3, inRange = arithmetic }\n\n\
          def bad: Dial := { good | position = 12 }\n\n\
-         theorem boom: Void := omega [bad.inRange]"
+         theorem boom: Void := arithmetic [bad.inRange]"
             .to_string(),
     ));
 
@@ -1950,7 +1968,7 @@ fn void_attempts() -> Vec<Attempt> {
     for code in ["55296", "1114112", "57343"] {
         out.push(attempt(
             "char",
-            format!("def bad: Char := MkChar {code} rfl\n\ntheorem boom: Void := boom"),
+            format!("def bad: Char := MkChar {code} byComputing\n\ntheorem boom: Void := boom"),
         ));
     }
     out

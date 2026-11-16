@@ -496,6 +496,6 @@ fn list_spreads_are_items_anywhere_in_a_list_expression() {
     assert!(matches!(rhs("def f : Nat := [..xs]\n"), Expr::List(..)));
     let message = parse_error("def f : Nat := [a, ..]\n").message;
     assert!(message.contains("a list after `..`"), "{message}");
-    let message = parse_error("def f : Nat := omega [h, ..xs]\n").message;
+    let message = parse_error("def f : Nat := arithmetic [h, ..xs]\n").message;
     assert!(message.contains("list of facts"), "{message}");
 }

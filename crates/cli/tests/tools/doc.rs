@@ -208,7 +208,10 @@ fn a_built_in_name_is_documented_by_builtins_sw() {
             "Quot.mk",
             "def Quot.mk: [a: Type] \u{2192} [r: a \u{2192} a \u{2192} Prop] \u{2192} (x: a) \u{2192} Quot a r",
         ),
-        ("rfl", "def rfl: [a: Type] \u{2192} [x: a] \u{2192} x = x"),
+        (
+            "byComputing",
+            "def byComputing: [a: Type] \u{2192} [x: a] \u{2192} x = x",
+        ),
     ] {
         let (code, out, err) = doc_in(&cwd, &cache, &[name, "--theorems", "0", "--json"]);
         assert_eq!(code, 0, "{out}\n{err}");
@@ -359,10 +362,10 @@ def Shape.scale: Nat → Shape → Shape
   | k, Square a => Square (k * a)
 
 theorem Shape.scaleOne: (s: Shape) → Shape.scale 1 s = s
-  | Circle r => rfl
-  | Square a => rfl
+  | Circle r => byComputing
+  | Square a => byComputing
 
-theorem Shape.scaleExample: Shape.scale 2 (Circle 3) = Circle 6 := rfl
+theorem Shape.scaleExample: Shape.scale 2 (Circle 3) = Circle 6 := byComputing
 
 test \"Shape.scale\" := Shape.size (Shape.scale 2 (Circle 3)) == 6
 ",
@@ -377,8 +380,8 @@ import Shapes (..)
 test \"Shape.scale of a square\" := Shape.size (Shape.scale 3 (Square 2)) == 6
 
 theorem scaleTwice: (s: Shape) → Shape.scale 1 (Shape.scale 1 s) = s
-  | Circle r => rfl
-  | Square a => rfl
+  | Circle r => byComputing
+  | Square a => byComputing
 ",
     )
     .unwrap();
@@ -436,7 +439,7 @@ fn a_project_name_looks_in_its_namespace_and_those_that_use_it() {
     assert_eq!(report["examples"][0]["line"], 27);
     assert_eq!(
         report["examples"][0]["source"],
-        "theorem Shape.scaleExample: Shape.scale 2 (Circle 3) = Circle 6 := rfl"
+        "theorem Shape.scaleExample: Shape.scale 2 (Circle 3) = Circle 6 := byComputing"
     );
     // Theorems: the namespace's and `Shapes.Tests`'; the `…Example` theorem
     // is an example, not listed.
@@ -648,7 +651,7 @@ fn a_file_is_documented_with_the_library() {
 --| Twice `n`.
 def doubleIt (n: Nat): Nat := n + n
 
-theorem doubleItZero: doubleIt 0 = 0 := rfl
+theorem doubleItZero: doubleIt 0 = 0 := byComputing
 
 test \"doubleIt\" := doubleIt 2 == 4
 ",
@@ -694,14 +697,14 @@ def fillTheWholeBag (n: Nat): Nat := n
 --| A box holding one number.
 type Box = | Box (n: Nat)
 
---| Shows that one is not zero, by `rfl`.
-theorem goodIsOne: good 0 = 1 := rfl
+--| Shows that one is not zero, by `byComputing`.
+theorem goodIsOne: good 0 = 1 := byComputing
 
-theorem noDocLemma: good 1 = 2 := rfl
+theorem noDocLemma: good 1 = 2 := byComputing
 
-theorem goodExample: good 2 = 3 := rfl
+theorem goodExample: good 2 = 3 := byComputing
 
-theorem ghostExample: good 3 = 4 := rfl
+theorem ghostExample: good 3 = 4 := byComputing
 
 test \"noDoc\" := noDoc 1 == 1
 ",

@@ -228,12 +228,12 @@ mod tests {
     #[test]
     fn a_theorem_with_explicit_parameters_gets_a_forall_where_it_can_be_read() {
         assert_eq!(
-            tidied("theorem t (a: Nat): a = a := rfl\n", &PASSES),
-            "theorem t ∀ (a: Nat): a = a := rfl\n"
+            tidied("theorem t (a: Nat): a = a := byComputing\n", &PASSES),
+            "theorem t ∀ (a: Nat): a = a := byComputing\n"
         );
         assert_eq!(
-            tidied("theorem t\n  (a: Nat): a = a := rfl\n", &PASSES),
-            "theorem t ∀\n  (a: Nat): a = a := rfl\n"
+            tidied("theorem t\n  (a: Nat): a = a := byComputing\n", &PASSES),
+            "theorem t ∀\n  (a: Nat): a = a := byComputing\n"
         );
     }
 
@@ -241,18 +241,18 @@ mod tests {
     fn a_theorem_with_attributes_gets_its_forall_after_the_name() {
         assert_eq!(
             tidied(
-                "@[reading]\ntheorem t (a: Nat): a = a := rfl\n",
+                "@[reading]\ntheorem t (a: Nat): a = a := byComputing\n",
                 &[theorem_forall]
             ),
-            "@[reading]\ntheorem t ∀ (a: Nat): a = a := rfl\n"
+            "@[reading]\ntheorem t ∀ (a: Nat): a = a := byComputing\n"
         );
     }
 
     #[test]
     fn a_theorem_that_is_tidy_for_forall_is_left_alone() {
         for text in [
-            "theorem t ∀ (a: Nat): a = a := rfl\n",
-            "theorem t: 1 = 1 := rfl\n",
+            "theorem t ∀ (a: Nat): a = a := byComputing\n",
+            "theorem t: 1 = 1 := byComputing\n",
         ] {
             assert_eq!(tidied(text, &[theorem_forall]), text);
         }
@@ -279,8 +279,8 @@ mod tests {
     #[test]
     fn the_runner_applies_a_pass_to_the_tree_the_one_before_it_left() {
         assert_eq!(
-            tidied("theorem t (a: Nat): f [a,] := rfl\n", &PASSES),
-            "theorem t ∀ (a: Nat): f [a] := rfl\n"
+            tidied("theorem t (a: Nat): f [a,] := byComputing\n", &PASSES),
+            "theorem t ∀ (a: Nat): f [a] := byComputing\n"
         );
     }
 

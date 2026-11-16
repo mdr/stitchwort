@@ -452,7 +452,7 @@ pub(crate) fn fin_bound(g: &Ev, ty: &Value) -> Result<Option<Option<BigUint>>> {
 }
 
 /// The numeral `k` (or `-k`) checked against `expected` if that's `Fin n`
-/// (docs/proposals/fin-literals.md): `Fin.ofNatLt n k rfl` when n is a
+/// (docs/proposals/fin-literals.md): `Fin.ofNatLt n k byComputing` when n is a
 /// known number above k, where the kernel confirms `k < n` by computing it.
 /// `None` if `expected` isn't a `Fin`.
 fn fin_literal(cx: &Ctx, k: &BigUint, negative: bool, expected: &Value) -> Result<Option<Term>> {

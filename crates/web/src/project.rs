@@ -609,7 +609,7 @@ mod tests {
             .iter()
             .position(|p| p == "src/Aoc/Common/Range.sw")
             .expect("the shared file");
-        texts[at].push_str("\ndef broken : Nat := rfl\n");
+        texts[at].push_str("\ndef broken : Nat := byComputing\n");
         let answer = check_project(PROJECT, paths, texts, "Aoc.Year2025.Day02");
         assert!(
             answer.starts_with(r#"{"ok":false,"errors":"[E-"#),
@@ -621,7 +621,7 @@ mod tests {
             answer.contains(r#""file":"src/Aoc/Common/Range.sw","line":"#),
             "{answer}"
         );
-        // The `rfl` at the end of `def broken : Nat := rfl`, line 28 counted
+        // The `byComputing` at the end of `def broken : Nat := byComputing`, line 28 counted
         // from 1: the end is line 27 counted from 0, after the 23rd unit.
         assert!(
             answer.contains(r#""line":28,"column":21,"endLine":27,"endColumn":23,"#),

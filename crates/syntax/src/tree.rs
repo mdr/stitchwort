@@ -303,15 +303,15 @@ pub enum NodeKind {
     Calc,
     /// `_ = b := proof`
     CalcStep,
-    /// `rewrite h in e`, `rewrite h at x in e`
+    /// `rewrite h then e`, `rewrite h at x then e`
     Rewrite,
     /// One rule of a `rewrite`.
     RewriteRule,
-    /// `omega [h]`
+    /// `arithmetic [h]`
     Omega,
-    /// `ring [h]`
+    /// `algebra [h]`
     Ring,
-    /// `cases in t`
+    /// `cases then t`
     Cases,
 
     // Patterns.
@@ -1159,7 +1159,7 @@ def f (n: Nat) [a: Type] (x: a := d): Nat
   | k if k > 2 => match k with
     | j => j
 
-theorem t: 1 = 1 := rfl
+theorem t: 1 = 1 := byComputing
 ";
         let tree = tree(text);
         tree.check_round_trip(text).unwrap();
@@ -1236,7 +1236,7 @@ Theorem
       1
   Body
     :=
-    rfl
+    byComputing
 "
         );
         // The comments stay with the tokens they were written beside.
@@ -1921,13 +1921,19 @@ def h: Nat := 2
                 "Calc[calc Binary[a + 0] CalcStep[_ = a := h] CalcStep[_ <= b]]",
             ),
             (
-                "rewrite <- h, g x at y in t",
-                "Rewrite[rewrite RewriteRule[< - h] , RewriteRule[App[g x]] at y in t]",
+                "rewrite <- h, g x at y then t",
+                "Rewrite[rewrite RewriteRule[< - h] , RewriteRule[App[g x]] at y then t]",
             ),
-            ("omega [h, f x]", "Omega[omega List[[ h , App[f x] ]]]"),
-            ("ring [h]", "Ring[ring List[[ h ]]]"),
-            ("cases in t", "Cases[cases in t]"),
-            ("omega [h] + 1", "Binary[Omega[omega List[[ h ]]] + 1]"),
+            (
+                "arithmetic [h, f x]",
+                "Omega[arithmetic List[[ h , App[f x] ]]]",
+            ),
+            ("algebra [h]", "Ring[algebra List[[ h ]]]"),
+            ("cases then t", "Cases[cases then t]"),
+            (
+                "arithmetic [h] + 1",
+                "Binary[Omega[arithmetic List[[ h ]]] + 1]",
+            ),
         ]);
     }
 }

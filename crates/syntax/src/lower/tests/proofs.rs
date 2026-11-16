@@ -2,8 +2,7 @@ use super::*;
 
 #[test]
 fn calc_steps_are_lines_starting_with_an_underscore() {
-    let text =
-        "def f (a: Nat): a = a :=\n  calc a\n    _ = a := rfl\n    _ <= a\n    _ < a := Nat.f _\n";
+    let text = "def f (a: Nat): a = a :=\n  calc a\n    _ = a := byComputing\n    _ <= a\n    _ < a := Nat.f _\n";
     let expr = rhs(text);
     let Expr::Calc { steps, .. } = &expr else {
         panic!("expected a calc");
@@ -18,22 +17,22 @@ fn calc_steps_are_lines_starting_with_an_underscore() {
 }
 
 #[test]
-fn omega_takes_an_optional_list_of_facts() {
-    let expr = rhs("theorem t (a: Nat): a <= a := omega\n");
+fn arithmetic_takes_an_optional_list_of_facts() {
+    let expr = rhs("theorem t (a: Nat): a <= a := arithmetic\n");
     assert!(
         matches!(&expr, Expr::Omega { facts, .. } if facts.is_empty()),
         "{expr:?}"
     );
-    let expr = rhs("theorem t (a: Nat): a <= a := omega [h a, Nat.leRefl a]\n");
+    let expr = rhs("theorem t (a: Nat): a <= a := arithmetic [h a, Nat.leRefl a]\n");
     let Expr::Omega { facts, .. } = &expr else {
-        panic!("expected omega, got {expr:?}");
+        panic!("expected arithmetic, got {expr:?}");
     };
     assert_eq!(facts.len(), 2);
     assert!(facts.iter().all(|f| matches!(f, Expr::App(..))));
     // As an argument, and as a calc step's proof.
-    let expr = rhs("theorem t (a: Nat): a <= a := f omega x\n");
+    let expr = rhs("theorem t (a: Nat): a <= a := f arithmetic x\n");
     assert!(matches!(&expr, Expr::App(..)));
-    let expr = rhs("def f (a: Nat): a <= a :=\n  calc a\n    _ <= a := omega\n");
+    let expr = rhs("def f (a: Nat): a <= a :=\n  calc a\n    _ <= a := arithmetic\n");
     let Expr::Calc { steps, .. } = &expr else {
         panic!("expected a calc");
     };
@@ -41,21 +40,21 @@ fn omega_takes_an_optional_list_of_facts() {
 }
 
 #[test]
-fn ring_takes_an_optional_list_of_hypotheses() {
-    let expr = rhs("theorem t (a: Nat): a + 1 = 1 + a := ring\n");
+fn algebra_takes_an_optional_list_of_hypotheses() {
+    let expr = rhs("theorem t (a: Nat): a + 1 = 1 + a := algebra\n");
     assert!(
         matches!(&expr, Expr::Ring { facts, .. } if facts.is_empty()),
         "{expr:?}"
     );
-    let expr = rhs("theorem t (a: Nat): a = a := ring [h a, g]\n");
+    let expr = rhs("theorem t (a: Nat): a = a := algebra [h a, g]\n");
     let Expr::Ring { facts, .. } = &expr else {
-        panic!("expected ring, got {expr:?}");
+        panic!("expected algebra, got {expr:?}");
     };
     assert_eq!(facts.len(), 2);
     // As an argument, and as a calc step's proof.
-    let expr = rhs("theorem t (a: Nat): a = a := f ring x\n");
+    let expr = rhs("theorem t (a: Nat): a = a := f algebra x\n");
     assert!(matches!(&expr, Expr::App(..)));
-    let expr = rhs("def f (a: Nat): a = a :=\n  calc a\n    _ = a := ring\n");
+    let expr = rhs("def f (a: Nat): a = a :=\n  calc a\n    _ = a := algebra\n");
     let Expr::Calc { steps, .. } = &expr else {
         panic!("expected a calc");
     };
@@ -149,25 +148,57 @@ fn forall_is_a_function_type() {
 }
 
 #[test]
-fn membership_in_a_rewrite_needs_brackets() {
-    let error = parse_errors("def f (a: Nat): a = a :=\n  rewrite h x in xs in t\n");
-    assert!(error.contains("needs brackets"), "{error}");
-    let error = parse_errors("def f (a: Nat): a = a :=\n  rewrite h in x in xs\n");
-    assert!(error.contains("needs brackets"), "{error}");
-    // In brackets, either side is fine.
-    assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite h (x in xs) in t\n").is_ok());
-    assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite h in (x in xs)\n").is_ok());
-    assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite h in (x in xs) && b\n").is_ok());
+fn membership_in_a_rewrite_rule_needs_brackets() {
+    // A bare `in` still ends a rule, so it gets the old spelling's error.
+    let error = parse_errors("def f (a: Nat): a = a :=\n  rewrite h x in xs then t\n");
+    assert!(error.contains("write `then`"), "{error}");
+    assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite h (x in xs) then t\n").is_ok());
+    // As the body, after `then`, a membership test needs no brackets.
+    let e = rhs("def f (a: Nat): a = a :=\n  rewrite h then x in xs\n");
+    let Expr::Rewrite { body, .. } = &e else {
+        panic!("expected a rewrite");
+    };
+    assert!(matches!(
+        body.as_deref(),
+        Some(Expr::Binary(BinOp::In(_), ..))
+    ));
 }
 
 #[test]
-fn omega_is_a_keyword() {
-    assert!(parse_module_text("def omega: Nat := 1\n").is_err());
+fn the_old_in_after_rewrite_and_cases_names_then() {
+    for text in [
+        "def f (a: Nat): a = a :=\n  rewrite h in t\n",
+        "def f (a: Nat): a = a :=\n  rewrite h at k in t\n",
+        "def f (a: Nat): a = a :=\n  rewrite h\n  in t\n",
+        "def f (a: Nat): a = a :=\n  cases in t\n",
+        "def f (a: Nat): a = a := g cases in t\n",
+    ] {
+        let error = parse_errors(text);
+        assert!(error.contains("write `then`, not `in`"), "{text}: {error}");
+    }
+    let e = rhs("def f (a: Nat): a = a :=\n  cases then t\n");
+    let Expr::Cases { body, .. } = &e else {
+        panic!("expected cases");
+    };
+    assert!(body.is_some());
+    let e = rhs("def f (a: Nat): a = a :=\n  rewrite h\n  then t\n");
+    let Expr::Rewrite { body, .. } = &e else {
+        panic!("expected a rewrite");
+    };
+    assert!(body.is_some());
+}
+
+#[test]
+fn arithmetic_and_algebra_are_keywords_and_the_old_words_are_names() {
+    assert!(parse_module_text("def arithmetic: Nat := 1\n").is_err());
+    assert!(parse_module_text("def algebra: Nat := 1\n").is_err());
+    assert!(parse_module_text("def omega: Nat := 1\n").is_ok());
+    assert!(parse_module_text("def ring: Nat := 1\n").is_ok());
 }
 
 #[test]
 fn rewrite_takes_rules_left_to_right_and_an_optional_body() {
-    let text = "def f (a: Nat): a = a :=\n  rewrite p, <- q x, r (y in ys) in Nat.f _\n";
+    let text = "def f (a: Nat): a = a :=\n  rewrite p, <- q x, r (y in ys) then Nat.f _\n";
     let expr = rhs(text);
     let Expr::Rewrite { rules, body, .. } = &expr else {
         panic!("expected a rewrite");
@@ -182,7 +213,7 @@ fn rewrite_takes_rules_left_to_right_and_an_optional_body() {
     };
     assert!(matches!(&**arg, Expr::Binary(BinOp::In(_), ..)));
     assert!(matches!(body.as_deref(), Some(Expr::App(..))));
-    // No `in`: the body is `rfl`, left to the elaborator.
+    // No `in`: the body is `byComputing`, left to the elaborator.
     let text = "def f (a: Nat): a = a :=\n  rewrite p x\n";
     let expr = rhs(text);
     let Expr::Rewrite { rules, body, .. } = &expr else {
@@ -202,10 +233,10 @@ fn rewrite_in_can_start_its_own_line() {
         (rules.len(), body.clone())
     };
     for text in [
-        "def f (a: Nat): a = a :=\n  rewrite p,\n    q x\n  in t\n",
-        "def f (a: Nat): a = a :=\n  rewrite p, q x\n  in t\n",
-        "def f (a: Nat): a = a :=\n  rewrite p, q x\n    in t\n",
-        "def f (a: Nat): a = a :=\n  rewrite p at h\n  in t\n",
+        "def f (a: Nat): a = a :=\n  rewrite p,\n    q x\n  then t\n",
+        "def f (a: Nat): a = a :=\n  rewrite p, q x\n  then t\n",
+        "def f (a: Nat): a = a :=\n  rewrite p, q x\n    then t\n",
+        "def f (a: Nat): a = a :=\n  rewrite p at h\n  then t\n",
     ] {
         let (rules, body) = body(text);
         assert!(rules >= 1, "{text}");
@@ -235,7 +266,7 @@ fn rewrite_at_takes_a_target_before_the_body() {
     };
     // `at` ends the rules, `in` ends the target.
     let (rules, target, body) =
-        parts("def f (a: Nat): a = a :=\n  rewrite p, <- q x at h y in t\n");
+        parts("def f (a: Nat): a = a :=\n  rewrite p, <- q x at h y then t\n");
     assert_eq!(rules.len(), 2);
     assert!(matches!(&rules[1].proof, Expr::App(..)));
     assert!(matches!(target.as_deref(), Some(Expr::App(..))));
@@ -247,7 +278,7 @@ fn rewrite_at_takes_a_target_before_the_body() {
     // An `at` that starts a rule is a name, so is a bracketed one, and so
     // is a field `.at`.
     let (rules, target, body) =
-        parts("def f (a: Nat): a = a :=\n  rewrite at b (at) r.at at at in at\n");
+        parts("def f (a: Nat): a = a :=\n  rewrite at b (at) r.at at at then at\n");
     let Expr::App(f, arg) = &rules[0].proof else {
         panic!("expected an application");
     };
@@ -257,7 +288,7 @@ fn rewrite_at_takes_a_target_before_the_body() {
     assert!(matches!(body.as_deref(), Some(Expr::Var(n)) if n.text == "at"));
     // `at` is an ordinary name elsewhere.
     assert!(parse_module_text("def f (at: Nat): Nat := at\n").is_ok());
-    let (_, target, _) = parts("def f (a: Nat): a = a :=\n  rewrite p in at\n");
+    let (_, target, _) = parts("def f (a: Nat): a = a :=\n  rewrite p then at\n");
     assert!(target.is_none());
 }
 
@@ -267,7 +298,9 @@ fn rewrite_and_in_are_keywords() {
     // `in` is reserved since it became membership (D1201).
     assert!(parse_module_text("def f (in: Nat): Nat := in\n").is_err());
     // `<` then `-` apart is a comparison, not an arrow.
-    assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite < - p in rfl\n").is_err());
+    assert!(
+        parse_module_text("def f (a: Nat): a = a :=\n  rewrite < - p then byComputing\n").is_err()
+    );
 }
 
 #[test]
@@ -316,7 +349,7 @@ fn a_keyword_where_a_name_goes_is_called_a_keyword() {
 
 #[test]
 fn calc_needs_steps_on_their_own_lines() {
-    assert!(parse_module_text("def f (a: Nat): a = a := calc a = a := rfl\n").is_err());
+    assert!(parse_module_text("def f (a: Nat): a = a := calc a = a := byComputing\n").is_err());
     assert!(parse_module_text("def f (a: Nat): a = a :=\n  calc a\n").is_err());
     assert!(
         parse_module_text("def f (a: Nat): a = a :=\n  calc a\n    _ = a\n   _ = a\n").is_err()

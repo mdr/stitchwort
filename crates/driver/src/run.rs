@@ -981,7 +981,7 @@ impl Shapes {
         Value::Ctor(self.maybe, 1, [value].into())
     }
 
-    /// `MkText` of the line's characters, each `MkChar code rfl`.
+    /// `MkText` of the line's characters, each `MkChar code byComputing`.
     fn text(&self, line: &str) -> Value {
         let mut list = Value::Ctor(self.list, 0, Vec::new().into());
         for c in line.chars().rev() {

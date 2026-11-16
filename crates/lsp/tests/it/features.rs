@@ -229,7 +229,7 @@ fn an_unknown_name_gets_a_quick_fix_that_adds_its_import() {
 #[test]
 fn a_theorem_that_starts_with_forall_gets_a_quick_fix_that_moves_its_variables() {
     big_stack(|| {
-        let text = "namespace Demo\n\ntheorem addZero: ∀ (n: Nat) => n + 0 = n\n  | Zero => rfl\n  | Succ k => rfl\n";
+        let text = "namespace Demo\n\ntheorem addZero: ∀ (n: Nat) => n + 0 = n\n  | Zero => byComputing\n  | Succ k => byComputing\n";
         let mut s = Session::open(text);
         let d = s
             .diagnostics
@@ -257,7 +257,7 @@ fn a_theorem_that_starts_with_forall_gets_a_quick_fix_that_moves_its_variables()
 #[test]
 fn a_statement_written_with_an_arrow_gets_a_quick_fix_that_writes_forall() {
     big_stack(|| {
-        let text = "namespace Demo\n\ntheorem addZero: (n: Nat) -> n + 0 = n := n => rfl\n";
+        let text = "namespace Demo\n\ntheorem addZero: (n: Nat) -> n + 0 = n := n => byComputing\n";
         let mut s = Session::open(text);
         let d = s
             .diagnostics
@@ -361,7 +361,7 @@ fn a_let_without_a_type_gets_its_type_as_an_inlay_hint() {
 #[test]
 fn semantic_tokens_colour_names_by_what_they_resolve_to() {
     big_stack(|| {
-        let text = "namespace Demo\n\ntype Color = | Red | Green\n\ndef pick (c: Color): Nat :=\n  match c with\n    | Red => 1\n    | Green => 2\n\ntheorem pickRed: pick Red = 1 := rfl\n";
+        let text = "namespace Demo\n\ntype Color = | Red | Green\n\ndef pick (c: Color): Nat :=\n  match c with\n    | Red => 1\n    | Green => 2\n\ntheorem pickRed: pick Red = 1 := byComputing\n";
         let mut s = Session::open(text);
         let capabilities = s.request("initialize", json!({"capabilities": {}}));
         let legend =
@@ -556,7 +556,7 @@ fn hover_unfolds_the_outermost_not_once() {
                     \n\
                     def usesNotAnd: ¬(False ∧ False) := notAnd False False\n\
                     \n\
-                    def n: Nat := ordinary 1 1 rfl\n";
+                    def n: Nat := ordinary 1 1 byComputing\n";
         let mut s = Session::open(text);
         let shown = hover_at(&mut s, text, "falseNotTrue");
         let markdown = shown["contents"]["value"].as_str().unwrap_or_default();
@@ -1029,10 +1029,10 @@ fn a_code_action_on_a_goal_offers_a_search_that_runs_when_asked() {
         assert!(
             proofs.iter().any(|p| p["title"]
                 .as_str()
-                .is_some_and(|t| t.starts_with("Replace ? with `rfl`"))),
+                .is_some_and(|t| t.starts_with("Replace ? with `byComputing`"))),
             "{proofs:?}"
         );
-        // `rfl` closes it, so it is the only proof offered (SW-2966).
+        // `byComputing` closes it, so it is the only proof offered (SW-2966).
         assert_eq!(proofs.len(), 1, "{proofs:?}");
         assert_eq!(
             answer["range"]["start"],
@@ -1820,7 +1820,7 @@ fn switching_features_off_with_a_configuration_change() {
 #[test]
 fn a_body_being_typed_leaves_its_users_checked() {
     big_stack(|| {
-        let fine = "namespace Demo\n\ndef double (n: Nat): Nat := n + n\n\ntheorem five: double 2 = 5 := rfl\n\ndef quad (n: Nat): Bool := double (double n)\n\ntheorem later: quad 3 = True := ?\n";
+        let fine = "namespace Demo\n\ndef double (n: Nat): Nat := n + n\n\ntheorem five: double 2 = 5 := byComputing\n\ndef quad (n: Nat): Bool := double (double n)\n\ntheorem later: quad 3 = True := ?\n";
         let typing = fine.replace(":= n + n\n", ":= (n + n\n");
         let mut s = Session::open(fine);
         let shown = |s: &Session| -> Vec<(String, u64)> {

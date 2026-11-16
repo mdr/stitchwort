@@ -416,7 +416,7 @@ fn a_stuck_case_unblocks_when_its_metavariable_is_solved() {
 }
 
 /// `J` on a neutral proof stays stuck, keeping its motive and base; on a
-/// solved metavariable standing for `rfl`, it reduces to the base, including
+/// solved metavariable standing for `byComputing`, it reduces to the base, including
 /// when the `J` is in the metavariable's spine.
 #[test]
 fn j_with_reflexive_and_stuck_proofs() {
@@ -442,7 +442,7 @@ fn j_with_reflexive_and_stuck_proofs() {
     assert!(
         matches!(fast, Value::Neutral(Head::Var(0, _), ref s) if matches!(s[..], [Elim::J { .. }]))
     );
-    // Stuck on an unsolved metavariable, then solved with `rfl`.
+    // Stuck on an unsolved metavariable, then solved with `byComputing`.
     let m = session.elab.metas().new_meta(span());
     let fast = value::eval(g, &[], &j(Term::Meta(m))).unwrap();
     let slow = reference::eval(g, &[], &j(Term::Meta(m))).unwrap();
@@ -503,13 +503,13 @@ fn the_evaluators_agree_on_quotients() {
                  def Q: Type := Quot Bool AllTrue\n\
                  theorem same: (Quot.mk False: Q) = Quot.mk True := Quot.sound Trivial\n\
                  def stuck: Nat := J (y p => Nat) 0 same\n\
-                 def byInd: 0 = 0 := Quot.ind [p := q => 0 = 0] (b => rfl) (Quot.mk False: Q)\n\
+                 def byInd: 0 = 0 := Quot.ind [p := q => 0 = 0] (b => byComputing) (Quot.mk False: Q)\n\
                  def stuckToo: Nat := J (y p => Nat) 0 byInd\n\
                  def BoolEq (x: Bool) (y: Bool): Prop := x = y\n\
                  def QE: Type := Quot Bool BoolEq\n\
                  def toNat (b: Bool): Nat := if b then 1 else 0\n\
                  def toNatRespects (x: Bool) (y: Bool) (same: BoolEq x y): toNat x = toNat y :=\n  \
-                 rewrite same in rfl\n\
+                 rewrite same then byComputing\n\
                  def observe (q: QE): Nat := Quot.lift toNat toNatRespects q\n\
                  def mkTrue: QE := Quot.mk True\n\
                  def one: Nat := observe mkTrue\n\
@@ -519,8 +519,8 @@ fn the_evaluators_agree_on_quotients() {
                  | True => Quot.lift toNat toNatRespects q\n    \
                  | False => 0\n\
                  def twice (q: QE): Nat := observe q + observe q\n\
-                 def proofLift (q: Q): 0 = 0 := Quot.lift (b => rfl) (x y r => rfl) q\n\
-                 def propLift (q: Q): Prop := Quot.lift (b => Unit) (x y r => rfl) q\n",
+                 def proofLift (q: Q): 0 = 0 := Quot.lift (b => byComputing) (x y r => byComputing) q\n\
+                 def propLift (q: Q): Prop := Quot.lift (b => Unit) (x y r => byComputing) q\n",
             )
             .unwrap();
         let g = &session.elab.ev();

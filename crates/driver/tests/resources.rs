@@ -58,7 +58,7 @@ fn deep_recursion_runs_without_using_the_stack() {
     let source = format!(
         "{REPLICATE}\n\
          test \"deep\" := replicateHasLength 1000000\n\n\
-         theorem deep : List.length (replicate 1000000 1) = 1000000 := rfl\n"
+         theorem deep : List.length (replicate 1000000 1) = 1000000 := byComputing\n"
     );
     session.load("deep.sw", &source).expect("checks");
     let results = session.run_tests(&Cache::disabled());
@@ -90,8 +90,9 @@ fn a_test_that_recurses_too_deeply_has_no_result() {
 #[test]
 fn a_proof_that_recurses_too_deeply_is_rejected_for_that_reason() {
     let mut session = with_few_frames();
-    let source =
-        format!("{REPLICATE}\ntheorem deep : List.length (replicate 100000 1) = 100000 := rfl\n");
+    let source = format!(
+        "{REPLICATE}\ntheorem deep : List.length (replicate 100000 1) = 100000 := byComputing\n"
+    );
     // Not `E-REFL`: the kernel didn't find the sides different.
     let diagnostics = session.load("deep.sw", &source).unwrap_err();
     assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
@@ -155,7 +156,7 @@ fn a_value_too_large_to_show_names_the_declaration_and_what_it_unfolds() {
     let diagnostics = session
         .load(
             "use.sw",
-            "theorem t (n: Nat): big n = big n unfolding big := rewrite Eq.refl (big n) in rfl\n",
+            "theorem t (n: Nat): big n = big n unfolding big := rewrite Eq.refl (big n) then byComputing\n",
         )
         .unwrap_err();
     let resource = diagnostics
@@ -183,8 +184,9 @@ fn running_out_of_steps_names_the_definition_being_unfolded() {
         work: 5_000,
         ..Limits::default()
     };
-    let source =
-        format!("{REPLICATE}\ntheorem long : List.length (replicate 10000 1) = 10000 := rfl\n");
+    let source = format!(
+        "{REPLICATE}\ntheorem long : List.length (replicate 10000 1) = 10000 := byComputing\n"
+    );
     let diagnostics = session.load("work.sw", &source).unwrap_err();
     let resource = diagnostics
         .iter()
@@ -207,7 +209,7 @@ def half (n : Nat) : Nat := n / 2
 
 def safeDiv (n : Nat) (d : Nat) : Nat := if h : d != 0 then n / d else 0
 
-theorem halfTen : half 10 = 5 := rfl
+theorem halfTen : half 10 = 5 := byComputing
 
 ability Count where
   tick : () -> {Count} ()
@@ -333,17 +335,17 @@ fn arguments_the_types_need_are_still_computed() {
     let mut session = Session::new();
     let source = format!(
         "{REPLICATE}
-theorem three : List.length (replicate 3 1) = 3 := rfl
+theorem three : List.length (replicate 3 1) = 3 := byComputing
 
 def ok : Pair Nat Nat := MkPair (List.length (replicate 3 1)) 0
 
 -- `Eq.cong`'s result type mentions its arguments.
-theorem wrong : List.length (replicate 3 1) = 4 := Std.Eq.cong (x => x) rfl
+theorem wrong : List.length (replicate 3 1) = 4 := Std.Eq.cong (x => x) byComputing
 "
     );
-    // `rfl` is checked after the rest of its call (postponement stage 7),
+    // `byComputing` is checked after the rest of its call (postponement stage 7),
     // against `List.length (replicate 3 1) = 4`: computing the left side
-    // gives 3, so `rfl` itself is refused (before stage 7, the call's
+    // gives 3, so `byComputing` itself is refused (before stage 7, the call's
     // result type was: `E-TYPE-MISMATCH`).
     assert_eq!(codes(session.load("needed.sw", &source)), ["E-REFL"]);
 }
@@ -412,7 +414,7 @@ fn proofs_about_long_values_check() {
     let mut session = Session::new();
     let source = format!(
         "{LISTS}\n\
-         theorem same : allOnes 20000 = allOnes 20000 := rfl\n\n\
+         theorem same : allOnes 20000 = allOnes 20000 := byComputing\n\n\
          theorem differ : Not (allOnes 20000 = endsInTwo 20000) := p => p\n"
     );
     let codes: Vec<_> = match session.load("proofs.sw", &source) {
@@ -443,7 +445,7 @@ fn nested_lets_finish_under_the_budget() {
         ("x20 = x20", ["ok", "E-RESOURCE"]),
         ("x20 = 0", ["E-REFL", "E-RESOURCE"]),
     ] {
-        let source = format!("{lets}  let p : {claim} := rfl\n  x20\n");
+        let source = format!("{lets}  let p : {claim} := byComputing\n  x20\n");
         let mut session = Session::new();
         let started = Instant::now();
         let codes = codes(session.load("nested.sw", &source));
@@ -474,7 +476,7 @@ fn a_large_let_is_computed_only_when_a_type_needs_it() {
         session.elab.kernel.machine.budget.total_work() - before
     };
     let unused = work("");
-    let used = work("  let p : List.length xs = 200000 := rfl\n");
+    let used = work("  let p : List.length xs = 200000 := byComputing\n");
     eprintln!("a large let: {unused} steps unused, {used} used");
     assert!(
         unused * 4 < used,
@@ -620,7 +622,7 @@ fn a_product_stuck_on_its_left_does_not_compute_its_right() {
     let before = session.elab.kernel.machine.budget.total_work();
     let source = "def count: (n: Nat) → Nat\n  | Zero => 0\n  | Succ n => Succ (count n)\n\n\
                   def f (x: Nat): Nat := x * count 100000000\n\n\
-                  theorem t (x: Nat): f x = x * count 100000000 := rfl\n";
+                  theorem t (x: Nat): f x = x * count 100000000 := byComputing\n";
     let result = codes(session.load("stuck.sw", source));
     assert!(result.is_empty(), "{result:?}");
     let work = session.elab.kernel.machine.budget.total_work() - before;
@@ -636,8 +638,9 @@ fn running_out_of_steps_names_the_declaration_being_checked() {
         work: 5_000,
         ..Limits::default()
     };
-    let source =
-        format!("{REPLICATE}\ntheorem long : List.length (replicate 10000 1) = 10000 := rfl\n");
+    let source = format!(
+        "{REPLICATE}\ntheorem long : List.length (replicate 10000 1) = 10000 := byComputing\n"
+    );
     let diagnostics = session.load("work.sw", &source).unwrap_err();
     let resource = diagnostics
         .iter()
@@ -658,8 +661,9 @@ fn running_out_of_steps_names_the_declaration_being_checked() {
 #[test]
 fn a_long_check_says_what_it_is_computing_while_it_runs() {
     static NOTES: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
-    let source =
-        format!("{REPLICATE}\ntheorem long : List.length (replicate 2000 1) = 2000 := rfl\n");
+    let source = format!(
+        "{REPLICATE}\ntheorem long : List.length (replicate 2000 1) = 2000 := byComputing\n"
+    );
     let steps = |progress: bool| {
         let mut session = Session::new();
         if progress {
@@ -734,7 +738,7 @@ fn a_match_whose_goal_is_too_large_to_read_back_uses_the_goal_as_written() {
         .load(
             "use.sw",
             "theorem same (xs: List Nat): isSome (answer xs) = isSome (answer xs) :=\n  \
-             match answer xs with\n    | Some n => rfl\n    | None => rfl\n",
+             match answer xs with\n    | Some n => byComputing\n    | None => byComputing\n",
         )
         .expect("checks with the goal as written");
     assert!(
@@ -781,10 +785,10 @@ import Std (Add, Eq, List)
 
 theorem sumByFlatMapAgain [auto add: Add c] (xs: List a) (f: b → c) (g: a → List b): List.sumBy (List.flatMap xs g) f = List.sumBy xs (x => List.sumBy (g x) f) :=
   match xs with
-    | [] => rfl
+    | [] => byComputing
     | [x, ..xs] =>
       Eq.trans (List.sumByAppend (g x) (List.flatMap xs g) f)
-        (Eq.trans (Eq.cong (t => List.sumBy (g x) f + t) (sumByFlatMapAgain xs f g)) (Eq.sym (List.sumByCons xs x (x => List.sumBy (g x) f))))
+        (Eq.trans (Eq.cong (t => List.sumBy (g x) f + t) (sumByFlatMapAgain xs f g)) (Eq.flipped (List.sumByCons xs x (x => List.sumBy (g x) f))))
 
 def afterwards (n : Nat) : Nat := n + 1
 ";

@@ -265,7 +265,7 @@ fn a_signature_cannot_mention_a_sibling() {
 #[test]
 fn members_are_opaque_while_their_group_is_checked() {
     // `f`'s body needs `z` to compute to `Zero`:
-    // `((_ => n) : z = 0 -> Nat) rfl`.
+    // `((_ => n) : z = 0 -> Nat) byComputing`.
     let mut p = Prelude::new();
     let body_using = |p: &Prelude, z: DefId| {
         let ignore = Term::Ann(

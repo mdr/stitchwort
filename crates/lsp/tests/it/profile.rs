@@ -117,7 +117,7 @@ fn body() {
     eprintln!("first: {} events", first.len());
     for round in 0..3 {
         let text = if round % 2 == 0 {
-            format!("{own}\ndef broken: Nat := rfl\n")
+            format!("{own}\ndef broken: Nat := byComputing\n")
         } else {
             format!("{own}\n-- edit\n")
         };

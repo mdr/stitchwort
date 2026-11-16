@@ -131,7 +131,7 @@ fn only_leaves_the_text_output_as_it_was() {
 }
 
 /// A declaration with an error (`broken`, which doesn't type check) and a
-/// theorem `rfl` can't prove, with tests that don't touch them, one that
+/// theorem `byComputing` can't prove, with tests that don't touch them, one that
 /// uses `broken`, and one that uses `twice`, which uses it (D3523).
 const WITH_ERRORS: &str = r#"namespace Demo
 
@@ -141,7 +141,7 @@ def broken (n: Nat): Nat := "oops"
 
 def twice (n: Nat): Nat := broken n + broken n
 
-theorem wrongSum: good 1 = 3 := rfl
+theorem wrongSum: good 1 = 3 := byComputing
 
 test "independent passes" := good 1 == 2
 test "independent fails" := good 1 == 3
@@ -176,7 +176,7 @@ fn tests_that_dont_use_a_declaration_with_an_error_still_run() {
     // The errors are still reported, and the run fails.
     assert!(!output.status.success(), "{stdout}{stderr}");
     assert!(
-        stderr.contains("`wrongSum`") || stderr.contains("rfl"),
+        stderr.contains("`wrongSum`") || stderr.contains("byComputing"),
         "{stderr}"
     );
     let v: Value = serde_json::from_str(&stdout).expect(&stdout);
@@ -292,9 +292,9 @@ def quadBroken (n: Nat): Nat := broken (double n)
 
 def again (n: Nat): Nat := broken n + broken n
 
-theorem quadOne: quad 1 = 4 := rfl
+theorem quadOne: quad 1 = 4 := byComputing
 
-theorem brokenOne: broken 1 = 1 := rfl
+theorem brokenOne: broken 1 = 1 := byComputing
 
 test "quad works" := quad 1 == 4
 test "quad of broken" := quadBroken 1 == 4
@@ -339,7 +339,7 @@ import A (bad)
 
 def use (n: Nat): Nat := bad n
 
-theorem useOne: bad 1 = 1 := rfl
+theorem useOne: bad 1 = 1 := byComputing
 "#;
 
 /// A project whose namespace `B` imports a healthy and a broken name from
@@ -493,7 +493,8 @@ fn an_import_of_a_name_lost_to_a_syntax_error_says_so_once() {
 /// theorem that mentions it.
 #[test]
 fn a_user_of_a_name_lost_to_a_syntax_error_waits_and_has_no_error_of_its_own() {
-    let importer = format!("{SYNTAX_IMPORTER}\ntheorem keeps (h: use 1 = 1): 1 = 1 := rfl\n");
+    let importer =
+        format!("{SYNTAX_IMPORTER}\ntheorem keeps (h: use 1 = 1): 1 = 1 := byComputing\n");
     let dir = source_project("syntax-waits", LIB_WITH_A_SYNTAX_ERROR, &importer);
     let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
     let _ = std::fs::remove_dir_all(&dir);
@@ -525,7 +526,7 @@ def isOdd: (n: Nat) -> Bool
   | 0 => False
   | Succ k => isEven "x"
 
-theorem usesEven (h: isEven 2 = True): 1 = 1 := rfl
+theorem usesEven (h: isEven 2 = True): 1 = 1 := byComputing
 "#;
 
 #[test]
@@ -563,7 +564,7 @@ fn a_group_the_kernel_refuses_blames_the_member_the_error_is_in() {
     let importer = "namespace B\n\n\
         def f: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => g k\n\n\
         def g: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => f k + g (Succ k)\n\n\
-        theorem usesF (h: f 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+        theorem usesF (h: f 1 = 1): 1 = 1 := byComputing\n\ntest \"t\" := True\n";
     let dir = source_project(
         "refused-group",
         "namespace A\n\ndef a: Nat := 1\n",
@@ -585,8 +586,8 @@ fn a_group_refused_as_a_whole_is_every_members_error() {
     let importer = "namespace B\n\n\
         def f: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => g k\n\n\
         def g: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => f (Succ (Succ k))\n\n\
-        theorem usesF (h: f 1 = 1): 1 = 1 := rfl\n\n\
-        theorem usesG (h: g 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+        theorem usesF (h: f 1 = 1): 1 = 1 := byComputing\n\n\
+        theorem usesG (h: g 1 = 1): 1 = 1 := byComputing\n\ntest \"t\" := True\n";
     let dir = source_project("whole-group", "namespace A\n\ndef a: Nat := 1\n", importer);
     let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
     let _ = std::fs::remove_dir_all(&dir);
@@ -610,7 +611,7 @@ fn a_group_with_a_lost_name_in_one_member_and_an_error_in_another_blames_the_err
     let importer = "namespace B\n\nimport A (beats)\n\n\
         def f: (n: Nat) -> Nat\n  | 0 => beats 0\n  | Succ k => g k\n\n\
         def g: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => f \"x\"\n\n\
-        theorem usesF (h: f 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+        theorem usesF (h: f 1 = 1): 1 = 1 := byComputing\n\ntest \"t\" := True\n";
     let dir = source_project("lost-and-error", LIB_WITH_A_SYNTAX_ERROR, importer);
     let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
     let _ = std::fs::remove_dir_all(&dir);
@@ -705,13 +706,13 @@ def double (n: Nat): Nat := n + n
 
 def broken (n: Nat): Nat := "oops"
 
-theorem doubleTwo: double 2 = 5 := rfl
+theorem doubleTwo: double 2 = 5 := byComputing
 
 theorem usesTwo: double 2 + 0 = 5 := doubleTwo
 
 theorem ownMistake: double 3 = 5 := doubleTwo
 
-theorem needsBody: broken 0 = 0 := rfl
+theorem needsBody: broken 0 = 0 := byComputing
 
 def badSig (n: Nat): Missing := n
 
@@ -899,7 +900,7 @@ def broken (n: Nat): Nat := "oops"
 
 def twice (n: Nat): Nat := broken n + broken n
 
-theorem wrongSum: good 1 = 3 := rfl
+theorem wrongSum: good 1 = 3 := byComputing
 
 test "fine" := good 1 == 2
 test "own error" := good 1 == "two"
@@ -1010,7 +1011,10 @@ test "boom" := (if cast natIsBool 7 then 1 else 2) == 1
 /// then the run computes nonsense or crashes. The other tests still run.
 #[test]
 fn a_test_that_casts_along_a_gap_is_not_run() {
-    for (proof, gap) in [("rfl", "which has an error"), ("?", "`natIsBool`'s goal")] {
+    for (proof, gap) in [
+        ("byComputing", "which has an error"),
+        ("?", "`natIsBool`'s goal"),
+    ] {
         for runner in [None, Some("--reference")] {
             let dir = folder(&format!("cast-{}-{}", proof.len(), runner.is_some()));
             std::fs::write(dir.join("t.sw"), CAST.replace("PROOF", proof)).unwrap();
@@ -1104,7 +1108,7 @@ fn a_failed_test_says_what_it_assumed() {
     let dir = folder("failed-assuming");
     std::fs::write(
         dir.join("t.sw"),
-        "theorem two: 1 + 1 = 3 := rfl\n\
+        "theorem two: 1 + 1 = 3 := byComputing\n\
          def keep (h: 1 + 1 = 3) (n: Nat): Nat := n\n\
          test \"cites\" := keep two 4 == 5\n",
     )
@@ -1157,11 +1161,11 @@ fn a_declaration_with_an_error_is_not_counted_as_relying() {
 #[test]
 fn a_body_that_does_not_parse_stands_in_for_its_statement() {
     let source = "def double (n: Nat): Nat := n + n\n\
-        theorem doubleTwo: double 2 = 4 := (rfl\n\
+        theorem doubleTwo: double 2 = 4 := (byComputing\n\
         theorem usesTwo: double 2 + 0 = 4 := doubleTwo\n\
         def check2 (h: double 2 = 4): Bool := double 1 == 2\n\
         test \"cites\" := check2 doubleTwo\n";
-    let header = source.replace("double 2 = 4 := (rfl", "double 2 = := rfl");
+    let header = source.replace("double 2 = 4 := (byComputing", "double 2 = := byComputing");
     for (name, text) in [
         ("unparsed-body", source.to_string()),
         ("unparsed-header", header),
@@ -1221,7 +1225,7 @@ fn an_error_free_member_of_a_failed_group_is_not_counted_as_an_error() {
     let importer = "namespace B\n\n\
         def f: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => g k\n\n\
         def g: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => f k + g (Succ k)\n\n\
-        theorem usesF (h: f 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+        theorem usesF (h: f 1 = 1): 1 = 1 := byComputing\n\ntest \"t\" := True\n";
     let dir = source_project("counted", "namespace A\n\ndef a: Nat := 1\n", importer);
     let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
     let _ = std::fs::remove_dir_all(&dir);
@@ -1237,7 +1241,7 @@ fn an_error_free_member_of_a_failed_group_is_not_counted_as_an_error() {
 fn a_typo_under_a_failed_wildcard_import_waits_at_the_import() {
     let importer = "namespace B\n\nimport Missing (..)\n\n\
         def typo (n: Nat): Nat := fooo n\n\n\
-        theorem usesTypo (h: typo 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+        theorem usesTypo (h: typo 1 = 1): 1 = 1 := byComputing\n\ntest \"t\" := True\n";
     let dir = source_project("typo", "namespace A\n\ndef a: Nat := 1\n", importer);
     let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
     let _ = std::fs::remove_dir_all(&dir);

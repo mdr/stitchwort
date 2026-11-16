@@ -117,9 +117,9 @@ def CVec.sum: CVec Nat n -> Nat
 test \"a data field is kept\" := Certified.value (certify 41) == 41
 test \"and read through a pattern\" := Certified.value (certify 7) + 1 == 8
 test \"forced implicit fields are kept\" :=
-  CVec.length (CCons 1 rfl (CCons 2 rfl (CCons 3 rfl CNil))) == 3
+  CVec.length (CCons 1 byComputing (CCons 2 byComputing (CCons 3 byComputing CNil))) == 3
 test \"and the other fields too\" :=
-  CVec.sum (CCons 1 rfl (CCons 2 rfl (CCons 3 rfl CNil))) == 6
+  CVec.sum (CCons 1 byComputing (CCons 2 byComputing (CCons 3 byComputing CNil))) == 6
 ";
 
 #[test]
@@ -163,7 +163,7 @@ def fromListN: (n: Nat) -> (xs: List a) -> List.length xs = n -> Vec a n
   | 0, Cons _ _, ok       => Void.absurd (Nat.succNotZero _ ok)
   | Succ _, Nil, ok       => Void.absurd (Nat.zeroNotSucc _ ok)
 
-def fromList (xs: List a): Vec a (List.length xs) := fromListN (List.length xs) xs rfl
+def fromList (xs: List a): Vec a (List.length xs) := fromListN (List.length xs) xs byComputing
 
 test \"round trip\" := List.length (toList (fromList (List.range 0 {n}))) == {n}
 "

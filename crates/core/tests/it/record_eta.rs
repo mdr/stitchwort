@@ -57,7 +57,7 @@ fn boxed(p: &mut Prelude) -> DataId {
     b
 }
 
-/// `(x: ty) -> a = b` proved by `rfl`, with `a` and `b` under `x`.
+/// `(x: ty) -> a = b` proved by `byComputing`, with `a` and `b` under `x`.
 fn rfl_about(p: &mut Prelude, name: &str, ty: Term, a: Term, b: Term) -> Result<(), &'static str> {
     define(
         &mut p.g,
@@ -219,14 +219,14 @@ fn a_proof_field_is_skipped_beside_a_data_field() {
     let s_ty = Term::data(s, vec![]);
     // Any proof will do for the proof field.
     let rebuilt = Term::ctor(s, 0, vec![proj(s, 0, v(0)), Term::Refl]);
-    rfl_about(&mut p, "sEta", s_ty.clone(), v(0), rebuilt).expect("x = MkS x.value rfl");
+    rfl_about(&mut p, "sEta", s_ty.clone(), v(0), rebuilt).expect("x = MkS x.value byComputing");
     // But the data field is compared.
     let other = Term::ctor(s, 0, vec![p.num(0), Term::Refl]);
     assert!(rfl_about(&mut p, "sZero", s_ty, v(0), other).is_err());
 }
 
 // D1981: a record whose fields are all proofs gets no eta. With it, every
-// value would equal `MkSmall rfl` (the proof field skipped), so any two
+// value would equal `MkSmall byComputing` (the proof field skipped), so any two
 // would be equal through it while comparing them directly says they differ.
 
 #[test]
@@ -248,7 +248,7 @@ fn a_record_of_proofs_only_has_no_eta() {
     let unit = Term::ctor(small, 0, vec![Term::Refl]);
     assert!(
         rfl_about(&mut p, "unit", small_ty.clone(), v(0), unit).is_err(),
-        "x = MkSmall rfl must not hold by computation"
+        "x = MkSmall byComputing must not hold by computation"
     );
     let two = define(
         &mut p.g,

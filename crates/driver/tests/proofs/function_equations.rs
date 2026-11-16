@@ -572,10 +572,10 @@ def ctorAhead (p: Pair Nat Nat): Nat :=
     | Succ n => n + b
 
 theorem pairAheadSucc (a: Nat) (b: Nat): pairAhead (Succ a, b) = a + b :=
-  pairAhead.eq.succ (Succ a, b) a rfl
+  pairAhead.eq.succ (Succ a, b) a byComputing
 
 theorem flaggedTrue (n: Nat): flagged { flag = True, value = n } = n :=
-  flagged.eq.ifTrue { flag = True, value = n } rfl
+  flagged.eq.ifTrue { flag = True, value = n } byComputing
 "#;
 
 #[test]
@@ -722,13 +722,13 @@ def walk (k: Nat): List (Option Nat) → Nat
       | _, _ => walk k rest
 
 theorem twoBoth (x: Nat) (y: Nat): two 1 (Some x) (Some y) = x + y :=
-  two.eq.ifFalse.alt1 1 (Some x) (Some y) rfl x y rfl
+  two.eq.ifFalse.alt1 1 (Some x) (Some y) byComputing x y byComputing
 
 theorem threeNone (a: Option Nat) (b: Bool) (c: Nat) (h: three 1 a b c = 7) (n: Nat) (ha: a = None) (hc: c = Succ n): n = 7 :=
-  rewrite three.eq.ifFalse.alt3 1 a b c rfl b n (rewrite ha in rewrite hc in rfl) at h in h
+  rewrite three.eq.ifFalse.alt3 1 a b c byComputing b n (rewrite ha then rewrite hc then byComputing) at h then h
 
 theorem threeOther (a: Option Nat) (c: Nat) (ha: a = None) (hc: c = 0): three 1 a True c = 2 :=
-  three.eq.ifFalse.alt4 1 a True c rfl (x => e => rewrite ha at e in cases) (e => cases) (n => e => rewrite hc in cases)
+  three.eq.ifFalse.alt4 1 a True c byComputing (x => e => rewrite ha at e then cases) (e => cases) (n => e => rewrite hc then cases)
 "#;
 
 #[test]
@@ -861,17 +861,17 @@ def firstBig: List Nat → Option Big
 
 theorem byRewrite (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
     firstBig (Cons x rest) = Some ({ value = x, isBig = h }) :=
-  rewrite h in rfl
+  rewrite h then byComputing
 
 theorem byMatch (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
     firstBig (Cons x rest) = Some ({ value = x, isBig = h }) :=
   match e: Nat.leq 10 x with
-    | True => rfl
-    | False => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) h))
+    | True => byComputing
+    | False => Void.impossible (Bool.falseNotTrue (Eq.trans (Eq.flipped e) h))
 
 theorem byRfl (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
     firstBig (Cons x rest) = Some ({ value = x, isBig = h }) :=
-  rfl
+  byComputing
 "#;
     std::thread::Builder::new()
         .stack_size(STACK)
@@ -989,7 +989,7 @@ fn a_library_equation_is_the_same_however_it_is_made() {
         let named = format!(
             "{program}\ntheorem leftLeaf (r: Box.Tree):\n    \
              Box.Tree.count (Box.Tree.Node Box.Tree.Leaf r) = 1 + Box.Tree.count r :=\n  \
-             Box.Tree.count.eq2.ifTrue Box.Tree.Leaf r rfl\n"
+             Box.Tree.count.eq2.ifTrue Box.Tree.Leaf r byComputing\n"
         );
         if let Err(errors) = session.load("named.sw", &named) {
             panic!("doesn't load: {errors:#?}");
@@ -1106,8 +1106,8 @@ import List (length)
 import Std (Bool, Decidable, Eq, Nat)
 
 def lenZero (xs: List Nat): Decidable (xs.length = 0) := match h: xs.length with
-  | Zero => Decidable.yes rfl
-  | Succ k => Decidable.no (e => Nat.equalFalse (Succ k) 0 rfl e)
+  | Zero => Decidable.yes byComputing
+  | Succ k => Decidable.no (e => Nat.equalFalse (Succ k) 0 byComputing e)
 
 def keep (p: Prop): p → Bool
   | _ => True
