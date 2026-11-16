@@ -38927,12 +38927,12 @@
     {
       "id": 3489,
       "title": "[Fable paper] Stock-take after the toy proof (Matt, 16 Nov 2026): (1) lessons for std, the language and proving in general; (2) the toy proof itself: generic facts for std, and where it could be simpler; (3) directions toward a formally verified Stitchwort formatter written in Stitchwort (token insertions and rewrites, not only whitespace), with the dual goal of improving the language and environment. Takes in SW-3417 and SW-3434's questions",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Paper: docs/proposals/after-the-toy-proof.md (lane/SW-3489, ae0a8a782). Fable, 16 Nov 2026; no builds or tests.\nMeasured: 1,262 theorems, 27,349 proof lines for 1,679 program lines; 157 theorems not reached from the result by name (all 56 of LayoutProofs.sw); three clone walks are 201; 17 plain std facts.\nRecommends: tidy the toy (to ~900), one std Reads design note (SW-3460+3465+3478 + declines), Toy++ with a sketch first, then passes + a white-space-only printer as the real formatter's end state.\nFour decisions for Matt (note §6): direction C as end state; Toy++ next; 'same program' as a Stitchwort meaning function plus the fuzz hash cross-check; the proved formatter's parser on std Parse.\nAbsorbs SW-3434 (§4.4) and replaces SW-3417's refresh (roadmap step 7).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
