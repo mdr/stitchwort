@@ -48,6 +48,7 @@ use stitchwort_driver::check_cache::{
     LibraryBundle,
 };
 use stitchwort_driver::driver::Session;
+use stitchwort_driver::fixes::{self, FixKind};
 use stitchwort_driver::live::{
     Answers, FileAnswers, LiveFile, LiveProject, LiveRef, Loc, OutlineItem, Place, Progress,
     outline_of_text,
@@ -62,11 +63,9 @@ use wasm::FileUrl as _;
 
 mod arms;
 mod complete;
-mod imports;
 mod lens;
 mod rename;
 mod source;
-mod style;
 use source::sources_hold;
 pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
 
@@ -509,6 +508,7 @@ pub fn serve_from(
         cancel,
         to_checker,
         texts: Default::default(),
+        formatter_bugs: Default::default(),
         searches,
         to_searches,
         document_changes,
@@ -1231,6 +1231,8 @@ struct Main {
     to_checker: Sender<Edit>,
     /// The text of each open document, to trim a selection against.
     texts: std::cell::RefCell<HashMap<Url, String>>,
+    /// The versions the formatter-bug warning was shown for.
+    formatter_bugs: std::cell::RefCell<FormatterBugsShown>,
     searches: Arc<Searches>,
     to_searches: Sender<SearchJob>,
     /// Whether the client applies versioned `documentChanges` edits.
@@ -1649,72 +1651,54 @@ impl Main {
                 }]}),
                 None => serde_json::json!({"changes": {uri.as_str(): edits}}),
             };
-        let with_edit = |edit: lsp_types::TextEdit| with_edits(&[edit]);
         for d in diagnostics {
-            if let Some(lsp_types::NumberOrString::String(code)) = &d.code
-                && let Some(title) = style::title(code)
-            {
-                let edits = style::edits(text, code, d.range);
-                if !edits.is_empty() {
-                    actions.push(serde_json::json!({
-                        "title": title,
-                        "kind": "quickfix",
-                        "diagnostics": [d],
-                        "edit": with_edits(&edits),
-                    }));
-                }
-                continue;
-            }
-            let Some(data) = d.data.as_ref() else {
+            let Some(lsp_types::NumberOrString::String(code)) = &d.code else {
                 continue;
             };
-            if let Some(arms) = data.get("missing").and_then(|m| m.get("arms")) {
-                let fills: Vec<String> = arms
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|a| a.as_str().map(str::to_string))
+            let data = d.data.as_ref();
+            let arms: Vec<String> = data
+                .and_then(|data| data.get("missing"))
+                .and_then(|m| m.get("arms"))
+                .and_then(|a| a.as_array())
+                .into_iter()
+                .flatten()
+                .filter_map(|a| a.as_str().map(str::to_string))
+                .collect();
+            let import = data
+                .and_then(|data| data.get("import"))
+                .and_then(|i| Some((i.get("path")?.as_str()?, i.get("item")?.as_str()?)));
+            let at = [
+                d.range.start.line,
+                d.range.start.character,
+                d.range.end.line,
+                d.range.end.character,
+            ];
+            let replacement = data
+                .and_then(|data| data.get("replacement"))
+                .and_then(|r| r.as_str());
+            for fix in fixes::fixes_for(text, code, at, &arms, import, replacement) {
+                let edits: Vec<lsp_types::TextEdit> = fix
+                    .edits
+                    .iter()
+                    .map(|e| lsp_types::TextEdit::new(range(e.range), e.new_text.clone()))
                     .collect();
-                if let Some(edit) = arms::add_arms(text, d.range, &fills) {
-                    let cursor = with_cursor(
-                        serde_json::json!({}),
-                        uri,
-                        text,
-                        std::slice::from_ref(&edit),
-                    );
-                    let mut action = serde_json::json!({
-                        "title": if fills.len() == 1 { "Add the missing arm" } else { "Add the missing arms" },
-                        "kind": "quickfix",
-                        "diagnostics": [d],
-                        "edit": with_edit(edit),
-                        "isPreferred": actions.is_empty(),
-                    });
+                let mut action = serde_json::json!({
+                    "title": fix.title,
+                    "kind": "quickfix",
+                    "diagnostics": [d],
+                    "edit": with_edits(&edits),
+                });
+                if fix.kind != FixKind::Style {
+                    action["isPreferred"] = (actions.is_empty()).into();
+                }
+                if fix.kind == FixKind::AddArms {
+                    let cursor = with_cursor(serde_json::json!({}), uri, text, &edits);
                     if let Some(command) = cursor.get("command") {
                         action["command"] = command.clone();
                     }
-                    actions.push(action);
                 }
-                continue;
+                actions.push(action);
             }
-            let Some(import) = data.get("import") else {
-                continue;
-            };
-            let (Some(path), Some(item)) = (
-                import.get("path").and_then(|v| v.as_str()),
-                import.get("item").and_then(|v| v.as_str()),
-            ) else {
-                continue;
-            };
-            let Some(edit) = imports::add_import(text, path, item) else {
-                continue;
-            };
-            actions.push(serde_json::json!({
-                "title": format!("Add `import {path} ({item})`"),
-                "kind": "quickfix",
-                "diagnostics": [d],
-                "edit": with_edit(edit),
-                "isPreferred": actions.is_empty(),
-            }));
         }
         if actions.is_empty() {
             serde_json::Value::Null
@@ -2443,22 +2427,10 @@ impl Main {
             GOAL_AT => parse::<lsp_types::TextDocumentPositionParams>(&request)
                 .map(|p| serde_json::to_value(goal_at(&nav, &p.text_document.uri, p.position))),
             request::Formatting::METHOD => parse::<lsp_types::DocumentFormattingParams>(&request)
-                .map(|p| {
-                    let texts = self.texts.borrow();
-                    let edits = texts
-                        .get(&p.text_document.uri)
-                        .map(|text| format_edits(text, None))
-                        .unwrap_or_default();
-                    serde_json::to_value(edits)
-                }),
+                .map(|p| serde_json::to_value(self.formatted(&p.text_document.uri, None))),
             request::RangeFormatting::METHOD => {
                 parse::<lsp_types::DocumentRangeFormattingParams>(&request).map(|p| {
-                    let texts = self.texts.borrow();
-                    let edits = texts
-                        .get(&p.text_document.uri)
-                        .map(|text| format_edits(text, Some(p.range)))
-                        .unwrap_or_default();
-                    serde_json::to_value(edits)
+                    serde_json::to_value(self.formatted(&p.text_document.uri, Some(p.range)))
                 })
             }
             _ => {
@@ -2481,14 +2453,71 @@ impl Main {
     }
 }
 
-/// The edits that format `text`: one replacing the whole document, or, with
-/// a `range`, one per declaration the range overlaps whose text changes. No
-/// edits if the file is refused (D1021), the formatter fails, or nothing
-/// changes: formatting never answers with an error.
-fn format_edits(text: &str, range: Option<lsp_types::Range>) -> Vec<lsp_types::TextEdit> {
-    let Ok(output) = stitchwort_fmt::format(text) else {
-        return Vec::new();
-    };
+/// What the user is told when the formatter's own check fails (D3634). A
+/// refused file (a syntax error) is not a formatter bug and stays silent:
+/// the checker already shows its diagnostics.
+const FORMATTER_BUG: &str = "Stitchwort formatter bug: this file was left unchanged. Run \
+     `stitchwort fmt <file>` to see the details.";
+
+/// The documents the formatter-bug warning was shown for, with the version
+/// each was at, so one version is warned about once however often the
+/// editor asks to format it.
+#[derive(Default)]
+struct FormatterBugsShown(HashMap<Url, i32>);
+
+impl FormatterBugsShown {
+    /// Whether to show the warning for `uri` at `version`, noting that it
+    /// was shown.
+    fn first_time(&mut self, uri: &Url, version: i32) -> bool {
+        self.0.insert(uri.clone(), version) != Some(version)
+    }
+}
+
+impl Main {
+    /// The edits for a formatting request on an open document, warning the
+    /// user (once per document version) if the formatter failed its own
+    /// check.
+    fn formatted(&self, uri: &Url, range: Option<lsp_types::Range>) -> Vec<lsp_types::TextEdit> {
+        let texts = self.texts.borrow();
+        let Some(text) = texts.get(uri) else {
+            return Vec::new();
+        };
+        let (edits, bug) = format_edits(stitchwort_fmt::format(text), text, range);
+        if bug {
+            let version = lock(&self.searches.versions).get(uri).copied().unwrap_or(0);
+            if self.formatter_bugs.borrow_mut().first_time(uri, version) {
+                self.notices
+                    .always(lsp_types::MessageType::WARNING, FORMATTER_BUG);
+            }
+        }
+        edits
+    }
+}
+
+/// The edits that format `text`, given what the formatter made of it: one
+/// replacing the whole document, or, with a `range`, one per declaration
+/// the range overlaps whose text changes. No edits if the file is refused
+/// (D1021), the formatter fails, or nothing changes: formatting never
+/// answers with an error. The flag says the formatter failed its own check,
+/// a bug to tell the user about.
+fn format_edits(
+    formatted: Result<String, stitchwort_fmt::Error>,
+    text: &str,
+    range: Option<lsp_types::Range>,
+) -> (Vec<lsp_types::TextEdit>, bool) {
+    match formatted {
+        Ok(output) => (changes(text, output, range), false),
+        Err(stitchwort_fmt::Error::Refused(_)) => (Vec::new(), false),
+        Err(stitchwort_fmt::Error::Internal(_)) => (Vec::new(), true),
+    }
+}
+
+/// The edits that turn `text` into `output`, as [`format_edits`] says.
+fn changes(
+    text: &str,
+    output: String,
+    range: Option<lsp_types::Range>,
+) -> Vec<lsp_types::TextEdit> {
     if output == text {
         return Vec::new();
     }
@@ -4366,6 +4395,7 @@ impl Inline {
             cancel,
             to_checker,
             texts: Default::default(),
+            formatter_bugs: Default::default(),
             searches: Arc::default(),
             to_searches,
             document_changes: false,
@@ -4612,13 +4642,14 @@ fn diagnostic(
         related_information: (!related.is_empty()).then_some(related),
         // An arm that can't be chosen is shown faded, as unused code is.
         tags: (d.code == "W-UNREACHABLE").then(|| vec![lsp_types::DiagnosticTag::UNNECESSARY]),
-        data: match (&d.import, &d.missing) {
-            (Some(i), _) => {
+        data: match (&d.import, &d.missing, d.replacement.as_deref()) {
+            (Some(i), _, _) => {
                 Some(serde_json::json!({ "import": { "path": i.path, "item": i.item } }))
             }
-            (None, Some(m)) if !m.fills.is_empty() => Some(serde_json::json!({
+            (None, Some(m), _) if !m.fills.is_empty() => Some(serde_json::json!({
                 "missing": { "arms": &m.fills[..m.fills.len().min(MissingCases::CAP)], "more": m.more() }
             })),
+            (None, _, Some(name)) => Some(serde_json::json!({ "replacement": name })),
             _ => None,
         },
     }
@@ -5153,6 +5184,33 @@ mod tests {
     fn subsequence_ignores_case() {
         assert!(subsequence("dfp", "Aoc.Year2025.Day01.findPassword"));
         assert!(!subsequence("zz", "Aoc.Year2025.Day01.findPassword"));
+    }
+
+    #[test]
+    fn a_formatter_bug_is_flagged_and_a_refused_file_is_not() {
+        let internal = stitchwort_fmt::Error::Internal("the token `a` became `b`".into());
+        let (edits, bug) = format_edits(Err(internal), "def a := 1\n", None);
+        assert!(edits.is_empty() && bug);
+        let refused = stitchwort_fmt::Error::Refused(Vec::new());
+        let (edits, bug) = format_edits(Err(refused), "def a := )\n", None);
+        assert!(edits.is_empty() && !bug);
+        let (edits, bug) = format_edits(Ok("def a := 1\n".into()), "def a:=1\n", None);
+        assert_eq!(edits.len(), 1);
+        assert!(!bug);
+    }
+
+    #[test]
+    fn the_formatter_bug_warning_is_shown_once_per_document_version() {
+        let (a, b) = (
+            Url::parse("file:///a.sw").unwrap(),
+            Url::parse("file:///b.sw").unwrap(),
+        );
+        let mut shown = FormatterBugsShown::default();
+        assert!(shown.first_time(&a, 1));
+        assert!(!shown.first_time(&a, 1));
+        assert!(shown.first_time(&b, 1));
+        assert!(shown.first_time(&a, 2));
+        assert!(!shown.first_time(&a, 2));
     }
 
     #[test]

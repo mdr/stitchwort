@@ -14,29 +14,25 @@ import Std (Bool, Char, DecEq, Eq, Exists, List, Nat, Option, Void)
 -- The ranks
 
 theorem chainBounded ∀ (rules: Rules) (fuel number: Nat): rules.chain fuel number ≤ fuel := match fuel with
-  | Zero => omega
+  | Zero => arithmetic
   | Succ more =>
     match looked: rules.rule number with
       | Some (Alternatives sequences) =>
         match found: sequences.map (rules.chainThrough more) |> .maximum with
-          | None => omega
+          | None => arithmetic
           | Some most =>
-            match List.memMapElim
-              (rules.chainThrough more)
-              most
-              sequences
-              (And.left (List.maximumSome _ most found)) with
+            match List.memMapElim (rules.chainThrough more) most sequences (List.maximumSome _ most found).left with
               | Witness sequence (Both chosen made) =>
-                rewrite <- made in
+                rewrite <- made then
                   match sequence with
-                    | [] => omega
-                    | [only] => omega [chainBounded rules more only]
-                    | [first, second, ..others] => omega
-      | Some (Letter letter) => omega
-      | None => omega
+                    | [] => arithmetic
+                    | [only] => arithmetic [chainBounded rules more only]
+                    | [first, second, ..others] => arithmetic
+      | Some (Letter letter) => arithmetic
+      | None => arithmetic
 
 theorem rankBelow ∀ (rules: Rules) (number: Nat): rules.rank number < rules.rankBound :=
-  omega [chainBounded rules (rules.numbered.length + 1) number]
+  arithmetic [chainBounded rules (rules.numbered.length + 1) number]
 
 theorem lookupMember ∀ (entries: List (Nat, Rule)) (number: Nat) (rule: Rule)
     (found: entries.lookup number = Some rule):
@@ -44,7 +40,7 @@ theorem lookupMember ∀ (entries: List (Nat, Rule)) (number: Nat) (rule: Rule)
   match entries with
     | [(entryNumber, value), ..rest] =>
       match same: entryNumber == number with
-        | True => Inl (rewrite same.read, Option.someInjective found in rfl)
+        | True => Inl (rewrite same.read, Option.someInjective found then byComputing)
         | False => Inr (lookupMember rest number rule found)
 
 theorem productiveRanked ∀ (rules: Rules) (rank: Nat → Nat) (bound: Nat)
@@ -59,9 +55,9 @@ theorem productiveRanked ∀ (rules: Rules) (rank: Nat → Nat) (bound: Nat)
     let sequenceProductive := entryProductive.read sequence chosen
     match sequence with
       | [single] => Both (List.consNotNil single []) (only same =>
-        rewrite <- List.consInjectiveHead single only [] [] same in omega [sequenceProductive])
+        rewrite <- List.consInjectiveHead single only [] [] same then arithmetic [sequenceProductive])
       | [first, second, ..others] => Both (List.consNotNil first [second, ..others]) (only same =>
-        Void.exfalso (List.consNotNil second others (Eq.cong (.drop 1) same))))
+        Void.impossible (List.consNotNil second others (Eq.cong (.drop 1) same))))
 
 -- Deciding a message
 
@@ -78,24 +74,24 @@ theorem matchesCompletelyList ∀ (rules: Rules) (message: Message):
         (tableRule rules)
         (rules.enough message)
         0
-        message.letters in
-    rfl
+        message.letters then
+    byComputing
 
 theorem matchesCompletelyCorrect ∀ (rules: Rules)
     (productive: rules.productive = True) (message: Message):
     rules.matchesCompletely message = True ↔ MatchesCompletely rules message :=
   let ranked := productiveRanked rules rules.rank rules.rankBound (rankBelow rules) productive
-  rewrite matchesCompletelyList rules message in
+  rewrite matchesCompletelyList rules message then
     {
       forward = matches =>
         match sound rules (rules.enough message) 0 message.letters [] (anyEmpty _ matches) with
-          | Witness read (Both split leads) => rewrite split in leads [] [] MatchesNothing,
+          | Witness read (Both split leads) => rewrite split then leads [] [] MatchesNothing,
       backward = matched =>
         let enough: message.letters.length * rules.rankBound + rules.rank 0 < rules.enough message :=
           let same: (message.letters.length + 1) * rules.rankBound
             = message.letters.length * rules.rankBound + rules.rankBound :=
-            ring
-          omega [same, rankBelow rules 0]
+            algebra
+          arithmetic [same, rankBelow rules 0]
         let found :=
           completeAll rules rules.rank rules.rankBound ranked
             [0]
@@ -109,8 +105,8 @@ theorem matchesCompletelyCorrect ∀ (rules: Rules)
               []
               (rules.leftAfter (rules.enough message) 0 (message.letters ++ []))).forward found with
           | Witness middle (Both first (Inl empty)) =>
-            rewrite empty, List.appendNil message.letters at first in Witness [] (Both first rfl)
-          | Witness middle (Both first (Inr never)) => Void.exfalso never
+            rewrite empty, List.appendNil message.letters at first then Witness [] (Both first byComputing)
+          | Witness middle (Both first (Inr never)) => never.impossible
     }
 
 theorem part1Exactly ∀ (received: Received)

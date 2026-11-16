@@ -15,13 +15,13 @@ type Holds (o: Option Nat) (h: isNone o = True): Prop = { holds: o = None }
 
 theorem lem (slot: Slot) (k: isNone slot.field = True): Holds slot.field k :=
   match e: slot.field with
-    | None => { holds = rfl }
-    | Some n => Void.exfalso (Bool.falseNotTrue k)
+    | None => { holds = byComputing }
+    | Some n => Void.impossible (Bool.falseNotTrue k)
 
 theorem pfL (slot: Slot) [auto q: slot.field = None]: isNone slot.field = True :=
-  rewrite q in rfl
+  rewrite q then byComputing
 
-theorem use (slot: Slot): slot.field = None → Holds None rfl :=
+theorem use (slot: Slot): slot.field = None → Holds None byComputing :=
   match field: slot.field with
     | None => _ => lem slot (pfL slot)
-    | Some n => h => Void.exfalso (Option.noneNotSome n (Eq.sym h))
+    | Some n => h => Void.impossible (Option.noneNotSome n (Eq.flipped h))

@@ -11,12 +11,13 @@ theorem iterateWrap ∀ (size: Nat) (distance: Int) (step: Nat → Nat)
     (inside: x < size):
     times.iterate step x = Int.modNat (x.toInt + times.toInt * distance) size :=
   match times with
-    | Zero => rewrite (ring: x.toInt + Nat.toInt 0 * distance = x.toInt) in Eq.sym (Int.modNatOfLt size x inside)
+    | Zero =>
+      rewrite (algebra: x.toInt + Nat.toInt 0 * distance = x.toInt) then Eq.flipped (Int.modNatOfLt size x inside)
     | Succ times =>
-      let ok: size ≠ 0 := omega
-      let stepInside: step x < size := rewrite wraps x inside in Int.modNatLt (x.toInt + distance) size [ok := ok]
+      let ok: size ≠ 0 := arithmetic
+      let stepInside: step x < size := rewrite wraps x inside then Int.modNatLt (x.toInt + distance) size [ok := ok]
       rewrite iterateWrap size distance step wraps times (step x) stepInside, wraps x inside, Int.modNatModAdd
         (x.toInt + distance)
         (times.toInt * distance)
         size
-        [ok := ok], (ring: x.toInt + distance + times.toInt * distance = x.toInt + (Succ times).toInt * distance)
+        [ok := ok], (algebra: x.toInt + distance + times.toInt * distance = x.toInt + (Succ times).toInt * distance)

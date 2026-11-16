@@ -33,22 +33,22 @@ def three: Nat :=
   let ys: List Nat := List.replicate k 0
   ys.length
 
-theorem threeIs: three = 3 := rfl
+theorem threeIs: three = 3 := byComputing
 
 -- A `match` after a `let` is lifted into a helper, which re-creates the
 -- `let`, so the alternatives still know `ys` is `xs`.
 theorem helperKnows ∀ (xs: List Nat) (b: Bool): xs.length = xs.length :=
   let ys := xs
   match b with
-    | True => (rfl: ys.length = xs.length)
-    | False => (rfl: xs.length = ys.length)
+    | True => (byComputing: ys.length = xs.length)
+    | False => (byComputing: xs.length = ys.length)
 
 -- Matching a `let`'s name: the goal's `xs` is generalised, and in each
 -- alternative `ys` is the matched value.
 theorem matchAlias ∀ (xs: List Nat): xs.length + 0 = xs.length :=
   let ys := xs
   match ys with
-    | [] => rfl
+    | [] => byComputing
     | [y, ..zs] => Nat.addZero ys.length
 
 -- A local definition after a `let` knows its value too.
@@ -61,7 +61,7 @@ def afterLet (n: Nat): Nat :=
 
 test "afterLet" := afterLet 5 == 13
 
-theorem afterLetIs ∀ (n: Nat): afterLet n = n * 2 + 1 + 1 + 1 := rfl
+theorem afterLetIs ∀ (n: Nat): afterLet n = n * 2 + 1 + 1 + 1 := byComputing
 
 -- Nested `let`s under binders.
 def nested (a: Nat): Nat → Nat :=
@@ -70,7 +70,7 @@ def nested (a: Nat): Nat → Nat :=
     let y := x + b
     y + x
 
-theorem nestedIs ∀ (a b: Nat): nested a b = (a + 1 + b) + (a + 1) := rfl
+theorem nestedIs ∀ (a b: Nat): nested a b = (a + 1 + b) + (a + 1) := byComputing
 
 -- A pure `let` in an effectful block is transparent too.
 ability Ask where
@@ -79,23 +79,23 @@ ability Ask where
 def inBlock (n: Nat): {Ask} Nat :=
   let m := n + 1
   let k := ask()
-  let p: m = n + 1 := rfl
+  let p: m = n + 1 := byComputing
   k + m
 
 -- Metavariables and `let`s (docs/proposals/let.md §6.1 rule 2). `ident`'s
 -- implicit type is an unknown made outside the `let` and solved inside it,
--- from the type of `rfl: m = m`, which is `n + 1 = n + 1`: never `m`, which
+-- from the type of `byComputing: m = m`, which is `n + 1 = n + 1`: never `m`, which
 -- is out of scope where the solution is used.
 def ident [p: Prop] (x: p): p := x
 
 theorem metaOutside ∀ (n: Nat): n + 1 = n + 1 := ident (
   let m := n + 1
-  (rfl: m = m))
+  (byComputing: m = m))
 
 -- An unknown made inside a `let` (`ident`'s type there), whose solution is
 -- the block's type, used after it.
 theorem metaInside ∀ (n: Nat): n + 1 = n + 1 :=
   let p :=
     let m := n + 1
-    ident (rfl: m = m)
+    ident (byComputing: m = m)
   p

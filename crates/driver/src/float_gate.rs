@@ -41,17 +41,17 @@ impl Mode {
     }
 }
 
-/// The program the checks are about. Its theorems are §3.4's `rfl` rows,
+/// The program the checks are about. Its theorems are §3.4's `byComputing` rows,
 /// checked by the kernel as the program loads; its definitions are the
 /// terms whose normal forms are compared.
 pub const PROGRAM: &str = r#"import Std (Float)
 
-theorem sumHalves: 0.5 + 0.25 = 0.75 := rfl
-theorem sumTenths: 0.1 + 0.2 = 0.30000000000000004 := rfl
-theorem plusNegative: 0.0 + (-1.0) = -1.0 := rfl
-theorem minusToNegative: 1.0 - 2.0 = -1.0 := rfl
-theorem negNegLiteral: Float.neg (Float.neg 1.5) = 1.5 := rfl
-theorem negNaN: Float.neg Float.nan = Float.nan := rfl
+theorem sumHalves: 0.5 + 0.25 = 0.75 := byComputing
+theorem sumTenths: 0.1 + 0.2 = 0.30000000000000004 := byComputing
+theorem plusNegative: 0.0 + (-1.0) = -1.0 := byComputing
+theorem minusToNegative: 1.0 - 2.0 = -1.0 := byComputing
+theorem negNegLiteral: Float.neg (Float.neg 1.5) = 1.5 := byComputing
+theorem negNaN: Float.neg Float.nan = Float.nan := byComputing
 theorem negNegAny (x: Float): Float.neg (Float.neg x) = x := Float.negNeg x
 
 def sumHalvesLeft: Float := 0.5 + 0.25
@@ -72,31 +72,31 @@ def decNaN: Decidable (Float.nan = Float.nan) := Float.decEq Float.nan Float.nan
 def isNaNOfNaN: Bool := Float.isNaN Float.nan
 def isNaNOfOne: Bool := Float.isNaN 1.0
 
-theorem product: 0.1 * 3.0 = 0.30000000000000004 := rfl
-theorem quotient: 1.0 / 0.0 = Float.infinity := rfl
-theorem negQuotient: 1.0 / -0.0 = -Float.infinity := rfl
-theorem nanQuotient: 0.0 / 0.0 = Float.nan := rfl
-theorem remainder: -5.5 % 2.0 = -1.5 := rfl
-theorem roundBelowHalf: Float.round 0.49999999999999994 = 0.0 := rfl
-theorem roundMinusHalf: Float.round (-0.5) = -0.0 := rfl
-theorem roundMinusZero: Float.round (-0.0) = -0.0 := rfl
-theorem roundLarge: Float.round 4503599627370497 = 4503599627370497 := rfl
-theorem roundTie: Float.round (-2.5) = -2.0 := rfl
-theorem floorHalf: Float.floor (-0.5) = -1.0 := rfl
-theorem ceilHalf: Float.ceil (-0.5) = -0.0 := rfl
-theorem truncHalf: Float.trunc (-1.5) = -1.0 := rfl
-theorem ofIntNegative: Float.ofInt (-3) = -3.0 := rfl
-theorem ofIntZero: Float.ofInt 0 = 0.0 := rfl
-theorem ofNatTie: Float.ofNat 9007199254740993 = 9007199254740992 := rfl
-theorem toIntNegZero: Float.toInt (-0.0) = Some 0 := rfl
-theorem toIntBig: Float.toInt 1e100 = Some 10000000000000000159028911097599180468360808563945281389781327557747838772170381060813469985856815104 := rfl
-theorem toIntHalf: Float.toInt 0.5 = None := rfl
-theorem zerosOrdered: -0.0 < 0.0 := rfl
-theorem nanGreatest: Float.compare Float.nan Float.infinity = Greater := rfl
-theorem ieeeZeros: Float.ieeeLt (-0.0) 0.0 = False := rfl
-theorem ieeeZerosLe: Float.ieeeLe 0.0 (-0.0) = True := rfl
-theorem sourceNaN: Float.toSource Float.nan = "Float.nan" := rfl
-theorem sourceNegZero: Float.toSource (-0.0) = "-0.0" := rfl
+theorem product: 0.1 * 3.0 = 0.30000000000000004 := byComputing
+theorem quotient: 1.0 / 0.0 = Float.infinity := byComputing
+theorem negQuotient: 1.0 / -0.0 = -Float.infinity := byComputing
+theorem nanQuotient: 0.0 / 0.0 = Float.nan := byComputing
+theorem remainder: -5.5 % 2.0 = -1.5 := byComputing
+theorem roundBelowHalf: Float.round 0.49999999999999994 = 0.0 := byComputing
+theorem roundMinusHalf: Float.round (-0.5) = -0.0 := byComputing
+theorem roundMinusZero: Float.round (-0.0) = -0.0 := byComputing
+theorem roundLarge: Float.round 4503599627370497 = 4503599627370497 := byComputing
+theorem roundTie: Float.round (-2.5) = -2.0 := byComputing
+theorem floorHalf: Float.floor (-0.5) = -1.0 := byComputing
+theorem ceilHalf: Float.ceil (-0.5) = -0.0 := byComputing
+theorem truncHalf: Float.trunc (-1.5) = -1.0 := byComputing
+theorem ofIntNegative: Float.ofInt (-3) = -3.0 := byComputing
+theorem ofIntZero: Float.ofInt 0 = 0.0 := byComputing
+theorem ofNatTie: Float.ofNat 9007199254740993 = 9007199254740992 := byComputing
+theorem toIntNegZero: Float.toInt (-0.0) = Some 0 := byComputing
+theorem toIntBig: Float.toInt 1e100 = Some 10000000000000000159028911097599180468360808563945281389781327557747838772170381060813469985856815104 := byComputing
+theorem toIntHalf: Float.toInt 0.5 = None := byComputing
+theorem zerosOrdered: -0.0 < 0.0 := byComputing
+theorem nanGreatest: Float.compare Float.nan Float.infinity = Greater := byComputing
+theorem ieeeZeros: Float.ieeeLt (-0.0) 0.0 = False := byComputing
+theorem ieeeZerosLe: Float.ieeeLe 0.0 (-0.0) = True := byComputing
+theorem sourceNaN: Float.toSource Float.nan = "Float.nan" := byComputing
+theorem sourceNegZero: Float.toSource (-0.0) = "-0.0" := byComputing
 
 def productLeft: Float := 0.1 * 3.0
 def productRight: Float := 0.30000000000000004
@@ -299,7 +299,7 @@ fn run_mode(mode: Mode, limits: Limits) -> Run {
     check(
         &mut checks,
         mode,
-        "the program checks: every `rfl` row, and `neg (neg x) = x`".into(),
+        "the program checks: every `byComputing` row, and `neg (neg x) = x`".into(),
         Ok(()),
     );
     // The natives are bound, never used while checking, and used while a

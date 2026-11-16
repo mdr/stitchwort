@@ -52,24 +52,24 @@ other stray ASCII (:717, :727), a string open at the end of the file
 (`scan_string`, :963) and escapes (`escape`, :986).
 
 `parse_module_recovering` then gives up: `Module::default()` and one
-diagnostic (parser.rs:88–93). An indented first token does the same
-(parser.rs:98–101, from `split_decls`, :406–414).
+diagnostic (`parse_module_recovering`, `parser/entry.rs`). An indented first token does the same
+(`parse_module_recovering`, `parser/entry.rs`, from `split_decls`).
 
 The empty module then cascades:
 
 - the driver doesn't elaborate an empty module with errors
   (driver.rs:674–677);
 - the project falls back to `parse_namespace_line` (project.rs:792,
-  live.rs:892), which lexes the whole text again (parser.rs:283) and fails
+  live.rs:892), which lexes the whole text again (`parse_namespace_line`, `parser/entry.rs`) and fails
   in the same place, so the file is dropped (`continue`) and its importers
   report the namespace missing.
 
 ### 1.2 Parsing
 
 Recovery is per declaration. `split_decls` cuts the tokens at column 0
-(parser.rs:406–490). Each group gets a fresh `Parser`. If it fails, the
+(`parser.rs`). Each group gets a fresh `Parser`. If it fails, the
 whole declaration is left out and the names it would have declared go in
-`Module::failed` (parser.rs:175–183, `declared_names_of` at :196). The
+`Module::failed` (`parser/entry.rs`, `failed_names_in`, `declared_names_of`). The
 elaborator declares those names as failed, so their uses are quietly
 `E-FAILED-DEPENDENCY` rather than unknown (elab module.rs:1093–1112).
 
@@ -79,20 +79,20 @@ make finer recovery easier than it looks:
 
 - **The parser never backtracks.** No code resets `self.pos`, and no caller
   turns an `Err` into another try. The only `.ok()` on a parse result is
-  the namespace name in an error message (parser.rs:144). Every choice is
+  the namespace name in an error message (`parse_lexed`, `parser/entry.rs`). Every choice is
   made by looking ahead at tokens. So turning some errors into "succeeded,
   with an error recorded" can't change how any correct text parses: no
   correct parse ever went through an `Err`. (Confidence high: I grepped for
   `self.pos =`, `.ok()`, `.is_ok()`, `if let Ok` and `Err(_) =>` in
   `parser.rs` and `parser/`.)
 - **The statement and arm boundaries are already explicit.** `block`
-  (parser.rs:2162) runs one `statement` per line at the block's column;
+  (`parser.rs`) runs one `statement` per line at the block's column;
   `arms` (declarations.rs:593) runs one `arm` per `|` at the arms' column.
   These are the natural places to catch an error and carry on.
 
 What makes it risky is the eight mode fields (`limit`, `allow`,
 `calc_depth`, `rewrite_rule`, `guard_start`, `rewrite_at`, `let_value`,
-`in_list`; parser.rs:507–545). Each site saves and restores the ones it
+`in_list`; `Modes`, `parser.rs`). Each site saves and restores the ones it
 changes by hand, and some don't restore on the error path. That's harmless
 today only because an error throws the parser away (Opus review F8).
 
@@ -281,7 +281,7 @@ the broken text was, moves forward to a point it can carry on from, and
 returns success. The innermost one that applies wins, so a broken line deep
 in a nested block costs only the rest of that block.
 
-1. **The expression ran out** (`atom_base`'s last arm, parser.rs:4902).
+1. **The expression ran out** (`atom_base`'s last arm, `parser.rs`).
    When an expression is wanted and `peek()` is `None`, because the line,
    the block, the arm or the declaration has ended, the parser records
    "expected an expression" and returns `Missing` at the point just after
@@ -292,7 +292,7 @@ in a nested block costs only the rest of that block.
    with the value still to come, a `calc` step's missing justification.
    When the next token is something else (a `)`, a keyword, a
    `Tok::Error`), it stays an error, and the next point up catches it.
-2. **A line of a block** (`block`, parser.rs:2162). If a statement fails,
+2. **A line of a block** (`block`, `parser.rs`). If a statement fails,
    the block keeps the lines before it, and its result becomes `Missing`
    over the failed line and every line after it at the block's column,
    skipped until the first line that starts left of the block's column.
@@ -300,14 +300,14 @@ in a nested block costs only the rest of that block.
    want while typing the next line of a proof: everything above it is in
    scope.
 3. **An arm** (`arm`, declarations.rs:668, and a `match`'s alternatives,
-   parser.rs:2602 onwards). If the patterns parsed and the body failed, the
+   `alternatives`, `parser.rs`). If the patterns parsed and the body failed, the
    arm keeps its patterns and gets `Missing` as its body. The parser skips
    to the next `|` at the arms' column, or to the end of the arms. If the
    patterns themselves failed, the arm can't be kept (dropping it, or
    reading it as `_`, would change which cases are covered, and so the
    errors about the other arms), and the error goes up to point 4.
 4. **A definition's body** (`definition`, declarations.rs:313–360, and
-   `finish`, parser.rs:1177). If the `:=` body, the arms, or the check that
+   `finish`, `parser.rs`). If the `:=` body, the arms, or the check that
    nothing follows the declaration fails, the declaration keeps its
    `Decl::Signature` and gets one equation with the header's patterns and
    `Missing` as its body (never no body: §1.3, primitives). The parser skips
@@ -318,7 +318,7 @@ covers), the declaration is dropped and its names go in `Module::failed`,
 as today.
 
 **Limits are never recovered.** An `E-RESOURCE` from `deeper()`
-(parser.rs:716) goes past every recovery point and fails the declaration as
+(`parser.rs`, `deeper`) goes past every recovery point and fails the declaration as
 now (D2543: a limit fails; it doesn't give a different answer).
 
 **The mode fields.** At each recovery point, the parser takes a copy of all
@@ -332,7 +332,7 @@ line, and a field added later is in it automatically.)
 
 **Errors per declaration.** `Parser` gets an `errors: Vec<Diagnostic>`. A
 declaration that recovered is `Ok` with errors, and the group loop
-(parser.rs:102–188) moves them to the module's errors. The strict entry
+(`parse_lexed`, `parser/entry.rs`) moves them to the module's errors. The strict entry
 points (`parse_module_within`, `parse_expression`, `namespace_line`) fail
 when the list isn't empty. That gives an invariant to test: **the error
 list is empty exactly when the tree has no `Missing`.**

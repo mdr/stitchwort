@@ -2,5 +2,5 @@
 import Std (Eq)
 
 theorem plusZero ∀ (n: Nat): n + 0 = n := match n with
-  | Zero => rfl
+  | Zero => byComputing
   | Succ m => Eq.cong Succ (plusZero m)

@@ -17,8 +17,8 @@ def forwards: ProtoMap Nat Text := { raw = Quot.mk up }
 def backwards: ProtoMap Nat Text := { raw = Quot.mk down }
 
 theorem same: forwards = backwards :=
-  Eq.cong (r => ({ raw = r }: ProtoMap Nat Text)) (Quot.sound [x := up] [y := down] rfl)
+  Eq.cong (r => ({ raw = r }: ProtoMap Nat Text)) (Quot.sound [x := up] [y := down] byComputing)
 
 def transported: Nat := J (y p => Nat) 0 same
 
-theorem stuck: transported = 0 := rfl
+theorem stuck: transported = 0 := byComputing

@@ -18,7 +18,7 @@ def bump (n: Nat): Nat :=
 
 -- a comment
 theorem swap (a: Nat) (b: Nat): a + b = b + a :=
-  rewrite Nat.addComm a b in rfl
+  rewrite Nat.addComm a b then byComputing
 ";
 
 /// A fresh folder for one test.
@@ -171,7 +171,7 @@ fn goal_at_in_a_project() {
     std::fs::write(
         dir.join("src/tiny.sw"),
         "namespace Tiny\n\nimport Std (Nat)\n\n\
-         theorem swap (a: Nat) (b: Nat): a + b = b + a :=\n  rewrite Nat.addComm a b in rfl\n",
+         theorem swap (a: Nat) (b: Nat): a + b = b + a :=\n  rewrite Nat.addComm a b then byComputing\n",
     )
     .unwrap();
     let (code, out, err) = goal(dir.parent().unwrap(), &["--at", "tiny/src/tiny.sw:6"]);
@@ -191,12 +191,12 @@ const STEPS: &str = "\
 import Std (Nat)
 
 theorem multN0M0 (p q: Nat): p * 0 + q * 0 = 0 :=
-  rewrite Nat.mulZero p, Nat.mulZero q in rfl
+  rewrite Nat.mulZero p, Nat.mulZero q then byComputing
 
 theorem addZeroLeft (n: Nat): 0 + n = n :=
   match n with
-    | Zero => rfl
-    | Succ k => rfl
+    | Zero => byComputing
+    | Succ k => byComputing
 
 theorem chain (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=
   calc a
@@ -212,14 +212,14 @@ def pick (b: Bool) (n: Nat): Nat :=
   if h: b then n else 0
 
 theorem atH (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=
-  rewrite h2 at h1 in h1
+  rewrite h2 at h1 then h1
 
 theorem broken (n: Nat): n + 1 = Succ n :=
   Nat.nope n
 
 def widen (n: Nat): Int := n
 
-theorem addZero (n: Nat): n + 0 = n := rfl
+theorem addZero (n: Nat): n + 0 = n := byComputing
 
 theorem middle (a b: Nat) (h1: a = b) (h2: b = 2): a = 2 :=
   calc a
@@ -275,8 +275,8 @@ fn goal_at_steps() {
     );
     assert!(
         step_at(&dir, "18:9").contains("in `swap`, `let left`\n")
-            && step_at(&dir, "18:9").contains("  + left: p := pq.left\n"),
-        "a `let`"
+            && step_at(&dir, "18:9").contains("  + left: p\n"),
+        "a `let` of a proof shows its statement only"
     );
     assert!(
         step_at(&dir, "22:20")
@@ -320,7 +320,7 @@ fn goal_at_calc_middle_line() {
 
 /// A failing expression has the goal it was checked against; a program
 /// point whose type differs from the one expected shows both (D3499);
-/// `rfl` shows its goal as a `?` there would.
+/// `byComputing` shows its goal as a `?` there would.
 #[test]
 fn goal_at_failing_and_has_type() {
     let dir = folder("failing");
@@ -334,7 +334,7 @@ fn goal_at_failing_and_has_type() {
         "in `widen`\n  n: Nat\n  expected Int\n  has type Nat\n"
     );
     // `n + 0` computes as it is elaborated, so the goal reads `n = n`, as
-    // `?` in place of `rfl` reads it (SW-2791).
+    // `?` in place of `byComputing` reads it (SW-2791).
     assert_eq!(
         step_at(&dir, "32:41"),
         "in `addZero`\n  n: Nat\n  ⊢ n = n\n"
@@ -358,4 +358,56 @@ fn goal_at_failing_and_has_type() {
     assert_eq!(step["after"], "0 = 0");
     assert_eq!(step["range"]["column"], 26);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A body whose first attempt is undone (a local definition makes
+/// `local_retries` loop) used to leave the probe a context whose
+/// metavariables no longer existed, and the answer panicked (SW-3322).
+#[test]
+fn goal_at_after_an_undone_attempt() {
+    let dir = folder("undone");
+    std::fs::write(
+        dir.join("w.sw"),
+        r#"import Std (List, Nat, Char, Bool)
+
+ability Src (t: Type) where
+  next: () → {Src t} t
+
+def Ph (u: Type) (n: Nat): Prop := n = n
+theorem ph ∀ (p: () → {Src t} a) (n: Nat): Ph t n := byComputing
+def natSrc(): {Src Nat} Nat := Src.next()
+def double (n: Nat): Nat := n + n
+theorem wrap2 ∀ [k: Nat] (f: Nat → Nat) (g: Nat → Nat → Nat) (y: double k <= 0) (x: Ph Char k): Ph Char k := x
+theorem w2: Ph Char 0 :=
+  def go (n: Nat): Nat := n + 1
+  wrap2 (x => go x) (double y => y) (Nat.leRefl 0) (ph natSrc 0)
+"#,
+    )
+    .unwrap();
+    let (code, out, err) = goal(&dir, &["--at", "w.sw:13:62"]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert_eq!(out, "w.sw:13:62\nin `w2`\n  expected () → {Src Nat} Nat\n");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Two types of a file share a constructor name, so the goal at a point
+/// writes it with its type, which pastes back (D3615, SW-3397).
+#[test]
+fn goal_at_writes_a_clashing_constructor_with_its_type() {
+    let dir = folder("clash");
+    let file = "\
+type Token =
+  | Str (text: Text)
+  | Name (text: Text)
+
+type Doc =
+  | Str (text: Text)
+  | Line
+
+theorem same (t: Text): Doc.Str t = Doc.Str t := ?
+";
+    std::fs::write(dir.join("t.sw"), file).unwrap();
+    let (code, out, err) = goal(&dir, &["--at", "t.sw:9:50"]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(out.contains("⊢ Doc.Str t = Doc.Str t"), "{out}");
 }

@@ -46,7 +46,7 @@ fn arithmetic_on_what_a_gap_binds_reports_nothing_more() {
         // A gap in a list, whose sum is then taken.
         "def m (n: Nat): Nat :=\n  let ys := [n] ++\n  ys.length + ys.sum * n\n",
         // A gap compared in a proof's statement position.
-        "theorem t (n: Nat): n + 0 = n :=\n  let k := n *\n  rfl\n",
+        "theorem t (n: Nat): n + 0 = n :=\n  let k := n *\n  byComputing\n",
     ] {
         let expected: &[&str] = if source.contains(';') {
             &[]
@@ -66,14 +66,14 @@ def sumTo: Nat -> Nat
   | 0 => 0
   | n + 1 => n + 1 + sumTo n
 
-theorem doubleTwo: double 2 = 4 := rfl
+theorem doubleTwo: double 2 = 4 := byComputing
 
 def usesBoth (n: Nat): Nat :=
   let a := double n
   let b := sumTo (a + 1)
   a * b + n
 
-theorem addZero (n: Nat): n + 0 = n := rfl
+theorem addZero (n: Nat): n + 0 = n := byComputing
 ",
     "\
 type Shape =

@@ -1,4 +1,4 @@
-//! `cases` and `cases in t` (docs/syntax.md, "cases"; docs/proposals/simp.md
+//! `cases` and `cases then t` (docs/syntax.md, "cases"; docs/proposals/simp.md
 //! §5): a proof by case splitting on what the goal, and the hypotheses that
 //! say "this is a constructor", are stuck on.
 //!
@@ -10,7 +10,7 @@
 //! At each case (a *node*), the closers are tried, cheapest first (§5.4):
 //!
 //! 1. **computation**: the goal is an equation whose sides compute to the
-//!    same thing (`rfl`);
+//!    same thing (`byComputing`);
 //! 2. **contradiction**: a hypothesis is an equation between different
 //!    constructors (`False = True`), refuted by `J` along it into a family
 //!    that is `Unit` at one constructor and `Void` at the other; or `e =
@@ -22,8 +22,12 @@
 //!    side of a conjunction, or what a test fact reads as
 //!    (docs/proposals/bool-as-proposition.md §9: `(a && b) = True` as `a ∧
 //!    b`), taken apart in turn;
-//! 5. **`t`**, for `cases in t`, elaborated in the case;
-//! 6. **`omega`**, only where nothing is left to split (D1319).
+//! 5. **`t`**, for `cases then t`, elaborated in the case;
+//! 6. **`arithmetic`**, only where nothing is left to split (D1319).
+//!
+//! Between 5 and the splits, an equation 3 added with a variable side, `x =
+//! t`, puts `t` in place of `x` in the goal and the hypotheses, and the node
+//! starts again ([`substitute`], SW-3344).
 //!
 //! If none closes it, a hypothesis `h: P → Q` whose premise holds in the
 //! case (an equation whose sides compute to the same thing, such as `b =
@@ -60,7 +64,7 @@
 //! goes (SW-937): what its case trees test (`OfNat`/`NegSucc` of an
 //! operand, `Int.subNatNatFrom …`) is never an atom, and a call of it is one
 //! only when a definition outside it tests the call (a program's own `match`
-//! on `a + b`). `omega` and `ring` reason about the arithmetic instead. An
+//! on `a + b`). `arithmetic` and `algebra` reason about the arithmetic instead. An
 //! `Int` variable is still split as a fallback (below), which
 //! `aimedDepthAfter` in AoC 2021 day 2 needs.
 //!
@@ -72,14 +76,14 @@
 //!
 //! A case still open then is tried by its goal's decision procedure, as
 //! `auto` finds and runs one (docs/proposals/decide.md §6.1.2): a test that
-//! computes to `True` closes it with `auto`'s term, `d.sound rfl`; `False` doesn't fail
+//! computes to `True` closes it with `auto`'s term, `d.sound byComputing`; `False` doesn't fail
 //! it, since its hypotheses may still contradict each other.
 //!
 //! A case still open then, whose goal is a `Π`, has the goal's leading
 //! binders introduced, and starts again under them (docs/proposals/decide.md
 //! §6.1.1): `theorem t: (x: Bool) → P x := cases` is the proof `x => cases`.
 //! This comes after the closers, so a `Π` goal they prove whole (a
-//! hypothesis of that type, `omega` on `P → Void`, `t`) keeps that proof.
+//! hypothesis of that type, `arithmetic` on `P → Void`, `t`) keeps that proof.
 //!
 //! A case still open then, not a `Π`, is split anyway, as a *fallback*
 //! (§6.1.3): of the variables the goal mentions, as computed, that are
@@ -119,7 +123,7 @@ const EQUATION: &str = "%case";
 
 /// One `cases`, while its cases are checked.
 pub(crate) struct Run {
-    /// `t`, for `cases in t`.
+    /// `t`, for `cases then t`.
     body: Option<Box<Expr>>,
     /// The `cases` as written: the alternatives' bodies are `cases`s with
     /// this span, which continue this one.
@@ -150,6 +154,14 @@ pub(crate) struct Run {
     open_at: RefCell<Option<String>>,
     /// Facts added by taking equations apart, for their names.
     facts: Cell<usize>,
+    /// The names of the facts [`take_apart`] added (and of their copies,
+    /// which keep the name): those [`substitute`] may eliminate a variable
+    /// by.
+    injected: RefCell<Vec<Name>>,
+    /// The facts [`substitute`] has used on the way to this case (used
+    /// again, the variable left would be replaced back), each with how
+    /// `E-CASES` shows it ("`y` is replaced by `x`: …").
+    substituted: RefCell<Vec<(Name, String)>>,
     /// Whether each data type is splittable, and its constructor count.
     splittable: RefCell<HashMap<DataId, Option<usize>>>,
 }
@@ -179,8 +191,8 @@ impl Closed {
             (self.computation, "by computation"),
             (self.contradiction, "by contradiction"),
             (self.hypothesis, "by a hypothesis"),
-            (self.term, "by the term after `in`"),
-            (self.omega, "by `omega`"),
+            (self.term, "by the term after `then`"),
+            (self.omega, "by `arithmetic`"),
             (self.decision, "by deciding"),
         ]
         .iter()
@@ -235,6 +247,8 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         over_finite: RefCell::new(None),
         open_at: RefCell::new(None),
         facts: Cell::new(0),
+        injected: RefCell::new(Vec::new()),
+        substituted: RefCell::new(Vec::new()),
         splittable: RefCell::new(HashMap::default()),
     });
     let saved = cx.cases.replace(run.clone());
@@ -306,7 +320,7 @@ fn budget_error(run: &Run) -> Diagnostic {
         d = d.with_note(
             "`cases` is taking an `Int` apart into `OfNat` and `NegSucc` (`Int.natAbs`, `max`, \
              `Int.subNatNat` … test them); split on a comparison of the `Int`s instead, as `match \
-             a <= b with` or an `if` the goal depends on, and let `omega` read each side",
+             a <= b with` or an `if` the goal depends on, and let `arithmetic` read each side",
         );
     }
     if let Some(open) = &*run.open_at.borrow() {
@@ -316,13 +330,13 @@ fn budget_error(run: &Run) -> Diagnostic {
         d = d.with_note(format!(
             "every variable it split has a finite type ({}): to check every value by \
              computing instead, state it as a `Bool` function `p` of one record or pair \
-             holding them and prove `p v = True` by `Finite.check p rfl v` (`import Std \
+             holding them and prove `p v = True` by `Finite.check p byComputing v` (`import Std \
              (Finite)`)",
             vars.join(", ")
         ));
     }
     d.with_note(
-        "prove a fact that decides some of the cases at once and give it as `cases in t`, \
+        "prove a fact that decides some of the cases at once and give it as `cases then t`, \
          or split by hand with `match`",
     )
 }
@@ -368,8 +382,19 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
             }
         }
     }
+    // After the closers and `t`: a case they close at this node keeps its
+    // proof. One closed deeper (after a split, an implication or `arithmetic`)
+    // now goes through the substitution first, so its term changes.
+    if let Some(term) = substitute(cx, run, goal)? {
+        return Ok(term);
+    }
     if let Some(term) = apply_guarded(cx, run, goal)? {
         return Ok(term);
+    }
+    if run.body.is_some()
+        && let Some(atom) = visible_condition(cx, run, goal)?
+    {
+        return split_on(cx, run, atom, goal, false);
     }
     let (atom, stuck, fallback) = {
         let mut finder = Finder::new(cx, run);
@@ -382,7 +407,7 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
     };
     if let Some(atom) = atom {
         // Splitting on the goal's own side (`Nat.leq a b = True` into
-        // `True = True` and `False = True`) is the last resort: `omega` may
+        // `True = True` and `False = True`) is the last resort: `arithmetic` may
         // prove it whole, which is one case instead of two.
         if atom.side
             && let Some(term) = crate::omega::prove_case(cx, goal, run.span)?
@@ -405,7 +430,7 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
         return Ok(term);
     }
     // Everything above saw the goal as it stands, so a `Π` goal that a
-    // hypothesis, `omega` or `t` proves whole keeps that proof; only a case
+    // hypothesis, `arithmetic` or `t` proves whole keeps that proof; only a case
     // that would otherwise be open goes on to have its binders introduced.
     if let Some(term) = introduce(cx, run, goal)? {
         return Ok(term);
@@ -452,7 +477,7 @@ enum Decided {
 
 /// The decision closer (docs/proposals/decide.md §6.1.2): the goal's
 /// decision procedure, found as `auto` finds one (`auto::decide`), run now,
-/// and when its test is `True` the proof `d.sound rfl` (`auto::from_yes`).
+/// and when its test is `True` the proof `d.sound byComputing` (`auto::from_yes`).
 ///
 /// Trust: nothing new enters the trusted base. The term is the one `auto`
 /// writes for `[auto h: P]`; the kernel checks it by running `d` again
@@ -527,14 +552,25 @@ fn introduce(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>> 
     Ok(Some(body))
 }
 
-/// How the hypothesis at `level` is shown: its name, or for one introduced
-/// from an unnamed binder, `hypothesis N (unnamed)`.
+/// How the hypothesis at `level` is shown: its name, for one introduced
+/// from an unnamed binder `hypothesis N (unnamed)`, and for a fact `cases`
+/// added (`%factN`, which can't be written) `fact N (added by cases)`.
 fn hypothesis_name(cx: &Ctx, level: usize, name: &str) -> String {
-    match name.strip_prefix(UNNAMED) {
-        Some(n) if &*cx.names[level] == name => format!("hypothesis {n} (unnamed)"),
-        _ => name.to_string(),
+    if &*cx.names[level] != name {
+        return name.to_string();
+    }
+    if let Some(n) = name.strip_prefix(UNNAMED) {
+        return format!("hypothesis {n} (unnamed)");
+    }
+    match name.strip_prefix(FACT) {
+        Some(n) => format!("fact {n} (added by `cases`)"),
+        None => name.to_string(),
     }
 }
+
+/// The prefix of the names of the facts `cases` adds: not one a program can
+/// write.
+const FACT: &str = "%fact";
 
 /// The equations of the splits made on the way to this case, oldest first,
 /// as shown: the latest copy of each.
@@ -594,10 +630,10 @@ fn open_case(
     };
     if let Some(e) = failed_body {
         let note = if case.is_empty() {
-            "`cases` found nothing to split on, and this is what the term after `in` gave"
+            "`cases` found nothing to split on, and this is what the term after `then` gave"
                 .to_string()
         } else {
-            format!("in the case {case}, this is what the term after `in` gave")
+            format!("in the case {case}, this is what the term after `then` gave")
         };
         return e.with_note(note);
     }
@@ -621,13 +657,24 @@ fn open_case(
         let Some(name) = cx.name_of_level(level) else {
             continue;
         };
-        if is_fact(cx, &cx.types[level]) {
+        if run
+            .substituted
+            .borrow()
+            .iter()
+            .any(|(n, _)| *n == cx.names[level])
+        {
+            continue;
+        }
+        if is_fact(cx, &cx.types[level]) && !trivial(cx, &cx.types[level]) {
             d = d.with_note(format!(
                 "{}: {}",
                 hypothesis_name(cx, level, name),
                 cx.show(&cx.types[level])
             ));
         }
+    }
+    for (_, shown) in run.substituted.borrow().iter() {
+        d = d.with_note(shown.clone());
     }
     d = d.with_note(format!("goal: {}", cx.show(goal)));
     // The case's own equations hold the atoms split on, where an unused
@@ -642,7 +689,7 @@ fn open_case(
     let d = match stuck {
         Some((what, ty)) => d.with_note(format!(
             "it stopped here because the goal is stuck on `{what}`, {} `{ty}`, which `cases` \
-             doesn't take apart; give this case's proof as `cases in t`",
+             doesn't take apart; give this case's proof as `cases then t`",
             if ty.starts_with(['A', 'E', 'I', 'O', 'U']) {
                 "an"
             } else {
@@ -650,9 +697,9 @@ fn open_case(
             }
         )),
         None => d.with_note(
-            "the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a \
-             contradiction, a hypothesis, `omega` nor deciding it (as `byDecision` does) proves \
-             it; give this case's proof as `cases in t`",
+            "the goal isn't stuck on anything `cases` can take apart, and neither `byComputing`, a \
+             contradiction, a hypothesis, `arithmetic` nor deciding it (as `byDecision` does) proves \
+             it; give this case's proof as `cases then t`",
         ),
     };
     // The fallback splits on the way here, by what they split.
@@ -671,6 +718,16 @@ fn open_case(
         fallbacks.join(", "),
         if fallbacks.len() == 1 { "it" } else { "them" }
     ))
+}
+
+/// Whether `ty` is an equation whose sides compute to the same thing, such
+/// as the copy `Some x = Some x` a substitution leaves of `Some x = Some y`:
+/// it says nothing, so `E-CASES` doesn't show it.
+fn trivial(cx: &Ctx, ty: &Value) -> bool {
+    match force(&cx.g(), ty.clone()) {
+        Ok(Value::Eq(_, l, r)) => cx.conv_now(&l, &r).unwrap_or(false),
+        _ => false,
+    }
 }
 
 /// Whether a hypothesis of type `ty` is worth showing: a proposition, as
@@ -861,7 +918,7 @@ fn bool_facts(cx: &Ctx, levels: &[usize]) -> Result<Vec<(usize, Value, bool, boo
 ///
 /// With both turned to the form `e = C` (a `J` along `C = e` into `y = C`,
 /// when the constructor is on the left), the proof of `False = True` is
-/// two `J`s: along `h2` into `y = e`, from `rfl`, gives `False = e`; along
+/// two `J`s: along `h2` into `y = e`, from `byComputing`, gives `False = e`; along
 /// `h1` into `False = y`, from that, gives `False = True`. `Bool.falseNotTrue`
 /// refutes it.
 fn bool_clash(cx: &mut Ctx, goal: &Value, levels: &[usize]) -> Result<Option<Term>> {
@@ -924,7 +981,7 @@ fn bool_clash(cx: &mut Ctx, goal: &Value, levels: &[usize]) -> Result<Option<Ter
     absurd(cx, void_proof, goal).map(Some)
 }
 
-/// `Void.exfalso` (or `Void.absurd`, for a goal that isn't a proposition)
+/// `Void.impossible` (or `Void.absurd`, for a goal that isn't a proposition)
 /// of `J (y q => D y) Trivial h`, where `D` is a helper that is `Unit` at
 /// `h`'s left constructor and `Void` at the others. Two kinds of equation
 /// need no helper: on `Bool`, `Bool.falseNotTrue`, and on `Ordering`, its
@@ -944,7 +1001,7 @@ fn contradiction(cx: &mut Ctx, eq: CtorEquation, goal: &Value) -> Result<Term> {
     let false_not_true = g.env.registry().def(Builtin::FalseNotTrue);
     let void_proof = if let (true, Some(lemma)) = (eq.d == bool_data, false_not_true) {
         // `Bool.falseNotTrue h`, or for `h: True = False`, of `h` turned
-        // round by `J (y q => y = True) rfl h`.
+        // round by `J (y q => y = True) byComputing h`.
         let tru = builtin_ctor(cx, Builtin::True)?;
         let false_true = if eq.left.0 == tru.1 {
             let motive_body = Term::Eq(
@@ -1023,12 +1080,12 @@ fn ordering_distinct(cx: &Ctx, eq: &CtorEquation) -> Option<stitchwort_core::Def
     registry.def(lemma)
 }
 
-/// `goal` from a proof of `Void`: `Void.exfalso` for a proposition,
+/// `goal` from a proof of `Void`: `Void.impossible` for a proposition,
 /// `Void.absurd` otherwise.
 fn absurd(cx: &mut Ctx, void_proof: Term, goal: &Value) -> Result<Term> {
     let goal_term = cx.quote_folded(goal)?;
     let via = if is_proposition(cx, goal)? {
-        builtin_def(cx, Builtin::VoidExfalso)?
+        builtin_def(cx, Builtin::VoidImpossible)?
     } else {
         builtin_def(cx, Builtin::VoidAbsurd)?
     };
@@ -1171,7 +1228,7 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
             });
         }
         let project = family(cx, &ty, &l, d, branches, &field_ty)?;
-        // `J (y q => a = project y) rfl h : a = project r`, which computes to
+        // `J (y q => a = project y) byComputing h : a = project r`, which computes to
         // `a = b`.
         let Term::Lam(_, _, inner) = &project else {
             unreachable!("a lambda")
@@ -1196,7 +1253,8 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
         );
         let fact_term = cx.quote(&fact)?;
         run.facts.set(run.facts.get() + 1);
-        let name = format!("%fact{}", run.facts.get());
+        let name = format!("{FACT}{}", run.facts.get());
+        run.injected.borrow_mut().push(Name::from(name.as_str()));
         lets.push((Name::from(name.as_str()), fact_term.clone(), proof.clone()));
         cx.define(Some(&name), name.as_str().into(), fact, fact_term, proof)?;
     }
@@ -1209,8 +1267,247 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
     Ok(Some(body))
 }
 
+/// A fact [`take_apart`] added, `x = t` or `t = x` with `x` a variable that
+/// something else in scope mentions, eliminates `x` (SW-3344): `t` is put in
+/// its place in the goal and in every hypothesis that mentions it, and the
+/// case starts again. So `h: Some x = Some y` proves `f x = f y`. When both
+/// sides are variables, the right one is replaced.
+///
+/// The hypotheses that mention `x` (and those that mention them) are
+/// copied with `t` in its place, under their own names, so the originals
+/// can no longer be referred to (as a split's copies replace them). The
+/// proof is `J (z q => (d…: D… [z/x]) → G [z/x]) (d… => cases) e d…`,
+/// where `e: t = x` is the fact, or the fact turned round by `J`. `None`
+/// if no fact fits: `t` mentions `x`, or a hypothesis `t` mentions would
+/// have to be copied, or nothing but the fact mentions `x`.
+fn substitute(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>> {
+    let g = cx.g();
+    let n = cx.level();
+    let injected = run.injected.borrow().clone();
+    if injected.is_empty() {
+        return Ok(None);
+    }
+    let substituted: Vec<Name> = run
+        .substituted
+        .borrow()
+        .iter()
+        .map(|(n, _)| n.clone())
+        .collect();
+    let visible = visible(cx);
+    let facts: Vec<usize> = visible
+        .iter()
+        .copied()
+        .filter(|&l| injected.contains(&cx.names[l]) && !substituted.contains(&cx.names[l]))
+        .collect();
+    if facts.is_empty() {
+        return Ok(None);
+    }
+    // The facts with a variable side, before anything is read back: most
+    // nodes have none.
+    let mut candidates = Vec::new();
+    for fact in facts {
+        let Value::Eq(a, l, r) = force(&g, cx.types[fact].clone())? else {
+            continue;
+        };
+        let (l, r) = (force(&g, (*l).clone())?, force(&g, (*r).clone())?);
+        for (var_on_right, side, other) in [(true, &r, &l), (false, &l, &r)] {
+            let Value::Neutral(Head::Var(x, _), spine) = side else {
+                continue;
+            };
+            let x = *x;
+            if spine.is_empty() && crate::matching::is_var(&cx.env[x], x) && cx.lets[x].is_none() {
+                candidates.push((fact, x, var_on_right, (*a).clone(), other.clone()));
+            }
+        }
+    }
+    if candidates.is_empty() {
+        return Ok(None);
+    }
+    let goal_term = cx.quote_folded(goal)?;
+    let goal_free = crate::matching::free_levels(&goal_term, n);
+    let first = candidates.iter().map(|c| c.1).min().unwrap_or(n);
+    let mut types: Vec<Option<Vec<usize>>> = vec![None; n];
+    for (l, free) in types.iter_mut().enumerate().skip(first + 1) {
+        *free = Some(crate::matching::free_levels(
+            &cx.quote_folded(&cx.types[l])?,
+            n,
+        ));
+    }
+    let free_of = |l: usize| types[l].as_deref().unwrap_or(&[]);
+    let mut found = None;
+    for (fact, x, var_on_right, a, other) in candidates {
+        // The hypotheses `x` reaches: those after it (but the fact) whose
+        // type mentions it, or one reached already.
+        let mut reached: Vec<usize> = Vec::new();
+        for l in x + 1..n {
+            if l != fact && free_of(l).iter().any(|&f| f == x || reached.contains(&f)) {
+                reached.push(l);
+            }
+        }
+        let other_free = crate::matching::free_levels(&cx.quote_folded(&other)?, n);
+        let a_free = crate::matching::free_levels(&cx.quote_folded(&a)?, n);
+        if other_free
+            .iter()
+            .chain(&a_free)
+            .any(|&f| f == x || reached.contains(&f))
+        {
+            continue;
+        }
+        // Of those, what must be copied: the visible ones, and what the goal
+        // or a copy mentions. A hidden one nothing copied mentions (an old
+        // copy) is left as it is, as nothing can name it: copying those too
+        // doubled the copies at each substitution (SW-3344 review, F2).
+        let mut needed: Vec<usize> = reached
+            .iter()
+            .copied()
+            .filter(|l| visible.contains(l) || goal_free.contains(l))
+            .collect();
+        let mut i = 0;
+        while i < needed.len() {
+            for &f in free_of(needed[i]) {
+                if reached.contains(&f) && !needed.contains(&f) {
+                    needed.push(f);
+                }
+            }
+            i += 1;
+        }
+        needed.sort_unstable();
+        if needed.is_empty() && !goal_free.contains(&x) {
+            continue;
+        }
+        found = Some((fact, x, var_on_right, a, other, needed));
+        break;
+    }
+    let Some((fact, x, var_on_right, a, t, deps)) = found else {
+        return Ok(None);
+    };
+    let dep_types: Vec<Term> = deps
+        .iter()
+        .map(|&d| cx.quote_folded(&cx.types[d]))
+        .collect::<Result<_>>()?;
+    // `value` (a type or the goal, in the first `n` variables) with `x`
+    // as `with`, and each copied hypothesis as its copy, from `copies` on.
+    let replaced = |cx: &Ctx, value: &Term, with: Value, copies: usize| -> Result<Value> {
+        let mut env = cx.env[..n].to_vec();
+        env[x] = with;
+        for (i, &d) in deps.iter().enumerate() {
+            env[d] = Value::var(copies + i);
+        }
+        Ok(eval(&g, &env, value)?)
+    };
+    let copy_name =
+        |cx: &Ctx, d: usize| (cx.name_of_level(d).map(str::to_string), cx.names[d].clone());
+
+    // The motive, `z q => (d…: D… [z/x]) → G [z/x]`.
+    let mark = cx.mark();
+    let motive = (|| -> Result<Term> {
+        let z = Value::var(n);
+        cx.bind_hidden("z".into(), a.clone());
+        let q_ty = Value::Eq(
+            Rc::new(a.clone()).into(),
+            Rc::new(t.clone()).into(),
+            Rc::new(z.clone()).into(),
+        );
+        cx.bind_hidden("q".into(), q_ty);
+        let mut pis = Vec::new();
+        for (&d, d_ty) in deps.iter().zip(&dep_types) {
+            let ty = replaced(cx, d_ty, z.clone(), n + 2)?;
+            pis.push((cx.names[d].clone(), cx.quote_folded(&ty)?));
+            cx.bind_hidden(cx.names[d].clone(), ty);
+        }
+        let goal = replaced(cx, &goal_term, z.clone(), n + 2)?;
+        let mut body = cx.quote_folded(&goal)?;
+        for (name, ty) in pis.into_iter().rev() {
+            body = Term::Pi(name, Icit::Explicit, Rc::new(ty), Rc::new(body));
+        }
+        Ok(Term::Lam(
+            "z".into(),
+            Icit::Explicit,
+            Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(body))),
+        ))
+    })();
+    cx.reset(mark);
+    let motive = motive?;
+
+    let shown = format!(
+        "`{}` is replaced by `{}`: an equation `cases` took apart says they are equal",
+        cx.show(&Value::var(x)),
+        cx.show(&t),
+    );
+    // The base, `d… => cases`, with the copies in scope.
+    let base = (|| -> Result<Term> {
+        let mut names = Vec::new();
+        for (&d, d_ty) in deps.iter().zip(&dep_types) {
+            let ty = replaced(cx, d_ty, t.clone(), n)?;
+            let (visible_name, name) = copy_name(cx, d);
+            match visible_name {
+                Some(shown) => cx.bind(&shown, ty),
+                None => cx.bind_hidden(name.clone(), ty),
+            }
+            names.push(name);
+        }
+        // `x`'s name now stands for `t`, so a term after `then` that names it
+        // still checks against the goal, which says `t` (review F1).
+        let alias = match cx.name_of_level(x) {
+            Some(name) => {
+                let name = name.to_string();
+                let (a_term, t_term) = (cx.quote_folded(&a)?, cx.quote_folded(&t)?);
+                cx.define(
+                    Some(&name),
+                    name.as_str().into(),
+                    a.clone(),
+                    a_term.clone(),
+                    t_term.clone(),
+                )?;
+                Some((Name::from(name.as_str()), a_term, t_term))
+            }
+            None => None,
+        };
+        let goal = replaced(cx, &goal_term, t.clone(), n)?;
+        run.substituted
+            .borrow_mut()
+            .push((cx.names[fact].clone(), shown.clone()));
+        let body = node(cx, run, &goal);
+        run.substituted.borrow_mut().pop();
+        let mut body = body?;
+        if let Some((name, ty, value)) = alias {
+            body = Term::let_(name, ty, value, body);
+        }
+        for name in names.into_iter().rev() {
+            body = Term::Lam(name, Icit::Explicit, Rc::new(body));
+        }
+        Ok(body)
+    })();
+    cx.reset(mark);
+    let base = base?;
+
+    let at = |l: usize| Term::Var(n - 1 - l);
+    let equation = if var_on_right {
+        at(fact)
+    } else {
+        // `J (z q => z = x) byComputing fact : t = x`.
+        let a_term = cx.quote_folded(&a)?.shift(&g, 2, 0)?;
+        let turn = Term::Eq(
+            Some(Rc::new(a_term)),
+            Rc::new(Term::Var(1)),
+            Rc::new(Term::Var(n + 1 - x)),
+        );
+        let turn = Term::Lam(
+            "z".into(),
+            Icit::Explicit,
+            Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(turn))),
+        );
+        Term::J(Rc::new(turn), Rc::new(Term::Refl), Rc::new(at(fact)))
+    };
+    let mut proof = Term::J(Rc::new(motive), Rc::new(base), Rc::new(equation));
+    for &d in &deps {
+        proof = Term::app(proof, at(d));
+    }
+    Ok(Some(proof))
+}
+
 /// A hypothesis `h: P → Q` (`Q` not mentioning the proof of `P`, `P` an
-/// equation) whose premise holds in this case adds `Q`, as `h rfl` when
+/// equation) whose premise holds in this case adds `Q`, as `h byComputing` when
 /// `P`'s sides compute to the same thing (`b = True → fact`, after `b` was
 /// split, generalised to `True = True → fact`), or as `h e` for a
 /// hypothesis `e: P`; and the case starts again with it (SW-948). `None` if
@@ -1219,7 +1516,7 @@ fn apply_guarded(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Ter
     let g = cx.g();
     let levels = visible(cx);
     // Each fact: its type, the hypothesis it comes from, and the premise's
-    // proof (`None` for `rfl`, else a hypothesis's level).
+    // proof (`None` for `byComputing`, else a hypothesis's level).
     let mut facts: Vec<(Value, usize, Option<usize>)> = Vec::new();
     for &level in &levels {
         let Value::Pi(_, Icit::Explicit, dom, closure) = force(&g, cx.types[level].clone())? else {
@@ -1276,7 +1573,7 @@ fn apply_guarded(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Ter
         let proof = Term::app(at(level), premise);
         let fact_term = cx.quote(&fact)?;
         run.facts.set(run.facts.get() + 1);
-        let name = format!("%fact{}", run.facts.get());
+        let name = format!("{FACT}{}", run.facts.get());
         lets.push((Name::from(name.as_str()), fact_term.clone(), proof.clone()));
         cx.define(Some(&name), name.as_str().into(), fact, fact_term, proof)?;
     }
@@ -1416,7 +1713,7 @@ impl<'a, 'e> Finder<'a, 'e> {
     /// `Some`) and lose what ties them together. Split once: a value that
     /// is itself a field of an earlier split of its type isn't split again,
     /// so `cases` never follows a list down by itself. `Nat` is left to
-    /// `omega`.
+    /// `arithmetic`.
     fn shared(&self, goal: &Value) -> Result<Option<Atom>> {
         let cx = self.cx;
         let mut survey = Finder::new(cx, self.run);
@@ -1674,7 +1971,7 @@ impl<'a, 'e> Finder<'a, 'e> {
             // definition outside that arithmetic tests it (the previous
             // step, already taken), nor is what it waits for, which would
             // be `Int`'s internals (`Int.subNatNatFrom n (Succ m) …`).
-            // `omega` and `ring` take the arithmetic as it is.
+            // `arithmetic` and `algebra` take the arithmetic as it is.
             if int_arithmetic(&g, &current) {
                 if last_unsplittable.is_none()
                     && let Some(int) = g.env.registry().loaded_data(Builtin::Int)
@@ -1852,7 +2149,7 @@ fn is_stuck(value: &Value) -> bool {
 }
 
 /// Whether `value` (forced) is a call of `Int`'s own arithmetic: the
-/// definitions `omega` reads (`-`, `+`, `-` between two, `*`, `/`, `%`,
+/// definitions `arithmetic` reads (`-`, `+`, `-` between two, `*`, `/`, `%`,
 /// `<=`, `<`, and the subtraction of naturals they compute through). Their
 /// case trees test `OfNat`/`NegSucc`, which `cases` doesn't split for them
 /// (SW-937), as it doesn't split `Float`'s bits for `Float.isNaN`.
@@ -1936,7 +2233,7 @@ fn splittable(cx: &Ctx, d: DataId) -> Option<usize> {
 }
 
 /// Whether `d` is splittable but for being recursive, and isn't `Nat`
-/// (which `omega` reasons about instead): what [`Finder::shared`] may split
+/// (which `arithmetic` reasons about instead): what [`Finder::shared`] may split
 /// once, where several stuck calls wait for the same value of it.
 fn recursive(cx: &Ctx, d: DataId) -> bool {
     let g = cx.g();
@@ -2015,6 +2312,54 @@ fn blocker(cx: &Ctx, value: &Value) -> Result<Option<(Value, DataId)>> {
             _ => return Ok(None),
         }
     }
+}
+
+/// For `cases then t`, the condition of the first `if` the goal shows (read
+/// back folded, calls as calls, in pre-order), when it is stuck and not
+/// known in this case (SW-3530, D2542). `t` is written against the goal
+/// as it is shown, so the split it is given is the one it can see: on
+/// `(if fits then wide else narrow).words = …` that is `fits`, and each
+/// case's goal keeps the branch's calls (`wide.words`), which `t` can
+/// rewrite. What [`Finder::find`] would split instead is what the
+/// condition's call is stuck on inside its definition, innermost first,
+/// and each of those cases' goals is computed past the calls `t` names.
+/// Only an `if` outside every binder of the goal is taken.
+fn visible_condition(cx: &Ctx, run: &Run, goal: &Value) -> Result<Option<Atom>> {
+    let ite = builtin_def(cx, Builtin::IfThenElse)?;
+    let bool_data = builtin_data(cx, Builtin::Bool)?;
+    // A goal too large to read back has no condition to show: the usual
+    // search goes on, and the budget check before a split reports it.
+    let written = match cx.quote_folded(goal) {
+        Ok(written) => written,
+        Err(e) if crate::undo::recoverable(cx, &e) => {
+            crate::undo::recovered(cx);
+            return Ok(None);
+        }
+        Err(e) => return Err(e),
+    };
+    let finder = Finder::new(cx, run);
+    for (term, under) in written.subterms() {
+        if under > 0 {
+            continue;
+        }
+        let (head, args) = term.spine();
+        if !matches!(head, Term::Def(id) if *id == ite) || args.len() != 4 {
+            continue;
+        }
+        let condition = cx.eval(args[1])?;
+        if !matches!(force(&cx.g(), condition.clone())?, Value::Neutral(..))
+            || finder.is_known(&condition)?
+            || has_meta(cx, &condition)?
+        {
+            continue;
+        }
+        return Ok(Some(Atom {
+            value: condition,
+            d: bool_data,
+            side: false,
+        }));
+    }
+    Ok(None)
 }
 
 /// Splits the case on `atom`: the generated `match` with one alternative

@@ -150,7 +150,7 @@ before the call.
 It fits the architecture. Lowering is already whole-program, from
 `erasure::reachable` (`crates/rt/src/erasure.rs:73-100`). Since everything pure is total
 (`crates/rt/src/opt.rs:29-31`), dropping dead pure work can't change what's printed.
-MLton does this ("useless" field elimination, whole-program; from memory). GHC's demand
+MLton does this ("useless thing elimination": a tuple or constructor application is useful only if a component is, `mlton/ssa/useless.fun` at MLton/mlton 5fe9433; that it is whole-program is from memory) **[checked in source, 15 Nov 2026]**. GHC's demand
 analysis does the parameter half within a module.
 
 **Why not:**
@@ -254,12 +254,17 @@ ghost def Graph.universe (graph: Graph s) (sources: List (s, Nat)): List s :=  -
 
 - **Dafny**: `ghost` variables, fields, parameters and functions, with a resolver
   check that ghost values appear only in "specification contexts". The verifier sees
-  everything, and compiled code sees none of it (from memory).
+  everything, and compiled code sees none of it. The reference manual says "Specifications and
+  ghost constructs are used only during verification; the compiler omits them from the executable
+  code" **[cited, 15 Nov 2026, DafnyRef via WebFetch summary]**; the resolver check on "specification contexts" is from memory and **[unverified]**.
 - **F\***: `FStar.Ghost.erased a`, with `hide` and `reveal`. `reveal` is in the ghost
-  effect `GTot`, so only ghost code can use it (from memory).
+  effect `GTot`, so only ghost code can use it: `val reveal: #a -> erased a -> GTot a`, "computationally
+  relevant code cannot use [reveal] (it's marked [GTot])" (`ulib/FStar.Ghost.fsti`, F* master at d4b42c1) **[checked in source, 15 Nov 2026]**.
 - **Agda**: `@0` (`@erased`) on arguments and record fields. Erased variables may be
-  used only in erased positions, and they're still compared (erasure without
-  irrelevance, unlike `.x`). Matching on an erased argument is restricted (from memory).
+  used only in erased positions ("Cannot use erased variables or definitions" in run-time mode) and
+  matching on an erased argument is restricted to at most one valid case (the "erased match") **[cited, 15 Nov
+  2026, Agda manual, Run-time irrelevance]**. That they're still compared (erasure without irrelevance,
+  unlike `.x`) is from memory and **[unverified]** (the page doesn't mention conversion).
 - **Idris 2**: quantity `0` on any binder, checked by its core's quantity checker,
   where types are erased contexts automatically
   (`docs/proposals/proof-irrelevance.md` §4.4).
@@ -271,12 +276,13 @@ checked once over the term that runs.
 ### 4.4 D. Lean's way: `Subtype` and `Erased`
 
 Lean's compiler erases only types and proofs, as Stitchwort does. `Subtype {x // p x}`
-keeps `x` and erases the proof, so it doesn't help here. Mathlib's `Erased α` erases
-data by encoding it as a predicate: a `PSigma` of `s: α → Prop` (a type former, so
-erased) and a proof `∃ a, (a = ·) = s`. Getting the value out is `Erased.out`, a
-`noncomputable` definition by `Classical.choose`. Lean's guard is that runtime code
-can't call `noncomputable` definitions (`Mathlib/Data/Erased.lean`, from memory, not
-re-checked).
+keeps `x` and erases the proof, so it doesn't help here. `Erased α` (corrected 15 Nov 2026: now in Lean core, `src/Init/Data/Erased.lean` at lean4
+918003258c, not Mathlib, and a `Subtype` rather than a `PSigma`) erases
+data by encoding it as a predicate: `{ s : α → Prop // ∃ a, (a = ·) = s }` (a type former, so
+erased). Getting the value out is `Erased.out`, a
+`noncomputable` definition by `Classical.choose`, documented "available to proofs only". Lean's guard is that
+runtime code can't call `noncomputable` definitions (a general Lean rule, from memory, not
+re-checked here).
 
 In Stitchwort this fails requirement 1. `out` would be an axiom (there's no choice),
 so `graph.states.out` never reduces. Then `unsettledIn` in the measure is stuck, and

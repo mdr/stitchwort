@@ -7,16 +7,16 @@
 import Std (Nat, List, Parse)
 import Std.Parse (char, natDigits)
 
-def shortNumber(): {Parse} Nat := natDigits 1 3
+def shortNumber(): {Parse Char} Nat := natDigits 1 3
 
-def forgotten(): {Parse} Nat :=
+def forgotten(): {Parse Char} Nat :=
   char ','
   shortNumber
   shortNumber()
 
-def missingArgument(): {Parse} Nat := (char; shortNumber())
+def missingArgument(): {Parse Char} Nat := (char; shortNumber())
 
-def sum (x: Nat): {Parse} Nat :=
+def sum (x: Nat): {Parse Char} Nat :=
   x + 1
   shortNumber()
 
@@ -25,12 +25,12 @@ def mapped (list: List Nat): List Nat :=
   list
 
 -- None of these warn.
-def skipped(): {Parse} Nat :=
+def skipped(): {Parse Char} Nat :=
   shortNumber()
   char ','
   ()
   shortNumber()
 
-def readEach (list: List Nat): {Parse} List Nat :=
+def readEach (list: List Nat): {Parse Char} List Nat :=
   list.map (n => shortNumber())
   list

@@ -5,7 +5,7 @@ expression: output
 [E-MUTUAL-SIGNATURE] Error: `b`'s type refers to a definition that isn't finished
     ╭─[ reject/local-mutual-signature.sw:10:3 ]
     │
- 10 │   theorem b (k: Nat): a k = a k := rfl
+ 10 │   theorem b (k: Nat): a k = a k := byComputing
     │   ──────────────┬──────────────  
     │                 ╰──────────────── here
     │ 

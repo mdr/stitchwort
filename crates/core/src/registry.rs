@@ -81,9 +81,15 @@ const LIBRARY: &[Builtin] = &[
     Builtin::NatToInt,
     Builtin::TextToInt,
     Builtin::TextToNat,
+    Builtin::TextRepeat,
     Builtin::TextTrim,
     Builtin::TextTake,
     Builtin::TextDrop,
+    Builtin::TextGet,
+    Builtin::TextGetOr,
+    Builtin::TextGetLt,
+    Builtin::TextSlice,
+    Builtin::TextConcat,
     Builtin::TextContains,
     Builtin::TextSplit,
     Builtin::TextJoin,
@@ -141,6 +147,25 @@ const LIBRARY: &[Builtin] = &[
     Builtin::FinToNat,
     Builtin::Fail,
     Builtin::FailStop,
+    Builtin::Files,
+    Builtin::FilesRead,
+    Builtin::FilesWrite,
+    Builtin::FilesList,
+    Builtin::FilesInfo,
+    Builtin::FilePath,
+    Builtin::FileKind,
+    Builtin::FileKindFile,
+    Builtin::FileKindFolder,
+    Builtin::FileKindOther,
+    Builtin::FileEntry,
+    Builtin::FileInfo,
+    Builtin::FileError,
+    Builtin::FileNotFound,
+    Builtin::FileNotPermitted,
+    Builtin::FileNotAFile,
+    Builtin::FileNotAFolder,
+    Builtin::FileNotText,
+    Builtin::FileOtherError,
     Builtin::NonEmptyList,
     Builtin::NonEmptyListPrependList,
     Builtin::ListAllReads,
@@ -215,13 +240,13 @@ builtins! {
     ListMem = "List.Mem": Def,
     Cong = "Eq.cong": Def => "[a] [b] f [x] [y] p",
     // `calc` chains combine their steps with these (`crates/elab/src/calc.rs`)
-    EqSym = "Eq.sym": Def => "[a] [x] [y] p",
+    EqFlipped = "Eq.flipped": Def => "[a] [x] [y] p",
     EqTrans = "Eq.trans": Def => "[a] [x] [y] [z] p q",
     LeTrans = "Nat.leTrans": Def => "a b c h1 h2",
     LessTrans = "Nat.lessTrans": Def => "m n p h1 h2",
     // What `decreasing` generates refers to these (crates/elab/src/decreasing.rs)
     VoidAbsurd = "Void.absurd": Def => "[a] v",
-    VoidExfalso = "Void.exfalso": Def => "[p] v",
+    VoidImpossible = "Void.impossible": Def => "[p] v",
     FalseNotTrue = "Bool.falseNotTrue": Def => "",
     LeRefl = "Nat.leRefl": Def => "n",
     ElimDecCong = "Decidable.elimCong": Def => "[p] [a] d y1 y2 n1 n2 sameYes sameNo",
@@ -341,7 +366,7 @@ builtins! {
     FloatDecLessEq = "Float.decLessEq": Def,
     FloatDecLessThan = "Float.decLessThan": Def,
     // `Fin n`, the numbers below n (std/Fin/Fin.sw): a numeral `k` checked
-    // against `Fin n` for a known n is `Fin.ofNatLt n k rfl`, and a number
+    // against `Fin n` for a known n is `Fin.ofNatLt n k byComputing`, and a number
     // pattern on one is `FZero` or `FSucc` (docs/proposals/fin-literals.md)
     Fin = "Fin": Data,
     FZero = "FZero": Ctor(Builtin::Fin),
@@ -407,6 +432,10 @@ builtins! {
     Option = "Option": Data,
     None = "None": Ctor(Builtin::Option),
     Some = "Some": Ctor(Builtin::Option),
+    // `Files`' replies (std/core/Result.sw)
+    ResultData = "Result": Data,
+    ResultOk = "Ok": Ctor(Builtin::ResultData),
+    ResultErr = "Err": Ctor(Builtin::ResultData),
     // `NonEmptyList a` (std/NonEmptyList/NonEmptyList.sw): list literals and
     // list patterns build and match it where it is the expected type, and a
     // literal with spreads before its first item puts them in front with
@@ -443,6 +472,12 @@ builtins! {
     TextJoin = "Text.join": Def,
     NatToText = "Nat.toText": Def,
     TextToNat = "Text.toNat": Def,
+    TextRepeat = "Text.repeat": Def,
+    TextGet = "Text.get": Def,
+    TextGetOr = "Text.getOr": Def,
+    TextGetLt = "Text.getLt": Def,
+    TextSlice = "Text.slice": Def,
+    TextConcat = "Text.concat": Def,
     // `Array` (std/Array/Array.sw): one buffer at run time, its operations
     // natives bound by content hash (crates/rt/src/natives.rs)
     Array = "Array": Data,
@@ -527,12 +562,35 @@ builtins! {
     Console = "Console": Data,
     RandomSeed = "%randomSeed": Ctor(Builtin::Io),
     Args = "%args": Ctor(Builtin::Io),
+    PrintError = "%printError": Ctor(Builtin::Io),
     Simulate = "IO.simulate": Def => "[e] [%div.e] [a] input prog",
     // `Fail` (std/Fail/Fail.sw): a `main` may leave it unhandled, and the
     // runners perform `stop` themselves, as they perform `print`
     // (docs/proposals/partial-stage-2.md)
     Fail = "Fail": Data,
     FailStop = "%stop": Ctor(Builtin::Fail),
+    // `Files` (std/Files/Files.sw): a `main` may leave it unhandled, and the
+    // runners perform its operations on the real disk, building the replies
+    // from these (docs/proposals/file-io-and-text.md §2)
+    Files = "Files": Data,
+    FilesRead = "%read": Ctor(Builtin::Files),
+    FilesWrite = "%write": Ctor(Builtin::Files),
+    FilesList = "%list": Ctor(Builtin::Files),
+    FilesInfo = "%info": Ctor(Builtin::Files),
+    FilePath = "Path": Data,
+    FileKind = "FileKind": Data,
+    FileKindFile = "File": Ctor(Builtin::FileKind),
+    FileKindFolder = "Folder": Ctor(Builtin::FileKind),
+    FileKindOther = "Other": Ctor(Builtin::FileKind),
+    FileEntry = "Entry": Data,
+    FileInfo = "FileInfo": Data,
+    FileError = "FileError": Data,
+    FileNotFound = "NotFound": Ctor(Builtin::FileError),
+    FileNotPermitted = "NotPermitted": Ctor(Builtin::FileError),
+    FileNotAFile = "NotAFile": Ctor(Builtin::FileError),
+    FileNotAFolder = "NotAFolder": Ctor(Builtin::FileError),
+    FileNotText = "NotText": Ctor(Builtin::FileError),
+    FileOtherError = "OtherError": Ctor(Builtin::FileError),
 }
 
 /// The built-in data types with a JavaScript boundary form of their own

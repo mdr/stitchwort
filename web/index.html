@@ -638,7 +638,7 @@ import Std (Eq, List)
 
 theorem appendLength: (xs: List a) -> (ys: List a) ->
     List.length (List.append xs ys) = List.length xs + List.length ys
-  | Nil,       ys => rfl
+  | Nil,       ys => byComputing
   | Cons x xs, ys => Eq.cong Succ (appendLength xs ys)
 
 def reverse: List a -> List a
@@ -646,7 +646,7 @@ def reverse: List a -> List a
   | Cons x xs => List.append (reverse xs) [x]
 
 -- Proofs by computation:
-theorem reverseExample: reverse [1, 2, 3] = [3, 2, 1] := rfl
+theorem reverseExample: reverse [1, 2, 3] = [3, 2, 1] := byComputing
 
 -- Try: `appendLength (Cons x xs) ys = appendLength xs ys` (a wrong step), or a
 -- recursive call that doesn't get smaller, like `reverse (Cons x xs)`.
@@ -2681,7 +2681,7 @@ export def area: Shape -> Nat
   // text, so a long paste stays quick.
   const KEYWORDS = new Set(["type", "def", "theorem", "export", "test", "if", "then", "else",
                             "ability", "where", "handle", "with", "match", "return", "let", "Type", "Prop",
-                            "namespace", "import", "include", "calc", "rewrite", "omega", "ring", "cases", "decreasing", "opaque", "unfolding", "interface", "instance",
+                            "namespace", "import", "include", "calc", "rewrite", "arithmetic", "algebra", "cases", "decreasing", "opaque", "unfolding", "interface", "instance",
                             "in", "exists", "forall"]);
   const KINDS = ["keyword", "name", "defined", "number", "string", "interp", "comment", "operator"];
   const isWordStart = (c) => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_";
@@ -2769,7 +2769,7 @@ export def area: Shape -> Nat
         previous = "0";
       } else if (c === "-" && isDigit(text[i + 1] || "")
                  && !(i > 0 && (isWord(text[i - 1]) || ")]}\"'".includes(text[i - 1]))
-                      && !(KEYWORDS.has(previous) && !["Type", "Prop", "omega", "ring", "cases"].includes(previous)))) {
+                      && !(KEYWORDS.has(previous) && !["Type", "Prop", "arithmetic", "algebra", "cases"].includes(previous)))) {
         // A `-` glued to a numeral, with no closing token touching it on the
         // left, is part of the number: `-1.abs` is `(-1).abs`, while `x-1`
         // subtracts (docs/proposals/negative-arguments.md).

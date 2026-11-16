@@ -45,9 +45,10 @@ impl Elaborator {
     /// it can be generated and the module doesn't declare one.
     pub(crate) fn derive_record_ext(&mut self, d: DataId) -> Result<()> {
         let data = self.kernel.data(d);
+        // The lazy-loading index lists a library file's names from its source,
+        // so a generated `T.ext` would be a name it doesn't promise.
         if self.unit.loading_prelude
             || data.sort() == Sort::Prop
-            || data.group().len() > 1
             || !data.indices().is_empty()
             || data.ctors().len() != 1
         {
@@ -59,12 +60,12 @@ impl Elaborator {
         if self.declares_ext() {
             return Ok(());
         }
-        let plan = match self.field_plan_for(d, dec_eq, "an extensionality lemma", false)? {
+        let plan = match self.field_plan_for(d, dec_eq, "an extensionality lemma", false, None)? {
             Ok(plan) if plan.deciders.iter().all(|x| !x) => plan,
             _ => return Ok(()),
         };
         // `T.%mk%P%k`, the proof fields' types, unless `==` made them.
-        for (k, kind) in plan.fields[0].iter().enumerate() {
+        for (k, kind) in plan.fields[0][0].iter().enumerate() {
             if *kind == crate::derive::Field::Proof {
                 let ctor = &self.kernel.data(d).ctors()[0].name;
                 let key = Self::member_key(&self.data_key(d), &format!("%{ctor}%P%{k}"));
@@ -74,7 +75,7 @@ impl Elaborator {
             }
         }
         self.clear_metas();
-        let (signature, equation) = self.ext_source(d, &plan.fields[0]);
+        let (signature, equation) = self.ext_source(d, &plan.fields[0][0]);
         let result = self.definition(&signature, &[equation]);
         self.clear_metas();
         match result {

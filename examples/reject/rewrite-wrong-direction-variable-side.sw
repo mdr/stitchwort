@@ -6,4 +6,4 @@
 import Std (Nat)
 
 theorem twice (n: Nat): 2 * n = n :=
-  rewrite Nat.mulOne n in rfl
+  rewrite Nat.mulOne n then byComputing

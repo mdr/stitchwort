@@ -19,8 +19,8 @@ def settle (xs: List Nat): Option Nat
 theorem settleNone ∀ (xs: List Nat): settle xs = None :=
   settle.induct
     (xs result => result = None)
-    rfl
-    (x rest shorter none => rfl)
+    byComputing
+    (x rest shorter none => byComputing)
     (x rest shorter n some ih => ih)
-    (x rest notShorter => rfl)
+    (x rest notShorter => byComputing)
     xs

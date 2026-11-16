@@ -243,6 +243,97 @@ def main(): {IO} () :=
     same_trace(source);
 }
 
+/// `Text.repeat` and `Array.replicate` with a count that would need more
+/// memory than exists run out of steps in native code as on the machine
+/// (they are charged before the result is built), called directly or as
+/// function values, and small counts still agree.
+#[test]
+fn a_huge_repeat_or_replicate_runs_out_of_steps_natively() {
+    let program = |body: &str| {
+        format!(
+            "import Std (Array, IO, List, Nat, Text)\n\ndef applied (f: Nat → Text) (n: Nat): Text := f n\n\ndef main(): {{IO}} () :=\n{body}\n"
+        )
+    };
+    let small = program(
+        r#"  IO.print "${Text.repeat "ab" 3} ${(Array.replicate (count := 3) "x").toList}"
+  IO.print "${[2, 0].map (Text.repeat "c")}""#,
+    );
+    assert_eq!(
+        agrees(&small),
+        "ababab [\"x\", \"x\", \"x\"]\n[\"cc\", \"\"]\n"
+    );
+    for count in [
+        "18446744073709551616",
+        "18446744073709551615",
+        "4611686018427387904",
+    ] {
+        let bodies = [
+            format!("  IO.print (Nat.toText (Text.length (Text.repeat \"a\" {count})))"),
+            format!("  IO.print (Nat.toText (Text.length (Text.repeat \"\" {count})))"),
+            format!(
+                "  IO.print (Nat.toText (Array.size (Array.replicate (count := {count}) \"a\")))"
+            ),
+            format!("  IO.print (Nat.toText (Text.length (applied (Text.repeat \"a\") {count})))"),
+        ];
+        for body in bodies {
+            let source = program(&body);
+            with_stack(STACK, move || {
+                let (program, limits) = lowered(&source);
+                let limits = Limits {
+                    steps: 1_000_000,
+                    ..limits
+                };
+                let machine = on_machine(&program, limits);
+                let (native, notes) = native(&program, limits, false);
+                assert!(ran_natively(&notes), "nothing ran natively: {notes:#?}");
+                assert_eq!(native, machine, "{source}");
+                assert_eq!(native.1, Err("out of steps".to_string()), "{source}");
+            });
+        }
+    }
+}
+
+/// With `number_words` on (the counterexample search's), native code charges
+/// an operation on big numbers by their words as the machine does: every step
+/// limit up to the least that finishes stops both at the same point, and the
+/// least is more than without it.
+#[test]
+fn big_number_operations_cost_their_words_natively() {
+    let source = r#"import Std (IO, Int, Nat)
+
+def grow: Nat → Nat → Nat
+  | Zero, acc => acc
+  | Succ n, acc => grow n (acc * acc + n)
+
+def wide (n: Int): Int := n * n - 7
+
+def main(): {IO} () :=
+  IO.print "${grow 6 3 / 1000000007 % 1000 + (grow 5 4 == 0).toNat} ${(wide 4294967296 * wide 18446744073709551616) % 1000}"
+"#;
+    with_stack(STACK, move || {
+        let (program, limits) = lowered(source);
+        let counted = Limits {
+            number_words: true,
+            ..limits
+        };
+        let (plain_steps, _) = every_limit_agrees(
+            &program,
+            Limits {
+                steps: 400,
+                ..limits
+            },
+        );
+        let (counted_steps, _) = every_limit_agrees(
+            &program,
+            Limits {
+                steps: 4000,
+                ..counted
+            },
+        );
+        assert!(counted_steps > plain_steps, "{plain_steps} {counted_steps}");
+    });
+}
+
 /// Cells of every size native code builds and frees: a one-field box,
 /// pairs and trees nested in each other, an eight-field cell (the largest
 /// `sw_cell_new` and `sw_cell_free` build and free with a fixed layout) and

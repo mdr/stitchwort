@@ -17,4 +17,5 @@ theorem prefixShorter ∀ (xs: List Nat) (starts: xs.startsWith [1, 2, 3] = True
 
 theorem emptyIsNil ∀ (xs: List Nat): xs.isEmpty = (xs == []) := List.isEmptyEqNil xs
 
-theorem examples: ([1, 2, 3].startsWith [1, 2] = True) ∧ ([1, 2].stripPrefix [1, 3] = None) := Both rfl rfl
+theorem examples: ([1, 2, 3].startsWith [1, 2] = True) ∧ ([1, 2].stripPrefix [1, 3] = None) :=
+  Both byComputing byComputing

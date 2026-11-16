@@ -1335,9 +1335,13 @@ fn unknown_member(
         scope::meaning_suggestions(&ns, &field.text, |full| cx.e.scope.get(full).is_some())
     };
     if let Some(best) = meant.first() {
-        d = d.with_note(format!("did you mean `{best}`?"));
+        d = d
+            .with_note(format!("did you mean `{best}`?"))
+            .with_replacement(best.as_str());
     } else if let Some((_, best)) = near.first() {
-        d = d.with_note(format!("did you mean `{best}`?"));
+        d = d
+            .with_note(format!("did you mean `{best}`?"))
+            .with_replacement(best.as_str());
     }
     if let TyHead::Data(dd) = last
         && g.data(dd).record()

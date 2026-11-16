@@ -12,8 +12,8 @@ theorem negOfSum ∀ (a b: Int): Int.neg (a + b) = Int.neg a + Int.neg b := Int.
 
 theorem selfCancels ∀ (a: Int): Int.sub a a = Int.OfNat 0 := Int.subSelf a
 
-theorem orderingEq: (Ordering.Less == Ordering.Less) = True := rfl
+theorem orderingEq: (Ordering.Less == Ordering.Less) = True := byComputing
 
-theorem orderingNe: (Ordering.Less == Ordering.Greater) = False := rfl
+theorem orderingNe: (Ordering.Less == Ordering.Greater) = False := byComputing
 
-theorem compareIs: (Int.compare (Int.NegSucc 1) (Int.OfNat 2) == Ordering.Less) = True := rfl
+theorem compareIs: (Int.compare (Int.NegSucc 1) (Int.OfNat 2) == Ordering.Less) = True := byComputing

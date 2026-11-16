@@ -61,6 +61,11 @@ pub(crate) struct Pending {
     /// How many hypotheses a later one of the same name replaced, and
     /// nothing shown mentions, aren't listed ([`drop_superseded`]).
     superseded: usize,
+    /// The goal as the arm it is in is written, if that differs from what
+    /// the leaf checked ([`crate::arm_display`]); [`Pending::context`] and
+    /// the rest stay as the leaf has them, for the snapshot and the
+    /// assumption.
+    arm: Option<Box<ArmGoal>>,
     /// What the hole is in: "`addZero`".
     owner: String,
     /// What a lemma of the goal is named after: the declaration's name less
@@ -84,6 +89,24 @@ pub(crate) struct Pending {
     /// each one's level and type, and whether the compiler made it (`%…`).
     /// Its assumption takes them as parameters ([`Elaborator::assume_goals`]).
     pub(crate) applied: Vec<(usize, Value, bool)>,
+}
+
+/// A goal at an arm, as the arm is written ([`Pending::arm`]).
+#[derive(Clone)]
+struct ArmGoal {
+    expected: Value,
+    /// What it computes to, if the leaf's value for a variable the arm
+    /// left alone was folded back into the variable.
+    computed: Option<Value>,
+    context: Vec<Entry>,
+    hidden: Vec<(usize, Value)>,
+    superseded: usize,
+    /// The note on a goal at an arm checked several times, and the case.
+    cases: Option<(usize, Option<String>)>,
+    /// Whether the goal is the arm's as written, not one case's.
+    as_written: bool,
+    /// What the arm's variables are known not to be, as `m ≠ 5`.
+    facts: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -117,10 +140,21 @@ pub(crate) struct Goals {
     /// [`Elaborator::take_error_hole_shown`] last asked: the printer notes
     /// it through the elaborator's `Shown`.
     error_hole_shown: std::cell::Cell<bool>,
+    /// Whether the printer has shown any unknown since a goal began to be
+    /// printed ([`GoalData::has_unknown`]).
+    unknown_shown: std::cell::Cell<bool>,
     /// Printed: one per span, the last checked there.
     found: Vec<Found>,
     /// The context asked for at a position ([`Elaborator::probe_context`]).
     probe: Probe,
+    /// The splits of the case tree on the way to the leaf being checked.
+    pub(crate) split_path: Option<std::rc::Rc<crate::arm_display::Split>>,
+    /// The arm being checked, if its goals need showing as written
+    /// (`arm_display.rs`).
+    pub(crate) arm: Option<std::rc::Rc<crate::arm_display::Arm>>,
+    /// The expressions the `match`es being checked match on
+    /// ([`crate::arm_display::note_scrutinees`]).
+    pub(crate) scrutinees: Vec<crate::arm_display::Scrutinee>,
 }
 
 /// The context at a position, asked for before checking: the smallest
@@ -147,7 +181,7 @@ struct Probe {
 }
 
 #[derive(Clone)]
-struct ProbePending {
+pub(crate) struct ProbePending {
     span: Span,
     ty: Value,
     checked: bool,
@@ -167,7 +201,7 @@ pub enum StepForm {
     Match,
     /// `| pattern =>`: the arm's goal, with its pattern's variables.
     Arm,
-    /// A rule of `rewrite r1, r2 in t`, or of `rewrite … at h`.
+    /// A rule of `rewrite r1, r2 then t`, or of `rewrite … at h`.
     RewriteRule,
     /// A line `_ R e` of a `calc`.
     CalcLine,
@@ -223,7 +257,7 @@ pub(crate) struct StepNote {
     /// are what changes.
     pub target: Option<String>,
     /// Other places the step answers for: a `rewrite`'s keyword, `at` and
-    /// `in` (the rule itself is [`StepNote::head`]).
+    /// `then` (the rule itself is [`StepNote::head`]).
     pub extra: Vec<Span>,
 }
 
@@ -339,6 +373,10 @@ impl NameScope for GoalScope<'_> {
         projection: stitchwort_core::DefId,
     ) -> Option<(stitchwort_core::DefId, String)> {
         self.e.method_of(projection)
+    }
+
+    fn ctor_name(&self, d: stitchwort_core::DataId, c: usize) -> Option<String> {
+        self.e.ctor_qualified(d, c)
     }
 
     /// What `a == b` decides `a = b` by, for a `ty` that mentions no
@@ -460,14 +498,20 @@ fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
             ));
         }
     }
-    let (mut context, mut hidden) = scope_entries(cx, &shown_names);
+    let (mut context, mut hidden) = scope_entries(cx, &shown_names, &cx.env, &cx.types);
     let superseded = drop_superseded(cx, expected, &mut context, &mut hidden);
+    drop_split_leftovers(cx, expected, None, &mut context, &mut hidden);
     let context = dependency_order(&g, cx.level(), context);
     let prop = match force(&g, expected.clone()) {
         Ok(Value::Neutral(Head::Meta(_), _)) | Err(_) => None,
         Ok(_) => crate::rewrite::is_proof_type(cx, expected).ok(),
     };
     let shown = display_goal(cx);
+    let arm = match shown {
+        Some(_) => None,
+        None if error => None,
+        None => arm_goal(cx, expected, &shown_names),
+    };
     let (owner, lemma_base) = cx.e.goal_owner();
     let owner_def = cx.e.owner_def();
     let owner_args = match owner_def {
@@ -492,6 +536,7 @@ fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
         context,
         hidden,
         superseded,
+        arm,
         owner,
         lemma_base,
         prop,
@@ -503,13 +548,77 @@ fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
     term
 }
 
+/// The goal at `cx` as its arm is written, if it differs from the leaf's or
+/// the arm is checked at several leaves ([`crate::arm_display`]).
+fn arm_goal(cx: &Ctx, expected: &Value, shown_names: &[Name]) -> Option<Box<ArmGoal>> {
+    let view = crate::arm_display::view(cx, expected)?;
+    // The count matters where the goal depends on the case: a proof, or a
+    // goal the arm's patterns or the case tree's splits changed.
+    let says_cases = view.cases > 1
+        && (view.goal.is_some()
+            || view.depends
+            || crate::rewrite::is_proof_type(cx, expected).unwrap_or(false));
+    let cases = says_cases
+        .then(|| crate::arm_display::case_note(cx))
+        .flatten()
+        .or_else(|| says_cases.then_some((view.cases, None)));
+    let shown = view.goal.clone().unwrap_or_else(|| expected.clone());
+    let (mut context, mut hidden) = scope_entries(cx, shown_names, &view.env, &view.types);
+    let superseded = drop_superseded(cx, &shown, &mut context, &mut hidden);
+    drop_split_leftovers(
+        cx,
+        &shown,
+        view.computed.as_ref(),
+        &mut context,
+        &mut hidden,
+    );
+    let context = dependency_order(&cx.g(), cx.level(), context);
+    // From the context as listed: a fact about a variable the goal doesn't
+    // show can't be used by name.
+    let facts = shown_facts(&view, &context);
+    if !view.changed && cases.is_none() && facts.is_empty() {
+        return None;
+    }
+    Some(Box::new(ArmGoal {
+        expected: shown,
+        computed: view.computed,
+        context,
+        hidden,
+        superseded,
+        cases,
+        as_written: view.goal.is_some(),
+        facts,
+    }))
+}
+
+/// The arm's facts as lines (`m ≠ 5`), for the variables the goal lists
+/// under the name the arm gives them.
+fn shown_facts(view: &crate::arm_display::View, context: &[Entry]) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for fact in &view.facts {
+        let Some(entry) = context.iter().find(|e| e.level == fact.level) else {
+            continue;
+        };
+        let line = format!("{} ≠ {}", entry.name, fact.literal);
+        if !lines.contains(&line) {
+            lines.push(line);
+        }
+    }
+    lines
+}
+
 /// The variables in scope at `cx` as a goal lists them (not yet in
 /// dependency order), and the context's own variables it leaves out:
 /// each one's level and type.
-fn scope_entries(cx: &Ctx, shown_names: &[Name]) -> (Vec<Entry>, Vec<(usize, Value)>) {
+fn scope_entries(
+    cx: &Ctx,
+    shown_names: &[Name],
+    env: &[Value],
+    types: &[Value],
+) -> (Vec<Entry>, Vec<(usize, Value)>) {
     let mut context = Vec::new();
     let mut hidden = Vec::new();
-    for (level, value) in cx.env.iter().enumerate() {
+    for (level, value) in env.iter().enumerate() {
         let own =
             matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty());
         let is_let = cx.lets[level].is_some();
@@ -519,14 +628,24 @@ fn scope_entries(cx: &Ctx, shown_names: &[Name]) -> (Vec<Entry>, Vec<(usize, Val
         // reader.
         if !(own || is_let) || name.starts_with('%') || &**name == "_" {
             if own {
-                hidden.push((level, cx.types[level].clone()));
+                hidden.push((level, types[level].clone()));
             }
             continue;
         }
         let name = shown_names[level].to_string();
-        let ty = cx.types[level].clone();
+        let ty = types[level].clone();
+        // The proof that a known character is one, bound by the `_` a char
+        // or text pattern stands for, says nothing a proof needs.
+        if own && name.contains('✝') && known_char_proof(cx, &ty) {
+            hidden.push((level, ty));
+            continue;
+        }
         // A proof's value is its proof term: only its statement is shown.
-        let shows_value = is_let && !crate::rewrite::is_proof_type(cx, &ty).unwrap_or(false);
+        // A prefix pattern's `rest` is the text of the characters left,
+        // which would show as `rest` itself.
+        let shows_value = is_let
+            && !crate::rewrite::is_proof_type(cx, &ty).unwrap_or(false)
+            && !text_rest_let(cx, level);
         context.push(Entry {
             name,
             ty,
@@ -535,6 +654,59 @@ fn scope_entries(cx: &Ctx, shown_names: &[Name]) -> (Vec<Entry>, Vec<(usize, Val
         });
     }
     (context, hidden)
+}
+
+/// Whether the `let` at `level` is the one a text prefix pattern's `rest`
+/// is bound by: `MkText` of the characters the match compiler named
+/// [`stitchwort_core::pretty::TEXT_REST`].
+fn text_rest_let(cx: &Ctx, level: usize) -> bool {
+    let Some(def) = &cx.lets[level] else {
+        return false;
+    };
+    let Term::Ctor(_, _, args) = def.value.strip_loc() else {
+        return false;
+    };
+    matches!(args.as_slice(), [arg] if matches!(arg.strip_loc(),
+        Term::Var(ix) if level.checked_sub(ix + 1).is_some_and(|l|
+            cx.names[l].starts_with(stitchwort_core::pretty::TEXT_REST))))
+}
+
+/// Whether `ty` is the type of `MkChar`'s proof field for a known code,
+/// `Char.isScalar 100 = True`: what a char pattern's `_` binds. A code that
+/// isn't a scalar (a spelled-out `MkChar 55296 _`) has a false statement,
+/// which stays visible.
+fn known_char_proof(cx: &Ctx, ty: &Value) -> bool {
+    let g = cx.g();
+    let Some((d, c)) = g
+        .env
+        .registry()
+        .ctor(stitchwort_core::registry::Builtin::MkChar)
+    else {
+        return false;
+    };
+    let Some((_, field)) = g.data(d).ctors()[c].fields.get(1) else {
+        return false;
+    };
+    let Term::Eq(_, test, holds) = field.strip_loc() else {
+        return false;
+    };
+    let (Term::Def(is_scalar), _) = test.spine() else {
+        return false;
+    };
+    let Ok(quoted) = quote_shown(&g, cx.level(), ty) else {
+        return false;
+    };
+    let Term::Eq(_, lhs, rhs) = quoted.strip_loc() else {
+        return false;
+    };
+    let (head, args) = lhs.spine();
+    matches!(head.strip_loc(), Term::Def(d) if d == is_scalar)
+        && matches!(args.as_slice(), [arg] if matches!(arg.strip_loc(),
+            Term::Nat(n) if u32::try_from(n.as_ref().clone()).ok().and_then(char::from_u32).is_some()))
+        && matches!(
+            (rhs.strip_loc(), holds.strip_loc()),
+            (Term::Ctor(d1, c1, _), Term::Ctor(d2, c2, _)) if d1 == d2 && c1 == c2
+        )
 }
 
 /// Takes out of `context` the hypotheses a later one of the same name
@@ -584,6 +756,93 @@ fn drop_superseded(
         keep
     });
     before - context.len()
+}
+
+/// Takes out of the goal's hypotheses the variables a pattern match's split
+/// left behind that nothing shown mentions: unnamed (`tail✝`, `code✝`,
+/// `valid✝`), which a proof can't refer to, and which neither the target
+/// nor any hypothesis that stays depends on, as in the catch-all arm after
+/// text literals, other than a proof that says more than the split did. They stay in `hidden`, as for [`drop_superseded`].
+/// `also` is a second value shown with the goal (what it computes to), which
+/// keeps the cells it mentions.
+fn drop_split_leftovers(
+    cx: &Ctx,
+    expected: &Value,
+    also: Option<&Value>,
+    context: &mut Vec<Entry>,
+    hidden: &mut Vec<(usize, Value)>,
+) {
+    let g = cx.g();
+    let level = cx.level();
+    let leftover = |e: &Entry| {
+        e.value.is_none()
+            && cx.lets[e.level].is_none()
+            && e.name.contains('✝')
+            && cx.name_of_level(e.level).is_none()
+    };
+    if !context.iter().any(leftover) {
+        return;
+    }
+    let read = |v: &Value| -> Option<Vec<usize>> {
+        quote_shown(&g, level, v)
+            .ok()
+            .and_then(|t| levels_in(&t, level))
+    };
+    let mut mentioned = match read(expected) {
+        Some(l) => l,
+        None => return,
+    };
+    // What the goal computes to is shown too, so the cells it mentions stay.
+    if let Some(also) = also {
+        match read(also) {
+            Some(l) => mentioned.extend(l),
+            None => return,
+        }
+    }
+    for e in context.iter().filter(|e| !leftover(e)) {
+        for v in std::iter::once(&e.ty).chain(e.value.as_ref()) {
+            match read(v) {
+                Some(l) => mentioned.extend(l),
+                None => return,
+            }
+        }
+    }
+    // A leftover stays if something shown mentions it, or if it is a proof
+    // that says something beyond the split: about no variable (`Char.isScalar
+    // 55296`, from a spelled-out `MkChar 55296 _`) or about one that stays
+    // (`h✝: n ≠ 5`). Only data, and proofs about dropped cells
+    // (`valid✝: Char.isScalar code✝`), are cells of the split. One that stays
+    // brings its type's variables with it.
+    let cells: Vec<usize> = (context.iter().filter(|e| leftover(e)))
+        .map(|e| e.level)
+        .collect();
+    let mut kept: Vec<usize> = Vec::new();
+    loop {
+        let before = kept.len();
+        for e in context.iter().filter(|e| leftover(e)) {
+            if kept.contains(&e.level) {
+                continue;
+            }
+            let Some(about) = read(&e.ty) else { return };
+            let says_more = crate::rewrite::is_proof_type(cx, &e.ty).unwrap_or(false)
+                && (about.is_empty()
+                    || about.iter().any(|l| !cells.contains(l) || kept.contains(l)));
+            if mentioned.contains(&e.level) || says_more {
+                kept.push(e.level);
+                mentioned.extend(about);
+            }
+        }
+        if kept.len() == before {
+            break;
+        }
+    }
+    context.retain(|e| {
+        let keep = !leftover(e) || kept.contains(&e.level);
+        if !keep {
+            hidden.push((e.level, e.ty.clone()));
+        }
+        keep
+    });
 }
 
 /// The context's entries in an order that shows a variable before a
@@ -768,6 +1027,14 @@ impl Elaborator {
         };
         term.subterms()
             .any(|(t, _)| matches!(t, Term::Meta(m) if cx.e.is_error_hole(*m)))
+    }
+
+    /// Notes that the printer showed an unsolved unknown as `_` or `_name`
+    /// ([`GoalData::has_unknown`]).
+    pub(crate) fn note_unknown_printed(&self) {
+        if let Ok(goals) = self.goals.try_borrow() {
+            goals.unknown_shown.set(true);
+        }
     }
 
     /// Notes that a message showed metavariable `m`: if it is an error
@@ -1020,7 +1287,7 @@ impl Elaborator {
             .filter(|s| s.head.file == file && s.head.start <= at && at < s.head.end)
             .min_by_key(|s| s.head.end - s.head.start)
             .or_else(|| {
-                // A rule's `rewrite`, `at` or `in`: the first rule's step,
+                // A rule's `rewrite`, `at` or `then`: the first rule's step,
                 // as `steps` are in source order.
                 (steps.iter()).find(|s| {
                     (s.extra.iter()).any(|r| r.file == file && r.start <= at && at < r.end)
@@ -1099,7 +1366,7 @@ impl Elaborator {
     /// [`Elaborator::records_steps`] says so.
     pub(crate) fn note_step(&self, cx: &Ctx, note: StepNote) {
         let names = cx.shown_names(true);
-        let (mut context, mut hidden) = scope_entries(cx, &names);
+        let (mut context, mut hidden) = scope_entries(cx, &names, &cx.env, &cx.types);
         drop_superseded(cx, &note.after, &mut context, &mut hidden);
         let context = dependency_order(&cx.g(), cx.level(), context);
         let proof = crate::rewrite::is_proof_type(cx, &note.after).unwrap_or(false);
@@ -1131,6 +1398,23 @@ impl Elaborator {
         self.goals.borrow_mut().probe.steps.truncate(len);
     }
 
+    pub(crate) fn drop_probe_pending(&self) {
+        self.goals.borrow_mut().probe.pending = None;
+    }
+
+    /// The probe's pending context, to put back with
+    /// [`Elaborator::restore_probe_pending`]. `None` unless a probe is
+    /// running and has found something, so cheap to take.
+    pub(crate) fn probe_pending(&self) -> Option<ProbePending> {
+        self.goals.borrow().probe.pending.clone()
+    }
+
+    /// Puts back the pending context an undone attempt may have replaced
+    /// with one whose metavariables no longer exist.
+    pub(crate) fn restore_probe_pending(&self, pending: Option<ProbePending>) {
+        self.goals.borrow_mut().probe.pending = pending;
+    }
+
     /// The expression at `span`, of type `ty` (checked against it if
     /// `checked`), in `cx`: kept if it is the smallest so far to contain
     /// the probed position. Also called on entry to a check, so that an
@@ -1155,6 +1439,8 @@ impl Elaborator {
         if (self.present.nav.as_ref()).is_some_and(|nav| nav.borrow().generated > 0) {
             return;
         }
+        // At an arm, the goal as the arm is written (`crate::arm_display`).
+        let view = crate::arm_display::view(cx, ty).filter(|v| v.changed);
         let mut goals = self.goals.borrow_mut();
         let mut found = None;
         if let Some(p) = &mut goals.probe.pending {
@@ -1177,8 +1463,16 @@ impl Elaborator {
             }
         }
         let names = cx.shown_names(true);
-        let (mut context, mut hidden) = scope_entries(cx, &names);
+        let (env, types) = match &view {
+            Some(v) => (&v.env, &v.types),
+            None => (&cx.env, &cx.types),
+        };
+        let ty = view.as_ref().and_then(|v| v.goal.as_ref()).unwrap_or(ty);
+        let (mut context, mut hidden) = scope_entries(cx, &names, env, types);
         drop_superseded(cx, ty, &mut context, &mut hidden);
+        if let Some(v) = &view {
+            drop_split_leftovers(cx, ty, v.computed.as_ref(), &mut context, &mut hidden);
+        }
         let context = dependency_order(&cx.g(), cx.level(), context);
         goals.probe.pending = Some(ProbePending {
             span,
@@ -1280,7 +1574,26 @@ impl Elaborator {
         probe.declaration = Some(owner);
     }
 
-    fn print_goal(&self, p: &Pending) -> Found {
+    fn print_goal(&self, leaf: &Pending) -> Found {
+        // A goal at an arm shows the arm as written: its context and goal in
+        // place of the leaf's.
+        let arm = leaf.arm.as_deref();
+        let viewed;
+        let p = match arm {
+            Some(a) => {
+                viewed = Pending {
+                    expected: a.expected.clone(),
+                    context: a.context.clone(),
+                    hidden: a.hidden.clone(),
+                    superseded: a.superseded,
+                    arm: None,
+                    ..leaf.clone()
+                };
+                &viewed
+            }
+            None => leaf,
+        };
+        let computed = arm.and_then(|a| a.computed.as_ref());
         let g = &self.ev();
         let scope = GoalScope {
             e: self,
@@ -1296,13 +1609,16 @@ impl Elaborator {
                 None => format!("{}: {}", h.name, h.ty),
             })
             .collect();
+        if let Ok(goals) = self.goals.try_borrow() {
+            goals.unknown_shown.set(false);
+        }
         // Forcing leaves a metavariable only if it's unsolved.
         let known = !matches!(
             force(g, p.expected.clone()),
             Ok(Value::Neutral(Head::Meta(_), _))
         );
         let target = if known {
-            show(&p.expected)
+            show(computed.unwrap_or(&p.expected))
         } else {
             "(the type here isn't known yet)".to_string()
         };
@@ -1311,12 +1627,23 @@ impl Elaborator {
         } else {
             None
         };
+        let has_unknown = (self.goals.try_borrow()).is_ok_and(|g| g.unknown_shown.replace(false));
+        if let Some(a) = arm {
+            lines.extend(a.facts.iter().cloned());
+        }
         lines.push(format!("⊢ {}", written.as_deref().unwrap_or(&target)));
         if written.is_some() {
             lines.push(format!("  computes to {}", cut_computed(&target)));
         }
         let lemma = if known {
-            self.lemma_of(p, &hypotheses, &target).ok()
+            self.lemma_of(
+                p,
+                &hypotheses,
+                arm.map_or(&[][..], |a| a.facts.as_slice()),
+                &target,
+                &show,
+            )
+            .ok()
         } else {
             None
         };
@@ -1332,10 +1659,32 @@ impl Elaborator {
                  at` binds) {are} listed, as nothing shown mentions {them}"
             ));
         }
+        if let Some(a) = arm
+            && let Some((n, _)) = &a.cases
+        {
+            let which = if a.as_written {
+                "the arm as written, not any one case"
+            } else {
+                "the last of them"
+            };
+            diagnostic = diagnostic.with_note(format!(
+                "this arm is checked in {n} cases; the goal shown is {which}"
+            ));
+        }
+        if let Some(a) = arm
+            && !a.facts.is_empty()
+        {
+            diagnostic = diagnostic.with_note(
+                "the `≠` lines are known from the arms above; `auto` and `byDecision` \
+                 prove them",
+            );
+        }
         diagnostic.detail_mut().goal = Some(GoalData {
             hypotheses,
+            facts: arm.map(|a| a.facts.clone()).unwrap_or_default(),
             target,
             written,
+            has_unknown,
             prop: p.prop,
             lemma: None,
         });
@@ -1361,7 +1710,9 @@ impl Elaborator {
         &self,
         p: &Pending,
         hypotheses: &[Hypothesis],
+        facts: &[String],
         target: &str,
+        show: &dyn Fn(&Value) -> String,
     ) -> Result<(&'static str, String), &'static str> {
         let keyword = match p.prop {
             Some(true) => "theorem",
@@ -1383,7 +1734,10 @@ impl Elaborator {
                     .skip(1)
                     .any(|after| after.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
         };
-        if unwritable(target) || hypotheses.iter().any(|h| unwritable(&h.ty)) {
+        if unwritable(target)
+            || hypotheses.iter().any(|h| unwritable(&h.ty))
+            || facts.iter().any(|f| unwritable(f))
+        {
             return Err("unwritable text");
         }
         // Every variable the goal mentions is one it shows, a hypothesis's
@@ -1394,7 +1748,7 @@ impl Elaborator {
         let levels: Vec<usize> = p.context.iter().map(|e| e.level).collect();
         let mut declarations = Vec::new();
         let mut ctors = Vec::new();
-        let mut writable = |v: &Value, shown: &[usize]| {
+        let mut writable = |v: &Value, shown: &[usize], ascribable: bool| {
             let Ok(term) = quote_shown(g, level, v) else {
                 return false;
             };
@@ -1404,6 +1758,14 @@ impl Elaborator {
                         || (i - binders < level && shown.contains(&(level - 1 - (i - binders))))
                 }
                 Term::Meta(_) => false,
+                // An equation's type isn't written, but inferred from a
+                // side: two constructor terms that name no type's parameters
+                // leave it open (`Err msg = Err msg`, `[] = []`).
+                // The target's own equation is written with an ascription
+                // on its left side (below); a nested one isn't.
+                Term::Eq(_, a, b) => {
+                    !(loose_ctor(g, a) && loose_ctor(g, b)) || (ascribable && binders == 0)
+                }
                 Term::Def(id) if id.0 < g.env.defs().len() => {
                     declarations.push(Declaration::Def(*id));
                     true
@@ -1420,10 +1782,10 @@ impl Elaborator {
                 _ => true,
             })
         };
-        if !writable(&p.expected, &levels) {
+        if !writable(&p.expected, &levels, true) {
             return Err("target mentions a hidden variable");
         }
-        if !(p.context.iter().enumerate()).all(|(k, e)| writable(&e.ty, &levels[..k])) {
+        if !(p.context.iter().enumerate()).all(|(k, e)| writable(&e.ty, &levels[..k], false)) {
             return Err("hypothesis mentions a hidden or later variable");
         }
         // Every declaration it names, it names as the top level of the file
@@ -1434,6 +1796,7 @@ impl Elaborator {
         // named.
         let text: Vec<&str> = std::iter::once(target)
             .chain(hypotheses.iter().map(|h| h.ty.as_str()))
+            .chain(facts.iter().map(String::as_str))
             .collect();
         for declaration in declarations {
             let full = self.full_name(declaration);
@@ -1471,9 +1834,42 @@ impl Elaborator {
                 ty.to_string()
             }
         };
+        // An equation whose two sides leave its type open can't be pasted
+        // back as `Err msg = Err msg`: the left side says it, `(Err msg: Result b Text) = Err msg`.
+        let ascribed = match force(g, p.expected.clone()) {
+            Ok(Value::Eq(ty, a, b))
+                if (quote_shown(g, level, &a).is_ok_and(|t| loose_ctor(g, &t)))
+                    && (quote_shown(g, level, &b).is_ok_and(|t| loose_ctor(g, &t))) =>
+            {
+                let (ty, a, b) = (show(&ty), show(&a), show(&b));
+                if target != format!("{a} = {b}") || unwritable(&ty) {
+                    return Err("equation with an open type that can't be ascribed");
+                }
+                Some(format!("({a}: {ty}) = {b}"))
+            }
+            _ => None,
+        };
+        let target = ascribed.as_deref().unwrap_or(target);
         let mut rest = String::new();
         for h in hypotheses {
             rest.push_str(&format!(" ({}: {})", h.name, bracketed(&h.ty)));
+        }
+        // The facts are hypotheses of the lemma, named `h`, `h2`, … clear of
+        // the goal's own names.
+        let mut n = 0;
+        for fact in facts {
+            let name = loop {
+                n += 1;
+                let name = if n == 1 {
+                    "h".to_string()
+                } else {
+                    format!("h{n}")
+                };
+                if !hypotheses.iter().any(|h| h.name == name) {
+                    break name;
+                }
+            };
+            rest.push_str(&format!(" ({name}: {fact})"));
         }
         rest.push_str(&format!(": {} := ?", bracketed(target)));
         Ok((keyword, rest))
@@ -1799,5 +2195,39 @@ fn number_arms(steps: &mut [StepAt]) {
                 }
             }
         }
+    }
+}
+
+/// Whether `term` is a constructor application whose type can't be worked
+/// out from the term itself: a parameter of its data type that none of the
+/// constructor's fields mentions (`Err msg`'s success type, `[]`'s element
+/// type), or a field typed by a parameter that is such a term. Written alone, it needs the type
+/// from where it is used.
+fn loose_ctor(g: &Ev, term: &Term) -> bool {
+    match term {
+        Term::Loc(_, t) => loose_ctor(g, t),
+        Term::Ctor(d, c, args) => {
+            let params = g.data(*d).params().len();
+            let fields = &g.data(*d).ctors()[*c].fields;
+            let mentioned = |j: usize| {
+                fields.iter().enumerate().any(|(k, (_, ty))| {
+                    ty.subterms().any(|(t, binders)| {
+                        matches!(t, Term::Var(i)
+                            if *i >= binders && i - binders == k + params - 1 - j)
+                    })
+                })
+            };
+            // A field of a fixed type (`MkText`'s `List Char`) gets its type
+            // from the constructor; one typed by a parameter gives it.
+            let typed_by_parameter = |k: usize| {
+                fields[k]
+                    .1
+                    .subterms()
+                    .any(|(t, binders)| matches!(t, Term::Var(i) if *i >= binders + k))
+            };
+            (0..params).any(|j| !mentioned(j))
+                || (args.iter().enumerate()).any(|(k, a)| typed_by_parameter(k) && loose_ctor(g, a))
+        }
+        _ => false,
     }
 }

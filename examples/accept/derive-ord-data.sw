@@ -25,8 +25,8 @@ test "sort" :=
 -- A proof field between data fields is left out, as for `==` (D179).
 type Small = | MkSmall (n: Nat) (small: Nat.leq n 10 = True) (label: Text) | Big
 
-test "proof field left out" := Ord.compare (MkSmall 3 rfl "b") (MkSmall 3 rfl "a") == Greater
-test "small before big" := Ord.compare (MkSmall 9 rfl "z") Big == Less
+test "proof field left out" := Ord.compare (MkSmall 3 byComputing "b") (MkSmall 3 byComputing "a") == Greater
+test "small before big" := Ord.compare (MkSmall 9 byComputing "z") Big == Less
 
 -- One constructor, not a record.
 type Version = | V (major: Nat) (minor: Nat) (patch: Nat)

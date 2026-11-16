@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-CANNOT-INFER] Error: can't tell which statement this tuple proves
+   ╭─[ reject/proof-tuple-exists-no-type.sw:5:16 ]
+   │
+ 5 │   let found := (7, h)
+   │                ───┬──  
+   │                   ╰──── a value and then a proof: a proof of an `∃`, but of which one?
+   │ 
+   │ Note: a witness and a proof fit many `∃` statements: give the type, as in `(…: ∃ (x: T) => …)`, or use the tuple where the goal is known
+───╯

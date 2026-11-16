@@ -1,13 +1,13 @@
 ---
-source: crates/cli/tests/running/examples.rs
+source: crates/cli/tests/examples.rs
 expression: output
 ---
 [W-UNREACHABLE] Warning: this case can't happen
     ╭─[ reject/match-equation-unknown-motive.sw:19:5 ]
     │
- 19 │     | Some n => Void.exfalso (Bool.falseNotTrue k)
-    │     ───────────────────────┬──────────────────────  
-    │                            ╰──────────────────────── here `k` is `False = True`, which can't hold
+ 19 │     | Some n => Void.impossible (Bool.falseNotTrue k)
+    │     ────────────────────────┬────────────────────────  
+    │                             ╰────────────────────────── here `k` is `False = True`, which can't hold
     │ 
     │ Note: the arm can be deleted
 ────╯
@@ -19,9 +19,9 @@ expression: output
     │                     ╰────── the `match`'s scrutinee, still in this type
  26 │     | None => _ => lem slot _
     │                    ─────┬────  
-    │                         ╰────── expected `Holds None rfl`, but this has type `Holds slot.field (?0 slot q field _)`
+    │                         ╰────── expected `Holds None byComputing`, but this has type `Holds slot.field _k`
     │ 
-    │ Note 1: `?0` is the `_` for the argument `k` of `lem`, which wasn't worked out from the other arguments or the expected type
+    │ Note 1: `_k` is `lem`'s `_` for `k`, not worked out
     │ 
     │ Note 2: a term written out inside a branch (an explicit argument, or a type you wrote) isn't refined by the `match`: only the goal and the variables in scope are, so it still has the scrutinee in it. Write `_` for such an argument, so it is inferred from the hypothesis (docs/syntax.md, "Proving things about a definition with an inner `match`")
 ────╯

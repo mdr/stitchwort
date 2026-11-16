@@ -22,8 +22,8 @@ fn span() -> Span {
     Span::point(SourceMap::new().add("kernel", ""), 0)
 }
 
-/// `MkChar code rfl`, checked by the kernel. For a code that isn't a scalar
-/// value, `rfl` would have to prove `False = True`.
+/// `MkChar code byComputing`, checked by the kernel. For a code that isn't a scalar
+/// value, `byComputing` would have to prove `False = True`.
 fn check_code(g: &stitchwort_core::Ev, code: u32) -> Result<(), &'static str> {
     let term = Term::ctor(
         mk_char(g),

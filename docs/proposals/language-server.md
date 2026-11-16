@@ -66,9 +66,9 @@ namespace it just checked and check it again.
 
   reports only `E-PARSE expected a field name after '.'`, not the type
   error in `g`. The parser already splits a file into declarations
-  (`split_decls`, `crates/syntax/src/parser.rs:54`) and collects every
+  (`split_decls`, `crates/syntax/src/parser.rs`) and collects every
   declaration's syntax errors, but then returns no module at all if there
-  is any (`parser.rs:110`), so nothing is checked.
+  is any (`parse_lexed`, `parser/entry.rs`), so nothing is checked.
 - A missing proof can be written `_`, and the message doesn't say what is
   missing. Checked:
 

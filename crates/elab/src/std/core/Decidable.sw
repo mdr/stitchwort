@@ -18,31 +18,35 @@
 --| Decidable.yes … else Decidable.no …` gives the same answers, but its
 --| `holds` is stuck on the `if`.
 -- (docs/proposals/decidable-record.md)
-type Decidable (p: Prop) = { holds: Bool, sound: holds = True → p, complete: p → holds = True }
+type Decidable (p: Prop) = {
+  holds: Bool,
+  sound: holds = True → p,
+  complete: p → holds = True
+}
 
 --| What a decision's `Bool` says when it is `False`: `p` is refuted. Splitting
 --| on the test (`match h: x < y with | True => … | False => …`) and then
 --| calling `d.sound` or this on its equation `h` is how a proof gets the
 --| evidence for `p` or against it.
 theorem Decidable.refute ∀ [p: Prop] (d: Decidable p) (e: d.holds = False): ¬p := h =>
-  Bool.falseNotTrue (Eq.trans (Eq.sym e) (d.complete h))
+  Bool.falseNotTrue (Eq.trans e.flipped (d.complete h))
 
 --| A refutation of `p` gives `holds d = False`: the converse of
 --| [`Decidable.refute`], which has no field of its own.
 -- In the core: the reader writes it for a fact `d.holds = False` built from
 -- `¬p` (docs/proposals/bool-as-proposition.md §5.4, step 2).
 theorem Decidable.toBoolOfNot ∀ [p: Prop] (d: Decidable p) (n: ¬p): Decidable.holds d = False := match d with
-  | { holds = True, sound = s, complete = c } => Void.exfalso (n (s rfl))
-  | { holds = False, sound = s, complete = c } => rfl
+  | { holds = True, sound = s, complete = c } => Void.impossible (n (s byComputing))
+  | { holds = False, sound = s, complete = c } => byComputing
 
 --| The decision that `p` holds, from a proof of it, for a decision whose
 --| answer is known.
-def Decidable.yes [p: Prop] (h: p): Decidable p := { holds = True, sound = e => h, complete = x => rfl }
+def Decidable.yes [p: Prop] (h: p): Decidable p := { holds = True, sound = e => h, complete = x => byComputing }
 
 --| The decision that `p` is false, from a refutation of it: [`Decidable.yes`]'s
 --| partner.
 def Decidable.no [p: Prop] (r: ¬p): Decidable p :=
-  { holds = False, sound = e => Void.exfalso (Bool.falseNotTrue e), complete = h => Void.exfalso (r h) }
+  { holds = False, sound = e => (Bool.falseNotTrue e).impossible, complete = h => (r h).impossible }
 
 --| A decision of `q` from one of `p`, where each implies the other: the same
 --| test, so `==` on a wrapper computes to `==` on what it wraps.
@@ -63,7 +67,7 @@ theorem Decidable.elimCong ∀ [p: Prop] [a: Type] (d: Decidable p) (y1 y2: p �
     (sameNo: ∀ (r: ¬p) => n1 r = n2 r):
     Decidable.elim d y1 n1 = Decidable.elim d y2 n2 :=
   match d with
-    | { holds = True, sound = s, complete = c } => sameYes (s rfl)
+    | { holds = True, sound = s, complete = c } => sameYes (s byComputing)
     | { holds = False, sound = s, complete = c } => sameNo _
 
 --| [`Decidable.elim`] for a proof: `if` with proofs as branches is this, and a
@@ -82,7 +86,7 @@ theorem Decidable.elimEq ∀ [p: Prop] [a: Type] (d: Decidable p) (y: p → a) (
     (noEq: ∀ (r: ¬p) => n r = z):
     Decidable.elim d y n = z :=
   match d with
-    | { holds = True, sound = s, complete = c } => yesEq (s rfl)
+    | { holds = True, sound = s, complete = c } => yesEq (s byComputing)
     | { holds = False, sound = s, complete = c } => noEq _
 
 theorem Bool.ifThenElseCong ∀ [a: Type] (c: Bool) (t1 t2 e1 e2: Unit → a)
@@ -110,14 +114,14 @@ def Nat.decEq (m n: Nat): Decidable (m = n) := {
 }
 
 theorem Bool.trueNotFalse: True ≠ False
-  | p => Bool.falseNotTrue (Eq.sym p)
+  | p => Bool.falseNotTrue p.flipped
 
 --| Decides whether two booleans are equal.
 def Bool.decEq: (a: Bool) → (b: Bool) → Decidable (a = b)
-  | False, False => Decidable.yes rfl
+  | False, False => Decidable.yes byComputing
   | False, True => Decidable.no Bool.falseNotTrue
   | True, False => Decidable.no Bool.trueNotFalse
-  | True, True => Decidable.yes rfl
+  | True, True => Decidable.yes byComputing
 
 --| What [`Decidable.not`]'s test says when it is `True`.
 theorem Decidable.notSound ∀ [p: Prop] (d: Decidable p) (h: Bool.not d.holds = True): ¬p := match d with
@@ -125,8 +129,8 @@ theorem Decidable.notSound ∀ [p: Prop] (d: Decidable p) (h: Bool.not d.holds =
 
 --| What [`Decidable.not`]'s test says when `¬p` holds.
 theorem Decidable.notComplete ∀ [p: Prop] (d: Decidable p) (r: ¬p): Bool.not d.holds = True := match d with
-  | { holds = True, sound = s, complete = c } => Void.exfalso (r (s rfl))
-  | { holds = False, sound = s, complete = c } => rfl
+  | { holds = True, sound = s, complete = c } => Void.impossible (r (s byComputing))
+  | { holds = False, sound = s, complete = c } => byComputing
 
 --| `!p` is decided from a decision of `p`: its test is `not` of `p`'s.
 instance Decidable.not [p: Prop] (d: Decidable p): Decidable (¬p) :=
@@ -136,15 +140,15 @@ instance Decidable.not [p: Prop] (d: Decidable p): Decidable (¬p) :=
 theorem Decidable.andSound ∀ [p q: Prop] (dp: Decidable p) (dq: Decidable q)
     (h: Bool.ifThenElse dp.holds (u => dq.holds) (u => False) = True):
     p ∧ q :=
-  match dp with | { holds = True, sound = s, complete = c } => Both (s rfl) (dq.sound h)
+  match dp with | { holds = True, sound = s, complete = c } => Both (s byComputing) (dq.sound h)
 
 --| What [`Decidable.and`]'s test says when `p ∧ q` holds.
 theorem Decidable.andComplete ∀ [p q: Prop] (dp: Decidable p) (dq: Decidable q)
     (h: p ∧ q):
     Bool.ifThenElse dp.holds (u => dq.holds) (u => False) = True :=
   match dp with
-    | { holds = True, sound = s, complete = c } => dq.complete (And.right h)
-    | { holds = False, sound = s, complete = c } => c (And.left h)
+    | { holds = True, sound = s, complete = c } => dq.complete h.right
+    | { holds = False, sound = s, complete = c } => c h.left
 
 --| `p && q` is decided from decisions of each side: its test is the `Bool`
 --| `&&` of theirs. Both are worked out before this is called (an argument
@@ -159,15 +163,15 @@ instance Decidable.and [p q: Prop] (dp: Decidable p) (dq: Decidable q): Decidabl
 theorem Decidable.andThenSound ∀ [p q: Prop] (dp: Decidable p) (dq: Unit → Decidable q)
     (h: Bool.ifThenElse dp.holds (u => (dq Trivial).holds) (u => False) = True):
     p ∧ q :=
-  match dp with | { holds = True, sound = s, complete = c } => Both (s rfl) ((dq Trivial).sound h)
+  match dp with | { holds = True, sound = s, complete = c } => Both (s byComputing) ((dq Trivial).sound h)
 
 --| What [`Decidable.andThen`]'s test says when `p ∧ q` holds.
 theorem Decidable.andThenComplete ∀ [p q: Prop] (dp: Decidable p) (dq: Unit → Decidable q)
     (h: p ∧ q):
     Bool.ifThenElse dp.holds (u => (dq Trivial).holds) (u => False) = True :=
   match dp with
-    | { holds = True, sound = s, complete = c } => (dq Trivial).complete (And.right h)
-    | { holds = False, sound = s, complete = c } => c (And.left h)
+    | { holds = True, sound = s, complete = c } => (dq Trivial).complete h.right
+    | { holds = False, sound = s, complete = c } => c h.left
 
 --| `p && q` decided as `if p && q` decides it: `q` only once `p` holds, so
 --| `q`'s decision is passed unevaluated, and the test is the `Bool` `&&`. An
@@ -184,7 +188,7 @@ theorem Decidable.orSound ∀ [p q: Prop] (dp: Decidable p) (dq: Decidable q)
     (h: Bool.ifThenElse dp.holds (u => True) (u => dq.holds) = True):
     p ∨ q :=
   match dp with
-    | { holds = True, sound = s, complete = c } => Inl (s rfl)
+    | { holds = True, sound = s, complete = c } => Inl (s byComputing)
     | { holds = False, sound = s, complete = c } => Inr (dq.sound h)
 
 --| What [`Decidable.or`]'s test says when `p ∨ q` holds.
@@ -192,8 +196,8 @@ theorem Decidable.orComplete ∀ [p q: Prop] (dp: Decidable p) (dq: Decidable q)
     (h: p ∨ q):
     Bool.ifThenElse dp.holds (u => True) (u => dq.holds) = True :=
   match dp, h with
-    | { holds = True, sound = s, complete = c }, h => rfl
-    | { holds = False, sound = s, complete = c }, Inl a => Void.exfalso (Bool.falseNotTrue (c a))
+    | { holds = True, sound = s, complete = c }, h => byComputing
+    | { holds = False, sound = s, complete = c }, Inl a => Void.impossible (Bool.falseNotTrue (c a))
     | { holds = False, sound = s, complete = c }, Inr b => dq.complete b
 
 --| `p || q` is decided from decisions of each side, both worked out first, as
@@ -217,7 +221,7 @@ instance Nat.decLessThan (m: Nat) (n: Nat): Decidable (m < n) :=
 --| proof it was given.
 def Decidable.canon [x y: a] (dec: Decidable (x = y)) (h: x = y): x = y := match e: dec.holds with
   | True => dec.sound e
-  | False => Void.exfalso (Decidable.refute dec e h)
+  | False => (Decidable.refute dec e h).impossible
 
 --| Every proof of `x = y` has the same canonical form.
 theorem Decidable.canonConst ∀ [x y: a]
@@ -225,19 +229,19 @@ theorem Decidable.canonConst ∀ [x y: a]
     (p q: x = y):
     Decidable.canon dec p = Decidable.canon dec q :=
   match dec with
-    | { holds = True, sound = s, complete = c } => rfl
-    | { holds = False, sound = s, complete = c } => Void.exfalso (Bool.falseNotTrue (c p))
+    | { holds = True, sound = s, complete = c } => byComputing
+    | { holds = False, sound = s, complete = c } => Void.impossible (Bool.falseNotTrue (c p))
 
-theorem Decidable.symThenSelf ∀ [x y: a] (q: x = y): rfl = Eq.trans (Eq.sym q) q :=
-  J (y' q' => rfl = Eq.trans (Eq.sym q') q') rfl q
+theorem Decidable.symThenSelf ∀ [x y: a] (q: x = y): byComputing = Eq.trans q.flipped q :=
+  J (y' q' => byComputing = Eq.trans q'.flipped q') byComputing q
 
 --| Every proof can be recovered from its canonical one.
 theorem Decidable.fromCanon ∀ (decide: (x: a) → (y: a) → Decidable (x = y)) (x y: a)
     (p: x = y):
-    p = Eq.trans (Eq.sym (Decidable.canon (decide x x) rfl)) (Decidable.canon (decide x y) p) :=
+    p = Eq.trans (Eq.flipped (Decidable.canon (decide x x) byComputing)) (Decidable.canon (decide x y) p) :=
   J
-    (y' p' => p' = Eq.trans (Eq.sym (Decidable.canon (decide x x) rfl)) (Decidable.canon (decide x y') p'))
-    (Decidable.symThenSelf (Decidable.canon (decide x x) rfl))
+    (y' p' => p' = Eq.trans (Eq.flipped (Decidable.canon (decide x x) byComputing)) (Decidable.canon (decide x y') p'))
+    (Decidable.symThenSelf (Decidable.canon (decide x x) byComputing))
     p
 
 --| Proofs of an equation in a type with decidable equality are unique.
@@ -245,10 +249,10 @@ theorem Decidable.uniqueEq ∀ (decide: (x: a) → (y: a) → Decidable (x = y))
   J
     (z e => p = z)
     (J
-      (r e => p = Eq.trans (Eq.sym (Decidable.canon (decide x x) rfl)) r)
+      (r e => p = Eq.trans (Eq.flipped (Decidable.canon (decide x x) byComputing)) r)
       (Decidable.fromCanon decide x y p)
       (Decidable.canonConst (decide x y) p q))
-    (J (z e => z = q) rfl (Decidable.fromCanon decide x y q))
+    (J (z e => z = q) byComputing (Decidable.fromCanon decide x y q))
 
 --| Proofs that two booleans are equal are unique. This is Hedberg's argument,
 --| which works for any type with decidable equality: [`Bool.canon`] turns any proof
@@ -256,40 +260,40 @@ theorem Decidable.uniqueEq ∀ (decide: (x: a) → (y: a) → Decidable (x = y))
 --| given, and every proof can be recovered from its canonical one.
 def Bool.canon [x y: Bool] (dec: Decidable (x = y)) (h: x = y): x = y := match e: dec.holds with
   | True => dec.sound e
-  | False => Void.exfalso (Decidable.refute dec e h)
+  | False => (Decidable.refute dec e h).impossible
 
 theorem Bool.canonConst ∀ [x y: Bool] (d: Decidable (x = y)) (p q: x = y): Bool.canon d p = Bool.canon d q :=
   match d with
-    | { holds = True, sound = s, complete = c } => rfl
-    | { holds = False, sound = s, complete = c } => Void.exfalso (Bool.falseNotTrue (c p))
+    | { holds = True, sound = s, complete = c } => byComputing
+    | { holds = False, sound = s, complete = c } => Void.impossible (Bool.falseNotTrue (c p))
 
-theorem Bool.symThenSelf ∀ [x y: Bool] (q: x = y): rfl = Eq.trans (Eq.sym q) q :=
-  J (y' q' => rfl = Eq.trans (Eq.sym q') q') rfl q
+theorem Bool.symThenSelf ∀ [x y: Bool] (q: x = y): byComputing = Eq.trans q.flipped q :=
+  J (y' q' => byComputing = Eq.trans q'.flipped q') byComputing q
 
 theorem Bool.fromCanon ∀ (x y: Bool)
     (p: x = y):
-    p = Eq.trans (Eq.sym (Bool.canon (Bool.decEq x x) rfl)) (Bool.canon (Bool.decEq x y) p) :=
+    p = Eq.trans (Eq.flipped (Bool.canon (Bool.decEq x x) byComputing)) (Bool.canon (Bool.decEq x y) p) :=
   J
-    (y' p' => p' = Eq.trans (Eq.sym (Bool.canon (Bool.decEq x x) rfl)) (Bool.canon (Bool.decEq x y') p'))
-    (Bool.symThenSelf (Bool.canon (Bool.decEq x x) rfl))
+    (y' p' => p' = Eq.trans (Eq.flipped (Bool.canon (Bool.decEq x x) byComputing)) (Bool.canon (Bool.decEq x y') p'))
+    (Bool.symThenSelf (Bool.canon (Bool.decEq x x) byComputing))
     p
 
 theorem Bool.uniqueEq ∀ (x y: Bool) (p q: x = y): p = q :=
   J
     (z e => p = z)
     (J
-      (r e => p = Eq.trans (Eq.sym (Bool.canon (Bool.decEq x x) rfl)) r)
+      (r e => p = Eq.trans (Eq.flipped (Bool.canon (Bool.decEq x x) byComputing)) r)
       (Bool.fromCanon x y p)
       (Bool.canonConst (Bool.decEq x y) p q))
-    (J (z e => z = q) rfl (Bool.fromCanon x y q))
+    (J (z e => z = q) byComputing (Bool.fromCanon x y q))
 
 --| `Void` is decided: it is false. Membership in a list written out computes
 --| to `y = x || … || Void`, decided one disjunct at a time, and this is the
 --| last.
 -- In the core, so `auto` never depends on what is loaded (D58).
 instance Void.dec: Decidable Void :=
-  { holds = False, sound = e => Void.exfalso (Bool.falseNotTrue e), complete = none => Void.exfalso none }
+  { holds = False, sound = e => (Bool.falseNotTrue e).impossible, complete = none => none.impossible }
 
 --| `Unit` is decided: it is true. `List.Distinct` of a list written out
 --| computes to `… ∧ Unit`, and this is the last.
-instance Unit.dec: Decidable Unit := { holds = True, sound = e => Trivial, complete = u => rfl }
+instance Unit.dec: Decidable Unit := { holds = True, sound = e => Trivial, complete = u => byComputing }

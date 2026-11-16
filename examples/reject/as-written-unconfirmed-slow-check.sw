@@ -31,5 +31,5 @@ def outer (x: Nat) (k: Nat): (rounds: Nat) → Option Nat
 theorem slowCheck (x: Nat) (k: Nat) (answer: Nat)
     (solved: outer x k 12 = Some answer): ∃ (y: Nat) => answer = y :=
   match found: outer x k 12 with
-    | None => Void.exfalso (Option.noneNotSome answer solved)
-    | Some y => Witness y (Option.someInjective solved |> Eq.sym)
+    | None => Void.impossible (Option.noneNotSome answer solved)
+    | Some y => Witness y (Option.someInjective solved |> Eq.flipped)

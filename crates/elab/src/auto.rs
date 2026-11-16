@@ -32,7 +32,7 @@
 //! (`Nat.pow 2 (Succ k) ≠ 0` before it computes to `Nat.pow 2 k * 2 ≠ 0`),
 //! and then proved from the facts in scope where that's quick: `d ≠ 0` from
 //! a fact `Succ k ≤ d`, `Nat.toInt d ≠ 0` from `d ≠ 0`, and, in a module that
-//! loads `omega`'s library, an arithmetic goal by `omega` within a small
+//! loads `arithmetic`'s library, an arithmetic goal by `arithmetic` within a small
 //! budget (`from_facts`). Last, the parts of the facts in scope are facts
 //! too, each as in 1 or as `Succ k ≤ d` (`from_hypothesis_parts`): the
 //! sides of a conjunction (`h: b ≠ 0 ∧ c ≠ 0`, or the proof an `if b != 0
@@ -85,6 +85,9 @@ pub struct Obligation {
     /// a test fact's type has its calls unfolded, and the reader starts
     /// from the type as written to read it by its function (`reading.rs`).
     pub written: Vec<Option<crate::dot::Written>>,
+    /// The names in scope there (`Ctx::scope`), so a message names the
+    /// variables as the arm that asked for the proof does.
+    pub scope: Vec<(String, usize)>,
     pub goal: Value,
     pub meta: Term,
     pub span: Span,
@@ -92,6 +95,8 @@ pub struct Obligation {
     /// prerequisites finding its instance created), whose step budget it
     /// spends: the first one's metavariable.
     pub tree: usize,
+    /// The call the argument is for, named in a message if the proof fails.
+    pub call: Option<String>,
 }
 
 impl Elaborator {
@@ -157,6 +162,7 @@ impl Elaborator {
                         ob.names.clone(),
                         ob.span,
                     );
+                    cx.auto_call = ob.call.clone();
                     match interfaces::attempt(&mut cx, &ob, interface, &arg)? {
                         Attempt::Solved => progress = true,
                         Attempt::Wait(why) => {
@@ -170,6 +176,8 @@ impl Elaborator {
                 }
                 let mut cx = Ctx::from_parts(self, ob.env, ob.types, ob.names, ob.span);
                 cx.written = ob.written;
+                cx.scope = ob.scope;
+                cx.auto_call = ob.call.clone();
                 let placeholder = cx.eval(&ob.meta)?;
                 if !matches!(
                     force(&cx.g(), placeholder.clone())?,
@@ -235,10 +243,12 @@ impl Elaborator {
                     types: ob.types.clone(),
                     names: ob.names.clone(),
                     written: ob.written.clone(),
+                    scope: ob.scope.clone(),
                     goal: ob.goal.clone(),
                     meta: ob.meta.clone(),
                     span: ob.span,
                     tree: ob.tree,
+                    call: ob.call.clone(),
                 }
             };
             let (goal, span) = (ob.goal.clone(), ob.span);
@@ -250,6 +260,8 @@ impl Elaborator {
                 span,
             );
             cx.written = ob.written.clone();
+            cx.scope = ob.scope.clone();
+            cx.auto_call = ob.call.clone();
             let placeholder = cx.eval(&meta)?;
             if !matches!(
                 force(&cx.g(), placeholder.clone())?,
@@ -284,6 +296,7 @@ impl Elaborator {
 /// A proof of `goal`. (For an instance, an obligation to find it, solved
 /// with the declaration's others.)
 pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
+    let written = goal.clone();
     let goal = force(&cx.g(), goal.clone())?;
     if interfaces::interface_goal(cx.e, &goal)?.is_some() {
         return Ok(crate::check::implicit_arg(cx, Icit::Auto, &goal));
@@ -304,7 +317,11 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
         Some(false) => {
             let message = match not_in_list(cx, &goal)? {
                 Some(message) => message,
-                None => format!("`{shown}` is false"),
+                None => format!("`{}` is false", cx.show_as_written(&written)),
+            };
+            let message = match &cx.auto_call {
+                Some(call) => format!("{message}, so `{call}` can't be called"),
+                None => message,
             };
             Err(cx.error(
                 "E-AUTO-FALSE",
@@ -322,6 +339,9 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             let latest_first: Vec<usize> = (0..cx.level()).rev().collect();
             let parts = hypothesis_parts(cx, &latest_first)?;
             if let Some(proof) = from_hypothesis_parts(cx, &goal, &parts)? {
+                return Ok(proof);
+            }
+            if let Some(proof) = crate::literal_facts::prove(cx, &goal)? {
                 return Ok(proof);
             }
             let levels: Vec<usize> = (0..cx.level()).collect();
@@ -365,7 +385,7 @@ fn hidden_name_note(shown: &str) -> Option<String> {
     ))
 }
 
-/// `Decidable.sound [p := goal] decision rfl`: the proof from a decision
+/// `Decidable.sound [p := goal] decision byComputing`: the proof from a decision
 /// whose test computes to `True`, which the kernel checks by running the
 /// test, not the proofs. (`cases`' decision closer writes it too,
 /// `cases.rs`.)
@@ -428,8 +448,8 @@ const FACT_LEMMAS: &[(&str, usize)] = &[("Std.Nat.nonzeroOfSuccLe", 2), ("Std.Na
 
 /// A proof of a goal that computing doesn't decide, from the facts in scope:
 /// `d ≠ 0` from a fact `Succ k ≤ d` (`0 < d`, `1 ≤ d`, `2 ≤ d`, …) or from
-/// `Nat.toInt d ≠ 0`'s `d ≠ 0`, or, in a module that loads `omega`'s library,
-/// an arithmetic goal `omega` proves from them within a small budget.
+/// `Nat.toInt d ≠ 0`'s `d ≠ 0`, or, in a module that loads `arithmetic`'s library,
+/// an arithmetic goal `arithmetic` proves from them within a small budget.
 fn from_facts(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
     if let Some(proof) = attempt(cx, |cx| nonzero_from_positive(cx, goal))? {
         return Ok(Some(proof));

@@ -36,7 +36,7 @@ theorem choose ∀ (b: Bool): b ∨ ¬b := if h: b then Inl h else Inr h
 -- `a → Prop`.
 def holdsFor (p: Nat → Prop) (n: Nat): Prop := p n
 
-theorem small: holdsFor (n => n <= 3) 2 := rfl
+theorem small: holdsFor (n => n <= 3) 2 := byComputing
 
 -- `∀` and `∃` bodies, and a `let` with a type.
 theorem allSmall ∀ (h: ∀ (n: Nat) => isSmall n): isSmall 2 := (let k: isSmall 2 := h 2; k)

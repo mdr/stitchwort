@@ -4,7 +4,9 @@
 
 import Std (Eq, Nat)
 
-type Shape = | Dot (ref: Nat) (id: Nat) | Circle (ref: Nat) (id: Nat) (radius: Nat)
+type Shape =
+  | Dot (ref: Nat) (id: Nat)
+  | Circle (ref: Nat) (id: Nat) (radius: Nat)
 
 def setId (c: Shape) (x: Nat): Shape := { c | id = x }
 

@@ -41,7 +41,7 @@ theorem part1Output ∀ (debugger: Debugger) (output: List Nat)
   haltsUnique debugger.program (start debugger.registers) other output halts (part1Halts debugger output finished)
 
 --| No positive value outputs nothing.
-theorem lowestNil ∀ (output: Nat → List Nat): lowestOutputting output [] = None := rfl
+theorem lowestNil ∀ (output: Nat → List Nat): lowestOutputting output [] = None := byComputing
 
 --| Part 2: the value found is positive, and outputs the program.
 theorem part2Sound ∀ (debugger: Debugger) (a: Nat)
@@ -50,13 +50,12 @@ theorem part2Sound ∀ (debugger: Debugger) (a: Nat)
   let facts := lowestSound debugger.outputFor debugger.program a found
   match finished: outcome { debugger.registers | a } debugger.program with
     | Finished output =>
-      Both
-        (And.left facts)
+      Both facts.left
         (rewrite And.right facts at outcomeHalts { debugger.registers | a } debugger.program output finished)
     | Faulted =>
-      Void.exfalso (Option.noneNotSome a (rewrite Eq.sym (And.right facts), lowestNil debugger.outputFor at found))
+      Void.impossible (Option.noneNotSome a (rewrite Eq.flipped facts.right, lowestNil debugger.outputFor at found))
     | OutOfFuel =>
-      Void.exfalso (Option.noneNotSome a (rewrite Eq.sym (And.right facts), lowestNil debugger.outputFor at found))
+      Void.impossible (Option.noneNotSome a (rewrite Eq.flipped facts.right, lowestNil debugger.outputFor at found))
 
 --| Part 2, for a program whose output has the loop shape: the value found
 --| is at most any positive value whose run outputs the program.

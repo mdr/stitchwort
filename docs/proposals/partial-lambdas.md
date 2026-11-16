@@ -309,7 +309,7 @@ example.map (scan []) |> .filterMap (match | Corrupted illegal => Some illegal |
   `Some` and `_ => None` are noise on every partial use, which is the case
   Matt asked about.
 - **Parser**: today `match` must be followed by a value and `with`
-  (`match_expr`, `crates/syntax/src/parser.rs:2447`) **[checked]**, so `match`
+  (`match_expr`, `crates/syntax/src/parser.rs`) **[checked]**, so `match`
   followed directly by `|` is free syntax. Several parameters are written as
   a definition's arms write them: `match | acc, Do => … | acc, Dont => …` is
   a two-parameter lambda, and every arm must have the same number of

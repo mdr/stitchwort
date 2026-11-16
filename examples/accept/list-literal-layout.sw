@@ -5,45 +5,18 @@
 -- A line starting with `,` or a closing bracket continues the bracket it's
 -- in, however far left it starts. A trailing comma is also allowed in lists,
 -- tuples and records, in expressions and patterns.
-def example: List Text := [
-  "a",
-  "b",
-  "c",
-  "d",
-  "e"
-]
+def example: List Text := ["a", "b", "c", "d", "e"]
 
-type Person = {
-  name: Text,
-  age: Nat
-}
+type Person = { name: Text, age: Nat }
 
-def ann: Person := {
-  name = "Ann",
-  age = 3
-}
+def ann: Person := { name = "Ann", age = 3 }
 
-def grid: List (List Nat) := [
-  [1, 2],
-  [
-    3,
-    4
-  ]
-]
+def grid: List (List Nat) := [[1, 2], [3, 4]]
 
-def pair: (Nat, Nat) := (
-  1,
-  2
-)
+def pair: (Nat, Nat) := (1, 2)
 
 -- Leading commas still work.
-def leading: List Text := [
-  "a",
-  "b",
-  "c",
-  "d",
-  "e"
-]
+def leading: List Text := ["a", "b", "c", "d", "e"]
 
 def trailing: List Text := ["a", "b"]
 
@@ -60,10 +33,7 @@ def first: List Nat → Nat
 def firstName: Pet → Text
   | { name, age } => name
 
-def closer: List Nat := [
-  1,
-  2
-]
+def closer: List Nat := [1, 2]
 
 test "layout" := example.length == 5
 test "leading" := leading.length == 5

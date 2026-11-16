@@ -16,4 +16,4 @@ def area (shape: Shape): Nat :=
     | Circle radius => 3 * radius * radius
     | Square side => side * side
 
-theorem areaFormula (shape: Shape): area shape = 3 * size shape * size shape := rfl
+theorem areaFormula (shape: Shape): area shape = 3 * size shape * size shape := byComputing

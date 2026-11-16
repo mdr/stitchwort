@@ -609,6 +609,252 @@ def main(): {IO} () :=
     assert_eq!(lines[7], "T F F F F F F F F F");
 }
 
+/// `Text.repeat` agrees with its definition on the edge cases: a count of 0
+/// or 1, the empty text, and multi-byte and astral characters.
+pub fn text_repeat_agrees() {
+    let (out, result) = both_ways(
+        r#"
+import Std (Nat, Text, List)
+
+def texts: List Text := ["", "a", "ab", "h\u{E9}llo", "\u{1F600}", "a\u{1F600}b", "\u{10FFFF}\u{D7FF}"]
+def counts: List Nat := [0, 1, 2, 3, 5]
+
+def main(): {IO} () :=
+  let line := (t: Text) => Text.join (counts.map (n => "[" ++ Text.repeat t n ++ "]")) ' '
+  IO.print (Text.join (texts.map line) '|')
+  IO.print (Nat.toText (Text.length (Text.repeat "h\u{E9}\u{1F600}" 1000)))
+"#,
+        b"",
+    );
+    assert_eq!(result, Ok(()));
+    let lines: Vec<&str> = out.lines().collect();
+    assert_eq!(lines.len(), 2, "{out}");
+    assert!(
+        lines[0].starts_with("[] [] [] [] []|[] [a] [aa] [aaa] [aaaaa]|[] [ab] [abab]"),
+        "{out}"
+    );
+    assert_eq!(lines[1], "3000");
+}
+
+/// A text literal for a `.sw` source.
+fn sw_text(chars: &[char]) -> String {
+    let mut out = String::from("\"");
+    for &c in chars {
+        if c.is_ascii_alphanumeric() || c == ' ' || c == ',' {
+            out.push(c);
+        } else {
+            out.push_str(&format!("\\u{{{:X}}}", u32::from(c)));
+        }
+    }
+    out.push('"');
+    out
+}
+
+/// What the position cases print for each text: `get`, `getOr` and `getLt`
+/// at positions 0 to 4, every slice between them, `take`, `drop`, `uncons`
+/// and the length. The same characters are read three ways: in a buffer of
+/// their own, and as a piece of a two-byte and a four-byte buffer
+/// (docs/proposals/file-io-and-text.md §4.4).
+const TEXT_POSITIONS: &str = r#"
+import Std (Nat, Text, List, Char, Option)
+
+def stored (t: Text): List Text :=
+  [t, ("\u{2192}" ++ t ++ "\u{2192}").slice 1 (t.length + 1), ("\u{1F600}" ++ t ++ "\u{1F600}").drop 1 |> .take t.length]
+
+def positions: List Nat := [0, 1, 2, 3, 4]
+
+def one (c: Char): Text := Text.fromList [c]
+
+def got (c: Option Char): Text := match c with
+  | Some c => one c
+  | None => "_"
+
+def lt (t: Text) (i: Nat): Text := if h: i < t.length then one (t.getLt i) else "_"
+
+def describe (t: Text): Text :=
+  let reads := positions.map (i => got (t.get i) ++ one (t.getOr i '_') ++ lt t i)
+  let slices := positions.flatMap (i => positions.map (j => "[" ++ t.slice i j ++ "]"))
+  let rest := match t.uncons with
+    | Some (c, r) => one c ++ "|" ++ r
+    | None => "-"
+  Text.concat (reads ++ slices ++ [rest, Nat.toText t.length, "/", t.take 2, "/", t.drop 2])
+
+def order (a b: Text): Text := match Text.compare a b with
+  | Less => "<"
+  | Equal => if a == b then "=" else "!"
+  | Greater => ">"
+
+def printAll: List Text -> {IO} ()
+  | [] => ()
+  | [t, ..rest] =>
+    IO.print t
+    printAll rest
+"#;
+
+/// Every text of up to `n` characters over `alphabet`.
+fn texts_up_to(alphabet: &[char], n: usize) -> Vec<Vec<char>> {
+    let mut out = vec![vec![]];
+    let mut last = vec![vec![]];
+    for _ in 0..n {
+        let next: Vec<Vec<char>> = last
+            .iter()
+            .flat_map(|t: &Vec<char>| {
+                alphabet.iter().map(move |&c| {
+                    let mut t = t.clone();
+                    t.push(c);
+                    t
+                })
+            })
+            .collect();
+        out.extend(next.iter().cloned());
+        last = next;
+    }
+    out
+}
+
+/// One character of each width, a combining accent, and the last character.
+const AWKWARD: [char; 5] = ['a', '\u{E9}', '\u{301}', '\u{2192}', '\u{10FFFF}'];
+
+/// Tier 1 of §4.4: every text of up to three characters over an awkward
+/// alphabet, stored three ways, read at every position and sliced between
+/// every pair of positions; and every pair of texts of up to two
+/// characters, each stored every way, compared and joined.
+pub fn text_positions_agree() {
+    let texts = texts_up_to(&AWKWARD, 3);
+    let list = |ts: &[Vec<char>]| ts.iter().map(|t| sw_text(t)).collect::<Vec<_>>().join(", ");
+    let short: Vec<Vec<char>> = texts.iter().filter(|t| t.len() <= 2).cloned().collect();
+    let source = format!(
+        r#"{TEXT_POSITIONS}
+def texts: List Text := [{}]
+def short: List Text := [{}]
+
+def main(): {{IO}} () :=
+  printAll (texts.flatMap (t => (stored t).map describe))
+  printAll (short.map (a => Text.concat (short.flatMap (b => (stored a).flatMap (x => (stored b).map (y => order x y))))))
+  printAll (short.map (a => Text.joinWith (short.flatMap (b => (stored a).flatMap (x => (stored b).map (y => x ++ y)))) ","))
+"#,
+        list(&texts),
+        list(&short)
+    );
+    let (out, result) = both_ways(&source, b"");
+    assert_eq!(result, Ok(()));
+    assert_eq!(out.lines().count(), texts.len() * 3 + short.len() * 2);
+    // "aé": `get` at 1, `slice 0 2`, and the rest after `uncons`.
+    let line = out.lines().nth(3 * 7).expect("a line for \"a\u{E9}\"");
+    assert!(line.starts_with("aaa\u{E9}\u{E9}\u{E9}___"), "{line}");
+    assert!(
+        line.contains("[a\u{E9}]") && line.contains("a|\u{E9}2/a\u{E9}/"),
+        "{line}"
+    );
+}
+
+/// A small deterministic generator for the cases below.
+struct Rng(u64);
+
+impl Rng {
+    fn below(&mut self, n: usize) -> usize {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        (self.0 % n as u64) as usize
+    }
+}
+
+/// Tier 2 of §4.4: medium random texts, some past the length from which a
+/// short piece is copied rather than shared, cut by chains of slices (past
+/// the end and backwards too), each piece read at random positions, split,
+/// searched for, compared with another piece and joined with it.
+pub fn random_text_slices_agree() {
+    let pool = [
+        'a',
+        'b',
+        'c',
+        ',',
+        ' ',
+        'z',
+        '\u{E9}',
+        '\u{301}',
+        '\u{2192}',
+        '\u{1F600}',
+        '\u{10FFFF}',
+        '\u{FFFF}',
+    ];
+    let mut rng = Rng(0x005e_ed0f_7e87);
+    let mut cases = Vec::new();
+    for case in 0..24 {
+        let len = match case % 4 {
+            0 => rng.below(40),
+            1 => 100 + rng.below(200),
+            _ => 1024 + rng.below(600),
+        };
+        // Mostly one alphabet: ASCII, or ASCII with a wide character here
+        // and there, so buffers of every width occur.
+        let wide = case % 3;
+        let chars: Vec<char> = (0..len)
+            .map(|_| match (wide, rng.below(20)) {
+                (0, _) => pool[rng.below(6)],
+                (1, 0) => pool[6 + rng.below(3)],
+                (_, 0 | 1) => pool[6 + rng.below(6)],
+                _ => pool[rng.below(6)],
+            })
+            .collect();
+        let mut cuts = Vec::new();
+        for _ in 0..6 {
+            let mut bound = len + 3;
+            let mut chain = Vec::new();
+            for _ in 0..3 {
+                let from = rng.below(bound + 1);
+                let to = if rng.below(8) == 0 {
+                    rng.below(from + 1)
+                } else {
+                    from + rng.below(bound + 1 - from.min(bound) + 3)
+                };
+                chain.push(format!("({from}, {to})"));
+                bound = to.saturating_sub(from).max(1);
+            }
+            cuts.push(format!("[{}]", chain.join(", ")));
+        }
+        let positions: Vec<String> = (0..5).map(|_| rng.below(len + 2).to_string()).collect();
+        cases.push(format!(
+            "MkCase {} [{}] [{}]",
+            sw_text(&chars),
+            cuts.join(", "),
+            positions.join(", ")
+        ));
+    }
+    let source = format!(
+        r#"{TEXT_POSITIONS}
+type Case = | MkCase (text: Text) (cuts: List (List (Pair Nat Nat))) (positions: List Nat)
+
+def cut (t: Text): (chain: List (Pair Nat Nat)) → List Text
+  | [] => []
+  | [(from, to), ..rest] =>
+    let piece := t.slice from to
+    [piece, ..cut piece rest]
+
+def read (t: Text) (positions: List Nat): Text := Text.concat (positions.map (i => got (t.get i) ++ one (t.getOr i '.') ++ lt t i))
+
+def bool (b: Bool): Text := if b then "T" else "F"
+
+def run: (c: Case) → List Text
+  | MkCase text cuts positions =>
+    let pieces := cuts.flatMap (cut text)
+    let shown := pieces.map (p =>
+      Text.concat [Nat.toText p.length, ":", p, ":", read p positions, ":", bool (text.contains p), ":",
+        Text.joinWith (p.split ',') ";", ":", p.trim, ":", order p text, ":", Nat.toText (Text.concat [p, text, p]).length])
+    [Nat.toText text.length, read text positions, ..shown]
+
+def samples: List Case := [{}]
+
+def main(): {{IO}} () := printAll (samples.flatMap run)
+"#,
+        cases.join(",\n  ")
+    );
+    let (out, result) = both_ways(&source, b"");
+    assert_eq!(result, Ok(()));
+    assert_eq!(out.lines().count(), 24 * (2 + 18));
+}
+
 /// Reuse in place (stage 4) only ever changes a cell nobody else can see: a
 /// list that's still used after a `map`, `filter` or sort over it, one a
 /// closure captured, one a constant holds, and one bound twice, is
@@ -934,6 +1180,9 @@ macro_rules! differential_tests {
             a_list_built_as_a_loop_is_an_ordinary_value
             map_under_a_handler_that_resumes_twice
             text_take_drop_and_contains_agree
+            text_repeat_agrees
+            text_positions_agree
+            random_text_slices_agree
             reuse_leaves_shared_values_alone
             known_constructors_keep_their_type
             capture_free_lambdas_are_shared

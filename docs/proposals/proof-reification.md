@@ -587,11 +587,11 @@ split with `t`. Rejects, one file each: `reify-data-def`, `reify-test`,
   `%arg0 => e` (`matching::unit_parameter`), so the two are one term
   (`examples/accept/reify-thunk-in-proof.sw`). One limit remains: a closed
   computation used inside a thunk of an open row (`{Fail | e}`, as
-  `Fail.toResult`'s is) is moved into it with `translate`, around the call
-  it was written as. In the `MapIn` step the `translate` is around all of
-  `xs.mapIn f` unfolded, while `toResultThen`'s instance has it around the
-  inner `mapIn f xs`, so `rewrite Fail.toResultThen (() => xs.mapIn f) …`
-  finds nothing there, and that proof still splits a second time.
+  `Fail.toResult`'s is) is moved into it with `Effect.widenIn`, which is the
+  computation itself when `e` turns out empty. Moves that really move
+  something still depend on where they were put: a rigid row variable, more
+  abilities (`{IO, Fail}`), or another order (`{B, A | e}`); no current proof
+  needs these (delayed-translate.md §6, D1152 a).
 
 ## Appendix A. Probes
 

@@ -64,9 +64,9 @@ test "commas and pipes" := tuple == (2, 3) && items == [2, 4] && piped == 2
 
 -- Effects run in order, the first part's before the rest. A one-line
 -- definition may be a sequence.
-def lineResult (line: Text) (parser: () → {Parse} a): Result a Text := Fail.toResult (() => Parse.line line parser)
+def lineResult (line: Text) (parser: () → {Parse Char} a): Result a Text := Fail.toResult (() => Parse.line line parser)
 
-def afterComma(): {Parse} Nat := char ','; nat()
+def afterComma(): {Parse Char} Nat := char ','; nat()
 
 test "effects in order" :=
   lineResult ",12" afterComma == Ok 12 && lineResult "12" afterComma == Err "column 1: expected ',', got '1'"
@@ -75,12 +75,12 @@ test "effects in order" :=
 -- `|>`'s left side has run.
 type Instruction = | Mul (left: Nat) (right: Nat) | Do | Dont
 
-def shortNumber(): {Parse} Nat := natDigits 1 3
+def shortNumber(): {Parse Char} Nat := natDigits 1 3
 
-def mul(): {Parse} Instruction := Mul (text "mul("; shortNumber()) (char ','; shortNumber()) |> before ")"
+def mul(): {Parse Char} Instruction := Mul (text "mul("; shortNumber()) (char ','; shortNumber()) |> before ")"
 
 -- The same rule in blocks.
-def mulBlocks(): {Parse} Instruction :=
+def mulBlocks(): {Parse Char} Instruction :=
   text "mul("
   let left := shortNumber()
   char ','
@@ -93,7 +93,7 @@ test "a grammar rule" :=
     && lineResult "mul(44;46)" mul == lineResult "mul(44;46)" mulBlocks
     && lineResult "mul(44,46]" mul == lineResult "mul(44,46]" mulBlocks
 
-def instruction(): {Parse} Instruction := oneOf [
+def instruction(): {Parse Char} Instruction := oneOf [
   () => Mul (text "mul("; shortNumber()) (char ','; shortNumber()) |> before ")",
   () => pick [("do()", Do), ("don't()", Dont)]
 ]
@@ -109,4 +109,4 @@ def twoLines (n: Nat): Nat :=
   n
   n + 1
 
-theorem sameAsBlock ∀ (n: Nat): oneLine n = twoLines n := rfl
+theorem sameAsBlock ∀ (n: Nat): oneLine n = twoLines n := byComputing

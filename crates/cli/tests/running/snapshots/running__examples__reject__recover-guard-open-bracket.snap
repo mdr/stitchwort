@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected an expression, but the guard's `=>` starts here
+   ╭─[ reject/recover-guard-open-bracket.sw:7:5 ]
+   │
+ 7 │     => 1
+   │     ─┬  
+   │      ╰── expected an expression, but the guard's `=>` starts here
+   │ 
+   │ Note: a guard's condition runs up to its arm's `=>`, even inside brackets: was a bracket in the guard left open?
+───╯

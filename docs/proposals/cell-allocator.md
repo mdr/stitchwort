@@ -52,16 +52,16 @@ cells (20 M freed inline by `sw_cell_free`, the rest by Rust drops through
 | **Lean 4** (master, 7 Nov 2026; release 4.34) | mimalloc v3. `lean_alloc_small_object` calls `lean_alloc_small_object_core`, which reads mimalloc's thread heap ("theap") from Lean's own thread-local and calls `mi_theap_malloc_small`. mimalloc is compiled into the same C file (`#include <static.c>`), so its fast path is inlined: one call per object | `mi_free` directly | `src/include/lean/lean.h:510-600`, `src/runtime/mimalloc.cpp:1-55` **[read]**; PRs leanprover/lean4#7786 (mimalloc 3) and #14950 (one translation unit) **[web]** |
 | Lean 4.13 (2024) | `LEAN_SMALL_ALLOCATOR`: Lean's own size-class allocator, `lean_alloc_small(sz, slot)` | its own | `~matt/.elan/.../v4.13.0/include/lean/lean.h:323-335` **[read]**; the 4.34 header has no `LEAN_SMALL_ALLOCATOR` **[read]** |
 | **Koka** (Perceus) | mimalloc v3. `kk_malloc_small` is `mi_theap_wmalloc_small(ctx->heap, …)`, with the theap taken from the context passed to every function, not from thread-local storage. Perceus reuse turns many free-and-allocate pairs into in-place updates | `mi_free_small_nonnull`, or `mi_free` | `kklib/include/kklib.h:510-550` **[read]** |
-| **OCaml** | Bump allocation in the minor heap, inline: lower `young_ptr`, compare with `young_limit`. In OCaml 5, each domain has its own minor heap | none: a copying minor GC and a major GC | from memory |
-| **GHC** | Bump allocation in the nursery through the `Hp`/`HpLim` registers, checked once per block of code | none: a generational copying GC | from memory |
-| **Swift** | `swift_allocObject` calls `swift_slowAlloc`, which is `malloc` (the system allocator) | `free`. The optimiser moves non-escaping objects onto the stack | from memory |
+| **OCaml** | Bump allocation in the minor heap, inline: lower `young_ptr`, compare with `young_limit`. In OCaml 5, each domain has its own minor heap | none: a copying minor GC and a major GC | `young_ptr`, `young_limit`, `young_start`, `young_end` are per-domain fields in `runtime/caml/domain_state.tbl` (ocaml trunk d956c5e) **[read, 15 Nov 2026]**; the inline compare-and-lower sequence and the GC description are from memory |
+| **GHC** | Bump allocation in the nursery through the `Hp`/`HpLim` registers, checked once per block of code | none: a generational copying GC | `Hp` and `HpLim` are registers pointing into the current nursery block (`rts/include/stg/Regs.h`), and the heap-check macro in `rts/include/Cmm.h` is `Hp = Hp + bytes; if (Hp > HpLim) { HpAlloc = bytes; failure; }` (GHC master) **[read, 15 Nov 2026]**; the GC description is from memory |
+| **Swift** | `swift_allocObject` calls `swift_slowAlloc`, which is `malloc` (the system allocator) | `free`. The optimiser moves non-escaping objects onto the stack | `swift_allocObject` reaches `swift_slowAlloc`, which calls `malloc` (or an aligned allocator for large alignment; newer builds use `swift_slowAllocTyped` where `SWIFT_STDLIB_HAS_MALLOC_TYPE`), in `stdlib/public/runtime/HeapObject.cpp` and `Heap.cpp` (swift main 0b9e4c7) **[read, 15 Nov 2026]**; the free path and stack promotion are from memory |
 
 **What this shows.**
 
 - The two reference-counted runtimes closest to ours both use mimalloc,
   and Lean went from its own allocator to mimalloc. mimalloc was designed
   for exactly these runtimes (Leijen, Zorn and de Moura, "mimalloc: Free
-  List Sharding in Action", 2019; from memory).
+  List Sharding in Action", 2019: "influenced by the allocation workload of the reference-counted Lean and Koka" languages, abstract via search summary, 15 Nov 2026).
 - What they changed is the path to it. Each takes one call into mimalloc's
   small-object entry, with the heap pointer already in hand, and no
   alignment or size-class arithmetic. Koka keeps that pointer in the
@@ -312,7 +312,7 @@ idle machine. A stage that doesn't move its target profile is reverted.
 
 **Not checked:**
 
-- OCaml, GHC and Swift are from memory.
+- OCaml, GHC and Swift: the register and field names are read in their sources (table); the rest is from memory.
 - I didn't check whether nixpkgs' Lean 4.34.1, the comparison's Lean, is
   built with `USE_MIMALLOC`. It's on by default (`CMakeLists.txt:107`).
 - All gains are inferred from one profile. None is measured.

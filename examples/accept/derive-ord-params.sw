@@ -23,9 +23,11 @@ test "two parameters" :=
   List.sort entries == [{ key = "a", value = 1 }, { key = "a", value = 2 }, { key = "b", value = 1 }]
 
 -- A parameter used only by a proof field, and a value parameter.
-type Bounded (limit: Nat) = | Within (n: Nat) (ok: Nat.leq n limit = True) | Over
+type Bounded (limit: Nat) =
+  | Within (n: Nat) (ok: Nat.leq n limit = True)
+  | Over
 
-test "value parameter" := Ord.compare (Within 2 rfl: Bounded 5) (Within 4 rfl) == Less
+test "value parameter" := Ord.compare (Within 2 byComputing: Bounded 5) (Within 4 byComputing) == Less
 
 -- Derived instances nest: a tree of entries, sorted.
 def forest: List (Tree (Entry Text Nat)) := [leaf { key = "z", value = 0 }, Leaf, leaf { key = "a", value = 0 }]

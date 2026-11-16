@@ -1,4 +1,4 @@
-//! The built-in names that have no declaration of their own (`rfl`, `J` and
+//! The built-in names that have no declaration of their own (`byComputing`, `J` and
 //! the quotient forms), documented by `std/core/Builtins.sw` (SW-1146).
 //!
 //! The elaborator treats these names as the kernel's forms wherever it meets
@@ -24,7 +24,7 @@ use crate::{Elaborator, Global, kernel, scope};
 /// The names `Builtins.sw` documents. They are always in scope: nothing
 /// imports them (SW-1148).
 pub const DOCUMENTED: &[&str] = &[
-    "rfl",
+    "byComputing",
     "J",
     "Quot",
     "Quot.mk",
@@ -48,7 +48,7 @@ fn form(name: &str, params: usize) -> Option<Term> {
         return (params == form.arity()).then(|| Term::Quot(form, args, false));
     }
     match (name, params) {
-        ("rfl", 2) => Some(Term::Refl),
+        ("byComputing", 2) => Some(Term::Refl),
         // `[a] [x y] motive base p`; the motive is `y' p' => motive y' p'`.
         ("J", 6) => {
             let app = |f: Rc<Term>, a: usize| {

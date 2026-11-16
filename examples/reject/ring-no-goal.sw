@@ -1,7 +1,7 @@
--- expect-error: E-RING
--- With no expected type, `ring` asks for one: `(ring: a = b)`.
+-- expect-error: E-ALGEBRA
+-- With no expected type, `algebra` asks for one: `(algebra: a = b)`.
 import Std (Nat)
 
 def noGoal (x: Nat): Nat :=
-  let p := ring
+  let p := algebra
   x

@@ -26,7 +26,7 @@ type Maze = { openTiles: Set Position, start: Position, end: Position }
 
 type Tile = | Wall | Floor | Start | End
 
-def tile(): {Parse} Tile := Parse.pick [("#", Wall), (".", Floor), ("S", Start), ("E", End)]
+def tile(): {Parse Char} Tile := Parse.pick [("#", Wall), (".", Floor), ("S", Start), ("E", End)]
 
 --| One row of tiles per line, every row as long as the first (`parseGrid`
 --| checks it), with one S and one E.
@@ -107,8 +107,8 @@ theorem Maze.forwardHolds ∀ (maze: Maze) (reindeer next: Reindeer)
           match open: maze.isOpen ahead with
             | True =>
               match member with
-                | Inl here => rewrite <- here in open
-                | Inr none => Void.exfalso none
+                | Inl here => rewrite <- here then open
+                | Inr none => none.impossible
 
 --| ...and so does what `backward` gives.
 theorem Maze.backwardHolds ∀ (maze: Maze) (reindeer next: Reindeer)
@@ -121,8 +121,8 @@ theorem Maze.backwardHolds ∀ (maze: Maze) (reindeer next: Reindeer)
           match open: maze.isOpen behind with
             | True =>
               match member with
-                | Inl here => rewrite <- here in open
-                | Inr none => Void.exfalso none
+                | Inl here => rewrite <- here then open
+                | Inr none => none.impossible
 
 --| Steps onto open tiles and turns, from an open tile, end on one.
 theorem Maze.stepsHold ∀ (maze: Maze) (moved: List Reindeer)
@@ -133,10 +133,10 @@ theorem Maze.stepsHold ∀ (maze: Maze) (moved: List Reindeer)
   | { position, facing }, holds, next, weight, edge =>
     match List.memAppend (next, weight) _ _ edge with
       | Inl stepped => Exists.elim (List.memMapElim (other => (other, 1)) (next, weight) moved stepped) (other both =>
-        rewrite <- Eq.cong Pair.fst (And.right both) in movedHold other (And.left both))
-      | Inr (Inl turn) => rewrite <- Eq.cong Pair.fst turn in holds
-      | Inr (Inr (Inl turn)) => rewrite <- Eq.cong Pair.fst turn in holds
-      | Inr (Inr (Inr none)) => Void.exfalso none
+        rewrite <- Eq.cong Pair.fst both.right then movedHold other both.left)
+      | Inr (Inl turn) => rewrite <- Eq.cong Pair.fst turn then holds
+      | Inr (Inr (Inl turn)) => rewrite <- Eq.cong Pair.fst turn then holds
+      | Inr (Inr (Inr none)) => none.impossible
 
 --| The moves out of a way of standing on an open tile, with their costs, or
 --| into it if `backwards`; none from anywhere else.

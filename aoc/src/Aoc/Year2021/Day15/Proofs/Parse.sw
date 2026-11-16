@@ -29,7 +29,7 @@ theorem parseRectangle ∀ (input: Text) (cave: Cave)
     (grid read made =>
       let same: ({ grid }: Cave) = cave := Result.okInjective made
       let (Both rectangle (Both wide _)) := parseGridRectangle input digit grid read
-      rewrite <- same in Both wide rectangle)
+      rewrite <- same then Both wide rectangle)
 
 --| Part 1's answer is the lowest total risk, for every input the parser
 --| accepts.

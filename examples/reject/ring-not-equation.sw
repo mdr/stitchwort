@@ -1,5 +1,5 @@
--- expect-error: E-RING
--- `ring` proves equations, not inequalities.
+-- expect-error: E-ALGEBRA
+-- `algebra` proves equations, not inequalities.
 import Std (Nat)
 
-theorem le (a: Nat) (b: Nat): a ≤ a + b := ring
+theorem le (a: Nat) (b: Nat): a ≤ a + b := algebra

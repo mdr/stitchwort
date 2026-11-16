@@ -33,7 +33,7 @@ def CubeState.symbol: CubeState → Text
   | Active => "#"
   | Inactive => "."
 
-def cubeState(): {Parse} CubeState := Parse.pick ([Active, Inactive].map (state => (state.symbol, state)))
+def cubeState(): {Parse Char} CubeState := Parse.pick ([Active, Inactive].map (state => (state.symbol, state)))
 
 --| The input: the cubes of one flat slice, a row a line.
 type Slice = { grid: Grid CubeState }

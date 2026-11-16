@@ -7,7 +7,7 @@ expression: output
    │
  6 │ def f: Nat → Nat := ((a, b): Nat) => a
    │                      ───┬──  
-   │                         ╰──── expected `Nat`, but this has type `(?0 arg, ?1 arg)`
+   │                         ╰──── expected `Nat`, but this has type `(_, _)`
    │ 
    │ Note: a tuple pattern matches a pair
 ───╯

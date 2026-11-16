@@ -65,7 +65,7 @@ theorem Int.ofNatNotNegSucc ∀ (m n: Nat): OfNat m ≠ NegSucc n
   | p => J (y q => Int.IsOfNat y) Trivial p
 
 theorem Int.negSuccNotOfNat ∀ (m n: Nat): NegSucc m ≠ OfNat n
-  | p => Int.ofNatNotNegSucc n m (Eq.sym p)
+  | p => Int.ofNatNotNegSucc n m p.flipped
 
 theorem Int.ofNatInjective ∀ (m n: Nat) (p: OfNat m = OfNat n): m = n := Eq.cong Int.toNat p
 
@@ -116,9 +116,9 @@ theorem Int.leqReads ∀ (a b: Int): Int.leq a b ↔ Int.LessEq a b := { forward
 @[reading]
 theorem Int.leqReadsFalse ∀ (a b: Int): Int.leq a b = False ↔ Int.LessThan b a := match a, b with
   | OfNat m, OfNat n => Nat.leqReadsFalse m n
-  | OfNat m, NegSucc n => { forward = h => rfl, backward = h => rfl }
+  | OfNat m, NegSucc n => { forward = h => byComputing, backward = h => byComputing }
   | NegSucc m, OfNat n =>
-    { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = h => Void.exfalso (Bool.falseNotTrue h) }
+    { forward = h => (Bool.trueNotFalse h).impossible, backward = h => (Bool.falseNotTrue h).impossible }
   | NegSucc m, NegSucc n => Nat.leqReadsFalse n m
 
 --| `Int.less a b` (what `a < b` is on `Int`) reads as `a < b`.
@@ -129,9 +129,9 @@ theorem Int.lessReads ∀ (a b: Int): Int.less a b ↔ Int.LessThan a b := { for
 @[reading]
 theorem Int.lessReadsFalse ∀ (a b: Int): Int.less a b = False ↔ Int.LessEq b a := match a, b with
   | OfNat m, OfNat n => Nat.leqReadsFalse (Succ m) n
-  | OfNat m, NegSucc n => { forward = h => rfl, backward = h => rfl }
+  | OfNat m, NegSucc n => { forward = h => byComputing, backward = h => byComputing }
   | NegSucc m, OfNat n =>
-    { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = h => Void.exfalso (Bool.falseNotTrue h) }
+    { forward = h => (Bool.trueNotFalse h).impossible, backward = h => (Bool.falseNotTrue h).impossible }
   | NegSucc m, NegSucc n => Nat.leqReadsFalse (Succ n) m
 
 instance Int.decLessEq (a: Int) (b: Int): Decidable (Int.LessEq a b) := Bool.decTrue (Int.leq a b)

@@ -20,9 +20,9 @@ theorem fromTowelLists ∀ (patterns: List Pattern) (count: Nat) (towels: List P
     (h: towels ∈ towelLists patterns count):
     (FromPatterns patterns towels) ∧ (towels.length ≤ count) :=
   match count, h with
-    | Zero, Inl empty => rewrite <- empty in Both Trivial (omega)
-    | Zero, Inr none => Void.exfalso none
-    | Succ count, Inl empty => rewrite <- empty in Both Trivial (omega)
+    | Zero, Inl empty => rewrite <- empty then Both Trivial (arithmetic)
+    | Zero, Inr none => none.impossible
+    | Succ count, Inl empty => rewrite <- empty then Both Trivial (arithmetic)
     | Succ count, Inr later =>
       List.anyElim
         (first => towels ∈ (towelLists patterns count |> .map (Cons first)))
@@ -37,7 +37,7 @@ theorem fromTowelLists ∀ (patterns: List Pattern) (count: Nat) (towels: List P
             (List.memMapAny (towelLists patterns count) (Cons first) towels mapped)
             (rest restMember made =>
               let restFacts := fromTowelLists patterns count rest restMember
-              rewrite <- made in Both (Both firstMember restFacts.left) (omega [restFacts.right])))
+              rewrite <- made then Both (Both firstMember restFacts.left) (arithmetic [restFacts.right])))
 
 --| Every list of the patterns, no longer than `count`, is one of the spec's.
 theorem inTowelLists ∀ (patterns: List Pattern) (count: Nat) (towels: List Pattern)
@@ -45,8 +45,8 @@ theorem inTowelLists ∀ (patterns: List Pattern) (count: Nat) (towels: List Pat
     (short: towels.length ≤ count):
     towels ∈ towelLists patterns count :=
   match count, towels, from with
-    | Zero, [], from => Inl rfl
-    | Succ count, [], from => Inl rfl
+    | Zero, [], from => Inl byComputing
+    | Succ count, [], from => Inl byComputing
     | Succ count, [first, ..rest], Both firstMember restFrom =>
       Inr
         (List.memFlatMapIntro
@@ -58,7 +58,7 @@ theorem inTowelLists ∀ (patterns: List Pattern) (count: Nat) (towels: List Pat
           (List.memMap
             (towelLists patterns count)
             rest
-            (inTowelLists patterns count rest restFrom (omega [short]))
+            (inTowelLists patterns count rest restFrom (arithmetic [short]))
             (Cons first)))
 
 --| There are no more towels than stripes.
@@ -66,9 +66,9 @@ theorem towelsAtMostStripes ∀ (patterns towels: List Pattern)
     (from: FromPatterns patterns towels):
     towels.length ≤ (laid towels).length :=
   match towels, from with
-    | [], from => omega
+    | [], from => arithmetic
     | [first, ..rest], Both firstMember restFrom =>
-      omega [
+      arithmetic [
         List.lengthAppend first.stripes.toList (laid rest),
         NonEmptyList.lengthPos first.stripes,
         towelsAtMostStripes patterns rest restFrom
@@ -80,10 +80,10 @@ def hasSome (lists: List (List Pattern)): Bool := !lists.isEmpty
 theorem someMember ∀ (lists: List (List Pattern))
     (some: hasSome lists = True):
     Exists (List Pattern) (list => list ∈ lists) :=
-  match lists with | [first, ..rest] => Witness first (Inl rfl)
+  match lists with | [first, ..rest] => Witness first (Inl byComputing)
 
 theorem memberSome ∀ (lists: List (List Pattern)) (list: List Pattern) (member: list ∈ lists): hasSome lists = True :=
-  match lists with | [first, ..rest] => rfl
+  match lists with | [first, ..rest] => byComputing
 
 --| "Not all designs will be possible": a design is possible exactly when
 --| some towels of the patterns make it.
@@ -106,6 +106,6 @@ theorem possibleIff ∀ (patterns: List Pattern) (design: Design):
             (towelLists patterns design.stripes.length)
             (towels => laid towels == design.stripes)
             (inTowelLists patterns design.stripes.length towels from
-              (rewrite <- stripes in towelsAtMostStripes patterns towels from))
-            (rewrite stripes in DecEq.refl design.stripes)))
+              (rewrite <- stripes then towelsAtMostStripes patterns towels from))
+            (rewrite stripes then DecEq.refl design.stripes)))
   }

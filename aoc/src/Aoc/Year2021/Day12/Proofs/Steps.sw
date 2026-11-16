@@ -9,7 +9,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Void)
 theorem withoutShorter ∀ (caves: List Cave) (cave: Cave)
     (member: cave ∈ caves):
     (without caves cave).length < caves.length :=
-  List.lengthFilterLt (c => not (c == cave)) cave (rewrite DecEq.refl cave in rfl) caves member
+  List.lengthFilterLt (c => not (c == cave)) cave (rewrite DecEq.refl cave then byComputing) caves member
 
 --| A step that goes on makes the search's reach smaller.
 theorem stepDecreases ∀ (unvisited: List Cave) (spare: Bool) (cave other: Cave) (left: List Cave) (stillSpare: Bool)
@@ -24,20 +24,20 @@ theorem stepDecreases ∀ (unvisited: List Cave) (spare: Bool) (cave other: Cave
               match bc: cave.isBig with
                 | False =>
                   rewrite Step.continueLeft unvisited spare left stillSpare e,
-                      Step.continueSpare unvisited spare left stillSpare e in
-                    omega
+                      Step.continueSpare unvisited spare left stillSpare e then
+                    arithmetic
             | False =>
               match fr: unvisited.contains other with
                 | True =>
                   rewrite Step.continueLeft (without unvisited other) spare left stillSpare e,
-                      Step.continueSpare (without unvisited other) spare left stillSpare e in
-                    omega [withoutShorter unvisited other fr.read]
+                      Step.continueSpare (without unvisited other) spare left stillSpare e then
+                    arithmetic [withoutShorter unvisited other fr.read]
                 | False =>
                   match sp: spare with
                     | True =>
                       rewrite Step.continueLeft unvisited False left stillSpare e,
-                          Step.continueSpare unvisited False left stillSpare e in
-                        omega
+                          Step.continueSpare unvisited False left stillSpare e then
+                        arithmetic
 
 def Step.goesOn: Step → Bool
   | Continue _ _ => True
@@ -59,9 +59,9 @@ theorem Step.blockedNotContinue ∀ (left: List Cave) (stillSpare: Bool) (e: Blo
   Bool.falseNotTrue (Eq.cong Step.goesOn e)
 
 theorem Step.continueLeft ∀ (a: List Cave) (s: Bool) (b: List Cave) (t: Bool) (e: Continue a s = Continue b t): b = a :=
-  Eq.sym (Eq.cong (Step.leftOr a) e)
+  Eq.flipped (Eq.cong (Step.leftOr a) e)
 
 theorem Step.continueSpare ∀ (a: List Cave) (s: Bool) (b: List Cave) (t: Bool)
     (e: Continue a s = Continue b t):
     t = s :=
-  Eq.sym (Eq.cong Step.spareOr e)
+  Eq.flipped (Eq.cong Step.spareOr e)

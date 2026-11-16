@@ -205,4 +205,4 @@ theorem baseMergedWithItself: merge base base = base := mergeSelf base baseWellF
 def latePin: Pin := { id = 2, start = 1600.0, duration = 100.0 }
 
 theorem extendedPinKept: latePin ∈ (merge localPin extended).pins :=
-  remotePinsKept localPin extended latePin (Inr (Inl rfl)) latePin rfl
+  remotePinsKept localPin extended latePin (Inr (Inl byComputing)) latePin byComputing

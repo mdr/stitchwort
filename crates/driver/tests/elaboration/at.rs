@@ -96,7 +96,7 @@ fn hover_on_a_term_a_test_fact_was_built_from() {
 
 theorem fromMember (x: Nat) (xs: List Nat) (m: x ∈ xs): xs.contains x := m
 
-theorem notZero (n: Nat) (big: n > 3): Nat.equal n 0 = False := isZero => omega
+theorem notZero (n: Nat) (big: n > 3): Nat.equal n 0 = False := isZero => arithmetic
 ";
     let file = answers(source);
     let place = Place::Program("demo.sw".into());

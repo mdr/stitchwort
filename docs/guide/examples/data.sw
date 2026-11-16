@@ -13,7 +13,11 @@ test "area" := (Rect 3 4).area == 12
 -- end variant
 
 -- begin recursive
-type Expr = | Num (value: Int) | Add (left: Expr) (right: Expr) | Mul (left: Expr) (right: Expr) | Neg (inner: Expr)
+type Expr =
+  | Num (value: Int)
+  | Add (left: Expr) (right: Expr)
+  | Mul (left: Expr) (right: Expr)
+  | Neg (inner: Expr)
 
 def Expr.value: Expr → Int
   | Num n => n
@@ -59,7 +63,9 @@ test "or are given" := ({ text = "tea", limit = 3 }: Query).limit == 3
 -- end defaults
 
 -- begin named-construction
-type Event = | Meeting { title: Text, minutes: Nat := 30, room: Text } | Reminder (title: Text)
+type Event =
+  | Meeting { title: Text, minutes: Nat := 30, room: Text }
+  | Reminder (title: Text)
 
 def standup: Event := Meeting { title = "Standup", room = "Blue" }
 def review: Event := Meeting { title = "Review", minutes = 60, room = "Red" }
@@ -121,6 +127,30 @@ def keyMove (key: Char): Option Text := match key with
 test "or-patterns" := Colour.isWarm Yellow ∧ ¬Colour.isWarm Blue ∧ keyMove 'w' == Some "north" ∧ keyMove 'x' == None
 -- end or-patterns
 
+-- begin text-patterns
+type Keyword = | Def | Theorem | Match
+
+def keyword (word: Text): Option Keyword := match word with
+  | "def" => Some Def
+  | "theorem" => Some Theorem
+  | "match" => Some Match
+  | _ => None
+
+def afterArrow: List Char → Option (List Char)
+  | "->" ++ more => Some more
+  | _ => None
+
+def flagName: Text → Option Text
+  | "--" => None
+  | "--" ++ name => Some name
+  | _ => None
+
+test "text patterns" :=
+  keyword "theorem" == Some Theorem ∧ keyword "the" == None ∧ afterArrow "->x".toList == Some ['x']
+
+test "prefix patterns" := flagName "--all" == Some "all" ∧ flagName "--" == None ∧ flagName "-a" == None
+-- end text-patterns
+
 -- begin match
 def compareAges (a b: Person): Text := match Ord.compare a.age b.age with
   | Less => "${a.name} is younger"
@@ -141,7 +171,7 @@ def Shape.width (shape: Shape) (h: shape.hasArea): Nat := match shape with
   | Circle radius => 2 * radius
   | Rect width _ => width
 
-test "width" := (Rect 3 4).width rfl == 3
+test "width" := (Rect 3 4).width byComputing == 3
 -- end impossible
 
 -- begin let-patterns

@@ -24,6 +24,7 @@ def numbers (line: Text): List Nat := line.split ',' |> .filterMap Text.toNat
    │
    │ Note 2: the prelude's `Text` comes with its own constructors, fields and operations; the functions and theorems in its namespace need the import
 ───╯
+try: add `import Std (Text)`
 1 error: in `numbers`
 ```
 
@@ -67,7 +68,8 @@ def catalogue: Map Text Product := Map.fromList [
 ]
 
 -- The price of an order, or `None` for a product the shop doesn't sell.
-def Order.price (order: Order): Option Nat := catalogue.get order.product |> .map (product => product.pence * order.quantity)
+def Order.price (order: Order): Option Nat :=
+  catalogue.get order.product |> .map (product => product.pence * order.quantity)
 
 -- Orders of the same product, added up, in the product's name order.
 def combine (orders: List Order): Map Text Nat :=
@@ -137,7 +139,8 @@ test "reads an order" := read "tea 3" == Ok { product = "tea", quantity = 3 }
 test "refuses a bad quantity" := read "tea lots" == Err "expected a quantity, got 'lots'"
 test "prices an order" := ({ product = "milk", quantity = 2 }: Order).price == Some 180
 test "an unknown product has no price" := ({ product = "cake", quantity = 1 }: Order).price == None
-test "combines orders" := (combine [{ product = "tea", quantity = 1 }, { product = "tea", quantity = 2 }]).get "tea" == Some 3
+test "combines orders" :=
+  (combine [{ product = "tea", quantity = 1 }, { product = "tea", quantity = 2 }]).get "tea" == Some 3
 test "bills only what it sells" := bill [{ product = "tea", quantity = 2 }, { product = "cake", quantity = 9 }] == 500
 ```
 
@@ -206,21 +209,20 @@ test "range membership" := 3 in 0 ..< 5 ∧ 5 !in 0 ..< 5
 test "in a spread" := [0, ..2 ..< 5, 9] == [0, 2, 3, 4, 9]
 test "each number of a range" := Each.collect (() => each (1 ..= 3) * 10) == [10, 20, 30]
 
-theorem inRange ∀ (x n: Nat) (h: x < n): x ∈ 0 ..< n := omega
+theorem inRange ∀ (x n: Nat) (h: x < n): x ∈ 0 ..< n := arithmetic
 
-theorem upTo ∀ (x n: Nat) (h: x ∈ 0 ..< n): x < n := omega
+theorem upTo ∀ (x n: Nat) (h: x ∈ 0 ..< n): x < n := arithmetic
 ```
 
 `0 ..< n` is the usual way to count `n` things from zero, and `1 ..= n` the way to say "1 to n". The end can be any expression (`0 ..< xs.length`), but a range binds more loosely than `++` and `+`, and more tightly than `==`, `in` and `|>`: `x in 0 ..< n` is `x in (0 ..< n)`, and `0 ..< n |> .map f` is `(0 ..< n) |> .map f`. A method on a range needs brackets, `(0 ..< n).length`, since a dot binds tighter; the pipe reads better. In a spread a range needs no brackets, `[0, ..2 ..< 5, 9]`.
 
-In a proof, `omega` and `auto` read `x ∈ a ..< b` (and `..=`) as the two bounds `a ≤ x` and `x < b`, and prove such a membership from them, as the two theorems above do. `List.memRange` says the same as a lemma, `x ∈ a ..< b ↔ a ≤ x < b`, and `List.lengthRange` gives the length. As a `Bool`, `x in a ..< b` is two comparisons, however long the range (`List.inRange`; `List.inRangeIff` and `List.containsRange` tie it to the membership and to `contains`). A range is never written in brackets: `[0 ..< n]` is a list holding one list, which is almost never meant, so it gets the warning `W-RANGE-IN-BRACKETS` (write `[(0 ..< n)]` if the nesting is). `[2..n]`, as in Haskell, is a syntax error that says to write `2 ..= n` for a range or `[2, ..n]` for a spread. Only `Nat` ranges exist so far.
+In a proof, `arithmetic` and `auto` read `x ∈ a ..< b` (and `..=`) as the two bounds `a ≤ x` and `x < b`, and prove such a membership from them, as the two theorems above do. `List.memRange` says the same as a lemma, `x ∈ a ..< b ↔ a ≤ x < b`, and `List.lengthRange` gives the length. As a `Bool`, `x in a ..< b` is two comparisons, however long the range (`List.inRange`; `List.inRangeIff` and `List.containsRange` tie it to the membership and to `contains`). A range is never written in brackets: `[0 ..< n]` is a list holding one list, which is almost never meant, so it gets the warning `W-RANGE-IN-BRACKETS` (write `[(0 ..< n)]` if the nesting is). `[2..n]`, as in Haskell, is a syntax error that says to write `2 ..= n` for a range or `[2, ..n]` for a spread. Only `Nat` ranges exist so far.
 
 ### Option and Result
 
 <!-- snippet: library.sw#option -->
 ```stitchwort
-def lookupAge (name: Text): Option Nat :=
-  if name == "Ada" then Some 36 else None
+def lookupAge (name: Text): Option Nat := if name == "Ada" then Some 36 else None
 
 test "map" := (lookupAge "Ada").map (age => age + 1) == Some 37
 test "getOrElse" := (lookupAge "Bob").getOrElse 0 == 0
@@ -253,7 +255,11 @@ test "toNat does not trim" := " 42 ".toNat == None ∧ " 42 ".trim.toNat == Some
 test "trim and slices" := "  tea ".trim == "tea" ∧ "teapot".take 3 == "tea"
 test "prefixes" := "L68".stripPrefix "L" == Some "68"
 test "length counts characters" := "héllo".length == 5
+test "by position" := "teapot".get 3 == Some 'p' ∧ "teapot".slice 3 6 == "pot" ∧ "teapot".getOr 9 '.' == '.'
+test "concat" := Text.concat ["tea", "", "pot"] == "teapot"
 ```
+
+When a program runs, reading a text by position is cheap: `get`, `getOr`, `slice`, `take`, `drop`, `uncons` and `length` each take one step whatever the text's length, and a slice shares the text's characters rather than copying them. So a lexer can walk a source with `source.get pos` and cut each token out with `source.slice start pos`. Building a text piece by piece with `++` copies what came before each time; collect the pieces and join them once with `Text.concat` (or `joinWith`).
 
 Note that `Text.toNat` and `Text.toInt` don't trim spaces, while `Text.toNatOrFail` and `Text.toIntOrFail` do ([chapter 8](08-abilities.md)).
 
@@ -269,7 +275,8 @@ def wordCounts (words: List Text): Map Text Nat :=
 test "counts" := (wordCounts ["a", "b", "a"]).get "a" == Some 2
 test "missing key" := (wordCounts ["a"]).get "z" == None
 test "in key order" := (wordCounts ["b", "a", "b"]).toList == [("a", 1), ("b", 2)]
-test "group by" := (["tea", "milk", "pot"].groupBy (word => word.length)).get 3 |> .map (group => group.toList) == Some ["tea", "pot"]
+test "group by" :=
+  (["tea", "milk", "pot"].groupBy (word => word.length)).get 3 |> .map (group => group.toList) == Some ["tea", "pot"]
 test "from pairs" := [(2, "b"), (1, "a")].toMap == Map.fromList [(1, "a"), (2, "b")]
 test "equal however built" := Map.fromList [(1, "a"), (2, "b")] == Map.fromList [(2, "b"), (1, "a")]
 ```

@@ -12,7 +12,9 @@ type Color = | Red | Black
 --| A red-black tree from keys to flags. A node holds its colour, its two
 --| subtrees and its key and value; every key in `left` is below `key` and
 --| every key in `right` above it.
-type Tree = | Leaf | Node (color: Color) (left: Tree) (key: Nat) (value: Bool) (right: Tree)
+type Tree =
+  | Leaf
+  | Node (color: Color) (left: Tree) (key: Nat) (value: Bool) (right: Tree)
 
 --| `step` applied to each key and value in key order, starting from `start`.
 def Tree.fold: Tree → a → (Nat → Bool → a → a) → a

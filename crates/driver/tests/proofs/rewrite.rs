@@ -24,7 +24,7 @@ def sumMap (g: Nat -> Nat): Nat -> Nat
 
 theorem t (g: Nat -> Nat) (f: Nat -> Nat) (h: ∀ (n: Nat) => f (sumMap g n) = 0) (q: Nat -> Prop) (k: q 0):
     q (f (sumMap g 41)) :=
-  rewrite h 40 in k
+  rewrite h 40 then k
 ";
 
 #[test]
@@ -58,7 +58,7 @@ fn the_budget_message_shows_both_terms_shortened() {
 const NEEDS_COMPARING: &str = "\
 theorem t (m: [a: Type] -> a -> a -> a) (h: [a: Type] -> [x: a] -> m x x = x) (q: Bool -> Nat -> Prop)
     (k: q (m False True) 3): q (m False True) (m 3 3) :=
-  rewrite h in k
+  rewrite h then k
 ";
 
 #[test]
@@ -80,7 +80,7 @@ fn the_budget_is_for_one_rewrite_not_for_the_declaration() {
     assert_eq!(codes(Some(1_000), &two), Vec::<&str>::new());
     // And an exhausted search doesn't poison what comes after it: the next
     // declaration is checked as usual.
-    let after = format!("{NEEDS_COMPARING}\ntheorem v (a: Nat): a = a := rfl\n");
+    let after = format!("{NEEDS_COMPARING}\ntheorem v (a: Nat): a = a := byComputing\n");
     assert_eq!(codes(Some(20), &after), vec!["E-REWRITE-BUDGET"]);
 }
 
@@ -116,7 +116,7 @@ fn a_rewrite_is_a_j_term_the_kernel_rechecks() {
     // kernel error.
     let text = "\
 theorem t (a: Nat) (b: Nat) (h: a = b) (p: b + 1 = 1 + b): a + 1 = 1 + a :=
-  rewrite h in p
+  rewrite h then p
 ";
     assert_eq!(codes(None, text), Vec::<&str>::new());
 }
@@ -133,7 +133,7 @@ def hide (f: Nat -> Nat) (g: Nat -> Nat): Nat := f (sumMap g 39)
 
 theorem t (g: Nat -> Nat) (f: Nat -> Nat) (h: ∀ (n: Nat) => f (sumMap g n) = 0) (q: Nat -> Nat -> Prop)
     (k: q 0 (hide f g)): q (f (sumMap g 40)) (hide f g) :=
-  rewrite h 40 in k
+  rewrite h 40 then k
 ";
 
 /// The codes of the errors and warnings loading `text` gives, with the

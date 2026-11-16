@@ -1320,7 +1320,7 @@ fn validate(
 #[test]
 fn accepts_a_validator_that_decides_the_precondition() {
     let (mut p, decidable, f, tru) = with_decidable();
-    // `{ holds = True, sound = h => rfl }`, in the context [n].
+    // `{ holds = True, sound = h => byComputing }`, in the context [n].
     let yes = Term::ctor(decidable, 0, vec![tru, lam("h", Term::Refl)]);
     assert_eq!(validate(&mut p, f, 1, decidable, yes), "ok");
     assert_eq!(p.g.def(f).validators().len(), 1);
@@ -1616,7 +1616,7 @@ fn two_definitions_with_the_same_case_tree_are_equal_when_stuck() {
     let first = define_pred(&mut p, "first", zero.clone());
     let second = define_pred(&mut p, "second", zero);
     assert!(conv(&p.g.ev(), 1, &applied(&p, first), &applied(&p, second)).unwrap());
-    // So `rfl` proves it, in the kernel.
+    // So `byComputing` proves it, in the kernel.
     let statement = agree(&p, first, second);
     assert!(define(&mut p.g, "same", statement, lam("n", Term::Refl)).is_ok());
 }

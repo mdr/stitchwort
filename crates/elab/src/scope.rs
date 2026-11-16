@@ -1153,7 +1153,7 @@ impl Elaborator {
 
     /// A short name, at the first level that has it. Constructors and
     /// operations are found only with `followers`.
-    fn resolve_short(&self, x: &str, followers: bool) -> Resolved<'_> {
+    pub(crate) fn resolve_short(&self, x: &str, followers: bool) -> Resolved<'_> {
         self.resolve_short_in(x, followers, true)
     }
 
@@ -1215,6 +1215,32 @@ impl Elaborator {
             }
         }
         Resolved::Missing
+    }
+
+    /// The constructors of the short name `x` that this file's imports or
+    /// the prelude bring, at the first of those levels that has any: what
+    /// a constructor of this file named `x` hides.
+    pub(crate) fn imported_constructors(&self, x: &str) -> Vec<String> {
+        for level in [Level::Import, Level::Wildcard, Level::Default] {
+            let mut keys: Vec<String> = Vec::new();
+            self.candidates(level, x, true, &mut |key| {
+                let is_ctor = matches!(
+                    self.scope.get(key),
+                    Some((
+                        Global::Ctor(..) | Global::Pending(_, crate::library::PendingKind::Ctor),
+                        _
+                    ))
+                );
+                if is_ctor && !keys.iter().any(|k| k == key) {
+                    keys.push(key.to_string());
+                }
+            });
+            if !keys.is_empty() {
+                keys.sort();
+                return keys;
+            }
+        }
+        Vec::new()
     }
 
     /// Calls `found` with the key of each candidate for short name `x` at
@@ -1678,15 +1704,33 @@ impl Elaborator {
         near.sort_unstable();
         near.dedup();
         let meant = meaning_suggestions(key, member, |full| self.scope.get(full).is_some());
-        let near: Vec<String> = if meant.is_empty() {
-            near.iter().take(3).map(|(_, m)| format!("`{m}`")).collect()
+        let mut suggestions: Vec<String> = self.conversion_suggestions(key, member);
+        if !meant.is_empty() {
+            suggestions.extend(meant.iter().map(|m| format!("`{shown}.{m}`")));
         } else {
-            meant.iter().map(|m| format!("`{shown}.{m}`")).collect()
-        };
-        if !near.is_empty() {
-            d = d.with_note(format!("did you mean {}?", or_list(&near)));
+            suggestions.extend(near.iter().take(3).map(|(_, m)| format!("`{m}`")));
+        }
+        if !suggestions.is_empty() {
+            d = d.with_note(format!("did you mean {}?", or_list(&suggestions)));
         }
         d
+    }
+
+    /// The other direction's name for a missing conversion `T.ofX`: the
+    /// library spells `Int.ofNat` `Nat.toInt` (SW-3346). Empty when no
+    /// `X.toT` is declared.
+    fn conversion_suggestions(&self, key: &str, member: &str) -> Vec<String> {
+        let Some(source) = member.strip_prefix("of").filter(|s| !s.is_empty()) else {
+            return Vec::new();
+        };
+        let target = format!("to{}", short(key));
+        for prefix in ["Std.", ""] {
+            let full = format!("{prefix}{source}.{target}");
+            if self.scope.get(&full).is_some() {
+                return vec![format!("`{}`", display(&full))];
+            }
+        }
+        Vec::new()
     }
 
     /// What `written` names, if it names one declaration exactly.
@@ -1836,6 +1880,19 @@ impl Elaborator {
         }
     }
 
+    /// Whether every one of `keys` is a constructor.
+    fn all_constructors(&self, keys: &[String]) -> bool {
+        keys.iter()
+            .all(|k| matches!(self.scope.get(k), Some((Global::Ctor(..), _))))
+    }
+
+    /// Whether the key's declaration is in the file being checked.
+    fn declared_in_file(&self, key: &str, file: stitchwort_syntax::FileId) -> bool {
+        self.scope
+            .get(key)
+            .is_some_and(|(_, span)| span.file == file)
+    }
+
     /// `E-AMBIGUOUS`, where an ambiguous name is used.
     pub(crate) fn ambiguous(&self, name: &ast::Name, keys: &[String], level: Level) -> Diagnostic {
         let shown: Vec<String> = keys
@@ -1868,6 +1925,21 @@ impl Elaborator {
                      {type_alternative}",
                     ctor_short = short(ctor_key),
                 ))
+            }
+            None if self.all_constructors(keys) => {
+                let own = keys
+                    .iter()
+                    .any(|k| self.declared_in_file(k, name.span.file));
+                d.with_label(name.span, format!("write {}", or_list(&shown)))
+                    .with_note(if own {
+                        "a constructor name means one thing in a file: qualify it with its type, \
+                         or rename one of them. Types that share constructor names are best kept \
+                         in separate files, so that only code that uses both has to import both"
+                    } else {
+                        "a constructor name means one thing in a file: qualify it with its type. \
+                         Only code that really uses both types should import both; keep types \
+                         that share constructor names in separate files"
+                    })
             }
             None => d.with_label(name.span, format!("write {} in full", or_list(&shown))),
         };
@@ -1984,6 +2056,9 @@ impl Elaborator {
         }
         let mut d = Diagnostic::error("E-UNKNOWN-NAME", format!("unknown name `{}`", name.text))
             .with_label(name.span, "not in scope");
+        if let Some(note) = other_systems_word(&name.text) {
+            return d.with_note(note);
+        }
         // A constructor followed by a member of its type (`BirthYear.valid`
         // for `Key.valid`): neither reading finds a name, so give the two
         // forms that do.
@@ -2178,6 +2253,7 @@ impl Elaborator {
                     k.starts_with("Std.")
                         && short(k) == name.text
                         && parent(k).is_some_and(|p| p.contains('.'))
+                        && self.suggests_bare(k)
                 })
                 .collect();
             keys.sort_by_key(|k| self.written_in_full(k));
@@ -2214,6 +2290,35 @@ impl Elaborator {
             }
         }
         d
+    }
+
+    /// Whether a bare unknown name is worth suggesting the library name
+    /// `key` for (SW-3445). A generated field accessor `T.f` is reached
+    /// through a value (`a.f`) or written in full (`T.f`), so it is noise
+    /// where a bare name was meant; likewise a definition living in the
+    /// namespace of a type that isn't at the library's root, such as
+    /// `Parse.OperatorTree.highest`. Constructors and types are always
+    /// worth naming.
+    fn suggests_bare(&self, key: &str) -> bool {
+        match self.scope.get(key) {
+            Some((
+                Global::Ctor(..)
+                | Global::Data(..)
+                | Global::Pending(_, crate::library::PendingKind::Ctor)
+                | Global::Pending(_, crate::library::PendingKind::Data),
+                _,
+            )) => return true,
+            Some((Global::Def(_), _)) if self.scope.is_member(key) => return false,
+            _ => {}
+        }
+        if self
+            .library_index()
+            .is_some_and(|index| index.is_accessor(key))
+        {
+            return false;
+        }
+        parent(key)
+            .is_none_or(|p| !self.is_data_key(p) || !p.trim_start_matches("Std.").contains('.'))
     }
 
     /// Whether `key` names a data type (including one this module declares
@@ -2935,6 +3040,10 @@ impl NameScope for Elaborator {
     fn method(&self, projection: DefId) -> Option<(DefId, String)> {
         Elaborator::method_of(self, projection)
     }
+
+    fn ctor_name(&self, d: stitchwort_core::DataId, c: usize) -> Option<String> {
+        self.ctor_qualified(d, c)
+    }
 }
 
 impl Elaborator {
@@ -3170,7 +3279,6 @@ const MEANING_TABLE: &[(&str, &[&str], &[&str])] = &[
     ("Text", &["strip"], &["trim"]),
     ("Text", &["parseInt"], &["toInt", "toNat"]),
     ("Text", &["parseNat"], &["toNat"]),
-    ("Text", &["concat"], &["append"]),
     ("Text", &["empty", "null"], &["isEmpty"]),
     ("Text", &["splitBy"], &["split"]),
     ("Text", &["chars"], &["toList"]),
@@ -3248,4 +3356,65 @@ pub fn edit_distance(a: &str, b: &str) -> usize {
         }
     }
     row[b.len()]
+}
+
+/// Words from other proof systems, and Stitchwort's own earlier spellings,
+/// with what Stitchwort writes instead (docs/proposals/proof-vocabulary.md
+/// §6): agents and people arriving from Lean, Rocq, Agda, Idris or Isabelle
+/// write these from habit. Only consulted when the name is unknown, so a
+/// user's own `ring` or `sym` is never second-guessed.
+const OTHER_SYSTEMS: &[(&[&str], &str)] = &[
+    (
+        &["rfl", "refl", "Refl", "reflexivity", "Eq.refl"],
+        "a proof that both sides compute to the same value is written `byComputing`",
+    ),
+    (
+        &["omega", "lia", "linarith", "Nat.omega"],
+        "linear arithmetic over `Nat` and `Int` is proved by `arithmetic`, or `arithmetic [h1, h2]` with extra facts",
+    ),
+    (
+        &["ring", "ring_nf", "nlinarith"],
+        "an equation that holds by multiplying out both sides is proved by `algebra`",
+    ),
+    (
+        &["exfalso", "False.elim", "Void.exfalso", "contradiction"],
+        "anything follows from a proof `h` of `Void`: write `h.impossible` (or `Void.impossible (…)`)",
+    ),
+    (
+        &["absurd"],
+        "from `h` and `nh: ¬p`, write `(nh h).impossible`",
+    ),
+    (
+        &["Eq.symm", "Eq.sym", "symm", "sym", "symmetry", "eq_sym"],
+        "an equation's two sides swap with `h.flipped` (or `Eq.flipped h`)",
+    ),
+    (
+        &["trans", "Eq.chain", "eq_trans"],
+        "two equations chain with `Eq.trans ab bc`",
+    ),
+    (
+        &["congrArg", "congr_arg", "congr", "cong", "f_equal"],
+        "`f x = f y` from `h: x = y` is `Eq.cong f h`",
+    ),
+    (
+        &["Or.inl", "inl", "inj₁", "Left"],
+        "the left side of an `∨` is proved with `Inl`",
+    ),
+    (
+        &["Or.inr", "inr", "inj₂", "Right"],
+        "the right side of an `∨` is proved with `Inr`",
+    ),
+    (
+        &["decide"],
+        "a decidable proposition is proved by evaluating it with `byDecision`",
+    ),
+    (&["trivial", "True.intro"], "`Unit`'s proof is `Trivial`"),
+];
+
+/// The note for `word` if it's another system's word in [`OTHER_SYSTEMS`].
+fn other_systems_word(word: &str) -> Option<String> {
+    OTHER_SYSTEMS
+        .iter()
+        .find(|(words, _)| words.contains(&word))
+        .map(|(_, ours)| format!("`{word}` isn't a Stitchwort name: {ours}"))
 }

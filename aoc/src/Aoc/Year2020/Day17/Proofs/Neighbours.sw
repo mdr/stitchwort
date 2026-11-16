@@ -8,16 +8,16 @@ import Std (Bool, DecEq, Eq, Int, List, Nat, Void)
 
 theorem countPrefixed ∀ (here: Int) (others: List (List Int)) (y: Int) (ys: List Int):
     (others.map (more => [here, ..more])).count (== [y, ..ys]) = (if here == y then others.count (== ys) else 0) :=
-  rewrite List.countMap others (== [y, ..ys]) (more => [here, ..more]) in
+  rewrite List.countMap others (== [y, ..ys]) (more => [here, ..more]) then
     rewrite List.countCongMem others (more => [here, ..more] == [y, ..ys]) (more => here == y ∧ more == ys) (more _ =>
-          List.beqCons here more y ys) in
+          List.beqCons here more y ys) then
       match here == y with
-        | True => rfl
+        | True => byComputing
         | False => List.countFalse others
 
 theorem countPrefixedNil ∀ (here: Int) (others: List (List Int)):
     (others.map (more => [here, ..more])).count (== []) = 0 :=
-  rewrite List.countMap others (== []) (more => [here, ..more]) in List.countFalse others
+  rewrite List.countMap others (== []) (more => [here, ..more]) then List.countFalse others
 
 --| Of `x - 1`, `x` and `x + 1`, `y` is one exactly when it is within 1
 --| of `x`.
@@ -32,34 +32,38 @@ theorem windowAnd ∀ (x y: Int) (rest: Bool):
       + (if x + 1 == y then Bool.toNat rest else 0)
       = Bool.toNat (x + (-1) <= y && y <= x + 1 && rest) :=
   match rest with
-    | True => rewrite Bool.andTrue (y <= x + 1) in window x y
-    | False => rewrite Bool.andFalse (y <= x + 1), Bool.andFalse (x + (-1) <= y) in cases
+    | True => rewrite Bool.andTrue (y <= x + 1) then window x y
+    | False => rewrite Bool.andFalse (y <= x + 1), Bool.andFalse (x + (-1) <= y) then cases
 
 theorem countWithin1 ∀ (xs ys: List Int): (within1 xs).count (== ys) = Bool.toNat (Spec.within1 xs ys) :=
   match xs, ys with
-    | [], [] => rfl
-    | [], [y, ..ys] => rfl
+    | [], [] => byComputing
+    | [], [y, ..ys] => byComputing
     | [x, ..xs], [] =>
-      rewrite List.countFlatMap (here => (within1 xs).map (more => [here, ..more])) (== []) [x - 1, x, x + 1] in
+      rewrite List.countFlatMap (here => (within1 xs).map (more => [here, ..more])) (== []) [x - 1, x, x + 1] then
         rewrite countPrefixedNil (x - 1) (within1 xs),
             countPrefixedNil x (within1 xs),
-            countPrefixedNil (x + 1) (within1 xs) in
-          rfl
+            countPrefixedNil (x + 1) (within1 xs) then
+          byComputing
     | [x, ..xs], [y, ..ys] =>
-      rewrite List.countFlatMap (here => (within1 xs).map (more => [here, ..more])) (== [y, ..ys]) [x - 1, x, x + 1] in
+      rewrite List.countFlatMap (here => (within1 xs).map (more => [here, ..more])) (== [y, ..ys]) [
+            x - 1,
+            x,
+            x + 1
+          ] then
         rewrite countPrefixed (x - 1) (within1 xs) y ys,
             countPrefixed x (within1 xs) y ys,
             countPrefixed (x + 1) (within1 xs) y ys,
-            countWithin1 xs ys in
+            countWithin1 xs ys then
           windowAnd x y (Spec.within1 xs ys)
 
 theorem equalCubes ∀ (here there: List Int):
     (({ coordinates = here }: Cube) == { coordinates = there }) = (here == there) :=
-  rfl
+  byComputing
 
 theorem differentCubes ∀ (here there: List Int):
     ((({ coordinates = here }: Cube) != { coordinates = there }): Bool) = ((here != there): Bool) :=
-  rfl
+  byComputing
 
 theorem countNeighbours ∀ (cube other: Cube):
     cube.neighbours.count (== other) = Bool.toNat (Spec.neighbours cube other) :=
@@ -68,22 +72,22 @@ theorem countNeighbours ∀ (cube other: Cube):
       rewrite List.countMap
             ((within1 here).filter (coordinates => coordinates != here))
             (== { coordinates = there })
-            (coordinates => { coordinates }) in
+            (coordinates => { coordinates }) then
         rewrite List.countCongMem
               ((within1 here).filter (coordinates => coordinates != here)) _
               (== there)
-              (coordinates _ => equalCubes coordinates there) in
-          rewrite differentCubes here there in
+              (coordinates _ => equalCubes coordinates there) then
+          rewrite differentCubes here there then
             match e: here != there with
               | True =>
                 rewrite List.countFilter
                       (within1 here)
                       (== there)
                       (coordinates => coordinates != here)
-                      (coordinates same => rewrite same.read in (differ => e.read.read (Eq.sym differ))) in
+                      (coordinates same => rewrite same.read then (differ => e.read.read differ.flipped)) then
                   countWithin1 here there
               | False =>
-                rewrite DecEq.neFalse here there e in
+                rewrite DecEq.neFalse here there e then
                   Eq.trans
                     (List.countCongMem
                       ((within1 there).filter (coordinates => coordinates != there))
@@ -91,6 +95,6 @@ theorem countNeighbours ∀ (cube other: Cube):
                       (coordinates => False)
                       (coordinates member =>
                         match same: coordinates == there with
-                          | True => Void.exfalso (DecEq.neTrue (And.right (List.memFilter _ _ member)) same.read)
-                          | False => rfl))
+                          | True => Void.impossible (DecEq.neTrue (List.memFilter _ _ member).right same.read)
+                          | False => byComputing))
                     (List.countFalse _)

@@ -36,4 +36,4 @@ def pairHeads: (List Nat, List Nat) → Nat
 
 test "pairHeads" := pairHeads ([1, 2], [3]) == 4
 
-theorem tailOfExample: tailOf [1, 2, 3] = [2, 3] := rfl
+theorem tailOfExample: tailOf [1, 2, 3] = [2, 3] := byComputing

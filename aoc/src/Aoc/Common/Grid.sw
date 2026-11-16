@@ -153,7 +153,10 @@ def firstWidth (rows: List (List a)): Nat := rows.headOr [] |> .length
 --| `parseGrid`'s grids are. The proof is an equation, so that grids have
 --| `==` and the counterexample search can make them. A grid written out as
 --| a literal needs it, `{ rows, nonEmpty = … }`; `Grid.of` finds it.
-type Grid (a: Type) = { rows: List (List a), nonEmpty: (firstWidth rows == 0) = False }
+type Grid (a: Type) = {
+  rows: List (List a),
+  nonEmpty: (firstWidth rows == 0) = False
+}
 
 --| A grid of `rows`, whose first row has a cell.
 def Grid.of (rows: List (List a)) [auto nonEmpty: (firstWidth rows == 0) = False]: Grid a := { rows, nonEmpty }
@@ -205,12 +208,12 @@ def Grid.step (grid: Grid a) (position: Position) (direction: Direction): Option
 --| Mapping the cells keeps the first row's length.
 theorem mapFirstWidth ∀ (rows: List (List a)) (f: Position → a → b): firstWidth (mapCells rows f) = firstWidth rows :=
   match rows with
-    | [] => rfl
+    | [] => byComputing
     | [first, ..rest] => List.lengthMapWithIndex first (c cell => f { row = 0, column = c } cell)
 
 --| `f` of every cell and its position.
 def Grid.map (grid: Grid a) (f: Position → a → b): Grid b :=
-  { rows = mapCells grid.rows f, nonEmpty = rewrite mapFirstWidth grid.rows f in grid.nonEmpty }
+  { rows = mapCells grid.rows f, nonEmpty = rewrite mapFirstWidth grid.rows f then grid.nonEmpty }
 
 --| `at`, through a table built once: `let find := grid.lookup` and then
 --| `find position` takes O(1) when run, the table an array of rows, each an
@@ -231,7 +234,7 @@ def Grid.lookupOr (grid: Grid a) (fallback: a): Position → a :=
 --| One row per line, each line one or more cells read by `cell`, and every
 --| row as long as the first, which has a cell (the puzzle's grids are
 --| rectangles). A successful parse is a rectangle (`parseGridRectangle`).
-def parseGrid (input: Text) (cell: () → {Parse} a): {Fail} Grid a :=
+def parseGrid (input: Text) (cell: () → {Parse Char} a): {Fail} Grid a :=
   checkGrid (Parse.eachLine input (() => many1 cell |> .toList))
 
 --| The grid, if its first row has a cell and every row is as long as the

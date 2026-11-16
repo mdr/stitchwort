@@ -2,16 +2,16 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
     ╭─[ reject/update-identity-different-bodies.sw:14:66 ]
     │
- 14 │ theorem different (c: Shape) (x: Nat): setRef c x = setId c x := rfl
-    │                                                                  ─┬─  
-    │                                                                   ╰─── `setRef c x` and `setId c x` aren't equal
+ 14 │ theorem different (c: Shape) (x: Nat): setRef c x = setId c x := byComputing
+    │                                                                  ─────┬─────  
+    │                                                                       ╰─────── `setRef c x` and `setId c x` aren't equal
     │ 
     │ Note 1: computing both sides gives `{ c | ref = x }` and `{ c | id = x }`
     │ 
-    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
     │ 
     │ Note 3: this statement is false; a counterexample:
     │           c = Dot 0 0

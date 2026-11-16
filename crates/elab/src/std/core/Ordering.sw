@@ -26,12 +26,12 @@ def Ordering.index: (ordering: Ordering) → Nat
 
 --| Decides whether two orderings are equal.
 def Ordering.decEq: (a: Ordering) → (b: Ordering) → Decidable (a = b)
-  | Less, Less => Decidable.yes rfl
+  | Less, Less => Decidable.yes byComputing
   | Less, Equal => Decidable.no (p => Nat.zeroNotSucc 0 (Eq.cong Ordering.index p))
   | Less, Greater => Decidable.no (p => Nat.zeroNotSucc 1 (Eq.cong Ordering.index p))
-  | Equal, Less => Decidable.no (p => Nat.zeroNotSucc 0 (Eq.sym (Eq.cong Ordering.index p)))
-  | Equal, Equal => Decidable.yes rfl
+  | Equal, Less => Decidable.no (p => Nat.zeroNotSucc 0 (Eq.cong Ordering.index p).flipped)
+  | Equal, Equal => Decidable.yes byComputing
   | Equal, Greater => Decidable.no (p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.cong Ordering.index p)))
-  | Greater, Less => Decidable.no (p => Nat.zeroNotSucc 1 (Eq.sym (Eq.cong Ordering.index p)))
-  | Greater, Equal => Decidable.no (p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.sym (Eq.cong Ordering.index p))))
-  | Greater, Greater => Decidable.yes rfl
+  | Greater, Less => Decidable.no (p => Nat.zeroNotSucc 1 (Eq.cong Ordering.index p).flipped)
+  | Greater, Equal => Decidable.no (p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.cong Ordering.index p).flipped))
+  | Greater, Greater => Decidable.yes byComputing

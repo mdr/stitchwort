@@ -12,13 +12,13 @@ theorem readsAction: Parse.Reads action (read action =>
       ∃ (letter: Char) => read = [letter] ∧ ActionWritten letter action) :=
   Parse.readsWeaken (Parse.readsPickBy actions Action.letter) (read action (Both member same) =>
     match action with
-      | Move North => Witness 'N' (Both same rfl)
-      | Move South => Witness 'S' (Both same rfl)
-      | Move East => Witness 'E' (Both same rfl)
-      | Move West => Witness 'W' (Both same rfl)
-      | Turn Left => Witness 'L' (Both same rfl)
-      | Turn Right => Witness 'R' (Both same rfl)
-      | Forward => Witness 'F' (Both same rfl))
+      | Move North => Witness 'N' (Both same byComputing)
+      | Move South => Witness 'S' (Both same byComputing)
+      | Move East => Witness 'E' (Both same byComputing)
+      | Move West => Witness 'W' (Both same byComputing)
+      | Turn Left => Witness 'L' (Both same byComputing)
+      | Turn Right => Witness 'R' (Both same byComputing)
+      | Forward => Witness 'F' (Both same byComputing))
 
 theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
   Parse.readsThen readsAction (actionRead action (Witness letter (Both single written)) =>
@@ -31,7 +31,7 @@ theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
             (Witness letter
               (Witness digits
                 (Both
-                  (rewrite single, List.appendNil digits in rfl)
+                  (rewrite single, List.appendNil digits then byComputing)
                   (Both written (Both nonEmpty (Both allDigits (Both decimal (turn => cases))))))))))
 
 --| If `parseRoute` reads `input`, each of its lines is an instruction written out.
@@ -40,9 +40,9 @@ theorem parseWritten ∀ (input: Text) (route: Route)
     List.All2 InstructionWritten (input.lines.map Text.toList) route.instructions :=
   let ran :=
     rewrite Fail.toResultThen (() => Parse.eachLine input instruction) (instructions =>
-          ({ instructions }: Route)) at parsed in
+          ({ instructions }: Route)) at parsed then
       parsed
   match e: Fail.toResult (() => Parse.eachLine input instruction) with
     | Ok instructions =>
-      rewrite <- Result.okInjective ran in
+      rewrite <- Result.okInjective ran then
         Parse.eachLineReads input instruction InstructionWritten instructions e readsInstruction

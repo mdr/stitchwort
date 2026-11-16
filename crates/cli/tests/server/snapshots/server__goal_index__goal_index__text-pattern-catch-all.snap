@@ -1,0 +1,112 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [],
+      "lemma": "def sizeGoal1: Nat := ?",
+      "target": "Nat"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "⊢ Nat",
+        "range": [
+          9,
+          9,
+          9,
+          10
+        ]
+      }
+    ],
+    "message": "in `size`",
+    "notes": [],
+    "range": [
+      9,
+      9,
+      9,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "valid✝",
+          "type": "Char.isScalar 55296"
+        }
+      ],
+      "target": "Nat"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "valid✝: Char.isScalar 55296\n⊢ Nat",
+        "range": [
+          12,
+          22,
+          12,
+          23
+        ]
+      }
+    ],
+    "message": "in `code`",
+    "notes": [],
+    "range": [
+      12,
+      22,
+      12,
+      23
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "k",
+          "type": "Nat"
+        },
+        {
+          "name": "n✝",
+          "type": "Nat"
+        },
+        {
+          "name": "h✝",
+          "type": "n✝ < k"
+        }
+      ],
+      "target": "Nat"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "k: Nat\nn✝: Nat\nh✝: n✝ < k\n⊢ Nat",
+        "range": [
+          21,
+          9,
+          21,
+          10
+        ]
+      }
+    ],
+    "message": "in `pick`",
+    "notes": [],
+    "range": [
+      21,
+      9,
+      21,
+      10
+    ],
+    "severity": "goal"
+  }
+]

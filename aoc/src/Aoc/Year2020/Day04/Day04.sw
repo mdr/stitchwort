@@ -19,7 +19,15 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 passports}"
   IO.print "Part 2: ${solvePart2 passports}"
 
-type Key = | BirthYear | IssueYear | ExpirationYear | Height | HairColor | EyeColor | PassportId | CountryId
+type Key =
+  | BirthYear
+  | IssueYear
+  | ExpirationYear
+  | Height
+  | HairColor
+  | EyeColor
+  | PassportId
+  | CountryId
 
 def Key.code: Key → Text
   | BirthYear => "byr"
@@ -39,15 +47,15 @@ type Passport = { fields: NonEmptyList Field }
 
 def isValueChar (char: Char): Bool := not char.isWhitespace
 
-def field(): {Parse} Field :=
+def field(): {Parse Char} Field :=
   let key := Parse.pick (keys.map (key => (key.code, key)))
   Parse.char ':'
   let value := Parse.takeWhile1 "a value" isValueChar
   { key, value }
 
-def fieldBreak(): {Parse} () := Parse.oneOf [() => Parse.char ' ', Parse.newline]
+def fieldBreak(): {Parse Char} () := Parse.oneOf [() => Parse.char ' ', Parse.newline]
 
-def passport(): {Parse} Passport :=
+def passport(): {Parse Char} Passport :=
   let fields := Parse.sepBy1 field fieldBreak
   { fields }
 

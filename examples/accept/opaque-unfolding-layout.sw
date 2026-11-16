@@ -5,10 +5,10 @@ import Std (Nat)
 
 opaque def double (n: Nat): Nat := n + n
 
-theorem ownLine ∀ (n: Nat): double n = n + n unfolding double := rfl
+theorem ownLine ∀ (n: Nat): double n = n + n unfolding double := byComputing
 
-theorem typeOnItsOwnLine ∀ (n: Nat): double n = n + n unfolding double := rfl
+theorem typeOnItsOwnLine ∀ (n: Nat): double n = n + n unfolding double := byComputing
 
-theorem sameLine ∀ (n: Nat): double n = n + n unfolding double := rfl
+theorem sameLine ∀ (n: Nat): double n = n + n unfolding double := byComputing
 
-theorem paramsOnTwoLines ∀ (n m: Nat): double n = n + n unfolding double := rfl
+theorem paramsOnTwoLines ∀ (n m: Nat): double n = n + n unfolding double := byComputing

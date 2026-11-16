@@ -27,9 +27,9 @@ test "range membership" := 3 in 0 ..< 5 ∧ 5 !in 0 ..< 5
 test "in a spread" := [0, ..2 ..< 5, 9] == [0, 2, 3, 4, 9]
 test "each number of a range" := Each.collect (() => each (1 ..= 3) * 10) == [10, 20, 30]
 
-theorem inRange ∀ (x n: Nat) (h: x < n): x ∈ 0 ..< n := omega
+theorem inRange ∀ (x n: Nat) (h: x < n): x ∈ 0 ..< n := arithmetic
 
-theorem upTo ∀ (x n: Nat) (h: x ∈ 0 ..< n): x < n := omega
+theorem upTo ∀ (x n: Nat) (h: x ∈ 0 ..< n): x < n := arithmetic
 -- end ranges
 
 -- begin option
@@ -60,6 +60,8 @@ test "toNat does not trim" := " 42 ".toNat == None ∧ " 42 ".trim.toNat == Some
 test "trim and slices" := "  tea ".trim == "tea" ∧ "teapot".take 3 == "tea"
 test "prefixes" := "L68".stripPrefix "L" == Some "68"
 test "length counts characters" := "héllo".length == 5
+test "by position" := "teapot".get 3 == Some 'p' ∧ "teapot".slice 3 6 == "pot" ∧ "teapot".getOr 9 '.' == '.'
+test "concat" := Text.concat ["tea", "", "pot"] == "teapot"
 -- end text
 
 -- begin map

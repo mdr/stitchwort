@@ -19,17 +19,17 @@ theorem halfSmall ∀ (n: Nat): Small n (half n) := match n with
 theorem useLet ∀ (n: Nat): Nat.leq 0 n = True :=
   let small := halfSmall n
   match e: half n with
-    | None => rfl
+    | None => byComputing
     | Some k =>
       match small with
-        | Both a b => rfl
+        | Both a b => byComputing
 
 -- A second `let` whose type mentions the first is refined too.
 theorem useTwoLets ∀ (n: Nat): Nat.leq 0 n = True :=
   let small := halfSmall n
   let again := small
   match e: half n with
-    | None => rfl
+    | None => byComputing
     | Some k =>
       match again with
-        | Both a b => rfl
+        | Both a b => byComputing

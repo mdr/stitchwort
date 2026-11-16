@@ -14,13 +14,13 @@ def Point.add (p q: Point): Point := { x = p.x + q.x, y = p.y + q.y }
 def Point.origin: Point := { x = 0, y = 0 }
 
 theorem Point.zeroAdd ∀ (p: Point): Point.add Point.origin p = p := match p with
-  | { x, y } => rewrite Int.zeroAdd x, Int.zeroAdd y in rfl
+  | { x, y } => rewrite Int.zeroAdd x, Int.zeroAdd y then byComputing
 
 theorem Point.assoc ∀ (p q r: Point): Point.add (Point.add p q) r = Point.add p (Point.add q r) :=
-  rewrite Int.addAssoc p.x q.x r.x, Int.addAssoc p.y q.y r.y in rfl
+  rewrite Int.addAssoc p.x q.x r.x, Int.addAssoc p.y q.y r.y then byComputing
 
 theorem Point.comm ∀ (p q: Point): Point.add p q = Point.add q p :=
-  rewrite Int.addComm p.x q.x, Int.addComm p.y q.y in rfl
+  rewrite Int.addComm p.x q.x, Int.addComm p.y q.y then byComputing
 
 instance Point.instAdd: Add Point :=
   { zero = Point.origin, add = Point.add, zeroAdd = Point.zeroAdd, assoc = Point.assoc, comm = Point.comm }
@@ -67,7 +67,7 @@ def descending: Ord Nat := {
   lessEq = x y => Nat.LessEq y x,
   decLessThan = x y => Nat.decLessThan y x,
   decLessEq = x y => Nat.decLessEq y x,
-  equal = x y h => Eq.sym (Nat.compareEqual y x h),
+  equal = x y h => (Nat.compareEqual y x h).flipped,
   flip = x y => Nat.compareFlip y x,
   trans = x y z h1 h2 => Nat.compareTrans z y x h2 h1,
   lessThanOf = x y => Nat.lessOfCompare y x,

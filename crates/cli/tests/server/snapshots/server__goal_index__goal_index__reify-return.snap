@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -76,20 +76,17 @@ expression: json
           "type": "a → {Fail} b"
         },
         {
-          "name": "rest✝",
-          "type": "Std.Empty → {Fail} a"
-        },
-        {
           "name": "msg",
           "type": "Text"
         }
       ],
+      "lemma": "theorem toResultThenGoal2 (a: Type) (b: Type) (t: () → {Fail} a) (k: a → {Fail} b) (msg: Text): (Err msg: Result b Text) = Err msg := ?",
       "target": "Err msg = Err msg"
     },
     "labels": [
       {
         "file": 0,
-        "message": "a: Type\nb: Type\nt: () → {Fail} a\nk: a → {Fail} b\nrest✝: Std.Empty → {Fail} a\nmsg: Text\n⊢ Err msg = Err msg",
+        "message": "a: Type\nb: Type\nt: () → {Fail} a\nk: a → {Fail} b\nmsg: Text\n⊢ Err msg = Err msg",
         "range": [
           9,
           26,
@@ -146,20 +143,20 @@ expression: json
         "file": 0,
         "message": "a: Type\nb: Type\nf: a → {Fail} b\nx: a\nxs: List a\ny: b\n⊢ Fail.toResult (arg => Std.Effect.bind (Done y) (x1 => Std.Effect.bind (xs.map f) (x2 => Done [x1, ..x2]))) = (Fail.toResult (() => Done y)).flatMap (y => (Result.traverse xs (z => Fail.toResult (arg => f z))).map (tail => [y, ..tail]))\n  computes to Fail.toResult (arg => Std.Effect.bind (xs.map f) (x1 => Done [y, ..x1])) = (Fail.toResult (() => Done y)).flatMap (y => (Result.traverse xs (z => Fail.toResult (arg => f z))).map (tail => [y, ..tail]))",
         "range": [
-          21,
-          20,
-          21,
-          21
+          22,
+          24,
+          22,
+          25
         ]
       }
     ],
     "message": "in `toResultMap`",
     "notes": [],
     "range": [
-      21,
-      20,
-      21,
-      21
+      22,
+      24,
+      22,
+      25
     ],
     "severity": "goal"
   }

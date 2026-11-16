@@ -4,20 +4,20 @@
 -- where an argument that fails in place is checked again once the call's
 -- type is compared with the goal. Each has a twin in
 -- docs/proposals/postponement/stage7/ where nothing is expected of the
--- call; stage 7 made those of days 13, 14 and 10's `rfl` check
+-- call; stage 7 made those of days 13, 14 and 10's `byComputing` check
 -- (searches-after-call.sw, rfl-after-call.sw). The lambda of day 10 and
 -- the two below them (days 12 and 16) are still open there.
 import Std (Bool, Char, Eq, List, Nat, Option)
 
--- A function, then the list that says its parameter's type, then `omega`
--- about both (day 14). Checked against a goal, `omega` fails in place and
+-- A function, then the list that says its parameter's type, then `arithmetic`
+-- about both (day 14). Checked against a goal, `arithmetic` fails in place and
 -- is checked again once the application's type is compared with the goal.
 theorem positiveSum ∀ (f: a → Nat) (xs: List a) (h: 0 < List.sumBy xs f): 0 < List.sumBy xs f := h
 
 theorem lambdaThenList ∀ (counts: List ((Char, Char), Nat)) (pair: (Char, Char))
     (given: 0 < List.sumBy counts (entry => entry.snd * Bool.toNat (entry.fst == pair))):
     0 < List.sumBy counts (entry => entry.snd * Bool.toNat (entry.fst == pair)) :=
-  positiveSum (entry => entry.snd * Bool.toNat (entry.fst == pair)) counts (omega [given])
+  positiveSum (entry => entry.snd * Bool.toNat (entry.fst == pair)) counts (arithmetic [given])
 
 -- A lambda whose hypothesis mentions a `_` a later argument fixes (day 10).
 def next (n: Nat): Option Nat := Some (n + 1)
@@ -30,7 +30,7 @@ theorem eachStep ∀ (f: Nat → Option Nat)
   each x y h
 
 theorem lambdaBeforeHole ∀ (xs: List Nat) (x y: Nat) (h: next x = Some y): x < y :=
-  eachStep _ (a b found => rewrite <- Option.someInjective found in omega) xs rfl x y h
+  eachStep _ (a b found => rewrite <- Option.someInjective found then arithmetic) xs byComputing x y h
 
 -- A congruence lemma's functions, `_`, found from the goal (day 12).
 def count (n: Nat): Nat := match n with
@@ -42,13 +42,13 @@ def listing (n: Nat): List Nat := match n with
   | Succ k => [n, ..listing k]
 
 theorem countIsLength ∀ (n: Nat): count n = List.length (listing n) := match n with
-  | Zero => rfl
-  | Succ k => rewrite countIsLength k in rfl
+  | Zero => byComputing
+  | Succ k => rewrite countIsLength k then byComputing
 
 theorem sums ∀ (xs: List Nat): List.sumBy xs count = List.sumBy xs (n => List.length (listing n)) :=
   List.sumByCong xs _ _ (n =>
     match n with
-      | Zero => rfl
+      | Zero => byComputing
       | Succ k => countIsLength (Succ k))
 
 -- A predicate `_` the goal fixes, over a list that doesn't compute (2024

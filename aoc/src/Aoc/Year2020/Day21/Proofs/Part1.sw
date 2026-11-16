@@ -29,15 +29,15 @@ theorem moveHolding ∀ (list: FoodList) (holder: Allergen → Ingredient)
       match firstMoved: first == allergen with
         | True =>
           match secondMoved: second == allergen with
-            | True => Eq.trans firstMoved.read (Eq.sym secondMoved.read)
-            | False => Void.exfalso (unheld second secondListed (Eq.sym same))
+            | True => Eq.trans firstMoved.read secondMoved.read.flipped
+            | False => Void.impossible (unheld second secondListed same.flipped)
         | False =>
           match secondMoved: second == allergen with
-            | True => Void.exfalso (unheld first firstListed same)
+            | True => (unheld first firstListed same).impossible
             | False => And.left holding first second firstListed secondListed same)
     (food inFoods other listed =>
       match moved: other == allergen with
-        | True => every food inFoods (rewrite <- moved.read in listed)
+        | True => every food inFoods (rewrite <- moved.read then listed)
         | False => And.right holding food inFoods other listed)
 
 theorem safeIff ∀ (list: FoodList)
@@ -49,13 +49,13 @@ theorem safeIff ∀ (list: FoodList)
         | Witness holder (Both holding (Witness allergen (Both listed held))) =>
           let could: list.couldHold ingredient allergen = True :=
             (couldHoldIff list ingredient allergen).backward (food inFoods inFood =>
-              rewrite <- held in And.right holding food inFoods allergen inFood)
+              rewrite <- held then And.right holding food inFoods allergen inFood)
           let some: list.allergens.any (other => list.couldHold ingredient other) = True :=
             Witness allergen (Both ((memAllergens list allergen).backward listed) could)
-          Bool.trueNotFalse (Eq.trans (Eq.sym some) safe.read),
+          Bool.trueNotFalse (Eq.trans some.flipped safe.read),
     backward = cannot =>
       match some: list.allergens.any (allergen => list.couldHold ingredient allergen) with
-        | False => rfl
+        | False => byComputing
         | True =>
           let Witness allergen (Both member could) := some
           match promise with
@@ -65,7 +65,7 @@ theorem safeIff ∀ (list: FoodList)
                 | True =>
                   let Witness other (Both inAllergens holds) := taken
                   let holds: (holder other == ingredient) = True := holds
-                  Void.exfalso
+                  Void.impossible
                     (cannot
                       (Witness holder
                         (Both holding
@@ -80,11 +80,11 @@ theorem safeIff ∀ (list: FoodList)
                     moveHolding list holder holding allergen ingredient
                       ((couldHoldIff list ingredient allergen).forward could)
                       unheld
-                  Void.exfalso
+                  Void.impossible
                     (cannot
                       (Witness
                         (moveTo holder allergen ingredient)
-                        (Both moved (Witness allergen (Both listed (rewrite DecEq.refl allergen in rfl))))))
+                        (Both moved (Witness allergen (Both listed (rewrite DecEq.refl allergen then byComputing))))))
   }
 
 --| Part 1: given a way the allergens could be, the answer is the spec's.
@@ -92,4 +92,4 @@ theorem safeAppearancesSpec ∀ (list: FoodList)
     (promise: ∃ (holder: Allergen → Ingredient) => Spec.Holding list holder):
     Spec.Part1 list list.safeAppearances :=
   (List.countWithIff list.isSafe (safeIff list promise) (list.foods.flatMap .ingredients) list.safeAppearances).backward
-    (Eq.sym (List.countFlatMap .ingredients list.isSafe list.foods))
+    (Eq.flipped (List.countFlatMap .ingredients list.isSafe list.foods))

@@ -15,7 +15,7 @@ theorem readsStarting: Parse.Reads starting StartingWritten :=
       (() => Parse.sepBy1 Parse.nat (() => Parse.char ','))
       (numbers => { numbers }) _
       (Parse.readsSepBy1 Parse.nat (() => Parse.char ',') NumberWritten _ Parse.readsNat (Parse.readsChar ',')))
-    (read value (Witness numbers (Both written same)) => rewrite same in written)
+    (read value (Witness numbers (Both written same)) => rewrite same then written)
 
 theorem parseWritten ∀ (input: Text) (starting: Starting)
     (parsed: Fail.toResult (() => parseStarting input) = Ok starting):

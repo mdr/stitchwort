@@ -78,10 +78,10 @@ fn they_prove_what_they_say_and_rewrite_finds_them() {
     load(&format!(
         "{SHAPE}\n\
          def renumber (s: Shape): Shape := {{ s | ref = s.ref + 1 }}\n\n\
-         theorem keepsId (s: Shape): (renumber s).id = s.id :=\n  rewrite Shape.ref.update.id in rfl\n\n\
-         theorem bumps (s: Shape): (renumber s).ref = s.ref + 1 :=\n  rewrite Shape.ref.update.ref in rfl\n\n\
+         theorem keepsId (s: Shape): (renumber s).id = s.id :=\n  rewrite Shape.ref.update.id then byComputing\n\n\
+         theorem bumps (s: Shape): (renumber s).ref = s.ref + 1 :=\n  rewrite Shape.ref.update.ref then byComputing\n\n\
          theorem nested (s: Shape) (t: Text): ({{ {{ s | ref = 0 }} | id = t }}).ref = 0 :=\n  \
-           rewrite Shape.id.update.ref, Shape.ref.update.ref in rfl\n\n\
+           rewrite Shape.id.update.ref, Shape.ref.update.ref then byComputing\n\n\
          theorem applied (s: Shape): ({{ s | id = \"a\" }}).id = \"a\" := Shape.id.update.id s \"a\"\n"
     ));
 }
@@ -91,7 +91,7 @@ fn an_update_of_several_independent_fields_is_not_matched() {
     let found = errors(&format!(
         "{SHAPE}\n\
          theorem both (s: Shape): ({{ s | ref = 0, id = \"a\" }}).ref = 0 :=\n  \
-           rewrite Shape.ref.update.ref in rfl\n"
+           rewrite Shape.ref.update.ref then byComputing\n"
     ));
     assert!(
         found.iter().any(|d| d.code == "E-REWRITE-NOTHING"),
@@ -167,7 +167,7 @@ fn records_indexed_families_and_propositions_have_none() {
         "type Point = { x: Nat, y: Nat }\n\n\
          type Fam: Nat -> Type =\n  | FA (k: Nat) (label: Text): Fam 0\n  | FB (k: Nat) (label: Text): Fam 1\n\n\
          type Both (p: Prop) (q: Prop): Prop =\n  | MkBoth (left: p) (right: q)\n\n\
-         theorem moved (p: Point) (n: Nat): ({ p | x = n }).y = p.y := rfl\n",
+         theorem moved (p: Point) (n: Nat): ({ p | x = n }).y = p.y := byComputing\n",
     );
     for ty in ["Point", "Fam", "Both"] {
         assert_eq!(lemmas(&session, ty), Vec::<String>::new(), "{ty}");
@@ -179,8 +179,8 @@ fn a_field_or_function_called_update_doesnt_clash() {
     let session = load(
         "type Change =\n  | Add (update: Nat) (x: Text)\n  | Drop (x: Text) (update: Nat)\n\n\
          def Change.update' (c: Change): Change := { c | update = 0 }\n\n\
-         theorem cleared (c: Change): (c.update').update = 0 := rewrite Change.update.update.update in rfl\n\n\
-         theorem kept (c: Change): (c.update').x = c.x := rewrite Change.update.update.x in rfl\n",
+         theorem cleared (c: Change): (c.update').update = 0 := rewrite Change.update.update.update then byComputing\n\n\
+         theorem kept (c: Change): (c.update').x = c.x := rewrite Change.update.update.x then byComputing\n",
     );
     assert_eq!(lemmas(&session, "Change").len(), 4);
 }

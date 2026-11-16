@@ -276,10 +276,8 @@ releases the whole register window, and reloads the frame twice (§1.3).
   - *Rules out:* nothing.
   - *Precedent:* Lua 5 does it this way: `OP_CALL` of a Lua function
     re-enters the same `luaV_execute` loop with a new frame instead of
-    returning to a caller (*The Implementation of Lua 5.0*, 2005, §7)
-    **[from memory, not re-checked]**. CPython 3.11 did the same for
-    Python-to-Python calls ("inlined" calls in the eval loop) **[from
-    memory]**.
+    returning to a caller (*The Implementation of Lua 5.0*, 2005, §7; the paper wasn't re-read, but Lua 5.0's `lvm.c` does it: for a Lua function `OP_CALL` saves `pc` and then `goto callentry` inside `luaV_execute`, www.lua.org/source/5.0/lvm.c.html) **[checked in source, 15 Nov 2026]**. CPython 3.11 did the same for
+    Python-to-Python calls: "when CPython detects Python code calling another Python function, it sets up a new frame, and 'jumps' to the new code inside the new frame" (What's New in 3.11, "Inlined Python function calls") **[cited, 15 Nov 2026]**.
 - **B. Leave the call path alone and add superinstructions for the common
   pairs** (`Call` then `Return`, `CtorReuse` then `Return`). This saves one
   dispatch per pair. Stage 4 already judged it "not worth it at these sizes"
@@ -351,7 +349,7 @@ part of the 11% dropping (§0) **[inferred]**. It's part of the same lane as
   would be fused (`Switch` then `Unpack`, the most frequent pair in stage
   4's count, `fast-runtime.md` stage 4). CPython 3.11's specialising
   interpreter (PEP 659) rewrites instructions into specialised forms in the
-  same way **[from memory]**. The key point is *private*. The shared `Instr`
+  same way: "Python will then replace the current operation with a more specialized one" (What's New in 3.11, "PEP 659: Specializing Adaptive Interpreter") **[cited, 15 Nov 2026]**. The key point is *private*. The shared `Instr`
   set, which native code translates one for one (`crates/native/src/n1.rs`,
   87 `Instr::` arms), doesn't change, so native code has nothing to
   mirror. Worth doing only if stage 0b shows decoding (operand loads and
@@ -415,7 +413,7 @@ increments and two decrements of the closure, plus lookups in the
     AoC programs.
   - *Precedent:* MLton defunctionalises the whole program; GHC's
     specialisation of functions on known arguments is the same idea
-    **[from memory]**.
+    **[partly checked, 15 Nov 2026: MLton has a whole-program `ClosureConvert` pass with a flow analysis (`mlton/closure-convert/closure-convert.fun`, MLton 5fe9433), but whether to call it defunctionalisation, and the GHC half, are from memory]** **[unverified]**.
   - *Risk:* the optimiser is where a wrong answer can come from
     (`fast-runtime.md` stage 4, "What's left"). This is Opus work, with
     differential tests.
@@ -680,8 +678,7 @@ what good interpreters reach (wasm3 is 4–15× slower than compiled C,
   use this IR.
 - Typed node layouts (`native-compilation.md` §3.3, "another 5–6×") are a
   representation project for later, with SW-593.
-- The precedents marked "from memory" (Lua 5, CPython 3.11, PEP 659, MLton,
-  GHC) weren't re-checked for this note.
+- The precedents marked "from memory" (MLton's naming and GHC) weren't re-checked for this note; Lua 5, CPython 3.11 and PEP 659 were checked on 15 Nov 2026.
 
 ## Tickets to file
 

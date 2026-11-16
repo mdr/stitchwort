@@ -5,12 +5,10 @@
 
 use super::*;
 
-/// The tree printer's output for `text`, which must pass every check and
-/// print no declaration as written.
+/// The tree printer's output for `text`, which must pass every check.
 fn fmt(text: &str) -> String {
     let gate = gate(text).expect("it parses");
     assert_eq!(gate.check, Ok(()), "{}", gate.text);
-    assert_eq!(gate.stats.verbatim, BTreeMap::new(), "{}", gate.text);
     assert!(gate.idempotent, "not idempotent:\n{}", gate.text);
     gate.text
 }
@@ -63,8 +61,8 @@ theorem shrinks ∀ (numbers: List Nat) (target start: Nat)
 fn the_theorem_forall_is_added() {
     // D3472, as the line formatter does.
     check(
-        "theorem t (a: Nat): a = a := rfl\n",
-        "theorem t ∀ (a: Nat): a = a := rfl\n",
+        "theorem t (a: Nat): a = a := byComputing\n",
+        "theorem t ∀ (a: Nat): a = a := byComputing\n",
     );
 }
 
@@ -234,23 +232,58 @@ def f (n: Nat): Nat :=
 }
 
 #[test]
-fn a_comment_no_rule_places_leaves_its_declaration_as_written() {
-    // S40: between a function and its first argument, joined to the line.
-    let text = "def x: Nat := f\n  -- why\n  a\n";
-    let gate = gate(text).unwrap();
-    assert_eq!(gate.check, Ok(()));
-    assert_eq!(gate.text, text);
-    assert_eq!(gate.stats.verbatim_decls(), 1);
+fn a_comment_where_no_layout_breaks_gets_a_line_break() {
+    // S40: between a function and its first argument, the comment starts
+    // a line deeper than the call's, and so does the argument after it.
+    check(
+        "def x: Nat := f\n  -- why\n  a\n",
+        "def x: Nat :=\n  f\n    -- why\n    a\n",
+    );
+    // After an operator, the operand goes below.
+    check(
+        "def x: Nat :=\n  a + -- why\n    b\n",
+        "def x: Nat := a + -- why\n  b\n",
+    );
 }
 
 #[test]
 fn comments_around_a_leading_comma_go_above_the_next_item() {
     let gate = gate("def x: List Nat :=\n  [ 1 -- a\n  -- b\n  , -- c\n    2\n  ]\n").unwrap();
     assert_eq!(gate.check, Ok(()));
-    assert_eq!(gate.stats.verbatim_decls(), 0);
     assert_eq!(
         gate.text,
         "def x: List Nat := [\n  1, -- a\n  -- b\n  -- c\n  2\n]\n"
+    );
+}
+
+#[test]
+fn a_closer_with_a_comment_after_code_with_one_keeps_its_line() {
+    // Two comments can't share a line: the closer isn't hoisted onto the
+    // first one's line (the fuzzer's SW-3497 case, which was printed as
+    // `(1) -- c -- d`).
+    check(
+        "def a: Nat := f (1-- c\n)-- d\n x\n",
+        "def a: Nat :=\n  f\n    (1 -- c\n    ) -- d\n    x\n",
+    );
+}
+
+#[test]
+fn a_field_after_a_closer_stays_after_it_when_a_comment_ends_the_line_before() {
+    // `.total` can't start a line, so the closer can't move up in front of
+    // the comment.
+    check(
+        "def a: Nat := (f 1-- c\n).total\n",
+        "def a: Nat :=\n  (f 1 -- c\n  ).total\n",
+    );
+}
+
+#[test]
+fn a_comment_after_the_assign_puts_a_match_below_it_with_its_arms_deeper() {
+    // The arms would otherwise line up with the `match` on its own line,
+    // which starts a new statement.
+    check(
+        "def f (n: Nat): Nat :=-- c\n match n with\n  | Zero => 1\n  | Succ m => m\n",
+        "def f (n: Nat): Nat := -- c\n  match n with\n    | Zero => 1\n    | Succ m => m\n",
     );
 }
 
@@ -267,8 +300,8 @@ fn decreasing_breaks_its_header() {
 fn calc_steps_go_one_a_line() {
     // S35.
     check(
-        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a\n    := rfl\n  _ = a := rfl\n",
-        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a := rfl\n  _ = a := rfl\n",
+        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a\n    := byComputing\n  _ = a := byComputing\n",
+        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a := byComputing\n  _ = a := byComputing\n",
     );
 }
 
@@ -279,7 +312,6 @@ fn text_blocks_and_interpolations_stay_as_written() {
     let gate = gate(text).unwrap();
     assert_eq!(gate.check, Ok(()));
     assert_eq!(gate.text, text);
-    assert!(gate.stats.unruled.is_empty());
 }
 
 #[test]
@@ -318,8 +350,8 @@ fn a_one_arm_match_inside_an_arm_breaks() {
 #[test]
 fn a_block_inside_brackets_hugs() {
     check(
-        "theorem t ∀ (n: Nat): n = n :=\n  ident (\n    let m := n\n    (rfl: m = m))\n",
-        "theorem t ∀ (n: Nat): n = n := ident (\n  let m := n\n  (rfl: m = m))\n",
+        "theorem t ∀ (n: Nat): n = n :=\n  ident (\n    let m := n\n    (byComputing: m = m))\n",
+        "theorem t ∀ (n: Nat): n = n := ident (\n  let m := n\n  (byComputing: m = m))\n",
     );
 }
 
@@ -402,8 +434,8 @@ fn a_long_exists_chain_continues_below() {
 fn a_comment_above_the_assign_of_a_calc_step_keeps_its_line() {
     // S35, S40.
     check(
-        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a\n    -- why\n    := rfl\n",
-        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a\n    -- why\n    := rfl\n",
+        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a\n    -- why\n    := byComputing\n",
+        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a\n    -- why\n    := byComputing\n",
     );
 }
 
@@ -527,6 +559,32 @@ fn a_list_of_plain_values_fills_its_lines_and_any_other_list_has_one_item_a_line
 }
 
 #[test]
+fn a_tuple_pattern_of_names_fills_its_lines_and_any_other_has_one_item_a_line() {
+    // proof-tuples.md §5: names and `_` fill the line; a tuple with a
+    // nested pattern is a comma bracket, one item a line.
+    let names: Vec<String> = (0..12).map(|k| format!("part{k:x<9}")).collect();
+    let flat = format!(
+        "def f (x: Nat): Nat := match x with\n  | ({}, _, last) => 0\n",
+        names.join(", ")
+    );
+    let fill = format!(
+        "def f (x: Nat): Nat := match x with\n  | ({},\n      {}, _, last) => 0\n",
+        names[..7].join(", "),
+        names[7..].join(", ")
+    );
+    check(&flat, &fill);
+    let nested = format!(
+        "def f (x: Nat): Nat := match x with\n  | ({}, Some y, last) => 0\n",
+        names.join(", ")
+    );
+    assert!(
+        fmt(&nested).contains("(\n"),
+        "one item a line: {}",
+        fmt(&nested)
+    );
+}
+
+#[test]
 fn a_single_variable_after_a_premise_shares_the_premise_line() {
     // D3564, D3571: no variable stands alone on a line.
     let before = "theorem shrinks ∀ (numbers: List Nat) (target: Nat) (start: Nat) \
@@ -572,12 +630,434 @@ fn a_comment_before_a_closing_bracket_moves_to_the_line_end_without_changing_the
         "type Shape =\n  | Circle (radius: Nat) --eld\n  | Square (side: Nat)\n",
         "type Shape =\n  | Circle (radius: Nat) --eld\n  | Square (side: Nat)\n",
     );
-    check(
+    // Under rule N a comment on the last item and one after the closer
+    // are the same comment, so every spelling prints alike.
+    for text in [
         "def f: Nat := g (a, b --c\n)\n",
-        "def f: Nat := g (\n  a,\n  b --c\n)\n",
+        "def f: Nat := g (a, b) --c\n",
+        "def f: Nat := g (\n  a,\n  b\n) --c\n",
+        "def f: Nat := g (a\n  , b --c\n  )\n",
+    ] {
+        check(text, "def f: Nat := g (a, b) --c\n");
+    }
+    for text in [
+        "def f: List Nat := [1, 2 --c\n]\n",
+        "def f: List Nat := [1, 2, --c\n]\n",
+        "def f: List Nat := [\n  1,\n  2\n] --c\n",
+    ] {
+        check(text, "def f: List Nat := [1, 2] --c\n");
+    }
+}
+
+/// `type T = | A (x: Nat) | …` padded so the whole declaration line is `width` characters.
+fn data_of_width(width: usize) -> String {
+    let base = "type T = | A (x: Nat) | B (".len() + ": Nat)".len();
+    format!(
+        "type T = | A (x: Nat) | B ({}: Nat)\n",
+        "n".repeat(width - base)
+    )
+}
+
+#[test]
+fn a_data_type_stays_on_one_line_up_to_80_characters_and_then_goes_one_constructor_a_line() {
+    // S14, D3605: measured over the whole declaration line.
+    for width in [79, 80] {
+        let line = data_of_width(width);
+        assert_eq!(line.trim_end().chars().count(), width);
+        check(&line, &line);
+    }
+    let long = data_of_width(81);
+    let name = &long["type T = | A (x: Nat) | B (".len()..long.len() - ": Nat)\n".len()];
+    check(
+        &long,
+        &format!("type T =\n  | A (x: Nat)\n  | B ({name}: Nat)\n"),
+    );
+    // The same code written over several lines gets the same layout.
+    check(
+        &format!("type T =\n  | A (x: Nat)\n  | B ({name}: Nat)\n"),
+        &format!("type T =\n  | A (x: Nat)\n  | B ({name}: Nat)\n"),
+    );
+}
+
+#[test]
+fn short_type_declarations_stay_on_one_line() {
+    // S14, S15, D3605.
+    for line in [
+        "type Direction = | Up | Right | Down | Left\n",
+        "type Person = { name: Text, age: Nat }\n",
+        "type Result (a: Type) (e: Type): Type = | Ok (value: a) | Err (error: e)\n",
+    ] {
+        check(line, line);
+    }
+    check(
+        "type Person = {\n  name: Text,\n  age: Nat\n}\n",
+        "type Person = { name: Text, age: Nat }\n",
+    );
+}
+
+#[test]
+fn a_record_type_stays_on_one_line_up_to_80_characters_and_then_goes_one_field_a_line() {
+    // S15, D3605.
+    let record = |width: usize| {
+        let base = "type R = { a: Nat, b: ".len() + " }".len();
+        format!("type R = {{ a: Nat, b: {} }}\n", "T".repeat(width - base))
+    };
+    for width in [79, 80] {
+        let line = record(width);
+        assert_eq!(line.trim_end().chars().count(), width);
+        check(&line, &line);
+    }
+    let long = record(81);
+    let ty = &long["type R = { a: Nat, b: ".len()..long.len() - " }\n".len()];
+    check(&long, &format!("type R = {{\n  a: Nat,\n  b: {ty}\n}}\n"));
+    let interface = format!("interface I (f: Type) = {{ a: Nat, b: {ty} }}\n");
+    check(
+        &interface,
+        &format!("interface I (f: Type) = {{\n  a: Nat,\n  b: {ty}\n}}\n"),
+    );
+}
+
+#[test]
+fn an_if_with_an_else_if_goes_one_clause_a_line_and_a_plain_if_still_fits() {
+    // S19, D3605.
+    check(
+        "def f (n: Nat): Nat := if n = 0 then 1 else if n = 1 then 2 else 3\n",
+        "def f (n: Nat): Nat :=\n  if n = 0 then 1\n  else if n = 1 then 2\n  else 3\n",
     );
     check(
-        "def f: List Nat := [1, 2 --c\n]\n",
-        "def f: List Nat := [\n  1,\n  2 --c\n]\n",
+        "def f (n: Nat): Nat :=\n  if n = 0 then 1\n  else 2\n",
+        "def f (n: Nat): Nat := if n = 0 then 1 else 2\n",
     );
+}
+
+#[test]
+fn a_semicolon_that_ends_a_line_before_a_comment_keeps_the_sequence() {
+    // S18.
+    check(
+        "def three: Nat :=\n  let x := 1;\n-- c\n  x\n",
+        "def three: Nat :=\n  let x := 1;\n  -- c\n  x\n",
+    );
+}
+
+#[test]
+fn a_line_ending_semicolon_is_followed_by_a_rest_that_goes_deeper_when_it_breaks() {
+    // S18: a second line ending `;` would meet a line at its block's column,
+    // which ends the block, so each later line of the rest steps in by 2.
+    check(
+        "def three: Nat :=\n  (let x := 1; 2;\n-- c\n   x)\n",
+        "def three: Nat :=\n  (let x := 1;\n   2;\n     -- c\n     x)\n",
+    );
+    check(
+        "def three: Nat :=\n  (2; 3; -- c\n   x)\n",
+        "def three: Nat :=\n  (2;\n   3; -- c\n     x)\n",
+    );
+    let part = format!("f {}", long(50));
+    check(
+        &format!("def three: Nat :=\n  let x := 1; {part}; {part}; {part}\n"),
+        &format!("def three: Nat :=\n  let x := 1;\n  {part};\n    {part}; {part}\n"),
+    );
+}
+
+#[test]
+fn a_sequence_that_starts_a_line_breaks_after_a_semicolon_two_columns_in() {
+    // S18: a line at the sequence's own column would end its block.
+    check(
+        "def d: Nat :=\n  [a; -- c\n   b]\n",
+        "def d: Nat := [\n  a; -- c\n    b\n]\n",
+    );
+    check(
+        "def d: Nat :=\n  xs.map (x => a; -- c\n    b)\n",
+        "def d: Nat := xs.map (x =>\n  a; -- c\n    b)\n",
+    );
+}
+
+#[test]
+fn a_comment_on_its_own_line_after_an_arrow_goes_before_it() {
+    // SW-3524, SW-3533: an operand starting its own line would end the
+    // type at the next arrow.
+    check(
+        "def combine (f: Nat ->\n-- c\n b -> c): List c := xs\n",
+        "def combine\n    (f: Nat\n      -- c\n      -> b\n      -> c):\n    List c :=\n  xs\n",
+    );
+    check(
+        "def pick: Option Bool →\n-- c\n Nat → Nat\n  | Some _, 0 => 1\n",
+        "def pick: Option Bool\n      -- c\n      → Nat\n      → Nat\n  | Some _, 0 => 1\n",
+    );
+    check(
+        "def f (x: Nat → -- c\n -- d\n  Nat → Nat): Nat := x\n",
+        "def f\n    (x: Nat\n      -- c\n      -- d\n      → Nat\n      → Nat):\n    Nat :=\n  x\n",
+    );
+}
+
+#[test]
+fn a_comment_inside_the_header_puts_the_body_below_it() {
+    // SW-3532: the `calc` steps are measured from the keyword's line.
+    check(
+        "theorem t (h: a =-- c\n 3): 3 = a :=\n  calc 3\n    _ = a := h\n",
+        "theorem t ∀\n    (h: a = -- c\n      3):\n    3 = a :=\n  calc 3\n    _ = a := h\n",
+    );
+}
+
+#[test]
+fn a_comment_after_a_result_colon_starts_the_type_on_its_own_line() {
+    // SW-3537: the type's continuation lines were left of its first line.
+    check(
+        "theorem t: -- c\n f 2 = Some\n-- c\n (R 2) := byComputing\n",
+        "theorem t: -- c\n    f 2 = Some\n    -- c\n    (R 2) :=\n  byComputing\n",
+    );
+}
+
+#[test]
+fn an_else_may_line_up_with_an_if_whose_binder_a_comment_moved_down() {
+    // SW-3538: the parser measured `else` against the binder's line.
+    check(
+        "def f (b: Bool): Nat := if\n-- c\n h: b then 1 else 0\n",
+        "def f (b: Bool): Nat :=\n  if\n    -- c\n    h: b then\n    1\n  else 0\n",
+    );
+}
+
+#[test]
+fn a_type_a_comment_moved_to_its_own_line_continues_from_where_it_lands() {
+    // SW-3570, SW-3573, SW-3575: the lines after a first line that a comment
+    // displaced stay right of it, or they would end the block it opens.
+    check(
+        "type Stream: Type = | MkStream (head: Nat) (rest:-- c\n Nat →\n-- c\n Stream)\n",
+        "type Stream: Type =\n  | MkStream\n      (head: Nat)\n      (rest: -- c\n        Nat\n          -- c\n          → Stream)\n",
+    );
+    check(
+        "type Box = | MkBox (n:\n-- c\n match 1 with | 0 => Nat | Succ m => Nat)\n",
+        "type Box =\n  | MkBox\n      (n:\n        -- c\n        match 1 with\n          | 0 => Nat\n          | Succ m => Nat)\n",
+    );
+    check(
+        "def greenOuter: Outer := { thing =\n-- c\n { color = Green, name =-- c\n \"g\" }\n}\n",
+        "def greenOuter: Outer := {\n  thing =\n    -- c\n    {\n      color = Green,\n      name = -- c\n        \"g\"\n    }\n}\n",
+    );
+}
+
+#[test]
+fn an_if_chain_after_a_trailing_comment_keeps_its_else_lines_with_it() {
+    // SW-3572: the `if` is on a line of its own after the comment.
+    check(
+        "def collatzSteps (n: Nat): {Partial} --Nat :=\n  if n ≤ 1 then 0\n  else if n % 2 == 0 then 1 + collatzSteps (n / 2)\n  else 1 + collatzSteps (3 * n + 1)\n",
+        "def collatzSteps (n: Nat):\n    {Partial} --Nat :=\n      if n ≤ 1 then 0\n      else if n % 2 == 0 then 1 + collatzSteps (n / 2)\n      else 1 + collatzSteps (3 * n + 1)\n",
+    );
+}
+
+#[test]
+fn a_comment_after_the_last_parameter_puts_the_body_below_the_header() {
+    // SW-3571: the `:` can't join the comment's line, so the header's last
+    // line is a continuation, and a `calc` on it would measure its steps
+    // from there.
+    check(
+        "theorem andChain ∀ (a b: Bool)-- c\n  : (a ∧ b) = (a ∧ b) := calc a ∧ b\n    _ = a ∧-- c\n b\n",
+        "theorem andChain ∀ (a b: Bool) -- c\n    : (a ∧ b) = (a ∧ b) :=\n  calc a ∧ b\n    _ = a ∧ -- c\n      b\n",
+    );
+    // The same after a word of the head.
+    check(
+        "theorem-- c\n bad (a: Nat) (h: a = a): a = a :=\n  calc a\n    _ = a := h\n",
+        "theorem -- c\n    bad ∀ (a: Nat)\n    (h: a = a):\n    a = a :=\n  calc a\n    _ = a := h\n",
+    );
+}
+
+#[test]
+fn a_let_whose_value_breaks_over_a_comment_keeps_its_semicolon_after_it() {
+    // SW-3574: a value starting its own line is a block, which the `;`
+    // after it would end as a sequence's.
+    check(
+        "def inArm (o: Option Nat): Nat := match o with\n  | Some k => let j := k +\n-- c\n 1; j * 2\n",
+        "def inArm (o: Option Nat): Nat := match o with\n  | Some k =>\n    let j := k\n      +\n        -- c\n        1;\n    j * 2\n",
+    );
+}
+
+#[test]
+fn a_comment_after_an_arrow_goes_before_it_and_a_long_chain_stays_one_chain() {
+    // SW-3570: the operand after `→ -- c` would start a line, a block that
+    // the next arrow at the chain's column ends.
+    check(
+        "def many: Nat → Nat →-- c\n Nat → Nat → Nat → Nat\n",
+        "def many: Nat\n      → Nat\n      -- c\n      → Nat\n      → Nat\n      → Nat\n      → Nat\n",
+    );
+    check(
+        "def many: Nat → Nat\n  -- c\n  → Nat → Nat →-- c\n Nat → Nat\n",
+        "def many: Nat\n      → Nat\n      -- c\n      → Nat\n      → Nat\n      -- c\n      → Nat\n      → Nat\n",
+    );
+}
+
+#[test]
+fn a_record_update_with_comments_after_its_base_and_after_the_bar_keeps_both() {
+    // SW-3580: the base's comment follows the `|` and the bar's own has
+    // nowhere else to go, so it starts the line below.
+    check(
+        "def bad (t: Timed Int): Timed Nat := { t -- a\n  | -- b\n  start = 1 }\n",
+        "def bad (t: Timed Int): Timed Nat := { t | -- a\n  -- b\n  start = 1\n}\n",
+    );
+}
+
+#[test]
+fn a_result_colon_after_own_line_comments_stays_with_its_type() {
+    // SW-3578: the `:` started its line and the type went below it.
+    check(
+        "def f (a: Nat)\n  -- c\n  : Nat := a\n",
+        "def f (a: Nat)\n    -- c\n    : Nat :=\n  a\n",
+    );
+    check(
+        "def f (a: Nat) -- c\n  : Nat := a\n",
+        "def f (a: Nat) -- c\n    : Nat := a\n",
+    );
+}
+
+/// A `match` in a header followed by the definition's arms keeps its
+/// alternatives on lines of their own, deeper than the arms: sharing the
+/// header's line, the arms after it would read as its own (SW-3582).
+#[test]
+fn a_match_in_a_header_with_arms_after_it_keeps_its_alternatives_below() {
+    check(
+        "def loop (n: Nat): Nat 1 + match Succ n with\n               | Zero   => 0\n      | Succ k => loop k\n",
+        "def loop (n: Nat):\n    Nat 1\n      + match Succ n with\n        | Zero => 0\n  | Succ k => loop k\n",
+    );
+}
+
+/// A result type written as a block of lines keeps its lines, starting
+/// below the `:`: joined to it, `List` would take `Text` as an argument
+/// (SW-3582).
+#[test]
+fn a_result_type_that_is_a_block_starts_below_its_colon() {
+    check(
+        "def names:\n List\n Text := x\n",
+        "def names:\n    List\n    Text :=\n  x\n",
+    );
+}
+
+/// Two closers that each end a line with a comment keep both comments
+/// (SW-3606: the second overwrote the first, and the file was written).
+#[test]
+fn comments_after_two_closers_on_two_lines_are_both_kept() {
+    let out = fmt("def a: Nat := (f (1) -- c1\n  ) -- c2\n");
+    assert!(out.contains("-- c1") && out.contains("-- c2"), "{out}");
+}
+
+/// The comments check counts comments as written, so an output missing one
+/// is refused even where rule N reads both texts' comments alike.
+#[test]
+fn an_output_missing_a_comment_is_refused() {
+    let file = SourceMap::new().add("input.sw", "");
+    let before = "def a: Nat := (f (1) -- c1\n  ) -- c2\n";
+    let error = check_file(file, before, before, "def a: Nat := (f (1)) -- c2\n").unwrap_err();
+    assert!(error.contains("-- c1"), "{error}");
+}
+
+/// A bracketed block that isn't a call's last argument opens below its
+/// bracket at 2, as one that is does (S17): after `(let`, the block's next
+/// line would be left of the `let` and end it (SW-3605).
+#[test]
+fn a_bracketed_block_before_more_arguments_opens_below_the_bracket() {
+    check(
+        "theorem t ∀ (n: Nat): n + 1 = n + 1 := ident (\n  let m := n + 1\n  (rfl: m = m))\n  ys.length\n",
+        "theorem t ∀ (n: Nat): n + 1 = n + 1 :=\n  ident\n    (\n      let m := n + 1\n      (rfl: m = m))\n    ys.length\n",
+    );
+}
+
+/// An `if` that a comment puts on the line after an `else` is that
+/// `else`'s branch, with its own clauses below it: at the chain's column,
+/// its `else` would end the block the `if` starts (SW-3605).
+#[test]
+fn an_if_a_comment_puts_below_its_else_is_the_else_branch() {
+    check(
+        "def clamp (x lo hi: Int): Int :=\n if x < lo then lo\n  else-- c\n if hi < x then hi\n  else x\n",
+        "def clamp (x lo hi: Int): Int :=\n  if x < lo then lo\n  else -- c\n    if hi < x then hi else x\n",
+    );
+    check(
+        "def f (a b c: Bool): Nat := if a then 1 else -- c\n  if b then 2 else if c then 3 else 4\n",
+        "def f (a b c: Bool): Nat :=\n  if a then 1\n  else -- c\n    if b then 2\n    else if c then 3\n    else 4\n",
+    );
+}
+
+/// A closing bracket that comments put on a line of its own goes left of
+/// the lines inside it: at the indentation in force, `Nat`'s, it would be
+/// a line of the block `Nat` starts. It lines up with its opener's line
+/// instead (SW-3605).
+#[test]
+fn a_closer_after_comments_goes_left_of_the_lines_inside_its_brackets() {
+    check(
+        "theorem small: ∃ (n:-- c\n Nat\n-- c\n) => n >\n (7, rfl)\n",
+        "theorem small: ∃ (n: -- c\n    Nat\n      -- c\n) =>\n      n > (7, rfl)\n",
+    );
+}
+
+/// A lambda right before a `;` keeps its body after `=>`: below, the body
+/// would be a block, which the `;` would end as a sequence of its own
+/// (SW-3605, SW-3587: here after a comment broke the parameters).
+#[test]
+fn a_lambda_before_a_semicolon_keeps_its_body_after_the_arrow() {
+    check(
+        "def lambdaValue: Nat := (let f := (n: Nat\n-- c\n) => n + 1; f 2)\n",
+        "def lambdaValue: Nat :=\n  (let f := (n: Nat\n     -- c\n   ) => n + 1;\n   f 2)\n",
+    );
+    let name = long(100);
+    check(
+        &format!("def lambdaValue: Nat := (let f := (n: Nat) => n + {name}; f 2)\n"),
+        &format!("def lambdaValue: Nat :=\n  (let f := (n: Nat) => n\n     + {name};\n   f 2)\n"),
+    );
+}
+
+/// Comments between a declaration's attributes and its keyword stay at
+/// its column, and so does the keyword: as a continuation line it would be
+/// indented past its arms (SW-3605).
+#[test]
+fn a_comment_after_attributes_keeps_the_definition_at_its_column() {
+    check(
+        "@[noReceiver\n]\n-- c\ndef Meter.sumOnto (acc: Nat): List Meter → Nat\n  | [] => acc\n",
+        "@[noReceiver]\n-- c\ndef Meter.sumOnto (acc: Nat): List Meter → Nat\n  | [] => acc\n",
+    );
+    check(
+        "@[noReceiver]\n-- c\n\n-- d\n\ndef f (acc: Nat): Nat := acc\n",
+        "@[noReceiver]\n-- c\n\n-- d\n\ndef f (acc: Nat): Nat := acc\n",
+    );
+}
+
+/// A tidy pass that swaps the arguments of `f a b`: the tokens of its
+/// result are the output's, so only a check against the original file can
+/// see it (SW-3610).
+fn swap_arguments(
+    _tree: &stitchwort_syntax::tree::SyntaxFile,
+    text: &str,
+) -> Vec<crate::passes::Edit> {
+    text.find("f a b").map_or(Vec::new(), |at| {
+        vec![crate::passes::Edit {
+            range: at..at + 5,
+            text: "f b a".into(),
+        }]
+    })
+}
+
+/// A tidy pass that drops the brackets of `f (g a)`, which matter.
+fn drop_needed_brackets(
+    _tree: &stitchwort_syntax::tree::SyntaxFile,
+    text: &str,
+) -> Vec<crate::passes::Edit> {
+    text.find("f (g a)").map_or(Vec::new(), |at| {
+        vec![crate::passes::Edit {
+            range: at..at + 7,
+            text: "f g a".into(),
+        }]
+    })
+}
+
+/// The tree check compares the output with the original file, not the
+/// tidied text, so a tidy pass that changes the program is refused.
+#[test]
+fn a_tidy_pass_that_changes_the_program_is_refused() {
+    let file = SourceMap::new().add("input.sw", "");
+    for (pass, text) in [
+        (
+            swap_arguments as crate::passes::Pass,
+            "def x: Nat := f a b\n",
+        ),
+        (drop_needed_brackets, "def x: Nat := f (g a)\n"),
+    ] {
+        match format_with_passes(file, text, &[pass]) {
+            Err(Error::Internal(message)) => assert!(message.contains("tree"), "{message}"),
+            other => panic!("{text}: {other:?}"),
+        }
+    }
 }

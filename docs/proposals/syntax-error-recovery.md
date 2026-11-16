@@ -64,7 +64,7 @@ recovery made of it (§4.1).
 
 ## 1. What happens today
 
-**Parsing** [source]. `parse_tokens` (`crates/syntax/src/parser.rs:162`)
+**Parsing** [source]. `parse_tokens` (`crates/syntax/src/parser/entry.rs`)
 cuts the file into declarations at column 0 (`split_decls`, `:600`) and
 gives each one a fresh `Parser`. Each parsing function returns `Result`, and
 the first `Err` unwinds to the loop at `:300–355`. There a `def`, `theorem`,
@@ -143,7 +143,7 @@ recovered from (`E-RESOURCE` from `deeper()`, D2543).
 
 | | Where | Moves to | Puts in the tree | Notes |
 |---|---|---|---|---|
-| **R1 Ran out** | An expression or a closing token is wanted and `peek()` is `None`: a stop, the end of the declaration | Nowhere: consumes nothing | No node: the parent lacks that child (§3) | The commonest case: `:=` or `=>` with nothing after it, a trailing operator, `rewrite h in`, `let x :=`. A missing closer (`)`, `]`, `}`) or joining keyword (`then`, `else`, `with`, `=>`, `in`) counts as present there; the expression after a missing keyword is missing too |
+| **R1 Ran out** | An expression or a closing token is wanted and `peek()` is `None`: a stop, the end of the declaration | Nowhere: consumes nothing | No node: the parent lacks that child (§3) | The commonest case: `:=` or `=>` with nothing after it, a trailing operator, `rewrite h in`, `let x :=`. A missing closer (`)`, `]`, `}`) is no second error: the bracket becomes an `Error` node and only the gap is reported. A missing joining keyword (`then`, `else`, `with`, `=>`, `in`) counts as present there; the expression after a missing keyword is missing too |
 | **R2 Inside brackets** | An error inside `( … )`, `[ … ]` or `{ … }` whose partner is in the declaration | The partner (from `matching`) | `Error` node over the skipped tokens inside the brackets | Independent of layout, so it works on one long line. The bracket expression becomes missing; the code around it carries on |
 | **R2b Stray closer** | A `)`, `]` or `}` with no partner, where an operand should start | One token on | `Error` node over the token | Then the operand is tried again. Only where an operand *starts*, never after a finished one (§3.2). Several on one line report once |
 | **R3 Block line** | A statement of a block fails | The next stop of this block, or a token that ends blocks (`\|`, `where`, `:=`, `decreasing`, `unfolding`; `ends_blocks`, `:2688`) | A binding line: `Error` node over it, inside the `Block`. A proof-step line: a `Gap` node holding that `Error` node and the rest of the block (§2.3) | D3580's split. A binding line: later lines are checked as usual; a `let` whose name (or simple pattern) was read keeps it, bound to a missing value. A proof-step line: later lines are parsed and checked against an unknown goal (§4.3) |
@@ -161,7 +161,7 @@ against an unknown type for its hovers, and the declaration gives no stand-in.
 ### 2.3 Binding lines and proof-step lines (D3580)
 
 Proofs are terms, and some lines take the lines below them as their body:
-`rewrite h in` (`expr` and `block`, `parser.rs:2590–2660`), a `calc` head
+`rewrite h in` (`expr` and `block`, `parser.rs`), a `calc` head
 and its steps, and a line ending in an operator, which the next line at the
 block's column continues. Fable's probes [measured, files in
 `…/scratchpad/fable-d3580/`, `p5.sw`] on a correct three-line `rewrite`
@@ -212,7 +212,7 @@ skipped lines in a declaration that is already reported, so I'd leave it.
 
 The parser has eight mode fields (`in_list`, `limit`, `allow`,
 `calc_depth`, `rewrite_rule`, `guard_start`, `rewrite_at`, `let_value`;
-`parser.rs:703–732`). Each site saves and restores the ones it changes by
+`Modes`, `parser.rs`). Each site saves and restores the ones it changes by
 hand, and some don't restore them on the error path (parse-recovery.md
 §1.2; not rechecked), which is harmless only because an error throws the
 parser away today. On top of those there is
@@ -253,7 +253,7 @@ still explains *why* the line ended. My call; the 82 reject examples with
   `Block`'s child between two `Let`s, an `Arm`'s body, a `Paren`'s inside.
   The finished constructs inside the skipped range keep their nodes,
   nested in the `Error`. The declaration's root is its real kind (`Def`,
-  `Theorem`), not `Error`. `decl_kind` (`parser.rs:381`) is then given the
+  `Theorem`), not `Error`. `decl` (`parser/declarations.rs`) is then given the
   kept declaration.
 - **Missing parts** (R1) get no node: the parent lacks the child. A `Let`
   with no value node, an `Arm` with no body. Lowering (and, before it, the
@@ -285,8 +285,14 @@ The recovery corpus (S5) gives it the files.
 
 ### 3.2 A marks hazard
 
+*Gone with strict marks (parser-end-state.md T1, SW-3280): an operator
+keeps its left operand's start as a value, so an `Error` mark before it
+can't be taken for its operand, and a recovery point's `Error` node starts
+where the construct that failed started. R2b's rule below is now only a
+choice.* As first written:
+
 An operator finds its left operand from the last mark that ends where it
-stands (`operand_start`, `parser.rs:965`). An `Error` mark that ended just
+stands (`operand_start`, `parser.rs`). An `Error` mark that ended just
 before an operator would be taken for its operand. R2b therefore skips
 only where an operand *starts* (before any atom), and the other points end
 at stops, closers or the end of the declaration, where no operator follows.
@@ -338,7 +344,7 @@ Three layers, at the source first:
    playground. Instead, where a term is checked against an expected type
    and the two don't unify, and either side mentions an error hole, the
    term is silently replaced by a new error hole of the expected type. Lean
-   does this with its synthetic `sorry` [from memory]. What flows on is
+   does this with its synthetic `sorry`: `logAt` drops an error message whose text `hasSyntheticSorry` (`src/Lean/Log.lean`, lean4 918003258c) [checked in source, 15 Nov 2026]. What flows on is
    always well typed. (Fable's safeguard 2.)
 2. **Error sites that inspect a type's head without unifying** return an
    error hole, silently, when that head is flagged: a field or method after
@@ -390,15 +396,15 @@ check now costs what a good one's does, where today it costs nothing past
 the header. That is per keystroke in the declaration being typed, and
 under the time of checking the rest of the file [estimated].
 
-### 4.5 What other tools do [from memory, Fable's review]
+### 4.5 What other tools do [from memory, Fable's review; TypeScript and Lean spot-checked 15 Nov 2026, below]
 
 Lean 4 is closest to this design: it elaborates the partial syntax up to
 the error, puts a synthetic `sorry` in the gap, and suppresses errors that
 mention one when they are emitted. Agda and Idris stop at the file's first
 syntax error. rust-analyzer, rustc and TypeScript recover per statement
-and give the gap an error type. TypeScript's `tsc` may print only the
-syntax errors when there are any [medium confidence], while its editor
-server shows both (D3581).
+and give the gap an error type. TypeScript's `tsc` prints only the
+syntax errors when there are any: `emitFilesAndReportErrors` gets semantic diagnostics only "if we didn't have any syntactic errors" (`src/compiler/watch.ts` at TypeScript v5.9.2) [checked in source, 15 Nov 2026], while its editor
+server shows both (D3581; not checked). Lean's elaboration up to the error with a synthetic `sorry` and suppressed follow-on errors is the `logAt` behaviour above; Agda, Idris, rust-analyzer and rustc remain from memory.
 
 ## 5. The editor, the playground, the formatter
 

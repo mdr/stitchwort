@@ -14,4 +14,4 @@ def grpB (n: Nat) (h: 0 = 0): Nat :=
     | Zero => 1
     | Succ m => grpA m h
 
-theorem t22 (n: Nat) (p: 0 = 0) (q: 0 = 0): grpB n p = grpB n q := rfl
+theorem t22 (n: Nat) (p: 0 = 0) (q: 0 = 0): grpB n p = grpB n q := byComputing

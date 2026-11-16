@@ -7,5 +7,5 @@ def map: List (List Char) := [['#', '#', '#'], ['#', '.', '#'], ['#', '#', '#']]
 def isWall (row column: Nat): Bool := (map.getOr row []).getOr column '#' == '#'
 
 theorem stepped ∀ (row column: Nat): row = row := match wall: isWall row column with
-  | True => rfl
+  | True => byComputing
   | False => ?

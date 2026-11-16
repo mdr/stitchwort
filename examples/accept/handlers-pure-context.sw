@@ -52,5 +52,5 @@ theorem thenLaw ∀ (first: () → {Abort} a) (rest: a → {Abort} b):
     Abort.toOption (() => rest (first ()))
       = Option.flatMap (Abort.toOption first) (x => Abort.toOption (() => rest x)) :=
   match reify first with
-    | return x => rfl
-    | Abort.stop (), _ => rfl
+    | return x => byComputing
+    | Abort.stop (), _ => byComputing

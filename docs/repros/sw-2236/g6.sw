@@ -10,8 +10,8 @@ def alsoIgnores (a: Nat) (x: Nat): Nat :=
     | Zero => 0
     | Succ m => m
 
-theorem otherDef (x: Nat): ignoresFirst 1 x = alsoIgnores 2 x := rfl
+theorem otherDef (x: Nat): ignoresFirst 1 x = alsoIgnores 2 x := byComputing
 
-theorem sameDef (x: Nat): ignoresFirst 1 x = ignoresFirst 2 x := rfl
+theorem sameDef (x: Nat): ignoresFirst 1 x = ignoresFirst 2 x := byComputing
 
-theorem middle (x: Nat): alsoIgnores 2 x = ignoresFirst 2 x := rfl
+theorem middle (x: Nat): alsoIgnores 2 x = ignoresFirst 2 x := byComputing

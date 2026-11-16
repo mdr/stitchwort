@@ -14,4 +14,4 @@ def h: Nat → Nat
   | Zero => 0
   | Succ _ => 2
 
-theorem bad (x: Nat): (f x, g x, f x) = (g x, f x, h x) := rfl
+theorem bad (x: Nat): (f x, g x, f x) = (g x, f x, h x) := byComputing

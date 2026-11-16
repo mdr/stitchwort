@@ -64,14 +64,19 @@ pub struct IndexedName {
     pub kind: PendingKind,
     /// A constructor or operation: visible wherever its type or ability is.
     pub follower: bool,
-    /// A definition declared with a function type (`W-LAMBDA-SHADOW` asks
-    /// before the file is loaded).
+    /// A definition declared with a function type, or an operation whose
+    /// first argument is a function type (`W-LAMBDA-SHADOW` asks before the
+    /// file is loaded).
     pub function: bool,
     pub span: Span,
     /// A data type's field every constructor has: a shared-field accessor
     /// if its types agree, which loading the file decides (docs/proposals/
     /// variant-fields.md §12.1).
     pub candidate: bool,
+    /// Generated for a field of a data type (`T.f`), or for one of those
+    /// (`T.f.update.g`): a name reached through a value or written in full,
+    /// not one a bare name should suggest (SW-3445).
+    pub accessor: bool,
 }
 
 /// One file of the library, parsed once.
@@ -386,6 +391,14 @@ impl LibraryIndex {
         self.owner.iter().map(|(k, f)| (k.as_str(), *f))
     }
 
+    /// Whether `key` is a name generated for a data type's field (or for one
+    /// of those), which a bare unknown name shouldn't suggest (SW-3445).
+    pub fn is_accessor(&self, key: &str) -> bool {
+        self.owner(key)
+            .and_then(|f| self.files[f].names.iter().find(|n| n.key == key))
+            .is_some_and(|n| n.accessor)
+    }
+
     /// The candidate shared-field accessors: names loading may not declare.
     pub fn candidates(&self) -> impl Iterator<Item = &str> {
         self.files
@@ -635,6 +648,7 @@ pub(crate) fn file_names(
                     function: false,
                     span: *span,
                     candidate: true,
+                    accessor: false,
                 });
             }
             // `f.induct` (stage 2a), for a definition that may call itself:
@@ -653,6 +667,7 @@ pub(crate) fn file_names(
                     function: false,
                     span: *span,
                     candidate: true,
+                    accessor: false,
                 });
             }
         }
@@ -668,6 +683,7 @@ pub(crate) fn file_names(
             function: matches!(decl, Decl::Signature { ty, .. } if crate::module::is_function_type(ty)),
             span: main.span,
             candidate: false,
+            accessor: false,
         });
         // An interface's fields are its methods: definitions, listed below.
         let interface = matches!(
@@ -681,13 +697,26 @@ pub(crate) fn file_names(
             if interface && !follower {
                 continue;
             }
+            // An operation is a function, but `W-LAMBDA-SHADOW` asks only
+            // when its first argument is a function too: `read value => …`
+            // can't mean `read (value => …)` for `Files.read` (SW-3453).
+            let function = match decl {
+                Decl::Ability { ops, .. } => ops
+                    .iter()
+                    .find(|(op, _)| op.text == name.text)
+                    .map_or(follower, |(_, ty)| {
+                        crate::module::takes_function_argument(ty)
+                    }),
+                _ => follower,
+            };
             out.push(IndexedName {
                 key: Elaborator::member_key(&key, &name.text),
                 kind: if follower { member } else { PendingKind::Other },
                 follower,
-                function: follower,
+                function,
                 span: name.span,
                 candidate: false,
+                accessor: false,
             });
         }
         // A record's fields are functions in its namespace.
@@ -706,6 +735,7 @@ pub(crate) fn file_names(
                         function: true,
                         span: name.span,
                         candidate: false,
+                        accessor: true,
                     });
                     // An interface's own projections, beside its methods.
                     if interface {
@@ -716,6 +746,7 @@ pub(crate) fn file_names(
                             function: true,
                             span: name.span,
                             candidate: false,
+                            accessor: true,
                         });
                     }
                 }
@@ -766,6 +797,7 @@ pub(crate) fn file_names(
                             function: true,
                             span: name.span,
                             candidate: true,
+                            accessor: true,
                         });
                     }
                 }
@@ -791,6 +823,7 @@ pub(crate) fn file_names(
                             function: false,
                             span: decl.span(),
                             candidate: true,
+                            accessor: true,
                         });
                     }
                 }
@@ -962,7 +995,7 @@ impl Elaborator {
         self.session.library.as_ref().map(|lib| lib.index.clone())
     }
 
-    /// Whether `auto` may try `omega` now (the unit's setting; for tests).
+    /// Whether `auto` may try `arithmetic` now (the unit's setting; for tests).
     #[doc(hidden)]
     pub fn omega_for_auto(&self) -> bool {
         self.unit.omega_for_auto
@@ -1120,7 +1153,7 @@ impl Elaborator {
     }
 
     /// Whether the files `needs` names, with the files those need, declare
-    /// everything the proofs `omega` writes use. It depends only on the
+    /// everything the proofs `arithmetic` writes use. It depends only on the
     /// module's own needs, not on what happens to be loaded, so `auto`
     /// proves the same things however the module is reached.
     pub(crate) fn needs_reach_omega(&self, needs: &Needs) -> bool {

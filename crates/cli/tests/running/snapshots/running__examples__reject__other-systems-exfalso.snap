@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `False.elim`
+   ╭─[ reject/other-systems-exfalso.sw:6:38 ]
+   │
+ 6 │ theorem anything (h: Void): 1 = 2 := False.elim h
+   │                                      ─────┬────  
+   │                                           ╰────── not in scope
+   │ 
+   │ Note: `False.elim` isn't a Stitchwort name: anything follows from a proof `h` of `Void`: write `h.impossible` (or `Void.impossible (…)`)
+───╯

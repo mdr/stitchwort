@@ -33,7 +33,7 @@ theorem membershipFromPart ∀ (a b: Spot) (spots: List Spot) (h: (a ∈ spots) 
 -- the goal is an existential
 theorem existsGoal ∀ (a b: Spot) (h: besideEachOther a b): Exists Nat (n => n = a.row) :=
   let Both same _ := h
-  Witness a.row rfl
+  Witness a.row byComputing
 
 -- a method of a record, through another method
 theorem methodGoal ∀ (field: Field) (spot: Spot) (spots: List Spot) (h: field.contains spot)

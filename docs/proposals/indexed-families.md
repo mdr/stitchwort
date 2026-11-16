@@ -192,7 +192,7 @@ changes before any kernel work. All are made.
   identity proofs) is the same idea stated as "any two proofs of `a = b` are equal".
 - **Fording.** Turning an index into a parameter plus an equation field:
   `VNil (e: n = 0)` instead of `VNil: Vec a 0`. Named after Henry Ford's "any colour, so
-  long as it's black" (Conor McBride's term **[unverified]**).
+  long as it's black" (Conor McBride's term: a Rocq Zulip thread and a 2023-24 paper attribute it to McBride's thesis, §3.5, as a reference to Ford's quote; the thesis itself was not opened, so the attribution is second-hand, checked 15 Nov 2026).
 - **Forced field.** A constructor field that the result type's indices determine, like
   `n` in `VCons [n] …: Vec a (Succ n)`.
 - **Large index.** An index whose type is bigger than the data type's universe, like
@@ -292,7 +292,7 @@ problems"; Cockx advises using "only variables and constructors in the indices"
 
 **Rocq.** `match v in Vec _ n return P n v with …` writes the motive by hand. Indices in
 the `in` clause must be variables **[checked: R1]**. Dependent pattern matching with
-unification lives in the Equations plugin (Sozeau), outside the kernel **[unverified]**.
+unification lives in the Equations plugin (Sozeau), outside the kernel **[checked 15 Nov 2026: the Coq-Equations README calls it "a function definition plugin" providing "dependent pattern-matching and (well-founded) recursion", with copyright to Matthieu Sozeau and Cyprien Mangin, github.com/mattam82/Coq-Equations; "outside the kernel" follows from its being a plugin whose definitions are axiom-free]**.
 
 **Idris 2.** Indexed families are the normal way to write `Vect`. Erasure is by
 *quantity*: an implicitly bound name is erased ("If … a name is implicitly bound … the
@@ -678,7 +678,7 @@ holds in the model where every proposition has at most one proof, which is the m
 adopted proof-irrelevance design relies on (proof-irrelevance.md:297-307). Lean has K
 (K-like reduction), and Agda has it by default. K/UIP is incompatible with univalent and
 higher-dimensional interpretations of equality, such as homotopy type theory and cubical
-type theory (Agda refuses `--cubical` together with `--with-K` **[unverified]**).
+type theory (**corrected 15 Nov 2026:** Agda's manual says definitions relying on K "will never compute on transports" in Cubical Agda, and that enabling both Cubical and K "is not compatible with `--safe`" (agda.readthedocs.io, Cubical Agda, "Indexed inductive types"); so the refusal is under `--safe`, not outright).
 Stitchwort plans neither. Without deletion, `Le n n` couldn't be
 matched against `LeRefl` (both equations solve to `n = n`) without extra steps, and K
 would arrive anyway with D1′. **Recommendation: accept K (D138).**
@@ -905,7 +905,7 @@ signature's `n`.
 - **`()`** says "this argument's type has no possible constructor". Today it needs a type
   with no constructors; now it also accepts `Even 1` (§8.4). Otherwise `E-NOT-EMPTY`.
 - **An arm that can never match** (`| VNil => …` for a `Vec a (Succ n)`) is the warning
-  `W-UNREACHABLE` and is dropped. Agda reports these too **[unverified]**.
+  `W-UNREACHABLE` and is dropped. Agda reports these too **[checked 15 Nov 2026: Agda's coverage checker marks clauses unreachable and emits an unreachable-clause warning, per the Agda 2.6.x `Agda.TypeChecking.Coverage` source and its test `Unreachable.agda`, via a search summary; that it does so for index-impossible arms specifically wasn't confirmed]**.
 - **`match`** works as now. A lifted `match` takes the index variables its scrutinees'
   types mention, as it already takes the variables types depend on. A scrutinee whose
   type has an index that is neither a variable nor a constructor form can get stuck:

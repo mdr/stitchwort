@@ -21,12 +21,12 @@ def main(): {IO, Fail} () :=
   IO.print "Part 2: ${solvePart2 passes |> .orFail "no missing seat between two passes"}"
 
 --| One letter, `True` for `upper`.
-def half (lower upper: Char): {Parse} Bool :=
+def half (lower upper: Char): {Parse Char} Bool :=
   Parse.satisfy "'${lower}' or '${upper}'" (letter => letter == lower || letter == upper) == upper
 
-def frontBack(): {Parse} Bool := half 'F' 'B'
+def frontBack(): {Parse Char} Bool := half 'F' 'B'
 
-def leftRight(): {Parse} Bool := half 'L' 'R'
+def leftRight(): {Parse Char} Bool := half 'L' 'R'
 
 --| A boarding pass: its row letters and its column letters as bits, the
 --| most significant first, `B` and `R` as 1.
@@ -35,7 +35,7 @@ type Pass = { row: List Bool, column: List Bool }
 --| Row × 8 + column: the pass's 10 bits read as one number.
 def Pass.seatId (pass: Pass): Nat := Nat.fromBits (pass.row ++ pass.column)
 
-def pass(): {Parse} Pass :=
+def pass(): {Parse Char} Pass :=
   let row := Parse.exactly 7 frontBack
   let column := Parse.exactly 3 leftRight
   { row, column }

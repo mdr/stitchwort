@@ -8,4 +8,4 @@ def count: Nat → Nat
   | Zero => Zero
   | Succ n => Succ (count n)
 
-theorem countBig: count 3000000 = 3000000 := rfl
+theorem countBig: count 3000000 = 3000000 := byComputing

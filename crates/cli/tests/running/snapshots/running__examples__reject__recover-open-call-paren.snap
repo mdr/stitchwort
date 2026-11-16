@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected an expression, but the line ends here
+    ╭─[ reject/recover-open-call-paren.sw:9:6 ]
+    │
+  9 │   g (
+    │      │ 
+    │      ╰─ expected an expression, but the line ends here
+ 10 │   let y := 1
+    │   ─┬─  
+    │    ╰─── this line starts a new statement
+    │ 
+    │ Note: the line starting with `let` (in column 3) is at or left of the enclosing block's column (3), so it starts a new statement
+────╯

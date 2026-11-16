@@ -27,7 +27,7 @@ instance Ordering.instDecEq: DecEq Ordering := { decide = Ordering.decEq }
 
 --| `()` has one value, so any two are equal.
 def Builtin.UnitType.decEq: (x: Builtin.UnitType) → (y: Builtin.UnitType) → Decidable (x = y)
-  | Builtin.UnitType.UnitValue, Builtin.UnitType.UnitValue => Decidable.yes rfl
+  | Builtin.UnitType.UnitValue, Builtin.UnitType.UnitValue => Decidable.yes byComputing
 
 instance Builtin.UnitType.instDecEq: DecEq Builtin.UnitType := { decide = Builtin.UnitType.decEq }
 
@@ -45,3 +45,8 @@ instance Result.instDecEq [auto decEqA: DecEq a] [auto decEqE: DecEq e]: DecEq (
 --| ([`Decidable.uniqueEq`], Hedberg's argument).
 theorem DecEq.uniqueEq ∀ [auto decEq: DecEq a] [x y: a] (p q: x = y): p = q :=
   Decidable.uniqueEq (DecEq.decide [decEq := decEq]) x y p q
+
+--| A derived `==` on values of different constructors tests their tags
+--| first: when `Nat.equal i j && f` holds, the tags `i` and `j` are equal.
+theorem DecEq.tagsSame ∀ (i j: Nat) [f: Bool] (h: (Nat.equal i j && f) = True): i = j := match t: Nat.equal i j with
+  | True => Nat.equalSound i j t

@@ -5,7 +5,7 @@ expression: output
 [E-UNKNOWN-NAME] Error: unknown name `xs`
    ╭─[ reject/misspelt-variable.sw:7:47 ]
    │
- 7 │ theorem lengthNil (ys: List Nat): List.length xs = List.length xs := rfl
+ 7 │ theorem lengthNil (ys: List Nat): List.length xs = List.length xs := byComputing
    │                                               ─┬  
    │                                                ╰── not in scope
 ───╯

@@ -1,0 +1,28 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `fromOther` terminates
+   ╭─[ reject/termination-wrapper-other-parameter.sw:9:24 ]
+   │
+ 9 │   | MkW v, [_, ..r] => fromOther (MkW r) [0, 0, ..r]
+   │                        ──────────────┬──────────────  
+   │                                      ╰──────────────── this recursive call might not terminate: the 1st argument, `MkW r`, isn't seen as smaller; the 2nd argument, `[0, 0, ..r]`, isn't seen as smaller
+   │ 
+   │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+   │ 
+   │ Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type. A depth limit keeps it total and provable: an extra `fuel: Nat` argument that decreases on each call, failing (or returning a default) when it runs out
+───╯
+[E-TERMINATION] Error: can't show that `growOther` terminates
+    ╭─[ reject/termination-wrapper-other-parameter.sw:13:28 ]
+    │
+ 13 │   | MkW [_, ..r], MkW q => growOther (MkW [0, 0, ..q]) (MkW r)
+    │                            ─────────────────┬────────────────  
+    │                                             ╰────────────────── this recursive call might not terminate: the 2nd argument is smaller than the 1st argument was
+    │ 
+    │ Note 1: making this call twice in a row, over and over, no argument is known to get smaller
+    │ 
+    │ Note 2: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ 
+    │ Note 3: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type. A depth limit keeps it total and provable: an extra `fuel: Nat` argument that decreases on each call, failing (or returning a default) when it runs out
+────╯

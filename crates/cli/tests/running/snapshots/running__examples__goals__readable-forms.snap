@@ -40,13 +40,13 @@ expression: output
     │       ⊢ f [{ leaf | depth = leaf.depth + 1 }, ..rest] = f rest
 ────╯
 [GOAL] Goal: in `rewritten`
-    ╭─[ goals/readable-forms.sw:24:89 ]
+    ╭─[ goals/readable-forms.sw:24:91 ]
     │
- 24 │ theorem rewritten ∀ (n: Nat) (h: n + 0 = 3): n = 3 := rewrite Std.Nat.addZero n at h in ?
-    │                                                                                         ┬  
-    │                                                                                         ╰── n: Nat
-    │                                                                                             h: n = 3
-    │                                                                                             ⊢ n = 3
+ 24 │ theorem rewritten ∀ (n: Nat) (h: n + 0 = 3): n = 3 := rewrite Std.Nat.addZero n at h then ?
+    │                                                                                           ┬  
+    │                                                                                           ╰── n: Nat
+    │                                                                                               h: n = 3
+    │                                                                                               ⊢ n = 3
     │ 
     │ Note: 1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it
 ────╯

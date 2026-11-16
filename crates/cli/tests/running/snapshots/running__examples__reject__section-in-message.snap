@@ -2,14 +2,14 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
    ╭─[ reject/section-in-message.sw:4:87 ]
    │
- 4 │ theorem countFlipped (xs: List Nat) (id: Nat): xs.count (== id) = xs.count (id ==) := rfl
-   │                                                                                       ─┬─  
-   │                                                                                        ╰─── `xs.count (== id)` and `xs.count (id ==)` aren't equal
+ 4 │ theorem countFlipped (xs: List Nat) (id: Nat): xs.count (== id) = xs.count (id ==) := byComputing
+   │                                                                                       ─────┬─────  
+   │                                                                                            ╰─────── `xs.count (== id)` and `xs.count (id ==)` aren't equal
    │ 
    │ Note 1: computing both sides gives `xs.foldLeft 0 (n x => n.succIf (x.equal id))` and `xs.foldLeft 0 (n x => n.succIf (id.equal x))`
    │ 
-   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
 ───╯

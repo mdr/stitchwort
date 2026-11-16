@@ -486,9 +486,9 @@ fn built_in_names_lead_to_the_file_that_documents_them() {
 
 def mk (n: Nat): Quot Nat (a b => a = b) := Quot.mk n
 
-def same (n: Nat): n = n := rfl
+def same (n: Nat): n = n := byComputing
 
-theorem back (a b: Nat) (p: a = b): b = a := J (y q => y = a) rfl p
+theorem back (a b: Nat) (p: a = b): b = a := J (y q => y = a) byComputing p
 ";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
@@ -501,7 +501,7 @@ theorem back (a b: Nat) (p: a = b): b = a := J (y q => y = a) rfl p
     for (line, needle, name, doc) in [
         (0, "Quot", "Quot", "quotient of `a` by the relation"),
         (2, "Quot.mk", "Quot.mk", "element of the quotient"),
-        (4, "rfl", "rfl", "value equals itself"),
+        (4, "byComputing", "byComputing", "value equals itself"),
         (6, "J (", "J", "Transport along an equality"),
     ] {
         let col = lines[line].find(needle).unwrap() as u32;
@@ -642,7 +642,7 @@ fn hover_shows_the_doc() {
 fn hover_shows_the_parameters_by_name() {
     let dir = temp_dir("header");
     let file = dir.join("header.sw");
-    let text = "import Std (List, Parse)\n\n--| Clamps.\ndef clampTo (low: Nat) (high: Nat := 10) (x: Nat): Nat := x\n\ndef plain: Nat → Nat\n  | n => n\n\ndef mixed (a: Nat): Nat → Nat\n  | n => n + a\n\ndef pick [a: Type] (xs: List a): Nat := List.length xs\n\ntheorem keep (n: Nat) (h: n = n): n = n := h\n\ndef a1: Nat := clampTo (low := 1) (x := 3)\ndef a2: Nat := plain 1\ndef a3: Nat := mixed 1 2\ndef a4: {Parse} Char := Parse.satisfy \"x\" (c => True)\ndef a5: Nat := List.length [1]\ndef a6: Nat := pick [1]\n";
+    let text = "import Std (List, Parse)\n\n--| Clamps.\ndef clampTo (low: Nat) (high: Nat := 10) (x: Nat): Nat := x\n\ndef plain: Nat → Nat\n  | n => n\n\ndef mixed (a: Nat): Nat → Nat\n  | n => n + a\n\ndef pick [a: Type] (xs: List a): Nat := List.length xs\n\ntheorem keep (n: Nat) (h: n = n): n = n := h\n\ndef a1: Nat := clampTo (low := 1) (x := 3)\ndef a2: Nat := plain 1\ndef a3: Nat := mixed 1 2\ndef a4: {Parse Char} Char := Parse.satisfy \"x\" (c => True)\ndef a5: Nat := List.length [1]\ndef a6: Nat := pick [1]\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
     let mut client = Client::start();
@@ -687,7 +687,7 @@ fn hover_shows_the_parameters_by_name() {
     // A library function.
     let satisfy = shown(&mut client, 18, "Parse.satisfy");
     assert!(
-        satisfy.starts_with("```stitchwort\ndef Std.Parse.satisfy (what: Text) (passes: Char → Bool): {Parse} Char\n```"),
+        satisfy.starts_with("```stitchwort\ndef Std.Parse.satisfy [t: Type] (what: Text) (passes: t → Bool): {Parse t} t\n```"),
         "{satisfy}"
     );
     let length = shown(&mut client, 19, "List.length");
@@ -753,13 +753,44 @@ fn a_looping_test_never_runs() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// The server never performs a program's file operations
+/// (docs/proposals/file-io-and-text.md §2.4): a file whose `main`
+/// overwrites itself and writes a marker is opened and checked, with its
+/// test, and the folder is as it was.
+#[test]
+fn a_program_that_writes_files_never_touches_them_in_the_editor() {
+    let dir = temp_dir("vandal");
+    let file = dir.join("vandal.sw");
+    let text = r#"import Std (Disk, Files, IO, Pair, Path, Result, Text)
+
+def vandalise(): {Files} () :=
+  Files.write ("vandal.sw".toPath, "gone")
+  Files.write ("marker.txt".toPath, "here")
+  ()
+
+def main(): {Files, IO} () := vandalise()
+
+test "vandalise writes the marker on a pretend disk" :=
+  (Files.simulate Disk.empty vandalise).fst.read "marker.txt".toPath == Ok "here"
+"#;
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    client.shutdown();
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), text);
+    assert!(!dir.join("marker.txt").exists());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A false theorem's error carries the counterexample the search found, as
 /// numbered `Note N:` lines of the diagnostic's message (D1158).
 #[test]
 fn a_false_theorem_gets_a_counterexample_note() {
     let dir = temp_dir("counterexample");
     let file = dir.join("false.sw");
-    let text = "theorem subAdd (a: Nat) (b: Nat): (a - b) + b = a := rfl\n";
+    let text = "theorem subAdd (a: Nat) (b: Nat): (a - b) + b = a := byComputing\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
     let mut client = Client::start();
@@ -781,7 +812,7 @@ fn a_false_theorem_gets_a_counterexample_note() {
 fn several_notes_are_numbered_like_the_command_line() {
     let dir = temp_dir("numbered-notes");
     let file = dir.join("notes.sw");
-    let text = "def f (a: Nat) (b: Nat): List Nat := [a, b, 1]\n\ntheorem g (a: Nat) (b: Nat): f a b = [a, b, 2] := rfl\n";
+    let text = "def f (a: Nat) (b: Nat): List Nat := [a, b, 1]\n\ntheorem g (a: Nat) (b: Nat): f a b = [a, b, 2] := byComputing\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
     let mut client = Client::start();
@@ -2027,9 +2058,9 @@ fn selecting_a_type_declaration_shows_no_derived_types() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// `Eq.sym` and `Eq.trans` have results that do not depend on their explicit
+/// `Eq.flipped` and `Eq.trans` have results that do not depend on their explicit
 /// arguments, so they are elaborated by propagation (SW-301).
-const EQ_PROGRAM: &str = "import Std (Eq)\ntheorem t [x y z: Nat] (p: x = y) (q: y = z): z = x := Eq.sym (Eq.trans p q)\n";
+const EQ_PROGRAM: &str = "import Std (Eq)\ntheorem t [x y z: Nat] (p: x = y) (q: y = z): z = x := Eq.flipped (Eq.trans p q)\n";
 
 #[test]
 fn eq_sym_and_eq_trans_navigate_to_their_definitions() {
@@ -2041,7 +2072,7 @@ fn eq_sym_and_eq_trans_navigate_to_their_definitions() {
     client.open(&uri, EQ_PROGRAM);
     assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
     let line = EQ_PROGRAM.lines().nth(1).unwrap();
-    for name in ["Eq.sym", "Eq.trans"] {
+    for name in ["Eq.flipped", "Eq.trans"] {
         let ch = line.find(name).unwrap() as u32 + 4;
         let definition = client.at("textDocument/definition", &uri, 1, ch);
         assert!(!definition.is_null(), "no definition for {name}");
@@ -2057,7 +2088,7 @@ fn eq_sym_and_eq_trans_navigate_to_their_definitions() {
 const LOGIC_PROGRAM: &str = "import Std (Exists, Iff)
 theorem a (x: Nat) (xs: List Nat) (h: x in xs): x ∈ xs := h
 theorem b (p: Prop): p <-> p := { forward = h => h, backward = h => h }
-theorem c: exists (n: Nat) => n = 1 := Std.Exists.Witness 1 rfl
+theorem c: exists (n: Nat) => n = 1 := Std.Exists.Witness 1 byComputing
 theorem d (x: Nat): x ∉ Nil := none => none
 ";
 
@@ -2253,7 +2284,7 @@ fn an_open_goal_is_an_information_diagnostic() {
     );
 
     // The proof written: the goal is gone.
-    client.change(&uri, 2, &with_goal.replace("?", "rfl"));
+    client.change(&uri, 2, &with_goal.replace("?", "byComputing"));
     let found = client.diagnostics(&uri, 2);
     assert!(goals(&found).is_empty(), "{found:?}");
     client.shutdown();
@@ -2293,7 +2324,7 @@ fn goals_stay_while_their_declaration_does_not_parse() {
     // Broken, then the `?` replaced: the goal goes with the fix.
     client.change(&uri, 5, &broken);
     client.diagnostics(&uri, 5);
-    client.change(&uri, 6, &with_goal.replace("?", "rfl"));
+    client.change(&uri, 6, &with_goal.replace("?", "byComputing"));
     let found = client.diagnostics(&uri, 6);
     assert!(found.is_empty(), "{found:?}");
 
@@ -2309,7 +2340,7 @@ fn goals_stay_while_their_declaration_does_not_parse() {
         &uri,
         8,
         &with_goal
-            .replace(":= ?", ":= rfl")
+            .replace(":= ?", ":= byComputing")
             .replace("def other: Nat := 1", "def other: Nat := (1"),
     );
     let found = client.diagnostics(&uri, 8);
@@ -2359,7 +2390,7 @@ fn goal_at_answers_for_the_goal_at_or_near_the_cursor() {
     assert_eq!(goal_at(&mut client, 4, 2)["range"]["start"]["line"], 4);
 
     // After the proof is written: no goal.
-    client.change(&uri, 3, &text.replace('?', "rfl"));
+    client.change(&uri, 3, &text.replace('?', "byComputing"));
     client.diagnostics(&uri, 3);
     assert_eq!(goal_at(&mut client, 3, 2), Value::Null);
     client.shutdown();
@@ -2416,8 +2447,7 @@ fn context_at_answers_anywhere_in_an_expression() {
 fn context_at_says_whether_the_type_is_a_proposition() {
     let dir = temp_dir("context-at-kind");
     let file = dir.join("kind.sw");
-    let text =
-        "def double (n: Nat): Nat := n + n\n\ntheorem twice (n: Nat): double n = n + n :=\n  rfl\n";
+    let text = "def double (n: Nat): Nat := n + n\n\ntheorem twice (n: Nat): double n = n + n :=\n  byComputing\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
     let mut client = Client::start();
@@ -2445,7 +2475,7 @@ fn context_at_says_whether_the_type_is_a_proposition() {
 fn context_at_a_step_and_has_type() {
     let dir = temp_dir("context-at-step");
     let file = dir.join("step.sw");
-    let text = "theorem flip (a b: Nat) (h: a = b): b = a :=\n  rewrite h in rfl\n\n\
+    let text = "theorem flip (a b: Nat) (h: a = b): b = a :=\n  rewrite h then byComputing\n\n\
                 def widen (n: Nat): Int := n\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
@@ -2481,9 +2511,9 @@ fn context_at_a_step_and_has_type() {
 fn context_at_a_rewrite_keyword_shows_the_rule_step() {
     let dir = temp_dir("context-at-rewrite-keyword");
     let file = dir.join("keyword.sw");
-    let text = "theorem flip (a b: Nat) (h: a = b): b = a :=\n  rewrite h in rfl\n\n\
-                theorem twice (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=\n  rewrite h1, h2 in rfl\n\n\
-                theorem atH (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=\n  rewrite h2 at h1 in h1\n";
+    let text = "theorem flip (a b: Nat) (h: a = b): b = a :=\n  rewrite h then byComputing\n\n\
+                theorem twice (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=\n  rewrite h1, h2 then byComputing\n\n\
+                theorem atH (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=\n  rewrite h2 at h1 then h1\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
     let mut client = Client::start();
@@ -2649,12 +2679,12 @@ fn a_code_action_at_a_goal_in_a_project_offers_what_closes_it() {
          import Std (Nat)\n\n\
          def double (n: Nat): Nat := n + n\n\n\
          theorem doubleSwap (m: Nat) (n: Nat): double (m + n) = double (n + m) :=\n  \
-         rewrite Nat.addComm m n in rfl\n",
+         rewrite Nat.addComm m n then byComputing\n",
     );
     let saved = "namespace Shop.Proofs\n\
                  import Shop.Spec (double as twice)\n\
                  import Std (Nat)\n\n\
-                 theorem twiceTwo (a: Nat): twice a = a + a := rfl\n";
+                 theorem twiceTwo (a: Nat): twice a = a + a := byComputing\n";
     write("src/Shop/Proofs/Proofs.sw", saved);
     let file = dir.join("src/Shop/Proofs/Proofs.sw");
     let uri = uri(&file);
@@ -2809,7 +2839,7 @@ fn hover_on_a_call_lists_the_defaults_it_used() {
                 def b: Nat := scaled 3\n\
                 def c: List Nat := range 0 10 (step := 2) (label := \"c\")\n\
                 def d: List Nat := 0 |> range 10\n\
-                theorem e (a: Nat) (b: Nat): range a b = [a, b, 1] := rfl\n\
+                theorem e (a: Nat) (b: Nat): range a b = [a, b, 1] := byComputing\n\
                 type Clip = { length: Nat }\n\
                 def Clip.trimmed (clip: Clip) (by: Nat := 1): Nat := clip.length - by\n\
                 def f (clip: Clip): Nat := clip.trimmed\n";
@@ -3057,7 +3087,7 @@ fn ask_in_library(client: &mut Client, path: &str, needle: &str, offset: u32) ->
 fn projections_on_locals_navigate_in_library_documents() {
     let dir = temp_dir("projections");
     let file = dir.join("proj.sw");
-    let text = "import Std (Map, Set)\n\ndef f: Set Nat := Set.empty\n\ndef g: Bool := f == f\n\ndef h: Ordering := compare (Map.empty: Map Nat Nat) Map.empty\n\ntheorem t [auto ord: Ord k] (s: Set k) (key: k):\n    Set.toList (Set.insert s key) = Set.toList (Set.insert s key) :=\n  Std.Eq.trans (Set.toListInsert s key) (Std.Eq.sym (Set.toListInsert s key))\n";
+    let text = "import Std (Map, Set)\n\ndef f: Set Nat := Set.empty\n\ndef g: Bool := f == f\n\ndef h: Ordering := compare (Map.empty: Map Nat Nat) Map.empty\n\ntheorem t [auto ord: Ord k] (s: Set k) (key: k):\n    Set.toList (Set.insert s key) = Set.toList (Set.insert s key) :=\n  Std.Eq.trans (Set.toListInsert s key) (Std.Eq.flipped (Set.toListInsert s key))\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
     let mut client = Client::start();
@@ -3201,6 +3231,93 @@ fn tests_request_lists_tests_open_or_on_disk() {
         json!({"textDocument": {"uri": "file:///no/such/file.sw"}}),
     );
     assert_eq!(missing, json!([]));
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A file that offers each kind of quick fix the server has for a
+/// diagnostic: an import, the missing arms, and the two style rewrites.
+const FIXABLE: &str = "namespace Demo\nimport Std (List)\n\n\
+    def f (m: Map Nat Nat): Nat := 0\n\n\
+    def b: Option Nat -> Nat\n  | Some n => n\n\n\
+    theorem addZero: ∀ (n: Nat) => n + 0 = n\n  | Zero => byComputing\n  | Succ k => byComputing\n\n\
+    theorem addZero2: (n: Nat) -> n + 0 = n := n => byComputing\n\n\
+    def g (xs: List Nat): Nat := xs.lenght\n";
+
+/// Every quick fix the server offers for a diagnostic is among the `fixes`
+/// of the same diagnostic in `check --index` (D3646: a fix the editor
+/// knows but the JSON lacks is a bug), with the same title and edits.
+#[test]
+fn every_quick_fix_of_the_server_is_in_check_index() {
+    let dir = temp_dir("fixes-in-index");
+    let file = dir.join("fixable.sw");
+    std::fs::write(&file, FIXABLE).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["check", "--no-cache", "--index", "-"])
+        .arg(&file)
+        .output()
+        .unwrap();
+    let index: Value = serde_json::from_slice(&out.stdout).expect("an index");
+    let in_index: Vec<Value> = index["diagnostics"].as_array().unwrap().clone();
+
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, FIXABLE);
+    let published = client.diagnostics(&uri, 1);
+    let mut titles = Vec::new();
+    for d in &published {
+        let actions = client.request(
+            "textDocument/codeAction",
+            json!({"textDocument": {"uri": uri}, "range": d["range"],
+                   "context": {"diagnostics": [d]}}),
+        );
+        let fixes: Vec<Value> = (actions.as_array().into_iter().flatten())
+            .filter(|a| a["kind"] == "quickfix" && a.get("edit").is_some())
+            .cloned()
+            .collect();
+        if fixes.is_empty() {
+            continue;
+        }
+        let code = d["code"].as_str().unwrap();
+        let json_fixes = (in_index.iter())
+            .find(|j| j["code"] == code && j["range"] == lsp_range(&d["range"]))
+            .unwrap_or_else(|| panic!("{code} is not in the index: {in_index:?}"))["fixes"]
+            .as_array()
+            .unwrap()
+            .clone();
+        for action in &fixes {
+            let title = action["title"].as_str().unwrap();
+            let fix = json_fixes
+                .iter()
+                .find(|f| f["title"] == title)
+                .unwrap_or_else(|| panic!("{code}: no `{title}` in {json_fixes:?}"));
+            let edits = action["edit"]["documentChanges"][0]["edits"]
+                .as_array()
+                .or_else(|| action["edit"]["changes"][&uri].as_array())
+                .unwrap_or_else(|| panic!("{action}"));
+            let lsp_edits: Vec<(Value, Value)> = edits
+                .iter()
+                .map(|e| (lsp_range(&e["range"]), e["newText"].clone()))
+                .collect();
+            let json_edits: Vec<(Value, Value)> = (fix["edits"].as_array().unwrap().iter())
+                .map(|e| (e["range"].clone(), e["replacement"].clone()))
+                .collect();
+            assert_eq!(lsp_edits, json_edits, "{code}: {title}");
+            titles.push(title.to_string());
+        }
+    }
+    titles.sort();
+    assert_eq!(
+        titles,
+        [
+            "Add `import Std (Map)`",
+            "Add the missing arm",
+            "Move ∀ variables before the colon",
+            "Replace with `length`",
+            "Write ∀ instead of ->",
+        ],
+        "{published:?}"
+    );
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }

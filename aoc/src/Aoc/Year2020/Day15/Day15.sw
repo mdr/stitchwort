@@ -36,7 +36,7 @@ def turnsFrom (args: List Text): {Fail} Nat :=
 
 type Starting = { numbers: NonEmptyList Nat }
 
-def starting(): {Parse} Starting := { numbers = Parse.sepBy1 Parse.nat (() => Parse.char ',') }
+def starting(): {Parse Char} Starting := { numbers = Parse.sepBy1 Parse.nat (() => Parse.char ',') }
 
 def parseStarting (input: Text): {Fail} Starting := Parse.all input starting
 

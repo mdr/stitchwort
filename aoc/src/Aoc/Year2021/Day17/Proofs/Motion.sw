@@ -8,11 +8,11 @@ import Std (Bool, Eq, Int, Nat, Void)
 
 --| The program's drag, `dx - sign dx`, is the puzzle's.
 theorem dragSign ∀ (dx: Int): dx - dx.sign = drag dx := match dx with
-  | OfNat 0 => rfl
-  | OfNat (Succ k) => rfl
-  | NegSucc k => rfl
+  | OfNat 0 => byComputing
+  | OfNat (Succ k) => byComputing
+  | NegSucc k => byComputing
 
-theorem stepIsMove ∀ (probe: Probe): step probe = move probe := rewrite dragSign probe.velocity.x in rfl
+theorem stepIsMove ∀ (probe: Probe): step probe = move probe := rewrite dragSign probe.velocity.x then byComputing
 
 --| The probe after `n` steps of the program, from `velocity`.
 def flight (n: Nat) (velocity: Velocity): Probe := Nat.iterate n step (launch velocity)
@@ -24,18 +24,18 @@ theorem flightIsAfter ∀ (n: Nat) (velocity: Velocity): flight n velocity = aft
 --| is `n * (2 * dy + 1 - n)`.
 theorem dyAfter ∀ (n: Nat) (probe: Probe): (Nat.iterate n step probe).velocity.y = probe.velocity.y - n.toInt :=
   match n with
-    | 0 => omega
-    | Succ n => omega [dyAfter n (step probe)]
+    | 0 => arithmetic
+    | Succ n => arithmetic [dyAfter n (step probe)]
 
 theorem yAfter ∀ (n: Nat) (probe: Probe):
     2 * (Nat.iterate n step probe).position.y = 2 * probe.position.y + n.toInt * (2 * probe.velocity.y + 1 - n.toInt) :=
   match n with
-    | 0 => ring
-    | Succ n => ring [yAfter n (step probe)]
+    | 0 => algebra
+    | Succ n => algebra [yAfter n (step probe)]
 
 --| Once past the target, the probe stays past it.
 theorem pastStays ∀ (target: Target) (probe: Probe) (h: past target probe = True): past target (step probe) = True :=
-  omega [Int.signCases probe.velocity.x]
+  arithmetic [Int.signCases probe.velocity.x]
 
 --| A probe past the target isn't in it.
 theorem pastOutside ∀ (target: Target) (probe: Probe) (h: past target probe = True): inTarget target probe = False :=

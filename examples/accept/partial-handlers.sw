@@ -7,7 +7,9 @@ import Std (Empty, Fail, Nat)
 
 -- Fails at 3, on its way down.
 def countdown (n: Nat): {Fail, Partial} Nat :=
-  if n == 3 then Empty.absurd (Fail.stop "three") else if n == 0 then 0 else countdown (n - 1)
+  if n == 3 then Empty.absurd (Fail.stop "three")
+  else if n == 0 then 0
+  else countdown (n - 1)
 
 -- A handler written in place: the failure becomes a value, but `caught` is
 -- still partial, since `countdown` is.

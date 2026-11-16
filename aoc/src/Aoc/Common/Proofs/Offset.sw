@@ -16,21 +16,22 @@ theorem positionExt ∀ (position other: Position)
     (rows: position.row = other.row)
     (columns: position.column = other.column):
     position = other :=
-  match position, other with | { row, column }, { row = otherRow, column = otherColumn } => rewrite rows, columns in rfl
+  match position, other with
+    | { row, column }, { row = otherRow, column = otherColumn } => rewrite rows, columns then byComputing
 
 --| Positions are equal when their rows and columns are, as `Int`s.
 theorem positionExtInt ∀ (position other: Position)
     (rows: position.row.toInt = other.row.toInt)
     (columns: position.column.toInt = other.column.toInt):
     position = other :=
-  positionExt position other (omega) (omega)
+  positionExt position other (arithmetic) (arithmetic)
 
 theorem offsetExt ∀ (offset other: Offset)
     (sameRows: offset.rows = other.rows)
     (sameColumns: offset.columns = other.columns):
     offset = other :=
   match offset, other with
-    | { rows, columns }, { rows = otherRows, columns = otherColumns } => rewrite sameRows, sameColumns in rfl
+    | { rows, columns }, { rows = otherRows, columns = otherColumns } => rewrite sameRows, sameColumns then byComputing
 
 -- Where an offset lands
 
@@ -44,15 +45,15 @@ theorem offsetSome ∀ (position: Position) (offset: Offset) (next: Position)
       match columnAt: (position.column.toInt + offset.columns).toNatChecked with
         | Some column =>
           let same: ({ row, column }: Position) = next := Option.someInjective landed
-          rewrite <- same in
-            Both (Eq.sym (Int.toNatCheckedSome _ row rowAt)) (Eq.sym (Int.toNatCheckedSome _ column columnAt))
+          rewrite <- same then
+            Both (Int.toNatCheckedSome _ row rowAt).flipped (Eq.flipped (Int.toNatCheckedSome _ column columnAt))
 
 --| A position whose row and column are `offset` away is where it lands.
 theorem offsetOf ∀ (position: Position) (offset: Offset) (next: Position)
     (rows: next.row.toInt = position.row.toInt + offset.rows)
     (columns: next.column.toInt = position.column.toInt + offset.columns):
     position.offset offset = Some next :=
-  rewrite <- rows, <- columns in match next with | { row, column } => rfl
+  rewrite <- rows, <- columns then match next with | { row, column } => byComputing
 
 --| `None` exactly when the row or the column would be negative.
 theorem offsetNone ∀ (position: Position) (offset: Offset)
@@ -68,44 +69,54 @@ theorem offsetNoneOf ∀ (position: Position) (offset: Offset)
     (negative: (position.row.toInt + offset.rows < 0) ∨ (position.column.toInt + offset.columns < 0)):
     position.offset offset = None :=
   match landed: position.offset offset with
-    | None => rfl
+    | None => byComputing
     | Some next =>
       let both := offsetSome position offset next landed
       match negative with
-        | Inl below => Void.exfalso (omega [And.left both])
-        | Inr before => Void.exfalso (omega [And.right both])
+        | Inl below => Void.impossible (arithmetic [both.left])
+        | Inr before => Void.impossible (arithmetic [both.right])
 
 --| A step is an offset by its direction's.
 theorem stepOffset ∀ (position: Position) (direction: Direction):
     position.step direction = position.offset direction.offset :=
   match position, direction with
-    | { row = Zero, column }, Up => Eq.sym (offsetNoneOf { row = Zero, column } (Direction.offset Up) (Inl (omega)))
+    | { row = Zero, column }, Up =>
+      Eq.flipped (offsetNoneOf { row = Zero, column } (Direction.offset Up) (Inl (arithmetic)))
     | { row = Succ above, column }, Up =>
-      Eq.sym (offsetOf { row = Succ above, column } (Direction.offset Up) { row = above, column } (omega) (omega))
+      Eq.flipped
+        (offsetOf { row = Succ above, column } (Direction.offset Up) { row = above, column } (arithmetic) (arithmetic))
     | { row, column }, Right =>
-      Eq.sym (offsetOf { row, column } (Direction.offset Right) { row, column = column + 1 } (omega) (omega))
+      Eq.flipped
+        (offsetOf { row, column } (Direction.offset Right) { row, column = column + 1 } (arithmetic) (arithmetic))
     | { row, column }, Down =>
-      Eq.sym (offsetOf { row, column } (Direction.offset Down) { row = row + 1, column } (omega) (omega))
-    | { row, column = Zero }, Left => Eq.sym (offsetNoneOf { row, column = Zero } (Direction.offset Left) (Inr (omega)))
+      Eq.flipped (offsetOf { row, column } (Direction.offset Down) { row = row + 1, column } (arithmetic) (arithmetic))
+    | { row, column = Zero }, Left =>
+      Eq.flipped (offsetNoneOf { row, column = Zero } (Direction.offset Left) (Inr (arithmetic)))
     | { row, column = Succ before }, Left =>
-      Eq.sym (offsetOf { row, column = Succ before } (Direction.offset Left) { row, column = before } (omega) (omega))
+      Eq.flipped
+        (offsetOf
+          { row, column = Succ before }
+          (Direction.offset Left)
+          { row, column = before }
+          (arithmetic)
+          (arithmetic))
 
 -- The laws
 
 --| By zero stays put.
 theorem offsetZero ∀ (position: Position): position.offset Offset.zero = Some position :=
-  offsetOf position Offset.zero position (omega) (omega)
+  offsetOf position Offset.zero position (arithmetic) (arithmetic)
 
 --| From `from`, the offset to `position` reaches it.
 theorem offsetMinus ∀ (position from: Position): from.offset (position.minus from) = Some position :=
-  offsetOf from (position.minus from) position (omega) (omega)
+  offsetOf from (position.minus from) position (arithmetic) (arithmetic)
 
 --| Where an offset lands is that offset away.
 theorem minusOffset ∀ (position: Position) (offset: Offset) (next: Position)
     (landed: position.offset offset = Some next):
     next.minus position = offset :=
   let both := offsetSome position offset next landed
-  offsetExt (next.minus position) offset (omega [And.left both]) (omega [And.right both])
+  offsetExt (next.minus position) offset (arithmetic [both.left]) (arithmetic [both.right])
 
 --| Two offsets in turn are their sum, when the middle is on the board.
 theorem offsetPlus ∀ (position: Position) (first second: Offset) (middle: Position)
@@ -115,45 +126,45 @@ theorem offsetPlus ∀ (position: Position) (first second: Offset) (middle: Posi
   match after: middle.offset second with
     | Some next =>
       let more := offsetSome middle second next after
-      Eq.sym
+      Eq.flipped
         (offsetOf position
           (first.plus second)
           next
-          (omega [And.left both, And.left more])
-          (omega [And.right both, And.right more]))
+          (arithmetic [both.left, more.left])
+          (arithmetic [both.right, more.right]))
     | None =>
-      Eq.sym
+      Eq.flipped
         (offsetNoneOf position
           (first.plus second)
           (match offsetNone middle second after with
-            | Inl below => Inl (omega [And.left both])
-            | Inr before => Inr (omega [And.right both])))
+            | Inl below => Inl (arithmetic [both.left])
+            | Inr before => Inr (arithmetic [both.right])))
 
 --| The offset back is the negation.
 theorem minusNegate ∀ (position from: Position): (position.minus from).negate = from.minus position :=
-  offsetExt (position.minus from).negate (from.minus position) (omega) (omega)
+  offsetExt (position.minus from).negate (from.minus position) (arithmetic) (arithmetic)
 
 theorem minusSelf ∀ (position: Position): position.minus position = Offset.zero :=
-  offsetExt (position.minus position) Offset.zero (omega) (omega)
+  offsetExt (position.minus position) Offset.zero (arithmetic) (arithmetic)
 
 --| Steps of offsets: different offsets step to different ones, two steps
 --| can be taken in either order, and the opposite step undoes one.
 theorem offsetStepInjective ∀ (offset other: Offset) (direction: Direction)
     (same: offset.step direction = other.step direction):
     offset = other :=
-  offsetExt offset other (omega [Eq.cong Offset.rows same]) (omega [Eq.cong Offset.columns same])
+  offsetExt offset other (arithmetic [Eq.cong Offset.rows same]) (arithmetic [Eq.cong Offset.columns same])
 
 theorem offsetStepComm ∀ (offset: Offset) (first second: Direction):
     (offset.step first).step second = (offset.step second).step first :=
-  offsetExt ((offset.step first).step second) ((offset.step second).step first) (omega) (omega)
+  offsetExt ((offset.step first).step second) ((offset.step second).step first) (arithmetic) (arithmetic)
 
 theorem offsetStepOpposite ∀ (offset: Offset) (direction: Direction):
     (offset.step direction).step direction.opposite = offset :=
   match direction with
-    | Up => offsetExt ((offset.step Up).step Down) offset (omega) (omega)
-    | Right => offsetExt ((offset.step Right).step Left) offset (omega) (omega)
-    | Down => offsetExt ((offset.step Down).step Up) offset (omega) (omega)
-    | Left => offsetExt ((offset.step Left).step Right) offset (omega) (omega)
+    | Up => offsetExt ((offset.step Up).step Down) offset (arithmetic) (arithmetic)
+    | Right => offsetExt ((offset.step Right).step Left) offset (arithmetic) (arithmetic)
+    | Down => offsetExt ((offset.step Down).step Up) offset (arithmetic) (arithmetic)
+    | Left => offsetExt ((offset.step Left).step Right) offset (arithmetic) (arithmetic)
 
 -- On a grid
 
@@ -166,13 +177,13 @@ theorem gridOffsetSome ∀ (grid: Grid a) (position: Position) (offset: Offset) 
       match inside: grid.contains here with
         | True =>
           let same: here = next := Option.someInjective landed
-          rewrite <- same in Both rfl inside
+          rewrite <- same then Both byComputing inside
 
 theorem gridOffsetOf ∀ (grid: Grid a) (position: Position) (offset: Offset) (next: Position)
     (landed: position.offset offset = Some next)
     (inside: grid.contains next = True):
     grid.offset position offset = Some next :=
-  rewrite landed, inside in rfl
+  rewrite landed, inside then byComputing
 
 -- On a board that wraps
 
@@ -183,7 +194,7 @@ theorem wrapWithin ∀ (position: Position) (offset: Offset) (height width: Nat)
     (position.wrap offset height width).within height width = True :=
   let rowBelow := Int.modNatLt (position.row.toInt + offset.rows) height [ok := tall]
   let columnBelow := Int.modNatLt (position.column.toInt + offset.columns) width [ok := wide]
-  Both (omega [rowBelow]) (omega [columnBelow])
+  Both (arithmetic [rowBelow]) (arithmetic [columnBelow])
 
 --| By zero, a position on the board stays put.
 theorem wrapZero ∀ (position: Position) (height width: Nat)
@@ -192,10 +203,10 @@ theorem wrapZero ∀ (position: Position) (height width: Nat)
   positionExt
     (position.wrap Offset.zero height width)
     position
-    (rewrite (omega: position.row.toInt + 0 = position.row.toInt) in
-      Int.modNatOfLt height position.row (omega [inside.left]))
-    (rewrite (omega: position.column.toInt + 0 = position.column.toInt) in
-      Int.modNatOfLt width position.column (omega [inside.right]))
+    (rewrite (arithmetic: position.row.toInt + 0 = position.row.toInt) then
+      Int.modNatOfLt height position.row (arithmetic [inside.left]))
+    (rewrite (arithmetic: position.column.toInt + 0 = position.column.toInt) then
+      Int.modNatOfLt width position.column (arithmetic [inside.right]))
 
 --| Wrapping twice is wrapping by the sum.
 theorem wrapPlus ∀ (position: Position) (first second: Offset) (height width: Nat)
@@ -207,10 +218,10 @@ theorem wrapPlus ∀ (position: Position) (first second: Offset) (height width: 
     (position.wrap (first.plus second) height width)
     (Eq.trans
       (Int.modNatModAdd (position.row.toInt + first.rows) second.rows height [ok := tall])
-      (Eq.cong (x => Int.modNat x height) (omega)))
+      (Eq.cong (x => Int.modNat x height) (arithmetic)))
     (Eq.trans
       (Int.modNatModAdd (position.column.toInt + first.columns) second.columns width [ok := wide])
-      (Eq.cong (x => Int.modNat x width) (omega)))
+      (Eq.cong (x => Int.modNat x width) (arithmetic)))
 
 --| Wrapping by `offset` `times` times is wrapping by `times` times it, from
 --| a position on the board.
@@ -223,11 +234,11 @@ theorem wrapIterate ∀ (offset: Offset) (height width: Nat)
       = position.wrap (offset.times times.toInt) height width :=
   match times with
     | Zero =>
-      Eq.sym
+      Eq.flipped
         (Eq.trans
           (Eq.cong
             (moved => position.wrap moved height width)
-            (offsetExt (offset.times (Nat.toInt 0)) Offset.zero (omega) (omega)))
+            (offsetExt (offset.times (Nat.toInt 0)) Offset.zero (arithmetic) (arithmetic)))
           (wrapZero position height width inside))
     | Succ times =>
       Eq.trans
@@ -238,4 +249,4 @@ theorem wrapIterate ∀ (offset: Offset) (height width: Nat)
           (wrapPlus position offset (offset.times times.toInt) height width)
           (Eq.cong
             (moved => position.wrap moved height width)
-            (offsetExt (offset.plus (offset.times times.toInt)) (offset.times (Succ times).toInt) (ring) (ring))))
+            (offsetExt (offset.plus (offset.times times.toInt)) (offset.times (Succ times).toInt) (algebra) (algebra))))

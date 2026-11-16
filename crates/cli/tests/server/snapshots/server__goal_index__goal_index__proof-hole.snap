@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -22,9 +22,9 @@ expression: json
         "message": "n: Nat\n⊢ n = n",
         "range": [
           2,
-          39,
+          41,
           2,
-          40
+          42
         ]
       }
     ],
@@ -32,9 +32,9 @@ expression: json
     "notes": [],
     "range": [
       2,
-      39,
+      41,
       2,
-      40
+      42
     ],
     "severity": "goal"
   }

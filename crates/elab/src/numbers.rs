@@ -19,7 +19,7 @@ use num_bigint::BigUint;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, eval, force};
 use stitchwort_core::{DataId, DefId, Icit, Sort, Term, Value};
-use stitchwort_syntax::ast::{BinOp, Expr, NegForm};
+use stitchwort_syntax::ast::{BinOp, Expr, NeForm, NegForm};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{
@@ -452,7 +452,7 @@ pub(crate) fn fin_bound(g: &Ev, ty: &Value) -> Result<Option<Option<BigUint>>> {
 }
 
 /// The numeral `k` (or `-k`) checked against `expected` if that's `Fin n`
-/// (docs/proposals/fin-literals.md): `Fin.ofNatLt n k rfl` when n is a
+/// (docs/proposals/fin-literals.md): `Fin.ofNatLt n k byComputing` when n is a
 /// known number above k, where the kernel confirms `k < n` by computing it.
 /// `None` if `expected` isn't a `Fin`.
 fn fin_literal(cx: &Ctx, k: &BigUint, negative: bool, expected: &Value) -> Result<Option<Term>> {
@@ -698,7 +698,7 @@ pub(crate) fn is_arith(op: BinOp) -> bool {
 fn is_comparison(op: BinOp) -> bool {
     matches!(
         op,
-        BinOp::Eq | BinOp::Ne | BinOp::EqEq | BinOp::Lt | BinOp::Le
+        BinOp::Eq | BinOp::Ne(_) | BinOp::EqEq | BinOp::Lt | BinOp::Le
     )
 }
 
@@ -710,7 +710,7 @@ pub(crate) fn op_text(op: BinOp) -> &'static str {
         BinOp::Div => "/",
         BinOp::Mod => "%",
         BinOp::Eq => "=",
-        BinOp::Ne => "!=",
+        BinOp::Ne(_) => "!=",
         BinOp::EqEq => "==",
         BinOp::Lt => "<",
         BinOp::Le => "<=",
@@ -778,12 +778,12 @@ impl<'a> Group<'a> {
     }
 
     /// Why the group can't be on `t`, a type other than `Nat` and `Int`: an
-    /// operator only those have (an empty note), or an instance its
-    /// operators need that `t` doesn't have (a note saying so). `None` if it
+    /// operator only those have (no notes), or an instance its
+    /// operators need that `t` doesn't have (notes saying so). `None` if it
     /// can.
-    fn unsupported(&self, cx: &mut Ctx, t: &Value) -> Result<Option<String>> {
+    fn unsupported(&self, cx: &mut Ctx, t: &Value) -> Result<Option<Vec<String>>> {
         if !self.generic(cx) {
-            return Ok(Some(String::new()));
+            return Ok(Some(Vec::new()));
         }
         let needed = [
             (self.adds, "Add", "+", "add"),
@@ -805,10 +805,14 @@ impl<'a> Group<'a> {
                 if why.code == "E-FAILED-DEPENDENCY" {
                     return Err(why);
                 }
-                return Ok(Some(format!(
+                let mut notes = vec![format!(
                     "on other types `{op}` is `{name}.{field}`, and there's no `{name}` instance for `{}` here",
                     cx.show(t)
-                )));
+                )];
+                if name == "Ord" {
+                    notes.extend(crate::interfaces::no_ord_note(cx.e, t));
+                }
+                return Ok(Some(notes));
             }
         }
         Ok(None)
@@ -871,7 +875,7 @@ pub(crate) fn group(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Resu
     // everything it did undone, the comparison sides are read as `Bool`s,
     // as if written `((m < k): Bool)` (SW-944). If that fails too, the
     // first error is reported.
-    if let Expr::Binary(BinOp::Eq | BinOp::Ne, a, b) = expr
+    if let Expr::Binary(BinOp::Eq | BinOp::Ne(_), a, b) = expr
         && (is_order(a) || is_order(b))
         && cx.e.decl.late_literals.get() == 0
     {
@@ -1015,8 +1019,9 @@ fn group_with(
     let expected = if top.is_some() { None } else { expected };
     let what = what(top);
     // An equation with no arithmetic in it may be on any type.
-    let equality =
-        matches!(top, Some(BinOp::Eq | BinOp::Ne | BinOp::EqEq)) && !g.arith && g.minus.is_none();
+    let equality = matches!(top, Some(BinOp::Eq | BinOp::Ne(_) | BinOp::EqEq))
+        && !g.arith
+        && g.minus.is_none();
     let mut decided: Option<(Value, Decider)> = None;
 
     // 1. The expected type.
@@ -1026,7 +1031,7 @@ fn group_with(
             Class::Unknown => {}
             Class::Other => match g.unsupported(cx, e)? {
                 None => decided = Some((e.clone(), Decider::Expected)),
-                Some(note) => {
+                Some(notes) => {
                     let op = match &sides.0 {
                         Node::Op(op, ..) => op_text(*op),
                         _ => "-",
@@ -1036,11 +1041,7 @@ fn group_with(
                         format!("`{op}` gives a `Nat` or an `Int`"),
                         format!("but `{}` is expected here", cx.show(e)),
                     );
-                    return Err(if note.is_empty() {
-                        error
-                    } else {
-                        error.with_note(note)
-                    });
+                    return Err(notes.into_iter().fold(error, Diagnostic::with_note));
                 }
             },
         }
@@ -1373,10 +1374,10 @@ impl crate::queue::Check for NumberGroup {
         };
         // A type other than `Nat`, `Int` and `Float` must have what the
         // operators need, as when it is expected from the start (step 1).
-        let equality = matches!(top, Some(BinOp::Eq | BinOp::Ne | BinOp::EqEq)) && !g.arith;
+        let equality = matches!(top, Some(BinOp::Eq | BinOp::Ne(_) | BinOp::EqEq)) && !g.arith;
         if !equality
             && matches!(classify(cx, &t)?, Class::Other)
-            && let Some(note) = g.unsupported(cx, &t)?
+            && let Some(notes) = g.unsupported(cx, &t)?
         {
             let op = match &sides.0 {
                 Node::Op(op, ..) => op_text(*op),
@@ -1387,11 +1388,7 @@ impl crate::queue::Check for NumberGroup {
                 format!("`{op}` works on `Nat` and `Int`"),
                 format!("but this is on `{}`", cx.show(&t)),
             );
-            return Err(if note.is_empty() {
-                error
-            } else {
-                error.with_note(note)
-            });
+            return Err(notes.into_iter().fold(error, Diagnostic::with_note));
         }
         let (term, _) = finish(
             cx,
@@ -1483,7 +1480,13 @@ fn equation(cx: &mut Ctx, op: BinOp, a: Term, b: Term, t: &Value) -> Result<(Ter
     match op {
         BinOp::Eq => Ok((eq, prop)),
         // `a != b` means `Not (a = b)`.
-        BinOp::Ne => {
+        BinOp::Ne(form) => {
+            // Remember that the source wrote `!=`, not `≠`, so a message
+            // that quotes it is given only where the source says so
+            // (SW-3125).
+            if form.is_ascii() {
+                cx.e.decl.note_ne_ascii(cx.span);
+            }
             let not = builtin_def(cx, Builtin::Not)?;
             Ok((Term::app(Term::Def(not), eq), prop))
         }
@@ -1542,7 +1545,7 @@ fn infer_leaf(
         Class::Other if equality => Some((ty.clone(), Decider::Leaf(i))),
         Class::Other => match g.unsupported(cx, &ty)? {
             None => Some((ty.clone(), Decider::Leaf(i))),
-            Some(note) => {
+            Some(notes) => {
                 let op = match g.leaves[i].op {
                     "+" | "*" | "<" | "<=" => g.numeric_only.unwrap_or(g.leaves[i].op),
                     op => op,
@@ -1552,11 +1555,8 @@ fn infer_leaf(
                     format!("`{op}` works on `Nat` and `Int`"),
                 )
                 .with_label(expr.span(), format!("this is `{}`", cx.show(&ty)));
-                return Err(if note.is_empty() {
-                    error
-                } else {
-                    error.with_note(note)
-                });
+                let error = cx.with_text_fixed_use_label(error, expr.span());
+                return Err(notes.into_iter().fold(error, Diagnostic::with_note));
             }
         },
     };
@@ -1704,26 +1704,31 @@ fn prop_not_equal(
     while let Expr::Bracketed(inner, _) = decided {
         decided = inner;
     }
-    if !matches!(decided, Expr::Binary(BinOp::Ne, ..)) {
+    let Expr::Binary(BinOp::Ne(form), ..) = decided else {
         return None;
-    }
+    };
+    let written = match form {
+        NeForm::Ascii => "!=",
+        NeForm::Unicode => "≠",
+    };
     Some(
         Diagnostic::error(
             "E-NOT-A-TYPE",
-            "in a statement, `!=` is the proposition, not a `Bool`",
+            format!("in a statement, `{written}` is the proposition, not a `Bool`"),
         )
         .with_label(
             decided.span(),
             format!(
-                "this `!=` is `Not (… = …)`, a proposition, so this `{}` compares propositions",
+                "this `{written}` is `Not (… = …)`, a proposition, so this `{}` compares \
+                 propositions",
                 op
             ),
         )
         .with_label(leaf.span(), "but this isn't a proposition")
-        .with_note(
-            "for the `Bool` that `!=` computes, ascribe it: `((x != y): Bool)`; or compare \
-             with `==` instead, as `(x == y) = False`",
-        ),
+        .with_note(format!(
+            "for the `Bool` that `{written}` computes, ascribe it: `((x {written} y): Bool)`; \
+             or compare with `==` instead, as `(x == y) = False`"
+        )),
     )
 }
 

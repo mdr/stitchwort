@@ -11,3 +11,4 @@ expression: output
    │ │                  
    │ ╰────────────────── missing case: no alternative of this `match` matches `[_, .._]`
 ───╯
+try: add `| [x, ..xs1] => ?`

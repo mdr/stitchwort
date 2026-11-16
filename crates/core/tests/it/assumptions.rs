@@ -154,7 +154,7 @@ fn a_value_assumption_never_unfolds() {
 
 #[test]
 fn two_holes_with_the_same_goal_are_different() {
-    // As Lean's unique `sorry`s: `f.?1 = f.?2` isn't provable by `rfl`.
+    // As Lean's unique `sorry`s: `f.?1 = f.?2` isn't provable by `byComputing`.
     let mut p = Prelude::new();
     let nat = p.nat_ty();
     let one = assume_as(&mut p.g, "f.?1", nat.clone(), "Main.f", 1).unwrap();
@@ -425,7 +425,7 @@ fn reliance_is_read_off_the_checked_terms() {
     let direct = theorem(&mut p.g, "direct", statement.clone(), proof).unwrap();
     // A user of a user, through its body.
     let chained = theorem(&mut p.g, "chained", statement.clone(), Term::Def(direct)).unwrap();
-    // Not relying: proved by `rfl`.
+    // Not relying: proved by `byComputing`.
     let by_rfl = theorem(&mut p.g, "byRfl", statement, Term::Refl).unwrap();
 
     assert_eq!(
@@ -479,7 +479,7 @@ fn reliance_through_a_type() {
     let mut p = Prelude::new();
     let nat = p.nat_ty();
     let k = assume_as(&mut p.g, "k.?1", nat.clone(), "Main.k", 1).unwrap();
-    // `t: k.?1 = k.?1 := rfl` mentions it only in its statement.
+    // `t: k.?1 = k.?1 := byComputing` mentions it only in its statement.
     let statement = eq(Some(nat.clone()), Term::Def(k), Term::Def(k));
     let t = theorem(&mut p.g, "t", statement, Term::Refl).unwrap();
     assert_eq!(relies(&p.g, t), vec![k]);
@@ -573,7 +573,7 @@ fn reliance_through_a_run_body() {
 
 #[test]
 fn reliance_through_an_unfolding_list() {
-    // `opaque def o: Nat := k.?1`, and opaque `t: 0 = 0 := rfl` with
+    // `opaque def o: Nat := k.?1`, and opaque `t: 0 = 0 := byComputing` with
     // `unfolding o`: `t` mentions neither, but is checked with `o`'s body
     // in view.
     let mut p = Prelude::new();

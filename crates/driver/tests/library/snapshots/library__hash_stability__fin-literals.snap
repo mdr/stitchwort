@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Cell 0fff981a2df2cd99517dcb4afabab991d13ff4bf66f5492ce89cfd1196a1e99b
@@ -31,10 +32,10 @@ Main.Cell.%%mk%F%1 4b2462bd67a7932c180a4536d4b687d4135d46fddf6b0b25f9c100c89b0a4
 Main.Cell.%part%0%1 f2b87f18843a163620ab8470fffec23f0905f905ad918fd84e3bcafcd646d10c
 Main.Cell.%part%0 8d3642a7d828ef80dea0fdaf99673dea63e0160f91081bc6b25b350a9245afe8
 Main.Cell.%all 9d8edd77e5192d39988bdbdbdf915ac85ec4b9b0a6330b1395ccdfa42149bb3d
-Main.Cell.%mem%0 5ba4cebab3cafac549655c70c34961d953d40bc514ec640ad11c730f75afc0b4
+Main.Cell.%mem%0 b3b84a0814c0fdf0981f8a70a1266999c58e606afb83ae529de9b0f1278d42f5
 Main.Cell.%cover b948b5a678365587887c741c42cb1655d8fe110ef1394b95967c0faff8d03959
-Main.Cell.%complete 66f4b834d467cd3ffc3eba368139d415ab05e7cb8aedd6a52c41b4547edf76c5
-Main.Cell.%instFinite 8ea86852a1f1435b53b196ab629c7584c7d88976ec0f7b36d813bd5a0fe8a0e0
+Main.Cell.%complete dc08ae954545dca87940ce8d5e7b5b2e84ebd6e590c1ea79d6756dbd40f0dab8
+Main.Cell.%instFinite 574dd47fdcafc9df81ac491662741b3431c8e4c38d5f9c9ae60ac5e3f5e1b9b4
 Main.Cell.ext 6fbb371e7f39865e98f5b9ff5f240c0215246f8d166c576727411f1665c1c9af
 Main.corner c8f5fb6ccc3718433d3ac72d4f26a86f9a1b6a7156a6b237cd1813ec382f17ad
 Main.seven 974e01a22977e49bd1c1e83ba11802e4d4971d5c004ddec0240d3c6266aec22a
@@ -54,4 +55,4 @@ Main.stillNat a479f5fd734a78adec8f2ece9a22d6af07094690cb8e8c29a2ccb7b266b78649
 Main.test "list" 1cd3da989abe9dbb440bd3b43d6da7025b78369059fde432201a2f03d091b1c1
 Main.test "argument" 4ca73c2c007d6ce074f7bae09af03e5d408de322cc6e531b1629102e782613aa
 Main.test "field" ac1b2a9ced0126dbba3bd492335653556b56ab3974384be9749e7103f81d99b1
-Main.test "pattern" 4d2a81b76df87edefe947fe631353ff218eab8c927a742b9dd0c5a0a96aabf77
+Main.test "pattern" 53d9ce9307e137978dc1e85c2d76782389119c72d2fd7c6f09c5d27dff5cd837

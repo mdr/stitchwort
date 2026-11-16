@@ -155,7 +155,14 @@ fn the_index_holds_exactly_the_names_an_eager_load_makes() {
             .filter(|k| !candidates.contains(k.as_str()))
             .collect();
         assert!(missing.is_empty(), "promised but not declared: {missing:?}");
-        let unpromised: Vec<&String> = keys.difference(&promised).collect();
+        let unpromised: Vec<&String> = keys
+            .difference(&promised)
+            .filter(|k| {
+                !k.rsplit('.')
+                    .next()
+                    .is_some_and(|last| last.starts_with('%'))
+            })
+            .collect();
         assert!(
             unpromised.is_empty(),
             "declared but not in the index: {unpromised:?}"
@@ -244,7 +251,7 @@ fn a_congruence_lemma_away_from_its_function_is_refused() {
     assert_eq!(build(&[("A.sw", &beside)]), None);
     let error = build(&[(
         "A.sw",
-        "theorem Nat.addCong (a: Nat) (b: Nat): Nat.add a b = Nat.add a b := rfl\n",
+        "theorem Nat.addCong (a: Nat) (b: Nat): Nat.add a b = Nat.add a b := byComputing\n",
     )])
     .expect("a core function's lemma is refused outside the core");
     assert!(error.contains("`Std.Nat.addCong`"), "{error}");
@@ -661,7 +668,7 @@ fn small_programs_load_only_the_library_files_they_can_use() {
         toolkit
     );
     // The sort's lemmas are in `List/SortLemmas.sw`, so neither they nor
-    // `ring` (`Std.Ring` and the `Int` files under it) load. The congruence
+    // `algebra` (`Std.Ring` and the `Int` files under it) load. The congruence
     // lemmas of `List.sumBy` and `List.count` are in the toolkit, so the
     // toolkit's other lemmas don't load either.
     let sort = [
@@ -723,7 +730,8 @@ fn a_dot_call_on_a_variable_of_a_written_data_type_loads_only_that_types_functio
     // `Text.length`: nothing loads.
     assert!(std_loaded_by("def n (xs: List Nat): Nat := xs.length\n").is_empty());
     assert!(
-        std_loaded_by("def n: (xs: List Nat) → xs.length = xs.length := xs => rfl\n").is_empty()
+        std_loaded_by("def n: (xs: List Nat) → xs.length = xs.length := xs => byComputing\n")
+            .is_empty()
     );
     assert!(
         std_loaded_by("def n (xs: List Nat): Nat :=\n  let ys: List Nat := xs\n  ys.length\n")
@@ -825,8 +833,20 @@ fn no_library_file_declares_a_decision_procedure() {
         // `List.LeHead`, declared beside them in std/List/Sort.sw. And
         // `NonEmptyList.decEq`, which decides equality of `NonEmptyList`s: an
         // equation between them needs std/NonEmptyList/NonEmptyList.sw loaded.
+        // The compiler's own `%` names (a derived equality's `T.%decide`) are
+        // no file's declaration, and `auto` takes them only as instances.
+        let procedures: Vec<String> = session
+            .elab
+            .library_decision_procedures()
+            .into_iter()
+            .filter(|p| {
+                !p.rsplit('.')
+                    .next()
+                    .is_some_and(|last| last.starts_with('%'))
+            })
+            .collect();
         assert_eq!(
-            session.elab.library_decision_procedures(),
+            procedures,
             [
                 "Std.Nat.decPowSuccNotZero",
                 "Std.List.decMem",
@@ -1161,7 +1181,7 @@ test \"auto proves the divisor isn't zero\" := 7 / 2 == 3
 
 theorem chain (a: Nat) (b: Nat) (h: a <= b): a <= b :=
   calc a
-    _ = a := rfl
+    _ = a := byComputing
     _ <= b := h
 
 ability Counter where
@@ -1224,7 +1244,7 @@ fn index_cost() {
 fn a_nested_library_load_keeps_the_outer_units_omega_for_auto() {
     // Before any module, the default; loading the library files an
     // expression names (`List.lengthAppend` is in a file that reaches
-    // `omega`'s) must not leave that file's value behind.
+    // `arithmetic`'s) must not leave that file's value behind.
     let mut session = Session::new();
     assert!(!session.elab.omega_for_auto());
     let ds = session.add_imports("<i>", "import Std (List)\n");
@@ -1239,7 +1259,7 @@ fn a_nested_library_load_keeps_the_outer_units_omega_for_auto() {
     );
     assert!(!session.elab.omega_for_auto());
 
-    // After a module that doesn't load `omega`'s library, and after one that
+    // After a module that doesn't load `arithmetic`'s library, and after one that
     // does, an expression sees that module's value, whatever it loads.
     let mut session = Session::new();
     session
@@ -1249,7 +1269,7 @@ fn a_nested_library_load_keeps_the_outer_units_omega_for_auto() {
     assert!(!session.elab.omega_for_auto());
     let mut session = Session::new();
     let omega_module = "import Std (Nat)\n\
-        theorem gap (low: Nat) (high: Nat) (below: low < high): 0 < high - low := omega\n";
+        theorem gap (low: Nat) (high: Nat) (below: low < high): 0 < high - low := arithmetic\n";
     session
         .load("t.sw", omega_module)
         .unwrap_or_else(|e| panic!("{}", messages(&e)));

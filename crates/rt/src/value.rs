@@ -7,7 +7,7 @@
 //! - A constructor without runtime fields (`Nil`, `True`, `None`) is just
 //!   its tag: no allocation. One with fields is its tag and one
 //!   reference-counted array of them.
-//! - Text is a reference-counted string.
+//! - Text is a piece of a shared buffer of characters ([`crate::text`]).
 //! - An `Array` (std/Array/Array.sw) is a reference-counted buffer of its
 //!   elements, which a consuming native changes in place when it holds the
 //!   only reference ([`crate::prims`]).
@@ -19,6 +19,8 @@ use std::borrow::Cow;
 use std::rc::Rc;
 
 use num_bigint::{BigInt, BigUint};
+
+use crate::text::Text;
 
 /// A runtime value.
 ///
@@ -39,7 +41,7 @@ pub enum Value {
     Int(i64),
     /// An `Int` that doesn't.
     BigInt(Rc<BigInt>),
-    Text(Rc<str>),
+    Text(Text),
     /// A `Float`: a double, with every NaN the one NaN (D701). Made only by
     /// [`Value::float`].
     Float(f64),
@@ -176,8 +178,8 @@ impl Value {
     }
 
     /// A text.
-    pub fn text(text: Rc<str>) -> Value {
-        crate::value_census::text(text.len());
+    pub fn text(text: Text) -> Value {
+        crate::value_census::text(text.buffer_bytes());
         Value::Text(text)
     }
 

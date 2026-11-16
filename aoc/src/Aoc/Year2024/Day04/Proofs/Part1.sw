@@ -35,11 +35,11 @@ theorem at4Spells [a b c d: Option Char]:
           Option.someBeqSome z 'A',
           Option.someBeqSome z 'M',
           Option.someBeqSome w 'S',
-          Option.someBeqSome w 'X' in
+          Option.someBeqSome w 'X' then
         match isX: x == 'X' with
           | True =>
             let same := isX.read
-            rewrite same in cases
+            rewrite same then cases
           | False => cases
     | _, _, _, _ => cases
 
@@ -74,8 +74,8 @@ theorem acrossSum ∀ (grid: Grid) (r n: Nat)
       List.getDrop row 1 _,
       List.getDrop row 2 _,
       List.getDrop row 3 _,
-      at4Spells in
-    rfl
+      at4Spells then
+    byComputing
 
 --| Through rows r to r + 3: XMAS down and up, along the diagonal down to the
 --| right both ways, and along the one down to the left both ways.
@@ -99,29 +99,29 @@ theorem throughSum ∀ (grid: Grid) (r n: Nat)
       List.getDrop third 1 _,
       List.getDrop third 2 _,
       List.getDrop fourth 3 _,
-      at4Spells in
-    rfl
+      at4Spells then
+    byComputing
 
 --| With an empty row among the four, nothing is found through them.
-theorem throughEmpty1 ∀ (second third fourth: List Char): countThrough [] second third fourth = 0 := rfl
+theorem throughEmpty1 ∀ (second third fourth: List Char): countThrough [] second third fourth = 0 := byComputing
 
 theorem throughEmpty2 ∀ (first third fourth: List Char): countThrough first [] third fourth = 0 :=
   rewrite List.zipWith4NilSecond third fourth spellsXmas first,
       List.zipWith4NilSecond (third.drop 2) (fourth.drop 3) spellsXmas first,
-      List.zipWith4NilSecond (third.drop 1) fourth spellsXmas (first.drop 3) in
-    rfl
+      List.zipWith4NilSecond (third.drop 1) fourth spellsXmas (first.drop 3) then
+    byComputing
 
 theorem throughEmpty3 ∀ (first second fourth: List Char): countThrough first second [] fourth = 0 :=
   rewrite List.zipWith4NilThird fourth spellsXmas first second,
       List.zipWith4NilThird (fourth.drop 3) spellsXmas first (second.drop 1),
-      List.zipWith4NilThird fourth spellsXmas (first.drop 3) (second.drop 2) in
-    rfl
+      List.zipWith4NilThird fourth spellsXmas (first.drop 3) (second.drop 2) then
+    byComputing
 
 theorem throughEmpty4 ∀ (first second third: List Char): countThrough first second third [] = 0 :=
   rewrite List.zipWith4NilFourth spellsXmas first second third,
       List.zipWith4NilFourth spellsXmas first (second.drop 1) (third.drop 2),
-      List.zipWith4NilFourth spellsXmas (first.drop 3) (second.drop 2) (third.drop 1) in
-    rfl
+      List.zipWith4NilFourth spellsXmas (first.drop 3) (second.drop 2) (third.drop 1) then
+    byComputing
 
 --| How many rows, and the longest row's length.
 def height (grid: Grid): Nat := grid.rows.length
@@ -158,7 +158,9 @@ theorem programLines ∀ (grid: Grid):
   let across := calc rows.sumBy countAcross
     _ = List.sumBy (List.range 0 rows.length) (r => countAcross (rowOf grid r)) := List.sumByGetOr rows [] countAcross
     _ = List.sumBy (List.range 0 tall) (r => countAcross (rowOf grid r)) :=
-      Eq.sym (List.sumByRangeExtend _ rows.length tall omega (r below => rewrite List.getOrPast rows r [] below in rfl))
+      Eq.flipped
+        (List.sumByRangeExtend _ rows.length tall arithmetic (r below =>
+          rewrite List.getOrPast rows r [] below then byComputing))
     _ = everywhere grid 0 0 0 1 0 2 0 3 + everywhere grid 0 3 0 2 0 1 0 0 :=
       Eq.trans
         (List.sumByCong (List.range 0 tall) _ _ (r => acrossSum grid r wide (rowFits grid r)))
@@ -173,7 +175,7 @@ theorem programLines ∀ (grid: Grid):
             ((rows.drop 1).get r)
             ((rows.drop 2).get r)
             ((rows.drop 3).get r))
-          0) := List.sumByZipWith4 (x => x) countThrough rows (rows.drop 1) (rows.drop 2) (rows.drop 3) tall omega
+          0) := List.sumByZipWith4 (x => x) countThrough rows (rows.drop 1) (rows.drop 2) (rows.drop 3) tall arithmetic
     _ = List.sumBy (List.range 0 tall) (r =>
         countThrough (rowOf grid r) (rowOf grid (1 + r)) (rowOf grid (2 + r)) (rowOf grid (3 + r))) :=
       List.sumByCong (List.range 0 tall) _ _ (r =>
@@ -194,8 +196,8 @@ theorem programLines ∀ (grid: Grid):
             <- List.getOrGet rows _ [],
             <- List.getOrGet rows _ [],
             <- List.getOrGet rows _ [],
-            <- List.getOrGet rows _ [] in
-          rfl)
+            <- List.getOrGet rows _ [] then
+          byComputing)
     _ = List.sumBy (List.range 0 tall) (r =>
         List.sumBy (List.range 0 wide) (c => readsAt grid r c 0 0 1 0 2 0 3 0 + readsAt grid r c 3 0 2 0 1 0 0 0)
           + List.sumBy (List.range 0 wide) (c => readsAt grid r c 0 0 1 1 2 2 3 3 + readsAt grid r c 3 3 2 2 1 1 0 0)
@@ -234,7 +236,7 @@ theorem programLines ∀ (grid: Grid):
         + everywhere grid 3 0 2 0 1 0 0 0
         + (everywhere grid 0 0 1 1 2 2 3 3 + everywhere grid 3 3 2 2 1 1 0 0)
         + (everywhere grid 0 3 1 2 2 1 3 0 + everywhere grid 3 0 2 1 1 2 0 3) :=
-      omega [
+      arithmetic [
         List.sumByNestedAdd (List.range 0 tall) (List.range 0 wide) (r c => readsAt grid r c 0 0 1 0 2 0 3 0) (r c =>
           readsAt grid r c 3 0 2 0 1 0 0 0),
         List.sumByNestedAdd (List.range 0 tall) (List.range 0 wide) (r c => readsAt grid r c 0 0 1 1 2 2 3 3) (r c =>
@@ -243,13 +245,13 @@ theorem programLines ∀ (grid: Grid):
           readsAt grid r c 3 0 2 1 1 2 0 3)
       ]
   Eq.trans
-    (rfl: solvePart1 grid
+    (byComputing: solvePart1 grid
       = rows.sumBy countAcross + List.sum (List.zipWith4 rows (rows.drop 1) (rows.drop 2) (rows.drop 3) countThrough))
-    (omega [across, through])
+    (arithmetic [across, through])
 
 --| Past the last row, and past the longest row, there are no letters.
 theorem letterBelow ∀ (grid: Grid) (r c: Nat) (below: height grid ≤ r): letterAt grid r c = None :=
-  rewrite List.getOrPast grid.rows r [] below in rfl
+  rewrite List.getOrPast grid.rows r [] below then byComputing
 
 theorem letterRight ∀ (grid: Grid) (r c: Nat) (right: width grid ≤ c): letterAt grid r c = None :=
   List.getPast
@@ -261,7 +263,7 @@ theorem letterRight ∀ (grid: Grid) (r c: Nat) (right: width grid ≤ c): lette
 theorem readsAtMissing ∀ (grid: Grid) (r c r0 c0 r1 c1 r2 c2 r3 c3: Nat)
     (missing: letterAt grid (r0 + r) (c0 + c) = None):
     readsAt grid r c r0 c0 r1 c1 r2 c2 r3 c3 = 0 :=
-  rewrite missing in rfl
+  rewrite missing then byComputing
 
 --| XMAS from every position in one direction, past the last row and column
 --| by 3.
@@ -277,13 +279,13 @@ theorem columnsShifted ∀ (grid: Grid) (r r0 c0 r1 c1 r2 c2 r3 c3: Nat) (count:
       = List.sumBy (List.range 0 (width grid + 3)) (c => readsAt grid r c r0 c0 r1 c1 r2 c2 r3 c3) :=
   Eq.trans
     (List.sumByRangeSkipZeros 3 count (c => readsAt grid r c r0 c0 r1 c1 r2 c2 r3 c3) (width grid) early later)
-    (Eq.sym
+    (Eq.flipped
       (List.sumByRangeExtend
         (c => readsAt grid r c r0 c0 r1 c1 r2 c2 r3 c3)
         (width grid)
         (width grid + 3)
-        omega
-        (c right => readsAtMissing grid r c r0 c0 r1 c1 r2 c2 r3 c3 (letterRight grid (r0 + r) (c0 + c) omega))))
+        arithmetic
+        (c right => readsAtMissing grid r c r0 c0 r1 c1 r2 c2 r3 c3 (letterRight grid (r0 + r) (c0 + c) arithmetic))))
 
 --| The same for rows: a count that is 0 in the first three rows and is the
 --| `readsAt` count three rows on adds up to `everywhere`.
@@ -295,10 +297,10 @@ theorem rowsShifted ∀ (grid: Grid) (r0 c0 r1 c1 r2 c2 r3 c3: Nat) (count: Nat 
   let reads := (r: Nat) => List.sumBy (List.range 0 (width grid + 3)) (c => readsAt grid r c r0 c0 r1 c1 r2 c2 r3 c3)
   Eq.trans
     (List.sumByRangeSkipZeros 3 count reads (height grid) early later)
-    (Eq.sym
-      (List.sumByRangeExtend reads (height grid) (height grid + 3) omega (r below =>
+    (Eq.flipped
+      (List.sumByRangeExtend reads (height grid) (height grid + 3) arithmetic (r below =>
         List.sumByRangeZero _ (width grid + 3) (c =>
-          readsAtMissing grid r c r0 c0 r1 c1 r2 c2 r3 c3 (letterBelow grid (r0 + r) (c0 + c) omega)))))
+          readsAtMissing grid r c r0 c0 r1 c1 r2 c2 r3 c3 (letterBelow grid (r0 + r) (c0 + c) arithmetic)))))
 
 --| Left to right.
 theorem rightward ∀ (grid: Grid): inDirection grid { down = Stay, across = Ahead } = everywhere grid 0 0 0 1 0 2 0 3 :=
@@ -388,7 +390,7 @@ theorem upRight ∀ (grid: Grid): inDirection grid { down = Back, across = Ahead
 theorem noneFromMissing ∀ (grid: Grid) (r c: Nat)
     (missing: letterAt grid r c = None):
     directions.count (spells ['X', 'M', 'A', 'S'] grid r c) = 0 :=
-  rewrite Nat.addZero r, Nat.addZero c, missing in rfl
+  rewrite Nat.addZero r, Nat.addZero c, missing then byComputing
 
 --| The spec, direction by direction, past the last row and column by 3.
 theorem specDirections ∀ (grid: Grid):
@@ -408,11 +410,13 @@ theorem specDirections ∀ (grid: Grid):
     _ = List.sumBy (List.range 0 tall) (r =>
         List.sumBy (List.range 0 (rowOf grid r).length) (c =>
           directions.count (spells ['X', 'M', 'A', 'S'] grid r c))) :=
-      Eq.sym (List.sumByRangeExtend _ rows.length tall omega (r below => rewrite List.getOrPast rows r [] below in rfl))
+      Eq.flipped
+        (List.sumByRangeExtend _ rows.length tall arithmetic (r below =>
+          rewrite List.getOrPast rows r [] below then byComputing))
     _ = List.sumBy (List.range 0 tall) (r =>
         List.sumBy (List.range 0 wide) (c => directions.count (spells ['X', 'M', 'A', 'S'] grid r c))) :=
       List.sumByCong (List.range 0 tall) _ _ (r =>
-        Eq.sym
+        Eq.flipped
           (List.sumByRangeExtend _ (rowOf grid r).length wide (rowFits grid r) (c right =>
             noneFromMissing grid r c (List.getPast (rowOf grid r) c right))))
     _ = List.sumBy (List.range 0 tall) (r =>
@@ -440,7 +444,7 @@ theorem specDirections ∀ (grid: Grid):
 --| Part 1 is right for every grid: the printed answer is the number of
 --| positions and directions from which the letters spell XMAS.
 theorem part1Correct ∀ (grid: Grid): solvePart1 grid = part1Spec grid :=
-  omega [
+  arithmetic [
     programLines grid,
     specDirections grid,
     upLeft grid,

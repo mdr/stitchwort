@@ -158,7 +158,7 @@ fn run_a_partial_function() {
 fn run_the_wrong_type() {
     let message = fails(&standard("run_wrong"), &["run", "Day.bad"], "E-RUN-TYPE");
     assert!(message.contains("`Day.bad` can't be run"), "{message}");
-    assert!(message.contains("IO, Fail and Partial"), "{message}");
+    assert!(message.contains("IO, Fail, Files and Partial"), "{message}");
 }
 
 #[test]
@@ -592,13 +592,13 @@ const ONLY_PROOFS: &str = "namespace P.Proofs
 
 def double (n: Nat): Nat := n + n
 
-theorem helper : double 2 = 4 := rfl
+theorem helper : double 2 = 4 := byComputing
 
 theorem usesHelper : double 2 + 0 = 4 := helper
 
-theorem unrelated : double 3 = 6 := rfl
+theorem unrelated : double 3 = 6 := byComputing
 
-theorem broken : double 3 = 7 := rfl
+theorem broken : double 3 = 7 := byComputing
 ";
 
 /// `check --only` checks the theorems named and what they use, and says

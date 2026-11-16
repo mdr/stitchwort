@@ -52,7 +52,7 @@ theorem sizeMap ∀ (f: Nat → Nat) (t: Tree): size (mapTree f t) = size t := m
   | Node n kids => Eq.cong Succ (sizeMapForest f kids)
 
 theorem sizeMapForest ∀ (f: Nat → Nat) (ts: Forest): sizeForest (mapForest f ts) = sizeForest ts := match ts with
-  | FNil => rfl
+  | FNil => byComputing
   | FCons t ts =>
     Eq.trans
       (Eq.cong (a => a + sizeForest (mapForest f ts)) (sizeMap f t))
@@ -83,7 +83,7 @@ def isOdd: Nat → Bool
   | Succ n => isEven n
 
 theorem evenIsEven ∀ (e: Even): isEven (evenToNat e) = True := match e with
-  | EZero => rfl
+  | EZero => byComputing
   | ESucc o => oddIsOdd o
 
 theorem oddIsOdd ∀ (o: Odd): isOdd (oddToNat o) = True := match o with | OSucc e => evenIsEven e
@@ -108,7 +108,9 @@ theorem oddTrivial: OddP → Unit
 -- order, which the fields use exactly as given.
 type Rose (a: Type): Type = | Bloom (value: a) (kids: Roses a)
 
-type Roses (a: Type): Type = | NoRoses | MoreRoses (first: Rose a) (rest: Roses a)
+type Roses (a: Type): Type =
+  | NoRoses
+  | MoreRoses (first: Rose a) (rest: Roses a)
 
 def flatten: Rose a → List a
   | Bloom x kids => [x, ..flattenAll kids]

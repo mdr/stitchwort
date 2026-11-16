@@ -20,7 +20,7 @@ const STACK: usize = 64 * 1024 * 1024;
 
 /// The lemma a theorem's proof applies, if its whole proof is one
 /// application of another theorem (after its parameters' lambdas) to the
-/// theorem's own variables, or to closers stage 2 tries (`rfl`): the goals
+/// theorem's own variables, or to closers stage 2 tries (`byComputing`): the goals
 /// stage 2 is for. Not a helper (`%`), and not a lemma whose conclusion
 /// names nothing (`Eq.trans`, `Eq.cong`), which needs a middle term.
 fn applied_lemma(session: &Session, id: DefId) -> Option<DefId> {
@@ -100,8 +100,10 @@ fn goal_of(session: &Session, id: DefId) -> Option<FoundGoal> {
         file: None,
         data: GoalData {
             hypotheses,
+            facts: Vec::new(),
             target,
             written: None,
+            has_unknown: false,
             prop: Some(true),
             lemma: Some(String::new()),
         },

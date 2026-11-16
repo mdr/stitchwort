@@ -389,12 +389,12 @@ The new trusted pieces are small: `nat_shape` (layout only, like
 | System | Which types | How chosen | Conditions | `toNat`-like conversions | Checked or trusted | Source |
 |---|---|---|---|---|---|---|
 | **Idris 2** | any Nat-shaped type, including indexed ones | **automatic** (`calcNaty`), plus `%builtin Natural T` to insist (an error if the shape is wrong) | 2 constructors; after erasure one with 0 arguments, one with exactly 1, whose type has the same type constructor; strict, not `Lazy` | detected by pattern: `cast Z = 0`, `cast (S k) = 1 + cast k` becomes the identity, "sensitive to seemingly insignificant changes"; or asserted by `%builtin NaturalToInteger` / `IntegerToNatural` | shape checked; `IntegerToNatural` and `%transform` rewrites are trusted ("It is your responsibility") | builtins.rst; `TTImp/ProcessData.idr` `calcNaty`; `Compiler/Opts/Constructor.idr` ("Nat hack"); `Compiler/Opts/Identity.idr`; `TTImp/ProcessBuiltin.idr` |
-| **Idris 1** | Nat-like families | **flag**, `--optimise-nat-like-types` (1.3.2) | "after erasure, two constructors, one nullary, the other one with exactly one recursive field" | [from memory: `Nat` ops hard-coded] | compiler's | Idris-dev CHANGELOG, "New in 1.3.2" |
+| **Idris 1** | Nat-like families | **flag**, `--optimise-nat-like-types` (1.3.2) | "after erasure, two constructors, one nullary, the other one with exactly one recursive field" | [unverified: `Nat` ops hard-coded] | compiler's | Idris-dev CHANGELOG, "New in 1.3.2" |
 | **Agda** | the one type bound by `BUILTIN NATURAL` | **declared** | shape `zero`/`suc`, either order | bound functions (`NATPLUS`, `NATEQUALS`, …) run as primitives on closed terms; `Fin` stays unary | kernel and backends trust the primitives | Agda manual, "Built-ins: Natural numbers" |
 | **Lean 4** | `Nat`, `Int` special; any **trivial wrapper** | `Nat` by the kernel and compiler; wrappers automatic | a wrapper: one constructor with exactly one run-time relevant field (and visible enough in a public module) | `Fin` is `structure Fin n where val : Nat; isLt : val < n`, "represented identically to the underlying natural number": `val` is a projection | kernel trusts GMP for `Nat.add` etc.; `@[extern]`, `@[implemented_by]` trusted | Lean reference: Inductive Types, Run-Time Representation; Finite Natural Numbers; Natural Numbers |
 | **Rocq extraction** | any inductive the user names | **declared**: `Extract Inductive nat => int [ "0" "succ" ] "(fun fO fS n -> if n=0 then fO () else fS (n-1))"` | none checked | user-written ML | "not checked at all"; overflow is "the user's responsibility" | Rocq manual, Program extraction, "Realizing inductive types" |
 | **F\*** | n/a | by definition | `nat` is `i: int{i >= 0}`; `fin n` is `k: int{0 <= k /\ k < n}`: refinements of `int`, so already machine numbers | coercions are free | the refinement proof | `ulib/Prims.fst:477`; `ulib/FStar.Fin.fsti:40` |
-| **GHC** | none Peano-shaped; `newtype` erased | — | — | — | — | [from memory] |
+| **GHC** | none Peano-shaped; `newtype` erased | — | — | — | — | [cited: `data Natural` with two constructors, `NS !Word#` and `NB !BigNat#`, a machine word or a big-number limb array, `GHC/Internal/Bignum/Natural.hs` lines 130-132, read 16 Nov 2026; the `newtype` erasure half is not re-read] |
 | **Stitchwort today** | `Nat`, `Int`, `Text`, `Float` by pinned declaration; one-field records automatic (D866) | pins; `unboxed_field` | — | `Mod n`, `SafeNat` are records over `Nat`, so already numbers | kernel natives pinned by hash | §1.2, §1.3 |
 
 Notes:
@@ -405,13 +405,16 @@ Notes:
   [checked: `libs/base/Data/Fin.idr:86`], and its doc comment still says
   `Fin` will be "exceedingly inefficient at run time" (line 15). Detection
   counts arguments not of quantity 0 (`hasArgs`, `ProcessData.idr:249`),
-  and `FZ : Fin (S k)` binds `k` implicitly; whether that `k` is at
-  quantity 0 (so `Fin` is detected) I didn't confirm **[unverified]**. The
+  and `FZ : Fin (S k)` binds `k` implicitly; `FZ : Fin (S k)` in
+  `libs/base/Data/Fin.idr` binds `k` implicitly and the multiplicities chapter says "if ... a name is
+  implicitly bound ... the argument is erased", so `k` is at quantity 0 and `Fin` has a nullary and a
+  one-argument constructor of its own type, which `calcNaty` accepts **[checked, 15 Nov 2026: Idris2
+  `main` at ab7bbfd, multiplicities doc read through WebFetch; detection not run]**. The
   docs' own `%transform "plus"` example rewrites `plus j k` to
   `j + j`, which shows what unchecked rewrites cost.
 - **The theory** is Brady, McBride and McKinna, "Inductive families need not
   store their indices" (TYPES 2003): once indices are erased, `Fin` is
-  `Nat` **[from memory]**. Stitchwort already erases the indices; this is
+  `Nat` **[cited second-hand, 15 Nov 2026: Allais, "Builtin Types viewed as Inductive Families", ESOP 2023, arXiv 2301.02194, says an analysis in the style of Brady, McBride and McKinna solves the redundancy for `Vect` and `Fin`; the TYPES 2003 text itself wasn't read]**. Stitchwort already erases the indices; this is
   the next step.
 
 ### 6.1 Which approach fits Stitchwort

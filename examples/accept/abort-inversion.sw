@@ -9,7 +9,11 @@ type Order = { item: Text, quantity: Nat }
 type Bin = { label: Text, aisle: Nat }
 type Pick = { item: Text, bin: Bin, quantity: Nat, left: Nat }
 
-type Warehouse = { stock: Map Text Nat, locations: Map Text Text, bins: Map Text Bin }
+type Warehouse = {
+  stock: Map Text Nat,
+  locations: Map Text Text,
+  bins: Map Text Bin
+}
 
 def pickOrder (warehouse: Warehouse) (order: Order): Option Pick := toOption (() =>
   let onHand := warehouse.stock.get order.item |> .orAbort
@@ -27,8 +31,8 @@ theorem pickStock ∀ (warehouse: Warehouse) (order: Order) (pick: Pick)
     Abort.needEqSome rest (label foundLabel rest =>
       Abort.needEqSome rest (bin foundBin rest =>
         Abort.ensureEqSome rest (enough picked =>
-          rewrite foundStock, <- Option.someInjective picked in
-            rewrite (omega: order.quantity + (onHand - order.quantity) = onHand) in rfl))))
+          rewrite foundStock, <- Option.someInjective picked then
+            rewrite (arithmetic: order.quantity + (onHand - order.quantity) = onHand) then byComputing))))
 
 -- The bin picked from is the one the item's label names.
 theorem pickBin ∀ (warehouse: Warehouse) (order: Order) (pick: Pick)
@@ -37,7 +41,7 @@ theorem pickBin ∀ (warehouse: Warehouse) (order: Order) (pick: Pick)
   Abort.needEqSome h (onHand foundStock rest =>
     Abort.needEqSome rest (label foundLabel rest =>
       Abort.needEqSome rest (bin foundBin rest =>
-        Abort.ensureEqSome rest (enough picked => rewrite foundLabel, <- Option.someInjective picked in foundBin))))
+        Abort.ensureEqSome rest (enough picked => rewrite foundLabel, <- Option.someInjective picked then foundBin))))
 
 -- The other way: when every step succeeds, the block gives its value.
 theorem pickOrderSome ∀ (warehouse: Warehouse) (order: Order) (onHand: Nat) (label: Text) (bin: Bin)
@@ -47,7 +51,7 @@ theorem pickOrderSome ∀ (warehouse: Warehouse) (order: Order) (onHand: Nat) (l
     (enough: order.quantity <= onHand):
     pickOrder warehouse order
       = Some { item = order.item, bin, quantity = order.quantity, left = onHand - order.quantity } :=
-  rewrite foundStock, foundLabel, foundBin, enough in rfl
+  rewrite foundStock, foundLabel, foundBin, enough then byComputing
 
 -- A step that is a call to another `{Abort}` function: `Abort.thenEqSome`
 -- says it gave `Some`.
@@ -66,13 +70,13 @@ theorem pickFromBinFound ∀ (warehouse: Warehouse) (order: Order) (picked: Pair
     toOption (() => binFor warehouse order.item) = Some picked.fst :=
   Abort.thenEqSome h (found foundBin rest =>
     Abort.needEqSome rest (onHand foundStock rest =>
-      Abort.ensureEqSome rest (enough result => rewrite foundBin, <- Option.someInjective result in rfl)))
+      Abort.ensureEqSome rest (enough result => rewrite foundBin, <- Option.someInjective result then byComputing)))
 
 -- The last step of `binFor` has no rest: `Abort.toOptionNeed` reads it.
 theorem binForLabel ∀ (warehouse: Warehouse) (item: Text) (bin: Bin)
     (h: toOption (() => binFor warehouse item) = Some bin):
     warehouse.locations.get item |> .flatMap warehouse.bins.get = Some bin :=
-  Abort.needEqSome h (label foundLabel rest => rewrite foundLabel in rewrite Abort.toOptionNeed at rest)
+  Abort.needEqSome h (label foundLabel rest => rewrite foundLabel then rewrite Abort.toOptionNeed at rest)
 
 -- With `Fail`, the same: `Fail.needEqOk` and `Fail.ensureEqOk`.
 def pickOrFail (warehouse: Warehouse) (order: Order): Result Pick Text := Fail.toResult (() =>
@@ -88,7 +92,7 @@ theorem pickOrFailEnough ∀ (warehouse: Warehouse) (order: Order) (pick: Pick)
   Fail.needEqOk h (onHand foundStock rest =>
     Fail.needEqOk rest (label foundLabel rest =>
       Fail.needEqOk rest (bin foundBin rest =>
-        Fail.ensureEqOk rest (enough picked => rewrite foundStock, <- Result.okInjective picked in omega))))
+        Fail.ensureEqOk rest (enough picked => rewrite foundStock, <- Result.okInjective picked then arithmetic))))
 
 -- A step that is a call to another `{Fail}` function: `Fail.thenEqOk`.
 def binOrFail (warehouse: Warehouse) (item: Text): {Fail} Bin :=
@@ -104,7 +108,7 @@ theorem pickFromBinOrFailFound ∀ (warehouse: Warehouse) (order: Order) (picked
     (h: pickFromBinOrFail warehouse order = Ok picked):
     Fail.toResult (() => binOrFail warehouse order.item) = Ok picked.fst :=
   Fail.thenEqOk h (found foundBin rest =>
-    Fail.needEqOk rest (onHand foundStock result => rewrite foundBin, <- Result.okInjective result in rfl))
+    Fail.needEqOk rest (onHand foundStock result => rewrite foundBin, <- Result.okInjective result then byComputing))
 
 def warehouse: Warehouse := {
   stock = [("bolt", 40), ("nut", 5)].toMap,

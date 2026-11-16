@@ -2,16 +2,16 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
-    ╭─[ reject/blanks-proof-argument-error-against-goal.sw:11:49 ]
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ reject/blanks-proof-argument-error-against-goal.sw:11:51 ]
     │
- 11 │   Eq.trans (List.filterSkip _ _ _ (rewrite h in rfl)) e
-    │                                                 ─┬─  
-    │                                                  ╰─── `(Nat.decEq 0 0).holds` and `False` aren't equal
+ 11 │   Eq.trans (List.filterSkip _ _ _ (rewrite h then byComputing)) e
+    │                                                   ─────┬─────  
+    │                                                        ╰─────── `(Nat.decEq 0 0).holds` and `False` aren't equal
     │ 
     │ Note 1: computing the left side gives `True`
     │ 
-    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
     │ 
     │ Note 3: this statement is false; a counterexample:
     │           x = 0

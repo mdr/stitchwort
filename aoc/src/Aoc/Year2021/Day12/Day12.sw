@@ -52,7 +52,9 @@ def Passage.joinsBig (passage: Passage): Bool := passage.from.isBig && passage.t
 
 --| Where the passage leads from `cave`: its other end, if `cave` is an end.
 def Passage.leadsTo (passage: Passage) (cave: Cave): List Cave :=
-  if passage.from == cave then [passage.to] else if passage.to == cave then [passage.from] else []
+  if passage.from == cave then [passage.to]
+  else if passage.to == cave then [passage.from]
+  else []
 
 --| A path through the caves, from the first to the last.
 type Path = { caves: List Cave }
@@ -69,9 +71,9 @@ def main(): {IO, Fail} () :=
 --| passage joins two big caves.
 def parsePassages (input: Text): {Fail} List Passage := checkPassages (Parse.eachLine input passage)
 
-def cave(): {Parse} Cave := { name = takeWhile1 "a cave name" Char.isAsciiLetter }
+def cave(): {Parse Char} Cave := { name = takeWhile1 "a cave name" Char.isAsciiLetter }
 
-def passage(): {Parse} Passage :=
+def passage(): {Parse Char} Passage :=
   let from := cave()
   char '-'
   let to := cave()

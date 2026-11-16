@@ -9,7 +9,7 @@ expression: output
    │                    ┬  
    │                    ╰── there is no expected type here to look for this rule's left side in
    │ 
-   │ Note 1: write the type with an ascription: `(rewrite p in t: a = b)`
+   │ Note 1: write the type with an ascription: `(rewrite p then t: a = b)`
    │ 
    │ Note 2: the goal is known where a proof is checked against a type: an argument, a definition's body, a `calc` step
    │ 

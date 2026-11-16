@@ -1,4 +1,4 @@
--- Day 5's lemmas from aoc/src/Aoc/Year2025/Day05/Proofs/Part2.sw, rewritten with `omega`.
+-- Day 5's lemmas from aoc/src/Aoc/Year2025/Day05/Proofs/Part2.sw, rewritten with `arithmetic`.
 
 import Std (Nat, Bool, Void, List, Eq)
 
@@ -31,7 +31,7 @@ theorem absorbLo ∀ (r: Range) (b: Nat)
     | [] => h
     | [last, ..earlier] =>
       match e: Nat.leq r.from (last.to + 1) with
-        | True => omega
+        | True => arithmetic
         | False => h
 
 theorem absorbStacked ∀ (r: Range) (merged: List Range)
@@ -47,13 +47,13 @@ theorem absorbStacked ∀ (r: Range) (merged: List Range)
           Both
             (id h =>
               match i: last.contains id with
-                | True => omega
-                | False => omega [b id h])
+                | True => arithmetic
+                | False => arithmetic [b id h])
             (Both b rest)
 
 theorem topGe ∀ (z: Nat) (rs: List Range): z ≤ rs.foldLeft z (m r => Nat.max m r.to) := match rs with
   | [] => Nat.leRefl z
-  | [r, ..rs] => omega [Nat.leMaxLeft z r.to, topGe (Nat.max z r.to) rs]
+  | [r, ..rs] => arithmetic [Nat.leMaxLeft z r.to, topGe (Nat.max z r.to) rs]
 
 theorem coveredTop ∀ (z: Nat) (rs: List Range) (id: Nat)
     (h: covered rs id = True):
@@ -61,7 +61,7 @@ theorem coveredTop ∀ (z: Nat) (rs: List Range) (id: Nat)
   match rs with
     | [r, ..rs] =>
       match e: r.contains id with
-        | True => omega [Nat.leMaxRight z r.to, topGe (Nat.max z r.to) rs]
+        | True => arithmetic [Nat.leMaxRight z r.to, topGe (Nat.max z r.to) rs]
         | False => coveredTop (Nat.max z r.to) rs id h
 
 theorem mergedContains ∀ (a r: Range) (id: Nat)
@@ -69,6 +69,6 @@ theorem mergedContains ∀ (a r: Range) (id: Nat)
     (h2: r.from ≤ a.to + 1):
     Range.contains { from = a.from, to = Nat.max a.to r.to } id = (a.contains id ∨ r.contains id) :=
   match t: Nat.leq a.from id, i: Nat.leq id a.to with
-    | True, True => omega [Nat.leMaxLeft a.to r.to]
-    | True, False => Eq.trans (Nat.leqMaxAbove id a.to r.to i) (Eq.sym (Nat.betweenFrom r.from r.to id omega))
-    | False, _ => Eq.sym (Nat.betweenBelow r.from r.to id omega)
+    | True, True => arithmetic [Nat.leMaxLeft a.to r.to]
+    | True, False => Eq.trans (Nat.leqMaxAbove id a.to r.to i) (Eq.flipped (Nat.betweenFrom r.from r.to id arithmetic))
+    | False, _ => Eq.flipped (Nat.betweenBelow r.from r.to id arithmetic)

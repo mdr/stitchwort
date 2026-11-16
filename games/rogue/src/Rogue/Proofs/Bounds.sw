@@ -13,7 +13,10 @@ import Rogue (..)
 import Std (Bool, Eq, List, Nat, Void)
 
 --| A cell on the screen.
-type OnScreen (position: Position): Prop = { low: position.row < levelRows, narrow: position.column < levelColumns }
+type OnScreen (position: Position): Prop = {
+  low: position.row < levelRows,
+  narrow: position.column < levelColumns
+}
 
 --| An area whose cells are all on the screen (on the map).
 type OnMap (area: Area): Prop = {
@@ -30,7 +33,7 @@ theorem containedOnScreen ∀ (area: Area)
   let right := inside.right
   let areaBottom := fits.bottom
   let areaRight := fits.right
-  { low = omega, narrow = omega }
+  { low = arithmetic, narrow = arithmetic }
 
 theorem middleOnScreen ∀ (area: Area) (fits: OnMap area): OnScreen area.middle :=
   containedOnScreen area fits area.middle (middleInside area)
@@ -41,14 +44,14 @@ theorem sectionFits ∀ (top down offset: Nat)
     (offsetSmall: offset < Succ (10 - 3 - (2 + down)))
     (topSmall: top ≤ 11):
     top + offset + (2 + down) < 20 :=
-  omega
+  arithmetic
 
 theorem sectionFitsAcross ∀ (left across offset: Nat)
     (acrossSmall: across < 11)
     (offsetSmall: offset < Succ (22 - 3 - (4 + across)))
     (leftSmall: left ≤ 45):
     left + offset + (4 + across) < 66 :=
-  omega
+  arithmetic
 
 --| The top row and left column of section `index`, for the six sections.
 type Corner (index: Nat): Prop = {
@@ -57,12 +60,12 @@ type Corner (index: Nat): Prop = {
 }
 
 theorem sectionCorner ∀ (index: Nat) (small: index < 6): Corner index := match index with
-  | Zero => { top = omega, left = omega }
-  | Succ Zero => { top = omega, left = omega }
-  | Succ (Succ Zero) => { top = omega, left = omega }
-  | Succ (Succ (Succ Zero)) => { top = omega, left = omega }
-  | Succ (Succ (Succ (Succ Zero))) => { top = omega, left = omega }
-  | Succ (Succ (Succ (Succ (Succ Zero)))) => { top = omega, left = omega }
+  | Zero => { top = arithmetic, left = arithmetic }
+  | Succ Zero => { top = arithmetic, left = arithmetic }
+  | Succ (Succ Zero) => { top = arithmetic, left = arithmetic }
+  | Succ (Succ (Succ Zero)) => { top = arithmetic, left = arithmetic }
+  | Succ (Succ (Succ (Succ Zero))) => { top = arithmetic, left = arithmetic }
+  | Succ (Succ (Succ (Succ (Succ Zero)))) => { top = arithmetic, left = arithmetic }
 
 --| A room as `roomFrom` makes it in section `index`, from any rolls below
 --| their bounds (`roll most` is below `Succ most`), fits on the map.
@@ -99,14 +102,14 @@ theorem getOrFits ∀ (fallback: Area)
     ∀ (rooms: List Area) => (∀ (area: Area) => List.Mem area rooms → OnMap area)
       → ∀ (index: Nat) => OnMap (rooms.getOr index fallback)
   | [], fit, index => fallbackFits
-  | [room, ..rest], fit, Zero => fit room (Inl rfl)
+  | [room, ..rest], fit, Zero => fit room (Inl byComputing)
   | [room, ..rest], fit, Succ index => getOrFits fallback fallbackFits rest (area listed => fit area (Inr listed)) index
 
 theorem roomOfFits ∀ (rooms: List Area) (fit: ∀ (area: Area) => List.Mem area rooms → OnMap area) (index: Nat):
     OnMap (roomOf rooms index) :=
   let fallbackFits: OnMap (rooms.headOr fallbackRoom) := match rooms with
-    | [] => { bottom = omega, right = omega }
-    | [room, ..rest] => fit room (Inl rfl)
+    | [] => { bottom = arithmetic, right = arithmetic }
+    | [room, ..rest] => fit room (Inl byComputing)
   getOrFits (rooms.headOr fallbackRoom) fallbackFits rooms fit index
 
 --| A corridor between two cells on the screen fits.
@@ -115,8 +118,8 @@ theorem minPlusDistance ∀ (m n bound: Nat)
     (nSmall: n < bound):
     Nat.min m n + distanceBetween m n < bound :=
   match below: Nat.leq m n with
-    | True => omega
-    | False => omega
+    | True => arithmetic
+    | False => arithmetic
 
 theorem corridorFits ∀ (origin target: Position)
     (from: OnScreen origin)
@@ -126,12 +129,13 @@ theorem corridorFits ∀ (origin target: Position)
   match h with
     | Inl same =>
       let originRow := from.low
-      rewrite <- same in
-        { bottom = omega, right = minPlusDistance origin.column target.column levelColumns from.narrow to.narrow }
+      rewrite <- same then
+        { bottom = arithmetic, right = minPlusDistance origin.column target.column levelColumns from.narrow to.narrow }
     | Inr (Inl same) =>
       let targetColumn := to.narrow
-      rewrite <- same in { bottom = minPlusDistance origin.row target.row levelRows from.low to.low, right = omega }
-    | Inr (Inr nothing) => Void.exfalso nothing
+      rewrite <- same then
+        { bottom = minPlusDistance origin.row target.row levelRows from.low to.low, right = arithmetic }
+    | Inr (Inr nothing) => nothing.impossible
 
 --| So do the corridors between rooms that fit.
 theorem corridorsFit ∀ (rooms: List Area) (fit: ∀ (area: Area) => List.Mem area rooms → OnMap area)
@@ -242,10 +246,10 @@ theorem layOutFramed ∀ (depth: Nat) (rooms: List Area)
 theorem playerMovesLevel ∀ (dice: Dice) (state: State) (direction: Direction):
     (playerMoves dice state direction).level = state.level :=
   match found: monsterAt (state.player.toward direction) state.monsters with
-    | Some monster => rfl
+    | Some monster => byComputing
     | None =>
       match wall: isWall state.level (state.player.toward direction) with
-        | True => rfl
+        | True => byComputing
         | False => enterLevel state (state.player.toward direction)
 
 theorem resolveFramed ∀ (dice: Dice) (state: State) (command: Command)
@@ -255,14 +259,14 @@ theorem resolveFramed ∀ (dice: Dice) (state: State) (command: Command)
     | Playing =>
       match command with
         | Quit => framed
-        | Wait => rewrite monstersTurnLevel dice { state | message = "You wait." } in framed
+        | Wait => rewrite monstersTurnLevel dice { state | message = "You wait." } then framed
         | Move direction =>
-          rewrite monstersTurnLevel dice (playerMoves dice state direction), playerMovesLevel dice state direction in
+          rewrite monstersTurnLevel dice (playerMoves dice state direction), playerMovesLevel dice state direction then
             framed
         | Drink =>
           match none: state.potions == 0 with
             | True => framed
-            | False => rewrite monstersTurnLevel dice (drink state) in framed
+            | False => rewrite monstersTurnLevel dice (drink state) then framed
         | Descend =>
           match stairs: isStairs state.level state.player with
             | True => generatedFramed dice.seed (state.level.depth + 1)
@@ -277,7 +281,10 @@ theorem stepFramed ∀ (seed: Nat) (state: State) (command: Command)
   resolveFramed { seed = lcg seed / 65536 } state command framed
 
 --| A state of a real game: valid, on a framed level.
-type Sound (state: State): Prop = { valid: Valid state, framed: Framed state.level }
+type Sound (state: State): Prop = {
+  valid: Valid state,
+  framed: Framed state.level
+}
 
 --| A new game on a framed level is sound, and so is every game after any
 --| number of turns.
@@ -298,9 +305,9 @@ theorem drawnPlayer ∀ (state: State)
     (sound: Sound state):
     render state |> .getOr state.player.row "" |> .toList |> .getOr state.player.column ' ' = '@' :=
   let onScreen := sound.framed.floor state.player sound.valid.outOfWalls
-  let tall: state.player.row < state.level.terrain.length := rewrite sound.framed.rows in onScreen.low
+  let tall: state.player.row < state.level.terrain.length := rewrite sound.framed.rows then onScreen.low
   let wide: state.player.column < (state.level.terrain.getOr state.player.row []).length :=
-    rewrite sound.framed.columns state.player.row onScreen.low in onScreen.narrow
+    rewrite sound.framed.columns state.player.row onScreen.low then onScreen.narrow
   renderPlayer state tall wide
 
 --| And each monster's letter at its row and column.
@@ -317,7 +324,7 @@ theorem drawnMonster ∀ (state: State)
       sound.valid.onFloor
       listed
   let onScreen := sound.framed.floor monster.position onFloor
-  let tall: monster.position.row < state.level.terrain.length := rewrite sound.framed.rows in onScreen.low
+  let tall: monster.position.row < state.level.terrain.length := rewrite sound.framed.rows then onScreen.low
   let wide: monster.position.column < (state.level.terrain.getOr monster.position.row []).length :=
-    rewrite sound.framed.columns monster.position.row onScreen.low in onScreen.narrow
+    rewrite sound.framed.columns monster.position.row onScreen.low then onScreen.narrow
   renderEveryMonster state sound.valid monster listed tall wide

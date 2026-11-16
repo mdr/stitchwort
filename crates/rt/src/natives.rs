@@ -41,6 +41,28 @@ pub enum TextNative {
     TextJoin,
     NatToText,
     TextToNat,
+    TextRepeat,
+    TextGet,
+    TextGetOr,
+    TextGetLt,
+    TextSlice,
+    TextConcat,
+}
+
+impl TextNative {
+    /// Whether the JS backend has it. Those it hasn't run their
+    /// definitions there (stage T3 of docs/proposals/file-io-and-text.md
+    /// adds them).
+    pub fn in_js(self) -> bool {
+        !matches!(
+            self,
+            TextNative::TextGet
+                | TextNative::TextGetOr
+                | TextNative::TextGetLt
+                | TextNative::TextSlice
+                | TextNative::TextConcat
+        )
+    }
 }
 
 /// Each text native, the prelude definition it replaces, and that
@@ -134,6 +156,36 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
         Builtin::TextToNat,
         TextNative::TextToNat,
         "1d1e755952df72b7a810de03191f63919a7f0ba30e607cd26db7968a48846b73",
+    ),
+    (
+        Builtin::TextRepeat,
+        TextNative::TextRepeat,
+        "c0cd3a04b086f6ccbbe6320b95613614a0179030f4e61d6b8911d03e7f364800",
+    ),
+    (
+        Builtin::TextGet,
+        TextNative::TextGet,
+        "1494d56b166b3df3fd78f01a337239ce692639a25116404935359f773a498ed2",
+    ),
+    (
+        Builtin::TextGetOr,
+        TextNative::TextGetOr,
+        "26752dd8c4323ce8a26106f320eed8fb110173944f08c1117acda07ed8085af2",
+    ),
+    (
+        Builtin::TextGetLt,
+        TextNative::TextGetLt,
+        "947b419f95b992f7ffd0533eed5003c4649ad9d6e7959a3e96faabae81a9052d",
+    ),
+    (
+        Builtin::TextSlice,
+        TextNative::TextSlice,
+        "aa8bda6b263615bf8eea69d3d7bc3b964e382e4185c004316db169438fa87540",
+    ),
+    (
+        Builtin::TextConcat,
+        TextNative::TextConcat,
+        "38ce6872fbb00b2cb83f74dd333fb01bee7204b6845b8374232ea79b063b0c50",
     ),
 ];
 

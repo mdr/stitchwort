@@ -88,32 +88,32 @@ theorem generatedLaidOut ∀ (depth: Nat) (property: Level → Prop)
               (rollBound entrance 5)
               (rollBound _ 5)
               (sixFit
-                (roomFits 0 rfl _ _ _ _
+                (roomFits 0 byComputing _ _ _ _
                   (rollBound down0 _)
                   (rollBound across0 _)
                   (rollBound row0 _)
                   (rollBound column0 _))
-                (roomFits 1 rfl _ _ _ _
+                (roomFits 1 byComputing _ _ _ _
                   (rollBound down1 _)
                   (rollBound across1 _)
                   (rollBound row1 _)
                   (rollBound column1 _))
-                (roomFits 2 rfl _ _ _ _
+                (roomFits 2 byComputing _ _ _ _
                   (rollBound down2 _)
                   (rollBound across2 _)
                   (rollBound row2 _)
                   (rollBound column2 _))
-                (roomFits 3 rfl _ _ _ _
+                (roomFits 3 byComputing _ _ _ _
                   (rollBound down3 _)
                   (rollBound across3 _)
                   (rollBound row3 _)
                   (rollBound column3 _))
-                (roomFits 4 rfl _ _ _ _
+                (roomFits 4 byComputing _ _ _ _
                   (rollBound down4 _)
                   (rollBound across4 _)
                   (rollBound row4 _)
                   (rollBound column4 _))
-                (roomFits 5 rfl _ _ _ _
+                (roomFits 5 byComputing _ _ _ _
                   (rollBound down5 _)
                   (rollBound across5 _)
                   (rollBound row5 _)

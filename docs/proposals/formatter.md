@@ -79,9 +79,9 @@ Decisions for Matt are in §8 (D1013 to D1022). §7 lists the stages.
   `Let`/`Seq`. So printing the AST from scratch, as rustfmt does, would drop
   brackets and blank lines and lose the author's choices.
 - **The parser splits a file into declarations by column 0**
-  (`crates/syntax/src/parser.rs:332-388`). It can also recover:
+  (`crates/syntax/src/parser.rs`, `split_decls`). It can also recover:
   `parse_module_recovering` keeps going after a broken declaration
-  (`parser.rs:53-79`). Layout matters (`parser.rs:1-12`; docs/syntax.md:174-180):
+  (`parser.rs`, `parse_module_recovering`). Layout matters (`parser.rs` module doc; docs/syntax.md:174-180):
   a line indented further continues the one above, block lines share a
   column, and arms share a column *A* deeper than the declaration.
 - **There is no surface printer.** `crates/core/src/pretty.rs` prints
@@ -192,8 +192,8 @@ little.
 
 The option not taken, kept for reference: copy a declaration that doesn't
 parse unchanged and format the rest. That works because declarations are
-split by column 0 before they are parsed (`parser.rs:332-388`) and recovery
-works at that granularity (`parser.rs:53-61`), so it can be added later
+split by column 0 before they are parsed (`parser.rs`, `split_decls`) and recovery
+works at that granularity (`parser.rs`, `parse_module_recovering`), so it can be added later
 without redesign.
 
 ## 3. The style rules

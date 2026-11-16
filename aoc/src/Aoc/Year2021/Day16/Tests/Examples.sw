@@ -34,10 +34,10 @@ def specPart1 (input: Text): Nat := versionTotal (packetOf input)
 --| Bits written as the puzzle writes them.
 def bitText (bits: List Bool): Text := Text.fromList (bits.map (bit => if bit then '1' else '0'))
 
-theorem literalBits: bitText (bitsOf "D2FE28") = "110100101111111000101000" := rfl
+theorem literalBits: bitText (bitsOf "D2FE28") = "110100101111111000101000" := byComputing
 
 --| The literal 2021, version 6, in three groups.
-theorem literalPacket: parsed "D2FE28" = Ok (Literal 6 [7, 14, 5]) := rfl
+theorem literalPacket: parsed "D2FE28" = Ok (Literal 6 [7, 14, 5]) := byComputing
 
 test "literal value" := part2 "D2FE28" == 2021
 
@@ -45,13 +45,13 @@ test "literal value" := part2 "D2FE28" == 2021
 --| 10 and 20.
 theorem lengthOperator: parsed "38006F45291200"
       = Ok (Comparator 1 LessThan TotalLength (Literal 6 [10]) (Literal 2 [1, 4])) :=
-  rfl
+  byComputing
 
 --| An operator (version 7, type 3) with three literals, 1, 2 and 3, by
 --| number.
 theorem countOperator: parsed "EE00D40C823060"
       = Ok (Operator 7 Maximum Count [Literal 2 [1], Literal 4 [2], Literal 1 [3]]) :=
-  rfl
+  byComputing
 
 test "part 1, examples" :=
   part1 "8A004A801A8002F478" == 16
@@ -102,7 +102,7 @@ test "not hexadecimal" :=
 --| Only zero bits may follow the packet: the literal 2021 ends after 21
 --| bits, so `D2FE28` has 3 padding bits and `D2FE2800` 11, while the last
 --| bit of `D2FE29` is a 1.
-theorem zeroPadding: parsed "D2FE2800" = Ok (Literal 6 [7, 14, 5]) := rfl
+theorem zeroPadding: parsed "D2FE2800" = Ok (Literal 6 [7, 14, 5]) := byComputing
 
 test "a bad trailer" := errorOf "D2FE29" == Some "the bits after the packet aren't all zero padding"
 
@@ -111,7 +111,7 @@ test "too short" := errorOf "D2FE" == Some notAPacket
 --| Sub-packets exactly filling a total length of 22 bits, and the same
 --| with a length of 100 that the transmission ends before.
 theorem aTotalLength: parsed "38005B4528B" = Ok (Comparator 1 LessThan TotalLength (Literal 6 [10]) (Literal 2 [11])) :=
-  rfl
+  byComputing
 
 test "a total length past the end" := errorOf "3801934528B" == Some notAPacket
 
@@ -126,4 +126,4 @@ test "a comparison of three" := errorOf "3A00C40881102" == Some notAPacket
 
 --| The hypothesis of the parser's theorems can hold.
 -- (the audit's random texts never parse)
-theorem smallParses: parsed "D2FE28\n" = Ok (Literal 6 [7, 14, 5]) := rfl
+theorem smallParses: parsed "D2FE28\n" = Ok (Literal 6 [7, 14, 5]) := byComputing

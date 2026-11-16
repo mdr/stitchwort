@@ -58,25 +58,25 @@ pattern, and a `matches` arm (body `True`). An absurd arm with a guard is
 would test nothing.
 
 `if` after a pattern is a parse error today (`match_expr` expects `,` or `=>`
-after the patterns, parser.rs:2504-2521; definition arms likewise,
+after the patterns, `match_expr`, `parser.rs`; definition arms likewise,
 parser/declarations.rs:665-678) **[checked]**, so no program changes meaning.
 
 ### 2.2 Where the guard's expression ends
 
 The guard is parsed with `expr()`, with one new stop: a `=>` not inside
 brackets opened since the guard started. Without it, `| x if flag => e`
-would read `flag => e` as a lambda, since `lambda_ahead` (parser.rs:3491)
+would read `flag => e` as a lambda, since `lambda_ahead` (`parser.rs`)
 looks for names followed by `=>`, at the start of an expression and after
-`|>` (parser.rs:3693). The precedent is `rewrite`'s rule, which ends at an
+`|>` (`parser.rs`, `lambda_ahead`). The precedent is `rewrite`'s rule, which ends at an
 `in` or `at` outside brackets: a parser field `rewrite_rule: Option<usize>`
-checked in `is_stop` (parser.rs:750-768, `ends_rewrite_rule` at 775)
+checked in `is_stop` (`parser.rs`, `ends_rewrite_rule`)
 **[checked]**. Add `guard_start: Option<usize>` the same way, set while the
 guard is parsed and saved/cleared around it; `lambda_ahead` already refuses a
-`=>` that `is_stop` says ends the expression (parser.rs:3512-3515)
+`=>` that `is_stop` says ends the expression (`parser.rs`)
 **[checked]**. A lambda inside the guard is bracketed anyway
 (`xs.any (x => x > 0)`) and isn't affected.
 
-The constructor-argument stop set in `alt_pattern_one` (parser.rs:2671-2690:
+The constructor-argument stop set in `alt_pattern_one` (`parser.rs`:
 `,`, `->`, `=>`, `|`, closing brackets) gets `KwIf`, so `| Some x if x > 0`
 stops `Some`'s arguments at the `if` **[checked]** that the list is explicit;
 whether `if` would stop it anyway is untested.
@@ -87,10 +87,10 @@ whether `if` would stop it anyway is untested.
   the guard ends at `=>`, the result at the next `|`, as today
   (partial-lambdas.md §5.2). `||` is a token of its own, so `| x if a || b
   =>` is one guard.
-- **Or-patterns.** `alternatives` (parser.rs:2702) takes every `| q` on the
+- **Or-patterns.** `alternatives` (`parser.rs`) takes every `| q` on the
   same line before the guard, so `| 'h' | 'a' if strict => …` is one arm
   whose guard covers both, as in Rust and OCaml. An or-pattern binds no
-  names (`E-OR-PATTERN-BINDS`, parser.rs:2717), so the guard means the same
+  names (`E-OR-PATTERN-BINDS`, `lower/patterns.rs`), so the guard means the same
   for each alternative. The compiler expands or-patterns into one row per
   alternative with the same right-hand side (`expand_or_patterns`,
   lib.rs:423) **[checked]**; each copy keeps the guard, so the guard is
@@ -100,7 +100,7 @@ whether `if` would stop it anyway is untested.
 - **Several patterns.** `| p, q if c =>`: one guard, after the last pattern,
   over all of them. No per-pattern guards.
 - **Clause lambdas.** `match some | (j, y) if j != i => (x, y)`; `matches |
-  Some x if x > 0` (no `=>`: `True`). `clause_lambda` (parser.rs:2566) parses
+  Some x if x > 0` (no `=>`: `True`). `clause_lambda` (`parser.rs`) parses
   arms itself, so it gets the same `guard?` call as `match_expr`. The hidden
   last arm stays unguarded.
 - **`:= match | …` as a definition's body** is lowered to the arms form
@@ -115,7 +115,7 @@ whether `if` would stop it anyway is untested.
 The guard may continue on following lines indented further than the arm's
 `|`, as the arm's body may: arm parsing sets `limit` to the `|` column
 (parser/declarations.rs:615) and `match_expr` lines arms up by the `|`
-column (parser.rs:2496-2503) **[checked]**, and nothing new is needed. The
+column (`parser.rs`) **[checked]**, and nothing new is needed. The
 formatter is token-based (`crates/fmt/src/layout.rs`, `spacing.rs`)
 **[checked]** that it has no notion of arms; it should print `if` with a
 space either side and leave the guard on the pattern's line **[estimate]**:
@@ -531,7 +531,7 @@ CODE` on the first line), run with `task test:one -- NAME`:
 - **W-MATCH-TOTAL**: `match some | Some x if x > 0 => x` doesn't warn;
   `match some | x => x` still does.
 - **Unit tests** in the parser (as `clause_lambdas_are_lambdas_over_a_match`,
-  parser.rs:6110): the guard's span and binder; `| x if flag => e` isn't a
+  `lower/tests/matching.rs`): the guard's span and binder; `| x if flag => e` isn't a
   lambda; `| x if xs |> f => e`; the guard over an or-pattern.
 - **Equations (stage 1)**: a definition with an unguarded arm, a guarded
   one, and a fallback: `f.eq1` exists and is unchanged, `f.eq2` is

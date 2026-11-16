@@ -13,12 +13,18 @@ use stitchwort_core::native::Native;
 use stitchwort_core::partial::Primitive;
 
 use crate::effect::EffectOp;
-use crate::ir::{HoleOp, PrimOp, Shapes};
+use crate::ir::{FileShapes, HoleOp, PrimOp, Shapes};
 use crate::natives::{ArrayNative, FloatPrim, IntNative, TextNative};
 
 /// A hash of this crate's sources (`build.rs`): bytes are read only by a
 /// runtime built from the same code as the writer.
 pub(crate) const BUILD_HASH: u64 = parse_hash(env!("SW_RT_BUILD_HASH"));
+
+/// Text that appears in `libstitchwort_standalone.a` exactly when it was
+/// built from the same runtime sources as the `stitchwort` that reads it
+/// (`BUILD_HASH` in decimal), so `stitchwort build` can refuse a stale
+/// library before it links an executable that can't start.
+pub const BUILD_MARKER: &str = concat!("stitchwort-runtime-build=", env!("SW_RT_BUILD_HASH"), ";");
 
 const fn parse_hash(text: &str) -> u64 {
     let bytes = text.as_bytes();
@@ -198,7 +204,13 @@ tags!(
         TextNative::TextSplit,
         TextNative::TextJoin,
         TextNative::NatToText,
-        TextNative::TextToNat
+        TextNative::TextToNat,
+        TextNative::TextRepeat,
+        TextNative::TextGet,
+        TextNative::TextGetOr,
+        TextNative::TextGetLt,
+        TextNative::TextSlice,
+        TextNative::TextConcat
     ]
 );
 
@@ -265,14 +277,18 @@ tags!(
     ]
 );
 
-/// The shapes' fields, in the order they are written.
+/// The shapes' fields, in the order they are written: [`Shapes`]' own,
+/// then [`FileShapes`]'.
 macro_rules! shapes {
-    ($($field:ident),* $(,)?) => {
+    ($($field:ident),* $(,)?; $($file:ident),* $(,)?) => {
         pub(crate) fn write_shapes(w: &mut Writer, s: &Shapes) {
             $(w.uint(u64::from(s.$field));)*
+            $(w.uint(u64::from(s.files.$file));)*
         }
         pub(crate) fn read_shapes(r: &mut Reader) -> Read<Shapes> {
-            Ok(Shapes { $($field: r.u32()?),* })
+            $(let $field = r.u32()?;)*
+            let files = FileShapes { $($file: r.u32()?),* };
+            Ok(Shapes { $($field,)* files })
         }
     };
 }
@@ -304,8 +320,26 @@ shapes!(
     write,
     random_seed,
     args,
+    print_error,
     console_record,
-    stop,
+    stop;
+    read,
+    write,
+    list,
+    info,
+    ok,
+    err,
+    file,
+    folder,
+    other,
+    entry,
+    info_record,
+    not_found,
+    not_permitted,
+    not_a_file,
+    not_a_folder,
+    not_text,
+    other_error,
 );
 
 // ------------------------------------------------------------------ writing

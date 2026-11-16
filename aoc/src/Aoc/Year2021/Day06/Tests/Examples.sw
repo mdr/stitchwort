@@ -31,5 +31,5 @@ test "the counts after a day" :=
   (Counts.ofTimers [0, 0, 7, 8]).nextDay.total == 6 ∧ (Counts.ofTimers [0, 0, 7, 8]).nextDay.t6 == 3
 
 --| The examples, proved by computing them.
-theorem exampleAfter18: fishAfter 18 exampleTimers = 26 := rfl
-theorem examplePart1: solvePart1 exampleTimers = 5934 := rfl
+theorem exampleAfter18: fishAfter 18 exampleTimers = 26 := byComputing
+theorem examplePart1: solvePart1 exampleTimers = 5934 := byComputing

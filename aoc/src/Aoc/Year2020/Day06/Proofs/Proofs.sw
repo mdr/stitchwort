@@ -21,7 +21,7 @@ theorem anyoneCount ∀ (lines: List (List Char)) (group: Group)
     (Spec.anyone lines)
     questionsDistinct
     (question found =>
-      anyQuestion lines group.people.toList written question (rewrite agree question at found in found))
+      anyQuestion lines group.people.toList written question (rewrite agree question at found then found))
     (question isQuestion => agree question)
 
 theorem everyoneCount ∀ (lines: List (List Char)) (group: Group)
@@ -36,7 +36,7 @@ theorem everyoneCount ∀ (lines: List (List Char)) (group: Group)
       everyQuestion lines group.people.toList written
         (NonEmptyList.toListNotNil group.people)
         question
-        (rewrite meet question at found in found))
+        (rewrite meet question at found then found))
     (question isQuestion => meet question)
 
 --| The sums over groups: a lemma over any per-group count, then the two
@@ -47,15 +47,15 @@ theorem sumCounts ∀ (size: Group → Nat) (count: List (List Char) → Nat)
     (impossible: List.All2 (lines group => GroupLines lines.toList group) lineGroups groups):
     groups.sumBy size = lineGroups.sumBy (lines => count lines.toList) :=
   match lineGroups, groups, impossible with
-    | [], [], all => rfl
+    | [], [], all => byComputing
     | [lines, ..lineGroups], [group, ..groups], Both written rest =>
       rewrite List.sumByCons groups group size,
           List.sumByCons lineGroups lines (lines => count lines.toList),
           each lines.toList group written,
-          sumCounts size count each lineGroups groups rest in
-        rfl
-    | [], [_, .._], impossible => Void.exfalso impossible
-    | [_, .._], [], impossible => Void.exfalso impossible
+          sumCounts size count each lineGroups groups rest then
+        byComputing
+    | [], [_, .._], impossible => impossible.impossible
+    | [_, .._], [], impossible => impossible.impossible
 
 theorem part1Lines ∀ (lineGroups: List (NonEmptyList (List Char))) (groups: List Group)
     (written: List.All2 (lines group => GroupLines lines.toList group) lineGroups groups):
@@ -85,7 +85,7 @@ theorem inputGroups ∀ (input: Text) (groups: List Group)
           Parse.sepByMap PersonWritten
             (line written => line = written)
             (line person => PersonWritten line person) _
-            (personRead person personWritten => Witness personRead (Both rfl personWritten))
+            (personRead person personWritten => Witness personRead (Both byComputing personWritten))
             groupRead
             group.people
             groupWritten)
@@ -94,7 +94,7 @@ theorem inputGroups ∀ (input: Text) (groups: List Group)
         written with
         | Witness lineGroups (Both linesRead related) =>
           Witness lineGroups
-            (Witness read (Witness ending (Both text (Both linesRead (Both done (rewrite same in related))))))
+            (Witness read (Witness ending (Both text (Both linesRead (Both done (rewrite same then related))))))
 
 --| Part 1, for every input the parser reads, is the spec's sum over the
 --| groups of lines the input is made of.
@@ -114,8 +114,8 @@ theorem part1Correct ∀ (input: Text) (groups: List Group)
               (Both linesRead
                 (Both done
                   (rewrite part1Lines lineGroups.toList groups related,
-                      List.sumByMap lineGroups.toList (Spec.count Spec.anyone) NonEmptyList.toList in
-                    rfl))))))
+                      List.sumByMap lineGroups.toList (Spec.count Spec.anyone) NonEmptyList.toList then
+                    byComputing))))))
 
 theorem part2Correct ∀ (input: Text) (groups: List Group)
     (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
@@ -133,5 +133,5 @@ theorem part2Correct ∀ (input: Text) (groups: List Group)
               (Both linesRead
                 (Both done
                   (rewrite part2Lines lineGroups.toList groups related,
-                      List.sumByMap lineGroups.toList (Spec.count Spec.everyone) NonEmptyList.toList in
-                    rfl))))))
+                      List.sumByMap lineGroups.toList (Spec.count Spec.everyone) NonEmptyList.toList then
+                    byComputing))))))

@@ -339,6 +339,131 @@ def main(): {IO} () :=
     assert_eq!(out, "250000\n500000\nfound\nmissing\n");
 }
 
+/// Tier 3 of docs/proposals/file-io-and-text.md §4.4: on a text of a
+/// million characters, in a two-byte buffer, reading every position with
+/// `get`, cutting a 5-character slice at every position, peeling it with
+/// `uncons`, and asking its length a million times each take linear time
+/// in all. Each was quadratic on the old representation (20,000 `get`s
+/// took 21 s), so the bound is loose: a quadratic loop wouldn't finish in
+/// hours.
+#[test]
+fn reading_a_long_text_by_position_is_linear() {
+    let input = "abcdefghi\u{2192}".repeat(100_000);
+    let started = std::time::Instant::now();
+    let (out, result) = on_the_machine_with(
+        r#"
+import Std (Nat, Text, IO, Char, Option)
+
+@[tailrec]
+def getLoop (text: Text) (i acc: Nat): (fuel: Nat) → Nat
+  | Zero => acc
+  | Succ fuel => match text.get i with
+    | Some c => getLoop text (i + 1) (acc + c.toNat) fuel
+    | None => acc
+
+@[tailrec]
+def sliceLoop (text: Text) (i acc: Nat): (fuel: Nat) → Nat
+  | Zero => acc
+  | Succ fuel => sliceLoop text (i + 1) (acc + (text.slice i (i + 5)).length) fuel
+
+@[tailrec]
+def unconsLoop (text: Text) (acc: Nat): (fuel: Nat) → Nat
+  | Zero => acc
+  | Succ fuel => match text.uncons with
+    | None => acc
+    | Some (c, rest) => unconsLoop rest (acc + c.toNat) fuel
+
+@[tailrec]
+def lengthLoop (text: Text) (acc: Nat): (fuel: Nat) → Nat
+  | Zero => acc
+  | Succ fuel => lengthLoop text (acc + text.length) fuel
+
+def main(): {IO} () :=
+  let text := IO.readAll()
+  let n := text.length
+  IO.print (Nat.toText (getLoop text 0 0 n))
+  IO.print (Nat.toText (sliceLoop text 0 0 n))
+  IO.print (Nat.toText (unconsLoop text 0 (n + 1)))
+  IO.print (Nat.toText (lengthLoop text 0 n))
+"#,
+        Limits::default(),
+        input.as_bytes(),
+    );
+    assert_eq!(result, Ok(()));
+    let codes: u64 = input.chars().map(|c| u64::from(u32::from(c))).sum();
+    assert_eq!(
+        out,
+        format!(
+            "{codes}\n{}\n{codes}\n{}\n",
+            5 * 1_000_000 - 10,
+            1_000_000u64 * 1_000_000
+        )
+    );
+    let took = started.elapsed();
+    assert!(took.as_secs() < 120, "took {took:?}");
+}
+
+/// `Text.repeat` with a count that would need more memory than exists is
+/// charged before the text is built, so it runs out of steps like the
+/// definition's loop instead of panicking or asking for the memory.
+#[test]
+fn text_repeat_with_a_huge_count_runs_out_of_steps() {
+    for count in [
+        "18446744073709551616",
+        "18446744073709551615",
+        "4611686018427387904",
+    ] {
+        for text in ["a", "h\\u{E9}\\u{1F600}", ""] {
+            let (out, result) = on_the_machine_with(
+                &format!(
+                    r#"
+import Std (Nat, Text, IO)
+
+def main(): {{IO}} () := IO.print (Nat.toText (Text.length (Text.repeat "{text}" {count})))
+"#
+                ),
+                Limits {
+                    steps: 1_000_000,
+                    frames: 100,
+                    native_frames: 100,
+                    number_words: false,
+                },
+                b"",
+            );
+            assert_eq!(out, "", "{text:?} {count}");
+            let error = result.expect_err("runs out of steps");
+            assert!(
+                error.contains("evaluation steps"),
+                "{text:?} {count}: {error}"
+            );
+        }
+    }
+}
+
+/// A result longer than a text can hold (2^32 - 1 characters) runs out of
+/// steps, however many it is given, rather than coming back cut short:
+/// here 2^32 characters cost 2^32 steps, well inside the limit.
+#[test]
+fn text_repeat_past_the_longest_text_runs_out_of_steps() {
+    let (out, result) = on_the_machine_with(
+        r#"
+import Std (Nat, Text, IO)
+
+def main(): {IO} () := IO.print (Nat.toText (Text.length (Text.repeat "ab" 2147483648)))
+"#,
+        Limits {
+            steps: 10_000_000_000,
+            frames: 100,
+            native_frames: 100,
+            number_words: false,
+        },
+        b"",
+    );
+    assert_eq!(out, "");
+    let error = result.expect_err("runs out of steps");
+    assert!(error.contains("evaluation steps"), "{error}");
+}
+
 /// `Parse.many` is linear in what it reads: 20,000 digits (AoC 2024 day
 /// 9's input) take a few steps each. Its end value was once computed every
 /// round, quadratic: about 2×10⁸ steps here (SW-1055; 0.6 s to 12 s on the

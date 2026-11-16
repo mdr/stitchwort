@@ -12,7 +12,7 @@ theorem maskBit ∀ (value other i: Nat):
   Nat.testBitAnd i value other
 
 theorem setKeeps ∀ (value bit i: Nat) (set: Nat.testBit value i = True): Nat.testBit (setBit value bit) i = True :=
-  rewrite Nat.testBitOr i value (Nat.shiftLeft 1 bit), set in rfl
+  rewrite Nat.testBitOr i value (Nat.shiftLeft 1 bit), set then byComputing
 
 theorem shiftBack ∀ (value count: Nat): Nat.shiftRight (Nat.shiftLeft value count) count = value :=
   Nat.shiftRightShiftLeft value count

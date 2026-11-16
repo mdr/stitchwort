@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use crate::goals::StepForm;
 use crate::kernel;
+use crate::state::AppExpected;
 use stitchwort_core::chars::{self as compact, Chars};
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
@@ -78,7 +79,7 @@ pub struct Ctx<'e> {
     /// a nickname like `Price = Nat`.
     pub written: Vec<Option<crate::dot::Written>>,
     /// Names that can be referred to, and the level each refers to.
-    scope: Vec<(String, usize)>,
+    pub(crate) scope: Vec<(String, usize)>,
     /// How each variable was bound: an implicit or `auto` parameter keeps
     /// its kind when a local definition captures it
     /// (docs/proposals/syntax-conveniences.md §2.1).
@@ -91,7 +92,7 @@ pub struct Ctx<'e> {
     /// re-create the `let` (docs/proposals/let.md §A.4).
     pub lets: Vec<Option<Rc<LetDef>>>,
     /// The type of the definition body being checked, as written, with the
-    /// number of variables in scope where it makes sense. A failed `rfl`
+    /// number of variables in scope where it makes sense. A failed `byComputing`
     /// shows the sides of an `=` as they were written, if this is the type.
     pub goal: Option<(usize, Rc<Term>)>,
     /// Set by `calc` just before it checks a step's proof that is a
@@ -123,6 +124,9 @@ pub struct Ctx<'e> {
     /// The `cases` whose cases are being checked (`cases.rs`): its
     /// alternatives' bodies go on splitting.
     pub(crate) cases: Option<Rc<crate::cases::Run>>,
+    /// The call whose automatic argument is being proved, named in an
+    /// `E-AUTO-FALSE` message (`auto.rs`).
+    pub(crate) auto_call: Option<String>,
     pub span: Span,
 }
 
@@ -214,6 +218,7 @@ impl Saved {
             scrutinees: c.scrutinees.clone(),
             reify_display: c.reify_display.clone(),
             cases: c.cases.clone(),
+            auto_call: None,
             span: self.span,
         }
     }
@@ -312,6 +317,20 @@ pub struct Mark {
 /// more than this many nodes is not read back whole for one (SW-2569).
 const UNFOLD_NODES: u64 = 200_000;
 
+/// The longest a side of a type mismatch is printed inline in its label;
+/// past it, the sides go one above the other with their agreeing parts
+/// left out (docs/proposals/helpful-errors.md §3.3). Most mismatches are
+/// under 40 characters a side and read well inline.
+const LONG_MISMATCH: usize = 60;
+
+/// The longest each differing part may be to be named in a mismatch's
+/// headline.
+const HEADLINE_PART: usize = 40;
+
+/// The label on a text pattern that fixed a value's type to `Text`.
+const TEXT_FALLBACK_LABEL: &str = "the type of the matched value wasn't known yet, so this \
+     text pattern made it a `Text`; annotate the value's type if it is a `List Char`";
+
 impl<'e> Ctx<'e> {
     pub fn new(e: &'e Elaborator, span: Span) -> Self {
         Ctx {
@@ -331,6 +350,7 @@ impl<'e> Ctx<'e> {
             scrutinees: Vec::new(),
             reify_display: None,
             cases: None,
+            auto_call: None,
             span,
         }
     }
@@ -363,6 +383,7 @@ impl<'e> Ctx<'e> {
             scrutinees: Vec::new(),
             reify_display: None,
             cases: None,
+            auto_call: None,
             span,
         }
     }
@@ -447,6 +468,7 @@ impl<'e> Ctx<'e> {
 
     /// Binds a variable that can't be referred to by name.
     pub fn bind_hidden(&mut self, name: Name, ty: Value) {
+        self.forget_text_fixed_from(self.level());
         self.env.push(Value::var(self.level()));
         self.types.push(ty);
         self.names.push(name);
@@ -490,6 +512,7 @@ impl<'e> Ctx<'e> {
             Some(v) => v,
             None => self.deferred(&value)?,
         };
+        self.forget_text_fixed_from(self.level());
         if let Some(name) = name {
             self.scope.push((name.to_string(), self.level()));
         }
@@ -560,8 +583,31 @@ impl<'e> Ctx<'e> {
         }
     }
 
+    /// A new binder at `level` ends the variables fixed by text patterns
+    /// at that level or deeper: their scopes are over, and the level is
+    /// reused by an unrelated variable (SW-3315).
+    fn forget_text_fixed_from(&self, level: usize) {
+        let mut fixed = self.e.decl.text_fixed_vars.borrow_mut();
+        if !fixed.is_empty() {
+            fixed.retain(|(l, _)| *l < level);
+        }
+    }
+
+    /// A use of the variable at `level`: remembered when a text pattern
+    /// fixed its type to `Text`, so that an error at the use points at the
+    /// pattern (SW-3315).
+    pub(crate) fn note_text_fixed_use(&self, level: usize, at: Span) {
+        let fixed = self.e.decl.text_fixed_vars.borrow();
+        if fixed.is_empty() {
+            return;
+        }
+        if let Some(&(_, pattern)) = fixed.iter().find(|(l, _)| *l == level) {
+            self.e.decl.text_fixed_uses.borrow_mut().push((at, pattern));
+        }
+    }
+
     /// Every local definition that can be referred to: its name, its term in
-    /// the current context, and its type (for `omega`, which reads them as
+    /// the current context, and its type (for `arithmetic`, which reads them as
     /// facts).
     pub(crate) fn visible_locals(&self) -> Result<Vec<(String, Term, Value)>> {
         let mut out = Vec::new();
@@ -800,6 +846,17 @@ impl<'e> Ctx<'e> {
         pretty::value_for_message_in(&self.g(), self.e, &self.shown_names(false), value)
     }
 
+    /// [`Ctx::show`], but every call stays a call: the value as written,
+    /// after filling in the arguments, rather than what it computes to.
+    pub fn show_as_written(&self, value: &Value) -> String {
+        match stitchwort_core::value::quote_as_written_shown(&self.g(), self.level(), value) {
+            Ok(term) => {
+                pretty::term_for_message_in(&self.g(), self.e, &self.shown_names(false), &term)
+            }
+            Err(_) => "…".into(),
+        }
+    }
+
     /// [`Ctx::show`] for one side of an equation written `a = b`.
     pub fn show_side(&self, value: &Value) -> String {
         pretty::side_for_message_in(&self.g(), self.e, &self.shown_names(false), value)
@@ -852,7 +909,7 @@ impl<'e> Ctx<'e> {
 
     /// `d` with a note for each hypothesis `h: e = C` (`C` a constructor)
     /// whose `e` occurs inside a function in `values`, as they compute
-    /// (SW-882): `rfl` and `cases` compute and split, but don't rewrite with
+    /// (SW-882): `byComputing` and `cases` compute and split, but don't rewrite with
     /// `h`, so `anyRemoved (ys => ok x && …) rest` keeps its `ok x` though
     /// `step: ok x = True` is in scope. `rewrite h` reaches it, since `e`
     /// can't mention the function's parameter. If `e` is a `match`'s
@@ -923,9 +980,9 @@ impl<'e> Ctx<'e> {
                 String::new()
             };
             d = d.with_note(format!(
-                "`{shown}` is inside a function here, where `{name}: {ty}` isn't used: `rfl` \
+                "`{shown}` is inside a function here, where `{name}: {ty}` isn't used: `byComputing` \
                  and `cases` compute, but don't rewrite with a hypothesis.{why} `rewrite \
-                 {name} in …` does, as `{shown}` doesn't mention the function's parameter"
+                 {name} then …` does, as `{shown}` doesn't mention the function's parameter"
             ));
         }
         d
@@ -975,6 +1032,12 @@ impl<'e> Ctx<'e> {
     /// Where what `a` and `b` compute to first differ, as a note. Error
     /// path only.
     pub fn first_difference_note(&self, a: &Value, b: &Value) -> Option<String> {
+        self.first_difference(a, b).map(difference_note)
+    }
+
+    /// Where what `a` and `b` compute to first differ, when that is below
+    /// their outermost layer and printed apart. Error path only.
+    fn first_difference(&self, a: &Value, b: &Value) -> Option<pretty::Difference> {
         let g = self.g();
         let level = self.level();
         // Read back only this deep: `Parse.exactly 2^128 p` unfolds 2^128
@@ -997,14 +1060,7 @@ impl<'e> Ctx<'e> {
         if found.left == found.right || found.left == "…" || found.right == "…" {
             return None;
         }
-        let within = found
-            .within
-            .map(|call| format!(", in `{call}`"))
-            .unwrap_or_default();
-        Some(format!(
-            "they first differ at `{}` against `{}`{within}",
-            found.left, found.right
-        ))
+        Some(found)
     }
 
     /// `d` with a note saying the sides are different updates, for two
@@ -1083,8 +1139,37 @@ impl<'e> Ctx<'e> {
         term
     }
 
+    /// [`Ctx::show`], except that the expected type of the declaration's body
+    /// is shown as it was written when it is a comparison: `3 < n` rather
+    /// than `4 ≤ n`, what `<` computes to (SW-3100).
+    fn show_expected(&self, expected: &Value) -> String {
+        if let Some((_, goal)) = &self.goal
+            && written_comparison(&self.g(), goal)
+            && let Some(goal) = self.goal_as_written(expected)
+        {
+            return self.show_term(&goal);
+        }
+        self.show(expected)
+    }
+
+    /// The declaration's statement as written, when `expected` is the type
+    /// of its whole body, folded or not: `Parse.Reads p spec`, where checking
+    /// may have unfolded it to the `∀` it stands for. Error path only.
+    fn goal_as_written(&self, expected: &Value) -> Option<Rc<Term>> {
+        let (level, goal) = self.goal.as_ref()?;
+        let same = *level == self.level()
+            && self.eval(goal).is_ok_and(|v| {
+                stitchwort_core::value::conv(&self.g(), *level, &v, expected).unwrap_or(false)
+            });
+        same.then(|| goal.clone())
+    }
+
+    fn show_term(&self, term: &Term) -> String {
+        pretty::term_for_message_in(&self.g(), self.e, &self.shown_names(false), term)
+    }
+
     pub(crate) fn mismatch(&self, expected: &Value, found: &Value) -> Diagnostic {
-        let expected_shown = self.show(expected);
+        let expected_shown = self.show_expected(expected);
         let found_shown = self.show(found);
         if let (Ok(Value::Sort(_)), Ok(Value::Sort(_))) = (
             force(&self.g(), expected.clone()),
@@ -1110,11 +1195,61 @@ impl<'e> Ctx<'e> {
         } else {
             (expected_shown, found_shown, false)
         };
-        let d = self.error(
-            "E-TYPE-MISMATCH",
-            "type mismatch",
-            format!("expected `{expected_shown}`, but this has type `{found_shown}`"),
-        );
+        // A long type is shown as declared, and the two sides one above the
+        // other with the parts they agree on left out.
+        let long = |shown: &str| shown.chars().count() > LONG_MISMATCH;
+        // Read back from its value, calls kept: the term itself may hold
+        // what elaborating the statement made (`(x => x < h) (n * s)` for
+        // `n * s < h`).
+        let written = if !hidden && long(&expected_shown) {
+            self.goal_as_written(expected).and_then(|goal| {
+                let value = self.eval(&goal).ok()?;
+                stitchwort_core::value::quote_as_written_shown(&self.g(), self.level(), &value)
+                    .ok()
+                    .map(Rc::new)
+            })
+        } else {
+            None
+        };
+        let expected_shown = match &written {
+            Some(goal) => self.show_term(goal),
+            None => expected_shown,
+        };
+        let rows = (!hidden && (long(&expected_shown) || long(&found_shown)))
+            .then(|| self.mismatch_rows(written.as_deref(), expected, found))
+            .flatten();
+        let difference = rows
+            .is_some()
+            .then(|| self.folded_difference(written.as_deref(), expected, found))
+            .flatten()
+            // An unknown not worked out is no mistake to name: it would
+            // have been solved had the rest agreed.
+            .filter(|found| {
+                [&found.left, &found.right]
+                    .iter()
+                    .all(|part| part.chars().count() <= HEADLINE_PART && !part.starts_with('_'))
+            });
+        let d = match &rows {
+            Some(rows) => {
+                let headline = match &difference {
+                    Some(found) => {
+                        format!("`{}` here, but `{}` is expected", found.right, found.left)
+                    }
+                    None => "type mismatch".into(),
+                };
+                self.error(
+                    "E-TYPE-MISMATCH",
+                    headline,
+                    "this has the `found` type below",
+                )
+                .with_note(rows.clone())
+            }
+            None => self.error(
+                "E-TYPE-MISMATCH",
+                "type mismatch",
+                format!("expected `{expected_shown}`, but this has type `{found_shown}`"),
+            ),
+        };
         let d = self.unknown_notes(d, &[&expected_shown, &found_shown], &[expected, found]);
         let d = if hidden {
             d.with_note(
@@ -1128,9 +1263,20 @@ impl<'e> Ctx<'e> {
             let unclear = expected_shown == found_shown
                 || expected_shown.contains('…')
                 || found_shown.contains('…');
-            let d = match unclear.then(|| self.first_difference_note(expected, found)) {
-                Some(Some(note)) => d.with_note(note),
-                _ => d,
+            // Not when the rows already show both differing parts whole.
+            let shown_in_rows = |found: &pretty::Difference| {
+                rows.as_deref()
+                    .and_then(|rows| rows.strip_prefix(ROWS.0)?.split_once(ROWS.1))
+                    .is_some_and(|(e, f)| e.contains(&found.left) && f.contains(&found.right))
+            };
+            let note = (unclear && difference.is_none())
+                .then(|| self.first_difference(expected, found))
+                .flatten()
+                .filter(|found| !shown_in_rows(found))
+                .map(difference_note);
+            let d = match note {
+                Some(note) => d.with_note(note),
+                None => d,
             };
             if expected_shown == found_shown {
                 self.with_alike_updates_note(d, &[expected, found])
@@ -1161,7 +1307,7 @@ impl<'e> Ctx<'e> {
         } else {
             d
         };
-        let d = if ne_read_as_prop(&expected_shown, &found_shown) {
+        let d = if ne_read_as_prop_here(self, expected, found, &expected_shown, &found_shown) {
             d.with_note(NE_AS_PROP_NOTE)
         } else {
             d
@@ -1170,18 +1316,141 @@ impl<'e> Ctx<'e> {
             Ok(Some(note)) => d.with_note(note),
             _ => d,
         };
+        // What an alias stands for helps against an expected type shown
+        // unfolded, not against the statement as written.
         let mut notes = Vec::new();
-        self.alias_notes(expected, found, ALIAS_NOTE_DEPTH, &mut notes);
+        if written.is_none() {
+            self.alias_notes(expected, found, ALIAS_NOTE_DEPTH, &mut notes);
+        }
         let d = notes.into_iter().fold(d, |d, note| d.with_note(note));
         let d = self.with_opaque_notes(d, &[expected, found]);
+        let d = self.with_text_fallback_label(d, expected, found);
         self.unrefined_hint(d, expected, found)
     }
 
-    /// A note for each unknown printed as `?N` in `shown` whose origin is
+    /// Where `expected` and `found` first differ as written, calls kept
+    /// folded: in the forms shown, or else after unfolding each side to its
+    /// outermost layer (`Parse.Reads p s` and `Parse.ReadsIn inv q s` both
+    /// to a `∀`). Unlike [`Ctx::first_difference`], this never shows what
+    /// a call computes to, which for a parser or a handler is its runtime
+    /// form. Error path only.
+    fn folded_difference(
+        &self,
+        written: Option<&Term>,
+        expected: &Value,
+        found: &Value,
+    ) -> Option<pretty::Difference> {
+        let g = self.g();
+        let level = self.level();
+        let quote = |v: &Value| stitchwort_core::value::quote_shown(&g, level, v).ok();
+        let names = self.shown_names(false);
+        let differ = |x: &Term, y: &Term| {
+            pretty::first_difference_in(&g, self.e, &names, x, y)
+                .filter(|d| d.left != d.right && d.left != "…" && d.right != "…")
+        };
+        let shown = || {
+            let e = match written {
+                Some(t) => t.clone(),
+                None => quote(expected)?,
+            };
+            differ(&e, &quote(found)?)
+        };
+        let forced = || {
+            let e = force(&g, expected.clone()).ok()?;
+            let f = force(&g, found.clone()).ok()?;
+            differ(&quote(&e)?, &quote(&f)?)
+        };
+        shown().or_else(forced)
+    }
+
+    /// The `expected:` and `found:` rows of a long mismatch, with the parts
+    /// the two agree on as `…`; the expected side as `written` when there
+    /// is that form. `None` if a side can't be read back.
+    fn mismatch_rows(
+        &self,
+        written: Option<&Term>,
+        expected: &Value,
+        found: &Value,
+    ) -> Option<String> {
+        let g = self.g();
+        let quote = |v| stitchwort_core::value::quote_shown(&g, self.level(), v).ok();
+        let e = match written {
+            Some(t) => t.clone(),
+            None => quote(expected)?,
+        };
+        let (e, f) = pretty::elide_agreeing(&e, &quote(found)?);
+        Some(format!(
+            "{}{}{}{}",
+            ROWS.0,
+            self.show_term(&e),
+            ROWS.1,
+            self.show_term(&f)
+        ))
+    }
+
+    /// Points at the text pattern that made a value of a not yet known type
+    /// a `Text` (SW-3295), if the declaration has one: when the error is at
+    /// a use of a variable the pattern fixed, whichever side is the `Text`
+    /// (SW-3315); otherwise only when `Text` is expected, since a found
+    /// `Text` is as likely a string literal unrelated to the pattern, and
+    /// the solved unknown can't be told from any other `Text` (SW-3312).
+    fn with_text_fallback_label(
+        &self,
+        d: Diagnostic,
+        expected: &Value,
+        found: &Value,
+    ) -> Diagnostic {
+        let Some(&first) = self.e.decl.text_fallbacks.borrow().first() else {
+            return d;
+        };
+        let at_use = self
+            .e
+            .decl
+            .text_fixed_uses
+            .borrow()
+            .iter()
+            .find(|(used, _)| *used == self.span)
+            .map(|&(_, pattern)| pattern);
+        let g = self.g();
+        let is_text = |v: &Value| {
+            matches!(force(&g, v.clone()), Ok(Value::Data(t, _))
+                if g.env.registry().data(Builtin::Text) == Some(t))
+        };
+        let at = match at_use {
+            Some(pattern) if is_text(expected) != is_text(found) => pattern,
+            _ if is_text(expected) && !is_text(found) => first,
+            _ => return d,
+        };
+        d.with_label(at, TEXT_FALLBACK_LABEL)
+    }
+
+    /// [`Self::with_text_fallback_label`] for an error made at `at`, a use
+    /// of a variable, without a mismatch of two types to look at.
+    pub(crate) fn with_text_fixed_use_label(&self, d: Diagnostic, at: Span) -> Diagnostic {
+        let uses = self.e.decl.text_fixed_uses.borrow();
+        match uses.iter().find(|(used, _)| *used == at) {
+            Some(&(_, pattern)) => d.with_label(pattern, TEXT_FALLBACK_LABEL),
+            None => d,
+        }
+    }
+
+    /// Whether `expected` and `found` differ somewhere that no solution of
+    /// an unknown could mend. Solves nothing: what the comparison solved is
+    /// taken back.
+    fn differ_beyond_unknowns(&self, expected: &Value, found: &Value) -> bool {
+        let mark = self.e.attempt.mark();
+        let clash = crate::unify::unify_what_agrees(&self.u(), self.level(), expected, found);
+        self.e.attempt.restore(mark);
+        clash.is_ok_and(|c| c.any)
+    }
+
+    /// A note for each unknown printed as `_name` in `shown` whose origin is
     /// recorded ([`stitchwort_core::globals::Meta::origin`]): what it stands
-    /// for, so that the message doesn't leave `?N` unexplained.
+    /// for, so that the message doesn't leave `_name` unexplained.
     fn unknown_notes(&self, mut d: Diagnostic, shown: &[&str], values: &[&Value]) -> Diagnostic {
         let mut seen = Vec::new();
+        let mut present: Vec<(usize, String)> = Vec::new();
+        let mut clashes = None;
         for value in values {
             let Ok(term) = crate::interfaces::scanned(self, value) else {
                 continue;
@@ -1191,19 +1460,68 @@ impl<'e> Ctx<'e> {
             };
             for (t, _) in term.subterms() {
                 let Term::Meta(m) = t else { continue };
-                let name = format!("?{m}");
+                let Some(name) =
+                    stitchwort_core::Shown::unknown(self.e, *m, &self.shown_names(false))
+                else {
+                    continue;
+                };
+                if self.metas().meta_param_label(*m).is_none() {
+                    continue;
+                }
+                let instance = self.metas().meta_instance(*m).is_some();
                 let printed = shown.iter().any(|s| {
                     s.match_indices(&name).any(|(i, _)| {
-                        !s[i + name.len()..].starts_with(|c: char| c.is_ascii_digit())
+                        !s[i + name.len()..]
+                            .starts_with(|c: char| c.is_alphanumeric() || c == '_' || c == '\'')
+                            && !s[i + name.len()..].starts_with(|c| ('₀'..='₉').contains(&c))
                     })
                 });
                 if !printed || seen.contains(m) || self.g().meta_solution(*m).is_some() {
                     continue;
                 }
                 seen.push(*m);
+                if !instance {
+                    present.push((*m, name.clone()));
+                }
                 if let Some(origin) = self.metas().meta_origin(*m) {
+                    // Where the types clash apart from it, giving it isn't
+                    // the fix, so the advice is left out.
+                    let origin: &str = &origin;
+                    let origin = match origin.split_once("; give it with") {
+                        Some((what, _))
+                            if *clashes.get_or_insert_with(|| {
+                                values.len() == 2
+                                    && self.differ_beyond_unknowns(values[0], values[1])
+                            }) =>
+                        {
+                            what
+                        }
+                        _ => origin,
+                    };
                     d = d.with_note(format!("`{name}` is {origin}"));
                 }
+            }
+        }
+        // Subscripts only tell apart the unknowns that are in this message.
+        let mut relabels = Vec::new();
+        for (i, (m, label)) in present.iter().enumerate() {
+            let param = self.metas().metas.borrow()[*m].param.clone();
+            let earlier = present[..i]
+                .iter()
+                .filter(|(o, _)| self.metas().metas.borrow()[*o].param == param)
+                .count();
+            let compact = unknown_label(param.as_deref().unwrap_or(""), earlier);
+            if compact != *label {
+                relabels.push((label.clone(), compact));
+            }
+        }
+        if !relabels.is_empty() {
+            d.message = relabel_unknowns(&d.message, &relabels);
+            for l in &mut d.labels {
+                l.message = relabel_unknowns(&l.message, &relabels);
+            }
+            for n in &mut d.notes {
+                *n = relabel_unknowns(n, &relabels);
             }
         }
         d
@@ -1331,7 +1649,7 @@ impl<'e> Ctx<'e> {
                     && let Ok(side) = self.eval(l)
                 {
                     d = d.with_note(format!(
-                        "both sides of what's expected are `{}`, so `rfl` proves it",
+                        "both sides of what's expected are `{}`, so `byComputing` proves it",
                         self.show(&side)
                     ));
                 } else if let Some(note) = name_it {
@@ -1711,12 +2029,99 @@ fn bool_found_prop(expected: &str, found: &str) -> bool {
     expected.contains("Bool") && found.contains("Prop") && expected.replace("Bool", "Prop") == found
 }
 
+/// Whether `term`, a statement as written, is a comparison `a < b` or
+/// `a <= b`: the `Bool` comparison being `True`, or the comparison itself
+/// (SW-3100).
+fn written_comparison(g: &Ev, term: &Term) -> bool {
+    let reg = &g.env.registry();
+    let is_comparison = |t: &Term| {
+        let (head, _) = t.strip_loc().spine();
+        let Term::Def(id) = head else {
+            return false;
+        };
+        matches!(
+            reg.def_builtin(*id),
+            Some(
+                Builtin::Leq
+                    | Builtin::LessEq
+                    | Builtin::LessThan
+                    | Builtin::IntLeq
+                    | Builtin::IntLess
+                    | Builtin::IntLessEq
+                    | Builtin::IntLessThan
+                    | Builtin::FloatLeq
+                    | Builtin::FloatLess
+                    | Builtin::FloatLessEq
+                    | Builtin::FloatLessThan
+            )
+        )
+    };
+    match term.strip_loc() {
+        Term::Eq(_, a, b) => {
+            matches!(b.strip_loc(), Term::Ctor(d, c, fields)
+                if fields.is_empty() && reg.ctor(Builtin::True) == Some((*d, *c)))
+                && is_comparison(a)
+        }
+        other => is_comparison(other),
+    }
+}
+
 pub(crate) const NE_AS_PROP_NOTE: &str =
     "`!=` here is the proposition `≠`; for the `Bool` test write `((a != b): Bool)`";
 
+/// Whether `value` is a `Bool` test, `e = True` or `e = False`: the form the
+/// `!=` note asks the user to write (SW-3125).
+fn is_bool_test(cx: &Ctx, value: &Value) -> bool {
+    let g = cx.g();
+    let Ok(Value::Eq(ty, _, _)) = force(&g, value.clone()) else {
+        return false;
+    };
+    matches!(force(&g, (*ty).clone()), Ok(Value::Data(d, _))
+        if g.env.registry().is_data(Builtin::Bool, d))
+}
+
+/// Whether the declaration's body goal, as written, is the expected type and
+/// has an ASCII `!=` in it: the `!=` note quotes the source, so it is given
+/// only where the source wrote `!=` rather than `≠` (SW-3125).
+pub(crate) fn goal_wrote_ne(cx: &Ctx, expected: &Value) -> bool {
+    let Some((level, goal)) = &cx.goal else {
+        return false;
+    };
+    if *level != cx.level() {
+        return false;
+    }
+    let Ok(value) = cx.eval(goal) else {
+        return false;
+    };
+    if !stitchwort_core::value::conv(&cx.g(), *level, &value, expected).unwrap_or(false) {
+        return false;
+    }
+    goal.subterms()
+        .any(|(t, _)| matches!(t, Term::Loc(span, _) if cx.e.decl.wrote_ascii_ne_at(span)))
+}
+
+/// Whether the `!=` note applies to this mismatch: the expected type is a
+/// proposition `≠`, the found term is the `Bool` test itself (not a written
+/// `.read` of one, whose reading is a different proposition), and the body
+/// goal as written says `!=` (SW-3125).
+fn ne_read_as_prop_here(
+    cx: &Ctx,
+    expected: &Value,
+    found: &Value,
+    expected_shown: &str,
+    found_shown: &str,
+) -> bool {
+    expected_shown.contains(" ≠ ")
+        && (found_shown.contains("Decidable.holds") || found_shown.contains(".holds"))
+        && is_bool_test(cx, found)
+        && !crate::build::is_read(cx)
+        && goal_wrote_ne(cx, expected)
+}
+
 /// Whether the expected type mentions a proposition `≠` and what was found
 /// is a `Bool` test (`Decidable.holds …`, or `….holds`): a `Bool` `!=` that was read as `≠`
-/// because it sits beside `=` in a statement.
+/// because it sits beside `=` in a statement. Callers also ask
+/// [`goal_wrote_ne`], since the note quotes the source (SW-3125).
 pub(crate) fn ne_read_as_prop(expected: &str, found: &str) -> bool {
     expected.contains(" ≠ ") && (found.contains("Decidable.holds") || found.contains(".holds"))
 }
@@ -1916,7 +2321,7 @@ pub(crate) fn pure_first(
             };
             if !effectful {
                 // A row nothing has settled yet is the empty one: the value
-                // is used where it stands, and a proof about it (`rfl` in a
+                // is used where it stands, and a proof about it (`byComputing` in a
                 // `calc` step) needs the plain function now. The type is then
                 // the value type: `CompIn Empty T` stays stuck as a value until
                 // it's evaluated again.
@@ -2454,6 +2859,7 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
     if let Some(level) = cx.lookup(&name.text) {
         let head = (Term::Var(cx.level() - 1 - level), cx.types[level].clone());
         cx.e.note_local(cx, name, &head.1);
+        cx.note_text_fixed_use(level, name.span);
         return apply_args(cx, head, args);
     }
     if let Some(done) = infer_unusual_name_app(cx, name, args, fill) {
@@ -2524,7 +2930,8 @@ fn infer_unusual_name_app(
     }
     // The built-ins have no declaration but `Builtins.sw`'s, which
     // navigation is pointed to (SW-1146).
-    if matches!(name.text.as_str(), "rfl" | "J") || crate::quot::head_form(cx, &name.text).is_some()
+    if matches!(name.text.as_str(), "byComputing" | "J")
+        || crate::quot::head_form(cx, &name.text).is_some()
     {
         cx.e.note_builtin(name);
     }
@@ -2532,10 +2939,10 @@ fn infer_unusual_name_app(
         return Some(crate::quot::elaborate(cx, form, args, None));
     }
     match name.text.as_str() {
-        "rfl" => Some(Err(cx.error(
+        "byComputing" => Some(Err(cx.error(
             "E-CANNOT-INFER",
-            "can't work out what `rfl` proves here",
-            "add a type annotation: `(rfl: a = b)`",
+            "can't work out what `byComputing` proves here",
+            "add a type annotation: `(byComputing: a = b)`",
         ))),
         "J" => {
             let [
@@ -3108,8 +3515,14 @@ fn apply_args_once(
     supply: &mut Supply,
 ) -> Result<(Term, Value)> {
     let mut first_error = None;
+    let settled = cx.e.decl.settled.borrow().len();
     match apply_args_postponing(cx, head, args, supply, &mut first_error) {
-        Err(e) if !crate::undo::fatal(&e) => Err(first_error.map_or(e, |first| *first)),
+        Err(e) if !crate::undo::fatal(&e) => {
+            if cx.e.decl.settled.borrow().len() > settled {
+                settled_call_failed(cx, settled);
+            }
+            Err(first_error.map_or(e, |first| *first))
+        }
         result => result,
     }
 }
@@ -3185,6 +3598,9 @@ fn apply_args_postponing<'a>(
 ) -> Result<(Term, Value)> {
     let mut applied = head;
     let mut held = Held::start(cx, args);
+    if let Some(expected) = held.expecting_named.clone() {
+        applied = settle_from_expected(cx, applied, args, &expected, supply)?;
+    }
     // The argument just passed, when it was a name given as a function.
     let mut function_name: Option<&AstName> = None;
     for (i, arg) in args.iter().enumerate() {
@@ -3213,6 +3629,219 @@ fn apply_args_postponing<'a>(
     }
     let (term, ty) = applied;
     finish_application(cx, term, ty, held, first_error)
+}
+
+/// The application `term` of type `ty` to `args`, whose expected type
+/// `expected` (unforced) is known, with its leading implicit type arguments
+/// given before its arguments are checked. Where the result its type
+/// promises is a call of the same definition as `expected`, an implicit
+/// type parameter that is an argument of that call on its own (`t` and `b`
+/// in `Parse.runsBind`'s `Parse.Runs [t] [b] …`) is given `expected`'s
+/// argument there, as `[t := Char]` would give it, if it has the type the
+/// definition's parameter there has; the other leading implicits get
+/// unknowns, as the first argument would give them. Types mentioning such
+/// a parameter (a parser's row, a lambda's result) are then known in
+/// everything checked after, rather than holding an unknown solved later,
+/// which every comparison reads through its solution: a nested chain of
+/// such lemmas took 60% more steps with `t` unknown (SW-3282), and 2020
+/// day 2's proofs 30% fewer once `b` was given too (SW-3307). The
+/// comparison at the end still checks the whole type. Where the guess was
+/// wrong (a call whose type matches `expected` only once unfolded: `Ph Nat
+/// 0` against `Ph Char 0`, where `Ph` doesn't use its type parameter), the
+/// declaration fails, and is elaborated once more with nothing settled
+/// (`Elaborator::settle_retried`).
+#[inline(never)]
+fn settle_from_expected(
+    cx: &mut Ctx,
+    (mut term, mut ty): (Term, Value),
+    args: &[Arg],
+    expected: &Value,
+    supply: &mut Supply,
+) -> Result<(Term, Value)> {
+    if !cx.e.decl.settling.get()
+        || !supply.is_empty()
+        || !matches!(args.first(), Some(Arg::Explicit(_)))
+        || args
+            .iter()
+            .any(|a| matches!(a, Arg::Named(..) | Arg::NamedExplicit(..)))
+    {
+        return Ok((term, ty));
+    }
+    let Some((want, want_spine)) = call_parts(expected) else {
+        return Ok((term, ty));
+    };
+    let g = cx.g();
+    let base = cx.level();
+    // The leading implicit parameters, whether each is a type, and the
+    // result past every parameter the type spells out, without unfolding a
+    // call (the result itself may unfold to a function type).
+    let mut types: Vec<Option<Value>> = Vec::new();
+    let mut leading = true;
+    let mut result = force(&g, ty.clone())?;
+    let mut level = base;
+    while let Value::Pi(_, icit, dom, cod) = result {
+        leading = leading && icit.is_implicit();
+        if leading {
+            let sort = force(&g, (*dom).clone())?;
+            let is_type = icit == Icit::Implicit && matches!(sort, Value::Sort(_));
+            types.push(is_type.then_some(sort));
+        }
+        result = cod.apply(&g, Value::var(level))?;
+        level += 1;
+    }
+    let implicit = types.len();
+    let Some((found, found_spine)) = call_parts(&result) else {
+        return Ok((term, ty));
+    };
+    // `expected` a call of another definition, defined as one of this
+    // (`Reads p spec`, which is `ReadsIn any p spec`): that call's
+    // arguments.
+    let unfolded;
+    let (want, want_spine) = if found != want
+        && let Value::Call(..) = expected
+        && let Value::Call(id, spine, _) =
+            stitchwort_core::value::unfold_once(&g, want, want_spine.clone())?
+        && id == found
+    {
+        unfolded = spine;
+        (id, &unfolded)
+    } else {
+        (want, want_spine)
+    };
+    if found != want || found_spine.len() != want_spine.len() {
+        return Ok((term, ty));
+    }
+    // For each leading implicit parameter, `expected`'s argument where the
+    // result has that parameter alone.
+    let mut given: Vec<Option<Term>> = vec![None; implicit];
+    for (position, (a, b)) in found_spine.iter().zip(want_spine.iter()).enumerate() {
+        let (stitchwort_core::value::Elim::App(a, _), stitchwort_core::value::Elim::App(b, _)) =
+            (a, b)
+        else {
+            continue;
+        };
+        if let Value::Neutral(Head::Var(l, _), spine) = force(&g, a.clone())?
+            && spine.is_empty()
+            && (base..base + implicit).contains(&l)
+            && let Some(sort) = &types[l - base]
+            && given[l - base].is_none()
+            && parameter_type_is(cx, want, want_spine, position, sort)?
+        {
+            given[l - base] = Some(quote(&g, base, b)?);
+        }
+    }
+    if given.iter().all(Option::is_none) {
+        return Ok((term, ty));
+    }
+    let mut noted = false;
+    for value in given {
+        let Value::Pi(x, icit, dom, cod) = force(&g, ty.clone())? else {
+            unreachable!("the leading implicit parameters were counted above");
+        };
+        let settled = value.is_some();
+        let arg = match value {
+            Some(arg) => arg,
+            None => {
+                let call = call_name(cx, &term);
+                let meta = supplied_arg(cx, icit, &dom, supply, call);
+                note_origin(cx, &meta, &x, &term, Some((icit, &dom)));
+                meta
+            }
+        };
+        let value = cx.eval(&arg)?;
+        if settled && !std::mem::replace(&mut noted, true) {
+            note_settled(cx, args, &x, &value);
+        }
+        term = Term::app_icit(term, arg, icit);
+        ty = cod.apply(&g, value)?;
+    }
+    Ok((term, ty))
+}
+
+/// Notes that the call with `args` was given its type parameter `x` (and
+/// perhaps others) the type `given` from its expected type
+/// (`Decl::settled`), at the whole call if that is where elaboration is,
+/// or else at its arguments.
+fn note_settled(cx: &Ctx, args: &[Arg], x: &Name, given: &Value) {
+    let Some(at) = args
+        .iter()
+        .filter_map(|a| match a {
+            Arg::Explicit(e) => Some(e.span()),
+            _ => None,
+        })
+        .reduce(Span::to)
+    else {
+        return;
+    };
+    let at = if crate::lift::within(cx.span, at) {
+        cx.span
+    } else {
+        at
+    };
+    cx.e.decl.settled.borrow_mut().push(crate::state::Settled {
+        span: at,
+        param: x.clone(),
+        given: given.clone(),
+        given_shown: None,
+        note: None,
+    });
+}
+
+/// After an application given type arguments from its expected type failed
+/// (its entry the `index`th of `Decl::settled`): the note its error gets if
+/// the body fails with it, printed now, while the unknowns in it are solved.
+/// Only the type given: printing the expected type at every failed call,
+/// most of them speculative, cost 2020 day 2's proofs 0.4% more steps.
+#[inline(never)]
+fn settled_call_failed(cx: &Ctx, index: usize) {
+    let mut settled = cx.e.decl.settled.borrow_mut();
+    let Some(entry) = settled.get_mut(index) else {
+        return;
+    };
+    if entry.note.is_none() {
+        let given = cx.show(&entry.given);
+        entry.note = Some(format!(
+            "`{}` was taken as `{given}` from the expected type",
+            entry.param,
+        ));
+        entry.given_shown = Some(given);
+    }
+}
+
+/// Whether the parameter at `position` of the definition `id`, applied to
+/// `spine`, has type `sort`: a goal's argument given to a type parameter
+/// must be a type of that sort, not merely in the same place (`Dep (Type →
+/// Type) (b => List b) 0` against a result `Dep Type t n`).
+fn parameter_type_is(
+    cx: &Ctx,
+    id: stitchwort_core::DefId,
+    spine: &stitchwort_core::value::Spine,
+    position: usize,
+    sort: &Value,
+) -> Result<bool> {
+    let g = cx.g();
+    let mut ty = crate::kernel::def_ty(&g, id)?;
+    for (i, elim) in spine.iter().enumerate() {
+        let (Value::Pi(_, _, dom, cod), stitchwort_core::value::Elim::App(arg, _)) =
+            (force(&g, ty)?, elim)
+        else {
+            return Ok(false);
+        };
+        if i == position {
+            return cx.conv_now(&dom, sort);
+        }
+        ty = cod.apply(&g, arg.clone())?;
+    }
+    Ok(false)
+}
+
+/// The definition `value` calls and the call's spine, if it is a call of a
+/// definition, folded or not.
+fn call_parts(value: &Value) -> Option<(stitchwort_core::DefId, &stitchwort_core::value::Spine)> {
+    match value {
+        Value::Call(id, spine, _) | Value::Neutral(Head::Def(id), spine) => Some((*id, spine)),
+        _ => None,
+    }
 }
 
 /// A lambda argument `value` of the application `term` of type `ty`:
@@ -3252,7 +3881,7 @@ fn lambda_arg<'a>(
     // again after it at every level, a failing proof of n
     // nested lambdas costs 2^n (SW-2638).
     let again = cx.e.decl.no_hole_propagation.get() > 0;
-    if again && cx.e.decl.in_place_trial.get() > 0 {
+    if held.hold_lambdas || (again && cx.e.decl.in_place_trial.get() > 0) {
         let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
         held.after_expected.push((value, dom, placeholder, id));
         return Ok((term, ty));
@@ -3412,7 +4041,7 @@ fn explicit_arg_ready<'a>(
     };
     let (dom, cod) = function_parts(cx, &ty)
         .map_err(|e| not_a_function_hint(cx, &term, previous_function_name, value, e))?;
-    // A proof search (`omega`, `cases`, `ring`, `rewrite`, `rfl`) is
+    // A proof search (`arithmetic`, `cases`, `algebra`, `rewrite`, `byComputing`) is
     // checked last, once the other arguments, the application's
     // own waiting checks, the expected type and the instances
     // now findable have fixed its goal (stage 7, rule 1;
@@ -3444,7 +4073,7 @@ fn explicit_arg_ready<'a>(
     // unknowns is checked again once the application's type has
     // been compared with the type expected of it, as a lambda is
     // above: a proof found from its goal, as in
-    // `Eq.cong Some (omega)` against `Some a = Some b`, or a
+    // `Eq.cong Some (arithmetic)` against `Some a = Some b`, or a
     // proof about a `_` that only the expected type fixes, as in
     // `walk _ rest (snocStep moved)` against
     // `P (walk outcome (Cons x rest))`. Whether the type has
@@ -3480,7 +4109,7 @@ fn explicit_arg_checked<'a>(
         ..
     } = *ready;
     if let Some(x) = &hole_of {
-        note_origin(cx, &value, x, &term, true);
+        note_origin(cx, &value, x, &term, None);
     }
     let mut function_name = None;
     if let Expr::Var(name) = written
@@ -3523,10 +4152,53 @@ fn explicit_arg_failed<'a>(
     if crate::interfaces::unsolved_in(cx, &dom)?.is_none() {
         return Err(unit_call_hint(cx, &term, value, &dom, next_is_unit, e));
     }
+    if held.hold_lambdas
+        && let Some(applied) = by_arguments_in_place(cx, &term, &cod, value, &dom)?
+    {
+        return Ok(applied);
+    }
     first_error.get_or_insert_with(|| Box::new(e));
     let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
     held.after_expected.push((value, dom, placeholder, id));
     Ok((term, ty))
+}
+
+/// The argument `value` of the application `term`, whose parameter type is
+/// `dom` (with unknowns), inferred and compared with `dom` by the arguments
+/// of the two calls ([`crate::unify::unify_solving_arguments`]); `None`,
+/// with nothing changed, if they don't match so. In an application whose
+/// lambdas wait for its expected type ([`infer_expecting`]), this is how an
+/// argument fixes the unknowns the type applies: `Parse.readsMark`, of type
+/// `Parse.ReadsIn ?inv (() => Parse.mark()) …`, against `Parse.ReadsIn ?inv
+/// ?p ?first`, where the plain comparison unfolds both calls to a run stuck
+/// on `?p ()`.
+#[inline(never)]
+fn by_arguments_in_place(
+    cx: &mut Ctx,
+    term: &Term,
+    cod: &Closure,
+    value: &Expr,
+    dom: &Value,
+) -> Result<Option<(Term, Value)>> {
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let inferred = (|| {
+        let (arg, found) = infer(cx, value)?;
+        insert(cx, arg, found)
+    })();
+    let (arg, found) = match inferred {
+        Ok(inferred) => inferred,
+        Err(e) if crate::undo::fatal(&e) => return Err(e),
+        Err(_) => {
+            snapshot.restore(cx);
+            return Ok(None);
+        }
+    };
+    if !crate::undo::unify_solving_arguments(cx, &found, dom)? {
+        snapshot.restore(cx);
+        return Ok(None);
+    }
+    let ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &arg))?;
+    Ok(Some((Term::app(term.clone(), arg), ty)))
 }
 
 /// An explicit argument, where it is in its application.
@@ -3545,6 +4217,11 @@ struct Held<'a> {
     searches: Vec<(&'a Expr, Value, Value, usize)>,
     after_expected: Vec<(&'a Expr, Value, Value, usize)>,
     expecting: Option<Value>,
+    /// `expecting` before it was forced.
+    expecting_named: Option<Value>,
+    /// Whether lambdas are held for after `expecting` without a trial in
+    /// place ([`infer_expecting`]).
+    hold_lambdas: bool,
     queued_from: usize,
     metas_from: usize,
 }
@@ -3559,15 +4236,19 @@ impl<'a> Held<'a> {
         let metas_from = cx.metas().metas.borrow().len();
         // Lambdas to check after the application's type is compared with
         // the type expected of it, if `infer_expecting` says what that is.
-        let expecting = match &*cx.e.decl.app_expected.borrow() {
-            Some((key, expected))
-                if args.iter().any(
-                    |a| matches!(a, Arg::Explicit(e) if std::ptr::from_ref(*e) as usize == *key),
-                ) =>
+        let (expecting, expecting_named, hold_lambdas) = match &*cx.e.decl.app_expected.borrow() {
+            Some(AppExpected {
+                key,
+                expected,
+                named,
+                hold_lambdas,
+            }) if args.iter().any(
+                |a| matches!(a, Arg::Explicit(e) if std::ptr::from_ref(*e) as usize == *key),
+            ) =>
             {
-                Some(expected.clone())
+                (Some(expected.clone()), Some(named.clone()), *hold_lambdas)
             }
-            _ => None,
+            _ => (None, None, false),
         };
         Held {
             postponed: Vec::new(),
@@ -3576,6 +4257,8 @@ impl<'a> Held<'a> {
             searches: Vec::new(),
             after_expected: Vec::new(),
             expecting,
+            expecting_named,
+            hold_lambdas,
             queued_from,
             metas_from,
         }
@@ -3601,6 +4284,7 @@ fn finish_application(
         expecting,
         queued_from,
         metas_from,
+        ..
     } = held;
     for (value, dom, placeholder, id) in postponed {
         let checked = match check(cx, value, &dom) {
@@ -3639,7 +4323,7 @@ fn finish_application(
     cx.e.resume_application(queued_from)?;
     if !searches.is_empty() {
         let from = (queued_from, metas_from);
-        check_searches_last(cx, &mut term, &mut ty, searches, expecting.as_ref(), from)?;
+        check_searches_last(cx, (&mut term, &mut ty), searches, expecting.as_ref(), from)?;
     }
     if let (false, Some(expected)) = (after_expected.is_empty(), &expecting) {
         // The type as `fallback` will compare it: with no implicit
@@ -3698,18 +4382,18 @@ fn finish_application(
 }
 
 /// Whether `value`, an argument, is a proof search that rule 1 of stage 7
-/// checks after the rest of its application: `omega`, `cases`, `ring` or
-/// `rewrite`, or the builtin `rfl`, bracketed or not.
+/// checks after the rest of its application: `arithmetic`, `cases`, `algebra` or
+/// `rewrite`, or the builtin `byComputing`, bracketed or not.
 ///
-/// `rfl` is a comparison, not a search, but checked early it chooses as a
+/// `byComputing` is a comparison, not a search, but checked early it chooses as a
 /// search does: against a goal whose unknowns the call will fix, it can
-/// only solve them by equating its sides, a guess (`Eq.cong (Call o) rfl`
+/// only solve them by equating its sides, a guess (`Eq.cong (Call o) byComputing`
 /// against `Call o f = Call o g` made `g` be `f`), and a goal computed
 /// before a `_` was solved stays stuck (SW-1007).
 fn proof_search(cx: &Ctx, value: &Expr) -> bool {
     match value {
         Expr::Omega { .. } | Expr::Cases { .. } | Expr::Ring { .. } | Expr::Rewrite { .. } => true,
-        Expr::Var(name) => name.text == "rfl" && cx.lookup("rfl").is_none(),
+        Expr::Var(name) => name.text == "byComputing" && cx.lookup("byComputing").is_none(),
         Expr::Bracketed(inner, _) => proof_search(cx, inner),
         _ => false,
     }
@@ -3751,7 +4435,7 @@ fn hold_argument(
 /// Only the application's own instances are found here, those made since
 /// it began (`metas_from`), as W1 resumes only its own checks (invariant
 /// 3). One of a call around it may belong to a lambda whose literal still
-/// waits for that call's W1 (`Eq.cong (x => x + 5) (f (Succ k) (omega))`):
+/// waits for that call's W1 (`Eq.cong (x => x + 5) (f (Succ k) (arithmetic))`):
 /// found now, the outer call's type would compute through it to a value
 /// stuck on the literal's placeholder (`Succ (k + ?5)`), which isn't
 /// computed again once the literal is filled, and so no longer matches
@@ -3765,8 +4449,7 @@ fn hold_argument(
 /// (`examples/accept/scan-layout.sw`).
 fn check_searches_last(
     cx: &mut Ctx,
-    term: &mut Term,
-    ty: &mut Value,
+    (term, ty): (&mut Term, &mut Value),
     searches: Vec<(&Expr, Value, Value, usize)>,
     expecting: Option<&Value>,
     (queued_from, metas_from): (usize, usize),
@@ -3776,9 +4459,20 @@ fn check_searches_last(
             force(&cx.g(), ty.clone())?,
             Value::Pi(_, Icit::Implicit | Icit::Auto, ..)
         );
-        if !implicit_next {
-            let _ = crate::undo::unify(cx, ty, expected)?
-                || crate::undo::unify_solving_arguments(cx, ty, expected)?;
+        if !implicit_next
+            && !(crate::undo::unify(cx, ty, expected)?
+                || crate::undo::unify_solving_arguments(cx, ty, expected)?)
+        {
+            // A search's error names the spec, not an unknown, when only
+            // another part of the call is wrong. Not if a type clashes: a
+            // solution beside it may have the wrong type, and the search
+            // would report on terms that can't exist.
+            let mark = cx.e.attempt.mark();
+            let clashes = crate::unify::unify_what_agrees(&cx.u(), cx.level(), ty, expected);
+            if clashes.as_ref().map_or(true, |c| c.types) {
+                cx.e.attempt.restore(mark);
+            }
+            clashes?;
         }
     }
     let own: Vec<usize> = (cx.e.attempt.obligations.borrow().iter())
@@ -4258,10 +4952,10 @@ fn total_lambda_note(
              building it must finish, so the callback can't run anything that might not"
         ));
     }
-    let param = cx.show(dom);
-    if param.contains('?') {
+    if matches!(crate::interfaces::unsolved_in(cx, dom), Ok(Some(_))) {
         return e;
     }
+    let param = cx.show(dom);
     e.notes.clear();
     e.with_note(if in_std {
         std_callback_note(&helper, &param)
@@ -4391,10 +5085,12 @@ fn partial_callback(cx: &Ctx, head: &Term, arg: &Expr, dom: &Value) -> Option<Di
         _ => "this".to_string(),
     };
     let param = cx.show(dom);
-    // A row that is already open (`| e`), or whose type isn't solved yet
-    // (`?N`), is not one a signature edit can fix: the row variable stands
-    // for total rows only.
-    let open = in_std || param.contains('?') || param.contains('|');
+    // A row that is already open (`| e`), or whose type isn't solved yet,
+    // is not one a signature edit can fix: the row variable stands for total
+    // rows only.
+    let open = in_std
+        || matches!(crate::interfaces::unsolved_in(cx, dom), Ok(Some(_)))
+        || param.contains('|');
     let mut diagnostic = Diagnostic::error(
         "E-PARTIAL-CALLBACK",
         format!("{what} can't be passed to `{helper}` here"),
@@ -4484,8 +5180,9 @@ fn insert_with(
     while let Value::Pi(x, icit, dom, cod) = force(&cx.g(), ty.clone())?
         && icit.is_implicit()
     {
-        let meta = supplied_arg(cx, icit, &dom, supply);
-        note_origin(cx, &meta, &x, &term, false);
+        let call = call_name(cx, &term);
+        let meta = supplied_arg(cx, icit, &dom, supply, call);
+        note_origin(cx, &meta, &x, &term, Some((icit, &dom)));
         let value = cx.eval(&meta)?;
         term = Term::app_icit(term, meta, icit);
         ty = cod.apply(&cx.g(), value)?;
@@ -4493,34 +5190,64 @@ fn insert_with(
     Ok((term, ty))
 }
 
+/// Whether `ty` is an interface applied to its type.
+fn is_interface_type(cx: &Ctx, ty: &Value) -> bool {
+    matches!(force(&cx.g(), ty.clone()), Ok(Value::Data(i, _)) if cx.e.is_interface(i))
+}
+
 /// Records that unknown `meta` is parameter `param` of the call `callee`
 /// (a call, or a name applied to arguments so far), for messages that
 /// print it as `?N` ([`stitchwort_core::globals::Meta::origin`]). The first
 /// recorded origin stays.
-fn note_origin(cx: &Ctx, meta: &Term, param: &Name, callee: &Term, hole: bool) {
+fn note_origin(
+    cx: &Ctx,
+    meta: &Term,
+    param: &Name,
+    callee: &Term,
+    implicit_ty: Option<(Icit, &Value)>,
+) {
     let Term::Meta(m) = meta.spine().0 else {
         return;
     };
     if cx.metas().meta_origin(*m).is_some() {
         return;
     }
-    let of = match callee.spine().0 {
-        Term::Def(id) => format!(" of `{}`", cx.g().def(*id).name()),
-        _ => String::new(),
+    let owner = match callee.spine().0 {
+        Term::Def(id) => format!("`{}`'s", cx.g().def(*id).name()),
+        _ => "this call's".to_string(),
     };
-    let origin = if hole {
-        format!(
-            "the `_` for the argument `{param}`{of}, which wasn't worked out from the other arguments or the expected type"
-        )
-    } else {
-        format!(
-            "the implicit argument `{param}`{of}, which wasn't worked out from the other arguments or the expected type; give it with `[{param} := …]`"
-        )
+    let origin = match implicit_ty {
+        None => format!("{owner} `_` for `{param}`, not worked out"),
+        // A plain implicit is solved only by unification; a dictionary
+        // that nothing in the call fixes needs `auto` to be searched for.
+        Some((Icit::Implicit, dom)) if is_interface_type(cx, dom) => format!(
+            "{owner} implicit `{param}`, not worked out. Its type is an interface, but a plain implicit parameter is never searched for an instance: declare it `[auto {param}: …]` to have the instance found, or give it with `[{param} := …]`"
+        ),
+        Some(_) => {
+            format!("{owner} implicit `{param}`, not worked out; give it with `[{param} := …]`")
+        }
     };
-    cx.metas().set_meta_origin(*m, origin.into());
+    if let Some((_, dom)) = implicit_ty
+        && is_interface_type(cx, dom)
+    {
+        cx.metas().set_meta_instance(*m, dom.clone());
+    }
+    cx.metas()
+        .set_meta_origin(*m, param.to_string().into(), origin.into());
 }
 
 pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
+    implicit_arg_for_call(cx, icit, ty, None)
+}
+
+/// [`implicit_arg`] for an argument of the call `call`, named in a message
+/// if its automatic proof fails.
+pub(crate) fn implicit_arg_for_call(
+    cx: &mut Ctx,
+    icit: Icit,
+    ty: &Value,
+    call: Option<String>,
+) -> Term {
     let meta = cx.fresh_meta_of(ty);
     crate::rows::note_row_meta(cx, ty, &meta);
     if icit == Icit::Auto {
@@ -4539,10 +5266,12 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
                 types: cx.types.clone(),
                 names: cx.names.clone(),
                 written: cx.written.clone(),
+                scope: cx.scope.clone(),
                 goal: ty.clone(),
                 meta: meta.clone(),
                 span: cx.span,
                 tree,
+                call,
             });
     }
     meta
@@ -4599,13 +5328,28 @@ fn ignorable_arguments(cx: &Ctx, goal: &Value) -> Option<std::rc::Rc<[bool]>> {
     )
 }
 
+/// The name of the definition the application `term` calls, for a message
+/// about one of its automatic arguments.
+fn call_name(cx: &Ctx, term: &Term) -> Option<String> {
+    match term.spine().0 {
+        Term::Def(id) => Some(cx.g().def(*id).name().to_string()),
+        _ => None,
+    }
+}
+
 /// An implicit argument from `supply`, or a new one. ([`written_result`] records
 /// its auto arguments as obligations itself, as `pipe.rs` does with
 /// [`implicit_arg`].)
-fn supplied_arg(cx: &mut Ctx, icit: Icit, ty: &Value, supply: &mut Supply) -> Term {
+fn supplied_arg(
+    cx: &mut Ctx,
+    icit: Icit,
+    ty: &Value,
+    supply: &mut Supply,
+    call: Option<String>,
+) -> Term {
     match supply.pop_front() {
         Some(arg) => arg,
-        None => implicit_arg(cx, icit, ty),
+        None => implicit_arg_for_call(cx, icit, ty, call),
     }
 }
 
@@ -4623,8 +5367,9 @@ fn insert_until(
                 return Ok((term, ty));
             }
             Value::Pi(x, icit, dom, cod) if icit.is_implicit() => {
-                let meta = supplied_arg(cx, icit, &dom, supply);
-                note_origin(cx, &meta, &x, &term, false);
+                let call = call_name(cx, &term);
+                let meta = supplied_arg(cx, icit, &dom, supply, call);
+                note_origin(cx, &meta, &x, &term, Some((icit, &dom)));
                 let value = cx.eval(&meta)?;
                 term = Term::app_icit(term, meta, icit);
                 ty = cod.apply(&cx.g(), value)?;
@@ -5208,6 +5953,11 @@ pub(crate) fn check_value(
         {
             pair_literal(cx, a, b, params)
         }
+        // `(p, q)` where a proof of `p ∧ q` or `∃ (x: T) => p x` is wanted
+        // is `Both p q` or `Witness p q` (docs/proposals/proof-tuples.md).
+        (Expr::Tuple(..), Value::Data(d, _)) if proof_chain(cx, *d).is_some() => {
+            proof_tuple(cx, expr, &expected)
+        }
         // `[a: Type] => body` and `[auto h: P] => body` take the parameter
         // of the function type they're checked against, rather than having
         // it introduced for them (§4.3 of docs/proposals/lambda-syntax.md).
@@ -5262,11 +6012,13 @@ pub(crate) fn check_value(
         ) => typed_lambda(cx, name, Icit::Explicit, ann, body, dom, cod),
         (Expr::Lam(names, _, span), _) => lambda_not_function(cx, expr, names, *span, &expected),
         (Expr::Var(name), Value::Eq(_, a, b))
-            if name.text == "rfl" && cx.lookup("rfl").is_none() =>
+            if name.text == "byComputing" && cx.lookup("byComputing").is_none() =>
         {
             rfl_against_equation(cx, name, a, b)
         }
-        (Expr::Var(name), _) if name.text == "rfl" && cx.lookup("rfl").is_none() => {
+        (Expr::Var(name), _)
+            if name.text == "byComputing" && cx.lookup("byComputing").is_none() =>
+        {
             rfl_against_other(cx, name, &expected)
         }
         (Expr::List(items, span), Value::Data(d, params)) if is_non_empty_list(cx, *d) => {
@@ -5365,6 +6117,150 @@ fn tuple_type(cx: &mut Ctx, a: &Expr, b: &Expr, expected: &Value) -> Result<Term
     }
 }
 
+/// Which link of a proof chain the data type `d` is, if either: a proof of
+/// `∧` or of `∃`, which a tuple builds and opens.
+fn proof_chain(cx: &Ctx, d: DataId) -> Option<Builtin> {
+    let g = cx.g();
+    let registry = g.env.registry();
+    if registry.is_data(Builtin::And, d) {
+        Some(Builtin::And)
+    } else if registry.is_data(Builtin::Exists, d) {
+        Some(Builtin::Exists)
+    } else {
+        None
+    }
+}
+
+/// What each of the first `count` parts of a tuple proving `goal` gives,
+/// then the rest as one part, for E-TUPLE-PARTS's list: the chain read with
+/// its witnesses as the names they're bound to (`n > 2`, not `7 > 2`).
+/// `None` if the chain is shorter than `count` read that way.
+fn chain_parts(cx: &mut Ctx, goal: &Value, count: usize) -> Result<Option<Vec<String>>> {
+    let g = cx.g();
+    let mark = cx.mark();
+    let mut parts = Vec::new();
+    let mut goal = goal.clone();
+    let result = (|| {
+        for _ in 0..count {
+            let Value::Data(d, params) = force(&g, goal.clone())? else {
+                return Ok(None);
+            };
+            goal = match proof_chain(cx, d) {
+                Some(Builtin::Exists) => {
+                    let x: Name = match force(&g, params[1].clone())? {
+                        Value::Lam(x, _, _) => x,
+                        _ => "x".into(),
+                    };
+                    parts.push(format!("a value for `{x}`"));
+                    let var = Value::var(cx.level());
+                    cx.bind_hidden(x, params[0].clone());
+                    apply(&g, params[1].clone(), var)?
+                }
+                Some(_) => {
+                    parts.push(format!("a proof of `{}`", cx.show(&params[0])));
+                    params[1].clone()
+                }
+                None => return Ok(None),
+            };
+        }
+        parts.push(format!("a proof of `{}`", cx.show(&goal)));
+        Ok(Some(parts))
+    })();
+    cx.reset(mark);
+    result
+}
+
+/// The tuple `expr` where a proof of `∧` or `∃` is expected: `Both a b` or
+/// `Witness a b`, exactly the term the constructor written out gives, so a
+/// proof keeps its hash whichever way it is written. A longer tuple nests to
+/// the right, as a chain `∃ x => A ∧ B` does: `(x, a, b)` is
+/// `Witness x (Both a b)`. The last part stands for the rest of the chain.
+#[inline(never)]
+fn proof_tuple(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    let g = cx.g();
+    let total = tuple_parts(expr);
+    // The links walked so far, outermost first: each one's data type and
+    // the term of its first part.
+    let mut links: Vec<(DataId, Term)> = Vec::new();
+    let mut rest = expr;
+    let mut goal = expected.clone();
+    while let Expr::Tuple(a, b, _) = unbracket(rest) {
+        let forced = force(&g, goal.clone())?;
+        let Value::Data(d, params) = &forced else {
+            break;
+        };
+        let Some(link) = proof_chain(cx, *d) else {
+            break;
+        };
+        let first = check(cx, a, &params[0])?;
+        goal = match link {
+            Builtin::Exists => {
+                let witness = cx.eval(&first)?;
+                apply(&g, params[1].clone(), witness)?
+            }
+            _ => params[1].clone(),
+        };
+        links.push((*d, first));
+        rest = b;
+    }
+    let forced = force(&g, goal.clone())?;
+    if let Expr::Tuple(..) = unbracket(rest)
+        && !matches!(forced, Value::Neutral(Head::Meta(_), _))
+        && !matches!(&forced, Value::Pi(_, icit, _, _) if icit.is_implicit())
+    {
+        let takes = links.len() + 1;
+        let error = cx.error(
+            "E-TUPLE-PARTS",
+            format!("this gives {total} parts, but the goal takes {takes}"),
+            format!("this proves `{}`", cx.show(expected)),
+        );
+        let Some(parts) = chain_parts(cx, expected, links.len())? else {
+            return Err(error);
+        };
+        let list: String = (parts.iter().enumerate())
+            .map(|(i, part)| format!("\n  {}. {part}", i + 1))
+            .collect();
+        return Err(error.with_note(format!(
+            "a tuple proves a chain of `∃` and `∧` one part at a time, from the outside in:{list}"
+        )));
+    }
+    let last_stands_for_rest = matches!(
+        &forced,
+        Value::Data(d, _) if proof_chain(cx, *d).is_some()
+    );
+    let mut term = check(cx, rest, &goal).map_err(|error| {
+        if last_stands_for_rest && !matches!(unbracket(rest), Expr::Tuple(..)) {
+            error.with_note(format!(
+                "the last of these {total} parts must prove all of `{}`",
+                cx.show(&goal)
+            ))
+        } else {
+            error
+        }
+    })?;
+    for (d, first) in links.into_iter().rev() {
+        term = Term::ctor(d, 0, vec![first, term]);
+    }
+    Ok(term)
+}
+
+/// How many parts the tuple `expr` has, nesting to the right: 3 for
+/// `(a, b, c)`.
+fn tuple_parts(expr: &Expr) -> usize {
+    match unbracket(expr) {
+        Expr::Tuple(_, b, _) => 1 + tuple_parts(b),
+        _ => 1,
+    }
+}
+
+/// `expr` without the brackets written around it.
+fn unbracket(mut expr: &Expr) -> &Expr {
+    while let Expr::Bracketed(inner, _) = expr {
+        expr = inner;
+    }
+    expr
+}
+
 /// `(a, b)` where a `Pair` with parameters `params` is expected:
 /// `MkPair a b`.
 #[inline(never)]
@@ -5447,7 +6343,7 @@ fn explicit_lambda(
     ))
 }
 
-/// The builtin `rfl` checked against the equation `a = b`.
+/// The builtin `byComputing` checked against the equation `a = b`.
 #[inline(never)]
 fn rfl_against_equation(cx: &mut Ctx, name: &AstName, a: &Value, b: &Value) -> Result<Term> {
     cx.e.note_builtin(name);
@@ -5465,12 +6361,12 @@ fn rfl_against_equation(cx: &mut Ctx, name: &AstName, a: &Value, b: &Value) -> R
     }
 }
 
-/// The builtin `rfl` checked against `expected`, which isn't an equation.
+/// The builtin `byComputing` checked against `expected`, which isn't an equation.
 #[inline(never)]
 fn rfl_against_other(cx: &mut Ctx, name: &AstName, expected: &Value) -> Result<Term> {
     cx.e.note_builtin(name);
     // The expected type is a placeholder its check hasn't filled (a
-    // number group waiting for its type, stage 4): `rfl` is `?x = ?x`,
+    // number group waiting for its type, stage 4): `byComputing` is `?x = ?x`,
     // compared with it, which waits for it (stage 6).
     if crate::queue::headed_by_pending(cx, expected)? {
         let ty = cx.fresh_meta();
@@ -5488,7 +6384,7 @@ fn rfl_against_other(cx: &mut Ctx, name: &AstName, expected: &Value) -> Result<T
         "E-TYPE-MISMATCH",
         "type mismatch",
         format!(
-            "`rfl` proves an equation, but the expected type is `{}`",
+            "`byComputing` proves an equation, but the expected type is `{}`",
             cx.show(expected)
         ),
     ))
@@ -5545,7 +6441,7 @@ fn list_literal(
     // chunk plus the logarithm of their number (SW-62).
     // Chunking is a fallback: evaluating the `append`s costs about
     // 200 steps an element, so a literal that fits the stack as one
-    // chain stays one (SW-332: `rfl` on a 20,000-element literal got
+    // chain stays one (SW-332: `byComputing` on a 20,000-element literal got
     // six times dearer).
     let count: usize = parts
         .iter()
@@ -5672,7 +6568,7 @@ fn quotient_against(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term>
     compare(cx, term, &ty, expected)
 }
 
-/// `'a'` is `MkChar 97 rfl`: the kernel checks that 97 is a scalar value by
+/// `'a'` is `MkChar 97 byComputing`: the kernel checks that 97 is a scalar value by
 /// computing `isScalar 97`.
 fn char_term(cx: &Ctx, c: char) -> Result<Term> {
     let (char_data, mk_char) = builtin_ctor(cx, Builtin::MkChar)?;
@@ -6285,7 +7181,7 @@ fn fallback_pipe(
 /// propagated application's arguments stand on doesn't hold its locals.
 #[inline(never)]
 fn fallback_inferred(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Result<Term> {
-    let (term, found) = infer_expecting(cx, expr, expected)?;
+    let (term, found) = infer_expecting(cx, expr, expected, named, false)?;
     inferred_against(cx, expr, (term, found), expected, named)
 }
 
@@ -6310,6 +7206,9 @@ fn inferred_against(
     {
         return Ok(prop);
     }
+    if as_named(cx, &found, expected, named)? {
+        return Ok(term);
+    }
     if !matches!(expr, Expr::App(..)) {
         return compare(cx, term, &found, expected);
     }
@@ -6322,6 +7221,29 @@ fn inferred_against(
             expected: expected.clone(),
         },
     )
+}
+
+/// Whether `found` unifies with the expected type as written, `named`,
+/// where it didn't with `expected`, `named` computed: `found` a call with
+/// an unknown argument and `named` a call of another definition defined as
+/// one of the same (`ReadsIn ?inv ?p ?spec` against `Reads starting
+/// Written`), whose arguments say what the unknowns are, where the two
+/// computed to `∀`s don't (`?inv.holds m` against `Unit`; SW-3534,
+/// [`crate::unify::unify_abbreviation`]). Tried only in that case and
+/// after `expected` failed, so a comparison that succeeded before solves
+/// what it did.
+fn as_named(cx: &mut Ctx, found: &Value, expected: &Value, named: &Value) -> Result<bool> {
+    if !matches!(named, Value::Call(..))
+        || !crate::unify::abbreviation_meets(&cx.u(), found, named)?
+        || crate::undo::unify(cx, found, expected)?
+    {
+        return Ok(false);
+    }
+    let met = crate::undo::transaction(cx, |cx| {
+        let same = crate::unify::unify_abbreviation(&cx.u(), cx.level(), found, named)?;
+        Ok(same.unwrap_or(false).then_some(()))
+    })?;
+    Ok(met.is_some())
 }
 
 /// A call's last comparison with its expected type, as an error frame
@@ -6378,7 +7300,21 @@ fn extra_negative_argument_note(
 /// (`apply_args_postponing`). Its result type may depend on the arguments, so it
 /// couldn't be compared first (`propagate`): `List.mapCong _ _ xs (x => …)`
 /// against `List.map f xs = List.map g xs`.
-fn infer_expecting(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<(Term, Value)> {
+///
+/// With `hold_lambdas`, every lambda argument whose type still has unknowns
+/// is checked after that comparison, not tried in place first: the call's
+/// type couldn't be compared before its other arguments fixed the unknowns
+/// applied in it ([`applies_unknown`]), and its lambdas need what the
+/// comparison then fixes. A call whose last argument is an implicit given
+/// by name is only inferred, so it holds nothing (`[j := …]` goes before
+/// the explicit arguments).
+fn infer_expecting(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: &Value,
+    named: &Value,
+    hold_lambdas: bool,
+) -> Result<(Term, Value)> {
     let key = match spine(expr).1.last() {
         Some(Arg::Explicit(last) | Arg::NamedExplicit(_, last)) => {
             std::ptr::from_ref(*last) as usize
@@ -6391,10 +7327,12 @@ fn infer_expecting(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<(Term,
     ) {
         return infer(cx, expr);
     }
-    let outer =
-        cx.e.decl
-            .app_expected
-            .replace(Some((key, expected.clone())));
+    let outer = (cx.e.decl.app_expected).replace(Some(AppExpected {
+        key,
+        expected: expected.clone(),
+        named: named.clone(),
+        hold_lambdas,
+    }));
     let result = infer(cx, expr);
     *cx.e.decl.app_expected.borrow_mut() = outer;
     result
@@ -6858,27 +7796,160 @@ fn propagate(
     // Planned out of line, and applied out of line, so that this frame,
     // which the arguments' checks stand on, holds little more than a
     // pointer to the plan.
-    let Some(mut plan) = propagation_plan(cx, expr, expected, named)? else {
+    let mut applies = false;
+    let Some(mut plan) = propagation_plan(cx, expr, expected, named, &mut applies)? else {
+        if applies {
+            return Ok(Some(fallback_holding_lambdas(cx, expr, expected, named)));
+        }
         return Ok(None);
     };
     match plan.apply(cx, expr.span(), expected) {
         Ok(term) => Ok(Some(Ok(term))),
         Err(e) if crate::undo::fatal(&e) => Err(e),
+        Err(_) if plan.by_arguments => {
+            let Propagation { snapshot, .. } = *plan;
+            snapshot.restore(cx);
+            Ok(Some(after_arguments_failed(cx, expr, expected, named)))
+        }
         Err(propagated) => {
             let Propagation {
                 args,
                 pipes,
                 snapshot,
                 by_holes,
+                by_named,
                 ..
             } = *plan;
             snapshot.restore(cx);
             let args = with_pipes(&args, &pipes);
             Ok(Some(propagate_failed(
-                cx, expr, expected, &args, propagated, by_holes,
+                cx,
+                expr,
+                expected,
+                &args,
+                propagated,
+                (by_holes, by_named),
             )))
         }
     }
+}
+
+/// [`propagate`] for an application whose result type applies one of its
+/// unknowns to what another computes ([`applies_unknown`]): inferred, its
+/// arguments other than lambdas checked first, then its type compared with
+/// `expected`, then its lambdas checked
+/// (docs/proposals/parse-proof-library.md §4).
+///
+/// If that fails, the application is elaborated again the ordinary way,
+/// as [`propagate`] would without this rule, with no application inside
+/// holding its lambdas: a call this rule doesn't help (a predicate a
+/// lambda fixes) is accepted as it was. If both fail, the error is the
+/// ordinary way's when the held way's is about the whole call: a first
+/// lemma about another parser is then blamed, as it was, rather than the
+/// `j` its mistake left unknown.
+#[inline(never)]
+fn fallback_holding_lambdas(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: &Value,
+    named: &Value,
+) -> Result<Term> {
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let held = (|| {
+        let (term, found) = infer_expecting(cx, expr, expected, named, true)?;
+        inferred_against(cx, expr, (term, found), expected, named)
+    })();
+    let held_error = match held {
+        Ok(term) => return Ok(term),
+        Err(e) if crate::undo::fatal(&e) => return Err(e),
+        Err(e) => e,
+    };
+    snapshot.restore(cx);
+    let off = &cx.e.decl.no_holding;
+    off.set(off.get() + 1);
+    let ordinary = match propagate(cx, expr, expected, named) {
+        Ok(Some(result)) => result,
+        Ok(None) => fallback_inferred(cx, expr, expected, named),
+        Err(e) => Err(e),
+    };
+    let off = &cx.e.decl.no_holding;
+    off.set(off.get() - 1);
+    match ordinary {
+        Err(e) if !crate::undo::fatal(&e) && !about_whole(expr, &held_error) => Err(held_error),
+        ordinary => ordinary,
+    }
+}
+
+/// Whether the error `e` is about the whole of `expr`, not a part of it.
+fn about_whole(expr: &Expr, e: &Diagnostic) -> bool {
+    e.labels.first().is_none_or(|at| at.span == expr.span())
+}
+
+/// Whether `ty`, the result type of a call before its arguments are
+/// checked, feeds what one of the unknowns made for it (those from
+/// `metas_from` on) computes to another: an unknown applied to more than
+/// the variables in scope (`?p ()`), as an argument of a call or of an
+/// unknown that also has another of the call's unknowns among its
+/// arguments, as `Parse.readsThen`'s `Parse.ReadsIn ?inv (() => ?j (?p
+/// ())) ?spec`, which is `Effect.bind (?p ()) (x => ?j x)`. Compared with
+/// the goal then, that is a problem with many solutions, and the
+/// unifier's choice (by the arguments of two calls, after unfolding) need
+/// not be the one the arguments mean: `afterMark`, which is `counted
+/// (Parse.mark().left + 1)`, splits as `?p` the mark and the sum. Once the
+/// arguments have fixed `?p`, it is an ordinary comparison. A predicate
+/// applied to a value (`?holds 0`, `?holds ?n`) is not this shape: its
+/// lambdas may be what fixes it, tried in place.
+fn applies_unknown(cx: &Ctx, ty: &Value, metas_from: usize) -> Result<bool> {
+    let term = cx.quote_folded(ty)?;
+    let g = cx.g();
+    let unknown = |m: &usize| *m >= metas_from && g.meta_solution(*m).is_none();
+    let mentions_unknown = |t: &Term, but: usize| {
+        t.subterms()
+            .any(|(t, _)| matches!(t, Term::Meta(m) if *m != but && unknown(m)))
+    };
+    // An unknown of the call applied to more than variables: its own.
+    let applied = |t: &Term| {
+        let (head, args) = t.spine();
+        match head {
+            Term::Meta(m) if unknown(m) => args
+                .iter()
+                .any(|a| !matches!(a.strip_loc(), Term::Var(_)))
+                .then_some(*m),
+            _ => None,
+        }
+    };
+    Ok(term.subterms().any(|(t, _)| {
+        if !matches!(t, Term::App(..)) {
+            return false;
+        }
+        let (head, args) = t.spine();
+        args.iter().any(|a| {
+            let Some(inner) = applied(a.strip_loc()) else {
+                return false;
+            };
+            matches!(head, Term::Meta(m) if *m != inner && unknown(m))
+                || args
+                    .iter()
+                    .any(|b| !std::ptr::eq(*b, *a) && mentions_unknown(b, inner))
+        })
+    }))
+}
+
+/// Whether a function of type `ty` has an implicit parameter of function
+/// type before its result: [`applies_unknown`] can only hold of a call of
+/// one.
+fn has_implicit_function(cx: &Ctx, ty: &Value) -> Result<bool> {
+    let g = cx.g();
+    let mut ty = force(&g, ty.clone())?;
+    let mut level = cx.level();
+    while let Value::Pi(_, icit, dom, cod) = ty {
+        if icit == Icit::Implicit && matches!(force(&g, (*dom).clone())?, Value::Pi(..)) {
+            return Ok(true);
+        }
+        ty = force(&g, cod.apply(&g, Value::var(level))?)?;
+        level += 1;
+    }
+    Ok(false)
 }
 
 /// The end of [`propagate`]'s application at `span`, `applied`, with the
@@ -6904,6 +7975,27 @@ fn propagated(
     compare(cx, term, &found, expected)
 }
 
+/// After [`propagate`] failed for the application `expr`, whose result type
+/// matched `expected` only by the arguments of the two calls: put back as it
+/// was, `expr` elaborated as it would have been had that comparison failed,
+/// inferred and then compared ([`fallback_inferred`]), so its error is the
+/// one it would have given. Inside, applications still use their expected
+/// types first, all but by arguments.
+#[inline(never)]
+fn after_arguments_failed(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: &Value,
+    named: &Value,
+) -> Result<Term> {
+    let off = &cx.e.decl.no_argument_propagation;
+    off.set(off.get() + 1);
+    let result = fallback_inferred(cx, expr, expected, named);
+    let off = &cx.e.decl.no_argument_propagation;
+    off.set(off.get() - 1);
+    result
+}
+
 /// After [`propagate`] failed with `propagated` for the application `expr`
 /// of `args`, put back as it was: `expr` elaborated again as it would have
 /// been without this propagation: its result, or the error to give if it
@@ -6915,7 +8007,7 @@ fn propagate_failed(
     expected: &Value,
     args: &[Arg],
     propagated: Diagnostic,
-    by_holes: bool,
+    (by_holes, by_named): (bool, bool),
 ) -> Result<Term> {
     // Elaborated again as it would have been without this
     // propagation. After one by `_`s, the applications inside still
@@ -6942,9 +8034,17 @@ fn propagate_failed(
     // Both fail inside the same argument: the first knew what the
     // argument must prove, where the second only had unknowns (a
     // `rewrite` in `Eq.trans (List.filterSkip _ _ _ (rewrite …)) e`
-    // against a goal of `?p ?x = False`, SW-931).
+    // against a goal of `?p ?x = False`, SW-931). Or the call met its goal
+    // only as written ([`as_named`]): the second, compared with the goal
+    // computed, fails at the whole call with the implicits the goal's
+    // arguments gave left unknown, where the first failed inside an
+    // argument, knowing them (SW-3534).
     match old {
-        Err(old) if !crate::undo::fatal(&old) && in_same_argument(args, &propagated, &old) => {
+        Err(old)
+            if !crate::undo::fatal(&old)
+                && (in_same_argument(args, &propagated, &old)
+                    || by_named && inside_argument(args, &propagated)) =>
+        {
             Err(propagated)
         }
         old => old,
@@ -6963,6 +8063,11 @@ struct Propagation<'a> {
     supply: Supply,
     snapshot: crate::undo::Snapshot,
     by_holes: bool,
+    /// Matched only against the expected type as written ([`as_named`]).
+    by_named: bool,
+    /// Matched not by `_`s but by the arguments of the two calls, the plain
+    /// comparison having failed.
+    by_arguments: bool,
 }
 
 /// `args` with those at the positions in `pipes` (written `_`, and checked
@@ -7001,12 +8106,17 @@ impl Propagation<'_> {
 /// `expected` (named `named`), if its result type as written unifies with
 /// it before the arguments are checked; `None`, with everything as it was,
 /// if not.
+///
+/// `applies` is set, and `None` returned, if the result type applies an
+/// unknown of the call to what another of its unknowns computes
+/// ([`applies_unknown`]).
 #[inline(never)]
 fn propagation_plan<'a>(
     cx: &mut Ctx,
     expr: &'a Expr,
     expected: &Value,
     named: &Value,
+    applies: &mut bool,
 ) -> Result<Option<Box<Propagation<'a>>>> {
     if matches!(
         force(&cx.g(), expected.clone())?,
@@ -7044,6 +8154,7 @@ fn propagation_plan<'a>(
         (head, args)
     };
     let mut snapshot = crate::undo::Snapshot::take(cx);
+    let metas_from = cx.metas().metas.borrow().len();
     let mut found = written_result(cx, &head.1, &args, false)?;
     // A result type that depends only on arguments written `_` (a lemma's
     // conclusion, as `Parse.readsBind _ _ _ _ reads (x => …)`'s): the
@@ -7064,9 +8175,33 @@ fn propagation_plan<'a>(
         found = written_result(cx, &head.1, &args, true)?;
     }
     let Some((written, supply, doms, checked)) = found else {
+        // A result that mentions an implicit argument given by name (`[j :=
+        // …]` of `Parse.readsThen`) still applies the others' unknowns.
         snapshot.restore(cx);
+        if cx.e.decl.no_holding.get() == 0
+            && args.iter().any(|a| matches!(a, Arg::Named(..)))
+            && has_implicit_function(cx, &head.1)?
+        {
+            let unnamed: Vec<Arg> = (args.iter().copied())
+                .filter(|a| !matches!(a, Arg::Named(..)))
+                .collect();
+            let snapshot = crate::undo::Snapshot::take(cx);
+            let metas_from = cx.metas().metas.borrow().len();
+            if let Some((written, ..)) = written_result(cx, &head.1, &unnamed, false)? {
+                *applies = applies_unknown(cx, &written, metas_from)?;
+            }
+            snapshot.restore(cx);
+        }
         return Ok(None);
     };
+    if cx.e.decl.no_holding.get() == 0
+        && has_implicit_function(cx, &head.1)?
+        && applies_unknown(cx, &written, metas_from)?
+    {
+        snapshot.restore(cx);
+        *applies = true;
+        return Ok(None);
+    }
     // The arguments written `_`, with the unknowns they got.
     let pipes: Vec<(usize, Piped)> = (checked.into_iter())
         .map(|(i, term)| {
@@ -7090,17 +8225,22 @@ fn propagation_plan<'a>(
     // comparison at the end settles it.
     let written = effects::unknown_bare_value(cx, &written)?.unwrap_or(written);
     name_unknown(cx, &written, named)?;
-    // By `_`s, as the comparison after a lambda put off is
-    // (`apply_args_postponing`): if the plain comparison fails, the
-    // unknowns may be solved from the arguments of two calls of the same
-    // definition (`Reads (() => bind (?p ()) ?j) …` against `Reads (() =>
-    // j x) …`), which only their arguments can say.
-    let matched = if by_holes {
-        crate::undo::unify(cx, &written, expected)?
-            || crate::undo::unify_solving_arguments(cx, &written, expected)?
-    } else {
-        cx.unify(&written, expected)?
-    };
+    // As the comparison after a lambda put off is (`finish_application`):
+    // if the plain comparison fails, the unknowns may be solved from the
+    // arguments of two calls of the same definition (`Reads (() => bind
+    // (?p ()) ?j) …` against `Reads twoLetters …`), which only their
+    // arguments can say. Left to that later comparison, they stay unknown
+    // while the arguments are checked: a lemma's type parameters (an
+    // ability's `t` in `Parse.readsThen`) among them, so each argument is
+    // checked against a type that can't fail early, and a lambda is checked
+    // in place, fails, and is checked again (SW-3281).
+    let plain = crate::undo::unify(cx, &written, expected)?;
+    let by_named = !plain && as_named(cx, &written, expected, named)?;
+    let plain = plain || by_named;
+    let by_arguments = !plain
+        && (by_holes || cx.e.decl.no_argument_propagation.get() == 0)
+        && crate::undo::unify_solving_arguments(cx, &written, expected)?;
+    let matched = plain || by_arguments;
     if !matched {
         snapshot.restore(cx);
         return Ok(None);
@@ -7124,6 +8264,8 @@ fn propagation_plan<'a>(
         supply,
         snapshot,
         by_holes,
+        by_named,
+        by_arguments: by_arguments && !by_holes,
     })))
 }
 
@@ -7134,7 +8276,7 @@ fn propagation_plan<'a>(
 /// that isn't a lambda (`True` in `chooseFirst 5 True` at `Int`) keeps the
 /// second's message, which says how its type was fixed, unless the first
 /// isn't a type mismatch: then the argument was checked against what it
-/// must be and failed at that (`rfl` in `Decidable.yes rfl`, `E-REFL`), where
+/// must be and failed at that (`byComputing` in `Decidable.yes byComputing`, `E-REFL`), where
 /// the second only had an unknown to check it against.
 fn in_same_argument(args: &[Arg], first: &Diagnostic, second: &Diagnostic) -> bool {
     let whole_ok = first.code != "E-TYPE-MISMATCH";
@@ -7152,6 +8294,21 @@ fn in_same_argument(args: &[Arg], first: &Diagnostic, second: &Diagnostic) -> bo
             let whole = value.span();
             let part = |span: Span| inside(whole, span) && (whole_ok || span != whole);
             part(first.span) && part(second.span)
+        }
+        _ => false,
+    })
+}
+
+/// Whether the error `e` points inside one of the explicit arguments
+/// `args`.
+fn inside_argument(args: &[Arg], e: &Diagnostic) -> bool {
+    let Some(at) = e.labels.first() else {
+        return false;
+    };
+    args.iter().any(|arg| match arg {
+        Arg::Explicit(value) => {
+            let whole = value.span();
+            whole.file == at.span.file && whole.start <= at.span.start && at.span.end <= whole.end
         }
         _ => false,
     })
@@ -7224,7 +8381,11 @@ pub(crate) fn propagate_comp(
 /// meant. Returns the lambda's first two parameters then, and records the
 /// warning (once per lambda). Called for the lambda as written, not for the
 /// rest of its parameters that checking peels off one at a time.
-fn lambda_shadow(cx: &Ctx, names: &[AstName], span: Span) -> Result<Option<(AstName, AstName)>> {
+fn lambda_shadow(
+    cx: &mut Ctx,
+    names: &[AstName],
+    span: Span,
+) -> Result<Option<(AstName, AstName)>> {
     let [first, second, ..] = names else {
         return Ok(None);
     };
@@ -7314,10 +8475,12 @@ fn shadow_note(d: Diagnostic, shadowed: Option<&(AstName, AstName)>) -> Diagnost
 }
 
 /// Whether `name`, as seen from where the lambda starts, is a function: a
-/// local variable or local definition whose type is one, a definition or
-/// ability operation, or a definition of this module not checked yet that is
-/// declared with a function type.
-fn names_a_function(cx: &Ctx, name: &str) -> Result<bool> {
+/// local variable or local definition whose type is one, a definition, or a
+/// definition of this module not checked yet that is declared with a function
+/// type. An ability's operation counts when its first argument is itself a
+/// function: `span (total => …)` could be meant, but `read value => …` can't
+/// mean `read (value => …)` when `read` takes a `Path` (SW-3453).
+fn names_a_function(cx: &mut Ctx, name: &str) -> Result<bool> {
     let g = cx.g();
     let takes_argument = |ty: &Value| -> Result<bool> { takes_lambda_argument(&g, ty) };
     if let Some((_, ty)) = cx.local(name)? {
@@ -7326,13 +8489,35 @@ fn names_a_function(cx: &Ctx, name: &str) -> Result<bool> {
     if let Some(level) = cx.lookup(name) {
         return takes_argument(&cx.types[level]);
     }
-    match cx.e.named(name) {
-        Some((Global::Def(id), _)) => takes_argument(g.def(*id).ty_value()),
-        Some((Global::Op(..), _)) => Ok(true),
-        Some((Global::Unchecked(item), _)) => Ok(cx.e.item_is_function(*item)),
+    let named = cx.e.named(name).map(|(global, _)| *global);
+    match named {
+        Some(Global::Def(id)) => takes_argument(g.def(id).ty_value()),
+        Some(Global::Op(a, i)) => {
+            let (_, ty) = crate::effects::op_value(cx, a, i)?;
+            takes_function_argument(&g, &ty)
+        }
+        Some(Global::Unchecked(item)) => Ok(cx.e.item_is_function(item)),
         // A library name whose file isn't loaded: the index knows its type's shape.
-        Some((Global::Pending(file, _), _)) => Ok(cx.e.pending_is_function(name, *file)),
+        Some(Global::Pending(file, _)) => Ok(cx.e.pending_is_function(name, file)),
         _ => Ok(false),
+    }
+}
+
+/// Whether `ty`'s first explicit argument, after implicit and `auto` ones, is
+/// itself a function type, so an unbracketed lambda could have been meant for
+/// the argument.
+fn takes_function_argument(g: &Ev<'_>, ty: &Value) -> Result<bool> {
+    let mut ty = force(g, ty.clone())?;
+    loop {
+        match ty {
+            Value::Pi(_, Icit::Implicit | Icit::Auto, _, cod) => {
+                ty = force(g, cod.apply(g, Value::var(usize::MAX - 2))?)?;
+            }
+            Value::Pi(_, Icit::Explicit, dom, _) => {
+                return Ok(matches!(force(g, (*dom).clone())?, Value::Pi(..)));
+            }
+            _ => return Ok(false),
+        }
     }
 }
 
@@ -7373,7 +8558,7 @@ pub(crate) fn known_head(cx: &Ctx, head: &Expr) -> Option<(Term, Value)> {
         return Some((Term::Var(cx.level() - 1 - level), cx.types[level].clone()));
     }
     if as_fields(cx, name).is_some()
-        || matches!(name.text.as_str(), "rfl" | "J")
+        || matches!(name.text.as_str(), "byComputing" | "J")
         || crate::quot::head_form(cx, &name.text).is_some()
     {
         return None;
@@ -7879,7 +9064,39 @@ fn infer_tuple(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
     if let Value::Sort(_) = force(&cx.g(), tya.clone())? {
         return type_tuple(cx, a, b);
     }
+    // A pair's parts are never proofs, so a tuple whose first part is one
+    // proves `∧` (docs/proposals/proof-tuples.md §4.1).
+    if crate::rewrite::is_proof_type(cx, &tya)? {
+        let and = builtin_data(cx, Builtin::And)?;
+        let (tb, tyb) = infer(cx, b)?;
+        if !crate::rewrite::is_proof_type(cx, &tyb)? {
+            return Err(
+                Diagnostic::error("E-TYPE-MISMATCH", "type mismatch").with_label(
+                    b.span(),
+                    "the tuple's first part is a proof, so the tuple proves `∧` and this \
+                     part must be a proof too",
+                ),
+            );
+        }
+        let ty = Value::Data(and, vec![tya, tyb].into());
+        let term = annotate(cx, Term::ctor(and, 0, vec![ta, tb]), &ty)?;
+        return Ok((term, ty));
+    }
     let (tb, tyb) = infer(cx, b)?;
+    // A value and a proof about it fit many `∃` statements: which one is
+    // meant has to come from the expected type.
+    if crate::rewrite::is_proof_type(cx, &tyb)? {
+        return Err(cx
+            .error(
+                "E-CANNOT-INFER",
+                "can't tell which statement this tuple proves",
+                "a value and then a proof: a proof of an `∃`, but of which one?",
+            )
+            .with_note(
+                "a witness and a proof fit many `∃` statements: give the type, as in \
+                 `(…: ∃ (x: T) => …)`, or use the tuple where the goal is known",
+            ));
+    }
     let (pair, mk) = builtin_ctor(cx, Builtin::MkPair)?;
     Ok((
         Term::ctor(pair, mk, vec![ta, tb]),
@@ -8199,10 +9416,10 @@ fn written_sides(cx: &Ctx, a: &Value, b: &Value) -> Option<(String, String)> {
     Some((show(ga), show(gb)))
 }
 
-/// Whether `rfl` proves `a = b` once the dictionaries whose types are known
+/// Whether `byComputing` proves `a = b` once the dictionaries whose types are known
 /// by now are found: a side computed over one still to be found is stuck on
-/// it (`List.all Finite.all p = True` in `Finite.check p rfl x`), as in
-/// [`compare`]. Only reached where `rfl` would otherwise fail.
+/// it (`List.all Finite.all p = True` in `Finite.check p byComputing x`), as in
+/// [`compare`]. Only reached where `byComputing` would otherwise fail.
 #[inline(never)]
 pub(crate) fn refl_after_instances(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
     if cx.e.tables.interfaces.is_empty() || !cx.e.solve_ready_instances()? {
@@ -8238,7 +9455,7 @@ fn same_function(cx: &Ctx, a: &NoteSide, b: &NoteSide) -> Option<String> {
 }
 
 /// SW-1538: inside a generalised `match`, `a = b` that the `match`'s
-/// equation states, where `rfl` fails because the goal came to mention the
+/// equation states, where `byComputing` fails because the goal came to mention the
 /// scrutinee only after the `match` refined it (after a `rewrite`, say): the
 /// equation proves it. Unnamed, the note says to name it.
 fn match_equation_note(cx: &Ctx, a: &NoteSide, b: &NoteSide) -> Option<String> {
@@ -8272,7 +9489,7 @@ fn match_equation_note(cx: &Ctx, a: &NoteSide, b: &NoteSide) -> Option<String> {
                 true => format!("the `match`'s equation `{name}` proves it: pass `{name}`"),
                 false => format!(
                     "the `match`'s equation `{name}` proves it the other way round: pass \
-                 `Eq.sym {name}`"
+                 `Eq.flipped {name}`"
                 ),
             })
         })
@@ -8364,7 +9581,7 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     let unclear = |x: &str, y: &str| x == y || x.contains('…') || y.contains('…');
     let difference = !hidden
         && (unclear(&side_a, &side_b) || computed.is_some() && unclear(&normal_a, &normal_b));
-    let mut error = cx.error("E-REFL", "`rfl` can't prove this", label);
+    let mut error = cx.error("E-REFL", "`byComputing` can't prove this", label);
     if hidden {
         error = error.with_note(
             "the two sides differ only in arguments the compiler fills in, shown here in \
@@ -8395,8 +9612,8 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     if let Some(note) = stuck_side_note(cx, a, b) {
         error = error.with_note(note);
     }
-    let error =
-        error.with_note("`rfl` proves `a = b` only when both sides compute to the same value");
+    let error = error
+        .with_note("`byComputing` proves `a = b` only when both sides compute to the same value");
     let error = match match_equation_note(cx, &sides[0], &sides[1]) {
         Some(note) => error.with_note(note),
         None => error,
@@ -8410,6 +9627,37 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     };
     cx.with_opaque_notes_in(error, &sides)
 }
+
+/// The expected and found sides of a type mismatch `d` made by
+/// [`Ctx::mismatch`], as printed: from its label, or from its `expected:`
+/// and `found:` rows when the sides were long.
+pub(crate) fn mismatch_sides(d: &Diagnostic) -> Option<(&str, &str)> {
+    let inline = d
+        .labels
+        .first()
+        .and_then(|l| l.message.strip_prefix("expected `"))
+        .and_then(|rest| rest.split_once("`, but this has type `"));
+    inline.or_else(|| {
+        d.notes
+            .iter()
+            .find_map(|n| n.strip_prefix(ROWS.0)?.split_once(ROWS.1))
+    })
+}
+
+/// [`Ctx::first_difference_note`]'s words for `found`.
+fn difference_note(found: pretty::Difference) -> String {
+    let within = found
+        .within
+        .map(|call| format!(", in `{call}`"))
+        .unwrap_or_default();
+    format!(
+        "they first differ at `{}` against `{}`{within}",
+        found.left, found.right
+    )
+}
+
+/// How [`Ctx::mismatch_rows`] begins each row.
+const ROWS: (&str, &str) = ("expected: ", "\n   found: ");
 
 #[cfg(test)]
 mod tests {
@@ -8449,6 +9697,27 @@ mod tests {
         );
         let ignorable = ignorable_arguments(&cx, &eq(type0(), type0())).expect("types read back");
         assert_eq!(&*ignorable, &[true, true, false]);
+    }
+
+    /// An unsolved instance argument is shown as its type (`Add b`), which
+    /// may mention the variables in scope there: printing it needs their
+    /// names (SW-3592: it once indexed an empty name list).
+    #[test]
+    fn an_unknown_instance_type_mentioning_a_variable_prints_with_its_names() {
+        let e = Elaborator::new();
+        let cx = Ctx::from_parts(
+            &e,
+            vec![Value::var(0)],
+            vec![Value::Sort(Sort::Type(0))],
+            vec!["b".into()],
+            span(),
+        );
+        let meta = cx.fresh_meta();
+        let Term::Meta(m) = *meta.spine().0 else {
+            panic!("an unknown")
+        };
+        cx.metas().set_meta_instance(m, Value::var(0));
+        assert_eq!(cx.show(&cx.eval(&meta).expect("evaluates")), "b");
     }
 
     /// Elaborates `text`, a closed expression, with no library: the shown
@@ -8524,4 +9793,44 @@ mod tests {
             Ok("[a: Type] → a → a")
         );
     }
+}
+
+/// How a message prints an unknown for parameter `param`, the `earlier`-th
+/// of that name in it: `_n`, `_n₂`, `_n₃`.
+pub(crate) fn unknown_label(param: &str, earlier: usize) -> String {
+    if earlier == 0 {
+        return format!("_{param}");
+    }
+    let digits: String = (earlier + 1)
+        .to_string()
+        .chars()
+        .filter_map(|c| c.to_digit(10).and_then(|d| char::from_u32('₀' as u32 + d)))
+        .collect();
+    format!("_{param}{digits}")
+}
+
+/// `text` with each unknown's label `from` replaced by its `to`, all at
+/// once, matching whole labels only.
+fn relabel_unknowns(text: &str, relabels: &[(String, String)]) -> String {
+    let word = |c: char| c.is_alphanumeric() || c == '_' || c == '\'' || ('₀'..='₉').contains(&c);
+    let mut out = String::new();
+    let mut rest = text;
+    let mut prev: Option<char> = None;
+    while let Some(c) = rest.chars().next() {
+        let hit = relabels.iter().find(|(from, _)| {
+            rest.starts_with(from.as_str())
+                && !prev.is_some_and(word)
+                && !rest[from.len()..].chars().next().is_some_and(word)
+        });
+        if let Some((from, to)) = hit {
+            out.push_str(to);
+            prev = to.chars().last();
+            rest = &rest[from.len()..];
+        } else {
+            out.push(c);
+            prev = Some(c);
+            rest = &rest[c.len_utf8()..];
+        }
+    }
+    out
 }

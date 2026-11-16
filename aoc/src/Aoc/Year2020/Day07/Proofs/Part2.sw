@@ -14,15 +14,15 @@ theorem contentsAgree ∀ (rules: List Rule) (colour: Colour):
       List.filterCongMem rules
         (rule => Map.Spec.sameKey colour rule.colour)
         (rule => rule.colour == colour)
-        (rule member => Map.Spec.sameKeyDecide colour rule.colour) in
+        (rule member => Map.Spec.sameKeyDecide colour rule.colour) then
     match List.filter rules (rule => rule.colour == colour) with
-      | [] => rfl
-      | [first, ..rest] => rfl
+      | [] => byComputing
+      | [first, ..rest] => byComputing
 
 theorem bagsAgree ∀ (rules: List Rule) (depth: Nat) (colour: Colour):
     ({ all = rules }: Rules).book.bagsToDepth depth colour = Spec.bagsWithin rules depth colour :=
   match depth with
-    | 0 => rfl
+    | 0 => byComputing
     | Succ depth =>
       rewrite contentsAgree rules colour,
           List.mapCong
@@ -31,8 +31,8 @@ theorem bagsAgree ∀ (rules: List Rule) (depth: Nat) (colour: Colour):
               ({ all = rules }: Rules).book.bagsToDepth depth content.colour
                 |> .map (inside => content.count * (1 + inside)))
             (content => Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside)))
-            (content => rewrite bagsAgree rules depth content.colour in rfl) in
-        rfl
+            (content => rewrite bagsAgree rules depth content.colour then byComputing) then
+        byComputing
 
 --| When part 2 gives an answer, the rules settle the total at some depth,
 --| and it is theirs.
@@ -43,7 +43,7 @@ theorem part2Rules ∀ (rules: Rules) (total: Nat)
     | Some found =>
       Witness
         (rules.all.length + 1)
-        (rewrite <- bagsAgree rules.all (rules.all.length + 1) shinyGold, e, Result.okInjective solved in rfl)
+        (rewrite <- bagsAgree rules.all (rules.all.length + 1) shinyGold, e, Result.okInjective solved then byComputing)
 
 -- The spec's total doesn't depend on the depth it was settled at.
 
@@ -58,7 +58,7 @@ theorem allSomeKeeps ∀ (f g: a → Option b)
       match fx: f x with
         | Some v =>
           match r: List.allSome (rest.map f) with
-            | Some vs => rewrite keeps x v fx, allSomeKeeps f g keeps rest vs r in found
+            | Some vs => rewrite keeps x v fx, allSomeKeeps f g keeps rest vs r then found
 
 theorem bagsWithinDeeper ∀ (rules: List Rule) (depth: Nat) (colour: Colour) (total: Nat)
     (settled: Spec.bagsWithin rules depth colour = Some total):
@@ -71,15 +71,15 @@ theorem bagsWithinDeeper ∀ (rules: List Rule) (depth: Nat) (colour: Colour) (t
         Spec.bagsWithin rules (Succ depth) content.colour |> .map (inside => content.count * (1 + inside))
       let keeps: ∀ (content: Content) (v: Nat) => shallow content = Some v → deep content = Some v := content v found =>
         match e: Spec.bagsWithin rules depth content.colour with
-          | Some inside => rewrite bagsWithinDeeper rules depth content.colour inside e in found
+          | Some inside => rewrite bagsWithinDeeper rules depth content.colour inside e then found
       match r: List.allSome ((Spec.contentsOf rules colour).map shallow) with
-        | Some counts => rewrite allSomeKeeps shallow deep keeps (Spec.contentsOf rules colour) counts r in settled
+        | Some counts => rewrite allSomeKeeps shallow deep keeps (Spec.contentsOf rules colour) counts r then settled
 
 theorem bagsWithinLater ∀ (rules: List Rule) (depth: Nat) (colour: Colour) (total: Nat)
     (settled: Spec.bagsWithin rules depth colour = Some total) (more: Nat):
     Spec.bagsWithin rules (depth + more) colour = Some total :=
   match more with
-    | 0 => rewrite Nat.addZero depth in settled
+    | 0 => rewrite Nat.addZero depth then settled
     | Succ more =>
       bagsWithinDeeper rules (depth + more) colour total (bagsWithinLater rules depth colour total settled more)
 
@@ -93,6 +93,6 @@ theorem part2Unique ∀ (rules: List Rule) (one other: Nat)
   let (Witness otherDepth otherSettled) := second
   Option.someInjective
     (Eq.trans
-      (Eq.sym (bagsWithinLater rules depth Spec.shinyGold one settled otherDepth))
-      (rewrite Nat.addComm depth otherDepth in
+      (Eq.flipped (bagsWithinLater rules depth Spec.shinyGold one settled otherDepth))
+      (rewrite Nat.addComm depth otherDepth then
         bagsWithinLater rules otherDepth Spec.shinyGold other otherSettled depth))

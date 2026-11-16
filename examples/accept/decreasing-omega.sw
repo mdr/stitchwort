@@ -1,5 +1,5 @@
 -- A recursive call of a definition with `decreasing` needs no proof where
--- `omega`, from the facts in scope, shows the measure gets smaller: `auto`
+-- `arithmetic`, from the facts in scope, shows the measure gets smaller: `auto`
 -- tries it when nothing else proves the call's obligation, as Lean's
 -- `decreasing_tactic` does.
 

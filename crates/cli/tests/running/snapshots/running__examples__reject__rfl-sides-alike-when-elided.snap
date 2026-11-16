@@ -2,18 +2,18 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
     ╭─[ reject/rfl-sides-alike-when-elided.sw:11:324 ]
     │
- 11 │         List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * c + (c + (x + 1)))) + List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * c + (c + (x + 2)))) + List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * c + (c + (x + 3)))) + List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * x + (c * x + (x + (c + 8))))) := rfl
-    │                                                                                                                                                                                                                                                                                                                                    ─┬─  
-    │                                                                                                                                                                                                                                                                                                                                     ╰─── `(0 ..< n).foldLeft 0 (acc x => acc + (… + …)) + (0 ..< n).foldLeft 0 (acc x => acc + (… + …)) + (0 ..< n).foldLeft 0 (acc x => acc + (x * c + (c + …))) + (0 ..< n).foldLeft 0 (acc x => acc + (x * x + (c * x + (x + …))))` and `(0 ..< n).foldLeft 0 (acc x => acc + (… + …)) + (0 ..< n).foldLeft 0 (acc x => acc + (… + …)) + (0 ..< n).foldLeft 0 (acc x => acc + (x * c + (c + …))) + (0 ..< n).foldLeft 0 (acc x => acc + (x * x + (c * x + (x + …))))` aren't equal
+ 11 │         List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * c + (c + (x + 1)))) + List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * c + (c + (x + 2)))) + List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * c + (c + (x + 3)))) + List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * x + (c * x + (x + (c + 8))))) := byComputing
+    │                                                                                                                                                                                                                                                                                                                                    ─────┬─────  
+    │                                                                                                                                                                                                                                                                                                                                         ╰─────── `(0 ..< n).foldLeft 0 (acc x => acc + (… + …)) + (0 ..< n).foldLeft 0 (acc x => acc + (… + …)) + (0 ..< n).foldLeft 0 (acc x => acc + (x * c + (c + …))) + (0 ..< n).foldLeft 0 (acc x => acc + (x * x + (c * x + (x + …))))` and `(0 ..< n).foldLeft 0 (acc x => acc + (… + …)) + (0 ..< n).foldLeft 0 (acc x => acc + (… + …)) + (0 ..< n).foldLeft 0 (acc x => acc + (x * c + (c + …))) + (0 ..< n).foldLeft 0 (acc x => acc + (x * x + (c * x + (x + …))))` aren't equal
     │ 
     │ Note 1: computing both sides gives `(List.rangeFrom n 0).foldLeft 0 (acc x => … + 1) + (List.rangeFrom n 0).foldLeft 0 (acc x => … + 2) + (List.rangeFrom n 0).foldLeft 0 (acc x => acc + … + 3) + (List.rangeFrom n 0).foldLeft 0 (acc x => acc + (… + …) + 7)` and `(List.rangeFrom n 0).foldLeft 0 (acc x => … + 1) + (List.rangeFrom n 0).foldLeft 0 (acc x => … + 2) + (List.rangeFrom n 0).foldLeft 0 (acc x => acc + … + 3) + (List.rangeFrom n 0).foldLeft 0 (acc x => acc + (… + …) + 8)`
     │ 
     │ Note 2: they first differ at `acc + (x * x + (c * x + (x + c))) + 7` against `acc + (x * x + (c * x + (x + c))) + 8`, in `(List.rangeFrom n 0).foldLeft 0 (acc x => acc + (x * x + (c * x + (x + c))) + 7)`
     │ 
-    │ Note 3: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 3: `byComputing` proves `a = b` only when both sides compute to the same value
     │ 
     │ Note 4: this statement is false; a counterexample:
     │           n = 1

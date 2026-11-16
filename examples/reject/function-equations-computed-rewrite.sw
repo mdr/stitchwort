@@ -9,4 +9,4 @@ def size: List Nat → Nat
   | [] => 0
   | Cons _ rest => size rest + 1
 
-theorem sizeNil (n: Nat): size [] + n = n := rewrite size.eq1 in rfl
+theorem sizeNil (n: Nat): size [] + n = n := rewrite size.eq1 then byComputing

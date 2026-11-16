@@ -201,9 +201,10 @@ impl LiveRun {
                 flushed?;
                 Ok(Advanced::Waiting)
             }
-            Ok(Driven::Finished(_)) => {
+            Ok(Driven::Finished(result)) => {
                 self.end();
                 flushed?;
+                crate::run::exit_of(&result)?;
                 Ok(Advanced::Finished)
             }
             Ok(Driven::OutOfTicks) => unreachable!("a live run has no tick limit"),

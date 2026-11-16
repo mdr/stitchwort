@@ -19,8 +19,8 @@ theorem countDirections ∀ (f: Direction → Bool):
   rewrite List.countCons [Right, Down, Left] Up f,
       List.countCons [Down, Left] Right f,
       List.countCons [Left] Down f,
-      List.countCons [] Left f in
-    omega
+      List.countCons [] Left f then
+    arithmetic
 
 theorem countQuadrants ∀ (f: (Direction, Direction) → Bool):
     quadrants.count f
@@ -31,38 +31,38 @@ theorem countQuadrants ∀ (f: (Direction, Direction) → Bool):
   rewrite List.countCons [(Up, Right), (Down, Left), (Down, Right)] (Up, Left) f,
       List.countCons [(Down, Left), (Down, Right)] (Up, Right) f,
       List.countCons [(Down, Right)] (Down, Left) f,
-      List.countCons [] (Down, Right) f in
-    omega
+      List.countCons [] (Down, Right) f then
+    arithmetic
 
 --| The spec's first sections of fence at a plot are the grid's starts.
 theorem specSidesCell ∀ (region: Region) (row column: Nat):
     directions.count (isFirstSection region { row, column }) = starts (insideOf region) row column :=
   match row, column with
-    | Zero, Zero => Eq.trans (countDirections (isFirstSection region _)) rfl
-    | Zero, Succ before => Eq.trans (countDirections (isFirstSection region _)) rfl
-    | Succ up, Zero => Eq.trans (countDirections (isFirstSection region _)) rfl
-    | Succ up, Succ before => Eq.trans (countDirections (isFirstSection region _)) rfl
+    | Zero, Zero => Eq.trans (countDirections (isFirstSection region _)) byComputing
+    | Zero, Succ before => Eq.trans (countDirections (isFirstSection region _)) byComputing
+    | Succ up, Zero => Eq.trans (countDirections (isFirstSection region _)) byComputing
+    | Succ up, Succ before => Eq.trans (countDirections (isFirstSection region _)) byComputing
 
 --| Each side of a plot touches the region where the grid's neighbour is in.
 theorem facesUp ∀ (region: Region) (row column: Nat):
     facesRegion region { row, column } Up = above (insideOf region) row column :=
   match row with
-    | Zero => rfl
-    | Succ up => rfl
+    | Zero => byComputing
+    | Succ up => byComputing
 
 theorem facesDown ∀ (region: Region) (row column: Nat):
     facesRegion region { row, column } Down = below (insideOf region) row column :=
-  rfl
+  byComputing
 
 theorem facesLeft ∀ (region: Region) (row column: Nat):
     facesRegion region { row, column } Left = leftOf (insideOf region) row column :=
   match column with
-    | Zero => rfl
-    | Succ before => rfl
+    | Zero => byComputing
+    | Succ before => byComputing
 
 theorem facesRight ∀ (region: Region) (row column: Nat):
     facesRegion region { row, column } Right = rightOf (insideOf region) row column :=
-  rfl
+  byComputing
 
 --| Whether the plot diagonally across a corner, one step `vertical` then one
 --| `horizontal`, is in the region.
@@ -73,28 +73,28 @@ def diagonalIn (region: Region) (plot: Position) (vertical horizontal: Direction
 theorem diagonalUpLeft ∀ (region: Region) (row column: Nat):
     diagonalIn region { row, column } Up Left = above (leftOf (insideOf region)) row column :=
   match row, column with
-    | Zero, column => rfl
-    | Succ up, Zero => rfl
-    | Succ up, Succ before => rfl
+    | Zero, column => byComputing
+    | Succ up, Zero => byComputing
+    | Succ up, Succ before => byComputing
 
 theorem diagonalUpRight ∀ (region: Region) (row column: Nat):
     diagonalIn region { row, column } Up Right = above (rightOf (insideOf region)) row column :=
   match row with
-    | Zero => rfl
-    | Succ up => rfl
+    | Zero => byComputing
+    | Succ up => byComputing
 
 theorem diagonalDownLeft ∀ (region: Region) (row column: Nat):
     diagonalIn region { row, column } Down Left = below (leftOf (insideOf region)) row column :=
   match column with
-    | Zero => rfl
-    | Succ before => rfl
+    | Zero => byComputing
+    | Succ before => byComputing
 
 theorem diagonalDownRight ∀ (region: Region) (row column: Nat):
     diagonalIn region { row, column } Down Right = below (rightOf (insideOf region)) row column :=
-  rfl
+  byComputing
 
 --| `!=` is `!` of `==`.
-theorem notEqualNot ∀ (x y: Option Char): ((x != y): Bool) = Bool.not (x == y) := rfl
+theorem notEqualNot ∀ (x y: Option Char): ((x != y): Bool) = Bool.not (x == y) := byComputing
 
 --| Where a side of a plot in a region faces the same plant, the plot
 --| diagonally across grows another exactly when it isn't in the region.
@@ -106,7 +106,8 @@ theorem diagonalSame ∀ (garden: Garden) (start: Position) (plant: Char)
     (((plot.diagonal vertical horizontal |> .flatMap garden.plantAt) != garden.plantAt plot): Bool)
       = Bool.not (diagonalIn region plot vertical horizontal) :=
   let plotGrows := joinedPlant garden plant start plot grows ((isRegion plot).forward member)
-  let faces := Eq.trans (Eq.sym (sameAcrossFaces garden start plant grows region isRegion plot member vertical)) same
+  let faces :=
+    Eq.trans (Eq.flipped (sameAcrossFaces garden start plant grows region isRegion plot member vertical)) same
   match stepped: plot.step vertical with
     | Some next =>
       let nextIn := faces.read
@@ -114,8 +115,8 @@ theorem diagonalSame ∀ (garden: Garden) (start: Position) (plant: Char)
       rewrite notEqualNot,
           plotGrows,
           <- sameAcrossFaces garden start plant grows region isRegion next nextIn horizontal,
-          nextGrows in
-        rfl
+          nextGrows then
+        byComputing
 
 --| A corner of the program's, split into outside and inside.
 theorem isCornerSplit ∀ (garden: Garden) (plot: Position)
@@ -127,16 +128,16 @@ theorem isCornerSplit ∀ (garden: Garden) (plot: Position)
         = Bool.not diagonal):
     Bool.toNat (garden.isCorner plot vertical horizontal)
       = Bool.toNat (convex True verticalIn horizontalIn) + Bool.toNat (concave True verticalIn horizontalIn diagonal) :=
-  rewrite verticalSame, horizontalSame in
+  rewrite verticalSame, horizontalSame then
     match verticalIn, horizontalIn with
-      | False, False => rfl
-      | False, True => rfl
-      | True, False => rfl
+      | False, False => byComputing
+      | False, True => byComputing
+      | True, False => byComputing
       | True, True =>
-        rewrite across rfl in
+        rewrite across byComputing then
           match diagonal with
-            | True => rfl
-            | False => rfl
+            | True => byComputing
+            | False => byComputing
 
 --| The program's corners at a plot of a region are the grid's.
 theorem programCornersCell ∀ (garden: Garden) (start: Position) (plant: Char)
@@ -158,7 +159,7 @@ theorem programCornersCell ∀ (garden: Garden) (start: Position) (plant: Char)
         (horizontal: Direction) =>
           (same: garden.sameAcross plot vertical = True) =>
             diagonalSame garden start plant grows region isRegion plot member vertical horizontal same
-      omega [
+      arithmetic [
         countQuadrants (quadrant => garden.isCorner plot quadrant.fst quadrant.snd),
         isCornerSplit garden plot Up Left
           (above inside row column)
@@ -166,29 +167,29 @@ theorem programCornersCell ∀ (garden: Garden) (start: Position) (plant: Char)
           (above (leftOf inside) row column)
           up
           left
-          (same => rewrite <- diagonalUpLeft region row column in diagonal Up Left (Eq.trans up same)),
+          (same => rewrite <- diagonalUpLeft region row column then diagonal Up Left (Eq.trans up same)),
         isCornerSplit garden plot Up Right
           (above inside row column)
           (rightOf inside row column)
           (above (rightOf inside) row column)
           up
           right
-          (same => rewrite <- diagonalUpRight region row column in diagonal Up Right (Eq.trans up same)),
+          (same => rewrite <- diagonalUpRight region row column then diagonal Up Right (Eq.trans up same)),
         isCornerSplit garden plot Down Left
           (below inside row column)
           (leftOf inside row column)
           (below (leftOf inside) row column)
           down
           left
-          (same => rewrite <- diagonalDownLeft region row column in diagonal Down Left (Eq.trans down same)),
+          (same => rewrite <- diagonalDownLeft region row column then diagonal Down Left (Eq.trans down same)),
         isCornerSplit garden plot Down Right
           (below inside row column)
           (rightOf inside row column)
           (below (rightOf inside) row column)
           down
           right
-          (same => rewrite <- diagonalDownRight region row column in diagonal Down Right (Eq.trans down same)),
-        (rewrite isIn in rfl: corners inside row column
+          (same => rewrite <- diagonalDownRight region row column then diagonal Down Right (Eq.trans down same)),
+        (rewrite isIn then byComputing: corners inside row column
           = Bool.toNat (convex True (above inside row column) (leftOf inside row column))
             + Bool.toNat
               (concave True (above inside row column) (leftOf inside row column) (above (leftOf inside) row column))
@@ -211,8 +212,8 @@ theorem programCornersCell ∀ (garden: Garden) (start: Position) (plant: Char)
 
 --| `total` is the sum over `List.range`.
 theorem totalRange ∀ (n: Nat) (f: Nat → Nat): (List.range 0 n).sumBy f = total n f := match n with
-  | Zero => rfl
-  | Succ n => rewrite List.sumByRangeSucc f n, totalRange n (i => f (Succ i)) in rfl
+  | Zero => byComputing
+  | Succ n => rewrite List.sumByRangeSucc f n, totalRange n (i => f (Succ i)) then byComputing
 
 --| The square of the grid with rows and columns up to `last`, row by row.
 def square (last: Nat): List Position :=
@@ -227,11 +228,11 @@ theorem memSquare ∀ (last row column: Nat)
     row
     { row, column }
     (List.range 0 (Succ last))
-    (List.memRangeFromIntro row (Succ last) 0 (omega) (omega))
+    (List.memRangeFromIntro row (Succ last) 0 (arithmetic) (arithmetic))
     (List.memMap
       (List.range 0 (Succ last))
       column
-      (List.memRangeFromIntro column (Succ last) 0 (omega) (omega))
+      (List.memRangeFromIntro column (Succ last) 0 (arithmetic) (arithmetic))
       (column => ({ row, column }: Position)))
 
 theorem squareDistinct ∀ (last: Nat): List.Distinct (square last) :=
@@ -252,7 +253,7 @@ theorem squareDistinct ∀ (last: Nat): List.Distinct (square last) :=
         (position.row = row)
         (List.range 0 (Succ last))
         (List.memMapAny (List.range 0 (Succ last)) (column => ({ row, column }: Position)) position member)
-        (column inColumns built => rewrite <- built in rfl))
+        (column inColumns built => rewrite <- built then byComputing))
 
 --| A sum over a region's plots, of something that is 0 off the region, is
 --| the sum over a square of the grid that holds the region.
@@ -277,7 +278,7 @@ theorem sumOverGrid ∀ (region: Region)
           (match plot with
             | { row, column } =>
               let bounds := within { row, column } member
-              memSquare last row column (And.left bounds) (And.right bounds))
+              memSquare last row column bounds.left bounds.right)
           member)
   let filtered :=
     Eq.trans
@@ -286,8 +287,8 @@ theorem sumOverGrid ∀ (region: Region)
         match plot with
           | { row, column } =>
             match found: insideOf region row column with
-              | True => rfl
-              | False => Eq.sym (zero row column found)))
+              | True => byComputing
+              | False => (zero row column found).flipped))
   let bySquare :=
     Eq.trans
       (List.sumByFlatMap (List.range 0 (Succ last)) term (row =>
@@ -302,7 +303,7 @@ theorem sumOverGrid ∀ (region: Region)
               (List.sumByMap (List.range 0 (Succ last)) term (column => ({ row, column }: Position)))
               (totalRange (Succ last) (column => f row column))))
         (totalRange (Succ last) (row => total (Succ last) (column => f row column))))
-  Eq.trans (Eq.sym (List.sumByPerm kept region.plots same term)) (Eq.trans filtered bySquare)
+  Eq.trans (Eq.flipped (List.sumByPerm kept region.plots same term)) (Eq.trans filtered bySquare)
 
 --| The program's count of a region's corners is the spec's count of its
 --| sides.
@@ -316,21 +317,21 @@ theorem sidesCorrect ∀ (garden: Garden) (start: Position) (plant: Char)
   let within := (plot: Position) =>
     (member: plot ∈ region.plots) =>
       let le := List.memLeSumBy (plot => plot.row + plot.column) region.plots plot member
-      (Both (omega [le]) (omega [le]): (plot.row ≤ last) ∧ (plot.column ≤ last))
+      (Both (arithmetic [le]) (arithmetic [le]): (plot.row ≤ last) ∧ (plot.column ≤ last))
   let right: ∀ (row: Nat) => inside row (Succ last) = False := row =>
     match found: inside row (Succ last) with
-      | False => rfl
-      | True => Void.exfalso (omega [And.right (within { row, column = Succ last } found.read)])
+      | False => byComputing
+      | True => Void.impossible (arithmetic [And.right (within { row, column = Succ last } found.read)])
   let bottom: ∀ (column: Nat) => inside (Succ last) column = False := column =>
     match found: inside (Succ last) column with
-      | False => rfl
-      | True => Void.exfalso (omega [And.left (within { row = Succ last, column } found.read)])
+      | False => byComputing
+      | True => Void.impossible (arithmetic [And.left (within { row = Succ last, column } found.read)])
   let programSide :=
     Eq.trans
       (List.sumByCongMem region.plots garden.cornerCount (plot => corners inside plot.row plot.column) (plot member =>
         programCornersCell garden start plant grows region isRegion plot member))
       (sumOverGrid region distinct last within (row column => corners inside row column) (row column outside =>
-        rewrite outside in rfl))
+        rewrite outside then byComputing))
   let specSide :=
     Eq.trans
       (List.sumByCong region.plots
@@ -338,5 +339,5 @@ theorem sidesCorrect ∀ (garden: Garden) (start: Position) (plant: Char)
         (plot => starts inside plot.row plot.column)
         (plot => match plot with | { row, column } => specSidesCell region row column))
       (sumOverGrid region distinct last within (row column => starts inside row column) (row column outside =>
-        rewrite outside in rfl))
-  Eq.trans programSide (Eq.trans (cornersEqualSides inside last right bottom) (Eq.sym specSide))
+        rewrite outside then byComputing))
+  Eq.trans programSide (Eq.trans (cornersEqualSides inside last right bottom) specSide.flipped)

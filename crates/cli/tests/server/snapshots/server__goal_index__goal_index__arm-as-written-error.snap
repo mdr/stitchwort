@@ -1,0 +1,110 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "E-TYPE-MISMATCH",
+    "file": 0,
+    "labels": [
+      {
+        "file": 0,
+        "message": "expected `p (MkText ['a', 'b', head✝, ..tail✝])`, but this has type `p \"a\"`",
+        "range": [
+          9,
+          9,
+          9,
+          13
+        ]
+      }
+    ],
+    "message": "type mismatch",
+    "notes": [
+      "this arm is checked in 4 cases, and this error is in the case where `s` is `\"ab\" ++ …`"
+    ],
+    "range": [
+      9,
+      9,
+      9,
+      13
+    ],
+    "severity": "error"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        },
+        {
+          "name": "hp",
+          "type": "∀ (c: Char) => p (MkText [c])"
+        }
+      ],
+      "target": "p \"ab\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\nhp: ∀ (c: Char) => p (MkText [c])\n⊢ p \"ab\"",
+        "range": [
+          7,
+          12,
+          7,
+          13
+        ]
+      }
+    ],
+    "message": "in `oneCharacter`",
+    "notes": [],
+    "range": [
+      7,
+      12,
+      7,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        },
+        {
+          "name": "hp",
+          "type": "∀ (c: Char) => p (MkText [c])"
+        }
+      ],
+      "lemma": "theorem oneCharacterGoal2 (p: Text → Prop) (hp: ∀ (c: Char) => p (MkText [c])): p \"\" := ?",
+      "target": "p \"\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\nhp: ∀ (c: Char) => p (MkText [c])\n⊢ p \"\"",
+        "range": [
+          8,
+          10,
+          8,
+          11
+        ]
+      }
+    ],
+    "message": "in `oneCharacter`",
+    "notes": [],
+    "range": [
+      8,
+      10,
+      8,
+      11
+    ],
+    "severity": "goal"
+  }
+]

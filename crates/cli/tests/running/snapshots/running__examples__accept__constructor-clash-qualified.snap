@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: warnings
+---
+[W-CTOR-HIDES] Warning: the constructor `None` hides `Option.None` in this file
+    ╭─[ accept/constructor-clash-qualified.sw:18:22 ]
+    │
+ 18 │ type Cell = | Wall | None
+    │                      ──┬─  
+    │                        ╰─── `None` here means `Cell.None`, not `Option.None`
+    │ 
+    │ Note: a constructor name means one thing in a file: write `Option.None` for the hidden one. Better, rename `Cell.None`, or keep this type in a file that doesn't need the other
+────╯

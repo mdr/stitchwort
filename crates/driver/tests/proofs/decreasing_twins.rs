@@ -36,7 +36,7 @@ fn a_let_only_an_inner_twin_dropped_is_gone() {
 import Std (Bool, Nat)
 
 theorem nestedBelow (n: Nat) (k: Nat) (j: Nat) (bound: Nat) (found: n - k = Succ j): n - (k + 1) < Succ j :=
-  omega [found]
+  arithmetic [found]
 
 def countNested (n: Nat) (k: Nat): Nat
     decreasing n - k
@@ -112,7 +112,7 @@ import Std (Bool, Nat)
 def walk (n: Nat) (k: Nat): Nat
     decreasing n - k
 :=
-  def go (below: k < n): Nat := walk n (k + 1) [decreasing := omega [below]]
+  def go (below: k < n): Nat := walk n (k + 1) [decreasing := arithmetic [below]]
   if h: k < n then go h else k
 
 test \"walk\" := walk 4 0 == 4

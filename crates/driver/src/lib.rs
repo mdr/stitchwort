@@ -15,6 +15,7 @@ pub mod declhash;
 pub mod doc;
 pub mod driver;
 pub mod fingerprint;
+pub mod fixes;
 pub mod float_gate;
 pub mod live;
 pub mod marks;

@@ -30,7 +30,7 @@ theorem countAround ∀ (cavern: Cavern) (flashed: Position → Bool)
         let (Both inGrid both) := List.memFilter positions near member
         List.memFilterIntro at.around flashed (touchingAround at q both.left) both.right)
   calc at.around.count flashed
-    _ = (at.around.filter flashed).length := Eq.sym (List.lengthFilter at.around flashed)
+    _ = (at.around.filter flashed).length := Eq.flipped (List.lengthFilter at.around flashed)
     _ = (positions.filter near).length := List.permLength _ _ same
     _ = positions.count near := List.lengthFilter positions near
     _ = flashingNeighbours cavern flashed at := List.countMap cavern.grid.cells near Pair.fst

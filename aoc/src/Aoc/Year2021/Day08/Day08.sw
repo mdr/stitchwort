@@ -97,7 +97,15 @@ def solvePart1 (entries: List Entry): Nat :=
 def solvePart2 (entries: List Entry): Nat := entries.sumBy Entry.value
 
 --| A wiring, as the segment each wire drives.
-type Wiring = { a: Segment, b: Segment, c: Segment, d: Segment, e: Segment, f: Segment, g: Segment }
+type Wiring = {
+  a: Segment,
+  b: Segment,
+  c: Segment,
+  d: Segment,
+  e: Segment,
+  f: Segment,
+  g: Segment
+}
 
 def Wiring.at (wiring: Wiring): Segment → Segment
   | A => wiring.a
@@ -135,7 +143,7 @@ def Entry.wired (entry: Entry): Bool :=
     ∧ entry.patterns ++ entry.outputs |> .all (showsRead wiring entry.patterns)
 
 --| One display, `p1 … p10 | o1 o2 o3 o4`, each pattern its wires' letters.
-def Entry.parse(): {Parse} Entry :=
+def Entry.parse(): {Parse Char} Entry :=
   let patterns := Parse.exactly 10 (() =>
     let pattern := patternParse()
     char ' '
@@ -147,7 +155,7 @@ def Entry.parse(): {Parse} Entry :=
     pattern)
   { patterns, outputs }
 
-def patternParse(): {Parse} Pattern := takeWhile1 "a letter from a to g" (c => 'a' ≤ c ≤ 'g') |> Pattern.ofLetters
+def patternParse(): {Parse Char} Pattern := takeWhile1 "a letter from a to g" (c => 'a' ≤ c ≤ 'g') |> Pattern.ofLetters
 
 --| One display per line. A display whose digits don't give a wiring that
 --| shows them fails, naming it.

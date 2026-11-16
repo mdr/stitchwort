@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Counter c84bc9c7761606859098459e7418c6d10024e91f0e4443047ebeb1465319a2cc
@@ -26,7 +27,7 @@ Main.typedParameter 0849d0f71341b769567ed396f312388824fe461bd6a8f39a1d23ee7a69eb
 Main.test "typed parameter" 03ccfc252280b3cd8b855c2de1e457daa1d059a99c8baa1c6061d348611f03a7
 Main.failOrAsk 9f126e1986a8b93ede37592fa6ad450ee9cedc54300eb2635512b4ae5c83cfe5
 Main.failOrAsk.%match1 8e21e7675f3475801a69d1fc7242d125816d288be42d1726e34d58032c540c7b
-Main.test "Fail and Ask" e93e0897ca1e5b0297520893a1d156ef5b53ee2788d6bc92f1c04c24fc1ca4ee
+Main.test "Fail and Ask" 26d11198bfedfbc26b3a908283153f3f64c47ae476f44c2c8abb466551f564ef
 Main.callsParameter f61811b67dd4b497087515a844751719ea10e0f004d2e2374b5c7f5f1306a2a5
 Main.callsParameter.%match1 43b7ad56efb0b8e734b327ab842d5377625b3a0554de504b0dd72788aec9358d
 Main.callsParameter.%match2 3975c2f00219c9c9a5d2e8fcf711633fcdbeacd71129111ec6f7e9979af04423

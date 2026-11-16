@@ -16,7 +16,7 @@
 //! bound after `s` with the replaced types, that the alternatives see
 //! instead. The call passes the expression for `s` and the original
 //! variables for their copies. A named scrutinee also binds its equation
-//! `h : e = s`, after the copies, passed `rfl`.
+//! `h : e = s`, after the copies, passed `byComputing`.
 
 use std::rc::Rc;
 
@@ -176,22 +176,26 @@ fn compile<'a>(
     let absurd_rows = absurd.iter().map(|pats| Row {
         pats: pats.iter().map(std::borrow::Cow::Borrowed).collect(),
         aliases: Vec::new(),
+        texts: Vec::new(),
         written: crate::written_names(pats),
         rhs: None,
         span,
         alternatives: Vec::new(),
         guard: None,
+        unsplit: Vec::new(),
     });
     let rows: Vec<Row> = alts
         .iter()
         .map(|alt| Row {
             pats: crate::row_patterns(&alt.patterns, alt.body.is_some()),
             aliases: Vec::new(),
+            texts: Vec::new(),
             written: crate::written_names(&alt.patterns),
             rhs: alt.body.as_ref(),
             span: alt.span,
             alternatives: Vec::new(),
             guard: alt.guard.as_ref(),
+            unsplit: Vec::new(),
         })
         .chain(absurd_rows)
         .collect();
@@ -385,8 +389,10 @@ fn note_match_step(cx: &Ctx, alts: &[Alt], span: stitchwort_syntax::Span, goal: 
 
 /// A `match`, lifted (§4.4).
 pub(crate) fn check_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term> {
-    if crate::patlet::applies(cx, expr, goal)? {
-        return crate::patlet::check_let(cx, expr, goal);
+    if crate::patlet::applies(cx, expr, goal)?
+        && let Some(term) = crate::patlet::check_let(cx, expr, goal)?
+    {
+        return Ok(term);
     }
     if let Some(body) = unit_parameter(cx, expr, goal)? {
         return crate::check::check(cx, body, goal);
@@ -1357,6 +1363,8 @@ fn in_arms(
                     .then(|| (base, normal.clone(), s.span, base + i, equation))
             }),
     );
+    let shown =
+        crate::arm_display::note_scrutinees(cx, exprs.iter().map(|s| &s.term), base, &equations);
     let body = in_alternatives(cx, kind, alts, &levels, |cx| {
         let recheck = compiled.recheck(&levels, span, cx.level(), &motive);
         let body = crate::families::warn_unreachable_unless(cx, as_written, &recheck, |cx| {
@@ -1365,6 +1373,7 @@ fn in_arms(
         cx.scrutinees.truncate(known);
         body
     });
+    crate::arm_display::forget_scrutinees(cx, shown);
     if !not_found.is_empty() {
         // If the alternatives failed, whether they use an equation isn't
         // known; the failure is then likely to be this (SW-1485).
@@ -2209,7 +2218,7 @@ impl Generalise<'_> {
     /// An `if` on a decision that is a scrutinee, computed to the helper
     /// `Decidable.elim` computes to (`elim.%match1 p a d y n t e`, with `t`
     /// the decision's test and `e: d.holds = t`): with the decision's
-    /// variable `X` for `d`, `X.holds` for `t` and `rfl` for `e`, so that
+    /// variable `X` for `d`, `X.holds` for `t` and `byComputing` for `e`, so that
     /// it still type-checks, and computes once `X` is a constructor.
     fn decided_if(&self, g: &Ev, t: &Term, under: usize) -> Option<Result<Term>> {
         let tr = self.transport?;

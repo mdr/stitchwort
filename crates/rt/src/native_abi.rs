@@ -70,6 +70,7 @@ use crate::effect::{EffectCounts, EffectOp, Handler, Resume};
 use crate::ir::{MainRow, PrimOp, Program, Shapes};
 use crate::linked::{Kind, Outline};
 use crate::shared::{Limits, NumTable};
+use crate::text::Text;
 use crate::value::{Fields, Fun, Value};
 
 // ------------------------------------------------------------ the layout
@@ -105,8 +106,12 @@ pub const VALUE_SIZE: usize = 24;
 pub const CTOR_TAG_AT: i32 = 4;
 /// Where a number, or an `Rc`'s address, is.
 pub const PAYLOAD_AT: i32 = 8;
-/// Where a slice's length is (`Value::Data`'s cell, `Value::Text`).
+/// Where a slice's length is (`Value::Data`'s cell).
 pub const LEN_AT: i32 = 16;
+/// Where a text's start and length are, each a `u32` count of characters
+/// into its buffer, whose `Rc` address is at [`PAYLOAD_AT`].
+pub const TEXT_START_AT: i32 = 16;
+pub const TEXT_LEN_AT: i32 = 20;
 /// In an `Rc`'s allocation: the strong and weak counts, then the value.
 pub const STRONG_AT: i32 = 0;
 /// Invariant: no `Weak` is ever made to a runtime value, so the weak count
@@ -136,9 +141,9 @@ fn words(v: &Value) -> [u64; 3] {
     // SAFETY: reads within the 24 bytes of `v`, and only bytes its variant
     // initialises: the tag byte always, a constructor's `u32` tag at bytes
     // 4-7 for `Tag` and `Data`, the payload at bytes 8-15 for every variant
-    // that has one, the length at bytes 16-23 for `Data` and `Text`. The
-    // padding (bytes 1-3, and 4-7 elsewhere) is never read; the words it
-    // would fill stay 0.
+    // that has one, the length at bytes 16-23 for `Data`, and the start and
+    // length at bytes 16-19 and 20-23 for `Text`. The padding (bytes 1-3,
+    // and 4-7 elsewhere) is never read; the words it would fill stay 0.
     unsafe {
         let mut out = [0u64; 3];
         out[0] = u64::from(*p);
@@ -250,7 +255,7 @@ fn probe() -> Result<(), String> {
             Value::int(num_bigint::BigInt::from(i64::MIN) - 1),
             TAG_BIG_INT,
         ),
-        (Value::Text("abc".into()), TAG_TEXT),
+        (Value::Text(Text::from("abc")), TAG_TEXT),
         (Value::float(1.5), TAG_FLOAT),
         (Value::Tag(3), TAG_TAG),
         (Value::data(5, [Value::Nat(1), Value::Nat(2)]), TAG_DATA),
@@ -296,12 +301,15 @@ fn probe() -> Result<(), String> {
         counts_at(allocation(&data)) == (1, 1),
         "a cell's counts after a drop",
     )?;
-    let text: Rc<str> = "hello".into();
-    let tv = Value::Text(text.clone());
+    let text = Text::from("hello");
+    let tv = Value::Text(text.clone().slice(1, 4));
     let tw = words(&tv);
+    let half = |at: i32| (tw[at as usize / 8] >> (at % 8 * 8)) as u32;
     check(
-        tw[1] + RC_VALUE_AT as u64 == Rc::as_ptr(&text).cast::<u8>() as u64 && tw[2] == 5,
-        "a text's address and length",
+        tw[1] + RC_VALUE_AT as u64 == text.units_address() as u64
+            && half(TEXT_START_AT) == 1
+            && half(TEXT_LEN_AT) == 3,
+        "a text's buffer address, start and length",
     )?;
     check(counts_at(allocation(&tv)).0 == 2, "a text's count")?;
     // A spare capacity, so the capacity word can't be mistaken for the length.
@@ -488,6 +496,9 @@ pub struct Context {
     /// count on from frame to frame.
     pub frames: u64,
     pub frame_limit: u64,
+    /// 1 if [`Limits::number_words`] is on: a big number's operations are
+    /// then charged by size ([`charge_prim`]), as the machine's are.
+    pub number_words: u64,
     /// [`OK`], or why the run stopped. Once set, every native frame drops
     /// its registers and returns.
     pub error: u64,
@@ -1049,6 +1060,7 @@ impl Crossing {
             step_limit: run.limits.steps,
             frames: run.frames,
             frame_limit: run.limits.frames as u64,
+            number_words: u64::from(run.limits.number_words),
             error: OK,
             stack_limit: run.stack_floor,
             functions: self.functions.as_ptr(),
@@ -1887,9 +1899,58 @@ pub unsafe extern "C" fn sw_prim(
         let (shapes, op) = shapes_and_op(context, op);
         crate::call_counts::hit_op(number, op, false);
         let refs: Vec<&Value> = (0..n as usize).map(|i| &**args.add(i)).collect();
+        if !charge_prim(&mut *context.cast_mut(), op, &refs) {
+            return;
+        }
         let v = crate::prims::eval(shapes, op, &refs);
         *dst = v;
     }
+}
+
+/// Charges the steps of a native whose result's size depends on an argument
+/// (`Text.repeat`, `Array.replicate`: [`crate::prims::text_repeat_cost`],
+/// [`crate::prims::replicate_cost`]), and of an operation on big numbers when
+/// the context counts their words ([`crate::prims::number_cost`]), as the
+/// machine does, before the result is built, so a huge count runs out of
+/// steps rather than asking for the memory. False if that is over the limit: the context then has
+/// [`OUT_OF_STEPS`], with all the steps used.
+///
+/// The steps in the context must be current: compiled code writes them out
+/// before a call that can charge (and reads them back after).
+fn charge_prim(context: &mut Context, op: PrimOp, args: &[&Value]) -> bool {
+    use crate::natives::{ArrayNative, TextNative};
+    let cost = match op {
+        PrimOp::Array(ArrayNative::Replicate) => crate::prims::replicate_cost(args[0]),
+        PrimOp::Text(TextNative::TextRepeat) => crate::prims::text_repeat_cost(args[0], args[1]),
+        _ if context.number_words != 0 => crate::prims::number_cost(op, args),
+        _ => return true,
+    };
+    if cost == 0 {
+        return true;
+    }
+    let steps = context.steps.saturating_add(cost);
+    if steps > context.step_limit {
+        context.steps = context.step_limit;
+        context.error = OUT_OF_STEPS;
+        return false;
+    }
+    context.steps = steps;
+    true
+}
+
+/// Whether compiled code must write its steps out around a call of the
+/// helper for `op` ([`charge_prim`]).
+pub fn charges_steps(op: PrimOp) -> bool {
+    use crate::natives::{ArrayNative, TextNative};
+    matches!(
+        op,
+        PrimOp::Array(ArrayNative::Replicate)
+            | PrimOp::Text(TextNative::TextRepeat)
+            | PrimOp::Nat(_)
+            | PrimOp::Int(_)
+            | PrimOp::NegSucc
+            | PrimOp::IntEqual
+    )
 }
 
 /// A native operation that [consumes](PrimOp::consumes) its first operand,
@@ -2483,6 +2544,13 @@ pub unsafe extern "C" fn sw_apply_prepare(
                 Kind::Native(op) if applicable_native(op) => {
                     let v = {
                         let refs: Vec<&Value> = all.iter().collect();
+                        // SAFETY: the caller's contract; `run` is a
+                        // separate object from the context.
+                        if !charge_prim(unsafe { &mut *context }, op, &refs) {
+                            // The error is in the context; the values this
+                            // call owns are dropped as it returns.
+                            return;
+                        }
                         crate::prims::eval(&program.shapes, op, &refs)
                     };
                     drop(std::mem::take(&mut all));
@@ -2844,11 +2912,11 @@ pub unsafe extern "C" fn sw_eff_state(
 }
 
 /// For the compiled `Text.fold` (stage NO1 of docs/proposals/native-only.md),
-/// a leaf: the last character of the text at `t` (borrowed) before byte
+/// a leaf: the last character of the text at `t` (borrowed) before position
 /// `end` (`u64::MAX` for the whole text), as the machine's `fold_step`
 /// takes it, written to `out` as a `Char` (`prims::char_value`); returns
-/// where it starts, the next call's `end`. `u64::MAX`, with nothing
-/// written, if there is none left.
+/// its position, the next call's `end`. `u64::MAX`, with nothing written,
+/// if there is none left.
 ///
 /// # Safety
 /// `context` is the running context; `t` points at a `Text`; `out` at space
@@ -2873,12 +2941,12 @@ pub unsafe extern "C" fn sw_text_last(
     } else {
         end as usize
     };
-    match text[..end].chars().next_back() {
+    match end.checked_sub(1).and_then(|i| Some((i, text.get(i)?))) {
         None => u64::MAX,
-        Some(c) => {
+        Some((i, c)) => {
             // SAFETY: the caller's contract.
             unsafe { out.write(crate::prims::char_value(shapes, c)) };
-            (end - c.len_utf8()) as u64
+            i as u64
         }
     }
 }

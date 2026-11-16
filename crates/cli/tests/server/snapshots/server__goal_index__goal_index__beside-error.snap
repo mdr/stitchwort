@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -11,10 +11,10 @@ expression: json
         "file": 0,
         "message": "`0` and `k * 0` aren't equal",
         "range": [
-          6,
-          16,
-          6,
-          19
+          5,
+          14,
+          5,
+          17
         ]
       }
     ],
@@ -23,10 +23,10 @@ expression: json
       "`rfl` proves `a = b` only when both sides compute to the same value"
     ],
     "range": [
-      6,
-      16,
-      6,
-      19
+      5,
+      14,
+      5,
+      17
     ],
     "severity": "error"
   },
@@ -43,20 +43,20 @@ expression: json
         "file": 0,
         "message": "⊢ 0 = 0",
         "range": [
-          5,
-          14,
-          5,
-          15
+          4,
+          12,
+          4,
+          13
         ]
       }
     ],
     "message": "in `zeroMul`",
     "notes": [],
     "range": [
-      5,
-      14,
-      5,
-      15
+      4,
+      12,
+      4,
+      13
     ],
     "severity": "goal"
   }

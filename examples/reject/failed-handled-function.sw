@@ -8,4 +8,4 @@ def greet(): {IO} () :=
   let unused := notDefinedAnywhere
   IO.print "Hello"
 
-theorem greetOutput: Pair.fst (IO.simulate [] greet) = ["Hello"] := rfl
+theorem greetOutput: Pair.fst (IO.simulate [] greet) = ["Hello"] := byComputing

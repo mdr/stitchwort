@@ -23,14 +23,14 @@ type Cell = { row: Fin 3, col: Fin 3 }
 def corner: Cell := { row = 2, col = 0 }
 
 -- The literal is the position itself.
-theorem seven: Fin.toNat (7: Fin 10) = 7 := rfl
+theorem seven: Fin.toNat (7: Fin 10) = 7 := byComputing
 
-theorem two: (2: Fin 5) = FSucc (FSucc FZero) := rfl
+theorem two: (2: Fin 5) = FSucc (FSucc FZero) := byComputing
 
-theorem digitsNat: List.map digits Fin.toNat = [2, 7, 5, 7, 3] := rfl
+theorem digitsNat: List.map digits Fin.toNat = [2, 7, 5, 7, 3] := byComputing
 
 -- Beside a `Fin` in a comparison, a numeral is one too.
-theorem compared: (nine == 9 ∧ zero < 3) = True := rfl
+theorem compared: (nine == 9 ∧ zero < 3) = True := byComputing
 
 -- A pattern: a number pattern on a `Fin` is `FZero` or `FSucc`.
 def name: Fin 3 → Text
@@ -38,7 +38,7 @@ def name: Fin 3 → Text
   | 1 => "one"
   | 2 => "two"
 
-theorem nameOne: name 1 = "one" := rfl
+theorem nameOne: name 1 = "one" := byComputing
 
 -- Where the bound isn't a number, a number pattern is still `FZero` or
 -- `FSucc`, and mixes with them.
@@ -46,10 +46,10 @@ def isFirst: Fin (Succ n) → Bool
   | 0 => True
   | FSucc _ => False
 
-theorem firstOfThree: isFirst (0: Fin 3) = True := rfl
+theorem firstOfThree: isFirst (0: Fin 3) = True := byComputing
 
 -- Numbers that aren't expected as a `Fin` are as before.
-theorem stillNat: 2 + 3 = 5 := rfl
+theorem stillNat: 2 + 3 = 5 := byComputing
 
 test "list" := digits.map Fin.toNat == [2, 7, 5, 7, 3]
 test "argument" := toNat4 3 == 3

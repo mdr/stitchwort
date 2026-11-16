@@ -7,4 +7,4 @@
 -- accept/kernel-2026-neighbours.sw.
 type Box = { h: 0 = 0 }
 
-theorem bad (p q: Box): p = q := rfl
+theorem bad (p q: Box): p = q := byComputing

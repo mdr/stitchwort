@@ -1,0 +1,331 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [],
+      "target": "f \"ab\" ≠ 0 ∨ \"ab\" = \"\"",
+      "targetComputed": "1 ≠ 0 ∨ \"ab\" = \"\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "⊢ f \"ab\" ≠ 0 ∨ \"ab\" = \"\"\n  computes to 1 ≠ 0 ∨ \"ab\" = \"\"",
+        "range": [
+          12,
+          12,
+          12,
+          13
+        ]
+      }
+    ],
+    "message": "in `steps`",
+    "notes": [],
+    "range": [
+      12,
+      12,
+      12,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [],
+      "lemma": "theorem stepsGoal2: 0 ≠ 0 ∨ \"\" = \"\" := ?",
+      "target": "f \"\" ≠ 0 ∨ \"\" = \"\"",
+      "targetComputed": "0 ≠ 0 ∨ \"\" = \"\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "⊢ f \"\" ≠ 0 ∨ \"\" = \"\"\n  computes to 0 ≠ 0 ∨ \"\" = \"\"",
+        "range": [
+          13,
+          10,
+          13,
+          11
+        ]
+      }
+    ],
+    "message": "in `steps`",
+    "notes": [],
+    "range": [
+      13,
+      10,
+      13,
+      11
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "s ≠ \"ab\"",
+        "s ≠ \"\""
+      ],
+      "hypotheses": [
+        {
+          "name": "s",
+          "type": "Text"
+        }
+      ],
+      "lemma": "theorem stepsGoal3 (s: Text) (h: s ≠ \"ab\") (h2: s ≠ \"\"): 2 ≠ 0 ∨ s = \"\" := ?",
+      "target": "f s ≠ 0 ∨ s = \"\"",
+      "targetComputed": "2 ≠ 0 ∨ s = \"\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "s: Text\ns ≠ \"ab\"\ns ≠ \"\"\n⊢ f s ≠ 0 ∨ s = \"\"\n  computes to 2 ≠ 0 ∨ s = \"\"",
+        "range": [
+          14,
+          9,
+          14,
+          10
+        ]
+      }
+    ],
+    "message": "in `steps`",
+    "notes": [
+      "this arm is checked in 4 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      14,
+      9,
+      14,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        }
+      ],
+      "target": "p \"ab\" ∧ Text.length \"ab\" = Text.length \"ab\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\n⊢ p \"ab\" ∧ Text.length \"ab\" = Text.length \"ab\"",
+        "range": [
+          19,
+          12,
+          19,
+          13
+        ]
+      }
+    ],
+    "message": "in `length`",
+    "notes": [],
+    "range": [
+      19,
+      12,
+      19,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "s ≠ \"ab\""
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        },
+        {
+          "name": "s",
+          "type": "Text"
+        },
+        {
+          "name": "tail✝",
+          "type": "List Char"
+        }
+      ],
+      "target": "p s ∧ s.length = s.length",
+      "targetComputed": "p s ∧ Succ (List.length tail✝) = Succ (List.length tail✝)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\ns: Text\ntail✝: List Char\ns ≠ \"ab\"\n⊢ p s ∧ s.length = s.length\n  computes to p s ∧ Succ (List.length tail✝) = Succ (List.length tail✝)",
+        "range": [
+          20,
+          9,
+          20,
+          10
+        ]
+      }
+    ],
+    "message": "in `length`",
+    "notes": [
+      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      20,
+      9,
+      20,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [],
+      "lemma": "theorem paintedGoal1: Red = Blue := ?",
+      "target": "paint Red = Blue",
+      "targetComputed": "Red = Blue"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "⊢ paint Red = Blue\n  computes to Red = Blue",
+        "range": [
+          31,
+          11,
+          31,
+          12
+        ]
+      }
+    ],
+    "message": "in `painted`",
+    "notes": [],
+    "range": [
+      31,
+      11,
+      31,
+      12
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "c",
+          "type": "Color"
+        }
+      ],
+      "lemma": "theorem paintedGoal2 (c: Color): Blue = Blue := ?",
+      "target": "paint c = Blue",
+      "targetComputed": "Blue = Blue"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "c: Color\n⊢ paint c = Blue\n  computes to Blue = Blue",
+        "range": [
+          32,
+          9,
+          32,
+          10
+        ]
+      }
+    ],
+    "message": "in `painted`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      32,
+      9,
+      32,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [],
+      "lemma": "theorem someTrueGoal1: True = True := ?",
+      "target": "isSomeTrue (Some True)",
+      "targetComputed": "True = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "⊢ isSomeTrue (Some True)\n  computes to True = True",
+        "range": [
+          41,
+          17,
+          41,
+          18
+        ]
+      }
+    ],
+    "message": "in `someTrue`",
+    "notes": [],
+    "range": [
+      41,
+      17,
+      41,
+      18
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "o",
+          "type": "Option Bool"
+        }
+      ],
+      "lemma": "theorem someTrueGoal2 (o: Option Bool): False = True := ?",
+      "target": "isSomeTrue o",
+      "targetComputed": "False = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "o: Option Bool\n⊢ isSomeTrue o\n  computes to False = True",
+        "range": [
+          42,
+          9,
+          42,
+          10
+        ]
+      }
+    ],
+    "message": "in `someTrue`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      42,
+      9,
+      42,
+      10
+    ],
+    "severity": "goal"
+  }
+]

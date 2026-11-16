@@ -19,31 +19,31 @@ def main(): {IO} () := IO.print "zeros: ${zeros turns}"
 
 -- Wrapping: `+` and `*` reduce, `Mod.ofNat` and `Mod.ofInt` wrap into range.
 def c: Mod 100 := Mod.ofNat 150
-theorem wraps: c = Mod.ofNat 50 := rfl
-theorem wrapsAdd: (Mod.ofNat 99: Mod 100) + Mod.ofNat 1 = Mod.ofNat 0 := rfl
-theorem wrapsMul: (Mod.ofNat 30: Mod 100) * Mod.ofNat 7 = Mod.ofNat 10 := rfl
-theorem wrapsInt: (Mod.ofInt (-1): Mod 100) = Mod.ofNat 99 := rfl
+theorem wraps: c = Mod.ofNat 50 := byComputing
+theorem wrapsAdd: (Mod.ofNat 99: Mod 100) + Mod.ofNat 1 = Mod.ofNat 0 := byComputing
+theorem wrapsMul: (Mod.ofNat 30: Mod 100) * Mod.ofNat 7 = Mod.ofNat 10 := byComputing
+theorem wrapsInt: (Mod.ofInt (-1): Mod 100) = Mod.ofNat 99 := byComputing
 
 -- Subtraction wraps too, where `Nat`'s `5 - 7` is 0. `i.sub j` is `i - j`.
-theorem subWraps: (Mod.ofNat 5: Mod 100).sub (Mod.ofNat 7) = Mod.ofNat 98 := rfl
-theorem negWraps: (Mod.ofNat 30: Mod 100).neg = Mod.ofNat 70 := rfl
+theorem subWraps: (Mod.ofNat 5: Mod 100).sub (Mod.ofNat 7) = Mod.ofNat 98 := byComputing
+theorem negWraps: (Mod.ofNat 30: Mod 100).neg = Mod.ofNat 70 := byComputing
 
 -- `Mod 0` has one value, 0.
-theorem modZero: (Mod.ofNat 5: Mod 0) = Mod.ofNat 0 := rfl
+theorem modZero: (Mod.ofNat 5: Mod 0) = Mod.ofNat 0 := byComputing
 
 -- The laws `+` and `*` carry, for every modulus: through the interface.
 theorem addComm ∀ (i j: Mod 7): i + j = j + i := Add.comm i j
 theorem mulAssoc ∀ (i j k: Mod 7): (i * j) * k = i * (j * k) := Mul.assoc i j k
 theorem subSelf ∀ (i: Mod n): i.sub i = Mod.zero := Mod.subSelf i
 
--- The range proof is decided, not built from `Nat.modLt`, so checking an `rfl`
+-- The range proof is decided, not built from `Nat.modLt`, so checking an `byComputing`
 -- at a large modulus is quick (with `Nat.modLt` this ran out of resources).
-theorem bigWrap: (Mod.ofNat 1000001: Mod 1000000) = Mod.ofNat 1 := rfl
-theorem bigValue: (Mod.ofNat 1000001: Mod 1000000).value = 1 := rfl
-theorem bigAdd: (Mod.ofNat 999999: Mod 1000000) + Mod.ofNat 2 = Mod.ofNat 1 := rfl
+theorem bigWrap: (Mod.ofNat 1000001: Mod 1000000) = Mod.ofNat 1 := byComputing
+theorem bigValue: (Mod.ofNat 1000001: Mod 1000000).value = 1 := byComputing
+theorem bigAdd: (Mod.ofNat 999999: Mod 1000000) + Mod.ofNat 2 = Mod.ofNat 1 := byComputing
 
 -- Conversions with `Fin`, the type of positions in a `Vec`.
-theorem finRound: ((Fin.ofNat 3: Fin 5).toMod).value = 3 := rfl
+theorem finRound: ((Fin.ofNat 3: Fin 5).toMod).value = 3 := byComputing
 test "toFin" := Fin.toNat (Mod.toFin (Mod.ofNat 7: Mod 5)) == 2
 test "== and <" := (Mod.ofNat 3: Mod 5) < Mod.ofNat 4 ∧ (Mod.ofNat 8: Mod 5) == Mod.ofNat 3
 test "show" := "${(Mod.ofNat 207: Mod 100)}" == "7"

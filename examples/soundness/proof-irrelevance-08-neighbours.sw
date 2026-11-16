@@ -6,4 +6,4 @@ import Std (Nat)
 type Checked: Type =
   | MkChecked (n: Nat) (ok: n = n)
 
-theorem t8 (x: Nat) (y: Nat): MkChecked x rfl = MkChecked y rfl := rfl
+theorem t8 (x: Nat) (y: Nat): MkChecked x byComputing = MkChecked y byComputing := byComputing

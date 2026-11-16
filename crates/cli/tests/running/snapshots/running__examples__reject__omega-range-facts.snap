@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `2 + x ≤ n`
+[E-ARITHMETIC] Error: `arithmetic` can't prove `2 + x ≤ n`
    ╭─[ reject/omega-range-facts.sw:6:59 ]
    │
- 6 │ theorem tooMuch (x n: Nat) (h: x ∈ 0 ..< n): x + 1 < n := omega
-   │                                                           ──┬──  
-   │                                                             ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+ 6 │ theorem tooMuch (x n: Nat) (h: x ∈ 0 ..< n): x + 1 < n := arithmetic
+   │                                                           ─────┬────  
+   │                                                                ╰────── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │ 
    │ Note 1: facts: `0 ≤ 0` (h), `x < n` (h)
    │ 

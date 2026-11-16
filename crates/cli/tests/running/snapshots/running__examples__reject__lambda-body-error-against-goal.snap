@@ -2,12 +2,12 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `n + 1 = 2 + n`
+[E-ARITHMETIC] Error: `arithmetic` can't prove `n + 1 = 2 + n`
     ╭─[ reject/lambda-body-error-against-goal.sw:11:19 ]
     │
- 11 │     Eq.cong Some (omega)) n
-    │                   ──┬──  
-    │                     ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+ 11 │     Eq.cong Some (arithmetic)) n
+    │                   ─────┬────  
+    │                        ╰────── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
     │ 
     │ Note 1: facts: none in scope
     │ 

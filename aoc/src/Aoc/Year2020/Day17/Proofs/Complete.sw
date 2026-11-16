@@ -18,39 +18,40 @@ theorem stripDifferent ∀ (first: Char) (others: List Char) (char: Char) (more:
     (different: (char == first) = False):
     Text.stripPrefixChars [first, ..others] [char, ..more] = None :=
   match e: Text.sameChar first char with
-    | False => rfl
-    | True => Void.exfalso (different.read (Eq.sym (DecEq.sound (rewrite Text.sameCharEq first char at e in e))))
+    | False => byComputing
+    | True =>
+      Void.impossible (different.read (Eq.flipped (DecEq.sound (rewrite Text.sameCharEq first char at e then e))))
 
 theorem runsCube ∀ (state: CubeState) (after: List Char): Parse.Runs cubeState [symbol state] after state :=
   match state with
-    | Active => Parse.runsPick [] "#" Active [(".", Inactive)] after rfl
-    | Inactive => Parse.runsPick [("#", Active)] "." Inactive [] after (Both rfl rfl)
+    | Active => Parse.runsPick [] "#" Active [(".", Inactive)] after byComputing
+    | Inactive => Parse.runsPick [("#", Active)] "." Inactive [] after (Both byComputing byComputing)
 
 theorem declinesCube ∀ (rest: List Char) (stops: Parse.CannotStart cubeChar rest): Parse.Declines cubeState rest :=
   Parse.declinesPick _ rest
     (match rest with
-      | [] => Both rfl (Both rfl rfl)
+      | [] => Both byComputing (Both byComputing byComputing)
       | [char, ..more] =>
         Both
-          (stripDifferent '#' [] char more (Bool.orFalseLeft _ _ (stops char more rfl)))
-          (Both (stripDifferent '.' [] char more (Bool.orFalseRight _ _ (stops char more rfl))) rfl))
+          (stripDifferent '#' [] char more (Bool.orFalseLeft _ _ (stops char more byComputing)))
+          (Both (stripDifferent '.' [] char more (Bool.orFalseRight _ _ (stops char more byComputing))) byComputing))
 
 theorem allCubes ∀ (states: List CubeState): (states.map symbol).all cubeChar = True := match states with
-  | [] => rfl
+  | [] => byComputing
   | [state, ..more] =>
-    rewrite allCubes more in
+    rewrite allCubes more then
       (match state with
-        | Active => rfl
-        | Inactive => rfl)
+        | Active => byComputing
+        | Inactive => byComputing)
 
 theorem runsRow ∀ (line: List Char) (row: List CubeState)
     (written: RowWritten line row)
     (nonEmpty: row ≠ []):
     Parse.Runs (() => Parse.many1 cubeState |> .toList) line [] row :=
   match row, nonEmpty with
-    | [], notEmpty => Void.exfalso (notEmpty rfl)
+    | [], notEmpty => (notEmpty byComputing).impossible
     | [state, ..more], notEmpty =>
-      rewrite written in
+      rewrite written then
         Parse.runsMap
           (() => Parse.many1 cubeState)
           NonEmptyList.toList
@@ -64,7 +65,7 @@ theorem runsRow ∀ (line: List Char) (row: List CubeState)
             more
             []
             (allCubes [state, ..more])
-            (char more2 found => Void.exfalso (List.consNotNil char more2 (Eq.sym found))))
+            (char more2 found => Void.impossible (List.consNotNil char more2 found.flipped)))
 
 --| The soundness theorem's conclusion: every line of the input is its row of the slice written out, and the slice is a rectangle.
 def InputWritten (input: Text) (slice2: Slice): Prop :=
@@ -84,16 +85,16 @@ theorem parseComplete ∀ (input: Text) (slice2: Slice)
           (List.all2WeakenMem _ _
             (line row member same =>
               runsRow line row same (rowEmpty =>
-                grid.widthNonZero (Eq.trans (Eq.sym (rectangle row member)) (rewrite rowEmpty in rfl))))
+                grid.widthNonZero (Eq.trans (rectangle row member).flipped (rewrite rowEmpty then byComputing))))
             lines)
       let gridRead: Fail.toResult (() => parseGrid input cubeState) = Ok grid :=
         parseGridComplete input cubeState grid rectangle rowsRead
-      rewrite Fail.toResultThen (() => parseGrid input cubeState) (grid2 => ({ grid = grid2 }: Slice)) in
-        rewrite gridRead in rfl
+      rewrite Fail.toResultThen (() => parseGrid input cubeState) (grid2 => ({ grid = grid2 }: Slice)) then
+        rewrite gridRead then byComputing
 
 --| A slice is written by an input in at most one way, since the parser reads it as one.
 theorem writtenUnique ∀ (input: Text) (a b: Slice)
     (writtenA: InputWritten input a)
     (writtenB: InputWritten input b):
     a = b :=
-  Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))
+  Result.okInjective (Eq.trans (parseComplete input a writtenA).flipped (parseComplete input b writtenB))

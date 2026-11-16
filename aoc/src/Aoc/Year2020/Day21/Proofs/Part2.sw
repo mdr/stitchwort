@@ -26,8 +26,8 @@ theorem holdersFound ∀ (list: FoodList) (holders: List Ingredient)
         (List.all2OfMapRight list.candidates (item items => item ∈ items) holders list.allergens members)
         (Both distinct
           (Eq.trans
-            (Eq.sym (List.lengthMap list.allergens list.candidates))
-            (Eq.sym (List.all2Length _ holders (list.allergens.map list.candidates) members))))
+            (Eq.flipped (List.lengthMap list.allergens list.candidates))
+            (Eq.flipped (List.all2Length _ holders (list.allergens.map list.candidates) members))))
 
 --| The holders the elimination finds are a way the allergens could be.
 theorem holdersHolding ∀ (list: FoodList) (holders: List Ingredient)
@@ -82,8 +82,8 @@ theorem dangerousValid ∀ (list: FoodList) (answer: Text)
                     (memAllergens list)
                     (Both
                       (alphabeticalAllergens list)
-                      (rewrite mapValueAt { name = "" } list.allergens holders lengths (distinctAllergens list) in
-                        Eq.sym (Option.someInjective found)))))))
+                      (rewrite mapValueAt { name = "" } list.allergens holders lengths (distinctAllergens list) then
+                        Eq.flipped (Option.someInjective found)))))))
 
 --| In any way the allergens could be, a listed allergen's holder is one of
 --| the program's candidates for it.
@@ -152,4 +152,4 @@ theorem dangerousOnly ∀ (list: FoodList) (answer: Text)
                 And.left holding first second
                   ((memAllergens list first).forward inFirst)
                   ((memAllergens list second).forward inSecond)))
-          rewrite same, sameOrder, sameHolders in Option.someInjective found
+          rewrite same, sameOrder, sameHolders then Option.someInjective found

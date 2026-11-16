@@ -98,9 +98,17 @@ fn proof_ctor(cx: &Ctx, name: &str) -> Option<(DataId, Vec<DefId>)> {
     else {
         return None;
     };
+    if !rest.is_empty() {
+        return None;
+    }
+    proof_data(cx, d)
+}
+
+/// [`proof_ctor`] for the data type `d`.
+fn proof_data(cx: &Ctx, d: DataId) -> Option<(DataId, Vec<DefId>)> {
     let data = cx.g().data(d);
     let single = data.ctors().len() == 1 && data.indices().is_empty();
-    if !rest.is_empty() || data.sort() != Sort::Prop || !single {
+    if data.sort() != Sort::Prop || !single {
         return None;
     }
     let ctor = &data.ctors()[0];
@@ -141,7 +149,48 @@ pub(crate) fn applies(cx: &Ctx, expr: &Expr, goal: &Value) -> Result<bool> {
     let Some((patterns, _)) = parts(expr) else {
         return Ok(false);
     };
-    Ok(patterns.iter().all(|(p, _)| projectable(cx, p)) && !proposition(cx, goal)?)
+    if !patterns.iter().all(|(p, _)| projectable(cx, p)) || proposition(cx, goal)? {
+        return Ok(false);
+    }
+    // A tuple on a proof of `∃` is `Witness`, which has no projections, so
+    // it is the `match` that `Witness` written out would be, whose
+    // scrutinee, a variable, can then be split in place.
+    for (pattern, value) in patterns {
+        if let Expr::Var(x) = value
+            && let Some(level) = cx.lookup(&x.text)
+            && opens_exists(cx, pattern, &cx.types[level])?
+        {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// Whether a tuple in `p`, matching a value of type `ty`, meets a proof of
+/// `∃`, through the tuples and constructors around it.
+fn opens_exists(cx: &Ctx, p: &Pattern, ty: &Value) -> Result<bool> {
+    let g = cx.g();
+    let registry = g.env.registry();
+    let Value::Data(d, params) = force(&g, ty.clone())? else {
+        return Ok(false);
+    };
+    let parts: Vec<&Pattern> = match p {
+        Pattern::Tuple(..) if registry.is_data(Builtin::Exists, d) => return Ok(true),
+        Pattern::Tuple(a, b, _) => vec![a, b],
+        Pattern::Ctor(_, args, _) => args.iter().collect(),
+        _ => return Ok(false),
+    };
+    // `∧` and pairs: the parts' types are the parameters.
+    let pair = registry.is_data(Builtin::Pair, d);
+    if !(registry.is_data(Builtin::And, d) || pair) || params.len() != 2 {
+        return Ok(false);
+    }
+    for (part, ty) in parts.into_iter().zip(params.iter()) {
+        if opens_exists(cx, part, ty)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// Whether `ty` is evidently a proposition: an equation, a data type in
@@ -160,8 +209,12 @@ pub(crate) fn proposition(cx: &Ctx, ty: &Value) -> Result<bool> {
 }
 
 /// The pattern `let` `expr` (one [`applies`] to), checked against `goal`.
-pub(crate) fn check_let(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term> {
+/// `None`, with everything it did undone, where a tuple pattern meets a
+/// proof of `∃`, which has no projections: the caller makes it the `match`
+/// it otherwise means.
+pub(crate) fn check_let(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Option<Term>> {
     let (patterns, body) = parts(expr).expect("checked by `applies`");
+    let snapshot = crate::undo::Snapshot::take(cx);
     let mark = cx.mark();
     let mut lets = Vec::new();
     let result = (|| {
@@ -174,16 +227,21 @@ pub(crate) fn check_let(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term>
                     bind(cx, None, term, ty, &mut lets)?
                 }
             };
-            destructure(cx, pattern, level, &mut lets)?;
+            if !destructure(cx, pattern, level, &mut lets)? {
+                return Ok(None);
+            }
         }
-        check(cx, body, goal)
+        check(cx, body, goal).map(Some)
     })();
     cx.reset(mark);
-    let mut term = result?;
+    let Some(mut term) = result? else {
+        snapshot.restore(cx);
+        return Ok(None);
+    };
     for (x, ty, value) in lets.into_iter().rev() {
         term = Term::let_(x, ty, value, term);
     }
-    Ok(term)
+    Ok(Some(term))
 }
 
 /// The variable `e` names, if it's one (a local definition isn't).
@@ -215,16 +273,40 @@ fn bind(
 }
 
 /// Binds the names in tuple or record pattern `p` to projections of the
-/// variable at `level`.
+/// variable at `level`. False where a tuple pattern meets a proof of `∃`,
+/// which can't be projected.
 fn destructure(
     cx: &mut Ctx,
     p: &Pattern,
     level: usize,
     lets: &mut Vec<(Name, Term, Term)>,
-) -> Result<()> {
+) -> Result<bool> {
     let g = cx.g();
     let ty = force(&g, cx.types[level].clone())?;
+    let registry = g.env.registry();
     match p {
+        // On a proof of `∧`, `(a, b)` is `Both a b` (proof-tuples.md §4.2),
+        // projected through its accessors as that pattern is.
+        Pattern::Tuple(a, b, _) if matches!(&ty, Value::Data(d, _) if registry.is_data(Builtin::And, *d)) =>
+        {
+            let Value::Data(and, params) = ty else {
+                unreachable!("just matched")
+            };
+            let (_, accessors) = proof_data(cx, and).expect("`∧` has accessors");
+            for (def, p) in accessors.into_iter().zip([a, b]) {
+                if matches!(**p, Pattern::Wildcard(_)) {
+                    continue;
+                }
+                let (term, ty) = project(cx, def, &params, level)?;
+                if !component(cx, p, term, ty, lets)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
+        Pattern::Tuple(..) if matches!(&ty, Value::Data(d, _) if registry.is_data(Builtin::Exists, *d)) => {
+            Ok(false)
+        }
         Pattern::Tuple(a, b, span) => {
             let pair = builtin_data(cx, Builtin::Pair)?;
             let params = match ty {
@@ -248,9 +330,11 @@ fn destructure(
             let snd = builtin_def(cx, Builtin::Snd)?;
             for (def, p) in [(fst, a), (snd, b)] {
                 let (term, ty) = project(cx, def, &params, level)?;
-                component(cx, p, term, ty, lets)?;
+                if !component(cx, p, term, ty, lets)? {
+                    return Ok(false);
+                }
             }
-            Ok(())
+            Ok(true)
         }
         Pattern::Record { fields, rest, span } => {
             let pattern = cx.e.record_pattern(fields, *rest, *span, Some(&ty))?;
@@ -271,9 +355,11 @@ fn destructure(
                     .with_note("use `match` instead"));
                 };
                 let (term, ty) = project(cx, def, &params, level)?;
-                component(cx, arg, term, ty, lets)?;
+                if !component(cx, arg, term, ty, lets)? {
+                    return Ok(false);
+                }
             }
-            Ok(())
+            Ok(true)
         }
         Pattern::Ctor(n, args, span) => {
             let (data, accessors) = proof_ctor(cx, &n.text).expect("checked by `applies`");
@@ -304,9 +390,11 @@ fn destructure(
                     continue;
                 }
                 let (term, ty) = project(cx, def, &params, level)?;
-                component(cx, p, term, ty, lets)?;
+                if !component(cx, p, term, ty, lets)? {
+                    return Ok(false);
+                }
             }
-            Ok(())
+            Ok(true)
         }
         _ => unreachable!("only tuples, records and proof constructors are destructured"),
     }
@@ -386,10 +474,10 @@ fn component(
     term: Term,
     ty: Value,
     lets: &mut Vec<(Name, Term, Term)>,
-) -> Result<()> {
+) -> Result<bool> {
     match p {
-        Pattern::Wildcard(_) => Ok(()),
-        Pattern::Var(x) => bind(cx, Some(&x.text), term, ty, lets).map(|_| ()),
+        Pattern::Wildcard(_) => Ok(true),
+        Pattern::Var(x) => bind(cx, Some(&x.text), term, ty, lets).map(|_| true),
         p => {
             let level = bind(cx, None, term, ty, lets)?;
             destructure(cx, p, level, lets)

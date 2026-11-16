@@ -16,20 +16,20 @@ import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, Int, List, Map, Nat, N
 theorem frontOrOwn ∀ (box: Cell) (direction: Direction) (cell: Cell)
     (covered: cell ∈ cellsOf (box.step direction)):
     (cell ∈ frontOf box direction) ∨ (cell ∈ cellsOf box) :=
-  if atBox: cell = box then Inr (Inl (Eq.sym atBox))
-  else if atRight: cell = box.step Right then Inr (Inr (Inl (Eq.sym atRight)))
+  if atBox: cell = box then Inr (Inl atBox.flipped)
+  else if atRight: cell = box.step Right then Inr (Inr (Inl atRight.flipped))
   else
     let notOwn: ¬(cell ∈ cellsOf box) := own =>
       match own with
-        | Inl same => atBox (Eq.sym same)
-        | Inr (Inl same) => atRight (Eq.sym same)
+        | Inl same => atBox same.flipped
+        | Inr (Inl same) => atRight same.flipped
         | Inr (Inr none) => none
     Inl
       (List.memFilterIntro
         (cellsOf (box.step direction))
         (other => other ∉ cellsOf box)
         covered
-        (rewrite Decidable.toBoolOfNot (List.decMem cell (cellsOf box)) notOwn in rfl))
+        (rewrite Decidable.toBoolOfNot (List.decMem cell (cellsOf box)) notOwn then byComputing))
 
 --| A cell some boxes move into is free for them: not a wall, and every box
 --| covering it is in `group`, so moves too.
@@ -54,7 +54,7 @@ theorem clearMono ∀ (warehouse: Warehouse) (group larger: Set Cell) (cell: Cel
     (clear: Clear warehouse group cell)
     (grows: ∀ (box: Cell) => group.contains box = True → larger.contains box = True):
     Clear warehouse larger cell :=
-  Both (And.left clear) (box boxed covers => grows box (And.right clear box boxed covers))
+  Both clear.left (box boxed covers => grows box (And.right clear box boxed covers))
 
 --| `boxesAt` finds every box covering a cell, and nothing else.
 theorem coversInBoxesAt ∀ (warehouse: Warehouse) (box cell: Cell)
@@ -62,9 +62,9 @@ theorem coversInBoxesAt ∀ (warehouse: Warehouse) (box cell: Cell)
     (covers: Covers box cell):
     box ∈ warehouse.boxesAt cell :=
   let near: box ∈ [cell, cell.step Left] := match covers with
-    | Inl atBox => Inl (Eq.sym atBox)
-    | Inr (Inl atRight) => Inr (Inl (rewrite <- atRight in offsetStepOpposite box Right))
-    | Inr (Inr none) => Void.exfalso none
+    | Inl atBox => Inl atBox.flipped
+    | Inr (Inl atRight) => Inr (Inl (rewrite <- atRight then offsetStepOpposite box Right))
+    | Inr (Inr none) => none.impossible
   List.memFilterIntro [cell, cell.step Left] (other => warehouse.boxes.contains other) near boxed
 
 theorem inBoxesAtCovers ∀ (warehouse: Warehouse) (box cell: Cell)
@@ -74,9 +74,9 @@ theorem inBoxesAtCovers ∀ (warehouse: Warehouse) (box cell: Cell)
     | Both near boxed =>
       Both boxed
         (match near with
-          | Inl atCell => Inl (Eq.sym atCell)
-          | Inr (Inl atLeft) => Inr (Inl (rewrite <- atLeft in offsetStepOpposite cell Left))
-          | Inr (Inr none) => Void.exfalso none)
+          | Inl atCell => Inl atCell.flipped
+          | Inr (Inl atLeft) => Inr (Inl (rewrite <- atLeft then offsetStepOpposite cell Left))
+          | Inr (Inr none) => none.impossible)
 
 --| What `gather` returns holds the group it started with, its boxes move
 --| only into free cells, and the cells it was asked to look at are free.
@@ -88,17 +88,17 @@ theorem gatherOk ∀ (warehouse: Warehouse) (direction: Direction) (fuel: Nat) (
       ∧ ((GroupOk warehouse direction result) ∧ (∀ (cell: Cell) => cell ∈ pending → Clear warehouse result cell)) :=
   match fuel, pending, h with
     | fuel, [], found =>
-      rewrite <- Option.someInjective found in
+      rewrite <- Option.someInjective found then
         Both
           (box held => held)
           (Both
             (box held =>
-              Both (And.left (invariant box held)) (cell front =>
+              Both (invariant box held).left (cell front =>
                 match And.right (invariant box held) cell front with
-                  | Inl none => Void.exfalso none
+                  | Inl none => none.impossible
                   | Inr clear => clear))
-            (cell none => Void.exfalso none))
-    | Zero, [cell, ..rest], found => Void.exfalso (Option.noneNotSome result found)
+            (cell none => none.impossible))
+    | Zero, [cell, ..rest], found => (Option.noneNotSome result found).impossible
     | Succ fuel, [cell, ..rest], gathered =>
       match wall: warehouse.walls.contains cell with
         | False =>
@@ -111,7 +111,7 @@ theorem gatherOk ∀ (warehouse: Warehouse) (direction: Direction) (fuel: Nat) (
             box held =>
               match Iff.forward (Set.containsFoldInsertMap (x => x) found group box) held with
                 | Inl old => Inl old
-                | Inr (Witness x (Both member same)) => Inr (rewrite <- same in member)
+                | Inr (Witness x (Both member same)) => Inr (rewrite <- same then member)
           let cellClear: Clear warehouse larger cell := Both wall (box boxed covers =>
             match held: group.contains box with
               | True => grows box held
@@ -125,13 +125,13 @@ theorem gatherOk ∀ (warehouse: Warehouse) (direction: Direction) (fuel: Nat) (
                           (warehouse.boxesAt cell)
                           (other => !group.contains other)
                           (coversInBoxesAt warehouse box cell boxed covers)
-                          (rewrite held in rfl))
-                        rfl))))
+                          (rewrite held then byComputing))
+                        byComputing))))
           let invariantAfter: GatherInvariant warehouse direction larger pending := box held =>
             match newOrOld box held with
-              | Inl old => Both (And.left (invariant box old)) (front inFront =>
+              | Inl old => Both (invariant box old).left (front inFront =>
                 match And.right (invariant box old) front inFront with
-                  | Inl (Inl isCell) => Inr (rewrite <- isCell in cellClear)
+                  | Inl (Inl isCell) => Inr (rewrite <- isCell then cellClear)
                   | Inl (Inr inRest) =>
                     Inl (List.memAppendRight front (found.flatMap (box => frontOf box direction)) rest inRest)
                   | Inr clear => Inr (clearMono warehouse group larger front clear grows))
@@ -149,13 +149,11 @@ theorem gatherOk ∀ (warehouse: Warehouse) (direction: Direction) (fuel: Nat) (
           let after := gatherOk warehouse direction fuel larger pending result gathered invariantAfter
           Both
             (box held => And.left after box (grows box held))
-            (Both (And.left (And.right after)) (front member =>
+            (Both after.right.left (front member =>
               match member with
-                | Inl isCell => rewrite <- isCell in clearMono warehouse larger result cell cellClear (And.left after)
+                | Inl isCell => rewrite <- isCell then clearMono warehouse larger result cell cellClear after.left
                 | Inr inRest =>
-                  And.right
-                    (And.right after)
-                    front
+                  And.right after.right front
                     (List.memAppendRight front (found.flatMap (box => frontOf box direction)) rest inRest)))
 
 --| The group a move gathers: its boxes move only into free cells, and the
@@ -165,7 +163,7 @@ theorem gatherStart ∀ (warehouse: Warehouse) (direction: Direction) (fuel: Nat
     (GroupOk warehouse direction group) ∧ (Clear warehouse group (warehouse.robot.step direction)) :=
   let after :=
     gatherOk warehouse direction fuel Set.empty [warehouse.robot.step direction] group gathered (box held => cases)
-  Both (And.left (And.right after)) (And.right (And.right after) (warehouse.robot.step direction) (Inl rfl))
+  Both after.right.left (And.right after.right (warehouse.robot.step direction) (Inl byComputing))
 
 --| With nothing overlapping, a box covering a cell of another box is that
 --| box.
@@ -176,25 +174,29 @@ theorem sameBox ∀ (warehouse: Warehouse)
     (covers: Covers other cell)
     (own: cell ∈ cellsOf box):
     other = box :=
-  let noneRight := And.left (And.right separate)
+  let noneRight := separate.right.left
   match own with
     | Inl atBox =>
       match covers with
-        | Inl atOther => Eq.trans atOther (Eq.sym atBox)
+        | Inl atOther => Eq.trans atOther atBox.flipped
         | Inr (Inl rightOfOther) =>
-          Void.exfalso
+          Void.impossible
             (Bool.trueNotFalse
-              (Eq.trans (Eq.sym (rewrite Eq.trans rightOfOther (Eq.sym atBox) in boxed)) (noneRight other otherBoxed)))
-        | Inr (Inr none) => Void.exfalso none
+              (Eq.trans
+                (Eq.flipped (rewrite Eq.trans rightOfOther atBox.flipped then boxed))
+                (noneRight other otherBoxed)))
+        | Inr (Inr none) => none.impossible
     | Inr (Inl rightOfBox) =>
       match covers with
         | Inl atOther =>
-          Void.exfalso
+          Void.impossible
             (Bool.trueNotFalse
-              (Eq.trans (Eq.sym (rewrite Eq.trans rightOfBox (Eq.sym atOther) in otherBoxed)) (noneRight box boxed)))
-        | Inr (Inl rightOfOther) => offsetStepInjective other box Right (Eq.trans rightOfOther (Eq.sym rightOfBox))
-        | Inr (Inr none) => Void.exfalso none
-    | Inr (Inr none) => Void.exfalso none
+              (Eq.trans
+                (Eq.flipped (rewrite Eq.trans rightOfBox atOther.flipped then otherBoxed))
+                (noneRight box boxed)))
+        | Inr (Inl rightOfOther) => offsetStepInjective other box Right (Eq.trans rightOfOther rightOfBox.flipped)
+        | Inr (Inr none) => none.impossible
+    | Inr (Inr none) => none.impossible
 
 --| A box covering a cell a gathered box moves into is gathered too.
 theorem gatheredCovers ∀ (warehouse: Warehouse) (direction: Direction)
@@ -207,8 +209,7 @@ theorem gatheredCovers ∀ (warehouse: Warehouse) (direction: Direction)
     group.contains other = True :=
   match frontOrOwn box direction cell moved with
     | Inl front => And.right (And.right (ok box held) cell front) other otherBoxed covers
-    | Inr own =>
-      rewrite sameBox warehouse separate box other cell (And.left (ok box held)) otherBoxed covers own in held
+    | Inr own => rewrite sameBox warehouse separate box other cell (ok box held).left otherBoxed covers own then held
 
 --| "If this action would cause the robot or a box to move into a wall,
 --| nothing moves instead": with nothing overlapping, a blocked move moves
@@ -220,25 +221,24 @@ theorem blockedMovesNothing ∀ (warehouse: Warehouse) (direction: Direction)
   match gathered: warehouse.gather direction Set.empty
     [warehouse.robot.step direction]
     (2 * warehouse.boxes.size + 1) with
-    | None => rfl
+    | None => byComputing
     | Some group =>
       let start := gatherStart warehouse direction (2 * warehouse.boxes.size + 1) group gathered
-      let ok := And.left start
+      let ok := start.left
       let closed: Closed warehouse direction (box => group.contains box) :=
         Both
-          (box boxed covers => And.right (And.right start) box boxed covers)
+          (box boxed covers => And.right start.right box boxed covers)
           (gatheredCovers warehouse direction separate group ok)
-      Void.exfalso
+      Void.impossible
         (match blocked with
-          | Inl wallNext => Bool.trueNotFalse (Eq.trans (Eq.sym wallNext) (And.left (And.right start)))
+          | Inl wallNext => Bool.trueNotFalse (Eq.trans wallNext.flipped start.right.left)
           | Inr (Witness box (Both must (Witness cell (Both moved wallCell)))) =>
             let held := must (box => group.contains box) closed
             match frontOrOwn box direction cell moved with
               | Inl front =>
-                Bool.trueNotFalse (Eq.trans (Eq.sym wallCell) (And.left (And.right (ok box held) cell front)))
+                Bool.trueNotFalse (Eq.trans wallCell.flipped (And.left (And.right (ok box held) cell front)))
               | Inr own =>
-                Bool.trueNotFalse
-                  (Eq.trans (Eq.sym wallCell) (And.left separate box (And.left (ok box held)) cell own)))
+                Bool.trueNotFalse (Eq.trans wallCell.flipped (And.left separate box (ok box held).left cell own)))
 
 --| The boxes after a move of `group`: each moved box, or a box that stayed.
 theorem movedOrStayed ∀ (warehouse: Warehouse) (direction: Direction) (group: Set Cell) (position: Cell)
@@ -247,7 +247,8 @@ theorem movedOrStayed ∀ (warehouse: Warehouse) (direction: Direction) (group: 
       ∨ ((warehouse.boxes.contains position = True) ∧ (group.contains position = False)) :=
   Bool.orElim
     (Eq.trans
-      (Eq.sym (Set.containsUnion (warehouse.boxes.difference group) position (group.map (box => box.step direction))))
+      (Eq.flipped
+        (Set.containsUnion (warehouse.boxes.difference group) position (group.map (box => box.step direction))))
       held)
     (stayed => Inr (stayedElim warehouse group position stayed))
     (moved => Inl (Iff.forward (Set.containsMap group (box => box.step direction) position) moved))
@@ -257,7 +258,7 @@ theorem stayedElim ∀ (warehouse: Warehouse) (group: Set Cell) (position: Cell)
     (stayed: (warehouse.boxes.difference group).contains position = True):
     (warehouse.boxes.contains position = True) ∧ (group.contains position = False) :=
   let both: (warehouse.boxes.contains position ∧ ¬(group.contains position)) = True :=
-    rewrite <- Set.containsDifference warehouse.boxes position group in stayed
+    rewrite <- Set.containsDifference warehouse.boxes position group then stayed
   Both both.left
     (Bool.falseOfNotTrue (group.contains position) (gathered => Bool.falseNotTrue (rewrite gathered at both.right)))
 
@@ -270,7 +271,7 @@ theorem moveWideCount ∀ (warehouse: Warehouse) (direction: Direction)
   match gathered: warehouse.gather direction Set.empty
     [warehouse.robot.step direction]
     (2 * warehouse.boxes.size + 1) with
-    | None => rfl
+    | None => byComputing
     | Some group =>
       let ok := And.left (gatherStart warehouse direction (2 * warehouse.boxes.size + 1) group gathered)
       let moved := group.map (box => box.step direction)
@@ -284,22 +285,22 @@ theorem moveWideCount ∀ (warehouse: Warehouse) (direction: Direction)
                   | Both boxed notGathered =>
                     Bool.trueNotFalse
                       (Eq.trans
-                        (Eq.sym
+                        (Eq.flipped
                           (gatheredCovers warehouse direction separate group ok box held position boxed position
                             (Inl stepped)
                             (coversSelf position)))
                         notGathered)
-      omega [
+      arithmetic [
         Set.sizeUnionDisjoint stayed moved apart,
         Set.sizeMapInjective group (box => box.step direction) (x y inX inY same =>
           offsetStepInjective x y direction same),
-        Set.sizeDifferenceSubset warehouse.boxes group (box held => And.left (ok box held))
+        Set.sizeDifferenceSubset warehouse.boxes group (box held => (ok box held).left)
       ]
 
 --| A box covers its own cell, and the one to its right.
-theorem coversSelf ∀ (box: Cell): Covers box box := Inl rfl
+theorem coversSelf ∀ (box: Cell): Covers box box := Inl byComputing
 
-theorem coversRight ∀ (box: Cell): Covers box (box.step Right) := Inr (Inl rfl)
+theorem coversRight ∀ (box: Cell): Covers box (box.step Right) := Inr (Inl byComputing)
 
 --| With nothing overlapping before a move, nothing overlaps after it: no box
 --| on a wall or on another box, and the robot never on either.
@@ -313,12 +314,12 @@ theorem moveWideSeparate ∀ (warehouse: Warehouse) (direction: Direction)
     | Some group =>
       let next := warehouse.robot.step direction
       let start := gatherStart warehouse direction (2 * warehouse.boxes.size + 1) group gathered
-      let ok := And.left start
-      let clearNext := And.right start
-      let offWalls := And.left separate
-      let noneRight := And.left (And.right separate)
-      let robotNotBoxed := And.left (And.right (And.right (And.right separate)))
-      let robotNotRight := And.right (And.right (And.right (And.right separate)))
+      let ok := start.left
+      let clearNext := start.right
+      let offWalls := separate.left
+      let noneRight := separate.right.left
+      let robotNotBoxed := separate.right.right.right.left
+      let robotNotRight := separate.right.right.right.right
       let after := (position: Cell) =>
         (held: ((warehouse.boxes.difference group).union (group.map (box => box.step direction))).contains position
           = True) =>
@@ -334,7 +335,7 @@ theorem moveWideSeparate ∀ (warehouse: Warehouse) (direction: Direction)
                     (covers: Covers other cell) =>
                       Bool.trueNotFalse
                         (Eq.trans
-                          (Eq.sym
+                          (Eq.flipped
                             (gatheredCovers warehouse direction separate group ok box held other boxed cell moved
                                 covers))
                           stays)
@@ -344,7 +345,7 @@ theorem moveWideSeparate ∀ (warehouse: Warehouse) (direction: Direction)
             | Inl (Witness moved (Both inGroup stepped)) =>
               match frontOrOwn moved direction cell (rewrite <- stepped at own) with
                 | Inl front => And.left (And.right (ok moved inGroup) cell front)
-                | Inr ownBefore => offWalls moved (And.left (ok moved inGroup)) cell ownBefore
+                | Inr ownBefore => offWalls moved (ok moved inGroup).left cell ownBefore
             | Inr (Both boxed stays) => offWalls box boxed cell own)
         (Both
           (box held =>
@@ -359,12 +360,12 @@ theorem moveWideSeparate ∀ (warehouse: Warehouse) (direction: Direction)
                           direction
                           (Eq.trans steppedRight
                             (Eq.trans
-                              (Eq.sym (Eq.cong (here => Offset.step here Right) stepped))
+                              (Eq.flipped (Eq.cong (here => Offset.step here Right) stepped))
                               (offsetStepComm moved direction Right)))
                       Bool.trueNotFalse
                         (Eq.trans
-                          (Eq.sym (rewrite besides at And.left (ok movedRight inGroupRight)))
-                          (noneRight moved (And.left (ok moved inGroup))))
+                          (Eq.flipped (rewrite besides at And.left (ok movedRight inGroupRight)))
+                          (noneRight moved (ok moved inGroup).left))
                     | Inr (Both boxedRight staysRight) =>
                       stayedClear moved inGroup
                         (box.step Right)
@@ -378,61 +379,62 @@ theorem moveWideSeparate ∀ (warehouse: Warehouse) (direction: Direction)
                     | Inl (Witness movedRight (Both inGroupRight steppedRight)) =>
                       stayedClear movedRight inGroupRight box boxed stays
                         (movedRight.step direction)
-                        (Inl rfl)
-                        (rewrite steppedRight in coversRight box)
+                        (Inl byComputing)
+                        (rewrite steppedRight then coversRight box)
                     | Inr (Both boxedRight staysRight) =>
-                      Bool.trueNotFalse (Eq.trans (Eq.sym boxedRight) (noneRight box boxed))))
-          (Both
-            (And.left clearNext)
+                      Bool.trueNotFalse (Eq.trans boxedRight.flipped (noneRight box boxed))))
+          (Both clearNext.left
             (Both
               (Bool.falseOfNotTrue _ (heldNext =>
                 match after next heldNext with
                   | Inl (Witness moved (Both inGroup stepped)) =>
                     let atRobot: moved = warehouse.robot := offsetStepInjective moved warehouse.robot direction stepped
-                    Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite atRobot at And.left (ok moved inGroup))) robotNotBoxed)
+                    Bool.trueNotFalse
+                      (Eq.trans (Eq.flipped (rewrite atRobot at And.left (ok moved inGroup))) robotNotBoxed)
                   | Inr (Both boxed stays) =>
-                    Bool.trueNotFalse (Eq.trans (Eq.sym (And.right clearNext next boxed (coversSelf next))) stays)))
+                    Bool.trueNotFalse (Eq.trans (Eq.flipped (And.right clearNext next boxed (coversSelf next))) stays)))
               (Bool.falseOfNotTrue _ (heldLeft =>
                 match after (next.step Left) heldLeft with
                   | Inl (Witness moved (Both inGroup stepped)) =>
                     let rightOfMoved: (moved.step Right).step direction = next :=
                       Eq.trans
-                        (Eq.sym (offsetStepComm moved direction Right))
+                        (Eq.flipped (offsetStepComm moved direction Right))
                         (Eq.trans (Eq.cong (here => Offset.step here Right) stepped) (offsetStepOpposite next Left))
                     let atRobot: moved.step Right = warehouse.robot :=
                       offsetStepInjective (moved.step Right) warehouse.robot direction rightOfMoved
                     let leftOfRobot: warehouse.robot.step Left = moved :=
-                      rewrite <- atRobot in offsetStepOpposite moved Right
+                      rewrite <- atRobot then offsetStepOpposite moved Right
                     Bool.trueNotFalse
-                      (Eq.trans (Eq.sym (rewrite <- leftOfRobot at And.left (ok moved inGroup))) robotNotRight)
+                      (Eq.trans (Eq.flipped (rewrite <- leftOfRobot at And.left (ok moved inGroup))) robotNotRight)
                   | Inr (Both boxed stays) =>
                     Bool.trueNotFalse
                       (Eq.trans
-                        (Eq.sym (And.right clearNext (next.step Left) boxed (Inr (Inl (offsetStepOpposite next Left)))))
+                        (Eq.flipped
+                          (And.right clearNext (next.step Left) boxed (Inr (Inl (offsetStepOpposite next Left)))))
                         stays))))))
 
 --| "Boxes are now twice as wide": with nothing overlapping, every `[` has
 --| its `]`.
 theorem wholeOfSeparate ∀ (warehouse: Warehouse) (separate: WideSeparate warehouse): Whole warehouse := position =>
-  let offWalls := And.left separate
-  let noneRight := And.left (And.right separate)
-  let robotNotBoxed := And.left (And.right (And.right (And.right separate)))
-  let robotNotRight := And.right (And.right (And.right (And.right separate)))
+  let offWalls := separate.left
+  let noneRight := separate.right.left
+  let robotNotBoxed := separate.right.right.right.left
+  let robotNotRight := separate.right.right.right.right
   let right := position.step Right
   -- The tile right of a box is its `]`.
   let rightOfBox := (boxed: warehouse.boxes.contains position = True) =>
     match atRobot: right == warehouse.robot with
       | True =>
         let leftOfRobot: warehouse.robot.step Left = position :=
-          rewrite <- atRobot.read in offsetStepOpposite position Right
-        Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite <- leftOfRobot at boxed)) robotNotRight))
+          rewrite <- atRobot.read then offsetStepOpposite position Right
+        Void.impossible (Bool.trueNotFalse (Eq.trans (rewrite <- leftOfRobot at boxed).flipped robotNotRight))
       | False =>
         (rewrite atRobot,
-            offWalls position boxed right (Inr (Inl rfl)),
+            offWalls position boxed right (Inr (Inl byComputing)),
             noneRight position boxed,
             offsetStepOpposite position Right,
-            boxed in
-          rfl: wideTile warehouse right = BoxRight)
+            boxed then
+          byComputing: wideTile warehouse right = BoxRight)
   {
     forward = isLeft =>
       match atRobot: position == warehouse.robot with
@@ -440,7 +442,7 @@ theorem wholeOfSeparate ∀ (warehouse: Warehouse) (separate: WideSeparate wareh
           match wall: warehouse.walls.contains position with
             | False =>
               match boxed: warehouse.boxes.contains position with
-                | True => rightOfBox rfl
+                | True => rightOfBox byComputing
                 | False =>
                   match boxedLeft: warehouse.boxes.contains (position.step Left) with
                     | False => cases,
@@ -456,16 +458,16 @@ theorem wholeOfSeparate ∀ (warehouse: Warehouse) (separate: WideSeparate wareh
                       let boxed: warehouse.boxes.contains position = True :=
                         rewrite offsetStepOpposite position Right at boxedLeft
                       let notRobot: (position == warehouse.robot) = False := Bool.falseOfNotTrue _ (atRobot =>
-                        Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite atRobot.read at boxed)) robotNotBoxed))
-                      rewrite notRobot, offWalls position boxed position (Inl rfl), boxed in rfl
+                        Bool.trueNotFalse (Eq.trans (rewrite atRobot.read at boxed).flipped robotNotBoxed))
+                      rewrite notRobot, offWalls position boxed position (Inl byComputing), boxed then byComputing
   }
 
 --| A move in the wide warehouse never moves a wall.
 theorem moveWideWalls ∀ (warehouse: Warehouse) (direction: Direction):
     (warehouse.moveWide direction).walls = warehouse.walls :=
   match warehouse.gather direction Set.empty [warehouse.robot.step direction] (2 * warehouse.boxes.size + 1) with
-    | Some group => rfl
-    | None => rfl
+    | Some group => byComputing
+    | None => byComputing
 
 --| After every move: the walls are where they were, nothing overlaps if
 --| nothing did at the start (so the robot is never on a wall or a box), and
@@ -473,7 +475,7 @@ theorem moveWideWalls ∀ (warehouse: Warehouse) (direction: Direction):
 theorem moveAllWideWalls ∀ (warehouse: Warehouse) (moves: List Direction):
     (warehouse.moveAllWide moves).walls = warehouse.walls :=
   match moves with
-    | [] => rfl
+    | [] => byComputing
     | [move, ..rest] => Eq.trans (moveAllWideWalls (warehouse.moveWide move) rest) (moveWideWalls warehouse move)
 
 theorem moveAllWideSeparate ∀ (warehouse: Warehouse) (moves: List Direction)
@@ -492,7 +494,7 @@ theorem moveAllWideCount ∀ (warehouse: Warehouse) (moves: List Direction)
     (separate: WideSeparate warehouse):
     boxCount (warehouse.moveAllWide moves) = boxCount warehouse :=
   match moves with
-    | [] => rfl
+    | [] => byComputing
     | [move, ..rest] =>
       Eq.trans
         (moveAllWideCount (warehouse.moveWide move) rest (moveWideSeparate warehouse move separate))

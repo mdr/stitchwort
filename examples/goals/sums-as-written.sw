@@ -9,5 +9,5 @@ theorem plusThree ∀ (x y: Nat): x + 3 = y + (x + 2) := ?
 theorem written ∀ (n: Nat): Succ n = Succ (Succ n) := ?
 
 theorem matched ∀ (n: Nat): n = 0 := match n with
-  | Zero => rfl
+  | Zero => byComputing
   | Succ m => ?

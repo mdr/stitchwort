@@ -37,5 +37,5 @@ test "up past the surface goes above it" := (solvePart1 [Up 3, Forward 2], part1
 test "forward first moves at aim 0" := solvePart2 [Forward 4, Down 1, Forward 3] == 21
 
 --| The examples, proved by computing them.
-theorem examplePart1: solvePart1 exampleCommands = 150 := rfl
-theorem examplePart2: solvePart2 exampleCommands = 900 := rfl
+theorem examplePart1: solvePart1 exampleCommands = 150 := byComputing
+theorem examplePart2: solvePart2 exampleCommands = 900 := byComputing

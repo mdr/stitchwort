@@ -37,26 +37,27 @@ type Rule = { colour: Colour, contents: List Content }
 
 type Rules = { all: List Rule }
 
-def word(): {Parse} Text := Parse.takeWhile1 "a colour, 'a' to 'z'" Char.isAsciiLowercase
+def word(): {Parse Char} Text := Parse.takeWhile1 "a colour, 'a' to 'z'" Char.isAsciiLowercase
 
-def colour(): {Parse} Colour :=
+def colour(): {Parse Char} Colour :=
   let shade := word()
   Parse.char ' '
   let hue := word()
   { shade, hue }
 
-def content(): {Parse} Content :=
+def content(): {Parse Char} Content :=
   let count := Parse.nat()
   Parse.char ' '
   let colour := colour()
   Parse.text (if count == 1 then " bag" else " bags")
   { count, colour }
 
-def contentList(): {Parse} List Content := Parse.sepBy1 content (() => Parse.text ", ") |> .toList
+def contentList(): {Parse Char} List Content := Parse.sepBy1 content (() => Parse.text ", ") |> .toList
 
-def contents(): {Parse} List Content := Parse.oneOf [() => Parse.before ([]: List Content) "no other bags", contentList]
+def contents(): {Parse Char} List Content :=
+  Parse.oneOf [() => Parse.before ([]: List Content) "no other bags", contentList]
 
-def rule(): {Parse} Rule :=
+def rule(): {Parse Char} Rule :=
   let colour := colour()
   Parse.text " bags contain "
   let contents := contents()

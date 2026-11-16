@@ -15,20 +15,22 @@ theorem tracksStart ∀ (passages: List Passage) (twice: Bool):
   Both
     (c named small notStart notEnd =>
       {
-        forward = _ => rewrite differ Cave.start c (same => notStart (Eq.sym same)) in rfl,
+        forward = _ => rewrite differ Cave.start c (same => notStart same.flipped) then byComputing,
         backward = _ =>
           List.memFilterIntro
             (caves passages)
             (cave => cave.isSmall && not cave.isStart && not cave.isEnd)
             named
-            (rewrite small, differ c Cave.start notStart, differ c Cave.end notEnd in rfl)
+            (rewrite small, differ c Cave.start notStart, differ c Cave.end notEnd then byComputing)
       })
-    (Both rfl
-      (Both rfl
+    (Both byComputing
+      (Both byComputing
         (Both
           (Both
-            (c small => omega [once c])
-            (Both (a b smallA smallB twiceA twiceB => Void.exfalso (omega [once a])) (Both (omega) (omega))))
+            (c small => arithmetic [once c])
+            (Both
+              (a b smallA smallB twiceA twiceB => Void.impossible (arithmetic [once a]))
+              (Both (arithmetic) (arithmetic))))
           (Both (part2 => Both part2 (c small => once c)) (part1 => Inl part1)))))
 
 --| The paths the program lists are those from `start` to `end` along the
@@ -62,7 +64,7 @@ theorem pathsCorrect ∀ (passages: List Passage)
             (Path.fromStart [])
             (tracksStart passages twice)
             follows
-        rewrite <- same in Both (match rest with | [z, ..more] => rewrite last in rfl) (Both along within)),
+        rewrite <- same then Both (match rest with | [z, ..more] => rewrite last then byComputing) (Both along within)),
     backward = both =>
       let (Both ends (Both along within)) := both
       match path with
@@ -71,8 +73,8 @@ theorem pathsCorrect ∀ (passages: List Passage)
           let isLast := DecEq.sound ends.right
           let last: rest.last = Some Cave.end := match rest with
             | [] =>
-              Void.exfalso
-                (DecEq.soundFalse Cave.start Cave.end rfl (rewrite <- isStart in Option.someInjective isLast))
+              Void.impossible
+                (DecEq.soundFalse Cave.start Cave.end byComputing (rewrite <- isStart then Option.someInjective isLast))
             | [z, ..more] => isLast
           let completes: Completes passages twice (Path.fromStart []) Cave.start rest :=
             Both last (rewrite isStart at Both along within)
@@ -88,7 +90,7 @@ theorem pathsCorrect ∀ (passages: List Passage)
               (Path.fromStart [])
               (tracksStart passages twice)
               completes
-          rewrite isStart in
+          rewrite isStart then
             List.memMap _ rest
               (followRoutes
                 (lookupNeighbours (neighbourTable passages))
@@ -97,7 +99,7 @@ theorem pathsCorrect ∀ (passages: List Passage)
                 Cave.start
                 (3 * (smallCaves passages).length + 4)
                 rest
-                (omega [Bool.toNatLeOne twice])
+                (arithmetic [Bool.toNatLeOne twice])
                 follows)
               Path.fromStart
   }
@@ -117,11 +119,11 @@ theorem pathsDistinct ∀ (passages: List Passage) (twice: Bool): List.Distinct 
 
 --| Part 1's rule is `Within False`...
 theorem withinOnce ∀ (path: Path): Within False path ↔ SmallOnce path := {
-  forward = within => And.left within,
+  forward = within => within.left,
   backward = once =>
     Both once
       (Both
-        (a b smallA smallB twiceA twiceB => Void.exfalso (omega [once a smallA]))
+        (a b smallA smallB twiceA twiceB => Void.impossible (arithmetic [once a smallA]))
         (Both (once Cave.start startSmall) (once Cave.end endSmall)))
 }
 
@@ -143,10 +145,10 @@ theorem withinTwice ∀ (path: Path) (ends: path.startToEnd = True): Within True
   {
     forward = within =>
       let (Both each (Both once (Both startOnce endOnce))) := within
-      Both each (Both once (Both (omega) (omega))),
+      Both each (Both once (Both (arithmetic) (arithmetic))),
     backward = rule =>
       let (Both each (Both once (Both startOnce endOnce))) := rule
-      Both each (Both once (Both (omega) (omega)))
+      Both each (Both once (Both (arithmetic) (arithmetic)))
   }
 
 --| Part 1: the program's answer is the number of paths that visit no small
@@ -169,7 +171,7 @@ theorem part1Correct ∀ (passages: List Passage)
               (pathsCorrect passages promise False path).backward
                 (Both ends (Both along ((withinOnce path).backward once)))
           })
-        rfl))
+        byComputing))
 
 --| Part 2: the number of paths that visit one small cave (not `start` or
 --| `end`) at most twice and the others at most once.
@@ -191,7 +193,7 @@ theorem part2Correct ∀ (passages: List Passage)
               (pathsCorrect passages promise True path).backward
                 (Both ends (Both along ((withinTwice path ends).backward rule)))
           })
-        rfl))
+        byComputing))
 
 --| From the input: no hypothesis left, as the parser checks the promise.
 theorem part1FromInput ∀ (input: Text) (passages: List Passage)

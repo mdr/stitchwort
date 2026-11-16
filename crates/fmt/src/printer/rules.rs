@@ -3,41 +3,32 @@
 //!
 //! Spacing between two tokens on one line is the current formatter's
 //! ([`crate::spacing`]); these rules only say where a construct may break
-//! and how far each piece is indented. A construct with no rule here is
-//! printed as written, moved with its line ([`Rules::as_written`]); the
-//! counts of those come from [`unruled`], not from here.
+//! and how far each piece is indented. A node whose shape a rule doesn't
+//! expect (one the parser never builds from a file without errors) makes
+//! the whole file an internal error ([`Rules::unexpected`]), never a copy
+//! of the source.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::token_text_range;
 use stitchwort_syntax::tree::{Element, Leaf, Node, NodeKind, SyntaxFile};
-use stitchwort_syntax::{Tok, Token};
+use stitchwort_syntax::{Tok, Token, Trivia};
 
 use super::WIDTH;
+
 use super::engine::{self, Doc};
 use crate::spacing::{Gap, Pair, Role, gap};
 
-/// The kinds printed as written for now, deliberately or for want of a
-/// rule: only a node the parser couldn't make sense of.
-pub(crate) fn has_rule(kind: NodeKind) -> bool {
-    kind != NodeKind::Error
-}
-
-/// How many nodes of each kind in `root` have no rule. A node inside one
-/// without a rule is counted too: it is printed as written as well.
-pub(crate) fn unruled(root: Node<'_>, counts: &mut BTreeMap<NodeKind, usize>) {
-    if !has_rule(root.kind()) {
-        *counts.entry(root.kind()).or_default() += 1;
-    }
-    for child in root.children() {
-        if let Element::Node(node) = child {
-            unruled(node, counts);
-        }
-    }
-}
+/// The width within which a type declaration's constructors or fields stay
+/// on one line (S14, S15, D3605).
+const TYPE_WIDTH: usize = 80;
 
 pub(crate) struct Rules<'a> {
-    file: &'a SyntaxFile,
+    /// The file's comments as rule N places them ([`crate::tidy`]): no
+    /// comma has one, and a closer or record update's `|` has no trailing
+    /// one (but for N's limits), so an element's line ends with a comment
+    /// exactly when its last code token has one.
+    trivia: &'a [Trivia],
     src: &'a str,
     tokens: &'a [Token],
     roles: Vec<Role>,
@@ -51,11 +42,13 @@ pub(crate) struct Rules<'a> {
     /// outside its groups, so they don't break them: set while the element
     /// is built.
     hoisted: Vec<bool>,
-    /// A token whose trailing comment is printed elsewhere for now: a
-    /// record update's base, whose comment follows the `|` (S31).
+    /// A token whose trailing comment is printed elsewhere: a record
+    /// update's base, whose comment follows the `|` (S31).
     defer_trailing: Option<usize>,
     /// Set while calls must not hug their last argument.
     no_hug: bool,
+    /// The token where the `let` header of the expression `let` being printed starts.
+    expr_let: Option<usize>,
     /// How many alternatives (arms, clauses) the node being built is in.
     arm_depth: usize,
     /// Each call's hug (S23), by its first token, for a body after `:=`
@@ -64,7 +57,16 @@ pub(crate) struct Rules<'a> {
     /// A `match`'s doc with its head flat, by the match's first token, for a
     /// body that hugs the `:=` line.
     match_hugs: BTreeMap<usize, Doc>,
+    /// Start tokens of the `{ … }` fields of record types and interfaces,
+    /// which join one line only within [`TYPE_WIDTH`].
+    narrow_fields: BTreeSet<usize>,
     next_id: u32,
+    /// For each closing bracket with own-line comments before it, its
+    /// opening bracket ([`Doc::CloserLine`]); for each such opening
+    /// bracket, itself.
+    commented_pair: Vec<Option<usize>>,
+    /// The first node whose shape no rule expects, and what was expected.
+    unexpected: Option<String>,
 }
 
 /// Whether a token closes a bracket.
@@ -78,8 +80,7 @@ fn balanced_fill(items: Vec<Doc>, first: bool) -> Doc {
         .iter()
         .map(|item| {
             let flat = engine::print(&Doc::flat(item.clone()), usize::MAX / 2);
-            let simple =
-                !item.forces_break() && flat.forced_comment_lines == 0 && !flat.text.contains('\n');
+            let simple = !item.forces_break() && !flat.text.contains('\n');
             simple.then(|| flat.text.chars().count())
         })
         .collect();
@@ -140,7 +141,7 @@ fn level(tok: &Tok) -> Option<u8> {
 }
 
 impl<'a> Rules<'a> {
-    pub(crate) fn new(file: &'a SyntaxFile, src: &'a str) -> Self {
+    pub(crate) fn new(file: &'a SyntaxFile, trivia: &'a [Trivia], src: &'a str) -> Self {
         let tokens = file.tokens();
         let mut file_comments = vec![false; tokens.len()];
         for decl in file.decls() {
@@ -148,8 +149,22 @@ impl<'a> Rules<'a> {
                 file_comments[start] = true;
             }
         }
+        let mut commented_pair = vec![None; tokens.len()];
+        let mut open = Vec::new();
+        for (i, token) in tokens.iter().enumerate() {
+            if opener(&token.tok) {
+                open.push(i);
+            } else if closer(&token.tok)
+                && let Some(o) = open.pop()
+                && !trivia[i].leading.is_empty()
+            {
+                commented_pair[i] = Some(o);
+                commented_pair[o] = Some(o);
+            }
+        }
         Rules {
-            file,
+            commented_pair,
+            trivia,
             src,
             tokens,
             roles: crate::spacing::roles(tokens),
@@ -158,10 +173,13 @@ impl<'a> Rules<'a> {
             hoisted: vec![false; tokens.len()],
             defer_trailing: None,
             no_hug: false,
+            expr_let: None,
             arm_depth: 0,
             hugs: BTreeMap::new(),
             match_hugs: BTreeMap::new(),
+            narrow_fields: BTreeSet::new(),
             next_id: 0,
+            unexpected: None,
         }
     }
 
@@ -244,20 +262,38 @@ impl<'a> Rules<'a> {
 
     /// Own-line comments and kept blank lines before token `i`.
     fn leading(&self, i: usize) -> Vec<Doc> {
-        let trivia = &self.file.trivia()[i];
+        let trivia = &self.trivia[i];
         let keep = self.keep_blank[i];
         let mut parts = Vec::new();
         if self.hoisted[i] {
             return parts;
         }
-        if !self.file_comments[i] && !trivia.leading.is_empty() {
+        if !self.file_comments[i] && !trivia.leading.is_empty() && closer(&self.tokens[i].tok) {
+            // Comments before a closing bracket are about its items: at their
+            // indentation, with the bracket on a line of its own (S40).
+            let mut comments = vec![Doc::LineStartHere];
+            for (k, comment) in trivia.leading.iter().enumerate() {
+                if k > 0 {
+                    comments.push(Doc::HardLine);
+                    if comment.blank_lines_before > 0 {
+                        comments.push(Doc::Blank);
+                    }
+                }
+                comments.push(Doc::text(&comment.text));
+            }
+            parts.extend([
+                Doc::BreakParent,
+                Doc::nest(2, Doc::concat(comments)),
+                self.commented_pair[i].map_or(Doc::HardLine, Doc::CloserLine),
+            ]);
+        } else if !self.file_comments[i] && !trivia.leading.is_empty() {
             parts.push(Doc::BreakParent);
             parts.push(Doc::LineStart);
             for (k, comment) in trivia.leading.iter().enumerate() {
                 if comment.blank_lines_before > 0 && (k > 0 || keep) {
                     parts.push(Doc::Blank);
                 }
-                parts.push(Doc::text(comment.text.trim_end_matches(' ')));
+                parts.push(Doc::text(&comment.text));
                 parts.push(Doc::HardLine);
             }
             if trivia.blank_lines_before > 0 {
@@ -275,10 +311,8 @@ impl<'a> Rules<'a> {
         if self.defer_trailing == Some(i) {
             return Vec::new();
         }
-        match &self.file.trivia()[i].trailing {
-            Some(comment) => vec![Doc::LineSuffix(
-                comment.text.trim_end_matches(' ').to_string(),
-            )],
+        match &self.trivia[i].trailing {
+            Some(comment) => vec![Doc::LineSuffix(comment.text.clone())],
             None => Vec::new(),
         }
     }
@@ -297,52 +331,46 @@ impl<'a> Rules<'a> {
         }
     }
 
+    /// Whether the code before token `i`, closers aside, ends its line with
+    /// a comment: one waiting to be written after the closers.
+    fn ends_line_with_comment_before(&self, i: usize) -> bool {
+        let mut j = i;
+        while j > 0 {
+            j -= 1;
+            if self.trivia[j].trailing.is_some() {
+                return self.defer_trailing != Some(j);
+            }
+            if !closer(&self.tokens[j].tok) {
+                return false;
+            }
+        }
+        false
+    }
+
     fn leaf(&self, leaf: Leaf<'_>) -> Doc {
         let i = leaf.index();
         let mut parts = self.leading(i);
+        // A closer is printed before the comment waiting on the code before
+        // it (S39), which is wrong when that leaves a second comment on the
+        // line (N keeps a closer's own trailing comment only when the code
+        // before it ends its line with one), or code that can't start a
+        // line: the `.field` of `(x -- c\n).field`. The closer keeps the line
+        // of its own it had.
+        if i > 0
+            && closer(&self.tokens[i].tok)
+            && self.trivia[i].leading.is_empty()
+            && self.ends_line_with_comment_before(i)
+            && (self.trivia[i].trailing.is_some()
+                || self.tokens.get(i + 1).is_some_and(|next| {
+                    next.tok == Tok::Dot && next.span.start == self.tokens[i].span.end
+                }))
+        {
+            parts.push(Doc::HardLine);
+        }
+        if opener(&self.tokens[i].tok) && self.commented_pair[i] == Some(i) {
+            parts.push(Doc::Mark(i));
+        }
         parts.push(self.token_text(i));
-        parts.extend(self.trailing(i));
-        Doc::concat(parts)
-    }
-
-    /// The comments of a comma that starts its line (D1012), as own-line
-    /// comments for the item after it: the comma moves to the end of the
-    /// previous item's line, and a comment on either side of it stays with
-    /// the next token, as `comment_anchors` reads them.
-    fn comma_first_comments(&mut self, i: usize) -> Vec<Doc> {
-        let trivia = &self.file.trivia()[i];
-        let has_leading = !trivia.leading.is_empty();
-        let trailing = trivia.trailing.clone();
-        let first_on_line = comma_first_on_line(self.src, token_text_range(&self.tokens[i]).start);
-        let mut parts = Vec::new();
-        if has_leading {
-            self.keep_blank[i] = true;
-            parts.extend(self.leading(i));
-        }
-        if let (true, Some(comment)) = (first_on_line, trailing) {
-            parts.extend([
-                Doc::BreakParent,
-                Doc::LineStart,
-                Doc::text(comment.text.trim_end_matches(' ')),
-                Doc::HardLine,
-            ]);
-        }
-        parts
-    }
-
-    /// A comma's text and its trailing comment, unless it starts its line
-    /// (then `comma_first_comments` placed the comment).
-    fn comma_end(&self, i: usize) -> Doc {
-        let mut parts = vec![self.token_text(i)];
-        if !comma_first_on_line(self.src, token_text_range(&self.tokens[i]).start) {
-            parts.extend(self.trailing(i));
-        }
-        Doc::concat(parts)
-    }
-
-    /// A token's comments without its text: a comma the formatter drops.
-    fn leaf_trivia_only(&self, i: usize) -> Doc {
-        let mut parts = self.leading(i);
         parts.extend(self.trailing(i));
         Doc::concat(parts)
     }
@@ -356,6 +384,15 @@ impl<'a> Rules<'a> {
                 let saved = std::mem::replace(&mut self.hoisted[first], true);
                 let doc = self.node(node);
                 self.hoisted[first] = saved;
+                // A comment puts the node's first line below where the
+                // construct's own indentation would have it.
+                let doc = if !self.trivia[first].leading.is_empty()
+                    || self.ends_line_with_comment_before(first)
+                {
+                    Doc::displaced(doc)
+                } else {
+                    doc
+                };
                 Doc::concat([Doc::concat(leading), doc])
             }
         }
@@ -363,7 +400,7 @@ impl<'a> Rules<'a> {
 
     /// Whether own-line comments come before the element.
     fn has_leading(&self, el: Element<'_>) -> bool {
-        !self.file.trivia()[Self::first(el)].leading.is_empty()
+        !self.trivia[Self::first(el)].leading.is_empty()
     }
 
     /// Elements on one line, with the usual spaces between them.
@@ -395,56 +432,69 @@ impl<'a> Rules<'a> {
         (a..=b).any(|i| self.src[token_text_range(&self.tokens[i])].contains('\n'))
     }
 
-    /// Whether a comment ends a line anywhere inside the node: a vertical
-    /// list holding one stays broken (S39), so the comment keeps
-    /// describing its item's line.
+    /// The node's last token that is no closer or comma: under rule N the
+    /// token whose trailing comment ends the node's line, printed after
+    /// the closers and commas that follow it (S39).
+    fn last_code(&self, first: usize, last: usize) -> usize {
+        (first..=last)
+            .rev()
+            .find(|&i| {
+                !matches!(
+                    self.tokens[i].tok,
+                    Tok::RParen | Tok::RBracket | Tok::RBrace | Tok::Comma
+                )
+            })
+            .unwrap_or(first)
+    }
+
+    /// Whether a comment ends a line inside the node, with code after it:
+    /// a vertical list holding one stays broken (S39), so the comment keeps
+    /// describing its item's line. The one ending the node's own line
+    /// ([`Self::comment_at_end`]) is printed after its closers and decides
+    /// nothing here.
     fn holds_trailing_comment(&self, node: Node<'_>) -> bool {
         let range = node.token_range();
-        self.file.trivia()[range.start..range.end - 1]
-            .iter()
-            .any(|t| t.trailing.is_some())
+        let end = self.comment_at_end(Element::Node(node));
+        range
+            .clone()
+            .any(|i| self.trivia[i].trailing.is_some() && Some(i) != end)
     }
 
-    /// Whether a comment ends a line with code after it in the node, other
-    /// than closers and commas. One before only those is printed at the end
-    /// of the last line either way (a `)` on the next line joins it), so it
-    /// decides nothing: the same layout must come out once it has moved
-    /// there.
-    fn holds_comment_before_code(&self, node: Node<'_>) -> bool {
-        let range = node.token_range();
-        let last_code = (range.start..range.end).rev().find(|&i| {
-            !matches!(
-                self.tokens[i].tok,
-                Tok::RParen | Tok::RBracket | Tok::RBrace | Tok::Comma
-            )
-        });
-        last_code.is_some_and(|last| {
-            self.file.trivia()[range.start..last]
-                .iter()
-                .any(|t| t.trailing.is_some())
-        })
+    /// The token whose trailing comment ends the element's line, or `None`
+    /// if it has none: its last code token's, or a closer's after it where
+    /// rule N left one there (one that starts its line after a commented
+    /// one).
+    fn comment_at_end(&self, el: Element<'_>) -> Option<usize> {
+        let (first, last) = (Self::first(el), Self::last(el));
+        (self.last_code(first, last)..=last)
+            .rev()
+            .find(|&i| self.trivia[i].trailing.is_some())
     }
 
-    /// Whether a comment ends the line after the element's last token.
-    fn trails_comment(&self, el: Element<'_>) -> bool {
-        self.file.trivia()[Self::last(el)].trailing.is_some()
+    /// Whether a comment ends the element's line.
+    fn ends_with_comment(&self, el: Element<'_>) -> bool {
+        self.comment_at_end(el).is_some()
     }
 
-    /// A construct with no rule yet: as written, moved with its line, its
-    /// first token's comments and its last token's trailing comment placed
-    /// as for any token.
-    pub(crate) fn as_written(&self, node: Node<'_>) -> Doc {
-        let range = node.token_range();
-        let (first, last) = (range.start, range.end - 1);
-        let start = token_text_range(&self.tokens[first]).start;
-        let end = token_text_range(&self.tokens[last]).end;
-        let mut parts = self.leading(first);
-        parts.push(Doc::Verbatim {
-            text: self.src[start..end].to_string(),
-            src_indent: self.line_indent_at(start),
-        });
-        parts.extend(self.trailing(last));
-        Doc::concat(parts)
+    /// Notes that `node` has a shape its rule doesn't expect and returns
+    /// nothing to print: the printer then fails the file
+    /// ([`Rules::take_unexpected`]).
+    fn unexpected(&mut self, node: Node<'_>, expected: &str) -> Doc {
+        if self.unexpected.is_none() {
+            let at = token_text_range(&self.tokens[node.token_range().start]).start;
+            let line = self.src[..at].matches('\n').count() + 1;
+            self.unexpected = Some(format!(
+                "a {:?} node at line {line} isn't {expected}",
+                node.kind()
+            ));
+        }
+        Doc::Nil
+    }
+
+    /// What the rules found unexpected, if anything, so the file is an
+    /// internal error.
+    pub(crate) fn take_unexpected(&mut self) -> Option<String> {
+        self.unexpected.take()
     }
 
     // ---- Constructs.
@@ -477,20 +527,28 @@ impl<'a> Rules<'a> {
             CalcStep => self.calc_step(node),
             Rewrite => self.rewrite(node),
             Constructor => self.constructor(node),
-            kind if has_rule(kind) => {
+            Error => self.unexpected(node, "part of a file the parser accepts"),
+            _ => {
                 let children: Vec<Element> = node.children().collect();
                 self.join(&children)
             }
-            _ => self.as_written(node),
         }
     }
 
     /// `( … )`. A bracketed `if` keeps its `else` lines under the `if`, not
-    /// under the bracket (S19: the clauses start at the `if`'s column).
+    /// under the bracket (S19: the clauses start at the `if`'s column). A
+    /// block opens below the bracket at 2 (S17), as a hugged one does
+    /// ([`Self::last_argument`]): its lines go at the indentation in force,
+    /// so after the bracket they would sit left of its first.
     fn paren(&mut self, node: Node<'_>) -> Doc {
         let children: Vec<Element> = node.children().collect();
         let mut parts = Vec::new();
         for (k, &el) in children.iter().enumerate() {
+            if Self::kind(el) == Some(NodeKind::Block) {
+                let doc = self.el(el);
+                parts.push(Doc::nest(2, Doc::concat([Doc::HardLine, doc])));
+                continue;
+            }
             if k > 0 {
                 parts.push(self.space_el(children[k - 1], el));
             }
@@ -518,6 +576,11 @@ impl<'a> Rules<'a> {
             parts.push(Doc::HardLine);
             k += 1;
         }
+        if k > 0
+            && let Some(&el) = children.get(k)
+        {
+            parts.push(self.comments_above(Self::first(el)));
+        }
         let head_end = children[k..]
             .iter()
             .position(|&el| Self::kind(el).is_some())
@@ -537,7 +600,12 @@ impl<'a> Rules<'a> {
                 Some(NodeKind::Unfolding) => unfolding = Some(el),
                 Some(NodeKind::Body) => body = Some(el),
                 Some(NodeKind::Arms) => arms = Some(el),
-                _ => return self.as_written(node),
+                _ => {
+                    return self.unexpected(
+                        node,
+                        "a declaration's head, parameters, result, clauses and body",
+                    );
+                }
             }
         }
         let id = self.fresh_id();
@@ -546,11 +614,64 @@ impl<'a> Rules<'a> {
             Some(_) => (None, unfolding),
             None => (unfolding, None),
         };
+        // A `match` in the header shares no alternative with its line when
+        // arms follow: they would read as its own (SW-3582).
+        let arms_follow = usize::from(arms.is_some());
+        self.arm_depth += arms_follow;
         let header = self.header(&head, &params, result, unfolding);
+        self.arm_depth -= arms_follow;
+        // A comment ending a line inside a parameter or the result type
+        // makes the header span lines whatever fits, so the body goes below
+        // it: a `calc`'s steps are measured from the line its keyword is on.
+        let header_last = head
+            .iter()
+            .chain(&params)
+            .chain(result.as_ref())
+            .map(|&el| Self::last(el))
+            .max()
+            .unwrap_or(0);
+        let header_first = Self::first(head[0]);
+        let item_ends: Vec<usize> = head
+            .iter()
+            .chain(&params)
+            .map(|&el| self.last_code(Self::first(el), Self::last(el)))
+            .collect();
+        // A comment after the last parameter is inside too when the result
+        // follows it and the body's layout is measured from its line: the
+        // `:` can't join the comment's line, so it starts the next, where
+        // the body would hug it.
+        let last_item_end = item_ends.last().copied();
+        let layout_body = matches!(body, Some(Element::Node(body)) if {
+            let rest: Vec<Element> = body.children().skip(1).collect();
+            matches!(rest.as_slice(), [Element::Node(value)] if matches!(
+                value.kind(),
+                NodeKind::Match
+                    | NodeKind::Induct
+                    | NodeKind::Reify
+                    | NodeKind::Handle
+                    | NodeKind::ClauseLambda
+                    | NodeKind::Calc
+                    | NodeKind::If
+                    | NodeKind::Block
+            ))
+        });
+        // The head's words (`theorem name`) are joined by spaces, not by
+        // breaks the layout chooses, so a comment after one is inside too.
+        let head_words: Vec<usize> = head
+            .iter()
+            .take(head.len().saturating_sub(1))
+            .map(|&el| Self::last(el))
+            .collect();
+        let comment_inside = (header_first..header_last).any(|i| {
+            self.trivia[i].trailing.is_some()
+                && (!item_ends.contains(&i)
+                    || head_words.contains(&i)
+                    || (layout_body && result.is_some() && last_item_end == Some(i)))
+        });
         parts.push(Doc::IdGroup(
             id,
             Box::new(header.clone()),
-            header.forces_break(),
+            header.forces_break() || comment_inside,
         ));
         if let Some(decreasing) = decreasing {
             // S11: the measure on its own line at 4, `:=` alone below.
@@ -607,9 +728,26 @@ impl<'a> Rules<'a> {
         unfolding: Option<Element<'_>>,
     ) -> Doc {
         let head_doc = self.join(head);
+        let mut type_below = false;
+        // A comment before the `:` (own-line, or ending the line before it)
+        // leaves it to start a line, so its type stays on that line.
+        let mut colon_apart = false;
+        let mut colon_below_comment = false;
         let (colon, ty) = match result {
             Some(Element::Node(result)) => {
                 let inner: Vec<Element> = result.children().collect();
+                let first = Self::first(inner[0]);
+                colon_below_comment = self.has_leading(inner[0]);
+                colon_apart = !params.is_empty()
+                    && (colon_below_comment || self.ends_line_with_comment_before(first));
+                // A comment after the `:`, or a type that is a block of
+                // lines, starts the type on a line of its own: joined to the
+                // `:`, a block's first line would take the others as its
+                // arguments (SW-3582).
+                type_below = self.trivia[Self::last(inner[0])].trailing.is_some()
+                    || inner
+                        .get(1)
+                        .is_some_and(|&el| Self::kind(el) == Some(NodeKind::Block));
                 let colon = self.el(inner[0]);
                 let ty = self.join(&inner[1..]);
                 (Some(colon), Some(ty))
@@ -621,8 +759,15 @@ impl<'a> Rules<'a> {
             let mut parts = vec![head_doc];
             if let (Some(colon), Some(ty)) = (colon, ty) {
                 parts.push(colon);
-                parts.push(Doc::text(" "));
-                parts.push(Doc::nest(4, ty));
+                if type_below {
+                    // A comment break would start the type at the depth its
+                    // own continuation lines use; it starts its own line
+                    // instead, at 4, with the lines after it.
+                    parts.push(Doc::nest(4, Doc::concat([Doc::HardLine, ty])));
+                } else {
+                    parts.push(Doc::text(" "));
+                    parts.push(Doc::nest(4, ty));
+                }
             }
             if let Some(unfolding) = unfolding {
                 parts.push(Doc::nest(4, Doc::concat([Doc::Line, unfolding])));
@@ -639,6 +784,7 @@ impl<'a> Rules<'a> {
         for (k, &param) in params.iter().enumerate() {
             let mut doc = self.el(param);
             if k == last
+                && !colon_below_comment
                 && let Some(colon) = &colon
             {
                 doc = Doc::concat([doc, colon.clone()]);
@@ -685,7 +831,16 @@ impl<'a> Rules<'a> {
             parts.push(run);
         }
         if let Some(ty) = ty {
-            parts.push(Doc::Line);
+            if colon_below_comment && let Some(colon) = colon {
+                // Own-line comments make the `:` start a line at 4.
+                parts.push(Doc::Line);
+                parts.push(colon);
+            }
+            parts.push(match (colon_apart, type_below) {
+                (false, _) => Doc::Line,
+                (true, false) => Doc::text(" "),
+                (true, true) => Doc::HardLine,
+            });
             parts.push(ty);
         }
         if let Some(unfolding) = unfolding {
@@ -801,9 +956,17 @@ impl<'a> Rules<'a> {
     fn body_after(&mut self, value: &[Element<'_>]) -> (Doc, Doc) {
         let doc = Doc::shared(self.join(value));
         let below = Doc::nest(2, Doc::concat([Doc::HardLine, doc.clone()]));
-        if value
-            .first()
-            .is_some_and(|&el| self.has_leading(el) || Self::kind(el) == Some(NodeKind::Block))
+        // A comment ending the `:=` line (or `=>`) puts the value below
+        // whatever else would fit: a hug assumes the value's first line is
+        // the `:=` line.
+        let after_comment = value.first().is_some_and(|&el| {
+            let before = Self::first(el);
+            before > 0 && self.trivia[before - 1].trailing.is_some()
+        });
+        if after_comment
+            || value
+                .first()
+                .is_some_and(|&el| self.has_leading(el) || Self::kind(el) == Some(NodeKind::Block))
         {
             return (below.clone(), below);
         }
@@ -866,8 +1029,9 @@ impl<'a> Rules<'a> {
         (below, Doc::Choice(options))
     }
 
-    /// A data type (S14, D3566 (b)): its constructors on one line if the
-    /// whole declaration fits, otherwise one a line at 2.
+    /// A data type (S14, D3566 (b), D3605): its constructors on one line if
+    /// the whole declaration fits in [`TYPE_WIDTH`], otherwise one a line
+    /// at 2.
     fn data_type(&mut self, node: Node<'_>) -> Doc {
         let children: Vec<Element> = node.children().collect();
         let split = children
@@ -879,18 +1043,21 @@ impl<'a> Rules<'a> {
         let mut lines = Vec::new();
         for &ctor in &children[split..] {
             if Self::kind(ctor) != Some(NodeKind::Constructor) {
-                return self.as_written(node);
+                return self.unexpected(node, "a head then constructors");
             }
             self.mark_item(ctor);
             lines.push(Doc::Line);
             lines.push(self.el(ctor));
         }
-        if self.holds_comment_before_code(node) {
+        if self.holds_trailing_comment(node) {
             lines.push(Doc::BreakParent);
         }
         Doc::concat([
             attrs,
-            Doc::group(Doc::concat([head, Doc::nest(2, Doc::concat(lines))])),
+            Doc::narrow_group(
+                TYPE_WIDTH,
+                Doc::concat([head, Doc::nest(2, Doc::concat(lines))]),
+            ),
         ])
     }
 
@@ -906,7 +1073,33 @@ impl<'a> Rules<'a> {
             parts.push(Doc::HardLine);
             k += 1;
         }
+        if k > 0
+            && let Some(&el) = els.get(k)
+        {
+            parts.push(self.comments_above(Self::first(el)));
+        }
         (Doc::concat(parts), &els[k..])
+    }
+
+    /// Own-line comments before token `i`, which starts a line at the
+    /// indentation in force (a declaration's keyword after its attributes),
+    /// each on a line of its own there; the token's own [`Self::leading`]
+    /// no longer prints them. As a continuation, the declaration would be
+    /// indented past its arms.
+    fn comments_above(&mut self, i: usize) -> Doc {
+        let mut parts = Vec::new();
+        for comment in &self.trivia[i].leading {
+            if comment.blank_lines_before > 0 {
+                parts.push(Doc::Blank);
+            }
+            parts.push(Doc::text(&comment.text));
+            parts.push(Doc::HardLine);
+        }
+        if !parts.is_empty() && self.trivia[i].blank_lines_before > 0 {
+            parts.push(Doc::Blank);
+        }
+        self.hoisted[i] = true;
+        Doc::concat(parts)
     }
 
     /// `| C fields`: the fields stay on its line (S14).
@@ -943,6 +1136,15 @@ impl<'a> Rules<'a> {
             let (_, choice) = self.body_after(&inner[1..]);
             return Doc::concat([attrs, head, Doc::text(" "), equals, choice]);
         }
+        if matches!(node.kind(), NodeKind::RecordType | NodeKind::Interface) {
+            for &el in &rest {
+                if let Element::Node(fields) = el
+                    && fields.kind() == NodeKind::Fields
+                {
+                    self.narrow_fields.insert(fields.token_range().start);
+                }
+            }
+        }
         let doc = self.join(&rest);
         Doc::concat([attrs, doc])
     }
@@ -976,7 +1178,14 @@ impl<'a> Rules<'a> {
     /// before the opener (`import M`) stays in front of it; a record
     /// update's `{ r |` stays on the opening line.
     fn comma_bracket(&mut self, node: Node<'_>) -> Doc {
-        Doc::group(self.comma_bracket_content(node))
+        let narrow = node.kind() == NodeKind::Fields
+            && self.narrow_fields.contains(&node.token_range().start);
+        let content = self.comma_bracket_content(node);
+        if narrow {
+            Doc::narrow_group(TYPE_WIDTH, content)
+        } else {
+            Doc::group(content)
+        }
     }
 
     /// A comma bracket's parts, not yet grouped.
@@ -1007,16 +1216,21 @@ impl<'a> Rules<'a> {
         {
             let space = self.space_el(children[open], inside[0]);
             // A trailing comment on the base belongs to the `{ r |` line,
-            // so it prints after the bar, not between the base and it.
-            let base_last = Self::last(inside[bar - 1]);
-            let saved = self.defer_trailing.replace(base_last);
+            // so it prints after the bar, not between the base and it
+            // (SW-3487).
+            let comment_at = self.comment_at_end(inside[bar - 1]);
+            let saved = self.defer_trailing;
+            if comment_at.is_some() {
+                self.defer_trailing = comment_at;
+            }
             let base = self.join(&inside[..=bar]);
             self.defer_trailing = saved;
-            let comment = self.trailing(base_last);
+            let comment = comment_at.map(|i| self.trailing(i)).unwrap_or_default();
             prefix = Doc::concat([prefix, space, base, Doc::concat(comment)]);
             inside = &inside[bar + 1..];
         }
-        // Items between commas; a comma before the closer is dropped.
+        // Items between commas. The last has no comma after it (tidy pass
+        // P2); a bracket that ends in one has nothing to print.
         let mut items: Vec<(Vec<Element>, Option<Element>)> = Vec::new();
         let mut current = Vec::new();
         for &el in inside {
@@ -1026,36 +1240,34 @@ impl<'a> Rules<'a> {
                 current.push(el);
             }
         }
-        let mut dropped = None;
         if current.is_empty() {
-            if let Some((_, comma)) = items.last_mut() {
-                dropped = comma.take();
-            }
-        } else {
-            items.push((current, None));
+            return self.unexpected(node, "a bracket whose last item follows its last comma");
         }
+        items.push((current, None));
         // D3572: a list of only plain values fills its lines, the bracket
-        // staying on the first.
-        let plain = node.kind() == NodeKind::List
-            && inside.len() == items.len() * 2 - usize::from(dropped.is_none())
+        // staying on the first. A tuple pattern of only names and `_` does
+        // too (proof-tuples.md §5: a proof of a long `∃`/`∧` chain is
+        // opened by one tuple, whose one-per-line form would be taller than
+        // the nested constructors it replaces).
+        let pattern_names = node.kind() == NodeKind::PatternTuple;
+        let plain = (node.kind() == NodeKind::List || pattern_names)
+            && inside.len() == items.len() * 2 - 1
             && !self.holds_trailing_comment(node)
-            && items.iter().all(|(_, comma)| {
-                comma.is_none_or(|c| self.file.trivia()[Self::first(c)].leading.is_empty())
-            })
             && items.iter().all(|(item, _)| {
                 matches!(item.as_slice(), [el @ Element::Leaf(_)]
                 if !self.has_leading(*el)
-                    && matches!(
-                        self.tok(*el),
+                    && match self.tok(*el) {
+                        Some(Tok::Lower(_)) => true,
+                        Some(Tok::Underscore) => pattern_names,
                         Some(
                             Tok::Num(_)
-                                | Tok::Float(_)
-                                | Tok::Char(_)
-                                | Tok::Str(_)
-                                | Tok::Lower(_)
-                                | Tok::Upper(_)
-                        )
-                    ))
+                            | Tok::Float(_)
+                            | Tok::Char(_)
+                            | Tok::Str(_)
+                            | Tok::Upper(_),
+                        ) => !pattern_names,
+                        _ => false,
+                    })
             });
         if plain {
             let mut cells = Vec::new();
@@ -1071,23 +1283,16 @@ impl<'a> Rules<'a> {
             return Doc::concat([prefix, Doc::nest(2, Doc::Fill(cells)), closer_doc]);
         }
         let mut body = Vec::new();
-        let mut pending = Vec::new();
         for (k, (item, comma)) in items.iter().enumerate() {
             if item.is_empty() {
-                return self.as_written(node);
+                return self.unexpected(node, "a bracket with an item between each pair of commas");
             }
             self.mark_item(item[0]);
             body.push(if k == 0 { edge() } else { Doc::Line });
-            body.append(&mut pending);
             body.push(self.join(item));
             if let Some(comma) = comma {
-                let i = Self::first(*comma);
-                pending = self.comma_first_comments(i);
-                body.push(self.comma_end(i));
+                body.push(self.token_text(Self::first(*comma)));
             }
-        }
-        if let Some(comma) = dropped {
-            body.push(self.leaf_trivia_only(Self::first(comma)));
         }
         let closer_doc = self.el(children[close]);
         let mut parts = vec![prefix, Doc::nest(2, Doc::concat(body)), edge(), closer_doc];
@@ -1121,9 +1326,28 @@ impl<'a> Rules<'a> {
         };
         // As a header (S6): a value after a `let` line that broke goes below.
         let head = self.join(&children[..=assign]);
+        let (below, choice) = self.body_after(&children[assign + 1..]);
+        // An expression `let`'s value never goes below a header that broke:
+        // a value starting a line is a block, where the `;` after it
+        // would be a sequence's, not the `let`'s.
+        if self.expr_let == Some(node.token_range().start) {
+            // Not even when the value itself breaks over a comment: it
+            // starts on the `:=` line and goes on below.
+            let value = &children[assign + 1..];
+            let starts_below = value.first().is_some_and(|&el| {
+                let first = Self::first(el);
+                self.has_leading(el)
+                    || Self::kind(el) == Some(NodeKind::Block)
+                    || self.ends_line_with_comment_before(first)
+            });
+            if !starts_below {
+                let value = self.join(value);
+                return Doc::concat([head, Doc::text(" "), value]);
+            }
+            return Doc::concat([head, choice]);
+        }
         let id = self.fresh_id();
         let hard = head.forces_break();
-        let (below, choice) = self.body_after(&children[assign + 1..]);
         Doc::concat([
             Doc::IdGroup(id, Box::new(head), hard),
             Doc::IfBroken {
@@ -1278,7 +1502,7 @@ impl<'a> Rules<'a> {
         let mut keep = 1;
         while keep < n
             && (self.simple(children[keep]) || self.section(children[keep]))
-            && !self.trails_comment(children[keep - 1])
+            && !self.ends_with_comment(children[keep - 1])
         {
             keep += 1;
         }
@@ -1306,7 +1530,7 @@ impl<'a> Rules<'a> {
         };
         let mut rest = Vec::new();
         for k in keep..n {
-            if self.section(children[k]) && !self.trails_comment(children[k - 1]) {
+            if self.section(children[k]) && !self.ends_with_comment(children[k - 1]) {
                 rest.push(self.space_el(children[k - 1], children[k]));
             } else {
                 rest.push(Doc::HardLine);
@@ -1355,10 +1579,13 @@ impl<'a> Rules<'a> {
     }
 
     /// Whether a comment sits between the elements, so that their line
-    /// breaks matter.
+    /// breaks matter. A comment before only a child's closers and commas
+    /// counts too: it prints at the end of the child's last line, as the
+    /// same comment written after them does, so the layout must not depend
+    /// on which side of them it was written (SW-3481, as SW-3462).
     fn comment_between(&self, children: &[Element<'_>]) -> bool {
         (1..children.len())
-            .any(|k| self.has_leading(children[k]) || self.trails_comment(children[k - 1]))
+            .any(|k| self.has_leading(children[k]) || self.ends_with_comment(children[k - 1]))
     }
 
     /// The operands and operators of a chain at one level, flattened from
@@ -1493,9 +1720,23 @@ impl<'a> Rules<'a> {
                     parts.push(self.space_el(children[k - 1], el));
                 }
             }
+            if k == 0
+                && node.kind() == NodeKind::LetExpr
+                && let Element::Node(header) = el
+            {
+                self.expr_let = Some(header.token_range().start);
+            }
             parts.push(self.el(el));
         }
-        Doc::group(Doc::align(Doc::concat(parts)))
+        let parts = Doc::concat(parts);
+        // A `let` body may continue at the `let`'s own column; a plain
+        // sequence's later lines may not (the parser reads the `;` as ending
+        // the block), so where one starts a line they go in by 2.
+        Doc::group(if node.kind() == NodeKind::Seq {
+            Doc::align_inset(parts)
+        } else {
+            Doc::align(parts)
+        })
     }
 
     /// An interpolated text (S32): its pieces touch each other as written,
@@ -1521,7 +1762,12 @@ impl<'a> Rules<'a> {
     /// filling lines at 4 like a header's parameters (S22), `=>` after the
     /// last.
     fn lambda_head(&mut self, children: &[Element<'_>]) -> Doc {
-        if children.len() < 3 || self.comment_between(children) {
+        if children.len() < 3
+            || self.comment_between(children)
+            || children[..children.len() - 1]
+                .iter()
+                .any(|&el| self.ends_with_comment(el))
+        {
             return self.join(children);
         }
         let docs: Vec<Doc> = children
@@ -1548,6 +1794,15 @@ impl<'a> Rules<'a> {
         // parameters.
         let filled = Doc::shared(self.lambda_head(&children[..=arrow]));
         let body = Doc::shared(self.join(&children[arrow + 1..]));
+        // A body starting a line is a block, which a `;` right after it
+        // would end as a sequence of its own (a `let` value's, `x => b; e`):
+        // it stays after `=>` and breaks inside itself.
+        let end = node.token_range().end;
+        if self.tokens.get(end).is_some_and(|t| t.tok == Tok::Semi) {
+            let space = self.space_el(children[arrow], children[arrow + 1]);
+            let doc = Doc::concat([head, space, body]);
+            return (doc.clone(), doc);
+        }
         let flat = Doc::group(Doc::concat([
             filled,
             Doc::nest(2, Doc::concat([Doc::Line, body.clone()])),
@@ -1572,10 +1827,10 @@ impl<'a> Rules<'a> {
                 .iter()
                 .position(|&el| self.is_tok(el, &Tok::KwElse));
             let (Some(then), Some(els)) = (then, els) else {
-                return self.as_written(node);
+                return self.unexpected(node, "an `if` with `then` and `else`");
             };
             if els != children.len() - 2 || then + 1 >= els {
-                return self.as_written(node);
+                return self.unexpected(node, "a condition, `then`, a branch, `else`, a branch");
             }
             let mut head = Vec::new();
             if let Some(prefix) = else_prefix.take() {
@@ -1589,8 +1844,13 @@ impl<'a> Rules<'a> {
                 Doc::nest(2, Doc::concat([Doc::Line, branch])),
             ])));
             let other = children[els + 1];
+            // An `if` that a comment puts on the line after its `else`
+            // starts a block there, which a later `else` at the chain's
+            // column would end: it is the branch, with its own clauses.
+            let starts_line =
+                self.has_leading(other) || self.ends_line_with_comment_before(Self::first(other));
             match other {
-                Element::Node(next) if next.kind() == NodeKind::If => {
+                Element::Node(next) if next.kind() == NodeKind::If && !starts_line => {
                     else_prefix = Some(children[els]);
                     current = next;
                 }
@@ -1606,6 +1866,10 @@ impl<'a> Rules<'a> {
             }
         }
         let mut parts = Vec::new();
+        // D3605: a chain with an `else if` is a table of cases, never one line.
+        if clauses.len() > 2 {
+            parts.push(Doc::BreakParent);
+        }
         for (k, clause) in clauses.into_iter().enumerate() {
             if k > 0 {
                 parts.push(Doc::Line);
@@ -1741,22 +2005,25 @@ impl<'a> Rules<'a> {
         Doc::concat([Doc::nest(2, relation), space, assign_doc, proof])
     }
 
-    /// `rewrite rules in body` (S36): on one line if it fits; otherwise the
+    /// `rewrite rules then body` (S36): on one line if it fits; otherwise the
     /// body below at 2, and if the rules don't fit on the `rewrite` line,
-    /// one rule a line at 4 with `in` at the end of the last.
+    /// one rule a line at 4 with `then` at the end of the last.
     fn rewrite(&mut self, node: Node<'_>) -> Doc {
         let children: Vec<Element> = node.children().collect();
-        let Some(in_at) = children.iter().rposition(|&el| self.is_tok(el, &Tok::KwIn)) else {
+        let Some(then_at) = children
+            .iter()
+            .rposition(|&el| self.is_tok(el, &Tok::KwThen))
+        else {
             return self.join(&children);
         };
-        if in_at < 2 {
+        if then_at < 2 {
             return self.join(&children);
         }
         let keyword = self.el(children[0]);
         let mut rules = Vec::new();
         let mut current: Vec<Element> = Vec::new();
         let mut items = Vec::new();
-        for &el in &children[1..in_at] {
+        for &el in &children[1..then_at] {
             if self.is_tok(el, &Tok::Comma) {
                 items.push((std::mem::take(&mut current), Some(el)));
             } else {
@@ -1766,7 +2033,8 @@ impl<'a> Rules<'a> {
         items.push((current, None));
         for (k, (item, comma)) in items.iter().enumerate() {
             if item.is_empty() {
-                return self.as_written(node);
+                return self
+                    .unexpected(node, "a `rewrite` with a rule between each pair of commas");
             }
             if k > 0 {
                 rules.push(Doc::Line);
@@ -1776,59 +2044,19 @@ impl<'a> Rules<'a> {
                 rules.push(self.el(*comma));
             }
         }
-        let in_doc = self.el(children[in_at]);
-        let body = self.join(&children[in_at + 1..]);
+        let then_doc = self.el(children[then_at]);
+        let body = self.join(&children[then_at + 1..]);
         let first_space = self.space_el(children[0], children[1]);
         let rules = Doc::group(Doc::concat([
             keyword,
             first_space,
             Doc::nest(4, Doc::concat(rules)),
             Doc::text(" "),
-            in_doc,
+            then_doc,
         ]));
         Doc::group(Doc::concat([
             rules,
             Doc::nest(2, Doc::concat([Doc::Line, body])),
         ]))
     }
-}
-
-/// Whether the comma at byte `start` is the first token on its line.
-pub(crate) fn comma_first_on_line(src: &str, start: usize) -> bool {
-    let line = src[..start].rfind('\n').map_or(0, |k| k + 1);
-    src[line..start].trim().is_empty()
-}
-
-/// Whether the `|` at `bar` is a record update's, `{ r | … }`: the first
-/// `|` at its depth after the opening brace, which opens a record
-/// (SW-1015), with no comma before it. An alternative's bar (after a
-/// `=>`, or with another `|` before it) is not one.
-pub(crate) fn record_update_bar(tokens: &[Token], bar: usize) -> bool {
-    let mut depth = 0usize;
-    let mut open = None;
-    for i in (0..bar).rev() {
-        match tokens[i].tok {
-            Tok::RParen | Tok::RBracket | Tok::RBrace => depth += 1,
-            Tok::LParen | Tok::LBracket => depth = depth.saturating_sub(1),
-            Tok::LBrace if depth > 0 => depth -= 1,
-            Tok::LBrace => {
-                open = Some(i);
-                break;
-            }
-            _ => {}
-        }
-    }
-    let Some(open) = open else {
-        return false;
-    };
-    let mut depth = 0usize;
-    for token in &tokens[open + 1..bar] {
-        match token.tok {
-            Tok::LParen | Tok::LBracket | Tok::LBrace => depth += 1,
-            Tok::RParen | Tok::RBracket | Tok::RBrace => depth = depth.saturating_sub(1),
-            Tok::Comma | Tok::Pipe | Tok::FatArrow if depth == 0 => return false,
-            _ => {}
-        }
-    }
-    stitchwort_syntax::record_braces(tokens, open)
 }

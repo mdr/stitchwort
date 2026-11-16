@@ -26,7 +26,7 @@ theorem pickFreeOnFloor ∀ (level: Level) (player: Position) (others: List Mons
             | False =>
               match taken: (monsterAt choice others).isSome with
                 | True => pickFreeOnFloor level player others rest destination picked
-                | False => rewrite <- Option.someInjective picked in wall
+                | False => rewrite <- Option.someInjective picked then wall
 
 theorem onFloorSnoc ∀ (level: Level) (monster: Monster)
     (inside: isWall level monster.position = False) (monsters: List Monster)
@@ -47,7 +47,7 @@ theorem onFloorMap ∀ (level: Level) (change: Monster → Monster)
   match monsters, onFloor with
     | [], onFloor => Trivial
     | [first, ..rest], Both inside others =>
-      Both (rewrite stays first in inside) (onFloorMap level change stays rest others)
+      Both (rewrite stays first then inside) (onFloorMap level change stays rest others)
 
 --| Dropping monsters keeps the rest on the floor.
 theorem onFloorFilter ∀ (level: Level) (keep: Monster → Bool) (monsters: List Monster)
@@ -135,7 +135,7 @@ theorem playerMovesOnFloor ∀ (dice: Dice) (state: State) (direction: Direction
         | True => onFloor
         | False =>
           let target := state.player.toward direction
-          rewrite enterLevel state target, enterMonsters state target in onFloor
+          rewrite enterLevel state target, enterMonsters state target then onFloor
 
 theorem descendOnFloor ∀ (dice: Dice) (state: State)
     (onFloor: OnFloor state.level state.monsters):

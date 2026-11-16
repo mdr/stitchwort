@@ -5,7 +5,7 @@ expression: output
 [E-RESOURCE] Error: ran out of resources: it recursed more deeply than allowed
     ╭─[ reject/resource-steps-unfolding.sw:11:1 ]
     │
- 11 │ theorem countBig: count 3000000 = 3000000 := rfl
+ 11 │ theorem countBig: count 3000000 = 3000000 := byComputing
     │ ────────────────────┬────────────────────  
     │                     ╰────────────────────── while checking this
     │ 

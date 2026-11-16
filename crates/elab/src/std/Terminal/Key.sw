@@ -34,97 +34,6 @@ type Key: Type =
   | Ctrl (letter: Char) -- Ctrl with a letter: `Ctrl 'a'`, and so on
   | Unknown -- bytes that aren't one of the above
 
--- `==` on keys, written by hand (the library's types get no derived one):
--- a key is its constructor's position and its character, if it has one.
-
---| The position of a key's constructor, for `==` on keys.
-def Key.position: (key: Key) → Nat
-  | Printable char => 0
-  | Enter => 1
-  | Tab => 2
-  | Backspace => 3
-  | Escape => 4
-  | Delete => 5
-  | Up => 6
-  | Down => 7
-  | Left => 8
-  | Right => 9
-  | Home => 10
-  | End => 11
-  | PageUp => 12
-  | PageDown => 13
-  | Ctrl letter => 14
-  | Unknown => 15
-
---| The key's character, or a space for a key without one.
-def Key.charOrSpace: (key: Key) → Char
-  | Printable char => char
-  | Ctrl letter => letter
-  | _ => ' '
-
---| The key at a position, with a character if it takes one: undoes
---| `position` and `charOrSpace` together ([`Key.fromParts`]).
-def Key.ofParts (position: Nat) (char: Char): Key := match position with
-  | 0 => Printable char
-  | 1 => Enter
-  | 2 => Tab
-  | 3 => Backspace
-  | 4 => Escape
-  | 5 => Delete
-  | 6 => Up
-  | 7 => Down
-  | 8 => Left
-  | 9 => Right
-  | 10 => Home
-  | 11 => End
-  | 12 => PageUp
-  | 13 => PageDown
-  | 14 => Ctrl char
-  | _ => Unknown
-
-theorem Key.fromParts ∀ (key: Key): Key.ofParts (Key.position key) (Key.charOrSpace key) = key := match key with
-  | Printable char => rfl
-  | Enter => rfl
-  | Tab => rfl
-  | Backspace => rfl
-  | Escape => rfl
-  | Delete => rfl
-  | Up => rfl
-  | Down => rfl
-  | Left => rfl
-  | Right => rfl
-  | Home => rfl
-  | End => rfl
-  | PageUp => rfl
-  | PageDown => rfl
-  | Ctrl letter => rfl
-  | Unknown => rfl
-
-theorem Key.ofPartsCong ∀ (p q: Nat) (c d: Char)
-    (samePosition: p = q)
-    (sameChar: c = d):
-    Key.ofParts p c = Key.ofParts q d :=
-  rewrite samePosition, sameChar in rfl
-
-theorem Key.partsInjective ∀ (a b: Key)
-    (samePosition: Key.position a = Key.position b)
-    (sameChar: Key.charOrSpace a = Key.charOrSpace b):
-    a = b :=
-  Eq.trans
-    (Eq.sym (Key.fromParts a))
-    (Eq.trans
-      (Key.ofPartsCong (Key.position a) (Key.position b) (Key.charOrSpace a) (Key.charOrSpace b) samePosition sameChar)
-      (Key.fromParts b))
-
-instance Key.instDecEq: DecEq Key := {
-  decide = a b =>
-    if samePosition: Key.position a = Key.position b then
-      if sameChar: Key.charOrSpace a = Key.charOrSpace b then
-        Decidable.yes (Key.partsInjective a b samePosition sameChar)
-      else Decidable.no (e => sameChar (Eq.cong Key.charOrSpace e))
-    else Decidable.no (e => samePosition (Eq.cong Key.position e))
-}
-
 --| What decoding the front of some bytes gives.
 type Key.Decoded: Type =
   | Got (key: Key) (rest: List Nat) -- a key, and the bytes after it
@@ -166,7 +75,9 @@ def Key.ofAscii (byte: Nat): Key :=
 def Key.afterEscape: (bytes: List Nat) → Key.Decoded
   | [] => Incomplete
   | [byte, ..rest] =>
-    if byte == 91 then Key.csi [] rest else if byte == 79 then Key.ss3 rest else Got Escape [byte, ..rest]
+    if byte == 91 then Key.csi [] rest
+    else if byte == 79 then Key.ss3 rest
+    else Got Escape [byte, ..rest]
 
 --| After `ESC [`: parameter and intermediate bytes (32 to 63), collected in
 --| reverse, then a final byte (64 to 126). Any other byte ends the sequence
@@ -282,19 +193,19 @@ theorem Key.nextBytes ∀ (rest: List Nat) (key: Key)
     (h: Key.isNamed key = True):
     Key.next (List.append (Key.bytes key) rest) = Got key rest :=
   match key with
-    | Enter => rfl
-    | Tab => rfl
-    | Backspace => rfl
-    | Delete => rfl
-    | Up => rfl
-    | Down => rfl
-    | Left => rfl
-    | Right => rfl
-    | Home => rfl
-    | End => rfl
-    | PageUp => rfl
-    | PageDown => rfl
-    | Unknown => rfl
+    | Enter => byComputing
+    | Tab => byComputing
+    | Backspace => byComputing
+    | Delete => byComputing
+    | Up => byComputing
+    | Down => byComputing
+    | Left => byComputing
+    | Right => byComputing
+    | Home => byComputing
+    | End => byComputing
+    | PageUp => byComputing
+    | PageDown => byComputing
+    | Unknown => byComputing
 
 --| `Escape` comes back when the next byte isn't `[` or `O`; a lone `ESC` at
 --| the end of the bytes is `Incomplete` (the handler decides).
@@ -303,9 +214,9 @@ theorem Key.nextEscape ∀ (byte: Nat) (rest: List Nat)
     (notCsi: (byte == 91) = False)
     (notSs3: (byte == 79) = False):
     Key.next (List.append (Key.bytes Escape) [byte, ..rest]) = Got Escape [byte, ..rest] :=
-  rewrite notCsi, notSs3 in rfl
+  rewrite notCsi, notSs3 then byComputing
 
-theorem Key.nextLoneEscape: Key.next (Key.bytes Escape) = Incomplete := rfl
+theorem Key.nextLoneEscape: Key.next (Key.bytes Escape) = Incomplete := byComputing
 
 --| Tests: every key, as a terminal sends it.
 test "Key: letters, arrows, Ctrl, Enter" :=

@@ -46,8 +46,8 @@ def Result.traverseLoop (f: a → Result b e) (done: List b): (xs: List a) → R
 theorem Result.mapMap ∀ (f: a → b) (g: b → c) (r: Result a e):
     Result.map (Result.map r f) g = Result.map r (x => g (f x)) :=
   match r with
-    | Ok x => rfl
-    | Err m => rfl
+    | Ok x => byComputing
+    | Err m => byComputing
 
 theorem Result.okInjective ∀ [x y: a] (h: (Ok x: Result a e) = Ok y): x = y := Eq.cong (.getOrElse x) h
 
@@ -55,14 +55,14 @@ theorem Result.okInjective ∀ [x y: a] (h: (Ok x: Result a e) = Ok y): x = y :=
 theorem Result.flatMapEqOk [goal: Prop]:
     ∀ (r: Result a e) (f: a → Result b e) (v: b) => Result.flatMap r f = Ok v
       → ∀ (cont: ∀ (u: a) => r = Ok u → f u = Ok v → goal) => goal
-  | Ok u, f, v, h, use => use u rfl h
-  | Err m, f, v, h, use => Void.exfalso (Result.errNotOk h)
+  | Ok u, f, v, h, use => use u byComputing h
+  | Err m, f, v, h, use => (Result.errNotOk h).impossible
 
 --| The values done so far go in front of what the rest gives.
 theorem Result.traverseLoopDone ∀ (f: a → Result b e) (xs: List a) (done: List b):
     Result.traverseLoop f done xs = Result.map (Result.traverseLoop f [] xs) (ys => List.reverseOnto done ys) :=
   match xs with
-    | [] => rfl
+    | [] => byComputing
     | [x, ..xs] =>
       match e: f x with
         | Ok y =>
@@ -71,16 +71,16 @@ theorem Result.traverseLoopDone ∀ (f: a → Result b e) (xs: List a) (done: Li
               Result.mapMap
                 (ys => List.reverseOnto [y] ys)
                 (ys => List.reverseOnto done ys)
-                (Result.traverseLoop f [] xs) in
-            rfl
-        | Err m => rfl
+                (Result.traverseLoop f [] xs) then
+            byComputing
+        | Err m => byComputing
 
 --| The step of `Result.traverse`, which the loop form hides.
 theorem Result.traverseCons ∀ (f: a → Result b e) (x: a) (xs: List a):
     Result.traverse [x, ..xs] f = Result.flatMap (f x) (y => Result.map (Result.traverse xs f) (Cons y)) :=
   match e: f x with
-    | Ok y => rewrite Result.traverseLoopDone f xs [y] in rfl
-    | Err m => rfl
+    | Ok y => rewrite Result.traverseLoopDone f xs [y] then byComputing
+    | Err m => byComputing
 
 --| A `traverse` that gave `Ok ys`: each value is what `f` gave for its input,
 --| so whatever `r` each `Ok` of `f` satisfies holds pairwise.
@@ -89,17 +89,17 @@ theorem Result.traverseAll2 ∀ (f: a → Result b e) (r: a → b → Prop) (eac
     (done: Result.traverse xs f = Ok ys):
     List.All2 r xs ys :=
   match xs with
-    | [] => rewrite <- Result.okInjective done in Trivial
+    | [] => rewrite <- Result.okInjective done then Trivial
     | [x, ..rest] =>
       Result.flatMapEqOk
         (f x)
         (y => Result.map (Result.traverse rest f) (Cons y))
         ys
-        (rewrite Result.traverseCons f x rest at done in done)
+        (rewrite Result.traverseCons f x rest at done then done)
         (y first later =>
           match e: Result.traverse rest f with
             | Ok zs =>
-              rewrite <- Result.okInjective later in Both (each x y first) (Result.traverseAll2 f r each rest zs e))
+              rewrite <- Result.okInjective later then Both (each x y first) (Result.traverseAll2 f r each rest zs e))
 
 --| The converse of [`Result.traverseAll2`]: if `f` gives `Ok y` for every
 --| pair that `r` relates, then `traverse` over lists `r` relates pairwise
@@ -110,12 +110,10 @@ theorem Result.traverseOfAll2 ∀ (f: a → Result b e) (r: a → b → Prop)
     (all: List.All2 r xs ys):
     Result.traverse xs f = Ok ys :=
   match xs, ys with
-    | [], [] => rfl
+    | [], [] => byComputing
     | [x, ..rest], [y, ..more] =>
-      rewrite Result.traverseCons f x rest,
-          each x y (And.left all),
-          Result.traverseOfAll2 f r each rest more (And.right all) in
-        rfl
+      rewrite Result.traverseCons f x rest, each x y all.left, Result.traverseOfAll2 f r each rest more all.right then
+        byComputing
 
 --| The value in an `Option`, or `Err err`: `t.toNat.toResult "not a number"`.
 def Option.toResult: (option: Option a) → (err: e) → Result a e
@@ -123,8 +121,8 @@ def Option.toResult: (option: Option a) → (err: e) → Result a e
   | Some x, err => Ok x
 
 theorem Result.toOptionToResult ∀ (err: e) (o: Option a): Result.toOption (Option.toResult o err) = o := match o with
-  | None => rfl
-  | Some x => rfl
+  | None => byComputing
+  | Some x => byComputing
 
 test "Result of ()" := (Ok (): Result () Text) == Ok () ∧ (Err "no": Result () Text) != Ok ()
 test "Result.map" := Result.map (Ok 2: Result Nat Text) (+ 1) == Ok 3

@@ -1,0 +1,13 @@
+---
+source: crates/driver/tests/library/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.kind a33c146ba44e305ee67b250b36a68ca62c53640124a3af8b42b2256b3a21b100
+Main.kind.eq1 eb3ed93e0fc1b082f0d364d86702c9f38a72a7903b260381739aee06337c80d4
+Main.kind.eq4 4f4d08cdf2fb3c9f913ce3976ca7e22a7f92e58809f8278da18411f8ea3dd6a2
+Main.flag cd552465c18c18c0daf6dcd615ffc0f2f21e71387de12d5573314848572624e9
+Main.flag.eq1 a341b07e74951efbf3cffa80e9d970ce0818c7ee73b8f1ff36a5ee19f8a98110
+Main.flag.eq2 0547679b6aa50cb775677c74695a6a0bcb7456ead549cb9a2bbf83cb5c6ec14c
+Main.flag.eq3 873fa335b775c3e28153ff00ee7b5de2930c7aa2abd29b4a45701e3ee2646b4d
+Main.test "the prefix takes them" 382afd5ec1de887d482d780166a2f9d486a1ae9439e25a4eb8c24943e4ee846f
+Main.test "the exact text first" 6f37dd7634e003d7a6e253108238320726aefc2a878b6baa052680e8029104a6

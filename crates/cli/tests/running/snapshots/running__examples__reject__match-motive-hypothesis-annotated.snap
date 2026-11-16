@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-MATCH-MOTIVE] Error: generalising this `match`'s scrutinee makes its type ill-formed
-    ╭─[ reject/match-motive-hypothesis-annotated.sw:16:34 ]
+    ╭─[ reject/match-motive-hypothesis-annotated.sw:16:42 ]
     │
- 16 │ ╭─▶   apply ((q: one 1 rfl b = 1) => match List.length [1] with
+ 16 │ ╭─▶   apply ((q: one 1 byComputing b = 1) => match List.length [1] with
     ┆ ┆   
  18 │ ├─▶     | Succ k => k) x.pf
     │ │                             
@@ -13,5 +13,5 @@ expression: output
     │     
     │     Note 1: a top-level helper with a written signature can always do what this `match` would: define one and call it
     │     
-    │     Note 2: checking the type it would have: `rfl` can't prove this
+    │     Note 2: checking the type it would have: `byComputing` can't prove this
 ────╯

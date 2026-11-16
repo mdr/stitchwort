@@ -14,7 +14,7 @@ use crate::budget::Result;
 use crate::collections::HashMap;
 use crate::globals::{CallDefaults, DefaultCall, PlaceholderText};
 use crate::registry::Builtin;
-use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
+use crate::term::{DataId, DefId, Icit, Name, QuotForm, Sort, Term};
 use crate::value::{
     Value, proof_field, proof_param, quote_as_written_shown, quote_shown, quote_unfolded_shown,
     same_term,
@@ -63,6 +63,34 @@ pub trait NameScope {
     fn method(&self, _projection: DefId) -> Option<(DefId, String)> {
         None
     }
+
+    /// How constructor `c` of `d` is written here when its short name
+    /// doesn't mean it (another constructor of the same name is in scope,
+    /// or the file's own hides it): `Token.Str`, so that a printed term
+    /// checks when pasted back. `None` where the short name does.
+    fn ctor_name(&self, _d: DataId, _c: usize) -> Option<String> {
+        None
+    }
+}
+
+/// How the match compiler names the characters left after a text prefix
+/// pattern, `"--" ++ rest` on a `Text`: `%text rest`, the name following
+/// the marker. `MkText` of them is shown as `rest`, the arm's own name for
+/// that text (the `let` the arm binds it by, as that is shown), and they
+/// alone as `rest.toList` (docs/proposals/text-patterns.md §4.5).
+pub const TEXT_REST: &str = "%text ";
+
+/// For the variable at level `l`, if the match compiler named it as the
+/// characters of a text prefix's rest ([`TEXT_REST`]): the name that text
+/// is shown by. That is the first binder after `l` of the rest's name, its
+/// `let`, as shown, `rest✝` where something later shadows it.
+fn text_rest_name(names: &[Name], l: usize) -> Option<String> {
+    let rest = names[l].strip_prefix(TEXT_REST)?;
+    let shown = names[l + 1..].iter().find(|n| {
+        n.trim_end_matches(|c: char| c == '✝' || ('⁰'..='⁹').contains(&c) || "¹²³".contains(c))
+            == rest
+    });
+    Some(shown.map_or_else(|| rest.to_string(), |n| n.to_string()))
 }
 
 /// Prints `term`, whose free variables are named by `names` (outermost first).
@@ -312,6 +340,122 @@ pub fn differ_only_in_proofs(g: &Ev, a: &Term, b: &Term) -> bool {
     matches!(compare(false), Ok(Some(_))) && matches!(compare(true), Ok(None))
 }
 
+/// `a` and `b` with the parts they agree on as `…`, for printing the two
+/// one above the other so that the difference stands out: matching calls,
+/// binders and equations are kept and their parts compared in turn, and a
+/// part the same on both sides becomes `…` unless it is small enough to
+/// read at a glance (a name, a number, a short call), which keeps the
+/// context of the difference. Parts that differ are kept whole.
+pub fn elide_agreeing(a: &Term, b: &Term) -> (Term, Term) {
+    // The most nodes an agreeing part may have and still be printed: `x`,
+    // `slot.field`, `Parse.digit` stay; `(read values => …)` doesn't.
+    const KEPT_NODES: usize = 5;
+    // Nodes as printed: arguments the compiler fills in aren't shown.
+    fn size(t: &Term) -> usize {
+        match bare(t) {
+            Term::App(f, _, icit) if *icit != Icit::Explicit => size(f),
+            Term::App(f, a, _) | Term::Pi(_, _, f, a) | Term::Eq(_, f, a) => size(f) + size(a) + 1,
+            Term::Lam(_, _, b) | Term::Proj(_, _, b) => size(b) + 1,
+            Term::Data(_, xs) | Term::Ctor(_, _, xs) => {
+                xs.iter().map(|x| size(x)).sum::<usize>() + 1
+            }
+            _ => 1,
+        }
+    }
+    fn go(a: &Term, b: &Term, top: bool) -> (Term, Term) {
+        let (x, y) = (bare(a), bare(b));
+        if same_term(x, y) {
+            return if top || size(x) <= KEPT_NODES {
+                (x.clone(), y.clone())
+            } else {
+                (
+                    Term::Meta(crate::value::ELIDED),
+                    Term::Meta(crate::value::ELIDED),
+                )
+            };
+        }
+        let pair = |l: &Rc<Term>, r: &Rc<Term>| {
+            let (l, r) = go(l, r, false);
+            (Rc::new(l), Rc::new(r))
+        };
+        match (x, y) {
+            (Term::App(..), Term::App(..)) => {
+                let ((f, xs), (g, ys)) = (full_spine(x), full_spine(y));
+                // Arguments are matched from the last, so that two calls of
+                // different functions (`Parse.Reads p s` and `Parse.ReadsIn
+                // inv p s`) still line up on the arguments they share.
+                let paired = xs
+                    .iter()
+                    .rev()
+                    .zip(ys.iter().rev())
+                    .take_while(|((_, i), (_, j))| i == j)
+                    .count();
+                // A call of a lambda or a `match` prints in a form of its
+                // own, which a `…` among its arguments would break.
+                let named = |t: &Term| matches!(t, Term::Def(_) | Term::Var(_));
+                if paired == 0 || !named(f) || !named(g) {
+                    return (x.clone(), y.clone());
+                }
+                let rebuild = |f: &Term, args: Vec<(Term, Icit)>| {
+                    args.into_iter().fold(f.clone(), |f, (arg, icit)| {
+                        Term::App(Rc::new(f), Rc::new(arg), icit)
+                    })
+                };
+                let (keep_x, keep_y) = (xs.len() - paired, ys.len() - paired);
+                let (mut l, mut r): (Vec<_>, Vec<_>) = (
+                    xs[..keep_x]
+                        .iter()
+                        .map(|(t, i)| ((*t).clone(), *i))
+                        .collect(),
+                    ys[..keep_y]
+                        .iter()
+                        .map(|(t, i)| ((*t).clone(), *i))
+                        .collect(),
+                );
+                let (f, g) = if keep_x == 0 && keep_y == 0 {
+                    go(f, g, true)
+                } else {
+                    (f.clone(), g.clone())
+                };
+                for ((p, icit), (q, _)) in xs[keep_x..].iter().zip(&ys[keep_y..]) {
+                    let (p, q) = go(p, q, false);
+                    l.push((p, *icit));
+                    r.push((q, *icit));
+                }
+                (rebuild(&f, l), rebuild(&g, r))
+            }
+            (Term::Pi(n, i, d, c), Term::Pi(m, j, e, k)) if i == j => {
+                let ((d, e), (c, k)) = (pair(d, e), pair(c, k));
+                (Term::Pi(n.clone(), *i, d, c), Term::Pi(m.clone(), *j, e, k))
+            }
+            (Term::Lam(n, i, s), Term::Lam(m, j, t)) if i == j => {
+                let (s, t) = pair(s, t);
+                (Term::Lam(n.clone(), *i, s), Term::Lam(m.clone(), *j, t))
+            }
+            (Term::Eq(ty, l, r), Term::Eq(ty2, l2, r2)) => {
+                let ((l, l2), (r, r2)) = (pair(l, l2), pair(r, r2));
+                (Term::Eq(ty.clone(), l, r), Term::Eq(ty2.clone(), l2, r2))
+            }
+            (Term::Data(d, xs), Term::Data(e, ys)) if d == e && xs.len() == ys.len() => {
+                let (l, r): (Vec<_>, Vec<_>) = xs.iter().zip(ys).map(|(p, q)| pair(p, q)).unzip();
+                (Term::Data(*d, l), Term::Data(*e, r))
+            }
+            (Term::Ctor(d, c, xs), Term::Ctor(e, k, ys))
+                if d == e && c == k && xs.len() == ys.len() =>
+            {
+                let (l, r): (Vec<_>, Vec<_>) = xs.iter().zip(ys).map(|(p, q)| pair(p, q)).unzip();
+                (Term::Ctor(*d, *c, l), Term::Ctor(*e, *k, r))
+            }
+            (Term::Proj(d, i, s), Term::Proj(e, j, t)) if d == e && i == j => {
+                let (s, t) = pair(s, t);
+                (Term::Proj(*d, *i, s), Term::Proj(*e, *j, t))
+            }
+            _ => (x.clone(), y.clone()),
+        }
+    }
+    go(a, b, true)
+}
+
 /// [`value_for_message`], for a term.
 pub fn term_for_message(g: &Ev, names: &[Name], term_: &Term) -> String {
     term_within(g, None, names, term_, MESSAGE_LIMIT, Prec::Arrow, None)
@@ -499,6 +643,10 @@ fn term_within(
 /// A term of more nodes than this is not printed in full by
 /// [`term_within`]: the text would be far longer than any limit.
 const FULL_PRINT_NODES: usize = 20_000;
+
+/// How many entries of a `Map` a goal or message shows before `…`; a map's
+/// raw tree is no way to read its contents anyway (SW-3432).
+const MAP_ENTRIES_SHOWN: usize = 8;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Prec {
@@ -763,7 +911,10 @@ impl<'g> Printer<'g> {
             Term::Var(ix) => {
                 let name = names.len().checked_sub(ix + 1).map_or_else(
                     || format!("?{ix}"),
-                    |l| readable(&names[l], names).to_string(),
+                    |l| match text_rest_name(names, l) {
+                        Some(text) => format!("{text}.toList"),
+                        None => readable(&names[l], names).to_string(),
+                    },
                 );
                 (name, Prec::Atom)
             }
@@ -781,7 +932,7 @@ impl<'g> Printer<'g> {
             Term::Sort(Sort::Prop) => ("Prop".into(), Prec::Atom),
             Term::Sort(Sort::Type(0)) => ("Type".into(), Prec::Atom),
             Term::Sort(Sort::Type(i)) => (format!("Type {i}"), Prec::App),
-            Term::Refl => ("rfl".into(), Prec::Atom),
+            Term::Refl => ("byComputing".into(), Prec::Atom),
             Term::Nat(n) => (n.to_string(), Prec::Atom),
             // A compact list of characters, as the list literal it stands for.
             Term::Chars(chars) => (show_chars(chars.as_slice()), Prec::Atom),
@@ -891,7 +1042,7 @@ impl<'g> Printer<'g> {
             Term::Ctor(d, 0, _) if is(self.g, Builtin::UnitType, *d) => ("()".into(), Prec::Atom),
             // A double with known valid bits, as its literal: `1.5`, `-0.0`,
             // `Float.nan`. Whatever its witness: every way of building a
-            // `Float` with known bits gives `rfl` (`Float.make`), and a
+            // `Float` with known bits gives `byComputing` (`Float.make`), and a
             // value read back from a runtime has none (SW-1000: a list of
             // them printed as `{ bits = …, valid = ?1 }`).
             Term::Ctor(d, 0, args)
@@ -934,22 +1085,17 @@ impl<'g> Printer<'g> {
                 }
                 (format!("[{}]", shown.join(", ")), Prec::Atom)
             }
-            // A record, as a literal: `{ name = "A", age = 3 }`.
-            Term::Ctor(d, 0, args) if self.g.data(*d).record => {
-                if let Some(update) = self.record_update(names, *d, args) {
-                    return (update, Prec::Atom);
+            // A `Map`, as the `Map.fromList` it was built with: its
+            // representative is a raw search tree, and printing that out
+            // says nothing a reader wants (SW-3432).
+            Term::Ctor(d, 0, args) if &*self.g.data(*d).path == "Std.Map" => {
+                if let Some(shown) = self.map_from_list(names, args) {
+                    return shown;
                 }
-                let fields: Vec<String> = self.g.data(*d).ctors[0]
-                    .fields
-                    .iter()
-                    .zip(args)
-                    .map(|((f, _), a)| format!("{f} = {}", self.print(names, a, Prec::Arrow)))
-                    .collect();
-                if fields.is_empty() {
-                    return ("{}".into(), Prec::Atom);
-                }
-                (format!("{{ {} }}", fields.join(", ")), Prec::Atom)
+                self.go_record(names, *d, args)
             }
+            // A record, as a literal: `{ name = "A", age = 3 }`.
+            Term::Ctor(d, 0, args) if self.g.data(*d).record => self.go_record(names, *d, args),
             // A pair, as a tuple: `(1, 2, 3)` is `MkPair 1 (MkPair 2 3)`.
             Term::Ctor(d, 0, args) if is(self.g, Builtin::Pair, *d) && args.len() == 2 => {
                 let mut items = vec![&*args[0]];
@@ -1000,6 +1146,27 @@ impl<'g> Printer<'g> {
                 if let Some(chars) = text_literal(self.g, term) {
                     return (format!("\"{}\"", escape(&chars, '"')), Prec::Atom);
                 }
+                if is(self.g, Builtin::Text, *d)
+                    && let [chars] = &args[..]
+                {
+                    // The text a prefix pattern's `rest` names, and a text
+                    // known to start with some characters, as the pattern
+                    // `"--" ++ rest` that matched it.
+                    if let Term::Var(ix) = chars.strip_loc()
+                        && let Some(l) = names.len().checked_sub(ix + 1)
+                        && let Some(text) = text_rest_name(names, l)
+                    {
+                        return (text, Prec::Atom);
+                    }
+                    if let Some((start, tail)) = char_prefix(self.g, chars) {
+                        let rest = Term::Ctor(*d, *c, vec![Rc::new(tail.clone())]);
+                        let rest = self.print(names, &rest, Prec::Append);
+                        return (
+                            format!("\"{}\" ++ {rest}", escape(&start, '"')),
+                            Prec::Append,
+                        );
+                    }
+                }
                 if let Some(items) = list_literal(self.g, term) {
                     let items: Vec<String> = items
                         .iter()
@@ -1021,7 +1188,9 @@ impl<'g> Printer<'g> {
                     return (format!("[{}]", shown.join(", ")), Prec::Atom);
                 }
                 let ctor = &self.g.data(*d).ctors[*c];
-                let mut text = ctor.name.to_string();
+                let mut text = (self.scope)
+                    .and_then(|scope| scope.ctor_name(*d, *c))
+                    .unwrap_or_else(|| ctor.name.to_string());
                 // A constructor declared with its fields in braces is shown
                 // by field name, as it can be written. (With implicit fields
                 // it is shown positionally, which braces can't say.)
@@ -1049,6 +1218,122 @@ impl<'g> Printer<'g> {
                 (text, prec)
             }
             _ => unreachable!("`go_node` sends only ctor forms here"),
+        }
+    }
+
+    /// A record, as a literal: `{ name = "A", age = 3 }`.
+    fn go_record(&self, names: &mut Vec<Name>, d: DataId, args: &[Rc<Term>]) -> (String, Prec) {
+        if let Some(update) = self.record_update(names, d, args) {
+            return (update, Prec::Atom);
+        }
+        let fields: Vec<String> = self.g.data(d).ctors[0]
+            .fields
+            .iter()
+            .zip(args)
+            .map(|((f, _), a)| format!("{f} = {}", self.print(names, a, Prec::Arrow)))
+            .collect();
+        if fields.is_empty() {
+            return ("{}".into(), Prec::Atom);
+        }
+        (format!("{{ {} }}", fields.join(", ")), Prec::Atom)
+    }
+
+    /// A `Map` value, as the `Map.fromList` it was built with, rather than
+    /// the raw search tree its quotient holds (SW-3432). `None` if the value
+    /// wasn't built from a list or a raw tree, so the record is shown.
+    fn map_from_list(&self, names: &mut Vec<Name>, args: &[Rc<Term>]) -> Option<(String, Prec)> {
+        let [raw] = args else { return None };
+        let Term::Quot(QuotForm::Mk, quot_args, _) = raw.strip_loc() else {
+            return None;
+        };
+        let representative = quot_args.last()?.strip_loc();
+        // Built from a list: `Map.Raw.fromListFast xs` (or `fromList`,
+        // `fromListChecked`). Its first explicit argument is the list.
+        let (head, spine) = full_spine(representative);
+        if let Term::Def(id) = head {
+            let built_from = match &*self.g.def(*id).path {
+                "Std.Map.Raw.fromListFast"
+                | "Std.Map.Raw.fromList"
+                | "Std.Map.Raw.fromListChecked" => (spine.iter())
+                    .find(|(_, icit)| *icit == Icit::Explicit)
+                    .map(|(list, _)| *list),
+                _ => None,
+            };
+            if let Some(list) = built_from {
+                let list = match list_literal(self.g, list) {
+                    Some(items) if items.len() > MAP_ENTRIES_SHOWN => {
+                        let shown: Vec<String> = items
+                            .iter()
+                            .take(MAP_ENTRIES_SHOWN)
+                            .map(|item| self.print(names, item, Prec::Arrow))
+                            .collect();
+                        format!("[{}, …]", shown.join(", "))
+                    }
+                    _ => self.print(names, list, Prec::Atom),
+                };
+                return Some((format!("Map.fromList {list}"), Prec::App));
+            }
+        }
+        // Read back as a raw map's record: its tree, in key order.
+        let Term::Ctor(raw_data, 0, raw_args) = representative else {
+            return None;
+        };
+        if &*self.g.data(*raw_data).path != "Std.Map.Raw" {
+            return None;
+        }
+        let tree_at = (self.g.data(*raw_data).ctors().first()?.fields.iter())
+            .position(|(field, _)| &**field == "tree")?;
+        let mut entries = Vec::new();
+        let mut more = false;
+        self.map_tree_entries(names, raw_args.get(tree_at)?, &mut entries, &mut more)?;
+        let mut shown = entries.join(", ");
+        if more {
+            shown.push_str(", …");
+        }
+        Some((format!("Map.fromList [{shown}]"), Prec::Atom))
+    }
+
+    /// The entries of a `Map.Tree`, in key order, into `entries`; `more`
+    /// is set if there are more than [`MAP_ENTRIES_SHOWN`]. `None` if
+    /// `tree` isn't one.
+    fn map_tree_entries(
+        &self,
+        names: &mut Vec<Name>,
+        tree: &Term,
+        entries: &mut Vec<String>,
+        more: &mut bool,
+    ) -> Option<()> {
+        if *more {
+            return Some(());
+        }
+        let Term::Ctor(d, c, args) = tree.strip_loc() else {
+            return None;
+        };
+        if &*self.g.data(*d).path != "Std.Map.Tree" {
+            return None;
+        }
+        let ctors = self.g.data(*d).ctors();
+        match c {
+            0 if &*ctors.first()?.name == "Tip" => Some(()),
+            1 if &*ctors.get(1)?.name == "Bin" => {
+                let fields = &ctors[1].fields;
+                let at = |name: &str| fields.iter().position(|(field, _)| &**field == name);
+                let (left, key, value, right) =
+                    (at("left")?, at("key")?, at("value")?, at("right")?);
+                self.map_tree_entries(names, args.get(left)?, entries, more)?;
+                if *more {
+                    return Some(());
+                }
+                if entries.len() >= MAP_ENTRIES_SHOWN {
+                    *more = true;
+                    return Some(());
+                }
+                let key = self.print(names, args.get(key)?, Prec::Arrow);
+                let value = self.print(names, args.get(value)?, Prec::Arrow);
+                entries.push(format!("({key}, {value})"));
+                self.map_tree_entries(names, args.get(right)?, entries, more)
+            }
+            _ => None,
         }
     }
 
@@ -1167,8 +1452,26 @@ impl<'g> Printer<'g> {
                 shown
             }
             Term::Meta(_) if let Some(name) = self.label(names, term) => name,
-            Term::Meta(m) => (format!("?{m}"), Prec::Atom),
+            Term::Meta(m) => (
+                self.g
+                    .shown
+                    .unknown(*m, names)
+                    .unwrap_or_else(|| format!("?{m}")),
+                Prec::Atom,
+            ),
             Term::App(..) if let Some(shown) = self.label(names, term) => shown,
+            // An unknown applied to the variables it may depend on, as
+            // its name: those variables are not what the reader cares about.
+            Term::App(..)
+                if let (Term::Meta(m), args) = term.spine()
+                    && let Some(name) = self.g.shown.unknown(*m, names) =>
+            {
+                let skip = args
+                    .iter()
+                    .take_while(|a| matches!(a.strip_loc(), Term::Var(_)))
+                    .count();
+                self.applied(names, name, args.into_iter().skip(skip))
+            }
             Term::App(..) if let Some(shown) = self.update(names, term) => (shown, Prec::Atom),
             Term::App(..)
                 if !self.show_hidden.get()
@@ -3367,6 +3670,16 @@ fn char_list(g: &Ev, term: &Term) -> Option<Vec<char>> {
             _ => return None,
         }
     }
+}
+
+/// A list that starts with character literals and goes on with something
+/// unknown: those characters and the rest.
+fn char_prefix<'t>(g: &Ev, term: &'t Term) -> Option<(Vec<char>, &'t Term)> {
+    let (items, tail) = open_list(g, term)?;
+    let chars = (items.iter())
+        .map(|item| char_literal(g, item))
+        .collect::<Option<Vec<char>>>()?;
+    Some((chars, tail))
 }
 
 /// `['h', 'i']`.

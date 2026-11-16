@@ -162,8 +162,18 @@ page; Semantic Scholar's API answered once, then returned 429.
   PDFs weren't tried.
 - **Unison**: a "handlers up to 2–80× faster" claim for a June 2025 release
   came from one social post. I didn't find the release notes **[unverified]**.
+  *Checked 15 Nov 2026:* [unison-lang.org/blog](https://www.unison-lang.org/blog)
+  lists no post between 18 Feb and 27 Aug 2025, and no post mentions handler
+  speed; Unison 1.0 itself shipped in late November 2025
+  ([unison-lang.org/unison-1-0](https://www.unison-lang.org/unison-1-0/),
+  date from a search summary). The claim stays **[unverified]**.
 - **Koka v3.2** (July 2025): no release notes found. Only v3.1's "redesign
   of named effect generation" was seen **[unverified]**.
+  *Checked 15 Nov 2026:* the GitHub releases API
+  ([v3.2.0](https://github.com/koka-lang/koka/releases/tag/v3.2.0)) shows it
+  published 17 Jul 2025, and its body is install instructions only, so
+  there are no release notes to find (verified). The v3.1 wording is still
+  **[unverified]**: v3.1.0's notes weren't read for it.
 - **F\* "Programming and Proving with Indexed Effects"**: listed "in
   submission"; venue and year unknown.
 - **Lean `Std.Do`**: the predicate-transformers page was truncated before the
@@ -403,7 +413,7 @@ for Closed Effect Rows", TFP 2022.**
 [PDF](https://prg.is.titech.ac.jp/papers/pdf/tfp2022inference.pdf). Claim:
 Koka closes the rows of `let`-bound functions and opens them again at use
 sites; this paper formalises it and proves it sound and complete
-**[unverified]** (search summary). Steal: a citation, and a check, for D1124
+(search summary at first; confirmed by the full text, below). Steal: a citation, and a check, for D1124
 (an undecided row unknown becomes `Empty`). Helps effect-polymorphism.md
 §5.C.1. Cost: none (reading). Full text: not read.
 *Full text:* read ([PDF](https://prg.is.titech.ac.jp/papers/pdf/tfp2022inference.pdf),
@@ -423,7 +433,7 @@ repeat a label (§3.1.3); Stitchwort's may not.
 Application to Algebraic Effect Handlers", LMCS 2022.**
 [LMCS](https://lmcs.episciences.org/9702). Claim: strong normalisation of a
 CBPV calculus with handlers and effect theories, by semantic labelling and
-the General Schema **[unverified]** (abstract). Steal: a reference for the
+the General Schema (abstract at first; confirmed by the full text, below). Steal: a reference for the
 write-up that T1 asks for (termination of the *source* semantics, as a
 second argument beside the kernel's check of the translation). Cost:
 reading. Full text: not read.
@@ -444,7 +454,7 @@ Specifications", ECOOP 2023.**
 [DROPS](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ECOOP.2023.30).
 Claim: a specification is an interaction tree with quantifier events
 (`forall`, `exists`), and refinement between trees gives syntax-directed,
-"auto-active" proofs **[unverified]** (abstract). Steal: specifications
+"auto-active" proofs (abstract at first; confirmed by the full text, below). Steal: specifications
 written in the program's own language, as trees. This is an alternative to
 the predicate transformers of C3 for SW-570. Cost: research project. Full
 text: not read.

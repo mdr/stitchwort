@@ -7,7 +7,18 @@ type Direction = | Up | Down | Left | Right
 
 type DirectionKey = | Arrow (direction: Direction) | Activate
 
-type NumericKey = | Digit0 | Digit1 | Digit2 | Digit3 | Digit4 | Digit5 | Digit6 | Digit7 | Digit8 | Digit9 | Enter
+type NumericKey =
+  | Digit0
+  | Digit1
+  | Digit2
+  | Digit3
+  | Digit4
+  | Digit5
+  | Digit6
+  | Digit7
+  | Digit8
+  | Digit9
+  | Enter
 
 type Costs = DirectionKey → DirectionKey → Nat
 

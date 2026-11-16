@@ -13,7 +13,7 @@ import Std (Bool, Eq, List, Nat, Option, Void)
 
 --| Part 1 is the sum of the risk levels of the low points, for every map.
 theorem part1Correct ∀ (map: HeightMap): solvePart1 map = part1 map :=
-  rewrite lowPointsAgree map in
+  rewrite lowPointsAgree map then
     List.sumByCong (lowPoints map) (entry => entry.snd + 1) (entry => riskLevel entry.snd) (entry =>
       Nat.addComm entry.snd 1)
 
@@ -41,10 +41,10 @@ theorem lowerThanAdjacent ∀ (map: HeightMap) (position: Position) (height: Nat
       match entry with
         | (other, otherHeight) =>
           match near: adjacent position other with
-            | False => rfl
+            | False => byComputing
             | True =>
               let below := low.read other (adjacentNeighbour position other near)
-              rewrite heightOfMemCells map other otherHeight inCells at below in below))
+              rewrite heightOfMemCells map other otherHeight inCells at below then below))
 
 --| Lower than every adjacent cell: lower than the neighbours on the map.
 theorem lowerThanNeighbours ∀ (map: HeightMap) (position: Position) (height: Nat)
@@ -53,7 +53,7 @@ theorem lowerThanNeighbours ∀ (map: HeightMap) (position: Position) (height: N
   List.allOfAll _ position.neighbours
     (List.allOfMem _ position.neighbours (next isNeighbour =>
       match h: map.heightAt next with
-        | None => rfl
+        | None => byComputing
         | Some otherHeight =>
           let atCell := lower.read (next, otherHeight) (memCellsOfHeight map next otherHeight h)
-          rewrite neighbourAdjacent position next isNeighbour at atCell in atCell))
+          rewrite neighbourAdjacent position next isNeighbour at atCell then atCell))

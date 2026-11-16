@@ -5,19 +5,19 @@
 
 --| A `Bool` whose `toNat` is 0 is `False`.
 theorem Bool.toNatEqZero ∀ (b: Bool) (h: Bool.toNat b = 0): b = False := match b with
-  | False => rfl
-  | True => Void.exfalso (Nat.succNotZero 0 h)
+  | False => byComputing
+  | True => (Nat.succNotZero 0 h).impossible
 
 --| `toNat` of a conjunction: the second `Bool`'s count, kept only when the
 --| first holds.
 theorem Bool.toNatAnd ∀ (a: Bool) [b: Bool]: Bool.toNat (a ∧ b) = b.toNat.keepIf a := match a with
-  | True => rfl
-  | False => rfl
+  | True => byComputing
+  | False => byComputing
 
 --| The parity of a `Bool`'s `toNat` is the `Bool`.
 theorem Bool.toNatOdd ∀ (b: Bool): (b.toNat % 2 == 1) = b := match b with
-  | False => rfl
-  | True => rfl
+  | False => byComputing
+  | True => byComputing
 
 test "Bool.toNatAnd" :=
   Bool.toNat (True ∧ False) == Nat.keepIf (Bool.toNat False) True

@@ -210,7 +210,7 @@ What this says **[inferred]**:
   unknown's bits instead, which is its own blow-up. Not a fit for a
   language whose `Nat` is defined unary.
 - Nobody **runs division natively on open arguments**; Lean's kernel
-  accelerations apply to literals [the kernel's list is **[unverified]**;
+  accelerations apply to literals [the kernel's list, read in `src/kernel/type_checker.cpp` `reduce_nat` (lean4 918003258c, 15 Nov 2026): `succ`, `add`, `sub`, `mul`, `pow`, `gcd`, `mod`, `div`, `beq`, `ble`, `land`, `lor`, `xor`, `shiftLeft`, `shiftRight`, all on literals **[checked in source]**;
   the elaborator's is read], and Agda's builtins to literal arguments.
 
 ## 4. Options
@@ -273,7 +273,7 @@ Succ (x + 99)`, which the rules promise (nat-add-recursion.md §9)
 ### (c) Lazier unfolding, or a cap, in normalisation and printing
 
 Keep a call folded when its unfolding gets stuck below the top (Rocq's
-`cbn` refolding; Lean's "smart unfolding" **[unverified]** in detail), or
+`cbn` refolding; Lean's "smart unfolding": auxiliary `_sunfold` definitions in `Lean/Meta/WHNF.lean` **[checked that it exists, 15 Nov 2026]**, **[unverified]** in detail), or
 stop normalising under an undecided `if` past a depth. Related:
 `docs/proposals/folded-calls.md` (SW-251). It would need glued values (the
 folded call kept beside its unfolding) in quote and in the reference

@@ -16,12 +16,12 @@ theorem largestIsLargest ∀ (areas: List Nat): Largest areas (largest areas) :=
 --| It is one of the areas, or 0 when there are none.
 theorem largestInList ∀ (areas: List Nat): (List.Mem (largest areas) areas) ∨ ((areas = []) ∧ (largest areas = 0)) :=
   match areas with
-    | [] => Inr (Both rfl rfl)
+    | [] => Inr (Both byComputing byComputing)
     | [first, ..rest] =>
       match List.foldMaxMem [first, ..rest] 0 with
         | Inr m => Inl m
         -- The largest is 0, and the first area is at most that: 0 too.
-        | Inl zero => Inl (Inl (omega [List.leFoldMax [first, ..rest] first 0 (Inl rfl)]))
+        | Inl zero => Inl (Inl (arithmetic [List.leFoldMax [first, ..rest] first 0 (Inl byComputing)]))
 
 theorem part1Correct ∀ (tiles: List Point): Part1 tiles (solvePart1 tiles) :=
   largestIsLargest (List.map (List.map (List.pairs tiles) Rectangle.ofPair) Rectangle.area)

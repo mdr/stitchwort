@@ -45,7 +45,7 @@ theorem remotePinsKeptAsTheyWere ∀ (local remote: Trip)
     (m: pin ∈ remote.pins):
     pin ∈ (merge local remote).pins :=
   remotePinsKept local remote pin m pin
-    (rewrite same in
+    (rewrite same then
       placePinSelf remote.legs wr.legIds pin
         (List.memOfAll (p => pinFits remote.legs p = True) remote.pins wr.pinsFit pin m))
 
@@ -57,7 +57,7 @@ theorem stopIdsKept ∀ (local remote: Trip) (id: Nat)
   let replaced := planReplaced local.itinerary remote.itinerary
   let fromLocal := local.stops.map (stop => ((if replaced then unlink stop else stop), locate local.legs stop.start))
   let fromRemote := remote.stops.map (stop => (stop, locate remote.legs stop.start))
-  rewrite stopIdsOf local remote legs in
+  rewrite stopIdsOf local remote legs then
     match m with
       | Inl inLocal =>
         List.anyElim
@@ -66,7 +66,7 @@ theorem stopIdsKept ∀ (local remote: Trip) (id: Nat)
           local.stops
           (List.memMapAny local.stops (stop => stop.id) id inLocal)
           (stop inStops e =>
-            rewrite <- e, <- localStopId replaced stop in
+            rewrite <- e, <- localStopId replaced stop then
               List.keyMemAppendNewByLeft
                 (entry => entry.fst.id)
                 fromLocal
@@ -81,7 +81,7 @@ theorem stopIdsKept ∀ (local remote: Trip) (id: Nat)
           remote.stops
           (List.memMapAny remote.stops (stop => stop.id) id inRemote)
           (stop inStops e =>
-            rewrite <- e in
+            rewrite <- e then
               List.keyMemAppendNewByRight
                 (entry => entry.fst.id)
                 fromLocal
@@ -96,7 +96,7 @@ theorem albumIdsKept ∀ (local remote: Trip) (id: Nat)
   let fromLocal := local.albums.map (album => (withPhotosOf remote.albums album, locate local.legs album.start))
   let fromRemote := remote.albums.map (album => (album, locate remote.legs album.start))
   rewrite List.mapMap (albumEntries local remote) (album => album.id) (entry =>
-        keepOwned (ownerIn local remote) (entry.fst.startAt (settle legs entry.snd))) in
+        keepOwned (ownerIn local remote) (entry.fst.startAt (settle legs entry.snd))) then
     match m with
       | Inl inLocal =>
         List.anyElim
@@ -105,7 +105,7 @@ theorem albumIdsKept ∀ (local remote: Trip) (id: Nat)
           local.albums
           (List.memMapAny local.albums (album => album.id) id inLocal)
           (album inAlbums e =>
-            rewrite <- e, <- withPhotosOfId remote.albums album in
+            rewrite <- e, <- withPhotosOfId remote.albums album then
               List.keyMemAppendNewByLeft
                 (entry => entry.fst.id)
                 fromLocal
@@ -120,7 +120,7 @@ theorem albumIdsKept ∀ (local remote: Trip) (id: Nat)
           remote.albums
           (List.memMapAny remote.albums (album => album.id) id inRemote)
           (album inAlbums e =>
-            rewrite <- e in
+            rewrite <- e then
               List.keyMemAppendNewByRight
                 (entry => entry.fst.id)
                 fromLocal
@@ -140,7 +140,7 @@ theorem summaryMatches ∀ (local remote: Trip) (summary: Summary)
     | False =>
       match d: local.legs == legs with
         | True => Inr (Both h (DecEq.sound d))
-        | False => Void.exfalso (Option.noneNotSome summary h)
+        | False => (Option.noneNotSome summary h).impossible
 
 -- So if each copy's summary was made from its legs, the merged one is made
 -- from the merged legs.
@@ -153,5 +153,5 @@ theorem mergeSummaryFresh ∀ (local remote: Trip)
     SummaryFresh (merge local remote) :=
   summary h =>
     match summaryMatches local remote summary h with
-      | Inl (Both s e) => rewrite <- e in fr summary s
-      | Inr (Both s e) => rewrite <- e in fl summary s
+      | Inl (Both s e) => rewrite <- e then fr summary s
+      | Inr (Both s e) => rewrite <- e then fl summary s

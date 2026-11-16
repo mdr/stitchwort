@@ -303,7 +303,7 @@ theorem apart [auto eq: DecEq a] (x y: a) (h: (x == y) = False): x ≠ y := h.re
 
 theorem both [auto eq: DecEq a] (x y z: a) (h: (x == y && y == z) = True): x = z :=
   match h with
-    | Both xy yz => rewrite xy.read, yz.read in rfl
+    | Both xy yz => rewrite xy.read, yz.read then byComputing
 ";
     for glue in [true, false] {
         let mut session = Session::new();

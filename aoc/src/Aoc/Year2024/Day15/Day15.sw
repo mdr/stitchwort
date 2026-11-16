@@ -39,12 +39,12 @@ type Document = { warehouse: Warehouse, moves: List Direction }
 --| What one character of the map shows.
 type Tile = | Wall | Box | Robot | Floor
 
-def tile(): {Parse} Tile := pick [("#", Wall), ("O", Box), ("@", Robot), (".", Floor)]
+def tile(): {Parse Char} Tile := pick [("#", Wall), ("O", Box), ("@", Robot), (".", Floor)]
 
-def move(): {Parse} Direction := pick [("^", Up), ("v", Down), ("<", Left), (">", Right)]
+def move(): {Parse Char} Direction := pick [("^", Up), ("v", Down), ("<", Left), (">", Right)]
 
 --| The map, a blank line, then the moves, over as many lines as they take.
-def document(): {Parse} (List (List Tile), List Direction) :=
+def document(): {Parse Char} (List (List Tile), List Direction) :=
   let rows := section (() => many1 tile |> .toList) |> .toList
   let moves := lines (() => many1 move |> .toList) |> .toList |> .concat
   (rows, moves)

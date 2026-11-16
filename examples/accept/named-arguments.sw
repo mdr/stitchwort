@@ -6,7 +6,10 @@ import Std (Vec)
 
 def between (low high: Nat): Nat := high - low
 
-def clampTo (low high value: Nat): Nat := if value < low then low else if value > high then high else value
+def clampTo (low high value: Nat): Nat :=
+  if value < low then low
+  else if value > high then high
+  else value
 
 def place (x y: Nat): Nat := x * 10 + y
 
@@ -113,4 +116,4 @@ test "a pipe fills the first parameter" := (5 |> clampValue (low := 0) (high := 
 test "a pipe after a named argument" := (20 |> clampValue (high := 10) (low := 0)) == 10
 
 -- Proofs see the positional term.
-theorem namedIsPositional ∀ (low high: Nat): between (high := high) (low := low) = between low high := rfl
+theorem namedIsPositional ∀ (low high: Nat): between (high := high) (low := low) = between low high := byComputing

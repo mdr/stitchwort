@@ -21,7 +21,7 @@ theorem mapToOption ∀ (f: Nat → {Fail} Nat) (xs: List Nat):
 theorem lengthThen ∀ (f: Nat → {Fail} Nat) (xs: List Nat):
     Result.map (Fail.toResult (() => [0, ..xs.map f])) List.length
       = Result.map (Result.flatMap (Fail.toResult (() => xs.map f)) (ys => Ok [0, ..ys])) List.length :=
-  rewrite Fail.toResultThen (() => xs.map f) (ys => [0, ..ys]) in rfl
+  rewrite Fail.toResultThen (() => xs.map f) (ys => [0, ..ys]) then byComputing
 
 -- A thunk whose type mentions its `()` still splits it: the goal becomes
 -- `P ()`.
@@ -36,4 +36,4 @@ def thunkSplits: (u: ()) → unitOnly u := () => 3
 -- trace and the two thunks are one term (SW-424).
 theorem twiceThen ∀ (t: () → {Fail} Nat):
     Fail.toResult (() => Succ (Succ (t ()))) = Result.flatMap (Fail.toResult (() => Succ (t ()))) (x => Ok (Succ x)) :=
-  rewrite Fail.toResultThen (() => Succ (t ())) (x => Succ x) in rfl
+  rewrite Fail.toResultThen (() => Succ (t ())) (x => Succ x) then byComputing

@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -29,20 +29,20 @@ expression: json
         "file": 0,
         "message": "row: Nat\ncolumn: Nat\nwall: isWall row column = False\n⊢ row = row",
         "range": [
-          11,
-          15,
-          11,
-          16
+          10,
+          13,
+          10,
+          14
         ]
       }
     ],
     "message": "in `stepped`",
     "notes": [],
     "range": [
-      11,
-      15,
-      11,
-      16
+      10,
+      13,
+      10,
+      14
     ],
     "severity": "goal"
   }

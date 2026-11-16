@@ -92,7 +92,7 @@ them. Each point, what changed, and what the code says where it bears on it.
   edit misses the edited unit and everything that depends on it **[checked]**. A warm-versus-cold
   test harness already exists (`crates/cli/tests/check_cache.rs`) **[checked]**.
 - **`split_decls` isn't bracket-aware.** It starts a group at *every* column-0 token except `:=`
-  (`crates/syntax/src/parser.rs:254`) **[checked]**, so a `]` at column 0 closing a multi-line
+  (`crates/syntax/src/parser.rs`) **[checked]**, so a `]` at column 0 closing a multi-line
   attribute group would start a group. Bracket depth is counted separately in several places
   (`parser.rs` around 186, 455, 474, and `parser/declarations.rs`), each matching
   `LParen | LBracket | LBrace` **[checked]**; `@[` must join every one.
@@ -232,7 +232,7 @@ The facts that matter here:
   (`crates/syntax/src/lexer.rs`, the `_ =>` arm of the operator match) **[checked]**, so `@[` is
   free. `%` is the remainder operator. Comments are `--`. Declarations start at column 0, and the
   parser first splits a file into one token group per column-0 token (`split_decls`,
-  `crates/syntax/src/parser.rs:254`) **[checked]**.
+  `crates/syntax/src/parser.rs`) **[checked]**.
 
 ## 2. The problem
 
@@ -276,8 +276,8 @@ design (overlapping alternatives, branch selection, diagnostics).
 | System | Syntax | Where | Set | Unknown name | Affects identity? |
 |---|---|---|---|---|---|
 | Rust | `#[path]`, `#[path = "s"]`, `#[path(…)]`; inner `#![…]` | before items, fields, variants | open: built-ins, macro attributes, derive helpers, tool attributes | error ("cannot find attribute") **[cited]** | n/a |
-| serde (Rust derive) | `#[serde(tag = "type", rename = "…", rename_all = "…")]` | container, variant, field | closed per derive | compile error from the derive **[unverified]** | n/a |
-| Lean 4 | `@[simp, inline]`; `attribute [simp] f` later; `-simp` erases; `local`/`scoped` | before declarations | open (extensible syntax category) | error **[unverified]** | not in the kernel's declaration **[inferred]** |
+| serde (Rust derive) | `#[serde(tag = "type", rename = "…", rename_all = "…")]` | container, variant, field | closed per derive | compile error from the derive: "unknown serde container/variant/field attribute" ([serde_derive `attr.rs`](https://github.com/serde-rs/serde/blob/master/serde_derive/src/internals/attr.rs), read 15 Nov 2026) **[cited]** | n/a |
+| Lean 4 | `@[simp, inline]`; `attribute [simp] f` later; `-simp` erases; `local`/`scoped` | before declarations | open (extensible syntax category) | error: "Unknown attribute" ([Lean/Attributes.lean](https://github.com/leanprover/lean4/blob/master/src/Lean/Attributes.lean), read 15 Nov 2026) **[cited]** | not in the kernel's declaration **[inferred]** |
 | Kotlin + kotlinx.serialization | `@SerialName("x")`, `@JsonClassDiscriminator("type")` | classes, properties | open (annotation classes) | error (must resolve to a class) **[inferred]** | n/a |
 | C# / System.Text.Json | `[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]`, `[JsonDerivedType(typeof(D), "d")]` | on the base type | open (classes) | error **[inferred]** | n/a |
 | Swift Codable | `enum CodingKeys: String, CodingKey { case name = "user_name" }` | a nested declaration, not an attribute | n/a | n/a | n/a |
@@ -287,10 +287,10 @@ design (overlapping alternatives, branch selection, diagnostics).
 | F# + FSharp.SystemTextJson | `[<JsonName "x">]` on cases and fields; tag key by converter option `UnionTagName` | case, field; option | open (.NET) | **[inferred]** | n/a |
 | Idris 2 | `%inline`, `%foreign`, `%name`, … | before declarations, or file-level | closed list in the reference **[cited]** | **[unverified]** | n/a |
 | Scala | `@tailrec`, `@deprecated("…")` | before definitions; order irrelevant **[cited]** | open (classes) | error **[inferred]** | n/a |
-| Gleam | `@external(javascript, "./m.mjs", "f")`, `@deprecated` | before functions/types | closed **[unverified]** | **[unverified]** | n/a |
+| Gleam | `@external(javascript, "./m.mjs", "f")`, `@deprecated` | before functions/types | closed: the parser accepts `external`, `target`, `deprecated`, `internal` **[cited]** | error `UnknownAttribute` **[cited]** (both [compiler-core/src/parse.rs](https://github.com/gleam-lang/gleam/blob/main/compiler-core/src/parse.rs), read 15 Nov 2026) | n/a |
 | Unison | none; names, docs and metadata stored *beside* the hash | separate | n/a | n/a | names "don't affect the function's hash" **[cited]** |
-| Elm, PureScript, Roc | no attributes; JSON by value-level decoders (Elm `Json.Decode`, PureScript codecs) **[unverified]** | n/a | n/a | n/a | n/a |
-| TypeScript | decorators `@d` are runtime functions on classes and members; not on type aliases or unions **[unverified]** | classes | open | error (an unresolved name) | n/a |
+| Elm, PureScript, Roc | no attributes; JSON by value-level decoders (Elm `Json.Decode`, PureScript codecs); Elm **[cited]** ([elm/json README](https://github.com/elm/json): `decoder : D.Decoder Cause`), PureScript **[unverified]** | n/a | n/a | n/a | n/a |
+| TypeScript | decorators `@d` are runtime functions on classes and members; not on type aliases or unions: the [handbook](https://www.typescriptlang.org/docs/handbook/decorators.html) lists the attachable kinds as class declaration, method, accessor, property and parameter, which leaves those out, though it doesn't say so outright **[cited]** | classes | open | error (an unresolved name) | n/a |
 
 ### 3.2 The closest match: ReScript
 
@@ -322,7 +322,7 @@ Everyone who maps sum types to JSON objects ends up with the same small set:
   (default `"Case"`), ReScript `@tag` **[cited]**.
 - **Discriminant values and field keys**: serde `rename`, kotlinx `@SerialName`, STJ
   `JsonDerivedType(…, "x")`, ppx `[@name]`/`[@key]`, F# `JsonName`, ReScript `@as`, Swift
-  `CodingKeys` raw values **[cited]** (Swift **[unverified]**).
+  `CodingKeys` raw values **[cited]** (Swift **[unverified]**: the Apple page didn't load, and SE-0166 shows `CodingKeys` but not string raw values).
 - **A casing rule** applied to all names: serde `rename_all` (eight conventions:
   `lowercase`, `UPPERCASE`, `PascalCase`, `camelCase`, `snake_case`, `SCREAMING_SNAKE_CASE`,
   `kebab-case`, `SCREAMING-KEBAB-CASE`), aeson `constructorTagModifier`/`fieldLabelModifier`

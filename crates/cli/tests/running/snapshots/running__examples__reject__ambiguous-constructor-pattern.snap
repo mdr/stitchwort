@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AMBIGUOUS] Error: `Str` could mean `Doc.Str` or `Token.Str`
+    ╭─[ reject/ambiguous-constructor-pattern.sw:11:5 ]
+    │
+  6 │ type Token = | Str (text: Text) | Name (text: Text)
+    │                ─┬─  
+    │                 ╰─── `Token.Str` is declared here
+    │ 
+  8 │ type Doc = | Str (text: Text) | Line
+    │              ─┬─  
+    │               ╰─── `Doc.Str` is declared here
+    │ 
+ 11 │   | Str t => 1
+    │     ─┬─  
+    │      ╰─── write `Doc.Str` or `Token.Str`
+    │ 
+    │ Note: a constructor name means one thing in a file: qualify it with its type, or rename one of them. Types that share constructor names are best kept in separate files, so that only code that uses both has to import both
+────╯

@@ -4,7 +4,7 @@
 --
 -- About 60 minutes.
 --
--- Chapter 1 ended with a theorem `rfl` couldn't prove: no move beats
+-- Chapter 1 ended with a theorem `byComputing` couldn't prove: no move beats
 -- itself. `beats m m` is stuck, because the checker can't pick an arm of
 -- `beats` without knowing which move `m` is. This chapter gets it
 -- unstuck the obvious way: by looking at each move in turn. A proof by
@@ -49,15 +49,15 @@ import Book.Computing (Move, beats, Outcome, play, otherSide)
 -- the goal says `Rock` where it said `m`. The second line, dimmed in the
 -- editor, is what the goal computes to: `beats Rock Rock` is `False`,
 -- since the first three arms of `beats` don't fit and the last one does.
--- Both sides are now the same, which is when `rfl` works. The other two
+-- Both sides are now the same, which is when `byComputing` works. The other two
 -- arms show `beats Paper Paper = False` and `beats Scissors Scissors =
 -- False`, each computing to `False = False`. Replace each `?`
--- with `rfl`, and you have the proof back:
+-- with `byComputing`, and you have the proof back:
 
 theorem noSelfWin ∀ (m: Move): beats m m = False := match m with
-  | Rock => rfl
-  | Paper => rfl
-  | Scissors => rfl
+  | Rock => byComputing
+  | Paper => byComputing
+  | Scissors => byComputing
 
 -- This is the same `match` you wrote in `otherSide` in chapter 1, used
 -- in a proof. A proof by cases is a function that answers each case
@@ -71,12 +71,12 @@ theorem noSelfWin ∀ (m: Move): beats m m = False := match m with
 -- `match` turns red: `E-NONEXHAUSTIVE`, the cases `Lose` and `Draw` are
 -- missing. Put the cursor on `match` and press Cmd-.: "Add the missing
 -- arms" adds one arm for each, with `?` for its proof. Fill them in with
--- `rfl` again.
+-- `byComputing` again.
 
 theorem otherSideTwice ∀ (outcome: Outcome): otherSide (otherSide outcome) = outcome := match outcome with
-  | Win => rfl
-  | Lose => rfl
-  | Draw => rfl
+  | Win => byComputing
+  | Lose => byComputing
+  | Draw => byComputing
 
 -- A program's `match` has to cover every case for the same reason: a
 -- function must give an answer for every input. In a proof that's what
@@ -112,18 +112,18 @@ theorem otherSideTwice ∀ (outcome: Outcome): otherSide (otherSide outcome) = o
 --    `| Paper, Scissors`. Do the same for `Scissors`.
 --
 -- Now there are nine arms, and in each the goal computes, so each is
--- `rfl`, as here:
+-- `byComputing`, as here:
 
 theorem otherSideSwaps ∀ (mine theirs: Move): otherSide (play mine theirs) = play theirs mine := match mine, theirs with
-  | Rock, Rock => rfl
-  | Rock, Paper => rfl
-  | Rock, Scissors => rfl
-  | Paper, Rock => rfl
-  | Paper, Paper => rfl
-  | Paper, Scissors => rfl
-  | Scissors, Rock => rfl
-  | Scissors, Paper => rfl
-  | Scissors, Scissors => rfl
+  | Rock, Rock => byComputing
+  | Rock, Paper => byComputing
+  | Rock, Scissors => byComputing
+  | Paper, Rock => byComputing
+  | Paper, Paper => byComputing
+  | Paper, Scissors => byComputing
+  | Scissors, Rock => byComputing
+  | Scissors, Paper => byComputing
+  | Scissors, Scissors => byComputing
 
 -- Nine arms are the nine rounds the game can have; the proof checks every
 -- one. A `match` inside an arm (a *nested* `match`) would do the same job:
@@ -131,14 +131,14 @@ theorem otherSideSwaps ∀ (mine theirs: Move): otherSide (play mine theirs) = p
 --     match mine with
 --       | Rock =>
 --         match theirs with
---           | Rock => rfl
+--           | Rock => byComputing
 --           ...
 --
 -- Both are fine. Columns are shorter when every arm splits both moves.
 
--- ## 2.4 When `rfl` works with a variable
+-- ## 2.4 When `byComputing` works with a variable
 --
--- Splitting isn't always needed. `rfl` is stuck only when computing needs
+-- Splitting isn't always needed. `byComputing` is stuck only when computing needs
 -- to know a value it doesn't. Here is a function that sometimes doesn't
 -- need to look at both of its arguments.
 --
@@ -156,17 +156,17 @@ def both: (a: Answer) → (b: Answer) → Answer
   | Unknown, No => No
   | Unknown, _ => Unknown
 
-theorem yesAndAnything ∀ (b: Answer): both Yes b = b := rfl
+theorem yesAndAnything ∀ (b: Answer): both Yes b = b := byComputing
 
-theorem noAndAnything ∀ (b: Answer): both No b = No := rfl
+theorem noAndAnything ∀ (b: Answer): both No b = No := byComputing
 
--- Both are `rfl`, with `b` unknown. To compute `both No b`, the checker
+-- Both are `byComputing`, with `b` unknown. To compute `both No b`, the checker
 -- tries the arms in order: `Yes, b` doesn't fit, since the first answer
 -- is `No`; `No, _` fits whatever `b` is. So the answer is `No` without
 -- ever looking at `b`.
 --
 -- `both b No = No` is just as true, but it is stuck: the first arm
--- already needs to know whether `b` is `Yes`. Whether `rfl` works depends
+-- already needs to know whether `b` is `Yes`. Whether `byComputing` works depends
 -- on how the function is written, not only on what it computes. When it
 -- fails, the message says what it's stuck on, and that's what to split.
 
@@ -182,8 +182,12 @@ theorem noAndAnything ∀ (b: Answer): both No b = No := rfl
 -- each `_ = ...` line says what the previous value equals):
 
 theorem beatsMeansWinSteps ∀ (mine theirs: Move) (h: beats mine theirs): play mine theirs = Win := calc play mine theirs
-  _ = (if beats mine theirs then Win else if beats theirs mine then Lose else Draw)
-  _ = (if True then Win else if beats theirs mine then Lose else Draw) := rewrite h in rfl
+  _ = (if beats mine theirs then Win
+       else if beats theirs mine then Lose
+       else Draw)
+  _ = (if True then Win
+       else if beats theirs mine then Lose
+       else Draw) := rewrite h then byComputing
   _ = Win
 
 -- `_` stands for the value on the line above, so each line is one equation:
@@ -195,8 +199,8 @@ theorem beatsMeansWinSteps ∀ (mine theirs: Move) (h: beats mine theirs): play 
 -- 1. The first step unfolds `play`, which is computing.
 -- 2. The second uses `h`. It is the equation `beats mine theirs = True` (a
 --    `Bool` used as a statement means it is `True`; the Goals panel writes
---    it as `h: beats mine theirs`). `rewrite h in rfl` replaces `beats mine
---    theirs` by `True`, and then `rfl` checks the two sides are now equal.
+--    it as `h: beats mine theirs`). `rewrite h then byComputing` replaces `beats mine
+--    theirs` by `True`, and then `byComputing` checks the two sides are now equal.
 -- 3. The last step computes the `if`: `if True then Win else ...` is `Win`.
 --
 -- Put the cursor on each `_` line with the Goals panel open: it shows what
@@ -226,9 +230,9 @@ theorem beatsMeansWin ∀ (mine theirs: Move) (h: beats mine theirs): play mine 
 -- Sometimes a hypothesis rules a case out. Rock beats only scissors:
 
 theorem rockBeatsOnlyScissors ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs with
-  | Rock => Void.exfalso (Bool.falseNotTrue h)
-  | Paper => Void.exfalso (Bool.falseNotTrue h)
-  | Scissors => rfl
+  | Rock => (Bool.falseNotTrue h).impossible
+  | Paper => (Bool.falseNotTrue h).impossible
+  | Scissors => byComputing
 
 -- Replace the proof of the `Rock` arm with `?` and look at the panel:
 --
@@ -241,7 +245,7 @@ theorem rockBeatsOnlyScissors ∀ (theirs: Move) (h: beats Rock theirs): theirs 
 -- and `a ≠ b` is short for `a = b -> Void`: a function that takes a proof
 -- of `a = b` and gives back a value of `Void`, the type with no values at
 -- all. So `Bool.falseNotTrue h`, the function applied to `h`'s proof of
--- `False = True`, is a `Void`. Then `Void.exfalso` turns a `Void` into a
+-- `False = True`, is a `Void`. Then `Void.impossible` turns a `Void` into a
 -- proof of anything, since there is never a `Void` to give it. Hover over
 -- each to read its statement. They live in the library's `Bool` and `Void`
 -- namespaces, which is what the line `import Std (Bool, Void)` at the top
@@ -254,11 +258,11 @@ theorem rockBeatsOnlyScissors ∀ (theirs: Move) (h: beats Rock theirs): theirs 
 theorem rockBeatsOnlyScissorsAbsurd ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs, h with
   | Rock, ()
   | Paper, ()
-  | Scissors, _ => rfl
+  | Scissors, _ => byComputing
 
 -- `()` is the pattern for a value that can't exist. The checker computes
 -- the type `h` has in that arm, `False = True`, sees that it has no
--- proofs, and builds the `Void.exfalso` proof above itself. If the type
+-- proofs, and builds the `Void.impossible` proof above itself. If the type
 -- could have a value, it says so instead (`E-NOT-EMPTY`).
 --
 -- Before the shorter forms, look at the long one again: the checker tells
@@ -270,7 +274,7 @@ theorem rockBeatsOnlyScissorsAbsurd ∀ (theirs: Move) (h: beats Rock theirs): t
 -- Shorter still, leave the impossible arms out:
 
 theorem rockBeatsOnlyScissorsLeftOut ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs with
-  | Scissors => rfl
+  | Scissors => byComputing
 
 -- A `match` must cover every case, but a case where some hypothesis can't
 -- hold, like `h` for `Rock` and `Paper`, doesn't need covering: the checker
@@ -280,7 +284,7 @@ theorem rockBeatsOnlyScissorsLeftOut ∀ (theirs: Move) (h: beats Rock theirs): 
 -- ## 2.6 `cases`: all of this in one word
 --
 -- You've now split by hand often enough to see the pattern: split the
--- variable the goal is stuck on, compute, and close each case, with `rfl`
+-- variable the goal is stuck on, compute, and close each case, with `byComputing`
 -- or from a hypothesis that can't hold. `cases` does all of that by
 -- itself:
 
@@ -315,9 +319,9 @@ theorem rockBeatsOnlyScissorsAgain ∀ (theirs: Move) (h: beats Rock theirs): th
 --   adds them; on a variable in an arm's pattern it splits that arm;
 -- - inside an arm, the goal knows which constructor it is, so it can
 --   compute;
--- - `rfl` works with a variable when computing doesn't need its value;
+-- - `byComputing` works with a variable when computing doesn't need its value;
 -- - `rewrite h` uses an equation `h` to change the goal;
--- - `Void.exfalso (Bool.falseNotTrue h)` closes a case that can't happen;
+-- - `(Bool.falseNotTrue h).impossible` closes a case that can't happen;
 -- - `cases` does routine splits in one word.
 
 -- ## Exercises
@@ -342,7 +346,7 @@ theorem noMutualWins ∀ (mine theirs: Move) (h: beats mine theirs): beats their
 theorem bothSymmetric ∀ (a b: Answer): both a b = both b a := ?
 
 -- Exercise 2.4 (one star, by hand). A `No` on the right decides it too,
--- though not by `rfl` alone (section 2.4 says why).
+-- though not by `byComputing` alone (section 2.4 says why).
 
 theorem anythingAndNo ∀ (a: Answer): both a No = No := ?
 

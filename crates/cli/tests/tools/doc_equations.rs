@@ -53,7 +53,7 @@ def explode (depth: Nat): Number → Option Nat
       | Some n => Some n
       | None => explode (depth + 1) right
 
-theorem kindOfThree: kind 3 = 1 := rfl
+theorem kindOfThree: kind 3 = 1 := byComputing
 ";
 
 fn theorem_names(report: &Value) -> Vec<&str> {

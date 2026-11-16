@@ -1,6 +1,6 @@
 -- expect-error: E-AUTO-STUCK
--- `high - low ≠ 0` follows from `low < high` by `omega`, but this module
--- doesn't load `omega`'s library (nothing in it uses `omega`, `rewrite` or
+-- `high - low ≠ 0` follows from `low < high` by `arithmetic`, but this module
+-- doesn't load `arithmetic`'s library (nothing in it uses `arithmetic`, `rewrite` or
 -- `cases`), so `auto` doesn't try it. accept/auto-omega-facts.sw does.
 import Std (Nat)
 

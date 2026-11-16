@@ -312,7 +312,7 @@ disagree with none. Where the review offered a choice, the choice made is stated
 | §7 `toInt` over the full range, as a definition | §2.5: `Float.toInt` is an ordinary definition over the bits with a native, not a primitive |
 | §7 "partial" in a "Total?" column; `toInt (-0.0)` loses the sign | §2.5 |
 | §7 Defaulting examples (`-1 + 0.5`, `0.5 + -1`, `-0`), overflow, underflow, large whole literals | §2.3–2.4, with a table of examples |
-| §7 Chained numeric projections (`xs.0.1`) | §2.3: they don't exist today ([checked] `crates/syntax/src/parser.rs:2661-2673`); a lexer rule and regression test keep it so |
+| §7 Chained numeric projections (`xs.0.1`) | §2.3: they don't exist today ([checked] `crates/syntax/src/parser.rs`, `atom`); a lexer rule and regression test keep it so |
 | §7 `sqrt` is "correctly rounded", not "exact"; later `min`/`max` must specify JS's NaN/`-0` rules | §3.6 |
 | §8 `TimeLaws` comment must name the operations | §6.2: `TimeLaws Float Float ieeeTimeOps` |
 | §8 "Not provable" too absolute | §6.1: "no practical general reasoning framework for rounded arithmetic in stage 1" |
@@ -366,7 +366,7 @@ The proposal:
 | **Rocq** | primitive `float` (binary64) | Operations are axioms relating each primitive to a Flocq-style spec through `Prim2SF` (e.g. `mul_spec`); they are "regular axioms … listed by `Print Assumptions`". `vm_compute`/`native_compute` use the processor's IEEE operations [cited] | `eqb` is IEEE (`eqb nan nan = false`, `eqb +0 -0 = true`); a separate `Leibniz.eqb` is identity [cited] |
 | **Isabelle** | AFP `IEEE_Floating_Point`: a full formal model, `('e,'f) float`, with a single-NaN variant and code generation [cited] | the model itself; used by CakeML [cited] | model's IEEE `≐` vs HOL `=` [unverified] |
 | **F\*** | `FStar.Float64`: `val t : Type0`, abstract, no exposed model [cited] | `add`, `sub`, `mul`, `div`, `lt`, `lte`, `of_int`, `of_literal` | `ieee_eq` (NaN false, ±0 equal) and `bit_eq` (NaN equals itself, ±0 differ); `t` is not an `eqtype` [cited] |
-| **Dafny** | none found: release notes mention no float type [cited]; `real` is an exact mathematical real, compiled to a rational [unverified] | exact reals | exact |
+| **Dafny** | released versions: none found, the release notes mention no float type [cited]; **corrected 15 Nov 2026:** the reference manual on the `master` branch now documents `fp32` and `fp64` ("IEEE 754 binary64, double-precision", with NaN and ±∞), §5.2.3, github.com/dafny-lang/dafny `docs/DafnyRef/Types.md`; the same files at tags v4.9.1, v4.10.0 and v4.11.0 (Aug 2025, the latest release in the GitHub listing) don't mention `fp64`, so it is unreleased there; `real` is an exact mathematical real, and the same manual's comparison table gives its hardware mapping as BigRational [cited: same file, §5.2.3.10] | exact reals (`real`); IEEE `fp64` on `master` | exact (`real`) |
 | **Liquid Haskell** | `Double` is encoded to the SMT solver's reals, so proofs treat it as exact [cited: secondary source] | reals (so a proof may not hold of the doubles actually computed) [inferred] | — |
 | **Agda** | primitive `Float`, binary64 "with exactly one NaN value" in the type checker [cited] | primitives compute in the checker | `primFloatEquality` is IEEE ("not reflexive"); a lawful equality is built from `primFloatToWord64 : Float → Maybe Word64` and its injectivity lemma, which "cannot be guaranteed to be consistent across backends" [cited] |
 | **Idris 2** | primitive `Double` | primitives compute | no lawful `DecEq Double` in `Decidable.Equality`; primitives' `DecEq` comes from `Eq` via `believe_me`, described as "unsafe" [cited] |
@@ -460,8 +460,7 @@ The term is the record with those bits (a `Nat` literal) and the standard witnes
   `f64::from_bits`.
 
 Rust's `str::parse::<f64>` is the conversion. It agrees with Node on `80281.87`
-(bits `4680253341308362424` in both) [run]. Rust's parser has been correctly rounded since 1.55
-[unverified]; §7.4's differential test checks it on many strings, which shows agreement with the
+(bits `4680253341308362424` in both) [run]. Rust 1.55 replaced its float parser with the Eisel-Lemire algorithm and fixed edge cases that failed to parse ([release post](https://blog.rust-lang.org/2021/09/09/Rust-1.55.0/); a slow exact fallback exists for cases Eisel-Lemire can't round, per `core::num::dec2flt` and rust-lang/rust#86761, via a search summary, checked 15 Nov 2026); that it is correctly rounded in every case is [unverified]; §7.4's differential test checks it on many strings, which shows agreement with the
 tested engine, not the language's definition.
 
 **Edge cases, decided:**
@@ -492,7 +491,7 @@ digit follows, so `1..n` and `[x, ..rest]` are untouched, and qualified names ne
 `.` ([checked] `lexer.rs:194-198`).
 
 **Numeric projections.** Stitchwort has no `xs.0` or `xs.0.1`: after `.`, the parser accepts only
-a name, otherwise "expected a field name after `.`" ([checked] `crates/syntax/src/parser.rs:2661-2673`);
+a name, otherwise "expected a field name after `.`" ([checked] `crates/syntax/src/parser.rs`, `atom`);
 pairs use `.fst`/`.snd` ([checked] `docs/syntax.md:984`). So `0.1` as a `Float` token can't break
 existing code. To keep the door open (Rust had exactly this problem with `t.0.1`), the rule is:
 **a number that starts immediately after a `.` (no space) is digits only, never a `Float`**. A
@@ -748,16 +747,16 @@ above is the shared semantics of everything else.
 **Execution conditions.** The equation is promised only when:
 
 - **C1** binary64 arithmetic rounds to nearest, ties to even (the IEEE default; also what JS
-  specifies [unverified]);
+  specifies: ECMA-262's "Number value for" rounds to the closest, ties to even, "corresponds exactly to the behaviour of the IEEE 754-2019 roundTiesToEven mode" [cited: tc39.es/ecma262, main spec.html, read 15 Nov 2026]);
 - **C2** subnormals are kept (no flush-to-zero or denormals-are-zero);
 - **C3** signed zero is kept by every operation and every lowering;
 - **C4** NaN results are made canonical wherever they are observed (D701);
 - **C5** no reassociation, no algebraic simplification (`x + 0.0 → x` is wrong for `-0.0`) and no
   contraction of `a * b + c` into a fused multiply-add, in the compiler's optimiser, in the Rust
   code it is built from, and in generated JS. Rust doesn't contract floating-point expressions
-  without explicit `mul_add` [unverified]; `crates/rt/src/opt.rs` does constant propagation and
+  without explicit `mul_add` [partly cited: Rust's `core::intrinsics::fmuladd` is documented as "non-deterministically executing either a fused multiply-add or two operations" and is exposed only as the separate opt-in `mul_add_relaxed`, `library/core/src/intrinsics/mod.rs` and `num/f64.rs`, read 16 Nov 2026; that plain `a * b + c` is never contracted I found stated nowhere, so it stays unverified]; `crates/rt/src/opt.rs` does constant propagation and
   beta only ([checked] `opt.rs:1-30`); JS engines must not, by the language's semantics
-  [unverified]. Tests pin both (§7.4);
+  (Number::add "performs addition according to the rules of IEEE 754-2019 binary double-precision arithmetic" [cited: ECMA-262 §6.1.6.1.7]; no contraction rule is stated there, so "must not" is an inference). Tests pin both (§7.4);
 - **C6** the host's floating-point environment is the default one: nothing (FFI, a host
   embedding the WASM kernel) changes the rounding mode or the flush-to-zero flags. Lean qualifies
   its own guarantee the same way [cited by the review].
@@ -962,17 +961,17 @@ every operation.
 
 | Operation | Agree? | Evidence |
 |---|---|---|
-| `+ - * /`, `sqrt` | yes: correctly rounded IEEE binary64 in both | JS spec's Number::add etc. [unverified]; ECMAScript 2026 requires correctly rounded `Math.sqrt` [cited by the review]; Rust: `sqrt` "guaranteed to be the rounded infinite-precision result" [cited]; `0.1 + 0.2` and `80281.87 - 80000` print identically [run] |
+| `+ - * /`, `sqrt` | yes: correctly rounded IEEE binary64 in both | JS spec's Number::add etc. [cited: ECMA-262 §6.1.6.1.7, "according to the rules of IEEE 754-2019 binary double-precision arithmetic"]; ECMAScript 2026 requires correctly rounded `Math.sqrt` [cited by the review]; Rust: `sqrt` "guaranteed to be the rounded infinite-precision result" [cited]; `0.1 + 0.2` and `80281.87 - 80000` print identically [run] |
 | `%` | yes: truncated remainder, which is exact | `5.5 % 2` = `1.5`, `-5.5 % 2` = `-1.5` in both [run] |
 | `floor`, `ceil`, `trunc`, `abs` | yes: exact | Rust: "always returns the precise result" [cited] |
 | `neg` | the value yes; NaN bits no | Rust's `-NaN` is `0xFFF8…` [run]; canonicalised by D701 |
 | `round` | **no**: Rust goes away from zero | §2.5 table [run]; the native implements JS's rule |
 | comparisons | yes (IEEE) | [inferred] |
 | total order | **not with `f64::total_cmp`** on raw NaNs | [run]; D701 |
-| NaN bits | **no guarantee**: Rust: "nothing is guaranteed about the specific bit pattern … both payload and sign are arbitrary" [cited]; WebAssembly leaves NaN bits nondeterministic [cited]; x86 produces a negative NaN for `0/0` [unverified]; on arm64 Rust's `0/0` gave `0x7FF8000000000000` [run] | D701 |
+| NaN bits | **no guarantee**: Rust: "nothing is guaranteed about the specific bit pattern … both payload and sign are arbitrary" [cited]; WebAssembly leaves NaN bits nondeterministic [cited]; x86 produces a negative NaN for `0/0` [cited: GCC bug 111655 and D bug 4726, which describe `divsd` of 0.0/0.0 giving a sign-bit-set NaN, and Intel's "QNaN floating-point indefinite"; via a search summary, checked 15 Nov 2026]; on arm64 Rust's `0/0` gave `0x7FF8000000000000` [run] | D701 |
 | `toText` | **not guaranteed**: `Number::toString` picks the digit count `k` as small as possible, but when several `k`-digit decimals round to `x`, choosing the closest (ties even) is only a recommendation in a note [cited by the review]. `ryu-js` picks the closest; an engine may conform and differ | the kernel doesn't reduce `toText` in stage 1 (D688) |
 | literal parsing | Stitchwort defines it (correctly rounded); JS may round past 20 significant digits differently | §2.3: JS is generated from the bits, so the engine's literal parser only sees short round-trip spellings |
-| `pow`, `exp`, `log`, trig | **no**: Rust: "precision … is non-deterministic" [cited]; JS engines differ [unverified] | **excluded** from stage 1 |
+| `pow`, `exp`, `log`, trig | **no**: Rust: "precision … is non-deterministic" [cited]; JS engines may differ: ECMA-262 calls `Math.exp` "implementation-approximated" (terms and definitions) and `Number::exponentiate` returns an "implementation-approximated value" [cited: tc39.es/ecma262 draft, read 15 Nov 2026]; that engines do differ in practice is [unverified] | **excluded** from stage 1 |
 
 **On `toText` (D688):** the first review's three options are to test and specify supported
 engines, to use one formatting algorithm everywhere (so JS would call a Stitchwort formatter, not
@@ -984,7 +983,7 @@ ported templates identical). Unlocking it later is a one-rule change once a cont
 
 `sqrt` is correctly rounded in both, so it can join later without a decision. `min`/`max` can too,
 but they must be written to JS's rules (`Math.min(0, -0)` is `-0`, NaN wins), not taken from
-Rust's `f64::min`, which returns the non-NaN argument [unverified].
+Rust's `f64::min`, which returns the non-NaN argument [cited: std docs for `f64::min`: "If exactly one of the arguments is NaN ... the other argument is returned"; for ±0 either may be returned non-deterministically].
 
 ## 4. Equality and ordering (D683, D684)
 

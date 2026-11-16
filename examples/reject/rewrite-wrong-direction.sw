@@ -5,4 +5,4 @@
 -- and the notes about searching inside functions are left out.
 theorem bad ∀ (f: Nat → Nat) (g: Nat → Nat) (a: Nat) (h: f a = g a):
     (∀ (y: Nat) => g y = g y) → f a = f a :=
-  rewrite <- h in rfl
+  rewrite <- h then byComputing

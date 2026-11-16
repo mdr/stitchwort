@@ -1,10 +1,20 @@
-//! The surface syntax tree, as written by the user: what the elaborator reads.
+//! The surface syntax tree the elaborator reads: what the user wrote, with
+//! the shorthands below already expanded.
 //!
 //! It is not built by the parser. The parser marks constructs in the lossless
 //! tree ([`crate::tree`]), and the lowering ([`crate::lower`]) builds this
-//! tree from it, expanding shorthand (a chain, a method section, `let (a, b)
-//! = e`) into the forms below, so a new construct's grammar goes in the parser
-//! and its meaning in the lowering (docs/syntax.md, "Where to add syntax").
+//! tree from it. Five written forms arrive here expanded, not as written:
+//!
+//! - `let (a, b) := e` (or another pattern) is a one-alternative `match`;
+//! - a chain `a <= b < c` is `a <= b && b < c`, a non-atomic middle operand
+//!   bound once with `let %chain…`;
+//! - a section `.f` is `%section => %section.f`;
+//! - a tuple of three or more is nested pairs, `(a, (b, c))`;
+//! - a text with interpolations is its pieces joined with `++`, each
+//!   interpolation `Std.Show.toText e`.
+//!
+//! So a new construct's grammar goes in the parser and its meaning in the
+//! lowering (docs/syntax.md, "Where to add syntax").
 
 use num_bigint::BigUint;
 
@@ -238,12 +248,12 @@ pub enum Expr {
         steps: Vec<CalcStep>,
         span: Span,
     },
-    /// `rewrite p, <- q in t` (docs/syntax.md, rewrite): `t` proves the
+    /// `rewrite p, <- q then t` (docs/syntax.md, rewrite): `t` proves the
     /// expected proposition with each rule's left side replaced by its right
-    /// side, the rules applied left to right. Without `in t`, `t` is `rfl`.
+    /// side, the rules applied left to right. Without `in t`, `t` is `byComputing`.
     ///
     /// With `at h` (docs/proposals/rewrite-hypothesis.md) the rules rewrite
-    /// the type of `h` instead: `rewrite p at h in t` checks `t` with `h`
+    /// the type of `h` instead: `rewrite p at h then t` checks `t` with `h`
     /// rebound to the rewritten fact, and `rewrite p at h` is that fact.
     Rewrite {
         rules: Vec<RewriteRule>,
@@ -253,11 +263,11 @@ pub enum Expr {
         keyword: Span,
         /// The `at` keyword's span, with a target.
         at: Option<Span>,
-        /// The `in` keyword's span, with a body.
-        in_: Option<Span>,
+        /// The `then` keyword's span, with a body.
+        then: Option<Span>,
         span: Span,
     },
-    /// `omega`, or `omega [e1, e2]` with extra facts (docs/syntax.md,
+    /// `arithmetic`, or `arithmetic [e1, e2]` with extra facts (docs/syntax.md,
     /// omega): a proof of a linear arithmetic goal from the facts in scope
     /// and the ones listed, found by the compiler and checked by the kernel
     /// (docs/proposals/omega.md).
@@ -265,15 +275,15 @@ pub enum Expr {
         facts: Vec<Expr>,
         span: Span,
     },
-    /// `cases`, or `cases in t` (docs/syntax.md, cases): a proof found by
+    /// `cases`, or `cases then t` (docs/syntax.md, cases): a proof found by
     /// splitting on what the goal and the hypotheses are stuck on, each case
-    /// closed by computation, a contradiction, `omega`, or `t`
+    /// closed by computation, a contradiction, `arithmetic`, or `t`
     /// (docs/proposals/simp.md §5). The proof is the `match`es it writes.
     Cases {
         body: Option<Box<Expr>>,
         span: Span,
     },
-    /// `ring`, or `ring [h1, h2]` with hypotheses (docs/syntax.md, ring): a
+    /// `algebra`, or `algebra [h1, h2]` with hypotheses (docs/syntax.md, algebra): a
     /// proof of an equation between polynomials over `Nat` or `Int`, checked
     /// by the kernel normalising both sides
     /// (docs/proposals/proof-automation.md §6.2).
@@ -327,7 +337,7 @@ pub struct Row {
 /// A handler clause.
 #[derive(Clone, Debug)]
 pub enum Clause {
-    /// `return x -> body`
+    /// `return x -> body`, or `return _ -> body` when the result isn't used
     Return { var: Name, body: Expr },
     /// `op arg => k -> body`, where `arg` is a variable, `_` or `()`.
     Op {
@@ -774,12 +784,30 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
     }
 }
 
+/// How `!=` was written: the ASCII form or the Unicode spelling `≠`. They
+/// mean the same thing; only messages that quote the source tell them apart
+/// (SW-3125).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NeForm {
+    /// `!=`
+    Ascii,
+    /// `≠`
+    Unicode,
+}
+
+impl NeForm {
+    /// Whether it was written `!=` (the ASCII spelling).
+    pub fn is_ascii(self) -> bool {
+        matches!(self, NeForm::Ascii)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinOp {
     /// `=`: equality, a proposition.
     Eq,
-    /// `!=`: `Not (a = b)`.
-    Ne,
+    /// `!=` or `≠`: `Not (a = b)`, with how it was written.
+    Ne(NeForm),
     /// `a == b`: whether `a = b`, as a `Bool`.
     EqEq,
     /// `&&`, `||`: on `Bool`s (short-circuiting), or on propositions
@@ -829,7 +857,7 @@ impl BinOp {
     pub fn symbol(self) -> &'static str {
         match self {
             BinOp::Eq => "=",
-            BinOp::Ne => "!=",
+            BinOp::Ne(_) => "!=",
             BinOp::EqEq => "==",
             BinOp::And => "&&",
             BinOp::Or => "||",
@@ -861,6 +889,29 @@ pub enum Pattern {
     NegNum(BigUint, Span),
     /// A character `'L'`: `MkChar 76 _`, the code as a number pattern.
     Char(char, Span),
+    /// A text literal `"def"`, without interpolations: on a `Text` it is
+    /// `MkText ['d', 'e', 'f']`, on a `List Char` the list `['d', 'e',
+    /// 'f']`, chosen by the type of what it matches
+    /// (docs/proposals/text-patterns.md §4).
+    Text(String, Span),
+    /// `"--" ++ rest`: a text (or character list) that starts with `text`,
+    /// whose literal is at `text_span`, the rest matched by `rest`
+    /// (docs/proposals/text-patterns.md §4.2). On a `List Char` it is
+    /// `['-', '-', ..rest]`; on a `Text`, `MkText ['-', '-', ..r]` with a
+    /// variable `rest` bound to `MkText r`. The elaborator borrows those
+    /// expansions like any other pattern ([`Pattern::prefix_chars`]).
+    Prefix {
+        text: String,
+        text_span: Span,
+        rest: Box<Pattern>,
+        span: Span,
+        on_list: std::sync::OnceLock<Box<Pattern>>,
+        on_text: std::sync::OnceLock<Box<Pattern>>,
+    },
+    /// Only in a [`Pattern::Prefix`]'s expansion on a `Text`: the rest of
+    /// the characters, a variable the arm doesn't name, with `x` bound to
+    /// the text of them.
+    TextRest(Name),
     Ctor(Name, Vec<Pattern>, Span),
     /// `(p, q)`: the library's pair constructor; three or more nest to the
     /// right.
@@ -903,6 +954,82 @@ pub enum Pattern {
 }
 
 impl Pattern {
+    /// `"--" ++ rest`.
+    pub fn prefix(text: String, text_span: Span, rest: Pattern, span: Span) -> Pattern {
+        Pattern::Prefix {
+            text,
+            text_span,
+            rest: Box::new(rest),
+            span,
+            on_list: std::sync::OnceLock::new(),
+            on_text: std::sync::OnceLock::new(),
+        }
+    }
+
+    /// For a `Prefix`: the whole fixed start of a chain, `"a" ++ "b" ++ rest`
+    /// being `"ab"`, and the pattern after it, which isn't a `Prefix`.
+    pub fn prefix_start(&self) -> Option<(String, &Pattern)> {
+        let Pattern::Prefix { .. } = self else {
+            return None;
+        };
+        let mut start = String::new();
+        let mut p = self;
+        while let Pattern::Prefix { text, rest, .. } = p {
+            start.push_str(text);
+            p = rest;
+        }
+        Some((start, p))
+    }
+
+    /// For a `Prefix`: the characters of its whole start ([`Self::prefix_start`])
+    /// as list cells, `[c₁, …, cₙ, ..rest]`, made on first use. Each
+    /// character has a span of its own inside its literal, so that messages
+    /// can tell them apart, and each cell this pattern's span. `on_text` for
+    /// the list inside a `Text`'s `MkText`, where a variable `rest` stands
+    /// for the text of the rest and is [`Pattern::TextRest`].
+    pub fn prefix_chars(&self, on_text: bool) -> Option<&Pattern> {
+        let Pattern::Prefix {
+            span,
+            on_list,
+            on_text: text_list,
+            ..
+        } = self
+        else {
+            return None;
+        };
+        let cell = if on_text { text_list } else { on_list };
+        Some(cell.get_or_init(|| {
+            let mut chars = Vec::new();
+            let mut p = self;
+            while let Pattern::Prefix {
+                text,
+                text_span,
+                rest,
+                ..
+            } = p
+            {
+                for (at, c) in text.char_indices() {
+                    let start = text_span.start + 1 + at as u32;
+                    let own = Span {
+                        start,
+                        end: start + c.len_utf8() as u32,
+                        ..*text_span
+                    };
+                    chars.push(Pattern::Char(c, own));
+                }
+                p = rest;
+            }
+            let mut list = match p {
+                Pattern::Var(x) if on_text => Pattern::TextRest(x.clone()),
+                other => other.clone(),
+            };
+            for c in chars.into_iter().rev() {
+                list = Pattern::Cons(Box::new(c), Box::new(list), *span);
+            }
+            Box::new(list)
+        }))
+    }
+
     /// `C { f = p, g, .. }`.
     pub fn ctor_fields(
         ctor: Name,
@@ -957,12 +1084,14 @@ impl Decl {
 impl Pattern {
     pub fn span(&self) -> Span {
         match self {
-            Pattern::Var(name) => name.span,
+            Pattern::Var(name) | Pattern::TextRest(name) => name.span,
+            Pattern::Prefix { span, .. } => *span,
             Pattern::Wildcard(span)
             | Pattern::Absurd(span)
             | Pattern::Num(_, span)
             | Pattern::NegNum(_, span)
             | Pattern::Char(_, span)
+            | Pattern::Text(_, span)
             | Pattern::Ctor(_, _, span)
             | Pattern::Tuple(_, _, span)
             | Pattern::Nil(span)

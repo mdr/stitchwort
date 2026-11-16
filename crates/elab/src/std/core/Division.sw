@@ -45,15 +45,15 @@ def Nat.div (n divisor: Nat): Nat := Nat.divFuel n n divisor
 def Nat.mod (n divisor: Nat): Nat := n - (n / divisor) * divisor
 
 theorem Nat.leSucc ∀ (n: Nat): n ≤ Succ n := match n with
-  | Zero => rfl
+  | Zero => byComputing
   | Succ n => Nat.leSucc n
 
 theorem Nat.leTrans ∀ (a b c: Nat) (h1: a ≤ b) (h2: b ≤ c): a ≤ c := match a, b, c with
-  | Zero, b, c => rfl
+  | Zero, b, c => byComputing
   | Succ a, Succ b, Succ c => Nat.leTrans a b c h1 h2
 
 theorem Nat.leRefl ∀ (n: Nat): n ≤ n := match n with
-  | Zero => rfl
+  | Zero => byComputing
   | Succ n => Nat.leRefl n
 
 theorem Nat.lessLe ∀ (m n: Nat) (h: m < n): m ≤ n := Nat.leTrans m (Succ m) n (Nat.leSucc m) h
@@ -64,7 +64,7 @@ theorem Nat.lessTrans ∀ (m n p: Nat) (h1: m < n) (h2: n < p): m < p := Nat.leT
 --| proofs generated for a nested type's `T.size` (an element of a list in a
 --| node is smaller than the node).
 theorem Nat.leAddOfLeLeft ∀ (a b c: Nat) (h: a ≤ b): a ≤ b + c := match a, b with
-  | Zero, b => rfl
+  | Zero, b => byComputing
   | Succ a, Succ b => Nat.leAddOfLeLeft a b c h
 
 theorem Nat.leAddOfLeRight ∀ (a b c: Nat) (h: a ≤ c): a ≤ b + c := match b with
@@ -76,8 +76,8 @@ theorem Nat.leAddOfLeRight ∀ (a b c: Nat) (h: a ≤ c): a ≤ b + c := match b
 --| `(a1, a2)` comes before `(b1, b2)`: the first number is smaller, or it's the
 --| same and the second is smaller. A recursive call of a definition with
 --| `decreasing (m1, m2)` needs this of its arguments' measures and the
---| parameters': written `Nat.LexLess.First h` or `Nat.LexLess.Second rfl h`, or
---| found by `omega` or `auto`.
+--| parameters': written `Nat.LexLess.First h` or `Nat.LexLess.Second byComputing h`, or
+--| found by `arithmetic` or `auto`.
 -- (docs/proposals/well-founded-recursion.md, stage 3d)
 -- (Constructors rather than lemmas: a lemma would take the numbers as
 -- arguments, and `stitchwort test` would compute them, an inner recursive
@@ -91,8 +91,8 @@ type Nat.LexLess (a1: Nat) (a2: Nat) (b1: Nat) (b2: Nat): Prop =
 -- The fuel `decreasing (m1, m2)` compiles to takes these steps.
 theorem Nat.lexKeepsFirst ∀ (a1 a2 b1 b2 k: Nat) (lex: Nat.LexLess a1 a2 b1 b2) (no: ¬(a1 < b1)) (h: b1 < k): a1 < k :=
   match lex with
-    | Nat.LexLess.First first => Void.exfalso (no first)
-    | Nat.LexLess.Second same second => J (z q => z < k) h (Eq.sym same)
+    | Nat.LexLess.First first => (no first).impossible
+    | Nat.LexLess.Second same second => J (z q => z < k) h same.flipped
 
 theorem Nat.lexSecondLess ∀ (a1 a2 b1 b2 k: Nat)
     (lex: Nat.LexLess a1 a2 b1 b2)
@@ -100,5 +100,5 @@ theorem Nat.lexSecondLess ∀ (a1 a2 b1 b2 k: Nat)
     (h: b2 < Succ k):
     a2 < k :=
   match lex with
-    | Nat.LexLess.First first => Void.exfalso (no first)
+    | Nat.LexLess.First first => (no first).impossible
     | Nat.LexLess.Second same second => Nat.leTrans (Succ a2) b2 k second h

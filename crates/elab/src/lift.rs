@@ -249,7 +249,7 @@ pub(crate) struct AwaitingHelpers {
 pub(crate) enum Failure {
     /// `found`, where `expected` is expected.
     Mismatch,
-    /// `rfl` for `found = expected`.
+    /// `byComputing` for `found = expected`.
     Refl,
 }
 
@@ -726,6 +726,17 @@ impl Elaborator {
         // A queued check may hold a `match`, drafted when it is resumed
         // (`queue.rs`, W2).
         self.resume_before_lifting()?;
+        // A proof `auto` finds for an obligation may be a helper's call
+        // (`literal_facts.rs`), so a declaration with no `match` of its own
+        // to lift has its obligations solved here too, while it still can
+        // be lifted.
+        if self.attempt.drafts.borrow().is_empty() && !self.attempt.obligations.borrow().is_empty()
+        {
+            // As `finish` would: an obligation about an open `?` waits for
+            // the goal to be assumed.
+            self.assume_goals();
+            self.solve_obligations_until_stuck()?;
+        }
         if self.attempt.drafts.borrow().is_empty() {
             self.assume_goals();
             return Ok(Vec::new());

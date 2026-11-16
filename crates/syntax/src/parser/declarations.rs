@@ -337,9 +337,9 @@ impl Parser<'_> {
         // its body (R6), and keeps its signature.
         let body = if keep && matches!(self.peek(), Some(Tok::ColonEq | Tok::Pipe)) {
             self.header_kept = true;
-            self.recovering_body(|p| p.definition_body(start, column, result, instance))?
+            self.recovering_body(|p| p.definition_body(start, column, result, instance, false))?
         } else {
-            self.definition_body(start, column, result, instance)?
+            self.definition_body(start, column, result, instance, true)?
         };
         Ok(DefinitionRead {
             kind,
@@ -351,20 +351,24 @@ impl Parser<'_> {
 
     /// A definition's body, after its header: `:= e` or arms, and none for
     /// a primitive; whether it has one. `column` is the definition's, and
-    /// `result` its result type's tokens.
+    /// `result` its result type's tokens. With `mark_body` false, a `:=`
+    /// body's `Body` node is left to the caller ([`Self::recovering_body`]).
     fn definition_body(
         &mut self,
         start: Span,
         column: u32,
         result: (u32, u32),
         instance: bool,
+        mark_body: bool,
     ) -> Result<bool> {
         let body = match self.peek() {
             Some(Tok::ColonEq) => {
                 let body = self.mark();
                 self.bump();
                 self.expr()?;
-                self.node(body, NodeKind::Body);
+                if mark_body {
+                    self.node(body, NodeKind::Body);
+                }
                 if self.peek() == Some(&Tok::Pipe) {
                     return Err(error(
                         self.here(),
@@ -682,11 +686,16 @@ impl Parser<'_> {
 
     /// A handler's clause in the new syntax, after its `|`:
     /// `return x => body`, or `op p, k => body`. The argument is one atomic
-    /// pattern, so a comma inside its brackets belongs to it.
+    /// pattern, so a comma inside its brackets belongs to it. A `return`
+    /// clause may write `_` for the result when it doesn't use it.
     #[inline(never)]
     pub(super) fn handler_clause(&mut self) -> Result<()> {
         if self.eat(&Tok::KwReturn) {
-            self.lower("a name for the result")?;
+            if self.peek() == Some(&Tok::Underscore) {
+                self.bump();
+            } else {
+                self.lower("a name for the result")?;
+            }
             self.expect(Tok::FatArrow, "`=>`")?;
             return self.expr();
         }

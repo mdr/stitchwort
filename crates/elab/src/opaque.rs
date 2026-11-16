@@ -18,7 +18,7 @@
 //!   a local definition) are opaque with the same clause, and the body
 //!   unfolds those admitted before it (`lift.rs`).
 //! - **`f.unfold`.** Every opaque `f` without a clause gets the theorem
-//!   `f.unfold (x…): f x… = f.%body x…`, proved by `rfl` with `unfolding f`,
+//!   `f.unfold (x…): f x… = f.%body x…`, proved by `byComputing` with `unfolding f`,
 //!   where `f.%body` is a folded transparent copy of the body
 //!   ([`Elaborator::opaque_unfold`]). One with a clause gets none, as its
 //!   statement may need the clause to be well-typed; naming it is
@@ -220,7 +220,7 @@ impl Elaborator {
     /// resource limits for the roguelike's generator (§9 lane 2's size
     /// tests). A case tree (arms) couldn't be written in a type anyway.
     ///
-    /// The proof is `rfl`; for a case tree it follows the tree, with `rfl`
+    /// The proof is `byComputing`; for a case tree it follows the tree, with `byComputing`
     /// at each leaf, since a call of `f` stuck on a variable isn't equal to
     /// one of `f.%body` by conversion, but in each branch both take the same
     /// step.
@@ -326,7 +326,7 @@ impl Elaborator {
 const MAX_NUMBER_SPLIT: usize = 64;
 
 /// A proof that case tree `tree` (`f`'s body) gives what its copy does:
-/// the same tree with `rfl` at each leaf. A `NumCase` doesn't do: in its
+/// the same tree with `byComputing` at each leaf. A `NumCase` doesn't do: in its
 /// default nothing is known about the number, so both calls stay stuck. It
 /// becomes the `Zero`/`Succ` cases it stands for (docs/core.md, `NumCase`),
 /// down to one past its largest number, where both calls take the default.

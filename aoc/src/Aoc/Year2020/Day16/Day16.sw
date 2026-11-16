@@ -50,7 +50,7 @@ type Notes = { rules: List Rule, yours: Ticket, nearby: List Ticket }
 
 -- The format
 
-def range(): {Parse} Range :=
+def range(): {Parse Char} Range :=
   let low := Parse.nat()
   Parse.char '-'
   let high := Parse.nat()
@@ -58,7 +58,7 @@ def range(): {Parse} Range :=
 
 def isNameChar (char: Char): Bool := char != ':' && char != '\n'
 
-def rule(): {Parse} Rule :=
+def rule(): {Parse Char} Rule :=
   let field := Parse.takeWhile1 "a field name" isNameChar
   Parse.text ": "
   let first := range()
@@ -66,11 +66,11 @@ def rule(): {Parse} Rule :=
   let second := range()
   { field, first, second }
 
-def ticket(): {Parse} Ticket :=
+def ticket(): {Parse Char} Ticket :=
   let values := Parse.sepBy1 Parse.nat (() => Parse.char ',')
   { values = values.toList }
 
-def notes(): {Parse} Notes :=
+def notes(): {Parse Char} Notes :=
   let rules := Parse.lines rule
   Parse.blankLine()
   Parse.text "your ticket:"

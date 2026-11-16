@@ -4,6 +4,141 @@ expression: json
 ---
 [
   {
+    "code": "W-ARROW-FORALL",
+    "file": 0,
+    "labels": [
+      {
+        "file": 0,
+        "message": "write `∀ (…) =>` instead of `(…) ->`",
+        "range": [
+          11,
+          39,
+          11,
+          47
+        ]
+      }
+    ],
+    "message": "this statement is written as a function type: `∀` is for a statement",
+    "notes": [
+      "a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix \"Write ∀ instead of ->\" does it"
+    ],
+    "range": [
+      11,
+      39,
+      11,
+      47
+    ],
+    "severity": "warning"
+  },
+  {
+    "code": "W-ARROW-FORALL",
+    "file": 0,
+    "labels": [
+      {
+        "file": 0,
+        "message": "write `∀ (…) =>` instead of `(…) ->`",
+        "range": [
+          12,
+          23,
+          12,
+          31
+        ]
+      }
+    ],
+    "message": "this statement is written as a function type: `∀` is for a statement",
+    "notes": [
+      "a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix \"Write ∀ instead of ->\" does it"
+    ],
+    "range": [
+      12,
+      23,
+      12,
+      31
+    ],
+    "severity": "warning"
+  },
+  {
+    "code": "W-ARROW-FORALL",
+    "file": 0,
+    "labels": [
+      {
+        "file": 0,
+        "message": "write `∀ (…) =>` instead of `(…) ->`",
+        "range": [
+          12,
+          11,
+          12,
+          19
+        ]
+      }
+    ],
+    "message": "this statement is written as a function type: `∀` is for a statement",
+    "notes": [
+      "a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix \"Write ∀ instead of ->\" does it"
+    ],
+    "range": [
+      12,
+      11,
+      12,
+      19
+    ],
+    "severity": "warning"
+  },
+  {
+    "code": "W-ARROW-FORALL",
+    "file": 0,
+    "labels": [
+      {
+        "file": 0,
+        "message": "write `∀ (…) =>` instead of `(…) ->`",
+        "range": [
+          12,
+          61,
+          12,
+          69
+        ]
+      }
+    ],
+    "message": "this statement is written as a function type: `∀` is for a statement",
+    "notes": [
+      "a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix \"Write ∀ instead of ->\" does it"
+    ],
+    "range": [
+      12,
+      61,
+      12,
+      69
+    ],
+    "severity": "warning"
+  },
+  {
+    "code": "W-ARROW-FORALL",
+    "file": 0,
+    "labels": [
+      {
+        "file": 0,
+        "message": "write `∀ (…) =>` instead of `(…) ->`",
+        "range": [
+          15,
+          4,
+          15,
+          21
+        ]
+      }
+    ],
+    "message": "this statement is written as a function type: `∀` is for a statement",
+    "notes": [
+      "a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix \"Write ∀ instead of ->\" does it"
+    ],
+    "range": [
+      15,
+      4,
+      15,
+      21
+    ],
+    "severity": "warning"
+  },
+  {
     "code": "GOAL",
     "file": 0,
     "goal": {
@@ -49,20 +184,20 @@ expression: json
         "file": 0,
         "message": "p: Nat → Prop\nall: ∀ (n: Nat) => p n\ncomm: ∀ (a b: Nat) => a + b = b + a\npositive: ∀ (n: Nat) => 0 < n → Positive n\nhidden: ∀ [n: Nat] => n = n\nq: Nat → Type\nbad: (n: Nat) → q n\nf: (n: Nat) → Vec Nat n\n⊢ ∀ (xs ys: List Nat) => (xs ++ ys).length = xs.length + ys.length",
         "range": [
-          21,
-          72,
-          21,
-          73
+          16,
+          2,
+          16,
+          3
         ]
       }
     ],
     "message": "in `shown`",
     "notes": [],
     "range": [
-      21,
-      72,
-      21,
-      73
+      16,
+      2,
+      16,
+      3
     ],
     "severity": "goal"
   }

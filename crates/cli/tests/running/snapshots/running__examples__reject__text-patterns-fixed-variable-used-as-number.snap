@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: `+` works on `Nat` and `Int`
+   ╭─[ reject/text-patterns-fixed-variable-used-as-number.sw:6:43 ]
+   │
+ 6 │   let f := fun x => match x with | "a" => x + 1 | _ => 0
+   │                                    ─┬─    ┬  
+   │                                     ╰──────── the type of the matched value wasn't known yet, so this text pattern made it a `Text`; annotate the value's type if it is a `List Char`
+   │                                           │  
+   │                                           ╰── this is `Text`
+   │ 
+   │ Note: on other types `+` is `Add.add`, and there's no `Add` instance for `Text` here
+───╯

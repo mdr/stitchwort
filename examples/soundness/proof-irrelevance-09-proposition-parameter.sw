@@ -7,4 +7,4 @@ import Std (Unit, Void)
 type R (p: Prop): Type =
   | MkR
 
-theorem t9: R Unit = R Void := rfl
+theorem t9: R Unit = R Void := byComputing

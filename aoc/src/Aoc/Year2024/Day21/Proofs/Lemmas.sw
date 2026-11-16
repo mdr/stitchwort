@@ -20,18 +20,18 @@ def lastFrom (from: k): List k → k
 theorem sumByPairs ∀ (cost: k → k → Nat) (from: k) (keys: List k):
     [from, ..keys].zipWithNext.sumBy (((before, after)) => cost before after) = costFrom cost from keys :=
   match keys with
-    | [] => rfl
+    | [] => byComputing
     | [to, ..rest] =>
       rewrite List.sumByCons [to, ..rest].zipWithNext (MkPair from to) (((before, after)) => cost before after),
-          sumByPairs cost to rest in
-        rfl
+          sumByPairs cost to rest then
+        byComputing
 
 --| Pressing one list then another: the second starts from the first's last key.
 theorem costFromAppend ∀ (cost: k → k → Nat) (from: k) (first second: List k):
     costFrom cost from (first.append second) = costFrom cost from first + costFrom cost (lastFrom from first) second :=
   match first with
-    | [] => rfl
-    | [key, ..rest] => rewrite costFromAppend cost key rest second in omega
+    | [] => byComputing
+    | [key, ..rest] => rewrite costFromAppend cost key rest second then arithmetic
 
 --| Equal costs give equal totals.
 theorem costFromCong ∀ (cost same: k → k → Nat)
@@ -39,25 +39,25 @@ theorem costFromCong ∀ (cost same: k → k → Nat)
     (from: k) (keys: List k):
     costFrom cost from keys = costFrom same from keys :=
   match keys with
-    | [] => rfl
-    | [to, ..rest] => rewrite equal from to, costFromCong cost same equal to rest in rfl
+    | [] => byComputing
+    | [to, ..rest] => rewrite equal from to, costFromCong cost same equal to rest then byComputing
 
 --| When every press costs one, the total is the number of keys.
 theorem costFromOnes ∀ (from: k) (keys: List k): costFrom (before after => 1) from keys = keys.length := match keys with
-  | [] => rfl
-  | [to, ..rest] => rewrite costFromOnes to rest in omega
+  | [] => byComputing
+  | [to, ..rest] => rewrite costFromOnes to rest then arithmetic
 
 theorem lastFromAppendOne ∀ (from: k) (keys: List k) (key: k): lastFrom from (keys.append [key]) = key :=
   match keys with
-    | [] => rfl
+    | [] => byComputing
     | [first, ..rest] => lastFromAppendOne first rest key
 
 theorem flatMapSome ∀ (f: a → Option b) (x: Option a) (value: a) (same: x = Some value): x.flatMap f = f value :=
-  match x with | Some found => rewrite Option.someInjective same in rfl
+  match x with | Some found => rewrite Option.someInjective same then byComputing
 
 theorem flatMapIntoSome ∀ (x: Option a): x.flatMap (value => Some value) = x := match x with
-  | None => rfl
-  | Some value => rfl
+  | None => byComputing
+  | Some value => byComputing
 
 --| Folding with `List.minByStep` keeps a value that passes, if all do.
 theorem minByStepPasses ∀ [auto ord: Ord b] (key: a → b) (passes: a → Bool):

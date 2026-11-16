@@ -29,18 +29,18 @@ theorem part1Correct ∀ (space: Space) (robots: List Robot)
     (oddWidth: space.width % 2 = 1)
     (oddHeight: space.height % 2 = 1):
     solvePart1 space robots = part1 space robots :=
-  rewrite positionsCorrect space robots inside 100 in
-    Eq.sym (safetyFactorCorrect space oddWidth oddHeight (space.positionsAfter 100 robots))
+  rewrite positionsCorrect space robots inside 100 then
+    Eq.flipped (safetyFactorCorrect space oddWidth oddHeight (space.positionsAfter 100 robots))
 
 --| After any number of laps of `width * height` seconds, every robot is
 --| where it was.
 theorem periodicLaps ∀ (space: Space) (seconds: Nat) (robot: Robot) (laps: Nat):
     space.positionAfter (seconds + laps * space.period) robot = space.positionAfter seconds robot :=
   match laps with
-    | Zero => rewrite Nat.addZero seconds in rfl
+    | Zero => rewrite Nat.addZero seconds then byComputing
     | Succ laps =>
-      rewrite (omega: seconds + Succ laps * space.period = seconds + laps * space.period + space.period),
-          periodic space (seconds + laps * space.period) robot in
+      rewrite (arithmetic: seconds + Succ laps * space.period = seconds + laps * space.period + space.period),
+          periodic space (seconds + laps * space.period) robot then
         periodicLaps space seconds robot laps
 
 theorem periodPositive ∀ (space: Space): space.period ≠ 0 :=
@@ -53,7 +53,7 @@ theorem positionsModPeriod ∀ (space: Space) (robots: List Robot) (seconds: Nat
   Eq.trans
     (Eq.cong
       (time => space.positionsAfter time robots)
-      (omega [Nat.divModEq seconds space.period]: seconds
+      (arithmetic [Nat.divModEq seconds space.period]: seconds
         = seconds % space.period + seconds / space.period * space.period))
     (List.mapCong robots
       (space.positionAfter (seconds % space.period + seconds / space.period * space.period))
@@ -64,7 +64,7 @@ theorem pictureAllDistinct ∀ (space: Space) (robots: List Robot)
     (inside: StartInside space robots)
     (seconds: Nat) (picture: isPicture space robots seconds):
     List.isDistinct (space.positionsAfter seconds robots) = True :=
-  rewrite <- positionsCorrect space robots inside seconds in picture
+  rewrite <- positionsCorrect space robots inside seconds then picture
 
 --| Part 2's answer is a picture, and no earlier second is.
 theorem part2First ∀ (space: Space) (robots: List Robot)
@@ -73,9 +73,9 @@ theorem part2First ∀ (space: Space) (robots: List Robot)
     (isPicture space robots found) ∧ (∀ (earlier: Nat) => earlier < found → ¬(isPicture space robots earlier)) :=
   match List.findRangeSome (seconds => List.isDistinct (space.positionsAfter seconds robots)) space.period found h with
     | Both passes (Both below first) =>
-      Both (rewrite positionsCorrect space robots inside found in passes.read) (earlier before picture =>
+      Both (rewrite positionsCorrect space robots inside found then passes.read) (earlier before picture =>
         Bool.trueNotFalse
-          (Eq.trans (Eq.sym (pictureAllDistinct space robots inside earlier picture)) (first earlier before)))
+          (Eq.trans (Eq.flipped (pictureAllDistinct space robots inside earlier picture)) (first earlier before)))
 
 --| When part 2 finds nothing, no second is a picture.
 theorem part2Never ∀ (space: Space) (robots: List Robot)
@@ -86,8 +86,8 @@ theorem part2Never ∀ (space: Space) (robots: List Robot)
     let ok: space.period ≠ 0 := periodPositive space
     Bool.trueNotFalse
       (Eq.trans
-        (Eq.sym
-          (rewrite <- positionsModPeriod space robots seconds ok in
+        (Eq.flipped
+          (rewrite <- positionsModPeriod space robots seconds ok then
             pictureAllDistinct space robots inside seconds picture))
         (List.findRangeNone
           (later => List.isDistinct (space.positionsAfter later robots))

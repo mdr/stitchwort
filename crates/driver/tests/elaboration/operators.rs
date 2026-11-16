@@ -308,11 +308,11 @@ import Std (Int)
 type Point = { x: Int, y: Int }
 def Point.add (p: Point) (q: Point): Point := { x = p.x + q.x, y = p.y + q.y }
 theorem Point.zeroAdd: (p: Point) -> Point.add { x = 0, y = 0 } p = p
-  | { x, y } => rewrite Int.zeroAdd x, Int.zeroAdd y in rfl
+  | { x, y } => rewrite Int.zeroAdd x, Int.zeroAdd y then byComputing
 theorem Point.assoc (p: Point) (q: Point) (r: Point): Point.add (Point.add p q) r = Point.add p (Point.add q r) :=
-  rewrite Int.addAssoc p.x q.x r.x, Int.addAssoc p.y q.y r.y in rfl
+  rewrite Int.addAssoc p.x q.x r.x, Int.addAssoc p.y q.y r.y then byComputing
 theorem Point.comm (p: Point) (q: Point): Point.add p q = Point.add q p :=
-  rewrite Int.addComm p.x q.x, Int.addComm p.y q.y in rfl
+  rewrite Int.addComm p.x q.x, Int.addComm p.y q.y then byComputing
 instance Point.instAdd: Add Point :=
   { zero = { x = 0, y = 0 }, add = Point.add, zeroAdd = Point.zeroAdd, assoc = Point.assoc, comm = Point.comm }
 def plus (p: Point) (q: Point): Point := p + q

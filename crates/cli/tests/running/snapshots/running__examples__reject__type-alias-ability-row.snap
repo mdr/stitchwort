@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: an ability row like `{IO, Fail}` can't be given a name with `type` yet; write the row where it's used, such as `() -> {IO, Fail} Nat`
+   ╭─[ reject/type-alias-ability-row.sw:5:14 ]
+   │
+ 5 │ type World = {IO, Fail}
+   │              ┬  
+   │              ╰── this `{` starts an ability row, not a record type
+───╯

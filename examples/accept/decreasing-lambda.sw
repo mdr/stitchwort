@@ -27,7 +27,7 @@ def weight (n: Nat): Int
 test "weights" := List.map (List.rangeFrom 11 2) weight == [1, 1, 0, 1, -1, 1, 0, 0, -1, 1, 0]
 
 -- A closed value computes, fuel and all.
-theorem weightTwelve: weight 12 = 0 := rfl
+theorem weightTwelve: weight 12 = 0 := byComputing
 
 -- The equation the compiler proves, on an open `n`, with `weight` itself
 -- inside the function passed to `sumBy`.

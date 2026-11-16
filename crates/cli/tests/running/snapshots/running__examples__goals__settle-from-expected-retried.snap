@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `holed`
+    ╭─[ goals/settle-from-expected-retried.sw:20:47 ]
+    │
+ 20 │ theorem holed: 0 = 0 := outer (ph natSrc 0) 0 ?
+    │                                               ┬  
+    │                                               ╰── ⊢ double 0 = 0
+────╯

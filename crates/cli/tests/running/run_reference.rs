@@ -331,7 +331,7 @@ def app (f: Type -> Nat): Nat := f Nat
 def app2 (f: Type -> Nat -> Nat): Nat := f Nat 41
 def app2Late (f: Nat -> Type -> Nat): Nat := f 40 Nat
 def app3 (f: Nat -> Nat): Nat := f 41
-def appProof (f: (n: Nat) -> n = n -> Nat -> Nat): Nat := f 5 rfl 6
+def appProof (f: (n: Nat) -> n = n -> Nat -> Nat): Nat := f 5 byComputing 6
 def appMid (f: Nat -> Type -> Nat -> Nat): Nat := f 4 Nat 2
 
 type Box = { run: (n: Nat) -> n = n -> Nat }
@@ -345,9 +345,9 @@ def main () : {IO} () :=
   IO.print (Nat.toText (app (a => 8)))
   IO.print (Nat.toText (app2 (a n => n + 3)))
   IO.print (Nat.toText (app3 (pick Nat)))
-  IO.print (Nat.toText (app3 (withProof 4 rfl)))
-  IO.print (Nat.toText (({ run = proofOnly }: Box).run 9 rfl))
-  IO.print (Nat.toText (List.sum (List.map [proofOnly, proofOnly] (f => f 2 rfl))))
+  IO.print (Nat.toText (app3 (withProof 4 byComputing)))
+  IO.print (Nat.toText (({ run = proofOnly }: Box).run 9 byComputing))
+  IO.print (Nat.toText (List.sum (List.map [proofOnly, proofOnly] (f => f 2 byComputing))))
   IO.print (Nat.toText (app2 (tag2 (1 + 1) (2 + 1))))
 "#,
     );
@@ -429,5 +429,18 @@ fn the_arguments_after_a_double_dash_are_the_programs() {
         let output = run_args(&all, reference, b"");
         assert!(output.status.success(), "{}", text(&output.stderr));
         assert_eq!(text(&output.stdout), "1|two words\n");
+    }
+}
+
+/// A `main` returning an `ExitStatus` ends with that status, on the machine
+/// and in the reference evaluator (docs/proposals/exit-status.md).
+#[test]
+fn a_main_returning_an_exit_status_exits_with_it() {
+    let path = examples().join("main-exit-status.sw");
+    for (input, code) in [(&b""[..], 3), (b"ok\n", 0), (b"no\n", 1)] {
+        let fast = same_both_ways(&path, input, true);
+        assert_eq!(text(&fast.stdout), "checking\n");
+        assert_eq!(text(&fast.stderr), "");
+        assert_eq!(fast.status.code(), Some(code));
     }
 }

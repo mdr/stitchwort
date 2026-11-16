@@ -139,7 +139,9 @@
       ],
       "now": [],
       "next": [
-        "Triage the old day-findings tickets (SW-741, SW-745, SW-758, SW-762, SW-771, SW-808, SW-809, SW-816 and SW-954 to SW-999) the way SW-808 was triaged: close what is done, split what is left into small tickets",
+        "Re-run the repros the triage left unconfirmed (SW-3429)",
+        "Elaborator gaps from old days: match on solvePart2 (SW-3421), pure map at the end of Fail code (SW-3422), lambda in a recursive call inside sumBy (SW-3424)",
+        "Std lemmas the days keep rewriting (SW-3430)",
         "Parser guarantees: the 2021 days that prove only value properties (SW-1649), then 2024 and 2025 (SW-1020)"
       ],
       "links": [

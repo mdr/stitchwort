@@ -8,7 +8,7 @@
 
 --| An element of the first list is in the two joined.
 theorem List.memAppendLeft ∀ (x: a) (xs ys: List a) (h: x ∈ xs): x ∈ List.append xs ys := match xs, h with
-  | [], m => Void.exfalso m
+  | [], m => m.impossible
   | [z, ..zs], Inl e => Inl e
   | [z, ..zs], Inr m => Inr (List.memAppendLeft x zs ys m)
 
@@ -23,8 +23,8 @@ theorem List.memConcatMap ∀ (f: a → List b) (x: a) (y: b) (xs: List a)
     (made: y ∈ f x):
     y ∈ List.concatMap xs f :=
   match xs, member with
-    | [], member => Void.exfalso member
-    | [z, ..zs], Inl same => List.memAppendLeft y (f z) (List.concatMap zs f) (J (w e => y ∈ f w) made (Eq.sym same))
+    | [], member => member.impossible
+    | [z, ..zs], Inl same => List.memAppendLeft y (f z) (List.concatMap zs f) (J (w e => y ∈ f w) made same.flipped)
     | [z, ..zs], Inr later => List.memAppendRight y (f z) (List.concatMap zs f) (List.memConcatMap f x y zs later made)
 
 -- Finite types
@@ -45,25 +45,25 @@ instance Bool.instFinite: Finite Bool := {
   all = [False, True],
   complete = x =>
     match x with
-      | False => Inl rfl
-      | True => Inr (Inl rfl)
+      | False => Inl byComputing
+      | True => Inr (Inl byComputing)
 }
 
 instance Ordering.instFinite: Finite Ordering := {
   all = [Less, Equal, Greater],
   complete = x =>
     match x with
-      | Less => Inl rfl
-      | Equal => Inr (Inl rfl)
-      | Greater => Inr (Inr (Inl rfl))
+      | Less => Inl byComputing
+      | Equal => Inr (Inl byComputing)
+      | Greater => Inr (Inr (Inl byComputing))
 }
 
 --| Every option: `None`, then `Some` of every value.
 def Option.allFinite [auto fin: Finite a]: List (Option a) := [None, ..List.concatMap Finite.all (x => [Some x])]
 
 theorem Option.allFiniteComplete ∀ [auto fin: Finite a] (o: Option a): List.Mem o Option.allFinite := match o with
-  | None => Inl rfl
-  | Some x => Inr (List.memConcatMap (y => [Some y]) x (Some x) Finite.all (Finite.complete x) (Inl rfl))
+  | None => Inl byComputing
+  | Some x => Inr (List.memConcatMap (y => [Some y]) x (Some x) Finite.all (Finite.complete x) (Inl byComputing))
 
 instance Option.instFinite [auto fin: Finite a]: Finite (Option a) :=
   { all = Option.allFinite, complete = Option.allFiniteComplete }
@@ -81,7 +81,7 @@ theorem Pair.allFiniteComplete ∀ [auto finA: Finite a] [auto finB: Finite b] (
         (MkPair x y)
         Finite.all
         (Finite.complete x)
-        (List.memConcatMap (v => [MkPair x v]) y (MkPair x y) Finite.all (Finite.complete y) (Inl rfl))
+        (List.memConcatMap (v => [MkPair x v]) y (MkPair x y) Finite.all (Finite.complete y) (Inl byComputing))
 
 instance Pair.instFinite [auto finA: Finite a] [auto finB: Finite b]: Finite (Pair a b) :=
   { all = Pair.allFinite, complete = Pair.allFiniteComplete }

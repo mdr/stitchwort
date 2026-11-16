@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.inc b64f3067c458c3ff8187530de2e4f55b191a8a8c57eb859b4b8cc9c7ec3e214c
@@ -11,6 +12,6 @@ Main.test "both sides" 4c814ec1ae8af8f98a08c7960b813eb8dd0e270f33b6d8ae4bab5e772
 Main.describe 4b6c4fd6b2949e9aa2be975c5be96e725d21002e8479a8ebe5a0bf9f2ee447f7
 Main.describe.eq.ifTrue fef6803361b7d9d6697321f59cbd8a0d551ab231daecbffb04a7ab24da8d3254
 Main.describe.eq.ifFalse c088d84037ecb5427c962dbe5759dcf08c41ce2d41dc88643a81f7085d023aff
-Main.test "bracketed comparison" bf2926563649004eb3356ca98233bc0aa6b2a66c3826175842fdab5f481300c6
+Main.test "bracketed comparison" 1cdd735ac748b7c77c29e135f8875ce171d9dc11c1dec91e159d5cd186c519df
 Main.test "multi-line" 0f483335f5816e0c4545324d897204dd45630e66535eebeba6dedfcba45ad46d
 Main.lengthOfPipe de23601b0b7fc056f5d9b7712b96113c684766cf2ba39c01ed4209958c94caa7

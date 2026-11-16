@@ -10,7 +10,7 @@
 
 All three print the same output and fail the same way, which the repository's tests check on every example program: the reference evaluator is the oracle, and the other two are compared with it. Tests use the fast runtime too (`stitchwort test --reference` uses the reference).
 
-Exit codes: 0 on success; 1 when the program doesn't check, or `main` fails with `Fail`; 2 when it fails while running: an `IO` error, or running out of resources (a deep recursion, a huge number). How deep a recursion may go depends on the runner (D3450): `stitchwort run` allows 2 million pending calls, native code (`run --native`, `build --native`) allows 16 million, or fewer if a function's frames are so wide that 16 million wouldn't fit the 64 GiB cap on a native stack. The limit is the same on every run of a build, so a program fails at the same depth each time. A native run that recurses to its limit uses memory in proportion to the depth: several GB for a few million pending calls of a hundred bytes or more.
+Exit codes: 0 on success; 1 when the program doesn't check, or `main` fails with `Fail`, or returns `ExitStatus.failure` (see [An exit status](#an-exit-status)); 2 when it fails while running: an `IO` error, or running out of resources (a deep recursion, a huge number). How deep a recursion may go depends on the runner (D3450): `stitchwort run` allows 2 million pending calls, native code (`run --native`, `build --native`) allows 16 million, or fewer if a function's frames are so wide that 16 million wouldn't fit the 64 GiB cap on a native stack. The limit is the same on every run of a build, so a program fails at the same depth each time. A native run that recurses to its limit uses memory in proportion to the depth: several GB for a few million pending calls of a hundred bytes or more.
 
 `stitchwort run --native` is a fourth, experimental way: the functions `main` calls run as native code where they and everything they reach compile, and on the fast runtime otherwise (`--verbose` says which). It needs a build with the `native` feature, which `task build` makes. `stitchwort test --native` runs tests the same way ([chapter 9](09-testing.md#two-runtimes)).
 
@@ -47,6 +47,105 @@ A run that's too slow to wait for can be stopped: Ctrl-C, or `timeout 30 stitchw
 
 `stitchwort build FILE` (or a project folder, or a function's full name) writes an executable that runs `main` and needs neither `stitchwort` nor the source. It links with the system's C compiler (`$CC`, or `cc`). `-o` names the executable; `--native` compiles `main` and everything it reaches to native code, and fails if any of it can't be.
 
+## An exit status
+
+`main` may return an `ExitStatus` instead of `()`, and the program then ends with that number: `stitchwort run`, `--reference`, `--js`, `--native`, built executables and the playground (which shows `exit status 3` below the output when it isn't 0) all do. It is the way for a tool to say more than "worked" and "failed": `stitchwort fmt --check` exits 1 when a file would change and 2 when it can't read one.
+
+<!-- snippet: exit-status.sw#main -->
+```stitchwort
+-- 0: nothing to fix; 1: something to fix; 3: no file named.
+def verdict (arguments: List Text): ExitStatus := match arguments with
+  | [] => ExitStatus.of 3
+  | ["clean", ..rest] => ExitStatus.success
+  | _ => ExitStatus.failure
+
+def main(): {IO} ExitStatus :=
+  let status := verdict (IO.args ())
+  IO.print "exit status ${status}"
+  status
+```
+
+<!-- output: run exit-status.sw -- clean -->
+```text
+exit status 0
+```
+
+With no argument it prints `exit status 3` and the shell sees 3.
+
+`ExitStatus` holds a number from 0 to 255 (a `Fin 256`): a bigger one means different things on different systems, so `ExitStatus.of 300` is refused when the program is checked, and a number computed at run time goes through `ExitStatus.ofNatCheck`, which gives `None` when it is too big. The library names two statuses, `ExitStatus.success` (0, the only code that means the same everywhere) and `ExitStatus.failure` (1); a program names the others itself. A status is an ordinary value, so tests read it: `(IO.simulate [] program).snd` is the status a program would end with, and `(verdict []).toNat == 3` states it directly. `Fail` that nothing handles is still status 1, and a runtime error is still 2, so a program that returns 2 itself can't be told apart from one that ran out of resources.
+
+## A command line
+
+A program that takes options describes them once with `Args` (a standard library namespace), instead of matching on `IO.args()` by hand. From the description come the parser, the usage line, `--help` and the error messages. Each option is one combinator, and `.and` joins them: the function at the start takes the options' values in the same order and builds the program's own record. Write the function's parameter types; an unannotated lambda there isn't accepted yet.
+
+<!-- snippet: args.sw#spec -->
+```stitchwort
+type Options = { shout: Bool, times: Nat, names: List Text }
+
+def program: Args.Program := { name = "greet", about = "Greets each person." }
+
+def options: Args.Spec Options :=
+  Args.Spec.start ((shout: Bool) (times: Nat) (names: List Text) => ({ shout, times, names }: Options))
+    |> .and (Args.flag "shout" (help := "Greet with three exclamation marks."))
+    |> .and (Args.option "times" (default := 1) (help := "How often to greet each person."))
+    |> .and (Args.arguments "NAME" (atLeast := 1) (help := "Who to greet."))
+```
+
+`Args.flag` is a switch, `Args.option` takes a value (`--times 2` or `--times=2`) and falls back to its `default`, `Args.required` and `Args.optional` take one that must or may be left out, `Args.many` one that can be repeated, and `Args.arguments` the plain arguments. Values are read by the `Args.Value` interface, which `Text`, `Nat`, `Int` and `Path` have; `Args.choice` makes one for a type with a finite list of values, read as each shows itself. `--` ends the options, so everything after it is an argument (a file called `-x` is still reachable), and a lone `-` is an argument. `--help` and `-h` print the help. An option that doesn't repeat is an error the second time, never "last one wins".
+
+`Args.run` reads `IO.args()`, calls the program with its options, prints the help for `--help` (exit status 0) and, for a mistake, prints the message, the usage line and where the help is to standard error and exits with status 2 (`Args.misuse`: 2 is the usual code for a command used wrongly, in Bash's builtins, `argparse` and Go's `flag`, and it keeps that apart from 1, a program's own failure). Its program returns `()`, so `main` returns an `ExitStatus`; a program that picks its own statuses uses `Args.runStatus`, whose body returns an `ExitStatus`. Here is the first:
+
+<!-- snippet: args.sw#main -->
+```stitchwort
+def greet (options: Options): {IO} () := options.names.forEach (name =>
+  let line := if options.shout then "Hello, ${name}!!!" else "Hello, ${name}."
+  List.replicate options.times line |> .forEach IO.print)
+
+def main(): {IO, Fail} ExitStatus := Args.run program options greet
+```
+
+<!-- output: run args.sw -- --shout --times 2 Ada Grace -->
+```text
+Hello, Ada!!!
+Hello, Ada!!!
+Hello, Grace!!!
+Hello, Grace!!!
+```
+
+<!-- output: run args.sw -- --help -->
+```text
+usage: greet [--shout] [--times N] NAME...
+Greets each person.
+
+arguments:
+  NAME...     Who to greet.
+options:
+  --shout     Greet with three exclamation marks.
+  --times N   How often to greet each person. (default: 1)
+  -h, --help  Show this help.
+```
+
+Parsing itself is a pure function of a list of text, `Args.parse program options arguments`, whose result is `Run options`, `Help text` or `Wrong error`, so a command line is tested with plain tests and no `IO`. Each `Args.Error` is a value (`BadValue "--times" "twice" "a whole number"`) and `error.describe` is its message; `Args.problems options` lists a spec's own mistakes, such as a name used twice.
+
+<!-- snippet: args.sw#tests -->
+```stitchwort
+def parse (arguments: List Text): Args.Outcome Options := Args.parse program options arguments
+
+test "options, in any order, and the defaults" :=
+  parse ["Ada", "--times=2", "--shout"] == Run { shout = True, times = 2, names = ["Ada"] }
+    && parse ["Ada"] == Run { shout = False, times = 1, names = ["Ada"] }
+
+test "after -- everything is a name" := parse ["--", "--shout"] == Run { shout = False, times = 1, names = ["--shout"] }
+
+test "what is wrong" :=
+  parse [] == Wrong (Missing "NAME")
+    && parse ["--times", "twice", "Ada"] == Wrong (BadValue "--times" "twice" "a whole number")
+
+test "--help is an outcome, not an effect" := match parse ["--help"] with
+  | Help text => text.startsWith "usage: greet [--shout] [--times N] NAME..."
+  | _ => False
+```
+
 ## Exporting to JavaScript and TypeScript
 
 `export` on a definition makes it part of the ES module that `stitchwort build --js` generates, with TypeScript declarations beside it. The rest of the program is compiled too, but only exports are visible:
@@ -58,9 +157,7 @@ import Std (List, Option, SafeNat, Text)
 
 type Item = { name: Text, pence: Nat, note: Option Text }
 
-type Discount =
-  | NoDiscount
-  | PercentOff (percent: Nat)
+type Discount = | NoDiscount | PercentOff (percent: Nat)
 
 -- A `Nat` is a `bigint`, a record a plain object, an `Option` a value or
 -- `undefined`, and a variant an object with a `$tag`.
@@ -74,7 +171,7 @@ export def total (items: List Item) (discount: Discount): Nat :=
 export def count (items: List Item): Option SafeNat := SafeNat.ofNat items.length
 
 -- A proof the caller can't give becomes a check when the function is called.
-export def share (pence: Nat) (people: Nat): [auto someone: people ≠ 0] → Nat := pence / people
+export def share (pence people: Nat): [auto someone: people ≠ 0] → Nat := pence / people
 
 test "total" := total [{ name = "tea", pence = 250, note = None }] (PercentOff 10) == 225
 ```
@@ -162,8 +259,9 @@ The details, and the exact rules for each type, are in [syntax.md](../syntax.md#
 - **Numbers are unbounded.** `Nat` and `Int` never overflow. On the fast runtime a number that fits 64 bits is a machine integer and a bigger one a big integer; in JavaScript every `Nat` and `Int` is a `bigint`.
 - **Tail calls are loops.** A function whose recursive call is the last thing it does runs in constant stack everywhere. That matters most in an exported module, which runs on the app's own JavaScript stack: there, a deep non-tail recursion over a long list can run out of stack (a `StitchwortResourceError`), so use an accumulator, as `sumFast` does in [chapter 10](10-proofs.md). The fast runtime has its own stack, and `stitchwort run --js` runs the program in a worker with a large one.
 - **Proofs cost nothing at run time.** Theorems, proof fields and `auto` proofs are erased. A one-field record is stored as its field.
+- **A field read in a lambda runs every time.** `cave.height` inside a lambda is `cave.rows.length`, called on each pass; hoist it into a `let` outside the lambda. In the AoC 2021 day 15 notes, that one `let` took the day's run from 31.7 s to 17.6 s (`aoc/NOTES-2021.md:3676`), and the proofs didn't change. Nothing warns about it, and hoisting by the compiler is parked (SW-1814).
 - **Types shaped like `Nat` are numbers.** On the fast runtime a `Fin n`, and any type of yours with one constructor that stores nothing and one that stores only a value of the type itself (proofs and indices aside), is a machine number, as `Nat` is, rather than a chain of cells. `Fin.toNat` and `Fin.ofNatLt` take constant time there, since the number is already the one they return.
-- **Checking can compute.** Tests and `rfl` proofs run code while checking. That's usually fast, but a proof that needs to compute a lot shows up as slow checking. A declaration still checking after about 7 seconds (250 million evaluation steps) gets a note on standard error, `` note: still checking `Main.t`: over 250,000,000 evaluation steps so far, unfolding `countdown` (it stops at 10,000,000,000) ``, and another each time the steps double; at 10 billion steps it fails with `E-RESOURCE`, naming the declaration and the definition it was unfolding. `STITCHWORT_TIMINGS=1` prints where the time went, declaration by declaration. For a slow run, `stitchwort run --profile` (above).
+- **Checking can compute.** Tests and `byComputing` proofs run code while checking. That's usually fast, but a proof that needs to compute a lot shows up as slow checking. A declaration still checking after about 7 seconds (250 million evaluation steps) gets a note on standard error, `` note: still checking `Main.t`: over 250,000,000 evaluation steps so far, unfolding `countdown` (it stops at 10,000,000,000) ``, and another each time the steps double; at 10 billion steps it fails with `E-RESOURCE`, naming the declaration and the definition it was unfolding. `STITCHWORT_TIMINGS=1` prints where the time went, declaration by declaration. For a slow run, `stitchwort run --profile` (above).
 - **Results are cached.** The check cache and the test cache are keyed by content, so after the first run only what changed is checked and tested again.
 - **`include` is cheap.** A file read with `include "…"` becomes one compact text literal, so a large puzzle input costs no more than a string of the same size.
 

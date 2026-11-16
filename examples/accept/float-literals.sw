@@ -42,10 +42,10 @@ test "-1 + t" := minusOnePlus 2.5 = 1.5
 test "-t" := negated 2.5 = -2.5
 
 -- `+` and `-` round as IEEE 754 doubles do, and compute in the checker.
-theorem tenths: 0.1 + 0.2 = 0.30000000000000004 := rfl
-theorem halves: 0.5 + 0.25 = 0.75 := rfl
-theorem toNegative: 1.0 - 2.0 = -1.0 := rfl
-theorem zeros: 0.0 + -0.0 = 0.0 := rfl
+theorem tenths: 0.1 + 0.2 = 0.30000000000000004 := byComputing
+theorem halves: 0.5 + 0.25 = 0.75 := byComputing
+theorem toNegative: 1.0 - 2.0 = -1.0 := byComputing
+theorem zeros: 0.0 + -0.0 = 0.0 := byComputing
 theorem negNeg ∀ (x: Float): -(-x) = x := Float.negNeg x
 
 -- `==` is the same double (`Object.is`); JS's `===` is `Float.ieeeEq`.

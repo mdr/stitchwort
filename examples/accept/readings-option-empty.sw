@@ -5,7 +5,7 @@ import Std (Bool, Eq, List, Nat, Option, Set, Text)
 theorem hasValue ∀ (o: Option Nat) (h: o.isSome): ∃ (x: Nat) => o = Some x := h.read
 
 theorem notNone ∀ (o: Option Nat) (h: o.isSome) (e: o = None): Void := match h with
-  | Witness x found => Option.noneNotSome x (Eq.trans (Eq.sym e) found)
+  | Witness x found => Option.noneNotSome x (Eq.trans e.flipped found)
 
 theorem lacksValue ∀ (o: Option Nat) (h: o.isSome = False): o = None := h.read
 
@@ -13,7 +13,7 @@ theorem noneIsNone ∀ (o: Option Nat) (h: o.isNone): o = None := h.read
 
 theorem emptyList ∀ (xs: List Nat) (h: xs.isEmpty): xs = [] := h.read
 
-theorem emptyBuilt: ([]: List Nat).isEmpty = True := rfl
+theorem emptyBuilt: ([]: List Nat).isEmpty = True := byComputing
 
 theorem emptyText ∀ (t: Text) (h: t.isEmpty): t.toList = [] := h.read
 

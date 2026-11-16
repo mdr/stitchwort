@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/text-patterns-type-fixed-by-pattern.sw:7:5 ]
+   │
+ 6 │   let f := match | "a" => 1 | _ => 0
+   │                    ─┬─  
+   │                     ╰─── the type of the matched value wasn't known yet, so this text pattern made it a `Text`; annotate the value's type if it is a `List Char`
+ 7 │   f cs
+   │     ─┬  
+   │      ╰── expected `Text`, but this has type `List Char`
+───╯

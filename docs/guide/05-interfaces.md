@@ -15,11 +15,7 @@ There's no `deriving` clause to write:
 
 <!-- snippet: interfaces.sw#derived -->
 ```stitchwort
-type Suit =
-  | Clubs
-  | Diamonds
-  | Hearts
-  | Spades
+type Suit = | Clubs | Diamonds | Hearts | Spades
 
 type Card = { rank: Nat, suit: Suit }
 
@@ -32,23 +28,38 @@ test "constructors in declared order" := List.sort [Spades, Clubs, Hearts] == [C
 test "text" := "${twoOfClubs}" == "{ rank = 2, suit = Clubs }"
 ```
 
+Types that refer to each other, as a syntax tree's do, get them too, and so does a type inside a list, an option or another type of yours:
+
+<!-- snippet: interfaces.sw#derived-together -->
+```stitchwort
+type Expr = | Number (n: Nat) | Block (statements: List Statement)
+
+type Statement = | Let (name: Text) (value: Expr) | Bare (value: Expr)
+
+def program: Expr := Block [Let "x" (Number 1), Bare (Number 2)]
+
+test "types that refer to each other" := program == Block [Let "x" (Number 1), Bare (Number 2)]
+test "and their order" := Number 9 < program
+test "and their text" := "${program}" == "Block [Let \"x\" (Number 1), Bare (Number 2)]"
+```
+
 A type gets none of these when one of its fields can't have it. A function can't be compared, so a record with a function field has no `==`, and the error says why:
 
 <!-- snippet: errors/no-instance.sw -->
 ```stitchwort
 type Rule = { name: Text, applies: Nat → Bool }
 
-def sameRule (a: Rule) (b: Rule): Bool := a == b
+def sameRule (a b: Rule): Bool := a == b
 ```
 
 <!-- output: check errors/no-instance.sw -->
 ```text
 [E-INSTANCE-NONE] Error: no `DecEq` instance for `Rule`
-   ╭─[ errors/no-instance.sw:3:43 ]
+   ╭─[ errors/no-instance.sw:3:35 ]
    │
- 3 │ def sameRule (a: Rule) (b: Rule): Bool := a == b
-   │                                           ───┬──
-   │                                              ╰──── this needs `DecEq Rule`
+ 3 │ def sameRule (a b: Rule): Bool := a == b
+   │                                   ───┬──
+   │                                      ╰──── this needs `DecEq Rule`
    │
    │ Note 1: `==` isn't derived for `Rule`: its field `applies` is a function, and functions can't be compared
    │
@@ -63,18 +74,18 @@ An interface is a record type with one type parameter, whose fields are its oper
 
 <!-- snippet: interfaces.sw#interface -->
 ```stitchwort
-interface Describe (a: Type) =
-  { describe: a → Text }
+interface Describe (a: Type) = { describe: a → Text }
 
-instance Suit.instDescribe: Describe Suit :=
-  { describe = suit => match suit with
-    | Clubs => "♣"
-    | Diamonds => "♦"
-    | Hearts => "♥"
-    | Spades => "♠" }
+instance Suit.instDescribe: Describe Suit := {
+  describe = suit =>
+    match suit with
+      | Clubs => "♣"
+      | Diamonds => "♦"
+      | Hearts => "♥"
+      | Spades => "♠"
+}
 
-instance Card.instDescribe: Describe Card :=
-  { describe = card => "${card.rank}${Describe.describe card.suit}" }
+instance Card.instDescribe: Describe Card := { describe = card => "${card.rank}${Describe.describe card.suit}" }
 
 test "describe a card" := Describe.describe aceOfSpades == "14♠"
 ```
@@ -96,8 +107,7 @@ An instance can itself need instances of the types inside it, so one declaration
 
 <!-- snippet: interfaces.sw#instance-with-context -->
 ```stitchwort
-instance Describe.instList [auto Describe a]: Describe (List a) :=
-  { describe = items => "[${describeAll items}]" }
+instance Describe.instList [auto Describe a]: Describe (List a) := { describe = items => "[${describeAll items}]" }
 
 test "instances for containers" := Describe.describe [[twoOfClubs], [aceOfSpades]] == "[[2♣] [14♠]]"
 ```
@@ -166,8 +176,18 @@ instance Vector.instAdd: Add Vector := {
   zero = { dx = 0, dy = 0 },
   add = a b => { dx = a.dx + b.dx, dy = a.dy + b.dy },
   zeroAdd = v => Vector.ext { dx = 0 + v.dx, dy = 0 + v.dy } v (Int.zeroAdd v.dx) (Int.zeroAdd v.dy),
-  assoc = u v w => Vector.ext { dx = u.dx + v.dx + w.dx, dy = u.dy + v.dy + w.dy } { dx = u.dx + (v.dx + w.dx), dy = u.dy + (v.dy + w.dy) } (Int.addAssoc u.dx v.dx w.dx) (Int.addAssoc u.dy v.dy w.dy),
-  comm = u v => Vector.ext { dx = u.dx + v.dx, dy = u.dy + v.dy } { dx = v.dx + u.dx, dy = v.dy + u.dy } (Int.addComm u.dx v.dx) (Int.addComm u.dy v.dy)
+  assoc = u v w =>
+    Vector.ext
+      { dx = u.dx + v.dx + w.dx, dy = u.dy + v.dy + w.dy }
+      { dx = u.dx + (v.dx + w.dx), dy = u.dy + (v.dy + w.dy) }
+      (Int.addAssoc u.dx v.dx w.dx)
+      (Int.addAssoc u.dy v.dy w.dy),
+  comm = u v =>
+    Vector.ext
+      { dx = u.dx + v.dx, dy = u.dy + v.dy }
+      { dx = v.dx + u.dx, dy = v.dy + u.dy }
+      (Int.addComm u.dx v.dx)
+      (Int.addComm u.dy v.dy)
 }
 
 def moves: List Vector := [{ dx = 1, dy = 2 }, { dx = -3, dy = 1 }]

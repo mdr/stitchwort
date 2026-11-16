@@ -4,6 +4,33 @@ expression: json
 ---
 [
   {
+    "code": "W-UNREACHABLE",
+    "file": 0,
+    "labels": [
+      {
+        "file": 0,
+        "message": "here `h` is `False = True`, which can't hold",
+        "range": [
+          8,
+          2,
+          8,
+          14
+        ]
+      }
+    ],
+    "message": "this case can't happen",
+    "notes": [
+      "the arm can be deleted"
+    ],
+    "range": [
+      8,
+      2,
+      8,
+      14
+    ],
+    "severity": "warning"
+  },
+  {
     "code": "GOAL",
     "file": 0,
     "goal": {
@@ -25,10 +52,10 @@ expression: json
         "file": 0,
         "message": "n: Nat\nh: True = True\n⊢ h = h",
         "range": [
-          8,
-          14,
-          8,
-          15
+          7,
+          12,
+          7,
+          13
         ]
       }
     ],
@@ -37,10 +64,10 @@ expression: json
       "1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it"
     ],
     "range": [
-      8,
-      14,
-      8,
-      15
+      7,
+      12,
+      7,
+      13
     ],
     "severity": "goal"
   },
@@ -66,10 +93,10 @@ expression: json
         "file": 0,
         "message": "n: Nat\nh: False = True\n⊢ h = h",
         "range": [
-          9,
-          15,
-          9,
-          16
+          8,
+          13,
+          8,
+          14
         ]
       }
     ],
@@ -78,10 +105,10 @@ expression: json
       "1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it"
     ],
     "range": [
-      9,
-      15,
-      9,
-      16
+      8,
+      13,
+      8,
+      14
     ],
     "severity": "goal"
   }

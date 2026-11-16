@@ -25,7 +25,7 @@ theorem twice ∀ (xs: List Nat):
 
 -- With `in t`, `t` proves what's left; `<-` and `at h` work as elsewhere.
 theorem withBody ∀ (xs: List Nat) (h: List.map xs (x => x) = xs): List.map xs (x => x * 1) = xs :=
-  rewrite Nat.mulOne _ in h
+  rewrite Nat.mulOne _ then h
 
 theorem backwards ∀ (k: Nat) (xs: List Nat): List.map xs (x => x + x * k) = List.map xs (x => x * Succ k) :=
   rewrite <- Nat.mulSucc _ k
@@ -41,7 +41,7 @@ def total (f: Nat → Nat): List Nat → Nat
 
 theorem totalCong ∀ (f1 f2: Nat → Nat) (xs: List Nat) (ef: ∀ (x: Nat) => f1 x = f2 x): total f1 xs = total f2 xs :=
   match xs with
-    | [] => rfl
+    | [] => byComputing
     | [x, ..rest] => rewrite ef x, totalCong f1 f2 rest ef
 
 theorem totalled ∀ (xs: List Nat): total (x => x * 1) xs = total (x => x) xs := rewrite Nat.mulOne _

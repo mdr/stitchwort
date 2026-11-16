@@ -4970,6 +4970,7 @@ impl Gen<'_, '_> {
     }
 
     fn prim(&mut self, pc: usize, dst: Reg, op: PrimOp, args: Ops) {
+        let prim_op = op;
         let o = ops(self.code, args).to_vec();
         let division = matches!(op, PrimOp::Nat(Native::DivFuel)) && o.len() == 3;
         let fast = division
@@ -5052,7 +5053,19 @@ impl Gen<'_, '_> {
         let array = self.pointer_array(&o);
         let n = self.iconst(o.len() as u64);
         let out = self.spill_erased(o.len());
-        self.call_helper(self.helpers.prim, &[self.ctx, op, array, n, out]);
+        if abi::charges_steps(prim_op) {
+            // The helper charges the steps of a result sized by an
+            // argument, or of big numbers' words when they count, and sets
+            // the error if they run out.
+            steps_out(&mut self.b, self.ctx);
+            self.call_helper(self.helpers.prim, &[self.ctx, op, array, n, out]);
+            steps_in(&mut self.b, self.ctx);
+            let error = self.ctx_load(Context::ERROR_AT);
+            let live = self.live(pc);
+            self.exit_with(error, &live, None, &[], &[]);
+        } else {
+            self.call_helper(self.helpers.prim, &[self.ctx, op, array, n, out]);
+        }
         let v = self.load(Loc::Mem(out, 0));
         self.assign(pc, dst, v);
         self.b.ins().jump(after, &[]);

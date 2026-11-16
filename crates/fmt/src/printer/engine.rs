@@ -12,8 +12,8 @@
 //! needs: [`Doc::Fill`] (as many items a line as fit), [`Doc::Choice`] (the
 //! first of several layouts whose first line fits: a body that opens on the
 //! `:=` line, a call whose last argument hugs), trailing comments that wait
-//! for the end of their line ([`Doc::LineSuffix`]), and text printed as
-//! written but moved with its line ([`Doc::Verbatim`]). The printer never
+//! for the end of their line ([`Doc::LineSuffix`]), and a text block printed
+//! as written but moved with its line ([`Doc::TextBlock`]). The printer never
 //! leaves spaces at the end of a line: indentation is written only before
 //! text.
 
@@ -41,9 +41,25 @@ pub enum Doc {
     /// The contents, with line breaks indented to the column this starts
     /// at: the parts of `(let x := e; body)` line up inside the bracket.
     Align(Box<Doc>),
+    /// Like [`Doc::Align`], except that where this starts a line the
+    /// breaks go 2 columns in rather than to the line's own column: a line
+    /// ending in `;` followed by a line at its block's column ends the
+    /// block instead of continuing the sequence.
+    AlignInset(Box<Doc>),
+    /// An element a comment moves to a line of its own (a trailing comment
+    /// before it, or own-line comments): its continuation lines are
+    /// indented from where its first line lands, not from the construct
+    /// that holds it, since a line left of that first line would end the
+    /// block the element opens there (`a` then `→ b` in column 4 after `a`
+    /// in column 8).
+    Displaced(Box<Doc>),
     /// Printed flat if it fits, otherwise with every line in it broken. The
     /// flag says it holds a hard break, so it never prints flat.
     Group(Box<Doc>, bool),
+    /// A group that prints flat only if its line then ends within this many
+    /// columns, however wide the page is: a type declaration's
+    /// constructors or fields (S14, S15).
+    NarrowGroup(usize, Box<Doc>, bool),
     /// A group whose choice [`Doc::IfBroken`] can ask about.
     IdGroup(u32, Box<Doc>, bool),
     /// `broken` if the group with this id broke, otherwise `flat`: a body
@@ -72,29 +88,39 @@ pub enum Doc {
     OneLineBelow(Box<Doc>),
     /// A trailing comment: printed, after one space, at the end of the line
     /// it is on, after any closing brackets and commas that end up on that
-    /// line (S39). A group that would put anything else after it breaks.
+    /// line (S39). A group whose flat layout has a line break after it
+    /// breaks; code that still follows it on the line starts the next line
+    /// instead, a comment break (S40).
     LineSuffix(String),
     /// Forces every group around it to break.
     BreakParent,
-    /// Text printed as written, which may span lines. Lines after the first
-    /// move right or left by as much as the line this starts on has moved:
-    /// `src_indent` is the indentation of the source line it starts on.
-    /// For constructs without a rule yet, and for text blocks (S33).
-    Verbatim {
-        text: String,
-        src_indent: usize,
-    },
-    /// A `"""` text block (S33): printed as [`Doc::Verbatim`] is, but it
-    /// doesn't break the groups around it: what follows its closing `"""`
-    /// stays on that line.
+    /// A `"""` text block (S33), printed as written: its lines after the
+    /// first move right or left by as much as the line it starts on has
+    /// moved (`src_indent` is the indentation of the source line it starts
+    /// on). It doesn't break the groups around it: what follows its closing
+    /// `"""` stays on that line.
     TextBlock {
         text: String,
         src_indent: usize,
     },
     /// Starts a new line here unless at the start of one: before an own-line
-    /// comment. The printer records it when a line had to be started this
-    /// way (S40: a comment no rule placed).
+    /// comment. A line started this way is a comment break (S40), and the
+    /// lines up to the next code, that code's included, are indented as
+    /// continuation lines.
     LineStart,
+    /// Starts a new line at the indentation in force, or at the start of a
+    /// line moves that line there: own-line comments before a closing
+    /// bracket, at its items' indentation (S40).
+    LineStartHere,
+    /// Notes the indentation of the line this is on, for the
+    /// [`Doc::CloserLine`] with the same key: before an opening bracket.
+    Mark(usize),
+    /// Starts a new line for a closing bracket that comments put on a line
+    /// of its own: at the indentation in force, unless a line written since
+    /// the [`Doc::Mark`] with the same key is at or left of that, which
+    /// would make the bracket a line of the block that line starts; then at
+    /// the indentation of the marked line (S40).
+    CloserLine(usize),
 }
 
 impl Doc {
@@ -105,6 +131,10 @@ impl Doc {
         Doc::Text(text, width)
     }
 
+    pub fn displaced(doc: Doc) -> Doc {
+        Doc::Displaced(Box::new(doc))
+    }
+
     pub fn nest(indent: usize, doc: Doc) -> Doc {
         Doc::Nest(indent, Box::new(doc))
     }
@@ -113,9 +143,18 @@ impl Doc {
         Doc::Align(Box::new(doc))
     }
 
+    pub fn align_inset(doc: Doc) -> Doc {
+        Doc::AlignInset(Box::new(doc))
+    }
+
     pub fn group(doc: Doc) -> Doc {
         let hard = doc.forces_break();
         Doc::Group(Box::new(doc), hard)
+    }
+
+    pub fn narrow_group(max: usize, doc: Doc) -> Doc {
+        let hard = doc.forces_break();
+        Doc::NarrowGroup(max, Box::new(doc), hard)
     }
 
     pub fn shared(doc: Doc) -> Doc {
@@ -148,19 +187,28 @@ impl Doc {
     /// can't be flat.
     pub fn forces_break(&self) -> bool {
         match self {
-            Doc::HardLine | Doc::BreakParent | Doc::LineStart => true,
-            Doc::Verbatim { text, .. } => text.contains('\n'),
+            Doc::HardLine
+            | Doc::BreakParent
+            | Doc::LineStart
+            | Doc::LineStartHere
+            | Doc::CloserLine(_) => true,
             Doc::Nil
             | Doc::Text(..)
             | Doc::Line
             | Doc::SoftLine
             | Doc::Blank
             | Doc::TextBlock { .. }
+            | Doc::Mark(_)
             | Doc::LineSuffix(_) => false,
             Doc::Group(_, hard) | Doc::IdGroup(_, _, hard) | Doc::Shared(_, hard) => *hard,
+            Doc::NarrowGroup(_, _, hard) => *hard,
             Doc::IfBroken { broken, flat, .. } => broken.forces_break() && flat.forces_break(),
             Doc::OneLineBelow(_) => true,
-            Doc::Nest(_, doc) | Doc::Align(doc) | Doc::Flat(doc) => doc.forces_break(),
+            Doc::Nest(_, doc)
+            | Doc::Align(doc)
+            | Doc::AlignInset(doc)
+            | Doc::Displaced(doc)
+            | Doc::Flat(doc) => doc.forces_break(),
             Doc::Concat(docs) | Doc::Fill(docs) => docs.iter().any(Doc::forces_break),
             Doc::Choice(options) => options.iter().all(Doc::forces_break),
         }
@@ -182,15 +230,10 @@ enum Cmd<'d> {
     FillSep(usize, &'d Doc),
 }
 
-/// What the printer noticed that the rules should have prevented.
+/// A printed document.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Printed {
     pub text: String,
-    /// Own-line comments that had to start a line no rule broke (S40).
-    pub forced_comment_lines: usize,
-    /// A trailing comment that would have been moved into a text block's or
-    /// a verbatim construct's lines.
-    pub stranded_comments: usize,
 }
 
 /// Prints `doc` in `width` columns.
@@ -203,7 +246,10 @@ pub fn print(doc: &Doc, width: usize) -> Printed {
         owed: None,
         at_line_start: true,
         suffixes: Vec::new(),
+        held_spaces: 0,
+        comment_floor: None,
         modes: BTreeMap::new(),
+        marks: BTreeMap::new(),
         printed: Printed::default(),
     };
     printer.run(doc);
@@ -225,8 +271,17 @@ struct Printer {
     /// Nothing but indentation written on this line yet.
     at_line_start: bool,
     suffixes: Vec<String>,
+    /// Spaces after a waiting trailing comment, written only if a closing
+    /// bracket or comma follows on the line, not code (which goes below).
+    held_spaces: usize,
+    /// After an own-line comment that had to start its line: the least
+    /// indentation of the lines up to the next code (S40).
+    comment_floor: Option<usize>,
     /// How each [`Doc::IdGroup`] printed.
     modes: BTreeMap<u32, Mode>,
+    /// For each [`Doc::Mark`] whose [`Doc::CloserLine`] hasn't come: the
+    /// marked line's indentation, and the least of the lines since.
+    marks: BTreeMap<usize, (usize, usize)>,
     printed: Printed,
 }
 
@@ -239,14 +294,9 @@ impl Printer {
                 Cmd::FillSep(indent, item) => {
                     let left = self.left().saturating_sub(1);
                     let item_mode = if self.suffixes.is_empty()
-                        && fits_in(
-                            &[Cmd::Doc(indent, Mode::Flat, item)],
-                            &stack,
-                            left,
-                            &self.modes,
-                            self.width,
-                        ) {
-                        self.write(" ", 1);
+                        && self.fits_here(&[Cmd::Doc(indent, Mode::Flat, item)], &stack, left)
+                    {
+                        self.write(" ", 1, indent);
                         Mode::Flat
                     } else {
                         self.newline(indent);
@@ -258,10 +308,10 @@ impl Printer {
             };
             match doc {
                 Doc::Nil | Doc::BreakParent => {}
-                Doc::Text(text, width) => self.write(text, *width),
+                Doc::Text(text, width) => self.write(text, *width, indent),
                 Doc::Line | Doc::SoftLine if mode == Mode::Flat => {
                     if matches!(doc, Doc::Line) {
-                        self.write(" ", 1);
+                        self.write(" ", 1, indent);
                     }
                 }
                 Doc::Line | Doc::SoftLine | Doc::HardLine => self.newline(indent),
@@ -272,7 +322,27 @@ impl Printer {
                 }
                 Doc::LineStart => {
                     if !self.at_line_start {
-                        self.printed.forced_comment_lines += 1;
+                        let floor = self.continuation(indent);
+                        self.newline(floor);
+                        self.comment_floor = Some(floor);
+                    }
+                }
+                Doc::Mark(key) => {
+                    self.marks.insert(*key, (self.line_indent, usize::MAX));
+                }
+                Doc::CloserLine(key) => {
+                    let column = match self.marks.remove(key) {
+                        Some((marked, least)) if least <= indent => marked.min(indent),
+                        _ => indent,
+                    };
+                    self.comment_floor = None;
+                    self.newline(column);
+                }
+                Doc::LineStartHere => {
+                    if self.at_line_start {
+                        self.owed = Some(indent);
+                        self.line_indent = indent;
+                    } else {
                         self.newline(indent);
                     }
                 }
@@ -289,22 +359,50 @@ impl Printer {
                     };
                     stack.push(Cmd::Doc(column, mode, inner));
                 }
+                Doc::AlignInset(inner) => {
+                    let column = if self.at_line_start {
+                        indent + 2
+                    } else {
+                        self.column
+                    };
+                    stack.push(Cmd::Doc(column, mode, inner));
+                }
+                Doc::Displaced(inner) => {
+                    let column = if self.at_line_start {
+                        indent.max(self.owed.unwrap_or(indent))
+                    } else if !self.suffixes.is_empty() {
+                        self.continuation(indent)
+                    } else {
+                        indent
+                    };
+                    stack.push(Cmd::Doc(column, mode, inner));
+                }
                 Doc::Shared(inner, _) => stack.push(Cmd::Doc(indent, mode, inner)),
                 Doc::Flat(inner) => stack.push(Cmd::Doc(indent, Mode::Flat, inner)),
                 Doc::Group(inner, hard) | Doc::IdGroup(_, inner, hard) => {
                     let flat = mode == Mode::Flat
                         || (!hard
-                            && fits_in(
+                            && self.fits_here(
                                 &[Cmd::Doc(indent, Mode::Flat, inner)],
                                 &stack,
                                 self.left(),
-                                &self.modes,
-                                self.width,
                             ));
                     let mode = if flat { Mode::Flat } else { Mode::Break };
                     if let Doc::IdGroup(id, ..) = doc {
                         self.modes.insert(*id, mode);
                     }
+                    stack.push(Cmd::Doc(indent, mode, inner));
+                }
+                Doc::NarrowGroup(max, inner, hard) => {
+                    let column = self.owed.unwrap_or(self.column);
+                    let flat = mode == Mode::Flat
+                        || (!hard
+                            && self.fits_here(
+                                &[Cmd::Doc(indent, Mode::Flat, inner)],
+                                &stack,
+                                self.left().min(max.saturating_sub(column)),
+                            ));
+                    let mode = if flat { Mode::Flat } else { Mode::Break };
                     stack.push(Cmd::Doc(indent, mode, inner));
                 }
                 Doc::IfBroken { id, broken, flat } => {
@@ -336,12 +434,10 @@ impl Printer {
                     for item in rest.iter().rev() {
                         stack.push(Cmd::FillSep(indent, item));
                     }
-                    let first_mode = if fits_in(
+                    let first_mode = if self.fits_here(
                         &[Cmd::Doc(indent, Mode::Flat, first)],
                         &stack,
                         self.left(),
-                        &self.modes,
-                        self.width,
                     ) {
                         Mode::Flat
                     } else {
@@ -365,12 +461,10 @@ impl Printer {
                                         self.width as isize - indent as isize - 2,
                                     );
                                 }
-                                fits_in(
+                                self.fits_here(
                                     &[Cmd::Doc(indent, Mode::Break, option)],
                                     &stack,
                                     self.left(),
-                                    &self.modes,
-                                    self.width,
                                 )
                             })
                             .unwrap_or(last)
@@ -378,11 +472,21 @@ impl Printer {
                     stack.push(Cmd::Doc(indent, mode, chosen));
                 }
                 Doc::LineSuffix(comment) => self.suffixes.push(comment.clone()),
-                Doc::Verbatim { text, src_indent } | Doc::TextBlock { text, src_indent } => {
-                    self.verbatim(text, *src_indent)
-                }
+                Doc::TextBlock { text, src_indent } => self.verbatim(text, *src_indent, indent),
             }
         }
+    }
+
+    /// [`fits_in`] from where the printer is: on its line, with any
+    /// trailing comment waiting there.
+    fn fits_here(&self, next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize) -> bool {
+        let at = Measure {
+            modes: &self.modes,
+            width: self.width,
+            suffix: !self.suffixes.is_empty(),
+            line_indent: self.line_indent,
+        };
+        fits_in(next, rest, left, &at)
     }
 
     /// Columns left on this line.
@@ -398,9 +502,41 @@ impl Printer {
         }
     }
 
-    fn write(&mut self, text: &str, width: usize) {
-        if text.is_empty() {
+    /// The indentation of a comment break in a construct indented `indent`:
+    /// deeper than the line being broken, so what follows continues it.
+    fn continuation(&self, indent: usize) -> usize {
+        indent.max(self.line_indent + 2)
+    }
+
+    /// Before code text: a trailing comment waiting on this line ends it
+    /// first (a comment break), unless the text is closing brackets and
+    /// commas, which stay before the comment (S39). Returns false for
+    /// spaces held back until that is known.
+    fn before_code(&mut self, text: &str, indent: usize) -> bool {
+        if self.suffixes.is_empty() || self.at_line_start {
+            return true;
+        }
+        if text.chars().all(|c| c == ' ') {
+            self.held_spaces += text.len();
+            return false;
+        }
+        if text.chars().all(|c| matches!(c, ')' | ']' | '}' | ',')) {
+            self.pay_indent();
+            self.out.extend(std::iter::repeat_n(' ', self.held_spaces));
+            self.column += std::mem::take(&mut self.held_spaces);
+        } else {
+            let floor = self.continuation(indent);
+            self.newline(floor);
+        }
+        true
+    }
+
+    fn write(&mut self, text: &str, width: usize, indent: usize) {
+        if text.is_empty() || !self.before_code(text, indent) {
             return;
+        }
+        if !text.starts_with("--") {
+            self.comment_floor = None;
         }
         self.pay_indent();
         self.out.push_str(text);
@@ -421,22 +557,29 @@ impl Printer {
     }
 
     fn newline(&mut self, indent: usize) {
+        let indent = self.comment_floor.map_or(indent, |floor| indent.max(floor));
+        self.held_spaces = 0;
+        // A space the layout put before a break it didn't plan (a comment
+        // break) would end the line.
+        let end = self.out.trim_end_matches(' ').len();
+        self.out.truncate(end);
         self.flush_suffixes();
         self.out.push('\n');
         self.column = 0;
         self.owed = Some(indent);
         self.line_indent = indent;
         self.at_line_start = true;
+        for (_, least) in self.marks.values_mut() {
+            *least = (*least).min(indent);
+        }
     }
 
-    fn verbatim(&mut self, text: &str, src_indent: usize) {
-        if text.is_empty() {
+    fn verbatim(&mut self, text: &str, src_indent: usize, indent: usize) {
+        if text.is_empty() || !self.before_code(text, indent) {
             return;
         }
+        self.comment_floor = None;
         self.pay_indent();
-        if text.contains('\n') && !self.suffixes.is_empty() {
-            self.printed.stranded_comments += 1;
-        }
         let shifted = shift_lines(text, self.line_indent as i64 - src_indent as i64);
         self.out.push_str(&shifted);
         match shifted.rfind('\n') {
@@ -457,35 +600,55 @@ impl Printer {
 /// break, as Prettier's `fits` does: a group that won't fit flat breaks at
 /// its first line, so measuring up to there is enough.
 fn fits(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, modes: &BTreeMap<u32, Mode>) -> bool {
-    fits_in(next, rest, left, modes, usize::MAX / 2)
+    let at = Measure {
+        modes,
+        width: usize::MAX / 2,
+        suffix: false,
+        line_indent: 0,
+    };
+    fits_in(next, rest, left, &at)
 }
 
-/// [`fits`], where a text block's last line leaves `width` less its length.
-fn fits_in(
-    next: &[Cmd<'_>],
-    rest: &[Cmd<'_>],
-    left: usize,
-    modes: &BTreeMap<u32, Mode>,
+/// Where a measure starts.
+struct Measure<'m> {
+    /// How each [`Doc::IdGroup`] printed.
+    modes: &'m BTreeMap<u32, Mode>,
+    /// The page's width: a text block's last line leaves this less its
+    /// length.
     width: usize,
-) -> bool {
+    /// A trailing comment is already waiting on the line.
+    suffix: bool,
+    /// The indentation of the line being measured.
+    line_indent: usize,
+}
+
+/// [`fits`], from `at`.
+fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) -> bool {
+    let (modes, width) = (at.modes, at.width);
     let mut left = left as isize;
-    let mut stack: Vec<(Mode, &Doc)> = next
+    let mut stack: Vec<(usize, Mode, &Doc)> = next
         .iter()
         .rev()
         .filter_map(|cmd| match *cmd {
-            Cmd::Doc(_, mode, doc) => Some((mode, doc)),
+            Cmd::Doc(indent, mode, doc) => Some((indent, mode, doc)),
             Cmd::FillSep(..) => None,
         })
         .collect();
     let mut rest = rest.iter().rev();
-    // A trailing comment is waiting for the end of the line: anything but
-    // closing brackets and commas after it would move it.
-    let mut suffix = false;
+    // A trailing comment is waiting for the end of the line: a line break
+    // in a group's flat layout would put code after it, and code with no
+    // line break before it starts a new line (a comment break), from where
+    // the measure goes on. A flat line break before only closers and
+    // commas is no break: they join the comment's line, so a comment on
+    // the last item of a bracket fits as one after its closer does
+    // (rule N, crate::tidy).
+    let mut suffix = at.suffix;
+    let mut flat_break = false;
     loop {
-        let Some((mode, doc)) = stack.pop() else {
+        let Some((indent, mode, doc)) = stack.pop() else {
             match rest.next() {
-                Some(Cmd::Doc(_, mode, doc)) => {
-                    stack.push((*mode, doc));
+                Some(Cmd::Doc(indent, mode, doc)) => {
+                    stack.push((*indent, *mode, doc));
                     continue;
                 }
                 // The next fill item starts with a separator that may break.
@@ -494,15 +657,29 @@ fn fits_in(
         };
         match doc {
             Doc::Nil | Doc::Blank => {}
-            Doc::LineSuffix(_) => suffix = true,
+            Doc::LineSuffix(_) => {
+                suffix = true;
+                flat_break = false;
+            }
             Doc::BreakParent => {
                 if mode == Mode::Flat {
                     return false;
                 }
             }
             Doc::Text(text, width) => {
-                if suffix && !text.chars().all(|c| matches!(c, ')' | ']' | '}' | ',')) {
-                    return false;
+                if suffix
+                    && !text
+                        .chars()
+                        .all(|c| matches!(c, ')' | ']' | '}' | ',' | ' '))
+                {
+                    if flat_break {
+                        return false;
+                    }
+                    suffix = false;
+                    left = at.width as isize - indent.max(at.line_indent + 2) as isize;
+                } else if suffix && text.chars().all(|c| c == ' ') {
+                    // Held back, and dropped at a comment break.
+                    continue;
                 }
                 left -= *width as isize;
             }
@@ -511,22 +688,32 @@ fn fits_in(
                     return true;
                 }
                 if suffix {
-                    return false;
+                    flat_break = true;
+                    continue;
                 }
                 if matches!(doc, Doc::Line) {
                     left -= 1;
                 }
             }
-            Doc::HardLine | Doc::LineStart => return mode == Mode::Break,
-            Doc::Nest(_, inner) | Doc::Align(inner) => stack.push((mode, inner)),
-            Doc::Shared(inner, _) => stack.push((mode, inner)),
-            Doc::Flat(inner) => stack.push((Mode::Flat, inner)),
-            Doc::Group(inner, hard) | Doc::IdGroup(_, inner, hard) => {
+            Doc::HardLine | Doc::LineStart | Doc::LineStartHere | Doc::CloserLine(_) => {
+                return mode == Mode::Break;
+            }
+            Doc::Mark(_) => {}
+            Doc::Nest(more, inner) => stack.push((indent + more, mode, inner)),
+            Doc::Align(inner) | Doc::AlignInset(inner) | Doc::Displaced(inner) => {
+                stack.push((indent, mode, inner))
+            }
+            Doc::Shared(inner, _) => stack.push((indent, mode, inner)),
+            Doc::Flat(inner) => stack.push((indent, Mode::Flat, inner)),
+            Doc::OneLineBelow(_) => return true,
+            Doc::Group(inner, hard)
+            | Doc::IdGroup(_, inner, hard)
+            | Doc::NarrowGroup(_, inner, hard) => {
                 if *hard && mode == Mode::Flat {
                     return false;
                 }
                 let mode = if *hard { Mode::Break } else { mode };
-                stack.push((mode, inner));
+                stack.push((indent, mode, inner));
             }
             // A group not printed yet is being measured flat.
             Doc::IfBroken { id, broken, flat } => {
@@ -535,9 +722,9 @@ fn fits_in(
                 } else {
                     flat
                 };
-                stack.push((mode, doc));
+                stack.push((indent, mode, doc));
             }
-            Doc::Concat(docs) => stack.extend(docs.iter().rev().map(|d| (mode, d))),
+            Doc::Concat(docs) => stack.extend(docs.iter().rev().map(|d| (indent, mode, d))),
             Doc::Fill(items) => {
                 if mode == Mode::Break {
                     // Only the first item is sure to be on this line; the
@@ -545,14 +732,13 @@ fn fits_in(
                     return items.first().is_none_or(|first| fits_flat(first, left));
                 } else {
                     for (k, item) in items.iter().enumerate().rev() {
-                        stack.push((mode, item));
+                        stack.push((indent, mode, item));
                         if k > 0 {
-                            stack.push((mode, &Doc::Line));
+                            stack.push((indent, mode, &Doc::Line));
                         }
                     }
                 }
             }
-            Doc::OneLineBelow(_) => return true,
             Doc::Choice(options) => {
                 let option = if mode == Mode::Flat {
                     options.first()
@@ -560,27 +746,29 @@ fn fits_in(
                     options.last()
                 };
                 if let Some(option) = option {
-                    stack.push((mode, option));
+                    stack.push((indent, mode, option));
                 }
             }
             Doc::TextBlock { text, .. } => {
+                if suffix && flat_break {
+                    return false;
+                }
+                if suffix {
+                    suffix = false;
+                    left = at.width as isize - indent.max(at.line_indent + 2) as isize;
+                }
                 let (first, last) = match (text.split_once('\n'), text.rsplit_once('\n')) {
                     (Some((first, _)), Some((_, last))) => (first, last),
                     _ => (text.as_str(), ""),
                 };
-                if suffix || first.chars().count() as isize > left {
-                    return false;
+                left -= first.chars().count() as isize;
+                if text.contains('\n') {
+                    if left < 0 {
+                        return false;
+                    }
+                    left = width as isize - last.chars().count() as isize;
                 }
-                left = width as isize - last.chars().count() as isize;
             }
-            Doc::Verbatim { text, .. } => match text.split_once('\n') {
-                _ if suffix => return false,
-                Some((first, _)) => {
-                    left -= first.chars().count() as isize;
-                    return mode == Mode::Break && left >= 0;
-                }
-                None => left -= text.chars().count() as isize,
-            },
         }
         if left < 0 {
             return false;
@@ -728,14 +916,14 @@ mod tests {
     }
 
     #[test]
-    fn verbatim_lines_move_with_their_line_and_blank_lines_have_no_spaces() {
+    fn text_block_lines_move_with_their_line_and_blank_lines_have_no_spaces() {
         let doc = Doc::nest(
             4,
             Doc::concat([
                 t("a"),
                 Doc::HardLine,
                 Doc::Blank,
-                Doc::Verbatim {
+                Doc::TextBlock {
                     text: "b\n    c".into(),
                     src_indent: 2,
                 },
@@ -745,10 +933,86 @@ mod tests {
     }
 
     #[test]
-    fn a_comment_that_must_start_a_line_is_counted() {
+    fn an_own_line_comment_no_layout_broke_for_starts_a_continuation_line() {
+        // S40: the comment and the code after it are deeper than the line
+        // they break, here at the floor of 2 more.
         let doc = Doc::concat([t("f"), Doc::LineStart, t("-- c"), Doc::HardLine, t("x")]);
-        let printed = print(&doc, 120);
-        assert_eq!(printed.text, "f\n-- c\nx");
-        assert_eq!(printed.forced_comment_lines, 1);
+        assert_eq!(print(&doc, 120).text, "f\n  -- c\n  x");
+        // Past that code, lines are indented as the layout says again.
+        let doc = Doc::concat([doc, Doc::HardLine, t("y")]);
+        assert_eq!(print(&doc, 120).text, "f\n  -- c\n  x\ny");
+        // Where a line starts there anyway, nothing changes.
+        let doc = Doc::concat([
+            t("f"),
+            Doc::HardLine,
+            Doc::LineStart,
+            t("-- c"),
+            Doc::HardLine,
+            t("x"),
+        ]);
+        assert_eq!(print(&doc, 120).text, "f\n-- c\nx");
+    }
+
+    #[test]
+    fn code_after_a_trailing_comment_starts_a_continuation_line() {
+        // S40: no layout here breaks after the comment, so the code goes
+        // below at 2 more, without the space that was to come before it;
+        // a closing bracket still stays before the comment (S39).
+        let doc = Doc::flat(Doc::concat([
+            t("(a +"),
+            Doc::LineSuffix("-- c".into()),
+            Doc::Line,
+            t("b"),
+            t(")"),
+        ]));
+        assert_eq!(print(&doc, 120).text, "(a + -- c\n  b)");
+        let doc = Doc::nest(
+            6,
+            Doc::concat([t("x"), Doc::LineSuffix("-- c".into()), t(" "), t("y")]),
+        );
+        assert_eq!(print(&doc, 120).text, "x -- c\n      y");
+    }
+
+    #[test]
+    fn a_group_after_a_waiting_comment_is_measured_with_it() {
+        // SW-3444: the comment already waits when the group is measured, so
+        // the group can't print flat; its line breaks, at its own indentation.
+        let doc = Doc::concat([
+            t("f a"),
+            Doc::LineSuffix("-- c".into()),
+            Doc::group(Doc::concat([Doc::Line, t("b")])),
+        ]);
+        assert_eq!(print(&doc, 120).text, "f a -- c\nb");
+        // Code with no line break before it starts a new line anyway, so an
+        // option that puts it there is measured from that line.
+        let doc = Doc::concat([
+            t(":="),
+            Doc::LineSuffix("-- c".into()),
+            Doc::Choice(vec![
+                Doc::flat(Doc::concat([t(" "), t("x")])),
+                Doc::nest(4, Doc::concat([Doc::HardLine, t("x")])),
+            ]),
+        ]);
+        assert_eq!(print(&doc, 120).text, ":= -- c\n  x");
+        let long = "y".repeat(119);
+        let doc = Doc::concat([
+            t(":="),
+            Doc::LineSuffix("-- c".into()),
+            Doc::Choice(vec![
+                Doc::flat(Doc::concat([t(" "), t(&long)])),
+                Doc::nest(1, Doc::concat([Doc::HardLine, t(&long)])),
+            ]),
+        ]);
+        assert_eq!(print(&doc, 120).text, format!(":= -- c\n {long}"));
+    }
+
+    #[test]
+    fn comments_before_a_closer_go_at_the_indentation_in_force() {
+        let comments = Doc::nest(2, Doc::concat([Doc::LineStartHere, t("-- c")]));
+        let doc = Doc::concat([t("[x"), comments.clone(), Doc::HardLine, t("]")]);
+        assert_eq!(print(&doc, 120).text, "[x\n  -- c\n]");
+        // At the start of a line, the line moves there.
+        let doc = Doc::concat([t("[x"), Doc::HardLine, comments, Doc::HardLine, t("]")]);
+        assert_eq!(print(&doc, 120).text, "[x\n  -- c\n]");
     }
 }

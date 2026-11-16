@@ -2,12 +2,12 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `a + b + c + d ≤ 4`
+[E-ARITHMETIC] Error: `arithmetic` can't prove `a + b + c + d ≤ 4`
    ╭─[ reject/omega-split-limit.sw:8:92 ]
    │
- 8 │     (hc: (c == 0 || c == 1) = True) (hd: (d == 0 || d == 1) = True): a + b + c + d <= 4 := omega
-   │                                                                                            ──┬──  
-   │                                                                                              ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+ 8 │     (hc: (c == 0 || c == 1) = True) (hd: (d == 0 || d == 1) = True): a + b + c + d <= 4 := arithmetic
+   │                                                                                            ─────┬────  
+   │                                                                                                 ╰────── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │ 
    │ Note 1: facts: `a = 1` (case)
    │ 
@@ -15,7 +15,7 @@ expression: output
    │ 
    │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): a = 1, b = 4, c = 0, d = 0
    │ 
-   │ Note 4: `omega` splits at most 8 disjunctions among the facts, and more are left (the one from hb); split some by `match` first
+   │ Note 4: `arithmetic` splits at most 8 disjunctions among the facts, and more are left (the one from hb); split some by `match` first
    │ 
    │ Note 5: in the case `(a.decEq 1).holds` of the disjunction from ha
 ───╯

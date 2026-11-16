@@ -3,12 +3,12 @@ source: crates/cli/tests/examples.rs
 assertion_line: 688
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `p.x < p.y`
+[E-ARITHMETIC] Error: `arithmetic` can't prove `p.x < p.y`
    ╭─[ reject/omega-projected-field-false.sw:7:44 ]
    │
- 7 │ theorem fieldAtom (p: P): p.x + 1 ≤ p.y := omega
-   │                                            ──┬──  
-   │                                              ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+ 7 │ theorem fieldAtom (p: P): p.x + 1 ≤ p.y := arithmetic
+   │                                            ─────┬────  
+   │                                                 ╰────── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │ 
    │ Note 1: facts: none in scope
    │ 

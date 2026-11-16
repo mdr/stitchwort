@@ -24,7 +24,7 @@ theorem stillHoldsGives ∀ (albums: List Album) (id: Nat) (o: Option Nat)
                 album
                 albums
                 inAlbums
-                (Both (rewrite DecEq.sound same in rfl) h)
+                (Both (rewrite DecEq.sound same then byComputing) h)
         | None => cases
 
 -- Every photo of the merged albums has an owner among them that holds it.
@@ -46,7 +46,7 @@ theorem ownerGives ∀ (local remote merged: List Album) (id: Nat)
                     album
                     merged
                     inMerged
-                    (Both rfl h)
+                    (Both byComputing h)
             | None =>
               List.anyElim
                 (a => id ∈ a.photos.map Photo.id)
@@ -54,7 +54,7 @@ theorem ownerGives ∀ (local remote merged: List Album) (id: Nat)
                 merged
                 (List.memFlatMapElim (a => a.photos.map Photo.id) id merged m)
                 (a inMerged inA =>
-                  Void.exfalso
+                  Void.impossible
                     (List.findNoneNotMem merged
                       (b => holds b id)
                       a
@@ -70,19 +70,19 @@ theorem keptWhereOwned ∀ (own: Nat → Option Nat) (album: Album) (id: Nat)
   Exists.elim (List.memMapElim Photo.id id album.photos (holdsMem album id h)) (photo both =>
     match both with
       | Both inPhotos e =>
-        rewrite <- e in
+        rewrite <- e then
           List.memMap
             (keepOwned own album).photos
             photo
             (List.memFilterIntro album.photos
               (p => own p.id == Some album.id)
               inPhotos
-              (rewrite e, o in DecEq.refl (Some album.id)))
+              (rewrite e, o then DecEq.refl (Some album.id)))
             Photo.id)
 
 theorem combinedIs ∀ (local remote: Trip):
     ownerIn local remote = owner local.albums remote.albums ((albumEntries local remote).map (entry => entry.fst)) :=
-  rfl
+  byComputing
 
 -- A photo of the albums before ownership is decided is in a merged album.
 theorem keptFromCombined ∀ (local remote: Trip) (legs: List Leg) (id: Nat)
@@ -111,7 +111,7 @@ theorem keptFromCombined ∀ (local remote: Trip) (legs: List Leg) (id: Nat)
                 (mergeAlbums local remote legs)
                 (List.memMap (albumEntries local remote) entry inEntries (x =>
                   keepOwned own (x.fst.startAt (settle legs x.snd))))
-                (rewrite e in keptWhereOwned own album id o h)))
+                (rewrite e then keptWhereOwned own album id o h)))
 
 theorem withPhotosOfKeeps ∀ (remote: List Album) (album: Album) (id: Nat)
     (m: id ∈ album.photos.map Photo.id):
@@ -120,7 +120,7 @@ theorem withPhotosOfKeeps ∀ (remote: List Album) (album: Album) (id: Nat)
     | Some other => Exists.elim (List.memMapElim Photo.id id album.photos m) (photo both =>
       match both with
         | Both inPhotos same =>
-          rewrite <- same in List.keyMemAppendNewByRight Photo.id other.photos album.photos photo inPhotos)
+          rewrite <- same then List.keyMemAppendNewByRight Photo.id other.photos album.photos photo inPhotos)
     | None => m
 
 -- Every photo id of either copy is in the albums before ownership is
@@ -168,7 +168,7 @@ theorem inCombined ∀ (local remote: Trip)
               match both with
                 | Both inMine sameId =>
                   let found: remote.albums.find (other => other.id == mine.id) = Some album :=
-                    rewrite sameId in List.findKeyDistinct (a => a.id) remote.albums dr album inAlbums
+                    rewrite sameId then List.findKeyDistinct (a => a.id) remote.albums dr album inAlbums
                   List.memFlatMapIntro
                     (a => a.photos.map Photo.id)
                     (withPhotosOf remote.albums mine)
@@ -184,18 +184,18 @@ theorem inCombined ∀ (local remote: Trip)
                         (List.memMap local.albums mine inMine (a =>
                           (withPhotosOf remote.albums a, locate local.legs a.start))))
                       (entry => entry.fst))
-                    (rewrite found in
+                    (rewrite found then
                       Exists.elim (List.memMapElim Photo.id id album.photos inAlbum) (photo pb =>
                         match pb with
                           | Both inPhotos same =>
-                            rewrite <- same in
+                            rewrite <- same then
                               List.keyMemAppendNewByLeft Photo.id album.photos mine.photos photo inPhotos)))
           else
             let freshKey: album.id ∉ List.map fromLocal (entry => entry.fst.id) :=
               rewrite List.mapMap local.albums (entry => entry.fst.id) (a =>
                     (withPhotosOf remote.albums a, locate local.legs a.start)),
                   List.mapCong local.albums (a => (withPhotosOf remote.albums a).id) (a => a.id) (a =>
-                    withPhotosOfId remote.albums a) in
+                    withPhotosOfId remote.albums a) then
                 shared
             List.memFlatMapIntro
               (a => a.photos.map Photo.id)

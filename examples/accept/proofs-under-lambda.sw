@@ -6,4 +6,4 @@
 import Std (Int)
 
 theorem congModNat ∀ (x: Int) (t: Nat): Int.modNat x (Succ t) = Int.modNat x (Succ t) :=
-  Std.Eq.cong (y => Int.modNat y (Succ t)) rfl
+  Std.Eq.cong (y => Int.modNat y (Succ t)) byComputing

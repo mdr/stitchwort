@@ -39,7 +39,9 @@ type Operation = | Sum | Product | Minimum | Maximum
 type Comparison = | GreaterThan | LessThan | EqualTo
 
 --| The operator types, by type id: 0, 1, 2, 3, then 5, 6 and 7.
-type OperatorType = | Calculation (operation: Operation) | Comparing (comparison: Comparison)
+type OperatorType =
+  | Calculation (operation: Operation)
+  | Comparing (comparison: Comparison)
 
 --| How an operator says where its sub-packets end: length type id 0 gives
 --| their total length in bits, 1 their number.
@@ -103,7 +105,7 @@ def readBits (input: Text): {Fail} List Bool := bitsOfDigits (readDigits input)
 def readDigits (input: Text): {Fail} List Nat := Parse.line input.trim (() => Parse.many hexDigit)
 
 --| One hexadecimal digit's value.
-def hexDigit(): {Parse} Nat :=
+def hexDigit(): {Parse Char} Nat :=
   let char := Parse.satisfy "a hexadecimal digit" (char => (hexValue char).isSome)
   Parse.need (hexValue char) "expected a hexadecimal digit"
 

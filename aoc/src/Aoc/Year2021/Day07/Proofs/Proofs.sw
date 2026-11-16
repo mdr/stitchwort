@@ -9,17 +9,17 @@ import Std (And, Eq, Exists, List, Nat, Option, Void)
 --| The answers.
 
 theorem part1Correct ∀ (crabs: List Nat): Part1Answer crabs (solvePart1 crabs) :=
-  leastFuelMeetsSpec stepFuel part1Fuel (n => rfl) (a b le => le) crabs
+  leastFuelMeetsSpec stepFuel part1Fuel (n => byComputing) (a b le => le) crabs
 
 theorem part2Correct ∀ (crabs: List Nat): Part2Answer crabs (solvePart2 crabs) :=
-  leastFuelMeetsSpec growingFuel part2Fuel (n => Eq.sym (Nat.sumBetweenCorrect 1 n)) growingFuelMonotone crabs
+  leastFuelMeetsSpec growingFuel part2Fuel (n => (Nat.sumBetweenCorrect 1 n).flipped) growingFuelMonotone crabs
 
 --| The spec's least fuel is one number.
 theorem leastFuelUnique ∀ (fuel: Nat → Nat) (crabs: List Nat) (a b: Nat)
     (first: LeastFuel fuel crabs a)
     (second: LeastFuel fuel crabs b):
     a = b :=
-  match first, second with | Both (Witness p costsA) lowA, Both (Witness q costsB) lowB => omega [lowA q, lowB p]
+  match first, second with | Both (Witness p costsA) lowA, Both (Witness q costsB) lowB => arithmetic [lowA q, lowB p]
 
 --| For any fuel that never falls as the crab goes further, and the spec's
 --| fuel giving the same, the program's least is the spec's.
@@ -29,8 +29,8 @@ theorem leastFuelMeetsSpec ∀ (fuel specFuel: Nat → Nat)
     LeastFuel specFuel crabs (leastFuel fuel crabs) :=
   match programLeast fuel monotone crabs with
     | Both (Witness p costs) lowest =>
-      Both (Witness p (rewrite totalFuelIs fuel specFuel same crabs p in costs)) (position =>
-        rewrite totalFuelIs fuel specFuel same crabs position in lowest position)
+      Both (Witness p (rewrite totalFuelIs fuel specFuel same crabs p then costs)) (position =>
+        rewrite totalFuelIs fuel specFuel same crabs position then lowest position)
 
 --| The program's least: some position costs it, and every position costs at
 --| least it.
@@ -49,7 +49,7 @@ theorem programLeast ∀ (fuel: Nat → Nat)
     (fuelAt fuel crabs (leftmost crabs))
     (List.memMap scan (leftmost crabs) first (fuelAt fuel crabs)) with
     | Witness least found =>
-      rewrite leastFuelIs fuel crabs least found in
+      rewrite leastFuelIs fuel crabs least found then
         match List.minimumSome totals least found with
           | Both member lowest =>
             Both
@@ -68,7 +68,7 @@ theorem programLeast ∀ (fuel: Nat → Nat)
 theorem leastFuelIs ∀ (fuel: Nat → Nat) (crabs: List Nat) (least: Nat)
     (found: (List.range (leftmost crabs) (rightmost crabs + 1) |> .map (fuelAt fuel crabs) |> .minimum) = Some least):
     leastFuel fuel crabs = least :=
-  rewrite found in rfl
+  rewrite found then byComputing
 
 --| The spec's total fuel is the program's, for the same fuel.
 theorem totalFuelIs ∀ (fuel specFuel: Nat → Nat)
@@ -76,7 +76,7 @@ theorem totalFuelIs ∀ (fuel specFuel: Nat → Nat)
     (crabs: List Nat) (position: Nat):
     totalFuel specFuel crabs position = fuelAt fuel crabs position :=
   match crabs with
-    | [] => rfl
+    | [] => byComputing
     | [crab, ..rest] =>
       calc totalFuel specFuel [crab, ..rest] position
         _ = specFuel (distance crab position) + totalFuel specFuel rest position :=
@@ -84,10 +84,10 @@ theorem totalFuelIs ∀ (fuel specFuel: Nat → Nat)
         _ = fuel (Nat.absDiff crab position) + fuelAt fuel rest position :=
           rewrite same (distance crab position),
               distanceIs crab position,
-              totalFuelIs fuel specFuel same rest position in
-            rfl
+              totalFuelIs fuel specFuel same rest position then
+            byComputing
         _ = fuelAt fuel [crab, ..rest] position :=
-          Eq.sym (List.sumByCons rest crab (c => fuel (Nat.absDiff c position)))
+          Eq.flipped (List.sumByCons rest crab (c => fuel (Nat.absDiff c position)))
 
 --| The spec's distance is `Nat.absDiff`.
 theorem distanceIs ∀ (crab position: Nat): distance crab position = crab.absDiff position := cases
@@ -98,7 +98,7 @@ theorem growingFuelMonotone ∀ (a b: Nat) (le: a ≤ b): growingFuel a ≤ grow
     ((a + (a * a)) / 2)
     (b + (b * b))
     2
-    (omega [Nat.divMulLe (a + (a * a)) 2, Nat.leMulRight a b a le, Nat.leMulRight a b b le, Nat.mulComm b a])
+    (arithmetic [Nat.divMulLe (a + (a * a)) 2, Nat.leMulRight a b a le, Nat.leMulRight a b b le, Nat.mulComm b a])
 
 --| Folding `Nat.min` gives at most the start and each element.
 theorem foldMinLe ∀ (xs: List Nat) (start: Nat): xs.foldLeft start Nat.min ≤ start := match xs with
@@ -112,9 +112,9 @@ theorem foldMinLe ∀ (xs: List Nat) (start: Nat): xs.foldLeft start Nat.min ≤
       (Nat.minLeLeft start x)
 
 theorem foldMinLeMember ∀ (xs: List Nat) (start x: Nat) (h: x ∈ xs): xs.foldLeft start Nat.min ≤ x := match xs, h with
-  | [], member => Void.exfalso member
+  | [], member => member.impossible
   | [y, ..rest], Inl same =>
-    rewrite <- same in
+    rewrite <- same then
       Nat.leTrans
         (rest.foldLeft (Nat.min start y) Nat.min)
         (Nat.min start y)
@@ -139,8 +139,8 @@ theorem sumByLeMember ∀ (f g: Nat → Nat) (xs: List Nat)
   match xs with
     | [] => Nat.leRefl 0
     | [x, ..rest] =>
-      rewrite List.sumByCons rest x g, List.sumByCons rest x f in
-        omega [each x (Inl rfl), sumByLeMember f g rest (y member => each y (Inr member))]
+      rewrite List.sumByCons rest x g, List.sumByCons rest x f then
+        arithmetic [each x (Inl byComputing), sumByLeMember f g rest (y member => each y (Inr member))]
 
 --| Moving further from every crab costs at least as much fuel.
 theorem fuelAtLe ∀ (fuel: Nat → Nat)
@@ -164,11 +164,11 @@ theorem scannedNoWorse ∀ (fuel: Nat → Nat)
   let ordered := leftmostLeRightmost crabs
   Witness nearest
     (Both
-      (((List.memRange nearest lo (hi + 1)).backward (Both omega (Nat.leLessSucc nearest hi omega))))
+      (((List.memRange nearest lo (hi + 1)).backward (Both arithmetic (Nat.leLessSucc nearest hi arithmetic))))
       (fuelAtLe fuel monotone crabs nearest position (crab member =>
         let above := leftmostLe crabs crab member
         let below := rightmostGe crabs crab member
-        omega [
-          (rfl: Nat.absDiff crab nearest = (crab - nearest) + (nearest - crab)),
-          (rfl: Nat.absDiff crab position = (crab - position) + (position - crab))
+        arithmetic [
+          (byComputing: Nat.absDiff crab nearest = (crab - nearest) + (nearest - crab)),
+          (byComputing: Nat.absDiff crab position = (crab - position) + (position - crab))
         ])))

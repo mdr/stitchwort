@@ -25,7 +25,7 @@ def Operator.symbol: Operator → Nat := match
   | Multiply => 42
 
 theorem symbolOfAdd: Operator.symbol Add = 43 := Operator.symbol.eq1
-theorem sumOfExample: sum [1, 0, 2] = 3 := rfl
+theorem sumOfExample: sum [1, 0, 2] = 3 := byComputing
 
 test "a clause lambda is a lambda" := anyCombines [Add, Multiply] 6 2 3
 test "the definition form" := combines 6 2 3 Multiply && !combines 6 2 3 Add

@@ -8,7 +8,7 @@
 --| that twin on `toList` (`NonEmptyList.maximumToList`: `xs.toList.maximum` is
 --| `Some xs.maximum`), so the `List` lemmas apply through `toList`. `toList`
 --| is `[xs.head, ..xs.tail]`, a `Cons` for every `xs`, which is why most of
---| those lemmas are `rfl`. There are no coercions: `xs.toList` goes back to a
+--| those lemmas are `byComputing`. There are no coercions: `xs.toList` goes back to a
 --| `List`, and `ys.toNonEmpty` (given a proof that `ys ≠ []`, found by `auto`)
 --| or `ys.nonEmpty` (an `Option`) goes forward.
 --|
@@ -35,7 +35,7 @@ def NonEmptyList.toList (xs: NonEmptyList a): List a := [xs.head, ..xs.tail]
 --| the proof for a literal, in the `[x, ..rest]` arm of a match and after
 --| `if h: xs ≠ [] then`. The result is the list again ([`List.toNonEmptyToList`]).
 def List.toNonEmpty (xs: List a) [auto nonEmpty: xs ≠ []]: NonEmptyList a := match xs with
-  | [] => Void.absurd (nonEmpty rfl)
+  | [] => Void.absurd (nonEmpty byComputing)
   | [x, ..rest] => { head = x, tail = rest }
 
 --| The list as a `NonEmptyList`, or `None` for an empty list
@@ -157,8 +157,8 @@ def NonEmptyList.prependList (prefix: List a) (xs: NonEmptyList a): NonEmptyList
 theorem NonEmptyList.sortByNotNil ∀ (xs: NonEmptyList a) (cmp: a → a → Ordering): List.sortBy xs.toList cmp ≠ [] :=
   sorted =>
     let same := List.permLength (List.sortBy xs.toList cmp) xs.toList (List.sortByPerm xs.toList cmp)
-    let empty := rewrite sorted at same in same
-    omega [empty]
+    let empty := rewrite sorted at same then same
+    arithmetic [empty]
 
 --| Sorts by a comparison; stable, as `List.sortBy`. The result has the same elements ([`NonEmptyList.sortByToList`]).
 def NonEmptyList.sortBy (xs: NonEmptyList a) (cmp: a → a → Ordering): NonEmptyList a :=
@@ -201,7 +201,7 @@ theorem NonEmptyList.toListInjective ∀ (xs ys: NonEmptyList a) (same: xs.toLis
     | { head = x, tail = s }, { head = y, tail = t } =>
       let heads := List.consInjectiveHead x y s t same
       let tails: s = t := Eq.cong (.drop 1) same
-      rewrite heads in rewrite tails in rfl
+      rewrite heads then rewrite tails then byComputing
 
 --| Decides equality from a decision about the elements: the lists' ([`List.decEq`]).
 @[noReceiver]
@@ -224,4 +224,4 @@ instance NonEmptyList.instOrd [auto ord: Ord a]: Ord (NonEmptyList a) :=
 
 theorem NonEmptyList.compareToList ∀ [auto ord: Ord a] (xs ys: NonEmptyList a):
     Ord.compare xs ys = Ord.compare xs.toList ys.toList :=
-  rfl
+  byComputing

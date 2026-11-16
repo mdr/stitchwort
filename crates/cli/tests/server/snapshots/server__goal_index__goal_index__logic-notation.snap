@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -45,20 +45,20 @@ expression: json
         "file": 0,
         "message": "x: Nat\ny: Nat\nxs: List Nat\np: Prop\nne: x ≠ y\nout: y ∉ xs\nnp: ¬p\n⊢ (x ∈ xs ↔ p) ∧ (∃ (n: Nat) => n ≤ x ∨ n = y)",
         "range": [
-          6,
-          63,
-          6,
-          64
+          10,
+          2,
+          10,
+          3
         ]
       }
     ],
     "message": "in `shown`",
     "notes": [],
     "range": [
-      6,
-      63,
-      6,
-      64
+      10,
+      2,
+      10,
+      3
     ],
     "severity": "goal"
   }

@@ -332,6 +332,11 @@ that most of the time the tests being run are fast ones:
 - **all**, hours: `task test:all`, every test over the whole corpus; paused
   (Matt, 12 Nov 2026).
 
+Every tier's nextest profile sets a slow-timeout with `terminate-after`, so a
+hung test is killed and fails the run instead of running forever: the lane
+profiles inherit the default profile's 60 s × 10, quick is 60 s × 5, and broad
+and all are 120 s × 10.
+
 New files must be `git add`ed first, since the flake only sees tracked
 files. Long runs (the broad tier, browser tests, builds) go in the
 background.
@@ -344,10 +349,11 @@ test `crates/cli/tests/tools/fmt_repo.rs` fails, naming the files, if any tracke
 
 The formatter chooses every line break itself, from the code's structure, in
 120 columns; you keep only your blank lines and the comments
-([formatter-style.md](proposals/formatter-style.md)). A declaration whose
-formatted text fails the safety checks stays as written: `stitchwort dev
-fmt-tree --verbose FILES` lists them, and the other constructs it has no rule
-for.
+([formatter-style.md](proposals/formatter-style.md)). A file whose
+formatted text fails the safety checks (same tokens, comments and syntax
+tree) is not changed: `stitchwort fmt` says "formatter bug" and names the
+first difference, and the editor warns once per document version. That is a
+bug to report; `stitchwort dev fmt-tree FILES` lists every such file.
 
 `stitchwort` is not on the `PATH` inside `nix develop`: run
 `nix develop -c task fmt:sw -- web/guide/14-map-set.sw` (which builds first),
@@ -437,6 +443,20 @@ Every brief states the worktree, the estimate and the targeted tests (CLAUDE.md,
 "Test budget"). Some kinds of work also need standard lines, each added after a
 lane missed it and a batch failed:
 
+- **Compares other languages or tools:** "verify every claim about another
+  system against a primary source (its docs, source, PR or issue page) and
+  cite it; leave out what you can't verify, and never mark a claim 'from
+  memory'" (Matt, 15 Nov 2026: "you shouldn't do details from memory").
+- **Touches the kernel, termination or anything generating kernel terms**
+  (the lane, its review, and the orchestrator's verifier): "run the whole
+  soundness set, `binary(running) & test(/examples::soundness/)` (seconds),
+  against the branch's binary; a review starts there before attacking"
+  (15 Nov 2026: SW-3376's wrapper rule was merged, after a Fable review,
+  accepting `soundness/proof-irrelevance-07`, and was reverted).
+- **Fixes a bug:** "add the smallest test that fails before the fix and
+  passes after (a unit test, an example file, a snapshot), and show it
+  failing without the fix; if an existing test caught the bug, name it
+  instead" (D3608). The orchestrator checks it in review.
 - **May add examples:** "new examples get a hash snapshot: `nix develop -c
   task snap:hashes NAME=<the example's file stem>` (comma-separated for
   several), and run `task test:one -- -E 'binary(library) & test(/hash_stability/)'`". `NAME`

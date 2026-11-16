@@ -25,7 +25,7 @@ type Terminal.Size = { columns: Nat, rows: Nat }
 --| The three operations: keys in, whole frames out.
 -- (D1247)
 ability Terminal where
-  readKey: () → {Terminal} (Option Key) -- the next key; None only at end of input
+  readKey: () → {Terminal} Option Key -- the next key; None only at end of input
   draw: List Text → {Terminal} () -- replaces the whole screen with these lines
   size: () → {Terminal} Terminal.Size -- the screen's size (80 by 24 when it isn't known)
 
@@ -52,7 +52,11 @@ def Frame.plain (lines: List Text): List Text := lines.map Ansi.strip |> .append
 
 --| What `Terminal.nextKey` gives: the key (None at end of input), the bytes
 --| read but not decoded yet, and where reading goes on from.
-type Terminal.Read (source: Type) = { key: Option Key, pending: List Nat, source: source }
+type Terminal.Read (source: Type) = {
+  key: Option Key,
+  pending: List Nat,
+  source: source
+}
 
 --| How many more reads may complete a key cut off by the end of a read: as
 --| many as the longest sequence `Key.next` waits for, so reading is bounded.
@@ -298,7 +302,7 @@ test "toIO: the size, unknown on a pipe" :=
 --| order. Like the real host, `keysMode` does nothing when the mode is already
 --| as asked, and `print` leaves keys mode first. There are no lines to read:
 --| `readLine` gives `None`, `readAll` "", `randomSeed` 0, and `args` no
---| arguments.
+--| arguments. What `printError` writes isn't recorded.
 -- (D1260)
 def Terminal.scriptedHost (console: Console) (reads: List (List Nat)) (prog: () → {IO | e} a): {e} Pair (List Text) a :=
   let run: List (List Nat) → Bool → List Text → {e} Pair (List Text) a :=
@@ -319,6 +323,7 @@ def Terminal.scriptedHost (console: Console) (reads: List (List Nat)) (prog: () 
       | IO.write text, resume => readsLeft keysOn written => resume () readsLeft keysOn [text, ..written]
       | IO.randomSeed u, resume => readsLeft keysOn written => resume 0 readsLeft keysOn written
       | IO.args u, resume => readsLeft keysOn written => resume [] readsLeft keysOn written
+      | IO.printError text, resume => readsLeft keysOn written => resume () readsLeft keysOn written
   run reads False []
 
 --| A terminal of 20 columns and 2 rows for the tests below.

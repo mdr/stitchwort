@@ -49,11 +49,11 @@ def count (x: Nat) (xs: List Nat): Nat := (let found := x in xs; if found then 1
 test "count" := count 2 [2] == 1 && count 3 [2] == 0
 
 -- A proof-valued `let`, used by a later expression: the value is known, so
--- `rfl` can see through `p`.
+-- `byComputing` can see through `p`.
 theorem knownValue ∀ (n: Nat): n ≤ n + 1 := (let p := n; Nat.leAddRight p 1)
 
--- `k` is `3` to the checker, so `rfl` proves `k + 1 = 4`.
-theorem knownLater: (let k := 3; k + 1) = 4 := rfl
+-- `k` is `3` to the checker, so `byComputing` proves `k + 1 = 4`.
+theorem knownLater: (let k := 3; k + 1) = 4 := byComputing
 
 theorem knownInside ∀ (n: Nat): n ≤ Succ (Succ n) :=
   (let h := Nat.leSucc n; Nat.leTrans n (Succ n) (Succ (Succ n)) h (Nat.leSucc (Succ n)))
@@ -63,7 +63,7 @@ def blockForm (n: Nat): Nat :=
   let x := n + 1
   x * x
 
-theorem sameAsBlock ∀ (n: Nat): blockForm n = square n := rfl
+theorem sameAsBlock ∀ (n: Nat): blockForm n = square n := byComputing
 
 -- A body on the next line, inside the brackets.
 def twoLines (n: Nat): Nat := (let x := n + 1; x * x)

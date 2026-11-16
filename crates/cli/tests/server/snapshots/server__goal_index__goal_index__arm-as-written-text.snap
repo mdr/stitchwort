@@ -1,0 +1,643 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        }
+      ],
+      "target": "p \"ab\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\n⊢ p \"ab\"",
+        "range": [
+          8,
+          12,
+          8,
+          13
+        ]
+      }
+    ],
+    "message": "in `plain`",
+    "notes": [],
+    "range": [
+      8,
+      12,
+      8,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        }
+      ],
+      "lemma": "theorem plainGoal2 (p: Text → Prop): p \"\" := ?",
+      "target": "p \"\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\n⊢ p \"\"",
+        "range": [
+          9,
+          10,
+          9,
+          11
+        ]
+      }
+    ],
+    "message": "in `plain`",
+    "notes": [],
+    "range": [
+      9,
+      10,
+      9,
+      11
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "s ≠ \"ab\"",
+        "s ≠ \"\""
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        },
+        {
+          "name": "s",
+          "type": "Text"
+        }
+      ],
+      "lemma": "theorem plainGoal3 (p: Text → Prop) (s: Text) (h: s ≠ \"ab\") (h2: s ≠ \"\"): p s := ?",
+      "target": "p s"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\ns: Text\ns ≠ \"ab\"\ns ≠ \"\"\n⊢ p s",
+        "range": [
+          10,
+          9,
+          10,
+          10
+        ]
+      }
+    ],
+    "message": "in `plain`",
+    "notes": [
+      "this arm is checked in 4 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      10,
+      9,
+      10,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        },
+        {
+          "name": "h",
+          "type": "p \"ab\""
+        }
+      ],
+      "target": "p \"ab\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\nh: p \"ab\"\n⊢ p \"ab\"",
+        "range": [
+          14,
+          12,
+          14,
+          13
+        ]
+      }
+    ],
+    "message": "in `withHypothesis`",
+    "notes": [],
+    "range": [
+      14,
+      12,
+      14,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "s ≠ \"ab\""
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        },
+        {
+          "name": "s",
+          "type": "Text"
+        },
+        {
+          "name": "h",
+          "type": "p s"
+        }
+      ],
+      "lemma": "theorem withHypothesisGoal2 (p: Text → Prop) (s: Text) (h: p s) (h2: s ≠ \"ab\"): p s := ?",
+      "target": "p s"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\ns: Text\nh: p s\ns ≠ \"ab\"\n⊢ p s",
+        "range": [
+          15,
+          9,
+          15,
+          10
+        ]
+      }
+    ],
+    "message": "in `withHypothesis`",
+    "notes": [
+      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      15,
+      9,
+      15,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        }
+      ],
+      "target": "p \"ab\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\n⊢ p \"ab\"",
+        "range": [
+          19,
+          12,
+          19,
+          13
+        ]
+      }
+    ],
+    "message": "in `named`",
+    "notes": [],
+    "range": [
+      19,
+      12,
+      19,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "other ≠ \"ab\""
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        },
+        {
+          "name": "other",
+          "type": "Text"
+        }
+      ],
+      "lemma": "theorem namedGoal2 (p: Text → Prop) (other: Text) (h: other ≠ \"ab\"): p other := ?",
+      "target": "p other"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\nother: Text\nother ≠ \"ab\"\n⊢ p other",
+        "range": [
+          20,
+          13,
+          20,
+          14
+        ]
+      }
+    ],
+    "message": "in `named`",
+    "notes": [
+      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      20,
+      13,
+      20,
+      14
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        },
+        {
+          "name": "s",
+          "type": "Text"
+        },
+        {
+          "name": "e",
+          "type": "s = \"ab\""
+        }
+      ],
+      "target": "p \"ab\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\ns: Text\ne: s = \"ab\"\n⊢ p \"ab\"",
+        "range": [
+          25,
+          12,
+          25,
+          13
+        ]
+      }
+    ],
+    "message": "in `equation`",
+    "notes": [],
+    "range": [
+      25,
+      12,
+      25,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        },
+        {
+          "name": "s",
+          "type": "Text"
+        },
+        {
+          "name": "tail✝",
+          "type": "List Char"
+        },
+        {
+          "name": "code✝",
+          "type": "Nat"
+        },
+        {
+          "name": "valid✝",
+          "type": "Char.isScalar code✝"
+        },
+        {
+          "name": "e",
+          "type": "s = MkText [MkChar code✝ valid✝, ..tail✝]"
+        }
+      ],
+      "target": "p s"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\ns: Text\ntail✝: List Char\ncode✝: Nat\nvalid✝: Char.isScalar code✝\ne: s = MkText [MkChar code✝ valid✝, ..tail✝]\n⊢ p s",
+        "range": [
+          26,
+          9,
+          26,
+          10
+        ]
+      }
+    ],
+    "message": "in `equation`",
+    "notes": [
+      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      26,
+      9,
+      26,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "W-ARROW-FORALL",
+    "file": 0,
+    "labels": [
+      {
+        "file": 0,
+        "message": "write `∀ (…) =>` instead of `(…) ->`",
+        "range": [
+          29,
+          36,
+          29,
+          45
+        ]
+      }
+    ],
+    "message": "this statement is written as a function type: `∀` is for a statement",
+    "notes": [
+      "a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix \"Write ∀ instead of ->\" does it"
+    ],
+    "range": [
+      29,
+      36,
+      29,
+      45
+    ],
+    "severity": "warning"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        }
+      ],
+      "target": "p \"ab\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\n⊢ p \"ab\"",
+        "range": [
+          30,
+          12,
+          30,
+          13
+        ]
+      }
+    ],
+    "message": "in `clauses`",
+    "notes": [],
+    "range": [
+      30,
+      12,
+      30,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "s✝ ≠ \"ab\""
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        },
+        {
+          "name": "s✝",
+          "type": "Text"
+        }
+      ],
+      "target": "p s✝"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\ns✝: Text\ns✝ ≠ \"ab\"\n⊢ p s✝",
+        "range": [
+          31,
+          9,
+          31,
+          10
+        ]
+      }
+    ],
+    "message": "in `clauses`",
+    "notes": [
+      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      31,
+      9,
+      31,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Char → Prop"
+        }
+      ],
+      "target": "p 'a'"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Char → Prop\n⊢ p 'a'",
+        "range": [
+          35,
+          11,
+          35,
+          12
+        ]
+      }
+    ],
+    "message": "in `character`",
+    "notes": [],
+    "range": [
+      35,
+      11,
+      35,
+      12
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "c ≠ 'a'"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Char → Prop"
+        },
+        {
+          "name": "c",
+          "type": "Char"
+        }
+      ],
+      "lemma": "theorem characterGoal2 (p: Char → Prop) (c: Char) (h: c ≠ 'a'): p c := ?",
+      "target": "p c"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Char → Prop\nc: Char\nc ≠ 'a'\n⊢ p c",
+        "range": [
+          36,
+          9,
+          36,
+          10
+        ]
+      }
+    ],
+    "message": "in `character`",
+    "notes": [
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      36,
+      9,
+      36,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "List Char → Prop"
+        }
+      ],
+      "target": "p ['a']"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: List Char → Prop\n⊢ p ['a']",
+        "range": [
+          39,
+          13,
+          39,
+          14
+        ]
+      }
+    ],
+    "message": "in `characters`",
+    "notes": [],
+    "range": [
+      39,
+      13,
+      39,
+      14
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "List Char → Prop"
+        },
+        {
+          "name": "l",
+          "type": "List Char"
+        }
+      ],
+      "lemma": "theorem charactersGoal2 (p: List Char → Prop) (l: List Char): p l := ?",
+      "target": "p l"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: List Char → Prop\nl: List Char\n⊢ p l",
+        "range": [
+          40,
+          9,
+          40,
+          10
+        ]
+      }
+    ],
+    "message": "in `characters`",
+    "notes": [
+      "this arm is checked in 3 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      40,
+      9,
+      40,
+      10
+    ],
+    "severity": "goal"
+  }
+]

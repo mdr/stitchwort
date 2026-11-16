@@ -25,26 +25,26 @@ theorem bindsWeaken ∀ (strengthOf: Operator → Nat) (strength: Nat) (expressi
     Spec.BindsAtLeast strengthOf strength expression :=
   match expression with
     | Number value => Trivial
-    | Operation operator left right => omega
+    | Operation operator left right => arithmetic
     | Parenthesised inner => Trivial
 
 theorem spacedWritten ∀ (operator: Operator): (operator.spaced).toList = [' ', Spec.symbol operator, ' '] :=
   match operator with
-    | Plus => rfl
-    | Times => rfl
+    | Plus => byComputing
+    | Times => byComputing
 
 theorem readsOperator ∀ (operators: List Operator):
     Parse.Reads (() => operator operators) (read found => found ∈ operators ∧ read = [' ', Spec.symbol found, ' ']) :=
   Parse.readsWeaken (Parse.readsPickBy operators Operator.spaced) (read found (Both member same) =>
-    Both member (rewrite same in spacedWritten found))
+    Both member (rewrite same then spacedWritten found))
 
-theorem readsOperand ∀ (strengthOf: Operator → Nat) (strength: Nat) (expression: () → {Parse} Expression)
+theorem readsOperand ∀ (strengthOf: Operator → Nat) (strength: Nat) (expression: () → {Parse Char} Expression)
     (readsExpression: Parse.Reads expression (Level strengthOf 0)):
     Parse.Reads (() => operand expression) (Level strengthOf strength) :=
   Parse.readsOneOf _ _
     (Both
       (Parse.readsThen Parse.readsNat (numberRead value number =>
-        Parse.readsDone (Number value) _ (Both (rewrite List.appendNil numberRead in number) (Both Trivial Trivial))))
+        Parse.readsDone (Number value) _ (Both (rewrite List.appendNil numberRead then number) (Both Trivial Trivial))))
       (Both
         (Parse.readsThen (Parse.readsChar '(') (openRead u opened =>
           Parse.readsThen readsExpression (innerRead inner (Both written (Both follows binds)) =>
@@ -54,13 +54,13 @@ theorem readsOperand ∀ (strengthOf: Operator → Nat) (strength: Nat) (express
                 (Both
                   (Witness innerRead
                     (Both
-                      (rewrite opened, closed, List.appendNil [')'] in List.appendAssoc ['('] innerRead [')'])
+                      (rewrite opened, closed, List.appendNil [')'] then List.appendAssoc ['('] innerRead [')'])
                       written))
                   (Both follows Trivial))))))
         Trivial))
 
 theorem readsChain ∀ (strengthOf: Operator → Nat) (strength: Nat)
-    (operators: List Operator) (term: () → {Parse} Expression)
+    (operators: List Operator) (term: () → {Parse Char} Expression)
     (ranked: List.All (operator => strengthOf operator = strength) operators)
     (readsTerm: Parse.Reads term (Level strengthOf (strength + 1))):
     Parse.Reads (() => chain operators term) (Level strengthOf strength) :=
@@ -77,16 +77,16 @@ theorem readsChain ∀ (strengthOf: Operator → Nat) (strength: Nat)
     (leftRead operatorRead rightRead left combine right (Both written (Both follows binds))
         (Witness found (Both (Both member spaced) same)) (Both rightWritten (Both rightFollows rightBinds)) =>
       let sameStrength: strengthOf found = strength := List.allMem _ found operators ranked member
-      rewrite same, spaced in
+      rewrite same, spaced then
         Both
-          (Witness leftRead (Witness rightRead (Both rfl (Both written rightWritten))))
+          (Witness leftRead (Witness rightRead (Both byComputing (Both written rightWritten))))
           (Both
             (Both
-              (rewrite sameStrength in binds)
-              (Both (rewrite sameStrength in rightBinds) (Both follows rightFollows)))
-            (omega [sameStrength])))
+              (rewrite sameStrength then binds)
+              (Both (rewrite sameStrength then rightBinds) (Both follows rightFollows)))
+            (arithmetic [sameStrength])))
 
-theorem readsLevel ∀ (strengthOf: Operator → Nat) (expression: () → {Parse} Expression)
+theorem readsLevel ∀ (strengthOf: Operator → Nat) (expression: () → {Parse Char} Expression)
     (readsExpression: Parse.Reads expression (Level strengthOf 0))
     (levels: List (List Operator)) (strength: Nat)
     (ranked: Ranked strengthOf strength levels):
@@ -96,8 +96,8 @@ theorem readsLevel ∀ (strengthOf: Operator → Nat) (expression: () → {Parse
     | [operators, ..tighter] =>
       readsChain strengthOf strength operators
         (() => level expression tighter)
-        (And.left ranked)
-        (readsLevel strengthOf expression readsExpression tighter (strength + 1) (And.right ranked))
+        ranked.left
+        (readsLevel strengthOf expression readsExpression tighter (strength + 1) ranked.right)
 
 --| A whole expression, under ranked levels, is one written out that
 --| follows the strengths.

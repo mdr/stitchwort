@@ -17,7 +17,7 @@ does not do significant work itself:
   towards the three), writes each lane's
   brief, and starts a background agent for it in its own git worktree and
   branch, using the model that fits the work (below). Lanes use the agent
-  types `sonnet-lane` and `opus-lane` (`.claude/agents/`), not
+  types `sonnet-lane`, `opus-lane` and `fable-lane` (`.claude/agents/`), not
   `general-purpose`, so the agent list says what each one is.
 - It reviews every lane's diff before merging. Reviewed lanes are merged
   as a batch: everything waiting goes into `main` together, then one
@@ -146,8 +146,8 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
 - **Fable:** paper lanes on the hardest and most critical questions, where
   a mistake is silent or costly to undo: soundness audits of the kernel,
   reviews of kernel changes, and end-state designs that are hard to reverse
-  (D3473, Matt, 10 Nov 2026). Started as `opus-lane` with the model set to
-  Fable.
+  (D3473, Matt, 10 Nov 2026). Started as `fable-lane`, so the agent list
+  says Fable (Matt, 15 Nov 2026).
 - **Opus:** the hardest, deepest thinking: design decisions and design
   notes, the kernel and soundness, the tricky implementation parts of the
   code base, tricky bugs, specs for other models, and a proof only when it
@@ -216,6 +216,12 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   regardless. A DeepSeek run can't be talked to while it runs, so the
   orchestrator also watches its elapsed time (`ps -o etime=`) and stops it at 2× if its log
   shows it going in circles.
+  Estimate agent time, not human time (Matt, 15 Nov 2026: "your
+  estimates ... are often wildly inflated ... you estimate how long it'll
+  take a human"). Over 1,034 closed tasks the median actual was 0.33 of
+  the estimate (Opus and Sonnet 0.28, DeepSeek 0.63), and the toy
+  formatter's plan ran 8× high; so base an estimate on similar past tasks'
+  actual times, and read a lane's day-or-week estimate the same way.
 - **Briefs** carry the standard lines for the work they hand out (new
   examples' hash snapshots, std core's native pins, which comment rules
   apply): see "Writing a brief" in `docs/workflow.md`.
@@ -279,7 +285,10 @@ of work to fit it:
   version or the change: say what the code can't (why, invariants, units).
   Don't narrate the next line, restate names or types, or describe what
   just changed (that goes in the commit message). The standard library
-  still gets full API docs (D2351, Matt, 4 Nov 2026).
+  still gets full API docs (D2351, Matt, 4 Nov 2026). Proofs are the exception
+  to stinginess: a theorem whose proof runs over about 15 lines ends its
+  doc with the proof idea in a sentence or two (D3657, Matt, 16 Nov 2026:
+  "it can be really hard to write like a self-documenting proof").
 - In application code (aoc/, games/rogue), talk in the problem's language:
   give its nouns small domain types, records by default (`Pass`, not a bare
   `List Bool`) with their operations as methods (`pass.seatId`), and state
@@ -302,6 +311,10 @@ of work to fit it:
   `games/rogue` belongs in std (Matt, 7 Nov 2026: "a really rich standard
   library with a lot of proven facts"), and the same few lines in two AoC
   days belong in `aoc/src/Aoc/Common` with a lemma (D2381).
+- Every bug fix carries a test: the smallest one (a unit test, an example
+  file, a snapshot) that fails before the fix and passes after; show it
+  failing without the fix. If a test already caught the bug, name that test
+  in the report instead (D3608, Matt, 15 Nov 2026: "Yes, yes.").
 - Before committing, run `stitchwort fmt` on the `.sw` files you touched,
   plus `cargo fmt` and clippy.
 

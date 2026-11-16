@@ -2,8 +2,9 @@
 
 **Status:** draft 1, 6 November 2026. Ticket SW-1613 (D2455, Matt, 6 Nov 2026: "maybe kick
 that off now as a design session. It should look at other languages. It should try and
-consider alternatives."). Nothing is built; this note stops for Matt's decisions
-([§10](#10-decisions), Q1–Q6). Written against `main` at `cfa90ebf1`. Migration cost (hashes,
+consider alternatives."). Built (SW-1632, D2481-D2485), with the repository sweep as
+SW-1633; this note records the decisions ([§10](#10-decisions), Q1–Q6). Written against
+`main` at `cfa90ebf1`. Migration cost (hashes,
 snapshots, sweeps) is not counted; options are judged by where they end up.
 
 It revisits three decisions: **D593 (b)** (braces after a constructor in a pattern name its
@@ -246,11 +247,11 @@ name its type.
 | **Kotlin** | no | named arguments `User(name = "Jack")` [17, 18] | n/a; braces are a trailing lambda | `copy(age = 2)` [17] | none (type tests and properties) [19] |
 | **Swift** | no | labelled associated values, `case node(value: T, left: …)` [20] | n/a | none [unverified] | `case let .node(value, …)` [21] |
 | **F#** | anonymous `{\| X = 1 \|}`, distinct delimiter [22] | union cases with named fields, `Rectangle(length = 1.3, width = 10.0)`, mixed with positional [23] | n/a; nominal `{ X = 1 }` takes its type from the labels [24] | `{ r with Y = 1 }`, `{\| r with … \|}` [22, 24] | `Rectangle(width = w)` [23] |
-| **Elm** | yes, structural [25] | no; constructors are positional [26] | constructor applied to a record, `ReceivedMessage { user : User, … }` as a payload type [26] | `{ r \| x = 1 }` [25] | `{ x, y }` [unverified] |
+| **Elm** | yes, structural [25] | no; constructors are positional [26] | constructor applied to a record, `ReceivedMessage { user : User, … }` as a payload type [26] | `{ r \| x = 1 }` [25] | `{ x, y }` in function arguments, as in `distance {x,y} = …` [elm-lang.org/docs/syntax, Type Annotations, 15 Nov 2026; case-pattern use not checked] |
 | **PureScript** | yes, structural, `{ x: 1 }` [27] | no; positional | constructor applied to a record [inferred from 27] | `r { x = 1 }`, `_ { x = 1 }`: `=` marks an update, `:` a literal [27] | record puns `{ x, y }` [28] |
 | **Roc** | yes, structural [29] | no; tags take payloads `Ok(first)` [29] | `Ok({ … })` [inferred from 29] | `{ ..r, name: "x" }` [29] | destructuring `{ name, … } = r` [29] |
 | **Gleam** | no | labelled fields, `Teacher(name: …)`, labels optional, any order [30, 31] | n/a | `Teacher(..teacher1, subject: "PE", room: 6)` [32] | labels and shorthand `name:` [33] |
-| **Koka** | no | the constructor is a function with named arguments, `Person(name = "Brian", age = 19)`: "just functions all the way down" [34] | n/a | `p(age = p.age + 1)`, a generated copy function [34] | [unverified] |
+| **Koka** | no | the constructor is a function with named arguments, `Person(name = "Brian", age = 19)`: "just functions all the way down" [34] | n/a | `p(age = p.age + 1)`, a generated copy function [34] | constructor patterns take named arguments, `patarg ::= [ identifier = ] apattern` [Koka book grammar, §4.4.9, 15 Nov 2026] |
 | **Idris 2** | no | positional `MkPerson "Fred" …` [35] | n/a | `{ x := 3 } r` [36] | positional; implicits by name `{n = 2}` [35] |
 | **Agda** | `record { fst = 2; snd = 3 }`, type from the signature [37] | `record { … }`, or the declared constructor positionally [37] | n/a | `record old { a = 0 }` [37] | `record { fst = x; … }` as a pattern [37]; implicits by name `{y = e}` [38] |
 | **Unison** | no | positional; "no special syntax for creating, pattern matching, or decomposing records" [39] | n/a | generated `Song.title.set` [39] | positional [39] |
@@ -444,8 +445,8 @@ Keep braces as a record argument everywhere (as C), but give named construction 
 its own that keeps the record look:
 
 - `Meeting.{ title = "Standup", room = "Blue" }`, `| Meeting.{ minutes, .. }`. Zig uses `.{ }`
-  for literals, which suggests the opposite meaning; nothing else uses it this way
-  **[unverified]**.
+  for literals ("Anonymous Struct Literals", Zig language reference, 15 Nov 2026), which suggests the opposite meaning; that nothing else uses it this way
+  is an absence claim, **[unverified]**.
 - `Meeting { title := "Standup" }` versus `Some { name = "tea" }`: `:=` names constructor
   fields, `=` record fields. PureScript tells update from literal by `=` and `:` [27], but
   here a punned field (`{ id, .. }`) has neither, so the two readings collide again.

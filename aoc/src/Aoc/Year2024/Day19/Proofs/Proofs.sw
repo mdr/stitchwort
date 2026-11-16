@@ -14,12 +14,12 @@ import Std (List, Nat)
 theorem possibleWays ∀ (patterns: List Pattern) (design: Design):
     (ways patterns design > 0) = possible patterns design :=
   match arrangements patterns design with
-    | [] => rfl
-    | [first, ..rest] => rfl
+    | [] => byComputing
+    | [first, ..rest] => byComputing
 
 theorem part1Correct ∀ (onsen: Onsen): solvePart1 onsen = part1 onsen :=
   List.countCongMem _ (design => waysToMake onsen.patterns design > 0) (possible onsen.patterns) (design member =>
-    rewrite waysCorrect onsen.patterns design in possibleWays onsen.patterns design)
+    rewrite waysCorrect onsen.patterns design then possibleWays onsen.patterns design)
 
 theorem part2Correct ∀ (onsen: Onsen): solvePart2 onsen = part2 onsen :=
   List.sumByCongMem onsen.designs (waysToMake onsen.patterns) (ways onsen.patterns) (design member =>

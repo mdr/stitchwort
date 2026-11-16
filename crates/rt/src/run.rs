@@ -41,11 +41,13 @@ use std::rc::Rc;
 
 use stitchwort_core::ResourceError;
 
+use crate::files;
 use crate::host::{NoTerminal, RunError, Terminal, read_all, read_bytes, read_line, write_text};
-use crate::ir::{MainRow, Program, Shapes};
+use crate::ir::{Ability, MainRow, Program, Shapes};
 use crate::machine::Machine;
 use crate::native_abi::{NativeExecutor, NativeIslands};
 use crate::shared::Limits;
+use crate::text::Text;
 use crate::value::{Delay, Fun, Value};
 
 pub use live::{Advanced, LimitScope, LiveLimits, LiveRun};
@@ -65,6 +67,17 @@ pub struct Policy {
     /// Stop (inconclusively) when the run needs a tick beyond this many: a
     /// limit of `n` allows exactly `n` ticks.
     pub max_ticks: Option<u64>,
+}
+
+/// What a finished `main` asks for: the driver's `main ()` is `()`, or, for a
+/// `main` returning an `ExitStatus`, the status as a number
+/// (`Std.ExitStatus.toNat`), which is [`RunError::Exit`] unless it is 0.
+pub(crate) fn exit_of(result: &Value) -> Result<(), RunError> {
+    match result {
+        Value::Nat(0) => Ok(()),
+        Value::Nat(n) => Err(RunError::Exit(u8::try_from(*n).unwrap_or(u8::MAX))),
+        _ => Ok(()),
+    }
 }
 
 /// Runs `program` (lowered by [`crate::lower_main`]), reading lines from
@@ -657,7 +670,7 @@ impl<'t, E: Executor> Runner<'t, E> {
         output: &mut impl Write,
     ) -> Result<Outcome, RunError> {
         match self.drive(Focus::Eval(delay), input, output)? {
-            Driven::Finished(_) => Ok(Outcome::Finished),
+            Driven::Finished(v) => exit_of(&v).map(|()| Outcome::Finished),
             Driven::OutOfTicks => Ok(Outcome::OutOfTicks),
             Driven::Waiting => unreachable!("an input that waits in a run that can't"),
         }
@@ -935,19 +948,9 @@ impl<'t, E: Executor> Runner<'t, E> {
     /// apart (so it takes no reference, and the allocation trace is that
     /// of a run that doesn't ask).
     fn read_need(&self, op: &Value) -> Option<ReadNeed> {
-        fn split(v: &Value) -> Option<(u32, &Value)> {
-            match v {
-                Value::Data(t, fields) => Some((*t, &fields[0])),
-                _ => None,
-            }
-        }
         let s = self.m.shapes();
-        let (side, io) = split(op)?;
-        let io = match self.m.main_row() {
-            MainRow::Io => io,
-            // `L (stop msg)` isn't a read; `R (L io)` is `io`.
-            MainRow::FailIo if side == s.left => return None,
-            MainRow::FailIo => split(io)?.1,
+        let (Ability::Io, io) = split_op(self.m.main_row(), s, op)? else {
+            return None;
         };
         let tag = io.tag()?;
         if tag == s.read_bytes {
@@ -1028,10 +1031,10 @@ impl<'t, E: Executor> Runner<'t, E> {
         Ok(Focus::Comp(self.apply_cont(&cont, reply)?))
     }
 
-    /// Performs operation `op`, of `{IO}` or `{Fail, IO}` (the program's
-    /// [`MainRow`]): its reply. `Fail.stop msg` stops the run with
-    /// [`RunError::Failed`]; it returns `Empty`, so there's nothing to resume
-    /// with (docs/proposals/partial-stage-2.md).
+    /// Performs operation `op`, of the program's [`MainRow`]: its reply.
+    /// `Fail.stop msg` stops the run with [`RunError::Failed`]; it returns
+    /// `Empty`, so there's nothing to resume with
+    /// (docs/proposals/partial-stage-2.md).
     fn perform(
         &mut self,
         op: Value,
@@ -1039,27 +1042,24 @@ impl<'t, E: Executor> Runner<'t, E> {
         output: &mut impl Write,
     ) -> Result<Value, RunError> {
         let s = *self.m.shapes();
-        let side = |v: &Value| match v {
-            Value::Data(t, fields) if *t == s.left || *t == s.right => (*t, fields[0].clone()),
-            other => panic!("internal error: an operation {other:?} outside `IO` and `Fail`"),
+        let row = self.m.main_row();
+        let Some((ability, io)) = split_op(row, &s, &op) else {
+            panic!("internal error: an operation {op:?} outside {row:?}")
         };
-        let io = match (self.m.main_row(), side(&op)) {
-            (MainRow::Io, (t, io)) if t == s.left => io,
-            (MainRow::FailIo, (t, stop)) if t == s.left => {
-                let Value::Data(tag, fields) = &stop else {
-                    panic!("internal error: a `Fail` operation {stop:?}")
+        let io = io.clone();
+        match ability {
+            Ability::Fail => {
+                let Value::Data(tag, fields) = &io else {
+                    panic!("internal error: a `Fail` operation {io:?}")
                 };
                 debug_assert_eq!(*tag, s.stop);
                 return Err(RunError::Failed(
                     crate::prims::text_of(&fields[0]).to_string(),
                 ));
             }
-            (MainRow::FailIo, (_, rest)) => match side(&rest) {
-                (t, io) if t == s.left => io,
-                _ => panic!("internal error: an operation {op:?} outside `IO` and `Fail`"),
-            },
-            _ => panic!("internal error: an operation {op:?} outside `IO`"),
-        };
+            Ability::Files => return Ok(perform_files(&s, &io)),
+            Ability::Io => {}
+        }
         let tag = io.tag().expect("an `IO` operation");
         let field = || match &io {
             Value::Data(_, fields) => fields[0].clone(),
@@ -1070,19 +1070,19 @@ impl<'t, E: Executor> Runner<'t, E> {
             self.terminal.keys_mode(false, output)?;
             let text = crate::prims::text_of(&field()).clone();
             output
-                .write_all(text.as_bytes())
+                .write_all(text.to_str().as_bytes())
                 .and_then(|()| output.write_all(b"\n"))
                 .map_err(RunError::Write)?;
             Value::Tag(s.unit)
         } else if tag == s.read_line {
             self.before_read(ReadNeed::Line, output)?;
             match read_line(input, &mut self.lines)? {
-                Some(line) => Value::data(s.some, [Value::text(line.into())]),
+                Some(line) => Value::data(s.some, [Value::text(Text::from(line))]),
                 None => Value::Tag(s.none),
             }
         } else if tag == s.read_all {
             self.before_read(ReadNeed::All, output)?;
-            Value::text(read_all(input, &mut self.lines)?.into())
+            Value::text(Text::from(read_all(input, &mut self.lines)?))
         } else if tag == s.console {
             let console = self.terminal.console();
             let flag = |b: bool| Value::Tag(if b { s.true_ } else { s.false_ });
@@ -1112,19 +1112,111 @@ impl<'t, E: Executor> Runner<'t, E> {
                 None => Value::Tag(s.none),
             }
         } else if tag == s.write {
-            write_text(output, crate::prims::text_of(&field()))?;
+            write_text(output, &crate::prims::text_of(&field()).to_str())?;
             Value::Tag(s.unit)
         } else if tag == s.random_seed {
             Value::Nat(crate::host::random_seed())
         } else if tag == s.args {
             let mut list = Value::Tag(s.nil);
             for arg in crate::host::args().iter().rev() {
-                list = Value::data(s.cons, [Value::text(arg.clone().into()), list]);
+                list = Value::data(s.cons, [Value::text(Text::from(arg.as_str())), list]);
             }
             list
+        } else if tag == s.print_error {
+            // As `print` does: a bare line ending in keys mode would draw
+            // over the screen.
+            self.terminal.keys_mode(false, output)?;
+            crate::host::print_error(output, &crate::prims::text_of(&field()).to_str())?;
+            Value::Tag(s.unit)
         } else {
             panic!("internal error: an unknown `IO` operation {io:?}")
         })
+    }
+}
+
+/// Which ability of `row` operation `op` is of, and the ability's own
+/// operation: `op` is `n` `R`s round an `L` for the `n`th ability of the
+/// row ([`MainRow::layout`]).
+fn split_op<'v>(row: MainRow, s: &Shapes, mut op: &'v Value) -> Option<(Ability, &'v Value)> {
+    for ability in row.layout() {
+        let Value::Data(side, fields) = op else {
+            return None;
+        };
+        if *side == s.left {
+            return Some((ability, &fields[0]));
+        }
+        op = &fields[0];
+    }
+    None
+}
+
+/// Performs `Files` operation `op` on the real disk: its reply, a `Result`
+/// whose error carries the operation's own path.
+fn perform_files(s: &Shapes, op: &Value) -> Value {
+    let f = &s.files;
+    let Value::Data(tag, fields) = op else {
+        panic!("internal error: a `Files` operation {op:?}")
+    };
+    let tag = *tag;
+    // `write`'s argument is a pair of the path and the text.
+    let (path, text) = if tag == f.write {
+        let Value::Data(_, pair) = &fields[0] else {
+            panic!("internal error: `write` of {:?}", fields[0])
+        };
+        (pair[0].clone(), Some(pair[1].clone()))
+    } else {
+        (fields[0].clone(), None)
+    };
+    let host = {
+        let Value::Data(_, parts) = &path else {
+            panic!("internal error: a `Path` {path:?}")
+        };
+        let names: Vec<String> = crate::prims::items(s, &parts[0])
+            .map(|part| crate::prims::text_of(part).to_string())
+            .collect();
+        let absolute = matches!(parts[1], Value::Tag(t) if t == s.true_);
+        files::host_path(&names, absolute)
+    };
+    let kind = |k: files::Kind| {
+        Value::Tag(match k {
+            files::Kind::File => f.file,
+            files::Kind::Folder => f.folder,
+            files::Kind::Other => f.other,
+        })
+    };
+    let reply = if tag == f.read {
+        files::read(&host).map(|text| Value::text(text.into()))
+    } else if tag == f.write {
+        let text = text.expect("a pair");
+        files::write(&host, &crate::prims::text_of(&text).to_str()).map(|()| Value::Tag(s.unit))
+    } else if tag == f.list {
+        files::list(&host).map(|entries| {
+            let entries = entries
+                .into_iter()
+                .map(|(name, k)| Value::data(f.entry, [Value::text(name.into()), kind(k)]))
+                .collect();
+            crate::prims::list(s, entries)
+        })
+    } else if tag == f.info {
+        files::info(&host).map(|(k, size)| Value::data(f.info_record, [kind(k), Value::Nat(size)]))
+    } else {
+        panic!("internal error: an unknown `Files` operation {op:?}")
+    };
+    match reply {
+        Ok(value) => Value::data(f.ok, [value]),
+        Err(failure) => {
+            let error = match failure {
+                files::Failure::NotFound => Value::data(f.not_found, [path]),
+                files::Failure::NotPermitted => Value::data(f.not_permitted, [path]),
+                files::Failure::NotAFile => Value::data(f.not_a_file, [path]),
+                files::Failure::NotAFolder => Value::data(f.not_a_folder, [path]),
+                files::Failure::NotText => Value::data(f.not_text, [path]),
+                files::Failure::Other(message) => {
+                    Value::data(f.other_error, [path, Value::text(message.into())])
+                }
+            };
+            Value::data(f.err, [error])
+        }
     }
 }
 

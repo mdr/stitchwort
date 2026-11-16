@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -44,9 +44,9 @@ expression: json
         "message": "y: Nat\nys: List Nat\nh: y ∈ [y, ..ys]\n⊢ y ∈ ys",
         "range": [
           9,
-          75,
+          77,
           9,
-          76
+          78
         ]
       }
     ],
@@ -56,9 +56,9 @@ expression: json
     ],
     "range": [
       9,
-      75,
+      77,
       9,
-      76
+      78
     ],
     "severity": "goal"
   },
@@ -135,20 +135,20 @@ expression: json
         "file": 0,
         "message": "f: List Leaf → Nat\nleaf: Leaf\nrest: List Leaf\n⊢ f [{ leaf | depth = leaf.depth + 1 }, ..rest] = f rest",
         "range": [
-          19,
-          75,
-          19,
-          76
+          20,
+          2,
+          20,
+          3
         ]
       }
     ],
     "message": "in `deeper`",
     "notes": [],
     "range": [
-      19,
-      75,
-      19,
-      76
+      20,
+      2,
+      20,
+      3
     ],
     "severity": "goal"
   },
@@ -174,10 +174,10 @@ expression: json
         "file": 0,
         "message": "n: Nat\nh: n = 3\n⊢ n = 3",
         "range": [
-          22,
-          86,
-          22,
-          87
+          23,
+          88,
+          23,
+          89
         ]
       }
     ],
@@ -186,10 +186,10 @@ expression: json
       "1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it"
     ],
     "range": [
-      22,
-      86,
-      22,
-      87
+      23,
+      88,
+      23,
+      89
     ],
     "severity": "goal"
   }

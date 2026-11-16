@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `Eq.symm`
+   ╭─[ reject/other-systems-symm.sw:5:46 ]
+   │
+ 5 │ theorem back (a b: Nat) (h: a = b): b = a := Eq.symm h
+   │                                              ───┬───  
+   │                                                 ╰───── not in scope
+   │ 
+   │ Note: `Eq.symm` isn't a Stitchwort name: an equation's two sides swap with `h.flipped` (or `Eq.flipped h`)
+───╯

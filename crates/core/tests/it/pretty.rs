@@ -488,6 +488,30 @@ fn finds_where_two_terms_first_differ() {
 }
 
 #[test]
+fn elides_the_parts_two_terms_agree_on() {
+    let mut p = Prelude::new();
+    let f = opaque_function(&mut p);
+    let (x, y) = (v(1), v(0));
+    let big = p.plus(p.plus(x.clone(), y.clone()), p.plus(y.clone(), x.clone()));
+    let shown = |a: &Term, b: &Term| {
+        let (a, b) = pretty::elide_agreeing(a, b);
+        (show(&p, &["x", "y"], &a), show(&p, &["x", "y"], &b))
+    };
+    // A large agreeing argument is `…`; a small one is kept for context.
+    let a = app(f.clone(), [big.clone(), p.plus(x.clone(), p.num(1))]);
+    let b = app(f.clone(), [big.clone(), p.plus(x.clone(), p.num(2))]);
+    assert_eq!(shown(&a, &b), ("f … (x + 1)".into(), "f … (x + 2)".into()));
+    // Calls of different functions line up on their last arguments.
+    let a = app(f.clone(), [x.clone(), big.clone()]);
+    let b = app(f.clone(), [y.clone(), big.clone()]);
+    let c = app(x.clone(), [big.clone()]);
+    assert_eq!(shown(&a, &b), ("f x …".into(), "f y …".into()));
+    assert_eq!(shown(&c, &b), ("x …".into(), "f y …".into()));
+    // Equal terms are shown whole.
+    assert_eq!(shown(&big, &big).0, "x + y + (y + x)");
+}
+
+#[test]
 fn a_succ_in_a_comparisons_operand_is_reported_as_the_whole_comparisons() {
     let mut p = Prelude::new();
     let nat = p.nat_ty();

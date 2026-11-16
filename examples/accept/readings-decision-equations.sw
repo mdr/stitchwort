@@ -20,7 +20,7 @@ theorem consesApart ∀ (x y: Nat) (xs ys: List Nat) (h: ([x, ..xs] == [y, ..ys]
   h.read
 
 theorem consesSwap ∀ (x y: Nat) (xs ys: List Nat) (h: ([x, ..xs] == [y, ..ys]) = True): [y, ..ys] = [x, ..xs] :=
-  Eq.sym h.read
+  Eq.flipped h.read
 
 theorem texts ∀ (p q: Text) (h: (p == q) = True): p = q := h.read
 
@@ -67,8 +67,8 @@ def Light.isRed: Light → Bool
   | Green => False
 
 def Light.decEq: (a: Light) → (b: Light) → Decidable (a = b)
-  | Red, Red => Decidable.yes rfl
-  | Green, Green => Decidable.yes rfl
+  | Red, Red => Decidable.yes byComputing
+  | Green, Green => Decidable.yes byComputing
   | Red, Green => Decidable.no (e => Bool.trueNotFalse (Eq.cong Light.isRed e))
   | Green, Red => Decidable.no (e => Bool.falseNotTrue (Eq.cong Light.isRed e))
 
@@ -83,8 +83,8 @@ theorem lightsApart ∀ (a b: Light) (h: (a == b) = False): a ≠ b := h.read
 type Code = { n: Nat }
 
 def Code.decEq (a b: Code): Decidable (a = b) :=
-  Decidable.map (Nat.decEq a.n b.n) (e => match a, b with | { n }, { n = m } => rewrite e in rfl) (e =>
-    rewrite e in rfl)
+  Decidable.map (Nat.decEq a.n b.n) (e => match a, b with | { n }, { n = m } => rewrite e then byComputing) (e =>
+    rewrite e then byComputing)
 
 instance Code.instDecEq: DecEq Code := { decide = Code.decEq }
 

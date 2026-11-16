@@ -6,4 +6,4 @@ import Std (Eq, Nat)
 
 type Point = { id: Nat, x: Nat }
 
-theorem misspelt (p: Point): { p | y = 3 }.x = p.x := rfl
+theorem misspelt (p: Point): { p | y = 3 }.x = p.x := byComputing

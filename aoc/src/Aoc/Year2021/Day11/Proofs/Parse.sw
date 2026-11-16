@@ -21,11 +21,11 @@ theorem parseDigits ∀ (input: Text) (cavern: Cavern)
   Exists.elim (parsedGrid input cavern parsed) (digits both =>
     let (Both same _) := both
     Exists.elim
-      (List.memMapElim (digits => digits.map Fin.toNat) row digits.rows (rewrite same at rowIn in rowIn))
+      (List.memMapElim (digits => digits.map Fin.toNat) row digits.rows (rewrite same at rowIn then rowIn))
       (read found =>
         let (Both _ made) := found
-        Exists.elim (List.memMapElim Fin.toNat level read (rewrite made in levelIn)) (cell found =>
-          rewrite <- And.right found in omega [Fin.toNatLt cell])))
+        Exists.elim (List.memMapElim Fin.toNat level read (rewrite made then levelIn)) (cell found =>
+          rewrite <- And.right found then arithmetic [Fin.toNatLt cell])))
 
 --| ...and every row is as long as the first.
 theorem parseRectangular ∀ (input: Text) (cavern: Cavern)
@@ -35,10 +35,10 @@ theorem parseRectangular ∀ (input: Text) (cavern: Cavern)
   Exists.elim (parsedGrid input cavern parsed) (digits both =>
     let (Both same rectangle) := both
     Exists.elim
-      (List.memMapElim (digits => digits.map Fin.toNat) row digits.rows (rewrite same at rowIn in rowIn))
+      (List.memMapElim (digits => digits.map Fin.toNat) row digits.rows (rewrite same at rowIn then rowIn))
       (read found =>
         let (Both readIn made) := found
-        rewrite same, <- made, List.lengthMap read Fin.toNat, digitsFirstWidth digits.rows in rectangle read readIn))
+        rewrite same, <- made, List.lengthMap read Fin.toNat, digitsFirstWidth digits.rows then rectangle read readIn))
 
 --| What `parseCavern` reads is a rectangle of digits read as numbers.
 theorem parsedGrid ∀ (input: Text) (cavern: Cavern)
@@ -51,4 +51,4 @@ theorem parsedGrid ∀ (input: Text) (cavern: Cavern)
     cavern
     split
     (digits read made =>
-      Witness digits (Both (Eq.sym (Result.okInjective made)) (And.left (parseGridRectangle input digit digits read))))
+      Witness digits (Both (Result.okInjective made).flipped (And.left (parseGridRectangle input digit digits read))))

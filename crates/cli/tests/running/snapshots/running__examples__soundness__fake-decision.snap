@@ -2,16 +2,16 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
    ╭─[ soundness/fake-decision.sw:9:50 ]
    │
- 9 │ theorem oneIsTwo: 1 = 2 := (Nat.decEq 1 2).sound rfl
-   │                                                  ─┬─  
-   │                                                   ╰─── `(Nat.decEq 1 2).holds` and `True` aren't equal
+ 9 │ theorem oneIsTwo: 1 = 2 := (Nat.decEq 1 2).sound byComputing
+   │                                                  ─────┬─────  
+   │                                                       ╰─────── `(Nat.decEq 1 2).holds` and `True` aren't equal
    │ 
    │ Note 1: computing the left side gives `False`
    │ 
-   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
    │ 
    │ Note 3: this statement is false:
    │         `1 = 2` is false:

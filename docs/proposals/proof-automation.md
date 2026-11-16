@@ -7,7 +7,7 @@ sums, `writeTimesMul`'s seven-step regrouping, and the non-linear residue `omega
 Related: [omega.md](omega.md) (built; this note copies its design for `ring`),
 [calc-rewrite.md](calc-rewrite.md) and [rewrite-hypothesis.md](rewrite-hypothesis.md) (built;
 `simp` reuses their search), [folded-calls.md](folded-calls.md) (built as SW-257),
-[proof-irrelevance.md](proof-irrelevance.md) (not built), [attributes.md](attributes.md),
+[proof-irrelevance.md](proof-irrelevance.md) (built, stages 1-2; stage 3 waits), [attributes.md](attributes.md),
 [well-founded-recursion.md](well-founded-recursion.md) (its congruence-lemma lookup is reused
 here).
 
@@ -490,7 +490,8 @@ page it opened, it's marked **[unverified]**.
   "by computation"); applications are rebuilt with `congrArg`/`congrFun`/`congr` and with
   congruence theorems, generated automatically or registered with `@[congr]` [S7][S8]. Lean
   has function extensionality, which `simp` can use to go under a `fun` without a special
-  lemma **[unverified]**.
+  lemma ([`Simp/Main.lean`](https://github.com/leanprover/lean4/blob/master/src/Lean/Meta/Tactic/Simp/Main.lean):
+  `simpLambda` rebuilds the result with `mkFunExt`; read 15 Nov 2026).
 - **Loops**: a step budget (`maxSteps`, default 100,000; "maximum number of steps
   exceeded"); permutative rules like commutativity are applied only when the result is
   smaller in a fixed term order ("perm rejected"); since v4.22 a linter can look for looping
@@ -509,8 +510,7 @@ page it opened, it's marked **[unverified]**.
 - **Mathlib `ring` is proof-producing, not reflective**: "normalisation is guided by building
   a value in the type `ExSum` at the meta level, together with a proof … that the original
   value is equal to the normalised version"; commutativity is "by sorting the subterms"; it
-  allows variable `ℕ` exponents [S13][S14]. It cites Grégoire and Mahboubi's paper [S15]
-  (the identification is from course notes, **[unverified]** against the paper itself).
+  allows variable `ℕ` exponents [S13][S14]. Its module docstring says "Based on" a PDF URL (`www.cs.ru.nl/~freek/courses/tt-2014/read/10.1.1.61.3041.pdf`, `Mathlib/Tactic/Ring/Basic.lean`, Mathlib master at f78acaf), and that PDF is Grégoire and Mahboubi's paper [S15] (opened 15 Nov 2026; title and authors on its first page). So the source names the paper by link, not by author, and "based on" says nothing about which parts: their tactic is reflexive, Mathlib's is proof-producing **[corrected 15 Nov 2026: an earlier note said the source doesn't mention them]**.
 - **Lean core's `grind`** has a commutative ring solver that "uses proof-by-reflection": each
   step is a small theorem about a certificate, checked with `eagerReflBoolTrue` [S16][S17].
   So Lean now ships both ways.
@@ -936,7 +936,9 @@ counted for (A)).
 - **Matching** follows `rewrite`'s rules (key, syntax, then conversion within the budget),
   with one change for speed: rules are indexed by their left side's head, so each subterm is
   compared only with rules that could match it. Lean indexes its simp lemmas in a similar way
-  (a discrimination tree) **[unverified]**.
+  (a discrimination tree: `SimpTheoremKey := DiscrTree.Key` in
+  [`Simp/SimpTheorems.lean`](https://github.com/leanprover/lean4/blob/master/src/Lean/Meta/Tactic/Simp/SimpTheorems.lean),
+  read 15 Nov 2026).
 - **Explaining itself (`simp?` in spirit).** Two ways, both cheap:
   1. `simp [..] in ?` shows the goal after simplification with the usual goal display.
   2. The language server offers "expand `simp`": it replaces `simp [rules]` by the explicit
@@ -1050,8 +1052,9 @@ imports.
 then cancelled), or keep `ring` closed and write the hypothesis in by `rewrite` or a `calc`
 step?** Recommendation: **`ring [h]`**, in stage 2b. It is what closes `gaussSum` and
 `pairsStep` in one line, it matches `omega [facts]`'s look, and it is cheap (one more
-cancellation lemma). Mathlib's nearest tactic is `linear_combination`, which (as I recall it) also
-allows a multiplier on each hypothesis **[unverified]**; I'd leave multipliers out until a
+cancellation lemma). Mathlib's nearest tactic is `linear_combination`, which also
+allows a multiplier on each hypothesis ([`LinearCombination.lean`](https://github.com/leanprover-community/mathlib4/blob/master/Mathlib/Tactic/LinearCombination.lean):
+"a sum/difference of coefficients multiplied by expressions", read 15 Nov 2026); I'd leave multipliers out until a
 proof needs one.
 
 **Q4. When `simp` has done its work, should the committed proof keep the short `simp [..]`,
@@ -1215,7 +1218,7 @@ Fetched on 24 October 2026 by a research sub-agent, which quoted each page.
 - [S29] Rocq 9.2 reference, rewrite rules: https://rocq-prover.org/doc/V9.2.0/refman/addendum/rewrite-rules.html
 - [S30] Isabelle/Isar reference manual (§9.3, §12): https://isabelle.in.tum.de/doc/isar-ref.pdf
 - [S31] Isabelle implementation manual (§2.3, §2.5): https://isabelle.in.tum.de/doc/implementation.pdf
-- [S32] Chaieb and Nipkow, JAR 2008: https://www.proof.cit.tum.de/~nipkow/pubs/jar08.html (which method the shipped `presburger` uses is **[unverified]**)
+- [S32] Chaieb and Nipkow, JAR 2008: https://www.proof.cit.tum.de/~nipkow/pubs/jar08.html (which method the shipped `presburger` uses is **[unverified]**: checked 15 Nov 2026, Isabelle's `presburger` calls `Cooper.tac` ([Presburger.thy](https://github.com/isabelle-prover/mirror-isabelle/blob/master/src/HOL/Presburger.thy), [cooper.ML](https://github.com/isabelle-prover/mirror-isabelle/blob/master/src/HOL/Tools/Qelim/cooper.ML)), which builds theorems with `Thm.transitive`, but cooper.ML also refers to `Cooper_Procedure` and I didn't establish which of the paper's two methods does the work. The paper's abstract does say the reflective one is "between one and two orders of magnitude faster", which supports the 10 to 100 times above)
 - [S33] Agda docs, rewriting: https://agda.readthedocs.io/en/latest/language/rewriting.html
 - [S34] Agda docs, safe Agda: https://agda.readthedocs.io/en/latest/language/safe-agda.html
 - [S35] Agda stdlib `Tactic/RingSolver.agda`: https://raw.githubusercontent.com/agda/agda-stdlib/master/src/Tactic/RingSolver.agda

@@ -24,7 +24,7 @@ fn refl_proves(
     define(&mut p.g, name, ty, body)
 }
 
-/// Arena `k-rec-conv`: `(x => x) = (_ => y)` by `rfl`.
+/// Arena `k-rec-conv`: `(x => x) = (_ => y)` by `byComputing`.
 #[test]
 fn k_rec_conv_identity_is_not_a_constant() {
     let mut p = Prelude::new();
@@ -35,7 +35,7 @@ fn k_rec_conv_identity_is_not_a_constant() {
 }
 
 /// Arena `k-rec-conv`, K-like reduction: `J` on a proof variable
-/// `h: 0 = y` is stuck, never its base. Neighbour: on `rfl` it computes.
+/// `h: 0 = y` is stuck, never its base. Neighbour: on `byComputing` it computes.
 #[test]
 fn j_on_a_proof_variable_does_not_reduce() {
     let mut p = Prelude::new();

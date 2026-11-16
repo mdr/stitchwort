@@ -44,7 +44,256 @@ in [../proposals/README.md](../proposals/README.md).
 
 ---
 
+## 15 Nov 2026
+
+### SW-3391: `Parse.operators` and `Parse.locatedToEnd`, the toy's hand-written loops moved into std
+
+- **Status:** kept (Sonnet). Std (`Parse/Parse.sw`, `Parse/Tokens.sw`) and
+  the toy.
+- **Problem.** SW-3383's two speed-ups lived in the toy: precedence
+  climbing for operators, and a handler-free loop for lexemes. Every
+  grammar written on `Parse` pays what the toy paid before them.
+- **Change.** `Parse.operators what levels operand` (levels with an
+  associativity; the notes are `chainLeft`'s, tested against a `chainLeft`
+  tower on 15 samples, messages included); `Parse.manyToEnd` and
+  `Parse.locatedToEnd` for parsers that don't fail part-way. The toy uses
+  both.
+- **Measured** (native, 933 KB, user seconds, median of 3, load 3 to 5):
+  lexing with `Parse.many (() => Parse.located …)` 1.49 s, with
+  `Parse.locatedToEnd` 0.97 s (same as the toy's loop). The whole parse
+  (lex and parse, print included) 1.84 s with the toy's hand-written
+  climbing, 1.97 s with `Parse.operators`: the table scan and a table built
+  per expression cost 7%. Format 2.18 s to 2.30 s. Messages unchanged (the
+  toy's 82 tests).
+
+### SW-3383: the toy formatter, profiled; its handlers out of the hot paths (3.8 to 2.05 s/MB native)
+
+- **Status:** kept (Opus). Toy code only (`tools/toyfmt`); one runtime
+  attempt dropped (below). Scoped to the toy, not the paused speed epics
+  (D3465).
+- **Problem, profiled first.** `Toy.Timing.main -- format 2600` (933 KB of
+  Sprig), native, samply plus the `call-counts` runtime: no hot function;
+  the effect runtime and the allocator were three quarters of the time.
+  Counted: 5.4 M `Parse` operations, 8.7 M crossings of forwarding
+  handlers, about 60 M objects allocated. A probe (1 M operations under
+  `Parse.all`) put a `Parse.mark` at about 4,300 instructions and a
+  `Parse.optional` round at about 6,300 more [measured]. The toy's grammar
+  used nine handlers and about thirty operations per operand (six
+  `chainLeft` levels, `many` for negations, `many` of `oneOf` for calls and
+  fields), a `many` round and three marks per lexeme, and an `optional` per
+  comma.
+- **Change.** Precedence climbing and a look at the next token for
+  operators, negations, calls, fields, commas and closers, with a handler
+  only where something was found (so a dangling operator is still left
+  unread); lexemes in a loop of their own, one mark each. Commits on
+  `lane/SW-3383`.
+- **Why results stay the same.** Every place the old grammar noted an
+  expectation, the new one notes the same text at the same offset, in the
+  same order; duplicates (six "an operator"s) collapse in the message as
+  before. Checked: the toy's 78 tests (goldens, disturbances, exact
+  messages), the `toyfmt_formats` end-to-end test, and the old and new
+  `toyfmt` on 9,000 mutated sources (three seeds), identical output, exit
+  codes and files. No std or compiler change, so no hash moves.
+- **Measured** (user seconds, median of 3 at load about 3.5; instructions
+  median of 5): lexing 1.15 s / 16.4 G to 0.68 s / 9.3 G; parsing beyond
+  lexing 2.08 s / 29.0 G to 0.91 s / 12.2 G; printing unchanged (0.3 s,
+  4.4 G); whole format 3.52 s to 1.91 s, 49.8 G to 25.9 G instructions.
+  `stitchwort run`: 9.4 s to 5.2 s (one run each, load 25). No benchmark
+  run: nothing outside `tools/toyfmt` changed.
+- **Dropped:** the runtime's freeing queue (`value::free`'s `pending`) as a
+  `SmallVec<[Value; 8]>` instead of a `Vec`, since growing that `Vec` was
+  2.8% of the profile: instructions +1%, cycles unchanged. Not kept.
+  (Skipping the queue for children that are shared would avoid the
+  allocation, but a cell holding the same child twice can then free
+  recursively, the overflow SW-2452 fixed.)
+- **Left.** Lexing and parsing are still about half `Parse` operations
+  (the effect runtime's cost per operation: operations in place, paused,
+  D3430) and about a tenth the list of characters (D3597's slices). Details
+  in `tools/toyfmt/NOTES.md`, "Speed (SW-3383)".
+
+### SW-3370: derived `==` and `<` linear in the constructor count; 94 constructors from 12.3 s to 0.17 s
+
+- **Status:** kept (Opus). Stage 2 of
+  [derived-equality.md](../proposals/derived-equality.md#56-linear-cost-compare-tags-then-rebuild)
+  (D3609).
+- **Problem, profiled first.** The note's probes (§3), one `check --no-cache`
+  each with `STITCHWORT_TIMINGS=1`, timing each derived group: for 47
+  constructors `K0 (m: Nat) | K1 | …`, `T.%trans` took 2.4 s of 3.0 s,
+  `T.%equal` 0.20 s, `T.%flip` 0.14 s and `DecEq`'s two proofs 0.14 s. Each
+  matched both values, with a catch-all for every pair of different
+  constructors, so its case tree had n² leaves (n³ for `trans`'s third
+  value), each elaborated; `T.%differ` only saved `DecEq` from proving each
+  leaf. An enumeration's `T.%equal` and `DecEq` proofs had the same n²
+  leaves (0.79 s and 0.53 s of 2.0 s at 94).
+- **Change.** With two constructors or more, the derived test and order
+  match only the first value, compare the tags first and read the second
+  value's fields by projection: `T.%same (C a…) s = Nat.equal c (T.%tag s)
+  && …`, `T.%compare r s = if Nat.equal (T.%tag r) (T.%tag s) then
+  T.%fields r s else Nat.compare …`. The proofs get the tags' equation from
+  new core lemmas (`DecEq.tagsSame`, `Ordering.tagsEqual`, `tagsFlip`,
+  `tagsTrans`) and turn the second value into the same constructor by
+  `T.%etaAt`, a `J` over `T.%view`, which is built in the kernel from
+  projections `T.%C%k%at` that take the tag's equation (their other
+  branches refute it). Each law has n equations; `T.%differ` and
+  `T.%unfold` are gone, and with them the core's `Ordering.byTagTrans`,
+  `andThenTransWhen`, `notBothEqual` and `bothEqual`. One-constructor types
+  (records) are unchanged. `if`, not `Ordering.andThen` of the tags'
+  comparison, so a run compares fields only when the tags are equal.
+- **Why results stay the same.** The order is the same (positions, then
+  fields left to right) and so is the test; the instances' laws are the
+  same theorems (`Ord.fromCompare` of `compare`, `equal`, `flip`, `trans`;
+  `DecEq.sound`, `complete`, the readings), checked by the kernel. The
+  derive, ord, deceq, compare, sort, eqeq, nested-data, show and finite
+  examples pass, and a new one (`derive-many-constructors.sw`) uses the
+  laws on a type with recursive, nested, proof and parameter fields. Every
+  derived declaration's hash changed (101 example snapshots); the prelude
+  snapshot only gained and lost the lemmas named above.
+- **Measured** (release CLI, the type's row of `STITCHWORT_TIMINGS=1`,
+  elab + kernel, one run each, load 5-8):
+
+  | Type | before | steps | after | steps |
+  |---|---|---|---|---|
+  | 24 constructors, `K0 (m: Nat) \| K1 \| …` | 0.78 s | 10.2 M | 0.04 s | 0.48 M |
+  | 47 constructors | 3.0 s | 39.4 M | 0.08 s | 0.90 M |
+  | 94 constructors | 12.3 s | 158 M | 0.17 s | 1.76 M |
+  | 94, an enumeration | 1.78 s | 18.5 M | 0.46 s | 3.0 M |
+  | 20, each `(a: Nat) (b: Text) (c: List Node)` | 0.93 s | 13.2 M | 0.43 s | 7.1 M |
+  | 94, each as above | 19.7 s | 260 M | 2.65 s | 38.5 M |
+
+  What's left of the enumeration is its derived `Finite` (2.4 M of 3.0 M
+  steps), still quadratic; of 94 three-field constructors, the per-
+  constructor proofs (about 10 ms each for `equal`) and the `%at`
+  projections, n branches each. Small types: `type Dir = | Up | Down |
+  Left | Right` 4.9 → 4.1 ms, `| Wall | Open (n: Nat) | Door (key: Char)`
+  14.5 → 11.4 ms, a five-constructor token type 32 → 13 ms; but two or
+  three constructors that each have three fields, one a nested list, got
+  slower, 24 → 41 ms and 37 → 64 ms (the new per-constructor proof costs
+  more than the few pairs it saves; break-even near six constructors).
+  Running: sorting 60,000 values of a five-constructor type and filtering
+  with `==`, 0.79 s before and 0.81 s after (one run each, check included).
+- **Guard.** `derived_instances_grow_linearly_with_constructors` (driver
+  library tests) checks that 94 constructors take under 2.6 times 47's
+  steps, and under 5 M steps for the one-field type.
+- **Rejected or not done.** `Ordering.andThen (Nat.compare tags) (fields r
+  s)`, as the note wrote it: a run is strict, so it would compare the
+  fields of values of different constructors (a value with itself, by the
+  default projections, for a recursive field). A `T.%rebuild` with default
+  field values, as the note sketched: a field's type needn't be inhabited,
+  so the projections that rebuild take the tag's equation instead. The
+  enumeration's `Finite` and the small-type regression are left (findings).
+  The benchmark and `bench:aoc` were not run in the lane (lane test
+  budget); their step counts move with every derived instance.
+- **Links.** SW-3370; [derived-equality.md](../proposals/derived-equality.md) §3, §5.6.
+
+### SW-3337: fast text (T1): a text is a piece of a shared buffer; reading by position 20,000 times went from 21 s to nothing measurable
+
+- **Status:** kept (Opus). Stage T1 of
+  [file-io-and-text.md](../proposals/file-io-and-text.md#6-staging) (D3587).
+- **Problem, from the design's probes and the source.** A text at run time
+  was one `Rc<str>`, positions counted in characters, so every read by
+  position walked from the start. `Text.get` had no native and ran its
+  definition (`text.toList.get i`, building the whole list); `take`, `drop`
+  and `uncons` walked and copied the rest; `length` counted. Each loop over
+  a text by position was quadratic (the design's table, §1.2).
+- **Change.** `Value::Text` holds `crate::text::Text`: an `Rc` of a buffer
+  at one fixed width (ASCII bytes, two-byte or four-byte units: PEP 393's
+  layout, the design's suggested start) plus a `u32` start and length, in
+  characters, so a value is still three words. `get`, `take`, `drop`,
+  `slice`, `uncons` and `length` are arithmetic on the two numbers. Every
+  buffer is made at its narrowest width; ASCII buffers are borrowed as
+  `str` for printing, `contains` and number parsing, and other texts are
+  encoded for those (they were O(n) already). New natives: `Text.get`, and
+  the new `Text.slice`, `getOr`, `getLt` and `concat`.
+- **Why results stay the same.** Positions in the buffer are the positions
+  of `Text.toList`, so each native is bounds arithmetic on its definition;
+  equality and order compare characters (same-width pieces as slices,
+  whose order is scalar order). `Text.repeat` is still charged a step per
+  UTF-8 byte. Checked by the three tiers of §4.4: unit tests of every text
+  of up to three awkward characters stored three ways (own buffer, piece of
+  a two-byte and of a four-byte buffer) at every pair of positions;
+  differential cases against the reference evaluator for the same texts
+  through every operation, every pair compared and joined across widths,
+  and random texts up to 1,600 characters cut by chains of slices (machine
+  and native code); and a million characters read four ways on the machine.
+  No proof, hash or existing definition changed (the pinned-hash and
+  hash-stability tests; the prelude snapshot gained only new names).
+- **Measured** (release CLI, one run each, load 4-9; `stitchwort run`
+  includes about 0.30 s to check and start; text `"abcdefghij"` repeated,
+  or with `→` for "wide"; the probe is the design's, Appendix A):
+
+  | Loop, on a text of n characters | before | after, machine | after, `--native` |
+  |---|---|---|---|
+  | `text.get i` for every i, n = 20,000 | 21.2 s | 0.30 s | 0.31 s |
+  | the same, n = 1,000,000 (ASCII / wide) | (quadratic) | 0.42 / 0.42 s | 0.35 / 0.36 s |
+  | `drop i`, `take 5` at every i, n = 100,000 | 4.0 s | 0.31 s | 0.32 s |
+  | the same, n = 1,000,000 | | 0.43 s | 0.38 s |
+  | `length`, n times, n = 100,000 / 1,000,000 | 0.73 s / | 0.35 s (10^6) | 0.32 s (10^6) |
+  | `uncons` until empty, n = 200,000 / 1,000,000 | 1.16 s / | 0.43 s (10^6) | 0.36 s (10^6) |
+
+  Built executables, n = 1,000,000 (no start-up check): `get` 0.06 s
+  native, 0.14 s machine; slices 0.06 s and 0.12 s.
+- **The copy threshold.** A piece of at most 32 characters of a buffer of
+  1,024 or more is copied, at its narrowest width, so a token doesn't keep
+  a large source alive and cutting stays O(1) (the copy is bounded).
+  Measured cost: 3,000,000 slices of 32 characters (copied) 0.60 s against
+  33 (shared) 0.44 s, native: about 50 ns more a slice.
+- **Rejected or not done.** UTF-8 with an ASCII flag and a lazily built
+  index: less memory but a walk of up to the index's stride per read and
+  more trusted code, on exactly the non-ASCII source a formatter reads.
+  Four bytes a character always: simplest, four times the memory for ASCII.
+  `Text.skipWhile`: not added; a lexer loop on `get` costs about 50-120 ns a
+  character on these numbers, so one native call per character is cheap
+  enough. In-place `++` is T2; JS natives T3 (`run --js` runs the new
+  definitions). The benchmark and `bench:aoc` were not run in the lane
+  (lane test budget): the step counts of programs that call `Text.get`
+  drop, as `get` is one native step now.
+- **Links.** SW-3337; [file-io-and-text.md](../proposals/file-io-and-text.md) §4.
+
 ## 14 Nov 2026
+
+### SW-3280: strict marks and the checking builder (parser T1); the lossless tree 7-9% faster, 16 bytes more stack a level
+
+- **Status:** kept (Opus). Stage T1 of
+  [parser-end-state.md](../proposals/parser-end-state.md#8-stages)
+  (D3600). A correctness change, not speed work: measured because the
+  design estimated what it would cost in nesting depth and save in time.
+- **Change.** Each parsing function keeps its start as a token index and
+  records one mark when it finishes; operators no longer read their left
+  operand's start back from the marks, and the `open` stack is gone. The
+  tree's builder takes the marks in finishing order and nests them in two
+  linear passes, with no sort (lifted from
+  [parser-marks-or-nodes.md](../proposals/parser-marks-or-nodes.md#the-builder)),
+  refusing marks that don't nest.
+- **Why results stay the same.** `dev tree --print` over every tracked
+  `.sw` file (2,994) is identical before and after except three files where
+  the old tree lost a finished node (two recovered definitions' first arm,
+  and attributes with nothing after them); over 11,976 broken copies of
+  them, the only other difference is a pipe whose old start was a guess
+  for an absent operand. Hashes are computed from the compiler's tree.
+- **Measured** (release CLI, `dev tree --time`, `nice -n 15`, load 5-7;
+  before is `main` at `8a30cd52c`; std best of 9, twice each, the rest
+  best of 5):
+
+  | | before | after |
+  |---|---|---|
+  | std, the lossless tree alone | 50.8, 50.9 ms | 47.7, 46.4 ms |
+  | std, parse and lower | 75.2, 75.8 ms | 72.1, 69.5 ms |
+  | std, `aoc/src`, `games`, `examples`: the lossless tree alone | 151.3 ms | 143.0 ms |
+  | the same, parse and lower | 222.7 ms | 215.2 ms |
+
+  About 4 ms off std, as SW-3276's prototype predicted (13.6 against about
+  39 ns a node for the builder).
+- **Stack** (deepest nesting `dev tree` parses, in the parser's 24 MiB, by
+  bisection to 8 levels): `(((…)))`, `f (f (…))` and `(1 + (1 + …))`
+  19,414 → 19,175 (1,296 → 1,312 bytes a level), lists 16,209 → 16,047,
+  lambdas 16,552 → 16,381; an `else if` chain is not limited (past
+  40,000) before or after. The design estimated up to 112 bytes a level
+  (8%); keeping starts as values cost 16 (1.2%).
+- **Not done.** The benchmark (its deep-input rows' allocation counts may
+  move: the `open` stack's growth is gone, `logic_chain` still allocates
+  two small vectors) is the verifier's to run.
+- **Links.** SW-3280; [parser-end-state.md](../proposals/parser-end-state.md),
+  [parser-marks-or-nodes.md](../proposals/parser-marks-or-nodes.md).
 
 ### SW-3180: stack frames left after SW-3172 (CLI dispatch, inferring applications, renaming)
 

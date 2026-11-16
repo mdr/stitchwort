@@ -10,20 +10,20 @@ opaque def small: Nat -> Nat
   | 2 => 12
   | n => n
 
-theorem smallTwo: small 2 = 12 := rewrite small.unfold in rfl
+theorem smallTwo: small 2 = 12 := rewrite small.unfold then byComputing
 
-theorem smallFive: small 5 = 5 := rewrite small.unfold in rfl
+theorem smallFive: small 5 = 5 := rewrite small.unfold then byComputing
 
 opaque def size: List Nat -> Nat
   | [] => 0
   | [_, ..rest] => 1 + size rest
 
-theorem sizeNil: size [] = 0 := rewrite size.unfold in rfl
+theorem sizeNil: size [] = 0 := rewrite size.unfold then byComputing
 
 -- Without `unfolding`, `size rest` is stuck: what's known is its type.
-theorem sizeCons ∀ (x: Nat) (rest: List Nat): size [x, ..rest] = 1 + size rest := rewrite size.unfold in rfl
+theorem sizeCons ∀ (x: Nat) (rest: List Nat): size [x, ..rest] = 1 + size rest := rewrite size.unfold then byComputing
 
-theorem sizeTwo ∀ (x y: Nat): size [x, y] = 2 unfolding size := rfl
+theorem sizeTwo ∀ (x y: Nat): size [x, y] = 2 unfolding size := byComputing
 
 opaque def isEven: Nat -> Bool
   | Zero => True
@@ -34,7 +34,7 @@ opaque def isOdd: Nat -> Bool
   | Succ n => isEven n
 
 -- `unfolding isEven` brings `isOdd`, checked in the same group.
-theorem evenFour: isEven 4 = True unfolding isEven := rfl
+theorem evenFour: isEven 4 = True unfolding isEven := byComputing
 
 test "small runs" := small 0 == 10 && small 2 == 12 && small 7 == 7
 test "size runs" := size [1, 2, 3] == 3

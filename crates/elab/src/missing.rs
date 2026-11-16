@@ -12,7 +12,7 @@ use stitchwort_core::collections::{HashMap, HashSet};
 
 use num_bigint::BigUint;
 use stitchwort_core::DataId;
-use stitchwort_core::registry::Builtin;
+use stitchwort_core::registry::{Builtin, Registry};
 use stitchwort_syntax::{Diagnostic, MissingCases, Span};
 
 use std::rc::Rc;
@@ -35,22 +35,65 @@ pub(crate) struct Arm {
     /// For the numbers no arm of a number case matches: the message that
     /// lists the ones that are matched, which says more than a pattern `_`.
     pub other_numbers: Option<String>,
+    /// For a case of texts no arm matches: what kind of values they are,
+    /// `"text"` or `"character list"`, which the note names.
+    pub texts: Option<&'static str>,
+    /// For a case of numbers or texts: the level of the column, shown as `_`
+    /// in the row (what a split looked at there is what the arms list, not
+    /// what is missing).
+    pub gap_level: Option<usize>,
+    /// Where every arm still matching here has a part of a text pattern
+    /// (docs/proposals/text-patterns.md §4.4): those text patterns' spans. A
+    /// case missing among them is a text no arm lists, which
+    /// [`Elaborator::compile`] reports as one once it knows them all.
+    pub text_gap: Vec<Span>,
 }
 
 impl Arm {
     /// The case of the numbers a number case has no arm for, which `message`
     /// describes.
-    pub(crate) fn other_numbers(message: String) -> Arm {
+    pub(crate) fn other_numbers(message: String, level: usize) -> Arm {
+        Arm {
+            definite: true,
+            gap_level: Some(level),
+            other_numbers: Some(message),
+            ..Arm::default()
+        }
+    }
+
+    /// The case of the texts (or character lists) no arm matches, which
+    /// `message` describes.
+    pub(crate) fn other_texts(message: String, what: &'static str, level: usize) -> Arm {
         Arm {
             definite: true,
             other_numbers: Some(message),
+            texts: Some(what),
+            gap_level: Some(level),
             ..Arm::default()
         }
     }
 
     /// The error for this case alone, at the `match` at `span`.
     pub(crate) fn diagnostic(&self, span: Span) -> Diagnostic {
-        match &self.other_numbers {
+        let message = self.other_numbers.as_ref().map(|message| {
+            // In a row of several patterns (or inside a constructor) the
+            // gap is only in the case that row stands for.
+            let row = unmarked(&self.pattern);
+            if row == "_" || row.is_empty() {
+                message.clone()
+            } else {
+                format!("{message}, in the case `{row}`")
+            }
+        });
+        match &message {
+            Some(message) if let Some(what) = self.texts => {
+                Diagnostic::error("E-NONEXHAUSTIVE", message.clone())
+                    .with_label(span, message.clone())
+                    .with_note(format!(
+                        "text patterns can't list every {what}: add an arm with a variable or \
+                         `_` in that position, such as a last arm `| _ => …`"
+                    ))
+            }
             Some(message) => number_diagnostic(span, message.clone()),
             None => diagnostic(span, vec![(self.order.clone(), self.pattern.clone())]),
         }
@@ -155,6 +198,11 @@ pub(crate) fn merge<T>(cx: &crate::check::Ctx, start: usize, result: Result<T>) 
     let first = kept.next().expect("the error returned");
     cx.e.attempt.branch_errors.borrow_mut().extend(kept);
     Err(first)
+}
+
+/// Whether `d` is `∧` or `∃`, whose proofs patterns write as tuples.
+fn proof_pair(reg: &Registry, d: DataId) -> bool {
+    reg.is_data(Builtin::And, d) || reg.is_data(Builtin::Exists, d)
 }
 
 /// The hole for a field called `name`: `‹name›` when that is a name the
@@ -284,6 +332,24 @@ impl Elaborator {
         Some(out)
     }
 
+    /// Constructor `c` of `d` written with its type, if its short name
+    /// resolves here to something else (a second constructor of that name,
+    /// or one of this file's own hiding it): the spelling that means it.
+    /// `None` where the short name means it, or means nothing yet (a type
+    /// not in scope is printed as before).
+    pub(crate) fn ctor_qualified(&self, d: DataId, c: usize) -> Option<String> {
+        let short = self.ev().data(d).ctors()[c].name.to_string();
+        match self.resolve_any(&short) {
+            crate::scope::Resolved::Missing => None,
+            crate::scope::Resolved::Found {
+                global: crate::Global::Ctor(d2, c2),
+                rest,
+                ..
+            } if (d2, c2) == (d, c) && rest.is_empty() => None,
+            _ => Some(self.ctor_written(d, c)).filter(|w| *w != short),
+        }
+    }
+
     /// Constructor `c` of `d` as a pattern here can write it: its short
     /// name when that means it (`S` after `import Sf.Nat (Nat, S)`, or the
     /// prelude's own), else qualified by its type (`Nat.Succ`, or the type's
@@ -333,11 +399,13 @@ impl Elaborator {
             Tree::Leaf { .. } | Tree::Absurd { .. } => {}
             Tree::Guard { otherwise, .. } => self.annotate_in(otherwise, root, shapes, path),
             Tree::Missing { arm, .. } => {
+                let hidden = self.hide_gap(arm.gap_level, shapes);
                 arm.pattern = (root.iter())
                     .map(|&level| self.show_column(level, shapes, false))
                     .collect::<Vec<_>>()
                     .join(", ");
                 arm.order = path.clone();
+                shapes.extend(hidden);
             }
             Tree::Case {
                 level,
@@ -414,6 +482,29 @@ impl Elaborator {
         }
     }
 
+    /// Takes out of `shapes` what the column at `level` has been split into,
+    /// so that it shows as `_`: its own shape, and a `Char` around it (its
+    /// code is the column a character's numbers are in). Returns them.
+    fn hide_gap(
+        &self,
+        level: Option<usize>,
+        shapes: &mut HashMap<usize, Shape>,
+    ) -> Vec<(usize, Shape)> {
+        let Some(level) = level else {
+            return Vec::new();
+        };
+        let mk_char = self.ev().env.registry().ctor(Builtin::MkChar);
+        let wrapper = shapes.iter().find_map(|(l, shape)| match shape {
+            Shape::Ctor { d, c, base } if *base == level && mk_char == Some((*d, *c)) => Some(*l),
+            _ => None,
+        });
+        [Some(level), wrapper]
+            .into_iter()
+            .flatten()
+            .filter_map(|l| shapes.remove(&l).map(|shape| (l, shape)))
+            .collect()
+    }
+
     /// The pattern for the value at `level`: `_` where no split looked at
     /// it. `atom` when it is an argument, so a constructor with arguments
     /// is in parentheses.
@@ -450,6 +541,15 @@ impl Elaborator {
         let here = Some((d, c));
         if reg.ctor(Builtin::Nil) == here {
             return "[]".to_string();
+        }
+        // A text is shown as a literal when every character is known, and
+        // as `_` when not: a case a text pattern's characters leave out is
+        // still a text to the reader, not a list cell.
+        if reg.ctor(Builtin::MkText) == here && fields.len() == 1 {
+            return match self.known_text(fields[0], shapes) {
+                Some(text) => crate::quoted_text(&text),
+                None => "_".to_string(),
+            };
         }
         // A `NonEmptyList` is matched with list patterns (`[x, ..rest]`), so
         // it's shown as one: its head, then its tail's elements.
@@ -509,6 +609,29 @@ impl Elaborator {
             items.push(self.show_column(rest, shapes, false));
             return format!("({})", items.join(", "));
         }
+        // A proof of `∧` or `∃` is a tuple, as a pattern writes it: `Both a
+        // (Witness x p)` is `(a, x, p)`, the chain running down the last
+        // part (docs/proposals/proof-tuples.md).
+        if proof_pair(reg, d) && fields.len() == 2 {
+            let mut items = vec![self.show_column(fields[0], shapes, false)];
+            let mut rest = fields[1];
+            while let Some(Shape::Ctor { d, c, base }) = shapes.get(&rest)
+                && proof_pair(reg, *d)
+            {
+                let ctor = &g.data(*d).ctors()[*c];
+                let explicit: Vec<usize> = (0..ctor.fields.len())
+                    .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
+                    .map(|i| base + i)
+                    .collect();
+                if explicit.len() != 2 {
+                    break;
+                }
+                items.push(self.show_column(explicit[0], shapes, false));
+                rest = explicit[1];
+            }
+            items.push(self.show_column(rest, shapes, false));
+            return format!("({})", items.join(", "));
+        }
         if reg.ctor(Builtin::UnitValue) == here {
             return "()".to_string();
         }
@@ -529,6 +652,34 @@ impl Elaborator {
         }
         let text = format!("{written} {}", args.join(" "));
         if atom { format!("({text})") } else { text }
+    }
+
+    /// The characters of the list at `level`, if the splits above fixed
+    /// each of them and its end.
+    fn known_text(&self, mut level: usize, shapes: &HashMap<usize, Shape>) -> Option<String> {
+        let reg = self.ev().env.registry();
+        let mut text = String::new();
+        loop {
+            match shapes.get(&level)? {
+                Shape::Ctor { d, c, .. } if reg.ctor(Builtin::Nil) == Some((*d, *c)) => {
+                    return Some(text);
+                }
+                Shape::Ctor { d, c, base } if reg.ctor(Builtin::Cons) == Some((*d, *c)) => {
+                    let Shape::Ctor { d, c, base: code } = shapes.get(base)? else {
+                        return None;
+                    };
+                    if reg.ctor(Builtin::MkChar) != Some((*d, *c)) {
+                        return None;
+                    }
+                    let Shape::Num(n) = shapes.get(code)? else {
+                        return None;
+                    };
+                    text.push(char::from_u32(u32::try_from(n).ok()?)?);
+                    level = base + 1;
+                }
+                _ => return None,
+            }
+        }
     }
 }
 

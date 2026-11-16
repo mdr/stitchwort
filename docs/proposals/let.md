@@ -695,7 +695,7 @@ after option A lands before designing them.
 | `Comp`, `runPure` take `Type` | `crates/elab/src/prelude.sw:1982`, `:2115` |
 | Kernel context maps variables to values; case branches substitute | `crates/core/src/check.rs:20-27`, `:520-531` |
 | Elaborator context has the same, plus name-for-term locals | `crates/elab/src/check.rs:26-31`, `:136-148`, `:159` (`bind_local`) |
-| Pattern `let` is a one-alternative `match` | `crates/syntax/src/parser.rs:877` (`MatchKind::Let`); `docs/syntax.md` "Patterns in `let` and lambdas" |
+| Pattern `let` is a one-alternative `match` | `bind_let`, `crates/syntax/src/lower/binding.rs` (`MatchKind::Let`); `docs/syntax.md` "Patterns in `let` and lambdas" |
 | Design statements of opacity | `docs/proposals/syntax-conveniences.md` (background bullet "`let x = e` is a function applied to `e`"; §3.4); `docs/core.md:235` |
 | History | `8052ce2` (abilities; `let` introduced with blocks), `ec2a784` (pattern `let`), `ddd7b2f` (local definitions) |
 | JS output with `Done`/`runPure` | `stitchwort build --js` on `export def twice (n : Nat) : Nat := let m := n + 1; m + m` (as a block) |
@@ -929,7 +929,7 @@ Plan for stage 3:
   could become a warning.
 - **Pattern `let`s.** The projection translation (§7) is done where pattern
   `let` is turned into a one-alternative `match` today
-  (`crates/syntax/src/parser.rs:877`, `MatchKind::Let`) or in the
+  (`bind_let`, `crates/syntax/src/lower/binding.rs`, `MatchKind::Let`) or in the
   elaborator, whichever knows the type is a tuple or record; the temporary
   gets a name the user can't write and is hidden from diagnostics.
 - **Compile-time cost.** One adversarial test: about 20 nested `let`s, each

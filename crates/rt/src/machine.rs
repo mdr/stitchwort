@@ -84,11 +84,11 @@ struct EffRet {
     ret: Ret,
 }
 
-/// A `Text.fold f z t` in progress: `f` is applied to each character of
-/// `t[..end]` and the accumulator, from the last.
+/// A `Text.fold f z t` in progress: `f` is applied to each of the first
+/// `end` characters of `t` and the accumulator, from the last.
 struct Fold {
     f: Value,
-    text: Rc<str>,
+    text: crate::text::Text,
     end: usize,
     ret: Ret,
 }
@@ -637,6 +637,13 @@ impl State {
                         self.regs.truncate(at);
                         return Err(e);
                     }
+                    if let PrimOp::Text(TextNative::TextRepeat) = op
+                        && let Err(e) =
+                            self.charge(prims::text_repeat_cost(&self.regs[at], &self.regs[at + 1]))
+                    {
+                        self.regs.truncate(at);
+                        return Err(e);
+                    }
                     if self.limits.number_words {
                         let refs: SmallVec<[&Value; 4]> = self.regs[at..].iter().collect();
                         let cost = self.number_cost(*op, &refs);
@@ -749,10 +756,10 @@ impl State {
         acc: Value,
         mut fold: Fold,
     ) -> Result<Pending> {
-        let Some(c) = fold.text[..fold.end].chars().next_back() else {
+        let Some(c) = fold.end.checked_sub(1).and_then(|i| fold.text.get(i)) else {
             return Ok(Some((acc, fold.ret)));
         };
-        fold.end -= c.len_utf8();
+        fold.end -= 1;
         let f = fold.f.clone();
         self.regs.push(prims::char_value(&program.shapes, c));
         self.regs.push(acc);
@@ -1293,6 +1300,10 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                         save!();
                         st.charge(prims::replicate_cost(&reg!(o[0])))?;
                     }
+                    if let PrimOp::Text(TextNative::TextRepeat) = op {
+                        save!();
+                        st.charge(prims::text_repeat_cost(&reg!(o[0]), &reg!(o[1])))?;
+                    }
                     if st.limits.number_words {
                         let refs: SmallVec<[&Value; 4]> =
                             o.iter().map(|r| &st.regs[base + *r as usize]).collect();
@@ -1649,7 +1660,7 @@ fn still_owned(v: &Value) {
         Value::Array(a) => Rc::strong_count(a),
         Value::BigNat(n) => Rc::strong_count(n),
         Value::BigInt(i) => Rc::strong_count(i),
-        Value::Text(t) => Rc::strong_count(t),
+        Value::Text(t) => t.references(),
         _ => usize::MAX,
     };
     assert!(

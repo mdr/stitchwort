@@ -11,8 +11,8 @@
 -- run: unbox { value = [1, 2, 3] }
 -- run: sorted [1, 2, 2, 5]
 -- run: sorted [2, 1]
--- run: smallest { items = [1, 4, 9], ok = rfl }
--- run: total { items = [1, 2, 3], size = 3, ok = rfl }
+-- run: smallest { items = [1, 4, 9], ok = byComputing }
+-- run: total { items = [1, 2, 3], size = 3, ok = byComputing }
 -- run: team { lead = { name = "Ada", age = 36 }, size = 4 }
 
 import Std (Bool, List, Nat)
@@ -38,7 +38,12 @@ def oldestFrom (p: Person): List Person → Person
 -- A field called `tag` keeps the key `tag`, and a prime is `$`. The key
 -- `__proto__` would set an object's prototype, so that field needs a
 -- `js.name` to cross to JavaScript.
-type Weird = { tag: Text, @[js.name "$__proto__"] __proto__: Nat, constructor: Nat, x': Nat }
+type Weird = {
+  tag: Text,
+  @[js.name "$__proto__"] __proto__: Nat,
+  constructor: Nat,
+  x': Nat
+}
 
 export def weird (w: Weird): Weird := { w | tag = w.tag ++ "!", x' = w.x' + w.constructor + w.__proto__ }
 

@@ -51,6 +51,9 @@ pub struct Detail {
     /// For `E-UNKNOWN-NAME` when an import would bring the name in: the
     /// import to add, for the editor's quick fix.
     pub import: Option<SuggestedImport>,
+    /// For `E-UNKNOWN-FIELD`: the name that was probably meant, to write in
+    /// place of the first label's span (a guess, so a fix to check).
+    pub replacement: Option<String>,
     /// For `E-TYPE-MISMATCH` where a test fact is expected and the term
     /// given proves one of its readings: where, and the fact. The
     /// declaration is checked again with the fact built there
@@ -112,6 +115,11 @@ impl MissingCases {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GoalData {
     pub hypotheses: Vec<Hypothesis>,
+    /// What the arm's variables are known not to be (`m ≠ 5`), listed
+    /// between the hypotheses and the target. They are facts of the arms
+    /// above, not variables of the context; the lemma takes them as
+    /// hypotheses.
+    pub facts: Vec<String>,
     /// What must be shown, as after `⊢`, computed as the checker sees it
     /// (a call that matches at once is replaced by what it steps to). The
     /// proof search and the lemma are made from this text; a reader is
@@ -122,6 +130,10 @@ pub struct GoalData {
     /// `False = False`); `None` when it prints the same as `target`
     /// (D3522).
     pub written: Option<String>,
+    /// Whether printing the target showed an unknown nothing has solved
+    /// (`_` or `_n`). Proof search asks this instead of looking for the
+    /// printed form.
+    pub has_unknown: bool,
     /// Whether the target is a proposition (a proof goal), if that was
     /// known when the hole was checked: `None` when its sort couldn't be
     /// told.
@@ -201,6 +213,10 @@ impl Diagnostic {
         self.detail.as_ref()?.missing.as_ref()
     }
 
+    pub fn replacement_data(&self) -> Option<&str> {
+        self.detail.as_ref()?.replacement.as_deref()
+    }
+
     pub fn import_data(&self) -> Option<&SuggestedImport> {
         self.detail.as_ref()?.import.as_ref()
     }
@@ -231,6 +247,13 @@ impl Diagnostic {
                 self.detail = None;
             }
         }
+    }
+
+    /// Records the name that was probably meant for the first label's span
+    /// ([`Detail::replacement`]).
+    pub fn with_replacement(mut self, name: impl Into<String>) -> Self {
+        self.detail_mut().replacement = Some(name.into());
+        self
     }
 
     /// Records the import that would fix this diagnostic.

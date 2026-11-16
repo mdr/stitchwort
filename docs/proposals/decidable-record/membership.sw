@@ -2,7 +2,11 @@
 -- 300-element list with the record, checking only the `Bool`. Checks, in
 -- 0.5 s; membership-today.sw, the same fact through today's `Decidable`, 2.2 s.
 import Std (Bool, Eq, List, Nat, Void)
-type Dec (p: Prop) = { does: Bool, sound: does = True → p, complete: p → does = True }
+type Dec (p: Prop) = {
+  does: Bool,
+  sound: does = True → p,
+  complete: p → does = True
+}
 def decEqNat (m n: Nat): Dec (m = n) :=
   { does = Nat.equal m n, sound = h => Nat.equalSound m n h, complete = h => rewrite h in Nat.equalRefl n }
 def Dec.or [p q: Prop] (dp: Dec p) (dq: Dec q): Dec (p ∨ q) :=

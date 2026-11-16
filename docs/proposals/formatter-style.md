@@ -362,10 +362,13 @@ instance List.instDecEq [auto decEq: DecEq a]: DecEq (List a) := { decide = List
 
 ### 2.5 Data types, records, interfaces, abilities
 
-**S14. Constructors: D3566 (b), Matt, 13 Nov 2026.** A data type's
-constructors fit or break like a record's fields: on one line if the whole
-declaration fits (`type Direction = | Up | Right | Down | Left`), otherwise
-one per line at 2, each with its `|`. Fields of a constructor stay on its
+**S14. Constructors: D3566 (b), Matt, 13 Nov 2026; width 80 by D3605, Matt,
+15 Nov 2026.** A data type's constructors go on one line only if the whole
+declaration line is at most 80 characters (`type Direction = | Up | Right |
+Down | Left`), otherwise one per line at 2, each with its `|`. The 80 is
+narrower than the page's 120 on purpose: a column of constructors is a table
+the eye scans (D3605, as rustfmt and elm-format do), and the 14 Nov reformat
+had joined 84 data types of over 80 characters. Fields of a constructor stay on its
 line, breaking like a header's parameters (at 4) if one is too long. Arms
 are different: two or more always go one per line (S16 onwards, D3566).
 
@@ -386,7 +389,8 @@ type Direction = | Up | Right | Down | Left
 ```
 
 **S15. Record types and interfaces** (`{ name: T, … }`) are comma brackets:
-one line if they fit, otherwise one field per line (D1012). A doc comment
+one line if the whole declaration line is at most 80 characters (D3605;
+other comma brackets still use 120), otherwise one field per line (D1012). A doc comment
 on a field is a hard break, so a documented record stays open. Settled,
 against "records always open": 558 record types are already written on one
 line and 42 open [measured], so fit-or-break keeps nearly all of them as
@@ -457,7 +461,10 @@ is the only shape available.
 
 ### 2.7 `if`
 
-**S19. `if`.** One line if it fits. Otherwise one clause a line, all at the
+**S19. `if`.** A plain `if c then a else b` is one line if it fits. An `if`
+with at least one `else if` always goes one clause a line (D3605, Matt,
+15 Nov 2026: a table of cases is not one line, however short). Otherwise,
+when a plain `if` does not fit, one clause a line, all at the
 `if`'s column: `if c then a`, then `else if d then b` for each further
 condition, then `else e`. A clause whose branch doesn't fit after its
 keyword ends with `then` or `else` and puts the branch below at 2. Settled:
@@ -499,8 +506,10 @@ eight `else if`s) is already in this shape and doesn't change.
 `match`, `handle`, a definition's equations, or a clause lambda) always go
 one per line, each `|` at 2 from the line the construct starts on. One
 alternative may share the line (`|> matches | ['#', ..digits] => …`,
-`(match some | (j, y) if i != j => (x, y))`). `match x with` and `handle e
-with` end their line. Samples in §4.
+`(match some | (j, y) if i != j => (x, y))`), unless alternatives of an
+enclosing construct follow it (an arm's, or the definition's own after a
+`match` in its header), which would read as its own (SW-3582). `match x
+with` and `handle e with` end their line. Samples in §4.
 
 **S21. An arm** is `| patterns => body`: the body after `=>` if it fits,
 otherwise below at 2 from the `|` (R11, as today). A guard stays with its
@@ -849,10 +858,42 @@ documented constructor `| Printable (char: Char) -- a printable character,
 space included`, both unchanged. In a list, the comment ends the item's
 line after its comma (the architecture note's `[1, 2, -- two` sample).
 
-**S40. A comment no rule places** (between a function and its first
-argument, say) makes the formatter leave that declaration as written,
-re-indented only, and count it; the repo-wide count is tested to be 0, as
-today. Stage 2 reports where such comments are.
+**S40. A comment where the layout doesn't break** (after `:=`, an
+operator or `(`, between a function and its argument, before `then` or
+`:=`) gets a line break of its own, a *comment break*: every comment has a
+place, so no declaration is left as written because of one (D3618, D3619;
+the design is [every-comment-placed.md](every-comment-placed.md)). An
+own-line comment that no layout put at the start of a line starts one;
+code that would follow a trailing comment on its line starts the next one.
+A comment break is indented like a continuation line: at the construct's
+indentation, and at least 2 more than the line it breaks, so what follows
+continues that line and never starts a new statement. The lines up to the
+code after an own-line comment, that code included, keep that depth.
+Own-line comments before a closing bracket are about its items: they go at
+the items' indentation, with the bracket on a line of its own. A layout
+that puts code after a trailing comment is measured from the line the code
+goes on, so the rest of the construct keeps its usual shape, often the
+author's (SW-3447):
+
+```text
+def f (x: Nat): Nat := x + -- after +       def f (x: Nat): Nat :=
+  x                                           Nat.add
+                                                -- before the argument
+def f (x: Nat) -- after a parameter             x x
+    : Nat := x
+                                            def f (x: Nat): List Nat := [x, x
+                                              -- before ]
+                                            ]
+```
+
+Odd positions can give odd layouts (an operator or `then` alone on its
+line, say); the rule is that the comment stays beside the code it was
+written next to and formatting twice changes nothing, not that the layout
+is pretty there (D3619: "if you put comments in weird places, then weird
+things will happen"). The per-declaration checks stay as the net for a bug
+in a rule: a declaration that fails them is left as written, re-indented
+only, and counted, and the repo-wide count is tested to be 0. Probes:
+`crates/fmt/tests/it/golden/comments-anywhere.before.sw`.
 
 ## 3. What changes most
 

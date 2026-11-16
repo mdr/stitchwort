@@ -13,7 +13,15 @@ import Ansi.Colour (Black, Red, Green, Yellow, Blue, Magenta, Cyan, White)
 import Ansi.Scan (Plain, AfterEscape, InSequence)
 
 --| The eight standard colours. A terminal's theme decides the exact shades.
-type Ansi.Colour: Type = | Black | Red | Green | Yellow | Blue | Magenta | Cyan | White
+type Ansi.Colour: Type =
+  | Black
+  | Red
+  | Green
+  | Yellow
+  | Blue
+  | Magenta
+  | Cyan
+  | White
 
 --| The colour's number in `ESC [3nm`.
 def Ansi.colourNumber: (colour: Ansi.Colour) → Nat

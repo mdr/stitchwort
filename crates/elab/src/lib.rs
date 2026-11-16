@@ -9,6 +9,7 @@
 #[cfg(test)]
 use stitchwort_test_alloc as _;
 
+mod arm_display;
 mod assume;
 mod attributes;
 mod auto;
@@ -52,6 +53,7 @@ mod library;
 #[cfg(test)]
 mod library_tests;
 mod lift;
+mod literal_facts;
 mod local;
 mod logic;
 mod matching;
@@ -61,6 +63,7 @@ mod module;
 mod named;
 mod nav;
 mod no_effect;
+mod proof_chain;
 pub use dot::DUMMY as COMPLETION_DUMMY;
 pub use nav::{NavIndex, NavRef, NavSymbol, NavTarget, ScopeName, std_source};
 mod cases;
@@ -204,7 +207,7 @@ fn internal_ctor(text: &str) -> Option<(stitchwort_core::DataId, usize)> {
 
 /// Names with built-in meanings, which can't be redefined.
 const RESERVED: &[&str] = &[
-    "rfl",
+    "byComputing",
     "J",
     "Partial",
     "Quot",
@@ -401,6 +404,19 @@ impl stitchwort_core::Shown for Elaborator {
         self.attempt.store.mirrors.syntax(m)
     }
 
+    fn unknown(&self, m: usize, names: &[Name]) -> Option<String> {
+        self.note_unknown_printed();
+        if let Some(ty) = self.attempt.store.meta_instance(m) {
+            return Some(pretty::value(&self.ev(), names, &ty));
+        }
+        Some(
+            self.attempt
+                .store
+                .meta_param_label(m)
+                .unwrap_or_else(|| "_".into()),
+        )
+    }
+
     fn has_print_labels(&self) -> bool {
         !self.attempt.store.print_labels.borrow().is_empty()
     }
@@ -514,11 +530,33 @@ fn pattern_var<'a>(pattern: &Pat<'a>) -> Option<&'a ast::Name> {
     }
 }
 
+/// Whether `rest`, after a prefix's start on a `Text`, is a pattern of a
+/// `Text` that its characters can stand for: a variable (the text of
+/// them), `_`, a text, or alternatives of those.
+fn rest_of_text(rest: &Pattern) -> bool {
+    match rest {
+        Pattern::Var(_) | Pattern::Wildcard(_) | Pattern::Text(..) => true,
+        Pattern::Prefix { .. } => rest.prefix_start().is_some_and(|(_, p)| rest_of_text(p)),
+        Pattern::Or(alternatives, _) => alternatives.iter().all(rest_of_text),
+        _ => false,
+    }
+}
+
+/// The name a [`Pattern::TextRest`] binds to the text of the characters it
+/// matches.
+fn pattern_text_rest<'a>(pattern: &Pat<'a>) -> Option<&'a ast::Name> {
+    match pattern {
+        Cow::Borrowed(Pattern::TextRest(x)) => Some(x),
+        _ => None,
+    }
+}
+
 /// The variables the patterns bind, left to right as written.
 pub(crate) fn written_names(patterns: &[Pattern]) -> Vec<&str> {
     fn walk<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
         match pattern {
-            Pattern::Var(x) => out.push(&x.text),
+            Pattern::Var(x) | Pattern::TextRest(x) => out.push(&x.text),
+            Pattern::Prefix { rest, .. } => walk(rest, out),
             Pattern::Ctor(_, args, _) => args.iter().for_each(|p| walk(p, out)),
             Pattern::Tuple(a, b, _) | Pattern::Cons(a, b, _) => {
                 walk(a, out);
@@ -534,6 +572,7 @@ pub(crate) fn written_names(patterns: &[Pattern]) -> Vec<&str> {
             | Pattern::Num(..)
             | Pattern::NegNum(..)
             | Pattern::Char(..)
+            | Pattern::Text(..)
             | Pattern::Nil(_) => {}
         }
     }
@@ -620,6 +659,11 @@ const MAX_GUARD_NODES: usize = 4096;
 struct Row<'a> {
     pats: Vec<Pat<'a>>,
     aliases: Vec<(&'a str, usize)>,
+    /// The variables a text prefix pattern binds to the rest of a `Text`
+    /// (`"--" ++ rest`): each name with the level of the characters it is
+    /// the text of, bound as `let rest := MkText r` in the arm
+    /// (docs/proposals/text-patterns.md §4.2).
+    texts: Vec<(&'a str, usize)>,
     /// The variables the equation's patterns bind, in the order written.
     written: Vec<&'a str>,
     /// `None` for an equation with an absurd pattern `()`.
@@ -630,6 +674,11 @@ struct Row<'a> {
     /// `if c` after the arm's patterns: the arm applies only when it holds,
     /// and otherwise the rows below it are tried.
     guard: Option<&'a ast::Guard>,
+    /// The levels of the variables the compiler split (or compared with
+    /// numbers) while this row was still in the running, and whose pattern
+    /// in this row was a variable or `_`: the splits the arm's own patterns
+    /// didn't need. A goal at the arm undoes them (`arm_display.rs`).
+    unsplit: Vec<usize>,
 }
 
 /// A compiled pattern match, before its right-hand sides are checked.
@@ -637,6 +686,8 @@ struct Row<'a> {
 enum Tree<'a> {
     Leaf {
         aliases: Vec<(&'a str, usize)>,
+        /// [`Row::texts`], for the row that chose the arm.
+        texts: Vec<(&'a str, usize)>,
         /// The variables the arm binds, in the order written.
         written: Vec<&'a str>,
         rhs: Option<&'a Expr>,
@@ -648,6 +699,13 @@ enum Tree<'a> {
         /// `W-UNREACHABLE` can promise the arm can be deleted only along
         /// with all of them.
         later: Vec<Span>,
+        /// [`Row::unsplit`], for the row that chose the arm.
+        unsplit: Vec<usize>,
+        /// How many leaves of the whole tree take this arm: how many times
+        /// its right-hand side is checked.
+        cases: usize,
+        /// What the arm is known not to be, from the literal arms above it.
+        facts: Rc<[arm_display::ArmFact]>,
     },
     /// The first row matched whatever is left, under a condition: `leaf` if
     /// it holds, otherwise `otherwise`, the rows after it. Checked as the
@@ -744,18 +802,32 @@ impl<'a> Tree<'a> {
             _ if by == 0 => self.clone(),
             Tree::Leaf {
                 aliases,
+                texts,
                 written,
                 rhs,
                 span,
                 alternatives,
                 later,
+                unsplit,
+                cases,
+                facts,
             } => Tree::Leaf {
                 aliases: aliases.iter().map(|&(x, level)| (x, at(level))).collect(),
+                texts: texts.iter().map(|&(x, level)| (x, at(level))).collect(),
                 written: written.clone(),
                 rhs: *rhs,
                 span: *span,
                 alternatives: alternatives.clone(),
                 later: later.clone(),
+                unsplit: unsplit.iter().map(|&level| at(level)).collect(),
+                cases: *cases,
+                facts: facts
+                    .iter()
+                    .map(|f| arm_display::ArmFact {
+                        level: at(f.level),
+                        literal: f.literal.clone(),
+                    })
+                    .collect(),
             },
             Tree::Guard {
                 guard,
@@ -817,6 +889,27 @@ impl<'a> FinNumbers<'a> {
     /// The subtrees links are made of.
     fn subtrees(&self) -> impl Iterator<Item = &Tree<'a>> {
         self.arms.values().chain(&self.zero).chain(&self.rest)
+    }
+
+    fn subtrees_mut(&mut self) -> impl Iterator<Item = &mut Tree<'a>> {
+        self.arms
+            .values_mut()
+            .chain(self.zero.as_mut())
+            .chain(self.rest.as_mut())
+    }
+
+    /// The subtrees, each with how many links of the chain are made of it:
+    /// the `zero` subtree serves every number below the largest that no arm
+    /// has.
+    fn weighted_subtrees(&self) -> impl Iterator<Item = (&Tree<'a>, usize)> {
+        let largest = self.arms.keys().next_back().expect("a number pattern");
+        let below = self.arms.keys().filter(|k| *k < largest).count();
+        let gaps = usize::try_from(largest)
+            .unwrap_or(usize::MAX)
+            .saturating_sub(below);
+        (self.arms.values().map(|t| (t, 1)))
+            .chain(self.zero.iter().map(move |t| (t, gaps)))
+            .chain(self.rest.iter().map(|t| (t, 1)))
     }
 
     fn shifted(&self, from: usize, by: usize) -> FinNumbers<'a> {
@@ -912,6 +1005,53 @@ enum NumberKind {
     Other,
 }
 
+/// Makes each case of `tree` left out among parts of the text patterns at
+/// `texts` (and no others) the case of the texts they don't list, which
+/// `message` describes; `what` is one of them (`"text"`).
+fn mark_text_gaps(
+    tree: &mut Tree,
+    texts: &[Span],
+    message: &str,
+    what: &'static str,
+    level: usize,
+) {
+    match tree {
+        Tree::Leaf { .. } | Tree::Absurd { .. } => {}
+        Tree::Guard { otherwise, .. } => mark_text_gaps(otherwise, texts, message, what, level),
+        Tree::Missing { arm, .. } => {
+            if !arm.text_gap.is_empty() && arm.text_gap.iter().all(|at| texts.contains(at)) {
+                *arm = missing::Arm::other_texts(message.to_string(), what, level);
+            }
+        }
+        Tree::Case { branches, .. } => {
+            for (_, branch) in branches {
+                mark_text_gaps(branch, texts, message, what, level);
+            }
+        }
+        Tree::NumCase { arms, default, .. } => {
+            for (_, arm) in arms {
+                mark_text_gaps(arm, texts, message, what, level);
+            }
+            mark_text_gaps(default, texts, message, what, level);
+        }
+        Tree::FinNumbers { numbers, .. } => {
+            for sub in Rc::make_mut(numbers).subtrees_mut() {
+                mark_text_gaps(sub, texts, message, what, level);
+            }
+        }
+    }
+}
+
+/// What a text pattern is on a column's type ([`Elaborator::text_kind`]).
+enum TextKind {
+    /// `MkText` of the characters.
+    Text,
+    /// The list of the characters, on a `List Char`.
+    Chars,
+    /// Neither: the type, as a message names it.
+    Other(String),
+}
+
 /// The indefinite article for a type name: `an` before a vowel, `a` otherwise.
 pub(crate) fn article(name: &str) -> &'static str {
     match name.chars().next() {
@@ -964,6 +1104,24 @@ fn escape_char(c: char) -> String {
     }
 }
 
+/// A text as a literal in source: `"def"`, escapes and all.
+pub(crate) fn quoted_text(text: &str) -> String {
+    let mut out = String::from('"');
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\'' => out.push('\''),
+            '$' if chars.peek() == Some(&'{') => out.push_str("\\$"),
+            c => out.push_str(&escape_char(c)),
+        }
+    }
+    out.push('"');
+    out
+}
+
+/// Lists numbers for an error: all of up to five, or the first five and `…`.
+/// `count` is how many `keys` yields.
 pub(crate) fn list_numbers(keys: impl Iterator<Item = String>, count: usize) -> String {
     let mut shown: Vec<String> = keys.take(5).collect();
     match (count, shown.pop()) {
@@ -1193,8 +1351,14 @@ impl Elaborator {
             || self.relies_on_goal(id)
     }
 
-    /// Whether the elaborator gave up on declaration `key` for an open
-    /// goal (`?`) rather than an error.
+    /// Whether the elaborator gave up on declaration `key` for an open goal
+    /// (`?`) rather than an error. It means "gave up for an open goal", not
+    /// "not finished": a declaration with an error also becomes a stand-in,
+    /// checked as a final assumption. Use [`Self::is_unfinished`] for "not
+    /// finished" (a body not checked, or checked with a stand-in or an open
+    /// goal it relies on). The driver's audit reads this one, to report a
+    /// declaration as unfinished rather than failed (`audit_one`,
+    /// `crates/driver/src/audit.rs`).
     pub fn marked_unfinished(&self, key: stitchwort_core::globals::HashKey) -> bool {
         self.tables.is_unfinished(key)
     }
@@ -1343,7 +1507,7 @@ impl Elaborator {
     /// that the library always is. The pins (`pins.rs`) hash library terms,
     /// and a solved unknown is read back as the call it stands for only when
     /// gluing is on (`unify::zonk_changed`), so an unglued library would
-    /// hash differently (`Float.neg`'s `rfl` argument, SW-2254).
+    /// hash differently (`Float.neg`'s `byComputing` argument, SW-2254).
     pub(crate) fn gluing(&self) -> bool {
         self.options.glue || self.unit.loading_prelude
     }
@@ -2485,10 +2649,32 @@ impl Elaborator {
             self.fail_data_names(members);
             return vec![(members[0].0, d)];
         }
+        // Each with its own item, so that what it derives is checked against
+        // its own module's instances; the group's instances are derived with
+        // the last.
+        let mut admitted = Vec::new();
         for (&(item, decl), d) in members.iter().zip(&ids) {
-            if let Err(e) = self.after_data(decl, *d) {
+            if item.is_some() {
+                self.unit.module.item = item;
+            }
+            match self.after_data(decl, *d) {
+                Ok(()) => admitted.push((item, decl, *d)),
+                Err(e) => out.push((item, e)),
+            }
+        }
+        // Fields' defaults (docs/proposals/named-arguments.md §5.1) may use
+        // what was derived for any type of the group, and any of its
+        // constructors, so they wait until every type is done.
+        for (item, decl, d) in admitted {
+            if item.is_some() {
+                self.unit.module.item = item;
+            }
+            if let Err(e) = self.field_defaults(decl, d) {
                 out.push((item, e));
             }
+        }
+        if members[0].0.is_some() {
+            self.unit.module.item = members[0].0;
         }
         out
     }
@@ -2765,6 +2951,49 @@ impl Elaborator {
         Ok(core_ctors)
     }
 
+    /// `W-CTOR-HIDES`: the constructor `name` (declared as `key`) is called
+    /// what a constructor this file imports, or the prelude's, is called, so
+    /// from here the short name means the new one (D3615: a constructor name
+    /// has one meaning in a file).
+    fn warn_if_hides_constructor(&mut self, name: &ast::Name, key: &str) {
+        if self.unit.loading_prelude || key.starts_with("Std.") {
+            return;
+        }
+        let hidden = self.imported_constructors(&name.text);
+        if hidden.is_empty() {
+            return;
+        }
+        let shown: Vec<String> = hidden
+            .iter()
+            .map(|k| format!("`{}`", scope::display(k)))
+            .collect();
+        let qualified = scope::display(key);
+        self.unit.warnings.push(
+            Diagnostic::warning(
+                "W-CTOR-HIDES",
+                format!(
+                    "the constructor `{0}` hides {1} in this file",
+                    name.text,
+                    shown.join(" and ")
+                ),
+            )
+            .with_label(
+                name.span,
+                format!(
+                    "`{0}` here means `{qualified}`, not {1}",
+                    name.text,
+                    shown.join(" or ")
+                ),
+            )
+            .with_note(format!(
+                "a constructor name means one thing in a file: write {} for the hidden one. \
+                 Better, rename `{qualified}`, or keep this type in a file that doesn't need \
+                 the other",
+                shown.join(" or "),
+            )),
+        );
+    }
+
     /// After a data type is admitted: registering builtins (in the prelude),
     /// and making its constructors' names refer to them.
     fn after_data(&mut self, decl: &Decl, d: DataId) -> Result<()> {
@@ -2779,6 +3008,7 @@ impl Elaborator {
         let data_key = self.declaration_key(data_name)?;
         for (c, ctor) in ctors.iter().enumerate() {
             let key = Self::member_key(&data_key, &ctor.name.text);
+            self.warn_if_hides_constructor(&ctor.name, &key);
             self.scope
                 .insert(&key, Global::Ctor(d, c), ctor.name.span, true);
         }
@@ -2815,9 +3045,7 @@ impl Elaborator {
                 Ok::<(), Diagnostic>(())
             })?;
         }
-        // Its fields' defaults (docs/proposals/named-arguments.md §5.1),
-        // which may use what was derived for it.
-        self.field_defaults(decl, d)
+        Ok(())
     }
 
     /// A definition on its own (one an ability generates): its signature,
@@ -2911,6 +3139,20 @@ impl Elaborator {
         Ok(())
     }
 
+    /// After a derive met a field's instance with an error: remembers that
+    /// the types of `group` wait for it, so a use of `interface` on one of
+    /// them waits for the instance rather than saying "no instance"
+    /// (SW-3078).
+    pub(crate) fn note_derive_waiting(&self, group: &[DataId], interface: DataId) {
+        let Some(def) = self.decl.failed_instance.take() else {
+            return;
+        };
+        let mut waiting = self.session.derive_waiting.borrow_mut();
+        for &r in group {
+            waiting.insert((r, interface), def);
+        }
+    }
+
     /// A definition's body, with the `match`es in it lifted
     /// (docs/proposals/syntax-conveniences.md §2.2): those that are in a
     /// cycle with the definition are returned, to be admitted with it.
@@ -2939,9 +3181,92 @@ impl Elaborator {
         mut attempt: impl FnMut(&mut Self) -> Result<T>,
     ) -> Result<T> {
         let outer = std::mem::take(&mut *self.decl.builds.borrow_mut());
-        let result = self.local_retries(key, owner, &mut attempt);
+        let result = self.settle_retried(|e| e.local_retries(key, owner, &mut attempt));
         *self.decl.builds.borrow_mut() = outer;
         result
+    }
+
+    /// Runs `attempt`, the elaboration of a body; if it fails after
+    /// `check::settle_from_expected` gave some call type arguments from its
+    /// expected type, runs it once more with none given. The guess is
+    /// right whenever a call's type matches its expected type argument by
+    /// argument, but a match may need unfolding (`Ph Nat 0` against `Ph Char
+    /// 0`, where `Ph` doesn't use its type parameter), so a body is
+    /// accepted whenever it is without settling. One retry for the whole
+    /// body, not one per call: inside a chain of lemmas most failures are
+    /// speculative (an argument held for after the expected type, a plan
+    /// redone from the start), and a retry at each would make a failing
+    /// nested chain cost more than linear time.
+    ///
+    /// `attempt` starts by forgetting every metavariable, and makes its own
+    /// local definitions and helpers again (`Self::local_retries`); what is
+    /// left of the first attempt is put back here: its goals, the types and
+    /// steps noted for presentation, its warnings, the other bad branches'
+    /// errors and the flags its messages set.
+    ///
+    /// If both fail, the first error is mostly given ([`settled_error_first`]):
+    /// it blames the argument whose row clashes with the goal's, where the
+    /// second blames the whole call with the goal unfolded, or an unrelated
+    /// argument; with a note saying where the type argument came from
+    /// ([`settle_note`]). The goals, navigation types and probe are then
+    /// the second attempt's, so the editor's goal at a settled argument may
+    /// show the type it has without settling.
+    ///
+    /// Settling is on only in the first attempt here: nowhere else
+    /// (signatures, expressions typed in) is there a retry.
+    fn settle_retried<T>(&mut self, mut attempt: impl FnMut(&mut Self) -> Result<T>) -> Result<T> {
+        let outer = self.decl.settled.take();
+        let outer_settling = self.decl.settling.replace(true);
+        let warnings = self.unit.warnings.len();
+        let lambda_warnings = self.attempt.lambda_warnings.borrow().len();
+        let branch_errors = self.attempt.branch_errors.borrow().len();
+        let flags = (
+            self.decl.failed_mentioned.get(),
+            self.decl.stuck_on_goal.borrow().clone(),
+        );
+        let first = attempt(self);
+        let settled = self.decl.settled.replace(outer);
+        let e = match first {
+            Err(e) if !settled.is_empty() && !undo::fatal(&e) && e.code != goals::UNFINISHED => e,
+            first => {
+                self.decl.settling.set(outer_settling);
+                return first;
+            }
+        };
+        // Pending since `attempt`'s first `clear_metas`, so all its own.
+        self.drop_goals_since(0);
+        self.drop_local_types_since(0);
+        self.drop_steps_since(0);
+        self.drop_probe_pending();
+        self.unit.warnings.truncate(warnings);
+        self.attempt
+            .lambda_warnings
+            .borrow_mut()
+            .truncate(lambda_warnings);
+        let first_branches = self
+            .attempt
+            .branch_errors
+            .borrow_mut()
+            .split_off(branch_errors);
+        let first_flags = (
+            self.decl.failed_mentioned.replace(flags.0),
+            self.decl.stuck_on_goal.replace(flags.1),
+        );
+        self.decl.settling.set(false);
+        let again = attempt(self);
+        self.decl.settling.set(outer_settling);
+        match again {
+            Err(again) if !undo::fatal(&again) && settled_error_first(&e, &again) => {
+                let mut branches = self.attempt.branch_errors.borrow_mut();
+                branches.truncate(branch_errors);
+                branches.extend(first_branches);
+                drop(branches);
+                self.decl.failed_mentioned.set(first_flags.0);
+                *self.decl.stuck_on_goal.borrow_mut() = first_flags.1;
+                Err(settle_note(e, &settled))
+            }
+            again => again,
+        }
     }
 
     /// [`Self::with_local_retries`]'s loop. A body that fails where a
@@ -3073,6 +3398,22 @@ impl Elaborator {
     /// instead (`partial.rs`); one mixing partial and total members is
     /// refused.
     fn group(
+        &mut self,
+        members: &[(usize, &Decl, &[Decl])],
+        recursive: bool,
+    ) -> Vec<(usize, Diagnostic)> {
+        let mut found = self.group_checked(members, recursive);
+        for (index, _, equations) in members {
+            found.extend(
+                crate::proof_chain::warnings(equations)
+                    .into_iter()
+                    .map(|d| (*index, d)),
+            );
+        }
+        found
+    }
+
+    fn group_checked(
         &mut self,
         members: &[(usize, &Decl, &[Decl])],
         recursive: bool,
@@ -4077,11 +4418,15 @@ impl Elaborator {
             }
             Tree::Leaf {
                 aliases: Vec::new(),
+                texts: Vec::new(),
                 written: Vec::new(),
                 rhs: first_rhs,
                 span: first_span,
                 alternatives: Vec::new(),
                 later: Vec::new(),
+                unsplit: Vec::new(),
+                cases: 1,
+                facts: Rc::from([]),
             }
         } else {
             rows = equations
@@ -4090,11 +4435,13 @@ impl Elaborator {
                 .map(|(&(patterns, rhs, span), &guard)| Row {
                     pats: row_patterns(patterns, rhs.is_some()),
                     aliases: Vec::new(),
+                    texts: Vec::new(),
                     written: written_names(patterns),
                     rhs,
                     span,
                     alternatives: Vec::new(),
                     guard,
+                    unsplit: Vec::new(),
                 })
                 .collect();
             let tree = self.compile_top(
@@ -4169,12 +4516,92 @@ impl Elaborator {
         self.decl.guard_nodes.set(0);
         let mut tree = tree?;
         self.annotate(&mut tree, &columns[skip..]);
+        arm_display::count_cases(&mut tree);
+        let facts = self.arm_facts(rows, columns, types, skip);
+        arm_display::set_facts(&mut tree, &facts);
         match missing::definite(&tree, span) {
             // The checker reports the cases that are possible after all.
             Some(_) if may_be_impossible(cx, columns)? => Ok(tree),
             Some(d) => Err(d),
             None => Ok(tree),
         }
+    }
+
+    /// For each arm of a match (by the address of its right-hand side,
+    /// used only to put them on the compiled leaves), what its catch-all
+    /// columns are known not to be (`arm_display::ArmFact`): the numbers, characters
+    /// and texts that earlier arms without a condition match in that
+    /// column alone, every other column of theirs being a variable or `_`.
+    fn arm_facts(
+        &self,
+        rows: &[Row],
+        columns: &[usize],
+        types: &[Option<Value>],
+        skip: usize,
+    ) -> stitchwort_core::collections::HashMap<usize, Rc<[arm_display::ArmFact]>> {
+        let mut found = stitchwort_core::collections::HashMap::default();
+        let literal = |pattern: &Pattern, kind: &Result<NumberKind>, text: bool| match pattern {
+            Pattern::Num(n, _) if matches!(kind, Ok(NumberKind::Nat | NumberKind::Int)) => {
+                Some(n.to_string())
+            }
+            Pattern::NegNum(n, _) if matches!(kind, Ok(NumberKind::Int)) => Some(format!("-{n}")),
+            Pattern::Char(c, _) => Some(format!("'{}'", escape_char(*c))),
+            Pattern::Text(t, _) if text => Some(quoted_text(t)),
+            _ => None,
+        };
+        let catch_all =
+            |pattern: &Pattern| matches!(pattern, Pattern::Var(_) | Pattern::Wildcard(_));
+        let mut kinds = Vec::new();
+        for j in 0..columns.len() {
+            let ty = types.get(j).and_then(|t| t.as_ref());
+            kinds.push((
+                self.number_kind(ty),
+                matches!(self.text_kind(ty), Ok(TextKind::Text)) && ty.is_some(),
+            ));
+        }
+        for (i, row) in rows.iter().enumerate() {
+            let Some(rhs) = row.rhs else { continue };
+            let mut facts = Vec::new();
+            for j in skip..columns.len().min(row.pats.len()) {
+                if !catch_all(&row.pats[j]) {
+                    continue;
+                }
+                let mut seen: Vec<String> = Vec::new();
+                for earlier in &rows[..i] {
+                    if earlier.guard.is_some() || earlier.pats.len() != row.pats.len() {
+                        continue;
+                    }
+                    let others_open = (skip..columns.len().min(earlier.pats.len()))
+                        .filter(|&k| k != j)
+                        .all(|k| catch_all(&earlier.pats[k]));
+                    if !others_open {
+                        continue;
+                    }
+                    let alternatives: Vec<&Pattern> = match &*earlier.pats[j] {
+                        Pattern::Or(alts, _) => alts.iter().collect(),
+                        other => vec![other],
+                    };
+                    let shown: Option<Vec<String>> = alternatives
+                        .iter()
+                        .map(|p| literal(p, &kinds[j].0, kinds[j].1))
+                        .collect();
+                    for text in shown.into_iter().flatten() {
+                        if !seen.contains(&text) {
+                            seen.push(text);
+                        }
+                    }
+                }
+                facts.extend(seen.into_iter().map(|literal| arm_display::ArmFact {
+                    level: columns[j],
+                    literal,
+                }));
+            }
+            if !facts.is_empty() {
+                let key = std::ptr::from_ref(rhs) as usize;
+                found.insert(key, facts.into());
+            }
+        }
+        found
     }
 
     /// Compiles equations into a case tree. `columns[j]` is the de Bruijn level
@@ -4196,6 +4623,60 @@ impl Elaborator {
         {
             return self.compile(&expand_or_patterns(rows), depth, columns, types, span);
         }
+        // A column of text patterns alone leaves out every other text. Its
+        // characters are split as any others are, and the cases they leave
+        // out are then reported as texts.
+        let texts = (0..columns.len()).find_map(|j| {
+            if rows.is_empty() {
+                return None;
+            }
+            let literals: Option<Vec<(String, Span)>> = (rows.iter())
+                .map(|row| match &*row.pats[j] {
+                    Pattern::Text(text, at) => Some((quoted_text(text), *at)),
+                    Pattern::Prefix { span, .. } => {
+                        let (start, rest) = row.pats[j].prefix_start().expect("a prefix");
+                        Some(match rest {
+                            Pattern::Text(end, _) => (quoted_text(&(start + end)), *span),
+                            _ => (format!("{} ++ _", quoted_text(&start)), *span),
+                        })
+                    }
+                    _ => None,
+                })
+                .collect();
+            literals.map(|l| (j, l))
+        });
+        let mut tree = self.compile_rows(rows, depth, columns, types, span)?;
+        if let Some((j, literals)) = texts {
+            let (what, one) = match self.text_kind(types[j].as_ref())? {
+                TextKind::Chars => ("character lists", "character list"),
+                _ => ("texts", "text"),
+            };
+            let mut shown: Vec<String> = Vec::new();
+            for (text, _) in &literals {
+                if !shown.contains(text) {
+                    shown.push(text.clone());
+                }
+            }
+            let count = shown.len();
+            let message = format!(
+                "missing case: no arm matches {what} other than {}",
+                list_numbers(shown.into_iter(), count)
+            );
+            let spans: Vec<Span> = literals.iter().map(|(_, at)| *at).collect();
+            mark_text_gaps(&mut tree, &spans, &message, one, columns[j]);
+        }
+        Ok(tree)
+    }
+
+    /// [`Self::compile`], once or-patterns are expanded.
+    fn compile_rows<'a>(
+        &self,
+        rows: &[Row<'a>],
+        depth: usize,
+        columns: &[usize],
+        types: &[Option<Value>],
+        span: Span,
+    ) -> Result<Tree<'a>> {
         let first = &rows[0];
         if let Some(j) = first
             .pats
@@ -4318,18 +4799,25 @@ impl Elaborator {
         let Some((j, d, pattern)) = split else {
             // The first row matches whatever is left: it's the result.
             let mut aliases = first.aliases.clone();
+            let mut texts = first.texts.clone();
             for (pattern, level) in first.pats.iter().zip(columns) {
                 if let Some(x) = pattern_var(pattern) {
                     aliases.push((&x.text, *level));
+                } else if let Some(x) = pattern_text_rest(pattern) {
+                    texts.push((&x.text, *level));
                 }
             }
             let leaf = Tree::Leaf {
                 aliases,
+                texts,
                 written: first.written.clone(),
                 rhs: first.rhs,
                 span: first.span,
                 alternatives: first.alternatives.clone(),
                 later: rows[1..].iter().map(|row| row.span).collect(),
+                unsplit: first.unsplit.clone(),
+                cases: 1,
+                facts: Rc::from([]),
             };
             let Some(guard) = first.guard else {
                 return Ok(leaf);
@@ -4364,6 +4852,8 @@ impl Elaborator {
             for row in rows {
                 let pattern = &row.pats[j];
                 let mut aliases = row.aliases.clone();
+                let mut texts = row.texts.clone();
+                let mut unsplit = row.unsplit.clone();
                 let fields: Vec<Pat> = match self.pattern_ctor(pattern, types[j].as_ref())? {
                     Some(CtorPattern {
                         data: d2,
@@ -4372,7 +4862,11 @@ impl Elaborator {
                         span: pattern_span,
                     }) => {
                         if d2 != d {
-                            return Err(error(
+                            let written = self.kernel.data(d2).ctors()[c2].name.clone();
+                            // The other type has a constructor of this name
+                            // too: this one hides it (`W-CTOR-HIDES`).
+                            let hidden = data.ctors().iter().position(|k| k.name == written);
+                            let mismatch = error(
                                 "E-TYPE-MISMATCH",
                                 pattern_span,
                                 format!(
@@ -4381,7 +4875,18 @@ impl Elaborator {
                                     self.kernel.data(d2).name(),
                                     data.name()
                                 ),
-                            ));
+                            );
+                            return Err(match hidden {
+                                Some(k) => mismatch.with_note(format!(
+                                    "`{written}` here means `{}`, which hides the `{}` of `{}`: \
+                                     write `{}` for that one",
+                                    self.kernel.data(d2).name().to_string() + "." + &written,
+                                    written,
+                                    data.name(),
+                                    self.ctor_written(d, k),
+                                )),
+                                None => mismatch,
+                            });
                         }
                         if c2 != c {
                             continue;
@@ -4390,6 +4895,11 @@ impl Elaborator {
                         for (f, arg) in args.iter().enumerate() {
                             if let Some(x) = pattern_var(arg) {
                                 names[f].get_or_insert_with(|| name(x));
+                            } else if let Some(x) = pattern_text_rest(arg) {
+                                names[f].get_or_insert_with(|| {
+                                    format!("{}{}", stitchwort_core::pretty::TEXT_REST, x.text)
+                                        .into()
+                                });
                             }
                         }
                         args
@@ -4397,7 +4907,10 @@ impl Elaborator {
                     None => {
                         if let Some(x) = pattern_var(pattern) {
                             aliases.push((&x.text, level));
+                        } else if let Some(x) = pattern_text_rest(pattern) {
+                            texts.push((&x.text, level));
                         }
+                        unsplit.push(level);
                         let wildcard = Pattern::Wildcard(pattern.span());
                         vec![Cow::Owned(wildcard); k]
                     }
@@ -4411,11 +4924,13 @@ impl Elaborator {
                 branch_rows.push(Row {
                     pats,
                     aliases,
+                    texts,
                     written: row.written.clone(),
                     rhs: row.rhs,
                     span: row.span,
                     alternatives: row.alternatives.clone(),
                     guard: row.guard,
+                    unsplit,
                 });
             }
             let other_family = || -> Result<bool> {
@@ -4450,12 +4965,14 @@ impl Elaborator {
                 // Certainly missing; the others are found before it is
                 // reported (`compile_top`).
                 let names = (ctor.fields.iter()).map(|(x, _)| x.clone()).collect();
+                let mut arm = missing::Arm::definite();
+                arm.text_gap = self.text_gap(rows.iter().map(|row| row.pats[j].span()));
                 branches.push((
                     names,
                     Tree::Missing {
                         columns: branch_columns,
                         span,
-                        arm: missing::Arm::definite(),
+                        arm,
                     },
                 ));
                 continue;
@@ -4616,9 +5133,12 @@ impl Elaborator {
                     list_numbers(by_key.keys().map(|k| k.to_string()), by_key.len()),
                 ),
             };
-            Some(missing::Arm::other_numbers(format!(
-                "missing case: no arm matches {what} other than {listed}"
-            )))
+            let mut arm = missing::Arm::other_numbers(
+                format!("missing case: no arm matches {what} other than {listed}"),
+                columns[j],
+            );
+            arm.text_gap = self.text_gap(rows.iter().map(|row| row.pats[j].span()));
+            Some(arm)
         } else {
             None
         };
@@ -4634,6 +5154,8 @@ impl Elaborator {
                     let mut row = rows[i].clone();
                     if let Pattern::Num(_, s) = &*row.pats[j] {
                         row.pats[j] = Cow::Owned(Pattern::Wildcard(*s));
+                    } else {
+                        row.unsplit.push(columns[j]);
                     }
                     row
                 })
@@ -4648,7 +5170,13 @@ impl Elaborator {
                 arm,
             },
             None => {
-                let default_rows: Vec<Row> = others.iter().map(|&i| rows[i].clone()).collect();
+                let default_rows: Vec<Row> = (others.iter())
+                    .map(|&i| {
+                        let mut row = rows[i].clone();
+                        row.unsplit.push(columns[j]);
+                        row
+                    })
+                    .collect();
                 self.compile(&default_rows, depth, columns, types, span)?
             }
         };
@@ -4832,7 +5360,10 @@ impl Elaborator {
         ty: Option<&Value>,
     ) -> Result<Option<CtorPattern<'a>>> {
         match &**pattern {
-            Pattern::Var(_) | Pattern::Wildcard(_) | Pattern::Absurd(_) => Ok(None),
+            Pattern::Var(_) | Pattern::TextRest(_) | Pattern::Wildcard(_) | Pattern::Absurd(_) => {
+                Ok(None)
+            }
+            Pattern::Prefix { .. } => self.prefix_pattern(pattern, ty),
             Pattern::Or(..) => unreachable!("`compile` expands or-patterns before it splits"),
             Pattern::Named(_, _, span) => Err(error(
                 "E-ARITY",
@@ -4914,8 +5445,15 @@ impl Elaborator {
                     }
                 }))
             }
+            // On a proof of `∃` or `∧` (docs/proposals/proof-tuples.md
+            // §4.2), `(p, q)` is `Witness p q` or `Both p q`, so a longer
+            // tuple, nesting to the right, opens a chain of them; on
+            // anything else it is `MkPair p q`.
             Pattern::Tuple(p, q, span) => {
-                let (data, ctor) = self.builtin_ctor(Builtin::MkPair, *span)?;
+                let (data, ctor) = match self.proof_tuple(ty)? {
+                    Some(data) => (data, 0),
+                    None => self.builtin_ctor(Builtin::MkPair, *span)?,
+                };
                 let args = match pattern {
                     Cow::Borrowed(Pattern::Tuple(p, q, _)) => {
                         vec![Cow::Borrowed(&**p), Cow::Borrowed(&**q)]
@@ -4981,6 +5519,7 @@ impl Elaborator {
                     span: *span,
                 }))
             }
+            Pattern::Text(text, span) => self.text_pattern(text, *span, ty).map(Some),
             // `'L'` is `MkChar 76 _`.
             Pattern::Char(c, span) => {
                 let (data, ctor) = self.builtin_ctor(Builtin::MkChar, *span)?;
@@ -5034,6 +5573,177 @@ impl Elaborator {
         }
     }
 
+    /// The text patterns that the patterns at `spans` are parts of, if each
+    /// is part of one ([`missing::Arm::text_gap`]).
+    fn text_gap(&self, spans: impl Iterator<Item = Span>) -> Vec<Span> {
+        let from_text = self.decl.text_spans.borrow();
+        let mut out = Vec::new();
+        for at in spans {
+            match from_text.get(&at) {
+                Some(text) => out.push(*text),
+                None => return Vec::new(),
+            }
+        }
+        out
+    }
+
+    /// The constructor pattern for the text pattern `text` at `span`, on a
+    /// column of type `ty`: `MkText` of its characters' list pattern on a
+    /// `Text`, or when the type isn't known (the literal's own type); that
+    /// list pattern itself on a `List Char` (docs/proposals/text-patterns.md
+    /// §4.3). Each character gets a span of its own inside the literal, so
+    /// that [`Self::text_gap`] and the character messages can tell them
+    /// apart.
+    fn text_pattern<'a>(
+        &self,
+        text: &str,
+        span: Span,
+        ty: Option<&Value>,
+    ) -> Result<CtorPattern<'a>> {
+        let on_list = self.text_on_list(ty, span)?;
+        let mut list = Pattern::Nil(span);
+        {
+            let mut from_text = self.decl.text_spans.borrow_mut();
+            from_text.insert(span, span);
+            for (at, c) in text.char_indices().rev() {
+                let start = span.start + 1 + at as u32;
+                let own = Span {
+                    start,
+                    end: start + c.len_utf8() as u32,
+                    ..span
+                };
+                from_text.insert(own, span);
+                list = Pattern::Cons(Box::new(Pattern::Char(c, own)), Box::new(list), span);
+            }
+        }
+        if !on_list {
+            let (data, ctor) = self.builtin_ctor(Builtin::MkText, span)?;
+            return Ok(CtorPattern {
+                data,
+                ctor,
+                args: vec![Cow::Owned(list)],
+                span,
+            });
+        }
+        let (builtin, args) = match list {
+            Pattern::Cons(head, tail, _) => {
+                (Builtin::Cons, vec![Cow::Owned(*head), Cow::Owned(*tail)])
+            }
+            _ => (Builtin::Nil, Vec::new()),
+        };
+        let (data, ctor) = self.builtin_ctor(builtin, span)?;
+        Ok(CtorPattern {
+            data,
+            ctor,
+            args,
+            span,
+        })
+    }
+
+    /// Whether a text pattern at `span` on a column of type `ty` is a list
+    /// of characters rather than a `Text`; an error on any other type.
+    fn text_on_list(&self, ty: Option<&Value>, span: Span) -> Result<bool> {
+        match self.text_kind(ty)? {
+            TextKind::Text => Ok(false),
+            TextKind::Chars => Ok(true),
+            TextKind::Other(what) => Err(error(
+                "E-TYPE-MISMATCH",
+                span,
+                format!("a text pattern matches a `Text` or a `List Char`, but this is {what}"),
+            )),
+        }
+    }
+
+    /// The constructor pattern for a prefix pattern `"--" ++ rest`
+    /// (docs/proposals/text-patterns.md §4.2): on a `List Char`, the list
+    /// `['-', '-', ..rest]`; on a `Text`, `MkText` of that list, where a
+    /// variable `rest` is a [`Pattern::TextRest`], bound to the text of the
+    /// characters left. (The lowering makes `"" ++ p` just `p`.)
+    fn prefix_pattern<'a>(
+        &self,
+        pattern: &Pat<'a>,
+        ty: Option<&Value>,
+    ) -> Result<Option<CtorPattern<'a>>> {
+        let span = pattern.span();
+        let on_list = self.text_on_list(ty, span)?;
+        if !on_list {
+            let (_, rest) = pattern.prefix_start().expect("a prefix");
+            if !rest_of_text(rest) {
+                return Err(error(
+                    "E-TEXT-PATTERN",
+                    rest.span(),
+                    "the rest of a `Text` is a `Text`, but this pattern isn't one",
+                )
+                .with_note(
+                    "after `++`, write a variable, `_`, a text or another prefix; to match the \
+                     characters themselves, match on `t.toList`, where `\"->\" ++ [c, ..cs]` \
+                     works",
+                ));
+            }
+        }
+        let chars: Pat<'a> = match pattern {
+            Cow::Borrowed(p) => Cow::Borrowed(p.prefix_chars(!on_list).expect("a prefix")),
+            Cow::Owned(p) => Cow::Owned(p.prefix_chars(!on_list).expect("a prefix").clone()),
+        };
+        {
+            // The cells and characters are parts of this pattern, for the
+            // missing-case message; what `rest` matches isn't.
+            let mut from_text = self.decl.text_spans.borrow_mut();
+            from_text.insert(span, span);
+            let mut cell = &*chars;
+            while let Pattern::Cons(c, tail, at) = cell
+                && *at == span
+            {
+                from_text.insert(c.span(), span);
+                cell = tail;
+            }
+        }
+        if on_list {
+            return self.pattern_ctor(&chars, ty);
+        }
+        let (data, ctor) = self.builtin_ctor(Builtin::MkText, span)?;
+        Ok(Some(CtorPattern {
+            data,
+            ctor,
+            args: vec![chars],
+            span,
+        }))
+    }
+
+    /// What a text pattern means on a column of type `ty` (§4.1 of
+    /// docs/proposals/text-patterns.md). A type not known yet is read as
+    /// `Text`, the type of the literal as an expression, as a number pattern
+    /// falls back to `Nat`.
+    fn text_kind(&self, ty: Option<&Value>) -> Result<TextKind> {
+        let g = &self.ev();
+        let reg = g.env.registry();
+        let Some(ty) = ty else {
+            return Ok(TextKind::Text);
+        };
+        Ok(match force(g, ty.clone())? {
+            Value::Data(d, _) if reg.is_data(Builtin::Text, d) => TextKind::Text,
+            Value::Data(d, params) if reg.is_data(Builtin::List, d) => {
+                match params.first().map(|p| force(g, p.clone())).transpose()? {
+                    Some(Value::Data(c, _)) if reg.is_data(Builtin::Char, c) => TextKind::Chars,
+                    Some(Value::Data(..)) => {
+                        TextKind::Other("a `List` of something other than characters".into())
+                    }
+                    // The characters' own patterns check the elements.
+                    _ => TextKind::Chars,
+                }
+            }
+            Value::Data(d, params) => {
+                let name = g.data(d).name();
+                TextKind::Other(if params.is_empty() {
+                    format!("`{name}`")
+                } else {
+                    format!("{} `{name}`", article(name))
+                })
+            }
+            _ => TextKind::Text,
+        })
+    }
+
     /// Whether `ty`, the type of a column, is the built-in `Nat` or `Int`
     /// (by registry identity, as `numbers::classify` decides).
     fn number_kind(&self, ty: Option<&Value>) -> Result<NumberKind> {
@@ -5060,6 +5770,24 @@ impl Elaborator {
     }
 
     /// The library's `NonEmptyList`, when `ty`, the type of a column, is one.
+    /// `ty`'s data type, if it is `∃` or `∧`, whose proofs a tuple builds
+    /// and opens (docs/proposals/proof-tuples.md): each has one constructor.
+    fn proof_tuple(&self, ty: Option<&Value>) -> Result<Option<DataId>> {
+        let Some(ty) = ty else {
+            return Ok(None);
+        };
+        let g = &self.ev();
+        let registry = g.env.registry();
+        Ok(match force(g, ty.clone())? {
+            Value::Data(d, _)
+                if registry.is_data(Builtin::And, d) || registry.is_data(Builtin::Exists, d) =>
+            {
+                Some(d)
+            }
+            _ => None,
+        })
+    }
+
     fn non_empty_list(&self, ty: Option<&Value>) -> Result<Option<DataId>> {
         let g = &self.ev();
         let (Some(ty), Some(non_empty)) = (ty, g.env.registry().loaded_data(Builtin::NonEmptyList))
@@ -5382,13 +6110,29 @@ fn hide_unnamed_variables(cx: &mut Ctx) {
 /// which puts it inside the `if` that tests it, where a `match` that is the
 /// whole right-hand side can't split the arm's variables further.
 fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<Term> {
+    check_leaf_in(cx, tree, goal, guarded, false)
+}
+
+/// [`check_leaf`], where `texts_bound` says that the guard around the arm
+/// has already bound its [`Row::texts`].
+fn check_leaf_in(
+    cx: &mut Ctx,
+    tree: &Tree,
+    goal: &Value,
+    guarded: bool,
+    texts_bound: bool,
+) -> Result<Term> {
     let Tree::Leaf {
         aliases,
+        texts,
         written,
         rhs,
         span,
         alternatives,
         later,
+        unsplit,
+        cases,
+        facts,
     } = tree
     else {
         unreachable!("a leaf")
@@ -5428,6 +6172,15 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
     hide_unnamed_variables(cx);
     let order = written_order(cx, aliases, written);
     let saved_order = std::mem::replace(&mut cx.order, order);
+    let text_lets = match bind_text_rests(cx, if texts_bound { &[] } else { texts }) {
+        Ok(lets) => lets,
+        Err(e) => {
+            cx.reset(mark);
+            cx.names = saved_names;
+            cx.order = saved_order;
+            return Err(e);
+        }
+    };
     let head = Span {
         end: rhs.span().start,
         ..*span
@@ -5453,6 +6206,7 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
     // A `match` that's the whole right-hand side, on variables of the
     // equation, splits them further here
     // (docs/proposals/syntax-conveniences.md §4.3).
+    let shown_arm = arm_display::enter_arm(cx, unsplit, *cases, facts);
     let result = {
         let in_tree = match rhs {
             Expr::Match { .. } if !guarded => matching::in_tree(cx, rhs, goal),
@@ -5460,10 +6214,57 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
         };
         in_tree.unwrap_or_else(|| check(cx, rhs, goal))
     };
+    let result = result.map_err(|e| {
+        let had_note = e.notes.len();
+        let mut e = arm_display::in_case(cx, e);
+        // The case note can't say which alternative of an or-pattern the
+        // error is in, so the alternatives that chose this leaf are marked.
+        if e.notes.len() > had_note {
+            for span in alternatives {
+                e = e.with_label(*span, "the error is in the case this alternative matches");
+            }
+        }
+        e
+    });
+    arm_display::leave_arm(cx, shown_arm);
     cx.reset(mark);
     cx.names = saved_names;
     cx.order = saved_order;
-    result
+    result.map(|body| around_lets(text_lets, body))
+}
+
+/// Binds each name of a leaf's [`Row::texts`] to the text of the characters
+/// at its level, `let rest := MkText r`, returning the `let`s for
+/// [`around_lets`] to put around the arm's term. The runtimes build that
+/// text from the list, O(its length); once a `Text` can be a slice of
+/// another (fast Text, SW-3337), this is where `rest` becomes a slice of
+/// the text matched, in the runtimes alone (text-patterns.md §4.6).
+fn bind_text_rests(cx: &mut Ctx, texts: &[(&str, usize)]) -> Result<Vec<(Name, Term, Term)>> {
+    let mut lets = Vec::new();
+    if texts.is_empty() {
+        return Ok(lets);
+    }
+    let (text, mk_text) = check::builtin_ctor(cx, Builtin::MkText)?;
+    let ty = Value::Data(text, Vec::new().into());
+    for &(x, level) in texts {
+        let ty_term = cx.quote(&ty)?;
+        let value = Term::ctor(text, mk_text, vec![Term::Var(cx.level() - 1 - level)]);
+        let shown: Name = x.into();
+        cx.define(
+            Some(x),
+            shown.clone(),
+            ty.clone(),
+            ty_term.clone(),
+            value.clone(),
+        )?;
+        lets.push((shown, ty_term, value));
+    }
+    Ok(lets)
+}
+
+/// `body` inside the `let`s [`bind_text_rests`] made, the first outermost.
+fn around_lets(lets: Vec<(Name, Term, Term)>, body: Term) -> Term {
+    (lets.into_iter().rev()).fold(body, |body, (x, ty, value)| Term::let_(x, ty, value, body))
 }
 
 /// Where a leaf is, in the leaf log's path, when it is a guard's: before and
@@ -5791,7 +6592,10 @@ fn check_guard(
     goal: &Value,
 ) -> Result<Term> {
     let Tree::Leaf {
-        aliases, written, ..
+        aliases,
+        texts,
+        written,
+        ..
     } = leaf
     else {
         unreachable!("a guard's arm is a leaf")
@@ -5801,18 +6605,34 @@ fn check_guard(
     for (x, level) in aliases {
         cx.alias(x, *level);
     }
-    let aliased = scope_start..cx.names_len();
     let saved_names = cx.names.clone();
     hide_unnamed_variables(cx);
     let order = written_order(cx, aliases, written);
     let saved_order = std::mem::replace(&mut cx.order, order.clone());
-    let below = cx.level();
+    // The condition sees a prefix's `rest` too, so its `let`s go around the
+    // whole `if`, and the arms below, compiled without them, move up.
+    let lets_from = cx.level();
+    let text_lets = match bind_text_rests(cx, texts) {
+        Ok(lets) => lets,
+        Err(e) => {
+            cx.reset(mark);
+            cx.names = saved_names;
+            cx.order = saved_order;
+            return Err(e);
+        }
+    };
+    let mut moved = None;
+    for _ in &text_lets {
+        moved = Some(moved.as_ref().unwrap_or(otherwise).shifted(lets_from, 1));
+    }
+    let otherwise = moved.as_ref().unwrap_or(otherwise);
+    let aliased = scope_start..cx.names_len();
     let entered = std::cell::Cell::new(false);
     let mut then = check::CheckedBranch {
         run: |cx: &mut Ctx, expected: &Value| {
             entered.set(true);
             cx.e.decl.leaf_log.borrow_mut().path.push(GUARD_THEN);
-            let result = check_leaf(cx, leaf, expected, true);
+            let result = check_leaf_in(cx, leaf, expected, true, true);
             cx.e.decl.leaf_log.borrow_mut().path.pop();
             result
         },
@@ -5821,8 +6641,8 @@ fn check_guard(
     // The arms below see none of what this arm named.
     let mut rest = check::CheckedBranch {
         run: |cx: &mut Ctx, expected: &Value| {
-            let names: Vec<_> = cx.names[..below].to_vec();
-            cx.names[..below].clone_from_slice(&saved_names[..below]);
+            let names: Vec<_> = cx.names[..lets_from].to_vec();
+            cx.names[..lets_from].clone_from_slice(&saved_names[..lets_from]);
             let hidden = cx.suspend_names(aliased.start, aliased.end);
             let order = std::mem::replace(&mut cx.order, saved_order.clone());
             cx.e.decl.leaf_log.borrow_mut().path.push(GUARD_ELSE);
@@ -5830,7 +6650,7 @@ fn check_guard(
             cx.e.decl.leaf_log.borrow_mut().path.pop();
             cx.order = order;
             cx.restore_names(aliased.start, hidden);
-            cx.names[..below].clone_from_slice(&names);
+            cx.names[..lets_from].clone_from_slice(&names);
             result
         },
         hides_proof: true,
@@ -5859,7 +6679,7 @@ fn check_guard(
     cx.reset(mark);
     cx.names = saved_names;
     cx.order = saved_order;
-    result
+    result.map(|body| around_lets(text_lets, body))
 }
 
 /// A split on `x` by the constructors of proposition `d` where `x`'s type
@@ -5987,6 +6807,12 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 let known = Value::Data(*d, params.into());
                 if cx.unify(&ty, &known)? {
                     ty = known;
+                    if Some(*d) == g.env.registry().data(Builtin::Text)
+                        && cx.e.decl.text_spans.borrow().get(pattern) == Some(pattern)
+                    {
+                        cx.e.decl.text_fallbacks.borrow_mut().push(*pattern);
+                        cx.e.decl.text_fixed_vars.borrow_mut().push((*x, *pattern));
+                    }
                 }
             }
             let params = match ty {
@@ -6015,6 +6841,13 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                              happen, write the arm with `()` and no `=>`",
                         );
                     }
+                    if Some(*d) == g.env.registry().loaded_data(Builtin::Pair) {
+                        e = e.with_note(
+                            "a tuple pattern opens a pair, a proof of `∧` or a proof of `∃`; \
+                             with more parts than the proof has, the last ones meet a part \
+                             that is none of these",
+                        );
+                    }
                     return Err(e);
                 }
             };
@@ -6025,6 +6858,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 return Ok(Term::Loc(*span, Rc::new(term)));
             }
             let goal_term = cx.quote_folded(goal)?;
+            let split_start = arm_display::root_of(cx, goal);
             let mut out = Vec::new();
             let mut failed = Vec::new();
             for (c, ((names, subtree), ctor)) in branches.iter().zip(data.ctors()).enumerate() {
@@ -6060,6 +6894,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     cx.bind_hidden(name.clone(), ty);
                 }
                 cx.e.decl.leaf_log.borrow_mut().path.push(c as u32);
+                let saved_split = arm_display::enter_split(cx, &split_start, *x, &value, base);
                 let result = match subtree {
                     // No arm covers this constructor: fine if it makes
                     // another column's type empty (`Fin n` with `n := Zero`).
@@ -6081,6 +6916,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     }
                     _ => check_tree(cx, subtree, &branch_goal),
                 };
+                drop(saved_split);
                 cx.e.decl.leaf_log.borrow_mut().path.pop();
                 cx.reset(mark);
                 cx.env = saved_env;
@@ -6110,16 +6946,29 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             match force(&g, cx.types[*x].clone())? {
                 Value::Data(d, params) if Some(d) == nat && params.is_empty() => {}
                 other => {
+                    let unknown = matches!(other, Value::Neutral(Head::Meta(_), _));
                     let mut e = error(
                         "E-TYPE-MISMATCH",
                         *span,
-                        format!(
-                            "these patterns match a `Nat`, but the argument has type `{}`",
-                            cx.show(&other)
-                        ),
+                        if unknown {
+                            "these patterns match a `Nat`, but the argument's type isn't known here"
+                                .to_string()
+                        } else {
+                            format!(
+                                "these patterns match a `Nat`, but the argument has type `{}`",
+                                cx.show(&other)
+                            )
+                        },
                     );
                     if let Some(note) = quot::match_note(&other) {
                         e = e.with_note(note);
+                    }
+                    if unknown {
+                        e = e.with_note(
+                            "the type isn't known where the match is checked, so a number \
+                             pattern is read as a `Nat`: annotate the matched value's type \
+                             (`(x : Int)`) if it should be another",
+                        );
                     }
                     return Err(e);
                 }
@@ -6127,6 +6976,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             effects::unpin_goal(cx, goal, *x)?;
             check::unpin_parameter_types(cx, *x)?;
             let goal_term = cx.quote_folded(goal)?;
+            let split_start = arm_display::root_of(cx, goal);
             let mut out = Vec::new();
             let mut failed = Vec::new();
             for (arm_index, (key, subtree)) in arms.iter().enumerate() {
@@ -6149,7 +6999,10 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 let saved_env = std::mem::replace(&mut cx.env, env);
                 let saved_types = std::mem::replace(&mut cx.types, refined);
                 cx.e.decl.leaf_log.borrow_mut().path.push(arm_index as u32);
+                let saved_split =
+                    arm_display::enter_split(cx, &split_start, *x, &value, cx.level());
                 let result = check_tree(cx, subtree, &arm_goal);
+                drop(saved_split);
                 cx.e.decl.leaf_log.borrow_mut().path.pop();
                 cx.env = saved_env;
                 cx.types = saved_types;
@@ -6200,7 +7053,10 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     .expect("one value in, one out");
                     let saved_env = std::mem::replace(&mut cx.env, env);
                     let saved_types = std::mem::replace(&mut cx.types, refined);
+                    let saved_split =
+                        arm_display::enter_split(cx, &split_start, *x, &value, cx.level());
                     let result = check_tree(cx, default, &default_goal);
+                    drop(saved_split);
                     cx.env = saved_env;
                     cx.types = saved_types;
                     result
@@ -6242,6 +7098,84 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 )),
             ))
         }
+    }
+}
+
+/// Whether a body's error `e`, elaborated with type arguments taken from
+/// calls' expected types, is given rather than `again`, its error without
+/// them ([`Elaborator::settle_retried`]). Not when `again` stands for open
+/// goals: without settling, the body is only unfinished. Otherwise
+/// whichever comes first in the source, `e` on a tie or when one is
+/// around the other: elaboration runs mostly left to right, so the later
+/// error is more often a consequence of a wrong guess earlier (a wrong
+/// parser, then a field its lambda reads) than a slip of its own, and an
+/// error around the other (the whole call, with the goal unfolded) says
+/// less.
+fn settled_error_first(e: &Diagnostic, again: &Diagnostic) -> bool {
+    if again.code == goals::UNFINISHED {
+        return false;
+    }
+    match (e.primary_span(), again.primary_span()) {
+        (Some(at), Some(there))
+            if at.file == there.file && !lift::within(at, there) && !lift::within(there, at) =>
+        {
+            at.start <= there.start
+        }
+        _ => true,
+    }
+}
+
+/// `e`, the error of a body elaborated with type arguments taken from
+/// calls' expected types, with a note saying where the type argument came
+/// from, at the innermost failed call around `e` that was given one
+/// (`Decl::settled`): the guess may have been the mistake (`Ph Char 0 :=
+/// ph natSrc True`, where `Ph` doesn't use its type parameter, so
+/// `natSrc`'s `Nat` would have done), and the note invites unfolding the
+/// goal. Only on a type mismatch: an unknown name or a failed `byComputing` isn't
+/// explained by it.
+fn settle_note(e: Diagnostic, settled: &[state::Settled]) -> Diagnostic {
+    let Some(at) = e.primary_span().filter(|_| e.code == "E-TYPE-MISMATCH") else {
+        return e;
+    };
+    let entry = settled
+        .iter()
+        .filter(|s| s.note.is_some() && lift::within(s.span, at))
+        .min_by_key(|s| s.span.end - s.span.start);
+    match entry {
+        Some(entry)
+            if entry
+                .given_shown
+                .as_deref()
+                .is_some_and(|g| is_about(&e, g)) =>
+        {
+            let note = entry.note.clone().unwrap_or_default();
+            e.with_note(note)
+        }
+        _ => e,
+    }
+}
+
+/// Whether the type mismatch `e` is about `given`, a type taken from the
+/// expected type: it is where the two sides differ, or named in a message
+/// that has no sides. A mismatch elsewhere in the call (the other
+/// ability's argument, the result) isn't explained by where `given` came
+/// from, and the note would only send the reader after it.
+fn is_about(e: &Diagnostic, given: &str) -> bool {
+    let names = |text: &str| {
+        text.match_indices(given).any(|(i, _)| {
+            let before = text[..i].chars().next_back();
+            let after = text[i + given.len()..].chars().next();
+            let part = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_');
+            !part(before) && !part(after)
+        })
+    };
+    if let Some(differ) = e.notes.iter().find(|n| n.contains("they first differ at")) {
+        return names(differ);
+    }
+    let text = e.labels.first().map_or("", |l| l.message.as_str());
+    match check::mismatch_sides(e) {
+        Some((expected, found)) => names(expected) && !names(found),
+        None => names(&e.message) || names(text),
     }
 }
 

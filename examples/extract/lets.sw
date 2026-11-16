@@ -31,7 +31,7 @@ export def countUp: Nat → Nat → Nat
   | Zero, acc => acc
   | Succ k, acc =>
     let next := acc + 2
-    let h: next = acc + 2 := rfl
+    let h: next = acc + 2 := byComputing
     countUp k next
 
 -- A tuple pattern: projections of the value, computed once.

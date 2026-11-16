@@ -21,9 +21,9 @@ export def suits (n: Nat): Text :=
 
 export def items (n: Nat): Text :=
   let xs: List Item := [
-    { name = "tea", price = n, positive = rfl },
-    { name = "jam", price = 4, positive = rfl },
-    { name = "jam", price = n, positive = rfl }
+    { name = "tea", price = n, positive = byComputing },
+    { name = "jam", price = 4, positive = byComputing },
+    { name = "jam", price = n, positive = byComputing }
   ]
   "${List.sort xs}"
 

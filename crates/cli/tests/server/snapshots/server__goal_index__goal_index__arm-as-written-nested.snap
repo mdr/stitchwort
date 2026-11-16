@@ -1,0 +1,567 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Prop"
+        }
+      ],
+      "lemma": "theorem someTrueGoal1 (p: Option Bool → Prop): p (Some True) := ?",
+      "target": "p (Some True)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Prop\n⊢ p (Some True)",
+        "range": [
+          7,
+          17,
+          7,
+          18
+        ]
+      }
+    ],
+    "message": "in `someTrue`",
+    "notes": [],
+    "range": [
+      7,
+      17,
+      7,
+      18
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Prop"
+        },
+        {
+          "name": "o",
+          "type": "Option Bool"
+        }
+      ],
+      "lemma": "theorem someTrueGoal2 (p: Option Bool → Prop) (o: Option Bool): p o := ?",
+      "target": "p o"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Prop\no: Option Bool\n⊢ p o",
+        "range": [
+          8,
+          9,
+          8,
+          10
+        ]
+      }
+    ],
+    "message": "in `someTrue`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      8,
+      9,
+      8,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Nat → Prop"
+        }
+      ],
+      "lemma": "theorem someNumberGoal1 (p: Option Nat → Prop): p (Some 3) := ?",
+      "target": "p (Some 3)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Nat → Prop\n⊢ p (Some 3)",
+        "range": [
+          11,
+          14,
+          11,
+          15
+        ]
+      }
+    ],
+    "message": "in `someNumber`",
+    "notes": [],
+    "range": [
+      11,
+      14,
+      11,
+      15
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Nat → Prop"
+        },
+        {
+          "name": "o",
+          "type": "Option Nat"
+        }
+      ],
+      "lemma": "theorem someNumberGoal2 (p: Option Nat → Prop) (o: Option Nat): p o := ?",
+      "target": "p o"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Nat → Prop\no: Option Nat\n⊢ p o",
+        "range": [
+          12,
+          9,
+          12,
+          10
+        ]
+      }
+    ],
+    "message": "in `someNumber`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      12,
+      9,
+      12,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Text → Prop"
+        }
+      ],
+      "target": "p (Some \"a\")"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Text → Prop\n⊢ p (Some \"a\")",
+        "range": [
+          15,
+          16,
+          15,
+          17
+        ]
+      }
+    ],
+    "message": "in `someText`",
+    "notes": [],
+    "range": [
+      15,
+      16,
+      15,
+      17
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Text → Prop"
+        },
+        {
+          "name": "o",
+          "type": "Option Text"
+        }
+      ],
+      "lemma": "theorem someTextGoal2 (p: Option Text → Prop) (o: Option Text): p o := ?",
+      "target": "p o"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Text → Prop\no: Option Text\n⊢ p o",
+        "range": [
+          16,
+          9,
+          16,
+          10
+        ]
+      }
+    ],
+    "message": "in `someText`",
+    "notes": [
+      "this arm is checked in 4 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      16,
+      9,
+      16,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "List Nat → Prop"
+        },
+        {
+          "name": "x",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem singletonGoal1 (p: List Nat → Prop) (x: Nat): p [x] := ?",
+      "target": "p [x]"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: List Nat → Prop\nx: Nat\n⊢ p [x]",
+        "range": [
+          19,
+          11,
+          19,
+          12
+        ]
+      }
+    ],
+    "message": "in `singleton`",
+    "notes": [],
+    "range": [
+      19,
+      11,
+      19,
+      12
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "List Nat → Prop"
+        },
+        {
+          "name": "l",
+          "type": "List Nat"
+        }
+      ],
+      "lemma": "theorem singletonGoal2 (p: List Nat → Prop) (l: List Nat): p l := ?",
+      "target": "p l"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: List Nat → Prop\nl: List Nat\n⊢ p l",
+        "range": [
+          20,
+          9,
+          20,
+          10
+        ]
+      }
+    ],
+    "message": "in `singleton`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      20,
+      9,
+      20,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Char → Prop"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "c",
+          "type": "Char"
+        }
+      ],
+      "lemma": "theorem pairGoal1 (p: Nat → Char → Prop) (n: Nat) (c: Char): p n c := ?",
+      "target": "p n c"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Char → Prop\nn: Nat\nc: Char\n⊢ p n c",
+        "range": [
+          25,
+          16,
+          25,
+          17
+        ]
+      }
+    ],
+    "message": "in `pair`",
+    "notes": [],
+    "range": [
+      25,
+      16,
+      25,
+      17
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Char → Prop"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "c",
+          "type": "Char"
+        }
+      ],
+      "lemma": "theorem pairGoal2 (p: Nat → Char → Prop) (n: Nat) (c: Char): p n c := ?",
+      "target": "p n c"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Char → Prop\nn: Nat\nc: Char\n⊢ p n c",
+        "range": [
+          26,
+          9,
+          26,
+          10
+        ]
+      }
+    ],
+    "message": "in `pair`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the last of them"
+    ],
+    "range": [
+      26,
+      9,
+      26,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        },
+        {
+          "name": "q",
+          "type": "Nat → Text"
+        },
+        {
+          "name": "s",
+          "type": "Nat"
+        }
+      ],
+      "target": "p \"ab\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\nq: Nat → Text\ns: Nat\n⊢ p \"ab\"",
+        "range": [
+          31,
+          12,
+          31,
+          13
+        ]
+      }
+    ],
+    "message": "in `expression`",
+    "notes": [],
+    "range": [
+      31,
+      12,
+      31,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        },
+        {
+          "name": "q",
+          "type": "Nat → Text"
+        },
+        {
+          "name": "s",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem expressionGoal2 (p: Text → Prop) (q: Nat → Text) (s: Nat): p (q s) := ?",
+      "target": "p (q s)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\nq: Nat → Text\ns: Nat\n⊢ p (q s)",
+        "range": [
+          32,
+          9,
+          32,
+          10
+        ]
+      }
+    ],
+    "message": "in `expression`",
+    "notes": [
+      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      32,
+      9,
+      32,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        }
+      ],
+      "target": "p \"ab\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\n⊢ p \"ab\"",
+        "range": [
+          36,
+          12,
+          36,
+          13
+        ]
+      }
+    ],
+    "message": "in `written`",
+    "notes": [],
+    "range": [
+      36,
+      12,
+      36,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "other ≠ \"ab\""
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        },
+        {
+          "name": "other",
+          "type": "Text"
+        }
+      ],
+      "lemma": "theorem writtenGoal2 (p: Text → Prop) (other: Text) (h: other ≠ \"ab\"): p other := ?",
+      "target": "p other"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\nother: Text\nother ≠ \"ab\"\n⊢ p other",
+        "range": [
+          37,
+          14,
+          37,
+          15
+        ]
+      }
+    ],
+    "message": "in `written`",
+    "notes": [
+      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      37,
+      14,
+      37,
+      15
+    ],
+    "severity": "goal"
+  }
+]

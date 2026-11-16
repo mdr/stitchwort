@@ -109,16 +109,14 @@ impl Parser<'_> {
                     starts.push(self.mark());
                     self.cmp_expr()?;
                 }
-                starts.pop();
-                for start in starts {
-                    self.node(start, NodeKind::Binary);
-                }
+                self.mark_right_nested(&starts);
                 Ok(())
             }
             Tok::Iff => {
+                let start = self.mark();
                 self.cmp_expr()?;
                 if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
-                    self.logic_chain()?;
+                    self.logic_chain(start)?;
                 }
                 Ok(())
             }

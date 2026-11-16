@@ -10,5 +10,7 @@ expression: output
     │          ──┬──  
     │            ╰──── expected `R n✝.toInt`, but this has type `Bool`
     │ 
-    │ Note: number patterns only test values: an arm with a variable or `_` where the others have numbers knows only that `n✝` is none of those numbers, not what it is. To use the shape of `n✝`, match on `Zero` and `Succ` instead
+    │ Note 1: this arm is checked in 2 cases, and this error is in the case where `x` is `n✝.toInt`
+    │ 
+    │ Note 2: number patterns only test values: an arm with a variable or `_` where the others have numbers knows only that `n✝` is none of those numbers, not what it is. To use the shape of `n✝`, match on `Zero` and `Succ` instead
 ────╯

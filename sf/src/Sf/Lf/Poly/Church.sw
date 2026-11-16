@@ -65,18 +65,18 @@ def two': CNat := (a: Type) (succ: a → a) (zero: a) => succ (succ zero)
 
 -- Passing `S` as `succ` and `O` as `zero` gives the book's numbers:
 
-theorem zeroChurchPeano: zero Nat S O = O := rfl
+theorem zeroChurchPeano: zero Nat S O = O := byComputing
 
-theorem oneChurchPeano: one Nat S O = S O := rfl
+theorem oneChurchPeano: one Nat S O = S O := byComputing
 
-theorem twoChurchPeano: two Nat S O = S (S O) := rfl
+theorem twoChurchPeano: two Nat S O = S (S O) := byComputing
 
 -- So a functional language needn't have numbers built in, or even be
 -- able to define them as a data type: they can be represented by
 -- functions alone (if not efficiently).
 --
 -- Representing them isn't enough: we need arithmetic too. Complete the
--- functions below, and make sure their tests pass, by `rfl`.
+-- functions below, and make sure their tests pass, by `byComputing`.
 
 -- Exercise: 2 stars, advanced (church_scc)
 --

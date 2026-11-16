@@ -4,4 +4,4 @@
 import Std (Nat, Parse)
 import Std.Parse (char, nat)
 
-def number(): {Parse} Nat := (char ','; nat();)
+def number(): {Parse Char} Nat := (char ','; nat();)

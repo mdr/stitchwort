@@ -1,10 +1,7 @@
 //! The span-containment check: every span the compiler's tree
 //! ([`crate::ast`]) carries is the token range of a node of the lossless
-//! tree, or a single token. It is how stage 1 shows the lossless tree has a
-//! node for everything the compiler's tree talks about, which the lowering
-//! (docs/proposals/syntax-tree-architecture.md, step 3) needs; and it
-//! guards the parser's `operand_start`, which assumes every operand of more
-//! than one token is marked.
+//! tree, or a single token. It shows that the lossless tree has a node
+//! for everything the compiler's tree talks about, which the lowering needs.
 //!
 //! Two things about the compiler's tree make room for leeway. It has no
 //! node for brackets, so a span it works out from its parts can stop inside
@@ -485,7 +482,7 @@ impl<'a> Walk<'a> {
                 body,
                 keyword,
                 at,
-                in_,
+                then,
                 span,
             } => {
                 self.tagged(what, *span, why);
@@ -500,8 +497,8 @@ impl<'a> Walk<'a> {
                 if let Some(at) = at {
                     self.span("Rewrite at", *at);
                 }
-                if let Some(in_) = in_ {
-                    self.span("Rewrite in", *in_);
+                if let Some(then) = then {
+                    self.span("Rewrite then", *then);
                 }
                 if let Some(body) = body {
                     self.expr(body);
@@ -539,12 +536,23 @@ impl<'a> Walk<'a> {
         let what = pattern_kind(pattern);
         let sub = |walk: &mut Self, p: &'a Pattern| walk.pattern(p);
         match pattern {
-            Pattern::Var(name) => self.tagged(what, name.span, why),
+            Pattern::Var(name) | Pattern::TextRest(name) => self.tagged(what, name.span, why),
+            Pattern::Prefix {
+                text_span,
+                rest,
+                span,
+                ..
+            } => {
+                self.tagged(what, *span, why);
+                self.tagged("Pattern::Prefix text", *text_span, None);
+                sub(self, rest);
+            }
             Pattern::Wildcard(span)
             | Pattern::Absurd(span)
             | Pattern::Num(_, span)
             | Pattern::NegNum(_, span)
             | Pattern::Char(_, span)
+            | Pattern::Text(_, span)
             | Pattern::Nil(span) => self.tagged(what, *span, why),
             Pattern::Ctor(name, args, span) => {
                 self.tagged(what, *span, why);
@@ -747,7 +755,7 @@ fn head(mut expr: &Expr) -> &Expr {
 fn is_chain(a: &Expr, b: &Expr) -> bool {
     fn operands(e: &Expr) -> Option<(Span, Span)> {
         match e {
-            Expr::Binary(BinOp::Eq | BinOp::Ne | BinOp::EqEq | BinOp::Lt | BinOp::Le, l, r) => {
+            Expr::Binary(BinOp::Eq | BinOp::Ne(_) | BinOp::EqEq | BinOp::Lt | BinOp::Le, l, r) => {
                 Some((l.span(), r.span()))
             }
             _ => None,
@@ -826,6 +834,9 @@ fn pattern_kind(pattern: &Pattern) -> &'static str {
         Pattern::Num(..) => "Pattern::Num",
         Pattern::NegNum(..) => "Pattern::NegNum",
         Pattern::Char(..) => "Pattern::Char",
+        Pattern::Text(..) => "Pattern::Text",
+        Pattern::Prefix { .. } => "Pattern::Prefix",
+        Pattern::TextRest(_) => "Pattern::TextRest",
         Pattern::Ctor(..) => "Pattern::Ctor",
         Pattern::Tuple(..) => "Pattern::Tuple",
         Pattern::Nil(_) => "Pattern::Nil",

@@ -314,7 +314,7 @@ asked `stitchwort/contextAt` at each kind of position. **[ran]**
 | `omega` | `⊢ a + 1 ≤ b` with `a b h` | the same, plus which facts it used (later) |
 | `cases` (AoC 2025 day 8) | `⊢ True = False` | the same, plus the cases it split into and how each closed |
 | a lambda's binder `pq =>` | `⊢ p ∧ q → q ∧ p` (the lambda's own goal) | the goal after introducing `pq` |
-| after `let left := pq.left` | `left: p := pq.left` listed, `⊢ q ∧ p` | the same |
+| after `let left := pq.left` | `left: p` listed (a proof shows its statement, not its value), `⊢ q ∧ p` | the same |
 | `n` in a program expression | `Nat`, "inferred" | the same, labelled as a type, not a goal |
 
 So the "in the middle of an expression" answers are already right; what is missing is

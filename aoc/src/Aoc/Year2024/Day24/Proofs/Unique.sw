@@ -14,13 +14,13 @@ theorem initialUnique ∀ (wire: Wire) (first second: Bool) (pairs: List (Wire, 
     (h2: (wire, second) ∈ pairs):
     first = second :=
   match pairs, h, h1, h2 with
-    | [], distinct, inFirst, inSecond => Void.exfalso inFirst
+    | [], distinct, inFirst, inSecond => inFirst.impossible
     | [pair, ..rest], Both fresh distinct, Inl isFirst, Inl isSecond =>
-      Eq.cong Pair.snd (Eq.trans (Eq.sym isFirst) isSecond)
+      Eq.cong Pair.snd (Eq.trans isFirst.flipped isSecond)
     | [pair, ..rest], Both fresh distinct, Inl isFirst, Inr inSecond =>
-      Void.exfalso (fresh (rewrite isFirst in List.memMap rest (wire, second) inSecond .fst))
+      Void.impossible (fresh (rewrite isFirst then List.memMap rest (wire, second) inSecond .fst))
     | [pair, ..rest], Both fresh distinct, Inr inFirst, Inl isSecond =>
-      Void.exfalso (fresh (rewrite isSecond in List.memMap rest (wire, first) inFirst .fst))
+      Void.impossible (fresh (rewrite isSecond then List.memMap rest (wire, first) inFirst .fst))
     | [pair, ..rest], Both fresh distinct, Inr inFirst, Inr inSecond =>
       initialUnique wire first second rest distinct inFirst inSecond
 
@@ -32,12 +32,12 @@ theorem gateUnique ∀ (first second: Gate) (gates: List Gate)
     (same: first.output = second.output):
     first = second :=
   match gates, h, h1, h2 with
-    | [], distinct, inFirst, inSecond => Void.exfalso inFirst
-    | [gate, ..rest], Both fresh distinct, Inl isFirst, Inl isSecond => Eq.trans (Eq.sym isFirst) isSecond
+    | [], distinct, inFirst, inSecond => inFirst.impossible
+    | [gate, ..rest], Both fresh distinct, Inl isFirst, Inl isSecond => Eq.trans isFirst.flipped isSecond
     | [gate, ..rest], Both fresh distinct, Inl isFirst, Inr inSecond =>
-      Void.exfalso (fresh (rewrite isFirst, same in List.memMap rest second inSecond .output))
+      Void.impossible (fresh (rewrite isFirst, same then List.memMap rest second inSecond .output))
     | [gate, ..rest], Both fresh distinct, Inr inFirst, Inl isSecond =>
-      Void.exfalso (fresh (rewrite isSecond, <- same in List.memMap rest first inFirst .output))
+      Void.impossible (fresh (rewrite isSecond, <- same then List.memMap rest first inFirst .output))
     | [gate, ..rest], Both fresh distinct, Inr inFirst, Inr inSecond =>
       gateUnique first second rest distinct inFirst inSecond same
 
@@ -52,20 +52,20 @@ theorem carriesUnique ∀ (device: Device)
     | Starts inFirst, Starts inSecond =>
       initialUnique wire first second device.initial wellFormed.right.left inFirst inSecond
     | Starts inFirst, Fires gate wired onto left right leftCarries rightCarries output =>
-      Void.exfalso
-        (wellFormed.right.right gate wired (rewrite onto in List.memMap device.initial (wire, first) inFirst .fst))
+      Void.impossible
+        (wellFormed.right.right gate wired (rewrite onto then List.memMap device.initial (wire, first) inFirst .fst))
     | Fires gate wired onto left right leftCarries rightCarries output, Starts inSecond =>
-      Void.exfalso
-        (wellFormed.right.right gate wired (rewrite onto in List.memMap device.initial (wire, second) inSecond .fst))
+      Void.impossible
+        (wellFormed.right.right gate wired (rewrite onto then List.memMap device.initial (wire, second) inSecond .fst))
     | Fires gate wired onto left right leftCarries rightCarries output, Fires otherGate otherWired otherOnto otherLeft
           otherRight otherLeftCarries otherRightCarries otherOutput =>
       let same :=
-        gateUnique gate otherGate device.gates wellFormed.left wired otherWired (Eq.trans onto (Eq.sym otherOnto))
+        gateUnique gate otherGate device.gates wellFormed.left wired otherWired (Eq.trans onto otherOnto.flipped)
       let leftSame :=
-        carriesUnique device wellFormed gate.left left otherLeft leftCarries (rewrite same in otherLeftCarries)
+        carriesUnique device wellFormed gate.left left otherLeft leftCarries (rewrite same then otherLeftCarries)
       let rightSame :=
-        carriesUnique device wellFormed gate.right right otherRight rightCarries (rewrite same in otherRightCarries)
-      rewrite output, otherOutput, same, leftSame, rightSame in rfl
+        carriesUnique device wellFormed gate.right right otherRight rightCarries (rewrite same then otherRightCarries)
+      rewrite output, otherOutput, same, leftSame, rightSame then byComputing
 
 --| A device outputs at most one number.
 theorem outputsUnique ∀ (device: Device)
@@ -76,4 +76,4 @@ theorem outputsUnique ∀ (device: Device)
   Nat.eqOfTestBit first second (bit =>
     if there: Z bit ∈ device.wires then
       carriesUnique device wellFormed (Z bit) _ _ (outputsFirst.left bit there) (outputsSecond.left bit there)
-    else Eq.trans (outputsFirst.right bit there) (Eq.sym (outputsSecond.right bit there)))
+    else Eq.trans (outputsFirst.right bit there) (outputsSecond.right bit there).flipped)

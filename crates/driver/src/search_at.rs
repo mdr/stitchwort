@@ -5,15 +5,15 @@
 //! premise filled from a hypothesis where one fits. Here each plan becomes
 //! proof text, and is checked: elaborated in the file's scope inside
 //! `(((h: A) => …): (h: A) → … → T)`, and, with no `?` left, checked by
-//! the kernel. A `?` the plan leaves is tried with `rfl`, `omega`, `ring`,
+//! the kernel. A `?` the plan leaves is tried with `byComputing`, `arithmetic`, `algebra`,
 //! `cases` and `byDecision`; what still fails is a goal the suggestion leaves.
 //!
 //! Results come in four classes (review point 12): `exact` (the lemma
 //! applied to the goal's terms), `withHypotheses` (premises filled from
-//! hypotheses), `afterObligations` (premises closed by `rfl`, `omega`, `ring`,
+//! hypotheses), `afterObligations` (premises closed by `byComputing`, `arithmetic`, `algebra`,
 //! `cases` or `byDecision`), each kernel-checked; and `applicable` (it applies,
 //! leaving goals, listed). Separately, `rewrites`: equations and `Iff`s
-//! whose side is a call in the target, as `rewrite L in ?` with the goal
+//! whose side is a call in the target, as `rewrite L then ?` with the goal
 //! that leaves (`rw?`'s direction, S2c). Nothing is reported as closing
 //! the goal unless the kernel accepted it.
 
@@ -211,7 +211,7 @@ pub fn pick(goals: &[FoundGoal], at: GoalAt) -> Result<&FoundGoal, String> {
 pub struct AtReport {
     pub version: u32,
     pub goal: GoalJson,
-    /// The closers that close the goal on their own (`rfl`, `omega`, `ring`,
+    /// The closers that close the goal on their own (`byComputing`, `arithmetic`, `algebra`,
     /// `cases`, `byDecision`), kernel-checked, written as the file writes them
     /// (`Std.byDecision` without `import Std (byDecision)`).
     pub tactics: Vec<String>,
@@ -284,7 +284,7 @@ pub struct Suggestion {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub goals: Vec<LeftGoal>,
     /// Its rank in the search of the target (stage 1's order); absent for
-    /// a rewrite followed by `rfl` or `omega`.
+    /// a rewrite followed by `byComputing` or `arithmetic`.
     #[serde(rename = "searchRank", skip_serializing_if = "Option::is_none")]
     pub search_rank: Option<usize>,
     /// It has a `?` for a witness, nothing solved (shown after the rest).
@@ -322,7 +322,7 @@ pub struct LeftGoal {
 /// A rewrite suggestion.
 #[derive(Serialize, Debug)]
 pub struct Rewrite {
-    /// `rewrite L … in ?`.
+    /// `rewrite L … then ?`.
     pub proof: String,
     pub name: String,
     #[serde(rename = "type")]
@@ -338,7 +338,7 @@ pub struct Rewrite {
     pub equation: &'static str,
     /// The goal at the `?` after rewriting.
     pub goal: String,
-    /// What closes the rewritten goal, if `rfl` or `omega` does (kernel
+    /// What closes the rewritten goal, if `byComputing` or `arithmetic` does (kernel
     /// checked, with it in place of the `?`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub closes: Option<&'static str>,
@@ -603,15 +603,15 @@ impl Checker<'_> {
 
 /// The ladder (SW-2966): the simple closers that "Search for a proof" tries
 /// one at a time, cheapest first, before any search. The first that closes
-/// the goal is the whole answer: a goal `rfl` closes isn't also offered
-/// lemmas, and one `omega` closes isn't offered `omega` beside `ring`. Only
+/// the goal is the whole answer: a goal `byComputing` closes isn't also offered
+/// lemmas, and one `arithmetic` closes isn't offered `arithmetic` beside `algebra`. Only
 /// when no rung closes it does the full search run, and it skips the rungs
 /// that failed. To change the ladder, change [`LADDER`] and [`Rung::texts`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Rung {
     /// A hypothesis that is `False = True` (or `True = False`) rules the
-    /// goal out: `Void.exfalso (Bool.falseNotTrue h)`, which says why,
-    /// where `omega` and `cases` only happen to find it. First, since a
+    /// goal out: `Void.impossible (Bool.falseNotTrue h)`, which says why,
+    /// where `arithmetic` and `cases` only happen to find it. First, since a
     /// proof from a contradiction closes any goal, so the rungs after it
     /// would add nothing.
     Absurd,
@@ -619,7 +619,10 @@ enum Rung {
     Rfl,
     /// A hypothesis is exactly the goal.
     Hypothesis,
-    /// A closed goal with a decision procedure, run (`byDecision`).
+    /// A closed goal with a decision procedure, run (`byDecision`). Only
+    /// where nothing is in scope: with variables or hypotheses `byDecision`
+    /// can still close the goal, from a contradictory hypothesis (as
+    /// `auto` does), but then `cases` says so more plainly.
     Decision,
     Omega,
     Ring,
@@ -660,15 +663,18 @@ impl Rung {
     ) -> Vec<String> {
         match self {
             Rung::Absurd => absurd.to_vec(),
-            Rung::Rfl => vec!["rfl".to_string()],
+            Rung::Rfl => vec!["byComputing".to_string()],
             Rung::Hypothesis => hypotheses
                 .iter()
                 .filter(|h| is_name(&h.name))
                 .map(|h| h.name.clone())
                 .collect(),
-            Rung::Decision => by_decision.map(str::to_string).into_iter().collect(),
-            Rung::Omega => vec!["omega".to_string()],
-            Rung::Ring => vec!["ring".to_string()],
+            Rung::Decision if hypotheses.is_empty() => {
+                by_decision.map(str::to_string).into_iter().collect()
+            }
+            Rung::Decision => Vec::new(),
+            Rung::Omega => vec!["arithmetic".to_string()],
+            Rung::Ring => vec!["algebra".to_string()],
             Rung::Cases => {
                 if hypotheses.iter().any(|h| h.ty.contains(" = ")) {
                     vec!["cases".to_string()]
@@ -687,7 +693,7 @@ impl Rung {
 fn absurd_proofs(elab: &stitchwort_elab::Elaborator, hypotheses: &[Hypothesis]) -> Vec<String> {
     let name = |path: &str| elab.write_name(path);
     let (Some(exfalso), Some(false_not_true), Some(true_not_false)) = (
-        name("Std.Void.exfalso"),
+        name("Std.Void.impossible"),
         name("Std.Bool.falseNotTrue"),
         name("Std.Bool.trueNotFalse"),
     ) else {
@@ -895,9 +901,9 @@ impl Session {
             )
         });
         let closers: Vec<(&'static str, String)> = [
-            ("rfl", Some("rfl".to_string())),
-            ("omega", Some("omega".to_string())),
-            ("ring", Some("ring".to_string())),
+            ("byComputing", Some("byComputing".to_string())),
+            ("arithmetic", Some("arithmetic".to_string())),
+            ("algebra", Some("algebra".to_string())),
             ("cases", Some("cases".to_string())),
             ("byDecision", self.elab.write_name("Std.byDecision")),
         ]
@@ -946,7 +952,7 @@ impl Session {
             gave_up: Vec::new(),
             recursive: None,
         };
-        // The closers on their own first: a goal `omega` closes needs no
+        // The closers on their own first: a goal `arithmetic` closes needs no
         // lemma.
         debug_time("rewrites planned", started);
         let mut tactics = Vec::new();
@@ -1042,7 +1048,7 @@ impl Session {
                 rewrites.push(r);
             }
         }
-        // The goal's equations, each way (SW-976: `rewrite <- h in …`).
+        // The goal's equations, each way (SW-976: `rewrite <- h then …`).
         for h in &data.hypotheses {
             let equation = h.ty.contains(" = ") || h.ty.contains(" ↔ ");
             if !is_name(&h.name) || !equation || checker.out_of_time() {
@@ -1059,10 +1065,10 @@ impl Session {
                 if let Some(r) = try_rule(&mut checker, &rule, &target_now)
                     && !rewrites.iter().any(|x: &Rewrite| x.goal == r.goal)
                 {
-                    // Then a lemma (SW-993): `rewrite <- h in L …`.
+                    // Then a lemma (SW-993): `rewrite <- h then L …`.
                     if let (None, Some(left)) = (r.closes, &r.left) {
                         let arrow = if backwards { "<- " } else { "" };
-                        let prefix = format!("rewrite {arrow}{} in ", h.name);
+                        let prefix = format!("rewrite {arrow}{} then ", h.name);
                         let mine = (!on_its_own).then_some(candidates.as_slice());
                         for s in after_rewrite(&mut checker, left, &prefix, mine, options, 3) {
                             if !results.iter().any(|(r, _)| r.proof == s.proof) {
@@ -1076,7 +1082,7 @@ impl Session {
         }
         // The induction hypothesis (SW-993): calls of the declaration being
         // proved, on smaller arguments, checked with it bound as a
-        // hypothesis. Alone, in `omega [IH]`, or as a rewrite.
+        // hypothesis. Alone, in `arithmetic [IH]`, or as a rewrite.
         let mut induction: Vec<String> = Vec::new();
         if let Some(place) = owner_place.as_ref().filter(|_| checker.snapshot.is_some()) {
             let mut used = false;
@@ -1087,12 +1093,12 @@ impl Session {
                 }
                 let call = render(&rp.plan, &[], false);
                 checker.recursive = Some(rp.plan.head.clone());
-                // Alone or in `omega` (a rewrite's call too: what matching a
-                // side solved may be what `omega` needs, `dyAfter n (step
+                // Alone or in `arithmetic` (a rewrite's call too: what matching a
+                // side solved may be what `arithmetic` needs, `dyAfter n (step
                 // probe)`).
                 let alone = rp.rewrite.is_none().then(|| call.clone());
                 if !call.contains('?') {
-                    for proof in alone.into_iter().chain([format!("omega [{call}]")]) {
+                    for proof in alone.into_iter().chain([format!("arithmetic [{call}]")]) {
                         if results.iter().any(|(s, _)| s.proof == proof) {
                             continue;
                         }
@@ -1146,11 +1152,11 @@ impl Session {
                 induction.clear();
             }
         }
-        // A rewrite after which `rfl` or `omega` closes the goal closes it:
+        // A rewrite after which `byComputing` or `arithmetic` closes the goal closes it:
         // a suggestion of its own, after the lemmas that close it directly.
         for r in &rewrites {
             if let Some(closer) = r.closes {
-                let proof = r.proof.replacen(" in ?", &format!(" in {closer}"), 1);
+                let proof = r.proof.replacen(" then ?", &format!(" then {closer}"), 1);
                 // Not when the closer alone closes the goal: the rewrite
                 // adds nothing.
                 if tactics.iter().any(|t| t == closer)
@@ -1351,11 +1357,11 @@ fn simplest_report(
     let mut results = Vec::new();
     let name = match rung {
         Rung::Absurd => "absurd",
-        Rung::Rfl => "rfl",
+        Rung::Rfl => "byComputing",
         Rung::Hypothesis => "hypothesis",
         Rung::Decision => "byDecision",
-        Rung::Omega => "omega",
-        Rung::Ring => "ring",
+        Rung::Omega => "arithmetic",
+        Rung::Ring => "algebra",
         Rung::Cases => "cases",
     };
     if rung == Rung::Hypothesis {
@@ -1680,6 +1686,7 @@ fn try_plan_with(
             let n = goals.len();
             let mut fills: Vec<String> = vec!["?".to_string(); n];
             let mut obligations = Vec::new();
+            let mut obligation_unknown = false;
             for (j, left) in goals.iter().enumerate() {
                 // With a witness to give, every goal is the writer's: the
                 // goals needn't line up with the `?`s (a witness's goal may
@@ -1700,6 +1707,7 @@ fn try_plan_with(
                     };
                     if ok {
                         fills[j] = closer.clone();
+                        obligation_unknown |= left.has_unknown;
                         obligations.push(Obligation {
                             target: left.target.clone(),
                             closer: name,
@@ -1711,10 +1719,7 @@ fn try_plan_with(
             let proof = render(plan, &fills, infer);
             // An obligation that is the goal itself: the closer alone
             // does it (reported once, as `tactics`).
-            if obligations
-                .iter()
-                .any(|o| o.target == checker.target_now || o.target.contains('?'))
-            {
+            if obligations.iter().any(|o| o.target == checker.target_now) || obligation_unknown {
                 return None;
             }
             if obligations.len() == n {
@@ -1735,7 +1740,7 @@ fn try_plan_with(
                 };
                 // A goal with an unknown in it (`?3 m n`) says nothing
                 // about what to prove next.
-                if witness.is_empty() && left.iter().any(|g| g.target.contains('?')) {
+                if witness.is_empty() && left.iter().any(|g| g.has_unknown) {
                     return None;
                 }
                 // Nor does one that leaves the goal as it was
@@ -1803,7 +1808,7 @@ fn try_plan_with(
     Some(suggestion)
 }
 
-/// Checks one rewrite: the goal it leaves, whether `rfl` or `omega` then
+/// Checks one rewrite: the goal it leaves, whether `byComputing` or `arithmetic` then
 /// closes it, and a kernel check with the rewritten goal as a hypothesis.
 fn try_rewrite(
     checker: &mut Checker,
@@ -1821,7 +1826,7 @@ fn try_rewrite(
     try_rule(checker, &rule, target_now)
 }
 
-/// A rewrite to try: `rewrite [<-] text in ?`.
+/// A rewrite to try: `rewrite [<-] text then ?`.
 struct Rule<'a> {
     text: &'a str,
     backwards: bool,
@@ -1836,7 +1841,7 @@ struct Rule<'a> {
 fn try_rule(checker: &mut Checker, rp: &Rule, target_now: &str) -> Option<Rewrite> {
     let rule = rp.text;
     let arrow = if rp.backwards { "<- " } else { "" };
-    let proof = format!("rewrite {arrow}{rule} in ?");
+    let proof = format!("rewrite {arrow}{rule} then ?");
     let left = match checker.check(&proof, &[]) {
         Outcome::Goals(mut g) if g.len() == 1 => g.pop()?,
         _ => return None,
@@ -1846,8 +1851,8 @@ fn try_rule(checker: &mut Checker, rp: &Rule, target_now: &str) -> Option<Rewrit
         return None;
     }
     let mut closes = None;
-    for closer in ["rfl", "omega", "cases"] {
-        let closed = format!("rewrite {arrow}{rule} in {closer}");
+    for closer in ["byComputing", "arithmetic", "cases"] {
+        let closed = format!("rewrite {arrow}{rule} then {closer}");
         if matches!(checker.check(&closed, &[]), Outcome::Closed) {
             closes = Some(closer);
             break;
@@ -1868,7 +1873,7 @@ fn try_rule(checker: &mut Checker, rp: &Rule, target_now: &str) -> Option<Rewrit
             })
             .find(|n| !taken.contains(&n.as_str()))
             .expect("a free name");
-        let with = format!("rewrite {arrow}{rule} in {name}");
+        let with = format!("rewrite {arrow}{rule} then {name}");
         if matches!(
             checker.check(&with, &[(name, left.target.clone())]),
             Outcome::Closed
@@ -2309,7 +2314,7 @@ pub fn render_text(report: &AtReport) -> String {
         }
     }
     if !report.induction.is_empty() {
-        out.push_str("\ninduction hypothesis (calls of the declaration being proved, on structurally smaller arguments; termination is checked once the proof is pasted), for a closer such as omega [h], or to rewrite with:\n");
+        out.push_str("\ninduction hypothesis (calls of the declaration being proved, on structurally smaller arguments; termination is checked once the proof is pasted), for a closer such as arithmetic [h], or to rewrite with:\n");
         for (i, call) in report.induction.iter().enumerate() {
             out.push_str(&format!("{:>2}. {call}\n", i + 1));
         }

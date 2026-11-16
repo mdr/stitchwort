@@ -17,9 +17,9 @@ theorem splitRowAt ∀ (row: Vec Bool w) (below: Vec Nat w) (c: Nat):
     Vec.getOr (splitRow row below) c 1
       = (if splitterAt row c then (VCons 1 below).getOr c 1 + below.getOr (Succ c) 1 else below.getOr c 1) :=
   let sides := below.around 1 (l _ r => l + r)
-  rewrite Vec.getOrZipWith3 (s here sides => if s then sides else here) False 1 2 1 rfl row below sides c in
+  rewrite Vec.getOrZipWith3 (s here sides => if s then sides else here) False 1 2 1 byComputing row below sides c then
     match e: splitterAt row c with
-      | False => rfl
+      | False => byComputing
       | True => Vec.getOrAround below c 2 1 (setInside row c e) (l _ r => l + r)
 
 --| The counts below the rows `ls`, as `Manifold.timelineCounts` works them out.
@@ -34,7 +34,7 @@ theorem countStep ∀ (l: Vec Bool w) (rest: List (Vec Bool w)) (r c: Nat) (belo
   match e: splitterAt l c with
     | True =>
       match c with
-        | Zero => rewrite List.lengthMap _ _ in Eq.cong Succ (ih 1)
+        | Zero => rewrite List.lengthMap _ _ then Eq.cong Succ (ih 1)
         | Succ b =>
           rewrite List.lengthAppend _ _, List.lengthMap _ _, List.lengthMap _ _, Nat.addOne b, ih b, ih (Succ (Succ b))
     | False => ih c
@@ -46,11 +46,11 @@ theorem countsAre ∀ (w: Nat)
   match ls with
     | [] => Vec.getOrReplicate 1 w c
     | [l, ..rest] =>
-      rewrite List.foldRightCons rest l (Vec.replicate w 1) splitRow, splitRowAt l (countsBelow w rest) c in
+      rewrite List.foldRightCons rest l (Vec.replicate w 1) splitRow, splitRowAt l (countsBelow w rest) c then
         countStep l rest r c (countsBelow w rest) (c => countsAre w rest (r + 1) c)
 
 --| Part 2 is right: for every manifold, the printed answer is the number of
 --| timelines of the particle from S.
 theorem part2Correct ∀ (manifold: Manifold): solvePart2 manifold = part2Spec manifold :=
-  rewrite <- Vec.getOrGet manifold.timelineCounts manifold.start 1 in
+  rewrite <- Vec.getOrGet manifold.timelineCounts manifold.start 1 then
     countsAre manifold.width manifold.rows 0 manifold.start.toNat

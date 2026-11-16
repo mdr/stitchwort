@@ -969,8 +969,8 @@ impl Elaborator {
         format!("it happened while checking {}", names.join(", "))
     }
 
-    /// Notes for "a value was too large to show" while checking `component`:
-    /// the definition the value was a call of (`head`, an
+    /// Notes for "a value was too large to write out" while checking
+    /// `component`: the definition the value was a call of (`head`, an
     /// index recorded where the reading-back gave up), and the opaque
     /// definitions the declaration unfolds, whose bodies were computed with.
     fn too_large_notes(&self, component: &[usize], head: Option<usize>) -> Vec<String> {
@@ -980,8 +980,8 @@ impl Elaborator {
             let name = g.env.defs()[head].name();
             if !name.contains('%') {
                 notes.push(format!(
-                    "the value being shown was a call of `{name}`, computed far enough to be \
-                     very large"
+                    "the value being written out was a call of `{name}`, computed far enough to \
+                     be very large"
                 ));
             }
         }
@@ -3293,6 +3293,25 @@ pub(crate) fn is_function_type(ty: &Expr) -> bool {
     }
 }
 
+/// Whether a written type is a function whose first explicit argument is
+/// itself a function, so an unbracketed lambda could have been meant for it:
+/// `span: (t -> Bool) -> …` yes, `read: Path -> …` no (SW-3453).
+pub(crate) fn takes_function_argument(ty: &Expr) -> bool {
+    let mut ty = ty;
+    loop {
+        match ty {
+            Expr::Arrow(dom, _)
+            | Expr::Pi {
+                dom,
+                implicit: false,
+                ..
+            } => return matches!(**dom, Expr::Arrow(..) | Expr::Pi { .. }),
+            Expr::Pi { cod, .. } => ty = cod,
+            _ => return false,
+        }
+    }
+}
+
 impl Elaborator {
     /// Whether the module's item `item`, not checked yet, is declared with a
     /// function type.
@@ -3580,7 +3599,7 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
                 body.extend(names_and_proofs(work));
             }
             // A recursive call with no `[decreasing := …]` is proved by
-            // `auto`, which tries `omega` when nothing else proves it.
+            // `auto`, which tries `arithmetic` when nothing else proves it.
             if decreasing.is_some() && unproved_recursive_call(name, &body) {
                 body.push(Ref::Name(&REWRITE_MARKER));
             }
@@ -3712,12 +3731,12 @@ impl<'a> Receiver<'a> {
 }
 
 /// A reference no declaration can have: a `rewrite` is here, or another
-/// proof that may be `omega`'s (a `cases`, or a recursive call of a
+/// proof that may be `arithmetic`'s (a `cases`, or a recursive call of a
 /// definition with `decreasing` that gives no proof). A program's module
-/// loads `omega`'s library for it ([`Elaborator::dependencies`]);
-/// a library file doesn't, since `omega`'s library is built on files that
+/// loads `arithmetic`'s library for it ([`Elaborator::dependencies`]);
+/// a library file doesn't, since `arithmetic`'s library is built on files that
 /// use `rewrite` (an edge back would be a cycle), so there a premise is
-/// proved by `omega` only where the file loads it anyway.
+/// proved by `arithmetic` only where the file loads it anyway.
 pub(crate) static REWRITE_MARKER: std::sync::LazyLock<ast::Name> =
     std::sync::LazyLock::new(|| ast::Name {
         text: "%rewrite".to_string(),
@@ -3763,7 +3782,8 @@ pub(crate) static RANGE: std::sync::LazyLock<ast::Name> = std::sync::LazyLock::n
 /// The variables a pattern binds.
 fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
     match pattern {
-        Pattern::Var(x) => out.push(&x.text),
+        Pattern::Var(x) | Pattern::TextRest(x) => out.push(&x.text),
+        Pattern::Prefix { rest, .. } => pattern_binders(rest, out),
         Pattern::Ctor(_, args, _) => args.iter().for_each(|p| pattern_binders(p, out)),
         Pattern::Tuple(a, b, _) => {
             pattern_binders(a, out);
@@ -3783,6 +3803,7 @@ fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
         | Pattern::Num(..)
         | Pattern::NegNum(..)
         | Pattern::Char(..)
+        | Pattern::Text(..)
         | Pattern::Nil(_) => {}
     }
 }
@@ -3906,7 +3927,10 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             }
             Work::Pattern(p) => {
                 match p {
-                    Pattern::Var(x) => bound.entry(&x.text).or_default().push(None),
+                    Pattern::Var(x) | Pattern::TextRest(x) => {
+                        bound.entry(&x.text).or_default().push(None)
+                    }
+                    Pattern::Prefix { rest, .. } => then(&mut stack, vec![Work::Pattern(rest)]),
                     Pattern::Ctor(n, args, _) => {
                         out.push(Ref::Name(n));
                         then(
@@ -3965,7 +3989,8 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                     | Pattern::Nil(_)
                     | Pattern::Num(..)
                     | Pattern::NegNum(..)
-                    | Pattern::Char(..) => {}
+                    | Pattern::Char(..)
+                    | Pattern::Text(..) => {}
                 }
                 continue;
             }
@@ -4090,18 +4115,18 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 }
                 stack.push(Work::Expr(e));
             }
-            // What the proof `omega` writes refers to (crates/elab/src/omega.rs).
+            // What the proof `arithmetic` writes refers to (crates/elab/src/omega.rs).
             Expr::Omega { facts, .. } => {
                 out.extend(crate::omega::LIBRARY_NAMES.iter().map(Ref::Name));
                 then(&mut stack, facts.iter().map(Work::Expr).collect());
             }
-            // `cases` closes cases by `omega` (crates/elab/src/cases.rs): as
+            // `cases` closes cases by `arithmetic` (crates/elab/src/cases.rs): as
             // for `rewrite`, a program's `cases` loads its library.
             Expr::Cases { body, .. } => {
                 out.push(Ref::Name(&REWRITE_MARKER));
                 then(&mut stack, body.iter().map(|b| Work::Expr(b)).collect());
             }
-            // And `ring` (crates/elab/src/ring.rs).
+            // And `algebra` (crates/elab/src/ring.rs).
             Expr::Ring { facts, .. } => {
                 out.extend(crate::ring::LIBRARY_NAMES.iter().map(Ref::Name));
                 then(&mut stack, facts.iter().map(Work::Expr).collect());
@@ -4120,7 +4145,7 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 body,
                 ..
             } => {
-                // `rewrite` proves a rule's premises by `omega` (rewrite.rs,
+                // `rewrite` proves a rule's premises by `arithmetic` (rewrite.rs,
                 // `discharge`): a program's `rewrite` loads its library
                 // ([`REWRITE_MARKER`]).
                 out.push(Ref::Name(&REWRITE_MARKER));

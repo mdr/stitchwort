@@ -4,7 +4,10 @@
 import Std (Float, Int, List, Option)
 
 def shift (n: Int): Int := n + 10
-def clamp (x lo hi: Int): Int := if x < lo then lo else if hi < x then hi else x
+def clamp (x lo hi: Int): Int :=
+  if x < lo then lo
+  else if hi < x then hi
+  else x
 
 test "a literal argument" := shift -2 = 8
 test "a name" := (n => shift -n) 3 = 7
@@ -14,7 +17,7 @@ test "a later argument" := clamp 1 -2 3 = 1
 test "an argument of a lambda body" := [-5, 0, 5].map (x => clamp x -1 1) = [-1, 0, 1]
 test "the arguments take one atom each" := shift -2 * 3 = 24
 test "the same term as the brackets" := shift -2 = shift (-2)
-theorem sameTerm: shift -2 = shift (-2) := rfl
+theorem sameTerm: shift -2 = shift (-2) := byComputing
 
 -- Subtraction is as before.
 test "tight" := (7: Int) - 1 = 6

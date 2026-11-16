@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: `<` works on `Nat` and `Int`
+    ╭─[ reject/derive-ord-none-lessthan.sw:21:35 ]
+    │
+ 21 │ def before (x y: Tagged): Bool := x < y
+    │                                   ┬  
+    │                                   ╰── this is `Tagged`
+    │ 
+    │ Note 1: on other types `<` is `Ord.lessThan`, and there's no `Ord` instance for `Tagged` here
+    │ 
+    │ Note 2: `Ord` isn't derived for `Tagged`: its field `tag` has type `Secret`, which has no `Ord` instance (when `Tagged` was declared)
+────╯

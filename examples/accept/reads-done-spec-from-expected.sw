@@ -7,7 +7,7 @@ import Std (Char, List, Parse)
 
 type Pair = { first: Nat, second: Nat }
 
-def pair(): {Parse} Pair :=
+def pair(): {Parse Char} Pair :=
   let first := Parse.nat()
   Parse.char ','
   let second := Parse.nat()
@@ -21,4 +21,4 @@ theorem readsPair: Parse.Reads pair Written := Parse.readsThen Parse.readsNat (l
     Parse.readsThen Parse.readsNat (highRead high highDigits =>
       Parse.readsDone
         { first = low, second = high } _
-        (Witness lowRead (Witness highRead (rewrite comma, List.appendNil highRead in rfl))))))
+        (Witness lowRead (Witness highRead (rewrite comma, List.appendNil highRead then byComputing))))))

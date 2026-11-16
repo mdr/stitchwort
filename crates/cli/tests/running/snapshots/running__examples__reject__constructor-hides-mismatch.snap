@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[W-CTOR-HIDES] Warning: the constructor `None` hides `Option.None` in this file
+   ╭─[ reject/constructor-hides-mismatch.sw:5:22 ]
+   │
+ 5 │ type Cell = | Wall | None
+   │                      ──┬─  
+   │                        ╰─── `None` here means `Cell.None`, not `Option.None`
+   │ 
+   │ Note: a constructor name means one thing in a file: write `Option.None` for the hidden one. Better, rename `Cell.None`, or keep this type in a file that doesn't need the other
+───╯
+[E-TYPE-MISMATCH] Error: this pattern is a `Cell`, but other patterns here are `Option`
+   ╭─[ reject/constructor-hides-mismatch.sw:9:5 ]
+   │
+ 9 │   | None => 0
+   │     ──┬─  
+   │       ╰─── this pattern is a `Cell`, but other patterns here are `Option`
+   │ 
+   │ Note: `None` here means `Cell.None`, which hides the `None` of `Option`: write `Option.None` for that one
+───╯

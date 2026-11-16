@@ -47,13 +47,13 @@ def Party.password (party: Party): Text := party.members.toList |> .map .name |>
 --| in either order, and may list one twice.
 type Network = { connections: List Connection }
 
-def computer(): {Parse} Computer :=
+def computer(): {Parse Char} Computer :=
   let first := satisfy "a lowercase letter" Char.isAsciiLowercase
   let second := satisfy "a lowercase letter" Char.isAsciiLowercase
   { name = Text.fromList [first, second] }
 
 --| One connection: "kh-tc".
-def connection(): {Parse} Connection :=
+def connection(): {Parse Char} Connection :=
   let one := computer()
   text "-"
   let other := computer()
@@ -106,9 +106,9 @@ def Links.largestFrom (links: Links) (clique candidates best: Set Computer): Set
         let fewer := Set.sizePopMin candidates candidate others found
         let narrowed := links.neighbours candidate |> .intersect others
         let withinOthers: narrowed.size ≤ others.size := Set.sizeSubset others narrowed (key inside =>
-          Bool.andRight (Eq.trans (Eq.sym (Set.containsIntersect (links.neighbours candidate) key others)) inside))
+          Bool.andRight (Eq.trans (Eq.flipped (Set.containsIntersect (links.neighbours candidate) key others)) inside))
         let withIt :=
-          links.largestFrom (clique.insert candidate) narrowed best [decreasing := omega [withinOthers, fewer]]
+          links.largestFrom (clique.insert candidate) narrowed best [decreasing := arithmetic [withinOthers, fewer]]
         links.largestFrom clique others withIt
 
 --| The largest set of computers that are all connected to each other.

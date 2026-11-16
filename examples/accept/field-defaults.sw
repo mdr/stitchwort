@@ -17,7 +17,7 @@ test "a given field replaces its default" := bounds { stop = 10, step = 3 } == [
 test "as a named argument" := bounds (options := { start = 2, stop = 5 }) == [2, 5, 1]
 
 -- Leaving a field out is definitionally equal to giving its default.
-theorem smallInFull: small = ({ start = 0, stop = 10, step = 1 }: RangeOptions) := rfl
+theorem smallInFull: small = ({ start = 0, stop = 10, step = 1 }: RangeOptions) := byComputing
 
 -- A record whose fields all have defaults: `{}`.
 type Style = { width: Nat := 80, indent: Nat := 2 }
@@ -29,7 +29,10 @@ test "every field left out" := plain.width == 80 ∧ plain.indent == 2
 -- A default may use earlier fields, and a later field's type may mention
 -- a defaulted one: the default computes, so `{ cells = … }` with eight
 -- cells fits.
-type Sized = { size: Nat := 8, cells: Vec Bool size := Vec.replicate size False }
+type Sized = {
+  size: Nat := 8,
+  cells: Vec Bool size := Vec.replicate size False
+}
 
 def eight: Sized := {}
 def three: Sized := { size = 3 }
@@ -65,7 +68,9 @@ test "generic" := boxed.label == "box" ∧ boxed.extra == []
 
 -- Constructor fields: named construction, and named arguments, leave them
 -- out; a positional call gives every field.
-type Shape = | Circle { radius: Nat, id: Text := "anonymous" } | Square (side: Nat) (id: Text := "square")
+type Shape =
+  | Circle { radius: Nat, id: Text := "anonymous" }
+  | Square (side: Nat) (id: Text := "square")
 
 def idOf (shape: Shape): Text := shape.id
 

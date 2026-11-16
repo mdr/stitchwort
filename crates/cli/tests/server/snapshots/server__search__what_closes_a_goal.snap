@@ -1,5 +1,6 @@
 ---
 source: crates/cli/tests/server/search.rs
+assertion_line: 502
 expression: "serde_json::to_string_pretty(&report).unwrap()"
 ---
 {
@@ -85,14 +86,14 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "file": "std/List/SortLemmas.sw",
       "goal": "(a.compare c).isLessEq",
       "import": "import Std (Nat)",
-      "line": 773,
+      "line": 776,
       "name": "Std.Nat.compareLeq",
-      "proof": "rewrite <- Nat.compareLeq a c in ?",
+      "proof": "rewrite <- Nat.compareLeq a c then ?",
       "type": "∀ (m n: Nat) => (m.compare n).isLessEq = (m <= n)"
     }
   ],
   "tactics": [
-    "omega",
+    "arithmetic",
     "cases"
   ],
   "total": {

@@ -48,20 +48,20 @@ type Manual = { template: List Char, rules: List Rule }
 --| are for the same pair.
 def parseManual (input: Text): {Fail} Manual := checkManual (Parse.all input readManual)
 
-def readManual(): {Parse} Manual :=
+def readManual(): {Parse Char} Manual :=
   let template := takeWhile1 "a capital letter" Char.isAsciiUppercase
   blankLine()
   let rules := lines readRule |> .toList
   { template = template.toList, rules }
 
-def readRule(): {Parse} Rule :=
+def readRule(): {Parse Char} Rule :=
   let first := element()
   let second := element()
   text " -> "
   let insert := element()
   { pair = { first, second }, insert }
 
-def element(): {Parse} Char := satisfy "a capital letter" Char.isAsciiUppercase
+def element(): {Parse Char} Char := satisfy "a capital letter" Char.isAsciiUppercase
 
 --| The manual, if no two rules are for the same pair; otherwise fail,
 --| naming the first pair with two.

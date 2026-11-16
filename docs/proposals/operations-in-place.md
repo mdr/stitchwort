@@ -557,8 +557,11 @@ runtimes. This section adds only what bears on operations in place.
   (effect-runtime.md §4 D).
 - **Effekt** (Schuster, Brachthäuser, Ostermann, "Compiling Effect Handlers
   in Capability-Passing Style", ICFP 2020; Brachthäuser et al., "Effects,
-  Capabilities, and Boxes", OOPSLA 2022) **[lit, from memory: not
-  re-checked]**. Handlers are lexically scoped capabilities passed as
+  Capabilities, and Boxes", OOPSLA 2022) **[lit; ICFP 2020 abstract and OOPSLA 2022 abstract
+  read via search summaries, 15 Nov 2026: the 2020 paper translates a language with handlers passed
+  as capabilities into simply-typed λ-calculus by iterated CPS, and a more restrictive refinement
+  removes the handler abstraction for a subset of programs; the 2022 paper assumes functions are
+  second-class and supports full handlers via boxing]**. Handlers are lexically scoped capabilities passed as
   arguments, so an operation is a call on a known object, and for
   second-class capabilities the handler abstraction is eliminated
   entirely. That depends on the language being designed around lexical
@@ -566,43 +569,55 @@ runtimes. This section adds only what bears on operations in place.
   (an operation goes to the nearest enclosing handler of its row), so
   capability passing would change the language, not the runtime.
 - **Eff** (Karachalias, Koprivec, Pretnar, Schrijvers, "Efficient
-  Compilation of Algebraic Effect Handlers", OOPSLA 2021) **[lit, from
-  memory]**. Compiles to OCaml with source-level optimisations that push
-  handlers into the code they handle and specialise them, removing
-  handlers whose operations can be resolved statically. Closer to
+  Compilation of Algebraic Effect Handlers", OOPSLA 2021) **[lit, abstract and §1-3 read in the
+  KU Leuven PDF, 15 Nov 2026]**. Compiles to OCaml with type-and-effect directed source-to-source
+  optimisations: rewrites that reduce handler applications, aided by function specialisation (the
+  paper's wording, not "push handlers into the code"), removing handlers whose operations can be
+  resolved statically. Closer to
   Stitchwort's SW-2135 specialisation than to a runtime technique.
 - **Links** (Hillerström, Lindley et al., JFP 2020) and **Frank** (Lindley,
-  McBride, McLaughlin, "Do Be Do Be Do", POPL 2017) **[lit, from memory]**.
-  Links' generalised continuations alternate pure and handler frames (as
-  our entries would); no tail-resumptive optimisation is described. Frank's
-  implementation is an interpreter of its semantics, not a performance
-  design.
+  McBride, McLaughlin, "Do Be Do Be Do", POPL 2017) **[lit, both papers read
+  15 Nov 2026]**. Links' generalised continuations are "composed of alternating pure and handler
+  continuations" (Hillerström, Lindley, Atkey, JFP 2020) (as our entries would); no tail-resumptive
+  optimisation was seen in a search for the term in that paper's text. Frank's prototype is translated into
+  Shonky, an untyped version of Frank that "executes code directly through an abstract machine" (arXiv
+  1611.09259, §7), not a performance design.
 - **Unison** **[read, effect-runtime.md §3]**: copies the stack segment per
   operation, with a newer path for handlers that resume at most once. No
   in-place answer.
-- **Haskell libraries** **[from memory; not re-checked]**. `polysemy` and
+- **Haskell libraries** **[partly checked, 15 Nov 2026: `effectful`, `cleff` and `eff` below; the
+  rest from memory and left unverified]**. `polysemy` and
   `fused-effects` are free(r)-monad or carrier encodings that are fast only
   when GHC specialises and inlines the handler into the program, and slow
   otherwise (Alexis King, "Effects for Less", ZuriHac 2020). `eff` (King)
   keeps a handler vector in a reader-like context and uses GHC's
   delimited-continuation primops only for control operations: the same
-  split as here. `effectful` and `cleff` keep handlers in a mutable
-  environment over `IO` and run every operation as a direct call: very
-  fast, but they give up multi-shot continuations (no non-determinism),
-  which we can't. The `Ev.Eff` library (Xie and Leijen, Haskell 2020) is
+  split as here. `effectful` and `cleff` are `ReaderT`-over-`IO` designs and run every operation as a direct call:
+  very fast, but they give up multi-shot continuations (no non-determinism), which we can't
+  (effectful README: "The `Eff` monad doesn't support effect handlers that require the ability to
+  suspend or capture the rest of the computation and resume it later"; cleff README: "does not support
+  nondeterminism and continuations") **[checked, READMEs at master, 15 Nov 2026]**. The mutable
+  handler environment is not checked. The `Ev.Eff` library (Xie and Leijen, Haskell 2020) is
   Koka's evidence passing as a library, and in the 2021 paper's benchmarks
   GHC inlines it to almost nothing.
 - **Lean** has no handlers: effects are monad transformers, and `EStateM`
   (state and exceptions in one state-passing function, `@[inline]`
   everywhere) is what its `IO` and `Parsec`-style code compile to
-  **[from memory]**. That is option C of parse-runtime.md for every monad.
+  **[corrected 15 Nov 2026]**: in current Lean, `EStateM ε σ` is a state-passing function
+  `σ → Result ε σ α` (documented "more efficient" than `ExceptT ε (StateM σ)`, Prelude.lean), but `IO`
+  is `EIO IO.Error`, which is `EST ε IO.RealWorld`, a sibling state-passing type with its own `Out` result
+  (`Init/System/ST.lean`, `Init/System/IO.lean` at lean4 918003258c); `Std.Internal.Parsec` uses its
+  own `ParseResult`. So "state-passing functions" is right, "`EStateM`" is not for `IO`. That is option C of parse-runtime.md for every monad.
 - **Others in the "tail-resumptive" literature.** Leijen, "Implementing
   Algebraic Effects in C" (APLAS 2017): `libhandler`, with tail-resumptive
   operations as plain calls, the fastest entry in Xie and Leijen's
   `counter` (1.5× Koka, "it does no allocation at all") **[lit]**. Ghica et
-  al., "High-level Effect Handlers in C++" (OOPSLA 2022): separate
-  "plain" and tail-resumptive handler classes that never capture
-  **[from memory]**.
+  al., "High-level Effect Handlers in C++" (OOPSLA 2022): a `Plain`
+  clause modifier for a command whose clause resumes in tail position, which "improve[s]
+  performance as there is no need to perform any kind of context switch"; the library uses
+  boost.context and so supports one-shot handlers only **[corrected 15 Nov 2026: a per-command
+  modifier, not separate handler classes; April 2022 draft PDF and the project README via a search
+  summary]**.
 
 **What carries over.** Every fast system answers tail-resumptive
 operations with a call where they are performed, and every one that is

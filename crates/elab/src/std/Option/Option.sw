@@ -21,7 +21,7 @@ theorem Option.mapCong ∀ (x: Option a) (f1 f2: a → b)
     (ef: ∀ (y: a) => f1 y = f2 y):
     Option.map x f1 = Option.map x f2 :=
   match x with
-    | None => rfl
+    | None => byComputing
     | Some y => Eq.cong Some (ef y)
 
 --| Whether there is a value: `(Some 3).isSome` is `True`.
@@ -33,17 +33,17 @@ def Option.isSome: (option: Option a) → Bool
 @[reading]
 theorem Option.isSomeReads ∀ (o: Option a): Option.isSome o ↔ ∃ (x: a) => o = Some x := match o with
   | None => {
-    forward = h => Void.exfalso (Bool.falseNotTrue h),
-    backward = h => Exists.elim h (x found => Void.exfalso (Option.noneNotSome x found))
+    forward = h => (Bool.falseNotTrue h).impossible,
+    backward = h => Exists.elim h (x found => (Option.noneNotSome x found).impossible)
   }
-  | Some y => { forward = h => Witness y rfl, backward = h => rfl }
+  | Some y => { forward = h => Witness y byComputing, backward = h => byComputing }
 
 @[reading]
 theorem Option.isSomeReadsFalse ∀ (o: Option a): Option.isSome o = False ↔ o = None := match o with
-  | None => { forward = h => rfl, backward = h => rfl }
+  | None => { forward = h => byComputing, backward = h => byComputing }
   | Some y => {
-    forward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)),
-    backward = h => Void.exfalso (Option.noneNotSome y (Eq.sym h))
+    forward = h => (Bool.falseNotTrue h.flipped).impossible,
+    backward = h => (Option.noneNotSome y h.flipped).impossible
   }
 
 --| Whether there is none: `None.isNone` is `True`.
@@ -54,24 +54,30 @@ def Option.isNone: (option: Option a) → Bool
 --| `o.isNone` reads as `o = None`, and `= False` as "`o` is a `Some`".
 @[reading]
 theorem Option.isNoneReads ∀ (o: Option a): Option.isNone o ↔ o = None := match o with
-  | None => { forward = h => rfl, backward = h => rfl }
-  | Some y => {
-    forward = h => Void.exfalso (Bool.falseNotTrue h),
-    backward = h => Void.exfalso (Option.noneNotSome y (Eq.sym h))
-  }
+  | None => { forward = h => byComputing, backward = h => byComputing }
+  | Some y =>
+    { forward = h => (Bool.falseNotTrue h).impossible, backward = h => (Option.noneNotSome y h.flipped).impossible }
 
 @[reading]
 theorem Option.isNoneReadsFalse ∀ (o: Option a): Option.isNone o = False ↔ ∃ (x: a) => o = Some x := match o with
   | None => {
-    forward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)),
-    backward = h => Exists.elim h (x found => Void.exfalso (Option.noneNotSome x found))
+    forward = h => (Bool.falseNotTrue h.flipped).impossible,
+    backward = h => Exists.elim h (x found => (Option.noneNotSome x found).impossible)
   }
-  | Some y => { forward = h => Witness y rfl, backward = h => rfl }
+  | Some y => { forward = h => Witness y byComputing, backward = h => byComputing }
 
 --| The first option if it is a `Some`, else the second: `x.orElse y` ([`Option.orElseEqSome`]).
 def Option.orElse: (option: Option a) → (other: Option a) → Option a
   | Some x, y => Some x
   | None, y => y
+
+--| The value, or `fallback` if there isn't one: `(Some 3).getOr 0` is `3`,
+--| and `(None: Option Nat).getOr 0` is `0`. A result equal to `fallback`
+--| doesn't say there was no value; use [`Option.isSome`] when that matters.
+--| [`Option.getOrSome`] and [`Option.getOrNone`] say what it computes.
+def Option.getOr: (option: Option a) → (fallback: a) → a
+  | None, fallback => fallback
+  | Some x, fallback => x
 
 --| Combines two options of one type: a lone value stays, two values go through
 --| `both`. `x.merge y (a b => a + b)` adds the values that are there, and is
@@ -150,10 +156,10 @@ def Option.flatten: (nested: Option (Option a)) → Option a
   | Some inner => inner
 
 theorem Option.flattenFlatMap ∀ (x: Option (Option a)): Option.flatten x = Option.flatMap x id := match x with
-  | None => rfl
-  | Some inner => rfl
+  | None => byComputing
+  | Some inner => byComputing
 
-theorem Option.toListExample: (Some 3).toList = [3] := rfl
+theorem Option.toListExample: (Some 3).toList = [3] := byComputing
 
 test "Option.flatten" :=
   (Some (Some 3)).flatten == Some 3
@@ -166,6 +172,7 @@ test "Option.orElse" :=
     ∧ (None: Option Nat).orElse (Some 2) == Some 2
     ∧ (None: Option Nat).orElse None == None
 test "Option.orElse chain" := ((None: Option Nat).orElse None |> .orElse (Some 3)) == Some 3
+test "Option.getOr" := (Some 1).getOr 0 == 1 ∧ (None: Option Nat).getOr 0 == 0
 test "Option.merge" := (Some 1).merge (Some 2) (+) == Some 3
 test "Option.merge lone" := (Some 1).merge None (+) == Some 1 ∧ (None: Option Nat).merge (Some 2) (+) == Some 2
 test "Option.merge none" := (None: Option Nat).merge None (+) == None

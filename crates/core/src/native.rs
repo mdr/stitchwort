@@ -13,7 +13,7 @@
 //! Each must compute exactly what its definition computes, as the whole
 //! result: for a native returning a proof, the same proof term up to
 //! conversion, not just another proof of the same thing (otherwise turning
-//! natives on would change which `rfl` proofs check). The tests compare whole
+//! natives on would change which `byComputing` proofs check). The tests compare whole
 //! results with the definitions on many inputs.
 //!
 //! Built-ins are registered while the prelude is loaded, for the declarations
@@ -57,10 +57,10 @@ pub enum Native {
     EqNat,
     /// `divFuel fuel n d`: how many times `d` fits into `n`, at most `fuel`.
     DivFuel,
-    /// `eqNatRefl n : eqNat n n = True`, which is `rfl` for any number. Without
+    /// `eqNatRefl n : eqNat n n = True`, which is `byComputing` for any number. Without
     /// this, a proof of `eqNat n n = True` would count down `n`.
     EqNatRefl,
-    /// `eqNatSound m n h : m = n`, which is `rfl` when `m` and `n` are the same
+    /// `eqNatSound m n h : m = n`, which is `byComputing` when `m` and `n` are the same
     /// number, whatever `h` is. Without this, transporting along a decided
     /// equation (`Nat.decEq m n`'s `sound`) would count down its arguments.
     EqNatSound,

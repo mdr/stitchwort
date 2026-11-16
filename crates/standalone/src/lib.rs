@@ -38,6 +38,11 @@ use stitchwort_rt::native_aot::RunExecutable;
 
 pub mod aot;
 
+/// Puts [`stitchwort_rt::BUILD_MARKER`] in the library's data, where
+/// `stitchwort build` looks for it (`find_library` in crates/cli).
+#[used]
+static BUILD_MARKER: &str = stitchwort_rt::BUILD_MARKER;
+
 /// The executable's allocator, as `stitchwort`'s: the runtime allocates and
 /// frees cells by the million.
 #[global_allocator]
@@ -238,6 +243,10 @@ fn with_terminal(
 pub fn report(error: &RunError) -> (i32, String) {
     if let RunError::Failed(msg) = error {
         return (EXIT_FAIL, format!("error: {msg}\n"));
+    }
+    // `main` returned an `ExitStatus`: its code, and nothing to say.
+    if let RunError::Exit(code) = error {
+        return (i32::from(*code), String::new());
     }
     let diagnostic = error.diagnostic(stitchwort_syntax::Span::NOWHERE);
     let mut text = format!("[{}] Error: {}\n", diagnostic.code, diagnostic.message);

@@ -330,7 +330,7 @@ comes from **[inferred]**; Stitchwort has no function extensionality (`docs/prop
 | Lean 4 | `termination_by m`, `decreasing_by tactic` | `WellFounded.fix` over `Acc` | badly; irreducible by default since 4.9 [L2] | `f.eq_1`, `f.eq_def` generated [run] | `f.induct`, `fun_induction` [L3] |
 | Rocq `Program Fixpoint` | `{measure m}` | `Fix_sub` over `Acc` | only if obligations are transparent [C1] | `fix_sub_eq_ext`, needs function extensionality [C2] | by hand |
 | Rocq Equations | `by wf m` | `Acc`-based | opaque by default, on purpose [C3] | generated; uses function extensionality [C4] | `funelim` [C4] |
-| Rocq `Function` | `{measure m}` | `Acc`-based | [unverified] | generated | `f_ind`, functional induction [unverified] |
+| Rocq `Function` | `{measure m}` | `Acc`-based | [unverified] | generated | `f_ind`, functional induction [checked 15 Nov 2026: Rocq refman, "Functional induction" (rocq-prover.org/doc/v9.1/refman/using/libraries/funind.html): `Function` generates `ident_rect`, `ident_rec`, `ident_ind`; it is marked legacy there, with Equations recommended] |
 | Agda | sized types, or `Acc` from the library, or Bove–Capretta | sizes / `Acc` | sizes: yes; `Acc`: when the proof reduces [unverified] | clauses are the definition | ordinary recursion |
 | Idris 2 | `assert_smaller`, `assert_total` | trusts the assertion | yes | n/a | n/a |
 | F\* | `decreases m` | SMT-checked obligation | the normaliser unfolds [unverified] | n/a | ordinary recursion |
@@ -988,8 +988,7 @@ is nested": a user's own `myMap` gets nothing [L1, §3.6; L6]. In the day 2 weig
 in scope **[run, Lean 4.34.1]**; the parameter information isn't carried through that
 construction by the registered rules **[inferred]**. With `attach` written by hand it checked and
 computed `-μ(n)` for 2 to 12 **[run]**. Agda's standard library has the same idea as `mapWith∈`
-[A3], and Idris writes membership as `Elem x xs` [I2] **[unverified for both: from memory, the
-linked docs not re-read]**.
+[A3], and Idris writes membership as `Elem x xs` [I2] **[checked 15 Nov 2026 in the source: agda-stdlib `Data.List.Membership.Propositional` exports `mapWith∈` (src/Data/List/Membership/Propositional/Properties.agda imports it and states `mapWith∈-cong`); Idris 2 `libs/base/Data/List/Elem.idr` has `data Elem : a -> List a -> Type` with `Here` and `There`]**.
 
 **Stitchwort's library (stage 3b, after day 2).**
 
@@ -1588,8 +1587,8 @@ this note's own stage 3 list and the examples below, not a program waiting for i
 
 **Elsewhere.** Lean writes `termination_by (a, b)` and orders tuples lexicographically
 (`Prod.Lex`); its `decreasing_tactic` tries the first component and then the second
-**[unverified: from memory, [L1] not re-read for this]**. Dafny writes `decreases a, b` (a list,
-compared lexicographically) and F\* `decreases %[a; b]` [F1] **[checked: F\*]**.
+**[checked 15 Nov 2026 in part: `decreasing_tactic` works "by simplifying, then applying lexicographic order lemmas" (lean-lang.org/doc/api/Init/WFTactics.html), and a tutorial says tuples are compared lexicographically (sdiehl.github.io/zero-to-qed/08_termination.html); that it tries the first component and then the second is [unverified]]**. Dafny writes `decreases a, b` (a list,
+compared lexicographically: each activation has "a lexicographic tuple determined by evaluating the function's `decreases` clause", Dafny reference manual §5.14.3.1, checked 15 Nov 2026) and F\* `decreases %[a; b]` [F1] **[checked: F\*]**.
 
 ### 3d.2 What you write
 

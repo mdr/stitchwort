@@ -291,7 +291,7 @@ The program is a parser and two checks on a record:
 ```stitchwort
 type Entry = { low: Nat, high: Nat, letter: Char, password: Text }
 
-def line(): {Parse} Entry :=
+def line(): {Parse Char} Entry :=
   let low := nat()
   char '-'
   let high := nat()
@@ -625,7 +625,7 @@ a std `Nat.wrap`-like function with this definition and its lemmas; or a
 `square` was first written as day 2's parser was:
 
 ```stitchwort
-def square(): {Parse} Square :=
+def square(): {Parse Char} Square :=
   let char := Parse.satisfy "'.' or '#'" (char => char == '.' || char == '#')
   if char == '#' then Tree else Open
 ```
@@ -789,14 +789,14 @@ The program parses each field's key into an enumeration with `Parse.pick`,
 keeps the value as `Text`, and checks the values with `Text` functions:
 
 ```stitchwort
-def field(): {Parse} Field :=
+def field(): {Parse Char} Field :=
   let key := Parse.pick (keys.map (key => (key.code, key)))
   Parse.char ':'
   let value := Parse.takeWhile1 "a value" isValueChar
   { key, value }
 
-def fieldBreak(): {Parse} () := Parse.oneOf [() => Parse.char ' ', Parse.newline]
-def passport(): {Parse} Passport := { fields = Parse.sepBy1 field fieldBreak }
+def fieldBreak(): {Parse Char} () := Parse.oneOf [() => Parse.char ' ', Parse.newline]
+def passport(): {Parse Char} Passport := { fields = Parse.sepBy1 field fieldBreak }
 def parsePassports (input: Text): {Fail} List Passport := Parse.all input (() => Parse.sections passport)
 
 def heightValid (value: Text): Bool :=
@@ -1099,10 +1099,10 @@ with `Nat.fromBits` from std; part 2 sorts the IDs and takes the first gap
 of two:
 
 ```stitchwort
-def half (lower: Char) (upper: Char): {Parse} Bool :=
+def half (lower: Char) (upper: Char): {Parse Char} Bool :=
   Parse.satisfy "'${lower}' or '${upper}'" (letter => letter == lower || letter == upper) == upper
 
-def pass(): {Parse} List Bool :=
+def pass(): {Parse Char} List Bool :=
   let row := Parse.repeat 7 7 frontBack
   let column := Parse.repeat 3 3 leftRight
   row ++ column
@@ -1392,7 +1392,7 @@ line (`Parse.eachLine`, as day 5) as a person's or blank (`Option Person`),
 and the groups are what lies between the blank lines (`List.splitBy`):
 
 ```stitchwort
-def line(): {Parse} (Option Person) := Parse.oneOf [answers, blank]
+def line(): {Parse Char} (Option Person) := Parse.oneOf [answers, blank]
 
 def groupsOf (lines: List (Option Person)): List Group :=
   (lines.splitBy .isNone).map (people => { people = people.filterMap (answers => answers) })
@@ -5047,11 +5047,11 @@ about is now the program, which the test no longer has to vouch for.
 does not need it yet, since `parseMeans` goes through `eachLineReads`.
 
 
-### 2. A `{Parse}` function's `foldLeft` is an effect, so `readsDone` can't take it
+### 2. A `{Parse Char}` function's `foldLeft` is an effect, so `readsDone` can't take it
 
 `chain` first ended `rest.foldLeft first (left (found, right) =>
 Operation found left right)`. `List.foldLeft` is effect-polymorphic (`f:
-b → a → {e} b`), and inside a `{Parse}` function it was elaborated as a
+b → a → {e} b`), and inside a `{Parse Char}` function it was elaborated as a
 `Parse` computation, though the lambda is pure; so the proof's last
 step, `Parse.readsDone (rest.foldLeft …) _ …`, was `E-TYPE-MISMATCH`
 "they first differ at `Std.Effect.runPure (Std.Effect.foldComp … … …)
@@ -5067,16 +5067,16 @@ pure function".
 ### 3. `precedence.expression` as a parser argument runs it
 
 `Parse.eachLine input precedence.expression`, with `def
-Precedence.expression (precedence: Precedence): {Parse} Expression`, is
+Precedence.expression (precedence: Precedence): {Parse Char} Expression`, is
 `E-ABILITY` "this may perform `Parse`, which isn't allowed here", with
 "add `Parse` to the function's type … or handle it". The dot call ran
 the parser, where `eachLine` wants a thunk; `() =>
 precedence.expression` is the fix. Eight lines reproduce it (a record, a
-`{Parse}` method on it, and `Parse.eachLine input digits.parser` in a
-`{Fail}` function). Where the expected type is `() → {Parse} a`, the
+`{Parse Char}` method on it, and `Parse.eachLine input digits.parser` in a
+`{Fail}` function). Where the expected type is `() → {Parse Char} a`, the
 note could say "this runs `precedence.expression` here; to pass it as a
 parser, write `() => precedence.expression`". The same holds for a
-top-level parser `def expression(): {Parse} …`, which is passed bare as
+top-level parser `def expression(): {Parse Char} …`, which is passed bare as
 `expression`; the receiver form is what makes it look like a value.
 
 ### 4. Messages
@@ -5180,7 +5180,7 @@ rest of the cold time is std's.
    agrees with the program's; completeness lemmas per combinator would
    let the proof be about the program's own parser (item 1). Library;
    large.
-2. An effect-polymorphic `foldLeft` in a `{Parse}` function is
+2. An effect-polymorphic `foldLeft` in a `{Parse Char}` function is
    elaborated as an effect, so `readsDone` can't take it, and the error
    names `Effect.foldComp` (item 2). Elaborator or message; small to
    medium.

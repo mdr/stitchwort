@@ -17,7 +17,7 @@
 //! existing type, with no new reduction or recursion principle: no list
 //! is ever *made* compact by evaluation, only literals are.
 //!
-//! The expansion claims `rfl : isScalar c = True` for every character, which
+//! The expansion claims `byComputing : isScalar c = True` for every character, which
 //! is only true because a Rust `char` is a scalar value and because `isScalar`
 //! is the prelude's definition. So the representation is bound to the exact
 //! declarations of `List` and `Char` by content hash (which covers `Nil`,
@@ -39,7 +39,7 @@ use crate::hash::data_hash;
 use crate::term::{DataId, Sort, Term};
 use crate::value::Value;
 
-/// The characters `buf[start..end]`, standing for the list of `MkChar c rfl`
+/// The characters `buf[start..end]`, standing for the list of `MkChar c byComputing`
 /// for each. Equal ranges of different buffers mean the same list, so
 /// nothing (hashing, conversion) looks at the buffer or the offsets, only at
 /// [`Chars::as_slice`].
@@ -117,7 +117,7 @@ impl std::fmt::Debug for Chars {
 pub struct CompactText {
     pub list: DataId,
     pub char: DataId,
-    /// `MkChar c rfl` for the first [`SHARED`] code points, made once and
+    /// `MkChar c byComputing` for the first [`SHARED`] code points, made once and
     /// shared by every match on a compact list, as a literal's constructors
     /// would share them. Others are made as they're matched.
     small: Rc<[Value]>,
@@ -214,7 +214,7 @@ pub fn value(text: &CompactText, chars: Chars) -> Value {
 }
 
 /// One step of the expansion: what matching on the range finds. `Nil` for an
-/// empty range, otherwise `Cons (MkChar c rfl) rest`, with `rest` the range
+/// empty range, otherwise `Cons (MkChar c byComputing) rest`, with `rest` the range
 /// after `c`, sharing the buffer.
 pub fn step(text: &CompactText, chars: &Chars) -> Value {
     let (c, fields) = split(text, chars);
@@ -229,7 +229,7 @@ pub fn split(text: &CompactText, chars: &Chars) -> (usize, Vec<Value>) {
     }
 }
 
-/// `MkChar c rfl`.
+/// `MkChar c byComputing`.
 pub fn char_value(text: &CompactText, c: char) -> Value {
     match text.small.get(u32::from(c) as usize) {
         Some(shared) => shared.clone(),

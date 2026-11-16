@@ -14,7 +14,7 @@ theorem runsNumber ∀ (read: List Char) (number: Nat) (after: List Char)
     Parse.Runs Parse.nat read after number :=
   match written with
     | Both nonEmpty (Both allDigits decimal) =>
-      rewrite decimal in Parse.runsNatBefore read after nonEmpty allDigits stops
+      rewrite decimal then Parse.runsNatBefore read after nonEmpty allDigits stops
 
 theorem runsStarting ∀ (read: List Char) (starting2: Starting)
     (written: StartingWritten read starting2) (ending: List Char)
@@ -37,19 +37,19 @@ theorem runsStarting ∀ (read: List Char) (starting2: Starting)
               (Parse.CannotStart Parse.isDigit)
               ending
               (read2 v after ok stops => runsNumber read2 v after ok stops)
-              (read2 after u same => rewrite same in Parse.runsChar ',' after)
-              (read2 u same => rewrite same in List.consNotNil ',' [])
+              (read2 after u same => rewrite same then Parse.runsChar ',' after)
+              (read2 u same => rewrite same then List.consNotNil ',' [])
               (read2 after u same =>
-                rewrite same in (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found in rfl))
-              (Parse.cannotStartAtBreaks Parse.isDigit rfl rfl ending breaks)
+                rewrite same then (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found then byComputing))
+              (Parse.cannotStartAtBreaks Parse.isDigit byComputing byComputing ending breaks)
               (Parse.declinesSepStep Parse.nat
                 (() => Parse.char ',')
                 ending
                 (Parse.declinesCharCannotStart ','
                   (char => char == ',')
-                  rfl
+                  byComputing
                   ending
-                  (Parse.cannotStartAtBreaks (char => char == ',') rfl rfl ending breaks)))
+                  (Parse.cannotStartAtBreaks (char => char == ',') byComputing byComputing ending breaks)))
               read
               head
               tail
@@ -76,4 +76,4 @@ theorem writtenUnique ∀ (input: Text) (a b: Starting)
     (writtenA: InputWritten input a)
     (writtenB: InputWritten input b):
     a = b :=
-  Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))
+  Result.okInjective (Eq.trans (parseComplete input a writtenA).flipped (parseComplete input b writtenB))

@@ -1,6 +1,7 @@
 # Proposal: a 2D geometry library for Aoc.Common that a day takes pieces from
 
-**Status:** draft 1, 6 November 2026. Ticket SW-1617, from D2487 (Matt, 6 Nov 2026). It
+**Status:** draft 1, 6 November 2026; stage 1 is built (SW-1484,
+`aoc/src/Aoc/Common/Plane.sw`). Ticket SW-1617, from D2487 (Matt, 6 Nov 2026). It
 rescopes SW-1484 (the plane library D2456 approved), which waits for this note, and folds
 in SW-1474, SW-1475, SW-1587, SW-1588, SW-1592 and SW-1482. Decisions are
 [§9](#9-decisions), Q1 to Q9; the orchestrator gives them D numbers.

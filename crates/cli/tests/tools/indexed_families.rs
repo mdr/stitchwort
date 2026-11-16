@@ -130,9 +130,9 @@ fn an_arm_whose_case_a_hypothesis_rules_out_warns() {
     let found = written_unreachable(&format!(
         "{MOVES}theorem only (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=\n  \
          match theirs with\n    \
-         | Rock => Void.exfalso (Bool.falseNotTrue h)\n    \
-         | Paper => Void.exfalso (Bool.falseNotTrue h)\n    \
-         | Scissors => rfl\n"
+         | Rock => Void.impossible (Bool.falseNotTrue h)\n    \
+         | Paper => Void.impossible (Bool.falseNotTrue h)\n    \
+         | Scissors => byComputing\n"
     ));
     let messages: Vec<_> = found
         .iter()
@@ -161,7 +161,7 @@ fn an_impossible_equation_says_what_its_sides_compute_to() {
     let found = written_unreachable(
         "import Std (Bool, Eq, Nat, Ordering, Void)\n\n\
          theorem computed (h: Nat.compare 0 0 = Less) (b: Bool): b = b :=\n  \
-         match b with\n    | True => rfl\n    | False => rfl\n",
+         match b with\n    | True => byComputing\n    | False => byComputing\n",
     );
     let messages: Vec<_> = found
         .iter()
@@ -181,7 +181,7 @@ fn an_impossible_equation_says_what_its_sides_compute_to() {
 fn an_arm_that_uses_its_own_impossible_variable_does_not_warn() {
     // `p` is bound by the arm: no hypothesis rules the case out beforehand.
     let found = written_unreachable(&format!(
-        "{MOVES}theorem noWin (h: beats Rock Rock): 1 = 2 :=\n  match h with\n    | q => Void.exfalso (Bool.falseNotTrue q)\n"
+        "{MOVES}theorem noWin (h: beats Rock Rock): 1 = 2 :=\n  match h with\n    | q => Void.impossible (Bool.falseNotTrue q)\n"
     ));
     assert!(found.is_empty(), "{found:#?}");
 }
@@ -193,7 +193,7 @@ fn an_arm_possible_in_one_branch_does_not_warn() {
     let found = written_unreachable(&format!(
         "{MOVES}theorem only (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=\n  \
          match theirs with\n    \
-         | Rock => Void.exfalso (Bool.falseNotTrue h)\n    \
+         | Rock => Void.impossible (Bool.falseNotTrue h)\n    \
          | Paper | Scissors => cases\n"
     ));
     let notes: Vec<_> = found.iter().map(|w| w.notes[0].as_str()).collect();
@@ -209,13 +209,13 @@ fn an_arm_possible_in_one_branch_does_not_warn() {
 
 #[test]
 fn an_arm_a_later_arm_would_cover_does_not_warn() {
-    // Without the `Rock` arm, `_` would take `Rock`, where `rfl` fails.
+    // Without the `Rock` arm, `_` would take `Rock`, where `byComputing` fails.
     let found = written_unreachable(&format!(
         "{MOVES}theorem only (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=\n  \
          match theirs with\n    \
-         | Rock => Void.exfalso (Bool.falseNotTrue h)\n    \
-         | Paper => Void.exfalso (Bool.falseNotTrue h)\n    \
-         | _ => rfl\n"
+         | Rock => Void.impossible (Bool.falseNotTrue h)\n    \
+         | Paper => Void.impossible (Bool.falseNotTrue h)\n    \
+         | _ => byComputing\n"
     ));
     assert!(found.is_empty(), "{found:#?}");
 }
@@ -227,9 +227,9 @@ fn the_last_arm_of_a_match_ruled_out_whole_does_not_warn() {
     let found = written_unreachable(&format!(
         "{MOVES}theorem never (theirs: Move) (h: beats Rock theirs) (e: theirs = Rock): Void :=\n  \
          match theirs with\n    \
-         | Rock => Void.exfalso (Bool.falseNotTrue h)\n    \
-         | Paper => Void.exfalso (Bool.falseNotTrue h)\n    \
-         | Scissors => Void.exfalso (Bool.trueNotFalse (Eq.cong (m => beats Rock m) e))\n"
+         | Rock => Void.impossible (Bool.falseNotTrue h)\n    \
+         | Paper => Void.impossible (Bool.falseNotTrue h)\n    \
+         | Scissors => Void.impossible (Bool.trueNotFalse (Eq.cong (m => beats Rock m) e))\n"
     ));
     assert_eq!(found.len(), 2, "{found:#?}");
 }
@@ -264,10 +264,13 @@ fn a_character_arm_a_hypothesis_rules_out_warns() {
                     def command (key: Char): Option Nat :=\n  \
                     match key with\n    | 'a' => Some 1\n    | _ => None\n\n\
                     theorem onlyA (key: Char) (n: Nat) (found: command key = Some n): key = 'a' :=\n  \
-                    match key with\n    | 'a' => rfl\n    \
-                    | _ => Void.exfalso (Option.noneNotSome n found)\n";
+                    match key with\n    | 'a' => byComputing\n    \
+                    | _ => Void.impossible (Option.noneNotSome n found)\n";
     assert_eq!(unreachable_arms(with_arm).len(), 1);
-    let without = with_arm.replace("    | _ => Void.exfalso (Option.noneNotSome n found)\n", "");
+    let without = with_arm.replace(
+        "    | _ => Void.impossible (Option.noneNotSome n found)\n",
+        "",
+    );
     let (_, result) = load(&without);
     result.unwrap_or_else(|e| panic!("{e:#?}"));
 }
@@ -285,12 +288,12 @@ fn arms_that_can_go_only_one_at_a_time_warn_one_at_a_time() {
     let text = format!(
         "{AGREES}theorem notNil (xs ys: List Nat) (h: Agrees xs ys): isNil xs = False :=\n  \
          match xs, ys with\n    \
-         | [], [] => Void.exfalso h\n    \
-         | [], [y, ..ys] => Void.exfalso h\n    \
-         | [x, .._], _ => rfl\n"
+         | [], [] => Void.impossible h\n    \
+         | [], [y, ..ys] => Void.impossible h\n    \
+         | [x, .._], _ => byComputing\n"
     );
     assert_eq!(unreachable_arms(&text), vec!["| [], [y, ..ys]"]);
-    let without = text.replace("    | [], [y, ..ys] => Void.exfalso h\n", "");
+    let without = text.replace("    | [], [y, ..ys] => Void.impossible h\n", "");
     assert!(unreachable_arms(&without).is_empty());
 }
 
@@ -302,23 +305,23 @@ fn arms_that_take_each_others_cases_warn_together() {
                 def isZero: Nat -> Bool\n  | Zero => True\n  | Succ _ => False\n\n\
                 theorem bothZero (a b: Nat) (h: isZero a = True) (k: isZero b = True): a + b = 0 :=\n  \
                 match a, b with\n    \
-                | Zero, Zero => rfl\n    \
-                | Succ a, b => Void.exfalso (Bool.falseNotTrue h)\n    \
-                | a, Succ b => Void.exfalso (Bool.falseNotTrue k)\n";
+                | Zero, Zero => byComputing\n    \
+                | Succ a, b => Void.impossible (Bool.falseNotTrue h)\n    \
+                | a, Succ b => Void.impossible (Bool.falseNotTrue k)\n";
     let mut found = unreachable_arm_text(text);
     found.sort();
     assert_eq!(
         found,
         vec![
-            "| Succ a, b => Void.exfalso (Bool.falseNotTrue h)",
-            "| a, Succ b => Void.exfalso (Bool.falseNotTrue k)",
+            "| Succ a, b => Void.impossible (Bool.falseNotTrue h)",
+            "| a, Succ b => Void.impossible (Bool.falseNotTrue k)",
         ]
     );
     let (_, result) = load(
         "import Std (Bool, Eq, Nat, Void)\n\n\
          def isZero: Nat -> Bool\n  | Zero => True\n  | Succ _ => False\n\n\
          theorem bothZero (a b: Nat) (h: isZero a = True) (k: isZero b = True): a + b = 0 :=\n  \
-         match a, b with\n    | Zero, Zero => rfl\n",
+         match a, b with\n    | Zero, Zero => byComputing\n",
     );
     result.unwrap();
 }

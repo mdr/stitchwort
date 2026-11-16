@@ -38,6 +38,10 @@ pub enum RunError {
     /// (`Fail`, docs/proposals/errors.md §3.5). The runner reports it as
     /// `error: <msg>` and exits with 1; it is not a runtime error.
     Failed(String),
+    /// `main` returned this nonzero `ExitStatus`
+    /// (docs/proposals/exit-status.md). Not a fault: the runner exits with
+    /// the code and says nothing. A status of 0 is `Ok(())`.
+    Exit(u8),
 }
 
 impl fmt::Display for RunError {
@@ -56,6 +60,7 @@ impl fmt::Display for RunError {
                 write!(f, "the program printed more than {max} bytes, its limit")
             }
             RunError::Failed(msg) => write!(f, "{msg}"),
+            RunError::Exit(code) => write!(f, "exit status {code}"),
         }
     }
 }
@@ -183,6 +188,20 @@ pub fn write_text(output: &mut impl Write, text: &str) -> Result<(), RunError> {
         .write_all(text.as_bytes())
         .and_then(|()| output.flush())
         .map_err(RunError::Write)
+}
+
+/// `IO.printError`: the text and a line ending on standard error, after
+/// flushing `output`, so the two streams interleave as the program wrote
+/// them where both go to one terminal. A standard error that can't be
+/// written to is ignored: it is where the program would say so.
+pub fn print_error(output: &mut impl Write, text: &str) -> Result<(), RunError> {
+    output.flush().map_err(RunError::Write)?;
+    let mut errors = io::stderr().lock();
+    let _ = errors
+        .write_all(text.as_bytes())
+        .and_then(|()| errors.write_all(b"\n"))
+        .and_then(|()| errors.flush());
+    Ok(())
 }
 
 /// Everything that remains of the input. `lines` counts the lines read so

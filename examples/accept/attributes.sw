@@ -2,7 +2,9 @@
 -- crosses to JavaScript: patterns, field access and `show` inside
 -- Stitchwort use the Stitchwort names.
 @[js.tag "type"]
-type Shape = | @[js.name "CIRCLE"] Circle (radius: Nat) (@[js.name "center_x"] centerX: Nat) | @[js.name "DOT"] Dot
+type Shape =
+  | @[js.name "CIRCLE"] Circle (radius: Nat) (@[js.name "center_x"] centerX: Nat)
+  | @[js.name "DOT"] Dot
 
 def radius: Shape → Nat
   | Circle r _ => r

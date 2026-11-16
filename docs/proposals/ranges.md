@@ -1,7 +1,8 @@
 # Ranges, `a ..< b` and `a ..= b` (SW-1356)
 
-**Status:** design note, 5 November 2026, for Matt's decisions (§14). No
-implementation yet. Background: D2403. The prompt was Day 17 of 2021,
+**Status:** design note, 5 November 2026; steps 1-3 are built (SW-1357-SW-1359: the
+`..<`/`..=` tokens, `List.range`, and what `omega` and `auto` read from them); steps 4-5
+are open (SW-1360, SW-1361). Background: D2403. The prompt was Day 17 of 2021,
 `List.range (Int.toNat target.right)`, and Matt asked about Haskell's
 `[2..n]`. He asked for a thorough look at what other languages do first
 (§3).
@@ -510,7 +511,7 @@ Some consequences of that level:
   bracketing the ranges, or `[..a ..< b, ..c ..< d]`.
 
 **In the parser** this is one function, `range_expr`, between `cmp_expr`
-and `append_expr` (crates/syntax/src/parser.rs:3778, :3987), called from
+and `append_expr` (crates/syntax/src/parser.rs), called from
 `cmp_expr` and `membership` where they call `append_expr` today.
 
 **The formatter** writes a range with one space on each side. A range in a

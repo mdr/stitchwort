@@ -6,14 +6,14 @@ import Std (Int, List, Nat, Pair)
 
 def net (moves: List Int): Int := moves |> List.sum
 
-theorem netExample: net [10, -3, -8, 2] = 1 := rfl
+theorem netExample: net [10, -3, -8, 2] = 1 := byComputing
 
-theorem emptySum: List.sum ([]: List Int) = 0 := rfl
+theorem emptySum: List.sum ([]: List Int) = 0 := byComputing
 
 def balance (deltas: List (Text, Int)): Int := deltas |> List.sumBy Pair.snd
 
-theorem balanceExample: balance [("a", 5), ("b", -7)] = -2 := rfl
+theorem balanceExample: balance [("a", 5), ("b", -7)] = -2 := byComputing
 
 def signedLengths (xs: List (List Nat)): Int := xs.sumBy (ys => Int.sub (Nat.toInt (ys.length)) 1)
 
-theorem signedLengthsExample: signedLengths [[1, 2], [], [3]] = 0 := rfl
+theorem signedLengthsExample: signedLengths [[1, 2], [], [3]] = 0 := byComputing

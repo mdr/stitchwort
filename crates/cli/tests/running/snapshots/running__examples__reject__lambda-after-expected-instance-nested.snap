@@ -1,13 +1,13 @@
 ---
-source: crates/cli/tests/running/examples.rs
+source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-INSTANCE-UNKNOWN-TYPE] Error: can't tell which type's `DecEq` to use here
-    ╭─[ reject/lambda-after-expected-instance-nested.sw:12:41 ]
+    ╭─[ reject/lambda-after-expected-instance-nested.sw:12:46 ]
     │
- 12 │   nested (same => differ (omega)) (z => z == z)
-    │                                         ───┬──  
-    │                                            ╰──── this needs `DecEq (?1 a b n differ total)`
+ 12 │   nested (same => differ (arithmetic)) (z => z == z)
+    │                                              ───┬──  
+    │                                                 ╰──── this needs `DecEq _b`
     │ 
     │ Note: annotate, so the type is known: e.g. `(xs: List Nat)`
 ────╯

@@ -1,0 +1,31 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ goals/arm-as-written-error.sw:10:10 ]
+    │
+ 10 │   | _ => hp _
+    │          ──┬─  
+    │            ╰─── expected `p (MkText ['a', 'b', head✝, ..tail✝])`, but this has type `p "a"`
+    │ 
+    │ Note: this arm is checked in 4 cases, and this error is in the case where `s` is `"ab" ++ …`
+────╯
+[GOAL] Goal: in `oneCharacter`
+   ╭─[ goals/arm-as-written-error.sw:8:13 ]
+   │
+ 8 │   | "ab" => ?
+   │             ┬  
+   │             ╰── p: Text → Prop
+   │                 hp: ∀ (c: Char) => p (MkText [c])
+   │                 ⊢ p "ab"
+───╯
+[GOAL] Goal: in `oneCharacter`
+   ╭─[ goals/arm-as-written-error.sw:9:11 ]
+   │
+ 9 │   | "" => ?
+   │           ┬  
+   │           ╰── p: Text → Prop
+   │               hp: ∀ (c: Char) => p (MkText [c])
+   │               ⊢ p ""
+───╯

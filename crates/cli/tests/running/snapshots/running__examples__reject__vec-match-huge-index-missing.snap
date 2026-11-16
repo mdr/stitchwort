@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/running/examples.rs
+source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-NONEXHAUSTIVE] Error: missing case: no alternative of this `match` matches `VCons _ _`
@@ -13,3 +13,4 @@ expression: output
     │     
     │     Note: here `items` has type `Vec Nat 340282366920938463463374607431768211456`, and `VCons` can be one
 ────╯
+try: add `| VCons x xs => ?`

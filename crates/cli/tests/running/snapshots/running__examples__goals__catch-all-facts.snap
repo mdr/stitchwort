@@ -1,0 +1,235 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `numbers`
+   ╭─[ goals/catch-all-facts.sw:9:10 ]
+   │
+ 9 │   | 5 => ?
+   │          ┬  
+   │          ╰── p: Nat → Prop
+   │              ⊢ p 5
+───╯
+[GOAL] Goal: in `numbers`
+    ╭─[ goals/catch-all-facts.sw:10:10 ]
+    │
+ 10 │   | 7 => ?
+    │          ┬  
+    │          ╰── p: Nat → Prop
+    │              ⊢ p 7
+────╯
+[GOAL] Goal: in `numbers`
+    ╭─[ goals/catch-all-facts.sw:11:10 ]
+    │
+ 11 │   | m => ?
+    │          ┬  
+    │          ╰── p: Nat → Prop
+    │              m: Nat
+    │              m ≠ 5
+    │              m ≠ 7
+    │              ⊢ p m
+    │ 
+    │ Note: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
+────╯
+[GOAL] Goal: in `characters`
+    ╭─[ goals/catch-all-facts.sw:14:12 ]
+    │
+ 14 │   | 'k' => ?
+    │            ┬  
+    │            ╰── p: Char → Prop
+    │                ⊢ p 'k'
+────╯
+[GOAL] Goal: in `characters`
+    ╭─[ goals/catch-all-facts.sw:15:10 ]
+    │
+ 15 │   | d => ?
+    │          ┬  
+    │          ╰── p: Char → Prop
+    │              d: Char
+    │              d ≠ 'k'
+    │              ⊢ p d
+    │ 
+    │ Note: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
+────╯
+[GOAL] Goal: in `texts`
+    ╭─[ goals/catch-all-facts.sw:18:13 ]
+    │
+ 18 │   | "ab" => ?
+    │             ┬  
+    │             ╰── p: Text → Prop
+    │                 ⊢ p "ab"
+────╯
+[GOAL] Goal: in `texts`
+    ╭─[ goals/catch-all-facts.sw:19:13 ]
+    │
+ 19 │   | "cd" => ?
+    │             ┬  
+    │             ╰── p: Text → Prop
+    │                 ⊢ p "cd"
+────╯
+[GOAL] Goal: in `texts`
+    ╭─[ goals/catch-all-facts.sw:20:10 ]
+    │
+ 20 │   | t => ?
+    │          ┬  
+    │          ╰── p: Text → Prop
+    │              t: Text
+    │              t ≠ "ab"
+    │              t ≠ "cd"
+    │              ⊢ p t
+    │ 
+    │ Note 1: this arm is checked in 8 cases; the goal shown is the arm as written, not any one case
+    │ 
+    │ Note 2: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
+────╯
+[GOAL] Goal: in `integers`
+    ╭─[ goals/catch-all-facts.sw:23:13 ]
+    │
+ 23 │   | (-1) => ?
+    │             ┬  
+    │             ╰── p: Int → Prop
+    │                 ⊢ p (-1)
+────╯
+[GOAL] Goal: in `integers`
+    ╭─[ goals/catch-all-facts.sw:24:10 ]
+    │
+ 24 │   | 3 => ?
+    │          ┬  
+    │          ╰── p: Int → Prop
+    │              ⊢ p 3
+────╯
+[GOAL] Goal: in `integers`
+    ╭─[ goals/catch-all-facts.sw:25:10 ]
+    │
+ 25 │   | m => ?
+    │          ┬  
+    │          ╰── p: Int → Prop
+    │              m: Int
+    │              m ≠ -1
+    │              m ≠ 3
+    │              ⊢ p m
+    │ 
+    │ Note 1: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+    │ 
+    │ Note 2: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
+────╯
+[GOAL] Goal: in `blank`
+    ╭─[ goals/catch-all-facts.sw:29:10 ]
+    │
+ 29 │   | 5 => ?
+    │          ┬  
+    │          ╰── p: Nat → Prop
+    │              ⊢ p 5
+────╯
+[GOAL] Goal: in `blank`
+    ╭─[ goals/catch-all-facts.sw:30:10 ]
+    │
+ 30 │   | _ => ?
+    │          ┬  
+    │          ╰── p: Nat → Prop
+    │              n: Nat
+    │              n ≠ 5
+    │              ⊢ p n
+    │ 
+    │ Note: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
+────╯
+[GOAL] Goal: in `guarded`
+    ╭─[ goals/catch-all-facts.sw:33:15 ]
+    │
+ 33 │   | 5 if b => ?
+    │               ┬  
+    │               ╰── p: Nat → Prop
+    │                   b: Bool
+    │                   ⊢ p 5
+────╯
+[GOAL] Goal: in `guarded`
+    ╭─[ goals/catch-all-facts.sw:34:10 ]
+    │
+ 34 │   | 6 => ?
+    │          ┬  
+    │          ╰── p: Nat → Prop
+    │              b: Bool
+    │              ⊢ p 6
+────╯
+[GOAL] Goal: in `guarded`
+    ╭─[ goals/catch-all-facts.sw:35:10 ]
+    │
+ 35 │   | m => ?
+    │          ┬  
+    │          ╰── p: Nat → Prop
+    │              m: Nat
+    │              b: Bool
+    │              m ≠ 6
+    │              ⊢ p m
+    │ 
+    │ Note 1: this arm is checked in 2 cases; the goal shown is the last of them
+    │ 
+    │ Note 2: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
+────╯
+[GOAL] Goal: in `alternatives`
+    ╭─[ goals/catch-all-facts.sw:38:14 ]
+    │
+ 38 │   | 1 | 2 => ?
+    │              ┬  
+    │              ╰── p: Nat → Prop
+    │                  ⊢ p 2
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the last of them
+────╯
+[GOAL] Goal: in `alternatives`
+    ╭─[ goals/catch-all-facts.sw:39:10 ]
+    │
+ 39 │   | m => ?
+    │          ┬  
+    │          ╰── p: Nat → Prop
+    │              m: Nat
+    │              m ≠ 1
+    │              m ≠ 2
+    │              ⊢ p m
+    │ 
+    │ Note: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
+────╯
+[GOAL] Goal: in `columns`
+    ╭─[ goals/catch-all-facts.sw:43:13 ]
+    │
+ 43 │   | 0, y => ?
+    │             ┬  
+    │             ╰── p: Nat → Nat → Prop
+    │                 y: Nat
+    │                 ⊢ p 0 y
+────╯
+[GOAL] Goal: in `columns`
+    ╭─[ goals/catch-all-facts.sw:44:13 ]
+    │
+ 44 │   | x, 1 => ?
+    │             ┬  
+    │             ╰── p: Nat → Nat → Prop
+    │                 x: Nat
+    │                 x ≠ 0
+    │                 ⊢ p x 1
+    │ 
+    │ Note: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
+────╯
+[GOAL] Goal: in `columns`
+    ╭─[ goals/catch-all-facts.sw:45:13 ]
+    │
+ 45 │   | x, y => ?
+    │             ┬  
+    │             ╰── p: Nat → Nat → Prop
+    │                 x: Nat
+    │                 y: Nat
+    │                 x ≠ 0
+    │                 y ≠ 1
+    │                 ⊢ p x y
+    │ 
+    │ Note: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
+────╯
+[GOAL] Goal: in `holey`
+    ╭─[ goals/catch-all-facts.sw:50:54 ]
+    │
+ 50 │ def holey (k: Nat) (hk: k ≠ 5): Nat := apartFromFive ?
+    │                                                      ┬  
+    │                                                      ╰── k: Nat
+    │                                                          hk: k ≠ 5
+    │                                                          ⊢ Nat
+────╯

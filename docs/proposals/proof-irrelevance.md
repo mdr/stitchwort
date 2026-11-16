@@ -1,6 +1,7 @@
 # Proposal: treating two proofs of the same fact as equal (proof irrelevance)
 
-**Status:** Draft 5, 4 November 2026. Design only: nothing is built. Drafts 1,
+**Status:** Draft 5, 4 November 2026. Stages 1 (SW-93) and 2 (SW-1429) are
+built; stage 3 waits for a real need (decided 19 Oct). Drafts 1,
 2 and 4 each had an independent review; the responses are in
 [Appendix A](#appendix-a-response-to-the-draft-1-review),
 [Appendix B](#appendix-b-response-to-the-draft-2-review) and

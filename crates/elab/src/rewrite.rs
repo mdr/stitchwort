@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! rewrite p in t        -- t proves the goal with p's left side replaced
-//! rewrite p             -- the same as `rewrite p in rfl`
+//! rewrite p             -- the same as `rewrite p then byComputing`
 //! rewrite p, <- q in t  -- p, then q right to left, then t
 //! rewrite p at h in t   -- in t, h has its type with p's left side replaced
 //! rewrite p at h        -- the rewritten h itself
@@ -10,7 +10,7 @@
 //!
 //! Given `p: a = b` and the goal `G`, the occurrences of `a` in `G` are
 //! found (below), abstracted into a motive `M x := G[x]`, and the result is
-//! `J M t (Eq.sym p)`, with `t` checked against `G[b]`. Elaboration only: the
+//! `J M t (Eq.flipped p)`, with `t` checked against `G[b]`. Elaboration only: the
 //! kernel re-checks the `J`.
 //!
 //! The search runs first over the goal and `a` as written (calls kept), and
@@ -55,7 +55,7 @@ use std::rc::Rc;
 
 use crate::kernel;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{Head, apply, eval, force};
+use stitchwort_core::value::{Elim, Head, apply, eval, force};
 use stitchwort_core::{DataId, DefId, Icit, Term, Value};
 use stitchwort_syntax::ast::{Expr, Name as AstName, RewriteRule};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -145,7 +145,7 @@ fn infer_rewrite_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         rules[0].span,
         "there is no expected type here to look for this rule's left side in",
     )
-    .with_note("write the type with an ascription: `(rewrite p in t: a = b)`")
+    .with_note("write the type with an ascription: `(rewrite p then t: a = b)`")
     .with_note(
         "the goal is known where a proof is checked against a type: an argument, a definition's \
          body, a `calc` step",
@@ -153,7 +153,7 @@ fn infer_rewrite_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     .with_note("to rewrite the type of a fact `t` instead of a goal, write `rewrite p at t`"))
 }
 
-/// `rewrite p at h in t` and `rewrite p at h`: the rules rewrite the type
+/// `rewrite p at h then t` and `rewrite p at h`: the rules rewrite the type
 /// of `h`, and `t` (if any) is checked with `h` rebound to the result.
 fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Term, Value)> {
     let Expr::Rewrite {
@@ -162,13 +162,13 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
         body,
         keyword,
         at,
-        in_,
+        then,
         span,
     } = expr
     else {
         unreachable!("only called on a rewrite with a target");
     };
-    let extra = [Some(*keyword), *at, *in_]
+    let extra = [Some(*keyword), *at, *then]
         .into_iter()
         .flatten()
         .collect::<Vec<_>>();
@@ -179,7 +179,7 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
     if body.is_some() && name.is_none() {
         return Err(Diagnostic::error(
             "E-REWRITE-TARGET",
-            "`rewrite … at … in` needs a local name after `at`",
+            "`rewrite … at … then` needs a local name after `at`",
         )
         .with_label(
             target.span(),
@@ -302,7 +302,7 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         body,
         keyword,
         at,
-        in_,
+        then,
         span,
     } = expr
     else {
@@ -311,7 +311,7 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     if target.is_some() {
         return Ok(rewrite_at(cx, expr, Some(expected))?.0);
     }
-    let extra = [Some(*keyword), *at, *in_]
+    let extra = [Some(*keyword), *at, *then]
         .into_iter()
         .flatten()
         .collect::<Vec<_>>();
@@ -371,15 +371,15 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         Some(body) => check(cx, body, &goal)?,
         None => {
             let rfl = Expr::Var(AstName {
-                text: "rfl".into(),
+                text: "byComputing".into(),
                 span: rules.last().expect("a rule").span,
             });
-            // The `rfl` is the compiler's, at the last rule's span: noting it
+            // The `byComputing` is the compiler's, at the last rule's span: noting it
             // would replace that rule's own reference.
             match crate::Elaborator::unnoted_in(cx, |cx| check(cx, &rfl, &goal)) {
                 Err(e) if e.code == "E-REFL" => {
                     return Err(e.with_note(format!(
-                        "this is the goal after rewriting; `rewrite p` without `in` closes it with `rfl`: `{}`",
+                        "this is the goal after rewriting; `rewrite p` without `then` closes it with `byComputing`: `{}`",
                         cx.show(&goal)
                     )));
                 }
@@ -628,7 +628,7 @@ fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equa
             span: rule.proof.span(),
             dot: false,
         };
-        lemma(cx, Builtin::EqSym, &[piped])?
+        lemma(cx, Builtin::EqFlipped, &[piped])?
     };
     Ok(Equation {
         carrier,
@@ -642,7 +642,7 @@ fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equa
 
 /// Proves the premises of a rule that has matched which matching left
 /// unknown, in order: each by a hypothesis in scope of its type (the facts
-/// a congruence lemma gives among them), or else by `omega`. The last
+/// a congruence lemma gives among them), or else by `arithmetic`. The last
 /// `recent` variables are those bound by the functions the rule is inside,
 /// for the message.
 fn discharge(
@@ -685,7 +685,9 @@ fn discharge(
 }
 
 /// Whether `ty` is the type of proofs: an equation, a proposition, or a
-/// call of a definition whose result is one (`List.Mem x xs`).
+/// call of a definition whose result is one (`List.Mem x xs`), or of a
+/// local variable (a hypothesis or a lambda's parameter) whose type ends in
+/// `Prop` (`p x` for `p: Nat → Prop`).
 pub(crate) fn is_proof_type(cx: &Ctx, ty: &Value) -> Result<bool> {
     if crate::patlet::proposition(cx, ty)? {
         return Ok(true);
@@ -696,6 +698,22 @@ pub(crate) fn is_proof_type(cx: &Ctx, ty: &Value) -> Result<bool> {
             let (params, result) = crate::decreasing::split_pis(g.def(d).ty(), None);
             params.len() == spine.len()
                 && matches!(result.strip_loc(), Term::Sort(stitchwort_core::Sort::Prop))
+        }
+        Value::Neutral(Head::Var(level, _), spine) => {
+            // A variable's own type, applied to the spine's arguments.
+            let Some(mut var_ty) = cx.types.get(level).cloned() else {
+                return Ok(false);
+            };
+            for elim in spine.iter() {
+                let Elim::App(arg, _) = elim else {
+                    return Ok(false);
+                };
+                let Value::Pi(_, _, _, cod) = force(&g, var_ty)? else {
+                    return Ok(false);
+                };
+                var_ty = cod.apply(&g, arg.clone())?;
+            }
+            matches!(force(&g, var_ty)?, Value::Sort(stitchwort_core::Sort::Prop))
         }
         _ => false,
     })
@@ -758,7 +776,7 @@ fn unproved_premise(
     )
     .with_note(
         "a premise left as `_`, or left off the end, is proved by a hypothesis in scope of \
-         exactly its type, or else by `omega`; neither did",
+         exactly its type, or else by `arithmetic`; neither did",
     );
     let level = cx.level();
     let facts: Vec<String> = (level - recent..level)
@@ -802,7 +820,7 @@ fn rewrite_once(
     place: Place,
     goal: &Value,
     written: Option<Term>,
-    // The term after `in`, if there is one: a rule that finds nothing can
+    // The term after `then`, if there is one: a rule that finds nothing can
     // check whether it already proves the goal.
     body: Option<&Expr>,
     remaining: &mut u64,
@@ -1145,13 +1163,40 @@ fn replace_occurrences(
         shape,
         recent,
         by_instances,
-        false,
+        Reading::Unfolded,
         remaining,
     )
 }
 
+/// How a search reads the goal and the rule's left side back.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Reading {
+    /// Every call as what it computes to: the usual search.
+    Unfolded,
+    /// Calls as calls, except one that steps at once ([`Ctx::quote_folded`]):
+    /// `isSafe xs` stays, `if True then a else b` is `a`.
+    Folded,
+    /// Every call as the call, as the goal is printed: a call whose argument
+    /// is known stays a call, though it computes (`write printer " "`).
+    AsWritten,
+}
+
+impl Reading {
+    fn quote(self, cx: &Ctx, value: &Value) -> Result<Term> {
+        match self {
+            Reading::Unfolded => cx.quote(value),
+            Reading::Folded => cx.quote_folded(value),
+            Reading::AsWritten => Ok(stitchwort_core::value::quote_as_written(
+                &cx.g(),
+                cx.level(),
+                value,
+            )?),
+        }
+    }
+}
+
 /// [`replace_occurrences`], over the goal and the left side read back as
-/// they are written (`folded`, calls kept: [`as_written`]) or unfolded.
+/// `reading` says.
 #[allow(clippy::too_many_arguments)]
 fn replace_occurrences_as(
     cx: &mut Ctx,
@@ -1162,7 +1207,7 @@ fn replace_occurrences_as(
     shape: Shape,
     recent: usize,
     by_instances: bool,
-    folded: bool,
+    reading: Reading,
     remaining: &mut u64,
 ) -> Result<Replaced> {
     // A decision's test, replaced where the decision is, takes the
@@ -1189,7 +1234,7 @@ fn replace_occurrences_as(
         shape,
         recent,
         by_instances,
-        folded,
+        reading,
         first,
         remaining,
     ) {
@@ -1207,7 +1252,7 @@ fn replace_occurrences_as(
             shape,
             recent,
             by_instances,
-            folded,
+            reading,
             carrying,
             &mut again,
         ) {
@@ -1276,16 +1321,12 @@ fn replace_occurrences_carrying(
     shape: Shape,
     recent: usize,
     by_instances: bool,
-    folded: bool,
+    reading: Reading,
     carrying: Carrying,
     remaining: &mut u64,
 ) -> Result<Replaced> {
     let g = cx.g();
-    let lhs_term = if folded {
-        cx.quote_folded(&equation.lhs)?
-    } else {
-        cx.quote(&equation.lhs)?
-    };
+    let lhs_term = reading.quote(cx, &equation.lhs)?;
     let Some(key) = key(&lhs_term, 0) else {
         return Err(waiting_head(cx, &lhs_term)?
             .unwrap_or_else(|| unknown_head(rule, place, &equation.premises)));
@@ -1305,7 +1346,7 @@ fn replace_occurrences_carrying(
         key,
         recent,
         by_instances,
-        folded,
+        reading,
         *remaining,
     )?;
     search.carry = carried.map(|(carry, equation)| (carry, level, equation, carrying));
@@ -1357,7 +1398,7 @@ fn replace_occurrences_carrying(
         Place::Target(_) | Place::Inside => (&equation.lhs, Value::Refl),
     };
     let lhs = &equation.lhs;
-    check_motive(cx, rule, place, &motive, &equation.carrier, from, lhs)?;
+    check_motive(cx, rule, place, goal, &motive, &equation.carrier, from, lhs)?;
     let any_carried = search_carried;
     match round_trip(cx, &motive, lhs, &proof_value, goal, any_carried, remaining)? {
         Some(true) => {}
@@ -1383,8 +1424,8 @@ fn replace_occurrences_carrying(
     // them unsolved, so it is computed again with their solutions, and the
     // new goal holds them as the values they are. Left as solved unknowns,
     // nothing the body is compared with is ever identical to them, so a
-    // comparison `rfl`-close to the goal unfolds both sides in full
-    // (SW-917: `rewrite lcg.unfold in …`, whose `% 2147483648` unfolds a
+    // comparison `byComputing`-close to the goal unfolds both sides in full
+    // (SW-917: `rewrite lcg.unfold then …`, whose `% 2147483648` unfolds a
     // `Nat.divFuel` step per `Succ` of the `+ 12345`, took 24 s).
     // Only when the new goal reads back the same either way: one that
     // computes further now would change what the body (and a later rule)
@@ -1469,12 +1510,16 @@ struct Search<'a, 'e> {
     /// the arguments of calls of the same definition
     /// ([`crate::unify::unify_solving_arguments`]).
     by_instances: bool,
-    /// Whether the goal and the left side are read back as written
-    /// ([`as_written`]): a candidate is then also compared by the arguments
-    /// of calls of the same definition, which solves the rule's unknowns.
-    folded: bool,
+    /// How the goal and the left side are read back. Read with their calls
+    /// ([`as_written`]), a candidate is also compared by the arguments of
+    /// calls of the same definition, which solves the rule's unknowns.
+    reading: Reading,
     /// Metavariables from this index on were made for the rule.
     rule_metas: usize,
+    /// The rule's unknowns that stand for proofs of its premises
+    /// ([`Equation::premises`] of a proof type): [`discharge`] proves them
+    /// after a match.
+    premise_metas: Vec<usize>,
     remaining: Cell<u64>,
     stats: RefCell<Stats>,
     /// Why the search stopped, if it did.
@@ -1503,10 +1548,18 @@ impl<'a, 'e> Search<'a, 'e> {
         key: Key,
         recent: usize,
         by_instances: bool,
-        folded: bool,
+        reading: Reading,
         remaining: u64,
     ) -> Result<Self> {
         let kcx = kernel_context(cx)?;
+        let mut premise_metas = Vec::new();
+        for premise in &equation.premises {
+            if let Term::Meta(m) = premise.meta.spine().0
+                && is_proof_type(cx, &premise.ty)?
+            {
+                premise_metas.push(*m);
+            }
+        }
         Ok(Search {
             kcx: RefCell::new(kcx),
             cx: RefCell::new(cx),
@@ -1518,8 +1571,9 @@ impl<'a, 'e> Search<'a, 'e> {
             key,
             recent,
             by_instances,
-            folded,
+            reading,
             rule_metas: equation.rule_metas,
+            premise_metas,
             remaining: Cell::new(remaining),
             stats: RefCell::new(Stats::default()),
             error: RefCell::new(None),
@@ -1677,6 +1731,41 @@ impl Search<'_, '_> {
         ))
     }
 
+    /// Whether the left side still holds one of the rule's own unknowns
+    /// that stands for data. A proof's unknown (a premise, an `auto`
+    /// argument) is left to [`discharge`] or `auto`, as it always was: a
+    /// call shown with its proof argument (folded, `pick n h`) would
+    /// otherwise take the goal's proof for it, and change the term of a
+    /// rewrite that checked.
+    fn leaves_open(&self, cx: &Ctx) -> Result<bool> {
+        let lhs = self.reading.quote(cx, self.lhs)?;
+        let mut open: Vec<usize> = lhs
+            .subterms()
+            .filter_map(|(t, _)| match t {
+                Term::Meta(m) if *m >= self.rule_metas && !self.premise_metas.contains(m) => {
+                    Some(*m)
+                }
+                _ => None,
+            })
+            .collect();
+        open.dedup();
+        for m in open {
+            let (ty, auto) = {
+                let metas = cx.metas().metas.borrow();
+                let meta = &metas[m];
+                (meta.ty.clone(), meta.ignorable.is_some())
+            };
+            if auto {
+                continue;
+            }
+            match ty {
+                Some((ty, at)) if at <= cx.level() && is_proof_type(cx, &ty)? => {}
+                _ => return Ok(true),
+            }
+        }
+        Ok(false)
+    }
+
     /// Whether `t` is an occurrence of the left side, solving the rule's
     /// metavariables if it is and nothing if it isn't. An occurrence comes
     /// back as a term in the goal's own context.
@@ -1724,10 +1813,33 @@ impl Search<'_, '_> {
                     return Ok(crate::undo::unify(cx, &value, &lhs)?
                         || crate::undo::unify_solving_arguments(cx, &value, &lhs)?);
                 }
+                let before = (self.reading != Reading::Unfolded).then(|| Snapshot::take(cx));
                 if crate::undo::unify(cx, &value, self.lhs)? {
-                    return Ok(true);
+                    let Some(before) = before else {
+                        return Ok(true);
+                    };
+
+                    if !self.leaves_open(cx)? {
+                        return Ok(true);
+                    }
+                    // Matched by unfolding, with one of the rule's unknowns
+                    // left open: `(?p.newline ?i).words` against
+                    // `(printer.newline indent).words`, whose words don't
+                    // depend on the indent. The call's arguments, as shown,
+                    // say what it is; if they can't, the match stands.
+                    before.restore(cx);
+                    let again = Snapshot::take(cx);
+                    if crate::undo::unify_solving_arguments(cx, &value, self.lhs)?
+                        && !self.leaves_open(cx)?
+                    {
+                        return Ok(true);
+                    }
+                    again.restore(cx);
+                    return crate::undo::unify(cx, &value, self.lhs);
                 }
-                if self.folded && crate::undo::unify_solving_arguments(cx, &value, self.lhs)? {
+                if self.reading != Reading::Unfolded
+                    && crate::undo::unify_solving_arguments(cx, &value, self.lhs)?
+                {
                     return Ok(true);
                 }
                 // A `match` in the rule not lifted yet: an occurrence if it turns
@@ -1752,11 +1864,7 @@ impl Search<'_, '_> {
                     snapshot.restore(cx);
                     return Ok(None);
                 }
-                let solved = if self.folded {
-                    cx.quote_folded(self.lhs)?
-                } else {
-                    cx.quote(self.lhs)?
-                };
+                let solved = self.reading.quote(cx, self.lhs)?;
                 *self.lhs_term.borrow_mut() = solved;
                 Ok(Some(candidate))
             }
@@ -1869,7 +1977,7 @@ pub(crate) fn key(term: &Term, under: usize) -> Option<Key> {
         Term::Pi(..) => Key::Other("function type"),
         Term::Lam(..) => Key::Other("function"),
         Term::Eq(..) => Key::Other("equation"),
-        Term::Refl => Key::Other("rfl"),
+        Term::Refl => Key::Other("byComputing"),
         Term::J(..) => Key::Other("J"),
         Term::Proj(..) => Key::Other("projection"),
         Term::Quot(form, ..) => Key::Other(form.name()),
@@ -1906,10 +2014,12 @@ fn mentions_recent(term: &Term, under: usize, recent: usize) -> bool {
 /// the equation's type and `_ : rhs = x` in scope (`rhs` is the side `J`
 /// starts from). The kernel would reject a `J` whose motive isn't, but here
 /// the message can say why.
+#[allow(clippy::too_many_arguments)]
 fn check_motive(
     cx: &Ctx,
     rule: &RewriteRule,
     place: Place,
+    goal: &Value,
     motive: &Term,
     carrier: &Value,
     rhs: &Value,
@@ -1973,7 +2083,16 @@ fn check_motive(
             "rewrite a larger term that contains it (such as `x % d`), or state the step with \
              `calc`",
         ))
-        .map_err(|d| ne_note(d, &written_under(cx, body, &["x'", "_"]), &shown(cx, lhs)))
+        .map_err(|d| {
+            ne_note(
+                cx,
+                d,
+                place,
+                goal,
+                &written_under(cx, body, &["x'", "_"]),
+                &shown(cx, lhs),
+            )
+        })
         .map_err(
             |d| match crate::equation_notes::branch_note(cx.e, &[body]) {
                 Some(note) => d.with_note(note),
@@ -2105,7 +2224,7 @@ fn shown_computed(cx: &Ctx, value: &Value) -> String {
     }
 }
 
-/// Whether the goal, an equation, already holds by computing (`rfl`):
+/// Whether the goal, an equation, already holds by computing (`byComputing`):
 /// within what is left of the search budget, and solving nothing.
 fn holds_by_computing(cx: &mut Ctx, goal: &Value, remaining: &mut u64) -> Result<bool> {
     let g = cx.g();
@@ -2208,11 +2327,11 @@ struct Searched<'a> {
     /// The rule written the other way round would rewrite something in the
     /// goal: the direction is the mistake, not the search.
     other_direction: bool,
-    /// The term after `in` proves the goal as it is, without this rule.
+    /// The term after `then` proves the goal as it is, without this rule.
     without_rewrite: bool,
 }
 
-/// Whether `body`, the term after `in`, already checks against `goal` as it
+/// Whether `body`, the term after `then`, already checks against `goal` as it
 /// stands: the goal may already have computed past the rule (`depth + Succ
 /// more` is `Succ (depth + more)`). Tried within what is left of the search
 /// budget, and undone either way; a failed attempt reports nothing.
@@ -2362,7 +2481,7 @@ fn nothing_found(
         1 => " after the rule before this one".to_string(),
         _ => format!(" after the {index} rules before this one"),
     };
-    if ne_read_as_prop(&goal_text, &shown_lhs) {
+    if ne_read_as_prop(&goal_text, &shown_lhs) && crate::check::goal_wrote_ne(cx, goal) {
         error = error.with_note(NE_AS_PROP_NOTE);
     }
     match as_written.map(|t| written(cx, &t)) {
@@ -2384,7 +2503,7 @@ fn nothing_found(
     {
         error = error.with_note(format!(
             "`{name}` has `{shown_lhs}`: to rewrite a hypothesis rather than the goal, name it \
-             with `at`, as `rewrite … at {name} in …`"
+             with `at`, as `rewrite … at {name} then …`"
         ));
     }
     if let Some(equation) = crate::equation_notes::rule_equation(&rule.proof) {
@@ -2398,14 +2517,14 @@ fn nothing_found(
         ));
     }
     if done && !without_rewrite {
-        // Only a goal is tested (an equation `rfl` would prove). When the
+        // Only a goal is tested (an equation `byComputing` would prove). When the
         // proof already checks without the rewrite, the note above says so
         // more specifically, and this one would say nearly the same.
         error = error.with_note(match index {
-            0 => "the goal already holds by computing, so `rfl` proves it without a `rewrite`"
+            0 => "the goal already holds by computing, so `byComputing` proves it without a `rewrite`"
                 .to_string(),
             _ => format!(
-                "the goal already holds by computing{after}, so `rfl` proves it: this rule and \
+                "the goal already holds by computing{after}, so `byComputing` proves it: this rule and \
                  what follows it aren't needed"
             ),
         });
@@ -2511,9 +2630,21 @@ fn budget_error(
     error.with_note("state the step with `calc`, or rewrite with a more specific equation")
 }
 
-/// `d` with the `!=` note when a `Bool` `!=` (`lhs`) was read as `≠` in `goal`.
-fn ne_note(d: Diagnostic, goal: &str, lhs: &str) -> Diagnostic {
-    if ne_read_as_prop(goal, lhs) {
+/// `d` with the `!=` note when a `Bool` `!=` (`lhs`) was read as `≠` in the
+/// goal as written. Only a rewrite of the goal itself gets it: a target's
+/// type may be written `≠` even where the goal says `!=`.
+fn ne_note(
+    cx: &Ctx,
+    d: Diagnostic,
+    place: Place,
+    goal: &Value,
+    goal_text: &str,
+    lhs: &str,
+) -> Diagnostic {
+    if matches!(place, Place::Goal)
+        && ne_read_as_prop(goal_text, lhs)
+        && crate::check::goal_wrote_ne(cx, goal)
+    {
         d.with_note(NE_AS_PROP_NOTE)
     } else {
         d

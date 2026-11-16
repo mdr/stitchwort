@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/parse-tokens-character-parser.sw:12:98 ]
+    │
+ 12 │ def parse (input: Text): {Fail} Nat := Parse.tokens [a := Nat] input (() => Parse.many lexToken) total
+    │                                                                                                  ──┬──  
+    │                                                                                                    ╰──── expected `() → {Parse (Parse.Located Nat)} Nat`, but this has type `() → {Parse Char} Nat`
+────╯

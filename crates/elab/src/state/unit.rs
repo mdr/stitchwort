@@ -55,8 +55,8 @@ pub(crate) struct Unit {
     /// The namespace's files were already walked for navigation by a
     /// replay that failed part way (`cache`): don't walk them again.
     pub(crate) skip_navigation_walk: bool,
-    /// Whether the module being elaborated loads `omega`'s library, so
-    /// `auto` may prove what it can't decide by `omega` (`auto.rs`). Set by
+    /// Whether the module being elaborated loads `arithmetic`'s library, so
+    /// `auto` may prove what it can't decide by `arithmetic` (`auto.rs`). Set by
     /// each module after its library files load.
     ///
     /// Cleared when a module starts, so a module that fails before its loads

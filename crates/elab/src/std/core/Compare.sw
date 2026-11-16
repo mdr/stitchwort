@@ -19,37 +19,37 @@ theorem Ordering.lessNotGreater: Less ≠ Greater
   | p => Nat.zeroNotSucc 1 (Eq.cong Ordering.index p)
 
 theorem Ordering.equalNotLess: Equal ≠ Less
-  | p => Nat.zeroNotSucc 0 (Eq.sym (Eq.cong Ordering.index p))
+  | p => Nat.zeroNotSucc 0 (Eq.cong Ordering.index p).flipped
 
 theorem Ordering.equalNotGreater: Equal ≠ Greater
   | p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.cong Ordering.index p))
 
 theorem Ordering.greaterNotLess: Greater ≠ Less
-  | p => Nat.zeroNotSucc 1 (Eq.sym (Eq.cong Ordering.index p))
+  | p => Nat.zeroNotSucc 1 (Eq.cong Ordering.index p).flipped
 
 theorem Ordering.greaterNotEqual: Greater ≠ Equal
-  | p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.sym (Eq.cong Ordering.index p)))
+  | p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.cong Ordering.index p).flipped)
 
 theorem Ordering.indexInjective ∀ (c d: Ordering) (h: Ordering.index c = Ordering.index d): c = d := match c, d with
-  | Less, Less => rfl
-  | Less, Equal => Void.exfalso (Nat.zeroNotSucc 0 h)
-  | Less, Greater => Void.exfalso (Nat.zeroNotSucc 1 h)
-  | Equal, Less => Void.exfalso (Nat.succNotZero 0 h)
-  | Equal, Equal => rfl
-  | Equal, Greater => Void.exfalso (Nat.zeroNotSucc 0 (Nat.succInjective h))
-  | Greater, Less => Void.exfalso (Nat.succNotZero 1 h)
-  | Greater, Equal => Void.exfalso (Nat.succNotZero 0 (Nat.succInjective h))
-  | Greater, Greater => rfl
+  | Less, Less => byComputing
+  | Less, Equal => (Nat.zeroNotSucc 0 h).impossible
+  | Less, Greater => (Nat.zeroNotSucc 1 h).impossible
+  | Equal, Less => (Nat.succNotZero 0 h).impossible
+  | Equal, Equal => byComputing
+  | Equal, Greater => Void.impossible (Nat.zeroNotSucc 0 (Nat.succInjective h))
+  | Greater, Less => (Nat.succNotZero 1 h).impossible
+  | Greater, Equal => Void.impossible (Nat.succNotZero 0 (Nat.succInjective h))
+  | Greater, Greater => byComputing
 
 theorem Ordering.andThenEqual ∀ (c d: Ordering) (h: Ordering.andThen c d = Equal): (c = Equal) ∧ (d = Equal) :=
-  match c with | Equal => Both rfl h
+  match c with | Equal => Both byComputing h
 
 theorem Ordering.flipAndThen ∀ (c d: Ordering):
     Ordering.flip (Ordering.andThen c d) = Ordering.andThen (Ordering.flip c) (Ordering.flip d) :=
   match c with
-    | Less => rfl
-    | Equal => rfl
-    | Greater => rfl
+    | Less => byComputing
+    | Equal => byComputing
+    | Greater => byComputing
 
 --| `Less` is transitive for `c1` then `r1` (lexicographic), given that it
 --| is for the first comparisons and for the rest, and that an `Equal` first
@@ -63,23 +63,27 @@ theorem Ordering.andThenTrans ∀ (c1 c2 c3 r1 r2 r3: Ordering)
     (h2: Ordering.andThen c2 r2 = Less):
     Ordering.andThen c3 r3 = Less :=
   match c1, c2 with
-    | Less, Less => rewrite t rfl rfl in rfl
-    | Less, Equal => rewrite e2 rfl in rfl
-    | Equal, Less => rewrite e1 rfl in rfl
-    | Equal, Equal => rewrite e1 rfl in tr h1 h2
+    | Less, Less => rewrite t byComputing byComputing then byComputing
+    | Less, Equal => rewrite e2 byComputing then byComputing
+    | Equal, Less => rewrite e1 byComputing then byComputing
+    | Equal, Equal => rewrite e1 byComputing then tr h1 h2
 
 -- `Nat.compare` steps down both numbers together, so its laws are proved by
 -- recursion on both.
-theorem Nat.compareSucc ∀ (m n: Nat): Nat.compare (Succ m) (Succ n) = Nat.compare m n := rfl
+theorem Nat.compareSucc ∀ (m n: Nat): Nat.compare (Succ m) (Succ n) = Nat.compare m n := byComputing
 
 theorem Nat.compareEqual ∀ (m n: Nat) (h: Nat.compare m n = Equal): m = n := match m, n with
-  | Zero, Zero => rfl
+  | Zero, Zero => byComputing
   | Succ m, Succ n => Eq.cong Succ (Nat.compareEqual m n h)
 
+theorem Nat.compareSelf ∀ (n: Nat): Nat.compare n n = Equal := match n with
+  | Zero => byComputing
+  | Succ n => Nat.compareSelf n
+
 theorem Nat.compareFlip ∀ (m n: Nat): Nat.compare n m = Ordering.flip (Nat.compare m n) := match m, n with
-  | Zero, Zero => rfl
-  | Zero, Succ n => rfl
-  | Succ m, Zero => rfl
+  | Zero, Zero => byComputing
+  | Zero, Succ n => byComputing
+  | Succ m, Zero => byComputing
   | Succ m, Succ n => Nat.compareFlip m n
 
 theorem Nat.compareTrans ∀ (x y z: Nat)
@@ -87,20 +91,20 @@ theorem Nat.compareTrans ∀ (x y z: Nat)
     (h2: Nat.compare y z = Less):
     Nat.compare x z = Less :=
   match x, y, z with
-    | Zero, Succ y, Succ z => rfl
+    | Zero, Succ y, Succ z => byComputing
     | Succ x, Succ y, Succ z => Nat.compareTrans x y z h1 h2
 
 theorem Nat.lessOfCompare ∀ (m n: Nat) (h: Nat.compare m n = Less): m < n := match m, n with
-  | Zero, Succ n => rfl
+  | Zero, Succ n => byComputing
   | Succ m, Succ n => Nat.lessOfCompare m n h
 
 theorem Nat.compareOfLess ∀ (m n: Nat) (h: m < n): Nat.compare m n = Less := match m, n with
-  | Zero, Succ n => rfl
+  | Zero, Succ n => byComputing
   | Succ m, Succ n => Nat.compareOfLess m n h
 
 theorem Nat.leOfCompare ∀ (m n: Nat) (h: Nat.compare m n ≠ Greater): m ≤ n := match m, n with
-  | Zero, n => rfl
-  | Succ m, Zero => Void.exfalso (h rfl)
+  | Zero, n => byComputing
+  | Succ m, Zero => (h byComputing).impossible
   | Succ m, Succ n => Nat.leOfCompare m n h
 
 theorem Nat.compareOfLe ∀ (m n: Nat) (h: m ≤ n): Nat.compare m n ≠ Greater := match m, n with
@@ -114,12 +118,12 @@ theorem Nat.nonzeroOfSuccLe ∀ (k d: Nat) (h: Succ k ≤ d): d ≠ 0 := match d
 
 theorem Int.compareEqual ∀ (a b: Int) (h: Int.compare a b = Equal): a = b := match a, b with
   | OfNat m, OfNat n => Eq.cong OfNat (Nat.compareEqual m n h)
-  | NegSucc m, NegSucc n => Eq.cong NegSucc (Eq.sym (Nat.compareEqual n m h))
+  | NegSucc m, NegSucc n => Eq.cong NegSucc (Nat.compareEqual n m h).flipped
 
 theorem Int.compareFlip ∀ (a b: Int): Int.compare b a = Ordering.flip (Int.compare a b) := match a, b with
   | OfNat m, OfNat n => Nat.compareFlip m n
-  | OfNat m, NegSucc n => rfl
-  | NegSucc m, OfNat n => rfl
+  | OfNat m, NegSucc n => byComputing
+  | NegSucc m, OfNat n => byComputing
   | NegSucc m, NegSucc n => Nat.compareFlip n m
 
 theorem Int.compareTrans ∀ (a b c: Int)
@@ -128,24 +132,24 @@ theorem Int.compareTrans ∀ (a b c: Int)
     Int.compare a c = Less :=
   match a, b, c with
     | OfNat x, OfNat y, OfNat z => Nat.compareTrans x y z h1 h2
-    | NegSucc x, OfNat y, OfNat z => rfl
-    | NegSucc x, NegSucc y, OfNat z => rfl
+    | NegSucc x, OfNat y, OfNat z => byComputing
+    | NegSucc x, NegSucc y, OfNat z => byComputing
     | NegSucc x, NegSucc y, NegSucc z => Nat.compareTrans z y x h2 h1
 
 theorem Int.lessOfCompare ∀ (a b: Int) (h: Int.compare a b = Less): Int.LessThan a b := match a, b with
   | OfNat m, OfNat n => Nat.lessOfCompare m n h
-  | NegSucc m, OfNat n => rfl
+  | NegSucc m, OfNat n => byComputing
   | NegSucc m, NegSucc n => Nat.lessOfCompare n m h
 
 theorem Int.compareOfLess ∀ (a b: Int) (h: Int.LessThan a b): Int.compare a b = Less := match a, b with
   | OfNat m, OfNat n => Nat.compareOfLess m n h
-  | NegSucc m, OfNat n => rfl
+  | NegSucc m, OfNat n => byComputing
   | NegSucc m, NegSucc n => Nat.compareOfLess n m h
 
 theorem Int.leOfCompare ∀ (a b: Int) (h: Int.compare a b ≠ Greater): Int.LessEq a b := match a, b with
   | OfNat m, OfNat n => Nat.leOfCompare m n h
-  | OfNat m, NegSucc n => Void.exfalso (h rfl)
-  | NegSucc m, OfNat n => rfl
+  | OfNat m, NegSucc n => (h byComputing).impossible
+  | NegSucc m, OfNat n => byComputing
   | NegSucc m, NegSucc n => Nat.leOfCompare n m h
 
 theorem Int.compareOfLe ∀ (a b: Int) (h: Int.LessEq a b): Int.compare a b ≠ Greater := match a, b with

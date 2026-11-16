@@ -42,7 +42,9 @@ def Line.isDiagonal (line: Line): Bool := line.from.x.absDiff line.to.x == line.
 
 --| The coordinate `step` steps from `start` towards `stop`, one at a time.
 def towards (start stop step: Nat): Nat :=
-  if start < stop then start + step else if stop < start then start - step else start
+  if start < stop then start + step
+  else if stop < start then start - step
+  else start
 
 --| The points a horizontal, vertical or diagonal line covers: from the
 --| first end, a step at a time in each direction the line goes, to the

@@ -109,7 +109,9 @@ def sized: Nat → Nat
 test "numbers" := sized 5 == 3 ∧ sized 9 == 2
 
 -- A guard in a family whose index the match refines.
-type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
 
 def headOr (d: Nat): (n: Nat) → Vec Nat n → Nat
   | _, VCons x _ if x > 3 => x
@@ -139,11 +141,11 @@ def fallThroughWith (n m: Nat): Nat := match n, m with
 test "match with" := fallThroughWith 9 0 == 1 ∧ fallThroughWith 1 0 == 10 ∧ fallThroughWith 1 4 == 3
 
 theorem zeroOrPositive: ∀ (n m: Nat) => m = 0 ∨ m > 0
-  | n, m if n > 5 ∧ m > 0 => Inr omega
+  | n, m if n > 5 ∧ m > 0 => Inr arithmetic
   | _, m =>
     match m with
-      | 0 => Inl rfl
-      | Succ k => Inr omega
+      | 0 => Inl byComputing
+      | Succ k => Inr arithmetic
 
 -- `()` inside a pattern below a guard is the unit pattern.
 def unitBelow: (Nat, ()) → Nat

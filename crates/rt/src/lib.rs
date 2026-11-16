@@ -25,6 +25,7 @@ pub mod codec;
 pub mod dispatch;
 pub mod effect;
 pub mod erasure;
+pub mod files;
 pub mod fusion;
 pub mod hoist;
 pub mod host;
@@ -45,6 +46,7 @@ pub mod run;
 pub mod shared;
 pub mod specialise;
 pub mod sums;
+pub mod text;
 pub mod trmc;
 mod validate;
 pub mod value;
@@ -61,3 +63,4 @@ pub use run::{
     run_main_with, run_partial, run_partial_on,
 };
 pub use shared::Limits;
+pub use wire::BUILD_MARKER;

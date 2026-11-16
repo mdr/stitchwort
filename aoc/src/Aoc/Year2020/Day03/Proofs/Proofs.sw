@@ -16,12 +16,12 @@ theorem repeatingAtMod ∀ (pattern: List Square)
     decreasing column
 :=
   if within: column < pattern.length then
-    rewrite repeatingAt.eq.ifTrue pattern column within, Nat.modSmall column pattern.length within in rfl
+    rewrite repeatingAt.eq.ifTrue pattern column within, Nat.modSmall column pattern.length within then byComputing
   else
     rewrite repeatingAt.eq.ifFalse.ifTrue pattern column within nonEmpty,
-        repeatingAtMod pattern nonEmpty (column - pattern.length) [decreasing := omega],
-        Nat.subModSelf column pattern.length omega in
-      rfl
+        repeatingAtMod pattern nonEmpty (column - pattern.length) [decreasing := arithmetic],
+        Nat.subModSelf column pattern.length arithmetic then
+      byComputing
 
 --| The program's lookup at the wrapped column is the repeating map's
 --| square.
@@ -29,18 +29,18 @@ theorem lookupSquareAt ∀ (map: Grid Square) (rectangle: map.Rectangle)
     (nonZero: map.width ≠ 0) (position: Position):
     (map.lookupOr Open { row = position.row, column = position.column % map.width } == Tree)
       = (squareAt map position == Some Tree) :=
-  rewrite lookupOrAt map Open { row = position.row, column = position.column % map.width } in
+  rewrite lookupOrAt map Open { row = position.row, column = position.column % map.width } then
     match found: map.rows.get position.row with
       | Some pattern =>
         let long: pattern.length = map.width := rectangle pattern (List.memOfGet map.rows position.row pattern found)
-        rewrite repeatingAtMod pattern (rewrite long in nonZero) position.column, long in cases
-      | None => rfl
+        rewrite repeatingAtMod pattern (rewrite long then nonZero) position.column, long then cases
+      | None => byComputing
 
 theorem positionEq ∀ [a b c d: Nat]
     (rows: a = c)
     (columns: b = d):
     ({ row = a, column = b }: Position) = { row = c, column = d } :=
-  rewrite rows, columns in rfl
+  rewrite rows, columns then byComputing
 
 --| `path` is the positions `from` plus 1, 2, … steps.
 theorem pathRange ∀ (slope: Slope) (from: Position) (steps: Nat):
@@ -48,10 +48,10 @@ theorem pathRange ∀ (slope: Slope) (from: Position) (steps: Nat):
       = (List.rangeFrom steps 1).map (step =>
         ({ row = from.row + step * slope.down, column = from.column + step * slope.right }: Position)) :=
   match steps with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ more =>
-      rewrite pathRange slope (moved from slope) more, List.mapRangeFromShift _ more 1 in
-        Eq.cong (rest => [moved from slope, ..rest]) (List.mapCong _ _ _ (step => positionEq omega omega))
+      rewrite pathRange slope (moved from slope) more, List.mapRangeFromShift _ more 1 then
+        Eq.cong (rest => [moved from slope, ..rest]) (List.mapCong _ _ _ (step => positionEq arithmetic arithmetic))
 
 --| `map.isRectangle = True` is `map.Rectangle` (`isRectangleIff`), as a `Bool` the
 --| counterexample search can decide.
@@ -64,7 +64,7 @@ theorem treesOnSpec ∀ (map: Grid Square)
         (position => position.row < map.height)
         (List.rangeFrom map.height 1),
       List.lengthFilter,
-      List.countMap in
+      List.countMap then
     List.countCongMem _ _ _ (step m =>
       lookupSquareAt map ((isRectangleIff map).forward rectangle) map.widthNonZero {
         row = step * slope.down,
@@ -86,13 +86,13 @@ theorem visitedEnough ∀ (map: Grid Square) (slope: Slope)
       List.takeWhileRangeCutoff
         (step => step * slope.down < map.height)
         map.height
-        (k past => Bool.falseOfNotTrue _ (isTrue => omega [Nat.leMulPos k slope.down goesDown]))
+        (k past => Bool.falseOfNotTrue _ (isTrue => arithmetic [Nat.leMulPos k slope.down goesDown]))
         steps
         map.height
         1
-        omega
-        omega in
-    rfl
+        arithmetic
+        arithmetic then
+    byComputing
 
 theorem part1Correct ∀ (map: Grid Square) (rectangle: map.isRectangle = True): solvePart1 map = part1Answer map :=
   treesOnSpec map rectangle { right = 3, down = 1 }

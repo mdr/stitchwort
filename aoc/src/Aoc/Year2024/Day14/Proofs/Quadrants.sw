@@ -41,7 +41,7 @@ theorem countQuadrant ∀ (space: Space) (quadrant: Quadrant) (first second: Pos
       = (first position && second position)) (positions: List Position):
     (positions.filterMap space.quadrantOf).count (== quadrant) = countWhere positions first second :=
   rewrite List.countFilterMapEq space.quadrantOf quadrant positions,
-      List.lengthFilter positions (position => first position && second position) in
+      List.lengthFilter positions (position => first position && second position) then
     List.countCongMem _
       (position => space.quadrantOf position == Some quadrant)
       (position => first position && second position)
@@ -66,5 +66,5 @@ theorem safetyFactorCorrect ∀ (space: Space)
         (isBottom space)
         (isRight space)
         (bottomRightAgrees space oddWidth oddHeight)
-        positions in
-    ring
+        positions then
+    algebra

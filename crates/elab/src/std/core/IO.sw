@@ -9,7 +9,12 @@
 --| terminals, and the terminal's size, 0 by 0 when it isn't known.
 -- (docs/proposals/terminal-io.md §4.2)
 -- A registry built-in, so the runners can build it.
-type Console = { inputIsTerminal: Bool, outputIsTerminal: Bool, columns: Nat, rows: Nat }
+type Console = {
+  inputIsTerminal: Bool,
+  outputIsTerminal: Bool,
+  columns: Nat,
+  rows: Nat
+}
 
 --| Input and output on the console: printing, reading lines and bytes, and the terminal. Only a host interpreter performs these for real; in Stitchwort
 --| code, [`IO.simulate`] interprets them as data. `console`, `keysMode`,
@@ -18,14 +23,15 @@ type Console = { inputIsTerminal: Bool, outputIsTerminal: Bool, columns: Nat, ro
 -- (docs/proposals/terminal-io.md §4)
 ability IO where
   print: Text → {IO} () -- writes the text, then a line ending
-  readLine: () → {IO} (Option Text) -- None only at end of input
+  readLine: () → {IO} Option Text -- None only at end of input
   readAll: () → {IO} Text -- the rest of the input, all at once
   console: () → {IO} Console -- whether input and output are terminals, and the size
   keysMode: Bool → {IO} () -- enter (True) or leave (False) keys mode
-  readBytes: () → {IO} (Option (List Nat)) -- the bytes of one read; None at end of input
+  readBytes: () → {IO} Option (List Nat) -- the bytes of one read; None at end of input
   write: Text → {IO} () -- the text with no line ending, then flush
   randomSeed: () → {IO} Nat -- a fresh 64-bit number each run, from the host's entropy; 0 in `IO.simulate`
-  args: () → {IO} (List Text) -- the arguments after the program's name; none in `IO.simulate`
+  args: () → {IO} List Text -- the arguments after the program's name; none in `IO.simulate`
+  printError: Text → {IO} () -- writes the text, then a line ending, on standard error; dropped by `IO.simulate`
 
 --| The first line of scripted input, if there is one.
 def IO.nextLine: (lines: List Text) → Option Text
@@ -62,7 +68,8 @@ def IO.noConsole: Console := { inputIsTerminal = False, outputIsTerminal = False
 --| payload is one entry even if it contains a line feed: a real interpreter
 --| writes each `print` payload followed by a line ending. [`IO.console`] says
 --| there's no terminal ([`IO.noConsole`]), [`IO.keysMode`] does nothing,
---| [`IO.randomSeed`] gives 0 and [`IO.args`] gives no arguments.
+--| [`IO.randomSeed`] gives 0 and [`IO.args`] gives no arguments. What
+--| [`IO.printError`] writes isn't recorded: it isn't the program's output.
 -- The payloads are collected in reverse and turned round at the end, so a
 -- long run doesn't build a deep chain of pending pairs.
 def IO.simulateWith (seed: Nat) (input: List Text) (prog: () → {IO | e} a): {e} Pair (List Text) a :=
@@ -78,6 +85,7 @@ def IO.simulateWith (seed: Nat) (input: List Text) (prog: () → {IO | e} a): {e
       | IO.write t, k => ins out => k() ins [t, ..out]
       | IO.randomSeed u, k => ins out => k seed ins out
       | IO.args u, k => ins out => k [] ins out
+      | IO.printError t, k => ins out => k() ins out
   run input []
 
 --| `IO.simulateWith 0`: [`IO.randomSeed`] gives 0.

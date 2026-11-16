@@ -31,19 +31,19 @@ type Design = { stripes: List Stripe }
 
 type Onsen = { patterns: List Pattern, designs: List Design }
 
-def stripe(): {Parse} Stripe := pick [("w", White), ("u", Blue), ("b", Black), ("r", Red), ("g", Green)]
+def stripe(): {Parse Char} Stripe := pick [("w", White), ("u", Blue), ("b", Black), ("r", Red), ("g", Green)]
 
-def pattern(): {Parse} Pattern :=
+def pattern(): {Parse Char} Pattern :=
   let stripes := many1 stripe
   { stripes }
 
-def design(): {Parse} Design :=
+def design(): {Parse Char} Design :=
   let stripes := many1 stripe |> .toList
   { stripes }
 
 --| The patterns on one line, separated by commas, a blank line, then one
 --| design per line.
-def onsen(): {Parse} Onsen :=
+def onsen(): {Parse Char} Onsen :=
   let patterns := sepBy1 pattern (() => text ", ") |> .toList
   blankLine()
   let designs := lines design |> .toList

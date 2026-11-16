@@ -1008,6 +1008,9 @@ pub(crate) fn attempt(
         // declaration with one, reported there (tests-with-errors.md §4.2).
         if failed && let Some(key) = cx.e.instance_key(info.def) {
             crate::module::note_failed_used(&key);
+            // A derive that met this records it (`derive*.rs`), so a use of
+            // the type's instance waits for it (SW-3078).
+            cx.e.decl.failed_instance.replace(Some(info.def));
             return Err(crate::module::failed_name(&ast::Name {
                 text: name,
                 span: cx.span,
@@ -1118,10 +1121,46 @@ fn stuck(cx: &Ctx, goal: &Value, m: usize, what: &str) -> Diagnostic {
     d.with_note("pass the dictionary by name, or annotate")
 }
 
+/// Why there's no `Ord` for `ty`, for a note: that it wasn't derived, and
+/// why, or that functions can't be ordered. Shared by `E-INSTANCE-NONE` and
+/// the `<` that a type without `Ord` can't use (`numbers.rs`).
+pub(crate) fn no_ord_note(e: &Elaborator, ty: &Value) -> Option<String> {
+    let g = e.ev();
+    match force(&g, ty.clone()).unwrap_or(ty.clone()) {
+        Value::Data(t, _) => e
+            .tables
+            .no_ord
+            .get(&t)
+            .map(|why| format!("`Ord` isn't derived for `{}`: {why}", g.data(t).name())),
+        Value::Pi(..) => Some("functions can't be ordered".into()),
+        _ => None,
+    }
+}
+
 /// `E-INSTANCE-NONE`, with what might help.
 fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diagnostic {
     let g = cx.g();
     let e = cx.e;
+    // A derived instance that wasn't built because a field's instance has
+    // an error: what needs it waits for that instance, as it would for any
+    // declaration with an error (SW-3078).
+    if let Some(head) = head
+        && let Some(&def) = e.session.derive_waiting.borrow().get(&(head, interface))
+        && e.kernel.def(def).state() == stitchwort_core::globals::State::Failed
+    {
+        // A derive over this type (an `Outer` whose field is it) waits for
+        // the same instance (SW-3078).
+        cx.e.decl.failed_instance.replace(Some(def));
+        if let Some(key) = e.instance_key(def) {
+            crate::module::note_failed_used(&key);
+        }
+        let path = e.kernel.def(def).name().to_string();
+        let text = path.rsplit('.').next().unwrap_or(&path).to_string();
+        return crate::module::failed_name(&ast::Name {
+            text,
+            span: cx.span,
+        });
+    }
     let iface_name = g.data(interface).name().to_string();
     let dict = e.tables.interfaces[&interface].dict.clone();
     let arg = match goal {
@@ -1188,21 +1227,10 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
         }
     }
     // For `Ord`: why it wasn't derived.
-    if Some(interface) == ord(e) {
-        match force(&g, arg.clone()).unwrap_or(arg.clone()) {
-            Value::Data(t, _) => {
-                if let Some(why) = e.tables.no_ord.get(&t) {
-                    d = d.with_note(format!(
-                        "`Ord` isn't derived for `{}`: {why}",
-                        g.data(t).name()
-                    ));
-                }
-            }
-            Value::Pi(..) => {
-                d = d.with_note("functions can't be ordered");
-            }
-            _ => {}
-        }
+    if Some(interface) == ord(e)
+        && let Some(note) = no_ord_note(e, &arg)
+    {
+        d = d.with_note(note);
     }
     match head {
         Some(h) => {
@@ -1618,6 +1646,7 @@ pub(crate) fn decide_eq_of(cx: &mut Ctx, ty: &Value, xt: Term, yt: Term) -> Resu
 /// found in `cx` now: `Ok(None)` if so (or if it has to wait), the error if
 /// not. What it found is undone.
 pub(crate) fn findable(cx: &mut Ctx, goal: &Value) -> Result<Option<Diagnostic>> {
+    cx.e.decl.failed_instance.take();
     let mut why = None;
     crate::undo::transaction(cx, |cx| {
         let meta = implicit_arg(cx, Icit::Auto, goal);

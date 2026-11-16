@@ -15,14 +15,14 @@ type List.Member (a: Type) (xs: List a) = { value: a, isIn: List.Mem value xs }
 def List.attachFrom (whole: List a):
     (rest: List a) → (sub: ∀ (x: a) => List.Mem x rest → List.Mem x whole) → List (List.Member a whole)
   | [], sub => []
-  | [x, ..xs], sub => [{ value = x, isIn = sub x (Inl rfl) }, ..List.attachFrom whole xs (y h => sub y (Inr h))]
+  | [x, ..xs], sub => [{ value = x, isIn = sub x (Inl byComputing) }, ..List.attachFrom whole xs (y h => sub y (Inr h))]
 
 --| The elements of `xs`, in order, each with the proof that it's in `xs`.
 --| It builds a new list (for now: returning `xs` itself at run time is a
 --| later optimisation).
 def List.attach (xs: List a): List (List.Member a xs) := List.attachFrom xs xs (x h => h)
 
-theorem List.attachExample: List.map (List.attach [3, 1, 2]) (e => e.value) = [3, 1, 2] := rfl
+theorem List.attachExample: List.map (List.attach [3, 1, 2]) (e => e.value) = [3, 1, 2] := byComputing
 
 -- The lemmas are proved for `attachFrom` first, with `whole`, `rest` and
 -- `sub` general, and then for `attach`: the tail of `attach (Cons x xs)` is
@@ -33,7 +33,7 @@ theorem List.attachFromValues ∀ (whole rest: List a)
     (sub: ∀ (x: a) => List.Mem x rest → List.Mem x whole):
     List.map (List.attachFrom whole rest sub) (e => e.value) = rest :=
   match rest with
-    | [] => rfl
+    | [] => byComputing
     | [x, ..xs] => Eq.cong (Cons x) (List.attachFromValues whole xs (y h => sub y (Inr h)))
 
 theorem List.attachValues ∀ (xs: List a): List.map (List.attach xs) (e => e.value) = xs :=
@@ -45,7 +45,7 @@ theorem List.sumByAttachFrom ∀ [auto add: Add b] (whole rest: List a) (f: a �
     (sub: ∀ (x: a) => List.Mem x rest → List.Mem x whole):
     List.sumBy (List.attachFrom whole rest sub) (e => f e.value) = List.sumBy rest f :=
   Eq.trans
-    (Eq.sym (List.sumByMap (List.attachFrom whole rest sub) f (e => e.value)))
+    (Eq.flipped (List.sumByMap (List.attachFrom whole rest sub) f (e => e.value)))
     (Eq.cong (.sumBy f) (List.attachFromValues whole rest sub))
 
 --| Summing over `List.attach xs` sums over `xs`: the proofs change nothing.
@@ -55,4 +55,4 @@ theorem List.sumByAttach ∀ [auto add: Add b] (xs: List a) (f: a → b):
 
 --| Mapping over `List.attach xs` maps over `xs`: the proofs change nothing.
 theorem List.mapAttach ∀ (xs: List a) (f: a → b): List.map (List.attach xs) (e => f e.value) = List.map xs f :=
-  Eq.trans (Eq.sym (List.mapMap (List.attach xs) f (e => e.value))) (Eq.cong (.map f) (List.attachValues xs))
+  Eq.trans (Eq.flipped (List.mapMap (List.attach xs) f (e => e.value))) (Eq.cong (.map f) (List.attachValues xs))

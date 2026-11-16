@@ -9,40 +9,40 @@ import Std (Abort, Fail, Option, Result, Text, Void)
 theorem toResultThen ∀ (t: () → {Fail} a) (k: a → {Fail} b):
     Fail.toResult (() => k (t ())) = Result.flatMap (Fail.toResult t) (x => Fail.toResult (() => k x)) :=
   match reify t with
-    | return x => rfl
-    | Fail.stop msg, _ => rfl
+    | return x => byComputing
+    | Fail.stop msg, _ => byComputing
 
 theorem toOptionThen ∀ (t: () → {Fail} a) (k: a → {Fail} b):
     Fail.toOption (() => k (t ())) = Option.flatMap (Fail.toOption t) (x => Fail.toOption (() => k x)) :=
   match reify t with
-    | return x => rfl
-    | Fail.stop msg, _ => rfl
+    | return x => byComputing
+    | Fail.stop msg, _ => byComputing
 
 theorem toOptionToResult ∀ (t: () → {Fail} a): Fail.toOption t = Result.toOption (Fail.toResult t) := match reify t with
-  | return x => rfl
-  | Fail.stop msg, _ => rfl
+  | return x => byComputing
+  | Fail.stop msg, _ => byComputing
 
 theorem abortThen ∀ (t: () → {Abort} a) (k: a → {Abort} b):
     Abort.toOption (() => k (t ())) = Option.flatMap (Abort.toOption t) (x => Abort.toOption (() => k x)) :=
   match reify t with
-    | return x => rfl
-    | Abort.stop (), _ => rfl
+    | return x => byComputing
+    | Abort.stop (), _ => byComputing
 
 -- A thunk written in place: the split is on `f x` itself. `traverse` is a
 -- loop, so its step comes from `Result.traverseCons` first.
 theorem toResultMap ∀ (f: a → {Fail} b) (xs: List a):
     Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x)) :=
   match xs with
-    | [] => rfl
+    | [] => byComputing
     | [x, ..xs] =>
       let rest := toResultMap f xs
-      rewrite Result.traverseCons (z => Fail.toResult (() => f z)) x xs in
+      rewrite Result.traverseCons (z => Fail.toResult (() => f z)) x xs then
         match reify (() => f x) with
           | return y =>
             match reify (() => xs.map f) with
-              | return ys => rewrite <- rest in rfl
-              | Fail.stop msg, _ => rewrite <- rest in rfl
-          | Fail.stop msg, _ => rfl
+              | return ys => rewrite <- rest then byComputing
+              | Fail.stop msg, _ => rewrite <- rest then byComputing
+          | Fail.stop msg, _ => byComputing
 
 -- Std's own, used.
 theorem parsed ∀ (xs: List Text):
@@ -77,9 +77,9 @@ theorem finishedKeepsState ∀ (t: () → {State s} a) (init: s)
     (finished: Finished t):
     Pair.snd (runState init t) = init :=
   match reify t with
-    | return x => rfl
-    | State.get (), _ => Void.exfalso finished
-    | State.put st, _ => Void.exfalso finished
+    | return x => byComputing
+    | State.get (), _ => finished.impossible
+    | State.put st, _ => finished.impossible
 
 -- A computation that puts first.
 def PutsFirst (t: () → {State s} a): Prop := match reify t with
@@ -93,9 +93,9 @@ theorem putFirstForgets ∀ (t: () → {State s} a) (init other: s)
     (first: PutsFirst t):
     runState init t = runState other t :=
   match reify t with
-    | return x => Void.exfalso first
-    | State.get (), _ => Void.exfalso first
-    | State.put st, rest => rfl
+    | return x => first.impossible
+    | State.get (), _ => first.impossible
+    | State.put st, rest => byComputing
 
 -- A row of two abilities: a clause for each operation of each.
 def FailsFirst (t: () → {State Nat, Fail} a): Prop := match reify t with

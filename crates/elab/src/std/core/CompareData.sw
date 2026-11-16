@@ -18,7 +18,7 @@ theorem List.compareLexEqual ∀ (cmp: a → a → Ordering)
     (h: List.compareLex cmp xs ys = Equal):
     xs = ys :=
   match xs, ys with
-    | [], [] => rfl
+    | [], [] => byComputing
     | [x, ..xs], [y, ..ys] =>
       Eq.trans
         (Eq.cong
@@ -33,12 +33,12 @@ theorem List.compareLexFlip ∀ (cmp: a → a → Ordering)
     (flip: ∀ (x y: a) => cmp y x = Ordering.flip (cmp x y)) (xs ys: List a):
     List.compareLex cmp ys xs = Ordering.flip (List.compareLex cmp xs ys) :=
   match xs, ys with
-    | [], [] => rfl
-    | [], [y, ..ys] => rfl
-    | [x, ..xs], [] => rfl
+    | [], [] => byComputing
+    | [], [y, ..ys] => byComputing
+    | [x, ..xs], [] => byComputing
     | [x, ..xs], [y, ..ys] =>
-      rewrite flip x y, List.compareLexFlip cmp flip xs ys in
-        Eq.sym (Ordering.flipAndThen (cmp x y) (List.compareLex cmp xs ys))
+      rewrite flip x y, List.compareLexFlip cmp flip xs ys then
+        Eq.flipped (Ordering.flipAndThen (cmp x y) (List.compareLex cmp xs ys))
 
 theorem List.compareLexTrans ∀ (cmp: a → a → Ordering)
     (equal: ∀ (x y: a) => cmp x y = Equal → x = y)
@@ -47,7 +47,7 @@ theorem List.compareLexTrans ∀ (cmp: a → a → Ordering)
     (h2: List.compareLex cmp ys zs = Less):
     List.compareLex cmp xs zs = Less :=
   match xs, ys, zs with
-    | [], [y, ..ys], [z, ..zs] => rfl
+    | [], [y, ..ys], [z, ..zs] => byComputing
     | [x, ..xs], [y, ..ys], [z, ..zs] =>
       Ordering.andThenTrans
         (cmp x y)
@@ -58,7 +58,7 @@ theorem List.compareLexTrans ∀ (cmp: a → a → Ordering)
         (List.compareLex cmp xs zs)
         (trans x y z)
         (e => Eq.cong (t => cmp t z) (equal x y e))
-        (e => Eq.sym (Eq.cong (t => cmp x t) (equal y z e)))
+        (e => Eq.flipped (Eq.cong (t => cmp x t) (equal y z e)))
         (p q => List.compareLexTrans cmp equal trans xs ys zs p q)
         h1
         h2
@@ -84,7 +84,8 @@ theorem Pair.compareWithFlip ∀ (ca: a → a → Ordering) (cb: b → b → Ord
     (fb: ∀ (x y: b) => cb y x = Ordering.flip (cb x y)) (p q: Pair a b):
     Pair.compareWith ca cb q p = Ordering.flip (Pair.compareWith ca cb p q) :=
   match p, q with
-    | MkPair x1 y1, MkPair x2 y2 => rewrite fa x1 x2, fb y1 y2 in Eq.sym (Ordering.flipAndThen (ca x1 x2) (cb y1 y2))
+    | MkPair x1 y1, MkPair x2 y2 =>
+      rewrite fa x1 x2, fb y1 y2 then Eq.flipped (Ordering.flipAndThen (ca x1 x2) (cb y1 y2))
 
 theorem Pair.compareWithTrans ∀ (ca: a → a → Ordering) (cb: b → b → Ordering)
     (ea: ∀ (x y: a) => ca x y = Equal → x = y)
@@ -104,7 +105,7 @@ theorem Pair.compareWithTrans ∀ (ca: a → a → Ordering) (cb: b → b → Or
         (cb y1 y3)
         (ta x1 x2 x3)
         (e => Eq.cong (t => ca t x3) (ea x1 x2 e))
-        (e => Eq.sym (Eq.cong (t => ca x1 t) (ea x2 x3 e)))
+        (e => Eq.flipped (Eq.cong (t => ca x1 t) (ea x2 x3 e)))
         (tb y1 y2 y3)
         h1
         h2
@@ -122,16 +123,16 @@ theorem Option.compareWithEqual ∀ (cmp: a → a → Ordering)
     (h: Option.compareWith cmp m n = Equal):
     m = n :=
   match m, n with
-    | None, None => rfl
+    | None, None => byComputing
     | Some x, Some y => Eq.cong Some (equal x y h)
 
 theorem Option.compareWithFlip ∀ (cmp: a → a → Ordering)
     (flip: ∀ (x y: a) => cmp y x = Ordering.flip (cmp x y)) (m n: Option a):
     Option.compareWith cmp n m = Ordering.flip (Option.compareWith cmp m n) :=
   match m, n with
-    | None, None => rfl
-    | None, Some y => rfl
-    | Some x, None => rfl
+    | None, None => byComputing
+    | None, Some y => byComputing
+    | Some x, None => byComputing
     | Some x, Some y => flip x y
 
 theorem Option.compareWithTrans ∀ (cmp: a → a → Ordering)
@@ -140,7 +141,7 @@ theorem Option.compareWithTrans ∀ (cmp: a → a → Ordering)
     (h2: Option.compareWith cmp n o = Less):
     Option.compareWith cmp m o = Less :=
   match m, n, o with
-    | None, Some y, Some z => rfl
+    | None, Some y, Some z => byComputing
     | Some x, Some y, Some z => trans x y z h1 h2
 
 --| Characters, by scalar value.
@@ -162,9 +163,9 @@ theorem Char.compareTrans ∀ (x y z: Char)
 --| [`Char.compare`], step for step. So its laws are the list's.
 theorem Text.compareCharsLex ∀ (xs ys: List Char): Text.compareChars xs ys = List.compareLex Char.compare xs ys :=
   match xs, ys with
-    | [], [] => rfl
-    | [], [y, ..ys] => rfl
-    | [x, ..xs], [] => rfl
+    | [], [] => byComputing
+    | [], [y, ..ys] => byComputing
+    | [x, ..xs], [] => byComputing
     | [x, ..xs], [y, ..ys] => Eq.cong (r => Ordering.andThen (Char.compare x y) r) (Text.compareCharsLex xs ys)
 
 theorem Text.ext ∀ (s t: Text) (h: Text.toList s = Text.toList t): s = t := match s, t with
@@ -175,14 +176,15 @@ theorem Text.compareEqual ∀ (s t: Text) (h: Text.compare s t = Equal): s = t :
     (List.compareLexEqual Char.compare Char.compareEqual
       (Text.toList s)
       (Text.toList t)
-      (Eq.trans (Eq.sym (Text.compareCharsLex (Text.toList s) (Text.toList t))) h))
+      (Eq.trans (Eq.flipped (Text.compareCharsLex (Text.toList s) (Text.toList t))) h))
 
-theorem Text.compareFlip ∀ (s t: Text): Text.compare t s = Ordering.flip (Text.compare s t) :=
-  Eq.trans
-    (Text.compareCharsLex (Text.toList t) (Text.toList s))
-    (Eq.trans
-      (List.compareLexFlip Char.compare Char.compareFlip (Text.toList s) (Text.toList t))
-      (Eq.cong Ordering.flip (Eq.sym (Text.compareCharsLex (Text.toList s) (Text.toList t)))))
+theorem Text.compareFlip ∀ (s t: Text): Text.compare t s = Ordering.flip (Text.compare s t) := calc Text.compare t s
+  _ = List.compareLex Char.compare (Text.toList t) (Text.toList s) :=
+    Text.compareCharsLex (Text.toList t) (Text.toList s)
+  _ = Ordering.flip (List.compareLex Char.compare (Text.toList s) (Text.toList t)) :=
+    List.compareLexFlip Char.compare Char.compareFlip (Text.toList s) (Text.toList t)
+  _ = Ordering.flip (Text.compare s t) :=
+    Eq.cong Ordering.flip (Eq.flipped (Text.compareCharsLex (Text.toList s) (Text.toList t)))
 
 theorem Text.compareTrans ∀ (s t u: Text)
     (h1: Text.compare s t = Less)
@@ -194,5 +196,5 @@ theorem Text.compareTrans ∀ (s t u: Text)
       (Text.toList s)
       (Text.toList t)
       (Text.toList u)
-      (Eq.trans (Eq.sym (Text.compareCharsLex (Text.toList s) (Text.toList t))) h1)
-      (Eq.trans (Eq.sym (Text.compareCharsLex (Text.toList t) (Text.toList u))) h2))
+      (Eq.trans (Eq.flipped (Text.compareCharsLex (Text.toList s) (Text.toList t))) h1)
+      (Eq.trans (Eq.flipped (Text.compareCharsLex (Text.toList t) (Text.toList u))) h2))

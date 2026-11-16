@@ -15,8 +15,8 @@ def Nat.partitionPoint (low high: Nat) (p: Nat → Bool): Nat
 :=
   if apart: low < high then
     let middle := (low + high) / 2
-    if p middle then Nat.partitionPoint (middle + 1) high p [decreasing := omega [apart]]
-    else Nat.partitionPoint low middle p [decreasing := omega [apart]]
+    if p middle then Nat.partitionPoint (middle + 1) high p [decreasing := arithmetic [apart]]
+    else Nat.partitionPoint low middle p [decreasing := arithmetic [apart]]
   else low
 
 test "the first number at which the test fails" := Nat.partitionPoint 0 10 (n => n < 7) == 7
@@ -30,14 +30,15 @@ theorem Nat.partitionPointSplit ∀ (low high: Nat) (p: Nat → Bool)
     Nat.partitionPoint low high p
       = (if p ((low + high) / 2) then Nat.partitionPoint ((low + high) / 2 + 1) high p
          else Nat.partitionPoint low ((low + high) / 2) p) :=
-  rewrite Nat.partitionPoint.unfold low high p in
-    Decidable.elimEq _ _ _ _ (isApart => rfl) (notApart => Void.exfalso (notApart apart))
+  rewrite Nat.partitionPoint.unfold low high p then
+    Decidable.elimEq _ _ _ _ (isApart => byComputing) (notApart => (notApart apart).impossible)
 
 --| The search ends at `low` once the range is empty.
 theorem Nat.partitionPointDone ∀ (low high: Nat) (p: Nat → Bool)
     (close: Nat.leq (Succ low) high = False):
     Nat.partitionPoint low high p = low :=
-  rewrite Nat.partitionPoint.unfold low high p in Decidable.elimEq _ _ _ _ (isApart => cases) (notApart => rfl)
+  rewrite Nat.partitionPoint.unfold low high p then
+    Decidable.elimEq _ _ _ _ (isApart => cases) (notApart => byComputing)
 
 --| For any test: the answer is from `low` to `high`; `p` holds just before
 --| it, unless it is `low`; and `p` fails at it, unless it is `high`.
@@ -52,36 +53,36 @@ theorem Nat.partitionPointBounds ∀ (low high: Nat) (p: Nat → Bool)
   match apart: Nat.leq (Succ low) high with
     | True =>
       let middle := (low + high) / 2
-      rewrite Nat.partitionPointSplit low high p apart in
+      rewrite Nat.partitionPointSplit low high p apart then
         match held: p middle with
           | True =>
             let (Both above (Both below (Both before after))) :=
-              Nat.partitionPointBounds (middle + 1) high p (omega [apart]) [decreasing := omega [apart]]
+              Nat.partitionPointBounds (middle + 1) high p (arithmetic [apart]) [decreasing := arithmetic [apart]]
             let found := Nat.partitionPoint (middle + 1) high p
             Both
-              (omega [above])
+              (arithmetic [above])
               (Both below
                 (Both
                   (match before with
                     | Inr holds => Inr holds
                     | Inl first =>
-                      let previous: found - 1 = middle := omega [first]
-                      Inr (rewrite previous in held))
+                      let previous: found - 1 = middle := arithmetic [first]
+                      Inr (rewrite previous then held))
                   after))
           | False =>
             let (Both above (Both below (Both before after))) :=
-              Nat.partitionPointBounds low middle p (omega [apart]) [decreasing := omega [apart]]
+              Nat.partitionPointBounds low middle p (arithmetic [apart]) [decreasing := arithmetic [apart]]
             let found := Nat.partitionPoint low middle p
             Both above
               (Both
-                (omega [below, apart])
+                (arithmetic [below, apart])
                 (Both before
                   (match after with
                     | Inr fails => Inr fails
-                    | Inl last => Inr (rewrite last in held))))
+                    | Inl last => Inr (rewrite last then held))))
     | False =>
-      rewrite Nat.partitionPointDone low high p apart in
-        Both (Nat.leRefl low) (Both ordered (Both (Inl rfl) (Inl (omega [ordered, apart]))))
+      rewrite Nat.partitionPointDone low high p apart then
+        Both (Nat.leRefl low) (Both ordered (Both (Inl byComputing) (Inl (arithmetic [ordered, apart]))))
 
 --| When `p` holds up to some point and fails after it, the answer is that
 --| point. That is, `p` holds at every number from `low` before it, and fails
@@ -96,12 +97,12 @@ theorem Nat.partitionPointSpec ∀ (low high: Nat) (p: Nat → Bool)
   Both
     (n atLeast under =>
       match before with
-        | Inl first => Void.exfalso (omega [first, atLeast, under])
-        | Inr holds => monotone n (found - 1) (omega [under]) holds)
+        | Inl first => Void.impossible (arithmetic [first, atLeast, under])
+        | Inr holds => monotone n (found - 1) (arithmetic [under]) holds)
     (n atLeast under =>
       match after with
-        | Inl last => Void.exfalso (omega [last, atLeast, under])
+        | Inl last => Void.impossible (arithmetic [last, atLeast, under])
         | Inr fails =>
           match held: p n with
-            | False => rfl
-            | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym fails) (monotone found n atLeast held))))
+            | False => byComputing
+            | True => Void.impossible (Bool.falseNotTrue (Eq.trans fails.flipped (monotone found n atLeast held))))

@@ -17,7 +17,7 @@ import Std (DecEq, Decidable, Eq, Fin, List, Option, Vec)
 --| Two hits at the same splitter that go different ways are different.
 theorem turnsDiffer ∀ (r c: Nat):
     ({ row = r, column = c, turn = Left }: Hit) ≠ ({ row = r, column = c, turn = Right }) :=
-  p => Decidable.refute (DecEq.decide (Left: Turn) Right) rfl (Eq.cong Hit.turn p)
+  p => Decidable.refute (DecEq.decide (Left: Turn) Right) byComputing (Eq.cong Hit.turn p)
 
 --| The timelines of the two sides of a split.
 theorem headsDistinct ∀ (h1 h2: Hit)

@@ -10,10 +10,10 @@ def mix (a: Nat) (early: Nat := a) (late: Nat := 5): Nat := a + early + late
 
 def scaler (base: Nat) (factor: Nat := 1): Nat -> Nat := x => base * factor * x
 
-theorem leftOut (a: Nat) (b: Nat): range (a + 1) b = [a, b, 1] := rfl
+theorem leftOut (a: Nat) (b: Nat): range (a + 1) b = [a, b, 1] := byComputing
 
-theorem given (a: Nat) (b: Nat): range a b (step := 3) = [a, b, 1] := rfl
+theorem given (a: Nat) (b: Nat): range a b (step := 3) = [a, b, 1] := byComputing
 
-theorem laterGiven (a: Nat) (x: Nat): mix a (late := x) = a := rfl
+theorem laterGiven (a: Nat) (x: Nat): mix a (late := x) = a := byComputing
 
-theorem resultApplied (x: Nat): (scaler 5) x = x := rfl
+theorem resultApplied (x: Nat): (scaler 5) x = x := byComputing

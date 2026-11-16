@@ -26,20 +26,20 @@ expression: json
         "file": 0,
         "message": "next: Bool\nall: next\n⊢ allTrue [next]\n  computes to next",
         "range": [
+          13,
           14,
-          16,
-          14,
-          17
+          13,
+          15
         ]
       }
     ],
     "message": "in `shown`",
     "notes": [],
     "range": [
+      13,
       14,
-      16,
-      14,
-      17
+      13,
+      15
     ],
     "severity": "goal"
   },
@@ -48,6 +48,14 @@ expression: json
     "file": 0,
     "goal": {
       "hypotheses": [
+        {
+          "name": "other",
+          "type": "List Bool"
+        },
+        {
+          "name": "all",
+          "type": "allTrue [True, ..other]"
+        },
         {
           "name": "next✝",
           "type": "Bool"
@@ -59,34 +67,32 @@ expression: json
         {
           "name": "tail✝",
           "type": "List Bool"
-        },
-        {
-          "name": "all",
-          "type": "(next✝ && allTrue [head✝, ..tail✝]) = True"
         }
       ],
-      "target": "allTrue [next✝, head✝, ..tail✝]",
+      "target": "allTrue other",
       "targetComputed": "(next✝ && allTrue [head✝, ..tail✝]) = True"
     },
     "labels": [
       {
         "file": 0,
-        "message": "next✝: Bool\nhead✝: Bool\ntail✝: List Bool\nall: (next✝ && allTrue [head✝, ..tail✝]) = True\n⊢ allTrue [next✝, head✝, ..tail✝]\n  computes to (next✝ && allTrue [head✝, ..tail✝]) = True",
+        "message": "other: List Bool\nall: allTrue [True, ..other]\nnext✝: Bool\nhead✝: Bool\ntail✝: List Bool\n⊢ allTrue other\n  computes to (next✝ && allTrue [head✝, ..tail✝]) = True",
         "range": [
-          15,
-          15,
-          15,
-          16
+          14,
+          13,
+          14,
+          14
         ]
       }
     ],
     "message": "in `shown`",
-    "notes": [],
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
+    ],
     "range": [
-      15,
-      15,
-      15,
-      16
+      14,
+      13,
+      14,
+      14
     ],
     "severity": "goal"
   }

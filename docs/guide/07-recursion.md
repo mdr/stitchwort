@@ -38,15 +38,12 @@ Trees work the same way: `left` and `right` are parts of the `Node`.
 
 <!-- snippet: recursion.sw#trees -->
 ```stitchwort
-type Tree =
-  | Leaf
-  | Node (left: Tree) (value: Nat) (right: Tree)
+type Tree = | Leaf | Node (left: Tree) (value: Nat) (right: Tree)
 
 def Tree.insert (tree: Tree) (value: Nat): Tree := match tree with
   | Leaf => Node Leaf value Leaf
   | Node left here right =>
-    if value < here then Node (left.insert value) here right
-    else Node left here (right.insert value)
+    if value < here then Node (left.insert value) here right else Node left here (right.insert value)
 
 def Tree.toList: Tree → List Nat
   | Leaf => []
@@ -57,24 +54,36 @@ def treeSort (values: List Nat): List Nat := values.foldLeft Leaf Tree.insert |>
 test "tree sort" := treeSort [5, 2, 8, 1] == [1, 2, 5, 8]
 ```
 
+A text works the same way. In a prefix pattern, `rest` is the text of the characters after the start, so recursion on it is structural as written:
+
+<!-- snippet: recursion.sw#text-rest -->
+```stitchwort
+def leadingDashes: Text → Nat
+  | "-" ++ rest => 1 + leadingDashes rest
+  | _ => 0
+
+test "text rest" := leadingDashes "--verbose" == 2
+```
+
+Behind the scenes a text is a constructor with a single field, its list of characters, and such a constructor counts as smaller when what's inside it is a part of what it held in the pattern. One-field records work the same way. The one field must be data, not a proof, and the part must be reached through fields of data: a proof is the same value whatever is inside it, so shrinking what's in one doesn't make anything smaller.
+
 ## When the argument isn't a part: `decreasing`
 
 Halving a number isn't recursion on a part of it, so the compiler can't see that it finishes:
 
 <!-- snippet: errors/termination.sw -->
 ```stitchwort
-def halvings (n: Nat): Nat :=
-  if n ≤ 1 then 0 else 1 + halvings (n / 2)
+def halvings (n: Nat): Nat := if n ≤ 1 then 0 else 1 + halvings (n / 2)
 ```
 
 <!-- output: check errors/termination.sw -->
 ```text
 [E-TERMINATION] Error: can't show that `halvings` terminates
-   ╭─[ errors/termination.sw:2:28 ]
+   ╭─[ errors/termination.sw:1:56 ]
    │
- 2 │   if n ≤ 1 then 0 else 1 + halvings (n / 2)
-   │                            ───────┬───────
-   │                                   ╰───────── this recursive call might not terminate: no argument is known to be smaller
+ 1 │ def halvings (n: Nat): Nat := if n ≤ 1 then 0 else 1 + halvings (n / 2)
+   │                                                        ───────┬───────
+   │                                                               ╰───────── this recursive call might not terminate: no argument is known to be smaller
    │
    │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
    │
@@ -83,7 +92,7 @@ def halvings (n: Nat): Nat :=
 1 error: in `halvings`
 ```
 
-`decreasing e` after the result type names a number `e`, made from the parameters, that gets smaller at every recursive call. Each call then needs a proof that it does. The compiler looks for one itself, from the facts in scope, and tries `omega` ([chapter 10](10-proofs.md)), which proves most arithmetic facts. Here the `else` branch knows `n` isn't below 10, which is enough for `n / 10 < n`:
+`decreasing e` after the result type names a number `e`, made from the parameters, that gets smaller at every recursive call. Each call then needs a proof that it does. The compiler looks for one itself, from the facts in scope, and tries `arithmetic` ([chapter 10](10-proofs.md)), which proves most arithmetic facts. Here the `else` branch knows `n` isn't below 10, which is enough for `n / 10 < n`:
 
 <!-- snippet: recursion.sw#decreasing -->
 ```stitchwort
@@ -99,7 +108,7 @@ When the compiler can't find a proof, it says which fact it needs. Here `n - ste
 
 <!-- snippet: errors/decreasing.sw -->
 ```stitchwort
-def countDown (n: Nat) (step: Nat): Nat
+def countDown (n step: Nat): Nat
     decreasing n
 :=
   if n ≤ 0 then 0 else 1 + countDown (n - step) step
@@ -119,11 +128,11 @@ def countDown (n: Nat) (step: Nat): Nat
 1 error: in `countDown`
 ```
 
-The message shows the fact as you wrote it. The note gives the usual fix: test the fact with an `if`. In a definition with `decreasing`, an `if` puts its condition in scope for the recursive calls under it, true in the `then` branch and false in the `else`, and the call finds it there. The test needs no name; `if h: … then … else …` still works when a proof needs `h` itself. Euclid's algorithm needs this, since `omega` doesn't reason about `%` by a variable: `a % b < b` holds whenever `b != 0`, and the test puts it in scope:
+The message shows the fact as you wrote it. The note gives the usual fix: test the fact with an `if`. In a definition with `decreasing`, an `if` puts its condition in scope for the recursive calls under it, true in the `then` branch and false in the `else`, and the call finds it there. The test needs no name; `if h: … then … else …` still works when a proof needs `h` itself. Euclid's algorithm needs this, since `arithmetic` doesn't reason about `%` by a variable: `a % b < b` holds whenever `b != 0`, and the test puts it in scope:
 
 <!-- snippet: recursion.sw#gcd -->
 ```stitchwort
-def gcd (a: Nat) (b: Nat): Nat
+def gcd (a b: Nat): Nat
     decreasing b
 :=
   if a % b < b then gcd b (a % b) else a
@@ -133,31 +142,33 @@ test "gcd" := gcd 84 36 == 12
 
 Here the `else` runs only when `b` is 0 (`a % 0` is `a`, [chapter 2](02-values-and-definitions.md#dividing-by-zero)), where `gcd a 0` is `a` anyway; the test is there to give the compiler the fact. Proofs about `gcd` see the `if` as written, without the fact it gave the call.
 
-A `match` does the same for its arms: a recursive call in one has the `match`'s equation in scope, here `set.popMin = Some (least, rest)`. `omega` can't read that one, but the library's `Set.sizePopMin` turns it into `rest.size < set.size`, so the `match` names it, `found:`, to pass it to the lemma:
+A `match` does the same for its arms: a recursive call in one has the `match`'s equation in scope, here `set.popMin = Some (least, rest)`. `arithmetic` can't read that one, but the library's `Set.sizePopMin` turns it into `rest.size < set.size`, so the `match` names it, `found:`, to pass it to the lemma:
 
 <!-- snippet: recursion.sw#match-fact -->
 ```stitchwort
 def total (set: Set Nat): Nat
     decreasing set.size
-:= match found: set.popMin with
-  | None => 0
-  | Some (least, rest) => least + total rest [decreasing := Set.sizePopMin set least rest found]
+:=
+  match found: set.popMin with
+    | None => 0
+    | Some (least, rest) => least + total rest [decreasing := Set.sizePopMin set least rest found]
 
 test "total" := total [3, 1, 2].toSet == 6
 ```
 
-An equation `omega` can read needs no name: with `decreasing n - k`, `match n - k with | Zero => k | Succ j => countUp n (k + 1)` is proved from `n - k = Succ j`. Either way, proofs about `total` see `match set.popMin with` as written, without the equation, and can match on `set.popMin` themselves.
+An equation `arithmetic` can read needs no name: with `decreasing n - k`, `match n - k with | Zero => k | Succ j => countUp n (k + 1)` is proved from `n - k = Succ j`. Either way, proofs about `total` see `match set.popMin with` as written, without the equation, and can match on `set.popMin` themselves.
 
-A proof can also be given directly, as `[decreasing := proof]` after the call. With a pair of measures, `decreasing (m, n)`, each call makes `m` smaller, or keeps `m` and makes `n` smaller, as in Ackermann's function, whose calls `omega` proves:
+A proof can also be given directly, as `[decreasing := proof]` after the call. With a pair of measures, `decreasing (m, n)`, each call makes `m` smaller, or keeps `m` and makes `n` smaller, as in Ackermann's function, whose calls `arithmetic` proves:
 
 <!-- snippet: recursion.sw#lexicographic -->
 ```stitchwort
-def ackermann (m: Nat) (n: Nat): Nat
+def ackermann (m n: Nat): Nat
     decreasing (m, n)
-:= match m, n with
-  | Zero, n => n + 1
-  | Succ k, Zero => ackermann k 1
-  | Succ k, Succ j => ackermann k (ackermann (Succ k) j)
+:=
+  match m, n with
+    | Zero, n => n + 1
+    | Succ k, Zero => ackermann k 1
+    | Succ k, Succ j => ackermann k (ackermann (Succ k) j)
 
 test "ackermann" := ackermann 2 3 == 9
 ```
@@ -185,12 +196,9 @@ Types can refer to each other too. They are declared one after the other, and ch
 
 <!-- snippet: recursion.sw#mutual-types -->
 ```stitchwort
-type Rose =
-  | Branch (label: Nat) (kids: Roses)
+type Rose = | Branch (label: Nat) (kids: Roses)
 
-type Roses =
-  | RNil
-  | RCons (first: Rose) (rest: Roses)
+type Roses = | RNil | RCons (first: Rose) (rest: Roses)
 
 def Rose.total: Rose → Nat
   | Branch label kids => label + Roses.total kids
@@ -208,15 +216,14 @@ A type may also contain itself inside a container, such as a list: a packet is a
 
 <!-- snippet: recursion.sw#nested -->
 ```stitchwort
-type Packet =
-  | Number (value: Nat)
-  | Packets (items: List Packet)
+type Packet = | Number (value: Nat) | Packets (items: List Packet)
 
 def Packet.depth (packet: Packet): Nat
     decreasing Packet.size packet
-:= match packet with
-  | Number n => 0
-  | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
+:=
+  match packet with
+    | Number n => 0
+    | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
 
 test "depth" := Packet.depth (Packets [Number 1, Packets [Number 2, Packets [Number 3]], Packets []]) == 3
 ```

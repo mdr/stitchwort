@@ -22,4 +22,4 @@ def settled (x: Nat) (k: Nat): Option Nat := settle x k limit
 
 theorem hiddenCopy (x: Nat) (k: Nat) (y: Nat) (settles: settle x k limit = Some y)
     (q: Option Nat → Option Nat → Prop) (h: q (Some y) (Some y)): q (settle x k limit) (settled x k) :=
-  rewrite settles in h
+  rewrite settles then h

@@ -228,7 +228,7 @@ pub enum Handler {
         call: Value,
         lazy: bool,
         /// The clauses the loop skips, if any.
-        forwards: Option<Rc<str>>,
+        forwards: Option<crate::text::Text>,
     },
     /// A state-passing handler ([`EffectOp::FoldState`]): `done v s` at the
     /// end; at an operation, `call o k jump s`, whose result, if it's a
@@ -699,8 +699,11 @@ fn hex(bytes: &[u8]) -> Option<u32> {
 /// perform for it, if that clause is skipped: `Ok` of it, or `Err(o)` back.
 /// When the record rebuilds `o` itself (the same constructor, under one
 /// `L`, with the argument), `o` is reused.
-pub(crate) fn forwarded(s: &Shapes, table: &str, o: Value) -> Result<Value, Value> {
-    let bytes = table.as_bytes();
+pub(crate) fn forwarded(s: &Shapes, table: &crate::text::Text, o: Value) -> Result<Value, Value> {
+    let bytes = table
+        .ascii()
+        .expect("internal error: a fold's forwards that aren't ASCII")
+        .as_bytes();
     let Value::Data(tag, fields) = &o else {
         return Err(o);
     };

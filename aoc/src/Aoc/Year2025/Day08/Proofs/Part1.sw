@@ -29,10 +29,10 @@ theorem closestFirstIsOrder ∀ (points: List Point):
     _ = List.sort (List.map (allPairs points.length) (connectionKey points)) :=
       rewrite List.withIndexRange points Point.origin,
           List.pairsMap (List.range 0 points.length) (i => (i, List.getOr points i Point.origin)),
-          List.mapMap (List.pairs (List.range 0 points.length)) _ _ in
-        rfl
+          List.mapMap (List.pairs (List.range 0 points.length)) _ _ then
+        byComputing
     _ = List.map (connectionOrder points) (connectionKey points) :=
-      Eq.sym (List.sortOnMap (allPairs points.length) (connectionKey points))
+      Eq.flipped (List.sortOnMap (allPairs points.length) (connectionKey points))
 
 --| The program's fold joins the first k connections.
 theorem joinedIsJoinAll ∀ (k: Nat) (points: List Point):
@@ -44,8 +44,8 @@ theorem joinedIsJoinAll ∀ (k: Nat) (points: List Point):
         (List.take (connectionOrder points) k)
         (Circuits.separate points.length)
         Circuits.connect
-        (connectionKey points) in
-    rfl
+        (connectionKey points) then
+    byComputing
 
 -- Every connection is between two of the boxes ------------------------------
 
@@ -60,8 +60,8 @@ theorem allAppend ∀ (p: a → Bool) (xs ys: List a)
         | True => allAppend p xs ys hx hy
 
 theorem allTake ∀ (p: a → Bool) (k: Nat) (xs: List a) (h: xs.all p = True): (xs.take k).all p = True := match k, xs with
-  | Zero, xs => rfl
-  | Succ k, [] => rfl
+  | Zero, xs => byComputing
+  | Succ k, [] => byComputing
   | Succ k, [x, ..xs] =>
     match e: p x with
       | True => allTake p k xs h
@@ -71,7 +71,7 @@ theorem allPairsBoth ∀ (q: Nat → Bool) (xs: List Nat)
     (h: xs.all q = True):
     xs.pairs.all (pair => q pair.fst ∧ q pair.snd) = True :=
   match xs with
-    | [] => rfl
+    | [] => byComputing
     | [x, ..xs] =>
       match e: q x with
         | True =>
@@ -82,10 +82,10 @@ theorem allMapPairWith ∀ (q: Nat → Bool) (x: Nat)
     (h: xs.all q = True):
     (xs.map (y => (x, y))).all (pair => q pair.fst ∧ q pair.snd) = True :=
   match xs with
-    | [] => rfl
+    | [] => byComputing
     | [y, ..ys] =>
       match e: q y with
-        | True => rewrite hx in allMapPairWith q x hx ys h
+        | True => rewrite hx then allMapPairWith q x hx ys h
 
 theorem connectionsInRange ∀ (k: Nat) (points: List Point):
     List.all (firstConnections k points) (boxesBelow points.length) = True :=
@@ -100,7 +100,7 @@ theorem connectionsInRange ∀ (k: Nat) (points: List Point):
           (connectionOrder points)
           (allPairs n)
           (List.sortOnPerm (allPairs n) (connectionKey points))
-          (boxesBelow n) in
+          (boxesBelow n) then
       allPairsBoth (i => Nat.leq (Succ i) n) (List.range 0 n) below)
 
 -- The program's sizes are the spec's ----------------------------------------
@@ -109,7 +109,7 @@ theorem connectionsInRange ∀ (k: Nat) (points: List Point):
 theorem circuitSizesCongRange ∀ (n: Nat) (same1 same2: Nat → Nat → Bool)
     (agree: ∀ (a b: Nat) => a < n → b < n → same1 a b = same2 a b):
     circuitSizes n same1 = circuitSizes n same2 :=
-  let below: ∀ (x: Nat) => List.Mem x (List.range 0 n) → x < n := x m => And.right (List.memRangeFrom x n 0 m)
+  let below: ∀ (x: Nat) => List.Mem x (List.range 0 n) → x < n := x m => (List.memRangeFrom x n 0 m).right
   rewrite agree, agree _ _ _ (below _ (And.left (List.memFilter (List.range 0 n) _ _)))
 
 --| Two tests that tell agree.
@@ -131,7 +131,7 @@ theorem part1Correct ∀ (k: Nat) (points: List Point) (sameCircuit: Nat → Nat
   let n := points.length
   let joined := joinAll (Circuits.separate n) (firstConnections k points)
   calc solvePart1 k (Boxes.of points)
-    _ = threeLargestProduct (joined.sizes n) := rewrite <- joinedIsJoinAll k points in rfl
+    _ = threeLargestProduct (joined.sizes n) := rewrite <- joinedIsJoinAll k points then byComputing
     _ = threeLargestProduct (circuitSizes n (a b => joined.labelOf a == joined.labelOf b)) :=
       threeLargestPerm
         (joined.sizes n)
@@ -145,5 +145,5 @@ theorem part1Correct ∀ (k: Nat) (points: List Point) (sameCircuit: Nat → Nat
               (firstConnections k points) _
               sameCircuit
               (labelsTell n (firstConnections k points) (connectionsInRange k points))
-              tells) in
-        rfl
+              tells) then
+        byComputing

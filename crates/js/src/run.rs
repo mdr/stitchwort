@@ -24,7 +24,8 @@
 //! in a file the CLI names: [`EXIT_RESOURCE`] when the program ran out of
 //! the engine's stack or memory (or made a number or string too large for
 //! it), [`EXIT_IO`] when reading or writing failed, [`EXIT_FAIL`] when `main`
-//! failed with an unhandled `Fail`.
+//! failed with an unhandled `Fail`, [`EXIT_STATUS`] when `main` returned an
+//! `ExitStatus` other than 0 (the status is the message).
 
 use std::fmt::Write;
 
@@ -56,6 +57,10 @@ pub const EXIT_IO: i32 = 71;
 /// The runner's exit code when `main` failed with `Fail` and nothing handled
 /// it: the message is in the error file (docs/proposals/errors.md §3.5).
 pub const EXIT_FAIL: i32 = 72;
+/// The runner's exit code when `main` returned an `ExitStatus` that isn't 0:
+/// the status itself is in the error file, as a decimal number. (The
+/// worker can't exit with the status, since 70 to 72 are taken.)
+pub const EXIT_STATUS: i32 = 73;
 
 /// The worker thread's stack, in megabytes. It's reserved, not used: memory
 /// is taken only as deep as the program recurses. 2 GB is about ten million
@@ -192,6 +197,7 @@ pub fn generate_program_with(
         &RUNNER
             .replace("@EXIT_IO@", &EXIT_IO.to_string())
             .replace("@EXIT_FAIL@", &EXIT_FAIL.to_string())
+            .replace("@EXIT_STATUS@", &EXIT_STATUS.to_string())
             .replace("@EXIT_RESOURCE@", &EXIT_RESOURCE.to_string())
             .replace(
                 "@COUNT_OPERATION@",
@@ -343,6 +349,12 @@ impl Shapes {
             &["randomSeedUnit"],
         )?;
         ctor("args", io, ctor_of(Builtin::Args)?.1, &["argsUnit"])?;
+        ctor(
+            "printError",
+            io,
+            ctor_of(Builtin::PrintError)?.1,
+            &["printErrorText"],
+        )?;
         // `Fail`'s one operation, once its library file has loaded: a `main`
         // that may fail loads it.
         if let Some(fail) = g.env.registry().loaded_data(Builtin::Fail) {
@@ -708,6 +720,26 @@ import { execFileSync as __execFileSync } from "node:child_process";
         for (const byte of bytes) seed = (seed << 8n) | BigInt(byte);
         return seed;
       }
+      // Standard error, after what is pending on standard output; a
+      // standard error that can't be written to is ignored.
+      case SHAPE.printError: {
+        leaveKeys();
+        flush();
+        const bytes = Buffer.from(op[SHAPE.printErrorText] + "\n", "utf8");
+        let offset = 0;
+        while (offset < bytes.length) {
+          try {
+            offset += __fs.writeSync(2, bytes, offset, bytes.length - offset);
+          } catch (e) {
+            if (e.code === "EAGAIN") {
+              pause();
+              continue;
+            }
+            break;
+          }
+        }
+        return { tag: SHAPE.unit };
+      }
       case SHAPE.args: {
         let list = { tag: SHAPE.nil };
         for (let i = programArgs.length - 1; i >= 0; i--) {
@@ -942,8 +974,13 @@ import { execFileSync as __execFileSync } from "node:child_process";
   let code = 0;
   let message = "";
   try {
-    run(MAIN());
+    const result = run(MAIN());
     flush();
+    // `main` returning an `ExitStatus` ends as its number, a `Nat`.
+    if (typeof result === "bigint" && result !== 0n) {
+      code = @EXIT_STATUS@;
+      message = String(result);
+    }
   } catch (e) {
     // What was printed before the error still appears. The first error is
     // the one reported.

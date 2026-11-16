@@ -1,7 +1,8 @@
 # Fewer test binaries (SW-1736)
 
-Status: plan, with a pilot on `stitchwort-rt` (this branch). Rolling out the
-other crates waits for Matt's go-ahead.
+Status: plan; the pilot (SW-1736) and the rollout (SW-1780, SW-1781,
+SW-1790) are merged: `core`, `fmt`, `lsp`, `native`, `rt` and `syntax` have
+one `tests/it/` binary, and `driver` and `cli` group theirs into 3-4 binaries.
 
 ## The problem
 

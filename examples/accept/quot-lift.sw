@@ -1,5 +1,5 @@
 -- Quotients compute (docs/proposals/map-equality.md §7.2): `Quot.lift f h
--- (Quot.mk a)` is `f a`, by `rfl`. A definition that's a lift of its
+-- (Quot.mk a)` is `f a`, by `byComputing`. A definition that's a lift of its
 -- argument stays folded on a variable, as one stuck on a `match` does, so a
 -- goal shows `observe q`; it's still equal to its body (test A8).
 import Std (Eq)
@@ -9,15 +9,15 @@ def QE: Type := Quot Bool BoolEq
 
 def toNat (b: Bool): Nat := if b then 1 else 0
 
-def toNatRespects (x y: Bool) (same: BoolEq x y): toNat x = toNat y := rewrite same in rfl
+def toNatRespects (x y: Bool) (same: BoolEq x y): toNat x = toNat y := rewrite same then byComputing
 
-theorem liftComputes: Quot.lift toNat toNatRespects (Quot.mk True: QE) = 1 := rfl
+theorem liftComputes: Quot.lift toNat toNatRespects (Quot.mk True: QE) = 1 := byComputing
 
 def observe (q: QE): Nat := Quot.lift toNat toNatRespects q
 
-theorem observeTrue: observe (Quot.mk True) = 1 := rfl
+theorem observeTrue: observe (Quot.mk True) = 1 := byComputing
 
-theorem observeIsItsBody ∀ (q: QE): observe q = Quot.lift toNat toNatRespects q := rfl
+theorem observeIsItsBody ∀ (q: QE): observe q = Quot.lift toNat toNatRespects q := byComputing
 
 -- Function extensionality from `Quot.sound`, with the evaluation and the
 -- rebuilding steps as named definitions (A8; `Quot.funext` itself is for the

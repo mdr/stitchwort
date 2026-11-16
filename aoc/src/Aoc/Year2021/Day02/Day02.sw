@@ -35,7 +35,7 @@ type Command = | Forward (units: Nat) | Down (units: Nat) | Up (units: Nat)
 def parseCommands (input: Text): {Fail} List Command := Parse.eachLine input command
 
 --| "forward 5" is `Forward 5`.
-def command(): {Parse} Command :=
+def command(): {Parse Char} Command :=
   spaces()
   let direction := label "forward, down or up" (() => pick [("forward", Forward), ("down", Down), ("up", Up)])
   spaces1()

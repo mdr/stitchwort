@@ -1,5 +1,6 @@
 ---
 source: crates/cli/tests/running/examples.rs
+assertion_line: 352
 expression: output
 ---
 [GOAL] Goal: in `toResultThen`
@@ -24,7 +25,6 @@ expression: output
     │                               b: Type
     │                               t: () → {Fail} a
     │                               k: a → {Fail} b
-    │                               rest✝: Std.Empty → {Fail} a
     │                               msg: Text
     │                               ⊢ Err msg = Err msg
 ────╯

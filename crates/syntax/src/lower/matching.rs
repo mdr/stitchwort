@@ -123,12 +123,12 @@ impl<'f> Lower<'f> {
             .collect()
     }
 
-    /// `| return x => body` or `| op p, k => body`.
+    /// `| return x => body`, `| return _ => body` or `| op p, k => body`.
     fn clause(&self, node: Node<'f>) -> Lowering<Clause> {
         let kind = NodeKind::HandlerClause;
         let body = required(node.after(&Tok::FatArrow), kind, "its body")?;
         if node.leaf(&Tok::KwReturn).is_some() {
-            let var = as_leaf(node.after(&Tok::KwReturn)).and_then(name);
+            let var = as_leaf(node.after(&Tok::KwReturn)).and_then(binder_name);
             return Ok(Clause::Return {
                 var: required(var, kind, "a name for the result")?,
                 body: self.expr(body)?,
@@ -238,12 +238,12 @@ pub(super) fn no_guard_without_body(guard: Option<&Guard>, body: Option<&Expr>) 
 mod tests {
     use crate::lower::coverage::report;
 
-    /// Lane L4's kinds lower whole: every pattern kind in the places whose
+    /// Every pattern and match kind lowers whole: every pattern kind in the places whose
     /// spans differ (brackets round a constructor or a negative number,
     /// the cells of lists and tuples), `match` with named scrutinees,
     /// guards and absurd arms, `handle`, `match reify`, `match induct`,
     /// `calc` in both directions, `rewrite` with each optional part,
-    /// `omega`, `ring` and `cases`.
+    /// `arithmetic`, `algebra` and `cases`.
     #[test]
     fn matching_and_proofs_lower() {
         let text = "\
@@ -271,7 +271,7 @@ theorem r: P := match reify t with
   | Fail.stop msg, k => k
 theorem i: P := match induct (f a b) with
   | eq1 x _ ih => ih
-  | eq2 => rfl
+  | eq2 => byComputing
 theorem c: a = d := calc a
   _ = b := p
   _ <= c
@@ -280,13 +280,13 @@ theorem c2: a > d := calc a
   _ > b := p
   _ = (c) := (q)
   _ >= d
-theorem w: P := rewrite h, <- (g x) at k in t
+theorem w: P := rewrite h, <- (g x) at k then t
 theorem w2: P := rewrite h at (k)
 theorem w3: P := rewrite <- h
-  in t
-theorem w4: P := rewrite at, h at at in at
-theorem o: P := omega [h, (0 ..< n)] && ring [(a)] && ring && omega
-theorem s: P := cases in (t)
+  then t
+theorem w4: P := rewrite at, h at at then at
+theorem o: P := arithmetic [h, (0 ..< n)] && algebra [(a)] && algebra && arithmetic
+theorem s: P := cases then (t)
 theorem s2: P := f cases
 ";
         let report = report(text);

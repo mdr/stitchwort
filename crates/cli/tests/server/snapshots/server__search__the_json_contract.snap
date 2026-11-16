@@ -12,7 +12,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
     "truncated": false
   },
   "query": {
-    "elaborated": "(twice ?1).length = ?2",
+    "elaborated": "(twice _xs).length = _",
     "holes": [],
     "kinds": [
       "theorem",

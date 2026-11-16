@@ -3,4 +3,4 @@
 import Std (Nat)
 
 @[tailrec]
-theorem one: 1 = 1 := rfl
+theorem one: 1 = 1 := byComputing

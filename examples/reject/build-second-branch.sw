@@ -5,4 +5,4 @@ import Std (Bool, List, Nat)
 
 theorem either ∀ (c: Bool) (x: Nat) (xs: List Nat) (m: x ∈ xs) (found: xs.contains x): True :=
   let w := if c then m else found
-  rfl
+  byComputing

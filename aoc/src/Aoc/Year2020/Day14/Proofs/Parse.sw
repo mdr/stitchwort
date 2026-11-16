@@ -21,7 +21,7 @@ theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
           count) =>
         Parse.readsDone
           (SetMask { bits }) _
-          (Witness symbols (Both (rewrite maybe, List.appendNil symbols in rfl) (Both each count))))
+          (Witness symbols (Both (rewrite maybe, List.appendNil symbols then byComputing) (Both each count))))
       | None => Parse.readsThen (Parse.readsText "mem[") (openRead u opened =>
         Parse.readsThen Parse.readsNat (addressRead address addressDecimal =>
           Parse.readsThen (Parse.readsText "] = ") (closeRead u closed =>
@@ -31,7 +31,7 @@ theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
                 (Witness addressRead
                   (Witness valueRead
                     (Both
-                      (rewrite maybe, opened, closed, List.appendNil valueRead in rfl)
+                      (rewrite maybe, opened, closed, List.appendNil valueRead then byComputing)
                       (Both addressDecimal valueDecimal)))))))))
 
 theorem startsWritten ∀ (instructions: List Instruction)
@@ -46,12 +46,12 @@ theorem parseWritten ∀ (input: Text) (program: Program)
   let check := (instructions: List Instruction) =>
     if startsWithMask instructions then ({ instructions }: Program)
     else Fail.fail "the program has to start with a mask"
-  let ran := rewrite Fail.toResultThen (() => Parse.eachLine input instruction) check at parsed in parsed
+  let ran := rewrite Fail.toResultThen (() => Parse.eachLine input instruction) check at parsed then parsed
   match e: Fail.toResult (() => Parse.eachLine input instruction) with
     | Ok instructions =>
       match starts: startsWithMask instructions with
         | True =>
-          rewrite <- Result.okInjective ran in
+          rewrite <- Result.okInjective ran then
             Both
               (Parse.eachLineReads input instruction InstructionWritten instructions e readsInstruction)
               (startsWritten instructions starts)

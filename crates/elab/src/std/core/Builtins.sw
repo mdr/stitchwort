@@ -1,4 +1,4 @@
---| The built-in names: `rfl`, `J` and the quotient forms. Their meaning is the
+--| The built-in names: `byComputing`, `J` and the quotient forms. Their meaning is the
 --| kernel's, not a definition's, so this file only documents them. Each is
 --| declared here with its signature and, as a body, the kernel form it names,
 --| which the kernel checks against that signature: a signature that no longer
@@ -10,22 +10,22 @@
 -- have somewhere to land (SW-1146). The built-in is more general than a
 -- signature can say where noted: the one here is its instance at `Type`.
 
---| The proof that a value equals itself: `rfl: x = x`. It is checked against
+--| The proof that a value equals itself: `byComputing: x = x`. It is checked against
 --| the equation it should prove, so `x` and the type come from the expected
 --| type, and the two sides must be equal by computation (`2 + 2 = 4` is
---| `rfl`).
-def rfl: [a: Type] → [x: a] → x = x
+--| `byComputing`).
+def byComputing: [a: Type] → [x: a] → x = x
 
 --| Transport along an equality: from `p: x = y`, and `base` for `x`, a value
 --| for `y`. The `motive` is written as a function of two arguments, the new
 --| endpoint and the proof (`y' p' => …`), and gives the statement being
---| proved; `base` proves it at `x` with `rfl`. `J motive base rfl` computes to
---| `base`. Everything about equality is built from this (`Eq.cong`, `Eq.sym`,
+--| proved; `base` proves it at `x` with `byComputing`. `J motive base byComputing` computes to
+--| `base`. Everything about equality is built from this (`Eq.cong`, `Eq.flipped`,
 --| `Eq.trans`).
 --|
 --| The motive may be a proposition or a type; the signature shows the case of
 --| a motive in `Type`.
-def J: [a: Type] → [x y: a] → (motive: (y': a) → x = y' → Type) → (base: motive x rfl) → (p: x = y) → motive y p
+def J: [a: Type] → [x y: a] → (motive: (y': a) → x = y' → Type) → (base: motive x byComputing) → (p: x = y) → motive y p
 
 --| The quotient of `a` by the relation `r`: `a` with every pair related by `r`
 --| treated as equal. Its elements are `Quot.mk x`; a function out of it is

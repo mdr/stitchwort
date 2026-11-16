@@ -54,17 +54,17 @@ def Abort.orElse (fallback: a) (prog: () → {Abort | e} a): {e} a :=
 
 --| `need` and `toOption` undo each other.
 theorem Abort.toOptionNeed ∀ (o: Option a): Abort.toOption (() => Abort.need o) = o := match o with
-  | None => rfl
-  | Some x => rfl
+  | None => byComputing
+  | Some x => byComputing
 
 theorem Abort.orElseNeed ∀ (d: a) (o: Option a): Abort.orElse d (() => Abort.need o) = Option.getOrElse o d :=
   match o with
-    | None => rfl
-    | Some x => rfl
+    | None => byComputing
+    | Some x => byComputing
 
-theorem Abort.toOptionEnsureFalse: Abort.toOption (() => Abort.ensure False) = None := rfl
+theorem Abort.toOptionEnsureFalse: Abort.toOption (() => Abort.ensure False) = None := byComputing
 
-theorem Abort.toOptionEnsureTrue: Abort.toOption (() => Abort.ensure True) = Some () := rfl
+theorem Abort.toOptionEnsureTrue: Abort.toOption (() => Abort.ensure True) = Some () := byComputing
 
 --| Running `t`, then `k` on its result: gives up if either does.
 -- A law about any computation, by a split on what `t` does first (`match
@@ -72,8 +72,8 @@ theorem Abort.toOptionEnsureTrue: Abort.toOption (() => Abort.ensure True) = Som
 theorem Abort.toOptionThen ∀ (t: () → {Abort} a) (k: a → {Abort} b):
     Abort.toOption (() => k (t ())) = Option.flatMap (Abort.toOption t) (x => Abort.toOption (() => k x)) :=
   match reify t with
-    | return x => rfl
-    | Abort.stop (), _ => rfl
+    | return x => byComputing
+    | Abort.stop (), _ => byComputing
 
 -- Reading a block that gave `Some v`, one step at a time. From
 -- `h: toOption (block) = Some v`, where the block starts with a step, each
@@ -93,14 +93,14 @@ theorem Abort.needEqSome ∀ [goal: Prop] [x: Option a] [k: a → {Abort} b] [v:
     (h: Abort.toOption (() => k (Abort.need x)) = Some v)
     (use: ∀ (u: a) => x = Some u → Abort.toOption (() => k u) = Some v → goal):
     goal :=
-  match e: x with | Some u => use u rfl h
+  match e: x with | Some u => use u byComputing h
 
 --| A block starting with `ensure ok` gave `Some v`: `ok` held.
 theorem Abort.ensureEqSome ∀ [goal: Prop] [ok: Bool] [k: () → {Abort} b] [v: b]
     (h: Abort.toOption (() => k (Abort.ensure ok)) = Some v)
     (use: ok = True → Abort.toOption (() => k ()) = Some v → goal):
     goal :=
-  match e: ok with | True => use rfl h
+  match e: ok with | True => use byComputing h
 
 --| A block starting with any computation `t` gave `Some v`: so did `t`. `t`
 --| is found from `h`: `Abort.thenEqSome h (bin found rest => …)`.

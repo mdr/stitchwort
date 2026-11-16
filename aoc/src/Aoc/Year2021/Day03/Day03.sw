@@ -40,7 +40,7 @@ def parseReport (input: Text): {Fail} List Bits :=
     | Some (index, number) => Fail.fail "line ${index + 1}: ${number.width} bits, but the first line has ${width}"
     | None => numbers
 
-def bit(): {Parse} Bool := label "0 or 1" (() => pick [("0", False), ("1", True)])
+def bit(): {Parse Char} Bool := label "0 or 1" (() => pick [("0", False), ("1", True)])
 
 --| A column's most common bit: 1 when at least half of the bits are 1s, so a
 --| tie is 1.

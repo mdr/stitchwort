@@ -24,11 +24,14 @@ theorem lineAfterAdd ∀ (lines: Map Nat (Set Nat)) (line item key other: Nat):
       = ((key == line && other == item) || (lines.getOr key Set.empty).contains other) :=
   match onLine: key == line with
     | True =>
-      rewrite onLine.read, Map.getInsert line (lines.getOr line Set.empty |> .insert item) lines in
+      rewrite onLine.read, Map.getInsert line (lines.getOr line Set.empty |> .insert item) lines then
         match isItem: other == item with
-          | True => rewrite isItem.read, Set.containsInsert item (lines.getOr line Set.empty) in rfl
-          | False => rewrite Set.containsInsertOther (lines.getOr line Set.empty) item other isItem.read in rfl
-    | False => rewrite Map.getInsertOther line (lines.getOr line Set.empty |> .insert item) key onLine.read lines in rfl
+          | True => rewrite isItem.read, Set.containsInsert item (lines.getOr line Set.empty) then byComputing
+          | False =>
+            rewrite Set.containsInsertOther (lines.getOr line Set.empty) item other isItem.read then byComputing
+    | False =>
+      rewrite Map.getInsertOther line (lines.getOr line Set.empty |> .insert item) key onLine.read lines then
+        byComputing
 
 --| Adding an obstruction adds it to its row and column.
 theorem addRepresents ∀ (sightlines: Sightlines) (has: Position → Bool)
@@ -38,11 +41,11 @@ theorem addRepresents ∀ (sightlines: Sightlines) (has: Position → Bool)
     | { row = addedRow, column = addedColumn } => row column =>
       let before := represents row column
       Both
-        (rewrite lineAfterAdd sightlines.byRow addedRow addedColumn row column, And.left before in rfl)
+        (rewrite lineAfterAdd sightlines.byRow addedRow addedColumn row column, before.left then byComputing)
         (rewrite lineAfterAdd sightlines.byColumn addedColumn addedRow column row,
             And.right before,
-            Bool.andComm (column == addedColumn) (row == addedRow) in
-          rfl)
+            Bool.andComm (column == addedColumn) (row == addedRow) then
+          byComputing)
 
 theorem orShift ∀ (a b c: Bool): ((a || b) || c) = (b || (if a then True else c)) := cases
 
@@ -50,7 +53,7 @@ theorem representsCong ∀ [sightlines: Sightlines] [has other: Position → Boo
     (same: ∀ (position: Position) => has position = other position)
     (represents: Represents sightlines has):
     Represents sightlines other :=
-  row column => rewrite <- same { row, column } in represents row column
+  row column => rewrite <- same { row, column } then represents row column
 
 --| Folding `add` over entries adds each of their keys.
 theorem foldRepresents ∀ (entries: List (Position, ())) (sightlines: Sightlines) (has: Position → Bool)
@@ -58,7 +61,7 @@ theorem foldRepresents ∀ (entries: List (Position, ())) (sightlines: Sightline
     Represents (Map.Spec.foldLeft (acc key unit => Sightlines.add acc key) sightlines entries) (position =>
       has position || entries.any (entry => isAt entry.fst.row entry.fst.column position)) :=
   match entries with
-    | [] => row column => representsCong (position => Eq.sym (Bool.orFalse (has position))) represents row column
+    | [] => row column => representsCong (position => Eq.flipped (Bool.orFalse (has position))) represents row column
     | [(key, unit), ..rest] => row column =>
       let hasRest := (position: Position) => rest.any (entry => isAt entry.fst.row entry.fst.column position)
       representsCong
@@ -74,10 +77,11 @@ theorem positionExt ∀ (one other: Position)
     (rows: one.row = other.row)
     (columns: one.column = other.column):
     one = other :=
-  match one, other with | { row, column }, { row = otherRow, column = otherColumn } => rewrite rows, columns in rfl
+  match one, other with
+    | { row, column }, { row = otherRow, column = otherColumn } => rewrite rows, columns then byComputing
 
 theorem isAtSelf ∀ (position: Position): isAt position.row position.column position = True :=
-  rewrite DecEq.refl position.row, DecEq.refl position.column in rfl
+  rewrite DecEq.refl position.row, DecEq.refl position.column then byComputing
 
 theorem isAtSound ∀ (key position: Position) (here: isAt key.row key.column position = True): position = key :=
   let Both sameRow sameColumn := here
@@ -91,19 +95,19 @@ theorem containsEntries ∀ (obstructions: Set Position) (position: Position):
     | True => Witness (position, ()) (Both ((Set.containsToList obstructions position).forward has) (isAtSelf position))
     | False =>
       match found: (Map.toList obstructions.items).any (entry => isAt entry.fst.row entry.fst.column position) with
-        | False => rfl
+        | False => byComputing
         | True =>
           let Witness entry (Both inList hit) := found
           match entry with
             | (key, unit) =>
-              let entryIs: (key, unit) = (position, ()) := rewrite isAtSound key position hit, Set.unitEq unit () in rfl
-              Eq.sym
-                (Eq.trans
-                  (Eq.sym has)
-                  ((Set.containsToList obstructions position).backward (rewrite <- entryIs in inList)))
+              let entryIs: (key, unit) = (position, ()) :=
+                rewrite isAtSound key position hit, Set.unitEq unit () then byComputing
+              Eq.flipped
+                (Eq.trans has.flipped
+                  ((Set.containsToList obstructions position).backward (rewrite <- entryIs then inList)))
 
 theorem emptyRepresents: Represents ({ byRow = Map.empty, byColumn = Map.empty }: Sightlines) (position => False) :=
-  row column => Both rfl rfl
+  row column => Both byComputing byComputing
 
 --| The program's sightlines represent its obstructions.
 theorem ofRepresents ∀ (obstructions: Set Position):
@@ -117,7 +121,7 @@ theorem ofRepresents ∀ (obstructions: Set Position):
       (acc key unit => Sightlines.add acc key)
       ({ byRow = Map.empty, byColumn = Map.empty }: Sightlines)
       obstructions.items
-  rewrite folded in
+  rewrite folded then
     representsCong
       (containsEntries obstructions)
       (foldRepresents
@@ -131,10 +135,10 @@ theorem stepTurns ∀ (lab: Lab) (guard: Guard) (ahead: Position)
     (inFront: lab.ahead guard = Some ahead)
     (blocked: lab.obstructions.contains ahead = True):
     lab.step guard = Some { guard | facing = guard.facing.turnRight } :=
-  rewrite inFront, blocked in rfl
+  rewrite inFront, blocked then byComputing
 
 theorem stepLeaves ∀ (lab: Lab) (guard: Guard) (inFront: lab.ahead guard = None): lab.step guard = None :=
-  rewrite inFront in rfl
+  rewrite inFront then byComputing
 
 --| What is ahead in each direction, inside the map and at its edge.
 theorem aheadUp ∀ (lab: Lab) (row column: Nat)
@@ -184,12 +188,12 @@ theorem walkUpTurn ∀ (lab: Lab) (column obstruction: Nat)
       = Some { position = { row = obstruction + 1, column }, facing = Right } :=
   match moves with
     | Zero =>
-      rewrite (omega [distance]: obstruction + 1 = row) in
+      rewrite (arithmetic [distance]: obstruction + 1 = row) then
         stepTurns lab
           { position = { row, column }, facing = Up }
           { row = row - 1, column }
-          (aheadUp lab row column (omega [distance]))
-          (rewrite (omega [distance]: row - 1 = obstruction) in blocked)
+          (aheadUp lab row column (arithmetic [distance]))
+          (rewrite (arithmetic [distance]: row - 1 = obstruction) then blocked)
     | Succ moves =>
       Eq.trans
         (walkFirst lab
@@ -198,18 +202,18 @@ theorem walkUpTurn ∀ (lab: Lab) (column obstruction: Nat)
           (stepMoves lab
             { position = { row, column }, facing = Up }
             { row = row - 1, column }
-            (aheadUp lab row column (omega [distance]))
-            (free (row - 1) (omega [distance]) (omega [distance])))
+            (aheadUp lab row column (arithmetic [distance]))
+            (free (row - 1) (arithmetic [distance]) (arithmetic [distance])))
           (Succ moves))
-        (walkUpTurn lab column obstruction blocked moves (row - 1) (omega [distance]) (other above below =>
-          free other above (omega [below])))
+        (walkUpTurn lab column obstruction blocked moves (row - 1) (arithmetic [distance]) (other above below =>
+          free other above (arithmetic [below])))
 
 --| Facing up with nothing above in the column: she walks off the top.
 theorem walkUpLeave ∀ (lab: Lab) (column row: Nat)
     (free: ∀ (other: Nat) => other < row → lab.obstructions.contains { row = other, column } = False):
     walk lab (Some { position = { row, column }, facing = Up }) (Succ row) = None :=
   match row with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ row =>
       Eq.trans
         (walkFirst lab
@@ -218,10 +222,10 @@ theorem walkUpLeave ∀ (lab: Lab) (column row: Nat)
           (stepMoves lab
             { position = { row = Succ row, column }, facing = Up }
             { row, column }
-            (aheadUp lab (Succ row) column omega)
-            (free row omega))
+            (aheadUp lab (Succ row) column arithmetic)
+            (free row arithmetic))
           (Succ row))
-        (walkUpLeave lab column row (other below => free other (omega [below])))
+        (walkUpLeave lab column row (other below => free other (arithmetic [below])))
 
 --| Facing down, with an obstruction below in the column and none between:
 --| she walks to just above it and turns right.
@@ -236,12 +240,12 @@ theorem walkDownTurn ∀ (lab: Lab) (column obstruction: Nat)
       = Some { position = { row = obstruction - 1, column }, facing = Left } :=
   match moves with
     | Zero =>
-      rewrite (omega [distance]: obstruction - 1 = row) in
+      rewrite (arithmetic [distance]: obstruction - 1 = row) then
         stepTurns lab
           { position = { row, column }, facing = Down }
           { row = row + 1, column }
-          (aheadDown lab row column (omega [distance, fits]))
-          (rewrite (omega [distance]: row + 1 = obstruction) in blocked)
+          (aheadDown lab row column (arithmetic [distance, fits]))
+          (rewrite (arithmetic [distance]: row + 1 = obstruction) then blocked)
     | Succ moves =>
       Eq.trans
         (walkFirst lab
@@ -250,11 +254,11 @@ theorem walkDownTurn ∀ (lab: Lab) (column obstruction: Nat)
           (stepMoves lab
             { position = { row, column }, facing = Down }
             { row = row + 1, column }
-            (aheadDown lab row column (omega [distance, fits]))
-            (free (row + 1) (omega [distance]) (omega [distance])))
+            (aheadDown lab row column (arithmetic [distance, fits]))
+            (free (row + 1) (arithmetic [distance]) (arithmetic [distance])))
           (Succ moves))
-        (walkDownTurn lab column obstruction fits blocked moves (row + 1) (omega [distance]) (other above below =>
-          free other (omega [above]) below))
+        (walkDownTurn lab column obstruction fits blocked moves (row + 1) (arithmetic [distance]) (other above below =>
+          free other (arithmetic [above]) below))
 
 --| Facing down with nothing below in the column: she walks off the bottom.
 theorem walkDownLeave ∀ (lab: Lab) (column moves row: Nat)
@@ -265,7 +269,9 @@ theorem walkDownLeave ∀ (lab: Lab) (column moves row: Nat)
     walk lab (Some { position = { row, column }, facing = Down }) (Succ moves) = None :=
   match moves with
     | Zero =>
-      stepLeaves lab { position = { row, column }, facing = Down } (aheadDownEdge lab row column (omega [distance]))
+      stepLeaves lab
+        { position = { row, column }, facing = Down }
+        (aheadDownEdge lab row column (arithmetic [distance]))
     | Succ moves =>
       Eq.trans
         (walkFirst lab
@@ -274,11 +280,11 @@ theorem walkDownLeave ∀ (lab: Lab) (column moves row: Nat)
           (stepMoves lab
             { position = { row, column }, facing = Down }
             { row = row + 1, column }
-            (aheadDown lab row column (omega [distance]))
-            (free (row + 1) (omega [distance]) (omega [distance])))
+            (aheadDown lab row column (arithmetic [distance]))
+            (free (row + 1) (arithmetic [distance]) (arithmetic [distance])))
           (Succ moves))
-        (walkDownLeave lab column moves (row + 1) (omega [distance]) (other above below =>
-          free other (omega [above]) below))
+        (walkDownLeave lab column moves (row + 1) (arithmetic [distance]) (other above below =>
+          free other (arithmetic [above]) below))
 
 --| Facing right, with an obstruction to the right in the row and none
 --| between: she walks to just before it and turns right.
@@ -293,12 +299,12 @@ theorem walkRightTurn ∀ (lab: Lab) (row obstruction: Nat)
       = Some { position = { row, column = obstruction - 1 }, facing = Down } :=
   match moves with
     | Zero =>
-      rewrite (omega [distance]: obstruction - 1 = column) in
+      rewrite (arithmetic [distance]: obstruction - 1 = column) then
         stepTurns lab
           { position = { row, column }, facing = Right }
           { row, column = column + 1 }
-          (aheadRight lab row column (omega [distance, fits]))
-          (rewrite (omega [distance]: column + 1 = obstruction) in blocked)
+          (aheadRight lab row column (arithmetic [distance, fits]))
+          (rewrite (arithmetic [distance]: column + 1 = obstruction) then blocked)
     | Succ moves =>
       Eq.trans
         (walkFirst lab
@@ -307,11 +313,13 @@ theorem walkRightTurn ∀ (lab: Lab) (row obstruction: Nat)
           (stepMoves lab
             { position = { row, column }, facing = Right }
             { row, column = column + 1 }
-            (aheadRight lab row column (omega [distance, fits]))
-            (free (column + 1) (omega [distance]) (omega [distance])))
+            (aheadRight lab row column (arithmetic [distance, fits]))
+            (free (column + 1) (arithmetic [distance]) (arithmetic [distance])))
           (Succ moves))
-        (walkRightTurn lab row obstruction fits blocked moves (column + 1) (omega [distance]) (other after before =>
-          free other (omega [after]) before))
+        (walkRightTurn lab row obstruction fits blocked moves
+          (column + 1)
+          (arithmetic [distance])
+          (other after before => free other (arithmetic [after]) before))
 
 --| Facing right with nothing to the right in the row: she walks off the
 --| right edge.
@@ -323,7 +331,9 @@ theorem walkRightLeave ∀ (lab: Lab) (row moves column: Nat)
     walk lab (Some { position = { row, column }, facing = Right }) (Succ moves) = None :=
   match moves with
     | Zero =>
-      stepLeaves lab { position = { row, column }, facing = Right } (aheadRightEdge lab row column (omega [distance]))
+      stepLeaves lab
+        { position = { row, column }, facing = Right }
+        (aheadRightEdge lab row column (arithmetic [distance]))
     | Succ moves =>
       Eq.trans
         (walkFirst lab
@@ -332,11 +342,11 @@ theorem walkRightLeave ∀ (lab: Lab) (row moves column: Nat)
           (stepMoves lab
             { position = { row, column }, facing = Right }
             { row, column = column + 1 }
-            (aheadRight lab row column (omega [distance]))
-            (free (column + 1) (omega [distance]) (omega [distance])))
+            (aheadRight lab row column (arithmetic [distance]))
+            (free (column + 1) (arithmetic [distance]) (arithmetic [distance])))
           (Succ moves))
-        (walkRightLeave lab row moves (column + 1) (omega [distance]) (other after before =>
-          free other (omega [after]) before))
+        (walkRightLeave lab row moves (column + 1) (arithmetic [distance]) (other after before =>
+          free other (arithmetic [after]) before))
 
 --| Facing left, with an obstruction to the left in the row and none between:
 --| she walks to just after it and turns right.
@@ -350,12 +360,12 @@ theorem walkLeftTurn ∀ (lab: Lab) (row obstruction: Nat)
       = Some { position = { row, column = obstruction + 1 }, facing = Up } :=
   match moves with
     | Zero =>
-      rewrite (omega [distance]: obstruction + 1 = column) in
+      rewrite (arithmetic [distance]: obstruction + 1 = column) then
         stepTurns lab
           { position = { row, column }, facing = Left }
           { row, column = column - 1 }
-          (aheadLeft lab row column (omega [distance]))
-          (rewrite (omega [distance]: column - 1 = obstruction) in blocked)
+          (aheadLeft lab row column (arithmetic [distance]))
+          (rewrite (arithmetic [distance]: column - 1 = obstruction) then blocked)
     | Succ moves =>
       Eq.trans
         (walkFirst lab
@@ -364,11 +374,11 @@ theorem walkLeftTurn ∀ (lab: Lab) (row obstruction: Nat)
           (stepMoves lab
             { position = { row, column }, facing = Left }
             { row, column = column - 1 }
-            (aheadLeft lab row column (omega [distance]))
-            (free (column - 1) (omega [distance]) (omega [distance])))
+            (aheadLeft lab row column (arithmetic [distance]))
+            (free (column - 1) (arithmetic [distance]) (arithmetic [distance])))
           (Succ moves))
-        (walkLeftTurn lab row obstruction blocked moves (column - 1) (omega [distance]) (other after before =>
-          free other after (omega [before])))
+        (walkLeftTurn lab row obstruction blocked moves (column - 1) (arithmetic [distance]) (other after before =>
+          free other after (arithmetic [before])))
 
 --| Facing left with nothing to the left in the row: she walks off the left
 --| edge.
@@ -376,7 +386,7 @@ theorem walkLeftLeave ∀ (lab: Lab) (row column: Nat)
     (free: ∀ (other: Nat) => other < column → lab.obstructions.contains { row, column = other } = False):
     walk lab (Some { position = { row, column }, facing = Left }) (Succ column) = None :=
   match column with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ column =>
       Eq.trans
         (walkFirst lab
@@ -385,10 +395,10 @@ theorem walkLeftLeave ∀ (lab: Lab) (row column: Nat)
           (stepMoves lab
             { position = { row, column = Succ column }, facing = Left }
             { row, column }
-            (aheadLeft lab row (Succ column) omega)
-            (free column omega))
+            (aheadLeft lab row (Succ column) arithmetic)
+            (free column arithmetic))
           (Succ column))
-        (walkLeftLeave lab row column (other before => free other (omega [before])))
+        (walkLeftLeave lab row column (other before => free other (arithmetic [before])))
 
 --| From a guard on the map, `nextTurn` jumps to where the walk turns, and
 --| finds nothing exactly when she walks off: the four directions in turn.
@@ -406,98 +416,98 @@ theorem simulateAt ∀ (lab: Lab) (sightlines: Sightlines)
         | Some obstruction =>
           let nearest := Set.belowSome (sightlines.byColumn.getOr column Set.empty) row obstruction found
           let blocked: lab.obstructions.contains { row = obstruction, column } = True :=
-            Eq.trans (Eq.sym (And.right (represents obstruction column))) (And.left nearest)
+            Eq.trans (Eq.flipped (represents obstruction column).right) nearest.left
           let free := (other: Nat) (above: obstruction < other) (below: other < row) =>
-            Eq.trans (Eq.sym (And.right (represents other column))) (And.right (And.right nearest) other above below)
+            Eq.trans (Eq.flipped (represents other column).right) (And.right nearest.right other above below)
           let walked :=
-            walkUpTurn lab column obstruction blocked
-              (row - obstruction - 1)
-              row
-              (omega [And.left (And.right nearest)])
-              free
-          Both (next turned => Witness (Succ (row - obstruction - 1)) (Both omega (Eq.trans walked turned))) (none =>
-            Void.exfalso (Option.someNotNone _ none))
+            walkUpTurn lab column obstruction blocked (row - obstruction - 1) row (arithmetic [nearest.right.left]) free
+          Both
+            (next turned => Witness (Succ (row - obstruction - 1)) (Both arithmetic (Eq.trans walked turned)))
+            (none => Void.impossible (Option.someNotNone _ none))
         | None =>
           let free := (other: Nat) (below: other < row) =>
             Eq.trans
-              (Eq.sym (And.right (represents other column)))
+              (Eq.flipped (represents other column).right)
               (Set.belowNone (sightlines.byColumn.getOr column Set.empty) row found other below)
-          Both (next turned => Void.exfalso (Option.noneNotSome next turned)) (none =>
+          Both (next turned => (Option.noneNotSome next turned).impossible) (none =>
             Witness (Succ row) (walkUpLeave lab column row free))
     | { position = { row, column }, facing = Right } =>
       match found: (sightlines.byRow.getOr row Set.empty).above column with
         | Some obstruction =>
           let nearest := Set.aboveSome (sightlines.byRow.getOr row Set.empty) column obstruction found
           let blocked: lab.obstructions.contains { row, column = obstruction } = True :=
-            Eq.trans (Eq.sym (And.left (represents row obstruction))) (And.left nearest)
-          let fits: obstruction < lab.width := omega [mapped { row, column = obstruction } blocked]
+            Eq.trans (Eq.flipped (represents row obstruction).left) nearest.left
+          let fits: obstruction < lab.width := arithmetic [mapped { row, column = obstruction } blocked]
           let free := (other: Nat) (after: column < other) (before: other < obstruction) =>
-            Eq.trans (Eq.sym (And.left (represents row other))) (And.right (And.right nearest) other after before)
+            Eq.trans (Eq.flipped (represents row other).left) (And.right nearest.right other after before)
           let walked :=
             walkRightTurn lab row obstruction fits blocked
               (obstruction - column - 1)
               column
-              (omega [And.left (And.right nearest)])
+              (arithmetic [nearest.right.left])
               free
-          Both (next turned => Witness (Succ (obstruction - column - 1)) (Both omega (Eq.trans walked turned))) (none =>
-            Void.exfalso (Option.someNotNone _ none))
+          Both
+            (next turned => Witness (Succ (obstruction - column - 1)) (Both arithmetic (Eq.trans walked turned)))
+            (none => Void.impossible (Option.someNotNone _ none))
         | None =>
           let free := (other: Nat) (after: column < other) (before: other < lab.width) =>
             Eq.trans
-              (Eq.sym (And.left (represents row other)))
+              (Eq.flipped (represents row other).left)
               (Set.aboveNone (sightlines.byRow.getOr row Set.empty) column found other after)
-          Both (next turned => Void.exfalso (Option.noneNotSome next turned)) (none =>
+          Both (next turned => (Option.noneNotSome next turned).impossible) (none =>
             Witness
               (Succ (lab.width - column - 1))
-              (walkRightLeave lab row (lab.width - column - 1) column (omega [inside]) free))
+              (walkRightLeave lab row (lab.width - column - 1) column (arithmetic [inside]) free))
     | { position = { row, column }, facing = Down } =>
       match found: (sightlines.byColumn.getOr column Set.empty).above row with
         | Some obstruction =>
           let nearest := Set.aboveSome (sightlines.byColumn.getOr column Set.empty) row obstruction found
           let blocked: lab.obstructions.contains { row = obstruction, column } = True :=
-            Eq.trans (Eq.sym (And.right (represents obstruction column))) (And.left nearest)
-          let fits: obstruction < lab.height := omega [mapped { row = obstruction, column } blocked]
+            Eq.trans (Eq.flipped (represents obstruction column).right) nearest.left
+          let fits: obstruction < lab.height := arithmetic [mapped { row = obstruction, column } blocked]
           let free := (other: Nat) (after: row < other) (before: other < obstruction) =>
-            Eq.trans (Eq.sym (And.right (represents other column))) (And.right (And.right nearest) other after before)
+            Eq.trans (Eq.flipped (represents other column).right) (And.right nearest.right other after before)
           let walked :=
             walkDownTurn lab column obstruction fits blocked
               (obstruction - row - 1)
               row
-              (omega [And.left (And.right nearest)])
+              (arithmetic [nearest.right.left])
               free
-          Both (next turned => Witness (Succ (obstruction - row - 1)) (Both omega (Eq.trans walked turned))) (none =>
-            Void.exfalso (Option.someNotNone _ none))
+          Both
+            (next turned => Witness (Succ (obstruction - row - 1)) (Both arithmetic (Eq.trans walked turned)))
+            (none => Void.impossible (Option.someNotNone _ none))
         | None =>
           let free := (other: Nat) (after: row < other) (before: other < lab.height) =>
             Eq.trans
-              (Eq.sym (And.right (represents other column)))
+              (Eq.flipped (represents other column).right)
               (Set.aboveNone (sightlines.byColumn.getOr column Set.empty) row found other after)
-          Both (next turned => Void.exfalso (Option.noneNotSome next turned)) (none =>
+          Both (next turned => (Option.noneNotSome next turned).impossible) (none =>
             Witness
               (Succ (lab.height - row - 1))
-              (walkDownLeave lab column (lab.height - row - 1) row (omega [inside]) free))
+              (walkDownLeave lab column (lab.height - row - 1) row (arithmetic [inside]) free))
     | { position = { row, column }, facing = Left } =>
       match found: (sightlines.byRow.getOr row Set.empty).below column with
         | Some obstruction =>
           let nearest := Set.belowSome (sightlines.byRow.getOr row Set.empty) column obstruction found
           let blocked: lab.obstructions.contains { row, column = obstruction } = True :=
-            Eq.trans (Eq.sym (And.left (represents row obstruction))) (And.left nearest)
+            Eq.trans (Eq.flipped (represents row obstruction).left) nearest.left
           let free := (other: Nat) (after: obstruction < other) (before: other < column) =>
-            Eq.trans (Eq.sym (And.left (represents row other))) (And.right (And.right nearest) other after before)
+            Eq.trans (Eq.flipped (represents row other).left) (And.right nearest.right other after before)
           let walked :=
             walkLeftTurn lab row obstruction blocked
               (column - obstruction - 1)
               column
-              (omega [And.left (And.right nearest)])
+              (arithmetic [nearest.right.left])
               free
-          Both (next turned => Witness (Succ (column - obstruction - 1)) (Both omega (Eq.trans walked turned))) (none =>
-            Void.exfalso (Option.someNotNone _ none))
+          Both
+            (next turned => Witness (Succ (column - obstruction - 1)) (Both arithmetic (Eq.trans walked turned)))
+            (none => Void.impossible (Option.someNotNone _ none))
         | None =>
           let free := (other: Nat) (before: other < column) =>
             Eq.trans
-              (Eq.sym (And.left (represents row other)))
+              (Eq.flipped (represents row other).left)
               (Set.belowNone (sightlines.byRow.getOr row Set.empty) column found other before)
-          Both (next turned => Void.exfalso (Option.noneNotSome next turned)) (none =>
+          Both (next turned => (Option.noneNotSome next turned).impossible) (none =>
             Witness (Succ column) (walkLeftLeave lab row column free))
 
 --| Sightlines that represent a lab's obstructions, all on the map, simulate
@@ -513,10 +523,11 @@ theorem insertContains ∀ (obstructions: Set Position) (added position: Positio
     (isAt added.row added.column position || obstructions.contains position)
       = (obstructions.insert added).contains position :=
   match here: isAt added.row added.column position with
-    | True => rewrite isAtSound added position here in Eq.sym (Set.containsInsert added obstructions)
+    | True => rewrite isAtSound added position here then Eq.flipped (Set.containsInsert added obstructions)
     | False =>
-      let other: position ≠ added := same => Bool.falseNotTrue (Eq.trans (Eq.sym here) (rewrite same in isAtSelf added))
-      rewrite Set.containsInsertOther obstructions added position other in rfl
+      let other: position ≠ added := same =>
+        Bool.falseNotTrue (Eq.trans here.flipped (rewrite same then isAtSelf added))
+      rewrite Set.containsInsertOther obstructions added position other then byComputing
 
 --| The program's sightlines with each new obstruction on the map simulate
 --| the walk in the lab with it, when the lab's obstructions are on the map.
@@ -538,5 +549,5 @@ theorem programSimulates ∀ (lab: Lab)
     (position has =>
       Bool.orElim
         (Eq.trans (insertContains lab.obstructions blocker position) has)
-        (here => rewrite isAtSound blocker position here in blockerInside)
+        (here => rewrite isAtSound blocker position here then blockerInside)
         (mapped position))

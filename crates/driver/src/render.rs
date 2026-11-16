@@ -75,6 +75,14 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
             out = indent_continuations(&out, &label.message);
         }
     }
+    // After the excerpt: ariadne's report is a box with room for notes
+    // only. One line for each fix that can be applied as it stands.
+    for fix in crate::fixes::fixes_of(sources, diagnostic) {
+        if fix.applicability == crate::fixes::Applicability::Certain {
+            out.push_str(&fix.try_line());
+            out.push('\n');
+        }
+    }
     out
 }
 

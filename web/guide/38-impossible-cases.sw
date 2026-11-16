@@ -13,12 +13,12 @@ def beats: Move -> Move -> Bool
   | _, _ => False
 
 theorem rockBeatsOnlyScissors ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs with
-  | Scissors => rfl
+  | Scissors => byComputing
 
 -- Try changing `beats Rock` to `beats Paper` above: then `theirs` can be
 -- `Rock`, and the compiler asks for that arm.
 
--- Writing those arms out with a proof (`| Rock => Void.exfalso …`) works,
+-- Writing those arms out with a proof (`| Rock => Void.impossible …`) works,
 -- but the checker warns that the case can't happen and fades the arm: it
 -- can be deleted.
 --
@@ -27,4 +27,4 @@ theorem rockBeatsOnlyScissors ∀ (theirs: Move) (h: beats Rock theirs): theirs 
 theorem rockBeatsOnlyScissorsAgain ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs, h with
   | Rock, ()
   | Paper, ()
-  | Scissors, _ => rfl
+  | Scissors, _ => byComputing

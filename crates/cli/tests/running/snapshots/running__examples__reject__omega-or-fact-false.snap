@@ -2,12 +2,12 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `probe.x + probe.dx < left`
+[E-ARITHMETIC] Error: `arithmetic` can't prove `probe.x + probe.dx < left`
     ╭─[ reject/omega-or-fact-false.sw:18:133 ]
     │
- 18 │ theorem pastStays (left: Int) (right: Int) (probe: Probe) (h: past left right probe = True): past left right (step probe) = True := omega
-    │                                                                                                                                     ──┬──  
-    │                                                                                                                                       ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+ 18 │ theorem pastStays (left: Int) (right: Int) (probe: Probe) (h: past left right probe = True): past left right (step probe) = True := arithmetic
+    │                                                                                                                                     ─────┬────  
+    │                                                                                                                                          ╰────── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
     │ 
     │ Note 1: facts: `probe.x < left` (case), `¬(right < probe.x + probe.dx)` (case)
     │ 

@@ -655,12 +655,16 @@ pub(crate) fn check_case(
     let mut out = Vec::new();
     let mut missing: Vec<Diagnostic> = Vec::new();
     let scrutinee = cx.show(&Value::Data(d, args.to_vec().into()));
+    let split_start = crate::arm_display::root_of(cx, &goal);
     for (c, (names, subtree)) in branches.iter().enumerate() {
         let mark = cx.mark();
         let saved_env = cx.env.clone();
         let saved_types = cx.types.clone();
         cx.e.decl.leaf_log.borrow_mut().path.push(c as u32);
-        let result = case_branch(cx, x, d, c, args, names, subtree, &goal, span, &scrutinee);
+        let split = (&split_start, &saved_env[..]);
+        let result = case_branch(
+            cx, x, d, c, args, names, subtree, &goal, span, &scrutinee, split,
+        );
         cx.e.decl.leaf_log.borrow_mut().path.pop();
         cx.reset(mark);
         cx.env = saved_env;
@@ -693,6 +697,7 @@ fn case_branch(
     goal: &Value,
     span: Span,
     scrutinee: &str,
+    split: SplitStart,
 ) -> Result<Option<Term>> {
     let g = cx.g();
     let ctor_name = g.data(d).ctors()[c].name.clone();
@@ -724,38 +729,51 @@ fn case_branch(
         Entered::Stuck(k, reason) => {
             Err(index_stuck(cx, x, &ctor_name, &k, &reason, span, scrutinee))
         }
-        Entered::Solved(goal) => match subtree {
-            Tree::Missing { columns, span, arm } => {
-                if let Some(term) = crate::impossible_case(cx, columns, &goal)? {
-                    return Ok(Some(term));
+        Entered::Solved(goal) => {
+            // Recorded for the display of the arms below ([`crate::arm_display`]).
+            let _split = crate::arm_display::enter_family_split(cx, split.0, x, split.1);
+            match subtree {
+                Tree::Missing { columns, span, arm } => {
+                    if let Some(term) = crate::impossible_case(cx, columns, &goal)? {
+                        return Ok(Some(term));
+                    }
+                    if let Some(missing) = number {
+                        return Err(missing.diagnostic(*span));
+                    }
+                    let ctor = &g.data(d).ctors()[c];
+                    Err(crate::missing::diagnostic(
+                        *span,
+                        vec![(arm.order.clone(), arm.pattern.clone())],
+                    )
+                    .with_note(format!(
+                        "here {} has type `{scrutinee}`, and `{}` can be one",
+                        subject(cx, x),
+                        ctor.name
+                    )))
                 }
-                if let Some(missing) = number {
-                    return Err(missing.diagnostic(*span));
+                Tree::Guard { .. }
+                    if let Some(Tree::Missing { columns, .. }) =
+                        crate::guard_chain_missing(subtree)
+                        && let Some(term) = crate::impossible_case(cx, columns, &goal)? =>
+                {
+                    // The arms are still checked, for their own errors.
+                    crate::check_for_errors(cx, subtree, &goal)?;
+                    Ok(Some(term))
                 }
-                let ctor = &g.data(d).ctors()[c];
-                Err(crate::missing::diagnostic(
-                    *span,
-                    vec![(arm.order.clone(), arm.pattern.clone())],
-                )
-                .with_note(format!(
-                    "here {} has type `{scrutinee}`, and `{}` can be one",
-                    subject(cx, x),
-                    ctor.name
-                )))
+                tree => check_tree(cx, tree, &goal).map(Some),
             }
-            Tree::Guard { .. }
-                if let Some(Tree::Missing { columns, .. }) =
-                    crate::guard_chain_missing(subtree)
-                    && let Some(term) = crate::impossible_case(cx, columns, &goal)? =>
-            {
-                // The arms are still checked, for their own errors.
-                crate::check_for_errors(cx, subtree, &goal)?;
-                Ok(Some(term))
-            }
-            tree => check_tree(cx, tree, &goal).map(Some),
-        },
+        }
     }
 }
+
+/// Where the splits of a case start, and the context before this one.
+type SplitStart<'a> = (
+    &'a (
+        Option<Rc<crate::arm_display::Split>>,
+        Rc<crate::arm_display::Root>,
+    ),
+    &'a [Value],
+);
 
 /// A missing case on a `Fin`, as a number (D1079): just `number` when
 /// `exact` (`FSucc` k times around `FZero` is k), else every number above

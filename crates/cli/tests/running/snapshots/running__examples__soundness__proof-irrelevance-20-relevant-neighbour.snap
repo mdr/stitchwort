@@ -2,16 +2,16 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
    ╭─[ soundness/proof-irrelevance-20-relevant-neighbour.sw:9:52 ]
    │
- 9 │     wrap x 100 [ok := p] = wrap y 100 [ok := p] := rfl
-   │                                                    ─┬─  
-   │                                                     ╰─── `wrap x 100` and `wrap y 100` aren't equal
+ 9 │     wrap x 100 [ok := p] = wrap y 100 [ok := p] := byComputing
+   │                                                    ─────┬─────  
+   │                                                         ╰─────── `wrap x 100` and `wrap y 100` aren't equal
    │ 
    │ Note 1: computing both sides gives `x.modNat 100` and `y.modNat 100`
    │ 
-   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
    │ 
    │ Note 3: this statement is false; a counterexample:
    │           x = 0

@@ -8,20 +8,20 @@ import Aoc.Year2020.Day07 (..)
 import Aoc.Year2020.Day07.Spec (ColourWritten, ContentWritten, ContentsWritten, RuleWritten, Word)
 import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, NonEmptyList, Parse, Result, Text, Void)
 
-theorem runsAsValue ∀ (p: () → {Parse} a) (read rest: List Char) (v w: a)
+theorem runsAsValue ∀ (p: () → {Parse Char} a) (read rest: List Char) (v w: a)
     (same: v = w)
     (runs: Parse.Runs p read rest v):
     Parse.Runs p read rest w :=
-  rewrite same at runs in runs
+  rewrite same at runs then runs
 
 theorem colourEta ∀ (colour: Colour): { shade = colour.shade, hue = colour.hue } = colour := match colour with
-  | { shade, hue } => rfl
+  | { shade, hue } => byComputing
 
 theorem ruleEta ∀ (rule: Rule): { colour = rule.colour, contents = rule.contents } = rule := match rule with
-  | { colour, contents } => rfl
+  | { colour, contents } => byComputing
 
 theorem contentEta ∀ (content: Content): { count = content.count, colour = content.colour } = content :=
-  match content with | { count, colour } => rfl
+  match content with | { count, colour } => byComputing
 
 --| A word of a colour, as long as what follows isn't a letter.
 theorem runsWord ∀ (text: Text)
@@ -32,7 +32,7 @@ theorem runsWord ∀ (text: Text)
     | Both nonEmpty letters =>
       let runs :=
         Parse.runsTakeWhile1 "a colour, 'a' to 'z'" Char.isAsciiLowercase text.toList rest nonEmpty letters stops
-      rewrite Text.fromToList text at runs in runs
+      rewrite Text.fromToList text at runs then runs
 
 theorem runsColour ∀ (read: List Char) (colourIs: Colour)
     (written: ColourWritten read colourIs) (rest: List Char)
@@ -40,33 +40,33 @@ theorem runsColour ∀ (read: List Char) (colourIs: Colour)
     Parse.Runs colour read rest colourIs :=
   match written with
     | Both split (Both shadeWord hueWord) =>
-      rewrite split in
+      rewrite split then
         runsAsValue colour _ rest _ colourIs
           (colourEta colourIs)
           (Parse.runsBind word _ colourIs.shade.toList
             ([' ', ..colourIs.hue.toList]) _
             rest
             colourIs.shade _
-            rfl
-            (runsWord colourIs.shade shadeWord _ rfl)
+            byComputing
+            (runsWord colourIs.shade shadeWord _ byComputing)
             (Parse.runsBind
               (() => Parse.char ' ') _
               [' ']
               colourIs.hue.toList _
               rest
               () _
-              rfl
+              byComputing
               (Parse.runsChar ' ' _)
               (Parse.runsBind word _ colourIs.hue.toList [] _ rest colourIs.hue _
-                (Eq.sym (List.appendNil _))
+                (List.appendNil _).flipped
                 (runsWord colourIs.hue hueWord rest stops)
                 (Parse.runsPure _ rest))))
 
 theorem bagStops ∀ (count: Nat) (rest: List Char):
     ((if count == 1 then " bag" else " bags").toList ++ rest).takeWhile Char.isAsciiLowercase = [] :=
   match count == 1 with
-    | True => rfl
-    | False => rfl
+    | True => byComputing
+    | False => byComputing
 
 theorem runsContent ∀ (read: List Char) (item: Content)
     (written: ContentWritten read item) (rest: List Char):
@@ -74,29 +74,29 @@ theorem runsContent ∀ (read: List Char) (item: Content)
   match written with
     | Witness digits (Witness colourRead (Both split (Both nonEmpty (Both digitsAll (Both countIs colourWritten))))) =>
       let sameItem: ({ count = Parse.digitsValue digits, colour = item.colour }: Content) = item :=
-        rewrite <- countIs in contentEta item
-      let split2 := rewrite countIs at split in split
-      rewrite split2 in
+        rewrite <- countIs then contentEta item
+      let split2 := rewrite countIs at split then split
+      rewrite split2 then
         runsAsValue content _ rest _ item sameItem
           (Parse.runsBind Parse.nat _ digits
             ([' ', ..colourRead] ++ (if Parse.digitsValue digits == 1 then " bag" else " bags").toList) _
             rest
             (Parse.digitsValue digits) _
-            rfl
-            (Parse.runsNat digits _ nonEmpty digitsAll rfl)
+            byComputing
+            (Parse.runsNat digits _ nonEmpty digitsAll byComputing)
             (Parse.runsBind
               (() => Parse.char ' ') _
               [' ']
               (colourRead ++ (if Parse.digitsValue digits == 1 then " bag" else " bags").toList) _
               rest
               () _
-              rfl
+              byComputing
               (Parse.runsChar ' ' _)
               (Parse.runsBind colour _ colourRead
                 (if Parse.digitsValue digits == 1 then " bag" else " bags").toList _
                 rest
                 item.colour _
-                rfl
+                byComputing
                 (runsColour colourRead item.colour colourWritten _ (bagStops (Parse.digitsValue digits) rest))
                 (Parse.runsBind
                   (() => Parse.text (if Parse.digitsValue digits == 1 then " bag" else " bags")) _
@@ -104,7 +104,7 @@ theorem runsContent ∀ (read: List Char) (item: Content)
                   [] _
                   rest
                   () _
-                  (Eq.sym (List.appendNil _))
+                  (List.appendNil _).flipped
                   (Parse.runsText _ rest)
                   (Parse.runsPure _ rest)))))
 
@@ -117,7 +117,7 @@ theorem runsContentList ∀ (read: List Char) (items: List Content) (listed: Non
       runsAsValue contentList read
         ['.', ..more] _
         items
-        (Eq.sym same2)
+        same2.flipped
         (Parse.runsMap
           (() => Parse.sepBy1 content (() => Parse.text ", "))
           NonEmptyList.toList
@@ -131,14 +131,14 @@ theorem runsContentList ∀ (read: List Char) (items: List Content) (listed: Non
             (read2 => True = True)
             ['.', ..more]
             (read2 v after ok end => runsContent read2 v ok after)
-            (read2 after u isSeparator => rewrite isSeparator in Parse.runsText ", " after)
-            (read2 u isSeparator => rewrite isSeparator in List.consNotNil ',' [' '])
-            (read2 after u isSeparator => rfl)
-            rfl
+            (read2 after u isSeparator => rewrite isSeparator then Parse.runsText ", " after)
+            (read2 u isSeparator => rewrite isSeparator then List.consNotNil ',' [' '])
+            (read2 after u isSeparator => byComputing)
+            byComputing
             (Parse.declinesSepStep content
               (() => Parse.text ", ")
               ['.', ..more]
-              (Parse.declinesText ", " ['.', ..more] rfl))
+              (Parse.declinesText ", " ['.', ..more] byComputing))
             read
             head
             tail
@@ -153,13 +153,13 @@ theorem listStartsWithDigit ∀ (read: List Char) (head: Content) (tail: List Co
       match firstWritten with
         | Witness digits (Witness colourRead (Both split2 (Both nonEmpty (Both digitsAll values)))) =>
           match digits, nonEmpty, digitsAll with
-            | [], nonEmpty2, digitsAll2 => Void.exfalso (nonEmpty2 rfl)
+            | [], nonEmpty2, digitsAll2 => (nonEmpty2 byComputing).impossible
             | [digit, ..more], nonEmpty2, digitsAll2 =>
               Witness digit
                 (Witness
                   ((more ++ ([' ', ..colourRead] ++ (if firstValue.count == 1 then " bag" else " bags").toList))
                     ++ nextRead)
-                  (Both (rewrite split, split2 in rfl) digitsAll2.left))
+                  (Both (rewrite split, split2 then byComputing) digitsAll2.left))
 
 --| "no other bags" doesn't start with a digit.
 theorem noOtherAbsent ∀ (digit: Char) (more: List Char)
@@ -167,14 +167,14 @@ theorem noOtherAbsent ∀ (digit: Char) (more: List Char)
     Text.stripPrefixChars "no other bags".toList [digit, ..more] = None :=
   match same: Text.sameChar 'n' digit with
     | True => cases
-    | False => rfl
+    | False => byComputing
 
 theorem runsContents ∀ (read: List Char) (items: List Content)
     (written: ContentsWritten read items) (more: List Char):
     Parse.Runs contents read ['.', ..more] items :=
   match written with
     | Inl (Both noOther same) =>
-      rewrite noOther, same in
+      rewrite noOther, same then
         Parse.runsOneOfFirst
           (() => Parse.before ([]: List Content) "no other bags")
           [contentList]
@@ -190,7 +190,7 @@ theorem runsContents ∀ (read: List Char) (items: List Content)
             ['.', ..more]
             ()
             []
-            (Eq.sym (List.appendNil _))
+            (List.appendNil _).flipped
             (Parse.runsText "no other bags" _)
             (Parse.runsPure _ _))
     | Inr (Witness listed (Both listedWritten same)) =>
@@ -210,34 +210,34 @@ theorem runsContents ∀ (read: List Char) (items: List Content)
                   (u => ([]: List Content))
                   (read ++ ['.', ..more])
                   (Parse.declinesText "no other bags" _
-                    (rewrite startsWith in noOtherAbsent digit (more2 ++ ['.', ..more]) isDigit)))
+                    (rewrite startsWith then noOtherAbsent digit (more2 ++ ['.', ..more]) isDigit)))
                 (runsContentList read items (NonEmptyList.cons head tail) listedWritten2 same more)
 
 theorem runsRule ∀ (read: List Char) (item: Rule) (written: RuleWritten read item): Parse.Runs rule read [] item :=
   match written with
     | Witness colourRead (Witness contentsRead (Both split (Both colourWritten contentsWritten))) =>
-      rewrite split in
+      rewrite split then
         runsAsValue rule _ [] _ item
           (ruleEta item)
           (Parse.runsBind colour _ colourRead
             (" bags contain ".toList ++ contentsRead ++ ['.']) _
             []
             item.colour _
-            rfl
-            (runsColour colourRead item.colour colourWritten _ rfl)
+            byComputing
+            (runsColour colourRead item.colour colourWritten _ byComputing)
             (Parse.runsBind
               (() => Parse.text " bags contain ") _
               " bags contain ".toList
               (contentsRead ++ ['.']) _
               []
               () _
-              rfl
+              byComputing
               (Parse.runsText " bags contain " _)
               (Parse.runsBind contents _ contentsRead
                 ['.'] _
                 []
                 item.contents _
-                rfl
+                byComputing
                 (runsContents contentsRead item.contents contentsWritten [])
                 (Parse.runsBind
                   (() => Parse.char '.') _
@@ -245,11 +245,11 @@ theorem runsRule ∀ (read: List Char) (item: Rule) (written: RuleWritten read i
                   [] _
                   []
                   () _
-                  (Eq.sym (List.appendNil _))
+                  (List.appendNil _).flipped
                   (Parse.runsChar '.' _)
                   (Parse.runsPure _ [])))))
 
-theorem rulesEta ∀ (rules: Rules): ({ all = rules.all }: Rules) = rules := match rules with | { all } => rfl
+theorem rulesEta ∀ (rules: Rules): ({ all = rules.all }: Rules) = rules := match rules with | { all } => byComputing
 
 --| Input whose lines are rules written out is read as those rules.
 theorem parseComplete ∀ (input: Text) (rules: Rules)
@@ -257,7 +257,8 @@ theorem parseComplete ∀ (input: Text) (rules: Rules)
     Fail.toResult (() => parseRules input) = Ok rules :=
   let lines: Fail.toResult (() => Parse.eachLine input rule) = Ok rules.all :=
     Parse.runsEachLine input rule rules.all (List.all2Weaken runsRule _ _ written)
-  rewrite Fail.toResultThen (() => Parse.eachLine input rule) (all => ({ all }: Rules)), lines, rulesEta rules in rfl
+  rewrite Fail.toResultThen (() => Parse.eachLine input rule) (all => ({ all }: Rules)), lines, rulesEta rules then
+    byComputing
 
 --| A line is written as at most one rule, because the parser reads it as one.
 theorem writtenUnique ∀ (chars: List Char) (a b: Rule)
@@ -266,7 +267,7 @@ theorem writtenUnique ∀ (chars: List Char) (a b: Rule)
     a = b :=
   Result.okInjective
     (Eq.trans
-      (Eq.sym (Parse.runsRun rule chars a (runsRule chars a writtenA)))
+      (Eq.flipped (Parse.runsRun rule chars a (runsRule chars a writtenA)))
       (Parse.runsRun rule chars b (runsRule chars b writtenB)))
 
 --| ... and an input is written as at most one set of rules.
@@ -274,4 +275,4 @@ theorem inputUnique ∀ (input: Text) (a b: Rules)
     (writtenA: List.All2 RuleWritten (input.lines.map Text.toList) a.all)
     (writtenB: List.All2 RuleWritten (input.lines.map Text.toList) b.all):
     a = b :=
-  Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))
+  Result.okInjective (Eq.trans (parseComplete input a writtenA).flipped (parseComplete input b writtenB))

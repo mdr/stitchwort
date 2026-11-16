@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -22,9 +22,9 @@ expression: json
         "message": "xs: List Nat\n⊢ xs.any isSmall = xs.any (n => isSmall n)",
         "range": [
           6,
-          74,
+          76,
           6,
-          75
+          77
         ]
       }
     ],
@@ -32,9 +32,9 @@ expression: json
     "notes": [],
     "range": [
       6,
-      74,
+      76,
       6,
-      75
+      77
     ],
     "severity": "goal"
   }

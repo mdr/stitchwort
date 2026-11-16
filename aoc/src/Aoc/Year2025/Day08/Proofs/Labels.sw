@@ -52,15 +52,15 @@ theorem sameLabelOfJoined ∀ (label: Nat → Nat) (xs: List (Nat, Nat))
     (h: Joined xs a b):
     label a = label b :=
   match b, h with
-    | a, Itself a => rfl
+    | a, Itself a => byComputing
     | b, Connected m => agree a b m
-    | b, Backwards j => Eq.sym (sameLabelOfJoined label xs agree b a j)
+    | b, Backwards j => Eq.flipped (sameLabelOfJoined label xs agree b a j)
     | c, Chain [b := m] j k =>
       Eq.trans (sameLabelOfJoined label xs agree a m j) (sameLabelOfJoined label xs agree m c k)
 
 --| The connection just added.
 theorem memLast ∀ (e: (Nat, Nat)) (xs: List (Nat, Nat)): List.Mem e (xs.append [e]) :=
-  List.anyAppendRight (y => y = e) xs [e] (Inl rfl)
+  List.anyAppendRight (y => y = e) xs [e] (Inl byComputing)
 
 --| A connection of `xs` then `e` is one of `xs`, or `e`.
 theorem memSnoc ∀ (a b: Nat) (e: (Nat, Nat)) (xs: List (Nat, Nat))
@@ -69,8 +69,8 @@ theorem memSnoc ∀ (a b: Nat) (e: (Nat, Nat)) (xs: List (Nat, Nat))
     goal :=
   match List.memAppend (a, b) xs [e] m with
     | Inl o => old o
-    | Inr (Inl h) => new (Both (Eq.sym (Eq.cong Pair.fst h)) (Eq.sym (Eq.cong Pair.snd h)))
-    | Inr (Inr v) => Void.exfalso v
+    | Inr (Inl h) => new (Both (Eq.cong Pair.fst h).flipped (Eq.cong Pair.snd h).flipped)
+    | Inr (Inr v) => v.impossible
 
 -- Labels ---------------------------------------------------------------------
 
@@ -90,13 +90,13 @@ theorem lookupBelow ∀ (b c s: Nat)
     (h: b < s):
     Map.lookupLast b (List.map (List.rangeFrom c s) (box => (box, box))) = None :=
   match c with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ c =>
-      rewrite lookupBelow b c (Succ s) omega in
+      rewrite lookupBelow b c (Succ s) arithmetic then
         match e: Ord.compare b s with
-          | Less => rfl
-          | Equal => omega [Nat.compareEqual b s e]
-          | Greater => rfl
+          | Less => byComputing
+          | Equal => arithmetic [Nat.compareEqual b s e]
+          | Greater => byComputing
 
 --| ... and each box from s on is its own label.
 theorem lookupRange ∀ (b c s: Nat)
@@ -104,22 +104,23 @@ theorem lookupRange ∀ (b c s: Nat)
     (h2: b < s + c):
     Map.lookupLast b (List.map (List.rangeFrom c s) (box => (box, box))) = Some b :=
   match c with
-    | Zero => omega
+    | Zero => arithmetic
     | Succ c =>
       match e: Nat.equal s b with
-        | True => rewrite <- e.read, lookupBelow s c (Succ s) omega, Ord.compareSelf s in rfl
-        | False => rewrite lookupRange b c (Succ s) omega omega in rfl
+        | True => rewrite <- e.read, lookupBelow s c (Succ s) arithmetic, Ord.compareSelf s then byComputing
+        | False => rewrite lookupRange b c (Succ s) arithmetic arithmetic then byComputing
 
 theorem storedAtStart ∀ (n b: Nat) (h: b < n): Map.get (Circuits.separate n).labels b = Some b :=
-  rewrite Map.getFromList b (List.map (List.range 0 n) (box => (box, box))) in lookupRange b n 0 omega h
+  rewrite Map.getFromList b (List.map (List.range 0 n) (box => (box, box))) then lookupRange b n 0 arithmetic h
 
-theorem labelAtStart ∀ (n b: Nat) (h: b < n): (Circuits.separate n).labelOf b = b := rewrite storedAtStart n b h in rfl
+theorem labelAtStart ∀ (n b: Nat) (h: b < n): (Circuits.separate n).labelOf b = b :=
+  rewrite storedAtStart n b h then byComputing
 
 theorem labelledAtStart ∀ (n: Nat): Labelled n [] (Circuits.separate n) := {
-  stored = b h => rewrite storedAtStart n b h in rfl,
-  inRange = a b m => Void.exfalso m,
-  agree = a b m => Void.exfalso m,
-  labelJoined = b h => rewrite labelAtStart n b h in Itself b
+  stored = b h => rewrite storedAtStart n b h then byComputing,
+  inRange = a b m => m.impossible,
+  agree = a b m => m.impossible,
+  labelJoined = b h => rewrite labelAtStart n b h then Itself b
 }
 
 -- A join keeps the four facts ------------------------------------------------
@@ -133,32 +134,32 @@ def moved (c: Circuits) (f s: Nat): Circuits :=
   { labels = c.labels |> Map.map (relabel (c.labelOf f) (c.labelOf s)), count = c.count - 1 }
 
 theorem joinSame ∀ (c: Circuits) (f s: Nat) (same: (c.labelOf f == c.labelOf s) = True): c.join f s = c :=
-  rewrite same in rfl
+  rewrite same then byComputing
 
 theorem joinDiffers ∀ (c: Circuits) (f s: Nat)
     (differ: (c.labelOf f == c.labelOf s) = False):
     c.join f s = moved c f s :=
-  rewrite differ in rfl
+  rewrite differ then byComputing
 
 --| The new labels: the old ones, relabelled.
 theorem movedStored ∀ (c: Circuits) (f s n: Nat)
     (stored: ∀ (b: Nat) => b < n → c.labels.get b = Some (c.labelOf b)) (b: Nat)
     (h: b < n):
     Map.get (moved c f s).labels b = Some (relabel (c.labelOf f) (c.labelOf s) (c.labelOf b)) :=
-  rewrite Map.getMap c.labels b (relabel (c.labelOf f) (c.labelOf s)), stored b h in rfl
+  rewrite Map.getMap c.labels b (relabel (c.labelOf f) (c.labelOf s)), stored b h then byComputing
 
 theorem movedLabel ∀ (c: Circuits) (f s n: Nat)
     (stored: ∀ (b: Nat) => b < n → c.labels.get b = Some (c.labelOf b)) (b: Nat)
     (h: b < n):
     (moved c f s).labelOf b = relabel (c.labelOf f) (c.labelOf s) (c.labelOf b) :=
-  rewrite movedStored c f s n stored b h in rfl
+  rewrite movedStored c f s n stored b h then byComputing
 
 --| s's label stays, f's moves to it.
 theorem relabelTo ∀ (from to: Nat) (differ: (from == to) = False): relabel from to to = to := match g: to == from with
-  | True => Void.exfalso (differ.read (Eq.sym g.read))
-  | False => rfl
+  | True => (differ.read g.read.flipped).impossible
+  | False => byComputing
 
-theorem relabelFrom ∀ (from to: Nat): relabel from to from = to := rewrite DecEq.refl from in rfl
+theorem relabelFrom ∀ (from to: Nat): relabel from to from = to := rewrite DecEq.refl from then byComputing
 
 theorem labelledMoved ∀ (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f s: Nat)
     (hf: f < n)
@@ -168,34 +169,35 @@ theorem labelledMoved ∀ (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f s: N
     Labelled n (done.append [(f, s)]) (moved c f s) :=
   let ranged: ∀ (a b: Nat) => List.Mem (a, b) (List.append done [(f, s)]) → (a < n) ∧ (b < n) := a b m =>
     memSnoc a b (f, s) done m ((a < n) ∧ (b < n)) (o => inv.inRange a b o) (e =>
-      Both (rewrite And.left e in hf) (rewrite And.right e in hs))
+      Both (rewrite And.left e then hf) (rewrite And.right e then hs))
   let more: ∀ (a b: Nat) => Joined done a b → Joined (List.append done [(f, s)]) a b := a b j =>
     joinedAppend done [(f, s)] a b j
   {
-    stored = b h => rewrite movedStored c f s n inv.stored b h in rfl,
+    stored = b h => rewrite movedStored c f s n inv.stored b h then byComputing,
     inRange = ranged,
     agree = a b m =>
       let both := ranged a b m
-      rewrite movedLabel c f s n inv.stored a (And.left both), movedLabel c f s n inv.stored b (And.right both) in
+      rewrite movedLabel c f s n inv.stored a both.left, movedLabel c f s n inv.stored b both.right then
         memSnoc a b
           (f, s)
           done
           m
           (relabel (c.labelOf f) (c.labelOf s) (c.labelOf a) = relabel (c.labelOf f) (c.labelOf s) (c.labelOf b))
-          (o => rewrite inv.agree a b o in rfl)
+          (o => rewrite inv.agree a b o then byComputing)
           (ab =>
             rewrite And.left ab,
                 And.right ab,
                 relabelFrom (c.labelOf f) (c.labelOf s),
-                relabelTo (c.labelOf f) (c.labelOf s) differ in
-              rfl),
+                relabelTo (c.labelOf f) (c.labelOf s) differ then
+              byComputing),
     labelJoined = b h =>
-      rewrite movedLabel c f s n inv.stored b h in
+      rewrite movedLabel c f s n inv.stored b h then
         match g: c.labelOf b == c.labelOf f with
           | True =>
             -- b is in f's circuit: b to its label, which is f's, back to
             -- f, along the new connection to s, and on to s's label.
-            let toF: Joined done b f := Chain (inv.labelJoined b h) (rewrite g.read in Backwards (inv.labelJoined f hf))
+            let toF: Joined done b f :=
+              Chain (inv.labelJoined b h) (rewrite g.read then Backwards (inv.labelJoined f hf))
             Chain (more b f toF) (Chain (Connected (memLast (f, s) done)) (more s (c.labelOf s) (inv.labelJoined s hs)))
           | False => more b (c.labelOf b) (inv.labelJoined b h)
   }
@@ -212,10 +214,10 @@ theorem labelledJoin ∀ (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f s: Na
         stored = inv.stored,
         inRange = a b m =>
           memSnoc a b (f, s) done m ((a < n) ∧ (b < n)) (o => inv.inRange a b o) (ab =>
-            Both (rewrite And.left ab in hf) (rewrite And.right ab in hs)),
+            Both (rewrite And.left ab then hf) (rewrite And.right ab then hs)),
         agree = a b m =>
           memSnoc a b (f, s) done m (c.labelOf a = c.labelOf b) (o => inv.agree a b o) (ab =>
-            rewrite And.left ab, And.right ab in e.read),
+            rewrite And.left ab, ab.right then e.read),
         labelJoined = b h => joinedAppend done [(f, s)] b (c.labelOf b) (inv.labelJoined b h)
       }
     | False => labelledMoved n done c f s hf hs e inv
@@ -226,12 +228,12 @@ theorem labelledJoinAll ∀ (n: Nat) (rest done: List (Nat, Nat)) (c: Circuits)
     (inv: Labelled n done c):
     Labelled n (done.append rest) (joinAll c rest) :=
   match rest with
-    | [] => rewrite List.appendNil done in inv
+    | [] => rewrite List.appendNil done then inv
     | [(f, s), ..rest] =>
       match r: boxesBelow n (f, s) with
         | True =>
           let Both hf hs := r
-          rewrite <- List.appendAssoc done [(f, s)] rest in
+          rewrite <- List.appendAssoc done [(f, s)] rest then
             labelledJoinAll n rest (List.append done [(f, s)]) (c.join f s) ok (labelledJoin n done c f s hf hs inv)
 
 -- The label theorem -----------------------------------------------------------
@@ -242,8 +244,8 @@ theorem labelsTellOf ∀ (n: Nat) (done: List (Nat, Nat)) (c: Circuits)
     Tells n done (a b => c.labelOf a == c.labelOf b) :=
   a b ha hb =>
     {
-      forward = same => Chain (inv.labelJoined a ha) (rewrite same.read in Backwards (inv.labelJoined b hb)),
-      backward = j => rewrite sameLabelOfJoined c.labelOf done inv.agree a b j in DecEq.refl (c.labelOf b)
+      forward = same => Chain (inv.labelJoined a ha) (rewrite same.read then Backwards (inv.labelJoined b hb)),
+      backward = j => rewrite sameLabelOfJoined c.labelOf done inv.agree a b j then DecEq.refl (c.labelOf b)
     }
 
 --| After joining any connections between the boxes 0 to n - 1, in order, two

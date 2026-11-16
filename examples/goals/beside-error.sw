@@ -3,4 +3,4 @@
 -- checked independently.
 theorem zeroMul ∀ (n: Nat): 0 * n = n * 0 := match n with
   | Zero => ?
-  | Succ k => rfl
+  | Succ k => byComputing

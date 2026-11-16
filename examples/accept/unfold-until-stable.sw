@@ -21,7 +21,7 @@ def countdown: Nat → Option (Pair Nat Nat)
 -- `shrinks` for it: whatever step `countdown` takes from `x`, the new seed
 -- is smaller. A step is `Some (MkPair v y)`, so `y` is the `k` it made.
 theorem countdownShrinks ∀ (x y v: Nat) (h: countdown x = Some (MkPair v y)): y < x := match x with
-  | Zero => Void.exfalso (Option.noneNotSome (MkPair v y) h)
+  | Zero => Void.impossible (Option.noneNotSome (MkPair v y) h)
   | Succ k =>
     let e := Pair.mkInjectiveSnd (Option.someInjective h)
     Nat.ltCongLeft k y (Succ k) e (Nat.leRefl (Succ k))
@@ -35,7 +35,7 @@ test "unfold, nothing to do" := countdownFrom 0 == []
 def drain (water: Nat): Nat := water - 1
 
 theorem drainShrinks ∀ (water: Nat) (empty: drain water ≠ water): drain water < water := match water with
-  | Zero => Void.exfalso (empty rfl)
+  | Zero => (empty byComputing).impossible
   | Succ left => Nat.leRefl (Succ left)
 
 def settle (water: Nat): Nat := Nat.iterateUntilStable water drain (w => w) drainShrinks
@@ -47,7 +47,7 @@ theorem settleIsStable ∀ (water: Nat): drain (settle water) = settle water :=
   Nat.iterateUntilStableFixed water drain (w => w) drainShrinks
 
 -- A value that is already stable is the answer.
-theorem settleStays: settle 0 = 0 := Nat.iterateUntilStableStable 0 drain (w => w) drainShrinks rfl
+theorem settleStays: settle 0 = 0 := Nat.iterateUntilStableStable 0 drain (w => w) drainShrinks byComputing
 
 def main(): {IO} () :=
   IO.print ("countdown sum: " ++ Nat.toText (List.sum (countdownFrom 5)))

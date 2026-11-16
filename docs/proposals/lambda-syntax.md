@@ -141,23 +141,23 @@ brackets.
 **[checked]** against `docs/syntax.md` and `crates/syntax/src/parser.rs` at `db3d043`:
 
 - **Form.** `\`, then one or more parameters side by side, then `=>`, then the body
-  (`fn lambda`, `parser.rs:1339`). A parameter is a name, `_`, an annotated group `(x: A)` or
+  (`fn lambda`, `parser.rs`). A parameter is a name, `_`, an annotated group `(x: A)` or
   `(x y: A)` (SW-19, read by the definition header's `header_param`,
-  `parser/declarations.rs:279`, after `annotated_param_ahead`, `parser.rs:1436`), or a pattern
+  `parser/declarations.rs:279`, after `annotated_param_ahead`, `parser.rs`), or a pattern
   starting with `(`, `{`, a constructor or a number: `\x (a, b) => …`, `\{ name, .. } => name`.
 - **Patterns.** A lambda with a pattern parameter becomes a lambda over a fresh name
   (`%arg0`) whose body is a one-alternative `match`, which must cover every value.
 - **Typed parameters** (SW-19) become `Expr::TypedLam`, one per name; a run of untyped ones is
   one `Expr::Lam`.
 - **Where a lambda may start.** Only at the start of an expression (`expr_inline`,
-  `parser.rs:1646`) or right after `|>` (`pipe_chain`, `parser.rs:1808`). It isn't an atom, so
+  `parser.rs`) or right after `|>` (`pipe_chain`, `parser.rs`). It isn't an atom, so
   as an argument it needs brackets: `List.map (\x => x + 1) xs`.
 - **How far it reaches.** The body is a whole expression, so it extends as far right as it
   can. After `|>`, a lambda takes the rest of the pipeline.
 - **`=>` means "the patterns end here, what follows is the result"** in arms, `match`,
   handlers and lambdas; `->` is only the function type (declaration-syntax proposal §2.11).
 - **Readings of `(`**: `(x: Nat) -> B` is a function type, found by scanning to the matching
-  `)` and looking for `->` (`is_pi_binder`, `parser.rs:1704`); `(x: Nat)` without it is an
+  `)` and looking for `->` (`is_pi_binder`, `parser.rs`); `(x: Nat)` without it is an
   annotation; `(a, b)` is a tuple or tuple type; `(e)` is grouping.
 - **Implicit parameters.** When a term is checked against `[a: Type] -> …`, the checker
   introduces the implicit parameter itself, under a hidden name (`check.rs:1211`,
@@ -361,7 +361,7 @@ after `:=`, `=>` (arms, alternatives, handlers, another lambda), `then`, `else`,
 
 `[a: Type] (x: a) => x` fits the form with no extra rules: a `[ name+ :` group is a parameter,
 read by `header_param` as in `def id [a: Type] (x: a): a := x`, and `[auto h: P]` likewise. The
-lookahead already exists (`is_implicit_binder`, `parser.rs:1671`), and the run rule in §5
+lookahead already exists (`is_implicit_binder`, `parser.rs`), and the run rule in §5
 tells `[a: Type] (x: a) => x` from the function type `[a: Type] -> a -> a` by what follows
 the run.
 
@@ -405,7 +405,7 @@ At a **lambda position**, which is the start of an expression (`expr_inline`) or
    matching closing bracket in one step.
 2. It repeats while the next token is a parameter token **and belongs to the current
    expression by the parser's existing layout rule**: that is, while it isn't a "stop"
-   (`is_stop`, `parser.rs:289`: a token starting a line at or left of the enclosing block's
+   (`is_stop`, `parser.rs`: a token starting a line at or left of the enclosing block's
    column, or ending a `calc` step or `rewrite` rule). Line breaks in between don't matter by
    themselves; a parameter on a further-indented continuation line continues the run, exactly
    as an argument on such a line continues an application.
@@ -568,12 +568,16 @@ was meant to be the function being called). Proposed:
   1. the lambda has two or more parameters, the first a plain name (not `_`, not a group);
   2. that name, resolved in the scope **around** the lambda (before the lambda's own binder
      shadows it, using the same resolution as any name), refers to a function: a top-level
-     definition, an import, an ability operation, or a local variable whose **resolved type**
-     is a function type (after unfolding definitions, as for any type that's compared).
+     definition, an import, an ability operation whose first argument is a function, or a local
+     variable whose **resolved type** is a function type (after unfolding definitions, as for any
+     type that's compared).
 
   Message: "this lambda's first parameter `map` hides the function `map`"; note: "if you meant
   to pass a lambda to `map`, put it in brackets: `map (x => …)`; otherwise rename the
   parameter".
+  An ability operation counts only when its first argument is itself a function: `span total =>
+  …` could mean `span (total => …)`, but a spec's `read value => …` can't mean `read (value =>
+  …)` when `read` takes a path (SW-3453).
 - **A note on errors.** When the same two conditions hold and an error is reported inside the
   lambda or at it (for example "this is a function, but the expected type is `List Nat`", or
   the body's `x + 1 xs` failing), the error gets the same note.

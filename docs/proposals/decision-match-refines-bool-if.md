@@ -1,8 +1,9 @@
 # Proposal: a `match` on a decision and an `if` that tests its `Bool`
 
 **Status:** draft 1, 6 November 2026. Ticket SW-1694 (from SW-1688), started
-under D2518. Nothing built. Open decisions: D2525 to D2527
-([§5](#5-decisions-for-matt)). Code references were read at `e0f9d7809`; no
+under D2518. D2525-D2527 were decided on 6 Nov; option (a) is built
+(`W-MATCH-DECISION-IF`, SW-1719), option (d3) is open (SW-1720,
+[§5](#5-decisions-for-matt)). Code references were read at `e0f9d7809`; no
 program was run for this note (D2518: read and write only), so everything
 about behaviour is read from the source and the SW-1688 commit, not
 measured.

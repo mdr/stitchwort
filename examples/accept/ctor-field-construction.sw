@@ -5,11 +5,15 @@
 
 import Std (Eq, Int, IO, List, Nat, Option, Pair)
 
-type Shape = | Dot { ref: Nat, id: Text } | Circle { ref: Nat, id: Text, text: Text }
+type Shape =
+  | Dot { ref: Nat, id: Text }
+  | Circle { ref: Nat, id: Text, text: Text }
 
 type Item = { name: Text, price: Nat }
 
-type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons [n: Nat] { x: a, xs: Vec a n }: Vec a (Succ n)
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons [n: Nat] { x: a, xs: Vec a n }: Vec a (Succ n)
 
 type Pos = | MkPos { n: Nat, ok: 0 < n }
 
@@ -24,7 +28,7 @@ def idOf: Shape → Text
 
 test "any order is the positional form" := Circle { text = "t", id = "a", ref = 1 } == Circle 1 "a" "t"
 
-theorem sameTerm: Circle { id = "a", text = "t", ref = 1 } = Circle 1 "a" "t" := rfl
+theorem sameTerm: Circle { id = "a", text = "t", ref = 1 } = Circle 1 "a" "t" := byComputing
 
 test "punning" := idOf (circle "z") == "z"
 
@@ -32,7 +36,7 @@ test "punning" := idOf (circle "z") == "z"
 def one: Vec Int 1 := VCons { x = 1, xs = VNil }
 
 -- A proof field is an explicit field: it is given.
-def three: Pos := MkPos { n = 3, ok = omega }
+def three: Pos := MkPos { n = 3, ok = arithmetic }
 
 -- A parameterised type; fields nest.
 def boxed: Box (Option Shape) := MkBox { label = "b", inner = Some (Dot { id = "d", ref = 0 }) }

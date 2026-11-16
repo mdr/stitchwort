@@ -11,4 +11,4 @@ def halfOrZero (n: Nat): Nat := match even: n % 2 == 0 with
     halfOf n evenEq
   | False => 0
 
-theorem halfOrZeroFour: halfOrZero 4 = 2 := rfl
+theorem halfOrZeroFour: halfOrZero 4 = 2 := byComputing

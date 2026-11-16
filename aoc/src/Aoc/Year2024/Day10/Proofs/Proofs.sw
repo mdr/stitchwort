@@ -33,7 +33,7 @@ theorem endsAndSteps ∀ (map: TopographicMap) (from: Position) (rest: List Posi
 --| A hiking trail is a start at height 0 and a climb from it.
 theorem trailCons ∀ (map: TopographicMap) (start: Position) (rest: List Position):
     isHikingTrail map [start, ..rest] = (map.heightAt start == Some 0 && climbs map start rest) :=
-  rewrite <- endsAndSteps map start rest in rfl
+  rewrite <- endsAndSteps map start rest then byComputing
 
 --| Where a climb ends is a 9.
 theorem endHeight ∀ (map: TopographicMap) (from: Position) (rest: List Position) (end: Position)
@@ -41,7 +41,7 @@ theorem endHeight ∀ (map: TopographicMap) (from: Position) (rest: List Positio
     (last: [from, ..rest].last = Some end):
     map.heightAt end = Some 9 :=
   match rest with
-    | [] => rewrite <- Option.someInjective last in climbing.read
+    | [] => rewrite <- Option.someInjective last then climbing.read
     | [next, ..rest] =>
       let Both _ later := climbing
       endHeight map next rest end later last
@@ -56,13 +56,13 @@ theorem memTrailEnds ∀ (map: TopographicMap) (steps: Nat) (from end: Position)
         | True => {
           forward = member =>
             match member with
-              | Inl same => rewrite <- same, DecEq.refl (Some from) in rfl
-              | Inr none => Void.exfalso none,
+              | Inl same => rewrite <- same, DecEq.refl (Some from) then byComputing
+              | Inr none => none.impossible,
           backward = has =>
             match equal: Some from == Some end with
               | True => Inl (Option.someInjective (DecEq.sound equal))
         }
-        | False => { forward = member => Void.exfalso member, backward = has => cases }
+        | False => { forward = member => member.impossible, backward = has => cases }
     | Succ steps => {
       forward = member =>
         List.anyElim
@@ -80,9 +80,9 @@ theorem memTrailEnds ∀ (map: TopographicMap) (steps: Nat) (from end: Position)
                   next
                   [next, ..rest]
                   map.positions
-                  (And.left both)
+                  both.left
                   (List.memMap (pathsOf map steps) rest restIn (Cons next)))
-                (rewrite And.right both in climbing))),
+                (rewrite And.right both then climbing))),
       backward = has =>
         let Witness path (Both pathIn climbing) := has
         List.anyElim
@@ -113,46 +113,46 @@ theorem countTrailEnds ∀ (map: TopographicMap) (steps: Nat) (from: Position):
   match steps with
     | Zero =>
       match nine: map.heightAt from == Some 9 with
-        | True => rfl
-        | False => rfl
+        | True => byComputing
+        | False => byComputing
     | Succ steps =>
       rewrite List.countSumBy (pathsOf map (Succ steps)) (climbs map from),
           List.sumByFlatMap map.positions (path => Bool.toNat (climbs map from path)) (position =>
             pathsOf map steps |> .map (Cons position)),
           List.lengthFlatMap (map.trailEnds steps) (map.uphill from),
           <- List.sumByPerm _ _ (uphillPerm map from) (next => (map.trailEnds steps next).length),
-          List.sumByFilter map.positions (next => (map.trailEnds steps next).length) (isStep map from) in
+          List.sumByFilter map.positions (next => (map.trailEnds steps next).length) (isStep map from) then
         List.sumByCong map.positions
           (next => ((pathsOf map steps).map (Cons next)).sumBy (path => Bool.toNat (climbs map from path)))
           (next => if isStep map from next then (map.trailEnds steps next).length else 0)
           (next =>
-            rewrite List.sumByMap (pathsOf map steps) (path => Bool.toNat (climbs map from path)) (Cons next) in
+            rewrite List.sumByMap (pathsOf map steps) (path => Bool.toNat (climbs map from path)) (Cons next) then
               match step: isStep map from next with
                 | True =>
-                  rewrite <- countTrailEnds map steps next in
-                    Eq.sym (List.countSumBy (pathsOf map steps) (climbs map next))
-                | False => List.sumByZeroIntro (pathsOf map steps) _ (rest member => rfl))
+                  rewrite <- countTrailEnds map steps next then
+                    Eq.flipped (List.countSumBy (pathsOf map steps) (climbs map next))
+                | False => List.sumByZeroIntro (pathsOf map steps) _ (rest member => byComputing))
 
 --| From a 0, the spec's trails are the climbs.
 theorem ratingAtZero ∀ (map: TopographicMap) (start: Position)
     (zero: map.heightAt start = Some 0):
     (trailsFrom map start).length = (pathsOf map 9).count (climbs map start) :=
   rewrite List.lengthFilter ((pathsOf map 9).map (Cons start)) (isHikingTrail map),
-      List.countMap (pathsOf map 9) (isHikingTrail map) (Cons start) in
-    List.countCongMem _ _ _ (rest member => rewrite trailCons map start rest, zero in rfl)
+      List.countMap (pathsOf map 9) (isHikingTrail map) (Cons start) then
+    List.countCongMem _ _ _ (rest member => rewrite trailCons map start rest, zero then byComputing)
 
 --| No trail starts anywhere but a 0.
 theorem noTrailsOffZero ∀ (map: TopographicMap) (start: Position)
     (zero: (map.heightAt start == Some 0) = False):
     (trailsFrom map start).length = 0 :=
   rewrite List.lengthFilter ((pathsOf map 9).map (Cons start)) (isHikingTrail map),
-      List.countMap (pathsOf map 9) (isHikingTrail map) (Cons start) in
-    List.countNone (pathsOf map 9) _ (rest member => rewrite trailCons map start rest, zero in rfl)
+      List.countMap (pathsOf map 9) (isHikingTrail map) (Cons start) then
+    List.countNone (pathsOf map 9) _ (rest member => rewrite trailCons map start rest, zero then byComputing)
 
 theorem ratingCorrect ∀ (map: TopographicMap) (start: Position)
     (zero: map.heightAt start = Some 0):
     map.rating start = rating map start :=
-  Eq.trans (Eq.sym (countTrailEnds map 9 start)) (Eq.sym (ratingAtZero map start zero))
+  Eq.trans (countTrailEnds map 9 start).flipped (ratingAtZero map start zero).flipped
 
 --| From a 0, the 9s the search reaches are the ones the spec's trails reach.
 theorem scoreCorrect ∀ (map: TopographicMap) (start: Position)
@@ -161,7 +161,7 @@ theorem scoreCorrect ∀ (map: TopographicMap) (start: Position)
   let ends := map.trailEnds 9 start
   let reached := (nine: Position) =>
     map.heightAt nine == Some 9 && (trailsFrom map start).any (trail => trail.last == Some nine)
-  rewrite <- List.lengthFilter map.positions reached in
+  rewrite <- List.lengthFilter map.positions reached then
     List.permLength ends.unique
       (map.positions.filter reached)
       (List.permOfSameMembers ends.unique
@@ -169,12 +169,10 @@ theorem scoreCorrect ∀ (map: TopographicMap) (start: Position)
         (List.distinctUnique ends)
         (List.distinctFilter map.positions reached (positionsDistinct map))
         (nine member =>
-          let Witness rest (Both restIn found) :=
+          let Witness rest (Both restIn (Both climbing last)) :=
             (memTrailEnds map 9 start nine).forward ((List.memUnique nine ends).forward member)
-          let climbing := found.left
-          let last := found.right
           let height := endHeight map start rest nine climbing last.read
-          let hiking: isHikingTrail map [start, ..rest] = True := rewrite trailCons map start rest, zero in climbing
+          let hiking: isHikingTrail map [start, ..rest] = True := rewrite trailCons map start rest, zero then climbing
           let inTrails :=
             List.memFilterIntro
               ((pathsOf map 9).map (Cons start))
@@ -183,26 +181,23 @@ theorem scoreCorrect ∀ (map: TopographicMap) (start: Position)
               hiking
           List.memFilterIntro map.positions reached
             (positionsComplete map nine 9 height)
-            (Both (rewrite height in DecEq.refl (Some 9)) (Witness [start, ..rest] (Both inTrails last))))
+            (Both (rewrite height then DecEq.refl (Some 9)) (Witness [start, ..rest] (Both inTrails last))))
         (nine member =>
           let both := List.memFilter map.positions reached member
-          List.anyTrueElim
-            (trailsFrom map start)
-            (trail => trail.last == Some nine) _
-            (Bool.andRight (And.right both))
-            (trail trailIn last =>
-              let candidate := List.memFilter ((pathsOf map 9).map (Cons start)) (isHikingTrail map) trailIn
-              List.anyElim
-                (rest => [start, ..rest] = trail) _
-                (pathsOf map 9)
-                (List.memMapAny (pathsOf map 9) (Cons start) trail (And.left candidate))
-                (rest restIn built =>
-                  let trailHiking := And.right candidate
-                  let hiking: isHikingTrail map [start, ..rest] = True := rewrite <- built at trailHiking
-                  let climbing := Bool.andRight (rewrite trailCons map start rest at hiking)
-                  let ending: ([start, ..rest].last == Some nine) = True := rewrite <- built at last
-                  (List.memUnique nine ends).backward
-                    ((memTrailEnds map 9 start nine).backward (Witness rest (Both restIn (Both climbing ending))))))))
+          let Both _ anyTrail := both.right
+          List.anyTrueElim (trailsFrom map start) (trail => trail.last == Some nine) _ anyTrail (trail trailIn last =>
+            let candidate := List.memFilter ((pathsOf map 9).map (Cons start)) (isHikingTrail map) trailIn
+            List.anyElim
+              (rest => [start, ..rest] = trail) _
+              (pathsOf map 9)
+              (List.memMapAny (pathsOf map 9) (Cons start) trail candidate.left)
+              (rest restIn built =>
+                let trailHiking := candidate.right
+                let hiking: isHikingTrail map [start, ..rest] = True := rewrite <- built at trailHiking
+                let Both _ climbing := rewrite trailCons map start rest at hiking
+                let ending: ([start, ..rest].last == Some nine) = True := rewrite <- built at last
+                (List.memUnique nine ends).backward
+                  ((memTrailEnds map 9 start nine).backward (Witness rest (Both restIn (Both climbing ending))))))))
 
 --| The spec's trailhead check.
 def startsTrail (map: TopographicMap) (start: Position): Bool := (trailsFrom map start).length >= 1
@@ -217,11 +212,11 @@ theorem trailheadValue ∀ (map: TopographicMap) (programValue specValue: Positi
     | True =>
       match some: startsTrail map start with
         | True => agree start zero.read
-        | False => Eq.trans (agree start zero.read) (none start (omega))
+        | False => Eq.trans (agree start zero.read) (none start (arithmetic))
     | False =>
       match some: startsTrail map start with
-        | True => Void.exfalso (omega [noTrailsOffZero map start zero])
-        | False => rfl
+        | True => Void.impossible (arithmetic [noTrailsOffZero map start zero])
+        | False => byComputing
 
 --| The program's trailheads, the 0s, give the spec's sum: a 0 that starts no
 --| trail adds 0 either way.
@@ -236,12 +231,12 @@ theorem sumOverTrailheads ∀ (map: TopographicMap) (programValue specValue: Pos
         (start => if map.heightAt start == Some 0 then programValue start else Add.zero)
         (start => if startsTrail map start then specValue start else Add.zero)
         (trailheadValue map programValue specValue agree none))
-      (Eq.sym (List.sumByFilter map.positions specValue (startsTrail map))))
+      (Eq.flipped (List.sumByFilter map.positions specValue (startsTrail map))))
 
 theorem part1Correct ∀ (map: TopographicMap): solvePart1 map = part1 map :=
   sumOverTrailheads map map.score (score map) (scoreCorrect map) (start empty =>
     List.countNone map.positions _ (nine member =>
-      rewrite List.anyEmpty (trailsFrom map start) (trail => trail.last == Some nine) empty in Bool.andFalse _))
+      rewrite List.anyEmpty (trailsFrom map start) (trail => trail.last == Some nine) empty then Bool.andFalse _))
 
 theorem part2Correct ∀ (map: TopographicMap): solvePart2 map = part2 map :=
   sumOverTrailheads map map.rating (rating map) (ratingCorrect map) (start empty => empty)
@@ -254,24 +249,24 @@ theorem climbsPaths ∀ (map: TopographicMap) (from: Position) (rest: List Posit
     (height + rest.length = 9) ∧ (rest ∈ pathsOf map rest.length) :=
   match rest with
     | [] =>
-      let nine := Option.someInjective (Eq.trans (Eq.sym known) climbing.read)
-      Both (omega [nine]) (Inl rfl)
+      let nine := Option.someInjective (Eq.trans known.flipped climbing.read)
+      Both (arithmetic [nine]) (Inl byComputing)
     | [next, ..rest] =>
       let Both (Both _ higher) restClimbs := climbing
       let nextHeight: map.heightAt next = Some (height + 1) := DecEq.sound (rewrite known at higher)
       let later := climbsPaths map next rest (height + 1) nextHeight restClimbs
       Both
-        (omega [And.left later])
+        (arithmetic [later.left])
         (List.memFlatMapIntro
           (position => pathsOf map rest.length |> .map (Cons position))
           next
           [next, ..rest]
           map.positions
           (positionsComplete map next (height + 1) nextHeight)
-          (List.memMap (pathsOf map rest.length) rest (And.right later) (Cons next)))
+          (List.memMap (pathsOf map rest.length) rest later.right (Cons next)))
 
 --| An empty path is no trail.
-theorem emptyIsNoTrail ∀ (map: TopographicMap): isHikingTrail map [] = False := rfl
+theorem emptyIsNoTrail ∀ (map: TopographicMap): isHikingTrail map [] = False := byComputing
 
 --| Every hiking trail starts on the map and is one of `trailsFrom`'s: the
 --| spec's ten positions miss none.
@@ -282,8 +277,8 @@ theorem trailsAreCandidates ∀ (map: TopographicMap) (start: Position) (rest: L
   let Both startsAtZero climbing := both
   let zero: map.heightAt start = Some 0 := startsAtZero.read
   let paths := climbsPaths map start rest 0 zero climbing
-  let ten: rest.length = 9 := omega [And.left paths]
-  let restPath := And.right paths
+  let ten: rest.length = 9 := arithmetic [paths.left]
+  let restPath := paths.right
   Both
     (positionsComplete map start 0 zero)
     (List.memFilterIntro
@@ -309,4 +304,4 @@ theorem pathsDistinct ∀ (map: TopographicMap) (count: Nat): List.Distinct (pat
           (rest => [position, ..rest] = path) _
           (pathsOf map count)
           (List.memMapAny (pathsOf map count) (Cons position) path inMapped)
-          (rest restIn built => rewrite <- built in rfl))
+          (rest restIn built => rewrite <- built then byComputing))

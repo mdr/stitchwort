@@ -9,4 +9,4 @@ type Box (a: Prop): Type =
 def Box.unbox [a: Prop]: Box a → a
   | MkBox h => h
 
-theorem unboxBoth (a: Prop) (p: a) (q: a): Box.unbox (MkBox p) = Box.unbox (MkBox q) := rfl
+theorem unboxBoth (a: Prop) (p: a) (q: a): Box.unbox (MkBox p) = Box.unbox (MkBox q) := byComputing

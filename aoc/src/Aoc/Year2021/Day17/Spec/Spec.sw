@@ -8,7 +8,10 @@ import Aoc.Year2021.Day17 (Probe, Target, Velocity)
 import Std (List, Nat)
 
 --| Drag: the x velocity moves 1 toward 0, and stays at 0 once there.
-def drag (dx: Int): Int := if 0 < dx then dx - 1 else if dx < 0 then dx + 1 else 0
+def drag (dx: Int): Int :=
+  if 0 < dx then dx - 1
+  else if dx < 0 then dx + 1
+  else 0
 
 --| One step: the probe moves by its velocity, drag acts on the x velocity,
 --| and gravity lowers the y velocity by 1.

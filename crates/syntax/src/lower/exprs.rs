@@ -8,7 +8,7 @@
 //! application with arguments is [`Expr::Bracketed`], and so is a list's
 //! only item `(a ..< b)`. Everywhere else brackets leave no trace.
 
-use super::sections::{fill_receiver, leads_with_section, section_dot};
+use super::sections::{fill_receiver, leads_with_section, ne_form, section_dot};
 use crate::Span;
 use crate::ast::{BinOp, Bracket, CHAIN, Expr, Name, NegForm, SECTION};
 use crate::lexer::Tok;
@@ -194,7 +194,8 @@ impl<'f> Lower<'f> {
 
     /// `[a, b, ..xs]`. A list of one bracketed range, `[(0 ..< n)]`, keeps
     /// its brackets as [`Expr::Bracketed`], so `W-RANGE-IN-BRACKETS`, which
-    /// warns about `[0 ..< n]`, stays quiet.
+    /// warns about `[0 ..< n]`, stays quiet. A trailing comma changes nothing
+    /// (the formatter's tree check relies on it).
     #[inline(never)]
     pub(super) fn list(&self, node: Node<'f>) -> Lowering<Expr> {
         let mut items = items(node, &[Tok::LBracket, Tok::Comma, Tok::RBracket])
@@ -203,7 +204,7 @@ impl<'f> Lower<'f> {
             .collect::<Lowering<Vec<_>>>()?;
         let bracketed_range = match items.as_slice() {
             [(Element::Node(paren), Expr::Binary(BinOp::Range | BinOp::RangeThrough, ..))] => {
-                paren.kind() == NodeKind::Paren && node.leaf(&Tok::Comma).is_none()
+                paren.kind() == NodeKind::Paren
             }
             _ => false,
         };
@@ -354,6 +355,17 @@ impl<'f> Lower<'f> {
         {
             return self.apply_ctor_fields(f, node);
         }
+        // An argument that is a bracket left open (`g (`) makes the whole
+        // call missing: checking `n` as a function applied to nothing would
+        // be a second error for the one the parser reported.
+        if let Element::Node(node) = arg
+            && node.kind() == NodeKind::Error
+            && !node.root().recoveries().is_empty()
+        {
+            let span = f.span().to(whole(node)?);
+            *f = Expr::Missing(span);
+            return Ok(());
+        }
         let arg = self.argument(arg)?;
         let head = Box::new(std::mem::replace(f, Expr::Hole(Span::NOWHERE)));
         *f = Expr::App(head, Box::new(arg));
@@ -458,7 +470,7 @@ impl<'f> Lower<'f> {
             Tok::AndAnd => (BinOp::And, false),
             Tok::OrOr => (BinOp::Or, false),
             Tok::Equals => (BinOp::Eq, false),
-            Tok::NotEq => (BinOp::Ne, false),
+            Tok::NotEq => (BinOp::Ne(ne_form(op.span())), false),
             Tok::EqEq => (BinOp::EqEq, false),
             Tok::Lt => (BinOp::Lt, false),
             Tok::Le => (BinOp::Le, false),
@@ -710,7 +722,7 @@ fn include(node: Node<'_>) -> Lowering<Expr> {
 }
 
 /// An expression of one token: a name, a literal, `_`, `?`, `Type`, `Prop`,
-/// and `omega`, `ring` and `cases` without their parts.
+/// and `arithmetic`, `algebra` and `cases` without their parts.
 fn leaf_expr(leaf: Leaf<'_>) -> Lowering<Expr> {
     let span = leaf.span();
     Ok(match leaf.tok() {
@@ -723,11 +735,11 @@ fn leaf_expr(leaf: Leaf<'_>) -> Lowering<Expr> {
         Tok::Question => Expr::Goal(span),
         Tok::TypeU => Expr::Type(0, span),
         Tok::Prop => Expr::Prop(span),
-        Tok::KwOmega => Expr::Omega {
+        Tok::KwArithmetic => Expr::Omega {
             facts: Vec::new(),
             span,
         },
-        Tok::KwRing => Expr::Ring {
+        Tok::KwAlgebra => Expr::Ring {
             facts: Vec::new(),
             span,
         },
@@ -875,7 +887,7 @@ mod tests {
     use crate::lower::coverage::report;
     use crate::tree::NodeKind;
 
-    /// Each expression kind of lane L1, in the forms whose lowering depends
+    /// Each expression kind, in the forms whose lowering depends
     /// on where they are or on spacing, lowers whole.
     #[test]
     fn expressions_lower() {
@@ -925,7 +937,7 @@ mod tests {
             "[1, ..xs, 3]",
             "[]",
             "include \"x.txt\"",
-            "omega",
+            "arithmetic",
         ];
         let text: String = bodies
             .iter()

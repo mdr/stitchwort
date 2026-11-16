@@ -13,7 +13,7 @@ type Shape = | Circle (radius: Nat) | Rect (w: Nat) (h: Nat) | Dot
 type Item = { name: Text, price: Nat, positive: price = price }
 
 export def describe (n: Nat): Text :=
-  let item: Item := { name = "tea", price = n, positive = rfl }
+  let item: Item := { name = "tea", price = n, positive = byComputing }
   "${item} costs ${n}"
 
 export def names (xs: List Text): Text := "${xs} / ${xs.length}"

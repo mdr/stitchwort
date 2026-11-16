@@ -31,7 +31,7 @@ def sizeList: List Packet → Nat
 def example: Packet := Packets [Number 1, Packets [Number 2, Number 3], Packets []]
 
 test "size" := size example == 6
-theorem sizeExample: size example = 6 := rfl
+theorem sizeExample: size example = 6 := byComputing
 
 -- `List`'s own functions and theorems apply to the list inside.
 test "length" := match example with
@@ -56,8 +56,8 @@ test "depth" := depth example == 2
 -- no bigger than the list, so it's smaller than the packet that holds it.
 theorem sizeListMem ∀ (q: Packet) (items: List Packet) (h: List.Mem q items): size q ≤ sizeList items :=
   match items, h with
-    | [], member => Void.exfalso member
-    | [p, ..rest], Inl same => rewrite same in Nat.leAddRight (size q) (sizeList rest)
+    | [], member => member.impossible
+    | [p, ..rest], Inl same => rewrite same then Nat.leAddRight (size q) (sizeList rest)
     | [p, ..rest], Inr member =>
       Nat.leTrans
         (size q)

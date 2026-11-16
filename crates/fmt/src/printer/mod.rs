@@ -5,26 +5,22 @@
 //! files.
 //!
 //! Each declaration is turned into a layout document by the rule for each
-//! construct ([`rules`]) and printed in 120 columns ([`engine`]). The
-//! printed declaration must have the input's tokens (up to the deliberate
-//! rewrites: D1012's commas, D3472's `∀` and D3565's merged parameters,
-//! [`merge`], checked on their own), its comments attached to the
-//! same tokens, and parse to the same tree; one that doesn't is left as
-//! written and counted, so a gap in the rules costs an unformatted
-//! declaration, never a wrong program. [`gate`] runs the same checks on a
-//! whole file, and that formatting twice changes nothing.
+//! construct ([`rules`]) and printed in 120 columns ([`engine`]). The whole
+//! printed file must have the tokens of the file after the tidy passes
+//! ([`crate::passes`], which include D2307's dropped brackets and D3565's
+//! merged parameters) with its comments attached to the same tokens, the
+//! original file's comments, and parse to the original's tree up to the
+//! passes' changes ([`crate::same_program`]); a file that doesn't is
+//! [`Error::Internal`] and the caller keeps it as it was, so a bug in the
+//! rules is never a wrong program on disk. [`gate`] runs the same checks and
+//! also that formatting twice changes nothing.
 
 pub mod engine;
-mod merge;
-mod parens;
 mod rules;
 
-use std::collections::BTreeMap;
-
-use stitchwort_syntax::tree::{NodeKind, SyntaxFile};
+use stitchwort_syntax::tree::NodeKind;
 use stitchwort_syntax::{
-    DEFAULT_STACK, FileId, Lexed, SourceMap, Tok, equivalence, lex_with_trivia,
-    parse_module_within, parse_tree,
+    DEFAULT_STACK, Diagnostic, FileId, Lexed, SourceMap, Tok, lex_with_trivia, parse_module_within,
 };
 
 use crate::{Error, check};
@@ -36,31 +32,14 @@ pub const WIDTH: usize = 120;
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TreeStats {
     pub decls: usize,
-    /// Declarations left as written because their printed text failed a
-    /// check, by the first check failed.
-    pub verbatim: BTreeMap<&'static str, usize>,
-    /// Where each of those is: its first line (from 1) and the check.
-    pub verbatim_at: Vec<(usize, &'static str)>,
-    /// Nodes printed as written because no rule covers their kind yet.
-    pub unruled: BTreeMap<NodeKind, usize>,
     /// Parameter groups made by merging parameters of one type (D3565).
     pub merged_groups: usize,
 }
 
 impl TreeStats {
-    pub fn verbatim_decls(&self) -> usize {
-        self.verbatim.values().sum()
-    }
-
     pub fn add(&mut self, other: &TreeStats) {
         self.decls += other.decls;
         self.merged_groups += other.merged_groups;
-        for (reason, n) in &other.verbatim {
-            *self.verbatim.entry(reason).or_default() += n;
-        }
-        for (kind, n) in &other.unruled {
-            *self.unruled.entry(*kind).or_default() += n;
-        }
     }
 }
 
@@ -80,9 +59,18 @@ pub fn format_tree(text: &str) -> Result<TreeFormatted, Error> {
 
 /// Like [`format_tree`], with `file` in the diagnostics of a refused file.
 pub fn format_tree_in(file: FileId, text: &str) -> Result<TreeFormatted, Error> {
-    let printed = print_file(file, text)?;
-    printed.merges.clone().map_err(Error::Internal)?;
-    check_file(file, &printed.input, &printed.text).map_err(Error::Internal)?;
+    format_with_passes(file, text, &crate::passes::PASSES)
+}
+
+/// Like [`format_tree_in`], with `passes` for the tidy passes: tests give
+/// it a wrong pass to see the checks refuse what it does.
+fn format_with_passes(
+    file: FileId,
+    text: &str,
+    passes: &[crate::passes::Pass],
+) -> Result<TreeFormatted, Error> {
+    let printed = print_file(file, text, passes)?;
+    check_file(file, text, &printed.input, &printed.text).map_err(Error::Internal)?;
     Ok(TreeFormatted {
         text: printed.text,
         stats: printed.stats,
@@ -107,12 +95,9 @@ pub struct Gate {
 /// syntax tree, and the same text when formatted again.
 pub fn gate(text: &str) -> Result<Gate, Error> {
     let file = SourceMap::new().add("input.sw", text);
-    let printed = print_file(file, text)?;
-    let check = printed
-        .merges
-        .clone()
-        .and_then(|()| check_file(file, &printed.input, &printed.text));
-    let idempotent = match print_file(file, &printed.text) {
+    let printed = print_file(file, text, &crate::passes::PASSES)?;
+    let check = check_file(file, text, &printed.input, &printed.text);
+    let idempotent = match print_file(file, &printed.text, &crate::passes::PASSES) {
         Ok(again) => again.text == printed.text,
         Err(_) => false,
     };
@@ -131,36 +116,34 @@ pub fn gate(text: &str) -> Result<Gate, Error> {
 }
 
 struct PrintedFile {
-    /// The input with D3472's `∀`s added and D3565's parameters merged:
-    /// what the output is compared with.
+    /// The input after the tidy passes: what the output's tokens are
+    /// compared with.
     input: String,
-    /// How the merge of parameters checked; a failed one isn't made.
-    merges: Result<(), String>,
     text: String,
     stats: TreeStats,
 }
 
-fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
-    let lexed = lex_with_trivia(file, text).map_err(|d| Error::Refused(vec![d]))?;
+fn print_file(
+    file: FileId,
+    text: &str,
+    passes: &[crate::passes::Pass],
+) -> Result<PrintedFile, Error> {
+    lex_with_trivia(file, text).map_err(|d| Error::Refused(vec![d]))?;
     parse_module_within(file, text, DEFAULT_STACK).map_err(Error::Refused)?;
-    let mut input =
-        crate::insert_theorem_foralls(text, &lexed.tokens).unwrap_or_else(|| text.to_string());
-    let mut merges = Ok(());
-    let mut merged_groups = 0;
-    if let Some((dropped, _)) = parens::drop_parens(&input)
-        && merge::check(&input, &dropped).is_ok()
-    {
-        input = dropped;
-    }
-    if let Some((merged, groups)) = merge::merge(&input) {
-        merges = merge::check(&input, &merged);
-        if merges.is_ok() {
-            input = merged;
-            merged_groups = groups;
-        }
-    }
-    let tree = parse_tree(file, &input, DEFAULT_STACK);
-    let mut printer = rules::Rules::new(&tree, &input);
+    let tidied = crate::passes::run(file, text, passes);
+    let merged_groups = passes
+        .iter()
+        .position(|pass| {
+            std::ptr::fn_addr_eq(
+                *pass,
+                crate::passes::merge_parameters as crate::passes::Pass,
+            )
+        })
+        .map_or(0, |at| tidied.edits[at]);
+    let input = tidied.text;
+    let tree = tidied.tree;
+    let (trivia, eof) = crate::tidy::place_comments(tree.tokens(), tree.trivia(), tree.eof());
+    let mut printer = rules::Rules::new(&tree, &trivia, &input);
     let mut stats = TreeStats {
         merged_groups,
         ..TreeStats::default()
@@ -177,67 +160,41 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
     };
     for decl in tree.decls() {
         stats.decls += 1;
-        // A declaration that didn't lex, which only a file refused above
-        // has: as written.
-        if let Some(raw) = decl.raw_text_range() {
-            item(&mut out, 0, input[raw].trim_end());
-            continue;
+        // The parser accepts a file whose tokens before the first
+        // declaration start with `:=` and drops them (they are in no
+        // declaration, `decl_ranges`), so the tree holds them as an `Error`
+        // node. Nothing reads them, so the file is refused as a syntax
+        // error would be.
+        let first_token = &tree.tokens()[decl.token_range().start];
+        if decl.kind() == NodeKind::Error || first_token.tok == Tok::ColonEq {
+            let message = "`:=` can't start a declaration";
+            return Err(Error::Refused(vec![
+                Diagnostic::error("E-PARSE", message).with_label(first_token.span, message),
+            ]));
+        }
+        // Every declaration lexed: the file did, above.
+        if decl.raw_text_range().is_some() {
+            return Err(Error::Internal(
+                "a declaration of a lexed file has no tokens".into(),
+            ));
         }
         let range = decl.token_range();
-        let trivia = &tree.trivia()[range.start];
-        for comment in &trivia.leading {
-            item(
-                &mut out,
-                comment.blank_lines_before,
-                comment.text.trim_end_matches(' '),
-            );
+        let first = &trivia[range.start];
+        for comment in &first.leading {
+            item(&mut out, comment.blank_lines_before, &comment.text);
         }
-        let before = decl_source(&tree, &input, range.start, range.end);
-        let first_line = input[..token_text_range(&tree.tokens()[range.start]).start]
-            .matches('\n')
-            .count()
-            + 1;
-        let text =
-            if decl.kind() == NodeKind::Error || tree.tokens()[range.start].tok == Tok::ColonEq {
-                before.to_string()
-            } else {
-                let doc = printer.node(decl);
-                let printed = engine::print(&doc, WIDTH);
-                let verdict = if printed.forced_comment_lines > 0 {
-                    Err("comment no rule places")
-                } else if printed.stranded_comments > 0 {
-                    Err("comment before a text block")
-                } else {
-                    same_decl(before, &printed.text)
-                };
-                match verdict {
-                    Ok(()) => {
-                        rules::unruled(decl, &mut stats.unruled);
-                        printed.text
-                    }
-                    Err(reason) => {
-                        if std::env::var_os("STITCHWORT_FMT_TREE_DEBUG").is_some() {
-                            let error = equivalence::parse_shape(&printed.text).err();
-                            eprintln!(
-                                "--- line {first_line}: {reason} {}\n{}",
-                                error.unwrap_or_default(),
-                                printed.text
-                            );
-                        }
-                        *stats.verbatim.entry(reason).or_default() += 1;
-                        stats.verbatim_at.push((first_line, reason));
-                        before.to_string()
-                    }
-                }
-            };
-        item(&mut out, trivia.blank_lines_before, &text);
-    }
-    for comment in &tree.eof().leading {
+        let doc = printer.node(decl);
+        if let Some(problem) = printer.take_unexpected() {
+            return Err(Error::Internal(problem));
+        }
         item(
             &mut out,
-            comment.blank_lines_before,
-            comment.text.trim_end_matches(' '),
+            first.blank_lines_before,
+            &engine::print(&doc, WIDTH).text,
         );
+    }
+    for comment in &eof.leading {
+        item(&mut out, comment.blank_lines_before, &comment.text);
     }
     if !out.is_empty() {
         out.push('\n');
@@ -246,72 +203,28 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
         input,
         text: out,
         stats,
-        merges,
     })
 }
 
-/// A declaration's source, from the start of its first line to the end of
-/// its last (with any trailing comment).
-fn decl_source<'t>(tree: &SyntaxFile, text: &'t str, first: usize, end: usize) -> &'t str {
-    let tokens = tree.tokens();
-    let start = token_text_range(&tokens[first]).start;
-    let start = text[..start].rfind('\n').map_or(0, |k| k + 1);
-    let last_end = token_text_range(&tokens[end - 1]).end;
-    let line_end = text[last_end..]
-        .find('\n')
-        .map_or(text.len(), |k| last_end + k);
-    text[start..line_end].trim_end_matches('\r')
-}
-
-/// Every comment with the token it is attached to: an own-line comment to
-/// the token after it, a trailing one to the token it follows, skipping
-/// commas and closing brackets, which move freely around a line's end.
-/// Tokens are counted without commas, which D1012 adds and drops.
-fn comment_anchors<'a>(text: &str, lexed: &'a Lexed) -> Vec<(&'a str, bool, usize)> {
+/// Every comment with the token it belongs to, read by rule N
+/// ([`crate::tidy`]): an own-line comment's token is the one after it, a
+/// trailing one's the one it follows.
+fn comment_anchors(lexed: &Lexed) -> Vec<(String, bool, usize)> {
     let tokens = &lexed.tokens;
-    let mut index = Vec::with_capacity(tokens.len());
-    let mut n = 0;
-    for token in tokens {
-        index.push(n);
-        if token.tok != Tok::Comma {
-            n += 1;
-        }
-    }
+    let (trivia, eof) = crate::tidy::place_comments(tokens, &lexed.trivia, &lexed.eof);
     let mut out = Vec::new();
-    for (i, trivia) in lexed.trivia.iter().enumerate() {
-        for comment in &trivia.leading {
-            out.push((comment.text.trim_end_matches(' '), false, index[i]));
+    let mut n = 0;
+    for trivia in trivia {
+        for comment in trivia.leading {
+            out.push((comment.text, false, n));
         }
-        if let Some(comment) = &trivia.trailing {
-            // A comment after a comma that starts its line belongs to the
-            // token after it.
-            if tokens[i].tok == Tok::Comma
-                && rules::comma_first_on_line(text, token_text_range(&tokens[i]).start)
-            {
-                out.push((comment.text.trim_end_matches(' '), false, index[i]));
-                continue;
-            }
-            // A record update's `{ r |` keeps its base's comment on its
-            // line, after the bar (S31), so a comment after that bar
-            // belongs to the token before it, as the base's did.
-            let mut j = if tokens[i].tok == Tok::Pipe && rules::record_update_bar(tokens, i) {
-                i.saturating_sub(1)
-            } else {
-                i
-            };
-            while j > 0
-                && matches!(
-                    tokens[j].tok,
-                    Tok::Comma | Tok::RParen | Tok::RBracket | Tok::RBrace
-                )
-            {
-                j -= 1;
-            }
-            out.push((comment.text.trim_end_matches(' '), true, index[j]));
+        if let Some(comment) = trivia.trailing {
+            out.push((comment.text, true, n));
         }
+        n += 1;
     }
-    for comment in &lexed.eof.leading {
-        out.push((comment.text.trim_end_matches(' '), false, n));
+    for comment in eof.leading {
+        out.push((comment.text, false, n));
     }
     out
 }
@@ -321,51 +234,51 @@ fn compare(
     file: FileId,
     before: &str,
     after: &str,
-    shapes: impl FnOnce() -> Result<bool, String>,
+    shapes: impl FnOnce() -> Result<Option<String>, String>,
 ) -> Result<(), (&'static str, String)> {
     let (Ok(a), Ok(b)) = (lex_with_trivia(file, before), lex_with_trivia(file, after)) else {
         return Err(("doesn't lex", String::new()));
     };
     check::same_tokens(before, &a, after, &b).map_err(|e| ("tokens", e))?;
-    let (x, y) = (comment_anchors(before, &a), comment_anchors(after, &b));
+    let (x, y) = (comment_anchors(&a), comment_anchors(&b));
     if x != y {
         let at = x
             .iter()
             .zip(&y)
             .position(|(p, q)| p != q)
             .unwrap_or(x.len().min(y.len()));
-        let what = x.get(at).or(y.get(at)).map_or("", |c| c.0);
+        let what = x.get(at).or(y.get(at)).map_or("", |c| c.0.as_str());
         return Err(("comments", format!("the comment `{what}` moved")));
     }
     match shapes() {
-        Ok(true) => Ok(()),
-        Ok(false) => Err(("tree", "the output parses to a different tree".into())),
+        Ok(None) => Ok(()),
+        Ok(Some(difference)) => Err(("tree", difference)),
         Err(e) => Err(("doesn't parse", e)),
     }
 }
 
-fn same_decl(before: &str, after: &str) -> Result<(), &'static str> {
-    if before == after {
-        return Ok(());
+/// The checks on `after`, the printed `original`, whose tidied text is
+/// `before`. Tokens and comment anchors are compared with `before`, since
+/// the passes rewrite tokens; the comments as written and the tree are
+/// compared with `original` ([`check::same_comments`],
+/// [`crate::same_program`]), so a wrong pass can't hide behind its own
+/// result.
+fn check_file(file: FileId, original: &str, before: &str, after: &str) -> Result<(), String> {
+    if let (Ok(a), Ok(b)) = (
+        lex_with_trivia(file, original),
+        lex_with_trivia(file, after),
+    ) {
+        check::same_comments(&a, &b).map_err(|e| format!("comments: {e}"))?;
     }
-    let file = SourceMap::new().add("decl.sw", "");
     compare(file, before, after, || {
-        let after = equivalence::parse_shape(after)?;
-        Ok(equivalence::parse_shape(before).is_ok_and(|b| b == after))
-    })
-    .map_err(|(reason, _)| reason)
-}
-
-fn check_file(file: FileId, before: &str, after: &str) -> Result<(), String> {
-    compare(file, before, after, || {
-        let a = parse_module_within(file, before, DEFAULT_STACK)
+        let a = parse_module_within(file, original, DEFAULT_STACK)
             .map_err(|_| "the input doesn't parse".to_string())?;
         let b = parse_module_within(file, after, DEFAULT_STACK).map_err(|errors| {
             errors.first().map_or(String::new(), |d| {
                 format!("the output doesn't parse: {}", d.message)
             })
         })?;
-        Ok(equivalence::shape(&a) == equivalence::shape(&b))
+        crate::same_program::difference(&a, &b)
     })
     .map_err(|(reason, detail)| format!("{reason}: {detail}"))
 }

@@ -1191,7 +1191,7 @@ precedent that a richer replayed certificate is practical.
 - **Theory:** Presburger arithmetic (whole numbers with `+`, `<=`, quantifiers) is decidable,
   but the full theory needs doubly exponential time in the worst case (Fischer and Rabin, 1974
   [S18] **[cited]**). Goals with no quantifiers, which is all `omega` takes, are integer linear
-  programming: NP-complete in general **[unverified]**, fast on the sizes here.
+  programming: NP-complete in general (Wikipedia, "Integer programming": "Integer programming is NP-complete", citing Papadimitriou 1981; the 0-1 case is one of Karp's 21 problems) **[cited second-hand, 15 Nov 2026; original papers not opened]**, fast on the sizes here.
 
 ### 4.6 What to take
 

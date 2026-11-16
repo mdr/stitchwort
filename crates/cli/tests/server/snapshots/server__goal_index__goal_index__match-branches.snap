@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -16,20 +16,20 @@ expression: json
         "file": 0,
         "message": "⊢ 0 = 0",
         "range": [
-          5,
-          14,
-          5,
-          15
+          4,
+          12,
+          4,
+          13
         ]
       }
     ],
     "message": "in `addZero`",
     "notes": [],
     "range": [
-      5,
-      14,
-      5,
-      15
+      4,
+      12,
+      4,
+      13
     ],
     "severity": "goal"
   },
@@ -51,20 +51,20 @@ expression: json
         "file": 0,
         "message": "k: Nat\n⊢ Succ k = Succ k",
         "range": [
-          6,
-          16,
-          6,
-          17
+          5,
+          14,
+          5,
+          15
         ]
       }
     ],
     "message": "in `addZero`",
     "notes": [],
     "range": [
-      6,
-      16,
-      6,
-      17
+      5,
+      14,
+      5,
+      15
     ],
     "severity": "goal"
   }

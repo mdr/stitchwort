@@ -13,5 +13,5 @@ expression: output
     │     
     │     Note 1: a top-level helper with a written signature can always do what this `match` would: define one and call it
     │     
-    │     Note 2: checking the type it would have: `rfl` can't prove this
+    │     Note 2: checking the type it would have: `byComputing` can't prove this
 ────╯

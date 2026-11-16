@@ -1,0 +1,20 @@
+---
+source: crates/cli/tests/running/examples.rs
+assertion_line: 700
+expression: output
+---
+[E-CASES] Error: `cases` found nothing to split on, and nothing closes the goal
+   ╭─[ reject/cases-constructor-equation-not-variable.sw:8:100 ]
+   │
+ 8 │ theorem underCall ∀ (f g: Nat → Nat) (x y: Nat) (h: Some (f x) = Some (f y)): g (f x) = g (f y) := cases
+   │                                                                                                    ──┬──  
+   │                                                                                                      ╰──── this `cases`
+   │ 
+   │ Note 1: h: Some (f x) = Some (f y)
+   │ 
+   │ Note 2: fact 1 (added by `cases`): f x = f y
+   │ 
+   │ Note 3: goal: g (f x) = g (f y)
+   │ 
+   │ Note 4: the goal isn't stuck on anything `cases` can take apart, and neither `byComputing`, a contradiction, a hypothesis, `arithmetic` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases then t`
+───╯

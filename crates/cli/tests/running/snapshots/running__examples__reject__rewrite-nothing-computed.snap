@@ -1,5 +1,6 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
+assertion_line: 700
 expression: output
 ---
 [E-REWRITE-NOTHING] Error: `rewrite` found no `Succ n / 1` in the goal
@@ -13,7 +14,7 @@ expression: output
     │ 
     │ Note 2: the search compares what terms compute to: it looked for `Succ (n / 1)`, what `Succ n / 1` computes to, in what the goal computes to
     │ 
-    │ Note 3: the goal already holds by computing after the rule before this one, so `rfl` proves it: this rule and what follows it aren't needed
+    │ Note 3: the goal already holds by computing after the rule before this one, so `byComputing` proves it: this rule and what follows it aren't needed
     │ 
     │ Note 4: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
     │ 

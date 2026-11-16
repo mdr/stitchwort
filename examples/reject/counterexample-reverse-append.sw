@@ -4,4 +4,4 @@
 -- (docs/proposals/counterexample-search.md, acceptance test 1).
 import Std (List)
 
-theorem reverseAppend (xs: List Nat) (ys: List Nat): List.reverse (xs ++ ys) = List.reverse xs ++ List.reverse ys := rfl
+theorem reverseAppend (xs: List Nat) (ys: List Nat): List.reverse (xs ++ ys) = List.reverse xs ++ List.reverse ys := byComputing

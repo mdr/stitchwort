@@ -1,5 +1,6 @@
 ---
 source: crates/cli/tests/running/examples.rs
+assertion_line: 700
 expression: output
 ---
 [E-REWRITE-PREMISE] Error: `rewrite` can't prove the rule's premise `h: x ≤ n`
@@ -9,7 +10,7 @@ expression: output
    │           ────────┬───────  
    │                   ╰───────── this rule matched, but nothing proves its premise `h: x ≤ n`
    │ 
-   │ Note 1: a premise left as `_`, or left off the end, is proved by a hypothesis in scope of exactly its type, or else by `omega`; neither did
+   │ Note 1: a premise left as `_`, or left off the end, is proved by a hypothesis in scope of exactly its type, or else by `arithmetic`; neither did
    │ 
    │ Note 2: the facts the congruence lemma gives inside this function: `m: x ∈ xs`
    │ 

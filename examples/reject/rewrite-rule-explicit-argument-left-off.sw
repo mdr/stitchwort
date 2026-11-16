@@ -4,4 +4,4 @@
 import Std (Nat)
 
 theorem t (n: Nat): 1 * n + 0 = n :=
-  rewrite Nat.oneMul in Nat.addZero n
+  rewrite Nat.oneMul then Nat.addZero n

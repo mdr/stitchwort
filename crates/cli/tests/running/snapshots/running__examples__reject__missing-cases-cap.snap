@@ -30,3 +30,4 @@ and 3 more
     │   ────┬────  
     │       ╰────── missing cases: no arm matches 23 patterns
 ────╯
+try: add the missing arms

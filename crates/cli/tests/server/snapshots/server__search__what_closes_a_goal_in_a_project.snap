@@ -1,6 +1,6 @@
 ---
 source: crates/cli/tests/server/search.rs
-assertion_line: 603
+assertion_line: 605
 expression: "serde_json::to_string_pretty(&report).unwrap()"
 ---
 {
@@ -13,10 +13,10 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "rejected": 0
     },
     "internalErrors": 0,
-    "matched": 44,
+    "matched": "(varies)",
     "maxCandidates": 50,
     "outOfBudget": 3,
-    "tried": 44,
+    "tried": "(varies)",
     "truncated": false
   },
   "goal": {
@@ -59,11 +59,11 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "name": "Shop.Spec.doubleSwap",
       "obligations": [
         {
-          "closer": "rfl",
+          "closer": "byComputing",
           "target": "twice (b + a) = twice (b + a)"
         }
       ],
-      "proof": "rewrite Shop.Spec.doubleSwap a b in rfl",
+      "proof": "rewrite Shop.Spec.doubleSwap a b then byComputing",
       "type": "∀ (m n: Nat) => Shop.Spec.double (m + n) = Shop.Spec.double (n + m)"
     }
   ],
@@ -71,7 +71,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
     {
       "at": "a + b + (a + b)",
       "checked": "kernel",
-      "closes": "rfl",
+      "closes": "byComputing",
       "direction": "leftToRight",
       "equation": "eq",
       "file": "shop/src/Shop/Spec/Spec.sw",
@@ -79,13 +79,13 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "import": "import Shop.Spec (doubleSwap)",
       "line": 6,
       "name": "Shop.Spec.doubleSwap",
-      "proof": "rewrite Shop.Spec.doubleSwap a b in ?",
+      "proof": "rewrite Shop.Spec.doubleSwap a b then ?",
       "type": "∀ (m n: Nat) => Shop.Spec.double (m + n) = Shop.Spec.double (n + m)"
     },
     {
       "at": "a + b + (a + b)",
       "checked": "kernel",
-      "closes": "omega",
+      "closes": "arithmetic",
       "direction": "leftToRight",
       "equation": "eq",
       "file": "shop/src/Shop/Proofs/Proofs.sw",
@@ -93,13 +93,13 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "import": null,
       "line": 5,
       "name": "Shop.Proofs.twiceTwo",
-      "proof": "rewrite twiceTwo (a + b) in ?",
+      "proof": "rewrite twiceTwo (a + b) then ?",
       "type": "∀ (a: Nat) => Shop.Spec.double a = a + a"
     }
   ],
   "tactics": [
-    "omega",
-    "ring",
+    "arithmetic",
+    "algebra",
     "cases"
   ],
   "total": {

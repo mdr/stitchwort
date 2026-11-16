@@ -53,17 +53,17 @@ def Wire.name (wire: Wire): Text := match wire with
   | Z bit => "z${twoDigits bit}"
   | Other name => name
 
-def wireName(): {Parse} Wire := takeWhile1 "a wire name" Char.isAsciiAlphanumeric |> Wire.ofName
+def wireName(): {Parse Char} Wire := takeWhile1 "a wire name" Char.isAsciiAlphanumeric |> Wire.ofName
 
 --| `x00: 1`.
-def initialValue(): {Parse} (Wire, Bool) :=
+def initialValue(): {Parse Char} (Wire, Bool) :=
   let name := wireName()
   text ": "
   let value := label "0 or 1" (() => pick [("0", False), ("1", True)])
   (name, value)
 
 --| `x00 AND y00 -> z00`.
-def gateLine(): {Parse} Gate :=
+def gateLine(): {Parse Char} Gate :=
   let left := wireName()
   text " "
   let operation := label "AND, OR or XOR" (() => pick [("AND", And), ("OR", Or), ("XOR", Xor)])
@@ -73,7 +73,7 @@ def gateLine(): {Parse} Gate :=
   let output := wireName()
   { left, operation, right, output }
 
-def deviceInput(): {Parse} Device :=
+def deviceInput(): {Parse Char} Device :=
   let initial := section initialValue |> .toList
   let gates := lines gateLine |> .toList
   { initial, gates }
@@ -160,7 +160,9 @@ def partnerOf (gates: List Gate) (operation: Operation) (input: Wire): Option Wi
 --| What checking a bit found: it passes and carries on this wire, or it is
 --| faulty, with the swaps that might fix it, most likely first (none if no
 --| swap explains the fault).
-type BitCheck = | Passes (carry: Wire) | Faulty (fixes: List (Wire, Wire)) (suspects: List Wire)
+type BitCheck =
+  | Passes (carry: Wire)
+  | Faulty (fixes: List (Wire, Wire)) (suspects: List Wire)
 
 --| The two inputs of a gate doing `operation` should be `trusted` and
 --| `suspect`, and no gate has both. The gate with `trusted` names what
@@ -222,7 +224,11 @@ def checkAdder (gates: List Gate) (bits: Nat): BitCheck := match bits with
 def swapOutputs (gates: List Gate) (swap: (Wire, Wire)): List Gate :=
   let (first, second) := swap
   gates.map (gate =>
-    { gate | output = if gate.output == first then second else if gate.output == second then first else gate.output })
+    { gate |
+      output = if gate.output == first then second
+      else if gate.output == second then first
+      else gate.output
+    })
 
 def applySwaps (gates: List Gate) (swaps: List (Wire, Wire)): List Gate := swaps.foldLeft gates swapOutputs
 

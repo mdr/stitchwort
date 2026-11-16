@@ -48,18 +48,18 @@ deliberate rule, not a parser gap.
 
 ### Where it lives
 
-- `crates/syntax/src/parser.rs:3411` `atom`: an uppercase name followed by
-  `{` goes to `ctor_fields_expr` (line 3417), whatever the name turns out to
-  be. Its doc comment (3406–3410) gives the reason for refusing it as an
+- `crates/syntax/src/parser.rs` `atom`: an uppercase name followed by
+  `{` goes to `ctor_fields_expr`, whatever the name turns out to
+  be. Its doc comment gives the reason for refusing it as an
   argument: `f C { … }` could mean `f (C { … })` or `f C ({ … })`.
-- `parser.rs:3494` `ctor_fields_expr`: refuses it as an argument (the
+- `parser.rs` `ctor_fields_expr`: refuses it as an argument (the
   `Some TextCard { … }` error) and refuses an update; otherwise builds
   `Expr::CtorFields`.
-- `parser.rs:3248` `app`: after `CtorFields`, a further argument is
-  `ctor_fields_then_argument` (3286).
-- `parser.rs:3543` `record_body`: `{ x = …` or `{ x, …` or `{}` is a
+- `parser.rs` `app`: after `CtorFields`, a further argument is
+  `ctor_fields_then_argument`.
+- `parser.rs` `record_body`: `{ x = …` or `{ x, …` or `{}` is a
   literal; anything else is an update `{ e | … }`.
-- `parser.rs:1943` `row`: `{` in a type position (after `->`) is an ability
+- `parser.rs` `row`: `{` in a type position (after `->`) is an ability
   row.
 - `crates/elab/src/records.rs:466` `ctor_fields`: if the name is a
   constructor, the braces name its fields; if not (`not_a_ctor`, line 564),

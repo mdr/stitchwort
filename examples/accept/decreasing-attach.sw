@@ -30,7 +30,7 @@ def weight (n: Nat): Int
 
 test "weights" := List.map (List.rangeFrom 11 2) weight == [1, 1, 0, 1, -1, 1, 0, 0, -1, 1, 0]
 
-theorem weightTwelve: weight 12 = 0 := rfl
+theorem weightTwelve: weight 12 = 0 := byComputing
 
 -- The equation the compiler proves, on an open `n`: the congruence lemma
 -- `List.sumByCong` works on the attached list as on any other.
@@ -59,12 +59,12 @@ def chains (n: Nat): Nat
     + (List.range 0 n
       |> .attach
       |> .sumBy (({ value = d, isIn }) =>
-        if Nat.leq 1 d ∧ Nat.divides d n then chains d [decreasing := And.right (List.memRangeFrom d n 0 isIn)] else 0))
+        if Nat.leq 1 d ∧ Nat.divides d n then chains d [decreasing := (List.memRangeFrom d n 0 isIn).right] else 0))
 
 test "chains" := List.map [1, 2, 3, 4, 5, 6] chains == [1, 2, 2, 4, 2, 6]
 
 -- The membership facts on their own.
-theorem fourInRange: List.Mem 4 (List.range 2 7) := Inr (Inr (Inl rfl))
+theorem fourInRange: List.Mem 4 (List.range 2 7) := Inr (Inr (Inl byComputing))
 
 theorem rangeBounds ∀ (x: Nat) (h: List.Mem x (List.range 2 7)): (2 ≤ x) ∧ (x < 7) := (List.memRange x 2 7).forward h
 

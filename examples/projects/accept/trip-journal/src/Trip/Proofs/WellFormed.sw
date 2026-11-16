@@ -8,13 +8,13 @@ import Trip.Merge (..)
 -- Stops
 
 theorem unlinkId ∀ (stop: Stop): (unlink stop).id = stop.id := match e: stop.kind with
-  | Planned index => rfl
-  | Free => rfl
+  | Planned index => byComputing
+  | Free => byComputing
 
 theorem localStopId ∀ (replaced: Bool) (stop: Stop): (if replaced then unlink stop else stop).id = stop.id :=
   match replaced with
     | True => unlinkId stop
-    | False => rfl
+    | False => byComputing
 
 def stopEntries (local remote: Trip): List (Stop, Position) :=
   List.appendNewBy
@@ -26,7 +26,7 @@ def stopEntries (local remote: Trip): List (Stop, Position) :=
 theorem mergeStopsIs ∀ (local remote: Trip) (legs: List Leg):
     mergeStops local remote legs
       = (stopEntries local remote).map (entry => entry.fst.startAt (settle legs entry.snd)) :=
-  rfl
+  byComputing
 
 theorem stopIdsOf ∀ (local remote: Trip) (legs: List Leg):
     List.map (mergeStops local remote legs) (stop => stop.id)
@@ -38,7 +38,7 @@ theorem mergeStopIds ∀ (local remote: Trip) (legs: List Leg)
     (dr: List.Distinct (List.map remote.stops (stop => stop.id))):
     List.Distinct (List.map (mergeStops local remote legs) (stop => stop.id)) :=
   let replaced := planReplaced local.itinerary remote.itinerary
-  rewrite stopIdsOf local remote legs in
+  rewrite stopIdsOf local remote legs then
     List.distinctKeysAppendNewBy
       (local.stops.map (stop => ((if replaced then unlink stop else stop), locate local.legs stop.start)))
       (remote.stops.map (stop => (stop, locate remote.legs stop.start)))
@@ -46,9 +46,9 @@ theorem mergeStopIds ∀ (local remote: Trip) (legs: List Leg)
       (rewrite List.mapMap local.stops (entry => entry.fst.id) (stop =>
             ((if replaced then unlink stop else stop), locate local.legs stop.start)),
           List.mapCong local.stops (stop => (if replaced then unlink stop else stop).id) (stop => stop.id) (stop =>
-            localStopId replaced stop) in
+            localStopId replaced stop) then
         dl)
-      (rewrite List.mapMap remote.stops (entry => entry.fst.id) (stop => (stop, locate remote.legs stop.start)) in dr)
+      (rewrite List.mapMap remote.stops (entry => entry.fst.id) (stop => (stop, locate remote.legs stop.start)) then dr)
 
 theorem mergeStopsWithin ∀ (local remote: Trip) (legs: List Leg)
     (c: ContiguousFrom 0.0 legs)
@@ -60,7 +60,7 @@ theorem mergeStopsWithin ∀ (local remote: Trip) (legs: List Leg)
       (within legs stop.start = True)
       (stopEntries local remote)
       (List.memMapAny (stopEntries local remote) (entry => entry.fst.startAt (settle legs entry.snd)) stop m)
-      (entry inEntries e => rewrite <- e in settleWithin legs c oks entry.snd))
+      (entry inEntries e => rewrite <- e then settleWithin legs c oks entry.snd))
 
 -- Pins
 
@@ -75,7 +75,7 @@ def placedPins (local remote: Trip) (legs: List Leg): List Pin :=
 
 theorem mergePinsIs ∀ (local remote: Trip) (legs: List Leg):
     mergePins local remote legs = List.sortWith (placedPins local remote legs) byStart :=
-  rfl
+  byComputing
 
 theorem byStartTotal ∀ (a b: Pin) (h: byStart a b = False): byStart b a = True := Float.leTotal a.start b.start h
 
@@ -105,8 +105,8 @@ theorem mergePinIds ∀ (local remote: Trip) (legs: List Leg)
         (remote.pins.map (pin => (pin, locate remote.legs pin.start)))
         (local.pins.map (pin => (pin, locate local.legs pin.start)))
         (entry => entry.fst.id)
-        (rewrite List.mapMap remote.pins (entry => entry.fst.id) (pin => (pin, locate remote.legs pin.start)) in dr)
-        (rewrite List.mapMap local.pins (entry => entry.fst.id) (pin => (pin, locate local.legs pin.start)) in dl)))
+        (rewrite List.mapMap remote.pins (entry => entry.fst.id) (pin => (pin, locate remote.legs pin.start)) then dr)
+        (rewrite List.mapMap local.pins (entry => entry.fst.id) (pin => (pin, locate local.legs pin.start)) then dl)))
 
 theorem mergePinsFit ∀ (local remote: Trip) (legs: List Leg):
     List.All (pin => pinFits legs pin = True) (mergePins local remote legs) :=
@@ -153,8 +153,8 @@ theorem withPhotosOfOk ∀ (remote: List Album)
 
 theorem withPhotosOfId ∀ (remote: List Album) (album: Album): (withPhotosOf remote album).id = album.id :=
   match e: remote.find (other => other.id == album.id) with
-    | Some other => rfl
-    | None => rfl
+    | Some other => byComputing
+    | None => byComputing
 
 def albumEntries (local remote: Trip): List (Album, Position) :=
   List.appendNewBy
@@ -171,7 +171,7 @@ def settledAlbums (local remote: Trip) (legs: List Leg): List Album :=
 theorem mergeAlbumsIs ∀ (local remote: Trip) (legs: List Leg):
     mergeAlbums local remote legs
       = (settledAlbums local remote legs).map (album => keepOwned (ownerIn local remote) album) :=
-  Eq.sym
+  Eq.flipped
     (List.mapMap (albumEntries local remote) (album => keepOwned (ownerIn local remote) album) (entry =>
       entry.fst.startAt (settle legs entry.snd)))
 
@@ -186,16 +186,17 @@ theorem albumEntryIds ∀ (local remote: Trip)
     (rewrite List.mapMap local.albums (entry => entry.fst.id) (album =>
           (withPhotosOf remote.albums album, locate local.legs album.start)),
         List.mapCong local.albums (album => (withPhotosOf remote.albums album).id) (album => album.id) (album =>
-          withPhotosOfId remote.albums album) in
+          withPhotosOfId remote.albums album) then
       dl)
-    (rewrite List.mapMap remote.albums (entry => entry.fst.id) (album => (album, locate remote.legs album.start)) in dr)
+    (rewrite List.mapMap remote.albums (entry => entry.fst.id) (album => (album, locate remote.legs album.start)) then
+      dr)
 
 theorem mergeAlbumIds ∀ (local remote: Trip) (legs: List Leg)
     (dl: List.Distinct (List.map local.albums (album => album.id)))
     (dr: List.Distinct (List.map remote.albums (album => album.id))):
     List.Distinct (List.map (mergeAlbums local remote legs) (album => album.id)) :=
   rewrite List.mapMap (albumEntries local remote) (album => album.id) (entry =>
-        keepOwned (ownerIn local remote) (entry.fst.startAt (settle legs entry.snd))) in
+        keepOwned (ownerIn local remote) (entry.fst.startAt (settle legs entry.snd))) then
     albumEntryIds local remote dl dr
 
 theorem settledAlbumsIds ∀ (local remote: Trip) (legs: List Leg)
@@ -203,7 +204,7 @@ theorem settledAlbumsIds ∀ (local remote: Trip) (legs: List Leg)
     (dr: List.Distinct (List.map remote.albums (album => album.id))):
     List.Distinct (List.map (settledAlbums local remote legs) (album => album.id)) :=
   rewrite List.mapMap (albumEntries local remote) (album => album.id) (entry =>
-        entry.fst.startAt (settle legs entry.snd)) in
+        entry.fst.startAt (settle legs entry.snd)) then
     albumEntryIds local remote dl dr
 
 theorem settledAlbumsOk ∀ (local remote: Trip) (legs: List Leg)
@@ -217,7 +218,7 @@ theorem settledAlbumsOk ∀ (local remote: Trip) (legs: List Leg)
       (albumEntries local remote)
       (List.memMapAny (albumEntries local remote) (entry => entry.fst.startAt (settle legs entry.snd)) album m)
       (entry inEntries e =>
-        rewrite <- e in
+        rewrite <- e then
           match (List.memAppendNewBy entry
                 (local.albums.map (a => (withPhotosOf remote.albums a, locate local.legs a.start)))
                 (remote.albums.map (a => (a, locate remote.legs a.start)))
@@ -232,7 +233,7 @@ theorem settledAlbumsOk ∀ (local remote: Trip) (legs: List Leg)
                   entry
                   fromLocal)
                 (a inLocal ea =>
-                  rewrite <- ea in
+                  rewrite <- ea then
                     withPhotosOfOk remote.albums okr a (List.memOfAll AlbumOk local.albums okl a inLocal))
             | Inr (Both fromRemote fresh) =>
               List.anyElim
@@ -240,15 +241,15 @@ theorem settledAlbumsOk ∀ (local remote: Trip) (legs: List Leg)
                 (AlbumOk entry.fst)
                 remote.albums
                 (List.memMapAny remote.albums (a => (a, locate remote.legs a.start)) entry fromRemote)
-                (a inRemote ea => rewrite <- ea in List.memOfAll AlbumOk remote.albums okr a inRemote)))
+                (a inRemote ea => rewrite <- ea then List.memOfAll AlbumOk remote.albums okr a inRemote)))
 
 -- A photo kept in an album is one its owner gives to that album.
 theorem ownedOf ∀ (own: Nat → Option Nat) (album: Album) (x: Nat)
     (m: x ∈ List.map (keepOwned own album).photos Photo.id):
     own x = Some album.id :=
   Exists.elim (List.memMapElim Photo.id x (keepOwned own album).photos m) (photo both =>
-    match List.memFilter album.photos (p => own p.id == Some album.id) (And.left both) with
-      | Both inPhotos keep => rewrite <- And.right both in DecEq.sound keep)
+    match List.memFilter album.photos (p => own p.id == Some album.id) both.left with
+      | Both inPhotos keep => rewrite <- And.right both then DecEq.sound keep)
 
 theorem ownedIn ∀ (own: Nat → Option Nat) (albums: List Album) (x: Nat)
     (m: x ∈ photoIds (albums.map (album => keepOwned own album))):
@@ -282,7 +283,7 @@ theorem ownedDistinct ∀ (own: Nat → Option Nat) (albums: List Album)
           (x here there =>
             List.anyElim (b => own x = Some b.id) Void rest (ownedIn own rest x there) (b inRest e =>
               out
-                (rewrite Option.someInjective (Eq.trans (Eq.sym (ownedOf own album x here)) e) in
+                (rewrite Option.someInjective (Eq.trans (ownedOf own album x here).flipped e) then
                   List.memMap rest b inRest (a => a.id)))))
 
 theorem mergePhotoIds ∀ (local remote: Trip) (legs: List Leg)
@@ -291,7 +292,7 @@ theorem mergePhotoIds ∀ (local remote: Trip) (legs: List Leg)
     (pl: List.Distinct (photoIds local.albums))
     (pr: List.Distinct (photoIds remote.albums)):
     List.Distinct (photoIds (mergeAlbums local remote legs)) :=
-  rewrite mergeAlbumsIs local remote legs in
+  rewrite mergeAlbumsIs local remote legs then
     ownedDistinct
       (ownerIn local remote)
       (settledAlbums local remote legs)
@@ -312,7 +313,7 @@ theorem mergeAlbumsWithin ∀ (local remote: Trip) (legs: List Leg)
         (entry => keepOwned (ownerIn local remote) (entry.fst.startAt (settle legs entry.snd)))
         album
         m)
-      (entry inEntries e => rewrite <- e in settleWithin legs c oks entry.snd))
+      (entry inEntries e => rewrite <- e then settleWithin legs c oks entry.snd))
 
 -- The plan
 

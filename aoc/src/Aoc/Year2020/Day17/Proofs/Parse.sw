@@ -22,7 +22,7 @@ theorem gridWritten ∀ (input: Text) (grid: Grid CubeState)
   let split :=
     rewrite Fail.toResultThen (() => Parse.eachLine input (() => Parse.many1 cubeState |> .toList)) checkGrid at parsed
   Result.flatMapEqOk _ (rows => Fail.toResult (() => checkGrid rows)) grid split (rows read checked =>
-    rewrite <- checkGridRows rows grid checked in
+    rewrite <- checkGridRows rows grid checked then
       Parse.eachLineReads input
         (() => Parse.many1 cubeState |> .toList) _
         rows
@@ -34,7 +34,7 @@ theorem gridWritten ∀ (input: Text) (grid: Grid CubeState)
             (Parse.readsMany1 cubeState _ readsCubeState))
           (line values h =>
             match h with
-              | Witness states (Both each same) => rewrite same in Parse.eachChars symbol line states.toList each)))
+              | Witness states (Both each same) => rewrite same then Parse.eachChars symbol line states.toList each)))
 
 --| Every line of the input is its row of the slice written out, and the
 --| slice is a rectangle.
@@ -49,4 +49,4 @@ theorem parseWritten ∀ (input: Text) (slice: Slice)
     split
     (grid read made =>
       let same: ({ grid }: Slice) = slice := Result.okInjective made
-      rewrite <- same in Both (gridWritten input grid read) (And.left (parseGridRectangle input cubeState grid read)))
+      rewrite <- same then Both (gridWritten input grid read) (And.left (parseGridRectangle input cubeState grid read)))

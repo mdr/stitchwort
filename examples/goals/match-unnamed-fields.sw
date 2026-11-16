@@ -1,8 +1,8 @@
 -- An arm whose pattern names less than another arm's: `other` covers lists
--- the first arm splits further, so its goal mentions their parts. Those
--- parts have no name in this arm, so they're shown as `next✝`, `head✝` and
--- `tail✝` (named after the other arm's variable and the fields of `Cons`),
--- in the goal and in the hypotheses' types alike.
+-- the first arm splits further. The goal is about `other`, as written; the
+-- parts the split made have no name in this arm, so where the goal computes
+-- through them they are shown as `next✝` and `tail✝` (named after the other
+-- arm's variable and the fields of `Cons`).
 import Std (Bool, List, Nat)
 
 def allTrue: List Bool → Bool

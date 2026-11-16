@@ -46,7 +46,7 @@ def zerosPassed (turns: List Turn) (startingDial: Dial n): Nat :=
 type Turn = | Left (distance: Nat) | Right (distance: Nat)
 
 --| "L68" is `Left 68`; " R5 " is `Right 5`.
-def turn(): {Parse} Turn :=
+def turn(): {Parse Char} Turn :=
   spaces()
   let direction := label "a turn like L68" (() => pick [("L", Left), ("R", Right)])
   let distance := nat()

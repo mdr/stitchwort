@@ -51,12 +51,12 @@ type Outcome =
   --| It jumped to some other position outside the code.
   | JumpsAway (accumulator: Int)
 
-def operation(): {Parse} Operation := Parse.pick ([Acc, Jmp, Nop].map (operation => (operation.word, operation)))
+def operation(): {Parse Char} Operation := Parse.pick ([Acc, Jmp, Nop].map (operation => (operation.word, operation)))
 
 --| "+3" or "-99": a sign and a whole number.
-def argument(): {Parse} Int := Parse.int()
+def argument(): {Parse Char} Int := Parse.int()
 
-def instruction(): {Parse} Instruction :=
+def instruction(): {Parse Char} Instruction :=
   let operation := operation()
   Parse.char ' '
   let argument := argument()
@@ -90,7 +90,7 @@ def Code.runFrom (code: Code) (unvisited: Set Nat) (state: State): Outcome
             Code.runFrom code
               (unvisited.remove position)
               (instruction.execute state)
-              [decreasing := omega [
+              [decreasing := arithmetic [
                 Set.sizeRemovePresent unvisited position fresh,
                 Set.sizePositive unvisited position fresh
               ]]

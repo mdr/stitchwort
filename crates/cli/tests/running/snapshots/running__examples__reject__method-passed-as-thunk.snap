@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-ABILITY] Error: this may perform `Parse`, which isn't allowed here
@@ -9,7 +9,7 @@ expression: output
     │   ─────────────────┬────────────────  
     │                    ╰────────────────── `Parse` isn't in the abilities of the enclosing function or handler
     │ 
-    │ Note 1: add `Parse` to the function's type (`-> {Parse …} …`), or handle it
+    │ Note 1: add `Parse` to the function's type (`-> {Parse Char} …`), or handle it
     │ 
     │ Note 2: `digits.parser` runs here; this parameter takes a function of `()`, so to pass it, not run it, write `() => digits.parser`
 ────╯

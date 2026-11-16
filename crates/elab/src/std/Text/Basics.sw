@@ -15,9 +15,9 @@ def Text.isEmpty: (text: Text) → Bool
 --| `text.isEmpty` reads as `text.toList = []`.
 @[reading]
 theorem Text.isEmptyReads ∀ (text: Text): Text.isEmpty text ↔ text.toList = [] := match text with
-  | MkText [] => { forward = h => rfl, backward = h => rfl }
+  | MkText [] => { forward = h => byComputing, backward = h => byComputing }
   | MkText [char, ..chars] =>
-    { forward = h => Void.exfalso (Bool.falseNotTrue h), backward = h => Void.exfalso (List.consNotNil char chars h) }
+    { forward = h => (Bool.falseNotTrue h).impossible, backward = h => (List.consNotNil char chars h).impossible }
 
 --| The first character and the rest, unless the text is empty.
 def Text.uncons: (text: Text) → Option (Pair Char Text)
@@ -107,9 +107,9 @@ theorem Char.isAsciiDigitDigitValue ∀ (char: Char): char.isAsciiDigit = char.d
   match low: Nat.leq 48 char.toNat with
     | True =>
       match high: Nat.leq char.toNat 57 with
-        | True => rfl
-        | False => rfl
-    | False => rfl
+        | True => byComputing
+        | False => byComputing
+    | False => byComputing
 
 --| The number the ASCII digits spell, after the digits already read (`acc`); `None` at a non-digit.
 def Text.readDigits (acc: Nat): (chars: List Char) → Option Nat
@@ -135,10 +135,10 @@ theorem Text.readDigitsValue ∀ (acc: Nat) (chars: List Char):
            Some (List.foldLeft (chars.map (digit => digit.digitValue.getOrElse 0)) acc (acc digit => acc * 10 + digit))
          else None) :=
   match chars with
-    | [] => rfl
+    | [] => byComputing
     | [char, ..rest] =>
       match value: char.digitValue with
-        | None => rfl
+        | None => byComputing
         | Some d => Text.readDigitsValue (acc * 10 + d) rest
 
 --| The integer a text spells: an optional `-`, then one or more ASCII digits,
@@ -206,6 +206,12 @@ def Text.joinWith: (texts: List Text) → (separator: Text) → Text
   | [text, ..texts], separator =>
     MkText (Text.joinTextChars (Text.toList separator) (Text.toList text) (Text.charListsOf texts))
 
+--| The texts one after another: `Text.concat ["ab", "", "c"]` is `"abc"`. When
+--| a program runs it makes one text of the total length, so joining many
+--| pieces once is linear where `++` in a loop copies what came before each
+--| time ([`Text.concatToList`]).
+def Text.concat (texts: List Text): Text := Text.joinWith texts ""
+
 --| `Text.joinWith` as a function of the list, so it pipes:
 --| `[1, 2].map (.toText) |> .joinWith ", "` is `"1, 2"`.
 def List.joinWith (texts: List Text) (separator: Text): Text := Text.joinWith texts separator
@@ -253,7 +259,7 @@ theorem Text.dropSpacesHead ∀ (chars: List Char) (first: Char) (rest: List Cha
     | [char, ..chars] =>
       match space: Char.isWhitespace char with
         | True => Text.dropSpacesHead chars first rest h
-        | False => rewrite <- Eq.cong (.headOr first) h in space
+        | False => rewrite <- Eq.cong (.headOr first) h then space
 
 --| A trimmed text doesn't end with whitespace.
 theorem Text.trimLast ∀ (text: Text) (front: List Char) (last: Char)
@@ -261,8 +267,8 @@ theorem Text.trimLast ∀ (text: Text) (front: List Char) (last: Char)
     Char.isWhitespace last = False :=
   let kept := Text.dropSpaces (List.reverseOnto (Text.dropSpaces text.toList) [])
   let back: List.reverse [last, ..List.reverse front] = front ++ [last] :=
-    rewrite List.reverseCons last (List.reverse front), List.reverseReverse front in rfl
+    rewrite List.reverseCons last (List.reverse front), List.reverseReverse front then byComputing
   let flipped: kept = [last, ..List.reverse front] :=
-    rewrite <- List.reverseReverse kept, <- List.reverseReverse [last, ..List.reverse front], back in
+    rewrite <- List.reverseReverse kept, <- List.reverseReverse [last, ..List.reverse front], back then
       Eq.cong List.reverse h
   Text.dropSpacesHead _ last _ flipped

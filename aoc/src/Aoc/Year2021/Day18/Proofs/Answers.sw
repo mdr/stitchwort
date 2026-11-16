@@ -9,8 +9,8 @@ import Std (DecEq, Eq, Exists, List, Nat, Option, Void)
 --| The program's magnitude is the puzzle's.
 theorem magnitudeSame ∀ (number: Number): Aoc.Year2021.Day18.Spec.magnitude number = magnitude number :=
   match number with
-    | Regular _ => rfl
-    | Pair left right => rewrite magnitudeSame left, magnitudeSame right in rfl
+    | Regular _ => byComputing
+    | Pair left right => rewrite magnitudeSame left, magnitudeSame right then byComputing
 
 --| A sum of two reduced numbers that `add` finishes is their sum, and is
 --| reduced.
@@ -19,8 +19,9 @@ theorem addSound ∀ (x y sum: Number)
     (reducedY: IsReduced y)
     (added: add x y = Some sum):
     IsSum x y sum ∧ IsReduced sum :=
-  let reduced := reduceSound steps (Pair x y) sum added (omega [reducedHeight x reducedX, reducedHeight y reducedY])
-  Both (And.left reduced) (leavesSmall 0 sum (And.left (And.right reduced)) (And.right (And.right reduced)))
+  let reduced :=
+    reduceSound steps (Pair x y) sum added (arithmetic [reducedHeight x reducedX, reducedHeight y reducedY])
+  Both reduced.left (leavesSmall 0 sum reduced.right.left reduced.right.right)
 
 theorem addAllSound ∀ (total: Number) (numbers: List Number) (final: Number)
     (reducedTotal: IsReduced total)
@@ -28,12 +29,12 @@ theorem addAllSound ∀ (total: Number) (numbers: List Number) (final: Number)
     (done: addAll total numbers = Some final):
     AddsUpTo total numbers final :=
   match numbers, h with
-    | [], _ => rewrite <- Option.someInjective done in NothingAdded total
+    | [], _ => rewrite <- Option.someInjective done then NothingAdded total
     | [next, ..rest], Both reducedNext reducedRest =>
       match a: add total next with
         | Some sum =>
           let added := addSound total next sum reducedTotal reducedNext a
-          AddNext (And.left added) (addAllSound sum rest final (And.right added) reducedRest done)
+          AddNext added.left (addAllSound sum rest final added.right reducedRest done)
 
 --| Part 1: for reduced numbers, if the program's sums finish, its answer
 --| is the spec's.
@@ -48,10 +49,10 @@ theorem part1Correct ∀ (numbers: List Number)
           Witness first
             (Witness rest
               (Witness final
-                (Both rfl
+                (Both byComputing
                   (Both
-                    (addAllSound first rest final (And.left reduced) (And.right reduced) a)
-                    (rewrite magnitudeSame final in Option.someInjective solved)))))
+                    (addAllSound first rest final reduced.left reduced.right a)
+                    (rewrite magnitudeSame final then Option.someInjective solved)))))
 
 --| Adding up is one number, so part 1's answer is one number.
 theorem addsUpToUnique ∀ (final2 total: Number) (numbers: List Number) (final1: Number)
@@ -59,10 +60,10 @@ theorem addsUpToUnique ∀ (final2 total: Number) (numbers: List Number) (final1
     (h1: AddsUpTo total numbers final2):
     final1 = final2 :=
   match numbers, h, h1 with
-    | [], NothingAdded _, NothingAdded _ => rfl
+    | [], NothingAdded _, NothingAdded _ => byComputing
     | [next, ..rest], AddNext [total2 := sum1] first1 rest1, AddNext [total2 := sum2] first2 rest2 =>
       let same := sumUnique total next sum1 sum2 first1 first2
-      addsUpToUnique final2 sum2 rest final1 (rewrite same at rest1 in rest1) rest2
+      addsUpToUnique final2 sum2 rest final1 (rewrite same at rest1 then rest1) rest2
 
 theorem part1Unique ∀ (numbers: List Number) (answer1 answer2: Nat)
     (first: Part1 numbers answer1)
@@ -71,11 +72,11 @@ theorem part1Unique ∀ (numbers: List Number) (answer1 answer2: Nat)
   match first, second with
     | Witness first1 (Witness rest1 (Witness final1 (Both split1 (Both adds1 magnitude1)))), Witness first2
         (Witness rest2 (Witness final2 (Both split2 (Both adds2 magnitude2)))) =>
-      let same := Eq.trans (Eq.sym split1) split2
+      let same := Eq.trans split1.flipped split2
       let firsts := Option.someInjective (Eq.cong (xs => List.get xs 0) same)
       let rests: rest1 = rest2 := Eq.cong (xs => List.drop xs 1) same
-      let finals := addsUpToUnique final2 first2 rest2 final1 (rewrite firsts, rests at adds1 in adds1) adds2
-      rewrite <- magnitude1, <- magnitude2, finals in rfl
+      let finals := addsUpToUnique final2 first2 rest2 final1 (rewrite firsts, rests at adds1 then adds1) adds2
+      rewrite <- magnitude1, <- magnitude2, finals then byComputing
 
 --| Two numbers on different lines are a pair `orderedPairs` lists.
 theorem memberPairs ∀ (numbers: List Number) (i j: Nat) (x y: Number)
@@ -106,8 +107,8 @@ theorem pairsMember ∀ (numbers: List Number) (x y: Number)
                   (Both
                     (DecEq.neTrue e)
                     (Both
-                      (rewrite <- Eq.cong Std.Pair.fst pairs in (List.memWithIndex numbers i a).forward atI)
-                      (rewrite <- Eq.cong Std.Pair.snd pairs in (List.memWithIndex numbers j b).forward atJ))))
+                      (rewrite <- Eq.cong Std.Pair.fst pairs then (List.memWithIndex numbers i a).forward atI)
+                      (rewrite <- Eq.cong Std.Pair.snd pairs then (List.memWithIndex numbers j b).forward atJ))))
 
 --| What `sumMagnitudes` gives: each magnitude is that of a listed pair's sum,
 --| and each listed pair's sum finished, its magnitude among them.
@@ -118,18 +119,18 @@ theorem sumMagnitudesSound ∀ (pairs: List (Number, Number)) (magnitudes: List 
       ∧ (∀ (x y: Number) => (x, y) ∈ pairs → ∃ (sum: Number) => add x y = Some sum ∧ magnitude sum ∈ magnitudes) :=
   match pairs with
     | [] =>
-      rewrite <- Option.someInjective done in Both (k member => Void.exfalso member) (x y member => Void.exfalso member)
+      rewrite <- Option.someInjective done then Both (k member => member.impossible) (x y member => member.impossible)
     | [(x, y), ..rest] =>
       match a: add x y with
         | Some sum =>
           match m: sumMagnitudes rest with
             | Some others =>
               let later := sumMagnitudesSound rest others m
-              rewrite <- Option.someInjective done in
+              rewrite <- Option.someInjective done then
                 Both
                   (k member =>
                     match member with
-                      | Inl here => Witness x (Witness y (Witness sum (Both (Inl rfl) (Both a here))))
+                      | Inl here => Witness x (Witness y (Witness sum (Both (Inl byComputing) (Both a here))))
                       | Inr there =>
                         match And.left later k there with
                           | Witness x2 (Witness y2 (Witness sum2 (Both inRest found))) =>
@@ -137,8 +138,8 @@ theorem sumMagnitudesSound ∀ (pairs: List (Number, Number)) (magnitudes: List 
                   (x2 y2 member =>
                     match member with
                       | Inl here =>
-                        rewrite <- Eq.cong Std.Pair.fst here, <- Eq.cong Std.Pair.snd here in
-                          Witness sum (Both a (Inl rfl))
+                        rewrite <- Eq.cong Std.Pair.fst here, <- Eq.cong Std.Pair.snd here then
+                          Witness sum (Both a (Inl byComputing))
                       | Inr there =>
                         match And.right later x2 y2 there with
                           | Witness sum2 (Both added inOthers) => Witness sum2 (Both added (Inr inOthers)))
@@ -154,7 +155,7 @@ theorem part2Correct ∀ (numbers: List Number)
       let sound := sumMagnitudesSound (orderedPairs numbers) magnitudes s
       let most := List.maximumSome magnitudes answer solved
       Both
-        (match And.left sound answer (And.left most) with
+        (match And.left sound answer most.left with
           | Witness x (Witness y (Witness sum (Both member (Both added size)))) =>
             match pairsMember numbers x y member with
               | Witness i (Witness j (Both different (Both atI atJ))) =>
@@ -170,11 +171,11 @@ theorem part2Correct ∀ (numbers: List Number)
                               (Both atJ
                                 (Both
                                   (And.left (addSound x y sum reducedX reducedY added))
-                                  (rewrite magnitudeSame sum in size))))))))))
+                                  (rewrite magnitudeSame sum then size))))))))))
         (i j x y sum different atI atJ isSum =>
           let reducedX := List.allMem IsReduced x numbers reduced (List.memOfGet numbers i x atI)
           let reducedY := List.allMem IsReduced y numbers reduced (List.memOfGet numbers j y atJ)
           match And.right sound x y (memberPairs numbers i j x y different atI atJ) with
             | Witness made (Both added inList) =>
               let same := sumUnique x y made sum (And.left (addSound x y made reducedX reducedY added)) isSum
-              rewrite magnitudeSame sum, <- same in And.right most (magnitude made) inList)
+              rewrite magnitudeSame sum, <- same then And.right most (magnitude made) inList)

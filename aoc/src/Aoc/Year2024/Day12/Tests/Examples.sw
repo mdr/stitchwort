@@ -135,7 +135,7 @@ test "diagonal plots" := (garden """
   """) == 16
 
 --| A ring: 8 plots, perimeter 16, sides 8 (four outside, four inside).
-test "a ring" :=
+test "a algebra" :=
   let loop := garden """
     AAA
     ABA

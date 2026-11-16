@@ -9,23 +9,23 @@ import Aoc.Year2020.Day16 (..)
 import Aoc.Year2020.Day16.Spec (LineBreakWritten, NotesWritten, NumberWritten, RangeWritten, RuleWritten, TicketWritten)
 import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, NonEmptyList, Parse, Result, Text, Void)
 
-theorem runsAsValue ∀ (p: () → {Parse} a) (read rest: List Char) (v w: a)
+theorem runsAsValue ∀ (p: () → {Parse Char} a) (read rest: List Char) (v w: a)
     (same: v = w)
     (runs: Parse.Runs p read rest v):
     Parse.Runs p read rest w :=
-  rewrite same at runs in runs
+  rewrite same at runs then runs
 
 --| What can follow a number in the notes' lists: not another digit, and not a comma.
 def continues (char: Char): Bool := Parse.isDigit char ∨ char == ','
 
 theorem spaceStops ∀ (char: Char) (isSpace: Parse.isSpace char = True): continues char = False := match isSpace with
-  | Inl space => rewrite space.read in rfl
-  | Inr tab => rewrite tab.read in rfl
+  | Inl space => rewrite space.read then byComputing
+  | Inr tab => rewrite tab.read then byComputing
 
 theorem spaceNotDigit ∀ (char: Char) (isSpace: Parse.isSpace char = True): Parse.isDigit char = False :=
   match isSpace with
-    | Inl space => rewrite space.read in rfl
-    | Inr tab => rewrite tab.read in rfl
+    | Inl space => rewrite space.read then byComputing
+    | Inr tab => rewrite tab.read then byComputing
 
 theorem continuesNotDigit ∀ (rest: List Char)
     (stops: Parse.CannotStart continues rest):
@@ -38,7 +38,7 @@ theorem runsNumber ∀ (read: List Char) (number: Nat) (after: List Char)
     Parse.Runs Parse.nat read after number :=
   match written with
     | Both nonEmpty (Both allDigits decimal) =>
-      rewrite decimal in Parse.runsNatBefore read after nonEmpty allDigits stops
+      rewrite decimal then Parse.runsNatBefore read after nonEmpty allDigits stops
 
 theorem runsRange ∀ (read: List Char) (range2: Range)
     (written: RangeWritten read range2) (after: List Char)
@@ -48,24 +48,24 @@ theorem runsRange ∀ (read: List Char) (range2: Range)
     | { low, high }, Witness lowRead
         (Witness highRead
           (Both split (Both (Both lowSome (Both lowAll lowValue)) (Both highSome (Both highAll highValue))))) =>
-      rewrite split, lowValue, highValue in
+      rewrite split, lowValue, highValue then
         Parse.runsBind Parse.nat _ lowRead
           (['-'] ++ highRead) _
           after
           (Parse.digitsValue lowRead) _
-          rfl
-          (Parse.runsNat lowRead _ lowSome lowAll rfl)
+          byComputing
+          (Parse.runsNat lowRead _ lowSome lowAll byComputing)
           (Parse.runsBind
             (() => Parse.char '-') _
             ['-']
             highRead _
             after
             () _
-            rfl
+            byComputing
             (Parse.runsChar '-' _)
             (Parse.runsBind Parse.nat _ highRead [] _ after
               (Parse.digitsValue highRead) _
-              (Eq.sym (List.appendNil highRead))
+              (List.appendNil highRead).flipped
               (Parse.runsNatBefore highRead _ highSome highAll stops)
               (Parse.runsPure _ after)))
 
@@ -79,41 +79,41 @@ theorem runsRule ∀ (read: List Char) (rule2: Rule)
       runsAsValue rule read after
         { field = Text.fromList field.toList, first, second }
         { field, first, second }
-        (rewrite Text.fromToList field in rfl)
-        (rewrite split in
+        (rewrite Text.fromToList field then byComputing)
+        (rewrite split then
           Parse.runsBind
             (() => Parse.takeWhile1 "a field name" isNameChar) _
             field.toList
             (": ".toList ++ firstRead ++ " or ".toList ++ secondRead) _
             after
             (Text.fromList field.toList) _
-            rfl
-            (Parse.runsTakeWhile1 "a field name" isNameChar field.toList _ nonEmpty names rfl)
+            byComputing
+            (Parse.runsTakeWhile1 "a field name" isNameChar field.toList _ nonEmpty names byComputing)
             (Parse.runsBind
               (() => Parse.text ": ") _
               ": ".toList
               (firstRead ++ " or ".toList ++ secondRead) _
               after
               () _
-              rfl
+              byComputing
               (Parse.runsText ": " _)
               (Parse.runsBind range _ firstRead
                 (" or ".toList ++ secondRead) _
                 after
                 first _
-                rfl
+                byComputing
                 (runsRange firstRead first firstWritten _ (char more found =>
-                  rewrite <- List.consInjectiveHead _ _ _ _ found in rfl))
+                  rewrite <- List.consInjectiveHead _ _ _ _ found then byComputing))
                 (Parse.runsBind
                   (() => Parse.text " or ") _
                   " or ".toList
                   secondRead _
                   after
                   () _
-                  rfl
+                  byComputing
                   (Parse.runsText " or " _)
                   (Parse.runsBind range _ secondRead [] _ after second _
-                    (Eq.sym (List.appendNil secondRead))
+                    (List.appendNil secondRead).flipped
                     (runsRange secondRead second secondWritten _ stops)
                     (Parse.runsPure _ after))))))
 
@@ -128,7 +128,7 @@ theorem runsTicket ∀ (read: List Char) (ticket2: Ticket)
           runsAsValue ticket read after
             { values = (NonEmptyList.cons head tail).toList }
             { values = vs }
-            (rewrite same in rfl)
+            (rewrite same then byComputing)
             (Parse.runsMap
               (() => Parse.sepBy1 Parse.nat (() => Parse.char ','))
               (values2 => { values = values2.toList })
@@ -142,15 +142,16 @@ theorem runsTicket ∀ (read: List Char) (ticket2: Ticket)
                 (Parse.CannotStart Parse.isDigit)
                 after
                 (read2 v after2 ok stops2 => runsNumber read2 v after2 ok stops2)
-                (read2 after2 u same2 => rewrite same2 in Parse.runsChar ',' after2)
-                (read2 u same2 => rewrite same2 in List.consNotNil ',' [])
+                (read2 after2 u same2 => rewrite same2 then Parse.runsChar ',' after2)
+                (read2 u same2 => rewrite same2 then List.consNotNil ',' [])
                 (read2 after2 u same2 =>
-                  rewrite same2 in (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found in rfl))
+                  rewrite same2 then
+                    (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found then byComputing))
                 (continuesNotDigit after stops)
                 (Parse.declinesSepStep Parse.nat
                   (() => Parse.char ',')
                   after
-                  (Parse.declinesCharCannotStart ',' continues rfl after stops))
+                  (Parse.declinesCharCannotStart ',' continues byComputing after stops))
                 read
                 head
                 tail
@@ -171,8 +172,8 @@ theorem declinesTicket ∀ (input: List Char) (stops: Parse.CannotStart continue
 -- character.
 
 theorem spaceIsName ∀ (char: Char) (isSpace: Parse.isSpace char = True): isNameChar char = True := match isSpace with
-  | Inl space => rewrite space.read in rfl
-  | Inr tab => rewrite tab.read in rfl
+  | Inl space => rewrite space.read then byComputing
+  | Inr tab => rewrite tab.read then byComputing
 
 --| `rule` declines on a run of name characters and then a line feed.
 theorem declinesRuleBeforeBreak ∀ (run more: List Char)
@@ -183,7 +184,7 @@ theorem declinesRuleBeforeBreak ∀ (run more: List Char)
       Parse.declinesBind
         (() => Parse.takeWhile1 "a field name" isNameChar) _
         ['\n', ..more]
-        (Parse.declinesTakeWhile1 "a field name" isNameChar ['\n', ..more] rfl)
+        (Parse.declinesTakeWhile1 "a field name" isNameChar ['\n', ..more] byComputing)
     | [char, ..others] =>
       Parse.declinesAfter
         (() => Parse.takeWhile1 "a field name" isNameChar) _
@@ -195,8 +196,8 @@ theorem declinesRuleBeforeBreak ∀ (run more: List Char)
           ['\n', ..more]
           (List.consNotNil char others)
           names
-          rfl)
-        (Parse.declinesBind (() => Parse.text ": ") _ ['\n', ..more] (Parse.declinesText ": " _ rfl))
+          byComputing)
+        (Parse.declinesBind (() => Parse.text ": ") _ ['\n', ..more] (Parse.declinesText ": " _ byComputing))
 
 --| A round of `lines rule` declines at a blank line.
 theorem declinesRulesAtBlank ∀ (blank more: List Char)
@@ -204,15 +205,15 @@ theorem declinesRulesAtBlank ∀ (blank more: List Char)
     Parse.Declines (() => Parse.sepStep rule Parse.newline) (blank ++ more) :=
   match isBlank with
     | Witness first (Witness middle (Witness last (Both split (Both firstBreak (Both spaced lastBreak))))) =>
-      rewrite split, List.appendAssoc first (middle ++ last) more, List.appendAssoc middle last more in
+      rewrite split, List.appendAssoc first (middle ++ last) more, List.appendAssoc middle last more then
         Parse.declinesAfter Parse.newline
           (u => rule())
           first
           (middle ++ (last ++ more))
           ()
           (Parse.runsNewline first _ firstBreak)
-          (Parse.declinesAfterSpacesBreak rule isNameChar spaceIsName rfl declinesRuleBeforeBreak middle last more
-              spaced lastBreak)
+          (Parse.declinesAfterSpacesBreak rule isNameChar spaceIsName byComputing declinesRuleBeforeBreak middle last
+              more spaced lastBreak)
 
 --| The notes, as `NotesWritten` has them, before nothing but line breaks.
 theorem runsNotes ∀ (read: List Char) (notes2: Notes)
@@ -242,7 +243,7 @@ theorem runsNotes ∀ (read: List Char) (notes2: Notes)
                 nearby = (NonEmptyList.cons firstNearby otherNearby).toList
               }: Notes)
                 = { rules, yours, nearby } :=
-                rewrite <- rulesSame, <- nearbySame in rfl
+                rewrite <- rulesSame, <- nearbySame then byComputing
               let afterTickets :=
                 "your ticket:".toList
                   ++ break1
@@ -253,7 +254,7 @@ theorem runsNotes ∀ (read: List Char) (notes2: Notes)
                   ++ nearbyRead
               let afterNearby := "nearby tickets:".toList ++ break2 ++ nearbyRead
               let afterRules := blank1 ++ afterTickets
-              rewrite split in
+              rewrite split then
                 runsAsValue notes _ ending _
                   { rules, yours, nearby }
                   sameNotes
@@ -263,23 +264,24 @@ theorem runsNotes ∀ (read: List Char) (notes2: Notes)
                     afterRules _
                     ending
                     (NonEmptyList.cons firstRule otherRules) _
-                    rfl
+                    byComputing
                     (Parse.runsLinesOf rule RuleWritten
                       (Parse.CannotStart Parse.isDigit)
                       (afterRules ++ ending)
                       (read2 v after ok stops => runsRule read2 v ok after stops)
-                      (read2 after isBreak => Parse.cannotStartAfterBreak Parse.isDigit rfl rfl read2 after isBreak)
-                      (rewrite List.appendAssoc blank1 afterTickets ending in
-                        Parse.cannotStartAtBlank Parse.isDigit rfl rfl spaceNotDigit blank1
+                      (read2 after isBreak =>
+                        Parse.cannotStartAfterBreak Parse.isDigit byComputing byComputing read2 after isBreak)
+                      (rewrite List.appendAssoc blank1 afterTickets ending then
+                        Parse.cannotStartAtBlank Parse.isDigit byComputing byComputing spaceNotDigit blank1
                           (afterTickets ++ ending)
                           blank1Ok)
-                      (rewrite List.appendAssoc blank1 afterTickets ending in
+                      (rewrite List.appendAssoc blank1 afterTickets ending then
                         declinesRulesAtBlank blank1 (afterTickets ++ ending) blank1Ok)
                       rulesRead
                       firstRule
                       otherRules
                       rulesWritten2)
-                    (Parse.runsBind Parse.blankLine _ blank1 afterTickets _ ending () _ rfl
+                    (Parse.runsBind Parse.blankLine _ blank1 afterTickets _ ending () _ byComputing
                       (Parse.runsBlankLineOf blank1 _ blank1Ok)
                       (Parse.runsBind
                         (() => Parse.text "your ticket:") _
@@ -287,30 +289,30 @@ theorem runsNotes ∀ (read: List Char) (notes2: Notes)
                         (break1 ++ yoursRead ++ blank2 ++ "nearby tickets:".toList ++ break2 ++ nearbyRead) _
                         ending
                         () _
-                        rfl
+                        byComputing
                         (Parse.runsText "your ticket:" _)
                         (Parse.runsBind Parse.newline _ break1
                           (yoursRead ++ blank2 ++ "nearby tickets:".toList ++ break2 ++ nearbyRead) _
                           ending
                           () _
-                          rfl
+                          byComputing
                           (Parse.runsNewline break1 _ break1Ok)
                           (Parse.runsBind ticket _ yoursRead
                             (blank2 ++ "nearby tickets:".toList ++ break2 ++ nearbyRead) _
                             ending
                             yours _
-                            rfl
+                            byComputing
                             (runsTicket yoursRead yours yoursWritten
                               ((blank2 ++ afterNearby) ++ ending)
-                              (rewrite List.appendAssoc blank2 afterNearby ending in
-                                Parse.cannotStartAtBlank continues rfl rfl spaceStops blank2
+                              (rewrite List.appendAssoc blank2 afterNearby ending then
+                                Parse.cannotStartAtBlank continues byComputing byComputing spaceStops blank2
                                   (afterNearby ++ ending)
                                   blank2Ok))
                             (Parse.runsBind Parse.blankLine _ blank2
                               ("nearby tickets:".toList ++ break2 ++ nearbyRead) _
                               ending
                               () _
-                              rfl
+                              byComputing
                               (Parse.runsBlankLineOf blank2 _ blank2Ok)
                               (Parse.runsBind
                                 (() => Parse.text "nearby tickets:") _
@@ -318,9 +320,9 @@ theorem runsNotes ∀ (read: List Char) (notes2: Notes)
                                 (break2 ++ nearbyRead) _
                                 ending
                                 () _
-                                rfl
+                                byComputing
                                 (Parse.runsText "nearby tickets:" _)
-                                (Parse.runsBind Parse.newline _ break2 nearbyRead _ ending () _ rfl
+                                (Parse.runsBind Parse.newline _ break2 nearbyRead _ ending () _ byComputing
                                   (Parse.runsNewline break2 _ break2Ok)
                                   (Parse.runsBind
                                     (() => Parse.lines ticket) _
@@ -328,16 +330,17 @@ theorem runsNotes ∀ (read: List Char) (notes2: Notes)
                                     [] _
                                     ending
                                     (NonEmptyList.cons firstNearby otherNearby) _
-                                    (Eq.sym (List.appendNil nearbyRead))
+                                    (List.appendNil nearbyRead).flipped
                                     (Parse.runsLinesOf ticket TicketWritten
                                       (Parse.CannotStart continues)
                                       ending
                                       (read2 v after ok stops => runsTicket read2 v ok after stops)
                                       (read2 after isBreak =>
-                                        Parse.cannotStartAfterBreak continues rfl rfl read2 after isBreak)
-                                      (Parse.cannotStartAtBreaks continues rfl rfl ending breaks)
-                                      (Parse.declinesLinesAtBreaks ticket continues declinesTicket rfl rfl ending
-                                          breaks)
+                                        Parse.cannotStartAfterBreak continues byComputing byComputing read2 after
+                                            isBreak)
+                                      (Parse.cannotStartAtBreaks continues byComputing byComputing ending breaks)
+                                      (Parse.declinesLinesAtBreaks ticket continues declinesTicket byComputing
+                                          byComputing ending breaks)
                                       nearbyRead
                                       firstNearby
                                       otherNearby
@@ -364,4 +367,4 @@ theorem writtenUnique ∀ (input: Text) (a b: Notes)
     (writtenA: InputWritten input a)
     (writtenB: InputWritten input b):
     a = b :=
-  Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))
+  Result.okInjective (Eq.trans (parseComplete input a writtenA).flipped (parseComplete input b writtenB))

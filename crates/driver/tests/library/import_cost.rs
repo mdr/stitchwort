@@ -3,7 +3,7 @@
 //! session like the benchmark's `check-closed-*` programs. Loading checks
 //! the std declarations the program depends on, so one expensive proof in
 //! std is paid by every importer (SW-3221: `List.inRangeReads`, proved with
-//! `omega`, doubled `check-closed-*` from 1.1M to 2.09M steps and nobody
+//! `arithmetic`, doubled `check-closed-*` from 1.1M to 2.09M steps and nobody
 //! noticed for three days, because the benchmark's count check runs only in
 //! the broad tier). Checking all of std in one go would hide it, +1.5% of
 //! `List`'s 55M steps.
@@ -89,7 +89,7 @@ fn importing_std_namespaces_stays_within_recorded_step_counts() {
     assert!(
         failures.is_empty(),
         "{}\n\nChecking a program that imports std got dearer. Find the new or changed proof \
-         (`git log -p -- crates/elab/src/std` for the namespace; heavy `omega`, `decide` or `simp` \
+         (`git log -p -- crates/elab/src/std` for the namespace; heavy `arithmetic`, `decide` or `simp` \
          proofs are the usual cause, SW-3221; `STITCHWORT_TIMINGS=decls` shows steps per \
          declaration) and make it cheaper, or, if the cost is worth it, update BOUNDS in \
          crates/driver/tests/library/import_cost.rs with the reason in the commit.",

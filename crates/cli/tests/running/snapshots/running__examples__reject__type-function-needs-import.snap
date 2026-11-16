@@ -13,6 +13,7 @@ expression: output
    │ 
    │ Note 2: the prelude's `List` comes with its own constructors, fields and operations; the functions and theorems in its namespace need the import
 ───╯
+try: add `import Std (List)`
 [E-UNKNOWN-NAME] Error: no function `lenght` in `List`
    ╭─[ reject/type-function-needs-import.sw:9:15 ]
    │
@@ -33,3 +34,4 @@ expression: output
     │ 
     │ Note 2: the prelude's `IO` comes with its own constructors, fields and operations; the functions and theorems in its namespace need the import
 ────╯
+try: add `import Std (IO)`

@@ -4,7 +4,11 @@
 import Std (Bool, Eq, Nat, Void)
 
 -- The type, and the refutation that `complete` gives.
-type Dec (p: Prop) = { does: Bool, sound: does = True → p, complete: p → does = True }
+type Dec (p: Prop) = {
+  does: Bool,
+  sound: does = True → p,
+  complete: p → does = True
+}
 
 theorem Dec.refute ∀ [p: Prop] (d: Dec p) (e: d.does = False): ¬p := h =>
   Bool.falseNotTrue (Eq.trans (Eq.sym e) (d.complete h))

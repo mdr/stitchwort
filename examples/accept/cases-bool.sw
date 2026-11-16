@@ -1,6 +1,6 @@
 -- `cases` (docs/proposals/simp.md, stage 1): a proof by cases on whatever the
 -- goal is stuck on, closing each case by computation, a contradiction, a
--- hypothesis or `omega`.
+-- hypothesis or `arithmetic`.
 import Std (Bool, Float, Nat)
 
 -- Truth tables: `cases` takes apart `a`, then `b`, and each case computes.
@@ -16,8 +16,11 @@ theorem andSwap ∀ (a b: Bool) (h: (a ∧ b) = True): (b ∧ a) = True := cases
 theorem andLeft ∀ (a b: Bool) (h: (a ∧ b) = True): a = True := cases
 
 -- Comparisons inside the conditions: each case left with arithmetic is
--- closed by `omega`.
-def clamp (lo hi x: Nat): Nat := if x < lo then lo else if hi < x then hi else x
+-- closed by `arithmetic`.
+def clamp (lo hi x: Nat): Nat :=
+  if x < lo then lo
+  else if hi < x then hi
+  else x
 
 theorem clampBelow ∀ (lo hi x: Nat) (ordered: lo <= hi): clamp lo hi x <= hi := cases
 
@@ -25,6 +28,6 @@ theorem clampBelow ∀ (lo hi x: Nat) (ordered: lo <= hi): clamp lo hi x <= hi :
 -- keys all taken apart, with no helper lemma.
 theorem ieeeLtLe ∀ (x y: Float) (h: Float.ieeeLt x y = True): Float.ieeeLe x y = True := cases
 
--- `cases in t` closes every case `t` proves, and the others as `cases` would.
+-- `cases then t` closes every case `t` proves, and the others as `cases` would.
 theorem ieeeLtLeBy ∀ (x y: Float) (h: Float.ieeeLt x y = True): Float.ieeeLe x y = True :=
-  cases in Float.keyLessLeq _ _ h
+  cases then Float.keyLessLeq _ _ h

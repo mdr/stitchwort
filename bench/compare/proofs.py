@@ -41,7 +41,7 @@ DAYS = {
         "namespaces": ["Aoc.Year2020.Day18.Proofs"],
         "module": "Day2020_18",
         "imports": "Bool, Char, DecEq, Eq, Exists, Fail, List, Nat, Option, Parse, Result, Text, Void",
-        "probe": "def probe (p: () → {Parse} a) (spec: List Char → a → Prop) (read rest: List Char) (value: a): Prop :=\n"
+        "probe": "def probe (p: () → {Parse Char} a) (spec: List Char → a → Prop) (read rest: List Char) (value: a): Prop :=\n"
         "  Parse.Reads p spec ∧ Parse.Runs p read rest value\n",
     },
     "2021-day15": {

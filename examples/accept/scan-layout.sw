@@ -28,7 +28,7 @@ theorem layoutIds ∀ (start: Nat) (items: List Item):
     (item => item.id)
     (item => item.id)
     (item offset => moveTo offset item)
-    (item offset => rfl)
+    (item offset => byComputing)
     items
     start
     (offset item => offset + item.size)
@@ -44,7 +44,7 @@ theorem layoutStart ∀ (start: Nat) (items: List Item) (k: Nat)
         items
         start
         k
-        h in
+        h then
     List.sumByFrom (List.take items k) start (item => item.size)
 
 theorem layoutContiguous ∀ (start: Nat) (items: List Item) (k: Nat)
@@ -68,9 +68,9 @@ theorem layoutContiguous ∀ (start: Nat) (items: List Item) (k: Nat)
         items
         start
         k
-        omega,
-      List.foldLeftTakeSucc (offset item => offset + item.size) blank items start k omega in
-    rfl
+        arithmetic,
+      List.foldLeftTakeSucc (offset item => offset + item.size) blank items start k arithmetic then
+    byComputing
 
 -- The same placement as `mapAccumLeft`, threading the offset.
 theorem layoutMapAccum ∀ (start: Nat) (items: List Item):

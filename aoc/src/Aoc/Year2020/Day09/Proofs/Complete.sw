@@ -20,9 +20,9 @@ theorem shrinksInside ∀ (numbers: List Nat) (target start length: Nat)
     from ≠ start :=
   same =>
     let within: ((numbers.drop start).take count).sum ≤ ((numbers.drop start).take length).sum :=
-      List.sumTakeMono (numbers.drop start) count length (omega)
-    let windowSum := rewrite at, same at total in total
-    omega
+      List.sumTakeMono (numbers.drop start) count length (arithmetic)
+    let windowSum := rewrite at, same at total then total
+    arithmetic
 
 --| The window can't end where the run does without summing to at least
 --| the target, being as long as the run or longer.
@@ -40,12 +40,13 @@ theorem growsInside ∀ (numbers: List Nat) (target start length: Nat)
   if h: from + count < start + length then h
   else
     let skipped: front.drop (start - from) = numbers.drop start :=
-      rewrite at, <- List.dropAdd from (start - from) numbers, (omega: from + (start - from) = start) in rfl
+      rewrite at, <- List.dropAdd from (start - from) numbers, (arithmetic: from + (start - from) = start) then
+        byComputing
     let covered := List.sumDropTakeLe front (start - from) length
-    let runSum := rewrite <- skipped at sums in sums
+    let runSum := rewrite <- skipped at sums then sums
     let whole: (front.take (start - from + length)).sum = sum :=
-      rewrite (omega: start - from + length = count), total in rfl
-    Void.exfalso (unfinished (omega) (omega))
+      rewrite (arithmetic: start - from + length = count), total then byComputing
+    Void.impossible (unfinished (arithmetic) (arithmetic))
 
 theorem runFromComplete ∀ (numbers: List Nat) (target start length: Nat)
     (sums: ((numbers.drop start).take length).sum = target)
@@ -61,43 +62,43 @@ theorem runFromComplete ∀ (numbers: List Nat) (target start length: Nat)
     runFrom target front count sum rest ≠ None
     decreasing front.length + rest.length
 :=
-  rewrite runFrom.unfold target front count sum rest in
+  rewrite runFrom.unfold target front count sum rest then
     match c: target < sum with
       | True =>
         let beforeStart := shrinksInside numbers target start length sums front count sum from at total notBeyond c
         match front with
-          | [] => Void.exfalso (omega [Eq.cong List.length at, List.lengthDrop numbers from (omega)])
+          | [] => Void.impossible (arithmetic [Eq.cong List.length at, List.lengthDrop numbers from (arithmetic)])
           | [first, ..later] =>
             match count with
               | Zero =>
                 let empty: sum = 0 := total
-                Void.exfalso (omega)
+                Void.impossible (arithmetic)
               | Succ k =>
                 runFromComplete numbers target start length sums long inside later k
                   (sum - first)
                   rest
                   (from + 1)
-                  (rewrite List.dropAdd from 1 numbers, <- at in rfl)
-                  (omega)
+                  (rewrite List.dropAdd from 1 numbers, <- at then byComputing)
+                  (arithmetic)
                   after
-                  (omega [List.sumCons first (later.take k)])
-                  (omega)
-                  (omega)
+                  (arithmetic [List.sumCons first (later.take k)])
+                  (arithmetic)
+                  (arithmetic)
       | False =>
         match e: sum == target && 2 <= count with
-          | True => none => Option.noneNotSome (front.take count) (Eq.sym none)
+          | True => none => Option.noneNotSome (front.take count) none.flipped
           | False =>
-            let unfinished: sum = target → 2 ≤ count → Void := same twoOrMore => omega
+            let unfinished: sum = target → 2 ≤ count → Void := same twoOrMore => arithmetic
             match rest with
               | [] =>
                 let reached: from + count < start + length :=
                   growsInside numbers target start length sums front count sum from at fits total notPast notBeyond
-                    (omega)
+                    (arithmetic)
                     unfinished
                     long
-                Void.exfalso
-                  (omega [
-                    List.lengthDrop numbers from (omega),
+                Void.impossible
+                  (arithmetic [
+                    List.lengthDrop numbers from (arithmetic),
                     List.lengthDrop front count fits,
                     Eq.cong List.length after,
                     Eq.cong List.length at
@@ -105,33 +106,33 @@ theorem runFromComplete ∀ (numbers: List Nat) (target start length: Nat)
               | [next, ..more] =>
                 let reached: from + count < start + length :=
                   growsInside numbers target start length sums front count sum from at fits total notPast notBeyond
-                    (omega)
+                    (arithmetic)
                     unfinished
                     long
-                let (Both taken below) := List.takeOfDropCons front count next more (Eq.sym after)
+                let (Both taken below) := List.takeOfDropCons front count next more after.flipped
                 runFromComplete numbers target start length sums long inside front
                   (count + 1)
                   (sum + next)
                   more
                   from
                   at
-                  (omega)
-                  (rewrite List.dropAdd count 1 front, <- after in rfl)
-                  (rewrite taken, List.sumAppend (front.take count) [next] in omega)
+                  (arithmetic)
+                  (rewrite List.dropAdd count 1 front, <- after then byComputing)
+                  (rewrite taken, List.sumAppend (front.take count) [next] then arithmetic)
                   notPast
-                  (omega)
+                  (arithmetic)
 
 theorem runSummingComplete ∀ (data: XmasData) (target start length: Nat)
     (sums: ((data.numbers.drop start).take length).sum = target)
     (long: 2 ≤ length)
     (inside: start + length ≤ data.numbers.length):
     data.runSumming target ≠ None :=
-  runFromComplete data.numbers target start length sums long inside data.numbers 0 0 data.numbers 0 rfl
-    (omega)
-    rfl
-    rfl
-    (omega)
-    (omega)
+  runFromComplete data.numbers target start length sums long inside data.numbers 0 0 data.numbers 0 byComputing
+    (arithmetic)
+    byComputing
+    byComputing
+    (arithmetic)
+    (arithmetic)
 
 --| Whenever the data has a weakness for `invalid`, part 2 finds one.
 theorem weaknessComplete ∀ (data: XmasData) (invalid answer: Nat)
@@ -141,17 +142,22 @@ theorem weaknessComplete ∀ (data: XmasData) (invalid answer: Nat)
   let same := List.takeOwnLength (data.numbers.drop start) length
   let short := List.lengthTakeLe (data.numbers.drop start) length
   let sums: ((data.numbers.drop start).take run.length).sum = invalid :=
-    rewrite isRun, same in (rewrite isRun at total in total)
+    rewrite isRun, same then (rewrite isRun at total then total)
   let inside: start + run.length ≤ data.numbers.length :=
-    if h: start ≤ data.numbers.length then omega [List.lengthDrop data.numbers start h, Eq.cong List.length isRun]
+    if h: start ≤ data.numbers.length then arithmetic [List.lengthDrop data.numbers start h, Eq.cong List.length isRun]
     else
       let empty: run = [] :=
-        rewrite isRun, List.dropPast data.numbers start (omega), List.takeAll [] length (omega) in rfl
-      Void.exfalso (omega [Eq.cong List.length empty])
+        rewrite isRun, List.dropPast data.numbers start (arithmetic), List.takeAll [] length (arithmetic) then
+          byComputing
+      Void.impossible (arithmetic [Eq.cong List.length empty])
   match r: data.runSumming invalid with
-    | None => Void.exfalso (runSummingComplete data invalid start run.length sums long inside r)
+    | None => Void.impossible (runSummingComplete data invalid start run.length sums long inside r)
     | Some found =>
       let (Both contiguous (Both twoOrMore foundSum)) :=
-        runFromSound data.numbers invalid found data.numbers 0 0 data.numbers 0 rfl (omega) rfl rfl r
+        runFromSound data.numbers invalid found data.numbers 0 0 data.numbers 0 byComputing
+          (arithmetic)
+          byComputing
+          byComputing
+          r
       match found with
-        | [x, ..xs] => none => Option.noneNotSome _ (Eq.sym none)
+        | [x, ..xs] => none => Option.noneNotSome _ none.flipped

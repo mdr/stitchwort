@@ -46,37 +46,37 @@ def anyRemoved (holds: List Nat → Bool): List Nat → Bool
 
 theorem anyRemovedCong: ∀ (xs: List Nat) (holds1 holds2: List Nat → Bool) => (∀ (ys: List Nat) => holds1 ys = holds2 ys)
       → anyRemoved holds1 xs = anyRemoved holds2 xs
-  | Nil, holds1, holds2, same => rfl
+  | Nil, holds1, holds2, same => byComputing
   | Cons x xs, holds1, holds2, same =>
-    rewrite same xs, anyRemovedCong xs (ys => holds1 (Cons x ys)) (ys => holds2 (Cons x ys)) (ys => same (Cons x ys)) in
-      rfl
+    rewrite same xs, anyRemovedCong xs (ys => holds1 (Cons x ys)) (ys => holds2 (Cons x ys)) (ys => same (Cons x ys)) then
+      byComputing
 
 theorem anyRemovedNever: ∀ (xs: List Nat) (holds: List Nat → Bool) => (∀ (ys: List Nat) => holds ys = False)
       → anyRemoved holds xs = False
-  | Nil, holds, never => rfl
+  | Nil, holds, never => byComputing
   | Cons x xs, holds, never =>
-    rewrite never xs, anyRemovedNever xs (ys => holds (Cons x ys)) (ys => never (Cons x ys)) in rfl
+    rewrite never xs, anyRemovedNever xs (ys => holds (Cons x ys)) (ys => never (Cons x ys)) then byComputing
 
 theorem anyRemovedOr: ∀ (xs: List Nat) (holds1 holds2: List Nat → Bool) => anyRemoved (ys => holds1 ys || holds2 ys) xs
       = (anyRemoved holds1 xs || anyRemoved holds2 xs)
-  | Nil, holds1, holds2 => rfl
-  | Cons x xs, holds1, holds2 => rewrite anyRemovedOr xs (ys => holds1 (Cons x ys)) (ys => holds2 (Cons x ys)) in cases
+  | Nil, holds1, holds2 => byComputing
+  | Cons x xs, holds1, holds2 => rewrite anyRemovedOr xs (ys => holds1 (Cons x ys)) (ys => holds2 (Cons x ys)) then cases
 
 -- Counting from `Succ start` is counting from `start` with each index moved on.
 theorem anyRangeSucc ∀ (holds: Nat → Bool):
     ∀ (count start: Nat) => (List.rangeFrom count (Succ start)).any holds
       = (List.rangeFrom count start).any (index => holds (Succ index))
-  | Zero, start => rfl
-  | Succ count, start => rewrite anyRangeSucc holds count (Succ start) in rfl
+  | Zero, start => byComputing
+  | Succ count, start => rewrite anyRangeSucc holds count (Succ start) then byComputing
 
 -- `anyRemoved` is the spec's "some `removeAt index`".
 theorem anyRemovedRange: ∀ (xs: List Nat) (holds: List Nat → Bool) => anyRemoved holds xs
       = (List.range 0 xs.length |> .any (index => holds (xs.removeAt index)))
-  | Nil, holds => rfl
+  | Nil, holds => byComputing
   | Cons x xs, holds =>
     rewrite anyRemovedRange xs (ys => holds (Cons x ys)),
-        anyRangeSucc (index => holds ((Cons x xs).removeAt index)) xs.length 0 in
-      rfl
+        anyRangeSucc (index => holds ((Cons x xs).removeAt index)) xs.length 0 then
+      byComputing
 
 -- After a good step from `before` to `level`, `tolerates` is "passes, or
 -- passes with one of `level` and the rest removed".
@@ -84,7 +84,7 @@ theorem toleratesCorrect ∀ (ok: Nat → Nat → Bool):
     ∀ (before level: Nat) (rest: List Nat) => ok before level = True
       → tolerates ok before level rest
         = ((Cons level rest).chain ok || anyRemoved (ys => (Cons before ys).chain ok) (Cons level rest))
-  | before, level, Nil, good => rfl
+  | before, level, Nil, good => byComputing
   | before, level, Cons next rest, good =>
     match step: ok level next with
       | True =>
@@ -92,20 +92,20 @@ theorem toleratesCorrect ∀ (ok: Nat → Nat → Bool):
           anyRemovedCong rest
             (ys => ok before level && List.chain (Cons next ys) ok)
             (ys => List.chain (Cons next ys) ok)
-            (ys => rewrite good in rfl)
+            (ys => rewrite good then byComputing)
         let fromLevel :=
           anyRemovedCong rest
             (ys => List.chain (Cons level (Cons next ys)) ok)
             (ys => List.chain (Cons next ys) ok)
-            (ys => rewrite step in rfl)
-        rewrite toleratesCorrect ok level next rest step, fromBefore, fromLevel in cases
-      | False => rewrite anyRemovedNever rest (ys => ok before level && False) (ys => cases) in cases
+            (ys => rewrite step then byComputing)
+        rewrite toleratesCorrect ok level next rest step, fromBefore, fromLevel then cases
+      | False => rewrite anyRemovedNever rest (ys => ok before level && False) (ys => cases) then cases
 
 -- `toleratesOne` is "passes, or passes with one level removed".
 theorem toleratesOneCorrect ∀ (ok: Nat → Nat → Bool):
     ∀ (levels: List Nat) => toleratesOne ok levels = (levels.chain ok || anyRemoved (ys => ys.chain ok) levels)
-  | Nil => rfl
-  | Cons level Nil => rfl
+  | Nil => byComputing
+  | Cons level Nil => byComputing
   | Cons level (Cons next rest) =>
     match step: ok level next with
       | True =>
@@ -113,9 +113,9 @@ theorem toleratesOneCorrect ∀ (ok: Nat → Nat → Bool):
           anyRemovedCong rest
             (ys => List.chain (Cons level (Cons next ys)) ok)
             (ys => List.chain (Cons next ys) ok)
-            (ys => rewrite step in rfl)
-        rewrite toleratesCorrect ok level next rest step, fromLevel in cases
-      | False => rewrite anyRemovedNever rest (ys => False) (ys => rfl) in cases
+            (ys => rewrite step then byComputing)
+        rewrite toleratesCorrect ok level next rest step, fromLevel then cases
+      | False => rewrite anyRemovedNever rest (ys => False) (ys => byComputing) then cases
 
 -- The linear check is the puzzle's rule with the dampener.
 theorem isSafeLinearCorrect ∀ (report: Report): report.isSafeLinear = safeWithDampenerByIndex report :=
@@ -124,11 +124,11 @@ theorem isSafeLinearCorrect ∀ (report: Report): report.isSafeLinear = safeWith
         (List.range 0 report.levels.length)
         (index => safe { levels = report.levels.removeAt index })
         (index => Report.isSafe { levels = report.levels.removeAt index })
-        (index => Eq.sym (isSafeCorrect { levels = report.levels.removeAt index })),
+        (index => Eq.flipped (isSafeCorrect { levels = report.levels.removeAt index })),
       <- anyRemovedRange report.levels (ys => Report.isSafe { levels = ys }),
       anyRemovedOr report.levels (ys => ys.chain risesGently) (ys => ys.chain (level next => risesGently next level)),
       toleratesOneCorrect risesGently report.levels,
-      toleratesOneCorrect (level next => risesGently next level) report.levels in
+      toleratesOneCorrect (level next => risesGently next level) report.levels then
     cases
 
 -- Part 2 by the linear check counts the reports the puzzle calls safe.

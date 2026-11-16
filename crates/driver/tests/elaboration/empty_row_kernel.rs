@@ -124,15 +124,15 @@ fn the_kernel_keeps_the_empty_row_apart_from_its_result() {
 // side, an argument, a `let`'s value and a `match`'s scrutinee.
 const HANDLERS: &str = "import Std (Abort, Option)
 
-theorem same (c: () -> {Abort} Nat): Abort.toOption c = Abort.toOption c := rfl
+theorem same (c: () -> {Abort} Nat): Abort.toOption c = Abort.toOption c := byComputing
 
-theorem asArgument (c: () -> {Abort} Nat): Option.isSome (Abort.toOption c) = Option.isSome (Abort.toOption c) := rfl
+theorem asArgument (c: () -> {Abort} Nat): Option.isSome (Abort.toOption c) = Option.isSome (Abort.toOption c) := byComputing
 
 def viaLet (c: () -> {Abort} Nat): Bool :=
   let r := Abort.toOption c
   Option.isSome r
 
-theorem inLet (c: () -> {Abort} Nat): viaLet c = Option.isSome (Abort.toOption c) := rfl
+theorem inLet (c: () -> {Abort} Nat): viaLet c = Option.isSome (Abort.toOption c) := byComputing
 
 def viaMatch (c: () -> {Abort} Nat): Nat :=
   match Abort.toOption c with
@@ -141,8 +141,8 @@ def viaMatch (c: () -> {Abort} Nat): Nat :=
 
 theorem inMatch (c: () -> {Abort} Nat): viaMatch c = Option.getOrElse (Abort.toOption c) 0 :=
   match h: Abort.toOption c with
-    | Some n => rfl
-    | None => rfl
+    | Some n => byComputing
+    | None => byComputing
 ";
 
 /// The statement of `same` is an equation between two calls of
@@ -216,7 +216,7 @@ fn a_call_that_performs_is_still_refused_in_a_pure_place() {
         .load(
             "test.sw",
             "import Std (Abort)\n\
-             theorem bad (c: () -> {Abort} Nat): c () + 1 = c () + 1 := rfl\n",
+             theorem bad (c: () -> {Abort} Nat): c () + 1 = c () + 1 := byComputing\n",
         )
         .expect_err("`c ()` performs `Abort`");
     assert_eq!(errors[0].code, "E-ABILITY");
@@ -231,7 +231,7 @@ fn an_equation_between_computations_compares_them() {
     if let Err(ds) = session.load(
         "test.sw",
         "import Std (Abort)\n\
-         theorem same (c: () -> {Abort} Nat): c () = c () := rfl\n",
+         theorem same (c: () -> {Abort} Nat): c () = c () := byComputing\n",
     ) {
         panic!("{:?}", ds.iter().map(|d| &d.message).collect::<Vec<_>>());
     }

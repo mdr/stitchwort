@@ -17,9 +17,10 @@ expression: output
     │ 
  28 │         | False => n => andRight b (reach flag (Succ k) c d) hc
     │                                                              ─┬  
-    │                                                               ╰── expected `(b && (if flag c then (match c with …) || reach flag k (c + 1) d else reach flag k c d)) = True`, but this has type `(b && reach flag k c d) = True`
+    │                                                               ╰── this has the `found` type below
     │     
-    │     Note 1: they first differ at `if flag c then (match c with …) || reach flag k (c + 1) d else reach flag k c d` against `reach flag k c d`
+    │     Note 1: expected: (b && (if flag c then (match c with …) || reach flag k (c + 1) d else reach flag k c d)) = True
+    │                found: (b && reach flag k c d) = True
     │     
     │     Note 2: this was refined by the `match`: it has `False` where what's expected has the scrutinee. The goal and the hypotheses are refined; what's expected comes from terms written in the branch (a lemma's premise, or an explicit argument), which aren't. Write `_` for such an argument, so it is inferred from this
     │     

@@ -9,9 +9,9 @@ def size: (n: Nat) → Fin (Succ (Succ n)) → Text
   | _, 12 => "twelve"
   | _, _ => "some"
 
-theorem sizeZero: size 20 0 = "none" := rfl
-theorem sizeTwelve: size 20 12 = "twelve" := rfl
-theorem sizeOther: size 20 11 = "some" := rfl
+theorem sizeZero: size 20 0 = "none" := byComputing
+theorem sizeTwelve: size 20 12 = "twelve" := byComputing
+theorem sizeOther: size 20 11 = "some" := byComputing
 
 -- A number above the limit for patterns (256) is compared in a condition.
 def far: (n: Nat) → Fin (Succ (Succ n)) → Text

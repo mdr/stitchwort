@@ -31,7 +31,7 @@ theorem countAround ∀ (rows: List (List a)) (keep: a → Bool) (at: Position):
         let (Both inGrid both) := List.memFilter positions near member
         List.memFilterIntro at.around held (touchingAround at q both.left) both.right)
   calc at.around.count held
-    _ = (at.around.filter held).length := Eq.sym (List.lengthFilter at.around held)
+    _ = (at.around.filter held).length := (List.lengthFilter at.around held).flipped
     _ = (positions.filter near).length := List.permLength _ _ same
     _ = positions.count near := List.lengthFilter positions near
     _ = (cells rows).count (cell => near cell.fst) := List.countMap (cells rows) near Pair.fst
@@ -40,7 +40,7 @@ theorem countAround ∀ (rows: List (List a)) (keep: a → Bool) (at: Position):
         (cells rows)
         (cell => near cell.fst)
         (((other, x)) => touching at other && keep x)
-        (cell member => match cell with | (other, x) => rewrite cellAtOfMemCells rows other x member in rfl)
+        (cell member => match cell with | (other, x) => rewrite cellAtOfMemCells rows other x member then byComputing)
 
 --| Counting the positions around `at` that pass `keep` without building
 --| them as lists is counting them in the list `at.around`.
@@ -56,25 +56,25 @@ theorem countAroundIsAround ∀ (at: Position) (keep: Position → Bool): at.cou
       (List.sumByMap columns weight (column => mk row column))
       (List.sumByCong columns (column => weight (mk row column)) (column => cell row column) (column =>
         match e: row == at.row && column == at.column with
-          | True => rfl
-          | False => rfl))
+          | True => byComputing
+          | False => byComputing))
   calc at.countAround keep
     _ = List.sumBy rows (row => List.sumBy columns (column => cell row column)) :=
       rewrite Nat.sumFromRangeFrom
             (row => Nat.sumFrom (at.column - 1) (column => cell row column) (at.column + 1 + 1 - (at.column - 1)))
             (at.row + 1 + 1 - (at.row - 1))
-            (at.row - 1) in
+            (at.row - 1) then
         List.sumByCong rows _ _ (row =>
           Nat.sumFromRangeFrom (column => cell row column) (at.column + 1 + 1 - (at.column - 1)) (at.column - 1))
     _ = List.sumBy (List.flatMap rows (row => List.map columns (column => mk row column))) weight :=
-      Eq.sym
+      Eq.flipped
         (Eq.trans
           (List.sumByFlatMap rows weight (row => List.map columns (column => mk row column)))
           (List.sumByCong rows _ _ rowSum))
     _ = List.sumBy (at.around) (position => Bool.toNat (keep position)) :=
-      Eq.sym
+      Eq.flipped
         (List.sumByFilter
           (List.flatMap rows (row => List.map columns (column => mk row column)))
           (position => Bool.toNat (keep position))
           near)
-    _ = at.around.count keep := Eq.sym (List.countSumBy at.around keep)
+    _ = at.around.count keep := (List.countSumBy at.around keep).flipped

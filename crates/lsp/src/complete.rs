@@ -189,9 +189,10 @@ pub fn scope_items(
         if wanted.chars().count() < 2 || !n.name.to_lowercase().starts_with(&lower) {
             continue;
         }
-        let Some(edit) = crate::imports::add_import(text, path, item) else {
+        let Some(edit) = stitchwort_driver::fixes::add_import(text, path, item) else {
             continue;
         };
+        let edit = lsp_types::TextEdit::new(crate::range(edit.range), edit.new_text);
         let mut found = name_item(n, '3');
         found.label_details = Some(lsp_types::CompletionItemLabelDetails {
             detail: None,

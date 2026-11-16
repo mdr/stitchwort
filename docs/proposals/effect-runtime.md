@@ -225,7 +225,7 @@ program outside the library can't name `Done`, `Call`, `foldComp`, `bind`,
 `translate` or `runPure` in code that runs (`E-PROOF-ONLY`) **[checked]**.
 The library uses them at run time only in the definitions above, in the
 row helpers built from them (`doneIn`, `bindIn`, `liftIn`, `lowerIn`,
-`widenIn`, `Effect.sw:165-200`) and in what the elaborator generates
+`widenIn`, in `Effect.sw`) and in what the elaborator generates
 (`Done` and `Call` for operations, `bind` for sequencing, `foldComp` for
 `handle`, `translate` between rows) **[checked]**. Apart from these, the only
 consumers of a computation at run time are the runners, which step `main`'s
@@ -317,7 +317,7 @@ on GitHub.
   cats-effect's `IO` keeps continuations on heap stacks
   ([IOFiber.scala](https://github.com/typelevel/cats-effect/blob/series/3.x/core/shared/src/main/scala/cats/effect/IOFiber.scala)).
   Both run on JS (PureScript natively, Scala through Scala.js
-  **[unverified]** for the Scala.js detail). `Aff` and `IO` resume each
+  [cited: cats-effect's README, "published for Scala 2.12, 2.13, 3.2, and Scala.js 1.13"; Cats' README, "available for Scala.js and Scala Native"; read 16 Nov 2026]). `Aff` and `IO` resume each
   continuation once; `Free` is an immutable value, so it may be resumed
   more often.
 

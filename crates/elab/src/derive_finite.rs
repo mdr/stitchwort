@@ -100,7 +100,7 @@ impl Elaborator {
         let Some(finite) = interfaces::finite(self) else {
             return Ok(());
         };
-        if self.unit.loading_prelude || generated || self.declares_instance_of(finite) {
+        if generated || self.declares_instance_of(finite) {
             return Ok(());
         }
         let plan = match self.finite_plan(d, finite)? {
@@ -247,6 +247,11 @@ impl Elaborator {
             for (ty, what) in to_find {
                 let goal = Value::Data(finite, vec![ty.clone()].into());
                 if let Some(e) = interfaces::findable(&mut cx, &goal)? {
+                    // The field's instance has an error: note it so a use
+                    // waits for it (SW-3078).
+                    if e.code == "E-FAILED-DEPENDENCY" {
+                        cx.e.note_derive_waiting(&[d], finite);
+                    }
                     let mut reason = format!(
                         "{what} has type `{}`, which has no `Finite` instance (when `{name}` was \
                          declared)",
@@ -485,7 +490,7 @@ impl Elaborator {
         for (c, ctor_c) in ctors.iter().enumerate() {
             // Down the fields: `C %a0 …` is in its part.
             let count = ctor_c.fields.len();
-            let mut proof = s.app(s.var("Std.Or.Inl"), vec![s.var("rfl")]);
+            let mut proof = s.app(s.var("Std.Or.Inl"), vec![s.var("byComputing")]);
             for j in (0..count).rev() {
                 proof = s.app(
                     s.var("Std.List.memConcatMap"),

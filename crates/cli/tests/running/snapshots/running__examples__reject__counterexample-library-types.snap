@@ -2,16 +2,16 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
    ╭─[ reject/counterexample-library-types.sw:8:61 ]
    │
- 8 │ theorem equalsItself (x: Float): Float.ieeeEq x x = True := rfl
-   │                                                             ─┬─  
-   │                                                              ╰─── `x.ieeeEq x` and `True` aren't equal
+ 8 │ theorem equalsItself (x: Float): Float.ieeeEq x x = True := byComputing
+   │                                                             ─────┬─────  
+   │                                                                  ╰─────── `x.ieeeEq x` and `True` aren't equal
    │ 
    │ Note 1: computing the left side gives `(x.bits.equal 9221120237041090560).not && (x.bits.equal x.bits || (x.bits.equal 0 || x.bits.equal 9223372036854775808) && (x.bits.equal 0 || x.bits.equal 9223372036854775808))`
    │ 
-   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
    │ 
    │ Note 3: this statement is false; a counterexample:
    │           x = Float.nan
@@ -19,27 +19,27 @@ expression: output
    │           left:  False
    │           right: True
 ───╯
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
     ╭─[ reject/counterexample-library-types.sw:10:50 ]
     │
- 10 │ theorem belowFour (i: Fin 5): Fin.toNat i < 4 := rfl
-    │                                                  ─┬─  
-    │                                                   ╰─── `i.toNat <= 3` and `True` aren't equal
+ 10 │ theorem belowFour (i: Fin 5): Fin.toNat i < 4 := byComputing
+    │                                                  ─────┬─────  
+    │                                                       ╰─────── `i.toNat <= 3` and `True` aren't equal
     │ 
-    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 1: `byComputing` proves `a = b` only when both sides compute to the same value
     │ 
     │ Note 2: this statement is false; a counterexample:
     │           i = 4
     │         `i.toNat < 4` is false
 ────╯
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
     ╭─[ reject/counterexample-library-types.sw:12:54 ]
     │
- 12 │ theorem headIsZero (v: Vec Nat 3): Vec.head v = 0 := rfl
-    │                                                      ─┬─  
-    │                                                       ╰─── `v.head` and `0` aren't equal
+ 12 │ theorem headIsZero (v: Vec Nat 3): Vec.head v = 0 := byComputing
+    │                                                      ─────┬─────  
+    │                                                           ╰─────── `v.head` and `0` aren't equal
     │ 
-    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 1: `byComputing` proves `a = b` only when both sides compute to the same value
     │ 
     │ Note 2: this statement is false; a counterexample:
     │           v = Vec.fromList [1, 0, 0]
@@ -47,14 +47,14 @@ expression: output
     │           left:  1
     │           right: 0
 ────╯
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
     ╭─[ reject/counterexample-library-types.sw:14:54 ]
     │
- 14 │ theorem mapEmpty (m: Map Nat Nat): Map.size m = 0 := rfl
-    │                                                      ─┬─  
-    │                                                       ╰─── `m.size` and `0` aren't equal
+ 14 │ theorem mapEmpty (m: Map Nat Nat): Map.size m = 0 := byComputing
+    │                                                      ─────┬─────  
+    │                                                           ╰─────── `m.size` and `0` aren't equal
     │ 
-    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 1: `byComputing` proves `a = b` only when both sides compute to the same value
     │ 
     │ Note 2: this statement is false; a counterexample:
     │           m = Map.fromList [(0, 0)]
@@ -62,16 +62,16 @@ expression: output
     │           left:  1
     │           right: 0
 ────╯
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
     ╭─[ reject/counterexample-library-types.sw:16:50 ]
     │
- 16 │ theorem setEmpty (s: Set Nat): Set.size s = 0 := rfl
-    │                                                  ─┬─  
-    │                                                   ╰─── `s.size` and `0` aren't equal
+ 16 │ theorem setEmpty (s: Set Nat): Set.size s = 0 := byComputing
+    │                                                  ─────┬─────  
+    │                                                       ╰─────── `s.size` and `0` aren't equal
     │ 
     │ Note 1: computing the left side gives `s.items.size`
     │ 
-    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
     │ 
     │ Note 3: this statement is false; a counterexample:
     │           s = { items = Map.fromList [(0, ())] }

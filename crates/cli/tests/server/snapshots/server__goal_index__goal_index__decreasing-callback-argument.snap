@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -29,9 +29,9 @@ expression: json
         "file": 0,
         "message": "xs: List Nat\nk: Nat\nother: Nat\n⊢ (xs.filter (c => c == other)).length < xs.length",
         "range": [
-          10,
+          12,
           100,
-          10,
+          12,
           101
         ]
       }
@@ -39,9 +39,9 @@ expression: json
     "message": "in `g`",
     "notes": [],
     "range": [
-      10,
+      12,
       100,
-      10,
+      12,
       101
     ],
     "severity": "goal"
@@ -76,20 +76,20 @@ expression: json
         "file": 0,
         "message": "xs: List Nat\nk: Nat\nother: Nat\nleft: List Nat := xs.filter (c => c == other)\n⊢ (xs.filter (c => c == other)).length < xs.length",
         "range": [
-          15,
-          56,
-          15,
-          57
+          20,
+          58,
+          20,
+          59
         ]
       }
     ],
     "message": "in `withLet`",
     "notes": [],
     "range": [
-      15,
-      56,
-      15,
-      57
+      20,
+      58,
+      20,
+      59
     ],
     "severity": "goal"
   }

@@ -3,7 +3,8 @@
 Status: decided (SW-390). Built: stage 1 (named arguments, SW-399), stage 1b
 (SW-400: formatter, completion and hover of parameter names), stage 2 (field
 defaults, SW-401) and stage 2b (field defaults at the JS boundary, SW-402); see
-the "As built" sections. Stage 3 (signature defaults) not built. Revised after external review
+the "As built" sections. Stage 3 (signature defaults) is partly built (stage 1, SW-620;
+stages 2-3 open). Revised after external review
 (24 Oct 2026). All decisions in §8 were taken as recommended (Matt, 24 Oct
 2026).
 
@@ -231,7 +232,7 @@ constructor, `VCons [n := k] x xs` (`docs/syntax.md:254`, `:257`)
 (`docs/syntax.md:510`) **[checked]**.
 
 How it works: the parser makes `Expr::NamedArg` from `[name := expr]`
-(`crates/syntax/src/parser.rs:3018-3037`, `crates/syntax/src/ast.rs:55-57`)
+(`atom_base`, `crates/syntax/src/parser.rs`, `crates/syntax/src/ast.rs:55-57`)
 **[checked]**. The elaborator collects the application spine into
 `Arg::Explicit | Arg::Named | Arg::Piped` (`crates/elab/src/check.rs:541-546`)
 **[checked]**, and for a named one walks the function's type, inserting
@@ -332,17 +333,17 @@ The defaults-value convention stays useful for named presets
 | Language | Named | Defaults | Notes |
 |---|---|---|---|
 | Kotlin | `f(x = 1)`, any order | `(x: Int = 0)`, may use earlier params; evaluated only when needed; overriding methods keep the base's defaults | "after the first skipped argument, you must name all subsequent arguments"; no named syntax for Java callees. https://kotlinlang.org/docs/functions.html#named-arguments |
-| Scala | `f(x = 1)` | `(x: Int = 0)` | Defaults are compiled to extra methods the call site calls **[unverified]**; a function *value* made from a method loses its defaults **[unverified]**. https://docs.scala-lang.org/tour/named-arguments.html, https://docs.scala-lang.org/tour/default-parameter-values.html |
+| Scala | `f(x = 1)` | `(x: Int = 0)` | Defaults are compiled to extra methods the call site calls (Scala 3's compiler names them as "default getters", `NameKinds.DefaultGetterName` in [`NameKinds.scala`](https://github.com/scala/scala3/blob/main/compiler/src/dotty/tools/dotc/core/NameKinds.scala), read 15 Nov 2026; the tour pages say nothing about it); a function *value* made from a method loses its defaults **[unverified]**. https://docs.scala-lang.org/tour/named-arguments.html, https://docs.scala-lang.org/tour/default-parameter-values.html |
 | Swift | argument labels, required by default | `(x: Int = 0)` | SE-0111 removed labels from function types, and made labels an error on calls through a function value: "If the invocation refers to a value, property, or variable of function type, the argument labels do not need to be supplied. It will be an error to supply argument labels in this situation." https://github.com/swiftlang/swift-evolution/blob/main/proposals/0111-remove-arg-label-type-significance.md |
 | Python | `f(x=1)`, keyword-only after `*` | `def f(x=0)` | The default is evaluated once, at definition, so a mutable default is shared between calls. https://docs.python.org/3/tutorial/controlflow.html#default-argument-values |
 | OCaml | labels `~x` | optional `?x`, `?(step = 1)` | Labels are part of the type; total applications commute. An optional argument is dropped only when a *later unlabelled* argument is applied, so a function needs a positional parameter after its optional ones; with higher-order functions "the compiler assumes that there are no optional arguments". https://ocaml.org/manual/latest/lablexamples.html |
 | Lean 4 (functions) | `f (x := e)`, for any parameter kind | `(x : Nat := 5)` (`optParam`), `(h : p := by tac)` (`autoParam`) | "Parameter names are taken from the function's type", and "the names of the arguments are preserved in the function type", so a partial application's remaining arguments can be named. Naming a later parameter while earlier explicit ones are missing makes a lambda. A named argument wins over an earlier positional one: "If an argument is provided by name, it is used, even if it occurs after a positional argument that could have been used." https://lean-lang.org/doc/reference/latest/Terms/Function-Application/ |
-| Lean 4 (structures) | `{ x := 1 }` | `structure S where x : Nat := 0` | "Structure fields may have default values, specified with `:=`"; a field with no default must be given. Unlike this note, a structure pattern that leaves out a defaulted field "only matches the default". Defaults are stored in auxiliary definitions **[unverified]**. https://lean-lang.org/doc/reference/latest/The-Type-System/Inductive-Types/#structure-fields |
+| Lean 4 (structures) | `{ x := 1 }` | `structure S where x : Nat := 0` | "Structure fields may have default values, specified with `:=`"; a field with no default must be given. Unlike this note, a structure pattern that leaves out a defaulted field "only matches the default". Defaults are stored in auxiliary definitions (named `<field>._default`: [`Lean/Structure.lean`](https://github.com/leanprover/lean4/blob/master/src/Lean/Structure.lean), read 15 Nov 2026; the reference page doesn't say). https://lean-lang.org/doc/reference/latest/The-Type-System/Inductive-Types/#structure-fields |
 | Idris 2 | `f {x = e}` (implicits) | `{default 0 lag : Nat}` on implicits | The docs say defaults are "primarily intended" for proof search, the Fibonacci example is "illustrative only". https://idris2.readthedocs.io/en/latest/tutorial/miscellany.html |
-| Agda | `f {x = e}`, implicit and instance arguments only **[unverified]** | none **[unverified]** | https://agda.readthedocs.io/en/latest/language/implicit-arguments.html |
+| Agda | `f {x = e}`, implicit and instance arguments only (the page shows names only for implicit arguments, "Implicit arguments can also be referred to by name", read 15 Nov 2026; it is silent on explicit ones, so **[unverified]** for those) | none **[unverified]** (the page doesn't mention defaults) | https://agda.readthedocs.io/en/latest/language/implicit-arguments.html |
 | Haskell | records (`f defaultOpts { width = 80 }`) | the `Default` class | https://hackage.haskell.org/package/data-default |
 | Unison | none | none: "use the Optional type … and then provide a default value inside the function body" | https://www.unison-lang.org/compare-lang/unison-for-python-devs/ |
-| Roc | records | optional record fields with a default, given in the function's destructuring pattern; spelling has changed between versions **[unverified]** | https://github.com/roc-lang/roc/blob/main/roc-for-elm-programmers.md |
+| Roc | records | optional record fields with a default, given in the function's destructuring pattern; spelling has changed between versions **[unverified]** (15 Nov 2026: the linked `roc-for-elm-programmers.md` is now a 404 on `main`) | https://github.com/roc-lang/roc/blob/main/roc-for-elm-programmers.md |
 | Elm | records | none; a defaults record and update | **[unverified]** |
 | TypeScript | options objects | `x?: T`, `x = 0` (trailing in practice) | An absent property and a present property holding `undefined` are different under `exactOptionalPropertyTypes`. https://www.typescriptlang.org/docs/handbook/2/functions.html#optional-parameters, https://www.typescriptlang.org/tsconfig/#exactOptionalPropertyTypes |
 

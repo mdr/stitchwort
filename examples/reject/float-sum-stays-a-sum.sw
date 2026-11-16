@@ -9,4 +9,4 @@ type Span = { start: Float, length: Float }
 
 def Span.end (span: Span): Float := span.start + span.length
 
-theorem endCommutes (span: Span): span.end = span.length + span.start := rfl
+theorem endCommutes (span: Span): span.end = span.length + span.start := byComputing

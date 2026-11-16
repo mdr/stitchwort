@@ -5,4 +5,4 @@ import Std (Nat)
 
 def double (n: Nat): Nat := n + n
 
-theorem doubleThree: double 3 = 6 unfolding double := rfl
+theorem doubleThree: double 3 = 6 unfolding double := byComputing

@@ -11,4 +11,4 @@ def tokNat (t: Tok) (k: Nat): Nat :=
   match t with
     | MkTok => k
 
-theorem t18 (t: Tok): tokNat t 0 = tokNat MkTok 0 := rfl
+theorem t18 (t: Tok): tokNat t 0 = tokNat MkTok 0 := byComputing

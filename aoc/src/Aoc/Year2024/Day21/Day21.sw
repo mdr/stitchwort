@@ -26,11 +26,22 @@ type Direction = | Up | Down | Left | Right
 type DirectionKey = | Arrow (direction: Direction) | Activate
 
 --| A key on the door's numeric keypad.
-type NumericKey = | Digit0 | Digit1 | Digit2 | Digit3 | Digit4 | Digit5 | Digit6 | Digit7 | Digit8 | Digit9 | Enter
+type NumericKey =
+  | Digit0
+  | Digit1
+  | Digit2
+  | Digit3
+  | Digit4
+  | Digit5
+  | Digit6
+  | Digit7
+  | Digit8
+  | Digit9
+  | Enter
 
 type Code = List NumericKey
 
-def numericKey(): {Parse} NumericKey := label "a key (0 to 9 or A)" (() =>
+def numericKey(): {Parse Char} NumericKey := label "a key (0 to 9 or A)" (() =>
   pick [
     ("0", Digit0),
     ("1", Digit1),
@@ -46,7 +57,7 @@ def numericKey(): {Parse} NumericKey := label "a key (0 to 9 or A)" (() =>
   ])
 
 --| One code per line.
-def codes(): {Parse} List Code := lines (() => many1 numericKey |> .toList) |> .toList
+def codes(): {Parse Char} List Code := lines (() => many1 numericKey |> .toList) |> .toList
 
 def parseCodes (input: Text): {Fail} List Code := Parse.all input codes
 

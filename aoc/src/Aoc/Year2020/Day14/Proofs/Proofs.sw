@@ -22,14 +22,14 @@ theorem part2Correct ∀ (input: Text) (program: Program)
 --| Part 1's answer is the spec's sum, and no other number is. It holds for
 --| any program, parsed or not.
 theorem part1Exactly ∀ (program: Program) (answer: Nat): program.valueSum = answer ↔ Spec.Part1 program answer := {
-  forward = same => rewrite <- same in part1Rules program,
+  forward = same => rewrite <- same then part1Rules program,
   backward = sums =>
     sumOfMemoryUnique (Spec.run Spec.writeMasked program) program.valueSum answer (part1Rules program) sums
 }
 
 --| Part 2's answer is the spec's sum, and no other number is.
 theorem part2Exactly ∀ (program: Program) (answer: Nat): program.decodedSum = answer ↔ Spec.Part2 program answer := {
-  forward = same => rewrite <- same in part2Rules program,
+  forward = same => rewrite <- same then part2Rules program,
   backward = sums =>
     sumOfMemoryUnique (Spec.run Spec.writeDecoded program) program.decodedSum answer (part2Rules program) sums
 }

@@ -5,4 +5,4 @@ import Std (List)
 
 theorem sums (n: Nat): List.sumBy (List.range 0 n) (r => r) = List.sumBy (List.range 0 n) (r => r + 0) :=
   calc List.sumBy (List.range 0 n) (r => r)
-    _ = List.sumBy (List.range 0 n) (r => r + 0) := (rfl: 0 = 0)
+    _ = List.sumBy (List.range 0 n) (r => r + 0) := (byComputing: 0 = 0)

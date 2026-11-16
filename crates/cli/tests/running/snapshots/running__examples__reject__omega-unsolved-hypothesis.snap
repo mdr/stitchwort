@@ -2,16 +2,16 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `Void`
+[E-ARITHMETIC] Error: `arithmetic` can't prove `Void`
    ╭─[ reject/omega-unsolved-hypothesis.sw:9:28 ]
    │
- 9 │   DecEq.trueOfNe (same => (omega: Void))
-   │                            ──┬──  
-   │                              ╰──── an integer model of the arithmetic abstraction satisfies the facts
+ 9 │   DecEq.trueOfNe (same => (arithmetic: Void))
+   │                            ─────┬────  
+   │                                 ╰────── an integer model of the arithmetic abstraction satisfies the facts
    │ 
    │ Note 1: facts: none in scope
    │ 
-   │ Note 2: `same`'s type isn't known yet here, so omega couldn't use it
+   │ Note 2: `same`'s type isn't known yet here, so arithmetic couldn't use it
    │ 
    │ Note 3: an integer model of the arithmetic abstraction: the facts hold with no atoms at all
    │ 

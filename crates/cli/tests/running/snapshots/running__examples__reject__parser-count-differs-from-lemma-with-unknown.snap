@@ -7,7 +7,10 @@ expression: output
     │
  22 │ theorem use: tagged True (() => Parse.exactly 35 Parse.digit) = (() => Parse.exactly 36 Parse.digit) := lem _
     │                                                                                                         ──┬──  
-    │                                                                                                           ╰──── expected `tagged True (arg => Parse.exactly 35 Parse.digit) = (arg => Parse.exactly 36 Parse.digit)`, but this has type `tagged ?0 (arg => Parse.exactly 36 Parse.digit) = (arg => Parse.exactly 36 Parse.digit)`
+    │                                                                                                           ╰──── this has the `found` type below
     │ 
-    │ Note: `?0` is the `_` for the argument `b` of `lem`, which wasn't worked out from the other arguments or the expected type
+    │ Note 1: expected: tagged True (arg => Parse.exactly 35 Parse.digit) = …
+    │            found: tagged _b (arg => Parse.exactly 36 Parse.digit) = …
+    │ 
+    │ Note 2: `_b` is `lem`'s `_` for `b`, not worked out
 ────╯

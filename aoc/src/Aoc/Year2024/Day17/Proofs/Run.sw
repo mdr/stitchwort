@@ -38,8 +38,8 @@ theorem runHalts ∀ (program: List Nat) (fuel: Nat) (machine: Machine) (printed
           Witness []
             (Both
               (Eq.trans
-                (Eq.sym (finishedInjective printed.reverse output finished))
-                (Eq.sym (List.appendNil printed.reverse)))
+                (Eq.flipped (finishedInjective printed.reverse output finished))
+                (List.appendNil printed.reverse).flipped)
               (Stops machine matches))
         | Next after None =>
           match runHalts program fuel after printed output finished with
@@ -58,7 +58,7 @@ theorem outcomeHalts ∀ (registers: Registers) (program output: List Nat)
     (finished: outcome registers program = Finished output):
     Halts program (start registers) output :=
   match runHalts program (fuelFor registers program) (start registers) [] output finished with
-    | Witness rest (Both same halts) => rewrite same in halts
+    | Witness rest (Both same halts) => rewrite same then halts
 
 --| More fuel finishes the same way.
 theorem runMoreFuel ∀ (program: List Nat) (extra fuel: Nat) (machine: Machine) (printed output: List Nat)

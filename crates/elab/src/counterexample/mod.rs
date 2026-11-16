@@ -893,8 +893,9 @@ impl Elaborator {
             .zip(plans.iter().zip(input))
             .map(|((name, _), (plan, term))| {
                 let shown = if inputs.shown_as_term(*plan) {
-                    shown::cut(&stitchwort_core::pretty::term_for_message(
+                    shown::cut(&stitchwort_core::pretty::term_for_message_in(
                         g,
+                        self,
                         &[],
                         &inputs.shown(*plan, term),
                     ))
@@ -918,7 +919,7 @@ impl Elaborator {
         if let Ok(t) = eval(g, &[], term).and_then(|v| quote(g, 0, &v))
             && is_data(&t)
         {
-            return shown::cut(&stitchwort_core::pretty::term(g, &[], &t));
+            return shown::cut(&stitchwort_core::pretty::term_in(g, self, &[], &t));
         }
         let _erasing = g.machine.erasure.running();
         self.shown_value(eval(g, &[], term).ok()).0
@@ -932,7 +933,7 @@ impl Elaborator {
         };
         match quote(g, 0, &value) {
             Ok(t) => (
-                shown::cut(&stitchwort_core::pretty::term(g, &[], &t)),
+                shown::cut(&stitchwort_core::pretty::term_in(g, self, &[], &t)),
                 Some(t),
             ),
             Err(_) => ("… (too large to show)".to_string(), None),
@@ -1008,7 +1009,7 @@ impl Elaborator {
                 {
                     let _op = g.machine.budget.operation(limits);
                     return (
-                        shown::cut(&stitchwort_core::pretty::term(g, &[], &t)),
+                        shown::cut(&stitchwort_core::pretty::term_in(g, self, &[], &t)),
                         Some(t),
                     );
                 }

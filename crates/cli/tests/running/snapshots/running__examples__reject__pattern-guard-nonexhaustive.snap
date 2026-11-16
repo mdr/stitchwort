@@ -15,3 +15,4 @@ expression: output
    │     
    │     Note: an arm with `if` covers no case for sure: add an arm without `if` for these values
 ───╯
+try: add `| x => ?`

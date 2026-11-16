@@ -107,7 +107,7 @@ fn each_example<T: Send>(f: impl Fn(&str, &str) -> T + Sync) -> Vec<(String, T)>
 fn goal_examples_in_the_index() {
     let results = each_example(|name, _| {
         let index = index_of(&goals_dir(), &format!("{name}.sw"));
-        assert_eq!(index["version"], 3);
+        assert_eq!(index["version"], 4);
         let diagnostics = diagnostics(&index);
         for d in diagnostics.iter().filter(|d| is_goal(d)) {
             let goal = &d["goal"];
@@ -128,6 +128,13 @@ fn goal_examples_in_the_index() {
                     ),
                 })
                 .collect();
+            lines.extend(
+                goal["facts"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|f| f.as_str().unwrap().to_string()),
+            );
             lines.push(format!("⊢ {}", goal["target"].as_str().unwrap()));
             if let Some(computed) = goal["targetComputed"].as_str() {
                 lines.push(format!("  computes to {computed}"));
@@ -147,38 +154,50 @@ fn goal_examples_in_the_index() {
 
 /// Each lemma the index gives, pasted at the end of its example's file and
 /// checked again, is a goal with the same hypotheses and target. A summary
-/// of which goals have a lemma is snapshotted.
+/// of which goals have a lemma is snapshotted. An example's lemmas are
+/// pasted together, in one file, so each example is checked once.
 #[test]
 fn lemmas_check_as_the_same_goal() {
     let dir = scratch("lemmas");
     let results = each_example(|name, text| {
         let index = index_of(&goals_dir(), &format!("{name}.sw"));
         let mut summary = Vec::new();
-        for (i, d) in diagnostics(&index)
-            .iter()
-            .filter(|d| is_goal(d))
-            .enumerate()
-        {
+        let all = diagnostics(&index);
+        let mut pasted = Vec::new();
+        for (i, d) in all.iter().filter(|d| is_goal(d)).enumerate() {
             let goal = &d["goal"];
             let Some(lemma) = goal["lemma"].as_str() else {
                 summary.push(format!("{name} goal {}: no lemma", i + 1));
                 continue;
             };
             summary.push(format!("{name} goal {}: {lemma}", i + 1));
+            pasted.push((d, lemma));
+        }
+        if pasted.is_empty() {
+            return summary;
+        }
+        let file = format!("{name}-lemmas.sw");
+        let lemmas: Vec<&str> = pasted.iter().map(|(_, l)| *l).collect();
+        std::fs::write(
+            dir.join(&file),
+            format!("{text}\n{}\n", lemmas.join("\n\n")),
+        )
+        .unwrap();
+        let again = diagnostics(&index_of(&dir, &file));
+        for (d, lemma) in pasted {
+            let goal = &d["goal"];
             let lemma_name = lemma.split([' ', ':']).nth(1).unwrap();
-            let file = format!("{name}-{}.sw", i + 1);
-            std::fs::write(dir.join(&file), format!("{text}\n{lemma}\n")).unwrap();
-            let again = index_of(&dir, &file);
-            let found: Vec<Value> = diagnostics(&again)
-                .into_iter()
+            let found: Vec<&Value> = again
+                .iter()
                 .filter(|d| d["message"] == format!("in `{lemma_name}`"))
                 .collect();
             assert_eq!(
                 found.len(),
                 1,
-                "{name}: `{lemma}` gives no goal (or several):\n{again:#}"
+                "{name}: `{lemma}` gives no goal (or several):\n{again:#?}"
             );
-            assert!(is_goal(&found[0]), "{name}: `{lemma}`:\n{:#}", found[0]);
+            let found = found[0];
+            assert!(is_goal(found), "{name}: `{lemma}`:\n{found:#}");
             // The lemma states what the goal computes to, which it prints as
             // written.
             let computed = |goal: &'_ Value| {
@@ -188,17 +207,40 @@ fn lemmas_check_as_the_same_goal() {
                 }
                 .clone()
             };
+            // The goal's facts (`m ≠ 5`) are the lemma's hypotheses.
+            let mut hypotheses = goal["hypotheses"].as_array().unwrap().clone();
+            let facts: Vec<&Value> = goal["facts"].as_array().into_iter().flatten().collect();
+            // Named `h`, `h2`, …, skipping a name the goal already has.
+            let taken: Vec<String> = (hypotheses.iter())
+                .map(|h| h["name"].as_str().unwrap().to_string())
+                .collect();
+            let mut n = 0;
+            for fact in &facts {
+                let name = loop {
+                    n += 1;
+                    let name = if n == 1 {
+                        "h".to_string()
+                    } else {
+                        format!("h{n}")
+                    };
+                    if !taken.contains(&name) {
+                        break name;
+                    }
+                };
+                hypotheses.push(serde_json::json!({"name": name, "type": fact}));
+            }
             assert_eq!(
-                (&found[0]["goal"]["hypotheses"], computed(&found[0]["goal"])),
-                (&goal["hypotheses"], computed(goal)),
+                (&found["goal"]["hypotheses"], computed(&found["goal"])),
+                (&Value::Array(hypotheses), computed(goal)),
                 "{name}: `{lemma}` is another goal"
             );
-            if goal["targetComputed"].is_null() {
-                assert_eq!(found[0]["labels"][0]["message"], d["labels"][0]["message"]);
+            assert!(found["goal"]["facts"].is_null());
+            if goal["targetComputed"].is_null() && facts.is_empty() {
+                assert_eq!(found["labels"][0]["message"], d["labels"][0]["message"]);
             }
             // Its own lemma is itself, renamed.
             assert_eq!(
-                found[0]["goal"]["lemma"].as_str().map(|l| l.replacen(
+                found["goal"]["lemma"].as_str().map(|l| l.replacen(
                     &format!("{lemma_name}Goal1"),
                     lemma_name,
                     1

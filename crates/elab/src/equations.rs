@@ -36,8 +36,8 @@
 //!
 //! **How it's proved.** As a kernel term, never trusted: a case tree on the
 //! equation's variables that splits wherever the definition's tree does
-//! (walking that tree with the arm's left side), `rfl` at the arm's own
-//! leaves and `Void.exfalso` of the hypothesis at an earlier arm's. A
+//! (walking that tree with the arm's left side), `byComputing` at the arm's own
+//! leaves and `Void.impossible` of the hypothesis at an earlier arm's. A
 //! `decreasing` definition is walked through its `f.%step`, each leaf
 //! proved by `f.unfold`; an `opaque` one's equations are checked with
 //! `unfolding f`, as `f.unfold` is (§4).
@@ -625,6 +625,15 @@ fn expand_one(p: &Pattern) -> Vec<(Pattern, Vec<Span>)> {
             let a = qs.pop().expect("two");
             Pattern::Cons(Box::new(a), Box::new(b), *span)
         }),
+        Pattern::Prefix {
+            text,
+            text_span,
+            rest,
+            span,
+            ..
+        } => many(std::slice::from_ref(&**rest), &|mut qs| {
+            Pattern::prefix(text.clone(), *text_span, qs.pop().expect("one"), *span)
+        }),
         Pattern::Named(n, q, span) => many(std::slice::from_ref(&**q), &|mut qs| {
             Pattern::Named(n.clone(), Box::new(qs.pop().expect("one")), *span)
         }),
@@ -654,11 +663,13 @@ fn expand_one(p: &Pattern) -> Vec<(Pattern, Vec<Span>)> {
             })
         }
         Pattern::Var(_)
+        | Pattern::TextRest(_)
         | Pattern::Wildcard(_)
         | Pattern::Absurd(_)
         | Pattern::Num(..)
         | Pattern::NegNum(..)
         | Pattern::Char(..)
+        | Pattern::Text(..)
         | Pattern::Nil(_) => vec![(p.clone(), Vec::new())],
     }
 }
@@ -1072,7 +1083,7 @@ struct LeafProof {
     q: Term,
 }
 
-/// How a row's leaf goes on, in an equation's proof: `rfl` (or
+/// How a row's leaf goes on, in an equation's proof: `byComputing` (or
 /// `f.unfold`) alone; for a branch, along a proof that the row's right side
 /// is the branch's, one for every leaf, or (SW-1071) one per leaf; with the
 /// statement's left side (both at the statement's depth).
@@ -1389,7 +1400,7 @@ impl BranchLib {
         )
     }
 
-    /// `Void.exfalso [goal] void`.
+    /// `Void.impossible [goal] void`.
     fn exfalso(&self, goal: Term, void: Term) -> Term {
         apps(
             Term::Def(self.exfalso),
@@ -2490,7 +2501,7 @@ impl Elaborator {
 
     /// `f`, with a step, size and frame budget of its own ([`ATTEMPT`]):
     /// running out of it skips the equation, with the reason, instead of
-    /// failing the definition. An equation whose `rfl` the kernel can only
+    /// failing the definition. An equation whose `byComputing` the kernel can only
     /// check by computing far (a body that calls a definition on a known
     /// number, `digits 40 (k + n) 0`, compared without sharing) would
     /// otherwise take the time and memory of that computation.
@@ -2804,11 +2815,11 @@ impl Elaborator {
                 && matches!(&cx.env[l], Value::Neutral(Head::Var(x, _), s) if *x == l && s.is_empty())
         };
         // A character pattern's proof field (`'k'` is `MkChar 107 p`) is
-        // `rfl` on the left side, the literal's own, so the equation doesn't
+        // `byComputing` on the left side, the literal's own, so the equation doesn't
         // take it as a variable. Only where every argument stays convertible
-        // with itself when `p` becomes `rfl` (the kernel skips the proof
+        // with itself when `p` becomes `byComputing` (the kernel skips the proof
         // field); a bare `p`, or one that a call computes on, stays a
-        // variable, as the equation would be narrower at `rfl`.
+        // variable, as the equation would be narrower at `byComputing`.
         let mut to_refl: Vec<Value> = (0..depth).map(Value::var).collect();
         let mut any_refl = false;
         for l in 1..depth {
@@ -2972,7 +2983,15 @@ impl Elaborator {
         let lambda_warnings = self.attempt.lambda_warnings.borrow().len();
         let branch_errors = self.attempt.branch_errors.borrow().len();
         let mut cx = saved.ctx(self);
-        let condition = guard_condition(&mut cx, guard);
+        let condition = guard_condition(&mut cx, guard).and_then(|c| {
+            c.map(|(prop, as_bool)| {
+                Ok((
+                    without_lets_of(&cx, &prop)?,
+                    as_bool.map(|b| without_lets_of(&cx, &b)).transpose()?,
+                ))
+            })
+            .transpose()
+        });
         drop(cx);
         self.present.nav = nav;
         self.attempt
@@ -4495,7 +4514,7 @@ impl Elaborator {
             true_,
             false_,
             not: r.def(Builtin::Not).ok_or_else(none)?,
-            exfalso: r.def(Builtin::VoidExfalso).ok_or_else(none)?,
+            exfalso: r.def(Builtin::VoidImpossible).ok_or_else(none)?,
             true_not_false: def("Bool.trueNotFalse")?,
             false_not_true: r.def(Builtin::FalseNotTrue).ok_or_else(none)?,
             bool_unique: r.def(Builtin::BoolUniqueEq).ok_or_else(none)?,
@@ -5678,6 +5697,38 @@ struct Sought {
     blocked: Vec<usize>,
 }
 
+/// `t`, a term in `cx`, with the variables `cx` defines by `let` replaced
+/// by their values: a text prefix's rest, `let rest := MkText r`, which the
+/// condition of a guarded arm may use, is not one of the arm's variables.
+fn without_lets_of(cx: &Ctx, t: &Term) -> Result<Term> {
+    let depth = cx.level();
+    if cx.lets.iter().all(Option::is_none) {
+        return Ok(t.clone());
+    }
+    let g = &cx.g();
+    let values = (0..depth)
+        .map(|l| match cx.lets[l] {
+            Some(_) => Ok(Some(stitchwort_core::value::quote(g, depth, &cx.env[l])?)),
+            None => Ok(None),
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok(remap(g, t, depth, depth, &|l| {
+        Some(values[l].clone().unwrap_or(Term::Var(depth - 1 - l)))
+    })?
+    .expect("every variable maps"))
+}
+
+/// `t` with the `let`s it starts with substituted: the match compiler puts
+/// a text prefix's `let rest := MkText r` around a guarded arm's `if`, so
+/// that the condition can use `rest` (`crate::check_guard`).
+fn without_leading_lets(g: &Ev, t: &Term) -> R<Term> {
+    let mut t = t.clone();
+    while let Term::Let(_, _, v, b, _) = t.strip_loc() {
+        t = b.instantiate(g, v)?;
+    }
+    Ok(t)
+}
+
 /// The `if` a guarded row's condition is tested by, at its guard node in a
 /// tree: `Bool.ifThenElse [a] c t e` or `Decidable.elim [p] [a] d y n`,
 /// its head and arguments, and its branches' bodies, each under the one
@@ -5692,6 +5743,7 @@ struct GuardIf {
 
 fn guard_if(g: &Ev, t: &Term) -> R<GuardIf> {
     let r = g.env.registry();
+    let t = &without_leading_lets(g, t)?;
     let (head, args) = spine_icit(t.strip_loc());
     let is = |b: Builtin| matches!(head.strip_loc(), Term::Def(h) if r.def(b) == Some(*h));
     let dec = if is(Builtin::IfThenElse) && args.len() == 4 {
@@ -6349,7 +6401,7 @@ fn data_of(t: &Term) -> Option<DataId> {
 }
 
 /// Whether `ty` is `a = b` in `Bool` with `a` computing to `b`: a proof
-/// that is `rfl` wherever the kernel ignores proofs.
+/// that is `byComputing` wherever the kernel ignores proofs.
 fn is_computed_bool_eq(g: &Ev, depth: usize, ty: &Value) -> R<bool> {
     Ok(match force(g, ty.clone())? {
         Value::Eq(ty, a, b) => {
@@ -6361,7 +6413,7 @@ fn is_computed_bool_eq(g: &Ev, depth: usize, ty: &Value) -> R<bool> {
     })
 }
 
-/// A character literal `MkChar k rfl`'s character.
+/// A character literal `MkChar k byComputing`'s character.
 fn char_literal(g: &Ev, t: &Term) -> Option<char> {
     let char_data = g.env.registry().data(Builtin::Char)?;
     match t.strip_loc() {
@@ -6445,7 +6497,7 @@ impl Lib {
             or: r.data(Builtin::Or)?,
             not: r.def(Builtin::Not)?,
             mem: r.def(Builtin::ListMem)?,
-            exfalso: r.def(Builtin::VoidExfalso)?,
+            exfalso: r.def(Builtin::VoidImpossible)?,
         })
     }
 
@@ -7114,6 +7166,7 @@ impl<'a> Walk<'a> {
     /// carried to the statement's left side at the top.
     fn guard(&mut self, j: usize, t: &Term, fvals: &mut Vec<PV>, path: &mut Vec<u32>) -> R<Term> {
         let g = self.g();
+        let t = &without_leading_lets(&g, t)?;
         let node = guard_if(&g, t)?;
         let read = guard_if(&g, &self.read_tree(t, fvals)?)?;
         let depth = self.depth();
@@ -7180,8 +7233,10 @@ impl<'a> Walk<'a> {
             let binder = if node.dec { PV::Var(level) } else { unit()? };
             let q = self.branch(&node.then, binder, crate::GUARD_THEN, fvals, path)?;
             if node.dec {
+                // `node.then` is in the tree's context, `fvals`, not the
+                // statement's.
                 let uniq = if node.then.mentions(0)
-                    && !self.e.proof_is_inert_in(&node.then, None, depth)?
+                    && !self.e.proof_is_inert_in(&node.then, None, fvals.len())?
                 {
                     Some(
                         self.e
@@ -7433,9 +7488,9 @@ impl<'a> Walk<'a> {
         })
     }
 
-    /// A proof of `x = y` here: `rfl`, when they're the same up to the
+    /// A proof of `x = y` here: `byComputing`, when they're the same up to the
     /// proofs in constructors' fields (a character `MkChar k p` against the
-    /// literal `MkChar k rfl`), which the kernel's comparison skips.
+    /// literal `MkChar k byComputing`), which the kernel's comparison skips.
     fn eq_proof(&self, x: &PV, y: &PV) -> R<Term> {
         let x = self.resolve(x);
         let y = self.resolve(y);

@@ -1,6 +1,6 @@
 ---
-source: crates/cli/tests/examples.rs
-assertion_line: 594
+source: crates/cli/tests/running/examples.rs
+assertion_line: 700
 expression: output
 ---
 [E-CASES] Error: `cases` found nothing to split on, and nothing closes the goal
@@ -14,7 +14,7 @@ expression: output
     │ 
     │ Note 2: goal: Void
     │ 
-    │ Note 3: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis, `omega` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases in t`
+    │ Note 3: the goal isn't stuck on anything `cases` can take apart, and neither `byComputing`, a contradiction, a hypothesis, `arithmetic` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases then t`
     │ 
     │ Note 4: the goal's decision procedure says it is false
     │ 

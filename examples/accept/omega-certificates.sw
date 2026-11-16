@@ -1,7 +1,7 @@
 -- `Std.Omega` used by hand: the quoted facts and goal, and the certificate, that
--- the future `omega` keyword (docs/proposals/omega.md, milestone 1b) will write
+-- the future `arithmetic` keyword (docs/proposals/omega.md, milestone 1b) will write
 -- for us. `Omega.prove` takes the atoms' values (`MkEnv`), the quoted facts and
--- goal, a certificate, `rfl` (the kernel runs `Omega.check` on them to show it
+-- goal, a certificate, `byComputing` (the kernel runs `Omega.check` on them to show it
 -- accepts), and the proofs of the facts. The quoted syntax mirrors the
 -- statement's shape exactly: `(a + b) + c` is `NAdd (NAdd a b) c`, `x + 1` is
 -- `NAdd x (NLit 1)`, `3 * x` is `MulLeft 3 x`, `x * 3` is `MulRight x 3`.
@@ -29,7 +29,7 @@ theorem stacked ∀ (id lastTo rFrom: Nat) (h1: id ≤ lastTo) (h2: lastTo + 1 �
     [FLe (NV 0) (NV 1), FLe (NAdd (NV 1) (NLit 1)) (NV 2)]
     (GLt (NV 0) (NV 2))
     (Then (Input 0) (Then (Input 1) (Then NegGoal (Then (Combine [MkPair 1 0, MkPair 1 1, MkPair 1 2]) (Close 3)))))
-    rfl
+    byComputing
     (Both h1 (Both h2 Trivial))
 
 -- Day 5 `absorbStacked`, True arm: hypotheses as Bool equations, through the bridge lemmas.
@@ -42,7 +42,7 @@ theorem absorbTrue ∀ (lastFrom id lastTo rFrom: Nat)
     [FLe (NV 1) (NV 2), FLt (NAdd (NV 2) (NLit 1)) (NV 3)]
     (GLt (NV 1) (NV 3))
     (Then (Input 0) (Then (Input 1) (Then NegGoal (Then (Combine [MkPair 1 0, MkPair 1 1, MkPair 1 2]) (Close 3)))))
-    rfl
+    byComputing
     (Both (Bool.andRight i) (Both (Nat.leqFalse rFrom (lastTo + 1) e) Trivial))
 
 -- Day 5 `absorbStacked`, False arm.
@@ -52,7 +52,7 @@ theorem absorbFalse ∀ (id lastFrom rFrom: Nat) (h: id < lastFrom) (ok: lastFro
     [FLt (NV 0) (NV 1), FLe (NV 1) (NV 2)]
     (GLt (NV 0) (NV 2))
     (Then (Input 0) (Then (Input 1) (Then NegGoal (Then (Combine [MkPair 1 0, MkPair 1 1, MkPair 1 2]) (Close 3)))))
-    rfl
+    byComputing
     (Both h (Both ok Trivial))
 
 -- No hypotheses: needs `x_1 >= 0`.
@@ -62,7 +62,7 @@ theorem leAddRight ∀ (x y: Nat): x ≤ x + y :=
     []
     (GLe (NV 0) (NAdd (NV 0) (NV 1)))
     (Then NegGoal (Then (NatNonneg 1) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2))))
-    rfl
+    byComputing
     Trivial
 
 -- Multiplication shape, `x * 3` (MulRight): both directions are `-1 >= 0` after the negated goal alone.
@@ -74,8 +74,8 @@ theorem mulRight3 ∀ (x: Nat): x * 3 = x + x + x :=
     (NAdd (NAdd (NV 0) (NV 0)) (NV 0))
     (Then NegGoal (Close 0))
     (Then NegGoal (Close 0))
-    rfl
-    rfl
+    byComputing
+    byComputing
     Trivial
 
 -- Multiplication shape, `3 * x` (MulLeft).
@@ -87,8 +87,8 @@ theorem mulLeft3 ∀ (x: Nat): 3 * x = x + x + x :=
     (NAdd (NAdd (NV 0) (NV 0)) (NV 0))
     (Then NegGoal (Close 0))
     (Then NegGoal (Close 0))
-    rfl
-    rfl
+    byComputing
+    byComputing
     Trivial
 
 -- `x * 0 = 0`
@@ -100,8 +100,8 @@ theorem mulRight0 ∀ (x: Nat): x * 0 = 0 :=
     (NLit 0)
     (Then NegGoal (Close 0))
     (Then NegGoal (Close 0))
-    rfl
-    rfl
+    byComputing
+    byComputing
     Trivial
 
 -- `0 * x = 0`
@@ -113,8 +113,8 @@ theorem mulLeft0 ∀ (x: Nat): 0 * x = 0 :=
     (NLit 0)
     (Then NegGoal (Close 0))
     (Then NegGoal (Close 0))
-    rfl
-    rfl
+    byComputing
+    byComputing
     Trivial
 
 -- `x * 1 = x`
@@ -126,8 +126,8 @@ theorem mulRight1 ∀ (x: Nat): x * 1 = x :=
     (NV 0)
     (Then NegGoal (Close 0))
     (Then NegGoal (Close 0))
-    rfl
-    rfl
+    byComputing
+    byComputing
     Trivial
 
 -- `1 * x = x`
@@ -139,8 +139,8 @@ theorem mulLeft1 ∀ (x: Nat): 1 * x = x :=
     (NV 0)
     (Then NegGoal (Close 0))
     (Then NegGoal (Close 0))
-    rfl
-    rfl
+    byComputing
+    byComputing
     Trivial
 
 -- An equation from two inequalities: each direction is refuted separately.
@@ -152,13 +152,13 @@ theorem antisym ∀ (a b: Nat) (h1: a ≤ b) (h2: b ≤ a): a = b :=
     (NV 1)
     (Then (Input 0) (Then NegGoal (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2))))
     (Then (Input 1) (Then NegGoal (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2))))
-    rfl
-    rfl
+    byComputing
+    byComputing
     (Both h1 (Both h2 Trivial))
 
 -- A closed contradiction: the row is `-2 >= 0`.
 theorem threeLtTwo ∀ (h: 3 < 2): Void :=
-  Omega.prove (MkEnv [] []) [FLt (NLit 3) (NLit 2)] GVoid (Then (Input 0) (Close 0)) rfl (Both h Trivial)
+  Omega.prove (MkEnv [] []) [FLt (NLit 3) (NLit 2)] GVoid (Then (Input 0) (Close 0)) byComputing (Both h Trivial)
 
 -- A contradiction unrelated to the goal.
 theorem disconnected ∀ (x y: Nat) (h: y < y): x < 0 :=
@@ -167,7 +167,7 @@ theorem disconnected ∀ (x y: Nat) (h: y < y): x < 0 :=
     [FLt (NV 1) (NV 1)]
     (GLt (NV 0) (NLit 0))
     (Then (Input 0) (Close 0))
-    rfl
+    byComputing
     (Both h Trivial)
 
 -- A `Void` goal from two facts.
@@ -177,7 +177,7 @@ theorem twoFactsVoid ∀ (x y: Nat) (h1: x + 1 ≤ y) (h2: y ≤ x): Void :=
     [FLe (NAdd (NV 0) (NLit 1)) (NV 1), FLe (NV 1) (NV 0)]
     GVoid
     (Then (Input 0) (Then (Input 1) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2))))
-    rfl
+    byComputing
     (Both h1 (Both h2 Trivial))
 
 -- `2 * x = 1` has no solution: dividing its two rows (`1 - 2x` and `2x - 1`) by 2 gives
@@ -190,7 +190,7 @@ theorem twoXEqOne ∀ (x: Nat) (h: 2 * x = 1): Void :=
     (Then
       (Input 0)
       (Then (Input 1) (Then (Divide 0 2) (Then (Divide 1 2) (Then (Combine [MkPair 1 2, MkPair 1 3]) (Close 4))))))
-    rfl
+    byComputing
     (Both h Trivial)
 
 -- The integer regression: rationally satisfiable (x = y = 1/2), refuted by a split on `-y >= 0`
@@ -234,7 +234,7 @@ theorem splitRegression ∀ (x y: Nat)
                   (Then
                     (Combine [MkPair 1 2, MkPair 3 6])
                     (Then (Divide 7 2) (Then (Combine [MkPair 1 4, MkPair 1 8]) (Close 9)))))))))))
-    rfl
+    byComputing
     (Both h1 (Both h2 (Both h3 (Both h4 Trivial))))
 
 -- Ten variables in a chain, for timing: `3 * x0 - 3 * x9 - 8 >= 0` against the nine links times 3.
@@ -296,5 +296,5 @@ theorem chain10 ∀ (x0 x1 x2 x3 x4 x5 x6 x7 x8 x9: Nat)
                             MkPair 1 9
                           ])
                           (Close 10))))))))))))
-    rfl
+    byComputing
     (Both h0 (Both h1 (Both h2 (Both h3 (Both h4 (Both h5 (Both h6 (Both h7 (Both h8 Trivial)))))))))

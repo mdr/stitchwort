@@ -33,7 +33,7 @@ def pick: Nat → Nat := n =>
     | _ => 0
 
 theorem tableOfZero: operationOf 0 = Some Fine := operationOf.eq1
-theorem tableOfFive: operationOf 5 = None := rfl
+theorem tableOfFive: operationOf 5 = None := byComputing
 
 test "filterMap" := illegals [Corrupted 1, Fine, Corrupted 3, Incomplete 4] == [1, 3]
 test "findMap" := firstMissing [Fine, Incomplete 4, Incomplete 5] == Some 4

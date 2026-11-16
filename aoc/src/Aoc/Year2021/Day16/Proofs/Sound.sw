@@ -31,31 +31,31 @@ theorem doneNext ∀ (wanted later: Wanted) (reader: BitReader) (packet: Packet)
     (done: Done later more left):
     Done wanted [packet, ..more] left :=
   match wanted, reader with
-    | Packets (Succ count), _ => rewrite <- Option.someInjective next at done in rewrite done in rfl
-    | Filling, { unread = [_, .._] } => rewrite <- Option.someInjective next at done in done
+    | Packets (Succ count), _ => rewrite <- Option.someInjective next at done then rewrite done then byComputing
+    | Filling, { unread = [_, .._] } => rewrite <- Option.someInjective next at done then done
 
 --| Nothing more wanted: none was what was wanted.
 theorem doneNone ∀ (wanted: Wanted) (reader: BitReader)
     (none: nextWanted wanted reader = None):
     Done wanted [] reader :=
   match wanted, reader with
-    | Packets 0, _ => rfl
+    | Packets 0, _ => byComputing
     | Packets (Succ count), _ => cases
-    | Filling, { unread = [] } => rfl
+    | Filling, { unread = [] } => byComputing
 
 --| A literal with a version below 8 and groups, each below 16.
 theorem literalWellFormed ∀ (version: Nat) (groups: NonEmptyList Nat)
     (small: version < 8)
     (each: groups.all (group => group < 16) = True):
     wellFormed (Literal version groups) = True :=
-  Both (omega [small]) each
+  Both (arithmetic [small]) each
 
 --| The bits of a packet, then of the packets after it.
 theorem soundStep ∀ (unread after left: List Bool) (packet: Packet) (more: List Packet)
     (here: unread = encode packet ++ after)
     (later: after = encodeAll more ++ left):
     unread = encodeAll [packet, ..more] ++ left :=
-  rewrite here, later in Eq.sym (List.appendAssoc (encode packet) (encodeAll more) left)
+  rewrite here, later then Eq.flipped (List.appendAssoc (encode packet) (encodeAll more) left)
 
 --| One packet read, then what was still wanted.
 theorem finishStep ∀ (wanted later: Wanted) (reader after left rest: BitReader)
@@ -66,7 +66,7 @@ theorem finishStep ∀ (wanted later: Wanted) (reader after left rest: BitReader
     (formed: wellFormed packet = True)
     (laterRead: after.unread = encodeAll more ++ left.unread ∧ allWellFormed more = True ∧ Done later more left):
     reader.unread = encodeAll packets ++ rest.unread ∧ allWellFormed packets = True ∧ Done wanted packets rest :=
-  rewrite <- parts.left, <- parts.right in
+  rewrite <- parts.left, <- parts.right then
     Both
       (soundStep reader.unread after.unread left.unread packet more here laterRead.left)
       (Both
@@ -75,8 +75,8 @@ theorem finishStep ∀ (wanted later: Wanted) (reader after left rest: BitReader
 
 --| A type id below 8 that is no operator type's is 4.
 theorem operatorTypeOfNone ∀ (n: Nat) (small: n < 8) (none: operatorTypeOf n = None): n = 4 := match n with
-  | 4 => rfl
-  | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ k))))))) => omega
+  | 4 => byComputing
+  | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ k))))))) => arithmetic
 
 --| A literal's bits, field by field.
 theorem literalHere ∀ (version: Nat) (groups: NonEmptyList Nat) (unread afterVersion afterType after: List Bool)
@@ -131,9 +131,9 @@ theorem operatorOfBits ∀ (version: Nat) (operatorType: OperatorType) (lengthTy
     (made: operatorOf version operatorType lengthType subPackets = Some packet):
     encode packet = operatorBits version (typeId operatorType) lengthType subPackets.length (encodeAll subPackets) :=
   match operatorType, subPackets with
-    | Calculation operation, [first, ..rest] => rewrite <- Option.someInjective made in rfl
+    | Calculation operation, [first, ..rest] => rewrite <- Option.someInjective made then byComputing
     | Comparing comparison, [first, second] =>
-      rewrite <- Option.someInjective made in rewrite List.appendNil (encode second) in rfl
+      rewrite <- Option.someInjective made then rewrite List.appendNil (encode second) then byComputing
 
 --| The operator made of well-formed sub-packets whose bits fit is well
 --| formed.
@@ -146,22 +146,24 @@ theorem operatorOfWellFormed ∀ (version: Nat) (operatorType: OperatorType) (le
     wellFormed packet = True :=
   match operatorType, subPackets with
     | Calculation operation, [first, ..rest] =>
-      rewrite <- Option.someInjective made in Both (omega [small]) (Both fits each)
+      rewrite <- Option.someInjective made then Both (arithmetic [small]) (Both fits each)
     | Comparing comparison, [first, second] =>
-      rewrite <- Option.someInjective made in
+      rewrite <- Option.someInjective made then
         let Both firstOk (Both secondOk _) := each
-        Both (omega [small]) (Both (rewrite List.appendNil (encode second) at fits in fits) (Both firstOk secondOk))
+        Both
+          (arithmetic [small])
+          (Both (rewrite List.appendNil (encode second) at fits then fits) (Both firstOk secondOk))
 
 theorem readPacketsSound ∀ (wanted: Wanted) (reader: BitReader) (packets: List Packet) (rest: BitReader)
     (read: readPackets wanted reader = Some (packets, rest)):
     reader.unread = encodeAll packets ++ rest.unread ∧ allWellFormed packets = True ∧ Done wanted packets rest
     decreasing reader.length
 :=
-  rewrite readPackets.unfold wanted reader at read in
+  rewrite readPackets.unfold wanted reader at read then
     match n: nextWanted wanted reader with
       | None =>
         let parts := somePairInjective read
-        rewrite <- parts.left, <- parts.right in Both rfl (Both rfl (doneNone wanted reader n))
+        rewrite <- parts.left, <- parts.right then Both byComputing (Both byComputing (doneNone wanted reader n))
       | Some later =>
         match v: reader.readNumber 3 with
           | Some (version, afterVersion) =>
@@ -175,13 +177,13 @@ theorem readPacketsSound ∀ (wanted: Wanted) (reader: BitReader) (packets: List
                       | Some (groups, after) =>
                         match d: (after.length < reader.length: Bool) with
                           | True =>
-                            let shorter: after.length < reader.length := omega [d]
+                            let shorter: after.length < reader.length := arithmetic [d]
                             match r: readPackets later after with
                               | Some (more, left) =>
                                 let parts := somePairInjective read
                                 let groupsRead := readGroupsSome afterType groups after g
                                 let laterRead := readPacketsSound later after more left r [decreasing := shorter]
-                                let literal: typeCode = 4 := operatorTypeOfNone typeCode (omega [typeRead.right]) o
+                                let literal: typeCode = 4 := operatorTypeOfNone typeCode (arithmetic [typeRead.right]) o
                                 let typeField: afterVersion.unread = Nat.toBits 3 4 ++ afterType.unread :=
                                   Eq.trans typeRead.left
                                     (Eq.cong (code => Nat.toBits 3 code ++ afterType.unread) literal)
@@ -189,7 +191,7 @@ theorem readPacketsSound ∀ (wanted: Wanted) (reader: BitReader) (packets: List
                                   literalHere version groups reader.unread afterVersion.unread afterType.unread
                                       after.unread versionRead.left typeField groupsRead.left
                                 let formed :=
-                                  literalWellFormed version groups (omega [versionRead.right]) groupsRead.right
+                                  literalWellFormed version groups (arithmetic [versionRead.right]) groupsRead.right
                                 finishStep wanted later reader after left rest
                                   (Literal version groups)
                                   more
@@ -213,14 +215,14 @@ theorem readPacketsSound ∀ (wanted: Wanted) (reader: BitReader) (packets: List
                               | Some (inside, following) =>
                                 match d: ((BitReader.of inside).length < reader.length: Bool) with
                                   | True =>
-                                    let shorter: (BitReader.of inside).length < reader.length := omega [d]
+                                    let shorter: (BitReader.of inside).length < reader.length := arithmetic [d]
                                     match i: readPackets Filling (BitReader.of inside) with
                                       | Some (subPackets, emptied) =>
                                         match made: operatorOf version operatorType TotalLength subPackets with
                                           | Some packet =>
                                             match d2: (following.length < reader.length: Bool) with
                                               | True =>
-                                                let shorterAfter: following.length < reader.length := omega [d2]
+                                                let shorterAfter: following.length < reader.length := arithmetic [d2]
                                                 match r: readPackets later following with
                                                   | Some (more, left) =>
                                                     let parts := somePairInjective read
@@ -241,17 +243,17 @@ theorem readPacketsSound ∀ (wanted: Wanted) (reader: BitReader) (packets: List
                                                         [decreasing := shorterAfter]
                                                     let exact: inside.bits = encodeAll subPackets :=
                                                       Eq.trans insideRead.left
-                                                        (rewrite insideRead.right.right in
+                                                        (rewrite insideRead.right.right then
                                                           List.appendNil (encodeAll subPackets))
                                                     let lengthEq: (encodeAll subPackets).length = length.value :=
-                                                      rewrite <- exact in split.right
+                                                      rewrite <- exact then split.right
                                                     let lengthField: afterBit.unread
                                                       = Nat.toBits 15 (encodeAll subPackets).length
                                                         ++ afterLength.unread :=
                                                       Eq.trans lengthRead.left
                                                         (Eq.cong
                                                           (n => Nat.toBits 15 n ++ afterLength.unread)
-                                                          (Eq.sym lengthEq))
+                                                          lengthEq.flipped)
                                                     let insideField: afterLength.unread
                                                       = encodeAll subPackets ++ following.unread :=
                                                       Eq.trans split.left
@@ -276,14 +278,14 @@ theorem readPacketsSound ∀ (wanted: Wanted) (reader: BitReader) (packets: List
                                                       Eq.trans hereBits
                                                         (Eq.cong
                                                           (bits => bits ++ following.unread)
-                                                          (Eq.sym
+                                                          (Eq.flipped
                                                             (operatorOfBits version operatorType TotalLength subPackets
                                                                 packet made)))
                                                     let formed :=
                                                       operatorOfWellFormed version operatorType TotalLength subPackets
                                                           packet made
-                                                          (omega [versionRead.right])
-                                                          (rewrite lengthEq in omega [lengthRead.right])
+                                                          (arithmetic [versionRead.right])
+                                                          (rewrite lengthEq then arithmetic [lengthRead.right])
                                                           insideRead.right.left
                                                     finishStep wanted later reader following left rest packet more
                                                         packets parts n here formed laterRead
@@ -292,14 +294,14 @@ theorem readPacketsSound ∀ (wanted: Wanted) (reader: BitReader) (packets: List
                           | Some (count, after) =>
                             match d: (after.length < reader.length: Bool) with
                               | True =>
-                                let shorter: after.length < reader.length := omega [d]
+                                let shorter: after.length < reader.length := arithmetic [d]
                                 match i: readPackets (Packets count.value) after with
                                   | Some (subPackets, following) =>
                                     match made: operatorOf version operatorType Count subPackets with
                                       | Some packet =>
                                         match d2: (following.length < reader.length: Bool) with
                                           | True =>
-                                            let shorterAfter: following.length < reader.length := omega [d2]
+                                            let shorterAfter: following.length < reader.length := arithmetic [d2]
                                             match r: readPackets later following with
                                               | Some (more, left) =>
                                                 let parts := somePairInjective read
@@ -328,7 +330,7 @@ theorem readPacketsSound ∀ (wanted: Wanted) (reader: BitReader) (packets: List
                                                       (Eq.cong
                                                         (n =>
                                                           Nat.toBits 11 n ++ (encodeAll subPackets ++ following.unread))
-                                                        (Eq.sym counted)))
+                                                        counted.flipped))
                                                 let hereBits :=
                                                   countHere version
                                                     (typeId operatorType)
@@ -347,13 +349,13 @@ theorem readPacketsSound ∀ (wanted: Wanted) (reader: BitReader) (packets: List
                                                   Eq.trans hereBits
                                                     (Eq.cong
                                                       (bits => bits ++ following.unread)
-                                                      (Eq.sym
+                                                      (Eq.flipped
                                                         (operatorOfBits version operatorType Count subPackets packet
                                                             made)))
                                                 let formed :=
                                                   operatorOfWellFormed version operatorType Count subPackets packet made
-                                                    (omega [versionRead.right])
-                                                    (rewrite counted in omega [countRead.right])
+                                                    (arithmetic [versionRead.right])
+                                                    (rewrite counted then arithmetic [countRead.right])
                                                     subsRead.right.left
                                                 finishStep wanted later reader following left rest packet more packets
                                                     parts n here formed laterRead

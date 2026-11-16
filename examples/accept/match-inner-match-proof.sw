@@ -19,7 +19,7 @@ def reach (flag: Nat → Bool): Nat → Nat → Nat → Bool
 
 theorem orCases ∀ (goal: Prop) (a b: Bool) (h: (a ∨ b) = True) (f: a = True → goal) (g: b = True → goal): goal :=
   match a with
-    | True => f rfl
+    | True => f byComputing
     | False => g h
 
 -- Where the condition fails, `reach` skips the row.

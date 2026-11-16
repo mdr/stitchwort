@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -26,9 +26,9 @@ expression: json
         "message": "a: Nat\nb: Nat\n⊢ (a < b && b <= a + 3 || b < a) = (gentle a b || b < a)",
         "range": [
           10,
-          91,
+          86,
           10,
-          92
+          87
         ]
       }
     ],
@@ -36,9 +36,9 @@ expression: json
     "notes": [],
     "range": [
       10,
-      91,
+      86,
       10,
-      92
+      87
     ],
     "severity": "goal"
   },
@@ -73,9 +73,9 @@ expression: json
         "message": "a: Int\nb: Int\nh: a < b\nk: a ≤ b\n⊢ (a < b && a <= b) = True",
         "range": [
           12,
-          84,
+          79,
           12,
-          85
+          80
         ]
       }
     ],
@@ -83,9 +83,9 @@ expression: json
     "notes": [],
     "range": [
       12,
-      84,
+      79,
       12,
-      85
+      80
     ],
     "severity": "goal"
   },
@@ -124,9 +124,9 @@ expression: json
         "message": "t: Type\nord: Ord t\na: t\nb: t\nh: a < b\n⊢ (a <= b || a < b) = True",
         "range": [
           14,
-          101,
+          98,
           14,
-          102
+          99
         ]
       }
     ],
@@ -134,9 +134,9 @@ expression: json
     "notes": [],
     "range": [
       14,
-      101,
+      98,
       14,
-      102
+      99
     ],
     "severity": "goal"
   },
@@ -159,9 +159,9 @@ expression: json
         "message": "count: Nat\n⊢ count + 3 = count + 3",
         "range": [
           16,
-          80,
+          82,
           16,
-          81
+          83
         ]
       }
     ],
@@ -169,9 +169,9 @@ expression: json
     "notes": [],
     "range": [
       16,
-      80,
+      82,
       16,
-      81
+      83
     ],
     "severity": "goal"
   }

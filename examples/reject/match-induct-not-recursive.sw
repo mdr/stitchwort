@@ -10,4 +10,4 @@ def double (n: Nat): Nat := n + n
 
 theorem big (n: Nat): double n ≥ n :=
   match induct (double n) with
-    | eq1 n => omega
+    | eq1 n => arithmetic

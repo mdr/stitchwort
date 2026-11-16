@@ -13,23 +13,23 @@ import Std (Int, List)
 theorem horizontalAfter ∀ (start: Submarine) (commands: List Command):
     (commands.foldLeft start Submarine.follow).horizontal = start.horizontal + horizontal commands :=
   match commands with
-    | [] => rfl
+    | [] => byComputing
     | [command, ..rest] =>
-      rewrite horizontalAfter (start.follow command) rest, List.sumByCons rest command Command.ahead in cases
+      rewrite horizontalAfter (start.follow command) rest, List.sumByCons rest command Command.ahead then cases
 
 --| And the depth by the downs less the ups.
 theorem depthAfter ∀ (start: Submarine) (commands: List Command):
     (commands.foldLeft start Submarine.follow).depth = start.depth + commands.sumBy Command.down :=
   match commands with
-    | [] => omega
+    | [] => arithmetic
     | [command, ..rest] =>
-      rewrite depthAfter (start.follow command) rest, List.sumByCons rest command Command.down in cases
+      rewrite depthAfter (start.follow command) rest, List.sumByCons rest command Command.down then cases
 
 def surface: Submarine := { horizontal = 0, depth = 0 }
 
 --| Part 1 is the puzzle's answer, for every list of commands.
 theorem part1Correct ∀ (commands: List Command): solvePart1 commands = part1 commands :=
-  rewrite horizontalAfter surface commands, depthAfter surface commands in ring
+  rewrite horizontalAfter surface commands, depthAfter surface commands then algebra
 
 --| The program's part 2 depth, one command at a time: the first command is
 --| made at the aim it starts with, and the rest at that aim moved by its down.
@@ -41,35 +41,35 @@ theorem aimedDepthCons ∀ (aim: Int) (command: Command) (rest: List Command):
 theorem aimedHorizontalAfter ∀ (start: AimedSubmarine) (commands: List Command):
     (commands.foldLeft start AimedSubmarine.follow).horizontal = start.horizontal + horizontal commands :=
   match commands with
-    | [] => rfl
+    | [] => byComputing
     | [command, ..rest] =>
-      rewrite aimedHorizontalAfter (start.follow command) rest, List.sumByCons rest command Command.ahead in cases
+      rewrite aimedHorizontalAfter (start.follow command) rest, List.sumByCons rest command Command.ahead then cases
 
 --| The aim moves as part 1's depth does (the part 2 answer doesn't need this,
 --| but it is the program's reading of the aim).
 theorem aimAfter ∀ (start: AimedSubmarine) (commands: List Command):
     (commands.foldLeft start AimedSubmarine.follow).aim = start.aim + commands.sumBy Command.down :=
   match commands with
-    | [] => omega
+    | [] => arithmetic
     | [command, ..rest] =>
-      rewrite aimAfter (start.follow command) rest, List.sumByCons rest command Command.down in cases
+      rewrite aimAfter (start.follow command) rest, List.sumByCons rest command Command.down then cases
 
 --| The depth grows by each forward move times the aim it is made at.
 theorem aimedDepthAfter ∀ (start: AimedSubmarine) (commands: List Command):
     (commands.foldLeft start AimedSubmarine.follow).depth = start.depth + aimedDepth start.aim commands :=
   match commands with
-    | [] => omega
+    | [] => arithmetic
     | [command, ..rest] =>
-      rewrite aimedDepthAfter (start.follow command) rest, aimedDepthCons start.aim command rest in
+      rewrite aimedDepthAfter (start.follow command) rest, aimedDepthCons start.aim command rest then
         -- `cases` would leave the forward move's `start.aim + 0` as it is: it
         -- doesn't split a record's field (SW-1913).
         match command with
-          | Forward _ => rewrite Int.addZero start.aim in omega
-          | Down _ => omega
-          | Up _ => omega
+          | Forward _ => rewrite Int.addZero start.aim then arithmetic
+          | Down _ => arithmetic
+          | Up _ => arithmetic
 
 def aimedSurface: AimedSubmarine := { horizontal = 0, depth = 0, aim = 0 }
 
 --| Part 2 is the puzzle's answer, for every list of commands.
 theorem part2Correct ∀ (commands: List Command): solvePart2 commands = part2 commands :=
-  rewrite aimedHorizontalAfter aimedSurface commands, aimedDepthAfter aimedSurface commands in ring
+  rewrite aimedHorizontalAfter aimedSurface commands, aimedDepthAfter aimedSurface commands then algebra

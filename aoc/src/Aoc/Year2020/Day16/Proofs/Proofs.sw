@@ -30,11 +30,11 @@ theorem part2Exactly ∀ (notes: Notes) (answer: Nat)
   match ordered: notes.fieldOrder with
     | Some order =>
       let product: answer = Spec.departureProduct order notes.yours.values :=
-        Eq.trans (Eq.sym (Option.someInjective found)) (departureProductSpec order notes.yours.values)
+        Eq.trans (Option.someInjective found).flipped (departureProductSpec order notes.yours.values)
       {
         forward = (Witness fitting (Both fits same)) =>
-          rewrite same, fieldOrderOnly notes order ordered fitting fits, <- product in rfl,
-        backward = same => rewrite same in valid
+          rewrite same, fieldOrderOnly notes order ordered fitting fits, <- product then byComputing,
+        backward = same => rewrite same then valid
       }
 
 theorem part2Correct ∀ (input: Text) (notes: Notes)

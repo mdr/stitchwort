@@ -102,8 +102,8 @@ orchestrator's was `Spec.fewestTokens` (SW-804).
 
 - `Import { path, items, everything, span }` (crates/syntax/src/ast.rs:919-933).
   The parser takes `import`, an upper-case path, then `(` and either `..`
-  or one or more names (parser.rs:1099-1157). Imports must come before the
-  first declaration (parser.rs:152-166).
+  or one or more names (`import`, `parser.rs`). Imports must come before the
+  first declaration (`parse_tokens`, `parser/entry.rs`).
 - A qualified name is **one token** (`Tok::Upper`/`Tok::Lower` with dots;
   lexer.rs:380-388). `as` is not a keyword (lexer.rs:389-425), so it lexes
   as an ordinary lower-case name, and `import M as A` fails with
@@ -262,7 +262,7 @@ section specifies (b′) and (b″).
 ### 6.1 Syntax and grammar
 
 No change. An import item is already `Upper | Lower` without dots
-(parser.rs:1131-1139):
+(`import`, `parser.rs`):
 
 ```
 import_decl ::= "import" Path "(" ( ".." | item ("," item)* ) ")"

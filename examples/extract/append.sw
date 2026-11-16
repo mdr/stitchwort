@@ -14,7 +14,7 @@ import Std (Eq, List)
 
 theorem appendLength ∀ (xs ys: List a): List.length (List.append xs ys) = List.length xs + List.length ys :=
   match xs with
-    | Nil => rfl
+    | Nil => byComputing
     | Cons x xs => Eq.cong Succ (appendLength xs ys)
 
 export def appendNats (xs ys: List Nat): List Nat := List.append xs ys

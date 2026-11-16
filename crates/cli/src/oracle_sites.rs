@@ -379,11 +379,11 @@ mod tests {
 
     #[test]
     fn a_helper_call_is_replaced_by_its_proof_argument() {
-        let text = "theorem t := Bool.falseOfNotTrue (Nat.equal n 9) (h => omega)\n";
+        let text = "theorem t := Bool.falseOfNotTrue (Nat.equal n 9) (h => arithmetic)\n";
         let out = edited(text, Half::Builds);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].0, "Bool.falseOfNotTrue");
-        assert_eq!(out[0].1, "theorem t := (h => omega)\n");
+        assert_eq!(out[0].1, "theorem t := (h => arithmetic)\n");
     }
 
     #[test]
@@ -414,7 +414,7 @@ mod tests {
 
     #[test]
     fn the_readings_registry_lists_reading_theorems() {
-        let text = "@[reading]\ntheorem Nat.equalReads ∀ (m n: Nat): Nat.equal m n ↔ m = n := x\n\ntheorem Plain ∀ (a: Nat): a = a := rfl\n";
+        let text = "@[reading]\ntheorem Nat.equalReads ∀ (m n: Nat): Nat.equal m n ↔ m = n := x\n\ntheorem Plain ∀ (a: Nat): a = a := byComputing\n";
         let set = readings_in(text);
         assert_eq!(set.len(), 1);
         assert!(set.contains("Nat.equalReads"));

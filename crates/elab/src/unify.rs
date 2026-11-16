@@ -129,6 +129,68 @@ pub(crate) fn unify_waiting(
     })
 }
 
+/// [`unify`] that goes on past a pair that differs, keeping what the other
+/// pairs solved: for a caller that is about to report an error and wants
+/// the unknowns the parts that do agree fix known first (a spec given as
+/// `_` beside a parser that differs). Each solution makes its own pair
+/// equal, whatever the pairs around it do. Whether a pair differed where
+/// neither side is an unknown, or stuck on one: a clash that no solution
+/// of an unknown can mend; and whether such a pair was a type (a sort, a
+/// function type, a data type), where a solution beside it may have the
+/// wrong type.
+pub(crate) fn unify_what_agrees(
+    g: &Unifier<'_>,
+    level: usize,
+    a: &Value,
+    b: &Value,
+) -> Result<Clashes> {
+    nested(g, || {
+        let _memo = Scoped::set(&g.attempt.call_memo, Some(CallMemo::default()));
+        let mut work = vec![Task::Values(level, a.clone(), b.clone())];
+        let mut mode = Mode::Normal;
+        let mut clashes = Clashes::default();
+        while let Some(task) = work.pop() {
+            g.machine.budget.step()?;
+            match task {
+                Task::Open(..) => {}
+                Task::Mode(m) => mode = m,
+                Task::Values(level, a, b) => {
+                    let (x, y) = (a.clone(), b.clone());
+                    let same = unify_step(g, level, &a, &b, &mut work, mode)?
+                        || values_differ(g, level, a, b, &mut work, mode)?;
+                    if !same && !(flexible(g, &x)? || flexible(g, &y)?) {
+                        clashes.any = true;
+                        clashes.types |= is_type(g, &x)? || is_type(g, &y)?;
+                    }
+                }
+                task => {
+                    other_task(g, task, &mut work, mode)?;
+                }
+            }
+        }
+        Ok(clashes)
+    })
+}
+
+/// What [`unify_what_agrees`] found.
+#[derive(Default)]
+pub(crate) struct Clashes {
+    pub(crate) any: bool,
+    pub(crate) types: bool,
+}
+
+fn is_type(g: &Unifier<'_>, v: &Value) -> Result<bool> {
+    Ok(matches!(
+        force(g, v.clone())?,
+        Value::Sort(_) | Value::Pi(..) | Value::Data(..)
+    ))
+}
+
+/// Whether `v` is an unknown applied, or stuck on one.
+fn flexible(g: &Unifier<'_>, v: &Value) -> Result<bool> {
+    Ok(matches!(force(g, v.clone())?, Value::Neutral(Head::Meta(_), _)) || blocked(g, v)?)
+}
+
 /// Whether the failing pair `a`, `b` waits ([`unify_waiting`]); set aside
 /// if so.
 fn sets_aside(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<bool> {
@@ -907,6 +969,11 @@ fn plus_rule(
     }
 }
 
+/// Whether [`unify_abbreviation`] applies to `a` and `b`.
+pub(crate) fn abbreviation_meets(g: &Unifier<'_>, a: &Value, b: &Value) -> Result<bool> {
+    Ok(meeting(g, a, b, true)?.is_some())
+}
+
 /// A sum stuck on an unknown, as [`plus_rule`] takes it apart.
 struct StuckSum {
     /// The side that mentions no unknown.
@@ -1357,7 +1424,38 @@ fn unify_step(
     {
         return Ok(answer);
     }
+    if let Some((a, b)) = solved_calls(g, a, b)?
+        && let Some(answer) = same_calls(g, level, &a, &b)?
+    {
+        return Ok(answer);
+    }
     unify_step_rest(g, level, a, b, work, mode)
+}
+
+/// `a` and `b` with a solved unknown at either head replaced by its
+/// solution, if that makes them two calls of the same definition: `?j x`,
+/// solved as `bind (nat ()) k`, against `bind (?p ()) k'`. Compared as
+/// calls, by [`same_calls`], as two calls written out are; otherwise
+/// [`force`] would unfold both, and an unknown among the arguments (`?p`)
+/// would meet what the other call's argument computes to inside the
+/// unfolding, not the argument itself. Only while solving from arguments
+/// ([`unify_solving_arguments`]): elsewhere [`same_calls`] keeps only a
+/// match that solves nothing, so the look costs steps and rarely helps.
+fn solved_calls(g: &Unifier<'_>, a: &Value, b: &Value) -> Result<Option<(Value, Value)>> {
+    let solved =
+        |v: &Value| matches!(v, Value::Neutral(Head::Meta(m), _) if g.meta_solution(*m).is_some());
+    if !g.attempt.solving_arguments.get()
+        || !(solved(a) || solved(b))
+        || !matches!(a, Value::Call(..) | Value::Neutral(Head::Meta(_), _))
+        || !matches!(b, Value::Call(..) | Value::Neutral(Head::Meta(_), _))
+    {
+        return Ok(None);
+    }
+    let (a, b) = (force_solved(g, a.clone())?, force_solved(g, b.clone())?);
+    Ok(match (&a, &b) {
+        (Value::Call(i1, _, _), Value::Call(i2, _, _)) if i1 == i2 => Some((a, b)),
+        _ => None,
+    })
 }
 
 /// [`unify_step`]'s rules for two calls `a` and `b` of the same definition:
@@ -1722,7 +1820,7 @@ fn unify_shapes(
         }
         // A range against anything else but a metavariable (which is solved
         // with the range itself, above): its first cell, as a constructor.
-        // So `Cons ?c ?tail ~ "ab"` solves `?c` with `MkChar 97 rfl` and
+        // So `Cons ?c ?tail ~ "ab"` solves `?c` with `MkChar 97 byComputing` and
         // `?tail` with the range `"b"`.
         (Value::Chars(_), _) => {
             work.push(Task::Values(level, expand_step(g, a.clone()), b.clone()));
@@ -2027,34 +2125,80 @@ fn same_field_records(
 /// take a step itself, so the unfoldings are compared as before: solving
 /// from arguments there can choose another solution than they would.
 fn one_step_apart(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<bool> {
+    match meeting(g, a, b, false)? {
+        Some((head, spine, args)) => same_arguments(g, level, head, &spine, &args),
+        None => Ok(false),
+    }
+}
+
+/// Where [`one_step_apart`] finds `a` and `b` meet: the definition, the
+/// spine of the call with an unknown argument, and that of the other call
+/// unfolded to one of the same definition. `abbreviation`: also where the
+/// two compute to the same outer layer, if the other call is the
+/// definition with arguments filled in, one unfolding away
+/// ([`unify_abbreviation`]).
+fn meeting(
+    g: &Unifier<'_>,
+    a: &Value,
+    b: &Value,
+    abbreviation: bool,
+) -> Result<Option<(DefId, Spine, Spine)>> {
     let (Value::Call(i1, s1, _), Value::Call(i2, s2, _)) = (a, b) else {
-        return Ok(false);
+        return Ok(None);
     };
     // Fields of calls aren't calls of their definition.
     if i1 == i2 || !g.machine.glue.get() || is_call_field(s1) || is_call_field(s2) {
-        return Ok(false);
+        return Ok(None);
     }
     let (head, spine, mut other) = match (unknown_argument(g, s1)?, unknown_argument(g, s2)?) {
         (true, false) => (*i1, s1, b.clone()),
         (false, true) => (*i2, s2, a.clone()),
-        _ => return Ok(false),
+        _ => return Ok(None),
     };
-    if same_outer_layer(&force(g, a.clone())?, &force(g, b.clone())?) {
-        return Ok(false);
-    }
-    for _ in 0..UNFOLD_STEPS {
+    let steps = if !same_outer_layer(&force(g, a.clone())?, &force(g, b.clone())?) {
+        UNFOLD_STEPS
+    } else if abbreviation {
+        1
+    } else {
+        return Ok(None);
+    };
+    for _ in 0..steps {
         let Value::Call(id, args, _) = &other else {
-            return Ok(false);
+            return Ok(None);
         };
         other = unfold_once(g, *id, args.clone())?;
         if let Value::Call(id, args, _) = &other
             && *id == head
             && !is_call_field(args)
         {
-            return same_arguments(g, level, head, spine, args);
+            return Ok(Some((head, spine.clone(), args.clone())));
         }
     }
-    Ok(false)
+    Ok(None)
+}
+
+/// `a` against `b`, where one is a call with an unknown argument and the
+/// other a call of another definition that is the first's with arguments
+/// filled in (`ReadsIn ?inv ?p ?spec` against `Reads starting Written`,
+/// `Reads` defined as `ReadsIn any`): `None` if they aren't, or else
+/// whether their arguments unify, solving the unknowns. [`unify`] leaves
+/// such pairs to their unfoldings when both compute to the same outer
+/// layer, as these compute to `∀`s, and there `?inv.holds m` meets
+/// `Unit`, which no first-order solution makes equal (SW-3534). Only the
+/// elaborator's comparison with an expected type as written asks this,
+/// after the plain comparison failed: inside [`unify`], solving from the
+/// arguments where the unfoldings would also meet can choose another
+/// solution (examples/accept/lazy-delta-deeper-unknown.sw).
+pub(crate) fn unify_abbreviation(
+    g: &Unifier<'_>,
+    level: usize,
+    a: &Value,
+    b: &Value,
+) -> Result<Option<bool>> {
+    match meeting(g, a, b, true)? {
+        Some((head, spine, args)) => Ok(Some(same_arguments(g, level, head, &spine, &args)?)),
+        None => Ok(None),
+    }
 }
 
 /// How many one-step unfoldings [`one_step_apart`] takes before giving up.
@@ -5106,7 +5250,7 @@ mod tests {
         }
     }
 
-    /// A rigid proof variable stays distinct from `rfl`, against the compact
+    /// A rigid proof variable stays distinct from `byComputing`, against the compact
     /// list as against its expansion.
     #[test]
     fn a_rigid_proof_is_not_rfl() {

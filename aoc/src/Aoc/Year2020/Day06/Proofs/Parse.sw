@@ -19,10 +19,11 @@ theorem eachLetters ∀ (read letters: List Char)
     (each: Parse.Each (letter char => letter = [char] ∧ isQuestion char = True) read letters):
     read = letters ∧ letters.all isQuestion = True :=
   match letters, each with
-    | [], each => Both each rfl
+    | [], each => Both each byComputing
     | [letter, ..rest], Witness first (Witness after (Both split (Both (Both one question) more))) =>
       match eachLetters after rest more with
-        | Both same questions => Both (rewrite split, one, same in rfl) (rewrite question, questions in rfl)
+        | Both same questions =>
+          Both (rewrite split, one, same then byComputing) (rewrite question, questions then byComputing)
 
 theorem containsFromList ∀ (letters: List Char) (question: Char):
     (Set.fromList letters).contains question = letters.contains question :=
@@ -35,7 +36,7 @@ theorem readsPerson: Parse.Reads person PersonWritten :=
       | Both same questions =>
         Parse.readsDone
           { answers = letters.toList.toSet } _
-          (rewrite List.appendNil lettersRead, same in
+          (rewrite List.appendNil lettersRead, same then
             Both
               (NonEmptyList.toListNotNil letters)
               (Both questions (question => containsFromList letters.toList question))))
@@ -46,7 +47,7 @@ def GroupWritten (read: List Char) (group: Group): Prop :=
 
 theorem readsGroup: Parse.Reads group GroupWritten :=
   Parse.readsThen (Parse.readsLines person _ readsPerson) (peopleRead people written =>
-    Parse.readsDone { people } _ (rewrite List.appendNil peopleRead in written))
+    Parse.readsDone { people } _ (rewrite List.appendNil peopleRead then written))
 
 --| If `parseGroups` reads `input`, the input is the groups written out, a
 --| blank line between each two, then any line breaks.

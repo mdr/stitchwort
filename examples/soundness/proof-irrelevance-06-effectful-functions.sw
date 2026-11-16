@@ -4,4 +4,4 @@
 -- accept/proof-irrelevance.sw.
 import Std (Nat)
 
-theorem t6 (f: Nat → {IO} Nat) (g: Nat → {IO} Nat): f = g := rfl
+theorem t6 (f: Nat → {IO} Nat) (g: Nat → {IO} Nat): f = g := byComputing

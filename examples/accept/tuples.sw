@@ -27,17 +27,17 @@ def inferredType: Type := ((Nat, Bool): Type)
 def inferredValue: (Nat, Nat) := ((1, 2): (Nat, Nat))
 
 -- Tuples mean the library's `Pair`, whatever a user's own `Pair` is.
-def typeIsPair: NatText = Pair Nat Text := rfl
+def typeIsPair: NatText = Pair Nat Text := byComputing
 
-def valueIsMkPair: (1, 2) = MkPair 1 2 := rfl
+def valueIsMkPair: (1, 2) = MkPair 1 2 := byComputing
 
-def nestsToTheRight: (1, 2, 3) = (1, (2, 3)) := rfl
+def nestsToTheRight: (1, 2, 3) = (1, (2, 3)) := byComputing
 
-def typeNestsToTheRight: (Nat, Bool, Text) = Pair Nat (Pair Bool Text) := rfl
+def typeNestsToTheRight: (Nat, Bool, Text) = Pair Nat (Pair Bool Text) := byComputing
 
-def swapped: swap (1, 2) = (2, 1) := rfl
+def swapped: swap (1, 2) = (2, 1) := byComputing
 
-def zipped: List.zip [1, 2] [3, 4] = [(1, 3), (2, 4)] := rfl
+def zipped: List.zip [1, 2] [3, 4] = [(1, 3), (2, 4)] := byComputing
 
 test "third" := third (1, 2, 3) == 3
 test "nested" := nested ((1, 2), 3) == 6

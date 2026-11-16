@@ -11,7 +11,7 @@ type Range = { from: Nat, to: Nat }
 --| "11-22" is `{ from = 11, to = 22 }`. Spaces around either number are
 --| allowed: " 11 - 22 " reads the same. A range that ends before it starts
 --| fails at its end.
-def range(): {Parse} Range :=
+def range(): {Parse Char} Range :=
   let from := token nat
   char '-'
   let to := token nat

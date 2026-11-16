@@ -1,8 +1,6 @@
 //! For the lowering's tests: what the lowering makes of a file, declaration
 //! by declaration, and of each one-line body, type and default parsed on
-//! its own. That the trees are the ones the parser used to build directly
-//! was checked, before the direct route was deleted, by an oracle comparing
-//! the two (SW-3213); what they mean is held by the hash snapshots.
+//! its own. What the trees mean is held by the hash snapshots.
 
 use super::{Lower, Unsupported};
 use crate::source::FileId;

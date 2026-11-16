@@ -17,20 +17,20 @@ theorem apartDir ∀ (c d: Dir) (h: (c == d) = False): c ≠ d := h.read
 
 theorem apartDirApplied ∀ (c d: Dir) (h: (c == d) = False) (e: c = d): Void := h.read e
 
-theorem swapDir ∀ (c d: Dir) (h: (c == d) = True): d = c := Eq.sym h.read
+theorem swapDir ∀ (c d: Dir) (h: (c == d) = True): d = c := h.read.flipped
 
 theorem samePoint ∀ (p q: Point) (h: (p == q) = True): p = q := h.read
 
 theorem apartPoint ∀ (p q: Point) (h: (p == q) = False): p ≠ q := h.read
 
-theorem swapPoint ∀ (p q: Point) (h: (p == q) = True): q = p := Eq.sym h.read
+theorem swapPoint ∀ (p q: Point) (h: (p == q) = True): q = p := h.read.flipped
 
 theorem sameBox ∀ (a: Type) [auto decEq: DecEq a] (c d: Box a) (h: (c == d) = True): c = d := h.read
 
 theorem apartBox ∀ (a: Type) [auto decEq: DecEq a] (c d: Box a) (h: (c == d) = False): c ≠ d := h.read
 
 -- The decision's own `==` still computes: reading is only for a test that is stuck.
-theorem computes: (Turn 3 == Turn 3) = True := rfl
+theorem computes: (Turn 3 == Turn 3) = True := byComputing
 
 -- A function written before the use is read through what it unfolds to.
 def sameHeading (c d: Dir): Bool := c == d

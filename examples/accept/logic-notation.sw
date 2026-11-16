@@ -7,9 +7,9 @@ import Std (Exists, Iff, List, Map, Set)
 import Std.Exists (Witness)
 
 -- Membership in a list is `List.Mem`, element first.
-theorem headIn ∀ (x: Nat) (xs: List Nat): x in [x, ..xs] := Inl rfl
+theorem headIn ∀ (x: Nat) (xs: List Nat): x in [x, ..xs] := Inl byComputing
 
-theorem headInUnicode ∀ (x: Nat) (xs: List Nat): x ∈ [x, ..xs] := Inl rfl
+theorem headInUnicode ∀ (x: Nat) (xs: List Nat): x ∈ [x, ..xs] := Inl byComputing
 
 theorem sameAsMem ∀ (x: Nat) (xs: List Nat) (h: List.Mem x xs): x in xs := h
 
@@ -22,7 +22,7 @@ theorem notInIsNot ∀ (x: Nat) (xs: List Nat) (h: ¬(List.Mem x xs)): x ∉ xs 
 
 -- Same precedence as `=`: `&&`, `||` and `->` need no brackets around it.
 theorem bothIn ∀ (x y: Nat) (xs: List Nat) (hx: x in xs) (hy: y ∈ xs): x in xs && y ∈ xs ∧ x = x :=
-  Both hx (Both hy rfl)
+  Both hx (Both hy byComputing)
 
 -- `<->` is `Iff`: looser than `&&` and `||`, tighter than `->`.
 theorem iffSelf ∀ (p: Prop): p <-> p := { forward = h => h, backward = h => h }
@@ -30,29 +30,29 @@ theorem iffSelf ∀ (p: Prop): p <-> p := { forward = h => h, backward = h => h 
 theorem iffSelfUnicode ∀ (p: Prop): p ↔ p := { forward = h => h, backward = h => h }
 
 theorem andComm ∀ (p q: Prop): p && q <-> q ∧ p :=
-  { forward = h => Both (And.right h) (And.left h), backward = h => Both (And.right h) (And.left h) }
+  { forward = h => Both h.right h.left, backward = h => Both h.right h.left }
 
 -- `p -> q <-> r` would be `p -> (q <-> r)`, as in Rocq.
 theorem implies ∀ (p q: Prop) (hq: q): (p → q) ↔ q := { forward = h => hq, backward = h => _ => h }
 
 -- `exists (x: T) => P` is `Exists T ((x: T) => P)`.
-theorem squareRoot: exists (n: Nat) => n * n = 49 := Witness 7 rfl
+theorem squareRoot: exists (n: Nat) => n * n = 49 := Witness 7 byComputing
 
-theorem squareRootUnicode: ∃ (n: Nat) => n * n = 49 := Witness 7 rfl
+theorem squareRootUnicode: ∃ (n: Nat) => n * n = 49 := Witness 7 byComputing
 
-theorem existsInList: ∃ (n: Nat) => n ∈ [4, 9] ∧ n ≥ 5 := Witness 9 (Both (Inr (Inl rfl)) (omega))
+theorem existsInList: ∃ (n: Nat) => n ∈ [4, 9] ∧ n ≥ 5 := Witness 9 (Both (Inr (Inl byComputing)) (arithmetic))
 
 -- Several parameters nest; a parameter's type may be left out.
-theorem pairSum: exists (a b: Nat) => a + b = 3 && a ≠ b := Witness 1 (Witness 2 (Both rfl omega))
+theorem pairSum: exists (a b: Nat) => a + b = 3 && a ≠ b := Witness 1 (Witness 2 (Both byComputing arithmetic))
 
 theorem someMember ∀ (xs: List Nat) (x: Nat) (h: x in xs): exists y => y ∈ xs := Witness x h
 
 -- `¬`, `≤`, `≥`, `≠`, `∧` and `∨` are `!`, `<=`, `>=`, `!=`, `&&` and `||`.
-theorem notFalse: ¬(1 = 2) := omega
+theorem notFalse: ¬(1 = 2) := arithmetic
 
-theorem orderly ∀ (n: Nat): n ≤ n + 1 ∨ n ≥ n + 1 := Inl (omega)
+theorem orderly ∀ (n: Nat): n ≤ n + 1 ∨ n ≥ n + 1 := Inl (arithmetic)
 
-theorem distinct: 1 ≠ 2 := omega
+theorem distinct: 1 ≠ 2 := arithmetic
 
 -- Where a `Bool` is expected, membership is decided, as `<=` is.
 def seenBefore (seen: List Nat) (x: Nat): Bool := if x ∈ seen then True else False

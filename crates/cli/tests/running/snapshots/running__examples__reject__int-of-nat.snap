@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: no function `ofNat` in `Int`
+   ╭─[ reject/int-of-nat.sw:4:15 ]
+   │
+ 4 │ def x: Int := Int.ofNat 3
+   │               ────┬────  
+   │                   ╰────── `Int` has no `ofNat`
+   │ 
+   │ Note: did you mean `Nat.toInt`, `OfNat`, `modNat` or `toNat`?
+───╯

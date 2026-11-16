@@ -1,11 +1,11 @@
 -- `cases` uses a hypothesis `P → Q` in a case where its premise holds: once
 -- `b` is split, `b = True → fact` is `True = True → fact` in the `True`
 -- case, and `cases` adds `fact` (SW-948; docs/syntax.md, "cases"). Before,
--- each such proof matched on `b` by hand and wrote `let f := h rfl`.
+-- each such proof matched on `b` by hand and wrote `let f := h byComputing`.
 
 import Std (Nat)
 
--- A guarded bound, used by `omega` in the case that needs it.
+-- A guarded bound, used by `arithmetic` in the case that needs it.
 theorem guardedBound ∀ (b: Bool) (n: Nat) (hb: b = True → n ≤ 3): (b ∧ 4 <= n) = False := cases
 
 -- Two coordinates, each with a guarded fact (AoC 2021 day 5).

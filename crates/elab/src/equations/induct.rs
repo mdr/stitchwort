@@ -1265,7 +1265,7 @@ impl Elaborator {
             }
             applied = Term::app(applied, call);
         }
-        // `J (y _ => y = f lhs) rfl eqn: rhs = f lhs`.
+        // `J (y _ => y = f lhs) byComputing eqn: rhs = f lhs`.
         let lam2 = |body: Term| {
             Term::Lam(
                 "y".into(),

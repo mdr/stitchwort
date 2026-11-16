@@ -17,19 +17,19 @@ import Aoc.Year2020.Day19.Spec (
 )
 import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, NonEmptyList, Parse, Result, Text, Void)
 
-theorem runsAsValue ∀ (p: () → {Parse} a) (read rest: List Char) (v w: a)
+theorem runsAsValue ∀ (p: () → {Parse Char} a) (read rest: List Char) (v w: a)
     (same: v = w)
     (runs: Parse.Runs p read rest v):
     Parse.Runs p read rest w :=
-  rewrite same at runs in runs
+  rewrite same at runs then runs
 
 --| A character a rule's number list can go on with: a digit or a space.
 def seqChar (char: Char): Bool := Parse.isDigit char ∨ char == ' '
 
 theorem spaceNotDigit ∀ (char: Char) (isSpace: Parse.isSpace char = True): Parse.isDigit char = False :=
   match isSpace with
-    | Inl space => rewrite space.read in rfl
-    | Inr tab => rewrite tab.read in rfl
+    | Inl space => rewrite space.read then byComputing
+    | Inr tab => rewrite tab.read then byComputing
 
 theorem runsNumber ∀ (read: List Char) (number: Nat) (after: List Char)
     (written: NumberWritten read number)
@@ -37,7 +37,7 @@ theorem runsNumber ∀ (read: List Char) (number: Nat) (after: List Char)
     Parse.Runs Parse.nat read after number :=
   match written with
     | Both nonEmpty (Both allDigits decimal) =>
-      rewrite decimal in Parse.runsNatBefore read after nonEmpty allDigits stops
+      rewrite decimal then Parse.runsNatBefore read after nonEmpty allDigits stops
 
 --| What can follow a sequence of rule numbers: the line's end, or ` | ` and another sequence.
 def SeqFollow (after: List Char): Prop :=
@@ -47,7 +47,7 @@ theorem followNotDigit ∀ (after: List Char) (follow: SeqFollow after): Parse.C
   match follow with
     | Inl stops => char more found => Bool.orFalseLeft _ _ (stops char more found)
     | Inr (Witness more same) =>
-      rewrite same in (char more2 found => rewrite <- List.consInjectiveHead _ _ _ _ found in rfl)
+      rewrite same then (char more2 found => rewrite <- List.consInjectiveHead _ _ _ _ found then byComputing)
 
 --| A sequence's numbers end where the next space isn't followed by a number: at ` | ` or the line's end.
 theorem declinesNumberStep ∀ (after: List Char)
@@ -60,9 +60,9 @@ theorem declinesNumberStep ∀ (after: List Char)
         after
         (match after with
           | [] => Parse.declinesCharEnd ' '
-          | [char, ..more] => Parse.declinesChar ' ' char more (Bool.orFalseRight _ _ (stops char more rfl)))
+          | [char, ..more] => Parse.declinesChar ' ' char more (Bool.orFalseRight _ _ (stops char more byComputing)))
     | Inr (Witness more same) =>
-      rewrite same in
+      rewrite same then
         Parse.declinesAfter
           (() => Parse.char ' ')
           (u => Parse.nat())
@@ -70,7 +70,7 @@ theorem declinesNumberStep ∀ (after: List Char)
           ['|', ' ', ..more]
           ()
           (Parse.runsChar ' ' _)
-          (Parse.declinesNat _ rfl)
+          (Parse.declinesNat _ byComputing)
 
 theorem runsSequence ∀ (read: List Char) (seq: List Nat)
     (written: SequenceWritten read seq) (after: List Char)
@@ -83,7 +83,7 @@ theorem runsSequence ∀ (read: List Char) (seq: List Nat)
           runsAsValue sequence read after
             (NonEmptyList.cons head tail).toList
             seq
-            (Eq.sym same)
+            same.flipped
             (Parse.runsMap
               (() => Parse.sepBy1 Parse.nat (() => Parse.char ' '))
               NonEmptyList.toList
@@ -97,10 +97,11 @@ theorem runsSequence ∀ (read: List Char) (seq: List Nat)
                 (Parse.CannotStart Parse.isDigit)
                 after
                 (read2 v after2 ok stops => runsNumber read2 v after2 ok stops)
-                (read2 after2 u same2 => rewrite same2 in Parse.runsChar ' ' after2)
-                (read2 u same2 => rewrite same2 in List.consNotNil ' ' [])
+                (read2 after2 u same2 => rewrite same2 then Parse.runsChar ' ' after2)
+                (read2 u same2 => rewrite same2 then List.consNotNil ' ' [])
                 (read2 after2 u same2 =>
-                  rewrite same2 in (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found in rfl))
+                  rewrite same2 then
+                    (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found then byComputing))
                 (followNotDigit after follow)
                 (declinesNumberStep after follow)
                 read
@@ -120,23 +121,25 @@ theorem sequencesStart ∀ (read: List Char) (head: List Nat) (tail: List (List 
             (Witness afterNumber
               (Witness firstNumber (Both split2 (Both (Both nonEmpty (Both allDigits decimal)) rest2)))) =>
           match numberRead, nonEmpty, allDigits with
-            | [], notEmpty, digits => Void.exfalso (notEmpty rfl)
+            | [], notEmpty, digits => (notEmpty byComputing).impossible
             | [digit, ..more], notEmpty, digits =>
               Witness digit
                 (Witness
                   (more ++ afterNumber ++ afterFirst)
-                  (Both (rewrite split, split2, List.appendAssoc more afterNumber afterFirst in rfl) digits.left))
+                  (Both
+                    (rewrite split, split2, List.appendAssoc more afterNumber afterFirst then byComputing)
+                    digits.left))
 
 theorem notSpace ∀ (char: Char) (stops: seqChar char = False): Text.sameChar ' ' char = False :=
   match e: Text.sameChar ' ' char with
-    | False => rfl
+    | False => byComputing
     | True =>
-      let same: ' ' = char := DecEq.sound (rewrite Text.sameCharEq ' ' char at e in e)
+      let same: ' ' = char := DecEq.sound (rewrite Text.sameCharEq ' ' char at e then e)
       cases
 
 theorem digitNotQuote ∀ (digit: Char) (isDigit: Parse.isDigit digit = True): (digit == '"') = False :=
   match e: digit == '"' with
-    | False => rfl
+    | False => byComputing
     | True => cases
 
 theorem runsRuleBody ∀ (read: List Char) (rule2: Rule)
@@ -156,14 +159,14 @@ theorem runsRuleBody ∀ (read: List Char) (rule2: Rule)
             [found, '"'] _
             after
             () _
-            rfl
+            byComputing
             (Parse.runsChar '"' _)
             (Parse.runsBind letter _
               [found]
               ['"'] _
               after
               found _
-              rfl
+              byComputing
               (Parse.runsSatisfy _ _ found _ lower)
               (Parse.runsBind
                 (() => Parse.char '"') _
@@ -171,10 +174,10 @@ theorem runsRuleBody ∀ (read: List Char) (rule2: Rule)
                 [] _
                 after
                 () _
-                (Eq.sym (List.appendNil ['"']))
+                (Eq.flipped (List.appendNil ['"']))
                 (Parse.runsChar '"' _)
                 (Parse.runsPure (Letter found) after))))
-      rewrite same in letterRuns
+      rewrite same then letterRuns
     | Alternatives sequences, Witness listed (Both written2 same) =>
       match listed with
         | { head, tail } =>
@@ -183,9 +186,9 @@ theorem runsRuleBody ∀ (read: List Char) (rule2: Rule)
               runsAsValue ruleBody read after
                 (Alternatives (NonEmptyList.cons head tail).toList)
                 (Alternatives sequences)
-                (rewrite same in rfl)
+                (rewrite same then byComputing)
                 (Parse.runsOneOfNext _ _ [] read after _
-                  (rewrite split in
+                  (rewrite split then
                     Parse.declinesBind
                       (() => Parse.char '"') _
                       ([digit, ..more] ++ after)
@@ -203,17 +206,18 @@ theorem runsRuleBody ∀ (read: List Char) (rule2: Rule)
                       SeqFollow
                       after
                       (read2 v after2 ok follow => runsSequence read2 v ok after2 follow)
-                      (read2 after2 u same2 => rewrite same2 in Parse.runsText " | " after2)
-                      (read2 u same2 => rewrite same2 in List.consNotNil ' ' ['|', ' '])
-                      (read2 after2 u same2 => rewrite same2 in Inr (Witness after2 rfl))
+                      (read2 after2 u same2 => rewrite same2 then Parse.runsText " | " after2)
+                      (read2 u same2 => rewrite same2 then List.consNotNil ' ' ['|', ' '])
+                      (read2 after2 u same2 => rewrite same2 then Inr (Witness after2 byComputing))
                       (Inl stops)
                       (Parse.declinesSepStep sequence
                         (() => Parse.text " | ")
                         after
                         (Parse.declinesText " | " after
                           (match after with
-                            | [] => rfl
-                            | [char, ..more2] => rewrite notSpace char (stops char more2 rfl) in rfl)))
+                            | [] => byComputing
+                            | [char, ..more2] =>
+                              rewrite notSpace char (stops char more2 byComputing) then byComputing)))
                       read
                       head
                       tail
@@ -225,24 +229,24 @@ theorem runsNumbered ∀ (read: List Char) (numbered: (Nat, Rule))
     Parse.Runs numberedRule read after numbered :=
   match numbered, written with
     | (number, rule2), Witness numberRead (Witness ruleRead (Both split (Both numberWritten ruleWritten))) =>
-      rewrite split in
+      rewrite split then
         Parse.runsBind Parse.nat _ numberRead
           (": ".toList ++ ruleRead) _
           after
           number _
-          rfl
+          byComputing
           (runsNumber numberRead number _ numberWritten (char more found =>
-            rewrite <- List.consInjectiveHead _ _ _ _ found in rfl))
+            rewrite <- List.consInjectiveHead _ _ _ _ found then byComputing))
           (Parse.runsBind
             (() => Parse.text ": ") _
             ": ".toList
             ruleRead _
             after
             () _
-            rfl
+            byComputing
             (Parse.runsText ": " _)
             (Parse.runsBind ruleBody _ ruleRead [] _ after rule2 _
-              (Eq.sym (List.appendNil ruleRead))
+              (List.appendNil ruleRead).flipped
               (runsRuleBody ruleRead rule2 ruleWritten _ stops)
               (Parse.runsPure (number, rule2) after)))
 
@@ -251,17 +255,17 @@ theorem declinesLetter ∀ (rest: List Char)
     Parse.Declines letter rest :=
   match rest with
     | [] => Parse.declinesSatisfyEnd _ _
-    | [char, ..more] => Parse.declinesSatisfy _ _ char more (stops char more rfl)
+    | [char, ..more] => Parse.declinesSatisfy _ _ char more (stops char more byComputing)
 
 --| Letters written one a character are the letters, all lowercase.
 theorem eachLetters ∀ (letters read: List Char)
     (h: Parse.Each LetterWritten read letters):
     read = letters ∧ letters.all Char.isAsciiLowercase = True :=
   match letters, h with
-    | [], each => Both each rfl
+    | [], each => Both each byComputing
     | [found, ..more], Witness first (Witness later (Both split (Both (Both single lower) each))) =>
       match eachLetters more later each with
-        | Both same all => Both (rewrite split, single, same in rfl) (Both lower all)
+        | Both same all => Both (rewrite split, single, same then byComputing) (Both lower all)
 
 theorem runsMessage ∀ (read: List Char) (message2: Message)
     (written: MessageWritten read message2) (after: List Char)
@@ -282,10 +286,10 @@ theorem runsMessage ∀ (read: List Char) (message2: Message)
                   head
                   tail
                   after
-                  (rewrite List.mapId tail in all)
+                  (rewrite List.mapId tail then all)
                   stops
-              let lettersRead := rewrite List.mapId tail at lettersRun in lettersRun
-              rewrite readIs, same in
+              let lettersRead := rewrite List.mapId tail at lettersRun then lettersRun
+              rewrite readIs, same then
                 Parse.runsMap
                   (() => Parse.many1 letter)
                   (letters2 => { letters = letters2.toList })
@@ -313,7 +317,7 @@ theorem cannotStartAtBlankBreak ∀ (canStart: Char → Bool)
     Parse.CannotStart canStart (blank ++ more) :=
   match isBlank with
     | Witness first (Witness middle (Witness last (Both split (Both firstBreak rest)))) =>
-      rewrite split, List.appendAssoc first (middle ++ last) more in
+      rewrite split, List.appendAssoc first (middle ++ last) more then
         Parse.cannotStartAfterBreak canStart lf cr first ((middle ++ last) ++ more) firstBreak
 
 theorem runsReceived ∀ (read: List Char) (received2: Received)
@@ -342,32 +346,33 @@ theorem runsReceived ∀ (read: List Char) (received2: Received)
                   messages = (NonEmptyList.cons firstMessage otherMessages).toList
                 }: Received)
                 { rules = { numbered }, messages }
-                (rewrite <- rulesSame2, <- messagesSame in rfl)
-                (rewrite split in
+                (rewrite <- rulesSame2, <- messagesSame then byComputing)
+                (rewrite split then
                   Parse.runsBind
                     (() => Parse.lines numberedRule) _
                     rulesRead
                     afterRules _
                     ending
                     (NonEmptyList.cons firstRule otherRules) _
-                    rfl
+                    byComputing
                     (Parse.runsLinesOf numberedRule NumberedWritten
                       (Parse.CannotStart seqChar)
                       (afterRules ++ ending)
                       (read2 v after ok stops => runsNumbered read2 v ok after stops)
-                      (read2 after isBreak => Parse.cannotStartAfterBreak seqChar rfl rfl read2 after isBreak)
-                      (rewrite List.appendAssoc blank messagesRead ending in
-                        cannotStartAtBlankBreak seqChar rfl rfl blank (messagesRead ++ ending) blankOk)
-                      (rewrite List.appendAssoc blank messagesRead ending in
-                        Parse.declinesLinesAtBlank numberedRule Parse.isDigit declinesNumbered rfl rfl spaceNotDigit
-                            blank
+                      (read2 after isBreak =>
+                        Parse.cannotStartAfterBreak seqChar byComputing byComputing read2 after isBreak)
+                      (rewrite List.appendAssoc blank messagesRead ending then
+                        cannotStartAtBlankBreak seqChar byComputing byComputing blank (messagesRead ++ ending) blankOk)
+                      (rewrite List.appendAssoc blank messagesRead ending then
+                        Parse.declinesLinesAtBlank numberedRule Parse.isDigit declinesNumbered byComputing byComputing
+                            spaceNotDigit blank
                             (messagesRead ++ ending)
                             blankOk)
                       rulesRead
                       firstRule
                       otherRules
                       rulesWritten2)
-                    (Parse.runsBind Parse.blankLine _ blank messagesRead _ ending () _ rfl
+                    (Parse.runsBind Parse.blankLine _ blank messagesRead _ ending () _ byComputing
                       (Parse.runsBlankLineOf blank _ blankOk)
                       (Parse.runsBind
                         (() => Parse.lines message) _
@@ -375,16 +380,17 @@ theorem runsReceived ∀ (read: List Char) (received2: Received)
                         [] _
                         ending
                         (NonEmptyList.cons firstMessage otherMessages) _
-                        (Eq.sym (List.appendNil messagesRead))
+                        (List.appendNil messagesRead).flipped
                         (Parse.runsLinesOf message MessageWritten
                           (Parse.CannotStart Char.isAsciiLowercase)
                           ending
                           (read2 v after ok stops => runsMessage read2 v ok after stops)
                           (read2 after isBreak =>
-                            Parse.cannotStartAfterBreak Char.isAsciiLowercase rfl rfl read2 after isBreak)
-                          (Parse.cannotStartAtBreaks Char.isAsciiLowercase rfl rfl ending breaks)
-                          (Parse.declinesLinesAtBreaks message Char.isAsciiLowercase declinesMessage rfl rfl ending
-                              breaks)
+                            Parse.cannotStartAfterBreak Char.isAsciiLowercase byComputing byComputing read2 after
+                                isBreak)
+                          (Parse.cannotStartAtBreaks Char.isAsciiLowercase byComputing byComputing ending breaks)
+                          (Parse.declinesLinesAtBreaks message Char.isAsciiLowercase declinesMessage byComputing
+                              byComputing ending breaks)
                           messagesRead
                           firstMessage
                           otherMessages
@@ -412,4 +418,4 @@ theorem writtenUnique ∀ (input: Text) (a b: Received)
     (writtenA: InputWritten input a)
     (writtenB: InputWritten input b):
     a = b :=
-  Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))
+  Result.okInjective (Eq.trans (parseComplete input a writtenA).flipped (parseComplete input b writtenB))

@@ -46,7 +46,7 @@ type Probe = { position: Coords YUp, velocity: Velocity }
 --| are: the search box depends on it.
 def parseTarget (input: Text): {Fail} Target := checkTarget (Parse.line input readTarget)
 
-def readTarget(): {Parse} Target :=
+def readTarget(): {Parse Char} Target :=
   text "target area: x="
   let left := int()
   text ".."
@@ -85,7 +85,9 @@ def fallen (target: Target) (probe: Probe): Bool := probe.position.y < target.bo
 def hitsWithin (target: Target): Nat → Probe → Bool
   | 0, probe => inTarget target probe
   | Succ steps, probe =>
-    if inTarget target probe then True else if past target probe then False else hitsWithin target steps (step probe)
+    if inTarget target probe then True
+    else if past target probe then False
+    else hitsWithin target steps (step probe)
 
 --| A hitting velocity is in the target within `2 * |bottom|` steps (a probe
 --| thrown up comes back down through y = 0 a step faster than it left, and

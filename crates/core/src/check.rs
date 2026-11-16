@@ -414,7 +414,7 @@ fn infer_other(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             None => Err(malformed(cx, "a number, but `Nat` isn't defined")),
         },
         // A compact list of characters is a `List Char`: its expansion's
-        // `rfl`s prove `isScalar c = True` because each `c` is a Rust `char`
+        // `byComputing`s prove `isScalar c = True` because each `c` is a Rust `char`
         // (a scalar value) and `isScalar` is the one it was registered with.
         Term::Chars(_) => match &g.env.builtins().text {
             Some(text) => Ok((
@@ -818,11 +818,11 @@ fn check_other(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
                 Err(cx
                     .error(
                         "E-REFL",
-                        "`rfl` can't prove this",
+                        "`byComputing` can't prove this",
                         format!("`{}` and `{}` aren't equal", cx.show(a), cx.show(b)),
                     )
                     .with_note(
-                        "`rfl` proves `a = b` only when both sides compute to the same value",
+                        "`byComputing` proves `a = b` only when both sides compute to the same value",
                     ))
             }
         }
@@ -830,7 +830,7 @@ fn check_other(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
             "E-TYPE-MISMATCH",
             "type mismatch",
             format!(
-                "`rfl` proves an equation, but the expected type is `{}`",
+                "`byComputing` proves an equation, but the expected type is `{}`",
                 cx.show(expected)
             ),
         )),

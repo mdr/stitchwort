@@ -46,7 +46,7 @@ def Block.isFile (block: Block): Bool := !block.isFree
 type Disk = { blocks: List Block }
 
 --| The disk map's digits.
-def diskMapLine(): {Parse} List Nat := many1 (() => digit().toNat) |> .toList
+def diskMapLine(): {Parse Char} List Nat := many1 (() => digit().toNat) |> .toList
 
 --| One line of digits.
 def parseDiskMap (input: Text): {Fail} DiskMap := { lengths = Parse.all input diskMapLine }

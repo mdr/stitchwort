@@ -3,12 +3,12 @@
 //! a syntax error (docs/proposals/formatter-style.md).
 
 use std::path::Path;
-use stitchwort_fmt::{Error, Stats, format_with_stats};
+use stitchwort_fmt::{Error, format};
 
 use crate::support::repo_files;
 
 /// Folders whose layout may be what's tested (D1019), and the formatter's
-/// own test data, some of which it leaves as written.
+/// own test data.
 const EXCLUDED: [&str; 4] = [
     "examples/reject/",
     "examples/soundness/",
@@ -26,22 +26,18 @@ fn every_repo_file_formats_idempotently_or_is_refused() {
     assert!(files.len() > 100, "found only {} files", files.len());
 
     let (mut formatted, mut unchanged, mut refused) = (0, 0, 0);
-    let mut total = Stats::default();
     let mut failures = Vec::new();
     for path in &files {
         let text = std::fs::read_to_string(root.join(path)).expect("readable");
-        match format_with_stats(&text) {
+        match format(&text) {
             Ok(result) => {
-                total.decls += result.stats.decls;
-                total.unruled_nodes += result.stats.unruled_nodes;
-                total.verbatim_decls += result.stats.verbatim_decls;
-                if result.text == text {
+                if result == text {
                     unchanged += 1;
                 } else {
                     formatted += 1;
                 }
-                match format_with_stats(&result.text) {
-                    Ok(again) if again.text == result.text => {}
+                match format(&result) {
+                    Ok(again) if again == result => {}
                     Ok(_) => failures.push(format!("{path}: not idempotent")),
                     Err(e) => failures.push(format!("{path}: second run: {e}")),
                 }
@@ -51,20 +47,8 @@ fn every_repo_file_formats_idempotently_or_is_refused() {
         }
     }
     println!(
-        "{} files: {formatted} formatted, {unchanged} unchanged, {refused} refused; {} \
-         declarations, {} kept as written, {} nodes without a rule",
+        "{} files: {formatted} formatted, {unchanged} unchanged, {refused} refused",
         files.len(),
-        total.decls,
-        total.verbatim_decls,
-        total.unruled_nodes,
     );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
-    assert_eq!(
-        total.unruled_nodes, 0,
-        "constructs are printed as written, with no rule"
-    );
-    assert_eq!(
-        total.verbatim_decls, 0,
-        "declarations failed their checks and were kept as written"
-    );
 }

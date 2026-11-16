@@ -21,4 +21,4 @@ theorem deeper ∀ (f: List Leaf → Nat) (leaf: Leaf) (rest: List Leaf):
   ?
 
 -- After a `rewrite … at h`, only the new `h` is listed.
-theorem rewritten ∀ (n: Nat) (h: n + 0 = 3): n = 3 := rewrite Std.Nat.addZero n at h in ?
+theorem rewritten ∀ (n: Nat) (h: n + 0 = 3): n = 3 := rewrite Std.Nat.addZero n at h then ?

@@ -35,8 +35,8 @@ test "minimum" := [(2, True), (1, False)].minimum == Some (1, False)
 test "maximum of none" := ([]: List Int).maximum == None
 
 -- The relations are fields: for `Nat` they're `<` and `<=` themselves.
-theorem natLessThan: Ord.lessThan 2 3 = (2 < 3) := rfl
-theorem natLessEq: Ord.lessEq 3 3 = (3 ≤ 3) := rfl
+theorem natLessThan: Ord.lessThan 2 3 = (2 < 3) := byComputing
+theorem natLessEq: Ord.lessEq 3 3 = (3 ≤ 3) := byComputing
 
 -- Decided from the same dictionary.
 test "decided" := Decidable.holds (Ord.decLessThan "a" "b")
@@ -46,7 +46,7 @@ test "decided" := Decidable.holds (Ord.decLessThan "a" "b")
 def descending: Ord Nat :=
   Ord.fromCompare
     (x y => Nat.compare y x)
-    (x y h => Eq.sym (Nat.compareEqual y x h))
+    (x y h => (Nat.compareEqual y x h).flipped)
     (x y => Nat.compareFlip y x)
     (x y z h1 h2 => Nat.compareTrans z y x h2 h1)
 

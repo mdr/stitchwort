@@ -66,7 +66,7 @@ Only about 270 theorems (224 + 24 + 15 + 8) break that rule.
 Parameters before the colon and a leading `∀` after it are **the same type**.
 The parser lowers both to the same function type (header:
 `lower_header`, crates/syntax/src/parser/declarations.rs:763; `∀`:
-`forall_expr`, crates/syntax/src/parser.rs:3589-3596, "the same term
+`forall_expr`, crates/syntax/src/parser.rs, "the same term
 (D3458)"). Binder names aren't hashed (crates/core/src/hash.rs:609-618). So
 everything that reads the *type* sees no difference. What differs is how the
 *body* is elaborated, and a few places that read the header.
@@ -89,7 +89,7 @@ everything that reads the *type* sees no difference. What differs is how the
    refused.
 3. **Default values only before the colon.** `∀ (n: Nat := 1) =>` is
    `E-PARSE`, "a `forall` parameter can't have a default"
-   (parser.rs:3620-3630). Theorems hardly use defaults.
+   (`forall_expr`, `parser.rs`). Theorems hardly use defaults.
 4. **A `:=` body sees header parameters by name; after the colon it must
    bind them.** `theorem t (n: Nat) (h: 0 < n): 1 ≤ n := omega`, but
    `theorem t: ∀ (n: Nat) => 0 < n → 1 ≤ n := n h => omega`. Implicit and

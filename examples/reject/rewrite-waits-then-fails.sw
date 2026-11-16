@@ -8,9 +8,9 @@ import Std (Eq, Nat)
 type Box = { size: Nat }
 
 def sizes (b: Box): b.size = b.size :=
-  let f := c => (rewrite Nat.addComm c.size 1 in rfl: c.size = c.size)
+  let f := c => (rewrite Nat.addComm c.size 1 then byComputing: c.size = c.size)
   f b
 
 def annotated (b: Box): b.size = b.size :=
-  let f := (c: Box) => (rewrite Nat.addComm c.size 1 in rfl: c.size = c.size)
+  let f := (c: Box) => (rewrite Nat.addComm c.size 1 then byComputing: c.size = c.size)
   f b

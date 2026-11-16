@@ -26,7 +26,7 @@ type Fun = | MkFun (apply: Nat → Nat)
 
 def SameFun (f g: Fun): Prop := f = g
 
-instance decSelf (f: Fun): Decidable (SameFun f f) := Decidable.yes rfl
+instance decSelf (f: Fun): Decidable (SameFun f f) := Decidable.yes byComputing
 
 def adder (n: Nat): Fun := MkFun (x => x + n)
 

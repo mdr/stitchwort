@@ -47,8 +47,8 @@ use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::RewriteRule;
 
 use super::{
-    Equation, Place, Replaced, Search, Shape, discharge, key, pending_metas, replace_occurrences,
-    replace_occurrences_as,
+    Equation, Place, Reading, Replaced, Search, Shape, discharge, key, pending_metas,
+    replace_occurrences, replace_occurrences_as,
 };
 use crate::check::{Ctx, Result};
 use crate::lift::replace_with;
@@ -86,6 +86,7 @@ pub(super) fn first(
             Some(unfolded),
             remaining,
             Mode::Complete,
+            Reading::Folded,
         )? {
             (Some(replaced), _) => First::Kept(replaced),
             (None, Outcome::RanOut) => First::RanOut,
@@ -95,7 +96,12 @@ pub(super) fn first(
 }
 
 /// The rewrite as written even if copies stay hidden, for when the usual
-/// search found nothing at all.
+/// search found nothing at all: over the goal read back folded, and then,
+/// if that finds nothing either, with every call kept as the goal is
+/// printed (SW-3529). A call that computes at once, because an argument is
+/// known (`printer.write indent " " 1`, whose `if` on `" "` decides), is
+/// read back folded as what it steps to, so only the second reading finds
+/// a rule about the call.
 pub(super) fn rescue(
     cx: &mut Ctx,
     rule: &RewriteRule,
@@ -104,17 +110,23 @@ pub(super) fn rescue(
     goal: &Value,
     remaining: &mut u64,
 ) -> Result<Option<Replaced>> {
-    attempt(
-        cx,
-        rule,
-        place,
-        equation,
-        goal,
-        None,
-        remaining,
-        Mode::Rescue,
-    )
-    .map(|(r, _)| r)
+    for reading in [Reading::Folded, Reading::AsWritten] {
+        let (found, _) = attempt(
+            cx,
+            rule,
+            place,
+            equation,
+            goal,
+            None,
+            remaining,
+            Mode::Rescue,
+            reading,
+        )?;
+        if found.is_some() {
+            return Ok(found);
+        }
+    }
+    Ok(None)
 }
 
 /// The rewrite as written, for when the usual search ran out of resources
@@ -144,6 +156,7 @@ pub(super) fn unconfirmed(
         None,
         remaining,
         Mode::Unconfirmed,
+        Reading::Folded,
     )?;
     let ran_out = matches!(outcome, Outcome::Unconfirmed);
     Ok(kept.map(|replaced| (replaced, ran_out || open)))
@@ -229,11 +242,14 @@ fn attempt(
     unfolded: Option<(&Value, &Term)>,
     remaining: &mut u64,
     mode: Mode,
+    reading: Reading,
 ) -> Result<(Option<Replaced>, Outcome)> {
     let snapshot = Snapshot::take(cx);
     // A failed attempt costs the usual search nothing.
     let mut spare = *remaining;
-    let tried = search(cx, rule, place, equation, goal, unfolded, mode, &mut spare);
+    let tried = search(
+        cx, rule, place, equation, goal, unfolded, mode, reading, &mut spare,
+    );
     let (outcome, kept) = match tried {
         Ok((outcome @ (Outcome::Kept | Outcome::Unconfirmed), replaced)) => {
             *remaining = spare;
@@ -248,6 +264,13 @@ fn attempt(
             recovered(cx);
             (Outcome::RanOut, None)
         }
+        // A rescue that runs out reading the goal back found nothing: the
+        // error stays the `E-REWRITE-NOTHING` it was before the rescue.
+        Err(e) if mode == Mode::Rescue && recoverable(cx, &e) => {
+            snapshot.restore(cx);
+            recovered(cx);
+            (Outcome::Failed, None)
+        }
         Err(e) if fatal(&e) => return Err(e),
         Err(_) => {
             snapshot.restore(cx);
@@ -256,6 +279,7 @@ fn attempt(
     };
     if std::env::var_os("STITCHWORT_REWRITE_METRICS").is_some() {
         let name = match (&outcome, mode) {
+            (Outcome::Kept, Mode::Rescue) if reading == Reading::AsWritten => "rescued-as-written",
             (Outcome::Kept, Mode::Rescue) => "rescued",
             (Outcome::Kept, _) => "folded",
             (Outcome::Unconfirmed, _) => "unconfirmed",
@@ -279,6 +303,7 @@ fn search(
     goal: &Value,
     unfolded: Option<(&Value, &Term)>,
     mode: Mode,
+    reading: Reading,
     remaining: &mut u64,
 ) -> Result<(Outcome, Option<Replaced>)> {
     // Today's choice of instance, for a rule with unknowns, found before
@@ -291,13 +316,13 @@ fn search(
         }
         _ => None,
     };
-    let mut written = cx.quote_folded(goal)?;
+    let mut written = reading.quote(cx, goal)?;
     // The `auto` proofs a call carries are not in the unfolded goal, where
     // `rewrite_once` proves the pending ones first; here they show, and a
     // motive holding one cannot be checked.
     let pending = pending_metas(&written);
     if !pending.is_empty() && cx.e.prove_now(&|m| pending.contains(&m))? {
-        written = cx.quote_folded(goal)?;
+        written = reading.quote(cx, goal)?;
     }
     let replace = |cx: &mut Ctx, remaining: &mut u64| {
         replace_occurrences_as(
@@ -309,7 +334,7 @@ fn search(
             Shape::Whole(&written),
             0,
             false,
-            true,
+            reading,
             remaining,
         )
     };
@@ -420,7 +445,16 @@ fn hidden_copy_in(
     };
     let level = cx.level();
     let search = Search::new(
-        cx, rule, place, equation, lhs_term, key, 0, false, false, *remaining,
+        cx,
+        rule,
+        place,
+        equation,
+        lhs_term,
+        key,
+        0,
+        false,
+        Reading::Unfolded,
+        *remaining,
     )?;
     let moved = |l| Ok(Term::Var(level + 2 - 1 - l));
     let outcome = replace_with(&g, &unfolded, level, &moved, &|t, under| {

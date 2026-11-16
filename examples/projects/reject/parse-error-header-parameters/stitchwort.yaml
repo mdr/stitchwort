@@ -1,0 +1,5 @@
+# expect-error: E-PARSE
+# A namespace with a syntax error still elaborates its other declarations,
+# and a header's `∀ (x: T) (h: P)` parameters aren't a written arrow: no
+# W-ARROW-FORALL (SW-3439).
+sources: [src]

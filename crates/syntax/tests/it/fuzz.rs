@@ -2,8 +2,16 @@
 //! either parse it or report a diagnostic. Nor may the parser record a node
 //! that crosses another, which the tree would leave out. This feeds them thousands of mutated
 //! example programs and random token soup, generated from a fixed seed so
-//! failures are reproducible.
+//! failures are reproducible. `FUZZ_CASES` and `FUZZ_SEED` (decimal or
+//! `0x...`) change the count and the seed.
+//!
+//! `FUZZ_CASE=<index>` runs only the case with that 0-based index, generating
+//! the cases before it so that its input is the same as in a full run, and
+//! prints that input on standard output. `FUZZ_DUMP=<path>` writes each case's
+//! input to that file (overwriting it) before the case is parsed, so a run
+//! killed for memory or time leaves the case it was on behind.
 
+use std::io::Write;
 use std::ops::Range;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
@@ -12,7 +20,7 @@ use stitchwort_syntax::{DEFAULT_STACK, SourceMap, parse_module_and_tree};
 
 /// Each case is one lex-and-parse. 20,000 keeps the release run well under ten
 /// seconds; set `FUZZ_CASES` for a longer run.
-const CASES: usize = 20_000;
+const CASES: u64 = 20_000;
 const SEED: u64 = 0x9e37_79b9_7f4a_7c15;
 /// A mutated example can grow a lot when ranges are duplicated; the parser
 /// doesn't need more than this to be exercised.
@@ -53,9 +61,9 @@ const TOKENS: &[&str] = &[
     "namespace",
     "calc",
     "rewrite",
-    "omega",
+    "arithmetic",
     "cases",
-    "ring",
+    "algebra",
     "opaque",
     "unfolding",
     "interface",
@@ -218,16 +226,40 @@ fn soup(rng: &mut Rng) -> String {
     text
 }
 
+/// An environment number, decimal or `0x...`; unset or empty is `None`, and an
+/// unparsable one fails the run rather than silently using the default.
+fn env_number(name: &str) -> Option<u64> {
+    let value = std::env::var(name).ok().filter(|v| !v.is_empty())?;
+    let parsed = match value.strip_prefix("0x") {
+        Some(hex) => u64::from_str_radix(hex, 16),
+        None => value.parse(),
+    };
+    Some(parsed.unwrap_or_else(|_| panic!("{name}={value:?} is not a number")))
+}
+
+/// `FUZZ_DUMP`: a path to write each parsed case's input to, before parsing.
+fn dump_path() -> Option<PathBuf> {
+    let path = std::env::var_os("FUZZ_DUMP").filter(|path| !path.is_empty())?;
+    Some(PathBuf::from(path))
+}
+
 #[test]
 fn the_lexer_and_parser_never_panic() {
-    let cases: usize = std::env::var("FUZZ_CASES")
-        .ok()
-        .and_then(|value| value.parse().ok())
-        .unwrap_or(CASES);
+    let cases = env_number("FUZZ_CASES").unwrap_or(CASES);
+    let seed = env_number("FUZZ_SEED").unwrap_or(SEED);
+    let only = env_number("FUZZ_CASE");
+    match only {
+        Some(only) => eprintln!("fuzz syntax: case {only} (0-based), seed {seed:#x}"),
+        None => eprintln!("fuzz syntax: {cases} cases, seed {seed:#x}"),
+    }
+    let dump = dump_path();
     let corpus = read_corpus();
-    let mut rng = Rng(SEED);
+    let mut rng = Rng(seed);
     let mut accepted = 0;
-    for case in 0..cases {
+    // Reaching case n from the fixed seed means generating every case before
+    // it; only the selected one is parsed.
+    let last = only.map_or(cases, |only| only.saturating_add(1));
+    for case in 0..last {
         let state = rng.0;
         let text = if rng.below(2) == 0 {
             let base = rng.below(corpus.len());
@@ -235,29 +267,49 @@ fn the_lexer_and_parser_never_panic() {
         } else {
             soup(&mut rng)
         };
+        if only.is_some_and(|only| case != only) {
+            continue;
+        }
+        if let Some(path) = &dump {
+            std::fs::write(path, &text).unwrap_or_else(|e| {
+                panic!(
+                    "can't write FUZZ_DUMP={} for case {case}: {e}",
+                    path.display()
+                )
+            });
+        }
+        if only.is_some() {
+            print!("{text}");
+            std::io::stdout()
+                .flush()
+                .unwrap_or_else(|e| panic!("can't print case {case}: {e}"));
+        }
         // What the driver calls: it lexes and parses, and returns a module,
         // diagnostics, and the lossless tree the module was lowered from.
         let outcome = catch_unwind(AssertUnwindSafe(|| {
             let mut sources = SourceMap::new();
             let file = sources.add("<fuzz>", text.as_str());
             let (_, errors, tree) = parse_module_and_tree(file, &text, DEFAULT_STACK);
-            (errors.is_empty(), tree.stats().dropped)
+            (errors.is_empty(), tree.stats().misnested)
         }));
         match outcome {
-            Ok((_, dropped)) if dropped > 0 => panic!(
-                "case {case} (seed {SEED:#x}, rng state {state:#x}): \
-                 the tree left out {dropped} crossing marks for input:\n  {}",
+            Ok((_, misnested)) if misnested > 0 => panic!(
+                "case {case} (seed {seed:#x}, rng state {state:#x}): \
+                 the marks of {misnested} declarations didn't nest for input:\n  {}",
                 text.escape_debug()
             ),
             Ok((true, _)) => accepted += 1,
             Ok((false, _)) => {}
             Err(_) => panic!(
-                "case {case} (seed {SEED:#x}, rng state {state:#x}): \
+                "case {case} (seed {seed:#x}, rng state {state:#x}): \
                  the lexer or parser panicked on input:\n  {}",
                 text.escape_debug()
             ),
         }
     }
-    // Sanity check that the generator isn't only producing nonsense.
-    assert!(accepted > 0, "no random input parsed");
+    // Sanity check that the generator isn't only producing nonsense. A single
+    // selected case may legitimately be one that does not parse.
+    if only.is_none() {
+        assert!(accepted > 0, "no random input parsed");
+    }
 }

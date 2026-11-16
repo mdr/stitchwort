@@ -19,26 +19,26 @@ theorem sameAcrossFaces ∀ (garden: Garden) (start: Position) (plant: Char)
   let joined := (isRegion plot).forward member
   let plotGrows := joinedPlant garden plant start plot grows joined
   match stepped: plot.step side with
-    | None => rewrite plotGrows in rfl
+    | None => rewrite plotGrows then byComputing
     | Some other =>
-      rewrite plotGrows in
+      rewrite plotGrows then
         match otherGrows: garden.plantAt other == Some plant with
           | True =>
             let touching: touches garden plot other = True :=
               Both
                 (orthogonalIntro plot other (stepOrthogonal plot side other stepped))
                 (growSameIntro garden plot other plant plotGrows otherGrows.read)
-            Eq.sym
+            Eq.flipped
               ((List.memContains region.plots other).backward
                 ((isRegion other).backward (joinedStep garden start plot other joined touching)))
           | False =>
             match found: region.contains other with
-              | False => rfl
+              | False => byComputing
               | True =>
                 let otherIn := found.read
                 let sameGrows := joinedPlant garden plant start other grows ((isRegion other).forward otherIn)
-                Void.exfalso
-                  (Bool.falseNotTrue (Eq.trans (Eq.sym otherGrows) (rewrite sameGrows in DecEq.refl (Some plant))))
+                Void.impossible
+                  (Bool.falseNotTrue (Eq.trans otherGrows.flipped (rewrite sameGrows then DecEq.refl (Some plant))))
 
 --| The program's perimeter of a region is the spec's.
 theorem perimeterCorrect ∀ (garden: Garden) (start: Position) (plant: Char)
@@ -51,4 +51,5 @@ theorem perimeterCorrect ∀ (garden: Garden) (start: Position) (plant: Char)
       List.countCongMem _
         (side => !garden.sameAcross plot side)
         (side => !facesRegion region plot side)
-        (side inDirections => rewrite sameAcrossFaces garden start plant grows region isRegion plot member side in rfl))
+        (side inDirections =>
+          rewrite sameAcrossFaces garden start plant grows region isRegion plot member side then byComputing))

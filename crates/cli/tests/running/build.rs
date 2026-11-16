@@ -5,8 +5,8 @@
 //!
 //! The executables link the runtime library the test build made
 //! (`libstitchwort_standalone.a`, built because this package depends on
-//! `stitchwort-standalone` for its tests), found beside the test binary;
-//! `STITCHWORT_RUNTIME` overrides that. Each test needs a C compiler to link
+//! `stitchwort-standalone`), found beside the test binary; one left from an
+//! older build is skipped; `STITCHWORT_RUNTIME` overrides that. Each test needs a C compiler to link
 //! with (`$CC`, or `cc`), and is skipped with a note without one.
 //!
 //! The roguelike's tests (with and without `--native`) each check the whole
@@ -23,7 +23,8 @@ use std::process::{Command, Output, Stdio};
 use crate::pty;
 
 /// The runtime library to link with: `STITCHWORT_RUNTIME`, or the newest
-/// `libstitchwort_standalone*.a` beside this test binary (in `deps/`).
+/// `libstitchwort_standalone*.a` beside this test binary (in `deps/`) built
+/// from the runtime sources this build has.
 fn runtime_library() -> PathBuf {
     if let Some(path) = std::env::var_os("STITCHWORT_RUNTIME") {
         return path.into();
@@ -38,6 +39,7 @@ fn runtime_library() -> PathBuf {
             let name = name.to_string_lossy();
             name.starts_with("libstitchwort_standalone") && name.ends_with(".a")
         })
+        .filter(|entry| holds_marker(&entry.path()))
         .max_by_key(|entry| entry.metadata().and_then(|m| m.modified()).ok())
         .map(|entry| entry.path())
         .unwrap_or_else(|| {
@@ -47,6 +49,12 @@ fn runtime_library() -> PathBuf {
                 dir.display()
             )
         })
+}
+
+/// Whether the library at `path` holds this build's runtime marker.
+fn holds_marker(path: &Path) -> bool {
+    let marker = stitchwort_rt::BUILD_MARKER.as_bytes();
+    std::fs::read(path).is_ok_and(|bytes| bytes.windows(marker.len()).any(|w| w == marker))
 }
 
 /// Whether there's a C compiler to link with; if not, says the test is
@@ -132,9 +140,12 @@ fn build(dir: &Path, args: &[&str]) {
     assert_eq!(text(&output.stderr), "");
 }
 
-/// The executable `exe` on `input`.
+/// The executable `exe` on `input`, in its own folder, where `stitchwort`
+/// runs too.
 fn run_executable(exe: &Path, input: &[u8]) -> Output {
-    run_with_input(Command::new(exe), input)
+    let mut command = Command::new(exe);
+    command.current_dir(exe.parent().expect("in a folder"));
+    run_with_input(command, input)
 }
 
 /// Writes `source` as `name` in `dir`, builds it, and checks that the
@@ -191,6 +202,80 @@ fn an_io_program_runs_as_it_does_under_run() {
         "got one\ngot two\ngot three\ndone, 0 left\n"
     );
     assert_eq!(first.status.code(), Some(0));
+}
+
+/// A `main` with `Files` performs it in a built executable as under `run`,
+/// on the folder it is started in; `IO.printError` writes to standard error.
+#[test]
+fn a_files_program_runs_as_it_does_under_run() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("files");
+    let source = r#"import Std (FileError, Files, IO, Path, Result, Text)
+
+def say (result: Result Text FileError): {IO} () := match result with
+  | Ok text => IO.print text
+  | Err error => IO.printError "${error}"
+
+def main(): {Files, IO} () :=
+  Files.write ("out.txt".toPath, "written é")
+  say (Files.read "out.txt".toPath)
+  say (Files.read "missing.txt".toPath)
+"#;
+    let (_, first) = same_as_run(&dir, "files.sw", source, &[b""]);
+    assert_eq!(text(&first.stdout), "written é\n");
+    assert_eq!(text(&first.stderr), "missing.txt: no such file or folder\n");
+    // The executable writes in the folder it is started in.
+    std::fs::remove_file(dir.join("out.txt")).expect("the runs wrote it");
+    run_executable(&dir.join("program"), b"");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("out.txt")).expect("the executable wrote it"),
+        "written é"
+    );
+}
+
+/// A `main` returning an `ExitStatus`: a built executable exits with it, as
+/// `run` does.
+#[test]
+fn a_main_returning_an_exit_status_exits_with_it_in_a_built_executable() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("exit-status");
+    let source = include_str!("../../../../examples/accept/main-exit-status.sw");
+    let inputs: [&[u8]; 3] = [b"", b"ok\n", b"no\n"];
+    let (exe, first) = same_as_run(&dir, "status.sw", source, &inputs);
+    assert_eq!(first.status.code(), Some(3));
+    assert_eq!(run_executable(&exe, b"ok\n").status.code(), Some(0));
+    assert_eq!(run_executable(&exe, b"no\n").status.code(), Some(1));
+}
+
+/// The same with `--native`: the executable, `run --native` and `run` agree.
+#[cfg(feature = "native")]
+#[test]
+fn a_main_returning_an_exit_status_exits_with_it_in_native_code() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("exit-status-native");
+    let source = include_str!("../../../../examples/accept/main-exit-status.sw");
+    let (_, built) = native_same_as_run(&dir, "status.sw", source, b"");
+    assert_eq!(text(&built.stdout), "checking\n");
+    assert_eq!(built.status.code(), Some(3));
+}
+
+/// `IO`, `Fail`, `Files` and `Partial` together, in a built executable as
+/// under `run`.
+#[test]
+fn a_main_with_every_ability_runs_as_it_does_under_run() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("every-ability");
+    let (_, first) = same_as_run(&dir, "every.sw", crate::files::EVERY_ABILITY, &[b""]);
+    assert_eq!(first.status.code(), Some(1));
+    assert_eq!(text(&first.stderr), "counting\nerror: lift-off failed\n");
 }
 
 /// `IO.args` gives an executable's arguments after its name, as `run` gives
@@ -466,7 +551,11 @@ fn link_failures_are_explained() {
         return;
     }
     let bogus = dir.join("libbogus.a");
-    std::fs::write(&bogus, "not an archive").expect("write the bogus library");
+    std::fs::write(
+        &bogus,
+        format!("not an archive {}", stitchwort_rt::BUILD_MARKER),
+    )
+    .expect("write the bogus library");
     let failed = build_with("STITCHWORT_RUNTIME", bogus.as_os_str());
     assert_eq!(failed.status.code(), Some(1));
     let stderr = text(&failed.stderr);
@@ -480,6 +569,31 @@ fn link_failures_are_explained() {
         stderr.lines().count() > 1 && stderr.contains("libbogus.a"),
         "{stderr}"
     );
+    assert!(!dir.join("echo").exists());
+}
+
+/// A runtime library from another build of the runtime is refused with a
+/// message that says what to do, instead of linking an executable that can't
+/// read its own program (SW-3149).
+#[test]
+fn a_stale_runtime_library_is_refused() {
+    let dir = work_dir("stale-library");
+    std::fs::write(dir.join("echo.sw"), ECHO).expect("write the source");
+    let stale = dir.join("libstale.a");
+    std::fs::write(&stale, "stitchwort-runtime-build=1;").expect("write the library");
+    let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
+    command
+        .args(["build", "echo.sw", "--cache-dir", CACHE])
+        .current_dir(&dir)
+        .env("STITCHWORT_RUNTIME", &stale);
+    let output = run_with_input(command, b"");
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = text(&output.stderr);
+    assert!(
+        stderr.starts_with("error: the runtime library is from a different build"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("task build"), "{stderr}");
     assert!(!dir.join("echo").exists());
 }
 
@@ -532,6 +646,30 @@ fn a_project_folder_builds_its_main() {
         text(&output.stderr),
         "error: no namespace of project greeter/ declares `main`\n  note: name the function \
          to build, as in `stitchwort build Name.main --project greeter`\n"
+    );
+}
+
+/// A project folder with two namespaces that declare `main` is not guessed
+/// at: the error names both, and the note shows how to pick one.
+#[test]
+fn a_project_folder_with_two_mains_names_them() {
+    let dir = work_dir("two-mains");
+    let project = dir.join("pair");
+    std::fs::create_dir_all(project.join("src")).expect("make the project");
+    std::fs::write(project.join("stitchwort.yaml"), "sources: [src]\n").expect("write");
+    for namespace in ["Fmt", "Timing"] {
+        std::fs::write(
+            project.join(format!("src/{namespace}.sw")),
+            format!("namespace {namespace}\nimport Std (IO)\n\ndef main(): {{IO}} () := IO.print \"{namespace}\"\n"),
+        )
+        .expect("write");
+    }
+    let output = stitchwort(&dir, &["build", "pair"], b"");
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        text(&output.stderr),
+        "error: more than one namespace of project pair/ declares `main`: Fmt, Timing\n  note: \
+         name the one to build, as in `stitchwort build Fmt.main --project pair`\n"
     );
 }
 
@@ -1281,4 +1419,200 @@ fn a_failed_layout_probe_fails_the_build() {
         format!("internal error: this executable can't run: {message}")
     );
     assert_eq!(text(&started.stdout), "");
+}
+
+/// The toy formatter's project (docs/proposals/toy-formatter.md, stage C).
+const TOYFMT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tools/toyfmt");
+
+/// A Sprig file the formatter leaves alone, and one it rewrites to it.
+const TIDY: &str = "fn add(a, b) = a + b\n";
+const UNTIDY: &str = "fn add(a,b) = a+b\n";
+const BROKEN: &str = "let x =";
+
+/// Every file under `dir` with its text, by path.
+fn folder_contents(dir: &Path) -> std::collections::BTreeMap<String, String> {
+    fn walk(base: &Path, dir: &Path, into: &mut std::collections::BTreeMap<String, String>) {
+        for entry in std::fs::read_dir(dir).expect("list the folder") {
+            let path = entry.expect("an entry").path();
+            if path.is_dir() {
+                walk(base, &path, into);
+            } else {
+                let name = path.strip_prefix(base).expect("under the base");
+                into.insert(
+                    name.to_string_lossy().into_owned(),
+                    std::fs::read_to_string(&path).expect("read a file"),
+                );
+            }
+        }
+    }
+    let mut into = std::collections::BTreeMap::new();
+    walk(dir, dir, &mut into);
+    into
+}
+
+/// Lays out the fixture folder `work/src`: a file to rewrite, a formatted
+/// one, one that doesn't parse, a nested folder and a file to skip.
+fn toyfmt_fixture(work: &Path) {
+    for (name, text) in [
+        ("src/a.sprig", UNTIDY),
+        ("src/b.sprig", TIDY),
+        ("src/bad.sprig", BROKEN),
+        ("src/deep/c.sprig", UNTIDY),
+        ("src/notes.txt", UNTIDY),
+    ] {
+        let path = work.join(name);
+        std::fs::create_dir_all(path.parent().expect("in a folder")).expect("make the folder");
+        std::fs::write(path, text).expect("write the fixture");
+    }
+}
+
+/// The toy formatter on a folder, as `stitchwort run` and as a built
+/// executable do it, with `stitchwort fmt`'s exit statuses: `--check` writes
+/// nothing and names the files, exiting 1 when it finds one to change and 2
+/// when a path couldn't be read or parsed (a problem outranks a change); a
+/// real run rewrites what changes, leaves a formatted file alone (its
+/// modification time too: it isn't written), reports the file that doesn't
+/// parse with its line and column, and exits 2; with that file gone, `--check`
+/// exits 0; a bad flag exits 2 with the usage line, and `--help` 0.
+#[test]
+fn toyfmt_formats_a_folder_under_run_and_built() {
+    if !have_cc() {
+        return;
+    }
+    let work = work_dir("toyfmt");
+    let bin = work.join("bin");
+    std::fs::create_dir_all(&bin).expect("make the folder");
+    let target = "Toy.Fmt.main";
+    let mut builds: Vec<(&str, Vec<&str>)> = vec![("plain", vec![])];
+    if cfg!(feature = "native") {
+        builds.push(("native", vec!["--native"]));
+    }
+    let mut runners: Vec<(String, Option<PathBuf>)> = vec![("run".into(), None)];
+    for (name, flags) in &builds {
+        let exe = bin.join(name);
+        let mut args = vec!["build", target, "--project", TOYFMT, "--cache-dir", CACHE];
+        args.extend(flags);
+        args.extend(["-o", exe.to_str().expect("a path")]);
+        let output = stitchwort(&work, &args, b"");
+        assert!(
+            output.status.success(),
+            "build failed: {}",
+            text(&output.stderr)
+        );
+        runners.push((name.to_string(), Some(exe)));
+    }
+    for (runner, exe) in runners {
+        let folder = work.join(&runner);
+        toyfmt_fixture(&folder);
+        // `toyfmt ARGS` in `folder`: what it printed, and its exit code.
+        let toyfmt = |args: &[&str]| -> (String, String, Option<i32>) {
+            let output = match &exe {
+                Some(exe) => {
+                    let mut command = Command::new(exe);
+                    command.args(args).current_dir(&folder);
+                    run_with_input(command, b"")
+                }
+                None => {
+                    let mut all = vec![
+                        "run",
+                        "--cache-dir",
+                        CACHE,
+                        "--project",
+                        TOYFMT,
+                        target,
+                        "--",
+                    ];
+                    all.extend(args);
+                    stitchwort(&folder, &all, b"")
+                }
+            };
+            (
+                text(&output.stdout),
+                text(&output.stderr),
+                output.status.code(),
+            )
+        };
+        let before = folder_contents(&folder);
+        let tidy_time = std::fs::metadata(folder.join("src/b.sprig"))
+            .and_then(|m| m.modified())
+            .expect("a modification time");
+        let changed = "src/a.sprig\nsrc/deep/c.sprig\n";
+        let problem = "src/bad.sprig:1:8: expected an expression, got the end of the input\n";
+
+        let (out, err, code) = toyfmt(&["--check", "src"]);
+        assert_eq!(
+            (out.as_str(), code),
+            (changed, Some(2)),
+            "{runner}: --check with a problem"
+        );
+        assert!(err.starts_with(problem), "{runner}: --check says {err}");
+        assert_eq!(
+            folder_contents(&folder),
+            before,
+            "{runner}: --check writes nothing"
+        );
+
+        let (out, _, code) = toyfmt(&["--check", "src/a.sprig", "src/deep"]);
+        assert_eq!(
+            (out.as_str(), code),
+            (changed, Some(1)),
+            "{runner}: --check would change"
+        );
+        let (out, _, code) = toyfmt(&["--check", "src/missing.sprig"]);
+        assert_eq!(
+            (out.as_str(), code),
+            ("", Some(2)),
+            "{runner}: --check, unreadable"
+        );
+        assert_eq!(
+            folder_contents(&folder),
+            before,
+            "{runner}: still nothing written"
+        );
+
+        let (out, err, code) = toyfmt(&["src"]);
+        assert_eq!((out.as_str(), code), (changed, Some(2)), "{runner}: format");
+        assert!(err.starts_with(problem), "{runner}: format says {err}");
+        let mut expected = before.clone();
+        expected.insert("src/a.sprig".into(), TIDY.into());
+        expected.insert("src/deep/c.sprig".into(), TIDY.into());
+        assert_eq!(folder_contents(&folder), expected, "{runner}: rewritten");
+        let kept_time = std::fs::metadata(folder.join("src/b.sprig"))
+            .and_then(|m| m.modified())
+            .expect("a modification time");
+        assert_eq!(
+            kept_time, tidy_time,
+            "{runner}: a formatted file isn't written"
+        );
+
+        std::fs::remove_file(folder.join("src/bad.sprig")).expect("remove the broken file");
+        let settled = folder_contents(&folder);
+        let (out, err, code) = toyfmt(&["--check", "src"]);
+        assert_eq!(
+            (out.as_str(), err.as_str(), code),
+            ("", "", Some(0)),
+            "{runner}: clean"
+        );
+        let (out, _, code) = toyfmt(&["--width", "10", "src/b.sprig"]);
+        assert_eq!(
+            (out.as_str(), code),
+            ("src/b.sprig\n", Some(0)),
+            "{runner}: width"
+        );
+        assert_ne!(
+            folder_contents(&folder),
+            settled,
+            "{runner}: a narrower width rewrote it"
+        );
+
+        let (out, err, code) = toyfmt(&["--wide", "src"]);
+        assert_eq!((out.as_str(), code), ("", Some(2)), "{runner}: bad flag");
+        assert!(err.contains("usage: toyfmt"), "{runner}: usage, got {err}");
+        let (out, _, code) = toyfmt(&["--help"]);
+        assert_eq!(code, Some(0), "{runner}: --help");
+        assert!(
+            out.starts_with("usage: toyfmt"),
+            "{runner}: help, got {out}"
+        );
+    }
 }

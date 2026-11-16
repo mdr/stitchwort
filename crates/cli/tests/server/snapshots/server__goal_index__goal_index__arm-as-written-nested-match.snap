@@ -1,0 +1,589 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Text → Prop"
+        },
+        {
+          "name": "s",
+          "type": "Text"
+        }
+      ],
+      "lemma": "theorem textInOptionGoal1 (p: Option Bool → Text → Prop) (s: Text): p (Some True) s := ?",
+      "target": "p (Some True) s"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Text → Prop\ns: Text\n⊢ p (Some True) s",
+        "range": [
+          10,
+          17,
+          10,
+          18
+        ]
+      }
+    ],
+    "message": "in `textInOption`",
+    "notes": [],
+    "range": [
+      10,
+      17,
+      10,
+      18
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Text → Prop"
+        },
+        {
+          "name": "o",
+          "type": "Option Bool"
+        }
+      ],
+      "target": "p o \"ab\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Text → Prop\no: Option Bool\n⊢ p o \"ab\"",
+        "range": [
+          13,
+          16,
+          13,
+          17
+        ]
+      }
+    ],
+    "message": "in `textInOption`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      13,
+      16,
+      13,
+      17
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "s ≠ \"ab\""
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Text → Prop"
+        },
+        {
+          "name": "o",
+          "type": "Option Bool"
+        },
+        {
+          "name": "s",
+          "type": "Text"
+        }
+      ],
+      "lemma": "theorem textInOptionGoal3 (p: Option Bool → Text → Prop) (o: Option Bool) (s: Text) (h: s ≠ \"ab\"): p o s := ?",
+      "target": "p o s"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Text → Prop\no: Option Bool\ns: Text\ns ≠ \"ab\"\n⊢ p o s",
+        "range": [
+          14,
+          13,
+          14,
+          14
+        ]
+      }
+    ],
+    "message": "in `textInOption`",
+    "notes": [
+      "this arm is checked in 10 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      14,
+      13,
+      14,
+      14
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Option Bool → Nat → Prop"
+        },
+        {
+          "name": "r",
+          "type": "Option Bool"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem threeDeepGoal1 (p: Option Bool → Option Bool → Nat → Prop) (r: Option Bool) (n: Nat): p (Some True) r n := ?",
+      "target": "p (Some True) r n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Option Bool → Nat → Prop\nr: Option Bool\nn: Nat\n⊢ p (Some True) r n",
+        "range": [
+          18,
+          17,
+          18,
+          18
+        ]
+      }
+    ],
+    "message": "in `threeDeep`",
+    "notes": [],
+    "range": [
+      18,
+      17,
+      18,
+      18
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Option Bool → Nat → Prop"
+        },
+        {
+          "name": "o",
+          "type": "Option Bool"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem threeDeepGoal2 (p: Option Bool → Option Bool → Nat → Prop) (o: Option Bool) (n: Nat): p o None n := ?",
+      "target": "p o None n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Option Bool → Nat → Prop\no: Option Bool\nn: Nat\n⊢ p o None n",
+        "range": [
+          21,
+          16,
+          21,
+          17
+        ]
+      }
+    ],
+    "message": "in `threeDeep`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      21,
+      16,
+      21,
+      17
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Option Bool → Nat → Prop"
+        },
+        {
+          "name": "o",
+          "type": "Option Bool"
+        },
+        {
+          "name": "r",
+          "type": "Option Bool"
+        }
+      ],
+      "lemma": "theorem threeDeepGoal3 (p: Option Bool → Option Bool → Nat → Prop) (o: Option Bool) (r: Option Bool): p o r 0 := ?",
+      "target": "p o r 0"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Option Bool → Nat → Prop\no: Option Bool\nr: Option Bool\n⊢ p o r 0",
+        "range": [
+          24,
+          17,
+          24,
+          18
+        ]
+      }
+    ],
+    "message": "in `threeDeep`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      24,
+      17,
+      24,
+      18
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "n ≠ 0"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Option Bool → Nat → Prop"
+        },
+        {
+          "name": "o",
+          "type": "Option Bool"
+        },
+        {
+          "name": "r",
+          "type": "Option Bool"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem threeDeepGoal4 (p: Option Bool → Option Bool → Nat → Prop) (o: Option Bool) (r: Option Bool) (n: Nat) (h: n ≠ 0): p o r n := ?",
+      "target": "p o r n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Option Bool → Nat → Prop\no: Option Bool\nr: Option Bool\nn: Nat\nn ≠ 0\n⊢ p o r n",
+        "range": [
+          25,
+          17,
+          25,
+          18
+        ]
+      }
+    ],
+    "message": "in `threeDeep`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      25,
+      17,
+      25,
+      18
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Text → Prop"
+        },
+        {
+          "name": "s",
+          "type": "Text"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "h",
+          "type": "n = 3"
+        }
+      ],
+      "lemma": "theorem rewrittenFirstGoal1 (p: Option Bool → Text → Prop) (s: Text) (n: Nat) (h: n = 3): p (Some True) s ∧ n = 3 := ?",
+      "target": "p (Some True) s ∧ n = 3"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Text → Prop\ns: Text\nn: Nat\nh: n = 3\n⊢ p (Some True) s ∧ n = 3",
+        "range": [
+          33,
+          19,
+          33,
+          20
+        ]
+      }
+    ],
+    "message": "in `rewrittenFirst`",
+    "notes": [],
+    "range": [
+      33,
+      19,
+      33,
+      20
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Text → Prop"
+        },
+        {
+          "name": "o",
+          "type": "Option Bool"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "h",
+          "type": "n = 3"
+        }
+      ],
+      "target": "p o \"ab\" ∧ n = 3"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Text → Prop\no: Option Bool\nn: Nat\nh: n = 3\n⊢ p o \"ab\" ∧ n = 3",
+        "range": [
+          37,
+          20,
+          37,
+          21
+        ]
+      }
+    ],
+    "message": "in `rewrittenFirst`",
+    "notes": [
+      "1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it",
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      37,
+      20,
+      37,
+      21
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "s ≠ \"ab\""
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Text → Prop"
+        },
+        {
+          "name": "o",
+          "type": "Option Bool"
+        },
+        {
+          "name": "s",
+          "type": "Text"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "h",
+          "type": "n = 3"
+        }
+      ],
+      "lemma": "theorem rewrittenFirstGoal3 (p: Option Bool → Text → Prop) (o: Option Bool) (s: Text) (n: Nat) (h: n = 3) (h2: s ≠ \"ab\"): p o s ∧ n = 3 := ?",
+      "target": "p o s ∧ n = 3"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Text → Prop\no: Option Bool\ns: Text\nn: Nat\nh: n = 3\ns ≠ \"ab\"\n⊢ p o s ∧ n = 3",
+        "range": [
+          38,
+          17,
+          38,
+          18
+        ]
+      }
+    ],
+    "message": "in `rewrittenFirst`",
+    "notes": [
+      "1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it",
+      "this arm is checked in 10 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      38,
+      17,
+      38,
+      18
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "E-TYPE-MISMATCH",
+    "file": 0,
+    "labels": [
+      {
+        "file": 0,
+        "message": "expected `p None (Some False)`, but this has type `p None None`",
+        "range": [
+          46,
+          13,
+          46,
+          14
+        ]
+      }
+    ],
+    "message": "type mismatch",
+    "notes": [
+      "this arm is checked in 4 cases, and this error is in the case where `o` is `None` and `r` is `Some False`"
+    ],
+    "range": [
+      46,
+      13,
+      46,
+      14
+    ],
+    "severity": "error"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Option Bool → Prop"
+        },
+        {
+          "name": "k",
+          "type": "p None None"
+        },
+        {
+          "name": "r",
+          "type": "Option Bool"
+        }
+      ],
+      "lemma": "theorem errorInBothGoal1 (p: Option Bool → Option Bool → Prop) (k: p None None) (r: Option Bool): p (Some True) r := ?",
+      "target": "p (Some True) r"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Option Bool → Prop\nk: p None None\nr: Option Bool\n⊢ p (Some True) r",
+        "range": [
+          42,
+          17,
+          42,
+          18
+        ]
+      }
+    ],
+    "message": "in `errorInBoth`",
+    "notes": [],
+    "range": [
+      42,
+      17,
+      42,
+      18
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Option Bool → Option Bool → Prop"
+        },
+        {
+          "name": "k",
+          "type": "p None None"
+        },
+        {
+          "name": "o",
+          "type": "Option Bool"
+        }
+      ],
+      "lemma": "theorem errorInBothGoal2 (p: Option Bool → Option Bool → Prop) (k: p None None) (o: Option Bool): p o (Some True) := ?",
+      "target": "p o (Some True)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Option Bool → Option Bool → Prop\nk: p None None\no: Option Bool\n⊢ p o (Some True)",
+        "range": [
+          45,
+          21,
+          45,
+          22
+        ]
+      }
+    ],
+    "message": "in `errorInBoth`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      45,
+      21,
+      45,
+      22
+    ],
+    "severity": "goal"
+  }
+]

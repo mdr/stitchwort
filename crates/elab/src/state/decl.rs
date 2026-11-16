@@ -56,6 +56,19 @@ pub(crate) struct Decl {
     /// with its expected type first failed: no application inside is
     /// compared that way (`check::propagate`, D2342).
     pub(crate) no_hole_propagation: Cell<usize>,
+    /// Above zero while an application is elaborated again after its
+    /// result type, compared with its expected type by the arguments of the
+    /// two calls (the plain comparison having failed), was used first and
+    /// the application then failed: no application inside is compared by
+    /// arguments that way, so a failing chain of lemmas isn't tried twice at
+    /// every level (`check::propagate`, SW-3281).
+    pub(crate) no_argument_propagation: Cell<usize>,
+    /// Above zero while an application whose lambdas were held for its
+    /// expected type (`check::fallback_holding_lambdas`) is elaborated
+    /// again the ordinary way after that failed: no application inside
+    /// holds its lambdas, so a failing chain isn't tried both ways at
+    /// every level.
+    pub(crate) no_holding: Cell<usize>,
     /// Above zero while a lambda is checked in place in an application
     /// elaborated again after a propagation by `_`s failed
     /// (`check::apply_args_postponing`): a lambda inside is not tried in
@@ -93,8 +106,20 @@ pub(crate) struct Decl {
     /// (`check::fallback`): the address of its last written argument and
     /// that type, so a lambda argument that fails where its type still has
     /// unknowns is checked again once the application's type has been
-    /// compared with it (`check::apply_args_postponing`).
-    pub(crate) app_expected: RefCell<Option<(usize, Value)>>,
+    /// compared with it (`check::apply_args_postponing`). The second type is
+    /// the first before it was forced (a call such as `Parse.Runs p …`, not
+    /// its unfolding), for `check::settle_from_expected`.
+    pub(crate) app_expected: RefCell<Option<AppExpected>>,
+    /// The calls `check::settle_from_expected` gave type arguments from
+    /// their expected type, in the body attempt being elaborated, also in
+    /// parts of it later undone (which can only cost a retry not needed).
+    /// If the attempt fails, it is made once more with nothing settled
+    /// (`Elaborator::settle_retried`), which reads them.
+    pub(crate) settled: RefCell<Vec<Settled>>,
+    /// Set while `check::settle_from_expected` may give type arguments: in
+    /// a body's first attempt (`Elaborator::settle_retried`), which is
+    /// retried without if it fails.
+    pub(crate) settling: Cell<bool>,
     /// While the body of a definition with `decreasing` is elaborated: what
     /// its recursive calls stand for (`decreasing.rs`).
     pub(crate) decreasing: RefCell<Option<decreasing::Active>>,
@@ -178,10 +203,25 @@ pub(crate) struct Decl {
     /// declaration is done), and emptied as the next one starts.
     pub(crate) matches_shown: RefCell<Vec<(String, DefId)>>,
     /// The characters whose patterns became number patterns (by span), so
-    /// a missing case can be reported as characters. Written and read while
-    /// one pattern match is compiled. (Before SW-1149 it grew over the
+    /// a missing case can be reported as characters. Cleared with the rest of
+    /// the declaration's state ([`Decl::reset`]). (Before SW-1149 it grew over the
     /// session, emptied only by a rewind.)
     pub(crate) char_patterns: RefCell<HashMap<Span, char>>,
+    /// The spans of the patterns a text pattern was expanded to (its list
+    /// cells and each of its characters), each to the text pattern's own
+    /// span, so that a case left out among them is reported as a text one
+    /// (docs/proposals/text-patterns.md §4.4). Cleared per declaration, like
+    /// [`Self::char_patterns`].
+    pub(crate) text_spans: RefCell<HashMap<Span, Span>>,
+    /// The text patterns that fixed a column of a type not yet known to
+    /// `Text`, so that a later mismatch of `Text` with something else can
+    /// point at them (SW-3295). Cleared per declaration.
+    pub(crate) text_fallbacks: RefCell<Vec<Span>>,
+    /// The variables (by level) such a pattern fixed to `Text`, each with
+    /// its pattern, and the uses of them noted so far (SW-3315): a mismatch
+    /// at a use gets the pattern's label whichever side is the `Text`.
+    pub(crate) text_fixed_vars: RefCell<Vec<(usize, Span)>>,
+    pub(crate) text_fixed_uses: RefCell<Vec<(Span, Span)>>,
     /// The guarded rows' `else` trees made so far by the pattern match being
     /// compiled, which bound how much a guard may copy (`MAX_GUARD_NODES`).
     pub(crate) guard_nodes: Cell<usize>,
@@ -208,9 +248,33 @@ pub(crate) struct Decl {
     /// (`build.rs`). Kept across the attempts at one body on purpose: a
     /// failed attempt is what adds a place.
     pub(crate) builds: RefCell<crate::build::Builds>,
+    /// Where an `a != b` was written with the ASCII `!=` (not the Unicode
+    /// `≠`): the `!=` note quotes the source, so it is given only where the
+    /// source wrote `!=` (SW-3125). Unlike [`Self::builds`], a declaration's
+    /// type keeps it visible while its body is checked.
+    pub(crate) ne_ascii: RefCell<Vec<Span>>,
+    /// The failed instance the last instance search reached, if any: a
+    /// derive records it so a use waits for it (SW-3078).
+    pub(crate) failed_instance: RefCell<Option<DefId>>,
 }
 
 /// [`Decl::conjunction`].
+/// A call `check::settle_from_expected` gave a type argument from its
+/// expected type (`Decl::settled`).
+pub(crate) struct Settled {
+    /// The call, or its arguments.
+    pub(crate) span: Span,
+    /// The first parameter given and the type it was given, for the note
+    /// made if the call fails.
+    pub(crate) param: stitchwort_core::Name,
+    pub(crate) given: Value,
+    /// `given` printed, set with `note`: to tell whether an error is about it.
+    pub(crate) given_shown: Option<String>,
+    /// What an error from the call is given if the body fails with it,
+    /// made when the call fails, while its unknowns are still solved.
+    pub(crate) note: Option<String>,
+}
+
 pub(crate) struct Conjunction {
     /// The address of the condition's left operand.
     pub(crate) lhs: usize,
@@ -219,6 +283,19 @@ pub(crate) struct Conjunction {
 }
 
 impl Decl {
+    /// Notes the `a != b` written `!=` at `span` (SW-3125).
+    pub(crate) fn note_ne_ascii(&self, span: Span) {
+        let mut spans = self.ne_ascii.borrow_mut();
+        if !spans.contains(&span) {
+            spans.push(span);
+        }
+    }
+
+    /// Whether an `a != b` written `!=` (not `≠`) starts at `span`.
+    pub(crate) fn wrote_ascii_ne_at(&self, span: &Span) -> bool {
+        self.ne_ascii.borrow().contains(span)
+    }
+
     /// Empties everything but [`Self::failed_mentioned`] and
     /// [`Self::stuck_on_goal`].
     pub(crate) fn reset(&mut self) {
@@ -253,6 +330,8 @@ impl Decl {
             arm_reach,
             no_propagation,
             no_hole_propagation,
+            no_argument_propagation,
+            no_holding,
             in_place_trial,
             bare_rows_pure,
             late_literals,
@@ -260,6 +339,8 @@ impl Decl {
             not_coerced,
             conjunction,
             app_expected,
+            settled,
+            settling,
             decreasing,
             recursion,
             arounds,
@@ -279,18 +360,29 @@ impl Decl {
             local_asts,
             tuple_matches,
             char_patterns,
+            text_spans,
+            text_fallbacks,
+            text_fixed_vars,
+            text_fixed_uses,
             guard_nodes,
             errors_only,
             coverage_only,
             keep_arms,
             kept_by_a_check,
             builds,
+            ne_ascii,
+            failed_instance,
         } = self;
         let fields = [
             ("sides_capture", sides_capture.borrow().is_empty()),
             ("arm_reach", arm_reach.borrow().is_empty()),
             ("no_propagation", no_propagation.get() == 0),
             ("no_hole_propagation", no_hole_propagation.get() == 0),
+            (
+                "no_argument_propagation",
+                no_argument_propagation.get() == 0,
+            ),
+            ("no_holding", no_holding.get() == 0),
             ("in_place_trial", in_place_trial.get() == 0),
             ("bare_rows_pure", !bare_rows_pure.get()),
             ("late_literals", late_literals.get() == 0),
@@ -298,6 +390,8 @@ impl Decl {
             ("not_coerced", not_coerced.borrow().is_empty()),
             ("conjunction", conjunction.borrow().is_none()),
             ("app_expected", app_expected.borrow().is_none()),
+            ("settled", settled.borrow().is_empty()),
+            ("settling", !settling.get()),
             ("decreasing", decreasing.borrow().is_none()),
             ("recursion", recursion.is_none()),
             ("arounds", arounds.borrow().is_empty()),
@@ -317,16 +411,33 @@ impl Decl {
             ("local_asts", local_asts.borrow().is_empty()),
             ("tuple_matches", tuple_matches.borrow().is_empty()),
             ("char_patterns", char_patterns.borrow().is_empty()),
+            ("text_spans", text_spans.borrow().is_empty()),
+            ("text_fallbacks", text_fallbacks.borrow().is_empty()),
+            ("text_fixed_vars", text_fixed_vars.borrow().is_empty()),
+            ("text_fixed_uses", text_fixed_uses.borrow().is_empty()),
             ("guard_nodes", guard_nodes.get() == 0),
             ("errors_only", errors_only.get() == 0),
             ("coverage_only", coverage_only.get() == 0),
             ("keep_arms", keep_arms.borrow().is_empty()),
             ("kept_by_a_check", kept_by_a_check.borrow().is_empty()),
             ("builds", builds.borrow().is_empty()),
+            ("ne_ascii", ne_ascii.borrow().is_empty()),
+            ("failed_instance", failed_instance.borrow().is_none()),
         ];
         fields
             .into_iter()
             .find(|(_, empty)| !empty)
             .map(|(name, _)| name)
     }
+}
+
+/// The application [`Decl::app_expected`] describes: the address of
+/// its last written argument, the type expected of it, forced and as
+/// written, and whether its lambdas wait for that type without a trial in
+/// place (`check::infer_expecting`).
+pub(crate) struct AppExpected {
+    pub(crate) key: usize,
+    pub(crate) expected: Value,
+    pub(crate) named: Value,
+    pub(crate) hold_lambdas: bool,
 }

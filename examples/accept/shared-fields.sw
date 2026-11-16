@@ -5,7 +5,9 @@
 
 import Std (List, Nat, Vec)
 
-type Shape = | Dot { ref: Nat, id: Text, start: Nat } | Circle { ref: Nat, id: Text, start: Nat, text: Text }
+type Shape =
+  | Dot { ref: Nat, id: Text, start: Nat }
+  | Circle { ref: Nat, id: Text, start: Nat, text: Text }
 
 def s: Shape := Circle 1 "a" 0 "t"
 
@@ -33,15 +35,17 @@ type Labelled (a: Type) = | One (label: a) | Two (x: Nat) (label: a)
 test "parameter" := (Two 3 "x").label == "x"
 
 -- Dependent shared fields, declared in different orders in each constructor.
-type Sized = | A (n: Nat) (xs: Vec Nat n) (tag: Text) | B (tag: Text) (n: Nat) (xs: Vec Nat n)
+type Sized =
+  | A (n: Nat) (xs: Vec Nat n) (tag: Text)
+  | B (tag: Text) (n: Nat) (xs: Vec Nat n)
 
 def xsOf (t: Sized): Vec Nat t.n := t.xs
 
 test "dependent" := (A 2 (VCons 1 (VCons 2 VNil)) "q").n == 2
 test "dependent, other order" := (B "q" 0 VNil).tag == "q"
 
--- Proofs: by `rfl` on a constructor...
-theorem idCircle: (Circle 1 "a" 0 "t").id = "a" := rfl
+-- Proofs: by `byComputing` on a constructor...
+theorem idCircle: (Circle 1 "a" 0 "t").id = "a" := byComputing
 
 -- ...and by cases, against a hand-written function.
 def idOf: Shape → Text
@@ -49,10 +53,10 @@ def idOf: Shape → Text
   | Circle { id, .. } => id
 
 theorem idIsIdOf ∀ (a: Shape): a.id = idOf a := match a with
-  | Dot { .. } => rfl
-  | Circle { .. } => rfl
+  | Dot { .. } => byComputing
+  | Circle { .. } => byComputing
 
-theorem idFull ∀ (a: Shape): a.id = Shape.id a := rfl
+theorem idFull ∀ (a: Shape): a.id = Shape.id a := byComputing
 
 -- A proposition's shared field: both constructors hold a proof of `q`.
 type Evidence (q: Prop): Prop = | EA (witness: q) | EB (witness: q)
@@ -60,13 +64,15 @@ type Evidence (q: Prop): Prop = | EA (witness: q) | EB (witness: q)
 def ev (e: Evidence (1 = 1)): 1 = 1 := e.witness
 
 -- An indexed family gets accessors by the same rule.
-type Fam: Nat → Type = | FA (tag: Text): Fam 0 | FB [n: Nat] (tag: Text) (xs: Fam n): Fam (Succ n)
+type Fam: Nat → Type =
+  | FA (tag: Text): Fam 0
+  | FB [n: Nat] (tag: Text) (xs: Fam n): Fam (Succ n)
 
 def tagOf (f: Fam m): Text := f.tag
 
 test "indexed" := tagOf (FB "b" (FA "a")) == "b"
 
-theorem tagFB: (FB "b" (FA "a")).tag = "b" := rfl
+theorem tagFB: (FB "b" (FA "a")).tag = "b" := byComputing
 
 -- One-constructor types have them too: `Pair.fst`, `And.left`.
 test "pair" := (1, "x").fst == 1

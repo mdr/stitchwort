@@ -2,7 +2,7 @@
 -- is a child of the declaration, not of that line (idempotence; SW-2466).
 theorem t (same: (a b)
  c d
-      (x => rfl)
-      (y => rfl)
+      (x => byComputing)
+      (y => byComputing)
       e = f): Void :=
   g

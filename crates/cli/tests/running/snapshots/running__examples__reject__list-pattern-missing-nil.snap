@@ -12,3 +12,4 @@ expression: output
    │ │                                            
    │ ╰──────────────────────────────────────────── missing case: no arm matches `[]`
 ───╯
+try: add `| [] => ?`

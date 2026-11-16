@@ -62,7 +62,7 @@ test "a conjunction section" := [True, False].map (∧ False) == [False, False]
 
 test "a disjunction section" := [True, False].map (∨ False) == [True, False]
 
-theorem equivalenceSection ∀ (p: Prop): ((↔ p): Prop → Prop) = (q => q ↔ p) := rfl
+theorem equivalenceSection ∀ (p: Prop): ((↔ p): Prop → Prop) = (q => q ↔ p) := byComputing
 
 -- A negative number is still a number.
 test "minus is negation" := [1, 2, 3].map (x => x + (-1)) == [0, 1, 2]

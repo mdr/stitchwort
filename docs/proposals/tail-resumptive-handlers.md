@@ -1,6 +1,7 @@
 # Proposal: handlers that resume in tail position, run without capturing
 
-**Status:** proposed, awaiting Matt's review (28 October 2026). Design only. Ticket SW-737.
+**Status:** in progress: steps C and A are done (D2360, SW-790, SW-861,
+SW-738); option B is open (SW-791). Draft 28 October 2026. Ticket SW-737.
 
 A `Std.Parse` scan over noise costs about 12 µs per character on the
 machine and about 0.2 µs in JS (parser-combinators.md §7.5). Most of the

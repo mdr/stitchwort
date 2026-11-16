@@ -2,16 +2,16 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
    ╭─[ reject/counterexample-reverse-append.sw:7:118 ]
    │
- 7 │ theorem reverseAppend (xs: List Nat) (ys: List Nat): List.reverse (xs ++ ys) = List.reverse xs ++ List.reverse ys := rfl
-   │                                                                                                                      ─┬─  
-   │                                                                                                                       ╰─── `(xs ++ ys).reverse` and `xs.reverse ++ ys.reverse` aren't equal
+ 7 │ theorem reverseAppend (xs: List Nat) (ys: List Nat): List.reverse (xs ++ ys) = List.reverse xs ++ List.reverse ys := byComputing
+   │                                                                                                                      ─────┬─────  
+   │                                                                                                                           ╰─────── `(xs ++ ys).reverse` and `xs.reverse ++ ys.reverse` aren't equal
    │ 
    │ Note 1: computing both sides gives `(xs ++ ys).reverseOnto []` and `xs.reverseOnto [] ++ ys.reverseOnto []`
    │ 
-   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
    │ 
    │ Note 3: this statement is false; a counterexample:
    │           xs = [0]

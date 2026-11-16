@@ -16,4 +16,4 @@ def split: Number → Option Number
 theorem splitBig ∀ (value: Nat) (halves: Number) (some: split (Regular value) = Some halves): 10 ≤ value :=
   match big: Nat.leq 10 value with
     | True => big
-    | False => Void.exfalso (Option.noneNotSome halves some)
+    | False => (Option.noneNotSome halves some).impossible

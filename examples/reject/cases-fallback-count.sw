@@ -3,7 +3,7 @@
 -- shown by a statement false in one of them (examples/accept/cases-fallback.sw,
 -- `keyFewest`, with `Enter` left out of the list). Fewest cases first splits
 -- `flag` (2 against 11), so the open case's path starts with it. The case
--- `flag = True` is closed whole by `omega` (`… ∨ True = True`) before
+-- `flag = True` is closed whole by `arithmetic` (`… ∨ True = True`) before
 -- anything else is split, so `key` is split only when `flag = False`: 12
 -- cases, 11 closed and `flag = False, key = Enter` open.
 import Std (Bool, List)

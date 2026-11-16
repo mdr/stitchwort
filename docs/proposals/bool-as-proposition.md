@@ -151,11 +151,11 @@ says which reading has it.
   **[cited: L2]**. It is unfolded when elaborated, so goals show `b = true`,
   not `b` **[inferred from L2: the coercion's target is the equation, and
   elaborating it leaves the equation]**. Lean 3 showed `↑b` **[cited: Z3,
-  for Lean 3]**. So bool-and-prop.md §7.5's appeal to Lean's example was
+  for Lean 3; also Mario Carneiro, Lean Zulip, "Prop -> Bool regression": "coercions are not unfolded you would get ↑b instead of b = true"]**. So bool-and-prop.md §7.5's appeal to Lean's example was
   right for SSReflect only; that note is corrected (SW-2714).
 - `&&` is `Bool.and` and `∧` is `And`: different notations, never one for
   the other **[cited: L2]**. `a ∧ b` on `Bool`s coerces each side
-  **[memory]**.
+  **[inferred: the reference says "A `Bool` can be used wherever a `Prop` is expected" (lean-lang.org/doc/reference/latest/Basic-Types/Booleans/) but does not mention this case; not checked in Lean]**.
 - The reader is `simp`: `Bool.and_eq_true: ((a && b) = true) = (a = true ∧
   b = true)`, `Bool.or_eq_true`, `Bool.not_eq_true: (¬b = true) = (b =
   false)`, `decide_eq_true_eq: (decide p = true) = p`, all `@[simp]`
@@ -170,7 +170,7 @@ the choice of lemmas (Lean's simp set is the list of readings to declare).
 
 ### 3.3 Agda: `T` and `Reflects`
 
-- `T : Bool → Set` turns a test into a type **[memory]**. `Reflects A b` has
+- `T : Bool → Set` turns a test into a type **[cited: agda-stdlib `Data.Bool.Base`: `T true = ⊤`, `T false = ⊥`]**. `Reflects A b` has
   `ofʸ : A → Reflects A true` and `ofⁿ : ¬ A → Reflects A false`
   **[cited: A4]**.
 - Readings are built by hand from combinators: `T-reflects`, `¬-reflects`,
@@ -191,7 +191,7 @@ reader can work one layer at a time.
   every value; matching on the view's constructors refines the thing viewed
   **[cited: V3, abstract; the mechanism from memory]**.
 - Haskell's view patterns and F#'s active patterns name the conversion in
-  the pattern **[memory]**.
+  the pattern **[cited: GHC users guide, view patterns, `(expr -> pat)`; learn.microsoft.com/dotnet/fsharp/language-reference/active-patterns]**.
 
 A reading is a view of a *fact*, not of data. That makes it much simpler
 than the general case: proofs are erased and any two proofs of a test fact
@@ -246,7 +246,7 @@ the difference.
 logical one; a `Bool` is only coerced at the leaves.** So `a ∧ b` is `a =
 True ∧ b = True`, `c.isDigit ∧ x < 3` is `c.isDigit = True ∧ x < 3`, and
 `¬b` (also written `!b`) is `¬(b = True)`. This is today's rule with the
-operands coerced, and Lean's **[memory]**.
+operands coerced, and Lean's **[inferred, as in §3.2: not checked in Lean]**.
 
 The test fact is written with its `= True`: `(a && b) = True`. The left of
 an `=` is not a proposition position, so there `&&` is the test, as today

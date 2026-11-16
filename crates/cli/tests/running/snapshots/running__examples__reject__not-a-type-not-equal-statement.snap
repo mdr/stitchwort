@@ -5,7 +5,7 @@ expression: output
 [E-NOT-A-TYPE] Error: in a statement, `!=` is the proposition, not a `Bool`
    ╭─[ reject/not-a-type-not-equal-statement.sw:5:53 ]
    │
- 5 │ theorem notEqualIsNot (a: Nat) (b: Nat) (d: Bool): (a != b) = !d := rfl
+ 5 │ theorem notEqualIsNot (a: Nat) (b: Nat) (d: Bool): (a != b) = !d := byComputing
    │                                                     ───┬──    ─┬  
    │                                                        ╰────────── this `!=` is `Not (… = …)`, a proposition, so this `=` compares propositions
    │                                                                │  

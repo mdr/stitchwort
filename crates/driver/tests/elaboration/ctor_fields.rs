@@ -98,7 +98,7 @@ fn named_construction_hashes_as_the_positional_form() {
         "def a: Shape := Circle 1 \"a\" \"t\"\n\n\
          def b (id: Text): Shape := Dot 2 id\n\n\
          def v: Vec Nat 2 := VCons 1 (VCons 2 VNil)\n\n\
-         def p: Pos := MkPos 3 omega\n\n\
+         def p: Pos := MkPos 3 arithmetic\n\n\
          def o: Option Shape := Some (Circle 1 \"a\" \"t\")\n\n\
          def r: Option Item := Some ({ name = \"tea\", price = 3 })\n",
     );
@@ -106,7 +106,7 @@ fn named_construction_hashes_as_the_positional_form() {
         "def a: Shape := Circle { text = \"t\", ref = 1, id = \"a\" }\n\n\
          def b (id: Text): Shape := Dot { id, ref = 2 }\n\n\
          def v: Vec Nat 2 := VCons { xs = VCons { x = 2, xs = VNil }, x = 1 }\n\n\
-         def p: Pos := MkPos { ok = omega, n = 3 }\n\n\
+         def p: Pos := MkPos { ok = arithmetic, n = 3 }\n\n\
          def o: Option Shape := Some (value := Circle { ref = 1, id = \"a\", text = \"t\" })\n\n\
          def r: Option Item := Some { name = \"tea\", price = 3 }\n",
     );
@@ -208,7 +208,7 @@ fn named_arguments_on_a_constructor_fill_the_defaults() {
     let found = errors(
         "type Marked = | Mark (id: Text) (size: Nat := 3)\n\n\
          def a: Marked := Mark (id := \"a\")\n\n\
-         theorem same: Mark (id := \"a\") = Mark \"a\" 3 := rfl\n",
+         theorem same: Mark (id := \"a\") = Mark \"a\" 3 := byComputing\n",
     );
     assert!(found.is_empty(), "{found:#?}");
 }

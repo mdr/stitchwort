@@ -14,26 +14,26 @@ import Std (And, Bool, Eq, Exists, List, Nat, Option, Or, Void)
 theorem stepForwardOfBack ∀ (position: Position) (direction: Direction) (previous: Position)
     (stepped: position.step direction.opposite = Some previous):
     previous.step direction = Some position :=
-  rewrite <- oppositeOpposite direction in stepOpposite position direction.opposite previous stepped
+  rewrite <- oppositeOpposite direction then stepOpposite position direction.opposite previous stepped
 
 --| Moving forward onto an open tile, or not.
 theorem moveForwardOpen ∀ (maze: Maze) (position: Position) (facing: Heading) (ahead: Position)
     (stepped: position.step facing.toDirection = Some ahead)
     (open: maze.isOpen ahead = True):
     move maze { position, facing } Forward = Some ({ position = ahead, facing }: Reindeer) :=
-  rewrite stepped, open in rfl
+  rewrite stepped, open then byComputing
 
 theorem forwardOpen ∀ (maze: Maze) (position: Position) (facing: Heading) (ahead: Position)
     (stepped: position.step facing.toDirection = Some ahead)
     (open: maze.isOpen ahead = True):
     maze.forward { position, facing } = [{ position = ahead, facing }] :=
-  rewrite stepped, open in rfl
+  rewrite stepped, open then byComputing
 
 theorem backwardOpen ∀ (maze: Maze) (position: Position) (facing: Heading) (behind: Position)
     (stepped: position.step facing.toDirection.opposite = Some behind)
     (open: maze.isOpen behind = True):
     maze.backward { position, facing } = [{ position = behind, facing }] :=
-  rewrite stepped, open in rfl
+  rewrite stepped, open then byComputing
 
 --| Each edge out of a way of standing is a move, costing its points.
 theorem afterSound ∀ (maze: Maze) (reindeer next: Reindeer) (weight: Nat)
@@ -45,7 +45,7 @@ theorem afterSound ∀ (maze: Maze) (reindeer next: Reindeer) (weight: Nat)
         | Inr (Inl turn) => Witness Clockwise (Both (Eq.cong Some (Eq.cong Pair.fst turn)) (Eq.cong Pair.snd turn))
         | Inr (Inr (Inl turn)) =>
           Witness Counterclockwise (Both (Eq.cong Some (Eq.cong Pair.fst turn)) (Eq.cong Pair.snd turn))
-        | Inr (Inr (Inr none)) => Void.exfalso none
+        | Inr (Inr (Inr none)) => none.impossible
         | Inl forward =>
           match stepped: position.step facing.toDirection with
             | Some ahead =>
@@ -59,21 +59,22 @@ theorem afterSound ∀ (maze: Maze) (reindeer next: Reindeer) (weight: Nat)
                             (moveForwardOpen maze position facing ahead stepped open)
                             (Eq.cong Some (Eq.cong Pair.fst here)))
                           (Eq.cong Pair.snd here))
-                    | Inr none => Void.exfalso none
+                    | Inr none => none.impossible
 
 --| Each move is an edge out of where it starts, costing its points.
 theorem afterComplete ∀ (maze: Maze) (reindeer: Reindeer) (way: Move) (next: Reindeer)
     (moved: move maze reindeer way = Some next):
     (next, way.points) ∈ maze.after reindeer :=
   match reindeer, way with
-    | { position, facing }, Clockwise => rewrite <- Option.someInjective moved in List.memAppendRight _ _ _ (Inl rfl)
+    | { position, facing }, Clockwise =>
+      rewrite <- Option.someInjective moved then List.memAppendRight _ _ _ (Inl byComputing)
     | { position, facing }, Counterclockwise =>
-      rewrite <- Option.someInjective moved in List.memAppendRight _ _ _ (Inr (Inl rfl))
+      rewrite <- Option.someInjective moved then List.memAppendRight _ _ _ (Inr (Inl byComputing))
     | { position, facing }, Forward =>
       match stepped: position.step facing.toDirection with
         | Some ahead =>
           match open: maze.isOpen ahead with
-            | True => rewrite <- Option.someInjective moved in Inl rfl
+            | True => rewrite <- Option.someInjective moved then Inl byComputing
 
 --| Each edge into a way of standing on an open tile is a move to it.
 theorem beforeSound ∀ (maze: Maze):
@@ -83,51 +84,54 @@ theorem beforeSound ∀ (maze: Maze):
   | { position, facing }, holds, previous, weight, edge =>
     match List.memAppend (previous, weight) _ _ edge with
       | Inr (Inl turn) =>
-        rewrite <- Eq.cong Pair.fst turn, <- Eq.cong Pair.snd turn in
-          Witness Counterclockwise (Both (rewrite Aoc.Common.Proofs.headingTurnLeftRight facing in rfl) rfl)
+        rewrite <- Eq.cong Pair.fst turn, <- Eq.cong Pair.snd turn then
+          Witness Counterclockwise
+            (Both (rewrite Aoc.Common.Proofs.headingTurnLeftRight facing then byComputing) byComputing)
       | Inr (Inr (Inl turn)) =>
-        rewrite <- Eq.cong Pair.fst turn, <- Eq.cong Pair.snd turn in
-          Witness Clockwise (Both (rewrite Aoc.Common.Proofs.headingTurnRightLeft facing in rfl) rfl)
-      | Inr (Inr (Inr none)) => Void.exfalso none
+        rewrite <- Eq.cong Pair.fst turn, <- Eq.cong Pair.snd turn then
+          Witness Clockwise (Both (rewrite Aoc.Common.Proofs.headingTurnRightLeft facing then byComputing) byComputing)
+      | Inr (Inr (Inr none)) => none.impossible
       | Inl backward =>
         match stepped: position.step facing.toDirection.opposite with
           | Some behind =>
             match open: maze.isOpen behind with
               | True =>
                 match backward with
-                  | Inr none => Void.exfalso none
+                  | Inr none => none.impossible
                   | Inl here =>
-                    rewrite <- Eq.cong Pair.fst here, <- Eq.cong Pair.snd here in
+                    rewrite <- Eq.cong Pair.fst here, <- Eq.cong Pair.snd here then
                       Witness Forward
-                        (Both (rewrite stepForwardOfBack position facing.toDirection behind stepped, holds in rfl) rfl)
+                        (Both
+                          (rewrite stepForwardOfBack position facing.toDirection behind stepped, holds then byComputing)
+                          byComputing)
 
 --| Each move from an open tile is an edge into where it ends.
 theorem beforeComplete ∀ (maze: Maze):
     ∀ (reindeer: Reindeer) => maze.holds reindeer = True
       → ∀ (way: Move) (next: Reindeer) => move maze reindeer way = Some next → (reindeer, way.points) ∈ maze.before next
   | { position, facing }, holds, Clockwise, next, moved =>
-    rewrite <- Option.someInjective moved in
-      List.memAppendRight _ _ _ (Inr (Inl (rewrite Aoc.Common.Proofs.headingTurnLeftRight facing in rfl)))
+    rewrite <- Option.someInjective moved then
+      List.memAppendRight _ _ _ (Inr (Inl (rewrite Aoc.Common.Proofs.headingTurnLeftRight facing then byComputing)))
   | { position, facing }, holds, Counterclockwise, next, moved =>
-    rewrite <- Option.someInjective moved in
-      List.memAppendRight _ _ _ (Inl (rewrite Aoc.Common.Proofs.headingTurnRightLeft facing in rfl))
+    rewrite <- Option.someInjective moved then
+      List.memAppendRight _ _ _ (Inl (rewrite Aoc.Common.Proofs.headingTurnRightLeft facing then byComputing))
   | { position, facing }, holds, Forward, next, moved =>
     match stepped: position.step facing.toDirection with
       | Some ahead =>
         match open: maze.isOpen ahead with
           | True =>
-            rewrite <- Option.someInjective moved in
+            rewrite <- Option.someInjective moved then
               let back := stepOpposite position facing.toDirection ahead stepped
-              List.memAppendLeft _ _ _ (rewrite back, holds in Inl rfl)
+              List.memAppendLeft _ _ _ (rewrite back, holds then Inl byComputing)
 
 --| A move from an open tile ends on one.
 theorem moveHolds ∀ (maze: Maze):
     ∀ (reindeer: Reindeer) => maze.holds reindeer = True
       → ∀ (way: Move) (next: Reindeer) => move maze reindeer way = Some next → maze.holds next = True
-  | { position, facing }, holds, Clockwise, next, moved => rewrite <- Option.someInjective moved in holds
-  | { position, facing }, holds, Counterclockwise, next, moved => rewrite <- Option.someInjective moved in holds
+  | { position, facing }, holds, Clockwise, next, moved => rewrite <- Option.someInjective moved then holds
+  | { position, facing }, holds, Counterclockwise, next, moved => rewrite <- Option.someInjective moved then holds
   | { position, facing }, holds, Forward, next, moved =>
     match stepped: position.step facing.toDirection with
       | Some ahead =>
         match open: maze.isOpen ahead with
-          | True => rewrite <- Option.someInjective moved in open
+          | True => rewrite <- Option.someInjective moved then open

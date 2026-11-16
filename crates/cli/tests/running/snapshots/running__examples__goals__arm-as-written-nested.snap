@@ -1,0 +1,147 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `someTrue`
+   ╭─[ goals/arm-as-written-nested.sw:8:18 ]
+   │
+ 8 │   | Some True => ?
+   │                  ┬  
+   │                  ╰── p: Option Bool → Prop
+   │                      ⊢ p (Some True)
+───╯
+[GOAL] Goal: in `someTrue`
+   ╭─[ goals/arm-as-written-nested.sw:9:10 ]
+   │
+ 9 │   | _ => ?
+   │          ┬  
+   │          ╰── p: Option Bool → Prop
+   │              o: Option Bool
+   │              ⊢ p o
+   │ 
+   │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+───╯
+[GOAL] Goal: in `someNumber`
+    ╭─[ goals/arm-as-written-nested.sw:12:15 ]
+    │
+ 12 │   | Some 3 => ?
+    │               ┬  
+    │               ╰── p: Option Nat → Prop
+    │                   ⊢ p (Some 3)
+────╯
+[GOAL] Goal: in `someNumber`
+    ╭─[ goals/arm-as-written-nested.sw:13:10 ]
+    │
+ 13 │   | _ => ?
+    │          ┬  
+    │          ╰── p: Option Nat → Prop
+    │              o: Option Nat
+    │              ⊢ p o
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `someText`
+    ╭─[ goals/arm-as-written-nested.sw:16:17 ]
+    │
+ 16 │   | Some "a" => ?
+    │                 ┬  
+    │                 ╰── p: Option Text → Prop
+    │                     ⊢ p (Some "a")
+────╯
+[GOAL] Goal: in `someText`
+    ╭─[ goals/arm-as-written-nested.sw:17:10 ]
+    │
+ 17 │   | _ => ?
+    │          ┬  
+    │          ╰── p: Option Text → Prop
+    │              o: Option Text
+    │              ⊢ p o
+    │ 
+    │ Note: this arm is checked in 4 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `singleton`
+    ╭─[ goals/arm-as-written-nested.sw:20:12 ]
+    │
+ 20 │   | [x] => ?
+    │            ┬  
+    │            ╰── p: List Nat → Prop
+    │                x: Nat
+    │                ⊢ p [x]
+────╯
+[GOAL] Goal: in `singleton`
+    ╭─[ goals/arm-as-written-nested.sw:21:10 ]
+    │
+ 21 │   | _ => ?
+    │          ┬  
+    │          ╰── p: List Nat → Prop
+    │              l: List Nat
+    │              ⊢ p l
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `pair`
+    ╭─[ goals/arm-as-written-nested.sw:26:17 ]
+    │
+ 26 │   | (5, 'x') => ?
+    │                 ┬  
+    │                 ╰── p: Nat → Char → Prop
+    │                     n: Nat
+    │                     c: Char
+    │                     ⊢ p n c
+────╯
+[GOAL] Goal: in `pair`
+    ╭─[ goals/arm-as-written-nested.sw:27:10 ]
+    │
+ 27 │   | _ => ?
+    │          ┬  
+    │          ╰── p: Nat → Char → Prop
+    │              n: Nat
+    │              c: Char
+    │              ⊢ p n c
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the last of them
+────╯
+[GOAL] Goal: in `expression`
+    ╭─[ goals/arm-as-written-nested.sw:32:13 ]
+    │
+ 32 │   | "ab" => ?
+    │             ┬  
+    │             ╰── p: Text → Prop
+    │                 q: Nat → Text
+    │                 s: Nat
+    │                 ⊢ p "ab"
+────╯
+[GOAL] Goal: in `expression`
+    ╭─[ goals/arm-as-written-nested.sw:33:10 ]
+    │
+ 33 │   | _ => ?
+    │          ┬  
+    │          ╰── p: Text → Prop
+    │              q: Nat → Text
+    │              s: Nat
+    │              ⊢ p (q s)
+    │ 
+    │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `written`
+    ╭─[ goals/arm-as-written-nested.sw:37:13 ]
+    │
+ 37 │   | "ab" => ?
+    │             ┬  
+    │             ╰── p: Text → Prop
+    │                 ⊢ p "ab"
+────╯
+[GOAL] Goal: in `written`
+    ╭─[ goals/arm-as-written-nested.sw:38:15 ]
+    │
+ 38 │   | other => (?: p other)
+    │               ┬  
+    │               ╰── p: Text → Prop
+    │                   other: Text
+    │                   other ≠ "ab"
+    │                   ⊢ p other
+    │ 
+    │ Note 1: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+    │ 
+    │ Note 2: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
+────╯

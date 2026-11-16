@@ -1,7 +1,7 @@
 # Text literals in patterns
 
-**Status:** design note, 14 November 2026 (SW-3231, a paper lane). Nothing
-is built. Two questions for Matt are in [§9](#9-questions-for-matt): the
+**Status:** design note, 14 November 2026 (SW-3231, a paper lane). Stage 1
+(exact text patterns, SW-3284) and stage 2 (prefixes, SW-3288) are built. Two questions for Matt are in [§9](#9-questions-for-matt): the
 syntax is user-visible. It's one of the foundation pieces for the formatter
 written in Stitchwort (D3579; [self-hosted-fmt.md](self-hosted-fmt.md),
 whose findings list has this gap).

@@ -1,0 +1,136 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `underLambda`
+   ╭─[ goals/arm-as-written-gaps.sw:8:18 ]
+   │
+ 8 │   | Some True => ?
+   │                  ┬  
+   │                  ╰── p: Option Bool → Nat → Prop
+   │                      ⊢ ∀ (n: Nat) => p (Some True) n
+───╯
+[GOAL] Goal: in `underLambda`
+   ╭─[ goals/arm-as-written-gaps.sw:9:15 ]
+   │
+ 9 │   | _ => n => ?
+   │               ┬  
+   │               ╰── p: Option Bool → Nat → Prop
+   │                   o: Option Bool
+   │                   n: Nat
+   │                   ⊢ p o n
+   │ 
+   │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+───╯
+[GOAL] Goal: in `underLambdaHypothesis`
+    ╭─[ goals/arm-as-written-gaps.sw:13:18 ]
+    │
+ 13 │   | Some True => ?
+    │                  ┬  
+    │                  ╰── p: Option Bool → Prop
+    │                      q: Option Bool → Prop
+    │                      ⊢ q (Some True) → p (Some True)
+────╯
+[GOAL] Goal: in `underLambdaHypothesis`
+    ╭─[ goals/arm-as-written-gaps.sw:14:15 ]
+    │
+ 14 │   | _ => h => ?
+    │               ┬  
+    │               ╰── p: Option Bool → Prop
+    │                   q: Option Bool → Prop
+    │                   o: Option Bool
+    │                   h: q o
+    │                   ⊢ p o
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `inApplication`
+    ╭─[ goals/arm-as-written-gaps.sw:19:18 ]
+    │
+ 19 │   | Some True => ?
+    │                  ┬  
+    │                  ╰── p: Option Bool → Prop
+    │                      ⊢ p (Some True)
+────╯
+[GOAL] Goal: in `inApplication`
+    ╭─[ goals/arm-as-written-gaps.sw:20:19 ]
+    │
+ 20 │   | _ => (x => x) ?
+    │                   ┬  
+    │                   ╰── p: Option Bool → Prop
+    │                       ⊢ p (Some False)
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the last of them
+────╯
+[GOAL] Goal: in `alternatives`
+    ╭─[ goals/arm-as-written-gaps.sw:24:25 ]
+    │
+ 24 │   | Some True | None => ?
+    │                         ┬  
+    │                         ╰── p: Option Bool → Prop
+    │                             ⊢ p (Some True)
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the last of them
+────╯
+[GOAL] Goal: in `alternatives`
+    ╭─[ goals/arm-as-written-gaps.sw:25:10 ]
+    │
+ 25 │   | _ => ?
+    │          ┬  
+    │          ╰── p: Option Bool → Prop
+    │              o: Option Bool
+    │              ⊢ p o
+────╯
+[GOAL] Goal: in `family`
+    ╭─[ goals/arm-as-written-gaps.sw:33:21 ]
+    │
+ 33 │   | VCons True _ => ?
+    │                     ┬  
+    │                     ╰── p: (n: Nat) → Vec Bool n → Prop
+    │                         n✝: Nat
+    │                         xs✝: Vec Bool n✝
+    │                         ⊢ p (Succ n✝) (VCons n✝ True xs✝)
+────╯
+[GOAL] Goal: in `family`
+    ╭─[ goals/arm-as-written-gaps.sw:34:10 ]
+    │
+ 34 │   | _ => ?
+    │          ┬  
+    │          ╰── p: (n: Nat) → Vec Bool n → Prop
+    │              n: Nat
+    │              v: Vec Bool n
+    │              ⊢ p n v
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `familyElement`
+    ╭─[ goals/arm-as-written-gaps.sw:40:15 ]
+    │
+ 40 │     | VNil => ?
+    │               ┬  
+    │               ╰── p: (n: Nat) → Vec (Option Bool) n → Prop
+    │                   ⊢ p 0 VNil
+────╯
+[GOAL] Goal: in `familyElement`
+    ╭─[ goals/arm-as-written-gaps.sw:41:30 ]
+    │
+ 41 │     | VCons (Some True) _ => ?
+    │                              ┬  
+    │                              ╰── p: (n: Nat) → Vec (Option Bool) n → Prop
+    │                                  n✝: Nat
+    │                                  xs✝: Vec (Option Bool) n✝
+    │                                  ⊢ p (Succ n✝) (VCons n✝ (Some True) xs✝)
+────╯
+[GOAL] Goal: in `familyElement`
+    ╭─[ goals/arm-as-written-gaps.sw:42:20 ]
+    │
+ 42 │     | VCons _ _ => ?
+    │                    ┬  
+    │                    ╰── p: (n: Nat) → Vec (Option Bool) n → Prop
+    │                        n✝: Nat
+    │                        x✝: Option Bool
+    │                        xs✝: Vec (Option Bool) n✝
+    │                        ⊢ p (Succ n✝) (VCons n✝ x✝ xs✝)
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+────╯

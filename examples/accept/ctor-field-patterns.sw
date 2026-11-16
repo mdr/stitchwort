@@ -56,9 +56,9 @@ def startPositional: Shape → Int
   | Polygon _ _ s _ _ => s
 
 theorem sameStart ∀ (a: Shape): startNamed a = startPositional a := match a with
-  | Dot { .. } => rfl
-  | Circle { .. } => rfl
-  | Polygon { .. } => rfl
+  | Dot { .. } => byComputing
+  | Circle { .. } => byComputing
+  | Polygon { .. } => byComputing
 
 def circle: Shape := Circle 1 "c" 5 "hello"
 
@@ -101,7 +101,9 @@ def contentOr (d: a): Box a → a
 test "parameters" := contentOr 0 (Full 7 2) == 7 ∧ contentOr 0 Empty == 0
 
 -- Implicit fields are skipped by braces, as by positional patterns.
-type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons [n: Nat] { head: a, tail: Vec a n }: Vec a (Succ n)
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons [n: Nat] { head: a, tail: Vec a n }: Vec a (Succ n)
 
 def headOf (xs: Vec a (Succ n)): a := match xs with | VCons { head, .. } => head
 

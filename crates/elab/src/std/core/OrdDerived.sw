@@ -1,6 +1,6 @@
 --| The laws `deriving (Ord)` puts together:
---| [`Ordering.thenEqual`], `thenFlip`, `thenTrans`, `byTagTrans`.
--- Loaded with the core: A derived `Ord` instance writes `Ordering.byTagTrans`
+--| [`Ordering.thenEqual`], `thenFlip`, `thenTrans`, `tagsTrans`.
+-- Loaded with the core: A derived `Ord` instance writes `Ordering.tagsTrans`
 -- and its siblings in full (docs/proposals/prelude-slim.md §2.1).
 
 --| Derived orderings compare constructors by position (their tags), then
@@ -18,7 +18,7 @@ theorem Ordering.thenFlip ∀ [c d c2 d2: Ordering]
     (hc: c2 = Ordering.flip c)
     (hd: d2 = Ordering.flip d):
     Ordering.andThen c2 d2 = Ordering.flip (Ordering.andThen c d) :=
-  rewrite hc, hd in Eq.sym (Ordering.flipAndThen c d)
+  rewrite hc, hd then Eq.flipped (Ordering.flipAndThen c d)
 
 --| `Less` is transitive for a field compared by `cmp`, then the rest.
 theorem Ordering.thenTransBy ∀ (cmp: a → a → Ordering) (x y z: a) [r1 r2 r3: Ordering]
@@ -38,7 +38,7 @@ theorem Ordering.thenTransBy ∀ (cmp: a → a → Ordering) (x y z: a) [r1 r2 r
     r3
     t
     (e => Eq.cong (w => cmp w z) (exy e))
-    (e => Eq.sym (Eq.cong (w => cmp x w) (eyz e)))
+    (e => Eq.flipped (Eq.cong (w => cmp x w) (eyz e)))
     tr
     h1
     h2
@@ -51,52 +51,79 @@ theorem Ord.thenTrans ∀ [auto ord: Ord a] (x y z: a) [r1 r2 r3: Ordering]
     Ordering.andThen (Ord.compare x z) r3 = Less :=
   Ordering.thenTransBy Ord.compare x y z h1 h2 (ord.trans x y z) (ord.equal x y) (ord.equal y z) tr
 
---| Whether both comparisons are `Equal`.
-def Ordering.bothEqual: (x: Ordering) → (y: Ordering) → Bool := matches | Equal, Equal
+--| A derived comparison of two values whose tags are `i` and `j` compares
+--| the tags first, and their fields (`f`) only when the tags are equal:
+--| `if Nat.equal i j then f else Nat.compare i j`. When that is `Equal`, both
+--| the tags and the fields are.
+theorem Ordering.tagsEqual ∀ (i j: Nat) (f: Ordering):
+    (if Nat.equal i j then f else Nat.compare i j) = Equal → (i = j) ∧ (f = Equal) :=
+  match t: Nat.equal i j with
+    | True => h => Both (Nat.equalSound i j t) h
+    | False => h => Void.impossible (Nat.equalFalse i j t (Nat.compareEqual i j h))
 
-theorem Ordering.notBothEqual ∀ (c d: Ordering)
-    (t: Ordering.bothEqual c d = False)
-    (e1: c = Equal)
-    (e2: d = Equal):
-    Void :=
-  match c, d with | Equal, Equal => Bool.trueNotFalse t
+--| [`Ordering.tagsFlip`] with the tags' tests as variables `b` and `c`.
+theorem Ordering.tagsFlipBy ∀ (i j: Nat) (b c: Bool) (f g: Ordering)
+    (hb: Nat.equal i j = b)
+    (hc: Nat.equal j i = c)
+    (e: i = j → g = Ordering.flip f):
+    (if c then g else Nat.compare j i) = Ordering.flip (if b then f else Nat.compare i j) :=
+  match b, c with
+    | True, True => e (Nat.equalSound i j hb)
+    | True, False => Void.impossible (Nat.equalFalse j i hc (Nat.equalSound i j hb).flipped)
+    | False, True => Void.impossible (Nat.equalFalse i j hb (Nat.equalSound j i hc).flipped)
+    | False, False => Nat.compareFlip i j
 
---| As [`Ordering.andThenTrans`], where the rest need only be transitive when
---| both first comparisons are `Equal`.
-theorem Ordering.andThenTransWhen ∀ (c1 c2 c3 r1 r2 r3: Ordering)
-    (t: c1 = Less → c2 = Less → c3 = Less)
-    (e1: c1 = Equal → c3 = c2)
-    (e2: c2 = Equal → c3 = c1)
-    (tr: c1 = Equal → c2 = Equal → r1 = Less → r2 = Less → r3 = Less)
-    (h1: Ordering.andThen c1 r1 = Less)
-    (h2: Ordering.andThen c2 r2 = Less):
-    Ordering.andThen c3 r3 = Less :=
-  match c1, c2 with
-    | Less, Less => rewrite t rfl rfl in rfl
-    | Less, Equal => rewrite e2 rfl in rfl
-    | Equal, Less => rewrite e1 rfl in rfl
-    | Equal, Equal => rewrite e1 rfl in tr rfl rfl h1 h2
+--| Comparing the other way round, tags first: the fields' comparisons `f`
+--| and `g` need only flip when the tags are equal.
+theorem Ordering.tagsFlip ∀ (i j: Nat) (f g: Ordering)
+    (e: i = j → g = Ordering.flip f):
+    (if Nat.equal j i then g else Nat.compare j i) = Ordering.flip (if Nat.equal i j then f else Nat.compare i j) :=
+  Ordering.tagsFlipBy i j (Nat.equal i j) (Nat.equal j i) f g byComputing byComputing e
 
---| Transitivity with the tags compared first. A derived `trans` uses it for
---| values not all of one constructor, where `tr` is never needed: the tags
---| can't all be equal.
--- (The rest are explicit here: where the tags are numbers, the comparisons
--- compute without them.)
-theorem Ordering.byTagTrans ∀ (i j k: Nat) (r1 r2 r3: Ordering)
-    (h1: Ordering.andThen (Nat.compare i j) r1 = Less)
-    (h2: Ordering.andThen (Nat.compare j k) r2 = Less)
-    (tr: Nat.compare i j = Equal → Nat.compare j k = Equal → r1 = Less → r2 = Less → r3 = Less):
-    Ordering.andThen (Nat.compare i k) r3 = Less :=
-  Ordering.andThenTransWhen
-    (Nat.compare i j)
-    (Nat.compare j k)
-    (Nat.compare i k)
-    r1
-    r2
-    r3
-    (Nat.compareTrans i j k)
-    (e => Eq.cong (w => Nat.compare w k) (Nat.compareEqual i j e))
-    (e => Eq.sym (Eq.cong (w => Nat.compare i w) (Nat.compareEqual j k e)))
+--| [`Ordering.tagsTrans`] with the tags' tests as variables `b`, `c` and `d`.
+theorem Ordering.tagsTransBy ∀ (i j k: Nat) (b c d: Bool) (f g h: Ordering)
+    (hb: Nat.equal i j = b)
+    (hc: Nat.equal j k = c)
+    (hd: Nat.equal i k = d)
+    (tr: i = j → j = k → f = Less → g = Less → h = Less)
+    (h1: (if b then f else Nat.compare i j) = Less)
+    (h2: (if c then g else Nat.compare j k) = Less):
+    (if d then h else Nat.compare i k) = Less :=
+  match b, c, d with
+    | True, True, True => tr (Nat.equalSound i j hb) (Nat.equalSound j k hc) h1 h2
+    | True, True, False =>
+      Void.impossible (Nat.equalFalse i k hd (Eq.trans (Nat.equalSound i j hb) (Nat.equalSound j k hc)))
+    | True, False, True =>
+      Void.impossible (Nat.equalFalse j k hc (Eq.trans (Nat.equalSound i j hb).flipped (Nat.equalSound i k hd)))
+    | True, False, False => rewrite Nat.equalSound i j hb then h2
+    | False, True, True =>
+      Void.impossible (Nat.equalFalse i j hb (Eq.trans (Nat.equalSound i k hd) (Nat.equalSound j k hc).flipped))
+    | False, True, False => rewrite Eq.flipped (Nat.equalSound j k hc) then h1
+    | False, False, True =>
+      let less: Nat.compare i k = Less := Nat.compareTrans i j k h1 h2
+      let equal: Nat.compare i k = Equal :=
+        Eq.trans (Eq.cong (x => Nat.compare i x) (Nat.equalSound i k hd).flipped) (Nat.compareSelf i)
+      Void.impossible (Ordering.equalNotLess (Eq.trans equal.flipped less))
+    | False, False, False => Nat.compareTrans i j k h1 h2
+
+--| `Less` is transitive for comparisons that compare tags first: the fields'
+--| comparisons `f`, `g` and `h` need only be transitive when all three tags
+--| are equal.
+theorem Ordering.tagsTrans ∀ (i j k: Nat) (f g h: Ordering)
+    (tr: i = j → j = k → f = Less → g = Less → h = Less)
+    (h1: (if Nat.equal i j then f else Nat.compare i j) = Less)
+    (h2: (if Nat.equal j k then g else Nat.compare j k) = Less):
+    (if Nat.equal i k then h else Nat.compare i k) = Less :=
+  Ordering.tagsTransBy i j k
+    (Nat.equal i j)
+    (Nat.equal j k)
+    (Nat.equal i k)
+    f
+    g
+    h
+    byComputing
+    byComputing
+    byComputing
     tr
     h1
     h2

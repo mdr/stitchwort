@@ -17,7 +17,7 @@ def stepsFrom (cavern: Cavern): (steps: Nat) → Cavern
 
 theorem stepsFromSucc ∀ (steps: Nat) (cavern: Cavern): stepsFrom cavern (Succ steps) = (stepsFrom cavern steps).step :=
   match steps with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ steps => stepsFromSucc steps cavern.step
 
 --| The program's steps are a run...
@@ -29,19 +29,21 @@ theorem programRun ∀ (steps: Nat) (cavern: Cavern):
       let flashed := cavern.flashers.has
       let spec := flashersCorrect cavern
       let rest: Run (after cavern flashed) steps (stepsFrom cavern.step steps) (cavern.step.flashesIn steps) :=
-        rewrite <- stepCorrect cavern flashed spec in programRun steps cavern.step
-      rewrite zerosCorrect cavern flashed spec in Step flashed spec rest
+        rewrite <- stepCorrect cavern flashed spec then programRun steps cavern.step
+      rewrite zerosCorrect cavern flashed spec then Step flashed spec rest
 
 --| ...and every run is the program's.
 theorem runIsProgram ∀ [cavern: Cavern] [steps: Nat] [final: Cavern] [total: Nat]
     (run: Run cavern steps final total):
     final = stepsFrom cavern steps ∧ total = cavern.flashesIn steps :=
   match run with
-    | Start _ => Both rfl rfl
+    | Start _ => Both byComputing byComputing
     | Step flashed spec rest =>
       let (Both finalSame totalSame) := runIsProgram rest
-      let same: after cavern flashed = cavern.step := Eq.sym (stepCorrect cavern flashed spec)
-      Both (rewrite finalSame, same in rfl) (rewrite totalSame, same, <- zerosCorrect cavern flashed spec in rfl)
+      let same: after cavern flashed = cavern.step := (stepCorrect cavern flashed spec).flipped
+      Both
+        (rewrite finalSame, same then byComputing)
+        (rewrite totalSame, same, <- zerosCorrect cavern flashed spec then byComputing)
 
 --| Part 1: the program's answer is the spec's...
 theorem part1Correct ∀ (cavern: Cavern): Part1Answer cavern cavern.solvePart1 :=
@@ -49,7 +51,7 @@ theorem part1Correct ∀ (cavern: Cavern): Part1Answer cavern cavern.solvePart1 
 
 --| ...and the spec has no other.
 theorem part1Unique ∀ (cavern: Cavern) (answer: Nat) (spec: Part1Answer cavern answer): answer = cavern.solvePart1 :=
-  Exists.elim spec (final run => And.right (runIsProgram run))
+  Exists.elim spec (final run => (runIsProgram run).right)
 
 --| Every octopus flashes in step k + 1 exactly when the program's cavern
 --| after it is all 0.
@@ -58,10 +60,10 @@ theorem allFlashOfZeros ∀ (cavern: Cavern) (k: Nat)
     AllFlashIn cavern (Succ k) :=
   let before := stepsFrom cavern k
   let spec := flashersCorrect before
-  let all := rewrite allZeroCorrect before (before.flashers.has) spec at zeros in zeros
+  let all := rewrite allZeroCorrect before (before.flashers.has) spec at zeros then zeros
   let each := List.allToAll (cell => before.flashers.has cell.fst) before.grid.cells all
   Both
-    (omega)
+    (arithmetic)
     (Witness before
       (Witness
         (cavern.flashesIn k)
@@ -79,10 +81,10 @@ theorem zerosOfAllFlash ∀ (cavern: Cavern) (k: Nat)
   Exists.elim found (before rest =>
     Exists.elim rest (total both =>
       let (Both run flashedAll) := both
-      let same: before = stepsFrom cavern k := And.left (runIsProgram run)
+      let same: before = stepsFrom cavern k := (runIsProgram run).left
       Exists.elim flashedAll (flashed both =>
         let (Both flashers each) := both
-        rewrite <- same, allZeroCorrect before flashed flashers in
+        rewrite <- same, allZeroCorrect before flashed flashers then
           List.allOfAll
             (cell => flashed cell.fst)
             before.grid.cells
@@ -99,40 +101,42 @@ theorem syncFound ∀ (cavern: Cavern) (answer m k: Nat)
       match e: (stepsFrom cavern k).step.allZero with
         | True =>
           let same: Succ k = answer := Option.someInjective found
-          rewrite <- same in Both (allFlashOfZeros cavern k e) noneBefore
+          rewrite <- same then Both (allFlashOfZeros cavern k e) noneBefore
         | False =>
           syncFound cavern answer m
             (Succ k)
             (earlier below flashes =>
               if early: Succ earlier ≤ Succ k then noneBefore earlier early flashes
               else
-                let same: earlier = Succ k := omega
-                Bool.falseNotTrue (Eq.trans (Eq.sym e) (zerosOfAllFlash cavern k (rewrite same at flashes in flashes))))
-            (rewrite stepsFromSucc k cavern in found)
+                let same: earlier = Succ k := arithmetic
+                Bool.falseNotTrue
+                  (Eq.trans e.flipped (zerosOfAllFlash cavern k (rewrite same at flashes then flashes))))
+            (rewrite stepsFromSucc k cavern then found)
 
 --| Part 2: if the program answers, its answer is the first step in which
 --| every octopus flashes...
 theorem part2Correct ∀ (cavern: Cavern) (answer: Nat)
     (found: cavern.solvePart2 = Some answer):
     Part2Answer cavern answer :=
-  syncFound cavern answer syncLimit 0 (earlier below flashes => Void.exfalso (omega [And.left flashes])) found
+  syncFound cavern answer syncLimit 0 (earlier below flashes => Void.impossible (arithmetic [flashes.left])) found
 
 --| The search from step k + 1 finding nothing in m steps.
 theorem syncNone ∀ (cavern: Cavern):
     ∀ (m k: Nat) => (stepsFrom cavern k).firstSync (Succ k) m = None
       → ∀ (number: Nat) => Succ k ≤ number → number ≤ k + m → ¬(AllFlashIn cavern number)
-  | Zero, k, none, number, low, high, flashes => omega
+  | Zero, k, none, number, low, high, flashes => arithmetic
   | Succ m, k, none, number, low, high, flashes =>
     match e: (stepsFrom cavern k).step.allZero with
       | False =>
         if first: number ≤ Succ k then
-          let same: number = Succ k := omega
-          Bool.falseNotTrue (Eq.trans (Eq.sym e) (zerosOfAllFlash cavern k (rewrite same at flashes in flashes)))
-        else syncNone cavern m (Succ k) (rewrite stepsFromSucc k cavern in none) number (omega) (omega) flashes
+          let same: number = Succ k := arithmetic
+          Bool.falseNotTrue (Eq.trans e.flipped (zerosOfAllFlash cavern k (rewrite same at flashes then flashes)))
+        else
+          syncNone cavern m (Succ k) (rewrite stepsFromSucc k cavern then none) number (arithmetic) (arithmetic) flashes
 
 --| ...and if it answers nothing, no step up to `syncLimit` is one.
 theorem part2None ∀ (cavern: Cavern)
     (none: cavern.solvePart2 = None) (number: Nat)
     (high: number ≤ syncLimit):
     ¬(AllFlashIn cavern number) :=
-  flashes => syncNone cavern syncLimit 0 none number (And.left flashes) (omega) flashes
+  flashes => syncNone cavern syncLimit 0 none number flashes.left (arithmetic) flashes

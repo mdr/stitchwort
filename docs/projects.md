@@ -221,7 +221,7 @@ An import item may be a namespace under the import's namespace. Then the
 item's name is a qualifier for that namespace in this file: `Spec.x` means
 `Aoc.Year2024.Day13.Spec.x`. Nothing in it is imported: `x` alone still
 needs `import Aoc.Year2024.Day13.Spec (x)` or `(..)`. The library works the
-same way (`import Std (Eq)`, then `Eq.sym`).
+same way (`import Std (Eq)`, then `Eq.flipped`).
 ([import-aliases.md](proposals/import-aliases.md))
 
 - **It counts as using the namespace**, which is checked first, whatever
@@ -274,7 +274,7 @@ name that resolves into `M`.
   are reported, and it's counted as relying on the broken declaration
   ("relies on a declaration with an error, checked assuming its
   statement"), never as finished. A declaration that has to compute through
-  the broken one (`rfl` on `beats Rock Paper` while `beats` has an error),
+  the broken one (`byComputing` on `beats Rock Paper` while `beats` has an error),
   or uses one whose statement is broken (or a type, interface, ability or
   instance with an error), can't be checked until it's fixed; it reports
   nothing itself. Instead each file with such declarations gets one
@@ -295,6 +295,12 @@ name that resolves into `M`.
   `check`: an edit that breaks a namespace rechecks the namespaces that use
   it, and a half-typed body leaves its statement, so their answers change
   only where they use the declaration being typed.
+  A plain `check` also shows the syntax errors first, drops the warnings of
+  the file that has them, and doesn't list the diagnostics of the
+  namespaces that use it, which see it without the declarations it lost (a
+  flood of unknown names), except their `E-USES-FAILED`, which leads back to
+  it: one `W-AFTER-SYNTAX-ERROR` says how many were
+  left out and in which namespaces (SW-3475).
 
 ## `auto` across files
 
@@ -349,7 +355,8 @@ a namespace can have several programs; a type that can't be run is
 namespace name alone (`run Day05`) names no function and is `E-RUN-UNKNOWN`
 ([syntax.md](syntax.md#entry-points)).
 
-A path argument is always **file mode**:
+A path argument to `run` or `check` is always **file mode**, and so is a path
+to `test` that isn't a project's source file:
 
 ```
 stitchwort run path/file.sw
@@ -361,7 +368,12 @@ from anything but `Std`, or a qualified name reaching outside the file and
 `Std`, is `E-FILE-MODE`. File mode is a reading of the file on its own, so
 its meaning can differ from the project's when the file has sibling files.
 
-The same path rule applies to the other commands:
+`stitchwort test path/file.sw` is the exception: when the path is a source
+file of a project (found from the file's folder up, or with `--project`), the
+file is tested in the project. Its namespace and what it uses are loaded, and
+only the tests declared in that file run.
+
+Each command's path argument:
 
 ```
 stitchwort check                  -- the whole project
@@ -372,14 +384,16 @@ stitchwort check path/file.sw     -- file mode
 
 stitchwort test                   -- every test in the project
 stitchwort test Day05             -- Day05's tests, its children's, and its dependencies'
-stitchwort test path/file.sw      -- file mode
+stitchwort test path/file.sw      -- the file's tests, in its project
+                                  -- (file mode outside one)
 ```
 
-One command reads a path in the project rather than in file mode:
+Two commands read a path in the project rather than in file mode:
 `stitchwort search --at path/file.sw:LINE`, what closes the goal `?` there,
 reads the file in its project (found from the file's folder up), with its
 namespace and imports, and searches the project's lemmas as well as the
-library's ([syntax.md](syntax.md#what-closes-this--stitchwort-search---at)).
+library's ([syntax.md](syntax.md#what-closes-this--stitchwort-search---at));
+and `stitchwort test path/file.sw` tests the file in its project, as above.
 
 `check` accepts several names at once. `test` and `run` take a single target.
 A namespace target may be dotted, as in `check Aoc.Year2025.Day05`. On success `check` prints one line to standard error, `checked 43 namespaces of aoc` (a file: `checked path/file.sw`); errors print as before and the exit status is unchanged.
@@ -403,13 +417,14 @@ the working directory. `--cache-dir` overrides both.
 | `E-PROJECT-CONFIG` | `stitchwort.yaml` is invalid: unknown key, bad value, missing or outside source folder, or a nested project. |
 | `E-NO-NAMESPACE` | A file in a project has no namespace line. |
 | `E-NAMESPACE-NOT-FIRST` | A namespace line comes after an import or a declaration. |
-| `E-FILE-MODE` | A file run, checked or tested on its own uses something outside `Std`. |
+| `E-FILE-MODE` | A file run, checked or tested on its own uses something outside `Std`; `test` reads a project's source file in the project. |
 | `E-NAMESPACE-CYCLE` | Namespaces depend on each other in a cycle. |
 | `E-NAMESPACE-RESERVED` | A namespace's first component is a library namespace or `Main`. |
 | `E-NAMESPACE-CLASH` | A dotted namespace name is also a type declared in its parent namespace. |
 | `E-FOREIGN-NAMESPACE` | A file adds something other than a function to another namespace's type, or names another namespace as a declaration's qualifier. |
 | `E-EXTENSION-CLASH` | A function added to another namespace's type has the name of one of the type's own. |
 | `E-USES-FAILED` | Declarations of this file use a declaration of another namespace that has an error, so they can't be checked until it's fixed: one per broken name per file, listing what waits. Also an import of a name that namespace no longer declares because it has a syntax error (`A` has a syntax error, so `beats` can't be found). |
+| `W-AFTER-SYNTAX-ERROR` | `check` left out the diagnostics, other than `E-USES-FAILED`, of namespaces that use one with a syntax error: how many, and in which namespaces. Fix the syntax error to see them. |
 | `E-NAMESPACE-UNKNOWN` | A command named a namespace the project doesn't have. |
 | `E-UNKNOWN-THEOREM` | `check --only` named something that is not a theorem of the namespaces being checked. |
 | `E-IMPORT-WILDCARD` | `import N (..)` names the file's own namespace, `Std`, or a part of a namespace instead of a whole one. |

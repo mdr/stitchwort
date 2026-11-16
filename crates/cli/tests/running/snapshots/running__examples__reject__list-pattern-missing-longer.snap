@@ -11,3 +11,4 @@ expression: output
    │ │                  
    │ ╰────────────────── missing case: no arm matches `[_, _, .._]`
 ───╯
+try: add `| [y, z, ..xs] => ?`

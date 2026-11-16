@@ -14,15 +14,15 @@ theorem repairedHolds ∀ (program: Program) (index: Nat) (instruction: Instruct
     Holds
       ({ program.code | byPosition = program.code.byPosition.insert index instruction })
       (program.replaceAt index instruction) :=
-  Both (Eq.sym (List.lengthSet program.instructions index instruction)) (position =>
+  Both (Eq.flipped (List.lengthSet program.instructions index instruction)) (position =>
     match d: position == index with
       | True =>
-        rewrite d.read, Map.getInsert index instruction program.code.byPosition in
-          Eq.sym (List.getSet program.instructions index instruction below)
+        rewrite d.read, Map.getInsert index instruction program.code.byPosition then
+          Eq.flipped (List.getSet program.instructions index instruction below)
       | False =>
         let differ: position ≠ index := same => d.read same
         rewrite Map.getInsertOther index instruction position differ program.code.byPosition,
-            List.getSetOther program.instructions index instruction position differ in
+            List.getSetOther program.instructions index instruction position differ then
           Map.getByPosition program.instructions position)
 
 theorem repairIs ∀ (program: Program) (index: Nat) (instruction repaired: Instruction)
@@ -38,9 +38,9 @@ theorem repairIs ∀ (program: Program) (index: Nat) (instruction repaired: Inst
       (other differ => List.getSetOther program.instructions index repaired other differ)
       (match instruction with
         | { operation = Jmp, argument } =>
-          Witness argument (Inl (Both listed (rewrite Option.someInjective swapped in placed)))
+          Witness argument (Inl (Both listed (rewrite Option.someInjective swapped then placed)))
         | { operation = Nop, argument } =>
-          Witness argument (Inr (Both listed (rewrite Option.someInjective swapped in placed)))))
+          Witness argument (Inr (Both listed (rewrite Option.someInjective swapped then placed)))))
 
 --| Repairing `instruction` at `position` makes the program terminate with
 --| `answer`, as the spec says.
@@ -62,7 +62,7 @@ theorem repairTerminates ∀ (program: Program) (position: Nat) (instruction: In
               Witness fixed
                 (Both
                   (repairIs program position instruction repaired listed r)
-                  (Witness positions (Witness last (Both runs (Both atEnd (rewrite <- found in same))))))
+                  (Witness positions (Witness last (Both runs (Both atEnd (rewrite <- found then same))))))
 
 theorem part2Rules ∀ (program: Program) (answer: Int)
     (solved: Fail.toResult (() => solvePart2 program) = Ok answer):
@@ -84,4 +84,4 @@ theorem part2Rules ∀ (program: Program) (answer: Int)
         | Witness (position, instruction) (Both member made) =>
           let listed := (List.memWithIndex program.instructions position instruction).forward member
           Witness position
-            (rewrite <- Result.okInjective ran in repairTerminates program position instruction found listed made)
+            (rewrite <- Result.okInjective ran then repairTerminates program position instruction found listed made)

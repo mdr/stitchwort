@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `rfl`
+   ╭─[ reject/other-systems-rfl.sw:6:27 ]
+   │
+ 6 │ theorem two: 1 + 1 = 2 := rfl
+   │                           ─┬─  
+   │                            ╰─── not in scope
+   │ 
+   │ Note: `rfl` isn't a Stitchwort name: a proof that both sides compute to the same value is written `byComputing`
+───╯

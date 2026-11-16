@@ -3,11 +3,11 @@
 //! It builds no trees: it records where each construct starts and ends
 //! ([`Mark`]s), from which the lossless tree is built ([`crate::tree`]), and
 //! the compiler's tree is lowered from that ([`crate::lower`]). It decides
-//! only how the tokens group, from the tokens and the marks so far; checks
-//! on what has been grouped, such as a parameter named twice, are the
-//! lowering's. The few messages that quote a construct's span as the
-//! compiler's tree has it lower that construct on the spot
-//! ([`Parser::lowered`]), only when the message is made.
+//! only how the tokens group, from the tokens; checks on what has been
+//! grouped, such as a parameter named twice, are the lowering's. (A few
+//! still read the marks back to make a message or a choice, which breaks the
+//! rule in [`crate::tree`]'s "Marks" until docs/proposals/parser-end-state.md's
+//! T2 moves them to the lowering.)
 //!
 //! Layout rule: a declaration starts at column 0, and every following line
 //! that is indented belongs to it. Definitions are `def` and `theorem`
@@ -20,11 +20,9 @@
 //! further continue the line above. A line at the block's column right after
 //! one ending in an operator (like `->`) continues it too.
 
-use crate::ast::{Expr, FailedName, MatchKind, Module, Name, NamespaceDecl, Pattern};
-use crate::lexer::{
-    LexFailure, Tok, Token, Trivia, lex, lex_recovering_with_trivia, lex_with_trivia,
-};
-use crate::lower::{Lower, LoweredDecl, Unsupported};
+use crate::ast::{Expr, MatchKind, Pattern};
+use crate::lexer::{Tok, Token, Trivia};
+use crate::lower::Lower;
 use crate::negation::{
     argument_bang, argument_minus, argument_prefix, negative_numeral, opens_atom,
 };
@@ -33,16 +31,27 @@ use crate::tree::{DeclMarks, Mark, NodeKind, Recovery, RecoveryPoint, SyntaxFile
 use crate::{Diagnostic, FileId, Span};
 
 mod declarations;
+mod entry;
+mod failed_names;
 mod sections;
 use declarations::misplaced_attributes;
 
+#[cfg(test)]
+pub(crate) use entry::parse_with_tree;
+pub use entry::{
+    parse_expression, parse_expression_tree, parse_expression_within, parse_module,
+    parse_module_and_tree, parse_module_recovering, parse_module_within, parse_namespace_line,
+    parse_tree,
+};
+pub(crate) use failed_names::{failed_names_in, failed_names_of};
+
 /// The parser's results box their error: with an unboxed `Diagnostic`,
-/// every `Result<Expr>` would be as large as a `Diagnostic`, and each level
+/// every `Result<()>` would be as large as a `Diagnostic`, and each level
 /// of a nested expression (`((…(0)…))`) holds several on the stack. When
 /// b0f1a3ea (SW-914) grew `Diagnostic` from 96 to 112 bytes, each level took
 /// about 350 bytes more and the bench's check-nested-parens (12,000
-/// brackets) stopped parsing. An error happens once per parse at most, so
-/// the box costs nothing that matters.
+/// brackets) stopped parsing. An error happens
+/// once per declaration at most, so the box costs nothing that matters.
 type Result<T> = std::result::Result<T, Box<Diagnostic>>;
 
 /// What the public functions return: the error unboxed.
@@ -59,608 +68,15 @@ pub const DEFAULT_STACK: usize = 1536 * 1024;
 /// wrap (SW-902).
 pub const MAX_UNIVERSE_LEVEL: u32 = 65535;
 
-pub fn parse_module(file: FileId, text: &str) -> std::result::Result<Module, Vec<Diagnostic>> {
-    parse_module_within(file, text, DEFAULT_STACK)
-}
-
-pub fn parse_expression(file: FileId, text: &str) -> Parsed<Expr> {
-    parse_expression_within(file, text, DEFAULT_STACK)
-}
-
-/// Parses a module, using at most `stack` bytes of stack: a program nested
-/// more deeply than that allows is an `E-RESOURCE` error, not a crash.
-pub fn parse_module_within(
-    file: FileId,
-    text: &str,
-    stack: usize,
-) -> std::result::Result<Module, Vec<Diagnostic>> {
-    match parse_module_recovering(file, text, stack) {
-        (module, errors) if errors.is_empty() => Ok(module),
-        (_, errors) => Err(errors),
-    }
-}
-
-/// Like [`parse_module_within`], but keeps going after a syntax error
-/// (docs/proposals/language-server.md, stage 0a). Parsing recovers at
-/// declaration boundaries: a declaration that doesn't parse is left out of
-/// the module, and its names (found by scanning its tokens) are in
-/// `Module::failed`, so the declarations after it that use them aren't
-/// reported as using unknown names. A `def` or `theorem` whose header
-/// parsed and whose body didn't is kept instead, as its signature with
-/// `syntax_error` set and no equations. Returns the declarations that did
-/// parse and every error, in file order. A lexical error is recovered from
-/// the same way: the declaration holding it (see [`crate::lexer::lex_recovering`]) is
-/// left out, its names are in `failed`, and the rest of the file parses. A
-/// first declaration not at the start of a line stops everything: the
-/// module is empty.
-pub fn parse_module_recovering(
-    file: FileId,
-    text: &str,
-    stack: usize,
-) -> (Module, Vec<Diagnostic>) {
-    let (module, errors, _) = parse_module_and_tree(file, text, stack);
-    (module, errors)
-}
-
-/// [`parse_tokens`] on what [`lex_recovering_with_trivia`] read, with the
-/// declarations that didn't lex (`failures`) recovered from: their errors
-/// among the others in file order, and each an `Error` root over its raw
-/// text among the declarations' marks.
-fn parse_lexed(
-    file: FileId,
-    text: &str,
-    stack: usize,
-    tokens: &[Token],
-    failures: Vec<LexFailure>,
-) -> (Vec<Diagnostic>, Vec<DeclMarks>) {
-    let (mut errors, mut trees) = parse_tokens(file, text, stack, tokens);
-    let raw_at = trees.len();
-    for failure in failures {
-        errors.push(failure.error);
-        // At the first token after it, which the blanking left where it was.
-        let next = tokens.partition_point(|t| (t.span.start as usize) < failure.range.start);
-        trees.push(DeclMarks {
-            tokens: next as u32..next as u32,
-            root: NodeKind::Error,
-            marks: Vec::new(),
-            raw: Some(failure.range.start as u32..failure.range.end as u32),
-            signature_kept: false,
-            recovered: Vec::new(),
-        });
-    }
-    errors.sort_by_key(|error| error.primary_span().map(|span| span.start));
-    if trees.len() > raw_at {
-        // Into file order: a declaration that didn't lex goes before the one
-        // starting at the token after it. The sort is stable, so the raw
-        // ones keep their order among themselves.
-        trees.sort_by_key(|tree| (tree.tokens.start, tree.raw.is_none()));
-    }
-    (errors, trees)
-}
-
-/// The names of the declaration in `text[range]`, which has a lexical error,
-/// read from the part that lexes: the lines before the error's, or else the
-/// text before the error itself.
-pub(crate) fn failed_names_in(
-    file: FileId,
-    text: &str,
-    range: &std::ops::Range<usize>,
-    error_at: Option<Span>,
-) -> Vec<FailedName> {
-    let error_start = error_at.map_or(range.start, |span| span.start as usize);
-    let error_line = text[..error_start].rfind('\n').map_or(0, |n| n + 1);
-    let before_error_line = error_line.max(range.start);
-    for end in [before_error_line, error_start] {
-        if end <= range.start {
-            continue;
-        }
-        let piece = &text[range.start..end];
-        // The tokens' positions are in the piece, which starts the same place
-        // as in the file only if it's padded.
-        let padded = format!("{}{piece}", " ".repeat(range.start));
-        if let Ok(tokens) = lex(file, &padded) {
-            let names = failed_names_of(&tokens, error_at);
-            if !names.is_empty() {
-                return names;
-            }
-        }
-    }
-    Vec::new()
-}
-
-/// The lossless tree of a file ([`crate::tree`]), from the same parse as
-/// [`parse_module_recovering`]'s, using at most `stack` bytes of stack. A
-/// declaration that doesn't parse is an `Error` node, holding the nodes of
-/// what parsed before the error; one that doesn't lex is an `Error` node
-/// holding its raw text ([`crate::tree::Node::raw_text_range`]).
-pub fn parse_tree(file: FileId, text: &str, stack: usize) -> SyntaxFile {
-    parse_with_tree(file, text, stack).1
-}
-
-/// [`parse_module_recovering`]'s module and errors, and the lossless tree,
-/// from one parse: the module is the tree's lowering ([`crate::lower`]).
-pub fn parse_module_and_tree(
-    file: FileId,
-    text: &str,
-    stack: usize,
-) -> (Module, Vec<Diagnostic>, SyntaxFile) {
-    let (mut errors, tree) = parse_with_tree(file, text, stack);
-    let module = lowered_module(&tree, text, file, stack, &mut errors);
-    (module, errors, tree)
-}
-
-/// The module `tree` lowers to, with `errors` (the parse's) given the
-/// lowering's own: a declaration the lowering refuses
-/// ([`Unsupported::Invalid`], a check on what was written, such as a
-/// repeated parameter) or can't lower is failed, like one that didn't parse,
-/// with that error in place of any the parser found in it later.
-fn lowered_module(
-    tree: &SyntaxFile,
-    text: &str,
-    file: FileId,
-    stack: usize,
-    errors: &mut Vec<Diagnostic>,
-) -> Module {
-    let lower = Lower::new(tree, text, file, errors).with_stack(stack);
-    let (mut module, unlowered) = lower.module();
-    if unlowered.is_empty() {
-        return module;
-    }
-    let roots: Vec<_> = tree.decls().collect();
-    let kept: Vec<bool> = unlowered
-        .iter()
-        .map(|(i, what)| lower.signature_despite(roots[*i], what).is_some())
-        .collect();
-    for ((i, what), kept) in unlowered.into_iter().zip(kept) {
-        let tokens = &tree.tokens()[roots[i].token_range()];
-        let at = tokens.first().map_or(Span::NOWHERE, |token| token.span);
-        let error = unlowered_error(what, at);
-        // Without recovery a declaration reports its first error only.
-        if let (Some(from), Some(range)) = (error.primary_span(), roots[i].span()) {
-            errors.retain(|e| {
-                e.primary_span()
-                    .is_none_or(|s| s.start < from.start || s.start >= range.end)
-            });
-        }
-        if !kept {
-            module
-                .failed
-                .extend(failed_names_of(tokens, error.primary_span()));
-        }
-        errors.push(error);
-    }
-    module.failed.sort_by_key(|failed| failed.name.span.start);
-    errors.sort_by_key(|error| error.primary_span().map(|span| span.start));
-    module
-}
-
-/// The error for a declaration or expression starting at `at` that parsed
-/// and that the lowering refused or couldn't lower.
-fn unlowered_error(what: Unsupported, at: Span) -> Diagnostic {
-    match what {
-        Unsupported::TooDeep(span) => nested_too_deeply(span),
-        Unsupported::Invalid(error) => *error,
-        what => Diagnostic::error(
-            "E-INTERNAL",
-            format!("internal error: the parser couldn't build this ({what})"),
-        )
-        .with_label(at, "in this declaration")
-        .with_note("this is a bug in the compiler's parser, not in your program"),
-    }
-}
-
 /// `E-RESOURCE`, from the parser or the lowering running out of stack at
 /// `at`.
-fn nested_too_deeply(at: Span) -> Diagnostic {
+pub(super) fn nested_too_deeply(at: Span) -> Diagnostic {
     Diagnostic::error(
         "E-RESOURCE",
         "ran out of resources: the program is nested too deeply to parse",
     )
     .with_label(at, "nested too deeply here")
     .with_note("this isn't a syntax error: there's a limit on how deeply expressions nest")
-}
-
-/// The parse's errors and the lossless tree.
-pub(crate) fn parse_with_tree(
-    file: FileId,
-    text: &str,
-    stack: usize,
-) -> (Vec<Diagnostic>, SyntaxFile) {
-    let (lexed, failures) = lex_recovering_with_trivia(file, text);
-    let (errors, groups) = parse_lexed(file, text, stack, &lexed.tokens, failures);
-    let tree = SyntaxFile::build(lexed.tokens, lexed.trivia, lexed.eof, lexed.bars, groups);
-    (errors, tree)
-}
-
-/// How much of the `stack` a parse may use the parser lets it use: half.
-/// The lowering after it gets all of it, since for some shapes it takes
-/// more stack per level than the parser, whose frames hold no trees
-/// (`f (f (…))` and `(.f (.f …))` up to 1.55 times as much at the
-/// parser's deepest in debug builds, 1.2 in release ones, SW-3213), so
-/// what parses always lowers. Half still parses 18,000 nested brackets in
-/// release builds.
-fn parser_limit(stack: usize) -> StackLimit {
-    StackLimit::from_here(stack / 2)
-}
-
-/// Parses a file's tokens, declaration by declaration, recovering as
-/// [`parse_module_recovering`] says, into each declaration's marks for the
-/// lossless tree.
-fn parse_tokens(
-    file: FileId,
-    text: &str,
-    stack: usize,
-    tokens: &[Token],
-) -> (Vec<Diagnostic>, Vec<DeclMarks>) {
-    let limit = parser_limit(stack);
-    // What came before: a namespace line, an import, a declaration that
-    // parsed (or kept its signature).
-    let (mut namespace, mut imports, mut decls) = (false, false, false);
-    let mut errors: Vec<Diagnostic> = Vec::new();
-    let mut trees = Vec::new();
-    let all = 0..tokens.len() as u32;
-    let groups = match split_decls(tokens) {
-        Ok(groups) => groups,
-        Err(d) => {
-            trees.push(DeclMarks {
-                tokens: all,
-                root: NodeKind::Error,
-                marks: Vec::new(),
-                raw: None,
-                signature_kept: false,
-                recovered: Vec::new(),
-            });
-            return (vec![*d], trees);
-        }
-    };
-    // The groups run to the end of `tokens`; any tokens before the first
-    // start no declaration.
-    let mut offset = (tokens.len() - groups.iter().map(|group| group.len()).sum::<usize>()) as u32;
-    if offset > 0 {
-        trees.push(DeclMarks {
-            tokens: 0..offset,
-            root: NodeKind::Error,
-            marks: Vec::new(),
-            raw: None,
-            signature_kept: false,
-            recovered: Vec::new(),
-        });
-    }
-    for group in groups {
-        let mut parser = Parser::new(group, file, text.len(), limit);
-        // What the declaration turned out to be, once it has parsed.
-        let mut root = NodeKind::Error;
-        let mut signature_kept = false;
-        'group: {
-            // The attributes before the declaration, which belong to it.
-            let first = match parser.attributes() {
-                Ok(first) => first,
-                Err(diagnostic) => {
-                    errors.push(*diagnostic);
-                    break 'group;
-                }
-            };
-            if let Some(first) = first {
-                let refused = match parser.peek() {
-                    None => Some(
-                        Diagnostic::error(
-                            "E-PARSE",
-                            "attributes must be followed by the declaration they apply to",
-                        )
-                        .with_label(first.span, "nothing follows these attributes"),
-                    ),
-                    Some(Tok::KwNamespace) => {
-                        Some(misplaced_attributes(&first, "a namespace line"))
-                    }
-                    Some(Tok::KwImport) => Some(misplaced_attributes(&first, "an import")),
-                    Some(Tok::KwTest) => Some(misplaced_attributes(&first, "a test")),
-                    Some(Tok::KwAbility) => Some(misplaced_attributes(&first, "an ability")),
-                    _ => None,
-                };
-                if let Some(diagnostic) = refused {
-                    errors.push(diagnostic);
-                    break 'group;
-                }
-            }
-            if parser.peek() == Some(&Tok::KwNamespace) {
-                if namespace {
-                    errors.push(
-                    error(group[0].span, "a file has only one namespace line").with_note(
-                        "everything in a file goes in the namespace on its first line; to use another namespace, import from it or write its name in full",
-                    ),
-                );
-                    break 'group;
-                }
-                if imports || decls {
-                    let name = parser.namespace().ok();
-                    let message =
-                        "the namespace line must come first, before imports and declarations";
-                    let mut diagnostic = Diagnostic::error("E-NAMESPACE-NOT-FIRST", message)
-                        .with_label(group[0].span, message);
-                    if let Some(name) = name {
-                        diagnostic = diagnostic
-                            .with_note(format!("move `namespace {name}` to the top of the file"));
-                    }
-                    errors.push(diagnostic);
-                    break 'group;
-                }
-                let parsed = parser.namespace().and_then(|_| parser.finish());
-                match parser.strict(parsed) {
-                    Ok(()) => {
-                        namespace = true;
-                        root = NodeKind::Namespace;
-                    }
-                    Err(diagnostic) => errors.push(*diagnostic),
-                }
-                break 'group;
-            }
-            if parser.peek() == Some(&Tok::KwImport) {
-                if decls {
-                    errors.push(
-                        error(group[0].span, "imports go at the top of the file")
-                            .with_note("move it before the first declaration"),
-                    );
-                    break 'group;
-                }
-                let parsed = parser.import().and_then(|()| parser.finish());
-                match parser.strict(parsed) {
-                    Ok(()) => {
-                        imports = true;
-                        root = NodeKind::Import;
-                    }
-                    Err(diagnostic) => errors.push(*diagnostic),
-                }
-                break 'group;
-            }
-            // A `def` or `theorem` whose header parses is kept if its body
-            // doesn't, so it can stand in for its statement
-            // (docs/proposals/tests-with-errors.md §3.3): the lowering makes
-            // its signature from the header's nodes.
-            let keep = matches!(
-                parser.peek(),
-                Some(Tok::KwDef | Tok::KwTheorem | Tok::KwExport | Tok::KwOpaque)
-            );
-            parser.keep_header = keep;
-            let parsed = match parser.decl() {
-                Ok(kind) => match parser.finish() {
-                    Ok(()) => Ok(kind),
-                    // Something after a definition that parsed whole.
-                    Err(diagnostic) => Err((
-                        *diagnostic,
-                        keep && matches!(kind, NodeKind::Def | NodeKind::Theorem),
-                    )),
-                },
-                Err(diagnostic) => Err((*diagnostic, parser.header_kept)),
-            };
-            // A definition the parser recovered in is kept with its own
-            // kind: its errors are in `parser.errors`, and its recoveries
-            // make it failed (`Node::recoveries`).
-            match parsed {
-                Ok(kind) => {
-                    root = kind;
-                    decls = true;
-                }
-                Err((diagnostic, kept)) => {
-                    errors.push(diagnostic);
-                    if kept {
-                        decls = true;
-                        signature_kept = true;
-                    }
-                }
-            }
-        }
-        errors.append(&mut parser.errors);
-        let end = offset + group.len() as u32;
-        trees.push(DeclMarks {
-            tokens: offset..end,
-            root,
-            marks: std::mem::take(&mut parser.marks),
-            raw: None,
-            signature_kept,
-            recovered: std::mem::take(&mut parser.recovered),
-        });
-        offset += group.len() as u32;
-    }
-    (errors, trees)
-}
-
-/// The names a declaration that didn't parse would have declared, read off
-/// its tokens: after its keyword (`def`, `theorem`, `instance`, `type`,
-/// `interface`, `ability`), and for the last three, each name after a `|`
-/// outside brackets (a constructor or operation). Best effort: a
-/// declaration that broke before its name declares nothing.
-fn declared_names_of(group: &[Token]) -> Vec<Name> {
-    // Past the attributes before the declaration.
-    let matching = match_brackets(group);
-    let mut i = 0;
-    while group.get(i).map(|t| &t.tok) == Some(&Tok::At)
-        && let Some(&close) = matching.get(i + 1)
-        && close != NO_PARTNER
-    {
-        i = close as usize + 1;
-    }
-    let group = &group[i..];
-    let mut i = 0;
-    if group.first().map(|t| &t.tok) == Some(&Tok::KwExport) {
-        i = 1;
-    }
-    if group.get(i).map(|t| &t.tok) == Some(&Tok::KwOpaque) {
-        i += 1;
-    }
-    let Some(keyword) = group.get(i).map(|t| &t.tok) else {
-        return Vec::new();
-    };
-    let has_members = match keyword {
-        Tok::KwDef | Tok::KwTheorem | Tok::KwInstance => false,
-        Tok::KwType | Tok::KwInterface | Tok::KwAbility => true,
-        _ => return Vec::new(),
-    };
-    let name_at = |j: usize| match group.get(j) {
-        Some(Token {
-            tok: Tok::Lower(text) | Tok::Upper(text),
-            span,
-            ..
-        }) => Some(Name {
-            text: text.clone(),
-            span: *span,
-        }),
-        _ => None,
-    };
-    let mut names: Vec<Name> = name_at(i + 1).into_iter().collect();
-    if has_members {
-        let matching = match_brackets(group);
-        let mut depth = 0usize;
-        for (j, token) in group.iter().enumerate() {
-            match token.tok {
-                Tok::LParen | Tok::LBracket | Tok::LBrace => depth += 1,
-                Tok::RParen | Tok::RBracket | Tok::RBrace => depth = depth.saturating_sub(1),
-                Tok::Pipe if depth == 0 => {
-                    // Past a constructor's attributes, `| @[js.name "X"] C`.
-                    let mut k = j + 1;
-                    while group.get(k).map(|t| &t.tok) == Some(&Tok::At)
-                        && let Some(&close) = matching.get(k + 1)
-                        && close != NO_PARTNER
-                    {
-                        k = close as usize + 1;
-                    }
-                    names.extend(name_at(k));
-                }
-                _ => {}
-            }
-        }
-    }
-    names
-}
-
-/// The names `group` would declare, marked as failed at the first error of
-/// the declaration (`error_at`).
-pub(crate) fn failed_names_of(group: &[Token], error_at: Option<Span>) -> Vec<FailedName> {
-    declared_names_of(group)
-        .into_iter()
-        .map(|name| FailedName { name, error_at })
-        .collect()
-}
-
-/// Reads only a file's namespace line: `Some` if the file's first
-/// declaration group is one, `None` if it starts with anything else. For
-/// finding a file's namespace when the rest of it doesn't parse or doesn't
-/// lex (the declarations that don't lex are left out, as in
-/// [`parse_module_recovering`]).
-pub fn parse_namespace_line(file: FileId, text: &str) -> Parsed<Option<NamespaceDecl>> {
-    namespace_line(file, text).map_err(|d| *d)
-}
-
-fn namespace_line(file: FileId, text: &str) -> Result<Option<NamespaceDecl>> {
-    let limit = StackLimit::from_here(DEFAULT_STACK);
-    let (lexed, _) = lex_recovering_with_trivia(file, text);
-    let groups = split_decls(&lexed.tokens)?;
-    let Some(group) = groups.first() else {
-        return Ok(None);
-    };
-    let mut parser = Parser::new(group, file, text.len(), limit);
-    if parser.peek() != Some(&Tok::KwNamespace) {
-        return Ok(None);
-    }
-    let parsed = parser.namespace().and_then(|_| parser.finish());
-    parser.strict(parsed)?;
-    // The groups run to the end of the tokens.
-    let start = lexed.tokens.len() - groups.iter().map(|group| group.len()).sum::<usize>();
-    let root = DeclMarks {
-        tokens: start as u32..(start + group.len()) as u32,
-        root: NodeKind::Namespace,
-        marks: std::mem::take(&mut parser.marks),
-        raw: None,
-        signature_kept: false,
-        recovered: Vec::new(),
-    };
-    let tree = SyntaxFile::build(
-        lexed.tokens,
-        lexed.trivia,
-        lexed.eof,
-        lexed.bars,
-        vec![root],
-    );
-    let root = tree.decls().next().expect("the namespace line's root");
-    match Lower::new(&tree, text, file, &[]).decl(root) {
-        Ok(LoweredDecl::Namespace(decl)) => Ok(Some(decl)),
-        Ok(_) => unreachable!("a namespace root lowers to a namespace"),
-        Err(what) => {
-            let at = tree.tokens()[root.token_range()]
-                .first()
-                .map_or(Span::NOWHERE, |token| token.span);
-            Err(unlowered_error(what, at).into())
-        }
-    }
-}
-
-/// Parses an expression, using at most `stack` bytes of stack.
-pub fn parse_expression_within(file: FileId, text: &str, stack: usize) -> Parsed<Expr> {
-    parse_expression_tree(file, text, stack).0
-}
-
-/// [`parse_expression_within`]'s result, and the expression's lossless tree:
-/// one root, an [`NodeKind::Expression`] holding the expression if it
-/// parsed, an `Error` if it didn't, over its raw text if it didn't lex.
-pub fn parse_expression_tree(file: FileId, text: &str, stack: usize) -> (Parsed<Expr>, SyntaxFile) {
-    let limit = parser_limit(stack);
-    let lexed = match lex_with_trivia(file, text) {
-        Ok(lexed) => lexed,
-        Err(error) => {
-            let root = DeclMarks {
-                tokens: 0..0,
-                root: NodeKind::Error,
-                marks: Vec::new(),
-                raw: Some(0..text.len() as u32),
-                signature_kept: false,
-                recovered: Vec::new(),
-            };
-            let tree = SyntaxFile::build(
-                Vec::new(),
-                Vec::new(),
-                Trivia::default(),
-                Vec::new(),
-                vec![root],
-            );
-            return (Err(error), tree);
-        }
-    };
-    let mut parser = Parser::new(&lexed.tokens, file, text.len(), limit);
-    let parsed = parser.expr().and_then(|()| parser.finish());
-    let parsed = parser.strict(parsed).map_err(|d| *d);
-    let root = DeclMarks {
-        tokens: 0..lexed.tokens.len() as u32,
-        root: if parsed.is_ok() {
-            NodeKind::Expression
-        } else {
-            NodeKind::Error
-        },
-        marks: std::mem::take(&mut parser.marks),
-        raw: None,
-        signature_kept: false,
-        recovered: Vec::new(),
-    };
-    let tree = SyntaxFile::build(
-        lexed.tokens,
-        lexed.trivia,
-        lexed.eof,
-        lexed.bars,
-        vec![root],
-    );
-    if let Err(error) = parsed {
-        return (Err(error), tree);
-    }
-    let root = tree.decls().next().expect("an expression's root");
-    let lowered = Lower::new(&tree, text, file, &[])
-        .with_stack(stack)
-        .expression(root)
-        .map_err(|what| {
-            let at = tree
-                .tokens()
-                .first()
-                .map_or(Span::NOWHERE, |token| token.span);
-            unlowered_error(what, at)
-        });
-    (lowered, tree)
 }
 
 /// The name a name token holds, or "" for any other token.
@@ -853,8 +269,8 @@ struct Modes {
     /// `_` is the next step, not an argument of the line before.
     calc_depth: u32,
     /// While a `rewrite` rule or target is being parsed: the token it starts
-    /// at. An `in` outside brackets ends it (`in` is an ordinary name
-    /// elsewhere).
+    /// at. A `then` outside brackets ends it, and so does an `in`, so that
+    /// the old spelling `rewrite h in t` gets an error naming `then`.
     rewrite_rule: Option<usize>,
     /// While an arm's guard is being parsed: the token it starts at. A `=>`
     /// outside brackets ends it, so `| x if flag => e` is not a lambda.
@@ -872,17 +288,24 @@ struct Modes {
     /// §2.2): elsewhere, as in a header or a data type, an error still
     /// fails the declaration whole.
     recover: bool,
+    /// The token of a method section that starts an expression, `.f x + 1`,
+    /// which the expression's parser marks as the `Section` once it has
+    /// read the whole expression it takes (D1192), so the application at
+    /// the section's head doesn't. Only the application starting at this
+    /// token reads it, before reading anything, so it is never put back: a
+    /// value left from an expression already read names a token behind the
+    /// parser.
+    section_head: Option<usize>,
 }
 
 /// What a recovery point restores before it carries on past an error
-/// ([`Parser::recover_to`]): the modes, and how many constructs were open
-/// for the marks. The position isn't in it, since recovery only moves
-/// forward; marks recorded since stay, as finished constructs inside the
-/// skipped tokens.
+/// ([`Parser::recover_to`]): the modes. The position isn't in it, since
+/// recovery only moves forward; marks recorded since stay, as finished
+/// constructs inside the skipped tokens, and nest in the `Error` node the
+/// recovery point marks from where the construct that failed started.
 #[derive(Clone, Copy, Debug)]
 struct Snapshot {
     modes: Modes,
-    open: usize,
 }
 
 struct Parser<'t> {
@@ -907,20 +330,20 @@ struct Parser<'t> {
     /// doesn't parse, the declaration keeps its signature
     /// (docs/proposals/tests-with-errors.md §3.3).
     header_kept: bool,
-    /// The constructs finished so far, for the lossless tree (`crate::tree`,
-    /// "Marks").
+    /// The constructs finished so far, in the order they finished, for the
+    /// lossless tree (`crate::tree`, "Marks").
     marks: Vec<Mark>,
-    /// The constructs [`Self::open`] started and [`Self::close`] hasn't
-    /// finished, the latest last: where each starts, and its kind.
-    open: Vec<(u32, NodeKind)>,
-    /// The syntax errors recovered from so far, in the order met. Nothing
-    /// recovers yet (stage S0 of docs/proposals/syntax-error-recovery.md),
-    /// so it stays empty; the entry points fail on any, as they do on an
-    /// error that unwinds ([`Parser::strict`]).
+    /// The syntax errors recovered from so far, in the order met. The entry
+    /// points that give one error fail on any, as they do on an error that
+    /// unwinds ([`Parser::strict`]).
     errors: Vec<Diagnostic>,
     /// Where each error in [`Self::errors`] was recovered from, and how: a
     /// declaration with any is failed ([`crate::tree::Node::recoveries`]).
     recovered: Vec<Recovery>,
+    /// The token position of the last R1 gap ([`Self::ran_out`]): a
+    /// bracket whose contents ran out there and has read nothing since was
+    /// left open ([`Self::close_bracket`]).
+    ran_out_at: Option<usize>,
 }
 
 const NO_PARTNER: u32 = u32::MAX;
@@ -1023,9 +446,9 @@ impl<'t> Parser<'t> {
             keep_header: false,
             header_kept: false,
             marks: Vec::new(),
-            open: Vec::new(),
             errors: Vec::new(),
             recovered: Vec::new(),
+            ran_out_at: None,
         }
     }
 
@@ -1037,143 +460,19 @@ impl<'t> Parser<'t> {
     }
 
     /// Records the construct of kind `kind` from token `start` (a
-    /// [`Self::mark`]) to the last token read.
+    /// [`Self::mark`] its parsing function kept) to the last token read.
+    /// The one way a construct is marked: when it has finished, so the
+    /// marks are in finishing order, which is what the tree's builder
+    /// checks (`crate::tree`, "Marks").
     #[inline(always)]
     fn node(&mut self, start: u32, kind: NodeKind) {
         self.record(start, kind);
-    }
-
-    /// [`Self::node`] for a construct whose first token, already read,
-    /// starts where `start` does. The expression parser's recursive
-    /// functions use it with a span they keep anyway, so that marking costs
-    /// them no stack.
-    #[inline(always)]
-    fn node_at(&mut self, start: Span, kind: NodeKind) {
-        self.record_at(start, kind);
-    }
-
-    #[inline(never)]
-    fn record_at(&mut self, start: Span, kind: NodeKind) {
-        let first = self.tokens[..self.pos].partition_point(|t| t.span.start < start.start);
-        self.record(first as u32, kind);
     }
 
     #[inline(never)]
     fn record(&mut self, start: u32, kind: NodeKind) {
         let end = self.pos as u32;
         self.marks.push(Mark { kind, start, end });
-    }
-
-    /// Where the operand that ends at the current token starts: at the
-    /// construct marked last, if that ends here, or else at the token
-    /// before, an operand of one token. Every operand of more than one token
-    /// is marked, and finishes after everything inside it, so the last mark
-    /// ending here is the whole operand.
-    ///
-    /// Operators find their left operand's start this way rather than keep
-    /// it in a local, which would grow the frames of the recursive
-    /// functions nested expressions pile up (see [`Result`]).
-    fn operand_start(&self) -> u32 {
-        let end = self.pos as u32;
-        match self.marks.last() {
-            Some(mark) if mark.end == end => mark.start,
-            _ => end.saturating_sub(1),
-        }
-    }
-
-    /// [`Self::node`] for a construct that is the operand just read:
-    /// one that only turns out to be one after the fact.
-    #[inline(always)]
-    fn node_around_operand(&mut self, kind: NodeKind) {
-        self.record(self.operand_start(), kind);
-    }
-
-    /// Starts a construct whose first part is the operand just read, at an
-    /// operator: `a` in `a + b`. [`Self::close`] finishes it.
-    #[inline(always)]
-    fn open(&mut self, kind: NodeKind) {
-        self.record_open(kind);
-    }
-
-    #[inline(never)]
-    fn record_open(&mut self, kind: NodeKind) {
-        let start = self.operand_start();
-        self.open.push((start, kind));
-    }
-
-    /// Finishes the construct [`Self::open`] started last, at the last token
-    /// read: every construct opened inside it was closed before it, unless
-    /// an error stopped the parse, which drops the declaration's marks.
-    #[inline(always)]
-    fn close(&mut self) {
-        self.record_close();
-    }
-
-    #[inline(never)]
-    fn record_close(&mut self) {
-        if let Some((start, kind)) = self.open.pop() {
-            self.record(start, kind);
-        }
-    }
-
-    /// Marks the parameter just read, from token `first`, as a
-    /// `LambdaParam`, unless it is a single name, which is its own token, or
-    /// a pattern, which is its own node.
-    #[inline(always)]
-    fn mark_param(&mut self, first: u32) {
-        self.record_param(first);
-    }
-
-    #[inline(never)]
-    fn record_param(&mut self, first: u32) {
-        let end = self.pos as u32;
-        let marked = self
-            .marks
-            .last()
-            .is_some_and(|mark| mark.start == first && mark.end == end);
-        if end - first > 1 && !marked {
-            self.record(first, NodeKind::LambdaParam);
-        }
-    }
-
-    /// Makes the construct marked last into a `kind` that starts at the
-    /// keyword with span `keyword`, before it: `exists` reads its
-    /// parameters and body as a lambda, and the lambda's mark is the
-    /// `Exists`.
-    #[inline(never)]
-    fn retag_last(&mut self, keyword: Span, kind: NodeKind) {
-        let first = self.tokens[..self.pos].partition_point(|t| t.span.start < keyword.start);
-        if let Some(mark) = self.marks.last_mut() {
-            mark.kind = kind;
-            mark.start = first as u32;
-        }
-    }
-
-    /// An expression just read that starts with a method section, `.f.g x`,
-    /// becomes the section's body: the `Section` node moves out from the
-    /// section's head to the whole expression (the lowering's `widen`).
-    #[inline(never)]
-    fn widen_section(&mut self) {
-        let start = self.operand_start();
-        let end = self.pos as u32;
-        // Unless the whole expression is the section.
-        if let Some(last) = self.marks.last()
-            && last.kind == NodeKind::Section
-            && (last.start, last.end) == (start, end)
-        {
-            return;
-        }
-        let Some(head) = self
-            .marks
-            .iter_mut()
-            .rev()
-            .find(|m| m.kind == NodeKind::Section && m.start == start)
-        else {
-            return;
-        };
-        // Empty, so the tree leaves it out.
-        head.end = head.start;
-        self.record(start, NodeKind::Section);
     }
 
     /// The compiler's tree for the expression (or with `pattern`, the
@@ -1240,10 +539,24 @@ impl<'t> Parser<'t> {
         }
     }
 
-    /// From the first token of `start..end` to its last.
+    /// From the first token of `start..end` to its last. An empty range
+    /// is a part R1 found missing ([`Self::ran_out`]), possibly at the end
+    /// of the input: the point where the text ran out, after the token
+    /// before it.
     fn tokens_span(&self, (start, end): (u32, u32)) -> Span {
+        if end <= start {
+            return match (start as usize).checked_sub(1) {
+                Some(last) => Span::point(self.file, self.tokens[last].span.end),
+                None => self
+                    .tokens
+                    .first()
+                    .map_or(Span::point(self.file, self.eof), |t| {
+                        Span::point(self.file, t.span.start)
+                    }),
+            };
+        }
         let first = self.tokens[start as usize].span;
-        first.to(self.tokens[(end as usize).max(start as usize + 1) - 1].span)
+        first.to(self.tokens[end as usize - 1].span)
     }
 
     /// Whether a pattern read since token `from` holds the absurd pattern
@@ -1312,18 +625,7 @@ impl<'t> Parser<'t> {
 
     /// Whether the token at `i` ends the current statement of a block.
     fn is_stop(&self, i: usize) -> bool {
-        if self.modes.calc_depth > 0 && self.starts_calc_step(i) {
-            return true;
-        }
-        if let Some(start) = self.modes.rewrite_rule
-            && self.ends_rewrite_rule(i, start)
-        {
-            return true;
-        }
-        if let Some(start) = self.modes.guard_start
-            && self.tokens.get(i).is_some_and(|t| t.tok == Tok::FatArrow)
-            && self.bracket_depth(start, i) <= 0
-        {
+        if self.ends_construct(i) {
             return true;
         }
         let Some(limit) = self.modes.limit else {
@@ -1338,6 +640,43 @@ impl<'t> Parser<'t> {
             && !self.continues_with_operator(i, limit)
     }
 
+    /// Whether the token at `i` belongs to an enclosing construct, whatever
+    /// its column: the next `calc` step, the `then` or `at` ending a `rewrite`
+    /// rule, a guard's `=>`. No block starts there.
+    fn ends_construct(&self, i: usize) -> bool {
+        if self.modes.calc_depth > 0 && self.starts_calc_step(i) {
+            return true;
+        }
+        if let Some(start) = self.modes.rewrite_rule
+            && self.ends_rewrite_rule(i, start)
+        {
+            return true;
+        }
+        self.ends_guard(i)
+    }
+
+    /// Whether the token at `i` is the `=>` that ends the guard being parsed:
+    /// its condition runs up to the next `=>` outside brackets, or after a
+    /// bracket with no partner.
+    fn ends_guard(&self, i: usize) -> bool {
+        self.modes.guard_start.is_some_and(|start| {
+            self.tokens.get(i).is_some_and(|t| t.tok == Tok::FatArrow)
+                && (self.bracket_depth(start, i) <= 0 || self.left_open_between(start, i))
+        })
+    }
+
+    /// Whether a bracket opened in `start..i` has no partner anywhere in the
+    /// declaration: someone left it open, so a guard's `=>` after it still
+    /// ends the guard rather than being read inside the bracket.
+    fn left_open_between(&self, start: usize, i: usize) -> bool {
+        (start..i).any(|k| {
+            matches!(
+                self.tokens[k].tok,
+                Tok::LParen | Tok::LBracket | Tok::LBrace
+            ) && self.matching[k] == NO_PARTNER
+        })
+    }
+
     /// Whether the token at `i`, starting a line at the block's own column
     /// `limit`, is an infix operator that continues the statement above, as
     /// if that line ended with it. Only operators that can't begin an
@@ -1349,14 +688,14 @@ impl<'t> Parser<'t> {
             .is_some_and(|t| t.column == limit && self.is_infix_only(&t.tok))
     }
 
-    /// Whether the token at `i` is the `in` (or, in a rule, the `at`) that
-    /// ends the `rewrite` rule or target starting at token `start`: one not
+    /// Whether the token at `i` is the `then` or `in` (or, in a rule, the
+    /// `at`) that ends the `rewrite` rule or target starting at token `start`: one not
     /// inside brackets opened since, nor a field (`p.at`). An `at` that starts
-    /// the rule is a name (`rewrite at b h in t`).
+    /// the rule is a name (`rewrite at b h then t`).
     #[inline(never)]
     fn ends_rewrite_rule(&self, i: usize, start: usize) -> bool {
         let word = match self.tokens.get(i).map(|t| &t.tok) {
-            Some(Tok::KwIn) => true,
+            Some(Tok::KwThen | Tok::KwIn) => true,
             Some(Tok::Lower(w)) => w == "at" && self.modes.rewrite_at && i > start,
             _ => false,
         };
@@ -1580,7 +919,38 @@ impl<'t> Parser<'t> {
                 .with_note(declarations::ATTRIBUTE_PLACES);
         }
         let found = match self.tokens.get(self.pos) {
-            Some(token) if self.is_stop(self.pos) => {
+            Some(_) if self.modes.calc_depth > 0 && self.starts_calc_step(self.pos) => {
+                return error(
+                    self.here(),
+                    format!("expected {expected}, but the next `calc` step starts here"),
+                )
+                .with_note(
+                    "inside a `calc`, a line starting with `_` is the next step, even inside \
+                     brackets: is a bracket on the step above left open?",
+                );
+            }
+            Some(_) if self.ends_guard(self.pos) => {
+                let diagnostic = error(
+                    self.here(),
+                    format!("expected {expected}, but the guard's `=>` starts here"),
+                );
+                let left_open = self
+                    .modes
+                    .guard_start
+                    .is_some_and(|start| self.left_open_between(start, self.pos));
+                return if left_open {
+                    diagnostic.with_note(
+                        "a guard's condition runs up to its arm's `=>`, even inside brackets: was \
+                         a bracket in the guard left open?",
+                    )
+                } else {
+                    diagnostic.with_note(
+                        "the guard's condition is incomplete: it needs a complete expression \
+                         before the arm's `=>`",
+                    )
+                };
+            }
+            Some(token) if self.is_stop(self.pos) && !self.ends_construct(self.pos) => {
                 let diagnostic = error(
                     self.here(),
                     format!(
@@ -1652,7 +1022,7 @@ impl<'t> Parser<'t> {
     /// recursive functions stays small (the nesting limit is measured in
     /// stack).
     #[inline(never)]
-    fn tuple_expr(&mut self, span: Span) -> Result<()> {
+    fn tuple_expr(&mut self, start: u32) -> Result<()> {
         let mut items = 1;
         while self.eat(&Tok::Comma) {
             if self.peek() == Some(&Tok::RParen) && items >= 2 {
@@ -1664,14 +1034,12 @@ impl<'t> Parser<'t> {
         if self.peek() == Some(&Tok::Colon) {
             return Err(self.tuple_annotation().into());
         }
-        self.expect(Tok::RParen, "`)`")?;
-        self.node_at(span, NodeKind::Tuple);
-        Ok(())
+        self.close_bracket(start, Tok::RParen, "`)`", NodeKind::Tuple)
     }
 
     /// The same for patterns.
     #[inline(never)]
-    fn tuple_pattern(&mut self, span: Span) -> Result<()> {
+    fn tuple_pattern(&mut self, start: u32) -> Result<()> {
         let mut items = 1;
         while self.eat(&Tok::Comma) {
             if self.peek() == Some(&Tok::RParen) && items >= 2 {
@@ -1681,31 +1049,37 @@ impl<'t> Parser<'t> {
             items += 1;
         }
         self.expect(Tok::RParen, "`)`")?;
-        self.node_at(span, NodeKind::PatternTuple);
+        self.node(start, NodeKind::PatternTuple);
         Ok(())
     }
 
     /// A component of a tuple pattern, or several, `p | q`.
     fn tuple_item(&mut self) -> Result<()> {
+        let start = self.mark();
         self.tuple_component()?;
-        self.alternatives(Self::tuple_component)
+        self.alternatives(start, Self::tuple_component)
     }
 
     /// An element of a list pattern, or several, `p | q`.
     fn list_item(&mut self) -> Result<()> {
+        let start = self.mark();
         self.list_component()?;
-        self.alternatives(Self::list_component)
+        self.alternatives(start, Self::list_component)
     }
 
     /// A component of a list pattern: a constructor's arguments run to the
     /// next `,` or `]`; `-k` is allowed, as in a tuple.
     fn list_component(&mut self) -> Result<()> {
+        let start = self.mark();
         if self.ctor_ahead() {
-            let start = self.mark();
             self.ctor_name()?;
-            return self.ctor_args(start, |t| {
-                matches!(t, Some(Tok::Comma | Tok::RBracket | Tok::Pipe) | None)
-            });
+            self.ctor_args(start, |t| {
+                matches!(
+                    t,
+                    Some(Tok::Comma | Tok::RBracket | Tok::Pipe | Tok::PlusPlus) | None
+                )
+            })?;
+            return self.pattern_append(start, Self::list_component);
         }
         self.tuple_component()
     }
@@ -1713,19 +1087,23 @@ impl<'t> Parser<'t> {
     /// A component of a tuple pattern: a pattern, or `-k`, which the
     /// tuple's brackets already delimit (`(-1, 0)`, `(0, -1)`).
     fn tuple_component(&mut self) -> Result<()> {
+        let start = self.mark();
         if self.ctor_ahead() {
             // A constructor's arguments run to the next `,` or `)`:
             // `(Some x, Some y)`.
-            let start = self.mark();
             self.ctor_name()?;
-            return self.ctor_args(start, |t| {
-                matches!(t, Some(Tok::Comma | Tok::RParen | Tok::Pipe) | None)
-            });
+            self.ctor_args(start, |t| {
+                matches!(
+                    t,
+                    Some(Tok::Comma | Tok::RParen | Tok::Pipe | Tok::PlusPlus) | None
+                )
+            })?;
+            return self.pattern_append(start, Self::tuple_component);
         }
         if self.peek() != Some(&Tok::Minus) {
-            return self.pattern();
+            self.pattern()?;
+            return self.pattern_append(start, Self::tuple_component);
         }
-        let start = self.mark();
         self.bump();
         let Some(Tok::Num(_)) = self.peek() else {
             return Err(self.unexpected("a number").into());
@@ -1758,19 +1136,15 @@ impl<'t> Parser<'t> {
     /// What [`Self::recover_to`] goes back to, taken before a recovery point
     /// tries the construct it may recover from.
     fn snapshot(&self) -> Snapshot {
-        Snapshot {
-            modes: self.modes,
-            open: self.open.len(),
-        }
+        Snapshot { modes: self.modes }
     }
 
     /// Undoes what a construct that failed left behind, before the parser
-    /// carries on past it: the modes it set and didn't put back, and the
-    /// operators it opened whose right operand never came. The position
-    /// stays where the error left it, for the recovery point to move on from.
+    /// carries on past it: the modes it set and didn't put back. The
+    /// position stays where the error left it, for the recovery point to
+    /// move on from.
     fn recover_to(&mut self, snapshot: Snapshot) {
         self.modes = snapshot.modes;
-        self.open.truncate(snapshot.open);
     }
 
     /// Records a syntax error the parser carries on from.
@@ -1792,7 +1166,32 @@ impl<'t> Parser<'t> {
             None => self.unexpected(expected),
         };
         self.report(RecoveryPoint::RanOut, error);
+        self.ran_out_at = Some(self.pos);
         Ok(())
+    }
+
+    /// Ends the bracketed construct of kind `kind` that started at token
+    /// `start`, whose closer `tok` is next. A closer that isn't there
+    /// because the contents ran out at an R1 gap (nothing read since) is no
+    /// second error: the gap is the one error, and the unclosed bracket is
+    /// an `Error` node, not a `kind` node, so that a declaration holding it
+    /// is failed and nothing is checked against a bracket that was never
+    /// closed (SW-3289).
+    fn close_bracket(&mut self, start: u32, tok: Tok, what: &str, kind: NodeKind) -> Result<()> {
+        if self.peek() != Some(&tok) && self.bracket_ran_out() {
+            self.node(start, NodeKind::Error);
+            return Ok(());
+        }
+        self.expect(tok, what)?;
+        self.node(start, kind);
+        Ok(())
+    }
+
+    /// Whether the bracket being parsed was left open by an R1 gap at the
+    /// current position, with nothing read since: the one error is the gap,
+    /// so the bracket needs no second error for a closer that isn't there.
+    fn bracket_ran_out(&self) -> bool {
+        self.modes.recover && self.ran_out_at == Some(self.pos)
     }
 
     /// The error of R1 at `at`, the end of the last token read, which is
@@ -1836,45 +1235,44 @@ impl<'t> Parser<'t> {
     /// R6: parses a top-level definition's body (from its `:=` or first
     /// `|`) with `body`, recovering from any syntax error in it or after it
     /// that nothing inside caught. The error is reported, and the rest of
-    /// the declaration is an `Error` node: inside the `Body` node after
-    /// `:=`, or in place of the arms. The definition is then a definition
-    /// whose body is missing, never a primitive (one with no body at all).
+    /// the declaration is an `Error` node from where the body's expression
+    /// or its arms start, so what finished before the error nests in it:
+    /// inside the `Body` node after `:=`, or in place of the arms. The
+    /// definition is then a definition whose body is missing, never a
+    /// primitive (one with no body at all). `body` doesn't mark the `Body`
+    /// after `:=`, which ends where the error's node does.
     pub(super) fn recovering_body(
         &mut self,
         body: impl FnOnce(&mut Self) -> Result<bool>,
     ) -> Result<bool> {
         let snapshot = self.snapshot();
-        let (at, marks) = (self.pos, self.marks.len());
+        let at = self.pos;
+        let colon = self.tokens[at].tok == Tok::ColonEq;
         self.modes.recover = true;
         let parsed = body(self).and_then(|read| self.finish().map(|()| read));
         self.modes.recover = snapshot.modes.recover;
-        let error = match parsed {
-            Ok(read) => return Ok(read),
+        let read = match parsed {
+            Ok(read) => read,
             Err(error) if error.code == "E-RESOURCE" => return Err(error),
-            Err(error) => error,
+            Err(error) => {
+                self.recover_to(snapshot);
+                // One error a place: an `R1` gap may have left what came
+                // after it nothing to stand on.
+                if self.errors.last().and_then(Diagnostic::primary_span) != error.primary_span() {
+                    self.report(RecoveryPoint::Body, *error);
+                }
+                let from = at + usize::from(colon);
+                self.pos = self.tokens.len();
+                if from < self.pos {
+                    self.node(from as u32, NodeKind::Error);
+                }
+                true
+            }
         };
-        self.recover_to(snapshot);
-        // One error a place: an `R1` gap may have left what came after it
-        // nothing to stand on.
-        if self.errors.last().and_then(Diagnostic::primary_span) != error.primary_span() {
-            self.report(RecoveryPoint::Body, *error);
-        }
-        // What finished inside the skipped tokens stays, nested in the
-        // `Error` node; the body's or the first arm's own nodes would cross
-        // it, so they go.
-        let mut kept = self.marks.split_off(marks);
-        kept.retain(|mark| mark.start != at as u32);
-        self.marks.extend(kept);
-        let colon = self.tokens[at].tok == Tok::ColonEq;
-        let from = at + usize::from(colon);
-        self.pos = self.tokens.len();
-        if from < self.pos {
-            self.node(from as u32, NodeKind::Error);
-        }
         if colon {
             self.node(at as u32, NodeKind::Body);
         }
-        Ok(true)
+        Ok(read)
     }
 
     /// `result`, the outcome of parsing a whole declaration or expression,
@@ -2123,21 +1521,22 @@ impl<'t> Parser<'t> {
 
     fn pattern(&mut self) -> Result<()> {
         self.deeper()?;
-        let span = self.here();
+        let start = self.mark();
         match self.peek() {
             Some(Tok::Lower(_)) if !self.ctor_ahead() => {
                 self.lower("a pattern")?;
             }
-            Some(Tok::Underscore | Tok::Num(_) | Tok::Char(_)) => {
+            Some(Tok::Underscore | Tok::Num(_) | Tok::Char(_) | Tok::Str(_)) => {
                 self.bump();
             }
+            Some(Tok::StrStart(_)) => return Err(self.interpolated_pattern().into()),
             Some(Tok::Upper(_) | Tok::Lower(_)) => {
                 self.ctor_name()?;
             }
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {
                 self.bump();
                 self.bump();
-                self.node_at(span, NodeKind::PatternAbsurd);
+                self.node(start, NodeKind::PatternAbsurd);
             }
             Some(Tok::LBrace) => self.record_pattern()?,
             // `[n := p]`: an implicit field of a constructor, by name.
@@ -2150,7 +1549,7 @@ impl<'t> Parser<'t> {
                 self.bump();
                 self.pattern()?;
                 self.expect(Tok::RBracket, "`]`")?;
-                self.node_at(span, NodeKind::PatternNamed);
+                self.node(start, NodeKind::PatternNamed);
             }
             Some(Tok::LBracket) => {
                 self.bump();
@@ -2192,7 +1591,7 @@ impl<'t> Parser<'t> {
                         "`,` or `]`"
                     },
                 )?;
-                self.node_at(span, NodeKind::PatternList);
+                self.node(start, NodeKind::PatternList);
             }
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::Minus) => {
                 // `(-k)`: a negative number pattern, only in brackets (a
@@ -2200,10 +1599,10 @@ impl<'t> Parser<'t> {
                 self.bump();
                 self.tuple_item()?;
                 if self.peek() == Some(&Tok::Comma) {
-                    return self.tuple_pattern(span);
+                    return self.tuple_pattern(start);
                 }
                 self.expect(Tok::RParen, "`)`")?;
-                self.node_at(span, NodeKind::PatternParen);
+                self.node(start, NodeKind::PatternParen);
             }
             Some(Tok::LParen) => {
                 self.bump();
@@ -2211,22 +1610,47 @@ impl<'t> Parser<'t> {
                 if self.ctor_ahead() {
                     self.ctor_name()?;
                     self.ctor_args(first, |t| {
-                        matches!(t, Some(Tok::RParen | Tok::Comma | Tok::Pipe) | None)
+                        matches!(
+                            t,
+                            Some(Tok::RParen | Tok::Comma | Tok::Pipe | Tok::PlusPlus) | None
+                        )
                     })?;
                 } else {
                     self.pattern()?;
                 }
-                self.alternatives(Self::tuple_component)?;
+                self.pattern_append(first, Self::tuple_component)?;
+                self.alternatives(first, Self::tuple_component)?;
                 if self.peek() == Some(&Tok::Comma) {
                     // `(Some a, b)`: a constructor as a tuple's first component.
-                    return self.tuple_pattern(span);
+                    return self.tuple_pattern(start);
                 }
                 self.expect(Tok::RParen, "`)`")?;
-                self.node_at(span, NodeKind::PatternParen);
+                self.node(start, NodeKind::PatternParen);
             }
             _ => return Err(self.unexpected_name("a pattern or `=`").into()),
         }
         Ok(())
+    }
+
+    /// `"${a}b"` where a pattern should be: a text pattern is one fixed text
+    /// (docs/proposals/text-patterns.md §4.1). The cursor is at its
+    /// `StrStart`; the error spans the whole literal when it parses.
+    fn interpolated_pattern(&mut self) -> Diagnostic {
+        let start = self.here();
+        let span = match self.interpolated_str() {
+            Ok(()) => Span {
+                end: self.tokens[self.pos - 1].span.end,
+                ..start
+            },
+            Err(_) => start,
+        };
+        Diagnostic::error("E-TEXT-PATTERN", "a text pattern can't interpolate")
+            .with_label(span, "a pattern matches one fixed text")
+            .with_note(
+                "to match a text that starts a certain way, write its start and a pattern for \
+                 the rest: `\"--\" ++ rest`; to match one that ends a certain way, bind it to \
+                 a variable and test it in a guard: `| t if t.endsWith \".sw\" => …`",
+            )
     }
 
     /// The text of the name at token `i`.
@@ -2459,6 +1883,20 @@ impl<'t> Parser<'t> {
             return Ok(NodeKind::TypeSynonym);
         }
         if self.peek() == Some(&Tok::LBrace) {
+            if let Some(row) = self.ability_row_in_braces() {
+                return Err(Diagnostic::error(
+                    "E-PARSE",
+                    format!(
+                        "an ability row like `{{{row}}}` can't be given a name with `type` \
+                         yet; write the row where it's used, such as `() -> {{{row}}} Nat`"
+                    ),
+                )
+                .with_label(
+                    self.here(),
+                    "this `{` starts an ability row, not a record type",
+                )
+                .into());
+            }
             self.braced_fields()?;
             return Ok(NodeKind::RecordType);
         }
@@ -2536,6 +1974,42 @@ impl<'t> Parser<'t> {
                 .into());
         }
         Ok(NodeKind::DataType)
+    }
+
+    /// The abilities in a record type's braces at the cursor, if they hold an
+    /// ability row instead of fields: a capitalised name followed by `,` or
+    /// `}`, as in `{IO, Fail}` or `{IO}`. A row can't be named with `type`
+    /// yet, so the parser reports it rather than reading `IO` as a field name.
+    fn ability_row_in_braces(&self) -> Option<String> {
+        let (Some(Tok::Upper(first)), Some(Tok::Comma | Tok::RBrace)) =
+            (self.peek_at(1), self.peek_at(2))
+        else {
+            return None;
+        };
+        let mut names = vec![first.clone()];
+        let mut at = self.pos + 2;
+        while self.tokens.get(at).map(|t| &t.tok) == Some(&Tok::Comma) {
+            // Only a plain ability name, followed by `,` or `}`: an entry
+            // with arguments (`State s`) is named by its first ability only.
+            match (
+                self.tokens.get(at + 1).map(|t| &t.tok),
+                self.tokens.get(at + 2).map(|t| &t.tok),
+            ) {
+                (Some(Tok::Upper(name)), Some(Tok::Comma | Tok::RBrace)) => {
+                    names.push(name.clone())
+                }
+                _ => break,
+            }
+            at += 2;
+        }
+        let row = names.join(", ");
+        Some(
+            if self.tokens.get(at).map(|t| &t.tok) == Some(&Tok::RBrace) {
+                row
+            } else {
+                format!("{row}, …")
+            },
+        )
     }
 
     /// Fields in braces, `{ name : Text, step : Nat := 1 }`, each with its
@@ -2722,6 +2196,7 @@ impl<'t> Parser<'t> {
             && token.line_start
             && self.pos > 0
             && self.modes.allow != Some(self.pos)
+            && !self.ends_construct(self.pos)
         {
             match self.modes.limit {
                 None => return self.block(token.column, true),
@@ -2770,6 +2245,7 @@ impl<'t> Parser<'t> {
         let mut lines = 0;
         let mut last = Line::Expr;
         let result = loop {
+            let before = self.pos;
             self.modes.allow = Some(self.pos);
             match self.statement() {
                 Ok(line) => {
@@ -2778,7 +2254,10 @@ impl<'t> Parser<'t> {
                 }
                 Err(e) => break Err(e),
             }
-            if !(many && self.starts_line_at(column)) || self.ends_blocks() {
+            // A statement that read nothing (R1 reporting a gap at a stop)
+            // leaves the same line at the block's column, and reading it
+            // again would report the same gap forever (SW-3285).
+            if self.pos == before || !(many && self.starts_line_at(column)) || self.ends_blocks() {
                 break Ok(());
             }
         };
@@ -2884,8 +2363,16 @@ impl<'t> Parser<'t> {
             ).into());
         }
         if !definition.body {
+            // An empty result type ran out (R1), which reported the gap;
+            // at the gap's own span, R6 keeps this as the same error.
+            let (from, to) = definition.result;
+            let at = if from == to {
+                self.tokens_span(definition.result)
+            } else {
+                start.to(self.lowered_span(definition.result))
+            };
             return Err(error(
-                start.to(self.lowered_span(definition.result)),
+                at,
                 "a local definition needs a body: `:=` and an expression, or arms starting with `|`",
             ).into());
         }
@@ -2987,6 +2474,17 @@ impl<'t> Parser<'t> {
     /// A theorem's statement is a result type too, and may start with a
     /// record literal or update: `{ p | x = 3 }.x = 3` ([`record_braces`]).
     fn result_type(&mut self) -> Result<()> {
+        // A line at the block's own column after an arrow ending the line
+        // above continues that line ([`Self::expr`]), so a row starting it
+        // is a row, as on the arrow's line, not a record (SW-3582).
+        if let Some(token) = self.tokens.get(self.pos)
+            && token.tok == Tok::LBrace
+            && token.line_start
+            && self.modes.limit == Some(token.column)
+            && !self.ends_construct(self.pos)
+        {
+            self.modes.allow = Some(self.pos);
+        }
         if self.peek() != Some(&Tok::LBrace) || record_braces(self.tokens, self.pos) {
             return self.expr();
         }
@@ -3027,11 +2525,11 @@ impl<'t> Parser<'t> {
     }
 
     /// `handle e with | return x => … | op arg, k => …`
-    fn handle(&mut self, start: Span) -> Result<()> {
+    fn handle(&mut self, start: u32) -> Result<()> {
         self.expr_inline()?;
         self.expect(Tok::KwWith, "`with`")?;
         self.handler_clauses()?;
-        self.node_at(start, NodeKind::Handle);
+        self.node(start, NodeKind::Handle);
         Ok(())
     }
 
@@ -3075,7 +2573,7 @@ impl<'t> Parser<'t> {
 
     /// `match reify t with | return x => … | op arg, k => …`, after `match`
     /// and `reify` (docs/proposals/proof-reification.md §3 (iii)).
-    fn reify_expr(&mut self, start: Span) -> Result<()> {
+    fn reify_expr(&mut self, start: u32) -> Result<()> {
         self.expr_inline()?;
         if self.peek() == Some(&Tok::Comma) {
             return Err(error(
@@ -3086,7 +2584,7 @@ impl<'t> Parser<'t> {
         }
         self.expect(Tok::KwWith, "`with`")?;
         self.handler_clauses()?;
-        self.node_at(start, NodeKind::Reify);
+        self.node(start, NodeKind::Reify);
         Ok(())
     }
 
@@ -3102,7 +2600,7 @@ impl<'t> Parser<'t> {
 
     /// `match induct (f args) with | eqK x y ih => … | …`, after `match` and
     /// `induct` (docs/proposals/function-equations.md §5.3).
-    fn induct_expr(&mut self, start: Span) -> Result<()> {
+    fn induct_expr(&mut self, start: u32) -> Result<()> {
         self.expr_inline()?;
         if self.peek() == Some(&Tok::Comma) {
             return Err(error(
@@ -3148,12 +2646,12 @@ impl<'t> Parser<'t> {
                 .unexpected("`|` and an alternative named after a case")
                 .into());
         }
-        self.node_at(start, NodeKind::Induct);
+        self.node(start, NodeKind::Induct);
         Ok(())
     }
 
     /// `match e, h : e2 with | p, q => body | …`
-    fn match_expr(&mut self, start: Span) -> Result<()> {
+    fn match_expr(&mut self, start: u32) -> Result<()> {
         if self.induct_ahead() {
             self.bump();
             return self.induct_expr(start);
@@ -3181,7 +2679,10 @@ impl<'t> Parser<'t> {
             if named && self.reify_ahead() {
                 return Err(
                     Diagnostic::error("E-PARSE", "`match reify` can't name an equation")
-                        .with_label(start.to(self.here()), "`h:` names an equation here")
+                        .with_label(
+                            self.tokens[start as usize].span.to(self.here()),
+                            "`h:` names an equation here",
+                        )
                         .with_note(
                             "both sides would be computations, whose type has no spelling; in each \
                      clause the goal already says what the computation did",
@@ -3246,7 +2747,7 @@ impl<'t> Parser<'t> {
         if alts == 0 {
             return Err(self.unexpected("`|` and an alternative").into());
         }
-        self.node_at(start, NodeKind::Match);
+        self.node(start, NodeKind::Match);
         Ok(())
     }
 
@@ -3290,9 +2791,9 @@ impl<'t> Parser<'t> {
     /// alternatives' patterns are for (docs/proposals/partial-lambdas.md).
     /// For `ClauseSome` each result is wrapped in `Some` and for
     /// `ClauseMatches` an alternative may leave its result out, which is
-    /// `True` (the lowering builds them).
+    /// `True`.
     #[inline(never)]
-    fn clause_lambda(&mut self, start: Span, kind: MatchKind) -> Result<()> {
+    fn clause_lambda(&mut self, start: u32, kind: MatchKind) -> Result<()> {
         // The first alternative's pattern count and first pattern.
         let mut first: Option<(usize, (u32, u32))> = None;
         let mut column = None;
@@ -3350,7 +2851,7 @@ impl<'t> Parser<'t> {
         if first.is_none() {
             return Err(self.unexpected("`|` and an alternative").into());
         }
-        self.node_at(start, NodeKind::ClauseLambda);
+        self.node(start, NodeKind::ClauseLambda);
         Ok(())
     }
 
@@ -3358,15 +2859,16 @@ impl<'t> Parser<'t> {
     /// an equation, so a constructor's arguments need no parentheses
     /// (`Cons x Nil`); or several, `p | q`.
     fn alt_pattern(&mut self) -> Result<()> {
+        let start = self.mark();
         self.alt_pattern_one()?;
-        self.alternatives(Self::alt_pattern_one)
+        self.alternatives(start, Self::alt_pattern_one)
     }
 
     fn alt_pattern_one(&mut self) -> Result<()> {
         if self.ctor_ahead() {
             let start = self.mark();
             self.ctor_name()?;
-            return self.ctor_args(start, |t| {
+            self.ctor_args(start, |t| {
                 matches!(
                     t,
                     Some(
@@ -3375,15 +2877,72 @@ impl<'t> Parser<'t> {
                             | Tok::FatArrow
                             | Tok::Pipe
                             | Tok::KwIf
+                            | Tok::PlusPlus
                             // After the last pattern of a `matches | A` in brackets.
                             | Tok::RParen
                             | Tok::RBracket
                             | Tok::RBrace
                     ) | None
                 )
-            });
+            })?;
+            return self.pattern_append(start, Self::alt_pattern_one);
         }
         self.tuple_component()
+    }
+
+    /// After a pattern from token `start`, `++ q`: a text pattern's fixed
+    /// start and the pattern for the rest (docs/proposals/text-patterns.md
+    /// §4.2), with `q` parsed by `next`, so that `"a" ++ "b" ++ rest` nests
+    /// to the right as the expression does. Only a text literal can be the
+    /// start: a suffix or a middle part would need a search.
+    fn pattern_append(&mut self, start: u32, next: fn(&mut Self) -> Result<()>) -> Result<()> {
+        if self.peek() != Some(&Tok::PlusPlus) {
+            return Ok(());
+        }
+        let literal = self.pos == start as usize + 1
+            && matches!(self.tokens[start as usize].tok, Tok::Str(_));
+        if !literal {
+            let left = self.tokens[start as usize]
+                .span
+                .to(self.tokens[self.pos - 1].span);
+            let d = Diagnostic::error(
+                "E-TEXT-PATTERN",
+                "a text pattern can only take a fixed start",
+            )
+            .with_label(
+                left,
+                "only a text literal can stand before `++` in a pattern",
+            );
+            // `Some "a" ++ rest` groups as `(Some "a") ++ rest`, as the
+            // expression does.
+            if matches!(self.tokens[self.pos - 1].tok, Tok::Str(_))
+                && matches!(
+                    self.tokens[start as usize].tok,
+                    Tok::Upper(_) | Tok::Lower(_)
+                )
+            {
+                let ctor = self.text_at(start);
+                return Err(d
+                    .with_note(format!(
+                        "a constructor's arguments end before `++`, as in an expression; to match \
+                         an argument of `{ctor}` that starts with a text, write it in brackets: \
+                         `{ctor} (\"…\" ++ rest)`"
+                    ))
+                    .into());
+            }
+            return Err(d
+                .with_note(
+                    "a pattern can match a text that starts a certain way, `\"--\" ++ rest`; to \
+                     match one that ends a certain way or has a part in the middle, bind it to a \
+                     variable and test it in a guard: `| t if t.endsWith \".sw\" => …`, or \
+                     take it apart with `Text.stripSuffix` or `Text.splitOn`",
+                )
+                .into());
+        }
+        self.bump();
+        next(self)?;
+        self.node(start, NodeKind::PatternAppend);
+        Ok(())
     }
 
     /// Whether a `|` between alternatives of an or-pattern is next: one on
@@ -3392,31 +2951,32 @@ impl<'t> Parser<'t> {
         self.peek() == Some(&Tok::Pipe) && !self.tokens[self.pos].line_start
     }
 
-    /// After a pattern, `| q | …`, each further
+    /// After a pattern from token `start`, `| q | …`, each further
     /// alternative parsed by `next`; nothing more if no `|` follows. (That
     /// no alternative binds a variable is the lowering's check.)
-    fn alternatives(&mut self, next: fn(&mut Self) -> Result<()>) -> Result<()> {
+    fn alternatives(&mut self, start: u32, next: fn(&mut Self) -> Result<()>) -> Result<()> {
         if !self.or_bar_ahead() {
             return Ok(());
         }
-        self.open(NodeKind::PatternOr);
         while self.or_bar_ahead() {
             self.bump();
             next(self)?;
         }
-        self.close();
+        self.node(start, NodeKind::PatternOr);
         Ok(())
     }
 
-    /// `x (a, b) => body`, once `lambda_ahead` has said this is one. Out of
-    /// line, so that
-    /// `expr_inline`, which every nested expression recurses through, keeps
-    /// a small stack frame.
+    /// `x (a, b) => body`, once `lambda_ahead` has said this is one, from
+    /// token `start`, as a `kind`: a `Lambda`, or an `Exists` whose
+    /// keyword `start` is. Out of line, so that `expr_inline`, which every
+    /// nested expression recurses through, keeps a small stack frame.
     #[inline(never)]
-    fn lambda(&mut self, start: Span) -> Result<()> {
+    fn lambda(&mut self, start: u32, kind: NodeKind) -> Result<()> {
         let mut params = 0;
         loop {
             let first = self.mark();
+            // A parameter that is a name is its token, and a pattern is its
+            // own node; the others are `LambdaParam`s.
             match self.peek() {
                 Some(Tok::Lower(_)) => {
                     self.lower("a name")?;
@@ -3430,6 +2990,7 @@ impl<'t> Parser<'t> {
                     if let Some(default) = self.header_param_parts()?.default {
                         return Err(lambda_default(self.lowered_span(default)).into());
                     }
+                    self.node(first, NodeKind::LambdaParam);
                 }
                 // `[a: Type]`, `[auto h: P]`, `[auto P]`: implicit and auto
                 // parameters, as in a header (§4.3, D91).
@@ -3437,6 +2998,7 @@ impl<'t> Parser<'t> {
                     if self.implicit_group_at(self.pos) || self.nameless_auto_at(self.pos) =>
                 {
                     self.header_param_parts()?;
+                    self.node(first, NodeKind::LambdaParam);
                 }
                 // `((a, b): A)`: a pattern with a written type.
                 Some(Tok::LParen) if self.annotated_pattern_ahead() => {
@@ -3451,14 +3013,13 @@ impl<'t> Parser<'t> {
                 _ => break,
             }
             params += 1;
-            self.mark_param(first);
         }
         if params == 0 {
             return Err(self.unexpected("a parameter name").into());
         }
         self.expect_fat_arrow("`=>`")?;
         self.expr()?;
-        self.node_at(start, NodeKind::Lambda);
+        self.node(start, kind);
         Ok(())
     }
 
@@ -3498,7 +3059,11 @@ impl<'t> Parser<'t> {
     /// frame of the parser's recursive functions stays small (the nesting
     /// limit is measured in stack).
     #[inline(never)]
-    fn if_expr(&mut self, start: Span) -> Result<()> {
+    fn if_expr(&mut self, start: u32) -> Result<()> {
+        // `then` and `else` may start a line, as long as it's indented at
+        // least as far as the line `if` is on (not the line its binder is
+        // on, when a comment puts that on a later line).
+        let indent = self.line_indent(self.pos - 1);
         // `if h : P then …` binds a proof; `if c then …` tests a `Bool`.
         let binder =
             if matches!(self.peek(), Some(Tok::Lower(_))) && self.peek_at(1) == Some(&Tok::Colon) {
@@ -3508,9 +3073,6 @@ impl<'t> Parser<'t> {
             } else {
                 None
             };
-        // `then` and `else` may start a line, as long as it's indented at
-        // least as far as the line `if` is on.
-        let indent = self.line_indent(self.pos - 1);
         self.expr()?;
         let bool_test = self.peek() == Some(&Tok::Equals);
         self.expect_keyword(Tok::KwThen, "`then`", indent)
@@ -3526,7 +3088,7 @@ impl<'t> Parser<'t> {
         self.expr()?;
         self.expect_keyword(Tok::KwElse, "`else`", indent)?;
         self.expr()?;
-        self.node_at(start, NodeKind::If);
+        self.node(start, NodeKind::If);
         Ok(())
     }
 
@@ -3534,7 +3096,7 @@ impl<'t> Parser<'t> {
     /// (no proof: closed by computation). The steps line up, and are
     /// indented past the line `calc` is on.
     #[inline(never)]
-    fn calc_expr(&mut self, start: Span) -> Result<()> {
+    fn calc_expr(&mut self, start: u32) -> Result<()> {
         let indent = self.line_indent(self.pos - 1);
         self.modes.calc_depth += 1;
         let result = self.calc_body(start, indent);
@@ -3545,18 +3107,19 @@ impl<'t> Parser<'t> {
     /// A `calc` expression: above the relations, so `a || b`, `a && b` and
     /// `xs |> f` need no parentheses.
     fn calc_operand(&mut self) -> Result<()> {
+        let start = self.mark();
         self.range_expr()?;
         if self.at_pipe() {
-            self.pipe_chain()?;
+            self.pipe_chain(start)?;
         }
         if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
-            self.logic_chain()?;
+            self.logic_chain(start)?;
         }
         Ok(())
     }
 
     #[inline(never)]
-    fn calc_body(&mut self, start: Span, indent: u32) -> Result<()> {
+    fn calc_body(&mut self, start: u32, indent: u32) -> Result<()> {
         self.calc_operand()?;
         if matches!(
             self.peek(),
@@ -3591,7 +3154,8 @@ impl<'t> Parser<'t> {
                 }
                 Some(_) => {}
             }
-            let underscore = self.bump().span;
+            let underscore = self.mark();
+            self.bump();
             match self.peek() {
                 Some(Tok::Equals) => {}
                 Some(Tok::Le | Tok::Lt) => ascending = true,
@@ -3616,7 +3180,7 @@ impl<'t> Parser<'t> {
                 self.expr()?;
             }
             last = Some(self.prev_span());
-            self.node_at(underscore, NodeKind::CalcStep);
+            self.node(underscore, NodeKind::CalcStep);
         }
         let Some(last) = last else {
             return Err(self
@@ -3624,13 +3188,16 @@ impl<'t> Parser<'t> {
                 .with_note("a `calc` needs at least one step")
                 .into());
         };
-        self.node_at(start, NodeKind::Calc);
+        self.node(start, NodeKind::Calc);
         if descending && ascending {
             return Err(Diagnostic::error(
                 "E-CALC-RELATION",
                 "a `calc` chain goes one way: `<` and `<=` can't be mixed with `>` and `>=`",
             )
-            .with_label(start.to(last), "this chain has steps in both directions")
+            .with_label(
+                self.tokens[start as usize].span.to(last),
+                "this chain has steps in both directions",
+            )
             .with_note(
                 "write the steps all with `<`/`<=` or all with `>`/`>=` (`=` goes with either)",
             )
@@ -3639,13 +3206,13 @@ impl<'t> Parser<'t> {
         Ok(())
     }
 
-    /// `rewrite p, <- q at h in t`, after `rewrite`: rules separated by
+    /// `rewrite p, <- q at h then t`, after `rewrite`: rules separated by
     /// commas, each optionally `<-`, then (optionally) `at` and the target,
-    /// then (optionally) `in` and the body. `at` and `in` are only special
-    /// where a rule could end: outside brackets, inside a rule (and `in`
-    /// inside the target).
+    /// then (optionally) `then` and the body. `at` and `then` are only
+    /// special where a rule could end: outside brackets, inside a rule (and
+    /// `then` inside the target).
     #[inline(never)]
-    fn rewrite_expr(&mut self, start: Span) -> Result<()> {
+    fn rewrite_expr(&mut self, start: u32) -> Result<()> {
         let saved = (self.modes.rewrite_rule.take(), self.modes.rewrite_at);
         let result = self.rewrite_body(start);
         (self.modes.rewrite_rule, self.modes.rewrite_at) = saved;
@@ -3653,10 +3220,10 @@ impl<'t> Parser<'t> {
     }
 
     #[inline(never)]
-    fn rewrite_body(&mut self, start: Span) -> Result<()> {
+    fn rewrite_body(&mut self, start: u32) -> Result<()> {
         let column = self.tokens[self.pos - 1].column;
         loop {
-            let rule_start = self.here();
+            let rule_start = self.mark();
             let reverse = self.peek() == Some(&Tok::Lt)
                 && self.peek_at(1) == Some(&Tok::Minus)
                 && self.tokens[self.pos].span.end == self.tokens[self.pos + 1].span.start;
@@ -3669,14 +3236,18 @@ impl<'t> Parser<'t> {
             let proof = self.append_expr();
             self.modes.rewrite_rule = None;
             proof?;
-            self.node_at(rule_start, NodeKind::RewriteRule);
+            self.node(rule_start, NodeKind::RewriteRule);
             if !self.eat(&Tok::Comma) {
                 break;
             }
         }
         if matches!(self.peek(), Some(Tok::Lower(x)) if x == "at") {
             let at = self.bump().span;
-            if self.peek().is_none_or(|t| *t == Tok::KwIn) || self.is_stop(self.pos) {
+            if self
+                .peek()
+                .is_none_or(|t| matches!(t, Tok::KwThen | Tok::KwIn))
+                || self.is_stop(self.pos)
+            {
                 return Err(rewrite_at_without_target(at).into());
             }
             self.modes.rewrite_rule = Some(self.pos);
@@ -3685,81 +3256,43 @@ impl<'t> Parser<'t> {
             self.modes.rewrite_rule = None;
             target?;
         }
-        // `in` may also start a line of its own, at the `rewrite`'s column or
-        // right of it, where the enclosing block's column would end the
-        // expression: no statement starts with `in`.
-        let own_line = self
-            .tokens
-            .get(self.pos)
-            .is_some_and(|t| t.tok == Tok::KwIn && t.line_start && t.column >= column);
-        if self.peek() == Some(&Tok::KwIn) || own_line {
-            let first = self.bump().span;
-            let body_start = self.mark();
-            self.expr()?;
-            self.rewrite_membership(body_start, first)?;
+        // `then` may also start a line of its own, at the `rewrite`'s column
+        // or right of it, where the enclosing block's column would end the
+        // expression: no statement starts with `then`.
+        let own_line = |tok: Tok| {
+            self.tokens
+                .get(self.pos)
+                .is_some_and(|t| t.tok == tok && t.line_start && t.column >= column)
+        };
+        if self.peek() == Some(&Tok::KwIn) || own_line(Tok::KwIn) {
+            return Err(old_in(self.tokens[self.pos].span, "rewrite").into());
         }
-        self.node_at(start, NodeKind::Rewrite);
+        if self.peek() == Some(&Tok::KwThen) || own_line(Tok::KwThen) {
+            self.bump();
+            self.expr()?;
+        }
+        self.node(start, NodeKind::Rewrite);
         Ok(())
     }
 
-    /// `cases` or `cases in t`, after the `cases` (docs/proposals/simp.md
+    /// `cases` or `cases then t`, after the `cases` (docs/proposals/simp.md
     /// §5.1). As for `rewrite`, the body runs to the end of the expression.
-    fn cases_expr(&mut self, start: Span) -> Result<()> {
-        if self.peek() != Some(&Tok::KwIn) {
+    fn cases_expr(&mut self, start: u32) -> Result<()> {
+        if self.peek() == Some(&Tok::KwIn) {
+            return Err(old_in(self.tokens[self.pos].span, "cases").into());
+        }
+        if self.peek() != Some(&Tok::KwThen) {
             return Ok(());
         }
         self.bump();
         self.expr()?;
-        self.node_at(start, NodeKind::Cases);
+        self.node(start, NodeKind::Cases);
         Ok(())
-    }
-
-    /// A `rewrite` body that is a membership test, `x in xs`, its `in` not
-    /// in brackets: `rewrite h x in xs in t` reads as the rule `h x` and the
-    /// body `xs in t`, since a bare `in` ends a rule. Whichever was meant,
-    /// brackets say it (D1201). The body starts at token `body_start` and
-    /// ends at the last token read.
-    #[inline(never)]
-    fn rewrite_membership(&self, body_start: u32, first: Span) -> Result<()> {
-        let end = self.pos as u32;
-        // The body is a membership test if the outermost construct it is,
-        // the last marked from its start to its end, is one.
-        let whole = self
-            .marks
-            .iter()
-            .rev()
-            .take_while(|m| m.end == end)
-            .find(|m| m.start == body_start);
-        if whole.is_none_or(|m| m.kind != NodeKind::Membership) {
-            return Ok(());
-        }
-        // Its operator follows its left operand: the longest construct
-        // marked from the body's start that ends before the body does, or
-        // else its first token.
-        let operand_end = self
-            .marks
-            .iter()
-            .filter(|m| m.start == body_start && m.end < end)
-            .map(|m| m.end)
-            .max()
-            .unwrap_or(body_start + 1);
-        let op = self.tokens[operand_end as usize].span;
-        Err(Diagnostic::error(
-            "E-PARSE",
-            "a membership test in a `rewrite` needs brackets",
-        )
-        .with_label(first, "this `in` ends the rewrite rule")
-        .with_label(op, "so this `in` is read as a membership test in the body")
-        .with_note(
-            "a bare `in` ends a `rewrite` rule, so membership in a rule is written in brackets, \
-             `rewrite h (x in xs) in …`; a membership test as the body is bracketed too, \
-             `rewrite h in (x in xs)`",
-        ).into())
     }
 
     /// `(x : A) -> B` or `[x : A] -> B`. Out of line, as `if_expr` is.
     #[inline(never)]
-    fn pi_expr(&mut self, start: Span, implicit: bool) -> Result<()> {
+    fn pi_expr(&mut self, start: u32, implicit: bool) -> Result<()> {
         let binder = if implicit {
             self.implicit_binder()?
         } else {
@@ -3770,7 +3303,7 @@ impl<'t> Parser<'t> {
         }
         self.expect(Tok::Arrow, "`->`")?;
         self.result_type()?;
-        self.node_at(start, NodeKind::FunctionType);
+        self.node(start, NodeKind::FunctionType);
         Ok(())
     }
 
@@ -3785,7 +3318,7 @@ impl<'t> Parser<'t> {
     }
 
     fn expr_inline(&mut self) -> Result<()> {
-        let start = self.here();
+        let start = self.mark();
         if self.eat(&Tok::KwHandle) {
             return self.handle(start);
         }
@@ -3805,7 +3338,7 @@ impl<'t> Parser<'t> {
             return self.cases_expr(start);
         }
         if self.lambda_ahead()? {
-            return self.lambda(start);
+            return self.lambda(start, NodeKind::Lambda);
         }
         if let Some(colon) = self.lambda_result_type_ahead() {
             return Err(lambda_result_type(self.tokens[colon].span).into());
@@ -3820,26 +3353,30 @@ impl<'t> Parser<'t> {
         if implicit || self.is_pi_binder() {
             return self.pi_expr(start, implicit);
         }
+        // A method section at the start takes the expression up to a `->`
+        // or `;` (D1192): its `Section` is marked here, around it.
         let section = self.peek() == Some(&Tok::Dot);
+        if section {
+            self.modes.section_head = Some(self.pos);
+        }
         self.cmp_expr()?;
         if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
-            self.logic_chain()?;
+            self.logic_chain(start)?;
         }
         if self.peek() == Some(&Tok::Iff) {
-            self.iff()?;
-        }
-        if self.peek() == Some(&Tok::Arrow) {
-            self.open(NodeKind::Arrow);
-            self.bump();
-            self.result_type()?;
-            self.close();
-            return Ok(());
+            self.iff(start)?;
         }
         if section {
-            self.widen_section();
+            self.node(start, NodeKind::Section);
+        }
+        if self.peek() == Some(&Tok::Arrow) {
+            self.bump();
+            self.result_type()?;
+            self.node(start, NodeKind::Arrow);
+            return Ok(());
         }
         if self.peek() == Some(&Tok::Semi) && self.sequence_ahead() {
-            return self.sequence();
+            return self.sequence(start);
         }
         Ok(())
     }
@@ -3863,14 +3400,14 @@ impl<'t> Parser<'t> {
         depth > 0
     }
 
-    /// `a; b`, after `a`: run `a`, then give `b`'s value (SW-888, D1700).
+    /// `a; b`, after `a`, which starts at token `start`: run `a`, then give
+    /// `b`'s value (SW-888, D1700).
     /// The same tree as the block lines `a` and `b`, so `a; b; c` is
     /// `Seq(a, Seq(b, c))` and `a; let x := e; b` binds `x` for `b`. The
     /// rest runs as far as an expression can, as an expression `let`'s body
     /// does.
     #[inline(never)]
-    fn sequence(&mut self) -> Result<()> {
-        let start = self.operand_start();
+    fn sequence(&mut self, start: u32) -> Result<()> {
         let semi = self.bump().span;
         let at_end = self
             .peek()
@@ -3891,20 +3428,21 @@ impl<'t> Parser<'t> {
         Ok(())
     }
 
-    /// `p <-> q`, after `p`: `Iff p q` (D1202). Looser than `&&` and `||`,
-    /// tighter than `->`, and not associative, as in Rocq. The right
+    /// `p <-> q`, after `p`, which starts at token `start` (D1202). Looser
+    /// than `&&` and `||`, tighter than `->`, and not associative, as in
+    /// Rocq. The right
     /// side may be an `exists` or a `forall`. Out of line, as `logic_chain`
     /// is.
     #[inline(never)]
-    fn iff(&mut self) -> Result<()> {
-        let start = self.operand_start();
+    fn iff(&mut self, start: u32) -> Result<()> {
         self.bump();
         if self.at_quantifier() {
             self.quantifier()?;
         } else {
+            let right = self.mark();
             self.cmp_expr()?;
             if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
-                self.logic_chain()?;
+                self.logic_chain(right)?;
             }
         }
         if self.peek() == Some(&Tok::Iff) {
@@ -3923,17 +3461,15 @@ impl<'t> Parser<'t> {
     /// `exists (a b: Nat) => P` is `exists (a: Nat) => exists (b: Nat) => P`.
     #[inline(never)]
     fn exists_expr(&mut self) -> Result<()> {
-        let keyword = self.bump().span;
+        let keyword = self.mark();
+        self.bump();
         if !self.lambda_ahead()? {
             return Err(self
                 .unexpected("a parameter and `=>` after `exists`")
                 .with_note("\"there exists\" is written `exists (x: T) => P`")
                 .into());
         }
-        let start = self.here();
-        self.lambda(start)?;
-        self.retag_last(keyword, NodeKind::Exists);
-        Ok(())
+        self.lambda(keyword, NodeKind::Exists)
     }
 
     /// Whether an `exists` or a `forall` starts here.
@@ -3960,7 +3496,8 @@ impl<'t> Parser<'t> {
     #[inline(never)]
     fn forall_expr(&mut self) -> Result<()> {
         let written = self.spelled(&self.tokens[self.pos]);
-        let keyword = self.bump().span;
+        let keyword = self.mark();
+        self.bump();
         let mut groups = 0;
         loop {
             let first = self.mark();
@@ -3982,16 +3519,17 @@ impl<'t> Parser<'t> {
                         )
                         .into());
                     }
+                    self.node(first, NodeKind::LambdaParam);
                 }
                 Some(Tok::LBracket)
                     if self.implicit_group_at(self.pos) || self.nameless_auto_at(self.pos) =>
                 {
                     self.header_param_parts()?;
+                    self.node(first, NodeKind::LambdaParam);
                 }
                 _ => break,
             }
             groups += 1;
-            self.mark_param(first);
         }
         if groups == 0 || self.peek() != Some(&Tok::FatArrow) {
             let expected = if groups == 0 {
@@ -4010,7 +3548,7 @@ impl<'t> Parser<'t> {
         }
         self.bump();
         self.expr()?;
-        self.node_at(keyword, NodeKind::Forall);
+        self.node(keyword, NodeKind::Forall);
         Ok(())
     }
 
@@ -4236,20 +3774,32 @@ impl<'t> Parser<'t> {
     }
 
     /// `a && b` and `a || b`: binding more loosely than comparisons, `&&`
-    /// tighter than `||`, both grouping to the right. The operands are
-    /// read in a loop, so a chain costs one stack frame, not one per
-    /// operator. The first operand has been read. Every expression is
+    /// tighter than `||`, both grouping to the right, so `a || b && c || d`
+    /// is `a || ((b && c) || d)`. The first operand, from token `start`, has
+    /// been read. The operands are read in a loop, so a chain costs one
+    /// stack frame, not one per operator, and its `Binary` nodes are marked
+    /// as they finish: a conjunction's at the `||` after it or at the end,
+    /// inner first, then the disjunctions', inner first. Every expression is
     /// parsed by the caller, and this is only entered at a `&&` or `||`, out
     /// of line, so the frames nested expressions pile up (and so how deeply
     /// they can nest) stay as they were: the `check-nested-parens` benchmark
     /// fails otherwise.
     #[inline(never)]
-    fn logic_chain(&mut self) -> Result<()> {
-        // Where each operand starts, and whether it starts a disjunct.
-        let mut starts = vec![(self.operand_start(), true)];
+    fn logic_chain(&mut self, start: u32) -> Result<()> {
+        // Where each disjunct starts, and each operand of the last.
+        let mut disjuncts = vec![start];
+        let mut operands = vec![start];
         while let Some(Tok::AndAnd | Tok::OrOr) = self.peek() {
-            let or = self.bump().tok == Tok::OrOr;
-            starts.push((self.mark(), or));
+            let or = self.peek() == Some(&Tok::OrOr);
+            if or {
+                self.mark_right_nested(&operands);
+                operands.clear();
+            }
+            self.bump();
+            operands.push(self.mark());
+            if or {
+                disjuncts.push(self.mark());
+            }
             // `p && exists (x: T) => q`: the `exists` takes the rest, as
             // does a `forall`.
             if self.at_quantifier() {
@@ -4258,48 +3808,18 @@ impl<'t> Parser<'t> {
                 self.cmp_expr()?;
             }
         }
-        self.mark_logic_chain(&starts);
+        self.mark_right_nested(&operands);
+        self.mark_right_nested(&disjuncts);
         Ok(())
     }
 
-    /// The `Binary` nodes of a chain of `&&` and `||` that has just been
-    /// read, given where each operand starts and whether it starts a
-    /// disjunct. Both group to the right, `&&` tighter: `a || b && c || d`
-    /// is `a || ((b && c) || d)`.
-    ///
-    /// They are recorded in the order they finish, inner before outer, so
-    /// the last is the whole chain: an operator after it (`→`, `↔`, `;`)
-    /// finds its left operand's start from the last mark
-    /// ([`Self::operand_start`]), and with any other node last it would
-    /// start inside the chain and cross it.
-    #[inline(never)]
-    fn mark_logic_chain(&mut self, starts: &[(u32, bool)]) {
-        let end = self.pos as u32;
-        let firsts: Vec<usize> = (0..starts.len()).filter(|&i| starts[i].1).collect();
-        let mut ranges = Vec::with_capacity(starts.len());
-        for (k, &first) in firsts.iter().enumerate() {
-            let next = firsts.get(k + 1).copied();
-            // A disjunct before another ends at the `||` before the next.
-            let (last, until) = match next {
-                Some(next) => (next, starts[next].0 - 1),
-                None => (starts.len(), end),
-            };
-            for &(start, _) in &starts[first..last - 1] {
-                ranges.push((start, until));
-            }
-            if next.is_some() {
-                ranges.push((starts[first].0, end));
-            }
+    /// The `Binary` nodes of operands from tokens `starts` that end here,
+    /// grouped to the right: one from each start but the last, the last
+    /// start's first, since it finishes first.
+    pub(super) fn mark_right_nested(&mut self, starts: &[u32]) {
+        for &start in starts[..starts.len() - 1].iter().rev() {
+            self.node(start, NodeKind::Binary);
         }
-        // Finishing order: by end, and of two with the same end the inner
-        // (later starting) first.
-        ranges.sort_unstable_by(|a, b| a.1.cmp(&b.1).then(b.0.cmp(&a.0)));
-        self.marks
-            .extend(ranges.into_iter().map(|(start, end)| Mark {
-                kind: NodeKind::Binary,
-                start,
-                end,
-            }));
     }
 
     /// Whether a `|>` comes next: on this line, or starting a line (which a
@@ -4312,7 +3832,8 @@ impl<'t> Parser<'t> {
             .is_some_and(|t| t.tok == Tok::PipeGt && (!self.is_stop(self.pos) || t.line_start))
     }
 
-    /// `x |> f a |> g`: tighter than comparisons, `in`, `&&` and `||`,
+    /// `x |> f a |> g`, after `x`, which starts at token `start`: tighter
+    /// than comparisons, `in`, `&&` and `||`,
     /// looser than `++`, grouping to the left, so a pipeline reads top to
     /// bottom and `xs |> List.sum == 6` compares the sum. A line may start
     /// with `|>` to continue the expression, if it's indented at least as
@@ -4323,8 +3844,7 @@ impl<'t> Parser<'t> {
     /// `(x |> y => f y) |> g`. Out of line and in a loop, as `logic_chain`
     /// is.
     #[inline(never)]
-    fn pipe_chain(&mut self) -> Result<()> {
-        let start = self.operand_start();
+    fn pipe_chain(&mut self, start: u32) -> Result<()> {
         let indent = self.line_indent(self.written_start(start));
         loop {
             let continues = match self.tokens.get(self.pos) {
@@ -4337,14 +3857,19 @@ impl<'t> Parser<'t> {
                 break;
             }
             self.bump();
+            let operand = self.mark();
             if self.lambda_ahead()? {
-                let start = self.here();
-                self.lambda(start)?;
+                self.lambda(operand, NodeKind::Lambda)?;
             } else {
+                // A method section takes the operand it starts, as it
+                // takes an expression (`expr_inline`).
                 let section = self.peek() == Some(&Tok::Dot);
+                if section {
+                    self.modes.section_head = Some(self.pos);
+                }
                 self.append_expr()?;
                 if section {
-                    self.widen_section();
+                    self.node(operand, NodeKind::Section);
                 }
             }
             self.node(start, NodeKind::Pipe);
@@ -4373,10 +3898,10 @@ impl<'t> Parser<'t> {
     /// line left of the last alternative's line (which would otherwise
     /// take it), but at least as far right as the `match`'s line.
     #[inline(never)]
-    fn match_piped(&mut self, start: Span) -> Result<()> {
+    fn match_piped(&mut self, start: u32) -> Result<()> {
         self.match_expr(start)?;
         if self.at_pipe() {
-            self.pipe_chain()?;
+            self.pipe_chain(start)?;
         }
         Ok(())
     }
@@ -4388,7 +3913,7 @@ impl<'t> Parser<'t> {
         let lhs_start = self.pos;
         self.range_expr()?;
         if self.at_pipe() {
-            self.pipe_chain()?;
+            self.pipe_chain(lhs_start as u32)?;
         }
         if matches!(self.peek(), Some(Tok::KwIn | Tok::NotIn)) {
             return self.membership(lhs_start);
@@ -4404,7 +3929,7 @@ impl<'t> Parser<'t> {
         // `a = if c then x else y`: the `if` on the right runs to the end of
         // the expression, as it does anywhere else.
         if self.peek() == Some(&Tok::KwIf) {
-            let start = self.here();
+            let start = self.mark();
             self.bump();
             self.if_expr(start)?;
             self.node(lhs_start as u32, NodeKind::Binary);
@@ -4413,7 +3938,7 @@ impl<'t> Parser<'t> {
         let second = self.mark();
         self.range_expr()?;
         if self.at_pipe() {
-            self.pipe_chain()?;
+            self.pipe_chain(second)?;
         }
         if !matches!(
             self.peek(),
@@ -4438,7 +3963,7 @@ impl<'t> Parser<'t> {
 
     /// The rest of `a <= b < c …`, after `a <= b`, where `a` starts at
     /// token `first_start`, its operator is token `first_op` and `b` starts
-    /// at `second` (SW-1339, D2386); the lowering joins the links.
+    /// at `second` (SW-1339, D2386).
     /// `equality` if the first operator is `=`, `!=` or `==`, which can't
     /// start a chain; `descending` if it is `>` or `>=`.
     #[inline(never)]
@@ -4555,7 +4080,7 @@ impl<'t> Parser<'t> {
             let operand = self.mark();
             self.range_expr()?;
             if self.at_pipe() {
-                self.pipe_chain()?;
+                self.pipe_chain(operand)?;
             }
             operands.push((operand, self.mark()));
         }
@@ -4602,9 +4127,10 @@ impl<'t> Parser<'t> {
             )
             .into());
         }
+        let right = self.mark();
         self.range_expr()?;
         if self.at_pipe() {
-            self.pipe_chain()?;
+            self.pipe_chain(right)?;
         }
         self.node(lhs_start as u32, NodeKind::Membership);
         Ok(())
@@ -4615,16 +4141,16 @@ impl<'t> Parser<'t> {
     /// `0 ..< xs.length` and `x in 0 ..< n |> f` read as they look
     /// (docs/proposals/ranges.md §11).
     fn range_expr(&mut self) -> Result<()> {
+        let start = self.mark();
         self.append_expr()?;
         match self.peek() {
             Some(Tok::DotDotLt | Tok::DotDotEq) => {}
             Some(Tok::DotDot) => return Err(self.bare_range().into()),
             _ => return Ok(()),
         }
-        self.open(NodeKind::Range);
         let first = self.bump().span;
         self.append_expr()?;
-        self.close();
+        self.node(start, NodeKind::Range);
         if let Some(Tok::DotDotLt | Tok::DotDotEq) = self.peek() {
             return Err(error(self.here(), "ranges don't chain")
                 .with_label(first, "this range already has both ends")
@@ -4658,53 +4184,54 @@ impl<'t> Parser<'t> {
     /// `"n = " ++ natToText (n + 1)` and `a ++ b ++ c` mean what they look like.
     fn append_expr(&mut self) -> Result<()> {
         self.deeper()?;
+        let start = self.mark();
         self.add_expr()?;
         if self.peek() != Some(&Tok::PlusPlus) {
             return Ok(());
         }
-        self.open(NodeKind::Binary);
         self.bump();
         self.append_expr()?;
-        self.close();
+        self.node(start, NodeKind::Binary);
         Ok(())
     }
 
     /// `+`, `-`: left-associative.
     fn add_expr(&mut self) -> Result<()> {
+        let start = self.mark();
         self.mul_expr()?;
         while matches!(self.peek(), Some(Tok::Plus | Tok::Minus)) {
-            self.open(NodeKind::Binary);
             self.bump();
             self.mul_expr()?;
-            self.close();
+            self.node(start, NodeKind::Binary);
         }
         Ok(())
     }
 
     /// `*`, `/`, `%`: left-associative, binding tighter than `+`.
     fn mul_expr(&mut self) -> Result<()> {
+        let start = self.mark();
         self.unary()?;
         while matches!(self.peek(), Some(Tok::Star | Tok::Slash | Tok::Percent)) {
-            self.open(NodeKind::Binary);
             self.bump();
             self.unary()?;
-            self.close();
+            self.node(start, NodeKind::Binary);
         }
         Ok(())
     }
 
     /// A prefix minus or `!` (which may repeat), tighter than `*` and looser
     /// than application and dots: `-x.abs` is `-(x.abs)`, `-f x` is `-(f x)`,
-    /// `!xs.isEmpty` is `Bool.not (xs.isEmpty)`.
+    /// `!xs.isEmpty` is `!(xs.isEmpty)`.
     fn unary(&mut self) -> Result<()> {
         // A `match` as an operand: `1 + match n with | …`. Its last
         // alternative's body takes whatever follows.
+        let start = self.mark();
         if self.peek() == Some(&Tok::KwMatch) {
-            let start = self.bump().span;
+            self.bump();
             return self.match_expr(start);
         }
         if self.matches_bar_ahead() {
-            let start = self.bump().span;
+            self.bump();
             return self.clause_lambda(start, MatchKind::ClauseMatches);
         }
         // A negative numeral is one atom (D1474): `-1.abs` is `(-1).abs`.
@@ -4713,21 +4240,24 @@ impl<'t> Parser<'t> {
         }
         if let Some(Tok::Minus | Tok::Bang) = self.peek() {
             self.deeper()?;
-            let start = self.bump().span;
+            self.bump();
             self.unary()?;
-            self.node_at(start, NodeKind::Prefix);
+            self.node(start, NodeKind::Prefix);
             return Ok(());
         }
         self.app()
     }
 
     fn app(&mut self) -> Result<()> {
+        let start = self.mark();
         // A section's arguments are its own: `.drop 1` is `x => x.drop 1`.
-        let section = self.peek() == Some(&Tok::Dot);
+        // One that starts an expression is marked by its parser, around
+        // more ([`Modes::section_head`]).
+        let section =
+            self.peek() == Some(&Tok::Dot) && self.modes.section_head != Some(start as usize);
         self.atom(true)?;
         // `f a b` is one `App` node, however many arguments.
         if self.starts_atom() {
-            self.open(NodeKind::App);
             loop {
                 if self.peek() == Some(&Tok::Dot) && self.tokens[self.pos].line_start {
                     return Err(self.section_line().into());
@@ -4743,14 +4273,17 @@ impl<'t> Parser<'t> {
                     break;
                 }
             }
-            self.close();
+            self.node(start, NodeKind::App);
         }
         // A section at the head takes the arguments: `.drop 1`.
         if section {
-            self.node_around_operand(NodeKind::Section);
+            self.node(start, NodeKind::Section);
         }
         if self.peek() == Some(&Tok::KwCases) && self.peek_at(1) == Some(&Tok::KwIn) {
-            return Err(self.cases_in_argument().into());
+            return Err(old_in(self.tokens[self.pos + 1].span, "cases").into());
+        }
+        if self.peek() == Some(&Tok::KwCases) && self.peek_at(1) == Some(&Tok::KwThen) {
+            return Err(self.cases_then_argument().into());
         }
         Ok(())
     }
@@ -4793,8 +4326,8 @@ impl<'t> Parser<'t> {
                     | Tok::Str(_)
                     | Tok::StrStart(_)
                     | Tok::KwInclude
-                    | Tok::KwOmega
-                    | Tok::KwRing
+                    | Tok::KwArithmetic
+                    | Tok::KwAlgebra
                     | Tok::TypeU
                     | Tok::Prop
                     | Tok::LParen
@@ -4822,23 +4355,24 @@ impl<'t> Parser<'t> {
         argument_prefix(self.tokens, i) && !self.is_stop(i)
     }
 
-    /// Whether the next token is a `cases` with no `in` after it, which is
-    /// a whole term and so can be an argument, as `omega` can.
+    /// Whether the next token is a `cases` with no `then` after it, which
+    /// is a whole term and so can be an argument, as `arithmetic` can.
     fn bare_cases(&self) -> bool {
-        self.peek() == Some(&Tok::KwCases) && self.peek_at(1) != Some(&Tok::KwIn)
+        self.peek() == Some(&Tok::KwCases)
+            && !matches!(self.peek_at(1), Some(Tok::KwThen | Tok::KwIn))
     }
 
-    /// `f cases in t`: a `cases in` as an argument, whose body would take
+    /// `f cases then t`: a `cases then` as an argument, whose body would take
     /// the rest of the line.
     #[inline(never)]
-    fn cases_in_argument(&self) -> Diagnostic {
+    fn cases_then_argument(&self) -> Diagnostic {
         error(
             self.tokens[self.pos].span,
-            "`cases in …` as an argument needs brackets",
+            "`cases then …` as an argument needs brackets",
         )
         .with_note(
-            "the body of `cases in` runs to the end of the expression, so as an argument \
-             it's written `(cases in t)`",
+            "the body of `cases then` runs to the end of the expression, so as an argument \
+             it's written `(cases then t)`",
         )
     }
 
@@ -4867,24 +4401,24 @@ impl<'t> Parser<'t> {
     /// `app` takes it (`brace_argument`).
     fn atom(&mut self, head: bool) -> Result<()> {
         let section = self.peek() == Some(&Tok::Dot);
-        let start = self.here();
+        let start = self.mark();
         let upper = matches!(self.peek(), Some(Tok::Upper(_)));
         // Whether what has been read is a name or a field, which `()`
         // written against it calls; in brackets, `(f)()`, it may be one.
         let paren = self.peek() == Some(&Tok::LParen);
         let mut callable = matches!(self.peek(), Some(Tok::Lower(_) | Tok::Upper(_) | Tok::Dot));
-        let first = self.mark();
-        self.atom_base()?;
+        self.atom_base(start)?;
         if upper && head && self.peek() == Some(&Tok::LBrace) {
             self.ctor_fields_expr()?;
             callable = false;
         }
         loop {
-            if self.unit_call() && (callable || paren && self.callable_paren(first)) {
-                let open = self.bump().span;
+            if self.unit_call() && (callable || paren && self.callable_paren(start)) {
+                let open = self.mark();
                 self.bump();
-                self.node_at(open, NodeKind::Unit);
-                self.node_at(start, NodeKind::App);
+                self.bump();
+                self.node(open, NodeKind::Unit);
+                self.node(start, NodeKind::App);
             }
             if !(self.peek() == Some(&Tok::Dot) && !self.section_at(self.pos)) {
                 break;
@@ -4910,13 +4444,13 @@ impl<'t> Parser<'t> {
                 );
             }
             self.pos += 2;
-            self.node_at(start, NodeKind::FieldAccess);
+            self.node(start, NodeKind::FieldAccess);
             callable = true;
         }
         // At the head of an application, `app` marks the section, around
         // the arguments.
         if section && !head {
-            self.node_at(start, NodeKind::Section);
+            self.node(start, NodeKind::Section);
         }
         Ok(())
     }
@@ -4956,9 +4490,10 @@ impl<'t> Parser<'t> {
         }
     }
 
-    /// `.name`, starting a method section: its body's start, `%section.name`.
+    /// `.name`, starting a method section: the start of its body.
     #[inline(never)]
     fn section_start(&mut self) -> Result<()> {
+        let start = self.mark();
         let dot = self.bump().span;
         match self.tokens.get(self.pos) {
             Some(Token {
@@ -4973,7 +4508,7 @@ impl<'t> Parser<'t> {
             }
         }
         self.pos += 1;
-        self.node_at(dot, NodeKind::FieldAccess);
+        self.node(start, NodeKind::FieldAccess);
         Ok(())
     }
 
@@ -4994,7 +4529,7 @@ impl<'t> Parser<'t> {
     #[inline(never)]
     fn brace_argument(&mut self) -> Result<()> {
         let ctor = self.mark();
-        self.atom_base()?;
+        self.atom_base(ctor)?;
         self.record_expr()?;
         self.node(ctor, NodeKind::CtorFields);
         Ok(())
@@ -5003,14 +4538,15 @@ impl<'t> Parser<'t> {
     /// `{ name = e, age }` (a literal; `age` is punned) or `{ base | age = e }`
     /// (an update). A literal's fields are in the order written.
     fn record_expr(&mut self) -> Result<()> {
-        let start = self.expect(Tok::LBrace, "`{`")?.span;
+        let start = self.mark();
+        self.expect(Tok::LBrace, "`{`")?;
         self.record_body(start)
     }
 
-    fn record_body(&mut self, start: Span) -> Result<()> {
+    fn record_body(&mut self, start: u32) -> Result<()> {
         if self.peek() == Some(&Tok::RBrace) {
             self.bump();
-            self.node_at(start, NodeKind::Record);
+            self.node(start, NodeKind::Record);
             return Ok(());
         }
         let literal = matches!(self.peek(), Some(Tok::Lower(_)))
@@ -5020,6 +4556,13 @@ impl<'t> Parser<'t> {
             );
         if !literal {
             self.expr()?;
+            // The `{` at the end of a line: the contents ran out before the
+            // `|` that starts an update's fields, so the brace is left open
+            // ([`Self::close_bracket`]).
+            if self.peek() != Some(&Tok::Pipe) && self.bracket_ran_out() {
+                self.node(start, NodeKind::Error);
+                return Ok(());
+            }
             self.expect(Tok::Pipe, "`|` and the fields to update")?;
         }
         let mut fields = 0;
@@ -5027,25 +4570,25 @@ impl<'t> Parser<'t> {
             if self.peek() == Some(&Tok::RBrace) && fields > 0 {
                 break;
             }
-            let name = self.lower("a field name")?.span;
+            let name = self.mark();
+            self.lower("a field name")?;
             if self.eat(&Tok::Equals) {
                 self.expr()?;
-                self.node_at(name, NodeKind::RecordField);
+                self.node(name, NodeKind::RecordField);
             }
             fields += 1;
             if !self.eat(&Tok::Comma) {
                 break;
             }
         }
-        self.expect(Tok::RBrace, "`,` or `}`")?;
-        self.node_at(start, NodeKind::Record);
+        self.close_bracket(start, Tok::RBrace, "`,` or `}`", NodeKind::Record)?;
         Ok(())
     }
 
     /// A list literal, at its `[`. The first `..` spread's tokens, if it
     /// has one.
     #[inline(never)]
-    fn list_expr(&mut self, span: Span) -> Result<Option<(u32, u32)>> {
+    fn list_expr(&mut self, start: u32) -> Result<Option<(u32, u32)>> {
         self.bump();
         let mut spread = None;
         if self.peek() != Some(&Tok::RBracket) {
@@ -5059,8 +4602,7 @@ impl<'t> Parser<'t> {
                 }
             }
         }
-        self.expect(Tok::RBracket, "`,` or `]`")?;
-        self.node_at(span, NodeKind::List);
+        self.close_bracket(start, Tok::RBracket, "`,` or `]`", NodeKind::List)?;
         Ok(spread)
     }
 
@@ -5078,19 +4620,20 @@ impl<'t> Parser<'t> {
             self.expr()?;
             return Ok(false);
         }
-        let dots = self.bump().span;
+        let dots = self.mark();
+        self.bump();
         if matches!(self.peek(), Some(Tok::Comma | Tok::RBracket)) {
             return Err(error(self.here(), "expected a list after `..`, as in `[x, ..xs]`").into());
         }
         self.expr()?;
-        self.node_at(dots, NodeKind::Spread);
+        self.node(dots, NodeKind::Spread);
         Ok(true)
     }
 
-    /// The facts of `omega [..]`, `ring [..]` and the like: a list of terms
+    /// The facts of `arithmetic [..]`, `algebra [..]` and the like: a list of terms
     /// with no spread.
     fn fact_list(&mut self) -> Result<()> {
-        if let Some((dots, end)) = self.list_expr(self.here())? {
+        if let Some((dots, end)) = self.list_expr(self.mark())? {
             let at = self.tokens[dots as usize]
                 .span
                 .to(self.lowered_span((dots + 1, end)));
@@ -5101,10 +4644,10 @@ impl<'t> Parser<'t> {
         Ok(())
     }
 
-    /// `"a${x}b${y}c"`: text pieces and interpolations, which the lowering
-    /// joins.
+    /// `"a${x}b${y}c"`: text pieces and interpolations.
     fn interpolated_str(&mut self) -> Result<()> {
-        let open = self.bump().span;
+        let open = self.mark();
+        self.bump();
         loop {
             // The lexer ends every text piece but the last with a `${`.
             let interpolation = self.mark();
@@ -5130,7 +4673,7 @@ impl<'t> Parser<'t> {
                 _ => return Err(self.unexpected("`${` or the end of the text").into()),
             }
         }
-        self.node_at(open, NodeKind::Interpolated);
+        self.node(open, NodeKind::Interpolated);
         Ok(())
     }
 
@@ -5143,7 +4686,8 @@ impl<'t> Parser<'t> {
         if !argument_minus(self.tokens, self.pos) && !numeral {
             return Err(self.unexpected_name("an expression").into());
         }
-        let start = self.bump().span;
+        let start = self.mark();
+        self.bump();
         if numeral {
             // The number `negative_numeral` saw, read here rather than by
             // `atom_base`, so that `atom` stays its only caller.
@@ -5151,31 +4695,33 @@ impl<'t> Parser<'t> {
         } else {
             self.atom(false)?;
         }
-        self.node_at(start, NodeKind::Prefix);
+        self.node(start, NodeKind::Prefix);
         Ok(())
     }
 
-    /// An argument `!` (`f !x`): `Std.Bool.not` of one atom with its dots and
-    /// `()` calls, as any argument takes them.
+    /// An argument `!` (`f !x`): the `!` and one atom with its dots and `()`
+    /// calls, as any argument takes them.
     #[inline(never)]
     fn bang_atom(&mut self) -> Result<()> {
         if !argument_bang(self.tokens, self.pos) {
             return Err(self.unexpected_name("an expression").into());
         }
-        let start = self.bump().span;
+        let start = self.mark();
+        self.bump();
         self.atom(false)?;
-        self.node_at(start, NodeKind::Prefix);
+        self.node(start, NodeKind::Prefix);
         Ok(())
     }
 
-    /// An atom without its dots and `()` calls. Always inlined in `atom`, its
-    /// only caller: every level of a nested expression (`((…(0)…))`) goes
-    /// through both, and as two functions their frames don't share slots.
-    /// When 7a14ec83 gave it a second caller it stopped being inlined, and
-    /// each level took about 780 bytes more of the stack (SW-875).
+    /// An atom without its dots and `()` calls, starting at token `start`,
+    /// the next. Always inlined, into `atom` and `brace_argument`: every
+    /// level of a nested expression (`((…(0)…))`) goes through `atom` and
+    /// this, and as two functions their frames don't share slots. Without
+    /// the attribute, when 7a14ec83 gave it a second caller it stopped
+    /// being inlined, and each level took about 780 bytes more of the
+    /// stack (SW-875).
     #[inline(always)]
-    fn atom_base(&mut self) -> Result<()> {
-        let span = self.here();
+    fn atom_base(&mut self, start: u32) -> Result<()> {
         match self.peek() {
             Some(Tok::Minus) => return self.negative_atom(),
             Some(Tok::Bang) => return self.bang_atom(),
@@ -5202,7 +4748,7 @@ impl<'t> Parser<'t> {
                 match self.peek() {
                     Some(Tok::Str(_)) => {
                         self.bump();
-                        self.node_at(span, NodeKind::Include);
+                        self.node(start, NodeKind::Include);
                     }
                     _ => {
                         return Err(self
@@ -5211,20 +4757,20 @@ impl<'t> Parser<'t> {
                     }
                 }
             }
-            Some(Tok::KwOmega) => {
+            Some(Tok::KwArithmetic) => {
                 self.bump();
-                // `omega [e1, e2]`: extra facts, by term.
+                // `arithmetic [e1, e2]`: extra facts, by term.
                 if self.peek() == Some(&Tok::LBracket) {
                     self.fact_list()?;
-                    self.node_at(span, NodeKind::Omega);
+                    self.node(start, NodeKind::Omega);
                 }
             }
-            Some(Tok::KwRing) => {
+            Some(Tok::KwAlgebra) => {
                 self.bump();
-                // `ring [h1, h2]`: hypotheses, by term.
+                // `algebra [h1, h2]`: hypotheses, by term.
                 if self.peek() == Some(&Tok::LBracket) {
                     self.fact_list()?;
-                    self.node_at(span, NodeKind::Ring);
+                    self.node(start, NodeKind::Ring);
                 }
             }
             Some(Tok::KwCases) if self.bare_cases() => {
@@ -5241,13 +4787,13 @@ impl<'t> Parser<'t> {
                             ))
                             .into());
                     }
-                    self.node_at(span, NodeKind::Universe);
+                    self.node(start, NodeKind::Universe);
                 }
             }
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {
                 self.bump();
                 self.bump();
-                self.node_at(span, NodeKind::Unit);
+                self.node(start, NodeKind::Unit);
             }
             // `(x := e)`: an explicit argument by name
             // (docs/proposals/named-arguments.md §4.1).
@@ -5259,27 +4805,24 @@ impl<'t> Parser<'t> {
                 self.lower("a name")?;
                 self.bump();
                 self.expr()?;
-                self.expect(Tok::RParen, "`)`")?;
-                self.node_at(span, NodeKind::NamedArg);
+                self.close_bracket(start, Tok::RParen, "`)`", NodeKind::NamedArg)?;
             }
             Some(Tok::LParen) if self.operator_section_ahead() => return self.operator_section(),
             Some(Tok::LParen) => {
                 self.bump();
                 self.expr()?;
                 if self.peek() == Some(&Tok::Comma) {
-                    return self.tuple_expr(span);
+                    return self.tuple_expr(start);
                 }
                 if self.eat(&Tok::Colon) {
                     self.expr()?;
                     if self.peek() == Some(&Tok::Comma) {
                         return Err(self.tuple_annotation().into());
                     }
-                    self.expect(Tok::RParen, "`)`")?;
-                    self.node_at(span, NodeKind::Annotation);
+                    self.close_bracket(start, Tok::RParen, "`)`", NodeKind::Annotation)?;
                     return Ok(());
                 }
-                self.expect(Tok::RParen, "`)`")?;
-                self.node_at(span, NodeKind::Paren);
+                self.close_bracket(start, Tok::RParen, "`)`", NodeKind::Paren)?;
             }
             Some(Tok::LBracket)
                 if matches!(self.peek_at(1), Some(Tok::Lower(_) | Tok::KwDecreasing))
@@ -5296,10 +4839,10 @@ impl<'t> Parser<'t> {
                 self.bump();
                 self.expr()?;
                 self.expect(Tok::RBracket, "`]`")?;
-                self.node_at(span, NodeKind::NamedArg);
+                self.node(start, NodeKind::NamedArg);
             }
             Some(Tok::LBracket) => {
-                self.list_expr(span)?;
+                self.list_expr(start)?;
             }
             Some(Tok::LBrace) => return self.record_expr(),
             Some(Tok::Dot) => return self.section_start(),
@@ -5398,8 +4941,8 @@ fn describe(tok: &Tok) -> String {
         Tok::KwNamespace => "`namespace`".into(),
         Tok::KwCalc => "`calc`".into(),
         Tok::KwRewrite => "`rewrite`".into(),
-        Tok::KwOmega => "`omega`".into(),
-        Tok::KwRing => "`ring`".into(),
+        Tok::KwArithmetic => "`arithmetic`".into(),
+        Tok::KwAlgebra => "`algebra`".into(),
         Tok::KwCases => "`cases`".into(),
         Tok::KwDecreasing => "`decreasing`".into(),
         Tok::KwOpaque => "`opaque`".into(),
@@ -5445,7 +4988,7 @@ fn lambda_result_type(colon: Span) -> Diagnostic {
     )
 }
 
-/// `rewrite h at in t`: the `at` after a rule starts the hypothesis to
+/// `rewrite h at then t`: the `at` after a rule starts the hypothesis to
 /// rewrite, so a hypothesis called `at` can't be an argument of the rule.
 fn rewrite_at_without_target(at: Span) -> Diagnostic {
     error(
@@ -5458,6 +5001,15 @@ fn rewrite_at_without_target(at: Span) -> Diagnostic {
     )
 }
 
+/// `rewrite h in t` or `cases in t`: the spelling before `then` replaced
+/// `in` there (D3648), so `in` is only membership.
+fn old_in(at: Span, construct: &str) -> Diagnostic {
+    error(at, format!("write `then`, not `in`, after `{construct}`")).with_note(format!(
+        "the proof that follows a `{construct}` comes after `then`: `{construct} … then t`; \
+         `in` is only a membership test"
+    ))
+}
+
 /// An `E-PARSE` error at `span`, labelled with its message.
 pub(crate) fn error(span: Span, message: impl Into<String>) -> Diagnostic {
     let message = message.into();
@@ -5465,4048 +5017,4 @@ pub(crate) fn error(span: Span, message: impl Into<String>) -> Diagnostic {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::SourceMap;
-    use crate::ast::*;
-
-    fn parse(text: &str) -> Module {
-        let mut sources = SourceMap::new();
-        let file = sources.add("test.sw", text);
-        parse_module(file, text).unwrap_or_else(|errors| panic!("{errors:?}"))
-    }
-
-    fn expression(text: &str) -> Parsed<Expr> {
-        let mut sources = SourceMap::new();
-        let file = sources.add("test.sw", text);
-        parse_expression(file, text)
-    }
-
-    /// A parser over `text`'s tokens, recording marks.
-    fn with_parser<T>(text: &str, run: impl FnOnce(&mut Parser<'_>) -> T) -> T {
-        let file = SourceMap::new().next_id();
-        let tokens = lex(file, text).unwrap();
-        let mut parser = Parser::new(
-            &tokens,
-            file,
-            text.len(),
-            StackLimit::from_here(DEFAULT_STACK),
-        );
-        run(&mut parser)
-    }
-
-    /// `recover_to` puts back every mode and drops the constructs a failed
-    /// parse left open, and leaves the position and the finished marks.
-    #[test]
-    fn recover_to_restores_the_modes_and_the_open_constructs() {
-        with_parser("a + b * c", |parser| {
-            parser.modes.limit = Some(2);
-            parser.open.push((0, NodeKind::Binary));
-            let snapshot = parser.snapshot();
-            parser.modes = Modes {
-                in_list: true,
-                limit: Some(4),
-                allow: Some(1),
-                calc_depth: 3,
-                rewrite_rule: Some(1),
-                guard_start: Some(2),
-                rewrite_at: true,
-                let_value: Some(0),
-                recover: true,
-            };
-            parser.open.push((2, NodeKind::Binary));
-            parser.open.push((4, NodeKind::Binary));
-            parser.pos = 3;
-            parser.record(2, NodeKind::App);
-            parser.recover_to(snapshot);
-            assert_eq!(
-                format!("{:?}", parser.modes),
-                format!("{:?}", snapshot.modes)
-            );
-            assert_eq!(parser.modes.limit, Some(2));
-            assert_eq!(parser.open, [(0, NodeKind::Binary)]);
-            assert_eq!(parser.pos, 3);
-            assert_eq!(parser.marks.len(), 1);
-        });
-    }
-
-    /// An error recovered from fails the entry points that give one error
-    /// as if it had unwound, ahead of one that did.
-    #[test]
-    fn strict_fails_on_an_error_recovered_from() {
-        with_parser("a b", |parser| {
-            assert!(parser.strict(Ok(())).is_ok());
-            parser.report(RecoveryPoint::Body, error(parser.here(), "first"));
-            parser.report(RecoveryPoint::Body, error(parser.here(), "second"));
-            let unwound: Result<()> = Err(Box::new(error(parser.here(), "unwound")));
-            let failed = parser.strict(unwound).unwrap_err();
-            assert_eq!(failed.message, "first");
-            let failed = parser.strict(Ok(())).unwrap_err();
-            assert_eq!(failed.message, "second");
-            assert!(parser.strict(Ok(())).is_ok());
-        });
-    }
-
-    #[test]
-    fn indexed_families_have_indices_result_types_and_implicit_fields() {
-        let module = parse(
-            "type Sub (a: Type): (n: Nat) -> Fin n -> Type =\n  \
-             | Here [m: Nat] (x: a): Sub a (Succ m) FZero\n  | There\n\n\
-             def f: Vec a n -> Nat\n  | VCons [n := k] _ _ => k\n",
-        );
-        let Decl::Data {
-            indices,
-            sort,
-            ctors,
-            ..
-        } = &module.decls[0]
-        else {
-            panic!("expected a data type");
-        };
-        let names: Vec<Option<&str>> = indices
-            .iter()
-            .map(|(n, _)| n.as_ref().map(|n| n.text.as_str()))
-            .collect();
-        assert_eq!(names, [Some("n"), None]);
-        assert!(matches!(sort, Some(Expr::Type(0, _))));
-        assert_eq!(ctors[0].implicit, [true, false]);
-        assert!(ctors[0].result.is_some());
-        assert!(ctors[1].result.is_none() && ctors[1].fields.is_empty());
-        let Decl::Equation { patterns, .. } = &module.decls[2] else {
-            panic!("expected an arm");
-        };
-        let Pattern::Ctor(_, args, _) = &patterns[0] else {
-            panic!("expected a constructor pattern");
-        };
-        assert!(matches!(&args[0], Pattern::Named(n, p, _)
-            if n.text == "n" && matches!(**p, Pattern::Var(_))));
-        // A synonym has no indices.
-        let mut sources = SourceMap::new();
-        let file = sources.add("test.sw", "");
-        assert!(parse_module(file, "type T: Nat -> Type = Nat\n").is_err());
-    }
-
-    #[test]
-    fn match_induct_names_a_case_and_its_binders() {
-        let text = "match induct (f k xs) with\n  | eq1 => a\n  | eq2Step x _ ih => b\n";
-        let e = expression(text).unwrap();
-        let Expr::Induct { call, alts, .. } = &e else {
-            panic!("expected a `match induct`");
-        };
-        assert!(matches!(**call, Expr::App(..)));
-        let shown: Vec<(String, Vec<String>)> = alts
-            .iter()
-            .map(|a| {
-                let bound = a.binders.iter().map(|b| b.text.clone());
-                (a.case.text.clone(), bound.collect())
-            })
-            .collect();
-        assert_eq!(shown[0], ("eq1".to_string(), vec![]));
-        assert_eq!(
-            shown[1],
-            (
-                "eq2Step".to_string(),
-                vec!["x".to_string(), "_".to_string(), "ih".to_string()]
-            )
-        );
-    }
-
-    #[test]
-    fn induct_is_a_name_except_after_match() {
-        let e = expression("match induct with\n  | x => x\n").unwrap();
-        assert!(matches!(e, Expr::Match { .. }));
-        let e = expression("induct x").unwrap();
-        assert!(matches!(e, Expr::App(..)));
-        assert!(expression("match induct x, y with\n  | eq1 => a\n").is_err());
-    }
-
-    #[test]
-    fn a_record_declaration_is_one_constructor() {
-        let module =
-            parse("type Person =\n  { name : Text\n  , age : Nat\n  }\n\ntype Empty = {}\n");
-        let Decl::Data {
-            ctors,
-            record: true,
-            ..
-        } = &module.decls[0]
-        else {
-            panic!("expected a record");
-        };
-        assert_eq!(ctors.len(), 1);
-        assert_eq!(ctors[0].name.text, "%mk");
-        let names: Vec<&str> = ctors[0]
-            .fields
-            .iter()
-            .map(|b| b.names[0].text.as_str())
-            .collect();
-        assert_eq!(names, ["name", "age"]);
-        assert!(
-            matches!(&module.decls[1], Decl::Data { ctors, record: true, .. } if ctors[0].fields.is_empty())
-        );
-    }
-
-    #[test]
-    fn record_literals_updates_and_puns() {
-        let e = expression("{ b = f x, a }").unwrap();
-        let Expr::Record {
-            base: None, fields, ..
-        } = &e
-        else {
-            panic!("expected a literal");
-        };
-        // In the order written; a pun is a variable.
-        assert_eq!(fields[0].0.text, "b");
-        assert!(matches!(&fields[0].1, Expr::App(..)));
-        assert!(matches!(&fields[1].1, Expr::Var(n) if n.text == "a"));
-        let e = expression("{ f p | age = 1 }").unwrap();
-        let Expr::Record {
-            base: Some(base),
-            fields,
-            ..
-        } = &e
-        else {
-            panic!("expected an update");
-        };
-        assert!(matches!(**base, Expr::App(..)));
-        assert_eq!(fields.len(), 1);
-        let e = expression("{}").unwrap();
-        assert!(matches!(&e, Expr::Record { base: None, fields, .. } if fields.is_empty()));
-        // An update needs a field.
-        assert!(expression("{ p | }").is_err());
-    }
-
-    #[test]
-    fn unit_call_is_one_atom() {
-        let shape = |text: &str| match &expression(text).unwrap() {
-            Expr::Field(r, n) => format!("{:?}.{}", matches!(**r, Expr::App(..)), n.text),
-            Expr::App(f, _) => format!("app({})", matches!(**f, Expr::Field(..))),
-            _ => "other".into(),
-        };
-        // `f().x` is `(f()).x`; `IO.readAll().lines` too.
-        assert_eq!(shape("f().x"), "true.x");
-        assert_eq!(shape("IO.readAll().lines"), "true.lines");
-        // `f().g y` is `(f()).g y`: an application of a field of the call.
-        let e = expression("f().g y").unwrap();
-        let Expr::App(g, _) = &e else { panic!("{e:?}") };
-        assert!(matches!(&**g, Expr::Field(r, n) if n.text == "g" && matches!(**r, Expr::App(..))));
-        // Chains.
-        let e = expression("f().x.y").unwrap();
-        assert!(matches!(&e, Expr::Field(r, _) if matches!(**r, Expr::Field(..))));
-        let e = expression("p.f().x").unwrap();
-        assert!(matches!(&e, Expr::Field(r, _) if matches!(**r, Expr::App(..))));
-        // A space keeps ordinary application: `f ().x` is `f (().x)`.
-        assert_eq!(shape("f ().x"), "app(false)");
-        // Without a following `.name`, `f()` is still one atom: `g f()` is
-        // `g (f())`, while `g f ()` is `g f ()`.
-        let e = expression("g f()").unwrap();
-        assert!(matches!(&e, Expr::App(g, a)
-            if matches!(**g, Expr::Var(_)) && matches!(**a, Expr::App(..))));
-        let e = expression("g f ()").unwrap();
-        assert!(matches!(&e, Expr::App(f, u)
-            if matches!(**f, Expr::App(..)) && matches!(**u, Expr::Unit(..))));
-        let e = expression("parseTurns IO.readAllLines()").unwrap();
-        assert!(matches!(&e, Expr::App(_, a) if matches!(**a, Expr::App(..))));
-        // `()` alone and `f ()` are unchanged.
-        assert!(matches!(expression("()").unwrap(), Expr::Unit(..)));
-        assert!(matches!(expression("f ()").unwrap(), Expr::App(..)));
-    }
-
-    #[test]
-    fn field_access_binds_tighter_than_application() {
-        // `f p.name q` is `f (p.name) q`.
-        let e = expression("f p.name q").unwrap();
-        let Expr::App(f, q) = &e else {
-            panic!("expected an application");
-        };
-        assert!(matches!(**q, Expr::Var(_)));
-        let Expr::App(_, arg) = &**f else {
-            panic!("expected `f (p.name)`");
-        };
-        assert!(
-            matches!(&**arg, Expr::Field(e, n) if n.text == "name" && matches!(**e, Expr::Var(_)))
-        );
-        // Chains, and parenthesised expressions.
-        let e = expression("t.lead.name").unwrap();
-        assert!(matches!(&e, Expr::Field(inner, _) if matches!(**inner, Expr::Field(..))));
-        assert!(matches!(expression("(f x).age").unwrap(), Expr::Field(..)));
-        // No spaces around the dot, and a field name after it.
-        for bad in ["p. name", "p.1", "p.Foo.Bar"] {
-            assert!(expression(bad).is_err(), "{bad}");
-        }
-        // A capitalised field names a function of the value's type, as in
-        // `xs.Distinct` for `List.Distinct xs`.
-        let e = expression("xs.Distinct").unwrap();
-        assert!(
-            matches!(&e, Expr::Field(r, n) if n.text == "Distinct" && matches!(**r, Expr::Var(_)))
-        );
-        let e = expression("on.Subsequence bank").unwrap();
-        let Expr::App(_, arg) = &e else {
-            panic!("{e:?}")
-        };
-        assert!(matches!(&**arg, Expr::Var(n) if n.text == "bank"));
-        let Expr::App(f, _) = &e else { panic!("{e:?}") };
-        assert!(matches!(&**f, Expr::Field(_, n) if n.text == "Subsequence"));
-    }
-
-    #[test]
-    fn record_patterns() {
-        let module = parse(
-            "def f : R -> R -> Nat\n  | { name, age = Succ n, .. }, { tag = (Cons x xs) } => 0\n",
-        );
-        let Decl::Equation { patterns, .. } = &module.decls[1] else {
-            panic!("expected an equation");
-        };
-        let Pattern::Record {
-            fields, rest: true, ..
-        } = &patterns[0]
-        else {
-            panic!("expected a record pattern with `..`");
-        };
-        assert!(matches!(&fields[0].1, Pattern::Var(n) if n.text == "name"));
-        assert!(
-            matches!(&fields[1].1, Pattern::Ctor(n, args, _) if n.text == "Succ" && args.len() == 1)
-        );
-        assert!(matches!(&patterns[1], Pattern::Record { rest: false, .. }));
-    }
-
-    /// Braces right after a constructor name its fields; a record pattern
-    /// as its argument is in brackets (docs/proposals/variant-fields.md §4).
-    #[test]
-    fn constructor_field_patterns() {
-        let module = parse(
-            "def f : S -> S -> S -> Nat\n  | C { id, text = Cons x _, .. }, (W ({ name, .. })), (D { }) => 0\n",
-        );
-        let Decl::Equation { patterns, .. } = &module.decls[1] else {
-            panic!("expected an equation");
-        };
-        let Pattern::CtorFields {
-            ctor,
-            fields,
-            rest: true,
-            ..
-        } = &patterns[0]
-        else {
-            panic!("expected named fields: {:?}", patterns[0]);
-        };
-        assert_eq!(ctor.text, "C");
-        assert!(matches!(&fields[0].1, Pattern::Var(n) if n.text == "id"));
-        assert!(
-            matches!(&fields[1].1, Pattern::Ctor(n, args, _) if n.text == "Cons" && args.len() == 2)
-        );
-        assert!(matches!(&patterns[1], Pattern::Ctor(n, args, _)
-            if n.text == "W" && matches!(&args[..], [Pattern::Record { rest: true, .. }])));
-        assert!(
-            matches!(&patterns[2], Pattern::CtorFields { fields, rest: false, .. }
-            if fields.is_empty())
-        );
-        // Parses in a `match` arm, a `let`, a tuple, a list and after a
-        // field's `=` (`parse` panics on an error).
-        parse(
-            "def g (s: S): Nat :=\n  let C { id, .. } := s\n  match s with\n    | (C { id }, [D { .. }]) => 0\n    | W { p = C { id, .. }, .. } => 1\n",
-        );
-    }
-
-    #[test]
-    fn braces_after_a_constructor_pattern_take_no_further_arguments() {
-        let e = parse_error("def f : L -> Nat\n  | Cons { name, .. } rest => 0\n");
-        assert!(e.message.contains("take no further arguments"), "{e:?}");
-        assert!(e.notes[0].contains("Cons ({ … })"), "{e:?}");
-        // After another argument, a record pattern is one more argument.
-        let module = parse("def f : E -> Nat\n  | MkEntry r { name, .. } => 0\n");
-        assert_eq!(module.decls.len(), 2);
-        let e = parse_error("def f : E -> Nat\n  | Pair Filling { name, .. } => 0\n");
-        assert!(e.message.contains("written in brackets"), "{e:?}");
-    }
-
-    /// Named construction (docs/proposals/variant-fields.md §4.5): braces
-    /// right after a constructor at the head of an application name its
-    /// fields; `C ({ … })` is a record argument.
-    #[test]
-    fn constructor_field_expressions() {
-        let Expr::CtorFields { ctor, fields, .. } =
-            &rhs("def f : S := Shape.Circle { id = \"a\", ref }\n")
-        else {
-            panic!("expected named construction");
-        };
-        assert_eq!(ctor.text, "Shape.Circle");
-        assert_eq!(fields.len(), 2);
-        assert!(matches!(&fields[1].1, Expr::Var(n) if n.text == "ref"));
-        let Expr::App(head, arg) = &rhs("def f : S := W ({ name = n })\n") else {
-            panic!("expected an application");
-        };
-        assert!(matches!(&**head, Expr::Var(n) if n.text == "W"));
-        assert!(matches!(&**arg, Expr::Record { base: None, .. }));
-        // After an operator, in brackets and lists, after a field's `=`, and
-        // with a field access after the braces.
-        assert!(matches!(
-            &rhs("def f : Bool := x == C { }\n"),
-            Expr::Binary(_, _, rhs) if matches!(&**rhs, Expr::CtorFields { .. })
-        ));
-        assert!(matches!(
-            &rhs("def f : T := (C { a = 1 }).a\n"),
-            Expr::Field(e, _) if matches!(&**e, Expr::CtorFields { .. })
-        ));
-        assert!(matches!(
-            &rhs("def f : T := C { a = 1 }.a\n"),
-            Expr::Field(e, _) if matches!(&**e, Expr::CtorFields { .. })
-        ));
-        parse("def f : T := [C { a = D { b } }, g (C { a })]\n");
-        // A lower-case name keeps a record argument: `f { a = 1 }`.
-        assert!(matches!(
-            &rhs("def f : T := g { a = 1 }\n"),
-            Expr::App(_, arg) if matches!(&**arg, Expr::Record { .. })
-        ));
-    }
-
-    #[test]
-    fn braces_after_a_constructor_expression_are_left_to_the_elaborator() {
-        // Whether they name the constructor's fields or are a record argument
-        // depends on how it is declared, so the parser keeps a literal as is,
-        // at the head and as an argument, with the arguments after it.
-        let Expr::App(head, _) = &rhs("def f : L := Cons { head = 1 } rest\n") else {
-            panic!("expected an application");
-        };
-        assert!(matches!(
-            &**head,
-            Expr::CtorFields {
-                argument: false,
-                ..
-            }
-        ));
-        let Expr::App(_, arg) = &rhs("def f : L := g Cons { head = 1 }\n") else {
-            panic!("expected an application");
-        };
-        assert!(matches!(&**arg, Expr::CtorFields { argument: true, .. }));
-        // An update is never a construction: the constructor, then the record.
-        let Expr::App(head, arg) = &rhs("def f : L := Some { r | a = 1 }\n") else {
-            panic!("expected an application");
-        };
-        assert!(matches!(&**head, Expr::Var(n) if n.text == "Some"));
-        assert!(matches!(&**arg, Expr::Record { base: Some(_), .. }));
-    }
-
-    #[test]
-    fn a_constructor_declared_with_its_fields_in_braces() {
-        let module = parse(
-            "type Event =\n  | Meeting { title : Text, minutes : Nat := 30 }\n  | Reminder (title : Text)\n  | Node [n : Nat] { x : Nat }\n",
-        );
-        let Decl::Data { ctors, .. } = &module.decls[0] else {
-            panic!("expected a data declaration");
-        };
-        assert!(ctors[0].braced && !ctors[1].braced);
-        assert_eq!(ctors[0].fields.len(), 2);
-        assert_eq!(ctors[0].defaults.len(), 2);
-        assert_eq!(ctors[2].implicit, [true, false]);
-        let e = parse_error("type T =\n  | C (a : Nat) { b : Nat }\n");
-        assert!(e.message.contains("fields in brackets already"), "{e:?}");
-    }
-
-    #[test]
-    fn indented_lines_continue_a_declaration() {
-        let module = parse(
-            "type List (a : Type) : Type =\n  | Nil\n  | Cons (head : a) (tail : List a)\n\ndef length (a : Type) : List a -> Nat\n  | Nil => 0\n",
-        );
-        assert_eq!(module.decls.len(), 3);
-        let Decl::Data { ctors, .. } = &module.decls[0] else {
-            panic!("expected a data declaration");
-        };
-        assert_eq!(ctors.len(), 2);
-    }
-
-    #[test]
-    fn export_attaches_to_the_definition_it_precedes() {
-        let module = parse("export def f (n : Nat) : Nat := n\n");
-        assert_eq!(module.decls.len(), 2);
-        assert!(matches!(
-            module.decls[0],
-            Decl::Signature { export: true, .. }
-        ));
-    }
-
-    #[test]
-    fn equality_binds_looser_than_addition_and_tighter_than_arrows() {
-        let module = parse("def p : (n : Nat) -> n + 0 = n -> Nat\n");
-        let Decl::Signature { ty, .. } = &module.decls[0] else {
-            panic!("expected a signature");
-        };
-        let Expr::Pi { cod, .. } = ty else {
-            panic!("expected a dependent function type, got {ty:?}");
-        };
-        let Expr::Arrow(lhs, _) = cod.as_ref() else {
-            panic!("expected an arrow, got {cod:?}");
-        };
-        let Expr::Binary(BinOp::Eq, sum, _) = lhs.as_ref() else {
-            panic!("expected an equation, got {lhs:?}");
-        };
-        assert!(matches!(sum.as_ref(), Expr::Binary(BinOp::Add, ..)));
-    }
-
-    #[test]
-    fn or_binds_looser_than_and() {
-        let Expr::Binary(BinOp::Or, a, rhs) = &expr("a || b && c") else {
-            panic!("expected an or");
-        };
-        assert!(matches!(a.as_ref(), Expr::Var(..)));
-        assert!(matches!(rhs.as_ref(), Expr::Binary(BinOp::And, ..)));
-    }
-
-    #[test]
-    fn and_associates_right() {
-        let Expr::Binary(BinOp::And, a, rhs) = &expr("a && b && c") else {
-            panic!("expected an and");
-        };
-        assert!(matches!(a.as_ref(), Expr::Var(..)));
-        assert!(matches!(rhs.as_ref(), Expr::Binary(BinOp::And, ..)));
-    }
-
-    #[test]
-    fn and_then_or_groups_the_and_first() {
-        let Expr::Binary(BinOp::Or, lhs, c) = &expr("a && b || c") else {
-            panic!("expected an or");
-        };
-        assert!(matches!(lhs.as_ref(), Expr::Binary(BinOp::And, ..)));
-        assert!(matches!(c.as_ref(), Expr::Var(..)));
-    }
-
-    #[test]
-    fn comparisons_bind_tighter_than_and() {
-        let Expr::Binary(BinOp::And, l, r) = &expr("x < y && y < z") else {
-            panic!("expected an and");
-        };
-        assert!(matches!(l.as_ref(), Expr::Binary(BinOp::Lt, ..)));
-        assert!(matches!(r.as_ref(), Expr::Binary(BinOp::Lt, ..)));
-    }
-
-    #[test]
-    fn and_binds_tighter_than_arrow() {
-        let Expr::Arrow(lhs, _) = &expr("a && b -> c") else {
-            panic!("expected an arrow");
-        };
-        assert!(matches!(lhs.as_ref(), Expr::Binary(BinOp::And, ..)));
-    }
-
-    fn expr(text: &str) -> Expr {
-        let mut sources = SourceMap::new();
-        let file = sources.add("test.sw", text);
-        parse_expression(file, text).unwrap_or_else(|e| panic!("{e:?}"))
-    }
-
-    #[test]
-    fn multiplication_binds_tighter_than_addition_and_both_associate_left() {
-        let Expr::Binary(BinOp::Sub, lhs, rhs) = &expr("a + b * c - d") else {
-            panic!("expected `(a + b * c) - d`");
-        };
-        assert!(matches!(**rhs, Expr::Var(_)));
-        let Expr::Binary(BinOp::Add, _, product) = &**lhs else {
-            panic!("expected `a + (b * c)`");
-        };
-        assert!(matches!(**product, Expr::Binary(BinOp::Mul, ..)));
-        assert!(matches!(expr("a / b % c"), Expr::Binary(BinOp::Mod, ..)));
-        assert!(matches!(expr("a <= b + 1"), Expr::Binary(BinOp::Le, ..)));
-        assert!(matches!(expr("a != b"), Expr::Binary(BinOp::Ne, ..)));
-        assert!(matches!(expr("a == b + 1"), Expr::Binary(BinOp::EqEq, ..)));
-        assert!(matches!(expr("a < b"), Expr::Binary(BinOp::Lt, ..)));
-    }
-
-    #[test]
-    fn parses_tests() {
-        let module = parse("test \"two \\\"words\\\"\" :=\n  1 + 1 = 2\n");
-        let Decl::Test { name, expr, .. } = &module.decls[0] else {
-            panic!("expected a test");
-        };
-        assert_eq!(name, "two \"words\"");
-        assert!(matches!(expr, Expr::Binary(BinOp::Eq, ..)));
-    }
-
-    #[test]
-    fn parses_both_kinds_of_if() {
-        assert!(matches!(
-            expr("if b then 1 else 2"),
-            Expr::If { binder: None, .. }
-        ));
-        assert!(matches!(
-            expr("if h : d != 0 then n / d else 0"),
-            Expr::If {
-                binder: Some(_),
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn parses_auto_binders_and_absurd_patterns() {
-        let module = parse(
-            "def div : (n d : Nat) -> [auto ok : d != 0] -> Nat\ndef absurd : Void -> a\n  | ()\n",
-        );
-        let Decl::Signature { ty, .. } = &module.decls[0] else {
-            panic!("expected a signature");
-        };
-        let Expr::Pi { cod, .. } = ty else {
-            panic!("expected a function type");
-        };
-        assert!(
-            matches!(cod.as_ref(), Expr::Pi { implicit: true, auto: true, names, .. } if names[0].text == "ok")
-        );
-        let Decl::Equation { patterns, rhs, .. } = &module.decls[2] else {
-            panic!("expected an equation");
-        };
-        assert!(matches!(patterns[..], [Pattern::Absurd(_)]));
-        assert!(rhs.is_none());
-        // `auto` alone is an ordinary name.
-        let module = parse("def f : [auto : Type] -> auto\n");
-        let Decl::Signature { ty, .. } = &module.decls[0] else {
-            panic!("expected a signature");
-        };
-        assert!(matches!(ty, Expr::Pi { auto: false, .. }));
-    }
-
-    #[test]
-    fn parses_interfaces_instances_and_auto_binders_without_names() {
-        let module = parse(
-            "interface Pretty (a: Type) = { pretty: a -> Text }\n\
-             instance List.instPretty [auto Pretty a]: Pretty (List a) := { pretty = xs => \"\" }\n\
-             def f: [auto Pretty a] -> a -> Text := x => Pretty.pretty x\n\
-             def g: List [auto] -> Nat := 0\n",
-        );
-        assert!(matches!(
-            &module.decls[0],
-            Decl::Data { record: true, interface: true, ctors, .. } if ctors[0].fields.len() == 1
-        ));
-        let Decl::Signature { ty, instance, .. } = &module.decls[1] else {
-            panic!("expected a signature");
-        };
-        assert!(*instance);
-        assert!(matches!(
-            ty,
-            Expr::Pi { implicit: true, auto: true, names, .. } if names[0].text == crate::ast::NAMELESS
-        ));
-        let Decl::Signature { ty, instance, .. } = &module.decls[3] else {
-            panic!("expected a signature");
-        };
-        assert!(!*instance);
-        assert!(matches!(
-            ty,
-            Expr::Pi { implicit: true, auto: true, names, .. } if names[0].text == crate::ast::NAMELESS
-        ));
-        // `[auto]` is still a list.
-        let Decl::Signature { ty, .. } = &module.decls[5] else {
-            panic!("expected a signature");
-        };
-        assert!(matches!(ty, Expr::Arrow(..)));
-        // An instance needs a body.
-        let mut sources = SourceMap::new();
-        let text = "interface I (a: Type) = { x: a }\ninstance n: I Nat\n";
-        let file = sources.add("test.sw", text);
-        assert!(parse_module(file, text).is_err());
-    }
-
-    #[test]
-    fn parses_auto_parameters_of_types() {
-        // docs/proposals/interfaces.md §7.5.
-        let module = parse(
-            "type Map (k: Type) (v: Type) [auto ord: Ord k] = { entries: List (k, v) }\n\
-             type Tree (k: Type) [auto ord: Ord k] = | Leaf | Node (l: Tree k)\n\
-             type Set (k: Type) [auto ord: Ord k] = Map k () [ord := ord]\n",
-        );
-        assert!(matches!(
-            &module.decls[0],
-            Decl::Data { record: true, params, auto_params, .. }
-                if params.len() == 3 && auto_params == &[false, false, true]
-        ));
-        assert!(matches!(
-            &module.decls[1],
-            Decl::Data { record: false, auto_params, .. } if auto_params == &[false, true]
-        ));
-        // A synonym's is the definition's.
-        let Decl::Signature {
-            ty, synonym: true, ..
-        } = &module.decls[2]
-        else {
-            panic!("expected a synonym");
-        };
-        let Expr::Pi { cod, .. } = ty else {
-            panic!("expected a function type, got {ty:?}");
-        };
-        assert!(matches!(
-            &**cod,
-            Expr::Pi { implicit: true, auto: true, names, .. } if names[0].text == "ord"
-        ));
-        let d = parse_error("type T [a: Type] = { x: a }\n");
-        assert!(d.message.contains("must be `auto`"), "{}", d.message);
-        let d = parse_error("type T (a: Type) [auto Ord a] = { x: a }\n");
-        assert!(d.message.contains("needs a name"), "{}", d.message);
-    }
-
-    #[test]
-    fn decreasing_goes_after_the_result_type() {
-        // `:=` may start a line at the declaration's column after it.
-        for source in [
-            "def f (n: Nat): Nat\n  decreasing n\n:=\n  f (n / 2) [decreasing := p]\n",
-            "def f (n: Nat): Nat decreasing n := f (n / 2) [decreasing := p]\n",
-            "def f (n: Nat): Nat -> Nat\n  decreasing n\n  | Zero => 0\n  | Succ k => k\n",
-        ] {
-            let module = parse(source);
-            assert!(
-                matches!(
-                    &module.decls[0],
-                    Decl::Signature {
-                        decreasing: Some(_),
-                        ..
-                    }
-                ),
-                "{source}"
-            );
-            assert!(module.decls.len() >= 2, "{source}");
-        }
-        let module = parse("def f (n: Nat): Nat decreasing n := f (n / 2) [decreasing := p]\n");
-        let Decl::Equation { rhs: Some(rhs), .. } = &module.decls[1] else {
-            panic!("expected the body");
-        };
-        let Expr::App(_, arg) = rhs else {
-            panic!("expected a call, got {rhs:?}");
-        };
-        assert!(matches!(&**arg, Expr::NamedArg(n, ..) if n.text == "decreasing"));
-    }
-
-    /// `opaque def`, and `unfolding` after the result type and after
-    /// `decreasing` (docs/proposals/opaque-definitions.md §6.2, §6.3).
-    #[test]
-    fn opaque_and_unfolding() {
-        for (source, export, names) in [
-            ("opaque def f (n: Nat): Nat := n\n", false, vec![]),
-            ("export opaque def f (n: Nat): Nat := n\n", true, vec![]),
-            (
-                "opaque def f (n: Nat): Nat unfolding g, Code := n\n",
-                false,
-                vec!["g", "Code"],
-            ),
-            (
-                "opaque def f (n: Nat): Nat\n    decreasing n\n    unfolding A.g\n:=\n  n\n",
-                false,
-                vec!["A.g"],
-            ),
-            (
-                "opaque def f: Nat -> Nat\n    unfolding g\n  | Zero => 0\n  | Succ k => k\n",
-                false,
-                vec!["g"],
-            ),
-        ] {
-            let module = parse(source);
-            let Decl::Signature {
-                opaque: true,
-                export: e,
-                unfolding,
-                ..
-            } = &module.decls[0]
-            else {
-                panic!("not an opaque signature: {source}");
-            };
-            assert_eq!(*e, export, "{source}");
-            let found: Vec<&str> = unfolding.iter().map(|n| n.text.as_str()).collect();
-            assert_eq!(found, names, "{source}");
-            assert!(module.decls.len() >= 2, "{source}");
-        }
-        let module = parse("theorem t: f 1 = 1\n    unfolding f\n  := rfl\n");
-        assert!(matches!(
-            &module.decls[0],
-            Decl::Signature { theorem: true, opaque: false, unfolding, .. } if unfolding.len() == 1
-        ));
-        // A type that starts on its own line is a block; the clause on a line
-        // at the block's column still ends it.
-        for source in [
-            "theorem t:\n  f 1 = 1\n  unfolding f\n  := rfl\n",
-            "opaque def g (n: Nat):\n  Nat\n  decreasing n\n  unfolding f\n  := n\n",
-        ] {
-            let module = parse(source);
-            assert!(
-                matches!(&module.decls[0], Decl::Signature { unfolding, .. } if unfolding.len() == 1),
-                "{source}"
-            );
-        }
-        for (source, message) in [
-            (
-                "opaque theorem t: 1 = 1 := rfl\n",
-                "a theorem can't be `opaque`",
-            ),
-            (
-                "opaque instance i: Show Nat := s\n",
-                "an instance can't be `opaque`",
-            ),
-            (
-                "opaque export def f: Nat := 1\n",
-                "`export` goes before `opaque`",
-            ),
-            (
-                "instance i: Show Nat unfolding f := s\n",
-                "an instance can't have `unfolding`",
-            ),
-            (
-                "def f (n: Nat): Nat unfolding g decreasing n := n\n",
-                "`decreasing` goes before `unfolding`",
-            ),
-            (
-                "def f (n: Nat): Nat :=\n  def g (m: Nat): Nat unfolding h := m\n  g n\n",
-                "a local definition can't have `unfolding`",
-            ),
-            (
-                "def f (n: Nat): Nat :=\n  opaque def g (m: Nat): Nat := m\n  g n\n",
-                "local definitions can't be `opaque`: only top-level ones can",
-            ),
-        ] {
-            assert_eq!(parse_error(source).message, message, "{source}");
-        }
-    }
-
-    /// `?` is a goal: an atom, so an argument too, and never a hole.
-    #[test]
-    fn a_question_mark_is_a_goal() {
-        let module = parse("def x : Nat := f ? (?, _)\n");
-        let Decl::Equation { rhs, .. } = &module.decls[1] else {
-            panic!("expected an equation");
-        };
-        let Some(Expr::App(f, pair)) = rhs else {
-            panic!("expected an application, got {rhs:?}");
-        };
-        let Expr::Tuple(first, second, _) = pair.as_ref() else {
-            panic!("expected a tuple, got {pair:?}");
-        };
-        assert!(matches!(first.as_ref(), Expr::Goal(_)));
-        assert!(matches!(second.as_ref(), Expr::Hole(_)));
-        let Expr::App(_, goal) = f.as_ref() else {
-            panic!("expected an application, got {f:?}");
-        };
-        assert!(matches!(goal.as_ref(), Expr::Goal(_)));
-    }
-
-    #[test]
-    fn square_brackets_are_implicit_binders_named_arguments_or_lists() {
-        let module =
-            parse("def f : [a : Type] -> List a -> Nat\ndef x : Nat := g [a := Nat] [1] _\n");
-        let Decl::Signature { ty, .. } = &module.decls[0] else {
-            panic!("expected a signature");
-        };
-        assert!(matches!(ty, Expr::Pi { implicit: true, .. }));
-        let Decl::Equation { rhs, .. } = &module.decls[2] else {
-            panic!("expected an equation");
-        };
-        let Some(Expr::App(f, hole)) = rhs else {
-            panic!("expected an application, got {rhs:?}");
-        };
-        assert!(matches!(hole.as_ref(), Expr::Hole(_)));
-        let Expr::App(f, list) = f.as_ref() else {
-            panic!("expected an application, got {f:?}");
-        };
-        assert!(matches!(list.as_ref(), Expr::List(..)));
-        let Expr::App(_, named) = f.as_ref() else {
-            panic!("expected an application, got {f:?}");
-        };
-        assert!(matches!(named.as_ref(), Expr::NamedArg(..)));
-    }
-
-    #[test]
-    fn colon_spacing_does_not_change_the_parse() {
-        let shape = |text| crate::equivalence::parse_shape(text).expect(text);
-        assert_eq!(
-            shape("def f (n : Nat) : Nat := n\n"),
-            shape("def f (n: Nat): Nat := n\n")
-        );
-        assert_eq!(
-            shape("def f (n : Nat) : Nat := n\n"),
-            shape("def f (n:Nat):Nat := n\n")
-        );
-    }
-
-    #[test]
-    fn parenthesised_names_without_an_arrow_are_annotations() {
-        let mut sources = SourceMap::new();
-        let file = sources.add("test.sw", "(x : Nat)");
-        assert!(matches!(
-            parse_expression(file, "(x : Nat)"),
-            Ok(Expr::Ann(..))
-        ));
-    }
-
-    /// The right-hand side of the only equation in `text`.
-    fn rhs(text: &str) -> Expr {
-        match parse(text)
-            .decls
-            .into_iter()
-            .find(|d| matches!(d, Decl::Equation { .. }))
-        {
-            Some(Decl::Equation { rhs: Some(rhs), .. }) => rhs,
-            other => panic!("expected an equation, got {other:?}"),
-        }
-    }
-
-    /// The block's lines, as `let x` or `_` for an expression, then the result.
-    fn lines(mut e: &Expr) -> Vec<String> {
-        let mut out = Vec::new();
-        loop {
-            match e {
-                Expr::Let { name, body, .. } => {
-                    out.push(format!("let {}", name.text));
-                    e = body;
-                }
-                Expr::Seq(_, rest) => {
-                    out.push("_".into());
-                    e = rest;
-                }
-                _ => {
-                    out.push("result".into());
-                    return out;
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn a_block_is_lines_at_one_column() {
-        let body = rhs("def f (u : Nat) : Nat :=\n  let n := get ()\n  put (n +\n    1)\n  n\n");
-        assert_eq!(lines(&body), ["let n", "_", "result"]);
-        // On one line, or with one line, it's just the expression.
-        assert!(matches!(
-            rhs("def f (u : Nat) : Nat := g u\n"),
-            Expr::App(..)
-        ));
-        assert!(matches!(
-            rhs("def f (u : Nat) : Nat :=\n  g\n    u\n"),
-            Expr::App(..)
-        ));
-    }
-
-    #[test]
-    fn a_line_ending_in_an_operator_continues() {
-        let module = parse("def f : Nat ->\n  Nat ->\n  Nat\n");
-        let Decl::Signature { ty, .. } = &module.decls[0] else {
-            panic!()
-        };
-        let Expr::Arrow(_, rest) = ty else {
-            panic!("{ty:?}")
-        };
-        assert!(matches!(rest.as_ref(), Expr::Arrow(..)), "{rest:?}");
-    }
-
-    #[test]
-    fn blocks_nest() {
-        let body = rhs("def f (u : Nat) : Nat :=\n  let g := x =>\n    say x\n    x\n  g 1\n");
-        assert_eq!(lines(&body), ["let g", "result"]);
-        let Expr::Let { value, .. } = &body else {
-            panic!()
-        };
-        let Expr::Lam(_, inner, _) = value.as_ref() else {
-            panic!("{value:?}")
-        };
-        assert_eq!(lines(inner), ["_", "result"]);
-    }
-
-    #[test]
-    fn let_takes_a_type() {
-        let body = rhs("def f (u : Nat) : Nat :=\n  let r : s -> {e} a := run\n  r\n");
-        let Expr::Let { ty: Some(ty), .. } = &body else {
-            panic!("{body:?}")
-        };
-        assert!(matches!(ty.as_ref(), Expr::Arrow(..)));
-    }
-
-    #[test]
-    fn rows_list_abilities_then_a_tail() {
-        let row = |text: &str| {
-            let module = parse(&format!("def f : Nat -> {text} Nat\n"));
-            let Decl::Signature {
-                ty: Expr::Arrow(_, cod),
-                ..
-            } = &module.decls[0]
-            else {
-                panic!()
-            };
-            let Expr::Effect(row, _) = cod.as_ref() else {
-                panic!("{cod:?}")
-            };
-            (
-                row.abilities.len(),
-                row.tail.as_ref().map(|t| t.text.clone()),
-            )
-        };
-        assert_eq!(row("{State s, Abort | e}"), (2, Some("e".into())));
-        assert_eq!(row("{State s}"), (1, None));
-        assert_eq!(row("{e}"), (0, Some("e".into())));
-        assert_eq!(row("{| e}"), (0, Some("e".into())));
-        assert_eq!(row("{}"), (0, None));
-    }
-
-    /// SW-1015: a statement (a result type) may start with a record literal
-    /// or update; the braces are a row only when a type follows them and
-    /// they hold no `=`.
-    #[test]
-    fn a_statement_may_start_with_a_record() {
-        // The result type, under the parameters.
-        let result = |text: &str| {
-            let module = parse(text);
-            let Decl::Signature { ty, .. } = &module.decls[0] else {
-                panic!("{:?}", module.decls[0])
-            };
-            let mut ty = ty;
-            while let Expr::Pi { cod, .. } | Expr::Arrow(_, cod) = ty {
-                ty = cod;
-            }
-            ty.clone()
-        };
-        for text in [
-            "theorem t (p: P): { p | x = 3 }.x = 3 := rfl\n",
-            "theorem t: { id = 2, x = 1 }.x = 1 := rfl\n",
-            "theorem t: { id = 2, x = 1 } = p := rfl\n",
-            "theorem t (p: P): { p | x }.x = x := rfl\n",
-            "theorem t (r: R): {} = r := rfl\n",
-            "def f: Nat -> { p | x = 3 }.x = 3 := rfl\n",
-        ] {
-            let ty = result(text);
-            assert!(matches!(ty, Expr::Binary(BinOp::Eq, ..)), "{text}: {ty:?}");
-        }
-        // Rows: a type follows, or the braces start with an ability.
-        for text in [
-            "def f: {IO} Nat := 0\n",
-            "def f: {e} Nat := 0\n",
-            "def f: {} Nat := 0\n",
-            "def f: {State s | e} (Nat, Nat) := 0\n",
-        ] {
-            assert!(matches!(result(text), Expr::Effect(..)), "{text}");
-        }
-        // A row missing its type is still reported as a row.
-        let e = parse_error("def f: {IO} := 0\n");
-        assert!(!e.message.contains("fields to update"), "{}", e.message);
-    }
-
-    /// SW-908: a parameter's type can't start with an ability row; the error
-    /// says what to write. A record literal there that isn't applied to a
-    /// type is left to the elaborator, as before.
-    #[test]
-    fn a_row_in_a_parameters_type_says_what_to_write() {
-        for (text, note) in [
-            ("def f (c: {} Nat): Nat := c\n", "`{} Nat` is `Nat`"),
-            ("def f (c: {IO} Nat): Nat := 0\n", "`(c: () -> {IO} Nat)`"),
-            (
-                "def f [c: {Fail | e} a]: Nat := 0\n",
-                "only as a result type",
-            ),
-            (
-                "def f: Nat -> Nat := (c: {} Nat) => c\n",
-                "`{} Nat` is `Nat`",
-            ),
-            ("def f: (c: {} Nat) -> Nat := c => c\n", "`{} Nat` is `Nat`"),
-        ] {
-            let e = parse_error(text);
-            assert_eq!(
-                e.message, "an ability row can't be written in a parameter's type",
-                "{text}"
-            );
-            assert!(e.notes.iter().any(|n| n.contains(note)), "{text}: {e:?}");
-        }
-        parse("def f (c: {}): Nat := 0\n");
-    }
-
-    #[test]
-    fn parses_abilities_and_handlers() {
-        let module = parse(
-            "ability State (s : Type) where\n  get : () -> {State s} s\n  put : s -> {State s} ()\n",
-        );
-        let Decl::Ability { params, ops, .. } = &module.decls[0] else {
-            panic!()
-        };
-        assert_eq!(params.len(), 1);
-        let names: Vec<_> = ops.iter().map(|(n, _)| n.text.as_str()).collect();
-        assert_eq!(names, ["get", "put"]);
-
-        let body = rhs(
-            "def f (p : Nat) : Nat :=\n  handle p () with\n    | return x => x\n    | get (), k => k 1\n    | put s, k =>\n      k ()\n",
-        );
-        let Expr::Handle { clauses, .. } = &body else {
-            panic!("{body:?}")
-        };
-        assert!(matches!(clauses[0], Clause::Return { .. }));
-        assert!(matches!(
-            &clauses[1],
-            Clause::Op {
-                arg: Pattern::Absurd(_),
-                ..
-            }
-        ));
-        assert!(matches!(
-            &clauses[2],
-            Clause::Op {
-                arg: Pattern::Var(_),
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn unit_is_a_value_and_a_pattern() {
-        assert!(
-            matches!(rhs("def f (u : Nat) : Nat := g ()\n"), Expr::App(_, ref a) if matches!(**a, Expr::Unit(_)))
-        );
-        let module = parse("def f : () -> Nat\n  | () => 1\n");
-        let Decl::Equation { patterns, .. } = &module.decls[1] else {
-            panic!()
-        };
-        assert!(matches!(patterns[0], Pattern::Absurd(_)));
-    }
-
-    #[test]
-    fn rejects_malformed_blocks_and_handlers() {
-        let fails = |text: &str| {
-            let mut sources = SourceMap::new();
-            let file = sources.add("test.sw", text);
-            parse_module(file, text).is_err()
-        };
-        assert!(
-            fails("def f (u : Nat) : Nat :=\n  let x := 1\n"),
-            "a block ending in `let`"
-        );
-        assert!(
-            fails("def f (p : Nat) : Nat := handle p with\n"),
-            "a handler with no clauses"
-        );
-        assert!(
-            fails("def f (p : Nat) : Nat := handle p with | get x, k -> k\n"),
-            "a clause without `=>`"
-        );
-        assert!(fails("ability A where\n"), "an ability without operations");
-        assert!(fails("def f : Nat -> {State s Nat\n"), "an unclosed row");
-    }
-
-    fn match_parts(e: &Expr) -> (&[Scrutinee], &[Alt]) {
-        let Expr::Match {
-            scrutinees, alts, ..
-        } = e
-        else {
-            panic!("expected a `match`, got {e:?}");
-        };
-        (scrutinees, alts)
-    }
-
-    #[test]
-    fn parses_match_expressions() {
-        // Alternatives on their own lines.
-        let e = rhs(
-            "def f (xs : List Nat) : Nat :=\n  match xs with\n    | Nil => 0\n    | Cons x Nil => x\n    | _ => 2\n",
-        );
-        let (s, alts) = match_parts(&e);
-        assert_eq!(s.len(), 1);
-        assert!(s[0].name.is_none());
-        assert_eq!(alts.len(), 3);
-        assert!(matches!(&alts[1].patterns[0], Pattern::Ctor(_, args, _) if args.len() == 2));
-        assert!(matches!(alts[2].patterns[0], Pattern::Wildcard(_)));
-
-        // All on one line.
-        let e = rhs("def f (xs : List Nat) : Nat := match xs with | Nil => 0 | Cons x _ => x\n");
-        let (_, alts) = match_parts(&e);
-        assert_eq!(alts.len(), 2);
-        assert!(matches!(&alts[1].patterns[0], Pattern::Ctor(_, args, _) if args.len() == 2));
-
-        // Two scrutinees.
-        let e = rhs(
-            "def f (a : Nat) (b : Nat) : Nat := match a, b with | Zero, _ => 0 | Succ m, Zero => m | _, _ => 1\n",
-        );
-        let (s, alts) = match_parts(&e);
-        assert_eq!(s.len(), 2);
-        assert!(alts.iter().all(|a| a.patterns.len() == 2));
-
-        // A named equation.
-        let e = rhs(
-            "def f (xs : List Nat) : Nat := match h : length xs with | Zero => 0 | Succ k => k\n",
-        );
-        let (s, _) = match_parts(&e);
-        assert_eq!(s[0].name.as_ref().unwrap().text, "h");
-        assert!(matches!(s[0].expr, Expr::App(..)));
-
-        // Other pattern forms.
-        let e = rhs(
-            "def f (p : Nat) : Nat := match p with | (a, b) => a | { name = n } => n | () => 0 | 0 => 1\n",
-        );
-        let (_, alts) = match_parts(&e);
-        assert!(matches!(alts[0].patterns[0], Pattern::Tuple(..)));
-        assert!(matches!(alts[1].patterns[0], Pattern::Record { .. }));
-        assert!(matches!(alts[2].patterns[0], Pattern::Absurd(_)));
-        assert!(matches!(alts[3].patterns[0], Pattern::Num(..)));
-        assert!(alts.iter().all(|a| a.body.is_some()));
-
-        // An absurd alternative: `()` and no body, as in an equation.
-        let e = rhs(
-            "def f (m : Move) (h : P m) : Nat :=\n  match m, h with\n    | Rock, _ => 0\n    | Paper, ()\n    | Scissors, () => 1\n",
-        );
-        let (_, alts) = match_parts(&e);
-        assert!(alts[0].body.is_some());
-        assert!(alts[1].body.is_none());
-        assert!(matches!(alts[1].patterns[1], Pattern::Absurd(_)));
-        assert!(alts[2].body.is_some());
-
-        // As an operand.
-        let e = rhs("def f (n : Nat) : Nat := 1 + match n with | Zero => 0 | Succ k => k\n");
-        let Expr::Binary(_, _, r) = &e else {
-            panic!("{e:?}")
-        };
-        assert_eq!(match_parts(r).1.len(), 2);
-    }
-
-    #[test]
-    fn nested_match_alternatives_line_up_by_column() {
-        let e = rhs(
-            "def f (a : Nat) (b : Nat) : Nat :=\n  match a with\n    | Zero =>\n      match b with\n        | Zero => 1\n        | Succ _ => 2\n    | Succ _ => 3\n",
-        );
-        let (_, outer) = match_parts(&e);
-        assert_eq!(outer.len(), 2);
-        assert_eq!(match_parts(outer[0].body.as_ref().unwrap()).1.len(), 2);
-        assert!(is_num(outer[1].body.as_ref().unwrap(), 3));
-    }
-
-    /// The alternatives of an or-pattern.
-    fn or_alternatives(p: &Pattern) -> &[Pattern] {
-        let Pattern::Or(alternatives, _) = p else {
-            panic!("expected an or-pattern, got {p:?}");
-        };
-        alternatives
-    }
-
-    #[test]
-    fn parses_or_patterns() {
-        // On one line, one arm; a `|` that starts a line starts the next.
-        let e = rhs(
-            "def f (c : Char) : Nat :=\n  match c with\n    | 'k' | 'w' => 1\n    | Red | Green _ => 2\n    | _ => 3\n",
-        );
-        let (_, alts) = match_parts(&e);
-        assert_eq!(alts.len(), 3);
-        let first = or_alternatives(&alts[0].patterns[0]);
-        assert!(matches!(
-            first,
-            [Pattern::Char('k', _), Pattern::Char('w', _)]
-        ));
-        assert!(matches!(
-            or_alternatives(&alts[1].patterns[0]),
-            [Pattern::Ctor(_, none, _), Pattern::Ctor(_, one, _)] if none.is_empty() && one.len() == 1
-        ));
-        assert!(matches!(alts[2].patterns[0], Pattern::Wildcard(_)));
-
-        // `|` binds tighter than `,`.
-        let e =
-            rhs("def f (a : Nat) (b : Nat) : Nat := match a, b with | 0 | 1, Red | Green => 0\n");
-        let (_, alts) = match_parts(&e);
-        assert_eq!(alts.len(), 1);
-        assert_eq!(or_alternatives(&alts[0].patterns[0]).len(), 2);
-        assert_eq!(or_alternatives(&alts[0].patterns[1]).len(), 2);
-
-        // Nested in brackets, a tuple and a list.
-        let e = rhs(
-            "def f (p : Nat) : Nat := match p with | Some ('a' | 'b') => 0 | (0 | 1, _) => 1 | [_, 'x' | 'y'] => 2\n",
-        );
-        let (_, alts) = match_parts(&e);
-        let Pattern::Ctor(_, args, _) = &alts[0].patterns[0] else {
-            panic!("{:?}", alts[0].patterns[0])
-        };
-        assert_eq!(or_alternatives(&args[0]).len(), 2);
-        let Pattern::Tuple(a, _, _) = &alts[1].patterns[0] else {
-            panic!("{:?}", alts[1].patterns[0])
-        };
-        assert_eq!(or_alternatives(a).len(), 2);
-        let Pattern::Cons(_, rest, _) = &alts[2].patterns[0] else {
-            panic!("{:?}", alts[2].patterns[0])
-        };
-        assert!(matches!(&**rest, Pattern::Cons(x, _, _) if or_alternatives(x).len() == 2));
-
-        // In a definition's arms.
-        let module = parse("def f: Colour -> Nat\n  | Red | Blue => 1\n  | _ => 2\n");
-        let arms: Vec<&Pattern> = module
-            .decls
-            .iter()
-            .filter_map(|d| match d {
-                Decl::Equation { patterns, .. } => Some(&patterns[0]),
-                _ => None,
-            })
-            .collect();
-        assert_eq!(arms.len(), 2);
-        assert_eq!(or_alternatives(arms[0]).len(), 2);
-    }
-
-    #[test]
-    fn rejects_binding_in_or_patterns() {
-        for text in [
-            "def f (o : Nat) : Nat := match o with | Some x | None => 0\n",
-            "def f (o : Nat) : Nat := match o with | Some (x | 0) => 0\n",
-            "def f (o : Nat) : Nat := match o with | { name } | _ => 0\n",
-        ] {
-            let error = rhs_of(text).unwrap_err();
-            assert_eq!(error.code, "E-OR-PATTERN-BINDS", "{text}");
-        }
-        assert!(rhs_of("def f (o : Nat) : Nat := match o with | Some _ | None => 0\n").is_ok());
-    }
-
-    /// `(let x := e; body)` is the tree a block `let` makes (D1425, D1453).
-    #[test]
-    fn an_expression_let_is_a_block_let() {
-        for text in [
-            "def f (n : Nat) : Nat := (let x := n; let y := x; y)\n",
-            "def f (n : Nat) : Nat := let x := n; let y := x; y\n",
-            "def f (n : Nat) : Nat :=\n  (let x := n;\n    let y := x; y)\n",
-            "def f (n : Nat) : Nat := if True then let x := n; let y := x; y else 0\n",
-        ] {
-            let e = rhs(text);
-            let e = if let Expr::If { then, .. } = &e {
-                then
-            } else {
-                &e
-            };
-            assert_eq!(lines(e), ["let x", "let y", "result"], "{text}");
-        }
-        // A pattern gives the one-alternative `match`, as in a block.
-        let e = rhs("def f (p : Nat) : Nat := (let (a, b) := p; a)\n");
-        assert!(matches!(
-            &e,
-            Expr::Match {
-                kind: MatchKind::Let,
-                ..
-            }
-        ));
-        // `in` is membership, so it stays in the value.
-        let e = rhs("def f (x : Nat) (xs : List Nat) : Bool := (let b := x in xs; b)\n");
-        let Expr::Let { value, .. } = &e else {
-            panic!("expected a `let`, got {e:?}");
-        };
-        assert!(!matches!(**value, Expr::Var(_)), "{value:?}");
-    }
-
-    #[test]
-    fn an_expression_let_needs_a_semicolon_and_a_body() {
-        let message = |text: &str| rhs_of(text).unwrap_err().message;
-        let m = message("def f (n : Nat) : Nat := (let x := n in x)\n");
-        assert!(m.contains("expected `;` after the value of `let`"), "{m}");
-        let m = message("def f (n : Nat) : Nat := (let x := n)\n");
-        assert!(m.contains("expected `;` after the value of `let`"), "{m}");
-        let m = message("def f (n : Nat) : Nat := (let x := n;)\n");
-        assert!(m.contains("`let` needs a body after `;`"), "{m}");
-    }
-
-    /// `a; b` is the tree the block lines `a` and `b` make (SW-888, D1700).
-    #[test]
-    fn a_sequence_is_block_lines() {
-        let block = rhs("def f (n : Nat) : Nat :=\n  a\n  let x := b\n  c\n  x\n");
-        for text in [
-            "def f (n : Nat) : Nat := (a; let x := b; c; x)\n",
-            "def f (n : Nat) : Nat := a; let x := b; c; x\n",
-            "def f (n : Nat) : Nat :=\n  a\n  let x := b; c; x\n",
-            "def f (n : Nat) : Nat :=\n  a\n  let x := b\n  c; x\n",
-            "def f (n : Nat) : Nat :=\n  (a;\n    let x := b; c; x)\n",
-        ] {
-            let e = rhs(text);
-            let e = match &e {
-                Expr::Bracketed(inner, _) => inner,
-                e => e,
-            };
-            assert_eq!(lines(e), lines(&block), "{text}");
-            assert_eq!(shape(e), shape(&block), "{text}");
-        }
-    }
-
-    #[test]
-    fn sequence_precedence() {
-        let cases = [
-            // Looser than everything else, so it runs to the right.
-            ("a; b; c", "(; a (; b c))"),
-            ("f a; g b", "(; (f a) (g b))"),
-            ("a |> f; b", "(; (|> a f) b)"),
-            ("a; b |> f", "(; a (|> b f))"),
-            ("x => a; b", "(=> (; a b))"),
-            ("if a then b; x else y; f", "(if (; b x) (; y f))"),
-            // It ends at a comma, as a `let`'s body does.
-            ("(a; b, f)", "(, (; a b) f)"),
-            // In a `let`, a `;` after the value starts the body.
-            ("(let z := a; b; f)", "(let z a (; b f))"),
-            ("(let z := x => a; b)", "(let z (=> a) b)"),
-            ("(let z := if a then b else x; y)", "(let z (if b x) y)"),
-            ("(let z := let w := a; w; z)", "(let z (let w a w) z)"),
-            // Unless the `;` is in brackets inside the value.
-            ("(let z := (a; b); z)", "(let z (; a b) z)"),
-            ("(let z := f (a; b); z)", "(let z (f (; a b)) z)"),
-            ("(a; let z := b; z)", "(; a (let z b z))"),
-        ];
-        for (text, want) in cases {
-            assert_eq!(shape_of(text), want, "{text}");
-        }
-    }
-
-    #[test]
-    fn a_sequence_needs_an_expression_after_the_semicolon() {
-        for text in [
-            "def f (n : Nat) : Nat := (a;)\n",
-            "def f (n : Nat) : Nat := (a; b;)\n",
-            "def f (n : Nat) : (Nat, Nat) := (a;, b)\n",
-            "def f (n : Nat) : Nat := (let x := n; x;)\n",
-            // A `;` ending a block's line: the next line is a new statement.
-            "def f (n : Nat) : Nat :=\n  a;\n  b\n",
-        ] {
-            let m = rhs_of(text).unwrap_err().message;
-            assert!(
-                m.contains("`;` needs an expression after it"),
-                "{text}: {m}"
-            );
-        }
-    }
-
-    #[test]
-    fn rejects_malformed_matches() {
-        let fails = |text: &str| rhs_of(text).is_err();
-        assert!(
-            fails("def f (xs : List Nat) : Nat := match xs with\n"),
-            "no alternatives"
-        );
-        assert!(
-            fails("def f (xs : List Nat) : Nat := match xs with | Nil, _ => 0\n"),
-            "too many patterns"
-        );
-        assert!(
-            fails("def f (a : Nat) (b : Nat) : Nat := match a, b with | Nil => 0\n"),
-            "too few patterns"
-        );
-        let message = rhs_of("def f (xs : List Nat) : Nat := match xs with | Nil, _ => 0\n")
-            .unwrap_err()
-            .message;
-        assert!(
-            message.contains("has 2 patterns, but the `match` has 1 scrutinee"),
-            "{message}"
-        );
-    }
-
-    /// The `match` of a clause lambda `e`, and its kind.
-    fn clause_parts(e: &Expr) -> (&[Alt], MatchKind) {
-        let Expr::Lam(names, body, _) = e else {
-            panic!("expected a lambda, got {e:?}");
-        };
-        let Expr::Match {
-            scrutinees,
-            alts,
-            kind,
-            ..
-        } = &**body
-        else {
-            panic!("expected a `match`, got {body:?}");
-        };
-        assert_eq!(names.len(), scrutinees.len());
-        (alts, *kind)
-    }
-
-    /// The argument of the call `g (…)` that is the right side of `text`.
-    fn bracketed_arg(text: &str) -> Expr {
-        let e = rhs(&format!("def f: T := g ({text})\n"));
-        let Expr::App(_, arg) = &e else {
-            panic!("{e:?}")
-        };
-        (**arg).clone()
-    }
-
-    #[test]
-    fn clause_lambdas_are_lambdas_over_a_match() {
-        let e = bracketed_arg("match | A => 1 | B => 2");
-        let (alts, kind) = clause_parts(&e);
-        assert_eq!((alts.len(), kind), (2, MatchKind::Clause));
-
-        // Two parameters: two patterns in each arm.
-        let e = bracketed_arg("match | 0, y => y | x, _ => x");
-        let Expr::Lam(names, ..) = &e else {
-            panic!("{e:?}")
-        };
-        assert_eq!(names.len(), 2);
-
-        // `some` and `matches` are keywords only before `|`.
-        let e = bracketed_arg("match some | A x => x");
-        let (alts, kind) = clause_parts(&e);
-        assert_eq!((alts.len(), kind), (2, MatchKind::ClauseSome));
-        let e = rhs("def f: T := match some with | 0 => 1 | _ => 2\n");
-        assert_eq!(match_parts(&e).1.len(), 2);
-        let e = bracketed_arg("matches | A | B");
-        let (alts, kind) = clause_parts(&e);
-        assert_eq!((alts.len(), kind), (2, MatchKind::ClauseMatches));
-        assert_eq!(alts[0].patterns.len(), 1);
-        assert!(matches!(alts[0].patterns[0], Pattern::Or(..)));
-        assert!(matches!(rhs("def f: T := matches + 1\n"), Expr::Binary(..)));
-    }
-
-    #[test]
-    fn guards_follow_the_patterns_and_end_at_the_arrow() {
-        // `flag => e` is not a lambda inside a guard.
-        let e = bracketed_arg("match some | x if flag => x");
-        let (alts, _) = clause_parts(&e);
-        let guard = alts[0].guard.as_ref().expect("a guard");
-        assert!(guard.binder.is_none());
-        assert!(matches!(&guard.cond, Expr::Var(n) if n.text == "flag"));
-        assert!(alts[1].guard.is_none());
-
-        // A pipe, a comparison, a named fact.
-        let e = bracketed_arg("match some | (a, b) if xs |> f => a");
-        let (alts, _) = clause_parts(&e);
-        assert!(matches!(
-            alts[0].guard.as_ref().unwrap().cond,
-            Expr::Pipe(..)
-        ));
-        let e = bracketed_arg("match some | (a, b) if h: a < b => a");
-        let (alts, _) = clause_parts(&e);
-        assert_eq!(
-            alts[0]
-                .guard
-                .as_ref()
-                .unwrap()
-                .binder
-                .as_ref()
-                .unwrap()
-                .text,
-            "h"
-        );
-
-        // A lambda in brackets inside the guard is still a lambda.
-        let e = bracketed_arg("match some | xs if xs.any (x => x > 0) => xs");
-        let (alts, _) = clause_parts(&e);
-        assert!(alts[0].guard.is_some());
-
-        // One guard over an or-pattern; none on the `matches` result.
-        let e = bracketed_arg("matches | 1 | 2 if strict");
-        let (alts, kind) = clause_parts(&e);
-        assert_eq!(kind, MatchKind::ClauseMatches);
-        assert!(matches!(alts[0].patterns[0], Pattern::Or(..)));
-        assert!(alts[0].guard.is_some());
-
-        // A constructor's arguments stop at `if`, in a `match` on one line.
-        let e = rhs("def f: T := match n with | Some x if x > 0 => x | _ => 0\n");
-        let (_, alts) = match_parts(&e);
-        assert!(alts[0].guard.is_some() && alts[1].guard.is_none());
-
-        // A definition's arm.
-        let module = parse("def f: Nat → Nat\n  | n if n > 2 => n\n  | _ => 0\n");
-        let guards: Vec<bool> = module
-            .decls
-            .iter()
-            .filter_map(|d| match d {
-                Decl::Equation { guard, .. } => Some(guard.is_some()),
-                _ => None,
-            })
-            .collect();
-        assert_eq!(guards, [true, false]);
-    }
-
-    #[test]
-    fn a_definition_whose_body_is_a_clause_lambda_has_the_arms_form() {
-        let module = parse("def f: Nat → Option Nat := match some | 0 => 1 | 1 => 2\n");
-        let arms: Vec<_> = module
-            .decls
-            .iter()
-            .filter(|d| matches!(d, Decl::Equation { .. }))
-            .collect();
-        // Two written arms, and the one for everything else.
-        assert_eq!(arms.len(), 3);
-        assert!(
-            arms.iter()
-                .all(|d| matches!(d, Decl::Equation { arm: Some(0), .. }))
-        );
-    }
-
-    #[test]
-    fn clause_lambda_arms_have_the_same_number_of_patterns() {
-        let message = rhs_of("def f: T := match | 0, y => y | x => x\n")
-            .unwrap_err()
-            .message;
-        assert!(
-            message.contains("has 1 pattern, but the first has 2"),
-            "{message}"
-        );
-    }
-
-    fn rhs_of(text: &str) -> Result<Expr> {
-        let mut sources = SourceMap::new();
-        let file = sources.add("test.sw", text);
-        let module = parse_module(file, text).map_err(|mut e| e.remove(0))?;
-        match module.decls.into_iter().last() {
-            Some(Decl::Equation { rhs: Some(rhs), .. }) => Ok(rhs),
-            _ => panic!("expected an equation"),
-        }
-    }
-
-    fn else_branch(e: &Expr) -> &Expr {
-        let Expr::If { otherwise, .. } = e else {
-            panic!("expected an `if`, got {e:?}");
-        };
-        otherwise
-    }
-
-    fn is_num(e: &Expr, n: u32) -> bool {
-        matches!(e, Expr::Num(v, _) if *v == n.into())
-    }
-
-    #[test]
-    fn else_on_its_own_line_continues_the_if() {
-        let e = rhs_of("def g (n : Nat) : Nat :=\n  if n == 0 then 1\n  else 2\n").unwrap();
-        assert!(is_num(else_branch(&e), 2));
-    }
-
-    #[test]
-    fn then_and_else_chain_across_lines() {
-        let text = "def g (n : Nat) : Nat :=\n  if a\n  then 1\n  else if b then 2\n  else if c then 3\n  else 4\n";
-        let e = rhs_of(text).unwrap();
-        assert!(is_num(else_branch(else_branch(else_branch(&e))), 4));
-    }
-
-    #[test]
-    fn a_proof_binder_and_a_let_value_can_span_lines() {
-        let e = rhs_of("def g (n : Nat) : Nat :=\n  if h : n != 0 then 1\n  else 2\n").unwrap();
-        assert!(matches!(
-            e,
-            Expr::If {
-                binder: Some(_),
-                ..
-            }
-        ));
-        let e = rhs_of("def g (n : Nat) : Nat :=\n  let x := if n == 0 then 1\n  else 2\n  x\n")
-            .unwrap();
-        assert!(matches!(e, Expr::Let { .. }));
-    }
-
-    #[test]
-    fn the_inner_if_takes_the_closest_else() {
-        let e = rhs_of(
-            "def g (a : Nat) (b : Nat) : Nat :=\n  if a then\n    if b then 1\n    else 2\n  else 3\n",
-        ).unwrap();
-        assert!(is_num(else_branch(&e), 3));
-    }
-
-    #[test]
-    fn an_else_left_of_its_if_is_explained() {
-        let e = rhs_of("def g (a : Nat) : Nat :=\n  if a then\n    if a then 1\n  else 2\n")
-            .unwrap_err();
-        assert!(
-            e.message.contains("starts a new statement"),
-            "{}",
-            e.message
-        );
-    }
-
-    /// An expression's shape, fully bracketed.
-    fn shape(e: &Expr) -> String {
-        match e {
-            Expr::Var(n) => n.text.clone(),
-            Expr::Num(n, _) => n.to_string(),
-            Expr::Float(t, _) => t.clone(),
-            Expr::Str(t, _) => format!("{t:?}"),
-            Expr::Unit(_) => "()".into(),
-            Expr::Bracketed(x, _) => shape(x),
-            Expr::Lam(_, body, _) => format!("(=> {})", shape(body)),
-            Expr::Pipe(a, b) => format!("(|> {} {})", shape(a), shape(b)),
-            Expr::Seq(a, b) => format!("(; {} {})", shape(a), shape(b)),
-            Expr::Let {
-                name, value, body, ..
-            } => {
-                format!("(let {} {} {})", name.text, shape(value), shape(body))
-            }
-            Expr::Tuple(a, b, _) => format!("(, {} {})", shape(a), shape(b)),
-            Expr::If {
-                then, otherwise, ..
-            } => format!("(if {} {})", shape(then), shape(otherwise)),
-            Expr::Interpolated(x, _) => format!("${{{}}}", shape(x)),
-            Expr::Neg(x, _, _) => format!("(- {})", shape(x)),
-            Expr::App(f, a) => format!("({} {})", shape(f), shape(a)),
-            Expr::Field(x, n) => format!("{}.{}", shape(x), n.text),
-            Expr::Binary(op, a, b) => format!("({op:?} {} {})", shape(a), shape(b)),
-            other => panic!("unexpected {other:?}"),
-        }
-    }
-
-    fn shape_of(text: &str) -> String {
-        shape(
-            &rhs_of(&format!(
-                "def g (x : Nat) (y : Nat) (f : Nat) (a : Nat) (b : Nat) : Nat := {text}\n"
-            ))
-            .unwrap(),
-        )
-    }
-
-    /// SW-1339: `<`/`<=` chain, and `>`/`>=` chain, into `&&` of the links;
-    /// a middle that is not a name or a literal is bound once.
-    #[test]
-    fn comparisons_chain() {
-        let cases = [
-            ("a <= b < x", "(And (Le a b) (Lt b x))"),
-            ("a >= b > x", "(And (Le b a) (Lt x b))"),
-            ("0 <= a < 10", "(And (Le 0 a) (Lt a 10))"),
-            ("a < b <= x < y", "(And (Lt a b) (And (Le b x) (Lt x y)))"),
-            // The chain is one conjunct of a longer `&&`.
-            ("a <= b <= x && y", "(And (And (Le a b) (Le b x)) y)"),
-            ("y || a <= b <= x", "(Or y (And (Le a b) (Le b x)))"),
-            // Arithmetic and pipelines bind tighter.
-            ("a <= b + 1 <= x", "(And (Le a (Add b 1)) (Le (Add b 1) x))"),
-        ];
-        for (text, want) in cases {
-            let got = shape_of(text);
-            // A middle that is not an atom is bound.
-            if text.contains('+') {
-                assert!(got.starts_with("(let %chain"), "{text}: {got}");
-                continue;
-            }
-            assert_eq!(got, want, "{text}");
-        }
-    }
-
-    #[test]
-    fn a_chain_binds_a_call_in_the_middle_once() {
-        let got = shape_of("a <= f x <= b");
-        assert!(got.starts_with("(let %chain"), "{got}");
-        assert_eq!(got.matches("(f x)").count(), 1, "{got}");
-        // Both ends perform: the first is bound before the middle.
-        let got = shape_of("f a <= f x <= f b");
-        assert_eq!(got.matches("(let %chain").count(), 2, "{got}");
-        assert!(got.find("(f a)") < got.find("(f x)"), "{got}");
-        // The later operand is bound where it is only run if the first
-        // link holds.
-        let got = shape_of("a < f x < f y < b");
-        let second = got.rfind("(let %chain").unwrap();
-        assert!(got[second..].starts_with("(let %chain"), "{got}");
-        assert!(got.find("(And (Lt a %chain").unwrap() < second, "{got}");
-    }
-
-    #[test]
-    fn refused_chains_say_what_to_write() {
-        for (text, want) in [
-            ("a < b > x", "one way"),
-            ("a >= b < x", "one way"),
-            ("a < b = x", "`=`"),
-            ("a == b == x", "`==`"),
-            ("a < b == x", "`==`"),
-            ("a != b != x", "`!=`"),
-            ("a < b != x", "`!=`"),
-            ("a <= b in x", "`in`"),
-            ("a <= b !in x", "`in`"),
-            ("a = b < x", "`=`"),
-            ("a != b <= x", "`!=`"),
-            ("a == b < x", "`==`"),
-            ("a == b > x", "`==`"),
-        ] {
-            let e = rhs_of(&format!("def g : Nat := {text}\n")).expect_err(text);
-            assert_eq!(e.code, "E-COMPARISON-CHAIN", "{text}");
-            assert!(e.message.contains(want), "{text}: {}", e.message);
-            assert!(!e.notes.is_empty(), "{text}");
-        }
-    }
-
-    #[test]
-    fn prefix_minus_precedence() {
-        let cases = [
-            ("-x.abs", "(- x.abs)"),
-            ("(-x).abs", "(- x).abs"),
-            ("-f x", "(- (f x))"),
-            ("f -x", "(f (- x))"),
-            ("-a * b", "(Mul (- a) b)"),
-            ("a * -b", "(Mul a (- b))"),
-            ("-18 % 100", "(Mod (- 18) 100)"),
-            ("-(18 % 100)", "(- (Mod 18 100))"),
-            ("a - -b", "(Sub a (- b))"),
-            ("- -x", "(- (- x))"),
-            ("a + -b * c", "(Add a (Mul (- b) c))"),
-            ("f (-5)", "(f (- 5))"),
-            ("f -5", "(f (- 5))"),
-        ];
-        for (text, want) in cases {
-            assert_eq!(shape_of(text), want, "{text}");
-        }
-        // `--` starts a comment.
-        assert_eq!(shape_of("a --b"), "a");
-    }
-
-    #[test]
-    fn an_argument_minus_negates_one_atom() {
-        let cases = [
-            ("f -x.abs", "(f (- x.abs))"),
-            ("f -2 * 3", "(Mul (f (- 2)) 3)"),
-            ("f -g x", "((f (- g)) x)"),
-            ("f 1 -2", "((f 1) (- 2))"),
-            ("f -(a * 2)", "(f (- (Mul a 2)))"),
-            ("x-1", "(Sub x 1)"),
-            ("x- 1", "(Sub x 1)"),
-            ("x - 1", "(Sub x 1)"),
-            ("x -  1", "(Sub x 1)"),
-            ("x - -y", "(Sub x (- y))"),
-            ("f \"a\" -1", "((f \"a\") (- 1))"),
-            ("(f x) -1", "((f x) (- 1))"),
-            ("xs.length -1", "(xs.length (- 1))"),
-            ("f() -1", "((f ()) (- 1))"),
-            ("f -()", "(f (- ()))"),
-            ("f -g()", "(f (- (g ())))"),
-            ("f -1 -2", "((f (- 1)) (- 2))"),
-            // After `,` or an operator the `-` is prefix, as before.
-            ("f x * -y", "(Mul (f x) (- y))"),
-            // `--` starts a comment.
-            ("f --x", "f"),
-        ];
-        for (text, want) in cases {
-            assert_eq!(shape_of(text), want, "{text}");
-        }
-        let list = expression("[1, -2]").unwrap();
-        assert!(matches!(
-            &list,
-            Expr::List(items, _) if matches!(&items[1], Expr::Neg(_, _, NegForm::Operand))
-        ));
-        // A `-` at the end of a line is binary, and needs its operand.
-        assert!(rhs_of("def g : Nat := f -\n").is_err());
-        // The form is recorded: `f -2` is an argument, `f (-2)` is not.
-        let call = rhs_of("def g : Nat := f -2\n").unwrap();
-        let Expr::App(_, arg) = &call else {
-            panic!("an application")
-        };
-        assert!(matches!(**arg, Expr::Neg(_, _, NegForm::Argument)));
-        let call = rhs_of("def g : Nat := f (-2)\n").unwrap();
-        let Expr::App(_, arg) = &call else {
-            panic!("an application")
-        };
-        assert!(matches!(
-            &**arg,
-            Expr::Neg(_, _, NegForm::Operand) | Expr::Bracketed(..)
-        ));
-        assert!(!format!("{arg:?}").contains("Argument"));
-    }
-
-    #[test]
-    fn negative_numerals_are_one_atom() {
-        let cases = [
-            ("-1.abs", "(- 1).abs"),
-            ("f -1.abs", "(f (- 1).abs)"),
-            ("x-1.abs", "(Sub x 1.abs)"),
-            ("- 1.abs", "(- 1.abs)"),
-            ("-x.abs", "(- x.abs)"),
-            ("-1.5.abs", "(- 1.5).abs"),
-            ("- -1.abs", "(- (- 1).abs)"),
-            ("x - -1.abs", "(Sub x (- 1).abs)"),
-            ("-3.sub 5", "((- 3).sub 5)"),
-            ("-3 * 2", "(Mul (- 3) 2)"),
-            ("(-0e-400).bits", "(- 0e-400).bits"),
-            ("1e-5", "1e-5"),
-            ("x --1", "x"),
-        ];
-        for (text, want) in cases {
-            assert_eq!(shape_of(text), want, "{text}");
-        }
-    }
-
-    #[test]
-    fn an_argument_minus_in_sections_pipes_and_texts() {
-        let cases = [
-            ("(.fst -1)", "(=> (%section.fst (- 1)))"),
-            ("x |> f -1", "(|> x (f (- 1)))"),
-            ("\"${x -1}\"", "${(Std.Show.toText (x (- 1)))}"),
-        ];
-        for (text, want) in cases {
-            assert_eq!(shape_of(text), want, "{text}");
-        }
-        let e = shape_of("xs |> .drop -1");
-        assert!(e.contains("(- 1)") && e.contains("drop"), "{e}");
-        let e = format!(
-            "{:?}",
-            rhs_of("def g : Nat := (let z := f -1; z)\n").unwrap()
-        );
-        assert!(e.contains("Argument"), "{e}");
-        let e = format!("{:?}", rhs_of("def g : Nat := (let z := 1; -z)\n").unwrap());
-        assert!(e.contains("Operand") && !e.contains("Argument"), "{e}");
-    }
-
-    #[test]
-    fn a_block_line_starting_with_a_minus_is_a_new_statement() {
-        let e = rhs_of("def g (x : Int) : Int :=\n  let y := x + 1\n  -y\n").unwrap();
-        let text = format!("{e:?}");
-        assert!(text.contains("Let") && text.contains("Operand"), "{text}");
-        assert!(!text.contains("Argument"), "{text}");
-        // An indented line continues the one above: an argument.
-        let e = rhs_of("def g (f : Int -> Int) (x : Int) : Int :=\n  f\n    -x\n").unwrap();
-        assert!(matches!(&e, Expr::App(_, a) if matches!(**a, Expr::Neg(_, _, NegForm::Argument))));
-        // A line starting `- y` with a space is binary, as before.
-        let e = rhs_of("def g (x : Int) (y : Int) : Int :=\n  x\n    - y\n").unwrap();
-        assert!(matches!(e, Expr::Binary(BinOp::Sub, ..)), "{e:?}");
-    }
-
-    #[test]
-    fn a_block_line_starting_with_a_bang_is_a_new_statement() {
-        let e = rhs_of("def g (c : Bool) (d : Bool) : Bool :=\n  let y := c\n  !d\n").unwrap();
-        let Expr::Let { value, body, .. } = &e else {
-            panic!("{e:?}")
-        };
-        assert_eq!(shape(value), "c");
-        assert_eq!(shape(body), "(Std.Bool.not d)");
-        // An indented line continues the one above: an argument.
-        let e = rhs_of("def g (f : Bool -> Bool) (x : Bool) : Bool :=\n  f\n    !x\n").unwrap();
-        assert_eq!(shape(&e), "(f (Std.Bool.not x))");
-    }
-
-    #[test]
-    fn x_not_in_xs_is_not_an_argument_bang() {
-        let e = rhs_of("def g (x : Nat) (xs : List Nat) : Bool := x !in xs\n").unwrap();
-        assert!(matches!(e, Expr::App(..)), "{e:?}");
-        assert!(format!("{e:?}").contains("In("), "{e:?}");
-        let e = rhs_of("def g (f : Nat -> Bool) (x : Nat) (xs : List Nat) : Bool := f x !in xs\n")
-            .unwrap();
-        assert!(format!("{e:?}").contains("In("), "{e:?}");
-        // `!` after an operand with a space on both sides, or none before it.
-        assert!(rhs_of("def g (f : Bool -> Bool) (a : Bool) : Bool := f ! a\n").is_err());
-        assert!(rhs_of("def g (f : Bool -> Bool) (a : Bool) : Bool := f!a\n").is_err());
-    }
-
-    #[test]
-    fn a_negative_argument_in_a_constructor_pattern() {
-        let text =
-            "def h (o : Option Int) : Int :=\n  match o with\n    | Some -1 => 0\n    | _ => 1\n";
-        let module = parse_module_text(text).unwrap();
-        let debug = format!("{module:?}");
-        assert!(debug.contains("NegNum(1,"), "{debug}");
-        let text = "def h (l : List Int) : Int :=\n  match l with\n    | Cons -1 rest => 0\n    | _ => 1\n";
-        let debug = format!("{:?}", parse_module_text(text).unwrap());
-        assert!(debug.contains("NegNum(1,"), "{debug}");
-        // Numerals only, as `(-x)` is.
-        let text =
-            "def h (o : Option Int) : Int :=\n  match o with\n    | Some -x => 0\n    | _ => 1\n";
-        assert!(parse_module_text(text).is_err());
-    }
-
-    /// The parse of `text`'s declarations in recovery: the module, the
-    /// errors, and each declaration's recovery points.
-    fn recovered(text: &str) -> (Module, Vec<Diagnostic>, Vec<Vec<RecoveryPoint>>) {
-        let mut sources = SourceMap::new();
-        let file = sources.add("test.sw", text);
-        let (module, errors, tree) = parse_module_and_tree(file, text, DEFAULT_STACK);
-        let points = tree
-            .decls()
-            .map(|root| root.recoveries().iter().map(|r| r.point).collect())
-            .collect();
-        (module, errors, points)
-    }
-
-    /// The right-hand side of the only equation of `name` in `module`.
-    fn equation_rhs<'m>(module: &'m Module, name: &str) -> &'m Expr {
-        let rhs = module.decls.iter().find_map(|d| match d {
-            Decl::Equation { name: n, rhs, .. } if n.text == name => rhs.as_ref(),
-            _ => None,
-        });
-        rhs.unwrap_or_else(|| panic!("no equation of {name}: {module:?}"))
-    }
-
-    /// R1: an operand that runs out at the end of its line is missing, at
-    /// the end of the operator, and the lines after it are parsed as usual.
-    #[test]
-    fn an_operand_that_runs_out_is_missing_and_the_block_goes_on() {
-        let text = "def f (n: Nat): Nat :=\n  let a := n +\n  let b := a * 2\n  b\n";
-        let (module, errors, points) = recovered(text);
-        assert_eq!(errors.len(), 1, "{errors:?}");
-        assert_eq!(points, [vec![RecoveryPoint::RanOut]]);
-        assert!(module.decls.iter().any(|d| matches!(
-            d,
-            Decl::Signature { name, syntax_error: Some(_), .. } if name.text == "f"
-        )));
-        let Expr::Let { value, body, .. } = equation_rhs(&module, "f") else {
-            panic!("{module:?}")
-        };
-        let Expr::Binary(BinOp::Add, _, missing) = &**value else {
-            panic!("{value:?}")
-        };
-        let plus = text.find('+').unwrap() as u32;
-        assert!(
-            matches!(**missing, Expr::Missing(span) if span.start == plus + 1 && span.end == plus + 1),
-            "{missing:?}"
-        );
-        assert!(matches!(**body, Expr::Let { .. }), "{body:?}");
-    }
-
-    /// `def f: Nat :=` with nothing after it is a definition whose body is
-    /// missing, not a primitive (a header with no body).
-    #[test]
-    fn a_body_that_runs_out_is_missing_not_a_primitive() {
-        let (module, errors, points) = recovered("def f: Nat :=\n\ndef g: Nat := f\n");
-        assert_eq!(errors.len(), 1, "{errors:?}");
-        assert_eq!(points, [vec![RecoveryPoint::RanOut], vec![]]);
-        assert!(matches!(equation_rhs(&module, "f"), Expr::Missing(_)));
-    }
-
-    /// R6: an error nothing inside recovers from skips the rest of the body,
-    /// which is one missing expression over the skipped text; the
-    /// declarations after it are parsed as usual.
-    #[test]
-    fn a_body_that_breaks_is_skipped_to_the_end() {
-        let text = "def f (n: Nat): Nat :=\n  let a := n + ) 1\n  a\n\ndef g: Nat := 1\n";
-        let (module, errors, points) = recovered(text);
-        assert_eq!(errors.len(), 1, "{errors:?}");
-        assert_eq!(points, [vec![RecoveryPoint::Body], vec![]]);
-        let Expr::Missing(span) = equation_rhs(&module, "f") else {
-            panic!("{module:?}")
-        };
-        let skipped = &text[text.find("let").unwrap()..text.find("\n\n").unwrap()];
-        assert_eq!(&text[span.start as usize..span.end as usize], skipped);
-        assert!(matches!(equation_rhs(&module, "g"), Expr::Num(..)));
-    }
-
-    /// Arms that break are one equation of the header's patterns whose body
-    /// is missing.
-    #[test]
-    fn arms_that_break_are_one_equation_with_a_missing_body() {
-        let text = "def f: Nat -> Nat\n  | 0 => 1\n  | n => ) n\n";
-        let (module, errors, points) = recovered(text);
-        assert_eq!(errors.len(), 1, "{errors:?}");
-        assert_eq!(points, [vec![RecoveryPoint::Body]]);
-        assert!(matches!(equation_rhs(&module, "f"), Expr::Missing(_)));
-    }
-
-    /// Outside a top-level definition's body nothing recovers: a header, a
-    /// data type, a test fail whole as before.
-    #[test]
-    fn headers_and_other_declarations_still_fail_whole() {
-        for text in [
-            "def f (n: Nat): Nat + := n\n",
-            "type T =\n  | A (n: Nat +)\n",
-            "test \"t\" := 1 +\n",
-            "instance i: Foo := 1 +\n",
-        ] {
-            let (_, errors, points) = recovered(text);
-            assert_eq!(errors.len(), 1, "{text}: {errors:?}");
-            assert_eq!(points, [vec![]], "{text}");
-        }
-    }
-
-    #[test]
-    fn a_half_typed_minus_is_still_binary_in_recovery() {
-        let text = "def a: Nat := 1\n\ndef b (n: Nat): Nat := n -\n\ndef d: Nat := 2\n";
-        let mut sources = SourceMap::new();
-        let file = sources.add("test.sw", text);
-        let (module, errors) = parse_module_recovering(file, text, DEFAULT_STACK);
-        assert_eq!(errors.len(), 1, "{errors:?}");
-        assert!(module.decls.iter().any(|d| matches!(
-            d,
-            Decl::Signature { name, syntax_error: Some(_), .. } if name.text == "b"
-        )));
-    }
-
-    #[test]
-    fn greater_than_is_less_than_flipped() {
-        let cases = [
-            ("a > b", "(Lt b a)"),
-            ("a >= b", "(Le b a)"),
-            ("a + 1 > b * 2", "(Lt (Mul b 2) (Add a 1))"),
-            ("f x > y", "(Lt y (f x))"),
-            ("a ++ b > y", "(Lt y (Append a b))"),
-            ("a < b", "(Lt a b)"),
-        ];
-        for (text, want) in cases {
-            assert_eq!(shape_of(text), want, "{text}");
-        }
-        // They chain, as `<` does.
-        assert_eq!(shape_of("a > b > c"), "(And (Lt b a) (Lt c b))");
-        // `>>` is not a token (yet).
-        assert!(rhs_of("def g : Nat := a >> b\n").is_err());
-    }
-
-    /// An expression the parser writes with its parts out of order, or with
-    /// a function at an operator, still spans what was written.
-    #[test]
-    fn spans_of_expanded_operators_cover_what_was_written() {
-        let cases = [
-            "n * n > 20",
-            "n * n >= f x y",
-            "p <-> q",
-            "f x <-> g y && z",
-            "x !in xs",
-            "f x !in g xs",
-            "1 <= f x < 20",
-            "1 <= f x < g y <= 30",
-            "20 > f x > 3",
-        ];
-        for text in cases {
-            let span = expr(text).span();
-            assert_eq!(
-                (span.start as usize, span.end as usize),
-                (0, text.len()),
-                "{text}"
-            );
-        }
-    }
-
-    #[test]
-    fn range_precedence() {
-        let cases = [
-            ("a ..< b + 1", "(Range a (Add b 1))"),
-            ("0 ..< xs.length", "(Range 0 xs.length)"),
-            ("a ..= b ++ c", "(RangeThrough a (Append b c))"),
-            ("0 ..< n |> .map f", "((Range 0 n).map f)"),
-            ("0 ..< 3 == n", "(EqEq (Range 0 3) n)"),
-        ];
-        for (text, want) in cases {
-            assert_eq!(shape_of(text), want, "{text}");
-        }
-        for ok in ["[0, ..2 ..< n]", "[..0 ..< 3, 7]", "[0 ..< n]"] {
-            assert!(rhs_of(&format!("def g : Nat := {ok}\n")).is_ok(), "{ok}");
-        }
-        assert!(shape_of("x in 0 ..< n").ends_with("x (Range 0 n))"));
-        for bad in ["a ..< b ..< c", "a ..< b ..= c", "a .. b", "a..b", "[2..n]"] {
-            assert!(rhs_of(&format!("def g : Nat := {bad}\n")).is_err(), "{bad}");
-        }
-        let err = rhs_of("def g : Nat := [2..n]\n").unwrap_err();
-        assert!(format!("{err:?}").contains("[2, ..n]"));
-    }
-
-    #[test]
-    fn bang_precedence() {
-        let n = "Std.Bool.not";
-        let cases = [
-            ("!a", format!("({n} a)")),
-            ("!f x", format!("({n} (f x))")),
-            ("!x.abs", format!("({n} x.abs)")),
-            ("!!a", format!("({n} ({n} a))")),
-            ("!a > b", format!("(Lt b ({n} a))")),
-            ("!a = b", format!("(Eq ({n} a) b)")),
-            ("f (!a)", format!("(f ({n} a))")),
-            ("f !a", format!("(f ({n} a))")),
-            // `¬` is the same token as `!`.
-            ("f ¬x", format!("(f ({n} x))")),
-            ("f !x.done", format!("(f ({n} x.done))")),
-            ("f !g x", format!("((f ({n} g)) x)")),
-            ("f !a !b", format!("((f ({n} a)) ({n} b))")),
-            ("a != b", "(Ne a b)".to_string()),
-        ];
-        for (text, want) in cases {
-            assert_eq!(shape_of(text), want, "{text}");
-        }
-        let e = rhs_of("def g : Bool := !a && b\n").unwrap();
-        assert!(matches!(e, Expr::Binary(BinOp::And, ..)), "{e:?}");
-    }
-
-    #[test]
-    fn arrows_and_pipes_still_parse_beside_greater_than() {
-        assert!(rhs_of("def g : Nat := x |> f\n").is_ok());
-        assert!(rhs_of("def g : Nat := (x => y) a\n").is_ok());
-        assert!(rhs_of("def g : Type := a -> b\n").is_ok());
-        assert!(rhs_of("def g : Bool := x |> f > y\n").is_ok());
-    }
-
-    #[test]
-    fn negative_number_patterns() {
-        let module =
-            parse("def f : Int -> Nat -> Option Int -> Nat\n  | (-1), 0, (Some (-20)) => 1\n");
-        let Decl::Equation { patterns, .. } = &module.decls[1] else {
-            panic!()
-        };
-        assert!(matches!(&patterns[0], Pattern::NegNum(n, _) if *n == 1u32.into()));
-        assert!(matches!(&patterns[1], Pattern::Num(..)));
-        let Pattern::Ctor(_, args, _) = &patterns[2] else {
-            panic!()
-        };
-        assert!(matches!(&args[0], Pattern::NegNum(n, _) if *n == 20u32.into()));
-        for bad in [
-            "def f : Int -> Nat\n  | (-x) => 1\n",
-            "def f : Int -> Nat\n  | (- - 1) => 1\n",
-            "def f : Int -> Nat\n  | (-1 + 2) => 1\n",
-        ] {
-            let mut sources = SourceMap::new();
-            let file = sources.add("test.sw", bad);
-            assert!(parse_module(file, bad).is_err(), "{bad}");
-        }
-    }
-
-    #[test]
-    fn parses_tuples() {
-        // Components nest to the right; `()` and `(e)` are unchanged.
-        let e = rhs("def f : Nat := (1, 2, 3)\n");
-        let Expr::Tuple(a, rest, _) = &e else {
-            panic!("{e:?}")
-        };
-        assert!(matches!(**a, Expr::Num(..)));
-        assert!(matches!(**rest, Expr::Tuple(..)));
-        let e = rhs("def f : Nat := ((1, 2), 3)\n");
-        assert!(matches!(&e, Expr::Tuple(a, b, _)
-            if matches!(**a, Expr::Tuple(..)) && matches!(**b, Expr::Num(..))));
-        assert!(matches!(rhs("def f : Nat := ()\n"), Expr::Unit(_)));
-        assert!(matches!(rhs("def f : Nat := (1)\n"), Expr::Num(..)));
-        assert!(matches!(rhs("def f : Nat := (1 : Nat)\n"), Expr::Ann(..)));
-        // A tuple is a function's domain, and `(x : A)` is still a binder.
-        assert!(matches!(&rhs("def f : Nat := (A, B) -> C\n"),
-            Expr::Arrow(d, _) if matches!(**d, Expr::Tuple(..))));
-        assert!(matches!(
-            rhs("def f : Nat := (x : A) -> B\n"),
-            Expr::Pi { .. }
-        ));
-        // The tuple's span covers its brackets.
-        let e = rhs("def f : Nat := (1, 2, 3)\n");
-        assert_eq!((e.span().start, e.span().end), (15, 24));
-    }
-
-    #[test]
-    fn an_interpolated_text_spans_its_quotes() {
-        for literal in [
-            "\"${a}\"",
-            "\"${a} and ${b}\"",
-            "\"x ${a}\"",
-            "\"${a} x\"",
-            "\"x ${a} y\"",
-            "\"${\"${a}\"}\"",
-        ] {
-            let source = format!("def f : Text := {literal}\n");
-            let e = rhs(&source);
-            assert!(matches!(e, Expr::Interpolated(..)), "{literal}: {e:?}");
-            let span = e.span();
-            assert_eq!(
-                &source[span.start as usize..span.end as usize],
-                literal,
-                "{literal}"
-            );
-        }
-    }
-
-    #[test]
-    fn parses_list_patterns() {
-        let module = parse(
-            "def f : A -> B -> C -> D -> E -> Nat\n  | [], [a], [a, b], [Some x, (-1)], (xs, [y]) => a\n",
-        );
-        let Decl::Equation { patterns, .. } = &module.decls[1] else {
-            panic!()
-        };
-        assert!(matches!(patterns[0], Pattern::Nil(_)));
-        assert!(matches!(&patterns[1], Pattern::Cons(_, t, _) if matches!(**t, Pattern::Nil(_))));
-        let Pattern::Cons(_, rest, _) = &patterns[2] else {
-            panic!()
-        };
-        assert!(matches!(&**rest, Pattern::Cons(_, t, _) if matches!(**t, Pattern::Nil(_))));
-        let Pattern::Cons(head, _, _) = &patterns[3] else {
-            panic!()
-        };
-        assert!(matches!(&**head, Pattern::Ctor(_, args, _) if args.len() == 1));
-        assert!(
-            matches!(&patterns[4], Pattern::Tuple(_, r, _) if matches!(**r, Pattern::Cons(..)))
-        );
-    }
-
-    #[test]
-    fn parses_tuple_patterns() {
-        let module = parse(
-            "def f : A -> B -> C -> Nat\n  | (a, b, c), ((d, e) , _), (Cons (x, y) ys) => a\n",
-        );
-        let Decl::Equation { patterns, .. } = &module.decls[1] else {
-            panic!()
-        };
-        assert!(
-            matches!(&patterns[0], Pattern::Tuple(_, r, _) if matches!(**r, Pattern::Tuple(..)))
-        );
-        assert!(
-            matches!(&patterns[1], Pattern::Tuple(l, _, _) if matches!(**l, Pattern::Tuple(..)))
-        );
-        assert!(matches!(&patterns[2], Pattern::Ctor(_, args, _)
-            if matches!(args[0], Pattern::Tuple(..))));
-    }
-
-    #[test]
-    fn parses_a_constructor_as_a_tuples_first_component() {
-        let module = parse("def f : A -> Nat\n  | (Some a, b) => a\n");
-        let Decl::Equation { patterns, .. } = &module.decls[1] else {
-            panic!()
-        };
-        assert!(matches!(&patterns[0], Pattern::Tuple(l, _, _)
-            if matches!(&**l, Pattern::Ctor(_, args, _) if args.len() == 1)));
-
-        let e = rhs("def f (p : Nat) : Nat :=\n  let (Some a, b) := p\n  a\n");
-        let (_, p, _) = let_parts(&e);
-        assert!(matches!(p, Pattern::Tuple(l, _, _)
-            if matches!(&**l, Pattern::Ctor(_, args, _) if args.len() == 1)));
-    }
-
-    #[test]
-    fn parses_constructors_with_arguments_in_later_tuple_components() {
-        let module = parse("def f : A -> Nat\n  | (Some x, Some y, Some z) => x\n");
-        let Decl::Equation { patterns, .. } = &module.decls[1] else {
-            panic!()
-        };
-        // (Some x, (Some y, Some z)): every component keeps its argument.
-        let Pattern::Tuple(l, r, _) = &patterns[0] else {
-            panic!()
-        };
-        assert!(matches!(&**l, Pattern::Ctor(_, args, _) if args.len() == 1));
-        assert!(matches!(&**r, Pattern::Tuple(m, n, _)
-            if matches!(&**m, Pattern::Ctor(_, a, _) if a.len() == 1)
-                && matches!(&**n, Pattern::Ctor(_, a, _) if a.len() == 1)));
-    }
-
-    #[test]
-    fn parses_negative_numbers_in_tuple_patterns() {
-        let text = "def f : A -> B -> C -> Nat\n  | (-1, 0), (0, -2), (-3) => a\n";
-        let module = parse(text);
-        let Decl::Equation { patterns, .. } = &module.decls[1] else {
-            panic!()
-        };
-        assert!(matches!(&patterns[0], Pattern::Tuple(l, _, _)
-            if matches!(&**l, Pattern::NegNum(n, _) if *n == 1u32.into())));
-        assert!(matches!(&patterns[1], Pattern::Tuple(_, r, _)
-            if matches!(&**r, Pattern::NegNum(n, _) if *n == 2u32.into())));
-        // `(-3)` still spans the whole bracketed pattern.
-        let Pattern::NegNum(n, span) = &patterns[2] else {
-            panic!()
-        };
-        assert!(*n == 3u32.into());
-        let start = text.find("(-3)").unwrap() as u32;
-        assert_eq!((span.start, span.end), (start, start + 4));
-        let bad = "def f : A -> Nat\n  | (-x, 0) => a\n";
-        let mut sources = SourceMap::new();
-        let file = sources.add("test.sw", bad);
-        assert!(parse_module(file, bad).is_err(), "{bad}");
-    }
-
-    #[test]
-    fn rejects_bad_tuples() {
-        for bad in [
-            "def f : Nat := (1,)\n",
-            "def f : Nat := (a, b : T)\n",
-            "def f : Nat := (a : T, b)\n",
-            "def f : A -> Nat\n  | (a,) => a\n",
-        ] {
-            let mut sources = SourceMap::new();
-            let file = sources.add("test.sw", bad);
-            assert!(parse_module(file, bad).is_err(), "{bad}");
-        }
-    }
-
-    /// A `let`-pattern's match: its scrutinee, pattern and body.
-    fn let_parts(e: &Expr) -> (&Expr, &Pattern, &Expr) {
-        let Expr::Match {
-            scrutinees,
-            alts,
-            kind: MatchKind::Let,
-            ..
-        } = e
-        else {
-            panic!("expected a `let` match, got {e:?}");
-        };
-        assert_eq!(scrutinees.len(), 1);
-        assert_eq!(alts.len(), 1);
-        (
-            &scrutinees[0].expr,
-            &alts[0].patterns[0],
-            alts[0].body.as_ref().unwrap(),
-        )
-    }
-
-    #[test]
-    fn parses_let_patterns() {
-        let e = rhs("def f (e : Nat) : Nat :=\n  let (a, b) := e\n  a\n");
-        let (s, p, body) = let_parts(&e);
-        assert!(matches!(s, Expr::Var(_)));
-        assert!(matches!(p, Pattern::Tuple(..)));
-        assert!(matches!(body, Expr::Var(_)));
-
-        let e = rhs("def f (p : Nat) : Nat :=\n  let MkPair a b := p\n  a\n");
-        let (_, p, _) = let_parts(&e);
-        assert!(matches!(p, Pattern::Ctor(_, args, _) if args.len() == 2));
-
-        let e = rhs("def f (p : Nat) : Nat :=\n  let Pair.MkPair a b := p\n  a\n");
-        let (_, p, _) = let_parts(&e);
-        assert!(
-            matches!(p, Pattern::Ctor(n, args, _) if args.len() == 2 && n.text == "Pair.MkPair")
-        );
-
-        let e = rhs("def f (r : Nat) : Nat :=\n  let { x, .. } := r\n  x\n");
-        let (_, p, _) = let_parts(&e);
-        assert!(matches!(p, Pattern::Record { rest: true, .. }));
-
-        let e = rhs("def f (e : Nat) : Nat :=\n  let (a, b) : (Nat, Nat) := e\n  a\n");
-        let (s, _, _) = let_parts(&e);
-        assert!(matches!(s, Expr::Ann(..)));
-
-        let e = rhs("def f (e : Nat) : Nat :=\n  let _ := e\n  0\n");
-        let (_, p, _) = let_parts(&e);
-        assert!(matches!(p, Pattern::Wildcard(_)));
-
-        // Plain lets are unchanged.
-        for text in [
-            "def f (e : Nat) : Nat :=\n  let x := e\n  x\n",
-            "def f (e : Nat) : Nat :=\n  let (x) := e\n  x\n",
-        ] {
-            assert!(matches!(rhs(text), Expr::Let { .. }), "{text}");
-        }
-
-        // Later lines nest inside the match.
-        let e = rhs("def f (e : Nat) : Nat :=\n  let (a, b) := e\n  let c := a\n  c\n");
-        let (_, _, body) = let_parts(&e);
-        assert!(matches!(body, Expr::Let { .. }));
-    }
-
-    #[test]
-    fn parses_lambda_patterns() {
-        let lam = |text: &str| match &rhs(text) {
-            Expr::Lam(names, body, _) => (names.clone(), body.as_ref().clone()),
-            other => panic!("expected a lambda, got {other:?}"),
-        };
-        let lambda_match = |body: &Expr| match body {
-            Expr::Match {
-                scrutinees,
-                alts,
-                kind: MatchKind::Lambda,
-                ..
-            } => (scrutinees.len(), alts[0].patterns.len()),
-            other => panic!("expected a lambda match, got {other:?}"),
-        };
-
-        let (names, body) = lam("def f : Nat := (a, b) => a\n");
-        assert_eq!(names[0].text, "%arg0");
-        assert_eq!(lambda_match(&body), (1, 1));
-
-        let (names, body) = lam("def f : Nat := acc (k, v) => acc\n");
-        let texts: Vec<_> = names.iter().map(|n| n.text.as_str()).collect();
-        assert_eq!(texts, ["acc", "%arg1"]);
-        assert_eq!(lambda_match(&body), (1, 1));
-
-        let (names, body) = lam("def f : Nat := { name, .. } => name\n");
-        assert_eq!(names[0].text, "%arg0");
-        assert_eq!(lambda_match(&body), (1, 1));
-
-        let (_, body) = lam("def f : Nat := (MkPair a b) => a\n");
-        assert_eq!(lambda_match(&body), (1, 1));
-
-        let (names, body) = lam("def f : Nat := (a, b) (c, d) => a\n");
-        assert_eq!(names.len(), 2);
-        assert_eq!(lambda_match(&body), (2, 2));
-
-        // Plain parameters are unchanged.
-        let (names, body) = lam("def f : Nat := x y => x\n");
-        assert_eq!(names.len(), 2);
-        assert!(matches!(body, Expr::Var(_)));
-        let (names, body) = lam("def f : Nat := (x) _ => x\n");
-        assert_eq!(names.len(), 2);
-        assert!(matches!(body, Expr::Var(_)));
-    }
-
-    #[test]
-    fn lambda_patterns_may_be_annotated() {
-        let Expr::TypedLam(name, Mode::Explicit, ty, body, _) =
-            &rhs("def f : Nat := ((a, b): (Nat, Nat)) => a\n")
-        else {
-            panic!("expected a typed lambda");
-        };
-        assert_eq!(name.text, "%arg0");
-        assert!(matches!(**ty, Expr::Tuple(..)));
-        assert!(matches!(
-            **body,
-            Expr::Match {
-                kind: MatchKind::Lambda,
-                ..
-            }
-        ));
-        // Among plain parameters, with a record pattern.
-        let Expr::Lam(names, body, _) = &rhs("def f : Nat := x ({ n, .. }: P) => x\n") else {
-            panic!("expected a lambda");
-        };
-        assert_eq!(names[0].text, "x");
-        assert!(matches!(**body, Expr::TypedLam(..)));
-    }
-
-    #[test]
-    fn lambda_parameters_may_be_annotated() {
-        // (name, type, body) of a typed lambda.
-        fn typed(e: &Expr) -> (String, String, Expr) {
-            match e {
-                Expr::TypedLam(name, Mode::Explicit, ty, body, _) => {
-                    (name.text.clone(), pshape(ty), body.as_ref().clone())
-                }
-                other => panic!("expected a typed lambda, got {other:?}"),
-            }
-        }
-        let (name, ty, body) = typed(&rhs("def f : Nat := (x: Nat) => x\n"));
-        assert_eq!((name.as_str(), ty.as_str()), ("x", "Nat"));
-        assert!(matches!(body, Expr::Var(_)));
-        // With a space before the colon, too.
-        typed(&rhs("def f : Nat := (x : Nat) => x\n"));
-        // Several parameters nest, in order; a group shares one type.
-        let (name, _, body) = typed(&rhs("def f : Nat := (x y: Nat) => x\n"));
-        assert_eq!(name, "x");
-        let (name, ty, _) = typed(&body);
-        assert_eq!((name.as_str(), ty.as_str()), ("y", "Nat"));
-        let (_, _, body) = typed(&rhs("def f : Nat := (x: Nat) (y: Bool) => x\n"));
-        assert!(matches!(body, Expr::TypedLam(..)));
-        // Mixed with plain parameters: `x (y: Nat)` is a `Lam` around a
-        // `TypedLam`.
-        match &rhs("def f : Nat := x (y: Nat) => x\n") {
-            Expr::Lam(names, body, _) => {
-                assert_eq!(names.len(), 1);
-                assert!(matches!(**body, Expr::TypedLam(..)));
-            }
-            other => panic!("expected a lambda, got {other:?}"),
-        }
-        let (_, _, body) = typed(&rhs("def f : Nat := (x: Nat) y z => x\n"));
-        assert!(matches!(&body, Expr::Lam(names, _, _) if names.len() == 2));
-        // A parenthesised name alone is still a plain parameter.
-        assert!(matches!(rhs("def f : Nat := (x) => x\n"), Expr::Lam(..)));
-        // A missing type or closing bracket is an error.
-        assert!(rhs_of("def f : Nat := (x:) => x\n").is_err());
-        assert!(rhs_of("def f : Nat := (x: Nat => x\n").is_err());
-    }
-
-    /// The first error's message and notes, for a source that must fail.
-    fn error_text(text: &str) -> String {
-        let e = rhs_of(text).expect_err("expected a parse error");
-        format!("{} {}", e.message, e.notes.join(" "))
-    }
-
-    /// docs/proposals/lambda-syntax.md §5.1, layout rule: the run and its
-    /// `=>` follow the parser's existing continuation rule.
-    #[test]
-    fn a_lambdas_run_follows_the_layout_rule() {
-        let lam_names = |e: &Expr| match e {
-            Expr::Lam(names, _, _) => names.len(),
-            other => panic!("expected a lambda, got {other:?}"),
-        };
-        // The body on the next line, indented.
-        let e = rhs("def f : Nat :=\n  x y =>\n    x\n");
-        assert_eq!(lam_names(&e), 2);
-        // A second parameter on a continuation line.
-        let e = rhs("def f : Nat :=\n  x\n    y =>\n      x\n");
-        assert_eq!(lam_names(&e), 2);
-        // `=>` at the block's column is a stop: `x y` is a statement.
-        let text = "def f : Nat :=\n  x y\n  => x\n";
-        assert!(error_text(text).contains("=>"), "{}", error_text(text));
-        // A second line at the block's column starts a new statement.
-        let e = rhs("def f : Nat :=\n  f x\n  y => y\n");
-        assert_eq!(lines(&e), ["_", "result"]);
-        let Expr::Seq(_, last) = &e else { panic!() };
-        assert_eq!(lam_names(last), 1);
-    }
-
-    #[test]
-    fn lambda_positions() {
-        let is_lam = |e: &Expr| matches!(e, Expr::Lam(..) | Expr::TypedLam(..));
-        // `_` as a parameter, and a lambda returning a lambda.
-        assert!(is_lam(&rhs("def f : Nat := _ => 0\n")));
-        assert!(is_lam(&rhs("def f : Nat := x => y => x\n")));
-        // Arguments need brackets, and with them the application is ordinary.
-        assert!(matches!(
-            rhs("def f : Nat := List.map (x => x) xs\n"),
-            Expr::App(..)
-        ));
-        // Both branches of an `if`, and a record field.
-        let e = rhs("def f : Nat := if c then x => a else y => b\n");
-        let Expr::If {
-            then, otherwise, ..
-        } = &e
-        else {
-            panic!("expected an if")
-        };
-        assert!(is_lam(then) && is_lam(otherwise));
-        assert!(matches!(
-            rhs("def f : Nat := { f = x => x + 1 }\n"),
-            Expr::Record { .. }
-        ));
-        // In an arm's result, and after `|>`.
-        let e = rhs("def f : Nat := match n with | Zero => x => x | Succ k => g k\n");
-        assert!(matches!(e, Expr::Match { .. }));
-        assert!(matches!(
-            rhs("def f : Nat := xs |> ys => ys\n"),
-            Expr::Pipe(..)
-        ));
-        // `f x => e` is a lambda with parameters `f` and `x`.
-        let e = rhs("def f : Nat := map x => x + 1\n");
-        let Expr::Lam(names, _, _) = &e else {
-            panic!("expected a lambda")
-        };
-        assert_eq!(names.len(), 2);
-    }
-
-    #[test]
-    fn what_is_not_a_lambda() {
-        // A bare constructor or number isn't a parameter: use brackets.
-        assert!(rhs_of("def f : Nat := Trivial => 1\n").is_err());
-        assert!(rhs_of("def f : Nat := 0 => 1\n").is_err());
-        assert!(matches!(
-            rhs("def f : Nat := (Trivial) => 1\n"),
-            Expr::Lam(..)
-        ));
-        // A qualified name or dot access can't be a parameter, so a forgotten
-        // bracket is an error with a note.
-        for text in [
-            "def f : Nat := List.map x => x + 1\n",
-            "def f : Nat := xs.map x => x + 1\n",
-            "def f : Nat := Some x => x\n",
-        ] {
-            let message = error_text(text);
-            assert!(message.contains("put it in brackets"), "{text}: {message}");
-        }
-        // After an operator the operand isn't a lambda position.
-        assert!(rhs_of("def f : Nat := a + x => e\n").is_err());
-        // An unclosed bracket isn't skipped over.
-        assert!(rhs_of("def f : Nat := (a, b => e\n").is_err());
-    }
-
-    #[test]
-    fn a_lambda_takes_no_result_type() {
-        for text in [
-            "def f : Nat := (x: Nat): Nat => x\n",
-            "def f : Nat := a (x: Nat): List (Nat) => x\n",
-            "def f : Nat :=\n  let g := (x: Nat): Nat => x\n  g 1\n",
-        ] {
-            let message = error_text(text);
-            assert!(
-                message.contains("doesn't take a result type"),
-                "{text}: {message}"
-            );
-        }
-        // An annotated body is still a lambda.
-        assert!(matches!(
-            rhs("def f : Nat := (x: Nat) => (x: Nat)\n"),
-            Expr::TypedLam(..)
-        ));
-    }
-
-    #[test]
-    fn the_backslash_is_gone() {
-        assert!(rhs_of("def f : Nat := \\x => x\n").is_err());
-        let mut sources = SourceMap::new();
-        let file = sources.add("t.sw", "\\");
-        assert!(crate::lex(file, "\\").is_err());
-    }
-
-    /// docs/proposals/lambda-syntax.md §4.3 (D91): implicit and auto
-    /// parameters are written as in a header, and each gets its mode.
-    #[test]
-    fn lambdas_bind_implicit_and_auto_parameters() {
-        // (name, mode, type, body) of a typed lambda.
-        fn typed(e: &Expr) -> (String, Mode, String, Expr) {
-            match e {
-                Expr::TypedLam(name, mode, ty, body, _) => {
-                    (name.text.clone(), *mode, pshape(ty), body.as_ref().clone())
-                }
-                other => panic!("expected a typed lambda, got {other:?}"),
-            }
-        }
-        let (name, mode, ty, body) = typed(&rhs("def f : Nat := [a: Kind] (x: a) => x\n"));
-        assert_eq!(
-            (name.as_str(), mode, ty.as_str()),
-            ("a", Mode::Implicit, "Kind")
-        );
-        let (name, mode, _, body) = typed(&body);
-        assert_eq!((name.as_str(), mode), ("x", Mode::Explicit));
-        assert!(matches!(body, Expr::Var(_)));
-        // On its own, and as a group sharing one type.
-        let (_, mode, _, body) = typed(&rhs("def f : Nat := [a b: Kind] => a\n"));
-        assert_eq!(mode, Mode::Implicit);
-        let (name, mode, _, _) = typed(&body);
-        assert_eq!((name.as_str(), mode), ("b", Mode::Implicit));
-        // `auto`, with a name and without one.
-        let (name, mode, ty, _) = typed(&rhs("def f : Nat := [auto h: Ord a] => h\n"));
-        assert_eq!(
-            (name.as_str(), mode, ty.as_str()),
-            ("h", Mode::Auto, "(Ord a)")
-        );
-        let (name, mode, _, _) = typed(&rhs("def f : Nat := [auto Ord a] => 0\n"));
-        assert_eq!((name.as_str(), mode), (crate::ast::NAMELESS, Mode::Auto));
-        // Mixed with plain parameters, in any order.
-        match &rhs("def f : Nat := x [a: Kind] y => x\n") {
-            Expr::Lam(names, body, _) => {
-                assert_eq!(names.len(), 1);
-                let (_, mode, _, body) = typed(body);
-                assert_eq!(mode, Mode::Implicit);
-                assert!(matches!(&body, Expr::Lam(names, _, _) if names.len() == 1));
-            }
-            other => panic!("expected a lambda, got {other:?}"),
-        }
-        // The function type with the same start is unaffected, and so is a
-        // list.
-        assert!(matches!(
-            rhs("def f : Nat := [a: Type] -> a -> a\n"),
-            Expr::Pi { implicit: true, .. }
-        ));
-        assert!(matches!(rhs("def f : Nat := [a, b]\n"), Expr::List(..)));
-        // A missing type is the header's error.
-        let message = error_text("def f : Nat := [a] => a\n");
-        assert!(message.contains("needs a type"), "{message}");
-    }
-
-    #[test]
-    fn rejects_bad_pattern_bindings() {
-        assert!(rhs_of("def f (e : Nat) : Nat :=\n  let (a, b) := e\n").is_err());
-        assert!(rhs_of("def f (e : Nat) : Nat :=\n  let (a, b)\n  e\n").is_err());
-    }
-
-    /// Like `shape`, for the expressions pipelines are made of.
-    fn pshape(e: &Expr) -> String {
-        match e {
-            Expr::Var(n) => n.text.clone(),
-            Expr::Num(n, _) => n.to_string(),
-            Expr::App(f, a) => format!("({} {})", pshape(f), pshape(a)),
-            Expr::Field(x, n) => format!("{}.{}", pshape(x), n.text),
-            Expr::Binary(op, a, b) => format!("({op:?} {} {})", pshape(a), pshape(b)),
-            Expr::Pipe(a, b) => format!("(|> {} {})", pshape(a), pshape(b)),
-            Expr::Arrow(a, b) => format!("(-> {} {})", pshape(a), pshape(b)),
-            Expr::Lam(names, body, _) => {
-                let names: Vec<&str> = names.iter().map(|n| n.text.as_str()).collect();
-                format!("(\\{} {})", names.join(" "), pshape(body))
-            }
-            Expr::List(xs, _) => {
-                let xs: Vec<String> = xs.iter().map(pshape).collect();
-                format!("[{}]", xs.join(" "))
-            }
-            Expr::Let {
-                name, value, body, ..
-            } => format!("(let {} {} {})", name.text, pshape(value), pshape(body)),
-            Expr::Match {
-                scrutinees, alts, ..
-            } => {
-                let s: Vec<String> = scrutinees.iter().map(|s| pshape(&s.expr)).collect();
-                let a: Vec<String> = alts
-                    .iter()
-                    .map(|a| pshape(a.body.as_ref().unwrap()))
-                    .collect();
-                format!("(match {} | {})", s.join(","), a.join(" | "))
-            }
-            other => panic!("unexpected {other:?}"),
-        }
-    }
-
-    fn pipe_shape(text: &str) -> String {
-        pshape(&rhs_of(&format!("def g : Nat := {text}\n")).unwrap())
-    }
-
-    /// A definition's body, written on the lines after `def g (x : Nat) : Nat :=`.
-    fn pipe_body(body: &str) -> String {
-        pshape(&rhs_of(&format!("def g (x : Nat) : Nat :=\n{body}\n")).unwrap())
-    }
-
-    #[test]
-    fn pipe_is_tighter_than_comparisons_and_looser_than_append() {
-        let cases = [
-            ("x |> f", "(|> x f)"),
-            ("x |> f a b", "(|> x ((f a) b))"),
-            ("a + b |> f", "(|> (Add a b) f)"),
-            ("a ++ b |> f", "(|> (Append a b) f)"),
-            ("x |> f ++ y", "(|> x (Append f y))"),
-            ("a || b |> f", "(Or a (|> b f))"),
-            ("a && b |> f", "(And a (|> b f))"),
-            ("a = b |> f", "(Eq a (|> b f))"),
-            ("a == b |> f", "(EqEq a (|> b f))"),
-            ("(a == b) |> f", "(|> (EqEq a b) f)"),
-            ("x |> f a == y", "(EqEq (|> x (f a)) y)"),
-            ("xs |> List.sum == 6", "(EqEq (|> xs List.sum) 6)"),
-            ("xs |> List.sum = 6", "(Eq (|> xs List.sum) 6)"),
-            ("x |> f < y |> g", "(Lt (|> x f) (|> y g))"),
-            ("x |> f || y", "(Or (|> x f) y)"),
-            ("x |> f && y", "(And (|> x f) y)"),
-            ("a && xs |> f == 4", "(And a (EqEq (|> xs f) 4))"),
-            ("x |> f |> g", "(|> (|> x f) g)"),
-            ("x |> f |> g |> h", "(|> (|> (|> x f) g) h)"),
-            ("x |> f -> T", "(-> (|> x f) T)"),
-            ("A -> x |> f", "(-> A (|> x f))"),
-            ("x |> f <-> y", "((Std.Iff (|> x f)) y)"),
-            ("(x |> f) = y", "(Eq (|> x f) y)"),
-            ("x |> (f = y)", "(|> x (Eq f y))"),
-            ("[a |> f, b]", "[(|> a f) b]"),
-        ];
-        for (text, want) in cases {
-            assert_eq!(pipe_shape(text), want, "{text}");
-        }
-    }
-
-    #[test]
-    fn a_theorem_may_say_forall_before_its_parameters() {
-        // D3472: cosmetic, so the same tree as without it.
-        let with = parse("theorem t ∀ (n: Nat) (h: n < 1): n = 0 := rfl\n");
-        let without = parse("theorem t (n: Nat) (h: n < 1): n = 0 := rfl\n");
-        assert_eq!(
-            crate::equivalence::shape(&with),
-            crate::equivalence::shape(&without)
-        );
-        let ascii = parse("theorem t forall [a: Type] (n: Nat): n = n := rfl\n");
-        assert_eq!(ascii.decls.len(), 2);
-    }
-
-    #[test]
-    fn forall_before_the_parameters_is_for_theorems_with_a_parameter() {
-        let message = parse_error("def f ∀ (n: Nat): Nat := n\n").message;
-        assert!(message.contains("only for theorems"), "{message}");
-        let message = parse_error("theorem t ∀: True := trivial\n").message;
-        assert!(message.contains("after `∀`"), "{message}");
-    }
-
-    #[test]
-    fn a_theorem_statement_compares_the_pipeline() {
-        for (source, want) in [
-            ("theorem t: xs |> .length = n := rfl\n", "(Eq xs.length n)"),
-            (
-                "theorem t: xs |> List.length = n := rfl\n",
-                "(Eq (|> xs List.length) n)",
-            ),
-            (
-                "theorem t:\n  xs\n    |> .map f\n    |> .length = n\n  := rfl\n",
-                "(Eq (xs.map f).length n)",
-            ),
-        ] {
-            let module = parse(source);
-            let Decl::Signature { ty, .. } = &module.decls[0] else {
-                panic!("expected a theorem: {source}");
-            };
-            assert_eq!(pshape(ty), want, "{source}");
-        }
-    }
-
-    #[test]
-    fn a_lambda_on_the_right_takes_the_rest_of_the_pipeline() {
-        let cases = [
-            ("x |> y => f y", "(|> x (\\y (f y)))"),
-            ("x |> y => f y |> g", "(|> x (\\y (|> (f y) g)))"),
-            ("x |> f |> y => y + 1", "(|> (|> x f) (\\y (Add y 1)))"),
-            (
-                "x |> List.map (y => y |> f)",
-                "(|> x (List.map (\\y (|> y f))))",
-            ),
-        ];
-        for (text, want) in cases {
-            assert_eq!(pipe_shape(text), want, "{text}");
-        }
-    }
-
-    fn section_shape(text: &str) -> String {
-        pshape(&expression(text).unwrap())
-    }
-
-    #[test]
-    fn a_method_section_is_a_lambda_over_a_dot_call() {
-        let cases = [
-            (".name", "(\\%section %section.name)"),
-            // The head section takes its arguments.
-            (".drop 1", "(\\%section (%section.drop 1))"),
-            (".fold a b", "(\\%section ((%section.fold a) b))"),
-            // Chains.
-            (".name.length", "(\\%section %section.name.length)"),
-            // As an argument it takes none, unless it's in brackets.
-            (
-                "List.map .name ps",
-                "((List.map (\\%section %section.name)) ps)",
-            ),
-            (
-                "ps.map (.greet h)",
-                "(ps.map (\\%section (%section.greet h)))",
-            ),
-            ("(.split c)", "(\\%section (%section.split c))"),
-            // A space before the dot makes it a section; none, a field.
-            ("f p .name", "((f p) (\\%section %section.name))"),
-            ("f p.name", "(f p.name)"),
-        ];
-        for (text, want) in cases {
-            assert_eq!(section_shape(text), want, "{text}");
-        }
-    }
-
-    #[test]
-    fn a_section_in_a_pipe_is_a_plain_dot_call() {
-        // No lambda and no `Pipe`: the same tree as writing the calls out.
-        let cases = [
-            ("xs |> .drop 1", "(xs.drop 1)"),
-            ("xs |> .name", "xs.name"),
-            ("xs |> .drop 1 |> .sum", "(xs.drop 1).sum"),
-            ("xs |> .name.length", "xs.name.length"),
-            ("xs |> .drop 1 |> f", "(|> (xs.drop 1) f)"),
-        ];
-        for (text, want) in cases {
-            assert_eq!(section_shape(text), want, "{text}");
-        }
-        assert_eq!(section_shape("xs |> .drop 1"), section_shape("xs.drop 1"));
-        assert_eq!(
-            section_shape("xs |> .drop 1 |> .sum"),
-            section_shape("(xs.drop 1).sum")
-        );
-    }
-
-    #[test]
-    fn a_pipe_line_may_start_with_a_section() {
-        let want = "(x.map f).sum";
-        assert_eq!(pipe_body("  x\n    |> .map f\n    |> .sum"), want);
-        assert_eq!(pipe_body("  x\n  |> .map f\n  |> .sum"), want);
-        assert_eq!(pipe_body("  x |> .map f\n    |> .sum"), want);
-    }
-
-    #[test]
-    fn a_line_cant_start_with_a_section_as_an_argument() {
-        let err = parse_error("def g (x : Nat) : Nat :=\n  foo x\n    .map f\n");
-        assert!(
-            err.message
-                .contains("a line can't start with a method section"),
-            "{}",
-            err.message
-        );
-    }
-
-    #[test]
-    fn a_section_at_the_start_of_an_expression_takes_the_whole_expression() {
-        let cases = [
-            ("(.id == id)", "(\\%section (EqEq %section.id id))"),
-            ("(.a + 1 * 2)", "(\\%section (Add %section.a (Mul 1 2)))"),
-            (
-                "(.drop 1 == xs)",
-                "(\\%section (EqEq (%section.drop 1) xs))",
-            ),
-            (
-                "(.items |> List.sum)",
-                "(\\%section (|> %section.items List.sum))",
-            ),
-            ("(.a <-> b)", "(\\%section ((Std.Iff %section.a) b))"),
-            // A section alone, or as an argument, is as it was.
-            ("(.id)", "(\\%section %section.id)"),
-            ("f .a == b", "(EqEq (f (\\%section %section.a)) b)"),
-            // Only the first section is the function's argument.
-            (
-                "(.a && .b)",
-                "(\\%section (And %section.a (\\%section %section.b)))",
-            ),
-            // After `|>` the section is the call it stands for, and a
-            // comparison after it compares the result.
-            ("xs |> .sum == 6", "(EqEq xs.sum 6)"),
-            ("a && xs |> .length == 4", "(And a (EqEq xs.length 4))"),
-            ("xs |> .show ++ y", "(Append xs.show y)"),
-        ];
-        for (text, want) in cases {
-            assert_eq!(section_shape(text), want, "{text}");
-        }
-        assert_eq!(
-            section_shape("xs |> .drop 1 |> .sum"),
-            section_shape("(xs.drop 1).sum")
-        );
-        let membership = section_shape("(.a !in xs)");
-        assert!(
-            membership.starts_with("(\\%section (Std.Bool.not (In("),
-            "{membership}"
-        );
-    }
-
-    #[test]
-    fn an_operator_section_is_a_lambda_with_the_operand_missing() {
-        let cases = [
-            ("(== s)", "(\\%section (EqEq %section s))"),
-            ("(!= s)", "(\\%section (Ne %section s))"),
-            ("(> 3)", "(\\%section (Lt 3 %section))"),
-            ("(<= 3)", "(\\%section (Le %section 3))"),
-            ("(+ 1)", "(\\%section (Add %section 1))"),
-            ("(* 2 )", "(\\%section (Mul %section 2))"),
-            ("(++ ys)", "(\\%section (Append %section ys))"),
-            ("(|| a && b)", "(\\%section (Or %section (And a b)))"),
-            ("(&& a == b)", "(\\%section (And %section (EqEq a b)))"),
-            ("(<-> q)", "(\\%section ((Std.Iff %section) q))"),
-            ("(k +)", "(\\%section (Add k %section))"),
-            ("(k ++)", "(\\%section (Append k %section))"),
-            ("(n * 2 ==)", "(\\%section (EqEq (Mul n 2) %section))"),
-            ("(a * b +)", "(\\%section (Add (Mul a b) %section))"),
-            ("(p &&)", "(\\%section (And p %section))"),
-        ];
-        for (text, want) in cases {
-            assert_eq!(section_shape(text), want, "{text}");
-        }
-        assert!(section_shape("(in xs)").starts_with("(\\%section (In("));
-        assert!(section_shape("(!in xs)").starts_with("(\\%section (Std.Bool.not (In("));
-        assert!(section_shape("(k in)").starts_with("(\\%section (In("));
-    }
-
-    #[test]
-    fn a_bare_operator_is_a_function_of_two_arguments() {
-        let cases = [
-            ("(&&)", "(\\%left %right (And %left %right))"),
-            ("(+)", "(\\%left %right (Add %left %right))"),
-            ("(-)", "(\\%left %right (Sub %left %right))"),
-            ("(==)", "(\\%left %right (EqEq %left %right))"),
-            ("(>)", "(\\%left %right (Lt %right %left))"),
-        ];
-        for (text, want) in cases {
-            assert_eq!(section_shape(text), want, "{text}");
-        }
-    }
-
-    #[test]
-    fn minus_is_not_an_operator_section() {
-        assert!(matches!(expression("(- 1)").unwrap(), Expr::Neg(..)));
-        assert!(matches!(expression("(-1)").unwrap(), Expr::Neg(..)));
-        for bad in ["(k -)", "(+ 1 + 2)", "(a + b *)", "(k + 1 +)", "(== == 1)"] {
-            assert!(expression(bad).is_err(), "{bad}");
-        }
-    }
-
-    #[test]
-    fn a_section_needs_a_lowercase_name_right_after_the_dot() {
-        for bad in [". name", ".Name", ".1", "(. name)", "f .Name"] {
-            assert!(expression(bad).is_err(), "{bad}");
-        }
-    }
-
-    #[test]
-    fn a_line_starting_with_a_pipe_continues_the_expression() {
-        let want = "(|> (|> x f) g)";
-        // Deeper than the expression, and at the block's own column.
-        assert_eq!(pipe_body("  x\n    |> f\n    |> g"), want);
-        assert_eq!(pipe_body("  x\n  |> f\n  |> g"), want);
-        assert_eq!(pipe_body("  x |> f\n    |> g"), want);
-        assert_eq!(pipe_body("  x |> f\n  |> g"), want);
-        assert_eq!(pipe_body("  x\n    |> f\n  |> g"), want);
-        // Inside a `let` block, the rest of the block is the body.
-        assert_eq!(
-            pipe_body("  let y := x\n  y\n  |> f\n  |> g"),
-            "(let y x (|> (|> y f) g))"
-        );
-        assert_eq!(
-            pipe_body("  let y := x\n    |> f\n  y |> g"),
-            "(let y (|> x f) (|> y g))"
-        );
-        assert_eq!(pipe_body("  x + 1\n  |> f"), "(|> (Add x 1) f)");
-        // A comparison on the last line compares the pipeline's result.
-        assert_eq!(
-            pipe_body("  x\n    |> f\n    |> g == y"),
-            "(EqEq (|> (|> x f) g) y)"
-        );
-        assert_eq!(
-            pipe_body("  x\n    |> .map f\n    |> .sum = y"),
-            "(Eq (x.map f).sum y)"
-        );
-    }
-
-    #[test]
-    fn a_line_starting_with_an_infix_operator_continues_the_statement() {
-        let want = "(And a (And b c))";
-        // Deeper than the block, and at the block's own column.
-        assert_eq!(pipe_body("  a\n    && b\n    && c"), want);
-        assert_eq!(pipe_body("  a\n  && b\n  && c"), want);
-        assert_eq!(pipe_body("  a && b\n  ∧ c"), want);
-        assert_eq!(pipe_body("  a\n  ∧ b\n    ∧ c"), want);
-        assert_eq!(pipe_body("  a\n  + b\n  * c"), "(Add a (Mul b c))");
-        assert_eq!(pipe_body("  a\n  = b"), "(Eq a b)");
-        // A `let` value stays on its line; the next line is the body.
-        assert_eq!(pipe_body("  let y := a\n  y\n  ∨ b"), "(let y a (Or y b))");
-    }
-
-    #[test]
-    fn a_line_starting_with_an_ambiguous_operator_is_a_new_statement() {
-        // `-` and `!` can start an expression, so at the block's column they
-        // begin a statement (negation), as they always did.
-        for line in ["-b", "!b"] {
-            let body = rhs_of(&format!("def g (x : Nat) : Nat :=\n  a\n  {line}\n")).unwrap();
-            assert!(matches!(body, Expr::Seq(..)), "{line}");
-        }
-        // Left of the block's column an operator is still an error.
-        assert!(rhs_of("def g (x : Nat) : Nat :=\n   a\n  ∧ b\n").is_err());
-    }
-
-    #[test]
-    fn a_pipe_is_not_a_bar() {
-        // `|` still separates the arms of a definition and a `match`.
-        let module = parse("def f : Nat -> Nat\n  | 0 => 1 |> g\n  | n => n |> h\n");
-        let arms: Vec<String> = module
-            .decls
-            .iter()
-            .filter_map(|d| match d {
-                Decl::Equation { rhs: Some(rhs), .. } => Some(pshape(rhs)),
-                _ => None,
-            })
-            .collect();
-        assert_eq!(arms, ["(|> 1 g)", "(|> n h)"]);
-        assert_eq!(
-            pipe_body("  match x with\n    | 0 => a |> f\n    | n => n |> g"),
-            "(match x | (|> a f) | (|> n g))"
-        );
-        // `||` is still `Or`, and a row's `|` still has its tail after it.
-        assert_eq!(pipe_shape("a || b"), "(Or a b)");
-        let module = parse("def f (h : Nat -> {IO | e} Nat) : Nat := 1\n");
-        assert!(matches!(module.decls.last(), Some(Decl::Equation { .. })));
-        let module = parse("def f (h : Nat -> {IO | e} Nat) : Nat :=\n  1\n  |> g\n");
-        assert!(matches!(module.decls.last(), Some(Decl::Equation { .. })));
-    }
-
-    #[test]
-    fn a_pipe_after_a_match_pipes_the_whole_match_or_the_last_body() {
-        // Left of the last alternative's body, at least at the `match` line:
-        // the whole match.
-        assert_eq!(
-            pipe_body("  match x with\n    | 0 => a\n    | n => n\n  |> f"),
-            "(|> (match x | a | n) f)"
-        );
-        // At the alternatives' own column it already belongs to the last body.
-        assert_eq!(
-            pipe_body("  match x with\n    | 0 => a\n    | n => n\n    |> f"),
-            "(match x | a | (|> n f))"
-        );
-        // Under the last alternative's body: just that body.
-        assert_eq!(
-            pipe_body("  match x with\n    | 0 => a\n    | n => g n\n      |> f"),
-            "(match x | a | (|> (g n) f))"
-        );
-        // The scrutinee can be piped.
-        assert_eq!(
-            pipe_body("  match x |> f with\n    | _ => a"),
-            "(match (|> x f) | a)"
-        );
-    }
-
-    // Local definitions in blocks
-
-    /// The names of a `LocalDefs`' definitions and its body.
-    fn local(e: &Expr) -> (Vec<String>, &Expr) {
-        let Expr::LocalDefs { defs, body, .. } = e else {
-            panic!("expected local definitions, got {e:?}");
-        };
-        let names = defs
-            .iter()
-            .map(|d| match &d.signature {
-                Decl::Signature { name, .. } => name.text.to_string(),
-                other => panic!("{other:?}"),
-            })
-            .collect();
-        (names, body)
-    }
-
-    #[test]
-    fn list_spreads_are_items_anywhere_in_a_list_expression() {
-        let list = rhs("def f : Nat := [a, ..xs, b, ..f ys]\n");
-        let Expr::List(items, _) = &list else {
-            panic!("a list")
-        };
-        let shape: Vec<bool> = items
-            .iter()
-            .map(|i| matches!(i, Expr::Spread(..)))
-            .collect();
-        assert_eq!(shape, [false, true, false, true]);
-        assert!(matches!(rhs("def f : Nat := [..xs]\n"), Expr::List(..)));
-        let message = parse_error("def f : Nat := [a, ..]\n").message;
-        assert!(message.contains("a list after `..`"), "{message}");
-        let message = parse_error("def f : Nat := omega [h, ..xs]\n").message;
-        assert!(message.contains("list of facts"), "{message}");
-    }
-
-    fn parse_error(text: &str) -> Diagnostic {
-        let mut sources = SourceMap::new();
-        let file = sources.add("test.sw", text);
-        parse_module(file, text).unwrap_err().remove(0)
-    }
-
-    #[test]
-    fn a_local_def_with_arms_then_the_result() {
-        let body = rhs(
-            "def sumTo (n : Nat) : Nat :=\n  let start := 0\n  def go : Nat -> Nat -> Nat\n    | Zero, acc => acc\n    | Succ k, acc => go k (acc + Succ k)\n  go n start\n",
-        );
-        assert_eq!(lines(&body), ["let start", "result"]);
-        let Expr::Let { body, .. } = &body else {
-            panic!()
-        };
-        let (names, rest) = local(body);
-        assert_eq!(names, ["go"]);
-        assert!(matches!(rest, Expr::App(..)), "{rest:?}");
-        let Expr::LocalDefs { defs, .. } = body.as_ref() else {
-            panic!()
-        };
-        assert_eq!(defs[0].equations.len(), 2);
-    }
-
-    #[test]
-    fn a_local_def_with_a_body_and_a_local_theorem() {
-        let body = rhs(
-            "def f (n : Nat) : Nat :=\n  def double (x : Nat) : Nat := x + x\n  theorem t : double 0 = 0 := refl\n  double n\n",
-        );
-        let (names, rest) = local(&body);
-        assert_eq!(names, ["double", "t"]);
-        assert!(matches!(rest, Expr::App(..)), "{rest:?}");
-        let Expr::LocalDefs { defs, .. } = &body else {
-            panic!()
-        };
-        assert!(matches!(
-            defs[1].signature,
-            Decl::Signature { theorem: true, .. }
-        ));
-        // A `:=` body on a further-indented block.
-        let body = rhs(
-            "def f (n : Nat) : Nat :=\n  def g (x : Nat) : Nat :=\n    let y := x\n    y\n  g n\n",
-        );
-        let (names, _) = local(&body);
-        assert_eq!(names, ["g"]);
-    }
-
-    #[test]
-    fn interleaved_lets_and_defs_nest() {
-        let body = rhs(
-            "def f (n : Nat) : Nat :=\n  let a := 1\n  def g (x : Nat) : Nat := x\n  let b := 2\n  def h (x : Nat) : Nat := x\n  h b\n",
-        );
-        let Expr::Let { body, .. } = &body else {
-            panic!("{body:?}")
-        };
-        let (names, rest) = local(body);
-        assert_eq!(names, ["g"]);
-        let Expr::Let { body, .. } = rest else {
-            panic!("{rest:?}")
-        };
-        let (names, rest) = local(body);
-        assert_eq!(names, ["h"]);
-        assert!(matches!(rest, Expr::App(..)));
-    }
-
-    #[test]
-    fn local_defs_nest_in_blocks_arms_and_alternatives() {
-        // In a nested block.
-        let body = rhs(
-            "def f (n : Nat) : Nat :=\n  let r :=\n    def g (x : Nat) : Nat := x\n    g n\n  r\n",
-        );
-        let Expr::Let { value, .. } = &body else {
-            panic!("{body:?}")
-        };
-        assert_eq!(local(value).0, ["g"]);
-        // In an arm body: the outer arms still parse.
-        let module = parse(
-            "def f : Nat -> Nat\n  | Zero =>\n    def g (x : Nat) : Nat := x\n    g 1\n  | Succ k =>\n    def h : Nat -> Nat\n      | Zero => 0\n      | Succ j => j\n    h k\n",
-        );
-        let arms: Vec<_> = module
-            .decls
-            .iter()
-            .filter_map(|d| match d {
-                Decl::Equation { rhs: Some(r), .. } => Some(r),
-                _ => None,
-            })
-            .collect();
-        assert_eq!(arms.len(), 2);
-        assert_eq!(local(arms[0]).0, ["g"]);
-        assert_eq!(local(arms[1]).0, ["h"]);
-        // In a match alternative.
-        let body = rhs(
-            "def f (n : Nat) : Nat :=\n  match n with\n    | Zero =>\n      def g (x : Nat) : Nat := x\n      g 1\n    | Succ k => k\n",
-        );
-        let Expr::Match { alts, .. } = &body else {
-            panic!("{body:?}")
-        };
-        assert_eq!(alts.len(), 2);
-        assert_eq!(local(alts[0].body.as_ref().unwrap()).0, ["g"]);
-    }
-
-    #[test]
-    fn local_def_errors() {
-        let e = parse_error("def f (n : Nat) : Nat :=\n  let a := 1\n  def g : Nat := a\n");
-        assert!(e.message.contains("must end with an expression"), "{e:?}");
-        assert!(e.message.contains("def"), "{e:?}");
-        let e = parse_error("def f (n : Nat) : Nat :=\n  export def g : Nat := 1\n  g\n");
-        assert!(e.message.contains("can't be exported"), "{e:?}");
-        let e = parse_error("def f (n : Nat) : Nat :=\n  def g : Nat\n  n\n");
-        assert!(e.message.contains("needs a body"), "{e:?}");
-        let e = parse_error("def f (n : Nat) : Nat := g n\n  where\n    g : Nat\n");
-        assert_eq!(e.code, "E-WHERE");
-        assert!(e.message.contains("local `def`"), "{e:?}");
-    }
-
-    #[test]
-    fn a_namespace_line_is_read_with_its_path() {
-        let module = parse("-- a file\nnamespace Day05\n\nimport List (map)\n\ndef x: Nat := 1\n");
-        assert_eq!(module.namespace.unwrap().path.text, "Day05");
-        assert_eq!(module.imports.len(), 1);
-        assert!(!module.decls.is_empty());
-        let module = parse("namespace Aoc.Day05\ndef x: Nat := 1\n");
-        assert_eq!(module.namespace.unwrap().path.text, "Aoc.Day05");
-        assert!(parse("def x: Nat := 1\n").namespace.is_none());
-    }
-
-    #[test]
-    fn import_items_may_be_renamed() {
-        let module = parse("import List (map as each, length, Tree as T)\n");
-        let items = &module.imports[0].items;
-        let read: Vec<(&str, Option<&str>, &str)> = items
-            .iter()
-            .map(|i| {
-                (
-                    i.name.text.as_str(),
-                    i.alias.as_ref().map(|a| a.text.as_str()),
-                    i.local().text.as_str(),
-                )
-            })
-            .collect();
-        assert_eq!(
-            read,
-            [
-                ("map", Some("each"), "each"),
-                ("length", None, "length"),
-                ("Tree", Some("T"), "T")
-            ]
-        );
-        // The alias keeps the name's kind; `import M as A` says what to write.
-        let e = parse_error("import List (map as Each)\n");
-        assert!(e.message.contains("so its new name must too"), "{e:?}");
-        let e = parse_error("import Shop.Spec as S\n");
-        assert!(
-            e.notes
-                .iter()
-                .any(|n| n.contains("import Shop (Spec as S)")),
-            "{e:?}"
-        );
-        let e = parse_error("import List (map as)\n");
-        assert_eq!(e.code, "E-PARSE");
-    }
-
-    #[test]
-    fn import_everything_is_read_with_its_dots() {
-        let module = parse("import List (..)\n\ndef x: Nat := 1\n");
-        let import = &module.imports[0];
-        assert_eq!(import.path.text, "List");
-        assert!(import.items.is_empty());
-        let dots = import.everything.expect("`(..)`");
-        assert_eq!((dots.start, dots.end), (13, 15));
-        let module = parse("import Std.List (..)\n");
-        assert_eq!(module.imports[0].path.text, "Std.List");
-        assert!(module.imports[0].everything.is_some());
-        let module = parse("import List (map)\n");
-        assert!(module.imports[0].everything.is_none());
-        for source in ["import Aoc (Range, ..)\n", "import Aoc (.., Range)\n"] {
-            let e = parse_error(source);
-            assert!(
-                e.message
-                    .contains("so it goes on its own: `import Aoc (..)`"),
-                "{e:?}"
-            );
-        }
-        let e = parse_error("import List ()\n");
-        assert!(e.message.contains("a name to import"), "{e:?}");
-        let e = parse_error("import List\n");
-        assert!(e.message.contains("`(` and the names to import"), "{e:?}");
-    }
-
-    #[test]
-    fn a_namespace_line_has_to_be_well_formed_and_first() {
-        let e = parse_error("namespace Demo.day\n");
-        assert!(e.message.contains("starts with a capital letter"), "{e:?}");
-        let e = parse_error("namespace demo.Day\n");
-        assert!(e.message.contains("starts with a capital letter"), "{e:?}");
-        let e = parse_error("namespace\n");
-        assert!(e.message.contains("a namespace, such as `Day05`"), "{e:?}");
-        let e = parse_error("namespace 5\n");
-        assert!(e.message.contains("a namespace, such as `Day05`"), "{e:?}");
-        let e = parse_error("namespace A\nnamespace B\n");
-        assert!(e.message.contains("only one namespace line"), "{e:?}");
-        assert!(e.notes[0].contains("import from it"), "{e:?}");
-        let e = parse_error("import List (map)\nnamespace A\n");
-        assert_eq!(e.code, "E-NAMESPACE-NOT-FIRST", "{e:?}");
-        assert!(e.message.contains("must come first"), "{e:?}");
-        assert!(
-            e.notes[0].contains("move `namespace A` to the top"),
-            "{e:?}"
-        );
-        let e = parse_error("def x: Nat := 1\nnamespace A\n");
-        assert!(e.message.contains("must come first"), "{e:?}");
-    }
-
-    #[test]
-    fn namespace_is_a_keyword() {
-        assert!(parse_module_text("def namespace: Nat := 1\n").is_err());
-    }
-
-    #[test]
-    fn calc_steps_are_lines_starting_with_an_underscore() {
-        let text = "def f (a: Nat): a = a :=\n  calc a\n    _ = a := rfl\n    _ <= a\n    _ < a := Nat.f _\n";
-        let expr = rhs(text);
-        let Expr::Calc { steps, .. } = &expr else {
-            panic!("expected a calc");
-        };
-        let shape: Vec<(BinOp, bool)> = steps.iter().map(|s| (s.rel, s.proof.is_some())).collect();
-        assert_eq!(
-            shape,
-            vec![(BinOp::Eq, true), (BinOp::Le, false), (BinOp::Lt, true)]
-        );
-        // The `_` argument stays an argument when it isn't at the start of a line.
-        assert!(matches!(&steps[2].proof, Some(Expr::App(..))));
-    }
-
-    #[test]
-    fn omega_takes_an_optional_list_of_facts() {
-        let expr = rhs("theorem t (a: Nat): a <= a := omega\n");
-        assert!(
-            matches!(&expr, Expr::Omega { facts, .. } if facts.is_empty()),
-            "{expr:?}"
-        );
-        let expr = rhs("theorem t (a: Nat): a <= a := omega [h a, Nat.leRefl a]\n");
-        let Expr::Omega { facts, .. } = &expr else {
-            panic!("expected omega, got {expr:?}");
-        };
-        assert_eq!(facts.len(), 2);
-        assert!(facts.iter().all(|f| matches!(f, Expr::App(..))));
-        // As an argument, and as a calc step's proof.
-        let expr = rhs("theorem t (a: Nat): a <= a := f omega x\n");
-        assert!(matches!(&expr, Expr::App(..)));
-        let expr = rhs("def f (a: Nat): a <= a :=\n  calc a\n    _ <= a := omega\n");
-        let Expr::Calc { steps, .. } = &expr else {
-            panic!("expected a calc");
-        };
-        assert!(matches!(&steps[0].proof, Some(Expr::Omega { .. })));
-    }
-
-    #[test]
-    fn ring_takes_an_optional_list_of_hypotheses() {
-        let expr = rhs("theorem t (a: Nat): a + 1 = 1 + a := ring\n");
-        assert!(
-            matches!(&expr, Expr::Ring { facts, .. } if facts.is_empty()),
-            "{expr:?}"
-        );
-        let expr = rhs("theorem t (a: Nat): a = a := ring [h a, g]\n");
-        let Expr::Ring { facts, .. } = &expr else {
-            panic!("expected ring, got {expr:?}");
-        };
-        assert_eq!(facts.len(), 2);
-        // As an argument, and as a calc step's proof.
-        let expr = rhs("theorem t (a: Nat): a = a := f ring x\n");
-        assert!(matches!(&expr, Expr::App(..)));
-        let expr = rhs("def f (a: Nat): a = a :=\n  calc a\n    _ = a := ring\n");
-        let Expr::Calc { steps, .. } = &expr else {
-            panic!("expected a calc");
-        };
-        assert!(matches!(&steps[0].proof, Some(Expr::Ring { .. })));
-    }
-
-    #[test]
-    fn membership_sits_with_the_comparisons() {
-        // `x in xs && y !in ys`: no brackets needed.
-        let Expr::Binary(BinOp::And, l, r) = &expr("x in xs && y !in ys") else {
-            panic!("expected `&&`");
-        };
-        assert!(matches!(l.as_ref(), Expr::Binary(BinOp::In(_), ..)));
-        // `!in` is `!(y in ys)`.
-        let Expr::App(not, member) = r.as_ref() else {
-            panic!("expected `!(…)`");
-        };
-        assert!(matches!(not.as_ref(), Expr::Var(n) if n.text == "Std.Bool.not"));
-        assert!(matches!(member.as_ref(), Expr::Binary(BinOp::In(_), ..)));
-        // Tighter than `++` loses: `x in xs ++ ys` is `x in (xs ++ ys)`.
-        let Expr::Binary(BinOp::In(_), _, rhs) = &expr("x in xs ++ ys") else {
-            panic!("expected `in`");
-        };
-        assert!(matches!(rhs.as_ref(), Expr::Binary(BinOp::Append, ..)));
-        // Not associative.
-        assert!(parse_module_text("def t: Bool := a in b in c\n").is_err());
-        // `!x in xs` would be `(!x) in xs`: refused, with brackets allowed.
-        let error = parse_errors("def t: Bool := !x in xs\n");
-        assert!(error.contains("applies to the element"), "{error}");
-        assert!(parse_errors("def t: Bool := ¬x ∈ xs\n").contains("applies to the element"));
-        assert!(parse_module_text("def t: Bool := (!x) in xs\n").is_ok());
-        assert!(parse_module_text("def t: Bool := !(x in xs)\n").is_ok());
-    }
-
-    #[test]
-    fn iff_sits_between_arrow_and_or() {
-        let iff = |e: &Expr| -> Option<(Expr, Expr)> {
-            let Expr::App(f, q) = e else { return None };
-            let Expr::App(head, p) = f.as_ref() else {
-                return None;
-            };
-            matches!(head.as_ref(), Expr::Var(n) if n.text == "Std.Iff")
-                .then(|| (p.as_ref().clone(), q.as_ref().clone()))
-        };
-        // `p && q <-> r` is `(p && q) <-> r`.
-        let (p, _) = iff(&expr("p && q <-> r || s")).expect("an iff");
-        assert!(matches!(p, Expr::Binary(BinOp::And, ..)));
-        // `p -> q <-> r` is `p -> (q <-> r)`, and `p <-> q -> r` is
-        // `(p <-> q) -> r`.
-        let Expr::Arrow(_, rhs) = &expr("p -> q <-> r") else {
-            panic!("expected an arrow");
-        };
-        assert!(iff(rhs).is_some());
-        let Expr::Arrow(lhs, _) = &expr("p <-> q -> r") else {
-            panic!("expected an arrow");
-        };
-        assert!(iff(lhs).is_some());
-        // Not associative.
-        assert!(parse_errors("def t: Prop := p <-> q <-> r\n").contains("doesn't chain"));
-        assert!(parse_module_text("def t: Prop := (p <-> q) <-> r\n").is_ok());
-    }
-
-    #[test]
-    fn exists_takes_a_lambda() {
-        let exists = |e: &Expr| -> Option<Expr> {
-            let Expr::App(f, lam) = e else { return None };
-            let Expr::App(head, _) = f.as_ref() else {
-                return None;
-            };
-            matches!(head.as_ref(), Expr::Var(n) if n.text == "Std.Exists")
-                .then(|| lam.as_ref().clone())
-        };
-        let lam = exists(&expr("exists (n: Nat) => n * n = 49")).expect("an exists");
-        assert!(matches!(lam, Expr::TypedLam(..)));
-        // Several parameters nest, the body's own lambda doesn't.
-        let lam = exists(&expr("exists a b => f (x => x)")).expect("an exists");
-        let Expr::Lam(names, body, _) = &lam else {
-            panic!("expected a lambda");
-        };
-        assert_eq!(names.len(), 1);
-        let inner = exists(body).expect("a second exists");
-        let Expr::Lam(_, body, _) = &inner else {
-            panic!("expected a lambda");
-        };
-        assert!(matches!(body.as_ref(), Expr::App(..)));
-        // After `&&`, `||`, `<->` and `->` it takes the rest.
-        assert!(matches!(
-            expr("p && exists k => q k"),
-            Expr::Binary(BinOp::And, ..)
-        ));
-        assert!(parse_module_text("def t: Prop := p <-> exists k => q k\n").is_ok());
-        assert!(parse_module_text("def t: Prop := p -> ∃ (k: Nat) => q k\n").is_ok());
-        assert!(parse_errors("def t: Prop := exists 3\n").contains("after `exists`"));
-        // After a `.` it's a name: `x.exists` and `Foo.exists` still parse.
-        assert!(parse_module_text("def t: Bool := (Some 3).exists (v => v > 2)\n").is_ok());
-        assert!(parse_module_text("def t: Bool := Foo.exists (v => v > 2) (Some 3)\n").is_ok());
-    }
-
-    #[test]
-    fn forall_is_a_function_type() {
-        // Each group is one function type; the body takes the rest.
-        let e = expr("forall (a b: Nat) [c: Nat] => a + b = c -> p");
-        let Expr::Pi {
-            names,
-            implicit: false,
-            cod,
-            ..
-        } = &e
-        else {
-            panic!("expected a function type");
-        };
-        assert_eq!(names.len(), 2);
-        let Expr::Pi {
-            implicit: true,
-            cod,
-            ..
-        } = cod.as_ref()
-        else {
-            panic!("expected an implicit function type");
-        };
-        assert!(matches!(cod.as_ref(), Expr::Arrow(..)));
-        // `∀` is the same token (three bytes, so the spaces keep the
-        // spans the same), and a bare name's type is a hole.
-        assert_eq!(
-            format!("{:?}", expr("∀    (n: Nat) => n = n")),
-            format!("{:?}", expr("forall (n: Nat) => n = n"))
-        );
-        let e = expr("∀ n => n = n");
-        let Expr::Pi { dom, .. } = &e else {
-            panic!("expected a function type");
-        };
-        assert!(matches!(dom.as_ref(), Expr::Hole(_)));
-        assert!(matches!(
-            expr("p && ∀ k => q k"),
-            Expr::Binary(BinOp::And, ..)
-        ));
-        assert!(parse_module_text("def t: Prop := p <-> forall k => q k\n").is_ok());
-        assert!(parse_module_text("def t: Prop := p -> ∀ (k: Nat) => q k\n").is_ok());
-        // Lean's and Rocq's comma, a pattern, a missing parameter, a default.
-        let comma = parse_errors("def t: Prop := ∀ x, x = x\n");
-        assert!(comma.contains("not `,`"), "{comma}");
-        assert!(parse_errors("def t: Prop := ∀ (a, b) => a = b\n").contains("a parameter after"));
-        assert!(parse_errors("def t: Prop := ∀ (x: Nat) (a, b) => p\n").contains("`=>` after"));
-        assert!(parse_errors("def t: Prop := forall => p\n").contains("a parameter after"));
-        assert!(parse_errors("def t: Prop := ∀ (x: Nat := 1) => x = x\n").contains("default"));
-        assert!(parse_module_text("def t: Bool := xs.forall (v => v > 2)\n").is_ok());
-    }
-
-    #[test]
-    fn membership_in_a_rewrite_needs_brackets() {
-        let error = parse_errors("def f (a: Nat): a = a :=\n  rewrite h x in xs in t\n");
-        assert!(error.contains("needs brackets"), "{error}");
-        let error = parse_errors("def f (a: Nat): a = a :=\n  rewrite h in x in xs\n");
-        assert!(error.contains("needs brackets"), "{error}");
-        // In brackets, either side is fine.
-        assert!(
-            parse_module_text("def f (a: Nat): a = a :=\n  rewrite h (x in xs) in t\n").is_ok()
-        );
-        assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite h in (x in xs)\n").is_ok());
-        assert!(
-            parse_module_text("def f (a: Nat): a = a :=\n  rewrite h in (x in xs) && b\n").is_ok()
-        );
-    }
-
-    fn parse_errors(text: &str) -> String {
-        match parse_module_text(text) {
-            Ok(_) => panic!("expected an error for {text:?}"),
-            Err(errors) => errors
-                .iter()
-                .map(|d| format!("{}: {:?}", d.message, d.notes))
-                .collect::<Vec<_>>()
-                .join("\n"),
-        }
-    }
-
-    #[test]
-    fn omega_is_a_keyword() {
-        assert!(parse_module_text("def omega: Nat := 1\n").is_err());
-    }
-
-    #[test]
-    fn rewrite_takes_rules_left_to_right_and_an_optional_body() {
-        let text = "def f (a: Nat): a = a :=\n  rewrite p, <- q x, r (y in ys) in Nat.f _\n";
-        let expr = rhs(text);
-        let Expr::Rewrite { rules, body, .. } = &expr else {
-            panic!("expected a rewrite");
-        };
-        let shape: Vec<bool> = rules.iter().map(|r| r.reverse).collect();
-        assert_eq!(shape, vec![false, true, false]);
-        assert!(matches!(&rules[1].proof, Expr::App(..)));
-        // A bracketed membership is an ordinary argument; the bare `in`
-        // ended the rule.
-        let Expr::App(_, arg) = &rules[2].proof else {
-            panic!("expected an application");
-        };
-        assert!(matches!(&**arg, Expr::Binary(BinOp::In(_), ..)));
-        assert!(matches!(body.as_deref(), Some(Expr::App(..))));
-        // No `in`: the body is `rfl`, left to the elaborator.
-        let text = "def f (a: Nat): a = a :=\n  rewrite p x\n";
-        let expr = rhs(text);
-        let Expr::Rewrite { rules, body, .. } = &expr else {
-            panic!("expected a rewrite");
-        };
-        assert_eq!(rules.len(), 1);
-        assert!(body.is_none());
-    }
-
-    #[test]
-    fn rewrite_in_can_start_its_own_line() {
-        let body = |text: &str| {
-            let expr = rhs(text);
-            let Expr::Rewrite { rules, body, .. } = &expr else {
-                panic!("expected a rewrite");
-            };
-            (rules.len(), body.clone())
-        };
-        for text in [
-            "def f (a: Nat): a = a :=\n  rewrite p,\n    q x\n  in t\n",
-            "def f (a: Nat): a = a :=\n  rewrite p, q x\n  in t\n",
-            "def f (a: Nat): a = a :=\n  rewrite p, q x\n    in t\n",
-            "def f (a: Nat): a = a :=\n  rewrite p at h\n  in t\n",
-        ] {
-            let (rules, body) = body(text);
-            assert!(rules >= 1, "{text}");
-            assert!(
-                matches!(body.as_deref(), Some(Expr::Var(n)) if n.text == "t"),
-                "{text}"
-            );
-        }
-        // Left of the `rewrite`, an `in` isn't its.
-        assert!(
-            parse_module_text("def f (a: Nat): a = a :=\n  g\n    rewrite p\n  in t\n").is_err()
-        );
-    }
-
-    #[test]
-    fn rewrite_at_takes_a_target_before_the_body() {
-        let parts = |text: &str| {
-            let expr = rhs(text);
-            let Expr::Rewrite {
-                rules,
-                target,
-                body,
-                ..
-            } = &expr
-            else {
-                panic!("expected a rewrite");
-            };
-            (rules.clone(), target.clone(), body.clone())
-        };
-        // `at` ends the rules, `in` ends the target.
-        let (rules, target, body) =
-            parts("def f (a: Nat): a = a :=\n  rewrite p, <- q x at h y in t\n");
-        assert_eq!(rules.len(), 2);
-        assert!(matches!(&rules[1].proof, Expr::App(..)));
-        assert!(matches!(target.as_deref(), Some(Expr::App(..))));
-        assert!(matches!(body.as_deref(), Some(Expr::Var(n)) if n.text == "t"));
-        // Without `in`, the rewritten target is the value.
-        let (_, target, body) = parts("def f (a: Nat): a = a :=\n  rewrite p at h\n");
-        assert!(matches!(target.as_deref(), Some(Expr::Var(n)) if n.text == "h"));
-        assert!(body.is_none());
-        // An `at` that starts a rule is a name, so is a bracketed one, and so
-        // is a field `.at`.
-        let (rules, target, body) =
-            parts("def f (a: Nat): a = a :=\n  rewrite at b (at) r.at at at in at\n");
-        let Expr::App(f, arg) = &rules[0].proof else {
-            panic!("expected an application");
-        };
-        assert!(matches!(&**arg, Expr::Field(_, n) if n.text == "at"));
-        assert!(matches!(&**f, Expr::App(_, a) if matches!(&**a, Expr::Var(n) if n.text == "at")));
-        assert!(matches!(target.as_deref(), Some(Expr::Var(n)) if n.text == "at"));
-        assert!(matches!(body.as_deref(), Some(Expr::Var(n)) if n.text == "at"));
-        // `at` is an ordinary name elsewhere.
-        assert!(parse_module_text("def f (at: Nat): Nat := at\n").is_ok());
-        let (_, target, _) = parts("def f (a: Nat): a = a :=\n  rewrite p in at\n");
-        assert!(target.is_none());
-    }
-
-    #[test]
-    fn rewrite_and_in_are_keywords() {
-        assert!(parse_module_text("def rewrite: Nat := 1\n").is_err());
-        // `in` is reserved since it became membership (D1201).
-        assert!(parse_module_text("def f (in: Nat): Nat := in\n").is_err());
-        // `<` then `-` apart is a comparison, not an arrow.
-        assert!(parse_module_text("def f (a: Nat): a = a :=\n  rewrite < - p in rfl\n").is_err());
-    }
-
-    #[test]
-    fn calc_expressions_may_use_logic_operators() {
-        let text = "def f (a: Bool) (b: Bool): a || b = b || a :=\n  calc a || b\n    _ = b || a := g a b\n    _ = b || a && a\n";
-        let Expr::Calc { ref steps, .. } = rhs(text) else {
-            panic!("expected a calc");
-        };
-        assert_eq!(steps.len(), 2);
-    }
-
-    #[test]
-    fn calc_expressions_may_use_pipes() {
-        // `|>` binds tighter than the step's relation: `_ = (xs |> List.sum)`.
-        let text = "def f (xs: List Nat): xs.sum = xs.sum :=\n  calc xs |> List.sum\n    _ = xs |> List.sum := h\n    _ = xs |> .sum\n";
-        let Expr::Calc {
-            ref first,
-            ref steps,
-            ..
-        } = rhs(text)
-        else {
-            panic!("expected a calc");
-        };
-        assert!(matches!(**first, Expr::Pipe(..)));
-        assert_eq!(steps.len(), 2);
-        assert!(matches!(steps[0].rhs, Expr::Pipe(..)));
-        assert!(steps[0].proof.is_some());
-        assert!(matches!(steps[1].rhs, Expr::Field(..)));
-    }
-
-    #[test]
-    fn a_keyword_where_a_name_goes_is_called_a_keyword() {
-        for text in [
-            "def f (then: Nat): Nat := 0\n",
-            "def f: Nat := (test => test) 0\n",
-            "def f: Nat :=\n  let with := 0\n  0\n",
-            "def f (n: Nat): Nat := match n with\n  | Succ return => 0\n  | Zero => 0\n",
-        ] {
-            let message = first_error(text);
-            assert!(message.contains("found the keyword"), "{text}: {message}");
-        }
-        // `∈` is `in`, but isn't written as a word.
-        let message = first_error("def f (∈: Nat): Nat := 0\n");
-        assert!(!message.contains("keyword"), "{message}");
-    }
-
-    fn first_error(text: &str) -> String {
-        match parse_module_text(text) {
-            Ok(_) => panic!("{text}: parsed"),
-            Err(errors) => errors[0].message.clone(),
-        }
-    }
-
-    #[test]
-    fn calc_needs_steps_on_their_own_lines() {
-        assert!(parse_module_text("def f (a: Nat): a = a := calc a = a := rfl\n").is_err());
-        assert!(parse_module_text("def f (a: Nat): a = a :=\n  calc a\n").is_err());
-        assert!(
-            parse_module_text("def f (a: Nat): a = a :=\n  calc a\n    _ = a\n   _ = a\n").is_err()
-        );
-    }
-
-    #[test]
-    fn recovery_keeps_good_declarations_and_names_the_broken() {
-        let text = "def a: Nat := 1\n\ndef b (n: Nat): Nat := n +\n\n\
-                    type T\n  | MkT (x: Nat\n\ndef c: Nat := (\n\ndef d: Nat := 2\n";
-        let mut sources = SourceMap::new();
-        let file = sources.add("test.sw", text);
-        let (module, errors) = parse_module_recovering(file, text, DEFAULT_STACK);
-        assert_eq!(errors.len(), 3);
-        let kept: Vec<&str> = module
-            .decls
-            .iter()
-            .filter_map(|d| match d {
-                Decl::Signature { name, .. } => Some(name.text.as_str()),
-                _ => None,
-            })
-            .collect();
-        // `b` and `c` keep their headers (`recovery_keeps_the_header_of_a_body_that_does_not_parse`).
-        assert_eq!(kept, ["a", "b", "c", "d"]);
-        let failed: Vec<&str> = module.failed.iter().map(|n| n.name.text.as_str()).collect();
-        assert_eq!(failed, ["T", "MkT"]);
-    }
-
-    /// A `def` or `theorem` whose header parses and whose body doesn't is
-    /// kept, with the place of its first error and one equation whose body
-    /// is (or holds) a missing expression, so its signature can stand in
-    /// for its statement
-    /// (docs/proposals/tests-with-errors.md §3.3). One whose header doesn't
-    /// parse, and an instance, are left out as before.
-    #[test]
-    fn recovery_keeps_the_header_of_a_body_that_does_not_parse() {
-        let text = "def double (n: Nat): Nat := n + n\n\n\
-                    @[simp] theorem doubleTwo: double 2 = 4 := (rfl\n\n\
-                    export def arms: Nat -> Nat\n  | 0 => 1\n  | n => (n\n\n\
-                    def trailing: Nat := 1 )\n\n\
-                    def local: Nat :=\n  def inner: Nat := 1\n  inner +\n\n\
-                    theorem header: double 2 = := rfl\n\n\
-                    instance inst: Inhabited Nat := (0\n\n\
-                    def last: Nat := 2\n";
-        let mut sources = SourceMap::new();
-        let file = sources.add("test.sw", text);
-        let (module, errors) = parse_module_recovering(file, text, DEFAULT_STACK);
-        assert_eq!(errors.len(), 6, "{errors:?}");
-        let kept: Vec<(&str, Option<Span>, usize)> = (module.decls.iter())
-            .filter_map(|d| match d {
-                Decl::Signature {
-                    name, syntax_error, ..
-                } => {
-                    let equations = (module.decls.iter())
-                        .filter(
-                            |e| matches!(e, Decl::Equation { name: n, .. } if n.text == name.text),
-                        )
-                        .count();
-                    Some((name.text.as_str(), *syntax_error, equations))
-                }
-                _ => None,
-            })
-            .collect();
-        let at = |i: usize| errors[i].primary_span();
-        assert_eq!(
-            kept,
-            [
-                ("double", None, 1),
-                ("doubleTwo", at(0), 1),
-                ("arms", at(1), 1),
-                ("trailing", at(2), 1),
-                ("local", at(3), 1),
-                ("last", None, 1),
-            ]
-        );
-        // The error is where the parser reported it: the end of `(rfl`.
-        let line = &text[..at(0).unwrap().start as usize];
-        assert!(line.ends_with("(rfl"), "{line:?}");
-        let signature = |name: &str| {
-            module
-                .decls
-                .iter()
-                .find(|d| matches!(d, Decl::Signature { name: n, .. } if n.text == name))
-        };
-        let Some(Decl::Signature { attrs, export, .. }) = signature("doubleTwo") else {
-            panic!("{:?}", module.decls);
-        };
-        assert_eq!(attr_texts(attrs), ["simp"]);
-        assert!(!export);
-        assert!(matches!(
-            signature("arms"),
-            Some(Decl::Signature { export: true, .. })
-        ));
-        let failed: Vec<&str> = module.failed.iter().map(|n| n.name.text.as_str()).collect();
-        assert_eq!(failed, ["header", "inst"]);
-    }
-
-    fn parse_module_text(text: &str) -> std::result::Result<Module, Vec<Diagnostic>> {
-        let mut sources = SourceMap::new();
-        let file = sources.add("test.sw", text);
-        parse_module(file, text)
-    }
-
-    /// The names and arguments of attributes, as written.
-    fn attr_texts(attrs: &[crate::ast::Attribute]) -> Vec<String> {
-        attrs
-            .iter()
-            .map(|a| match &a.arg {
-                Some((arg, _)) => format!("{} {arg:?}", a.name.text),
-                None => a.name.text.clone(),
-            })
-            .collect()
-    }
-
-    /// A data type's attributes as written: its own, each constructor's, and
-    /// each field's.
-    type DataAttrs = (Vec<String>, Vec<Vec<String>>, Vec<Vec<Vec<String>>>);
-
-    fn data_attrs(decl: &Decl) -> DataAttrs {
-        let Decl::Data { attrs, ctors, .. } = decl else {
-            panic!("expected a data type: {decl:?}");
-        };
-        (
-            attr_texts(attrs),
-            ctors.iter().map(|c| attr_texts(&c.attrs)).collect(),
-            ctors
-                .iter()
-                .map(|c| c.fields.iter().map(|b| attr_texts(&b.attrs)).collect())
-                .collect(),
-        )
-    }
-
-    #[test]
-    fn attributes_on_types_constructors_and_fields() {
-        let module = parse(
-            "@[js.tag \"type\"] type Shape =\n  \
-             | @[js.name \"DOT\"] Dot\n  \
-             | @[js.name \"CIRCLE\", js.other] Circle (@[js.name \"center_x\"] x: Nat) [@[js.name \"n\"] n: Nat]\n\n\
-             type R = { @[js.name \"type\"] kind: Text, size: Nat }\n",
-        );
-        let (on_type, on_ctors, on_fields) = data_attrs(&module.decls[0]);
-        assert_eq!(on_type, ["js.tag \"type\""]);
-        assert_eq!(
-            on_ctors,
-            [
-                vec!["js.name \"DOT\""],
-                vec!["js.name \"CIRCLE\"", "js.other"]
-            ]
-        );
-        assert_eq!(
-            on_fields,
-            [
-                vec![],
-                vec![vec!["js.name \"center_x\""], vec!["js.name \"n\""]]
-            ]
-        );
-        let (_, _, on_fields) = data_attrs(&module.decls[1]);
-        assert_eq!(on_fields, [vec![vec!["js.name \"type\""], vec![]]]);
-    }
-
-    #[test]
-    fn a_multi_line_attribute_group_may_close_at_column_0() {
-        let module = parse(
-            "@[\n  js.tag \"type\",\n  js.other \"x\",\n]\n-- a comment\n\n@[js.more]\ntype T =\n  | A\n\ndef f: Nat := 1\n",
-        );
-        assert_eq!(module.decls.len(), 3);
-        let (on_type, _, _) = data_attrs(&module.decls[0]);
-        assert_eq!(on_type, ["js.tag \"type\"", "js.other \"x\"", "js.more"]);
-        let Decl::Signature { attrs, .. } = &module.decls[1] else {
-            panic!()
-        };
-        assert!(attrs.is_empty());
-    }
-
-    #[test]
-    fn attributes_before_a_definition_belong_to_its_signature() {
-        let module = parse("@[js.name \"draw\"] export def render (n: Nat): Nat := n\n");
-        let Decl::Signature { attrs, export, .. } = &module.decls[0] else {
-            panic!()
-        };
-        assert!(*export);
-        assert_eq!(attr_texts(attrs), ["js.name \"draw\""]);
-    }
-
-    #[test]
-    fn attributes_before_a_local_definition_belong_to_it() {
-        // On the line before it, and on the same line.
-        for text in [
-            "def f (n: Nat): Nat :=\n  @[tailrec]\n  def g (m: Nat): Nat := m\n  g n\n",
-            "def f (n: Nat): Nat :=\n  @[tailrec] def g (m: Nat): Nat := m\n  g n\n",
-        ] {
-            let module = parse(text);
-            let Decl::Equation {
-                rhs: Some(Expr::LocalDefs { defs, .. }),
-                ..
-            } = &module.decls[1]
-            else {
-                panic!("{text}: {:?}", module.decls[1])
-            };
-            let Decl::Signature { attrs, .. } = &defs[0].signature else {
-                panic!()
-            };
-            assert_eq!(attr_texts(attrs), ["tailrec"], "{text}");
-        }
-    }
-
-    #[test]
-    fn misplaced_attributes_are_refused() {
-        for (text, code) in [
-            // Attributes always attach to the next declaration, never drift.
-            ("@[js.tag \"x\"]\nnamespace N\n", "E-ATTRIBUTE"),
-            ("@[js.tag \"x\"]\nimport List (map)\n", "E-ATTRIBUTE"),
-            ("@[js.tag \"x\"]\ntest \"t\" := True\n", "E-ATTRIBUTE"),
-            (
-                "@[js.tag \"x\"]\nability A where\n  op: Nat -> Nat\n",
-                "E-ATTRIBUTE",
-            ),
-            ("def f (@[js.name \"x\"] n: Nat): Nat := n\n", "E-ATTRIBUTE"),
-            (
-                "def f: (@[js.name \"x\"] n: Nat) -> Nat := n => n\n",
-                "E-ATTRIBUTE",
-            ),
-            (
-                "def f: Nat -> Nat := (@[js.name \"x\"] n) => n\n",
-                "E-ATTRIBUTE",
-            ),
-            ("type T (@[js.name \"x\"] a: Type) = | A\n", "E-ATTRIBUTE"),
-            (
-                "def f (n: Nat): Nat :=\n  @[tailrec] let m := n\n  m\n",
-                "E-ATTRIBUTE",
-            ),
-            // The grammar: one name, then at most one plain string.
-            ("@[js.name 123] type T = | A\n", "E-PARSE"),
-            ("@[js.name \"x\" \"y\"] type T = | A\n", "E-PARSE"),
-            ("@[] type T = | A\n", "E-PARSE"),
-            ("@[js.name \"${1}\"] type T = | A\n", "E-PARSE"),
-            ("@ type T = | A\n", "E-PARSE"),
-            // Attributes with nothing after them.
-            ("def f: Nat := 1\n\n@[js.tag \"x\"]\n", "E-PARSE"),
-            (
-                "def f: Nat := 1\n@[js.tag \"x\"]\n@[js.name \"y\"]\n",
-                "E-PARSE",
-            ),
-        ] {
-            let errors = parse_module_text(text).expect_err(text);
-            assert_eq!(errors[0].code, code, "{text}: {:?}", errors[0].message);
-        }
-    }
-
-    #[test]
-    fn an_unclosed_attribute_group_stops_at_the_next_declaration() {
-        let text = "@[js.tag \"x\"\ntype T = | A\n\ndef f: Nat := 1\n";
-        let mut sources = SourceMap::new();
-        let file = sources.add("test.sw", text);
-        let (module, errors) = parse_module_recovering(file, text, DEFAULT_STACK);
-        assert_eq!(errors.len(), 1);
-        // `T`, and `f`'s signature and equation.
-        assert_eq!(module.decls.len(), 3, "{module:?}");
-    }
-
-    /// The module and errors of `text` with its first declaration's marks
-    /// changed by `tamper` first, as a parser bug might leave them.
-    fn lowered_with_marks(
-        text: &str,
-        tamper: impl FnOnce(&mut Vec<Mark>),
-    ) -> (Module, Vec<Diagnostic>) {
-        let file = SourceMap::new().next_id();
-        let (lexed, failures) = lex_recovering_with_trivia(file, text);
-        let (mut errors, mut groups) =
-            parse_lexed(file, text, DEFAULT_STACK, &lexed.tokens, failures);
-        tamper(&mut groups[0].marks);
-        let tree = SyntaxFile::build_allowing_crossed(
-            lexed.tokens,
-            lexed.trivia,
-            lexed.eof,
-            lexed.bars,
-            groups,
-        );
-        let module = lowered_module(&tree, text, file, DEFAULT_STACK, &mut errors);
-        (module, errors)
-    }
-
-    /// A declaration whose tree lost a mark that crossed another fails with
-    /// an internal error, rather than being checked as the tree that's left
-    /// says (SW-3243: `a ∧ b ∧ c → q` read as `a ∧ b ∧ c`).
-    #[test]
-    fn a_crossed_mark_fails_its_declaration() {
-        let text = "theorem t (a q: Prop): a ∧ a → q := sorry\n\ndef ok: Nat := 1\n";
-        let (module, errors) = lowered_with_marks(text, |marks| {
-            // From the second `a`, so it crosses the `∧`'s node.
-            let arrow = marks.iter_mut().find(|m| m.kind == NodeKind::Arrow);
-            arrow.expect("an arrow").start += 2;
-        });
-        assert_eq!(errors.len(), 1, "{errors:?}");
-        assert_eq!(errors[0].code, "E-INTERNAL");
-        assert!(
-            errors[0].message.contains("crossing"),
-            "{}",
-            errors[0].message
-        );
-        let failed: Vec<&str> = module.failed.iter().map(|f| f.name.text.as_str()).collect();
-        assert_eq!(failed, ["t"]);
-        assert_eq!(module.decls.len(), 2, "only `ok`: {:?}", module.decls);
-    }
-
-    /// A slot the lowering reads by its introducing token, with more after
-    /// it than the parser gives, fails as an internal error instead of
-    /// leaving the rest unread.
-    #[test]
-    fn a_result_type_with_parts_left_over_fails_its_declaration() {
-        let text = "theorem t (a q: Prop): a ∧ a → q := sorry\n";
-        let (module, errors) = lowered_with_marks(text, |marks| {
-            let at = marks.iter().position(|m| m.kind == NodeKind::Arrow);
-            marks.remove(at.expect("an arrow"));
-        });
-        assert_eq!(errors.len(), 1, "{errors:?}");
-        assert_eq!(errors[0].code, "E-INTERNAL");
-        assert!(
-            errors[0]
-                .message
-                .contains("ResultType with parts left unread"),
-            "{}",
-            errors[0].message
-        );
-        assert!(module.decls.is_empty(), "{:?}", module.decls);
-    }
-}
+mod tests;

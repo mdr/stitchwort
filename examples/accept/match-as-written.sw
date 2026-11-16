@@ -25,8 +25,8 @@ theorem upToEta ∀ (more: Nat) (lists: List (List Nat)) (cap: Nat)
     (each: ∀ (most: Nat) => lists.map (chainThrough more) |> .maximum = Some most → most ≤ cap):
     chain (Succ more) lists ≤ cap :=
   match found: lists.map (chainThrough more) |> .maximum with
-    | None => omega
-    | Some most => omega [each most found]
+    | None => arithmetic
+    | Some most => arithmetic [each most found]
 
 def isBig (n: Nat): Bool := 10 < n
 
@@ -35,8 +35,8 @@ def label (n: Nat): Nat := if isBig n then 1 else 0
 -- `isBig n` is shown on the left and hidden inside `label n` on the right:
 -- the search over the computed goal refines both, as before.
 theorem hiddenInACall ∀ (n: Nat): (if isBig n then 1 else 0) = label n := match big: isBig n with
-  | True => rfl
-  | False => rfl
+  | True => byComputing
+  | False => byComputing
 
 def pick (b: Bool): Nat := if b then 1 else 0
 
@@ -44,8 +44,8 @@ def pick (b: Bool): Nat := if b then 1 else 0
 -- occurrence; refining the call as written would make the `False` arm
 -- `pick False = 1`. The `match` refines nothing, as before.
 theorem computedAway: pick (isBig 20) = 1 := match big: isBig 20 with
-  | True => rfl
-  | False => rfl
+  | True => byComputing
+  | False => byComputing
 
 def double (n: Nat): Nat := n + n
 
@@ -57,8 +57,8 @@ theorem armsKeepCalls ∀
     (flag: Bool) (a: Nat):
     (if flag then double a else 0) = (if flag then 0 + double a else 0) :=
   match e: flag with
-    | True => rewrite doubled a in rfl
-    | False => rfl
+    | True => rewrite doubled a then byComputing
+    | False => byComputing
 
 def Ignore (a: Type) (b: Bool): Type := a
 
@@ -68,8 +68,8 @@ def Ignore (a: Type) (b: Bool): Type := a
 theorem letKept ∀ (n: Nat): pick (isBig n) ≤ 1 :=
   let k: Ignore Nat (isBig n) := 5
   match e: isBig n with
-    | True => (let same: k = 5 := rfl; omega)
-    | False => (let same: k = 5 := rfl; omega)
+    | True => (let same: k = 5 := byComputing; arithmetic)
+    | False => (let same: k = 5 := byComputing; arithmetic)
 
 def bump (n: Nat): Nat :=
   let k: Ignore Nat (isBig n) := 5
@@ -77,12 +77,12 @@ def bump (n: Nat): Nat :=
     | True => k
     | False => k + 1
 
-theorem bumpValue: bump 20 = 5 := rfl
+theorem bumpValue: bump 20 = 5 := byComputing
 
 def keep (a: Nat) (b: Bool): Nat := a
 
 -- `isBig n` is shown, but `keep` drops it, so nothing the arms see would
 -- change: not found, and the warning says so.
 theorem vanishing ∀ (n: Nat): keep 3 (isBig n) = 3 := match e: isBig n with
-  | True => rfl
-  | False => rfl
+  | True => byComputing
+  | False => byComputing

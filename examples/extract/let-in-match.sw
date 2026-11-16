@@ -38,5 +38,5 @@ export def known (xs: List Nat) (flag: Bool): List Nat :=
   let bigger := n + 1
   xs.map (x =>
     match flag with
-      | True => x + (({ value = bigger, above = omega }: Above n)).value
+      | True => x + (({ value = bigger, above = arithmetic }: Above n)).value
       | False => x)

@@ -1,0 +1,3 @@
+fn andChain takes (a b: Bool -- c
+) = a && -- c
+  b

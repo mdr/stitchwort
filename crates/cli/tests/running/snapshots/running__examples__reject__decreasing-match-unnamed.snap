@@ -11,7 +11,7 @@ expression: output
     │ 
     │ Note 1: in scope: `set.popMin = Some (least, rest)` (this `match`'s arm)
     │ 
-    │ Note 2: to use the `match`'s fact in a proof, name it, `match found: … with`, and pass `found` to a lemma: `[decreasing := omega [lemma found]]`
+    │ Note 2: to use the `match`'s fact in a proof, name it, `match found: … with`, and pass `found` to a lemma: `[decreasing := arithmetic [lemma found]]`
     │ 
     │ Note 3: give a proof with `[decreasing := …]`, or test it with `if rest.size < set.size then … else …`
 ────╯

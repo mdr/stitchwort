@@ -100,7 +100,7 @@ today, and how it could loop. "Guarded" means it calls `budget.nesting`, or
 
 | Walk | Where | Depth grows with n? | Today | To make it loop |
 |---|---|---|---|---|
-| Parse | `parser.rs:4573` | no: a loop into `Expr::List(Vec<Expr>)` | fine | done |
+| Parse | `parser.rs`, `list_expr` | no: a loop into `Expr::List(Vec<Expr>)` | fine | done |
 | Syntax drop, span | `ast.rs:498`, `:457` | no: flat `Vec` | fine | done |
 | Elaborate items | `check.rs:4570-4594` | no: one `check` per item, in a loop | fine | done |
 | Postponed number literals (K4) | `numbers.rs:355` `queue_number` | no: one queued problem per item, resumed from a queue | fine | done |
@@ -125,7 +125,7 @@ take, and why it is computed from the stack.
 
 ### 2.2 A left-nested chain: `1 + 1 + … + 1`
 
-The parser's `add_expr` and `mul_expr` loop (`parser.rs:4151-4181`), but
+The parser's `add_expr` and `mul_expr` loop (`parser.rs`, `add_expr`, `mul_expr`), but
 build `Binary(Add, Binary(Add, …), 1)`, as deep as the chain is long.
 
 | Walk | Where | Depth grows? | Today |
@@ -151,14 +151,14 @@ recommend leaving these guarded (D2844).
 
 ### 2.3 Right-nested chains: `++`, `|>`, `&&`, tuples
 
-- `++`: the parser recurses, guarded (`parser.rs:4139-4148`, `deeper()`).
+- `++`: the parser recurses, guarded (`parser.rs`, `append_expr`, `deeper`).
   The elaborator's `append` infers the left side and checks the right side
   (`check.rs:4811`), recursing down the right. The term is
   `append a (append b …)`: it nests in the **last** argument.
-- `|>`: the parser loops (`parser.rs:3840`) into a left-nested
+- `|>`: the parser loops (`parser.rs`, `pipe_chain`) into a left-nested
   `Pipe(Pipe(x, f), g)`, and `infer_pipe` (`pipe.rs:44`) recurses into the
   value. The term `g (f x)` nests in the last argument.
-- `&&` and `||`: the parser loops (`parser.rs:3785`) and builds a right-nested
+- `&&` and `||`: the parser loops (`parser.rs`, `logic_chain`) and builds a right-nested
   tree; the term `And a (And b …)` nests in the last argument (inferred from
   the shape; I didn't trace the logic elaborator).
 - Tuples `(a, b, c, …)`: right-nested `Tuple` (`ast.rs:129`), terms nest in
@@ -171,7 +171,7 @@ loop (two small functions); `&&` and tuples go through the generic
 
 ### 2.4 Blocks
 
-A block is parsed in a loop (`parser.rs:2162-2183`), then folded from the
+A block is parsed in a loop (`parser.rs`, `block`), then folded from the
 right into `Let { value, body }`, `Seq(line, rest)` or `LocalDefs { body }`,
 each line holding the rest of the block. Then:
 

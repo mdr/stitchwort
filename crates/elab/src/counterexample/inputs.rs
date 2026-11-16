@@ -5,10 +5,10 @@
 //! random counterexample (§5.5).
 //!
 //! Every value is a closed term made of constructors and numbers, except a
-//! `Fin n` (`Fin.ofNatLt n i rfl`) and a `Map` (`Map.fromList xs`), which are
+//! `Fin n` (`Fin.ofNatLt n i byComputing`) and a `Map` (`Map.fromList xs`), which are
 //! built by the library's own functions, so a map's invariant holds by
 //! construction (§5.3). A proof field (`(ok: lo <= hi)`, a `Char`'s
-//! `valid`) is `rfl`, and only when its proposition computes, at the fields
+//! `valid`) is `byComputing`, and only when its proposition computes, at the fields
 //! made, to an equation whose sides are the same (or a conjunction of
 //! such): a value whose proof field doesn't hold is never made (§5.4).
 
@@ -117,7 +117,7 @@ enum Plan {
     Float {
         float: DataId,
     },
-    /// `Fin n` for a known `n`: `Fin.ofNatLt n i rfl`.
+    /// `Fin n` for a known `n`: `Fin.ofNatLt n i byComputing`.
     Fin {
         of_nat_lt: DefId,
         n: BigUint,
@@ -449,7 +449,7 @@ impl<'g> Inputs<'g> {
     }
 
     /// A proof of `prop` (closed, a value), if it holds by computation: an
-    /// equation whose sides are the same is `rfl`, a conjunction the pair of
+    /// equation whose sides are the same is `byComputing`, a conjunction the pair of
     /// its proofs.
     fn proof(&self, prop: Value, depth: usize) -> Option<Term> {
         let g = self.g;

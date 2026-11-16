@@ -41,10 +41,10 @@ theorem stepEdgesListed ∀ (enter: Position → Option Nat) (states: List Posit
         edge))
     (other both =>
       match found: enter other with
-        | None => Void.exfalso (Option.noneNotSome (next, weight) (And.right both))
+        | None => Void.impossible (Option.noneNotSome (next, weight) both.right)
         | Some cost =>
-          let same: (other, cost) = (next, weight) := Option.someInjective (And.right both)
-          rewrite <- Eq.cong Pair.fst same in complete other cost found)
+          let same: (other, cost) = (next, weight) := Option.someInjective both.right
+          rewrite <- Eq.cong Pair.fst same then complete other cost found)
 
 --| Entering a position of the first `height` rows and `width` columns
 --| costs `cost` of it; nothing else can be entered.
@@ -76,11 +76,11 @@ theorem memPositionsOfWithin ∀ (height width: Nat) (position: Position)
         row
         { row, column }
         (List.range 0 height)
-        (List.memRangeFromIntro row height 0 (omega) (omega [below]))
+        (List.memRangeFromIntro row height 0 (arithmetic) (arithmetic [below]))
         (List.memMap
           (List.range 0 width)
           column
-          (List.memRangeFromIntro column width 0 (omega) (omega [before]))
+          (List.memRangeFromIntro column width 0 (arithmetic) (arithmetic [before]))
           (column => ({ row, column }: Position)))
 
 --| The graph of rows of cells: entering a position costs `enter` of it and
@@ -139,9 +139,9 @@ theorem boxIndexBelow ∀ (height width: Nat) (position: Position) (number: Nat)
         | True =>
           let below: row < height := inside.left
           let before: column < width := inside.right
-          let rows := Nat.leMulRight (row + 1) height width (omega [below])
-          let spread: (row + 1) * width = row * width + width := ring
-          omega [Option.someInjective numbered, rows, spread, before]
+          let rows := Nat.leMulRight (row + 1) height width (arithmetic [below])
+          let spread: (row + 1) * width = row * width + width := algebra
+          arithmetic [Option.someInjective numbered, rows, spread, before]
 
 --| Decoding a position's number gives the position back.
 theorem boxIndexRoundTrip ∀ (height width: Nat) (position: Position) (number: Nat)
@@ -153,7 +153,7 @@ theorem boxIndexRoundTrip ∀ (height width: Nat) (position: Position) (number: 
       match inside: ({ row, column }: Position).within height width with
         | True =>
           let before: column < width := inside.right
-          rewrite <- Option.someInjective numbered in
-            rewrite Nat.modUnique (row * width + column) width row column before rfl,
-                Nat.mulAddDivSmall row width column before in
-              rfl
+          rewrite <- Option.someInjective numbered then
+            rewrite Nat.modUnique (row * width + column) width row column before byComputing,
+                Nat.mulAddDivSmall row width column before then
+              byComputing

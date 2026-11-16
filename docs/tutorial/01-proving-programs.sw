@@ -105,24 +105,24 @@ test "ten percent off" := (PercentOff 10).apply shopping.total == 531
 -- the checker checks its proof. A theorem looks like a definition: after
 -- the name and parameters comes its statement, and after `:=` its proof.
 --
--- The simplest proof is `rfl`: both sides of the `=` compute to the same
+-- The simplest proof is `byComputing`: both sides of the `=` compute to the same
 -- value. Here that's a test written as a theorem:
 
-theorem shoppingTotal: shopping.total = 590 := rfl
+theorem shoppingTotal: shopping.total = 590 := byComputing
 
--- `rfl` also works when the statement has variables, as long as computing
+-- `byComputing` also works when the statement has variables, as long as computing
 -- needs nothing more than the definitions. Adding an item puts it at the
 -- front of the list, and `totalOf` has an arm for exactly that shape, so
 -- this holds by computing, for every basket and every item:
 
-theorem addCost ∀ (basket: Basket) (item: Item): (basket.add item).total = item.cost + basket.total := rfl
+theorem addCost ∀ (basket: Basket) (item: Item): (basket.add item).total = item.cost + basket.total := byComputing
 
-theorem emptyTotal: Basket.empty.total = 0 := rfl
+theorem emptyTotal: Basket.empty.total = 0 := byComputing
 
 -- Hover over the name `addCost`: the box shows the statement as you wrote
 -- it. The dot form `basket.add item` is a call of `Basket.add`, and some
 -- messages write it that way, as `Basket.total shopping`. Hover over
--- `rfl` for what `rfl` is.
+-- `byComputing` for what `byComputing` is.
 
 -- ## Step 4. Holes: let the checker tell you what's needed
 --
@@ -163,22 +163,22 @@ theorem emptyTotal: Basket.empty.total = 0 := rfl
 --    and in the `PenceOff` arm `total - pence ≤ total`. In each arm the
 --    checker knows which coupon it is, so `coupon.apply` has computed.
 --
--- 4. These are all arithmetic, which `omega` proves: `+`, `-`,
+-- 4. These are all arithmetic, which `arithmetic` proves: `+`, `-`,
 --    comparisons, and multiplying or dividing by a constant, using every
 --    fact in scope. Put the cursor on one of the `?`s and press Cmd-. again:
 --    on a goal, the light bulb offers proofs that close it, each already
---    checked ("Replace ? with `omega` (closes it alone)"). Pick it, or type
---    `omega` yourself, in each arm. (Cmd-. on the single `?` of step 1
+--    checked ("Replace ? with `arithmetic` (closes it alone)"). Pick it, or type
+--    `arithmetic` yourself, in each arm. (Cmd-. on the single `?` of step 1
 --    offers `cases`, which is the next paragraph.)
 
 theorem couponNeverAdds ∀ (coupon: Coupon) (total: Nat): coupon.apply total ≤ total := match coupon with
-  | NoCoupon => omega
-  | PenceOff pence => omega
-  | PercentOff percent => omega
+  | NoCoupon => arithmetic
+  | PenceOff pence => arithmetic
+  | PercentOff percent => arithmetic
 
 -- `cases` does steps 2 to 4 in one go: it splits on whatever the goal is
 -- stuck on, as `match` would, and closes each case by computing, by a
--- hypothesis, or by `omega`. Try replacing the whole proof above with
+-- hypothesis, or by `arithmetic`. Try replacing the whole proof above with
 -- `cases`. Use it when the cases are routine; write the `match` when you
 -- want to see them.
 
@@ -197,7 +197,7 @@ theorem couponNeverAdds ∀ (coupon: Coupon) (total: Nat): coupon.apply total �
 --
 --    The first goal is
 --    `totalOf others = totalOf others`: `totalOf []` computed to `0`, and
---    `0 + n` to `n`. That's `rfl`.
+--    `0 + n` to `n`. That's `byComputing`.
 --
 -- 2. The second goal, in the Goals panel, is
 --
@@ -210,7 +210,7 @@ theorem couponNeverAdds ∀ (coupon: Coupon) (total: Nat): coupon.apply total �
 --    smaller, as it does for any function.
 --
 -- 3. `rewrite p` uses an equation `p: a = b` to replace `a` with `b` in
---    the goal, and then tries `rfl` on what's left. Write
+--    the goal, and then tries `byComputing` on what's left. Write
 --    `rewrite totalAppend others rest` in the second arm. It is red,
 --    with `E-REFL`: hover over it, and the last note shows the goal after
 --    rewriting,
@@ -220,12 +220,12 @@ theorem couponNeverAdds ∀ (coupon: Coupon) (total: Nat): coupon.apply total �
 --    statement), and `rewrite` takes several equations, used in order.
 --    That gives the proof below.
 --
---    `omega [totalAppend others rest]` proves it too: `omega` with an
+--    `arithmetic [totalAppend others rest]` proves it too: `arithmetic` with an
 --    extra fact. Try it.
 
 theorem totalAppend ∀ (others: List Item):
     ∀ (items: List Item) => totalOf (items ++ others) = totalOf items + totalOf others
-  | [] => rfl
+  | [] => byComputing
   | [item, ..rest] => rewrite totalAppend others rest, Nat.addAssoc
 
 -- With the lemma proved, the fact about baskets needs no work of its own.
@@ -267,9 +267,9 @@ theorem shareAtMost ∀ (basket: Basket) (people: Nat) (someone: people ≠ 0): 
 -- `PenceOff` arm to `total + pence` (a sign slip). `couponNeverAdds` turns
 -- red, at its `PenceOff` arm:
 --
---     [E-OMEGA] `omega` can't prove `total + pence ≤ total`
+--     [E-ARITHMETIC] `arithmetic` can't prove `total + pence ≤ total`
 --
--- Hover over the red `omega` to read the notes. The third is `omega`'s
+-- Hover over the red `arithmetic` to read the notes. The third is `arithmetic`'s
 -- own guess at values that break it (it says it may not be real). The
 -- last is different: the checker ran the statement itself and found
 --
@@ -287,7 +287,7 @@ theorem shareAtMost ∀ (basket: Basket) (people: Nat) (someone: people ≠ 0): 
 -- turn red. `shoppingTotal` says the left side computed to `0`, not
 -- `590`. `addCost` says
 --
---     [E-REFL] `rfl` can't prove this
+--     [E-REFL] `byComputing` can't prove this
 --     `(basket.add item).total` and `item.cost + basket.total` aren't equal
 --
 -- and its notes show what each side computed to, `totalOf basket.items`
@@ -314,7 +314,7 @@ theorem shareAtMost ∀ (basket: Basket) (people: Nat) (someone: people ≠ 0): 
 -- You have seen:
 --
 -- - a theorem is a test for every input, checked as you type;
--- - `rfl` proves what computes, `omega` arithmetic, `cases` routine case
+-- - `byComputing` proves what computes, `arithmetic` arithmetic, `cases` routine case
 --   splits;
 -- - `?` shows a goal; the Goals panel follows the cursor, and Cmd-. on a
 --   `?` offers checked proofs;

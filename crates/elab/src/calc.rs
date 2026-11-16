@@ -8,7 +8,7 @@
 //! ```
 //!
 //! Each step `_ R e` is a proposition `previous R e`, proved by its `:= proof`
-//! or, with none, by `rfl` (checked against the step's own proposition, so for
+//! or, with none, by `byComputing` (checked against the step's own proposition, so for
 //! `<=` and `<` it means that the order proposition computes to true, not that
 //! the two ends are convertible). The steps are combined left to right with
 //! the table in [`combine`] into terms people write by hand (`Eq.trans`, `J`,
@@ -282,7 +282,7 @@ fn step_error(cx: &mut Ctx, proof: &Expr, line: &str, e: Diagnostic) -> Diagnost
     }
 }
 
-/// A step with no proof: `rfl` against the step's proposition.
+/// A step with no proof: `byComputing` against the step's proposition.
 fn by_computation(cx: &mut Ctx, step: &CalcStep, prop: &Value, line: &str) -> Result<Term> {
     let computed = force(&cx.g(), prop.clone())?;
     if let Value::Eq(_, a, b) = &computed
@@ -292,7 +292,7 @@ fn by_computation(cx: &mut Ctx, step: &CalcStep, prop: &Value, line: &str) -> Re
     }
     let mut error = Diagnostic::error(
         "E-CALC-STEP",
-        "this step has no proof, and `rfl` doesn't prove it",
+        "this step has no proof, and `byComputing` doesn't prove it",
     )
     .with_label(step.span, format!("`{line}` doesn't hold by computation"));
     error = match &computed {
@@ -392,7 +392,7 @@ struct Step {
 /// | `R1`, `R2` | result | term |
 /// |---|---|---|
 /// | `=`, `=` | `=` | `Eq.trans p q` |
-/// | `=`, `R` | `R` | `J (w _ => w R c) q (Eq.sym p)` |
+/// | `=`, `R` | `R` | `J (w _ => w R c) q (Eq.flipped p)` |
 /// | `R`, `=` | `R` | `J (w _ => a R w) p q` |
 /// | `<=`, `<=` | `<=` | `Nat.leTrans a b c p q` |
 /// | `<`, `<=` | `<` | `Nat.leTrans (Succ a) b c p q` |
@@ -420,7 +420,7 @@ fn combine(cx: &mut Ctx, start: &Term, ty_term: &Rc<Term>, acc: Link, step: Step
             (Rel::Eq, trans)
         }
         (Rel::Eq, r) => {
-            let sym = with_ends(cx, Builtin::EqSym, ty_term, &[&a, &b])?;
+            let sym = with_ends(cx, Builtin::EqFlipped, ty_term, &[&a, &b])?;
             let sym = Term::app(sym, acc.proof.clone());
             let c = c.shift(&cx.g(), 2, 0)?;
             let motive = motive(ordering_of(cx, r, Term::Var(1), c)?);

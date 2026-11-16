@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -26,9 +26,9 @@ expression: json
         "message": "a: Nat\nb: Nat\n⊢ range a b = [a, b, 1]",
         "range": [
           10,
-          62,
+          57,
           10,
-          63
+          58
         ]
       }
     ],
@@ -36,9 +36,9 @@ expression: json
     "notes": [],
     "range": [
       10,
-      62,
+      57,
       10,
-      63
+      58
     ],
     "severity": "goal"
   },
@@ -61,9 +61,9 @@ expression: json
         "message": "a: Nat\n⊢ scaled a = a + (a * 2)",
         "range": [
           12,
-          53,
+          55,
           12,
-          54
+          56
         ]
       }
     ],
@@ -71,9 +71,9 @@ expression: json
     "notes": [],
     "range": [
       12,
-      53,
+      55,
       12,
-      54
+      56
     ],
     "severity": "goal"
   },
@@ -100,9 +100,9 @@ expression: json
         "message": "`range a b` and `[a, b, 2]` aren't equal",
         "range": [
           14,
-          63,
+          58,
           14,
-          66
+          61
         ]
       }
     ],
@@ -114,9 +114,9 @@ expression: json
     ],
     "range": [
       14,
-      63,
+      58,
       14,
-      66
+      61
     ],
     "severity": "error"
   },
@@ -139,9 +139,9 @@ expression: json
         "message": "`scaled a` and `a` aren't equal",
         "range": [
           16,
-          46,
+          48,
           16,
-          49
+          51
         ]
       }
     ],
@@ -153,9 +153,9 @@ expression: json
     ],
     "range": [
       16,
-      46,
+      48,
       16,
-      49
+      51
     ],
     "severity": "error"
   },

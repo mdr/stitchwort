@@ -663,6 +663,14 @@ impl Session {
         let mut diagnostics = session.elab.elaborate_module(module);
         session.statement_style(&mut diagnostics, &[file]);
         session.elab.set_core_link_names(None);
+        // The core's own proofs aren't a program's to be told to restyle
+        // (SW-3589: nested `trans` is the core's style until it is touched).
+        // They are kept as the library's warnings (`library_warnings`).
+        let (chains, rest): (Vec<_>, Vec<_>) = diagnostics
+            .into_iter()
+            .partition(|d| d.code == "W-PROOF-CHAIN");
+        session.elab.library_warnings.extend(chains);
+        let mut diagnostics = rest;
         // A broken doc link in the core fails the load, as in a library
         // file (SW-1046). A test's own library files don't have the names
         // the core's docs link to, so its links aren't checked.
@@ -866,6 +874,24 @@ impl Session {
         self.finish_load(first_new_def, diagnostics)
     }
 
+    /// Every warning the core and the library files loaded so far give
+    /// (programs never see them: `check --std --warnings`, the library's
+    /// warning pin), each with the library file it is in. A file that loaded
+    /// from the check cache has none here, so the session must have no cache.
+    /// `styled` says which library files (by source name, `std/Nat.sw`) the
+    /// statement-style warnings, which are read from a file's text, are
+    /// added for.
+    pub fn library_warning_report(&self, styled: &dyn Fn(&str) -> bool) -> Vec<Diagnostic> {
+        let mut all: Vec<Diagnostic> = self.elab.library_warnings().to_vec();
+        all.extend(self.warnings.iter().cloned());
+        for (id, file) in self.sources.iter() {
+            if styled(&file.name) {
+                all.extend(crate::binder_sweep::warnings(id, &file.text));
+            }
+        }
+        all
+    }
+
     /// The warnings about how statements are written, which need the
     /// files' text: drops the elaborator's `W-ARROW-FORALL` candidates that
     /// weren't written with `->`, and adds `W-THEOREM-FORALL` for each file
@@ -1032,6 +1058,16 @@ impl Session {
         &self,
         main: &crate::run::Main,
     ) -> Result<stitchwort_js::run::Program, Diagnostic> {
+        if main.row.files {
+            return Err(Diagnostic::error(
+                "E-JS-FILES",
+                "a `main` that uses `Files` can't run under `--js` yet",
+            )
+            .with_label(main.span, "this `main` has `Files` in its row")
+            .with_note(
+                "run it without `--js`: `stitchwort run` and built executables perform `Files`",
+            ));
+        }
         stitchwort_js::run::generate_program(
             &self.elab.backend(),
             self.elab.options.limits,
@@ -1574,11 +1610,21 @@ impl Session {
     /// the tests of its namespace, in source order.
     pub fn with_broken_tests(
         &self,
-        mut results: Vec<TestResult>,
+        results: Vec<TestResult>,
         keep: impl Fn(&str) -> bool,
     ) -> Vec<TestResult> {
+        self.with_broken_tests_where(results, |test| keep(&test.name))
+    }
+
+    /// [`Session::with_broken_tests`], keeping the tests `keep` keeps, for a
+    /// caller that tells them apart by more than their name.
+    pub fn with_broken_tests_where(
+        &self,
+        mut results: Vec<TestResult>,
+        keep: impl Fn(&stitchwort_elab::BrokenTest) -> bool,
+    ) -> Vec<TestResult> {
         let order = |s: stitchwort_syntax::Span| (s.file.index(), s.start);
-        for test in self.elab.broken_tests().iter().filter(|t| keep(&t.name)) {
+        for test in self.elab.broken_tests().iter().filter(|t| keep(t)) {
             let place = |span: stitchwort_syntax::Span| {
                 let file = self.sources.get(span.file);
                 let end = (span.start as usize).min(file.text.len());

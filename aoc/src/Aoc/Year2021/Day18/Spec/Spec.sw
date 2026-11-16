@@ -22,7 +22,12 @@ def leaves (depth: Nat): Number → List Leaf
 
 --| Where the leftmost pair nested inside four pairs is: the regular numbers
 --| before it, its two values, and the regular numbers after it.
-type Exploding = { before: List Leaf, left: Leaf, right: Leaf, after: List Leaf }
+type Exploding = {
+  before: List Leaf,
+  left: Leaf,
+  right: Leaf,
+  after: List Leaf
+}
 
 --| The first regular number inside more than four pairs, and the next one.
 --| In a number with nothing inside more than five pairs (the only numbers

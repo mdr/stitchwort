@@ -10,7 +10,7 @@ def Step.run (step: Step) (n: Nat): Nat := n + step.by
 def Counter.runFrom (counter: Counter) (step: Step) (left n: Nat): Nat
     decreasing left
 :=
-  if h: 0 < left then Counter.runFrom counter step (left - 1) (step.run n) [decreasing := omega] else n
+  if h: 0 < left then Counter.runFrom counter step (left - 1) (step.run n) [decreasing := arithmetic] else n
 
 def Counter.run (counter: Counter) (step: Step): Nat := counter.runFrom step counter.limit 0
 
@@ -18,6 +18,6 @@ def Counter.run (counter: Counter) (step: Step): Nat := counter.runFrom step cou
 def Counter.runOnes (counter: Counter) (left n: Nat): Nat
     decreasing left
 :=
-  if h: 0 < left then Counter.runOnes counter (left - 1) (({ by = 1 }: Step).run n) [decreasing := omega] else n
+  if h: 0 < left then Counter.runOnes counter (left - 1) (({ by = 1 }: Step).run n) [decreasing := arithmetic] else n
 
 def Counter.runAll (counter: Counter): Nat := counter.runOnes counter.limit 0

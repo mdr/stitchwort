@@ -13,7 +13,7 @@ def repeatingAt (pattern: List Square) (column: Nat): Option Square
     decreasing column
 :=
   if within: column < pattern.length then pattern.get column
-  else if nonEmpty: pattern.length ≠ 0 then repeatingAt pattern (column - pattern.length) [decreasing := omega]
+  else if nonEmpty: pattern.length ≠ 0 then repeatingAt pattern (column - pattern.length) [decreasing := arithmetic]
   else None
 
 --| The square at `position` of the repeating map; none past the bottom.

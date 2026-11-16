@@ -7,7 +7,7 @@ type Token: Prop = | MkToken
 
 def needsToken: [auto t: Token] → Nat := 1
 
-def client: Nat := needsToken [t := decToken.sound rfl]
+def client: Nat := needsToken [t := decToken.sound byComputing]
 
 def decToken: Decidable Token := laterHelper
 

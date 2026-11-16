@@ -6,8 +6,8 @@
 -- times over (51 s before, under 2 s now; SW-2638, SW-2300).
 import Std (Char, Parse)
 
-opaque def nat(): {Parse} Nat := Parse.nat()
-opaque def char (c: Char): {Parse} () := Parse.char c
+opaque def nat(): {Parse Char} Nat := Parse.nat()
+opaque def char (c: Char): {Parse Char} () := Parse.char c
 theorem readsNat: Parse.Reads nat (read n => Not (read = []) ∧ read.all Parse.isDigit = True ∧ n = Parse.digitsValue read)
     unfolding nat
 := Parse.readsNat
@@ -17,7 +17,7 @@ theorem readsChar (c: Char): Parse.Reads (() => char c) (read u => read = [c])
 
 type R = { fx0: Nat, fx2: Nat, fx4: Nat, fx6: Nat, fx8: Nat, fx10: Nat }
 
-def p12(): {Parse} R :=
+def p12(): {Parse Char} R :=
   let x0 := nat()
   char '-'
   let x2 := nat()
@@ -47,4 +47,4 @@ theorem reads12: Parse.Reads p12 (read value => read = read) :=
                         Parse.readsBind _ _ _ _ readsNat (x10 =>
                           Parse.readsBind _ _ _ _ (readsChar '-') (u11 =>
                             Parse.readsPure { first = x0, fx2 = x2, fx4 = x4, fx6 = x6, fx8 = x8, fx10 = x10 })))))))))))))
-    (read value h => rfl)
+    (read value h => byComputing)

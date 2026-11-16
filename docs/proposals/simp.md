@@ -419,7 +419,7 @@ them; I checked the quotes I rely on against its saved copies of the pages (list
 - Splitting is by hand: `destruct e eqn:E` "Generates a new hypothesis in each new subgoal that
   is an equality between the term being case-analyzed and the associated constructor" [R2],
   which is Stitchwort's `match E: e`. The sub-agent couldn't find ssreflect's `case: ifP` in
-  the reference page it fetched (it lives in MathComp's `ssrbool`, not fetched): **[unverified]**.
+  the reference page it fetched (it is `ifP` in the `ssrbool` library, now `theories/Corelib/ssr/ssrbool.v` in Rocq: `Lemma ifP : if_spec (b = false) b (if b then vT else vF)`, with `if_spec` a variant with `IfSpecTrue`/`IfSpecFalse` cases, and its own docs use `case: ifP => Hcond` [read at [ssrbool.v](https://raw.githubusercontent.com/rocq-prover/rocq/master/theories/Corelib/ssr/ssrbool.v) lines 605-622, 16 Nov 2026]).
 - `autorewrite` "may loop if you build non-terminating rewriting systems" [R1].
 
 ### 4.5 What to take

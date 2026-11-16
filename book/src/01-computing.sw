@@ -89,7 +89,10 @@ test "nobody wins a draw" := not (beats Rock Rock)
 type Outcome = | Win | Lose | Draw
 
 --| How a round ends for the player who chose `mine`.
-def play (mine theirs: Move): Outcome := if beats mine theirs then Win else if beats theirs mine then Lose else Draw
+def play (mine theirs: Move): Outcome :=
+  if beats mine theirs then Win
+  else if beats theirs mine then Lose
+  else Draw
 
 test "rock against paper loses" := play Rock Paper == Lose
 test "paper against paper is a draw" := play Paper Paper == Draw
@@ -128,27 +131,27 @@ def otherSide (outcome: Outcome): Outcome := match outcome with
 -- A test checks one input when you run it. A *theorem* states a fact, and
 -- the checker checks its proof as you type.
 
-theorem rockBeatsScissors: beats Rock Scissors := rfl
+theorem rockBeatsScissors: beats Rock Scissors := byComputing
 
-theorem paperLosesToScissors: play Paper Scissors = Lose := rfl
+theorem paperLosesToScissors: play Paper Scissors = Lose := byComputing
 
-theorem otherSideOfAWin: otherSide (play Paper Rock) = Lose := rfl
+theorem otherSideOfAWin: otherSide (play Paper Rock) = Lose := byComputing
 
 -- A theorem has a name, then a colon and its statement, then `:=` and its
--- proof. `rfl` proves an equation `a = b` when both sides compute to the
+-- proof. `byComputing` proves an equation `a = b` when both sides compute to the
 -- same value. In `paperLosesToScissors` the checker runs `play Paper
--- Scissors`, gets `Lose`, and compares it with `Lose`. That's all `rfl`
+-- Scissors`, gets `Lose`, and compares it with `Lose`. That's all `byComputing`
 -- does, and it's surprising how far it goes.
 --
 -- `rockBeatsScissors` has no `=` at all. A `Bool` used as a statement means
 -- "this is `True`", so the statement is `beats Rock Scissors = True`, and
--- `rfl` proves it by computing. Hover over `rockBeatsScissors` to see its
+-- `byComputing` proves it by computing. Hover over `rockBeatsScissors` to see its
 -- statement, which the box writes as just `beats Rock Scissors`.
 --
 -- So far a theorem is no better than a test: it says something about
 -- one round. The point of theorems is that they can say something about
 -- every round at once. That needs a variable, and the next section shows
--- what goes wrong when `rfl` meets one.
+-- what goes wrong when `byComputing` meets one.
 
 -- ## 1.7 When computing gets stuck
 --
@@ -156,17 +159,17 @@ theorem otherSideOfAWin: otherSide (play Paper Rock) = Lose := rfl
 -- theorem's parameters, written like a function's, mean "for every".
 -- Type this line at the end of this section, as it is:
 --
---     theorem noSelfWin (m: Move): beats m m = False := rfl
+--     theorem noSelfWin (m: Move): beats m m = False := byComputing
 --
--- `rfl` turns red. Hover over it:
+-- `byComputing` turns red. Hover over it:
 --
 --     `beats m m` and `False` aren't equal
 --     Note 1: the left side is stuck on `m`: it can't compute further until
 --             `m` is known; a `match` on `m` (or `cases m`) splits it
---     Note 2: `rfl` proves `a = b` only when both sides compute to the same
+--     Note 2: `byComputing` proves `a = b` only when both sides compute to the same
 --             value
 --
--- The statement is true, but `rfl` can't see that. To compute `beats m m`,
+-- The statement is true, but `byComputing` can't see that. To compute `beats m m`,
 -- the checker has to pick an arm, and it can't pick one without knowing
 -- which move `m` is. Computing is *stuck*. Chapter 2 is about exactly
 -- this: proving a fact one case at a time. Delete the line for now.
@@ -191,8 +194,8 @@ theorem otherSideOfAWin: otherSide (play Paper Rock) = Lose := rfl
 -- any amount of trying to prove the statement. When you see one, fix the
 -- statement or the program, not the proof.
 --
--- It works for a wrong proof too. Replace the `?` with `rfl`: the error
--- says `rfl` can't prove it, and the same counterexample is in the notes.
+-- It works for a wrong proof too. Replace the `?` with `byComputing`: the error
+-- says `byComputing` can't prove it, and the same counterexample is in the notes.
 --
 -- Now one with a wrong program instead. Change the first arm of `play` to
 -- `if beats theirs mine then Win`, swapping the two moves.
@@ -208,7 +211,7 @@ theorem otherSideOfAWin: otherSide (play Paper Rock) = Lose := rfl
 -- - a `type` lists its constructors, and a function picks an arm by them;
 -- - a test checks one case when you run it; a theorem is checked as you
 --   type;
--- - `rfl` proves an equation by computing both sides;
+-- - `byComputing` proves an equation by computing both sides;
 -- - a `Bool` as a statement means it is `True`;
 -- - computing gets stuck on a variable whose constructor isn't known;
 -- - a false statement often comes with a counterexample, on a `?` or on a
@@ -220,7 +223,7 @@ theorem otherSideOfAWin: otherSide (play Paper Rock) = Lose := rfl
 -- ones still open.
 
 -- Exercise 1.1 (one star). Write `counter`, the move that beats a given
--- move, so that `counterBeatsRock` holds. Prove it with `rfl`.
+-- move, so that `counterBeatsRock` holds. Prove it with `byComputing`.
 
 --| The move that beats `m`.
 def counter (m: Move): Move := ?

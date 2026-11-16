@@ -21,7 +21,7 @@ theorem narrowWithin ∀ (candidates: List (List Rule)) (values: List Nat)
     (fields value rule member => And.left (List.memFilter fields (rule => rule.allows value) member))
     candidates
     values
-    (Eq.sym same)
+    same.flipped
 
 theorem narrowAllows ∀ (candidates: List (List Rule)) (values: List Nat)
     (same: values.length = candidates.length):
@@ -30,7 +30,7 @@ theorem narrowAllows ∀ (candidates: List (List Rule)) (values: List Nat)
     (fields value rule member => And.right (List.memFilter fields (rule => rule.allows value) member))
     candidates
     values
-    (Eq.sym same)
+    same.flipped
 
 theorem withinTrans ∀ (fields middle wider: List Rule)
     (inner: Within fields middle)
@@ -54,12 +54,12 @@ theorem foldNarrow ∀ (width: Nat) (tickets: List Ticket) (candidates: List (Li
       ∧ (∀ (ticket: Ticket) => ticket ∈ tickets
         → List.All2 AllAllow (tickets.foldLeft candidates narrow) ticket.values) :=
   match tickets with
-    | [] => Both wide (Both (all2Within candidates) (ticket member => Void.exfalso member))
+    | [] => Both wide (Both (all2Within candidates) (ticket member => member.impossible))
     | [ticket, ..tickets] =>
-      let fits: ticket.values.length = candidates.length := Eq.trans (lengths ticket (Inl rfl)) (Eq.sym wide)
+      let fits: ticket.values.length = candidates.length := Eq.trans (lengths ticket (Inl byComputing)) wide.flipped
       let narrowed := narrow candidates ticket
       let narrowedWide: narrowed.length = width :=
-        Eq.trans (List.lengthZipWithEq allowing candidates ticket.values (Eq.sym fits)) wide
+        Eq.trans (List.lengthZipWithEq allowing candidates ticket.values fits.flipped) wide
       match foldNarrow width tickets narrowed narrowedWide (other member => lengths other (Inr member)) with
         | Both length (Both within allows) =>
           Both length
@@ -68,7 +68,7 @@ theorem foldNarrow ∀ (width: Nat) (tickets: List Ticket) (candidates: List (Li
               (other member =>
                 match member with
                   | Inl same =>
-                    rewrite <- same in
+                    rewrite <- same then
                       List.all2Compose
                         (x y z => allowWithin x y z) _ _ _
                         within

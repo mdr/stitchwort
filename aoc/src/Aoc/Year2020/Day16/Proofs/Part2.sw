@@ -50,10 +50,11 @@ theorem departureProductSpec ∀ (order: List Rule) (values: List Nat):
   match order, values with
     | [rule, ..order], [value, ..values] =>
       match departure: rule.field.startsWith "departure" with
-        | True => rewrite List.productCons value _ in Eq.cong (rest => value * rest) (departureProductSpec order values)
-        | False => rewrite Nat.oneMul (Spec.departureProduct order values) in departureProductSpec order values
-    | [], values => rfl
-    | [rule, ..order], [] => rfl
+        | True =>
+          rewrite List.productCons value _ then Eq.cong (rest => value * rest) (departureProductSpec order values)
+        | False => rewrite Nat.oneMul (Spec.departureProduct order values) then departureProductSpec order values
+    | [], values => byComputing
+    | [rule, ..order], [] => byComputing
 
 --| Part 2: if the program gives an answer, it is the departure product
 --| under an order of the fields the puzzle allows.
@@ -65,4 +66,4 @@ theorem departureProductValid ∀ (notes: Notes) (answer: Nat)
       Witness order
         (Both
           (fieldOrderValid notes order ordered)
-          (rewrite <- Option.someInjective found in departureProductSpec order notes.yours.values))
+          (rewrite <- Option.someInjective found then departureProductSpec order notes.yours.values))

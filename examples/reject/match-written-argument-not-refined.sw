@@ -24,5 +24,5 @@ theorem andRight (a: Bool) (b: Bool) (h: (a ∧ b) = True): b = True := Bool.and
 theorem skip (flag: Nat → Bool) (k: Nat) (c: Nat) (d: Nat) (b: Bool) (hc: (b ∧ reach flag (Succ k) c d) = True):
     Bool.not (flag c) = True → reach flag k c d = True :=
   match flag c with
-    | True  => n => Void.exfalso (Bool.falseNotTrue n)
+    | True  => n => Void.impossible (Bool.falseNotTrue n)
     | False => n => andRight b (reach flag (Succ k) c d) hc

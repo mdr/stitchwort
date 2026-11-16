@@ -4,4 +4,4 @@
 -- though it is in the model. Without the hold this would check.
 import Std (Float)
 
-theorem addUnfolds (x y: Float): Float.add x y = Float.ofBits (Float.Model.addBits x.bits y.bits) := rfl
+theorem addUnfolds (x y: Float): Float.add x y = Float.ofBits (Float.Model.addBits x.bits y.bits) := byComputing

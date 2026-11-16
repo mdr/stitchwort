@@ -5,7 +5,7 @@ expression: output
 [E-NOT-OPAQUE] Error: `double` isn't opaque, so it always unfolds
    ╭─[ reject/opaque-not-opaque.sw:8:45 ]
    │
- 8 │ theorem doubleThree: double 3 = 6 unfolding double := rfl
+ 8 │ theorem doubleThree: double 3 = 6 unfolding double := byComputing
    │                                             ───┬──  
    │                                                ╰──── nothing to unfold
    │ 

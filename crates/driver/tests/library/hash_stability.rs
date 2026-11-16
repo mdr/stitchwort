@@ -384,13 +384,13 @@ fn own_lines(text: &str) -> String {
 fn logic_notation_spellings_hash_the_same() {
     let ascii = "import Std (Exists, Iff, Set)
 theorem a (x: Nat) (xs: List Nat) (h: x in xs): x in xs && x !in Nil := Both h (none => none)
-theorem b (p: Prop) (q: Prop) (h: p -> q): (p <-> q) || !p || exists (n: Nat) => n <= 1 && n >= 0 && n != 2 := Inr (Inr (Std.Exists.Witness 0 (Both (omega) (Both (omega) (omega)))))
+theorem b (p: Prop) (q: Prop) (h: p -> q): (p <-> q) || !p || exists (n: Nat) => n <= 1 && n >= 0 && n != 2 := Inr (Inr (Std.Exists.Witness 0 (Both (arithmetic) (Both (arithmetic) (arithmetic)))))
 theorem c (s: Set Nat) (x: Nat) (h: x in s): x in s := h
 def d (seen: List Nat) (x: Nat): Bool := if x in seen then x !in [1, 2] else 3 in seen || x in Set.fromList seen
 ";
     let unicode = "import Std (Exists, Iff, Set)
 theorem a (x: Nat) (xs: List Nat) (h: x ∈ xs): x ∈ xs ∧ x ∉ Nil := Both h (none => none)
-theorem b (p: Prop) (q: Prop) (h: p → q): (p ↔ q) ∨ ¬p ∨ ∃ (n: Nat) => n ≤ 1 ∧ n ≥ 0 ∧ n ≠ 2 := Inr (Inr (Std.Exists.Witness 0 (Both (omega) (Both (omega) (omega)))))
+theorem b (p: Prop) (q: Prop) (h: p → q): (p ↔ q) ∨ ¬p ∨ ∃ (n: Nat) => n ≤ 1 ∧ n ≥ 0 ∧ n ≠ 2 := Inr (Inr (Std.Exists.Witness 0 (Both (arithmetic) (Both (arithmetic) (arithmetic)))))
 theorem c (s: Set Nat) (x: Nat) (h: x ∈ s): x ∈ s := h
 def d (seen: List Nat) (x: Nat): Bool := if x ∈ seen then x ∉ [1, 2] else 3 ∈ seen ∨ x ∈ Set.fromList seen
 ";
@@ -402,7 +402,7 @@ def d (seen: List Nat) (x: Nat): Bool := if x ∈ seen then x ∉ [1, 2] else 3 
     // its conditions are decided by another route when written in full).
     let long = "import Std (Exists, Iff, List, Set)
 theorem a (x: Nat) (xs: List Nat) (h: List.Mem x xs): And (List.Mem x xs) (Not (List.Mem x Nil)) := Both h (none => none)
-theorem b (p: Prop) (q: Prop) (h: p -> q): Or (Iff p q) (Or (Not p) (Exists Nat ((n: Nat) => And (n <= 1) (And (0 <= n) (Not (n = 2)))))) := Inr (Inr (Std.Exists.Witness 0 (Both (omega) (Both (omega) (omega)))))
+theorem b (p: Prop) (q: Prop) (h: p -> q): Or (Iff p q) (Or (Not p) (Exists Nat ((n: Nat) => And (n <= 1) (And (0 <= n) (Not (n = 2)))))) := Inr (Inr (Std.Exists.Witness 0 (Both (arithmetic) (Both (arithmetic) (arithmetic)))))
 theorem c (s: Set Nat) (x: Nat) (h: s.contains x = True): s.contains x = True := h
 ";
     let without_d: String = ascii_lines
@@ -413,16 +413,55 @@ theorem c (s: Set Nat) (x: Nat) (h: s.contains x = True): s.contains x = True :=
     assert_eq!(without_d, own_lines(long));
 }
 
+/// A tuple where a proof of `∃` or `∧` is built or opened is the
+/// constructor written out (docs/proposals/proof-tuples.md, D3631): each
+/// declaration, its `match`es' helpers included, has the hash it has
+/// written with `Witness` and `Both`.
+#[test]
+fn proof_tuples_hash_as_witness_and_both() {
+    let tuples = "theorem build: ∃ (n: Nat) => n = 7 ∧ n * n = 49 := (7, byComputing, byComputing)
+theorem swap (p q: Prop) (h: p ∧ q): q ∧ p := let (a, b) := h; (b, a)
+theorem infer (p q: Prop) (a: p) (b: q): q ∧ p := let both := (b, a); both
+theorem opened (h: ∃ (n: Nat) => n = 7 ∧ n * n = 49): ∃ (m: Nat) => m * m = 49 := match h with | (n, _, sq) => (n, sq)
+theorem atLet (h: ∃ (n: Nat) => n = 7 ∧ n * n = 49): ∃ (m: Nat) => m * m = 49 := let (n, _, sq) := h; (n, sq)
+theorem rest (p q r: Prop) (h: p ∧ q ∧ r): q ∧ r := let (_, more) := h; more
+theorem lambda (p q: Prop) (f: (p ∧ q → q) → q): q := f ((a, b) => b)
+theorem clause (p q: Prop) (f: (p ∧ q → q) → q): q := f (match | (a, b) => b)
+theorem varGoal (pred: Nat → Prop) (q: Prop) (h: ∃ (n: Nat) => pred n ∧ q): q := let (_, _, b) := h; b
+theorem nested (pred: Nat → Prop) (q: Prop) (h: q ∧ ∃ (n: Nat) => pred n): q := let (a, (_, _)) := h; a
+theorem viaCall (pred: Nat → Prop) (q: Prop) (f: Nat → ∃ (n: Nat) => pred n ∧ q): q := let (_, _, b) := f 0; b
+theorem arms (p q: Prop): p ∧ q → Nat → q ∧ p
+  | (a, b), _ => (b, a)
+";
+    let constructors = "theorem build: ∃ (n: Nat) => n = 7 ∧ n * n = 49 := Witness 7 (Both byComputing byComputing)
+theorem swap (p q: Prop) (h: p ∧ q): q ∧ p := let Both a b := h; Both b a
+theorem infer (p q: Prop) (a: p) (b: q): q ∧ p := let both := Both b a; both
+theorem opened (h: ∃ (n: Nat) => n = 7 ∧ n * n = 49): ∃ (m: Nat) => m * m = 49 := match h with | Witness n (Both _ sq) => Witness n sq
+theorem atLet (h: ∃ (n: Nat) => n = 7 ∧ n * n = 49): ∃ (m: Nat) => m * m = 49 := let Witness n (Both _ sq) := h; Witness n sq
+theorem rest (p q r: Prop) (h: p ∧ q ∧ r): q ∧ r := let Both _ more := h; more
+theorem lambda (p q: Prop) (f: (p ∧ q → q) → q): q := f ((Both a b) => b)
+theorem clause (p q: Prop) (f: (p ∧ q → q) → q): q := f (match | Both a b => b)
+theorem varGoal (pred: Nat → Prop) (q: Prop) (h: ∃ (n: Nat) => pred n ∧ q): q := let Witness _ (Both _ b) := h; b
+theorem nested (pred: Nat → Prop) (q: Prop) (h: q ∧ ∃ (n: Nat) => pred n): q := let Both a (Witness _ _) := h; a
+theorem viaCall (pred: Nat → Prop) (q: Prop) (f: Nat → ∃ (n: Nat) => pred n ∧ q): q := let Witness _ (Both _ b) := f 0; b
+theorem arms (p q: Prop): p ∧ q → Nat → q ∧ p
+  | Both a b, _ => Both b a
+";
+    let lines = own_lines(tuples);
+    assert!(lines.lines().count() >= 12, "{lines}");
+    assert_eq!(lines, own_lines(constructors));
+}
+
 /// `forall` and `∀` are another spelling of the dependent function type
 /// (D3458): a statement written with either is the term `(x: T) -> P`
 /// writes, so its hash is the same. A bare name's type is inferred.
 #[test]
 fn forall_hashes_as_the_function_type() {
-    let pi = "theorem a: (n: Nat) -> n + 0 = n := n => rfl
+    let pi = "theorem a: (n: Nat) -> n + 0 = n := n => byComputing
 theorem b (h: (a b: Nat) -> [c: Nat] -> a + b + c = c + b + a): 1 + 2 + 3 = 3 + 2 + 1 := h 1 2
 theorem c (p: Nat -> Prop) (h: (n: Nat) -> p n): (m: Nat) -> m > 0 -> p m := m => _ => h m
 ";
-    let forall = "theorem a: forall (n: Nat) => n + 0 = n := n => rfl
+    let forall = "theorem a: forall (n: Nat) => n + 0 = n := n => byComputing
 theorem b (h: ∀ (a b: Nat) [c: Nat] => a + b + c = c + b + a): 1 + 2 + 3 = 3 + 2 + 1 := h 1 2
 theorem c (p: Nat -> Prop) (h: ∀ n => p n): ∀ (m: Nat) => m > 0 → p m := m => _ => h m
 ";

@@ -2,7 +2,7 @@
 
 import Std (List, Nat)
 
--- A false `rfl` about a definition that computes a long way: the message
+-- A false `byComputing` about a definition that computes a long way: the message
 -- shows the two sides as written, and the computed form is short, with its
 -- inner parts elided (SW-115).
 type Range = { lo: Nat, hi: Nat }
@@ -15,4 +15,4 @@ def Range.repeated (r: Range) (k: Nat) (n: Nat): Nat :=
     if lo ≤ hi then m * ((lo + hi) * (hi - lo + 1) / 2) else 0
   else 0
 
-theorem wrongRepeated (r: Range) (k: Nat) (n: Nat): r.repeated k n = 0 := rfl
+theorem wrongRepeated (r: Range) (k: Nat) (n: Nat): r.repeated k n = 0 := byComputing

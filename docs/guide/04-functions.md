@@ -70,7 +70,7 @@ Type parameters are **implicit**: they're filled in by the compiler, not passed.
 
 <!-- snippet: functions.sw#implicit -->
 ```stitchwort
-def pairUp [a: Type] [b: Type] (x: a) (y: b): (a, b) := (x, y)
+def pairUp [a b: Type] (x: a) (y: b): (a, b) := (x, y)
 
 test "implicit arguments are inferred" := pairUp 1 "one" == (1, "one")
 test "or given by name" := pairUp [b := Text] 1 "one" == (1, "one")
@@ -82,11 +82,10 @@ A lambda can take implicit parameters too, written the same way, so that its bod
 
 <!-- snippet: functions.sw#implicit-lambda -->
 ```stitchwort
-def pairUpLambda: [a: Type] → [b: Type] → a → b → (a, b) :=
-  [a: Type] [b: Type] (x: a) (y: b) => (x, y)
+def pairUpLambda: [a: Type] → [b: Type] → a → b → (a, b) := [a b: Type] (x: a) (y: b) => (x, y)
 
 test "a lambda with implicit parameters" :=
-  let flip := [a: Type] [b: Type] (x: a) (y: b) => (y, x)
+  let flip := [a b: Type] (x: a) (y: b) => (y, x)
   flip 1 "one" == ("one", 1) ∧ pairUpLambda 1 "one" == (1, "one")
 ```
 
@@ -96,8 +95,10 @@ Any parameter can be passed by name, `(name := value)`, in any order. A call tha
 
 <!-- snippet: functions.sw#named -->
 ```stitchwort
-def clamp (low: Nat) (high: Nat) (value: Nat): Nat :=
-  if value < low then low else if value > high then high else value
+def clamp (low high value: Nat): Nat :=
+  if value < low then low
+  else if value > high then high
+  else value
 
 test "by position" := clamp 0 10 50 == 10
 test "by name, in any order" := clamp (value := 50) (high := 10) (low := 0) == 10
@@ -110,8 +111,7 @@ A constructor's fields are named the same way, and so are its type's parameters,
 
 <!-- snippet: functions.sw#named-constructors -->
 ```stitchwort
-type Pair (a: Type) (b: Type) =
-  | MkPair (first: a) (second: b)
+type Pair (a: Type) (b: Type) = | MkPair (first: a) (second: b)
 
 test "an empty list of integers" := (Nil [a := Int]).length == 0
 test "the type's parameters by name" := MkPair [b := Text] [a := Int] 1 "one" == MkPair (1: Int) "one"
@@ -141,7 +141,7 @@ A default may use the parameters before it. Every way of writing a call fills th
 ```stitchwort
 type Point = { x: Int, y: Int }
 
-def Point.shift (point: Point) (dx: Int) (dy: Int): Point := { x = point.x + dx, y = point.y + dy }
+def Point.shift (point: Point) (dx dy: Int): Point := { x = point.x + dx, y = point.y + dy }
 
 def Point.manhattan (point: Point): Nat := point.x.natAbs + point.y.natAbs
 
@@ -157,9 +157,7 @@ A constructor is a value, but `Key.valid` is the name of a function, and `BirthY
 
 <!-- snippet: errors/constructor-dot.sw -->
 ```stitchwort
-type Key =
-  | BirthYear
-  | IssueYear
+type Key = | BirthYear | IssueYear
 
 def Key.valid (key: Key) (text: Text): Bool := match key with
   | BirthYear => text.length == 4
@@ -171,9 +169,9 @@ def check: Bool := BirthYear.valid "2002"
 <!-- output: check errors/constructor-dot.sw -->
 ```text
 [E-UNKNOWN-NAME] Error: unknown name `BirthYear.valid`
-   ╭─[ errors/constructor-dot.sw:9:20 ]
+   ╭─[ errors/constructor-dot.sw:7:20 ]
    │
- 9 │ def check: Bool := BirthYear.valid "2002"
+ 7 │ def check: Bool := BirthYear.valid "2002"
    │                    ───────┬───────
    │                           ╰───────── not in scope
    │
@@ -190,16 +188,12 @@ A negative number as an argument needs no brackets when the `-` has a space befo
 
 <!-- snippet: functions.sw#pipes -->
 ```stitchwort
-def wordLengths (line: Text): List Nat :=
-  line
-    |> .split ' '
-    |> .filter (word => word ≠ "")
-    |> .map .length
+def wordLengths (line: Text): List Nat := line |> .split ' ' |> .filter (word => word ≠ "") |> .map .length
 
 test "pipes" := wordLengths "the  quick fox" == [3, 5, 3]
 ```
 
-A line may start with `|>` to continue the expression on the line above.
+A line may start with `|>` to continue the expression on the line above; this pipeline is short enough to stay on one line.
 
 `|>` binds tighter than comparisons, `∧` and `∨`, and looser than `++`, arithmetic and application, as in Elixir and Gleam. So a comparison after a pipeline compares its result, and a pipe after `∧` takes only its own side:
 
@@ -257,24 +251,24 @@ Two variations are for the commonest uses of a lambda like this. `match some` is
 
 <!-- snippet: functions.sw#clauses -->
 ```stitchwort
-type Reading =
-  | Valid (value: Nat)
-  | Garbled (text: Text)
-  | Missing
+type Reading = | Valid (value: Nat) | Garbled (text: Text) | Missing
 
 def Reading.score: Reading → Nat := match
   | Valid value => value
   | Garbled text => text.length
   | Missing => 0
 
-def valid: Reading → Option Nat := match some
-  | Valid value => value
+def valid: Reading → Option Nat := match some | Valid value => value
 
 def isMissing: Reading → Bool := matches | Missing
 
 def sample: List Reading := [Valid 4, Garbled "xx", Missing, Valid 9]
 
-test "a lambda written as its cases" := sample.map (match | Valid value => value | _ => 0) == [4, 0, 0, 9]
+test "a lambda written as its cases" :=
+  sample.map (match
+    | Valid value => value
+    | _ => 0)
+    == [4, 0, 0, 9]
 test "a definition written as cases" := sample.map Reading.score == [4, 2, 0, 9]
 test "keeping what matches" := sample.filterMap valid == [4, 9]
 test "inline" := sample.filterMap (match some | Garbled text => text.length) == [2]
@@ -282,8 +276,7 @@ test "the first match" := sample.findMap (match some | Valid value => value * 10
 test "testing a value" := sample.filter (matches | Valid _ | Missing) == [Valid 4, Missing, Valid 9]
 test "a name is tested" := sample.count isMissing == 1
 
-def bigValue: Reading → Option Nat := match some
-  | Valid value if value > 5 => value
+def bigValue: Reading → Option Nat := match some | Valid value if value > 5 => value
 
 test "a condition on a case" := sample.filterMap bigValue == [9]
 

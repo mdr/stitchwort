@@ -77,17 +77,26 @@ test "a ragged cavern" := (levelsOf [[9], [8, 8]]).step == levelsOf [[0], [0, 0]
 
 --| Why the spec's flashers are the least closed set: with two 8s, "both
 --| flash" is closed (each would be at 10), but it isn't the flashers.
-theorem eightsClosed: Closed (levelsOf [[8, 8]]) (q => True) := q level member above => rfl
+theorem eightsClosed: Closed (levelsOf [[8, 8]]) (q => True) := q level member above => byComputing
 
 theorem eightsNotFlashers: ¬(Flashers (levelsOf [[8, 8]]) (at => True)) := both =>
   Bool.falseNotTrue
-    (And.right both (levelsOf [[8, 8]]).flashers.has (And.left (flashersCorrect (levelsOf [[8, 8]]))) (at 0 0) rfl)
+    (And.right both
+      (levelsOf [[8, 8]]).flashers.has
+      (And.left (flashersCorrect (levelsOf [[8, 8]])))
+      (at 0 0)
+      byComputing)
 
 --| The hypotheses of `onGridAfter`, `grows` and `stableOfCount` (an
 --| octopus has flashed after some rounds; and a round added nobody), which
 --| the counterexample search may not meet, can hold.
-theorem flashedAfterOneRound: (flashedAfter (levelsOf [[9]]) 1).has (at 0 0) = True := rfl
+theorem flashedAfterOneRound: (flashedAfter (levelsOf [[9]]) 1).has (at 0 0) = True := byComputing
 
 theorem stableAfterOneRound: flashedCount (levelsOf [[9]]) 2 ≤ flashedCount (levelsOf [[9]]) 1
       ∧ (flashedAfter (levelsOf [[9]]) 2).has (at 0 0) = True :=
-  Both (omega [(rfl: flashedCount (levelsOf [[9]]) 2 = 1), (rfl: flashedCount (levelsOf [[9]]) 1 = 1)]) rfl
+  Both
+    (arithmetic [
+      (byComputing: flashedCount (levelsOf [[9]]) 2 = 1),
+      (byComputing: flashedCount (levelsOf [[9]]) 1 = 1)
+    ])
+    byComputing

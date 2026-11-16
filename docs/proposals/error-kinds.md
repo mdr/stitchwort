@@ -345,7 +345,7 @@ risk is `Debug` output, which the derive extends: I found no snapshot of a `Diag
 - `rg '\.message\.(ends_with|starts_with|contains)|message ==' crates/{elab,core,driver}/src`
   finds only `lift.rs:1609-1611` (which rewrites text) and tests.
 - `rg '"E-RESOURCE"'` finds only `budget.rs` and the two other makers (`driver/src/run.rs:343`,
-  `cli/src/main.rs:3123`, `syntax/src/parser.rs:719`; each makes one, and gets the kind from
+  `cli/src/main.rs:3123`, `syntax/src/parser.rs`, `nested_too_deeply`; each makes one, and gets the kind from
   `From<ResourceError>` or a `Diagnostic::resource` constructor).
 - Each §2.1 site reads `kind`.
 

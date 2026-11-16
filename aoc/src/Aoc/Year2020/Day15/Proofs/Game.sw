@@ -24,25 +24,25 @@ theorem turnsBackAtMost ∀ (number: Nat) (older: List Nat) (back: Nat)
   match older with
     | [spoken, ..older] =>
       match same: spoken == number with
-        | True => rewrite <- Option.someInjective found in rfl
+        | True => rewrite <- Option.someInjective found then byComputing
         | False =>
           match inner: Spec.turnsBack number older with
             | Some earlier =>
               let atMost := turnsBackAtMost number older earlier inner
               let isBack := Option.someInjective found
-              omega
+              arithmetic
 
 theorem beginTracks ∀ (room first: Nat) (fits: first < room): Tracks (Game.begin room first) [first] :=
   Witness []
-    (Both rfl
-      (Both rfl
-        (Both (rewrite Array.sizeReplicate room 0 in fits) (number inside => Array.getOrReplicate room 0 number))))
+    (Both byComputing
+      (Both byComputing
+        (Both (rewrite Array.sizeReplicate room 0 then fits) (number inside => Array.getOrReplicate room 0 number))))
 
 theorem mapShift ∀ (turn: Nat) (found: Option Nat):
     (found.map (turns => turns + 1)).map (back => (turn + 1) - back) = found.map (back => turn - back) :=
   match found with
-    | None => rfl
-    | Some back => rfl
+    | None => byComputing
+    | Some back => byComputing
 
 theorem sayTracks ∀ (game: Game) (spoken: List Nat)
     (tracks: Tracks game spoken) (number: Nat)
@@ -52,41 +52,42 @@ theorem sayTracks ∀ (game: Game) (spoken: List Nat)
     | Witness older (Both isSpoken (Both turns (Both lastFits seen))) =>
       let sized := Array.sizeSet game.lastSeen game.last game.turn
       Witness spoken
-        (Both rfl
+        (Both byComputing
           (Both
-            (rewrite isSpoken in omega)
-            (Both (rewrite sized in fits) (other inside =>
-              rewrite isSpoken in
+            (rewrite isSpoken then arithmetic)
+            (Both (rewrite sized then fits) (other inside =>
+              rewrite isSpoken then
                 match same: game.last == other with
-                  | True => rewrite <- same.read, Array.getOrSet game.lastSeen game.last game.turn 0 lastFits in rfl
+                  | True =>
+                    rewrite <- same.read, Array.getOrSet game.lastSeen game.last game.turn 0 lastFits then byComputing
                   | False =>
                     rewrite Array.getOrSetOther game.lastSeen game.last game.turn other 0 (equal =>
-                          same.read (Eq.sym equal)),
-                        seen other (rewrite sized at inside in inside) in
+                          same.read equal.flipped),
+                        seen other (rewrite sized at inside then inside) then
                       Eq.cong
                         (found => Option.getOrElse found 0)
-                        (Eq.sym (mapShift game.turn (Spec.turnsBack other older)))))))
+                        (Eq.flipped (mapShift game.turn (Spec.turnsBack other older)))))))
 
 theorem replyTracks ∀ (game: Game) (spoken: List Nat) (tracks: Tracks game spoken): game.reply = Spec.reply spoken :=
   match tracks with
     | Witness older (Both isSpoken (Both turns (Both lastFits seen))) =>
-      rewrite isSpoken in
+      rewrite isSpoken then
         match found: Spec.turnsBack game.last older with
-          | None => rewrite seen game.last lastFits, found in rfl
+          | None => rewrite seen game.last lastFits, found then byComputing
           | Some back =>
             let atMost := turnsBackAtMost game.last older back found
-            rewrite seen game.last lastFits, found in
+            rewrite seen game.last lastFits, found then
               match zero: (game.turn - back) == 0 with
-                | True => omega
-                | False => omega
+                | True => arithmetic
+                | False => arithmetic
 
 --| A reply is less than the turn it answers.
 theorem replyBelow ∀ (game: Game) (spoken: List Nat) (tracks: Tracks game spoken): game.reply < game.turn :=
   match tracks with
     | Witness older (Both isSpoken (Both turns (Both lastFits seen))) =>
-      rewrite replyTracks game spoken tracks, isSpoken in
+      rewrite replyTracks game spoken tracks, isSpoken then
         match found: Spec.turnsBack game.last older with
-          | None => omega
+          | None => arithmetic
           | Some back =>
             let atMost := turnsBackAtMost game.last older back found
-            omega
+            arithmetic

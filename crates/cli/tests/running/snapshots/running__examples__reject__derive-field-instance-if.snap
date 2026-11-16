@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/derive-field-instance-if.sw:10:33 ]
+    │
+ 10 │ instance colorOrd: Ord Color := True
+    │                                 ──┬─  
+    │                                   ╰─── expected `Ord Color`, but this has type `Bool`
+────╯

@@ -8,7 +8,7 @@ use rustyline::error::ReadlineError;
 use stitchwort_cli::driver::{Cache, Outcome, Session, TestResult};
 use stitchwort_cli::project::{
     DiskFiles, Load, Target, TheoremCount, analyse, find_project, namespace_of, project_sources,
-    run_unknown_namespace,
+    run_unknown_namespace, unknown_namespace,
 };
 use stitchwort_cli::render::render;
 use stitchwort_cli::run::Main;
@@ -159,9 +159,9 @@ enum DevCommand {
     /// Build the lossless syntax tree of every `.sw` file under the paths
     /// and check that each reads back as the file, byte for byte. Prints
     /// the files that don't, and totals: declarations, ones that didn't
-    /// parse, nodes, marks dropped and internal errors. Exit status 1 if any
-    /// file fails, a mark is dropped, a declaration is an internal error, or
-    /// (with --spans) a span is no node
+    /// parse, nodes, ones whose marks don't nest and internal errors. Exit
+    /// status 1 if any file fails, a declaration's marks don't nest or it is
+    /// an internal error, or (with --spans) a span is no node
     Tree {
         /// Files or folders
         paths: Vec<PathBuf>,
@@ -190,7 +190,8 @@ enum DevCommand {
     /// broken file, and count the errors other than the syntax error, which
     /// are false ones, by the recovery point the parser used. Lists the
     /// worst breaks. In a project by default; `--files` checks each file on
-    /// its own, `--std` library files
+    /// its own, `--std` library files. Prints progress on stderr after each
+    /// file
     Breaks {
         /// Files or folders
         paths: Vec<PathBuf>,
@@ -214,6 +215,11 @@ enum DevCommand {
         /// Print the results as one JSON object
         #[arg(long)]
         json: bool,
+        /// Append one JSON object per finished file to PATH as soon as that
+        /// file is done, flushed, so a killed run keeps every finished
+        /// file's results
+        #[arg(long, value_name = "PATH")]
+        jsonl: Option<PathBuf>,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -222,22 +228,18 @@ enum DevCommand {
         cache: CacheArgs,
     },
     /// The formatter's report over a tree of files: format every `.sw` file
-    /// under the paths, without writing anything, and check each result: the same tokens up to the
-    /// deliberate rewrites, the same comments on the same tokens, the same
-    /// syntax tree, and the same text when formatted again. Prints each
-    /// file that fails a check, then totals: declarations left as written
-    /// (by the check they failed), constructs without a rule (by kind), and
-    /// code lines over 120 before and after. Exit status 1 if any file fails
-    /// a check or isn't idempotent
+    /// under the paths, without writing anything, and check each result: the
+    /// same tokens up to the tidy passes' rewrites, the same comments on the
+    /// same tokens, the same syntax tree, and the same text when formatted
+    /// again. Prints each file that fails a check, then totals: declarations,
+    /// parameter groups merged, and code lines over 120 before and after.
+    /// Exit status 1 if any file fails a check or isn't idempotent
     FmtTree {
         /// Files or folders
         paths: Vec<PathBuf>,
         /// Print each formatted file
         #[arg(long)]
         print: bool,
-        /// List each declaration left as written, with its line
-        #[arg(long)]
-        verbose: bool,
     },
     /// Which machine instructions a program's reachable code uses, and
     /// whether it fits native compilation's N1 subset
@@ -291,6 +293,12 @@ enum Command {
             conflicts_with_all = ["project", "index", "only", "counterexamples"]
         )]
         std: bool,
+        /// With --std: also print the warnings the core and the library
+        /// files give (programs never see them), and a count by code and
+        /// file. Checks every file in full, without the check cache, since
+        /// a file the cache answers for has no warnings to give
+        #[arg(long, requires = "std")]
+        warnings: bool,
         /// The project folder (the one with `stitchwort.yaml`), if not the
         /// folder you're in or the nearest one above it
         #[arg(long)]
@@ -534,7 +542,7 @@ enum Command {
         #[arg(long, value_name = "N")]
         goal: Option<usize>,
         /// With --at: answer with the simplest closer alone if one closes
-        /// the goal (`rfl`, a hypothesis, `byDecision`, `omega`, `ring`,
+        /// the goal (`byComputing`, a hypothesis, `byDecision`, `arithmetic`, `algebra`,
         /// `cases`, in that order), as the editor's "Search for a proof"
         /// does, instead of searching
         #[arg(long)]
@@ -974,13 +982,15 @@ fn run(cli: Cli) -> ExitCode {
         Command::Check {
             targets,
             std: true,
+            warnings,
             cache,
             ..
-        } => check_std(&targets, &cache),
+        } => check_std(&targets, warnings, &cache),
         Command::Check {
             targets,
             std: false,
             project,
+            warnings: _,
             index,
             only,
             counterexamples,
@@ -1368,6 +1378,7 @@ fn run(cli: Cli) -> ExitCode {
             limit,
             worst,
             json,
+            jsonl,
             project,
             cache,
         }) => breaks_cmd::run(&breaks_cmd::Args {
@@ -1378,14 +1389,11 @@ fn run(cli: Cli) -> ExitCode {
             limit,
             worst,
             json,
+            jsonl: jsonl.as_deref(),
             project: project.as_deref(),
             cache: &cache,
         }),
-        Command::Dev(DevCommand::FmtTree {
-            paths,
-            print,
-            verbose,
-        }) => fmt_tree_command(&paths, print, verbose),
+        Command::Dev(DevCommand::FmtTree { paths, print }) => fmt_tree_command(&paths, print),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
             native_spike(rounds, memory.as_deref())
         }
@@ -1832,13 +1840,18 @@ fn write_index(
 /// `check --std`: the library files and folders `targets` name, with what
 /// they need, checked in full.
 #[inline(never)]
-fn check_std(targets: &[String], cache: &CacheArgs) -> ExitCode {
+fn check_std(targets: &[String], warnings: bool, cache: &CacheArgs) -> ExitCode {
     let mut session = new_session(false);
-    use_cache(&mut session, cache, Path::new("."));
+    if !warnings {
+        use_cache(&mut session, cache, Path::new("."));
+    }
     match session.elab.check_library_targets(targets) {
         Ok(files) => {
             let plural = if files.len() == 1 { "" } else { "s" };
             eprintln!("checked {} standard library file{plural}", files.len());
+            if warnings {
+                report_library_warnings(&session, &files);
+            }
             discard(session);
             ExitCode::SUCCESS
         }
@@ -1848,6 +1861,44 @@ fn check_std(targets: &[String], cache: &CacheArgs) -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// `check --std --warnings`: each warning the library gave, then a count
+/// by code and file. `named` are the library paths (`Nat/Arith.sw`) the
+/// check named; the core is always included.
+fn report_library_warnings(session: &Session, named: &[String]) {
+    let styled = |name: &str| {
+        name == "<prelude>"
+            || name
+                .strip_prefix("std/")
+                .is_some_and(|path| named.iter().any(|n| n == path))
+    };
+    let mut all = session.library_warning_report(&styled);
+    // The files the named ones need were elaborated too; theirs are for
+    // their own check.
+    all.retain(|d| {
+        d.primary_span()
+            .is_none_or(|s| styled(&session.sources.get(s.file).name))
+    });
+    all.sort_by_key(|d| {
+        d.primary_span().map_or((String::new(), 0), |s| {
+            (session.sources.get(s.file).name.clone(), s.start)
+        })
+    });
+    report(&session.sources, &all);
+    let mut counts: std::collections::BTreeMap<(String, String), usize> = Default::default();
+    for d in &all {
+        let file = d.primary_span().map_or_else(
+            || "?".to_string(),
+            |s| session.sources.get(s.file).name.clone(),
+        );
+        *counts.entry((d.code.to_string(), file)).or_default() += 1;
+    }
+    println!("code\tfile\tcount");
+    for ((code, file), n) in &counts {
+        println!("{code}\t{file}\t{n}");
+    }
+    eprintln!("{} library warning(s)", all.len());
 }
 
 #[inline(never)]
@@ -2196,8 +2247,13 @@ fn test(
     };
     // Whatever checks runs, also when a declaration has errors: a test that
     // uses one fails, saying so (D3523).
-    let run_tests = |session: &Session, cache: &Cache| {
-        let keep = |test: &stitchwort_elab::TestDecl| output.only.is_none_or(|n| n == test.name);
+    let run_tests = |session: &Session, cache: &Cache, file: Option<&str>| {
+        let in_file = |span: stitchwort_syntax::Span| {
+            file.is_none_or(|name| session.sources.get(span.file).name.as_str() == name)
+        };
+        let keep = |test: &stitchwort_elab::TestDecl| {
+            output.only.is_none_or(|n| n == test.name) && in_file(test.span)
+        };
         let results = if reference {
             session.run_tests_where(cache, keep)
         } else {
@@ -2213,10 +2269,35 @@ fn test(
             let results = session.run_tests_fast_where(cache, keep);
             results
         };
-        session.with_broken_tests(results, |name| output.only.is_none_or(|n| n == name))
+        session.with_broken_tests_where(results, |test| {
+            output.only.is_none_or(|n| n == test.name) && in_file(test.span)
+        })
     };
+    // A file target that is a source file of a project is tested in the
+    // project (SW-3390); a file on its own stays file mode.
+    let mut project_file = None;
+    if let Some(file) = target.filter(|t| is_file_target(t)) {
+        match project_of_file(Path::new(file), project) {
+            Ok(Some((dir, relative, namespace))) => {
+                project_file = Some((
+                    Project {
+                        name: project_name(&dir),
+                        files: DiskFiles { root: dir.clone() },
+                        dir,
+                    },
+                    relative,
+                    namespace,
+                ));
+            }
+            Ok(None) => {}
+            Err(message) => {
+                eprintln!("error: {message}");
+                return ExitCode::FAILURE;
+            }
+        }
+    }
     match target {
-        Some(file) if is_file_target(file) => {
+        Some(file) if project_file.is_none() && is_file_target(file) => {
             use_cache(&mut session, cache, Path::new("."));
             let mut reported = Vec::new();
             let loaded =
@@ -2225,7 +2306,7 @@ fn test(
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, Path::new("."));
-            let results = run_tests(&session, &cache);
+            let results = run_tests(&session, &cache, None);
             let errors = session.errors().has.len().max(usize::from(!loaded));
             let code = output.print(&session, &results, false, output.only.is_some(), errors);
             let code = if verified(&cache) {
@@ -2252,16 +2333,29 @@ fn test(
             }
         }
         _ => {
-            let Some(project) = locate_project(project, "test", "test hello.sw") else {
-                return ExitCode::FAILURE;
+            let (project, target, target_name, file) = match project_file {
+                Some((project, relative, namespace)) => {
+                    let target = match namespace {
+                        Some(namespace) => Target::Namespaces(vec![namespace]),
+                        None => Target::Everything,
+                    };
+                    let display = format!("{}/{}", project.name, relative);
+                    (project, target, None, Some(display))
+                }
+                None => {
+                    let Some(project) = locate_project(project, "test", "test hello.sw") else {
+                        return ExitCode::FAILURE;
+                    };
+                    let target_name = target.map(str::to_string);
+                    let target = match target {
+                        Some(name) => Target::Subtrees(vec![name.to_string()]),
+                        None => Target::Everything,
+                    };
+                    (project, target, target_name, None)
+                }
             };
             let Some(config) = read_project_config(&project) else {
                 return ExitCode::FAILURE;
-            };
-            let target_name = target;
-            let target = match target {
-                Some(name) => Target::Subtrees(vec![name.to_string()]),
-                None => Target::Everything,
             };
             use_cache(&mut session, cache, &project.dir);
             let mut reported = Vec::new();
@@ -2278,7 +2372,7 @@ fn test(
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, &project.dir);
-            let results = run_tests(&session, &cache);
+            let results = run_tests(&session, &cache, file.as_deref());
             let errors = session.errors().has.len().max(usize::from(!loaded));
             let code = output.print(
                 &session,
@@ -2297,7 +2391,7 @@ fn test(
             discard(session);
             // A target that matched no tests (a typo, a namespace without
             // any) must never look like a pass.
-            let none = match (target_name, output.only) {
+            let none = match (target_name.as_deref(), output.only) {
                 (_, Some(name)) if results.is_empty() => {
                     eprintln!("warning: no test is called '{name}'");
                     true
@@ -2994,7 +3088,7 @@ fn search_at(
     // A file of a project (found from the file's folder, or --project) is
     // searched in the project: its namespace, imports and declarations.
     match project_of_file(path, project) {
-        Ok(Some((dir, relative))) => {
+        Ok(Some((dir, relative, _))) => {
             let mut session = new_session(false);
             let cache_dir = cache_dir(cache, &dir);
             let files = DiskFiles { root: dir.clone() };
@@ -3185,7 +3279,7 @@ fn goal_at(at: &str, project: Option<&Path>, json: bool, cache: &CacheArgs) -> E
     let name = path.display().to_string();
     let mut session = new_session(false);
     let found = match project_of_file(path, project) {
-        Ok(Some((dir, relative))) => {
+        Ok(Some((dir, relative, _))) => {
             let cache_dir = cache_dir(cache, &dir);
             let files = DiskFiles { root: dir.clone() };
             session.context_at_project(
@@ -3480,10 +3574,13 @@ fn no_goal(path: &Path, line: usize, column: usize, json: bool) -> ExitCode {
 }
 
 /// The project that file `path` is a source file of: `--project`'s, or the
-/// one found from the file's folder up; its folder and the file's path in
-/// it. `None` for a file on its own (no project, or not one of its source
-/// files when found by looking).
-fn project_of_file(path: &Path, flag: Option<&Path>) -> Result<Option<(PathBuf, String)>, String> {
+/// one found from the file's folder up; its folder, the file's path in it,
+/// and its namespace line if it has one. `None` for a file on its own (no
+/// project, or not one of its source files when found by looking).
+fn project_of_file(
+    path: &Path,
+    flag: Option<&Path>,
+) -> Result<Option<(PathBuf, String, Option<String>)>, String> {
     let absolute = std::fs::canonicalize(path)
         .map_err(|err| format!("can't read {}: {err}", path.display()))?;
     let dir = match flag {
@@ -3517,8 +3614,18 @@ fn project_of_file(path: &Path, flag: Option<&Path>) -> Result<Option<(PathBuf, 
     let mut sources = stitchwort_syntax::SourceMap::new();
     let files = DiskFiles { root: dir.clone() };
     match project_sources(&files, &project_name(&dir), &mut sources) {
-        Ok(found) if found.iter().any(|(p, _)| *p == relative) => Ok(Some((dir, relative))),
-        Ok(_) => not_source("it isn't under its source folders"),
+        Ok(found) => {
+            let Some((_, text)) = found.iter().find(|(p, _)| *p == relative) else {
+                return not_source("it isn't under its source folders");
+            };
+            let mut scratch = SourceMap::new();
+            let id = scratch.add(relative.clone(), text.as_str());
+            let namespace = parse_namespace_line(id, text)
+                .ok()
+                .flatten()
+                .map(|line| line.path.text);
+            Ok(Some((dir, relative, namespace)))
+        }
         Err(errors) if flag.is_some() => Err(errors
             .first()
             .map_or("the project can't be read".into(), |d| d.message.clone())),
@@ -3931,7 +4038,10 @@ fn audit(
                 namespaces.push(namespace.to_string());
                 named.push(target.clone());
             } else {
-                let d = run_unknown_namespace(&project.name, target, &analysis);
+                let known: BTreeSet<String> = (analysis.namespaces.iter())
+                    .map(|n| n.name.clone())
+                    .collect();
+                let d = unknown_namespace(&project.name, target, &known);
                 report(&session.sources, &[d]);
                 return ExitCode::FAILURE;
             }
@@ -4029,6 +4139,15 @@ fn audit_loaded(
     for failed in session.audit_failed(&keep) {
         if !audits.iter().any(|a| a.name == failed.name) {
             audits.push(failed);
+        }
+    }
+    // A lane audits every namespace it touched, and some (an AoC day's
+    // program namespace, say) have no theorems: say so and carry on, so the
+    // namespaces that do have theorems are still audited. A namespace the
+    // project doesn't have is an error before this (`E-NAMESPACE-UNKNOWN`).
+    for root in roots {
+        if !audits.iter().any(|a| is_under(&a.name, root)) {
+            eprintln!("note: no theorems in `{root}`");
         }
     }
     Ok(audits)
@@ -4213,7 +4332,6 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
             Ok(formatted) => {
                 // Always the whole text, changed or not: an editor replaces
                 // its buffer with what this prints.
-                let formatted = formatted.text;
                 would_change |= formatted != text;
                 if !check {
                     print!("{formatted}");
@@ -4312,7 +4430,6 @@ fn format_file(path: &Path, check: bool, would_change: &mut bool) -> bool {
     let id = sources.add(path.display().to_string(), text.clone());
     match stitchwort_fmt::format_in(id, &text) {
         Ok(formatted) => {
-            let formatted = formatted.text;
             if formatted == text {
                 return true;
             }
@@ -4397,6 +4514,8 @@ fn run_main(session: &mut Session, main: &Main, runner: Runner) -> ExitCode {
     drop(restore);
     match result {
         Ok(()) => ExitCode::SUCCESS,
+        // `main` returned an `ExitStatus`.
+        Err(stitchwort_cli::run::RunError::Exit(code)) => ExitCode::from(code),
         // `main` failed and nothing handled it (D1048): not a runtime error.
         Err(stitchwort_cli::run::RunError::Failed(msg)) => {
             eprintln!("error: {msg}");
@@ -4543,7 +4662,7 @@ fn run_main_native(
 /// directory and runs it with Node, which inherits standard input, output
 /// and error.
 fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
-    use stitchwort_js::run::{EXIT_FAIL, EXIT_IO, EXIT_RESOURCE};
+    use stitchwort_js::run::{EXIT_FAIL, EXIT_IO, EXIT_RESOURCE, EXIT_STATUS};
     let program = match session.extract_program(&main) {
         Ok(program) => program,
         Err(diagnostic) => {
@@ -4608,6 +4727,8 @@ fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
             eprintln!("error: {msg}");
             ExitCode::FAILURE
         }
+        // `main` returned an `ExitStatus`: its number is in the error file.
+        Some(EXIT_STATUS) => ExitCode::from(message().parse::<u8>().unwrap_or(2)),
         Some(EXIT_IO) => {
             report(&session.sources, &[Diagnostic::error("E-IO", message())]);
             ExitCode::from(2)
@@ -4689,7 +4810,7 @@ fn eval(path: &Path, expr: &str, cache: &CacheArgs) -> ExitCode {
 /// the namespace's names are imported for the expressions typed. Any other
 /// file is loaded on its own.
 fn load_for_evaluation(session: &mut Session, path: &Path) -> bool {
-    let Ok(Some((dir, _))) = project_of_file(path, None) else {
+    let Ok(Some((dir, _, _))) = project_of_file(path, None) else {
         return load(session, path);
     };
     let Ok(text) = std::fs::read_to_string(path) else {
@@ -5021,7 +5142,7 @@ fn report(sources: &SourceMap, diagnostics: &[Diagnostic]) {
 }
 
 /// `dev fmt-tree`: the formatter's report over files and folders.
-fn fmt_tree_command(paths: &[PathBuf], print: bool, verbose: bool) -> ExitCode {
+fn fmt_tree_command(paths: &[PathBuf], print: bool) -> ExitCode {
     let mut files = Vec::new();
     for path in paths {
         if let Err(e) = sw_files(path, &mut files) {
@@ -5042,8 +5163,13 @@ fn fmt_tree_command(paths: &[PathBuf], print: bool, verbose: bool) -> ExitCode {
         };
         let gate = match stitchwort_fmt::printer::gate(&text) {
             Ok(gate) => gate,
-            Err(_) => {
+            Err(stitchwort_fmt::Error::Refused(_)) => {
                 refused += 1;
+                continue;
+            }
+            Err(stitchwort_fmt::Error::Internal(problem)) => {
+                failed += 1;
+                println!("{}: {problem}", file.display());
                 continue;
             }
         };
@@ -5061,45 +5187,13 @@ fn fmt_tree_command(paths: &[PathBuf], print: bool, verbose: bool) -> ExitCode {
             unstable += 1;
             println!("{}: formatting twice differs from once", file.display());
         }
-        if verbose {
-            for (line, reason) in &gate.stats.verbatim_at {
-                println!("{}:{line}: left as written ({reason})", file.display());
-            }
-        }
     }
-    let verbatim: Vec<String> = total
-        .verbatim
-        .iter()
-        .map(|(reason, n)| format!("{n} {reason}"))
-        .collect();
-    let unruled: Vec<String> = total
-        .unruled
-        .iter()
-        .map(|(kind, n)| format!("{n} {kind:?}"))
-        .collect();
     println!(
         "{} files ({refused} not formatted: they don't parse): {failed} fail a check, {unstable} not \
          idempotent",
         files.len()
     );
-    println!(
-        "{} declarations, {} left as written{}",
-        total.decls,
-        total.verbatim_decls(),
-        if verbatim.is_empty() {
-            String::new()
-        } else {
-            format!(" ({})", verbatim.join(", "))
-        }
-    );
-    println!(
-        "constructs without a rule: {}",
-        if unruled.is_empty() {
-            "none".to_string()
-        } else {
-            unruled.join(", ")
-        }
-    );
+    println!("{} declarations", total.decls);
     println!(
         "parameter groups merged (D3565): {}; code lines over 120: {long_before} before, \
          {long_after} after",
@@ -5206,7 +5300,7 @@ fn tree_command(
                 total.errors += stats.errors;
                 total.unlexed += stats.unlexed;
                 total.nodes += stats.nodes;
-                total.dropped += stats.dropped;
+                total.misnested += stats.misnested;
             }
             Err(problem) => {
                 failed += 1;
@@ -5242,13 +5336,13 @@ fn tree_command(
     }
     println!(
         "{} files ({failed} not read back): {} declarations ({} not parsed, {} of them not \
-         lexed), {} nodes, {} marks dropped, {internal} internal errors",
+         lexed), {} nodes, {} with marks that don't nest, {internal} internal errors",
         files.len(),
         total.decls,
         total.errors,
         total.unlexed,
         total.nodes,
-        total.dropped
+        total.misnested
     );
     if spans {
         let made_up: Vec<String> = synthetic
@@ -5270,7 +5364,7 @@ fn tree_command(
             time_parse(rounds, false).as_secs_f64() * 1000.0
         );
     }
-    if failed > 0 || total.dropped > 0 || misses > 0 || internal > 0 {
+    if failed > 0 || total.misnested > 0 || misses > 0 || internal > 0 {
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS

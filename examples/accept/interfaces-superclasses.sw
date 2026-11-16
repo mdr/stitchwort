@@ -6,15 +6,18 @@
 interface Base (a: Type) = { op: a → a }
 
 -- `law` mentions the superclass `base`.
-interface Child (a: Type) = { base: Base a, law: ∀ (x: a) => base.op (base.op x) = base.op x }
+interface Child (a: Type) = {
+  base: Base a,
+  law: ∀ (x: a) => base.op (base.op x) = base.op x
+}
 
 interface Named (a: Type) = { base: Base a, name: a → Text }
 
 instance Base.instNat: Base Nat := { op = n => 0 }
 
 -- `base` is filled with `Base.instNat` at once, so `law`'s type computes,
--- to `0 = 0`, and `rfl` proves it.
-instance Child.instNat: Child Nat := { law = x => rfl }
+-- to `0 = 0`, and `byComputing` proves it.
+instance Child.instNat: Child Nat := { law = x => byComputing }
 
 -- Given explicitly, it must be the instance found: it is.
 instance Named.instNat: Named Nat := { base = Base.instNat, name = n => "nat" }

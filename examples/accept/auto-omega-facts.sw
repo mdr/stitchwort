@@ -1,5 +1,5 @@
--- In a module that loads `omega`'s library (this one uses `omega`), `auto`
--- also proves what it can't decide by `omega` over the facts in scope.
+-- In a module that loads `arithmetic`'s library (this one uses `arithmetic`), `auto`
+-- also proves what it can't decide by `arithmetic` over the facts in scope.
 
 import Std (Nat)
 
@@ -13,6 +13,6 @@ def remainderOfGap (n low high: Nat) (below: low < high): Nat := rem n (high - l
 
 def quotientPastTwice (n d: Nat) (big: 2 * d > 4): Nat := per n d
 
-theorem gapPositive ∀ (low high: Nat) (below: low < high): 0 < high - low := omega
+theorem gapPositive ∀ (low high: Nat) (below: low < high): 0 < high - low := arithmetic
 
-test "remainderOfGap" := remainderOfGap 17 2 7 rfl == 2
+test "remainderOfGap" := remainderOfGap 17 2 7 byComputing == 2

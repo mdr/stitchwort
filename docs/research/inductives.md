@@ -322,7 +322,7 @@ return values in a suitable monad". Applications "are not definitionally equal t
 return values", but propositional equations and, for monadic functions, partial-correctness
 theorems are generated (for example `List.findIndex.partial_correctness`). By contrast,
 `partial` functions "are treated as opaque constants by the kernel" **[cited]**. The name
-`fixpoint_induct` comes from Zulip **[unverified]**. *Steal:* the idea that a partial function
+`fixpoint_induct` is in Lean's source: `src/Lean/Elab/PreDefinition/PartialFixpoint/Induction.lean` returns the names `fixpoint_induct` and `mutual_fixpoint_induct` **[checked in source, 15 Nov 2026]**. *Steal:* the idea that a partial function
 can have a reasoning principle without a termination proof (§5.4). *Helps:* partial.md.
 *Cost:* research. *Full text:* read (notes; the whole reference chapter, which now includes the
 partial-fixpoint section). *Audit: MINOR, fixed.* The card said the return type *must* be in a
@@ -470,7 +470,7 @@ fixpoints of monotone operators on the complete lattice of predicates (Knaster-T
 on the partial-fixpoint machinery: "Recursive Prop-valued functions can be defined as greatest
 or least fixpoints of monotone operators on complete lattices" (reference, "Recursive
 definitions") **[cited]**. That Lean has no coinductive *data* in core comes from search
-summaries **[unverified]**. *Steal:* if Stitchwort ever wants coinduction, start with
+summaries **[unverified]**; a 15 Nov 2026 look found Lean core has a `coinductive` command for predicates (`src/Lean/Elab/Coinductive.lean`, example `coinductive infSeq (r : α → α → Prop) : α → Prop`), which fits the "propositions only" reading but doesn't settle the data case. *Steal:* if Stitchwort ever wants coinduction, start with
 coinductive *propositions*, which need no productivity checker. *Helps:* D1911. *Cost:*
 research. *Full text:* read (4.25 notes; reference chapter). *Audit: MINOR, fixed.* The
 lattice reading was marked unverified; the reference states it.
@@ -533,7 +533,7 @@ name (#7814); `with` fixes (#7789, #7651); a hint to use `--guardedness` when te
 fails, now also with `--sized-types` (#7931); opacity forgotten when checking signatures
 (#7857) **[cited]**. *Steal:* for SW-510, Agda resolves an overloaded constructor by type and
 *postpones* the choice while the type is unknown. That Agda allows overloaded constructor
-names at all is from the manual as I remember it **[unverified]**. *Helps:* SW-510. *Cost:*
+names at all is **[cited second-hand, 15 Nov 2026, search summary]**: the old Chalmers wiki manual's Data page says a constructor name need not be new, and the Agda 2.5.2 release notes describe overloaded constructors disambiguated by the type they introduce; the current manual wasn't opened. *Helps:* SW-510. *Cost:*
 elaborator change. *Full text:* read (changelog). *Audit: OK.* All six PR numbers and their
 titles check (#7814 is "Fix #7660: new DisambiguateConstructor postponed tc problem"; the
 warning is issue #7660). The manual's data-type, module and record pages and its search index
@@ -722,8 +722,8 @@ Record in well-founded-recursion.md that option D stays closed, citing both.
 **Stitchwort today** [checked: `crates/elab/src/derive.rs:1-60`, `derive_ord.rs:1-50`].
 Derived `DecEq`, `Ord`, `Show` and `T.ext` are generated as source and elaborated, so the
 kernel checks them; a nested type's `T.size`, `T.induct`, `T.inductMem` and `D.All` are made
-as kernel terms (`derive_induct.rs`). `T.%tag` numbers the constructors. `T.%decEq` has one equation per
-constructor plus a default that refutes by tags (`T.%differ`), so its size is linear in the
+as kernel terms (`derive_induct.rs`). `T.%tag` numbers the constructors. `T.%same` compares tags first and matches
+only the first value (`DecEq.tagsSame`), so its size is linear in the
 number of constructors, as Lean's 2025 construction is (C8).
 
 **SW-807: enumerating values.** Mathlib's handler (C9) shows the cheap, linear version for

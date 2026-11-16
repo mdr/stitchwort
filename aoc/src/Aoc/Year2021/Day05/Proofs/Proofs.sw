@@ -16,7 +16,7 @@ import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Pair, Void)
 --| horizontal or vertical lines overlap, for every list of lines.
 theorem part1Correct ∀ (lines: List Line): Part1Answer lines (solvePart1 lines) :=
   let straight := lines.filter Line.isStraight
-  rewrite <- straightLines lines in overlapsCorrect straight (straightShapes lines)
+  rewrite <- straightLines lines then overlapsCorrect straight (straightShapes lines)
 
 --| Part 2: the program's answer is the number of points where at least two
 --| lines overlap, for every list of lines each horizontal, vertical or
@@ -33,20 +33,21 @@ theorem overlapsCorrect ∀ (lines: List Line)
   List.numberWithCong
     (overlaps lines) _
     (overlap lines)
-    (p => rewrite listedCoveredBy lines shapes p in rfl)
+    (p => rewrite listedCoveredBy lines shapes p then byComputing)
     (countedTwice (lines.flatMap Line.points))
 
 --| The program's straight lines are the spec's horizontal and vertical ones.
-theorem straightLines ∀ (lines: List Line): lines.filter Line.isStraight = lines.filter horizontalOrVertical := rfl
+theorem straightLines ∀ (lines: List Line): lines.filter Line.isStraight = lines.filter horizontalOrVertical :=
+  byComputing
 
 --| ... and each of them is horizontal or vertical.
 theorem straightShapes ∀ (lines: List Line):
     (lines.filter Line.isStraight).all (line => horizontalOrVertical line ∨ diagonal line) = True :=
   match lines with
-    | [] => rfl
+    | [] => byComputing
     | [line, ..rest] =>
       match e: Line.isStraight line with
-        | True => rewrite straightShapes rest in rewrite e in rfl
+        | True => rewrite straightShapes rest then rewrite e then byComputing
         | False => straightShapes rest
 
 -- Counting with a map.
@@ -54,10 +55,10 @@ theorem straightShapes ∀ (lines: List Line):
 --| The counts of `listed` keep a point when it is listed at least twice.
 theorem containsTwice ∀ (listed: List Point) (p: Point):
     Map.contains (Map.counts listed |> .filter (_ times => 2 ≤ times)) p = (2 ≤ listed.count (== p)) :=
-  rewrite <- Map.getOrCounts p listed in
+  rewrite <- Map.getOrCounts p listed then
     match e: Map.get (Map.counts listed) p with
-      | None => rewrite Map.getFilter (Map.counts listed) p (_ times => 2 ≤ times), e in rfl
-      | Some times => rewrite Map.getFilter (Map.counts listed) p (_ times => 2 ≤ times), e in cases
+      | None => rewrite Map.getFilter (Map.counts listed) p (_ times => 2 ≤ times), e then byComputing
+      | Some times => rewrite Map.getFilter (Map.counts listed) p (_ times => 2 ≤ times), e then cases
 
 --| The points listed at least twice in `listed`: the keys of the counts
 --| that are at least 2.
@@ -68,9 +69,9 @@ theorem countedTwice ∀ (listed: List Point):
     (Both
       (Map.keysDistinct twice)
       (Both
-        (p => rewrite <- containsTwice listed p in Map.memKeys twice p)
-        (rewrite <- Map.sizeFilter (Map.counts listed) (_ times => 2 ≤ times) in
-          Eq.sym (Eq.trans (Map.sizeToList twice) (Eq.sym (List.lengthMap (Map.toList twice) Pair.fst))))))
+        (p => rewrite <- containsTwice listed p then Map.memKeys twice p)
+        (rewrite <- Map.sizeFilter (Map.counts listed) (_ times => 2 ≤ times) then
+          Eq.flipped (Eq.trans (Map.sizeToList twice) (Eq.flipped (List.lengthMap (Map.toList twice) Pair.fst))))))
 
 -- Each line's points.
 
@@ -101,7 +102,7 @@ theorem listedCoveredBy ∀ (lines: List Line)
     (Eq.trans
       (List.sumByCongMem lines (line => line.points.count (== p)) (line => Bool.toNat (covers line p)) (line inLines =>
         pointsCount line (shapes.read line inLines) p))
-      (Eq.sym (List.countSumBy lines (line => covers line p))))
+      (Eq.flipped (List.countSumBy lines (line => covers line p))))
 
 --| The step a line takes to reach a point, `k`, is the only one there: the
 --| steps `0` to `n - 1` count it once if it is one of them.
@@ -110,11 +111,11 @@ theorem countRangeOnce ∀ (n k: Nat) (c: Bool)
     (List.range 0 n).count (i => c ∧ i == k) = c.toNat :=
   match c with
     | False => List.countFalse (List.range 0 n)
-    | True => rewrite inRange rfl at List.countRangeEq n k
+    | True => rewrite inRange byComputing at List.countRangeEq n k
 
 theorem stepInRange ∀ (steps i: Nat) (inRange: i ∈ List.range 0 (steps + 1)): i ≤ steps :=
   let bounds := List.memRangeFrom i (steps + 1) 0 inRange
-  omega [And.right bounds]
+  arithmetic [bounds.right]
 
 --| A point a line covers is within its steps.
 theorem coveredWithin ∀ (line: Line) (point: Point)
@@ -124,7 +125,7 @@ theorem coveredWithin ∀ (line: Line) (point: Point)
   let Both inX (Both inY _) := c
   let bx := betweenBound line.from.x point.x line.to.x inX
   let by := betweenBound line.from.y point.y line.to.y inY
-  omega
+  arithmetic
 
 --| The `i`th point of a line is the point `(x, y)` when the line covers it
 --| and it is `k` steps from the first end.
@@ -140,11 +141,11 @@ theorem pointStep ∀ (line: Line)
       (pointLinear line.from.x line.from.y line.to.x line.to.y i point.x point.y shape hi)
       (Eq.cong
         (c => c ∧ i == Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y))
-        (Eq.sym (coversLinear line.from.x line.from.y line.to.x line.to.y point.x point.y shape))))
+        (Eq.flipped (coversLinear line.from.x line.from.y line.to.x line.to.y point.x point.y shape))))
 
 --| A point is another when both coordinates are the same.
 theorem Point.beqMk ∀ (x y: Nat) (point: Point): (({ x, y }: Point) == point) = (x == point.x ∧ y == point.y) :=
-  match point with | { x = px, y = py } => rfl
+  match point with | { x = px, y = py } => byComputing
 
 -- One coordinate at a time.
 
@@ -154,22 +155,24 @@ theorem towardsEq ∀ (a b i x: Nat) (h: i ≤ a.absDiff b): (towards a b i == x
   cases
 
 --| When `a` and `b` are the same, stepping stays put.
-theorem towardsFixed ∀ (a b i x: Nat) (h: a = b): (towards a b i == x) = between a x b := rewrite h in cases
+theorem towardsFixed ∀ (a b i x: Nat) (h: a = b): (towards a b i == x) = between a x b := rewrite h then cases
 
 theorem betweenBound ∀ (a x b: Nat) (h: between a x b = True): a.absDiff x ≤ a.absDiff b := cases
 
 theorem betweenFixed ∀ (a x b: Nat) (h: a = b) (inside: between a x b = True): a.absDiff x = 0 :=
-  rewrite h at inside in cases
+  rewrite h at inside then cases
 
-theorem absDiffFixed ∀ (a b: Nat) (h: a = b): a.absDiff b = 0 := rewrite h in cases
+theorem absDiffFixed ∀ (a b: Nat) (h: a = b): a.absDiff b = 0 := rewrite h then cases
 
 theorem absDiffPositive ∀ (a b: Nat) (h: a ≠ b): a.absDiff b ≠ 0 := zero => h (cases)
 
-theorem stepsFixedLeft ∀ (a b c i: Nat) (h: a = b) (hi: i ≤ Nat.max (a.absDiff b) c): i ≤ c := rewrite h at hi in cases
+theorem stepsFixedLeft ∀ (a b c i: Nat) (h: a = b) (hi: i ≤ Nat.max (a.absDiff b) c): i ≤ c :=
+  rewrite h at hi then cases
 
-theorem stepsFixedRight ∀ (a b c i: Nat) (h: a = b) (hi: i ≤ Nat.max c (a.absDiff b)): i ≤ c := rewrite h at hi in cases
+theorem stepsFixedRight ∀ (a b c i: Nat) (h: a = b) (hi: i ≤ Nat.max c (a.absDiff b)): i ≤ c :=
+  rewrite h at hi then cases
 
-theorem stepsDiagonal ∀ [d e i: Nat] (h: d = e) (hi: i ≤ Nat.max d e): i ≤ d := rewrite h at hi in cases
+theorem stepsDiagonal ∀ [d e i: Nat] (h: d = e) (hi: i ≤ Nat.max d e): i ≤ d := rewrite h at hi then cases
 
 theorem diagonalSame ∀ (x1 x2 y1 y2: Nat) (h: (x1.absDiff x2 == y1.absDiff y2) = True): x1.absDiff x2 = y1.absDiff y2 :=
   cases
@@ -208,34 +211,34 @@ theorem pointLinear ∀ (x1 y1 x2 y2 i x y: Nat)
   match vertical: x1 == x2 with
     | True =>
       let hv := vertical.read
-      rewrite towardsFixed x1 x2 i x hv, towardsEq y1 y2 i y (stepsFixedLeft x1 x2 _ i hv hi) in
+      rewrite towardsFixed x1 x2 i x hv, towardsEq y1 y2 i y (stepsFixedLeft x1 x2 _ i hv hi) then
         combineVertical i (betweenFixed x1 x x2 hv)
     | False =>
       match horizontal: y1 == y2 with
         | True =>
           let hh := horizontal.read
-          rewrite towardsEq x1 x2 i x (stepsFixedRight y1 y2 _ i hh hi), towardsFixed y1 y2 i y hh in
+          rewrite towardsEq x1 x2 i x (stepsFixedRight y1 y2 _ i hh hi), towardsFixed y1 y2 i y hh then
             combineHorizontal i (betweenFixed y1 y y2 hh)
         | False =>
           let same := diagonalSame x1 x2 y1 y2 shape
           let bounded := stepsDiagonal same hi
-          rewrite towardsEq x1 x2 i x bounded, towardsEq y1 y2 i y (rewrite <- same in bounded) in
-            combineDiagonal bounded (betweenBound x1 x x2) (h => rewrite same in betweenBound y1 y y2 h) (h =>
-              Void.exfalso (Bool.falseNotTrue h))
+          rewrite towardsEq x1 x2 i x bounded, towardsEq y1 y2 i y (rewrite <- same then bounded) then
+            combineDiagonal bounded (betweenBound x1 x x2) (h => rewrite same then betweenBound y1 y y2 h) (h =>
+              Void.impossible (Bool.falseNotTrue h))
 
 -- The spec's proportion, on these lines.
 
 theorem bothThen ∀ [p q: Bool] (bx by: Bool) (h: bx = True → by = True → p = q): (bx ∧ by ∧ p) = (bx ∧ by ∧ q) :=
   match bx, by with
-    | False, by => rfl
-    | True, False => rfl
-    | True, True => rewrite h rfl rfl in rfl
+    | False, by => byComputing
+    | True, False => byComputing
+    | True, True => rewrite h byComputing byComputing then byComputing
 
 theorem productZeroLeft ∀ (ax ay dx dy: Nat) (h1: ax = 0) (h2: dx = 0): (ax * dy == ay * dx) = True :=
-  rewrite h1, h2, Nat.mulZero ay in rfl
+  rewrite h1, h2, Nat.mulZero ay then byComputing
 
 theorem productZeroRight ∀ (ax ay dx dy: Nat) (h1: ay = 0) (h2: dy = 0): (ax * dy == ay * dx) = True :=
-  rewrite h1, h2, Nat.mulZero ax in rfl
+  rewrite h1, h2, Nat.mulZero ax then byComputing
 
 --| On a horizontal or vertical line, every point in the rectangle the ends
 --| span is on the line; on a diagonal one, those as far across as down.
@@ -253,8 +256,8 @@ theorem coversLinear ∀ (x1 y1 x2 y2 x y: Nat)
               (Nat.absDiff x1 x2)
               (Nat.absDiff y1 y2)
               (betweenFixed x1 x x2 hv bx)
-              (absDiffFixed x1 x2 hv) in
-          rfl
+              (absDiffFixed x1 x2 hv) then
+          byComputing
       | False =>
         match horizontal: y1 == y2 with
           | True =>
@@ -265,8 +268,8 @@ theorem coversLinear ∀ (x1 y1 x2 y2 x y: Nat)
                   (Nat.absDiff x1 x2)
                   (Nat.absDiff y1 y2)
                   (betweenFixed y1 y y2 hh by)
-                  (absDiffFixed y1 y2 hh) in
-              rfl
+                  (absDiffFixed y1 y2 hh) then
+              byComputing
           | False =>
             let same := diagonalSame x1 x2 y1 y2 shape
-            rewrite <- same in Nat.mulRightCancelBool (absDiffPositive x1 x2 vertical.read))
+            rewrite <- same then Nat.mulRightCancelBool (absDiffPositive x1 x2 vertical.read))

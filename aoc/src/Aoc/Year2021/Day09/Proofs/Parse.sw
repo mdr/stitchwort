@@ -26,4 +26,4 @@ theorem parseRectangular ∀ (input: Text) (map: HeightMap)
     (grid read made =>
       let same: ({ grid }: HeightMap) = map := Result.okInjective made
       let rectangle := And.left (parseGridRectangle input digit grid read)
-      rewrite <- same in rectangle row (rewrite <- same at member in member))
+      rewrite <- same then rectangle row (rewrite <- same at member then member))

@@ -6,9 +6,9 @@ expression: output
    ╭─[ reject/reify-missing-clause.sw:6:3 ]
    │
  6 │ ╭─▶   match reify t with
- 7 │ ├─▶     | return x => rfl
-   │ │                           
-   │ ╰─────────────────────────── `{Fail} a` may do that
+ 7 │ ├─▶     | return x => byComputing
+   │ │                                   
+   │ ╰─────────────────────────────────── `{Fail} a` may do that
    │     
    │     Note: a `match reify` needs a `return` clause and a clause for each operation of the computation's row
 ───╯
