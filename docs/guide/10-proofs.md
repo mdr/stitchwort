@@ -147,7 +147,7 @@ theorem lengthMapList ∀ (f: a → b) (xs: List a): (mapList f xs).length = xs.
 
 ## Rewriting and chains
 
-`rewrite p then t` uses an equation `p: a = b` to replace `a` with `b` in the goal, then proves what's left with `t`. With no `in`, what's left must hold by computing. Several rules are applied in order:
+`rewrite p then t` uses an equation `p: a = b` to replace `a` with `b` in the goal, then proves what's left with `t`. With no `then`, what's left must hold by computing. Several rules are applied in order:
 
 <!-- snippet: proofs.sw#rewrite -->
 ```stitchwort
