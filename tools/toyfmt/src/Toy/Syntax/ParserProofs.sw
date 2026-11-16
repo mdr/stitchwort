@@ -12,9 +12,7 @@ theorem runsAtomName ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (
     Parse.Runs (() => atom self layout) [token] rest (Var text (layout.comments token)) :=
   state starts honest =>
     let lengths: state.at.rest.length = rest.length + 1 := rewrite starts in rfl
-    Witness
-      (state.advance rest 1).at
-      (Both (rewrite starts, allowed, named, starts in rfl) (Both rfl (Both (omega [honest, lengths]) rfl)))
+    ((state.advance rest 1).at, (rewrite starts, allowed, named, starts in rfl), rfl, (omega [honest, lengths]), rfl)
 
 --| The kind of the next token as `suffixesFrom` sees it: `Stray ""` when
 --| there is none or the layout turns it away.
@@ -77,4 +75,4 @@ theorem runsSuffixesEnd ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located 
     let after := ((state.note (Parse.Problem.Expected "'('")).note (Parse.Problem.Expected "'.'")).at
     let same: after = state.at := rewrite Parse.noteAt, Parse.noteAt in rfl
     let run := suffixesEndRun fuel self layout target rest ends state starts
-    Witness state.at (Both (rewrite same at run in run) (Both starts (Both (rewrite starts at honest in honest) rfl)))
+    (state.at, (rewrite same at run in run), starts, (rewrite starts at honest in honest), rfl)

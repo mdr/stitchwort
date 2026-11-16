@@ -56,17 +56,17 @@ theorem trimWords ∀ (out: List Text): wordsOf (trimSpaces out).reverse = words
 theorem payIndentWritten ∀ (printer: Printer):
     printer.payIndent.written = printer.written ∧ printer.payIndent.suffixes = printer.suffixes :=
   match owed: printer.owed with
-    | None => Both rfl rfl
-    | Some Zero => Both rfl rfl
+    | None => (rfl, rfl)
+    | Some Zero => (rfl, rfl)
     | Some (Succ less) =>
-      Both (layoutSnoc (" ".repeat (Succ less)) printer.out (spacesIsLayout _ (indentSpaces (Succ less)))) rfl
+      ((layoutSnoc (" ".repeat (Succ less)) printer.out (spacesIsLayout _ (indentSpaces (Succ less)))), rfl)
 
 --| Text put on the line is the next word written, if it is one.
 theorem putWritten ∀ (printer: Printer) (text: Text) (width: Nat):
     (printer.put text width).written = printer.written ++ wordsOf [text]
       ∧ (printer.put text width).suffixes = printer.suffixes :=
   match payIndentWritten printer with
-    | Both written suffixes => Both (rewrite <- written in wordsSnoc text printer.payIndent.out) suffixes
+    | (written, suffixes) => ((rewrite <- written in wordsSnoc text printer.payIndent.out), suffixes)
 
 theorem flushOneWritten ∀ (printer: Printer) (comment: Text):
     (printer.flushOne comment).written = printer.written ++ wordsOf [comment]
@@ -74,24 +74,23 @@ theorem flushOneWritten ∀ (printer: Printer) (comment: Text):
   match start: printer.atLineStart with
     | True =>
       match payIndentWritten printer with
-        | Both written suffixes => Both (rewrite <- written in wordsSnoc comment printer.payIndent.out) suffixes
-    | False =>
-      Both (rewrite wordsSnoc comment [" ", ..printer.out] in rewrite layoutSnoc " " printer.out rfl in rfl) rfl
+        | (written, suffixes) => ((rewrite <- written in wordsSnoc comment printer.payIndent.out), suffixes)
+    | False => ((rewrite wordsSnoc comment [" ", ..printer.out] in rewrite layoutSnoc " " printer.out rfl in rfl), rfl)
 
 --| Comments flushed one after another are the next words written.
 theorem flushEachWritten ∀ (comments: List Text) (printer: Printer):
     (comments.foldLeft printer Printer.flushOne).written = printer.written ++ wordsOf comments
       ∧ (comments.foldLeft printer Printer.flushOne).suffixes = printer.suffixes :=
   match comments with
-    | [] => Both (Eq.sym (List.appendNil printer.written)) rfl
+    | [] => ((Eq.sym (List.appendNil printer.written)), rfl)
     | [comment, ..later] =>
       match flushOneWritten printer comment, flushEachWritten later (printer.flushOne comment) with
-        | Both written suffixes, Both laterWritten laterSuffixes =>
-          Both
-            (rewrite laterWritten, written in
-              rewrite List.appendAssoc printer.written (wordsOf [comment]) (wordsOf later) in
-                rewrite <- List.filterAppend [comment] later (piece => not (isLayout piece)) in rfl)
-            (Eq.trans laterSuffixes suffixes)
+        | (written, suffixes), (laterWritten, laterSuffixes) => (
+          (rewrite laterWritten, written in
+            rewrite List.appendAssoc printer.written (wordsOf [comment]) (wordsOf later) in
+              rewrite <- List.filterAppend [comment] later (piece => not (isLayout piece)) in rfl),
+          (Eq.trans laterSuffixes suffixes)
+        )
 
 --| Flushing writes the waiting comments: the words stay as they were,
 --| and none waits.
@@ -103,15 +102,15 @@ theorem flushWritten ∀ (printer: Printer):
 theorem newlineWritten ∀ (printer: Printer) (indent: Nat):
     (printer.newline indent).written = printer.words ∧ (printer.newline indent).suffixes = [] :=
   match flushWritten { printer | out = trimSpaces printer.out } with
-    | Both written suffixes =>
-      Both
-        (rewrite layoutSnoc "\n" ({ printer | out = trimSpaces printer.out }).flushSuffixes.out rfl in
-          rewrite <- trimWords printer.out in written)
-        suffixes
+    | (written, suffixes) => (
+      (rewrite layoutSnoc "\n" ({ printer | out = trimSpaces printer.out }).flushSuffixes.out rfl in
+        rewrite <- trimWords printer.out in written),
+      suffixes
+    )
 
 theorem newlineWords ∀ (printer: Printer) (indent: Nat): (printer.newline indent).words = printer.words :=
   match newlineWritten printer indent with
-    | Both written suffixes => rewrite written, suffixes in List.appendNil printer.words
+    | (written, suffixes) => rewrite written, suffixes in List.appendNil printer.words
 
 theorem emptyNil ∀ (items: List a) (empty: items.isEmpty = True): items = [] := match items, empty with | [], _ => rfl
 
@@ -120,7 +119,7 @@ theorem putClearWords ∀ (printer: Printer) (text: Text) (width: Nat)
     (clear: printer.suffixes = []):
     (printer.put text width).words = printer.written ++ wordsOf [text] :=
   match putWritten printer text width with
-    | Both written suffixes =>
+    | (written, suffixes) =>
       let whole: (printer.put text width).written ++ wordsOf (printer.put text width).suffixes
         = printer.written ++ wordsOf [text] :=
         rewrite written, suffixes, clear in List.appendNil (printer.written ++ wordsOf [text])
@@ -144,7 +143,7 @@ theorem writeWords ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat
             | True => Eq.sym (List.appendNil printer.words)
             | False =>
               match newlineWritten printer (printer.continuation indent) with
-                | Both brokenWritten brokenSuffixes =>
+                | (brokenWritten, brokenSuffixes) =>
                   rewrite <- brokenWritten in
                     putClearWords (printer.newline (printer.continuation indent)) text width brokenSuffixes
 
@@ -232,7 +231,7 @@ theorem stackUniformAppend ∀ (front back: List Cmd)
     StackUniform (front ++ back) :=
   match front, frontUniform with
     | [], _ => backUniform
-    | [cmd, ..rest], Both first others => Both first (stackUniformAppend rest back others backUniform)
+    | [cmd, ..rest], Both first others => (first, (stackUniformAppend rest back others backUniform))
 
 theorem printsWords ∀ (indent: Nat) (mode: Mode) (docs: List Doc):
     stackWords (docs.map (Print indent mode)) = wordsAll docs :=
@@ -245,7 +244,7 @@ theorem printsUniform ∀ (indent: Nat) (mode: Mode) (docs: List Doc)
     StackUniform (docs.map (Print indent mode)) :=
   match docs, uniform with
     | [], _ => rfl
-    | [doc, ..rest], Both first others => Both first (printsUniform indent mode rest others)
+    | [doc, ..rest], Both first others => (first, (printsUniform indent mode rest others))
 
 theorem fillSepsWords ∀ (indent: Nat) (items: List Doc): stackWords (items.map (FillSep indent)) = wordsAll items :=
   match items with
@@ -257,7 +256,7 @@ theorem fillSepsUniform ∀ (indent: Nat) (items: List Doc)
     StackUniform (items.map (FillSep indent)) :=
   match items, uniform with
     | [], _ => rfl
-    | [item, ..rest], Both first others => Both first (fillSepsUniform indent rest others)
+    | [item, ..rest], Both first others => (first, (fillSepsUniform indent rest others))
 
 --| The lines a flat fill puts between its items are no words.
 theorem joinLinesWords ∀ (items: List Doc): wordsAll (Doc.joinLines items) = wordsAll items := match items with
@@ -269,7 +268,7 @@ theorem joinLinesUniform ∀ (items: List Doc) (uniform: AllUniform items): AllU
   match items, uniform with
     | [], _ => rfl
     | [only], given => given
-    | [item, next, ..rest], Both first others => Both first (Both rfl (joinLinesUniform [next, ..rest] others))
+    | [item, next, ..rest], Both first others => (first, rfl, (joinLinesUniform [next, ..rest] others))
 
 --| What a choice may print has the words all its options have.
 theorem optionWords ∀ (chosen: Doc) (words: List Text) (option: Doc) (others: List Doc)
@@ -277,9 +276,9 @@ theorem optionWords ∀ (chosen: Doc) (words: List Text) (option: Doc) (others: 
     (same: SameWords words [option, ..others]):
     chosen.words = words :=
   match others, isOption, same with
-    | [], picked, Both first _ => rewrite picked in first
-    | [next, ..rest], Inl picked, Both first _ => rewrite picked in first
-    | [next, ..rest], Inr later, Both _ laterSame => optionWords chosen words next rest later laterSame
+    | [], picked, (first, _) => rewrite picked in first
+    | [next, ..rest], Inl picked, (first, _) => rewrite picked in first
+    | [next, ..rest], Inr later, (_, laterSame) => optionWords chosen words next rest later laterSame
 
 theorem optionUniform ∀ (chosen: Doc) (options: List Doc)
     (isOption: IsOption chosen options)
@@ -428,8 +427,8 @@ theorem stepUniform ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: 
     (restUniform: StackUniform rest):
     StackUniform result.snd :=
   match cmd, steps, uniform with
-    | FillSep indent item, Inl (Both _ flat), uniform => rewrite flat in Both uniform restUniform
-    | FillSep indent item, Inr broken, uniform => rewrite broken in Both uniform restUniform
+    | FillSep indent item, Inl (Both _ flat), uniform => rewrite flat in (uniform, restUniform)
+    | FillSep indent item, Inr broken, uniform => rewrite broken in (uniform, restUniform)
     | Print indent mode doc, steps, uniform =>
       match doc, steps, uniform with
         | Empty, steps, _ => rewrite steps in restUniform
@@ -451,12 +450,12 @@ theorem stepUniform ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: 
               restUniform
               restUniform
         | Blank, steps, _ => rewrite steps in restUniform
-        | Nest more inner, steps, uniform => rewrite steps in Both uniform restUniform
-        | OneLineBelow inner, steps, uniform => rewrite steps in Both rfl (Both uniform restUniform)
-        | Flatten inner, steps, uniform => rewrite steps in Both uniform restUniform
+        | Nest more inner, steps, uniform => rewrite steps in (uniform, restUniform)
+        | OneLineBelow inner, steps, uniform => rewrite steps in (rfl, uniform, restUniform)
+        | Flatten inner, steps, uniform => rewrite steps in (uniform, restUniform)
         | LineSuffix comment, steps, _ => rewrite steps in restUniform
-        | Group inner hard, Inl (Both _ flat), uniform => rewrite flat in Both uniform restUniform
-        | Group inner hard, Inr (Both _ broken), uniform => rewrite broken in Both uniform restUniform
+        | Group inner hard, Inl (Both _ flat), uniform => rewrite flat in (uniform, restUniform)
+        | Group inner hard, Inr (Both _ broken), uniform => rewrite broken in (uniform, restUniform)
         | Concat docs, steps, uniform =>
           rewrite steps in
             stackUniformAppend (docs.map (Print indent mode)) rest (printsUniform indent mode docs uniform) restUniform
@@ -470,16 +469,17 @@ theorem stepUniform ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: 
               restUniform
         | Fill [first, ..others], Inr (Both _ (Witness firstMode broken)), Both firstUniform othersUniform =>
           rewrite broken in
-            Both firstUniform
+            (
+              firstUniform,
               (stackUniformAppend
                 (others.map (FillSep indent))
                 rest
                 (fillSepsUniform indent others othersUniform)
                 restUniform)
-        | Choice options, Inl (Both _ flat), Both each _ =>
-          rewrite flat in Both (headOrUniform options each) restUniform
+            )
+        | Choice options, Inl (Both _ flat), Both each _ => rewrite flat in ((headOrUniform options each), restUniform)
         | Choice options, Inr (Both _ (Witness chosen (Both isOption broken))), Both each _ =>
-          rewrite broken in Both (optionUniform chosen options isOption each) restUniform
+          rewrite broken in ((optionUniform chosen options isOption each), restUniform)
 
 theorem optionSteps ∀ (chosen: Doc) (options: List Doc)
     (isOption: IsOption chosen options):

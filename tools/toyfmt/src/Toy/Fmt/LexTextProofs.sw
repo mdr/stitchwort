@@ -32,8 +32,7 @@ theorem escapeSegmentReads: Parse.Reads
         [p := () => Parse.satisfy "'\"', '\\' or 'n' after '\\'" isEscaped]
         [j := (escaped: Char) => ()]
         (Parse.readsSatisfy [what := "'\"', '\\' or 'n' after '\\'"] [passes := isEscaped])
-        (r2 escaped f2 =>
-          Parse.readsDone () _ (Inl (Witness escaped (Both (rewrite f1, And.left f2 in rfl) (And.right f2))))))
+        (r2 escaped f2 => Parse.readsDone () _ (Inl ((escaped, (rewrite f1, And.left f2 in rfl), (And.right f2))))))
 
 theorem plainSegmentReads: Parse.Reads
       (() =>
@@ -66,7 +65,7 @@ theorem stringLexemeReads: Parse.Reads stringLexeme (read u => StringRead read) 
         (r3 found maybe =>
           match found, maybe with
             | Some c, Both one quote =>
-              Parse.readsDone () _ (Witness r2 (Witness segments (Both (rewrite f1, one, quote.read in rfl) each)))
+              Parse.readsDone () _ ((r2, segments, (rewrite f1, one, quote.read in rfl), each))
             | None, _ => Parse.readsExpected "'\"' to close the string")))
 
 theorem nextUnitReads: Parse.Reads
@@ -120,8 +119,7 @@ theorem spanLexemeReads ∀ (start: Parse.Mark Char) (passes: Char → Bool) (le
               let done := Result.okInjective rest
               let valueSame: lexeme = value := Pair.mkInjectiveFst done
               let atSame: middle.at = after := Pair.mkInjectiveSnd done
-              Witness read
-                (rewrite <- atSame, <- valueSame in Both starts (Both honest1 (Both rfl (rewrite same in taken))))
+              (read, (rewrite <- atSame, <- valueSame in (starts, honest1, rfl, (rewrite same in taken))))
 
 theorem plainLexemeReads ∀ [p: () → {Parse Char} b] [first: List Char → b → Prop]
     (lexeme: Lexeme) (start: Parse.Mark Char)
@@ -148,8 +146,7 @@ theorem plainLexemeReads ∀ [p: () → {Parse Char} b] [first: List Char → b 
       here
       honest
       h with
-      | Witness read (Both starts (Both honestAfter same)) =>
-        Witness read (Both starts (Both honestAfter (Both same (shape read))))
+      | Witness read (Both starts (Both honestAfter same)) => (read, starts, honestAfter, same, (shape read))
 
 theorem stringLexemeRead ∀ (start: Parse.Mark Char):
     Parse.ReadsAt start (() => readLexeme StringLexeme) (read value =>
@@ -160,7 +157,7 @@ theorem stringLexemeRead ∀ (start: Parse.Mark Char):
     [spec := (read: List Char) (value: Lexeme) => value = StringLexeme ∧ LexemeRead StringLexeme start.rest read]
     (stringLexemeReads start { holds = Trivial })
     (r u after starts f =>
-      Parse.readsDone [inv := Parse.Invariant.any] StringLexeme _ (Both rfl (rewrite List.appendNil r in f)) after {
+      Parse.readsDone [inv := Parse.Invariant.any] StringLexeme _ ((rfl, (rewrite List.appendNil r in f))) after {
         holds = Trivial
       })
 
@@ -191,7 +188,7 @@ theorem lexemeReads: Parse.LexemeReads Parse.Invariant.any lexemeAt LexemeSpec :
       | Some lexeme =>
         match readLexemeReads start lexeme total state value after here honest h with
           | Witness read (Both starts (Both honestAfter (Both same shape))) =>
-            Witness read (Both starts (Both honestAfter (Both (rewrite same in e) (rewrite same in shape))))
+            (read, starts, honestAfter, (rewrite same in e), (rewrite same in shape))
 
 --| A source that lexed is its lexemes one after another (`steps`: what
 --| each read, and which it is), each read as [`LexemeSpec`] says, and the
@@ -302,7 +299,7 @@ theorem commentStarts ∀ (rest: List Char)
       match a: first == '-' with
         | True =>
           match b: second == '-' with
-            | True => Witness tail (rewrite a.read, b.read in rfl)
+            | True => (tail, (rewrite a.read, b.read in rfl))
 
 theorem classNoComment ∀ (char: Char) (same: CommentLexeme = charClass char): Void := match w: isWordStart char with
   | False =>
@@ -401,19 +398,18 @@ theorem lexemeText ∀ (read later: List Char) (lexeme: Lexeme)
           let isStart := wordStartOf first (others ++ later) starts
           let isChar := wordStartIsChar first isStart
           let all := takenAll isWordChar [first, ..others] ([first, ..others] ++ later) shape
-          Witness first (Witness others (Both rfl (Both isStart (rewrite isChar at all in all))))
+          (first, others, rfl, isStart, (rewrite isChar at all in all))
         | DigitsLexeme, starts, shape =>
           let isDigit := digitStartOf first (others ++ later) starts
           let all := takenAll (char => char.isAsciiDigit) [first, ..others] ([first, ..others] ++ later) shape
-          Witness first (Witness others (Both rfl (Both isDigit (rewrite isDigit at all in all))))
+          (first, others, rfl, isDigit, (rewrite isDigit at all in all))
         | CommentLexeme, starts, shape =>
           match commentStartOf ([first, ..others] ++ later) starts with
-            | Witness tail same =>
-              Witness
-                (tail.takeWhile (char => char != '\n'))
-                (Both
-                  (commentTaken [first, ..others] ([first, ..others] ++ later) tail shape same)
-                  (List.allTakeWhile (char => char != '\n') tail))
+            | Witness tail same => (
+              (tail.takeWhile (char => char != '\n')),
+              (commentTaken [first, ..others] ([first, ..others] ++ later) tail shape same),
+              (List.allTakeWhile (char => char != '\n') tail)
+            )
         | StringLexeme, _, shape => shape
         | Spaces, _, _ => rfl
         | LineBreak, _, _ => rfl
@@ -439,7 +435,7 @@ theorem lexRead ∀ (source: Text) (lexed: Lexed)
           match lexemesRead source found e with
             | Witness steps (Both joined (Both same lexemes)) =>
               let made := Result.okInjective h
-              Witness steps (rewrite <- made in Both joined (Both same (Both rfl (Both rfl lexemes))))
+              (steps, (rewrite <- made in (joined, same, rfl, rfl, lexemes)))
 
 --| Every step of a lex that succeeded read its kind's text
 --| ([`LexemeText`]): a word lexeme a word, a number digits, a comment `--`
@@ -452,7 +448,7 @@ theorem stepTexts ∀ (steps: List (List Char, Lexeme)) (lexemes: Parse.LexemesR
   match steps, lexemes with
     | [], _ => rfl
     | [(read, lexeme), ..later], Both nonEmpty (Both spec others) =>
-      Both (lexemeText read (Parse.joinReads later) lexeme nonEmpty spec) (stepTexts later others)
+      ((lexemeText read (Parse.joinReads later) lexeme nonEmpty spec), (stepTexts later others))
 
 -- The tokens `assemble` makes of such lexemes keep those texts.
 
@@ -489,8 +485,7 @@ theorem fineTriviaAppend ∀ (first second: List Trivia)
     FineTrivia (first ++ second) :=
   match first, fineFirst with
     | [], _ => fineSecond
-    | [OwnLine comment, ..rest], Both isComment others =>
-      Both isComment (fineTriviaAppend rest second others fineSecond)
+    | [OwnLine comment, ..rest], Both isComment others => (isComment, (fineTriviaAppend rest second others fineSecond))
     | [BlankLine, ..rest], others => fineTriviaAppend rest second others fineSecond
 
 theorem fineTriviaReverse ∀ (trivia: List Trivia) (fine: FineTrivia trivia): FineTrivia trivia.reverse :=
@@ -498,7 +493,7 @@ theorem fineTriviaReverse ∀ (trivia: List Trivia) (fine: FineTrivia trivia): F
     | [], _ => rfl
     | [OwnLine comment, ..rest], Both isComment others =>
       rewrite List.reverseCons (OwnLine comment) rest in
-        fineTriviaAppend rest.reverse [OwnLine comment] (fineTriviaReverse rest others) (Both isComment rfl)
+        fineTriviaAppend rest.reverse [OwnLine comment] (fineTriviaReverse rest others) ((isComment, rfl))
     | [BlankLine, ..rest], others =>
       rewrite List.reverseCons BlankLine rest in
         fineTriviaAppend rest.reverse [BlankLine] (fineTriviaReverse rest others) rfl
@@ -509,14 +504,14 @@ theorem fineTokensAppend ∀ (first second: List (Parse.Located Token))
     FineTokens (first ++ second) :=
   match first, fineFirst with
     | [], _ => fineSecond
-    | [token, ..rest], Both fine others => Both fine (fineTokensAppend rest second others fineSecond)
+    | [token, ..rest], Both fine others => (fine, (fineTokensAppend rest second others fineSecond))
 
 theorem fineTokensReverse ∀ (tokens: List (Parse.Located Token)) (fine: FineTokens tokens): FineTokens tokens.reverse :=
   match tokens, fine with
     | [], _ => rfl
     | [token, ..rest], Both fineToken others =>
       rewrite List.reverseCons token rest in
-        fineTokensAppend rest.reverse [token] (fineTokensReverse rest others) (Both fineToken rfl)
+        fineTokensAppend rest.reverse [token] (fineTokensReverse rest others) ((fineToken, rfl))
 
 theorem addBlankFine ∀ (pending: List Trivia) (fine: FineTrivia pending): FineTrivia (addBlank pending) :=
   match pending, fine with
@@ -530,12 +525,12 @@ theorem withTrailingFine ∀ (tokens: List (Parse.Located Token)) (comment: Pars
     FineTokens (withTrailing tokens comment) :=
   match tokens, fine with
     | [], _ => rfl
-    | [last, ..earlier], Both (Both kind (Both above trailing)) others => Both (Both kind (Both above isComment)) others
+    | [last, ..earlier], Both (Both kind (Both above trailing)) others => (((kind, above, isComment)), others)
 
 theorem wordKindFine ∀ (text: Text) (isWord: IsWord text): FineKind (wordKind text) :=
   match e: Keyword.fromWord text with
     | Some keyword => rfl
-    | None => Both isWord e
+    | None => (isWord, e)
 
 theorem symbolsKindFine ∀ (run: Text): FineKind (symbolsKind run) := cases
 
@@ -575,11 +570,11 @@ theorem codeFine ∀ (assembly: Assembly) (source: Text) (located: Parse.Located
     (code: isCode located.value = True):
     FineAssembly (assembly.add source located) :=
   match fine with
-    | Both tokens pending =>
+    | (tokens, pending) =>
       let kind: FineKind (lexemeKind located.value (cut source located)) :=
         rewrite cutSame in lexemeKindFine located.value read texts
       rewrite addCode assembly source located code in
-        Both (Both (Both kind (Both (fineTriviaReverse assembly.pending pending) rfl)) tokens) rfl
+        (((((kind, (fineTriviaReverse assembly.pending pending), rfl)), tokens)), rfl)
 
 --| `Assembly.add` of a lexeme whose slice of the source is its kind's text
 --| keeps the lexer's texts.
@@ -592,23 +587,23 @@ theorem addFine ∀ (assembly: Assembly) (source: Text) (located: Parse.Located 
     | { value = Spaces, offset, length }, _, _ => fine
     | { value = LineBreak, offset, length }, _, _ =>
       match fine with
-        | Both tokens pending =>
+        | (tokens, pending) =>
           match b: assembly.lineEmpty with
-            | True => Both tokens (addBlankFine assembly.pending pending)
-            | False => Both tokens pending
+            | True => (tokens, (addBlankFine assembly.pending pending))
+            | False => (tokens, pending)
     | { value = CommentLexeme, offset, length }, isComment, same =>
       match fine with
-        | Both tokens pending =>
+        | (tokens, pending) =>
           let cutComment := commentCut (cut source { value = CommentLexeme, offset, length }) read same isComment
           match b: assembly.lineEmpty with
-            | True => Both tokens (Both cutComment pending)
-            | False =>
-              Both
-                (withTrailingFine assembly.tokens
-                  { value = { text = cut source { value = CommentLexeme, offset, length } }, offset, length }
-                  tokens
-                  cutComment)
-                pending
+            | True => (tokens, cutComment, pending)
+            | False => (
+              (withTrailingFine assembly.tokens
+                { value = { text = cut source { value = CommentLexeme, offset, length } }, offset, length }
+                tokens
+                cutComment),
+              pending
+            )
     | { value = WordLexeme, offset, length }, texts, same =>
       codeFine assembly source { value = WordLexeme, offset, length } read same texts fine rfl
     | { value = DigitsLexeme, offset, length }, texts, same =>
@@ -651,18 +646,19 @@ theorem lexTexts ∀ (source: Text) (lexed: Lexed)
     (h: lex source = Ok lexed):
     FineTokens lexed.tokens ∧ FineTrivia lexed.endTrivia :=
   match lexRead source lexed h with
-    | Witness steps (Both joined (Both lexemesSame (Both tokensSame (Both triviaSame lexemes)))) =>
+    | (steps, joined, lexemesSame, tokensSame, triviaSame, lexemes) =>
       let made: source.toList = [] ++ (Parse.joinReads steps ++ []) :=
         rewrite List.appendNil (Parse.joinReads steps) in joined
-      match foldFine source steps [] [] made (stepTexts steps lexemes) Assembly.start (Both rfl rfl) with
-        | Both tokens pending =>
+      match foldFine source steps [] [] made (stepTexts steps lexemes) Assembly.start ((rfl, rfl)) with
+        | (tokens, pending) =>
           rewrite tokensSame, triviaSame, lexemesSame in
-            Both
+            (
               (fineTokensReverse
                 ((Parse.locatedSteps 0 steps).foldLeft Assembly.start (assembly lexeme =>
                   assembly.add source lexeme)).tokens
-                tokens)
+                tokens),
               (fineTriviaReverse
                 ((Parse.locatedSteps 0 steps).foldLeft Assembly.start (assembly lexeme =>
                   assembly.add source lexeme)).pending
                 pending)
+            )

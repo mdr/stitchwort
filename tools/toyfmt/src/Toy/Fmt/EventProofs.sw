@@ -219,9 +219,11 @@ theorem inlineStart ∀ (zone: Zone) (indent line: Nat) (above: List Comment)
     zone.allows (wordStart indent (aboveEnd indent (Mid line) above))
       ∧ (above = [] → wordStart indent (aboveEnd indent (Mid line) above) = None) :=
   match above with
-    | [] => Both (allowsNone zone) (same => rfl)
-    | [comment, ..rest] => Both (innerStart zone indent (Mid line) [comment, ..rest] inside onLine) (never =>
-      Void.exfalso (commentsNotNil comment rest never))
+    | [] => ((allowsNone zone), (same => rfl))
+    | [comment, ..rest] => (
+      (innerStart zone indent (Mid line) [comment, ..rest] inside onLine),
+      (never => Void.exfalso (commentsNotNil comment rest never))
+    )
 
 -- Events one after another.
 
@@ -229,19 +231,23 @@ theorem thenAssoc ∀ (first second third: List Event → Prop) (front back: Lis
     (both: Then first second front) (isThird: third back):
     Then first (Then second third) (front ++ back) :=
   match both with
-    | Witness begun (Witness ended (Both split (Both isFirst isSecond))) =>
-      Witness begun
-        (Witness
-          (ended ++ back)
-          (Both
-            (rewrite split in List.appendAssoc begun ended back)
-            (Both isFirst (Witness ended (Witness back (Both rfl (Both isSecond isThird)))))))
+    | (begun, ended, split, isFirst, isSecond) => (
+      begun,
+      (ended ++ back),
+      (rewrite split in List.appendAssoc begun ended back),
+      isFirst,
+      ended,
+      back,
+      rfl,
+      isSecond,
+      isThird
+    )
 
 theorem thenDone ∀ (spec: List Event → Prop) (events: List Event) (holds: spec events): Then spec Done events :=
-  Witness events (Witness [] (Both (Eq.sym (List.appendNil events)) (Both holds rfl)))
+  (events, [], (Eq.sym (List.appendNil events)), holds, rfl)
 
 theorem doneThen ∀ (spec: List Event → Prop) (events: List Event) (holds: spec events): Then Done spec events :=
-  Witness [] (Witness events (Both rfl (Both rfl holds)))
+  ([], events, rfl, rfl, holds)
 
 -- Rules whose leftmost token is the construct's.
 
@@ -267,9 +273,7 @@ theorem tokenHead ∀ (zone: Zone) (comments: Comments) (text: Text)
       (onward
         (tokenEnd indent place comments)
         (tokenEvents indent place comments text)
-        (Witness
-          (breakColumn indent place)
-          (Witness (wordStart indent (aboveEnd indent place comments.above)) (Both isHead rfl)))
+        (((breakColumn indent place), (wordStart indent (aboveEnd indent place comments.above)), isHead, rfl))
         (trailEnded zone _ comments.after (seatedHead zone indent place comments.above inside seated)))
 
 --| A construct's first document, then the rest of it.
@@ -293,7 +297,7 @@ theorem headCons ∀ (zone: Zone) (doc: Doc) (docs: List Doc) (above: List Comme
         (between front isFirst met =>
           others indent between (trace ++ front) next inside met (after back isSecond reached =>
             rewrite List.appendAssoc trace front back in
-              onward after (front ++ back) (Witness front (Witness back (Both rfl (Both isFirst isSecond)))) reached)))
+              onward after (front ++ back) ((front, back, rfl, isFirst, isSecond)) reached)))
 
 --| A construct that isn't its statement's first: its leftmost token
 --| starts where the zone allows.
@@ -357,7 +361,7 @@ theorem sepSeats ∀ (zone: Zone) (indent: Nat) (place: Place) (trace: List Even
     (ended: Ended zone place) (reached: ∀ (middle: Place) => Seated zone middle → next middle trace):
     SepLays indent place trace next :=
   match place, ended with
-    | Mid at, ended => Both (reached (Mid at) ended) (reached (AtStart indent) inside)
+    | Mid at, ended => ((reached (Mid at) ended), (reached (AtStart indent) inside))
     | Held at, ended => reached (AtStart indent) inside
 
 theorem softSeats ∀ (zone: Zone) (indent: Nat) (place: Place) (trace: List Event)
@@ -365,7 +369,7 @@ theorem softSeats ∀ (zone: Zone) (indent: Nat) (place: Place) (trace: List Eve
     (seated: Ended zone place) (reached: ∀ (middle: Place) => Seated zone middle → next middle trace):
     SoftLays indent place trace next :=
   match place, seated with
-    | Mid at, seated => Both (reached (Mid at) seated) (reached (AtStart indent) inside)
+    | Mid at, seated => ((reached (Mid at) seated), (reached (AtStart indent) inside))
     | Held at, seated => reached (AtStart indent) inside
 
 --| A `Line` before a token that may start a line at the statement's
@@ -386,10 +390,10 @@ theorem lineAll ∀ (zone: Zone) (docs: List Doc) (spec: List Event → Prop) (p
     RuleAll zone.under [Line, ..docs] (Ended zone) spec post :=
   indent place trace next inside ended onward =>
     match place, ended with
-      | Mid at, ended =>
-        Both
-          (rest indent (Mid at) trace next inside ended onward)
-          (rest indent (AtStart indent) trace next inside inside onward)
+      | Mid at, ended => (
+        (rest indent (Mid at) trace next inside ended onward),
+        (rest indent (AtStart indent) trace next inside inside onward)
+      )
       | Held at, ended => rest indent (AtStart indent) trace next inside inside onward
 
 --| A `,` or closing bracket after an expression: on the line below if
@@ -406,8 +410,8 @@ theorem closeAfterRule ∀ (zone: Zone) (expr: Expr) (doc: Doc) (spec: List Even
           place
           trace
           next
-          (Both
-            (endedMid zone place ended)
+          ((
+            (endedMid zone place ended),
             (Inr
               (rule indent
                 (AtStart indent)
@@ -415,7 +419,8 @@ theorem closeAfterRule ∀ (zone: Zone) (expr: Expr) (doc: Doc) (spec: List Even
                 (after later => LaysAll [] indent after later next)
                 inside
                 inside
-                onward)))
+                onward))
+          ))
       | False => rule indent place trace next inside (endedSeated zone place ended) onward
 
 -- A fill and a list joined by `Line` lay alike.
@@ -454,42 +459,42 @@ theorem joinedFill ∀ (docs: List Doc) (indent: Nat) (place: Place) (trace: Lis
 -- Token texts.
 
 theorem nameSolid ∀ (text: Text) (name: IsName text): Solid text := match name with
-  | Both word _ =>
+  | (word, _) =>
     match wordToken text word with
-      | Both solid _ => solid
+      | (solid, _) => solid
 
 theorem digitsSolid ∀ (text: Text) (number: IsDigits text): Solid text := match digitsToken text number with
-  | Both solid _ => solid
+  | (solid, _) => solid
 
 theorem stringSolid ∀ (text: Text) (string: IsString text): Solid text := match stringToken text string with
-  | Both solid _ => solid
+  | (solid, _) => solid
 
 theorem operatorSolid ∀ (operator: Operator): Solid operator.spelling := match operatorToken operator with
-  | Both solid _ => solid
+  | (solid, _) => solid
 
-theorem solidOpenParen: Solid "(" := Both rfl (Both rfl rfl)
+theorem solidOpenParen: Solid "(" := (rfl, rfl, rfl)
 
-theorem solidCloseParen: Solid ")" := Both rfl (Both rfl rfl)
+theorem solidCloseParen: Solid ")" := (rfl, rfl, rfl)
 
-theorem solidOpenSquare: Solid "[" := Both rfl (Both rfl rfl)
+theorem solidOpenSquare: Solid "[" := (rfl, rfl, rfl)
 
-theorem solidCloseSquare: Solid "]" := Both rfl (Both rfl rfl)
+theorem solidCloseSquare: Solid "]" := (rfl, rfl, rfl)
 
-theorem solidComma: Solid "," := Both rfl (Both rfl rfl)
+theorem solidComma: Solid "," := (rfl, rfl, rfl)
 
-theorem solidDot: Solid "." := Both rfl (Both rfl rfl)
+theorem solidDot: Solid "." := (rfl, rfl, rfl)
 
-theorem solidMinus: Solid "-" := Both rfl (Both rfl rfl)
+theorem solidMinus: Solid "-" := (rfl, rfl, rfl)
 
-theorem solidEquals: Solid "=" := Both rfl (Both rfl rfl)
+theorem solidEquals: Solid "=" := (rfl, rfl, rfl)
 
-theorem solidIf: Solid "if" := Both rfl (Both rfl rfl)
+theorem solidIf: Solid "if" := (rfl, rfl, rfl)
 
-theorem solidThen: Solid "then" := Both rfl (Both rfl rfl)
+theorem solidThen: Solid "then" := (rfl, rfl, rfl)
 
-theorem solidElse: Solid "else" := Both rfl (Both rfl rfl)
+theorem solidElse: Solid "else" := (rfl, rfl, rfl)
 
-theorem solidLet: Solid "let" := Both rfl (Both rfl rfl)
+theorem solidLet: Solid "let" := (rfl, rfl, rfl)
 
 -- Items between brackets.
 
@@ -682,10 +687,10 @@ def KeyStarts (zone: Zone) (above: List Comment) (pre: Place → Prop) (allowed:
 
 theorem endedStarts ∀ (zone: Zone) (above: List Comment): KeyStarts zone above (Ended zone) zone.allows :=
   indent place inside ended =>
-    Both (endedSeated zone place ended) (innerStart zone indent place above inside (endedInner zone place ended))
+    ((endedSeated zone place ended), (innerStart zone indent place above inside (endedInner zone place ended)))
 
 theorem seatedStarts ∀ (zone: Zone) (above: List Comment): KeyStarts zone above (Seated zone) zone.reaches :=
-  indent place inside seated => Both seated (seatedReach zone indent place above inside seated)
+  indent place inside seated => (seated, (seatedReach zone indent place above inside seated))
 
 --| The document of a body lays the body's events, from right after its
 --| keyword (`then`, `else` or `=`) with the keyword's trailing comment
@@ -713,7 +718,7 @@ theorem keyCons ∀ (zone: Zone) (keyword: Comments) (text: Text) (bodyDoc: Doc)
       post :=
   indent place trace next inside holds onward =>
     match starts indent place inside holds with
-      | Both seated isAllowed =>
+      | (seated, isAllowed) =>
         let written := tokenEvents indent place keyword text
         tokenLays keyword text indent place trace
           (after later => LaysAll [bodyDoc, ..docs] indent after later next)
@@ -731,15 +736,22 @@ theorem keyCons ∀ (zone: Zone) (keyword: Comments) (text: Text) (bodyDoc: Doc)
                   rewrite List.appendAssoc trace written (events ++ rest) in
                     onward last
                       (written ++ (events ++ rest))
-                      (Witness written
-                        (Witness
-                          (events ++ rest)
-                          (Both rfl
-                            (Both
-                              (Witness
-                                (breakColumn indent place)
-                                (Witness (wordStart indent (aboveEnd indent place keyword.above)) (Both isAllowed rfl)))
-                              (Witness events (Witness rest (Both rfl (Both isBody isRest))))))))
+                      ((
+                        written,
+                        (events ++ rest),
+                        rfl,
+                        ((
+                          (breakColumn indent place),
+                          (wordStart indent (aboveEnd indent place keyword.above)),
+                          isAllowed,
+                          rfl
+                        )),
+                        events,
+                        rest,
+                        rfl,
+                        isBody,
+                        isRest
+                      ))
                       met)))
 
 --| A keyword and its body, the last of their construct.
@@ -756,7 +768,7 @@ theorem keyLast ∀ (zone: Zone) (keyword: Comments) (text: Text) (bodyDoc: Doc)
       (Ended zone) :=
   indent place trace next inside holds onward =>
     match starts indent place inside holds with
-      | Both seated isAllowed =>
+      | (seated, isAllowed) =>
         let written := tokenEvents indent place keyword text
         tokenLays keyword text indent place trace
           (after later => LaysAll [bodyDoc] indent after later next)
@@ -772,14 +784,18 @@ theorem keyLast ∀ (zone: Zone) (keyword: Comments) (text: Text) (bodyDoc: Doc)
               rewrite List.appendAssoc trace written events in
                 onward reached
                   (written ++ events)
-                  (Witness written
-                    (Witness events
-                      (Both rfl
-                        (Both
-                          (Witness
-                            (breakColumn indent place)
-                            (Witness (wordStart indent (aboveEnd indent place keyword.above)) (Both isAllowed rfl)))
-                          isBody))))
+                  ((
+                    written,
+                    events,
+                    rfl,
+                    ((
+                      (breakColumn indent place),
+                      (wordStart indent (aboveEnd indent place keyword.above)),
+                      isAllowed,
+                      rfl
+                    )),
+                    isBody
+                  ))
                   ended))
 
 --| A body's one expression on its keyword's line, after a space.
@@ -826,11 +842,11 @@ theorem belowCore ∀ (zone: Zone) (blankBefore: Bool) (value: Expr)
     (reached events isValue ended =>
       onward reached events
         (Inr
-          (Witness
-            (indent + 2)
-            (Both
-              (holdsDeeper zone indent 1 inside)
-              (thenDone (Events (Deeper (indent + 2)) (atColumn (indent + 2)) value) events isValue))))
+          ((
+            (indent + 2),
+            (holdsDeeper zone indent 1 inside),
+            (thenDone (Events (Deeper (indent + 2)) (atColumn (indent + 2)) value) events isValue)
+          )))
         (endedUp zone (indent + 2) reached (holdsDeeper zone indent 1 inside) ended))
 
 theorem belowValue ∀ (zone: Zone) (blankBefore: Bool) (value: Expr)
@@ -850,12 +866,14 @@ theorem belowValue ∀ (zone: Zone) (blankBefore: Bool) (value: Expr)
     place
     trace
     next
-    (Both mid
+    ((
+      mid,
       (Inr
         (belowCore zone blankBefore value rules indent trace
           (after later => LaysAll [] (indent + 2) after later next)
           inside
-          onward)))
+          onward))
+    ))
 
 --| `let name = body`, a statement or a declaration: the keyword starts
 --| as `head` says, the name and `=` stand in the statement.
@@ -930,8 +948,8 @@ theorem bareAfterEquals ∀ (blankBefore: Bool) (value: Expr) (above: List Comme
       trace
       next :=
   match value, flat, opened, oneLine, under with
-    | ListLiteral open items close, flat, opened, oneLine, under => Both flat opened
-    | _, flat, opened, oneLine, under => Both flat (Both oneLine under)
+    | ListLiteral open items close, flat, opened, oneLine, under => (flat, opened)
+    | _, flat, opened, oneLine, under => (flat, oneLine, under)
 
 --| An `else` whose branch is one expression: an `if` stays on the
 --| `else`'s line when nothing would start a line between them.
@@ -980,8 +998,8 @@ theorem laterStart ∀ (index: Nat) (blankBefore: Bool) (column: Nat) (place: Pl
     (mid: place.midLine = True) (reached: next (AtStart column) (trace ++ blankEvents blankBefore)):
     Lays (lineStart (index + 1) blankBefore) column place trace next :=
   match blankBefore, reached with
-    | True, reached => Both mid (Inl reached)
-    | False, reached => Both mid (Inr (rewrite <- List.appendNil trace in reached))
+    | True, reached => (mid, (Inl reached))
+    | False, reached => (mid, (Inr (rewrite <- List.appendNil trace in reached)))
 
 --| An item and its comma.
 theorem itemRule ∀ (zone: Zone) (value: Expr) (comma: Comments)
@@ -1059,10 +1077,7 @@ theorem chainLays ∀ (level: Nat) (expr: Expr)
                   ended
                   (last linked isLink met =>
                     rewrite List.appendAssoc trace events linked in
-                      onward last
-                        (events ++ linked)
-                        (Witness events (Witness linked (Both rfl (Both isLeft isLink))))
-                        met))
+                      onward last (events ++ linked) ((events, linked, rfl, isLeft, isLink)) met))
         | False =>
           whole head indent place trace
             (after later => LaysAll more (indent + 2) after later next)
@@ -1451,10 +1466,7 @@ theorem exprLays ∀ (expr: Expr)
                 ended
                 (last linked isLink met =>
                   rewrite List.appendAssoc trace events linked in
-                    onward last
-                      (events ++ linked)
-                      (Witness events (Witness linked (Both rfl (Both isLeft isLink))))
-                      met))
+                    onward last (events ++ linked) ((events, linked, rfl, isLeft, isLink)) met))
         match found: chainParts operator.level left ++ [link operator sign right.layout] with
           | [first, ..links] =>
             chainLaid
@@ -1668,7 +1680,7 @@ theorem branchLays ∀ (zone: Zone) (keyword: Comments) (body: Body)
     | { statements = [{ blankBefore, line = Bare value }] }, Both (Both lexValue _) _ =>
       match keyword with
         | { above, after = None } => indent line trace next inside onLine onward =>
-          Both
+          (
             (concatLays
               [Doc.text " ", Flatten value.layout]
               indent
@@ -1683,7 +1695,7 @@ theorem branchLays ∀ (zone: Zone) (keyword: Comments) (body: Body)
                 next
                 inside
                 onLine
-                (reached events isValue ended => onward reached events (Inl isValue) ended)))
+                (reached events isValue ended => onward reached events (Inl isValue) ended))),
             (belowValue zone blankBefore value
               (inner => exprLays value lexValue inner)
               indent
@@ -1693,6 +1705,7 @@ theorem branchLays ∀ (zone: Zone) (keyword: Comments) (body: Body)
               next
               inside
               onward)
+          )
         | { above, after = Some trailing } => indent line trace next inside onLine onward =>
           belowValue zone blankBefore value
             (inner => exprLays value lexValue inner)
@@ -1750,7 +1763,7 @@ theorem elseBranchLays ∀ (zone: Zone) (elseComments: Comments) (body: Body)
         (exprLays value lexValue zone)
         (branchLays zone elseComments
           { statements = [{ blankBefore, line = Bare value }] }
-          (Both (Both lexValue done) closed))
+          ((((lexValue, done)), closed)))
     | { statements = [] }, lexical => branchLays zone elseComments { statements = [] } lexical
     | { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }] }, lexical =>
       branchLays zone elseComments
@@ -1815,14 +1828,16 @@ theorem afterEqualsLays ∀ (zone: Zone) (equals: Comments) (body: Body)
                 inside
                 onLine
                 (reached events isValue ended => onward reached events (Inl isValue) ended)))
-            (Both rfl
+            ((
+              rfl,
               (belowCore zone blankBefore value
                 (inner => exprLays value lexValue inner)
                 indent
                 trace
                 next
                 inside
-                onward))
+                onward)
+            ))
             (belowValue zone blankBefore value
               (inner => exprLays value lexValue inner)
               indent
@@ -1930,7 +1945,7 @@ theorem linesLay ∀ (first: Spaced Statement) (rest: List (Spaced Statement))
         (reached events isLine ended =>
           laterLay 0 rest others column reached (trace ++ events) next ended (last later areLines met =>
             rewrite List.appendAssoc trace events later in
-              onward last (events ++ later) (Witness events (Witness later (Both rfl (Both isLine areLines)))) met))
+              onward last (events ++ later) ((events, later, rfl, isLine, areLines)) met))
 
 --| The lines of a block after its first, the first of these the
 --| `index + 1`th: each on a new line at the column, after a blank line
@@ -1967,9 +1982,7 @@ theorem laterLay ∀ (index: Nat) (lines: List (Spaced Statement))
                     List.appendAssoc trace (blankEvents blankBefore) (events ++ later) in
                   onward last
                     (blankEvents blankBefore ++ (events ++ later))
-                    (Witness
-                      (events ++ later)
-                      (Both rfl (Witness events (Witness later (Both rfl (Both isLine areLines))))))
+                    (((events ++ later), rfl, events, later, rfl, isLine, areLines))
                     done)))
 
 --| A statement of a block at `column`, from the start of its line.
@@ -2415,16 +2428,18 @@ theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments open:
                       rewrite List.appendAssoc trace events rest in
                         onward reached
                           (events ++ rest)
-                          (Witness events
-                            (Witness rest
-                              (Both rfl
-                                (Both isOpening
-                                  (doneThen
-                                    (Then
-                                      (TokenAt anyStart close ")")
-                                      (Then (TokenAt (Deeper 0).allows equals "=") (BodyEvents (Deeper 0) body)))
-                                    rest
-                                    isClosing)))))
+                          ((
+                            events,
+                            rest,
+                            rfl,
+                            isOpening,
+                            (doneThen
+                              (Then
+                                (TokenAt anyStart close ")")
+                                (Then (TokenAt (Deeper 0).allows equals "=") (BodyEvents (Deeper 0) body)))
+                              rest
+                              isClosing)
+                          ))
                           met))))
         | [first, ..others], lexParameters, onward =>
           let listed := Nest 4 (Doc.concat [SoftLine, joined (parameterDocs [first, ..others]) Line])
@@ -2507,13 +2522,17 @@ theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments open:
                                 rewrite List.appendAssoc trace events (listedEvents ++ rest) in
                                   onward reached
                                     (events ++ (listedEvents ++ rest))
-                                    (Witness events
-                                      (Witness
-                                        (listedEvents ++ rest)
-                                        (Both rfl
-                                          (Both isOpening
-                                            (Witness listedEvents
-                                              (Witness rest (Both rfl (Both areParameters isClosing))))))))
+                                    ((
+                                      events,
+                                      (listedEvents ++ rest),
+                                      rfl,
+                                      isOpening,
+                                      listedEvents,
+                                      rest,
+                                      rfl,
+                                      areParameters,
+                                      isClosing
+                                    ))
                                     met))))))
 
 --| A declaration, from the start of its line at column 0.
@@ -2582,7 +2601,7 @@ theorem declarationsLay ∀ (first: Spaced Declaration) (rest: List (Spaced Decl
           (reached events isLine ended =>
             laterDeclarationsLay 0 rest others reached (trace ++ events) next ended (last later areLines met =>
               rewrite List.appendAssoc trace events later in
-                onward last (events ++ later) (Witness events (Witness later (Both rfl (Both isLine areLines)))) met)))
+                onward last (events ++ later) ((events, later, rfl, isLine, areLines)) met)))
 
 --| A file's declarations after its first, the first of these the
 --| `index + 1`th: each on a new line at column 0, after a blank line if
@@ -2628,9 +2647,7 @@ theorem laterDeclarationsLay ∀ (index: Nat) (lines: List (Spaced Declaration))
                       List.appendAssoc trace (blankEvents blankBefore) (events ++ later) in
                     onward last
                       (blankEvents blankBefore ++ (events ++ later))
-                      (Witness
-                        (events ++ later)
-                        (Both rfl (Witness events (Witness later (Both rfl (Both isLine areLines))))))
+                      (((events ++ later), rfl, events, later, rfl, isLine, areLines))
                       done))))
 
 --| Every way a file's layout may print lays the file's events.
@@ -2657,7 +2674,7 @@ theorem fileLays ∀ (file: SourceFile)
           (declarationsLay first rest lexical []
             (after later => LaysAll [HardLine] 0 after later next)
             (reached events areLines ended =>
-              Both (endedMid (Deeper 0) reached ended) (Inr (onward (AtStart 0) events areLines)))))
+              ((endedMid (Deeper 0) reached ended), (Inr (onward (AtStart 0) events areLines))))))
 
 --| Where the rules put every word of a file that satisfies what the
 --| parser guarantees: at every width, the words of the printed pieces
@@ -2671,7 +2688,7 @@ theorem printedEvents ∀ (file: SourceFile) (width: Nat)
     file.layout
     width
     (fileLays file lexical (place events => FileEvents file events) (reached events holds => holds)) with
-    | Witness place holds => holds
+    | (place, holds) => holds
 
 --| `printedEvents` of every parsed file.
 theorem parsedPrintEvents ∀ (source: Text) (file: SourceFile) (width: Nat)

@@ -62,7 +62,7 @@ theorem gapChars ∀ (piece: Text)
     | MkText [], _, never => Void.exfalso (Bool.falseNotTrue (Eq.sym never))
     | MkText [first, ..tail], gap, _ =>
       match isSpace: first == ' ', gap with
-        | True, spaces => Witness tail (Both (Eq.cong ((char: Char) => [char, ..tail]) (DecEq.sound isSpace)) spaces)
+        | True, spaces => (tail, (Eq.cong ((char: Char) => [char, ..tail]) (DecEq.sound isSpace)), spaces)
         | False, never => Void.exfalso (Bool.falseNotTrue never)
 
 theorem spacesAppend ∀ (front back: List Char)
@@ -144,7 +144,7 @@ theorem gapStep ∀ (tail read: List Char) (lexeme: Lexeme) (more: List (List Ch
     (noSpace: StopsAt (char => char == ' ') (read ++ Parse.joinReads more))
     (stand: StepsStand [(read, lexeme), ..more]):
     StepsStand [([' ', ..tail], Spaces), (read, lexeme), ..more] :=
-  Both (Witness tail (Both rfl (Both spaces noSpace))) stand
+  (((tail, rfl, spaces, noSpace)), stand)
 
 --| Spaces before steps that stand: one more step, or more of the first.
 theorem gapConsStand ∀ (tail: List Char) (steps: List (List Char, Lexeme))
@@ -152,43 +152,39 @@ theorem gapConsStand ∀ (tail: List Char) (steps: List (List Char, Lexeme))
     (stand: StepsStand steps):
     StepsStand (gapCons [' ', ..tail] steps) :=
   match steps, stand with
-    | [], _ => Both (Witness tail (Both rfl (Both spaces rfl))) rfl
+    | [], _ => (((tail, rfl, spaces, rfl)), rfl)
     | [(read, lexeme), ..more], Both first rest =>
       match lexeme, first with
         | Spaces, Witness others (Both same (Both moreSpaces stops)) =>
-          Both
-            (Witness
-              (tail ++ read)
-              (Both rfl (Both (spacesAppend tail read spaces (rewrite same in moreSpaces)) stops)))
-            rest
+          ((((tail ++ read), rfl, (spacesAppend tail read spaces (rewrite same in moreSpaces)), stops)), rest)
         | LineBreak, first =>
           gapStep tail read LineBreak more spaces
             (standsNoSpace LineBreak read (Parse.joinReads more) (Parse.joinReads more) first (same => cases))
-            (Both first rest)
+            ((first, rest))
         | CommentLexeme, first =>
           gapStep tail read CommentLexeme more spaces
             (standsNoSpace CommentLexeme read (Parse.joinReads more) (Parse.joinReads more) first (same => cases))
-            (Both first rest)
+            ((first, rest))
         | WordLexeme, first =>
           gapStep tail read WordLexeme more spaces
             (standsNoSpace WordLexeme read (Parse.joinReads more) (Parse.joinReads more) first (same => cases))
-            (Both first rest)
+            ((first, rest))
         | DigitsLexeme, first =>
           gapStep tail read DigitsLexeme more spaces
             (standsNoSpace DigitsLexeme read (Parse.joinReads more) (Parse.joinReads more) first (same => cases))
-            (Both first rest)
+            ((first, rest))
         | StringLexeme, first =>
           gapStep tail read StringLexeme more spaces
             (standsNoSpace StringLexeme read (Parse.joinReads more) (Parse.joinReads more) first (same => cases))
-            (Both first rest)
+            ((first, rest))
         | SignLexeme, first =>
           gapStep tail read SignLexeme more spaces
             (standsNoSpace SignLexeme read (Parse.joinReads more) (Parse.joinReads more) first (same => cases))
-            (Both first rest)
+            ((first, rest))
         | SymbolsLexeme, first =>
           gapStep tail read SymbolsLexeme more spaces
             (standsNoSpace SymbolsLexeme read (Parse.joinReads more) (Parse.joinReads more) first (same => cases))
-            (Both first rest)
+            ((first, rest))
         | StrayLexeme, never => Void.exfalso (Bool.falseNotTrue never)
 
 theorem addPieceJoin ∀ (piece: Text) (steps: List (List Char, Lexeme)):
@@ -214,8 +210,7 @@ theorem wordStands ∀ (before piece: Text) (steps: List (List Char, Lexeme))
       match gap: piece.all (char => char == ' '), ok with
         | True, ok =>
           match gapChars piece gap filled with
-            | Witness tail (Both same spaces) =>
-              rewrite gapConsJoin piece.toList steps, same in ok (tail ++ Parse.joinReads steps)
+            | (tail, same, spaces) => rewrite gapConsJoin piece.toList steps, same in ok (tail ++ Parse.joinReads steps)
         | False, ok =>
           match isBreak: piece == "\n" with
             | True => beforeBreak (Parse.joinReads steps)
@@ -232,15 +227,15 @@ theorem addStands ∀ (before piece: Text) (steps: List (List Char, Lexeme))
   match gap: before.all (char => char == ' ') with
     | True =>
       match gapChars before gap filledBefore with
-        | Witness tail (Both same spaces) => rewrite same in gapConsStand tail (addPiece piece steps) spaces stand
+        | (tail, same, spaces) => rewrite same in gapConsStand tail (addPiece piece steps) spaces stand
     | False =>
       match isBreak: before == "\n" with
-        | True => Both rfl stand
+        | True => (rfl, stand)
         | False =>
           match proper, pair with
             | Inl layout, _ => Void.exfalso (Bool.falseNotTrue layout)
             | Inr _, Inl layout => Void.exfalso (Bool.falseNotTrue layout)
-            | Inr (Both _ beforeBreak), Inr after => Both (wordStands before piece steps beforeBreak after filled) stand
+            | Inr ((_, beforeBreak)), Inr after => ((wordStands before piece steps beforeBreak after filled), stand)
 
 --| The last piece stands before the end of the text.
 theorem addLast ∀ (piece: Text)
@@ -250,14 +245,14 @@ theorem addLast ∀ (piece: Text)
   match gap: piece.all (char => char == ' ') with
     | True =>
       match gapChars piece gap filled with
-        | Witness tail (Both same spaces) => rewrite same in Both (Witness tail (Both rfl (Both spaces rfl))) rfl
+        | (tail, same, spaces) => rewrite same in (((tail, rfl, spaces, rfl)), rfl)
     | False =>
       match isBreak: piece == "\n" with
-        | True => Both rfl rfl
+        | True => (rfl, rfl)
         | False =>
           match proper with
             | Inl layout => Void.exfalso (Bool.falseNotTrue layout)
-            | Inr (Both atEnd _) => Both atEnd rfl
+            | Inr ((atEnd, _)) => (atEnd, rfl)
 
 theorem ontoStand ∀ (piece: Text) (earlier: List Text) (steps: List (List Char, Lexeme))
     (pairs: Pairs standsBefore [piece, ..earlier])
@@ -269,8 +264,8 @@ theorem ontoStand ∀ (piece: Text) (earlier: List Text) (steps: List (List Char
     | [before, ..more], Both filled (Both pair (Both filledBefore after)), Both _ (Both properBefore properMore) =>
       ontoStand before more
         (addPiece piece steps)
-        (Both filledBefore after)
-        (Both properBefore properMore)
+        ((filledBefore, after))
+        ((properBefore, properMore))
         (addStands before piece steps pair properBefore filledBefore filled stand)
 
 --| Printed pieces (the last first), each word standing before the piece
@@ -283,7 +278,7 @@ theorem piecesStand ∀ (out: List Text)
   match out, pairs, proper with
     | [], _, _ => rfl
     | [piece, ..earlier], Both filled rest, Both first others =>
-      ontoStand piece earlier [] (Both filled rest) (Both first others) (addLast piece first filled)
+      ontoStand piece earlier [] ((filled, rest)) ((first, others)) (addLast piece first filled)
 
 --| The steps read the pieces' characters.
 theorem ontoJoin ∀ (out: List Text) (steps: List (List Char, Lexeme)):
@@ -338,8 +333,8 @@ theorem properSnoc ∀ (pieces: List Text) (last: Text)
     (lastProper: Proper last):
     AllProper (pieces ++ [last]) :=
   match pieces, proper with
-    | [], _ => Both lastProper rfl
-    | [piece, ..rest], Both first others => Both first (properSnoc rest last others lastProper)
+    | [], _ => (lastProper, rfl)
+    | [piece, ..rest], Both first others => (first, (properSnoc rest last others lastProper))
 
 theorem properReverse ∀ (pieces: List Text) (proper: AllProper pieces): AllProper pieces.reverse :=
   match pieces, proper with
@@ -353,5 +348,5 @@ theorem properOfWords ∀ (pieces: List Text) (proper: AllProper (wordsOf pieces
     | [], _ => rfl
     | [piece, ..rest], proper =>
       match layout: isLayout piece, proper with
-        | True, others => Both (Inl rfl) (properOfWords rest others)
-        | False, Both first others => Both first (properOfWords rest others)
+        | True, others => ((Inl rfl), (properOfWords rest others))
+        | False, Both first others => (first, (properOfWords rest others))

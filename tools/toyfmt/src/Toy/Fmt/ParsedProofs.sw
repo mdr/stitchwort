@@ -32,7 +32,7 @@ def Good (token: Parse.Located Token): Prop :=
 theorem fineAbove ∀ (trivia: List Trivia) (fine: FineTrivia trivia): FineAbove (ownLineComments trivia) :=
   match trivia, fine with
     | [], _ => rfl
-    | [OwnLine comment, ..rest], Both isComment others => Both isComment (fineAbove rest others)
+    | [OwnLine comment, ..rest], Both isComment others => (isComment, (fineAbove rest others))
     | [BlankLine, ..rest], others => fineAbove rest others
 
 theorem fineAfter ∀ (trailing: Option (Parse.Located Comment))
@@ -45,11 +45,11 @@ theorem fineAfter ∀ (trailing: Option (Parse.Located Comment))
 --| The comments the tree keeps of a good token are comments.
 theorem fineComments ∀ (layout: Layout) (token: Parse.Located Token) (good: Good token): Fine (layout.comments token) :=
   match layout with
-    | InBrackets => Both (fineAbove token.value.above good.right.left) (fineAfter token.value.trailing good.right.right)
+    | InBrackets => ((fineAbove token.value.above good.right.left), (fineAfter token.value.trailing good.right.right))
     | InStatement column start =>
       match same: token.offset == start with
-        | True => Both rfl (fineAfter token.value.trailing good.right.right)
-        | False => Both (fineAbove token.value.above good.right.left) (fineAfter token.value.trailing good.right.right)
+        | True => (rfl, (fineAfter token.value.trailing good.right.right))
+        | False => ((fineAbove token.value.above good.right.left), (fineAfter token.value.trailing good.right.right))
 
 theorem selectedComments ∀ (layout: Layout) (select: Kind → Option a) (token: Parse.Located Token) (comments: Comments)
     (selected: selectComments layout select token = Some comments):
@@ -70,7 +70,7 @@ theorem selectedName ∀ (layout: Layout) (token: Parse.Located Token) (named: (
   match allowed: layout.allows token with
     | True =>
       match kind: token.value.kind with
-        | Name text => rewrite <- Option.someInjective selected in Both goodKind fine
+        | Name text => rewrite <- Option.someInjective selected in (goodKind, fine)
 
 -- Items.
 
@@ -80,9 +80,9 @@ theorem lexicalItemsAppend ∀ (front: List Item) (last: Item)
     (lastFine: Fine last.comma):
     LexicalItems (front ++ [last]) :=
   match front, lexical, last, lastLexical, lastFine with
-    | [], lexical, { value, comma }, lastLexical, lastFine => Both lastLexical (Both lastFine rfl)
+    | [], lexical, { value, comma }, lastLexical, lastFine => (lastLexical, lastFine, rfl)
     | [{ value, comma }, ..rest], Both valueLexical (Both commaFine restLexical), last, lastLexical, lastFine =>
-      Both valueLexical (Both commaFine (lexicalItemsAppend rest last restLexical lastLexical lastFine))
+      (valueLexical, commaFine, (lexicalItemsAppend rest last restLexical lastLexical lastFine))
 
 theorem lexicalItemsReverse ∀ (found: List Item) (lexical: LexicalItems found): LexicalItems found.reverse :=
   match found, lexical with
@@ -113,7 +113,7 @@ theorem operatorCarries ∀ (layout: Layout) (token: Parse.Located Token):
   match operatorOfKinds layout token with
     | Inl none => rewrite none 1, none 2, none 3, none 4, none 5, none 6 in rfl
     | Inr (Witness operator (Both kind allowed)) =>
-      rewrite operatorFound layout token operator kind allowed in Witness operator rfl
+      rewrite operatorFound layout token operator kind allowed in (operator, rfl)
 
 --| An operator read between two expressions with the lexer's texts makes
 --| one: its comments are its token's.
@@ -129,26 +129,25 @@ theorem lexicalStep ∀ (layout: Layout) (lowest highest level: Nat) (associativ
   let carried := operatorCarries layout item
   let known := rewrite found at carried in carried
   match known with
-    | Witness operator isBinary =>
-      rewrite isBinary in Both (fineComments layout item good) (Both leftLexical rightLexical)
+    | Witness operator isBinary => rewrite isBinary in ((fineComments layout item good), leftLexical, rightLexical)
 
 theorem fineCleared ∀ (comments: Comments) (fine: Fine comments): Fine { comments | above = [] } := Both rfl fine.right
 
 --| Clearing the comments above the first token keeps the lexer's texts.
 theorem lexicalCleared ∀ (expr: Expr) (lexical: Lexical expr): Lexical expr.withoutFirstAbove :=
   match expr, lexical with
-    | Var name comments, Both isName fine => Both isName (fineCleared comments fine)
-    | NumberLiteral digits comments, Both isDigits fine => Both isDigits (fineCleared comments fine)
-    | StringLiteral written comments, Both isString fine => Both isString (fineCleared comments fine)
-    | Bracketed open inner close, Both fine others => Both (fineCleared open fine) others
-    | ListLiteral open items close, Both fine others => Both (fineCleared open fine) others
-    | Call callee open arguments close, Both lexicalCallee others => Both (lexicalCleared callee lexicalCallee) others
-    | Field target dot name nameComments, Both lexicalTarget others => Both (lexicalCleared target lexicalTarget) others
-    | Negate minus operand, Both fine others => Both (fineCleared minus fine) others
+    | Var name comments, Both isName fine => (isName, (fineCleared comments fine))
+    | NumberLiteral digits comments, Both isDigits fine => (isDigits, (fineCleared comments fine))
+    | StringLiteral written comments, Both isString fine => (isString, (fineCleared comments fine))
+    | Bracketed open inner close, Both fine others => ((fineCleared open fine), others)
+    | ListLiteral open items close, Both fine others => ((fineCleared open fine), others)
+    | Call callee open arguments close, Both lexicalCallee others => ((lexicalCleared callee lexicalCallee), others)
+    | Field target dot name nameComments, Both lexicalTarget others => ((lexicalCleared target lexicalTarget), others)
+    | Negate minus operand, Both fine others => ((fineCleared minus fine), others)
     | Binary operator sign left right, Both fine (Both lexicalLeft lexicalRight) =>
-      Both fine (Both (lexicalCleared left lexicalLeft) lexicalRight)
+      (fine, (lexicalCleared left lexicalLeft), lexicalRight)
     | If ifComments condition thenComments whenTrue elseComments whenFalse, Both fine others =>
-      Both (fineCleared ifComments fine) others
+      ((fineCleared ifComments fine), others)
 
 theorem lexicalHeaded ∀ (layout: Layout) (expr: Expr) (lexical: Lexical expr): Lexical (layout.headed expr) :=
   match layout with
@@ -167,7 +166,7 @@ theorem lexicalLinesAppend ∀ (front back: List (Spaced Statement))
   match front, frontLexical with
     | [], frontLexical => backLexical
     | [{ blankBefore, line }, ..rest], Both lineLexical restLexical =>
-      Both lineLexical (lexicalLinesAppend rest back restLexical backLexical)
+      (lineLexical, (lexicalLinesAppend rest back restLexical backLexical))
 
 theorem lexicalNotes ∀ (trivia: List Trivia) (found: (List (Spaced Statement), Bool))
     (fine: FineTrivia trivia)
@@ -183,7 +182,7 @@ theorem lexicalNotes ∀ (trivia: List Trivia) (found: (List (Spaced Statement),
         (lexicalLinesAppend found.fst
           [{ blankBefore = found.snd, line = StatementNote comment }]
           lexical
-          (Both isComment rfl))
+          ((isComment, rfl)))
 
 --| A statement's lines, the notes above it and itself, have the lexer's
 --| texts when it has and the trivia above it are the lexer's.
@@ -193,14 +192,14 @@ theorem lexicalNoted ∀ (above: List Trivia) (line: Statement)
     LexicalLines (notedStatement above line) :=
   let notesLexical: LexicalLines (spacedNotes StatementNote above).fst := lexicalNotes above ([], False) fine rfl
   match found: spacedNotes StatementNote above with
-    | (notes, blankBefore) => lexicalLinesAppend notes [{ blankBefore, line }] notesLexical (Both lexical rfl)
+    | (notes, blankBefore) => lexicalLinesAppend notes [{ blankBefore, line }] notesLexical ((lexical, rfl))
 
 theorem lexicalWithoutFirstBlank ∀ (lines: List (Spaced Statement))
     (lexical: LexicalLines lines):
     LexicalLines (withoutFirstBlank lines) :=
   match lines, lexical with
     | [], lexical => rfl
-    | [{ blankBefore, line }, ..rest], Both lineLexical restLexical => Both lineLexical restLexical
+    | [{ blankBefore, line }, ..rest], Both lineLexical restLexical => (lineLexical, restLexical)
 
 --| Lines with the lexer's texts that end in a statement.
 def ClosedLexical (lines: List (Spaced Statement)): Prop := LexicalLines lines ∧ ClosedLines lines
@@ -229,9 +228,9 @@ theorem lexicalWithCommas ∀ (first: (Text, Comments)) (others: List (Comments,
     (steps: List.All FineStep others):
     LexicalParameters (withCommas first others) :=
   match others, steps with
-    | [], _ => Both named.left (Both named.right (Both (Both rfl rfl) rfl))
+    | [], _ => (named.left, named.right, ((rfl, rfl)), rfl)
     | [(comma, next), ..rest], Both (Both commaFine nextNamed) more =>
-      Both named.left (Both named.right (Both commaFine (lexicalWithCommas next rest nextNamed more)))
+      (named.left, named.right, commaFine, (lexicalWithCommas next rest nextNamed more))
 
 theorem lexicalDeclarationsAppend ∀ (front back: List (Spaced Declaration))
     (frontLexical: LexicalDeclarations front)
@@ -240,7 +239,7 @@ theorem lexicalDeclarationsAppend ∀ (front back: List (Spaced Declaration))
   match front, frontLexical with
     | [], frontLexical => backLexical
     | [{ blankBefore, line }, ..rest], Both lineLexical restLexical =>
-      Both lineLexical (lexicalDeclarationsAppend rest back restLexical backLexical)
+      (lineLexical, (lexicalDeclarationsAppend rest back restLexical backLexical))
 
 theorem lexicalDeclarationNotes ∀ (trivia: List Trivia) (found: (List (Spaced Declaration), Bool))
     (fine: FineTrivia trivia)
@@ -257,7 +256,7 @@ theorem lexicalDeclarationNotes ∀ (trivia: List Trivia) (found: (List (Spaced 
         (lexicalDeclarationsAppend found.fst
           [{ blankBefore = found.snd, line = DeclarationNote comment }]
           lexical
-          (Both isComment rfl))
+          ((isComment, rfl)))
 
 theorem lexicalNotedDeclaration ∀ (above: List Trivia) (line: Declaration)
     (fine: FineTrivia above)
@@ -266,14 +265,14 @@ theorem lexicalNotedDeclaration ∀ (above: List Trivia) (line: Declaration)
   let notesLexical: LexicalDeclarations (spacedNotes DeclarationNote above).fst :=
     lexicalDeclarationNotes above ([], False) fine rfl
   match found: spacedNotes DeclarationNote above with
-    | (notes, blankBefore) => lexicalDeclarationsAppend notes [{ blankBefore, line }] notesLexical (Both lexical rfl)
+    | (notes, blankBefore) => lexicalDeclarationsAppend notes [{ blankBefore, line }] notesLexical ((lexical, rfl))
 
 theorem lexicalDeclarationsWithoutFirstBlank ∀ (lines: List (Spaced Declaration))
     (lexical: LexicalDeclarations lines):
     LexicalDeclarations (withoutFirstBlank lines) :=
   match lines, lexical with
     | [], lexical => rfl
-    | [{ blankBefore, line }, ..rest], Both lineLexical restLexical => Both lineLexical restLexical
+    | [{ blankBefore, line }, ..rest], Both lineLexical restLexical => (lineLexical, restLexical)
 
 theorem lexicalDeclarationsConcat ∀ (groups: List (List (Spaced Declaration)))
     (all: List.All LexicalDeclarations groups):
@@ -311,4 +310,4 @@ theorem goodTokens ∀ (tokens: List (Parse.Located Token)) (fine: FineTokens to
   match tokens, fine with
     | [], _ => ()
     | [token, ..rest], Both (Both kind (Both above trailing)) others =>
-      Both (Both (goodKind token.value.kind kind) (Both above trailing)) (goodTokens rest others)
+      ((((goodKind token.value.kind kind), above, trailing)), (goodTokens rest others))
