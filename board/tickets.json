@@ -1,5 +1,5 @@
 {
-  "next": 3605,
+  "next": 3606,
   "tickets": [
     {
       "id": 47,
@@ -40223,12 +40223,12 @@
     {
       "id": 3587,
       "title": "[Sonnet] Formatter bug (fuzz seed 0x931 case 17742, found by SW-3580's run): a let whose value is a lambda with an own-line comment before its parameter closer, followed by ';' → output where ';' has no expression after it. Minimal (scratchpad fmtbugs/seq.sw): def lambdaValue: Nat := (let f := (n: Nat / -- c / ) => n + 1; f 2). Same message as SW-3574's family; batch with Overmind's 15:30 summary",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Folded into SW-3605.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40451,6 +40451,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3605,
+      "title": "[Sonnet] Formatter fuzz round 2 (Overmind, 33 seeds on 9dba062b7, 1.17M cases): five families still failing on main, minimal inputs in scratchpad fmtbugs/round2/: (1) exists-binder.sw 'expected an expression, found )' (9 seeds, first 0x953/31305); (2) let-semicolon.sw 'expected ; after the value of let' (4 plain seeds, 0xa01/4759); (3) attr-arms.sw 'arms are indented further than the definition' (3 seeds, 0x950/54875); (4) else-chain.sw 'expected else' (0x958/82932); (5) lambda-let.sw (SW-3587, 0x931/17742). Each fixed in the general rule with a failing-first fmt test. Absorbs SW-3587",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
