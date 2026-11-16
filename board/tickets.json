@@ -38226,14 +38226,14 @@
     {
       "id": 3436,
       "title": "[Sonnet] toyfmt: stableInjective := cases, formatChecked's inline proof via cases in DecEq.sound c, delete printedOr (SW-3344 makes them one word); after SW-3418 merges",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -38518,14 +38518,14 @@
     {
       "id": 3458,
       "title": "[DeepSeek] toyfmt small: rename one of the two Waiting constructors (Edge.Waiting vs Scan.Waiting) in Toy.Fmt.Proofs; and a hint when a hypothesis named like a function shadows it ('token comments text' is not a function) (SW-3418 part 7 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -38663,14 +38663,14 @@
     {
       "id": 3469,
       "title": "[Sonnet] toyfmt tidy after SW-3418: delete printJoins/joinedLex/printedLexes/parsedPrintLexes (subsumed by the named-pieces forms), printedPlaces; rename Edge.Waiting vs Scan.Waiting (SW-3458) and Chunk shadowing in Toy.Fmt.Tests; optionally prove reach sound against Lays (part 10 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
