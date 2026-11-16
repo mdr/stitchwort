@@ -1437,34 +1437,14 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
 
 -- Parameters.
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: the read-back goal of a parameter list: needs `GroupProofs.sw`'s `ParameterSteps`, whose steps are groups.
---| What tokens after a parameter list's first name have to be: the
---| rounds of a comma and a name the parameter parser reads, giving the
---| parameters.
-def ParametersGoal (parameters: List Parameter) (name: Text)
-    (first: Parse.Located Token) (tokens: List (Parse.Located Token)):
-    Prop :=
-  ∃ (steps: List (List (Parse.Located Token), (Comments, (Text, Comments)))) => tokens = Parse.joinReads steps
-    ∧ ParameterSteps steps
-    ∧ parameters = withCommas (name, Layout.comments InBrackets first) (Parse.stepValues steps)
-
--- Open for T2b (SW-3667), the printer side of Toy++ T2: the events of the parameter groups, read back with `runsUntyped`/`runsTyped`.
---| Tokens with the views of a parameter list's events are its first
---| name and then the rounds the parser reads.
-theorem parametersOut ∀ (parameter: Parameter) (rest: List Parameter) (events: List Event)
-    (lexical: LexicalParameters [parameter, ..rest])
-    (bare: BareLast [parameter, ..rest])
-    (laid: ParameterEvents [parameter, ..rest] events):
-    ∃ (start: Option Nat) => ∃ (others: List TokenView) => Seen [] events [
-      tokenView [] (Name parameter.name) start parameter.comments,
-      ..others
-    ]
-      ∧ (∀ (first: Parse.Located Token) (otherTokens: List (Parse.Located Token)) => viewOf first
-        = tokenView [] (Name parameter.name) start parameter.comments
-        → otherTokens.map viewOf = others
-        → ParametersGoal [parameter, ..rest] parameter.name first otherTokens) :=
-  match parameter, rest, lexical, bare, laid with
-    | { name, comments, comma }, [], Both isName (Both fine _), bare, laid =>
+--| Tokens with the views of a type's events spell it.
+theorem typeOut ∀ (annotation: TypeExpr) (events: List Event)
+    (lexical: LexicalType annotation)
+    (laid: TypeEvents annotation events):
+    ∃ (views: List TokenView) => Seen [] events views
+      ∧ (∀ (tokens: List (Parse.Located Token)) => tokens.map viewOf = views → SpelledType annotation tokens) :=
+  match annotation, lexical, laid with
+    | TypeName name comments, (isName, fine), laid =>
       match tokenSeen anyStart comments name
         (Name name)
         events
@@ -1472,113 +1452,338 @@ theorem parametersOut ∀ (parameter: Parameter) (rest: List Parameter) (events:
         fine
         (seen start => nameEvent seen name start isName)
         laid with
-        | Witness start (Both _ seen) => (
-          start,
-          [],
+        | (start, _, seen) => (
+          [tokenView [] (Name name) start comments],
           seen,
-          (first otherTokens firstSame othersSame =>
-            viewsNil
-              (found => ParametersGoal [{ name, comments, comma }] name first found)
-              otherTokens
-              othersSame
-              (match bracketFits first (Name name) start comments firstSame with
-                | (_, _, notes) => (
-                  [],
-                  byComputing,
-                  byComputing,
-                  (rewrite bare then
-                    Eq.cong
-                      ((found: Comments) => [({ name, comments = found, comma = Comments.none }: Parameter)])
-                      notes)
-                )))
+          (tokens same =>
+            viewsOne
+              (found => SpelledType (TypeName name comments) found)
+              tokens
+              (tokenView [] (Name name) start comments)
+              same
+              (only onlySame =>
+                match bracketFits only (Name name) start comments onlySame with
+                  | (kind, _, notes) => (only, byComputing, kind, notes)))
         )
-    | { name, comments, comma }, [next, ..more], Both isName
-        (Both fine (Both fineComma lexicalRest)), bare, Witness nameEvents
-        (Witness afterName
-          (Both nameSplit
-            (Both nameAt (Witness commaEvents (Witness restEvents (Both commaSplit (Both commaAt restLaid))))))) =>
+    | TypeBracketed open inner close, (fineOpen, lexInner, fineClose), (openEvents, afterOpen, split, openAt,
+        innerEvents, closeEvents, afterSplit, innerLaid, closeAt) =>
+      match tokenSeen anyStart open "("
+        (Sign OpenParen)
+        openEvents
+        []
+        fineOpen
+        (seen start => signEvent seen OpenParen start)
+        openAt, typeOut inner innerEvents lexInner innerLaid, tokenSeen anyStart close ")"
+        (Sign CloseParen)
+        closeEvents
+        []
+        fineClose
+        (seen start => signEvent seen CloseParen start)
+        closeAt with
+        | (openStart, _, openSeen), (innerViews, innerSeen, innerSpells), (closeStart, _, closeSeen) =>
+          let openView := tokenView [] (Sign OpenParen) openStart open
+          let closeView := tokenView [] (Sign CloseParen) closeStart close
+          (
+            [openView, ..innerViews ++ [closeView]],
+            (rewrite split, afterSplit then
+              seenThen [] openEvents
+                (innerEvents ++ closeEvents)
+                [openView]
+                (innerViews ++ [closeView])
+                openSeen
+                (seenThen [] innerEvents closeEvents innerViews [closeView] innerSeen closeSeen)),
+            (tokens same =>
+              viewsCons
+                (found => SpelledType (TypeBracketed open inner close) found)
+                tokens
+                openView
+                (innerViews ++ [closeView])
+                same
+                (opener afterOpener openerSame afterSame =>
+                  viewsSplit
+                    (found => SpelledType (TypeBracketed open inner close) [opener, ..found])
+                    afterOpener
+                    innerViews
+                    [closeView]
+                    afterSame
+                    (innerTokens closeTokens innerSame closeSame =>
+                      viewsOne
+                        (found => SpelledType (TypeBracketed open inner close) [opener, ..innerTokens ++ found])
+                        closeTokens
+                        closeView
+                        closeSame
+                        (closing closingSame =>
+                          match bracketFits opener (Sign OpenParen) openStart open openerSame, bracketFits closing
+                            (Sign CloseParen)
+                            closeStart
+                            close
+                            closingSame with
+                            | (openKind, _, openNotes), (closeKind, _, closeNotes) => (
+                              opener,
+                              innerTokens,
+                              closing,
+                              byComputing,
+                              openKind,
+                              openNotes,
+                              closeKind,
+                              closeNotes,
+                              (innerSpells innerTokens innerSame)
+                            )))))
+          )
+
+--| Tokens with the views of a group's names after its first are the
+--| rounds the name parser reads, giving the names.
+theorem namesOut ∀ (names: List Named) (events: List Event)
+    (lexical: LexicalNames names)
+    (laid: NamesEvents names events):
+    ∃ (views: List TokenView) => Seen [] events views
+      ∧ (∀ (tokens: List (Parse.Located Token)) => tokens.map viewOf = views
+        → ∃ (steps: List (List (Parse.Located Token), (Text, Comments))) => tokens = Parse.joinReads steps
+          ∧ NameSteps steps
+          ∧ names = (Parse.stepValues steps).map namedOf) :=
+  match names, lexical, laid with
+    | [], _, laid => (
+      [],
+      (rewrite laid then (earlier => byComputing)),
+      (tokens same =>
+        viewsNil
+          (found =>
+            ∃ (steps: List (List (Parse.Located Token), (Text, Comments))) => found = Parse.joinReads steps
+              ∧ NameSteps steps
+              ∧ ([]: List Named) = (Parse.stepValues steps).map namedOf)
+          tokens
+          same
+          ([], byComputing, byComputing, byComputing))
+    )
+    | [{ name, comments }, ..rest], ((isName, fine), others), (nameEvents, restEvents, split, nameAt, restLaid) =>
       match tokenSeen anyStart comments name
         (Name name)
         nameEvents
         []
         fine
         (seen start => nameEvent seen name start isName)
-        nameAt, tokenSeen anyStart comma ","
+        nameAt, namesOut rest restEvents others restLaid with
+        | (start, _, nameSeen), (restViews, restSeen, restSpells) =>
+          let nameView := tokenView [] (Name name) start comments
+          (
+            [nameView, ..restViews],
+            (rewrite split then seenThen [] nameEvents restEvents [nameView] restViews nameSeen restSeen),
+            (tokens same =>
+              viewsCons
+                (found =>
+                  ∃ (steps: List (List (Parse.Located Token), (Text, Comments))) => found = Parse.joinReads steps
+                    ∧ NameSteps steps
+                    ∧ [{ name, comments }, ..rest] = (Parse.stepValues steps).map namedOf)
+                tokens
+                nameView
+                restViews
+                same
+                (nameToken later nameSame laterSame =>
+                  match restSpells later laterSame, bracketFits nameToken (Name name) start comments nameSame with
+                    | (steps, joined, spelled, values), (kind, _, notes) => (
+                      [([nameToken], (name, Layout.comments InBrackets nameToken)), ..steps],
+                      (rewrite joined),
+                      ((nameToken, name, byComputing, kind, byComputing), spelled),
+                      (rewrite notes, values)
+                    )))
+          )
+
+--| Tokens with the views of a group's events are read back as the group
+--| before anything that is neither a name nor `:`.
+theorem groupOut ∀ (group: ParameterGroup) (events: List Event)
+    (lexical: LexicalGroup group)
+    (laid: GroupEvents group events):
+    ∃ (views: List TokenView) => Seen [] events views
+      ∧ (∀ (tokens rest: List (Parse.Located Token)) => tokens.map viewOf = views
+        → nameAhead rest = False
+        → signAhead Colon rest = False
+        → Parse.Runs (() => parameterGroup()) tokens rest group) :=
+  match group, lexical, laid with
+    | Untyped { name, comments }, (isName, fine), laid =>
+      match tokenSeen anyStart comments name
+        (Name name)
+        events
+        []
+        fine
+        (seen start => nameEvent seen name start isName)
+        laid with
+        | (start, _, seen) => (
+          [tokenView [] (Name name) start comments],
+          seen,
+          (tokens rest same endsNames endsGroup =>
+            viewsOne
+              (found => Parse.Runs (() => parameterGroup()) found rest (Untyped { name, comments }))
+              tokens
+              (tokenView [] (Name name) start comments)
+              same
+              (only onlySame =>
+                match bracketFits only (Name name) start comments onlySame with
+                  | (kind, _, notes) => rewrite notes then runsUntyped only name rest kind endsNames endsGroup))
+        )
+    | Typed ({ head = { name, comments }, tail }) colon annotation, ((isName, fine), lexNames, fineColon, lexType), (
+        headEvents, afterHead, split, headAt, namesEvents, afterNames, namesSplit, namesLaid, colonEvents, typeEvents,
+        colonSplit, colonAt, typeLaid) =>
+      match tokenSeen anyStart comments name
+        (Name name)
+        headEvents
+        []
+        fine
+        (seen start => nameEvent seen name start isName)
+        headAt, namesOut tail namesEvents lexNames namesLaid, tokenSeen anyStart colon ":"
+        (Sign Colon)
+        colonEvents
+        []
+        fineColon
+        (seen start => signEvent seen Colon start)
+        colonAt, typeOut annotation typeEvents lexType typeLaid with
+        | (start, _, headSeen), (namesViews, namesSeen, namesSpell), (colonStart, _, colonSeen), (typeViews, typeSeen,
+            typeSpells) =>
+          let headView := tokenView [] (Name name) start comments
+          let colonView := tokenView [] (Sign Colon) colonStart colon
+          let typed := Typed { head = { name, comments }, tail } colon annotation
+          (
+            [headView, ..namesViews ++ [colonView, ..typeViews]],
+            (rewrite split, namesSplit, colonSplit then
+              seenThen [] headEvents
+                (namesEvents ++ (colonEvents ++ typeEvents))
+                [headView]
+                (namesViews ++ [colonView, ..typeViews])
+                headSeen
+                (seenThen [] namesEvents
+                  (colonEvents ++ typeEvents)
+                  namesViews
+                  [colonView, ..typeViews]
+                  namesSeen
+                  (seenThen [] colonEvents typeEvents [colonView] typeViews colonSeen typeSeen))),
+            (tokens rest same _ _ =>
+              viewsCons
+                (found => Parse.Runs (() => parameterGroup()) found rest typed)
+                tokens
+                headView
+                (namesViews ++ [colonView, ..typeViews])
+                same
+                (first afterFirst firstSame afterSame =>
+                  viewsSplit
+                    (found => Parse.Runs (() => parameterGroup()) [first, ..found] rest typed)
+                    afterFirst
+                    namesViews
+                    [colonView, ..typeViews]
+                    afterSame
+                    (namesTokens afterNamesTokens namesSame afterNamesSame =>
+                      viewsCons
+                        (found => Parse.Runs (() => parameterGroup()) [first, ..namesTokens ++ found] rest typed)
+                        afterNamesTokens
+                        colonView
+                        typeViews
+                        afterNamesSame
+                        (colonToken typeTokens colonSame typeSame =>
+                          match namesSpell namesTokens namesSame, bracketFits first
+                            (Name name)
+                            start
+                            comments
+                            firstSame, bracketFits colonToken (Sign Colon) colonStart colon colonSame with
+                            | (steps, joined, spelled, values), (kind, _, notes), (colonKind, _, colonNotes) =>
+                              rewrite joined, notes, values, colonNotes then
+                                runsTyped first colonToken name steps typeTokens rest annotation kind spelled colonKind
+                                  (typeSpells typeTokens typeSame)))))
+          )
+
+--| What tokens of a parameter list have to be, before `rest`: tokens the
+--| group parser reads, then the rounds of a comma and a group, giving
+--| the parameters.
+def ParametersGoal (parameters: List Parameter) (tokens rest: List (Parse.Located Token)): Prop :=
+  ∃ (first: ParameterGroup) => ∃ (firstTokens: List (Parse.Located Token)) =>
+    ∃ (steps: List (List (Parse.Located Token), (Comments, ParameterGroup))) => tokens
+      = firstTokens ++ Parse.joinReads steps
+      ∧ Parse.Runs (() => parameterGroup()) firstTokens (Parse.joinReads steps ++ rest) first
+      ∧ ParameterSteps steps rest
+      ∧ parameters = withCommas first (Parse.stepValues steps)
+
+--| Tokens with the views of a parameter list's events, before `)`, are
+--| its first group and then the rounds the parser reads.
+theorem parametersOut ∀ (parameter: Parameter) (others: List Parameter) (events: List Event)
+    (lexical: LexicalParameters [parameter, ..others])
+    (bare: BareLast [parameter, ..others])
+    (laid: ParameterEvents [parameter, ..others] events):
+    ∃ (views: List TokenView) => Seen [] events views
+      ∧ (∀ (tokens: List (Parse.Located Token)) (close: Parse.Located Token) (rest: List (Parse.Located Token)) =>
+        tokens.map viewOf = views
+          → close.value.kind = Sign CloseParen
+          → ParametersGoal [parameter, ..others] tokens [close, ..rest]) :=
+  match parameter, others, lexical, bare, laid with
+    | { group, comma }, [], (lexGroup, _), bare, laid =>
+      match groupOut group events lexGroup laid with
+        | (views, seen, spells) => (
+          views,
+          seen,
+          (tokens close rest same closeKind => (
+            group,
+            tokens,
+            [],
+            (List.appendNil tokens).flipped,
+            (spells tokens [close, ..rest] same (rewrite closeKind) (rewrite closeKind)),
+            byComputing,
+            (rewrite bare)
+          ))
+        )
+    | { group, comma }, [next, ..more], (lexGroup, fineComma, lexRest), bare, (groupEvents, afterGroup, split,
+        groupLaid, commaEvents, restEvents, commaSplit, commaAt, restLaid) =>
+      match groupOut group groupEvents lexGroup groupLaid, tokenSeen anyStart comma ","
         (Sign Comma)
         commaEvents
         []
         fineComma
         (seen start => signEvent seen Comma start)
-        commaAt, parametersOut next more restEvents lexicalRest bare restLaid with
-        | Witness start (Both _ nameSeen), Witness commaStart (Both _ commaSeen), Witness nextStart
-            (Witness nextOthers (Both nextSeen nextSpells)) => (
-          start,
-          [
-            tokenView [] (Sign Comma) commaStart comma,
-            tokenView [] (Name next.name) nextStart next.comments,
-            ..nextOthers
-          ],
-          (rewrite nameSplit, commaSplit then
-            seenThen [] nameEvents
-              (commaEvents ++ restEvents)
-              [tokenView [] (Name name) start comments]
-              [
-                tokenView [] (Sign Comma) commaStart comma,
-                tokenView [] (Name next.name) nextStart next.comments,
-                ..nextOthers
-              ]
-              nameSeen
-              (seenThen [] commaEvents restEvents
-                [tokenView [] (Sign Comma) commaStart comma]
-                [tokenView [] (Name next.name) nextStart next.comments, ..nextOthers]
-                commaSeen
-                nextSeen)),
-          (first otherTokens firstSame othersSame =>
-            viewsCons
-              (found => ParametersGoal [{ name, comments, comma }, next, ..more] name first found)
-              otherTokens
-              (tokenView [] (Sign Comma) commaStart comma)
-              [tokenView [] (Name next.name) nextStart next.comments, ..nextOthers]
-              othersSame
-              (commaToken afterComma commaSame afterCommaSame =>
-                viewsCons
-                  (found => ParametersGoal [{ name, comments, comma }, next, ..more] name first [commaToken, ..found])
-                  afterComma
-                  (tokenView [] (Name next.name) nextStart next.comments)
-                  nextOthers
-                  afterCommaSame
-                  (nextToken laterTokens nextSame laterSame =>
-                    match nextSpells nextToken laterTokens nextSame laterSame, bracketFits first
-                      (Name name)
-                      start
-                      comments
-                      firstSame, bracketFits commaToken (Sign Comma) commaStart comma commaSame with
-                      | (steps, joined, stepsSpelled, values), (_, _, nameNotes), (commaKind, _, commaNotes) => (
-                        [
+        commaAt, parametersOut next more restEvents lexRest bare restLaid with
+        | (groupViews, groupSeen, groupSpells), (commaStart, _, commaSeen), (restViews, restSeen, restSpells) =>
+          let commaView := tokenView [] (Sign Comma) commaStart comma
+          (
+            groupViews ++ [commaView, ..restViews],
+            (rewrite split, commaSplit then
+              seenThen [] groupEvents
+                (commaEvents ++ restEvents)
+                groupViews
+                [commaView, ..restViews]
+                groupSeen
+                (seenThen [] commaEvents restEvents [commaView] restViews commaSeen restSeen)),
+            (tokens close rest same closeKind =>
+              viewsSplit
+                (found => ParametersGoal [{ group, comma }, next, ..more] found [close, ..rest])
+                tokens
+                groupViews
+                [commaView, ..restViews]
+                same
+                (groupTokens afterGroupTokens groupSame afterSame =>
+                  viewsCons
+                    (found => ParametersGoal [{ group, comma }, next, ..more] (groupTokens ++ found) [close, ..rest])
+                    afterGroupTokens
+                    commaView
+                    restViews
+                    afterSame
+                    (commaToken later commaSame laterSame =>
+                      match restSpells later close rest laterSame closeKind, bracketFits commaToken
+                        (Sign Comma)
+                        commaStart
+                        comma
+                        commaSame with
+                        | (nextGroup, nextTokens, steps, joined, runsNext, stepsSpelled, values), (commaKind, _,
+                            commaNotes) =>
+                          let round := ([commaToken, ..nextTokens], (Layout.comments InBrackets commaToken, nextGroup))
                           (
-                            [commaToken, nextToken],
-                            (Layout.comments InBrackets commaToken, (next.name, Layout.comments InBrackets nextToken))
-                          ),
-                          ..steps
-                        ],
-                        (Eq.cong ((tail: List (Parse.Located Token)) => [commaToken, nextToken, ..tail]) joined),
-                        ((
-                          ((
-                            commaToken,
-                            nextToken,
-                            next.name,
-                            byComputing,
-                            commaKind,
-                            (Eq.cong ((view: TokenView) => view.kind) nextSame),
-                            byComputing
-                          )),
-                          stepsSpelled
-                        )),
-                        (rewrite <- nameNotes, <- commaNotes, <- values)
-                      ))))
-        )
+                            group,
+                            groupTokens,
+                            [round, ..steps],
+                            (rewrite joined),
+                            (groupSpells groupTokens
+                              (Parse.joinReads [round, ..steps] ++ [close, ..rest])
+                              groupSame
+                              (rewrite commaKind)
+                              (rewrite commaKind)),
+                            ((commaToken, nextTokens, nextGroup, byComputing, commaKind, byComputing, runsNext), stepsSpelled),
+                            (rewrite commaNotes, values)
+                          ))))
+          )
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: as `parametersOut`, through `runsParameters` and `runsNoParameters` (`GroupProofs.sw`).
 --| Tokens with the views of a declaration's parameters, before `)`, are
 --| read back by the parameter parser as the parameters.
 theorem parameterListOut ∀ (parameters: List Parameter) (events: List Event)
@@ -1589,7 +1794,7 @@ theorem parameterListOut ∀ (parameters: List Parameter) (events: List Event)
       ∧ (∀ (tokens: List (Parse.Located Token)) (close: Parse.Located Token) (rest: List
         (Parse.Located Token)) => tokens.map viewOf = views
         → close.value.kind = Sign CloseParen
-        → ∃ (listed: Option ((Text, Comments), List (Comments, (Text, Comments)))) => Parse.Runs
+        → ∃ (listed: Option (ParameterGroup, List (Comments, ParameterGroup))) => Parse.Runs
           (() => Parse.optional parameterList)
           tokens
           [close, ..rest]
@@ -1602,7 +1807,7 @@ theorem parameterListOut ∀ (parameters: List Parameter) (events: List Event)
       (tokens close rest same closeKind =>
         viewsNil
           (found =>
-            ∃ (listed: Option ((Text, Comments), List (Comments, (Text, Comments)))) => Parse.Runs
+            ∃ (listed: Option (ParameterGroup, List (Comments, ParameterGroup))) => Parse.Runs
               (() => Parse.optional parameterList)
               found
               [close, ..rest]
@@ -1614,34 +1819,16 @@ theorem parameterListOut ∀ (parameters: List Parameter) (events: List Event)
     )
     | [parameter, ..others], lexical, bare, laid =>
       match parametersOut parameter others events lexical bare laid with
-        | Witness start (Witness otherViews (Both seen spells)) => (
-          [tokenView [] (Name parameter.name) start parameter.comments, ..otherViews],
+        | (views, seen, spells) => (
+          views,
           seen,
           (tokens close rest same closeKind =>
-            viewsCons
-              (found =>
-                ∃ (listed: Option ((Text, Comments), List (Comments, (Text, Comments)))) => Parse.Runs
-                  (() => Parse.optional parameterList)
-                  found
-                  [close, ..rest]
-                  listed
-                  ∧ [parameter, ..others] = parametersOf listed)
-              tokens
-              (tokenView [] (Name parameter.name) start parameter.comments)
-              otherViews
-              same
-              (first otherTokens firstSame othersSame =>
-                match spells first otherTokens firstSame othersSame with
-                  | (steps, joined, stepsSpelled, values) => (
-                    (Some ((parameter.name, Layout.comments InBrackets first), Parse.stepValues steps)),
-                    (rewrite joined then
-                      runsParameters first parameter.name steps
-                        [close, ..rest]
-                        (Eq.cong ((view: TokenView) => view.kind) firstSame)
-                        stepsSpelled
-                        (rewrite closeKind)),
-                    values
-                  )))
+            match spells tokens close rest same closeKind with
+              | (first, firstTokens, steps, split, runsFirst, stepsSpelled, values) => (
+                (Some (first, Parse.stepValues steps)),
+                (rewrite split then runsParameters firstTokens first steps [close, ..rest] runsFirst stepsSpelled (rewrite closeKind)),
+                values
+              ))
         )
 
 -- Newest first against source order.
