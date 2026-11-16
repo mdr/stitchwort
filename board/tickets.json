@@ -38200,7 +38200,7 @@
     {
       "id": 3434,
       "title": "[Opus paper] Toy++ (Matt, 15 Nov 2026: an intermediate step between the toy and the real formatter, whose formatter does more, e.g. changes tokens; 'Don't start that yet, but do have a think'): plan Sprig++ on the toy: rewrites that change the tree (drop redundant brackets, merge parameters, a cosmetic keyword like ∀) with 'same program' as an abstract tree via a lowering; commas added/dropped by layout; comments inside rewritten nodes; text blocks whose lines move; left-as-written fallback; proved directly per SW-3418. Wait for SW-3418's result and Matt's go",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
