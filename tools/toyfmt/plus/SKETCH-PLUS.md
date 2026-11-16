@@ -702,7 +702,7 @@ About 35 minutes of agent time against 90 estimated.
 - **`Closing (text: Text)`**, a leaf of `Doc` (`Doc/Doc.sw`): written by
   `Printer.close` (`Doc/Print.sw`) on its line as it stands, so before a
   trailing comment that waits there; `fitsFrom` counts it on the
-  comment's line. Six engine tests (`Doc/Tests/Engine.sw`).
+  comment's line. Five engine tests (`Doc/Tests/Engine.sw`).
 - **`Lexed.settled`**, rule N on the lexer's tokens
   (`Syntax/Settle.sw`): this sketch's `Settle.sw`, moved, with `passes`
   and `forward` renamed `movesPast` and `carryForward`. Ten tests
@@ -713,20 +713,20 @@ About 35 minutes of agent time against 90 estimated.
 | `Doc/Words.sw` | 28 (and `readingWords` restated) | `closeWords`, `stepWords` restated, `readingEvery`, `Marked` and its step lemma, `stepQuiet`, `readingWords` |
 | `Doc/Joins.sw` | 7 | `CloseJoins`, `closeHolds`, `putWaiting`; `printedJoins` restated, `printedWords` and an example |
 | `Doc/Places.sw` | 5 | `tucked`, `CloseLays`, `putHeld`, `closeStays`, `closerLaysExample` |
-| `Doc/Proofs.sw`, `Doc/Readings.sw` | 0 | one arm each in the six theorems that match on `Doc` |
+| `Doc/Proofs.sw`, `Doc/Readings.sw` | 0 | one arm each in the five theorems that match on `Doc` |
 | `Syntax/SettleProofs.sw` | 19 | `settledKeepsComments`, `settledSame`, `settledBare`, `settledOffsets`, `settledLexemes` |
 | `Fmt/CarrySettle.sw` | 8 | `settledTidy`, `settledBareCommas` |
 | `Fmt/JoinProofs.sw`, `Fmt/PieceProofs.sw` | 3 | `closerJoinsExample`; `everyProper`, `properEvery` |
 
-70 new theorems, about 1,230 lines added.
+70 new theorems, about 1,400 lines added (tests and program text included).
 
 ### The engine's theory with `Closing`
 
 **Words.** The order of the words a reading writes is no longer a
-function of the document: `x`, a trailing comment, a `Line`, then a
-closer prints `x -- c` and the closer below if the `Line` breaks, and
-(were the `Line` a space dropped after the comment) `x) -- c` if it
-doesn't. So the one equation became three statements [checked]:
+function of the document. After `x` and its trailing comment, a choice
+between a closer below a `HardLine` and the closer alone has the same
+words either way, and prints `x -- c` with the closer below, or
+`x) -- c`. So the one equation became three statements [checked]:
 
 - `stepWords`: a step moves words from the work list to the printer in
   order, a closer alone going before the comments that wait
@@ -761,7 +761,7 @@ after the closers of its line. `closerLaysExample` computes it.
 1. **`Waiting` carries the touching piece.** The first `CloseJoins`
    asked, of a closer where a comment waits, that it may follow *every*
    text a space may follow, since the old `Waiting` forgot what the line
-   ends with. That can't be met cheaply for `standsBefore`: a string
+   ends with. That can't be met cheaply for `standsBefore` [inferred]: a string
    stands before a space by a `Parse.ManyRuns` stated for that rest, and
    moving it to another rest is a lemma about every string segment. With
    the piece in the edge the condition is the one `Plain` already asks.
@@ -798,8 +798,9 @@ tokens") is therefore not available as stated. What is true, and
 proved: every settled token is `Tidy` but one straight after a comma
 (`settledTidy`, with `TidyFrom`), and a comma holds no comment
 (`settledBareCommas`). The walk uses `Tidy` only for the first token of
-an inline body (`inlineClear`), which follows `=`, `then` or `else`,
-never a comma, so the fact it needs is there; but it is a fact about a
+an inline body (`inlineClear`; the one use, by `grep`), which follows
+`=`, `then` or `else`, never a comma [inferred], so the fact it needs is
+there; but it is a fact about a
 token and the one before it, so T3b's invariant can't be
 `Parse.Invariant.every`.
 
@@ -813,8 +814,10 @@ The Rust engine defers that break (`flat_break`,
 every rule lemma for a `SoftLine` at `Held` answer for the case that
 stays. The rules can get `f(a, b) -- c` without it: a `Choice` whose
 first option is the call flat with `Closing ")"` and no `SoftLine`
-(`Flatten`), and whose last is today's layout. `Lays` and `Joins` ask a
-`Choice` for every option, with nothing about `fits`. Brackets, lists,
+(`Flatten`), and whose last is today's layout [run: the engine test "a
+choice puts a call's closer on its comment's line when the call fits"].
+`Lays` and `Joins` ask a `Choice` for every option, with nothing about
+`fits`. Brackets, lists,
 commas and types have no `SoftLine` before the closer and need only the
 leaf.
 

@@ -88,3 +88,16 @@ test "a group stays flat when only closers follow a trailing comment" :=
 
 test "a closer with no comment waiting is a chunk" :=
   print (Doc.concat [t "(", t "a", Closing ")"]) 120 == "(a)" && print (Closing "") 120 == ""
+
+--| A call keeps a `SoftLine` before its `)`, which breaks where a comment
+--| waits; a rule that wants `f(a, b) -- c` offers the flat call, with no
+--| `SoftLine`, as the first option of a choice.
+def closedCall: Doc :=
+  let arguments := Doc.concat [t "a,", Line, t "b", LineSuffix "-- c"]
+  Choice [
+    Flatten (Doc.concat [t "f(", arguments, Closing ")"]),
+    Doc.group (Doc.concat [t "f(", Nest 2 (Doc.concat [SoftLine, arguments]), SoftLine, Closing ")"])
+  ]
+
+test "a choice puts a call's closer on its comment's line when the call fits" :=
+  print closedCall 120 == "f(a, b) -- c" && print closedCall 6 == "f(\n  a,\n  b -- c\n)"
