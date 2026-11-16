@@ -2781,4 +2781,4 @@ SW-3486: `FormatResult` is now `Formatted`/`ParseError`, `Printed` is gone (`Sou
 
 SW-3488: the driver's `Outcome.Formatted` is `Outcome.Done`, so `FormatResult.Formatted` is written unqualified (`Formatted`) everywhere; `ParseError` was already unqualified.
 
-SW-3490 (tidy): 1,262 theorems and 23,000 theorem-block lines (31,097 lines in all) before; 1,116 theorems and 21,401 theorem-block lines (29,127 lines in all) after (145 deleted, `sameOffset` merged into `ownOffset`, `lexCovers` kept as the lexer's own result).
+SW-3490 (tidy): 1,262 theorems and 23,000 theorem-block lines (31,097 lines in all) before; 1,143 theorems and 21,770 theorem-block lines (29,554 lines in all) after (118 deleted, `sameOffset` merged into `ownOffset`, `lexCovers` kept as the lexer's own result, and the engine's `printIsReading`, `printIsPieces` and budget proofs kept for std).
