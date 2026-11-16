@@ -162,10 +162,15 @@
         "readsThen / readsDone and the proofs-about-definitions design (SW-1218, SW-1225)",
         "Per-combinator Runs and completeness lemmas (SW-1563, SW-1583, SW-1584)",
         "Completeness pilot and sweep over all 2020 days (SW-1612, SW-1624 to SW-1626, SW-1647)",
-        "Parse.chainLeft with its reading lemma (SW-1567)"
+        "Parse.chainLeft with its reading lemma (SW-1567)",
+        "Toy++ T0-T3: the toy formatter with takes, typed parameters and rule N (comment placement through settle), every theorem still proved (SW-3632, SW-3666, SW-3667, SW-3675, SW-3676)"
       ],
-      "now": [],
+      "now": [
+        "Paused 16 Nov 2026 (Matt: heavy toy work paused overnight). Where it stands: T3 merged, 1,491 theorems in the toy; Opus review of T3's changed statements owed (SW-3677); route (A) is Comments.closing, not T0's receive (orchestrator's call, SW-3677 checks it)"
+      ],
       "next": [
+        "Toy++ T4 (trailing commas and the passes, docs/proposals/toy-plus-plus.md §5) after SW-3677",
+        "settledIdempotent, if anything needs it",
         "Parser soundness for the 2021 days that prove only value properties (SW-1649; days 9, 11 and 15 share a grid parser)",
         "One std lemma for symbol-per-part repetitions to replace three days' copies (SW-1656), and the innermost-first chainLeft variant (SW-1585)",
         "Per-line specs for section parses (SW-1417), then tighten withFinalLineBreaks (SW-1419)"
@@ -189,9 +194,12 @@
         "Function equations f.eqK and f.induct for recursive, guarded and matching definitions (SW-1035, SW-1057, SW-1058, SW-1301)",
         "omega failure notes name the atoms and facts (SW-1452, SW-1466, SW-1472)",
         "auto derives Nat.toInt d != 0 and range facts (SW-1443, SW-1359)",
-        "cases over Int/Nat comparisons no longer hits the 64-case limit (SW-1550)"
+        "cases over Int/Nat comparisons no longer hits the 64-case limit (SW-1550)",
+        "rewrite repeatedly: stage 2 (named rule sets, at h, --expand-repeatedly, the editor action) and speed work (SW-3642, SW-3654, SW-3655, SW-3659); W-REWRITE-THEN-COMPUTING / THEN-REWRITE and their sweep (SW-3648)"
       ],
-      "now": [],
+      "now": [
+        "Paused overnight 16 Nov 2026. Measured: rewrite repeatedly pays off only with cheap rules (hypotheses, applied lemmas), so the std/AoC rollout (SW-3631) is selective; D3666 (spelling: 'using') parked on SW-3651"
+      ],
       "next": [
         "f.induct for lifted-match alternatives with a catch-all or a literal (SW-1073)",
         "omega: commuted products as one atom, and the t <= |t| facts so size goals keep their split budget (SW-1515, SW-1690)",
@@ -281,9 +289,12 @@
         "Type mismatches show the first difference (SW-1236)",
         "Rewrite messages: E-REWRITE-NOTHING and E-REWRITE-MOTIVE notes (SW-1451, SW-1572)",
         "Warnings when a match refines nothing (SW-1485, SW-1575)",
-        "W-MATCH-DECISION-IF, and W-MATCH-NOT-FOUND for unnamed failing matches (SW-1719, SW-1721)"
+        "W-MATCH-DECISION-IF, and W-MATCH-NOT-FOUND for unnamed failing matches (SW-1719, SW-1721)",
+        "Helpful errors E7 (too many arguments, SW-3553) and E6 (did you mean for names, SW-3552); proof tuple messages (SW-3664)"
       ],
-      "now": [],
+      "now": [
+        "Overnight 16 Nov: E5 foreign habits (SW-3551, DeepSeek)"
+      ],
       "next": [
         "Missing-case follow-ups: number, Char, Int and Fin misses (SW-1034)",
         "Message batches: rewrite finds nothing, off-by-one parser lemma, a parameter hiding a function (SW-1511, SW-1522, SW-1498)",
