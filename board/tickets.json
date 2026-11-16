@@ -1,5 +1,5 @@
 {
-  "next": 3603,
+  "next": 3605,
   "tickets": [
     {
       "id": 47,
@@ -40249,12 +40249,12 @@
     {
       "id": 3589,
       "title": "[Sonnet] State, don't chain (D3656, Matt, 16 Nov 2026: yes): proving-guide rule (a chain of two or more equalities is a calc; a rewrite run of more than ~3 rules, or one a later step depends on, passes through a typed let stating the fact) and a warning (W-PROOF-CHAIN or similar) on Eq.trans nested two deep, suggesting calc, with a fix in check's JSON where mechanical. No sweep: convert when touched; the warning must not fail existing checks (warn only). docs/research/readable-proofs.md R1. Guide + syntax.md updated",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Also D3657 (Matt, 16 Nov 2026: yes): theorems with proofs over ~15 lines end their doc with a 1-2 sentence proof idea (induction, key lemma, invariant); no step narration. Matt's reasoning: 'I don't think necessarily the programming rules about being really stingy with comments necessarily carry over to the proving world ... it can be really hard to write like a self-documenting proof ... having the proof idea can really help.' Update proving guide §2.7, syntax.md 'What to write', and CLAUDE.md's comment rule.\n\nProgress (Sonnet lane): W-PROOF-CHAIN added (syntactic, per declaration, crates/elab/src/proof_chain.rs; dropped for the core prelude); proving-guide items 7-9, syntax.md, guide 10-proofs; examples proof-chain-warning/-calc with snapshots. Not done: sweep, check --index fix (not mechanical). Commit 1af363548.\n",
+      "body": "Also D3657 (Matt, 16 Nov 2026: yes): theorems with proofs over ~15 lines end their doc with a 1-2 sentence proof idea (induction, key lemma, invariant); no step narration. Matt's reasoning: 'I don't think necessarily the programming rules about being really stingy with comments necessarily carry over to the proving world ... it can be really hard to write like a self-documenting proof ... having the proof idea can really help.' Update proving guide §2.7, syntax.md 'What to write', and CLAUDE.md's comment rule.\n\nProgress (Sonnet lane): W-PROOF-CHAIN added (syntactic, per declaration, crates/elab/src/proof_chain.rs; dropped for the core prelude); proving-guide items 7-9, syntax.md, guide 10-proofs; examples proof-chain-warning/-calc with snapshots. Not done: sweep, check --index fix (not mechanical). Commit 1af363548.\n\nModel result: sonnet, worked, 26 min (est. 50). W-PROOF-CHAIN warn-only; hidden from core prelude diagnostics. Follow-ups SW-3603 SW-3604.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": [
@@ -40421,6 +40421,32 @@
       "id": 3602,
       "title": "[Opus] rewrite repeatedly stage 1 (docs/proposals/simp-revisited.md §8 stage 1): 'rewrite repeatedly [rules]', '… then t', '… then ?' (D3647 name, D3648 then): equations, hypotheses, Bool facts, f; visible matching; closers; budget; error codes; steps in goal --at; named rule sets per D3639 if in stage 1's scope; no propext (D3640, a soft default); R7 flexible rule from readable-proofs.md (a non-terminal rewrite repeatedly is followed by a stated fact; warn otherwise). Bar: §6's five equation proofs check as written; Words.sw converted on a branch, proof characters -15%+, check time ≤1.5x. Guide, syntax.md, tour page. Est. 100 min agent time, then an Opus review",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3603,
+      "title": "[Sonnet] std library warnings can't be seen with check --std (only a library test hook sees them); add a way to print them (e.g. --warnings) so std's W-PROOF-CHAIN count (~286) can be tracked",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3604,
+      "title": "[DeepSeek] Convert nested Eq.trans chains to calc (W-PROOF-CHAIN, ~50 AoC in 26 files, ~23 toy in 6 files, ~286 std in 31 files), a few files per run, each checked; D3656 says convert when touched — this is opportunistic batching, low priority",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
