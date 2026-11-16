@@ -1,5 +1,5 @@
 {
-  "next": 3534,
+  "next": 3535,
   "tickets": [
     {
       "id": 47,
@@ -39516,6 +39516,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3534,
+      "title": "[Opus] Regression from Parse L1/L2 (SW-3503/3504, already pushed): examples/reject/reads-weaken-over-map-implicits.sw now prints an unknown ?3 (readsWeaken's implicit p not worked out) and the expected type shows Reads unfolded to its ∀ start => Fits → ReadsAt form, failing rejected_examples (PRINTS_UNKNOWNS, D2091). Make p inferable again from a Parse.Reads/ReadsIn expected type (Reads = ReadsIn any should meet ReadsIn ?inv ?p before unfolding), so the message is SW-1528's spec mismatch again. Likely overlaps Parse L3 (SW-3505, readsThen inference)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
