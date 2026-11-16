@@ -1,5 +1,5 @@
 {
-  "next": 3558,
+  "next": 3560,
   "tickets": [
     {
       "id": 47,
@@ -39316,12 +39316,12 @@
     {
       "id": 3518,
       "title": "[Sonnet] Proof tuples L3: tool output writes tuples (goal search, missing-arm fixes, E-NONEXHAUSTIVE); formatter fills name-only tuple patterns. After L1. Est. 40 min",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\n\n\nProgress (Sonnet lane, 16 Nov 2026): E-NONEXHAUSTIVE shows Both/Witness chains as tuples (missing.rs show_column); fmt fills name-only tuple patterns (rules.rs, test a_tuple_pattern_of_names_fills_its_lines...); example reject/proof-tuple-pattern-nonexhaustive; syntax.md bullet. goal/search output writes no Both/Witness (checked): nothing to change. Not done: too-many-parts count in patterns; split suggestions for hypotheses of ∧/∃ (constructor_patterns returns None for Prop). Commit on lane/SW-3518.\n",
+      "body": "\n\n\nProgress (Sonnet lane, 16 Nov 2026): E-NONEXHAUSTIVE shows Both/Witness chains as tuples (missing.rs show_column); fmt fills name-only tuple patterns (rules.rs, test a_tuple_pattern_of_names_fills_its_lines...); example reject/proof-tuple-pattern-nonexhaustive; syntax.md bullet. goal/search output writes no Both/Witness (checked): nothing to change. Not done: too-many-parts count in patterns; split suggestions for hypotheses of ∧/∃ (constructor_patterns returns None for Prop). Commit on lane/SW-3518.\n\nModel result: sonnet, worked, 15 min (est. 40). goal/search and missing-arm fixes needed no change (they never emit Both/Witness). Pattern too-many-parts count skipped. Filed SW-3558, SW-3559.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39329,7 +39329,7 @@
     {
       "id": 3519,
       "title": "[DeepSeek] Proof tuples L4: sweep the toy: Witness/Both to tuples, one-arm matches to let; every theorem hash unchanged; recount lines vs docs/proposals/proof-tuples.md §7. After L1. Est. 45 min",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -39825,6 +39825,32 @@
     {
       "id": 3557,
       "title": "[Opus] Errors E12: effectful terms folded in E-REFL: print the call, never a parser's runtime form; overlaps SW-794 (docs/proposals/helpful-errors.md §5 rank 12). Est. 2 h",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3558,
+      "title": "[Opus] Design: offer 'split h' for a hypothesis h: p ∧ q or ∃ … as a tuple pattern (_, _); constructor_patterns returns None for propositions today; must not suggest it where the goal is data (E-PROP-ELIM) (from SW-3518)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3559,
+      "title": "[DeepSeek] Messages: E-NO-READING ('taken apart with Both', 'built with Both', reading.rs) names the constructor when the user wrote a tuple; say 'tuple' when the source was one. Also E-NONEXHAUSTIVE shows (_, _) where (_, _, _) fits when a nested Both was never split (from SW-3518)",
       "status": "backlog",
       "agent": "",
       "where": "",
