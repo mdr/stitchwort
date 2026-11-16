@@ -40977,12 +40977,12 @@
     {
       "id": 3644,
       "title": "[Sonnet] Overmind fuzz 16 Nov: four soundness mutants hit the 90 s 'too expensive' cap (c01-4384-1 Parse.readsOneOfFrom algebra; c01-5689-0/2 runsAsValue rewrite; c01-5716-3 part2Exactly algebra; files in Overmind's fz-findings/). Time each alone; if any is slow unloaded, find why algebra/rewrite search blows up on a wrong goal and make it fail fast",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Overmind, 16 Nov: all four re-timed alone (300 s cap, quiet): 1.7-8.3 s each, all Rejected. The 90 s stops were load, not slow checks. Closed.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
