@@ -7,4 +7,4 @@ import Std (Nat)
 opaque def timesOne (n: Nat): Nat := n * 1
 
 theorem useIt (n: Nat): timesOne n = n :=
-  rewrite Nat.mulOne n then byComputing
+  rewrite Nat.mulOne n

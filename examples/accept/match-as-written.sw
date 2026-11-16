@@ -57,7 +57,7 @@ theorem armsKeepCalls ∀
     (flag: Bool) (a: Nat):
     (if flag then double a else 0) = (if flag then 0 + double a else 0) :=
   match e: flag with
-    | True => rewrite doubled a then byComputing
+    | True => rewrite doubled a
     | False => byComputing
 
 def Ignore (a: Type) (b: Bool): Type := a

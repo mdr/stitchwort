@@ -24,5 +24,5 @@ theorem gIs ∀ (ok: Nat → Bool) (x: Nat) (rest: List Nat): g ok x rest = anyR
 
 theorem fromLemma ∀ (ok: Nat → Bool) (x: Nat) (rest: List Nat): g ok x rest = anyR (ys => ok x && all2 ok ys) rest :=
   match step: ok x with
-    | True => rewrite gIs ok x rest then byComputing
-    | False => rewrite gIs ok x rest, step then byComputing
+    | True => rewrite gIs ok x rest
+    | False => rewrite gIs ok x rest, step

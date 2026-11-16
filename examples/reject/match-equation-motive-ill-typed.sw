@@ -20,7 +20,7 @@ theorem lem (slot: Slot) (k: isNone slot.field = True): Holds slot.field k :=
     | Some n => Void.impossible (Bool.falseNotTrue k)
 
 theorem pfL (slot: Slot) (q: slot.field = None): isNone slot.field = True :=
-  rewrite q then byComputing
+  rewrite q
 
 theorem use (slot: Slot) (q: slot.size = 0): slot.field = None → Holds None byComputing :=
   match field: slot.field with

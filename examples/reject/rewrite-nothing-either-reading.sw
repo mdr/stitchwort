@@ -20,4 +20,4 @@ theorem noBlank ∀
     (printer: Printer) (rest: List Text) (result: (Printer, List Text))
     (flat: result = (printer.write " ", rest)):
     result.fst.words ++ result.snd = printer.words ++ [" "] ++ rest :=
-  rewrite flat then rewrite blankWords printer " " then byComputing
+  rewrite flat, blankWords printer " "

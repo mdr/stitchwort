@@ -1,11 +1,11 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REFL] Error: `byComputing` can't prove this
     ╭─[ reject/match-equation-not-rfl.sw:19:42 ]
     │
- 19 │     | None => rewrite <- emptyWidth slot byComputing then byComputing
+ 19 │     | None => rewrite <- emptyWidth slot byComputing
     │                                          ─────┬─────  
     │                                               ╰─────── `slot.field` and `None` aren't equal
     │ 

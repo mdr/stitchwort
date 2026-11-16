@@ -12,9 +12,9 @@ def width (field: Option Nat) (size: Nat): Nat :=
     | Some n => n
 
 theorem emptyWidth (slot: Slot) (empty: slot.field = None): width slot.field slot.size = slot.size :=
-  rewrite empty then byComputing
+  rewrite empty
 
 theorem sizeOrWidth (slot: Slot): slot.size = slot.size + 0 :=
   match field: slot.field with
-    | None => rewrite <- emptyWidth slot byComputing then byComputing
+    | None => rewrite <- emptyWidth slot byComputing
     | Some n => byComputing
