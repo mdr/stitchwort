@@ -260,23 +260,27 @@ theorem tokenSeen ∀ (allowed: Option Nat → Prop) (comments: Comments) (text:
       ok,
       (earlier =>
         rewrite split then
-          Eq.trans
-            (viewsAppend { views = earlier, pending } (aboveEvents column above) [
+          let waited: Views := { views = earlier, pending = waiting pending above }
+          calc viewsFrom
+            { views = earlier, pending }
+            (aboveEvents column above ++ [{ word = text, start }, { word = written, start = None }])
+            _ = viewsFrom (viewsFrom { views = earlier, pending } (aboveEvents column above)) [
+                { word = text, start },
+                { word = written, start = None }
+              ] := viewsAppend { views = earlier, pending } (aboveEvents column above) [
               { word = text, start },
               { word = written, start = None }
-            ])
-            (Eq.trans
-              (Eq.cong
+            ]
+            _ = viewsFrom waited [{ word = text, start }, { word = written, start = None }] :=
+              Eq.cong
                 ((seen: Views) => viewsFrom seen [{ word = text, start }, { word = written, start = None }])
-                (aboveViews above column { views = earlier, pending } fineAbove))
-              (Eq.trans
-                (Eq.cong
-                  ((seen: Views) => viewEvent seen { word = written, start = None })
-                  (reads { views = earlier, pending = waiting pending above } start))
-                (trailingEvent
-                  (codeView { views = earlier, pending = waiting pending above } kind start)
-                  written
-                  fineAfter))))
+                (aboveViews above column { views = earlier, pending } fineAbove)
+            _ = viewEvent (codeView waited kind start) { word = written, start = None } :=
+              Eq.cong ((seen: Views) => viewEvent seen { word = written, start = None }) (reads waited start)
+            _ = {
+                views = viewTrailing (codeView waited kind start).views { text = written },
+                pending = (codeView waited kind start).pending
+              } := trailingEvent (codeView waited kind start) written fineAfter)
     )
 
 -- A token of the tree from its view.
