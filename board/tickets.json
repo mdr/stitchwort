@@ -40316,12 +40316,12 @@
     {
       "id": 3594,
       "title": "[Sonnet] Parser: binder_type has SW-3582's blind spot: a row at the block's column inside a parameter type misses its targeted error and reads as a record. Same fix as result_type; parser test",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Fuzz confirms (Overmind, seeds 0x95d/182788, 0x962/164395, 0x965/124100): a parameter's function type 'X → {e} Y' split across lines with {e} starting a line reads the row as a record (tree differs, refused). Fold into SW-3605's lane or run alongside.\n\nSonnet, 16 Nov: cause: binder_type looks for a leading `{…} T` with peek(), which hides a `{` that starts a line at the block's column, so `(t:\\n  {e} a)` there missed the targeted error and read as a record. Fix: SW-3582's allow-check from result_type is now a helper, allow_brace_at_block_column, called by both. Test: lower::tests::blocks::a_row_at_the_blocks_column_in_a_parameters_type_says_what_to_write (fails without the call). The fuzz inputs were not in the ticket, so I reproduced the shape by hand; the formatter now gives the parse error instead of 'formatter bug'.\n",
+      "body": "Fuzz confirms (Overmind, seeds 0x95d/182788, 0x962/164395, 0x965/124100): a parameter's function type 'X → {e} Y' split across lines with {e} starting a line reads the row as a record (tree differs, refused). Fold into SW-3605's lane or run alongside.\n\nSonnet, 16 Nov: cause: binder_type looks for a leading `{…} T` with peek(), which hides a `{` that starts a line at the block's column, so `(t:\\n  {e} a)` there missed the targeted error and read as a record. Fix: SW-3582's allow-check from result_type is now a helper, allow_brace_at_block_column, called by both. Test: lower::tests::blocks::a_row_at_the_blocks_column_in_a_parameters_type_says_what_to_write (fails without the call). The fuzz inputs were not in the ticket, so I reproduced the shape by hand; the formatter now gives the parse error instead of 'formatter bug'.\n\nModel result: sonnet, worked, 15 min (est. 25). Overmind to rerun seeds 0x95d/0x962/0x965 in the next fmt fuzz.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
