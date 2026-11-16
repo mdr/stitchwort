@@ -282,7 +282,7 @@ definitions for `rewrite repeatedly`); §1.2's two gaps are places where `rewrit
   step limit and only "notices certain simple forms of nontermination"
   **[cited: I1]**; Rocq's `autorewrite` "may loop" **[cited: R3]**.
 - **Rules that loop on their own** are refused where they are listed
-  (`E-SIMP-RULE`): one whose right side contains an instance of its own
+  (`E-REWRITE-REPEATEDLY-RULE`): one whose right side contains an instance of its own
   left side (`a + b = b + a`). Lean has a lint for this (`simpComm`)
   **[cited: L8]**; here it is an error, since there is no ordered
   rewriting to make such a rule useful.
@@ -523,7 +523,7 @@ changes, D2364).
 | Stage | What | Lane | Time | Acceptance |
 |---|---|---|---|---|
 | 0 | The two gaps of §1.2, as bug fixes with tests: open-argument `rewrite` finds a visible call that can compute; `cases then t` gives `t` the folded goal and splits a visible `if` first | Opus (tactics: D2506) | 1.5 h | §1.2's failing arms check as written there |
-| 1 | `rewrite repeatedly [rules]`, `… in t`, `… in ?`: equations, hypotheses, `Bool` facts, `f`; visible matching; closers; budget; `E-REWRITE-REPEATEDLY`, `E-REWRITE-REPEATEDLY-BUDGET`, `E-SIMP-RULE`; steps in `stitchwort goal --at`. `docs/syntax.md`, guide, a tour page | Opus, then Opus review | 4 h + 1 h | The five small equation proofs of §6 (`suffixWords`, `writeLayoutWords`, `stackWordsAppend`, `flushEachWritten`, `List.reverseSnoc`) check as written there. `Words.sw` converted on a branch: proof characters down 15% or more, check time within 1.5 times today's. One reject example per message |
+| 1 | `rewrite repeatedly [rules]`, `… then t`, `… then ?`: equations, hypotheses, `Bool` facts, `f`; visible matching; closers; budget; `E-REWRITE-REPEATEDLY`, `E-REWRITE-REPEATEDLY-BUDGET`, `E-REWRITE-REPEATEDLY-RULE`; steps in `stitchwort goal --at`. `docs/syntax.md`, guide, a tour page | Opus, then Opus review | 4 h + 1 h | The five small equation proofs of §6 (`suffixWords`, `writeLayoutWords`, `stackWordsAppend`, `flushEachWritten`, `List.reverseSnoc`) check as written there. `Words.sw` converted on a branch: proof characters down 15% or more, check time within 1.5 times today's. One reject example per message |
 | 2 | `rules` declarations; `rewrite repeatedly … at h`; expand (CLI flag and code action) | Sonnet | 2.5 h | `stepWords` and `List.sumTakeMono` as in §6. Expanding every `rewrite repeatedly` in `Words.sw` gives a file that checks |
 | 3 | `↔` under the connectives, for `rewrite` and `rewrite repeatedly` (SW-2706); registered `…Iff` lemmas; conjunction closer | Opus (short as-built design first), then Opus review | 4 h + 1 h | `stepUniform` as in §6. `stitchwort axioms` on it: none. The missing-lemma note fires in a reject example |
 | 4 | Convert the engine slice (`Readings.sw`, `Words.sw`, the 11 theorems of `Proofs.sw`) and re-run SW-3513's script; choose std's first sets; count missing-congruence notes | Sonnet | 2 h | Target: proof characters at 80% of today's or less (§6 estimates 71 to 78%). The table of toy-proof-complexity.md §5.1 gains a fourth column |
@@ -658,39 +658,48 @@ Web, fetched 16 Nov 2026 by a research sub-agent:
   side computes at once (constructor patterns), which would only rewrite a
   term to itself. Otherwise `f` is one delta step, proved by `Refl`.
 - **Matching.** Not visible-only as §2.2 proposed. Each rule uses
-  `rewrite`'s own search (`rewrite_once`): as written first, then the
-  computed goal, and also the as-written rescue. Two things were added:
+  `rewrite`'s own search (`rewrite_once`), in two passes per goal (review
+  L1): first every rule in turn as written only (`as_written::first`), and
+  only when none fits there, the full search (as written, then the
+  computed goal, then the rescue). The computed goal is read back once per
+  goal. Two more things were added:
   - a rewrite that leaves the goal *as written* unchanged is no progress;
   - the goal as written is carried along (each step's sides are replaced
     in it), so a rule written in the goal is still seen after another
     rule's step has read the goal back computed.
 
-  The order is round robin, the rules in turn. There is no bottom-up
-  traversal: each rule rewrites every occurrence of the instance it finds.
+  The rules aren't confluent, and the two passes changed the order: one
+  converted `stepWords` arm needed `List.appendAssoc` moved to a second
+  `rewrite repeatedly`. There is no bottom-up traversal: each rule
+  rewrites every occurrence of the instance it finds.
 - **Closers.** `byComputing`, contradicting hypotheses, then a hypothesis
   (or a part of one) of the goal's type: `cases`' closers without
   splitting.
 - **Errors.**
-  - `E-REWRITE-REPEATEDLY`: lists what is left, the rules applied (with
-    counts) and the rules never applied.
-  - `E-REWRITE-REPEATEDLY-BUDGET`: 500 steps; lists the last rules and
-    names a cycle.
+  - `E-REWRITE-REPEATEDLY`: lists what is left, where its sides first
+    differ, the rules applied (with counts), and why each other rule never
+    applied.
+  - `E-REWRITE-REPEATEDLY-BUDGET`: 500 steps; lists the last rules and the
+    goal now, and names a cycle only when the goal comes back.
   - `E-REWRITE-REPEATEDLY-RULE`: not an equation, no head, a self-loop such
-    as `Nat.addComm`, or a definition with no arm equations.
+    as `Nat.addComm`, a right side with an unknown the left side doesn't
+    fix, or a definition with no arm equations.
   - `W-REWRITE-REPEATEDLY-UNSTATED`: R7.
 - **Steps.** `goal --at` shows each step (`StepForm::RepeatedRule`,
   `rewriteRepeatedly` in JSON).
 - **Toy formatter.** `Toy.Doc.Proofs` (Words.sw) was converted.
   - Proof characters fell from 13,783 to 11,706 (−15.1%) **[measured]**.
-  - Check time of the file's declarations rose from about 0.26 s to about
+  - Check time of the file's declarations rose from about 0.24 s to about
     0.9 s (3.6×) **[measured, `STITCHWORT_TIMINGS=decls`]**, against a bar
-    of 1.5×. Nearly all of the extra time is the computed-goal search for
+    of 1.5×. Nearly all of the extra time was the computed-goal search for
     printer lemmas (`writeWords`, `writeLayoutWords`). Their left sides
     unfold into the printer's whole state, so comparing them by computing
-    is expensive, and is paid again in each arm of `stepWords`. The
-    as-written search alone (§2.2's design) would avoid most of this, but
-    three of the converted proofs rely on finding a rule in the computed
-    goal after `match`/`cases` has refined it.
+    is expensive, and is paid again in each arm of `stepWords`.
+  - After the review: the two passes, one read-back per goal, and closing
+    (without `then`) before the full pass brought it to 0.66 s (2.8×)
+    **[measured]**, `stepWords` 0.41 s against 0.08 s. Still over the bar, so
+    the conversion is not merged; it is kept as a patch for the speed
+    follow-up.
 - **Stage 2** keeps:
   - `rules` sets;
   - `at h`;

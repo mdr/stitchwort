@@ -156,7 +156,7 @@ theorem swapTimesOne ∀ (a b: Nat): (a + b) * 1 = b + a := rewrite Nat.mulOne (
 
 `Nat.mulOne (a + b)` turns `(a + b) * 1` into `a + b`, and `Nat.addComm a b` turns `a + b` into `b + a`, leaving `b + a = b + a`. The library's lemmas are named after what they say: `Nat.addComm`, `Nat.addAssoc`, `List.lengthMap`, `List.lengthAppend`. `rewrite <- p` rewrites from right to left, and `rewrite p at h` rewrites the type of a hypothesis `h` instead of the goal. `rewrite` also goes inside a function passed as an argument, through the congruence lemma of the function it is passed to: `rewrite Nat.mulOne _` proves `List.map xs (x => x * 1) = List.map xs (x => x)` by `List.mapCong`, with `_` standing for `x`. Arguments left off a rule's end are filled in the same way, and a premise the rule needs, such as `x <= n` for `Nat.addSubCancel x n`, is proved by a hypothesis or by `arithmetic`; inside `(0 ..< n).sumBy f` the congruence lemma also says that `x` is below `n`, which proves it, so `rewrite Nat.addSubCancel` turns `x + (n - x)` into `n` there.
 
-`rewrite repeatedly [rules]` is `rewrite` on repeat. It uses each rule wherever it fits, as often as it fits and in whatever order that takes, until none does, and then closes what is left: by computing, or by a hypothesis of that type (or two that contradict each other):
+`rewrite repeatedly [rules]` is `rewrite` on repeat. It uses each rule wherever it fits, in turn, in the order listed, until none fits, and then closes what is left: by computing, or by a hypothesis of that type (or two that contradict each other):
 
 <!-- snippet: proofs.sw#rewrite-repeatedly -->
 ```stitchwort
