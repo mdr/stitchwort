@@ -1,5 +1,5 @@
 {
-  "next": 3618,
+  "next": 3620,
   "tickets": [
     {
       "id": 47,
@@ -40621,6 +40621,32 @@
       "labels": [],
       "epic": "std-library",
       "body": "Model result: sonnet, worked, 5 min (est. 20). Cause: SW-3603's calc in Text.decEqFrom. Structural answer stays SW-1586.",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3618,
+      "title": "[Sonnet] REPL syntax colouring (Matt, 16 Nov 2026: 'consider syntax coloring for expressions ... code in the REPL'): colour input as it's typed via rustyline's Highlighter, from our lexer's tokens with the same categories the LSP's semantic tokens use (keywords, literals, types/constructors, operators, comments); also colour printed values and their types; off under --color=never/NO_COLOR. After SW-3614 (same file)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3619,
+      "title": "[Sonnet] REPL tab completion (Matt, 16 Nov 2026): rustyline Completer: names in scope (imports, session definitions per D3661), namespaces after 'import', :commands, and members after '.', reusing the LSP's completion logic (crates/lsp) rather than a second implementation. After SW-3614",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
