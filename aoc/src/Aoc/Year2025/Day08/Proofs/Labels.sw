@@ -107,14 +107,13 @@ theorem lookupRange ∀ (b c s: Nat)
     | Zero => arithmetic
     | Succ c =>
       match e: Nat.equal s b with
-        | True => rewrite <- e.read, lookupBelow s c (Succ s) arithmetic, Ord.compareSelf s then byComputing
-        | False => rewrite lookupRange b c (Succ s) arithmetic arithmetic then byComputing
+        | True => rewrite <- e.read, lookupBelow s c (Succ s) arithmetic, Ord.compareSelf s
+        | False => rewrite lookupRange b c (Succ s) arithmetic arithmetic
 
 theorem storedAtStart ∀ (n b: Nat) (h: b < n): Map.get (Circuits.separate n).labels b = Some b :=
   rewrite Map.getFromList b (List.map (List.range 0 n) (box => (box, box))) then lookupRange b n 0 arithmetic h
 
-theorem labelAtStart ∀ (n b: Nat) (h: b < n): (Circuits.separate n).labelOf b = b :=
-  rewrite storedAtStart n b h then byComputing
+theorem labelAtStart ∀ (n b: Nat) (h: b < n): (Circuits.separate n).labelOf b = b := rewrite storedAtStart n b h
 
 theorem labelledAtStart ∀ (n: Nat): Labelled n [] (Circuits.separate n) := {
   stored = b h => rewrite storedAtStart n b h then byComputing,
@@ -133,33 +132,32 @@ def relabel (from to label: Nat): Nat := if label == from then to else label
 def moved (c: Circuits) (f s: Nat): Circuits :=
   { labels = c.labels |> Map.map (relabel (c.labelOf f) (c.labelOf s)), count = c.count - 1 }
 
-theorem joinSame ∀ (c: Circuits) (f s: Nat) (same: (c.labelOf f == c.labelOf s) = True): c.join f s = c :=
-  rewrite same then byComputing
+theorem joinSame ∀ (c: Circuits) (f s: Nat) (same: (c.labelOf f == c.labelOf s) = True): c.join f s = c := rewrite same
 
 theorem joinDiffers ∀ (c: Circuits) (f s: Nat)
     (differ: (c.labelOf f == c.labelOf s) = False):
     c.join f s = moved c f s :=
-  rewrite differ then byComputing
+  rewrite differ
 
 --| The new labels: the old ones, relabelled.
 theorem movedStored ∀ (c: Circuits) (f s n: Nat)
     (stored: ∀ (b: Nat) => b < n → c.labels.get b = Some (c.labelOf b)) (b: Nat)
     (h: b < n):
     Map.get (moved c f s).labels b = Some (relabel (c.labelOf f) (c.labelOf s) (c.labelOf b)) :=
-  rewrite Map.getMap c.labels b (relabel (c.labelOf f) (c.labelOf s)), stored b h then byComputing
+  rewrite Map.getMap c.labels b (relabel (c.labelOf f) (c.labelOf s)), stored b h
 
 theorem movedLabel ∀ (c: Circuits) (f s n: Nat)
     (stored: ∀ (b: Nat) => b < n → c.labels.get b = Some (c.labelOf b)) (b: Nat)
     (h: b < n):
     (moved c f s).labelOf b = relabel (c.labelOf f) (c.labelOf s) (c.labelOf b) :=
-  rewrite movedStored c f s n stored b h then byComputing
+  rewrite movedStored c f s n stored b h
 
 --| s's label stays, f's moves to it.
 theorem relabelTo ∀ (from to: Nat) (differ: (from == to) = False): relabel from to to = to := match g: to == from with
   | True => (differ.read g.read.flipped).impossible
   | False => byComputing
 
-theorem relabelFrom ∀ (from to: Nat): relabel from to from = to := rewrite DecEq.refl from then byComputing
+theorem relabelFrom ∀ (from to: Nat): relabel from to from = to := rewrite DecEq.refl from
 
 theorem labelledMoved ∀ (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f s: Nat)
     (hf: f < n)
@@ -183,13 +181,12 @@ theorem labelledMoved ∀ (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f s: N
           done
           m
           (relabel (c.labelOf f) (c.labelOf s) (c.labelOf a) = relabel (c.labelOf f) (c.labelOf s) (c.labelOf b))
-          (o => rewrite inv.agree a b o then byComputing)
+          (o => rewrite inv.agree a b o)
           (ab =>
-            rewrite And.left ab,
-                And.right ab,
-                relabelFrom (c.labelOf f) (c.labelOf s),
-                relabelTo (c.labelOf f) (c.labelOf s) differ then
-              byComputing),
+            rewrite And.left ab, And.right ab, relabelFrom (c.labelOf f) (c.labelOf s), relabelTo
+              (c.labelOf f)
+              (c.labelOf s)
+              differ),
     labelJoined = b h =>
       rewrite movedLabel c f s n inv.stored b h then
         match g: c.labelOf b == c.labelOf f with

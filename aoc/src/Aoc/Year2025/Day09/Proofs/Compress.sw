@@ -34,14 +34,14 @@ theorem lessSame ∀ (values: List Nat) (u v w: Nat)
     (m: List.Mem u values)
     (s: SameSide values v w):
     Nat.leq (Succ v) u = Nat.leq (Succ w) u :=
-  rewrite Nat.lessNotLe v u, Nat.lessNotLe w u, (s u m).left then byComputing
+  rewrite Nat.lessNotLe v u, Nat.lessNotLe w u, (s u m).left
 
 theorem fromSame ∀ (values: List Nat) (one other v w: Nat)
     (m1: List.Mem one values)
     (m2: List.Mem other values)
     (s: SameSide values v w):
     from one other v = from one other w :=
-  rewrite (s one m1).left, (s one m1).right, (s other m2).left, (s other m2).right then byComputing
+  rewrite (s one m1).left, (s one m1).right, (s other m2).left, (s other m2).right
 
 --| The ends of a straight line of the loop are red tiles.
 theorem connectionEnds ∀ (tiles: List Point) (ends: Line)
@@ -76,24 +76,22 @@ theorem onStraightLineSame ∀ (tiles: List Point) (x y x2 y2: Nat)
   match connectionEnds tiles ends m with
     | Both first second =>
       rewrite fromSame
-            (columnsOf tiles)
-            ends.from.x
-            ends.to.x
-            x
-            x2
-            (columnIn tiles ends.from first)
-            (columnIn tiles ends.to second)
-            sx,
-          fromSame
-            (rowsOf tiles)
-            ends.from.y
-            ends.to.y
-            y
-            y2
-            (rowIn tiles ends.from first)
-            (rowIn tiles ends.to second)
-            sy then
-        byComputing
+        (columnsOf tiles)
+        ends.from.x
+        ends.to.x
+        x
+        x2
+        (columnIn tiles ends.from first)
+        (columnIn tiles ends.to second)
+        sx, fromSame
+        (rowsOf tiles)
+        ends.from.y
+        ends.to.y
+        y
+        y2
+        (rowIn tiles ends.from first)
+        (rowIn tiles ends.to second)
+        sy
 
 theorem crossesRaySame ∀ (tiles: List Point) (x y x2 y2: Nat)
     (sx: SameSide (columnsOf tiles) x x2)
@@ -104,19 +102,20 @@ theorem crossesRaySame ∀ (tiles: List Point) (x y x2 y2: Nat)
     | Both first second =>
       let fy := rowIn tiles ends.from first
       let sy2 := rowIn tiles ends.to second
-      rewrite lessSame (columnsOf tiles) ends.from.x x x2 (columnIn tiles ends.from first) sx,
-          lessSame (rowsOf tiles) ends.to.y y y2 sy2 sy,
-          lessSame (rowsOf tiles) ends.from.y y y2 fy sy,
-          (sy ends.from.y fy).left,
-          (sy ends.to.y sy2).left then
-        byComputing
+      rewrite lessSame (columnsOf tiles) ends.from.x x x2 (columnIn tiles ends.from first) sx, lessSame
+        (rowsOf tiles)
+        ends.to.y
+        y
+        y2
+        sy2
+        sy, lessSame (rowsOf tiles) ends.from.y y y2 fy sy, (sy ends.from.y fy).left, (sy ends.to.y sy2).left
 
 --| Tiles whose columns and rows compare alike with the red tiles' are alike.
 theorem redOrGreenSame ∀ (tiles: List Point) (x y x2 y2: Nat)
     (sx: SameSide (columnsOf tiles) x x2)
     (sy: SameSide (rowsOf tiles) y y2):
     redOrGreen tiles { x, y } = redOrGreen tiles { x = x2, y = y2 } :=
-  rewrite onStraightLineSame tiles x y x2 y2 sx sy, crossesRaySame tiles x y x2 y2 sx sy then byComputing
+  rewrite onStraightLineSame tiles x y x2 y2 sx sy, crossesRaySame tiles x y x2 y2 sx sy
 
 -- 2. A key value for every value -------------------------------------------
 

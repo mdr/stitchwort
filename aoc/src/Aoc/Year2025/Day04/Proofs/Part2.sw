@@ -30,12 +30,12 @@ theorem roundCells ∀ (grid: Grid)
 theorem settleMore ∀ (rows: Vec (Vec Cell w) h)
     (fewer: Nat.leq (Succ (countRolls (roundRows rows))) (countRolls rows) = True):
     settleRows rows = settleRows (roundRows rows) :=
-  rewrite settleRows.unfold rows then rewrite fewer then byComputing
+  rewrite settleRows.unfold rows, fewer
 
 theorem settleDone ∀ (rows: Vec (Vec Cell w) h)
     (done: Nat.leq (Succ (countRolls (roundRows rows))) (countRolls rows) = False):
     settleRows rows = rows :=
-  rewrite settleRows.unfold rows then rewrite done then byComputing
+  rewrite settleRows.unfold rows, done
 
 --| The loop ends where `fuel` rounds do, for any `fuel` of at least the rolls.
 theorem settleRounds ∀ (grid: Grid)

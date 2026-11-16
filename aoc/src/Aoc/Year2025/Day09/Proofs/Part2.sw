@@ -47,12 +47,10 @@ theorem specAreas ∀ (tiles: List Point):
     ((tiles.pairs.map Rectangle.ofPair).filter (allRedOrGreen tiles)).map Rectangle.area
       = (tiles.pairs.filter (p => allRedOrGreen tiles (Rectangle.ofPair p))).map (p =>
         Rectangle.area (Rectangle.ofPair p)) :=
-  rewrite List.filterOfMap (List.pairs tiles) (allRedOrGreen tiles) Rectangle.ofPair,
-      List.mapMap
-        (List.filter (List.pairs tiles) (p => allRedOrGreen tiles (Rectangle.ofPair p)))
-        Rectangle.area
-        Rectangle.ofPair then
-    byComputing
+  rewrite List.filterOfMap (List.pairs tiles) (allRedOrGreen tiles) Rectangle.ofPair, List.mapMap
+    (List.filter (List.pairs tiles) (p => allRedOrGreen tiles (Rectangle.ofPair p)))
+    Rectangle.area
+    Rectangle.ofPair
 
 --| The areas the program compares are the spec's.
 theorem programAreas ∀ (tiles: List Point):
@@ -79,15 +77,13 @@ theorem programAreas ∀ (tiles: List Point):
               (List.map (List.pairs tiles) (p => (floor.corner p.fst, floor.corner p.snd)))
               FloorRectangle.ofPair)
             (Floor.allRedOrGreen floor))
-          FloorRectangle.area := rewrite List.pairsMap tiles floor.corner then byComputing
+          FloorRectangle.area := rewrite List.pairsMap tiles floor.corner
       _ = List.map
           (List.filter (List.map (List.pairs tiles) located) (Floor.allRedOrGreen floor))
           FloorRectangle.area :=
-        rewrite List.mapMap (List.pairs tiles) FloorRectangle.ofPair (p =>
-              (floor.corner p.fst, floor.corner p.snd)) then
-          byComputing
+        rewrite List.mapMap (List.pairs tiles) FloorRectangle.ofPair (p => (floor.corner p.fst, floor.corner p.snd))
       _ = List.map (List.map (List.filter (List.pairs tiles) keep) located) FloorRectangle.area :=
-        rewrite List.filterOfMap (List.pairs tiles) (Floor.allRedOrGreen floor) located then byComputing
+        rewrite List.filterOfMap (List.pairs tiles) (Floor.allRedOrGreen floor) located
       _ = List.map (List.filter (List.pairs tiles) keep) (p => Rectangle.area (Rectangle.ofPair p)) :=
         List.mapMap (List.filter (List.pairs tiles) keep) FloorRectangle.area located
   rewrite programSide,
