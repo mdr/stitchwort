@@ -38745,12 +38745,12 @@
     {
       "id": 3475,
       "title": "[Sonnet] Diagnostics: one unbalanced bracket in a project file still floods the output after SW-3439: 2,242 W-ARROW-FORALL plus unknown-name errors in five other files, the real E-PARSE at line 1,261 of ~14,000 (SW-3418 lane 2). Suppress the cascade after a parse error (other files' unknown names from the broken file's declarations; the arrow filter); show the E-PARSE first",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\n\n\n\nLane notes (Sonnet): fix in check_in_order (project.rs): E-PARSE first, broken ns warnings dropped, dependents hidden behind one W-AFTER-SYNTAX-ERROR line. toyfmt repro 7,438 -> 34 lines. Test: reject/parse-error-dependents (fails without fix, passes with). Caveats: summary counts include hidden diagnostics; LSP path unchanged; suppression by dependency not name.\n",
       "created": "2026-11-15",
       "updated": "2026-11-16",
       "commits": []
