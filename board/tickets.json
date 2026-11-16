@@ -39364,15 +39364,17 @@
     {
       "id": 3522,
       "title": "[Fable paper] Revisit simp: new design note (D3637, Matt, 16 Nov 2026), reconsidering D2541's 'no simp' in light of the toy proof and the Lean port (SW-3513: proofs 30% with simp/grind vs 73% plain); within D3481 (no propext; ↔ rewriting under connectives, SW-2706), D2541/D2542 (computing decides; rewrite what's visible), D3479-D3482 (tests first)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nLane note (Fable, 16 Nov 2026): docs/proposals/simp-revisited.md written (commit 890e38df0 on lane/SW-3522). Paper only; probes with the release CLI on scratch copies of Toy/Doc.\n- Design: `simp [rules]` as a term: rewrites the goal as written with named rules to a fixed point, closes by computing; never unfolds to search, never splits; `rules name := [...]` sets, no attribute or default set; iff rules by congruence lemmas (SW-2706 becomes stage 3), no propext for now (compared in §5).\n- Evaluation: nine proofs by hand, 6,783 -> 3,376 proof characters [measured on the text]; engine slice est. 22-29% of proof text.\n- Stages 0-4, about 16 agent-hours. Three questions for Matt in §9 (reverse D2541's clause; named sets; propext).\n- Findings: open-argument `rewrite` misses a visible call that can compute; `cases in t` hands `t` the computed goal and over-splits (§1.2).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "890e38df0"
+      ]
     }
   ]
 }
