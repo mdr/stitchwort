@@ -40418,12 +40418,12 @@
     {
       "id": 3602,
       "title": "[Opus] rewrite repeatedly stage 1 (docs/proposals/simp-revisited.md §8 stage 1): 'rewrite repeatedly [rules]', '… then t', '… then ?' (D3647 name, D3648 then): equations, hypotheses, Bool facts, f; visible matching; closers; budget; error codes; steps in goal --at; named rule sets per D3639 if in stage 1's scope; no propext (D3640, a soft default); R7 flexible rule from readable-proofs.md (a non-terminal rewrite repeatedly is followed by a stated fact; warn otherwise). Bar: §6's five equation proofs check as written; Words.sw converted on a branch, proof characters -15%+, check time ≤1.5x. Guide, syntax.md, tour page. Est. 100 min agent time, then an Opus review",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Lane notes (Opus, 16 Nov 2026, ~70 min):\n- Built on lane/SW-3602 (5 commits): syntax, elaborator (crates/elab/src/rewrite/repeatedly.rs), examples, Words.sw, docs.\n- Matching is rewrite's own search (as written, then computed), not §2.2's visible-only; the goal as written is carried across steps.\n- Errors: E-REWRITE-REPEATEDLY, -BUDGET (500 steps, names a cycle), -RULE (not an equation, no head, self-loop, no arm equations); W-REWRITE-REPEATEDLY-UNSTATED (R7). Steps in goal --at.\n- Five proofs: suffixWords, writeLayoutWords, stackWordsAppend, flushEachWritten check in Words.sw (some with arguments given); List.reverseSnoc as an accept example (std left alone, no hash churn).\n- Words.sw: proof chars 13,783 -> 11,706 (-15.1%, bar met). Check time 0.24 s -> 0.9 s of declarations (3.6x, bar 1.5x NOT met); namespace wall 4.4 s -> 5.1 s. Cost is the computed-goal search for printer lemmas (writeWords, writeLayoutWords) inside stepWords' arms.\n- Deferred to stage 2: rules sets, at h, expand, unused-rule warning.\n- Tests run: syntax rewrite tests, the new examples (accept/reject/goals), soundness, hash_stability (only the 2 new snapshots added), guide:: with update, web the_guide_examples_check.\n- Not finished: stitchwort-web the_guide_examples_check (debug build) ran over 9 min and was stopped; web/guide/44-rewrite-repeatedly.sw checks on its own with the release binary.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
