@@ -39738,7 +39738,7 @@
     {
       "id": 3550,
       "title": "[Sonnet] Errors E4: fixes in check's JSON ({range, replacement, applicability}) from what the LSP computes and the did-you-means, and try: lines in text (D3646 (docs/proposals/helpful-errors.md §5 rank 4). Est. 1.5 h",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
