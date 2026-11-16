@@ -1,11 +1,11 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REWRITE-NOTHING] Error: `rewrite` found no `f _n` in the goal
    ╭─[ reject/rewrite-under-binder.sw:5:11 ]
    │
- 5 │   rewrite h then byComputing
+ 5 │   rewrite h
    │           ┬  
    │           ╰── looking for `f _n`
    │ 

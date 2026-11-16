@@ -1,12 +1,11 @@
 ---
-source: crates/cli/tests/examples.rs
-assertion_line: 624
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REWRITE-NOTHING] Error: `rewrite` found no `n * 1` in the goal
    ╭─[ reject/rewrite-wrong-direction-variable-side.sw:9:11 ]
    │
- 9 │   rewrite Nat.mulOne n then byComputing
+ 9 │   rewrite Nat.mulOne n
    │           ──────┬─────  
    │                 ╰─────── looking for `n * 1`
    │ 

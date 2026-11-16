@@ -1,11 +1,11 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REWRITE-NOTHING] Error: `rewrite` found no `n * 1` in the goal
     ╭─[ reject/opaque-note-rewrite-nothing.sw:10:11 ]
     │
- 10 │   rewrite Nat.mulOne n then byComputing
+ 10 │   rewrite Nat.mulOne n
     │           ──────┬─────  
     │                 ╰─────── looking for `n * 1`
     │ 
