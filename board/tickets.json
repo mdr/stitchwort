@@ -40254,7 +40254,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Also D3657 (Matt, 16 Nov 2026: yes): theorems with proofs over ~15 lines end their doc with a 1-2 sentence proof idea (induction, key lemma, invariant); no step narration. Matt's reasoning: 'I don't think necessarily the programming rules about being really stingy with comments necessarily carry over to the proving world ... it can be really hard to write like a self-documenting proof ... having the proof idea can really help.' Update proving guide §2.7, syntax.md 'What to write', and CLAUDE.md's comment rule.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []

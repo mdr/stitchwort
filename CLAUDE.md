@@ -285,7 +285,10 @@ of work to fit it:
   version or the change: say what the code can't (why, invariants, units).
   Don't narrate the next line, restate names or types, or describe what
   just changed (that goes in the commit message). The standard library
-  still gets full API docs (D2351, Matt, 4 Nov 2026).
+  still gets full API docs (D2351, Matt, 4 Nov 2026). Proofs are the exception
+  to stinginess: a theorem whose proof runs over about 15 lines ends its
+  doc with the proof idea in a sentence or two (D3657, Matt, 16 Nov 2026:
+  "it can be really hard to write like a self-documenting proof").
 - In application code (aoc/, games/rogue), talk in the problem's language:
   give its nouns small domain types, records by default (`Pass`, not a bare
   `List Bool`) with their operations as methods (`pass.seatId`), and state
