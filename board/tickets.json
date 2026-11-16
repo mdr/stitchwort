@@ -19864,7 +19864,7 @@
     {
       "id": 2151,
       "title": "[DeepSeek] Goal printer: a spread in the middle of a list prints as written ([0, ..chain, highest + 3], not [0, ..chain ++ [highest + 3]]); ++ stays ++ at the top of a term",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -19873,7 +19873,7 @@
       "epic": "diagnostics",
       "body": "From docs/proposals/goal-printing-gaps.md. Lane A; replaces SW-1469's first half. 30 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
