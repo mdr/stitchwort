@@ -46,6 +46,54 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 16 Nov 2026
 
+### SW-3659: today's instance only after a hit as written; `rewrite repeatedly` measured on two std files
+
+- **Status:** kept (Opus), elaborator (`rewrite/as_written.rs`). The std
+  conversions are not landed (over 2x, or not shorter):
+  dev/patches/SW-3659-std-samples.patch.
+- **Change.** For a rule with unknowns, the search as written first found
+  today's instance (`todays_instance`, a search of the unfolded goal) and
+  then searched as written. Now it searches as written first; only when
+  that finds something is today's instance found, with the rule elaborated
+  afresh (its unknowns unsolved), and compared as before. Where either
+  instance keeps an unknown, or the unfolded goal has one the search as
+  written could solve, it is undone and done the old way, so the choice is
+  the same. Plain `rewrite` takes the same path. The one difference: a
+  search as written that finds nothing no longer spends budget on today's
+  instance first, so it can't run out there (`First::RanOut` becomes
+  `Not`); both end the same way, since the fallback as written
+  (`unconfirmed`) would find nothing either.
+- **Measured** (`STITCHWORT_TIMINGS=decls`, sum of elab and kernel, 3 to 4
+  interleaved runs, load 4 to 12): toyfmt's Words.sw 556 to 526 ms (-5%);
+  todays_instance calls over `Toy.Doc.Proofs` 106 to 48, 118 to 87 ms. The
+  nine converted Nat/Bits.sw proofs 89 to 81 ms (-8%). Hashes unchanged
+  (`hash_stability::prelude`, `pinned_hashes`, rewrite-repeatedly examples).
+- **Ratios against the hand-written proofs, after the change.** Words.sw
+  2.42x (0.55 s vs 0.23 s). Nat/Bits.sw, nine proofs (`xorMod`, `xorDiv`,
+  `testBitXor` and the `and`, `or` ones; 20 lines shorter, the lemmas'
+  arguments dropped): 2.9x on those proofs (87 vs 30 ms), the file 1.4x
+  (217 vs 155 ms). Parse/ReadsChars.sw, six proofs whose rules are
+  hypotheses (`[split, none, List.appendNil, literal, isTrue]`): 1.1x
+  (57 vs 52 ms), but 3 characters longer each. So the cost is in lemmas
+  with their arguments left open: `Nat.modAddMul` found by unifying
+  `(?a + ?b * ?k) % ?k` with every `%` in the goal, where the explicit
+  `Nat.modAddMul x y 2` matched syntactically (orMod 3.2 to 17 ms; a miss
+  as written 2 ms with no hit). Hypotheses and closed rules cost little.
+- **Dropped.** (1) Not repeating, in the full pass, the try as written that
+  just found nothing at the same goal (SW-3654's 22 ms): built, but it
+  never fired on Words.sw or Bits.sw, because a rule that reaches the full
+  pass was skipped as written by `may_fit` (its key isn't in the goal as
+  written) rather than tried. (2) A probe as written before today's
+  instance, undone after: instructions over `Toy.Doc.Proofs` +0.1%, since
+  the 861 hits paid a second search to spare 58 misses. (3) Skipping
+  today's instance for set members (55 ms): changes which instance a set's
+  rule rewrites, a design call, not done. (4) `writeLayoutWords`' full
+  search (89 ms), found only by the rescue: trying the rescue first would
+  change the result wherever the full search finds something.
+- **What is left** is the searches themselves: unification of an open
+  left side against each candidate (`Search::decide`, unify about 60% of
+  it), as SW-3629 found.
+
 ### SW-3654: `rewrite repeatedly` rule sets: members only as written, and their checks kept; Words.sw with a set 4.5x to 2.56x, the 1.5x bar still missed
 
 - **Status:** kept (Opus), elaborator (`rewrite/repeatedly.rs`, `cache/rows.rs`).

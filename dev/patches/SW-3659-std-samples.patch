@@ -1,0 +1,152 @@
+diff --git a/crates/elab/src/std/Nat/Bits.sw b/crates/elab/src/std/Nat/Bits.sw
+index b123eff8a..f235f0f03 100644
+--- a/crates/elab/src/std/Nat/Bits.sw
++++ b/crates/elab/src/std/Nat/Bits.sw
+@@ -75,15 +75,12 @@ theorem Nat.xorSome ∀ (m n: Nat)
+ --| The lowest bit, and the rest.
+ theorem Nat.xorMod ∀ (m n: Nat): Nat.xor m n % 2 = (m + n) % 2 := match some: Nat.leq (m + n) 0 with
+   | False =>
+-    rewrite Nat.xorSome m n some, Nat.modAddMul ((m + n) % 2) (Nat.xor (m / 2) (n / 2)) 2 then Nat.modMod (m + n) 2
++    rewrite repeatedly [Nat.xorSome m n some, Nat.modAddMul, Nat.modMod]
+   | True => rewrite Nat.xorZero m n some, (arithmetic: m + n = 0)
+ 
+ theorem Nat.xorDiv ∀ (m n: Nat): Nat.xor m n / 2 = Nat.xor (m / 2) (n / 2) := match some: Nat.leq (m + n) 0 with
+   | False =>
+-    rewrite Nat.xorSome m n some, Nat.divAddMul ((m + n) % 2) (Nat.xor (m / 2) (n / 2)) 2, Nat.divSmall
+-      ((m + n) % 2)
+-      2
+-      (Nat.modLess (m + n) 2 (Nat.succNotZero 1))
++    rewrite repeatedly [Nat.xorSome m n some, Nat.divAddMul, Nat.divSmall]
+   | True => rewrite Nat.xorZero m n some, (arithmetic: m = 0), (arithmetic: n = 0)
+ 
+ --| Whether the sum of two bits is odd is their exclusive or.
+@@ -105,11 +102,9 @@ theorem Nat.oddSum ∀ (m n: Nat): ((m + n) % 2 == 1) = Bool.xor (m % 2 == 1) (n
+ theorem Nat.testBitXor ∀ (i m n: Nat): Nat.testBit (Nat.xor m n) i = Bool.xor (Nat.testBit m i) (Nat.testBit n i) :=
+   match i with
+     | Zero =>
+-      rewrite Nat.shiftRightNone (Nat.xor m n), Nat.shiftRightNone m, Nat.shiftRightNone n, Nat.xorMod m n then
+-        Nat.oddSum m n
++      rewrite repeatedly [Nat.shiftRightNone, Nat.xorMod, Nat.oddSum]
+     | Succ i =>
+-      rewrite Nat.testBitSucc (Nat.xor m n) i, Nat.xorDiv m n, Nat.testBitSucc m i, Nat.testBitSucc n i then
+-        Nat.testBitXor i (m / 2) (n / 2)
++      rewrite repeatedly [Nat.testBitSucc, Nat.xorDiv, Nat.testBitXor i (m / 2) (n / 2)]
+ 
+ --| Two remainders by 2 that are odd together are equal.
+ theorem Nat.bitsEqual ∀ (m n: Nat) (small: m < 2) (alsoSmall: n < 2) (same: (m == 1) = (n == 1)): m = n :=
+@@ -186,24 +181,19 @@ theorem Nat.andSome ∀ (m n: Nat)
+ 
+ theorem Nat.andMod ∀ (m n: Nat): Nat.and m n % 2 = m * n % 2 := match some: Nat.leq (m + n) 0 with
+   | False =>
+-    rewrite Nat.andSome m n some, Nat.modAddMul (m * n % 2) (Nat.and (m / 2) (n / 2)) 2 then Nat.modMod (m * n) 2
++    rewrite repeatedly [Nat.andSome m n some, Nat.modAddMul, Nat.modMod]
+   | True => rewrite Nat.andZero m n some, (arithmetic: m = 0)
+ 
+ theorem Nat.andDiv ∀ (m n: Nat): Nat.and m n / 2 = Nat.and (m / 2) (n / 2) := match some: Nat.leq (m + n) 0 with
+   | False =>
+-    rewrite Nat.andSome m n some, Nat.divAddMul (m * n % 2) (Nat.and (m / 2) (n / 2)) 2, Nat.divSmall
+-      (m * n % 2)
+-      2
+-      (Nat.modLess (m * n) 2 (Nat.succNotZero 1))
++    rewrite repeatedly [Nat.andSome m n some, Nat.divAddMul, Nat.divSmall]
+   | True => rewrite Nat.andZero m n some, (arithmetic: m = 0), (arithmetic: n = 0)
+ 
+ theorem Nat.testBitAnd ∀ (i m n: Nat): Nat.testBit (Nat.and m n) i = (Nat.testBit m i ∧ Nat.testBit n i) := match i with
+   | Zero =>
+-    rewrite Nat.shiftRightNone (Nat.and m n), Nat.shiftRightNone m, Nat.shiftRightNone n, Nat.andMod m n then
+-      Nat.oddProduct m n
++    rewrite repeatedly [Nat.shiftRightNone, Nat.andMod, Nat.oddProduct]
+   | Succ i =>
+-    rewrite Nat.testBitSucc (Nat.and m n) i, Nat.andDiv m n, Nat.testBitSucc m i, Nat.testBitSucc n i then
+-      Nat.testBitAnd i (m / 2) (n / 2)
++    rewrite repeatedly [Nat.testBitSucc, Nat.andDiv, Nat.testBitAnd i (m / 2) (n / 2)]
+ 
+ --| The bitwise or: each bit of `Nat.or m n` is set when `m` or `n` has it
+ --| set ([`Nat.testBitOr`]).
+@@ -224,28 +214,19 @@ theorem Nat.orSome ∀ (m n: Nat)
+ theorem Nat.orMod ∀ (m n: Nat): Nat.or m n % 2 = (m % 2 + n % 2 + m % 2 * (n % 2)) % 2 :=
+   match some: Nat.leq (m + n) 0 with
+     | False =>
+-      rewrite Nat.orSome m n some, Nat.modAddMul ((m % 2 + n % 2 + m % 2 * (n % 2)) % 2) (Nat.or (m / 2) (n / 2)) 2 then
+-        Nat.modMod (m % 2 + n % 2 + m % 2 * (n % 2)) 2
++      rewrite repeatedly [Nat.orSome m n some, Nat.modAddMul, Nat.modMod]
+     | True => rewrite Nat.orZero m n some, (arithmetic: m = 0), (arithmetic: n = 0)
+ 
+ theorem Nat.orDiv ∀ (m n: Nat): Nat.or m n / 2 = Nat.or (m / 2) (n / 2) := match some: Nat.leq (m + n) 0 with
+   | False =>
+-    rewrite Nat.orSome m n some, Nat.divAddMul
+-      ((m % 2 + n % 2 + m % 2 * (n % 2)) % 2)
+-      (Nat.or (m / 2) (n / 2))
+-      2, Nat.divSmall
+-      ((m % 2 + n % 2 + m % 2 * (n % 2)) % 2)
+-      2
+-      (Nat.modLess (m % 2 + n % 2 + m % 2 * (n % 2)) 2 (Nat.succNotZero 1))
++    rewrite repeatedly [Nat.orSome m n some, Nat.divAddMul, Nat.divSmall]
+   | True => rewrite Nat.orZero m n some, (arithmetic: m = 0), (arithmetic: n = 0)
+ 
+ theorem Nat.testBitOr ∀ (i m n: Nat): Nat.testBit (Nat.or m n) i = (Nat.testBit m i ∨ Nat.testBit n i) := match i with
+   | Zero =>
+-    rewrite Nat.shiftRightNone (Nat.or m n), Nat.shiftRightNone m, Nat.shiftRightNone n, Nat.orMod m n then
+-      Nat.oddEither m n
++    rewrite repeatedly [Nat.shiftRightNone, Nat.orMod, Nat.oddEither]
+   | Succ i =>
+-    rewrite Nat.testBitSucc (Nat.or m n) i, Nat.orDiv m n, Nat.testBitSucc m i, Nat.testBitSucc n i then
+-      Nat.testBitOr i (m / 2) (n / 2)
++    rewrite repeatedly [Nat.testBitSucc, Nat.orDiv, Nat.testBitOr i (m / 2) (n / 2)]
+ 
+ --| Regrouping `n * 2 * p`, for shifting left one bit and then `count` more.
+ theorem Nat.regroupDouble ∀ (n p: Nat): n * 2 * p = n * (p * 2) := algebra
+diff --git a/crates/elab/src/std/Parse/ReadsChars.sw b/crates/elab/src/std/Parse/ReadsChars.sw
+index b15d187e9..f387a420c 100644
+--- a/crates/elab/src/std/Parse/ReadsChars.sw
++++ b/crates/elab/src/std/Parse/ReadsChars.sw
+@@ -29,7 +29,7 @@ theorem Parse.readsText ∀ [inv: Parse.Invariant Char] (expected: Text):
+     (read u h =>
+       match h with
+         | Witness firstRead (Witness nextRead (Witness found (Both split (Both literal (Both isTrue none))))) =>
+-          rewrite split, none, List.appendNil firstRead, literal, isTrue)
++          rewrite repeatedly [split, none, List.appendNil, literal, isTrue])
+ 
+ theorem Parse.readsTakeWhile ∀ [inv: Parse.Invariant Char] (passes: Char → Bool):
+     Parse.ReadsIn inv (() => Parse.takeWhile passes) (read taken =>
+@@ -83,7 +83,7 @@ theorem Parse.readsDigit [inv: Parse.Invariant Char]:
+     (read d h =>
+       match h with
+         | Witness firstRead (Witness nextRead (Witness char (Both split (Both (Both one digit) (Both none made))))) =>
+-          Witness char (Both (rewrite split, none, List.appendNil firstRead, one) made))
++          Witness char (Both (rewrite repeatedly [split, none, List.appendNil, one]) made))
+ 
+ theorem Parse.readsSpaces [inv: Parse.Invariant Char]:
+     Parse.ReadsIn inv Parse.spaces (read u => read.all Parse.isSpace = True) :=
+@@ -170,11 +170,11 @@ theorem Parse.readsLineBreak ∀ [inv: Parse.Invariant Char] (what: Text):
+                 match h with
+                   | Witness firstRead
+                       (Witness nextRead (Witness found (Both split (Both literal (Both isTrue none))))) =>
+-                    Inr (Both byComputing (Inr (rewrite split, none, List.appendNil firstRead, literal, isTrue))))))
++                    Inr (Both byComputing (Inr (rewrite repeatedly [split, none, List.appendNil, literal, isTrue]))))))
+     (read u h =>
+       match h with
+         | Witness firstRead (Witness nextRead (Witness found (Both split (Both literal (Inl (Both isTrue none)))))) =>
+-          Inl (rewrite split, none, List.appendNil firstRead, literal, isTrue)
++          Inl (rewrite repeatedly [split, none, List.appendNil, literal, isTrue])
+         | Witness firstRead
+             (Witness nextRead (Witness found (Both split (Both literal (Inr (Both isFalse breaks)))))) =>
+           rewrite split, literal, isFalse then breaks)
+@@ -239,7 +239,7 @@ theorem Parse.readsFindWord ∀ [inv: Parse.Invariant Char] (choices: List (Text
+           match h with
+             | Witness firstRead
+                 (Witness nextRead (Witness found (Both split (Both literal (Inl (Both isTrue (Both none same))))))) =>
+-              rewrite same then Both (Inl byComputing) (rewrite split, none, List.appendNil firstRead, literal, isTrue)
++              rewrite same then Both (Inl byComputing) (rewrite repeatedly [split, none, List.appendNil, literal, isTrue])
+             | Witness firstRead
+                 (Witness nextRead (Witness found (Both split (Both literal (Inr (Both isFalse later)))))) =>
+               Parse.findLater choice rest read result firstRead nextRead (rewrite literal, isFalse) split later)
+@@ -282,7 +282,7 @@ theorem Parse.readsPick ∀ [inv: Parse.Invariant Char] (choices: List (Text, a)
+         | Witness firstRead
+             (Witness nextRead (Witness found (Both split (Both picked (Both none (Witness word same)))))) =>
+           match (rewrite same at picked then picked: Parse.Picked choices firstRead (word, value)) with
+-            | Both member read => Witness word (Both member (rewrite split, none, List.appendNil firstRead, read)))
++            | Both member read => Witness word (Both member (rewrite repeatedly [split, none, List.appendNil, read])))
+ 
+ --| `lines p`: one value per line, line breaks between.
+ theorem Parse.readsLines ∀ [inv: Parse.Invariant Char] (p: () → {Parse Char} a) (spec: List Char → a → Prop)
