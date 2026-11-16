@@ -1,5 +1,5 @@
 {
-  "next": 3681,
+  "next": 3682,
   "tickets": [
     {
       "id": 47,
@@ -41253,12 +41253,12 @@
     {
       "id": 3664,
       "title": "[DeepSeek] Proof tuple messages from the L1 review (docs/reviews/SW-3516-proof-tuples-l1.md findings 4-7): check_tree's pair note false on ∨/test facts/∧ (lib.rs:6905); patlet's stale 'a tuple pattern matches a pair' (patlet.rs:321); a known record type gets 'which ∃? give the type' (p22); proposal §6's 'read as a pair because nothing said what it proves' and the E-PROP-ELIM tuple form; add dataGoal to proof_tuples_hash_as_witness_and_both. After SW-3566 merges",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Add from SW-3670 finding 4 (after this run, via --continue): fields left as _ show fst✝/snd✝ instead of left✝/right✝ (lib.rs:5044); an unopenable test fact gives the generic 'match a Pair' instead of E-NO-READING (lib.rs:6798); three more shapes in proof_tuples_hash_as_witness_and_both.",
+      "body": "Add from SW-3670 finding 4 (after this run, via --continue): fields left as _ show fst✝/snd✝ instead of left✝/right✝ (lib.rs:5044); an unopenable test fact gives the generic 'match a Pair' instead of E-NO-READING (lib.rs:6798); three more shapes in proof_tuples_hash_as_witness_and_both.\n\nModel result: deepseek, needed fixes (duplicated note code x3; fst/snd rename heuristic would rename written names -> marker), ~50 min over 3 rounds (est. 30). Includes SW-3670 finding 4 (a) and (b).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41448,12 +41448,12 @@
     {
       "id": 3679,
       "title": "[DeepSeek] Main is red: ~10 example snapshots (accept/match-as-written, reject/rewrite-nothing-*, reject/rewrite-wrong-direction* and others; run task test:example NAME=rewrite,as-written to list them) now show SW-3648's W-REWRITE-THEN-COMPUTING / W-REWRITE-THEN-REWRITE. Where the 'then byComputing' or chained rewrite isn't the example's point, apply the quick fix in the .sw; otherwise accept the snapshot. Then hash_stability for those examples",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~20 min (est. 15). 18 examples, not 10. Rest: SW-3681.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41466,6 +41466,19 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3681,
+      "title": "[DeepSeek] More examples still emit W-REWRITE-THEN-COMPUTING/THEN-REWRITE outside SW-3679's filter: reject/opaque-note-body-name, implicit-interface-not-searched, unfold-of-failed-definition, quot-lift-folded-goal, reads-chain-swapped-pair, blanks-proof-argument-error-against-goal, update-lemma-unknown, lambda-after-expected-type; accept rewrite.sw and others. Apply the quick fix where the then isn't the example's point; refresh snapshots; find the rest with stitchwort check over examples/ grepping the two codes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
