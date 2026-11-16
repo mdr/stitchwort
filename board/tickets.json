@@ -1,5 +1,5 @@
 {
-  "next": 3615,
+  "next": 3617,
   "tickets": [
     {
       "id": 47,
@@ -40425,7 +40425,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Model result: opus, worked (bar: proof chars -15.1% met; check time 3.6x vs 1.5x missed), 72 min (est. 100). Opus review next (paper). D candidates: as-written-only search (rec yes, stage 2); unsolved args = doesn't apply (rec yes, orchestrator's call).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40581,6 +40581,32 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3615,
+      "title": "[Opus paper] Review SW-3602 (rewrite repeatedly stage 1): soundness of the generated chain, the as-written carry between steps, closers, budget and cycle naming, messages, docs; read lane/SW-3602's diff; write docs/reviews/SW-3602-rewrite-repeatedly.md with must-fix / should-fix / later",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3616,
+      "title": "[Sonnet] rewrite f with a definition's name (D1433) for plain rewrite, as rewrite repeatedly has it (SW-3602)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
