@@ -1,5 +1,5 @@
 {
-  "next": 3598,
+  "next": 3599,
   "tickets": [
     {
       "id": 47,
@@ -40358,6 +40358,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3598,
+      "title": "[Idea, parked] Types after ':' always read as one expression across lines (definition results and parameter types today read 'List / Text' at one column as a block; let types read it as List Text). D3659 (Matt, 16 Nov 2026): 'looks like an edge case tbh' — not now; the formatter already keeps such types below their colon (SW-3582)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
