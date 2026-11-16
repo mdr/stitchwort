@@ -1,9 +1,10 @@
 //! No Stitchwort code gives warnings (Matt, 16 Nov 2026), and the standard
 //! library's are never shown to programs, so nothing else would notice a new
 //! one. `warning_pins.tsv` pins what is still there, per project, file and
-//! code: every count is a ceiling, and the table only ever goes down. A
-//! project's rows are added when its warnings are counted the same way
-//! (`std` is the only one so far).
+//! code: every count is a ceiling, and the table only ever goes down. This
+//! test counts `std`; the repo's other projects are counted from the
+//! command line by `crates/cli/tests/tools/warning_pins.rs`, against the
+//! same table.
 
 use std::collections::BTreeMap;
 
