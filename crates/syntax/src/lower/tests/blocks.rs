@@ -117,6 +117,23 @@ fn a_statement_may_start_with_a_record() {
     assert!(!e.message.contains("fields to update"), "{}", e.message);
 }
 
+/// A `{` starting a line at the block's own column, right after a
+/// parameter's `:`, gets the same error: it used to read as a record applied
+/// to the type, and the error came later, or not at all (SW-3594).
+#[test]
+fn a_row_at_the_blocks_column_in_a_parameters_type_says_what_to_write() {
+    for text in [
+        "def f: Nat :=\n  (t:\n  {e} a) => 1\n",
+        "def f: Nat :=\n  let g := (t:\n  {e} a) => 1\n  g\n",
+    ] {
+        assert_eq!(
+            parse_error(text).message,
+            "an ability row can't be written in a parameter's type",
+            "{text}"
+        );
+    }
+}
+
 /// SW-908: a parameter's type can't start with an ability row; the error
 /// says what to write. A record literal there that isn't applied to a
 /// type is left to the elaborator, as before.

@@ -2152,6 +2152,7 @@ impl<'t> Parser<'t> {
     /// record type this literal is", `{IO} Nat` "expected `|` and the
     /// fields to update".
     fn binder_type(&mut self) -> Result<()> {
+        self.allow_brace_at_block_column();
         if self.peek() == Some(&Tok::LBrace)
             && let close = self.matching[self.pos]
             && close != NO_PARTNER
@@ -2469,14 +2470,11 @@ impl<'t> Parser<'t> {
         self.tuple_component()
     }
 
-    /// A function's result type, possibly with abilities: `{State s} Nat`.
-    ///
-    /// A theorem's statement is a result type too, and may start with a
-    /// record literal or update: `{ p | x = 3 }.x = 3` ([`record_braces`]).
-    fn result_type(&mut self) -> Result<()> {
-        // A line at the block's own column after an arrow ending the line
-        // above continues that line ([`Self::expr`]), so a row starting it
-        // is a row, as on the arrow's line, not a record (SW-3582).
+    /// A `{` starting a line at the block's own column continues the line
+    /// above when that ended in `:` or an arrow ([`Self::expr`]), so in a
+    /// type it is a row, as on the arrow's line, not a record: `peek` would
+    /// otherwise hide it as the start of a new statement (SW-3582, SW-3594).
+    fn allow_brace_at_block_column(&mut self) {
         if let Some(token) = self.tokens.get(self.pos)
             && token.tok == Tok::LBrace
             && token.line_start
@@ -2485,6 +2483,14 @@ impl<'t> Parser<'t> {
         {
             self.modes.allow = Some(self.pos);
         }
+    }
+
+    /// A function's result type, possibly with abilities: `{State s} Nat`.
+    ///
+    /// A theorem's statement is a result type too, and may start with a
+    /// record literal or update: `{ p | x = 3 }.x = 3` ([`record_braces`]).
+    fn result_type(&mut self) -> Result<()> {
+        self.allow_brace_at_block_column();
         if self.peek() != Some(&Tok::LBrace) || record_braces(self.tokens, self.pos) {
             return self.expr();
         }
