@@ -1,5 +1,5 @@
 {
-  "next": 3601,
+  "next": 3602,
   "tickets": [
     {
       "id": 47,
@@ -40288,12 +40288,12 @@
     {
       "id": 3592,
       "title": "[Sonnet] Search failures (verifier, 16 Nov): (1) search_at_bench::stage_two_closes_std_goals_with_their_lemma panics at crates/core/src/pretty.rs:88 'index out of bounds: len 0, index 0' (likely E2's Shown::unknown printing with an empty context); (2) search_at_aoc::search_at_on_real_2021_goals: anchor strings ('Eq.cong Some (Exploding.ext', 'List.countLeMem …', 'List.memFlatMapIntro …', 'List.distinctFlatMap …') no longer found once in AoC files. Fix the panic with a failing-first test; update anchors to the current files (after SW-3564)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Lane note (16 Nov): commit 4366706f2 on lane/SW-3592. Cause: Shown::unknown had no names, so an instance meta's type (Add b) was printed with an empty context; now takes the printer's names. Test: elab check::tests::an_unknown_instance_type_mentioning_a_variable_prints_with_its_names (fails before, passes after). Anchors in search_at_aoc.rs updated (6, incl. Picture.sw and Reduced.sw also stale). Tests: stage_two..., search_at_on_real_2021_goals, search_match|search_at:: (32) all pass. Model result: Sonnet, worked, 45 min (est. 35).\n",
+      "body": "Lane note (16 Nov): commit 4366706f2 on lane/SW-3592. Cause: Shown::unknown had no names, so an instance meta's type (Add b) was printed with an empty context; now takes the printer's names. Test: elab check::tests::an_unknown_instance_type_mentioning_a_variable_prints_with_its_names (fails before, passes after). Anchors in search_at_aoc.rs updated (6, incl. Picture.sw and Reduced.sw also stale). Tests: stage_two..., search_at_on_real_2021_goals, search_match|search_at:: (32) all pass. Model result: Sonnet, worked, 45 min (est. 35).\n\nModel result: sonnet, worked, 45 min (est. 35). Panic: Shown::unknown printed an instance type with an empty name list; fixed by passing names. 6 anchors updated. Follow-up SW-3601.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40397,6 +40397,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3601,
+      "title": "[DeepSeek] Small test hygiene: rename tests simplest_first_offers_only_omega/_rfl to the new vocabulary; split or re-limit search_at_on_real_2021_goals (~8 min under load, at the 600 s terminate-after limit)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
