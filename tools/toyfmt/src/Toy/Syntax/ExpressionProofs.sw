@@ -1723,18 +1723,6 @@ theorem clearedPostfix ∀ (expr: Expr): expr.withoutFirstAbove.isPostfix = expr
   | Binary _ _ _ _ => rfl
   | If _ _ _ _ _ _ => rfl
 
-theorem clearedOperand ∀ (expr: Expr): expr.withoutFirstAbove.isOperand = expr.isOperand := match expr with
-  | Var _ _ => rfl
-  | NumberLiteral _ _ => rfl
-  | StringLiteral _ _ => rfl
-  | Bracketed _ _ _ => rfl
-  | ListLiteral _ _ _ => rfl
-  | Call _ _ _ _ => rfl
-  | Field _ _ _ _ => rfl
-  | Negate _ _ => rfl
-  | Binary _ _ _ _ => rfl
-  | If _ _ _ _ _ _ => rfl
-
 theorem clearedChain ∀ (expr: Expr): expr.withoutFirstAbove.isChain = expr.isChain := match expr with
   | Var _ _ => rfl
   | NumberLiteral _ _ => rfl
