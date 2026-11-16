@@ -12,6 +12,8 @@
 use stitchwort_test_alloc as _;
 
 mod check;
+mod merge;
+mod parens;
 pub mod passes;
 pub mod printer;
 mod spacing;

@@ -7,25 +7,21 @@
 //! Each declaration is turned into a layout document by the rule for each
 //! construct ([`rules`]) and printed in 120 columns ([`engine`]). The
 //! printed declaration must have the input's tokens (the input being the
-//! file after the tidy passes, [`crate::passes`], and, until they become
-//! passes too, D2307's dropped brackets and D3565's merged parameters,
-//! [`merge`], checked on their own), its comments attached to the
-//! same tokens, and parse to the same tree; one that doesn't is left as
+//! file after the tidy passes, [`crate::passes`], which include D2307's
+//! dropped brackets and D3565's merged parameters), its comments attached to
+//! the same tokens, and parse to the same tree; one that doesn't is left as
 //! written and counted, so a gap in the rules costs an unformatted
 //! declaration, never a wrong program. [`gate`] runs the same checks on a
 //! whole file, and that formatting twice changes nothing.
 
 pub mod engine;
-mod merge;
-mod parens;
 mod rules;
 
 use std::collections::BTreeMap;
 
 use stitchwort_syntax::tree::{NodeKind, SyntaxFile};
 use stitchwort_syntax::{
-    DEFAULT_STACK, FileId, Lexed, SourceMap, Tok, equivalence, lex_with_trivia,
-    parse_module_within, parse_tree,
+    DEFAULT_STACK, FileId, Lexed, SourceMap, Tok, equivalence, lex_with_trivia, parse_module_within,
 };
 
 use crate::{Error, check};
@@ -98,7 +94,6 @@ pub fn format_tree(text: &str) -> Result<TreeFormatted, Error> {
 /// Like [`format_tree`], with `file` in the diagnostics of a refused file.
 pub fn format_tree_in(file: FileId, text: &str) -> Result<TreeFormatted, Error> {
     let printed = print_file(file, text)?;
-    printed.merges.clone().map_err(Error::Internal)?;
     check_file(file, &printed.input, &printed.text).map_err(Error::Internal)?;
     Ok(TreeFormatted {
         text: printed.text,
@@ -125,10 +120,7 @@ pub struct Gate {
 pub fn gate(text: &str) -> Result<Gate, Error> {
     let file = SourceMap::new().add("input.sw", text);
     let printed = print_file(file, text)?;
-    let check = printed
-        .merges
-        .clone()
-        .and_then(|()| check_file(file, &printed.input, &printed.text));
+    let check = check_file(file, &printed.input, &printed.text);
     let idempotent = match print_file(file, &printed.text) {
         Ok(again) => again.text == printed.text,
         Err(_) => false,
@@ -148,11 +140,8 @@ pub fn gate(text: &str) -> Result<Gate, Error> {
 }
 
 struct PrintedFile {
-    /// The input after the tidy passes and D3565's parameters merged:
-    /// what the output is compared with.
+    /// The input after the tidy passes: what the output is compared with.
     input: String,
-    /// How the merge of parameters checked; a failed one isn't made.
-    merges: Result<(), String>,
     text: String,
     stats: TreeStats,
 }
@@ -161,29 +150,18 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
     lex_with_trivia(file, text).map_err(|d| Error::Refused(vec![d]))?;
     parse_module_within(file, text, DEFAULT_STACK).map_err(Error::Refused)?;
     let tidied = crate::passes::run(file, text, &crate::passes::PASSES);
-    let mut input = tidied.text;
-    let mut merges = Ok(());
-    let mut merged_groups = 0;
-    let mut changed = false;
-    if let Some((dropped, _)) = parens::drop_parens(&input)
-        && merge::check(&input, &dropped).is_ok()
-    {
-        input = dropped;
-        changed = true;
-    }
-    if let Some((merged, groups)) = merge::merge(&input) {
-        merges = merge::check(&input, &merged);
-        if merges.is_ok() {
-            input = merged;
-            merged_groups = groups;
-            changed = true;
-        }
-    }
-    let tree = if changed {
-        parse_tree(file, &input, DEFAULT_STACK)
-    } else {
-        tidied.tree
-    };
+    let merge_at = crate::passes::PASSES
+        .iter()
+        .position(|pass| {
+            std::ptr::fn_addr_eq(
+                *pass,
+                crate::passes::merge_parameters as crate::passes::Pass,
+            )
+        })
+        .expect("P4 is in PASSES");
+    let merged_groups = tidied.edits[merge_at];
+    let input = tidied.text;
+    let tree = tidied.tree;
     let (trivia, eof) = crate::tidy::place_comments(tree.tokens(), tree.trivia(), tree.eof());
     let mut printer = rules::Rules::new(&tree, &trivia, &input);
     let mut stats = TreeStats {
@@ -271,7 +249,6 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
         input,
         text: out,
         stats,
-        merges,
     })
 }
 
