@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Found ebd01141ac754e1569a93f92f69fac137a6e718d95cad06ed73ff0d72ed44229
@@ -30,4 +31,4 @@ Main.applyPure 10993fb690e0d1a4c041aa90ca51b334ffd6bde9111a66a1fc9b3865f446d998
 Main.callThenPass 2e9b02750ea895e6d6b30dd6cb895e843e7fa2b74570b15528eda21e34ff33bc
 Main.test "one match" 4e2696e927d92022c8bd7ae12e4eb39c497557ee8781fca8afc54d34d68f1f80
 Main.test "inline" 920ee9aaba4fd03b1630f2e4f809f7a81ca78d3979e2a10ec386c23d482bc52f
-Main.test "call then pass" d5f755516aabd7ac6d9eb1beee398a384e09316f8bb7979c381d9d99f0c82b4c
+Main.test "call then pass" dd6fbbd12bd402822491a88a00bcab2da3ddf632298b83a683c52ca3e17a0c13

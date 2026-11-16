@@ -1,11 +1,12 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.threeBits bcf275c0dca0a8a6c2beadb62f1923f44d66858bee999dbcfccf54a8ced3f35f
 Main.year f076780dba5664487501c63b0e20fa958157747715489834d13f736f7e9a0561
 Main.code a00712e9653c6dae8c6e0b211ad4231666b3bcaced1eeb180ed62d28e437e459
-Main.test "digits" db504723584138e4eff09e8908ec40e819e1a040cfb8d8e65d6e270b5d440132
-Main.test "one digit" b16324f99450c73d5b703fb97730ba5c8d525826b477f0f478d83624d8bc32da
-Main.test "four digits" 484e4aee83c9d0739b1706bc96327413ab7b3f3c8f3a0962cb125024d78c3e27
-Main.test "a range" 181e70d4d43f2a42c2cd6317dddb79133337ed68afb86da3681dc3f3c136fb56
+Main.test "digits" dd882a38931c0f0f7bb0dcf3d96f73166dfe54af19dc24b6462dc4903a8af7ad
+Main.test "one digit" edac6e2bcf6f68a091cebb464d74cb65822adbe57282f678e92c1a988e89d810
+Main.test "four digits" 5ec4e89481857502be22d1f33c1ffbe9cc5b9a05958c18446b4977608d8c86da
+Main.test "a range" 4bea44ea03f02ddefd218b48870802d5b332650bd01ccb589f7efa27dbc19556

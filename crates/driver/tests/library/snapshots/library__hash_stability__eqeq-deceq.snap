@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Tree c7cb8ef825cc225766e67fa359b5d6d1addc090f399cbaf9ba27ba0843b47a7d
@@ -59,7 +60,7 @@ Main.Colour.%equal 5ebb4064b025fd82b534f4249629bd1709b5604bf27d729c3b976a38c4526
 Main.Colour.%flip f80b6f7d68b00e0142360a7e2e11bcb3b1e18cb3adbee0f4c6f3b9c0288843bf
 Main.Colour.%trans e343886f75dc2535255b3690ec16580ae4c966169f140e3bb4e85d20583eaa9b
 Main.Colour.%instOrd 87217d39b362ee5a1277b87bff0c27197896266edda6a5280b42a002c94eb930
-Main.test "trees" 4d258165721b134e3e3e2d5f0b080b3741e593d68bbc6bf95c596be0eca8b19f
+Main.test "trees" ada8111cb71a1b471e161418beab9a32e935ee5552fd42a8df1fabf6df6a9d14
 Main.test "trees differ" d6981b636cf266e228a2016b0f3d15ad82ec9c2126c547c0034957dd568b974a
 Main.count 5edb229a876df1b52dfe9b52bb272f1f7ad18210a942109854f9088fca244b2a
 Main.count.eq1 4fe5ca2008fbaf025e2726d1606772580d3ce532dd4d5c6921ae355bc478dded

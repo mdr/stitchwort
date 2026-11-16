@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Dir 56c101e4c8ba5781ebabe251a8d58900ffb61ccf1c733f23f1b8420ea51decfd
@@ -154,10 +155,10 @@ Main.Either2.%mem%1 76e47e8f322133cbf5064371d31107f641b7cc812451eb48504948f02e00
 Main.Either2.%cover 9c60762151eda3587ce3ab0bd473d55b4a292176ec51e1358d8094b32d8d5f46
 Main.Either2.%complete afec7e7fa2673e4d2154a35850e9440597e343cb954c0245c91ace7d6b57c118
 Main.Either2.%instFinite 90f20058a6b0b99900adeb2229d652cef6addf68288eb4ab4ff1071399578e9c
-Main.test "two parameters" c25b7217b391f03e57f15705af34eb001d994ff37bf6783538a73e11a6de08d8
-Main.test "two parameters, other side" 4c58b09161fd74ac613be3ee2dbadb5a05d3a69ec22cfd77cb3d30afd8cf3392
-Main.test "two parameters, differs" 66f85c3a0b49809da57c64997d446fc03ed8c5fa4d8a2409e4fc27e3db5e899e
-Main.test "two parameters, side differs" cbc80bafb2048d4a9a4a3aaf0c760a6d88d4ebd5ca3a7191602893e10f1dcc97
+Main.test "two parameters" 6d215dbb5a6abcdaa8e2c248243d24377b69f214216fa8aa89d979aca99b5b07
+Main.test "two parameters, other side" be0e50938940465f610b624af20cac4981aa81b9172ca618ab9d123573ababf2
+Main.test "two parameters, differs" c9e7ca75c4333141ed392ad608cdae833f453d4b23e5bca3ae2f80bcf4baad3d
+Main.test "two parameters, side differs" 1dc23e9b92e1310dc8bcb0dc7503b8bd04c2c110c38f8f925f4d765401594133
 Main.test "list of enums" 008a880459f3a498ce746ef4ef46010714328591cccccfa4dab7b96b31aa6f6f
 Main.test "list of enums, different" aa3cb12cd3fac056839941dd86205c8550dd6873b62f00f54a4a138a5ac57d4f
 Main.test "Option of constructor" e14c6b0edd20f7de6de817be32fff47521faf5e44b8d9d6e2ea2b9b7701e5bd9

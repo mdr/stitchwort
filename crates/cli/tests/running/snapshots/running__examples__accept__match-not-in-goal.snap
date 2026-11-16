@@ -1,5 +1,6 @@
 ---
 source: crates/cli/tests/running/examples.rs
+assertion_line: 210
 expression: warnings
 ---
 [W-MATCH-NOT-FOUND] Warning: this `match` didn't find its expression in the goal, so every arm has the goal unchanged
@@ -16,9 +17,9 @@ expression: warnings
 [W-UNREACHABLE] Warning: this case can't happen
     ╭─[ accept/match-not-in-goal.sw:20:3 ]
     │
- 20 │   | Zero => exfalso (Nat.succNotZero n h)
-    │   ───────────────────┬───────────────────  
-    │                      ╰───────────────────── here `h` is `Succ n = 0`, which can't hold
+ 20 │   | Zero => impossible (Nat.succNotZero n h)
+    │   ─────────────────────┬────────────────────  
+    │                        ╰────────────────────── here `h` is `Succ n = 0`, which can't hold
     │ 
     │ Note: the arm can be deleted
 ────╯

@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Turn bb8dd920c542b2775194aa9619b126688cbaaec837a7609cb2c8fd6da87cd6c2
@@ -67,4 +68,4 @@ Main.test "a full turn changes nothing" d5f447e841eb61a3a20013fcee57fcdc4a4db179
 Main.wrapNegative 27910241d5883a898a7f5b4c90e1c1450b91d15f78e0414a4390b296ba473178
 Main.onDial a99d875a73c6a291d0359ce2180baea80c177a4e2e7c59543551032115e941b3
 Main.sameNumber 765a46d2218fd6cc12789375ae7ff8da804e4707f565b7256afdc2a57127ae80
-Main.rebuild e34b0e0c3c0fc30b13586b6facccbffb4e40702fda90bfd388cb67192c109543
+Main.rebuild d4d9f2813236d672b31cdbedde123c2345545e167118cfbf88bc9a7743174b0a

@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Key f1f0317f870953fa5a7ebebf86a29f2d6f31d2c992b1c8a24eaed49eae8990ef
@@ -36,4 +37,4 @@ Main.pick.eq.ifTrue 929a5ae13b4b4e26701f44b08f749a35255a90d771c3cf28ef4736a658dd
 Main.pick.eq.ifFalse 9b00ee7a3f028faadb5aad042595efabaeb6c20a57873835cb566891cbbdc6a0
 Main.pickIn cfdc79fbee355bfeef5c00429eb465870cb68e3e16572aaf67d006ea0c882280
 Main.pickIn.%match1 bf968ae83ecb02547a8124225911ac0a9a460fc250d2f71049c2bba6ffe4ac7a
-Main.falseGoalImpossibleCase 34dbf33f1cac695f738c85fce18a5e58c8a28a9b24b4e3e964592f197c470cdd
+Main.falseGoalImpossibleCase 95130fa4543fb6f0fcadcc5122de5accceae9c29b515790fbc2540512c3fe4bf

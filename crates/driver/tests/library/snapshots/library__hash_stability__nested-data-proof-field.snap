@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Checked b5b530bc3b6d37503a666d780662fb143ee7773b6fe6ee4120dd442bf38a2f1a
@@ -139,7 +140,7 @@ Main.test "differs in the data next to the proof" 6ed5f62a12100c223ac00ca2f17fba
 Main.test "order by constructor" babbbd8bd4d34eab2e49aa781ed8d520a0d465c22533d497d20e4cade746dc2b
 Main.test "order by field" 7a1eaf84a5bb613dbe28cbd699ac563bbc84ea528b24c77fef1d5fdd2d2028de
 Main.test "irreflexive" dd845d016c7c023c9ff61f779470e2496e119118ee18cf28709d4387cbc16077
-Main.test "show" c8d1f13e553eb945fb4bd5744d2347247a3e2cdd27161c0a80e707d0862cd535
+Main.test "show" 170cae2345489ebef69a1d4237b0d0c74ece3a3fd0937a17f0d7bc2d2f001b90
 Main.rose 462a8628531a60524319e1dec5494244e914739ceb08e00979dbc19d7ddc78d7
 Main.test "a parameterised group" c68302b4df4e515e286ef9888ca9f5495e021fe75e3e251ec9022bbed99cd0bf
 Main.test "its order" 73e4a3b893d681b6b5868712a171d5d18253abe090b9fadb34874f4f520ead5a

@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Base 77274aa7046501613e37fa549ee2b0e6d45b475c0da4503d092c019318caaf4a
@@ -37,7 +38,7 @@ Main.Item.%instFinite 504bf1dfa3f633b0d521ff077a205df4340e44be99621251fa16c80933
 Main.Item.instPretty 6f0f781a0df0b4af7f06f10226b22ccf2c68842a2080d4b3b5fced2884614e21
 Main.Item.instBase 117197866a5618a776f8291ea7265110ae2f7f1c10e16128dd791be16ec008da
 Main.Child.instItem ee3c9b9afa22bc55fdcf865b407d394570b3d8357ed6a89fcc5cb0e389955adc
-Main.test "child" f5e252bb67ee31905337aa554a271655b221537d00d319092d243b4eb44574bb
-Main.test "list" 2701cdafb296eb483cbf29e82f77bcbdf16a7f0913f3490a67b32936b7712231
+Main.test "child" 7d9822113e410be2e4ad7159cfbc05c7247047433ef258631fbcd6afeceddb69
+Main.test "list" 92d8c5c5835dcdd770c1d0492abd1e90a08c19350e85bafcad04e544569760a5
 Main.describe 43dcd8bebd8c1da3aa1ec6c871156c5ece96e0ce8b34fd530dae8078e5ebc200
-Main.test "uses" 5ff70771a5a66b9317f3ba7e9dae781704c553c370fc08be578562f0e5a1e95e
+Main.test "uses" ae859c35b7bc47d6d358cf508fa07f8b743e390ca002be6a11f7447d950cc38f

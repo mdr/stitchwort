@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Answer 8f7c409c3527adfe3ea410536b62db27fad77a4079cfd7dd2195b97bdca69149
@@ -127,7 +128,7 @@ Main.List.size.eq1 4e443702122f0aa77ccf11179101c9bab7ea3f3a46a78836201d6fc8dffc5
 Main.List.size.eq2 37ec02b0e272616de9f6d30a84faf1e2985b61f6ebdb6977e24201b1aba7d1cf
 Main.List.size.induct ad240a7951e6de5ddd92d33d57e96eaaa420ed1b9b5c8faa23517d1cadc18b4c
 Main.test "own List" 9ee66200743cfe27964620cac6648f5260ec19d12e1d4c74f9fcab98c2776f5b
-Main.test "imports" 9827b3f1dec5364802d57febbb1381ebb8762d0eadb957880c25f64f35c32c45
+Main.test "imports" 721427118ae3eee19ed28171a81793cbb22e47dcbd683e8c9d90d57664574560
 Main.test "imported list function" 35512f977e974866f1507ef805d076712f7d4556080a4bfc0f37c918139efefd
 Main.test "not" dfc37ab2dc1d3a71be11dc4b2e3efa7fdebcf4b7d82f1919d0e3390d2d1d8a9a
 Main.test "operators" 879c64bb45f3556511405c992ac5f63ffbe19420c9ed3c280d76cc74a0ce8a9f

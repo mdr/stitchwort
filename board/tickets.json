@@ -1,5 +1,5 @@
 {
-  "next": 3612,
+  "next": 3618,
   "tickets": [
     {
       "id": 47,
@@ -24861,7 +24861,7 @@
     {
       "id": 2467,
       "title": "Memory runaway: a Fin literal pattern of 2^128 (fuzz case 12893, seed 0x2468) makes check use 11+ GB in 15 s; likely the exhaustiveness check or Fin-literal lowering unfolding the literal into nested FSucc/Succ",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [
@@ -40425,7 +40425,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Model result: opus, worked (bar: proof chars -15.1% met; check time 3.6x vs 1.5x missed), 72 min (est. 100). Opus review next (paper). D candidates: as-written-only search (rec yes, stage 2); unsolved args = doesn't apply (rec yes, orchestrator's call).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40524,12 +40524,12 @@
     {
       "id": 3610,
       "title": "[Opus] Formatter tree check independent of the tidy passes (SW-3606 audit): equivalence::shape compares the output with the tidied text, so a pass that changed meaning would not be caught. Compare with the original file's tree, normalising parameter groups (one binder per name) for P4 and the other intended changes; at least check passes 1-3 against the original. Failing-first test: a deliberately wrong pass is refused",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Lane (Opus, 16 Nov 2026, 15:44-15:58, est. 60 min), branch lane/SW-3610, commit d9b0978ad.\n- Tree check now parses the ORIGINAL file and compares with the output (crates/fmt/src/same_program.rs), shares no code with the passes.\n- Tolerated: only P4's merged groups show in the compiler's tree (Pi with several names); `one_binder_per_name` splits them on both sides, except a group whose type mentions its own names. P1 ∀, P2 trailing commas, P3 spare brackets aren't in the tree at all (P3 never drops Expr::Bracketed).\n- Failing-first test: a_tidy_pass_that_changes_the_program_is_refused (swapped args, dropped brackets that matter): Ok before, refused after.\n- Tests: stitchwort-fmt package 123/123; fuzz minimals (fmtbugs/, 26 files) all format; the_repository_sources_are_formatted passes: no repo file refused.\n- Cost: dev fmt-tree examples/accept (debug) 3.6 s -> 4.5 s user.\n\nModel result: opus, worked, 14 min (est. 60). Follow-up SW-3612.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40542,6 +40542,84 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3612,
+      "title": "[Sonnet] fmt same_program reads the tree back from its debug printout; a small walker over the syntax tree would make the normalisation direct and cheaper (debug-build fmt-tree on examples/accept 3.6 s -> 4.5 s). Low priority",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3613,
+      "title": "[Sonnet] Errors E13, colour (Matt, 16 Nov 2026: 'It'd be nice to improve our color ... makes it feel nice to use from a human point of view'): colour labels and the code in them (ariadne Label::with_color: primary red, secondary blue/other), highlight E1's first difference in a long mismatch (keeping the ^^), dim notes' lead word, honour NO_COLOR and add --color=always|never|auto (helpful-errors.md §3.5); colour never the only signal; plain/snapshot output unchanged. Show before/after captures with --color=always in the report",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3614,
+      "title": "[Sonnet] REPL errors (Matt asked, 16 Nov 2026): (1) 'def …' gives E-PARSE 'expected an expression, but found def' with no hint — either accept definitions in the REPL or say 'the REPL evaluates expressions; put definitions in a file and :load it / import it'; (2) every error shows a full ariadne box headed <input>:1:1 for a one-line input — a compact form for single-line input (caret under the input, no box or file name); (3) same colour as E13. Investigate what the REPL supports first (:load? multi-line?) and propose in the report before building (1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3615,
+      "title": "[Opus paper] Review SW-3602 (rewrite repeatedly stage 1): soundness of the generated chain, the as-written carry between steps, closers, budget and cycle naming, messages, docs; read lane/SW-3602's diff; write docs/reviews/SW-3602-rewrite-repeatedly.md with must-fix / should-fix / later",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3616,
+      "title": "[Sonnet] rewrite f with a definition's name (D1433) for plain rewrite, as rewrite repeatedly has it (SW-3602)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3617,
+      "title": "[Sonnet] main: pinned_hashes::every_binding_by_hash_applies_to_the_library fails: Text.decEq (runtimes) now hashes 9d609bc0…, so its native is silently off. Find which std change moved it (likely SW-3564 vocabulary or SW-3603 calc conversions in core), check the native still matches the new declaration's meaning, pin the new hash; add the pinned_hashes test to the verifier list for std changes (docs/workflow.md)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",

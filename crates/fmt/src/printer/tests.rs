@@ -1014,3 +1014,50 @@ fn a_comment_after_attributes_keeps_the_definition_at_its_column() {
         "@[noReceiver]\n-- c\n\n-- d\n\ndef f (acc: Nat): Nat := acc\n",
     );
 }
+
+/// A tidy pass that swaps the arguments of `f a b`: the tokens of its
+/// result are the output's, so only a check against the original file can
+/// see it (SW-3610).
+fn swap_arguments(
+    _tree: &stitchwort_syntax::tree::SyntaxFile,
+    text: &str,
+) -> Vec<crate::passes::Edit> {
+    text.find("f a b").map_or(Vec::new(), |at| {
+        vec![crate::passes::Edit {
+            range: at..at + 5,
+            text: "f b a".into(),
+        }]
+    })
+}
+
+/// A tidy pass that drops the brackets of `f (g a)`, which matter.
+fn drop_needed_brackets(
+    _tree: &stitchwort_syntax::tree::SyntaxFile,
+    text: &str,
+) -> Vec<crate::passes::Edit> {
+    text.find("f (g a)").map_or(Vec::new(), |at| {
+        vec![crate::passes::Edit {
+            range: at..at + 7,
+            text: "f g a".into(),
+        }]
+    })
+}
+
+/// The tree check compares the output with the original file, not the
+/// tidied text, so a tidy pass that changes the program is refused.
+#[test]
+fn a_tidy_pass_that_changes_the_program_is_refused() {
+    let file = SourceMap::new().add("input.sw", "");
+    for (pass, text) in [
+        (
+            swap_arguments as crate::passes::Pass,
+            "def x: Nat := f a b\n",
+        ),
+        (drop_needed_brackets, "def x: Nat := f (g a)\n"),
+    ] {
+        match format_with_passes(file, text, &[pass]) {
+            Err(Error::Internal(message)) => assert!(message.contains("tree"), "{message}"),
+            other => panic!("{text}: {other:?}"),
+        }
+    }
+}
