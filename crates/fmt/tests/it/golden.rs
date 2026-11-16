@@ -5,13 +5,7 @@
 
 use std::path::Path;
 
-use stitchwort_fmt::{format, format_with_stats};
-
-/// Files with declarations the formatter leaves as written because a rule
-/// has a bug that fails the checks: the number of such declarations in
-/// each. Their `.after.sw` is the input. No comment position puts one here
-/// (S40, `comments-anywhere`).
-const LEFT_AS_WRITTEN: [(&str, usize); 0] = [];
+use stitchwort_fmt::format;
 
 #[test]
 fn golden_files_format_as_expected_and_idempotently() {
@@ -31,18 +25,8 @@ fn golden_files_format_as_expected_and_idempotently() {
         let before =
             std::fs::read_to_string(dir.join(format!("{name}.before.sw"))).expect("readable");
         let after_path = dir.join(format!("{name}.after.sw"));
-        let got = match format_with_stats(&before) {
-            Ok(result)
-                if result.stats.verbatim_decls
-                    != LEFT_AS_WRITTEN
-                        .iter()
-                        .find(|(file, _)| file == name)
-                        .map_or(0, |(_, n)| *n) =>
-            {
-                failures.push(format!("{name}: a declaration failed its checks"));
-                continue;
-            }
-            Ok(result) => result.text,
+        let got = match format(&before) {
+            Ok(text) => text,
             Err(e) => {
                 failures.push(format!("{name}: {e}"));
                 continue;

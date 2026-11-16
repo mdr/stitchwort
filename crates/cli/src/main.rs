@@ -228,22 +228,18 @@ enum DevCommand {
         cache: CacheArgs,
     },
     /// The formatter's report over a tree of files: format every `.sw` file
-    /// under the paths, without writing anything, and check each result: the same tokens up to the
-    /// deliberate rewrites, the same comments on the same tokens, the same
-    /// syntax tree, and the same text when formatted again. Prints each
-    /// file that fails a check, then totals: declarations left as written
-    /// (by the check they failed), constructs without a rule (by kind), and
-    /// code lines over 120 before and after. Exit status 1 if any file fails
-    /// a check or isn't idempotent
+    /// under the paths, without writing anything, and check each result: the
+    /// same tokens up to the tidy passes' rewrites, the same comments on the
+    /// same tokens, the same syntax tree, and the same text when formatted
+    /// again. Prints each file that fails a check, then totals: declarations,
+    /// parameter groups merged, and code lines over 120 before and after.
+    /// Exit status 1 if any file fails a check or isn't idempotent
     FmtTree {
         /// Files or folders
         paths: Vec<PathBuf>,
         /// Print each formatted file
         #[arg(long)]
         print: bool,
-        /// List each declaration left as written, with its line
-        #[arg(long)]
-        verbose: bool,
     },
     /// Which machine instructions a program's reachable code uses, and
     /// whether it fits native compilation's N1 subset
@@ -1389,11 +1385,7 @@ fn run(cli: Cli) -> ExitCode {
             project: project.as_deref(),
             cache: &cache,
         }),
-        Command::Dev(DevCommand::FmtTree {
-            paths,
-            print,
-            verbose,
-        }) => fmt_tree_command(&paths, print, verbose),
+        Command::Dev(DevCommand::FmtTree { paths, print }) => fmt_tree_command(&paths, print),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
             native_spike(rounds, memory.as_deref())
         }
@@ -4277,7 +4269,6 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
 
     let mut failure = false;
     let mut would_change = false;
-    let mut left_as_written = 0usize;
     if stdin {
         let mut text = String::new();
         if let Err(err) = std::io::stdin().read_to_string(&mut text) {
@@ -4288,10 +4279,8 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
         let id = sources.add("-", text.clone());
         match stitchwort_fmt::format_in(id, &text) {
             Ok(formatted) => {
-                report_verbatim("-", &formatted.verbatim_at, &mut left_as_written);
                 // Always the whole text, changed or not: an editor replaces
                 // its buffer with what this prints.
-                let formatted = formatted.text;
                 would_change |= formatted != text;
                 if !check {
                     print!("{formatted}");
@@ -4309,19 +4298,13 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
     }
 
     for path in &paths {
-        failure |= !format_file(path, check, &mut would_change, &mut left_as_written);
+        failure |= !format_file(path, check, &mut would_change);
     }
 
     if skipped > 0 {
         eprintln!(
             "{skipped} file{} skipped as deliberately unformatted",
             if skipped == 1 { "" } else { "s" }
-        );
-    }
-    if left_as_written > 0 {
-        eprintln!(
-            "{left_as_written} declaration{} left as written",
-            if left_as_written == 1 { "" } else { "s" }
         );
     }
 
@@ -4382,26 +4365,9 @@ fn deliberately_unformatted(path: &Path) -> bool {
         .any(|excluded| relative.starts_with(excluded))
 }
 
-/// Warns, on standard error, about each declaration the formatter left as
-/// written: its file and line, its name and the check it failed.
-fn report_verbatim(path: &str, decls: &[stitchwort_fmt::printer::VerbatimDecl], total: &mut usize) {
-    for decl in decls {
-        eprintln!(
-            "{path}:{}: declaration `{}` left as written ({})",
-            decl.line, decl.name, decl.reason
-        );
-    }
-    *total += decls.len();
-}
-
 /// Formats `path` in place, unless `check`; prints it if it changed. Returns
 /// whether the file was formatted (or, with `check`, would be).
-fn format_file(
-    path: &Path,
-    check: bool,
-    would_change: &mut bool,
-    left_as_written: &mut usize,
-) -> bool {
+fn format_file(path: &Path, check: bool, would_change: &mut bool) -> bool {
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
         Err(err) => {
@@ -4413,12 +4379,6 @@ fn format_file(
     let id = sources.add(path.display().to_string(), text.clone());
     match stitchwort_fmt::format_in(id, &text) {
         Ok(formatted) => {
-            report_verbatim(
-                &path.display().to_string(),
-                &formatted.verbatim_at,
-                left_as_written,
-            );
-            let formatted = formatted.text;
             if formatted == text {
                 return true;
             }
@@ -5131,7 +5091,7 @@ fn report(sources: &SourceMap, diagnostics: &[Diagnostic]) {
 }
 
 /// `dev fmt-tree`: the formatter's report over files and folders.
-fn fmt_tree_command(paths: &[PathBuf], print: bool, verbose: bool) -> ExitCode {
+fn fmt_tree_command(paths: &[PathBuf], print: bool) -> ExitCode {
     let mut files = Vec::new();
     for path in paths {
         if let Err(e) = sw_files(path, &mut files) {
@@ -5152,8 +5112,13 @@ fn fmt_tree_command(paths: &[PathBuf], print: bool, verbose: bool) -> ExitCode {
         };
         let gate = match stitchwort_fmt::printer::gate(&text) {
             Ok(gate) => gate,
-            Err(_) => {
+            Err(stitchwort_fmt::Error::Refused(_)) => {
                 refused += 1;
+                continue;
+            }
+            Err(stitchwort_fmt::Error::Internal(problem)) => {
+                failed += 1;
+                println!("{}: {problem}", file.display());
                 continue;
             }
         };
@@ -5171,50 +5136,13 @@ fn fmt_tree_command(paths: &[PathBuf], print: bool, verbose: bool) -> ExitCode {
             unstable += 1;
             println!("{}: formatting twice differs from once", file.display());
         }
-        if verbose {
-            for decl in &gate.stats.verbatim_at {
-                println!(
-                    "{}:{}: left as written ({})",
-                    file.display(),
-                    decl.line,
-                    decl.reason
-                );
-            }
-        }
     }
-    let verbatim: Vec<String> = total
-        .verbatim
-        .iter()
-        .map(|(reason, n)| format!("{n} {reason}"))
-        .collect();
-    let unruled: Vec<String> = total
-        .unruled
-        .iter()
-        .map(|(kind, n)| format!("{n} {kind:?}"))
-        .collect();
     println!(
         "{} files ({refused} not formatted: they don't parse): {failed} fail a check, {unstable} not \
          idempotent",
         files.len()
     );
-    println!(
-        "{} declarations, {} left as written{}",
-        total.decls,
-        total.verbatim_decls(),
-        if verbatim.is_empty() {
-            String::new()
-        } else {
-            format!(" ({})", verbatim.join(", "))
-        }
-    );
-    println!(
-        "constructs without a rule: {}",
-        if unruled.is_empty() {
-            "none".to_string()
-        } else {
-            unruled.join(", ")
-        }
-    );
+    println!("{} declarations", total.decls);
     println!(
         "parameter groups merged (D3565): {}; code lines over 120: {long_before} before, \
          {long_after} after",

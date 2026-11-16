@@ -349,10 +349,11 @@ test `crates/cli/tests/tools/fmt_repo.rs` fails, naming the files, if any tracke
 
 The formatter chooses every line break itself, from the code's structure, in
 120 columns; you keep only your blank lines and the comments
-([formatter-style.md](proposals/formatter-style.md)). A declaration whose
-formatted text fails the safety checks stays as written: `stitchwort dev
-fmt-tree --verbose FILES` lists them, and the other constructs it has no rule
-for.
+([formatter-style.md](proposals/formatter-style.md)). A file whose
+formatted text fails the safety checks (same tokens, comments and syntax
+tree) is not changed: `stitchwort fmt` says "formatter bug" and names the
+first difference, and the editor warns once per document version. That is a
+bug to report; `stitchwort dev fmt-tree FILES` lists every such file.
 
 `stitchwort` is not on the `PATH` inside `nix develop`: run
 `nix develop -c task fmt:sw -- web/guide/14-map-set.sw` (which builds first),

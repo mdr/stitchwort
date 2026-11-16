@@ -5,75 +5,41 @@
 //! files.
 //!
 //! Each declaration is turned into a layout document by the rule for each
-//! construct ([`rules`]) and printed in 120 columns ([`engine`]). The
-//! printed declaration must have the input's tokens (the input being the
-//! file after the tidy passes, [`crate::passes`], which include D2307's
-//! dropped brackets and D3565's merged parameters), its comments attached to
-//! the same tokens, and parse to the same tree; one that doesn't is left as
-//! written and counted, so a gap in the rules costs an unformatted
-//! declaration, never a wrong program. [`gate`] runs the same checks on a
-//! whole file, and that formatting twice changes nothing.
+//! construct ([`rules`]) and printed in 120 columns ([`engine`]). The whole
+//! printed file must have the input's tokens (the input being the file
+//! after the tidy passes, [`crate::passes`], which include D2307's dropped
+//! brackets and D3565's merged parameters), its comments attached to the
+//! same tokens, and parse to the same tree; a file that doesn't is
+//! [`Error::Internal`] and the caller keeps it as it was, so a bug in the
+//! rules is never a wrong program on disk. [`gate`] runs the same checks and
+//! also that formatting twice changes nothing.
 
 pub mod engine;
 mod rules;
 
-use std::collections::BTreeMap;
-
-use stitchwort_syntax::tree::{NodeKind, SyntaxFile};
+use stitchwort_syntax::tree::NodeKind;
 use stitchwort_syntax::{
-    DEFAULT_STACK, FileId, Lexed, SourceMap, Tok, equivalence, lex_with_trivia, parse_module_within,
+    DEFAULT_STACK, Diagnostic, FileId, Lexed, SourceMap, Tok, equivalence, lex_with_trivia,
+    parse_module_within,
 };
 
 use crate::{Error, check};
 
-/// An environment variable naming a declaration to treat as failing its
-/// checks: no input fails them (every comment has a place, S40), so the
-/// tests of how a declaration left as written is reported use this.
-pub const REFUSE_FOR_TEST: &str = "STITCHWORT_FMT_REFUSE_FOR_TEST";
-
 /// The width lines are fitted to (D1014).
 pub const WIDTH: usize = 120;
-
-/// A declaration left exactly as written, and why.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct VerbatimDecl {
-    /// Its first line in the file, from 1.
-    pub line: usize,
-    /// Its name, or its first token when no name can be read.
-    pub name: String,
-    /// The check it failed.
-    pub reason: &'static str,
-}
 
 /// What the tree printer did with a file.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TreeStats {
     pub decls: usize,
-    /// Declarations left as written because their printed text failed a
-    /// check, by the first check failed.
-    pub verbatim: BTreeMap<&'static str, usize>,
-    /// Where each of those is, and which declaration.
-    pub verbatim_at: Vec<VerbatimDecl>,
-    /// Nodes printed as written because no rule covers their kind yet.
-    pub unruled: BTreeMap<NodeKind, usize>,
     /// Parameter groups made by merging parameters of one type (D3565).
     pub merged_groups: usize,
 }
 
 impl TreeStats {
-    pub fn verbatim_decls(&self) -> usize {
-        self.verbatim.values().sum()
-    }
-
     pub fn add(&mut self, other: &TreeStats) {
         self.decls += other.decls;
         self.merged_groups += other.merged_groups;
-        for (reason, n) in &other.verbatim {
-            *self.verbatim.entry(reason).or_default() += n;
-        }
-        for (kind, n) in &other.unruled {
-            *self.unruled.entry(*kind).or_default() += n;
-        }
     }
 }
 
@@ -180,64 +146,38 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
     };
     for decl in tree.decls() {
         stats.decls += 1;
-        // A declaration that didn't lex, which only a file refused above
-        // has: as written.
-        if let Some(raw) = decl.raw_text_range() {
-            item(&mut out, 0, input[raw].trim_end());
-            continue;
+        // The parser accepts a file whose tokens before the first
+        // declaration start with `:=` and drops them (they are in no
+        // declaration, `decl_ranges`), so the tree holds them as an `Error`
+        // node. Nothing reads them, so the file is refused as a syntax
+        // error would be.
+        let first_token = &tree.tokens()[decl.token_range().start];
+        if decl.kind() == NodeKind::Error || first_token.tok == Tok::ColonEq {
+            let message = "`:=` can't start a declaration";
+            return Err(Error::Refused(vec![
+                Diagnostic::error("E-PARSE", message).with_label(first_token.span, message),
+            ]));
+        }
+        // Every declaration lexed: the file did, above.
+        if decl.raw_text_range().is_some() {
+            return Err(Error::Internal(
+                "a declaration of a lexed file has no tokens".into(),
+            ));
         }
         let range = decl.token_range();
         let first = &trivia[range.start];
         for comment in &first.leading {
             item(&mut out, comment.blank_lines_before, &comment.text);
         }
-        let before = decl_source(&tree, &input, range.start, range.end);
-        let first_line = input[..token_text_range(&tree.tokens()[range.start]).start]
-            .matches('\n')
-            .count()
-            + 1;
-        let text =
-            if decl.kind() == NodeKind::Error || tree.tokens()[range.start].tok == Tok::ColonEq {
-                before.to_string()
-            } else {
-                let doc = printer.node(decl);
-                let printed = engine::print(&doc, WIDTH);
-                let refused = || {
-                    std::env::var(REFUSE_FOR_TEST)
-                        .is_ok_and(|name| name == decl_name(&tree, &input, range.clone()))
-                };
-                let verdict = same_decl(before, &printed.text).and_then(|()| {
-                    if refused() {
-                        Err("refused for a test")
-                    } else {
-                        Ok(())
-                    }
-                });
-                match verdict {
-                    Ok(()) => {
-                        rules::unruled(decl, &mut stats.unruled);
-                        printed.text
-                    }
-                    Err(reason) => {
-                        if std::env::var_os("STITCHWORT_FMT_TREE_DEBUG").is_some() {
-                            let error = equivalence::parse_shape(&printed.text).err();
-                            eprintln!(
-                                "--- line {first_line}: {reason} {}\n{}",
-                                error.unwrap_or_default(),
-                                printed.text
-                            );
-                        }
-                        *stats.verbatim.entry(reason).or_default() += 1;
-                        stats.verbatim_at.push(VerbatimDecl {
-                            line: first_line,
-                            name: decl_name(&tree, &input, range.clone()),
-                            reason,
-                        });
-                        before.to_string()
-                    }
-                }
-            };
-        item(&mut out, first.blank_lines_before, &text);
+        let doc = printer.node(decl);
+        if let Some(problem) = printer.take_unexpected() {
+            return Err(Error::Internal(problem));
+        }
+        item(
+            &mut out,
+            first.blank_lines_before,
+            &engine::print(&doc, WIDTH).text,
+        );
     }
     for comment in &eof.leading {
         item(&mut out, comment.blank_lines_before, &comment.text);
@@ -250,19 +190,6 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
         text: out,
         stats,
     })
-}
-
-/// A declaration's source, from the start of its first line to the end of
-/// its last (with any trailing comment).
-fn decl_source<'t>(tree: &SyntaxFile, text: &'t str, first: usize, end: usize) -> &'t str {
-    let tokens = tree.tokens();
-    let start = token_text_range(&tokens[first]).start;
-    let start = text[..start].rfind('\n').map_or(0, |k| k + 1);
-    let last_end = token_text_range(&tokens[end - 1]).end;
-    let line_end = text[last_end..]
-        .find('\n')
-        .map_or(text.len(), |k| last_end + k);
-    text[start..line_end].trim_end_matches('\r')
 }
 
 /// Every comment with the token it belongs to, read by rule N
@@ -293,7 +220,7 @@ fn compare(
     file: FileId,
     before: &str,
     after: &str,
-    shapes: impl FnOnce() -> Result<bool, String>,
+    shapes: impl FnOnce() -> Result<Option<String>, String>,
 ) -> Result<(), (&'static str, String)> {
     let (Ok(a), Ok(b)) = (lex_with_trivia(file, before), lex_with_trivia(file, after)) else {
         return Err(("doesn't lex", String::new()));
@@ -310,22 +237,29 @@ fn compare(
         return Err(("comments", format!("the comment `{what}` moved")));
     }
     match shapes() {
-        Ok(true) => Ok(()),
-        Ok(false) => Err(("tree", "the output parses to a different tree".into())),
+        Ok(None) => Ok(()),
+        Ok(Some(difference)) => Err(("tree", difference)),
         Err(e) => Err(("doesn't parse", e)),
     }
 }
 
-fn same_decl(before: &str, after: &str) -> Result<(), &'static str> {
+/// What differs first between two syntax tree dumps, as the output's line
+/// and the input's, or nothing when they are the same.
+fn first_difference(before: &str, after: &str) -> Option<String> {
     if before == after {
-        return Ok(());
+        return None;
     }
-    let file = SourceMap::new().add("decl.sw", "");
-    compare(file, before, after, || {
-        let after = equivalence::parse_shape(after)?;
-        Ok(equivalence::parse_shape(before).is_ok_and(|b| b == after))
-    })
-    .map_err(|(reason, _)| reason)
+    let (mut x, mut y) = (before.lines(), after.lines());
+    loop {
+        let (a, b) = (x.next(), y.next());
+        if a != b {
+            return Some(format!(
+                "the output parses to a different tree: the input has `{}` where the output has `{}`",
+                a.map_or("nothing", str::trim),
+                b.map_or("nothing", str::trim)
+            ));
+        }
+    }
 }
 
 fn check_file(file: FileId, before: &str, after: &str) -> Result<(), String> {
@@ -337,7 +271,10 @@ fn check_file(file: FileId, before: &str, after: &str) -> Result<(), String> {
                 format!("the output doesn't parse: {}", d.message)
             })
         })?;
-        Ok(equivalence::shape(&a) == equivalence::shape(&b))
+        Ok(first_difference(
+            &equivalence::shape(&a),
+            &equivalence::shape(&b),
+        ))
     })
     .map_err(|(reason, detail)| format!("{reason}: {detail}"))
 }
@@ -349,36 +286,4 @@ mod tests;
 /// is exactly its text, interpolated text included.
 pub(crate) fn token_text_range(token: &stitchwort_syntax::Token) -> std::ops::Range<usize> {
     token.span.start as usize..token.span.end as usize
-}
-
-/// The name of the declaration in `range`, for a report: the name token after
-/// its keyword (a definition's, theorem's, type's or test's), or its first
-/// token when there is none.
-fn decl_name(tree: &SyntaxFile, text: &str, range: std::ops::Range<usize>) -> String {
-    let tokens = &tree.tokens()[range];
-    let keyword = tokens.iter().position(|token| {
-        matches!(
-            token.tok,
-            Tok::KwDef
-                | Tok::KwTheorem
-                | Tok::KwType
-                | Tok::KwInterface
-                | Tok::KwInstance
-                | Tok::KwTest
-                | Tok::KwAbility
-        )
-    });
-    keyword
-        .and_then(|at| {
-            tokens[at + 1..].iter().find_map(|token| match &token.tok {
-                Tok::Lower(name) | Tok::Upper(name) | Tok::Str(name) => Some(name.clone()),
-                _ => None,
-            })
-        })
-        .or_else(|| {
-            tokens
-                .first()
-                .map(|token| text[token_text_range(token)].to_string())
-        })
-        .unwrap_or_default()
 }

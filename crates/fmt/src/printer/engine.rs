@@ -12,8 +12,8 @@
 //! needs: [`Doc::Fill`] (as many items a line as fit), [`Doc::Choice`] (the
 //! first of several layouts whose first line fits: a body that opens on the
 //! `:=` line, a call whose last argument hugs), trailing comments that wait
-//! for the end of their line ([`Doc::LineSuffix`]), and text printed as
-//! written but moved with its line ([`Doc::Verbatim`]). The printer never
+//! for the end of their line ([`Doc::LineSuffix`]), and a text block printed
+//! as written but moved with its line ([`Doc::TextBlock`]). The printer never
 //! leaves spaces at the end of a line: indentation is written only before
 //! text.
 
@@ -82,17 +82,11 @@ pub enum Doc {
     LineSuffix(String),
     /// Forces every group around it to break.
     BreakParent,
-    /// Text printed as written, which may span lines. Lines after the first
-    /// move right or left by as much as the line this starts on has moved:
-    /// `src_indent` is the indentation of the source line it starts on.
-    /// For constructs without a rule yet, and for text blocks (S33).
-    Verbatim {
-        text: String,
-        src_indent: usize,
-    },
-    /// A `"""` text block (S33): printed as [`Doc::Verbatim`] is, but it
-    /// doesn't break the groups around it: what follows its closing `"""`
-    /// stays on that line.
+    /// A `"""` text block (S33), printed as written: its lines after the
+    /// first move right or left by as much as the line it starts on has
+    /// moved (`src_indent` is the indentation of the source line it starts
+    /// on). It doesn't break the groups around it: what follows its closing
+    /// `"""` stays on that line.
     TextBlock {
         text: String,
         src_indent: usize,
@@ -165,7 +159,6 @@ impl Doc {
     pub fn forces_break(&self) -> bool {
         match self {
             Doc::HardLine | Doc::BreakParent | Doc::LineStart | Doc::LineStartHere => true,
-            Doc::Verbatim { text, .. } => text.contains('\n'),
             Doc::Nil
             | Doc::Text(..)
             | Doc::Line
@@ -408,9 +401,7 @@ impl Printer {
                     stack.push(Cmd::Doc(indent, mode, chosen));
                 }
                 Doc::LineSuffix(comment) => self.suffixes.push(comment.clone()),
-                Doc::Verbatim { text, src_indent } | Doc::TextBlock { text, src_indent } => {
-                    self.verbatim(text, *src_indent, indent)
-                }
+                Doc::TextBlock { text, src_indent } => self.verbatim(text, *src_indent, indent),
             }
         }
     }
@@ -679,7 +670,7 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
                     stack.push((indent, mode, option));
                 }
             }
-            Doc::TextBlock { text, .. } | Doc::Verbatim { text, .. } => {
+            Doc::TextBlock { text, .. } => {
                 if suffix && flat_break {
                     return false;
                 }
@@ -693,9 +684,6 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
                 };
                 left -= first.chars().count() as isize;
                 if text.contains('\n') {
-                    if matches!(doc, Doc::Verbatim { .. }) {
-                        return mode == Mode::Break && left >= 0;
-                    }
                     if left < 0 {
                         return false;
                     }
@@ -849,14 +837,14 @@ mod tests {
     }
 
     #[test]
-    fn verbatim_lines_move_with_their_line_and_blank_lines_have_no_spaces() {
+    fn text_block_lines_move_with_their_line_and_blank_lines_have_no_spaces() {
         let doc = Doc::nest(
             4,
             Doc::concat([
                 t("a"),
                 Doc::HardLine,
                 Doc::Blank,
-                Doc::Verbatim {
+                Doc::TextBlock {
                     text: "b\n    c".into(),
                     src_indent: 2,
                 },

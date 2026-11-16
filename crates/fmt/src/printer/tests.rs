@@ -5,12 +5,10 @@
 
 use super::*;
 
-/// The tree printer's output for `text`, which must pass every check and
-/// print no declaration as written.
+/// The tree printer's output for `text`, which must pass every check.
 fn fmt(text: &str) -> String {
     let gate = gate(text).expect("it parses");
     assert_eq!(gate.check, Ok(()), "{}", gate.text);
-    assert_eq!(gate.stats.verbatim, BTreeMap::new(), "{}", gate.text);
     assert!(gate.idempotent, "not idempotent:\n{}", gate.text);
     gate.text
 }
@@ -252,10 +250,40 @@ fn a_comment_where_no_layout_breaks_gets_a_line_break() {
 fn comments_around_a_leading_comma_go_above_the_next_item() {
     let gate = gate("def x: List Nat :=\n  [ 1 -- a\n  -- b\n  , -- c\n    2\n  ]\n").unwrap();
     assert_eq!(gate.check, Ok(()));
-    assert_eq!(gate.stats.verbatim_decls(), 0);
     assert_eq!(
         gate.text,
         "def x: List Nat := [\n  1, -- a\n  -- b\n  -- c\n  2\n]\n"
+    );
+}
+
+#[test]
+fn a_closer_with_a_comment_after_code_with_one_keeps_its_line() {
+    // Two comments can't share a line: the closer isn't hoisted onto the
+    // first one's line (the fuzzer's SW-3497 case, which was printed as
+    // `(1) -- c -- d`).
+    check(
+        "def a: Nat := f (1-- c\n)-- d\n x\n",
+        "def a: Nat :=\n  f\n    (1 -- c\n    ) -- d\n    x\n",
+    );
+}
+
+#[test]
+fn a_field_after_a_closer_stays_after_it_when_a_comment_ends_the_line_before() {
+    // `.total` can't start a line, so the closer can't move up in front of
+    // the comment.
+    check(
+        "def a: Nat := (f 1-- c\n).total\n",
+        "def a: Nat :=\n  (f 1 -- c\n  ).total\n",
+    );
+}
+
+#[test]
+fn a_comment_after_the_assign_puts_a_match_below_it_with_its_arms_deeper() {
+    // The arms would otherwise line up with the `match` on its own line,
+    // which starts a new statement.
+    check(
+        "def f (n: Nat): Nat :=-- c\n match n with\n  | Zero => 1\n  | Succ m => m\n",
+        "def f (n: Nat): Nat := -- c\n  match n with\n    | Zero => 1\n    | Succ m => m\n",
     );
 }
 
@@ -284,7 +312,6 @@ fn text_blocks_and_interpolations_stay_as_written() {
     let gate = gate(text).unwrap();
     assert_eq!(gate.check, Ok(()));
     assert_eq!(gate.text, text);
-    assert!(gate.stats.unruled.is_empty());
 }
 
 #[test]

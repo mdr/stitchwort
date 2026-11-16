@@ -2,11 +2,10 @@
 //!
 //! [`format`] prints a file from its lossless syntax tree, choosing every
 //! line break itself, in 120 columns ([`printer`]). It refuses a file with
-//! any lexical or syntax error (D1021). It checks each declaration it
-//! prints, and the whole file: the same tokens (up to the deliberate
-//! rewrites), the same comments on the same tokens, the same syntax tree. A
-//! declaration that fails stays as written and is counted in [`Stats`]; a
-//! file that fails is [`Error::Internal`] and the caller keeps it as it was.
+//! any lexical or syntax error (D1021). It checks the whole file it prints:
+//! the same tokens (the tidy passes' rewrites aside), the same comments on
+//! the same tokens, the same syntax tree. A file that fails is
+//! [`Error::Internal`] and the caller keeps it as it was.
 
 #[cfg(test)]
 use stitchwort_test_alloc as _;
@@ -73,51 +72,13 @@ pub const DELIBERATELY_UNFORMATTED: [&str; 10] = [
     "examples/accept/list-literal-layout.sw",
 ];
 
-/// How much of a file the rules didn't cover.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct Stats {
-    /// Declarations in the file.
-    pub decls: usize,
-    /// Declarations left exactly as written, because their formatted text
-    /// failed a check (the rest of the file is formatted).
-    pub verbatim_decls: usize,
-    /// Syntax nodes printed as written because no rule covers their kind.
-    pub unruled_nodes: usize,
-}
-
-/// A formatted file and what its formatting didn't cover.
-#[derive(Clone, Debug)]
-pub struct Formatted {
-    pub text: String,
-    pub stats: Stats,
-    /// Each declaration left exactly as written, with its line, name and the
-    /// check it failed.
-    pub verbatim_at: Vec<printer::VerbatimDecl>,
-}
-
 /// Formats a whole file.
 pub fn format(text: &str) -> Result<String, Error> {
-    format_with_stats(text).map(|formatted| formatted.text)
-}
-
-/// Like [`format`], with the counts of what the rules didn't cover.
-pub fn format_with_stats(text: &str) -> Result<Formatted, Error> {
     let file = SourceMap::new().add("input.sw", text);
     format_in(file, text)
 }
 
-/// Like [`format_with_stats`], with `file` in the diagnostics of a refused
-/// file.
-pub fn format_in(file: FileId, text: &str) -> Result<Formatted, Error> {
-    let printed = printer::format_tree_in(file, text)?;
-    let stats = Stats {
-        decls: printed.stats.decls,
-        verbatim_decls: printed.stats.verbatim_decls(),
-        unruled_nodes: printed.stats.unruled.values().sum(),
-    };
-    Ok(Formatted {
-        text: printed.text,
-        stats,
-        verbatim_at: printed.stats.verbatim_at,
-    })
+/// Like [`format`], with `file` in the diagnostics of a refused file.
+pub fn format_in(file: FileId, text: &str) -> Result<String, Error> {
+    printer::format_tree_in(file, text).map(|printed| printed.text)
 }

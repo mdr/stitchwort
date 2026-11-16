@@ -39035,15 +39035,17 @@
     {
       "id": 3497,
       "title": "[Sonnet] fmt passes L4: exact checks; remove fallbacks F1-F4, Doc::Verbatim and the CLI's verbatim report (count first whether any F4 guard is reachable); whole-file check per D-A. After L3. Est. 45 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3633 (Matt, 16 Nov 2026): yes, keep one whole-file check in the Rust formatter ('sensible'). D3634 (Matt): when it fails, error loudly: CLI as now (error naming the first difference, file unchanged, exit 1); the editor (crates/lsp/src/lib.rs:2484 format_edits) shows a warning once per document version: 'Stitchwort formatter bug: this file was left unchanged. Run stitchwort fmt <file> to see the details.' A refused file (syntax error) stays silent in the editor. Do this in L4 with the fallback removal; test both.",
+      "body": "D3633 (Matt, 16 Nov 2026): yes, keep one whole-file check in the Rust formatter ('sensible'). D3634 (Matt): when it fails, error loudly: CLI as now (error naming the first difference, file unchanged, exit 1); the editor (crates/lsp/src/lib.rs:2484 format_edits) shows a warning once per document version: 'Stitchwort formatter bug: this file was left unchanged. Run stitchwort fmt <file> to see the details.' A refused file (syntax error) stays silent in the editor. Do this in L4 with the fallback removal; test both.\n\n\nLane notes (Sonnet, 16 Nov 2026): done on lane/SW-3497, commit 04039b751. Exact checks and the whole-file check were already in place after L1-L3; L4 removed F1-F4, Doc::Verbatim, VerbatimDecl, Stats, format_with_stats, the CLI report. None of the six F4 guards is reachable (parser refuses each; now an internal error). F2 was reachable: a file whose first tokens start with `:=` and has no column-0 declaration keyword is accepted by the parser, which drops them (decl_ranges); the formatter now refuses such a file (two golden pairs leading-colon-eq* removed, api test added). D3634 in the editor: Main::formatted, unit tests. With the fallback gone the fuzzer shows 3 older formatter bugs (2 fixed here: a closer with a comment after code with one; a comment after := above a match). Two remain: bare/bracketed `;` sequence broken by a comment; comment inside a parameter's function type. Engine assertion not added.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "04039b751"
+      ]
     },
     {
       "id": 3498,
