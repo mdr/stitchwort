@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: unexpected character `λ`
+   ╭─[ reject/foreign-lambda.sw:3:24 ]
+   │
+ 3 │ def inc: Nat -> Nat := λ x => x + 1
+   │                        ┬  
+   │                        ╰── unexpected character `λ`
+   │ 
+   │ Note: `λ` isn't supported: a lambda is written `x => body`
+───╯

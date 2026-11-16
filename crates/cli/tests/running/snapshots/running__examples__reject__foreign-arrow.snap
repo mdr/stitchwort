@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NOT-A-TYPE] Error: expected a type
+   ╭─[ reject/foreign-arrow.sw:4:36 ]
+   │
+ 4 │ def inc: Nat -> Nat := (x: Nat) -> x + 1
+   │                                    ──┬──  
+   │                                      ╰──── this has type `Nat`, so it isn't a type
+   │ 
+   │ Note: if this was meant as a lambda, its parameter and body are separated by `=>`, not `->`: `(x: Nat) => body`
+───╯

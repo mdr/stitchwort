@@ -1127,7 +1127,18 @@ impl<'t> Parser<'t> {
 
     fn finish(&self) -> Result<()> {
         if self.pos < self.tokens.len() {
-            Err(self.unexpected("the end of the declaration").into())
+            let error = self.unexpected("the end of the declaration");
+            // Haskell's `deriving` and Lean's `deriving instance` have no
+            // Stitchwort spelling: the instances are made with the type.
+            if self.text_at(self.pos as u32) == "deriving" {
+                return Err(error
+                    .with_note(
+                        "there's no `deriving`: a declared type gets `DecEq`, `Ord`, `Show` and \
+                         `Finite` derived when it is declared, so delete this line",
+                    )
+                    .into());
+            }
+            Err(error.into())
         } else {
             Ok(())
         }

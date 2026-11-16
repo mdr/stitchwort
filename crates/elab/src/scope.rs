@@ -3439,6 +3439,17 @@ pub fn edit_distance(a: &str, b: &str) -> usize {
 /// user's own `ring` or `sym` is never second-guessed.
 const OTHER_SYSTEMS: &[(&[&str], &str)] = &[
     (
+        &["by"],
+        "a proof is written where it goes, with no tactic block: use `byComputing`, `arithmetic`, \
+         `algebra` or `cases`, or a `match` over the parameters",
+    ),
+    (
+        &["simp", "simp_all", "simpa"],
+        "there's no automatic simplifier: prove by computing (`byComputing`), rewriting \
+         (`rewrite …`) or arithmetic (`arithmetic`)",
+    ),
+    (&["fun"], "a lambda is written `x => body`, with no `fun`"),
+    (
         &["rfl", "refl", "Refl", "reflexivity", "Eq.refl"],
         "a proof that both sides compute to the same value is written `byComputing`",
     ),

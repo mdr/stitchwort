@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `by`
+   ╭─[ reject/foreign-by.sw:4:23 ]
+   │
+ 4 │ theorem one: 1 = 1 := by simp
+   │                       ─┬  
+   │                        ╰── not in scope
+   │ 
+   │ Note: `by` isn't a Stitchwort name: a proof is written where it goes, with no tactic block: use `byComputing`, `arithmetic`, `algebra` or `cases`, or a `match` over the parameters
+───╯

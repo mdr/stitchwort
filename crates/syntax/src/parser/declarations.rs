@@ -231,13 +231,22 @@ impl Parser<'_> {
     /// `E-PARSE`: a declaration starting with a name, as a definition
     /// written without `def` does.
     fn missing_keyword(&self) -> Diagnostic {
-        Diagnostic::error(
+        let diagnostic = Diagnostic::error(
             "E-PARSE",
             "expected a declaration: `def`, `theorem`, `type`, `ability`, `interface`, `instance` \
              or `test`",
         )
         .with_label(self.here(), "a declaration starts with a keyword")
-        .with_note("a definition is written `def name (x: A): B := …`")
+        .with_note("a definition is written `def name (x: A): B := …`");
+        // Lean and OCaml write a record with `record` or `structure` and
+        // named fields, which Stitchwort writes as a `type` whose fields
+        // are in braces.
+        if self.text_at(self.pos as u32) == "record" {
+            return diagnostic.with_note(
+                "a record is a `type` with fields in braces: `type Point = { x: Nat, y: Nat }`",
+            );
+        }
+        diagnostic
     }
 
     /// `=` where `:=` gives something its value.

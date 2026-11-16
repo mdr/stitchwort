@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected a declaration: `def`, `theorem`, `type`, `ability`, `interface`, `instance` or `test`
+   ╭─[ reject/foreign-record.sw:4:1 ]
+   │
+ 4 │ record Point where
+   │ ───┬──  
+   │    ╰──── a declaration starts with a keyword
+   │ 
+   │ Note 1: a definition is written `def name (x: A): B := …`
+   │ 
+   │ Note 2: a record is a `type` with fields in braces: `type Point = { x: Nat, y: Nat }`
+───╯
