@@ -107,7 +107,7 @@ fn each_example<T: Send>(f: impl Fn(&str, &str) -> T + Sync) -> Vec<(String, T)>
 fn goal_examples_in_the_index() {
     let results = each_example(|name, _| {
         let index = index_of(&goals_dir(), &format!("{name}.sw"));
-        assert_eq!(index["version"], 3);
+        assert_eq!(index["version"], 4);
         let diagnostics = diagnostics(&index);
         for d in diagnostics.iter().filter(|d| is_goal(d)) {
             let goal = &d["goal"];

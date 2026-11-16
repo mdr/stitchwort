@@ -13,3 +13,4 @@ expression: output
     │     
     │     Note: here `items` has type `Vec Nat 1`, and `VCons` can be one
 ────╯
+try: add `| VCons x xs => ?`

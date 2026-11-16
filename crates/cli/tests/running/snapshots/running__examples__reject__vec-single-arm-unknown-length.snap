@@ -13,3 +13,4 @@ expression: output
     │     
     │     Note: here `items` has type `Vec Nat n`, and `VNil` can be one
 ────╯
+try: add `| VNil => ?`

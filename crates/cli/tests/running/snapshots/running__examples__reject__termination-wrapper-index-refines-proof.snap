@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/running/examples.rs
+source: crates/cli/tests/examples.rs
 expression: output
 ---
 [W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
@@ -11,6 +11,7 @@ expression: output
     │ 
     │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ────╯
+try: write ∀ instead of ->
 [E-TERMINATION] Error: can't show that `f` terminates
     ╭─[ reject/termination-wrapper-index-refines-proof.sw:11:30 ]
     │

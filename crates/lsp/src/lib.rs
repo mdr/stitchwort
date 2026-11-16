@@ -48,6 +48,7 @@ use stitchwort_driver::check_cache::{
     LibraryBundle,
 };
 use stitchwort_driver::driver::Session;
+use stitchwort_driver::fixes::{self, FixKind};
 use stitchwort_driver::live::{
     Answers, FileAnswers, LiveFile, LiveProject, LiveRef, Loc, OutlineItem, Place, Progress,
     outline_of_text,
@@ -62,11 +63,9 @@ use wasm::FileUrl as _;
 
 mod arms;
 mod complete;
-mod imports;
 mod lens;
 mod rename;
 mod source;
-mod style;
 use source::sources_hold;
 pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
 
@@ -1652,72 +1651,54 @@ impl Main {
                 }]}),
                 None => serde_json::json!({"changes": {uri.as_str(): edits}}),
             };
-        let with_edit = |edit: lsp_types::TextEdit| with_edits(&[edit]);
         for d in diagnostics {
-            if let Some(lsp_types::NumberOrString::String(code)) = &d.code
-                && let Some(title) = style::title(code)
-            {
-                let edits = style::edits(text, code, d.range);
-                if !edits.is_empty() {
-                    actions.push(serde_json::json!({
-                        "title": title,
-                        "kind": "quickfix",
-                        "diagnostics": [d],
-                        "edit": with_edits(&edits),
-                    }));
-                }
-                continue;
-            }
-            let Some(data) = d.data.as_ref() else {
+            let Some(lsp_types::NumberOrString::String(code)) = &d.code else {
                 continue;
             };
-            if let Some(arms) = data.get("missing").and_then(|m| m.get("arms")) {
-                let fills: Vec<String> = arms
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|a| a.as_str().map(str::to_string))
+            let data = d.data.as_ref();
+            let arms: Vec<String> = data
+                .and_then(|data| data.get("missing"))
+                .and_then(|m| m.get("arms"))
+                .and_then(|a| a.as_array())
+                .into_iter()
+                .flatten()
+                .filter_map(|a| a.as_str().map(str::to_string))
+                .collect();
+            let import = data
+                .and_then(|data| data.get("import"))
+                .and_then(|i| Some((i.get("path")?.as_str()?, i.get("item")?.as_str()?)));
+            let at = [
+                d.range.start.line,
+                d.range.start.character,
+                d.range.end.line,
+                d.range.end.character,
+            ];
+            let replacement = data
+                .and_then(|data| data.get("replacement"))
+                .and_then(|r| r.as_str());
+            for fix in fixes::fixes_for(text, code, at, &arms, import, replacement) {
+                let edits: Vec<lsp_types::TextEdit> = fix
+                    .edits
+                    .iter()
+                    .map(|e| lsp_types::TextEdit::new(range(e.range), e.new_text.clone()))
                     .collect();
-                if let Some(edit) = arms::add_arms(text, d.range, &fills) {
-                    let cursor = with_cursor(
-                        serde_json::json!({}),
-                        uri,
-                        text,
-                        std::slice::from_ref(&edit),
-                    );
-                    let mut action = serde_json::json!({
-                        "title": if fills.len() == 1 { "Add the missing arm" } else { "Add the missing arms" },
-                        "kind": "quickfix",
-                        "diagnostics": [d],
-                        "edit": with_edit(edit),
-                        "isPreferred": actions.is_empty(),
-                    });
+                let mut action = serde_json::json!({
+                    "title": fix.title,
+                    "kind": "quickfix",
+                    "diagnostics": [d],
+                    "edit": with_edits(&edits),
+                });
+                if fix.kind != FixKind::Style {
+                    action["isPreferred"] = (actions.is_empty()).into();
+                }
+                if fix.kind == FixKind::AddArms {
+                    let cursor = with_cursor(serde_json::json!({}), uri, text, &edits);
                     if let Some(command) = cursor.get("command") {
                         action["command"] = command.clone();
                     }
-                    actions.push(action);
                 }
-                continue;
+                actions.push(action);
             }
-            let Some(import) = data.get("import") else {
-                continue;
-            };
-            let (Some(path), Some(item)) = (
-                import.get("path").and_then(|v| v.as_str()),
-                import.get("item").and_then(|v| v.as_str()),
-            ) else {
-                continue;
-            };
-            let Some(edit) = imports::add_import(text, path, item) else {
-                continue;
-            };
-            actions.push(serde_json::json!({
-                "title": format!("Add `import {path} ({item})`"),
-                "kind": "quickfix",
-                "diagnostics": [d],
-                "edit": with_edit(edit),
-                "isPreferred": actions.is_empty(),
-            }));
         }
         if actions.is_empty() {
             serde_json::Value::Null
@@ -4661,13 +4642,14 @@ fn diagnostic(
         related_information: (!related.is_empty()).then_some(related),
         // An arm that can't be chosen is shown faded, as unused code is.
         tags: (d.code == "W-UNREACHABLE").then(|| vec![lsp_types::DiagnosticTag::UNNECESSARY]),
-        data: match (&d.import, &d.missing) {
-            (Some(i), _) => {
+        data: match (&d.import, &d.missing, d.replacement.as_deref()) {
+            (Some(i), _, _) => {
                 Some(serde_json::json!({ "import": { "path": i.path, "item": i.item } }))
             }
-            (None, Some(m)) if !m.fills.is_empty() => Some(serde_json::json!({
+            (None, Some(m), _) if !m.fills.is_empty() => Some(serde_json::json!({
                 "missing": { "arms": &m.fills[..m.fills.len().min(MissingCases::CAP)], "more": m.more() }
             })),
+            (None, _, Some(name)) => Some(serde_json::json!({ "replacement": name })),
             _ => None,
         },
     }

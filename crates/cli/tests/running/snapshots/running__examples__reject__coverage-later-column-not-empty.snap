@@ -10,3 +10,4 @@ expression: output
    │   ───────┬──────  
    │          ╰──────── missing case: no arm matches `Succ _, _`
 ───╯
+try: add `| Succ n1, x => ?`
