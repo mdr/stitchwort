@@ -82,7 +82,8 @@ pub(crate) fn note(
 
 /// Drops the candidates among `diagnostics` that aren't written with an
 /// arrow after their binder group (a header's parameter, a `∀`), and the
-/// `W-PROOF-CHAIN` nests that sit on one line.
+/// `W-PROOF-CHAIN` nests that sit on one line, and the `rewrite … then`
+/// warnings whose `then` is followed by a bracket.
 /// `text` is the text of a file.
 pub fn keep_written_arrows<'a>(
     diagnostics: &mut Vec<Diagnostic>,
@@ -96,6 +97,32 @@ pub fn keep_written_arrows<'a>(
                 text(l.span.file)
                     .and_then(|t| t.get(l.span.range()))
                     .is_none_or(|t| t.contains('\n'))
+            });
+        }
+        // `then (rewrite …)` and `then (byComputing)` keep brackets the fix
+        // would leave unmatched: only `then` and the word alone are fixed.
+        if d.code == crate::rewrite_then::COMPUTING || d.code == crate::rewrite_then::REWRITE {
+            let word = if d.code == crate::rewrite_then::COMPUTING {
+                "byComputing"
+            } else {
+                "rewrite"
+            };
+            return d.labels.first().is_none_or(|l| {
+                let Some(file) = text(l.span.file) else {
+                    return true;
+                };
+                let alone = file.get(l.span.range()).is_none_or(|t| {
+                    t.strip_prefix("then")
+                        .is_some_and(|rest| rest.trim_start() == word)
+                });
+                // A `rewrite` that ends at a comma (a record field, a list
+                // element) takes the comma for another rule once its `then`
+                // is gone.
+                let comma = d.code == crate::rewrite_then::COMPUTING
+                    && file
+                        .get(l.span.end as usize..)
+                        .is_some_and(|rest| rest.trim_start().starts_with(','));
+                alone && !comma
             });
         }
         d.code != CODE
