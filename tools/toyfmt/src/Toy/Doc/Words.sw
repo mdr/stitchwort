@@ -8,15 +8,16 @@
 --| those are is the reading's choice, so the order of the words is the
 --| document's only up to that.
 --|
---| Three statements, each through every reading: a step moves words from
+--| Three statements, each through every reading. A step moves words from
 --| the work list to the printer in order, a closer alone going before
---| the comments that wait (`stepWords`); what holds of every word of the
---| document holds of every word written (`readingEvery`); and the words
---| a filter keeps are the document's in order, if the filter keeps no
---| closer (`readingWords`: with a filter that keeps everything, the old
---| theorem for a document without closers; with one that drops only the
---| closers, every other word and comment in the document's order). The
---| exact place of each closer is `Lays`' to say (`Places.sw`).
+--| the comments that wait (`stepWords`). What holds of every word of the
+--| document holds of every word written (`readingEvery`). And the order
+--| is the document's to any filter that keeps no closer, or keeps no
+--| trailing comment (`readingWords`): the words other than closers are in
+--| the document's order, comments among them, and so are the words other
+--| than trailing comments, closers among them; in a document with no
+--| closer, all the words are. Exactly where each closer lands is `Lays`'
+--| to say (`Places.sw`).
 
 namespace Toy.Doc.Proofs
 import Toy.Doc (..)
@@ -637,3 +638,370 @@ theorem readingEvery ∀ (holds: Text → Prop) (printer: Printer) (fuel: Nat) (
       let kept := stepUniform printer cmd rest (next, later) steps first others
       readingEvery holds next more later final laterReads kept
         (rewrite moved then everyFrom holds cmd printer (stackWords rest) all)
+
+-- Which words are closers and which are trailing comments.
+
+--| Every closer in the document satisfies `closer`, and every trailing
+--| comment `suffix`: what a statement about the order of the words needs
+--| to know of the two kinds that may change places.
+def Marked (closer suffix: Text → Prop): Doc → Prop
+  | Closing text => closer text
+  | LineSuffix comment => suffix comment
+  | Nest _ inner => Marked closer suffix inner
+  | Group inner _ => Marked closer suffix inner
+  | Flatten inner => Marked closer suffix inner
+  | OneLineBelow inner => Marked closer suffix inner
+  | Concat docs => AllMarked closer suffix docs
+  | Fill items => AllMarked closer suffix items
+  | Choice options => AllMarked closer suffix options
+  | _ => True
+
+def AllMarked (closer suffix: Text → Prop): List Doc → Prop
+  | [] => True
+  | [doc, ..docs] => Marked closer suffix doc ∧ AllMarked closer suffix docs
+
+def CmdMarked (closer suffix: Text → Prop): Cmd → Prop
+  | Print _ _ doc => Marked closer suffix doc
+  | FillSep _ item => Marked closer suffix item
+
+def StackMarked (closer suffix: Text → Prop): List Cmd → Prop
+  | [] => True
+  | [cmd, ..rest] => CmdMarked closer suffix cmd ∧ StackMarked closer suffix rest
+
+theorem stackMarkedAppend ∀ (closer suffix: Text → Prop) (front back: List Cmd)
+    (frontUniform: StackMarked closer suffix front)
+    (backUniform: StackMarked closer suffix back):
+    StackMarked closer suffix (front ++ back) :=
+  match front, frontUniform with
+    | [], _ => backUniform
+    | [cmd, ..rest], Both first others => (first, (stackMarkedAppend closer suffix rest back others backUniform))
+
+theorem printsMarked ∀ (closer suffix: Text → Prop) (indent: Nat) (mode: Mode) (docs: List Doc)
+    (uniform: AllMarked closer suffix docs):
+    StackMarked closer suffix (docs.map (Print indent mode)) :=
+  match docs, uniform with
+    | [], _ => byComputing
+    | [doc, ..rest], Both first others => (first, (printsMarked closer suffix indent mode rest others))
+
+theorem fillSepsMarked ∀ (closer suffix: Text → Prop) (indent: Nat) (items: List Doc)
+    (uniform: AllMarked closer suffix items):
+    StackMarked closer suffix (items.map (FillSep indent)) :=
+  match items, uniform with
+    | [], _ => byComputing
+    | [item, ..rest], Both first others => (first, (fillSepsMarked closer suffix indent rest others))
+
+theorem joinLinesMarked ∀ (closer suffix: Text → Prop) (items: List Doc)
+    (uniform: AllMarked closer suffix items):
+    AllMarked closer suffix (Doc.joinLines items) :=
+  match items, uniform with
+    | [], _ => byComputing
+    | [only], given => given
+    | [item, next, ..rest], Both first others =>
+      (first, byComputing, (joinLinesMarked closer suffix [next, ..rest] others))
+
+theorem optionMarked ∀ (closer suffix: Text → Prop) (chosen: Doc) (options: List Doc)
+    (isOption: IsOption chosen options)
+    (uniform: AllMarked closer suffix options):
+    Marked closer suffix chosen :=
+  match options, isOption, uniform with
+    | [], picked, _ => rewrite repeatedly [picked]
+    | [last], picked, Both first _ => rewrite picked then first
+    | [option, next, ..rest], Inl picked, Both first _ => rewrite picked then first
+    | [option, next, ..rest], Inr later, Both _ others => optionMarked closer suffix chosen [next, ..rest] later others
+
+theorem eitherMarked ∀ (closer suffix: Text → Prop) (condition: Bool) (yes no: (Printer, List Cmd))
+    (whenYes: StackMarked closer suffix yes.snd)
+    (whenNo: StackMarked closer suffix no.snd):
+    StackMarked closer suffix (if condition then yes else no).snd :=
+  match condition with
+    | True => whenYes
+    | False => whenNo
+
+theorem headOrMarked ∀ (closer suffix: Text → Prop) (options: List Doc)
+    (uniform: AllMarked closer suffix options):
+    Marked closer suffix (options.headOr Empty) :=
+  match options, uniform with
+    | [], _ => byComputing
+    | [option, ..others], Both first _ => first
+
+--| A step of a reading leaves the work list marked.
+theorem stepMarked ∀ (closer suffix: Text → Prop) (printer: Printer) (cmd: Cmd)
+    (rest: List Cmd) (result: (Printer, List Cmd))
+    (steps: StepsTo printer cmd rest result)
+    (uniform: CmdMarked closer suffix cmd)
+    (restUniform: StackMarked closer suffix rest):
+    StackMarked closer suffix result.snd :=
+  match cmd, steps, uniform with
+    | FillSep indent item, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
+    | FillSep indent item, Inr broken, uniform => rewrite broken then (uniform, restUniform)
+    | Print indent mode doc, steps, uniform =>
+      match doc, steps, uniform with
+        | Empty, steps, _ => rewrite repeatedly [steps]
+        | BreakParent, steps, _ => rewrite repeatedly [steps]
+        | Chunk text width, steps, _ => rewrite repeatedly [steps]
+        | Closing text, steps, _ => rewrite repeatedly [steps]
+        | Line, steps, _ =>
+          rewrite steps then
+            eitherMarked closer suffix _
+              (printer.write indent " " 1, rest)
+              (printer.newline indent, rest)
+              restUniform
+              restUniform
+        | SoftLine, steps, _ =>
+          rewrite steps then
+            eitherMarked closer suffix _ (printer, rest) (printer.newline indent, rest) restUniform restUniform
+        | HardLine, steps, _ => rewrite repeatedly [steps]
+        | LineStart, steps, _ => rewrite repeatedly [steps]
+        | CommentEnd, steps, _ => rewrite repeatedly [steps]
+        | LineStartHere, steps, _ =>
+          rewrite steps then
+            eitherMarked closer suffix _
+              ({ printer | owed = Some indent, lineIndent = indent }, rest)
+              (printer.newline indent, rest)
+              restUniform
+              restUniform
+        | Blank, steps, _ => rewrite repeatedly [steps]
+        | Nest more inner, steps, uniform => rewrite steps then (uniform, restUniform)
+        | OneLineBelow inner, steps, uniform => rewrite steps then (byComputing, uniform, restUniform)
+        | Flatten inner, steps, uniform => rewrite steps then (uniform, restUniform)
+        | LineSuffix comment, steps, _ => rewrite repeatedly [steps]
+        | Group inner hard, Inl (Both _ flat), uniform => rewrite flat then (uniform, restUniform)
+        | Group inner hard, Inr (Both _ broken), uniform => rewrite broken then (uniform, restUniform)
+        | Concat docs, steps, uniform =>
+          rewrite steps then
+            stackMarkedAppend closer suffix
+              (docs.map (Print indent mode))
+              rest
+              (printsMarked closer suffix indent mode docs uniform)
+              restUniform
+        | Fill [], steps, _ => rewrite repeatedly [steps]
+        | Fill [first, ..others], Inl (Both _ flat), uniform =>
+          rewrite flat then
+            stackMarkedAppend closer suffix
+              ((Doc.joinLines [first, ..others]).map (Print indent Flat))
+              rest
+              (printsMarked closer suffix indent Flat
+                (Doc.joinLines [first, ..others])
+                (joinLinesMarked closer suffix [first, ..others] uniform))
+              restUniform
+        | Fill [first, ..others], Inr (Both _ (Witness firstMode broken)), Both firstUniform othersUniform =>
+          rewrite broken then
+            (
+              firstUniform,
+              (stackMarkedAppend closer suffix
+                (others.map (FillSep indent))
+                rest
+                (fillSepsMarked closer suffix indent others othersUniform)
+                restUniform)
+            )
+        | Choice options, Inl (Both _ flat), each =>
+          rewrite flat then ((headOrMarked closer suffix options each), restUniform)
+        | Choice options, Inr (Both _ (Witness chosen (Both isOption broken))), each =>
+          rewrite broken then ((optionMarked closer suffix chosen options isOption each), restUniform)
+
+-- The comments that wait are trailing comments of the document.
+
+theorem newlineQuiet ∀ (suffix: Text → Prop) (printer: Printer) (indent: Nat):
+    Every suffix (printer.newline indent).suffixes :=
+  rewrite (newlineWritten printer indent).right
+
+theorem writeQuiet ∀ (suffix: Text → Prop) (printer: Printer) (indent: Nat) (text: Text) (width: Nat)
+    (waits: Every suffix printer.suffixes):
+    Every suffix (printer.write indent text width).suffixes :=
+  match empty: text.isEmpty with
+    | True => waits
+    | False =>
+      match waiting: printer.suffixes.isEmpty with
+        | True => rewrite (putWritten printer text width).right then waits
+        | False =>
+          match spaces: text.all (char => char == ' ') with
+            | True => waits
+            | False =>
+              rewrite (putWritten
+                (printer.newline (printer.continuation indent))
+                text
+                width).right, (newlineWritten printer (printer.continuation indent)).right
+
+theorem closeQuiet ∀ (suffix: Text → Prop) (printer: Printer) (text: Text)
+    (waits: Every suffix printer.suffixes):
+    Every suffix (printer.close text).suffixes :=
+  match empty: text.isEmpty with
+    | True => waits
+    | False => rewrite (putWritten printer text text.length).right then waits
+
+theorem lineStartQuiet ∀ (suffix: Text → Prop) (printer: Printer) (indent: Nat)
+    (waits: Every suffix printer.suffixes):
+    Every suffix (printer.lineStart indent).suffixes :=
+  match start: printer.atLineStart with
+    | True => waits
+    | False => newlineQuiet suffix printer (printer.continuation indent)
+
+theorem blankQuiet ∀ (suffix: Text → Prop) (printer: Printer)
+    (waits: Every suffix printer.suffixes):
+    Every suffix printer.blank.suffixes :=
+  match blank: printer.atLineStart && printer.started && printer.newlinesAtEnd < 2 with
+    | True => waits
+    | False => waits
+
+theorem eitherQuiet ∀ (suffix: Text → Prop) (condition: Bool) (yes no: (Printer, List Cmd))
+    (whenYes: Every suffix yes.fst.suffixes)
+    (whenNo: Every suffix no.fst.suffixes):
+    Every suffix (if condition then yes else no).fst.suffixes :=
+  match condition with
+    | True => whenYes
+    | False => whenNo
+
+--| Through a step of a reading, the comments that wait are trailing
+--| comments of the document: what `suffix` holds of.
+theorem stepQuiet ∀ (closer suffix: Text → Prop) (printer: Printer) (cmd: Cmd)
+    (rest: List Cmd) (result: (Printer, List Cmd))
+    (steps: StepsTo printer cmd rest result)
+    (marked: CmdMarked closer suffix cmd)
+    (waits: Every suffix printer.suffixes):
+    Every suffix result.fst.suffixes :=
+  match cmd, steps, marked with
+    | FillSep indent item, Inl (Both _ flat), _ => rewrite flat then writeQuiet suffix printer indent " " 1 waits
+    | FillSep indent item, Inr broken, _ => rewrite broken then newlineQuiet suffix printer indent
+    | Print indent mode doc, steps, marked =>
+      match doc, steps, marked with
+        | Empty, steps, _ => rewrite steps then waits
+        | BreakParent, steps, _ => rewrite steps then waits
+        | Chunk text width, steps, _ => rewrite steps then writeQuiet suffix printer indent text width waits
+        | Closing text, steps, _ => rewrite steps then closeQuiet suffix printer text waits
+        | Line, steps, _ =>
+          rewrite steps then
+            eitherQuiet suffix _
+              (printer.write indent " " 1, rest)
+              (printer.newline indent, rest)
+              (writeQuiet suffix printer indent " " 1 waits)
+              (newlineQuiet suffix printer indent)
+        | SoftLine, steps, _ =>
+          rewrite steps then
+            eitherQuiet suffix _
+              (printer, rest)
+              (printer.newline indent, rest)
+              waits
+              (newlineQuiet suffix printer indent)
+        | HardLine, steps, _ => rewrite steps then newlineQuiet suffix printer indent
+        | LineStart, steps, _ => rewrite steps then lineStartQuiet suffix printer indent waits
+        | CommentEnd, steps, _ => rewrite steps then newlineQuiet suffix printer printer.lineIndent
+        | LineStartHere, steps, _ =>
+          rewrite steps then
+            eitherQuiet suffix _
+              ({ printer | owed = Some indent, lineIndent = indent }, rest)
+              (printer.newline indent, rest)
+              waits
+              (newlineQuiet suffix printer indent)
+        | Blank, steps, _ => rewrite steps then blankQuiet suffix printer waits
+        | Nest more inner, steps, _ => rewrite steps then waits
+        | OneLineBelow inner, steps, _ => rewrite steps then waits
+        | Flatten inner, steps, _ => rewrite steps then waits
+        | LineSuffix comment, steps, isSuffix =>
+          rewrite steps then everyAppend suffix printer.suffixes [comment] waits ((isSuffix, byComputing))
+        | Group inner hard, Inl (Both _ flat), _ => rewrite flat then waits
+        | Group inner hard, Inr (Both _ broken), _ => rewrite broken then waits
+        | Concat docs, steps, _ => rewrite steps then waits
+        | Fill [], steps, _ => rewrite steps then waits
+        | Fill [first, ..others], Inl (Both _ flat), _ => rewrite flat then waits
+        | Fill [first, ..others], Inr (Both _ (Witness firstMode broken)), _ => rewrite broken then waits
+        | Choice options, Inl (Both _ flat), _ => rewrite flat then waits
+        | Choice options, Inr (Both _ (Witness chosen (Both isOption broken))), _ => rewrite broken then waits
+
+-- The order of the words.
+
+theorem everyWeaker ∀ (strong weak: Text → Prop) (words: List Text) (implies: ∀ (word: Text) => strong word → weak word)
+    (all: Every strong words):
+    Every weak words :=
+  match words, all with
+    | [], _ => byComputing
+    | [word, ..rest], (head, others) => ((implies word head), (everyWeaker strong weak rest implies others))
+
+--| A text the filter drops leaves no word.
+theorem siftedWord ∀ (keep: Text → Bool) (text: Text) (dropped: keep text = False): (wordsOf [text]).filter keep = [] :=
+  match layout: isLayout text with
+    | True => byComputing
+    | False => rewrite repeatedly [dropped]
+
+theorem siftedAll ∀ (keep: Text → Bool) (texts: List Text)
+    (dropped: Every (text => keep text = False) texts):
+    (wordsOf texts).filter keep = [] :=
+  match texts, dropped with
+    | [], _ => byComputing
+    | [text, ..rest], (head, others) =>
+      match layout: isLayout text with
+        | True => siftedAll keep rest others
+        | False => rewrite repeatedly [head, siftedAll keep rest others]
+
+--| A filter that keeps no closer, or no trailing comment, can't tell
+--| whether a closer went before the comments that wait.
+theorem siftedFrom ∀ (keep: Text → Bool) (closer suffix: Text → Prop) (cmd: Cmd) (printer: Printer) (later: List Text)
+    (marked: CmdMarked closer suffix cmd)
+    (waits: Every suffix printer.suffixes)
+    (apart: (∀ (text: Text) => closer text → keep text = False)
+      ∨ (∀ (comment: Text) => suffix comment → keep comment = False)):
+    (cmd.wordsFrom printer later).filter keep = (printer.words ++ (cmd.words ++ later)).filter keep :=
+  match cmd, marked with
+    | FillSep indent item, _ => byComputing
+    | Print indent mode doc, marked =>
+      match doc, marked with
+        | Closing text, isCloser =>
+          match apart with
+            | Inl closers =>
+              let dropped := siftedWord keep text (closers text isCloser)
+              let same: (printer.written ++ (wordsOf [text] ++ (wordsOf printer.suffixes ++ later))).filter keep
+                = ((printer.written ++ wordsOf printer.suffixes) ++ (wordsOf [text] ++ later)).filter keep :=
+                rewrite repeatedly [List.filterAppend, dropped, List.appendAssoc]
+              same
+            | Inr comments =>
+              let quiet :=
+                siftedAll keep printer.suffixes
+                  (everyWeaker suffix (comment => keep comment = False) printer.suffixes comments waits)
+              let same: (printer.written ++ (wordsOf [text] ++ (wordsOf printer.suffixes ++ later))).filter keep
+                = ((printer.written ++ wordsOf printer.suffixes) ++ (wordsOf [text] ++ later)).filter keep :=
+                rewrite repeatedly [List.filterAppend, quiet, List.appendAssoc]
+              same
+        | _, _ => byComputing
+
+--| A reading that has the steps to finish its work list writes the work
+--| list's words after the printer's, whichever way its groups, fills and
+--| choices go, in an order no filter can tell from the document's if it
+--| keeps no closer, or keeps no trailing comment. So the words other
+--| than closers are in the document's order, comments among them; and so
+--| are the words other than trailing comments, closers among them. In a
+--| document with no closer, take `closer` false of every text: every
+--| filter qualifies, and the words are the document's in order.
+--|
+--| By induction on the reading: a step moves words in order (`stepWords`)
+--| but for a closer going before the comments that wait, which such a
+--| filter doesn't see (`siftedFrom`); the comments that wait are the
+--| document's trailing comments throughout (`stepQuiet`).
+theorem readingWords ∀ (keep: Text → Bool) (closer suffix: Text → Prop) (printer: Printer) (fuel: Nat)
+    (stack: List Cmd) (final: Printer)
+    (reads: Reads printer fuel stack final)
+    (uniform: StackUniform stack)
+    (marked: StackMarked closer suffix stack)
+    (waits: Every suffix printer.suffixes)
+    (apart: (∀ (text: Text) => closer text → keep text = False)
+      ∨ (∀ (comment: Text) => suffix comment → keep comment = False))
+    (enough: stackCost stack ≤ fuel):
+    final.words.filter keep = (printer.words ++ stackWords stack).filter keep :=
+  match fuel, stack, reads, uniform, marked with
+    | Zero, [], reads, _, _ => rewrite repeatedly [reads, List.appendNil]
+    | Succ more, [], reads, _, _ => rewrite repeatedly [reads, List.appendNil]
+    | Zero, [cmd, ..rest], _, _, _ =>
+      let positive := costPositive cmd
+      Void.impossible (arithmetic)
+    | Succ more, [cmd, ..rest], Witness next (Witness later (Both steps laterReads)), Both first others, Both
+          firstMarked othersMarked =>
+      let moved := stepWords printer cmd rest (next, later) steps first
+      let lighter := readingLighter printer cmd rest (next, later) steps
+      let kept := stepUniform printer cmd rest (next, later) steps first others
+      let keptMarked := stepMarked closer suffix printer cmd rest (next, later) steps firstMarked othersMarked
+      let quiet := stepQuiet closer suffix printer cmd rest (next, later) steps firstMarked waits
+      calc final.words.filter keep
+        _ = (next.words ++ stackWords later).filter keep :=
+          readingWords keep closer suffix next more later final laterReads kept keptMarked quiet apart (arithmetic)
+        _ = (cmd.wordsFrom printer (stackWords rest)).filter keep :=
+          Eq.cong ((words: List Text) => words.filter keep) moved
+        _ = (printer.words ++ (cmd.words ++ stackWords rest)).filter keep :=
+          siftedFrom keep closer suffix cmd printer (stackWords rest) firstMarked waits apart

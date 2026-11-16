@@ -1131,3 +1131,51 @@ theorem printedJoins ∀ (follows: Text → Text → Prop) (holds: Text → Prop
     | (written, _) =>
       let flushed: Every holds ran.flushSuffixes.written := rewrite written then read
       (byComputing, flushed, (rewrite List.reverseReverse ran.flushSuffixes.out then finalPairs follows ran sound))
+
+--| The words `print` writes are the document's, at every width, in an
+--| order no filter can tell from the document's if it keeps no closer,
+--| or keeps no trailing comment (`readingWords`, of `print`'s own
+--| reading).
+theorem printedWords ∀ (keep: Text → Bool) (closer suffix: Text → Prop) (doc: Doc) (width: Nat)
+    (uniform: Uniform doc)
+    (marked: Marked closer suffix doc)
+    (apart: (∀ (text: Text) => closer text → keep text = False)
+      ∨ (∀ (comment: Text) => suffix comment → keep comment = False)):
+    (wordsOf (printedPieces doc width)).filter keep = doc.words.filter keep :=
+  let fuel := 3 * doc.size + 3
+  let ran := (Printer.start width).run fuel fuel [Print 0 Break doc]
+  let bound := stepsUnderSize doc
+  let read: ran.words.filter keep = ((Printer.start width).words ++ stackWords [Print 0 Break doc]).filter keep :=
+    readingWords keep closer suffix
+      (Printer.start width)
+      fuel
+      [Print 0 Break doc]
+      ran
+      (runIsReading (Printer.start width) fuel fuel [Print 0 Break doc])
+      ((uniform, byComputing))
+      ((marked, byComputing))
+      byComputing
+      apart
+      (arithmetic)
+  match flushWritten ran with
+    | (written, _) =>
+      calc ran.flushSuffixes.written.filter keep
+        _ = ran.words.filter keep := Eq.cong ((words: List Text) => words.filter keep) written
+        _ = (doc.words ++ []).filter keep := read
+        _ = doc.words.filter keep := Eq.cong ((words: List Text) => words.filter keep) (List.appendNil doc.words)
+
+--| `printedWords` computes, and its hypotheses can be met: of `x) -- c`,
+--| printed from `x`, the comment, then the closer, a filter that drops
+--| the closer sees the document's order.
+theorem printedWordsExample ∀ (width: Nat):
+    (wordsOf (printedPieces (Concat [Chunk "x" 1, LineSuffix "-- c", Closing ")"]) width)).filter (word => word != ")")
+      = ["x", "-- c"] :=
+  printedWords
+    (word => word != ")")
+    (text => text = ")")
+    (comment => True)
+    (Concat [Chunk "x" 1, LineSuffix "-- c", Closing ")"])
+    width
+    ((byComputing, byComputing, byComputing, byComputing))
+    ((byComputing, byComputing, byComputing, byComputing))
+    (Inl (text isCloser => rewrite isCloser))
