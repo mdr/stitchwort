@@ -2728,3 +2728,47 @@ brackets; the glue.
     changed (`--no-cache` then ran and passed all 103). Either the
     cache key misses a changed definition the tests reach, or it is
     cleverer than I know; worth a look.
+
+### Part 18 (Fable, 16 Nov 2026): E2 and the glue; the driver formats with no check (lane 4 of 6)
+
+`spellsFile` is proved (`Fmt/BlockSpellProofs.sw`, 56 theorems), so
+`printParses`, `formatDirectRoundTrip`, `formatDirectIdempotent` and
+`formatAgrees` rest on nothing unproved. `formatDirect` and those
+theorems are in `Toy.Fmt` (`Format.sw`, `Fmt/DirectProofs.sw`), the
+driver's `formatFile` calls `formatDirect`, and the file loop's theorems
+(`Fmt/Proofs.sw`) are about it. The sketch project is gone. Audit: 1272
+theorems, 0 failed; `stitchwort test --no-cache`: 105 passed (the 103
+and the sketch's two probes); `toyfmt_formats_a_folder_under_run_and_built`
+passes.
+
+The statements and how they fit are in `SKETCH.md`, "After lane 4".
+What the top theorems say, with nothing assumed:
+
+- `printParses`: `parse source = Ok file` gives `parse (file.print
+  width).text = Ok file`, at every width.
+- `formatDirectRoundTrip`: the output is the source's tree printed, and
+  parses to that tree.
+- `formatDirectIdempotent`: `formatDirect output.text width = Stable
+  output`.
+- `formatAgrees`: `format source width = formatDirect source width`.
+
+**Not done:** the checked `format` is still there (the tests use it);
+`Rules.sw` and `Cli.sw` say nothing of a run-time check (searched);
+docs outside `tools/toyfmt` were not searched.
+
+**Friction** (beyond parts 1 to 17):
+
+85. Three of my new names (`Closing`, `Opens`, `Joins`) were already
+    defined in `JoinProofs.sw`, same namespace, another file. The
+    checker reported the clash as about 40 type errors in the older
+    file and none at the new definition; "defined twice" at the second
+    one would have saved two rounds.
+86. Good: the 1,400-line mutual induction (`exprOut`, `bodyOut`,
+    `linesOut`) and `declarationsOut` (a 40-deep `Both` chain) checked
+    with no type error once the brackets balanced; every error in this
+    part was a bracket count or a name clash. A bracket-balance hint
+    per `match` arm would have found each in one round.
+87. Whether `[x, ..xs ++ ys]` and `[x, ..xs] ++ ys` are the same to the
+    checker (they are) decided how every motive here is written; the
+    proving guide could say so.
+

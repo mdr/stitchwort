@@ -6,6 +6,10 @@
 --| nothing of the author's layout), so "the output depends on the source
 --| only through its tree" is true by typing, and idempotence is the check
 --| run a second time on the same tree.
+--|
+--| The driver calls `formatDirect`, which has no check: its theorems are
+--| in `DirectProofs.sw` (`formatAgrees` says the two answer the same), and
+--| the file loop's theorems below are about it.
 
 namespace Toy.Fmt.Proofs
 import Toy.Syntax (..)
@@ -58,13 +62,13 @@ theorem formatIdempotent ∀ (source: Text) (width: Nat) (output: Printed)
           | False => Void.exfalso (DecEq.soundFalse _ _ c (rewrite same at reparsed in reparsed))
 
 -- The file loop, under `Files.simulate`: `formatFile options path` reads
--- `path` and writes only what `format` answered.
+-- `path` and writes only what `formatDirect` answered.
 
 --| A file whose formatted text is its text is not written: the disk is left
 --| as it was and the outcome is `Unchanged`.
 theorem formatFileUnchanged ∀ (options: Options) (path: Path) (disk: Disk) (source: Text) (printed: Printed)
     (readable: disk.read path = Ok source)
-    (formatted: format source options.width = Stable printed)
+    (formatted: formatDirect source options.width = Stable printed)
     (same: printed.text = source):
     Files.simulate disk (() => formatFile options path) = (disk, Formatted path Unchanged) :=
   rewrite readable, formatted in
@@ -76,7 +80,7 @@ theorem formatFileUnchanged ∀ (options: Options) (path: Path) (disk: Disk) (so
 --| disk is left as it was and the outcome is `WouldChange`.
 theorem formatFileWouldChange ∀ (options: Options) (path: Path) (disk: Disk) (source: Text) (printed: Printed)
     (readable: disk.read path = Ok source)
-    (formatted: format source options.width = Stable printed)
+    (formatted: formatDirect source options.width = Stable printed)
     (differs: printed.text ≠ source)
     (checking: options.check = True):
     Files.simulate disk (() => formatFile options path) = (disk, Formatted path WouldChange) :=
@@ -86,11 +90,11 @@ theorem formatFileWouldChange ∀ (options: Options) (path: Path) (disk: Disk) (
       | False => rewrite checking in rfl
 
 --| Without `--check`, a file whose formatted text differs is written once,
---| with `format`'s text, at its own path: the disk afterwards is the one
+--| with `formatDirect`'s text, at its own path: the disk afterwards is the one
 --| `Disk.write path printed.text` gave, and the outcome is `Rewritten`.
 theorem formatFileRewrites ∀ (options: Options) (path: Path) (disk after: Disk) (source: Text) (printed: Printed)
     (readable: disk.read path = Ok source)
-    (formatted: format source options.width = Stable printed)
+    (formatted: formatDirect source options.width = Stable printed)
     (differs: printed.text ≠ source)
     (writing: options.check = False)
     (allowed: disk.write path printed.text = Ok after):
@@ -105,7 +109,7 @@ theorem formatFileRewrites ∀ (options: Options) (path: Path) (disk after: Disk
 theorem formatFileRefusedWrite ∀ (options: Options) (path: Path) (disk: Disk) (source: Text)
     (printed: Printed) (error: FileError)
     (readable: disk.read path = Ok source)
-    (formatted: format source options.width = Stable printed)
+    (formatted: formatDirect source options.width = Stable printed)
     (differs: printed.text ≠ source)
     (writing: options.check = False)
     (refused: disk.write path printed.text = Err error):
@@ -119,7 +123,7 @@ theorem formatFileRefusedWrite ∀ (options: Options) (path: Path) (disk: Disk) 
 --| the outcome is a `Problem` with the parser's message.
 theorem formatFileRefused ∀ (options: Options) (path: Path) (disk: Disk) (source message: Text)
     (readable: disk.read path = Ok source)
-    (refused: format source options.width = Refused message):
+    (refused: formatDirect source options.width = Refused message):
     Files.simulate disk (() => formatFile options path) = (disk, Problem (locate path message)) :=
   rewrite readable, refused in rfl
 
@@ -140,15 +144,15 @@ theorem readAfterWrite ∀ (disk after: Disk) (path: Path) (text: Text)
                     | True =>
                       rewrite <- Result.okInjective written in rewrite Map.getInsert path.normal text disk.files in rfl
 
---| Formatting twice: if `format source` answered `Stable printed` and the disk
+--| Formatting twice: if `formatDirect source` answered `Stable printed` and the disk
 --| took `printed.text` at `path` (as `formatFileRewrites` does), then the next
 --| run of `formatFile` on that disk writes nothing and finds the file
 --| `Unchanged`.
 theorem formatFileSettles ∀ (options: Options) (path: Path) (disk after: Disk) (source: Text) (printed: Printed)
-    (formatted: format source options.width = Stable printed)
+    (formatted: formatDirect source options.width = Stable printed)
     (allowed: disk.write path printed.text = Ok after):
     Files.simulate after (() => formatFile options path) = (after, Formatted path Unchanged) :=
   formatFileUnchanged options path after printed.text printed
     (readAfterWrite disk after path printed.text allowed)
-    (formatIdempotent source options.width printed formatted)
+    (formatDirectIdempotent source options.width printed formatted)
     rfl

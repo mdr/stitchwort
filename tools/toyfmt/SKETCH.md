@@ -8,7 +8,7 @@ the rest, from the goal down, and checks that the statements fit.
 
 `sketch/src/Sketch.sw` (namespace `Toy.Sketch`) defines `formatDirect`
 (parse, print, no check of any kind) and proves, from its open lemmas
-(five when written, four after lane 2, one after lane 3) and what `src/` has proved:
+(five when written, four after lane 2, one after lane 3, none after lane 4) and what `src/` has proved:
 
 | Theorem | Says |
 |---|---|
@@ -277,6 +277,52 @@ and blank lines 17; `if` outside brackets, in that induction, 6;
 parameters 8; newest-first against `Rising` 5), glue 8-13: **50-60
 lemmas**, 1 lane at the measured pace, 2 planned (E2's block induction
 is the part no lane has attempted).
+
+## After lane 4 (part 18): E2 and the glue are proved; nothing is open
+
+`spellsFile` is a theorem of `src/` (`Fmt/BlockSpellProofs.sw`), and
+`formatDirect` with its theorems is in `Toy.Fmt` (`Format.sw`,
+`Fmt/DirectProofs.sw`). The driver calls `formatDirect`: no re-parse, no
+check of any kind at run time. `Toy`'s audit: 1272 theorems, 0 failed.
+The sketch project is removed (its two parser probes are tests in
+`Syntax/Tests/Layout.sw`); this file is its history.
+
+| Goal | Estimated | Proved | Theorems |
+|---|---|---|---|
+| E2: blocks, lines, notes and blank lines | 17 | 21 | `linesOut`, `notesOf` with `notesOfReverse`, `blankNotes`, `noteNotes`, `notedOf`, `notedLine`, `unspacedFront`, `firstBlankSame`, `SeenTo` with `seenToThen`, `seenBlank`, `seenNote`, `blankSeen`, and what is known of the lines left (`closingNote`, `closingCoded`, `closingBody`, `closedSome`, `opensStarts`, `opensSome`, `opensNote`, `laterOfLines`) |
+| E2: `if` outside brackets, bodies | 6 | 9 | `exprOut`, `bodyOut`, `plainOut`, `chainNoIf`, `postfixChain`, `operandChain`, `apartComments`, `keywordComments`, `falseFirst` |
+| E2: `Settled` and `EndsExpression` at each end | 4-6 | 12 | `lineAfter`, `lastAfter`, `settledAfter`, `settledDeeper`, `afterBack`, `lowUnallowed`, `startNotLet`, `startColumn`, `startsLow`, `startsAtLine`, `startsDeeper`, `laterApart` |
+| E2: declarations and parameters | 8 | 7 | `declarationsOut`, `parametersOut`, `parameterListOut`, `laterOfDeclarations`, `notedDeclarationOf`, `notedDeclarationLine`, `firstBlankOfSame` |
+| E2: newest-first against source order | 5 | 7 | `descendingRising`, `descendingOnto`, `risingCons`, `risingFront`, `risingBack`, `risingBelow`, `belowNotAt` |
+| E2, all | 40-45 | 56 | and `spellsFile` itself |
+| Glue | 8-13 | 6 moved, 6 restated | `parsedPrintPlaced`, `printParses`, `formatDirectAnswers`, `formatDirectRoundTrip`, `formatDirectIdempotent`, `formatAgrees` moved as they were; the file loop's six (`formatFileUnchanged` to `formatFileSettles`) restated for `formatDirect` |
+
+How it went together:
+
+- **One induction, three theorems.** `exprOut` (an expression outside
+  brackets: an `if` here, everything else by `exprSpells`, since an
+  expression of the parser's shape that isn't an `if` holds none,
+  `chainNoIf`), `bodyOut` (one expression on the keyword's line, or a
+  block) and `linesOut` (a block's lines) call each other down the tree.
+- **The tokens' offsets rise** (`Rising`) all the way down, in place of
+  `Leads` alone: a block's line is known from the next by its first
+  token's offset, so `NotAt` and `Apart` both come from the order.
+- **What follows a statement** is the next line of its block, whose
+  first view starts a line at the block's column, or what settles the
+  block (`lineAfter`); and what settles a statement settles a block
+  inside it and ends that block (`settledDeeper`, lane 2's `afterDeeper`
+  without the first token).
+- **Comment lines and blank lines** wait as trivia (`SeenTo`), and
+  `notesOf` reads them as `spacedNotes` does, the newest first, so each
+  step of the induction is one `noteStep`.
+
+New obligations: none outside E2. Inside, one change to lane 1's
+statement: `Spells` also says what is above the first view (`first.above
+= (waiting pending expr.firstAbove).reverse`), which a statement's notes
+need; seven arms of `exprSpells` gained an `rfl`.
+
+Left for Matt: whether the checked `format` stays (the tests call it,
+as an oracle beside the proof) or goes.
 
 ## Lanes
 

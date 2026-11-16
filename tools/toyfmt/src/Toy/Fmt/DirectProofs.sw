@@ -1,32 +1,22 @@
---| The rest of the direct proof of the toy formatter, top-down (SW-3418,
---| D3620): `formatDirect`, which prints the parsed tree with no check of
---| any kind, its theorems, and every lemma between them and what
---| `tools/toyfmt/src` has proved. The theorems here are proved from each
---| other, so the only gaps are the `?`s, one per open lemma; `stitchwort
---| goal` lists them and `../SKETCH.md` sizes them.
---|
---| A project of its own (`check: open-goals: warn`), so that `Toy`'s
---| `check`, `test` and `audit` don't see the open goals.
+--| The formatter with no check at run time (SW-3418): `formatDirect`
+--| parses and prints, and here is why that is enough. The printed text
+--| of a parsed file parses to the same file (`printParses`), from the
+--| chain the other files of this namespace prove: the printed pieces lex
+--| to tokens whose views are those of the file's events
+--| (`parsedPrintTokens`), with falling offsets (`placedOffsets`); such
+--| tokens spell the file (`spellsFile`); and the parser reads back what
+--| spells a file (`runsFileSpelled`). So `formatDirect` keeps the tree
+--| (`formatDirectRoundTrip`), formats its own output to itself
+--| (`formatDirectIdempotent`), and answers what the checked `format`
+--| does (`formatAgrees`).
 
-namespace Toy.Sketch
+namespace Toy.Fmt.Proofs
 import Toy.Doc (..)
 import Toy.Doc.Proofs (..)
 import Toy.Syntax (..)
 import Toy.Syntax.Proofs (..)
 import Toy.Fmt (..)
-import Toy.Fmt.Proofs (..)
 import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Result, Text, Void)
-
---| `format` without its re-parse: the source parsed and its tree
---| printed. Nothing is checked at run time.
-def formatDirect (source: Text) (width: Nat): FormatResult := match parse source with
-  | Err message => Refused message
-  | Ok tree => Stable (tree.print width)
-
--- Layer E, the last of the printed tokens: their offsets. E1 is proved:
--- `placedOffsets` (`Toy.Fmt.Proofs`, `PlaceProofs.sw`) says the tokens of
--- printed pieces have falling offsets (`Descending`), so no two share
--- one.
 
 --| `parsedPrintViews` with the offsets: the same witnesses.
 theorem parsedPrintPlaced ∀ (source: Text) (file: SourceFile) (width: Nat)
@@ -55,67 +45,6 @@ theorem parsedPrintPlaced ∀ (source: Text) (file: SourceFile) (width: Nat)
                     (Both
                       (Eq.cong ((seen: Views) => seen.pending) (placedViews (printedPieces file.layout width).reverse))
                       (placedOffsets (printedPieces file.layout width).reverse))))))))
-
--- Layer D, what the parser guarantees of its trees beyond `Shaped` and
--- `Lexical`: the first-token facts.
-
--- `HeadedFile` and its family (`HeadedExpr`, `HeadedBody`, …) are in
--- `Toy.Fmt.Proofs` (`SpellProofs.sw`), where the spelling of expressions
--- uses them.
-
--- D1 is proved: `parseHeaded` (`Toy.Fmt.Proofs`, `HeadProofs.sw`) says
--- every parsed file is `HeadedFile`: part 13's parser facts (a), (b) and
--- (c), and the blank-line fact (d) this sketch found. `bareStatement`
--- clears the comments above its expression's first token outside
--- brackets (`Layout.headed`), so (a) and (b) are facts about the tree it
--- built. See SKETCH.md, "After lane 3".
-
--- Layer D, the file from its spelling.
-
--- D2 is proved: `runsFileSpelled` (`Toy.Syntax.Proofs`, `FileProofs.sw`,
--- with `SpelledFile` and `SpelledDeclarations`) says the parser reads
--- back what spells a file: `declarationsRun` for the declarations, then
--- `runsSourceFile`.
-
--- D3 and D4 are proved in `Toy.Syntax.Proofs` (`BlockProofs.sw`), with
--- the statement change they needed: `Spelled`'s arm for `If` asks
--- `SpelledBody` of each branch, before whatever may follow it (`After`);
--- `runsIfSpelled` reads a block branch back by `runsBodyNested`; and a
--- block also ends at `then` or `else` (`BlockEnds`,
--- `statementDeclinesEnd`). `runsIfBlockExample` is an instance. See
--- SKETCH.md, "After lane 2".
-
--- Layer E, spelling: from the trace to the tokens the parser asks for.
-
---| OPEN (E2). Tokens whose views are those of a trace of the file's
---| events, with distinct offsets, spell the file.
---|
---| Proved in `Toy.Fmt.Proofs` (`SpellProofs.sw`), so no longer part of
---| what is open here: an expression's tokens from its events
---| (`exprSpells`: every form inside brackets, every form but `if`
---| outside them), a statement that is such an expression at its line
---| start (`bareSpells`), a body on its keyword's line (`inlineSpells`),
---| `else` (`reachesElse`), and the two ways a token fits its layout
---| (`innerFits`, `firstLeads`). Left: `if` outside brackets (its
---| branches as `SpelledBody` before anything `After` allows; what follows
---| a block there is `afterDeeper`'s to settle), blocks and their lines
---| with the notes and blank lines above them, `let`, declarations and
---| parameters, `After` (`EndsExpression` and `Settled`) after each
---| statement and body, and this statement's newest-first lists against
---| `Rising`.
-theorem spellsFile ∀ (file: SourceFile) (events: List Event)
-    (tokens: List (Parse.Located Token)) (endTrivia: List Trivia)
-    (shaped: ShapedFile file)
-    (lexical: LexicalFile file)
-    (headed: HeadedFile file)
-    (laid: FileEvents file events)
-    (views: tokens.map viewOf = (viewsOf events).views)
-    (pending: endTrivia = (viewsOf events).pending)
-    (offsets: Descending (tokens.map (token => token.offset))):
-    SpelledFile file tokens.reverse endTrivia.reverse :=
-  ?
-
--- The theorems.
 
 --| The printed text of a parsed file parses to the same file, at every
 --| width.
@@ -168,8 +97,7 @@ theorem formatDirectIdempotent ∀ (source: Text) (width: Nat) (output: Printed)
       rewrite same in formatDirectAnswers (tree.print width).text width tree (rewrite <- same in reparsed)
 
 --| `format`'s check never fails: it answers what `formatDirect` does, on
---| every source at every width, so `format`'s theorems (`Toy.Fmt.Proofs`:
---| the round trip, idempotence and the file loop's) are `formatDirect`'s.
+--| every source at every width.
 theorem formatAgrees ∀ (source: Text) (width: Nat): format source width = formatDirect source width :=
   match e: parse source with
     | Err message => rfl
