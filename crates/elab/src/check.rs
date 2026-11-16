@@ -2712,7 +2712,18 @@ fn infer_pi(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     }
     let result = check_type(cx, cod);
     cx.reset(mark);
-    let (mut term, s2) = result?;
+    let (mut term, s2) = match result {
+        Ok(checked) => checked,
+        // `(x: Nat) -> x + 1` is a function type whose codomain isn't one;
+        // written with `=>` it would be the lambda `(x: Nat) => x + 1`.
+        Err(error) if error.code == "E-NOT-A-TYPE" && !names.is_empty() => {
+            return Err(error.with_note(
+                "if this was meant as a lambda, its parameter and body are separated by `=>`, \
+                 not `->`: `(x: Nat) => body`",
+            ));
+        }
+        Err(error) => return Err(error),
+    };
     crate::arrow_forall::note(cx, names, *implicit || *auto, dom_end, cod, s1, s2, *span);
     for (k, name) in names.iter().enumerate().rev() {
         term = Term::Pi(
@@ -6037,6 +6048,20 @@ fn name_unknown(cx: &mut Ctx, found: &Value, named: &Value) -> Result<()> {
     Ok(())
 }
 
+/// Adds a note when a lambda's first parameter is named `fun`: Lean writes
+/// `fun x => e`, which Stitchwort reads as a two-parameter lambda whose
+/// parameters are `fun` and `x`.
+fn fun_parameter_note(cx: &Ctx, names: &[AstName], error: Diagnostic) -> Diagnostic {
+    if names.len() > 1 && names[0].text == "fun" && cx.lookup("fun").is_none() {
+        error.with_note(
+            "`fun x => …` is a lambda with parameters `fun` and `x`: in Stitchwort a lambda is \
+             written `x => …`, with no `fun`",
+        )
+    } else {
+        error
+    }
+}
+
 /// A lambda checked against `expected`, which isn't a function type: an
 /// error, unless `expected` is a test fact whose reading is a function
 /// type and the lambda builds it (`build.rs`). Apart from `check_value`,
@@ -6191,12 +6216,14 @@ pub(crate) fn check_value(
         ) => check_if(cx, binder.as_ref(), cond, then, otherwise, &expected),
         (Expr::Lam(names, body, span), Value::Pi(_, Icit::Explicit, dom, cod)) => {
             explicit_lambda(cx, expr, (names, body, *span), dom, cod, &expected)
+                .map_err(|error| fun_parameter_note(cx, names, error))
         }
         (
             Expr::TypedLam(name, Mode::Explicit, ann, body, _),
             Value::Pi(_, Icit::Explicit, dom, cod),
         ) => typed_lambda(cx, name, Icit::Explicit, ann, body, dom, cod),
-        (Expr::Lam(names, _, span), _) => lambda_not_function(cx, expr, names, *span, &expected),
+        (Expr::Lam(names, _, span), _) => lambda_not_function(cx, expr, names, *span, &expected)
+            .map_err(|error| fun_parameter_note(cx, names, error)),
         (Expr::Var(name), Value::Eq(_, a, b))
             if name.text == "byComputing" && cx.lookup("byComputing").is_none() =>
         {

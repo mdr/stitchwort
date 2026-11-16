@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `simp`
+   ╭─[ reject/foreign-simp.sw:4:23 ]
+   │
+ 4 │ theorem one: 1 = 1 := simp
+   │                       ──┬─  
+   │                         ╰─── not in scope
+   │ 
+   │ Note: `simp` isn't a Stitchwort name: there's no automatic simplifier: prove by computing (`byComputing`), rewriting (`rewrite …`) or arithmetic (`arithmetic`)
+───╯
