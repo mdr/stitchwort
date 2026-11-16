@@ -39305,12 +39305,12 @@
     {
       "id": 3517,
       "title": "[Opus paper] Proof tuples L2: review of L1's diff (generates kernel terms, D2364): can a tuple be read as a proof where a pair was meant; the postponed case. Est. 20 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Review: docs/reviews/SW-3516-proof-tuples-l1.md (Opus paper, 16 Nov 2026, 20:09-20:17). No soundness finding: every term is the written constructor's, the kernel checks it, and Pair (Type) can't be confused with ∧/∃ (Prop). Findings: (1) a tuple pattern at an unknown of sort Prop is committed to Pair (lib.rs:6863, patlet.rs:310); (2) the postponed tuple argument isn't done (a later argument can't fix it); (3) SW-3566 and SW-3526 share one fix point, check_tree's Case arm, so don't run them as parallel lanes; (4)-(8) messages: check_tree's 'more parts' note is given for every Pair mismatch, patlet's note is stale, 'which ∃?' where a record is expected, E-PROP-ELIM without the tuple form; (9) the hash test misses patlet's ∧ projection path. Three tickets proposed in the review.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
