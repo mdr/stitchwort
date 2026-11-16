@@ -1,5 +1,5 @@
 {
-  "next": 3662,
+  "next": 3664,
   "tickets": [
     {
       "id": 47,
@@ -41136,12 +41136,12 @@
     {
       "id": 3655,
       "title": "[Sonnet] Stage 2 follow-ups (SW-3642): LSP code action for expand (CLI --expand-repeatedly exists, shared printer expand_file); std's name index (library.rs) and rules declarations; hover shows a set's type as (); a set named like a field (words vs Printer.words) gives E-MUTUAL-SIGNATURE via dot-notation dependency analysis; expand drops definition one-step unfolds. Failing-first tests",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Lane notes (Sonnet, commit d7f7bead8 on lane/SW-3655):\n- Expand code action: offered on a line holding `rewrite repeatedly`; runs as a queued search (fresh check, steps recorded, no check cache), edits the outermost call at the cursor via new `expand_call` beside `expand_file`.\n- Std name index: a `rules` declaration in a library file already indexes, loads and is found by name; test added, no code change.\n- Hover on a set: members shown, kind `rules`.\n- Set named like a field: rule sets are skipped as dot-notation dependency candidates; example accept/rule-set-named-like-field.sw (E-MUTUAL-SIGNATURE before).\n- Not done: \"expand drops definition one-step unfolds\" (in the title; no tests or change); docs page for sets; hover on a set's name inside a call.\n",
+      "body": "Lane notes (Sonnet, commit d7f7bead8 on lane/SW-3655):\n- Expand code action: offered on a line holding `rewrite repeatedly`; runs as a queued search (fresh check, steps recorded, no check cache), edits the outermost call at the cursor via new `expand_call` beside `expand_file`.\n- Std name index: a `rules` declaration in a library file already indexes, loads and is found by name; test added, no code change.\n- Hover on a set: members shown, kind `rules`.\n- Set named like a field: rule sets are skipped as dot-notation dependency candidates; example accept/rule-set-named-like-field.sw (E-MUTUAL-SIGNATURE before).\n- Not done: \"expand drops definition one-step unfolds\" (in the title; no tests or change); docs page for sets; hover on a set's name inside a call.\n\nModel result: sonnet, worked, 42 min (est. 45). Follow-up SW-3662.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41201,12 +41201,12 @@
     {
       "id": 3660,
       "title": "[Opus] conv_shortcut differential fails since 77c2ef273: examples/reject/lemma-on-large-normal-form.sw gets E-TYPE-MISMATCH with the conversion shortcut but E-RESOURCE (unfolding grow) without it (Overmind, quiet run at a73d93bd7, crates/driver/tests/proofs/conv_shortcut.rs:81). The example has no rewrite; find which commit in 77c2ef273..a73d93bd7 made the no-shortcut path unfold grow 30, and fix it, or, if it's the accepted kind of shortcut dependence, add it to NEEDS_THE_SHORTCUT with the reason. Also: the whole test runs ~800+ s quiet, past its cap: split or sample it",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\n16 Nov (lane, Opus, 5d34e654d): cause found and fixed. Not a regression in the range: the two fin-pattern-* reject examples (SW-2467) shifted the corpus by two, moving this example (index 442 -> 444) into the broad tier's every-fourth sample; it had never been compared. Mechanism: Ctx::goal_as_written (check.rs, error path, for the mismatch message) compares the statement with the expected type by conv. With shortcuts on, the equal sides are answered by their arguments (CallMemo); off, two separately evaluated `grow 30` trees are compared node by node (2^30), running out the declaration's budget, so the verdict became E-RESOURCE (370 s). Fix: that comparison runs under Budget::aside(side_limits()), falling back to the expected type; both ways now E-TYPE-MISMATCH with the same text, 5 s each. Test change: broad stride 8 (was 4), sample start rotated daily (CONV_SHORTCUT_SEED, printed); EXAMPLES=name compares only those; examples over 20 s named in the output. Tests: conv_shortcut with EXAMPLES=lemma-on-large (failed before the fix, passes after), lane-tier sample 27 s, task test:example NAME=lemma-on-large-normal-form passes. Full broad/all time not measured (Overmind).\n",
+      "body": "\n\n16 Nov (lane, Opus, 5d34e654d): cause found and fixed. Not a regression in the range: the two fin-pattern-* reject examples (SW-2467) shifted the corpus by two, moving this example (index 442 -> 444) into the broad tier's every-fourth sample; it had never been compared. Mechanism: Ctx::goal_as_written (check.rs, error path, for the mismatch message) compares the statement with the expected type by conv. With shortcuts on, the equal sides are answered by their arguments (CallMemo); off, two separately evaluated `grow 30` trees are compared node by node (2^30), running out the declaration's budget, so the verdict became E-RESOURCE (370 s). Fix: that comparison runs under Budget::aside(side_limits()), falling back to the expected type; both ways now E-TYPE-MISMATCH with the same text, 5 s each. Test change: broad stride 8 (was 4), sample start rotated daily (CONV_SHORTCUT_SEED, printed); EXAMPLES=name compares only those; examples over 20 s named in the output. Tests: conv_shortcut with EXAMPLES=lemma-on-large (failed before the fix, passes after), lane-tier sample 27 s, task test:example NAME=lemma-on-large-normal-form passes. Full broad/all time not measured (Overmind).\n\nModel result: opus, worked, 17 min (est. 45). Cause: not a regression; the example joined the broad tier's sample when two Fin examples sorted before it; a message-only comparison ran 2^30 nodes without the shortcut. Follow-up SW-3663.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41219,6 +41219,32 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3662,
+      "title": "[Sonnet] Follow-ups to SW-3655: hover on a set's name inside a rewrite repeatedly [set] call shows nothing (set_named restores a snapshot that drops the nav record); doc pages skip Decl::Rules; the expand action offers itself on any line containing the words; expand drops definition one-step unfolds",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3663,
+      "title": "[Opus] Follow-ups to SW-3660: rewrite.rs's own goal_as_written compares with no side budget (not only on the error path); corpus sweeps using tier_sample always start at the first item, so adding a file shifts what's tested: rotate the start as conv_shortcut now does; clippy 'items after a test module' in check.rs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
