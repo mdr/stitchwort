@@ -1350,78 +1350,46 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
         after.left
         small
 
---| `expression` with its fuel: each level reads with the level below,
---| which reads every shorter expression and, not being the innermost,
---| declines at a keyword.
-theorem runsExpressionFuel ∀ (fuel: Nat) (layout: Layout) (expr: Expr) (tokens rest: List (Parse.Located Token))
-    (shaped: Shaped expr)
-    (spelled: Spelled layout expr tokens)
-    (after: After layout tokens rest)
-    (small: tokens.length < fuel):
-    Parse.Runs (() => Parse.recursiveWithFuel fuel expressionRule layout) tokens rest expr :=
-  match fuel, small with
-    | Succ Zero, small =>
-      match spelledStart layout expr tokens shaped spelled with
-        | (first, others, split, _) =>
-          let size: tokens.length = Succ others.length := rewrite split in rfl
-          Void.exfalso (omega [size, small])
-    | Succ (Succ more), small => state starts honest =>
-      runsExpressionRule
-        (inner => Parse.recursiveWithFuel (Succ more) expressionRule inner)
-        layout
-        (Succ more)
-        (nestedLayout nestedExpr nestedTokens nestedRest nestedShaped nestedSpelled nestedAfter shorter =>
-          runsExpressionFuel
-            (Succ more)
-            nestedLayout
-            nestedExpr
-            nestedTokens
-            nestedRest
-            nestedShaped
-            nestedSpelled
-            nestedAfter
-            shorter)
-        (fuelDeclines more)
-        expr
-        tokens
-        rest
-        shaped
-        spelled
-        after
-        (omega [small])
-        state
-        starts
-        honest
-
 --| The parser reads back what spells an expression: on tokens that spell
 --| `expr` at `layout` (`Spelled`), for an `expr` of the parser's shape
 --| (`Shaped`), followed by what may follow it (`After`), `expression
---| layout` reads exactly those tokens and gives `expr`.
+--| layout` reads exactly those tokens and gives `expr`. Each level reads
+--| with the level below, which reads every shorter expression and, not
+--| being the innermost, declines at a keyword.
 theorem runsExpression ∀ (layout: Layout) (expr: Expr) (tokens rest: List (Parse.Located Token))
     (shaped: Shaped expr)
     (spelled: Spelled layout expr tokens)
     (after: After layout tokens rest):
     Parse.Runs (() => expression layout) tokens rest expr :=
-  state starts honest =>
-    let lengths: state.at.rest.length = tokens.length + rest.length := rewrite starts in List.lengthAppend tokens rest
-    Parse.runsFromMark state
-      (at => Parse.recursiveWithFuel (at.left + 1) expressionRule layout)
-      tokens
-      rest
-      expr
-      (runsExpressionFuel
-        (state.at.left + 1)
-        layout
+  Parse.runsRecursiveWithFact expressionRule
+    (layout tokens rest expr => Shaped expr ∧ Spelled layout expr tokens ∧ After layout tokens rest)
+    DeclinesNested
+    (Parse.recursiveFacts expressionRule DeclinesNested (self layout token later keyword reserved notIf =>
+      expressionRuleDeclines self layout token later keyword reserved notIf))
+    (layout tokens rest expr (Both shaped (Both spelled after)) =>
+      match spelledStart layout expr tokens shaped spelled with
+        | (first, others, split, _) =>
+          let size: tokens.length = Succ others.length := rewrite split in rfl
+          omega [size])
+    (self layout tokens rest expr (Both shaped (Both spelled after)) declines nested =>
+      runsExpressionRule self layout tokens.length
+        (nestedLayout nestedExpr nestedTokens nestedRest nestedShaped nestedSpelled nestedAfter shorter =>
+          nested nestedLayout nestedTokens nestedRest nestedExpr
+            (Both nestedShaped (Both nestedSpelled nestedAfter))
+            shorter)
+        declines
         expr
         tokens
         rest
         shaped
         spelled
         after
-        (omega [lengths, honest])
-        state)
-      starts
-      honest
+        (omega []))
+    layout
+    tokens
+    rest
+    expr
+    (Both shaped (Both spelled after))
 
 --| The kinds of token an expression starts with.
 def startsExpression: Kind → Bool
@@ -2076,15 +2044,12 @@ theorem postfixDeclines ∀ (self: Layout → {Parse (Parse.Located Token)} Expr
     (token: Parse.Located Token) (later: List (Parse.Located Token)) (keyword: Keyword)
     (reserved: token.value.kind = Reserved keyword):
     Parse.Declines (() => postfix self layout) [token, ..later] :=
-  Parse.declinesAfter
-    (() => Parse.note (Parse.Problem.Expected "an expression"))
+  Parse.declinesNote
+    (Parse.Problem.Expected "an expression")
     (noted =>
       let first := atom self layout
       suffixesFrom (Parse.mark().left + 1) self layout first)
-    []
     [token, ..later]
-    ()
-    (Parse.runsNote (Parse.Problem.Expected "an expression") [token, ..later])
     (Parse.declinesBind
       (() => atom self layout)
       (first => suffixesFrom (Parse.mark().left + 1) self layout first)
@@ -2102,20 +2067,6 @@ theorem negationsDecline ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located
         | Zero => rfl
         | Succ more => rewrite starts, notMinusAtReserved layout token keyword reserved in rfl
     Eq.trans step (postfixDeclines self layout token later keyword reserved state starts honest)
-
---| `operators` declines where its first operand does.
-theorem operatorsDecline ∀ (levels: List (Parse.Level (Parse.Located Token) Expr))
-    (operand: () → {Parse (Parse.Located Token)} Expr) (input: List (Parse.Located Token))
-    (declines: Parse.Declines operand input):
-    Parse.Declines (() => Parse.operators "an operator" levels operand) input :=
-  state starts honest =>
-    Parse.declinesBind operand
-      (first => Parse.operandsAfter (state.at.left + 1) "an operator" levels levels.length operand 0 first)
-      input
-      declines
-      state
-      starts
-      honest
 
 theorem chainRuleStops ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (layout: Layout) (state: Parse.State (Parse.Located Token))
@@ -2140,7 +2091,7 @@ theorem expressionRuleDeclines ∀ (self: Layout → {Parse (Parse.Located Token
   state starts honest =>
     Eq.trans
       (chainRuleStops self layout state (rewrite starts in notIfAtReserved layout token keyword reserved notIf))
-      (operatorsDecline
+      (Parse.declinesOperators "an operator"
         (operatorLevels layout)
         (() => operand self layout)
         [token, ..later]
@@ -2150,22 +2101,11 @@ theorem expressionRuleDeclines ∀ (self: Layout → {Parse (Parse.Located Token
         starts
         honest)
 
---| The expression parser of each level of the recursion but the
---| innermost, which reads nothing, declines at a keyword.
-theorem fuelDeclines ∀ (more: Nat):
-    DeclinesNested (inner => Parse.recursiveWithFuel (Succ more) expressionRule inner) :=
-  layout token later keyword reserved notIf =>
-    expressionRuleDeclines
-      (inner => Parse.recursiveWithFuel more expressionRule inner)
-      layout
-      token
-      later
-      keyword
-      reserved
-      notIf
-
+--| The expression parser, and every level of the recursion in it, declines
+--| at a keyword other than `if`, whatever reads the expressions nested in it.
 theorem expressionDeclines: DeclinesNested expression := layout token later keyword reserved notIf =>
-  state starts honest => fuelDeclines state.at.left layout token later keyword reserved notIf state starts honest
+  Parse.declinesRecursiveWith expressionRule layout [token, ..later] (self =>
+    expressionRuleDeclines self layout token later keyword reserved notIf)
 
 -- An instance of `runsExpression`: the six tokens of `f(a) + b`.
 

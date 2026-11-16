@@ -1197,6 +1197,92 @@ theorem Parse.runsRecursiveWith ∀ (body: (b → {Parse t} a) → b → {Parse 
       starts
       honest
 
+--| `Parse.runsRecursiveWithFuel`, where `step` also has a fact about the
+--| nested parser, one that holds of every level but the innermost (which is
+--| `Parse.fatal`, and reads nothing: a `good` read is never empty, so it is
+--| never the one `step` is given).
+theorem Parse.runsRecursiveWithFactFuel ∀ (body: (b → {Parse t} a) → b → {Parse t} a)
+    (good: b → List t → List t → a → Prop) (fact: (b → {Parse t} a) → Prop)
+    (facts: ∀ (fuel: Nat) => fact (inner => Parse.recursiveWithFuel (Succ fuel) body inner))
+    (reads: ∀ (argument: b) (read rest: List t) (v: a) => good argument read rest v → 0 < read.length)
+    (step: ∀ (self: b → {Parse t} a) (argument: b) (read rest: List t) (v: a) => good argument read rest v
+      → fact self
+      → (∀ (nestedArgument: b) (nestedRead nestedRest: List t) (w: a) => good nestedArgument nestedRead nestedRest w
+        → nestedRead.length < read.length
+        → Parse.Runs (() => self nestedArgument) nestedRead nestedRest w)
+      → Parse.Runs (() => body self argument) read rest v)
+    (fuel: Nat) (argument: b) (read rest: List t) (v: a) (holds: good argument read rest v)
+    (small: read.length < fuel):
+    Parse.Runs (() => Parse.recursiveWithFuel fuel body argument) read rest v :=
+  match fuel, small with
+    | Succ Zero, small => Void.exfalso (omega [small, reads argument read rest v holds])
+    | Succ (Succ more), small => state starts honest =>
+      step
+        (inner => Parse.recursiveWithFuel (Succ more) body inner)
+        argument
+        read
+        rest
+        v
+        holds
+        (facts more)
+        (nestedArgument nestedRead nestedRest w nestedHolds shorter =>
+          Parse.runsRecursiveWithFactFuel body good fact facts reads step
+            (Succ more)
+            nestedArgument
+            nestedRead
+            nestedRest
+            w
+            nestedHolds
+            (omega [small, shorter]))
+        state
+        starts
+        honest
+
+--| [`Parse.runsRecursiveWith`], where `step` also knows a fact about the
+--| nested parser: `fact` holds of `recursiveWith body`'s own levels (`facts`;
+--| see [`Parse.recursiveFacts`]), as "declines at a keyword" does whatever
+--| the nested parts read. A `good` read is not empty (`reads`: the innermost
+--| level, which reads nothing, has no fact).
+theorem Parse.runsRecursiveWithFact ∀ (body: (b → {Parse t} a) → b → {Parse t} a) (good: b → List t → List t → a → Prop)
+    (fact: (b → {Parse t} a) → Prop)
+    (facts: ∀ (fuel: Nat) => fact (inner => Parse.recursiveWithFuel (Succ fuel) body inner))
+    (reads: ∀ (argument: b) (read rest: List t) (v: a) => good argument read rest v → 0 < read.length)
+    (step: ∀ (self: b → {Parse t} a) (argument: b) (read rest: List t) (v: a) => good argument read rest v
+      → fact self
+      → (∀ (nestedArgument: b) (nestedRead nestedRest: List t) (w: a) => good nestedArgument nestedRead nestedRest w
+        → nestedRead.length < read.length
+        → Parse.Runs (() => self nestedArgument) nestedRead nestedRest w)
+      → Parse.Runs (() => body self argument) read rest v)
+    (argument: b) (read rest: List t) (v: a) (holds: good argument read rest v):
+    Parse.Runs (() => Parse.recursiveWith body argument) read rest v :=
+  state starts honest =>
+    let lengths: state.at.rest.length = read.length + rest.length := rewrite starts in List.lengthAppend read rest
+    let small: read.length < state.at.left + 1 := omega [lengths, honest]
+    Parse.runsFromMark state
+      (at => Parse.recursiveWithFuel (at.left + 1) body argument)
+      read
+      rest
+      v
+      (Parse.runsRecursiveWithFactFuel body good fact facts reads step
+        (state.at.left + 1)
+        argument
+        read
+        rest
+        v
+        holds
+        small
+        state)
+      starts
+      honest
+
+--| `fact` holds of every level of `recursiveWith body` but the innermost
+--| where it holds of `body self` for every `self`, so
+--| [`Parse.runsRecursiveWithFact`]'s `facts` follow from a fact about the body.
+theorem Parse.recursiveFacts ∀ (body: (b → {Parse t} a) → b → {Parse t} a) (fact: (b → {Parse t} a) → Prop)
+    (bodyFact: ∀ (self: b → {Parse t} a) => fact (inner => body self inner)) (fuel: Nat):
+    fact (inner => Parse.recursiveWithFuel (Succ fuel) body inner) :=
+  bodyFact (inner => Parse.recursiveWithFuel fuel body inner)
+
 --| The last of some items is the one before what follows them.
 theorem Parse.lastReadDrop ∀ (first: t) (others rest: List t):
     (([first, ..others] ++ rest).drop others.length).head = [first, ..others].last :=
@@ -1455,6 +1541,105 @@ theorem Parse.declinesExpected ∀ (what: Text) (input: List t): Parse.Declines 
     ()
     (Parse.runsNote (Expected what) input)
     (Parse.declinesStop input)
+
+--| `fail message` declines wherever it is: it notes a problem and stops.
+theorem Parse.declinesFail ∀ (message: Text) (input: List t): Parse.Declines (() => (Parse.fail message: a)) input :=
+  Parse.declinesAfter
+    (() => Parse.note (Parse.Problem.Message message))
+    (u => Empty.absurd Parse.stop())
+    []
+    input
+    ()
+    (Parse.runsNote (Parse.Problem.Message message) input)
+    (Parse.declinesStop input)
+
+--| `note problem` followed by something that declines declines too: the note
+--| reads nothing and doesn't change where `j ()` starts.
+theorem Parse.declinesNote ∀ (problem: Parse.Problem) (j: () → {Parse t} b) (input: List t)
+    (declines: Parse.Declines (() => j ()) input):
+    Parse.Declines (() => j (Parse.note problem)) input :=
+  Parse.declinesAfter (() => Parse.note problem) j [] input () (Parse.runsNote problem input) declines
+
+--| `peek` followed by `k` declines where `k` declines given the first item of
+--| the input (`None` at the end): `peek` is the first item, whatever the
+--| state around it.
+theorem Parse.declinesPeek ∀ (k: Option t → {Parse t} b) (input: List t)
+    (declines: Parse.Declines (() => k input.head) input):
+    Parse.Declines (() => k (Parse.peek ())) input :=
+  state starts honest =>
+    let step: Parse.runFrom state (() => (Parse.optional (() => k (Parse.peek ())), Parse.mark()))
+      = Parse.runFrom state (() => (Parse.optional (() => k input.head), Parse.mark())) :=
+      rewrite starts in rfl
+    Eq.trans step (declines state starts honest)
+
+--| `optional p` followed by `j` declines where `p` declines (so `optional p`
+--| gives `None` without reading) and `j None` declines.
+theorem Parse.declinesOptionalThen ∀ (p: () → {Parse t} a) (j: Option a → {Parse t} b) (input: List t)
+    (declinesP: Parse.Declines p input)
+    (declinesJ: Parse.Declines (() => j None) input):
+    Parse.Declines (() => j (Parse.optional p)) input :=
+  Parse.declinesAfter (() => Parse.optional p) j [] input None (Parse.declinesRuns p input declinesP) declinesJ
+
+--| `many p` followed by `j` declines where `p` declines (so `many p` gives
+--| `[]` without reading) and `j []` declines.
+theorem Parse.declinesManyThen ∀ (p: () → {Parse t} a) (j: List a → {Parse t} b) (input: List t)
+    (declinesP: Parse.Declines p input)
+    (declinesJ: Parse.Declines (() => j []) input):
+    Parse.Declines (() => j (Parse.many p)) input :=
+  Parse.declinesAfter (() => Parse.many p) j [] input [] (Parse.runsMany p [] input declinesP) declinesJ
+
+--| `operators` declines where its first operand does.
+theorem Parse.declinesOperators ∀ (what: Text) (levels: List (Parse.Level t a))
+    (operand: () → {Parse t} a) (input: List t)
+    (declines: Parse.Declines operand input):
+    Parse.Declines (() => Parse.operators what levels operand) input :=
+  state starts honest =>
+    Parse.declinesBind operand
+      (first => Parse.operandsAfter (state.at.left + 1) what levels levels.length operand 0 first)
+      input
+      declines
+      state
+      starts
+      honest
+
+--| Every one of some parsers declines on `input`.
+def Parse.DeclinesAll: (parsers: List (() → {Parse t} a)) → (input: List t) → Prop
+  | [], input => True
+  | [p, ..parsers], input => Parse.Declines p input ∧ Parse.DeclinesAll parsers input
+
+--| `oneOfFrom first rest` declines where `first` and every one of `rest` do.
+theorem Parse.declinesOneOfFrom ∀ (first: () → {Parse t} a) (rest: List (() → {Parse t} a)) (input: List t)
+    (declinesFirst: Parse.Declines first input)
+    (declinesRest: Parse.DeclinesAll rest input):
+    Parse.Declines (() => Parse.oneOfFrom first rest) input :=
+  match rest, declinesRest with
+    | [], done => declinesFirst
+    | [next, ..more], (Both declinesNext declinesMore) =>
+      Parse.declinesAfter
+        (() => Parse.optional first)
+        (found => Parse.valueOr found (() => Parse.oneOfFrom next more))
+        []
+        input
+        None
+        (Parse.declinesRuns first input declinesFirst)
+        (Parse.declinesOneOfFrom next more input declinesNext declinesMore)
+
+--| `oneOf parsers` declines where every alternative does (including where
+--| there are none: it fails).
+theorem Parse.declinesOneOf ∀ (parsers: List (() → {Parse t} a)) (input: List t)
+    (declines: Parse.DeclinesAll parsers input):
+    Parse.Declines (() => Parse.oneOf parsers) input :=
+  match parsers, declines with
+    | [], done => Parse.declinesFail "`oneOf`: no alternatives" input
+    | [first, ..rest], (Both declinesFirst declinesRest) =>
+      Parse.declinesOneOfFrom first rest input declinesFirst declinesRest
+
+--| `recursiveWith body argument` declines where `body self argument` does
+--| for every `self`, whatever it reads.
+theorem Parse.declinesRecursiveWith ∀ (body: (b → {Parse t} a) → b → {Parse t} a) (argument: b) (input: List t)
+    (declines: ∀ (self: b → {Parse t} a) => Parse.Declines (() => body self argument) input):
+    Parse.Declines (() => Parse.recursiveWith body argument) input :=
+  state starts honest => declines (inner => Parse.recursiveWithFuel state.at.left body inner) state starts honest
 
 --| The rounds of a repetition that must all succeed (as `exactly`'s): each
 --| `Runs` `p` for its text, seeing what follows it (the later rounds' text,
