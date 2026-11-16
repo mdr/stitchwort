@@ -569,10 +569,28 @@ impl<'a> Rules<'a> {
             None => (unfolding, None),
         };
         let header = self.header(&head, &params, result, unfolding);
+        // A comment ending a line inside a parameter or the result type
+        // makes the header span lines whatever fits, so the body goes below
+        // it: a `calc`'s steps are measured from the line its keyword is on.
+        let header_last = head
+            .iter()
+            .chain(&params)
+            .chain(result.as_ref())
+            .map(|&el| Self::last(el))
+            .max()
+            .unwrap_or(0);
+        let header_first = Self::first(head[0]);
+        let item_ends: Vec<usize> = head
+            .iter()
+            .chain(&params)
+            .map(|&el| self.last_code(Self::first(el), Self::last(el)))
+            .collect();
+        let comment_inside = (header_first..header_last)
+            .any(|i| self.trivia[i].trailing.is_some() && !item_ends.contains(&i));
         parts.push(Doc::IdGroup(
             id,
             Box::new(header.clone()),
-            header.forces_break(),
+            header.forces_break() || comment_inside,
         ));
         if let Some(decreasing) = decreasing {
             // S11: the measure on its own line at 4, `:=` alone below.

@@ -744,3 +744,30 @@ fn a_sequence_that_starts_a_line_breaks_after_a_semicolon_two_columns_in() {
         "def d: Nat := xs.map (x =>\n  a; -- c\n    b)\n",
     );
 }
+
+#[test]
+fn a_comment_on_its_own_line_after_an_arrow_goes_before_it() {
+    // SW-3524, SW-3533: an operand starting its own line would end the
+    // type at the next arrow.
+    check(
+        "def combine (f: Nat ->\n-- c\n b -> c): List c := xs\n",
+        "def combine\n    (f: Nat\n      -- c\n      -> b\n      -> c):\n    List c :=\n  xs\n",
+    );
+    check(
+        "def pick: Option Bool →\n-- c\n Nat → Nat\n  | Some _, 0 => 1\n",
+        "def pick: Option Bool\n      -- c\n      → Nat\n      → Nat\n  | Some _, 0 => 1\n",
+    );
+    check(
+        "def f (x: Nat → -- c\n -- d\n  Nat → Nat): Nat := x\n",
+        "def f\n    (x: Nat\n      -- c\n      -- d\n      → Nat\n      → Nat):\n    Nat :=\n  x\n",
+    );
+}
+
+#[test]
+fn a_comment_inside_the_header_puts_the_body_below_it() {
+    // SW-3532: the `calc` steps are measured from the keyword's line.
+    check(
+        "theorem t (h: a =-- c\n 3): 3 = a :=\n  calc 3\n    _ = a := h\n",
+        "theorem t ∀\n    (h: a = -- c\n      3):\n    3 = a :=\n  calc 3\n    _ = a := h\n",
+    );
+}
