@@ -39171,7 +39171,7 @@
     {
       "id": 3507,
       "title": "[Sonnet] Parse proofs L5: declines toolkit for token parsers and runsRecursiveWithFact; the toy's declines lemmas and runsExpressionFuel onto them. Est. 40 min",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -39710,7 +39710,7 @@
     {
       "id": 3548,
       "title": "[Sonnet] Errors E2: no ?N in messages: unsolved implicits print as _name with \"f's implicit name, not worked out\"; instances by interface and type (docs/proposals/helpful-errors.md §5 rank 2). Est. 1 h",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
