@@ -1,13 +1,14 @@
 ---
 source: crates/cli/tests/running/examples.rs
+assertion_line: 210
 expression: warnings
 ---
 [W-UNREACHABLE] Warning: this case can't happen
     ╭─[ accept/match-as-written.sw:48:3 ]
     │
- 48 │   | False => rfl
-    │   ───────┬──────  
-    │          ╰──────── here `big` is `isBig 20 = False`, that is `True = False`, which can't hold
+ 48 │   | False => byComputing
+    │   ───────────┬──────────  
+    │              ╰──────────── here `big` is `isBig 20 = False`, that is `True = False`, which can't hold
     │ 
     │ Note: the arm can be deleted
 ────╯

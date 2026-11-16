@@ -56,7 +56,7 @@ def pairs: List Int → List Int → List (Pair Int Int)
 def compare: Pair Int Int → Text
   | MkPair x y => (if x < y then "<" else if x == y then "=" else ">") ++ (if x <= y then "l" else "g")
 
-def arithmetic: Pair Int Int → Text
+def intArithmetic: Pair Int Int → Text
   | MkPair x y => Int.toText (x + y) ++ "," ++ Int.toText (x - y) ++ "," ++ Int.toText (x * y)
 
 def quotient: Pair Int Int → Text
@@ -65,7 +65,7 @@ def quotient: Pair Int Int → Text
 
 def main(): {IO} () :=
   let ps := pairs values values
-  IO.print (show values ++ Text.join (List.map ps compare) ' ' ++ Text.join (List.map ps arithmetic) ' ' ++ Text.join (List.map ps quotient) ' ')
+  IO.print (show values ++ Text.join (List.map ps compare) ' ' ++ Text.join (List.map ps intArithmetic) ' ' ++ Text.join (List.map ps quotient) ' ')
 "#;
 
 /// `Float`: arithmetic, rounding, `NaN` and infinities, conversions from

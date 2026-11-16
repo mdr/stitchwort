@@ -84,7 +84,7 @@ theorem settleCovers ∀ (device: Device) (values: Values) (waiting: List Gate)
               (Bool.falseOfNotTrue _ (ready =>
                 Bool.falseNotTrue
                   (Eq.trans
-                    (rewrite ready then byComputing).flipped
+                    (Eq.flipped (rewrite ready then byComputing))
                     (filterFull (gate => ¬(gate.ready values)) waiting fewer gate member))))
           | Inr there => Inl there
     | True =>
