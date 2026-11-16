@@ -39371,7 +39371,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3638 (Matt, 16 Nov 2026): 'I'm happy to reverse the no simp decision' (D2541's 'no simp' clause goes). Rules question (D3639) under discussion.",
+      "body": "D3638 (Matt, 16 Nov 2026): 'I'm happy to reverse the no simp decision' (D2541's 'no simp' clause goes). Rules question (D3639) under discussion.\n\nD3639 (Matt, 16 Nov 2026): yes. Named rule sets declared once (rules words := [...]); no attribute, no default set, no bare simp. Option 3 (an attribute adding to a named set) is the natural next step if stage 4 shows long lists.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
