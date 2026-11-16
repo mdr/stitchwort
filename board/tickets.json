@@ -1,5 +1,5 @@
 {
-  "next": 3542,
+  "next": 3547,
   "tickets": [
     {
       "id": 47,
@@ -39591,12 +39591,12 @@
     {
       "id": 3539,
       "title": "[Opus paper] Helpful compiler errors (D3642, Matt, 16 Nov 2026): audit today's messages against a rubric, survey Elm/Rust/Gleam/Roc/Lean/Idris, house style, agent-facing features (JSON diagnostics, fix-it edits, explain, length limits on printed types), ranked improvements and stages",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nProgress (Opus lane, 16 Nov 2026): design note written, docs/proposals/helpful-errors.md (commit 3e5a1efe8). Audit of 25 errors: 11 score full or nearly; the weak ones cluster in type mismatches (175 of 206 reject mismatches headline just \"type mismatch\"), internals (?N in 27 reject diagnostics, hidden functions, runtime forms), length (85 repeated notes) and other-language habits (by, record). Twelve ranked lanes (§5), first: mismatches lead with the difference (Opus), no ?N (Sonnet), generic notes once (Sonnet), fixes in the JSON (Sonnet). Two decisions for Matt (§6): voice (rec impersonal, as now), JSON fixes + stitchwort explain (rec yes). No builds or tests (paper lane).\n",
+      "body": "\nProgress (Opus lane, 16 Nov 2026): design note written, docs/proposals/helpful-errors.md (commit 3e5a1efe8). Audit of 25 errors: 11 score full or nearly; the weak ones cluster in type mismatches (175 of 206 reject mismatches headline just \"type mismatch\"), internals (?N in 27 reject diagnostics, hidden functions, runtime forms), length (85 repeated notes) and other-language habits (by, record). Twelve ranked lanes (§5), first: mismatches lead with the difference (Opus), no ?N (Sonnet), generic notes once (Sonnet), fixes in the JSON (Sonnet). Two decisions for Matt (§6): voice (rec impersonal, as now), JSON fixes + stitchwort explain (rec yes). No builds or tests (paper lane).\n\nModel result: opus, worked, 8 min (est. 45). 12 ranked lanes (~7-9 agent-h). Decisions pending: voice (rec impersonal), errors as data for agents (rec yes).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39617,6 +39617,71 @@
     {
       "id": 3541,
       "title": "[Sonnet] fmt fuzz: since SW-3497, 9-14 of 20,000 comment-mode cases per seed are 'parsed, then refused' (was 0). Classify them (likely SW-3497's leading ':=' refusal, SW-3525; or a new family) and either make the fuzzer report them as skipped-by-design or file the family; seeds 0x806/0x809/0x80a (from SW-3540)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3542,
+      "title": "[DeepSeek] Messages: E-NONEXHAUSTIVE prints its '| Blue => ?' line above the error box and says 'alternative' where other errors say 'arm' (from SW-3539, helpful-errors.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3543,
+      "title": "[DeepSeek] Messages: An unclosed '(' error doesn't point at the bracket that's still open (from SW-3539, helpful-errors.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3544,
+      "title": "[DeepSeek] Messages: The '::' error says it found ':' (from SW-3539, helpful-errors.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3545,
+      "title": "[DeepSeek] Messages: NO_COLOR isn't honoured by the CLI's diagnostics (from SW-3539, helpful-errors.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3546,
+      "title": "[DeepSeek] Messages: The suggested import (Detail.import) never reaches check's JSON output (from SW-3539, helpful-errors.md)",
       "status": "backlog",
       "agent": "",
       "where": "",
