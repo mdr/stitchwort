@@ -31097,12 +31097,12 @@
     {
       "id": 2922,
       "title": "[DeepSeek] Unfinished-test message says \"its body is `?`\" even when the ? is only part of the body; say \"it has an unfinished ? at …\" in that case (SW-2909)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~10 min (est. 20). Untested edge: def f: Nat -> Nat := x => ? may read as a bare ?.",
       "created": "2026-11-11",
       "updated": "2026-11-16",
       "commits": []
