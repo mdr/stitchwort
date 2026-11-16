@@ -1,0 +1,5 @@
+---
+source: crates/driver/tests/library/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.chained b16839dafb23ac6f280314a61c490d05bab668b1dec23db9b4ed5bc93a4866fe

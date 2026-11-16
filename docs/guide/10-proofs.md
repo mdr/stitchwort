@@ -168,6 +168,17 @@ theorem chain ∀ (a b c: Nat) (ab: a = b) (bc: b ≤ c) (small: c < 10): a < 10
 
 A step with no proof is proved by computing.
 
+Write a chain of equalities as a `calc`, not as `Eq.trans` nested inside `Eq.trans`: the `calc` names every term the proof passes through, and `check` warns (`W-PROOF-CHAIN`) on a nested `trans`. In the same way, a `rewrite` that runs more than about three rules, or whose result a later step uses, goes through a `let` that states the fact it reaches:
+
+<!-- snippet: proofs.sw#stated -->
+```stitchwort
+theorem swappedSum ∀ (a b c: Nat): (a + b) * 1 + c = b + a + c :=
+  let swapped: (a + b) * 1 = b + a := rewrite Nat.mulOne (a + b), Nat.addComm a b
+  rewrite swapped then byComputing
+```
+
+A change to one of the rules then breaks at the stated fact, with its goal to compare, and the rest of the proof is unaffected. A theorem whose proof runs over about 15 lines ends its `--|` doc with the proof idea in a sentence or two (the induction, the key lemma, the invariant), not a narration of the steps.
+
 ## Arithmetic: `arithmetic`
 
 For statements in linear arithmetic over `Nat` and `Int` (`+`, `-`, comparisons, multiplication, division and remainder by a constant, `n.toInt`), `arithmetic` finds the proof itself, using every fact in scope:

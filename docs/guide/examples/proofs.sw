@@ -37,6 +37,12 @@ theorem chain ∀ (a b c: Nat) (ab: a = b) (bc: b ≤ c) (small: c < 10): a < 10
   _ < 10 := small
 -- end calc
 
+-- begin stated
+theorem swappedSum ∀ (a b c: Nat): (a + b) * 1 + c = b + a + c :=
+  let swapped: (a + b) * 1 = b + a := rewrite Nat.mulOne (a + b), Nat.addComm a b
+  rewrite swapped then byComputing
+-- end stated
+
 -- begin arithmetic
 theorem roomForOne ∀ (x y: Nat) (before: x < y) (limit: y ≤ 10): x + 1 ≤ 10 := arithmetic
 

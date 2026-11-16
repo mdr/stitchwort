@@ -40249,15 +40249,17 @@
     {
       "id": 3589,
       "title": "[Sonnet] State, don't chain (D3656, Matt, 16 Nov 2026: yes): proving-guide rule (a chain of two or more equalities is a calc; a rewrite run of more than ~3 rules, or one a later step depends on, passes through a typed let stating the fact) and a warning (W-PROOF-CHAIN or similar) on Eq.trans nested two deep, suggesting calc, with a fix in check's JSON where mechanical. No sweep: convert when touched; the warning must not fail existing checks (warn only). docs/research/readable-proofs.md R1. Guide + syntax.md updated",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Also D3657 (Matt, 16 Nov 2026: yes): theorems with proofs over ~15 lines end their doc with a 1-2 sentence proof idea (induction, key lemma, invariant); no step narration. Matt's reasoning: 'I don't think necessarily the programming rules about being really stingy with comments necessarily carry over to the proving world ... it can be really hard to write like a self-documenting proof ... having the proof idea can really help.' Update proving guide §2.7, syntax.md 'What to write', and CLAUDE.md's comment rule.",
+      "body": "Also D3657 (Matt, 16 Nov 2026: yes): theorems with proofs over ~15 lines end their doc with a 1-2 sentence proof idea (induction, key lemma, invariant); no step narration. Matt's reasoning: 'I don't think necessarily the programming rules about being really stingy with comments necessarily carry over to the proving world ... it can be really hard to write like a self-documenting proof ... having the proof idea can really help.' Update proving guide §2.7, syntax.md 'What to write', and CLAUDE.md's comment rule.\n\nProgress (Sonnet lane): W-PROOF-CHAIN added (syntactic, per declaration, crates/elab/src/proof_chain.rs; dropped for the core prelude); proving-guide items 7-9, syntax.md, guide 10-proofs; examples proof-chain-warning/-calc with snapshots. Not done: sweep, check --index fix (not mechanical). Commit 1af363548.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "1af363548"
+      ]
     },
     {
       "id": 3590,

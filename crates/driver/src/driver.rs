@@ -663,6 +663,9 @@ impl Session {
         let mut diagnostics = session.elab.elaborate_module(module);
         session.statement_style(&mut diagnostics, &[file]);
         session.elab.set_core_link_names(None);
+        // The core's own proofs aren't a program's to be told to restyle
+        // (SW-3589: nested `trans` is the core's style until it is touched).
+        diagnostics.retain(|d| d.code != "W-PROOF-CHAIN");
         // A broken doc link in the core fails the load, as in a library
         // file (SW-1046). A test's own library files don't have the names
         // the core's docs link to, so its links aren't checked.

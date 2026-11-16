@@ -63,6 +63,7 @@ mod module;
 mod named;
 mod nav;
 mod no_effect;
+mod proof_chain;
 pub use dot::DUMMY as COMPLETION_DUMMY;
 pub use nav::{NavIndex, NavRef, NavSymbol, NavTarget, ScopeName, std_source};
 mod cases;
@@ -3120,6 +3121,22 @@ impl Elaborator {
     /// instead (`partial.rs`); one mixing partial and total members is
     /// refused.
     fn group(
+        &mut self,
+        members: &[(usize, &Decl, &[Decl])],
+        recursive: bool,
+    ) -> Vec<(usize, Diagnostic)> {
+        let mut found = self.group_checked(members, recursive);
+        for (index, _, equations) in members {
+            found.extend(
+                crate::proof_chain::warnings(equations)
+                    .into_iter()
+                    .map(|d| (*index, d)),
+            );
+        }
+        found
+    }
+
+    fn group_checked(
         &mut self,
         members: &[(usize, &Decl, &[Decl])],
         recursive: bool,
