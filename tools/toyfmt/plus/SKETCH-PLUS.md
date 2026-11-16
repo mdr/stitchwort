@@ -659,7 +659,7 @@ new theorems, against the plan's "about 100".
   (`runsParameters`/`runsNoParameters`) and `groupOut`
   (`runsUntyped`/`runsTyped`, with `typeOut` giving `runsType`'s
   `SpelledType`). The `Function` case of `declarationsOut` went from
-  about 500 lines to 230.
+  about 500 lines to 245.
 - **Proof tuples in later match columns** (SW-3566) replaced the
   `Witness`/`Both` towers in every new lemma and in the rewritten
   `Function` case: a `Then` of `Then`s destructures as one flat tuple.
