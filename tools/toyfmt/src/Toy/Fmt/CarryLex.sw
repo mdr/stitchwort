@@ -24,29 +24,21 @@ theorem takenStops ∀ (passes: a → Bool) (read rest: List a)
       let unfolded: [head, ..tail] = (if passes head then [head, ..(tail ++ rest).takeWhile passes] else []) := shape
       match passed: passes head with
         | True => takenStops passes tail rest (List.consInjective head tail ((tail ++ rest).takeWhile passes) unfolded)
-        | False => (List.consNotNil head tail unfolded).impossible
 
---| The text left where a comment stopped starts with a line break.
+--| The text left where a comment stopped starts with a line break, if a
+--| lexeme starts there at all.
 theorem breakAfter ∀ (rest: List Char) (lexeme: Lexeme)
     (stops: rest.takeWhile (char => char != '\n') = [])
-    (nonEmpty: rest ≠ [])
     (starts: lexemeStart rest = Some lexeme):
     lexeme = LineBreak :=
-  match rest, nonEmpty, stops, starts with
-    | [], nonEmpty, _, _ => (nonEmpty byComputing).impossible
-    | [char, ..chars], _, stops, starts =>
+  match rest, stops, starts with
+    | [char, ..chars], stops, starts =>
       let unfolded: (if char != '\n' then [char, ..chars.takeWhile (other => other != '\n')] else []) = [] := stops
       match differs: ((char != '\n'): Bool) with
-        | True => (List.consNotNil char (chars.takeWhile (other => other != '\n')) unfolded).impossible
         | False =>
           let isBreak: char = '\n' := DecEq.neFalse char '\n' differs
           let known: lexemeStart ['\n', ..chars] = Some lexeme := rewrite <- isBreak then starts
           (Option.someInjective known).flipped
-
-theorem appendNonEmpty ∀ (first second: List a) (nonEmpty: first ≠ []): first ++ second ≠ [] :=
-  match first, nonEmpty with
-    | [], nonEmpty => (nonEmpty byComputing).impossible
-    | [head, ..tail], _ => List.consNotNil head (tail ++ second)
 
 --| The next step, if there is one, is a line break.
 def NextBreaks: List (List Char, Lexeme) → Prop
@@ -75,7 +67,6 @@ theorem commentBreaks ∀ (read: List Char) (lexeme: Lexeme) (later: List (List 
             (next ++ Parse.joinReads more)
             following
             (takenStops (char => char != '\n') read (next ++ Parse.joinReads more) shape)
-            (appendNonEmpty next (Parse.joinReads more) nonEmpty)
             nextSpec.left
 
 theorem linedOf ∀ (steps: List (List Char, Lexeme)) (lexemes: Parse.LexemesRead LexemeSpec steps): Lined steps :=
