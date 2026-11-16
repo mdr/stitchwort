@@ -1460,7 +1460,9 @@ impl<'e> Ctx<'e> {
             };
             for (t, _) in term.subterms() {
                 let Term::Meta(m) = t else { continue };
-                let Some(name) = stitchwort_core::Shown::unknown(self.e, *m) else {
+                let Some(name) =
+                    stitchwort_core::Shown::unknown(self.e, *m, &self.shown_names(false))
+                else {
                     continue;
                 };
                 if self.metas().meta_param_label(*m).is_none() {
@@ -9695,6 +9697,27 @@ mod tests {
         );
         let ignorable = ignorable_arguments(&cx, &eq(type0(), type0())).expect("types read back");
         assert_eq!(&*ignorable, &[true, true, false]);
+    }
+
+    /// An unsolved instance argument is shown as its type (`Add b`), which
+    /// may mention the variables in scope there: printing it needs their
+    /// names (SW-3592: it once indexed an empty name list).
+    #[test]
+    fn an_unknown_instance_type_mentioning_a_variable_prints_with_its_names() {
+        let e = Elaborator::new();
+        let cx = Ctx::from_parts(
+            &e,
+            vec![Value::var(0)],
+            vec![Value::Sort(Sort::Type(0))],
+            vec!["b".into()],
+            span(),
+        );
+        let meta = cx.fresh_meta();
+        let Term::Meta(m) = *meta.spine().0 else {
+            panic!("an unknown")
+        };
+        cx.metas().set_meta_instance(m, Value::var(0));
+        assert_eq!(cx.show(&cx.eval(&meta).expect("evaluates")), "b");
     }
 
     /// Elaborates `text`, a closed expression, with no library: the shown

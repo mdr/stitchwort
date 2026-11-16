@@ -56,8 +56,10 @@ pub trait Shown {
 
     /// How an unsolved unknown `m` is shown in a message: `_n` for the
     /// parameter `n` it stands for, `_` when nothing is known of it. `None`
-    /// leaves it as `?m`, for messages without these hints.
-    fn unknown(&self, _m: usize) -> Option<String> {
+    /// leaves it as `?m`, for messages without these hints. `names` are the
+    /// variables in scope where it is printed, for a type that mentions
+    /// them (an instance argument's `Add a`).
+    fn unknown(&self, _m: usize, _names: &[Name]) -> Option<String> {
         None
     }
 

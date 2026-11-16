@@ -1453,7 +1453,10 @@ impl<'g> Printer<'g> {
             }
             Term::Meta(_) if let Some(name) = self.label(names, term) => name,
             Term::Meta(m) => (
-                self.g.shown.unknown(*m).unwrap_or_else(|| format!("?{m}")),
+                self.g
+                    .shown
+                    .unknown(*m, names)
+                    .unwrap_or_else(|| format!("?{m}")),
                 Prec::Atom,
             ),
             Term::App(..) if let Some(shown) = self.label(names, term) => shown,
@@ -1461,7 +1464,7 @@ impl<'g> Printer<'g> {
             // its name: those variables are not what the reader cares about.
             Term::App(..)
                 if let (Term::Meta(m), args) = term.spine()
-                    && let Some(name) = self.g.shown.unknown(*m) =>
+                    && let Some(name) = self.g.shown.unknown(*m, names) =>
             {
                 let skip = args
                     .iter()
