@@ -7,16 +7,17 @@
 //! rewrite repeatedly [r1, r2] then ?          -- shows what is left
 //! ```
 //!
-//! The rules are tried in turn, in the order listed and round again, each
-//! by `rewrite`'s own search ([`super::rewrite_once`]: the goal as written
-//! first, then what it computes to). A rule that finds nothing, or whose
-//! premise isn't proved, is skipped, and not tried again until another rule
-//! has changed the goal. It stops when every rule in turn has found
-//! nothing, and then closes the goal: by
-//! computing (`byComputing`), by hypotheses that contradict each other, or
-//! by a hypothesis, or a part of one, of the goal's type (`cases`' closers,
-//! without splitting or `arithmetic`). The proof is the `J` chain the same
-//! `rewrite`s write, so the kernel checks it like any other.
+//! The rules are tried in turn, in the order listed and round again, in two
+//! passes per goal: first each only in the goal as written, and when none
+//! fits there, each by `rewrite`'s full search ([`super::rewrite_once`]: as
+//! written, then what the goal computes to). A rule that finds nothing, or
+//! whose premise isn't proved, is skipped, and not tried again in the same
+//! pass until another rule has changed the goal. It stops when no rule fits
+//! either way, and then closes the goal: by computing (`byComputing`), by
+//! hypotheses that contradict each other, or by a hypothesis, or a part of
+//! one, of the goal's type (`cases`' closers, without splitting or
+//! `arithmetic`). The proof is the `J` chain the same `rewrite`s write, so
+//! the kernel checks it like any other.
 //!
 //! **Rules.** As `rewrite`'s: a proof of an equation (hypotheses and
 //! `Bool` facts among them), its arguments left open if not given. A
@@ -24,8 +25,9 @@
 //! (`function-equations.md`), or, when it has none (a body that isn't a
 //! `match`), one step of it, `f x… = <body>`, proved by `byComputing`. Before
 //! anything is rewritten each rule is checked: it must be an equation whose
-//! left side has a head, and whose right side has no instance of its left
-//! (`a + b = b + a` would rewrite forever): `E-REWRITE-REPEATEDLY-RULE`.
+//! left side has a head, whose right side has no instance of its left
+//! (`a + b = b + a` would rewrite forever), and no unknown its left side
+//! doesn't fix: `E-REWRITE-REPEATEDLY-RULE`.
 //!
 //! **Limits.** At most [`STEP_LIMIT`] rewrites; past that it is
 //! `E-REWRITE-REPEATEDLY-BUDGET`, naming the rules that kept applying.
@@ -45,7 +47,10 @@ use stitchwort_core::{DefId, Term, Value};
 use stitchwort_syntax::ast::{Expr, Name as AstName, RewriteRule};
 use stitchwort_syntax::{Diagnostic, Span};
 
-use super::{Equation, Key, Place, Stats, Step, elaborate_rule, key, rewrite_once, search_budget};
+use super::{
+    Equation, Key, Place, Repeated, Stats, Step, elaborate_rule, goal_as_written, key,
+    rewrite_once, search_budget,
+};
 use crate::check::{Ctx, Result, check, infer};
 use crate::undo::{Snapshot, fatal};
 
@@ -93,7 +98,7 @@ struct Present {
 /// The keys of every part of the goal, as it computes and as written: what
 /// a rule's [`Listed::keys`] are looked up in. `None` where the goal is too
 /// large to read back, and every rule is tried.
-fn goal_keys(cx: &Ctx, goal: &Value, written: Option<&Term>) -> Present {
+fn goal_keys(cx: &Ctx, goal: &Value, computed: Option<&Term>, written: Option<&Term>) -> Present {
     let collect = |term: &Term, keys: &mut Vec<Key>| {
         for (t, under) in term.subterms() {
             if let Some(k) = key(t, under)
@@ -103,15 +108,11 @@ fn goal_keys(cx: &Ctx, goal: &Value, written: Option<&Term>) -> Present {
             }
         }
     };
-    let g = cx.g();
-    let computed = force(&g, goal.clone())
-        .ok()
-        .and_then(|v| cx.quote(&v).ok())
-        .map(|t| {
-            let mut keys = Vec::new();
-            collect(&t, &mut keys);
-            (keys, calls(&t))
-        });
+    let computed = computed.map(|t| {
+        let mut keys = Vec::new();
+        collect(t, &mut keys);
+        (keys, calls(t))
+    });
     let shown = cx.quote_folded(goal).ok().map(|t| {
         let mut keys = Vec::new();
         collect(&t, &mut keys);
@@ -141,8 +142,9 @@ fn calls(term: &Term) -> Vec<DefId> {
     out
 }
 
-/// Whether a rule of `shape` may fit somewhere in a goal with `present`.
-fn may_fit(shape: &Shape, present: &Present) -> bool {
+/// Whether a rule of `shape` may fit somewhere in a goal with `present`:
+/// as written, or, unless `written_only`, in what it computes to.
+fn may_fit(shape: &Shape, present: &Present, written_only: bool) -> bool {
     let fits = |shape: &Option<(Key, Vec<DefId>)>, present: &Option<(Vec<Key>, Vec<DefId>)>| match (
         shape, present,
     ) {
@@ -152,7 +154,8 @@ fn may_fit(shape: &Shape, present: &Present) -> bool {
         }
         (None, Some(_)) => false,
     };
-    fits(&shape.written, &present.written) || fits(&shape.computed, &present.computed)
+    fits(&shape.written, &present.written)
+        || (!written_only && fits(&shape.computed, &present.computed))
 }
 
 /// `rewrite repeatedly [rules]` against `expected`, with or without `then`.
@@ -180,50 +183,88 @@ pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) ->
             });
         }
     }
-    let mut written_goal = cx.written_goal.take();
     let mut goal = match cx.e.tables.interfaces.is_empty() {
         true => expected.clone(),
         false => crate::interfaces::find_ready_dictionaries(cx, expected, None)?
             .unwrap_or_else(|| expected.clone()),
     };
+    // Only a goal as written known to denote the goal, as for `rewrite`.
+    let given = cx.written_goal.take();
+    let mut written_goal = goal_as_written(cx, given, &goal)?;
     let mut steps: Vec<Step> = Vec::new();
     // Per rewrite: the rule used, and for `goal --at`, the goal before and
     // the equation as used.
     let mut trail: Vec<(usize, Value, Option<Value>)> = Vec::new();
-    // Round robin: after a rule rewrites, the next one is tried, not the
-    // first, and it stops once every rule in turn has found nothing. A rule
-    // that found nothing isn't tried again until something has changed.
-    let mut failed_at: Vec<Option<usize>> = vec![None; rules.len()];
-    let mut present = (
-        usize::MAX,
-        Present {
-            written: None,
-            computed: None,
-        },
-    );
+    // Each listed rule's last reason for not applying, other than not being
+    // there: for the message when the goal is left open.
+    let mut skipped: Vec<Option<Diagnostic>> = vec![None; rules.len()];
+    // Two passes per goal. First every rule, in turn, looked for only as
+    // written, which is cheap; a rule that rewrites starts the next goal.
+    // Only when none fits so is each rule looked for in what the goal
+    // computes to as well, which compares by computing, and for a left side
+    // that unfolds into a large term (the toy formatter's printer lemmas)
+    // is most of the time a `rewrite repeatedly` takes. It stops when no
+    // rule fits either way. A rule that found nothing isn't tried again in
+    // the same pass until something has changed.
+    let mut failed_written: Vec<Option<usize>> = vec![None; rules.len()];
+    let mut failed_full: Vec<Option<usize>> = vec![None; rules.len()];
+    // The goal, forced and read back once per version, and its keys.
+    let mut present: Option<(usize, Option<Term>, Present)> = None;
+    let mut written_only = true;
     let mut idle = 0;
     let mut index = 0;
-    while idle < rules.len() {
+    // Without `then`, a goal that closes once no rule fits as written is
+    // closed there: the search in what it computes to, the costly pass,
+    // could only rewrite a goal that is already proved.
+    let mut closed = None;
+    loop {
+        if idle >= rules.len() {
+            match written_only {
+                true => {
+                    if body.is_none()
+                        && let Some(term) = try_close(cx, header, &goal)?
+                    {
+                        closed = Some(term);
+                        break;
+                    }
+                    written_only = false;
+                    idle = 0;
+                }
+                false => break,
+            }
+        }
         let listed = &rules[index];
         let version = trail.len();
         let this = index;
         index = (index + 1) % rules.len();
-        if failed_at[this] == Some(version) {
-            idle += 1;
-            continue;
-        }
-        if present.0 != version {
-            present = (version, goal_keys(cx, &goal, written_goal.as_ref()));
-        }
-        failed_at[this] = Some(version);
         idle += 1;
-        if !may_fit(&listed.shape, &present.1) {
+        let tried = match written_only {
+            true => failed_written[this] == Some(version) || failed_full[this] == Some(version),
+            false => failed_full[this] == Some(version),
+        };
+        if tried {
             continue;
         }
+        match written_only {
+            true => failed_written[this] = Some(version),
+            false => failed_full[this] = Some(version),
+        }
+        if present.as_ref().is_none_or(|(v, _, _)| *v != version) {
+            let g = cx.g();
+            let computed = force(&g, goal.clone()).ok().and_then(|v| cx.quote(&v).ok());
+            let keys = goal_keys(cx, &goal, computed.as_ref(), written_goal.as_ref());
+            present = Some((version, computed, keys));
+        }
+        let (_, computed, keys) = present.as_ref().expect("just read back");
+        if !may_fit(&listed.shape, keys, written_only) {
+            continue;
+        }
+        let computed = computed.clone();
         let snapshot = Snapshot::take(cx);
         let errors = cx.e.attempt.branch_errors.borrow().len();
         let mut remaining = search_budget(cx);
         let mut stats = Stats::default();
+        let t0 = std::time::Instant::now();
         let found = rewrite_once(
             cx,
             &listed.rule,
@@ -236,16 +277,21 @@ pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) ->
             None,
             &mut remaining,
             &mut stats,
-            true,
+            Some(&Repeated {
+                written_only,
+                computed: computed.as_ref(),
+            }),
         );
         if std::env::var_os("STITCHWORT_REWRITE_METRICS").is_some() {
             eprintln!(
-                "rewrite-repeatedly-metrics: at={}..{} rule={} applied={} steps={}",
+                "rewrite-repeatedly-metrics: at={}..{} rule={} pass={} applied={} steps={} us={}",
                 listed.rule.span.start,
                 listed.rule.span.end,
                 rule_name(&listed.rule),
+                if written_only { "written" } else { "full" },
                 matches!(&found, Ok(f) if !f.is_empty()),
                 search_budget(cx) - remaining,
+                t0.elapsed().as_micros(),
             );
         }
         match found {
@@ -272,14 +318,20 @@ pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) ->
                 steps.extend(found);
                 written_goal = next_written;
                 trail.push((this, before, used));
-                idle = 0;
-                if trail.len() > STEP_LIMIT {
-                    return Err(budget_error(header, &rules, &trail));
+                if trail.len() >= STEP_LIMIT {
+                    return Err(budget_error(cx, header, &rules, &trail, &goal));
                 }
+                idle = 0;
+                written_only = true;
             }
             Ok(_) => restore(cx, snapshot, errors),
             Err(e) if fatal(&e) => return Err(e),
-            Err(e) if DOES_NOT_APPLY.contains(&e.code) => restore(cx, snapshot, errors),
+            Err(e) if DOES_NOT_APPLY.contains(&e.code) => {
+                restore(cx, snapshot, errors);
+                if e.code != "E-REWRITE-NOTHING" {
+                    skipped[this] = Some(e);
+                }
+            }
             Err(e) => return Err(e),
         }
     }
@@ -321,13 +373,23 @@ pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) ->
         }
     }
     let base = match body {
+        _ if closed.is_some() => closed.expect("just checked"),
         Some(body) => {
             if !stated(body) {
                 warn_unstated(cx, header, body);
             }
             check(cx, body, &goal)?
         }
-        None => close(cx, header, written, &rules, &trail, &goal)?,
+        None => close(
+            cx,
+            header,
+            written,
+            &rules,
+            &trail,
+            &skipped,
+            &goal,
+            written_goal.as_ref(),
+        )?,
     };
     let mut term = base;
     for step in steps.into_iter().rev() {
@@ -373,50 +435,61 @@ fn written_after(cx: &Ctx, written: &Term, found: &[Step]) -> Result<Option<Term
     Ok(Some(written))
 }
 
-/// Closes what the rules left: by computing, by contradicting hypotheses,
-/// or by a hypothesis (or a part of one) of its type.
-fn close(
-    cx: &mut Ctx,
-    header: Span,
-    written: &[RewriteRule],
-    rules: &[Listed],
-    trail: &[(usize, Value, Option<Value>)],
-    goal: &Value,
-) -> Result<Term> {
+/// [`close`]'s closers, or `None` if none closes `goal`.
+fn try_close(cx: &mut Ctx, header: Span, goal: &Value) -> Result<Option<Term>> {
     let rfl = Expr::Var(AstName {
         text: "byComputing".into(),
         span: header,
     });
     let snapshot = Snapshot::take(cx);
     let errors = cx.e.attempt.branch_errors.borrow().len();
-    let refl = crate::Elaborator::unnoted_in(cx, |cx| check(cx, &rfl, goal));
-    let refl = match refl {
-        Ok(term) => return Ok(term),
-        Err(e) if e.code == "E-REFL" => {
-            restore(cx, snapshot, errors);
-            Some(e)
-        }
+    match crate::Elaborator::unnoted_in(cx, |cx| check(cx, &rfl, goal)) {
+        Ok(term) => return Ok(Some(term)),
         Err(e) if fatal(&e) => return Err(e),
-        Err(_) => {
-            restore(cx, snapshot, errors);
-            None
-        }
-    };
-    if let Some(term) = crate::cases::close_by_hypotheses(cx, goal)? {
+        Err(_) => restore(cx, snapshot, errors),
+    }
+    crate::cases::close_by_hypotheses(cx, goal)
+}
+
+/// Closes what the rules left: by computing, by contradicting hypotheses,
+/// or by a hypothesis (or a part of one) of its type.
+#[allow(clippy::too_many_arguments)]
+fn close(
+    cx: &mut Ctx,
+    header: Span,
+    written: &[RewriteRule],
+    rules: &[Listed],
+    trail: &[(usize, Value, Option<Value>)],
+    skipped: &[Option<Diagnostic>],
+    goal: &Value,
+    written_goal: Option<&Term>,
+) -> Result<Term> {
+    if let Some(term) = try_close(cx, header, goal)? {
         return Ok(term);
     }
-    Err(left_open(cx, header, written, rules, trail, goal, refl))
+    Err(left_open(
+        cx,
+        header,
+        written,
+        rules,
+        trail,
+        skipped,
+        goal,
+        written_goal,
+    ))
 }
 
 /// `E-REWRITE-REPEATEDLY`: the goal the rules left, which nothing closed.
+#[allow(clippy::too_many_arguments)]
 fn left_open(
     cx: &Ctx,
     header: Span,
     written: &[RewriteRule],
     rules: &[Listed],
     trail: &[(usize, Value, Option<Value>)],
+    skipped: &[Option<Diagnostic>],
     goal: &Value,
-    refl: Option<Diagnostic>,
+    written_goal: Option<&Term>,
 ) -> Diagnostic {
     let mut error = Diagnostic::error(
         "E-REWRITE-REPEATEDLY",
@@ -426,12 +499,16 @@ fn left_open(
         header,
         "no rule applies any more, and what is left isn't closed",
     )
-    .with_note(format!("what is left: `{}`", cx.show(goal)));
-    // `E-REFL`'s notes say where the two sides differ.
-    if let Some(refl) = refl {
-        for note in refl.notes {
-            error = error.with_note(note);
-        }
+    .with_note(format!(
+        "what is left: {}",
+        shown_goal(cx, goal, written_goal)
+    ));
+    // Where the two sides first differ, as `byComputing` would say.
+    let g = cx.g();
+    if let Ok(Value::Eq(_, a, b)) = force(&g, goal.clone())
+        && let Some(note) = cx.first_difference_note(&a, &b)
+    {
+        error = error.with_note(note);
     }
     let mut counts = vec![0usize; written.len()];
     for (index, _, _) in trail {
@@ -443,34 +520,60 @@ fn left_open(
         .filter(|(_, n)| **n > 0)
         .map(|(rule, n)| format!("`{}` ({n}×)", rule_name(rule)))
         .collect::<Vec<_>>();
-    let unused = written
-        .iter()
-        .zip(&counts)
-        .filter(|(_, n)| **n == 0)
-        .map(|(rule, _)| format!("`{}`", rule_name(rule)))
-        .collect::<Vec<_>>();
     error = match applied.is_empty() {
         true => error.with_note("no rule applied: the goal is as it was"),
         false => error.with_note(format!("the rules applied: {}", applied.join(", "))),
     };
-    if !unused.is_empty() {
-        error = error.with_note(format!(
-            "never applied: {} (a rule applies where its left side is in the goal, as written \
-             or as it computes, with its premises proved)",
-            unused.join(", ")
-        ));
+    // For each rule that never applied, why: its last reason for skipping
+    // a place it fits, or that its left side is nowhere in the goal.
+    let mut missing = Vec::new();
+    for (origin, rule) in written.iter().enumerate() {
+        if counts[origin] > 0 {
+            continue;
+        }
+        let reason = rules
+            .iter()
+            .zip(skipped)
+            .filter(|(listed, _)| listed.origin == origin)
+            .find_map(|(_, e)| e.as_ref());
+        match reason {
+            Some(e) => {
+                error = error.with_note(format!(
+                    "`{}` fits, but {}",
+                    rule_name(rule),
+                    e.labels
+                        .first()
+                        .map_or(e.message.as_str(), |l| l.message.as_str())
+                ));
+            }
+            None => missing.push(format!("`{}`", rule_name(rule))),
+        }
     }
-    error.with_note(
-        "prove what is left with `then t` (state it: `then (t: P)`), or see it as a goal with \
-         `then ?`",
-    )
+    if !missing.is_empty() {
+        error = error.with_note(format!("never found in the goal: {}", missing.join(", ")));
+    }
+    error.with_note("prove what is left with `then (t: P)`, or see it as a goal with `then ?`")
+}
+
+/// The goal as written, when it is known, with what it computes to where
+/// that reads differently.
+fn shown_goal(cx: &Ctx, goal: &Value, written_goal: Option<&Term>) -> String {
+    let computed = cx.show(goal);
+    match written_goal.map(|w| cx.show_term(w)) {
+        Some(written) if written != computed => {
+            format!("`{written}`, which computes to `{computed}`")
+        }
+        _ => format!("`{computed}`"),
+    }
 }
 
 /// `E-REWRITE-REPEATEDLY-BUDGET`: the rules made [`STEP_LIMIT`] rewrites.
 fn budget_error(
+    cx: &Ctx,
     header: Span,
     rules: &[Listed],
     trail: &[(usize, Value, Option<Value>)],
+    goal: &Value,
 ) -> Diagnostic {
     let names = trail
         .iter()
@@ -489,31 +592,51 @@ fn budget_error(
             .collect::<Vec<_>>()
             .join(", ")
     ));
-    let error = match cycle(trail) {
-        Some(period) => {
-            let turn = trail[trail.len() - period..]
-                .iter()
-                .map(|(index, _, _)| format!("`{}`", rule_name(&rules[*index].rule)))
-                .collect::<Vec<_>>();
-            error.with_note(match period {
-                1 => format!("{} keeps applying to its own result", turn[0]),
-                _ => format!(
-                    "they go round in a cycle: {} undo each other's work",
-                    turn.join(", ")
-                ),
-            })
-        }
+    let cycling = cycle(trail).map(|period| {
+        let turn = trail[trail.len() - period..]
+            .iter()
+            .map(|(index, _, _)| format!("`{}`", rule_name(&rules[*index].rule)))
+            .collect::<Vec<_>>();
+        // The same rules in turn, but only a cycle if they also bring the
+        // goal back to what it was.
+        let back = &trail[trail.len() - period].1;
+        let same_goal = matches!(
+            (cx.quote_folded(back), cx.quote_folded(goal)),
+            (Ok(a), Ok(b)) if crate::matching::same(&a, &b)
+        );
+        (turn, same_goal)
+    });
+    let error = match &cycling {
+        Some((turn, true)) => error.with_note(format!(
+            "they go round in a cycle: {} undo each other's work",
+            turn.join(", ")
+        )),
+        Some((turn, false)) if turn.len() == 1 => error.with_note(format!(
+            "{} keeps applying to its own result, and the goal keeps changing",
+            turn[0]
+        )),
+        Some((turn, false)) => error.with_note(format!(
+            "{} keep applying in turn, and the goal keeps changing",
+            turn.join(", ")
+        )),
         None => error,
     };
-    error.with_note(
-        "take out a rule that turns another's result back, or one that rewrites a term into a \
-         larger one containing it; a fact such as `a + b = b + a` belongs in `algebra` or \
-         `arithmetic`",
-    )
+    let error = error.with_note(format!("the goal now: `{}`", cx.show(goal)));
+    match cycling {
+        Some((_, false)) => error.with_note(
+            "rules that keep making new places to apply never finish: rewrite a set number of \
+             times with `rewrite`, or prove the general fact by induction and use that",
+        ),
+        _ => error.with_note(
+            "take out a rule that turns another's result back, or one that rewrites a term \
+             into a larger one containing it; a fact such as `a + b = b + a` belongs in \
+             `algebra` or `arithmetic`",
+        ),
+    }
 }
 
-/// The shortest period, up to 4, with which the trail's last rewrites repeat
-/// (twice over), if any.
+/// The shortest period, up to 4, with which the rules of the trail's last
+/// rewrites repeat (twice over), if any.
 fn cycle(trail: &[(usize, Value, Option<Value>)]) -> Option<usize> {
     let rules = trail.iter().map(|(index, _, _)| *index).collect::<Vec<_>>();
     (1..=4).find(|&p| {
@@ -586,7 +709,11 @@ fn expand(cx: &mut Ctx, rule: &RewriteRule) -> Result<Vec<RewriteRule>> {
         }
     };
     let mut out = Vec::new();
-    for k in 1.. {
+    // One equation (or set of alternatives) per arm, and every arm is at
+    // least one node of the body: a bound, so that a definition none of
+    // whose equations exist isn't asked for `eqK` forever.
+    let arms = def.body().map_or(1, |body| body.subterms().count());
+    for k in 1..=arms {
         let arm = field(&rule.proof, format!("eq{k}"));
         match exists(cx, &arm)? {
             Some(true) => out.push(arm),
@@ -691,7 +818,9 @@ fn definition_named(cx: &mut Ctx, proof: &Expr) -> Result<Option<DefId>> {
     };
     let g = cx.g();
     let def = g.def(*d);
-    if def.theorem() || def.opaque() || def.body().is_none() {
+    // An instance has no arm equations of its own, and its methods are
+    // named through it.
+    if def.theorem() || def.instance() || def.opaque() || def.body().is_none() {
         return Ok(None);
     }
     // A definition whose result is an equation is a proof of one.
@@ -725,20 +854,21 @@ pub(super) fn unfold_equation(cx: &mut Ctx, rule: &RewriteRule) -> Result<Equati
         spine.push(Elim::App(value.clone(), icit));
         ty = rest.apply(&g, value)?;
     }
-    let lhs = cx.eval(&call)?;
-    let rhs = unfold_once(&g, d, spine)?;
-    // `byComputing`, with its type: `J` is checked against the type of its
-    // proof, which a bare `byComputing` doesn't give.
+    let call_value = cx.eval(&call)?;
+    let body = unfold_once(&g, d, spine)?;
+    let (lhs, rhs) = match rule.reverse {
+        true => (body, call_value),
+        false => (call_value, body),
+    };
+    // `byComputing`, with its type, `rhs = lhs` as `J` takes it: `J` is
+    // checked against the type of its proof, which a bare `byComputing`
+    // doesn't give.
     let stated = Term::Eq(
         Some(Rc::new(cx.quote(&ty)?)),
         Rc::new(cx.quote_folded(&rhs)?),
-        Rc::new(call),
+        Rc::new(cx.quote_folded(&lhs)?),
     );
     let to_lhs = Term::Ann(Rc::new(Term::Refl), Rc::new(stated));
-    let (lhs, rhs) = match rule.reverse {
-        true => (rhs, lhs),
-        false => (lhs, rhs),
-    };
     Ok(Equation {
         carrier: ty,
         lhs,
@@ -755,7 +885,15 @@ pub(super) fn unfold_equation(cx: &mut Ctx, rule: &RewriteRule) -> Result<Equati
 fn check_rule(cx: &mut Ctx, rule: &RewriteRule) -> Result<Shape> {
     let snapshot = Snapshot::take(cx);
     let errors = cx.e.attempt.branch_errors.borrow().len();
+    let t0 = std::time::Instant::now();
     let outcome = check_rule_inner(cx, rule);
+    if std::env::var_os("STITCHWORT_REWRITE_METRICS").is_some() {
+        eprintln!(
+            "rewrite-repeatedly-check: rule={} us={}",
+            rule_name(rule),
+            t0.elapsed().as_micros()
+        );
+    }
     restore(cx, snapshot, errors);
     outcome
 }
@@ -784,8 +922,14 @@ fn check_rule_inner(cx: &mut Ctx, rule: &RewriteRule) -> Result<Shape> {
                 cx.show(&equation.lhs)
             ),
         )
-        .with_note("give the arguments that fix its left side, or turn the rule round with `<-`"));
+        .with_note(match rule.reverse {
+            true => "give the arguments that fix its left side, or write it without `<-`",
+            false => "give the arguments that fix its left side, or turn the rule round with `<-`",
+        }));
     };
+    if let Some(error) = unfixed(cx, rule, &equation)? {
+        return Err(error);
+    }
     let g = cx.g();
     let computed = cx.quote(&force(&g, equation.lhs.clone())?)?;
     let shape = Shape {
@@ -795,9 +939,10 @@ fn check_rule_inner(cx: &mut Ctx, rule: &RewriteRule) -> Result<Shape> {
         computed: key(&computed, 0).map(|k| (k, Vec::new())),
     };
     let mut remaining = search_budget(cx);
-    // A rule whose sides compute to each other (a definition's step) can't
-    // loop: what it gives back is only progress where it is written
-    // differently, which the search checks.
+    // A rule whose sides compute to each other (a definition's step) is
+    // never refused here: what it gives back is only progress where it is
+    // written differently, which the search checks, and a recursive one
+    // that keeps exposing calls of itself is caught by the budget.
     let snapshot = Snapshot::take(cx);
     let computes = g
         .machine
@@ -850,6 +995,68 @@ fn check_rule_inner(cx: &mut Ctx, rule: &RewriteRule) -> Result<Shape> {
         }
     }
     Ok(shape)
+}
+
+/// `E-REWRITE-REPEATEDLY-RULE` for a rule whose right side has an unknown
+/// of its own that its left side doesn't fix (`h: ∀ x y => f x = y + x`):
+/// matching the left side leaves it unsolved, so it would put an unknown
+/// into the goal. Unknowns that stand for proofs of premises are proved
+/// once it matches, so they don't count.
+fn unfixed(cx: &Ctx, rule: &RewriteRule, equation: &Equation) -> Result<Option<Diagnostic>> {
+    let own = |t: &Term| {
+        let mut out = Vec::new();
+        for (t, _) in t.subterms() {
+            if let Term::Meta(m) = t
+                && *m >= equation.rule_metas
+                && !out.contains(m)
+            {
+                out.push(*m);
+            }
+        }
+        out
+    };
+    let lhs = own(&cx.quote(&equation.lhs)?);
+    let g = cx.g();
+    let mut premises = Vec::new();
+    for premise in &equation.premises {
+        let ty = force(&g, premise.ty.clone())?;
+        if super::is_proof_type(cx, &ty)? {
+            premises.extend(own(&premise.meta));
+        }
+    }
+    let open = own(&cx.quote(&equation.rhs)?)
+        .into_iter()
+        .filter(|m| !lhs.contains(m) && !premises.contains(m))
+        .collect::<Vec<_>>();
+    if open.is_empty() {
+        return Ok(None);
+    }
+    // A trailing argument left off has its parameter's name.
+    let names = equation
+        .premises
+        .iter()
+        .filter(|p| own(&p.meta).iter().any(|m| open.contains(m)))
+        .filter_map(|p| p.name.as_ref().map(|n| format!("`{n}`")))
+        .collect::<Vec<_>>();
+    let what = match names.is_empty() {
+        true => "an unknown".to_string(),
+        false => names.join(", "),
+    };
+    Ok(Some(
+        Diagnostic::error(
+            "E-REWRITE-REPEATEDLY-RULE",
+            "this rule's right side has an unknown its left side doesn't fix",
+        )
+        .with_label(
+            rule.proof.span(),
+            format!(
+                "it rewrites `{}` to `{}`, and finding the left side doesn't say what {what} is",
+                cx.show(&equation.lhs),
+                cx.show(&equation.rhs)
+            ),
+        )
+        .with_note("give the arguments the right side needs, as in `h _ 3`"),
+    ))
 }
 
 /// Whether the term after `then` is one R7 allows after flexible rewriting:

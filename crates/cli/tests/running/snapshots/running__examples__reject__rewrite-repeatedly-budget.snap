@@ -9,9 +9,11 @@ expression: output
    │                                                                         ───────────────┬───────────────  
    │                                                                                        ╰───────────────── the rules keep applying
    │ 
-   │ Note 1: the last rules applied: `back`, `there`, `back`, `there`, `back`, `there`, `back`, `there`
+   │ Note 1: the last rules applied: `there`, `back`, `there`, `back`, `there`, `back`, `there`, `back`
    │ 
-   │ Note 2: they go round in a cycle: `back`, `there` undo each other's work
+   │ Note 2: they go round in a cycle: `there`, `back` undo each other's work
    │ 
-   │ Note 3: take out a rule that turns another's result back, or one that rewrites a term into a larger one containing it; a fact such as `a + b = b + a` belongs in `algebra` or `arithmetic`
+   │ Note 3: the goal now: `Succ a = Succ a`
+   │ 
+   │ Note 4: take out a rule that turns another's result back, or one that rewrites a term into a larger one containing it; a fact such as `a + b = b + a` belongs in `algebra` or `arithmetic`
 ───╯

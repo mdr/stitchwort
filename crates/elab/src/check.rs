@@ -1164,7 +1164,7 @@ impl<'e> Ctx<'e> {
         same.then(|| goal.clone())
     }
 
-    fn show_term(&self, term: &Term) -> String {
+    pub(crate) fn show_term(&self, term: &Term) -> String {
         pretty::term_for_message_in(&self.g(), self.e, &self.shown_names(false), term)
     }
 
