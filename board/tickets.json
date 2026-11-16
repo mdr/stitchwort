@@ -34249,7 +34249,7 @@
     {
       "id": 3153,
       "title": "[DeepSeek] LSP 'Add missing arms' (crates/lsp/src/arms.rs) finds arms by scanning text lines for '| ' at a column; lines inside a \"\"\" text block could fool it. Add a test with a text block containing '| ' lines and fix (use tokens/spans) (SW-3152 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34303,12 +34303,12 @@
     {
       "id": 3157,
       "title": "[DeepSeek] ast.rs's header says the tree is 'as written by the user' but it holds five expansions (let (a, b), chained comparisons, .f sections, tuples, interpolation); correct the doc comment (SW-3155 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~40 min (est. 40). With SW-3153 (arms by tokens, two tests failing before) and SW-3480 (guide note, rfl checked).",
       "created": "2026-11-13",
       "updated": "2026-11-16",
       "commits": []
@@ -38810,7 +38810,7 @@
     {
       "id": 3480,
       "title": "[DeepSeek] Proving guide: say that [x, ..xs ++ ys] and [x, ..xs] ++ ys are the same to the checker (motives can rely on it), with a two-line example (SW-3418 lane 4 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -38836,12 +38836,12 @@
     {
       "id": 3482,
       "title": "[DeepSeek] fmt not idempotent on doubled parens around a return type after an ability row (Overmind plain fuzz, seed 0x60c case 28149, main 7adb49e19): 'def main(): {IO} ( (halvings 100 0))' (no body). Pass 1 leaves one pair: 'def main(): {IO} (halvings 100 0)'; pass 2 drops it: '{IO} halvings 100 0'. drop_parens should strip nested redundant pairs in one pass (or keep the last pair both times, whichever is right for an application after an ability row; see SW-3456). Repro: task fuzz:fmt SEED=0x60c CASE=28149",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~45 min (est. 40). parens.rs looks past already-dropped tokens for the row; unit test + golden failing before; seed 0x60c 50k cases clean.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -38854,7 +38854,7 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "The mutation: one name swapped, List.memRangeFrom → List.memRangeBounds in 'let columnSmall := List.memRangeBounds column lab.width 0 columnMember' (Part2.sw positionsOnlyOnMap). So a wrong lemma name/arity in a let before omega takes >90 s to reject instead of a quick type error. Full mutant: copy positionsOnlyOnMap and swap that one name. Likely omega or the elaborator searching hard with an ill-typed hypothesis (or unifying memRangeBounds' arguments).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
