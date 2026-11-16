@@ -193,7 +193,9 @@ pub fn scope_items(
             continue;
         };
         let edit = lsp_types::TextEdit::new(crate::range(edit.range), edit.new_text);
-        let mut found = name_item(n, '3');
+        // The project's own namespaces before the library's.
+        let own_project = !(path == "Std" || path.starts_with("Std."));
+        let mut found = name_item(n, if own_project { '3' } else { '4' });
         found.label_details = Some(lsp_types::CompletionItemLabelDetails {
             detail: None,
             description: Some(format!("import {path} ({item})")),
