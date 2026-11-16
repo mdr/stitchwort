@@ -37,45 +37,45 @@ def opensAtColumn: Text → Bool
 --| that started with a text, which `opens` says is one of `opensAtColumn`.
 --| A line at the column that ends in `CommentEnd` holds an own-line
 --| comment, whatever its text, and the next line is at the column again.
-type Scan = | Clear | Waiting | Started (opens: Bool)
+type Scan = | Clear | Pending | Started (opens: Bool)
 
 --| A scan may end, or go on into anything, here.
 def Scan.settled: Scan → Bool
   | Clear => True
-  | Waiting => False
+  | Pending => False
   | Started opens => opens
 
 def Scan.text (scan: Scan) (opens: Bool): Scan := match scan with
-  | Waiting => Started opens
+  | Pending => Started opens
   | _ => scan
 
 --| A line break at the doc's own indentation.
 def Scan.lineBreak: Scan → Option Scan
-  | Clear => Some Waiting
-  | Waiting => Some Waiting
-  | Started opens => if opens then Some Waiting else None
+  | Clear => Some Pending
+  | Pending => Some Pending
+  | Started opens => if opens then Some Pending else None
 
 def Scan.commentEnd: Scan → Scan
   | Clear => Clear
-  | _ => Waiting
+  | _ => Pending
 
 --| A break deeper than the doc's indentation; a line still waiting at the
 --| column would be left without its text.
 def Scan.deeper: Scan → Option Scan
   | Clear => Some Clear
-  | Waiting => None
+  | Pending => None
   | Started opens => if opens then Some Clear else None
 
 --| A `LineStart` does nothing at the start of a line, and is a comment
 --| break, deeper, anywhere else.
 def Scan.lineStart: Scan → Option Scan
-  | Waiting => Some Waiting
+  | Pending => Some Pending
   | scan => scan.deeper
 
 --| Into a `Nest` deeper than the doc: its breaks are deeper, except that a
 --| closer's comments (`closer`) start by moving a waiting line there.
 def Scan.intoNest (scan: Scan) (inner: Doc): Option Scan := match scan with
-  | Waiting => if inner.startsHere then Some Clear else None
+  | Pending => if inner.startsHere then Some Clear else None
   | _ => scan.deeper
 
 def Doc.startsHere: Doc → Bool
@@ -86,7 +86,7 @@ def Doc.startsHere: Doc → Bool
 --| differ join as the stricter `Started True`.
 def Scan.join: Scan → Scan → Option Scan
   | Clear, Clear => Some Clear
-  | Waiting, Waiting => Some Waiting
+  | Pending, Pending => Some Pending
   | one, other => if one.settled && other.settled then Some (Started True) else None
 
 --| The scan after `doc`, or `None` if a line at the statement's column
@@ -158,7 +158,7 @@ theorem textSettled ∀ (scan: Scan) (settled: scan.settled = True) (opens: Bool
     | Clear => rfl
     | Started found => rfl
 
-theorem lineBreakSettled ∀ (scan: Scan) (settled: scan.settled = True): scan.lineBreak = Some Waiting := match scan with
+theorem lineBreakSettled ∀ (scan: Scan) (settled: scan.settled = True): scan.lineBreak = Some Pending := match scan with
   | Clear => rfl
   | Started True => rfl
 
@@ -245,19 +245,19 @@ theorem keepsTrailing ∀ (trailing: Option Comment): Keeps (trailingComment tra
 --| A line break at the doc's indentation, then a doc that, from there,
 --| starts its line with one of `opensAtColumn`.
 theorem keepsSeqBreak ∀ (break opener: Doc) (docs: List Doc)
-    (breaks: ∀ (scan: Scan) => scan.settled = True → break.scanLines scan = Some Waiting)
-    (opens: opener.scanLines Waiting = Some (Started True))
+    (breaks: ∀ (scan: Scan) => scan.settled = True → break.scanLines scan = Some Pending)
+    (opens: opener.scanLines Pending = Some (Started True))
     (rest: KeepsSeq docs):
     KeepsSeq [break, opener, ..docs] :=
   scan settled => rewrite breaks scan settled, opens in rest (Started True) rfl
 
-theorem lineBreaks ∀ (scan: Scan) (settled: scan.settled = True): Doc.scanLines Line scan = Some Waiting :=
+theorem lineBreaks ∀ (scan: Scan) (settled: scan.settled = True): Doc.scanLines Line scan = Some Pending :=
   lineBreakSettled scan settled
 
-theorem softLineBreaks ∀ (scan: Scan) (settled: scan.settled = True): Doc.scanLines SoftLine scan = Some Waiting :=
+theorem softLineBreaks ∀ (scan: Scan) (settled: scan.settled = True): Doc.scanLines SoftLine scan = Some Pending :=
   lineBreakSettled scan settled
 
-theorem hardLineBreaks ∀ (scan: Scan) (settled: scan.settled = True): Doc.scanLines HardLine scan = Some Waiting :=
+theorem hardLineBreaks ∀ (scan: Scan) (settled: scan.settled = True): Doc.scanLines HardLine scan = Some Pending :=
   lineBreakSettled scan settled
 
 -- Tokens and their comments.
@@ -273,10 +273,10 @@ theorem commentLinesClear ∀ (comments: List Comment): Doc.scanSeq (commentLine
 
 --| Own-line comments on lines at the statement's column don't count: the
 --| next line is at the column again, waiting for its text.
-theorem commentLinesWaiting ∀ (comments: List Comment): Doc.scanSeq (commentLines comments) Waiting = Some Waiting :=
+theorem commentLinesPending ∀ (comments: List Comment): Doc.scanSeq (commentLines comments) Pending = Some Pending :=
   match comments with
     | [] => rfl
-    | [comment, ..rest] => commentLinesWaiting rest
+    | [comment, ..rest] => commentLinesPending rest
 
 theorem commentsAboveSettled ∀ (comments: List Comment) (scan: Scan)
     (settled: scan.settled = True):
@@ -297,11 +297,11 @@ theorem keepsCommentsAbove ∀ (comments: List Comment): Keeps (commentsAbove co
       | [] => Witness scan (Both rfl settled)
       | [comment, ..rest] => Witness Clear (Both rfl rfl)
 
-theorem commentsAboveWaiting ∀ (comments: List Comment): (commentsAbove comments).scanLines Waiting = Some Waiting :=
+theorem commentsAbovePending ∀ (comments: List Comment): (commentsAbove comments).scanLines Pending = Some Pending :=
   match comments with
     | [] => rfl
     | [comment, ..rest] =>
-      rewrite scanConcat [LineStart, ..commentLines [comment, ..rest]] Waiting in commentLinesWaiting [comment, ..rest]
+      rewrite scanConcat [LineStart, ..commentLines [comment, ..rest]] Pending in commentLinesPending [comment, ..rest]
 
 theorem keepsToken ∀ (comments: Comments) (text: Text): Keeps (token comments text) :=
   keepsConcat
@@ -326,9 +326,9 @@ theorem trailingStarted ∀ (trailing: Option Comment):
 --| `]`), after a break there: its own-line comments don't count.
 theorem tokenOpens ∀ (comments: Comments) (text: Text)
     (opens: opensAtColumn text = True):
-    (token comments text).scanLines Waiting = Some (Started True) :=
-  rewrite scanConcat [commentsAbove comments.above, Doc.text text, trailingComment comments.after] Waiting in
-    rewrite commentsAboveWaiting comments.above in rewrite opens, trailingStarted comments.after in rfl
+    (token comments text).scanLines Pending = Some (Started True) :=
+  rewrite scanConcat [commentsAbove comments.above, Doc.text text, trailingComment comments.after] Pending in
+    rewrite commentsAbovePending comments.above in rewrite opens, trailingStarted comments.after in rfl
 
 -- Closing brackets.
 
@@ -337,7 +337,7 @@ theorem tokenOpens ∀ (comments: Comments) (text: Text)
 --| on the line below, at the column.
 theorem closerOpens ∀ (comments: Comments) (text: Text)
     (opens: opensAtColumn text = True):
-    (closer comments text).scanLines Waiting = Some (Started True) :=
+    (closer comments text).scanLines Pending = Some (Started True) :=
   match comments with
     | { above = [], after } => tokenOpens { above = [], after } text opens
     | { above = [comment], after } =>
@@ -396,15 +396,15 @@ theorem keepsThree ∀ (first second third: Doc)
 theorem closerThen ∀ (comments: Comments) (text: Text)
     (opens: opensAtColumn text = True) (docs: List Doc)
     (rest: KeepsSeq docs):
-    ∃ (after: Scan) => (Doc.concat [closer comments text, ..docs]).scanLines Waiting = Some after
+    ∃ (after: Scan) => (Doc.concat [closer comments text, ..docs]).scanLines Pending = Some after
       ∧ after.settled = True :=
-  rewrite scanConcat [closer comments text, ..docs] Waiting, closerOpens comments text opens in rest (Started True) rfl
+  rewrite scanConcat [closer comments text, ..docs] Pending, closerOpens comments text opens in rest (Started True) rfl
 
 --| A line break at the doc's indentation, then a doc that from there
 --| leaves the scan settled.
 theorem keepsSeqBreakThen ∀ (break opener: Doc) (docs: List Doc)
-    (breaks: ∀ (scan: Scan) => scan.settled = True → break.scanLines scan = Some Waiting)
-    (opens: ∃ (after: Scan) => opener.scanLines Waiting = Some after ∧ after.settled = True)
+    (breaks: ∀ (scan: Scan) => scan.settled = True → break.scanLines scan = Some Pending)
+    (opens: ∃ (after: Scan) => opener.scanLines Pending = Some after ∧ after.settled = True)
     (rest: KeepsSeq docs):
     KeepsSeq [break, opener, ..docs] :=
   scan settled =>
