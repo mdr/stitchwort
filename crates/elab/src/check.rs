@@ -1154,12 +1154,19 @@ impl<'e> Ctx<'e> {
 
     /// The declaration's statement as written, when `expected` is the type
     /// of its whole body, folded or not: `Parse.Reads p spec`, where checking
-    /// may have unfolded it to the `∀` it stands for. Error path only.
+    /// may have unfolded it to the `∀` it stands for. Error path only, so
+    /// the comparison runs aside, on a budget of its own: without the
+    /// conversion shortcuts, two equal values with huge normal forms are
+    /// compared node by node, and that must not run out the declaration's
+    /// budget and turn the mismatch into E-RESOURCE (SW-3660).
     fn goal_as_written(&self, expected: &Value) -> Option<Rc<Term>> {
         let (level, goal) = self.goal.as_ref()?;
+        let g = self.g();
         let same = *level == self.level()
-            && self.eval(goal).is_ok_and(|v| {
-                stitchwort_core::value::conv(&self.g(), *level, &v, expected).unwrap_or(false)
+            && g.machine.budget.aside(crate::assume::side_limits(), || {
+                self.eval(goal).is_ok_and(|v| {
+                    stitchwort_core::value::conv(&g, *level, &v, expected).unwrap_or(false)
+                })
             });
         same.then(|| goal.clone())
     }

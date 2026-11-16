@@ -12,13 +12,21 @@
 //! exactly the same diagnostics with the shortcut turned off. Accepted
 //! examples are left out to keep the gate fast (D74, 20 Oct 2026): the
 //! shortcut can't turn an acceptance into a rejection.
+//!
+//! Below the all tier each run compares a sample that moves on daily
+//! (`CONV_SHORTCUT_SEED`); `EXAMPLES=name` compares just the examples named
+//! (SW-3660: the whole broad sample had grown past 800 s).
 
 use std::path::Path;
+use std::time::{Duration, Instant};
 
 use stitchwort_core::value::set_shortcuts_disabled;
 use stitchwort_driver::driver::{Session, par_map, tier_sample, with_stack};
 
 const STACK: usize = 64 * 1024 * 1024;
+
+/// An example whose two checks together take longer is reported.
+const SLOW: Duration = Duration::from_secs(20);
 
 /// Examples whose check only ends in reasonable time because of a shortcut,
 /// left out of the comparison (they are still checked by the other example
@@ -66,24 +74,88 @@ fn verdict(name: &str, text: &str, shortcuts: bool) -> String {
     format!("{result:?}")
 }
 
+/// How many examples a sweep in the broad tier skips between two it
+/// compares (four times as many in quick and lane, none in all): one in
+/// eight, about 150 of them.
+const BROAD_STRIDE: usize = 8;
+
+/// The examples `EXAMPLES` names (comma-separated parts of their names, as
+/// in the other example sweeps), all of them, or `None` when it is unset or
+/// empty.
+fn named(examples: &[(String, String)]) -> Option<Vec<(String, String)>> {
+    let filter = std::env::var("EXAMPLES")
+        .ok()
+        .filter(|f| !f.trim().is_empty())?;
+    let parts: Vec<_> = filter
+        .split(',')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect();
+    let chosen: Vec<_> = (examples.iter())
+        .filter(|(name, _)| parts.iter().any(|part| name.contains(part)))
+        .cloned()
+        .collect();
+    assert!(
+        !chosen.is_empty(),
+        "EXAMPLES={filter} matches no rejected or soundness example"
+    );
+    Some(chosen)
+}
+
+/// Where the tier's sample starts: `CONV_SHORTCUT_SEED` if set, otherwise
+/// the day (days since 1970, UTC). Every run on one day compares the same
+/// sample, so the rolling check's runs agree; from one day to the next the
+/// sample moves on, so every example is compared within a few days' runs
+/// even though each run takes only a share.
+fn seed() -> u64 {
+    std::env::var("CONV_SHORTCUT_SEED")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or_else(|| {
+            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+            now.map_or(0, |d| d.as_secs() / 86_400)
+        })
+}
+
 #[test]
 fn every_rejected_example_gets_the_same_verdict_without_the_shortcut() {
     with_stack(STACK, || {
-        let examples = examples();
+        let mut examples = examples();
         assert!(examples.len() > 250, "only {} examples", examples.len());
-        // A corpus sweep: a fixed sample below the all tier, and the count of
-        // rejections expected in proportion.
         let all = examples.len();
-        let examples = tier_sample(examples, 4);
+        let named = named(&examples);
+        let filtered = named.is_some();
+        let examples = match named {
+            Some(chosen) => chosen,
+            None => {
+                // A corpus sweep: a sample below the all tier, starting at
+                // the seed's place, and the count of rejections expected in
+                // proportion.
+                let seed = seed();
+                eprintln!("CONV_SHORTCUT_SEED={seed} (set it to compare the same sample again)");
+                examples.rotate_left((seed % all as u64) as usize);
+                tier_sample(examples, BROAD_STRIDE)
+            }
+        };
         let verdicts = par_map(STACK, &examples, |(name, text)| {
+            let started = Instant::now();
             let with = verdict(name, text, true);
+            let with_took = started.elapsed();
             let without = verdict(name, text, false);
+            let without_took = started.elapsed() - with_took;
+            // A slow example is where the sweep's time goes: named, so that
+            // a run near its cap says which.
+            if with_took + without_took > SLOW {
+                eprintln!(
+                    "slow: {name}: {with_took:.1?} with the shortcut, {without_took:.1?} without"
+                );
+            }
             assert_eq!(with, without, "{name}: the verdict depends on the shortcut");
             with.starts_with("Err")
         });
         let rejected = verdicts.iter().filter(|rejected| **rejected).count();
         assert!(
-            rejected > 200 * examples.len() / all,
+            filtered || rejected > 200 * examples.len() / all,
             "only {rejected} rejections compared"
         );
     });
