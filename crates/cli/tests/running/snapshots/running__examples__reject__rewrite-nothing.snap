@@ -1,5 +1,6 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
+assertion_line: 700
 expression: output
 ---
 [E-REWRITE-NOTHING] Error: `rewrite` found no `m + n` in the goal
@@ -13,7 +14,7 @@ expression: output
    │ 
    │ Note 2: goal as it computes: `n = n`
    │ 
-   │ Note 3: the goal already holds by computing, so `rfl` proves it without a `rewrite`
+   │ Note 3: the goal already holds by computing, so `byComputing` proves it without a `rewrite`
    │ 
    │ Note 4: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
    │ 

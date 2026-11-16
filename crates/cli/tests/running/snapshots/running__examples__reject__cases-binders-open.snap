@@ -1,5 +1,6 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
+assertion_line: 700
 expression: output
 ---
 [W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
@@ -31,7 +32,7 @@ try: write ∀ instead of ->
    │ 
    │ Note 1: goal: False = True
    │ 
-   │ Note 2: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis, `omega` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases in t`
+   │ Note 2: the goal isn't stuck on anything `cases` can take apart, and neither `byComputing`, a contradiction, a hypothesis, `arithmetic` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases then t`
    │ 
    │ Note 3: it split `b` as a fallback, though the goal wasn't stuck on it
    │ 
@@ -65,7 +66,7 @@ try: write ∀ instead of ->
     │ 
     │ Note 2: goal: n = 4
     │ 
-    │ Note 3: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis, `omega` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases in t`
+    │ Note 3: the goal isn't stuck on anything `cases` can take apart, and neither `byComputing`, a contradiction, a hypothesis, `arithmetic` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases then t`
     │ 
     │ Note 4: this statement is false; a counterexample:
     │           n = 3

@@ -1,5 +1,6 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
+assertion_line: 700
 expression: output
 ---
 [E-CASES] Error: `cases` couldn't close the case it reached by the splits b = True
@@ -11,7 +12,7 @@ expression: output
     │ 
     │ Note 1: goal: K0 = pick True ∨ K1 = pick True ∨ Void
     │ 
-    │ Note 2: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis, `omega` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases in t`
+    │ Note 2: the goal isn't stuck on anything `cases` can take apart, and neither `byComputing`, a contradiction, a hypothesis, `arithmetic` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases then t`
     │ 
     │ Note 3: the goal's decision procedure says it is false
     │ 

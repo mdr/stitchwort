@@ -1,5 +1,6 @@
 ---
 source: crates/cli/tests/server/goal_index.rs
+assertion_line: 255
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
 138 lemmas, 44 goals without one

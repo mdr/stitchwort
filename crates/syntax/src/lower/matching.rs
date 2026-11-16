@@ -283,7 +283,7 @@ theorem c2: a > d := calc a
 theorem w: P := rewrite h, <- (g x) at k then t
 theorem w2: P := rewrite h at (k)
 theorem w3: P := rewrite <- h
-  in t
+  then t
 theorem w4: P := rewrite at, h at at then at
 theorem o: P := arithmetic [h, (0 ..< n)] && algebra [(a)] && algebra && arithmetic
 theorem s: P := cases then (t)

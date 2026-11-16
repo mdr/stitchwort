@@ -1,5 +1,6 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
+assertion_line: 700
 expression: output
 ---
 [E-DECREASING] Error: can't show that `(m + 1, j)` comes before `(m, Succ j)` here, which `decreasing (m, Succ j)` needs for this call
@@ -11,5 +12,5 @@ expression: output
     │ 
     │ Note 1: that's `m + 1 < m`, or `m + 1` the same as `m` and `j < Succ j`
     │ 
-    │ Note 2: give a proof with `[decreasing := Nat.LexLess.First …]` (the first got smaller) or `[decreasing := Nat.LexLess.Second rfl …]` (the first stayed the same); `[decreasing := omega]` finds either from the facts in scope
+    │ Note 2: give a proof with `[decreasing := Nat.LexLess.First …]` (the first got smaller) or `[decreasing := Nat.LexLess.Second byComputing …]` (the first stayed the same); `[decreasing := arithmetic]` finds either from the facts in scope
 ────╯

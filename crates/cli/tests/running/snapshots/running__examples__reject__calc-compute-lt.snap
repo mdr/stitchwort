@@ -1,8 +1,9 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
+assertion_line: 700
 expression: output
 ---
-[E-CALC-STEP] Error: this step has no proof, and `rfl` doesn't prove it
+[E-CALC-STEP] Error: this step has no proof, and `byComputing` doesn't prove it
    ╭─[ reject/calc-compute-lt.sw:6:5 ]
    │
  6 │     _ < n
