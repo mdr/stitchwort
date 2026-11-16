@@ -316,6 +316,16 @@ pub struct Mark {
 /// more than this many nodes is not read back whole for one (SW-2569).
 const UNFOLD_NODES: u64 = 200_000;
 
+/// The longest a side of a type mismatch is printed inline in its label;
+/// past it, the sides go one above the other with their agreeing parts
+/// left out (docs/proposals/helpful-errors.md §3.3). Most mismatches are
+/// under 40 characters a side and read well inline.
+const LONG_MISMATCH: usize = 60;
+
+/// The longest each differing part may be to be named in a mismatch's
+/// headline.
+const HEADLINE_PART: usize = 40;
+
 /// The label on a text pattern that fixed a value's type to `Text`.
 const TEXT_FALLBACK_LABEL: &str = "the type of the matched value wasn't known yet, so this \
      text pattern made it a `Text`; annotate the value's type if it is a `List Char`";
@@ -1021,6 +1031,12 @@ impl<'e> Ctx<'e> {
     /// Where what `a` and `b` compute to first differ, as a note. Error
     /// path only.
     pub fn first_difference_note(&self, a: &Value, b: &Value) -> Option<String> {
+        self.first_difference(a, b).map(difference_note)
+    }
+
+    /// Where what `a` and `b` compute to first differ, when that is below
+    /// their outermost layer and printed apart. Error path only.
+    fn first_difference(&self, a: &Value, b: &Value) -> Option<pretty::Difference> {
         let g = self.g();
         let level = self.level();
         // Read back only this deep: `Parse.exactly 2^128 p` unfolds 2^128
@@ -1043,14 +1059,7 @@ impl<'e> Ctx<'e> {
         if found.left == found.right || found.left == "…" || found.right == "…" {
             return None;
         }
-        let within = found
-            .within
-            .map(|call| format!(", in `{call}`"))
-            .unwrap_or_default();
-        Some(format!(
-            "they first differ at `{}` against `{}`{within}",
-            found.left, found.right
-        ))
+        Some(found)
     }
 
     /// `d` with a note saying the sides are different updates, for two
@@ -1133,16 +1142,29 @@ impl<'e> Ctx<'e> {
     /// is shown as it was written when it is a comparison: `3 < n` rather
     /// than `4 ≤ n`, what `<` computes to (SW-3100).
     fn show_expected(&self, expected: &Value) -> String {
-        if let Some((level, goal)) = &self.goal
-            && *level == self.level()
+        if let Some((_, goal)) = &self.goal
             && written_comparison(&self.g(), goal)
-            && self.eval(goal).is_ok_and(|v| {
-                stitchwort_core::value::conv(&self.g(), *level, &v, expected).unwrap_or(false)
-            })
+            && let Some(goal) = self.goal_as_written(expected)
         {
-            return pretty::term_for_message_in(&self.g(), self.e, &self.shown_names(false), goal);
+            return self.show_term(&goal);
         }
         self.show(expected)
+    }
+
+    /// The declaration's statement as written, when `expected` is the type
+    /// of its whole body, folded or not: `Parse.Reads p spec`, where checking
+    /// may have unfolded it to the `∀` it stands for. Error path only.
+    fn goal_as_written(&self, expected: &Value) -> Option<Rc<Term>> {
+        let (level, goal) = self.goal.as_ref()?;
+        let same = *level == self.level()
+            && self.eval(goal).is_ok_and(|v| {
+                stitchwort_core::value::conv(&self.g(), *level, &v, expected).unwrap_or(false)
+            });
+        same.then(|| goal.clone())
+    }
+
+    fn show_term(&self, term: &Term) -> String {
+        pretty::term_for_message_in(&self.g(), self.e, &self.shown_names(false), term)
     }
 
     pub(crate) fn mismatch(&self, expected: &Value, found: &Value) -> Diagnostic {
@@ -1172,11 +1194,61 @@ impl<'e> Ctx<'e> {
         } else {
             (expected_shown, found_shown, false)
         };
-        let d = self.error(
-            "E-TYPE-MISMATCH",
-            "type mismatch",
-            format!("expected `{expected_shown}`, but this has type `{found_shown}`"),
-        );
+        // A long type is shown as declared, and the two sides one above the
+        // other with the parts they agree on left out.
+        let long = |shown: &str| shown.chars().count() > LONG_MISMATCH;
+        // Read back from its value, calls kept: the term itself may hold
+        // what elaborating the statement made (`(x => x < h) (n * s)` for
+        // `n * s < h`).
+        let written = if !hidden && long(&expected_shown) {
+            self.goal_as_written(expected).and_then(|goal| {
+                let value = self.eval(&goal).ok()?;
+                stitchwort_core::value::quote_as_written_shown(&self.g(), self.level(), &value)
+                    .ok()
+                    .map(Rc::new)
+            })
+        } else {
+            None
+        };
+        let expected_shown = match &written {
+            Some(goal) => self.show_term(goal),
+            None => expected_shown,
+        };
+        let rows = (!hidden && (long(&expected_shown) || long(&found_shown)))
+            .then(|| self.mismatch_rows(written.as_deref(), expected, found))
+            .flatten();
+        let difference = rows
+            .is_some()
+            .then(|| self.folded_difference(written.as_deref(), expected, found))
+            .flatten()
+            // An unknown not worked out is no mistake to name: it would
+            // have been solved had the rest agreed.
+            .filter(|found| {
+                [&found.left, &found.right]
+                    .iter()
+                    .all(|part| part.chars().count() <= HEADLINE_PART && !part.starts_with('?'))
+            });
+        let d = match &rows {
+            Some(rows) => {
+                let headline = match &difference {
+                    Some(found) => {
+                        format!("`{}` here, but `{}` is expected", found.right, found.left)
+                    }
+                    None => "type mismatch".into(),
+                };
+                self.error(
+                    "E-TYPE-MISMATCH",
+                    headline,
+                    "this has the `found` type below",
+                )
+                .with_note(rows.clone())
+            }
+            None => self.error(
+                "E-TYPE-MISMATCH",
+                "type mismatch",
+                format!("expected `{expected_shown}`, but this has type `{found_shown}`"),
+            ),
+        };
         let d = self.unknown_notes(d, &[&expected_shown, &found_shown], &[expected, found]);
         let d = if hidden {
             d.with_note(
@@ -1190,9 +1262,20 @@ impl<'e> Ctx<'e> {
             let unclear = expected_shown == found_shown
                 || expected_shown.contains('…')
                 || found_shown.contains('…');
-            let d = match unclear.then(|| self.first_difference_note(expected, found)) {
-                Some(Some(note)) => d.with_note(note),
-                _ => d,
+            // Not when the rows already show both differing parts whole.
+            let shown_in_rows = |found: &pretty::Difference| {
+                rows.as_deref()
+                    .and_then(|rows| rows.strip_prefix(ROWS.0)?.split_once(ROWS.1))
+                    .is_some_and(|(e, f)| e.contains(&found.left) && f.contains(&found.right))
+            };
+            let note = (unclear && difference.is_none())
+                .then(|| self.first_difference(expected, found))
+                .flatten()
+                .filter(|found| !shown_in_rows(found))
+                .map(difference_note);
+            let d = match note {
+                Some(note) => d.with_note(note),
+                None => d,
             };
             if expected_shown == found_shown {
                 self.with_alike_updates_note(d, &[expected, found])
@@ -1232,12 +1315,76 @@ impl<'e> Ctx<'e> {
             Ok(Some(note)) => d.with_note(note),
             _ => d,
         };
+        // What an alias stands for helps against an expected type shown
+        // unfolded, not against the statement as written.
         let mut notes = Vec::new();
-        self.alias_notes(expected, found, ALIAS_NOTE_DEPTH, &mut notes);
+        if written.is_none() {
+            self.alias_notes(expected, found, ALIAS_NOTE_DEPTH, &mut notes);
+        }
         let d = notes.into_iter().fold(d, |d, note| d.with_note(note));
         let d = self.with_opaque_notes(d, &[expected, found]);
         let d = self.with_text_fallback_label(d, expected, found);
         self.unrefined_hint(d, expected, found)
+    }
+
+    /// Where `expected` and `found` first differ as written, calls kept
+    /// folded: in the forms shown, or else after unfolding each side to its
+    /// outermost layer (`Parse.Reads p s` and `Parse.ReadsIn inv q s` both
+    /// to a `∀`). Unlike [`Ctx::first_difference`], this never shows what
+    /// a call computes to, which for a parser or a handler is its runtime
+    /// form. Error path only.
+    fn folded_difference(
+        &self,
+        written: Option<&Term>,
+        expected: &Value,
+        found: &Value,
+    ) -> Option<pretty::Difference> {
+        let g = self.g();
+        let level = self.level();
+        let quote = |v: &Value| stitchwort_core::value::quote_shown(&g, level, v).ok();
+        let names = self.shown_names(false);
+        let differ = |x: &Term, y: &Term| {
+            pretty::first_difference_in(&g, self.e, &names, x, y)
+                .filter(|d| d.left != d.right && d.left != "…" && d.right != "…")
+        };
+        let shown = || {
+            let e = match written {
+                Some(t) => t.clone(),
+                None => quote(expected)?,
+            };
+            differ(&e, &quote(found)?)
+        };
+        let forced = || {
+            let e = force(&g, expected.clone()).ok()?;
+            let f = force(&g, found.clone()).ok()?;
+            differ(&quote(&e)?, &quote(&f)?)
+        };
+        shown().or_else(forced)
+    }
+
+    /// The `expected:` and `found:` rows of a long mismatch, with the parts
+    /// the two agree on as `…`; the expected side as `written` when there
+    /// is that form. `None` if a side can't be read back.
+    fn mismatch_rows(
+        &self,
+        written: Option<&Term>,
+        expected: &Value,
+        found: &Value,
+    ) -> Option<String> {
+        let g = self.g();
+        let quote = |v| stitchwort_core::value::quote_shown(&g, self.level(), v).ok();
+        let e = match written {
+            Some(t) => t.clone(),
+            None => quote(expected)?,
+        };
+        let (e, f) = pretty::elide_agreeing(&e, &quote(found)?);
+        Some(format!(
+            "{}{}{}{}",
+            ROWS.0,
+            self.show_term(&e),
+            ROWS.1,
+            self.show_term(&f)
+        ))
     }
 
     /// Points at the text pattern that made a value of a not yet known type
@@ -9145,6 +9292,37 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     };
     cx.with_opaque_notes_in(error, &sides)
 }
+
+/// The expected and found sides of a type mismatch `d` made by
+/// [`Ctx::mismatch`], as printed: from its label, or from its `expected:`
+/// and `found:` rows when the sides were long.
+pub(crate) fn mismatch_sides(d: &Diagnostic) -> Option<(&str, &str)> {
+    let inline = d
+        .labels
+        .first()
+        .and_then(|l| l.message.strip_prefix("expected `"))
+        .and_then(|rest| rest.split_once("`, but this has type `"));
+    inline.or_else(|| {
+        d.notes
+            .iter()
+            .find_map(|n| n.strip_prefix(ROWS.0)?.split_once(ROWS.1))
+    })
+}
+
+/// [`Ctx::first_difference_note`]'s words for `found`.
+fn difference_note(found: pretty::Difference) -> String {
+    let within = found
+        .within
+        .map(|call| format!(", in `{call}`"))
+        .unwrap_or_default();
+    format!(
+        "they first differ at `{}` against `{}`{within}",
+        found.left, found.right
+    )
+}
+
+/// How [`Ctx::mismatch_rows`] begins each row.
+const ROWS: (&str, &str) = ("expected: ", "\n   found: ");
 
 #[cfg(test)]
 mod tests {

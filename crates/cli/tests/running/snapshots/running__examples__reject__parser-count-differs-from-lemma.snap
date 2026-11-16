@@ -2,12 +2,13 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-TYPE-MISMATCH] Error: type mismatch
+[E-TYPE-MISMATCH] Error: `Parse.exactly 36 Parse.digit` here, but `Parse.exactly 35 Parse.digit` is expected
     ╭─[ reject/parser-count-differs-from-lemma.sw:12:3 ]
     │
  12 │   Parse.readsExactly 36 Parse.digit DigitWritten Parse.readsDigit
     │   ───────────────────────────────┬───────────────────────────────  
-    │                                  ╰───────────────────────────────── expected `∀ (start: Parse.Mark Char) => Parse.Fits Char Parse.Invariant.any start.rest → Parse.ReadsAt start (arg => Parse.exactly 35 Parse.digit) (read values => Parse.Each DigitWritten read values ∧ values.length = 36)`, but this has type `Parse.ReadsIn Parse.Invariant.any (arg => Parse.exactly 36 Parse.digit) (read values => Parse.Each DigitWritten read values ∧ values.length = 36)`
+    │                                  ╰───────────────────────────────── this has the `found` type below
     │ 
-    │ Note: `Parse.ReadsIn Parse.Invariant.any (arg => Parse.exactly 36 Parse.digit) (read values => Parse.Each DigitWritten read values ∧ values.length = 36)` is `∀ (start: Parse.Mark Char) => Parse.Fits Char { holds = items => Unit, kept = read rest h => Trivial } start.rest → ∀ (total: Nat) (state: Parse.State Char) (value: List (Fin 10)) (after: Parse.Mark Char) => state.at = start → … ∧ … → … → …`
+    │ Note: expected: Parse.Reads (arg => Parse.exactly 35 Parse.digit) …
+    │          found: Parse.ReadsIn Parse.Invariant.any (arg => Parse.exactly 36 Parse.digit) …
 ────╯

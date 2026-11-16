@@ -6801,10 +6801,7 @@ fn is_about(e: &Diagnostic, given: &str) -> bool {
         return names(differ);
     }
     let text = e.labels.first().map_or("", |l| l.message.as_str());
-    let sides = text
-        .strip_prefix("expected `")
-        .and_then(|rest| rest.split_once("`, but this has type `"));
-    match sides {
+    match check::mismatch_sides(e) {
         Some((expected, found)) => names(expected) && !names(found),
         None => names(&e.message) || names(text),
     }
