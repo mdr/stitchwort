@@ -1,5 +1,5 @@
 {
-  "next": 3574,
+  "next": 3575,
   "tickets": [
     {
       "id": 47,
@@ -40037,6 +40037,19 @@
     {
       "id": 3573,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x923 case 63183): a match inside a constructor field's type, after a comment line, places '|' at or left of the enclosing block's column → 'expected | and an alternative'. Minimal: type Box = | MkBox (n: / -- c /  match 1 with | 0 => Nat | Succ m => Nat). Add as a fmt test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3574,
+      "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x925 case 3292): a let in a match arm whose value breaks over a comment line before '1; j * 2' → output where ';' has no expression after it. Minimal: def inArm (o: Option Nat): Nat := match o with /   | Some k => let j := k + / -- c /  1; j * 2. Possibly SW-3540 (let keeps its value on the := line) meeting rule N. Add as a fmt test",
       "status": "backlog",
       "agent": "",
       "where": "",
