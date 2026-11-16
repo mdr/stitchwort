@@ -39998,80 +39998,92 @@
     {
       "id": 3570,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x920 case 18424): a trailing comment after a constructor field's colon plus a comment line after → in its function type gives 'formatter bug: output doesn't parse: expected ), found →'. Minimal: type Stream: Type = | MkStream (head: Nat) (rest:-- c / Nat → / -- c / Stream). Repro: task fuzz:fmt SEED=0x920 COMMENTS=0.3 CASE=18424. Add as a fmt test",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nSonnet lane (SW-3570 to SW-3575 together): fixed in 5054ecc42 on lane/SW-3570. Tests in crates/fmt/src/printer/tests.rs (fail before, pass after); fuzz cases pass; 20k run of seed 0x930 COMMENTS=0.3 passes.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "5054ecc42"
+      ]
     },
     {
       "id": 3571,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x921 case 13977): a calc whose first expression carries two trailing comments ('calc a ∨-- c / b-- c') gives 'formatter bug: output doesn't parse: expected a step _ = e on the next line'. Repro: task fuzz:fmt SEED=0x921 COMMENTS=0.3 CASE=13977. Add as a fmt test",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Corrected minimal (Overmind, fmtmin/c2.sw; the 2-line one in the title is too small and is correctly refused): 'theorem andChain ∀ (a b: Bool-- c / ): (a ∧ b) = (a ∧ b) := calc a ∧ b /   _ = a ∧-- c /  b' → formatter bug 'expected a step _ = e on the next line'. Trigger: a trailing comment inside a calc step's expression (with a comment in the binder bracket). Also seed 0x922 case 35083, same message.",
+      "body": "Corrected minimal (Overmind, fmtmin/c2.sw; the 2-line one in the title is too small and is correctly refused): 'theorem andChain ∀ (a b: Bool-- c / ): (a ∧ b) = (a ∧ b) := calc a ∧ b /   _ = a ∧-- c /  b' → formatter bug 'expected a step _ = e on the next line'. Trigger: a trailing comment inside a calc step's expression (with a comment in the binder bracket). Also seed 0x922 case 35083, same message.\n\nSonnet lane (SW-3570 to SW-3575 together): fixed in 5054ecc42 on lane/SW-3570. Tests in crates/fmt/src/printer/tests.rs (fail before, pass after); fuzz cases pass; 20k run of seed 0x930 COMMENTS=0.3 passes.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "5054ecc42"
+      ]
     },
     {
       "id": 3572,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, plain seed 0x9ff case 52434): a header whose return type is swallowed by a -- comment ('def collatzSteps (n: Nat): {Partial} --Nat :=') with an if/else-if/else body formats to output where 'else' is at or left of the enclosing block's column → 'expected else'. Repro file: def collatzSteps (n: Nat): {Partial} --Nat := / if n ≤ 1 then 0 / else if … / else …; task fuzz:fmt SEED=0x9ff CASE=52434. Possibly interacts with SW-3538 (if indent from the if's line). Add as a fmt test",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nSonnet lane (SW-3570 to SW-3575 together): fixed in 5054ecc42 on lane/SW-3570. Tests in crates/fmt/src/printer/tests.rs (fail before, pass after); fuzz cases pass; 20k run of seed 0x930 COMMENTS=0.3 passes.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "5054ecc42"
+      ]
     },
     {
       "id": 3573,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x923 case 63183): a match inside a constructor field's type, after a comment line, places '|' at or left of the enclosing block's column → 'expected | and an alternative'. Minimal: type Box = | MkBox (n: / -- c /  match 1 with | 0 => Nat | Succ m => Nat). Add as a fmt test",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nSonnet lane (SW-3570 to SW-3575 together): fixed in 5054ecc42 on lane/SW-3570. Tests in crates/fmt/src/printer/tests.rs (fail before, pass after); fuzz cases pass; 20k run of seed 0x930 COMMENTS=0.3 passes.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "5054ecc42"
+      ]
     },
     {
       "id": 3574,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x925 case 3292): a let in a match arm whose value breaks over a comment line before '1; j * 2' → output where ';' has no expression after it. Minimal: def inArm (o: Option Nat): Nat := match o with /   | Some k => let j := k + / -- c /  1; j * 2. Possibly SW-3540 (let keeps its value on the := line) meeting rule N. Add as a fmt test",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nSonnet lane (SW-3570 to SW-3575 together): fixed in 5054ecc42 on lane/SW-3570. Tests in crates/fmt/src/printer/tests.rs (fail before, pass after); fuzz cases pass; 20k run of seed 0x930 COMMENTS=0.3 passes.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "5054ecc42"
+      ]
     },
     {
       "id": 3575,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x928 case 19800): a nested record literal as a field value, after a comment line, with a trailing comment after 'name =' → output reads as a record update ('expected | and the fields to update, found ,'). Minimal: def greenOuter: Outer := { thing = / -- c /  { color = Green, name =-- c /  \"g\" } / }. Add as a fmt test",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nSonnet lane (SW-3570 to SW-3575 together): fixed in 5054ecc42 on lane/SW-3570. Tests in crates/fmt/src/printer/tests.rs (fail before, pass after); fuzz cases pass; 20k run of seed 0x930 COMMENTS=0.3 passes.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "5054ecc42"
+      ]
     }
   ]
 }
