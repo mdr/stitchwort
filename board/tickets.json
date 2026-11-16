@@ -40102,15 +40102,17 @@
     {
       "id": 3578,
       "title": "[Sonnet] Formatter polish from SW-3570: (1) after a header comment the ':' can land alone on its line (':' then the type below); keep ': ' with the type; (2) look again at Doc::Displaced's reach (applied wherever a node has a leading/before-trailing comment)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Part 1 fixed (colon stays with its type after a trailing or own-line comment; test a_result_colon_after_own_line_comments_stays_with_its_type; golden unchanged, one unit expectation changed). Part 2: Displaced's two triggers are each needed by a test (disabling the leading one fails a_type_a_comment_moved..., the trailing one the if-chain test); found no misapplication, so left as is. Commit f06219573.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "f06219573"
+      ]
     },
     {
       "id": 3579,
@@ -40128,15 +40130,17 @@
     {
       "id": 3580,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x946 case 35095): record update with trailing comments after the base and after '|' → 'comments: the comment -- c moved'. Minimal (fmtbugs/update.sw): def / bad (t: Timed Int): Timed Nat := { t-- c / |-- c / start = Int.toNat t.start }. Retest on main after SW-3570 first. Add as a fmt test",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Cause: the base's comment prints after the bar, so the bar's own ran into it on one line. Fix: tidy rule N makes the bar's comment an own-line comment of the next token when the base ends with one. Test: a_record_update_with_comments_after_its_base_and_after_the_bar_keeps_both. Commit f06219573 on lane/SW-3580.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "f06219573"
+      ]
     },
     {
       "id": 3581,
