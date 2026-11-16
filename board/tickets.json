@@ -1,5 +1,5 @@
 {
-  "next": 3660,
+  "next": 3661,
   "tickets": [
     {
       "id": 47,
@@ -41181,6 +41181,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3660,
+      "title": "[Opus] conv_shortcut differential fails since 77c2ef273: examples/reject/lemma-on-large-normal-form.sw gets E-TYPE-MISMATCH with the conversion shortcut but E-RESOURCE (unfolding grow) without it (Overmind, quiet run at a73d93bd7, crates/driver/tests/proofs/conv_shortcut.rs:81). The example has no rewrite; find which commit in 77c2ef273..a73d93bd7 made the no-shortcut path unfold grow 30, and fix it, or, if it's the accepted kind of shortcut dependence, add it to NEEDS_THE_SHORTCUT with the reason. Also: the whole test runs ~800+ s quiet, past its cap: split or sample it",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
