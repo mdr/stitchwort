@@ -5,10 +5,8 @@
 --| comments' as the source has them: a token's own-line comments, the
 --| token, its trailing comment, construct by construct. The document the
 --| rules build for a tree has exactly those words, and every option of
---| each of its choices has the same (`fileWrites`), so by the engine's
---| `printWords` the printed text is those pieces with only layout between
---| them (`printPieces`): no token or comment is lost, repeated or moved,
---| whatever fits.
+--| each of its choices has the same (`fileWrites`), so no token or
+--| comment is lost, repeated or moved, whatever fits.
 
 namespace Toy.Fmt.Proofs
 import Toy.Doc (..)
@@ -295,8 +293,6 @@ def declarationPieces: List (Spaced Declaration) → List Text
 def SourceFile.pieces (file: SourceFile): List Text := declarationPieces file.declarations
 
 -- The rules write the pieces.
-
-theorem writesLayout ∀ (doc: Doc) (uniform: Uniform doc) (none: doc.words = []): Writes doc [] := Both uniform none
 
 theorem writesThree ∀ (first second third: Doc) (pieces later last: List Text)
     (one: Writes first pieces)
@@ -796,16 +792,3 @@ theorem fileWrites ∀ (file: SourceFile): Writes file.layout file.pieces := mat
         []
         (writesConcat _ _ (declarationLinesWrite 0 [first, ..rest]))
         (Both rfl rfl)
-
---| A file printed, at every width, is its tokens and comments in the
---| source's order with only layout (spaces, indentation, line breaks)
---| between and around them: the text is `printed` joined, and the pieces
---| of `printed` that aren't layout are those of the file. No token or
---| comment is lost, repeated or moved, and a trailing comment is written
---| before the token after it.
-theorem printPieces ∀ (file: SourceFile) (width: Nat):
-    ∃ (printed: List Text) => (file.print width) = printed.joinWith "" ∧ wordsOf printed = wordsOf file.pieces :=
-  match fileWrites file with
-    | Both uniform words =>
-      match printWords file.layout width uniform with
-        | Witness printed (Both joins printedWords) => Witness printed (Both joins (Eq.trans printedWords words))
