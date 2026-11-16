@@ -1,5 +1,5 @@
 {
-  "next": 3541,
+  "next": 3542,
   "tickets": [
     {
       "id": 47,
@@ -39602,12 +39602,25 @@
     {
       "id": 3540,
       "title": "[Sonnet] fmt bug (internal error): a comment inside a let's type in a parenthesised (let …; …) breaks the type across lines and the body lines up with let ('; needs an expression after it'): 'def s (p: Nat): Nat := (let a: (Nat,\\n-- c\\n Nat) := p; a)'; fuzz 0x806 #12267. Likely S18: the rest after a line-ending ';' should step in when the value spans lines (from SW-3537)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nSonnet lane note: cause was not the body column. A broken let header put the value below :=, and a value starting a line is a block, where the ; reads as a sequence. Fix: an expression let never puts its value below (rules.rs let_line). Golden let-body-after-broken-type. fmt tests and fuzz 0x806/0x809/0x80a x20000 clean.\n",
+      "body": "\nSonnet lane note: cause was not the body column. A broken let header put the value below :=, and a value starting a line is a block, where the ; reads as a sequence. Fix: an expression let never puts its value below (rules.rs let_line). Golden let-body-after-broken-type. fmt tests and fuzz 0x806/0x809/0x80a x20000 clean.\n\nModel result: sonnet, worked, 15 min (est. 20). Cause: S6 put an expression let's value below := when the header broke, which can't parse. Found SW-3541.",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3541,
+      "title": "[Sonnet] fmt fuzz: since SW-3497, 9-14 of 20,000 comment-mode cases per seed are 'parsed, then refused' (was 0). Classify them (likely SW-3497's leading ':=' refusal, SW-3525; or a new family) and either make the fuzzer report them as skipped-by-design or file the family; seeds 0x806/0x809/0x80a (from SW-3540)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
