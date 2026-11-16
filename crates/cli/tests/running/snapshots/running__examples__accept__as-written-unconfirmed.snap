@@ -1,5 +1,6 @@
 ---
 source: crates/cli/tests/running/examples.rs
+assertion_line: 210
 expression: warnings
 ---
 [W-MATCH-UNCONFIRMED] Warning: this `match` refined the goal and hypotheses as they are written, without checking for copies of its expression hidden inside calls
@@ -18,7 +19,7 @@ expression: warnings
 [W-REWRITE-UNCONFIRMED] Warning: `rewrite` rewrote where the rule's left side is shown, without checking for copies of it hidden inside calls
     ╭─[ accept/as-written-unconfirmed.sw:36:11 ]
     │
- 36 │   rewrite settles in h
+ 36 │   rewrite settles then h
     │           ───┬───  
     │              ╰───── rewritten where it is shown
     │ 
