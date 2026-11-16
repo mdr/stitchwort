@@ -786,7 +786,7 @@ fn open_in_project(main: &str) -> Session {
         ),
         (
             "src/Other.sw",
-            "namespace Proj.Other\n\ndef value: Nat := 1\n\ndef scale (k n: Nat): Nat := k * n\n",
+            "namespace Proj.Other\n\ndef zephyr: Nat := 1\n\ndef zenith (k n: Nat): Nat := k * n\n",
         ),
         (
             "src/Uses.sw",
@@ -828,7 +828,7 @@ fn completion_after_a_dot_in_a_project_checks_only_what_the_namespace_needs() {
         let typing = main.replace("b.twice", "Proj.Other.");
         s.change(3, &typing);
         let items = s.complete_at_end(&typing, 3, Some("."));
-        item(&items, "value");
+        item(&items, "zephyr");
         // The project's root prefix: its namespaces, though the file
         // doesn't use them.
         let typing = main.replace("b.twice", "Proj.");
@@ -845,24 +845,24 @@ fn completion_after_a_dot_in_a_project_checks_only_what_the_namespace_needs() {
         assert_eq!(item(&items, "Sub")["kind"], 9, "{:?}", labels(&items));
         // A name of a namespace the file doesn't import comes with the
         // import, unless that namespace uses this one (a cycle).
-        let typing = format!("{main}def h: Nat := va\n");
+        let typing = format!("{main}def h: Nat := zep\n");
         s.change(6, &typing);
         let items = s.complete_at_end(&typing, 4, None);
-        let found = item(&items, "value");
+        let found = item(&items, "zephyr");
         assert_eq!(
             found["labelDetails"]["description"],
-            "import Proj.Other (value)"
+            "import Proj.Other (zephyr)"
         );
         assert_eq!(
             found["additionalTextEdits"][0]["newText"],
-            "import Proj.Other (value)\n"
+            "import Proj.Other (zephyr)\n"
         );
         // Its type is shown as written, though the namespace isn't checked.
         assert_eq!(found["detail"], "def: Nat");
-        let typing = format!("{main}def h: Nat := sc\n");
+        let typing = format!("{main}def h: Nat := zen\n");
         s.change(8, &typing);
         let items = s.complete_at_end(&typing, 4, None);
-        assert_eq!(item(&items, "scale")["detail"], "def: (k n: Nat): Nat");
+        assert_eq!(item(&items, "zenith")["detail"], "def: (k n: Nat): Nat");
         let typing = format!("{main}def h: Nat := ga\n");
         s.change(7, &typing);
         let items = s.complete_at_end(&typing, 4, None);

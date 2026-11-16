@@ -41487,12 +41487,12 @@
     {
       "id": 3682,
       "title": "[Sonnet] Main red (Overmind rolling check be44364dd): two tests panic with unwrap on Err(Any): driver proofs function_equations::the_walls_errors_name_the_branch_equations (function_equations.rs:900) and lsp it features::completion_after_a_dot_in_a_project_checks_only_what_the_namespace_needs (features.rs:25). Last passing proofs 77c2ef273, lsp-features a73d93bd7. Read the panic message, find the merge that caused each, fix (or fix the test if it is stale)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Lane notes: LSP test stale since std gained Std.Parse.Located.value (SW-3649/3638, 466c1d88d); fixture renamed to zephyr/zenith (bfc6e289b). Driver test stale since SW-3648 added W-REWRITE-THEN-COMPUTING, which fires on the fixture rewrite h then byComputing; test now filters to E- codes (d15935da1). Both tests pass alone.\nModel result: Sonnet, worked, 60 min (est. 30; cold builds under load)\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
