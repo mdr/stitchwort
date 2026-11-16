@@ -1,5 +1,5 @@
 {
-  "next": 3684,
+  "next": 3688,
   "tickets": [
     {
       "id": 47,
@@ -41505,6 +41505,58 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3684,
+      "title": "[Sonnet] Elab friction (Toy++ T3b): two match scrutinees where one's type mentions the other are refused with E-MATCH-MOTIVE; a helper lemma with a variable scrutinee works. At least say so in the note (generalise into a helper); ideally abstract the dependent one",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3685,
+      "title": "[DeepSeek] Name collision across (..) imports is reported at every use, not once at the definition/import (T3b: Spaced cost 34 errors). Report once at the import with both sources, or dedupe per name per file",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3686,
+      "title": "[DeepSeek] E-AUTO-NONE on a statement that spells out a match returning a Prop: the fix is the proving guide's helper definition; the message should point there (note + guide anchor)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3687,
+      "title": "[Opus] A definition with an inner match can't be named in a statement (T3b: calm became a fold with named steps; T3a: match e: expr misses occurrences inside a computed inner match). Investigate whether inner matches can get names (auxiliary definitions) the user can state about",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
