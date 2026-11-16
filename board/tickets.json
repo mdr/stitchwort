@@ -1,5 +1,5 @@
 {
-  "next": 3481,
+  "next": 3482,
   "tickets": [
     {
       "id": 47,
@@ -38816,6 +38816,19 @@
       "labels": [],
       "epic": "docs-tutorials",
       "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3481,
+      "title": "[DeepSeek] fmt not idempotent: a comment right after an opening paren in an application argument (Overmind fmt fuzz, seed 0x500 COMMENTS=0.3 case 85387, main 7adb49e19). Input: 'theorem bothUnit: Unit && Unit := Both (-- c' newline ') ()'. Pass 1: ':=' newline '  Both ( ) -- c' newline '      ()' ; pass 2: ':= Both ( ) -- c' newline '  ()' (body pulled back onto the := line). Same family as SW-3462 (comment pushing a body down) but in an argument list. Repro: task fuzz:fmt SEED=0x500 COMMENTS=0.3 CASE=85387 (~4 min), or the input directly in a crates/fmt idempotence test",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Second case, same family (seed 0x502 COMMENTS=0.3 case 43289): 'test \"...\" := (total (xs := zeros-- c' newline ')) 2 == 4'. Pass 1: ':=' newline '  (total (xs := zeros)) -- c' newline '      2' newline '    == 4'; pass 2: ':= (total (xs := zeros)) -- c' newline '  2 == 4'. Repro: task fuzz:fmt SEED=0x502 COMMENTS=0.3 CASE=43289. Fix must cover both (a closer-trailing comment followed by more of the expression). Seed 0x501 plain clean (205,922 formatted).\n\nThird case (seed 0x504 COMMENTS=0.3 case 53346): 'List.map (withDefaults [] -- c' newline 'defaults) (.value) == [80, 4]': a comment inside an argument's parens, not only after the opener. Every comment-mode seed fails here within 80 s, so this blocks comment-mode fuzzing; prioritised.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
