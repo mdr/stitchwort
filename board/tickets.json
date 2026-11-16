@@ -1,5 +1,5 @@
 {
-  "next": 3624,
+  "next": 3625,
   "tickets": [
     {
       "id": 47,
@@ -40698,6 +40698,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3624,
+      "title": "[Sonnet] Toy++ T1: printParses over predicates on today's toy (toy-plus-plus.md §8 T1; tools/toyfmt/plus/SKETCH-PLUS.md): Parsed, parseParsed, the wrappers peeled; no syntax change. Est. 15 min (T0's revised estimate)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
