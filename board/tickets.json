@@ -39392,12 +39392,12 @@
     {
       "id": 3524,
       "title": "[Sonnet] fmt bug (internal error since SW-3497): a comment inside a parameter's function type: 'def combine (f: Nat ->\\n-- c\\n b -> c): List c := xs'. Fix with a golden failing first",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nLane note (Sonnet, 16 Nov): fixed on lane/SW-3524. Rule 4 of N (tidy.rs) moves own-line comments after a type's `->` onto the arrow; a header with a comment ending a line inside a parameter or result type now breaks whole (rules.rs decl). Tests: printer::tests a_comment_on_its_own_line_after_an_arrow_goes_before_it, a_comment_inside_the_header_puts_the_body_below_it.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39498,12 +39498,12 @@
     {
       "id": 3532,
       "title": "[Sonnet] fmt bug (internal error): a calc theorem whose header has a comment inside a parameter type breaks the printed calc: 'theorem t (h: a =-- c\\n 3): 3 = a :=\\n  calc 3\\n    _ = a := h' (fuzz 0x805 #16812, 0x806 #83, 0x808 #4274; from SW-3523)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nLane note (Sonnet, 16 Nov): fixed on lane/SW-3524. Rule 4 of N (tidy.rs) moves own-line comments after a type's `->` onto the arrow; a header with a comment ending a line inside a parameter or result type now breaks whole (rules.rs decl). Tests: printer::tests a_comment_on_its_own_line_after_an_arrow_goes_before_it, a_comment_inside_the_header_puts_the_body_below_it.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39511,12 +39511,12 @@
     {
       "id": 3533,
       "title": "[Sonnet] fmt bug (internal error): a comment on its own line after → in a declaration type: 'def pick: Option Bool →\\n-- c\\n Nat → Nat\\n  | Some _, 0 => 1' (fuzz 0x80e #14030, 0x807 #4883; from SW-3523). Probably the same family as SW-3524 (comment in a function type)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nLane note (Sonnet, 16 Nov): fixed on lane/SW-3524. Rule 4 of N (tidy.rs) moves own-line comments after a type's `->` onto the arrow; a header with a comment ending a line inside a parameter or result type now breaks whole (rules.rs decl). Tests: printer::tests a_comment_on_its_own_line_after_an_arrow_goes_before_it, a_comment_inside_the_header_puts_the_body_below_it.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
