@@ -2202,45 +2202,29 @@ fn search_counterexamples(
 /// ([`stitchwort_elab::expansion_text`]); a file's name is read from `base`
 /// if it isn't found as it is. Whether every call was expanded.
 fn write_expansions(session: &Session, base: &Path) -> bool {
-    use std::collections::BTreeMap;
     let expansions = session.elab.take_expansions();
-    let mut calls: BTreeMap<_, BTreeMap<(u32, u32), Vec<&stitchwort_elab::Expansion>>> =
-        BTreeMap::new();
-    for e in &expansions {
-        calls
-            .entry(e.call.file.index())
-            .or_default()
-            .entry((e.call.start, e.call.end))
-            .or_default()
-            .push(e);
-    }
     let mut ok = true;
-    for (file, calls) in calls {
-        let Some((_, source)) = session.sources.iter().find(|(id, _)| id.index() == file) else {
+    for (file, source) in session.sources.iter() {
+        if !expansions.iter().any(|e| e.call.file == file) {
             continue;
-        };
-        let mut text = source.text.clone();
-        let mut done = 0;
-        // Last first, so earlier offsets stay right.
-        for ((start, _), checks) in calls.iter().rev() {
-            match stitchwort_elab::expansion_text(&source.text, checks) {
-                Ok((range, new)) => {
-                    text.replace_range(range, &new);
-                    done += 1;
-                }
-                Err(why) => {
-                    let line = source.text[..*start as usize].matches('\n').count() + 1;
-                    eprintln!("{}:{line}: not expanded: {why}", source.name);
-                    ok = false;
-                }
-            }
         }
-        let path = Path::new(&source.name);
-        let path = if path.exists() {
-            path.to_path_buf()
-        } else {
-            base.join(path)
-        };
+        let (text, done, refused) = stitchwort_elab::expand_file(&source.text, file, &expansions);
+        for (offset, why) in refused {
+            let line = source.text[..offset].matches('\n').count() + 1;
+            eprintln!("{}:{line}: not expanded: {why}", source.name);
+            ok = false;
+        }
+        // A project's files are named from the folder above it.
+        let name = Path::new(&source.name);
+        let path = [
+            Some(name.to_path_buf()),
+            Some(base.join(name)),
+            base.parent().map(|p| p.join(name)),
+        ]
+        .into_iter()
+        .flatten()
+        .find(|p| p.exists())
+        .unwrap_or_else(|| name.to_path_buf());
         if let Err(e) = std::fs::write(&path, text) {
             eprintln!("error: can't write {}: {e}", path.display());
             return false;

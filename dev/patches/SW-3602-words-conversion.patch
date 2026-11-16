@@ -1,6 +1,8 @@
+diff --git a/tools/toyfmt/src/Toy/Doc/Words.sw b/tools/toyfmt/src/Toy/Doc/Words.sw
+index a25158c45..c7e9c37ea 100644
 --- a/tools/toyfmt/src/Toy/Doc/Words.sw
 +++ b/tools/toyfmt/src/Toy/Doc/Words.sw
-@@ -28,7 +28,7 @@
+@@ -28,7 +28,7 @@ theorem emptyIsLayout ∀ (text: Text) (empty: text.isEmpty = True): isLayout te
    | MkText [], _ => byComputing
  
  theorem spacesIsLayout ∀ (text: Text) (spaces: text.all (char => char == ' ') = True): isLayout text = True :=
@@ -9,7 +11,7 @@
  
  theorem indentSpaces ∀ (indent: Nat): (" ".repeat indent).all (char => char == ' ') = True := match indent with
    | Zero => byComputing
-@@ -36,16 +36,16 @@
+@@ -36,16 +36,16 @@ theorem indentSpaces ∀ (indent: Nat): (" ".repeat indent).all (char => char ==
  
  theorem wordsSnoc ∀ (piece: Text) (out: List Text):
      wordsOf [piece, ..out].reverse = wordsOf out.reverse ++ wordsOf [piece] :=
@@ -29,7 +31,7 @@
  
  theorem trimWords ∀ (out: List Text): wordsOf (trimSpaces out).reverse = wordsOf out.reverse := match out with
    | [] => byComputing
-@@ -76,24 +76,19 @@
+@@ -76,24 +76,19 @@ theorem flushOneWritten ∀ (printer: Printer) (comment: Text):
      | True =>
        match payIndentWritten printer with
          | (written, suffixes) => ((rewrite <- written then wordsSnoc comment printer.payIndent.out), suffixes)
@@ -58,7 +60,7 @@
            (Eq.trans laterSuffixes suffixes)
          )
  
-@@ -108,14 +103,16 @@
+@@ -108,14 +103,16 @@ theorem newlineWritten ∀ (printer: Printer) (indent: Nat):
      (printer.newline indent).written = printer.words ∧ (printer.newline indent).suffixes = [] :=
    match flushWritten { printer | out = trimSpaces printer.out } with
      | (written, suffixes) => (
@@ -78,7 +80,7 @@
  
  theorem emptyNil ∀ (items: List a) (empty: items.isEmpty = True): items = [] := match items, empty with
    | [], _ => byComputing
-@@ -125,33 +122,25 @@
+@@ -125,33 +122,25 @@ theorem putClearWords ∀ (printer: Printer) (text: Text) (width: Nat)
      (clear: printer.suffixes = []):
      (printer.put text width).words = printer.written ++ wordsOf [text] :=
    match putWritten printer text width with
@@ -117,7 +119,7 @@
  
  theorem lineStartWords ∀ (printer: Printer) (indent: Nat): (printer.lineStart indent).words = printer.words :=
    match start: printer.atLineStart with
-@@ -160,7 +149,7 @@
+@@ -160,7 +149,7 @@ theorem lineStartWords ∀ (printer: Printer) (indent: Nat): (printer.lineStart
  
  theorem blankWords ∀ (printer: Printer): printer.blank.words = printer.words :=
    match blank: printer.atLineStart && printer.started && printer.newlinesAtEnd < 2 with
@@ -126,7 +128,7 @@
      | False => byComputing
  
  -- The document's words, and the readings.
-@@ -228,9 +217,7 @@
+@@ -228,9 +217,7 @@ def StackUniform: List Cmd → Prop
  theorem stackWordsAppend ∀ (front back: List Cmd): stackWords (front ++ back) = stackWords front ++ stackWords back :=
    match front with
      | [] => byComputing
@@ -137,7 +139,7 @@
  
  theorem stackUniformAppend ∀ (front back: List Cmd)
      (frontUniform: StackUniform front)
-@@ -244,7 +231,7 @@
+@@ -244,7 +231,7 @@ theorem printsWords ∀ (indent: Nat) (mode: Mode) (docs: List Doc):
      stackWords (docs.map (Print indent mode)) = wordsAll docs :=
    match docs with
      | [] => byComputing
@@ -146,7 +148,7 @@
  
  theorem printsUniform ∀ (indent: Nat) (mode: Mode) (docs: List Doc)
      (uniform: AllUniform docs):
-@@ -256,7 +243,7 @@
+@@ -256,7 +243,7 @@ theorem printsUniform ∀ (indent: Nat) (mode: Mode) (docs: List Doc)
  theorem fillSepsWords ∀ (indent: Nat) (items: List Doc): stackWords (items.map (FillSep indent)) = wordsAll items :=
    match items with
      | [] => byComputing
@@ -155,7 +157,7 @@
  
  theorem fillSepsUniform ∀ (indent: Nat) (items: List Doc)
      (uniform: AllUniform items):
-@@ -269,7 +256,7 @@
+@@ -269,7 +256,7 @@ theorem fillSepsUniform ∀ (indent: Nat) (items: List Doc)
  theorem joinLinesWords ∀ (items: List Doc): wordsAll (Doc.joinLines items) = wordsAll items := match items with
    | [] => byComputing
    | [only] => byComputing
@@ -164,7 +166,7 @@
  
  theorem joinLinesUniform ∀ (items: List Doc) (uniform: AllUniform items): AllUniform (Doc.joinLines items) :=
    match items, uniform with
-@@ -292,7 +279,7 @@
+@@ -292,7 +279,7 @@ theorem optionUniform ∀ (chosen: Doc) (options: List Doc)
      (uniform: AllUniform options):
      Uniform chosen :=
    match options, isOption, uniform with
@@ -173,7 +175,7 @@
      | [last], picked, Both first _ => rewrite picked then first
      | [option, next, ..rest], Inl picked, Both first _ => rewrite picked then first
      | [option, next, ..rest], Inr later, Both _ others => optionUniform chosen [next, ..rest] later others
-@@ -300,26 +287,12 @@
+@@ -300,26 +287,12 @@ theorem optionUniform ∀ (chosen: Doc) (options: List Doc)
  theorem writeLayoutWords ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat)
      (layout: isLayout text = True):
      (printer.write indent text width).words = printer.words :=
@@ -202,7 +204,7 @@
  
  theorem eitherWords ∀ (condition: Bool) (yes no: (Printer, List Cmd)) (target: List Text)
      (whenYes: yes.fst.words ++ stackWords yes.snd = target)
-@@ -351,7 +324,7 @@
+@@ -351,9 +324,26 @@ theorem chosenWords ∀ (chosen: Doc) (options: List Doc)
      (same: SameWords (wordsFirst options) options):
      chosen.words = wordsFirst options :=
    match options, isOption, same with
@@ -210,15 +212,34 @@
 +    | [], picked, _ => rewrite repeatedly [picked]
      | [option, ..others], picked, given => optionWords chosen option.words option others picked given
  
++--| The rules `stepWords` rewrites a step's words with: what each printer
++--| operation writes, and how a stack's words split.
++rules wordSteps :=
++  [
++    writeLayoutWords,
++    writeWords,
++    newlineWords,
++    lineStartWords,
++    blankWords,
++    suffixWords,
++    stackWordsAppend,
++    printsWords,
++    fillSepsWords,
++    joinLinesWords,
++    headOrWords
++  ]
++
  --| A step of a reading moves words from the work list to the printer, in
-@@ -363,65 +336,41 @@
+ --| order: the words printed and those still to print, together, stay the
+ --| same.
+@@ -363,65 +353,40 @@ theorem stepWords ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: (P
      result.fst.words ++ stackWords result.snd = printer.words ++ (cmd.words ++ stackWords rest) :=
    match cmd, steps, uniform with
      | FillSep indent item, Inl (Both _ flat), _ =>
 -      rewrite flat then rewrite writeWords, List.appendAssoc then byComputing
 -    | FillSep indent item, Inr broken, _ => rewrite broken then keepsWords _ printer _ (newlineWords printer indent)
-+      rewrite repeatedly [flat, writeWords] then rewrite repeatedly [List.appendAssoc]
-+    | FillSep indent item, Inr broken, _ => rewrite repeatedly [broken, newlineWords]
++      rewrite repeatedly [flat, wordSteps] then rewrite repeatedly [List.appendAssoc]
++    | FillSep indent item, Inr broken, _ => rewrite repeatedly [broken, wordSteps]
      | Print indent mode doc, steps, uniform =>
        match doc, steps, uniform with
 -        | Empty, steps, _ => rewrite steps then byComputing
@@ -238,12 +259,12 @@
 -        | CommentEnd, steps, _ => rewrite steps then keepsWords _ printer _ (newlineWords printer printer.lineIndent)
 +        | Empty, steps, _ => rewrite repeatedly [steps]
 +        | BreakParent, steps, _ => rewrite repeatedly [steps]
-+        | Chunk text width, steps, _ => rewrite repeatedly [steps, writeWords, List.appendAssoc]
-+        | Line, steps, _ => rewrite steps then cases then rewrite repeatedly [writeLayoutWords, newlineWords]
-+        | SoftLine, steps, _ => rewrite steps then cases then rewrite repeatedly [newlineWords]
-+        | HardLine, steps, _ => rewrite repeatedly [steps, newlineWords]
-+        | LineStart, steps, _ => rewrite repeatedly [steps, lineStartWords]
-+        | CommentEnd, steps, _ => rewrite repeatedly [steps, newlineWords]
++        | Chunk text width, steps, _ => rewrite repeatedly [steps, wordSteps, List.appendAssoc]
++        | Line, steps, _ => rewrite steps then cases then rewrite repeatedly [wordSteps]
++        | SoftLine, steps, _ => rewrite steps then cases then rewrite repeatedly [wordSteps]
++        | HardLine, steps, _ => rewrite repeatedly [steps, wordSteps]
++        | LineStart, steps, _ => rewrite repeatedly [steps, wordSteps]
++        | CommentEnd, steps, _ => rewrite repeatedly [steps, wordSteps]
          | LineStartHere, steps, _ =>
            rewrite steps then
              eitherWords _
@@ -265,17 +286,7 @@
 -              (rewrite stackWordsAppend (docs.map (Print indent mode)) rest, printsWords indent mode docs then
 -                byComputing)
 -        | Fill [], steps, _ => rewrite steps then byComputing
-+              (rewrite repeatedly [newlineWords])
-+        | Blank, steps, _ => rewrite repeatedly [steps, blankWords]
-+        | Nest more inner, steps, _ => rewrite repeatedly [steps]
-+        | OneLineBelow inner, steps, _ => rewrite repeatedly [steps]
-+        | Flatten inner, steps, _ => rewrite repeatedly [steps]
-+        | LineSuffix comment, steps, _ => rewrite repeatedly [steps, suffixWords, List.appendAssoc]
-+        | Group inner hard, Inl (Both _ flat), _ => rewrite repeatedly [flat]
-+        | Group inner hard, Inr (Both _ broken), _ => rewrite repeatedly [broken]
-+        | Concat docs, steps, _ => rewrite repeatedly [steps, stackWordsAppend, printsWords]
-+        | Fill [], steps, _ => rewrite repeatedly [steps]
-         | Fill [first, ..others], Inl (Both _ flat), _ =>
+-        | Fill [first, ..others], Inl (Both _ flat), _ =>
 -          rewrite flat then
 -            Eq.cong
 -              (later => printer.words ++ later)
@@ -283,7 +294,17 @@
 -                  printsWords indent Flat (Doc.joinLines [first, ..others]),
 -                  joinLinesWords [first, ..others] then
 -                byComputing)
-+          rewrite repeatedly [flat, stackWordsAppend, printsWords, joinLinesWords]
++              (rewrite repeatedly [wordSteps])
++        | Blank, steps, _ => rewrite repeatedly [steps, wordSteps]
++        | Nest more inner, steps, _ => rewrite repeatedly [steps]
++        | OneLineBelow inner, steps, _ => rewrite repeatedly [steps]
++        | Flatten inner, steps, _ => rewrite repeatedly [steps]
++        | LineSuffix comment, steps, _ => rewrite repeatedly [steps, wordSteps, List.appendAssoc]
++        | Group inner hard, Inl (Both _ flat), _ => rewrite repeatedly [flat]
++        | Group inner hard, Inr (Both _ broken), _ => rewrite repeatedly [broken]
++        | Concat docs, steps, _ => rewrite repeatedly [steps, wordSteps]
++        | Fill [], steps, _ => rewrite repeatedly [steps]
++        | Fill [first, ..others], Inl (Both _ flat), _ => rewrite repeatedly [flat, wordSteps]
          | Fill [first, ..others], Inr (Both _ (Witness firstMode broken)), _ =>
 -          rewrite broken then
 -            Eq.cong
@@ -292,8 +313,8 @@
 -                Eq.flipped (List.appendAssoc first.words (wordsAll others) (stackWords rest)))
 -        | Choice options, Inl (Both _ flat), _ =>
 -          rewrite flat then Eq.cong (later => printer.words ++ (later ++ stackWords rest)) (headOrWords options)
-+          rewrite repeatedly [broken, stackWordsAppend, fillSepsWords, List.appendAssoc]
-+        | Choice options, Inl (Both _ flat), _ => rewrite repeatedly [flat, headOrWords]
++          rewrite repeatedly [broken, wordSteps, List.appendAssoc]
++        | Choice options, Inl (Both _ flat), _ => rewrite repeatedly [flat, wordSteps]
          | Choice options, Inr (Both _ (Witness chosen (Both isOption broken))), Both _ same =>
 -          rewrite broken then
 -            Eq.cong (later => printer.words ++ (later ++ stackWords rest)) (chosenWords chosen options isOption same)
@@ -301,7 +322,7 @@
  
  --| A step of a reading leaves the work list uniform.
  theorem stepUniform ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: (Printer, List Cmd))
-@@ -434,17 +383,17 @@
+@@ -434,17 +399,17 @@ theorem stepUniform ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result:
      | FillSep indent item, Inr broken, uniform => rewrite broken then (uniform, restUniform)
      | Print indent mode doc, steps, uniform =>
        match doc, steps, uniform with
@@ -325,7 +346,7 @@
          | LineStartHere, steps, _ =>
            rewrite steps then
              eitherUniform _
-@@ -452,17 +401,17 @@
+@@ -452,17 +417,17 @@ theorem stepUniform ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result:
                (printer.newline indent, rest)
                restUniform
                restUniform
@@ -346,7 +367,7 @@
          | Fill [first, ..others], Inl (Both _ flat), uniform =>
            rewrite flat then
              stackUniformAppend
-@@ -528,14 +477,10 @@
+@@ -528,14 +493,10 @@ theorem readingLighter ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (resul
          | Group inner hard, Inr (Both _ broken) => rewrite broken then arithmetic
          | Fill [], steps => rewrite steps then arithmetic
          | Fill [first, ..others], Inl (Both _ flat) =>
@@ -363,7 +384,7 @@
          | Choice options, Inl (Both _ flat) =>
            let bound := headOrSteps options
            rewrite flat then arithmetic
-@@ -552,8 +497,8 @@
+@@ -552,8 +513,8 @@ theorem readingWords ∀ (printer: Printer) (fuel: Nat) (stack: List Cmd) (final
      (enough: stackCost stack ≤ fuel):
      final.words = printer.words ++ stackWords stack :=
    match fuel, stack, reads, uniform with
