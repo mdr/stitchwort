@@ -1,5 +1,5 @@
 {
-  "next": 3513,
+  "next": 3514,
   "tickets": [
     {
       "id": 47,
@@ -39231,6 +39231,19 @@
       "id": 3512,
       "title": "[DeepSeek] Parser: 'import M (a, b,)' (trailing comma in an import list) is an Error node at file level, and 'def x := 1' without a type parses as Error in parse_tree (SW-3495). Check each against docs/syntax.md: intended (then a clear E-PARSE message) or a bug (fix with a test)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3513,
+      "title": "[Opus] Lean 4 port of the toy's engine layer, measured (D3629, Matt, 16 Nov 2026): docs/proposals/toy-proof-complexity.md §5; plain and idiomatic versions; same functions and top theorems; counts by the same measure",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
