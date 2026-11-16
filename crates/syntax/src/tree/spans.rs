@@ -701,6 +701,14 @@ impl<'a> Walk<'a> {
                 self.span("Decl::Test", *span);
                 self.expr(expr);
             }
+            Decl::Rules { name, rules, span } => {
+                self.span("Decl::Rules", *span);
+                self.name("Decl::Rules name", name);
+                for rule in rules {
+                    self.span("RewriteRule", rule.span);
+                    self.expr(&rule.proof);
+                }
+            }
             Decl::Ability {
                 name,
                 params,

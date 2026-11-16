@@ -483,3 +483,17 @@ impl Dump for TestDecl {
         }
     }
 }
+
+impl Dump for std::rc::Rc<crate::rewrite::RuleSet> {
+    fn dump(&self, out: &mut String) {
+        for (k, (rule, reverse)) in self.rules.iter().enumerate() {
+            if k > 0 {
+                out.push(' ');
+            }
+            if *reverse {
+                out.push_str("<-");
+            }
+            rule.dump(out);
+        }
+    }
+}

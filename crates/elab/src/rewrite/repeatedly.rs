@@ -76,6 +76,8 @@ struct Listed {
     origin: usize,
     /// What its left side is looked for by ([`Shape`]).
     shape: Shape,
+    /// Whether the written rule it comes from is a set.
+    origin_set: bool,
 }
 
 /// What a rule's left side needs a goal to have for it to fit: its head as
@@ -158,6 +160,128 @@ fn may_fit(shape: &Shape, present: &Present, written_only: bool) -> bool {
         || (!written_only && fits(&shape.computed, &present.computed))
 }
 
+/// A `rules name := [r1, <- r2]` declaration's rules, filed under the
+/// definition it declares: each a definition (a lemma, or a function whose
+/// arm equations it stands for) and whether it is turned round. A member
+/// that is a set is replaced by that set's rules when it is declared, so a
+/// set never refers to another.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct RuleSet {
+    pub(crate) rules: Vec<(DefId, bool)>,
+}
+
+/// The set `proof` names, if it names one.
+fn set_named(cx: &mut Ctx, proof: &Expr) -> Result<Option<(DefId, Rc<RuleSet>)>> {
+    if !matches!(proof, Expr::Var(_) | Expr::Field(..)) || cx.e.tables.rule_sets.is_empty() {
+        return Ok(None);
+    }
+    if let Expr::Var(n) = proof
+        && (cx.lookup(&n.text).is_some() || cx.local(&n.text)?.is_some())
+    {
+        return Ok(None);
+    }
+    let snapshot = Snapshot::take(cx);
+    let errors = cx.e.attempt.branch_errors.borrow().len();
+    let found = infer(cx, proof);
+    restore(cx, snapshot, errors);
+    match found {
+        Ok((term, _)) => Ok(match term.strip_loc() {
+            Term::Def(d) => cx.e.tables.rule_sets.get(d).map(|set| (*d, Rc::clone(set))),
+            _ => None,
+        }),
+        Err(e) if fatal(&e) => Err(e),
+        Err(_) => Ok(None),
+    }
+}
+
+/// The written rule standing for definition `d` (a set's member), named
+/// by its key so that it means the same wherever the set is used.
+fn member_rule(cx: &Ctx, d: DefId, reverse: bool, at: Span) -> RewriteRule {
+    let key = cx.e.def_key(d);
+    RewriteRule {
+        reverse,
+        unfold: false,
+        proof: Expr::Var(AstName {
+            text: format!("{}{key}", crate::scope::EXACT_KEY),
+            span: at,
+        }),
+        span: at,
+    }
+}
+
+impl crate::Elaborator {
+    /// `rules name := [r1, <- r2]`: checks each rule as `rewrite repeatedly`
+    /// would (`E-REWRITE-REPEATEDLY-RULE`), and declares `name`, a
+    /// definition of `()` under which the rules are filed.
+    pub(crate) fn rule_set(&mut self, decl: &stitchwort_syntax::ast::Decl) -> Result<()> {
+        let stitchwort_syntax::ast::Decl::Rules { name, rules, span } = decl else {
+            unreachable!("only called on a rule set")
+        };
+        let key = self.check_new_name(name)?;
+        self.clear_metas();
+        self.unit.module.phase = crate::module::Phase::Body;
+        let (members, ty, body) = {
+            let mut cx = Ctx::new(self, *span);
+            let mut members: Vec<(DefId, bool)> = Vec::new();
+            for rule in rules {
+                if let Some((_, set)) = set_named(&mut cx, &rule.proof)? {
+                    members.extend(set.rules.iter().map(|&(d, r)| (d, r != rule.reverse)));
+                    continue;
+                }
+                let d = match &rule.proof {
+                    Expr::Var(_) | Expr::Field(..) => {
+                        match infer(&mut cx, &rule.proof)?.0.strip_loc() {
+                            Term::Def(d) => Some(*d),
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                };
+                let Some(d) = d else {
+                    return Err(Diagnostic::error(
+                        "E-RULE-SET",
+                        "a set's rules are named lemmas, definitions or other sets",
+                    )
+                    .with_label(rule.proof.span(), "not the name of a lemma or definition")
+                    .with_note(
+                        "a set is used wherever it is named, so it can't hold a hypothesis or a lemma \
+                         applied to arguments; list those in the `rewrite repeatedly` itself",
+                    ));
+                };
+                for each in expand(&mut cx, rule)? {
+                    check_rule(&mut cx, &each)?;
+                }
+                members.push((d, rule.reverse));
+            }
+            let (body, ty) = infer(&mut cx, &Expr::Unit(*span))?;
+            let ty = cx.quote(&ty)?;
+            (members, ty, body)
+        };
+        let id = crate::kernel::declare_def(
+            &mut self.kernel,
+            &self.tables,
+            &self.unit,
+            &crate::scope::display(&key).into(),
+            &ty,
+            false,
+            false,
+            *span,
+        )?;
+        if let Some(item) = self.unit.module.item {
+            self.unit.module.note_def(id, item);
+        }
+        self.scope
+            .insert(&key, crate::Global::Def(id), name.span, false);
+        crate::kernel::define_def(&mut self.kernel, &self.tables, id, &body)?;
+        self.tables.rule_sets.insert(
+            &self.session.owners,
+            id,
+            Rc::new(RuleSet { rules: members }),
+        );
+        Ok(())
+    }
+}
+
 /// `rewrite repeatedly [rules]` against `expected`, with or without `then`.
 pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let Expr::Rewrite {
@@ -174,12 +298,29 @@ pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) ->
     let header = keyword.to(written.last().map_or(*keyword, |r| r.span));
     let mut rules = Vec::new();
     for (origin, rule) in written.iter().enumerate() {
-        for rule in expand(cx, rule)? {
+        let named = set_named(cx, &rule.proof)?;
+        let origin_set = named.is_some();
+        let members = match named {
+            Some((_, set)) => set
+                .rules
+                .iter()
+                .map(|&(d, reverse)| member_rule(cx, d, reverse != rule.reverse, rule.span))
+                .collect(),
+            None => vec![rule.clone()],
+        };
+        for rule in members
+            .iter()
+            .map(|m| expand(cx, m))
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .flatten()
+        {
             let shape = check_rule(cx, &rule)?;
             rules.push(Listed {
                 rule,
                 origin,
                 shape,
+                origin_set,
             });
         }
     }
@@ -391,11 +532,62 @@ pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) ->
             written_goal.as_ref(),
         )?,
     };
+    note_unused(cx, written, &rules, &trail);
     let mut term = base;
     for step in steps.into_iter().rev() {
         term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
     }
     Ok(term)
+}
+
+/// The code of the warning for a listed rule that never applied.
+pub(crate) const UNUSED_RULE: &str = "W-REWRITE-REPEATEDLY-UNUSED";
+
+/// `W-REWRITE-REPEATEDLY-UNUSED` for each written rule (or set) none of
+/// whose rules applied. A call checked more than once (in each case of
+/// `cases then`) warns about a rule only if it applied in none of them.
+fn note_unused(
+    cx: &Ctx,
+    written: &[RewriteRule],
+    rules: &[Listed],
+    trail: &[(usize, Value, Option<Value>)],
+) {
+    let mut applied = vec![false; written.len()];
+    for (index, _, _) in trail {
+        applied[rules[*index].origin] = true;
+    }
+    let mut fired = cx.e.attempt.fired_rules.borrow_mut();
+    let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
+    let at = |w: &Diagnostic, span: Span| {
+        w.code == UNUSED_RULE && w.labels.first().map(|l| l.span) == Some(span)
+    };
+    for (rule, applied) in written.iter().zip(applied) {
+        if applied {
+            if !fired.contains(&rule.span) {
+                fired.push(rule.span);
+            }
+            warnings.retain(|w| !at(w, rule.span));
+            continue;
+        }
+        if fired.contains(&rule.span) || warnings.iter().any(|w| at(w, rule.span)) {
+            continue;
+        }
+        let is_set = rules
+            .iter()
+            .any(|r| r.origin_set && written.get(r.origin).is_some_and(|w| w.span == rule.span));
+        let what = match is_set {
+            true => format!("none of the rules of `{}` applied", rule_name(rule)),
+            false => format!("`{}` never applied", rule_name(rule)),
+        };
+        warnings.push(
+            Diagnostic::warning(UNUSED_RULE, what)
+                .with_label(rule.span, "the goal never had a place this rewrites")
+                .with_note(
+                    "take it out of the list: a rule that isn't used hides which ones the proof \
+                     needs",
+                ),
+        );
+    }
 }
 
 fn restore(cx: &mut Ctx, snapshot: Snapshot, errors: usize) {
@@ -664,6 +856,10 @@ fn rule_name(rule: &RewriteRule) -> String {
         }
     }
     let name = path(&rule.proof).unwrap_or_else(|| "this rule".into());
+    let name = match name.strip_prefix(crate::scope::EXACT_KEY) {
+        Some(key) => crate::scope::display(key).to_string(),
+        None => name,
+    };
     match rule.reverse {
         true => format!("<- {name}"),
         false => name,

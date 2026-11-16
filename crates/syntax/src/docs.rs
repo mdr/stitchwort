@@ -294,7 +294,7 @@ fn names(module: &Module) -> (Vec<u32>, Vec<u32>) {
     let mut members = Vec::new();
     for decl in &module.decls {
         match decl {
-            Decl::Signature { name, .. } => tops.push(name.span.start),
+            Decl::Signature { name, .. } | Decl::Rules { name, .. } => tops.push(name.span.start),
             Decl::Data {
                 name,
                 ctors,

@@ -459,3 +459,20 @@ impl Codec for Rc<JsRepr> {
         }))
     }
 }
+
+impl Codec for Rc<crate::rewrite::RuleSet> {
+    fn encode(&self, e: &mut Encoding<'_>) {
+        e.w.usize(self.rules.len());
+        for (rule, reverse) in &self.rules {
+            e.def(*rule);
+            e.w.bool(*reverse);
+        }
+    }
+    fn decode(b: &mut Body<'_>) -> Read<Self> {
+        let k = b.count()?;
+        let rules = (0..k)
+            .map(|_| Ok((b.def()?, b.r.bool()?)))
+            .collect::<Read<Vec<_>>>()?;
+        Ok(Rc::new(crate::rewrite::RuleSet { rules }))
+    }
+}

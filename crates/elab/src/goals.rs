@@ -1332,7 +1332,8 @@ impl Elaborator {
             Decl::Signature { name, .. }
             | Decl::Equation { name, .. }
             | Decl::Data { name, .. }
-            | Decl::Ability { name, .. } => Some(name.text.clone()),
+            | Decl::Ability { name, .. }
+            | Decl::Rules { name, .. } => Some(name.text.clone()),
             Decl::Test { .. } => None,
         };
         let inside = |d: &Decl| d.span().file == file && d.span().start <= at && at <= d.span().end;

@@ -1084,6 +1084,7 @@ impl Decl {
             Decl::Data { span, .. }
             | Decl::Signature { span, .. }
             | Decl::Test { span, .. }
+            | Decl::Rules { span, .. }
             | Decl::Ability { span, .. }
             | Decl::Equation { span, .. } => *span,
         }
@@ -1237,6 +1238,14 @@ pub enum Decl {
     Test {
         name: String,
         expr: Expr,
+        span: Span,
+    },
+    /// `rules words := [r1, <- r2]`: a named set of rules for `rewrite
+    /// repeatedly` (docs/proposals/simp-revisited.md §2.3). A member that
+    /// names another set stands for that set's rules.
+    Rules {
+        name: Name,
+        rules: Vec<RewriteRule>,
         span: Span,
     },
     /// `ability State (s : Type) where` followed by its operations, one per

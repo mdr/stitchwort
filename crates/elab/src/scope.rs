@@ -1853,6 +1853,11 @@ impl Elaborator {
         }
     }
 
+    /// The key of definition `id`, as [`Self::declaration_key_of`].
+    pub(crate) fn def_key(&self, id: DefId) -> String {
+        self.declaration_key_of(Declaration::Def(id))
+    }
+
     /// The key of `declaration`: its kernel name, with `Std.` for the
     /// library's.
     fn declaration_key_of(&self, declaration: Declaration) -> String {
