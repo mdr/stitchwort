@@ -1,5 +1,5 @@
 {
-  "next": 3489,
+  "next": 3490,
   "tickets": [
     {
       "id": 47,
@@ -33887,7 +33887,7 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Reverted on main (7ee900e03, 2a40e0984): the term-based check fired the '!= here is the proposition' note where the user wrote ≠ (examples/reject/match-not-found-goal-as-written.sw gained the note; batch verifier caught it). Redo: decide from the term AND only when the source wrote != (the span's text, or a flag the parser keeps), keeping the earlier reject example; run rejected_examples_fail_for_the_expected_reason. Model result: deepseek, failed (regression on review), ~40 min.\n\nRedo (DeepSeek, with SW-3078) done in scratch clone .claude/worktrees/scratch-sw-3125 (a48627d5f, 55c6d90d6), NOT merged: 24 files, including a syntax AST change (BinOp::Ne(NeForm), spelling from the token's byte length), per-declaration ne_ascii spans in elab state, and for SW-3078 a derive_waiting map in Session with rewind that changes instance search (a use waits for a failed field instance instead of E-INSTANCE-NONE). Bigger than a message fix and touching syntax and elaborator state, so it needs an Opus review before merging (orchestrator's call). Snapshots changed: two reading-needs-read-ne-* lose the wrong != note (correct).\n\nOpus review docs/reviews/SW-3125-review.md: both commits merge with small fixes (per-goal check for the rewrite-motive note, ≠ twins; SW-3078 transitive derive, DecEq/Show examples, < fallback). Fixes sent to the same DeepSeek session.\n\nModel result: deepseek, needed fixes (first attempt reverted; redo needed review fixes: per-goal check, ≠ twins), ~90 min over three runs (est. 40). Opus review docs/reviews/SW-3125-review.md. With SW-3078.",
+      "body": "Reverted on main (7ee900e03, 2a40e0984): the term-based check fired the '!= here is the proposition' note where the user wrote ≠ (examples/reject/match-not-found-goal-as-written.sw gained the note; batch verifier caught it). Redo: decide from the term AND only when the source wrote != (the span's text, or a flag the parser keeps), keeping the earlier reject example; run rejected_examples_fail_for_the_expected_reason. Model result: deepseek, failed (regression on review), ~40 min.\n\nRedo (DeepSeek, with SW-3078) done in scratch clone .claude/worktrees/scratch-sw-3125 (a48627d5f, 55c6d90d6), NOT merged: 24 files, including a syntax AST change (BinOp::Ne(NeForm), spelling from the token's byte length), per-declaration ne_ascii spans in elab state, and for SW-3078 a derive_waiting map in Session with rewind that changes instance search (a use waits for a failed field instance instead of E-INSTANCE-NONE). Bigger than a message fix and touching syntax and elaborator state, so it needs an Opus review before merging (orchestrator's call). Snapshots changed: two reading-needs-read-ne-* lose the wrong != note (correct).\n\nOpus review docs/reviews/SW-3125-review.md: both commits merge with small fixes (per-goal check for the rewrite-motive note, ≠ twins; SW-3078 transitive derive, DecEq/Show examples, < fallback). Fixes sent to the same DeepSeek session.\n\nModel result: deepseek, needed fixes (first attempt reverted; redo needed review fixes: per-goal check, ≠ twins), ~90 min over three runs (est. 40). Opus review docs/reviews/SW-3125-review.md. With SW-3078.\n\nAfter merge: two syntax shape tests (lower::tests) failed because BinOp::Ne now carries NeForm and the test printer used {:?}; orchestrator fixed the printer (op_name) and pushed. The run hadn't run stitchwort-syntax's tests after changing the AST.",
       "created": "2026-11-13",
       "updated": "2026-11-16",
       "commits": []
@@ -38914,6 +38914,19 @@
     {
       "id": 3488,
       "title": "[DeepSeek] toyfmt: rename the driver's Outcome.Formatted to Outcome.Done (path) (change), so FormatResult's Formatted needs no qualification and the theorems read 'format source width = Formatted output' (orchestrator's call after SW-3486)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3489,
+      "title": "[Fable paper] Stock-take after the toy proof (Matt, 16 Nov 2026): (1) lessons for std, the language and proving in general; (2) the toy proof itself: generic facts for std, and where it could be simpler; (3) directions toward a formally verified Stitchwort formatter written in Stitchwort (token insertions and rewrites, not only whitespace), with the dual goal of improving the language and environment. Takes in SW-3417 and SW-3434's questions",
       "status": "doing",
       "agent": "",
       "where": "",
