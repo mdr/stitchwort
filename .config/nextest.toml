@@ -360,3 +360,10 @@ slow-timeout = { period = "60s", terminate-after = 30 }
 [[profile.default.overrides]]
 filter = 'binary(soundness_fuzz) | binary(fuzz_elab) | (binary(it) & test(/^fuzz::/))'
 slow-timeout = { period = "60s", terminate-after = 240 }
+
+# A test that runs every rejected example twice, with and without the
+# conversion shortcut: 690 s beside a fuzzer on 16 Nov 2026, past the default
+# ten minutes, so a wider cap.
+[[profile.default.overrides]]
+filter = "package(stitchwort-driver) & binary(proofs) & test(=conv_shortcut::every_rejected_example_gets_the_same_verdict_without_the_shortcut)"
+slow-timeout = { period = "120s", terminate-after = 10 }

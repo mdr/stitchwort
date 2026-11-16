@@ -7,17 +7,11 @@
 -- one line, and a single `trans`, don't warn.
 import Std (Eq)
 
-theorem nested ∀ (a b c d: Nat) (ab: a = b) (bc: b = c) (cd: c = d): a = d :=
-    Eq.trans ab
-        (Eq.trans bc cd)
+theorem nested ∀ (a b c d: Nat) (ab: a = b) (bc: b = c) (cd: c = d): a = d := Eq.trans ab (Eq.trans bc cd)
 
-theorem method ∀ (a b c d: Nat) (ab: a = b) (bc: b = c) (cd: c = d): a = d :=
-    ab.trans
-        (bc.trans cd)
+theorem method ∀ (a b c d: Nat) (ab: a = b) (bc: b = c) (cd: c = d): a = d := ab.trans (bc.trans cd)
 
-theorem receiver ∀ (a b c d: Nat) (ab: a = b) (bc: b = c) (cd: c = d): a = d :=
-    (ab.trans bc).trans
-        cd
+theorem receiver ∀ (a b c d: Nat) (ab: a = b) (bc: b = c) (cd: c = d): a = d := (ab.trans bc).trans cd
 
 theorem oneLine ∀ (a b c d: Nat) (ab: a = b) (bc: b = c) (cd: c = d): a = d := Eq.trans ab (Eq.trans bc cd)
 
