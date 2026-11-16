@@ -47,8 +47,8 @@ use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::RewriteRule;
 
 use super::{
-    Equation, Place, Reading, Replaced, Search, Shape, discharge, key, pending_metas,
-    replace_occurrences, replace_occurrences_as,
+    Equation, Place, Reading, Replaced, Search, Shape, discharge, elaborate_rule, key,
+    pending_metas, replace_occurrences, replace_occurrences_as,
 };
 use crate::check::{Ctx, Result};
 use crate::lift::replace_with;
@@ -294,6 +294,19 @@ fn attempt(
     Ok((kept, outcome))
 }
 
+/// When [`search`] finds today's instance ([`todays_instance`]).
+enum Todays<'a> {
+    /// Found already, before anything was solved.
+    Before(Option<Term>),
+    /// Found after the search as written has found something, with the
+    /// rule elaborated afresh, so that a try finding nothing as written
+    /// (most of `rewrite repeatedly`'s) skips the search of the unfolded
+    /// goal. Undecided where either instance keeps an unknown, since a
+    /// fresh copy's unknown is never the same as the original's: then
+    /// [`search`] starts again the first way.
+    After(&'a Value, &'a Term),
+}
+
 #[allow(clippy::too_many_arguments)]
 fn search(
     cx: &mut Ctx,
@@ -307,15 +320,72 @@ fn search(
     remaining: &mut u64,
 ) -> Result<(Outcome, Option<Replaced>)> {
     // Today's choice of instance, for a rule with unknowns, found before
-    // anything is solved ([`todays_instance`]).
-    let todays = match unfolded {
-        Some((value, term))
-            if mode == Mode::Complete && equation.open(&cx.quote(&equation.lhs)?) =>
-        {
-            todays_instance(cx, rule, place, equation, value, term, remaining)?
+    // anything is solved ([`todays_instance`]): unless the unfolded goal
+    // has an unknown the search as written could solve, after it.
+    let unfolded = match unfolded {
+        Some(found) if mode == Mode::Complete && equation.open(&cx.quote(&equation.lhs)?) => {
+            Some(found)
         }
         _ => None,
     };
+    if let Some((value, term)) = unfolded
+        && !has_meta(term)
+    {
+        let snapshot = Snapshot::take(cx);
+        let budget = *remaining;
+        let decided = search_with(
+            cx,
+            rule,
+            place,
+            equation,
+            goal,
+            Todays::After(value, term),
+            mode,
+            reading,
+            remaining,
+        )?;
+        if let Some(decided) = decided {
+            return Ok(decided);
+        }
+        snapshot.restore(cx);
+        *remaining = budget;
+    }
+    let todays = match unfolded {
+        Some((value, term)) => todays_instance(cx, rule, place, equation, value, term, remaining)?,
+        None => None,
+    };
+    let decided = search_with(
+        cx,
+        rule,
+        place,
+        equation,
+        goal,
+        Todays::Before(todays),
+        mode,
+        reading,
+        remaining,
+    )?;
+    Ok(decided.expect("decided with today's instance found first"))
+}
+
+fn has_meta(term: &Term) -> bool {
+    term.subterms().any(|(t, _)| matches!(t, Term::Meta(_)))
+}
+
+/// [`search`], with today's instance found as `todays` says; `None` if
+/// that can't decide.
+#[allow(clippy::too_many_arguments)]
+fn search_with(
+    cx: &mut Ctx,
+    rule: &RewriteRule,
+    place: Place,
+    equation: &Equation,
+    goal: &Value,
+    todays: Todays,
+    mode: Mode,
+    reading: Reading,
+    remaining: &mut u64,
+) -> Result<Option<(Outcome, Option<Replaced>)>> {
     let mut written = reading.quote(cx, goal)?;
     // The `auto` proofs a call carries are not in the unfolded goal, where
     // `rewrite_once` proves the pending ones first; here they show, and a
@@ -353,13 +423,13 @@ fn search(
                 .limited(&mut cap, || replace(cx, remaining))?
             {
                 Some(replaced) => replaced,
-                None => return Ok((Outcome::Failed, None)),
+                None => return Ok(Some((Outcome::Failed, None))),
             }
         }
         _ => replace(cx, remaining)?,
     };
     let Some(step) = &replaced.step else {
-        return Ok((Outcome::Nothing, None));
+        return Ok(Some((Outcome::Nothing, None)));
     };
     // `check_motive` cannot check a motive with an unknown in it (the `J` is
     // checked whole once it is solved, after this choice is made), and a
@@ -370,18 +440,35 @@ fn search(
         .subterms()
         .any(|(t, _)| matches!(t, Term::Meta(_)))
     {
-        return Ok((Outcome::Unchecked, None));
+        return Ok(Some((Outcome::Unchecked, None)));
     }
+    let todays = match todays {
+        Todays::Before(todays) => todays,
+        Todays::After(value, term) => {
+            let lhs = cx.quote(&equation.lhs)?;
+            if has_meta(&lhs) {
+                return Ok(None);
+            }
+            let snapshot = Snapshot::take(cx);
+            let found = elaborate_rule(cx, rule, place)
+                .and_then(|fresh| todays_instance(cx, rule, place, &fresh, value, term, remaining));
+            snapshot.restore(cx);
+            match found? {
+                Some(todays) if has_meta(&todays) => return Ok(None),
+                todays => todays,
+            }
+        }
+    };
     if let Some(todays) = &todays
         && !same(todays, &cx.quote(&equation.lhs)?)
     {
-        return Ok((Outcome::Incomplete, None));
+        return Ok(Some((Outcome::Incomplete, None)));
     }
     let mut outcome = Outcome::Kept;
     match mode {
         Mode::Complete => {
             if hidden_copy(cx, rule, place, equation, &step.motive, remaining)? {
-                return Ok((Outcome::Incomplete, None));
+                return Ok(Some((Outcome::Incomplete, None)));
             }
         }
         Mode::Rescue => {}
@@ -390,7 +477,7 @@ fn search(
             // for the premises.
             let mut check = *remaining;
             match hidden_copy(cx, rule, place, equation, &step.motive, &mut check) {
-                Ok(true) => return Ok((Outcome::Incomplete, None)),
+                Ok(true) => return Ok(Some((Outcome::Incomplete, None))),
                 Ok(false) => *remaining = check,
                 Err(e) if ran_out(cx, &e) => outcome = Outcome::Unconfirmed,
                 Err(e) => return Err(e),
@@ -398,7 +485,7 @@ fn search(
         }
     }
     discharge(cx, rule, equation, 0, remaining)?;
-    Ok((outcome, Some(replaced)))
+    Ok(Some((outcome, Some(replaced))))
 }
 
 /// The completeness check: whether the left side still occurs in `motive`
