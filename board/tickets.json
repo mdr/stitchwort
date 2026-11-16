@@ -1,5 +1,5 @@
 {
-  "next": 3590,
+  "next": 3591,
   "tickets": [
     {
       "id": 47,
@@ -40255,6 +40255,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "Also D3657 (Matt, 16 Nov 2026: yes): theorems with proofs over ~15 lines end their doc with a 1-2 sentence proof idea (induction, key lemma, invariant); no step narration. Matt's reasoning: 'I don't think necessarily the programming rules about being really stingy with comments necessarily carry over to the proving world ... it can be really hard to write like a self-documenting proof ... having the proof idea can really help.' Update proving guide §2.7, syntax.md 'What to write', and CLAUDE.md's comment rule.",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3590,
+      "title": "[Opus] Syntax: checked 'show P from t' (and 'show P' as a block line): checks P is the goal up to computation, changes nothing else; sugar over ascription, no kernel change; guide, syntax.md, proving guide. D3658 (Matt, 16 Nov 2026): 'sounds like a worthwhile thing to consider ... I don't know if I want to put it off for a week, but maybe we can queue it after some other work and see if it still holds up' — so: queued after SW-3589 (state, don't chain) merges; before starting, recheck that it still adds something beyond calc/typed let and bring a one-line confirm if not. docs/research/readable-proofs.md R8",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
