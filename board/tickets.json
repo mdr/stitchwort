@@ -39379,12 +39379,12 @@
     {
       "id": 3523,
       "title": "[Sonnet] fmt bug (no fallback since SW-3497, so now an internal error): a ';' sequence at a line end followed by a comment and a continuation breaks: 'def three: Nat :=\\n  let x := 1;\\n-- c\\n  x' and '(let x := 1; 2;\\n-- c\\n x)'. Fix with goldens failing first",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nSonnet lane: fixed (Doc::AlignInset: a Seq starting a line breaks 2 columns in; the repro 1 as written already passed, the failing shape was 3+ parts or a comment forcing a break in a paren/list/lambda). Goldens + printer tests added. Not fixed, unrelated: calc-step and arrow-after-comment fmt internal errors (see report).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
