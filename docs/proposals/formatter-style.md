@@ -506,8 +506,10 @@ eight `else if`s) is already in this shape and doesn't change.
 `match`, `handle`, a definition's equations, or a clause lambda) always go
 one per line, each `|` at 2 from the line the construct starts on. One
 alternative may share the line (`|> matches | ['#', ..digits] => …`,
-`(match some | (j, y) if i != j => (x, y))`). `match x with` and `handle e
-with` end their line. Samples in §4.
+`(match some | (j, y) if i != j => (x, y))`), unless alternatives of an
+enclosing construct follow it (an arm's, or the definition's own after a
+`match` in its header), which would read as its own (SW-3582). `match x
+with` and `handle e with` end their line. Samples in §4.
 
 **S21. An arm** is `| patterns => body`: the body after `=>` if it fits,
 otherwise below at 2 from the `|` (R11, as today). A guard stays with its
