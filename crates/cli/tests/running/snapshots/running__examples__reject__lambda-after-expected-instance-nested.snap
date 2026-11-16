@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/running/examples.rs
+source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-INSTANCE-UNKNOWN-TYPE] Error: can't tell which type's `DecEq` to use here
@@ -7,7 +7,7 @@ expression: output
     │
  12 │   nested (same => differ (omega)) (z => z == z)
     │                                         ───┬──  
-    │                                            ╰──── this needs `DecEq (?1 a b n differ total)`
+    │                                            ╰──── this needs `DecEq _b`
     │ 
     │ Note: annotate, so the type is known: e.g. `(xs: List Nat)`
 ────╯

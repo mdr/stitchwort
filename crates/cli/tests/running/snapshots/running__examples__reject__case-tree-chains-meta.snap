@@ -7,7 +7,7 @@ expression: output
     │
  51 │ def different (x: Bool) (y: Bool): Nat := same (aTop x y 3) (bTop x y _) rfl
     │                                                                          ─┬─  
-    │                                                                           ╰─── `aTop x y 3` and `bTop x y (?1 x y)` aren't equal
+    │                                                                           ╰─── `aTop x y 3` and `bTop x y _n` aren't equal
     │ 
     │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ────╯

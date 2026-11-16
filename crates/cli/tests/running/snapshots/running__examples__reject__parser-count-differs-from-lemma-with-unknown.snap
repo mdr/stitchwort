@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/running/examples.rs
+source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
@@ -10,7 +10,7 @@ expression: output
     │                                                                                                           ╰──── this has the `found` type below
     │ 
     │ Note 1: expected: tagged True (arg => Parse.exactly 35 Parse.digit) = …
-    │            found: tagged ?0 (arg => Parse.exactly 36 Parse.digit) = …
+    │            found: tagged _b (arg => Parse.exactly 36 Parse.digit) = …
     │ 
-    │ Note 2: `?0` is the `_` for the argument `b` of `lem`, which wasn't worked out from the other arguments or the expected type
+    │ Note 2: `_b` is `lem`'s `_` for `b`, not worked out
 ────╯

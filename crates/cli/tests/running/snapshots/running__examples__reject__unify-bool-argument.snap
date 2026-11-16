@@ -7,9 +7,9 @@ expression: output
     │
  11 │ theorem doubleIsFour (n: Nat) (h: double n = 4): double n = 4 := atTrue h
     │                                                                         ┬  
-    │                                                                         ╰── expected `?0 n h True = ?1 n h`, but this has type `double n = 4`
+    │                                                                         ╰── expected `_f True = _v`, but this has type `double n = 4`
     │ 
-    │ Note 1: `?0` is the implicit argument `f` of `atTrue`, which wasn't worked out from the other arguments or the expected type; give it with `[f := …]`
+    │ Note 1: `_f` is `atTrue`'s implicit `f`, not worked out; give it with `[f := …]`
     │ 
-    │ Note 2: `?1` is the implicit argument `v` of `atTrue`, which wasn't worked out from the other arguments or the expected type; give it with `[v := …]`
+    │ Note 2: `_v` is `atTrue`'s implicit `v`, not worked out; give it with `[v := …]`
 ────╯

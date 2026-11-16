@@ -7,7 +7,7 @@ expression: output
     │
  15 │ def shown: Text := Pretty.pretty []
     │                    ────────┬───────  
-    │                            ╰───────── this needs `Pretty ?2`
+    │                            ╰───────── this needs `Pretty _`
     │ 
     │ Note: annotate, so the type is known: e.g. `(xs: List Nat)`
 ────╯
