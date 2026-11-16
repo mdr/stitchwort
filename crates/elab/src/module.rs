@@ -197,6 +197,10 @@ pub(crate) struct ModuleState {
     pub item_defs: HashMap<usize, Vec<DefId>>,
     /// The key of every name the module declares.
     pub names: HashSet<String>,
+    /// The key of every name the module's declarations write, qualified as
+    /// far as they resolve (`Std.Option.None` for `Option.None`): what
+    /// `W-CTOR-HIDES` asks about a hidden constructor.
+    pub referenced: HashSet<String>,
     /// The open goals' assumptions each unfinished item waits for: it
     /// wasn't checked, because something it computes with is stuck on
     /// them, or it uses what waits for them.
@@ -1823,6 +1827,7 @@ impl Elaborator {
         // `D.All` for a data type `D` of this module that doesn't declare it:
         // generated with the nested types that hold `D` (`derive_induct.rs`).
         let mut alls: Vec<(usize, usize, Span)> = Vec::new();
+        let mut referenced: HashSet<String> = HashSet::default();
         for (index, item) in items.iter().enumerate() {
             self.unit.module.file = Some(self.unit.module.items[index].file);
             let mut deps = Vec::new();
@@ -1839,9 +1844,14 @@ impl Elaborator {
                     }
                 };
                 if fields.is_empty()
-                    && let crate::scope::Resolved::Found { global, rest, .. } =
-                        self.resolve(&n.text)
+                    && let crate::scope::Resolved::Found {
+                        global, rest, key, ..
+                    } = self.resolve(&n.text)
                 {
+                    referenced.insert(match rest.is_empty() {
+                        true => key.to_string(),
+                        false => format!("{key}.{}", rest.join(".")),
+                    });
                     if let Global::Unchecked(j) = global {
                         deps.push(Dep {
                             item: j,
@@ -1933,6 +1943,7 @@ impl Elaborator {
                 });
             }
         }
+        self.unit.module.referenced = referenced;
         self.unit.module.file = None;
         if let Some(f) = own {
             needs.files.remove(&f);

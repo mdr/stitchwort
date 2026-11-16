@@ -3002,12 +3002,19 @@ impl Elaborator {
     /// `W-CTOR-HIDES`: the constructor `name` (declared as `key`) is called
     /// what a constructor this file imports, or the prelude's, is called, so
     /// from here the short name means the new one (D3615: a constructor name
-    /// has one meaning in a file).
+    /// has one meaning in a file). Only where the file writes the hidden
+    /// constructor (`Option.None`): a file that redefines a library type on
+    /// purpose and never reaches for the original has nothing to be warned
+    /// about.
     fn warn_if_hides_constructor(&mut self, name: &ast::Name, key: &str) {
         if self.unit.loading_prelude || key.starts_with("Std.") {
             return;
         }
         let hidden = self.imported_constructors(&name.text);
+        let hidden: Vec<String> = hidden
+            .into_iter()
+            .filter(|k| self.unit.module.referenced.contains(k))
+            .collect();
         if hidden.is_empty() {
             return;
         }

@@ -1344,7 +1344,23 @@ fn a_goal_splits_on_a_variable_and_then_on_another_as_a_new_column() {
         s.change(4, &by_c);
         assert_eq!(
             by_c,
-            "namespace Demo\n\ndef andb (b1: Bool) (b2: Bool): Bool := match b1 with\n  | True => b2\n  | False => False\n\ntheorem andbTrueElim2 (b c: Bool) (h: andb b c = True): c = True := match b, c with\n  | False, _ => ?\n  | True, False => ?\n  | True, True => ?\n"
+            "namespace Demo\n\ndef andb (b1: Bool) (b2: Bool): Bool := match b1 with\n  | True => b2\n  | False => False\n\ntheorem andbTrueElim2 (b c: Bool) (h: andb b c = True): c = True := match b, c with\n  | False, _ => ?\n  | True, True => ?\n"
+        );
+        // `h` is `c = True` once `b` is `True`: no arm for `c = False`.
+        assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
+    });
+}
+
+#[test]
+fn a_split_leaves_out_the_cases_a_hypothesis_rules_out() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntheorem both (b: Bool) (h: b = True): b = True := ?\n";
+        let mut s = Session::open(text);
+        let (titles, applied) = split_at(&mut s, 2, text, hole(text, 0), "Split on `b`");
+        assert_eq!(titles, ["Split on `b`"]);
+        assert_eq!(
+            applied.unwrap(),
+            "namespace Demo\n\ntheorem both (b: Bool) (h: b = True): b = True := match b with\n  | True => ?\n"
         );
         assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
     });
