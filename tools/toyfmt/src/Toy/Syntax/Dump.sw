@@ -21,7 +21,7 @@ def Comments.dump (comments: Comments): Text :=
 
 def Declaration.dump: Declaration → Text
   | Function fnComments name nameComments takes open parameters close equals body =>
-    let listed := parameters.map (parameter => "${parameter.group.dump}${parameter.comma.dump}")
+    let listed := parameters.map (parameter => parameter.dump)
     let taken := takes.map (comments => " (takes${comments.dump})") |> .getOrElse ""
     "(fn${fnComments.dump} ${name}${nameComments.dump}${taken} ${open.dump}(${listed.joinWith " "})${close.dump}${equals.dump} ${body.dump})"
   | Value letComments name nameComments equals body =>
@@ -67,6 +67,6 @@ def Expr.dump: Expr → Text
   | If ifComments condition thenComments whenTrue elseComments whenFalse =>
     "(if${ifComments.dump} ${condition.dump}${thenComments.dump} ${whenTrue.dump}${elseComments.dump} ${whenFalse.dump})"
 
-def dumpItems: List Item → Text
+def dumpItems: List Expr → Text
   | [] => ""
-  | [{ value, comma }, ..rest] => " (item ${value.dump}${comma.dump})${dumpItems rest}"
+  | [value, ..rest] => " (item ${value.dump})${dumpItems rest}"

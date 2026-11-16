@@ -74,28 +74,24 @@ theorem selectedName ∀ (layout: Layout) (token: Parse.Located Token) (named: (
 
 -- Items.
 
-theorem lexicalItemsAppend ∀ (front: List Item) (last: Item)
+theorem lexicalItemsAppend ∀ (front: List Expr) (last: Expr)
     (lexical: LexicalItems front)
-    (lastLexical: Lexical last.value)
-    (lastFine: Fine last.comma):
+    (lastLexical: Lexical last):
     LexicalItems (front ++ [last]) :=
-  match front, lexical, last, lastLexical, lastFine with
-    | [], lexical, { value, comma }, lastLexical, lastFine => (lastLexical, lastFine, byComputing)
-    | [{ value, comma }, ..rest], Both valueLexical (Both commaFine restLexical), last, lastLexical, lastFine =>
-      (valueLexical, commaFine, (lexicalItemsAppend rest last restLexical lastLexical lastFine))
+  match front, lexical with
+    | [], lexical => (lastLexical, byComputing)
+    | [value, ..rest], Both valueLexical restLexical =>
+      (valueLexical, (lexicalItemsAppend rest last restLexical lastLexical))
 
-theorem lexicalItemsReverse ∀ (found: List Item) (lexical: LexicalItems found): LexicalItems found.reverse :=
+theorem lexicalItemsReverse ∀ (found: List Expr) (lexical: LexicalItems found): LexicalItems found.reverse :=
   match found, lexical with
     | [], lexical => byComputing
-    | [{ value, comma }, ..rest], Both valueLexical (Both commaFine restLexical) =>
-      rewrite List.reverseCons ({ value, comma }: Item) rest then
-        lexicalItemsAppend rest.reverse { value, comma } (lexicalItemsReverse rest restLexical) valueLexical commaFine
-
---| An item whose value and comma's comments are the lexer's.
-def LexicalItem (item: Item): Prop := Lexical item.value ∧ Fine item.comma
+    | [value, ..rest], Both valueLexical restLexical =>
+      rewrite List.reverseCons value rest then
+        lexicalItemsAppend rest.reverse value (lexicalItemsReverse rest restLexical) valueLexical
 
 --| Items and the closing bracket's comments, all the lexer's.
-def LexicalList (found: (List Item, Comments)): Prop := LexicalItems found.fst ∧ Fine found.snd
+def LexicalList (found: (List Expr, Comments)): Prop := LexicalItems found.fst ∧ Fine found.snd
 
 -- Atoms and their calls and fields.
 
@@ -218,21 +214,33 @@ theorem lexicalConcat ∀ (groups: List (List (Spaced Statement)))
 
 -- Declarations and the file.
 
---| A comma's comments and the group after it.
-def FineStep (step: (Comments, ParameterGroup)): Prop := Fine step.fst ∧ LexicalGroup step.snd
+--| A closing bracket's comments, as the parser builds them from the
+--| lexer's, are comments.
+theorem closingFine ∀ (close: Comments) (before: Bool) (fine: Fine close): Fine (close.closing before) :=
+  match close, before, fine with
+    | { above, after = None }, _, fine => fine
+    | { above = [], after = Some comment }, False, (_, fineAfter) => (((fineAfter, byComputing)), byComputing)
+    | { above = [], after = Some comment }, True, fine => fine
+    | { above = [first, ..rest], after = Some comment }, _, fine => fine
 
---| A first group and the commas and groups after it.
-def FineList (found: (ParameterGroup, List (Comments, ParameterGroup))): Prop :=
-  LexicalGroup found.fst ∧ List.All FineStep found.snd
+--| A type of the parser's shape, with the lexer's texts.
+def ParsedType (annotation: TypeExpr): Prop := ShapedType annotation ∧ LexicalType annotation
 
-theorem lexicalWithCommas ∀ (first: ParameterGroup) (others: List (Comments, ParameterGroup))
-    (grouped: LexicalGroup first)
-    (steps: List.All FineStep others):
-    LexicalParameters (withCommas first others) :=
-  match others, steps with
-    | [], _ => (grouped, ((byComputing, byComputing)), byComputing)
-    | [(comma, next), ..rest], Both (Both commaFine nextGrouped) more =>
-      (grouped, commaFine, (lexicalWithCommas next rest nextGrouped more))
+--| A parameter group of the parser's shape, with the lexer's texts.
+def ParsedGroup (group: ParameterGroup): Prop := ShapedGroup group ∧ LexicalGroup group
+
+--| A first group and the groups after it.
+def FineList (found: (ParameterGroup, List ParameterGroup)): Prop :=
+  ParsedGroup found.fst ∧ List.All ParsedGroup found.snd
+
+theorem parsedGroups ∀ (groups: List ParameterGroup)
+    (all: List.All ParsedGroup groups):
+    ShapedGroups groups ∧ LexicalParameters groups :=
+  match groups, all with
+    | [], _ => (byComputing, byComputing)
+    | [group, ..rest], Both (Both shaped lexical) more =>
+      let (shapedRest, lexicalRest) := parsedGroups rest more
+      (((shaped, shapedRest)), ((lexical, lexicalRest)))
 
 theorem lexicalNamesOf ∀ (others: List (Text, Comments))
     (named: List.All FineNamed others):

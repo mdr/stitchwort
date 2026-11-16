@@ -12,6 +12,11 @@
 --| its tokens (`Inner`). `Onto` is `Inner` in the form a chain of steps
 --| builds up. This file has the specs and the chain lemmas; the walk
 --| itself is in CarryWalk.sw.
+--|
+--| The tokens are the lexer's after rule N. A comma among them holds no
+--| comment, so the tree, which keeps none for a comma, loses none; a
+--| closing bracket's comments are the token's, in order, however
+--| `Comments.closing` holds them (`closingAll`).
 
 namespace Toy.Fmt.Carry
 import Toy.Fmt (..)
@@ -42,9 +47,9 @@ def Expr.comments: Expr → List Comment
       ++ elseComments.all
       ++ whenFalse.comments
 
-def itemsComments: List Item → List Comment
+def itemsComments: List Expr → List Comment
   | [] => []
-  | [{ value, comma }, ..rest] => value.comments ++ comma.all ++ itemsComments rest
+  | [value, ..rest] => value.comments ++ itemsComments rest
 
 def Body.comments: Body → List Comment
   | { statements } => linesComments statements
@@ -71,8 +76,6 @@ def ParameterGroup.comments: ParameterGroup → List Comment
   | Typed names colon annotation =>
     names.head.comments.all ++ namesComments names.tail ++ colon.all ++ annotation.comments
 
-def Parameter.allComments (parameter: Parameter): List Comment := parameter.group.comments ++ parameter.comma.all
-
 --| What an optional part holds: `measure` of it, or nothing.
 def perhapsComments (measure: a → List Comment): Option a → List Comment
   | None => []
@@ -80,12 +83,11 @@ def perhapsComments (measure: a → List Comment): Option a → List Comment
 
 --| A function header's comments: `takes`'s, if it was written, then the
 --| brackets' and the parameters'.
-def headerComments (takes: Option Comments) (open: Comments) (parameters: List Parameter) (close: Comments):
+def headerComments (takes: Option Comments) (open: Comments) (parameters: List ParameterGroup) (close: Comments):
     List Comment :=
   perhapsComments Comments.all takes ++ open.all ++ parametersComments parameters ++ close.all
 
-def parametersComments (parameters: List Parameter): List Comment :=
-  parameters.flatMap (parameter => parameter.allComments)
+def parametersComments (parameters: List ParameterGroup): List Comment := parameters.flatMap (group => group.comments)
 
 def Declaration.comments: Declaration → List Comment
   | Function fnComments _ nameComments takes open parameters close equals body =>
@@ -162,9 +164,67 @@ theorem risingAfter ∀ (read rest: List Tok) (rising: Rising (read ++ rest)): R
   | [], rising => rising
   | [head, ..tail], (apart, later) => risingAfter tail rest later
 
---| What the walk assumes of the input left: tidy tokens at rising offsets.
+--| What rule N leaves of `Tidy`, as far as the walk needs it: a comma
+--| holds no comment, and the token after one that is no comma is `Tidy`.
+--| The token after a comma needn't be: it holds what the comma held
+--| (`[a`, `-- c`, `, b]` puts `-- c` above `b`, which doesn't start its
+--| line). So this is a fact about each token and the one before it, and
+--| not one `Parse.Invariant.every` can say.
+def Settling: List Tok → Prop
+  | [] => True
+  | [token] => BareComma token
+  | [token, next, ..rest] => BareComma token ∧ (token.value.kind.isComma = False → Tidy next) ∧ Settling [next, ..rest]
+
+theorem settlingAfter ∀ (read rest: List Tok) (settling: Settling (read ++ rest)): Settling rest :=
+  match read, settling with
+    | [], settling => settling
+    | [head], settling =>
+      match rest, settling with
+        | [], _ => byComputing
+        | [next, ..more], (_, _, later) => later
+    | [head, second, ..tail], (_, _, later) => settlingAfter [second, ..tail] rest later
+
+--| The next token is `Tidy`: what a body on its keyword's line needs of
+--| its first token, and what `Settling` gives after any token but a comma.
+def HeadTidy (rest: List Tok): Prop := match rest with
+  | [] => True
+  | [head, .._] => Tidy head
+
+theorem settlingBare ∀ (token: Tok) (later: List Tok) (settling: Settling [token, ..later]): BareComma token :=
+  match later, settling with
+    | [], bare => bare
+    | [next, ..more], (bare, _) => bare
+
+theorem settlingHead ∀ (token: Tok) (later: List Tok)
+    (settling: Settling ([token] ++ later))
+    (notComma: token.value.kind.isComma = False):
+    HeadTidy later :=
+  match later, settling with
+    | [], _ => byComputing
+    | [next, ..more], (_, tidy, _) => tidy notComma
+
+--| What the walk assumes of the input left: the settled tokens' shape
+--| (`Settling`), at rising offsets.
 def Lexer: Parse.Invariant Tok :=
-  Parse.Invariant.both (Parse.Invariant.every Tidy) { holds = Rising, kept = risingAfter }
+  Parse.Invariant.both { holds = Settling, kept = settlingAfter } { holds = Rising, kept = risingAfter }
+
+--| A closing bracket's comments as the parser builds them
+--| (`Comments.closing`) are the token's, in the same order.
+theorem closingAll ∀ (close: Comments) (before: Bool): (close.closing before).all = close.all :=
+  match close, before with
+    | { above, after = None }, _ => byComputing
+    | { above = [], after = Some comment }, False => byComputing
+    | { above = [], after = Some comment }, True => byComputing
+    | { above = [first, ..rest], after = Some comment }, _ => byComputing
+
+--| A step that read one token, which is no comma: after it the next
+--| token is `Tidy`.
+def Word (layout: Layout) (first: a → List Comment) (read: List Tok) (value: a): Prop :=
+  Inner layout first read value ∧ (∃ (token: Tok) => read = [token] ∧ token.value.kind.isComma = False)
+
+--| What `parser` reads from a mark where the next token is `Tidy`.
+def TidyReads (parser: () → {Parse Tok} a) (spec: List Tok → a → Prop): Prop :=
+  ∀ (start: Parse.Mark Tok) => Parse.Fits Tok Lexer start.rest → HeadTidy start.rest → Parse.ReadsAt start parser spec
 
 -- The specs.
 
@@ -348,3 +408,75 @@ theorem ontoDone ∀ [inv: Parse.Invariant Tok] [measure: a → List Comment] [e
     (same: measure x = before []):
     Parse.ReadsIn inv (() => x) (Onto layout before measure extra) :=
   Parse.readsDone x _ (holds, (past => same))
+
+-- Chains through a step that needs the next token `Tidy`.
+
+--| A one-token step that is no comma, then the rest, read from where the
+--| next token is `Tidy`.
+theorem andThenWord ∀ [p: () → {Parse Tok} a] [j: a → {Parse Tok} b] [first: a → List Comment]
+    [measure: b → List Comment] [extra: b → Prop] [layout: Layout] [before: List Comment → List Comment]
+    (readsWord: Parse.ReadsIn Lexer p (Word layout first))
+    (rest: ∀ (v: a) => TidyReads (() => j v) (Onto layout (later => before (first v ++ later)) measure extra)):
+    Parse.ReadsIn Lexer (() => j (p())) (Onto layout before measure extra) :=
+  start fine =>
+    Parse.readsAtThen (readsWord start fine) (firstRead v after starts word =>
+      match word with
+        | (carried, token, single, notComma) =>
+          let settling: Settling ([token] ++ after.rest) := rewrite <- single, <- starts then fine.holds.left
+          Parse.readsAtWeaken
+            (rest v after (fine.after starts) (settlingHead token after.rest settling notComma))
+            (read w onward =>
+              (
+                onward.left,
+                (past =>
+                  let firstSum: first v = allCarried firstRead :=
+                    carried (List.allAppendLeft layout.past firstRead read past)
+                  let whole := onward.right (List.allAppendRight layout.past firstRead read past)
+                  rewrite allCarriedAppend firstRead read, <- firstSum then whole)
+              )))
+
+--| A step read from where the next token is `Tidy`, then the rest.
+theorem andThenTidy ∀ [p: () → {Parse Tok} a] [j: a → {Parse Tok} b] [first: a → List Comment]
+    [measure: b → List Comment] [extra: b → Prop] [layout: Layout] [before: List Comment → List Comment]
+    (readsFirst: TidyReads p (Inner layout first))
+    (rest: ∀ (v: a) => Parse.ReadsIn Lexer
+      (() => j v)
+      (Onto layout (later => before (first v ++ later)) measure extra)):
+    TidyReads (() => j (p())) (Onto layout before measure extra) :=
+  start fine tidy =>
+    Parse.readsAtThen (readsFirst start fine tidy) (firstRead v after starts carried =>
+      Parse.readsAtWeaken (rest v after (fine.after starts)) (read w onward =>
+        (
+          onward.left,
+          (past =>
+            let firstSum: first v = allCarried firstRead := carried (List.allAppendLeft layout.past firstRead read past)
+            let whole := onward.right (List.allAppendRight layout.past firstRead read past)
+            rewrite allCarriedAppend firstRead read, <- firstSum then whole)
+        )))
+
+--| The last step, read from where the next token is `Tidy`.
+theorem lastlyTidy ∀ [p: () → {Parse Tok} a] [f: a → b] [first: a → List Comment] [measure: b → List Comment]
+    [extra: b → Prop] [layout: Layout] [before: List Comment → List Comment]
+    (readsLast: TidyReads p (Inner layout first)) (holds: ∀ (v: a) => extra (f v))
+    (same: ∀ (v: a) => measure (f v) = before (first v)):
+    TidyReads (() => f (p())) (Onto layout before measure extra) :=
+  start fine tidy =>
+    Parse.readsAtThen (readsLast start fine tidy) (read v after starts carried =>
+      Parse.readsAtDone after
+        (f v) _
+        (rewrite List.appendNil read then
+          (
+            (holds v),
+            (past =>
+              calc measure (f v)
+                _ = before (first v) := same v
+                _ = before (allCarried read) := Eq.cong before (carried past))
+          )))
+
+--| A parser that looks at where it is, from one mark.
+theorem readsAtMark ∀ (k: Parse.Mark Tok → {Parse Tok} a) (spec: List Tok → a → Prop) (start: Parse.Mark Tok)
+    (each: Parse.ReadsAt start (() => k start) spec):
+    Parse.ReadsAt start (() => k (Parse.mark())) spec :=
+  total state value after here honest h =>
+    let ran: Parse.runFrom state (() => (k state.at, Parse.mark())) = Ok (value, after) := h
+    each total state value after here honest (rewrite <- here then ran)

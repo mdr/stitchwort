@@ -206,7 +206,7 @@ theorem trailingLays ∀ (after: Option Comment) (indent line: Nat) (trace: List
     | None, _, reached => rewrite <- List.appendNil trace then reached
     | Some comment, fine, reached =>
       match commentSolid comment.text fine with
-        | (_, _, layout) => (layout, reached)
+        | (_, _, layout) => (fine, layout, reached)
 
 -- A token.
 
@@ -529,13 +529,41 @@ theorem closerNotes ∀ (comment: Comment) (rest: List Comment) (indent: Nat)
 --| wherever it starts a line, a closing bracket may.
 theorem closerRule ∀ (zone: Zone) (comments: Comments) (text: Text)
     (fine: Fine comments)
-    (solid: Solid text):
+    (solid: Solid text)
+    (closes: closesText text = True):
     Rule zone.holds (closer comments text) (Seated zone) (TokenAt anyStart comments text) (Ended zone) :=
   indent place trace next inside seated onward =>
     match comments, fine with
-      | { above = [], after }, fine =>
+      | { above = [], after = None }, fine =>
+        match place, seated with
+          | Broken at, never => (Bool.falseNotTrue never).impossible
+          | Held at, seated =>
+            (closes, (onward (Held at) [{ word = text, start = None }] ((0, None, byComputing, byComputing)) seated))
+          | AtStart at, seated =>
+            wordLays indent text
+              (AtStart at)
+              trace
+              next
+              solid
+              (onward
+                (Mid (wordLine indent (AtStart at)))
+                [{ word = text, start = wordStart indent (AtStart at) }]
+                ((0, (wordStart indent (AtStart at)), byComputing, byComputing))
+                (seatedLine zone indent (AtStart at) inside seated))
+          | Mid at, seated =>
+            wordLays indent text
+              (Mid at)
+              trace
+              next
+              solid
+              (onward
+                (Mid (wordLine indent (Mid at)))
+                [{ word = text, start = wordStart indent (Mid at) }]
+                ((0, (wordStart indent (Mid at)), byComputing, byComputing))
+                (seatedLine zone indent (Mid at) inside seated))
+      | { above = [], after = Some held }, fine =>
         tokenLays
-          { above = [], after }
+          { above = [], after = Some held }
           text
           indent
           place
@@ -544,10 +572,10 @@ theorem closerRule ∀ (zone: Zone) (comments: Comments) (text: Text)
           fine
           solid
           (onward
-            (tokenEnd indent place { above = [], after })
-            (tokenEvents indent place { above = [], after } text)
+            (tokenEnd indent place { above = [], after = Some held })
+            (tokenEvents indent place { above = [], after = Some held } text)
             ((0, (wordStart indent place), byComputing, byComputing))
-            (trailEnded zone _ after (seatedLine zone indent place inside seated)))
+            (trailEnded zone _ (Some held) (seatedLine zone indent place inside seated)))
       | { above = [comment, ..rest], after }, (fineAbove, fineAfter) =>
         let notes := aboveEvents (indent + 2) [comment, ..rest]
         let word: Event := { word = text, start = Some indent }

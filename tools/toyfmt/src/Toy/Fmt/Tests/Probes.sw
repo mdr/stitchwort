@@ -1,7 +1,9 @@
 --| Comments in every awkward place (every-comment-placed.md §1.3), at
 --| width 40: each probe's source, the tree it parses to (as its dump, which
 --| says which token holds each comment), and the formatted text. None is
---| left as written; some layouts are odd, as D3619 accepts.
+--| left as written; some layouts are odd, as D3619 accepts. A comment
+--| written after a comma or a closing bracket is held by the token before
+--| them (rule N), and printed after them where they fit on its line.
 
 namespace Toy.Fmt.Tests
 import Toy.Fmt (..)
@@ -103,11 +105,10 @@ def probes: List Probe :=
     { name = "a trailing comment after a header's )", source = """
       fn f(x) -- after the header
         = x
-      """, dump = "(fn f (x){ after -- after the header } (body (bare (var x))))\n", formatted = """
+      """, dump = "(fn f (x{ after -- after the header }) (body (bare (var x))))\n", formatted = """
         fn f(
-            x
-        ) -- after the header
-          = x
+            x -- after the header
+        ) = x
         """ },
     {
       name = "an own-line comment before ]",
@@ -173,9 +174,7 @@ def probes: List Probe :=
       let y = (a -- before )
         )
       """, dump = "(let y (body (bare (bracketed (var a{ after -- before ) })))))\n", formatted = """
-        let y =
-          (a -- before )
-          )
+        let y = (a) -- before )
         """ },
     { name = "a trailing comment after .", source = """
       let y = order. -- after .
@@ -199,7 +198,7 @@ def probes: List Probe :=
         let y = f(1, -- after a comma
           2)
         """,
-      dump = "(let y (body (bare (call (var f) (item (number 1){ after -- after a comma }) (item (number 2))))))\n",
+      dump = "(let y (body (bare (call (var f) (item (number 1{ after -- after a comma })) (item (number 2))))))\n",
       formatted = """
         let y =
           f(
@@ -251,9 +250,7 @@ def probes: List Probe :=
         """,
       dump = "(let y (body (bare (bracketed (if (var a) (body (bare (var b))) (body (bare (var c{ after -- k }))))))))\n",
       formatted = """
-        let y =
-          (if a then b else c -- k
-          )
+        let y = (if a then b else c) -- k
         """
     }
   ]

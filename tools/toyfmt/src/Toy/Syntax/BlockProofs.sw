@@ -663,7 +663,7 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
 --| `runsNoParameters` read them) and `)`.
 theorem runsHeader ∀ (layout: Layout) (open close: Parse.Located Token)
     (takesTokens parameterTokens rest: List (Parse.Located Token))
-    (takes: Option Comments) (listed: Option (ParameterGroup, List (Comments, ParameterGroup)))
+    (takes: Option Comments) (listed: Option (ParameterGroup, List ParameterGroup))
     (runsTakes: Parse.Runs
       (() => Parse.optional (() => keyword layout TakesKeyword))
       takesTokens
@@ -677,18 +677,29 @@ theorem runsHeader ∀ (layout: Layout) (open close: Parse.Located Token)
       takes,
       open = layout.comments open,
       parameters = parametersOf listed,
-      close = Layout.comments InBrackets close
+      close = (Layout.comments InBrackets close).closing
+        (groupsEndWithComment (layout.comments open) (parametersOf listed))
     } :=
   let opened := layout.comments open
   let closed := Layout.comments InBrackets close
-  let read: Header := { takes, open = opened, parameters = parametersOf listed, close = closed }
+  let read: Header := {
+    takes,
+    open = opened,
+    parameters = parametersOf listed,
+    close = closed.closing (groupsEndWithComment opened (parametersOf listed))
+  }
   Parse.runsBind
     (() => Parse.optional (() => keyword layout TakesKeyword))
     (takes1 =>
       let open1 := sign layout "'('" OpenParen
       let parameters1 := parametersOf (Parse.optional parameterList)
       let close1 := sign InBrackets "')'" CloseParen
-      ({ takes = takes1, open = open1, parameters = parameters1, close = close1 }: Header))
+      ({
+        takes = takes1,
+        open = open1,
+        parameters = parameters1,
+        close = close1.closing (groupsEndWithComment open1 parameters1)
+      }: Header))
     takesTokens
     [open, ..parameterTokens ++ [close]]
     (takesTokens ++ [open, ..parameterTokens ++ [close]])
@@ -702,7 +713,12 @@ theorem runsHeader ∀ (layout: Layout) (open close: Parse.Located Token)
       (open1 =>
         let parameters1 := parametersOf (Parse.optional parameterList)
         let close1 := sign InBrackets "')'" CloseParen
-        ({ takes, open = open1, parameters = parameters1, close = close1 }: Header))
+        ({
+          takes,
+          open = open1,
+          parameters = parameters1,
+          close = close1.closing (groupsEndWithComment open1 parameters1)
+        }: Header))
       [open]
       (parameterTokens ++ [close])
       [open, ..parameterTokens ++ [close]]
@@ -715,7 +731,12 @@ theorem runsHeader ∀ (layout: Layout) (open close: Parse.Located Token)
         (() => parametersOf (Parse.optional parameterList))
         (parameters1 =>
           let close1 := sign InBrackets "')'" CloseParen
-          ({ takes, open = opened, parameters = parameters1, close = close1 }: Header))
+          ({
+            takes,
+            open = opened,
+            parameters = parameters1,
+            close = close1.closing (groupsEndWithComment opened parameters1)
+          }: Header))
         parameterTokens
         [close]
         (parameterTokens ++ [close])
@@ -732,7 +753,13 @@ theorem runsHeader ∀ (layout: Layout) (open close: Parse.Located Token)
           runsParameters)
         (Parse.runsMap
           (() => sign InBrackets "')'" CloseParen)
-          (close1 => ({ takes, open = opened, parameters = parametersOf listed, close = close1 }: Header))
+          (close1 =>
+            ({
+              takes,
+              open = opened,
+              parameters = parametersOf listed,
+              close = close1.closing (groupsEndWithComment opened (parametersOf listed))
+            }: Header))
           [close]
           rest
           closed
@@ -829,13 +856,13 @@ theorem runsSourceFile ∀ (endTrivia: List Trivia) (steps: List (List (Parse.Lo
     (Parse.runsMany declaration steps [] manyRuns)
     (state starts honest => (state.at, (rewrite starts), starts, (rewrite starts at honest then honest), byComputing))
 
---| `parse` on a source that lexes, whose tokens `sourceFile` reads to the
---| end as `file`, gives `file`.
+--| `parse` on a source that lexes, whose tokens after rule N
+--| `sourceFile` reads to the end as `file`, gives `file`.
 theorem parseReads ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
     (lexes: lex source = Ok lexed)
-    (runs: Parse.Runs (() => sourceFile lexed.endTrivia) lexed.tokens [] file):
+    (runs: Parse.Runs (() => sourceFile lexed.settled.endTrivia) lexed.settled.tokens [] file):
     parse source = Ok file :=
-  let whole := Parse.runsWhole lexed.tokens (() => sourceFile lexed.endTrivia) file runs
+  let whole := Parse.runsWhole lexed.settled.tokens (() => sourceFile lexed.settled.endTrivia) file runs
   rewrite lexes, whole
 
 -- An `if` whose branches are each one expression, from its spelling.

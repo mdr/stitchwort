@@ -1,8 +1,8 @@
 --| The parser's shape, as a property of trees: every expression of the
 --| shape `Shaped` describes (operators grouped by precedence, a call's
 --| callee and a field's target postfix, `-` before an operand), every body
---| ending in a statement, no last parameter or item with a comma's
---| comments (`ShapedFile`). These are the property's own facts, about the
+--| ending in a statement, every closing bracket holding only a trailing
+--| comment rule N leaves there (`ShapedFile`). These are the property's own facts, about the
 --| values the parser builds; the walk over the parser that proves every
 --| parsed file `ShapedFile` (`parseShaped`) is Fmt/WalkProofs.sw, with
 --| the other two properties of parsed trees.
@@ -14,42 +14,23 @@ import Std (Bool, Eq, List, NonEmptyList, Option, Parse, Result, Text, Void)
 
 -- Items.
 
-theorem shapedItemsAppend ∀ (front: List Item) (last: Item)
+theorem shapedItemsAppend ∀ (front: List Expr) (last: Expr)
     (shaped: ShapedItems front)
-    (lastShaped: Shaped last.value):
+    (lastShaped: Shaped last):
     ShapedItems (front ++ [last]) :=
-  match front, shaped, last, lastShaped with
-    | [], shaped, { value, comma }, lastShaped => (lastShaped, byComputing)
-    | [{ value, comma }, ..rest], Both valueShaped restShaped, last, lastShaped =>
-      (valueShaped, (shapedItemsAppend rest last restShaped lastShaped))
+  match front, shaped with
+    | [], shaped => (lastShaped, byComputing)
+    | [value, ..rest], Both valueShaped restShaped => (valueShaped, (shapedItemsAppend rest last restShaped lastShaped))
 
-theorem shapedItemsReverse ∀ (found: List Item) (shaped: ShapedItems found): ShapedItems found.reverse :=
+theorem shapedItemsReverse ∀ (found: List Expr) (shaped: ShapedItems found): ShapedItems found.reverse :=
   match found, shaped with
     | [], shaped => byComputing
-    | [{ value, comma }, ..rest], Both valueShaped restShaped =>
-      rewrite List.reverseCons ({ value, comma }: Item) rest then
-        shapedItemsAppend rest.reverse { value, comma } (shapedItemsReverse rest restShaped) valueShaped
+    | [value, ..rest], Both valueShaped restShaped =>
+      rewrite List.reverseCons value rest then
+        shapedItemsAppend rest.reverse value (shapedItemsReverse rest restShaped) valueShaped
 
-theorem bareLastAppend ∀ (front: List Item) (last: Item)
-    (bare: last.comma = Comments.none):
-    BareLastItem (front ++ [last]) :=
-  match front, last, bare with
-    | [], { value, comma }, bare => bare
-    | [first], { value, comma }, bare => bare
-    | [first, second, ..rest], last, bare => bareLastAppend [second, ..rest] last bare
-
---| The items found, newest first, in order: the last is the newest.
-theorem bareLastReverse ∀ (found: List Item) (newest: Item)
-    (bare: newest.comma = Comments.none):
-    BareLastItem [newest, ..found].reverse :=
-  rewrite List.reverseCons newest found then bareLastAppend found.reverse newest bare
-
---| An item of the parser's shape, with no comma's comments unless a comma
---| followed it.
-def ShapedItem (read: (Item, Bool)): Prop := Shaped read.fst.value ∧ (read.snd = False → read.fst.comma = Comments.none)
-
---| Items of the parser's shape, the last with no comma's comments.
-def ShapedList (items: List Item): Prop := ShapedItems items ∧ BareLastItem items
+--| An item of the parser's shape, and whether a comma followed it.
+def ShapedItem (read: (Expr, Bool)): Prop := Shaped read.fst
 
 -- Atoms and their calls and fields.
 
@@ -250,39 +231,28 @@ theorem closedConcat ∀ (first: List (Spaced Statement)) (rest: List (List (Spa
 
 -- Declarations and the file.
 
---| The last parameter has no comma after it, so its comma's comments are
---| none.
-def BareLast: List Parameter → Prop
+--| A type whose closing brackets hold what rule N leaves on one.
+def ShapedType: TypeExpr → Prop
+  | TypeName _ _ => True
+  | TypeBracketed _ inner close => ShapedType inner ∧ settledCloser inner.endsWithComment close = True
+
+def ShapedGroup: ParameterGroup → Prop
+  | Untyped _ => True
+  | Typed _ _ annotation => ShapedType annotation
+
+def ShapedGroups: List ParameterGroup → Prop
   | [] => True
-  | [{ comma, .. }] => comma = Comments.none
-  | [_, ..rest] => BareLast rest
+  | [group, ..rest] => ShapedGroup group ∧ ShapedGroups rest
 
-theorem withCommasCons ∀ (first: ParameterGroup) (others: List (Comments, ParameterGroup)):
-    ∃ (head: Parameter) => ∃ (tail: List Parameter) => withCommas first others = [head, ..tail] :=
-  match others with
-    | [] => (_, [], byComputing)
-    | [(comma, next), ..rest] => (_, (withCommas next rest), byComputing)
-
-theorem withCommasBare ∀ (first: ParameterGroup) (others: List (Comments, ParameterGroup)):
-    BareLast (withCommas first others) :=
-  match others with
-    | [] => byComputing
-    | [(comma, next), ..rest] =>
-      let bare := withCommasBare next rest
-      match withCommasCons next rest with
-        | (head, tail, same) => rewrite same then (rewrite same at bare then bare)
-
---| The parameters the parser builds end in one with no comma.
-theorem parametersBare ∀ (found: Option (ParameterGroup, List (Comments, ParameterGroup))):
-    BareLast (parametersOf found) :=
-  match found with
-    | None => byComputing
-    | Some (first, others) => withCommasBare first others
+--| A function's parameters between `open` and `close`: each type's
+--| closing brackets, and the list's own, hold what rule N leaves on one.
+def ShapedParameters (open: Comments) (parameters: List ParameterGroup) (close: Comments): Prop :=
+  ShapedGroups parameters ∧ settledCloser (groupsEndWithComment open parameters) close = True
 
 --| Each expression in the declaration is of the parser's shape, and a
---| function's last parameter has no comma.
+--| function's parameters are (`ShapedParameters`).
 def ShapedDeclaration: Declaration → Prop
-  | Function _ _ _ _ _ parameters _ _ found => BareLast parameters ∧ ShapedBody found
+  | Function _ _ _ _ open parameters close _ found => ShapedParameters open parameters close ∧ ShapedBody found
   | Value _ _ _ _ found => ShapedBody found
   | DeclarationNote _ => True
 
@@ -291,7 +261,8 @@ def ShapedDeclarations: List (Spaced Declaration) → Prop
   | [{ line, .. }, ..rest] => ShapedDeclaration line ∧ ShapedDeclarations rest
 
 --| Each expression in the file is of the parser's shape, each body ends
---| in a statement, and each function's last parameter has no comma.
+--| in a statement, and each closing bracket holds what rule N leaves on
+--| one (`settledCloser`).
 def ShapedFile: SourceFile → Prop
   | { declarations } => ShapedDeclarations declarations
 

@@ -35,7 +35,7 @@ def measure (phase source: Text): Text := match phase with
 
 def none: Comments := Comments.none
 
-def name (text: Text): Item := { value = Var text none, comma = none }
+def name (text: Text): Expr := Var text none
 
 def plainLine (line: a): Spaced a := { blankBefore = False, line }
 
@@ -51,7 +51,7 @@ def bare (value: Expr): Body := { statements = [plainLine (Bare value)] }
 --| about 400 characters printed.
 def sample (index: Nat): List (Spaced Declaration) :=
   let suffix := "${index}"
-  let parameters := ["order", "rates"].map (text => { group = Untyped { name = text, comments = none }, comma = none })
+  let parameters := ["order", "rates"].map (text => Untyped { name = text, comments = none })
   let total := Function none "total${suffix}" none None none parameters none none {
     statements = [
       plainLine (Let none "base" none none (bare (Call (var "sum") none [name "order", name "items"] none))),
@@ -67,17 +67,18 @@ def sample (index: Nat): List (Spaced Declaration) :=
             (bare
               (binary Minus
                 (binary Plus (var "base") (var "tax"))
-                (Call (var "discount") none [name "order", name "rates"] {
-                  above = [],
-                  after = Some { text = "-- loyal" }
-                })))
+                (Call
+                  (var "discount")
+                  none
+                  [name "order", Var "rates" { above = [], after = Some { text = "-- loyal" } }]
+                  none)))
             none
             (bare (binary Plus (var "base") (var "tax"))))
       }
     ]
   }
   let names := ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa"].map (word =>
-    { value = StringLiteral "\"${word}${suffix}\"" none, comma = none })
+    StringLiteral "\"${word}${suffix}\"" none)
   [
     plainLine (DeclarationNote { text = "-- Totals for one order." }),
     plainLine total,

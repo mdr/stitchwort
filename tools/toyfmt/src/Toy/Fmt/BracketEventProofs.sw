@@ -144,13 +144,13 @@ theorem eventsFree ∀ (zone: Zone) (head wide: Option Nat → Prop) (expr: Expr
             held)
         holds
 
-theorem itemsFree ∀ (zone: Zone) (items: List Item) (events: List Event)
+theorem itemsFree ∀ (zone: Zone) (items: List Expr) (events: List Event)
     (holds: ItemEvents zone items events):
     ItemEvents (Anywhere 0) items events :=
   match items, holds with
     | [], holds => holds
-    | [{ value, comma }], holds => eventsFree zone anyStart anyStart value events (start any => any) holds
-    | [{ value, comma }, second, ..rest], holds =>
+    | [value], holds => eventsFree zone anyStart anyStart value events (start any => any) holds
+    | [value, second, ..rest], holds =>
       thenWider _ _ _ _ events
         (part held => eventsFree zone anyStart anyStart value part (start any => any) held)
         (part held =>

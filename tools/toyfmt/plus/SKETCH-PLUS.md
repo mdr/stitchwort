@@ -869,3 +869,166 @@ T3b's. What T3b starts from:
 - **An unused word-order equation cost nothing to drop but would have
   cost a rule sweep to keep** (change 2): a statement exported and never
   read is a liability when the layer under it changes.
+
+
+## T3b: rule N, the parser and the rules (SW-3676)
+
+Fable, 16 November 2026. **[checked]**: `stitchwort check` in
+`tools/toyfmt` (13 namespaces, clean) and here (47 goals open, as after
+T3a); the audits quoted in SW-3676's notes. **[run]**: the goldens,
+`Parsing.sw`, the probes and disturbance tests, the settle tests and the
+engine's tests. `printParses`, `formatRoundTrip`, `formatIdempotent`,
+`formatKeepsComments`, `formatSameTree`, `formatRefuses(Only)`,
+`parseParsed`, `Degenerate.sw` and the computed examples check, with
+`parse` going through rule N and the rules writing closers with
+`Closing`.
+
+About 80 minutes of agent time against 90 estimated.
+
+### What the toy does now
+
+- **`parse` is lex, `Lexed.settled`, then the parser.** A comma holds no
+  comments and isn't in the tree: `Item` and `Parameter` are gone, a
+  list's items are `List Expr` and a function's parameters `List
+  ParameterGroup`. The parser reads a comma and drops it.
+- **The rules write `)`, `]` and `,` with `Closing`** where the token
+  holds no comments (`closer`, `bareCloser`; a comma always). So
+  `[a, b] -- c`, `(a) -- c` and `f(a, b) -- c` print on one line. A
+  bracket with comments of its own is printed as before (`closeAfter`
+  breaks the line only for those).
+- **A call is a `Choice`**, the one-line form first (`flatArguments`),
+  the grouped form second (T3a's finding 2). A function's header is not:
+  ` =` follows its `)`, and no code follows a comment on its line, so
+  the one-line form never fits where a comment waits [run: the probe "a
+  trailing comment after a header's )" prints the `)` below].
+
+### How it is proved
+
+| File | New theorems | Holds |
+|---|---|---|
+| `Doc/Lays.sw` | 27 (and 13 moved from `Places.sw`) | `Lays` in the tree's order, `Tucks`, `laysPuts`, `printLays` |
+| `Fmt/CalmProofs.sw` | 54 | `StableViews`, `calm`, `calmStable`, `exprCalms` and its family, `fileCalm`, `fileStable` |
+| `Fmt/TuckProofs.sw` | 31 | `homeViews`, `tokensHomeViews`, `tuckHome`, `stretchesHome`, `tucksHome` |
+| `Fmt/SettleFine.sw` | 8 | `settledGood` |
+| `Syntax/SettleProofs.sw` | 5 | `Stable`, `homeStable`, `carryStable`, `settledStable`, `settledHomed` |
+| `Fmt/CarryProofs.sw`, `CarrySettle.sw`, `CarryWalk.sw` | 28 (3 gone) | `Settling`, `andThenWord`, `TidyReads`, `settledFits`, `innerComma` |
+| `Fmt/JoinProofs.sw`, `RuleJoinProofs.sw` | 9 (2 gone) | `Gapped`, `closingPasses`, `passesFlatten` |
+| `Fmt/EventProofs.sw`, `DirectProofs.sw` | 5 | `closingRule`, `ruleChoice`, `joinedRule`, `flatArgumentsRule`, `settledViews` |
+| `Syntax/ExpressionProofs.sw`, `ShapeProofs.sw`, `Fmt/ParsedProofs.sw` | 5 (6 gone) | `closingSettled`, `closingSame`, `closingFine`, `parsedGroups` |
+
+1,491 theorems in the toy, 174 more than before this stage.
+
+**`Settled` is a clause of `Shaped`, and route (A) is one function.**
+Every closing bracket's comments go through `Comments.closing before`
+(`Syntax/Ends.sw`), where `before` says the token before the bracket has
+a trailing comment (`Expr.endsWithComment`, `itemsEndWithComment`,
+`groupsEndWithComment`). `settledCloser before close` is then a conjunct
+of `Shaped` where `BareLastItem` was, of `ShapedType` (new) and of
+`ShapedParameters` (where `BareLast` was). So the walk's lemmas keep
+their arity: three leaves prove `closingSettled`, and the read-back
+rewrites with `closingSame`. This differs from T0's `closed` in what the
+function does with a comment rule N would have moved: it puts it above
+the bracket (as T0's `closedList` did after a trailing comma), where T0
+pushed it into the expression (`receive`). Neither fires on settled
+tokens, and that is not proved in either; this one needs no recursion
+into the tree, so `receive` and its five lemma families (about 40
+lemmas) weren't written.
+
+**`settledViews` has three parts.**
+
+1. *The rules lay the tree's order.* `Lays` (`Doc/Lays.sw`) appends a
+   closer after the comment that waits, so `FileEvents` and the whole
+   rule layer are as before, in the tree's order. T3a's printed-order
+   predicate is `Puts` (`Places.sw`, renamed, proofs untouched), and
+   `laysPuts` shows every `Lays` is a `Puts` of a printed trace the laid
+   one `Tucks` to. `Tucks` is a list of stretches: an event, or a
+   trailing comment with the closers written before it on its line.
+2. *The laid trace is calm.* `calm` reads a trace with one remembered
+   fact (`Prior`: blank, own-line comment, token and whether a comment
+   may follow it, trailing comment), and stops where rule N would move
+   something. `exprCalms` and its family (one `calmsThen` per part of
+   each construct) show a file of the parser's shape is calm, each
+   closing bracket by its `settledCloser`.
+3. *Rule N takes the printed views to the laid ones.* `homeViews` is
+   rule N's first half on views; `tucksHome` goes stretch by stretch: a
+   comment after tucked closers goes back over them (`pastClosers`) to
+   the token the tree has it on, where calmness keeps it. The second
+   half finds every comma bare.
+
+**The carry walk's invariant is `Settling`**, a fact about a token and
+the one before it: a comma holds nothing, and the token after one that
+is no comma is `Tidy`. It is suffix-closed, so it is a
+`Parse.Invariant`, but it says nothing of the first token left. The one
+place that needs the next token `Tidy` is a body after `=`, `then` or
+`else`: `andThenWord` reads the keyword as one token that is no comma
+(`Word`) and hands `HeadTidy` to the body, which is read from that mark
+(`TidyReads`, `andThenTidy`, `lastlyTidy`). Five call sites changed.
+
+### What changed in the statements
+
+The top theorems' statements are textually unchanged. What they say
+changed with these definitions:
+
+- `parse` settles before reading.
+- `Shaped`: `settledCloser` for `Bracketed`, a list's and a call's
+  closer (was `BareLastItem` for the last two); `ShapedDeclaration`:
+  `ShapedParameters` (was `BareLast`).
+- `Lays`: a closer where a comment waits is laid after it and must be
+  one of `)`, `]`, `,` (`closesText`); a `LineSuffix` must be a comment
+  (`IsComment`, moved to the engine). `printLays`, `printedEvents` and
+  `printedPlaced` now give a laid trace and `Tucks laid printed`, where
+  they said the printed trace was the file's events. With `Closing` in
+  the rules that older statement is false.
+- `Meets`, `Free` and `Left` say at a waiting comment what they say after
+  the line's last word. `looseFree` and `looseMeets` are false of that
+  and are gone; `Gapped` is what holds after a space or a line break.
+- `Lexer` (the carry walk's invariant) is `Settling` and `Rising`.
+  `lexFits` now states `List.All Tidy ∧ Rising` of the lexer's tokens,
+  and `settledFits` gives `Lexer` of the settled ones.
+
+### For T4 and the real formatter
+
+- **Put the laid order in the predicate the rules prove, and tie it to
+  the printed order once.** The rule layer (about 100 lemmas here) didn't
+  change for rule N beyond the closer's own leaf. The first design kept
+  T3a's printed order in `Lays`; every rule lemma that ends at a closer
+  would then have had to say where a waiting comment went.
+- **A reading rule needs a normal form the tree can promise.** `calm` is
+  rule N's normal form as a one-state reader. Stating it on events, not
+  tokens, made the tree induction a list of `calmsThen` with no token
+  bookkeeping; 54 lemmas, all but six checked first time.
+- **A tree function at each closer is cheap if it only edits that
+  token's comments.** The real parser has 234 functions; a
+  `Comments.closing` at each closer touches only the leaf lemma.
+- **P1 and P2 (trailing commas, T4)** will make `before` false after a
+  trailing comma, as T0's `closedList` had it; `settledCloser` takes it
+  as an argument already.
+- **A pairwise invariant costs a combinator per place it is used**, not
+  a restatement of the walk: three combinators and five call sites.
+
+### Not done
+
+- `settledIdempotent` (not needed by any theorem).
+- That `Comments.closing` and `Layout.headed` change nothing on settled
+  tokens (as before: tested, not proved).
+- A header's `)` doesn't join a trailing comment's line (see above).
+
+### Friction
+
+- **Two `match` scrutinees where one's type mentions the other** is
+  refused (`E-MATCH-MOTIVE`): `match found: f x, lemma x with`. A helper
+  with the scrutinee as a variable does it (`joinedOf`, `freshOf`); the
+  message says so.
+- **A `match` inside a definition can't be named in a statement**, so a
+  fold with a named step (`stepOn`, `calmFrom`) replaced a recursive
+  definition with an inner `match` (`calm`).
+- **Names collide across `(..)` imports** with no warning at the
+  definition: `Spaced`, `Ends`, `tokenAfter`, `Kept` and `Fresh` each
+  cost a round. The clash is reported at every use, which for `Spaced`
+  was 34 errors.
+- **`rewrite h at x` where an earlier `match` already refined `x`** fails
+  with a clear note ("already refined: use it as it is").
+- A statement that spells out a `match` over a `Prop` was read as a
+  `Bool` test (`E-AUTO-NONE`, "no way to decide"); a helper definition
+  (`StaysCalm`) is what the guide says to write, but the message didn't
+  point there.

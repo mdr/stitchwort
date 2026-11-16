@@ -10,7 +10,9 @@
 --|
 --| Comments are carried, not placed: each token's comments go into the
 --| tree beside it (`Layout.comments`) as the token is read, so no source
---| that parses is left without a tree.
+--| that parses is left without a tree. The tokens are the lexer's after
+--| rule N (`Lexed.settled`), so a comma holds none, and is read and
+--| dropped.
 
 namespace Toy.Syntax
 import Std.Parse.Associativity (LeftAssociative)
@@ -222,11 +224,11 @@ def atomOf (self: Layout → {Parse (Parse.Located Token)} Expr) (comments: Comm
       skip()
       let inner := self InBrackets
       let close := sign InBrackets "')'" CloseParen
-      Bracketed comments inner close
+      Bracketed comments inner (close.closing inner.endsWithComment)
     | Sign OpenSquare =>
       skip()
       let (found, close) := items self CloseSquare
-      ListLiteral comments found close
+      ListLiteral comments found (close.closing (itemsEndWithComment comments found))
     | _ => Parse.expected "an expression"
 
 --| A call of `target`, from its `(`, whose comments are `open`.
@@ -234,7 +236,7 @@ def callAfter (self: Layout → {Parse (Parse.Located Token)} Expr) (target: Exp
     {Parse (Parse.Located Token)} Expr :=
   skip()
   let (arguments, close) := items self CloseParen
-  Call target open arguments close
+  Call target open arguments (close.closing (itemsEndWithComment open arguments))
 
 --| A field of `target`, from its `.`, whose comments are `dot`.
 def fieldAfter (layout: Layout) (target: Expr) (dot: Comments): {Parse (Parse.Located Token)} Expr :=
@@ -245,7 +247,7 @@ def fieldAfter (layout: Layout) (target: Expr) (dot: Comments): {Parse (Parse.Lo
 --| A list's items or a call's arguments, then `closer` and its comments;
 --| the opening bracket has been read.
 def items (self: Layout → {Parse (Parse.Located Token)} Expr) (closer: Punctuation):
-    {Parse (Parse.Located Token)} (List Item, Comments) :=
+    {Parse (Parse.Located Token)} (List Expr, Comments) :=
   let closing := "'${closer.spelling}'"
   match signInBrackets closing closer with
     | Some close => ([], close)
@@ -269,8 +271,8 @@ def signInBrackets (what: Text) (wanted: Punctuation): {Parse (Parse.Located Tok
 
 --| Items while each is followed by a comma, at most `fuel` more. `found`
 --| is newest first.
-def itemsFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (found: List Item):
-    {Parse (Parse.Located Token)} List Item :=
+def itemsFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (found: List Expr):
+    {Parse (Parse.Located Token)} List Expr :=
   match fuel with
     -- Never reached: every round reads a token, and `fuel` starts as the
     -- tokens left.
@@ -280,15 +282,16 @@ def itemsFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) 
 --| What `itemsFrom` does with the item it read and whether a comma followed
 --| it: on to the next item after a comma, else the items found.
 -- A function of its own so that proofs (ExpressionProofs.sw) can name it.
-def itemsAfter (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (found: List Item) (read: (Item, Bool)):
-    {Parse (Parse.Located Token)} List Item :=
+def itemsAfter (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (found: List Expr) (read: (Expr, Bool)):
+    {Parse (Parse.Located Token)} List Expr :=
   if read.snd then itemsFrom more self [read.fst, ..found] else [read.fst, ..found].reverse
 
---| An item, its comma if one follows, and whether one did.
-def item (self: Layout → {Parse (Parse.Located Token)} Expr): {Parse (Parse.Located Token)} (Item, Bool) :=
+--| An item, and whether a comma followed it. The comma is read and holds
+--| nothing: rule N has emptied it.
+def item (self: Layout → {Parse (Parse.Located Token)} Expr): {Parse (Parse.Located Token)} (Expr, Bool) :=
   let value := self InBrackets
   let comma := signInBrackets "','" Comma
-  ({ value, comma = comma.getOrElse Comments.none }, comma.isSome)
+  (value, comma.isSome)
 
 def Punctuation.spelling: Punctuation → Text
   | OpenParen => "("
@@ -451,7 +454,7 @@ def functionLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse.Lo
 type Header = {
   takes: Option Comments,
   open: Comments,
-  parameters: List Parameter,
+  parameters: List ParameterGroup,
   close: Comments
 }
 
@@ -460,7 +463,7 @@ def functionHeader (layout: Layout): {Parse (Parse.Located Token)} Header :=
   let open := sign layout "'('" OpenParen
   let parameters := parametersOf (Parse.optional parameterList)
   let close := sign InBrackets "')'" CloseParen
-  { takes, open, parameters, close }
+  { takes, open, parameters, close = close.closing (groupsEndWithComment open parameters) }
 
 --| A value declaration, from its `let`, the token `first`.
 def valueLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse.Located Token)} Declaration :=
@@ -470,18 +473,17 @@ def valueLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse.Locat
   Value (layout.comments first) declared nameComments equals (body expression layout)
 
 --| A header's parameter groups: a group, then a comma and a group as long
---| as both come, as `Parse.sepBy1` reads them but keeping each comma's
---| comments.
-def parameterList(): {Parse (Parse.Located Token)} (ParameterGroup, List (Comments, ParameterGroup)) :=
+--| as both come, as `Parse.sepBy1` reads them.
+def parameterList(): {Parse (Parse.Located Token)} (ParameterGroup, List ParameterGroup) :=
   let first := parameterGroup()
   let others := Parse.many parameterStep
   (first, others)
 
---| A comma and the group after it.
-def parameterStep(): {Parse (Parse.Located Token)} (Comments, ParameterGroup) :=
+--| A comma, which holds nothing (rule N has emptied it), and the group
+--| after it.
+def parameterStep(): {Parse (Parse.Located Token)} ParameterGroup :=
   let comma := sign InBrackets "','" Comma
-  let group := parameterGroup()
-  (comma, group)
+  parameterGroup()
 
 --| A parameter group: one name, or names, then `:` and the type they share.
 def parameterGroup(): {Parse (Parse.Located Token)} ParameterGroup :=
@@ -528,17 +530,12 @@ def typeOf (self: () → {Parse (Parse.Located Token)} TypeExpr) (comments: Comm
       skip()
       let inner := self ()
       let close := sign InBrackets "')'" CloseParen
-      TypeBracketed comments inner close
+      TypeBracketed comments inner (close.closing inner.endsWithComment)
     | _ => Parse.expected "a type"
 
-def parametersOf (found: Option (ParameterGroup, List (Comments, ParameterGroup))): List Parameter := match found with
+def parametersOf (found: Option (ParameterGroup, List ParameterGroup)): List ParameterGroup := match found with
   | None => []
-  | Some (first, others) => withCommas first others
-
---| Each group with the comments of the comma after it.
-def withCommas (first: ParameterGroup) (others: List (Comments, ParameterGroup)): List Parameter := match others with
-  | [] => [{ group = first, comma = Comments.none }]
-  | [(comma, next), ..rest] => [{ group = first, comma }, ..withCommas next rest]
+  | Some (first, others) => [first, ..others]
 
 --| A declaration's lines: the own-line comments in `above`, the trivia on
 --| its first token, then `parsed`.
@@ -567,10 +564,16 @@ def fileOf (declarations: List (Spaced Declaration)) (endTrivia: List Trivia): S
 
 --| The tree of a Sprig source, or the first error as "line 3, column 9:
 --| expected ',' or ')', got 'b'". The source is lexed and checked first
---| (`lex`), so every tree comes from tokens that cover the source.
+--| (`lex`), so every tree comes from tokens that cover the source; then
+--| rule N puts each comment on the token it belongs to (`Lexed.settled`),
+--| and the parser reads those tokens.
 def parse (source: Text): Result SourceFile Text := match lex source with
   | Err message => Err message
-  | Ok lexed =>
-    match Parse.whole lexed.tokens (() => sourceFile lexed.endTrivia) with
-      | Ok file => Ok file
-      | Err failure => Err (Parse.tokensMessage source.toList lexed.tokens failure)
+  | Ok lexed => parseSettled source lexed.settled
+
+--| The tree of the tokens `settled`, which rule N has been through.
+-- A function of its own so that proofs can name it.
+def parseSettled (source: Text) (settled: Lexed): Result SourceFile Text :=
+  match Parse.whole settled.tokens (() => sourceFile settled.endTrivia) with
+    | Ok file => Ok file
+    | Err failure => Err (Parse.tokensMessage source.toList settled.tokens failure)

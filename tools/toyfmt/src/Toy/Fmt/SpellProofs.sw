@@ -541,9 +541,9 @@ def HeadedExpr (bracketed: Bool): Expr → Prop
   | If _ condition _ whenTrue _ whenFalse =>
     HeadedExpr bracketed condition ∧ HeadedBody bracketed whenTrue ∧ HeadedBody bracketed whenFalse
 
-def HeadedItems: List Item → Prop
+def HeadedItems: List Expr → Prop
   | [] => True
-  | [{ value, .. }, ..rest] => HeadedExpr True value ∧ HeadedItems rest
+  | [value, ..rest] => HeadedExpr True value ∧ HeadedItems rest
 
 def HeadedBody (bracketed: Bool): Body → Prop
   | { statements } =>
@@ -736,7 +736,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
           allowed,
           byComputing
         )
-    | Bracketed ({ above, after }) inner close, shapedInner, Both fineOpen
+    | Bracketed ({ above, after }) inner close, Both shapedInner _, Both fineOpen
         (Both innerLexical fineClose), headedInner, _, Witness front
         (Witness back
           (Both split (Both openLaid (Witness mid (Witness tail (Both backSplit (Both innerLaid closeLaid))))))) =>
@@ -841,8 +841,8 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         pending
         fineOpen
         (seen start => signEvent seen OpenSquare start)
-        openLaid, itemsSpell zone.inside items mid shapedItems bare itemsLexical headedItems itemsLaid, tokenSeen
-          anyStart close "]"
+        openLaid, itemsSpell zone.inside items mid shapedItems itemsLexical headedItems itemsLaid, tokenSeen anyStart
+          close "]"
           (Sign CloseSquare)
           tail
           []
@@ -936,7 +936,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         []
         fineOpen
         (seen start => signEvent seen OpenParen start)
-        openLaid, itemsSpell zone.inside arguments inner shapedArguments bare argumentsLexical headedArguments
+        openLaid, itemsSpell zone.inside arguments inner shapedArguments argumentsLexical headedArguments
           argumentsLaid, tokenSeen anyStart close ")"
         (Sign CloseParen)
         tail
@@ -1578,74 +1578,72 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
 
 --| Tokens with the views of the events of items between brackets spell
 --| the items.
-theorem itemsSpell ∀ (zone: Zone) (items: List Item) (events: List Event)
+theorem itemsSpell ∀ (zone: Zone) (items: List Expr) (events: List Event)
     (shaped: ShapedItems items)
-    (bare: BareLastItem items)
     (lexical: LexicalItems items)
     (headed: HeadedItems items)
     (laid: ItemEvents zone items events):
     ∃ (found: List TokenView) => Seen [] events found
       ∧ (∀ (tokens: List (Parse.Located Token)) => tokens.map viewOf = found → SpelledItems items tokens) :=
-  match items, shaped, bare, lexical, headed, laid with
-    | [], _, _, _, _, laid => (
+  match items, shaped, lexical, headed, laid with
+    | [], _, _, _, laid => (
       [],
       (rewrite laid then (earlier => byComputing)),
       (tokens same => viewsNil (later => SpelledItems [] later) tokens same byComputing)
     )
-    | [{ value, comma }], Both shapedValue _, bare, Both valueLexical _, Both headedValue _, laid =>
+    | [value], Both shapedValue _, Both valueLexical _, Both headedValue _, laid =>
       match exprSpells zone InBrackets anyStart value events [] byComputing shapedValue valueLexical headedValue
           byComputing laid with
         | Witness first (Witness others (Both seen (Both spells _))) => (
           [first, ..others],
           seen,
-          (tokens same => ((spells 0 tokens same (bracketLeads anyStart value.firstAbove tokens)), bare))
+          (tokens same => spells 0 tokens same (bracketLeads anyStart value.firstAbove tokens))
         )
-    | [{ value, comma }, second, ..rest], Both shapedValue shapedRest, bare, Both valueLexical
-        (Both fineComma restLexical), Both headedValue headedRest, Witness front
+    | [value, second, ..rest], Both shapedValue shapedRest, Both valueLexical restLexical, Both headedValue
+          headedRest, Witness front
         (Witness back
           (Both split (Both valueLaid (Witness mid (Witness tail (Both backSplit (Both commaLaid restLaid))))))) =>
       match exprSpells zone InBrackets anyStart value front [] byComputing shapedValue valueLexical headedValue
-          byComputing valueLaid, tokenSeen anyStart comma ","
+          byComputing valueLaid, tokenSeen anyStart Comments.none ","
         (Sign Comma)
         mid
         []
-        fineComma
+        fineNone
         (seen start => signEvent seen Comma start)
-        commaLaid, itemsSpell zone [second, ..rest] tail shapedRest bare restLexical headedRest restLaid with
+        commaLaid, itemsSpell zone [second, ..rest] tail shapedRest restLexical headedRest restLaid with
         | Witness first (Witness others (Both valueSeen (Both valueSpells _))), Witness commaStart
             (Both _ commaSeen), Witness found (Both restSeen restSpelled) => (
-          ([first, ..others] ++ ([tokenView [] (Sign Comma) commaStart comma] ++ found)),
+          ([first, ..others] ++ ([tokenView [] (Sign Comma) commaStart Comments.none] ++ found)),
           (rewrite split, backSplit then
             seenThen [] front
               (mid ++ tail)
               [first, ..others]
-              ([tokenView [] (Sign Comma) commaStart comma] ++ found)
+              ([tokenView [] (Sign Comma) commaStart Comments.none] ++ found)
               valueSeen
-              (seenThen [] mid tail [tokenView [] (Sign Comma) commaStart comma] found commaSeen restSeen)),
+              (seenThen [] mid tail [tokenView [] (Sign Comma) commaStart Comments.none] found commaSeen restSeen)),
           (tokens same =>
             viewsSplit
-              (later => SpelledItems [{ value, comma }, second, ..rest] later)
+              (later => SpelledItems [value, second, ..rest] later)
               tokens
               [first, ..others]
-              ([tokenView [] (Sign Comma) commaStart comma] ++ found)
+              ([tokenView [] (Sign Comma) commaStart Comments.none] ++ found)
               same
               (valueTokens afterValue valueSame afterValueSame =>
                 viewsCons
-                  (later => SpelledItems [{ value, comma }, second, ..rest] (valueTokens ++ later))
+                  (later => SpelledItems [value, second, ..rest] (valueTokens ++ later))
                   afterValue
-                  (tokenView [] (Sign Comma) commaStart comma)
+                  (tokenView [] (Sign Comma) commaStart Comments.none)
                   found
                   afterValueSame
                   (commaToken laterTokens commaSame laterSame =>
-                    match bracketFits commaToken (Sign Comma) commaStart comma commaSame with
-                      | (commaKind, _, commaNotes) => (
+                    match bracketFits commaToken (Sign Comma) commaStart Comments.none commaSame with
+                      | (commaKind, _, _) => (
                         valueTokens,
                         commaToken,
                         laterTokens,
                         byComputing,
                         commaKind,
                         (valueSpells 0 valueTokens valueSame (bracketLeads anyStart value.firstAbove valueTokens)),
-                        commaNotes,
                         (restSpelled laterTokens laterSame)
                       ))))
         )

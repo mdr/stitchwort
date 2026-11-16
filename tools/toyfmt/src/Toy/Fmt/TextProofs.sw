@@ -34,10 +34,6 @@ def IsString (text: Text): Prop :=
   ∃ (segments: List (List Char, ())) => text.toList = ['"', ..Parse.joinReads segments ++ ['"']]
     ∧ (∀ (rest: List Char) => Parse.ManyRuns stringSegment segments (['"'] ++ rest))
 
---| `--` and the rest of its line.
-def IsComment (text: Text): Prop :=
-  ∃ (others: List Char) => text.toList = ['-', '-', ..others] ∧ others.all (char => char != '\n') = True
-
 --| `rest` starts with nothing a word, a number or an operator could go
 --| on with.
 def Shut (rest: List Char): Prop :=

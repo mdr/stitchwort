@@ -7,6 +7,7 @@
 namespace Toy.Fmt.Proofs
 import Toy.Syntax (..)
 import Toy.Syntax.Proofs (..)
+import Toy.Doc.Proofs (IsComment)
 import Std (And, Bool, DecEq, Empty, Eq, Fail, List, Option, Pair, Parse, Result, Text, Void)
 
 -- What each lexeme read.

@@ -47,51 +47,50 @@ theorem runsItemLast ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (value: Expr) (tokens rest: List (Parse.Located Token))
     (runsValue: Parse.Runs (() => self InBrackets) tokens rest value)
     (noComma: signAhead Comma rest = False):
-    Parse.Runs (() => item self) tokens rest ({ value, comma = Comments.none }, False) :=
+    Parse.Runs (() => item self) tokens rest (value, False) :=
   Parse.runsBind
     (() => self InBrackets)
     (value1 =>
       let comma := signInBrackets "','" Comma
-      ({ value = value1, comma = comma.getOrElse Comments.none }, comma.isSome))
+      (value1, comma.isSome))
     tokens
     []
     tokens
     rest
     value
-    ({ value, comma = Comments.none }, False)
+    (value, False)
     (List.appendNil tokens).flipped
     runsValue
     (Parse.runsMap
       (() => signInBrackets "','" Comma)
-      (comma => ({ value, comma = comma.getOrElse Comments.none }, comma.isSome))
+      (comma => (value, comma.isSome))
       []
       rest
       None
       (runsSignAbsent "','" Comma rest noComma))
 
---| `item` on a value and the comma after it: the item holds the comma's
---| comments.
+--| `item` on a value and the comma after it.
 theorem runsItemComma ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (value: Expr)
     (comma: Parse.Located Token) (tokens rest: List (Parse.Located Token))
     (runsValue: Parse.Runs (() => self InBrackets) tokens [comma, ..rest] value)
     (isComma: comma.value.kind = Sign Comma):
-    Parse.Runs (() => item self) (tokens ++ [comma]) rest ({ value, comma = Layout.comments InBrackets comma }, True) :=
+    Parse.Runs (() => item self) (tokens ++ [comma]) rest (value, True) :=
   Parse.runsBind
     (() => self InBrackets)
     (value1 =>
       let found := signInBrackets "','" Comma
-      ({ value = value1, comma = found.getOrElse Comments.none }, found.isSome))
+      (value1, found.isSome))
     tokens
     [comma]
     (tokens ++ [comma])
     rest
     value
-    ({ value, comma = Layout.comments InBrackets comma }, True)
+    (value, True)
     byComputing
     runsValue
     (Parse.runsMap
       (() => signInBrackets "','" Comma)
-      (found => ({ value, comma = found.getOrElse Comments.none }, found.isSome))
+      (found => (value, found.isSome))
       [comma]
       rest
       (Some (Layout.comments InBrackets comma))
