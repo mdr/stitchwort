@@ -1,5 +1,5 @@
 {
-  "next": 3522,
+  "next": 3523,
   "tickets": [
     {
       "id": 47,
@@ -39352,6 +39352,19 @@
       "id": 3521,
       "title": "[Idea, later] Tuples for every one-constructor type, as Lean's anonymous constructor (D3632: Matt, 16 Nov 2026: 'an interesting one that we could consider in the future, but not for now')",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3522,
+      "title": "[Fable paper] Revisit simp: new design note (D3637, Matt, 16 Nov 2026), reconsidering D2541's 'no simp' in light of the toy proof and the Lean port (SW-3513: proofs 30% with simp/grind vs 73% plain); within D3481 (no propext; ↔ rewriting under connectives, SW-2706), D2541/D2542 (computing decides; rewrite what's visible), D3479-D3482 (tests first)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
