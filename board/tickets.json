@@ -39040,7 +39040,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "D3633 (Matt, 16 Nov 2026): yes, keep one whole-file check in the Rust formatter ('sensible'). D3634 (Matt): when it fails, error loudly: CLI as now (error naming the first difference, file unchanged, exit 1); the editor (crates/lsp/src/lib.rs:2484 format_edits) shows a warning once per document version: 'Stitchwort formatter bug: this file was left unchanged. Run stitchwort fmt <file> to see the details.' A refused file (syntax error) stays silent in the editor. Do this in L4 with the fallback removal; test both.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
