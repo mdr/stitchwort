@@ -58,15 +58,40 @@ def Statement.comments: Statement → List Comment
   | Bare value => value.comments
   | StatementNote comment => [comment]
 
-def Parameter.allComments (parameter: Parameter): List Comment := parameter.comments.all ++ parameter.comma.all
+def TypeExpr.comments: TypeExpr → List Comment
+  | TypeName _ comments => comments.all
+  | TypeBracketed open inner close => open.all ++ inner.comments ++ close.all
+
+def namesComments: List Named → List Comment
+  | [] => []
+  | [named, ..rest] => named.comments.all ++ namesComments rest
+
+def ParameterGroup.comments: ParameterGroup → List Comment
+  | Untyped parameter => parameter.comments.all
+  | Typed names colon annotation =>
+    names.head.comments.all ++ namesComments names.tail ++ colon.all ++ annotation.comments
+
+def Parameter.allComments (parameter: Parameter): List Comment := parameter.group.comments ++ parameter.comma.all
+
+--| What an optional part holds: `measure` of it, or nothing.
+def perhapsComments (measure: a → List Comment): Option a → List Comment
+  | None => []
+  | Some value => measure value
+
+--| A function header's comments: `takes`'s, if it was written, then the
+--| brackets' and the parameters'.
+def headerComments (takes: Option Comments) (open: Comments) (parameters: List Parameter) (close: Comments):
+    List Comment :=
+  perhapsComments Comments.all takes ++ open.all ++ parametersComments parameters ++ close.all
+
+def parametersComments (parameters: List Parameter): List Comment :=
+  parameters.flatMap (parameter => parameter.allComments)
 
 def Declaration.comments: Declaration → List Comment
-  | Function fnComments _ nameComments open parameters close equals body =>
+  | Function fnComments _ nameComments takes open parameters close equals body =>
     fnComments.all
       ++ nameComments.all
-      ++ open.all
-      ++ parameters.flatMap Parameter.allComments
-      ++ close.all
+      ++ headerComments takes open parameters close
       ++ equals.all
       ++ body.comments
   | Value letComments _ nameComments equals body => letComments.all ++ nameComments.all ++ equals.all ++ body.comments

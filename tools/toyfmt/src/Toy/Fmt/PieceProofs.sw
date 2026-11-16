@@ -93,6 +93,7 @@ theorem signNoSpace ∀ (mark: Punctuation): (signChar mark == ' ') = False := m
   | CloseSquare => byComputing
   | Comma => byComputing
   | Dot => byComputing
+  | Colon => byComputing
   | Defines => byComputing
 
 theorem spaceStartsSpaces ∀ (first: Char) (others rest: List Char)

@@ -53,15 +53,34 @@ def LexicalStatement: Statement → Prop
   | Bare value => Lexical value
   | StatementNote comment => IsComment comment.text
 
+def LexicalNamed (named: Named): Prop := IsName named.name ∧ Fine named.comments
+
+def LexicalNames: List Named → Prop
+  | [] => True
+  | [named, ..rest] => LexicalNamed named ∧ LexicalNames rest
+
+def LexicalType: TypeExpr → Prop
+  | TypeName name comments => IsName name ∧ Fine comments
+  | TypeBracketed open inner close => Fine open ∧ LexicalType inner ∧ Fine close
+
+def LexicalGroup: ParameterGroup → Prop
+  | Untyped parameter => LexicalNamed parameter
+  | Typed names colon annotation =>
+    LexicalNamed names.head ∧ LexicalNames names.tail ∧ Fine colon ∧ LexicalType annotation
+
 def LexicalParameters: List Parameter → Prop
   | [] => True
-  | [{ name, comments, comma }, ..rest] => IsName name ∧ Fine comments ∧ Fine comma ∧ LexicalParameters rest
+  | [{ group, comma }, ..rest] => LexicalGroup group ∧ Fine comma ∧ LexicalParameters rest
+
+--| `takes`, if it was written, holds the lexer's comments.
+def FineTakes (takes: Option Comments): Prop := Parse.Perhaps Fine takes
 
 def LexicalDeclaration: Declaration → Prop
-  | Function fnComments name nameComments open parameters close equals body =>
+  | Function fnComments name nameComments takes open parameters close equals body =>
     Fine fnComments
       ∧ IsName name
       ∧ Fine nameComments
+      ∧ FineTakes takes
       ∧ Fine open
       ∧ LexicalParameters parameters
       ∧ Fine close
