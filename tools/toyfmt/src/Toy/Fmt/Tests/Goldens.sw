@@ -279,7 +279,11 @@ def comments: Golden :=
           [item (NumberLiteral "1" (above ["-- light"])), { value = num "2", comma = after "-- two" }, item (num "3")]
           none),
       plain
-        (Function none "odd" none none [parameter "x"] none (after "-- why") (expr (op Remainder (v "x") (num "2"))))
+        (Function none "odd" none None none
+          [parameter "x"]
+          none
+          (after "-- why")
+          (expr (op Remainder (v "x") (num "2"))))
     ],
     formatted = """
       -- Totals for one order.
@@ -445,6 +449,67 @@ def route: Golden :=
   }
 
 test "mixed: nesting in a narrow width" := route.printed == route.formatted
+
+--| Sprig++ (toy-plus-plus.md §1): `takes`, typed parameter groups and
+--| types in brackets, printed as written, with comments after `takes`,
+--| `:` and above `)` (from the sketch's inputs, `plus/inputs`).
+def parameterGroups: Golden :=
+  {
+    width = 40,
+    source = """
+      fn area takes (w h: Int) = w * h
+      fn readVec(v:
+        (Vec)) = v
+      fn stream(head: Nat, rest: -- c
+        Nat) = rest
+      fn next takes -- why
+        (n: Nat
+      -- c
+      ) = n + 1
+      """,
+    tree = sprig [
+      fnGroups "area"
+        (Some none)
+        none
+        [typed "w" ["h"] none (TypeName "Int" none)]
+        none
+        (expr (op Times (v "w") (v "h"))),
+      fnGroups "readVec" None none
+        [typed "v" [] none (TypeBracketed none (TypeName "Vec" none) none)]
+        none
+        (expr (v "v")),
+      fnGroups "stream" None none
+        [typed "head" [] none (TypeName "Nat" none), typed "rest" [] (after "-- c") (TypeName "Nat" none)]
+        none
+        (expr (v "rest")),
+      fnGroups "next"
+        (Some (after "-- why"))
+        none
+        [typed "n" [] none (TypeName "Nat" none)]
+        (above ["-- c"])
+        (expr (op Plus (v "n") (num "1")))
+    ],
+    formatted = """
+      fn area takes (w h: Int) = w * h
+      fn readVec(v: (Vec)) = v
+      fn stream(
+          head: Nat,
+          rest: -- c
+            Nat
+      ) = rest
+      fn next takes -- why
+        (
+          n: Nat
+        -- c
+      ) = n + 1
+      """
+  }
+
+test "Sprig++: parameter groups and takes print as written" := parameterGroups.printed == parameterGroups.formatted
+
+test "a dump shows takes, groups and types" :=
+  parameterGroups.tree.dump
+    == "(fn area (takes) ((group w h : Int)) (body (bare (* (var w) (var h)))))\n(fn readVec ((group v : (bracketed Vec))) (body (bare (var v))))\n(fn stream ((group head : Nat) (group rest :{ after -- c } Nat)) (body (bare (var rest))))\n(fn next (takes{ after -- why }) ((group n : Nat)){ above -- c } (body (bare (+ (var n) (number 1)))))\n"
 
 test "P8: a trailing comment on a list's last item puts the ] below" :=
   let tree := sprig [value "pair" (ListLiteral none [item (num "1"), item (NumberLiteral "2" (after "-- two"))] none)]

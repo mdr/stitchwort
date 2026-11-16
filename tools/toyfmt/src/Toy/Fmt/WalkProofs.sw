@@ -219,6 +219,7 @@ theorem givesAtomOf ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (l
     | Sign CloseSquare, _ => Parse.givesExpected "an expression"
     | Sign Comma, _ => Parse.givesExpected "an expression"
     | Sign Dot, _ => Parse.givesExpected "an expression"
+    | Sign Colon, _ => Parse.givesExpected "an expression"
     | Sign Defines, _ => Parse.givesExpected "an expression"
     | Reserved keyword, _ => Parse.givesExpected "an expression"
     | Op operator, _ => Parse.givesExpected "an expression"
@@ -343,6 +344,7 @@ theorem givesSuffixes ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
       | Succ more, (Sign OpenSquare, comments) => givesSuffixesStop layout target parsed
       | Succ more, (Sign CloseSquare, comments) => givesSuffixesStop layout target parsed
       | Succ more, (Sign Comma, comments) => givesSuffixesStop layout target parsed
+      | Succ more, (Sign Colon, comments) => givesSuffixesStop layout target parsed
       | Succ more, (Sign Defines, comments) => givesSuffixesStop layout target parsed
       | Succ more, (Name text, comments) => givesSuffixesStop layout target parsed
       | Succ more, (Number digits, comments) => givesSuffixesStop layout target parsed
@@ -489,6 +491,7 @@ theorem givesStatementLine ∀ (self: Layout → {Parse (Parse.Located Token)} E
     | Reserved IfKeyword => bare
     | Reserved ThenKeyword => bare
     | Reserved ElseKeyword => bare
+    | Reserved TakesKeyword => bare
     | Name text => bare
     | Number digits => bare
     | Str written => bare
@@ -633,20 +636,99 @@ theorem givesExpression ∀ (layout: Layout): Parse.Gives GoodTokens (() => expr
 
 -- Declarations and the file.
 
+-- Types and parameter groups.
+
+theorem givesTypeOf ∀ (self: () → {Parse (Parse.Located Token)} TypeExpr) (comments: Comments) (kind: Kind)
+    (nested: ∀ (inner: ()) => Parse.Gives GoodTokens (() => self inner) LexicalType)
+    (fine: Fine comments)
+    (goodKind: GoodKind kind):
+    Parse.Gives GoodTokens (() => typeOf self comments kind) LexicalType :=
+  match kind, goodKind with
+    | Name text, isName => Parse.givesThen givesSkip (skipped done => Parse.givesDone ((isName, fine)))
+    | Sign OpenParen, _ => Parse.givesThen givesSkip (skipped done =>
+      Parse.givesThen (nested ()) (inner lexical =>
+        Parse.givesThen (givesSign InBrackets "')'" CloseParen) (close closeFine =>
+          Parse.givesDone ((fine, lexical, closeFine)))))
+    | Sign CloseParen, _ => Parse.givesExpected "a type"
+    | Sign OpenSquare, _ => Parse.givesExpected "a type"
+    | Sign CloseSquare, _ => Parse.givesExpected "a type"
+    | Sign Comma, _ => Parse.givesExpected "a type"
+    | Sign Dot, _ => Parse.givesExpected "a type"
+    | Sign Colon, _ => Parse.givesExpected "a type"
+    | Sign Defines, _ => Parse.givesExpected "a type"
+    | Number digits, _ => Parse.givesExpected "a type"
+    | Str written, _ => Parse.givesExpected "a type"
+    | Reserved keyword, _ => Parse.givesExpected "a type"
+    | Op operator, _ => Parse.givesExpected "a type"
+    | Stray text, _ => Parse.givesExpected "a type"
+
+--| Every type the parser gives from good tokens has the lexer's texts.
+theorem givesTypeExpr: Parse.Gives GoodTokens (() => typeExpr()) LexicalType :=
+  Parse.givesRecursiveWith typeRule
+    (unit found => LexicalType found)
+    (self nested unit =>
+      Parse.readsPeek _ _ (start fine =>
+        match e: start.rest with
+          | [] => Parse.givesExpected "a type"
+          | [token, ..later] =>
+            givesTypeOf self
+              (Layout.comments InBrackets token)
+              token.value.kind
+              nested
+              (fineComments InBrackets token fine.holds.left)
+              fine.holds.left.left))
+    ()
+
+theorem givesTyping: Parse.Gives GoodTokens typing ((found: (Comments, TypeExpr)) =>
+      Fine found.fst ∧ LexicalType found.snd) :=
+  Parse.givesThen (givesSign InBrackets "':'" Colon) (colon colonFine =>
+    Parse.givesThen givesTypeExpr (annotation lexical => Parse.givesDone ((colonFine, lexical))))
+
+theorem givesGroupOf ∀ (first: (Text, Comments)) (others: List (Text, Comments)) (typed: Option (Comments, TypeExpr))
+    (named: FineNamed first)
+    (more: List.All FineNamed others)
+    (typedFine: Parse.Perhaps ((found: (Comments, TypeExpr)) => Fine found.fst ∧ LexicalType found.snd) typed):
+    Parse.Gives GoodTokens (() => groupOf first others typed) LexicalGroup :=
+  match typed, typedFine, others with
+    | Some (colon, annotation), Both colonFine lexical, _ =>
+      Parse.givesDone ((named, (lexicalNamesOf others more), colonFine, lexical))
+    | None, _, [] => Parse.givesDone named
+    | None, _, [_, .._] => Parse.givesExpected "':'"
+
+theorem givesGroup: Parse.Gives GoodTokens parameterGroup LexicalGroup :=
+  Parse.givesThen (givesName InBrackets) (first named =>
+    Parse.givesThen (Parse.givesMany (givesName InBrackets)) (others more =>
+      Parse.givesThen (Parse.givesOptional givesTyping) (typed typedFine =>
+        givesGroupOf first others typed named more typedFine)))
+
+-- Declarations and the file.
+
 theorem givesParameterStep: Parse.Gives GoodTokens parameterStep FineStep :=
   Parse.givesThen (givesSign InBrackets "','" Comma) (comma commaFine =>
-    Parse.givesThen (givesName InBrackets) (named isNamed => Parse.givesDone ((commaFine, isNamed))))
+    Parse.givesThen givesGroup (group grouped => Parse.givesDone ((commaFine, grouped))))
 
 theorem givesParameterList: Parse.Gives GoodTokens parameterList FineList :=
-  Parse.givesThen (givesName InBrackets) (first named =>
-    Parse.givesThen (Parse.givesMany givesParameterStep) (others steps => Parse.givesDone ((named, steps))))
+  Parse.givesThen givesGroup (first grouped =>
+    Parse.givesThen (Parse.givesMany givesParameterStep) (others steps => Parse.givesDone ((grouped, steps))))
 
 theorem givesParameters: Parse.Gives GoodTokens (() => parametersOf (Parse.optional parameterList)) ParsedParameters :=
   Parse.givesThen (Parse.givesOptional givesParameterList) (found listed =>
     match found, listed with
       | None, _ => Parse.givesDone ((byComputing, byComputing))
-      | Some (first, others), Both named steps =>
-        Parse.givesDone (((withCommasBare first others), (lexicalWithCommas first others named steps))))
+      | Some (first, others), Both grouped steps =>
+        Parse.givesDone (((withCommasBare first others), (lexicalWithCommas first others grouped steps))))
+
+--| A function's header: `takes`, the brackets and the parameters, each
+--| as the parser gives them.
+def ParsedHeader (header: Header): Prop :=
+  FineTakes header.takes ∧ Fine header.open ∧ ParsedParameters header.parameters ∧ Fine header.close
+
+theorem givesHeader ∀ (layout: Layout): Parse.Gives GoodTokens (() => functionHeader layout) ParsedHeader :=
+  Parse.givesThen (Parse.givesOptional (givesKeyword layout TakesKeyword)) (takes takesFine =>
+    Parse.givesThen (givesSign layout "'('" OpenParen) (open openFine =>
+      Parse.givesThen givesParameters (parameters listed =>
+        Parse.givesThen (givesSign InBrackets "')'" CloseParen) (close closeFine =>
+          Parse.givesDone ((takesFine, openFine, listed, closeFine))))))
 
 theorem givesFunctionLine ∀ (column start: Nat) (first: Parse.Located Token)
     (fine: Fine ((InStatement column start).comments first))
@@ -656,18 +738,28 @@ theorem givesFunctionLine ∀ (column start: Nat) (first: Parse.Located Token)
     Parse.givesThen (givesName (InStatement column start)) (pair named =>
       match pair, named with
         | (declared, nameComments), (isName, nameFine) =>
-          Parse.givesThen (givesSign (InStatement column start) "'('" OpenParen) (open openFine =>
-            Parse.givesThen givesParameters (parameters listed =>
-              Parse.givesThen (givesSign InBrackets "')'" CloseParen) (close closeFine =>
+          Parse.givesThen (givesHeader (InStatement column start)) (read headed =>
+            match headed with
+              | (takesFine, openFine, listed, closeFine) =>
                 Parse.givesThen (givesSign (InStatement column start) "'='" Defines) (equals equalsFine =>
                   Parse.givesThen (givesBody expression (InStatement column start) givesExpression) (inner parsed =>
                     Parse.givesDone
                       ((
                         ((listed.left, parsed.left)),
-                        ((fine, isName, nameFine, openFine, listed.right, closeFine, equalsFine, parsed.right.left)),
+                        ((
+                          fine,
+                          isName,
+                          nameFine,
+                          takesFine,
+                          openFine,
+                          listed.right,
+                          closeFine,
+                          equalsFine,
+                          parsed.right.left
+                        )),
                         noAbove,
                         parsed.right.right
-                      )))))))))
+                      )))))))
 
 theorem givesValueLine ∀ (column start: Nat) (first: Parse.Located Token)
     (fine: Fine ((InStatement column start).comments first))
@@ -707,6 +799,7 @@ theorem givesDeclarationLine ∀ (column start: Nat) (first: Parse.Located Token
     | Reserved IfKeyword => givesNoDeclaration
     | Reserved ThenKeyword => givesNoDeclaration
     | Reserved ElseKeyword => givesNoDeclaration
+    | Reserved TakesKeyword => givesNoDeclaration
     | Name text => givesNoDeclaration
     | Number digits => givesNoDeclaration
     | Str written => givesNoDeclaration

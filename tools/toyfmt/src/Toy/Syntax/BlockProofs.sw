@@ -22,7 +22,8 @@ theorem runsKeyword ∀ (layout: Layout) (wanted: Keyword) (token: Parse.Located
         | LetKeyword => byComputing
         | IfKeyword => byComputing
         | ThenKeyword => byComputing
-        | ElseKeyword => byComputing)
+        | ElseKeyword => byComputing
+        | TakesKeyword => byComputing)
 
 --| `else` is read where it may stand: on the line, deeper, or starting a
 --| line at the statement's own column.
@@ -302,6 +303,7 @@ theorem runsLineOther ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located To
         | IfKeyword, notLet => runs
         | ThenKeyword, notLet => runs
         | ElseKeyword, notLet => runs
+        | TakesKeyword, notLet => runs
 
 theorem runsLineBare ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (value: Expr)
     (first: Parse.Located Token) (others rest: List (Parse.Located Token))
@@ -553,160 +555,216 @@ theorem runsDeclarationValue ∀ (layout: Layout) (first named equals: Parse.Loc
             found
             runsBody)))
 
---| A `fn` declaration: a name, the parameters in brackets, `=` and a body.
-theorem runsDeclarationFunction ∀ (layout: Layout) (first named open close equals: Parse.Located Token)
-    (parameterTokens bodyTokens rest: List (Parse.Located Token)) (declared: Text)
-    (listed: Option ((Text, Comments), List (Comments, (Text, Comments)))) (found: Body)
+--| A `fn` declaration: a name, its header (`takes` and the parameters in
+--| brackets), `=` and a body.
+theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.Located Token)
+    (headerTokens bodyTokens rest: List (Parse.Located Token)) (declared: Text) (header: Header) (found: Body)
     (isFn: first.value.kind = Reserved FnKeyword)
     (isName: named.value.kind = Name declared)
     (nameAllowed: layout.allows named = True)
-    (opens: open.value.kind = Sign OpenParen)
-    (openAllowed: layout.allows open = True)
-    (closes: close.value.kind = Sign CloseParen)
     (isEquals: equals.value.kind = Sign Defines)
     (equalsAllowed: layout.allows equals = True)
-    (runsParameters: Parse.Runs
-      (() => Parse.optional parameterList)
-      parameterTokens
-      ([close, equals, ..bodyTokens] ++ rest)
-      listed)
+    (runsHeader: Parse.Runs (() => functionHeader layout) headerTokens ([equals, ..bodyTokens] ++ rest) header)
     (runsBody: Parse.Runs (() => body expression layout) bodyTokens rest found):
     Parse.Runs
       (() => declarationLine layout first)
-      [first, named, open, ..parameterTokens ++ [close, equals, ..bodyTokens]]
+      [first, named, ..headerTokens ++ [equals, ..bodyTokens]]
       rest
       (Function
         (layout.comments first)
         declared
         (layout.comments named)
-        (layout.comments open)
-        (parametersOf listed)
-        (Layout.comments InBrackets close)
+        header.takes
+        header.open
+        header.parameters
+        header.close
         (layout.comments equals)
         found) :=
   let fnComments := layout.comments first
   let nameComments := layout.comments named
-  let opened := layout.comments open
-  let closed := Layout.comments InBrackets close
   let equalsComments := layout.comments equals
-  let read := Function fnComments declared nameComments opened (parametersOf listed) closed equalsComments found
+  let read :=
+    Function fnComments declared nameComments header.takes header.open header.parameters header.close equalsComments
+        found
   rewrite isFn then
     Parse.runsBind
       (() => skip())
       (skipped =>
         let (declared1, nameComments1) := name layout
-        let open1 := sign layout "'('" OpenParen
-        let parameters1 := parametersOf (Parse.optional parameterList)
-        let close1 := sign InBrackets "')'" CloseParen
+        let header1 := functionHeader layout
         let equals1 := sign layout "'='" Defines
-        Function fnComments declared1 nameComments1 open1 parameters1 close1 equals1 (body expression layout))
+        Function fnComments declared1 nameComments1 header1.takes header1.open header1.parameters header1.close equals1
+          (body expression layout))
       [first]
-      [named, open, ..parameterTokens ++ [close, equals, ..bodyTokens]]
-      [first, named, open, ..parameterTokens ++ [close, equals, ..bodyTokens]]
+      [named, ..headerTokens ++ [equals, ..bodyTokens]]
+      [first, named, ..headerTokens ++ [equals, ..bodyTokens]]
       rest
       ()
       read
       byComputing
-      (runsSkip first ([named, open, ..parameterTokens ++ [close, equals, ..bodyTokens]] ++ rest))
+      (runsSkip first ([named, ..headerTokens ++ [equals, ..bodyTokens]] ++ rest))
       (Parse.runsBind
         (() => name layout)
         (named1 =>
           let (declared1, nameComments1) := named1
-          let open1 := sign layout "'('" OpenParen
-          let parameters1 := parametersOf (Parse.optional parameterList)
-          let close1 := sign InBrackets "')'" CloseParen
+          let header1 := functionHeader layout
           let equals1 := sign layout "'='" Defines
-          Function fnComments declared1 nameComments1 open1 parameters1 close1 equals1 (body expression layout))
+          Function fnComments declared1 nameComments1 header1.takes header1.open header1.parameters header1.close
+              equals1
+              (body expression layout))
         [named]
-        [open, ..parameterTokens ++ [close, equals, ..bodyTokens]]
-        [named, open, ..parameterTokens ++ [close, equals, ..bodyTokens]]
+        (headerTokens ++ [equals, ..bodyTokens])
+        [named, ..headerTokens ++ [equals, ..bodyTokens]]
         rest
         (declared, nameComments)
         read
         byComputing
-        (runsName layout named declared
-          ([open, ..parameterTokens ++ [close, equals, ..bodyTokens]] ++ rest)
-          isName
-          nameAllowed)
+        (runsName layout named declared ((headerTokens ++ [equals, ..bodyTokens]) ++ rest) isName nameAllowed)
         (Parse.runsBind
-          (() => sign layout "'('" OpenParen)
-          (open1 =>
-            let parameters1 := parametersOf (Parse.optional parameterList)
-            let close1 := sign InBrackets "')'" CloseParen
+          (() => functionHeader layout)
+          (header1 =>
             let equals1 := sign layout "'='" Defines
-            Function fnComments declared nameComments open1 parameters1 close1 equals1 (body expression layout))
-          [open]
-          (parameterTokens ++ [close, equals, ..bodyTokens])
-          [open, ..parameterTokens ++ [close, equals, ..bodyTokens]]
+            Function fnComments declared nameComments header1.takes header1.open header1.parameters header1.close
+                equals1
+                (body expression layout))
+          headerTokens
+          [equals, ..bodyTokens]
+          (headerTokens ++ [equals, ..bodyTokens])
           rest
-          opened
+          header
           read
           byComputing
-          (runsSign layout "'('" OpenParen open
-            ((parameterTokens ++ [close, equals, ..bodyTokens]) ++ rest)
-            opens
-            openAllowed)
+          runsHeader
           (Parse.runsBind
-            (() => parametersOf (Parse.optional parameterList))
-            (parameters1 =>
-              let close1 := sign InBrackets "')'" CloseParen
-              let equals1 := sign layout "'='" Defines
-              Function fnComments declared nameComments opened parameters1 close1 equals1 (body expression layout))
-            parameterTokens
-            [close, equals, ..bodyTokens]
-            (parameterTokens ++ [close, equals, ..bodyTokens])
+            (() => sign layout "'='" Defines)
+            (equals1 =>
+              Function fnComments declared nameComments header.takes header.open header.parameters header.close equals1
+                (body expression layout))
+            [equals]
+            bodyTokens
+            [equals, ..bodyTokens]
             rest
-            (parametersOf listed)
+            equalsComments
             read
             byComputing
+            (runsSign layout "'='" Defines equals (bodyTokens ++ rest) isEquals equalsAllowed)
             (Parse.runsMap
-              (() => Parse.optional parameterList)
-              parametersOf
-              parameterTokens
-              ([close, equals, ..bodyTokens] ++ rest)
-              listed
-              runsParameters)
-            (Parse.runsBind
-              (() => sign InBrackets "')'" CloseParen)
-              (close1 =>
-                let equals1 := sign layout "'='" Defines
-                Function fnComments declared nameComments opened
-                  (parametersOf listed)
-                  close1
-                  equals1
-                  (body expression layout))
-              [close]
-              [equals, ..bodyTokens]
-              [close, equals, ..bodyTokens]
+              (() => body expression layout)
+              (inner =>
+                Function fnComments declared nameComments header.takes header.open header.parameters header.close
+                    equalsComments inner)
+              bodyTokens
               rest
-              closed
-              read
-              byComputing
-              (runsSign InBrackets "')'" CloseParen close ([equals, ..bodyTokens] ++ rest) closes byComputing)
-              (Parse.runsBind
-                (() => sign layout "'='" Defines)
-                (equals1 =>
-                  Function fnComments declared nameComments opened
-                    (parametersOf listed)
-                    closed
-                    equals1
-                    (body expression layout))
-                [equals]
-                bodyTokens
-                [equals, ..bodyTokens]
-                rest
-                equalsComments
-                read
-                byComputing
-                (runsSign layout "'='" Defines equals (bodyTokens ++ rest) isEquals equalsAllowed)
-                (Parse.runsMap
-                  (() => body expression layout)
-                  (inner =>
-                    Function fnComments declared nameComments opened (parametersOf listed) closed equalsComments inner)
-                  bodyTokens
-                  rest
-                  found
-                  runsBody))))))
+              found
+              runsBody))))
+
+--| A function's header: `takes` if it is there (as `runsTakes` and
+--| `runsNoTakes` read it), `(`, the parameters (as `runsParameters` and
+--| `runsNoParameters` read them) and `)`.
+theorem runsHeader ∀ (layout: Layout) (open close: Parse.Located Token)
+    (takesTokens parameterTokens rest: List (Parse.Located Token))
+    (takes: Option Comments) (listed: Option (ParameterGroup, List (Comments, ParameterGroup)))
+    (runsTakes: Parse.Runs
+      (() => Parse.optional (() => keyword layout TakesKeyword))
+      takesTokens
+      ([open, ..parameterTokens ++ [close]] ++ rest)
+      takes)
+    (opens: open.value.kind = Sign OpenParen)
+    (openAllowed: layout.allows open = True)
+    (runsParameters: Parse.Runs (() => Parse.optional parameterList) parameterTokens ([close] ++ rest) listed)
+    (closes: close.value.kind = Sign CloseParen):
+    Parse.Runs (() => functionHeader layout) (takesTokens ++ [open, ..parameterTokens ++ [close]]) rest {
+      takes,
+      open = layout.comments open,
+      parameters = parametersOf listed,
+      close = Layout.comments InBrackets close
+    } :=
+  let opened := layout.comments open
+  let closed := Layout.comments InBrackets close
+  let read: Header := { takes, open = opened, parameters = parametersOf listed, close = closed }
+  Parse.runsBind
+    (() => Parse.optional (() => keyword layout TakesKeyword))
+    (takes1 =>
+      let open1 := sign layout "'('" OpenParen
+      let parameters1 := parametersOf (Parse.optional parameterList)
+      let close1 := sign InBrackets "')'" CloseParen
+      ({ takes = takes1, open = open1, parameters = parameters1, close = close1 }: Header))
+    takesTokens
+    [open, ..parameterTokens ++ [close]]
+    (takesTokens ++ [open, ..parameterTokens ++ [close]])
+    rest
+    takes
+    read
+    byComputing
+    runsTakes
+    (Parse.runsBind
+      (() => sign layout "'('" OpenParen)
+      (open1 =>
+        let parameters1 := parametersOf (Parse.optional parameterList)
+        let close1 := sign InBrackets "')'" CloseParen
+        ({ takes, open = open1, parameters = parameters1, close = close1 }: Header))
+      [open]
+      (parameterTokens ++ [close])
+      [open, ..parameterTokens ++ [close]]
+      rest
+      opened
+      read
+      byComputing
+      (runsSign layout "'('" OpenParen open ((parameterTokens ++ [close]) ++ rest) opens openAllowed)
+      (Parse.runsBind
+        (() => parametersOf (Parse.optional parameterList))
+        (parameters1 =>
+          let close1 := sign InBrackets "')'" CloseParen
+          ({ takes, open = opened, parameters = parameters1, close = close1 }: Header))
+        parameterTokens
+        [close]
+        (parameterTokens ++ [close])
+        rest
+        (parametersOf listed)
+        read
+        byComputing
+        (Parse.runsMap
+          (() => Parse.optional parameterList)
+          parametersOf
+          parameterTokens
+          ([close] ++ rest)
+          listed
+          runsParameters)
+        (Parse.runsMap
+          (() => sign InBrackets "')'" CloseParen)
+          (close1 => ({ takes, open = opened, parameters = parametersOf listed, close = close1 }: Header))
+          [close]
+          rest
+          closed
+          (runsSign InBrackets "')'" CloseParen close rest closes byComputing))))
+
+--| `takes`, where it is written.
+theorem runsTakes ∀ (layout: Layout) (token: Parse.Located Token) (rest: List (Parse.Located Token))
+    (isTakes: token.value.kind = Reserved TakesKeyword)
+    (allowed: layout.allows token = True):
+    Parse.Runs (() => Parse.optional (() => keyword layout TakesKeyword)) [token] rest (Some (layout.comments token)) :=
+  Parse.runsOptional
+    (() => keyword layout TakesKeyword)
+    [token]
+    rest
+    (layout.comments token)
+    (runsKeyword layout TakesKeyword token rest isTakes allowed)
+
+--| No `takes`: the next token is `(`.
+theorem runsNoTakes ∀ (layout: Layout) (token: Parse.Located Token) (rest: List (Parse.Located Token))
+    (opens: token.value.kind = Sign OpenParen):
+    Parse.Runs (() => Parse.optional (() => keyword layout TakesKeyword)) [] [token, ..rest] None :=
+  Parse.declinesRuns
+    (() => keyword layout TakesKeyword)
+    [token, ..rest]
+    (Parse.declinesOne
+      "'${Keyword.spelling TakesKeyword}'"
+      (selectComments layout (keywordIs TakesKeyword))
+      token
+      rest
+      (match layout.allows token with
+        | True => rewrite opens
+        | False => byComputing))
 
 --| A declaration: on tokens whose first starts a line at column 0, the
 --| own-line comments above that token, then the declaration read from
@@ -1008,113 +1066,6 @@ theorem commaDeclines ∀ (input: List (Parse.Located Token))
         token
         later
         (rewrite noneOfNotSome (signIs Comma token.value.kind) absent)
-
---| The rounds of a parameter list after its first name: each a comma and
---| a name, giving the comma's comments and the name with its own.
-def ParameterSteps: (steps: List (List (Parse.Located Token), (Comments, (Text, Comments)))) → Prop
-  | [] => True
-  | [(read, found), ..more] =>
-    (∃ (comma: Parse.Located Token) => ∃ (named: Parse.Located Token) => ∃ (parameter: Text) => read = [comma, named]
-      ∧ comma.value.kind = Sign Comma
-      ∧ named.value.kind = Name parameter
-      ∧ found = (Layout.comments InBrackets comma, (parameter, Layout.comments InBrackets named)))
-      ∧ ParameterSteps more
-
-theorem parameterRounds ∀
-    (steps: List (List (Parse.Located Token), (Comments, (Text, Comments)))) (rest: List (Parse.Located Token))
-    (spelled: ParameterSteps steps)
-    (ends: signAhead Comma rest = False):
-    Parse.ManyRuns parameterStep steps rest :=
-  match steps, spelled with
-    | [], spelled =>
-      Parse.declinesBind
-        (() => sign InBrackets "','" Comma)
-        (comma =>
-          let named := name InBrackets
-          (comma, named))
-        rest
-        (commaDeclines rest ends)
-    | [(read, found), ..more], Both
-        (Witness comma (Witness named (Witness parameter (Both split (Both isComma (Both isName valued))))))
-        later =>
-      let commaComments := Layout.comments InBrackets comma
-      (
-        (rewrite split then (same => cases)),
-        (rewrite split, valued then
-          Parse.runsBind
-            (() => sign InBrackets "','" Comma)
-            (comma1 =>
-              let named1 := name InBrackets
-              (comma1, named1))
-            [comma]
-            [named]
-            [comma, named]
-            (Parse.joinReads more ++ rest)
-            commaComments
-            (commaComments, (parameter, Layout.comments InBrackets named))
-            byComputing
-            (runsSign InBrackets "','" Comma comma ([named] ++ (Parse.joinReads more ++ rest)) isComma byComputing)
-            (Parse.runsMap
-              (() => name InBrackets)
-              (named1 => (commaComments, named1))
-              [named]
-              (Parse.joinReads more ++ rest)
-              (parameter, Layout.comments InBrackets named)
-              (runsName InBrackets named parameter (Parse.joinReads more ++ rest) isName byComputing))),
-        (parameterRounds more rest later ends)
-      )
-
---| A function's parameters: a name, then a comma and a name any number
---| of times, up to a token that is no comma.
-theorem runsParameters ∀ (first: Parse.Located Token) (parameter: Text)
-    (steps: List (List (Parse.Located Token), (Comments, (Text, Comments)))) (rest: List (Parse.Located Token))
-    (isName: first.value.kind = Name parameter)
-    (spelled: ParameterSteps steps)
-    (ends: signAhead Comma rest = False):
-    Parse.Runs
-      (() => Parse.optional parameterList)
-      ([first] ++ Parse.joinReads steps)
-      rest
-      (Some ((parameter, Layout.comments InBrackets first), Parse.stepValues steps)) :=
-  let head := (parameter, Layout.comments InBrackets first)
-  Parse.runsOptional parameterList
-    ([first] ++ Parse.joinReads steps)
-    rest
-    (head, Parse.stepValues steps)
-    (Parse.runsBind
-      (() => name InBrackets)
-      (first1 =>
-        let others := Parse.many parameterStep
-        (first1, others))
-      [first]
-      (Parse.joinReads steps)
-      ([first] ++ Parse.joinReads steps)
-      rest
-      head
-      (head, Parse.stepValues steps)
-      byComputing
-      (runsName InBrackets first parameter (Parse.joinReads steps ++ rest) isName byComputing)
-      (Parse.runsMap
-        (() => Parse.many parameterStep)
-        (others => (head, others))
-        (Parse.joinReads steps)
-        rest
-        (Parse.stepValues steps)
-        (Parse.runsMany parameterStep steps rest (parameterRounds steps rest spelled ends))))
-
---| No parameters: the next token is not a name.
-theorem runsNoParameters ∀ (token: Parse.Located Token) (rest: List (Parse.Located Token))
-    (notName: nameOf token.value.kind = None):
-    Parse.Runs (() => Parse.optional parameterList) [] [token, ..rest] None :=
-  Parse.declinesRuns parameterList
-    [token, ..rest]
-    (Parse.declinesBind
-      (() => name InBrackets)
-      (first =>
-        let others := Parse.many parameterStep
-        (first, others))
-      [token, ..rest]
-      (Parse.declinesOne "a name" (selectWithComments InBrackets nameOf) token rest (rewrite notName)))
 
 -- An instance of `runsExpression` with an `if`: the six tokens of
 -- `if a then b else c`.
@@ -1779,52 +1730,49 @@ theorem runsValueSpelled ∀ (first named equals: Parse.Located Token) (bodyToke
       (runsBody (InStatement 0 first.offset) found bodyTokens rest shaped spelled))
 
 --| The parser reads back a `fn` declaration: its keyword starting a line
---| at column 0, a name, the parameters in brackets (as the parameter
---| parser reads them, `runsParameters`), `=` and tokens that spell its
---| body.
-theorem runsFunctionSpelled ∀ (first named open close equals: Parse.Located Token)
-    (parameterTokens bodyTokens rest: List (Parse.Located Token)) (declared: Text)
-    (listed: Option ((Text, Comments), List (Comments, (Text, Comments)))) (found: Body)
+--| at column 0, a name, its header (as `functionHeader` reads it,
+--| `runsHeader`), `=` and tokens that spell its body.
+theorem runsFunctionSpelled ∀ (first named equals: Parse.Located Token)
+    (headerTokens bodyTokens rest: List (Parse.Located Token)) (declared: Text) (header: Header) (found: Body)
     (atMargin: (first.value.startsLine && first.value.column == 0) = True)
     (isFn: first.value.kind = Reserved FnKeyword)
     (isName: named.value.kind = Name declared)
     (nameAllowed: (InStatement 0 first.offset).allows named = True)
-    (opens: open.value.kind = Sign OpenParen)
-    (openAllowed: (InStatement 0 first.offset).allows open = True)
-    (closes: close.value.kind = Sign CloseParen)
     (isEquals: equals.value.kind = Sign Defines)
     (equalsAllowed: (InStatement 0 first.offset).allows equals = True)
-    (runsNames: Parse.Runs
-      (() => Parse.optional parameterList)
-      parameterTokens
-      ([close, equals, ..bodyTokens] ++ rest)
-      listed)
+    (runsHeader: Parse.Runs
+      (() => functionHeader (InStatement 0 first.offset))
+      headerTokens
+      ([equals, ..bodyTokens] ++ rest)
+      header)
     (shaped: ShapedBody found)
     (spelled: SpelledBody (InStatement 0 first.offset) found bodyTokens rest):
     Parse.Runs
       (() => declaration())
-      [first, named, open, ..parameterTokens ++ [close, equals, ..bodyTokens]]
+      [first, named, ..headerTokens ++ [equals, ..bodyTokens]]
       rest
       (notedDeclaration first.value.above
         (Function
           ((InStatement 0 first.offset).comments first)
           declared
           ((InStatement 0 first.offset).comments named)
-          ((InStatement 0 first.offset).comments open)
-          (parametersOf listed)
-          (Layout.comments InBrackets close)
+          header.takes
+          header.open
+          header.parameters
+          header.close
           ((InStatement 0 first.offset).comments equals)
           found)) :=
   runsDeclaration first
-    [named, open, ..parameterTokens ++ [close, equals, ..bodyTokens]]
+    [named, ..headerTokens ++ [equals, ..bodyTokens]]
     rest
     (Function
       ((InStatement 0 first.offset).comments first)
       declared
       ((InStatement 0 first.offset).comments named)
-      ((InStatement 0 first.offset).comments open)
-      (parametersOf listed)
-      (Layout.comments InBrackets close)
+      header.takes
+      header.open
+      header.parameters
+      header.close
       ((InStatement 0 first.offset).comments equals)
       found)
     atMargin
@@ -1832,22 +1780,17 @@ theorem runsFunctionSpelled ∀ (first named open close equals: Parse.Located To
       (InStatement 0 first.offset)
       first
       named
-      open
-      close
       equals
-      parameterTokens
+      headerTokens
       bodyTokens
       rest
       declared
-      listed
+      header
       found
       isFn
       isName
       nameAllowed
-      opens
-      openAllowed
-      closes
       isEquals
       equalsAllowed
-      runsNames
+      runsHeader
       (runsBody (InStatement 0 first.offset) found bodyTokens rest shaped spelled))

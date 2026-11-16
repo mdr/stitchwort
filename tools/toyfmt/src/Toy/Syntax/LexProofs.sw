@@ -160,6 +160,7 @@ def signChar: Punctuation → Char
   | CloseSquare => ']'
   | Comma => ','
   | Dot => '.'
+  | Colon => ':'
   | Defines => '='
 
 --| `lexemeAt` reads each bracket, the comma and the dot as a sign.
@@ -172,6 +173,7 @@ theorem runsPunctuationLexeme ∀ (mark: Punctuation) (rest: List Char)
     | OpenSquare, notDefines => runsSignLexeme '[' rest byComputing
     | CloseSquare, notDefines => runsSignLexeme ']' rest byComputing
     | Comma, notDefines => runsSignLexeme ',' rest byComputing
+    | Colon, notDefines => runsSignLexeme ':' rest byComputing
     | Dot, notDefines => runsSignLexeme '.' rest byComputing
     | Defines, notDefines => (notDefines byComputing).impossible
 

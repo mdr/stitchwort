@@ -51,8 +51,8 @@ def bare (value: Expr): Body := { statements = [plainLine (Bare value)] }
 --| about 400 characters printed.
 def sample (index: Nat): List (Spaced Declaration) :=
   let suffix := "${index}"
-  let parameters := ["order", "rates"].map (text => { name = text, comments = none, comma = none })
-  let total := Function none "total${suffix}" none none parameters none none {
+  let parameters := ["order", "rates"].map (text => { group = Untyped { name = text, comments = none }, comma = none })
+  let total := Function none "total${suffix}" none None none parameters none none {
     statements = [
       plainLine (Let none "base" none none (bare (Call (var "sum") none [name "order", name "items"] none))),
       plainLine

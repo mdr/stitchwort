@@ -204,6 +204,12 @@ theorem keywordToken ∀ (keyword: Keyword): TokenText keyword.spelling := match
       match shut with
         | (stops, _) => keywordStands ElseKeyword rest stops)
   )
+  | TakesKeyword => (
+    ((byComputing, byComputing, byComputing)),
+    (rest shut =>
+      match shut with
+        | (stops, _) => keywordStands TakesKeyword rest stops)
+  )
 
 --| A bracket, comma or dot is read whole before anything.
 theorem signFree ∀ (mark: Punctuation)
@@ -216,6 +222,7 @@ theorem signFree ∀ (mark: Punctuation)
     | CloseSquare, apart => (later => signStands CloseSquare (next.toList ++ later) apart)
     | Comma, apart => (later => signStands Comma (next.toList ++ later) apart)
     | Dot, apart => (later => signStands Dot (next.toList ++ later) apart)
+    | Colon, apart => (later => signStands Colon (next.toList ++ later) apart)
     | Defines, apart => (apart byComputing).impossible
 
 theorem signToken ∀ (mark: Punctuation) (notDefines: mark ≠ Defines): TokenText (MkText [signChar mark]) :=
@@ -227,6 +234,7 @@ theorem signToken ∀ (mark: Punctuation) (notDefines: mark ≠ Defines): TokenT
       (((byComputing, byComputing, byComputing)), (rest shut => signStands CloseSquare rest apart))
     | Comma, apart => (((byComputing, byComputing, byComputing)), (rest shut => signStands Comma rest apart))
     | Dot, apart => (((byComputing, byComputing, byComputing)), (rest shut => signStands Dot rest apart))
+    | Colon, apart => (((byComputing, byComputing, byComputing)), (rest shut => signStands Colon rest apart))
     | Defines, apart => (apart byComputing).impossible
 
 theorem definesToken: TokenText "=" := (

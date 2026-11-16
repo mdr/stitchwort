@@ -218,21 +218,28 @@ theorem lexicalConcat ∀ (groups: List (List (Spaced Statement)))
 
 -- Declarations and the file.
 
---| A comma's comments and the parameter after it.
-def FineStep (step: (Comments, (Text, Comments))): Prop := Fine step.fst ∧ FineNamed step.snd
+--| A comma's comments and the group after it.
+def FineStep (step: (Comments, ParameterGroup)): Prop := Fine step.fst ∧ LexicalGroup step.snd
 
---| A first parameter and the commas and parameters after it.
-def FineList (found: ((Text, Comments), List (Comments, (Text, Comments)))): Prop :=
-  FineNamed found.fst ∧ List.All FineStep found.snd
+--| A first group and the commas and groups after it.
+def FineList (found: (ParameterGroup, List (Comments, ParameterGroup))): Prop :=
+  LexicalGroup found.fst ∧ List.All FineStep found.snd
 
-theorem lexicalWithCommas ∀ (first: (Text, Comments)) (others: List (Comments, (Text, Comments)))
-    (named: FineNamed first)
+theorem lexicalWithCommas ∀ (first: ParameterGroup) (others: List (Comments, ParameterGroup))
+    (grouped: LexicalGroup first)
     (steps: List.All FineStep others):
     LexicalParameters (withCommas first others) :=
   match others, steps with
-    | [], _ => (named.left, named.right, ((byComputing, byComputing)), byComputing)
-    | [(comma, next), ..rest], Both (Both commaFine nextNamed) more =>
-      (named.left, named.right, commaFine, (lexicalWithCommas next rest nextNamed more))
+    | [], _ => (grouped, ((byComputing, byComputing)), byComputing)
+    | [(comma, next), ..rest], Both (Both commaFine nextGrouped) more =>
+      (grouped, commaFine, (lexicalWithCommas next rest nextGrouped more))
+
+theorem lexicalNamesOf ∀ (others: List (Text, Comments))
+    (named: List.All FineNamed others):
+    LexicalNames (others.map namedOf) :=
+  match others, named with
+    | [], _ => byComputing
+    | [found, ..rest], Both fine more => (fine, (lexicalNamesOf rest more))
 
 theorem lexicalDeclarationsAppend ∀ (front back: List (Spaced Declaration))
     (frontLexical: LexicalDeclarations front)

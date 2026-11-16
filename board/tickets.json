@@ -41279,12 +41279,12 @@
     {
       "id": 3666,
       "title": "[Opus] Toy++ T2a, parser side (docs/proposals/toy-plus-plus.md §5 T2): the new syntax (':', 'takes', types, groups) in the toy's lexer and parser, with goldens; the walk, read-back and carry lemmas for each new parser function so formatSameTree, formatRefuses(Only), formatKeepsComments, Degenerate.sw and the computed examples stay proved (list in SW-3632/SW-3641 notes). Printer side is T2b on the same branch. Est. 70 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Model result: opus, worked (parser side; 18 printer declarations open for T2b), 25 min (est. 70). T2b continues on lane/SW-3666; merge both together.",
+      "body": "Started 20:18, done 20:42 (about 25 min against 70).\n\nDone (branch lane/SW-3666): `takes`, `:`, typed parameter groups and types in brackets in the toy's lexer, parser and tree (`Header` record from `functionHeader`; `Parameter = { group, comma }` until T3). 31 new lemmas and 19 restated over the three walks (read-back: Syntax/GroupProofs.sw and BlockProofs.sw; Gives: WalkProofs.sw; carry: CarryWalk.sw). Golden `parameterGroups` (from plus/inputs), its dump, lexer and message tests.\n\nStill proved: formatSameTree, formatRefuses, formatRefusesOnly, parseParsed, parseCarries, tokensCarry, Degenerate.sw except the two below, the computed examples. Audit: Toy.Syntax.Proofs 218 theorems 0 failed (2 warnings, pre-existing); Toy.Fmt.Carry 126, 0 failed.\n\nOpen for T2b (SW-3667), marked in the source: WordProofs (parameterPieces, Declaration.pieces, parameterDocsWrite, headerWrites, declarationWrites), RuleJoinProofs (parameterDocsPass, headerPasses, declarationPasses), EventProofs (ParameterEvents, DeclarationEvents, sepsParameters, fillParameters, functionLays, declarationLays), BlockSpellProofs (ParametersGoal, parametersOut, parameterListOut, declarationsOut). Waiting on them: printParses, formatRoundTrip, formatIdempotent, formatKeepsComments, Degenerate's formatHasKeepsComments and formatRoundTrips. Details: tools/toyfmt/plus/SKETCH-PLUS.md, \"T2a\".\n\nModel result: opus, worked (parser side; 18 printer declarations open for T2b), 25 min (est. 70). T2b continues on lane/SW-3666; merge both together.\n\nT2b (SW-3667) finished the printer side on this branch at 21:02: toyfmt checks clean, every T2 theorem proved; merge both together.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41292,12 +41292,12 @@
     {
       "id": 3667,
       "title": "[Opus] Toy++ T2b, printer side, on T2a's branch: print the new syntax as written; spelling and rule lemmas; printParses checks again; merge T2 when it does. Est. 70 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Started 20:42, done 21:02 (about 20 min against 70).\n\nDone (branch lane/SW-3666, after merging main for SW-3566's proof tuples): the printer side of T2. Pieces, words, joins, events and read-back of `takes`, groups and types; 24 new theorems, 15 restated (WordProofs 4+3, RuleJoinProofs 6+3, EventProofs 8+6, BlockSpellProofs 6+3). The 18 \"Open for T2b\" declarations are proved and the markers gone. The header's read-back is one lemma, `headerOut`, from `runsHeader`, `runsTakes`/`runsNoTakes`, `runsParameters`/`runsNoParameters`, `runsUntyped`/`runsTyped` and `runsType`.\n\nChecked: `stitchwort check` in tools/toyfmt clean (13 namespaces); plus 49 goals open as before. printParses, formatRoundTrip, formatIdempotent, formatKeepsComments, formatSameTree, formatRefuses, formatRefusesOnly, Degenerate's formatHasKeepsComments and formatRoundTrips all audited, axioms none. Audit Toy.Fmt.Proofs: 656 theorems and 404 generated lemmas, 0 failed, 9 with warnings (formatRefuses(Only), formatFile*, readAfterWrite, commentTaken, formatFileSettles: hypotheses the search can't meet; none T2's). Toy.Fmt.KeepsComments + Degenerate: 25 and 16, 0 failed, 0 warnings. Tests run: Goldens.sw (17), Parsing.sw (4), Disturbance.sw (4), all pass. Details: tools/toyfmt/plus/SKETCH-PLUS.md, \"T2b\".\n\nReady to merge with SW-3666.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []

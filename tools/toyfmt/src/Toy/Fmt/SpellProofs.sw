@@ -105,6 +105,7 @@ theorem keywordEvent ∀ (seen: Views) (keyword: Keyword) (start: Option Nat):
     | IfKeyword => byComputing
     | ThenKeyword => byComputing
     | ElseKeyword => byComputing
+    | TakesKeyword => byComputing
 
 --| The event of a bracket, the comma, the dot or `=` is its `Sign` token.
 theorem signEvent ∀ (seen: Views) (mark: Punctuation) (start: Option Nat):
@@ -116,6 +117,7 @@ theorem signEvent ∀ (seen: Views) (mark: Punctuation) (start: Option Nat):
     | CloseSquare => byComputing
     | Comma => byComputing
     | Dot => byComputing
+    | Colon => byComputing
     | Defines => byComputing
 
 --| An operator's event is its `Op` token.
@@ -557,7 +559,7 @@ def HeadedStatement (bracketed: Bool): Statement → Prop
   | StatementNote _ => True
 
 def HeadedDeclaration: Declaration → Prop
-  | Function fnComments _ _ _ _ _ _ body => fnComments.above = [] ∧ HeadedBody False body
+  | Function fnComments _ _ _ _ _ _ _ body => fnComments.above = [] ∧ HeadedBody False body
   | Value letComments _ _ _ body => letComments.above = [] ∧ HeadedBody False body
   | DeclarationNote _ => True
 

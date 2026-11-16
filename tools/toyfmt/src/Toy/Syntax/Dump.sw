@@ -20,12 +20,26 @@ def Comments.dump (comments: Comments): Text :=
   if comments.above.isEmpty && comments.after.isNone then "" else "{${above}${after} }"
 
 def Declaration.dump: Declaration → Text
-  | Function fnComments name nameComments open parameters close equals body =>
-    let listed := parameters.map (parameter => "${parameter.name}${parameter.comments.dump}${parameter.comma.dump}")
-    "(fn${fnComments.dump} ${name}${nameComments.dump} ${open.dump}(${listed.joinWith " "})${close.dump}${equals.dump} ${body.dump})"
+  | Function fnComments name nameComments takes open parameters close equals body =>
+    let listed := parameters.map (parameter => "${parameter.group.dump}${parameter.comma.dump}")
+    let taken := takes.map (comments => " (takes${comments.dump})") |> .getOrElse ""
+    "(fn${fnComments.dump} ${name}${nameComments.dump}${taken} ${open.dump}(${listed.joinWith " "})${close.dump}${equals.dump} ${body.dump})"
   | Value letComments name nameComments equals body =>
     "(let${letComments.dump} ${name}${nameComments.dump}${equals.dump} ${body.dump})"
   | DeclarationNote comment => "(note ${comment.text})"
+
+--| An untyped parameter is its name; a group is `(group names : type)`.
+def ParameterGroup.dump: ParameterGroup → Text
+  | Untyped parameter => parameter.dump
+  | Typed names colon annotation =>
+    let listed := [names.head, ..names.tail].map (named => named.dump) |> .joinWith " "
+    "(group ${listed} :${colon.dump} ${annotation.dump})"
+
+def Named.dump (named: Named): Text := "${named.name}${named.comments.dump}"
+
+def TypeExpr.dump: TypeExpr → Text
+  | TypeName name comments => "${name}${comments.dump}"
+  | TypeBracketed open inner close => "(bracketed${open.dump} ${inner.dump}${close.dump})"
 
 def Body.dump: Body → Text
   | { statements } => "(body${dumpStatements statements})"
