@@ -372,3 +372,5 @@ unchanged, and it checks nothing: it can't fail. Cost: the read-back lemmas in
 (about 10). Net 45-55 lemmas fewer and one uncertain goal made routine.
 
 No program change removes E2, D3 or D4: they are the theorem.
+
+SW-3484: the checked `format` was deleted and `formatDirect` renamed to `format`.

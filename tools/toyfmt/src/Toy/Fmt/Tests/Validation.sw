@@ -1,6 +1,6 @@
---| The check `format` and `lex` make before answering, on texts where it
---| passes (the cases the theorems in `Toy.Fmt.Proofs` and
---| `Toy.Syntax.Proofs` are about) and where there is nothing to check.
+--| The answers `format` and `lex` give, on texts where they succeed (the
+--| cases the theorems in `Toy.Fmt.Proofs` and `Toy.Syntax.Proofs` are
+--| about) and where there is something to refuse.
 
 namespace Toy.Fmt.Tests
 import Toy.Fmt (..)

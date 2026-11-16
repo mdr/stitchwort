@@ -88,7 +88,7 @@ def locate (path: Path) (message: Text): Text :=
 def formatFile (options: Options) (path: Path): {Files} Outcome := match Files.read path with
   | Err error => Problem "${error}"
   | Ok source =>
-    match formatDirect source options.width with
+    match format source options.width with
       | Refused message => Problem (locate path message)
       | Stable printed =>
         if printed.text == source then Formatted path Unchanged
