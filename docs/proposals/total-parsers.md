@@ -84,7 +84,7 @@ A different design **[cited]**. Grammars are values of a mixed inductive-coinduc
 | cats-parse (Scala) | Two types, `Parser` (must consume on success) and `Parser0`. `rep` exists only on `Parser` | the consumes-flag as two types, no dependent types (parser-combinators.md §3.1) **[cited there]** |
 | Lean 4 `Std.Internal.Parsec` | `partial def manyCore (p : Parsec ι α) …` | nothing can be proved about it **[cited: Basic.lean:153]** |
 | Koka `std/text/parse` | `many-acc(pretend-decreasing(p), …)`, with the comment "The `many` combinator is non-divergent only when `p` always consumes input or `fail`s" | Koka's `div` effect would otherwise show in the type; `pretend-decreasing` hides it **[cited: parse.kk:200-205]** |
-| Effekt, Unison | no termination checking, so nothing to guarantee | **[unverified]** |
+| Effekt, Unison | no termination checking, so nothing to guarantee | **[unverified]**: Unison's language reference (declaration forms only) and Effekt's effect-handler concept page say nothing about termination checking either way; absence of a mention isn't evidence |
 | Parsec, nom, winnow | a run-time error, as Std.Parse | parser-combinators.md §3.1 **[cited there]** |
 
 Among effect languages I found none whose effect parser is total by type. Koka, the one with a divergence effect, opts out of it.

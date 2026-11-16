@@ -44,9 +44,8 @@ time in `core::value`, which has no handler fusion or tail resumption:
   ([with-abstraction](https://agda.readthedocs.io/en/latest/language/with-abstraction.html)).
   Stitchwort's design is Agda's. The cost of normalising a big
   with-expression is a known Agda complaint **[memory]**.
-- **Idris 2.** `with` normalises the with-value (`nf`) and replaces subterms
-  of the normalised goal that are *convertible* with it (`replace`, in the
-  clause elaborator) **[memory]**. It is close to Agda's design and pays
+- **Idris 2.** `with` normalises the with-value (`normaliseHoles`, then `replace rdefs scenv !(nf rdefs scenv … wval)` when building the with-function's type) and replaces its occurrences by the new argument
+  [cited: [TTImp/ProcessDef.idr](https://github.com/idris-lang/Idris2/blob/main/src/TTImp/ProcessDef.idr) lines 406 and 433, read 16 Nov 2026; `replace`'s own definition wasn't read, so that it matches subterms up to *convertibility* is **[unverified]**]. It is close to Agda's design and pays
   the same cost.
 
 So the systems fall into two groups. Lean and Rocq don't evaluate the

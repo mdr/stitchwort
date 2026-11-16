@@ -242,10 +242,11 @@ also by `build_fingerprint()` [checked: `check_cache.rs:62`]. So:
 
 ## 7. What a definition's content is: Stitchwort and Unison
 
-**Unison** [unverified] hashes a definition's syntax tree after name
+**Unison** hashes a definition's syntax tree after name
 resolution: names are replaced by the hashes of what they refer to, local
-names by positions, and the tree is otherwise what was written. Types are
-inferred and stored beside it. Data types are structural unless declared
+names by positions, and the tree is otherwise what was written
+[cited: "Each Unison definition is identified by a hash of its syntax tree", with "all named arguments ... replaced by positionally-numbered variable references" and references to other definitions replaced by their hashes, [the big idea](https://www.unison-lang.org/docs/the-big-idea/), read 16 Nov 2026]. Types are
+inferred and stored beside it (the page says the codebase "knows the type of everything it stores" but not whether types enter the hash, so that is **[unverified]**). Data types are structural unless declared
 `unique` (and `unique` became the default for `type`), and test results
 (`test>` watches) are cached by hash in the codebase.
 

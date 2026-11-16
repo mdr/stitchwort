@@ -754,7 +754,7 @@ above is the shared semantics of everything else.
 - **C5** no reassociation, no algebraic simplification (`x + 0.0 → x` is wrong for `-0.0`) and no
   contraction of `a * b + c` into a fused multiply-add, in the compiler's optimiser, in the Rust
   code it is built from, and in generated JS. Rust doesn't contract floating-point expressions
-  without explicit `mul_add` [unverified]; `crates/rt/src/opt.rs` does constant propagation and
+  without explicit `mul_add` [partly cited: Rust's `core::intrinsics::fmuladd` is documented as "non-deterministically executing either a fused multiply-add or two operations" and is exposed only as the separate opt-in `mul_add_relaxed`, `library/core/src/intrinsics/mod.rs` and `num/f64.rs`, read 16 Nov 2026; that plain `a * b + c` is never contracted I found stated nowhere, so it stays unverified]; `crates/rt/src/opt.rs` does constant propagation and
   beta only ([checked] `opt.rs:1-30`); JS engines must not, by the language's semantics
   (Number::add "performs addition according to the rules of IEEE 754-2019 binary double-precision arithmetic" [cited: ECMA-262 §6.1.6.1.7]; no contraction rule is stated there, so "must not" is an inference). Tests pin both (§7.4);
 - **C6** the host's floating-point environment is the default one: nothing (FFI, a host

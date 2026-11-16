@@ -141,7 +141,7 @@ Evidence from the code that uses maps today (`grep` over `aoc/` and `examples/`)
 | System | Representation | What `=` means on maps | Programmer's `==` | Sources |
 |---|---|---|---|---|
 | **Lean 4** | `Std.TreeMap`/`DTreeMap`: "size-bounded" balanced trees; `HashMap` | Structural on `TreeMap`; `ExtTreeMap`/`ExtHashMap` are *quotients* by `Equiv`, so `=` is extensional, with ext lemmas and a `DecidableEq` (needs `LawfulEqCmp`, `TransCmp`, `LawfulBEq`) | `BEq` (Bool, no laws) vs `LawfulBEq` (`a == b = true → a = b`, `a == a`) | [cited: [Lean reference, Maps and Sets](https://lean-lang.org/doc/reference/4.28.0/Basic-Types/Maps-and-Sets/); [ExtTreeMap](https://lean-lang.org/doc/api/Std/Data/ExtTreeMap/Basic.html); [ExtDTreeMap](https://lean-lang.org/doc/api/Std/Data/ExtDTreeMap/Basic.html) (`inner : Quotient (DTreeMap.isSetoid …)`); [basic classes](https://lean-lang.org/doc/reference/latest/Type-Classes/Basic-Classes/)] |
-| **Rocq** (FMaps; MMaps similar) | AVL / red-black trees, sorted lists | Structural; `Equal m m' := ∀ y, find y m = find y m'` is a setoid relation, with `Equiv`/`Equivb` for values up to a relation | `equal cmp m m'`, specified through `Equivb` (`equal_1`, `equal_2`) | [cited: [FMapInterface](https://docs.rocq-prover.org/v8.9/stdlib/Coq.FSets.FMapInterface.html)]; MMaps [unverified] |
+| **Rocq** (FMaps; MMaps similar) | AVL / red-black trees, sorted lists | Structural; `Equal m m' := ∀ y, find y m = find y m'` is a setoid relation, with `Equiv`/`Equivb` for values up to a relation | `equal cmp m m'`, specified through `Equivb` (`equal_1`, `equal_2`) | [cited: [FMapInterface](https://docs.rocq-prover.org/v8.9/stdlib/Coq.FSets.FMapInterface.html)]; MMaps [unverified: no MMaps directory in the stdlib's master tree, 16 Nov 2026, so "similar" is unchecked and it may have moved out of the stdlib] |
 | **Isabelle/HOL** | `typedef ('a,'b) mapping = UNIV :: ('a ⇀ 'b) set` + `setup_lifting`; code generated through red-black trees | Extensional: a mapping *is* a partial function, and HOL has function extensionality | generated code | [cited: [HOL-Library Mapping](https://isabelle.in.tum.de/library/HOL/HOL-Library/Mapping.html); [RBT.thy](https://isabelle.in.tum.de/repos/isabelle/annotate/2803d2b8f85d/src/HOL/Library/RBT.thy)] |
 | **Agda** stdlib | `Map V = AVL.Tree (const V)` over a `StrictTotalOrder` | Structural; the module defines no map equality | — | [cited: [Data/Tree/AVL/Map.agda](https://raw.githubusercontent.com/agda/agda-stdlib/master/src/Data/Tree/AVL/Map.agda)] |
 | **Idris 2** | `SortedMap` over a balanced tree | Structural | `Eq` (Bool, no laws): `(==) = (==) on kvList` | [cited: [Data/SortedMap.idr](https://raw.githubusercontent.com/idris-lang/Idris2/main/libs/base/Data/SortedMap.idr)] |
@@ -167,7 +167,7 @@ and Tarjan give related bounds and note that randomised treaps (Aragon–Seidel)
 expected [cited: [abstract](https://user.it.uu.se/~arnea/abs/andetigh.html);
 [SIAM](https://epubs.siam.org/doi/10.1137/S0097539792241102)]. Tries (Patricia trees, as in
 Haskell's `IntMap`) are unique for their contents, but only for keys made of bits or characters
-[unverified for `IntMap`'s exact form].
+[cited: containers' `Data.IntMap.Internal`, "based on big-endian patricia trees", `data IntMap a = Bin !Prefix … | Tip !Key a | Nil`, read 16 Nov 2026; the claim that such a trie is unique for its contents is the trie's invariants ("Nil is never found as a child of Bin", fixed prefix and mask per node) and I haven't proved it].
 
 ## 3. Options for equality
 
@@ -221,7 +221,7 @@ canonical, but every update costs O(n) (§2's lower bound). Not practical.
 ### (b) Quotients or extensionality
 
 This would mean adding quotient types to the kernel, as Lean's `Quot` does with `Quot.sound`, an
-axiom from which function extensionality follows [unverified for the precise Lean axiom set], or
+axiom from which function extensionality follows [cited: `theorem funext` is proved from `Quot.sound` in Lean's `Init/Prelude.lean`, and the reference manual lists the standard axioms as `Classical.choice`, `propext` and `Quot.sound`, read 16 Nov 2026], or
 adding funext to the kernel. Then `Map := Quotient (Tree, Equiv)`, with `=` extensional and the
 fast tree inside. Costs:
 
@@ -395,8 +395,7 @@ Also built: `getInsertWithOther`, `getAlterOther`, `getAdjustOther`, `getOrCount
 - **Keep** `Map Text V` (in `Text` order) as a plain object, unchanged.
 - **Add** maps with `Nat`/`Int`/`Char`/`Bool` keys, in the default order, as `ReadonlyMap<K, V>`
   on input and `Map<K, V>` on output, with entries inserted in key order. JS `Map` compares
-  `bigint` and `string` keys by value [unverified for the spec's SameValueZero on `bigint`; check
-  before building].
+  `bigint` and `string` keys by value [cited: ECMA-262 `SameValueZero` → `SameValueNonNumber` → `BigInt::equal` (equal mathematical values) for a BigInt, and same length and code units for a String, tc39.es/ecma262, read 16 Nov 2026].
 - **Add** compound keys (tuples, records) as `ReadonlyArray<readonly [K, V]>`, with a duplicate
   key refused with `StitchwortInputError`. JS `Map` would compare object keys by identity, which
   is wrong.
