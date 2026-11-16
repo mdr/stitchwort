@@ -14,21 +14,21 @@ use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
 use stitchwort_driver::driver::Session;
 use stitchwort_driver::marks::{Lexical, lexical_marks};
+use stitchwort_driver::palette::{self, Role};
 
 const RESET: &str = "\x1b[0m";
 const DIM: &str = "\x1b[2m";
-const TYPE_SHOWN: &str = "\x1b[33m";
 
-/// The SGR sequence that starts `class`.
-fn style(class: Lexical) -> &'static str {
-    match class {
-        Lexical::Keyword => "\x1b[35m",
-        Lexical::Number => "\x1b[36m",
-        Lexical::Text => "\x1b[32m",
-        Lexical::Name => "\x1b[33m",
-        Lexical::Operator => "\x1b[34m",
-        Lexical::Comment => "\x1b[90m",
-    }
+/// The escape sequence that starts `class`, in the process's palette.
+fn style(class: Lexical) -> String {
+    palette::current().open(match class {
+        Lexical::Keyword => Role::Keyword,
+        Lexical::Number => Role::Number,
+        Lexical::Text => Role::Text,
+        Lexical::Name => Role::Type,
+        Lexical::Operator => Role::Operator,
+        Lexical::Comment => Role::Comment,
+    })
 }
 
 /// `text` with each token wrapped in its colour. A REPL command (`:t e`)
@@ -56,7 +56,7 @@ pub fn colour_code(text: &str) -> String {
             continue;
         }
         out.push_str(&text[at..range.start]);
-        out.push_str(style(class));
+        out.push_str(&style(class));
         out.push_str(&text[range.clone()]);
         out.push_str(RESET);
         at = range.end;
@@ -69,8 +69,9 @@ pub fn colour_code(text: &str) -> String {
 /// in one colour of its own.
 pub fn colour_result(value: &str, ty: &str) -> String {
     format!(
-        "{}{DIM}:{RESET} {TYPE_SHOWN}{ty}{RESET}",
-        colour_code(value)
+        "{}{DIM}:{RESET} {}{ty}{RESET}",
+        colour_code(value),
+        style(Lexical::Name)
     )
 }
 
@@ -141,7 +142,7 @@ mod tests {
         };
         assert_eq!(
             on.highlight("if Some 1", 0),
-            "\x1b[35mif\x1b[0m \x1b[33mSome\x1b[0m \x1b[36m1\x1b[0m"
+            "\x1b[38;2;203;166;247mif\x1b[0m \x1b[38;2;249;226;175mSome\x1b[0m \x1b[38;2;250;179;135m1\x1b[0m"
         );
         let off = ReplHelper {
             color: false,
@@ -155,7 +156,7 @@ mod tests {
     fn result_has_value_and_type_apart() {
         assert_eq!(
             colour_result("42", "Nat"),
-            "\x1b[36m42\x1b[0m\x1b[2m:\x1b[0m \x1b[33mNat\x1b[0m"
+            "\x1b[38;2;250;179;135m42\x1b[0m\x1b[2m:\x1b[0m \x1b[38;2;249;226;175mNat\x1b[0m"
         );
     }
 }

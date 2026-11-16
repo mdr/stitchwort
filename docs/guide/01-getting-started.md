@@ -146,6 +146,8 @@ sw> 1 + true
 error[E-UNKNOWN-NAME]: unknown name `true`
 ```
 
+On a terminal the REPL colours what you type and what it prints, and error messages are coloured too (`--color=auto|always|never`; `NO_COLOR` turns it off). The colours are [Catppuccin](https://github.com/catppuccin/catppuccin): Mocha on a dark background, Latte on a light one, and on Latte the paler colours are also bold so they stay readable. Which one is used is decided in this order: `--theme dark|light` or the environment variable `STITCHWORT_THEME=dark|light`; otherwise the terminal is asked for its background colour (only when stdin and stdout are terminals, waiting about 100 ms); otherwise `COLORFGBG`; otherwise dark. With `COLORTERM=truecolor` (or `24bit`) the exact colours are used, else the nearest of the 256-colour palette. Without colour the output is the same text with no escape codes.
+
 ## Projects
 
 A single file can use only itself and the standard library. Anything larger is a **project**: a folder with a `stitchwort.yaml` that says where the source files are.

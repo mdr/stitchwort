@@ -310,7 +310,7 @@ fn color_flag_adds_escapes_only() {
     std::fs::write(dir.join("c.sw"), "def x: Nat := nope\n").unwrap();
     let text = |args: &[&str]| String::from_utf8(stitchwort(&dir, args).stderr).unwrap();
     let always = text(&["check", "--color=always", "c.sw"]);
-    assert!(always.contains("\u{1b}[31m"), "{always:?}");
+    assert!(always.contains("\u{1b}[38;"), "{always:?}");
     let never = text(&["check", "--color=never", "c.sw"]);
     assert!(!never.contains('\u{1b}'), "{never:?}");
     assert_eq!(text(&["check", "c.sw"]), never);
