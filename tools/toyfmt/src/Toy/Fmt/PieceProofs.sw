@@ -53,9 +53,6 @@ def charsOnto (out: List Text) (tail: List Char): List Char := match out with
   | [] => tail
   | [piece, ..earlier] => charsOnto earlier (piece.toList ++ tail)
 
-theorem andTrueRight ∀ (left right: Bool) (both: (left && right) = True): right = True := match left, both with
-  | True, both => both
-
 --| A piece of spaces that isn't empty is a space and more spaces.
 theorem gapChars ∀ (piece: Text)
     (gap: piece.all (char => char == ' ') = True)

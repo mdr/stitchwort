@@ -516,11 +516,6 @@ theorem closingCoded ∀ (line: Spaced Statement) (more: List (Spaced Statement)
     | [], _ => Both rfl rfl
     | [_, .._], closed => closed
 
-theorem closedSome ∀ (line: Spaced Statement) (more: List (Spaced Statement))
-    (closed: LinesClose [] [] [line, ..more]):
-    ClosedLines [line, ..more] :=
-  closed
-
 theorem laterOfLines ∀ (column: Nat) (statements: List (Spaced Statement)) (events: List Event)
     (unspaced: Unspaced statements)
     (laid: LineEvents column statements events):
