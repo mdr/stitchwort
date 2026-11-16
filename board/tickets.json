@@ -39154,7 +39154,7 @@
     {
       "id": 3506,
       "title": "[Sonnet+Opus] Parse proofs L4: Parse.Gives and lemmas, givesBoth, readsBoth in std; the toy's three walks into one with readsInPeek; measure how mechanical the walk lemmas remain (for the gives-tactic question). After L1, L2. Est. 120 min",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
