@@ -22,8 +22,13 @@ for version in "${versions[@]}"; do
   done
   proofStart=$(date +%s.%N 2>/dev/null || date +%s)
   for module in Toy/Proofs/Readings Toy/Proofs/Words Toy/Proofs/Axioms; do
-    compile "$here/$version" "$build" "$module"
+    compile "$here/$version" "$build" "$module" | tee -a "$build/output"
   done
+  # Lean only warns about `sorry`; it shows up among the axioms.
+  if grep -q "sorry" "$build/output"; then
+    echo "$version: a proof uses sorry" >&2
+    exit 1
+  fi
   end=$(date +%s.%N 2>/dev/null || date +%s)
   echo "$version: program and tests $(echo "$proofStart - $start" | bc) s, proofs $(echo "$end - $proofStart" | bc) s"
   rm -rf "$build"
