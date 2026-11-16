@@ -1,5 +1,5 @@
 {
-  "next": 3577,
+  "next": 3578,
   "tickets": [
     {
       "id": 47,
@@ -39881,12 +39881,12 @@
     {
       "id": 3561,
       "title": "[Opus] Parse proofs L3 proper: readsThen inference by the proposal's postpone-and-abstract rule (hold back ?j (?p ()) while not a pattern, check readsFirst first, find ?j by abstracting p () in the goal's effect tree); then remove the 12 readsThenOf uses in ReadsOperators.sw; covers SW-3535's first half. Hash changes accepted (orchestrator's call, D2303: migration cost doesn't count). Failure notes on SW-3505. Est. 75 min",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Lane 16 Nov (Opus, branch lane/SW-3561, commits fd79bb763 b0d7cd4f1, ~50 min of est. 75).\n\nMechanism (crates/elab/src/check.rs): `applies_unknown` in `propagation_plan` spots a result type applying a call's unknown to a non-variable (`?j (?p ())`), also with implicits given by name; such a call skips expected-first and goes `fallback_holding_lambdas` -> `infer_expecting(hold_lambdas)`: lambdas held for after the expected type with no in-place trial; a non-lambda argument failing in place is retried by `by_arguments_in_place` (infer, then `unify_solving_arguments` against the parameter type), which is what fixes `?p` from `Parse.readsMark`. Unifier unchanged.\n\nFailing first: examples/accept/reads-then-finds-split.sw fails on main at `Parse.readsMark` (wrong split: p = mark + Done (Succ y.left)); passes here.\n\nreadsThenOf: deleted; 12 uses -> readsThen, 2 of them with `[j := ...]` inside `match within: lowest < count` (goal computed past the mark; SW-3535's second half). ReadsTokens readsLocated drops [p][j]. Toy: WalkProofs named p/j 6 -> 0 (givesThen after note/skip: SW-3535 first half fixed); LexTextProofs 15 -> 5.\n\nHashes changed (accepted): std operator proofs, readsChainLeft, readsLocated, givesOperators; examples reads-named-parser, reads-chain-written-type-arguments, reads-done-spec-from-expected, parse-lex-then-parse; new snapshot reads-then-finds-split.\n\nTests: examples reads-/parse-/abbreviation-meets-call (accept+reject) pass; soundness pass; hash_stability 11/11 (updated); check --std Parse --no-cache ok; AoC 2020 Day16/19/07/21/20/02/14 Proofs --no-cache ok; toy Toy.Fmt.Proofs, Toy.Syntax.Proofs --no-cache ok.\n",
+      "body": "Lane 16 Nov (Opus, branch lane/SW-3561, commits fd79bb763 b0d7cd4f1, ~50 min of est. 75).\n\nMechanism (crates/elab/src/check.rs): `applies_unknown` in `propagation_plan` spots a result type applying a call's unknown to a non-variable (`?j (?p ())`), also with implicits given by name; such a call skips expected-first and goes `fallback_holding_lambdas` -> `infer_expecting(hold_lambdas)`: lambdas held for after the expected type with no in-place trial; a non-lambda argument failing in place is retried by `by_arguments_in_place` (infer, then `unify_solving_arguments` against the parameter type), which is what fixes `?p` from `Parse.readsMark`. Unifier unchanged.\n\nFailing first: examples/accept/reads-then-finds-split.sw fails on main at `Parse.readsMark` (wrong split: p = mark + Done (Succ y.left)); passes here.\n\nreadsThenOf: deleted; 12 uses -> readsThen, 2 of them with `[j := ...]` inside `match within: lowest < count` (goal computed past the mark; SW-3535's second half). ReadsTokens readsLocated drops [p][j]. Toy: WalkProofs named p/j 6 -> 0 (givesThen after note/skip: SW-3535 first half fixed); LexTextProofs 15 -> 5.\n\nHashes changed (accepted): std operator proofs, readsChainLeft, readsLocated, givesOperators; examples reads-named-parser, reads-chain-written-type-arguments, reads-done-spec-from-expected, parse-lex-then-parse; new snapshot reads-then-finds-split.\n\nTests: examples reads-/parse-/abbreviation-meets-call (accept+reject) pass; soundness pass; hash_stability 11/11 (updated); check --std Parse --no-cache ok; AoC 2020 Day16/19/07/21/20/02/14 Proofs --no-cache ok; toy Toy.Fmt.Proofs, Toy.Syntax.Proofs --no-cache ok.\n\n\nReview fixes 16 Nov (commit 0bc8e177f, ~20 min): F1 trigger narrowed to an unknown applied beyond its context feeding another unknown (?j (?p ())); on failure the call is re-elaborated the ordinary way (no_holding), so main-accepted calls stay accepted; example implicit-predicate-from-lambda. F2 the ordinary error is kept when the held one is about the whole call: wrong first lemma blamed at itself again; reject example reads-then-wrong-first. F3 AoC readsThen days 2020 02 04 05 06 07 08 12 13 14 16 18 19 20 21, 2021 Day16, 2025 Day09 Proofs all check --no-cache. F4 has_implicit_function pre-filter. F5 done. Retests: examples, soundness, hash_stability (only new example snapshot), check --std Parse, toy namespaces pass.\n\nModel result: opus, needed fixes (review F1: trigger too broad, broke implicit-predicate lemmas; F2 worse error), 50+20 min (est. 75). Merged after fixes with a fallback to the old path on failure; AoC readsThen days all check.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40003,7 +40003,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Probably same cause (Overmind, seed 0x92b case 35752, message 'expected ->, but the line starting with → is at or left of the enclosing block's column'): def first: [a: Type-- c / ] →-- c /  [b: Type] → a → b → a := [a b: Type] (x: a) (y: /  b) => x. Fix both; test both.",
+      "body": "Probably same cause (Overmind, seed 0x92b case 35752, message 'expected ->, but the line starting with → is at or left of the enclosing block's column'): def first: [a: Type-- c / ] →-- c /  [b: Type] → a → b → a := [a b: Type] (x: a) (y: /  b) => x. Fix both; test both.\n\nThird arrow case (Overmind, seed 0x92f case 8213, 'expected := … but found →'): fmtbugs/arrows.sw — def-- c / many: Nat → Nat → / -- c / Nat → … →-- c / Nat → NaZE. Also 0x92c (line-start →).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40076,6 +40076,19 @@
     {
       "id": 3576,
       "title": "[Sonnet] Errors follow-ups from E2 (SW-3548): (1) unnamed unknowns (rows, motives, Pretty _) get a note saying where each comes from; (2) reword E-INSTANCE-STUCK ('until _ is known', '_ is what goes here') to name the unknown part of the type; (3) a lone unknown can print as _n₂ outside a mismatch (relabel only in unknown_notes)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3577,
+      "title": "[Sonnet] After E2 (unknowns print as _name), code that tests printed text for '?' to detect unknowns is stale: crates/driver/src/search_at.rs lines ~1100, 1490, 1722, 1744 (search may now accept a call or goal with unknowns). Replace with a real check for unsolved metas, as check.rs's partial_callback now does; add a test that fails before",
       "status": "backlog",
       "agent": "",
       "where": "",
