@@ -1,5 +1,5 @@
 {
-  "next": 3576,
+  "next": 3577,
   "tickets": [
     {
       "id": 47,
@@ -39712,12 +39712,12 @@
     {
       "id": 3548,
       "title": "[Sonnet] Errors E2: no ?N in messages: unsolved implicits print as _name with \"f's implicit name, not worked out\"; instances by interface and type (docs/proposals/helpful-errors.md §5 rank 2). Est. 1 h",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: sonnet, worked, 20 min (est. 40). 24 reject snapshots: ~19 better, ~5 same, 0 worse; PRINTS_UNKNOWNS 24 → empty (check kept). Follow-ups SW-3576.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39998,7 +39998,7 @@
     {
       "id": 3570,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x920 case 18424): a trailing comment after a constructor field's colon plus a comment line after → in its function type gives 'formatter bug: output doesn't parse: expected ), found →'. Minimal: type Stream: Type = | MkStream (head: Nat) (rest:-- c / Nat → / -- c / Stream). Repro: task fuzz:fmt SEED=0x920 COMMENTS=0.3 CASE=18424. Add as a fmt test",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -40063,6 +40063,19 @@
     {
       "id": 3575,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x928 case 19800): a nested record literal as a field value, after a comment line, with a trailing comment after 'name =' → output reads as a record update ('expected | and the fields to update, found ,'). Minimal: def greenOuter: Outer := { thing = / -- c /  { color = Green, name =-- c /  \"g\" } / }. Add as a fmt test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3576,
+      "title": "[Sonnet] Errors follow-ups from E2 (SW-3548): (1) unnamed unknowns (rows, motives, Pretty _) get a note saying where each comes from; (2) reword E-INSTANCE-STUCK ('until _ is known', '_ is what goes here') to name the unknown part of the type; (3) a lone unknown can print as _n₂ outside a mismatch (relabel only in unknown_notes)",
       "status": "backlog",
       "agent": "",
       "where": "",
