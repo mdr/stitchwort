@@ -4,7 +4,8 @@
 //! `(h: ∀ …)`), when removing it leaves the declaration parsing to the same
 //! tree. Pairs around a function type after a row stay: `{e} (A -> B)` reads
 //! better than `{e} A -> B`, which is easy to misread. A pair that touches a
-//! comment stays too, so no comment changes places. A pair at a line start
+//! comment (as rule N places it, [`crate::tidy`]) stays too, so no comment
+//! changes places. A pair at a line start
 //! goes like any other: the layout joins the type to the row whatever the
 //! input's breaks, so keeping it would make a second pass drop it.
 //!
@@ -135,7 +136,10 @@ fn binder_types(tokens: &[Token], range: &Range<usize>) -> Vec<usize> {
 /// none.
 pub fn drop_parens(tree: &SyntaxFile, text: &str) -> Vec<Edit> {
     let tokens = tree.tokens();
-    let trivia = tree.trivia();
+    // Comments as rule N places them, the way the printer and the checks
+    // read them: a comment on a closer that N moves off it doesn't hold the
+    // pair.
+    let (trivia, _) = crate::tidy::place_comments(tokens, tree.trivia(), tree.eof());
     let roles = roles(tokens);
     let after_row =
         |k: usize| k > 0 && tokens[k - 1].tok == Tok::RBrace && roles[k - 1] == Role::Row;

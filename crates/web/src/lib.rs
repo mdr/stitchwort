@@ -134,7 +134,7 @@ pub fn format(source: &str) -> String {
     let file = sources.add(FILE, source);
     let diagnostics = match stitchwort_fmt::format_in(file, source) {
         Ok(formatted) => {
-            return format!(r#"{{"ok":true,"text":{}}}"#, json_string(&formatted.text));
+            return format!(r#"{{"ok":true,"text":{}}}"#, json_string(&formatted));
         }
         Err(stitchwort_fmt::Error::Refused(diagnostics)) => diagnostics,
         Err(stitchwort_fmt::Error::Internal(message)) => vec![Diagnostic::error(

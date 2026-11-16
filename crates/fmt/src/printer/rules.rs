@@ -3,9 +3,10 @@
 //!
 //! Spacing between two tokens on one line is the current formatter's
 //! ([`crate::spacing`]); these rules only say where a construct may break
-//! and how far each piece is indented. A construct with no rule here is
-//! printed as written, moved with its line ([`Rules::as_written`]); the
-//! counts of those come from [`unruled`], not from here.
+//! and how far each piece is indented. A node whose shape a rule doesn't
+//! expect (one the parser never builds from a file without errors) makes
+//! the whole file an internal error ([`Rules::unexpected`]), never a copy
+//! of the source.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -21,25 +22,6 @@ use crate::spacing::{Gap, Pair, Role, gap};
 /// The width within which a type declaration's constructors or fields stay
 /// on one line (S14, S15, D3605).
 const TYPE_WIDTH: usize = 80;
-
-/// The kinds printed as written for now, deliberately or for want of a
-/// rule: only a node the parser couldn't make sense of.
-pub(crate) fn has_rule(kind: NodeKind) -> bool {
-    kind != NodeKind::Error
-}
-
-/// How many nodes of each kind in `root` have no rule. A node inside one
-/// without a rule is counted too: it is printed as written as well.
-pub(crate) fn unruled(root: Node<'_>, counts: &mut BTreeMap<NodeKind, usize>) {
-    if !has_rule(root.kind()) {
-        *counts.entry(root.kind()).or_default() += 1;
-    }
-    for child in root.children() {
-        if let Element::Node(node) = child {
-            unruled(node, counts);
-        }
-    }
-}
 
 pub(crate) struct Rules<'a> {
     /// The file's comments as rule N places them ([`crate::tidy`]): no
@@ -77,6 +59,8 @@ pub(crate) struct Rules<'a> {
     /// which join one line only within [`TYPE_WIDTH`].
     narrow_fields: BTreeSet<usize>,
     next_id: u32,
+    /// The first node whose shape no rule expects, and what was expected.
+    unexpected: Option<String>,
 }
 
 /// Whether a token closes a bracket.
@@ -174,6 +158,7 @@ impl<'a> Rules<'a> {
             match_hugs: BTreeMap::new(),
             narrow_fields: BTreeSet::new(),
             next_id: 0,
+            unexpected: None,
         }
     }
 
@@ -325,9 +310,42 @@ impl<'a> Rules<'a> {
         }
     }
 
+    /// Whether the code before token `i`, closers aside, ends its line with
+    /// a comment: one waiting to be written after the closers.
+    fn ends_line_with_comment_before(&self, i: usize) -> bool {
+        let mut j = i;
+        while j > 0 {
+            j -= 1;
+            if self.trivia[j].trailing.is_some() {
+                return self.defer_trailing != Some(j);
+            }
+            if !closer(&self.tokens[j].tok) {
+                return false;
+            }
+        }
+        false
+    }
+
     fn leaf(&self, leaf: Leaf<'_>) -> Doc {
         let i = leaf.index();
         let mut parts = self.leading(i);
+        // A closer is printed before the comment waiting on the code before
+        // it (S39), which is wrong when that leaves a second comment on the
+        // line (N keeps a closer's own trailing comment only when the code
+        // before it ends its line with one), or code that can't start a
+        // line: the `.field` of `(x -- c\n).field`. The closer keeps the line
+        // of its own it had.
+        if i > 0
+            && closer(&self.tokens[i].tok)
+            && self.trivia[i].leading.is_empty()
+            && self.ends_line_with_comment_before(i)
+            && (self.trivia[i].trailing.is_some()
+                || self.tokens.get(i + 1).is_some_and(|next| {
+                    next.tok == Tok::Dot && next.span.start == self.tokens[i].span.end
+                }))
+        {
+            parts.push(Doc::HardLine);
+        }
         parts.push(self.token_text(i));
         parts.extend(self.trailing(i));
         Doc::concat(parts)
@@ -425,21 +443,25 @@ impl<'a> Rules<'a> {
         self.comment_at_end(el).is_some()
     }
 
-    /// A construct with no rule yet: as written, moved with its line, its
-    /// first token's comments and its last token's trailing comment placed
-    /// as for any token.
-    pub(crate) fn as_written(&self, node: Node<'_>) -> Doc {
-        let range = node.token_range();
-        let (first, last) = (range.start, range.end - 1);
-        let start = token_text_range(&self.tokens[first]).start;
-        let end = token_text_range(&self.tokens[last]).end;
-        let mut parts = self.leading(first);
-        parts.push(Doc::Verbatim {
-            text: self.src[start..end].to_string(),
-            src_indent: self.line_indent_at(start),
-        });
-        parts.extend(self.trailing(last));
-        Doc::concat(parts)
+    /// Notes that `node` has a shape its rule doesn't expect and returns
+    /// nothing to print: the printer then fails the file
+    /// ([`Rules::take_unexpected`]).
+    fn unexpected(&mut self, node: Node<'_>, expected: &str) -> Doc {
+        if self.unexpected.is_none() {
+            let at = token_text_range(&self.tokens[node.token_range().start]).start;
+            let line = self.src[..at].matches('\n').count() + 1;
+            self.unexpected = Some(format!(
+                "a {:?} node at line {line} isn't {expected}",
+                node.kind()
+            ));
+        }
+        Doc::Nil
+    }
+
+    /// What the rules found unexpected, if anything, so the file is an
+    /// internal error.
+    pub(crate) fn take_unexpected(&mut self) -> Option<String> {
+        self.unexpected.take()
     }
 
     // ---- Constructs.
@@ -472,11 +494,11 @@ impl<'a> Rules<'a> {
             CalcStep => self.calc_step(node),
             Rewrite => self.rewrite(node),
             Constructor => self.constructor(node),
-            kind if has_rule(kind) => {
+            Error => self.unexpected(node, "part of a file the parser accepts"),
+            _ => {
                 let children: Vec<Element> = node.children().collect();
                 self.join(&children)
             }
-            _ => self.as_written(node),
         }
     }
 
@@ -532,7 +554,12 @@ impl<'a> Rules<'a> {
                 Some(NodeKind::Unfolding) => unfolding = Some(el),
                 Some(NodeKind::Body) => body = Some(el),
                 Some(NodeKind::Arms) => arms = Some(el),
-                _ => return self.as_written(node),
+                _ => {
+                    return self.unexpected(
+                        node,
+                        "a declaration's head, parameters, result, clauses and body",
+                    );
+                }
             }
         }
         let id = self.fresh_id();
@@ -796,9 +823,17 @@ impl<'a> Rules<'a> {
     fn body_after(&mut self, value: &[Element<'_>]) -> (Doc, Doc) {
         let doc = Doc::shared(self.join(value));
         let below = Doc::nest(2, Doc::concat([Doc::HardLine, doc.clone()]));
-        if value
-            .first()
-            .is_some_and(|&el| self.has_leading(el) || Self::kind(el) == Some(NodeKind::Block))
+        // A comment ending the `:=` line (or `=>`) puts the value below
+        // whatever else would fit: a hug assumes the value's first line is
+        // the `:=` line.
+        let after_comment = value.first().is_some_and(|&el| {
+            let before = Self::first(el);
+            before > 0 && self.trivia[before - 1].trailing.is_some()
+        });
+        if after_comment
+            || value
+                .first()
+                .is_some_and(|&el| self.has_leading(el) || Self::kind(el) == Some(NodeKind::Block))
         {
             return (below.clone(), below);
         }
@@ -875,7 +910,7 @@ impl<'a> Rules<'a> {
         let mut lines = Vec::new();
         for &ctor in &children[split..] {
             if Self::kind(ctor) != Some(NodeKind::Constructor) {
-                return self.as_written(node);
+                return self.unexpected(node, "a head then constructors");
             }
             self.mark_item(ctor);
             lines.push(Doc::Line);
@@ -1047,7 +1082,7 @@ impl<'a> Rules<'a> {
             }
         }
         if current.is_empty() {
-            return self.as_written(node);
+            return self.unexpected(node, "a bracket whose last item follows its last comma");
         }
         items.push((current, None));
         // D3572: a list of only plain values fills its lines, the bracket
@@ -1086,7 +1121,7 @@ impl<'a> Rules<'a> {
         let mut body = Vec::new();
         for (k, (item, comma)) in items.iter().enumerate() {
             if item.is_empty() {
-                return self.as_written(node);
+                return self.unexpected(node, "a bracket with an item between each pair of commas");
             }
             self.mark_item(item[0]);
             body.push(if k == 0 { edge() } else { Doc::Line });
@@ -1586,10 +1621,10 @@ impl<'a> Rules<'a> {
                 .iter()
                 .position(|&el| self.is_tok(el, &Tok::KwElse));
             let (Some(then), Some(els)) = (then, els) else {
-                return self.as_written(node);
+                return self.unexpected(node, "an `if` with `then` and `else`");
             };
             if els != children.len() - 2 || then + 1 >= els {
-                return self.as_written(node);
+                return self.unexpected(node, "a condition, `then`, a branch, `else`, a branch");
             }
             let mut head = Vec::new();
             if let Some(prefix) = else_prefix.take() {
@@ -1784,7 +1819,8 @@ impl<'a> Rules<'a> {
         items.push((current, None));
         for (k, (item, comma)) in items.iter().enumerate() {
             if item.is_empty() {
-                return self.as_written(node);
+                return self
+                    .unexpected(node, "a `rewrite` with a rule between each pair of commas");
             }
             if k > 0 {
                 rules.push(Doc::Line);

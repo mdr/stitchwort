@@ -509,6 +509,7 @@ pub fn serve_from(
         cancel,
         to_checker,
         texts: Default::default(),
+        formatter_bugs: Default::default(),
         searches,
         to_searches,
         document_changes,
@@ -1231,6 +1232,8 @@ struct Main {
     to_checker: Sender<Edit>,
     /// The text of each open document, to trim a selection against.
     texts: std::cell::RefCell<HashMap<Url, String>>,
+    /// The versions the formatter-bug warning was shown for.
+    formatter_bugs: std::cell::RefCell<FormatterBugsShown>,
     searches: Arc<Searches>,
     to_searches: Sender<SearchJob>,
     /// Whether the client applies versioned `documentChanges` edits.
@@ -2443,22 +2446,10 @@ impl Main {
             GOAL_AT => parse::<lsp_types::TextDocumentPositionParams>(&request)
                 .map(|p| serde_json::to_value(goal_at(&nav, &p.text_document.uri, p.position))),
             request::Formatting::METHOD => parse::<lsp_types::DocumentFormattingParams>(&request)
-                .map(|p| {
-                    let texts = self.texts.borrow();
-                    let edits = texts
-                        .get(&p.text_document.uri)
-                        .map(|text| format_edits(text, None))
-                        .unwrap_or_default();
-                    serde_json::to_value(edits)
-                }),
+                .map(|p| serde_json::to_value(self.formatted(&p.text_document.uri, None))),
             request::RangeFormatting::METHOD => {
                 parse::<lsp_types::DocumentRangeFormattingParams>(&request).map(|p| {
-                    let texts = self.texts.borrow();
-                    let edits = texts
-                        .get(&p.text_document.uri)
-                        .map(|text| format_edits(text, Some(p.range)))
-                        .unwrap_or_default();
-                    serde_json::to_value(edits)
+                    serde_json::to_value(self.formatted(&p.text_document.uri, Some(p.range)))
                 })
             }
             _ => {
@@ -2481,14 +2472,71 @@ impl Main {
     }
 }
 
-/// The edits that format `text`: one replacing the whole document, or, with
-/// a `range`, one per declaration the range overlaps whose text changes. No
-/// edits if the file is refused (D1021), the formatter fails, or nothing
-/// changes: formatting never answers with an error.
-fn format_edits(text: &str, range: Option<lsp_types::Range>) -> Vec<lsp_types::TextEdit> {
-    let Ok(output) = stitchwort_fmt::format(text) else {
-        return Vec::new();
-    };
+/// What the user is told when the formatter's own check fails (D3634). A
+/// refused file (a syntax error) is not a formatter bug and stays silent:
+/// the checker already shows its diagnostics.
+const FORMATTER_BUG: &str = "Stitchwort formatter bug: this file was left unchanged. Run \
+     `stitchwort fmt <file>` to see the details.";
+
+/// The documents the formatter-bug warning was shown for, with the version
+/// each was at, so one version is warned about once however often the
+/// editor asks to format it.
+#[derive(Default)]
+struct FormatterBugsShown(HashMap<Url, i32>);
+
+impl FormatterBugsShown {
+    /// Whether to show the warning for `uri` at `version`, noting that it
+    /// was shown.
+    fn first_time(&mut self, uri: &Url, version: i32) -> bool {
+        self.0.insert(uri.clone(), version) != Some(version)
+    }
+}
+
+impl Main {
+    /// The edits for a formatting request on an open document, warning the
+    /// user (once per document version) if the formatter failed its own
+    /// check.
+    fn formatted(&self, uri: &Url, range: Option<lsp_types::Range>) -> Vec<lsp_types::TextEdit> {
+        let texts = self.texts.borrow();
+        let Some(text) = texts.get(uri) else {
+            return Vec::new();
+        };
+        let (edits, bug) = format_edits(stitchwort_fmt::format(text), text, range);
+        if bug {
+            let version = lock(&self.searches.versions).get(uri).copied().unwrap_or(0);
+            if self.formatter_bugs.borrow_mut().first_time(uri, version) {
+                self.notices
+                    .always(lsp_types::MessageType::WARNING, FORMATTER_BUG);
+            }
+        }
+        edits
+    }
+}
+
+/// The edits that format `text`, given what the formatter made of it: one
+/// replacing the whole document, or, with a `range`, one per declaration
+/// the range overlaps whose text changes. No edits if the file is refused
+/// (D1021), the formatter fails, or nothing changes: formatting never
+/// answers with an error. The flag says the formatter failed its own check,
+/// a bug to tell the user about.
+fn format_edits(
+    formatted: Result<String, stitchwort_fmt::Error>,
+    text: &str,
+    range: Option<lsp_types::Range>,
+) -> (Vec<lsp_types::TextEdit>, bool) {
+    match formatted {
+        Ok(output) => (changes(text, output, range), false),
+        Err(stitchwort_fmt::Error::Refused(_)) => (Vec::new(), false),
+        Err(stitchwort_fmt::Error::Internal(_)) => (Vec::new(), true),
+    }
+}
+
+/// The edits that turn `text` into `output`, as [`format_edits`] says.
+fn changes(
+    text: &str,
+    output: String,
+    range: Option<lsp_types::Range>,
+) -> Vec<lsp_types::TextEdit> {
     if output == text {
         return Vec::new();
     }
@@ -4366,6 +4414,7 @@ impl Inline {
             cancel,
             to_checker,
             texts: Default::default(),
+            formatter_bugs: Default::default(),
             searches: Arc::default(),
             to_searches,
             document_changes: false,
@@ -5153,6 +5202,33 @@ mod tests {
     fn subsequence_ignores_case() {
         assert!(subsequence("dfp", "Aoc.Year2025.Day01.findPassword"));
         assert!(!subsequence("zz", "Aoc.Year2025.Day01.findPassword"));
+    }
+
+    #[test]
+    fn a_formatter_bug_is_flagged_and_a_refused_file_is_not() {
+        let internal = stitchwort_fmt::Error::Internal("the token `a` became `b`".into());
+        let (edits, bug) = format_edits(Err(internal), "def a := 1\n", None);
+        assert!(edits.is_empty() && bug);
+        let refused = stitchwort_fmt::Error::Refused(Vec::new());
+        let (edits, bug) = format_edits(Err(refused), "def a := )\n", None);
+        assert!(edits.is_empty() && !bug);
+        let (edits, bug) = format_edits(Ok("def a := 1\n".into()), "def a:=1\n", None);
+        assert_eq!(edits.len(), 1);
+        assert!(!bug);
+    }
+
+    #[test]
+    fn the_formatter_bug_warning_is_shown_once_per_document_version() {
+        let (a, b) = (
+            Url::parse("file:///a.sw").unwrap(),
+            Url::parse("file:///b.sw").unwrap(),
+        );
+        let mut shown = FormatterBugsShown::default();
+        assert!(shown.first_time(&a, 1));
+        assert!(!shown.first_time(&a, 1));
+        assert!(shown.first_time(&b, 1));
+        assert!(shown.first_time(&a, 2));
+        assert!(!shown.first_time(&a, 2));
     }
 
     #[test]
