@@ -4,4 +4,4 @@
 import Std (Nat)
 
 theorem flipped (n: Nat) (m: Nat) (at: n = m): m = n :=
-  rewrite Eq.symm at in rfl
+  rewrite Eq.symm at then byComputing

@@ -70,5 +70,5 @@ fn the_attribute_opts_out() {
 
 #[test]
 fn theorems_do_not_warn() {
-    assert!(warnings("theorem Meter.same (n: Nat) (m: Meter): m = m := rfl\n").is_empty());
+    assert!(warnings("theorem Meter.same (n: Nat) (m: Meter): m = m := byComputing\n").is_empty());
 }

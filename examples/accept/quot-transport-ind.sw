@@ -14,11 +14,11 @@ import Std (IO, Nat)
 def AllTrue (x y: Bool): Prop := Unit
 def Q: Type := Quot Bool AllTrue
 
-def p: 0 = 0 := Quot.ind [p := q => 0 = 0] (b => rfl) (Quot.mk False: Q)
+def p: 0 = 0 := Quot.ind [p := q => 0 = 0] (b => byComputing) (Quot.mk False: Q)
 
 def n: Nat := J (y proof => Nat) 0 p
 
-def nInline: Nat := J (y proof => Nat) 0 (Quot.ind [p := q => 0 = 0] (b => rfl) (Quot.mk False: Q))
+def nInline: Nat := J (y proof => Nat) 0 (Quot.ind [p := q => 0 = 0] (b => byComputing) (Quot.mk False: Q))
 
 test "transport along a Quot.ind proof" := n == 0
 test "and along one written inline" := nInline == 0

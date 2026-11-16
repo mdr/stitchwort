@@ -16,11 +16,13 @@ type Node (a: Type) =
   | Small (n: Nat) (ok: Nat.leq n 9 = True)
   | Named (name: Text) (body: Node a)
 
-test "equal values" := Pair (Item 1) (Many [Leaf, Small 3 rfl]) == Pair (Item 1) (Many [Leaf, Small 3 rfl])
+test "equal values" :=
+  Pair (Item 1) (Many [Leaf, Small 3 byComputing]) == Pair (Item 1) (Many [Leaf, Small 3 byComputing])
 test "different fields" := !(Pair (Item 1) Leaf == Pair (Item 2) Leaf)
 test "different constructors" := !(Item 1 == Leaf) && !((Many []: Node Nat) == Named "x" Leaf)
-test "position first" := Leaf < Item 0 && Item 9 < Pair Leaf Leaf && (Small 9 rfl: Node Nat) < Named "" Leaf
-test "then fields" := Item 1 < Item 2 && Many [Leaf] < Many [Leaf, Item 0] && !((Small 4 rfl: Node Nat) < Small 4 rfl)
+test "position first" := Leaf < Item 0 && Item 9 < Pair Leaf Leaf && (Small 9 byComputing: Node Nat) < Named "" Leaf
+test "then fields" :=
+  Item 1 < Item 2 && Many [Leaf] < Many [Leaf, Item 0] && !((Small 4 byComputing: Node Nat) < Small 4 byComputing)
 test "sorts" := List.sort [Named "b" Leaf, Item 3, Leaf, Item 1] == [Leaf, Item 1, Item 3, Named "b" Leaf]
 
 theorem sound ∀ (x y: Node Nat) (h: (x == y) = True): x = y := DecEq.sound h
@@ -35,9 +37,9 @@ theorem compareTrans ∀ (x y z: Node Nat)
   Ord.trans x y z h1 h2
 
 -- On constructors the tests still compute.
-theorem computes: (Named "a" (Item 1) == Named "a" (Item 1)) = True := rfl
-theorem computesApart: (Item 1 == Leaf) = False := rfl
-theorem orders: Ord.compare (Pair Leaf (Item 2)) (Pair Leaf (Item 1)) = Greater := rfl
+theorem computes: (Named "a" (Item 1) == Named "a" (Item 1)) = True := byComputing
+theorem computesApart: (Item 1 == Leaf) = False := byComputing
+theorem orders: Ord.compare (Pair Leaf (Item 2)) (Pair Leaf (Item 1)) = Greater := byComputing
 
 -- An enumeration's order is its tags'.
 type Dir = | North | East | South | West

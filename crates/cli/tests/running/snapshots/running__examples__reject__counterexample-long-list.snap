@@ -2,16 +2,16 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
    ╭─[ reject/counterexample-long-list.sw:9:51 ]
    │
- 9 │ theorem oneChunk (xs: List Nat): chunks xs = 1 := rfl
-   │                                                   ─┬─  
-   │                                                    ╰─── `chunks xs` and `1` aren't equal
+ 9 │ theorem oneChunk (xs: List Nat): chunks xs = 1 := byComputing
+   │                                                   ─────┬─────  
+   │                                                        ╰─────── `chunks xs` and `1` aren't equal
    │ 
    │ Note 1: computing the left side gives `if xs.length ≤ 11 then 1 else 2`
    │ 
-   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
    │ 
    │ Note 3: this statement is false; a counterexample:
    │           xs = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]

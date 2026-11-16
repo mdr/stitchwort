@@ -68,7 +68,11 @@ theorem endsBefore ∀ (word next: Text) (ends: Ends word) (closing: Closing nex
 --| What is read whole before anything shut is read whole at the end of
 --| the text and before a line break.
 theorem endsProper ∀ (word: Text) (ends: Ends word): Proper word :=
-  Inr (((ends [] ((rfl, rfl, rfl))), (later => ends (['\n'] ++ later) ((rfl, rfl, rfl)))))
+  Inr
+    ((
+      (ends [] ((byComputing, byComputing, byComputing))),
+      (later => ends (['\n'] ++ later) ((byComputing, byComputing, byComputing)))
+    ))
 
 theorem textOf ∀ (text: Text) (chars: List Char) (same: text.toList = chars): text = MkText chars :=
   match text, same with | MkText found, same => Eq.cong MkText same
@@ -77,26 +81,26 @@ theorem solidChars ∀ (first: Char) (others: List Char)
     (noSpace: (first == ' ') = False)
     (noBreak: (first == '\n') = False):
     Solid (MkText [first, ..others]) :=
-  rewrite noSpace, noBreak in (rfl, rfl, rfl)
+  rewrite noSpace, noBreak then (byComputing, byComputing, byComputing)
 
 theorem symbolApart ∀ (first symbol: Char)
     (starts: isWordStart first = True)
     (apart: isWordStart symbol = False):
     (symbol == first) = False :=
-  DecEq.falseOfNe (same => apartBy isWordStart first symbol starts apart (Eq.sym same))
+  DecEq.falseOfNe (same => apartBy isWordStart first symbol starts apart same.flipped)
 
 theorem wordNoOperator ∀ (first: Char) (starts: isWordStart first = True): isOperatorChar first = False :=
-  rewrite symbolApart first '=' starts rfl,
-      symbolApart first '|' starts rfl,
-      symbolApart first '&' starts rfl,
-      symbolApart first '!' starts rfl,
-      symbolApart first '<' starts rfl,
-      symbolApart first '+' starts rfl,
-      symbolApart first '-' starts rfl,
-      symbolApart first '*' starts rfl,
-      symbolApart first '/' starts rfl,
-      symbolApart first '%' starts rfl in
-    rfl
+  rewrite symbolApart first '=' starts byComputing,
+      symbolApart first '|' starts byComputing,
+      symbolApart first '&' starts byComputing,
+      symbolApart first '!' starts byComputing,
+      symbolApart first '<' starts byComputing,
+      symbolApart first '+' starts byComputing,
+      symbolApart first '-' starts byComputing,
+      symbolApart first '*' starts byComputing,
+      symbolApart first '/' starts byComputing,
+      symbolApart first '%' starts byComputing then
+    byComputing
 
 theorem digitNoOperator ∀ (first: Char) (digit: first.isAsciiDigit = True): isOperatorChar first = False := cases
 
@@ -107,16 +111,16 @@ theorem wordChars ∀ (first: Char) (others rest: List Char)
     Stands (lexemeOf (MkText [first, ..others])) [first, ..others] rest :=
   let found: lexemeOf (MkText [first, ..others]) = WordLexeme :=
     Eq.cong ((start: Option Lexeme) => start.getOrElse StrayLexeme) (wordLexemeStart first others starts)
-  rewrite found in (first, others, rfl, starts, word, stops)
+  rewrite found then (first, others, byComputing, starts, word, stops)
 
 --| A word is a token's text.
 theorem wordToken ∀ (text: Text) (word: IsWord text): TokenText text := match word with
   | (first, others, same, starts, all) =>
-    rewrite textOf text [first, ..others] same in
+    rewrite textOf text [first, ..others] same then
       (
         (solidChars first others
-          (DecEq.falseOfNe (apartBy isWordStart first ' ' starts rfl))
-          (DecEq.falseOfNe (apartBy isWordStart first '\n' starts rfl))),
+          (DecEq.falseOfNe (apartBy isWordStart first ' ' starts byComputing))
+          (DecEq.falseOfNe (apartBy isWordStart first '\n' starts byComputing))),
         (rest shut =>
           match shut with
             | (stops, _) => wordChars first others rest starts all stops)
@@ -124,7 +128,7 @@ theorem wordToken ∀ (text: Text) (word: IsWord text): TokenText text := match 
 
 theorem wordOpens ∀ (text: Text) (word: IsWord text): Opens text := match word with
   | (first, others, same, starts, all) =>
-    rewrite textOf text [first, ..others] same in (later => wordNoOperator first starts)
+    rewrite textOf text [first, ..others] same then (later => wordNoOperator first starts)
 
 theorem digitsChars ∀ (first: Char) (others rest: List Char)
     (digit: first.isAsciiDigit = True)
@@ -135,16 +139,16 @@ theorem digitsChars ∀ (first: Char) (others rest: List Char)
     Eq.cong
       ((start: Option Lexeme) => start.getOrElse StrayLexeme)
       (digitsLexemeStart first others digit (digitIsNoWordStart first digit))
-  rewrite found in (first, others, rfl, digit, digits, stops)
+  rewrite found then (first, others, byComputing, digit, digits, stops)
 
 --| Digits are a token's text.
 theorem digitsToken ∀ (text: Text) (number: IsDigits text): TokenText text := match number with
   | (first, others, same, digit, digits) =>
-    rewrite textOf text [first, ..others] same in
+    rewrite textOf text [first, ..others] same then
       (
         (solidChars first others
-          (DecEq.falseOfNe (apartBy (char => char.isAsciiDigit) first ' ' digit rfl))
-          (DecEq.falseOfNe (apartBy (char => char.isAsciiDigit) first '\n' digit rfl))),
+          (DecEq.falseOfNe (apartBy (char => char.isAsciiDigit) first ' ' digit byComputing))
+          (DecEq.falseOfNe (apartBy (char => char.isAsciiDigit) first '\n' digit byComputing))),
         (rest shut =>
           match shut with
             | (_, stops, _) => digitsChars first others rest digit digits stops)
@@ -152,55 +156,57 @@ theorem digitsToken ∀ (text: Text) (number: IsDigits text): TokenText text := 
 
 theorem digitsOpen ∀ (text: Text) (number: IsDigits text): Opens text := match number with
   | (first, others, same, digit, digits) =>
-    rewrite textOf text [first, ..others] same in (later => digitNoOperator first digit)
+    rewrite textOf text [first, ..others] same then (later => digitNoOperator first digit)
 
 --| A string is a token's text, before anything at all.
 theorem stringToken ∀ (text: Text) (string: IsString text): TokenText text := match string with
   | (segments, same, closes) =>
-    rewrite textOf text ['"', ..Parse.joinReads segments ++ ['"']] same in
-      (((rfl, rfl, rfl)), (rest shut => (segments, rfl, (closes rest))))
+    rewrite textOf text ['"', ..Parse.joinReads segments ++ ['"']] same then
+      (((byComputing, byComputing, byComputing)), (rest shut => (segments, byComputing, (closes rest))))
 
 theorem stringOpens ∀ (text: Text) (string: IsString text): Opens text := match string with
-  | (segments, same, closes) => rewrite textOf text ['"', ..Parse.joinReads segments ++ ['"']] same in (later => rfl)
+  | (segments, same, closes) =>
+    rewrite textOf text ['"', ..Parse.joinReads segments ++ ['"']] same then (later => byComputing)
 
 --| A comment is a word of the output.
 theorem commentSolid ∀ (text: Text) (comment: IsComment text): Solid text := match comment with
-  | (others, same, oneLine) => rewrite textOf text ['-', '-', ..others] same in (rfl, rfl, rfl)
+  | (others, same, oneLine) =>
+    rewrite textOf text ['-', '-', ..others] same then (byComputing, byComputing, byComputing)
 
 --| A comment is read whole at the end of the text and before a line
 --| break.
 theorem commentProper ∀ (text: Text) (comment: IsComment text): Proper text := match comment with
   | (others, same, oneLine) =>
-    rewrite textOf text ['-', '-', ..others] same in
-      Inr ((((others, rfl, oneLine, rfl)), (later => (others, rfl, oneLine, rfl))))
+    rewrite textOf text ['-', '-', ..others] same then
+      Inr ((((others, byComputing, oneLine, byComputing)), (later => (others, byComputing, oneLine, byComputing))))
 
 theorem keywordToken ∀ (keyword: Keyword): TokenText keyword.spelling := match keyword with
   | FnKeyword => (
-    ((rfl, rfl, rfl)),
+    ((byComputing, byComputing, byComputing)),
     (rest shut =>
       match shut with
         | (stops, _) => keywordStands FnKeyword rest stops)
   )
   | LetKeyword => (
-    ((rfl, rfl, rfl)),
+    ((byComputing, byComputing, byComputing)),
     (rest shut =>
       match shut with
         | (stops, _) => keywordStands LetKeyword rest stops)
   )
   | IfKeyword => (
-    ((rfl, rfl, rfl)),
+    ((byComputing, byComputing, byComputing)),
     (rest shut =>
       match shut with
         | (stops, _) => keywordStands IfKeyword rest stops)
   )
   | ThenKeyword => (
-    ((rfl, rfl, rfl)),
+    ((byComputing, byComputing, byComputing)),
     (rest shut =>
       match shut with
         | (stops, _) => keywordStands ThenKeyword rest stops)
   )
   | ElseKeyword => (
-    ((rfl, rfl, rfl)),
+    ((byComputing, byComputing, byComputing)),
     (rest shut =>
       match shut with
         | (stops, _) => keywordStands ElseKeyword rest stops)
@@ -217,37 +223,40 @@ theorem signFree ∀ (mark: Punctuation)
     | CloseSquare, apart => (later => signStands CloseSquare (next.toList ++ later) apart)
     | Comma, apart => (later => signStands Comma (next.toList ++ later) apart)
     | Dot, apart => (later => signStands Dot (next.toList ++ later) apart)
-    | Defines, apart => Void.exfalso (apart rfl)
+    | Defines, apart => (apart byComputing).impossible
 
 theorem signToken ∀ (mark: Punctuation) (notDefines: mark ≠ Defines): TokenText (MkText [signChar mark]) :=
   match mark, notDefines with
-    | OpenParen, apart => (((rfl, rfl, rfl)), (rest shut => signStands OpenParen rest apart))
-    | CloseParen, apart => (((rfl, rfl, rfl)), (rest shut => signStands CloseParen rest apart))
-    | OpenSquare, apart => (((rfl, rfl, rfl)), (rest shut => signStands OpenSquare rest apart))
-    | CloseSquare, apart => (((rfl, rfl, rfl)), (rest shut => signStands CloseSquare rest apart))
-    | Comma, apart => (((rfl, rfl, rfl)), (rest shut => signStands Comma rest apart))
-    | Dot, apart => (((rfl, rfl, rfl)), (rest shut => signStands Dot rest apart))
-    | Defines, apart => Void.exfalso (apart rfl)
+    | OpenParen, apart => (((byComputing, byComputing, byComputing)), (rest shut => signStands OpenParen rest apart))
+    | CloseParen, apart => (((byComputing, byComputing, byComputing)), (rest shut => signStands CloseParen rest apart))
+    | OpenSquare, apart => (((byComputing, byComputing, byComputing)), (rest shut => signStands OpenSquare rest apart))
+    | CloseSquare, apart =>
+      (((byComputing, byComputing, byComputing)), (rest shut => signStands CloseSquare rest apart))
+    | Comma, apart => (((byComputing, byComputing, byComputing)), (rest shut => signStands Comma rest apart))
+    | Dot, apart => (((byComputing, byComputing, byComputing)), (rest shut => signStands Dot rest apart))
+    | Defines, apart => (apart byComputing).impossible
 
-theorem definesToken: TokenText "=" :=
-  (((rfl, rfl, rfl)), (rest shut => match shut with | (_, _, stops) => definesStands rest stops))
+theorem definesToken: TokenText "=" := (
+  ((byComputing, byComputing, byComputing)),
+  (rest shut => match shut with | (_, _, stops) => definesStands rest stops)
+)
 
 theorem operatorToken ∀ (operator: Operator): TokenText operator.spelling :=
   let stands: ∀ (rest: List Char) => Shut rest → Stands SymbolsLexeme operator.spelling.toList rest := rest shut =>
     match shut with | (_, _, stops) => operatorStands operator rest stops
   match operator, stands with
-    | Or, stands => (((rfl, rfl, rfl)), stands)
-    | And, stands => (((rfl, rfl, rfl)), stands)
-    | EqualTo, stands => (((rfl, rfl, rfl)), stands)
-    | NotEqual, stands => (((rfl, rfl, rfl)), stands)
-    | LessThan, stands => (((rfl, rfl, rfl)), stands)
-    | LessEqual, stands => (((rfl, rfl, rfl)), stands)
-    | Append, stands => (((rfl, rfl, rfl)), stands)
-    | Plus, stands => (((rfl, rfl, rfl)), stands)
-    | Minus, stands => (((rfl, rfl, rfl)), stands)
-    | Times, stands => (((rfl, rfl, rfl)), stands)
-    | Divide, stands => (((rfl, rfl, rfl)), stands)
-    | Remainder, stands => (((rfl, rfl, rfl)), stands)
+    | Or, stands => (((byComputing, byComputing, byComputing)), stands)
+    | And, stands => (((byComputing, byComputing, byComputing)), stands)
+    | EqualTo, stands => (((byComputing, byComputing, byComputing)), stands)
+    | NotEqual, stands => (((byComputing, byComputing, byComputing)), stands)
+    | LessThan, stands => (((byComputing, byComputing, byComputing)), stands)
+    | LessEqual, stands => (((byComputing, byComputing, byComputing)), stands)
+    | Append, stands => (((byComputing, byComputing, byComputing)), stands)
+    | Plus, stands => (((byComputing, byComputing, byComputing)), stands)
+    | Minus, stands => (((byComputing, byComputing, byComputing)), stands)
+    | Times, stands => (((byComputing, byComputing, byComputing)), stands)
+    | Divide, stands => (((byComputing, byComputing, byComputing)), stands)
+    | Remainder, stands => (((byComputing, byComputing, byComputing)), stands)
 
 --| `-` is read whole before text that starts with no operator character.
 theorem minusBefore ∀ (next: Text) (opens: Opens next): standsBefore "-" next := later =>

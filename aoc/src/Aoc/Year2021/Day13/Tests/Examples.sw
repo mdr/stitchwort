@@ -40,9 +40,9 @@ def example: Paper := paperOf exampleInput
 
 --| The hypotheses of `cellSomeInside` and `rowWidth` can hold.
 -- (the audit's random inputs never met them)
-theorem oneDotShown: cellAt (render [{ x = 0, y = 0 }]) { x = 0, y = 0 } = Some '#' := rfl
+theorem oneDotShown: cellAt (render [{ x = 0, y = 0 }]) { x = 0, y = 0 } = Some '#' := byComputing
 
-theorem oneDotRow: ['#'] ∈ render [{ x = 0, y = 0 }] := Inl rfl
+theorem oneDotRow: ['#'] ∈ render [{ x = 0, y = 0 }] := Inl byComputing
 
 --| The hypothesis of the parser's theorems can hold.
 -- (the audit's random texts never parse)
@@ -51,7 +51,7 @@ theorem smallParses: Fail.toResult (() => parsePaper """
   3,0
 
   fold along y=1
-  """) = Ok { dots = [{ x = 1, y = 2 }, { x = 3, y = 0 }], folds = [AlongY 1] } := rfl
+  """) = Ok { dots = [{ x = 1, y = 2 }, { x = 3, y = 0 }], folds = [AlongY 1] } := byComputing
 
 test "parse the example" := example.dots.length == 18 && example.folds == [AlongY 7, AlongX 5]
 test "example, part 1" := solvePart1 example == 17

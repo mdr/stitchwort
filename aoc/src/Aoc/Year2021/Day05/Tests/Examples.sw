@@ -66,5 +66,5 @@ test "three over one point" := solvePart2 [line 0 0 2 2, line 2 0 0 2, line 1 0 
 test "a line overlaps itself" := solvePart1 [line 0 0 0 2, line 0 2 0 0] == 3
 
 --| The examples, proved by computing them.
-theorem examplePart1: solvePart1 exampleLines = 5 := rfl
-theorem examplePart2: solvePart2 exampleLines = 12 := rfl
+theorem examplePart1: solvePart1 exampleLines = 5 := byComputing
+theorem examplePart2: solvePart2 exampleLines = 12 := byComputing

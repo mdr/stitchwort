@@ -106,9 +106,9 @@ def Links.largestFrom (links: Links) (clique candidates best: Set Computer): Set
         let fewer := Set.sizePopMin candidates candidate others found
         let narrowed := links.neighbours candidate |> .intersect others
         let withinOthers: narrowed.size ≤ others.size := Set.sizeSubset others narrowed (key inside =>
-          Bool.andRight (Eq.trans (Eq.sym (Set.containsIntersect (links.neighbours candidate) key others)) inside))
+          Bool.andRight (Eq.trans (Eq.flipped (Set.containsIntersect (links.neighbours candidate) key others)) inside))
         let withIt :=
-          links.largestFrom (clique.insert candidate) narrowed best [decreasing := omega [withinOthers, fewer]]
+          links.largestFrom (clique.insert candidate) narrowed best [decreasing := arithmetic [withinOthers, fewer]]
         links.largestFrom clique others withIt
 
 --| The largest set of computers that are all connected to each other.

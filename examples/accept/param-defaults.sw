@@ -85,8 +85,8 @@ def sumTo (n: Nat): Nat :=
 test "local definition" := sumTo 4 == 10
 
 -- Leaving a default out is definitionally equal to giving it.
-theorem rangeDefault ∀ (start stop: Nat): range start stop = range start stop (step := 1) := rfl
+theorem rangeDefault ∀ (start stop: Nat): range start stop = range start stop (step := 1) := byComputing
 
 -- The bare name is the call with no arguments: a function of the required
 -- parameters, with the defaults filled.
-theorem bareRange: (range 0: (stop: Nat) -> List Nat) = ((stop: Nat) => range 0 stop) := rfl
+theorem bareRange: (range 0: (stop: Nat) -> List Nat) = ((stop: Nat) => range 0 stop) := byComputing

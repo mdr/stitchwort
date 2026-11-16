@@ -24,15 +24,15 @@ theorem orComm: Or p q → Or q p
 
 -- Implicit parameters are in scope in the equations, by name.
 theorem appendNil ∀ (xs: List a): xs.append [] = xs := match xs with
-  | [] => rfl
+  | [] => byComputing
   | [x, ..xs] => Eq.cong (ys => [x, ..ys]) (appendNil xs)
 
 theorem plusZeroNat ∀ (n: Nat): n + 0 = n := match n with
-  | Zero => rfl
+  | Zero => byComputing
   | Succ m => Eq.cong Succ (plusZeroNat m)
 
--- `Eq.sym` and `Eq.trans` from the prelude, with everything implicit.
-theorem twoWays ∀ (n: Nat): n + 0 = 0 + n := Eq.trans (plusZeroNat n) (Eq.sym rfl)
+-- `Eq.flipped` and `Eq.trans` from the prelude, with everything implicit.
+theorem twoWays ∀ (n: Nat): n + 0 = 0 + n := Eq.trans (plusZeroNat n) (Eq.flipped byComputing)
 
 -- An implicit parameter between two explicit ones: `b` is in scope by name.
 def constant (x: a) [b: Type] (y: b): a := x
@@ -55,7 +55,7 @@ def foldRight (f: a → b → b) (z: b): List a → b
 
 def copy (xs: List Nat): List Nat := foldRight Cons [] xs
 
-theorem copyWorks: copy [1, 2] = [1, 2] := rfl
+theorem copyWorks: copy [1, 2] = [1, 2] := byComputing
 
 -- The largest number literal allowed (`Nat` is unary for now).
 def twoHundred: Nat := 200

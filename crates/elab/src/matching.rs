@@ -16,7 +16,7 @@
 //! bound after `s` with the replaced types, that the alternatives see
 //! instead. The call passes the expression for `s` and the original
 //! variables for their copies. A named scrutinee also binds its equation
-//! `h : e = s`, after the copies, passed `rfl`.
+//! `h : e = s`, after the copies, passed `byComputing`.
 
 use std::rc::Rc;
 
@@ -2218,7 +2218,7 @@ impl Generalise<'_> {
     /// An `if` on a decision that is a scrutinee, computed to the helper
     /// `Decidable.elim` computes to (`elim.%match1 p a d y n t e`, with `t`
     /// the decision's test and `e: d.holds = t`): with the decision's
-    /// variable `X` for `d`, `X.holds` for `t` and `rfl` for `e`, so that
+    /// variable `X` for `d`, `X.holds` for `t` and `byComputing` for `e`, so that
     /// it still type-checks, and computes once `X` is a constructor.
     fn decided_if(&self, g: &Ev, t: &Term, under: usize) -> Option<Result<Term>> {
         let tr = self.transport?;

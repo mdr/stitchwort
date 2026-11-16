@@ -34,14 +34,14 @@ theorem lessSame ∀ (values: List Nat) (u v w: Nat)
     (m: List.Mem u values)
     (s: SameSide values v w):
     Nat.leq (Succ v) u = Nat.leq (Succ w) u :=
-  rewrite Nat.lessNotLe v u, Nat.lessNotLe w u, (s u m).left in rfl
+  rewrite Nat.lessNotLe v u, Nat.lessNotLe w u, (s u m).left then byComputing
 
 theorem fromSame ∀ (values: List Nat) (one other v w: Nat)
     (m1: List.Mem one values)
     (m2: List.Mem other values)
     (s: SameSide values v w):
     from one other v = from one other w :=
-  rewrite (s one m1).left, (s one m1).right, (s other m2).left, (s other m2).right in rfl
+  rewrite (s one m1).left, (s one m1).right, (s other m2).left, (s other m2).right then byComputing
 
 --| The ends of a straight line of the loop are red tiles.
 theorem connectionEnds ∀ (tiles: List Point) (ends: Line)
@@ -56,7 +56,7 @@ theorem connectionEnds ∀ (tiles: List Point) (ends: Line)
     (pair found =>
       match List.memZip pair tiles (List.append (List.drop tiles 1) (List.take tiles 1)) found.left with
         | Both first second =>
-          rewrite <- found.right in
+          rewrite <- found.right then
             Both first
               (match List.memAppend pair.snd (List.drop tiles 1) (List.take tiles 1) second with
                 | Inl d => List.memDrop tiles pair.snd 1 d
@@ -92,8 +92,8 @@ theorem onStraightLineSame ∀ (tiles: List Point) (x y x2 y2: Nat)
             y2
             (rowIn tiles ends.from first)
             (rowIn tiles ends.to second)
-            sy in
-        rfl
+            sy then
+        byComputing
 
 theorem crossesRaySame ∀ (tiles: List Point) (x y x2 y2: Nat)
     (sx: SameSide (columnsOf tiles) x x2)
@@ -108,15 +108,15 @@ theorem crossesRaySame ∀ (tiles: List Point) (x y x2 y2: Nat)
           lessSame (rowsOf tiles) ends.to.y y y2 sy2 sy,
           lessSame (rowsOf tiles) ends.from.y y y2 fy sy,
           (sy ends.from.y fy).left,
-          (sy ends.to.y sy2).left in
-        rfl
+          (sy ends.to.y sy2).left then
+        byComputing
 
 --| Tiles whose columns and rows compare alike with the red tiles' are alike.
 theorem redOrGreenSame ∀ (tiles: List Point) (x y x2 y2: Nat)
     (sx: SameSide (columnsOf tiles) x x2)
     (sy: SameSide (rowsOf tiles) y y2):
     redOrGreen tiles { x, y } = redOrGreen tiles { x = x2, y = y2 } :=
-  rewrite onStraightLineSame tiles x y x2 y2 sx sy, crossesRaySame tiles x y x2 y2 sx sy in rfl
+  rewrite onStraightLineSame tiles x y x2 y2 sx sy, crossesRaySame tiles x y x2 y2 sx sy then byComputing
 
 -- 2. A key value for every value -------------------------------------------
 
@@ -140,22 +140,24 @@ theorem representative ∀ (values: List Nat) (v low: Nat)
     (largestIsLargest atMost).left c (List.memFilterIntro values (c => c ≤ v) m h)
   let nearestIn: (List.Mem nearest values) ∧ (Nat.leq nearest v = True) := match largestInList atMost with
     | Inl m => List.memFilter values (c => c ≤ v) m
-    | Inr (Both empty zero) => Void.exfalso (rewrite empty at lowAtMost)
+    | Inr (Both empty zero) => (rewrite empty at lowAtMost).impossible
   match nearestIn with
     | Both nearestMem nearestLe =>
       let lowLeNearest := below low lowIn lowLe
       match e: Nat.leq v nearest with
         -- v is one of the values.
-        | True => use v (Inl (rewrite (omega: nearest = v) at nearestMem)) lowLe (Nat.leRefl v) (c m => Both rfl rfl)
+        | True => use v (Inl (rewrite (arithmetic: nearest = v) at nearestMem)) lowLe (Nat.leRefl v) (c m =>
+          Both byComputing byComputing)
         -- v isn't: the value just after the nearest compares alike.
-        | False => use (Succ nearest) (Inr (List.memMap values nearest nearestMem Succ)) (omega) (omega) (c m =>
-          Both
-            (match cv: Nat.leq c v with
-              | True => Eq.sym (omega [below c m cv])
-              | False => Eq.sym (omega))
-            (match vc: Nat.leq v c with
-              | True => Eq.sym (omega)
-              | False => Eq.sym (omega [below c m (omega)])))
+        | False =>
+          use (Succ nearest) (Inr (List.memMap values nearest nearestMem Succ)) (arithmetic) (arithmetic) (c m =>
+            Both
+              (match cv: Nat.leq c v with
+                | True => Eq.flipped (arithmetic [below c m cv])
+                | False => Eq.flipped arithmetic)
+              (match vc: Nat.leq v c with
+                | True => Eq.flipped arithmetic
+                | False => Eq.flipped (arithmetic [below c m (arithmetic)])))
 
 -- 3. The key columns and rows are sorted -------------------------------------
 
@@ -194,10 +196,10 @@ theorem axisEnds ∀ (xs: List Nat)
   match e: Nat.leq i j with
     | True =>
       let le := List.sortedGetOrLe xs 0 s i j e jIn
-      Both (Both (omega) (omega)) jIn
+      Both (Both (arithmetic) (arithmetic)) jIn
     | False =>
-      let le := List.sortedGetOrLe xs 0 s j i (omega) iIn
-      Both (Both (omega) (omega)) iIn
+      let le := List.sortedGetOrLe xs 0 s j i (arithmetic) iIn
+      Both (Both (arithmetic) (arithmetic)) iIn
 
 --| The elements from one position to the other lie from the smaller value to the larger.
 theorem axisInside ∀ (xs: List Nat)
@@ -209,9 +211,9 @@ theorem axisInside ∀ (xs: List Nat)
     Nat.min u v ≤ xs.getOr k 0 ≤ Nat.max u v :=
   match axisEnds xs s u v mu mv with
     | Both (Both atMin atMax) maxIn =>
-      let up := List.sortedGetOrLe xs 0 s (Nat.min (List.indexOf xs u) (List.indexOf xs v)) k lo (omega)
+      let up := List.sortedGetOrLe xs 0 s (Nat.min (List.indexOf xs u) (List.indexOf xs v)) k lo (arithmetic)
       let down := List.sortedGetOrLe xs 0 s k (Nat.max (List.indexOf xs u) (List.indexOf xs v)) hi maxIn
-      Both (omega) (omega)
+      Both (arithmetic) (arithmetic)
 
 --| And every element of the list from the smaller value to the larger is at
 --| such a position: what holds at each holds for it.
@@ -232,13 +234,13 @@ theorem axisCovers ∀ (xs: List Nat)
       List.sortedBetween 0 p xs s
         (Nat.min (List.indexOf xs u) (List.indexOf xs v))
         (Nat.max (List.indexOf xs u) (List.indexOf xs v))
-        (omega)
+        (arithmetic)
         maxIn
         each
         w
         mw
-        (omega)
-        (omega)
+        (arithmetic)
+        (arithmetic)
 
 --| The smaller of two values is one of them.
 theorem minIn ∀ (values: List Nat) (u v: Nat)
@@ -292,7 +294,7 @@ theorem allKeysIsSpec ∀ (tiles: List Point) (a b: Point)
                 ylo
                 (redOrGreen tiles { x, y } = True)
                 (keyY keyYIn keyYLo keyYHi sy =>
-                  rewrite redOrGreenSame tiles x y keyX keyY sx sy in
+                  rewrite redOrGreenSame tiles x y keyX keyY sx sy then
                     axisCovers rows sr a.y b.y keyAy keyBy
                       (w => redOrGreen tiles { x = keyX, y = w } = True)
                       (r rlo rhi =>
@@ -302,11 +304,11 @@ theorem allKeysIsSpec ∀ (tiles: List Point) (a b: Point)
                           keyX
                           (keyLinesHas (columnsOf tiles) keyX keyXIn)
                           keyXLo
-                          (omega))
+                          (arithmetic))
                       keyY
                       (keyLinesHas (rowsOf tiles) keyY keyYIn)
                       keyYLo
-                      (omega))))))
+                      (arithmetic))))))
     -- Every key tile in the rectangle is a tile of it.
     (spec =>
       List.allBetweenIntro (r rlo rhi =>

@@ -1,5 +1,5 @@
 -- `cases` on `Bool` tests that compare `Int`s: each `==` is one atom, true or
--- false, and `omega` reads it in each case. `cases` doesn't take the `Int`
+-- false, and `arithmetic` reads it in each case. `cases` doesn't take the `Int`
 -- apart into `OfNat` and `NegSucc` (the 64-case budget).
 import Std (Bool)
 

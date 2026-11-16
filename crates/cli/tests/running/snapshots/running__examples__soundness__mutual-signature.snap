@@ -5,7 +5,7 @@ expression: output
 [E-MUTUAL-SIGNATURE] Error: `f`'s type mentions `g`, which is defined together with it
    ╭─[ soundness/mutual-signature.sw:7:17 ]
    │
- 7 │ def f (n: Nat): g n = g n := rfl
+ 7 │ def f (n: Nat): g n = g n := byComputing
    │                 ┬  
    │                 ╰── `g` is used here, in `f`'s type
    │ 

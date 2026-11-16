@@ -30,7 +30,7 @@
 //!   `Section`), checked whole once it is known;
 //! - a proposition's decision into a `Bool` where it holds a placeholder
 //!   not filled yet (`check.rs`, `Decide`; D2035), which waits for it;
-//! - a comparison, against an expected type or by `rfl`, that fails only
+//! - a comparison, against an expected type or by `byComputing`, that fails only
 //!   at unknowns the queue still has to settle ([`compare_waiting`],
 //!   [`Comparison`]; stage 6, tri-state unification): it waits for any of
 //!   them, and has no term;
@@ -41,11 +41,11 @@
 //!   alternatives fix, is pending meanwhile ([`Check::settles_type`]); still
 //!   waiting at the end, it reports the unknown as finishing would
 //!   ([`Check::stuck_error`]);
-//! - a `rewrite`, `cases`, `omega` or `ring` that failed while its goal
+//! - a `rewrite`, `cases`, `arithmetic` or `algebra` that failed while its goal
 //!   held an unknown the declaration will still settle ([`search_pending`]:
 //!   the queue's, and the unknown of an obligation not proved yet, such as
 //!   an operator's dictionary), whole ([`tactic_or_wait`], `WaitingTactic`;
-//!   step 4.2, and rule 2 of stage 7 for `omega` and `ring`): resumed, it
+//!   step 4.2, and rule 2 of stage 7 for `arithmetic` and `algebra`): resumed, it
 //!   tries again on the goal now known. A search that would succeed does so
 //!   at once; only failure waits.
 //!
@@ -88,7 +88,7 @@
 //!    making progress, at one of three points: the end of a declaration
 //!    part (W4, [`Elaborator::settle_queue`]); a part about to be lifted
 //!    (W2, [`Elaborator::resume_before_lifting`]); and a closed pattern, a
-//!    `rewrite` rule or a fact given to `omega` or `ring`, whose own
+//!    `rewrite` rule or a fact given to `arithmetic` or `algebra`, whose own
 //!    checks and only those are settled before its search
 //!    ([`Elaborator::settle_rule`], [`Elaborator::settled_fact`]; the
 //!    second since stage 7, D2126). Nothing else applies one: a
@@ -903,7 +903,7 @@ pub(crate) fn search_pending_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
 /// Whether `v`'s shape may still change once the queue settles an unknown
 /// it still has to ([`pending`]): `v` is one, applied, or is flexible (a
 /// call stuck, an unknown applied) and mentions one (`unify::on_pending`).
-/// A check against it that needs its shape (`rfl` needs an equation) can
+/// A check against it that needs its shape (`byComputing` needs an equation) can
 /// wait for it through a comparison. Free while nothing is queued.
 pub(crate) fn headed_by_pending(cx: &Ctx, v: &Value) -> Result<bool> {
     if cx.e.attempt.queue.len() == 0 {
@@ -921,11 +921,11 @@ pub(crate) fn headed_by_pending(cx: &Ctx, v: &Value) -> Result<bool> {
     )?)
 }
 
-/// A tactic run against a goal: `rewrite`'s, `cases`', `omega`'s, `ring`'s.
+/// A tactic run against a goal: `rewrite`'s, `cases`', `arithmetic`'s, `algebra`'s.
 pub(crate) type Tactic = fn(&mut Ctx, &Expr, &Value) -> Result<Term>;
 
-/// `run`, a tactic, against `expected` (step 4.2 of stage 4; `omega` and
-/// `ring` by rule 2 of stage 7). It is tried
+/// `run`, a tactic, against `expected` (step 4.2 of stage 4; `arithmetic` and
+/// `algebra` by rule 2 of stage 7). It is tried
 /// at once; if it fails while the goal holds an unknown the declaration
 /// will still settle ([`search_pending_in`]), what it did is undone and it
 /// waits for that unknown, whole, as a queued [`WaitingTactic`]: its
@@ -990,8 +990,8 @@ impl Check for WaitingTactic {
     fn display(&self, _cx: &Ctx) -> Option<String> {
         Some(match &self.expr {
             Expr::Cases { .. } => "(cases …)".into(),
-            Expr::Omega { .. } => "(omega …)".into(),
-            Expr::Ring { .. } => "(ring …)".into(),
+            Expr::Omega { .. } => "(arithmetic …)".into(),
+            Expr::Ring { .. } => "(algebra …)".into(),
             _ => "(rewrite …)".into(),
         })
     }
@@ -1039,7 +1039,7 @@ pub(crate) fn counted_search<T>(
 }
 
 /// How a waiting comparison reports that it fails: as the check against an
-/// expected type it came from, or as `rfl` (the two callers of
+/// expected type it came from, or as `byComputing` (the two callers of
 /// [`compare_waiting`]).
 #[derive(Clone, Copy)]
 pub(crate) enum Failure {
@@ -1590,7 +1590,7 @@ impl Elaborator {
         Self::settle_closed(cx, from, Some(metas))
     }
 
-    /// A fact given to `omega` or `ring` (`omega [h]`, `ring [2 * h]`),
+    /// A fact given to `arithmetic` or `algebra` (`arithmetic [h]`, `algebra [2 * h]`),
     /// inferred, with its own checks settled as a `rewrite` rule's are
     /// ([`Elaborator::settle_rule`]): the search reads the fact's type at
     /// once and can't wait for it, so a literal in it that nothing else
@@ -1619,7 +1619,7 @@ impl Elaborator {
 
     /// The error of the waiting check whose placeholder is unknown `m`, as
     /// it would be reported stuck: a `rewrite` rule whose side is headed by
-    /// it (`(rfl: (_ ++ _) = (_ ++ _))`, its `++` waiting to be told texts
+    /// it (`(byComputing: (_ ++ _) = (_ ++ _))`, its `++` waiting to be told texts
     /// or lists) reports what its own check couldn't decide, not only that
     /// the side's head is unknown.
     pub(crate) fn waiting_error_for(&self, m: usize) -> Result<Option<Diagnostic>> {
@@ -2574,7 +2574,7 @@ mod tests {
 
     /// Stage 6: a waiting comparison that the filled placeholder makes
     /// false fails with its caller's error, at its own span, against the
-    /// types now known (§5.9); `rfl`'s is `E-REFL`.
+    /// types now known (§5.9); `byComputing`'s is `E-REFL`.
     #[test]
     fn a_waiting_comparison_that_fails_reports_its_callers_error() {
         let (e, n, two, _) = numbers();

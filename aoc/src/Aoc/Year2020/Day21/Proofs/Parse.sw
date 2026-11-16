@@ -21,11 +21,11 @@ theorem readsWord: Parse.Reads word (read taken =>
 theorem readsIngredient: Parse.Reads ingredient IngredientWritten :=
   Parse.readsThen readsWord (nameRead name (Both named (Both letters made)) =>
     Parse.readsThen (Parse.readsChar ' ') (spaceRead u space =>
-      Parse.readsDone { name } _ (rewrite made in Both (rewrite space in rfl) (Both named letters))))
+      Parse.readsDone { name } _ (rewrite made then Both (rewrite space then byComputing) (Both named letters))))
 
 theorem readsAllergen: Parse.Reads allergen AllergenWritten := Parse.readsThen readsWord (nameRead name (Both named
   (Both letters made)) =>
-  Parse.readsDone { name } _ (rewrite made in Both (List.appendNil nameRead) (Both named letters)))
+  Parse.readsDone { name } _ (rewrite made then Both (List.appendNil nameRead) (Both named letters)))
 
 theorem readsFood: Parse.Reads food FoodWritten :=
   Parse.readsThen
@@ -46,14 +46,16 @@ theorem readsFood: Parse.Reads food FoodWritten :=
                 (Witness ingredientsRead
                   (Witness allergensRead
                     (Both
-                      (rewrite contains, close in rfl)
+                      (rewrite contains, close then byComputing)
                       (Both
-                        (Witness ingredients (Both ingredientsWritten rfl))
-                        (Witness allergens (Both allergensWritten rfl))))))))))
+                        (Witness ingredients (Both ingredientsWritten byComputing))
+                        (Witness allergens (Both allergensWritten byComputing))))))))))
 
 theorem readsFoodList: Parse.Reads foodList FoodListWritten :=
   Parse.readsThen (Parse.readsLines food FoodWritten readsFood) (foodsRead foods written =>
-    Parse.readsDone { foods = foods.toList } _ (Witness foods (Both (rewrite List.appendNil foodsRead in written) rfl)))
+    Parse.readsDone
+      { foods = foods.toList } _
+      (Witness foods (Both (rewrite List.appendNil foodsRead then written) byComputing)))
 
 theorem parseWritten ∀ (input: Text) (list: FoodList)
     (parsed: Fail.toResult (() => parseFoods input) = Ok list):

@@ -9,8 +9,8 @@ def QE: Type := Quot Bool BoolEq
 def toNat (b: Bool): Nat := if b then 1 else 0
 
 def toNatRespects (x: Bool) (y: Bool) (same: BoolEq x y): toNat x = toNat y :=
-  rewrite same in rfl
+  rewrite same then byComputing
 
 def observe (q: QE): Nat := Quot.lift toNat toNatRespects q
 
-theorem alwaysOne (q: QE): observe q = 1 := rfl
+theorem alwaysOne (q: QE): observe q = 1 := byComputing

@@ -28,7 +28,7 @@ theorem Char.mkExt ∀ (a b: Nat)
     (e: a = b)
     (q: Char.isScalar b = True):
     MkChar a p = MkChar b q :=
-  let ext := J (b' e' => ∀ (q': Char.isScalar b' = True) => MkChar a p = MkChar b' q') (q' => rfl) e
+  let ext := J (b' e' => ∀ (q': Char.isScalar b' = True) => MkChar a p = MkChar b' q') (q' => byComputing) e
   ext q
 
 theorem Char.ext ∀ (x y: Char) (e: Char.toNat x = Char.toNat y): x = y := match x, y with

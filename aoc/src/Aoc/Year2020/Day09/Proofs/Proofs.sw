@@ -42,4 +42,4 @@ theorem part2Complete ∀ (data: XmasData) (preamble answer: Nat)
     (has: Spec.Part2 data.numbers preamble answer):
     (data.firstInvalid preamble).flatMap data.weakness ≠ None :=
   let (Witness invalid (Both first weak)) := has
-  rewrite part1Complete data preamble invalid first in weaknessComplete data invalid answer weak
+  rewrite part1Complete data preamble invalid first then weaknessComplete data invalid answer weak

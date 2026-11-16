@@ -9,13 +9,13 @@ import Aoc.Year2020.Day05 (..)
 import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, Nat, Parse, Result, Text)
 
 theorem passEta ∀ (pass: Pass): { row = pass.row, column = pass.column } = pass := match pass with
-  | { row, column } => rfl
+  | { row, column } => byComputing
 
 theorem runsAs ∀ (chars: List Char) (a b: Pass)
     (same: a = b)
     (runs: Parse.Runs pass chars [] a):
     Parse.Runs pass chars [] b :=
-  rewrite same at runs in runs
+  rewrite same at runs then runs
 
 --| `half` reads the letter of the bit it gives.
 theorem runsHalf ∀ (lower upper: Char)
@@ -32,7 +32,7 @@ theorem runsHalf ∀ (lower upper: Char)
           rest
           upper
           (Parse.runsSatisfy _ _ upper rest (Bool.orRight (DecEq.refl upper)))
-      rewrite DecEq.refl upper at runs in runs
+      rewrite DecEq.refl upper at runs then runs
     | False =>
       let lowerNotUpper: (lower == upper) = False := Eq.trans (DecEq.eqComm lower upper) differ
       let runs :=
@@ -43,16 +43,22 @@ theorem runsHalf ∀ (lower upper: Char)
           rest
           lower
           (Parse.runsSatisfy _ _ lower rest (Bool.orLeft (DecEq.refl lower)))
-      rewrite lowerNotUpper at runs in runs
+      rewrite lowerNotUpper at runs then runs
 
 theorem runsPass ∀ (chars: List Char) (seat: Pass) (written: PassWritten chars seat): Parse.Runs pass chars [] seat :=
   match written with
     | Both rowLength (Both columnLength same) =>
       let rowRuns :=
-        Parse.runsExactlySymbols 7 frontBack (letter 'F' 'B') (bit after => runsHalf 'F' 'B' rfl bit after) seat.row
+        Parse.runsExactlySymbols 7 frontBack
+          (letter 'F' 'B')
+          (bit after => runsHalf 'F' 'B' byComputing bit after)
+          seat.row
       let columnRuns :=
-        Parse.runsExactlySymbols 3 leftRight (letter 'L' 'R') (bit after => runsHalf 'L' 'R' rfl bit after) seat.column
-      rewrite same in
+        Parse.runsExactlySymbols 3 leftRight
+          (letter 'L' 'R')
+          (bit after => runsHalf 'L' 'R' byComputing bit after)
+          seat.column
+      rewrite same then
         runsAs _ _ seat
           (passEta seat)
           (Parse.runsBind
@@ -61,7 +67,7 @@ theorem runsPass ∀ (chars: List Char) (seat: Pass) (written: PassWritten chars
             (seat.column.map (letter 'L' 'R')) _
             []
             seat.row _
-            rfl
+            byComputing
             (rowRuns _ rowLength)
             (Parse.runsBind
               (() => Parse.exactly 3 leftRight) _
@@ -69,7 +75,7 @@ theorem runsPass ∀ (chars: List Char) (seat: Pass) (written: PassWritten chars
               [] _
               []
               seat.column _
-              (Eq.sym (List.appendNil _))
+              (List.appendNil _).flipped
               (columnRuns [] columnLength)
               (Parse.runsPure _ [])))
 
@@ -87,7 +93,7 @@ theorem writtenUnique ∀ (chars: List Char) (a b: Pass)
     a = b :=
   Result.okInjective
     (Eq.trans
-      (Eq.sym (Parse.runsRun pass chars a (runsPass chars a writtenA)))
+      (Eq.flipped (Parse.runsRun pass chars a (runsPass chars a writtenA)))
       (Parse.runsRun pass chars b (runsPass chars b writtenB)))
 
 --| ... and an input is written as at most one list of passes.
@@ -95,4 +101,4 @@ theorem inputUnique ∀ (input: Text) (a b: List Pass)
     (writtenA: List.All2 PassWritten (input.lines.map Text.toList) a)
     (writtenB: List.All2 PassWritten (input.lines.map Text.toList) b):
     a = b :=
-  Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))
+  Result.okInjective (Eq.trans (parseComplete input a writtenA).flipped (parseComplete input b writtenB))

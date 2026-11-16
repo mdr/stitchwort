@@ -37,4 +37,4 @@ theorem part1Unique ∀ (bag: Bag) (one other: Nat)
     (first: Spec.Part1 bag.adapters one)
     (second: Spec.Part1 bag.adapters other):
     one = other :=
-  Option.someInjective (Eq.trans (Eq.sym (part1Complete bag one first)) (part1Complete bag other second))
+  Option.someInjective (Eq.trans (part1Complete bag one first).flipped (part1Complete bag other second))

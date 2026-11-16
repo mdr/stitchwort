@@ -18,5 +18,5 @@ def say (n: Nat): {IO} Nat :=
 def sized [n: Nat] (xs: Vec Nat n) (k: Nat) (same: n = k): Nat := k
 
 def main(): {IO} () :=
-  let r := sized (readVec()) (say 2) rfl
+  let r := sized (readVec()) (say 2) byComputing
   IO.print "${r}"

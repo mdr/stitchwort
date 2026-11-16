@@ -114,7 +114,7 @@ fn constructors_come_with_an_imported_type() {
         "import Std (List)\n\
          import Std.Effect (Comp)\n\n\
          theorem two (one : Comp Std.Builtin.UnitType (o => Std.Builtin.UnitType) Nat) :\n    \
-         List.length [Done 1, Call () (u => one)] = 2 := rfl\n",
+         List.length [Done 1, Call () (u => one)] = 2 := byComputing\n",
     );
 }
 
@@ -392,11 +392,11 @@ fn wildcards_still_work_for_eval_after_a_single_file() {
 #[test]
 fn non_default_library_namespaces_need_an_import() {
     let proof = "theorem flip (a : Nat) (b : Nat) (p : a = b) : b = a := ";
-    assert_eq!(codes(&format!("{proof}Eq.sym p\n")), ["E-UNKNOWN-NAME"]);
-    assert!(codes(&format!("{proof}Std.Eq.sym p\n")).is_empty());
-    assert!(codes(&format!("import Std (Eq)\n\n{proof}Eq.sym p\n")).is_empty());
+    assert_eq!(codes(&format!("{proof}Eq.flipped p\n")), ["E-UNKNOWN-NAME"]);
+    assert!(codes(&format!("{proof}Std.Eq.flipped p\n")).is_empty());
+    assert!(codes(&format!("import Std (Eq)\n\n{proof}Eq.flipped p\n")).is_empty());
     // Dot notation finds the namespace from the type.
-    assert!(codes(&format!("{proof}p.sym\n")).is_empty());
+    assert!(codes(&format!("{proof}p.flipped\n")).is_empty());
     // The same holds for `Effect`, and an import path is read in full.
     assert_eq!(
         codes("import Effect (Comp)\n\ndef x : Nat := 0\n"),

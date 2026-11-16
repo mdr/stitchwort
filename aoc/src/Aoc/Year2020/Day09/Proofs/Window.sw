@@ -11,13 +11,14 @@ theorem sumsToSound ∀ (window: Window) (number: Nat)
     SumOfTwo window.numbers number :=
   let Witness a (Both member (Both fits (Both differ partner))) := sums
   let partner := (Set.containsFromListIff window.numbers (number - a)).forward partner
-  Witness a (Witness (number - a) (Both member (Both partner (Both (same => differ.read.read (omega)) (omega)))))
+  Witness a
+    (Witness (number - a) (Both member (Both partner (Both (same => differ.read.read (arithmetic)) (arithmetic)))))
 
 theorem sumsToComplete ∀ (window: Window) (number: Nat)
     (sum: SumOfTwo window.numbers number):
     window.sumsTo number = True :=
   let (Witness a (Witness b (Both member (Both partner (Both differ total))))) := sum
-  let unequal: ((a + a != number): Bool) = True := same => differ (omega)
+  let unequal: ((a + a != number): Bool) = True := same => differ (arithmetic)
   let present: (Set.fromList window.numbers).contains (number - a) = True :=
-    (Set.containsFromListIff window.numbers (number - a)).backward (rewrite (omega: number - a = b) in partner)
-  Witness a (Both member (Both (omega: a ≤ number) (Both unequal present)))
+    (Set.containsFromListIff window.numbers (number - a)).backward (rewrite (arithmetic: number - a = b) then partner)
+  Witness a (Both member (Both (arithmetic: a ≤ number) (Both unequal present)))

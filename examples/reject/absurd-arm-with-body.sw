@@ -14,6 +14,6 @@ def beats: Move -> Move -> Bool
 
 theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
   match theirs, h with
-    | Rock, () => rfl
+    | Rock, () => byComputing
     | Paper, ()
-    | Scissors, _ => rfl
+    | Scissors, _ => byComputing

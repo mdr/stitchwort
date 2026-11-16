@@ -19,19 +19,19 @@ def arrow: Direction → Key
 
 --| Each arrow moves its way.
 theorem arrowMoves ∀ (direction: Direction): commandOf (arrow direction) = Some (Move direction) := match direction with
-  | North => rfl
-  | South => rfl
-  | West => rfl
-  | East => rfl
+  | North => byComputing
+  | South => byComputing
+  | West => byComputing
+  | East => byComputing
 
 --| The bytes a terminal sends for an arrow decode to that arrow, whatever follows.
 theorem arrowDecodes ∀ (rest: List Nat) (direction: Direction):
     Key.next (Key.bytes (arrow direction) ++ rest) = Got (arrow direction) rest :=
   match direction with
-    | North => Key.nextBytes rest Up rfl
-    | South => Key.nextBytes rest Down rfl
-    | West => Key.nextBytes rest Left rfl
-    | East => Key.nextBytes rest Right rfl
+    | North => Key.nextBytes rest Up byComputing
+    | South => Key.nextBytes rest Down byComputing
+    | West => Key.nextBytes rest Left byComputing
+    | East => Key.nextBytes rest Right byComputing
 
 --| The keys as the help line names them.
 theorem documentedKeys: ['k', 'w', 'j', 's', 'h', 'a', 'l', 'd', '.', '>', 'p', 'q'].map commandOfChar
@@ -49,7 +49,7 @@ theorem documentedKeys: ['k', 'w', 'j', 's', 'h', 'a', 'l', 'd', '.', '>', 'p', 
         Some Drink,
         Some Quit
       ] :=
-  rfl
+  byComputing
 
 --| The printable keys that are commands, as the keys line names them.
 def commandKeys: List Char := ['h', 'j', 'k', 'l', 'a', 's', 'w', 'd', '.', '>', 'p', 'q']
@@ -69,8 +69,8 @@ theorem onlyListedKeys ∀ (char: Char) (command: Command)
     (found: commandOfChar char = Some command):
     char ∈ commandKeys :=
   match char with
-    | 'k' | 'w' | 'j' | 's' | 'h' | 'a' | 'l' | 'd' | '.' | '>' | 'p' | 'q' => listedKey char rfl
-    | _ => Void.exfalso (Option.noneNotSome command found)
+    | 'k' | 'w' | 'j' | 's' | 'h' | 'a' | 'l' | 'd' | '.' | '>' | 'p' | 'q' => listedKey char byComputing
+    | _ => (Option.noneNotSome command found).impossible
 
 --| And no other key at all: a key that is a command is an arrow, or one of
 --| those printable keys.
@@ -79,8 +79,8 @@ theorem onlyCommandKeys ∀ (key: Key) (command: Command)
     (exists (direction: Direction) => key = arrow direction)
       ∨ (exists (char: Char) => (key = Printable char) ∧ (char ∈ commandKeys)) :=
   match key with
-    | Up => Inl (Witness North rfl)
-    | Down => Inl (Witness South rfl)
-    | Left => Inl (Witness West rfl)
-    | Right => Inl (Witness East rfl)
-    | Printable char => Inr (Witness char (Both rfl (onlyListedKeys char command found)))
+    | Up => Inl (Witness North byComputing)
+    | Down => Inl (Witness South byComputing)
+    | Left => Inl (Witness West byComputing)
+    | Right => Inl (Witness East byComputing)
+    | Printable char => Inr (Witness char (Both byComputing (onlyListedKeys char command found)))

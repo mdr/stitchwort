@@ -2,7 +2,7 @@ import Std (byDecision)
 
 -- A proof of "there is an `n` such that ... and ..." is a tuple: the
 -- witness, then a proof of each part, in the order the statement says them.
-theorem squareRoot: ∃ (n: Nat) => n > 2 ∧ n * n = 49 := (7, byDecision, rfl)
+theorem squareRoot: ∃ (n: Nat) => n > 2 ∧ n * n = 49 := (7, byDecision, byComputing)
 
 -- The same tuple as a pattern takes such a proof apart. `_` skips a part.
 theorem rootOf ∀ (h: ∃ (n: Nat) => n > 2 ∧ n * n = 49): ∃ (m: Nat) => m * m = 49 :=

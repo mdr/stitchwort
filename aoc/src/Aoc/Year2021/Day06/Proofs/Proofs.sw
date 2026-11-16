@@ -17,8 +17,8 @@ def Bounded (fish: List Nat): Prop := List.All (t => t ≤ 8) fish
 --| Copies of one element: all or none of them count.
 theorem countReplicate ∀ (x: Nat) (p: Nat → Bool) (n: Nat): List.count (List.replicate n x) p = n * Bool.toNat (p x) :=
   match n with
-    | Zero => rfl
-    | Succ n => omega [List.countCons (List.replicate n x) x p, countReplicate x p n]
+    | Zero => byComputing
+    | Succ n => arithmetic [List.countCons (List.replicate n x) x p, countReplicate x p n]
 
 --| Counting with a predicate that, at each element, counts as two others
 --| together.
@@ -26,15 +26,16 @@ theorem countSum ∀ [p q r: Nat → Bool]
     (each: ∀ (t: Nat) => Bool.toNat (p t) = Bool.toNat (q t) + Bool.toNat (r t)) (fish: List Nat):
     fish.count p = fish.count q + fish.count r :=
   match fish with
-    | [] => rfl
-    | [x, ..xs] => omega [List.countCons xs x p, List.countCons xs x q, List.countCons xs x r, each x, countSum each xs]
+    | [] => byComputing
+    | [x, ..xs] =>
+      arithmetic [List.countCons xs x p, List.countCons xs x q, List.countCons xs x r, each x, countSum each xs]
 
 --| A day keeps every timer at most 8.
 theorem nextTimerBounded ∀ (t: Nat) (bounded: t ≤ 8): nextTimer t ≤ 8 := cases
 
 theorem replicateBounded ∀ (n: Nat): Bounded (List.replicate n 8) := match n with
   | Zero => Trivial
-  | Succ n => Both rfl (replicateBounded n)
+  | Succ n => Both byComputing (replicateBounded n)
 
 theorem nextDayBounded ∀ (fish: List Nat) (bounded: Bounded fish): Bounded (nextDay fish) :=
   List.allAppend
@@ -51,7 +52,7 @@ theorem nextDayBounded ∀ (fish: List Nat) (bounded: Bounded fish): Bounded (ne
 --| fish if `v` is 8.
 theorem countNextDay ∀ (fish: List Nat) (v: Nat):
     (nextDay fish).count (== v) = fish.count (t => nextTimer t == v) + fish.count (== 0) * Bool.toNat (8 == v) :=
-  omega [
+  arithmetic [
     List.countAppend (List.map fish nextTimer) (List.replicate (List.count fish (== 0)) 8) (== v),
     List.countMap fish (== v) nextTimer,
     countReplicate 8 (== v) (List.count fish (== 0))
@@ -83,15 +84,15 @@ theorem countsNextDay ∀ (fish: List Nat)
   Counts.ext
     (Counts.ofTimers (nextDay fish))
     (Counts.nextDay (Counts.ofTimers fish))
-    (omega [countNextDay fish 0, agedCount 0 omega fish])
-    (omega [countNextDay fish 1, agedCount 1 omega fish])
-    (omega [countNextDay fish 2, agedCount 2 omega fish])
-    (omega [countNextDay fish 3, agedCount 3 omega fish])
-    (omega [countNextDay fish 4, agedCount 4 omega fish])
-    (omega [countNextDay fish 5, agedCount 5 omega fish])
-    (omega [countNextDay fish 6, agedSix fish])
-    (omega [countNextDay fish 7, agedCount 7 omega fish])
-    (omega [countNextDay fish 8, agedCount 8 omega fish, noneAtNine fish bounded])
+    (arithmetic [countNextDay fish 0, agedCount 0 arithmetic fish])
+    (arithmetic [countNextDay fish 1, agedCount 1 arithmetic fish])
+    (arithmetic [countNextDay fish 2, agedCount 2 arithmetic fish])
+    (arithmetic [countNextDay fish 3, agedCount 3 arithmetic fish])
+    (arithmetic [countNextDay fish 4, agedCount 4 arithmetic fish])
+    (arithmetic [countNextDay fish 5, agedCount 5 arithmetic fish])
+    (arithmetic [countNextDay fish 6, agedSix fish])
+    (arithmetic [countNextDay fish 7, agedCount 7 arithmetic fish])
+    (arithmetic [countNextDay fish 8, agedCount 8 arithmetic fish, noneAtNine fish bounded])
 
 --| A timer of at most 8 is one of 0 to 8.
 theorem oneTimer ∀ (x: Nat)
@@ -107,23 +108,23 @@ theorem oneTimer ∀ (x: Nat)
       + Bool.toNat (x == 8)
       = 1 :=
   match x with
-    | 0 => rfl
-    | 1 => rfl
-    | 2 => rfl
-    | 3 => rfl
-    | 4 => rfl
-    | 5 => rfl
-    | 6 => rfl
-    | 7 => rfl
-    | 8 => rfl
-    | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ above)))))))) => omega
+    | 0 => byComputing
+    | 1 => byComputing
+    | 2 => byComputing
+    | 3 => byComputing
+    | 4 => byComputing
+    | 5 => byComputing
+    | 6 => byComputing
+    | 7 => byComputing
+    | 8 => byComputing
+    | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ above)))))))) => arithmetic
 
 --| The counts add up to the number of fish.
 theorem totalCounts ∀ (fish: List Nat) (bounded: Bounded fish): Counts.total (Counts.ofTimers fish) = fish.length :=
   match fish with
-    | [] => rfl
+    | [] => byComputing
     | [x, ..xs] =>
-      omega [
+      arithmetic [
         List.countCons xs x (== 0),
         List.countCons xs x (== 1),
         List.countCons xs x (== 2),
@@ -143,9 +144,9 @@ theorem iterateCounts ∀ (days: Nat) (fish: List Nat)
     (bounded: Bounded fish):
     Nat.iterate days Counts.nextDay (Counts.ofTimers fish) = Counts.ofTimers (afterDays days fish) :=
   match days with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ days =>
-      rewrite <- countsNextDay fish bounded in iterateCounts days (nextDay fish) (nextDayBounded fish bounded)
+      rewrite <- countsNextDay fish bounded then iterateCounts days (nextDay fish) (nextDayBounded fish bounded)
 
 theorem afterDaysBounded ∀ (days: Nat) (fish: List Nat) (bounded: Bounded fish): Bounded (afterDays days fish) :=
   match days with

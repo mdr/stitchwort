@@ -3,6 +3,6 @@ namespace Shop.Proofs
 
 import Shop (total)
 
-theorem emptyAgrees: total [] = Shop.Spec.total [] := rfl
+theorem emptyAgrees: total [] = Shop.Spec.total [] := byComputing
 
-theorem oneAgrees ∀ (p: Nat): Shop.Spec.total [p] = p + 0 := rfl
+theorem oneAgrees ∀ (p: Nat): Shop.Spec.total [p] = p + 0 := byComputing

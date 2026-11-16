@@ -481,7 +481,7 @@ def until (x: Nat) (step: Nat -> Nat) (measure: Nat -> Nat)
 :=
   if h: step x = x then x else until (step x) step measure shrinks [decreasing := shrinks x h]
 
-def main(): {IO} () := IO.print (Nat.toText (until 3 (n => n) (n => n) (y h => Void.exfalso (h rfl))))
+def main(): {IO} () := IO.print (Nat.toText (until 3 (n => n) (n => n) (y h => Void.impossible (h byComputing))))
 "#);
     assert!(!ir.contains("apply erased"), "{ir}");
 }
@@ -678,14 +678,14 @@ def Count.size: Count → Nat
   | Stop => 0
   | More rest _ => Succ (Count.size rest)
 
-def Count.grow (c: Count): Count := More (More c rfl) rfl
+def Count.grow (c: Count): Count := More (More c byComputing) byComputing
 
 def last: Fin 5 → Nat
   | FSucc (FSucc i) => Fin.toNat i
   | _ => 7
 
 def main(): {IO} () :=
-  IO.print (Nat.toText (Count.size (Count.grow (More Stop rfl)) + last (FSucc (FSucc FZero))))
+  IO.print (Nat.toText (Count.size (Count.grow (More Stop byComputing)) + last (FSucc (FSucc FZero))))
 "#));
 }
 
@@ -761,7 +761,7 @@ fn fin_natives_need_fin_as_a_number() {
         session
             .load(
                 "test.sw",
-                "import Std (Fin, Nat)\ndef two: Nat := Fin.toNat (Fin.ofNatLt 3 2 rfl)\n",
+                "import Std (Fin, Nat)\ndef two: Nat := Fin.toNat (Fin.ofNatLt 3 2 byComputing)\n",
             )
             .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
         let g = &session.elab.ev();

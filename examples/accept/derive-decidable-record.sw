@@ -48,6 +48,6 @@ theorem rosterCaptain ∀ (ids: List Nat) (captain: Nat) (h: validRoster ids cap
   h.hasCaptain
 
 -- The test computes where the fields' decisions do.
-theorem smallThree: small 3 = True := rfl
+theorem smallThree: small 3 = True := byComputing
 
-theorem smallTwelve: small 12 = False := rfl
+theorem smallTwelve: small 12 = False := byComputing

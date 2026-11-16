@@ -14,7 +14,8 @@ def Frame.decide (x y: Frame): Decidable (x = y) :=
   else Decidable.no (e => h (Eq.cong (f => (f.inner, f.depth)) e))
 
 theorem Frame.sameParts ∀ (x y: Frame) (h: (x.inner, x.depth) = (y.inner, y.depth)): x = y := match x, y with
-  | { inner = a1, depth = b1 }, { inner = a2, depth = b2 } => rewrite Eq.cong Pair.fst h, Eq.cong Pair.snd h in rfl
+  | { inner = a1, depth = b1 }, { inner = a2, depth = b2 } =>
+    rewrite Eq.cong Pair.fst h, Eq.cong Pair.snd h then byComputing
 
 instance Frame.instDecEq: DecEq Frame := { decide = Frame.decide }
 

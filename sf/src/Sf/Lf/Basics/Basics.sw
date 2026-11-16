@@ -122,10 +122,10 @@ test "two working days after Saturday" := nextWorkingDay (nextWorkingDay Saturda
 -- checker verifies. Rocq's `Example` and `Theorem` mean the same thing;
 -- Stitchwort has only `theorem`.
 
-theorem testNextWorkingDay: nextWorkingDay (nextWorkingDay Saturday) = Tuesday := rfl
+theorem testNextWorkingDay: nextWorkingDay (nextWorkingDay Saturday) = Tuesday := byComputing
 
 -- The book's proof is `simpl. reflexivity.`: "both sides of the equation
--- evaluate to the same thing". Stitchwort's `rfl` says exactly that: the
+-- evaluate to the same thing". Stitchwort's `byComputing` says exactly that: the
 -- checker computes both sides and compares them.
 --
 -- The difference between the first two: a `test` is run, on the fast
@@ -167,13 +167,13 @@ def orb (b1 b2: Bool): Bool := match b1 with
 -- application is shown by the following "unit tests", which together are
 -- a complete specification of `orb`, its truth table:
 
-theorem testOrb1: orb True False = True := rfl
+theorem testOrb1: orb True False = True := byComputing
 
-theorem testOrb2: orb False False = False := rfl
+theorem testOrb2: orb False False = False := byComputing
 
-theorem testOrb3: orb False True = True := rfl
+theorem testOrb3: orb False True = True := byComputing
 
-theorem testOrb4: orb True True = True := rfl
+theorem testOrb4: orb True True = True := byComputing
 
 -- Rocq's `Notation` command gives existing definitions a more familiar
 -- infix syntax: the book writes `Notation "x && y" := (andb x y)`.
@@ -182,7 +182,7 @@ theorem testOrb4: orb True True = True := rfl
 -- `Bool.or`, defined as `andb` and `orb` are here). So this example uses
 -- the library's `||`:
 
-theorem testOrb5: (False || False || True) = True := rfl
+theorem testOrb5: (False || False || True) = True := byComputing
 
 -- (In the book's `.v` files, code inside comments is put in square
 -- brackets. Here it is in backquotes, as in Markdown.)
@@ -219,7 +219,7 @@ test "invert BwWhite" := invert BwWhite == BwBlack
 -- below can be proved. The function should return `True` if either or
 -- both of its inputs are `False`.
 --
--- Hint: if a proof by `rfl` fails, check that `nandb` computes on
+-- Hint: if a proof by `byComputing` fails, check that `nandb` computes on
 -- `True` and `False`: a definition by `match` on its arguments does.
 
 --| Exercise (nandb): replace the `?` with the definition.
@@ -378,9 +378,9 @@ def even (n: Nat): Bool := match n with
 
 def odd (n: Nat): Bool := negb (even n)
 
-theorem testOdd1: odd (S O) = True := rfl
+theorem testOdd1: odd (S O) = True := byComputing
 
-theorem testOdd2: odd (ofNat 4) = False := rfl
+theorem testOdd2: odd (ofNat 4) = False := byComputing
 
 -- Multi-argument functions can be defined by recursion too. The book's
 -- `plus`, `mult` and `minus` (the book's module `NatPlayground2`) are in
@@ -436,11 +436,11 @@ def leb (n m: Nat): Bool := match n with
       | O => False
       | S m' => leb n' m'
 
-theorem testLeb1: leb (ofNat 2) (ofNat 2) = True := rfl
+theorem testLeb1: leb (ofNat 2) (ofNat 2) = True := byComputing
 
-theorem testLeb2: leb (ofNat 2) (ofNat 4) = True := rfl
+theorem testLeb2: leb (ofNat 2) (ofNat 4) = True := byComputing
 
-theorem testLeb3: leb (ofNat 4) (ofNat 2) = False := rfl
+theorem testLeb3: leb (ofNat 4) (ofNat 2) = False := byComputing
 
 -- The book gives these the notations `x =? y` and `x <=? y`. On the
 -- library's numbers Stitchwort writes the tests `x == y` and `x <= y`,
@@ -457,7 +457,7 @@ theorem testLeb3: leb (ofNat 4) (ofNat 2) = False := rfl
 -- test) is a separate function, joined by lemmas. In Stitchwort, the
 -- proposition `n ≤ m` is *defined* as the test giving `True`:
 -- `Nat.LessEq n m := Nat.leq n m = True` (D3479: what a program can
--- test, a proof states as its test). So `3 ≤ 5` is proved by `rfl`, a
+-- test, a proof states as its test). So `3 ≤ 5` is proved by `byComputing`, a
 -- hypothesis `h: n ≤ m` is also a fact about the program's `if n <= m`,
 -- and goals print it as `n ≤ m`. `x = y` stays the logical equality on
 -- every type.
@@ -483,14 +483,14 @@ theorem testLtb3: ltb (ofNat 4) (ofNat 2) = False := ?
 -- particular inputs, and each proof was the same: compute both sides and
 -- check that they're identical.
 
-theorem plus11: plus (S O) (S O) = ofNat 2 := rfl
+theorem plus11: plus (S O) (S O) = ofNat 2 := byComputing
 
 -- The same "proof by simplification" can establish more interesting
 -- properties. That `O` is a neutral element for `plus` on the left can be
 -- proved just by observing that `plus O n` computes to `n` whatever `n`
 -- is, which can be read off the definition of `plus`.
 
-theorem plusON ∀ (n: Nat): plus O n = n := rfl
+theorem plusON ∀ (n: Nat): plus O n = n := byComputing
 
 -- Rocq writes this `forall n : nat, 0 + n = n`, and its proof starts with
 -- `intros n`, which moves `n` from the quantifier into the *context* of
@@ -500,16 +500,16 @@ theorem plusON ∀ (n: Nat): plus O n = n := rfl
 -- statement with the quantifier is the same theorem, and its proof is a
 -- function of `n`, which is what `intros` builds:
 
-theorem plusON': ∀ (n: Nat) => plus O n = n := n => rfl
+theorem plusON': ∀ (n: Nat) => plus O n = n := n => byComputing
 
 -- Any other name would do in place of `n`, though it might confuse a
 -- human reader:
 
-theorem plusON'': ∀ (n: Nat) => plus O n = n := m => rfl
+theorem plusON'': ∀ (n: Nat) => plus O n = n := m => byComputing
 
 -- Rocq's `simpl` shows the goal after computing, before `reflexivity`
 -- finishes; `reflexivity` computes more (it unfolds definitions too).
--- Stitchwort has no steps to show between: `rfl` computes both sides in
+-- Stitchwort has no steps to show between: `byComputing` computes both sides in
 -- full. To see a goal, write `?` where the proof goes; `stitchwort
 -- check` (or hovering in the editor) shows the goal, computed.
 --
@@ -517,9 +517,9 @@ theorem plusON'': ∀ (n: Nat) => plus O n = n := m => rfl
 -- `Proof` and `Qed` that guide the checking of a claim. Stitchwort has
 -- none: a proof is a term. The theorems below are proved the same way.
 
-theorem plus1L ∀ (n: Nat): plus (S O) n = S n := rfl
+theorem plus1L ∀ (n: Nat): plus (S O) n = S n := byComputing
 
-theorem mult0L ∀ (n: Nat): mult O n = O := rfl
+theorem mult0L ∀ (n: Nat): mult O n = O := byComputing
 
 -- The suffix `L` (the book's `_l`) is pronounced "on the left".
 
@@ -527,7 +527,7 @@ theorem mult0L ∀ (n: Nat): mult O n = O := rfl
 --
 -- This theorem is a bit more interesting:
 
-theorem plusIdExample ∀ (n m: Nat) (h: n = m): plus n n = plus m m := rewrite h in rfl
+theorem plusIdExample ∀ (n m: Nat) (h: n = m): plus n n = plus m m := rewrite h then byComputing
 
 -- It isn't a claim about all numbers `n` and `m`, but a more specialised
 -- property that only holds when `n = m`. Rocq writes the hypothesis with
@@ -536,9 +536,9 @@ theorem plusIdExample ∀ (n m: Nat) (h: n = m): plus n n = plus m m := rewrite 
 --
 -- Since `n` and `m` are arbitrary, computing alone can't prove it. But if
 -- `n = m`, we can replace `n` by `m` in the goal and get an equation with
--- the same expression on both sides. `rewrite h in rfl` does that: it
+-- the same expression on both sides. `rewrite h then byComputing` does that: it
 -- replaces the left side of `h` by its right side in the goal, then
--- proves the result, `plus m m = plus m m`, by `rfl`. `rewrite <- h` would
+-- proves the result, `plus m m = plus m m`, by `byComputing`. `rewrite <- h` would
 -- rewrite from right to left.
 
 -- Exercise: 1 star, standard (plus_id_exercise)
@@ -571,7 +571,7 @@ theorem plusIdExercise ∀ (n m o: Nat) (h1: n = m) (h2: m = o): plus n m = plus
 -- left side in the goal. The book rewrites with `<- mult_n_O`, right to
 -- left, because the lemma is stated `0 = n * 0`; so does `<-` here.
 
-theorem multN0M0 ∀ (p q: Nat): plus (mult p O) (mult q O) = O := rewrite <- multNO p, <- multNO q in rfl
+theorem multN0M0 ∀ (p q: Nat): plus (mult p O) (mult q O) = O := rewrite <- multNO p, <- multNO q then byComputing
 
 -- Exercise: 1 star, standard (mult_n_1)
 --
@@ -594,9 +594,9 @@ theorem multN1 ∀ (p: Nat): mult p (S O) = p := ?
 -- Here it is, with the book's `plus` (the library's `+` is cleverer, and
 -- computes this one, which is why the port doesn't use it):
 --
---     theorem plus1Neq0FirstTry (n: Nat): eqb (plus n (S O)) O = False := rfl
+--     theorem plus1Neq0FirstTry (n: Nat): eqb (plus n (S O)) O = False := byComputing
 --
---     [E-REFL] Error: `rfl` can't prove this
+--     [E-REFL] Error: `byComputing` can't prove this
 --       ╰─── `eqb (plus n (S O)) O` and `False` aren't equal
 --
 -- `plus` and `eqb` both start by matching on their first argument, and
@@ -608,8 +608,8 @@ theorem multN1 ∀ (p: Nat): mult p (S O) = p := ?
 -- Stitchwort it is a `match`, the same as in a program:
 
 theorem plus1Neq0 ∀ (n: Nat): eqb (plus n (S O)) O = False := match n with
-  | O => rfl
-  | S n' => rfl
+  | O => byComputing
+  | S n' => byComputing
 
 -- The `match` makes two cases, and each must be proved. In each, the
 -- goal has `n` replaced by that case's form: `eqb (plus O (S O)) O =
@@ -626,8 +626,8 @@ theorem plus1Neq0 ∀ (n: Nat): eqb (plus n (S O)) O = False := match n with
 -- is its own inverse:
 
 theorem negbInvolutive ∀ (b: Bool): negb (negb b) = b := match b with
-  | True => rfl
-  | False => rfl
+  | True => byComputing
+  | False => byComputing
 
 -- A `match` can go inside a case, splitting further. The book marks the
 -- levels with different bullets (`-`, then `+`), or with braces:
@@ -635,12 +635,12 @@ theorem negbInvolutive ∀ (b: Bool): negb (negb b) = b := match b with
 theorem andbCommutative ∀ (b c: Bool): andb b c = andb c b := match b with
   | True =>
     match c with
-      | True => rfl
-      | False => rfl
+      | True => byComputing
+      | False => byComputing
   | False =>
     match c with
-      | True => rfl
-      | False => rfl
+      | True => byComputing
+      | False => byComputing
 
 -- The book's `andb_commutative'` is the same proof with braces instead of
 -- bullets; in Stitchwort it would be the proof above again, so it isn't
@@ -651,22 +651,22 @@ theorem andb3Exchange ∀ (b c d: Bool): andb (andb b c) d = andb (andb b d) c :
     match c with
       | True =>
         match d with
-          | True => rfl
-          | False => rfl
+          | True => byComputing
+          | False => byComputing
       | False =>
         match d with
-          | True => rfl
-          | False => rfl
+          | True => byComputing
+          | False => byComputing
   | False =>
     match c with
       | True =>
         match d with
-          | True => rfl
-          | False => rfl
+          | True => byComputing
+          | False => byComputing
       | False =>
         match d with
-          | True => rfl
-          | False => rfl
+          | True => byComputing
+          | False => byComputing
 
 -- Splitting every variable and computing is mechanical, and Stitchwort
 -- has a word for it: `cases` finds what the goal is stuck on, splits it
@@ -682,7 +682,7 @@ theorem andb3Exchange' ∀ (b c d: Bool): andb (andb b c) d = andb (andb b d) c 
 -- at what the hypothesis says in each case before splitting the second;
 -- and if the hypotheses contradict each other, there is nothing left to
 -- prove (in Stitchwort an impossible case is the pattern `()`, or
--- `Void.exfalso` of a proof of `False = True`).
+-- `Void.impossible` of a proof of `False = True`).
 
 theorem andbTrueElim2 ∀ (b c: Bool) (h: andb b c = True): c = True := ?
 
@@ -691,17 +691,17 @@ theorem andbTrueElim2 ∀ (b c: Bool) (h: andb b c = True): c = True := ?
 -- In Stitchwort the patterns of the `match` do both jobs already:
 
 theorem plus1Neq0' ∀ (n: Nat): eqb (plus n (S O)) O = False := match n with
-  | O => rfl
-  | S n => rfl
+  | O => byComputing
+  | S n => byComputing
 
 -- With nothing to name, Rocq writes `intros [] []`. A `match` on both
 -- variables at once:
 
 theorem andbCommutative'' ∀ (b c: Bool): andb b c = andb c b := match b, c with
-  | True, True => rfl
-  | True, False => rfl
-  | False, True => rfl
-  | False, False => rfl
+  | True, True => byComputing
+  | True, False => byComputing
+  | False, True => byComputing
+  | False, False => byComputing
 
 -- Exercise: 1 star, standard (zero_nbeq_plus_1)
 

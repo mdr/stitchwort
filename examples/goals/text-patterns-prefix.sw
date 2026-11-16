@@ -5,12 +5,12 @@ import Std (Nat, Text)
 
 theorem startAndRest ∀ (t: Text): t = t := match t with
   | "--" ++ rest => ?
-  | _ => rfl
+  | _ => byComputing
 
 -- A `let` that shadows `rest` leaves the text matched as `"ab" ++ rest✝`.
 theorem shadowed ∀ (t: Text): t = t := match t with
   | "ab" ++ rest => (let rest := 1; ?)
-  | _ => rfl
+  | _ => byComputing
 
 def size: Text → Nat
   | "-" ++ letters if letters.length > 1 => ?

@@ -20,8 +20,8 @@
 -- run: sameCount { value = 3 } { value = 3 }
 -- run: orderCount { value = 10 } { value = 9 }
 -- run: distinctCounts [{ value = 2 }, { value = 1 }, { value = 2 }]
--- run: sameEmail { value = "a@b", valid = rfl } { value = "a@b", valid = rfl }
--- run: orderEmail { value = "b@c", valid = rfl } { value = "a@b", valid = rfl }
+-- run: sameEmail { value = "a@b", valid = byComputing } { value = "a@b", valid = byComputing }
+-- run: orderEmail { value = "b@c", valid = byComputing } { value = "a@b", valid = byComputing }
 
 import Std (Bool, List, Map, Nat, Option, Ord, Ordering, Text)
 

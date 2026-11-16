@@ -1,7 +1,7 @@
 -- R14: `calc` steps at +2, each `_ = … := …` on its own line.
 theorem calcStep ∀ (a b: Nat) (h: a + 2 <= b): a < b := calc a
-  _ < a + 1 := omega
-  _ <= b := omega
+  _ < a + 1 := arithmetic
+  _ <= b := arithmetic
 
 theorem long ∀ (a b: Nat): a + 0 + 0 = a := calc a + 0 + 0
   _ = a + 0 := Nat.addZero a

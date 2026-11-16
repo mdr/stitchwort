@@ -8,7 +8,7 @@ import Std (Bool, Int, Nat, Option, Text, byDecision)
 -- A lemma that wants `k ≠ 5` as a value.
 theorem notFiveIsZero ∀ (f: Nat → Nat) (hf: ∀ (k: Nat) (ne: k ≠ 5) => f k = 0) (n: Nat): (n = 5) ∨ (f n = 0) :=
   match n with
-    | 5 => Inl rfl
+    | 5 => Inl byComputing
     | m => Inr (hf m byDecision)
 
 -- An `[auto]` parameter finds it without a word.
@@ -20,12 +20,12 @@ def guarded (n: Nat): Nat := match n with
 
 -- Several literals above, and either side of `≠`.
 theorem twoNumbers ∀ (n: Nat): (n ≠ 5 ∧ n ≠ 7) ∨ n = 5 ∨ n = 7 := match n with
-  | 5 => Inr (Inl rfl)
-  | 7 => Inr (Inr rfl)
+  | 5 => Inr (Inl byComputing)
+  | 7 => Inr (Inr byComputing)
   | m => Inl (Both byDecision byDecision)
 
 theorem fiveOnTheLeft ∀ (n: Nat): 5 ≠ n ∨ n = 5 := match n with
-  | 5 => Inr rfl
+  | 5 => Inr byComputing
   | m => Inl byDecision
 
 -- A literal alternative, and a pattern in one column of two.
@@ -34,45 +34,45 @@ theorem orPattern ∀ (n: Nat): (n ≠ 1 ∧ n ≠ 2) ∨ n ≤ 2 := match n wit
   | m => Inl (Both byDecision byDecision)
 
 theorem secondColumn ∀ (a b: Nat): a ≠ 0 ∨ a = 0 := match a, b with
-  | 0, y => Inr rfl
+  | 0, y => Inr byComputing
   | x, 1 => Inl byDecision
   | x, y => Inl byDecision
 
 -- Integers, within each sign.
 theorem integers ∀ (n: Int): (n ≠ 3 ∧ n ≠ (-2)) ∨ n = 3 ∨ n = (-2) := match n with
-  | 3 => Inr (Inl rfl)
-  | (-2) => Inr (Inr rfl)
+  | 3 => Inr (Inl byComputing)
+  | (-2) => Inr (Inr byComputing)
   | m => Inl (Both byDecision byDecision)
 
 -- Characters.
 theorem character ∀ (c: Char): c ≠ 'k' ∨ c = 'k' := match c with
-  | 'k' => Inr rfl
+  | 'k' => Inr byComputing
   | d => Inl byDecision
 
 -- Texts, split character by character in the arm, which is checked in
 -- every case.
 theorem texts ∀ (s: Text): (s ≠ "ab" ∧ s ≠ "ac") ∨ s = "ab" ∨ s = "ac" := match s with
-  | "ab" => Inr (Inl rfl)
-  | "ac" => Inr (Inr rfl)
+  | "ab" => Inr (Inl byComputing)
+  | "ac" => Inr (Inr byComputing)
   | t => Inl (Both byDecision byDecision)
 
 -- An arm with a condition above gives no fact: the catch-all is reached
 -- with `n = 5` when the condition fails, so only 6 is ruled out.
 theorem afterGuard ∀ (n: Nat) (b: Bool): n ≠ 6 ∨ n = 6 := match n with
   | 5 if b => Inl byDecision
-  | 6 => Inr rfl
+  | 6 => Inr byComputing
   | m => Inl byDecision
 
 -- The fact reaches goals that only contain the variable: `n + 2`, `Some n`,
 -- `(n, c)`.
 theorem sum ∀ (n: Nat): n + 2 ≠ 7 ∨ n = 5 := match n with
-  | 5 => Inr rfl
+  | 5 => Inr byComputing
   | m => Inl byDecision
 
 theorem wrapped ∀ (n: Nat): Some n ≠ Some 5 ∨ n = 5 := match n with
-  | 5 => Inr rfl
+  | 5 => Inr byComputing
   | m => Inl byDecision
 
 theorem pair ∀ (n: Nat) (c: Char): (n, c) ≠ (5, 'x') ∨ n = 5 := match n with
-  | 5 => Inr rfl
+  | 5 => Inr byComputing
   | m => Inl byDecision

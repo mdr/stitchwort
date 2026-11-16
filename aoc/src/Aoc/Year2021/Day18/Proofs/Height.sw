@@ -7,13 +7,13 @@ import Std (Nat, Option, Void)
 
 theorem addLeftmostHeight ∀ (amount: Nat) (number: Number): height (addLeftmost amount number) = height number :=
   match number with
-    | Regular _ => rfl
-    | Pair left right => rewrite addLeftmostHeight amount left in rfl
+    | Regular _ => byComputing
+    | Pair left right => rewrite addLeftmostHeight amount left then byComputing
 
 theorem addRightmostHeight ∀ (amount: Nat) (number: Number): height (addRightmost amount number) = height number :=
   match number with
-    | Regular _ => rfl
-    | Pair left right => rewrite addRightmostHeight amount right in rfl
+    | Regular _ => byComputing
+    | Pair left right => rewrite addRightmostHeight amount right then byComputing
 
 --| An explosion in a pair that isn't two regular numbers, from one in a
 --| part, is no higher than the pair (`explode`'s last arm, by its generated
@@ -26,17 +26,18 @@ theorem pairHeight ∀ (depth: Nat) (left right: Number)
     height exploded.number ≤ height (Pair left right) :=
   match el: explode (depth + 1) left with
     | Some e =>
-      rewrite <- Option.someInjective (rewrite explode.eq3.some depth left right notArm2 e el at some in some) in
-        rewrite addLeftmostHeight e.toRight right in omega [leftLower e rfl]
+      rewrite <- Option.someInjective (rewrite explode.eq3.some depth left right notArm2 e el at some then some) then
+        rewrite addLeftmostHeight e.toRight right then arithmetic [leftLower e byComputing]
     | None =>
       match er: explode (depth + 1) right with
         | Some e =>
           rewrite <- Option.someInjective
-                (rewrite explode.eq3.none.some depth left right notArm2 el e er at some in some) in
-            rewrite addRightmostHeight e.toLeft left in omega [rightLower e rfl]
+                (rewrite explode.eq3.none.some depth left right notArm2 el e er at some then some) then
+            rewrite addRightmostHeight e.toLeft left then arithmetic [rightLower e byComputing]
         | None =>
-          Void.exfalso
-            (Option.noneNotSome exploded (rewrite explode.eq3.none.none depth left right notArm2 el er at some in some))
+          Void.impossible
+            (Option.noneNotSome exploded
+              (rewrite explode.eq3.none.none depth left right notArm2 el er at some then some))
 
 theorem explodeHeight ∀ (depth: Nat) (number: Number) (exploded: Explosion)
     (some: explode depth number = Some exploded):
@@ -44,7 +45,7 @@ theorem explodeHeight ∀ (depth: Nat) (number: Number) (exploded: Explosion)
   match number with
     | Pair (Regular a) (Regular b) =>
       match deep: Nat.leq 4 depth with
-        | True => rewrite <- Option.someInjective some in omega
+        | True => rewrite <- Option.someInjective some then arithmetic
     | Pair (Regular a) (Pair x y) =>
       pairHeight depth
         (Regular a)
@@ -68,10 +69,10 @@ theorem splitHeight ∀ (number split2: Number) (some: split number = Some split
   match number with
     | Regular value =>
       match Nat.leq 10 value with
-        | True => rewrite <- Option.someInjective some in omega
+        | True => rewrite <- Option.someInjective some then arithmetic
     | Pair left right =>
       match el: split left with
-        | Some left2 => rewrite <- Option.someInjective some in omega [splitHeight left left2 el]
+        | Some left2 => rewrite <- Option.someInjective some then arithmetic [splitHeight left left2 el]
         | None =>
           match er: split right with
-            | Some right2 => rewrite <- Option.someInjective some in omega [splitHeight right right2 er]
+            | Some right2 => rewrite <- Option.someInjective some then arithmetic [splitHeight right right2 er]

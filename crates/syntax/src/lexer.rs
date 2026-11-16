@@ -88,7 +88,7 @@ pub enum Tok {
     /// `!`, prefix "not". Also written `¬`.
     Bang,
     /// `in` (or `∈`): membership, `x in xs` (D1201). Also ends a `rewrite`
-    /// rule or target: `rewrite h in body`.
+    /// rule or target: `rewrite h then body`.
     KwIn,
     /// `!in` (or `∉`): `x !in xs` is `!(x in xs)` (D1201).
     NotIn,
@@ -124,15 +124,15 @@ pub enum Tok {
     KwNamespace,
     /// `calc e` followed by steps `_ = e := proof`, one per line.
     KwCalc,
-    /// `rewrite p in t`: replace `p`'s left side in the goal by its right.
+    /// `rewrite p then t`: replace `p`'s left side in the goal by its right.
     KwRewrite,
-    /// `omega` or `omega [e1, e2]`: a linear arithmetic proof found by the
+    /// `arithmetic` or `arithmetic [e1, e2]`: a linear arithmetic proof found by the
     /// compiler (docs/proposals/omega.md).
-    KwOmega,
-    /// `ring` or `ring [h1, h2]`: an equation between polynomials, checked by
+    KwArithmetic,
+    /// `algebra` or `algebra [h1, h2]`: an equation between polynomials, checked by
     /// normalising both sides (docs/proposals/proof-automation.md §6.2).
-    KwRing,
-    /// `cases` or `cases in t`: a proof by automatic case splitting
+    KwAlgebra,
+    /// `cases` or `cases then t`: a proof by automatic case splitting
     /// (docs/proposals/simp.md §5).
     KwCases,
     /// `decreasing e` in a definition's header, and `[decreasing := p]`
@@ -220,11 +220,11 @@ keyword_table! {
     "let" => KwLet,
     "match" => KwMatch,
     "namespace" => KwNamespace,
-    "omega" => KwOmega,
+    "arithmetic" => KwArithmetic,
     "opaque" => KwOpaque,
     "return" => KwReturn,
     "rewrite" => KwRewrite,
-    "ring" => KwRing,
+    "algebra" => KwAlgebra,
     "test" => KwTest,
     "then" => KwThen,
     "theorem" => KwTheorem,

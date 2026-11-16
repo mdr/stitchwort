@@ -46,7 +46,7 @@ theorem reachesCong ∀ (operators: List Operator) (wanted1 wanted2: Nat → Boo
 theorem reachesNothing ∀ (operators: List Operator) (numbers: List Nat) (start: Nat):
     reaches operators start (value => False) numbers = False :=
   match numbers with
-    | [] => rfl
+    | [] => byComputing
     | [number, ..rest] =>
       List.anyFalse operators _ (operator => reachesNothing operators rest (combine operator start number))
 
@@ -56,7 +56,7 @@ theorem reachesAnything ∀ (operators: List Operator) (some: Operator)
     (numbers: List Nat) (start: Nat):
     reaches operators start (value => True) numbers = True :=
   match numbers with
-    | [] => rfl
+    | [] => byComputing
     | [number, ..rest] => Witness some (Both has (reachesAnything operators some has rest (combine some start number)))
 
 --| A condition that doesn't depend on the value comes out of the search.
@@ -64,7 +64,7 @@ theorem reachesAnd ∀ (operators: List Operator) (condition: Bool) (wanted: Nat
     reaches operators start (value => condition && wanted value) numbers
       = (condition && reaches operators start wanted numbers) :=
   match condition with
-    | True => rfl
+    | True => byComputing
     | False => reachesNothing operators numbers start
 
 --| A choice among `others` at the end comes out of the search.
@@ -72,7 +72,7 @@ theorem reachesAny ∀ (operators others: List Operator) (wanted: Operator → N
     reaches operators start (value => others.any (other => wanted other value)) numbers
       = others.any (other => reaches operators start (wanted other) numbers) :=
   match numbers with
-    | [] => rfl
+    | [] => byComputing
     | [number, ..rest] =>
       Eq.trans
         (List.anyCong operators _ _ (operator =>
@@ -87,6 +87,6 @@ theorem reachesAppend ∀ (operators: List Operator) (wanted: Nat → Bool) (las
     reaches operators start wanted (numbers.append [last])
       = reaches operators start (value => operators.any (operator => wanted (combine operator value last))) numbers :=
   match numbers with
-    | [] => rfl
+    | [] => byComputing
     | [number, ..rest] =>
       List.anyCong operators _ _ (operator => reachesAppend operators wanted last rest (combine operator start number))

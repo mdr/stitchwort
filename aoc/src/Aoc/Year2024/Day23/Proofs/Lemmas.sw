@@ -4,12 +4,12 @@
 namespace Aoc.Year2024.Day23.Proofs
 import Std (Bool, DecEq, Eq, Iff, List, Map, Or, Set, Void)
 
-theorem firstOfTwo ∀ (first second: a): List.Mem first [first, second] := Inl rfl
+theorem firstOfTwo ∀ (first second: a): List.Mem first [first, second] := Inl byComputing
 
-theorem secondOfTwo ∀ (first second: a): List.Mem second [first, second] := Inr (Inl rfl)
+theorem secondOfTwo ∀ (first second: a): List.Mem second [first, second] := Inr (Inl byComputing)
 
 theorem sameKeyRefl ∀ [auto ord: Ord k] (key: k): Map.Spec.sameKey key key = True :=
-  rewrite Map.Spec.sameKeyDecide key key in DecEq.refl key
+  rewrite Map.Spec.sameKeyDecide key key then DecEq.refl key
 
 --| What a set of three holds.
 theorem threeElim ∀ [auto ord: Ord k] (first second third key: k) (goal: Prop)
@@ -17,7 +17,7 @@ theorem threeElim ∀ [auto ord: Ord k] (first second third key: k) (goal: Prop)
     (isFirst: key = first → goal) (isSecond: key = second → goal) (isThird: key = third → goal):
     goal :=
   match (Set.containsFromListIff [first, second, third] key).forward held with
-    | Inl same => isFirst (Eq.sym same)
-    | Inr (Inl same) => isSecond (Eq.sym same)
-    | Inr (Inr (Inl same)) => isThird (Eq.sym same)
-    | Inr (Inr (Inr none)) => Void.exfalso none
+    | Inl same => isFirst same.flipped
+    | Inr (Inl same) => isSecond same.flipped
+    | Inr (Inr (Inl same)) => isThird same.flipped
+    | Inr (Inr (Inr none)) => none.impossible

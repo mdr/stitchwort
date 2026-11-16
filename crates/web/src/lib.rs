@@ -866,7 +866,7 @@ mod tests {
     #[test]
     fn reports_success_errors_tests_values_and_extracted_code() {
         assert_eq!(check("def x : Nat := 1\n"), r#"{"ok":true}"#);
-        let errors = check("def x : Nat := rfl\n");
+        let errors = check("def x : Nat := byComputing\n");
         assert!(
             errors.starts_with(r#"{"ok":false,"errors":"[E-TYPE-MISMATCH]"#),
             "{errors}"
@@ -956,7 +956,7 @@ mod tests {
     #[test]
     fn check_then_test_answers_as_fresh_loads_do() {
         let passing = "test \"one\" := True\ntest \"two\" := False\n";
-        let failing = "def x : Nat := rfl\n";
+        let failing = "def x : Nat := byComputing\n";
         for source in [passing, failing] {
             reset_loads();
             let fresh_test = test(source, "");
@@ -1003,7 +1003,7 @@ mod tests {
     fn a_second_source_replaces_the_remembered_one() {
         reset_loads();
         assert_eq!(check("def a : Nat := 1\n"), r#"{"ok":true}"#);
-        let errors = check("def b : Nat := rfl\n");
+        let errors = check("def b : Nat := byComputing\n");
         assert!(
             errors.starts_with(r#"{"ok":false,"errors":"[E-TYPE-MISMATCH]"#),
             "{errors}"
@@ -1065,7 +1065,7 @@ mod tests {
         );
         assert!(!checked.contains("warnings"), "{checked}");
         // With an error too, the goals still come out apart from it.
-        let failed = check(&format!("{source}def bad : Nat := rfl\n"));
+        let failed = check(&format!("{source}def bad : Nat := byComputing\n"));
         assert!(failed.contains(r#","goals":["[GOAL]"#), "{failed}");
         assert!(
             !failed.split_once(r#","goals""#).unwrap().0.contains("GOAL"),
@@ -1086,7 +1086,7 @@ mod tests {
         );
         assert_eq!(checked.matches("[W-MODULE-NAME]").count(), 1, "{checked}");
         // With an error too, each is in its own field.
-        let failed = check(&format!("{warned}def bad : Nat := rfl\n"));
+        let failed = check(&format!("{warned}def bad : Nat := byComputing\n"));
         let (errors, warnings) = failed.split_once(r#","warnings":"#).expect("warnings");
         assert!(
             errors.starts_with(r#"{"ok":false,"errors":"[E-TYPE-MISMATCH]"#),
@@ -1098,7 +1098,10 @@ mod tests {
             "{failed}"
         );
         // Other answers have them when the source doesn't load.
-        assert!(test(&format!("{warned}def bad : Nat := rfl\n"), "").contains("[W-MODULE-NAME]"));
+        assert!(
+            test(&format!("{warned}def bad : Nat := byComputing\n"), "")
+                .contains("[W-MODULE-NAME]")
+        );
     }
 
     /// The `"output"` field of a result from [`run`].
@@ -1293,7 +1296,7 @@ mod tests {
             wrong.starts_with(r#"{"ok":false,"errors":"[E-MAIN-TYPE]"#),
             "{wrong}"
         );
-        let unchecked = run("def main () : {IO} () := rfl\n", "", 1000);
+        let unchecked = run("def main () : {IO} () := byComputing\n", "", 1000);
         assert!(
             unchecked.starts_with(r#"{"ok":false,"errors":"[E-TYPE-MISMATCH]"#),
             "{unchecked}"

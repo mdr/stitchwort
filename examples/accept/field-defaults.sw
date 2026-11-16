@@ -17,7 +17,7 @@ test "a given field replaces its default" := bounds { stop = 10, step = 3 } == [
 test "as a named argument" := bounds (options := { start = 2, stop = 5 }) == [2, 5, 1]
 
 -- Leaving a field out is definitionally equal to giving its default.
-theorem smallInFull: small = ({ start = 0, stop = 10, step = 1 }: RangeOptions) := rfl
+theorem smallInFull: small = ({ start = 0, stop = 10, step = 1 }: RangeOptions) := byComputing
 
 -- A record whose fields all have defaults: `{}`.
 type Style = { width: Nat := 80, indent: Nat := 2 }

@@ -13,13 +13,13 @@ theorem tableCorrect ∀ (patterns: List Pattern):
     ∀ (stripes: List Stripe) (index: Nat) => index ≤ stripes.length
       → ∀ (count: Nat) => stripes.length - index ≤ count
         → (waysForSuffixes patterns stripes).getOr index 0 = matching patterns count (stripes.drop index)
-  | [], Zero, inside, count, enough => Eq.sym (matchingEmpty patterns count)
-  | [], Succ index, inside, count, enough => Void.exfalso (omega [inside])
+  | [], Zero, inside, count, enough => (matchingEmpty patterns count).flipped
+  | [], Succ index, inside, count, enough => Void.impossible (arithmetic [inside])
   | [first, ..rest], Succ index, inside, count, enough =>
-    tableCorrect patterns rest index (omega [inside]) count (omega [enough])
-  | [first, ..rest], Zero, inside, Zero, enough => Void.exfalso (omega [enough])
+    tableCorrect patterns rest index (arithmetic [inside]) count (arithmetic [enough])
+  | [first, ..rest], Zero, inside, Zero, enough => Void.impossible (arithmetic [enough])
   | [first, ..rest], Zero, inside, Succ count, enough =>
-    rewrite matchingSucc patterns count [first, ..rest] in
+    rewrite matchingSucc patterns count [first, ..rest] then
       List.sumByCongMem patterns
         (pattern =>
           if [first, ..rest].startsWith pattern.stripes.toList then
@@ -33,20 +33,20 @@ theorem tableCorrect ∀ (patterns: List Pattern):
           match starts: [first, ..rest].startsWith pattern.stripes.toList with
             | True =>
               tableCorrect patterns rest pattern.stripes.tail.length
-                (omega [List.startsWithLength [first, ..rest] pattern.stripes.toList starts])
+                (arithmetic [List.startsWithLength [first, ..rest] pattern.stripes.toList starts])
                 count
-                (omega [enough])
-            | False => rfl)
+                (arithmetic [enough])
+            | False => byComputing)
 
 --| The table's first entry is its entry 0.
 theorem firstEntry ∀ (patterns: List Pattern) (stripes: List Stripe):
     (waysForSuffixes patterns stripes).headOr 0 = (waysForSuffixes patterns stripes).getOr 0 0 :=
   match stripes with
-    | [] => rfl
-    | [first, ..rest] => rfl
+    | [] => byComputing
+    | [first, ..rest] => byComputing
 
 --| The program counts the puzzle's ways to make any design.
 theorem waysCorrect ∀ (patterns: List Pattern) (design: Design): waysToMake patterns design = ways patterns design :=
   rewrite List.lengthFilter (towelLists patterns design.stripes.length) (towels => laid towels == design.stripes),
-      firstEntry patterns design.stripes in
-    tableCorrect patterns design.stripes 0 (omega) design.stripes.length (omega)
+      firstEntry patterns design.stripes then
+    tableCorrect patterns design.stripes 0 (arithmetic) design.stripes.length (arithmetic)

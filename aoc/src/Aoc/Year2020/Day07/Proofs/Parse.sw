@@ -13,8 +13,8 @@ theorem readsColour: Parse.Reads colour ColourWritten :=
       Parse.readsThen Parse.readsTakeWhile1 (hueRead hue (Both hueNonEmpty (Both hueLetters hueIs)) =>
         Parse.readsDone
           { shade, hue } _
-          (rewrite shadeIs, hueIs, space, List.appendNil hueRead in
-            Both rfl (Both (Both shadeNonEmpty shadeLetters) (Both hueNonEmpty hueLetters))))))
+          (rewrite shadeIs, hueIs, space, List.appendNil hueRead then
+            Both byComputing (Both (Both shadeNonEmpty shadeLetters) (Both hueNonEmpty hueLetters))))))
 
 theorem readsContent: Parse.Reads content ContentWritten :=
   Parse.readsThen Parse.readsNat (digitsRead count (Both nonEmpty (Both digits value)) =>
@@ -26,7 +26,7 @@ theorem readsContent: Parse.Reads content ContentWritten :=
             (Witness digitsRead
               (Witness colourRead
                 (Both
-                  (rewrite List.appendNil bagRead, space, bag in rfl)
+                  (rewrite List.appendNil bagRead, space, bag then byComputing)
                   (Both nonEmpty (Both digits (Both value written))))))))))
 
 theorem readsContentList: Parse.Reads contentList (read contents =>
@@ -51,12 +51,13 @@ theorem readsRule: Parse.Reads rule RuleWritten := Parse.readsThen readsColour (
       Parse.readsThen (Parse.readsChar '.') (stopRead u stop =>
         Parse.readsDone
           { colour, contents } _
-          (Witness colourRead (Witness contentsRead (Both (rewrite contain, stop in rfl) (Both written listed))))))))
+          (Witness colourRead
+            (Witness contentsRead (Both (rewrite contain, stop then byComputing) (Both written listed))))))))
 
 --| If `parseRules` reads `input`, each of its lines is a rule written out.
 theorem parseWritten ∀ (input: Text) (rules: Rules)
     (parsed: Fail.toResult (() => parseRules input) = Ok rules):
     List.All2 RuleWritten (input.lines.map Text.toList) rules.all :=
-  let ran := rewrite Fail.toResultThen (() => Parse.eachLine input rule) (all => ({ all }: Rules)) at parsed in parsed
+  let ran := rewrite Fail.toResultThen (() => Parse.eachLine input rule) (all => ({ all }: Rules)) at parsed then parsed
   match e: Fail.toResult (() => Parse.eachLine input rule) with
-    | Ok all => rewrite <- Result.okInjective ran in Parse.eachLineReads input rule RuleWritten all e readsRule
+    | Ok all => rewrite <- Result.okInjective ran then Parse.eachLineReads input rule RuleWritten all e readsRule

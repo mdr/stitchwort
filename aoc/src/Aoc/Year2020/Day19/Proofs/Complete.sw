@@ -19,8 +19,8 @@ def Ranked (rules: Rules) (rank: Nat → Nat) (bound: Nat): Prop :=
         → sequence ≠ [] ∧ (∀ (only: Nat) => sequence = [only] → rank only < rank number))
 
 theorem lengthPositive ∀ (xs: List a) (notEmpty: xs ≠ []): 1 ≤ xs.length := match xs with
-  | [] => Void.exfalso (notEmpty rfl)
-  | [x, ..rest] => omega
+  | [] => (notEmpty byComputing).impossible
+  | [x, ..rest] => arithmetic
 
 --| Each rule of a sequence reads at least a letter.
 theorem matchedLength ∀ (rules: Rules) (rank: Nat → Nat) (bound: Nat)
@@ -29,9 +29,9 @@ theorem matchedLength ∀ (rules: Rules) (rank: Nat → Nat) (bound: Nat)
     (matched: Matches rules sequence read):
     sequence.length ≤ read.length :=
   match matched with
-    | MatchesNothing => omega
+    | MatchesNothing => arithmetic
     | MatchesLetter [later := later] [rest := rest] rule laterMatch =>
-      omega [matchedLength rules rank bound ranked later rest laterMatch]
+      arithmetic [matchedLength rules rank bound ranked later rest laterMatch]
     | MatchesAlternative
         [later := later]
         [read := first]
@@ -43,11 +43,11 @@ theorem matchedLength ∀ (rules: Rules) (rank: Nat → Nat) (bound: Nat)
         sequenceMatch
         laterMatch =>
       let ranking := And.right ranked _ sequences rule alternative chosen
-      rewrite List.lengthAppend first rest in
-        omega [
+      rewrite List.lengthAppend first rest then
+        arithmetic [
           matchedLength rules rank bound ranked later rest laterMatch,
           matchedLength rules rank bound ranked alternative first sequenceMatch,
-          lengthPositive alternative (And.left ranking)
+          lengthPositive alternative ranking.left
         ]
 
 --| Enough fuel for `sequence` to match `read`: a rule alone needs more
@@ -61,8 +61,8 @@ def Fuelled (bound: Nat) (rank: Nat → Nat) (fuel: Nat): (sequence: List Nat) �
 theorem scaleStep ∀ (shorter longer bound: Nat)
     (less: shorter + 1 ≤ longer):
     shorter * bound + bound ≤ longer * bound :=
-  let same: (shorter + 1) * bound = shorter * bound + bound := ring
-  omega [Nat.leMulRight (shorter + 1) longer bound less, same]
+  let same: (shorter + 1) * bound = shorter * bound + bound := algebra
+  arithmetic [Nat.leMulRight (shorter + 1) longer bound less, same]
 
 --| A rule followed by others, with fuel enough for them all: there is
 --| enough for the rule's own part, and for the others'.
@@ -76,17 +76,22 @@ theorem fuelledSplit ∀ (bound: Nat) (rank: Nat → Nat)
   match later with
     | [] =>
       let whole := List.lengthAppend headRead laterRead
-      Both (omega [Nat.leMulRight headRead.length (headRead ++ laterRead).length bound (omega [whole])]) Trivial
+      Both
+        (arithmetic [Nat.leMulRight headRead.length (headRead ++ laterRead).length bound (arithmetic [whole])])
+        Trivial
     | [second] =>
       let whole := List.lengthAppend headRead laterRead
       Both
-        (omega [scaleStep headRead.length (headRead ++ laterRead).length bound (omega [whole]), below number])
-        (omega [scaleStep laterRead.length (headRead ++ laterRead).length bound (omega [whole]), below second])
+        (arithmetic [scaleStep headRead.length (headRead ++ laterRead).length bound (arithmetic [whole]), below number])
+        (arithmetic [
+          scaleStep laterRead.length (headRead ++ laterRead).length bound (arithmetic [whole]),
+          below second
+        ])
     | [second, third, ..more] =>
       let whole := List.lengthAppend headRead laterRead
       Both
-        (omega [scaleStep headRead.length (headRead ++ laterRead).length bound (omega [whole]), below number])
-        (omega [Nat.leMulRight laterRead.length (headRead ++ laterRead).length bound (omega [whole])])
+        (arithmetic [scaleStep headRead.length (headRead ++ laterRead).length bound (arithmetic [whole]), below number])
+        (arithmetic [Nat.leMulRight laterRead.length (headRead ++ laterRead).length bound (arithmetic [whole])])
 
 --| Enough fuel for a rule is enough, less one, for each of its
 --| alternatives.
@@ -96,8 +101,8 @@ theorem fuelledInner ∀ (bound: Nat) (rank: Nat → Nat) (more number: Nat) (re
     Fuelled bound rank more alternative read :=
   match alternative with
     | [] => Trivial
-    | [only] => omega [lower only rfl]
-    | [first, second, ..others] => omega
+    | [only] => arithmetic [lower only byComputing]
+    | [first, second, ..others] => arithmetic
 
 theorem completeAll ∀ (rules: Rules) (rank: Nat → Nat) (bound: Nat)
     (ranked: Ranked rules rank bound):
@@ -106,29 +111,26 @@ theorem completeAll ∀ (rules: Rules) (rank: Nat → Nat) (bound: Nat)
         → ∀ (rest: List Char) => rest ∈ rules.leftAfterAll fuel sequence (read ++ rest) :=
   sequence read matched fuel fuelled rest =>
     match matched with
-      | MatchesNothing => Inl rfl
+      | MatchesNothing => Inl byComputing
       | MatchesLetter [number := number] [later := later] [letter := letter] [rest := laterRead] rule laterMatch =>
         let split :=
-          fuelledSplit bound rank
-            (And.left ranked)
-            fuel
-            number
+          fuelledSplit bound rank ranked.left fuel number
             [letter]
             laterRead
-            (omega)
+            (arithmetic)
             later
             (matchedLength rules rank bound ranked later laterRead laterMatch)
             fuelled
         match fuel with
-          | Zero => Void.exfalso (omega [And.left split])
+          | Zero => Void.impossible (arithmetic [split.left])
           | Succ more =>
             List.memFlatMapIntro
               (left => rules.leftAfterAll (Succ more) later left)
               (laterRead ++ rest)
               rest
               (rules.leftAfter (Succ more) number ([letter, ..laterRead] ++ rest))
-              (rewrite ruleSpec rules number, rule, DecEq.refl letter in Inl rfl)
-              (completeAll rules rank bound ranked later laterRead laterMatch (Succ more) (And.right split) rest)
+              (rewrite ruleSpec rules number, rule, DecEq.refl letter then Inl byComputing)
+              (completeAll rules rank bound ranked later laterRead laterMatch (Succ more) split.right rest)
       | MatchesAlternative
           [number := number]
           [later := later]
@@ -142,29 +144,24 @@ theorem completeAll ∀ (rules: Rules) (rank: Nat → Nat) (bound: Nat)
           laterMatch =>
         let ranking := And.right ranked number sequences rule alternative chosen
         let split :=
-          fuelledSplit bound rank
-            (And.left ranked)
-            fuel
-            number
-            headRead
-            laterRead
-            (omega [
+          fuelledSplit bound rank ranked.left fuel number headRead laterRead
+            (arithmetic [
               matchedLength rules rank bound ranked alternative headRead sequenceMatch,
-              lengthPositive alternative (And.left ranking)
+              lengthPositive alternative ranking.left
             ])
             later
             (matchedLength rules rank bound ranked later laterRead laterMatch)
             fuelled
         match fuel with
-          | Zero => Void.exfalso (omega [And.left split])
+          | Zero => Void.impossible (arithmetic [split.left])
           | Succ more =>
-            rewrite List.appendAssoc headRead laterRead rest in
+            rewrite List.appendAssoc headRead laterRead rest then
               List.memFlatMapIntro
                 (left => rules.leftAfterAll (Succ more) later left)
                 (laterRead ++ rest)
                 rest
                 (rules.leftAfter (Succ more) number (headRead ++ (laterRead ++ rest)))
-                (rewrite ruleSpec rules number, rule in
+                (rewrite ruleSpec rules number, rule then
                   List.memFlatMapIntro
                     (sequence => rules.leftAfterAll more sequence (headRead ++ (laterRead ++ rest)))
                     alternative
@@ -172,6 +169,6 @@ theorem completeAll ∀ (rules: Rules) (rank: Nat → Nat) (bound: Nat)
                     sequences
                     chosen
                     (completeAll rules rank bound ranked alternative headRead sequenceMatch more
-                      (fuelledInner bound rank more number headRead (And.left split) alternative (And.right ranking))
+                      (fuelledInner bound rank more number headRead split.left alternative ranking.right)
                       (laterRead ++ rest)))
-                (completeAll rules rank bound ranked later laterRead laterMatch (Succ more) (And.right split) rest)
+                (completeAll rules rank bound ranked later laterRead laterMatch (Succ more) split.right rest)

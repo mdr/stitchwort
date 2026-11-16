@@ -590,7 +590,7 @@ def app (f: Type -> Nat): Nat := f Nat
 def app2 (f: Type -> Nat -> Nat): Nat := f Nat 41
 def app2Late (f: Nat -> Type -> Nat): Nat := f 40 Nat
 def app3 (f: Nat -> Nat): Nat := f 41
-def appProof (f: (n: Nat) -> n = n -> Nat -> Nat): Nat := f 5 rfl 6
+def appProof (f: (n: Nat) -> n = n -> Nat -> Nat): Nat := f 5 byComputing 6
 def appMid (f: Nat -> Type -> Nat -> Nat): Nat := f 4 Nat 2
 
 type Box = { run: (n: Nat) -> n = n -> Nat }
@@ -604,9 +604,9 @@ def main () : {IO} () :=
   IO.print (Nat.toText (app (a => 8)))
   IO.print (Nat.toText (app2 (a n => n + 3)))
   IO.print (Nat.toText (app3 (pick Nat)))
-  IO.print (Nat.toText (app3 (withProof 4 rfl)))
-  IO.print (Nat.toText (({ run = proofOnly }: Box).run 9 rfl))
-  IO.print (Nat.toText (List.sum (List.map [proofOnly, proofOnly] (f => f 2 rfl))))
+  IO.print (Nat.toText (app3 (withProof 4 byComputing)))
+  IO.print (Nat.toText (({ run = proofOnly }: Box).run 9 byComputing))
+  IO.print (Nat.toText (List.sum (List.map [proofOnly, proofOnly] (f => f 2 byComputing))))
   IO.print (Nat.toText (app2 (tag2 (1 + 1) (2 + 1))))
 "#,
     );

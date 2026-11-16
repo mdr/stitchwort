@@ -104,19 +104,19 @@ fn a_theorem_with_explicit_parameters_gets_forall() {
     // D3472: written before the first parameter, after the name when the
     // parameters start on the next line, and not at all where only implicit
     // parameters are (or a `def`, or none).
-    let text = "theorem a (n: Nat): n = n := rfl\n\n\
-                theorem b [x: Bool] (n: Nat): n = n := rfl\n\n\
-                theorem c\n  (n: Nat): n = n := rfl\n\n\
-                theorem d [x: Bool]: x = x := rfl\n\n\
+    let text = "theorem a (n: Nat): n = n := byComputing\n\n\
+                theorem b [x: Bool] (n: Nat): n = n := byComputing\n\n\
+                theorem c\n  (n: Nat): n = n := byComputing\n\n\
+                theorem d [x: Bool]: x = x := byComputing\n\n\
                 theorem e: True := trivial\n\n\
-                theorem f ∀ (n: Nat): n = n := rfl\n\n\
+                theorem f ∀ (n: Nat): n = n := byComputing\n\n\
                 def g (n: Nat): Nat := n\n";
-    let want = "theorem a ∀ (n: Nat): n = n := rfl\n\n\
-                theorem b ∀ [x: Bool] (n: Nat): n = n := rfl\n\n\
-                theorem c ∀ (n: Nat): n = n := rfl\n\n\
-                theorem d [x: Bool]: x = x := rfl\n\n\
+    let want = "theorem a ∀ (n: Nat): n = n := byComputing\n\n\
+                theorem b ∀ [x: Bool] (n: Nat): n = n := byComputing\n\n\
+                theorem c ∀ (n: Nat): n = n := byComputing\n\n\
+                theorem d [x: Bool]: x = x := byComputing\n\n\
                 theorem e: True := trivial\n\n\
-                theorem f ∀ (n: Nat): n = n := rfl\n\n\
+                theorem f ∀ (n: Nat): n = n := byComputing\n\n\
                 def g (n: Nat): Nat := n\n";
     let once = format(text).unwrap();
     assert_eq!(once, want);
@@ -156,7 +156,7 @@ fn shapes_the_rules_do_not_expect_are_syntax_errors() {
     for text in [
         "def a: Nat := [1,,2]\n",
         "def a: Nat := { r | , }\n",
-        "def a: Nat := rewrite a,, b in x\n",
+        "def a: Nat := rewrite a,, b then x\n",
         "def a: Nat := if c then a\n",
         "def a: Nat := if c then a else\n",
         "type T = | A | | B\n",

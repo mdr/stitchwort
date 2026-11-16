@@ -12,16 +12,16 @@ def ann: Person := { name = "Ann" }
 
 def applyChecked (f: a → Text) (same: f = f) (x: a): Text := f x
 
-def name: Text := applyChecked (p => p.name) rfl ann
+def name: Text := applyChecked (p => p.name) byComputing ann
 
 test "the lambda is checked after `ann`" := name == "Ann"
 
 theorem memMapElim ∀ (f: a → b) (y: b) (xs: List a) (member: y ∈ xs.map f): Exists a (x => (x ∈ xs) ∧ (f x = y)) :=
   match xs, member with
-    | [], member => Void.exfalso member
-    | [x, ..rest], Inl here => Witness x (Both (Inl rfl) here)
-    | [x, ..rest], Inr later => Exists.elim (memMapElim f y rest later) (found both =>
-      Witness found (Both (Inr (And.left both)) (And.right both)))
+    | [], member => member.impossible
+    | [x, ..rest], Inl here => Witness x (Both (Inl byComputing) here)
+    | [x, ..rest], Inr later =>
+      Exists.elim (memMapElim f y rest later) (found both => Witness found (Both (Inr both.left) both.right))
 
 theorem namedSomewhere ∀ (pairs: List (Person, Nat)) (target: Text)
     (listed: target ∈ pairs.map (e => e.fst.name)):

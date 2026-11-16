@@ -11,8 +11,8 @@
 -- run: unbox { value = [1, 2, 3] }
 -- run: sorted [1, 2, 2, 5]
 -- run: sorted [2, 1]
--- run: smallest { items = [1, 4, 9], ok = rfl }
--- run: total { items = [1, 2, 3], size = 3, ok = rfl }
+-- run: smallest { items = [1, 4, 9], ok = byComputing }
+-- run: total { items = [1, 2, 3], size = 3, ok = byComputing }
 -- run: team { lead = { name = "Ada", age = 36 }, size = 4 }
 
 import Std (Bool, List, Nat)

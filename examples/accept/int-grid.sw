@@ -26,11 +26,11 @@ test "sample ends at (-2, -2)" := walk origin sample == { x = -2, y = -2 }
 test "sample is 4 away" := distance (walk origin sample) == 4
 test "going back returns to the origin" := walk origin [South, West, North, East] == origin
 
-theorem westOfOrigin: (move origin West).x = -1 := rfl
+theorem westOfOrigin: (move origin West).x = -1 := byComputing
 
-theorem southOfOrigin: (move origin South).y = -1 := rfl
+theorem southOfOrigin: (move origin South).y = -1 := byComputing
 
-theorem farCorner: distance { x = -3, y = 4 } = 7 := rfl
+theorem farCorner: distance { x = -3, y = 4 } = 7 := byComputing
 
 -- A torus: a 10 by 5 board where walking off one edge comes back on the
 -- opposite one. The board is `Nat` coordinates with their bounds as proofs.

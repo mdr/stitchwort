@@ -17,13 +17,13 @@ def beats: Move -> Move -> Bool
 theorem rockBeatsOnlyScissors ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs, h with
   | Rock, ()
   | Paper, ()
-  | Scissors, _ => rfl
+  | Scissors, _ => byComputing
 
 -- The same as equations.
 theorem rockBeatsOnlyScissorsArms ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs, h with
   | Rock, ()
   | Paper, ()
-  | Scissors, _ => rfl
+  | Scissors, _ => byComputing
 
 -- One scrutinee, and a result that is data.
 def fromImpossible (h: Rock = Paper): Nat := match h with | ()

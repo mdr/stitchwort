@@ -24,7 +24,7 @@
 //! `check::check_if_in`), or a twin.
 //!
 //! Stage 2: a `match` in the body, lifted to `H` (`f.%step.%match1`), is
-//! passed its equation `e = s` (`rfl`), named or not, when an arm calls the
+//! passed its equation `e = s` (`byComputing`), named or not, when an arm calls the
 //! definition (`matching.rs`, [`super::FOUND`]). Such an `H` gets a twin `H'`
 //! (`H.%plain`), made the same way as `f.%plain` from its own case tree, and
 //! without the parameters its plain body doesn't need: the equation, and
@@ -229,7 +229,7 @@ fn unadapt(t: &Term, k: usize) -> Option<Term> {
 
 /// A lifted `match` whose arms call `%rec`, and its twin for `f.%plain`:
 /// the same with `%rec` taking no proof, and without the parameters only
-/// proofs used (the `match`'s equation `e = s`, passed `rfl`, and any fact
+/// proofs used (the `match`'s equation `e = s`, passed `byComputing`, and any fact
 /// only a recursive call's proof used).
 struct Twin {
     twin: DefId,

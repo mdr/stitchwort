@@ -28,7 +28,8 @@ theorem repairDone ∀ (bits budget: Nat) (gates: List Gate) (swaps result: List
     Repaired bits budget gates swaps result :=
   match adder: isAdder gates bits with
     | True =>
-      Witness [] (Both (rewrite List.appendNil swaps in Eq.sym (Option.someInjective found)) (Both (omega) adder))
+      Witness []
+        (Both (rewrite List.appendNil swaps then Eq.flipped (Option.someInjective found)) (Both (arithmetic) adder))
 
 theorem repairSound ∀ (bits budget: Nat) (gates: List Gate) (swaps result: List (Wire, Wire))
     (found: repair budget bits gates swaps = Some result):
@@ -51,7 +52,9 @@ theorem repairSound ∀ (bits budget: Nat) (gates: List Gate) (swaps result: Lis
                 | Witness more (Both isResult (Both short adder)) =>
                   Witness
                     [fix, ..more]
-                    (Both (rewrite isResult, List.appendAssoc swaps [fix] more in rfl) (Both (omega) adder))
+                    (Both
+                      (rewrite isResult, List.appendAssoc swaps [fix] more then byComputing)
+                      (Both (arithmetic) adder))
 
 --| Part 2, sound for every device: the answer names at most four swaps,
 --| which make the device's gates add any two numbers as wide as its x
@@ -66,7 +69,7 @@ theorem part2Sound ∀ (device: Device) (answer: Text)
       | Witness more (Both isSwaps (Both short adder)) =>
         Witness more
           (Both
-            (Eq.trans (Eq.sym named) (Eq.cong swapNames isSwaps))
+            (Eq.trans named.flipped (Eq.cong swapNames isSwaps))
             (Both short (adderAdds (applySwaps device.gates more) device.inputBits adder))))
 
 --| The names of the x pairs are x wires, and of the y pairs y wires.
@@ -76,7 +79,7 @@ theorem xNamed ∀ (bits x: Nat) (wire: Wire)
   match List.memMapElim .fst wire _ member with
     | Witness pair (Both inPairs isWire) =>
       match List.memMapElim (k => (X k, Nat.testBit x k)) pair _ inPairs with
-        | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair in rfl
+        | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair then byComputing
 
 theorem yNamed ∀ (bits y: Nat) (wire: Wire)
     (member: wire ∈ ((List.range 0 bits).map (k => (Y k, y.testBit k))).map .fst):
@@ -84,7 +87,7 @@ theorem yNamed ∀ (bits y: Nat) (wire: Wire)
   match List.memMapElim .fst wire _ member with
     | Witness pair (Both inPairs isWire) =>
       match List.memMapElim (k => (Y k, Nat.testBit y k)) pair _ inPairs with
-        | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair in rfl
+        | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair then byComputing
 
 theorem notXAndY ∀ (wire: Wire) (isX: wire.xBit.isSome = True) (isY: wire.yBit.isSome = True): Void := match wire with
   | Other name => Bool.falseNotTrue isX
@@ -103,11 +106,11 @@ theorem wellFormedInputs ∀ (bits x y: Nat) (gates: List Gate)
   let xPairs := (List.range 0 bits).map (k => (X k, Nat.testBit x k))
   let yPairs := (List.range 0 bits).map (k => (Y k, Nat.testBit y k))
   let xDistinct: List.Distinct (xPairs.map .fst) :=
-    rewrite List.mapMap (List.range 0 bits) .fst (k => (X k, Nat.testBit x k)) in
+    rewrite List.mapMap (List.range 0 bits) .fst (k => (X k, Nat.testBit x k)) then
       List.distinctMap (List.range 0 bits) (List.distinctRangeFrom bits 0) _ (i j same =>
         Option.someInjective (Eq.cong Wire.xBit same))
   let yDistinct: List.Distinct (yPairs.map .fst) :=
-    rewrite List.mapMap (List.range 0 bits) .fst (k => (Y k, Nat.testBit y k)) in
+    rewrite List.mapMap (List.range 0 bits) .fst (k => (Y k, Nat.testBit y k)) then
       List.distinctMap (List.range 0 bits) (List.distinctRangeFrom bits 0) _ (i j same =>
         Option.someInjective (Eq.cong Wire.yBit same))
   let disjoint: List.Disjoint (xPairs.map .fst) (yPairs.map .fst) :=
@@ -120,9 +123,9 @@ theorem wellFormedInputs ∀ (bits x y: Nat) (gates: List Gate)
         match List.memAppend gate.output
           (xPairs.map .fst)
           (yPairs.map .fst)
-          (rewrite <- List.mapAppend xPairs yPairs .fst in named) with
-          | Inl inX => rewrite xNamed bits x gate.output inX in rfl
-          | Inr inY => rewrite yNamed bits y gate.output inY in Bool.orTrue _
+          (rewrite <- List.mapAppend xPairs yPairs .fst then named) with
+          | Inl inX => rewrite xNamed bits x gate.output inX then byComputing
+          | Inr inY => rewrite yNamed bits y gate.output inY then Bool.orTrue _
       notInputOutput gate.output notInput input))
 
 --| Part 2, end to end: the device with the swaps the answer names, given

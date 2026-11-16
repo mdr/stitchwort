@@ -18,8 +18,8 @@ theorem stopsTakeWhile ∀ (passes: Char → Bool) (rest: List Char)
     (stops: StopsAt passes rest):
     rest.takeWhile passes = [] :=
   match rest, stops with
-    | [], _ => rfl
-    | [char, ..later], fails => rewrite fails in rfl
+    | [], _ => byComputing
+    | [char, ..later], fails => rewrite fails then byComputing
 
 --| `read` is one `lexeme` as the lexer takes it before `rest`: its
 --| characters are that lexeme's, and `rest` doesn't continue it. A stray
@@ -62,32 +62,36 @@ theorem standsRuns ∀ (lexeme: Lexeme) (read rest: List Char)
     Parse.Runs (() => lexemeAt (read ++ rest)) read rest lexeme :=
   match lexeme, stands with
     | Spaces, Witness others (Both same (Both spaces stops)) =>
-      rewrite same in runsSpacesLexeme others rest spaces (stopsTakeWhile _ rest stops)
-    | LineBreak, same => rewrite same in runsLineBreakLexeme rest
+      rewrite same then runsSpacesLexeme others rest spaces (stopsTakeWhile _ rest stops)
+    | LineBreak, same => rewrite same then runsLineBreakLexeme rest
     | CommentLexeme, Witness others (Both same (Both oneLine stops)) =>
-      rewrite same in runsCommentLexeme others rest oneLine (stopsTakeWhile _ rest stops)
+      rewrite same then runsCommentLexeme others rest oneLine (stopsTakeWhile _ rest stops)
     | WordLexeme, Witness first (Witness others (Both same (Both starts (Both word stops)))) =>
-      rewrite same in runsWordLexeme first others rest starts word (stopsTakeWhile _ rest stops)
+      rewrite same then runsWordLexeme first others rest starts word (stopsTakeWhile _ rest stops)
     | DigitsLexeme, Witness first (Witness others (Both same (Both digit (Both digits stops)))) =>
-      rewrite same in runsDigitsLexeme first others rest digit digits (stopsTakeWhile _ rest stops)
-    | StringLexeme, Witness segments (Both same closes) => rewrite same in runsStringLexeme segments rest closes
-    | SignLexeme, Witness mark (Both same notDefines) => rewrite same in runsPunctuationLexeme mark rest notDefines
+      rewrite same then runsDigitsLexeme first others rest digit digits (stopsTakeWhile _ rest stops)
+    | StringLexeme, Witness segments (Both same closes) => rewrite same then runsStringLexeme segments rest closes
+    | SignLexeme, Witness mark (Both same notDefines) => rewrite same then runsPunctuationLexeme mark rest notDefines
     | SymbolsLexeme, Witness first (Witness others (Both same (Both starts isRun))) =>
       runsSymbolsLexeme read rest starts isRun
-    | StrayLexeme, never => Void.exfalso (Bool.falseNotTrue never)
+    | StrayLexeme, never =>
+      match never with
+        | ()
 
 --| A piece that stands has at least one character.
 theorem standsNonEmpty ∀ (lexeme: Lexeme) (read rest: List Char) (stands: Stands lexeme read rest): read ≠ [] :=
   match lexeme, stands with
-    | Spaces, Witness others (Both same _) => rewrite same in (empty => cases)
-    | LineBreak, same => rewrite same in (empty => cases)
-    | CommentLexeme, Witness others (Both same _) => rewrite same in (empty => cases)
-    | WordLexeme, Witness first (Witness others (Both same _)) => rewrite same in (empty => cases)
-    | DigitsLexeme, Witness first (Witness others (Both same _)) => rewrite same in (empty => cases)
-    | StringLexeme, Witness segments (Both same _) => rewrite same in (empty => cases)
-    | SignLexeme, Witness mark (Both same _) => rewrite same in (empty => cases)
-    | SymbolsLexeme, Witness first (Witness others (Both same _)) => rewrite same in (empty => cases)
-    | StrayLexeme, never => Void.exfalso (Bool.falseNotTrue never)
+    | Spaces, Witness others (Both same _) => rewrite same then (empty => cases)
+    | LineBreak, same => rewrite same then (empty => cases)
+    | CommentLexeme, Witness others (Both same _) => rewrite same then (empty => cases)
+    | WordLexeme, Witness first (Witness others (Both same _)) => rewrite same then (empty => cases)
+    | DigitsLexeme, Witness first (Witness others (Both same _)) => rewrite same then (empty => cases)
+    | StringLexeme, Witness segments (Both same _) => rewrite same then (empty => cases)
+    | SignLexeme, Witness mark (Both same _) => rewrite same then (empty => cases)
+    | SymbolsLexeme, Witness first (Witness others (Both same _)) => rewrite same then (empty => cases)
+    | StrayLexeme, never =>
+      match never with
+        | ()
 
 --| Every piece stands before the pieces after it.
 def StepsStand: (steps: List (List Char, Lexeme)) → Prop
@@ -98,7 +102,7 @@ def StepsStand: (steps: List (List Char, Lexeme)) → Prop
 --| lexeme by lexeme.
 theorem standingRun ∀ (steps: List (List Char, Lexeme)) (stand: StepsStand steps): Parse.LexemesRun lexemeAt steps :=
   match steps, stand with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [(read, lexeme), ..later], Both first others => (
       (standsNonEmpty lexeme read (Parse.joinReads later) first),
       (standsRuns lexeme read (Parse.joinReads later) first),
@@ -122,18 +126,18 @@ theorem standingLex ∀ (source: Text) (steps: List (List Char, Lexeme))
 --| character.
 theorem operatorStops ∀ (rest: List Char) (stops: StopsAt isOperatorChar rest): operatorNext rest = False :=
   match rest, stops with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [char, ..later], fails =>
       operatorNext.eq3
         [char, ..later]
         (tail same =>
           let head: char = '-' := Eq.cong (chars => chars.headOr ' ') same
-          let minus: isOperatorChar '-' = False := rewrite <- head in fails
-          Bool.falseNotTrue (Eq.sym minus))
+          let minus: isOperatorChar '-' = False := rewrite <- head then fails
+          Bool.falseNotTrue minus.flipped)
         (other tail same holds =>
           let head: char = other := Eq.cong (chars => chars.headOr ' ') same
-          let passes: isOperatorChar char = True := rewrite head in holds
-          Bool.falseNotTrue (Eq.trans (Eq.sym fails) passes))
+          let passes: isOperatorChar char = True := rewrite head then holds
+          Bool.falseNotTrue (Eq.trans fails.flipped passes))
 
 --| The last character of an operator run before text that starts with no
 --| operator character: the run goes on to it (no comment starts there).
@@ -148,8 +152,8 @@ theorem lastGoesOn ∀ (char: Char) (rest: List Char)
         [next, ..later]
         (tail isMinus same =>
           let second: next = '-' := Eq.cong ((chars: List Char) => chars.headOr ' ') same
-          let minus: isOperatorChar '-' = False := rewrite <- second in fails
-          Bool.falseNotTrue (Eq.sym minus))
+          let minus: isOperatorChar '-' = False := rewrite <- second then fails
+          Bool.falseNotTrue minus.flipped)
         holds
 
 --| A `-` before text that starts with no operator character starts an
@@ -158,19 +162,19 @@ theorem minusStarts ∀ (rest: List Char)
     (stops: StopsAt isOperatorChar rest):
     lexemeStart (['-'] ++ rest) = Some SymbolsLexeme :=
   match rest, stops with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [next, ..later], fails =>
       lexemeStart.eq8 '-'
         [next, ..later]
         (notAmong '-' (same => cases) (same => cases) (same => cases))
         (tail isMinus same =>
           let head: next = '-' := Eq.cong ((chars: List Char) => chars.headOr ' ') same
-          let minus: isOperatorChar '-' = False := rewrite <- head in fails
-          Bool.falseNotTrue (Eq.sym minus))
-        rfl
-        rfl
-        rfl
-        rfl
+          let minus: isOperatorChar '-' = False := rewrite <- head then fails
+          Bool.falseNotTrue minus.flipped)
+        byComputing
+        byComputing
+        byComputing
+        byComputing
 
 --| One operator character stands before text that starts with none.
 theorem oneStands ∀ (char: Char) (rest: List Char)
@@ -178,7 +182,7 @@ theorem oneStands ∀ (char: Char) (rest: List Char)
     (holds: isOperatorChar char = True)
     (stops: StopsAt isOperatorChar rest):
     Stands SymbolsLexeme [char] rest :=
-  (char, [], rfl, starts, (lastGoesOn char rest holds stops), (operatorStops rest stops))
+  (char, [], byComputing, starts, (lastGoesOn char rest holds stops), (operatorStops rest stops))
 
 --| Two operator characters stand before text that starts with none, if
 --| they aren't a comment's `--`.
@@ -188,7 +192,7 @@ theorem twoStand ∀ (first second: Char) (rest: List Char)
     (holds: isOperatorChar second = True)
     (stops: StopsAt isOperatorChar rest):
     Stands SymbolsLexeme [first, second] rest :=
-  (first, [second], rfl, starts, goesOn, (lastGoesOn second rest holds stops), (operatorStops rest stops))
+  (first, [second], byComputing, starts, goesOn, (lastGoesOn second rest holds stops), (operatorStops rest stops))
 
 --| Every operator, as it is spelled, stands before text that starts with
 --| no operator character: a space, a name, a number, a bracket. Before a
@@ -197,37 +201,37 @@ theorem operatorStands ∀ (operator: Operator) (rest: List Char)
     (stops: StopsAt isOperatorChar rest):
     Stands SymbolsLexeme operator.spelling.toList rest :=
   match operator with
-    | Or => twoStand '|' '|' rest rfl rfl rfl stops
-    | And => twoStand '&' '&' rest rfl rfl rfl stops
-    | EqualTo => twoStand '=' '=' rest rfl rfl rfl stops
-    | NotEqual => twoStand '!' '=' rest rfl rfl rfl stops
-    | LessThan => oneStands '<' rest rfl rfl stops
-    | LessEqual => twoStand '<' '=' rest rfl rfl rfl stops
-    | Append => twoStand '+' '+' rest rfl rfl rfl stops
-    | Plus => oneStands '+' rest rfl rfl stops
-    | Minus => oneStands '-' rest (minusStarts rest stops) rfl stops
-    | Times => oneStands '*' rest rfl rfl stops
-    | Divide => oneStands '/' rest rfl rfl stops
-    | Remainder => oneStands '%' rest rfl rfl stops
+    | Or => twoStand '|' '|' rest byComputing byComputing byComputing stops
+    | And => twoStand '&' '&' rest byComputing byComputing byComputing stops
+    | EqualTo => twoStand '=' '=' rest byComputing byComputing byComputing stops
+    | NotEqual => twoStand '!' '=' rest byComputing byComputing byComputing stops
+    | LessThan => oneStands '<' rest byComputing byComputing stops
+    | LessEqual => twoStand '<' '=' rest byComputing byComputing byComputing stops
+    | Append => twoStand '+' '+' rest byComputing byComputing byComputing stops
+    | Plus => oneStands '+' rest byComputing byComputing stops
+    | Minus => oneStands '-' rest (minusStarts rest stops) byComputing stops
+    | Times => oneStands '*' rest byComputing byComputing stops
+    | Divide => oneStands '/' rest byComputing byComputing stops
+    | Remainder => oneStands '%' rest byComputing byComputing stops
 
 --| The `=` of a declaration or `let` stands before text that starts with
 --| no operator character.
 theorem definesStands ∀ (rest: List Char) (stops: StopsAt isOperatorChar rest): Stands SymbolsLexeme ['='] rest :=
-  oneStands '=' rest rfl rfl stops
+  oneStands '=' rest byComputing byComputing stops
 
 --| A keyword stands before text that starts with no word character.
 theorem keywordStands ∀ (keyword: Keyword) (rest: List Char)
     (stops: StopsAt isWordChar rest):
     Stands WordLexeme keyword.spelling.toList rest :=
   match keyword with
-    | FnKeyword => ('f', ['n'], rfl, rfl, rfl, stops)
-    | LetKeyword => ('l', ['e', 't'], rfl, rfl, rfl, stops)
-    | IfKeyword => ('i', ['f'], rfl, rfl, rfl, stops)
-    | ThenKeyword => ('t', ['h', 'e', 'n'], rfl, rfl, rfl, stops)
-    | ElseKeyword => ('e', ['l', 's', 'e'], rfl, rfl, rfl, stops)
+    | FnKeyword => ('f', ['n'], byComputing, byComputing, byComputing, stops)
+    | LetKeyword => ('l', ['e', 't'], byComputing, byComputing, byComputing, stops)
+    | IfKeyword => ('i', ['f'], byComputing, byComputing, byComputing, stops)
+    | ThenKeyword => ('t', ['h', 'e', 'n'], byComputing, byComputing, byComputing, stops)
+    | ElseKeyword => ('e', ['l', 's', 'e'], byComputing, byComputing, byComputing, stops)
 
 --| Brackets, commas and dots stand before anything.
 theorem signStands ∀ (mark: Punctuation) (rest: List Char)
     (notDefines: mark ≠ Defines):
     Stands SignLexeme [signChar mark] rest :=
-  (mark, rfl, notDefines)
+  (mark, byComputing, notDefines)

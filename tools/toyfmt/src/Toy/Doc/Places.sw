@@ -410,9 +410,9 @@ theorem optionLays ∀ (chosen: Doc) (options: List Doc) (indent: Nat) (place: P
     (lays: OptionsLay options indent place trace next):
     Lays chosen indent place trace next :=
   match options, isOption, lays with
-    | [], picked, lays => rewrite picked in lays
-    | [last], picked, lays => rewrite picked in lays
-    | [option, second, ..others], Inl picked, Both first _ => rewrite picked in first
+    | [], picked, lays => rewrite picked then lays
+    | [last], picked, lays => rewrite picked then lays
+    | [option, second, ..others], Inl picked, Both first _ => rewrite picked then first
     | [option, second, ..others], Inr later, Both _ rest =>
       optionLays chosen [second, ..others] indent place trace next later rest
 
@@ -429,11 +429,12 @@ theorem headOrLays ∀ (options: List Doc) (indent: Nat) (place: Place)
 
 theorem gapNoBreak ∀ (piece: Text) (gap: piece.all (char => char == ' ') = True): (piece == "\n") = False :=
   match isBreak: piece == "\n" with
-    | False => rfl
+    | False => byComputing
     | True =>
       let same: piece = "\n" := DecEq.sound isBreak
-      let never: "\n".all (char => char == ' ') = True := rewrite <- same in gap
-      Void.exfalso (Bool.falseNotTrue never)
+      let never: "\n".all (char => char == ' ') = True := rewrite <- same then gap
+      match never with
+        | ()
 
 theorem gapLayout ∀ (piece: Text) (gap: piece.all (char => char == ' ') = True): isLayout piece = True :=
   Eq.cong ((spaces: Bool) => spaces || piece == "\n") gap
@@ -443,86 +444,96 @@ theorem eventsWord ∀ (piece: Text) (earlier: List Text)
     eventsOf [piece, ..earlier]
       = eventsOf earlier ++ [{ word = piece, start = if lineBlank earlier then Some (lineWidth earlier) else None }] :=
   match layout: isLayout piece, word with
-    | False, _ => rfl
-    | True, never => Void.exfalso (Bool.falseNotTrue (Eq.sym never))
+    | False, _ => byComputing
+    | True, never =>
+      match never with
+        | ()
 
 --| Spaces are no event.
 theorem eventsGap ∀ (piece: Text) (earlier: List Text)
     (gap: piece.all (char => char == ' ') = True):
     eventsOf [piece, ..earlier] = eventsOf earlier :=
-  rewrite gapLayout piece gap, gapNoBreak piece gap in rfl
+  rewrite gapLayout piece gap, gapNoBreak piece gap then byComputing
 
 --| The line break that ends a line of words is no event.
 theorem eventsBreak ∀ (earlier: List Text)
     (words: lineBlank earlier = False):
     eventsOf ["\n", ..earlier] = eventsOf earlier :=
-  rewrite words in rfl
+  rewrite words then byComputing
 
 --| A line break on a line with nothing but spaces is a blank line.
 theorem eventsBlank ∀ (earlier: List Text)
     (blank: lineBlank earlier = True):
     eventsOf ["\n", ..earlier] = eventsOf earlier ++ [Event.blankLine] :=
-  rewrite blank in rfl
+  rewrite blank then byComputing
 
 theorem blankWord ∀ (piece: Text) (earlier: List Text)
     (word: isLayout piece = False):
     lineBlank [piece, ..earlier] = False :=
   match gap: piece.all (char => char == ' '), word with
-    | True, never => Void.exfalso (Bool.falseNotTrue (Eq.sym never))
+    | True, never => (Bool.falseNotTrue never.flipped).impossible
     | False, word => word
 
 theorem blankGap ∀ (piece: Text) (earlier: List Text)
     (gap: piece.all (char => char == ' ') = True):
     lineBlank [piece, ..earlier] = lineBlank earlier :=
   match spaces: piece.all (char => char == ' '), gap with
-    | True, _ => rfl
-    | False, never => Void.exfalso (Bool.falseNotTrue never)
+    | True, _ => byComputing
+    | False, never =>
+      match never with
+        | ()
 
 theorem widthPiece ∀ (piece: Text) (earlier: List Text)
     (oneLine: (piece == "\n") = False):
     lineWidth [piece, ..earlier] = piece.length + lineWidth earlier :=
   match isBreak: piece == "\n", oneLine with
-    | False, _ => rfl
-    | True, never => Void.exfalso (Bool.falseNotTrue (Eq.sym never))
+    | False, _ => byComputing
+    | True, never =>
+      match never with
+        | ()
 
 theorem trimKeep ∀ (last: Text) (earlier: List Text)
     (word: last.all (char => char == ' ') = False):
     trimSpaces [last, ..earlier] = [last, ..earlier] :=
   match spaces: last.all (char => char == ' '), word with
-    | False, _ => rfl
-    | True, never => Void.exfalso (Bool.falseNotTrue (Eq.sym never))
+    | False, _ => byComputing
+    | True, never =>
+      match never with
+        | ()
 
 theorem trimDrop ∀ (last: Text) (earlier: List Text)
     (gap: last.all (char => char == ' ') = True):
     trimSpaces [last, ..earlier] = trimSpaces earlier :=
   match spaces: last.all (char => char == ' '), gap with
-    | True, _ => rfl
-    | False, never => Void.exfalso (Bool.falseNotTrue never)
+    | True, _ => byComputing
+    | False, never =>
+      match never with
+        | ()
 
 theorem trimEventsBy ∀ (last: Text) (earlier: List Text) (spaces: Bool)
     (is: last.all (char => char == ' ') = spaces)
     (rest: eventsOf (trimSpaces earlier) = eventsOf earlier):
     eventsOf (trimSpaces [last, ..earlier]) = eventsOf [last, ..earlier] :=
   match spaces, is with
-    | True, gap => rewrite trimDrop last earlier gap in Eq.trans rest (Eq.sym (eventsGap last earlier gap))
-    | False, word => rewrite trimKeep last earlier word in rfl
+    | True, gap => rewrite trimDrop last earlier gap then Eq.trans rest (eventsGap last earlier gap).flipped
+    | False, word => rewrite trimKeep last earlier word then byComputing
 
 --| The spaces a line break drops are no words.
 theorem trimEvents ∀ (out: List Text): eventsOf (trimSpaces out) = eventsOf out := match out with
-  | [] => rfl
-  | [last, ..earlier] => trimEventsBy last earlier _ rfl (trimEvents earlier)
+  | [] => byComputing
+  | [last, ..earlier] => trimEventsBy last earlier _ byComputing (trimEvents earlier)
 
 theorem trimBlankBy ∀ (last: Text) (earlier: List Text) (spaces: Bool)
     (is: last.all (char => char == ' ') = spaces)
     (rest: lineBlank (trimSpaces earlier) = lineBlank earlier):
     lineBlank (trimSpaces [last, ..earlier]) = lineBlank [last, ..earlier] :=
   match spaces, is with
-    | True, gap => rewrite trimDrop last earlier gap in Eq.trans rest (Eq.sym (blankGap last earlier gap))
-    | False, word => rewrite trimKeep last earlier word in rfl
+    | True, gap => rewrite trimDrop last earlier gap then Eq.trans rest (blankGap last earlier gap).flipped
+    | False, word => rewrite trimKeep last earlier word then byComputing
 
 theorem trimBlank ∀ (out: List Text): lineBlank (trimSpaces out) = lineBlank out := match out with
-  | [] => rfl
-  | [last, ..earlier] => trimBlankBy last earlier _ rfl (trimBlank earlier)
+  | [] => byComputing
+  | [last, ..earlier] => trimBlankBy last earlier _ byComputing (trimBlank earlier)
 
 -- The printer's side: where it is agrees with its output.
 
@@ -592,43 +603,43 @@ theorem putStart ∀ (printer: Printer) (text: Text) (width at: Nat) (trace: Lis
         blank, empty, owes, indent, same) =>
       match owed, owes with
         | None, owes => (
-          rfl,
+          byComputing,
           none,
           (blankWord text out word),
-          rfl,
+          byComputing,
           indent,
-          (rewrite <- owes, eventsWord text out word, blank, empty, same in rfl),
-          rfl
+          (rewrite <- owes, eventsWord text out word, blank, empty, same then byComputing),
+          byComputing
         )
         | Some Zero, owes => (
-          rfl,
+          byComputing,
           none,
           (blankWord text out word),
-          rfl,
+          byComputing,
           indent,
-          (rewrite <- owes, eventsWord text out word, blank, empty, same in rfl),
-          rfl
+          (rewrite <- owes, eventsWord text out word, blank, empty, same then byComputing),
+          byComputing
         )
         | Some (Succ less), owes =>
           let stillBlank: lineBlank [" ".repeat (Succ less), ..out] = True :=
             Eq.trans (blankGap (" ".repeat (Succ less)) out (indentSpaces (Succ less))) blank
           let sum := widthPiece (" ".repeat (Succ less)) out (gapNoBreak _ (indentSpaces (Succ less)))
           let length := indentLength (Succ less)
-          let wide: lineWidth [" ".repeat (Succ less), ..out] = Succ less := omega
+          let wide: lineWidth [" ".repeat (Succ less), ..out] = Succ less := arithmetic
           (
-            rfl,
+            byComputing,
             none,
             (blankWord text [" ".repeat (Succ less), ..out] word),
-            rfl,
+            byComputing,
             indent,
             (rewrite <- owes,
                 eventsWord text [" ".repeat (Succ less), ..out] word,
                 eventsGap (" ".repeat (Succ less)) out (indentSpaces (Succ less)),
                 stillBlank,
                 wide,
-                same in
-              rfl),
-            rfl
+                same then
+              byComputing),
+            byComputing
           )
 
 --| A word put after words on its line doesn't start the line.
@@ -640,15 +651,15 @@ theorem putMid ∀ (printer: Printer) (text: Text) (width at: Nat) (trace: List 
     | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, (start, none,
         blank, owes, indent, same, _) =>
       match owed, owes with
-        | Some value, never => Void.exfalso (someNotNone value never)
+        | Some value, never => (someNotNone value never).impossible
         | None, _ => (
-          rfl,
+          byComputing,
           none,
           (blankWord text out word),
-          rfl,
+          byComputing,
           indent,
-          (rewrite eventsWord text out word, blank, same in rfl),
-          rfl
+          (rewrite eventsWord text out word, blank, same then byComputing),
+          byComputing
         )
 
 --| Spaces put after words change nothing but the width.
@@ -660,15 +671,15 @@ theorem putSpaces ∀ (printer: Printer) (text: Text) (width at: Nat) (trace: Li
     | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, (start, none,
         blank, owes, indent, same, _) =>
       match owed, owes with
-        | Some value, never => Void.exfalso (someNotNone value never)
+        | Some value, never => (someNotNone value never).impossible
         | None, _ => (
-          rfl,
+          byComputing,
           none,
           (Eq.trans (blankGap text out gap) blank),
-          rfl,
+          byComputing,
           indent,
-          (Eq.trans same (Eq.sym (eventsGap text out gap))),
-          rfl
+          (Eq.trans same (eventsGap text out gap).flipped),
+          byComputing
         )
 
 --| After the line break that ends a line of words the printer is at the
@@ -682,28 +693,38 @@ theorem newlineBroken ∀ (printer: Printer) (indent: Nat) (place: Place) (trace
     | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, Mid
           at, Both start (Both none (Both blank (Both owes (Both same (Both events zero))))), _ =>
       match suffixes, none with
-        | [first, ..more], never => Void.exfalso (consNotNil first more never)
+        | [first, ..more], never => (consNotNil first more never).impossible
         | [], _ =>
           let words: lineBlank (trimSpaces out) = False := Eq.trans (trimBlank out) blank
           (
-            rfl,
-            rfl,
-            rfl,
-            rfl,
-            rfl,
-            rfl,
-            (Eq.trans events (Eq.sym (Eq.trans (eventsBreak (trimSpaces out) words) (trimEvents out)))),
-            rfl,
+            byComputing,
+            byComputing,
+            byComputing,
+            byComputing,
+            byComputing,
+            byComputing,
+            (Eq.trans events (Eq.flipped (Eq.trans (eventsBreak (trimSpaces out) words) (trimEvents out)))),
+            byComputing,
             (Eq.cong ((count: Nat) => count + 1) zero)
           )
     | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, Held
           at, Both start (Both (Witness comment (Both one (Both word events))) (Both blank (Both owes same))), _ =>
       let written: eventsOf [comment, " ", ..trimSpaces out] = eventsOf out ++ [{ word = comment, start = None }] :=
-        rewrite eventsWord comment [" ", ..trimSpaces out] word, trimBlank out, blank, trimEvents out in rfl
+        rewrite eventsWord comment [" ", ..trimSpaces out] word, trimBlank out, blank, trimEvents out then byComputing
       let ended: eventsOf ["\n", comment, " ", ..trimSpaces out] = eventsOf [comment, " ", ..trimSpaces out] :=
         eventsBreak [comment, " ", ..trimSpaces out] (blankWord comment [" ", ..trimSpaces out] word)
-      rewrite one, start in
-        (rfl, rfl, rfl, rfl, rfl, rfl, (Eq.trans events (Eq.sym (Eq.trans ended written))), rfl, rfl)
+      rewrite one, start then
+        (
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          byComputing,
+          (Eq.trans events (Eq.trans ended written).flipped),
+          byComputing,
+          byComputing
+        )
 
 --| A place that allows a `Blank` is a line start.
 theorem brokenStart ∀ (printer: Printer) (at: Nat) (trace: List Event)
@@ -738,10 +759,10 @@ theorem agreesClear ∀ (printer: Printer) (place: Place) (trace: List Event)
         | Mid _ => True
         | Held _ => False) :=
   match place, agrees with
-    | AtStart at, Both _ (Both none _) => rewrite none in rfl
-    | Broken at, Both _ (Both none _) => rewrite none in rfl
-    | Mid at, Both _ (Both none _) => rewrite none in rfl
-    | Held at, Both _ (Both (Witness comment (Both one _)) _) => rewrite one in rfl
+    | AtStart at, Both _ (Both none _) => rewrite none then byComputing
+    | Broken at, Both _ (Both none _) => rewrite none then byComputing
+    | Mid at, Both _ (Both none _) => rewrite none then byComputing
+    | Held at, Both _ (Both (Witness comment (Both one _)) _) => rewrite one then byComputing
 
 theorem agreesStart ∀ (printer: Printer) (place: Place) (trace: List Event)
     (agrees: Agrees printer place trace):
@@ -763,7 +784,9 @@ theorem wordNotLayout ∀ (text: Text)
     isLayout text = False :=
   match gap: text.all (char => char == ' '), word with
     | False, _ => oneLine
-    | True, never => Void.exfalso (Bool.falseNotTrue (Eq.sym never))
+    | True, never =>
+      match never with
+        | ()
 
 theorem newlineStays ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat)
     (place: Place) (trace: List Event)
@@ -779,7 +802,7 @@ theorem breakStays ∀ (next: Place → List Event → Prop) (printer: Printer) 
     (mid: place.midLine = True) (after: next (AtStart (Nat.max indent (place.indent + 2))) trace):
     Stays next (printer.newline (printer.continuation indent)) :=
   let deeper: next (AtStart (Nat.max indent (printer.lineIndent + 2))) trace :=
-    rewrite agreesIndent printer place trace agrees in after
+    rewrite agreesIndent printer place trace agrees then after
   newlineStays next printer (printer.continuation indent) place trace agrees mid deeper
 
 theorem writeStart ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (text: Text)
@@ -792,7 +815,7 @@ theorem writeStart ∀ (next: Place → List Event → Prop) (printer: Printer) 
     | True, lays => ((AtStart at), trace, agrees, lays)
     | False, lays =>
       match spaces: text.all (char => char == ' '), lays with
-        | True, never => Void.exfalso (Bool.falseNotTrue never)
+        | True, never => (Bool.falseNotTrue never).impossible
         | False, Both oneLine lays =>
           match waiting: printer.suffixes.isEmpty, clear with
             | True, _ =>
@@ -833,7 +856,7 @@ theorem writeHeld ∀ (next: Place → List Event → Prop) (printer: Printer) (
           let deeper: next
             (Mid (Nat.max indent (printer.lineIndent + 2)))
             (trace ++ [{ word = text, start = Some (Nat.max indent (printer.lineIndent + 2)) }]) :=
-            rewrite agreesIndent printer (Held at) trace agrees in lays
+            rewrite agreesIndent printer (Held at) trace agrees then lays
           match waiting: printer.suffixes.isEmpty, waits with
             | False, _ => (
               (Mid (printer.continuation indent)),
@@ -844,7 +867,7 @@ theorem writeHeld ∀ (next: Place → List Event → Prop) (printer: Printer) (
                 width
                 (printer.continuation indent)
                 trace
-                (newlineAgrees printer (printer.continuation indent) (Held at) trace agrees rfl)
+                (newlineAgrees printer (printer.continuation indent) (Held at) trace agrees byComputing)
                 (wordNotLayout text spaces oneLine)),
               deeper
             )
@@ -859,7 +882,7 @@ theorem writeBroken ∀ (next: Place → List Event → Prop) (printer: Printer)
     | True, lays => ((Broken at), trace, agrees, lays)
     | False, lays =>
       match spaces: text.all (char => char == ' '), lays with
-        | True, never => Void.exfalso (Bool.falseNotTrue never)
+        | True, never => (Bool.falseNotTrue never).impossible
         | False, Both oneLine lays =>
           match waiting: printer.suffixes.isEmpty, clear with
             | True, _ => (
@@ -891,8 +914,8 @@ theorem sepBroken ∀ (next: Place → List Event → Prop) (indent: Nat) (place
     (lays: SepLays indent place trace next):
     next (AtStart indent) trace :=
   match place, lays with
-    | AtStart at, never => Void.exfalso (Bool.falseNotTrue never)
-    | Broken at, never => Void.exfalso (Bool.falseNotTrue never)
+    | AtStart at, never => (Bool.falseNotTrue never).impossible
+    | Broken at, never => (Bool.falseNotTrue never).impossible
     | Mid at, Both _ broken => broken
     | Held at, broken => broken
 
@@ -902,8 +925,8 @@ theorem sepMid ∀ (next: Place → List Event → Prop) (indent: Nat) (place: P
   match place, lays with
     | AtStart at, never => never
     | Broken at, never => never
-    | Mid at, _ => rfl
-    | Held at, _ => rfl
+    | Mid at, _ => byComputing
+    | Held at, _ => byComputing
 
 theorem softMid ∀ (next: Place → List Event → Prop) (indent: Nat) (place: Place) (trace: List Event)
     (lays: SoftLays indent place trace next):
@@ -911,8 +934,8 @@ theorem softMid ∀ (next: Place → List Event → Prop) (indent: Nat) (place: 
   match place, lays with
     | AtStart at, never => never
     | Broken at, never => never
-    | Mid at, _ => rfl
-    | Held at, _ => rfl
+    | Mid at, _ => byComputing
+    | Held at, _ => byComputing
 
 --| With nothing at the start of its line the printer is after words.
 theorem startMid ∀ (printer: Printer) (place: Place) (trace: List Event)
@@ -920,10 +943,10 @@ theorem startMid ∀ (printer: Printer) (place: Place) (trace: List Event)
     (start: printer.atLineStart = False):
     place.midLine = True :=
   match place, agrees with
-    | AtStart at, Both other _ => Eq.trans (Eq.sym start) other
-    | Broken at, Both other _ => Eq.trans (Eq.sym start) other
-    | Mid at, _ => rfl
-    | Held at, _ => rfl
+    | AtStart at, Both other _ => Eq.trans start.flipped other
+    | Broken at, Both other _ => Eq.trans start.flipped other
+    | Mid at, _ => byComputing
+    | Held at, _ => byComputing
 
 --| A separator written as a space, with no comment waiting.
 theorem sepSpace ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (place: Place) (trace: List Event)
@@ -932,20 +955,20 @@ theorem sepSpace ∀ (next: Place → List Event → Prop) (printer: Printer) (i
     (lays: SepLays indent place trace next):
     Stays next (printer.write indent " " 1) :=
   match place, agrees, lays with
-    | AtStart at, _, never => Void.exfalso (Bool.falseNotTrue never)
-    | Broken at, _, never => Void.exfalso (Bool.falseNotTrue never)
+    | AtStart at, _, never => (Bool.falseNotTrue never).impossible
+    | Broken at, _, never => (Bool.falseNotTrue never).impossible
     | Mid at, agrees, Both same _ =>
       match waiting: printer.suffixes.isEmpty, clear with
-        | True, _ => ((Mid at), trace, (putSpaces printer " " 1 at trace agrees rfl), same)
+        | True, _ => ((Mid at), trace, (putSpaces printer " " 1 at trace agrees byComputing), same)
     | Held at, agrees, _ =>
-      Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (agreesClear printer (Held at) trace agrees)) clear))
+      Void.impossible (Bool.falseNotTrue (Eq.trans (Eq.flipped (agreesClear printer (Held at) trace agrees)) clear))
 
 theorem softBroken ∀ (next: Place → List Event → Prop) (indent: Nat) (place: Place) (trace: List Event)
     (lays: SoftLays indent place trace next):
     next (AtStart indent) trace :=
   match place, lays with
-    | AtStart at, never => Void.exfalso (Bool.falseNotTrue never)
-    | Broken at, never => Void.exfalso (Bool.falseNotTrue never)
+    | AtStart at, never => (Bool.falseNotTrue never).impossible
+    | Broken at, never => (Bool.falseNotTrue never).impossible
     | Mid at, Both _ broken => broken
     | Held at, broken => broken
 
@@ -955,21 +978,21 @@ theorem softSame ∀ (next: Place → List Event → Prop) (printer: Printer) (i
     (lays: SoftLays indent place trace next):
     next place trace :=
   match place, agrees, lays with
-    | AtStart at, _, never => Void.exfalso (Bool.falseNotTrue never)
-    | Broken at, _, never => Void.exfalso (Bool.falseNotTrue never)
+    | AtStart at, _, never => (Bool.falseNotTrue never).impossible
+    | Broken at, _, never => (Bool.falseNotTrue never).impossible
     | Mid at, _, Both same _ => same
     | Held at, agrees, _ =>
-      Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (agreesClear printer (Held at) trace agrees)) clear))
+      Void.impossible (Bool.falseNotTrue (Eq.trans (Eq.flipped (agreesClear printer (Held at) trace agrees)) clear))
 
 theorem lineStartSame ∀ (printer: Printer) (indent: Nat)
     (start: printer.atLineStart = True):
     printer.lineStart indent = printer :=
-  match at: printer.atLineStart, start with | True, _ => rfl
+  match at: printer.atLineStart, start with | True, _ => byComputing
 
 theorem lineStartBreaks ∀ (printer: Printer) (indent: Nat)
     (start: printer.atLineStart = False):
     printer.lineStart indent = printer.newline (printer.continuation indent) :=
-  match at: printer.atLineStart, start with | False, _ => rfl
+  match at: printer.atLineStart, start with | False, _ => byComputing
 
 theorem lineStartStays ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat)
     (place: Place) (trace: List Event)
@@ -978,17 +1001,17 @@ theorem lineStartStays ∀ (next: Place → List Event → Prop) (printer: Print
     Stays next (printer.lineStart indent) :=
   match place, agrees, lays with
     | AtStart at, agrees, lays =>
-      rewrite lineStartSame printer indent (agreesStart printer (AtStart at) trace agrees) in
+      rewrite lineStartSame printer indent (agreesStart printer (AtStart at) trace agrees) then
         ((AtStart at), trace, agrees, lays)
     | Broken at, agrees, lays =>
-      rewrite lineStartSame printer indent (agreesStart printer (Broken at) trace agrees) in
+      rewrite lineStartSame printer indent (agreesStart printer (Broken at) trace agrees) then
         ((AtStart at), trace, (brokenStart printer at trace agrees), lays)
     | Mid at, agrees, lays =>
-      rewrite lineStartBreaks printer indent (agreesStart printer (Mid at) trace agrees) in
-        breakStays next printer indent (Mid at) trace agrees rfl lays
+      rewrite lineStartBreaks printer indent (agreesStart printer (Mid at) trace agrees) then
+        breakStays next printer indent (Mid at) trace agrees byComputing lays
     | Held at, agrees, lays =>
-      rewrite lineStartBreaks printer indent (agreesStart printer (Held at) trace agrees) in
-        breakStays next printer indent (Held at) trace agrees rfl lays
+      rewrite lineStartBreaks printer indent (agreesStart printer (Held at) trace agrees) then
+        breakStays next printer indent (Held at) trace agrees byComputing lays
 
 --| Indentation set at the start of a line.
 theorem hereAgrees ∀ (printer: Printer) (indent: Nat) (place: Place) (trace: List Event)
@@ -997,14 +1020,14 @@ theorem hereAgrees ∀ (printer: Printer) (indent: Nat) (place: Place) (trace: L
     Agrees { printer | owed = Some indent, lineIndent = indent } (AtStart indent) trace :=
   match place, agrees with
     | AtStart at, Both _ (Both none (Both blank (Both empty (Both _ (Both _ events))))) =>
-      (start, none, blank, empty, rfl, rfl, events)
+      (start, none, blank, empty, byComputing, byComputing, events)
     | Broken at, Both _ (Both none (Both blank (Both empty (Both _ (Both _ (Both events _)))))) =>
-      (start, none, blank, empty, rfl, rfl, events)
-    | Mid at, Both other _ => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym other) start))
-    | Held at, Both other _ => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym other) start))
+      (start, none, blank, empty, byComputing, byComputing, events)
+    | Mid at, Both other _ => Void.impossible (Bool.falseNotTrue (Eq.trans other.flipped start))
+    | Held at, Both other _ => Void.impossible (Bool.falseNotTrue (Eq.trans other.flipped start))
 
 theorem blankSame ∀ (printer: Printer) (start: printer.atLineStart = False): printer.blank = printer :=
-  match at: printer.atLineStart, start with | False, _ => rfl
+  match at: printer.atLineStart, start with | False, _ => byComputing
 
 --| One line break behind it and something printed, the printer adds the
 --| line break that leaves a blank line.
@@ -1013,7 +1036,8 @@ theorem blankAdds ∀ (printer: Printer)
     (started: printer.started = True)
     (one: printer.newlinesAtEnd = 1):
     printer.blank = { printer | out = ["\n", ..printer.out], newlinesAtEnd = printer.newlinesAtEnd + 1 } :=
-  match at: printer.atLineStart, begun: printer.started, start, started with | True, True, _, _ => rewrite one in rfl
+  match at: printer.atLineStart, begun: printer.started, start, started with
+    | True, True, _, _ => rewrite one then byComputing
 
 --| A `Blank` leaves a blank line right after a line of words, and
 --| nothing after words.
@@ -1022,30 +1046,30 @@ theorem blankStays ∀ (next: Place → List Event → Prop) (printer: Printer) 
     (lays: BlankLays place trace next):
     Stays next printer.blank :=
   match place, agrees, lays with
-    | AtStart at, _, never => Void.exfalso (Bool.falseNotTrue never)
+    | AtStart at, _, never => (Bool.falseNotTrue never).impossible
     | Broken at, Both start
         (Both none (Both blank (Both empty (Both owes (Both indent (Both events (Both started one))))))), lays =>
-      rewrite blankAdds printer start started one in
+      rewrite blankAdds printer start started one then
         (
           (AtStart at),
           (trace ++ [Event.blankLine]),
           ((
             start,
             none,
-            rfl,
-            rfl,
+            byComputing,
+            byComputing,
             owes,
             indent,
             (Eq.trans
               (Eq.cong ((before: List Event) => before ++ [Event.blankLine]) events)
-              (Eq.sym (eventsBlank printer.out blank)))
+              (eventsBlank printer.out blank).flipped)
           )),
           lays
         )
     | Mid at, agrees, lays =>
-      rewrite blankSame printer (agreesStart printer (Mid at) trace agrees) in ((Mid at), trace, agrees, lays)
+      rewrite blankSame printer (agreesStart printer (Mid at) trace agrees) then ((Mid at), trace, agrees, lays)
     | Held at, agrees, lays =>
-      rewrite blankSame printer (agreesStart printer (Held at) trace agrees) in ((Held at), trace, agrees, lays)
+      rewrite blankSame printer (agreesStart printer (Held at) trace agrees) then ((Held at), trace, agrees, lays)
 
 --| A trailing comment starts waiting, already in the trace.
 theorem suffixStays ∀ (next: Place → List Event → Prop) (printer: Printer) (comment: Text)
@@ -1055,11 +1079,11 @@ theorem suffixStays ∀ (next: Place → List Event → Prop) (printer: Printer)
     (lays: SuffixLays comment place trace next):
     Stays next { printer | suffixes = printer.suffixes ++ [comment] } :=
   match place, agrees, lays with
-    | AtStart at, _, never => Void.exfalso (Bool.falseNotTrue never)
-    | Broken at, _, never => Void.exfalso (Bool.falseNotTrue never)
-    | Held at, _, never => Void.exfalso (Bool.falseNotTrue never)
+    | AtStart at, _, never => (Bool.falseNotTrue never).impossible
+    | Broken at, _, never => (Bool.falseNotTrue never).impossible
+    | Held at, _, never => (Bool.falseNotTrue never).impossible
     | Mid at, Both start (Both none (Both blank (Both owes (Both indent (Both events _))))), lays =>
-      let one: printer.suffixes ++ [comment] = [comment] := rewrite none in rfl
+      let one: printer.suffixes ++ [comment] = [comment] := rewrite none then byComputing
       (
         (Held at),
         _,
@@ -1085,7 +1109,7 @@ theorem eitherStays ∀ (spec: Place → List Event → Prop) (flat clear: Bool)
       (place trace => StackLays spec (if flat && clear then (yes, rest) else (no, rest)).snd place trace)
       (if flat && clear then (yes, rest) else (no, rest)).fst :=
   match flat, clear, whenYes with
-    | True, True, whenYes => whenYes rfl
+    | True, True, whenYes => whenYes byComputing
     | True, False, _ => whenNo
     | False, True, _ => whenNo
     | False, False, _ => whenNo
@@ -1100,7 +1124,7 @@ theorem stepLays ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
     Stays (after later => StackLays spec result.snd after later) result.fst :=
   match cmd, steps, lays with
     | FillSep indent item, Inl (Both clear flat), lays =>
-      rewrite flat in
+      rewrite flat then
         sepSpace
           (middle between => Lays item indent middle between (after later => StackLays spec rest after later))
           printer
@@ -1111,7 +1135,7 @@ theorem stepLays ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
           clear
           lays
     | FillSep indent item, Inr broken, lays =>
-      rewrite broken in
+      rewrite broken then
         newlineStays
           (middle between => Lays item indent middle between (after later => StackLays spec rest after later))
           printer
@@ -1133,10 +1157,10 @@ theorem stepLays ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
             lays)
     | Print indent mode doc, steps, lays =>
       match doc, steps, lays with
-        | Empty, steps, lays => rewrite steps in (place, trace, agrees, lays)
-        | BreakParent, steps, lays => rewrite steps in (place, trace, agrees, lays)
+        | Empty, steps, lays => rewrite steps then (place, trace, agrees, lays)
+        | BreakParent, steps, lays => rewrite steps then (place, trace, agrees, lays)
         | Chunk text width, steps, lays =>
-          rewrite steps in
+          rewrite steps then
             writeStays
               (after later => StackLays spec rest after later)
               printer
@@ -1148,7 +1172,7 @@ theorem stepLays ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
               agrees
               lays
         | Line, steps, lays =>
-          rewrite steps in
+          rewrite steps then
             eitherStays spec mode.isFlat printer.suffixes.isEmpty
               (printer.write indent " " 1)
               (printer.newline indent)
@@ -1165,7 +1189,7 @@ theorem stepLays ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
                 (sepMid (after later => StackLays spec rest after later) indent place trace lays)
                 (sepBroken (after later => StackLays spec rest after later) indent place trace lays))
         | SoftLine, steps, lays =>
-          rewrite steps in
+          rewrite steps then
             eitherStays spec mode.isFlat printer.suffixes.isEmpty printer
               (printer.newline indent)
               rest
@@ -1194,14 +1218,14 @@ theorem stepLays ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
                 (softMid (after later => StackLays spec rest after later) indent place trace lays)
                 (softBroken (after later => StackLays spec rest after later) indent place trace lays))
         | HardLine, steps, Both mid (Inl broken) =>
-          rewrite steps in ((Broken indent), trace, (newlineBroken printer indent place trace agrees mid), broken)
+          rewrite steps then ((Broken indent), trace, (newlineBroken printer indent place trace agrees mid), broken)
         | HardLine, steps, Both mid (Inr started) =>
-          rewrite steps in
+          rewrite steps then
             newlineStays (after later => StackLays spec rest after later) printer indent place trace agrees mid started
         | CommentEnd, steps, Both mid lays =>
           let same: StackLays spec rest (AtStart printer.lineIndent) trace :=
-            rewrite agreesIndent printer place trace agrees in lays
-          rewrite steps in
+            rewrite agreesIndent printer place trace agrees then lays
+          rewrite steps then
             newlineStays
               (after later => StackLays spec rest after later)
               printer
@@ -1212,14 +1236,14 @@ theorem stepLays ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
               mid
               same
         | LineStart, steps, lays =>
-          rewrite steps in
+          rewrite steps then
             lineStartStays (after later => StackLays spec rest after later) printer indent place trace agrees lays
         | LineStartHere, steps, lays =>
           match start: printer.atLineStart with
             | True =>
-              rewrite steps in ((AtStart indent), trace, (hereAgrees printer indent place trace agrees start), lays)
+              rewrite steps then ((AtStart indent), trace, (hereAgrees printer indent place trace agrees start), lays)
             | False =>
-              rewrite steps in
+              rewrite steps then
                 newlineStays
                   (after later => StackLays spec rest after later)
                   printer
@@ -1230,20 +1254,20 @@ theorem stepLays ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
                   (startMid printer place trace agrees start)
                   lays
         | Blank, steps, lays =>
-          rewrite steps in blankStays (after later => StackLays spec rest after later) printer place trace agrees lays
-        | Nest more inner, steps, lays => rewrite steps in (place, trace, agrees, lays)
-        | OneLineBelow inner, steps, Both mid lays => rewrite steps in (place, trace, agrees, mid, (Inr lays))
-        | Flatten inner, steps, lays => rewrite steps in (place, trace, agrees, lays)
+          rewrite steps then blankStays (after later => StackLays spec rest after later) printer place trace agrees lays
+        | Nest more inner, steps, lays => rewrite steps then (place, trace, agrees, lays)
+        | OneLineBelow inner, steps, Both mid lays => rewrite steps then (place, trace, agrees, mid, (Inr lays))
+        | Flatten inner, steps, lays => rewrite steps then (place, trace, agrees, lays)
         | LineSuffix comment, steps, Both word lays =>
-          rewrite steps in
+          rewrite steps then
             suffixStays (after later => StackLays spec rest after later) printer comment place trace agrees word lays
-        | Group inner hard, Inl (Both _ flat), lays => rewrite flat in (place, trace, agrees, lays)
-        | Group inner hard, Inr (Both _ broken), lays => rewrite broken in (place, trace, agrees, lays)
+        | Group inner hard, Inl (Both _ flat), lays => rewrite flat then (place, trace, agrees, lays)
+        | Group inner hard, Inr (Both _ broken), lays => rewrite broken then (place, trace, agrees, lays)
         | Concat docs, steps, lays =>
-          rewrite steps in (place, trace, agrees, (printsLay spec indent mode docs rest place trace lays))
-        | Fill [], steps, lays => rewrite steps in (place, trace, agrees, lays)
+          rewrite steps then (place, trace, agrees, (printsLay spec indent mode docs rest place trace lays))
+        | Fill [], steps, lays => rewrite steps then (place, trace, agrees, lays)
         | Fill [first, ..others], Inl (Both _ flat), lays =>
-          rewrite flat in
+          rewrite flat then
             (
               place,
               trace,
@@ -1256,7 +1280,7 @@ theorem stepLays ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
                 (linesLay first others indent place trace (after later => StackLays spec rest after later) lays))
             )
         | Fill [first, ..others], Inr (Both _ (Witness firstMode broken)), lays =>
-          rewrite broken in
+          rewrite broken then
             (
               place,
               trace,
@@ -1268,7 +1292,7 @@ theorem stepLays ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
                 lays)
             )
         | Choice options, Inl (Both _ flat), lays =>
-          rewrite flat in
+          rewrite flat then
             (
               place,
               trace,
@@ -1276,7 +1300,7 @@ theorem stepLays ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
               (headOrLays options indent place trace (after later => StackLays spec rest after later) lays)
             )
         | Choice options, Inr (Both _ (Witness chosen (Both isOption broken))), lays =>
-          rewrite broken in
+          rewrite broken then
             (
               place,
               trace,
@@ -1298,16 +1322,16 @@ theorem readingLays ∀ (spec: Place → List Event → Prop) (printer: Printer)
     (enough: stackCost stack ≤ fuel):
     Stays spec final :=
   match fuel, stack, reads, lays with
-    | Zero, [], reads, lays => (place, trace, (rewrite reads in agrees), lays)
-    | Succ more, [], reads, lays => (place, trace, (rewrite reads in agrees), lays)
+    | Zero, [], reads, lays => (place, trace, (rewrite reads then agrees), lays)
+    | Succ more, [], reads, lays => (place, trace, (rewrite reads then agrees), lays)
     | Zero, [cmd, ..rest], _, _ =>
       let positive := costPositive cmd
-      Void.exfalso (omega)
+      Void.impossible (arithmetic)
     | Succ more, [cmd, ..rest], Witness next (Witness later (Both steps laterReads)), lays =>
       let lighter := readingLighter printer cmd rest (next, later) steps
       match stepLays spec printer cmd rest (next, later) place trace steps agrees lays with
         | Witness after (Witness written (Both nextAgrees nextLays)) =>
-          readingLays spec next more later final after written laterReads nextAgrees nextLays (omega)
+          readingLays spec next more later final after written laterReads nextAgrees nextLays (arithmetic)
 
 --| Writing the comment that still waits at the end adds no word the
 --| trace doesn't have.
@@ -1316,22 +1340,22 @@ theorem flushAgrees ∀ (printer: Printer) (place: Place) (trace: List Event)
     trace = eventsOf printer.flushSuffixes.out :=
   match printer, place, agrees with
     | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, AtStart
-          at, Both _ (Both none (Both _ (Both _ (Both _ (Both _ events))))) => rewrite none in events
+          at, Both _ (Both none (Both _ (Both _ (Both _ (Both _ events))))) => rewrite none then events
     | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, Broken at, Both _
-        (Both none (Both _ (Both _ (Both _ (Both _ (Both events _)))))) => rewrite none in events
+        (Both none (Both _ (Both _ (Both _ (Both _ (Both events _)))))) => rewrite none then events
     | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, Mid at, Both _
-        (Both none (Both _ (Both _ (Both _ (Both events _))))) => rewrite none in events
+        (Both none (Both _ (Both _ (Both _ (Both events _))))) => rewrite none then events
     | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, Held
           at, Both start (Both (Witness comment (Both one (Both word events))) (Both blank _)) =>
       let written: eventsOf [comment, " ", ..out] = eventsOf out ++ [{ word = comment, start = None }] :=
-        rewrite eventsWord comment [" ", ..out] word, blank in rfl
-      rewrite one, start in Eq.trans events (Eq.sym written)
+        rewrite eventsWord comment [" ", ..out] word, blank then byComputing
+      rewrite one, start then Eq.trans events written.flipped
 
 --| The pieces `print` joins, in the order printed.
 def printedPieces (doc: Doc) (width: Nat): List Text :=
   ((Printer.start width).run (3 * doc.size + 3) (3 * doc.size + 3) [Print 0 Break doc] |> .flushSuffixes).out.reverse
 
-theorem printIsPieces ∀ (doc: Doc) (width: Nat): print doc width = (printedPieces doc width).joinWith "" := rfl
+theorem printIsPieces ∀ (doc: Doc) (width: Nat): print doc width = (printedPieces doc width).joinWith "" := byComputing
 
 --| A document that lays from the start of an unindented line, printed at
 --| any width, puts each word where the document said: `spec` holds of the
@@ -1343,7 +1367,8 @@ theorem printLays ∀ (spec: Place → List Event → Prop) (doc: Doc) (width: N
   let fuel := 3 * doc.size + 3
   let ran := (Printer.start width).run fuel fuel [Print 0 Break doc]
   let bound := stepsUnderSize doc
-  let start: Agrees (Printer.start width) (AtStart 0) [] := (rfl, rfl, rfl, rfl, rfl, rfl, rfl)
+  let start: Agrees (Printer.start width) (AtStart 0) [] :=
+    (byComputing, byComputing, byComputing, byComputing, byComputing, byComputing, byComputing)
   match readingLays spec
     (Printer.start width)
     fuel
@@ -1354,9 +1379,9 @@ theorem printLays ∀ (spec: Place → List Event → Prop) (doc: Doc) (width: N
     (runIsReading (Printer.start width) fuel fuel [Print 0 Break doc])
     start
     lays
-    (omega) with
+    (arithmetic) with
     | (place, trace, agrees, holds) =>
-      (place, (rewrite List.reverseReverse ran.flushSuffixes.out, <- flushAgrees ran place trace agrees in holds))
+      (place, (rewrite List.reverseReverse ran.flushSuffixes.out, <- flushAgrees ran place trace agrees then holds))
 
 --| `Lays` computes, and can be met: `f`, then `x` on a line of its own
 --| two columns in, at every width.
@@ -1368,9 +1393,16 @@ theorem printLaysExample ∀ (width: Nat):
     (place trace => trace = [{ word = "f", start = Some 0 }, { word = "x", start = Some 2 }])
     (Concat [Chunk "f" 1, Nest 2 (Concat [HardLine, Chunk "x" 1])])
     width
-    ((rfl, rfl, (Inr ((rfl, rfl)))))
+    ((byComputing, byComputing, (Inr ((byComputing, byComputing)))))
 
 --| `putMid`'s and `putSpaces`' hypothesis can be met: after `f` at the
 --| start, the printer is in the middle of an unindented line.
 theorem midExample: Agrees ((Printer.start 80).put "f" 1) (Mid 0) [{ word = "f", start = Some 0 }] :=
-  putStart (Printer.start 80) "f" 1 0 [] ((rfl, rfl, rfl, rfl, rfl, rfl, rfl)) rfl
+  putStart
+    (Printer.start 80)
+    "f"
+    1
+    0
+    []
+    ((byComputing, byComputing, byComputing, byComputing, byComputing, byComputing, byComputing))
+    byComputing

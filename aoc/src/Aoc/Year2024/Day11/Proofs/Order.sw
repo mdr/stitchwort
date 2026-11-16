@@ -30,4 +30,4 @@ theorem orderIrrelevant ∀ (blinks: Nat) (stones others: List Nat)
 theorem countOrderIrrelevant ∀ (blinks: Nat) (stones others: List Nat)
     (same: List.Perm stones others):
     countAfter blinks stones = countAfter blinks others :=
-  rewrite countCorrect blinks stones, countCorrect blinks others in orderIrrelevant blinks stones others same
+  rewrite countCorrect blinks stones, countCorrect blinks others then orderIrrelevant blinks stones others same

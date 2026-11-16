@@ -34,7 +34,7 @@ theorem shortestIfOptimal ∀ (robots: Nat)
 theorem complexitiesAnswer ∀ (robots: Nat)
     (optimal: Optimal robots) (codes: List Code):
     Answer robots codes (complexities robots codes) :=
-  Witness (robotCosts robots).shortestLength (Both (code member => shortestIfOptimal robots optimal code) rfl)
+  Witness (robotCosts robots).shortestLength (Both (code member => shortestIfOptimal robots optimal code) byComputing)
 
 theorem part1Correct ∀ (optimal: Optimal 2) (codes: List Code): Answer 2 codes (solvePart1 codes) :=
   complexitiesAnswer 2 optimal codes

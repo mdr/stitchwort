@@ -47,16 +47,17 @@ type ProofBox (p: Prop) = { proof: p }
 theorem Quot.funextProp ∀ (a: Type) (p: a → Prop) (f g: ∀ (x: a) => p x) (h: ∀ (x: a) => f x = g x): f = g :=
   let boxF: (x: a) → ProofBox (p x) := x => { proof = f x }
   let boxG: (x: a) → ProofBox (p x) := x => { proof = g x }
-  let pointwise: ∀ (x: a) => boxF x = boxG x := x => J (q e => boxF x = ({ proof = q }: ProofBox (p x))) rfl (h x)
+  let pointwise: ∀ (x: a) => boxF x = boxG x := x =>
+    J (q e => boxF x = ({ proof = q }: ProofBox (p x))) byComputing (h x)
   let boxes: boxF = boxG := Quot.funext a (x => ProofBox (p x)) boxF boxG pointwise
-  J (k e => f = (x => (k x).proof)) rfl boxes
+  J (k e => f = (x => (k x).proof)) byComputing boxes
 
 --| Booleans that are `True` together are equal.
 theorem Quot.boolEq ∀ (b c: Bool) (toC: b = True → c = True) (toB: c = True → b = True): b = c := match b, c with
-  | False, False => rfl
-  | False, True => toB rfl
-  | True, False => Eq.sym (toC rfl)
-  | True, True => rfl
+  | False, False => byComputing
+  | False, True => toB byComputing
+  | True, False => (toC byComputing).flipped
+  | True, True => byComputing
 
 --| If `r` decides `rel`, and `rel` is an equivalence, then `Quot.mk x` and
 --| `Quot.mk y` are equal only when `x` and `y` are related.
@@ -76,4 +77,4 @@ theorem Quot.exactDec ∀ (a: Type) (rel: a → a → Prop) (r: a → a → Bool
       (decides x y).backward (trans x z y ((decides x z).forward xz) (symm y z related)))
   let classify: Quot a rel → Bool := q => Quot.lift (z => r x z) respects q
   let computed: r x x = r x y := Eq.cong classify same
-  (decides x y).forward (Eq.trans (Eq.sym computed) ((decides x x).backward (refl x)))
+  (decides x y).forward (Eq.trans computed.flipped ((decides x x).backward (refl x)))

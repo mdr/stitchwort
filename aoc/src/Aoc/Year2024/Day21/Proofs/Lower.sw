@@ -24,13 +24,13 @@ def CheapestWalks (keypad: Keypad k) (rows: List (List (Option k))) (costs: Cost
 theorem walkAppend ∀ (rows: List (List (Option k))) (aim: Position) (route more: List Direction):
     walk rows aim (route.append more) = walk rows aim route |> .flatMap (end => walk rows end more) :=
   match route with
-    | [] => rfl
+    | [] => byComputing
     | [direction, ..others] =>
       match step: moved aim direction with
-        | None => rfl
+        | None => byComputing
         | Some next =>
           match found: keyAt rows next with
-            | None => rfl
+            | None => byComputing
             | Some key => walkAppend rows next others more
 
 --| The keys a robot presses cost, by the cheapest routes between them, at
@@ -43,33 +43,34 @@ theorem walksCost ∀ (keypad: Keypad k) (rows: List (List (Option k))) (costs: 
         → ∀ (pressed: List k) => operate rows aim keys = Some pressed
           → costFrom (cheapestBetween keypad costs) from pressed
             ≤ costFrom costs Activate (List.append (route.map Arrow) keys)
-  | [], start, from, onFrom, route, aim, walked, pressed, operated => rewrite <- Option.someInjective operated in omega
+  | [], start, from, onFrom, route, aim, walked, pressed, operated =>
+    rewrite <- Option.someInjective operated then arithmetic
   | [Activate, ..rest], start, from, onFrom, route, aim, walked, pressed, operated =>
     match found: keyAt rows aim with
       | Some to =>
         match later: operate rows aim rest with
           | Some laterKeys =>
-            let bound := walksCost keypad rows costs cheapest rest aim to found [] aim rfl laterKeys later
+            let bound := walksCost keypad rows costs cheapest rest aim to found [] aim byComputing laterKeys later
             let routeBound := cheapest start from onFrom route aim walked to found
             rewrite <- Option.someInjective operated,
                 <- List.appendAssoc (route.map Arrow) [Activate] rest,
                 costFromAppend costs Activate (routeKeys route) rest,
                 lastFromAppendOne Activate (route.map Arrow) Activate,
-                <- sequenceCostFrom costs (routeKeys route) in
-              omega [bound, routeBound]
+                <- sequenceCostFrom costs (routeKeys route) then
+              arithmetic [bound, routeBound]
   | [Arrow direction, ..rest], start, from, onFrom, route, aim, walked, pressed, operated =>
     match step: moved aim direction with
       | Some next =>
         match found: keyAt rows next with
           | Some key =>
             let walkedOn: walk rows start (List.append route [direction]) = Some next :=
-              rewrite walkAppend rows start route [direction], walked, step, found in rfl
+              rewrite walkAppend rows start route [direction], walked, step, found then byComputing
             let shape: List.append ((List.append route [direction]).map Arrow) rest
               = List.append (route.map Arrow) [Arrow direction, ..rest] :=
               rewrite List.mapAppend route [direction] Arrow,
-                  List.appendAssoc (route.map Arrow) [Arrow direction] rest in
-                rfl
-            rewrite <- shape in
+                  List.appendAssoc (route.map Arrow) [Arrow direction] rest then
+                byComputing
+            rewrite <- shape then
               walksCost keypad rows costs cheapest rest start from onFrom
                 (List.append route [direction])
                 next
@@ -85,27 +86,27 @@ theorem throughRobotsCost ∀ (level: Nat)
     (through: throughRobots level presses = Some keys):
     costFrom (robotCosts level) Activate keys ≤ presses.length :=
   match level with
-    | Zero => rewrite <- Option.someInjective through, costFromOnes Activate presses in omega
+    | Zero => rewrite <- Option.someInjective through, costFromOnes Activate presses then arithmetic
     | Succ level =>
-      let via := rewrite throughRobotsLast level presses at through in through
+      let via := rewrite throughRobotsLast level presses at through then through
       match before: throughRobots level presses with
         | Some driving =>
           let operated: operate directionalRows directionalStart driving = Some keys := via
           let pressedBound :=
             walksCost Keypad.directional directionalRows
               (robotCosts level)
-              (walks level (omega))
+              (walks level (arithmetic))
               driving
               directionalStart
               Activate
-              rfl
+              byComputing
               []
               directionalStart
-              rfl
+              byComputing
               keys
               operated
           let drivingBound :=
-            throughRobotsCost level (below lower => walks below (omega [lower])) presses driving before
+            throughRobotsCost level (below lower => walks below (arithmetic [lower])) presses driving before
           let same :=
             costFromCong
               ((robotCosts level).next)
@@ -113,7 +114,7 @@ theorem throughRobotsCost ∀ (level: Nat)
               (nextCostsCheapest (robotCosts level))
               Activate
               keys
-          rewrite Nat.iterateSuccLast Costs.next level Costs.yours in omega [pressedBound, drivingBound, same]
+          rewrite Nat.iterateSuccLast Costs.next level Costs.yours then arithmetic [pressedBound, drivingBound, same]
 
 --| With the walk fact on each directional keypad between you and the door,
 --| and on the numeric one, the program's length is the least.
@@ -123,7 +124,7 @@ theorem optimalIfCheapestWalks ∀ (robots: Nat)
     Optimal robots :=
   code presses types =>
     let typedVia: (throughRobots robots presses |> .flatMap (operate numericRows numericStart)) = Some code :=
-      rewrite <- typedThrough robots presses in types
+      rewrite <- typedThrough robots presses then types
     match before: throughRobots robots presses with
       | Some driving =>
         let pressedBound :=
@@ -133,14 +134,14 @@ theorem optimalIfCheapestWalks ∀ (robots: Nat)
             driving
             numericStart
             Enter
-            rfl
+            byComputing
             []
             numericStart
-            rfl
+            byComputing
             code
             typedVia
         let drivingBound := throughRobotsCost robots walks presses driving before
         let same: (robotCosts robots).shortestLength code
           = costFrom (cheapestBetween Keypad.numeric (robotCosts robots)) Enter code :=
           sumByPairs (cheapestBetween Keypad.numeric (robotCosts robots)) Enter code
-        omega [same, pressedBound, drivingBound]
+        arithmetic [same, pressedBound, drivingBound]

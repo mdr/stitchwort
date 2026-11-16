@@ -22,7 +22,8 @@ theorem readsSequence: Parse.Reads sequence SequenceWritten :=
   Parse.readsThen
     (Parse.readsSepBy1 Parse.nat (() => Parse.char ' ') NumberWritten _ Parse.readsNat (Parse.readsChar ' '))
     (numbersRead numbers written =>
-      Parse.readsDone numbers.toList _ (Witness numbers (Both (rewrite List.appendNil numbersRead in written) rfl)))
+      Parse.readsDone numbers.toList _
+        (Witness numbers (Both (rewrite List.appendNil numbersRead then written) byComputing)))
 
 theorem readsRuleBody: Parse.Reads ruleBody RuleWritten :=
   Parse.readsOneOf _ _
@@ -30,14 +31,14 @@ theorem readsRuleBody: Parse.Reads ruleBody RuleWritten :=
       (Parse.readsThen (Parse.readsChar '"') (openRead u opened =>
         Parse.readsThen readsLetter (letterRead found (Both one lower) =>
           Parse.readsThen (Parse.readsChar '"') (closeRead u2 closed =>
-            Parse.readsDone (Letter found) _ (Both (rewrite opened, one, closed in rfl) lower)))))
+            Parse.readsDone (Letter found) _ (Both (rewrite opened, one, closed then byComputing) lower)))))
       (Both
         (Parse.readsThen
           (Parse.readsSepBy1 sequence (() => Parse.text " | ") SequenceWritten _ readsSequence (Parse.readsText " | "))
           (sequencesRead sequences written =>
             Parse.readsDone
               (Alternatives sequences.toList) _
-              (Witness sequences (Both (rewrite List.appendNil sequencesRead in written) rfl))))
+              (Witness sequences (Both (rewrite List.appendNil sequencesRead then written) byComputing))))
         Trivial))
 
 theorem readsNumbered: Parse.Reads numberedRule NumberedWritten :=
@@ -48,13 +49,13 @@ theorem readsNumbered: Parse.Reads numberedRule NumberedWritten :=
           (number, rule) _
           (Witness numberRead
             (Witness ruleRead
-              (Both (rewrite colon, List.appendNil ruleRead in rfl) (Both numberWritten ruleWritten)))))))
+              (Both (rewrite colon, List.appendNil ruleRead then byComputing) (Both numberWritten ruleWritten)))))))
 
 theorem readsMessage: Parse.Reads message MessageWritten :=
   Parse.readsThen (Parse.readsMany1 letter LetterWritten readsLetter) (lettersRead letters written =>
     Parse.readsDone
       { letters = letters.toList } _
-      (Witness letters (Both (rewrite List.appendNil lettersRead in written) rfl)))
+      (Witness letters (Both (rewrite List.appendNil lettersRead then written) byComputing)))
 
 theorem readsReceived: Parse.Reads received ReceivedWritten :=
   Parse.readsThen (Parse.readsLines numberedRule NumberedWritten readsNumbered) (rulesRead rules rulesWritten =>
@@ -66,10 +67,10 @@ theorem readsReceived: Parse.Reads received ReceivedWritten :=
             (Witness blank
               (Witness messagesRead
                 (Both
-                  (rewrite List.appendNil messagesRead in rfl)
+                  (rewrite List.appendNil messagesRead then byComputing)
                   (Both
-                    (Witness rules (Both rulesWritten rfl))
-                    (Both blankWritten (Witness messages (Both messagesWritten rfl)))))))))))
+                    (Witness rules (Both rulesWritten byComputing))
+                    (Both blankWritten (Witness messages (Both messagesWritten byComputing)))))))))))
 
 theorem parseWritten ∀ (input: Text) (received: Received)
     (parsed: Fail.toResult (() => parseReceived input) = Ok received):

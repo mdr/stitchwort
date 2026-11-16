@@ -5,10 +5,10 @@ import Std (Float, List, Nat, Option, SafeInt, SafeNat)
 
 -- `*`, `/` and `%` round as IEEE 754 doubles do, and compute in the checker.
 -- `/` and `%` need no proof that the divisor isn't zero.
-theorem tenths: 0.1 * 3.0 = 0.30000000000000004 := rfl
-theorem byZero: 1.0 / 0.0 = Float.infinity := rfl
-theorem byMinusZero: 1.0 / -0.0 = -Float.infinity := rfl
-theorem zeroByZero: 0.0 / 0.0 = Float.nan := rfl
+theorem tenths: 0.1 * 3.0 = 0.30000000000000004 := byComputing
+theorem byZero: 1.0 / 0.0 = Float.infinity := byComputing
+theorem byMinusZero: 1.0 / -0.0 = -Float.infinity := byComputing
+theorem zeroByZero: 0.0 / 0.0 = Float.nan := byComputing
 test "remainder takes the dividend's sign" := -5.5 % 2.0 = -1.5
 test "remainder" := 5.5 % 2.0 = 1.5
 
@@ -49,7 +49,7 @@ test "SafeNat.toFloat" := (SafeNat.ofNat 5 |> Option.map SafeNat.toFloat) = Some
 test "isFinite" := Float.isFinite 1e308 ∧ ¬(Float.isFinite Float.infinity) ∧ ¬(Float.isFinite Float.nan)
 
 -- `<` and `<=` are the total order: `-0.0 < 0.0`, the NaN above everything.
-theorem zeros: -0.0 < 0.0 := rfl
+theorem zeros: -0.0 < 0.0 := byComputing
 test "NaN is greatest" := Float.infinity < Float.nan
 test "sorted" := List.sort [2.5, Float.nan, -0.0, 0.0, -Float.infinity] = [-Float.infinity, -0.0, 0.0, 2.5, Float.nan]
 

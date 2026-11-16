@@ -1,6 +1,6 @@
 -- expect-error: E-CASES
 -- `cases` doesn't split inside `Int`'s own arithmetic (SW-937): the
--- `OfNat`/`NegSucc` cases `+` and `-` are stuck on are left to `omega`, so
+-- `OfNat`/`NegSucc` cases `+` and `-` are stuck on are left to `arithmetic`, so
 -- the open case is `command = Up units`, not `Int.subNatNatFrom …`, and the
 -- goal is shown in `+`, `-` and `.toInt`. (`Up` should be `-units.toInt`.)
 

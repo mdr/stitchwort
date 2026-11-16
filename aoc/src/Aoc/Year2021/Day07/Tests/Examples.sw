@@ -45,5 +45,5 @@ test "a missing number" := parsed "1,,2" == Err "line 1, column 3: expected a nu
 test "nothing" := parsed "" == Err "line 1, column 1: expected a number, got the end of the input"
 
 --| The examples, proved by computing them.
-theorem examplePart1: solvePart1 exampleCrabs = 37 := rfl
-theorem examplePart2: solvePart2 exampleCrabs = 168 := rfl
+theorem examplePart1: solvePart1 exampleCrabs = 37 := byComputing
+theorem examplePart2: solvePart2 exampleCrabs = 168 := byComputing

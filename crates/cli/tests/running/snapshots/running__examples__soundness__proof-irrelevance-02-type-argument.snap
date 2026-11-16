@@ -2,12 +2,12 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
    ╭─[ soundness/proof-irrelevance-02-type-argument.sw:9:66 ]
    │
- 9 │ theorem t2 (f: Type → Nat → Nat) (n: Nat): f Nat n = f Bool n := rfl
-   │                                                                  ─┬─  
-   │                                                                   ╰─── `f Nat n` and `f Bool n` aren't equal
+ 9 │ theorem t2 (f: Type → Nat → Nat) (n: Nat): f Nat n = f Bool n := byComputing
+   │                                                                  ─────┬─────  
+   │                                                                       ╰─────── `f Nat n` and `f Bool n` aren't equal
    │ 
-   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+   │ Note: `byComputing` proves `a = b` only when both sides compute to the same value
 ───╯

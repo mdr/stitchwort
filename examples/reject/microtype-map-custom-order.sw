@@ -10,7 +10,7 @@ type UserId = { value: Text }
 
 def reversed: Ord UserId :=
   Ord.fromCompare (x y => Text.compare y.value x.value)
-    (x y h => UserId.ext x y (Std.Eq.sym (Text.compareEqual y.value x.value h)))
+    (x y h => UserId.ext x y (Std.Eq.flipped (Text.compareEqual y.value x.value h)))
     (x y => Text.compareFlip y.value x.value)
     (x y z h1 h2 => Text.compareTrans z.value y.value x.value h2 h1)
 

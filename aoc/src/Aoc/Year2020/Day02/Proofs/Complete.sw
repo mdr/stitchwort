@@ -9,13 +9,13 @@ import Std (Char, Eq, Exists, Fail, List, Parse, Result, Text)
 
 theorem entryEta ∀ (entry: Entry):
     { low = entry.low, high = entry.high, letter = entry.letter, password = entry.password } = entry :=
-  match entry with | { low, high, letter, password } => rfl
+  match entry with | { low, high, letter, password } => byComputing
 
 theorem runsAs ∀ (chars: List Char) (a b: Entry)
     (same: a = b)
     (runs: Parse.Runs line chars [] a):
     Parse.Runs line chars [] b :=
-  rewrite same at runs in runs
+  rewrite same at runs then runs
 
 --| `line` on the pieces of a line as `Written` has them.
 theorem runsPieces ∀ (low high: List Char) (letter: Char) (password: List Char)
@@ -36,29 +36,29 @@ theorem runsPieces ∀ (low high: List Char) (letter: Char) (password: List Char
     (['-'] ++ high ++ [' ', letter, ':', ' '] ++ password) _
     []
     (Parse.digitsValue low) _
-    rfl
-    (Parse.runsNat low _ lowSome lowAll rfl)
+    byComputing
+    (Parse.runsNat low _ lowSome lowAll byComputing)
     (Parse.runsBind
       (() => Parse.char '-') _
       ['-']
       (high ++ [' ', letter, ':', ' '] ++ password) _
       []
       () _
-      rfl
+      byComputing
       (Parse.runsChar '-' _)
       (Parse.runsBind Parse.nat _ high
         ([' ', letter, ':', ' '] ++ password) _
         []
         (Parse.digitsValue high) _
-        rfl
-        (Parse.runsNat high _ highSome highAll rfl)
+        byComputing
+        (Parse.runsNat high _ highSome highAll byComputing)
         (Parse.runsBind
           (() => Parse.char ' ') _
           [' ']
           ([letter, ':', ' '] ++ password) _
           []
           () _
-          rfl
+          byComputing
           (Parse.runsChar ' ' _)
           (Parse.runsBind
             (() => Parse.satisfy "a lowercase letter" Char.isAsciiLowercase) _
@@ -66,7 +66,7 @@ theorem runsPieces ∀ (low high: List Char) (letter: Char) (password: List Char
             ([':', ' '] ++ password) _
             []
             letter _
-            rfl
+            byComputing
             (Parse.runsSatisfy _ _ letter _ lower)
             (Parse.runsBind
               (() => Parse.text ": ") _
@@ -74,7 +74,7 @@ theorem runsPieces ∀ (low high: List Char) (letter: Char) (password: List Char
               password _
               []
               () _
-              rfl
+              byComputing
               (Parse.runsText ": " _)
               (Parse.runsBind
                 (() => Parse.takeWhile1 "a password" Char.isAsciiLowercase) _
@@ -82,8 +82,8 @@ theorem runsPieces ∀ (low high: List Char) (letter: Char) (password: List Char
                 [] _
                 []
                 (Text.fromList password) _
-                (Eq.sym (List.appendNil password))
-                (Parse.runsTakeWhile1 _ _ password [] nonEmpty lowers rfl)
+                (List.appendNil password).flipped
+                (Parse.runsTakeWhile1 _ _ password [] nonEmpty lowers byComputing)
                 (Parse.runsPure _ [])))))))
 
 theorem runsLine ∀ (chars: List Char) (entry: Entry) (written: Written chars entry): Parse.Runs line chars [] entry :=
@@ -101,8 +101,8 @@ theorem runsLine ∀ (chars: List Char) (entry: Entry) (written: Written chars e
         password = Text.fromList entry.password.toList
       }
         = entry :=
-        rewrite <- lowValue, <- highValue, Text.fromToList entry.password in entryEta entry
-      rewrite split in
+        rewrite <- lowValue, <- highValue, Text.fromToList entry.password then entryEta entry
+      rewrite split then
         runsAs _ _ entry sameEntry
           (runsPieces low high entry.letter entry.password.toList lowSome lowAll highSome highAll lower nonEmpty lowers)
 
@@ -120,5 +120,5 @@ theorem writtenUnique ∀ (chars: List Char) (a b: Entry)
     a = b :=
   Result.okInjective
     (Eq.trans
-      (Eq.sym (Parse.runsRun line chars a (runsLine chars a writtenA)))
+      (Eq.flipped (Parse.runsRun line chars a (runsLine chars a writtenA)))
       (Parse.runsRun line chars b (runsLine chars b writtenB)))

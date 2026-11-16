@@ -193,19 +193,19 @@ theorem Key.nextBytes ∀ (rest: List Nat) (key: Key)
     (h: Key.isNamed key = True):
     Key.next (List.append (Key.bytes key) rest) = Got key rest :=
   match key with
-    | Enter => rfl
-    | Tab => rfl
-    | Backspace => rfl
-    | Delete => rfl
-    | Up => rfl
-    | Down => rfl
-    | Left => rfl
-    | Right => rfl
-    | Home => rfl
-    | End => rfl
-    | PageUp => rfl
-    | PageDown => rfl
-    | Unknown => rfl
+    | Enter => byComputing
+    | Tab => byComputing
+    | Backspace => byComputing
+    | Delete => byComputing
+    | Up => byComputing
+    | Down => byComputing
+    | Left => byComputing
+    | Right => byComputing
+    | Home => byComputing
+    | End => byComputing
+    | PageUp => byComputing
+    | PageDown => byComputing
+    | Unknown => byComputing
 
 --| `Escape` comes back when the next byte isn't `[` or `O`; a lone `ESC` at
 --| the end of the bytes is `Incomplete` (the handler decides).
@@ -214,9 +214,9 @@ theorem Key.nextEscape ∀ (byte: Nat) (rest: List Nat)
     (notCsi: (byte == 91) = False)
     (notSs3: (byte == 79) = False):
     Key.next (List.append (Key.bytes Escape) [byte, ..rest]) = Got Escape [byte, ..rest] :=
-  rewrite notCsi, notSs3 in rfl
+  rewrite notCsi, notSs3 then byComputing
 
-theorem Key.nextLoneEscape: Key.next (Key.bytes Escape) = Incomplete := rfl
+theorem Key.nextLoneEscape: Key.next (Key.bytes Escape) = Incomplete := byComputing
 
 --| Tests: every key, as a terminal sends it.
 test "Key: letters, arrows, Ctrl, Enter" :=

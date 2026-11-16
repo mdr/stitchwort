@@ -14,7 +14,7 @@ def startingAt (network: Network) (one: Computer): List Connection :=
   network.bothWays.filter ((pair: Connection) => Map.Spec.sameKey one pair.one)
 
 theorem neighboursGet ∀ (links: Links) (one: Computer): links.neighbours one = (links.get one).getOrElse Set.empty :=
-  rfl
+  byComputing
 
 --| A computer's neighbours are the far ends of the connections starting at
 --| it.
@@ -24,9 +24,9 @@ theorem neighboursStartingAt ∀ (network: Network) (one other: Computer):
   rewrite neighboursGet network.links one,
       Map.getMap (Map.groupBy network.bothWays Connection.one) one (pairs =>
         pairs.map Connection.other |> .toList |> Set.fromList),
-      Map.getGroupBy Connection.one one network.bothWays in
+      Map.getGroupBy Connection.one one network.bothWays then
     match network.bothWays.filter ((pair: Connection) => Map.Spec.sameKey one pair.one) with
-      | [] => rfl
+      | [] => byComputing
       | [first, ..rest] => Set.containsFromList other ([first, ..rest] |> .map Connection.other)
 
 --| The program's neighbours are the connections both ways round.
@@ -35,7 +35,7 @@ theorem neighboursIff ∀ (network: Network) (one other: Computer):
   {
     forward = held =>
       let found: ((startingAt network one).map Connection.other).any (x => Map.Spec.sameKey other x) = True :=
-        rewrite <- neighboursStartingAt network one other in held
+        rewrite <- neighboursStartingAt network one other then held
       let Witness x (Both member same) := found
       List.anyElim
         (pair => Connection.other pair = x)
@@ -47,9 +47,9 @@ theorem neighboursIff ∀ (network: Network) (one other: Computer):
             | { one = start, other = end } =>
               let (Both inBoth starts) :=
                 List.memFilter network.bothWays ((pair: Connection) => Map.Spec.sameKey one pair.one) kept
-              rewrite Map.Spec.sameKeySound one start starts, Map.Spec.sameKeySound other x same, <- far in inBoth),
+              rewrite Map.Spec.sameKeySound one start starts, Map.Spec.sameKeySound other x same, <- far then inBoth),
     backward = inBoth =>
-      rewrite neighboursStartingAt network one other in
+      rewrite neighboursStartingAt network one other then
         Witness other
           (Both
             (List.memMap
@@ -89,7 +89,7 @@ theorem bothWaysIff ∀ (network: Network) (one other: Computer):
                     (Both
                       (rewrite Eq.cong Connection.other swapped, Eq.cong Connection.one swapped at listed)
                       (Inr (DecEq.refl ({ one = other, other = one }))))
-                | Inr (Inr none) => Void.exfalso none),
+                | Inr (Inr none) => none.impossible),
     backward = joined =>
       let Witness pair (Both listed matches) := joined
       match matches with
@@ -99,7 +99,7 @@ theorem bothWaysIff ∀ (network: Network) (one other: Computer):
             ({ one = one, other = other })
             ({ one = one, other = other })
             network.connections
-            (rewrite <- same.read in listed)
+            (rewrite <- same.read then listed)
             (firstOfTwo ({ one = one, other = other }) ({ one = other, other = one }))
         | Inr swapped =>
           List.memFlatMapIntro
@@ -107,7 +107,7 @@ theorem bothWaysIff ∀ (network: Network) (one other: Computer):
             ({ one = other, other = one })
             ({ one = one, other = other })
             network.connections
-            (rewrite <- swapped.read in listed)
+            (rewrite <- swapped.read then listed)
             (secondOfTwo ({ one = other, other = one }) ({ one = one, other = other }))
   }
 
@@ -146,7 +146,7 @@ theorem connectedComputer ∀ (network: Network) (one other: Computer)
         ({ one = one, other = other })
         one
         network.connections
-        (rewrite <- same.read in listed)
+        (rewrite <- same.read then listed)
         (firstOfTwo one other)
     | Inr swapped =>
       List.memFlatMapIntro
@@ -154,7 +154,7 @@ theorem connectedComputer ∀ (network: Network) (one other: Computer)
         ({ one = other, other = one })
         one
         network.connections
-        (rewrite <- swapped.read in listed)
+        (rewrite <- swapped.read then listed)
         (secondOfTwo other one)
 
 --| A computer on the map has a neighbour.
@@ -173,18 +173,19 @@ theorem computerConnected ∀ (network: Network) (computer: Computer)
             | Inl first =>
               Witness end
                 (Witness { one = start, other = end }
-                  (Both listed (Inl (rewrite first in DecEq.refl ({ one = computer, other = end })))))
+                  (Both listed (Inl (rewrite first then DecEq.refl ({ one = computer, other = end })))))
             | Inr (Inl second) =>
               Witness start
                 (Witness { one = start, other = end }
-                  (Both listed (Inr (rewrite second in DecEq.refl ({ one = start, other = computer })))))
-            | Inr (Inr none) => Void.exfalso none)
+                  (Both listed (Inr (rewrite second then DecEq.refl ({ one = start, other = computer })))))
+            | Inr (Inr none) => none.impossible)
 
 --| A computer with a neighbour has an entry in the links.
 theorem hasLinksOfLinked ∀ (network: Network) (one other: Computer)
     (held: (network.links.neighbours one).contains other = True):
     network.links.keySet.contains one = True :=
-  rewrite Map.containsKeySet network.links one in match found: Map.get network.links one with | Some set => rfl
+  rewrite Map.containsKeySet network.links one then
+    match found: Map.get network.links one with | Some set => byComputing
 
 --| The computers with links are the computers on the map.
 theorem hasLinksIff ∀ (network: Network) (computer: Computer):
@@ -192,7 +193,8 @@ theorem hasLinksIff ∀ (network: Network) (computer: Computer):
   {
     forward = keyed =>
       match found: Map.get network.links computer with
-        | None => Void.exfalso (Bool.falseNotTrue (rewrite Map.containsKeySet network.links computer, found at keyed))
+        | None =>
+          Void.impossible (Bool.falseNotTrue (rewrite Map.containsKeySet network.links computer, found at keyed))
         | Some set =>
           List.anyTrueElim
             (startingAt network computer)
@@ -200,12 +202,12 @@ theorem hasLinksIff ∀ (network: Network) (computer: Computer):
             (computer ∈ computers network)
             (match starting: network.bothWays.filter ((pair: Connection) => Map.Spec.sameKey computer pair.one) with
               | [] =>
-                Void.exfalso
+                Void.impossible
                   (Option.noneNotSome set
                     (rewrite Map.getMap (Map.groupBy network.bothWays Connection.one) computer (pairs =>
                       pairs.map Connection.other |> .toList |> Set.fromList), Map.getGroupBy Connection.one computer
                         network.bothWays, starting at found))
-              | [first, ..rest] => rfl)
+              | [first, ..rest] => byComputing)
             (pair kept unused =>
               match pair with
                 | { one = start, other = end } =>

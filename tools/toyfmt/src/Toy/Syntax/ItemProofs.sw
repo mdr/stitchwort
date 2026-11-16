@@ -24,23 +24,24 @@ theorem runsSignThere ∀ (what: Text) (wanted: Punctuation)
         rest
         ()
         (runsSkip token rest)
-    match core state starts honest with | (m, ran, after) => (m, (rewrite starts, there in ran), after)
+    match core state starts honest with | (m, ran, after) => (m, (rewrite starts, there then ran), after)
 
 theorem signAbsentRun ∀ (what: Text) (wanted: Punctuation) (state: Parse.State (Parse.Located Token))
     (absent: signAhead wanted state.at.rest = False):
     Parse.runFrom state (() => (signInBrackets what wanted, Parse.mark()))
       = Ok (None, (state.note (Parse.Problem.Expected what)).at) :=
   match state with
-    | { at = { rest = [], offset, left }, furthest, expected, messages } => rfl
-    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite absent in rfl
+    | { at = { rest = [], offset, left }, furthest, expected, messages } => byComputing
+    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } =>
+      rewrite absent then byComputing
 
 theorem runsSignAbsent ∀ (what: Text) (wanted: Punctuation) (rest: List (Parse.Located Token))
     (absent: signAhead wanted rest = False):
     Parse.Runs (() => signInBrackets what wanted) [] rest None :=
   state starts honest =>
     let same := Parse.noteAt state (Parse.Problem.Expected what)
-    let run := signAbsentRun what wanted state (rewrite starts in absent)
-    (state.at, (rewrite same at run in run), starts, (rewrite starts at honest in honest), rfl)
+    let run := signAbsentRun what wanted state (rewrite starts then absent)
+    (state.at, (rewrite same at run then run), starts, (rewrite starts at honest then honest), byComputing)
 
 --| `item` on a value with no comma after it: the last item of a list.
 theorem runsItemLast ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
@@ -59,7 +60,7 @@ theorem runsItemLast ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     rest
     value
     ({ value, comma = Comments.none }, False)
-    (Eq.sym (List.appendNil tokens))
+    (List.appendNil tokens).flipped
     runsValue
     (Parse.runsMap
       (() => signInBrackets "','" Comma)
@@ -87,7 +88,7 @@ theorem runsItemComma ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
     rest
     value
     ({ value, comma = Layout.comments InBrackets comma }, True)
-    rfl
+    byComputing
     runsValue
     (Parse.runsMap
       (() => signInBrackets "','" Comma)
@@ -95,4 +96,4 @@ theorem runsItemComma ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
       [comma]
       rest
       (Some (Layout.comments InBrackets comma))
-      (runsSignThere "','" Comma comma rest (rewrite isComma in rfl)))
+      (runsSignThere "','" Comma comma rest (rewrite isComma then byComputing)))

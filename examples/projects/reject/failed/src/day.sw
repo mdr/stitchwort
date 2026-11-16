@@ -7,4 +7,4 @@ import Lib (f)
 
 def g: Nat := f
 
-theorem gIsZero: g = 0 := rfl
+theorem gIsZero: g = 0 := byComputing

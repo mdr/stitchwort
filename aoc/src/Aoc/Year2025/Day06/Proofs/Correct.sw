@@ -22,7 +22,7 @@ import Std (Bool, Eq, List, Nat, Option, Text)
 
 --| The spec's problem test is the library's maximal run of non-blank columns.
 theorem isProblemRun ∀ (lines: List Text) (lo hi: Nat): isProblem lines lo hi = Nat.isRun (c => blank lines c) lo hi :=
-  rfl
+  byComputing
 
 --| The program's columns are the worksheet's columns, cell by cell.
 theorem columnsAre ∀ (lines: List Text):
@@ -34,8 +34,8 @@ theorem blankPast ∀ (w: Nat) (lines: List Text)
     (h: ∀ (r: Nat) => ((lines.map Text.toList).getOr r []).length ≤ w):
     blank lines w = True :=
   match lines with
-    | [] => rfl
-    | [l, ..rest] => rewrite List.getOrPast (Text.toList l) w ' ' (h 0) in blankPast w rest (r => h (Succ r))
+    | [] => byComputing
+    | [l, ..rest] => rewrite List.getOrPast (Text.toList l) w ' ' (h 0) then blankPast w rest (r => h (Succ r))
 
 --| One problem's block of columns, as the program reads it, against the
 --| spec's reading of the same cells. `Cons c cs` are the problem's columns.
@@ -43,7 +43,7 @@ theorem blockRows ∀ (lines: List Text) (c: Nat) (cs: List Nat):
     (Problem.parse ([c, ..cs].map (column lines))).rowNumbers
       = lines.init.map (line => parseNumber ([c, ..cs].map (charAt line))) :=
   rewrite List.transposeGrid cs c lines (x line => charAt line x),
-      List.initMap lines (line => [c, ..cs].map (charAt line)) in
+      List.initMap lines (line => [c, ..cs].map (charAt line)) then
     List.mapMap lines.init parseNumber (line => [c, ..cs].map (charAt line))
 
 theorem blockColumns ∀ (lines: List Text) (cs: List Nat):
@@ -53,7 +53,7 @@ theorem blockColumns ∀ (lines: List Text) (cs: List Nat):
 --| The operator under column c.
 theorem columnOperator ∀ (lines: List Text) (c: Nat):
     (column lines c).last.flatMap Operator.parse = lines.last.flatMap (bottom => Operator.parse (charAt bottom c)) :=
-  rewrite List.lastMap lines (line => charAt line c) in
+  rewrite List.lastMap lines (line => charAt line c) then
     Option.flatMapMap lines.last Operator.parse (line => charAt line c)
 
 theorem blockOperator ∀ (lines: List Text) (cs: List Nat):
@@ -66,18 +66,18 @@ theorem blockOperator ∀ (lines: List Text) (cs: List Nat):
 
 --| Adding and multiplying don't mind the order.
 theorem evaluateReverse ∀ (op: Option Operator) (xs: List Nat): evaluate op xs.reverse = evaluate op xs := match op with
-  | None => rfl
+  | None => byComputing
   | Some Add => List.sumReverse xs
   | Some Multiply => List.productReverse xs
 
 --| A problem has at least one column.
-theorem problemWide ∀ (lines: List Text) (lo hi: Nat) (h: isProblem lines lo hi = True): lo < hi := omega
+theorem problemWide ∀ (lines: List Text) (lo hi: Nat) (h: isProblem lines lo hi = True): lo < hi := arithmetic
 
 --| The columns of a problem start with its first.
 theorem problemColumns ∀ (lo hi: Nat)
     (h: lo < hi):
     List.rangeFrom (hi - lo) lo = [lo, ..List.rangeFrom (hi - Succ lo) (Succ lo)] :=
-  rewrite (omega: hi - lo = Succ (hi - Succ lo))
+  rewrite (arithmetic: hi - lo = Succ (hi - Succ lo))
 
 --| What the program adds up for one block, part 1 and part 2.
 def blockAnswer1 (b: List (List Char)): Nat := evaluate (Problem.parse b).operator (Problem.parse b).rowNumbers
@@ -92,7 +92,7 @@ theorem answer1 ∀ (lines: List Text) (lo hi: Nat) (b: Bool)
     Nat.keepIf (blockAnswer1 (blockOf lines lo hi)) b
       = Nat.keepIf (evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi)) b :=
   match b with
-    | False => rfl
+    | False => byComputing
     | True =>
       rewrite problemColumns lo hi (problemWide lines lo hi h), blockOperator lines [
         lo,
@@ -104,7 +104,7 @@ theorem answer2 ∀ (lines: List Text) (lo hi: Nat) (b: Bool)
     Nat.keepIf (blockAnswer2 (blockOf lines lo hi)) b
       = Nat.keepIf (evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi)) b :=
   match b with
-    | False => rfl
+    | False => byComputing
     | True =>
       rewrite blockOperator lines (List.rangeFrom (hi - lo) lo), blockColumns lines
         (List.rangeFrom (hi - lo) lo), List.mapReverse (List.rangeFrom (hi - lo) lo) (c =>
@@ -119,11 +119,11 @@ theorem blocksTotal ∀ (lines: List Text) (answer: List (List Char) → Nat):
       = List.sumBy (List.range 0 (gridWidth lines)) (lo =>
         List.sumBy (List.range 0 (gridWidth lines + 1)) (hi =>
           Nat.keepIf (answer (blockOf lines lo hi)) (isProblem lines lo hi))) :=
-  rewrite columnsAre lines in
+  rewrite columnsAre lines then
     List.splitByRuns isBlank
       (column lines)
       (blank lines)
-      (c => rfl)
+      (c => byComputing)
       answer
       (gridWidth lines)
       (blankPast (gridWidth lines) lines (r => List.lengthLeMaxLength (List.map lines Text.toList) r))
@@ -131,14 +131,14 @@ theorem blocksTotal ∀ (lines: List Text) (answer: List (List Char) → Nat):
 theorem term1 ∀ (lines: List Text) (lo hi: Nat):
     Nat.keepIf (blockAnswer1 (blockOf lines lo hi)) (isProblem lines lo hi)
       = (if isProblem lines lo hi then evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi) else 0) :=
-  rewrite Nat.ifKeep (evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi)) (isProblem lines lo hi) in
-    answer1 lines lo hi (isProblem lines lo hi) rfl
+  rewrite Nat.ifKeep (evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi)) (isProblem lines lo hi) then
+    answer1 lines lo hi (isProblem lines lo hi) byComputing
 
 theorem term2 ∀ (lines: List Text) (lo hi: Nat):
     Nat.keepIf (blockAnswer2 (blockOf lines lo hi)) (isProblem lines lo hi)
       = (if isProblem lines lo hi then evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi) else 0) :=
-  rewrite Nat.ifKeep (evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi)) (isProblem lines lo hi) in
-    answer2 lines lo hi (isProblem lines lo hi) rfl
+  rewrite Nat.ifKeep (evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi)) (isProblem lines lo hi) then
+    answer2 lines lo hi (isProblem lines lo hi) byComputing
 
 --| Part 1 is right: for every input, the printed answer is the puzzle's grand
 --| total with the numbers read along the rows.

@@ -4,7 +4,7 @@ expression: "lines(session, d, f)"
 ---
 Main.holds fb1ea86cf73637c22cd33e183a445ad1884df3a4beb81ee0b651f9de0ba746e3
 Main.three defca9ff1840b6b559a1a226486030d5d683bffeb4816b47c98d0126015a5bcc
-Main.test "rfl waits for the literal" 096b153511a2bc19e506a9955af4e65a9c17c11647e58f3533f0df703170f774
+Main.test "byComputing waits for the literal" 096b153511a2bc19e506a9955af4e65a9c17c11647e58f3533f0df703170f774
 Main.positiveKept cf3097c927c4fbf87cbf79f03dd2f95423e0a66c949e1b6cb6e6122194798608
 Main.positiveAlone 991fdaebb482bba42b1b83ae0079bf8d36121650b588366c31089cff843e5a7a
 Main.ruleSettled ac3c6a0a53cdb3d49bfe9d7289cd670d1c5a1abd1d5b9147cdb3f399b09e4bd9

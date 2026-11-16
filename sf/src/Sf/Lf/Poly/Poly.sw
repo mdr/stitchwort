@@ -93,11 +93,11 @@ def repeat (a: Type) (x: a) (count: Nat): List a := match count with
 -- `repeat` is applied first to a type, then to an element of that type
 -- (and a number):
 
-theorem testRepeat1: repeat Nat (ofNat 4) (ofNat 2) = Cons (ofNat 4) (Cons (ofNat 4) Nil) := rfl
+theorem testRepeat1: repeat Nat (ofNat 4) (ofNat 2) = Cons (ofNat 4) (Cons (ofNat 4) Nil) := byComputing
 
 -- To build other kinds of list, give it another type:
 
-theorem testRepeat2: repeat Bool False (S O) = Cons False Nil := rfl
+theorem testRepeat2: repeat Bool False (S O) = Cons False Nil := byComputing
 
 -- The mumble-grumble exercise comes here: MumbleGrumble.sw.
 
@@ -180,11 +180,11 @@ def length (l: List a): Nat := match l with
   | Nil => O
   | Cons _ l' => S (length l')
 
-theorem testRev1: rev (Cons (S O) (Cons (ofNat 2) Nil)) = Cons (ofNat 2) (Cons (S O) Nil) := rfl
+theorem testRev1: rev (Cons (S O) (Cons (ofNat 2) Nil)) = Cons (ofNat 2) (Cons (S O) Nil) := byComputing
 
-theorem testRev2: rev (Cons True Nil) = Cons True Nil := rfl
+theorem testRev2: rev (Cons True Nil) = Cons True Nil := byComputing
 
-theorem testLength1: length (Cons (S O) (Cons (ofNat 2) (Cons (ofNat 3) Nil))) = ofNat 3 := rfl
+theorem testLength1: length (Cons (S O) (Cons (ofNat 2) (Cons (ofNat 3) Nil))) = ofNat 3 := byComputing
 
 -- ### Supplying Type Arguments Explicitly
 --
@@ -238,11 +238,11 @@ def ofNats (xs: StdList StdNat): List Nat := match xs with
 
 def list123''': List Nat := ofNats [1, 2, 3]
 
-theorem list123Same: list123''' = list123 := rfl
+theorem list123Same: list123''' = list123 := byComputing
 
 -- `ofList [True, False]` is a `List Bool`, and a list of lists of
 -- numbers is `ofList [ofNats [1], ofNats [2, 3]]`. Both compute, so
--- `rfl` sees through them.
+-- `byComputing` sees through them.
 
 -- ### Exercises
 
@@ -340,11 +340,11 @@ def nthError (l: List a) (n: Nat): Option a := match l with
       | O => Some x
       | S n' => nthError l' n'
 
-theorem testNthError1: nthError (ofNats [4, 5, 6, 7]) O = Some (ofNat 4) := rfl
+theorem testNthError1: nthError (ofNats [4, 5, 6, 7]) O = Some (ofNat 4) := byComputing
 
-theorem testNthError2: nthError (ofList [ofNats [1], ofNats [2]]) (S O) = Some (ofNats [2]) := rfl
+theorem testNthError2: nthError (ofList [ofNats [1], ofNats [2]]) (S O) = Some (ofNats [2]) := byComputing
 
-theorem testNthError3: nthError (ofList [True]) (ofNat 2) = None := rfl
+theorem testNthError3: nthError (ofList [True]) (ofNat 2) = None := byComputing
 
 -- Exercise: 1 star, standard, optional (hd_error_poly)
 --
@@ -383,9 +383,9 @@ def doit3times (f: a → a) (n: a): a := f (f (f n))
 -- `doit3times` applies it three times to `n`. Its type is `[a: Type] →
 -- (f: a → a) → (n: a) → a`.
 
-theorem testDoit3times: doit3times minustwo (ofNat 9) = ofNat 3 := rfl
+theorem testDoit3times: doit3times minustwo (ofNat 9) = ofNat 3 := byComputing
 
-theorem testDoit3times': doit3times negb True = False := rfl
+theorem testDoit3times': doit3times negb True = False := byComputing
 
 -- ## Filter
 --
@@ -403,24 +403,24 @@ def filter (keep: a → Bool) (l: List a): List a := match l with
 -- Applied to the predicate `even` and a list of numbers, `filter` gives
 -- the even ones:
 
-theorem testFilter1: filter even (ofNats [1, 2, 3, 4]) = ofNats [2, 4] := rfl
+theorem testFilter1: filter even (ofNats [1, 2, 3, 4]) = ofNats [2, 4] := byComputing
 
 def lengthIs1 (l: List a): Bool := eqb (length l) (S O)
 
 theorem testFilter2: filter lengthIs1
       (ofList [ofNats [1, 2], ofNats [3], ofNats [4], ofNats [5, 6, 7], Nil, ofNats [8]])
       = ofList [ofNats [3], ofNats [4], ofNats [8]] :=
-  rfl
+  byComputing
 
 -- With `filter`, the Lists chapter's `countoddmembers` is one line:
 
 def countoddmembers' (l: List Nat): Nat := length (filter odd l)
 
-theorem testCountoddmembers'1: countoddmembers' (ofNats [1, 0, 3, 1, 4, 5]) = ofNat 4 := rfl
+theorem testCountoddmembers'1: countoddmembers' (ofNats [1, 0, 3, 1, 4, 5]) = ofNat 4 := byComputing
 
-theorem testCountoddmembers'2: countoddmembers' (ofNats [0, 2, 4]) = O := rfl
+theorem testCountoddmembers'2: countoddmembers' (ofNats [0, 2, 4]) = O := byComputing
 
-theorem testCountoddmembers'3: countoddmembers' Nil = O := rfl
+theorem testCountoddmembers'3: countoddmembers' Nil = O := byComputing
 
 -- ## Anonymous Functions
 --
@@ -432,7 +432,7 @@ theorem testCountoddmembers'3: countoddmembers' Nil = O := rfl
 -- n n`, read "the function that, given `n`, gives `mult n n`". As an
 -- argument it goes in brackets:
 
-theorem testAnonFun': doit3times (n => mult n n) (ofNat 2) = ofNat 256 := rfl
+theorem testAnonFun': doit3times (n => mult n n) (ofNat 2) = ofNat 256 := byComputing
 
 -- The `filter` example again, with an anonymous function:
 
@@ -440,7 +440,7 @@ theorem testFilter2': filter
       (l => eqb (length l) (S O))
       (ofList [ofNats [1, 2], ofNats [3], ofNats [4], ofNats [5, 6, 7], Nil, ofNats [8]])
       = ofList [ofNats [3], ofNats [4], ofNats [8]] :=
-  rfl
+  byComputing
 
 -- (A parameter can be given a type, `(n: Nat) => mult n n`, where
 -- nothing else says what it is. Stitchwort also has *clause lambdas*,
@@ -486,21 +486,21 @@ def map (f: a → b) (l: List a): List b := match l with
 -- list `[f n1, f n2, f n3, ...]`, with `f` applied to each element in
 -- turn:
 
-theorem testMap1: map (x => plus (ofNat 3) x) (ofNats [2, 0, 2]) = ofNats [5, 3, 5] := rfl
+theorem testMap1: map (x => plus (ofNat 3) x) (ofNats [2, 0, 2]) = ofNats [5, 3, 5] := byComputing
 
 -- The input and output lists' element types needn't be the same: `map`
 -- has two type parameters, `a` and `b`. So it can take a list of
 -- numbers and a function from numbers to booleans, and give a list of
 -- booleans:
 
-theorem testMap2: map odd (ofNats [2, 1, 2, 5]) = ofList [False, True, False, True] := rfl
+theorem testMap2: map odd (ofNats [2, 1, 2, 5]) = ofList [False, True, False, True] := byComputing
 
 -- or even a list of numbers and a function from numbers to *lists* of
 -- booleans, giving a list of lists of booleans:
 
 theorem testMap3: map (n => ofList [even n, odd n]) (ofNats [2, 1, 2, 5])
       = ofList [ofList [True, False], ofList [False, True], ofList [True, False], ofList [False, True]] :=
-  rfl
+  byComputing
 
 -- ### Exercises
 
@@ -563,15 +563,16 @@ def fold (f: a → b → b) (l: List a) (init: b): b := match l with
 --
 --     1 + (2 + (3 + (4 + 0))).
 
-theorem foldExample1: fold andb (ofList [True, True, False, True]) True = False := rfl
+theorem foldExample1: fold andb (ofList [True, True, False, True]) True = False := byComputing
 
-theorem foldExample2: fold mult (ofNats [1, 2, 3, 4]) (S O) = ofNat 24 := rfl
+theorem foldExample2: fold mult (ofNats [1, 2, 3, 4]) (S O) = ofNat 24 := byComputing
 
-theorem foldExample3: fold app (ofList [ofNats [1], Nil, ofNats [2, 3], ofNats [4]]) Nil = ofNats [1, 2, 3, 4] := rfl
+theorem foldExample3: fold app (ofList [ofNats [1], Nil, ofNats [2, 3], ofNats [4]]) Nil = ofNats [1, 2, 3, 4] :=
+  byComputing
 
 theorem foldExample4: fold (l n => plus (length l) n) (ofList [ofNats [1], Nil, ofNats [2, 3, 2], ofNats [4]]) O
       = ofNat 5 :=
-  rfl
+  byComputing
 
 -- Exercise: 1 star, standard, optional (fold_types_different)
 --
@@ -590,9 +591,9 @@ def constfun (x: a): Nat → a := (k: Nat) => x
 
 def ftrue: Nat → Bool := constfun True
 
-theorem constfunExample1: ftrue O = True := rfl
+theorem constfunExample1: ftrue O = True := byComputing
 
-theorem constfunExample2: (constfun (ofNat 5)) (ofNat 99) = ofNat 5 := rfl
+theorem constfunExample2: (constfun (ofNat 5)) (ofNat 99) = ofNat 5 := byComputing
 
 -- (The book's `Definition ftrue := constfun true.` has no type; here
 -- `ftrue` needs one, `Nat → Bool`.)
@@ -603,11 +604,11 @@ theorem constfunExample2: (constfun (ofNat 5)) (ofNat 99) = ofNat 5 := rfl
 
 def plus3: Nat → Nat := plus (ofNat 3)
 
-theorem testPlus3: plus3 (ofNat 4) = ofNat 7 := rfl
+theorem testPlus3: plus3 (ofNat 4) = ofNat 7 := byComputing
 
-theorem testPlus3': doit3times plus3 O = ofNat 9 := rfl
+theorem testPlus3': doit3times plus3 O = ofNat 9 := byComputing
 
-theorem testPlus3'': doit3times (plus (ofNat 3)) O = ofNat 9 := rfl
+theorem testPlus3'': doit3times (plus (ofNat 3)) O = ofNat 9 := byComputing
 
 -- Similarly:
 

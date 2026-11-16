@@ -10,20 +10,20 @@ import Std (Bool, Eq, Exists, List, Nat, Option)
 theorem comboAgrees ∀ (registers: Registers) (operand: Nat):
     Option.map (Combo.decode operand) registers.value = comboValue registers operand :=
   match operand with
-    | 0 => rfl
-    | 1 => rfl
-    | 2 => rfl
-    | 3 => rfl
-    | 4 => rfl
-    | 5 => rfl
-    | 6 => rfl
-    | Succ (Succ (Succ (Succ (Succ (Succ (Succ operand)))))) => rfl
+    | 0 => byComputing
+    | 1 => byComputing
+    | 2 => byComputing
+    | 3 => byComputing
+    | 4 => byComputing
+    | 5 => byComputing
+    | 6 => byComputing
+    | Succ (Succ (Succ (Succ (Succ (Succ (Succ operand)))))) => byComputing
 
 --| `Nat.xor` is the puzzle's bitwise XOR.
 theorem xorBitwise ∀ (x y: Nat): BitwiseXor x y (x.xor y) := i =>
   Eq.trans
-    (Eq.sym (Nat.testBitDiv (x.xor y) i))
-    (Eq.trans (Nat.testBitXor i x y) (rewrite Nat.testBitDiv x i, Nat.testBitDiv y i in rfl))
+    (Eq.flipped (Nat.testBitDiv (x.xor y) i))
+    (Eq.trans (Nat.testBitXor i x y) (rewrite Nat.testBitDiv x i, Nat.testBitDiv y i then byComputing))
 
 --| An instruction with a combo operand, made by `make`, does what `happens`
 --| says of the operand's value.
@@ -42,8 +42,8 @@ theorem comboStep ∀ (machine: Machine) (operand: Nat) (make: Combo → Instruc
           = Next (after value) (printed value)) :=
   let agrees := comboAgrees machine.registers operand
   match found: Combo.decode operand with
-    | None => rewrite Eq.sym agrees in rfl
-    | Some combo => rewrite Eq.sym agrees in executes combo
+    | None => rewrite Eq.flipped agrees then byComputing
+    | Some combo => rewrite Eq.flipped agrees then executes combo
 
 --| Each opcode, with each operand, does what the puzzle says.
 theorem executesDecode ∀ (operand: Nat) (machine: Machine) (opcode: Nat):
@@ -56,41 +56,41 @@ theorem executesDecode ∀ (operand: Nat) (machine: Machine) (opcode: Nat):
       comboStep machine operand Adv
         (value => advanced machine { machine.registers | a = machine.registers.a / Nat.pow 2 value })
         (value => None)
-        (combo => rewrite Nat.shiftRightDiv machine.registers.a (machine.registers.value combo) in rfl)
-    | 1 => Witness (machine.registers.b.xor operand) (Both (xorBitwise machine.registers.b operand) rfl)
+        (combo => rewrite Nat.shiftRightDiv machine.registers.a (machine.registers.value combo) then byComputing)
+    | 1 => Witness (machine.registers.b.xor operand) (Both (xorBitwise machine.registers.b operand) byComputing)
     | 2 =>
       comboStep machine operand Bst
         (value => advanced machine { machine.registers | b = value % 8 })
         (value => None)
-        (combo => rfl)
+        (combo => byComputing)
     | 3 =>
       match zero: machine.registers.a == 0 with
-        | True => rfl
-        | False => rfl
+        | True => byComputing
+        | False => byComputing
     | 4 =>
       Witness
         (machine.registers.b.xor machine.registers.c)
-        (Both (xorBitwise machine.registers.b machine.registers.c) rfl)
+        (Both (xorBitwise machine.registers.b machine.registers.c) byComputing)
     | 5 =>
       comboStep machine operand Out (value => advanced machine machine.registers) (value => Some (value % 8)) (combo =>
-        rfl)
+        byComputing)
     | 6 =>
       comboStep machine operand Bdv
         (value => advanced machine { machine.registers | b = machine.registers.a / Nat.pow 2 value })
         (value => None)
-        (combo => rewrite Nat.shiftRightDiv machine.registers.a (machine.registers.value combo) in rfl)
+        (combo => rewrite Nat.shiftRightDiv machine.registers.a (machine.registers.value combo) then byComputing)
     | 7 =>
       comboStep machine operand Cdv
         (value => advanced machine { machine.registers | c = machine.registers.a / Nat.pow 2 value })
         (value => None)
-        (combo => rewrite Nat.shiftRightDiv machine.registers.a (machine.registers.value combo) in rfl)
-    | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ opcode))))))) => rfl
+        (combo => rewrite Nat.shiftRightDiv machine.registers.a (machine.registers.value combo) then byComputing)
+    | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ opcode))))))) => byComputing
 
 --| Every step the program takes is the puzzle's.
 theorem stepMatches ∀ (program: List Nat) (machine: Machine): StepMatches program machine (machine.step program) :=
   match fetched: program.get machine.pointer with
-    | None => rfl
+    | None => byComputing
     | Some opcode =>
       match operandFetched: program.get (machine.pointer + 1) with
-        | None => rfl
+        | None => byComputing
         | Some operand => executesDecode operand machine opcode

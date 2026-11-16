@@ -38,7 +38,7 @@ fn scratch(name: &str) -> PathBuf {
 /// and one that is redundant (the fact is already the proposition); a
 /// helper that is removable (the proof is accepted where the test fact is
 /// expected) and one that is needed (the equation is an argument of
-/// `Eq.sym`, where nothing says what to build).
+/// `Eq.flipped`, where nothing says what to build).
 const FIXTURE: &str = "\
 namespace Laws
 
@@ -50,7 +50,7 @@ theorem redundant (a b: Nat) (h: Nat.leq a b = True): Nat.leq a b = True := h.re
 
 theorem removable (x: Bool) (h: x ≠ True): x = False := Bool.falseOfNotTrue x h
 
-theorem helperNeeded (x: Bool) (h: x ≠ True): False = x := Eq.sym (Bool.falseOfNotTrue x h)
+theorem helperNeeded (x: Bool) (h: x ≠ True): False = x := Eq.flipped (Bool.falseOfNotTrue x h)
 ";
 
 fn verdicts(result: &Value) -> Vec<(u64, String)> {
@@ -159,7 +159,7 @@ fn oracle_files_mode_and_limit() {
 #[test]
 fn oracle_refuses_a_project_that_does_not_check() {
     let dir = scratch("broken");
-    let broken = format!("{FIXTURE}\ntheorem bad (n: Nat): n = 0 := rfl\n");
+    let broken = format!("{FIXTURE}\ntheorem bad (n: Nat): n = 0 := byComputing\n");
     std::fs::write(dir.join("src/laws.sw"), broken).unwrap();
     let output = stitchwort(&dir, &["oracle", "readings", "src", "--json"]);
     assert_eq!(output.status.code(), Some(2));

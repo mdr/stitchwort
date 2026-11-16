@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: write `then`, not `in`, after `cases`
+   ╭─[ reject/cases-old-in.sw:7:9 ]
+   │
+ 7 │   cases in h
+   │         ─┬  
+   │          ╰── write `then`, not `in`, after `cases`
+   │ 
+   │ Note: the proof that follows a `cases` comes after `then`: `cases … then t`; `in` is only a membership test
+───╯

@@ -5,12 +5,12 @@
 -- stage 2).
 import Std (Float, Fin, Vec, Map, Set)
 
-theorem equalsItself (x: Float): Float.ieeeEq x x = True := rfl
+theorem equalsItself (x: Float): Float.ieeeEq x x = True := byComputing
 
-theorem belowFour (i: Fin 5): Fin.toNat i < 4 := rfl
+theorem belowFour (i: Fin 5): Fin.toNat i < 4 := byComputing
 
-theorem headIsZero (v: Vec Nat 3): Vec.head v = 0 := rfl
+theorem headIsZero (v: Vec Nat 3): Vec.head v = 0 := byComputing
 
-theorem mapEmpty (m: Map Nat Nat): Map.size m = 0 := rfl
+theorem mapEmpty (m: Map Nat Nat): Map.size m = 0 := byComputing
 
-theorem setEmpty (s: Set Nat): Set.size s = 0 := rfl
+theorem setEmpty (s: Set Nat): Set.size s = 0 := byComputing

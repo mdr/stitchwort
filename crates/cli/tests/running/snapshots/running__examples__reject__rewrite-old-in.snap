@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: write `then`, not `in`, after `rewrite`
+   ╭─[ reject/rewrite-old-in.sw:7:13 ]
+   │
+ 7 │   rewrite h in byComputing
+   │             ─┬  
+   │              ╰── write `then`, not `in`, after `rewrite`
+   │ 
+   │ Note: the proof that follows a `rewrite` comes after `then`: `rewrite … then t`; `in` is only a membership test
+───╯

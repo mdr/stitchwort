@@ -45,7 +45,7 @@ theorem matchingSucc ∀ (patterns: List Pattern) (count: Nat) (stripes: List St
       List.countFlatMap
         (first => towelLists patterns count |> .map (Cons first))
         (towels => laid towels == stripes)
-        patterns in
+        patterns then
     Eq.cong
       (Nat.add (Bool.toNat ([] == stripes)))
       (List.sumByCongMem patterns
@@ -55,13 +55,13 @@ theorem matchingSucc ∀ (patterns: List Pattern) (count: Nat) (stripes: List St
             matching patterns count (stripes.drop pattern.stripes.toList.length)
           else 0)
         (pattern member =>
-          rewrite List.countMap (towelLists patterns count) (towels => laid towels == stripes) (Cons pattern) in
+          rewrite List.countMap (towelLists patterns count) (towels => laid towels == stripes) (Cons pattern) then
             matchingAfter patterns count stripes pattern))
 
 --| The empty design is made one way, by no
 --| towels, however many are allowed.
 theorem matchingEmpty ∀ (patterns: List Pattern) (count: Nat): matching patterns count [] = 1 := match count with
-  | Zero => rfl
+  | Zero => byComputing
   | Succ count =>
     rewrite matchingSucc patterns count [],
         List.sumByZeroIntro patterns
@@ -69,5 +69,5 @@ theorem matchingEmpty ∀ (patterns: List Pattern) (count: Nat): matching patter
             if List.startsWith [] pattern.stripes.toList then
               matching patterns count (List.drop [] pattern.stripes.toList.length)
             else 0)
-          (pattern member => rfl) in
-      rfl
+          (pattern member => byComputing) then
+      byComputing

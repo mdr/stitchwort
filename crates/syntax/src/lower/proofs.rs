@@ -1,4 +1,4 @@
-//! Proofs: `calc`, `rewrite`, `omega`, `ring` and `cases`.
+//! Proofs: `calc`, `rewrite`, `arithmetic`, `algebra` and `cases`.
 
 use crate::Span;
 use crate::ast::{BinOp, CalcStep, Expr, Name, RewriteRule};
@@ -77,8 +77,8 @@ impl<'f> Lower<'f> {
         Ok((step, descending))
     }
 
-    /// `rewrite p, <- q at h in t`: the rules, then the target after `at`
-    /// and the body after `in`, each optional. It spans the keyword to the
+    /// `rewrite p, <- q at h then t`: the rules, then the target after `at`
+    /// and the body after `then`, each optional. It spans the keyword to the
     /// end of the body, the target or the last rule, whichever is last.
     #[inline(never)]
     pub(super) fn rewrite(&self, node: Node<'f>) -> Lowering<Expr> {
@@ -89,10 +89,10 @@ impl<'f> Lower<'f> {
             .filter(|child| child.kind() == NodeKind::RewriteRule)
             .map(|rule| self.rewrite_rule(rule))
             .collect::<Lowering<Vec<_>>>()?;
-        // Before the `in`: a body can be a name `at`, `rewrite h in at`.
+        // Before the `then`: a body can be a name `at`, `rewrite h then at`.
         let at = node
             .own_leaves()
-            .take_while(|leaf| *leaf.tok() != Tok::KwIn)
+            .take_while(|leaf| *leaf.tok() != Tok::KwThen)
             .find(|leaf| matches!(leaf.tok(), Tok::Lower(word) if word == "at"));
         let target = match at {
             Some(at) => {
@@ -101,10 +101,10 @@ impl<'f> Lower<'f> {
             }
             None => None,
         };
-        let in_ = node.leaf(&Tok::KwIn);
-        let body = match in_ {
+        let then = node.leaf(&Tok::KwThen);
+        let body = match then {
             Some(_) => {
-                let body = required(node.after(&Tok::KwIn), kind, "its body")?;
+                let body = required(node.after(&Tok::KwThen), kind, "its body")?;
                 Some(Box::new(self.expr(body)?))
             }
             None => None,
@@ -120,7 +120,7 @@ impl<'f> Lower<'f> {
             body,
             keyword,
             at: at.map(|at| at.span()),
-            in_: in_.map(|in_| in_.span()),
+            then: then.map(|then| then.span()),
             span: keyword.to(end),
         })
     }
@@ -142,7 +142,7 @@ impl<'f> Lower<'f> {
         })
     }
 
-    /// `omega [h1, h2]` or `ring [h1, h2]`: the facts are a list's items,
+    /// `arithmetic [h1, h2]` or `algebra [h1, h2]`: the facts are a list's items,
     /// and it spans the keyword to the `]` (a list of facts with a `..`
     /// spread is the parser's error).
     #[inline(never)]
@@ -168,12 +168,12 @@ impl<'f> Lower<'f> {
         })
     }
 
-    /// `cases in t`, spanning the keyword to the end of `t`.
+    /// `cases then t`, spanning the keyword to the end of `t`.
     #[inline(never)]
     pub(super) fn cases(&self, node: Node<'f>) -> Lowering<Expr> {
         let kind = NodeKind::Cases;
         let keyword = required(node.first_leaf_is(&Tok::KwCases), kind, "`cases`")?.span();
-        let body = required(node.after(&Tok::KwIn), kind, "its body")?;
+        let body = required(node.after(&Tok::KwThen), kind, "its body")?;
         let body = self.expr(body)?;
         Ok(Expr::Cases {
             span: keyword.to(body.span()),
@@ -184,7 +184,7 @@ impl<'f> Lower<'f> {
 
 /// A chain `a > b >= c` (its steps stored as `<`/`<=`, the proofs being of
 /// the flipped forms `b < a`, `c <= b`) read the other way round:
-/// `c <= b < a`. A step `_ = x` flips its proof with `Eq.sym`.
+/// `c <= b < a`. A step `_ = x` flips its proof with `Eq.flipped`.
 pub(crate) fn reverse_calc(first: Expr, steps: Vec<CalcStep>) -> (Expr, Vec<CalcStep>) {
     let mut elements = vec![first];
     elements.extend(steps.iter().map(|step| step.rhs.clone()));
@@ -197,7 +197,7 @@ pub(crate) fn reverse_calc(first: Expr, steps: Vec<CalcStep>) -> (Expr, Vec<Calc
             // Empty, at the proof, so the application spans just the proof.
             let at = proof.span();
             let sym = Expr::Var(Name {
-                text: "Std.Eq.sym".into(),
+                text: "Std.Eq.flipped".into(),
                 span: Span::new(at.file, at.start, at.start),
             });
             step.proof = Some(Expr::App(Box::new(sym), Box::new(proof)));

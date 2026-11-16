@@ -4,21 +4,21 @@
 -- It warns, showing the goal where the expression was looked for. Written as
 -- the goal shows it, or with the equation used, it doesn't warn.
 import Std (Bool, Nat)
-import Std.Void (exfalso)
+import Std.Void (impossible)
 
 def double (n: Nat): Nat := n + n
 
 theorem notFound ∀ (n: Nat): double n = n + n := match h: n * 2 with
-  | Zero => rfl
-  | Succ k => rfl
+  | Zero => byComputing
+  | Succ k => byComputing
 
 theorem found ∀ (n: Nat): double n = n + n := match h: n + n with
-  | Zero => rfl
-  | Succ k => rfl
+  | Zero => byComputing
+  | Succ k => byComputing
 
 theorem equationUsed ∀ (n: Nat): n = n := match h: Succ n with
-  | Zero => exfalso (Nat.succNotZero n h)
-  | Succ k => rfl
+  | Zero => impossible (Nat.succNotZero n h)
+  | Succ k => byComputing
 
 -- Nothing in the goal or in `b`'s type could be a `Bool`, so the expression
 -- isn't computed (SW-1096). It might have computed to the variable `b`, and

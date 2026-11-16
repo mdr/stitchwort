@@ -73,5 +73,5 @@ test "Abort to Fail" :=
   toResult (() => Abort.orFail "no digits" (() => Abort.need "x".toNat)) == (Err "no digits": Result Nat Text)
 
 -- The handler's result on small inputs, by computation.
-theorem parsesL68: signed "L68 1 green" = -68 := rfl
-theorem rejectsJunk: parseTurn "L68" = Err "expected a turn like L68 3 red, got 'L68'" := rfl
+theorem parsesL68: signed "L68 1 green" = -68 := byComputing
+theorem rejectsJunk: parseTurn "L68" = Err "expected a turn like L68 3 red, got 'L68'" := byComputing

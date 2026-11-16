@@ -6,7 +6,7 @@
 import Std (Bool, Eq, List, Nat, Void)
 
 -- With `in t`, `h` is rebound: in `t` it is a fact about `b`.
-theorem inBody ∀ (a b: Nat) (e: a = b) (h: a + 1 = 5): b + 1 = 5 := rewrite e at h in h
+theorem inBody ∀ (a b: Nat) (e: a = b) (h: a + 1 = 5): b + 1 = 5 := rewrite e at h then h
 
 -- Without `in`, the rewritten fact itself.
 theorem noBody ∀ (a b: Nat) (e: a = b) (h: a + 1 = 5): b + 1 = 5 := rewrite e at h
@@ -25,16 +25,16 @@ theorem two ∀ (a b c: Nat) (e1: a = b) (e2: b = c) (h: a + a = 4): c + c = 4 :
 -- arguments, rewritten where it stands.
 theorem lemma ∀ (n m: Nat) (e: n = m): m + Succ 0 = Succ (m + 0) := rewrite e at Nat.addSucc n 0
 
--- Where nothing says what to prove: an untyped `let`, the argument of `Eq.sym`.
+-- Where nothing says what to prove: an untyped `let`, the argument of `Eq.flipped`.
 theorem noGoal ∀ (a b: Nat) (e: a = b) (h: a + 1 = 5): 5 = b + 1 :=
   let h2 := rewrite e at h
-  Eq.sym h2
+  Eq.flipped h2
 
-theorem underSym ∀ (a b: Nat) (e: a = b) (h: a + 1 = 5): 5 = b + 1 := Eq.sym (rewrite e at h)
+theorem underSym ∀ (a b: Nat) (e: a = b) (h: a + 1 = 5): 5 = b + 1 := (rewrite e at h).flipped
 
 -- A contradiction: rewrite a hypothesis, then compare it with another.
 theorem contradiction ∀ (x y: Nat) (e: y = x) (hx: Nat.leq 3 x = True) (hy: Nat.leq 3 y = False): Void :=
-  rewrite <- e at hx in Bool.trueNotFalse (Eq.trans (Eq.sym hx) hy)
+  rewrite <- e at hx then Bool.trueNotFalse (Eq.trans hx.flipped hy)
 
 -- In a `calc` step, the rewritten fact proves the step.
 theorem inCalc ∀ (a b: Nat) (e: a = b) (h: a = 7): b = 7 := calc b
@@ -42,7 +42,7 @@ theorem inCalc ∀ (a b: Nat) (e: a = b) (h: a = 7): b = 7 := calc b
 
 -- The goal can be rewritten too, by nesting.
 theorem both ∀ (f g: Nat → Nat) (k: ∀ (n: Nat) => f n = g n) (a b: Nat) (e: a = b) (h: f a = 2): g b = 2 :=
-  rewrite e at h in rewrite <- k b in h
+  rewrite e at h then rewrite <- k b then h
 
 -- `at` is only special where a rule can end: a variable called `at` can
 -- start a rule, and is bracketed as an argument inside one.

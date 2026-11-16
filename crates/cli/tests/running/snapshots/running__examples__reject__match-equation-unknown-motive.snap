@@ -5,9 +5,9 @@ expression: output
 [W-UNREACHABLE] Warning: this case can't happen
     ╭─[ reject/match-equation-unknown-motive.sw:19:5 ]
     │
- 19 │     | Some n => Void.exfalso (Bool.falseNotTrue k)
-    │     ───────────────────────┬──────────────────────  
-    │                            ╰──────────────────────── here `k` is `False = True`, which can't hold
+ 19 │     | Some n => Void.impossible (Bool.falseNotTrue k)
+    │     ────────────────────────┬────────────────────────  
+    │                             ╰────────────────────────── here `k` is `False = True`, which can't hold
     │ 
     │ Note: the arm can be deleted
 ────╯
@@ -19,7 +19,7 @@ expression: output
     │                     ╰────── the `match`'s scrutinee, still in this type
  26 │     | None => _ => lem slot _
     │                    ─────┬────  
-    │                         ╰────── expected `Holds None rfl`, but this has type `Holds slot.field _k`
+    │                         ╰────── expected `Holds None byComputing`, but this has type `Holds slot.field _k`
     │ 
     │ Note 1: `_k` is `lem`'s `_` for `k`, not worked out
     │ 

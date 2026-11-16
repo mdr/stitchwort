@@ -20,13 +20,13 @@ theorem positionsOnMap ∀ (city: City) (position: Position)
   Witness position
     (Both
       ((memPositions city.height city.width position).backward inside)
-      (rewrite Map.Spec.sameKeyDecide position position in DecEq.refl position))
+      (rewrite Map.Spec.sameKeyDecide position position then DecEq.refl position))
 
 theorem positionsOnlyOnMap ∀ (city: City) (position: Position)
     (has: (positions city.height city.width).any (other => Map.Spec.sameKey position other) = True):
     city.contains position = True :=
   let Witness other (Both member same) := has
-  rewrite Map.Spec.sameKeySound position other same in (memPositions city.height city.width other).forward member
+  rewrite Map.Spec.sameKeySound position other same then (memPositions city.height city.width other).forward member
 
 --| Two antennas the spec pairs: of the same frequency, at different places.
 def sameFrequency (first second: Antenna): Bool :=
@@ -62,7 +62,7 @@ theorem pairsElim ∀ (city: City) (pair: (Position, Position)) (goal: Prop)
           inPartners)
         (second secondIn built =>
           let both := List.memFilter city.antennas (sameFrequency first) secondIn
-          use first second firstIn (And.left both) (And.right both) built))
+          use first second firstIn both.left both.right built))
 
 theorem pairsIntro ∀ (city: City) (first second: Antenna)
     (firstIn: first ∈ city.antennas)
@@ -98,23 +98,22 @@ theorem locationsCorrect ∀ (city: City)
   Set.ext (city.locations found) (antinodeLocations city isSpec) (key =>
     rewrite Set.containsFromList key (found.filter city.contains),
         Set.containsFilter (Set.fromList (positions city.height city.width)) key isSpec,
-        Set.containsFromList key (positions city.height city.width) in
+        Set.containsFromList key (positions city.height city.width) then
       Bool.eqOf _ _
         (has =>
           let Witness point (Both member same) := has
           let both := List.memFilter found city.contains member
-          rewrite Map.Spec.sameKeySound key point same in
+          rewrite Map.Spec.sameKeySound key point same then
             List.anyElim
               (pair => point ∈ pick pair) _
               city.antennaPairs
-              (List.memFlatMapElim pick point city.antennaPairs (And.left both))
+              (List.memFlatMapElim pick point city.antennaPairs both.left)
               (pair pairIn picked =>
                 pairsElim city pair _ pairIn (first second firstIn secondIn sameness built =>
                   let holding :=
-                    (agree first second firstIn secondIn sameness point (And.right both)).forward
-                      (rewrite built in picked)
+                    (agree first second firstIn secondIn sameness point both.right).forward (rewrite built then picked)
                   Both
-                    (positionsOnMap city point (And.right both))
+                    (positionsOnMap city point both.right)
                     (Witness first (Both firstIn (Witness second (Both secondIn (Both sameness holding))))))))
         (has =>
           let Both onTheMap anyHolds := has
@@ -131,4 +130,4 @@ theorem locationsCorrect ∀ (city: City)
           Witness key
             (Both
               (List.memFilterIntro found city.contains inFound onMap)
-              (rewrite Map.Spec.sameKeyDecide key key in DecEq.refl key))))
+              (rewrite Map.Spec.sameKeyDecide key key then DecEq.refl key))))

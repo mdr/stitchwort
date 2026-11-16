@@ -33,7 +33,7 @@ theorem rewrittenFirst ∀ (p: Option Bool → Text → Prop) (o: Option Bool) (
   match o with
     | Some True => ?
     | _ =>
-      rewrite Std.Nat.addZero n at h in
+      rewrite Std.Nat.addZero n at h then
         match s with
           | "ab" => ?
           | _ => ?

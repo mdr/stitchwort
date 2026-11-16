@@ -443,7 +443,7 @@ fn a_changed_statement_is_refused_by_the_statement_promise() {
         let mut live = laws();
         let edits = [line_edit(
             "theorem addZ",
-            "theorem addZ: ∀ (n: Nat) => 0 + n = n := n => omega",
+            "theorem addZ: ∀ (n: Nat) => 0 + n = n := n => arithmetic",
         )];
         let trial = checked(live.trial(&edits, &same_statement()).unwrap());
         let names: Vec<&str> = trial
@@ -816,7 +816,7 @@ fn a_changed_type_fails_the_proofs_promise() {
         let mut live = proofs();
         let edits = [
             proofs_edit("def keep", "def keep (n: Nat) (same: n = n): Nat := n"),
-            proofs_edit("def five", "def five: Nat := keep 5 rfl"),
+            proofs_edit("def five", "def five: Nat := keep 5 byComputing"),
         ];
         let trial = checked(live.trial(&edits, &proofs_only()).unwrap());
         assert_eq!(

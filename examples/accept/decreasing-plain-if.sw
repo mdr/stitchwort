@@ -1,14 +1,14 @@
 -- In a definition with `decreasing`, a plain `if` gives a recursive call
 -- under it its condition: `cond = True` in the `then` branch and its
 -- negation in the `else`, for a `Bool` test, or the proposition itself for
--- one such as `a % b < b`. The call's proof (`auto`, then `omega`) can use
+-- one such as `a % b < b`. The call's proof (`auto`, then `arithmetic`) can use
 -- it without the test being named. `f.unfold` still shows the plain `if`,
 -- so proofs about the function see the program as written
 -- (docs/proposals/decreasing-with-hypothesis.md, stage 1).
 
 import Std (Bool, Eq, List, Nat)
 
--- A `Bool` test: `omega` reads `Nat.leq (i + 1) bound = True` as `i + 1 ≤ bound`.
+-- A `Bool` test: `arithmetic` reads `Nat.leq (i + 1) bound = True` as `i + 1 ≤ bound`.
 def countUp (bound i: Nat): Nat
     decreasing bound - i
 :=
@@ -19,7 +19,7 @@ theorem countUpUnfolds ∀ (bound i: Nat):
   countUp.unfold bound i
 
 theorem countUpDone ∀ (bound i: Nat) (done: Nat.leq (i + 1) bound = False): countUp bound i = i :=
-  rewrite countUp.unfold bound i in rewrite done in rfl
+  rewrite countUp.unfold bound i then rewrite done then byComputing
 
 -- A proposition: `a % b < b` is the fact the call needs.
 def gcd (a b: Nat): Nat

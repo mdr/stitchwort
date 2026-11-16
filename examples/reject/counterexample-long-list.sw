@@ -6,4 +6,4 @@ import Std (List)
 
 def chunks (xs: List Nat): Nat := if List.length xs < 12 then 1 else 2
 
-theorem oneChunk (xs: List Nat): chunks xs = 1 := rfl
+theorem oneChunk (xs: List Nat): chunks xs = 1 := byComputing

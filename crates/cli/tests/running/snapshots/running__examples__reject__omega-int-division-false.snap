@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `(x / 3) * 3 = x`
+[E-ARITHMETIC] Error: `arithmetic` can't prove `(x / 3) * 3 = x`
    ╭─[ reject/omega-int-division-false.sw:6:47 ]
    │
- 6 │ theorem divMulBack (x: Int): x / 3 * 3 = x := omega
-   │                                               ──┬──  
-   │                                                 ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+ 6 │ theorem divMulBack (x: Int): x / 3 * 3 = x := arithmetic
+   │                                               ─────┬────  
+   │                                                    ╰────── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │ 
    │ Note 1: facts: `3 * (x / 3) + x % 3 = x` (what `x / 3` and `x % 3` are), `0 ≤ x % 3` (what `x / 3` and `x % 3` are), `x % 3 < 3` (what `x / 3` and `x % 3` are)
    │ 

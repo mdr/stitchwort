@@ -14,7 +14,7 @@
 //! For each candidate whose conclusion matches, [`Elaborator::closing_plans`]
 //! fills what is still open: each premise (an explicit parameter whose type
 //! is a proposition) from a hypothesis whose type unifies with it, or else
-//! leaves it `?` for the driver's closing step (`rfl`, `omega`,
+//! leaves it `?` for the driver's closing step (`byComputing`, `arithmetic`,
 //! `byDecision`), each choice undone after. [`Elaborator::rewrite_plans`]
 //! matches equation and `Iff` sides against the target's calls, `rw?`'s
 //! direction. Every plan is only text: the driver elaborates it, and the
@@ -95,7 +95,7 @@ pub struct Plan {
     /// only if it closes the goal, not as one that leaves goals.
     pub general: bool,
     /// Its conclusion is the goal's equation the other way round: the
-    /// application goes inside `Eq.sym` (as the file writes it).
+    /// application goes inside `Eq.flipped` (as the file writes it).
     pub sym: Option<String>,
     /// Its conclusion names a definition inside its relation (`List.Distinct
     /// (List.flatMap xs f)`, not `a ≤ c`): worth offering with a `?` for
@@ -107,7 +107,7 @@ pub struct Plan {
     pub part: Option<(Vec<String>, usize)>,
 }
 
-/// A rewrite planned: `rewrite [<-] PLAN in ?` at the call `subterm`.
+/// A rewrite planned: `rewrite [<-] PLAN then ?` at the call `subterm`.
 #[derive(Clone, Debug)]
 pub struct RewritePlan {
     pub plan: Plan,
@@ -383,11 +383,11 @@ impl Elaborator {
             .filter(|h| closes(h))
             .map(|h| (h.clone(), false))
             .collect();
-        // An equation, also the other way round: `Eq.sym (L …)` (SW-971).
+        // An equation, also the other way round: `Eq.flipped (L …)` (SW-971).
         // Not by a lemma whose conclusion names nothing (`x = y`).
         let g = &self.ev();
         let swapped = match force(g, goal.pattern.value.clone()) {
-            Ok(Value::Eq(ty, a, b)) => self.write_name("Std.Eq.sym").map(|sym| {
+            Ok(Value::Eq(ty, a, b)) => self.write_name("Std.Eq.flipped").map(|sym| {
                 let pattern = Pattern {
                     value: Value::Eq(ty, b, a),
                     constants: goal.pattern.constants.clone(),
@@ -795,7 +795,7 @@ impl Elaborator {
     ///
     /// - the other arguments as at the goal (`visitsMember cave rest
     ///   later`, its premises filled from hypotheses), for a closer to use
-    ///   (`omega [IH]`), or the call alone;
+    ///   (`arithmetic [IH]`), or the call alone;
     /// - for an equation or `Iff`, its left (or right) side matched against
     ///   a call of the target, which solves the other arguments
     ///   (`dyAfter n (step probe)`, matching `Nat.iterate n step ?p`

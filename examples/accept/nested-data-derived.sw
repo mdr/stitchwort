@@ -55,8 +55,8 @@ test "auto" := needsSame (Packets [Number 1]) (Packets [Number 1]) == 1
 test "if" := (if h: example = example then 1 else 0) == 1
 def isEmpty (p: Packet): Bool := p = Packets []
 test "as a Bool" := isEmpty (Packets []) && !isEmpty (Packets [Packets []])
-theorem computes: (Packets [Number 1, Packets []] == Packets [Number 1, Packets []]) = True := rfl
-theorem comparesInProofs: Ord.compare (Number 7) (Packets []) = Less := rfl
+theorem computes: (Packets [Number 1, Packets []] == Packets [Number 1, Packets []]) = True := byComputing
+theorem comparesInProofs: Ord.compare (Number 7) (Packets []) = Less := byComputing
 
 -- A rose tree: a parameter, and the list of trees.
 type Rose (a: Type): Type = | Node (label: a) (kids: List (Rose a))

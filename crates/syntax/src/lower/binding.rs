@@ -703,7 +703,7 @@ mod tests {
             .collect();
         text.push_str(
             "def f (x: Nat): Nat :=\n  let y: Nat :=\n    let z := x\n    z\n  @[tailrec] def g (n: \
-             Nat): Nat := n\n  theorem t: g 0 = 0 := rfl\n  def k: Nat := 1\n  g y; k\n  let w := \
+             Nat): Nat := n\n  theorem t: g 0 = 0 := byComputing\n  def k: Nat := 1\n  g y; k\n  let w := \
              k\n  print w\n  def m: Nat := w\n  m\n\
              def p: Nat -> Bool := matches\n  | 0\n  | 1 => False\n\
              def q: Nat -> Nat := match\n  | 0 => 1\n  | n => n\n",

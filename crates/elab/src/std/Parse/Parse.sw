@@ -730,55 +730,56 @@ def Parse.whole (chars: List t) (parser: () → {Parse t} a): Result a Parse.Fai
   value)
 
 -- What the handler does with each operation followed by the rest of the
--- parser `k`. Each holds by `rfl`, or one `rewrite`.
+-- parser `k`. Each holds by `byComputing`, or one `rewrite`.
 
-theorem Parse.runFromPure ∀ (state: Parse.State t) (value: a): Parse.runFrom state (() => value) = Ok value := rfl
+theorem Parse.runFromPure ∀ (state: Parse.State t) (value: a): Parse.runFrom state (() => value) = Ok value :=
+  byComputing
 
 theorem Parse.runFromMark ∀ (state: Parse.State t) (k: Parse.Mark t → {Parse t} a):
     Parse.runFrom state (() => k Parse.mark()) = Parse.runFrom state (() => k state.at) :=
-  rfl
+  byComputing
 
 theorem Parse.runFromReset ∀ (state: Parse.State t) (at: Parse.Mark t) (k: () → {Parse t} a):
     Parse.runFrom state (() => k (Parse.reset at)) = Parse.runFrom { state | at } (() => k ()) :=
-  rfl
+  byComputing
 
 theorem Parse.runFromNote ∀ (state: Parse.State t) (problem: Parse.Problem) (k: () → {Parse t} a):
     Parse.runFrom state (() => k (Parse.note problem)) = Parse.runFrom (state.note problem) (() => k ()) :=
-  rfl
+  byComputing
 
 theorem Parse.runFromStop ∀ (state: Parse.State t) (k: Empty → {Parse t} a):
     Parse.runFrom state (() => k Parse.stop()) = Err state.failure :=
-  rfl
+  byComputing
 
 theorem Parse.runFromFatal ∀ (state: Parse.State t) (message: Text) (k: Empty → {Parse t} a):
     Parse.runFrom state (() => k (Parse.fatal message))
       = Err { offset = state.at.offset, messages = [message], expected = [], width = 0 } :=
-  rfl
+  byComputing
 
 --| `next`: the handler's step, as `Parse.State.next` gives it.
 theorem Parse.runFromNext ∀ (state: Parse.State t) (passes: t → Bool) (k: Option t → {Parse t} a):
     Parse.runFrom state (() => k (Parse.next passes))
       = Parse.runFrom (state.next passes).snd (() => k (state.next passes).fst) :=
   match starts: state.at.rest with
-    | [] => rfl
+    | [] => byComputing
     | [char, ..after] =>
       match holds: passes char with
-        | True => rfl
-        | False => rfl
+        | True => byComputing
+        | False => byComputing
 
 --| `literal`: the handler's step, as `Parse.State.literal` gives it.
 theorem Parse.runFromLiteral ∀ (state: Parse.State t) (literal: Parse.Literal t) (k: Bool → {Parse t} a):
     Parse.runFrom state (() => k (Parse.literal literal))
       = Parse.runFrom (state.literal literal).snd (() => k (state.literal literal).fst) :=
   match stripped: List.stripPrefixBy state.at.rest literal.items literal.same with
-    | None => rfl
-    | Some after => rfl
+    | None => byComputing
+    | Some after => byComputing
 
 theorem Parse.runFromSpan ∀ (state: Parse.State t) (passes: t → Bool) (k: List t → {Parse t} a):
     Parse.runFrom state (() => k (Parse.span passes))
       = Parse.runFrom (state.advance (state.at.rest.span passes).snd (state.at.rest.span passes).fst.length) (() =>
         k (state.at.rest.span passes).fst) :=
-  rfl
+  byComputing
 
 --| `literal` where the input starts with its items: it reads them, when `same`
 --| holds of each item and itself.
@@ -799,7 +800,7 @@ theorem Parse.runFromSpanThere ∀ (state: Parse.State t) (passes: t → Bool)
     (stops: List.takeWhile rest passes = []):
     Parse.runFrom state (() => k (Parse.span passes))
       = Parse.runFrom (state.advance rest taken.length) (() => k taken) :=
-  rewrite Parse.runFromSpan state passes k, starts, List.spanAppend passes taken rest all stops in rfl
+  rewrite Parse.runFromSpan state passes k, starts, List.spanAppend passes taken rest all stops then byComputing
 
 --| `next` where the next item passes: it reads it.
 theorem Parse.runFromNextThere ∀ (state: Parse.State t) (passes: t → Bool) (char: t)
@@ -807,12 +808,12 @@ theorem Parse.runFromNextThere ∀ (state: Parse.State t) (passes: t → Bool) (
     (starts: state.at.rest = [char, ..rest])
     (holds: passes char = True):
     Parse.runFrom state (() => k (Parse.next passes)) = Parse.runFrom (state.advance rest 1) (() => k (Some char)) :=
-  rewrite starts, holds in rfl
+  rewrite starts, holds then byComputing
 
 theorem Parse.runFromEndThere ∀ (state: Parse.State t) (k: () → {Parse t} a)
     (atEnd: state.at.left = 0):
     Parse.runFrom state (() => k (Parse.end())) = Parse.runFrom state (() => k ()) :=
-  rewrite atEnd in rfl
+  rewrite atEnd then byComputing
 
 -- `optional` marks where it starts, then runs the parser under
 -- `optionalFrom`, which passes each reading operation on, gives `Some` of a
@@ -822,7 +823,7 @@ theorem Parse.runFromEndThere ∀ (state: Parse.State t) (k: () → {Parse t} a)
 theorem Parse.runFromOptional ∀ (state: Parse.State t) (parser: () → {Parse t} a) (k: Option a → {Parse t} b):
     Parse.runFrom state (() => k (Parse.optional parser))
       = Parse.runFrom state (() => k (Parse.optionalFrom state.at parser)) :=
-  rfl
+  byComputing
 
 theorem Parse.runFromOptionalFromSpan ∀ (state: Parse.State t) (start: Parse.Mark t) (passes: t → Bool)
     (rest: List t → {Parse t} a) (k: Option a → {Parse t} b):
@@ -830,7 +831,7 @@ theorem Parse.runFromOptionalFromSpan ∀ (state: Parse.State t) (start: Parse.M
       = Parse.runFrom state (() =>
         let taken := Parse.span passes
         k (Parse.optionalFrom start (() => rest taken))) :=
-  rfl
+  byComputing
 
 theorem Parse.runFromOptionalFromNext ∀ (state: Parse.State t) (start: Parse.Mark t) (passes: t → Bool)
     (rest: Option t → {Parse t} a) (k: Option a → {Parse t} b):
@@ -838,7 +839,7 @@ theorem Parse.runFromOptionalFromNext ∀ (state: Parse.State t) (start: Parse.M
       = Parse.runFrom state (() =>
         let found := Parse.next passes
         k (Parse.optionalFrom start (() => rest found))) :=
-  rfl
+  byComputing
 
 theorem Parse.runFromOptionalFromLiteral ∀ (state: Parse.State t) (start: Parse.Mark t) (literal: Parse.Literal t)
     (rest: Bool → {Parse t} a) (k: Option a → {Parse t} b):
@@ -846,21 +847,21 @@ theorem Parse.runFromOptionalFromLiteral ∀ (state: Parse.State t) (start: Pars
       = Parse.runFrom state (() =>
         let found := Parse.literal literal
         k (Parse.optionalFrom start (() => rest found))) :=
-  rfl
+  byComputing
 
 --| Success: the parser has given a value.
 theorem Parse.runFromOptionalFromPure ∀ (state: Parse.State t) (start: Parse.Mark t)
     (value: a) (k: Option a → {Parse t} b):
     Parse.runFrom state (() => k (Parse.optionalFrom start (() => value)))
       = Parse.runFrom state (() => k (Some value)) :=
-  rfl
+  byComputing
 
 --| Backtracking: the parser has failed, so the input is as it was at the mark.
 theorem Parse.runFromOptionalFromStop ∀ (state: Parse.State t) (start: Parse.Mark t)
     (rest: Empty → {Parse t} a) (k: Option a → {Parse t} b):
     Parse.runFrom state (() => k (Parse.optionalFrom start (() => rest Parse.stop())))
       = Parse.runFrom { state | at = start } (() => k None) :=
-  rfl
+  byComputing
 
 --| `oneOf` with an alternative after `first`: if `optional first` succeeds,
 --| whatever follows it, `first`'s value; if it backs up, the rest.
@@ -884,6 +885,6 @@ theorem Parse.runFromOneOfFromNone ∀ (state after: Parse.State t) (first next:
 --| The last alternative is run as it is.
 theorem Parse.runFromOneOfFromLast ∀ (state: Parse.State t) (only: () → {Parse t} a) (k: a → {Parse t} b):
     Parse.runFrom state (() => k (Parse.oneOfFrom only [])) = Parse.runFrom state (() => k (only())) :=
-  rfl
+  byComputing
 
-theorem Parse.runPure ∀ (input: List t) (value: a): Parse.run input (() => value) = Ok value := rfl
+theorem Parse.runPure ∀ (input: List t) (value: a): Parse.run input (() => value) = Ok value := byComputing

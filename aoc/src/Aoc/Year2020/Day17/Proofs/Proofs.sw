@@ -24,10 +24,10 @@ theorem cyclesUnique ∀ (count: Nat) (start one other: Set Cube)
     (alsoSame: Spec.Cycles count start other):
     one = other :=
   match count, same, alsoSame with
-    | Zero, same, alsoSame => Eq.trans same (Eq.sym alsoSame)
+    | Zero, same, alsoSame => Eq.trans same alsoSame.flipped
     | Succ more, Witness next (Both cycle rest), Witness alsoNext (Both alsoCycle alsoRest) =>
-      let nextSame: next = alsoNext := Set.ext next alsoNext (cube => Eq.trans (cycle cube) (Eq.sym (alsoCycle cube)))
-      cyclesUnique more next one other rest (rewrite nextSame in alsoRest)
+      let nextSame: next = alsoNext := Set.ext next alsoNext (cube => Eq.trans (cycle cube) (alsoCycle cube).flipped)
+      cyclesUnique more next one other rest (rewrite nextSame then alsoRest)
 
 --| The spec's answer is the program's and no other.
 theorem answerExactly ∀ (slice: Slice) (dimensions answer: Nat):
@@ -41,7 +41,7 @@ theorem answerExactly ∀ (slice: Slice) (dimensions answer: Nat):
           (slice.pocket dimensions).active
           final
           (slice.pocket dimensions).boot.active
-          (rewrite <- startSame in cycled)
+          (rewrite <- startSame then cycled)
           (cycles 6 (slice.pocket dimensions))
       Eq.trans counted (Eq.cong Set.size finalSame),
     backward = same =>

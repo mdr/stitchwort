@@ -4,6 +4,6 @@ def countBig: List Nat → Nat
   | [_, ..rest] => countBig rest
 
 theorem countBigAtMost ∀ (xs: List Nat): countBig xs ≤ xs.length := match induct (countBig xs) with
-  | eq1 => omega
+  | eq1 => arithmetic
   | eq2 x rest big ih => ?
-  | eq3 x rest small ih => omega
+  | eq3 x rest small ih => arithmetic

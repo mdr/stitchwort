@@ -7,4 +7,4 @@
 --| injective: equal results come from equal arguments. `List.reverse` and
 --| `not` are involutions.
 theorem Function.involutionInjective ∀ (f: a → a) (h: ∀ (x: a) => f (f x) = x) (x y: a) (e: f x = f y): x = y :=
-  Eq.trans (Eq.sym (h x)) (Eq.trans (Eq.cong f e) (h y))
+  Eq.trans (h x).flipped (Eq.trans (Eq.cong f e) (h y))

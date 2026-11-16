@@ -249,7 +249,7 @@ pub(crate) struct AwaitingHelpers {
 pub(crate) enum Failure {
     /// `found`, where `expected` is expected.
     Mismatch,
-    /// `rfl` for `found = expected`.
+    /// `byComputing` for `found = expected`.
     Refl,
 }
 

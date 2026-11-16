@@ -5,11 +5,11 @@ expression: output
 [E-CALC-STEP] Error: this step doesn't prove what its line says
    ╭─[ reject/calc-step-rfl.sw:5:18 ]
    │
- 5 │     _ = m + n := rfl
-   │                  ─┬─  
-   │                   ╰─── `n + m` and `m + n` aren't equal
+ 5 │     _ = m + n := byComputing
+   │                  ─────┬─────  
+   │                       ╰─────── `n + m` and `m + n` aren't equal
    │ 
    │ Note 1: the line says `n + m = m + n`
    │ 
-   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+   │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
 ───╯

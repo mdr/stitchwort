@@ -17,9 +17,9 @@ theorem nextBecomes ∀ (seat: Seat) (occupiedNear crowded: Nat):
 --| Whether the table says a position holds an occupied seat.
 theorem lookupOccupied ∀ (layout: Layout) (near: Position):
     (layout.grid.lookup near == Some Occupied) = (cellAt layout.grid.rows near).any (== Occupied) :=
-  rewrite lookupAt layout.grid near in
+  rewrite lookupAt layout.grid near then
     match cellAt layout.grid.rows near with
-      | None => rfl
+      | None => byComputing
       | Some seat => cases
 
 --| A round by a plan whose count of occupied seats in view from each seat
@@ -37,10 +37,13 @@ theorem roundSpec ∀ (layout: Layout) (plan: Plan) (considered: Position → Na
         (position seat => Spec.becomes seat (considered position) plan.tolerance)
         (position here found =>
           match here with
-            | Floor => rfl
-            | Empty => rewrite counts position Empty found rfl in nextBecomes Empty (considered position) plan.tolerance
+            | Floor => byComputing
+            | Empty =>
+              rewrite counts position Empty found byComputing then
+                nextBecomes Empty (considered position) plan.tolerance
             | Occupied =>
-              rewrite counts position Occupied found rfl in nextBecomes Occupied (considered position) plan.tolerance)))
+              rewrite counts position Occupied found byComputing then
+                nextBecomes Occupied (considered position) plan.tolerance)))
 
 --| Part 1: the occupied seats among the eight positions around are the
 --| occupied adjacent seats.
@@ -49,5 +52,5 @@ theorem aroundOccupied ∀ (layout: Layout) (position: Position):
   rewrite List.countCongMem position.around
         (near => layout.grid.lookup near == Some Occupied)
         (near => (cellAt layout.grid.rows near).any (== Occupied))
-        (near member => lookupOccupied layout near) in
+        (near member => lookupOccupied layout near) then
     countAround layout.grid.rows (== Occupied) position

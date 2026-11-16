@@ -27,16 +27,16 @@ def HeadedBodyAt (layout: Layout) (found: Body): Prop := HeadedBody (bracketedOf
 -- Clearing.
 
 theorem clearedFirstAbove ∀ (expr: Expr): expr.withoutFirstAbove.firstAbove = [] := match expr with
-  | Var _ _ => rfl
-  | NumberLiteral _ _ => rfl
-  | StringLiteral _ _ => rfl
-  | Bracketed _ _ _ => rfl
-  | ListLiteral _ _ _ => rfl
+  | Var _ _ => byComputing
+  | NumberLiteral _ _ => byComputing
+  | StringLiteral _ _ => byComputing
+  | Bracketed _ _ _ => byComputing
+  | ListLiteral _ _ _ => byComputing
   | Call callee _ _ _ => clearedFirstAbove callee
   | Field target _ _ _ => clearedFirstAbove target
-  | Negate _ _ => rfl
+  | Negate _ _ => byComputing
   | Binary _ _ left _ => clearedFirstAbove left
-  | If _ _ _ _ _ _ => rfl
+  | If _ _ _ _ _ _ => byComputing
 
 theorem headedCleared ∀ (bracketed: Bool) (expr: Expr)
     (headed: HeadedExpr bracketed expr):
@@ -67,9 +67,9 @@ theorem headedBare ∀ (layout: Layout) (value: Expr)
     (headed: HeadedAt layout value):
     BareHeaded (bracketedOf layout) (Bare (layout.headed value)) :=
   match layout, headed with
-    | InBrackets, headed => ((((never => Void.exfalso (Bool.trueNotFalse never)), headed)), rfl)
+    | InBrackets, headed => ((((never => (Bool.trueNotFalse never).impossible), headed)), byComputing)
     | InStatement column start, headed =>
-      ((((outside => clearedFirstAbove value), (headedCleared False value headed))), rfl)
+      ((((outside => clearedFirstAbove value), (headedCleared False value headed))), byComputing)
 
 -- Items.
 
@@ -78,15 +78,15 @@ theorem headedItemsAppend ∀ (front: List Item) (last: Item)
     (lastHeaded: HeadedExpr True last.value):
     HeadedItems (front ++ [last]) :=
   match front, headed, last, lastHeaded with
-    | [], headed, { value, comma }, lastHeaded => (lastHeaded, rfl)
+    | [], headed, { value, comma }, lastHeaded => (lastHeaded, byComputing)
     | [{ value, comma }, ..rest], Both valueHeaded restHeaded, last, lastHeaded =>
       (valueHeaded, (headedItemsAppend rest last restHeaded lastHeaded))
 
 theorem headedItemsReverse ∀ (found: List Item) (headed: HeadedItems found): HeadedItems found.reverse :=
   match found, headed with
-    | [], headed => rfl
+    | [], headed => byComputing
     | [{ value, comma }, ..rest], Both valueHeaded restHeaded =>
-      rewrite List.reverseCons ({ value, comma }: Item) rest in
+      rewrite List.reverseCons ({ value, comma }: Item) rest then
         headedItemsAppend rest.reverse { value, comma } (headedItemsReverse rest restHeaded) valueHeaded
 
 def HeadedItem (read: (Item, Bool)): Prop := HeadedExpr True read.fst.value
@@ -104,9 +104,9 @@ theorem headedStep ∀ (layout: Layout) (lowest highest level: Nat) (associativi
     (rightHeaded: HeadedAt layout right):
     HeadedAt layout (combine left right) :=
   let shape := operatorShape layout item
-  let known := rewrite found at shape in shape
+  let known := rewrite found at shape then shape
   match known with
-    | Witness operator (Witness comments (Both isBinary others)) => rewrite isBinary in (leftHeaded, rightHeaded)
+    | Witness operator (Witness comments (Both isBinary others)) => rewrite isBinary then (leftHeaded, rightHeaded)
 
 -- Bodies and blocks.
 
@@ -131,33 +131,33 @@ theorem headedNotes ∀ (trivia: List Trivia) (found: (List (Spaced Statement), 
         (headedLinesAppend False found.fst
           [{ blankBefore = found.snd, line = StatementNote comment }]
           headed
-          ((rfl, rfl)))
+          ((byComputing, byComputing)))
 
 --| A statement's lines, the notes above it and itself.
 theorem headedNoted ∀ (above: List Trivia) (line: Statement)
     (headed: HeadedStatement False line):
     HeadedLines False (notedStatement above line) :=
-  let notesHeaded: HeadedLines False (spacedNotes StatementNote above).fst := headedNotes above ([], False) rfl
+  let notesHeaded: HeadedLines False (spacedNotes StatementNote above).fst := headedNotes above ([], False) byComputing
   match found: spacedNotes StatementNote above with
-    | (notes, blankBefore) => headedLinesAppend False notes [{ blankBefore, line }] notesHeaded ((headed, rfl))
+    | (notes, blankBefore) => headedLinesAppend False notes [{ blankBefore, line }] notesHeaded ((headed, byComputing))
 
 theorem headedWithoutFirstBlank ∀ (lines: List (Spaced Statement))
     (headed: HeadedLines False lines):
     HeadedLines False (withoutFirstBlank lines) :=
   match lines, headed with
-    | [], headed => rfl
+    | [], headed => byComputing
     | [{ blankBefore, line }, ..rest], Both lineHeaded restHeaded => (lineHeaded, restHeaded)
 
 --| `withoutFirstBlank` leaves no blank line above the first line.
 theorem unspacedWithout ∀ (lines: List (Spaced a)): Unspaced (withoutFirstBlank lines) := match lines with
-  | [] => rfl
-  | [{ blankBefore, line }, ..rest] => rfl
+  | [] => byComputing
+  | [{ blankBefore, line }, ..rest] => byComputing
 
 theorem headedConcat ∀ (groups: List (List (Spaced Statement)))
     (all: List.All (HeadedLines False) groups):
     HeadedLines False groups.concat :=
   match groups, all with
-    | [], all => rfl
+    | [], all => byComputing
     | [first, ..rest], Both firstHeaded restHeaded =>
       headedLinesAppend False first rest.concat firstHeaded (headedConcat rest restHeaded)
 
@@ -186,28 +186,28 @@ theorem headedDeclarationNotes ∀ (trivia: List Trivia) (found: (List (Spaced D
         (headedDeclarationsAppend found.fst
           [{ blankBefore = found.snd, line = DeclarationNote comment }]
           headed
-          ((rfl, rfl)))
+          ((byComputing, byComputing)))
 
 theorem headedNotedDeclaration ∀ (above: List Trivia) (line: Declaration)
     (headed: HeadedDeclaration line):
     HeadedDeclarations (notedDeclaration above line) :=
   let notesHeaded: HeadedDeclarations (spacedNotes DeclarationNote above).fst :=
-    headedDeclarationNotes above ([], False) rfl
+    headedDeclarationNotes above ([], False) byComputing
   match found: spacedNotes DeclarationNote above with
-    | (notes, blankBefore) => headedDeclarationsAppend notes [{ blankBefore, line }] notesHeaded ((headed, rfl))
+    | (notes, blankBefore) => headedDeclarationsAppend notes [{ blankBefore, line }] notesHeaded ((headed, byComputing))
 
 theorem headedDeclarationsWithoutFirstBlank ∀ (lines: List (Spaced Declaration))
     (headed: HeadedDeclarations lines):
     HeadedDeclarations (withoutFirstBlank lines) :=
   match lines, headed with
-    | [], headed => rfl
+    | [], headed => byComputing
     | [{ blankBefore, line }, ..rest], Both lineHeaded restHeaded => (lineHeaded, restHeaded)
 
 theorem headedDeclarationsConcat ∀ (groups: List (List (Spaced Declaration)))
     (all: List.All HeadedDeclarations groups):
     HeadedDeclarations groups.concat :=
   match groups, all with
-    | [], all => rfl
+    | [], all => byComputing
     | [first, ..rest], Both firstHeaded restHeaded =>
       headedDeclarationsAppend first rest.concat firstHeaded (headedDeclarationsConcat rest restHeaded)
 
@@ -215,7 +215,7 @@ theorem headedFileOf ∀ (declarations: List (Spaced Declaration)) (endTrivia: L
     (headed: HeadedDeclarations declarations):
     HeadedFile (fileOf declarations endTrivia) :=
   let notesHeaded: HeadedDeclarations (spacedNotes DeclarationNote endTrivia).fst :=
-    headedDeclarationNotes endTrivia ([], False) rfl
+    headedDeclarationNotes endTrivia ([], False) byComputing
   match found: spacedNotes DeclarationNote endTrivia with
     | (endNotes, blank) => (
       (headedDeclarationsWithoutFirstBlank

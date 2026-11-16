@@ -17,4 +17,4 @@ def br (x: Nat) (y: Nat := 0): Booking := { id = x, start = y }
 
 theorem split ∀ (xs ys: List Nat): List.length (xs ++ ys) = List.length xs + List.length ys := List.lengthAppend xs ys
 
-theorem nested ∀ (x: Nat) (h: (y: Nat) → y = y): x = x := rfl
+theorem nested ∀ (x: Nat) (h: (y: Nat) → y = y): x = x := byComputing

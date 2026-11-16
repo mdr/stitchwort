@@ -17,13 +17,13 @@ def run (target: Nat) (front: List Nat) (count sum: Nat) (rest: List Nat): Optio
 theorem runFoundLong ∀ (target: Nat) (front: List Nat) (count sum: Nat) (rest found: List Nat)
     (r: run target front count sum rest = Some found):
     2 ≤ count ∨ 0 < rest.length :=
-  rewrite run.unfold target front count sum rest at r in
+  rewrite run.unfold target front count sum rest at r then
     match e: sum == target && 2 <= count with
-      | True => Inl (omega)
+      | True => Inl (arithmetic)
       | False =>
         match rest with
-          | [] => Void.exfalso (Option.noneNotSome found r)
-          | [next, ..more] => Inr (omega)
+          | [] => (Option.noneNotSome found r).impossible
+          | [next, ..more] => Inr (arithmetic)
 
 -- The same `if` inside a function inside a `match` arm that isn't the last
 -- thing in the definition, and inside a local `def`: each is in a helper
@@ -41,8 +41,8 @@ def marks (target count: Nat) (ys: List Nat): Nat := match ys with
 
 theorem marksLong ∀ (target count y: Nat) (same: y = target) (long: 2 ≤ count): marks target count [y] = 1 :=
   match e: y == target && 2 <= count with
-    | True => omega
-    | False => Void.exfalso (omega)
+    | True => arithmetic
+    | False => Void.impossible arithmetic
 
 -- A local `def` with a recursive call, and a lambda in a `match` arm that
 -- is not the last thing in the definition.
@@ -59,8 +59,8 @@ def outer (target: Nat) (xs: List Nat): Nat :=
 
 theorem outerLong ∀ (target: Nat) (xs: List Nat) (same: target = 0) (long: 2 ≤ xs.length): outer target xs = 1 :=
   match e: 0 == target && 2 <= xs.length with
-    | True => omega
-    | False => Void.exfalso (omega)
+    | True => arithmetic
+    | False => Void.impossible arithmetic
 
 def viaLambda (target count: Nat) (ys: List Nat): Nat := match ys with
   | [] => 0
@@ -75,5 +75,5 @@ def viaLambda (target count: Nat) (ys: List Nat): Nat := match ys with
 
 theorem viaLambdaLong ∀ (target count y: Nat) (same: y = target) (long: 2 ≤ count): viaLambda target count [y] = 1 :=
   match e: y == target && 2 <= count with
-    | True => omega
-    | False => Void.exfalso (omega)
+    | True => arithmetic
+    | False => Void.impossible arithmetic

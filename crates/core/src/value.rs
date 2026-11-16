@@ -34,7 +34,7 @@ pub enum Value {
     /// `Succ` applied `k` times to `x`. See [`native::view`]. The exception
     /// is `compare_lazily`, which can build `k + call` for a folded call.
     NatAdd(Rc<BigUint>, Shared),
-    /// A `List Char`, standing for `Cons (MkChar c rfl) … Nil`. Never empty
+    /// A `List Char`, standing for `Cons (MkChar c byComputing) … Nil`. Never empty
     /// when made by evaluation (that's `Nil`). See [`chars`].
     Chars(Chars),
     Eq(Shared, Shared, Shared),
@@ -1000,7 +1000,7 @@ fn describe(value: &Value) -> &'static str {
         Value::Nat(_) | Value::NatAdd(..) => "a number",
         Value::Chars(_) => "a list of characters",
         Value::Eq(..) => "an equation",
-        Value::Refl => "rfl",
+        Value::Refl => "byComputing",
         Value::Neutral(..) => "a stuck term",
         Value::Call(..) => "a call",
         Value::Resumption(_) => "a handler's resumption",
@@ -1297,7 +1297,7 @@ fn apply_call(g: &Ev, stack: &mut Vec<Frame>, f: Value, arg: Value, icit: Icit) 
 /// arguments is ([`apply_call`]): left as `f x .i a`, it would be a stuck
 /// term headed by `f` that names nothing, which neither conversion nor the
 /// unfolded read-back looks inside, so the unknown the call is stuck on
-/// would be hidden from `match` and `rfl` (docs/proposals/match-call-field.md
+/// would be hidden from `match` and `byComputing` (docs/proposals/match-call-field.md
 /// §2.1). Anything else (an opaque call's field) stays stuck, as it was.
 /// Only while gluing ([`computes_field`]).
 #[cold]
@@ -3983,7 +3983,7 @@ fn conv_step(
     // Compact lists: two ranges are equal when their characters are (their
     // expansions are then the same), and a range against anything else is
     // expanded one cell, which is then compared as a constructor. So a
-    // compact `"a"` and `Cons (MkChar 97 h) Nil` are equal: `h` and `rfl`
+    // compact `"a"` and `Cons (MkChar 97 h) Nil` are equal: `h` and `byComputing`
     // are in `MkChar`'s proof field.
     match (&*a, &*b) {
         (Value::Chars(x), Value::Chars(y)) => {
@@ -4671,8 +4671,8 @@ fn same_trees_of(
                 // computes, and its scrutinee has an empty type, so the two
                 // are equal whatever the scrutinees are. Comparing them would
                 // make the relation depend on inert arguments, which only
-                // such a scrutinee can mention (`Void.absurd (p rfl)` against
-                // `myAbsurd (q rfl)`), and break transitivity
+                // such a scrutinee can mention (`Void.absurd (p byComputing)` against
+                // `myAbsurd (q byComputing)`), and break transitivity
                 // (docs/proposals/proof-irrelevance.md §7.2).
                 let impossible = |b: &[Branch]| b.iter().all(|b| b.body.is_none());
                 if impossible(b1) && impossible(b2) {

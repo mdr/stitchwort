@@ -11,7 +11,7 @@ theorem findLegMem ∀ (legs: List Leg) (id: Nat) (leg: Leg) (h: findLeg legs id
 theorem legOfMem ∀ (legs: List Leg) (pos: Position) (leg: Leg) (h: legOf legs pos = Some leg): leg ∈ legs :=
   match e: pos.leg with
     | Some id => findLegMem legs id leg h
-    | None => Void.exfalso (Option.noneNotSome leg h)
+    | None => (Option.noneNotSome leg h).impossible
 
 theorem firstCoveringMem ∀ (legs: List Leg) (t: Float) (leg: Leg)
     (h: firstCovering legs t = Some leg):
@@ -20,7 +20,7 @@ theorem firstCoveringMem ∀ (legs: List Leg) (t: Float) (leg: Leg)
 
 -- An item in a leg that didn't move gets back exactly its old time.
 theorem placeUnmoved ∀ (leg: Leg) (pos: Position) (same: leg.start = pos.legStart): placeIn leg pos = pos.time :=
-  rewrite same, DecEq.refl pos.legStart in rfl
+  rewrite same, DecEq.refl pos.legStart then byComputing
 
 -- Stops and albums
 
@@ -62,7 +62,7 @@ theorem settleSelf ∀ (legs: List Leg)
     | Some leg =>
       match firstCoveringMem legs t leg e with
         | Both covers inLegs =>
-          rewrite List.findKeyDistinct (l => l.id) legs ids leg inLegs, DecEq.refl leg.start in
+          rewrite List.findKeyDistinct (l => l.id) legs ids leg inLegs, DecEq.refl leg.start then
             clampInside leg.start leg.end t (Bool.andLeft covers) (floatLessLe t leg.end (Bool.andRight covers))
     | None => clampInside 0.0 (lastEnd legs) t (Bool.andLeft w) (Bool.andRight w)
 
@@ -80,9 +80,9 @@ theorem placePinFits ∀ (legs: List Leg) (pin: Pin) (pos: Position) (kept: Pin)
   match e: legOf legs pos with
     | Some leg =>
       match k: keepsIn legs leg.id (pin.startAt (placeIn leg pos)) with
-        | True => rewrite <- Option.someInjective h in keepsFits legs leg.id (pin.startAt (placeIn leg pos)) k
-        | False => Void.exfalso (Option.noneNotSome kept h)
-    | None => Void.exfalso (Option.noneNotSome kept h)
+        | True => rewrite <- Option.someInjective h then keepsFits legs leg.id (pin.startAt (placeIn leg pos)) k
+        | False => (Option.noneNotSome kept h).impossible
+    | None => (Option.noneNotSome kept h).impossible
 
 theorem placePinId ∀ (legs: List Leg) (pin: Pin) (pos: Position) (kept: Pin)
     (h: placePin legs pin pos = Some kept):
@@ -90,11 +90,12 @@ theorem placePinId ∀ (legs: List Leg) (pin: Pin) (pos: Position) (kept: Pin)
   match e: legOf legs pos with
     | Some leg =>
       match k: keepsIn legs leg.id (pin.startAt (placeIn leg pos)) with
-        | True => rewrite <- Option.someInjective h in rfl
-        | False => Void.exfalso (Option.noneNotSome kept h)
-    | None => Void.exfalso (Option.noneNotSome kept h)
+        | True => rewrite <- Option.someInjective h then byComputing
+        | False => (Option.noneNotSome kept h).impossible
+    | None => (Option.noneNotSome kept h).impossible
 
-theorem pinStartAtSame ∀ (pin: Pin): pin.startAt pin.start = pin := match pin with | { id, start, duration } => rfl
+theorem pinStartAtSame ∀ (pin: Pin): pin.startAt pin.start = pin := match pin with
+  | { id, start, duration } => byComputing
 
 -- In a well-formed trip's own legs, a pin that fits is kept where it was.
 theorem placePinSelf ∀ (legs: List Leg)
@@ -107,6 +108,6 @@ theorem placePinSelf ∀ (legs: List Leg)
           DecEq.refl leg.start,
           pinStartAtSame pin,
           e,
-          DecEq.refl leg.id in
-        rewrite fits in rfl
+          DecEq.refl leg.id then
+        rewrite fits then byComputing
     | None => cases

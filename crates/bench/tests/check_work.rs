@@ -111,7 +111,10 @@ const CONSTANT: &[(&str, &str)] = &[
         "type V (n : Nat) = { xs : List Nat }\n\ndef mk (n : Nat) : V n := { xs = [] }\n\n\
          def big (u : ()) : V cost := mk cost",
     ),
-    ("rfl", "def big (u : ()) : cost = cost := rfl"),
+    (
+        "byComputing",
+        "def big (u : ()) : cost = cost := byComputing",
+    ),
     // A `match` looks for its scrutinee in the goal and hypotheses, but
     // needn't compute it to see it can't be there: `main`'s goal mentions no
     // `Nat` or `Result` (SW-1096). The second ran `cost` handled operations
@@ -144,7 +147,7 @@ const NEEDED: &[(&str, &str)] = &[
     ),
     (
         "dot notation whose result type depends on the receiver",
-        "type Box = { n : Nat }\n\ndef Box.same (b : Box) : b = b := rfl\n\n\
+        "type Box = { n : Nat }\n\ndef Box.same (b : Box) : b = b := byComputing\n\n\
          def box : Box := { n = cost }\n\ndef p : box = box := box.same",
     ),
 ];
@@ -223,7 +226,7 @@ fn stuck_conditions_keep_filter_and_count_linear() {
     let theorem = |f: &str, n: usize| {
         let side = format!("List.{f} (List.rangeFrom {n} 2) (n => k * n <= size)");
         format!(
-            "import Std (List)\ntheorem t (k : Nat) (size : Nat) : {side} = {side} := Std.Eq.trans rfl rfl\n"
+            "import Std (List)\ntheorem t (k : Nat) (size : Nat) : {side} = {side} := Std.Eq.trans byComputing byComputing\n"
         )
     };
     for f in ["filter", "count"] {

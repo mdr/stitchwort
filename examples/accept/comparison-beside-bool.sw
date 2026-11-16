@@ -11,13 +11,13 @@ theorem foldMaxBelow ∀ (k: Nat) (xs: List Nat) (start: Nat):
     (List.foldLeft xs start Nat.max < k) = (start < k ∧ List.all xs (x => x < k)) :=
   match xs with
     | [] => cases
-    | [x, ..rest] => rewrite foldMaxBelow k rest (Nat.max start x) in cases
+    | [x, ..rest] => rewrite foldMaxBelow k rest (Nat.max start x) then cases
 
 -- The `Bool` on the left is fine as it always was.
 theorem withFlag ∀ (b: Bool) (k: Nat): (b ∧ k < 3) = (k < 3 ∧ b) := cases
 
 -- On the right, a comparison beside a `Bool` too.
-theorem flagged ∀ (b: Bool) (k: Nat) (h: b = True): (k <= 2) = (b ∧ k < 3) := rewrite h in rfl
+theorem flagged ∀ (b: Bool) (k: Nat) (h: b = True): (k <= 2) = (b ∧ k < 3) := rewrite h then byComputing
 
 -- Two comparisons: an equation between propositions, as before.
-theorem sameProp ∀ (k: Nat): (k < 3) = (k < 3) := rfl
+theorem sameProp ∀ (k: Nat): (k < 3) = (k < 3) := byComputing

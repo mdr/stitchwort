@@ -274,7 +274,10 @@ fn a_cong_lemma_whose_function_is_missing_fails_the_audit() {
         |_| Session::core_alone(),
         |session| {
             session
-                .load("orphan", "theorem renamedCong (n: Nat): n = n := rfl\n")
+                .load(
+                    "orphan",
+                    "theorem renamedCong (n: Nat): n = n := byComputing\n",
+                )
                 .unwrap_or_else(|d| panic!("fixture loads: {d:?}"));
             stitchwort_elab::std_congruence_failures(&session.elab).1
         },

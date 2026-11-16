@@ -2,7 +2,7 @@
 -- The chains below are equal, and comparing them solves the `_` (as 3)
 -- through all 16 levels, each pair met many times and answered from the
 -- record of pairs already found equal (SW-395). The tops then differ in
--- their other branch, so `rfl` is rejected, and what was solved is
+-- their other branch, so `byComputing` is rejected, and what was solved is
 -- taken back.
 
 import Std (Nat, Bool)
@@ -48,4 +48,4 @@ def b16 (x: Bool) (n: Nat): Nat := match x with | True => b15 x n | False => b15
 def aTop (x: Bool) (y: Bool) (n: Nat): Nat := match y with | True => a16 x n | False => 0
 def bTop (x: Bool) (y: Bool) (n: Nat): Nat := match y with | True => b16 x n | False => 1
 
-def different (x: Bool) (y: Bool): Nat := same (aTop x y 3) (bTop x y _) rfl
+def different (x: Bool) (y: Bool): Nat := same (aTop x y 3) (bTop x y _) byComputing

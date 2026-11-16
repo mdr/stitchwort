@@ -31,7 +31,7 @@ def Text.getLt (text: Text) (index: Nat) [auto ok: index < text.length]: Char :=
 
 theorem Text.sliceToList ∀ (text: Text) (from to: Nat):
     (text.slice from to).toList = (text.toList.drop from).take (to - from) :=
-  rfl
+  byComputing
 
 --| Ending within the text, a slice has `to - from` characters (none when
 --| `to < from`).
@@ -41,7 +41,7 @@ theorem Text.lengthSlice ∀ (text: Text) (from to: Nat)
   List.lengthTake
     (text.toList.drop from)
     (to - from)
-    (if ordered: from ≤ to then omega [List.lengthDrop text.toList from (omega)] else omega)
+    (if ordered: from ≤ to then arithmetic [List.lengthDrop text.toList from (arithmetic)] else arithmetic)
 
 --| Two slices that meet join into one: the lexer's theorem in miniature,
 --| since tokens cut at increasing positions and joined give back the text.
@@ -50,14 +50,15 @@ theorem Text.sliceAppend ∀ (text: Text) (from middle to: Nat)
     (second: middle ≤ to):
     text.slice from middle ++ text.slice middle to = text.slice from to :=
   let meet: List.drop text.toList middle = List.drop (List.drop text.toList from) (middle - from) :=
-    rewrite <- List.dropAdd from (middle - from) text.toList in rewrite (omega: from + (middle - from) = middle) in rfl
-  let counts: middle - from + (to - middle) = to - from := omega
+    rewrite <- List.dropAdd from (middle - from) text.toList then
+      rewrite (arithmetic: from + (middle - from) = middle) then byComputing
+  let counts: middle - from + (to - middle) = to - from := arithmetic
   let lists: List.append
     (List.take (List.drop text.toList from) (middle - from))
     (List.take (List.drop text.toList middle) (to - middle))
     = List.take (List.drop text.toList from) (to - from) :=
-    rewrite meet in
-      rewrite <- counts in Eq.sym (List.takeAdd (List.drop text.toList from) (middle - from) (to - middle))
+    rewrite meet then
+      rewrite <- counts then Eq.flipped (List.takeAdd (List.drop text.toList from) (middle - from) (to - middle))
   Eq.cong Text.fromList lists
 
 --| The slice from 0 to the length is the whole text.
@@ -73,10 +74,10 @@ theorem Text.sliceMiddle ∀ (text: Text) (before middle after: List Char)
     (made: text.toList = before ++ (middle ++ after)):
     text.slice before.length (before.length + middle.length) = Text.fromList middle :=
   let dropped: text.toList.drop before.length = middle ++ after :=
-    rewrite made in List.dropAppend before (middle ++ after)
-  let count: before.length + middle.length - before.length = middle.length := omega
+    rewrite made then List.dropAppend before (middle ++ after)
+  let count: before.length + middle.length - before.length = middle.length := arithmetic
   let chars: (text.toList.drop before.length).take (before.length + middle.length - before.length) = middle :=
-    rewrite dropped, count in List.takeAppend middle after
+    rewrite dropped, count then List.takeAppend middle after
   Eq.cong Text.fromList chars
 
 --| Position `i` of a slice is position `from + i` of the text, within the

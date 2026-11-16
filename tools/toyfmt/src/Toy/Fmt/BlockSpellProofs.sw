@@ -29,7 +29,7 @@ def notesOf (note: Comment → a) (trivia: List Trivia): (List (Spaced a), Bool)
 theorem notesOfReverse ∀ (note: Comment → a) (trivia: List Trivia):
     spacedNotes note trivia.reverse = notesOf note trivia :=
   match trivia with
-    | [] => rfl
+    | [] => byComputing
     | [piece, ..older] =>
       Eq.trans
         (Eq.cong ((list: List Trivia) => spacedNotes note list) (List.reverseCons piece older))
@@ -45,10 +45,10 @@ def blankOf (blankBefore: Bool) (pending: List Trivia): List Trivia := match bla
 theorem blankSeen ∀ (blankBefore: Bool) (seen: Views):
     viewsFrom seen (blankEvents blankBefore) = { views = seen.views, pending = blankOf blankBefore seen.pending } :=
   match blankBefore with
-    | True => rfl
+    | True => byComputing
     | False =>
       match seen with
-        | { views, pending } => rfl
+        | { views, pending } => byComputing
 
 --| A blank line after comment lines is remembered for the next line.
 theorem blankNotes ∀ (note: Comment → a) (blankBefore: Bool) (pending: List Trivia) (lines: List (Spaced a))
@@ -61,7 +61,8 @@ theorem blankNotes ∀ (note: Comment → a) (blankBefore: Bool) (pending: List 
         | [], waits => Eq.cong ((found: (List (Spaced a), Bool)) => (found.fst, True)) waits
         | [OwnLine comment, ..older], waits => Eq.cong ((found: (List (Spaced a), Bool)) => (found.fst, True)) waits
         | [BlankLine, ..older], waits =>
-          Void.exfalso (Bool.falseNotTrue (Eq.sym (Eq.cong ((found: (List (Spaced a), Bool)) => found.snd) waits)))
+          Void.impossible
+            (Bool.falseNotTrue (Eq.flipped (Eq.cong ((found: (List (Spaced a), Bool)) => found.snd) waits)))
 
 --| A comment line joins the lines waiting, with its blank line.
 theorem noteNotes ∀ (note: Comment → a) (blankBefore: Bool) (pending: List Trivia)
@@ -100,8 +101,8 @@ theorem firstBlankSame ∀ (isFirst: Bool) (lines: List (Spaced Statement))
     (unspaced: isFirst = True → Unspaced lines):
     firstBlank isFirst lines = lines :=
   match isFirst, unspaced with
-    | False, _ => rfl
-    | True, unspaced => unspaced rfl
+    | False, _ => byComputing
+    | True, unspaced => unspaced byComputing
 
 --| The lines the parser gives a statement whose first token holds what
 --| waited above it: the comment lines waiting, then the statement.
@@ -113,11 +114,11 @@ theorem notedLine ∀ (isFirst: Bool) (pending: List Trivia) (lines more: List (
     firstBlank isFirst (notedStatement above line) = lines ++ [{ blankBefore, line }] :=
   let noted: notedStatement above line = lines ++ [{ blankBefore, line }] :=
     notedOf above lines blankBefore line
-      (rewrite same in
+      (rewrite same then
         Eq.trans
           (notesOfReverse StatementNote (blankOf blankBefore pending))
           (blankNotes StatementNote blankBefore pending lines waits))
-  rewrite noted in
+  rewrite noted then
     firstBlankSame isFirst (lines ++ [{ blankBefore, line }]) (first =>
       unspacedFront lines more { blankBefore, line } (unspaced first))
 
@@ -144,8 +145,8 @@ theorem seenToThen ∀ (pending middle left: List Trivia) (front back: List Even
           (Eq.cong
             ((views: List TokenView) => ({ views, pending = left }: Views))
             (Eq.trans
-              (Eq.sym (List.appendAssoc second.reverse first.reverse earlier))
-              (Eq.cong ((front: List TokenView) => front ++ earlier) (Eq.sym (List.reverseAppend first second)))))))
+              (Eq.flipped (List.appendAssoc second.reverse first.reverse earlier))
+              (Eq.cong ((front: List TokenView) => front ++ earlier) (List.reverseAppend first second).flipped)))))
 
 theorem seenBlank ∀ (blankBefore: Bool) (pending left: List Trivia) (events: List Event) (found: List TokenView)
     (seen: SeenTo (blankOf blankBefore pending) events found left):
@@ -181,8 +182,8 @@ theorem risingFront ∀ (front back: List (Parse.Located Token))
     (rising: Rising ((front ++ back).map (found => found.offset))):
     Rising (front.map (found => found.offset)) :=
   match front, rising with
-    | [], _ => rfl
-    | [only], _ => rfl
+    | [], _ => byComputing
+    | [only], _ => byComputing
     | [lower, higher, ..rest], Both above more => (above, (risingFront [higher, ..rest] back more))
 
 theorem risingBack ∀ (front back: List (Parse.Located Token))
@@ -192,7 +193,7 @@ theorem risingBack ∀ (front back: List (Parse.Located Token))
     | [], rising => rising
     | [only], rising =>
       match back, rising with
-        | [], _ => rfl
+        | [], _ => byComputing
         | [next, ..more], Both _ later => later
     | [lower, higher, ..rest], Both _ more => risingBack [higher, ..rest] back more
 
@@ -201,24 +202,24 @@ theorem risingBelow ∀ (tokens: List (Parse.Located Token))
     (rising: Rising ((tokens ++ [next, ..more]).map (found => found.offset))):
     Below next.offset tokens :=
   match tokens, rising with
-    | [], _ => rfl
-    | [only], Both above _ => (above, rfl)
+    | [], _ => byComputing
+    | [only], Both above _ => (above, byComputing)
     | [lower, higher, ..rest], Both above later =>
       match risingBelow [higher, ..rest] next more later with
-        | Both under others => ((omega [above, under]), under, others)
+        | Both under others => ((arithmetic [above, under]), under, others)
 
 theorem belowNotAt ∀ (bound: Nat) (tokens: List (Parse.Located Token))
     (below: Below bound tokens):
     NotAt bound tokens :=
   match tokens, below with
-    | [], _ => rfl
-    | [token, ..rest], Both under others => ((omega [under]), (belowNotAt bound rest others))
+    | [], _ => byComputing
+    | [token, ..rest], Both under others => ((arithmetic [under]), (belowNotAt bound rest others))
 
 --| The tokens after a statement's first aren't its first.
 theorem laterApart ∀ (column: Nat) (first: Parse.Located Token) (others: List (Parse.Located Token))
     (rising: Rising ([first, ..others].map (found => found.offset))):
     AllApart (InStatement column first.offset) others :=
-  risingApart column first.offset first.offset others omega rising
+  risingApart column first.offset first.offset others arithmetic rising
 
 -- Where a token starts, from its view.
 
@@ -227,21 +228,21 @@ theorem startColumn ∀ (token: Parse.Located Token) (column: Nat)
     token.value.startsLine = True ∧ token.value.column = column :=
   match token, starts with
     | { value = { kind, startsLine = True, column = indent, above, trailing }, offset, length }, starts =>
-      (rfl, (Option.someInjective starts))
+      (byComputing, (Option.someInjective starts))
 
 theorem startsLow ∀ (token: Parse.Located Token) (column: Nat)
     (starts: (viewOf token).start = Some column):
     (token.value.startsLine && token.value.column <= column) = True :=
   match token, starts with
     | { value = { kind, startsLine = True, column = indent, above, trailing }, offset, length }, starts =>
-      omega [Option.someInjective starts]
+      arithmetic [Option.someInjective starts]
 
 theorem startsAtLine ∀ (token: Parse.Located Token) (column: Nat)
     (starts: (viewOf token).start = Some column):
     (token.value.startsLine && token.value.column == column) = True :=
   match token, starts with
     | { value = { kind, startsLine = True, column = indent, above, trailing }, offset, length }, starts =>
-      omega [Option.someInjective starts]
+      arithmetic [Option.someInjective starts]
 
 theorem startsDeeper ∀ (token: Parse.Located Token) (column deeper: Nat)
     (below: column < deeper)
@@ -249,7 +250,7 @@ theorem startsDeeper ∀ (token: Parse.Located Token) (column deeper: Nat)
     (token.value.startsLine && token.value.column > column) = True :=
   match token, starts with
     | { value = { kind, startsLine = True, column = indent, above, trailing }, offset, length }, starts =>
-      omega [Option.someInjective starts, below]
+      arithmetic [Option.someInjective starts, below]
 
 --| The views of a block's lines start a line at its column, if there
 --| are any.
@@ -265,8 +266,8 @@ theorem lowUnallowed ∀ (startsLine: Bool) (indent column: Nat) (same: Bool)
     (not startsLine || indent > column || same) = False :=
   match startsLine, low with
     | True, low =>
-      let shallow: (indent > column) = False := omega [low]
-      rewrite shallow, apart in rfl
+      let shallow: (indent > column) = False := arithmetic [low]
+      rewrite shallow, apart then byComputing
 
 --| What settles a statement's tokens ends its expression too: a line
 --| start no deeper than the statement, at another offset than its first
@@ -276,7 +277,7 @@ theorem settledAfter ∀ (column from: Nat) (front: List (Parse.Located Token))
     (settled: Settled (InStatement column from) (front ++ [first, ..others]) rest):
     After (InStatement column first.offset) [first, ..others] rest :=
   match rest, settled with
-    | [], settled => (((rfl, rfl)), rfl)
+    | [], settled => (((byComputing, byComputing)), byComputing)
     | [next, ..more], Inl closes =>
       match closerReserved next.value.kind closes with
         | Witness keyword reserved =>
@@ -306,7 +307,7 @@ theorem lineAfter ∀ (column: Nat) (first: Parse.Located Token) (others later r
     After (InStatement column first.offset) [first, ..others] (later ++ rest) :=
   match later, starts, rising, settled with
     | [], _, _, settled =>
-      settledAfter column 0 [] first others rest (rewrite List.appendNil others at settled in settled)
+      settledAfter column 0 [] first others rest (rewrite List.appendNil others at settled then settled)
     | [next, ..more], starts, rising, _ =>
       settledAfter column 0 [] first others
         ([next, ..more] ++ rest)
@@ -323,45 +324,45 @@ theorem settledDeeper ∀ (column from deeper: Nat) (tokens rest: List (Parse.Lo
     (settled: Settled (InStatement column from) tokens rest):
     Settled (InStatement deeper 0) tokens rest ∧ BlockEnds deeper rest :=
   match rest, settled with
-    | [], _ => (rfl, (Inl rfl))
+    | [], _ => (byComputing, (Inl byComputing))
     | [next, ..more], Inl closes => ((Inl closes), (Inr closes))
     | [next, ..more], Inr (Both low clear) =>
-      match lowLine next.value.startsLine next.value.column column deeper False low below rfl with
+      match lowLine next.value.startsLine next.value.column column deeper False low below byComputing with
         | Both _ (Both lower elsewhere) => ((Inr ((lower, clear))), (Inl elsewhere))
 
 theorem startNotLet ∀ (kind: Kind) (starts: startsExpression kind = True): kind ≠ Reserved LetKeyword := same =>
-  Bool.falseNotTrue (rewrite same at starts in starts)
+  Bool.falseNotTrue (rewrite same at starts then starts)
 
 -- Expressions outside brackets, `if` included.
 
 theorem postfixChain ∀ (expr: Expr) (postfix: expr.isPostfix = True): expr.isChain = True := match expr, postfix with
-  | Var _ _, _ => rfl
-  | NumberLiteral _ _, _ => rfl
-  | StringLiteral _ _, _ => rfl
-  | Bracketed _ _ _, _ => rfl
-  | ListLiteral _ _ _, _ => rfl
-  | Call _ _ _ _, _ => rfl
-  | Field _ _ _ _, _ => rfl
+  | Var _ _, _ => byComputing
+  | NumberLiteral _ _, _ => byComputing
+  | StringLiteral _ _, _ => byComputing
+  | Bracketed _ _ _, _ => byComputing
+  | ListLiteral _ _ _, _ => byComputing
+  | Call _ _ _ _, _ => byComputing
+  | Field _ _ _ _, _ => byComputing
 
 theorem operandChain ∀ (expr: Expr) (operand: expr.isOperand = True): expr.isChain = True := match expr, operand with
-  | Var _ _, _ => rfl
-  | NumberLiteral _ _, _ => rfl
-  | StringLiteral _ _, _ => rfl
-  | Bracketed _ _ _, _ => rfl
-  | ListLiteral _ _ _, _ => rfl
-  | Call _ _ _ _, _ => rfl
-  | Field _ _ _ _, _ => rfl
-  | Negate _ _, _ => rfl
+  | Var _ _, _ => byComputing
+  | NumberLiteral _ _, _ => byComputing
+  | StringLiteral _ _, _ => byComputing
+  | Bracketed _ _ _, _ => byComputing
+  | ListLiteral _ _ _, _ => byComputing
+  | Call _ _ _ _, _ => byComputing
+  | Field _ _ _ _, _ => byComputing
+  | Negate _ _, _ => byComputing
 
 --| An `if` stands only as a whole expression: an operator chain or an
 --| operand of the parser's shape holds none outside brackets.
 theorem chainNoIf ∀ (expr: Expr) (shaped: Shaped expr) (chain: expr.isChain = True): NoIf expr :=
   match expr, shaped, chain with
-    | Var _ _, _, _ => rfl
-    | NumberLiteral _ _, _, _ => rfl
-    | StringLiteral _ _, _, _ => rfl
-    | Bracketed _ _ _, _, _ => rfl
-    | ListLiteral _ _ _, _, _ => rfl
+    | Var _ _, _, _ => byComputing
+    | NumberLiteral _ _, _, _ => byComputing
+    | StringLiteral _ _, _, _ => byComputing
+    | Bracketed _ _ _, _, _ => byComputing
+    | ListLiteral _ _ _, _, _ => byComputing
     | Call callee _ _ _, Both postfix (Both shapedCallee _), _ =>
       chainNoIf callee shapedCallee (postfixChain callee postfix)
     | Field target _ _ _, Both postfix shapedTarget, _ => chainNoIf target shapedTarget (postfixChain target postfix)
@@ -396,7 +397,7 @@ theorem plainOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (eve
     expr
     events
     pending
-    rfl
+    byComputing
     shaped
     lexical
     headed
@@ -482,15 +483,15 @@ theorem opensStarts ∀ (column: Nat) (lines: List (Spaced Statement)) (views: L
     (opens: LinesOpen column lines views):
     StartsAt column views :=
   match lines, opens with
-    | [], opens => rewrite opens in rfl
-    | [_, .._], Witness first (Witness others (Both same starts)) => rewrite same in starts
+    | [], opens => rewrite opens then byComputing
+    | [_, .._], Witness first (Witness others (Both same starts)) => rewrite same then starts
 
 theorem opensSome ∀ (column: Nat) (lines: List (Spaced Statement)) (views: List TokenView)
     (closed: ClosedLines lines)
     (opens: LinesOpen column lines views):
     ∃ (first: TokenView) => ∃ (others: List TokenView) => views = [first, ..others] ∧ first.start = Some column :=
   match lines, closed, opens with
-    | [], never, _ => Void.exfalso (Bool.falseNotTrue never)
+    | [], never, _ => (Bool.falseNotTrue never).impossible
     | [_, .._], _, opens => opens
 
 theorem opensNote ∀ (column: Nat) (note: Spaced Statement) (more: List (Spaced Statement)) (views: List TokenView)
@@ -498,7 +499,7 @@ theorem opensNote ∀ (column: Nat) (note: Spaced Statement) (more: List (Spaced
     (opens: LinesOpen column more views):
     LinesOpen column [note, ..more] views :=
   match more, some, opens with
-    | [], some, _ => Void.exfalso (Bool.falseNotTrue (some ((rfl, rfl))))
+    | [], some, _ => Void.impossible (Bool.falseNotTrue (some ((byComputing, byComputing))))
     | [_, .._], _, opens => opens
 
 theorem closingNote ∀ (noted: List (Spaced Statement)) (pending: List Trivia) (blankBefore: Bool)
@@ -506,14 +507,14 @@ theorem closingNote ∀ (noted: List (Spaced Statement)) (pending: List Trivia) 
     (closed: ClosedLines [{ blankBefore, line = StatementNote comment }, ..more]):
     LinesClose noted pending more ∧ ClosedLines more :=
   match more, closed with
-    | [], never => Void.exfalso (Bool.falseNotTrue never)
+    | [], never => (Bool.falseNotTrue never).impossible
     | [_, .._], closed => (closed, closed)
 
 theorem closingCoded ∀ (line: Spaced Statement) (more: List (Spaced Statement))
     (closed: ClosedLines [line, ..more]):
     LinesClose [] [] more :=
   match more, closed with
-    | [], _ => (rfl, rfl)
+    | [], _ => (byComputing, byComputing)
     | [_, .._], closed => closed
 
 theorem laterOfLines ∀ (column: Nat) (statements: List (Spaced Statement)) (events: List Event)
@@ -524,16 +525,16 @@ theorem laterOfLines ∀ (column: Nat) (statements: List (Spaced Statement)) (ev
     | [], _, laid => laid
     | [{ blankBefore, line }, ..rest], unspaced, laid =>
       let none: False = blankBefore := Eq.cong firstBlankBefore unspaced
-      rewrite <- none in (events, rfl, laid)
+      rewrite <- none then (events, byComputing, laid)
 
 theorem closingBody ∀ (statements: List (Spaced Statement))
     (closed: ClosedLines statements):
     LinesClose [] [] statements :=
   match statements, closed with
-    | [], never => Void.exfalso (Bool.falseNotTrue never)
+    | [], never => (Bool.falseNotTrue never).impossible
     | [_, .._], closed => closed
 
-theorem falseFirst ∀ (goal: Prop) (never: False = True): goal := Void.exfalso (Bool.falseNotTrue never)
+theorem falseFirst ∀ (goal: Prop) (never: False = True): goal := match never with | ()
 
 --| Tokens with the views of an expression's events spell it outside
 --| brackets, where an `if`'s branch may be a block.
@@ -545,15 +546,15 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
     SpellsOut column pending head expr events :=
   match expr, shaped, lexical, headed, laid with
     | Var name comments, shaped, lexical, headed, laid =>
-      plainOut column head (Var name comments) events pending shaped lexical headed rfl laid
+      plainOut column head (Var name comments) events pending shaped lexical headed byComputing laid
     | NumberLiteral digits comments, shaped, lexical, headed, laid =>
-      plainOut column head (NumberLiteral digits comments) events pending shaped lexical headed rfl laid
+      plainOut column head (NumberLiteral digits comments) events pending shaped lexical headed byComputing laid
     | StringLiteral written comments, shaped, lexical, headed, laid =>
-      plainOut column head (StringLiteral written comments) events pending shaped lexical headed rfl laid
+      plainOut column head (StringLiteral written comments) events pending shaped lexical headed byComputing laid
     | Bracketed open inner close, shaped, lexical, headed, laid =>
-      plainOut column head (Bracketed open inner close) events pending shaped lexical headed rfl laid
+      plainOut column head (Bracketed open inner close) events pending shaped lexical headed byComputing laid
     | ListLiteral open items close, shaped, lexical, headed, laid =>
-      plainOut column head (ListLiteral open items close) events pending shaped lexical headed rfl laid
+      plainOut column head (ListLiteral open items close) events pending shaped lexical headed byComputing laid
     | Call callee open arguments close, shaped, lexical, headed, laid =>
       plainOut column head
         (Call callee open arguments close)
@@ -562,7 +563,7 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
         shaped
         lexical
         headed
-        (chainNoIf (Call callee open arguments close) shaped rfl)
+        (chainNoIf (Call callee open arguments close) shaped byComputing)
         laid
     | Field target dot name nameComments, shaped, lexical, headed, laid =>
       plainOut column head
@@ -572,7 +573,7 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
         shaped
         lexical
         headed
-        (chainNoIf (Field target dot name nameComments) shaped rfl)
+        (chainNoIf (Field target dot name nameComments) shaped byComputing)
         laid
     | Negate minus operand, shaped, lexical, headed, laid =>
       plainOut column head
@@ -582,7 +583,7 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
         shaped
         lexical
         headed
-        (chainNoIf (Negate minus operand) shaped rfl)
+        (chainNoIf (Negate minus operand) shaped byComputing)
         laid
     | Binary operator sign left right, shaped, lexical, headed, laid =>
       plainOut column head
@@ -592,7 +593,7 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
         shaped
         lexical
         headed
-        (chainNoIf (Binary operator sign left right) shaped rfl)
+        (chainNoIf (Binary operator sign left right) shaped byComputing)
         laid
     | If ({ above, after }) condition thenComments whenTrue elseComments whenFalse, Both shapedCondition
         (Both shapedTrue shapedFalse), Both fineIf
@@ -661,7 +662,7 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
             ++ ([(tokenView [] (Reserved ThenKeyword) thenStart thenComments)]
               ++ ([trueFirst, ..trueOthers]
                 ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)] ++ [falseFirst, ..falseOthers])))),
-          (rewrite ifSplit, conditionSplit, thenSplit, trueSplit, elseSplit in
+          (rewrite ifSplit, conditionSplit, thenSplit, trueSplit, elseSplit then
             seenThen pending ifEvents
               (conditionEvents ++ (thenEvents ++ (trueEvents ++ (elseEvents ++ falseEvents))))
               [(tokenView pending (Reserved IfKeyword) ifStart { above, after })]
@@ -797,7 +798,7 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
                                   (Reserved ThenKeyword)
                                   thenStart
                                   thenComments
-                                  rfl
+                                  byComputing
                                   apartAfterCondition.left
                                   thenAllowed
                                   thenSame with
@@ -808,13 +809,13 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
                                     trueTokens,
                                     elseToken,
                                     falseTokens,
-                                    rfl,
+                                    byComputing,
                                     ifKind,
                                     ifAllows,
                                     thenKind,
                                     thenAllows,
                                     (Eq.cong ((view: TokenView) => view.kind) elseSame),
-                                    (reachesElse column column from elseToken elseStart rfl elseReaches
+                                    (reachesElse column column from elseToken elseStart byComputing elseReaches
                                       (Eq.cong ((view: TokenView) => view.start) elseSame)),
                                     (conditionSpells from conditionTokens conditionSame
                                       (risingFront conditionTokens
@@ -825,7 +826,7 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
                                         (InStatement column from)
                                         condition.firstAbove
                                         conditionTokens
-                                        rfl
+                                        byComputing
                                         (apartFront
                                           (InStatement column from)
                                           conditionTokens
@@ -858,7 +859,7 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
                                       elseSame)
                                   ))))))),
           ifAllowed,
-          rfl
+          byComputing
         )
 
 --| Tokens with the views of a body's events spell the body: its one
@@ -904,10 +905,10 @@ theorem bodyOut ∀ (column: Nat) (body: Body) (events: List Event)
               (firstToken otherTokens firstSame othersSame rising apart after =>
                 Inl
                   ((
-                    (Eq.sym (Eq.cong firstBlankBefore unspaced)),
+                    (Eq.flipped (Eq.cong firstBlankBefore unspaced)),
                     firstToken,
                     otherTokens,
-                    rfl,
+                    byComputing,
                     (inlineAhead
                       (InStatement column from)
                       [firstToken, ..otherTokens]
@@ -933,31 +934,31 @@ theorem bodyOut ∀ (column: Nat) (body: Body) (events: List Event)
                           (InStatement column from)
                           value.firstAbove
                           [firstToken, ..otherTokens]
-                          rfl
+                          byComputing
                           apart))),
                     after,
                     (headedOfNoAbove (InStatement column from) value (outside => noAbove outside))
                   ))))
         )
-    | { statements = [] }, _, _, _, Inl never => Void.exfalso (Bool.falseNotTrue never)
+    | { statements = [] }, _, _, _, Inl never => (Bool.falseNotTrue never).impossible
     | { statements = [{ blankBefore, line = Let _ _ _ _ _ }] }, _, _, _, Inl never =>
-      Void.exfalso (Bool.falseNotTrue never)
+      Void.impossible (Bool.falseNotTrue never)
     | { statements = [{ blankBefore, line = StatementNote _ }] }, _, _, _, Inl never =>
-      Void.exfalso (Bool.falseNotTrue never)
-    | { statements = [_, _, .._] }, _, _, _, Inl never => Void.exfalso (Bool.falseNotTrue never)
+      Void.impossible (Bool.falseNotTrue never)
+    | { statements = [_, _, .._] }, _, _, _, Inl never => (Bool.falseNotTrue never).impossible
     | { statements }, Both shapedLines closed, Both lexicalLines _, Both headedLines (Both unspaced _), Inr
         (Witness deeper (Both under lines)) =>
       match linesOut deeper True [] statements events [] shapedLines lexicalLines headedLines
         (closingBody statements closed)
         (isFirst => unspaced)
-        rfl
+        byComputing
         (laterOfLines deeper statements events unspaced lines) with
         | Witness views (Both seen (Both opens spells)) =>
           match opensSome deeper statements views closed opens with
             | Witness first (Witness others (Both viewsSame starts)) => (
               first,
               others,
-              (rewrite <- viewsSame in seen),
+              (rewrite <- viewsSame then seen),
               (from tokens rest same =>
                 viewsCons
                   (later =>
@@ -982,11 +983,11 @@ theorem bodyOut ∀ (column: Nat) (body: Body) (events: List Event)
                           ((
                             (startsDeeper firstToken column deeper under
                               (Eq.trans (Eq.cong ((view: TokenView) => view.start) firstSame) starts)),
-                            (rewrite atDeeper in
+                            (rewrite atDeeper then
                               spells
                                 [firstToken, ..otherTokens]
                                 rest
-                                (rewrite viewsSame in
+                                (rewrite viewsSame then
                                   consViews firstToken otherTokens first others firstSame othersSame)
                                 ends
                                 rising
@@ -1010,11 +1011,11 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
   match lines, shaped, lexical, headed, closed, unspaced, laid with
     | [], _, _, _, Both notedNone pendingNone, _, laid => (
       [],
-      (rewrite laid, pendingNone in (earlier => rfl)),
-      rfl,
+      (rewrite laid, pendingNone then (earlier => byComputing)),
+      byComputing,
       (tokens rest same ends =>
         viewsNil (later => LinesGoal column isFirst noted [] rest later) tokens same (rising settled =>
-          (rfl, notedNone, ends)))
+          (byComputing, notedNone, ends)))
     )
     | [{ blankBefore, line = StatementNote comment }, ..more], Both _ shapedMore, Both fine lexicalMore, Both _
           headedMore, closed, unspaced, Witness later
@@ -1034,12 +1035,13 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
           comment
           more
           closed).left
-        (first => rewrite List.appendAssoc noted [{ blankBefore, line = StatementNote comment }] more in unspaced first)
+        (first =>
+          rewrite List.appendAssoc noted [{ blankBefore, line = StatementNote comment }] more then unspaced first)
         (noteNotes StatementNote blankBefore pending noted comment waits)
         moreLaid with
         | Witness views (Both seen (Both opens spells)) => (
           views,
-          (rewrite split, thenSplit, noteLaid in
+          (rewrite split, thenSplit, noteLaid then
             seenBlank blankBefore pending []
               ([{ word = comment.text, start = Some column }] ++ back)
               views
@@ -1067,12 +1069,12 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
         valueLaid, linesOut column False [] more back [] shapedMore lexicalMore headedMore
         (closingCoded { blankBefore, line = Bare value } more closed)
         (never => falseFirst (Unspaced ([] ++ more)) never)
-        rfl
+        byComputing
         moreLaid with
         | Witness first (Witness others (Both valueSeen (Both valueSpells (Both starts aboveSame)))), Witness moreViews
             (Both moreSeen (Both moreOpens moreSpells)) => (
           ([first, ..others] ++ moreViews),
-          (rewrite split, thenSplit in
+          (rewrite split, thenSplit then
             seenBlank blankBefore pending []
               (front ++ back)
               ([first, ..others] ++ moreViews)
@@ -1086,7 +1088,7 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
                 moreViews
                 valueSeen
                 moreSeen)),
-          ((first, (others ++ moreViews), rfl, starts)),
+          ((first, (others ++ moreViews), byComputing, starts)),
           (tokens rest same ends =>
             viewsSplit
               (later => LinesGoal column isFirst noted [{ blankBefore, line = Bare value }, ..more] rest later)
@@ -1118,7 +1120,7 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
                           (atColumn column)
                           value.firstAbove
                           [firstToken, ..otherTokens]
-                          (noAbove rfl)
+                          (noAbove byComputing)
                           (firstLeads column
                             (blankOf blankBefore pending)
                             (atColumn column)
@@ -1135,11 +1137,11 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
                         firstToken,
                         otherTokens,
                         laterTokens,
-                        rfl,
+                        byComputing,
                         (startsAtLine firstToken column
                           (Eq.trans (Eq.cong ((view: TokenView) => view.start) firstSame) starts)),
                         (startNotLet firstToken.value.kind
-                          (rewrite List.consInjectiveHead firstToken found otherTokens foundOthers foundSplit in
+                          (rewrite List.consInjectiveHead firstToken found otherTokens foundOthers foundSplit then
                             startKind)),
                         (notedLine isFirst pending noted more blankBefore
                           (Bare value)
@@ -1149,12 +1151,12 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
                             (Eq.trans aboveSame
                               (Eq.cong
                                 ((comments: List Comment) => (waiting (blankOf blankBefore pending) comments).reverse)
-                                (noAbove rfl))))
+                                (noAbove byComputing))))
                           waits
                           unspaced),
                         spelled,
                         (lineAfter column firstToken otherTokens laterTokens rest
-                          (rewrite laterSame in opensStarts column more moreViews moreOpens)
+                          (rewrite laterSame then opensStarts column more moreViews moreOpens)
                           rising
                           settled),
                         (moreSpells laterTokens rest laterSame ends
@@ -1212,7 +1214,7 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
           more back [] shapedMore lexicalMore headedMore
           (closingCoded { blankBefore, line = Let letComments name nameComments equals body } more closed)
           (never => falseFirst (Unspaced ([] ++ more)) never)
-          rfl
+          byComputing
           moreLaid with
         | Witness letStart (Both letAllowed letSeen), Witness nameStart (Both nameAllowed nameSeen), Witness equalsStart
             (Both equalsAllowed equalsSeen), Witness bodyFirst
@@ -1226,7 +1228,7 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
             ..bodyOthers
           ]
             ++ moreViews),
-          (rewrite split, thenSplit, letSplit, nameSplit, equalsSplit in
+          (rewrite split, thenSplit, letSplit, nameSplit, equalsSplit then
             seenBlank blankBefore pending []
               ((letEvents ++ (nameEvents ++ (equalsEvents ++ bodyEvents))) ++ back)
               ([
@@ -1283,7 +1285,7 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
               ..bodyOthers
             ]
               ++ moreViews),
-            rfl,
+            byComputing,
             letAllowed
           )),
           (tokens rest same ends =>
@@ -1345,7 +1347,7 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
                                 [named, equalsToken, ..bodyTokens]
                                 laterTokens
                                 rest
-                                (rewrite laterSame in opensStarts column more moreViews moreOpens)
+                                (rewrite laterSame then opensStarts column more moreViews moreOpens)
                                 rising
                                 settled
                             match innerFits
@@ -1355,7 +1357,7 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
                               (Name name)
                               nameStart
                               nameComments
-                              rfl
+                              byComputing
                               apart.left
                               nameAllowed
                               namedSame, innerFits
@@ -1365,7 +1367,7 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
                               (Sign Defines)
                               equalsStart
                               equals
-                              rfl
+                              byComputing
                               apart.right.left
                               equalsAllowed
                               equalsSame with
@@ -1375,7 +1377,7 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
                                 equalsToken,
                                 bodyTokens,
                                 laterTokens,
-                                rfl,
+                                byComputing,
                                 (startsAtLine firstToken column
                                   (Eq.trans (Eq.cong ((view: TokenView) => view.start) firstSame) letAllowed)),
                                 (Eq.cong ((view: TokenView) => view.kind) firstSame),
@@ -1472,9 +1474,9 @@ theorem parametersOut ∀ (parameter: Parameter) (rest: List Parameter) (events:
               (match bracketFits first (Name name) start comments firstSame with
                 | (_, _, notes) => (
                   [],
-                  rfl,
-                  rfl,
-                  (rewrite bare in
+                  byComputing,
+                  byComputing,
+                  (rewrite bare then
                     Eq.cong
                       ((found: Comments) => [({ name, comments = found, comma = Comments.none }: Parameter)])
                       notes)
@@ -1506,7 +1508,7 @@ theorem parametersOut ∀ (parameter: Parameter) (rest: List Parameter) (events:
             tokenView [] (Name next.name) nextStart next.comments,
             ..nextOthers
           ],
-          (rewrite nameSplit, commaSplit in
+          (rewrite nameSplit, commaSplit then
             seenThen [] nameEvents
               (commaEvents ++ restEvents)
               [tokenView [] (Name name) start comments]
@@ -1555,14 +1557,14 @@ theorem parametersOut ∀ (parameter: Parameter) (rest: List Parameter) (events:
                             commaToken,
                             nextToken,
                             next.name,
-                            rfl,
+                            byComputing,
                             commaKind,
                             (Eq.cong ((view: TokenView) => view.kind) nextSame),
-                            rfl
+                            byComputing
                           )),
                           stepsSpelled
                         )),
-                        (rewrite <- nameNotes, <- commaNotes, <- values in rfl)
+                        (rewrite <- nameNotes, <- commaNotes, <- values then byComputing)
                       ))))
         )
 
@@ -1585,7 +1587,7 @@ theorem parameterListOut ∀ (parameters: List Parameter) (events: List Event)
   match parameters, lexical, bare, laid with
     | [], _, _, laid => (
       [],
-      (rewrite laid in (earlier => rfl)),
+      (rewrite laid then (earlier => byComputing)),
       (tokens close rest same closeKind =>
         viewsNil
           (found =>
@@ -1597,7 +1599,7 @@ theorem parameterListOut ∀ (parameters: List Parameter) (events: List Event)
               ∧ ([]: List Parameter) = parametersOf listed)
           tokens
           same
-          ((None, (runsNoParameters close rest (rewrite closeKind in rfl)), rfl)))
+          ((None, (runsNoParameters close rest (rewrite closeKind then byComputing)), byComputing)))
     )
     | [parameter, ..others], lexical, bare, laid =>
       match parametersOut parameter others events lexical bare laid with
@@ -1621,12 +1623,12 @@ theorem parameterListOut ∀ (parameters: List Parameter) (events: List Event)
                 match spells first otherTokens firstSame othersSame with
                   | (steps, joined, stepsSpelled, values) => (
                     (Some ((parameter.name, Layout.comments InBrackets first), Parse.stepValues steps)),
-                    (rewrite joined in
+                    (rewrite joined then
                       runsParameters first parameter.name steps
                         [close, ..rest]
                         (Eq.cong ((view: TokenView) => view.kind) firstSame)
                         stepsSpelled
-                        (rewrite closeKind in rfl)),
+                        (rewrite closeKind then byComputing)),
                     values
                   )))
         )
@@ -1646,7 +1648,7 @@ theorem risingCons ∀ (lower: Nat) (acc: List Nat)
     (joins: OffsetsJoin [lower] acc):
     Rising [lower, ..acc] :=
   match acc, rising, joins with
-    | [], _, _ => rfl
+    | [], _, _ => byComputing
     | [next, ..rest], rising, joins => (joins, rising)
 
 theorem descendingOnto ∀ (offsets acc: List Nat)
@@ -1664,8 +1666,8 @@ theorem descendingOnto ∀ (offsets acc: List Nat)
 theorem descendingRising ∀ (tokens: List (Parse.Located Token))
     (falling: Descending (tokens.map (token => token.offset))):
     Rising (tokens.reverse.map (found => found.offset)) :=
-  rewrite List.mapReverse tokens (found => found.offset) in
-    descendingOnto (tokens.map (token => token.offset)) [] falling rfl rfl
+  rewrite List.mapReverse tokens (found => found.offset) then
+    descendingOnto (tokens.map (token => token.offset)) [] falling byComputing byComputing
 
 -- Declarations and the file.
 
@@ -1679,8 +1681,8 @@ theorem firstBlankOfSame ∀ (isFirst: Bool) (lines: List (Spaced a))
     (unspaced: isFirst = True → Unspaced lines):
     firstBlankOf isFirst lines = lines :=
   match isFirst, unspaced with
-    | False, _ => rfl
-    | True, unspaced => unspaced rfl
+    | False, _ => byComputing
+    | True, unspaced => unspaced byComputing
 
 --| `notedLine`, for a declaration.
 theorem notedDeclarationLine ∀ (isFirst: Bool) (pending: List Trivia) (lines more: List (Spaced Declaration))
@@ -1691,11 +1693,11 @@ theorem notedDeclarationLine ∀ (isFirst: Bool) (pending: List Trivia) (lines m
     firstBlankOf isFirst (notedDeclaration above line) = lines ++ [{ blankBefore, line }] :=
   let noted: notedDeclaration above line = lines ++ [{ blankBefore, line }] :=
     notedDeclarationOf above lines blankBefore line
-      (rewrite same in
+      (rewrite same then
         Eq.trans
           (notesOfReverse DeclarationNote (blankOf blankBefore pending))
           (blankNotes DeclarationNote blankBefore pending lines waits))
-  rewrite noted in
+  rewrite noted then
     firstBlankOfSame isFirst (lines ++ [{ blankBefore, line }]) (first =>
       unspacedFront lines more { blankBefore, line } (unspaced first))
 
@@ -1705,7 +1707,7 @@ theorem lastAfter ∀ (column: Nat) (first: Parse.Located Token) (others later: 
     (rising: Rising (([first, ..others] ++ later).map (found => found.offset))):
     After (InStatement column first.offset) [first, ..others] later :=
   match later, starts, rising with
-    | [], _, _ => (((rfl, rfl)), rfl)
+    | [], _, _ => (((byComputing, byComputing)), byComputing)
     | [next, ..more], starts, rising =>
       settledAfter column 0 [] first others
         [next, ..more]
@@ -1744,7 +1746,7 @@ theorem laterOfDeclarations ∀ (declarations: List (Spaced Declaration)) (event
               | [first, .._] => first.blankBefore
               | [] => False)
           unspaced
-      rewrite <- none in (events, rfl, laid)
+      rewrite <- none then (events, byComputing, laid)
 
 --| Tokens with the views of a file's declarations spell them: each
 --| declaration's first token starts a line at column 0 and holds the
@@ -1763,19 +1765,19 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
     | [], _, _, _, unspaced, laid => (
       [],
       pending,
-      (rewrite laid in (earlier => rfl)),
-      rfl,
+      (rewrite laid then (earlier => byComputing)),
+      byComputing,
       (tokens same =>
         viewsNil (found => DeclarationsGoal isFirst noted [] pending.reverse found) tokens same (rising =>
           (
-            rfl,
+            byComputing,
             (Eq.trans
               (Eq.cong
                 ((found: (List (Spaced Declaration), Bool)) => firstBlankOf isFirst found.fst)
                 (Eq.trans (notesOfReverse DeclarationNote pending) waits))
               (firstBlankOfSame isFirst noted (first =>
                 let whole := unspaced first
-                rewrite List.appendNil noted at whole in whole)))
+                rewrite List.appendNil noted at whole then whole)))
           )))
     )
     | [{ blankBefore, line = DeclarationNote comment }, ..more], Both _ shapedMore, Both fine lexicalMore, Both _
@@ -1790,13 +1792,13 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
         lexicalMore
         headedMore
         (first =>
-          rewrite List.appendAssoc noted [{ blankBefore, line = DeclarationNote comment }] more in unspaced first)
+          rewrite List.appendAssoc noted [{ blankBefore, line = DeclarationNote comment }] more then unspaced first)
         (noteNotes DeclarationNote blankBefore pending noted comment waits)
         moreLaid with
         | Witness views (Witness left (Both seen (Both starts spells))) => (
           views,
           left,
-          (rewrite split, thenSplit, noteLaid in
+          (rewrite split, thenSplit, noteLaid then
             seenBlank blankBefore pending left
               ([{ word = comment.text, start = Some 0 }] ++ back)
               views
@@ -1854,7 +1856,7 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
         equalsAt, bodyOut 0 body bodyEvents shapedBody bodyLexical headedBody bodyLaid, declarationsOut False [] more
           back [] shapedMore lexicalMore headedMore
           (never => falseFirst (Unspaced ([] ++ more)) never)
-          rfl
+          byComputing
           moreLaid with
         | Witness letStart (Both letAllowed letSeen), Witness nameStart (Both nameAllowed nameSeen), Witness equalsStart
             (Both equalsAllowed equalsSeen), Witness bodyFirst
@@ -1869,7 +1871,7 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
           ]
             ++ moreViews),
           left,
-          (rewrite split, thenSplit, letSplit, nameSplit, equalsSplit in
+          (rewrite split, thenSplit, letSplit, nameSplit, equalsSplit then
             seenBlank blankBefore pending left
               ((letEvents ++ (nameEvents ++ (equalsEvents ++ bodyEvents))) ++ back)
               ([
@@ -1976,7 +1978,7 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
                               lastAfter 0 firstToken
                                 [named, equalsToken, ..bodyTokens]
                                 laterTokens
-                                (rewrite laterSame in moreStarts)
+                                (rewrite laterSame then moreStarts)
                                 rising
                             match innerFits
                               (Deeper 0)
@@ -1985,7 +1987,7 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
                               (Name name)
                               nameStart
                               nameComments
-                              rfl
+                              byComputing
                               apart.left
                               nameAllowed
                               namedSame, innerFits
@@ -1995,7 +1997,7 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
                               (Sign Defines)
                               equalsStart
                               equals
-                              rfl
+                              byComputing
                               apart.right.left
                               equalsAllowed
                               equalsSame with
@@ -2005,7 +2007,7 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
                                 equalsToken,
                                 bodyTokens,
                                 laterTokens,
-                                rfl,
+                                byComputing,
                                 (startsAtLine firstToken 0
                                   (Eq.trans (Eq.cong ((view: TokenView) => view.start) firstSame) letAllowed)),
                                 (Eq.cong ((view: TokenView) => view.kind) firstSame),
@@ -2125,7 +2127,7 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
         equalsAt, bodyOut 0 body bodyEvents shapedBody bodyLexical headedBody bodyLaid, declarationsOut False [] more
           back [] shapedMore lexicalMore headedMore
           (never => falseFirst (Unspaced ([] ++ more)) never)
-          rfl
+          byComputing
           moreLaid with
         | Witness fnStart (Both fnAllowed fnSeen), Witness nameStart (Both nameAllowed nameSeen), Witness openStart
             (Both openAllowed openSeen), Witness parameterViews
@@ -2147,7 +2149,7 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
               ]))
             ++ moreViews),
           left,
-          (rewrite split, thenSplit, headSplit, fnSplit, nameSplit, parameterSplit, closeSplit, equalsSplit in
+          (rewrite split, thenSplit, headSplit, fnSplit, nameSplit, parameterSplit, closeSplit, equalsSplit then
             seenBlank blankBefore pending left
               (((fnEvents ++ (nameEvents ++ openEvents))
                 ++ (parameterEvents ++ (closeEvents ++ (equalsEvents ++ bodyEvents))))
@@ -2421,7 +2423,7 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
                                               ..parameterTokens ++ [closeToken, equalsToken, ..bodyTokens]
                                             ]
                                             laterTokens
-                                            (rewrite laterSame in moreStarts)
+                                            (rewrite laterSame then moreStarts)
                                             rising
                                         match innerFits
                                           (Deeper 0)
@@ -2430,7 +2432,7 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
                                           (Name name)
                                           nameStart
                                           nameComments
-                                          rfl
+                                          byComputing
                                           apart.left
                                           nameAllowed
                                           namedSame, innerFits
@@ -2440,7 +2442,7 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
                                           (Sign OpenParen)
                                           openStart
                                           open
-                                          rfl
+                                          byComputing
                                           apart.right.left
                                           openAllowed
                                           openSame, bracketFits closeToken
@@ -2454,7 +2456,7 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
                                           (Sign Defines)
                                           equalsStart
                                           equals
-                                          rfl
+                                          byComputing
                                           apartTail.right.left
                                           equalsAllowed
                                           equalsSame, parametersSpell parameterTokens closeToken
@@ -2565,11 +2567,11 @@ theorem spellsFile ∀ (file: SourceFile) (events: List Event)
     | { declarations }, shaped, lexical, (headedLines, unspaced), laid =>
       match declarationsOut True [] declarations events [] shaped lexical headedLines
         (first => unspaced)
-        rfl
+        byComputing
         (laterOfDeclarations declarations events unspaced laid) with
         | (found, left, seen, _, spells) =>
           let ended: endTrivia = left := Eq.trans pending (Eq.cong ((all: Views) => all.pending) (seen []))
-          rewrite ended in
+          rewrite ended then
             spells tokens.reverse
               (Eq.trans
                 (List.mapReverse tokens viewOf)

@@ -19,7 +19,7 @@ theorem runFromSound ∀ (numbers: List Nat) (target: Nat) (run front: List Nat)
     Contiguous numbers run ∧ 2 ≤ run.length ∧ run.sum = target
     decreasing front.length + rest.length
 :=
-  rewrite runFrom.unfold target front count sum rest at found in
+  rewrite runFrom.unfold target front count sum rest at found then
     match c: target < sum with
       | True =>
         match front with
@@ -27,37 +27,39 @@ theorem runFromSound ∀ (numbers: List Nat) (target: Nat) (run front: List Nat)
             match count with
               | Zero =>
                 let empty: sum = 0 := total
-                Void.exfalso (omega)
+                Void.impossible (arithmetic)
               | Succ k =>
                 runFromSound numbers target run later k
                   (sum - first)
                   rest
                   (start + 1)
-                  (rewrite List.dropAdd start 1 numbers, <- at in rfl)
-                  (omega)
+                  (rewrite List.dropAdd start 1 numbers, <- at then byComputing)
+                  (arithmetic)
                   after
-                  (omega [List.sumCons first (later.take k)])
+                  (arithmetic [List.sumCons first (later.take k)])
                   found
       | False =>
         match e: sum == target && 2 <= count with
           | True =>
             let runIs: front.take count = run := Option.someInjective found
             Both
-              (Witness start (Witness count (rewrite <- runIs, at in rfl)))
-              (Both (rewrite <- runIs, List.lengthTake front count fits in omega) (rewrite <- runIs in omega))
+              (Witness start (Witness count (rewrite <- runIs, at then byComputing)))
+              (Both
+                (rewrite <- runIs, List.lengthTake front count fits then arithmetic)
+                (rewrite <- runIs then arithmetic))
           | False =>
             match rest with
               | [next, ..more] =>
-                let (Both taken below) := List.takeOfDropCons front count next more (Eq.sym after)
+                let (Both taken below) := List.takeOfDropCons front count next more after.flipped
                 runFromSound numbers target run front
                   (count + 1)
                   (sum + next)
                   more
                   start
                   at
-                  (omega)
-                  (rewrite List.dropAdd count 1 front, <- after in rfl)
-                  (rewrite taken, List.sumAppend (front.take count) [next] in omega)
+                  (arithmetic)
+                  (rewrite List.dropAdd count 1 front, <- after then byComputing)
+                  (rewrite taken, List.sumAppend (front.take count) [next] then arithmetic)
                   found
 
 theorem weaknessRules ∀ (data: XmasData) (invalid answer: Nat)
@@ -69,7 +71,11 @@ theorem weaknessRules ∀ (data: XmasData) (invalid answer: Nat)
         | Some ordered =>
           let same := List.toListOfNonEmpty run ordered n
           let (Both contiguous (Both long total)) :=
-            runFromSound data.numbers invalid run data.numbers 0 0 data.numbers 0 rfl (omega) rfl rfl r
+            runFromSound data.numbers invalid run data.numbers 0 0 data.numbers 0 byComputing
+              (arithmetic)
+              byComputing
+              byComputing
+              r
           Witness run
             (Both contiguous
               (Both long
@@ -77,11 +83,11 @@ theorem weaknessRules ∀ (data: XmasData) (invalid answer: Nat)
                   (Witness ordered.minimum
                     (Witness ordered.maximum
                       (Both
-                        (rewrite <- same in NonEmptyList.minimumMem ordered)
+                        (rewrite <- same then NonEmptyList.minimumMem ordered)
                         (Both
-                          (rewrite <- same in NonEmptyList.maximumMem ordered)
+                          (rewrite <- same then NonEmptyList.maximumMem ordered)
                           (Both
                             (x member =>
-                              let listed: NonEmptyList.Mem x ordered := rewrite <- same at member in member
+                              let listed: NonEmptyList.Mem x ordered := rewrite <- same at member then member
                               Both (NonEmptyList.minimumLe ordered x listed) (NonEmptyList.maximumLe ordered x listed))
-                            (Eq.sym (Option.someInjective found))))))))))
+                            (Option.someInjective found).flipped))))))))

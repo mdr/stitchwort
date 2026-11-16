@@ -1,7 +1,7 @@
--- expect-error: E-OMEGA
+-- expect-error: E-ARITHMETIC
 -- A `(p || q) = True` fact is split, and a `(p && q) = False` from the
 -- goal's other side waits for the case that settles it (SW-997); but here
--- the `short` case doesn't last (`dx` may be positive), so `omega` still
+-- the `short` case doesn't last (`dx` may be positive), so `arithmetic` still
 -- fails, with a counterexample.
 import Std (Bool, Int)
 
@@ -15,4 +15,4 @@ def past (left: Int) (right: Int) (probe: Probe): Bool := overshot right probe â
 
 def step (probe: Probe): Probe := { x = probe.x + probe.dx, dx = probe.dx }
 
-theorem pastStays (left: Int) (right: Int) (probe: Probe) (h: past left right probe = True): past left right (step probe) = True := omega
+theorem pastStays (left: Int) (right: Int) (probe: Probe) (h: past left right probe = True): past left right (step probe) = True := arithmetic

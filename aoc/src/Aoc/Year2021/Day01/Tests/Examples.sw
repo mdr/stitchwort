@@ -41,5 +41,5 @@ test "fewer than four depths make no window increase" := solvePart2 [1, 2, 3] ==
 test "equal window sums aren't an increase" := solvePart2 [1, 9, 9, 1] == 0
 
 --| The examples, proved by computing them.
-theorem examplePart1: solvePart1 exampleDepths = 7 := rfl
-theorem examplePart2: solvePart2 exampleDepths = 5 := rfl
+theorem examplePart1: solvePart1 exampleDepths = 7 := byComputing
+theorem examplePart2: solvePart2 exampleDepths = 5 := byComputing

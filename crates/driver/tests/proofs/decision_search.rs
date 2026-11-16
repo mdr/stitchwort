@@ -46,7 +46,7 @@ fn a_decision_procedure_below_the_use_is_still_not_used() {
     // `decToken` is written below it.
     let source = format!(
         "{TOKEN}
-def first : Nat := needsToken [t := decToken.sound rfl]
+def first : Nat := needsToken [t := decToken.sound byComputing]
 
 def client : Nat := needsToken
 

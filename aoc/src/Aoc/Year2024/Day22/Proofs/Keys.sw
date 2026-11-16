@@ -11,9 +11,9 @@ theorem changePossible ∀ (before after: Nat)
     (afterDigit: after < 10):
     change before after ∈ possibleChanges :=
   let offset := after + 9 - before
-  let shifted: (offset.toInt - 9) = change before after := omega
-  rewrite Eq.sym shifted in
-    List.memMap (List.range 0 19) offset (List.memRangeFromIntro offset 19 0 (omega) (omega)) (offset =>
+  let shifted: (offset.toInt - 9) = change before after := arithmetic
+  rewrite Eq.flipped shifted then
+    List.memMap (List.range 0 19) offset (List.memRangeFromIntro offset 19 0 (arithmetic) (arithmetic)) (offset =>
       offset.toInt - 9)
 
 --| Every sequence of four of `changes` is in `sequencesOf changes`.
@@ -82,18 +82,18 @@ theorem sellsAtIn ∀ (possible: List Changes)
         | True =>
           memOfEq possible same.read
             (contains a b c d e
-              (digits a (Inl rfl))
-              (digits b (Inr (Inl rfl)))
-              (digits c (Inr (Inr (Inl rfl))))
-              (digits d (Inr (Inr (Inr (Inl rfl)))))
-              (digits e (Inr (Inr (Inr (Inr (Inl rfl)))))))
+              (digits a (Inl byComputing))
+              (digits b (Inr (Inl byComputing)))
+              (digits c (Inr (Inr (Inl byComputing))))
+              (digits d (Inr (Inr (Inr (Inl byComputing)))))
+              (digits e (Inr (Inr (Inr (Inr (Inl byComputing)))))))
 
 theorem pricesDigits ∀ (count buyer price: Nat) (inPrices: price ∈ prices count buyer): price < 10 :=
   List.anyElim _
     (price < 10)
     (secrets count buyer)
     (List.memMapAny (secrets count buyer) (% 10) price inPrices)
-    (secret member digit => rewrite Eq.sym digit in Nat.modLess secret 10 (Nat.succNotZero 9))
+    (secret member digit => rewrite Eq.flipped digit then Nat.modLess secret 10 (Nat.succNotZero 9))
 
 --| The rest is stated for any list holding the changes of every five digits,
 --| like `sellsAtIn`: with `possibleSequences` itself, checking them runs for
@@ -112,7 +112,7 @@ theorem salesIn ∀ (possible: List Changes)
     (found: (firstSales (prices count buyer)).get key = Some price):
     key ∈ possible :=
   let pricesOf := prices count buyer
-  let sells := Eq.trans (Eq.sym (firstSalesSells pricesOf key)) found
+  let sells := Eq.trans (firstSalesSells pricesOf key).flipped found
   List.anyElim _
     (key ∈ possible)
     pricesOf.tails
@@ -128,8 +128,8 @@ theorem mergeSides ∀ (holds: Prop) (value: Nat) (x y: Option Nat)
     (fromX: ∀ (t: Nat) => x = Some t → holds) (fromY: ∀ (s: Nat) => y = Some s → holds):
     holds :=
   match x, y with
-    | Some t, y => fromX t rfl
-    | None, Some s => fromY s rfl
+    | Some t, y => fromX t byComputing
+    | None, Some s => fromY s byComputing
 
 theorem totalsIn ∀ (possible: List Changes)
     (contains: HoldsDigitChanges possible) (count: Nat):
@@ -150,7 +150,7 @@ theorem totalsIn ∀ (possible: List Changes)
           total
           (totals.get other)
           (sales.get other)
-          (Eq.trans (Eq.sym (Map.getUnionWith totals other sales Nat.add)) merged)
+          (Eq.trans (Eq.flipped (Map.getUnionWith totals other sales Nat.add)) merged)
           (t atOther => inTotals other t atOther)
           (s inSales => salesIn possible contains count buyer other s inSales))
       key
@@ -163,7 +163,7 @@ theorem totalsKeysIn ∀ (possible: List Changes)
     (found: (bananasBySequence count buyers).get key = Some value):
     key ∈ possible :=
   totalsIn possible contains count buyers Map.empty
-    (other total empty => Void.exfalso (Option.noneNotSome total empty))
+    (other total empty => (Option.noneNotSome total empty).impossible)
     key
     value
     found

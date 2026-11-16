@@ -420,7 +420,7 @@ fn r5_projection_by_lift_needs_an_unprovable_respects_proof() {
         "E-TYPE-MISMATCH",
         "expected `x = y`, but this has type `AllTrue x y`",
     );
-    // And `rfl` can't prove it either.
+    // And `byComputing` can't prove it either.
     let body = lift(&f, lam("x", lam("y", lam("r", Term::Refl))));
     refused(
         try_define(f.g(), "unwrap2", ty, body),
@@ -605,12 +605,12 @@ fn r7_ind_doesnt_compute() {
     refused(
         try_define(f.g(), "computes", statement, Term::Refl),
         "E-REFL",
-        "`rfl` can't prove this",
+        "`byComputing` can't prove this",
     );
 }
 
 /// R8: conversion is structural: related representatives aren't
-/// convertible, so `rfl` can't prove `same`.
+/// convertible, so `byComputing` can't prove `same`.
 #[test]
 fn r8_related_representatives_arent_convertible() {
     let mut f = Fix::new();
@@ -1042,7 +1042,7 @@ impl Lifted {
     }
 }
 
-/// Defines the theorem `ty := rfl`, which must check.
+/// Defines the theorem `ty := byComputing`, which must check.
 #[track_caller]
 fn by_rfl(f: &mut Fix, name: &str, ty: Term) -> DefId {
     try_define(f.g(), name, ty, Term::Refl).unwrap_or_else(|d| panic!("{name}: {d:?}"))

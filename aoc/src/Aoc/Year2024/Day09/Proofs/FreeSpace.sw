@@ -17,19 +17,19 @@ theorem hasAdd ∀ (free: FreeSpace) (span other: Span):
       forward = held => Inr held,
       backward = either =>
         match either with
-          | Inl pair => Void.exfalso (omega [pair.left])
+          | Inl pair => Void.impossible (arithmetic [pair.left])
           | Inr held => held
     }
     | False => {
       forward = held =>
         match (Map.containsInInsertInIff free span.length span.start other.length other.start).forward held with
-          | Inl pair => Inl (Both (omega) (Span.ext other span pair.right pair.left))
+          | Inl pair => Inl (Both (arithmetic) (Span.ext other span pair.right pair.left))
           | Inr old => Inr old,
       backward = either =>
         match either with
           | Inl pair =>
             (Map.containsInInsertInIff free span.length span.start other.length other.start).backward
-              (Inl (Both (rewrite pair.right in rfl) (rewrite pair.right in rfl)))
+              (Inl (Both (rewrite pair.right then byComputing) (rewrite pair.right then byComputing)))
           | Inr old =>
             (Map.containsInInsertInIff free span.length span.start other.length other.start).backward (Inr old)
     }
@@ -40,7 +40,7 @@ theorem hasRemove ∀ (free: FreeSpace) (span other: Span):
     forward = held =>
       let (Both differs old) :=
         (Map.containsInRemoveInIff free span.length span.start other.length other.start).forward held
-      Both (same => differs (Both (rewrite same in rfl) (rewrite same in rfl))) old,
+      Both (same => differs (Both (rewrite same then byComputing) (rewrite same then byComputing))) old,
     backward = both =>
       (Map.containsInRemoveInIff free span.length span.start other.length other.start).backward
         (Both (pair => both.left (Span.ext other span pair.right pair.left)) both.right)
@@ -55,7 +55,7 @@ theorem hasFoldAdd ∀ (span: Span) (spans: List Span) (free: FreeSpace):
       forward = held => Inr held,
       backward = either =>
         match either with
-          | Inl pair => Void.exfalso pair.right
+          | Inl pair => pair.right.impossible
           | Inr held => held
     }
     | [x, ..rest] => {
@@ -64,14 +64,15 @@ theorem hasFoldAdd ∀ (span: Span) (spans: List Span) (free: FreeSpace):
           | Inl pair => Inl (Both pair.left (Inr pair.right))
           | Inr added =>
             match (hasAdd free x span).forward added with
-              | Inl pair => Inl (Both (rewrite pair.right in pair.left) (Inl (Eq.sym pair.right)))
+              | Inl pair => Inl (Both (rewrite pair.right then pair.left) (Inl pair.right.flipped))
               | Inr old => Inr old,
       backward = either =>
         (hasFoldAdd span rest (free.add x)).backward
           (match either with
             | Inl pair =>
               match pair.right with
-                | Inl same => Inr ((hasAdd free x span).backward (Inl (Both (rewrite same in pair.left) (Eq.sym same))))
+                | Inl same =>
+                  Inr ((hasAdd free x span).backward (Inl (Both (rewrite same then pair.left) same.flipped)))
                 | Inr later => Inl (Both pair.left later)
             | Inr old => Inr ((hasAdd free x span).backward (Inr old)))
     }
@@ -99,13 +100,13 @@ theorem fitInSome ∀ (length key: Nat) (items: Set Nat) (span: Span)
       match least: items.min with
         | Some start =>
           let same: { start, length = key } = span := Option.someInjective found
-          rewrite <- same in Both (omega) (Both rfl rfl)
+          rewrite <- same then Both (arithmetic) (Both byComputing byComputing)
 
 theorem fitInIntro ∀ (length key: Nat) (items: Set Nat) (start: Nat)
     (fits: length ≤ key)
     (least: items.min = Some start):
     fitIn length (key, items) = Some { start, length = key } :=
-  match enough: length <= key with | True => rewrite least in rfl
+  match enough: length <= key with | True => rewrite least then byComputing
 
 --| A span the map holds, long enough, is not before the span `fitIn` makes of its entry.
 theorem fitMember ∀ (free: FreeSpace) (length: Nat) (other: Span)
@@ -139,12 +140,12 @@ theorem leftmostFitSome ∀ (free: FreeSpace) (length before: Nat) (span: Span)
       let (Both enough (Both sameLength isLeast)) := fitInSome length key items span fit
       Both
         ((Map.containsInToList free span.length span.start).backward
-          (Witness items (Both (rewrite sameLength in inList) (Set.containsMin items span.start isLeast))))
+          (Witness items (Both (rewrite sameLength then inList) (Set.containsMin items span.start isLeast))))
         (Both
-          (rewrite sameLength in enough)
+          (rewrite sameLength then enough)
           (Both early (other held fits =>
             let (Witness start (Both member below)) := fitMember free length other held fits
-            omega [least _ member, below])))
+            arithmetic [least _ member, below])))
 
 theorem leftmostFitNone ∀ (free: FreeSpace) (length before: Nat)
     (none: free.leftmostFit length before = None) (other: Span)
@@ -155,7 +156,7 @@ theorem leftmostFitNone ∀ (free: FreeSpace) (length before: Nat)
   match Option.filterEqNone _ ((s: Span) => s.start < before) none with
     | Inl empty =>
       let nothing := List.minByNone _ _ empty
-      Void.exfalso (rewrite nothing at member in member)
+      Void.impossible (rewrite nothing at member then member)
     | Inr (Witness least (Both minimal late)) =>
       let (Both memberLeast bound) := List.minBySome (free.toList.filterMap (fitIn length)) (.start) least minimal
-      omega [bound _ member]
+      arithmetic [bound _ member]

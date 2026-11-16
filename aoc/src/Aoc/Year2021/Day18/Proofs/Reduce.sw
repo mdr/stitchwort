@@ -16,43 +16,44 @@ theorem reduceSound ∀ (budget: Nat) (number final: Number)
     (fits: height number ≤ 5):
     ReducesTo (leaves 0 number) (leaves 0 final) ∧ height final ≤ 4 ∧ split final = None :=
   match budget, none with
-    | 0, none => Void.exfalso (Option.noneNotSome final none)
+    | 0, none => (Option.noneNotSome final none).impossible
     | Succ budget, done =>
       match ex: explode 0 number with
         | Some exploded =>
-          let rest := reduceSound budget exploded.number final done (omega [explodeHeight 0 number exploded ex])
+          let rest := reduceSound budget exploded.number final done (arithmetic [explodeHeight 0 number exploded ex])
           let step: reduceStep (leaves 0 number) = Some (leaves 0 exploded.number) :=
-            rewrite explodeSome number exploded ex fits in rfl
-          Both (Steps step (And.left rest)) (And.right rest)
+            rewrite explodeSome number exploded ex fits then byComputing
+          Both (Steps step rest.left) rest.right
         | None =>
           let shallow := explodeNone number ex fits
           match sp: split number with
             | Some split2 =>
-              let rest := reduceSound budget split2 final done (omega [splitHeight number split2 sp, And.left shallow])
+              let rest := reduceSound budget split2 final done (arithmetic [splitHeight number split2 sp, shallow.left])
               let step: reduceStep (leaves 0 number) = Some (leaves 0 split2) :=
-                rewrite And.right shallow, splitSome number split2 sp in rfl
-              Both (Steps step (And.left rest)) (And.right rest)
+                rewrite And.right shallow, splitSome number split2 sp then byComputing
+              Both (Steps step rest.left) rest.right
             | None =>
-              let step: reduceStep (leaves 0 number) = None := rewrite And.right shallow, splitNone number sp in rfl
-              rewrite <- Option.someInjective done in Both (Reduced step) (Both (And.left shallow) sp)
+              let step: reduceStep (leaves 0 number) = None :=
+                rewrite And.right shallow, splitNone number sp then byComputing
+              rewrite <- Option.someInjective done then Both (Reduced step) (Both shallow.left sp)
 
 --| One step of `reduce`, by what it found.
 theorem reduceExplodes ∀ (budget: Nat) (number: Number) (exploded: Explosion)
     (ex: explode 0 number = Some exploded):
     reduce (Succ budget) number = reduce budget exploded.number :=
-  rewrite ex in rfl
+  rewrite ex then byComputing
 
 theorem reduceSplits ∀ (budget: Nat) (number split2: Number)
     (ex: explode 0 number = None)
     (sp: split number = Some split2):
     reduce (Succ budget) number = reduce budget split2 :=
-  rewrite ex, sp in rfl
+  rewrite ex, sp then byComputing
 
 theorem reduceStops ∀ (budget: Nat) (number: Number)
     (ex: explode 0 number = None)
     (sp: split number = None):
     reduce (Succ budget) number = Some number :=
-  rewrite ex, sp in rfl
+  rewrite ex, sp then byComputing
 
 --| The budget is the only gap: whenever the spec's reduction of a number's
 --| leaves ends (the number nested at most five pairs deep), a large enough
@@ -66,38 +67,41 @@ theorem reduceComplete ∀ (final: List Leaf):
     match ex: explode 0 number with
       | Some exploded =>
         let step: reduceStep (leaves 0 number) = Some (leaves 0 exploded.number) :=
-          rewrite explodeSome number exploded ex fits in rfl
-        Void.exfalso (Option.someNotNone _ (Eq.trans (Eq.sym step) (rewrite is in done)))
+          rewrite explodeSome number exploded ex fits then byComputing
+        Void.impossible (Option.someNotNone _ (Eq.trans step.flipped (rewrite is then done)))
       | None =>
         let shallow := explodeNone number ex fits
         match sp: split number with
           | Some split2 =>
             let step: reduceStep (leaves 0 number) = Some (leaves 0 split2) :=
-              rewrite And.right shallow, splitSome number split2 sp in rfl
-            Void.exfalso (Option.someNotNone _ (Eq.trans (Eq.sym step) (rewrite is in done)))
+              rewrite And.right shallow, splitSome number split2 sp then byComputing
+            Void.impossible (Option.someNotNone _ (Eq.trans step.flipped (rewrite is then done)))
           | None => Witness 1 (Witness number (Both (reduceStops 0 number ex sp) is))
   | start, Steps [next := next] step rest, number, is, fits =>
     match ex: explode 0 number with
       | Some exploded =>
         let mine: reduceStep (leaves 0 number) = Some (leaves 0 exploded.number) :=
-          rewrite explodeSome number exploded ex fits in rfl
-        let same := Option.someInjective (Eq.trans (Eq.sym mine) (rewrite is in step))
-        match reduceComplete final next rest exploded.number same (omega [explodeHeight 0 number exploded ex]) with
+          rewrite explodeSome number exploded ex fits then byComputing
+        let same := Option.someInjective (Eq.trans mine.flipped (rewrite is then step))
+        match reduceComplete final next rest exploded.number same (arithmetic [explodeHeight 0 number exploded ex]) with
           | Witness budget (Witness result (Both ran ends)) =>
-            Witness (Succ budget) (Witness result (Both (rewrite reduceExplodes budget number exploded ex in ran) ends))
+            Witness
+              (Succ budget)
+              (Witness result (Both (rewrite reduceExplodes budget number exploded ex then ran) ends))
       | None =>
         let shallow := explodeNone number ex fits
         match sp: split number with
           | Some split2 =>
             let mine: reduceStep (leaves 0 number) = Some (leaves 0 split2) :=
-              rewrite And.right shallow, splitSome number split2 sp in rfl
-            let same := Option.someInjective (Eq.trans (Eq.sym mine) (rewrite is in step))
+              rewrite And.right shallow, splitSome number split2 sp then byComputing
+            let same := Option.someInjective (Eq.trans mine.flipped (rewrite is then step))
             match reduceComplete final next rest split2 same
-              (omega [splitHeight number split2 sp, And.left shallow]) with
+              (arithmetic [splitHeight number split2 sp, shallow.left]) with
               | Witness budget (Witness result (Both ran ends)) =>
                 Witness
                   (Succ budget)
-                  (Witness result (Both (rewrite reduceSplits budget number split2 ex sp in ran) ends))
+                  (Witness result (Both (rewrite reduceSplits budget number split2 ex sp then ran) ends))
           | None =>
-            let mine: reduceStep (leaves 0 number) = None := rewrite And.right shallow, splitNone number sp in rfl
-            Void.exfalso (Option.noneNotSome _ (Eq.trans (Eq.sym mine) (rewrite is in step)))
+            let mine: reduceStep (leaves 0 number) = None :=
+              rewrite And.right shallow, splitNone number sp then byComputing
+            Void.impossible (Option.noneNotSome _ (Eq.trans mine.flipped (rewrite is then step)))

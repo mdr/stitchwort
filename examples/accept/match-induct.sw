@@ -12,15 +12,15 @@ def countAbove (k: Nat): List Nat → Nat
 
 -- Function-induct.sw proves this with the motive written out.
 theorem countAboveLe ∀ (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs := match induct (countAbove k xs) with
-  | eq1 => omega
-  | eq2IfTrue x xs h ih => omega
-  | eq2IfFalse x xs h ih => omega
+  | eq1 => arithmetic
+  | eq2IfTrue x xs h ih => arithmetic
+  | eq2IfFalse x xs h ih => arithmetic
 
 -- In any order, and `_` for a name that isn't used.
 theorem countAboveLe2 ∀ (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs := match induct (countAbove k xs) with
-  | eq2IfFalse _ _ _ _ => omega
-  | eq1 => omega
-  | eq2IfTrue _ _ _ _ => omega
+  | eq2IfFalse _ _ _ _ => arithmetic
+  | eq1 => arithmetic
+  | eq2IfTrue _ _ _ _ => arithmetic
 
 def halvings (n count: Nat): Nat
     decreasing n
@@ -28,8 +28,8 @@ def halvings (n count: Nat): Nat
   if h: n / 2 < n then halvings (n / 2) (count + 1) [decreasing := h] else count
 
 theorem halvingsGe ∀ (n count: Nat): count ≤ halvings n count := match induct (halvings n count) with
-  | eqIfTrue n count h ih => omega
-  | eqIfFalse n count notH => omega
+  | eqIfTrue n count h ih => arithmetic
+  | eqIfFalse n count notH => arithmetic
 
 -- Hypotheses that mention the call's variables are generalised: `found`
 -- below stays in scope in each alternative, refined (its `xs` is `Nil` in
@@ -60,10 +60,10 @@ def ex (depth: Nat): Num → Nat
   | Pr left right => ex (depth + 1) left + ex (depth + 1) right
 
 theorem exAtMostTotal ∀ (depth: Nat) (n: Num): ex depth n ≤ total n := match induct (ex depth n) with
-  | eq1 depth value => omega
-  | eq2IfTrue depth a b h => omega
-  | eq2IfFalse depth a b h => omega
-  | eq3 depth left right notArm2 ih1 ih2 => omega
+  | eq1 depth value => arithmetic
+  | eq2IfTrue depth a b h => arithmetic
+  | eq2IfFalse depth a b h => arithmetic
+  | eq3 depth left right notArm2 ih1 ih2 => arithmetic
 
 -- A goal that is an implication isn't introduced by the names: the body is a
 -- function. (Here the premise isn't a variable in scope, so it isn't

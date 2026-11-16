@@ -14,19 +14,19 @@ const STACK: usize = 64 * 1024 * 1024;
 const SOURCE: &str = "\
 opaque def f (x: Nat) (y: Nat): Nat := x
 
-theorem fSelf (n: Nat): f n n = n unfolding f := rfl
+theorem fSelf (n: Nat): f n n = n unfolding f := byComputing
 
-theorem fAny (a: Nat) (b: Nat): f a b = a unfolding f := rfl
+theorem fAny (a: Nat) (b: Nat): f a b = a unfolding f := byComputing
 
-theorem fZero: f 0 0 = 0 unfolding f := rfl
+theorem fZero: f 0 0 = 0 unfolding f := byComputing
 
-theorem fSucc (n: Nat): f (Succ n) 1 = Succ n unfolding f := rfl
+theorem fSucc (n: Nat): f (Succ n) 1 = Succ n unfolding f := byComputing
 
 theorem pAt (p: Nat → Prop) (h: (n: Nat) → p n) (k: Nat): p k := h k
 
 theorem anything (p: Prop) (h: p): p := h
 
-theorem myTrans (x: Nat) (y: Nat) (z: Nat) (h1: x ≤ y) (h2: y ≤ z): x ≤ z := omega
+theorem myTrans (x: Nat) (y: Nat) (z: Nat) (h1: x ≤ y) (h2: y ≤ z): x ≤ z := arithmetic
 
 theorem notTrans (x: Nat) (y: Nat) (z: Nat) (h1: x ≤ y) (h2: x ≤ z): x ≤ z := h2
 ";
@@ -161,8 +161,8 @@ fn the_relaxed_pass_lists_only_related_candidates() {
 const OVERLOADED: &str = "\
 theorem textJoin (a: Text) (b: Text): a ++ b = b ++ a := ?
 theorem listJoin (xs: List Nat) (ys: List Nat): xs ++ ys = ys ++ xs := ?
-theorem natPlus (n: Nat): n + 0 = n := omega
-theorem intPlus (n: Int): n + 0 = n := omega
+theorem natPlus (n: Nat): n + 0 = n := arithmetic
+theorem intPlus (n: Int): n + 0 = n := arithmetic
 ";
 
 fn overloaded(query: &str) -> Report {

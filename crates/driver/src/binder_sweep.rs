@@ -1285,9 +1285,9 @@ mod tests {
     fn arms_become_a_match_on_the_matched_variables() {
         let text = "\
 theorem Nat.leTrans: ∀ (a b c: Nat) => a ≤ b → b ≤ c → a ≤ c
-  | Zero, b, c, h1, h2 => rfl
-  | Succ a, Zero, c, h1, h2 => Void.exfalso (Bool.falseNotTrue h1)
-  | Succ a, Succ b, Zero, h1, h2 => Void.exfalso (Bool.falseNotTrue h2)
+  | Zero, b, c, h1, h2 => byComputing
+  | Succ a, Zero, c, h1, h2 => Void.impossible (Bool.falseNotTrue h1)
+  | Succ a, Succ b, Zero, h1, h2 => Void.impossible (Bool.falseNotTrue h2)
   | Succ a, Succ b, Succ c, h1, h2 => Nat.leTrans a b c h1 h2
 ";
         assert_eq!(
@@ -1295,9 +1295,9 @@ theorem Nat.leTrans: ∀ (a b c: Nat) => a ≤ b → b ≤ c → a ≤ c
             "\
 theorem Nat.leTrans (a b c: Nat) (h1: a ≤ b) (h2: b ≤ c): a ≤ c :=
   match a, b, c with
-    | Zero, b => rfl
-    | Succ a, Zero => Void.exfalso (Bool.falseNotTrue h1)
-    | Succ a, Succ b, Zero => Void.exfalso (Bool.falseNotTrue h2)
+    | Zero, b => byComputing
+    | Succ a, Zero => Void.impossible (Bool.falseNotTrue h1)
+    | Succ a, Succ b, Zero => Void.impossible (Bool.falseNotTrue h2)
     | Succ a, Succ b, Succ c => Nat.leTrans a b c h1 h2
 "
             .replace("| Zero, b =>", "| Zero, b, c =>")
@@ -1326,7 +1326,7 @@ theorem Nat.addSub (n: Nat) (m: Nat): (n + m) - m = n :=
         // A column every arm names alike is dropped.
         let text = "\
 theorem t: ∀ (x d: Nat) (ls: List Nat) => x < d → ls.length = ls.length
-  | x, d, [], h => rfl
+  | x, d, [], h => byComputing
   | x, d, [y, ..rest], h => t x d rest h
 ";
         assert_eq!(
@@ -1334,7 +1334,7 @@ theorem t: ∀ (x d: Nat) (ls: List Nat) => x < d → ls.length = ls.length
             "\
 theorem t (x d: Nat) (ls: List Nat) (h: x < d): ls.length = ls.length :=
   match ls with
-    | [] => rfl
+    | [] => byComputing
     | [y, ..rest] => t x d rest h
 "
         );
@@ -1343,8 +1343,8 @@ theorem t (x d: Nat) (ls: List Nat) (h: x < d): ls.length = ls.length :=
     #[test]
     fn a_term_proof_loses_its_lambda_or_gains_arguments() {
         assert_eq!(
-            converted("theorem t: ∀ (n: Nat) => 0 < n → 1 ≤ n := n h => omega\n"),
-            "theorem t (n: Nat) (h: 0 < n): 1 ≤ n := omega\n"
+            converted("theorem t: ∀ (n: Nat) => 0 < n → 1 ≤ n := n h => arithmetic\n"),
+            "theorem t (n: Nat) (h: 0 < n): 1 ≤ n := arithmetic\n"
         );
         let outcome = one("theorem addZ: ∀ (n: Nat) => n + 0 = n := Nat.addZero\n");
         assert_eq!(
@@ -1385,9 +1385,9 @@ theorem t (x d: Nat) (ls: List Nat) (h: x < d): ls.length = ls.length :=
         );
         assert_eq!(
             converted(
-                "theorem t: ∀ [a: Type] (xs: List a) => xs ++ [] = xs\n  | [] => rfl\n  | [x, ..rest] => Eq.cong (Cons x) (t rest)\n"
+                "theorem t: ∀ [a: Type] (xs: List a) => xs ++ [] = xs\n  | [] => byComputing\n  | [x, ..rest] => Eq.cong (Cons x) (t rest)\n"
             ),
-            "theorem t [a: Type] (xs: List a): xs ++ [] = xs :=\n  match xs with\n    | [] => rfl\n    | [x, ..rest] => Eq.cong (Cons x) (t rest)\n"
+            "theorem t [a: Type] (xs: List a): xs ++ [] = xs :=\n  match xs with\n    | [] => byComputing\n    | [x, ..rest] => Eq.cong (Cons x) (t rest)\n"
         );
     }
 

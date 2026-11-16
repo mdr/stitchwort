@@ -5,5 +5,5 @@ def cycleTy (n: Nat): Nat :=
   def f: Nat → Nat
     | Zero => 0
     | Succ k => cycleTy k
-  theorem fz: f 0 = 0 := rfl
+  theorem fz: f 0 = 0 := byComputing
   f n

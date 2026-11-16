@@ -49,7 +49,7 @@ test "two numbers in a row" :=
 test "a lexing failure keeps the lexer's message" :=
   toResult (() => parseSum "1 - 2") == Err "line 1, column 3: expected a number or '+', got '-'"
 
-theorem sumIsTwentyFour: toResult (() => parseSum "1 + 20 + 3") = Ok 24 := rfl
+theorem sumIsTwentyFour: toResult (() => parseSum "1 + 20 + 3") = Ok 24 := byComputing
 
 -- What the lexer reads. A number token reads digits and is a `Num` of their
 -- value (`Parse.readsLocated` gives the value's reading, `readsMap` and
@@ -62,7 +62,7 @@ theorem readsNumber: Parse.Reads number NumberRead :=
     (Parse.readsLocated (() => Num Parse.nat()) _ (Parse.readsMap Parse.nat Num _ Parse.readsNat))
     (read token h =>
       match h with
-        | Witness n (Both (Both some (Both digits made)) is) => Both some (Both digits (rewrite made at is in is)))
+        | Witness n (Both (Both some (Both digits made)) is) => Both some (Both digits (rewrite made at is then is)))
 
 --| Every token, with the spaces before it, reads at least one character.
 def TokenRead (read: List Char) (token: Parse.Located Token): Prop := read ≠ []
@@ -74,14 +74,14 @@ theorem readsPlus: Parse.Reads plus (read token => read ≠ []) :=
       Plus)
     (read value => read ≠ [])
     (Parse.readsThen (Parse.readsChar '+') (charRead u isPlus =>
-      Parse.readsDone Plus _ (rewrite isPlus in List.appendNotNilLeft ['+'] [] (List.consNotNil '+' []))))
+      Parse.readsDone Plus _ (rewrite isPlus then List.appendNotNilLeft ['+'] [] (List.consNotNil '+' []))))
 
 theorem readsLexToken: Parse.Reads lexToken TokenRead := Parse.readsThen Parse.readsSpaces (spaces u spaced =>
   Parse.readsWeaken
     (Parse.readsOneOf
       (read token => read ≠ [])
       [number, plus]
-      (Both (Parse.readsWeaken readsNumber (read token h => And.left h)) (Both readsPlus Trivial)))
+      (Both (Parse.readsWeaken readsNumber (read token h => h.left)) (Both readsPlus Trivial)))
     (read token some => List.appendNotNilRight spaces read some))
 
 -- What the parser reads: one `Num` token and the number it carries.
@@ -91,7 +91,7 @@ def NumberToken (read: List (Parse.Located Token)) (value: Nat): Prop :=
 theorem numberOfNum ∀ (token: Parse.Located Token) (value: Nat)
     (selected: numberOf token = Some value):
     token.value = Num value :=
-  match token with | { value = Num n, .. } => rewrite Option.someInjective selected in rfl
+  match token with | { value = Num n, .. } => rewrite Option.someInjective selected then byComputing
 
 theorem readsOperand: Parse.Reads operand NumberToken :=
   Parse.readsWeaken (Parse.readsOne "a number" numberOf) (read value h =>
@@ -119,5 +119,5 @@ theorem parsesSeven: toResult (() => Parse.tokens "7" lex operand) = Ok 7 :=
   Parse.runsTokens "7" lex operand
     [{ value = Num 7, offset = 0, length = 1 }]
     7
-    rfl
-    (Parse.runsOne "a number" numberOf { value = Num 7, offset = 0, length = 1 } 7 [] rfl)
+    byComputing
+    (Parse.runsOne "a number" numberOf { value = Num 7, offset = 0, length = 1 } 7 [] byComputing)

@@ -17,7 +17,7 @@
 //! Oracles, for every case:
 //!
 //! 1. no panic;
-//! 2. no `E-INTERNAL` (or `E-RING-INTERNAL`, `E-OMEGA-INTERNAL`) diagnostic;
+//! 2. no `E-INTERNAL` (or `E-ALGEBRA-INTERNAL`, `E-ARITHMETIC-INTERNAL`) diagnostic;
 //! 3. the kernel never rejects a term the elaborator built. The kernel's
 //!    refusals come back as ordinary diagnostics, so the elaborator records
 //!    each one as it passes (`stitchwort_elab::take_kernel_rejections`), and a
@@ -133,9 +133,9 @@ const TOKENS: &[&str] = &[
     "namespace",
     "calc",
     "rewrite",
-    "omega",
+    "arithmetic",
     "cases",
-    "ring",
+    "algebra",
     "opaque",
     "unfolding",
     "interface",
@@ -284,9 +284,9 @@ const KEYWORDS: &[&str] = &[
     "namespace",
     "calc",
     "rewrite",
-    "omega",
+    "arithmetic",
     "cases",
-    "ring",
+    "algebra",
     "opaque",
     "unfolding",
     "interface",

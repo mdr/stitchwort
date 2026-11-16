@@ -5,4 +5,4 @@
 type Meter = { v: Nat }
 
 @[noReceiver]
-theorem Meter.same (n: Nat) (m: Meter): m = m := rfl
+theorem Meter.same (n: Nat) (m: Meter): m = m := byComputing

@@ -10,11 +10,11 @@ def isNone (o: Option Nat): Bool := match o with
 type Holds (o: Option Nat) (h: isNone o = True): Prop = { holds: o = None }
 
 theorem lem ∀ (slot: Slot) (k: isNone slot.field = True): Holds slot.field k := match e: slot.field with
-  | None => { holds = rfl }
-  | Some n => Void.exfalso (Bool.falseNotTrue k)
+  | None => { holds = byComputing }
+  | Some n => (Bool.falseNotTrue k).impossible
 
-theorem pfL ∀ (slot: Slot) (q: slot.field = None): isNone slot.field = True := rewrite q in rfl
+theorem pfL ∀ (slot: Slot) (q: slot.field = None): isNone slot.field = True := rewrite q then byComputing
 
-theorem use ∀ (slot: Slot) (q: slot.size = 0): slot.field = None → Holds None rfl := match slot.field with
+theorem use ∀ (slot: Slot) (q: slot.size = 0): slot.field = None → Holds None byComputing := match slot.field with
   | None => _ => lem slot (pfL slot _)
-  | Some n => h => Void.exfalso (Option.noneNotSome n (Eq.sym h))
+  | Some n => h => (Option.noneNotSome n h.flipped).impossible

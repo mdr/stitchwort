@@ -9,12 +9,12 @@ theorem errorTerm ∀ (notes: Notes) (value: Nat):
     (if not (notes.fitsSomeField value) then value else 0)
       = (if Spec.validForSomeField notes.rules value then 0 else value) :=
   match fits: Spec.validForSomeField notes.rules value with
-    | True => rfl
-    | False => rfl
+    | True => byComputing
+    | False => byComputing
 
 theorem errorRateSpec ∀ (notes: Notes): Spec.Part1 notes notes.errorRate := calc notes.errorRate
   _ = (notes.nearby.flatMap .values).sumBy (value => if not (notes.fitsSomeField value) then value else 0) :=
-    rewrite List.sumIsSumBy, List.sumByFilter in rfl
+    rewrite List.sumIsSumBy, List.sumByFilter then byComputing
   _ = notes.nearby.sumBy (ticket =>
       ticket.values.sumBy (value => if not (notes.fitsSomeField value) then value else 0)) := List.sumByFlatMap _ _ _
   _ = Spec.errorRate notes :=

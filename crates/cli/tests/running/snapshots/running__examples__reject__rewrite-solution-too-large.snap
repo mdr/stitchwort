@@ -5,9 +5,9 @@ expression: output
 [E-RESOURCE] Error: ran out of resources: a value was too large to write out (over 2,000,000 parts)
     ╭─[ reject/rewrite-solution-too-large.sw:18:3 ]
     │
- 18 │   rewrite same in h
-    │   ────────┬────────  
-    │           ╰────────── ran out of resources in this `rewrite`
+ 18 │   rewrite same then h
+    │   ─────────┬─────────  
+    │            ╰─────────── ran out of resources in this `rewrite`
     │ 
     │ Note 1: this isn't a type error or a failed test: there's no answer within the limits
     │ 

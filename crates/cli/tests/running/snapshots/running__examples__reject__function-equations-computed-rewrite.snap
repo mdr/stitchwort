@@ -5,7 +5,7 @@ expression: output
 [E-REWRITE-NOTHING] Error: `rewrite` found no `0` in the goal
     ╭─[ reject/function-equations-computed-rewrite.sw:12:54 ]
     │
- 12 │ theorem sizeNil (n: Nat): size [] + n = n := rewrite size.eq1 in rfl
+ 12 │ theorem sizeNil (n: Nat): size [] + n = n := rewrite size.eq1 then byComputing
     │                                                      ────┬───  
     │                                                          ╰───── looking for `0`
     │ 

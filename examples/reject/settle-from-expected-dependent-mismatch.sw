@@ -9,7 +9,7 @@ ability Src (t: Type) where
 
 def Dep (k: Type 1) (x: k) (n: Nat): Prop := n = n
 
-theorem dep ∀ (p: () → {Src t} a) (n: Nat): Dep Type t n := rfl
+theorem dep ∀ (p: () → {Src t} a) (n: Nat): Dep Type t n := byComputing
 
 def natSrc(): {Src Nat} Nat := Src.next()
 

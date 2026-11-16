@@ -76,21 +76,23 @@ def viewsOf (events: List Event): Views := viewsFrom { views = [], pending = [] 
 theorem viewsSnoc ∀ (seen: Views) (events: List Event) (last: Event):
     viewsFrom seen (events ++ [last]) = viewEvent (viewsFrom seen events) last :=
   match events with
-    | [] => rfl
+    | [] => byComputing
     | [event, ..rest] => viewsSnoc (viewEvent seen event) rest last
 
 theorem trailingViews ∀ (tokens: List (Parse.Located Token)) (comment: Parse.Located Comment):
     (withTrailing tokens comment).map viewOf = viewTrailing (tokens.map viewOf) comment.value :=
   match tokens with
-    | [] => rfl
-    | [last, ..earlier] => rfl
+    | [] => byComputing
+    | [last, ..earlier] => byComputing
 
 theorem gapPlaced ∀ (piece: Text) (placed: Placed) (blank: Bool) (column offset: Nat)
     (gap: piece.all (char => char == ' ') = True):
     placePiece placed piece blank column offset = placed :=
   match spaces: piece.all (char => char == ' '), gap with
-    | True, _ => rfl
-    | False, never => Void.exfalso (Bool.falseNotTrue never)
+    | True, _ => byComputing
+    | False, never =>
+      match never with
+        | ()
 
 --| A word placed is its event seen.
 theorem wordViews ∀ (piece: Text) (placed: Placed) (blank: Bool) (column offset: Nat)
@@ -102,19 +104,19 @@ theorem wordViews ∀ (piece: Text) (placed: Placed) (blank: Bool) (column offse
       match lexeme: lexemeOf piece with
         | CommentLexeme =>
           match blank with
-            | True => rfl
+            | True => byComputing
             | False =>
               Eq.cong
                 ((views: List TokenView) => ({ views, pending = placed.pending }: Views))
                 (trailingViews placed.tokens { value = { text = piece }, offset, length = piece.length })
-        | Spaces => rfl
-        | LineBreak => rfl
-        | WordLexeme => rfl
-        | DigitsLexeme => rfl
-        | StringLexeme => rfl
-        | SignLexeme => rfl
-        | SymbolsLexeme => rfl
-        | StrayLexeme => rfl
+        | Spaces => byComputing
+        | LineBreak => byComputing
+        | WordLexeme => byComputing
+        | DigitsLexeme => byComputing
+        | StringLexeme => byComputing
+        | SignLexeme => byComputing
+        | SymbolsLexeme => byComputing
+        | StrayLexeme => byComputing
 
 theorem breakViews ∀ (earlier: List Text) (blank: Bool)
     (is: lineBlank earlier = blank)
@@ -132,7 +134,7 @@ theorem breakViews ∀ (earlier: List Text) (blank: Bool)
           is)
         (Eq.trans
           (Eq.cong ((seen: Views) => viewEvent seen Event.blankLine) rest)
-          (Eq.sym
+          (Eq.flipped
             (Eq.trans
               (Eq.cong viewsOf (eventsBlank earlier is))
               (viewsSnoc { views = [], pending = [] } (eventsOf earlier) Event.blankLine))))
@@ -145,7 +147,7 @@ theorem breakViews ∀ (earlier: List Text) (blank: Bool)
               pending = if kept then addBlank (placed earlier).pending else (placed earlier).pending
             }: Views))
           is)
-        (Eq.trans rest (Eq.sym (Eq.cong viewsOf (eventsBreak earlier is))))
+        (Eq.trans rest (Eq.flipped (Eq.cong viewsOf (eventsBreak earlier is))))
 
 theorem pieceViews ∀ (piece: Text) (earlier: List Text) (spaces isBreak: Bool)
     (gap: piece.all (char => char == ' ') = spaces)
@@ -157,10 +159,10 @@ theorem pieceViews ∀ (piece: Text) (earlier: List Text) (spaces isBreak: Bool)
       Eq.trans
         (Eq.cong Placed.views
           (gapPlaced piece (placed earlier) (lineBlank earlier) (lineWidth earlier) (charsLength earlier) gap))
-        (Eq.trans rest (Eq.sym (Eq.cong viewsOf (eventsGap piece earlier gap))))
+        (Eq.trans rest (Eq.flipped (Eq.cong viewsOf (eventsGap piece earlier gap))))
     | False, True, _, broken =>
       let same: piece = "\n" := DecEq.sound broken
-      rewrite same in breakViews earlier (lineBlank earlier) rfl rest
+      rewrite same then breakViews earlier (lineBlank earlier) byComputing rest
     | False, False, gap, broken =>
       let word: isLayout piece = False := wordNotLayout piece gap broken
       let event: Event := { word = piece, start = if lineBlank earlier then Some (lineWidth earlier) else None }
@@ -171,7 +173,7 @@ theorem pieceViews ∀ (piece: Text) (earlier: List Text) (spaces isBreak: Bool)
           (wordViews piece (placed earlier) (lineBlank earlier) (lineWidth earlier) (charsLength earlier) broken)
           (Eq.trans
             (Eq.cong ((seen: Views) => viewEvent seen event) rest)
-            (Eq.sym
+            (Eq.flipped
               (Eq.trans
                 (Eq.cong viewsOf (eventsWord piece earlier word))
                 (viewsSnoc { views = [], pending = [] } (eventsOf earlier) event)))))
@@ -180,8 +182,8 @@ theorem pieceViews ∀ (piece: Text) (earlier: List Text) (spaces isBreak: Bool)
 --| the pieces' events: what the lexer makes of the text is a function of
 --| the trace.
 theorem placedViews ∀ (out: List Text): (placed out).views = viewsOf (eventsOf out) := match out with
-  | [] => rfl
-  | [piece, ..earlier] => pieceViews piece earlier _ _ rfl rfl (placedViews earlier)
+  | [] => byComputing
+  | [piece, ..earlier] => pieceViews piece earlier _ _ byComputing byComputing (placedViews earlier)
 
 --| `viewsOf` computes: `f`, a blank line, then `x` at column 2 with a
 --| comment after it.
@@ -195,4 +197,4 @@ theorem viewsExample: (viewsOf [
         { kind = Name "x", start = Some 2, above = [BlankLine], trailing = Some { text = "-- c" } },
         { kind = Name "f", start = Some 0, above = [], trailing = None }
       ] :=
-  rfl
+  byComputing

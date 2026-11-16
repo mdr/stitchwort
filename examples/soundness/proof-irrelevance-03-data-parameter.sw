@@ -6,4 +6,4 @@ import Std (List, Nat)
 type Sorted (xs: List Nat): Prop =
   | MkSorted
 
-theorem t3: Sorted [1, 2] = Sorted [2, 1] := rfl
+theorem t3: Sorted [1, 2] = Sorted [2, 1] := byComputing

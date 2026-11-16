@@ -10,14 +10,14 @@ def width (field: Option Nat) (size: Nat): Nat :=
     | None => size
     | Some n => n
 
-theorem needs (slot: Slot) (w: width slot.field 3 = 4): slot.size = slot.size := rfl
+theorem needs (slot: Slot) (w: width slot.field 3 = 4): slot.size = slot.size := byComputing
 
 theorem bad (slot: Slot): slot.size = slot.size :=
   match slot.field with
-    | None => needs slot rfl
-    | Some n => rfl
+    | None => needs slot byComputing
+    | Some n => byComputing
 
 theorem bad2 (slot: Slot): slot.size = slot.size :=
   match e: slot.field with
-    | None => needs slot rfl
-    | Some n => rfl
+    | None => needs slot byComputing
+    | Some n => byComputing

@@ -5,7 +5,7 @@
 -- to every other, so the instance always answers `Yes`, proved by two
 -- `Quot.ind`s and `Quot.sound`. An instance is for a type name, so the
 -- quotient is wrapped in a record, `Q`, as `Map` will be. `boxF == boxT` is
--- `True` in the kernel (`rfl`) and in every runner.
+-- `True` in the kernel (`byComputing`) and in every runner.
 --
 --   $ stitchwort run examples/accept/quot-deceq.sw
 --   True
@@ -31,7 +31,7 @@ type Box = { q: Q }
 def boxF: Box := { q = { raw = Quot.mk False } }
 def boxT: Box := { q = { raw = Quot.mk True } }
 
-theorem boxesEqual: (boxF == boxT) = True := rfl
+theorem boxesEqual: (boxF == boxT) = True := byComputing
 
 test "boxes made from different values are equal" := boxF == boxT
 

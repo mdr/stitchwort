@@ -1,7 +1,7 @@
 -- Inferring a row variable's row (design C of
 -- docs/proposals/effect-polymorphism.md, §5.C.1). `{e} b` is the plain `b`
 -- when `e` is the empty row, so a pure use of an effect-polymorphic function
--- is pure code: its equations hold by `rfl` and its lemmas are the pure ones.
+-- is pure code: its equations hold by `byComputing` and its lemmas are the pure ones.
 -- The row is the empty one only when the callback's type can never be a
 -- computation; one that may yet become one waits, and a row nothing decides
 -- is the empty one. One definition per row of the worked-examples table.
@@ -25,14 +25,15 @@ def pureMap [a b: Type] (f: a → b): List a → List b
   | [x, ..xs] => [f x, ..pureMap f xs]
 
 theorem mapIsPureMap ∀ [a b: Type] (f: a → b) (xs: List a): List.map xs f = pureMap f xs := match xs with
-  | [] => rfl
+  | [] => byComputing
   | [x, ..xs] => Eq.cong (Cons (f x)) (mapIsPureMap f xs)
 
 theorem lengthMap ∀ [a b: Type] (f: a → b) (xs: List a): List.length (List.map xs f) = List.length xs := match xs with
-  | [] => rfl
+  | [] => byComputing
   | [x, ..xs] => Eq.cong Succ (lengthMap f xs)
 
-theorem mapCons ∀ [a b: Type] (f: a → b) (x: a) (xs: List a): List.map [x, ..xs] f = [f x, ..List.map xs f] := rfl
+theorem mapCons ∀ [a b: Type] (f: a → b) (x: a) (xs: List a): List.map [x, ..xs] f = [f x, ..List.map xs f] :=
+  byComputing
 
 -- A data type: `Nat`.
 def lengths (words: List Text): List Nat := List.map words Text.length

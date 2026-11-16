@@ -13,7 +13,7 @@ type Rec = { count: Nat }
 
 def Pt (u: Type) (n: Nat): Prop := List u = List u
 
-theorem lam ∀ (p: () → {Src t} t) (f: t → Nat) (n: Nat): Pt t n := rfl
+theorem lam ∀ (p: () → {Src t} t) (f: t → Nat) (n: Nat): Pt t n := byComputing
 
 def natSrc(): {Src Nat} Nat := Src.next()
 

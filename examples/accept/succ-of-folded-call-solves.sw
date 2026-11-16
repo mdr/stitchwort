@@ -6,8 +6,8 @@ def innerN (x: Nat): Nat
 :=
   match x with
     | Zero => 1
-    | Succ m => innerN m [decreasing := omega]
+    | Succ m => innerN m [decreasing := arithmetic]
 
-def lift [n: Nat] (h: Succ (Succ n) = Succ (Succ n)): n = n := rfl
+def lift [n: Nat] (h: Succ (Succ n) = Succ (Succ n)): n = n := byComputing
 
-theorem solved: 0 = 0 := lift (rfl: Succ (innerN 0) = Succ (innerN 0))
+theorem solved: 0 = 0 := lift (byComputing: Succ (innerN 0) = Succ (innerN 0))

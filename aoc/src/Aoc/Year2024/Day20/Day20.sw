@@ -78,11 +78,11 @@ theorem Racetrack.edgeOnTrack ∀ (racetrack: Racetrack) (position next: Positio
       found)
     (direction both =>
       match stepped: position.step direction with
-        | None => Void.exfalso (Option.noneNotSome (next, weight) (And.right both))
+        | None => Void.impossible (Option.noneNotSome (next, weight) both.right)
         | Some ahead =>
           match onIt: racetrack.isTrack ahead with
-            | False => Void.exfalso (Option.noneNotSome (next, weight) (And.right both))
-            | True => rewrite <- Eq.cong Pair.fst (Option.someInjective (And.right both)) in onIt)
+            | False => Void.impossible (Option.noneNotSome (next, weight) both.right)
+            | True => rewrite <- Eq.cong Pair.fst (Option.someInjective both.right) then onIt)
 
 --| The track as a graph for std's search. Every step can be taken back, so
 --| the same graph gives the times to the end.

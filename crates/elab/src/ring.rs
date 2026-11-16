@@ -1,4 +1,4 @@
-//! `ring` (docs/syntax.md, "ring"; docs/proposals/proof-automation.md
+//! `algebra` (docs/syntax.md, "algebra"; docs/proposals/proof-automation.md
 //! §6.2): a proof of an equation between `Nat`s or `Int`s whose two sides are
 //! equal as polynomials in their atoms.
 //!
@@ -17,7 +17,7 @@
 //! ```
 //!
 //! (and `proveInt`, `proveIntWith` at `Int`), where `a` and `b` are the goal's
-//! sides as syntax over numbered atoms, and `rfl` is the kernel running the
+//! sides as syntax over numbered atoms, and `byComputing` is the kernel running the
 //! library's normaliser on both and finding the same normal form. With
 //! hypotheses, the sides checked are `a + (r1 + …)` and `b + (l1 + …)`, and
 //! the theorem cancels the two sums. A hypothesis with a coefficient `c` is
@@ -26,7 +26,7 @@
 //! `a - b` is the combination `Σ cᵢ (lᵢ - rᵢ)`. Nothing here is trusted: a
 //! mistake is a type error.
 //!
-//! **Reading** follows the value, as `omega`'s does, so the syntax's meaning
+//! **Reading** follows the value, as `arithmetic`'s does, so the syntax's meaning
 //! computes to exactly the side it reads: a number is `NNum`, `k + x` (what
 //! `Succ` makes) is `NSucc` or `NAdd (NNum k)`, a stuck `a + b` or `a * b` is
 //! `NAdd` or `NMul`; at `Int`, `Int.add`, `Int.mul`, `Int.neg` and `Int.sub`
@@ -40,10 +40,10 @@
 //!
 //! **Checking** happens here first, with the same normal form computed in
 //! Rust, so a failure can show both normal forms and their difference over
-//! the atoms by name (`E-RING`). On success the term is checked here the way
+//! the atoms by name (`E-ALGEBRA`). On success the term is checked here the way
 //! the kernel will (the library's normal forms convert, and the theorem's
 //! statement is the goal), so a bug is reported as an internal error naming
-//! `ring`.
+//! `algebra`.
 
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -60,7 +60,7 @@ use crate::Global;
 use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def, check};
 
 /// The library names the emitted proofs use: the pre-pass loads their files
-/// wherever `ring` is written (`module.rs`, `free_names`).
+/// wherever `algebra` is written (`module.rs`, `free_names`).
 const LIBRARY: &[&str] = &[
     "Std.Ring.proveNat",
     "Std.Ring.proveInt",
@@ -80,14 +80,14 @@ pub(crate) static LIBRARY_NAMES: LazyLock<Vec<ast::Name>> = LazyLock::new(|| {
         .collect()
 });
 
-/// `ring` where nothing says what it should prove.
+/// `algebra` where nothing says what it should prove.
 pub(crate) fn no_goal(_cx: &Ctx, expr: &Expr) -> Diagnostic {
-    Diagnostic::error("E-RING", "`ring` needs to know what it proves")
+    Diagnostic::error("E-ALGEBRA", "`algebra` needs to know what it proves")
         .with_label(expr.span(), "the expected type isn't known here")
-        .with_note("give it a type: `(ring: a * (b + c) = a * b + a * c)`")
+        .with_note("give it a type: `(algebra: a * (b + c) = a * b + a * c)`")
 }
 
-/// `ring` against the goal `expected`. Outside a split of a `cases`, one
+/// `algebra` against the goal `expected`. Outside a split of a `cases`, one
 /// that fails while the goal holds an unknown the declaration will still
 /// settle waits for it, whole, and tries again, as `rewrite` and `cases`
 /// do (`queue::tactic_or_wait`; stage 7, rule 2, in
@@ -100,7 +100,7 @@ pub(crate) fn check_ring(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<
     crate::queue::tactic_or_wait(cx, expr, expected, counted_ring)
 }
 
-/// `ring`, counted where the goal holds an unknown the declaration will
+/// `algebra`, counted where the goal holds an unknown the declaration will
 /// still settle (`queue::counted_search`).
 fn counted_ring(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     crate::queue::counted_search(cx, expected, crate::queue::Search::Ring, |cx| {
@@ -108,25 +108,25 @@ fn counted_ring(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     })
 }
 
-/// [`check_ring`]'s `ring` itself.
+/// [`check_ring`]'s `algebra` itself.
 fn ring_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let Expr::Ring { facts, span } = expr else {
-        unreachable!("only called on `ring`")
+        unreachable!("only called on `algebra`")
     };
     let span = *span;
     let lib = Lib::new(cx, span)?;
     let goal = force(&cx.g(), expected.clone())?;
     let Some((sort, l, r)) = equation(cx, &lib, &goal)? else {
         return Err(Diagnostic::error(
-            "E-RING",
-            format!("`ring` can't prove `{}`", cx.show(expected)),
+            "E-ALGEBRA",
+            format!("`algebra` can't prove `{}`", cx.show(expected)),
         )
         .with_label(span, "this goal isn't an equation between `Nat`s or `Int`s")
         .with_note(
-            "`ring` proves `a = b` where `a` and `b` are `Nat`s or `Int`s built from `+`, `*`, numbers and atoms (and `-` at `Int`) that are equal as polynomials",
+            "`algebra` proves `a = b` where `a` and `b` are `Nat`s or `Int`s built from `+`, `*`, numbers and atoms (and `-` at `Int`) that are equal as polynomials",
         ));
     };
-    // Each entry is a sum of terms `c * h` (docs/syntax.md, ring); a term
+    // Each entry is a sum of terms `c * h` (docs/syntax.md, algebra); a term
     // with a `-` written in its entry is used as written, the others either
     // way round.
     let mut hyps: Vec<Hyp> = Vec::new();
@@ -142,16 +142,16 @@ fn ring_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
                 Some((s, hl, hr)) if s == sort => (hl, hr),
                 _ => {
                     let mut d = Diagnostic::error(
-                        "E-RING",
+                        "E-ALGEBRA",
                         format!(
-                            "`ring` takes equations between `{}`s, and this is `{}`",
+                            "`algebra` takes equations between `{}`s, and this is `{}`",
                             sort.name(),
                             cx.show(&ty)
                         ),
                     )
                     .with_label(term.proof.span(), "not an equation of the goal's type")
                     .with_note(format!(
-                        "each hypothesis of `ring [h1, h2]` proves `l = r` between `{}`s, like the goal",
+                        "each hypothesis of `algebra [h1, h2]` proves `l = r` between `{}`s, like the goal",
                         sort.name()
                     ));
                     if !term.coefficients.is_empty() {
@@ -181,8 +181,8 @@ fn ring_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let mut reader = Reader::default();
     let unknown = |cx: &Ctx| {
         Diagnostic::error(
-            "E-RING",
-            format!("`ring` needs to know the goal `{}`", cx.show(expected)),
+            "E-ALGEBRA",
+            format!("`algebra` needs to know the goal `{}`", cx.show(expected)),
         )
         .with_label(span, "part of the goal's arithmetic isn't known yet")
         .with_note("give the missing parts, for example with a type on a `let` or an argument")
@@ -200,8 +200,11 @@ fn ring_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             reader.read(cx, &lib, sort, &h.r)?,
         ) else {
             return Err(Diagnostic::error(
-                "E-RING",
-                format!("`ring` needs to know the hypothesis `{}`", cx.show(&h.ty)),
+                "E-ALGEBRA",
+                format!(
+                    "`algebra` needs to know the hypothesis `{}`",
+                    cx.show(&h.ty)
+                ),
             )
             .with_label(h.span, "part of this equation isn't known yet"));
         };
@@ -268,7 +271,7 @@ fn ring_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     )
 }
 
-/// One term of an entry of `ring [..]`: `-c1 * c2 * h` is `h` with the
+/// One term of an entry of `algebra [..]`: `-c1 * c2 * h` is `h` with the
 /// coefficients `c1`, `c2`, negated.
 struct Scaled<'a> {
     negative: bool,
@@ -374,7 +377,7 @@ fn scaled(cx: &mut Ctx, lib: &Lib, sort: Sort, coefficients: &[&Expr], h: Hyp) -
     })
 }
 
-/// What a hypothesis `ring [h]` was given.
+/// What a hypothesis `algebra [h]` was given.
 struct Hyp {
     proof: Term,
     ty: Value,
@@ -542,9 +545,12 @@ fn nat_term(n: impl Into<BigUint>) -> Term {
 }
 
 fn internal(span: Span, message: String) -> Diagnostic {
-    Diagnostic::error("E-RING-INTERNAL", "`ring` made a proof that doesn't check")
-        .with_label(span, message)
-        .with_note("this is a bug in the compiler's `ring`, not in the program")
+    Diagnostic::error(
+        "E-ALGEBRA-INTERNAL",
+        "`algebra` made a proof that doesn't check",
+    )
+    .with_label(span, message)
+    .with_note("this is a bug in the compiler's `algebra`, not in the program")
 }
 
 /// A side read as syntax: `Nat`-valued or `Int`-valued.
@@ -697,21 +703,21 @@ impl Poly {
 }
 
 /// Why `a - b` on `Nat` is an atom.
-/// With up to this many hypotheses, `ring [..]` tries each one both ways round
+/// With up to this many hypotheses, `algebra [..]` tries each one both ways round
 /// (`2^n` polynomial comparisons); with more, only as written.
 const MAX_FLIPPED_HYPS: usize = 6;
 
-const SUBTRACTION: &str = "truncated subtraction isn't a ring operation";
+const SUBTRACTION: &str = "truncated subtraction isn't one of `algebra`'s operations";
 
 /// Reading stopped at an unsolved metavariable.
 struct Unknown;
 
-/// An atom: a `Nat` or `Int` subterm `ring` doesn't look inside.
+/// An atom: a `Nat` or `Int` subterm `algebra` doesn't look inside.
 struct Atom {
     value: Value,
     term: Term,
     sort: Sort,
-    /// Why it's an atom, when it looks like arithmetic `ring` doesn't do.
+    /// Why it's an atom, when it looks like arithmetic `algebra` doesn't do.
     unsupported: Option<&'static str>,
 }
 
@@ -957,10 +963,10 @@ impl Reader {
         let unsupported = match def_args(&forced) {
             Some((id, _)) if id == lib.sub => Some(SUBTRACTION),
             Some((id, _)) if id == lib.div || id == lib.int_div => {
-                Some("division isn't a ring operation")
+                Some("division isn't one of `algebra`'s operations")
             }
             Some((id, _)) if id == lib.modulo || id == lib.int_mod => {
-                Some("a remainder isn't a ring operation")
+                Some("a remainder isn't one of `algebra`'s operations")
             }
             _ if def_args(&value).is_some_and(|(id, _)| &**g.def(id).path() == "Std.Nat.pow") => {
                 Some("a power is multiplied out only when its exponent is a number")
@@ -1081,7 +1087,7 @@ fn poly_text(cx: &Ctx, reader: &Reader, p: &Poly) -> String {
     out
 }
 
-/// `E-RING`: the two sides' normal forms differ.
+/// `E-ALGEBRA`: the two sides' normal forms differ.
 #[allow(clippy::too_many_arguments)]
 fn different(
     cx: &Ctx,
@@ -1112,8 +1118,8 @@ fn different(
         parts.push(format!("`{}` less", poly_text(cx, reader, &less)));
     }
     let mut d = Diagnostic::error(
-        "E-RING",
-        format!("`ring` can't prove `{}`", cx.show(expected)),
+        "E-ALGEBRA",
+        format!("`algebra` can't prove `{}`", cx.show(expected)),
     )
     .with_label(span, "the two sides are different polynomials");
     if with_hyps {
@@ -1133,14 +1139,16 @@ fn different(
     }
     for atom in reader.atoms.iter().filter(|a| a.unsupported.is_some()) {
         d = d.with_note(format!(
-            "`{}` is an unknown to `ring`: {}",
+            "`{}` is an unknown to `algebra`: {}",
             cx.show(&atom.value),
             atom.unsupported.unwrap_or_default()
         ));
     }
     let subtraction = |a: &&Atom| a.unsupported == Some(SUBTRACTION);
     if sort == Sort::Nat && reader.atoms.iter().any(|a| subtraction(&a)) {
-        d = d.with_note("`omega` knows about `-` between `Nat`s, given the facts that bound it");
+        d = d.with_note(
+            "`arithmetic` knows about `-` between `Nat`s, given the facts that bound it",
+        );
     }
     d
 }
@@ -1337,8 +1345,8 @@ mod tests {
     fn a_bare_hypothesis_is_one_term() {
         assert_eq!(split("h"), (vec![term(false, &[], "h")], false));
         assert_eq!(
-            split("Eq.sym h"),
-            (vec![term(false, &[], "Eq.sym h")], false)
+            split("Eq.flipped h"),
+            (vec![term(false, &[], "Eq.flipped h")], false)
         );
     }
 

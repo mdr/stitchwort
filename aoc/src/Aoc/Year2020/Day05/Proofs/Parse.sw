@@ -15,10 +15,10 @@ theorem letterOf ∀ (lower upper char: Char)
     (allowed: (char == lower || char == upper) = True):
     letter lower upper (char == upper) = char :=
   match isUpper: char == upper with
-    | True => Eq.sym isUpper.read
+    | True => isUpper.read.flipped
     | False =>
       match isLower: char == lower with
-        | True => Eq.sym isLower.read
+        | True => isLower.read.flipped
 
 theorem readsHalf ∀ (lower upper: Char):
     Parse.Reads (() => half lower upper) (read bit => read = [letter lower upper bit]) :=
@@ -29,7 +29,8 @@ theorem readsHalf ∀ (lower upper: Char):
       (Parse.readsSatisfy))
     (read bit h =>
       match h with
-        | Witness char (Both (Both one allowed) made) => rewrite made, one, letterOf lower upper char allowed in rfl)
+        | Witness char (Both (Both one allowed) made) =>
+          rewrite made, one, letterOf lower upper char allowed then byComputing)
 
 theorem readsPass: Parse.Reads pass PassWritten :=
   Parse.readsThen (Parse.readsExactly 7 frontBack _ (readsHalf 'F' 'B')) (rowRead row (Both rowEach rowLength) =>
@@ -38,13 +39,13 @@ theorem readsPass: Parse.Reads pass PassWritten :=
       Parse.readsDone
         { row, column } _
         (Both
-          (omega)
+          (arithmetic)
           (Both
-            (omega)
+            (arithmetic)
             (rewrite List.appendNil columnRead,
                 Parse.eachChars (letter 'F' 'B') rowRead row rowEach,
-                Parse.eachChars (letter 'L' 'R') columnRead column columnEach in
-              rfl)))))
+                Parse.eachChars (letter 'L' 'R') columnRead column columnEach then
+              byComputing)))))
 
 --| Every line of the input is its pass written out.
 theorem parseWritten ∀ (input: Text) (passes: List Pass)

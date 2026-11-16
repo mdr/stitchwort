@@ -201,7 +201,7 @@ pub enum StepForm {
     Match,
     /// `| pattern =>`: the arm's goal, with its pattern's variables.
     Arm,
-    /// A rule of `rewrite r1, r2 in t`, or of `rewrite … at h`.
+    /// A rule of `rewrite r1, r2 then t`, or of `rewrite … at h`.
     RewriteRule,
     /// A line `_ R e` of a `calc`.
     CalcLine,
@@ -257,7 +257,7 @@ pub(crate) struct StepNote {
     /// are what changes.
     pub target: Option<String>,
     /// Other places the step answers for: a `rewrite`'s keyword, `at` and
-    /// `in` (the rule itself is [`StepNote::head`]).
+    /// `then` (the rule itself is [`StepNote::head`]).
     pub extra: Vec<Span>,
 }
 
@@ -1287,7 +1287,7 @@ impl Elaborator {
             .filter(|s| s.head.file == file && s.head.start <= at && at < s.head.end)
             .min_by_key(|s| s.head.end - s.head.start)
             .or_else(|| {
-                // A rule's `rewrite`, `at` or `in`: the first rule's step,
+                // A rule's `rewrite`, `at` or `then`: the first rule's step,
                 // as `steps` are in source order.
                 (steps.iter()).find(|s| {
                     (s.extra.iter()).any(|r| r.file == file && r.start <= at && at < r.end)

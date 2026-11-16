@@ -18,11 +18,11 @@
 //! is read when it's data and its type mentions no field: otherwise the two
 //! sides' types differ (`Vec Nat ({ x | … }).n` and `Vec Nat n`). Neither is
 //! made when `f`'s update forces a field that isn't shared, nor for records
-//! (their updates compute, so these hold by `rfl`), propositions or indexed
+//! (their updates compute, so these hold by `byComputing`), propositions or indexed
 //! families.
 //!
 //! Each is source, elaborated and checked like a theorem written by hand,
-//! proved by one `rfl` per constructor. The update in its statement is the
+//! proved by one `byComputing` per constructor. The update in its statement is the
 //! same `match` a written one is, so `rewrite` finds it in any update of the
 //! same field (two such `match`es are compared by their case trees). An
 //! update of several fields that don't force each other is a different
@@ -291,7 +291,7 @@ impl Elaborator {
                     guard: None,
                     name: name.clone(),
                     patterns,
-                    rhs: Some(var("rfl")),
+                    rhs: Some(var("byComputing")),
                     arm: None,
                     span,
                 }

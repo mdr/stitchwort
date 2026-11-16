@@ -1,81 +1,81 @@
--- `omega` proves linear arithmetic over `Nat`: it reads the hypotheses and the
+-- `arithmetic` proves linear arithmetic over `Nat`: it reads the hypotheses and the
 -- goal, searches for a certificate and writes the proof itself. Each theorem
 -- below shows one case.
 
 import Std (Nat, Bool, Void, List)
 
 -- Nat domain: every atom is at least zero, so no hypotheses are needed.
-theorem leAddRight ∀ (x y: Nat): x ≤ x + y := omega
+theorem leAddRight ∀ (x y: Nat): x ≤ x + y := arithmetic
 
 -- Multiplication by a literal is repeated addition, whichever side the literal is on.
-theorem mulRight3 ∀ (x: Nat): x * 3 = x + x + x := omega
+theorem mulRight3 ∀ (x: Nat): x * 3 = x + x + x := arithmetic
 
-theorem mulLeft3 ∀ (x: Nat): 3 * x = x + x + x := omega
+theorem mulLeft3 ∀ (x: Nat): 3 * x = x + x + x := arithmetic
 
-theorem mulRight3b ∀ (x: Nat): x + x + x = x * 3 := omega
+theorem mulRight3b ∀ (x: Nat): x + x + x = x * 3 := arithmetic
 
-theorem mulLeft3b ∀ (x: Nat): x + x + x = 3 * x := omega
+theorem mulLeft3b ∀ (x: Nat): x + x + x = 3 * x := arithmetic
 
-theorem mul0 ∀ (x: Nat): x * 0 = 0 := omega
+theorem mul0 ∀ (x: Nat): x * 0 = 0 := arithmetic
 
-theorem mul0b ∀ (x: Nat): 0 * x = 0 := omega
+theorem mul0b ∀ (x: Nat): 0 * x = 0 := arithmetic
 
-theorem mul1 ∀ (x: Nat): x * 1 = x := omega
+theorem mul1 ∀ (x: Nat): x * 1 = x := arithmetic
 
-theorem mul1b ∀ (x: Nat): 1 * x = x := omega
+theorem mul1b ∀ (x: Nat): 1 * x = x := arithmetic
 
 -- Association is kept as written, and the proof still goes through.
-theorem assoc ∀ (a b c: Nat): (a + b) + c ≤ a + (b + c) := omega
+theorem assoc ∀ (a b c: Nat): (a + b) + c ≤ a + (b + c) := arithmetic
 
 -- Boolean preprocessing: hypotheses written with `Nat.leq`, `&&`, `Not`, `And`
 -- or `=` are read as facts.
-theorem leqFalseHyp ∀ (a b: Nat) (h: Nat.leq a b = False): b < a := omega
+theorem leqFalseHyp ∀ (a b: Nat) (h: Nat.leq a b = False): b < a := arithmetic
 
-theorem andHyp ∀ (a b c: Nat) (h: (a ≤ b ∧ b ≤ c) = True): a ≤ c := omega
+theorem andHyp ∀ (a b c: Nat) (h: (a ≤ b ∧ b ≤ c) = True): a ≤ c := arithmetic
 
 -- The Day 5 arm: a range holds `id`, and the next range starts after the end.
 theorem absorbTrue ∀ (lastFrom id lastTo rFrom: Nat)
     (i: (lastFrom ≤ id ∧ id ≤ lastTo) = True)
     (e: Nat.leq rFrom (lastTo + 1) = False):
     id < rFrom :=
-  omega
+  arithmetic
 
-theorem notLe ∀ (a b: Nat) (h: ¬(a ≤ b)): b < a := omega
+theorem notLe ∀ (a b: Nat) (h: ¬(a ≤ b)): b < a := arithmetic
 
-theorem notLt ∀ (a b: Nat) (h: ¬(a < b)): b ≤ a := omega
+theorem notLt ∀ (a b: Nat) (h: ¬(a < b)): b ≤ a := arithmetic
 
-theorem propAnd ∀ (a b c: Nat) (h: (a ≤ b) ∧ (b ≤ c)): a ≤ c := omega
+theorem propAnd ∀ (a b c: Nat) (h: (a ≤ b) ∧ (b ≤ c)): a ≤ c := arithmetic
 
 -- Equations are facts too.
-theorem eqHyp ∀ (a b c: Nat) (h1: a = b + 1) (h2: b = c + 1): a = c + 2 := omega
+theorem eqHyp ∀ (a b c: Nat) (h1: a = b + 1) (h2: b = c + 1): a = c + 2 := arithmetic
 
 -- Goal forms: `<`, `<=`, `=`, a closed goal, `Not`, `Nat.leq`, `And` and `&&`.
-theorem ltGoal ∀ (a: Nat): a < a + 1 := omega
+theorem ltGoal ∀ (a: Nat): a < a + 1 := arithmetic
 
-theorem leGoal ∀ (a b: Nat) (h: a < b): a ≤ b := omega
+theorem leGoal ∀ (a b: Nat) (h: a < b): a ≤ b := arithmetic
 
-theorem antisym ∀ (a b: Nat) (h1: a ≤ b) (h2: b ≤ a): a = b := omega
+theorem antisym ∀ (a b: Nat) (h1: a ≤ b) (h2: b ≤ a): a = b := arithmetic
 
-theorem closedGoal: 2 < 3 := omega
+theorem closedGoal: 2 < 3 := arithmetic
 
-theorem notGoal ∀ (x y: Nat) (h: x < y): ¬(y ≤ x) := omega
+theorem notGoal ∀ (x y: Nat) (h: x < y): ¬(y ≤ x) := arithmetic
 
-theorem leqFalseGoal ∀ (x y: Nat) (h: x < y): Nat.leq y x = False := omega
+theorem leqFalseGoal ∀ (x y: Nat) (h: x < y): Nat.leq y x = False := arithmetic
 
-theorem andGoal ∀ (a b: Nat) (h: a < b): (a ≤ b) ∧ (a + 1 ≤ b) := omega
+theorem andGoal ∀ (a b: Nat) (h: a < b): (a ≤ b) ∧ (a + 1 ≤ b) := arithmetic
 
-theorem boolAndGoal ∀ (a b: Nat) (h: a < b): (a ≤ b ∧ a + 1 ≤ b) = True := omega
+theorem boolAndGoal ∀ (a b: Nat) (h: a < b): (a ≤ b ∧ a + 1 ≤ b) = True := arithmetic
 
 -- Contradictions: the goal is `Void`, or the facts alone can't hold.
-theorem threeLtTwo ∀ (h: 3 < 2): Void := omega
+theorem threeLtTwo ∀ (h: 3 < 2): Void := arithmetic
 
 -- The facts contradict each other, so any goal follows, even one about other atoms.
-theorem disconnected ∀ (x y: Nat) (h: y < y): x < 0 := omega
+theorem disconnected ∀ (x y: Nat) (h: y < y): x < 0 := arithmetic
 
-theorem void2 ∀ (x y: Nat) (h1: x + 1 ≤ y) (h2: y ≤ x): Void := omega
+theorem void2 ∀ (x y: Nat) (h1: x + 1 ≤ y) (h2: y ≤ x): Void := arithmetic
 
 -- Integer reasoning: `2 * x` is never `1`, found by dividing the row by 2.
-theorem twoXEqOne ∀ (x: Nat) (h: 2 * x = 1): Void := omega
+theorem twoXEqOne ∀ (x: Nat) (h: 2 * x = 1): Void := arithmetic
 
 -- Four constraints with no integer solution, found by splitting a case.
 theorem splitRegression ∀ (x y: Nat)
@@ -84,41 +84,41 @@ theorem splitRegression ∀ (x y: Nat)
     (h3: 2 * y ≤ 3 * x + 1)
     (h4: 3 * x ≤ 2 * y + 2):
     Void :=
-  omega
+  arithmetic
 
--- Extra facts: `omega [...]` adds proofs to the hypotheses, here an instance of a general fact.
-theorem viaList ∀ (a b: Nat) (f: Nat → Nat) (h: ∀ (n: Nat) => n ≤ f n): a ≤ f a + b := omega [h a]
+-- Extra facts: `arithmetic [...]` adds proofs to the hypotheses, here an instance of a general fact.
+theorem viaList ∀ (a b: Nat) (f: Nat → Nat) (h: ∀ (n: Nat) => n ≤ f n): a ≤ f a + b := arithmetic [h a]
 
--- `omega` as the proof of a `calc` step.
+-- `arithmetic` as the proof of a `calc` step.
 theorem calcStep ∀ (a b: Nat) (h: a + 2 ≤ b): a < b := calc a
-  _ < a + 1 := omega
-  _ ≤ b := omega
+  _ < a + 1 := arithmetic
+  _ ≤ b := arithmetic
 
--- `omega` inside a local theorem.
+-- `arithmetic` inside a local theorem.
 theorem localDef ∀ (a b: Nat): a ≤ a + b :=
-  theorem helper: 0 ≤ b := omega
-  omega
+  theorem helper: 0 ≤ b := arithmetic
+  arithmetic
 
--- An `omega` equation consumed by `rewrite`, in both directions.
+-- An `arithmetic` equation consumed by `rewrite`, in both directions.
 theorem viaRewrite ∀ (x: Nat) (f: Nat → Nat) (h: f (x + x + x) = 7): f (x * 3) = 7 :=
-  rewrite (omega: x * 3 = x + x + x) in h
+  rewrite (arithmetic: x * 3 = x + x + x) then h
 
-theorem castBy ∀ (x: Nat) (h: x * 3 = 21): x + x + x = 21 := rewrite <- (omega: x * 3 = x + x + x) in h
+theorem castBy ∀ (x: Nat) (h: x * 3 = 21): x + x + x = 21 := rewrite <- (arithmetic: x * 3 = x + x + x) then h
 
--- A transport along an `omega` equation computes: the proof reduces to `rfl`.
-def transport (x n: Nat): Nat := J (y p => Nat) n (omega: x * 3 = x + x + x)
+-- A transport along an `arithmetic` equation computes: the proof reduces to `byComputing`.
+def transport (x n: Nat): Nat := J (y p => Nat) n (arithmetic: x * 3 = x + x + x)
 
-theorem transportComputes: transport 7 42 = 42 := rfl
+theorem transportComputes: transport 7 42 = 42 := byComputing
 
--- Cost: `k * x` unfolds `k` times when its type is checked, so `omega` takes
+-- Cost: `k * x` unfolds `k` times when its type is checked, so `arithmetic` takes
 -- `k` up to 1000 (omega-mul-left-limit.sw); `x * k` stays as written, at any size.
-theorem big0 ∀ (x: Nat) (h: 10 * x ≤ 20): x ≤ 2 := omega
+theorem big0 ∀ (x: Nat) (h: 10 * x ≤ 20): x ≤ 2 := arithmetic
 
-theorem big1 ∀ (x: Nat) (h: 1000 * x ≤ 2000): x ≤ 2 := omega
+theorem big1 ∀ (x: Nat) (h: 1000 * x ≤ 2000): x ≤ 2 := arithmetic
 
-theorem bigR0 ∀ (x: Nat) (h: x * 10 ≤ 20): x ≤ 2 := omega
+theorem bigR0 ∀ (x: Nat) (h: x * 10 ≤ 20): x ≤ 2 := arithmetic
 
-theorem bigR ∀ (x: Nat) (h: x * 1000000 ≤ 2000000): x ≤ 2 := omega
+theorem bigR ∀ (x: Nat) (h: x * 1000000 ≤ 2000000): x ≤ 2 := arithmetic
 
 -- A subexpression mentioned many times is one atom, however often it appears.
 theorem shared ∀ (xs ys: List Nat)
@@ -127,11 +127,11 @@ theorem shared ∀ (xs ys: List Nat)
     (h3: List.length (List.append xs ys) ≤ xs.length + 10)
     (h4: xs.length + List.length (List.append xs ys) ≤ 18):
     xs.length ≤ 17 :=
-  omega
+  arithmetic
 
 -- Proof-dependent atoms: the same call with the same proof is the same atom.
 def getP: (n: Nat) → n < 10 → Nat
   | Zero, h => 0
   | Succ k, h => k
 
-theorem sameProof ∀ (n: Nat) (h1: n < 10): getP n h1 ≤ getP n h1 := omega
+theorem sameProof ∀ (n: Nat) (h1: n < 10): getP n h1 ≤ getP n h1 := arithmetic

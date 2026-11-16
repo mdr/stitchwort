@@ -12,4 +12,4 @@ def Box.unbox [a: Prop]: Box a → a
 
 def keep (d: Nat) (ok: d ≠ 0): Box (d ≠ 0) := MkBox ok
 
-theorem t23 (d: Nat) (p: d ≠ 0) (q: d ≠ 0): Box.unbox (keep d p) = Box.unbox (keep d q) := rfl
+theorem t23 (d: Nat) (p: d ≠ 0) (q: d ≠ 0): Box.unbox (keep d p) = Box.unbox (keep d q) := byComputing

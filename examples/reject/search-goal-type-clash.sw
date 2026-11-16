@@ -6,6 +6,6 @@ import Std (Nat, Bool)
 
 type P (a: Type) (x: a): Prop = { holds: x = x }
 
-theorem lem ∀ [x: Nat] (h: x + 1 = 3): P Nat x := { holds = rfl }
+theorem lem ∀ [x: Nat] (h: x + 1 = 3): P Nat x := { holds = byComputing }
 
-theorem use: P Bool True := lem rfl
+theorem use: P Bool True := lem byComputing

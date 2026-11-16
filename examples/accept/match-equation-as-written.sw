@@ -18,7 +18,7 @@ def known (o: Option Nat): Bool := match o with
 -- eta, which only computation finds (SW-1562).
 theorem etaFact ∀ (a: Nat) (xs: List Nat):
     known (xs.map (y => f a y) |> .maximum) = known (xs.map (y => f a y) |> .maximum) :=
-  rfl
+  byComputing
 
 theorem plainGoal ∀ (a: Nat) (xs: List Nat): known (xs.map (f a) |> .maximum) = known (xs.map (f a) |> .maximum) :=
   match found: xs.map (f a) |> .maximum with
@@ -42,7 +42,7 @@ def both (o p: Option Nat): Bool := known o && known p
 
 theorem bothFact ∀ (a: Nat) (xs: List Nat):
     both (xs.map (f a) |> .maximum) (best a xs) = both (xs.map (f a) |> .maximum) (best a xs) :=
-  rfl
+  byComputing
 
 theorem hidden ∀ (a: Nat) (xs: List Nat):
     both (xs.map (f a) |> .maximum) (best a xs) = both (xs.map (f a) |> .maximum) (best a xs) :=

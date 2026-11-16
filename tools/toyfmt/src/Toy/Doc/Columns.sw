@@ -15,8 +15,8 @@ def lineWidth: List Text → Nat
   | [piece, ..earlier] => if piece == "\n" then 0 else piece.length + lineWidth earlier
 
 theorem indentLength ∀ (indent: Nat): (" ".repeat indent).length = indent := match indent with
-  | Zero => rfl
+  | Zero => byComputing
   | Succ less => Eq.cong Succ (indentLength less)
 
 theorem andTrueLeft ∀ (left right: Bool) (both: (left && right) = True): left = True := match left, both with
-  | True, _ => rfl
+  | True, _ => byComputing

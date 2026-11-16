@@ -15,7 +15,7 @@ theorem bigMiss ∀ (x: Nat) (rest: List Nat) (h: (3 < x) = False): big [x, ..re
 
 -- The call is stuck on `x`, so `rewrite` finds it.
 theorem bigAtMostRest ∀ (x: Nat) (rest: List Nat) (h: (3 < x) = False): big [x, ..rest] ≤ big rest :=
-  rewrite big.eq2.ifFalse x rest h in omega
+  rewrite big.eq2.ifFalse x rest h then arithmetic
 
 -- `if h: b = False`: the `else` is the complement equation, `notFresh: b = True`.
 def countFresh: List Bool → Nat
@@ -23,7 +23,7 @@ def countFresh: List Bool → Nat
   | [b, ..rest] => if fresh: b = False then 1 + countFresh rest else countFresh rest
 
 theorem countFreshTrue ∀ (rest: List Bool): countFresh [True, ..rest] = countFresh rest :=
-  countFresh.eq2.ifFalse True rest rfl
+  countFresh.eq2.ifFalse True rest byComputing
 
 theorem countFreshStep ∀ (b: Bool) (rest: List Bool) (fresh: b = False): countFresh [b, ..rest] = 1 + countFresh rest :=
   countFresh.eq2.ifTrue b rest fresh
@@ -41,14 +41,14 @@ def gcd (a b: Nat): Nat
 :=
   if h: b = 0 then a else gcd b (a % b) [decreasing := Nat.modLess a b h]
 
-theorem gcdZero ∀ (a: Nat): gcd a 0 = a := gcd.eq.ifTrue a 0 rfl
+theorem gcdZero ∀ (a: Nat): gcd a 0 = a := gcd.eq.ifTrue a 0 byComputing
 
 -- A `match` on an expression: `isSome`, `isNone`.
 def headOr (d: Nat) (xs: List Nat): Nat := match List.head xs with
   | Some x => x
   | None => d
 
-theorem headOrNil ∀ (d: Nat): headOr d [] = d := headOr.eq.none d [] rfl
+theorem headOrNil ∀ (d: Nat): headOr d [] = d := headOr.eq.none d [] byComputing
 
 theorem headOrSome ∀ (d: Nat) (xs: List Nat) (x: Nat) (found: List.head xs = Some x): headOr d xs = x :=
   headOr.eq.some d xs x found
@@ -72,7 +72,7 @@ def both (a b: Option Nat): Nat := match (a, b) with
 
 theorem bothNone ∀ (b: Option Nat): both None b = 0 := both.eq.alt2 None b cases
 
-theorem bothSome ∀ (x y: Nat): both (Some x) (Some y) = x + y := both.eq.alt1 (Some x) (Some y) x y rfl
+theorem bothSome ∀ (x y: Nat): both (Some x) (Some y) = x + y := both.eq.alt1 (Some x) (Some y) x y byComputing
 
 -- On several expressions, stated as on their tuple, `match (a, k + 1)`:
 -- `isAlt1: (a, k + 1) = (Some x, Succ y)` (SW-1074).
@@ -81,7 +81,7 @@ def bothAfter (k: Nat) (a: Option Nat): Nat := match a, k + 1 with
   | _, _ => 0
 
 theorem bothAfterSome ∀ (k: Nat) (a: Option Nat) (x: Nat) (h: a = Some x): bothAfter k a = x + k :=
-  bothAfter.eq.alt1 k a x k (rewrite h in rfl)
+  bothAfter.eq.alt1 k a x k (rewrite h then byComputing)
 
 -- Nested: a `match` on the alternative's variable.
 def firstTwo (xs: List Nat): Nat := match List.head xs with

@@ -12,4 +12,4 @@ def evens (n: Nat): List Nat
     | Succ Zero => Nil
     | Succ (Succ k) => Cons k (evens k [decreasing := Nat.leSucc k])
 
-theorem evensNil (n: Nat): evens n = Nil := rfl
+theorem evensNil (n: Nat): evens n = Nil := byComputing

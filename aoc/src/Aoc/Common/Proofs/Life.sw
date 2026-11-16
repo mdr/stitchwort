@@ -21,19 +21,19 @@ theorem countsActive ∀ [auto ord: Ord c] (neighbours: c → List c) (adjacent:
       List.countFlatMap neighbours (== cell) alive.toList
     _ = alive.toList.sumBy (other => Bool.toNat (adjacent other cell)) :=
       List.sumByCong alive.toList _ _ (other => once other cell)
-    _ = alive.toList.count (other => adjacent other cell) := Eq.sym (List.countSumBy alive.toList _)
-    _ = alive.count (other => adjacent other cell) := Eq.sym (Set.countToList alive _)
+    _ = alive.toList.count (other => adjacent other cell) := (List.countSumBy alive.toList _).flipped
+    _ = alive.count (other => adjacent other cell) := (Set.countToList alive _).flipped
 
 theorem ruleOfCount ∀ (rule: Bool → Nat → Bool) (alive: Bool) (count near: Nat)
     (same: count = near):
     rule alive count = rule alive near :=
-  rewrite same in rfl
+  rewrite same then byComputing
 
 theorem ruleOfNone ∀ (rule: Bool → Nat → Bool) (alive: Bool) (near: Nat)
     (none: 0 = near)
     (dies: ∀ (alive: Bool) => rule alive 0 = False):
     False = rule alive near :=
-  rewrite <- none in Eq.sym (dies alive)
+  rewrite <- none then Eq.flipped (dies alive)
 
 --| A cell is alive after the step exactly when the rule says so for its
 --| liveness and its number of live neighbours. `dies` is the rule on a cell

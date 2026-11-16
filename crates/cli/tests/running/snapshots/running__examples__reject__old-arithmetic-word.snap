@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `omega`
+   ╭─[ reject/old-arithmetic-word.sw:6:46 ]
+   │
+ 6 │ theorem below (n: Nat) (h: n < 3): n <= 5 := omega
+   │                                              ──┬──  
+   │                                                ╰──── not in scope
+   │ 
+   │ Note: `omega` isn't a Stitchwort name: linear arithmetic over `Nat` and `Int` is proved by `arithmetic`, or `arithmetic [h1, h2]` with extra facts
+───╯

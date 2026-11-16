@@ -53,4 +53,4 @@ test "exitStatus: show" := "${ExitStatus.of 42}" == "42"
 test "exitStatus: through IO.simulate" := (IO.simulate [] (() => (IO.print "hi"; ExitStatus.of 2))).snd.toNat == 2
 
 theorem ExitStatus.simulateExample: (IO.simulate [] (() => (IO.print "hi"; ExitStatus.of 2))).snd.code = Fin.ofNat 2 :=
-  rfl
+  byComputing

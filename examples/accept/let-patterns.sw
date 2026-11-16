@@ -65,7 +65,7 @@ def swapPair: (a, b) → (b, a)
 
 theorem swapTwice ∀ (p: (Nat, Nat)): swapPair (swapPair p) = p :=
   let (a, b) := p
-  rfl
+  byComputing
 
 -- Termination: `kids` is part of the tree `let` matched, so the recursive
 -- call is smaller, as for a pattern in the equation.
@@ -136,16 +136,16 @@ def swapped (p: (Nat, Text)): (Text, Nat) :=
   let (a, b) := p
   (b, a)
 
-theorem swappedUnfolds ∀ (p: (Nat, Text)): swapped p = (p.snd, p.fst) := rfl
+theorem swappedUnfolds ∀ (p: (Nat, Text)): swapped p = (p.snd, p.fst) := byComputing
 
 def sumOf (n: Nat): Nat :=
   let ((a, b), c) := ((n, n + 1), n + 2)
   a + b + c
 
-theorem sumOfIs ∀ (n: Nat): sumOf n = n + (n + 1) + (n + 2) := rfl
+theorem sumOfIs ∀ (n: Nat): sumOf n = n + (n + 1) + (n + 2) := byComputing
 
 def nameLength (p: Person): Nat :=
   let { name, age } := p
   name.length + age
 
-theorem nameLengthIs ∀ (p: Person): nameLength p = p.name.length + p.age := rfl
+theorem nameLengthIs ∀ (p: Person): nameLength p = p.name.length + p.age := byComputing

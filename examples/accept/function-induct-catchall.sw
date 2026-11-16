@@ -13,7 +13,7 @@ def countBelow (k: Nat): List Nat → Nat
 theorem countBelowLe ∀ (k: Nat) (xs: List Nat): countBelow k xs ≤ List.length xs :=
   countBelow.induct k
     (xs result => result ≤ List.length xs)
-    omega
-    (x rest less ih => omega)
-    (x rest notLess ih => omega)
+    arithmetic
+    (x rest less ih => arithmetic)
+    (x rest notLess ih => arithmetic)
     xs

@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-RING] Error: `ring` can't prove `b * m * p + b = b * m * p + (2 * b)`
+[E-ALGEBRA] Error: `algebra` can't prove `b * m * p + b = b * m * p + (2 * b)`
    ╭─[ reject/ring-different.sw:5:80 ]
    │
- 5 │ theorem extra (b: Nat) (m: Nat) (p: Nat): b * m * p + b = b * m * p + 2 * b := ring
-   │                                                                                ──┬─  
-   │                                                                                  ╰─── the two sides are different polynomials
+ 5 │ theorem extra (b: Nat) (m: Nat) (p: Nat): b * m * p + b = b * m * p + 2 * b := algebra
+   │                                                                                ───┬───  
+   │                                                                                   ╰───── the two sides are different polynomials
    │ 
    │ Note 1: left:  b * m * p + b
    │ 

@@ -9,14 +9,14 @@ def ignoresFirst (a x: Nat): Nat := match x with
 
 def needSame [a: Nat] (x: Nat) (h: ignoresFirst a x = ignoresFirst 2 x): Nat := a
 
--- `rfl` is checked against `ignoresFirst 1 x = ignoresFirst 2 x`.
-theorem sameAnswer ∀ (x: Nat): ignoresFirst 1 x = ignoresFirst 2 x := rfl
+-- `byComputing` is checked against `ignoresFirst 1 x = ignoresFirst 2 x`.
+theorem sameAnswer ∀ (x: Nat): ignoresFirst 1 x = ignoresFirst 2 x := byComputing
 
 -- `a` is given, so the unifier compares the two calls.
-def givenA (x: Nat): Nat := needSame [a := 1] x rfl
+def givenA (x: Nat): Nat := needSame [a := 1] x byComputing
 
 -- `a` is unsolved until the unifier matches the two calls.
-def solvedA (x: Nat): Nat := needSame x rfl
+def solvedA (x: Nat): Nat := needSame x byComputing
 
 test "the unifier accepts the differing calls" := givenA 5 == 1
 test "the unifier solves from the matching call" := solvedA 5 == 2

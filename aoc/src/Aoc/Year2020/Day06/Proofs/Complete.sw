@@ -11,14 +11,14 @@ theorem runsAsValue ∀ (p: () → {Parse Char} a) (read rest: List Char) (v w: 
     (same: v = w)
     (runs: Parse.Runs p read rest v):
     Parse.Runs p read rest w :=
-  rewrite same at runs in runs
+  rewrite same at runs then runs
 
 theorem declinesLetter ∀ (rest: List Char)
     (stops: Parse.CannotStart isQuestion rest):
     Parse.Declines (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion) rest :=
   match rest with
     | [] => Parse.declinesSatisfyEnd _ _
-    | [char, ..more] => Parse.declinesSatisfy _ _ char more (stops char more rfl)
+    | [char, ..more] => Parse.declinesSatisfy _ _ char more (stops char more byComputing)
 
 theorem runsPerson ∀ (read: List Char) (who: Person)
     (written: PersonWritten read who) (rest: List Char)
@@ -27,12 +27,12 @@ theorem runsPerson ∀ (read: List Char) (who: Person)
   match written with
     | Both nonEmpty (Both questions same) =>
       match read with
-        | [] => Void.exfalso (nonEmpty rfl)
+        | [] => (nonEmpty byComputing).impossible
         | [letter, ..more] =>
           let sameAnswers: [letter, ..more].toSet = who.answers :=
-            Set.ext _ _ (question => Eq.trans (containsFromList [letter, ..more] question) (Eq.sym (same question)))
+            Set.ext _ _ (question => Eq.trans (containsFromList [letter, ..more] question) (same question).flipped)
           let sameSet: ({ answers = [letter, ..more].toSet }: Person) = who := match who with
-            | { answers } => rewrite sameAnswers in rfl
+            | { answers } => rewrite sameAnswers then byComputing
           let lettersRun :=
             Parse.runsMany1Symbols
               (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion)
@@ -43,9 +43,9 @@ theorem runsPerson ∀ (read: List Char) (who: Person)
               letter
               more
               rest
-              (rewrite List.mapId more in questions)
+              (rewrite List.mapId more then questions)
               stops
-          let lettersRead := rewrite List.mapId more at lettersRun in lettersRun
+          let lettersRead := rewrite List.mapId more at lettersRun then lettersRun
           runsAsValue person
             [letter, ..more]
             rest _
@@ -60,8 +60,8 @@ theorem runsPerson ∀ (read: List Char) (who: Person)
 
 theorem spaceNotQuestion ∀ (char: Char) (isSpace: Parse.isSpace char = True): isQuestion char = False :=
   match isSpace with
-    | Inl space => rewrite space.read in rfl
-    | Inr tab => rewrite tab.read in rfl
+    | Inl space => rewrite space.read then byComputing
+    | Inr tab => rewrite tab.read then byComputing
 
 theorem declinesPerson ∀ (rest: List Char) (stops: Parse.CannotStart isQuestion rest): Parse.Declines person rest :=
   Parse.declinesBind
@@ -93,9 +93,11 @@ theorem runsGroup ∀ (read: List Char) (who: Group)
               (Parse.CannotStart isQuestion)
               rest
               (read2 v after ok stops => runsPerson read2 v ok after stops)
-              (read2 after isBreak => Parse.cannotStartAfterBreak isQuestion rfl rfl read2 after isBreak)
-              (Parse.cannotStartAtLinesEnd isQuestion rfl rfl spaceNotQuestion rest end)
-              (Parse.declinesLinesAtLinesEnd person isQuestion declinesPerson rfl rfl spaceNotQuestion rest end)
+              (read2 after isBreak =>
+                Parse.cannotStartAfterBreak isQuestion byComputing byComputing read2 after isBreak)
+              (Parse.cannotStartAtLinesEnd isQuestion byComputing byComputing spaceNotQuestion rest end)
+              (Parse.declinesLinesAtLinesEnd person isQuestion declinesPerson byComputing byComputing spaceNotQuestion
+                  rest end)
               read
               first
               others
@@ -110,7 +112,7 @@ theorem runsSections ∀ (read: List Char) (first: Group) (others: List Group)
     (read2 v after ok end => runsGroup read2 v ok after end)
     Parse.linesEndAfterBlank
     (Parse.linesEndAtBreaks ending breaks)
-    (Parse.declinesSectionsAtBreaks group isQuestion declinesGroup rfl rfl ending breaks)
+    (Parse.declinesSectionsAtBreaks group isQuestion declinesGroup byComputing byComputing ending breaks)
     read
     first
     others
@@ -144,7 +146,7 @@ theorem parseComplete ∀ (input: Text) (groups: List Group)
               read
               ending _
               groups
-              (Eq.sym same2)
+              same2.flipped
               (Parse.runsMap
                 (() => Parse.sections group)
                 NonEmptyList.toList
@@ -158,4 +160,4 @@ theorem writtenUnique ∀ (input: Text) (a b: List Group)
     (writtenA: InputWritten input a)
     (writtenB: InputWritten input b):
     a = b :=
-  Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))
+  Result.okInjective (Eq.trans (parseComplete input a writtenA).flipped (parseComplete input b writtenB))

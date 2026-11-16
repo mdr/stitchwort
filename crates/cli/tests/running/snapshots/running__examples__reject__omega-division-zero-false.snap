@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `n / 0 = n`
+[E-ARITHMETIC] Error: `arithmetic` can't prove `n / 0 = n`
    ╭─[ reject/omega-division-zero-false.sw:5:44 ]
    │
- 5 │ theorem divZeroSelf (n: Nat): n / 0 = n := omega
-   │                                            ──┬──  
-   │                                              ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+ 5 │ theorem divZeroSelf (n: Nat): n / 0 = n := arithmetic
+   │                                            ─────┬────  
+   │                                                 ╰────── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │ 
    │ Note 1: facts: `n / 0 = 0` (what `n / 0` is)
    │ 

@@ -2,16 +2,16 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
     ╭─[ reject/rfl-long-computed.sw:18:75 ]
     │
- 18 │ theorem wrongRepeated (r: Range) (k: Nat) (n: Nat): r.repeated k n = 0 := rfl
-    │                                                                           ─┬─  
-    │                                                                            ╰─── `r.repeated k n` and `0` aren't equal
+ 18 │ theorem wrongRepeated (r: Range) (k: Nat) (n: Nat): r.repeated k n = 0 := byComputing
+    │                                                                           ─────┬─────  
+    │                                                                                ╰─────── `r.repeated k n` and `0` aren't equal
     │ 
     │ Note 1: computing the left side gives `if (List.rangeFrom n 0).foldLeft 0 (acc x => acc + …) ≠ 0 then if (if … <= … then … / … else Nat.pow 10 …) ≤ (if … <= … then … - 1 else … / …) then (List.rangeFrom n 0).foldLeft 0 (acc x => …) * (… * … / 2) else 0 else 0`
     │ 
-    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
     │ 
     │ Note 3: this statement is false; a counterexample:
     │           r = { lo = 0, hi = 1 }

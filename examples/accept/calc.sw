@@ -57,7 +57,7 @@ theorem ltEq ∀ (a b c: Nat) (h1: a < b) (h2: b = c): a < c := calc a
   _ < b := h1
   _ = c := h2
 
--- A step with no proof holds by computation: `rfl` is checked against the
+-- A step with no proof holds by computation: `byComputing` is checked against the
 -- step's proposition. Here `0 + n` computes to `n`.
 theorem byComputation ∀ (n m: Nat) (h: n ≤ m): 0 + n ≤ m := calc 0 + n
   _ = n
@@ -73,7 +73,7 @@ theorem zeroLe ∀ (n m: Nat) (h: n ≤ m): 0 ≤ m := calc 0
 -- Without a goal (a `let` with no type), the chain proves `first R last`.
 theorem inferred ∀ (a b: Nat) (h: a = b): b = a :=
   let flipped := calc b
-    _ = a := Eq.sym h
+    _ = a := h.flipped
   flipped
 
 -- The goal is matched by computation, so a chain may start at an

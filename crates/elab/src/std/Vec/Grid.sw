@@ -40,7 +40,7 @@ theorem Vec.getOrShiftRight ∀ (v: Vec a n) (i: Nat) (d fill: a)
     (h: i < n):
     Vec.getOr (Vec.shiftRight v fill) i d = Vec.getOr (VCons fill v) i d :=
   match v, i with
-    | VCons x xs, Zero => rfl
+    | VCons x xs, Zero => byComputing
     | VCons x xs, Succ i => Vec.getOrShiftRight xs i d x h
 
 --| Index i after `shiftLeft` is index i + 1 before, at every index when the
@@ -48,7 +48,7 @@ theorem Vec.getOrShiftRight ∀ (v: Vec a n) (i: Nat) (d fill: a)
 theorem Vec.getOrShiftLeft ∀ (v: Vec a n) (fill: a) (i: Nat):
     Vec.getOr (Vec.shiftLeft v fill) i fill = Vec.getOr v (Succ i) fill :=
   match v, i with
-    | VNil, i => rfl
+    | VNil, i => byComputing
     | VCons x xs, Zero => Vec.headOrGetOr xs fill
     | VCons x xs, Succ i => Vec.getOrShiftLeft xs fill i
 
@@ -63,7 +63,7 @@ theorem Vec.getOrShiftLeftLt ∀ (v: Vec a n) (i: Nat) (d fill: a)
 theorem Vec.aroundFromShifts ∀ (v: Vec a n) (pad left: a) (f: a → a → a → b):
     Vec.aroundFrom pad f left v = Vec.zipWith3 (Vec.shiftRight v left) v (Vec.shiftLeft v pad) f :=
   match v with
-    | VNil => rfl
+    | VNil => byComputing
     | VCons x rest => Eq.cong (VCons (f left x (Vec.headOr rest pad))) (Vec.aroundFromShifts rest pad x f)
 
 --| `around` is the two shifts zipped with the row.
@@ -89,11 +89,11 @@ theorem Vec.getOrAround ∀ (v: Vec a n) (i: Nat) (d: b) (pad: a)
 --| A small vector for the examples below: 1, 2, 3, 4.
 def Vec.gridExample: Vec Nat 4 := VCons 1 (VCons 2 (VCons 3 (VCons 4 VNil)))
 
-theorem Vec.shiftRightExample: Vec.toList (Vec.shiftRight Vec.gridExample 0) = [0, 1, 2, 3] := rfl
+theorem Vec.shiftRightExample: Vec.toList (Vec.shiftRight Vec.gridExample 0) = [0, 1, 2, 3] := byComputing
 
-theorem Vec.shiftLeftExample: Vec.toList (Vec.shiftLeft Vec.gridExample 0) = [2, 3, 4, 0] := rfl
+theorem Vec.shiftLeftExample: Vec.toList (Vec.shiftLeft Vec.gridExample 0) = [2, 3, 4, 0] := byComputing
 
-theorem Vec.aroundExample: Vec.toList (Vec.around Vec.gridExample 0 (l x r => l + x + r)) = [3, 6, 9, 7] := rfl
+theorem Vec.aroundExample: Vec.toList (Vec.around Vec.gridExample 0 (l x r => l + x + r)) = [3, 6, 9, 7] := byComputing
 
 test "shiftRight" := Vec.toList (Vec.gridExample.shiftRight 9) == [9, 1, 2, 3]
 test "shiftLeft" := Vec.toList (Vec.gridExample.shiftLeft 9) == [2, 3, 4, 9]

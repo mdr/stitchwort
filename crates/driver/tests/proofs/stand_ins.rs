@@ -9,9 +9,9 @@ const STACK: usize = 16 * 1024 * 1024;
 const SOURCE: &str = "namespace A\n\
     def double (n: Nat): Nat := n + n\n\
     def keep (h: double 2 = 5): Nat := 4\n\
-    theorem doubleTwo: double 2 = 5 := rfl\n\
+    theorem doubleTwo: double 2 = 5 := byComputing\n\
     def broken (n: Nat): Nat := \"oops\"\n\
-    theorem ownMistake: keep doubleTwo = 3 := rfl\n";
+    theorem ownMistake: keep doubleTwo = 3 := byComputing\n";
 
 /// A theorem's stand-in is a theorem, a definition's a definition, so what
 /// asks whether a term may be stuck on an open goal (`waits_on_goal`: only

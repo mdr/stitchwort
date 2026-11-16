@@ -14,9 +14,9 @@ def width (field: Option Nat) (size: Nat): Nat :=
     | Some n => n
 
 theorem widthUpTo (slot: Slot): width slot.field slot.size ≤ width slot.field slot.size + slot.size :=
-  omega
+  arithmetic
 
 theorem doubled (slot: Slot): width slot.field slot.size ≤ width slot.field slot.size + slot.size :=
   match slot.field with
     | None => widthUpTo slot
-    | Some n => omega
+    | Some n => arithmetic

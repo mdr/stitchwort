@@ -66,7 +66,7 @@ theorem printParses ∀ (source: Text) (file: SourceFile) (width: Nat)
 theorem formatAnswers ∀ (source: Text) (width: Nat) (tree: SourceFile)
     (parsed: parse source = Ok tree):
     format source width = Formatted (tree.print width) :=
-  rewrite parsed in rfl
+  rewrite parsed then byComputing
 
 --| Round trip: the output of `format` parses to the source's tree.
 theorem formatRoundTrip ∀ (source: Text) (width: Nat) (output: Text)
@@ -75,7 +75,7 @@ theorem formatRoundTrip ∀ (source: Text) (width: Nat) (output: Text)
   match e: parse source with
     | Ok tree =>
       let same := formattedInjective (tree.print width) output h
-      (tree, rfl, (Eq.sym same), (rewrite <- same in printParses source tree width e))
+      (tree, byComputing, same.flipped, (rewrite <- same then printParses source tree width e))
 
 --| Idempotence: formatting the output again, at the same width, gives
 --| the output.
@@ -84,4 +84,4 @@ theorem formatIdempotent ∀ (source: Text) (width: Nat) (output: Text)
     format output width = Formatted output :=
   match formatRoundTrip source width output h with
     | (tree, parsed, same, reparsed) =>
-      rewrite same in formatAnswers (tree.print width) width tree (rewrite <- same in reparsed)
+      rewrite same then formatAnswers (tree.print width) width tree (rewrite <- same then reparsed)

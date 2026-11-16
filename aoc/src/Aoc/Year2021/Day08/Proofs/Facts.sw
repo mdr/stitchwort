@@ -25,14 +25,14 @@ theorem displayDrawn ∀ (digit: Nat)
     (below: digit < 10) (segment: Segment):
     (digitPattern digit).has segment = (digitSegments digit).contains segment :=
   let q := (d: Nat) => segments.all (s => (digitPattern d).has s == (digitSegments d).contains s)
-  let all: digits.all q = True := rfl
+  let all: digits.all q = True := byComputing
   let atDigit := eachDigit q all digit below
   (atDigit.read segment (segmentsComplete segment)).read
 
 --| Each digit's drawn score reads as that digit.
 theorem decodeDrawn ∀ (digit: Nat) (below: digit < 10): digitScores.indexOf (drawnScore digit) = digit :=
   let q := (d: Nat) => digitScores.indexOf (drawnScore d) == d
-  let all: digits.all q = True := rfl
+  let all: digits.all q = True := byComputing
   DecEq.sound (eachDigit q all digit below)
 
 --| Two digits that light the same segments are the same digit.
@@ -43,10 +43,10 @@ theorem digitsDiffer ∀ (first second: Nat)
     first = second :=
   let r := (d e: Nat) => not (segments.all (s => (digitSegments d).contains s == (digitSegments e).contains s)) ∨ d == e
   let q := (d: Nat) => digits.all (e => r d e)
-  let all: digits.all q = True := rfl
+  let all: digits.all q = True := byComputing
   let atFirst := eachDigit q all first firstBelow
   let atBoth := eachDigit (e => r first e) atFirst second secondBelow
-  DecEq.sound (rewrite same at atBoth in atBoth)
+  DecEq.sound (rewrite same at atBoth then atBoth)
 
 --| The digits with 2, 3, 4 or 7 segments are 1, 7, 4 and 8.
 theorem easyDrawn ∀ (digit: Nat)
@@ -56,5 +56,5 @@ theorem easyDrawn ∀ (digit: Nat)
   let q := (d: Nat) =>
     [2, 3, 4, 7].contains (segments.count (s => (digitSegments d).contains s))
       == [Some 1, Some 4, Some 7, Some 8].contains (Some d)
-  let all: digits.all q = True := rfl
+  let all: digits.all q = True := byComputing
   DecEq.sound (eachDigit q all digit below)

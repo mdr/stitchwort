@@ -42,7 +42,7 @@ theorem checkTimersOk ∀ (timers checked: List Nat)
     (h: Fail.toResult (() => checkTimers timers) = Ok checked):
     checked.all (t => t ≤ 8) = True :=
   match e: firstAbove8 timers with
-    | Some (index, _) => Void.exfalso (Result.errNotOk h)
+    | Some (index, _) => (Result.errNotOk h).impossible
     | None =>
       let notAbove := List.findNoneAll timers (t => 8 < t) (List.findWithIndexFromNone (t => 8 < t) 0 timers e)
-      rewrite <- Result.okInjective h, List.allCong timers (t => t ≤ 8) (t => not (8 < t)) (t => cases) in notAbove
+      rewrite <- Result.okInjective h, List.allCong timers (t => t ≤ 8) (t => not (8 < t)) (t => cases) then notAbove

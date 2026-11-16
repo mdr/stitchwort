@@ -3,11 +3,11 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REWRITE-NOTHING] Error: `rewrite` found no `(printer.blank " ").words` in the goal
-    ╭─[ reject/rewrite-nothing-either-reading.sw:23:27 ]
+    ╭─[ reject/rewrite-nothing-either-reading.sw:23:29 ]
     │
- 23 │   rewrite flat in rewrite blankWords printer " " in rfl
-    │                           ───────────┬──────────  
-    │                                      ╰──────────── looking for `(printer.blank " ").words`
+ 23 │   rewrite flat then rewrite blankWords printer " " then byComputing
+    │                             ───────────┬──────────  
+    │                                        ╰──────────── looking for `(printer.blank " ").words`
     │ 
     │ Note 1: goal: `(printer.write " ").words ++ rest = printer.words ++ [" ", ..rest]`
     │ 

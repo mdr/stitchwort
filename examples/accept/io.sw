@@ -222,4 +222,4 @@ test "5,000 prints" := List.length (printed (IO.simulate [] (u => printMany 5000
 
 -- By computation
 
-theorem greetOutput: printed (IO.simulate ["Ada"] greet) = ["Name?", "Hello, Ada!"] := rfl
+theorem greetOutput: printed (IO.simulate ["Ada"] greet) = ["Name?", "Hello, Ada!"] := byComputing

@@ -34,7 +34,7 @@ theorem treeSound ∀ (s t: Tree) (h: (s == t) = True): s = t := DecEq.sound h
 theorem forestReads ∀ (s t: Forest) (h: (s == t) = True): s = t := h.read
 theorem treeTrans ∀ (r s t: Tree) (h1: Ord.compare r s = Less) (h2: Ord.compare s t = Less): Ord.compare r t = Less :=
   Ord.trans r s t h1 h2
-theorem computes: (leaf 1 == leaf 1) = True := rfl
+theorem computes: (leaf 1 == leaf 1) = True := byComputing
 
 -- Three types, two records among them, nested through `List`, `Option`
 -- and a type of the program: the toy formatter's tree (tools/toyfmt).

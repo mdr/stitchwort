@@ -5,16 +5,16 @@
 -- bounded too, so encoding is exact: `addSafe` can only return a number it
 -- has shown fits.
 --
--- run: addSafe { value = 2, fits = rfl } { value = 3, fits = rfl }
--- run: addSafe { value = 9007199254740991, fits = rfl } { value = 1, fits = rfl }
--- run: negateSafe { value = -5, fits = rfl }
--- run: negateSafe { value = 0, fits = rfl }
--- run: negateSafe { value = -9007199254740991, fits = rfl }
+-- run: addSafe { value = 2, fits = byComputing } { value = 3, fits = byComputing }
+-- run: addSafe { value = 9007199254740991, fits = byComputing } { value = 1, fits = byComputing }
+-- run: negateSafe { value = -5, fits = byComputing }
+-- run: negateSafe { value = 0, fits = byComputing }
+-- run: negateSafe { value = -9007199254740991, fits = byComputing }
 -- run: lengths ["ab", "", "cde"]
--- run: bump { count = { value = 41, fits = rfl }, delta = { value = -1, fits = rfl } }
--- run: sumAll [{ value = 1, fits = rfl }, { value = 2, fits = rfl }]
--- run: sameCounter { count = { value = 1, fits = rfl }, delta = { value = -1, fits = rfl } } { count = { value = 1, fits = rfl }, delta = { value = -1, fits = rfl } }
--- run: sameCounter { count = { value = 1, fits = rfl }, delta = { value = -1, fits = rfl } } { count = { value = 2, fits = rfl }, delta = { value = -1, fits = rfl } }
+-- run: bump { count = { value = 41, fits = byComputing }, delta = { value = -1, fits = byComputing } }
+-- run: sumAll [{ value = 1, fits = byComputing }, { value = 2, fits = byComputing }]
+-- run: sameCounter { count = { value = 1, fits = byComputing }, delta = { value = -1, fits = byComputing } } { count = { value = 1, fits = byComputing }, delta = { value = -1, fits = byComputing } }
+-- run: sameCounter { count = { value = 1, fits = byComputing }, delta = { value = -1, fits = byComputing } } { count = { value = 2, fits = byComputing }, delta = { value = -1, fits = byComputing } }
 -- run: toSafe 5
 -- run: toSafe 9007199254740991
 -- run: toSafe 9007199254740992

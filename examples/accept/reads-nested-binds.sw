@@ -59,4 +59,4 @@ theorem reads12: Parse.Reads p12 (read value => read = read) :=
                               fx8 = x8,
                               fx10 = x10
                             })))))))))))))
-    (read value h => rfl)
+    (read value h => byComputing)

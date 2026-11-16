@@ -4,7 +4,7 @@
 -- `wrong`, whose own mistake is reported.
 def double (n: Nat): Nat := n + n
 
-theorem doubleTwo: double 2 = 4 := (rfl
+theorem doubleTwo: double 2 = 4 := (byComputing
 
 theorem usesTwo: double 2 + 0 = 4 := doubleTwo
 

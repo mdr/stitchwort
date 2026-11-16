@@ -38,7 +38,7 @@ test "L1 from 0 lands on 99" := (turn (wrap 0) (Left 1)).at == 99
 test "R1 from 99 lands on 0" := (turn (wrap 99) (Right 1)).at == 0
 test "a full turn changes nothing" := (turn start (Right 100)).at == 50
 
-theorem wrapNegative: Int.modNat (-18) 100 = 82 := rfl
+theorem wrapNegative: Int.modNat (-18) 100 = 82 := byComputing
 
 -- Every position is below 100, from the proof stored in the record, and
 -- also straight from the lemma.

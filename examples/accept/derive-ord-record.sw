@@ -24,8 +24,8 @@ test "minimum" := List.minimum items == Some cheapJam
 -- left out. Dials are ordered by `position`.
 type Dial (highest: Nat) = { position: Nat, inRange: position ≤ highest }
 
-def dial3: Dial 10 := { position = 3, inRange = rfl }
-def dial7: Dial 10 := { position = 7, inRange = rfl }
+def dial3: Dial 10 := { position = 3, inRange = byComputing }
+def dial7: Dial 10 := { position = 7, inRange = byComputing }
 
 test "dials by position" := Ord.compare dial3 dial7 == Less
 test "dials sorted" := List.sort [dial7, dial3] == [dial3, dial7]
@@ -34,7 +34,7 @@ test "dial max" := Ord.max dial3 dial7 == dial7
 -- A record with no data fields has one value.
 type None2 = { same: 1 = 1 }
 
-test "no data" := Ord.compare ({ same = rfl }: None2) { same = rfl } == Equal
+test "no data" := Ord.compare ({ same = byComputing }: None2) { same = byComputing } == Equal
 
 -- A record whose fields are lists and pairs.
 type Score = { names: List Text, best: (Nat, Text) }

@@ -2,14 +2,14 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `xs = xs`
+[E-ARITHMETIC] Error: `arithmetic` can't prove `xs = xs`
    ╭─[ reject/omega-unsupported-goal.sw:5:45 ]
    │
- 5 │ theorem notArith (xs: List Nat): xs = xs := omega
-   │                                             ──┬──  
-   │                                               ╰──── unsupported structure: this goal isn't linear arithmetic on `Nat` or `Int`
+ 5 │ theorem notArith (xs: List Nat): xs = xs := arithmetic
+   │                                             ─────┬────  
+   │                                                  ╰────── unsupported structure: this goal isn't linear arithmetic on `Nat` or `Int`
    │ 
-   │ Note 1: `omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s or `Int`s built from `+`, `-`, numbers, multiplication, division and remainder by a number, `Nat.toInt`, `Int.natAbs`, `Nat.max` and `Nat.min`, `Void`, and `Not`, `Or`, `&&`, `||`, `not` and `… = True`/`False` around comparisons
+   │ Note 1: `arithmetic` proves `a <= b`, `a < b` and `a = b` between `Nat`s or `Int`s built from `+`, `-`, numbers, multiplication, division and remainder by a number, `Nat.toInt`, `Int.natAbs`, `Nat.max` and `Nat.min`, `Void`, and `Not`, `Or`, `&&`, `||`, `not` and `… = True`/`False` around comparisons
    │ 
-   │ Note 2: for any other goal, `omega` looks for facts that contradict each other, and found none
+   │ Note 2: for any other goal, `arithmetic` looks for facts that contradict each other, and found none
 ───╯

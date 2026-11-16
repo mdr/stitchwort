@@ -17,10 +17,11 @@ theorem firstFreeSome ∀ (boxes: Set Cell) (direction: Direction) (start: Cell)
   match fuel with
     | Succ fuel =>
       match c: boxes.contains start with
-        | True => Both (And.left (firstFreeSome boxes direction (start.step direction) fuel free found)) (Inr rfl)
+        | True =>
+          Both (And.left (firstFreeSome boxes direction (start.step direction) fuel free found)) (Inr byComputing)
         | False =>
           let same := Option.someInjective found
-          Both (rewrite <- same in c) (Inl (Eq.sym same))
+          Both (rewrite <- same then c) (Inl same.flipped)
 
 --| Along a line of `length` boxes from `start`, `firstFree` finds the
 --| position past them, given more fuel than boxes.
@@ -30,15 +31,15 @@ theorem firstFreeLine ∀ (boxes: Set Cell) (direction: Direction) (length: Nat)
     (free: boxes.contains (ahead start direction length) = False):
     firstFree boxes direction start fuel = Some (ahead start direction length) :=
   match length, fuel with
-    | Zero, Succ fuel => rewrite free in rfl
+    | Zero, Succ fuel => rewrite free then byComputing
     | Succ length, Succ fuel =>
-      rewrite line 0 (omega) in
+      rewrite line 0 (arithmetic) then
         rewrite aheadFrom start direction length at firstFreeLine boxes direction length
           (start.step direction)
           fuel
-          (omega)
-          (i below => rewrite aheadFrom start direction i in line (Succ i) (omega))
-          (rewrite aheadFrom start direction length in free)
+          (arithmetic)
+          (i below => rewrite aheadFrom start direction i then line (Succ i) (arithmetic))
+          (rewrite aheadFrom start direction length then free)
 
 --| A move never moves a wall.
 theorem moveWalls ∀ (warehouse: Warehouse) (direction: Direction): (warehouse.move direction).walls = warehouse.walls :=
@@ -50,17 +51,17 @@ theorem nextAfterInsert ∀ (boxes: Set Cell) (free next: Cell)
     (found: (free = next) ∨ (boxes.contains next = True)):
     (boxes.insert free).contains next = True :=
   match found with
-    | Inl same => rewrite same in Set.containsInsert next boxes
+    | Inl same => rewrite same then Set.containsInsert next boxes
     | Inr there => Set.containsInsertMono boxes free next there
 
 --| A move never changes the number of boxes.
 theorem moveCount ∀ (warehouse: Warehouse) (direction: Direction):
     boxCount (warehouse.move direction) = boxCount warehouse :=
   match found: firstFree warehouse.boxes direction (warehouse.robot.step direction) (warehouse.boxes.size + 1) with
-    | None => rfl
+    | None => byComputing
     | Some free =>
       match wall: warehouse.walls.contains free with
-        | True => rfl
+        | True => byComputing
         | False =>
           let facts :=
             firstFreeSome warehouse.boxes direction
@@ -69,10 +70,10 @@ theorem moveCount ∀ (warehouse: Warehouse) (direction: Direction):
               free
               found
           rewrite Map.sizeRemove (Map.insert warehouse.boxes.items free ()) (warehouse.robot.step direction),
-              nextAfterInsert warehouse.boxes free (warehouse.robot.step direction) (And.right facts),
+              nextAfterInsert warehouse.boxes free (warehouse.robot.step direction) facts.right,
               Map.sizeInsert warehouse.boxes.items free (),
-              And.left facts in
-            omega
+              And.left facts then
+            arithmetic
 
 --| Nothing overlaps after a move that started with nothing overlapping: the
 --| robot never ends on a wall or a box.
@@ -91,18 +92,17 @@ theorem moveSeparate ∀ (warehouse: Warehouse) (direction: Direction)
             → warehouse.walls.contains position = False :=
             position member =>
               if atNext: position = next then
-                Void.exfalso
+                Void.impossible
                   (Bool.trueNotFalse
-                    (Eq.trans
-                      (Eq.sym member)
-                      (rewrite atNext in Set.containsRemove (warehouse.boxes.insert free) next)))
-              else if atFree: position = free then rewrite atFree in wall
+                    (Eq.trans member.flipped
+                      (rewrite atNext then Set.containsRemove (warehouse.boxes.insert free) next)))
+              else if atFree: position = free then rewrite atFree then wall
               else
                 And.left separate position
-                  (rewrite <- Set.containsInsertOther warehouse.boxes free position atFree in
-                    rewrite <- Set.containsRemoveOther (warehouse.boxes.insert free) next position atNext in member)
+                  (rewrite <- Set.containsInsertOther warehouse.boxes free position atFree then
+                    rewrite <- Set.containsRemoveOther (warehouse.boxes.insert free) next position atNext then member)
           let nextOffWalls: warehouse.walls.contains next = False := match And.right facts with
-            | Inl same => rewrite <- same in wall
+            | Inl same => rewrite <- same then wall
             | Inr there => And.left separate next there
           Both boxesOffWalls (Both nextOffWalls (Set.containsRemove (warehouse.boxes.insert free) next))
 
@@ -114,8 +114,8 @@ theorem lineAtMostBoxes ∀ (warehouse: Warehouse) (direction: Direction) (lengt
     (i => ahead warehouse.robot direction (i + 1))
     length
     warehouse.boxes
-    (And.left line)
-    (i j below belowJ same => omega [aheadInjective warehouse.robot direction (i + 1) (j + 1) same])
+    line.left
+    (i j below belowJ same => arithmetic [aheadInjective warehouse.robot direction (i + 1) (j + 1) same])
 
 --| With a line of boxes in front of the robot, `firstFree` finds the
 --| position past it.
@@ -123,13 +123,13 @@ theorem lineFree ∀ (warehouse: Warehouse) (direction: Direction) (length: Nat)
     (line: LineOfBoxes warehouse direction length):
     firstFree warehouse.boxes direction (warehouse.robot.step direction) (warehouse.boxes.size + 1)
       = Some (pastLine warehouse direction length) :=
-  rewrite <- aheadFrom warehouse.robot direction length in
+  rewrite <- aheadFrom warehouse.robot direction length then
     firstFreeLine warehouse.boxes direction length
       (warehouse.robot.step direction)
       (warehouse.boxes.size + 1)
-      (omega [lineAtMostBoxes warehouse direction length line])
-      (i below => rewrite aheadFrom warehouse.robot direction i in (And.left line i below))
-      (rewrite aheadFrom warehouse.robot direction length in (And.right line))
+      (arithmetic [lineAtMostBoxes warehouse direction length line])
+      (i below => rewrite aheadFrom warehouse.robot direction i then (And.left line i below))
+      (rewrite aheadFrom warehouse.robot direction length then line.right)
 
 --| "If this action would cause the robot or a box to move into a wall (#),
 --| nothing moves instead, including the robot."
@@ -137,7 +137,7 @@ theorem pushBlocked ∀ (warehouse: Warehouse) (direction: Direction) (length: N
     (line: LineOfBoxes warehouse direction length)
     (wall: warehouse.walls.contains (pastLine warehouse direction length) = True):
     warehouse.move direction = warehouse :=
-  rewrite lineFree warehouse direction length line, wall in rfl
+  rewrite lineFree warehouse direction length line, wall then byComputing
 
 --| The boxes after a push, as the program finds them: the free position
 --| past the line gains a box, and the robot's next position loses one.
@@ -152,22 +152,22 @@ theorem pushedForward ∀ (warehouse: Warehouse) (direction: Direction) (length:
   let next := warehouse.robot.step direction
   let free := pastLine warehouse direction length
   if atNext: position = next then
-    Void.exfalso
+    Void.impossible
       (Bool.trueNotFalse
-        (Eq.trans (Eq.sym member) (rewrite atNext in Set.containsRemove (warehouse.boxes.insert free) next)))
+        (Eq.trans member.flipped (rewrite atNext then Set.containsRemove (warehouse.boxes.insert free) next)))
   else
     let inserted := rewrite Set.containsRemoveOther (warehouse.boxes.insert free) next position atNext at member
     if atFree: position = free then
       match length with
-        | Zero => Void.exfalso (atNext atFree)
-        | Succ shorter => Inl (Witness shorter (Both (omega) atFree))
+        | Zero => (atNext atFree).impossible
+        | Succ shorter => Inl (Witness shorter (Both (arithmetic) atFree))
     else
       let boxed := rewrite Set.containsInsertOther warehouse.boxes free position atFree at inserted
       match decideAhead warehouse.robot direction length position with
         | Inl (Witness j (Both below same)) =>
           match j with
-            | Zero => Void.exfalso (atNext same)
-            | Succ earlier => Inl (Witness earlier (Both (omega) same))
+            | Zero => (atNext same).impossible
+            | Succ earlier => Inl (Witness earlier (Both (arithmetic) same))
         | Inr notLine => Inr (Both boxed notLine)
 
 --| Each box the puzzle has after a push is one the program has.
@@ -180,21 +180,22 @@ theorem pushedBackward ∀ (warehouse: Warehouse) (direction: Direction) (length
   match after with
     | Inl (Witness i (Both below same)) =>
       let notNext: position ≠ next := atNext =>
-        omega [aheadInjective warehouse.robot direction (Succ (i + 1)) 1 (Eq.trans (Eq.sym same) atNext)]
-      rewrite Set.containsRemoveOther (warehouse.boxes.insert free) next position notNext in
+        arithmetic [aheadInjective warehouse.robot direction (Succ (i + 1)) 1 (Eq.trans same.flipped atNext)]
+      rewrite Set.containsRemoveOther (warehouse.boxes.insert free) next position notNext then
         if last: i + 1 = length then
-          let atFree: position = free := rewrite same, <- last, aheadAddOne warehouse.robot direction (i + 1) in rfl
-          rewrite atFree in Set.containsInsert free warehouse.boxes
+          let atFree: position = free :=
+            rewrite same, <- last, aheadAddOne warehouse.robot direction (i + 1) then byComputing
+          rewrite atFree then Set.containsInsert free warehouse.boxes
         else
           Set.containsInsertMono warehouse.boxes free position
-            (rewrite same, <- aheadAddOne warehouse.robot direction (i + 1) in And.left line (i + 1) (omega))
+            (rewrite same, <- aheadAddOne warehouse.robot direction (i + 1) then And.left line (i + 1) (arithmetic))
     | Inr (Both boxed notLine) =>
       if atNext: position = next then
         match length with
-          | Zero => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym boxed) (rewrite atNext in And.right line)))
-          | Succ shorter => Void.exfalso (notLine 0 (omega) atNext)
+          | Zero => Void.impossible (Bool.trueNotFalse (Eq.trans boxed.flipped (rewrite atNext then And.right line)))
+          | Succ shorter => Void.impossible (notLine 0 (arithmetic) atNext)
       else
-        rewrite Set.containsRemoveOther (warehouse.boxes.insert free) next position atNext in
+        rewrite Set.containsRemoveOther (warehouse.boxes.insert free) next position atNext then
           Set.containsInsertMono warehouse.boxes free position boxed
 
 --| "The robot will also attempt to push those boxes": when nothing blocks
@@ -205,8 +206,8 @@ theorem pushMoves ∀ (warehouse: Warehouse) (direction: Direction) (length: Nat
     ((warehouse.move direction).robot = warehouse.robot.step direction)
       ∧ (∀ (position: Cell) => ((warehouse.move direction).boxes.contains position = True)
         ↔ (BoxAfterPush warehouse direction length position)) :=
-  rewrite lineFree warehouse direction length line, open in
-    Both rfl (position =>
+  rewrite lineFree warehouse direction length line, open then
+    Both byComputing (position =>
       {
         forward = pushedForward warehouse direction length line position,
         backward = pushedBackward warehouse direction length line position
@@ -220,27 +221,29 @@ theorem boxesEndOrFill ∀ (boxes: Set Cell) (direction: Direction) (start: Cell
       ∧ boxes.contains (ahead start direction length) = False)
       ∨ (∀ (i: Nat) => i < fuel → boxes.contains (ahead start direction i) = True) :=
   match fuel with
-    | Zero => Inr (i below => Void.exfalso (omega))
+    | Zero => Inr (i below => Void.impossible arithmetic)
     | Succ fuel =>
       match here: boxes.contains start with
-        | False => Inl (Witness 0 (Both (omega) (Both (i below => Void.exfalso (omega)) here)))
+        | False => Inl (Witness 0 (Both (arithmetic) (Both (i below => Void.impossible arithmetic) here)))
         | True =>
           let fromStart: ∀ (i: Nat) => (boxes.contains (ahead (start.step direction) direction i) = True)
             → boxes.contains (ahead start direction (Succ i)) = True :=
-            i boxed => rewrite <- aheadFrom start direction i in boxed
+            i boxed => rewrite <- aheadFrom start direction i then boxed
           let atOrAfter: ∀ (k: Nat) => (∀ (i: Nat) => i < k
             → boxes.contains (ahead (start.step direction) direction i) = True)
             → ∀ (i: Nat) => i < Succ k → boxes.contains (ahead start direction i) = True :=
             k rest i below =>
               match i with
                 | Zero => here
-                | Succ j => fromStart j (rest j (omega))
+                | Succ j => fromStart j (rest j (arithmetic))
           match boxesEndOrFill boxes direction (start.step direction) fuel with
             | Inl (Witness length (Both below (Both boxed free))) =>
               Inl
                 (Witness
                   (Succ length)
-                  (Both (omega) (Both (atOrAfter length boxed) (rewrite <- aheadFrom start direction length in free))))
+                  (Both
+                    (arithmetic)
+                    (Both (atOrAfter length boxed) (rewrite <- aheadFrom start direction length then free))))
             | Inr full => Inr (atOrAfter fuel full)
 
 --| Every move meets a line of boxes, maybe of none: so `pushBlocked` and
@@ -250,13 +253,14 @@ theorem lineExists ∀ (warehouse: Warehouse) (direction: Direction):
   let next := warehouse.robot.step direction
   let fromRobot: ∀ (i: Nat) => warehouse.boxes.contains (ahead next direction i)
     = warehouse.boxes.contains (ahead warehouse.robot direction (i + 1)) :=
-    i => rewrite aheadFrom warehouse.robot direction i in rfl
+    i => rewrite aheadFrom warehouse.robot direction i then byComputing
   match boxesEndOrFill warehouse.boxes direction next (warehouse.boxes.size + 1) with
     | Inl (Witness length (Both below (Both boxed free))) =>
-      Witness length (Both (i before => rewrite <- fromRobot i in boxed i before) (rewrite <- fromRobot length in free))
+      Witness length
+        (Both (i before => rewrite <- fromRobot i then boxed i before) (rewrite <- fromRobot length then free))
     | Inr full =>
-      Void.exfalso
-        (omega [
+      Void.impossible
+        (arithmetic [
           Set.countAtMostSize
             (i => ahead next direction i)
             (warehouse.boxes.size + 1)
@@ -270,13 +274,13 @@ theorem lineExists ∀ (warehouse: Warehouse) (direction: Direction):
 theorem moveAllWalls ∀ (warehouse: Warehouse) (moves: List Direction):
     (warehouse.moveAll moves).walls = warehouse.walls :=
   match moves with
-    | [] => rfl
+    | [] => byComputing
     | [move, ..rest] => Eq.trans (moveAllWalls (warehouse.move move) rest) (moveWalls warehouse move)
 
 theorem moveAllCount ∀ (warehouse: Warehouse) (moves: List Direction):
     boxCount (warehouse.moveAll moves) = boxCount warehouse :=
   match moves with
-    | [] => rfl
+    | [] => byComputing
     | [move, ..rest] => Eq.trans (moveAllCount (warehouse.move move) rest) (moveCount warehouse move)
 
 theorem moveAllSeparate ∀ (warehouse: Warehouse) (moves: List Direction)

@@ -12,14 +12,14 @@ theorem combinationsComplete ∀ (operators chosen: List Operator)
     (allowed: ∀ (operator: Operator) => operator ∈ chosen → operator ∈ operators):
     chosen ∈ combinations operators chosen.length :=
   match chosen with
-    | [] => Inl rfl
+    | [] => Inl byComputing
     | [operator, ..rest] =>
       List.memFlatMapIntro
         (other => combinations operators rest.length |> .map (Cons other))
         operator
         [operator, ..rest]
         operators
-        (allowed operator (Inl rfl))
+        (allowed operator (Inl byComputing))
         (List.memMap
           (combinations operators rest.length)
           rest
@@ -33,8 +33,8 @@ theorem combinationsSound ∀ (operators: List Operator) (count: Nat) (chosen: L
   match count with
     | Zero =>
       match listed with
-        | Inl same => rewrite <- same in Both rfl (operator none => Void.exfalso none)
-        | Inr none => Void.exfalso none
+        | Inl same => rewrite <- same then Both byComputing (operator none => none.impossible)
+        | Inr none => none.impossible
     | Succ count =>
       List.anyElim
         (first => chosen ∈ (combinations operators count |> .map (Cons first))) _
@@ -48,8 +48,8 @@ theorem combinationsSound ∀ (operators: List Operator) (count: Nat) (chosen: L
             (rest restListed same =>
               match combinationsSound operators count rest restListed with
                 | Both length restAllowed =>
-                  rewrite <- same in
+                  rewrite <- same then
                     Both (Eq.cong Succ length) (operator has =>
                       match has with
-                        | Inl isFirst => rewrite <- isFirst in firstAllowed
+                        | Inl isFirst => rewrite <- isFirst then firstAllowed
                         | Inr inRest => restAllowed operator inRest)))

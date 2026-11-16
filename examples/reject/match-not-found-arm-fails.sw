@@ -10,5 +10,5 @@ def double (n: Nat): Nat := n + n
 
 theorem bad (n: Nat): double n = n + n :=
   match h: n * 2 with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ k => Nat.succNotZero k

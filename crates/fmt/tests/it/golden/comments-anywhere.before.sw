@@ -102,7 +102,7 @@ def p19 (x: Nat): Nat :=
 
 -- p20
 theorem p20 (x: Nat): -- after theorem :
-  x = x := rfl
+  x = x := byComputing
 
 -- p21
 def p21 (x: Nat): Nat :=

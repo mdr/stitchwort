@@ -19,26 +19,26 @@ theorem firstIllegalFrom ∀ (before: List Token) (illegal: Bracket):
         (before ++ [Opener bracket])
         illegal
         [bracket, ..stack]
-        (rewrite scanAppend [] before [Opener bracket], open in rfl)
+        (rewrite scanAppend [] before [Opener bracket], open then byComputing)
         rest
         h
-    rewrite List.appendAssoc before [Opener bracket] rest at next in next
+    rewrite List.appendAssoc before [Opener bracket] rest at next then next
   | [], open, [Closer closer, ..rest], h =>
-    rewrite <- corruptedInjective closer illegal h in
-      stopsHere before closer rest [] open (rewrite scanAppend [] before [Closer closer], open in rfl)
+    rewrite <- corruptedInjective closer illegal h then
+      stopsHere before closer rest [] open (rewrite scanAppend [] before [Closer closer], open then byComputing)
   | [top, ..below], open, [Closer closer, ..rest], h =>
     match same: top == closer with
       | True =>
         let opened: scan [] (before ++ [Closer closer]) = Unclosed below :=
-          rewrite scanAppend [] before [Closer closer], open, same in rfl
+          rewrite scanAppend [] before [Closer closer], open, same then byComputing
         let next := firstIllegalFrom (before ++ [Closer closer]) illegal below opened rest h
-        rewrite List.appendAssoc before [Closer closer] rest at next in next
+        rewrite List.appendAssoc before [Closer closer] rest at next then next
       | False =>
-        rewrite <- corruptedInjective closer illegal h in
+        rewrite <- corruptedInjective closer illegal h then
           stopsHere before closer rest
             [top, ..below]
             open
-            (rewrite scanAppend [] before [Closer closer], open, same in rfl)
+            (rewrite scanAppend [] before [Closer closer], open, same then byComputing)
 
 --| The scan stops at the closer right after a start it reads to the end.
 theorem stopsHere ∀ (before: List Token) (closer: Bracket) (rest: List Token) (stack: List Bracket)
@@ -52,7 +52,7 @@ theorem stopsHere ∀ (before: List Token) (closer: Bracket) (rest: List Token) 
 theorem firstIllegalOfScan ∀ (line: List Token) (illegal: Bracket)
     (h: scan [] line = Corrupted illegal):
     FirstIllegal line (Closer illegal) :=
-  firstIllegalFrom [] illegal [] rfl line h
+  firstIllegalFrom [] illegal [] byComputing line h
 
 --| And the first illegal character is always a closer, where the scan
 --| stops.
@@ -60,24 +60,28 @@ theorem scanOfFirstIllegal ∀ (line: List Token) (token: Token):
     FirstIllegal line token → exists (illegal: Bracket) => token = Closer illegal ∧ scan [] line = Corrupted illegal
   | At before _ after legal illegal =>
     match e: scan [] before with
-      | Corrupted stop => Void.exfalso (notCorruptedOfLegal before stop legal e)
+      | Corrupted stop => Void.impossible (notCorruptedOfLegal before stop legal e)
       | Unclosed stack =>
         match token with
-          | Opener bracket => Void.exfalso (illegal (legalOpener before bracket legal))
+          | Opener bracket => Void.impossible (illegal (legalOpener before bracket legal))
           | Closer closer =>
             match stack with
-              | [] => Witness closer (Both rfl (rewrite scanAppend [] before [Closer closer, ..after], e in rfl))
+              | [] =>
+                Witness closer
+                  (Both byComputing (rewrite scanAppend [] before [Closer closer, ..after], e then byComputing))
               | [top, ..below] =>
                 match same: top == closer with
                   | True =>
-                    Void.exfalso
+                    Void.impossible
                       (illegal
                         (legalOfUnclosed
                           (before ++ [Closer closer])
                           below
-                          (rewrite scanAppend [] before [Closer closer], e, same in rfl)))
+                          (rewrite scanAppend [] before [Closer closer], e, same then byComputing)))
                   | False =>
-                    Witness closer (Both rfl (rewrite scanAppend [] before [Closer closer, ..after], e, same in rfl))
+                    Witness closer
+                      (Both byComputing
+                        (rewrite scanAppend [] before [Closer closer, ..after], e, same then byComputing))
 
 --| A line has at most one first illegal character.
 theorem firstIllegalUnique ∀ (line: List Token) (a b: Token)
@@ -88,20 +92,20 @@ theorem firstIllegalUnique ∀ (line: List Token) (a b: Token)
     | Witness x (Both isX stopsX) =>
       match scanOfFirstIllegal line b second with
         | Witness y (Both isY stopsY) =>
-          rewrite isX, isY, corruptedInjective x y (Eq.trans (Eq.sym stopsX) stopsY) in rfl
+          rewrite isX, isY, corruptedInjective x y (Eq.trans stopsX.flipped stopsY) then byComputing
 
 theorem pointsAgree ∀ (bracket: Bracket): syntaxPoints bracket = errorPoints bracket := cases
 
 --| Each line's score is the spec's.
 theorem lineErrorScore ∀ (line: List Token): ErrorScore line (corruptionScore line) := match e: scan [] line with
-  | Corrupted illegal => rewrite pointsAgree illegal in Illegal (firstIllegalOfScan line illegal e)
+  | Corrupted illegal => rewrite pointsAgree illegal then Illegal (firstIllegalOfScan line illegal e)
   | Unclosed stack => NotCorrupted (legalOfUnclosed line stack e)
 
 --| Part 1 is the total syntax error score, for every list of lines.
 theorem part1Correct ∀ (lines: List (List Token)): Part1Answer lines (solvePart1 lines) := match lines with
   | [] => NoLines
   | [line, ..rest] =>
-    rewrite List.sumByCons rest line corruptionScore in NextLine (lineErrorScore line) (part1Correct rest)
+    rewrite List.sumByCons rest line corruptionScore then NextLine (lineErrorScore line) (part1Correct rest)
 
 def bracketOf: Token → Bracket
   | Opener bracket => bracket
@@ -110,10 +114,10 @@ def bracketOf: Token → Bracket
 --| A line has one syntax error score.
 theorem errorScoreUnique ∀ (line: List Token) (a b: Nat): ErrorScore line a → ErrorScore line b → a = b
   | Illegal [bracket := x] first, Illegal [bracket := y] second =>
-    rewrite Eq.cong bracketOf (firstIllegalUnique line (Closer x) (Closer y) first second) in rfl
-  | Illegal [bracket := x] first, NotCorrupted legal => Void.exfalso (illegalNotLegal line x first legal)
-  | NotCorrupted legal, Illegal [bracket := y] second => Void.exfalso (illegalNotLegal line y second legal)
-  | NotCorrupted _, NotCorrupted _ => rfl
+    rewrite Eq.cong bracketOf (firstIllegalUnique line (Closer x) (Closer y) first second) then byComputing
+  | Illegal [bracket := x] first, NotCorrupted legal => Void.impossible (illegalNotLegal line x first legal)
+  | NotCorrupted legal, Illegal [bracket := y] second => Void.impossible (illegalNotLegal line y second legal)
+  | NotCorrupted _, NotCorrupted _ => byComputing
 
 --| A line with an illegal character isn't legal.
 theorem illegalNotLegal ∀ (line: List Token) (illegal: Bracket)
@@ -125,6 +129,6 @@ theorem illegalNotLegal ∀ (line: List Token) (illegal: Bracket)
 
 --| So the spec's part 1 answer is unique: the program's is the only one.
 theorem part1Unique ∀ (lines: List (List Token)) (a b: Nat): Part1Answer lines a → Part1Answer lines b → a = b
-  | NoLines, NoLines => rfl
+  | NoLines, NoLines => byComputing
   | NextLine [score := s] [total := t] first rest, NextLine [score := s2] [total := t2] second rest2 =>
-    rewrite errorScoreUnique _ s s2 first second, part1Unique _ t t2 rest rest2 in rfl
+    rewrite errorScoreUnique _ s s2 first second, part1Unique _ t t2 rest rest2 then byComputing

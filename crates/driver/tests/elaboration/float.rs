@@ -8,7 +8,7 @@ use stitchwort_driver::driver::Session;
 use stitchwort_driver::float_gate::{self, Mode};
 
 /// Every row of §3.4's table with natives on, and with the float natives
-/// off (the number natives on): the `rfl` theorems check, `neg (neg x) = x`
+/// off (the number natives on): the `byComputing` theorems check, `neg (neg x) = x`
 /// is proved, and the normal forms are the same terms in both modes.
 #[test]
 fn the_float_natives_agree_with_their_definitions() {

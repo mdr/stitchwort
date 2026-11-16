@@ -41,7 +41,7 @@ test "show" :=
 
 -- What `get` says after `insert`, from the library's theorems, for any map.
 theorem afterTwo ∀ (m: Map Nat Text): (m |> Map.insert 1 "a" |> Map.insert 2 "b" |> Map.get 1) = Some "a" :=
-  Eq.trans (Map.getInsertOther 2 "b" 1 (Nat.equalFalse 1 2 rfl) (Map.insert m 1 "a")) (Map.getInsert 1 "a" m)
+  Eq.trans (Map.getInsertOther 2 "b" 1 (Nat.equalFalse 1 2 byComputing) (Map.insert m 1 "a")) (Map.getInsert 1 "a" m)
 
 -- The ordering is part of the type (§7.5).
 
@@ -49,7 +49,7 @@ theorem afterTwo ∀ (m: Map Nat Text): (m |> Map.insert 1 "a" |> Map.insert 2 "
 def descending: Ord Nat :=
   Ord.fromCompare
     (x y => Nat.compare y x)
-    (x y h => Eq.sym (Nat.compareEqual y x h))
+    (x y h => (Nat.compareEqual y x h).flipped)
     (x y => Nat.compareFlip y x)
     (x y z h1 h2 => Nat.compareTrans z y x h2 h1)
 
@@ -113,7 +113,7 @@ theorem commonKeyHeld ∀ (a b: Set Nat) (n: Nat)
     (inA: Set.contains a n = True)
     (inB: Set.contains b n = True):
     Set.contains (Set.intersect a b) n = True :=
-  rewrite Set.containsIntersect a n b, inA, inB in rfl
+  rewrite Set.containsIntersect a n b, inA, inB then byComputing
 
 theorem commonAtMostEither ∀ (a b: Set Nat):
     Set.size (Set.intersect a b) ≤ Set.size a ∧ Set.size (Set.intersect a b) ≤ Set.size b :=

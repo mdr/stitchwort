@@ -19,13 +19,13 @@ theorem arriveValid ∀ (state: State) (plan: Plan) (atMost: state.hitPoints ≤
   {
     outOfWalls = startOnFloor plan.level,
     atMost = atMost,
-    clear = placeMonstersClear plan.level plan.level.start [] plan.monsters rfl,
+    clear = placeMonstersClear plan.level plan.level.start [] plan.monsters byComputing,
     onFloor = placeMonstersOnFloor plan.level plan.level.start [] plan.monsters Trivial,
     apart = placeMonstersApart plan.level plan.level.start [] plan.monsters Trivial
   }
 
 --| So every new game starts valid.
-theorem startingValid ∀ (plan: Plan): Valid (startingState plan) := arriveValid (freshState plan) plan rfl
+theorem startingValid ∀ (plan: Plan): Valid (startingState plan) := arriveValid (freshState plan) plan byComputing
 
 --| A turn with any dice keeps the state valid.
 theorem resolveValid ∀ (dice: Dice) (state: State) (command: Command)

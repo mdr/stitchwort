@@ -206,7 +206,7 @@ fn internal_ctor(text: &str) -> Option<(stitchwort_core::DataId, usize)> {
 
 /// Names with built-in meanings, which can't be redefined.
 const RESERVED: &[&str] = &[
-    "rfl",
+    "byComputing",
     "J",
     "Partial",
     "Quot",
@@ -1229,7 +1229,7 @@ impl Elaborator {
     /// that the library always is. The pins (`pins.rs`) hash library terms,
     /// and a solved unknown is read back as the call it stands for only when
     /// gluing is on (`unify::zonk_changed`), so an unglued library would
-    /// hash differently (`Float.neg`'s `rfl` argument, SW-2254).
+    /// hash differently (`Float.neg`'s `byComputing` argument, SW-2254).
     pub(crate) fn gluing(&self) -> bool {
         self.options.glue || self.unit.loading_prelude
     }
@@ -6772,7 +6772,7 @@ fn settled_error_first(e: &Diagnostic, again: &Diagnostic) -> bool {
 /// (`Decl::settled`): the guess may have been the mistake (`Ph Char 0 :=
 /// ph natSrc True`, where `Ph` doesn't use its type parameter, so
 /// `natSrc`'s `Nat` would have done), and the note invites unfolding the
-/// goal. Only on a type mismatch: an unknown name or a failed `rfl` isn't
+/// goal. Only on a type mismatch: an unknown name or a failed `byComputing` isn't
 /// explained by it.
 fn settle_note(e: Diagnostic, settled: &[state::Settled]) -> Diagnostic {
     let Some(at) = e.primary_span().filter(|_| e.code == "E-TYPE-MISMATCH") else {

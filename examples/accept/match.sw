@@ -33,7 +33,7 @@ def f (n: Nat) (xs: List Nat): Nat :=
 
 -- A proof by `match`, in the tree.
 theorem appendNil ∀ (xs: List a): xs.append [] = xs := match xs with
-  | [] => rfl
+  | [] => byComputing
   | [y, ..ys] => Eq.cong (Cons y) (appendNil ys)
 
 -- A `match` in a test.
@@ -54,8 +54,8 @@ def isEmpty (xs: List Nat): Bool := match h: xs.length with
 
 -- The equation used in a branch.
 def lenZero (xs: List Nat): Decidable (xs.length = 0) := match h: xs.length with
-  | Zero => Decidable.yes rfl
-  | Succ k => Decidable.no (e => Nat.equalFalse (Succ k) 0 rfl e)
+  | Zero => Decidable.yes byComputing
+  | Succ k => Decidable.no (e => Nat.equalFalse (Succ k) 0 byComputing e)
 
 def keep (p: Prop): p → Bool
   | _ => True
@@ -66,14 +66,14 @@ def usesH (xs: List Nat): Bool := match h: xs.length with
 
 -- Expression scrutinee generalised in the goal.
 theorem same ∀ (n: Nat): (n + 0) = (n + 0) := match n + 0 with
-  | Zero => rfl
-  | Succ m => rfl
+  | Zero => byComputing
+  | Succ m => byComputing
 
 -- Variable scrutinee with a dependent hypothesis, lifted.
 def pred (n: Nat) (q: n ≠ 0): Nat :=
   0
     + match n with
-      | Zero => Void.absurd (q rfl)
+      | Zero => Void.absurd (q byComputing)
       | Succ m => m
 
 -- Nested matches.

@@ -13,7 +13,7 @@ theorem positionsGrow ∀ (garden: Garden) (position: Position)
     (member: position ∈ garden.positions):
     Exists Char (plant => garden.plantAt position = Some plant) :=
   let contains := (Map.memKeys garden.plots position).forward member
-  match grows: garden.plantAt position with | Some plant => Witness plant rfl
+  match grows: garden.plantAt position with | Some plant => Witness plant byComputing
 
 --| After inserting a list of plots, `seen` has what it had and the plots.
 theorem containsInsertAll ∀ (seen: Set Position) (plots: List Position) (position: Position):
@@ -21,16 +21,16 @@ theorem containsInsertAll ∀ (seen: Set Position) (plots: List Position) (posit
       ↔ ((seen.contains position = True) ∨ (position ∈ plots)) :=
   rewrite Set.containsFoldInsert seen position plots,
       List.anyCong plots (member => Map.Spec.sameKey position member) (member => member == position) (member =>
-        Map.Spec.sameKeyDecide position member) in
+        Map.Spec.sameKeyDecide position member) then
     {
       forward = either =>
         match before: seen.contains position with
-          | True => Inl rfl
+          | True => Inl byComputing
           | False => Inr ((List.memContains plots position).forward either),
       backward = either =>
         match either with
-          | Inl before => rewrite before in rfl
-          | Inr isIn => rewrite (List.memContains plots position).backward isIn in Bool.orTrue _
+          | Inl before => rewrite before then byComputing
+          | Inr isIn => rewrite (List.memContains plots position).backward isIn then Bool.orTrue _
     }
 
 --| A set of positions that has every plot joined to one it has.
@@ -63,11 +63,11 @@ theorem atMostOnce ∀ (garden: Garden) (position: Position) (starts: List Posit
     (regionsWith (garden.regionsFrom starts seen) position ≤ 1)
       ∧ (seen.contains position = True → regionsWith (garden.regionsFrom starts seen) position = 0) :=
   match starts with
-    | [] => Both (omega) (has => rfl)
+    | [] => Both (arithmetic) (has => byComputing)
     | [start, ..rest] =>
       match taken: seen.contains start with
         | True => atMostOnce garden position rest seen closed (other member => plots other (Inr member))
-        | False => Exists.elim (plots start (Inl rfl)) (plant grows =>
+        | False => Exists.elim (plots start (Inl byComputing)) (plant grows =>
           let region := garden.regionOf start
           let after := region.plots.foldLeft seen Set.insert
           let closedAfter: Closed garden after := from other has joined =>
@@ -76,22 +76,21 @@ theorem atMostOnce ∀ (garden: Garden) (position: Position) (starts: List Posit
                 | Inl before => Inl (closed from other before joined)
                 | Inr isIn => Inr (regionClosed garden start plant grows from other isIn joined))
           let later := atMostOnce garden position rest after closedAfter (other member => plots other (Inr member))
-          rewrite List.countCons (garden.regionsFrom rest after) region (region => region.contains position) in
+          rewrite List.countCons (garden.regionsFrom rest after) region (region => region.contains position) then
             match here: region.contains position with
               | True =>
                 let isIn := here.read
                 Both
-                  (omega [And.right later ((containsInsertAll seen region.plots position).backward (Inr isIn))])
+                  (arithmetic [And.right later ((containsInsertAll seen region.plots position).backward (Inr isIn))])
                   (has =>
-                    Void.exfalso
+                    Void.impossible
                       (Bool.falseNotTrue
-                        (Eq.trans
-                          (Eq.sym taken)
+                        (Eq.trans taken.flipped
                           (closed position start has
                             (joinedSymmetric garden start position
                               ((regionOfIsRegion garden start plant grows position).forward isIn))))))
-              | False => Both (omega [And.left later]) (has =>
-                omega [And.right later ((containsInsertAll seen region.plots position).backward (Inl has))]))
+              | False => Both (arithmetic [later.left]) (has =>
+                arithmetic [And.right later ((containsInsertAll seen region.plots position).backward (Inl has))]))
 
 --| Each start is in `seen` or in a region found.
 theorem covered ∀ (garden: Garden) (position: Position) (starts: List Position) (seen: Set Position)
@@ -99,30 +98,30 @@ theorem covered ∀ (garden: Garden) (position: Position) (starts: List Position
     (none: position ∈ starts):
     (seen.contains position = True) ∨ (1 ≤ regionsWith (garden.regionsFrom starts seen) position) :=
   match starts, none with
-    | [], none => Void.exfalso none
+    | [], none => none.impossible
     | [start, ..rest], member =>
       match taken: seen.contains start with
         | True =>
           match member with
-            | Inl same => Inl (rewrite <- same in taken)
+            | Inl same => Inl (rewrite <- same then taken)
             | Inr later => covered garden position rest seen (other isIn => plots other (Inr isIn)) later
-        | False => Exists.elim (plots start (Inl rfl)) (plant grows =>
+        | False => Exists.elim (plots start (Inl byComputing)) (plant grows =>
           let region := garden.regionOf start
           let after := region.plots.foldLeft seen Set.insert
-          rewrite List.countCons (garden.regionsFrom rest after) region (region => region.contains position) in
+          rewrite List.countCons (garden.regionsFrom rest after) region (region => region.contains position) then
             let inRegion: position ∈ region.plots
               → (seen.contains position = True)
                 ∨ (1 ≤ Bool.toNat (region.contains position) + regionsWith (garden.regionsFrom rest after) position) :=
-              isIn => Inr (rewrite (List.memContains region.plots position).backward isIn in omega)
+              isIn => Inr (rewrite (List.memContains region.plots position).backward isIn then arithmetic)
             match member with
-              | Inl same => inRegion (rewrite <- same in startInRegion garden start plant grows)
+              | Inl same => inRegion (rewrite <- same then startInRegion garden start plant grows)
               | Inr later =>
                 match covered garden position rest after (other isIn => plots other (Inr isIn)) later with
                   | Inl has =>
                     match (containsInsertAll seen region.plots position).forward has with
                       | Inl before => Inl before
                       | Inr isIn => inRegion isIn
-                  | Inr found => Inr (omega [found]))
+                  | Inr found => Inr (arithmetic [found]))
 
 --| "Each garden plot" is in exactly one of the program's regions.
 theorem inOneRegion ∀ (garden: Garden) (position: Position) (plant: Char)
@@ -132,25 +131,25 @@ theorem inOneRegion ∀ (garden: Garden) (position: Position) (plant: Char)
   let once := atMostOnce garden position garden.positions Set.empty (from other has joined => cases) plots
   match covered garden position garden.positions Set.empty plots (garden.positionsComplete position plant grows) with
     | Inl has => cases
-    | Inr found => omega [found, And.left once]
+    | Inr found => arithmetic [found, once.left]
 
 --| Each region found is the region of one of the starts.
 theorem fromStarts ∀ (garden: Garden) (region: Region) (starts: List Position) (seen: Set Position)
     (none: region ∈ garden.regionsFrom starts seen):
     Exists Position (start => (start ∈ starts) ∧ (region = garden.regionOf start)) :=
   match starts, none with
-    | [], none => Void.exfalso none
+    | [], none => none.impossible
     | [start, ..rest], member =>
       match taken: seen.contains start with
         | True => Exists.elim (fromStarts garden region rest seen member) (other both =>
-          Witness other (Both (Inr (And.left both)) (And.right both)))
+          Witness other (Both (Inr both.left) both.right))
         | False =>
           match member with
-            | Inl same => Witness start (Both (Inl rfl) (Eq.sym same))
+            | Inl same => Witness start (Both (Inl byComputing) same.flipped)
             | Inr later =>
               Exists.elim
                 (fromStarts garden region rest ((garden.regionOf start).plots.foldLeft seen Set.insert) later)
-                (other both => Witness other (Both (Inr (And.left both)) (And.right both)))
+                (other both => Witness other (Both (Inr both.left) both.right))
 
 --| Each of the program's regions is a region of the map, its plots listed
 --| once, and holds a plot.
@@ -160,9 +159,9 @@ theorem regionsAreRegions ∀ (garden: Garden) (region: Region)
       (Exists Char (plant => garden.plantAt start = Some plant))
         ∧ ((IsRegion garden start region) ∧ (List.Distinct region.plots))) :=
   Exists.elim (fromStarts garden region garden.positions Set.empty member) (start both =>
-    Exists.elim (positionsGrow garden start (And.left both)) (plant grows =>
+    Exists.elim (positionsGrow garden start both.left) (plant grows =>
       Witness start
         (Both
           (Witness plant grows)
-          (rewrite And.right both in
+          (rewrite And.right both then
             Both (regionOfIsRegion garden start plant grows) (regionOfDistinct garden start)))))

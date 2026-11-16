@@ -5,7 +5,7 @@ expression: output
 [E-PARSE] Error: `at` after a `rewrite` rule names the hypothesis to rewrite, but no hypothesis follows it
    ╭─[ reject/rewrite-at-named-hypothesis.sw:7:19 ]
    │
- 7 │   rewrite Eq.symm at in rfl
+ 7 │   rewrite Eq.symm at then byComputing
    │                   ─┬  
    │                    ╰── `at` after a `rewrite` rule names the hypothesis to rewrite, but no hypothesis follows it
    │ 

@@ -6,4 +6,4 @@ import Std (Bool, Nat)
 type TBox: Type 1 =
   | MkTBox (t: Type)
 
-theorem t1: MkTBox Nat = MkTBox Bool := rfl
+theorem t1: MkTBox Nat = MkTBox Bool := byComputing

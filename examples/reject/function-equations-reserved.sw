@@ -7,4 +7,4 @@ def Kind: Nat → Nat
   | 3 => 1
   | _ => 0
 
-theorem Kind.eq2: Kind 4 = 0 := rfl
+theorem Kind.eq2: Kind 4 = 0 := byComputing

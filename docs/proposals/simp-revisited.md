@@ -41,7 +41,7 @@ with `simp` and `grind`, are 30% of the size **[measured, SW-3513]**.
 
 **The change.** A proof term `simp [rules]`: it rewrites the goal *as
 it is written* with the listed equations, each left to right, wherever
-they fit, until none fits, and then closes what is left the way `rfl`
+they fit, until none fits, and then closes what is left the way `byComputing`
 and `cases` already close things. Rules can be collected under a name
 declared in one place (`rules words := [...]`). There is no global rule
 set, no attribute, no new axiom and no kernel change. What `simp` wrote
@@ -72,11 +72,11 @@ Read from `experiments/lean-engine/idiomatic/Toy/Proofs/Words.lean`
 
 | Job | Lean | Stitchwort today | Needs a `simp`? |
 |---|---|---|---|
-| Unfold definitions so the goal computes | `simp [Printer.put, wordsOf, …]`, the definition names in every list | Conversion does it: `rfl` and `omega` compute through definitions (the plain Lean port needed `show` 12 times where Stitchwort needs nothing, toy-proof-complexity.md §5.1) | No. This is the part of Lean's `simp` Stitchwort already has |
-| Rewrite with lemmas about the printer's operations | 29 `@[simp]` lemmas: `put_written`, `newline_words`, `stackWords_append`, … | `rewrite lemma args in …`, one per step, or helper lemmas (`keepsWords`, `addsWords`, `eitherWords`) | **Yes: this is the gap** |
-| Use the hypotheses as rules | `simp_all`, `simp [*]`, `simp [ih]` | `rewrite steps in …` by name | Yes, by name |
+| Unfold definitions so the goal computes | `simp [Printer.put, wordsOf, …]`, the definition names in every list | Conversion does it: `byComputing` and `arithmetic` compute through definitions (the plain Lean port needed `show` 12 times where Stitchwort needs nothing, toy-proof-complexity.md §5.1) | No. This is the part of Lean's `simp` Stitchwort already has |
+| Rewrite with lemmas about the printer's operations | 29 `@[simp]` lemmas: `put_written`, `newline_words`, `stackWords_append`, … | `rewrite lemma args then …`, one per step, or helper lemmas (`keepsWords`, `addsWords`, `eitherWords`) | **Yes: this is the gap** |
+| Use the hypotheses as rules | `simp_all`, `simp [*]`, `simp [ih]` | `rewrite steps then …` by name | Yes, by name |
 | The same script in every case | `<;>`, `all_goals`, `first \| done \| … ` | One arm written per case | No: a separate feature (§4.3 rank 4 of toy-proof-complexity.md) |
-| Reason from "or" and "there is" hypotheses, with arithmetic | `grind` (17 uses) | Patterns (`Inl (Both _ flat)`), `omega` | No: not rewriting |
+| Reason from "or" and "there is" hypotheses, with arithmetic | `grind` (17 uses) | Patterns (`Inl (Both _ flat)`), `arithmetic` | No: not rewriting |
 
 Of the 29 `@[simp]` lemmas, 26 are equations and 3 are `↔`
 (`stackUniform_append`, `stackUniform_prints`, `stackUniform_fillSeps`)
@@ -91,13 +91,13 @@ chain per arm, the chain a `simp` would produce, and checked it with
 the release CLI **[measured]**:
 
 - **23 of the 26 arms check** as `rewrite steps in rewrite <rules> in
-  rfl`, with the rules' arguments left open, for example
+  byComputing`, with the rules' arguments left open, for example
 
   ```
-  | Chunk text width, steps, _ => rewrite steps in rewrite writeWords, List.appendAssoc in rfl
-  | Concat docs, steps, _ => rewrite steps in rewrite stackWordsAppend, printsWords in rfl
+  | Chunk text width, steps, _ => rewrite steps then rewrite writeWords, List.appendAssoc then byComputing
+  | Concat docs, steps, _ => rewrite steps then rewrite stackWordsAppend, printsWords then byComputing
   | Fill [first, ..others], Inl (Both _ flat), _ =>
-    rewrite flat in rewrite stackWordsAppend, printsWords, joinLinesWords in rfl
+    rewrite flat then rewrite stackWordsAppend, printsWords, joinLinesWords then byComputing
   ```
 
   So the helper lemmas `keepsWords` and `addsWords` are not needed even
@@ -111,7 +111,7 @@ the release CLI **[measured]**:
   after-the-toy-proof.md §2.3 ("`rewrite` can't find a term the goal
   has already computed past"), and it looks like a gap against D2542,
   which says the as-written occurrence is used when there is one.
-- **The three arms with an `if` fail under `cases in (rewrite …)`.**
+- **The three arms with an `if` fail under `cases then (rewrite …)`.**
   `cases` hands its term the goal *computed*, in which
   `(printer.newline indent).words` is no longer visible, and then keeps
   splitting what the computed goal is stuck on: 15 cases, down to
@@ -122,30 +122,30 @@ the release CLI **[measured]**:
 Both failures are the same thing: the search tools still compute before
 they look. D2542 decided they shouldn't. A `simp` that matched only what
 is visible would not have either problem, and it needs `cases` to pass
-the folded goal to the term after `in` (§3.5).
+the folded goal to the term after `then` (§3.5).
 
 ### 1.3 What D1168 was waiting for
 
 simp.md §7 said to build `simp` "when a proof needs rewriting with
-lemmas *and* `rewrite p, q in …` is too long or can't do it". The toy
+lemmas *and* `rewrite p, q then …` is too long or can't do it". The toy
 is that proof: 777 `rewrite`s in `tools/toyfmt/src`, and std has 1,551
-with 2,244 uses of `Eq.cong`, `Eq.trans` and `Eq.sym` **[measured, by
+with 2,244 uses of `Eq.cong`, `Eq.trans` and `Eq.flipped` **[measured, by
 `grep`]**.
 
 ## 2. The design
 
 ### 2.1 What `simp` is
 
-`simp` is a keyword and a proof term, like `rewrite`, `omega` and
+`simp` is a keyword and a proof term, like `rewrite`, `arithmetic` and
 `cases`:
 
 | Form | Meaning |
 |---|---|
 | `simp [r1, r2]` | rewrite the goal with the rules until none applies, then close it (§2.4) |
-| `simp [r1, r2] in t` | the same, then `t` proves what is left |
+| `simp [r1, r2] then t` | the same, then `t` proves what is left |
 | `simp [r1, r2] at h` | the fact `h` (or any term) with its type rewritten, as `rewrite … at` |
-| `simp [r1, r2] at h in t` | `h` rebound for `t` |
-| `simp [r1, r2] in ?` | shows what is left, as a goal |
+| `simp [r1, r2] at h then t` | `h` rebound for `t` |
+| `simp [r1, r2] then ?` | shows what is left, as a goal |
 
 A **rule** is one of:
 
@@ -163,7 +163,7 @@ A **rule** is one of:
   `P ↔ True` (§2.2).
 
 A conditional rule's premises are found as `rewrite`'s are: by
-unification, a hypothesis of exactly that type, or `omega` **[checked:
+unification, a hypothesis of exactly that type, or `arithmetic` **[checked:
 `docs/syntax.md`, "Premises"]**. A premise that isn't found means the
 rule doesn't apply there; it isn't an error.
 
@@ -224,23 +224,23 @@ declaration. §4 gives the reasons.
 ### 2.4 Closing, and what `simp` doesn't do
 
 After rewriting, `simp [..]` closes the goal by the first of: both
-sides compute to the same value (`rfl`, so **computing still decides**);
+sides compute to the same value (`byComputing`, so **computing still decides**);
 two hypotheses contradict each other; a hypothesis, or a side of one
 that is a conjunction, is the goal; from stage 3, a goal that is a
 conjunction whose parts each close this way. These are `cases`' closers
-**[checked: `docs/syntax.md`, "Closing a case"]** without `omega` and
-without the decision closer; for those write `simp [..] in omega`.
+**[checked: `docs/syntax.md`, "Closing a case"]** without `arithmetic` and
+without the decision closer; for those write `simp [..] then arithmetic`.
 
 It does **not**:
 
 - unfold definitions on its own, or have reducibility settings (D2541's
   "no Lean-style transparency system" stands);
-- split cases. `cases in simp [..]` and `simp [..] in cases` give either
+- split cases. `cases then simp [..]` and `simp [..] then cases` give either
   order, as simp.md §7 recommended; Lean's `simp` doesn't split either
   **[cited: simp.md §4.2]**, Isabelle's does, in its looper **[cited:
   I1]**;
-- sort sums or products (no ordered rewriting: that is `ring`'s and
-  `omega`'s job; a commutativity rule is refused, §3.1);
+- sort sums or products (no ordered rewriting: that is `algebra`'s and
+  `arithmetic`'s job; a commutativity rule is refused, §3.1);
 - chain through lemmas by the goal's shape, or reason from "or" and
   "there is": that is the rule-set-and-walker design
   (toy-proof-complexity.md §4.3 rank 3), which should reuse `rules`.
@@ -249,14 +249,14 @@ It does **not**:
 
 | Tool | Is for | With `simp` |
 |---|---|---|
-| conversion, `rfl` | what computes | `simp`'s closer; `simp` is for what doesn't compute: facts about stuck terms |
+| conversion, `byComputing` | what computes | `simp`'s closer; `simp` is for what doesn't compute: facts about stuck terms |
 | `rewrite` | one chosen step; fails if the term isn't there | `simp` is many steps to a fixed point; a rule that doesn't fit is skipped. Every `simp` can be printed as a `rewrite` chain |
-| `cases` | splitting on what is stuck | composes: `cases in simp [..]` |
-| `omega`, `ring` | arithmetic | compose: `simp [..] in omega`; `omega` already discharges rules' premises |
+| `cases` | splitting on what is stuck | composes: `cases then simp [..]` |
+| `arithmetic`, `algebra` | arithmetic | compose: `simp [..] then arithmetic`; `arithmetic` already discharges rules' premises |
 | `byDecision`, `Finite.check` | closed decidable facts | unchanged; `simp` doesn't decide |
 
 **D2541, exactly.** Stays: "Computing stays the way to decide:
-conversion, `rfl`, `decide`, `byDecision`, `cases`, tests and the
+conversion, `byComputing`, `decide`, `byDecision`, `cases`, tests and the
 counterexample search. No Lean-style transparency system." Goes: "and
 no `simp`". Added: "`simp` rewrites with named rules on the goal as
 written and closes by computing; it never unfolds to search."
@@ -302,7 +302,7 @@ definitions for `simp`); §1.2's two gaps are places where `rewrite` and
    existing search, it is shown, so a wrong rule set and a false lemma
    look different.
 
-`simp [..] in ?` shows the same left-over goal as an ordinary goal.
+`simp [..] then ?` shows the same left-over goal as an ordinary goal.
 
 ### 3.3 How a reader learns why a step holds
 
@@ -333,9 +333,9 @@ definitions for `simp`); §1.2's two gaps are places where `rewrite` and
 
 ### 3.5 What `simp` needs from `cases` and `rewrite`
 
-- `cases in t` must give `t` each case's goal as written, with the
+- `cases then t` must give `t` each case's goal as written, with the
   split value put in, not the computed goal (§1.2). Without that,
-  `cases in simp [..]` can't see the calls its rules are about.
+  `cases then simp [..]` can't see the calls its rules are about.
 - `cases` should split a visible `if`'s condition before going inside
   definitions for something stuck.
 - `rewrite` with open arguments should find a visible call even when
@@ -372,7 +372,7 @@ give Stitchwort's `simp` its `↔` rules:
 | Proof size | An `↔` rule fires anywhere a proposition appears | The same wherever the context is one of seven connectives or has a registered lemma. On the toy slice: all 3 `↔` lemmas of 29, every use, are covered with no registered lemma **[checked, §1.1]**. Elsewhere a rule doesn't fire and the proof says the step by hand |
 | How much is in reach at all | Everything | Tests are already equations: two `Bool`s that imply each other are equal by a theorem (`Bool.eqOf`), and D3479 puts decidable facts in `Bool`. So only propositions that *can't* be tested (`∃`, `∀`, relations like `Reads`) need `↔` rewriting **[checked: bool-and-prop.md §7.4]** |
 | Predictability | One mechanism; still fails where the motive isn't well typed (dependent positions), as Lean's does | Fails also where a congruence lemma is missing, with a message naming the lemma to write |
-| `rfl`, `decide`, tests | `J` computes only on `rfl`; "with any other proof it's stuck" **[checked: `docs/core.md:143`]**. Today that can happen only through `Quot.sound`. With `propext`, any equation whose proof took an `↔` step no longer computes to `rfl`, so a value carried along it (a `rewrite … at` on data, a `Vec n` moved to `Vec m`, a `Decidable P` moved to `Decidable Q`) is stuck, and a `rfl`, `byDecision` or test that runs through it fails. This is how Lean's `decide` gets stuck **[cited: bool-and-prop.md L3]**. How often Stitchwort computes through such a value: not measured. A kernel rule "`J` along any proof computes when its two ends are the same" would narrow it to values indexed by the proposition itself; that is a second kernel change with its own soundness review | Nothing changes. Where Lean would move a decision along `propext`, the congruence route builds it from the two directions, which computes |
+| `byComputing`, `decide`, tests | `J` computes only on `byComputing`; "with any other proof it's stuck" **[checked: `docs/core.md:143`]**. Today that can happen only through `Quot.sound`. With `propext`, any equation whose proof took an `↔` step no longer computes to `byComputing`, so a value carried along it (a `rewrite … at` on data, a `Vec n` moved to `Vec m`, a `Decidable P` moved to `Decidable Q`) is stuck, and a `byComputing`, `byDecision` or test that runs through it fails. This is how Lean's `decide` gets stuck **[cited: bool-and-prop.md L3]**. How often Stitchwort computes through such a value: not measured. A kernel rule "`J` along any proof computes when its two ends are the same" would narrow it to values indexed by the proposition itself; that is a second kernel change with its own soundness review | Nothing changes. Where Lean would move a decision along `propext`, the congruence route builds it from the two directions, which computes |
 | `stitchwort axioms` | Lists `propext` for every theorem with an `↔` step in a `simp` or `rewrite`, and everything built on them. The Lean port's top theorems report `propext` and `Quot.sound` in the *plain* version already **[measured, SW-3513]**. "No axioms" stops being the usual answer; the audit's allowed list grows | Unchanged |
 | Kernel and consistency | One more axiom constant, as `Quot.sound` is: a small kernel and spec change. Consistent with these rules **[inferred: the usual set model, where a proposition is empty or has one element, satisfies it together with K and quotients; Lean has the same combination; not verified against a source for this note]** | No kernel change; the engine is elaborator code and its terms are checked |
 | Build | Simplest engine: `↔` rules become equations on the existing path | A second relation in the engine, seven lemmas, and a by-name lookup: about 3 agent-hours more **[estimated]** |
@@ -404,13 +404,13 @@ counted in non-blank characters by a script, before and after
 
 | Proof | Before: lines, chars | After: lines, chars | After/before | Goes through |
 |---|---|---|---|---|
-| `suffixWords` (toy) | 5, 305 | 1, 40 | 13% | **[measured]**: `rewrite List.filterAppend, List.appendAssoc in rfl` checks today |
+| `suffixWords` (toy) | 5, 305 | 1, 40 | 13% | **[measured]**: `rewrite List.filterAppend, List.appendAssoc then byComputing` checks today |
 | `writeLayoutWords` (toy) | 1, 91 | 1, 54 | 59% | **[measured]**: the open-argument chain checks |
 | `stackWordsAppend` (toy) | 4, 135 | 3, 84 | 62% | **[measured]** |
 | `flushEachWritten` (toy) | 10, 435 | 6, 298 | 68% | **[inferred]**: the toy's own chain with arguments dropped |
 | `stepWords` (toy) | 65, 2,628 | 28, 1,181 | 44% | **[measured]** for 23 of 26 arms (§1.2); the 3 `if` arms need §3.5 |
 | `stepUniform` (toy) | 53, 2,238 | 30, 1,275 | 56% | **[inferred]**: needs stage 3 (`↔` rules, closing a conjunction) |
-| `List.reverseSnoc` (std) | 4, 125 | 3, 76 | 60% | **[measured]**: `rewrite List.reverseCons, reverseSnoc rest x, List.reverseCons in rfl` checks |
+| `List.reverseSnoc` (std) | 4, 125 | 3, 76 | 60% | **[measured]**: `rewrite List.reverseCons, reverseSnoc rest x, List.reverseCons then byComputing` checks |
 | `List.sumTakeMono` (std) | 11, 396 | 6, 179 | 45% | **[measured]** for the chains; `simp … at` is new |
 | `List.sumDropTakeLe` (std) | 12, 430 | 7, 189 | 43% | **[inferred]**, same shape |
 | **Total** | **165, 6,783** | **85, 3,376** | **50%** | |
@@ -424,7 +424,7 @@ theorem suffixWords ∀ (printer: Printer) (comment: Text):
 
 -- in stepWords, with `rules words` as in §2.3:
         | Chunk text width, steps, _ => simp [steps, words]
-        | Line, steps, _ => cases in simp [steps, words]
+        | Line, steps, _ => cases then simp [steps, words]
         | Concat docs, steps, _ => simp [steps, words]
         | Fill [first, ..others], Inr (Both _ (Witness firstMode broken)), _ => simp [broken, words]
 ```
@@ -436,12 +436,12 @@ lines to 1 by proof-automation.md §1.4 **[cited; not rechecked]**.
 
 **What this sample is.** These proofs were picked because they rewrite;
 half the toy's proofs are three lines or fewer and many are a `match`
-with `rfl` arms, which `simp` doesn't shorten. So:
+with `byComputing` arms, which `simp` doesn't shorten. So:
 
 - **The engine slice** (17,184 characters of proof **[measured,
   SW-3513]**): the sample's toy proofs save about 2,900 and the helpers
   865; with the slice's other rewriting proofs (`newlineWritten`,
-  `putClearWords`, `writeWords`, `readingLighter`'s `omega` arms) I put
+  `putClearWords`, `writeWords`, `readingLighter`'s `arithmetic` arms) I put
   the saving at 3,800 to 5,000 characters, **22 to 29%**
   **[estimated]**. Stitchwort would be at about 75% of today's text;
   idiomatic Lean is at 30%.
@@ -517,7 +517,7 @@ changes, D2364).
 
 | Stage | What | Lane | Time | Acceptance |
 |---|---|---|---|---|
-| 0 | The two gaps of §1.2, as bug fixes with tests: open-argument `rewrite` finds a visible call that can compute; `cases in t` gives `t` the folded goal and splits a visible `if` first | Opus (tactics: D2506) | 1.5 h | §1.2's failing arms check as written there |
+| 0 | The two gaps of §1.2, as bug fixes with tests: open-argument `rewrite` finds a visible call that can compute; `cases then t` gives `t` the folded goal and splits a visible `if` first | Opus (tactics: D2506) | 1.5 h | §1.2's failing arms check as written there |
 | 1 | `simp [rules]`, `… in t`, `… in ?`: equations, hypotheses, `Bool` facts, `f`; visible matching; closers; budget; `E-SIMP`, `E-SIMP-BUDGET`, `E-SIMP-RULE`; steps in `stitchwort goal --at`. `docs/syntax.md`, guide, a tour page | Opus, then Opus review | 4 h + 1 h | The five small equation proofs of §6 (`suffixWords`, `writeLayoutWords`, `stackWordsAppend`, `flushEachWritten`, `List.reverseSnoc`) check as written there. `Words.sw` converted on a branch: proof characters down 15% or more, check time within 1.5 times today's. One reject example per message |
 | 2 | `rules` declarations; `simp … at h`; expand (CLI flag and code action) | Sonnet | 2.5 h | `stepWords` and `List.sumTakeMono` as in §6. Expanding every `simp` in `Words.sw` gives a file that checks |
 | 3 | `↔` under the connectives, for `rewrite` and `simp` (SW-2706); registered `…Iff` lemmas; conjunction closer | Opus (short as-built design first), then Opus review | 4 h + 1 h | `stepUniform` as in §6. `stitchwort axioms` on it: none. The missing-lemma note fires in a reject example |
@@ -542,7 +542,7 @@ After stage 4, with numbers: std sets and sweeps of std and AoC; the
   kernel check means it is never a soundness question.
 - *Agents over-use it.* The Lean port's `simp` version failed six times
   before passing, the plain one never **[measured, SW-3513]**. The
-  proving guide should say: `rfl` first, then one `rewrite`, then
+  proving guide should say: `byComputing` first, then one `rewrite`, then
   `simp` with a set.
 
 ## 9. Decisions for Matt
@@ -599,8 +599,8 @@ yes, no axiom now; revisit with stage 4's count]**
 - `rewrite` with open arguments doesn't find a visible call that can
   compute further (§1.2), against D2542. Reproducer: in `stepWords`'
   `FillSep` arm, `rewrite flat in rewrite writeWords, List.appendAssoc
-  in rfl` fails; `writeWords printer indent " " 1` works.
-- `cases in t` gives `t` the computed goal and over-splits (15 cases
+  in byComputing` fails; `writeWords printer indent " " 1` works.
+- `cases then t` gives `t` the computed goal and over-splits (15 cases
   for one `if`) (§1.2).
 - `keepsWords`, `addsWords` aren't needed today: the arms check with
   plain open-argument `rewrite` chains (§1.2). The proving guide could
@@ -611,7 +611,7 @@ yes, no axiom now; revisit with stage 4's count]**
 ## Sources
 
 Repo, read at `e60d25140`: the notes named at the top;
-`docs/syntax.md` (`rewrite`, `cases`, `omega`, "Attributes", "Generated
+`docs/syntax.md` (`rewrite`, `cases`, `arithmetic`, "Attributes", "Generated
 equations"); `docs/core.md` lines 143-146, 270, 577-589;
 `tools/toyfmt/src/Toy/Doc/Words.sw`, `Readings.sw`;
 `experiments/lean-engine/` (README and `idiomatic/Toy/Proofs/`);

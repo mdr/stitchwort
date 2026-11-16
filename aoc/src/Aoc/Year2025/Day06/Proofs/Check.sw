@@ -17,11 +17,11 @@ def acceptedOr (fallback: List Problem): Result (List Problem) Text → List Pro
 theorem acceptedOrCheck ∀ (lines: List Text):
     acceptedOr (parseWorksheet lines) (checkWorksheet lines) = parseWorksheet lines :=
   match worksheetError lines with
-    | Some message => rfl
-    | None => rfl
+    | Some message => byComputing
+    | None => byComputing
 
 --| Whenever `checkWorksheet` accepts, what it gives is `parseWorksheet lines`.
 theorem checkWorksheetParses ∀ (lines: List Text) (problems: List Problem)
     (accepted: checkWorksheet lines = Ok problems):
     problems = parseWorksheet lines :=
-  Eq.trans (Eq.sym (Eq.cong (acceptedOr (parseWorksheet lines)) accepted)) (acceptedOrCheck lines)
+  Eq.trans (Eq.flipped (Eq.cong (acceptedOr (parseWorksheet lines)) accepted)) (acceptedOrCheck lines)

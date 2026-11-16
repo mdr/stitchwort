@@ -32,5 +32,5 @@ test "vowel" := isVowel 'e' ∧ not (isVowel 'z')
 test "hash" := startsWithHash ['#', 'x'] ∧ not (startsWithHash ['x', 'y'])
 test "tuple" := charPair ('a', 4) == 5
 
-theorem turnR: turnOf 'R' 2 = Some (Right 2) := rfl
-theorem vowelA: isVowel 'a' = True := rfl
+theorem turnR: turnOf 'R' 2 = Some (Right 2) := byComputing
+theorem vowelA: isVowel 'a' = True := byComputing

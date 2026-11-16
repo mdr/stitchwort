@@ -8,4 +8,4 @@ def countDown (a: Nat) (b: Nat) (c: Nat): Nat
 :=
   match c with
     | Zero => 0
-    | Succ k => countDown a b k [decreasing := omega]
+    | Succ k => countDown a b k [decreasing := arithmetic]

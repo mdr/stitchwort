@@ -75,7 +75,7 @@ impl Site {
                     span: rule.proof.span(),
                     dot: false,
                 };
-                lemma(cx, Builtin::EqSym, &[piped])?
+                lemma(cx, Builtin::EqFlipped, &[piped])?
             }
             Place::Target(_) | Place::Inside => self.proof.clone(),
         };
@@ -771,7 +771,7 @@ def total (f: Nat -> Nat): List Nat -> Nat
     const TOTAL_CONG: &str = "
 theorem totalCong (f1: Nat -> Nat) (f2: Nat -> Nat) (xs: List Nat) (ef: (x: Nat) -> f1 x = f2 x): total f1 xs = total f2 xs :=
   match xs with
-    | Nil => rfl
+    | Nil => byComputing
     | Cons x rest => rewrite ef x, totalCong f1 f2 rest ef
 ";
 
@@ -900,8 +900,8 @@ def In (x: Nat): List Nat -> Prop
 
 theorem totalCongMem (f1: Nat -> Nat) (f2: Nat -> Nat) (xs: List Nat) (ef: (x: Nat) -> (m: In x xs) -> f1 x = f2 x): total f1 xs = total f2 xs :=
   match xs with
-    | Nil => rfl
-    | Cons x rest => rewrite ef x (Inl rfl), totalCongMem f1 f2 rest (y m => ef y (Inr m))
+    | Nil => byComputing
+    | Cons x rest => rewrite ef x (Inl byComputing), totalCongMem f1 f2 rest (y m => ef y (Inr m))
 ";
 
     #[test]
@@ -957,7 +957,7 @@ def total (f: Nat -> Nat): List Nat -> Nat
 
 theorem totalCongMem (f1: Nat -> Nat) (f2: Nat -> Nat) (xs: List Nat) (k: Nat) (ef: (x: Nat) -> f1 x = f2 x): total f1 xs = total f2 xs :=
   match xs with
-    | Nil => rfl
+    | Nil => byComputing
     | Cons x rest => rewrite ef x, totalCongMem f1 f2 rest k ef
 "
         .to_string();

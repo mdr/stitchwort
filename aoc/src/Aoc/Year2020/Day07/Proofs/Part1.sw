@@ -11,17 +11,17 @@ import Std (Bool, DecEq, Eq, Exists, Graph, List, Map, Pair, Set)
 theorem holdersInIndex ∀ (rules: Rules) (colour: Colour):
     rules.holders.of colour
       = ((rules.all.flatMap .holdings).filter (pair => Map.Spec.sameKey colour pair.inside)).map .holder :=
-  rewrite Map.getGroupBy .inside colour (rules.all.flatMap .holdings) in
+  rewrite Map.getGroupBy .inside colour (rules.all.flatMap .holdings) then
     match List.filter (rules.all.flatMap .holdings) (pair => Map.Spec.sameKey colour pair.inside) with
-      | [] => rfl
-      | [first, ..rest] => rfl
+      | [] => byComputing
+      | [first, ..rest] => byComputing
 
 --| Every holder is the colour of a rule.
 theorem holderListed ∀ (rules: List Rule) (colour holder: Colour)
     (found: holder ∈ ({ all = rules }: Rules).holders.of colour):
     holder ∈ rules.map .colour :=
   let (Witness pair (Both kept same)) :=
-    List.memMapElim .holder holder _ (rewrite holdersInIndex { all = rules } colour at found in found)
+    List.memMapElim .holder holder _ (rewrite holdersInIndex { all = rules } colour at found then found)
   let (Both listed matching) := List.memFilter _ _ kept
   List.anyElim
     (rule => pair ∈ rule.holdings)
@@ -31,7 +31,7 @@ theorem holderListed ∀ (rules: List Rule) (colour holder: Colour)
     (rule member inRule =>
       let (Witness content (Both inContents made)) :=
         List.memMapElim (content => { inside = content.colour, holder = rule.colour }) pair rule.contents inRule
-      rewrite <- same, <- made in List.memMap rules rule member .colour)
+      rewrite <- same, <- made then List.memMap rules rule member .colour)
 
 --| A colour's holders are the colours whose rules list it.
 theorem holderDirectly ∀ (rules: Rules) (inner holder: Colour):
@@ -39,7 +39,7 @@ theorem holderDirectly ∀ (rules: Rules) (inner holder: Colour):
   {
     forward = found =>
       let (Witness pair (Both kept same)) :=
-        List.memMapElim .holder holder _ (rewrite holdersInIndex rules inner at found in found)
+        List.memMapElim .holder holder _ (rewrite holdersInIndex rules inner at found then found)
       let (Both listed matching) := List.memFilter _ _ kept
       List.anyElim
         (rule => pair ∈ rule.holdings)
@@ -49,13 +49,13 @@ theorem holderDirectly ∀ (rules: Rules) (inner holder: Colour):
         (rule member inRule =>
           let (Witness content (Both inContents made)) :=
             List.memMapElim (content => { inside = content.colour, holder = rule.colour }) pair rule.contents inRule
-          let ruleColour: rule.colour = holder := rewrite <- same, <- made in rfl
+          let ruleColour: rule.colour = holder := rewrite <- same, <- made then byComputing
           let contentColour: content.colour = inner :=
-            Eq.sym (Map.Spec.sameKeySound inner content.colour (rewrite <- made at matching in matching))
+            Eq.flipped (Map.Spec.sameKeySound inner content.colour (rewrite <- made at matching then matching))
           Witness content
             (Both
               (List.memFlatMapIntro .contents rule content _
-                (List.memFilterIntro rules.all _ member (rewrite ruleColour in DecEq.refl holder))
+                (List.memFilterIntro rules.all _ member (rewrite ruleColour then DecEq.refl holder))
                 inContents)
               contentColour)),
     backward = directly =>
@@ -71,8 +71,8 @@ theorem holderDirectly ∀ (rules: Rules) (inner holder: Colour):
           let inInsides: pair ∈ rule.holdings :=
             List.memMap rule.contents content inRule (content => { inside = content.colour, holder = rule.colour })
           let matching: Map.Spec.sameKey inner pair.inside = True :=
-            rewrite Map.Spec.sameKeyDecide inner pair.inside, contentColour in DecEq.refl inner
-          rewrite holdersInIndex rules inner, <- ruleColour in
+            rewrite Map.Spec.sameKeyDecide inner pair.inside, contentColour then DecEq.refl inner
+          rewrite holdersInIndex rules inner, <- ruleColour then
             List.memMap _ pair
               (List.memFilterIntro _ _
                 (List.memFlatMapIntro .holdings rule pair rules.all member inInsides)
@@ -97,8 +97,8 @@ theorem edgeDirectly ∀ (rules: Rules) (inner holder: Colour) (weight: Nat)
   let (Both raw listed) := (graphEdge rules inner holder weight).forward edge
   let (Witness found (Both inHolders same)) := List.memMapElim (holder => (holder, 1)) (holder, weight) _ raw
   Both
-    ((holderDirectly rules inner holder).forward (rewrite <- Eq.cong Pair.fst same in inHolders))
-    (Eq.sym (Eq.cong Pair.snd same))
+    ((holderDirectly rules inner holder).forward (rewrite <- Eq.cong Pair.fst same then inHolders))
+    (Eq.cong Pair.snd same).flipped
 
 theorem directlyEdge ∀ (rules: Rules) (inner holder: Colour)
     (directly: Spec.Directly rules.all holder inner):
@@ -128,7 +128,7 @@ theorem sourceDirectly ∀ (rules: Rules) (inner source: Colour)
     (member: source ∈ (rules.graph.edges inner).map Pair.fst):
     Spec.Directly rules.all source inner :=
   let (Witness edge (Both inEdges made)) := List.memMapElim Pair.fst source _ member
-  match edge with | (holder, weight) => rewrite <- made in And.left (edgeDirectly rules inner holder weight inEdges)
+  match edge with | (holder, weight) => rewrite <- made then And.left (edgeDirectly rules inner holder weight inEdges)
 
 --| The colours the search finds are exactly those that can eventually
 --| contain `inner`.
@@ -170,4 +170,4 @@ theorem part1Rules ∀ (rules: Rules): Spec.Part1 rules.all (solvePart1 rules) :
             backward = can =>
               (Set.memToList outside colour).backward ((outsideCanContain rules shinyGold colour).backward can)
           })
-        (Eq.sym (Map.lengthKeys outside.items))))
+        (Map.lengthKeys outside.items).flipped))

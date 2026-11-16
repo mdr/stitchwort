@@ -1,6 +1,6 @@
 -- A proof that is a plain argument of an equation stays a variable: the
--- equation holds at any proof, not only at `rfl`. (A char pattern's own proof
--- field is `rfl` on the left side instead.)
+-- equation holds at any proof, not only at `byComputing`. (A char pattern's own proof
+-- field is `byComputing` on the left side instead.)
 import Std (Eq, Char)
 
 opaque def pick: (n: Nat) → (p: Char.isScalar n = True) → Option Char

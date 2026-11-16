@@ -61,8 +61,8 @@ theorem shrinks ∀ (numbers: List Nat) (target start: Nat)
 fn the_theorem_forall_is_added() {
     // D3472, as the line formatter does.
     check(
-        "theorem t (a: Nat): a = a := rfl\n",
-        "theorem t ∀ (a: Nat): a = a := rfl\n",
+        "theorem t (a: Nat): a = a := byComputing\n",
+        "theorem t ∀ (a: Nat): a = a := byComputing\n",
     );
 }
 
@@ -300,8 +300,8 @@ fn decreasing_breaks_its_header() {
 fn calc_steps_go_one_a_line() {
     // S35.
     check(
-        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a\n    := rfl\n  _ = a := rfl\n",
-        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a := rfl\n  _ = a := rfl\n",
+        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a\n    := byComputing\n  _ = a := byComputing\n",
+        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a := byComputing\n  _ = a := byComputing\n",
     );
 }
 
@@ -350,8 +350,8 @@ fn a_one_arm_match_inside_an_arm_breaks() {
 #[test]
 fn a_block_inside_brackets_hugs() {
     check(
-        "theorem t ∀ (n: Nat): n = n :=\n  ident (\n    let m := n\n    (rfl: m = m))\n",
-        "theorem t ∀ (n: Nat): n = n := ident (\n  let m := n\n  (rfl: m = m))\n",
+        "theorem t ∀ (n: Nat): n = n :=\n  ident (\n    let m := n\n    (byComputing: m = m))\n",
+        "theorem t ∀ (n: Nat): n = n := ident (\n  let m := n\n  (byComputing: m = m))\n",
     );
 }
 
@@ -434,8 +434,8 @@ fn a_long_exists_chain_continues_below() {
 fn a_comment_above_the_assign_of_a_calc_step_keeps_its_line() {
     // S35, S40.
     check(
-        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a\n    -- why\n    := rfl\n",
-        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a\n    -- why\n    := rfl\n",
+        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a\n    -- why\n    := byComputing\n",
+        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a\n    -- why\n    := byComputing\n",
     );
 }
 
@@ -802,8 +802,8 @@ fn a_comment_inside_the_header_puts_the_body_below_it() {
 fn a_comment_after_a_result_colon_starts_the_type_on_its_own_line() {
     // SW-3537: the type's continuation lines were left of its first line.
     check(
-        "theorem t: -- c\n f 2 = Some\n-- c\n (R 2) := rfl\n",
-        "theorem t: -- c\n    f 2 = Some\n    -- c\n    (R 2) :=\n  rfl\n",
+        "theorem t: -- c\n f 2 = Some\n-- c\n (R 2) := byComputing\n",
+        "theorem t: -- c\n    f 2 = Some\n    -- c\n    (R 2) :=\n  byComputing\n",
     );
 }
 

@@ -171,7 +171,7 @@ def Shape.width (shape: Shape) (h: shape.hasArea): Nat := match shape with
   | Circle radius => 2 * radius
   | Rect width _ => width
 
-test "width" := (Rect 3 4).width rfl == 3
+test "width" := (Rect 3 4).width byComputing == 3
 -- end impossible
 
 -- begin let-patterns

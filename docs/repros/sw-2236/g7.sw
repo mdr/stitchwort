@@ -17,6 +17,6 @@ def inline (c: Bool) (x: Nat): Nat :=
       | Succ m => m)
     | False => 1
 
-theorem atTrue (x: Nat): viaHelper True x = inline True x := rfl
+theorem atTrue (x: Nat): viaHelper True x = inline True x := byComputing
 
-theorem leafAgainstCase (c: Bool) (x: Nat): viaHelper c x = inline c x := rfl
+theorem leafAgainstCase (c: Bool) (x: Nat): viaHelper c x = inline c x := byComputing

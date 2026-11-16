@@ -12,4 +12,4 @@ opaque def ou [a: Prop] (b: Box a): a := Box.unbox b
 
 theorem t25 (a: Prop) (p: a) (q: a): ou (MkBox p) = ou (MkBox q)
     unfolding ou
-:= rfl
+:= byComputing

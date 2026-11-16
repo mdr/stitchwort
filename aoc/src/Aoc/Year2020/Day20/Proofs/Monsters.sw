@@ -20,7 +20,8 @@ theorem roughAtIff ∀ (image: Image) (at: List Nat):
                   let rowFound := (List.memWithIndex image.rows row pixels).forward inRows
                   let pixelFound := (List.memWithIndex pixels column Rough).forward inPixels
                   Witness row
-                    (Witness column (Both (Eq.sym (Option.someInjective kept)) (rewrite rowFound, pixelFound in rfl))),
+                    (Witness column
+                      (Both (Option.someInjective kept).flipped (rewrite rowFound, pixelFound then byComputing))),
     backward = found =>
       match found with
         | Witness row (Witness column (Both same rough)) =>
@@ -37,7 +38,7 @@ theorem roughAtIff ∀ (image: Image) (at: List Nat):
                       at
                       pixels.withIndex
                       ((List.memWithIndex pixels column Rough).backward pixelFound)
-                      (rewrite same in rfl))))
+                      (rewrite same then byComputing))))
   }
 
 theorem monsterIff ∀ (image monster: Image) (row column: Nat):
@@ -46,23 +47,23 @@ theorem monsterIff ∀ (image monster: Image) (row column: Nat):
   {
     forward = all =>
       r c drawn =>
-        let onMonster := (roughAtIff monster [r, c]).backward (Witness r (Witness c (Both rfl drawn)))
+        let onMonster := (roughAtIff monster [r, c]).backward (Witness r (Witness c (Both byComputing drawn)))
         let contained := all.read [r, c] onMonster
         match (roughAtIff image [row + r, column + c]).forward
           ((Set.containsFromListIff image.roughAt [row + r, column + c]).forward contained) with
           | Witness r2 (Witness c2 (Both same rough)) =>
             let sameRow: row + r = r2 := Eq.cong (xs => xs.headOr 0) same
             let sameColumn: column + c = c2 := Eq.cong (xs => (xs.drop 1).headOr 0) same
-            rewrite sameRow, sameColumn in rough,
+            rewrite sameRow, sameColumn then rough,
     backward = monsterAt =>
       (List.allIff monster.roughAt _).backward
         (List.allOfMem _ monster.roughAt (at onMonster =>
           match (roughAtIff monster at).forward onMonster with
             | Witness r (Witness c (Both same drawn)) =>
-              rewrite same in
+              rewrite same then
                 (Set.containsFromListIff image.roughAt [row + r, column + c]).backward
                   ((roughAtIff image [row + r, column + c]).backward
-                    (Witness (row + r) (Witness (column + c) (Both rfl (monsterAt r c drawn)))))))
+                    (Witness (row + r) (Witness (column + c) (Both byComputing (monsterAt r c drawn)))))))
   }
 
 --| The program's monster starts are exactly the places where the spec has
@@ -91,13 +92,12 @@ theorem monsterStartsIff ∀ (image monster: Image) (start: List Nat):
                   let columnBound := List.memRangeBounds column 0 columns inColumns
                   Witness row
                     (Witness column
-                      (Both
-                        (Eq.sym same)
+                      (Both same.flipped
                         (Both
-                          (omega)
+                          (arithmetic)
                           (Both
-                            (omega)
-                            ((monsterIff image monster row column).forward (rewrite <- same at kept in kept)))))),
+                            (arithmetic)
+                            ((monsterIff image monster row column).forward (rewrite <- same at kept then kept)))))),
     backward = found =>
       match found with
         | Witness row (Witness column (Both same (Both rowFits (Both columnFits monsterAt)))) =>
@@ -105,9 +105,9 @@ theorem monsterStartsIff ∀ (image monster: Image) (start: List Nat):
             (List.memFlatMap _ [row, column] (List.range 0 rows)).backward
               (Witness row
                 (Both
-                  (List.memRangeOf row 0 rows (omega))
-                  (List.memMap _ column (List.memRangeOf column 0 columns (omega)) (column => [row, column]))))
-          rewrite same in
+                  (List.memRangeOf row 0 rows (arithmetic))
+                  (List.memMap _ column (List.memRangeOf column 0 columns (arithmetic)) (column => [row, column]))))
+          rewrite same then
             List.memFilterIntro starts isMonster inStarts ((monsterIff image monster row column).backward monsterAt)
   }
 
@@ -133,7 +133,8 @@ theorem monsterPixelsIff ∀ (image monster: Image) (at: List Nat):
                             (Witness c
                               (Both rowFits
                                 (Both columnFits
-                                  (Both monsterAt (Both rough (rewrite <- shifted, same, drawnAt in rfl)))))))),
+                                  (Both monsterAt
+                                    (Both rough (rewrite <- shifted, same, drawnAt then byComputing)))))))),
     backward = covered =>
       match covered with
         | Witness row
@@ -141,13 +142,13 @@ theorem monsterPixelsIff ∀ (image monster: Image) (at: List Nat):
               (Witness r (Witness c (Both rowFits (Both columnFits (Both monsterAt (Both rough same))))))) =>
           let isStart :=
             (monsterStartsIff image monster [row, column]).backward
-              (Witness row (Witness column (Both rfl (Both rowFits (Both columnFits monsterAt)))))
-          let onMonster := (roughAtIff monster [r, c]).backward (Witness r (Witness c (Both rfl rough)))
+              (Witness row (Witness column (Both byComputing (Both rowFits (Both columnFits monsterAt)))))
+          let onMonster := (roughAtIff monster [r, c]).backward (Witness r (Witness c (Both byComputing rough)))
           inPixels.backward
             ((List.memFlatMap place at (image.monsterStarts monster)).backward
               (Witness
                 [row, column]
-                (Both isStart (rewrite same in List.memMap monster.roughAt [r, c] onMonster (shift [row, column])))))
+                (Both isStart (rewrite same then List.memMap monster.roughAt [r, c] onMonster (shift [row, column])))))
   }
 
 --| Counted over any listing of the image's `#`s, the spec's roughness with
@@ -166,11 +167,11 @@ theorem roughnessExactly ∀ (image monster: Image) (cells: List (List Nat))
       forward = isFree =>
         isCovered =>
           Bool.falseNotTrue
-            (Eq.trans (Eq.sym (Bool.notTrue _ isFree)) ((monsterPixelsIff image monster at).backward isCovered)),
+            (Eq.trans (Bool.notTrue _ isFree).flipped ((monsterPixelsIff image monster at).backward isCovered)),
       backward = notCovered =>
         match found: covered.contains at with
-          | True => Void.exfalso (notCovered ((monsterPixelsIff image monster at).forward found))
-          | False => rfl
+          | True => Void.impossible (notCovered ((monsterPixelsIff image monster at).forward found))
+          | False => byComputing
     }
   let counted := List.countWithIff free decides cells answer
   let subset: ∀ (at: List Nat) => covered.contains at = True → rough.contains at = True := at isCovered =>
@@ -191,16 +192,20 @@ theorem roughnessExactly ∀ (image monster: Image) (cells: List (List Nat))
         let inRough := ((Set.containsDifferenceIff rough at covered).forward inDifference).left
         let found := (roughAtIff image at).forward ((Set.containsFromListIff image.roughAt at).forward inRough)
         (listed.right at).backward found)
-      (key listedHere => rewrite Set.containsDifference rough key covered, roughCell key listedHere.read in rfl)
+      (key listedHere =>
+        rewrite Set.containsDifference rough key covered, roughCell key listedHere.read then byComputing)
   let lengthCount := List.lengthFilter cells free
-  { forward = numbered => rewrite (counted.forward numbered) in omega, backward = same => counted.backward (omega) }
+  {
+    forward = numbered => rewrite (counted.forward numbered) then arithmetic,
+    backward = same => counted.backward (arithmetic)
+  }
 
 theorem someMember ∀ [auto ord: Ord k] (set: Set k)
     (nonEmpty: (set.size > 0) = True):
     ∃ (key: k) => set.contains key = True :=
   match listed: set.toList with
-    | [] => Void.exfalso (Bool.falseNotTrue (rewrite Set.sizeToList set, listed at nonEmpty in nonEmpty))
-    | [key, ..rest] => Witness key ((Set.memToList set key).forward (rewrite listed in Inl rfl))
+    | [] => Void.impossible (Bool.falseNotTrue (rewrite Set.sizeToList set, listed at nonEmpty then nonEmpty))
+    | [key, ..rest] => Witness key ((Set.memToList set key).forward (rewrite listed then Inl byComputing))
 
 --| The orientation part 2 counts with is one of the sea monster's, and the
 --| image has a sea monster that way round.
@@ -224,14 +229,14 @@ theorem rowCellsDistinct ∀ (row: Nat) (pixels: List Pixel):
   let f: (Nat, Pixel) → Option (List Nat) := match some | (column, Rough) => [row, column]
   let hk: ∀ (cell: (Nat, Pixel)) (at: List Nat) => f cell = Some at → at = [row, cell.fst] := cell at kept =>
     match cell with
-      | (column, Rough) => Eq.sym (Option.someInjective kept)
-      | (column, Calm) => Void.exfalso (Option.noneNotSome at kept)
+      | (column, Rough) => (Option.someInjective kept).flipped
+      | (column, Calm) => (Option.noneNotSome at kept).impossible
   let keyed: List.Distinct (pixels.withIndex.map (cell => [row, cell.fst])) :=
     rewrite List.withIndexFromRange pixels Calm 0,
-        List.mapMap (List.range 0 pixels.length) (cell => [row, cell.fst]) (i => (0 + i, List.getOr pixels i Calm)) in
+        List.mapMap (List.range 0 pixels.length) (cell => [row, cell.fst]) (i => (0 + i, List.getOr pixels i Calm)) then
       List.distinctMap (List.range 0 pixels.length) (List.distinctRange 0 pixels.length) _ (i j same =>
-        omega [Eq.cong (xs => (xs.drop 1).headOr 0) same])
-  rewrite <- List.mapId (pixels.withIndex.filterMap (match some | (column, Rough) => [row, column])) in
+        arithmetic [Eq.cong (xs => (xs.drop 1).headOr 0) same])
+  rewrite <- List.mapId (pixels.withIndex.filterMap (match some | (column, Rough) => [row, column])) then
     List.distinctMapFilterMap f (cell => [row, cell.fst]) (at => at) hk pixels.withIndex keyed
 
 --| A cell names its row, and the row's pixels are the image's row there,
@@ -248,7 +253,8 @@ theorem roughAtDistinct ∀ (image: Image): List.Distinct image.roughAt :=
             | Witness (column, pixel) (Both inPixels kept) =>
               match pixel with
                 | Rough =>
-                  rewrite <- Option.someInjective kept, (List.memWithIndex image.rows row pixels).forward member in rfl)
+                  rewrite <- Option.someInjective kept, (List.memWithIndex image.rows row pixels).forward member then
+                    byComputing)
 
 theorem roughCells ∀ (image: Image): Spec.RoughCells image image.roughAt :=
   Both (roughAtDistinct image) (at => roughAtIff image at)

@@ -6,4 +6,4 @@ import Std (Char, List, Nat, Parse)
 def total (steps: List Nat): {Parse Char} Nat := steps.foldLeft 0 (a b => a + b)
 
 theorem totalReads ∀ (steps: List Nat): Parse.Reads (() => total steps) (read value => read = []) :=
-  Parse.readsDone (steps.foldLeft 0 (a b => a + b)) (read value => read = []) rfl
+  Parse.readsDone (steps.foldLeft 0 (a b => a + b)) (read value => read = []) byComputing

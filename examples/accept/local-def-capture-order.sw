@@ -14,9 +14,9 @@ def reach: List Nat → Nat → Nat → Nat → Bool
       | Succ b => reach rest b k d
     if Nat.leq line c then left c ∨ reach rest (c + 1) k d else reach rest c k d
 
-theorem leftZero ∀ (rest: List Nat) (k d: Nat): reach.left rest k d Zero = False := rfl
+theorem leftZero ∀ (rest: List Nat) (k d: Nat): reach.left rest k d Zero = False := byComputing
 
-theorem leftSucc ∀ (rest: List Nat) (k d b: Nat): reach.left rest k d (Succ b) = reach rest b k d := rfl
+theorem leftSucc ∀ (rest: List Nat) (k d b: Nat): reach.left rest k d (Succ b) = reach rest b k d := byComputing
 
 theorem reachSplit ∀ (line: Nat) (rest: List Nat) (c k d: Nat)
     (s: Nat.leq line c = True):
@@ -33,4 +33,4 @@ def pick (base: Nat): Option Nat → Option Nat → Nat
     sum 0
   | _, _ => base
 
-theorem pickSum ∀ (base x y: Nat): pick.sum base x y Zero = x + y + base := rfl
+theorem pickSum ∀ (base x y: Nat): pick.sum base x y Zero = x + y + base := byComputing

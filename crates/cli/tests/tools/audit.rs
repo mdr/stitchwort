@@ -39,10 +39,10 @@ fn audit_file(name: &str, source: &str, args: &[&str]) -> (i32, String) {
     )
 }
 
-const CLEAN: &str = "theorem clean (n: Nat): n + 0 = n := omega\n";
+const CLEAN: &str = "theorem clean (n: Nat): n + 0 = n := arithmetic\n";
 
 /// The probe of §7.2: it checks, but no input satisfies its hypothesis.
-const VACUOUS: &str = "theorem vacuous (n: Nat) (h: n + 1 = 0): n = 42 := omega\n";
+const VACUOUS: &str = "theorem vacuous (n: Nat) (h: n + 1 = 0): n = 42 := arithmetic\n";
 
 const QUOT: &str = "def AllTrue (x: Bool) (y: Bool): Prop := Unit\n\
                     def Q: Type := Quot Bool AllTrue\n\n\
@@ -100,7 +100,7 @@ fn an_unknown_axiom_in_the_allowlist_is_an_error() {
 fn an_unfinished_theorem_fails_directly_or_through_what_it_uses() {
     let source = "theorem step (n: Nat): n = n := ?\n\n\
                   theorem uses (n: Nat): n = n := step n\n\n\
-                  theorem fine (n: Nat): n = n := rfl\n";
+                  theorem fine (n: Nat): n = n := byComputing\n";
     let (code, out) = audit_file("unfinished", source, &["--no-search"]);
     assert_eq!(code, 1, "{out}");
     let place = "a.sw:1:33";
@@ -148,8 +148,8 @@ fn vacuous_hypotheses_warn_and_fail_only_with_strict() {
 /// contradict each other: their never holding is no warning.
 #[test]
 fn a_theorem_concluding_void_doesnt_warn() {
-    let source = "theorem impossible (n: Nat) (h: n + 1 = 0): Void := omega\n\n\
-                  theorem notZero (n: Nat): Not (n + 1 = 0) := h => omega\n";
+    let source = "theorem impossible (n: Nat) (h: n + 1 = 0): Void := arithmetic\n\n\
+                  theorem notZero (n: Nat): Not (n + 1 = 0) := h => arithmetic\n";
     let (code, out) = audit_file("refutes", source, &["--strict", "--verbose"]);
     assert_eq!(code, 0, "{out}");
     let line = "    search: gave up: the hypotheses held in 0 of 1500 cases (as it claims: it \
@@ -212,7 +212,7 @@ fn json_names_the_goals_a_theorem_relies_on_or_waits_for() {
     let source = "def two: Nat := ?\n\n\
                   theorem step (n: Nat): n = n := ?\n\n\
                   theorem uses (n: Nat): n = n := step n\n\n\
-                  theorem blocked: two = 3 := rfl\n";
+                  theorem blocked: two = 3 := byComputing\n";
     let (code, out) = audit_file("json-goals", source, &["--json", "--no-search"]);
     assert_eq!(code, 1, "{out}");
     let json: serde_json::Value = serde_json::from_str(&out).expect("one JSON object");
@@ -247,7 +247,7 @@ fn json_names_the_goals_a_theorem_relies_on_or_waits_for() {
 fn generated_lemmas_are_counted_apart_from_written_theorems() {
     let source = "type Grade = { letter: Nat, modifier: Nat }\n\n\
                   type Change =\n  | Set (letter: Nat) (modifier: Nat)\n  | Keep (letter: Nat) (modifier: Nat)\n\n\
-                  theorem gradeRefl (g: Grade): g = g := rfl\n";
+                  theorem gradeRefl (g: Grade): g = g := byComputing\n";
     let (code, out) = audit_file("generated", source, &["--no-search"]);
     assert_eq!(code, 0, "{out}");
     // The record's `Grade.ext`, and Change's four update lemmas.
@@ -266,7 +266,7 @@ fn a_failing_generated_declaration_is_counted_and_fails() {
                   def Q: Type := Quot Bool AllTrue\n\n\
                   def q (n: Nat): Nat :=\n  let e: (Quot.mk False: Q) = Quot.mk True := Quot.sound Trivial\n  n\n\n\
                   def f: Nat → Nat\n  | 0 => q 0\n  | Succ k => q k\n\n\
-                  theorem clean (n: Nat): n = n := rfl\n";
+                  theorem clean (n: Nat): n = n := byComputing\n";
     let (code, out) = audit_file(
         "generated-fail",
         source,
@@ -296,7 +296,7 @@ fn a_generated_ext_lemma_is_marked_generated_and_not_warned_about() {
                   type W2 = | Mk2 (w: W1)\n\
                   type W3 = | Mk3 (w: W2)\n\n\
                   type R = { w: W3, n0: Nat, n1: Nat, c0: Char, c1: Char }\n\n\
-                  theorem refl (x: R): x = x := rfl\n";
+                  theorem refl (x: R): x = x := byComputing\n";
     let (code, out) = audit_file("generated-ext", source, &["--json"]);
     assert_eq!(code, 0, "{out}");
     let json: serde_json::Value = serde_json::from_str(&out).expect("one JSON object");
@@ -470,7 +470,7 @@ fn check_counterexamples_prints_never_held_hypotheses_without_verbose() {
 fn a_statement_naming_a_huge_computation_skips_its_search() {
     let source = "def countdown (acc: Nat): Nat → Nat\n  | 0 => acc\n  | Succ k => countdown (acc + 1) k\n\n\
                   def Big (n: Nat): Prop := n = n\n\n\
-                  theorem big (m: Nat): Big (countdown 0 100000000) := rfl\n";
+                  theorem big (m: Nat): Big (countdown 0 100000000) := byComputing\n";
     let (code, out) = audit_file("huge", source, &["--verbose"]);
     assert_eq!(code, 0, "{out}");
     assert!(
@@ -495,16 +495,16 @@ def broken (n: Nat): Nat := "oops"
 
 def twice (n: Nat): Nat := broken n + 1
 
-theorem doubleTwo: double 2 = 5 := rfl
+theorem doubleTwo: double 2 = 5 := byComputing
 
-theorem twiceOne: twice 1 = 2 := rfl
+theorem twiceOne: twice 1 = 2 := byComputing
 "#;
 
 const B_USES_A: &str = r#"namespace B
 
 import A (double)
 
-theorem quadOne: double 2 = 4 := rfl
+theorem quadOne: double 2 = 4 := byComputing
 "#;
 
 fn project_with_errors(name: &str) -> PathBuf {
@@ -587,7 +587,7 @@ fn audit_fails_for_an_error_elsewhere_even_if_every_theorem_passes() {
 #[test]
 fn an_audit_with_a_failed_import_does_not_exit_0() {
     let source = "namespace A\n\nimport Missing (..)\n\ndef f: Nat := helper 1\n\n\
-                  theorem clean (n: Nat): n + 0 = n := omega\n";
+                  theorem clean (n: Nat): n + 0 = n := arithmetic\n";
     let (code, out) = audit_file("failed-import", source, &["--json"]);
     assert_eq!(code, 1, "{out}");
     assert!(

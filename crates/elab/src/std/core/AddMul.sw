@@ -29,7 +29,7 @@ interface Mul (a: Type) = {
 -- on `Nat` and `Int` mean these dictionaries' fields, which are the
 -- operations above, so the terms are the same.
 instance Nat.instAdd: Add Nat :=
-  { zero = 0, add = Nat.add, zeroAdd = x => rfl, assoc = Nat.addAssoc, comm = Nat.addComm }
+  { zero = 0, add = Nat.add, zeroAdd = x => byComputing, assoc = Nat.addAssoc, comm = Nat.addComm }
 
 instance Nat.instMul: Mul Nat :=
   { one = 1, mul = Nat.mul, oneMul = Nat.oneMul, mulOne = Nat.mulOne, assoc = Nat.mulAssoc }

@@ -6,7 +6,7 @@ import Aoc.Year2020.Day19 (..)
 import Aoc.Year2020.Day19.Spec (..)
 import Std (Char, DecEq, Eq, Exists, List, Option, Void)
 
-theorem ruleSpec ∀ (rules: Rules) (number: Nat): rules.rule number = ruleNumbered rules number := rfl
+theorem ruleSpec ∀ (rules: Rules) (number: Nat): rules.rule number = ruleNumbered rules number := byComputing
 
 --| `read` can start a match of `number` followed by any sequence.
 def Leads (rules: Rules) (number: Nat) (read: List Char): Prop :=
@@ -24,7 +24,7 @@ theorem soundAll ∀ (rules: Rules) (fuel: Nat)
     ∃ (read: List Char) => message = read ++ left ∧ Matches rules sequence read :=
   match sequence, found with
     | [], Inl same => Witness [] (Both same MatchesNothing)
-    | [], Inr never => Void.exfalso never
+    | [], Inr never => never.impossible
     | [number, ..later], found =>
       match (List.memFlatMap
             (left => rules.leftAfterAll fuel later left)
@@ -38,7 +38,7 @@ theorem soundAll ∀ (rules: Rules) (fuel: Nat)
                   Witness
                     (firstRead ++ restRead)
                     (Both
-                      (rewrite split, restSplit in Eq.sym (List.appendAssoc firstRead restRead left))
+                      (rewrite split, restSplit then Eq.flipped (List.appendAssoc firstRead restRead left))
                       (leads later restRead matched))
 
 theorem sound ∀ (rules: Rules) (fuel number: Nat): LeavesAfter rules fuel number := message left found =>
@@ -54,9 +54,9 @@ theorem sound ∀ (rules: Rules) (fuel number: Nat): LeavesAfter rules fuel numb
                     | Inl leftIsRest =>
                       Witness
                         [letter]
-                        (Both (rewrite same.read, leftIsRest in rfl) (later restRead matched =>
+                        (Both (rewrite same.read, leftIsRest then byComputing) (later restRead matched =>
                           MatchesLetter looked matched))
-                    | Inr never => Void.exfalso never
+                    | Inr never => never.impossible
         | Some (Alternatives sequences) =>
           match (List.memFlatMap (sequence => rules.leftAfterAll more sequence message) left sequences).forward
               found with

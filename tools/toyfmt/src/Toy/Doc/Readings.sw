@@ -58,15 +58,15 @@ theorem ifIsOption ∀ (condition: Bool) (option later: Doc) (others: List Doc)
     (laterIs: IsOption later others):
     (if condition then option else later) = option ∨ IsOption (if condition then option else later) others :=
   match condition with
-    | True => Inl rfl
+    | True => Inl byComputing
     | False => Inr laterIs
 
 --| What a broken `Choice` takes is one of its options.
 theorem chooseIsOption ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd) (options: List Doc):
     IsOption (printer.choose total indent rest options) options :=
   match options with
-    | [] => rfl
-    | [last] => rfl
+    | [] => byComputing
+    | [last] => byComputing
     | [option, next, ..others] =>
       ifIsOption _ option
         (printer.choose total indent rest [next, ..others])
@@ -80,68 +80,68 @@ theorem stepIsReading ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List
   match cmd with
     | FillSep indent item =>
       match empty: printer.suffixes.isEmpty with
-        | False => Inr rfl
+        | False => Inr byComputing
         | True =>
           match fit: fits total [(Flat, item)] rest (printer.left - 1) with
-            | True => Inl ((rfl, rfl))
-            | False => Inr rfl
+            | True => Inl ((byComputing, byComputing))
+            | False => Inr byComputing
     | Print indent mode doc =>
       match doc with
         | Group inner hard =>
           match mode with
-            | Flat => Inl (((Inl rfl), rfl))
+            | Flat => Inl (((Inl byComputing), byComputing))
             | Break =>
               match hard with
-                | True => Inr ((rfl, rfl))
+                | True => Inr ((byComputing, byComputing))
                 | False =>
                   match fit: printer.fitsHere total [(Flat, inner)] rest with
-                    | True => Inl (((Inr rfl), rfl))
-                    | False => Inr ((rfl, rfl))
-        | Fill [] => rfl
+                    | True => Inl (((Inr byComputing), byComputing))
+                    | False => Inr ((byComputing, byComputing))
+        | Fill [] => byComputing
         | Fill [first, ..others] =>
           match mode with
-            | Flat => Inl ((rfl, rfl))
+            | Flat => Inl ((byComputing, byComputing))
             | Break =>
               Inr
                 ((
-                  rfl,
+                  byComputing,
                   (if printer.fitsHere total [(Flat, first)] (others.map (FillSep indent) ++ rest) then Flat
                    else Break),
-                  rfl
+                  byComputing
                 ))
         | Choice options =>
           match mode with
-            | Flat => Inl ((rfl, rfl))
+            | Flat => Inl ((byComputing, byComputing))
             | Break =>
               Inr
                 ((
-                  rfl,
+                  byComputing,
                   (printer.choose total indent rest options),
                   (chooseIsOption printer total indent rest options),
-                  rfl
+                  byComputing
                 ))
-        | Empty => rfl
-        | Chunk text width => rfl
-        | Line => rfl
-        | SoftLine => rfl
-        | HardLine => rfl
-        | Blank => rfl
-        | Nest more inner => rfl
-        | Concat docs => rfl
-        | Flatten inner => rfl
-        | OneLineBelow inner => rfl
-        | LineSuffix comment => rfl
-        | LineStart => rfl
-        | CommentEnd => rfl
-        | LineStartHere => rfl
-        | BreakParent => rfl
+        | Empty => byComputing
+        | Chunk text width => byComputing
+        | Line => byComputing
+        | SoftLine => byComputing
+        | HardLine => byComputing
+        | Blank => byComputing
+        | Nest more inner => byComputing
+        | Concat docs => byComputing
+        | Flatten inner => byComputing
+        | OneLineBelow inner => byComputing
+        | LineSuffix comment => byComputing
+        | LineStart => byComputing
+        | CommentEnd => byComputing
+        | LineStartHere => byComputing
+        | BreakParent => byComputing
 
 --| A run of the printer, at any width and budget, is a reading.
 theorem runIsReading ∀ (printer: Printer) (total fuel: Nat) (stack: List Cmd):
     Reads printer fuel stack (printer.run total fuel stack) :=
   match fuel, stack with
-    | 0, stack => rfl
-    | Succ more, [] => rfl
+    | 0, stack => byComputing
+    | Succ more, [] => byComputing
     | Succ more, [cmd, ..rest] =>
       let isStep := stepIsReading printer total cmd rest
       match stepped: printer.step total cmd rest with
@@ -157,5 +157,5 @@ theorem printIsReading ∀ (doc: Doc) (width: Nat):
   (
     ((Printer.start width).run (3 * doc.size + 3) (3 * doc.size + 3) [Print 0 Break doc]),
     (runIsReading (Printer.start width) (3 * doc.size + 3) (3 * doc.size + 3) [Print 0 Break doc]),
-    rfl
+    byComputing
   )

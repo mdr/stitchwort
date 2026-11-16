@@ -12,5 +12,5 @@ import Std.Map.Tree (Tip, Bin)
 def wrong: Map.Raw Nat Text := {
   tree = Bin 5 Tip 1 "a" Tip,
   ordered = Both (Both Trivial Trivial) (Both Trivial Trivial),
-  sized = Both rfl (Both Trivial Trivial)
+  sized = Both byComputing (Both Trivial Trivial)
 }

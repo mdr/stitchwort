@@ -28,7 +28,7 @@ theorem emptyOrTooBig ∀ (booking: Booking) (capacity: Nat)
     (h: booking.fits capacity = False):
     booking.seats = 0 ∨ capacity < booking.seats :=
   match h with
-    | Inl zero => Inl omega
+    | Inl zero => Inl arithmetic
     | Inr big => Inr big.read
 -- end negative
 
@@ -40,7 +40,7 @@ theorem fitsFrom ∀ (booking: Booking) (capacity: Nat)
   Both positive small
 
 theorem fitsOrBigger ∀ (booking: Booking) (capacity: Nat) (h: booking.fits capacity): booking.fits (capacity + 1) :=
-  Both h.left omega
+  Both h.left arithmetic
 -- end build
 
 -- begin build-from-proof
@@ -57,7 +57,7 @@ theorem booked ∀ (bookings: List Booking) (b: Booking) (m: b ∈ bookings): bo
 -- end build-from-proof
 
 -- begin same
-theorem sameName ∀ (a b: Booking) (h: a == b): a.name = b.name := rewrite h.read in rfl
+theorem sameName ∀ (a b: Booking) (h: a == b): a.name = b.name := rewrite h.read then byComputing
 -- end same
 
 -- begin auto

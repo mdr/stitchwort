@@ -1,13 +1,13 @@
--- `rewrite p in t`: `p` proves `a = b`; every `a` in the goal is replaced by
+-- `rewrite p then t`: `p` proves `a = b`; every `a` in the goal is replaced by
 -- `b`, and `t` proves what's left. The motive of `J` is worked out by looking
 -- for `a` in the goal.
 
 -- With `in t`, `t` proves the goal after the replacement.
 import Std (Bool, Eq, List, Nat)
 
-theorem inBody ∀ (a b: Nat) (h: a = b) (k: Nat) (p: b + k = k + b): a + k = k + a := rewrite h in p
+theorem inBody ∀ (a b: Nat) (h: a = b) (k: Nat) (p: b + k = k + b): a + k = k + a := rewrite h then p
 
--- Without `in`, the body is `rfl`, against the whole goal.
+-- Without `in`, the body is `byComputing`, against the whole goal.
 theorem noBody ∀ (a b c: Nat) (h: a = b): a + c = b + c := rewrite h
 
 -- Every occurrence is replaced, on both sides.
@@ -19,8 +19,8 @@ theorem backwards ∀ (a b: Nat) (h: a = b): b + 0 = a + 0 := rewrite <- h
 -- A lemma with arguments: the rule is `n * Succ m = n + n * m`.
 theorem lemma ∀ (n m: Nat): n * Succ m = n + n * m := rewrite Nat.mulSucc n m
 
--- A comma list is applied left to right: `rewrite p, q in t` is
--- `rewrite p in (rewrite q in t)`. After the first rule, the goal is
+-- A comma list is applied left to right: `rewrite p, q then t` is
+-- `rewrite p then (rewrite q then t)`. After the first rule, the goal is
 -- `n + n * m = n * m + n`, and the second turns `n + n * m` into `n * m + n`.
 theorem two ∀ (n m: Nat): n * Succ m = n * m + n := rewrite Nat.mulSucc n m, Nat.addComm n (n * m)
 
@@ -47,11 +47,12 @@ theorem rolledBackType ∀ (m: [a: Type] → a → a → a)
     (h: ∀ [a: Type] [x: a] => m x x = x)
     (q: Bool → Nat → Prop) (k: q (m False True) 3):
     q (m False True) (m 3 3) :=
-  rewrite h in k
+  rewrite h then k
 
 -- Under a binder, an occurrence that doesn't use the bound variable is
 -- found and replaced.
-theorem underBinder ∀ (f g: Nat → Nat) (h: f 1 = g 1): ∀ (y: Nat) => f 1 + y = g 1 + y := rewrite h in y => rfl
+theorem underBinder ∀ (f g: Nat → Nat) (h: f 1 = g 1): ∀ (y: Nat) => f 1 + y = g 1 + y :=
+  rewrite h then y => byComputing
 
 -- The rule can be any proof of an equation, such as a hypothesis applied to
 -- an argument or a larger term in parentheses.
@@ -60,7 +61,7 @@ theorem applied ∀ (f g: Nat → Nat) (h: ∀ (x: Nat) => f x = g x): f 4 + 1 =
 -- `rewrite` works as an argument, where the goal is the parameter's type.
 theorem useEq ∀ (x y: Nat) (p: x + 1 = y): x + 1 = y := p
 
-theorem asArgument ∀ (a b: Nat) (h: a = b) (p: b + 1 = b): a + 1 = b := useEq a b (rewrite h in p)
+theorem asArgument ∀ (a b: Nat) (h: a = b) (p: b + 1 = b): a + 1 = b := useEq a b (rewrite h then p)
 
 -- Equations at any type will do.
 theorem lists ∀ (xs ys: List Nat) (h: xs = ys): List.length xs = List.length ys := rewrite h
@@ -75,8 +76,8 @@ theorem argumentIn ∀ (f g: Prop → Nat) (xs: List Nat) (h: ∀ (p: Prop) => f
 theorem stepZero ∀ (highest n: Nat):
     Bool.toNat (0 == 0) + ((Succ highest - 0) % Succ highest + n) / Succ highest
       = ((Succ highest - 1) % Succ highest + Succ n) / Succ highest :=
-  rewrite Nat.modSelf (Succ highest), Nat.modSmall highest (Succ highest) (Nat.leRefl highest) in
-    Eq.sym (Nat.addDivSelf (Succ highest) n)
+  rewrite Nat.modSelf (Succ highest), Nat.modSmall highest (Succ highest) (Nat.leRefl highest) then
+    Eq.flipped (Nat.addDivSelf (Succ highest) n)
 
 -- In a `calc` step, `rewrite p` is checked against the step's own line.
 theorem inCalc ∀ (a n: Nat): a * Succ n = a * n + a := calc a * Succ n
@@ -84,4 +85,4 @@ theorem inCalc ∀ (a n: Nat): a * Succ n = a * n + a := calc a * Succ n
   _ = a * n + a := rewrite Nat.addComm a (a * n)
 
 -- `in` may start its own line, at the `rewrite`'s column or right of it.
-theorem inOwnLine ∀ (a b c: Nat) (h: a = b) (k: b = c): a + 0 = c + 0 := rewrite h, k in rfl
+theorem inOwnLine ∀ (a b c: Nat) (h: a = b) (k: b = c): a + 0 = c + 0 := rewrite h, k then byComputing

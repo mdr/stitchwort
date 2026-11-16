@@ -31,7 +31,7 @@ theorem stepEdgeElim ∀ (enter: Position → Option Nat) (from next: Position) 
       match found: enter other with
         | Some cost =>
           let same: (other, cost) = (next, weight) := Option.someInjective made
-          rewrite <- Eq.cong Pair.fst same, <- Eq.cong Pair.snd same in
+          rewrite <- Eq.cong Pair.fst same, <- Eq.cong Pair.snd same then
             Both (neighbourAdjacent from other isNeighbour) found)
 
 --| ...and each such step is one of the graph's.
@@ -45,7 +45,7 @@ theorem stepEdgeIntro ∀ (enter: Position → Option Nat) (from next: Position)
     (next, cost)
     from.neighbours
     (adjacentNeighbour from next near)
-    (rewrite found in rfl)
+    (rewrite found then byComputing)
 
 --| A walk is a path through the positions it enters, and costs what
 --| entering them costs...
@@ -56,14 +56,14 @@ theorem walkPath ∀ (enter: Position → Option Nat) (states: List Position)
     isPath (canEnter enter) start (path.map Pair.fst) finish = True
       ∧ Graph.cost path = (path.map Pair.fst).sumBy (enterCost enter) :=
   match path, walked with
-    | [], walked => Both (rewrite walked in DecEq.refl finish) rfl
+    | [], walked => Both (rewrite walked then DecEq.refl finish) byComputing
     | [(next, weight), ..rest], (Both edge later) =>
       let (Both near found) := stepEdgeElim enter start next weight edge
       let (Both restPath restCost) := walkPath enter states complete next rest finish later
-      let entered: enterCost enter next = weight := rewrite found in rfl
+      let entered: enterCost enter next = weight := rewrite found then byComputing
       Both
-        (Both near (Both (rewrite found in rfl) restPath))
-        (omega [
+        (Both near (Both (rewrite found then byComputing) restPath))
+        (arithmetic [
           Graph.costCons next weight rest,
           restCost,
           List.sumByCons (rest.map Pair.fst) next (enterCost enter),
@@ -90,9 +90,9 @@ theorem pathWalk ∀ (enter: Position → Option Nat) (states: List Position)
 theorem pathWalkCost ∀ (enter: Position → Option Nat) (steps: List Position):
     Graph.cost (steps.map (next => (next, enterCost enter next))) = steps.sumBy (enterCost enter) :=
   match steps with
-    | [] => rfl
+    | [] => byComputing
     | [next, ..rest] =>
-      omega [
+      arithmetic [
         Graph.costCons next (enterCost enter next) (rest.map (next => (next, enterCost enter next))),
         pathWalkCost enter rest,
         List.sumByCons rest next (enterCost enter)
@@ -106,11 +106,11 @@ theorem unitPathCost ∀ (enter: Position → Option Nat)
     (path: isPath (canEnter enter) from steps to = True):
     steps.sumBy (enterCost enter) = steps.length :=
   match steps with
-    | [] => rfl
+    | [] => byComputing
     | [next, ..rest] =>
       let one := unitEnterCost enter unit next path.right.left
       let restCost := unitPathCost enter unit next rest to path.right.right
-      omega [List.sumByCons rest next (enterCost enter), restCost, one]
+      arithmetic [List.sumByCons rest next (enterCost enter), restCost, one]
 
 --| Entering a position that can be entered costs 1, there.
 theorem unitEnterCost ∀ (enter: Position → Option Nat)
@@ -140,8 +140,8 @@ theorem isPathCong ∀ (f g: Position → Bool)
     (from: Position) (steps: List Position) (to: Position):
     isPath f from steps to = isPath g from steps to :=
   match steps with
-    | [] => rfl
-    | [next, ..rest] => rewrite same next, isPathCong f g same next rest to in rfl
+    | [] => byComputing
+    | [next, ..rest] => rewrite same next, isPathCong f g same next rest to then byComputing
 
 --| A path, then another from where it ends.
 theorem isPathAppend ∀ (allowed: Position → Bool) (more: List Position) (to from: Position)
@@ -150,7 +150,7 @@ theorem isPathAppend ∀ (allowed: Position → Bool) (more: List Position) (to 
     (after: isPath allowed middle more to = True):
     isPath allowed from (steps ++ more) to = True :=
   match steps with
-    | [] => rewrite path.read in after
+    | [] => rewrite path.read then after
     | [next, ..rest] =>
       Both path.left (Both path.right.left (isPathAppend allowed more to next rest middle path.right.right after))
 
@@ -160,7 +160,7 @@ theorem isPathEnd ∀ (allowed: Position → Bool) (from: Position) (steps: List
     (path: isPath allowed from steps to = True):
     allowed to = True :=
   match steps with
-    | [] => rewrite <- path.read in start
+    | [] => rewrite <- path.read then start
     | [next, ..rest] => isPathEnd allowed next rest to path.right.left path.right.right
 
 --| `count` steps right along row `row`, from column `column`...
@@ -178,22 +178,22 @@ theorem rightPath ∀ (allowed: Position → Bool) (row column count: Nat)
     (open: ∀ (k: Nat) => column < k → k ≤ column + count → allowed { row, column = k } = True):
     isPath allowed { row, column } (rightSteps row column count) { row, column = column + count } = True :=
   match count with
-    | Zero => rewrite Nat.addZero column in DecEq.refl ({ row, column }: Position)
+    | Zero => rewrite Nat.addZero column then DecEq.refl ({ row, column }: Position)
     | Succ count =>
-      let later := rightPath allowed row (column + 1) count (k above below => open k (omega) (omega))
-      let same: column + 1 + count = column + Succ count := omega
-      Both (rightAdjacent row column) (Both (open (column + 1) (omega) (omega)) (rewrite <- same in later))
+      let later := rightPath allowed row (column + 1) count (k above below => open k (arithmetic) (arithmetic))
+      let same: column + 1 + count = column + Succ count := arithmetic
+      Both (rightAdjacent row column) (Both (open (column + 1) (arithmetic) (arithmetic)) (rewrite <- same then later))
 
 --| ...and so are steps down.
 theorem downPath ∀ (allowed: Position → Bool) (column row count: Nat)
     (open: ∀ (k: Nat) => row < k → k ≤ row + count → allowed { row = k, column } = True):
     isPath allowed { row, column } (downSteps row column count) { row = row + count, column } = True :=
   match count with
-    | Zero => rewrite Nat.addZero row in DecEq.refl ({ row, column }: Position)
+    | Zero => rewrite Nat.addZero row then DecEq.refl ({ row, column }: Position)
     | Succ count =>
-      let later := downPath allowed column (row + 1) count (k above below => open k (omega) (omega))
-      let same: row + 1 + count = row + Succ count := omega
-      Both (downAdjacent row column) (Both (open (row + 1) (omega) (omega)) (rewrite <- same in later))
+      let later := downPath allowed column (row + 1) count (k above below => open k (arithmetic) (arithmetic))
+      let same: row + 1 + count = row + Succ count := arithmetic
+      Both (downAdjacent row column) (Both (open (row + 1) (arithmetic) (arithmetic)) (rewrite <- same then later))
 
 --| Along the top row, then down the last column, of `height` rows and
 --| `width` columns.
@@ -213,6 +213,6 @@ theorem routePath ∀ (allowed: Position → Bool) (height width: Nat)
     (rightSteps 0 0 (width - 1))
     { row = 0, column = width - 1 }
     (rightPath allowed 0 0 (width - 1) (k above below =>
-      open { row = 0, column = k } (Both (omega [tall]) (omega [below, wide]))))
+      open { row = 0, column = k } (Both (arithmetic [tall]) (arithmetic [below, wide]))))
     (downPath allowed (width - 1) 0 (height - 1) (k above below =>
-      open { row = k, column = width - 1 } (Both (omega [below, tall]) (omega [wide]))))
+      open { row = k, column = width - 1 } (Both (arithmetic [below, tall]) (arithmetic [wide]))))

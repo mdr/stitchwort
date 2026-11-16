@@ -15,10 +15,10 @@ theorem part1Correct ∀ (input: Text) (layout: Layout)
     (parsed: Fail.toResult (() => parseLayout input) = Ok layout) (answer: Nat)
     (solved: layout.settledOccupied adjacentRule = Some answer):
     List.All2 Spec.RowWritten (input.lines.map Text.toList) layout.grid.rows ∧ Spec.Part1 layout answer :=
-  Both (And.left (parseWritten input layout parsed)) (part1Rules layout answer solved)
+  Both (parseWritten input layout parsed).left (part1Rules layout answer solved)
 
 theorem part2Correct ∀ (input: Text) (layout: Layout)
     (parsed: Fail.toResult (() => parseLayout input) = Ok layout) (answer: Nat)
     (solved: layout.settledOccupied layout.sightRule = Some answer):
     List.All2 Spec.RowWritten (input.lines.map Text.toList) layout.grid.rows ∧ Spec.Part2 layout answer :=
-  Both (And.left (parseWritten input layout parsed)) (part2Rules layout answer solved)
+  Both (parseWritten input layout parsed).left (part2Rules layout answer solved)

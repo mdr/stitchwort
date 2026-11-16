@@ -4,10 +4,10 @@
 -- dictionaries, found by full key (docs/proposals/prelude-slim.md §2.1).
 
 theorem Bool.toNatInjective ∀ (a b: Bool) (h: Bool.toNat a = Bool.toNat b): a = b := match a, b with
-  | False, False => rfl
-  | False, True => Void.exfalso (Nat.zeroNotSucc 0 h)
-  | True, False => Void.exfalso (Nat.succNotZero 0 h)
-  | True, True => rfl
+  | False, False => byComputing
+  | False, True => (Nat.zeroNotSucc 0 h).impossible
+  | True, False => (Nat.succNotZero 0 h).impossible
+  | True, True => byComputing
 
 --| Compares booleans, `False` first.
 def Bool.compare (a b: Bool): Ordering := Nat.compare (Bool.toNat a) (Bool.toNat b)

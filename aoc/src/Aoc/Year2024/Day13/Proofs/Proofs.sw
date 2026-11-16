@@ -21,5 +21,5 @@ theorem part2Correct ∀ (machines: List Machine)
     (machine => machine.corrected.fewestTokens)
     (Both
       (machine member =>
-        rewrite <- correctedIsSpec machine in fewestTokensCorrect machine.corrected (nonzero machine member))
-      rfl)
+        rewrite <- correctedIsSpec machine then fewestTokensCorrect machine.corrected (nonzero machine member))
+      byComputing)

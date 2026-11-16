@@ -221,7 +221,7 @@ An import item may be a namespace under the import's namespace. Then the
 item's name is a qualifier for that namespace in this file: `Spec.x` means
 `Aoc.Year2024.Day13.Spec.x`. Nothing in it is imported: `x` alone still
 needs `import Aoc.Year2024.Day13.Spec (x)` or `(..)`. The library works the
-same way (`import Std (Eq)`, then `Eq.sym`).
+same way (`import Std (Eq)`, then `Eq.flipped`).
 ([import-aliases.md](proposals/import-aliases.md))
 
 - **It counts as using the namespace**, which is checked first, whatever
@@ -274,7 +274,7 @@ name that resolves into `M`.
   are reported, and it's counted as relying on the broken declaration
   ("relies on a declaration with an error, checked assuming its
   statement"), never as finished. A declaration that has to compute through
-  the broken one (`rfl` on `beats Rock Paper` while `beats` has an error),
+  the broken one (`byComputing` on `beats Rock Paper` while `beats` has an error),
   or uses one whose statement is broken (or a type, interface, ability or
   instance with an error), can't be checked until it's fixed; it reports
   nothing itself. Instead each file with such declarations gets one

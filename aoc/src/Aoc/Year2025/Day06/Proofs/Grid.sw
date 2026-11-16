@@ -13,7 +13,7 @@ import Std (Char, Eq, List, Nat, NonEmptyList, Text)
 theorem columnsRectangular ∀ (lines: List Text) (c: Nat)
     (h: c < gridWidth lines):
     List.length (List.getOr ((lines.map Text.toList).transposeFill ' ') c []) = lines.length :=
-  rewrite List.lengthColumnTransposeFill (lines.map Text.toList) ' ' c h in List.lengthMap lines Text.toList
+  rewrite List.lengthColumnTransposeFill (lines.map Text.toList) ' ' c h then List.lengthMap lines Text.toList
 
 --| So the columns lose nothing: a grid with some width has columns that
 --| transpose back to every line, cell by cell, for any input.
@@ -21,7 +21,7 @@ theorem columnsKeepEveryCell ∀ (lines: List Text) (w: Nat)
     (wide: gridWidth lines = Succ w):
     ((lines.map Text.toList).transposeFill ' ').transpose
       = lines.map (line => (List.range 0 (gridWidth lines)).map (charAt line)) :=
-  rewrite columnsAre lines, wide in List.transposeGrid (List.rangeFrom w 1) 0 lines (c line => charAt line c)
+  rewrite columnsAre lines, wide then List.transposeGrid (List.rangeFrom w 1) 0 lines (c line => charAt line c)
 
 --| Only the blank columns separate problems. Every block is a non-empty run of
 --| columns with no blank one in it (`isBlank` is the separator test)...
@@ -38,7 +38,7 @@ theorem blocksKeepEveryColumn ∀ (lines: List Text):
 --| any spaces before and after it (its alignment in the problem), reads back
 --| as itself.
 theorem spacesNoDigits ∀ (k: Nat): List.filterMap (List.replicate k ' ') Char.digitValue = [] := match k with
-  | Zero => rfl
+  | Zero => byComputing
   | Succ k => spacesNoDigits k
 
 theorem parseNumberWritten ∀ (n before after: Nat):
@@ -52,5 +52,5 @@ theorem parseNumberWritten ∀ (n before after: Nat):
       List.filterMapAppend (Text.toList (Nat.toText n)) (List.replicate after ' ') Char.digitValue,
       spacesNoDigits before,
       spacesNoDigits after,
-      Char.toTextDigits n in
+      Char.toTextDigits n then
     Eq.trans (Eq.cong Nat.fromDigits (List.appendNil (Nat.digits n).toList)) (Nat.fromDigitsDigits n)

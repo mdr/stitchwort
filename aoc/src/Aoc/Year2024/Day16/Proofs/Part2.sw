@@ -24,17 +24,17 @@ theorem beforeHolds ∀ (maze: Maze):
       → ∀ (previous: Reindeer) (weight: Nat) => (previous, weight) ∈ maze.before reindeer → maze.holds previous = True
   | { position, facing }, holds, previous, weight, edge =>
     match List.memAppend (previous, weight) _ _ edge with
-      | Inr (Inl turn) => rewrite <- Eq.cong Pair.fst turn in holds
-      | Inr (Inr (Inl turn)) => rewrite <- Eq.cong Pair.fst turn in holds
-      | Inr (Inr (Inr none)) => Void.exfalso none
+      | Inr (Inl turn) => rewrite <- Eq.cong Pair.fst turn then holds
+      | Inr (Inr (Inl turn)) => rewrite <- Eq.cong Pair.fst turn then holds
+      | Inr (Inr (Inr none)) => none.impossible
       | Inl backward =>
         match stepped: position.step facing.toDirection.opposite with
           | Some behind =>
             match open: maze.isOpen behind with
               | True =>
                 match backward with
-                  | Inl here => rewrite <- Eq.cong Pair.fst here in open
-                  | Inr none => Void.exfalso none
+                  | Inl here => rewrite <- Eq.cong Pair.fst here then open
+                  | Inr none => none.impossible
 
 def endSources (maze: Maze): List (Reindeer, Nat) := maze.endReindeer.map (reindeer => (reindeer, 0))
 
@@ -43,8 +43,8 @@ theorem endSource ∀ (maze: Maze) (source: Reindeer) (start: Nat)
     (member: (source, start) ∈ endSources maze):
     (source.position = maze.end) ∧ (start = 0) :=
   Exists.elim (List.memMapElim (reindeer => (reindeer, 0)) (source, start) maze.endReindeer member) (reindeer both =>
-    rewrite <- Eq.cong Pair.fst (And.right both), <- Eq.cong Pair.snd (And.right both) in
-      Both (listedAtEnd maze reindeer (And.left both)) rfl)
+    rewrite <- Eq.cong Pair.fst both.right, <- Eq.cong Pair.snd both.right then
+      Both (listedAtEnd maze reindeer both.left) byComputing)
 
 --| The search back from the end, on a maze whose E is open.
 theorem toEndCorrect ∀ (maze: Maze)
@@ -56,8 +56,8 @@ theorem toEndCorrect ∀ (maze: Maze)
     (ReachesEnd maze)
     (source start member =>
       let (Both atEnd isZero) := endSource maze source start member
-      let holds: maze.holds source = True := rewrite atEnd in endOpen
-      rewrite isZero in Both holds (Witness [] (Witness source (Both rfl (Both atEnd rfl)))))
+      let holds: maze.holds source = True := rewrite atEnd then endOpen
+      rewrite isZero then Both holds (Witness [] (Witness source (Both byComputing (Both atEnd byComputing)))))
     (state cost reaches previous weight edge =>
       let (Both holds onward) := reaches
       let before := And.right (edgeHolds maze True state previous weight edge)
@@ -71,8 +71,8 @@ theorem toEndCorrect ∀ (maze: Maze)
                 [way, ..moves]
                 (Witness last
                   (Both
-                    (Eq.trans (finalCons maze previous way state (And.left both) moves) ended)
-                    (Both atEnd (rewrite scoreCons way moves, scored, And.right both in omega)))))))))
+                    (Eq.trans (finalCons maze previous way state both.left moves) ended)
+                    (Both atEnd (rewrite scoreCons way moves, scored, both.right then arithmetic)))))))))
 
 --| Moves from an open tile are a walk back in the maze's graph, from where
 --| they end, scoring the same.
@@ -81,7 +81,7 @@ theorem movesWalkBack ∀ (maze: Maze):
       → ∀ (moves: List Move) (last: Reindeer) => final maze reindeer moves = Some last
         → Exists (List (Reindeer, Nat)) (path =>
           ((maze.graph True).Walk last path reindeer) ∧ (Graph.cost path = score moves))
-  | reindeer, holds, [], last, ended => Witness [] (Both (Eq.sym (Option.someInjective ended)) rfl)
+  | reindeer, holds, [], last, ended => Witness [] (Both (Option.someInjective ended).flipped byComputing)
   | reindeer, holds, [way, ..rest], last, ended =>
     match moved: move maze reindeer way with
       | Some next =>
@@ -95,12 +95,12 @@ theorem movesWalkBack ∀ (maze: Maze):
                 last
                 path
                 next
-                (And.left both)
+                both.left
                 reindeer
                 way.points
                 (edgeOfMove maze True next nextHolds reindeer way.points
                   (beforeComplete maze reindeer holds way next moved)))
-              (omega [
+              (arithmetic [
                 Graph.costAppend path [(reindeer, way.points)],
                 Graph.costCons reindeer way.points [],
                 Graph.costNil [s := Reindeer],
@@ -130,8 +130,8 @@ theorem boundToEnd ∀ (maze: Maze) (result: Map Reindeer Nat)
         (sourcesBound last (endListed maze last atEnd))
         path
         reindeer
-        (And.left both)
-    Graph.boundWeaken result (0 + Graph.cost path) (score moves) reindeer along (omega [And.right both]))
+        both.left
+    Graph.boundWeaken result (0 + Graph.cost path) (score moves) reindeer along (arithmetic [both.right]))
 
 --| Moves from the start to a way of standing, then from there to the end,
 --| make a path standing there.
@@ -142,25 +142,25 @@ theorem joinedPath ∀ (maze: Maze) (reindeer: Reindeer) (fromStart toEnd: Nat)
       Exists (List Reindeer) (standings =>
         (IsPath maze moves standings) ∧ ((score moves = fromStart + toEnd) ∧ (reindeer ∈ standings)))) :=
   Exists.elim reached (first parts =>
-    Exists.elim (And.right reaches) (second rest =>
+    Exists.elim reaches.right (second rest =>
       Exists.elim rest (last others =>
         let (Both ended (Both atEnd scored)) := others
-        let whole := Eq.trans (finalAppend maze second (startingReindeer maze) first reindeer (And.left parts)) ended
+        let whole := Eq.trans (finalAppend maze second (startingReindeer maze) first reindeer parts.left) ended
         Exists.elim (finalFollow maze (startingReindeer maze) (first ++ second) last whole) (standings both =>
           Witness
             (first ++ second)
             (Witness standings
               (Both
-                (Both (And.left both) (rewrite And.right both, atEnd in rfl))
+                (Both both.left (rewrite And.right both, atEnd then byComputing))
                 (Both
-                  (rewrite scoreAppend first second, And.right parts, scored in rfl)
+                  (rewrite scoreAppend first second, parts.right, scored then byComputing)
                   (followVisits maze second
                     (startingReindeer maze)
                     first
                     reindeer
-                    (And.left parts)
+                    parts.left
                     standings
-                    (And.left both)))))))))
+                    both.left))))))))
 
 --| A tile counted for `best` is where the reindeer stands some way whose
 --| scores from the start and to the end add up to `best`...
@@ -177,14 +177,13 @@ theorem tileScoring ∀ (fromStart toEnd: Map Reindeer Nat) (best: Nat) (tile: P
   Exists.elim
     (List.memMapElim (entry => entry.fst.position) tile (fromStart.toList.filter passes) listed)
     (entry both =>
-      let (Both kept passed) := List.memFilter fromStart.toList passes (And.left both)
+      let (Both kept passed) := List.memFilter fromStart.toList passes both.left
       match entry with
         | (reindeer, first) =>
           let got := (Map.memToList fromStart reindeer first).forward kept
           match after: toEnd.get reindeer with
             | Some second =>
-              Witness reindeer
-                (Witness first (Witness second (Both got (Both after (Both (passed.read) (And.right both)))))))
+              Witness reindeer (Witness first (Witness second (Both got (Both after (Both (passed.read) both.right))))))
 
 --| ...and every such tile is counted.
 theorem scoringTile ∀ (fromStart toEnd: Map Reindeer Nat) (best: Nat) (reindeer: Reindeer) (first second: Nat)
@@ -194,7 +193,7 @@ theorem scoringTile ∀ (fromStart toEnd: Map Reindeer Nat) (best: Nat) (reindee
     (tilesScoring fromStart toEnd best).contains reindeer.position = True :=
   let passes := (entry: (Reindeer, Nat)) =>
     toEnd.get entry.fst |> .map (rest => entry.snd + rest == best) |> .getOrElse False
-  let passed: passes (reindeer, first) = True := rewrite gotSecond, <- sum in DecEq.refl (first + second)
+  let passed: passes (reindeer, first) = True := rewrite gotSecond, <- sum then DecEq.refl (first + second)
   let kept :=
     List.memFilterIntro fromStart.toList passes ((Map.memToList fromStart reindeer first).backward gotFirst) passed
   (Set.containsFromListIff _ reindeer.position).backward
@@ -208,14 +207,15 @@ theorem bestTilesCorrect ∀ (maze: Maze)
     (lowest: IsLowestScore maze best) (tile: Position):
     (maze.bestTiles.contains tile = True) ↔ (OnBestPath maze best tile) :=
   let reachable: Exists (List Move) (moves => Exists (List Reindeer) (standings => IsPath maze moves standings)) :=
-    Exists.elim (And.left lowest) (moves rest =>
-      Exists.elim rest (standings both => Witness moves (Witness standings (And.left both))))
+    Exists.elim lowest.left (moves rest =>
+      Exists.elim rest (standings both => Witness moves (Witness standings both.left)))
   let (Both reachedAll (Both startBounds closedForward)) := fromStartCorrect maze
   let (Both reachesAll (Both endBounds closedBackward)) := toEndCorrect maze endOpen
   Exists.elim (lowestScoreCorrect maze startOpen reachable) (found both =>
-    let same := lowestUnique maze found best (And.right both) lowest
-    let tiles: maze.bestTiles = tilesScoring maze.fromStart maze.toEnd best := rewrite And.left both, same in rfl
-    rewrite tiles in
+    let same := lowestUnique maze found best both.right lowest
+    let tiles: maze.bestTiles = tilesScoring maze.fromStart maze.toEnd best :=
+      rewrite And.left both, same then byComputing
+    rewrite tiles then
       {
         forward = there =>
           Exists.elim (tileScoring maze.fromStart maze.toEnd best tile there) (reindeer rest =>
@@ -233,8 +233,8 @@ theorem bestTilesCorrect ∀ (maze: Maze)
                         (Witness standings
                           (Both path
                             (Both
-                              (rewrite scored, sum in rfl)
-                              (rewrite <- at in
+                              (rewrite scored, sum then byComputing)
+                              (rewrite <- at then
                                 List.memMap standings reindeer member (standing => standing.position)))))))))),
         backward = onPath =>
           Exists.elim onPath (moves rest =>
@@ -245,7 +245,7 @@ theorem bestTilesCorrect ∀ (maze: Maze)
                 (reindeer standingThere =>
                   let (Both stands at) := standingThere
                   Exists.elim
-                    (followSplits maze (startingReindeer maze) moves standings (And.left path) reindeer stands)
+                    (followSplits maze (startingReindeer maze) moves standings path.left reindeer stands)
                     (before rest2 =>
                       Exists.elim rest2 (after split =>
                         let (Both joined (Both reached remaining)) := split
@@ -257,7 +257,7 @@ theorem bestTilesCorrect ∀ (maze: Maze)
                               (startingReindeer maze)
                               startOpen
                               0
-                              (startBounds maze.startReindeer 0 (Inl rfl))
+                              (startBounds maze.startReindeer 0 (Inl byComputing))
                               before
                               reindeer
                               reached
@@ -275,28 +275,26 @@ theorem bestTilesCorrect ∀ (maze: Maze)
                           Exists.elim fromStartBound (first firstBoth =>
                             Exists.elim toEndBound (second secondBoth =>
                               let parts := scoreAppend before after
-                              let total: score moves = score before + score after := rewrite joined in parts
+                              let total: score moves = score before + score after := rewrite joined then parts
                               Exists.elim
                                 (joinedPath maze reindeer first second
-                                  (reachedAll reindeer first (And.left firstBoth))
-                                  (reachesAll reindeer second (And.left secondBoth)))
+                                  (reachedAll reindeer first firstBoth.left)
+                                  (reachesAll reindeer second secondBoth.left))
                                 (otherMoves rest3 =>
                                   Exists.elim rest3 (otherStandings joinedBoth =>
-                                    let atLeast := And.right lowest otherMoves otherStandings (And.left joinedBoth)
+                                    let atLeast := And.right lowest otherMoves otherStandings joinedBoth.left
                                     let sum: first + second = best :=
-                                      omega [
+                                      arithmetic [
                                         And.right firstBoth,
                                         And.right secondBoth,
                                         total,
                                         scored,
                                         atLeast,
-                                        And.left (And.right joinedBoth)
+                                        And.left joinedBoth.right
                                       ]
-                                    rewrite <- at in
-                                      scoringTile maze.fromStart maze.toEnd best reindeer first second
-                                        (And.left firstBoth)
-                                        (And.left secondBoth)
-                                        sum))))))))))
+                                    rewrite <- at then
+                                      scoringTile maze.fromStart maze.toEnd best reindeer first second firstBoth.left
+                                          secondBoth.left sum))))))))))
       })
 
 --| Part 2: on a maze whose S and E are open, with lowest score `best`, the
@@ -306,4 +304,4 @@ theorem part2Correct ∀ (maze: Maze)
     (endOpen: maze.isOpen maze.end = True) (best: Nat)
     (lowest: IsLowestScore maze best):
     CountsBestTiles maze best (solvePart2 maze) :=
-  Witness maze.bestTiles (Both (tile => bestTilesCorrect maze startOpen endOpen best lowest tile) rfl)
+  Witness maze.bestTiles (Both (tile => bestTilesCorrect maze startOpen endOpen best lowest tile) byComputing)

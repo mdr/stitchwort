@@ -9,7 +9,7 @@ import Std (Decidable, Eq)
 type Version = { major: Nat, minor: Nat }
 
 def Version.decide (x: Version) (y: Version): Decidable (x = y) :=
-  if h: x.major = y.major then Decidable.yes rfl
+  if h: x.major = y.major then Decidable.yes byComputing
   else Decidable.no (e => h (Eq.cong Version.major e))
 
 instance Version.instDecEq: DecEq Version := { decide = Version.decide }

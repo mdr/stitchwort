@@ -8,26 +8,26 @@ import Std (Nat)
 opaque def double (n: Nat): Nat := n + n
 
 -- With `unfolding double`, this proof's body sees `double`'s.
-theorem doubleThree: double 3 = 6 unfolding double := rfl
+theorem doubleThree: double 3 = 6 unfolding double := byComputing
 
 -- `double.unfold n: double n = double.%body n`, where `double.%body` is a
 -- copy of the body that computes when something looks inside it.
-theorem doubleTwo: double 2 = 4 := rewrite double.unfold in rfl
+theorem doubleTwo: double 2 = 4 := rewrite double.unfold then byComputing
 
 -- Calls are compared by their arguments, as for a function variable.
-theorem sameCall ∀ (a b: Nat) (e: a = b): double a = double b := rewrite e in rfl
+theorem sameCall ∀ (a b: Nat) (e: a = b): double a = double b := rewrite e then byComputing
 
 -- A transparent definition may call it; a theorem about that one unfolds
 -- what it needs. (`double.%body` stays folded inside arithmetic, so
 -- rewriting with `double.unfold` twice here wouldn't compute to `4`.)
 def quadruple (n: Nat): Nat := double (double n)
 
-theorem quadrupleOne: quadruple 1 = 4 unfolding double := rfl
+theorem quadrupleOne: quadruple 1 = 4 unfolding double := byComputing
 
 -- An opaque definition may unfold another; its own body sees both.
 opaque def triple (n: Nat): Nat unfolding double := double n + n
 
-theorem tripleTwo: triple 2 = 6 unfolding triple := rfl
+theorem tripleTwo: triple 2 = 6 unfolding triple := byComputing
 
 -- A constant can be opaque too.
 opaque def answer: Nat := 42

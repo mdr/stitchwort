@@ -34,11 +34,11 @@ theorem readsLine: Parse.Reads line Written := Parse.readsThen Parse.readsNat (l
             Parse.readsThen (Parse.readsTakeWhile1) (passwordRead password (Both nonEmpty (Both lowers made)) =>
               Parse.readsDone
                 { low, high, letter, password } _
-                (rewrite made in
+                (rewrite made then
                   Witness lowRead
                     (Witness highRead
                       (Both
-                        (rewrite dash, space, letterIs, colon, List.appendNil passwordRead in rfl)
+                        (rewrite dash, space, letterIs, colon, List.appendNil passwordRead then byComputing)
                         (Both lowDigits (Both highDigits (Both lower (Both nonEmpty lowers))))))))))))))
 
 --| Every line of the input is its entry written out, and there is one entry

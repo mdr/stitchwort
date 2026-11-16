@@ -243,14 +243,14 @@ pub const ALL: &[Benchmark] = &[
         },
     },
     Benchmark {
-        name: "check-list-rfl",
-        about: "checks `theorem a : [1, …, 20000] = [1, …, 20000]` by `rfl`",
-        prepare: || check(list_theorem(20_000, "rfl")),
+        name: "check-list-byComputing",
+        about: "checks `theorem a : [1, …, 20000] = [1, …, 20000]` by `byComputing`",
+        prepare: || check(list_theorem(20_000, "byComputing")),
     },
     Benchmark {
         name: "check-list-sym-rfl",
-        about: "the same by `Eq.sym rfl`, whose hidden arguments are solved to the list",
-        prepare: || check(list_theorem(20_000, "Std.Eq.sym rfl")),
+        about: "the same by `Eq.flipped byComputing`, whose hidden arguments are solved to the list",
+        prepare: || check(list_theorem(20_000, "Std.Eq.flipped byComputing")),
     },
     // The next three are near the command line's limits, measured on
     // 2026-10-15: a sum of 9,500 ones checks and 10,000 doesn't; 12,740
@@ -325,9 +325,9 @@ pub const ALL: &[Benchmark] = &[
         },
     },
     Benchmark {
-        name: "check-closed-rfl",
-        about: "checks `rfl : cost = cost`",
-        prepare: || check(closed("def big (u : ()) : cost = cost := rfl")),
+        name: "check-closed-byComputing",
+        about: "checks `byComputing : cost = cost`",
+        prepare: || check(closed("def big (u : ()) : cost = cost := byComputing")),
     },
 ];
 

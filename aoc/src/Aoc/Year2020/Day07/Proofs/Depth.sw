@@ -42,8 +42,8 @@ theorem deepAtMost ∀ (rules: List Rule) (colour: Colour) (depth longer: Nat)
     (le: depth ≤ longer)
     (deep: Deep rules longer colour):
     Deep rules depth colour :=
-  let same: longer = (longer - depth) + depth := omega
-  deepShorter rules colour depth (longer - depth) (rewrite <- same in deep)
+  let same: longer = (longer - depth) + depth := arithmetic
+  deepShorter rules colour depth (longer - depth) (rewrite <- same then deep)
 
 theorem deepAfterWalk ∀ (rules: List Rule) (finish: Colour) (rest: Nat) (start: Colour) (between: List Colour)
     (h: Walk rules start between finish)
@@ -58,10 +58,10 @@ theorem walkOfDeep ∀ (rules: List Rule) (steps: Nat) (start: Colour)
     (h: Deep rules (Succ steps) start):
     ∃ (between: List Colour) => ∃ (finish: Colour) => List.length between = steps ∧ Walk rules start between finish :=
   match steps, h with
-    | 0, Witness inner (Both directly _) => Witness [] (Witness inner (Both rfl directly))
+    | 0, Witness inner (Both directly _) => Witness [] (Witness inner (Both byComputing directly))
     | Succ steps, Witness inner (Both directly deeper) =>
       let (Witness between (Witness finish (Both long walk))) := walkOfDeep rules steps inner deeper
-      Witness [inner, ..between] (Witness finish (Both (rewrite long in rfl) (Both directly walk)))
+      Witness [inner, ..between] (Witness finish (Both (rewrite long then byComputing) (Both directly walk)))
 
 theorem walkSplit ∀ (rules: List Rule) (middle: Colour) (after: List Colour)
     (finish start: Colour) (before: List Colour)
@@ -84,7 +84,7 @@ theorem loopDeep ∀ (rules: List Rule) (colour: Colour) (between: List Colour)
       let (Witness depth (Both enough deep)) := loopDeep rules colour between loop wanted
       Witness
         (List.length between + 1 + depth)
-        (Both (omega) (deepAfterWalk rules colour depth colour between loop deep))
+        (Both (arithmetic) (deepAfterWalk rules colour depth colour between loop deep))
 
 theorem loopDeepEvery ∀ (rules: List Rule) (colour: Colour) (between: List Colour)
     (loop: Walk rules colour between colour) (depth: Nat):
@@ -97,9 +97,9 @@ theorem loopDeepEvery ∀ (rules: List Rule) (colour: Colour) (between: List Col
 theorem walkHasStep ∀ (rules: List Rule) (finish: Colour):
     ∀ (start: Colour) (between: List Colour) => Walk rules start between finish
       → ∀ (colour: Colour) => colour ∈ [start, ..between] → ∃ (inner: Colour) => Spec.Directly rules colour inner
-  | start, [], directly, colour, Inl same => Witness finish (rewrite <- same in directly)
-  | start, [], directly, colour, Inr none => Void.exfalso none
-  | start, [next, ..rest], Both directly walk, colour, Inl same => Witness next (rewrite <- same in directly)
+  | start, [], directly, colour, Inl same => Witness finish (rewrite <- same then directly)
+  | start, [], directly, colour, Inr none => none.impossible
+  | start, [next, ..rest], Both directly walk, colour, Inl same => Witness next (rewrite <- same then directly)
   | start, [next, ..rest], Both directly walk, colour, Inr later => walkHasStep rules finish next rest walk colour later
 
 theorem directlyHasRule ∀ (rules: List Rule) (outer inner: Colour)
@@ -112,7 +112,7 @@ theorem directlyHasRule ∀ (rules: List Rule) (outer inner: Colour)
     (List.memFlatMapElim .contents content _ inContents)
     (rule kept inRule =>
       let (Both member isOuter) := List.memFilter _ _ kept
-      rewrite <- isOuter.read in List.memMap rules rule member .colour)
+      rewrite <- isOuter.read then List.memMap rules rule member .colour)
 
 theorem walkHasRule ∀ (rules: List Rule) (start: Colour) (between: List Colour) (finish: Colour)
     (walk: Walk rules start between finish) (colour: Colour)
@@ -136,25 +136,25 @@ theorem walkRepeats ∀ (rules: List Rule) (start: Colour) (between: List Colour
       let sameStart: start = repeated :=
         List.consInjectiveHead start repeated between (inside ++ [repeated, ..after]) split
       let sameBetween: between = inside ++ [repeated, ..after] :=
-        List.consInjective repeated between _ (rewrite sameStart at split in split)
+        List.consInjective repeated between _ (rewrite sameStart at split then split)
       let (Both loop _) :=
-        walkSplit rules repeated after finish repeated inside (rewrite sameStart, sameBetween at walk in walk)
-      rewrite sameStart in loopDeepEvery rules repeated inside loop depth
+        walkSplit rules repeated after finish repeated inside (rewrite sameStart, sameBetween at walk then walk)
+      rewrite sameStart then loopDeepEvery rules repeated inside loop depth
     | [first, ..earlier], split =>
       let sameStart: start = first := List.consInjectiveHead start first between _ split
       let sameBetween: between = earlier ++ [repeated, ..(inside ++ [repeated, ..after])] :=
-        List.consInjective first between _ (rewrite sameStart at split in split)
+        List.consInjective first between _ (rewrite sameStart at split then split)
       let (Both toRepeat fromRepeat) :=
         walkSplit rules repeated
           (inside ++ [repeated, ..after])
           finish
           start
           earlier
-          (rewrite sameBetween at walk in walk)
+          (rewrite sameBetween at walk then walk)
       let (Both loop _) := walkSplit rules repeated after finish repeated inside fromRepeat
       deepAtMost rules start depth
         (List.length earlier + 1 + depth)
-        (omega)
+        (arithmetic)
         (deepAfterWalk rules repeated depth start earlier toRepeat (loopDeepEvery rules repeated inside loop depth))
 
 --| A chain of `rules.length + 1` bags can be made as long as wanted.
@@ -162,19 +162,19 @@ theorem deepEverywhere ∀ (rules: List Rule) (colour: Colour)
     (deep: Deep rules (List.length rules + 1) colour) (depth: Nat):
     Deep rules depth colour :=
   let (Witness between (Witness finish (Both long walk))) := walkOfDeep rules (List.length rules) colour deep
-  walkRepeats rules colour between finish walk (rewrite long, List.lengthMap rules Rule.colour in omega) depth
+  walkRepeats rules colour between finish walk (rewrite long, List.lengthMap rules Rule.colour then arithmetic) depth
 
 -- Settling at a depth means no chain that long.
 
 theorem allSomeEach ∀ (f: a → Option b):
     ∀ (xs: List a) (ys: List b) => List.allSome (xs.map f) = Some ys
       → ∀ (x: a) => x ∈ xs → ∃ (value: b) => f x = Some value
-  | [], ys, found, x, member => Void.exfalso member
+  | [], ys, found, x, member => member.impossible
   | [first, ..rest], ys, found, x, member =>
     match fFirst: f first with
       | Some value =>
         match member with
-          | Inl same => Witness value (rewrite <- same in fFirst)
+          | Inl same => Witness value (rewrite <- same then fFirst)
           | Inr later =>
             match restFound: List.allSome (rest.map f) with
               | Some values => allSomeEach f rest values restFound x later
@@ -183,11 +183,11 @@ theorem allSomeOfEach ∀ (f: a → Option b) (xs: List a)
     (each: ∀ (x: a) => x ∈ xs → ∃ (value: b) => f x = Some value):
     ∃ (ys: List b) => List.allSome (xs.map f) = Some ys :=
   match xs with
-    | [] => Witness [] rfl
+    | [] => Witness [] byComputing
     | [first, ..rest] =>
-      let (Witness value atFirst) := each first (Inl rfl)
+      let (Witness value atFirst) := each first (Inl byComputing)
       let (Witness values atRest) := allSomeOfEach f rest (x member => each x (Inr member))
-      Witness [value, ..values] (rewrite atFirst, atRest in rfl)
+      Witness [value, ..values] (rewrite atFirst, atRest then byComputing)
 
 theorem settledNotDeep ∀ (rules: List Rule) (depth: Nat) (colour: Colour) (total: Nat)
     (settled: Spec.bagsWithin rules depth colour = Some total)
@@ -201,26 +201,26 @@ theorem settledNotDeep ∀ (rules: List Rule) (depth: Nat) (colour: Colour) (tot
         | Some counts =>
           let (Witness value atContent) := allSomeEach step (Spec.contentsOf rules colour) counts r content inContents
           match e: Spec.bagsWithin rules depth content.colour with
-            | Some inside => settledNotDeep rules depth content.colour inside e (rewrite isInner in deeper)
+            | Some inside => settledNotDeep rules depth content.colour inside e (rewrite isInner then deeper)
 
 theorem contentSettled ∀ (rules: List Rule) (depth: Nat)
     (content: Content) (none: Deep rules depth content.colour → Void):
     ∃ (value: Nat) => (Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside)))
       = Some value :=
   let (Witness inside e) := noDeepSettled rules depth content.colour none
-  Witness (content.count * (1 + inside)) (rewrite e in rfl)
+  Witness (content.count * (1 + inside)) (rewrite e then byComputing)
 
 theorem noDeepSettled ∀ (rules: List Rule) (depth: Nat) (colour: Colour) (none: Deep rules depth colour → Void):
     ∃ (total: Nat) => Spec.bagsWithin rules depth colour = Some total :=
   match depth with
-    | 0 => Void.exfalso (none Trivial)
+    | 0 => (none Trivial).impossible
     | Succ depth =>
       let step := (content: Content) =>
         Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside))
       let (Witness counts found) := allSomeOfEach step (Spec.contentsOf rules colour) (content inContents =>
         contentSettled rules depth content (deeper =>
-          none (Witness content.colour (Both (Witness content (Both inContents rfl)) deeper))))
-      Witness (List.sum counts) (rewrite found in rfl)
+          none (Witness content.colour (Both (Witness content (Both inContents byComputing)) deeper))))
+      Witness (List.sum counts) (rewrite found then byComputing)
 
 --| Whatever depth settles part 2, the program's depth settles it too, to the
 --| same total: it fails with a cycle only where no depth gives an answer.
@@ -231,4 +231,4 @@ theorem part2Complete ∀ (rules: Rules) (total: Nat)
   let (Witness found atProgramDepth) := noDeepSettled rules.all (rules.all.length + 1) Spec.shinyGold (deep =>
     settledNotDeep rules.all depth Spec.shinyGold total settledAt (deepEverywhere rules.all Spec.shinyGold deep depth))
   let same: found = total := part2Unique rules.all found total (Witness (rules.all.length + 1) atProgramDepth) settled
-  rewrite bagsAgree rules.all (rules.all.length + 1) shinyGold, atProgramDepth, same in rfl
+  rewrite bagsAgree rules.all (rules.all.length + 1) shinyGold, atProgramDepth, same then byComputing

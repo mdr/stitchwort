@@ -1,4 +1,4 @@
--- `cases` is a whole term, so it can be an argument, as `omega` can: at the
+-- `cases` is a whole term, so it can be an argument, as `arithmetic` can: at the
 -- end of a line, before the next line of the block, too.
 import Std (Bool, Nat)
 

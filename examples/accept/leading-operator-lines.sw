@@ -1,9 +1,9 @@
 -- A line may start with an infix operator, at the block's column or
 -- further in: it continues the line above, as if the operator ended it.
 
-theorem both: 1 < 2 ∧ 2 < 3 ∧ 3 < 4 := Both rfl (Both rfl rfl)
+theorem both: 1 < 2 ∧ 2 < 3 ∧ 3 < 4 := Both byComputing (Both byComputing byComputing)
 
-theorem either: 1 = 2 ∨ 2 = 2 := Inr rfl
+theorem either: 1 = 2 ∨ 2 = 2 := Inr byComputing
 
 def inRange (lo hi n: Nat): Bool := lo <= n && n < hi
 

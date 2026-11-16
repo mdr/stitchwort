@@ -9,11 +9,11 @@
 -- A `∀` after a premise, `n < 3 → ∀ (k: Nat) => …`, is left alone: moving `k`
 -- would change the statement.
 theorem addZero: ∀ (n: Nat) => n + 0 = n
-  | Zero => rfl
-  | Succ k => rfl
+  | Zero => byComputing
+  | Succ k => byComputing
 
 theorem addZeroBefore ∀ (n: Nat): n + 0 = n := match n with
-  | Zero => rfl
-  | Succ k => rfl
+  | Zero => byComputing
+  | Succ k => byComputing
 
-theorem afterPremise ∀ (n: Nat): n < 3 → ∀ (k: Nat) => k + 0 = k := h k => rfl
+theorem afterPremise ∀ (n: Nat): n < 3 → ∀ (k: Nat) => k + 0 = k := h k => byComputing

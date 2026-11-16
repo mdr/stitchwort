@@ -14,24 +14,24 @@ import Std (And, Bool, DecEq, Eq, Exists, Nat, Not, Option, Void)
 theorem walkIterate ∀ (lab: Lab) (steps: Nat) (guard: Option Guard):
     walk lab guard steps = Nat.iterate steps (state => state.flatMap lab.step) guard :=
   match steps with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ steps => walkIterate lab steps (guard.flatMap lab.step)
 
 --| Once off the map, she stays off.
 theorem walkNone ∀ (lab: Lab) (steps: Nat): walk lab None steps = None := match steps with
-  | Zero => rfl
+  | Zero => byComputing
   | Succ steps => walkNone lab steps
 
 theorem walkSucc ∀ (lab: Lab) (steps: Nat) (guard: Option Guard):
     walk lab guard (Succ steps) = (walk lab guard steps).flatMap lab.step :=
   match steps with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ steps => walkSucc lab steps (guard.flatMap lab.step)
 
 theorem walkAdd ∀ (lab: Lab) (first: Nat) (guard: Option Guard) (second: Nat):
     walk lab guard (first + second) = walk lab (walk lab guard first) second :=
   match first with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ first => walkAdd lab first (guard.flatMap lab.step) second
 
 --| Gone after `steps`, she is gone after any more.
@@ -39,12 +39,12 @@ theorem walkLater ∀ (lab: Lab) (guard: Option Guard) (steps later: Nat)
     (gone: walk lab guard steps = None)
     (le: steps ≤ later):
     walk lab guard later = None :=
-  rewrite walkIterate lab later guard in
+  rewrite walkIterate lab later guard then
     Nat.iterateFixedLater
       (state => Option.flatMap state lab.step)
       guard
       None
-      rfl
+      byComputing
       steps
       later
       (rewrite walkIterate lab steps guard at gone)
@@ -80,8 +80,8 @@ theorem stepOnMap ∀ (lab: Lab) (guard: Guard)
   match ahead: lab.ahead guard with
     | Some position =>
       match blocked: lab.obstructions.contains position with
-        | True => rewrite <- Option.someInjective stepped in inside
-        | False => rewrite <- Option.someInjective stepped in aheadOnMap lab guard inside position ahead
+        | True => rewrite <- Option.someInjective stepped then inside
+        | False => rewrite <- Option.someInjective stepped then aheadOnMap lab guard inside position ahead
 
 --| She stays on the map until she leaves it.
 theorem afterOnMap ∀ (lab: Lab)
@@ -90,10 +90,10 @@ theorem afterOnMap ∀ (lab: Lab)
     (reached: after lab steps = Some guard):
     onMap lab guard.position = True :=
   match steps with
-    | Zero => rewrite <- Option.someInjective reached in inside
+    | Zero => rewrite <- Option.someInjective reached then inside
     | Succ steps =>
       let reachedStep: (after lab steps).flatMap lab.step = Some guard :=
-        rewrite <- walkSucc lab steps (Some lab.startGuard) in reached
+        rewrite <- walkSucc lab steps (Some lab.startGuard) then reached
       match before: after lab steps with
         | Some earlier => stepOnMap lab earlier (afterOnMap lab inside steps earlier before) guard reachedStep
 
@@ -112,8 +112,8 @@ theorem directionIndexSmall ∀ (direction: Direction): directionIndex direction
 theorem stateCodeSmall ∀ (lab: Lab) (guard: Guard)
     (inside: onMap lab guard.position = True):
     stateCode lab guard < lab.stateCount :=
-  let rowFits := Nat.nextMultipleLe guard.position.row lab.height lab.width (omega [inside])
-  omega [directionIndexSmall guard.facing, rowFits, inside]
+  let rowFits := Nat.nextMultipleLe guard.position.row lab.height lab.width (arithmetic [inside])
+  arithmetic [directionIndexSmall guard.facing, rowFits, inside]
 
 def directionOfIndex: Nat → Direction
   | 0 => Up
@@ -127,8 +127,8 @@ theorem directionIndexInjective ∀ (one other: Direction)
     (same: directionIndex one = directionIndex other):
     one = other :=
   calc one
-    _ = directionOfIndex (directionIndex one) := Eq.sym (directionOfIndexOf one)
-    _ = directionOfIndex (directionIndex other) := rewrite same in rfl
+    _ = directionOfIndex (directionIndex one) := (directionOfIndexOf one).flipped
+    _ = directionOfIndex (directionIndex other) := rewrite same then byComputing
     _ = other := directionOfIndexOf other
 
 theorem guardExt ∀ (one other: Guard)
@@ -140,7 +140,7 @@ theorem guardExt ∀ (one other: Guard)
     | { position = { row, column }, facing }, {
         position = { row = otherRow, column = otherColumn },
         facing = otherFacing
-      } => rewrite rows, columns, facings in rfl
+      } => rewrite rows, columns, facings then byComputing
 
 --| Different states on the map have different numbers.
 theorem stateCodeInjective ∀ (lab: Lab) (one other: Guard)
@@ -149,18 +149,18 @@ theorem stateCodeInjective ∀ (lab: Lab) (one other: Guard)
     (same: stateCode lab one = stateCode lab other):
     one = other :=
   let indexes: directionIndex one.facing = directionIndex other.facing :=
-    omega [same, directionIndexSmall one.facing, directionIndexSmall other.facing]
+    arithmetic [same, directionIndexSmall one.facing, directionIndexSmall other.facing]
   let cells: one.position.row * lab.width + one.position.column
     = other.position.row * lab.width + other.position.column :=
-    omega [same, directionIndexSmall one.facing, directionIndexSmall other.facing]
-  let positive: lab.width ≠ 0 := omega [oneInside]
+    arithmetic [same, directionIndexSmall one.facing, directionIndexSmall other.facing]
+  let positive: lab.width ≠ 0 := arithmetic [oneInside]
   let rows: one.position.row = other.position.row := calc one.position.row
     _ = (one.position.row * lab.width + one.position.column) / lab.width :=
-      Eq.sym (Nat.mulAddDivSmall one.position.row lab.width one.position.column (omega [oneInside]))
-    _ = (other.position.row * lab.width + other.position.column) / lab.width := rewrite cells in rfl
+      Eq.flipped (Nat.mulAddDivSmall one.position.row lab.width one.position.column (arithmetic [oneInside]))
+    _ = (other.position.row * lab.width + other.position.column) / lab.width := rewrite cells then byComputing
     _ = other.position.row :=
-      Nat.mulAddDivSmall other.position.row lab.width other.position.column (omega [otherInside])
-  let columns: one.position.column = other.position.column := omega [rewrite rows at cells]
+      Nat.mulAddDivSmall other.position.row lab.width other.position.column (arithmetic [otherInside])
+  let columns: one.position.column = other.position.column := arithmetic [rewrite rows at cells]
   guardExt one other rows columns (directionIndexInjective one.facing other.facing indexes)
 
 --| The same state at two step counts, still on the map at the later: she
@@ -177,11 +177,11 @@ theorem repeatLoops ∀ (lab: Lab) (first second: Nat)
       second
       earlier
       (Eq.trans
-        (Eq.sym (walkIterate lab first (Some lab.startGuard)))
+        (Eq.flipped (walkIterate lab first (Some lab.startGuard)))
         (Eq.trans same (walkIterate lab second (Some lab.startGuard))))
       (stopped => still (Eq.trans (walkIterate lab second (Some lab.startGuard)) stopped))
       steps
-      (Eq.trans (Eq.sym (walkIterate lab steps (Some lab.startGuard))) gone)
+      (Eq.trans (Eq.flipped (walkIterate lab steps (Some lab.startGuard))) gone)
 
 --| The state's number, or 0 once she has left.
 def codeOf (lab: Lab): Option Guard → Nat
@@ -196,15 +196,16 @@ theorem budgetEnough ∀ (lab: Lab)
     Loops lab :=
   let small: ∀ (steps: Nat) => steps ≤ lab.stateCount → codeOf lab (after lab steps) < lab.stateCount := steps le =>
     match reached: after lab steps with
-      | None => Void.exfalso (walkEarlier lab (Some lab.startGuard) steps lab.stateCount still le reached)
+      | None => Void.impossible (walkEarlier lab (Some lab.startGuard) steps lab.stateCount still le reached)
       | Some guard => stateCodeSmall lab guard (afterOnMap lab inside steps guard reached)
   Exists.elim (Nat.pigeonhole lab.stateCount (steps => codeOf lab (after lab steps)) small) (first rest =>
     Exists.elim rest (second both =>
-      let earlier := And.left both
-      let inBudget := And.left (And.right both)
-      let codes := And.right (And.right both)
+      let earlier := both.left
+      let inBudget := both.right.left
+      let codes := both.right.right
       let secondStill := walkEarlier lab (Some lab.startGuard) second lab.stateCount still inBudget
-      let firstStill := walkEarlier lab (Some lab.startGuard) first lab.stateCount still (omega [earlier, inBudget])
+      let firstStill :=
+        walkEarlier lab (Some lab.startGuard) first lab.stateCount still (arithmetic [earlier, inBudget])
       let same: after lab first = after lab second := match atFirst: after lab first, atSecond: after lab second with
         | Some one, Some other =>
           Eq.cong Some
@@ -212,6 +213,6 @@ theorem budgetEnough ∀ (lab: Lab)
               (afterOnMap lab inside first one atFirst)
               (afterOnMap lab inside second other atSecond)
               codes)
-        | None, _ => Void.exfalso (firstStill rfl)
-        | Some one, None => Void.exfalso (secondStill rfl)
+        | None, _ => (firstStill byComputing).impossible
+        | Some one, None => (secondStill byComputing).impossible
       repeatLoops lab first second earlier same secondStill))

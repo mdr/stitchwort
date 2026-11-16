@@ -376,7 +376,7 @@ impl Part {
 /// body), not where it is a call that unfolds to one: AoC 2021 day 11's
 /// `Part2Answer levels answer` is `AllFlashIn levels answer ∧ …`, and
 /// `AllFlashIn`'s own first conjunct, `1 ≤ answer`, fits any `1 ≤ x` (and
-/// its theorem's premise, closed by `rfl`, then computed for minutes).
+/// its theorem's premise, closed by `byComputing`, then computed for minutes).
 pub fn conjuncts(g: &Ev, ty: &Term, and: DataId) -> Vec<(Part, Term)> {
     let mut binders: Vec<(&stitchwort_core::Name, Icit, &Term)> = Vec::new();
     let mut t = ty.strip_loc();

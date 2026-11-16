@@ -38,9 +38,9 @@ theorem checkShapesOk ∀ (lines checked: List Line)
     (h: Fail.toResult (() => checkShapes lines) = Ok checked):
     checked.all (line => horizontalOrVertical line ∨ diagonal line) = True :=
   match e: firstBent lines with
-    | Some (index, _) => Void.exfalso (Result.errNotOk h)
+    | Some (index, _) => (Result.errNotOk h).impossible
     | None =>
-      rewrite <- Result.okInjective h in
+      rewrite <- Result.okInjective h then
         List.findNotNoneAll lines
           (line => line.isStraight ∨ line.isDiagonal)
           (List.findWithIndexFromNone (line => not (line.isStraight ∨ line.isDiagonal)) 0 lines e)

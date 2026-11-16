@@ -43,9 +43,9 @@ theorem checkWiredOk ∀ (entries checked: List Entry)
     (h: Fail.toResult (() => checkWired entries) = Ok checked):
     checked.all Entry.wired = True :=
   match e: firstUnwired entries with
-    | Some (index, _) => Void.exfalso (Result.errNotOk h)
+    | Some (index, _) => (Result.errNotOk h).impossible
     | None =>
-      rewrite <- Result.okInjective h in
+      rewrite <- Result.okInjective h then
         List.findNotNoneAll entries Entry.wired (List.findWithIndexFromNone (entry => not entry.wired) 0 entries e)
 
 --| An entry that passes the program's check is decoded by its wiring.
@@ -59,23 +59,23 @@ theorem wiredDecodes ∀ (entry: Entry) (ok: entry.wired = True): Decodes entry.
   let Both first (Both second third) := ok
   let wiresSorted := List.sortPerm (segments.map wiring)
   let wired: IsWiring wiring :=
-    List.permSym segments (segments.map wiring) (rewrite first.read at wiresSorted in wiresSorted)
+    List.permSym segments (segments.map wiring) (rewrite first.read at wiresSorted then wiresSorted)
   let digitsSorted := List.sortPerm (patterns.map decode)
   let digitsOnce: List.Perm (patterns.map decode) digits :=
-    List.permSym digits (patterns.map decode) (rewrite second.read at digitsSorted in digitsSorted)
+    List.permSym digits (patterns.map decode) (rewrite second.read at digitsSorted then digitsSorted)
   let showsDecoded := (pattern: Pattern) (m: pattern ∈ patterns ++ entry.outputs) =>
     readShown entry pattern wired (third.read pattern m)
   let patternsShown: patterns.map (shown wiring) = (patterns.map decode).map Some :=
     Eq.trans
       (List.mapCongMem patterns (shown wiring) (pattern => Some (decode pattern)) (pattern m =>
         showsDecoded pattern (List.memAppendLeft pattern patterns entry.outputs m)))
-      (Eq.sym (List.mapMap patterns Some decode))
+      (List.mapMap patterns Some decode).flipped
   let outputsShown: entry.outputs.all (output => (shown wiring output).isSome) = True :=
     Eq.trans
       (List.allCongMem entry.outputs (output => (shown wiring output).isSome) (output => True) (output m =>
-        rewrite showsDecoded output (List.memAppendRight output patterns entry.outputs m) in rfl))
-      (List.allTrue entry.outputs (output => True) (output => rfl))
-  Both wired (Both (rewrite patternsShown in List.permMap (patterns.map decode) digits digitsOnce Some) outputsShown)
+        rewrite showsDecoded output (List.memAppendRight output patterns entry.outputs m) then byComputing))
+      (List.allTrue entry.outputs (output => True) (output => byComputing))
+  Both wired (Both (rewrite patternsShown then List.permMap (patterns.map decode) digits digitsOnce Some) outputsShown)
 
 --| A pattern that passes the program's check shows the digit read from it.
 theorem readShown ∀ (entry: Entry) (pattern: Pattern)
@@ -90,6 +90,6 @@ theorem readShown ∀ (entry: Entry) (pattern: Pattern)
       (List.allCong segments
         (wire => pattern.has wire == (digitSegments digit).contains (entry.wiring.at wire))
         matches
-        (wire => rewrite displayDrawn digit below (entry.wiring.at wire) in rfl))
+        (wire => rewrite displayDrawn digit below (entry.wiring.at wire) then byComputing))
       each
   shownOf entry.wiring.at wired pattern digit below shows

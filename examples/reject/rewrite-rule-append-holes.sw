@@ -6,4 +6,4 @@
 import Std (List, Nat)
 
 theorem appendNothing (xs: List Nat): xs ++ [] = xs :=
-  rewrite (rfl: (_ ++ _) = (_ ++ _)) in List.appendNil xs
+  rewrite (byComputing: (_ ++ _) = (_ ++ _)) then List.appendNil xs

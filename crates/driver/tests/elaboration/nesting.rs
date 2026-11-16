@@ -175,7 +175,7 @@ fn nested_calls_of_one_definition_unify_under_the_playground_guard() {
             let program = "opaque def f (n : Nat) : Nat := n\n\n\
                  def up : Nat -> Nat -> Nat\n  | 0, y => y\n  | Succ k, y => f (up k y)\n\n\
                  def up2 : Nat -> Nat -> Nat\n  | 0, y => y\n  | Succ k, y => f (up2 k (y + 0))\n\n\
-                 theorem t (y : Nat) : up 88 y = up2 88 y := rfl\n";
+                 theorem t (y : Nat) : up 88 y = up2 88 y := byComputing\n";
             assert_eq!(first_error(&mut session, "x.sw", program), None);
         },
     );

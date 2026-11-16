@@ -15,8 +15,8 @@ def prefixed (xs: List Leaf): Option (List Leaf) → Option (List Leaf)
 theorem prefixedAppend ∀ (xs ys: List Leaf) (split: Option (List Leaf)):
     prefixed xs (prefixed ys split) = prefixed (xs ++ ys) split :=
   match split with
-    | None => rfl
-    | Some after => Eq.cong Some (Eq.sym (List.appendAssoc xs ys after))
+    | None => byComputing
+    | Some after => Eq.cong Some (List.appendAssoc xs ys after).flipped
 
 --| Where `split` finds nothing, nor does the spec.
 theorem splitNoneLeaves ∀ (depth: Nat):
@@ -31,7 +31,7 @@ theorem splitNoneLeaves ∀ (depth: Nat):
           | None =>
             rewrite List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right) rest,
                 splitNoneLeaves (depth + 1) left el (leaves (depth + 1) right ++ rest),
-                splitNoneLeaves (depth + 1) right er rest in
+                splitNoneLeaves (depth + 1) right er rest then
               prefixedAppend (leaves (depth + 1) left) (leaves (depth + 1) right) (splitLeaves rest)
 
 --| What `split` gives has the leaves the spec's split gives.
@@ -40,32 +40,32 @@ theorem splitSomeLeaves ∀ (depth: Nat):
       → ∀ (rest: List Leaf) => splitLeaves (leaves depth number ++ rest) = Some (leaves depth split2 ++ rest)
   | Regular value, split2, some, rest =>
     match Nat.leq 10 value with
-      | True => rewrite <- Option.someInjective some in rfl
+      | True => rewrite <- Option.someInjective some then byComputing
   | Pair left right, split2, some, rest =>
     match el: split left with
       | Some left2 =>
-        rewrite <- Option.someInjective some in
+        rewrite <- Option.someInjective some then
           rewrite List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right) rest,
               splitSomeLeaves (depth + 1) left left2 el (leaves (depth + 1) right ++ rest),
-              List.appendAssoc (leaves (depth + 1) left2) (leaves (depth + 1) right) rest in
-            rfl
+              List.appendAssoc (leaves (depth + 1) left2) (leaves (depth + 1) right) rest then
+            byComputing
       | None =>
         match er: split right with
           | Some right2 =>
-            rewrite <- Option.someInjective some in
+            rewrite <- Option.someInjective some then
               rewrite List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right) rest,
                   splitNoneLeaves (depth + 1) left el (leaves (depth + 1) right ++ rest),
                   splitSomeLeaves (depth + 1) right right2 er rest,
-                  List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right2) rest in
-                rfl
+                  List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right2) rest then
+                byComputing
 
 --| At the top.
 theorem splitSome ∀ (number split2: Number)
     (some: split number = Some split2):
     splitLeaves (leaves 0 number) = Some (leaves 0 split2) :=
   let found := splitSomeLeaves 0 number split2 some []
-  rewrite List.appendNil (leaves 0 number), List.appendNil (leaves 0 split2) at found in found
+  rewrite List.appendNil (leaves 0 number), List.appendNil (leaves 0 split2) at found then found
 
 theorem splitNone ∀ (number: Number) (none: split number = None): splitLeaves (leaves 0 number) = None :=
   let found := splitNoneLeaves 0 number none []
-  rewrite List.appendNil (leaves 0 number) at found in found
+  rewrite List.appendNil (leaves 0 number) at found then found

@@ -38,4 +38,4 @@ theorem split (xs: List Nat) (ys: List Nat):
 theorem nested (x: Nat)
     (h: (y: Nat) →
       y = y): x = x :=
-  rfl
+  byComputing

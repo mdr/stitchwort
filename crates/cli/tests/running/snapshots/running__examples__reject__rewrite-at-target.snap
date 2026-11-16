@@ -2,10 +2,10 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-REWRITE-TARGET] Error: `rewrite … at … in` needs a local name after `at`
+[E-REWRITE-TARGET] Error: `rewrite … at … then` needs a local name after `at`
    ╭─[ reject/rewrite-at-target.sw:5:16 ]
    │
- 5 │   rewrite e at Nat.addSucc n k in Nat.addSucc m k
+ 5 │   rewrite e at Nat.addSucc n k then Nat.addSucc m k
    │                ───────┬───────  
    │                       ╰───────── this isn't a local name, so there is nothing to give the new type for the rest of the proof
    │ 

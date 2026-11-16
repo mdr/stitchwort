@@ -324,7 +324,7 @@ fn apply_spine(g: &Ev, mut value: Value, spine: &[Elim]) -> Result<Value> {
     Ok(value)
 }
 
-/// `Cons (MkChar c rfl) … Nil`, for the characters `chars`: what a compact
+/// `Cons (MkChar c byComputing) … Nil`, for the characters `chars`: what a compact
 /// list means (docs/proposals/compact-text.md, "Expansion"), written out
 /// from the prelude's constructors, independently of [`crate::chars`].
 fn expand(g: &Ev, chars: &[char]) -> Value {

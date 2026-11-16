@@ -13,28 +13,28 @@ theorem maskedBits ∀ (mask: List MaskBit) (value: List Bool)
       a || b)
       = List.zipWith mask value Spec.overwrite :=
   match mask, value with
-    | [], [] => rfl
-    | [bit, ..mask], [first, ..value] => rewrite maskedBits mask value (omega) in cases
-    | [], [first, ..value] => Void.exfalso (omega)
-    | [bit, ..mask], [] => Void.exfalso (omega)
+    | [], [] => byComputing
+    | [bit, ..mask], [first, ..value] => rewrite maskedBits mask value (arithmetic) then cases
+    | [], [first, ..value] => Void.impossible arithmetic
+    | [bit, ..mask], [] => Void.impossible arithmetic
 
 --| Part 1's rule is the puzzle's: `applyTo` overwrites each bit as the spec does.
 theorem applyToMasked ∀ (mask: Mask) (value: Nat): mask.applyTo value = Spec.masked mask value :=
   let width := mask.bits.length
   let floatingRaw := Nat.toBitsFromBits (mask.bits.map MaskBit.isFloating)
   let floatingBits: Nat.toBits width mask.floating = mask.bits.map MaskBit.isFloating :=
-    rewrite List.lengthMap mask.bits MaskBit.isFloating at floatingRaw in floatingRaw
+    rewrite List.lengthMap mask.bits MaskBit.isFloating at floatingRaw then floatingRaw
   let onesRaw := Nat.toBitsFromBits (mask.bits.map MaskBit.isOn)
   let onesBits: Nat.toBits width mask.ones = mask.bits.map MaskBit.isOn :=
-    rewrite List.lengthMap mask.bits MaskBit.isOn at onesRaw in onesRaw
+    rewrite List.lengthMap mask.bits MaskBit.isOn at onesRaw then onesRaw
   let floatingBelow: mask.floating < Nat.pow 2 width :=
     rewrite List.lengthMap mask.bits MaskBit.isFloating at Nat.fromBitsBelow (mask.bits.map MaskBit.isFloating)
   let onesBelow: mask.ones < Nat.pow 2 width :=
     rewrite List.lengthMap mask.bits MaskBit.isOn at Nat.fromBitsBelow (mask.bits.map MaskBit.isOn)
   let kept := Nat.and value mask.floating
   let below: mask.applyTo value < Nat.pow 2 width :=
-    Nat.orBelow width kept mask.ones (omega [Nat.andLeRight value mask.floating, floatingBelow]) onesBelow
+    Nat.orBelow width kept mask.ones (arithmetic [Nat.andLeRight value mask.floating, floatingBelow]) onesBelow
   let bits: Nat.toBits width (mask.applyTo value) = List.zipWith mask.bits (Nat.toBits width value) Spec.overwrite :=
-    rewrite Nat.toBitsOr width kept mask.ones, Nat.toBitsAnd width value mask.floating, floatingBits, onesBits in
+    rewrite Nat.toBitsOr width kept mask.ones, Nat.toBitsAnd width value mask.floating, floatingBits, onesBits then
       maskedBits mask.bits (Nat.toBits width value) (Nat.toBitsLength width value)
-  Eq.trans (Eq.sym (Nat.fromBitsToBits width (mask.applyTo value) below)) (Eq.cong Nat.fromBits bits)
+  Eq.trans (Eq.flipped (Nat.fromBitsToBits width (mask.applyTo value) below)) (Eq.cong Nat.fromBits bits)

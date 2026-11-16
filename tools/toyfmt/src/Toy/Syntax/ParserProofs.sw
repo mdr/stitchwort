@@ -11,8 +11,14 @@ theorem runsAtomName ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (
     (allowed: layout.allows token = True):
     Parse.Runs (() => atom self layout) [token] rest (Var text (layout.comments token)) :=
   state starts honest =>
-    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts in rfl
-    ((state.advance rest 1).at, (rewrite starts, allowed, named, starts in rfl), rfl, (omega [honest, lengths]), rfl)
+    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts then byComputing
+    (
+      (state.advance rest 1).at,
+      (rewrite starts, allowed, named, starts then byComputing),
+      byComputing,
+      (arithmetic [honest, lengths]),
+      byComputing
+    )
 
 --| The kind of the next token as `suffixesFrom` sees it: `Stray ""` when
 --| there is none or the layout turns it away.
@@ -32,38 +38,38 @@ theorem suffixesEndRun ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located T
     (starts: state.at.rest = rest):
     Parse.runFrom state (() => (suffixesFrom fuel self layout target, Parse.mark()))
       = Ok (target, ((state.note (Parse.Problem.Expected "'('")).note (Parse.Problem.Expected "'.'")).at) :=
-  rewrite starts in
+  rewrite starts then
     match rest with
       | [] =>
         match fuel with
-          | Zero => rfl
-          | Succ more => rfl
+          | Zero => byComputing
+          | Succ more => byComputing
       | [token, ..later] =>
         match allowed: layout.allows token with
           | False =>
             match fuel with
-              | Zero => rfl
-              | Succ more => rfl
+              | Zero => byComputing
+              | Succ more => byComputing
           | True =>
             match fuel with
-              | Zero => rfl
+              | Zero => byComputing
               | Succ more =>
                 match kind: token.value.kind with
                   | Sign punctuation =>
                     match punctuation with
                       | OpenParen => cases
                       | Dot => cases
-                      | CloseParen => rfl
-                      | OpenSquare => rfl
-                      | CloseSquare => rfl
-                      | Comma => rfl
-                      | Defines => rfl
-                  | Name text => rfl
-                  | Number digits => rfl
-                  | Str written => rfl
-                  | Reserved keyword => rfl
-                  | Op operator => rfl
-                  | Stray text => rfl
+                      | CloseParen => byComputing
+                      | OpenSquare => byComputing
+                      | CloseSquare => byComputing
+                      | Comma => byComputing
+                      | Defines => byComputing
+                  | Name text => byComputing
+                  | Number digits => byComputing
+                  | Str written => byComputing
+                  | Reserved keyword => byComputing
+                  | Op operator => byComputing
+                  | Stray text => byComputing
 
 --| After an atom, a token that opens no call or field ends its suffixes:
 --| `suffixesFrom` reads nothing and gives the atom back.
@@ -73,6 +79,6 @@ theorem runsSuffixesEnd ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located 
     Parse.Runs (() => suffixesFrom fuel self layout target) [] rest target :=
   state starts honest =>
     let after := ((state.note (Parse.Problem.Expected "'('")).note (Parse.Problem.Expected "'.'")).at
-    let same: after = state.at := rewrite Parse.noteAt, Parse.noteAt in rfl
+    let same: after = state.at := rewrite Parse.noteAt, Parse.noteAt then byComputing
     let run := suffixesEndRun fuel self layout target rest ends state starts
-    (state.at, (rewrite same at run in run), starts, (rewrite starts at honest in honest), rfl)
+    (state.at, (rewrite same at run then run), starts, (rewrite starts at honest then honest), byComputing)

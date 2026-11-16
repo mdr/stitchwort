@@ -110,7 +110,7 @@ def fromSomeNil: Option (List a) → List a
 
 -- A program can't take a computation apart (docs/proposals/proof-reification.md,
 -- stage R2), so the hand-written handlers and programs are local definitions
--- of a theorem, and each behaviour is a `let` that `rfl` checks.
+-- of a theorem, and each behaviour is a `let` that `byComputing` checks.
 theorem rowsBehave: Unit :=
   -- Traces
 
@@ -130,15 +130,16 @@ theorem rowsBehave: Unit :=
   -- choose, then put 1 if it said yes, then get
   def p: SC Nat := bind choose (b => bind (if b then put 1 else Done MkUnit) (u => get))
 
-  let theTrace: eqNats (trace answerSC p) [2, 101, 1, 1007] = True := rfl
+  let theTrace: eqNats (trace answerSC p) [2, 101, 1, 1007] = True := byComputing
 
   -- Mappings preserve traces
 
-  let identity: eqNats (trace answerSC (translate sigId p)) (trace answerSC p) = True := rfl
+  let identity: eqNats (trace answerSC (translate sigId p)) (trace answerSC p) = True := byComputing
 
-  let swap: eqNats (trace answerCS (translate sigSwap p)) (trace answerSC p) = True := rfl
+  let swap: eqNats (trace answerCS (translate sigSwap p)) (trace answerSC p) = True := byComputing
 
-  let swapBack: eqNats (trace answerSC (translate sigSwap (translate sigSwap p))) (trace answerSC p) = True := rfl
+  let swapBack: eqNats (trace answerSC (translate sigSwap (translate sigSwap p))) (trace answerSC p) = True :=
+    byComputing
 
   def chooseOnly: Comp ChooseOp ChooseRes Nat := Call Choose (b => Done (if b then 1 else 0))
 
@@ -146,11 +147,11 @@ theorem rowsBehave: Unit :=
     (trace answerSCT (translate twoSteps chooseOnly))
     (trace answerSCT (translate oneStep chooseOnly))
     = True :=
-    rfl
+    byComputing
 
   let weakeningKeepsTrace: eqNats (trace answerSCT (translate twoSteps chooseOnly)) (trace answerChoose chooseOnly)
     = True :=
-    rfl
+    byComputing
 
   -- Handlers over an abstract rest of the row
 
@@ -190,13 +191,14 @@ theorem rowsBehave: Unit :=
   -- `runStateL` with `e = Choose`.
   let stateThenChoice: List (Pair Nat Nat) := allResults (runStateL 0 p)
 
-  let stateInsideChoice: eqPairs stateThenChoice [MkPair 1 1, MkPair 0 0] = True := rfl
+  let stateInsideChoice: eqPairs stateThenChoice [MkPair 1 1, MkPair 0 0] = True := byComputing
 
   def pWider: Comp SCA SCARes Nat := translate (MkSigMap intoSCA replySCA) p
 
-  let widerRest: eqPairs (fromSomeNil (toOption (allResultsL (runStateL 0 pWider)))) stateThenChoice = True := rfl
+  let widerRest: eqPairs (fromSomeNil (toOption (allResultsL (runStateL 0 pWider)))) stateThenChoice = True :=
+    byComputing
 
   -- Handling `Choose` when it's on the left instead: swap the program, then
   -- use `allResultsL` with `e = State`. Choice inside, state outside.
-  let otherPosition: eqNats (fstOf (runState 0 (allResultsL (translate sigSwap p)))) [1, 1] = True := rfl
+  let otherPosition: eqNats (fstOf (runState 0 (allResultsL (translate sigSwap p)))) [1, 1] = True := byComputing
   Trivial

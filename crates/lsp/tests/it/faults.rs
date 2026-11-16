@@ -210,7 +210,7 @@ fn a_panicking_search_is_answered_and_the_next_search_works() {
     assert!(
         proofs.iter().any(|p| p["title"]
             .as_str()
-            .is_some_and(|t| t.starts_with("Replace ? with `rfl`"))),
+            .is_some_and(|t| t.starts_with("Replace ? with `byComputing`"))),
         "{second}"
     );
     s.stop();

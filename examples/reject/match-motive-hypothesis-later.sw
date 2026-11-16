@@ -11,7 +11,7 @@ def one (m: Nat) (p: m = 1): Bool → Nat
   | True => m
   | False => 0
 
-type Box (b: Bool) = { pf: one 1 rfl b = 1 }
+type Box (b: Bool) = { pf: one 1 byComputing b = 1 }
 
 def apply [a: Prop] (f: a → Nat) (v: a): Nat := f v
 

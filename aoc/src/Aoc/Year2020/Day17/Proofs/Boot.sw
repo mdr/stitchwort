@@ -24,18 +24,19 @@ theorem startsPocket ∀ (slice: Slice) (dimensions: Nat):
             Exists.elim ((memGridPositionsWhere slice.grid (== Active) at).forward member) (state (Both found active) =>
               match at with
                 | { row, column } =>
-                  Witness column (Witness row (Both (rewrite <- active.read in found) (rewrite <- made in rfl))))),
+                  Witness column
+                    (Witness row (Both (rewrite <- active.read then found) (rewrite <- made then byComputing))))),
       backward = (Witness x (Witness y (Both found written))) =>
         let at: Position := { row = y, column = x }
         let member: at ∈ cubes :=
-          (memGridPositionsWhere slice.grid (== Active) at).backward (Witness Active (Both found rfl))
-        let made: Cube.inSlice dimensions at = cube := Cube.ext _ _ (Eq.sym written)
+          (memGridPositionsWhere slice.grid (== Active) at).backward (Witness Active (Both found byComputing))
+        let made: Cube.inSlice dimensions at = cube := Cube.ext _ _ written.flipped
         (Set.containsFromListIff (cubes.map (Cube.inSlice dimensions)) cube).backward
-          (rewrite <- made in List.memMap cubes at member (Cube.inSlice dimensions))
+          (rewrite <- made then List.memMap cubes at member (Cube.inSlice dimensions))
     }
 
 theorem cycles ∀ (count: Nat) (pocket: Pocket):
     Spec.Cycles count pocket.active (Nat.iterate count Pocket.cycle pocket).active :=
   match count with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ more => Witness pocket.cycle.active (Both (cube => cycleActive pocket cube) (cycles more pocket.cycle))

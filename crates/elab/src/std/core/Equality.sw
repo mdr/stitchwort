@@ -1,12 +1,12 @@
---| Equality lemmas ([`Eq.cong`], [`Eq.cong2`], [`Eq.sym`], [`Eq.trans`])
+--| Equality lemmas ([`Eq.cong`], [`Eq.cong2`], [`Eq.flipped`], [`Eq.trans`])
 --| and the facts that different constructors are different.
--- Loaded with the core: `calc` and `deriving` write `Eq.sym` and `Eq.trans` in
+-- Loaded with the core: `calc` and `deriving` write `Eq.flipped` and `Eq.trans` in
 -- full, and every decision procedure after this uses them
 -- (docs/proposals/prelude-slim.md §2.1).
 
 --| Equality lemmas, all built from `J`.
 
-theorem Eq.cong ∀ (f: a → b) [x y: a] (p: x = y): f x = f y := J (y' p' => f x = f y') rfl p
+theorem Eq.cong ∀ (f: a → b) [x y: a] (p: x = y): f x = f y := J (y' p' => f x = f y') byComputing p
 
 --| Congruence in two arguments: equal arguments give equal results,
 --| `Eq.cong2 Nat.add p q: Nat.add a b = Nat.add a2 b2` from `p: a = a2` and
@@ -16,7 +16,7 @@ theorem Eq.cong ∀ (f: a → b) [x y: a] (p: x = y): f x = f y := J (y' p' => f
 theorem Eq.cong2 ∀ (f: a → b → c) [x1 x2: a] [y1 y2: b] (p: x1 = x2) (q: y1 = y2): f x1 y1 = f x2 y2 :=
   J (x' p' => f x1 y1 = f x' y2) (Eq.cong (f x1) q) p
 
-theorem Eq.sym ∀ [x y: a] (p: x = y): y = x := J (y' p' => y' = x) rfl p
+theorem Eq.flipped ∀ [x y: a] (p: x = y): y = x := J (y' p' => y' = x) byComputing p
 
 theorem Eq.trans ∀ [x y z: a] (p: x = y) (q: y = z): x = z := J (z' q' => x = z') p q
 
@@ -41,7 +41,7 @@ theorem Nat.zeroNotSucc ∀ (n: Nat): 0 ≠ Succ n
   | p => J (y q => Nat.IsZero y) Trivial p
 
 theorem Nat.succNotZero ∀ (n: Nat): Succ n ≠ 0
-  | p => Nat.zeroNotSucc n (Eq.sym p)
+  | p => Nat.zeroNotSucc n p.flipped
 
 theorem Nat.succInjective ∀ [m n: Nat] (p: Succ m = Succ n): m = n := Eq.cong Nat.pred p
 
@@ -64,17 +64,17 @@ def Nat.equal: (m: Nat) → (n: Nat) → Bool
   | Succ m, Succ n => Nat.equal m n
 
 theorem Nat.equalRefl ∀ (n: Nat): Nat.equal n n = True := match n with
-  | Zero => rfl
+  | Zero => byComputing
   | Succ n => Nat.equalRefl n
 
 --| Numbers that [`Nat.equal`] says are equal are equal.
 theorem Nat.equalSound ∀ (m n: Nat) (h: Nat.equal m n = True): m = n := match m, n with
-  | Zero, Zero => rfl
+  | Zero, Zero => byComputing
   | Succ m, Succ n => Eq.cong Succ (Nat.equalSound m n h)
 
 --| Numbers that [`Nat.equal`] says differ are different.
 theorem Nat.equalFalse ∀ (m n: Nat) (h: Nat.equal m n = False): m ≠ n
-  | p => Bool.falseNotTrue (Eq.trans (Eq.sym h) (J (y q => Nat.equal m y = True) (Nat.equalRefl m) p))
+  | p => Bool.falseNotTrue (Eq.trans h.flipped (J (y q => Nat.equal m y = True) (Nat.equalRefl m) p))
 
 --| `Nat.equal` (what `m == n` is on `Nat`) reads as `m = n`, and as `m ≠ n`
 --| when it is `False`.
@@ -87,8 +87,8 @@ theorem Nat.equalReadsFalse ∀ (m n: Nat): Nat.equal m n = False ↔ m ≠ n :=
   forward = Nat.equalFalse m n,
   backward = h =>
     match c: Nat.equal m n with
-      | True => Void.exfalso (h (Nat.equalSound m n c))
-      | False => rfl
+      | True => Void.impossible (h (Nat.equalSound m n c))
+      | False => byComputing
 }
 
 --| `Nat.leq m n` (what `m <= n` is on `Nat`, and `m < n` and the other
@@ -101,8 +101,8 @@ theorem Nat.leqReads ∀ (m n: Nat): Nat.leq m n ↔ Nat.LessEq m n := { forward
 --| reads as `y < x`, and `(x < y) = False` as `y < x + 1`, which is `y ≤ x`.
 @[reading]
 theorem Nat.leqReadsFalse ∀ (m n: Nat): Nat.leq m n = False ↔ Nat.LessThan n m := match m, n with
-  | Zero, n => { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = h => Void.exfalso (Bool.falseNotTrue h) }
-  | Succ m, Zero => { forward = h => rfl, backward = h => rfl }
+  | Zero, n => { forward = h => (Bool.trueNotFalse h).impossible, backward = h => (Bool.falseNotTrue h).impossible }
+  | Succ m, Zero => { forward = h => byComputing, backward = h => byComputing }
   | Succ m, Succ n =>
     { forward = h => Iff.forward (Nat.leqReadsFalse m n) h, backward = h => Iff.backward (Nat.leqReadsFalse m n) h }
 
@@ -112,8 +112,8 @@ theorem Nat.leqReadsFalse ∀ (m n: Nat): Nat.leq m n = False ↔ Nat.LessThan n
 --| `h.read` is `a ∧ b`. Each `= False` has its own reading.
 @[reading]
 theorem Bool.andReads ∀ (a b: Bool): (a && b) = True ↔ a ∧ b := match a with
-  | True => { forward = h => Both rfl h, backward = h => h.right }
-  | False => { forward = h => Void.exfalso (Bool.falseNotTrue h), backward = h => h.left }
+  | True => { forward = h => Both byComputing h, backward = h => h.right }
+  | False => { forward = h => (Bool.falseNotTrue h).impossible, backward = h => h.left }
 
 @[reading]
 theorem Bool.andReadsFalse ∀ (a b: Bool): (a && b) = False ↔ a = False ∨ b = False := match a with
@@ -121,35 +121,35 @@ theorem Bool.andReadsFalse ∀ (a b: Bool): (a && b) = False ↔ a = False ∨ b
     forward = h => Inr h,
     backward = h =>
       match h with
-        | Inl t => Void.exfalso (Bool.falseNotTrue (Eq.sym t))
+        | Inl t => (Bool.falseNotTrue t.flipped).impossible
         | Inr f => f
   }
-  | False => { forward = h => Inl rfl, backward = h => rfl }
+  | False => { forward = h => Inl byComputing, backward = h => byComputing }
 
 @[reading]
 theorem Bool.orReads ∀ (a b: Bool): (a || b) = True ↔ a ∨ b := match a with
-  | True => { forward = h => Inl rfl, backward = h => rfl }
+  | True => { forward = h => Inl byComputing, backward = h => byComputing }
   | False => {
     forward = h => Inr h,
     backward = h =>
       match h with
-        | Inl f => Void.exfalso (Bool.falseNotTrue f)
+        | Inl f => (Bool.falseNotTrue f).impossible
         | Inr t => t
   }
 
 @[reading]
 theorem Bool.orReadsFalse ∀ (a b: Bool): (a || b) = False ↔ a = False ∧ b = False := match a with
-  | True => { forward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)), backward = h => h.left }
-  | False => { forward = h => Both rfl h, backward = h => h.right }
+  | True => { forward = h => (Bool.falseNotTrue h.flipped).impossible, backward = h => h.left }
+  | False => { forward = h => Both byComputing h, backward = h => h.right }
 
 @[reading]
 theorem Bool.notReads ∀ (a: Bool): Bool.not a = True ↔ a = False := match a with
   | True =>
-    { forward = h => Void.exfalso (Bool.falseNotTrue h), backward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)) }
-  | False => { forward = h => rfl, backward = h => rfl }
+    { forward = h => (Bool.falseNotTrue h).impossible, backward = h => (Bool.falseNotTrue h.flipped).impossible }
+  | False => { forward = h => byComputing, backward = h => byComputing }
 
 @[reading]
 theorem Bool.notReadsFalse ∀ (a: Bool): Bool.not a = False ↔ a = True := match a with
-  | True => { forward = h => rfl, backward = h => rfl }
+  | True => { forward = h => byComputing, backward = h => byComputing }
   | False =>
-    { forward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)), backward = h => Void.exfalso (Bool.falseNotTrue h) }
+    { forward = h => (Bool.falseNotTrue h.flipped).impossible, backward = h => (Bool.falseNotTrue h).impossible }

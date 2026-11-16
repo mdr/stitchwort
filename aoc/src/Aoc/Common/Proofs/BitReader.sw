@@ -18,8 +18,8 @@ theorem BitReader.readAppend ∀ (field rest: List Bool) (width: Nat)
   rewrite List.takeAppendLength field rest width length,
       List.dropAppendLength field rest width length,
       length,
-      DecEq.refl width in
-    rfl
+      DecEq.refl width then
+    byComputing
 
 --| What a read takes is the front of the unread bits, in the width asked.
 theorem BitReader.readSome ∀ (reader: BitReader) (width: Nat) (field: Bits) (rest: BitReader)
@@ -32,15 +32,15 @@ theorem BitReader.readSome ∀ (reader: BitReader) (width: Nat) (field: Bits) (r
   match e: taken.length == width with
     | True =>
       let parts := somePairInjective unfolded
-      rewrite <- parts.left, <- parts.right in Both (Eq.sym (List.appendTakeDrop reader.unread width)) e.read
+      rewrite <- parts.left, <- parts.right then Both (Eq.flipped (List.appendTakeDrop reader.unread width)) e.read
 
 --| A number that fits its width is read back from its bits.
 theorem BitReader.readNumberAppend ∀ (width n: Nat) (rest: List Bool)
     (small: n < Nat.pow 2 width):
     BitReader.readNumber { unread = Nat.toBits width n ++ rest } width = Some (n, { unread = rest }) :=
   rewrite BitReader.readAppend (Nat.toBits width n) rest width (Nat.toBitsLength width n),
-      Nat.fromBitsToBits width n small in
-    rfl
+      Nat.fromBitsToBits width n small then
+    byComputing
 
 --| What a read takes spells a number that fits the width: the unread bits
 --| start with the number in that many bits.
@@ -49,8 +49,8 @@ theorem BitReader.readValue ∀ (reader: BitReader) (width: Nat) (field: Bits) (
     reader.unread = Nat.toBits width field.value ++ rest.unread ∧ field.value < Nat.pow 2 width :=
   let split := BitReader.readSome reader width field rest read
   let written := Nat.toBitsFromBits field.bits
-  rewrite split.right at written in
-    Both (rewrite written in split.left) (rewrite split.right at (Nat.fromBitsBelow field.bits))
+  rewrite split.right at written then
+    Both (rewrite written then split.left) (rewrite split.right at (Nat.fromBitsBelow field.bits))
 
 --| What a number read is the number's bits at the front of the unread
 --| bits, and the number fits.
@@ -60,7 +60,7 @@ theorem BitReader.readNumberSome ∀ (reader: BitReader) (width n: Nat) (rest: B
   match e: reader.read width with
     | Some (field, after) =>
       let parts := somePairInjective read
-      rewrite <- parts.left, <- parts.right in BitReader.readValue reader width field after e
+      rewrite <- parts.left, <- parts.right then BitReader.readValue reader width field after e
 
 --| The bit a read takes is the front of the unread bits.
 theorem BitReader.readBitSome ∀ (reader: BitReader) (bit: Bool) (rest: BitReader)
@@ -69,4 +69,4 @@ theorem BitReader.readBitSome ∀ (reader: BitReader) (bit: Bool) (rest: BitRead
   match reader with
     | { unread = [first, ..others] } =>
       let parts := somePairInjective read
-      rewrite <- parts.left, <- parts.right in rfl
+      rewrite <- parts.left, <- parts.right then byComputing

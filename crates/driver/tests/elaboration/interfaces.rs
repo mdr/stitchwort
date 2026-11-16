@@ -69,8 +69,8 @@ test \"goal first\" := goalFirst == \"local\"
 
 /// Two dictionaries in scope whose values depend on unknowns found later:
 /// comparing them waits, then they're merged. The `0` is annotated and the
-/// equations are proved by `itself`, not `rfl`, so that only the comparison
-/// waits: an inferred literal waits for its type, and `rfl` as an argument
+/// equations are proved by `itself`, not `byComputing`, so that only the comparison
+/// waits: an inferred literal waits for its type, and `byComputing` as an argument
 /// is checked after its call's own instances are found (postponement stage
 /// 7), which would solve the unknowns before the goal is tried.
 #[test]
@@ -85,7 +85,7 @@ def build [auto z: HasZero Nat]: Pretty Nat :=
 
 def same (p: Pretty Nat) (q: Pretty Nat) (e: p = q): Text := \"\"
 
-theorem itself (p: Pretty Nat): p = p := rfl
+theorem itself (p: Pretty Nat): p = p := byComputing
 
 def mergedLater: Text :=
   let o1: Pretty Nat := build [z := _]
@@ -441,12 +441,12 @@ fn a_named_dictionary_equals_its_record() {
         "{NAMED}
 def alias: Ordered Nat := Ordered.instNat
 
-theorem literal: Ordered.instNat = {{ less = m n => Nat.leq (m + 1) n }} := rfl
-theorem aliased: alias = Ordered.instNat := rfl
-theorem projected: Ordered.less [ordered := alias] 1 2 = True := rfl
+theorem literal: Ordered.instNat = {{ less = m n => Nat.leq (m + 1) n }} := byComputing
+theorem aliased: alias = Ordered.instNat := byComputing
+theorem projected: Ordered.less [ordered := alias] 1 2 = True := byComputing
 "
     );
     assert_eq!(load(None, &source), (vec![], 0));
-    let wrong = format!("{NAMED}\ntheorem wrong: descending = Ordered.instNat := rfl\n");
+    let wrong = format!("{NAMED}\ntheorem wrong: descending = Ordered.instNat := byComputing\n");
     assert_eq!(load(None, &wrong).0, vec!["E-REFL"]);
 }

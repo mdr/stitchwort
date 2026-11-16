@@ -4,5 +4,5 @@ theorem longHeader ∀ (first second third fourth fifth sixth seventh: Nat):
     first + second + third + fourth + fifth + sixth + seventh
       = seventh + sixth + fifth + fourth + third + second + first :=
   match first with
-    | Zero => rfl
-    | Succ k => rfl
+    | Zero => byComputing
+    | Succ k => byComputing

@@ -513,7 +513,7 @@ impl Elaborator {
                     Some(rest) => s.app(s.var("Std.Ordering.thenFlip"), vec![here, rest]),
                 });
             }
-            proof.unwrap_or_else(|| s.var("rfl"))
+            proof.unwrap_or_else(|| s.var("byComputing"))
         };
         let trans_fields = |ctor: usize, h1: Expr, h2: Expr| {
             let fields = &data_fields[ctor];
@@ -566,7 +566,7 @@ impl Elaborator {
             match &proof {
                 Some(proof) => proof(h1, h2),
                 None => s.app(
-                    s.var("Std.Void.exfalso"),
+                    s.var("Std.Void.impossible"),
                     vec![s.app(s.var("Std.Ordering.equalNotLess"), vec![h1])],
                 ),
             }
@@ -585,7 +585,7 @@ impl Elaborator {
                 vec![s.var(x), number(ctor), s.var(e)],
             )
         };
-        let sym = |x: Expr| s.app(s.var("Std.Eq.sym"), vec![x]);
+        let sym = |x: Expr| s.app(s.var("Std.Eq.flipped"), vec![x]);
         let tag_is = |x: &str, ctor: usize| s.eq(tag(x), number(ctor));
 
         // T.%compare

@@ -5,5 +5,5 @@ import Std (List)
 -- The recursive call proves the statement for `xs`, not for `Cons x xs`.
 theorem appendLength ∀ (xs: List a) (ys: List a):
     List.length (List.append xs ys) = List.length xs + List.length ys := match xs, ys with
-      | Nil, ys => rfl
+      | Nil, ys => byComputing
       | Cons x xs, ys => appendLength xs ys

@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-RING] Error: `ring` needs to know what it proves
+[E-ALGEBRA] Error: `algebra` needs to know what it proves
    ╭─[ reject/ring-no-goal.sw:6:12 ]
    │
- 6 │   let p := ring
-   │            ──┬─  
-   │              ╰─── the expected type isn't known here
+ 6 │   let p := algebra
+   │            ───┬───  
+   │               ╰───── the expected type isn't known here
    │ 
-   │ Note: give it a type: `(ring: a * (b + c) = a * b + a * c)`
+   │ Note: give it a type: `(algebra: a * (b + c) = a * b + a * c)`
 ───╯

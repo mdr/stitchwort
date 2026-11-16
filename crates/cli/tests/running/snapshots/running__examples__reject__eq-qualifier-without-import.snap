@@ -2,13 +2,13 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-UNKNOWN-NAME] Error: unknown name `Eq.sym`
+[E-UNKNOWN-NAME] Error: unknown name `Eq.flipped`
    ╭─[ reject/eq-qualifier-without-import.sw:4:53 ]
    │
- 4 │ theorem flip (a: Nat) (b: Nat) (p: a = b): b = a := Eq.sym p
-   │                                                     ───┬──  
-   │                                                        ╰──── not in scope
+ 4 │ theorem flip (a: Nat) (b: Nat) (p: a = b): b = a := Eq.flipped p
+   │                                                     ─────┬────  
+   │                                                          ╰────── not in scope
    │ 
-   │ Note: `Eq` is `Std.Eq`; add `import Std (Eq)`, or write `Std.Eq.sym`
+   │ Note: `Eq` is `Std.Eq`; add `import Std (Eq)`, or write `Std.Eq.flipped`
 ───╯
 try: add `import Std (Eq)`

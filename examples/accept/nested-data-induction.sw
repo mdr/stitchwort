@@ -34,7 +34,7 @@ def example: Packet := Packets [Number 1, Packets [Number 2, Packets [Number 3]]
 
 -- `Packet.size` counts constructors: `Packets [Number 1]` is a `Packets`, a
 -- `Cons`, a `Number` and a `Nil`.
-theorem sizeOne: Packet.size (Packets [Number 1]) = 4 := rfl
+theorem sizeOne: Packet.size (Packets [Number 1]) = 4 := byComputing
 
 -- Recursion through `map` on the attached list: `e.isIn` says that
 -- `e.value` is in `items`, and the generated lemma that an element of the
@@ -68,24 +68,24 @@ def numbersIn: List Packet → Nat
 
 -- A proof by `Packet.induct`: the `Packets` case gets `List.All` of the
 -- claim for its items, which a lemma over the list takes apart. Each step
--- is closed by `omega`. `Packet.size (Packets items)` computes as far as the
+-- is closed by `arithmetic`. `Packet.size (Packets items)` computes as far as the
 -- list is known, so the lemma can state its bound with it.
 theorem numbersInLe ∀ (items: List Packet)
     (all: List.All (q => numbers q ≤ Packet.size q) items):
     numbersIn items ≤ Packet.size (Packets items) :=
   match items, all with
-    | [], all => rfl
+    | [], all => byComputing
     | [p, ..rest], Both here others =>
       let ih := numbersInLe rest others
-      omega
+      arithmetic
 
 theorem numbersLe ∀ (p: Packet): numbers p ≤ Packet.size p :=
-  Packet.induct (q => numbers q ≤ Packet.size q) (value => rfl) (items all => numbersInLe items all) p
+  Packet.induct (q => numbers q ≤ Packet.size q) (value => byComputing) (items all => numbersInLe items all) p
 
 -- The same claim's other half, by `Packet.inductMem`: every member of the
 -- list is assumed to have it. Here: every packet has a positive size.
 theorem sizePositive ∀ (p: Packet): 0 < Packet.size p :=
-  Packet.inductMem (q => 0 < Packet.size q) (value => rfl) (items each => rfl) p
+  Packet.inductMem (q => 0 < Packet.size q) (value => byComputing) (items each => byComputing) p
 
 -- A rose tree with a parameter: `Rose.induct` takes the motive over `Rose a`.
 type Rose (a: Type): Type = | Bloom (label: a) (kids: List (Rose a))
@@ -105,7 +105,7 @@ theorem kidSmallerHere ∀ (t: Rose a) (x: a) (kids: List (Rose a)) (h: t ∈ ki
 
 -- A label count is at least one, by `Rose.inductMem` on any `Rose a`.
 theorem labelsNonEmpty ∀ (t: Rose a): 0 < Rose.size t :=
-  Rose.inductMem (s => 0 < Rose.size s) (label kids each => rfl) t
+  Rose.inductMem (s => 0 < Rose.size s) (label kids each => byComputing) t
 
 -- Nested twice, and in an `Option` of a pair: the hypotheses compose.
 type Nest: Type =
@@ -155,7 +155,7 @@ def Ranked.count (r: Ranked k): Nat
     | RNode n kids => 1 + (kids.attach.map (e => Ranked.count e.value) |> .foldLeft 0 Nat.add)
 
 theorem rankedPositive ∀ (r: Ranked k): 0 < Ranked.size r :=
-  Ranked.induct (n s => 0 < Ranked.size s) rfl (n kids all => rfl) r
+  Ranked.induct (n s => 0 < Ranked.size s) byComputing (n kids all => byComputing) r
 
 -- A record, with a weight on each node.
 type Node = { weight: Nat, children: List Node }

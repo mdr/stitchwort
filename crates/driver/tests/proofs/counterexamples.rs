@@ -260,7 +260,7 @@ fn a_proof_field_is_kept_true() {
     assert!(log[0].found.is_none(), "{:?}", log[0]);
     assert_eq!(log[0].tried, MAX_INPUTS, "{:?}", log[0]);
     assert!(log[0].random > 0 && log[0].discarded == 0, "{:?}", log[0]);
-    assert_eq!(found(&log[1]), ["r = { lo = 0, hi = 1, ok = rfl }"]);
+    assert_eq!(found(&log[1]), ["r = { lo = 0, hi = 1, ok = byComputing }"]);
     assert_eq!(notes.len(), 1, "{notes:?}");
 }
 
@@ -344,7 +344,7 @@ fn check_counterexamples_gives_every_theorem_a_verdict() {
     );
     assert_eq!(
         found[1].3,
-        "counterexample: r = { lo = 0, hi = 1, ok = rfl }"
+        "counterexample: r = { lo = 0, hi = 1, ok = byComputing }"
     );
     // Out of scope: said why.
     let out = verdicts("reject/counterexample-out-of-scope.sw");
@@ -363,7 +363,7 @@ fn a_decreasing_definitions_unfold_is_not_searched() {
   let next := n / 2
   if h: next < n then halvings next (count + 1) else count
 
-theorem written (n: Nat): n = n := rfl
+theorem written (n: Nat): n = n := byComputing
 ";
     with_stack(STACK, || {
         let mut session = Session::for_stack(STACK);
@@ -607,8 +607,8 @@ fn a_statement_mentioning_a_failed_definition_is_not_remembered() {
     use stitchwort_core::DefId;
     use stitchwort_core::hash::type_hash;
     let text = "def bad (n: Nat): Nat := true\n\
-                theorem t (n: Nat): bad n = 0 := rfl\n\
-                theorem u (n: Nat): n + 1 = n := rfl\n";
+                theorem t (n: Nat): bad n = 0 := byComputing\n\
+                theorem u (n: Nat): n + 1 = n := byComputing\n";
     with_stack(STACK, move || {
         let mut session = Session::for_stack(STACK);
         let _ = session.load("failed.sw", text);

@@ -14,7 +14,7 @@ theorem readGroupsLast ∀ (reader afterBit after: BitReader) (group: Nat)
     (bit: reader.readBit = Some (False, afterBit))
     (number: afterBit.readNumber 4 = Some (group, after)):
     readGroups reader = Some (NonEmptyList.singleton group, after) :=
-  rewrite readGroups.unfold reader, bit, number in rfl
+  rewrite readGroups.unfold reader, bit, number then byComputing
 
 --| A group that another follows.
 theorem readGroupsMore ∀ (reader afterBit after: BitReader) (group: Nat) (groups: NonEmptyList Nat) (rest: BitReader)
@@ -23,8 +23,8 @@ theorem readGroupsMore ∀ (reader afterBit after: BitReader) (group: Nat) (grou
     (shorter: after.length < reader.length)
     (others: readGroups after = Some (groups, rest)):
     readGroups reader = Some (NonEmptyList.cons group groups.toList, rest) :=
-  rewrite readGroups.unfold reader, bit, number in
-    match h: (after.length < reader.length: Bool) with | True => rewrite others in rfl
+  rewrite readGroups.unfold reader, bit, number then
+    match h: (after.length < reader.length: Bool) with | True => rewrite others then byComputing
 
 --| A literal's groups, each below 16, are read back from their bits.
 theorem readGroupsBitsFrom ∀ (rest: List Bool) (tail: List Nat) (group: Nat)
@@ -37,10 +37,10 @@ theorem readGroupsBitsFrom ∀ (rest: List Bool) (tail: List Nat) (group: Nat)
         { unread = Nat.toBits 4 group ++ rest }
         { unread = rest }
         group
-        rfl
-        (BitReader.readNumberAppend 4 group rest (omega [small]))
+        byComputing
+        (BitReader.readNumberAppend 4 group rest (arithmetic [small]))
     | [next, ..more] =>
-      let fits: group < 16 := omega [small]
+      let fits: group < 16 := arithmetic [small]
       let others: ({ head = next, tail = more }: NonEmptyList Nat).all (group => group < 16) = True :=
         Bool.andRight small
       let tail := groupBitsFrom next more ++ rest
@@ -52,9 +52,9 @@ theorem readGroupsBitsFrom ∀ (rest: List Bool) (tail: List Nat) (group: Nat)
         group
         { head = next, tail = more }
         { unread = rest }
-        rfl
-        (BitReader.readNumberAppend 4 group tail (omega [fits]))
-        (omega [length, Nat.toBitsLength 4 group])
+        byComputing
+        (BitReader.readNumberAppend 4 group tail (arithmetic [fits]))
+        (arithmetic [length, Nat.toBitsLength 4 group])
         (readGroupsBitsFrom rest more next others)
 
 theorem readGroupsBits ∀ (rest: List Bool) (groups: NonEmptyList Nat)
@@ -69,31 +69,34 @@ theorem readGroupsSome ∀ (reader: BitReader) (groups: NonEmptyList Nat) (rest:
     reader.unread = groupBits groups ++ rest.unread ∧ groups.all (group => group < 16) = True
     decreasing reader.length
 :=
-  rewrite readGroups.unfold reader at read in
+  rewrite readGroups.unfold reader at read then
     match b: reader.readBit with
       | Some (more, afterMore) =>
         match n: afterMore.readNumber 4 with
           | Some (group, after) =>
             let bitRead := BitReader.readBitSome reader more afterMore b
             let numberRead := BitReader.readNumberSome afterMore 4 group after n
-            let fits: group < 16 := omega [numberRead.right]
+            let fits: group < 16 := arithmetic [numberRead.right]
             match more with
               | True =>
                 match d: (after.length < reader.length: Bool) with
                   | True =>
-                    let shorter: after.length < reader.length := omega [d]
+                    let shorter: after.length < reader.length := arithmetic [d]
                     match g: readGroups after with
                       | Some (gs, others) =>
                         let parts := somePairInjective read
                         match readGroupsSome after gs others g [decreasing := shorter] with
                           | Both split small =>
-                            let first: (group < 16) = True := omega [fits]
-                            rewrite <- parts.left, <- parts.right in
-                              Both (rewrite bitRead, numberRead.left, split in rfl) (Bool.andIntro first small)
+                            let first: (group < 16) = True := arithmetic [fits]
+                            rewrite <- parts.left, <- parts.right then
+                              Both
+                                (rewrite bitRead, numberRead.left, split then byComputing)
+                                (Bool.andIntro first small)
               | False =>
                 let parts := somePairInjective read
-                let small: (NonEmptyList.singleton group).all (x => x < 16) = True := omega [fits]
-                rewrite <- parts.left, <- parts.right in Both (rewrite bitRead, numberRead.left in rfl) small
+                let small: (NonEmptyList.singleton group).all (x => x < 16) = True := arithmetic [fits]
+                rewrite <- parts.left, <- parts.right then
+                  Both (rewrite bitRead, numberRead.left then byComputing) small
 
 --| Each operator type is read back from its type id.
 theorem operatorTypeOfTypeId ∀ (operatorType: OperatorType): operatorTypeOf (typeId operatorType) = Some operatorType :=
@@ -104,10 +107,10 @@ theorem operatorTypeOfSome ∀ (n: Nat) (operatorType: OperatorType)
     (read: operatorTypeOf n = Some operatorType):
     n = typeId operatorType :=
   match n with
-    | 0 => rewrite <- Option.someInjective read in rfl
-    | 1 => rewrite <- Option.someInjective read in rfl
-    | 2 => rewrite <- Option.someInjective read in rfl
-    | 3 => rewrite <- Option.someInjective read in rfl
-    | 5 => rewrite <- Option.someInjective read in rfl
-    | 6 => rewrite <- Option.someInjective read in rfl
-    | 7 => rewrite <- Option.someInjective read in rfl
+    | 0 => rewrite <- Option.someInjective read then byComputing
+    | 1 => rewrite <- Option.someInjective read then byComputing
+    | 2 => rewrite <- Option.someInjective read then byComputing
+    | 3 => rewrite <- Option.someInjective read then byComputing
+    | 5 => rewrite <- Option.someInjective read then byComputing
+    | 6 => rewrite <- Option.someInjective read then byComputing
+    | 7 => rewrite <- Option.someInjective read then byComputing

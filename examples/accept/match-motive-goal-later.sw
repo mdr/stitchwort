@@ -15,4 +15,4 @@ def fine (q: List.length [1] = 1) (n: Nat): Nat :=
         | Succ k => k)
     n
 
-test "the motive checked when lifted" := fine rfl 5 == 0
+test "the motive checked when lifted" := fine byComputing 5 == 0

@@ -39,7 +39,7 @@ theorem SafeNat.mkExt ∀ (a b: Nat)
       (q' =>
         J
           (r e'' => ({ value = a, fits = p }: SafeNat) = { value = a, fits = r })
-          rfl
+          byComputing
           (Bool.uniqueEq (Nat.leq a 9007199254740991) True p q'))
       e
   ext q
@@ -59,7 +59,7 @@ theorem SafeInt.mkExt ∀ (a b: Int)
       (q' =>
         J
           (r e'' => ({ value = a, fits = p }: SafeInt) = { value = a, fits = r })
-          rfl
+          byComputing
           (Bool.uniqueEq (Nat.leq (Int.natAbs a) 9007199254740991) True p q'))
       e
   ext q

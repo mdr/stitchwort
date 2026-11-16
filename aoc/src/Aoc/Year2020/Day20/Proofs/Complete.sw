@@ -13,7 +13,7 @@ theorem runsAsValue ∀ (p: () → {Parse Char} a) (read rest: List Char) (v w: 
     (same: v = w)
     (runs: Parse.Runs p read rest v):
     Parse.Runs p read rest w :=
-  rewrite same at runs in runs
+  rewrite same at runs then runs
 
 --| A character a row of pixels can start with.
 def pixelChar (char: Char): Bool := char == '#' ∨ char == '.'
@@ -23,45 +23,46 @@ def pixelSymbol: Pixel → Char
   | Calm => '.'
 
 theorem spaceNotPixel ∀ (char: Char) (isSpace: Parse.isSpace char = True): pixelChar char = False := match isSpace with
-  | Inl space => rewrite space.read in rfl
-  | Inr tab => rewrite tab.read in rfl
+  | Inl space => rewrite space.read then byComputing
+  | Inr tab => rewrite tab.read then byComputing
 
 --| A word that starts with a different character is not a start of the input.
 theorem stripDifferent ∀ (first: Char) (others: List Char) (char: Char) (more: List Char)
     (different: (char == first) = False):
     Text.stripPrefixChars [first, ..others] [char, ..more] = None :=
   match e: Text.sameChar first char with
-    | False => rfl
-    | True => Void.exfalso (different.read (Eq.sym (DecEq.sound (rewrite Text.sameCharEq first char at e in e))))
+    | False => byComputing
+    | True =>
+      Void.impossible (different.read (Eq.flipped (DecEq.sound (rewrite Text.sameCharEq first char at e then e))))
 
 theorem runsPixel ∀ (shape: Pixel) (after: List Char): Parse.Runs pixel [pixelSymbol shape] after shape :=
   match shape with
-    | Rough => Parse.runsPick [] "#" Rough [(".", Calm)] after rfl
-    | Calm => Parse.runsPick [("#", Rough)] "." Calm [] after (Both rfl rfl)
+    | Rough => Parse.runsPick [] "#" Rough [(".", Calm)] after byComputing
+    | Calm => Parse.runsPick [("#", Rough)] "." Calm [] after (Both byComputing byComputing)
 
 theorem declinesPixel ∀ (rest: List Char) (stops: Parse.CannotStart pixelChar rest): Parse.Declines pixel rest :=
   Parse.declinesPick _ rest
     (match rest with
-      | [] => Both rfl (Both rfl rfl)
+      | [] => Both byComputing (Both byComputing byComputing)
       | [char, ..more] =>
         Both
-          (stripDifferent '#' [] char more (Bool.orFalseLeft _ _ (stops char more rfl)))
-          (Both (stripDifferent '.' [] char more (Bool.orFalseRight _ _ (stops char more rfl))) rfl))
+          (stripDifferent '#' [] char more (Bool.orFalseLeft _ _ (stops char more byComputing)))
+          (Both (stripDifferent '.' [] char more (Bool.orFalseRight _ _ (stops char more byComputing))) byComputing))
 
 theorem allPixels ∀ (pixels: List Pixel): (pixels.map pixelSymbol).all pixelChar = True := match pixels with
-  | [] => rfl
+  | [] => byComputing
   | [shape, ..more] =>
-    rewrite allPixels more in
+    rewrite allPixels more then
       (match shape with
-        | Rough => rfl
-        | Calm => rfl)
+        | Rough => byComputing
+        | Calm => byComputing)
 
 theorem pixelWritten ∀ (read: List Char) (shape: Pixel)
     (written: PixelWritten read shape):
     read = [pixelSymbol shape] :=
   match written with
-    | Inl (Both single same) => rewrite same, single in rfl
-    | Inr (Both single same) => rewrite same, single in rfl
+    | Inl (Both single same) => rewrite same, single then byComputing
+    | Inr (Both single same) => rewrite same, single then byComputing
 
 theorem eachPixels ∀ (pixels: List Pixel) (read: List Char)
     (h: Parse.Each PixelWritten read pixels):
@@ -69,7 +70,7 @@ theorem eachPixels ∀ (pixels: List Pixel) (read: List Char)
   match pixels, h with
     | [], each => each
     | [shape, ..more], Witness first (Witness later (Both split (Both written each))) =>
-      rewrite split, pixelWritten first shape written, eachPixels more later each in rfl
+      rewrite split, pixelWritten first shape written, eachPixels more later each then byComputing
 
 theorem runsRow ∀ (read: List Char) (row: List Pixel)
     (written: RowWritten read row) (after: List Char)
@@ -78,7 +79,7 @@ theorem runsRow ∀ (read: List Char) (row: List Pixel)
   match written with
     | Both each nonEmpty =>
       match row, nonEmpty with
-        | [], notEmpty => Void.exfalso (notEmpty rfl)
+        | [], notEmpty => (notEmpty byComputing).impossible
         | [shape, ..more], notEmpty =>
           let read2 :=
             Parse.runsMany1Symbols pixel pixelSymbol pixelChar
@@ -89,7 +90,7 @@ theorem runsRow ∀ (read: List Char) (row: List Pixel)
               after
               (allPixels [shape, ..more])
               stops
-          rewrite eachPixels [shape, ..more] read each in
+          rewrite eachPixels [shape, ..more] read each then
             Parse.runsMap
               (() => Parse.many1 pixel)
               NonEmptyList.toList
@@ -118,31 +119,31 @@ theorem runsTile ∀ (read: List Char) (tile2: Tile)
               runsAsValue tile read after
                 ({ id = Parse.digitsValue idRead, image = { rows = (NonEmptyList.cons head tail).toList } }: Tile)
                 { id, image = { rows = imageRows } }
-                (rewrite idValue, rowsSame2 in rfl)
-                (rewrite split in
+                (rewrite idValue, rowsSame2 then byComputing)
+                (rewrite split then
                   Parse.runsBind
                     (() => Parse.text "Tile ") _
                     "Tile ".toList
                     (idRead ++ [':'] ++ lineBreak ++ rowsRead) _
                     after
                     () _
-                    rfl
+                    byComputing
                     (Parse.runsText "Tile " _)
                     (Parse.runsBind Parse.nat _ idRead
                       ([':'] ++ lineBreak ++ rowsRead) _
                       after
                       (Parse.digitsValue idRead) _
-                      rfl
-                      (Parse.runsNat idRead _ idSome idAll rfl)
+                      byComputing
+                      (Parse.runsNat idRead _ idSome idAll byComputing)
                       (Parse.runsBind
                         (() => Parse.char ':') _
                         [':']
                         (lineBreak ++ rowsRead) _
                         after
                         () _
-                        rfl
+                        byComputing
                         (Parse.runsChar ':' _)
-                        (Parse.runsBind Parse.newline _ lineBreak rowsRead _ after () _ rfl
+                        (Parse.runsBind Parse.newline _ lineBreak rowsRead _ after () _ byComputing
                           (Parse.runsNewline lineBreak _ breakOk)
                           (Parse.runsBind
                             (() => Parse.lines pixelRow) _
@@ -150,16 +151,16 @@ theorem runsTile ∀ (read: List Char) (tile2: Tile)
                             [] _
                             after
                             (NonEmptyList.cons head tail) _
-                            (Eq.sym (List.appendNil rowsRead))
+                            (List.appendNil rowsRead).flipped
                             (Parse.runsLinesOf pixelRow RowWritten
                               (Parse.CannotStart pixelChar)
                               after
                               (read2 v after2 ok stops => runsRow read2 v ok after2 stops)
                               (read2 after2 isBreak =>
-                                Parse.cannotStartAfterBreak pixelChar rfl rfl read2 after2 isBreak)
-                              (Parse.cannotStartAtLinesEnd pixelChar rfl rfl spaceNotPixel after end)
-                              (Parse.declinesLinesAtLinesEnd pixelRow pixelChar declinesRow rfl rfl spaceNotPixel after
-                                  end)
+                                Parse.cannotStartAfterBreak pixelChar byComputing byComputing read2 after2 isBreak)
+                              (Parse.cannotStartAtLinesEnd pixelChar byComputing byComputing spaceNotPixel after end)
+                              (Parse.declinesLinesAtLinesEnd pixelRow pixelChar declinesRow byComputing byComputing
+                                  spaceNotPixel after end)
                               rowsRead
                               head
                               tail
@@ -174,8 +175,8 @@ theorem declinesTile ∀ (input: List Char)
     input
     (Parse.declinesText "Tile " input
       (match input with
-        | [] => rfl
-        | [char, ..more] => stripDifferent 'T' ['i', 'l', 'e', ' '] char more (stops char more rfl)))
+        | [] => byComputing
+        | [char, ..more] => stripDifferent 'T' ['i', 'l', 'e', ' '] char more (stops char more byComputing)))
 
 theorem runsJigsaw ∀ (read: List Char) (jigsaw2: Jigsaw)
     (written: JigsawWritten read jigsaw2) (ending: List Char)
@@ -188,7 +189,7 @@ theorem runsJigsaw ∀ (read: List Char) (jigsaw2: Jigsaw)
           runsAsValue jigsaw read ending
             ({ tiles = (NonEmptyList.cons head tail).toList }: Jigsaw)
             { tiles }
-            (rewrite same in rfl)
+            (rewrite same then byComputing)
             (Parse.runsMap
               (() => Parse.sections tile)
               (tiles2 => { tiles = tiles2.toList })
@@ -199,7 +200,13 @@ theorem runsJigsaw ∀ (read: List Char) (jigsaw2: Jigsaw)
                 (read2 v after ok end => runsTile read2 v ok after end)
                 Parse.linesEndAfterBlank
                 (Parse.linesEndAtBreaks ending breaks)
-                (Parse.declinesSectionsAtBreaks tile (char => char == 'T') declinesTile rfl rfl ending breaks)
+                (Parse.declinesSectionsAtBreaks tile
+                  (char => char == 'T')
+                  declinesTile
+                  byComputing
+                  byComputing
+                  ending
+                  breaks)
                 read
                 head
                 tail
@@ -225,4 +232,4 @@ theorem writtenUnique ∀ (input: Text) (a b: Jigsaw)
     (writtenA: InputWritten input a)
     (writtenB: InputWritten input b):
     a = b :=
-  Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))
+  Result.okInjective (Eq.trans (parseComplete input a writtenA).flipped (parseComplete input b writtenB))

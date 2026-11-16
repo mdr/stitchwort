@@ -10,6 +10,6 @@ def IsShort (xs: List Nat): Prop := List.length xs ≤ 2
 
 type Short = { items: List Nat, short: IsShort items }
 
-def one: Short := { items = [1], short = rfl }
+def one: Short := { items = [1], short = byComputing }
 
 def two: Short := { one | items = [1, 2, 3] }

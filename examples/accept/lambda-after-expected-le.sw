@@ -9,9 +9,9 @@ theorem keepMore ∀ (keep1 keep2: Nat → Bool) (xs: List Nat)
     List.sumBy xs (x => if keep1 x then x else 0) ≤ List.sumBy xs (x => if keep2 x then x else 0) :=
   List.sumByLe xs _ _ (x =>
     match kept: keep1 x with
-      | True => rewrite included x kept in Nat.leRefl x
+      | True => rewrite included x kept then Nat.leRefl x
       | False => Nat.zeroLe (if keep2 x then x else 0))
 
--- A proof that isn't a lambda's body but `omega`.
+-- A proof that isn't a lambda's body but `arithmetic`.
 theorem plusOne ∀ (xs: List Nat): List.sumBy xs (x => x) ≤ List.sumBy xs (x => x + 1) :=
-  List.sumByLe xs _ _ (x => omega)
+  List.sumByLe xs _ _ (x => arithmetic)

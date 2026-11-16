@@ -36,14 +36,14 @@ import Std (Eq)
 --
 -- (This is why the port uses the book's own numbers, Nat.sw, here.
 -- Stitchwort's library `+` computes on its second argument when its first
--- is unknown, so `n + 0 = n` is `rfl` for it, and the chapter's first
+-- is unknown, so `n + 0 = n` is `byComputing` for it, and the chapter's first
 -- example would have nothing to show.)
 --
--- With the book's `plus`, `rfl` fails, and says why:
+-- With the book's `plus`, `byComputing` fails, and says why:
 --
---     theorem plusN0FirstTry (n: Nat): plus n O = n := rfl
+--     theorem plusN0FirstTry (n: Nat): plus n O = n := byComputing
 --
---     [E-REFL] Error: `rfl` can't prove this
+--     [E-REFL] Error: `byComputing` can't prove this
 --       ╰─── `plus n 0` and `n` aren't equal
 --       Note 1: the left side is stuck on `n`: it can't compute further
 --               until `n` is known; a `match` on `n` (or `cases n`) splits it
@@ -53,7 +53,7 @@ import Std (Eq)
 -- are stuck in the same way. Writing `?` for that case shows its goal:
 --
 --     theorem plusN0SecondTry (n: Nat): plus n O = n := match n with
---       | O => rfl
+--       | O => byComputing
 --       | S n' => ?
 --
 --     [GOAL] Goal: in `plusN0SecondTry`
@@ -82,7 +82,7 @@ import Std (Eq)
 -- it would for a recursive function, so the recursion always ends.
 
 theorem plusN0 ∀ (n: Nat): plus n O = n := match n with
-  | O => rfl
+  | O => byComputing
   | S n' => Eq.cong S (plusN0 n')
 
 -- In the case `O`, `plus O O = O` computes. In the case `S n'`, the goal
@@ -90,14 +90,14 @@ theorem plusN0 ∀ (n: Nat): plus n O = n := match n with
 -- induction hypothesis, `plusN0 n'`, proves `plus n' O = n'`, and
 -- `Eq.cong S` puts an `S` on both sides. The book's proof of
 -- that case is `simpl. rewrite -> IHn'. reflexivity.`; the Stitchwort
--- term `rewrite plusN0 n' in rfl` is the same steps and proves it too.
+-- term `rewrite plusN0 n' then byComputing` is the same steps and proves it too.
 --
 -- (The book calls this `add_0_r`, with Rocq's `+`; it is the same theorem.)
 --
 -- Another one by induction:
 
 theorem minusNN ∀ (n: Nat): minus n n = O := match n with
-  | O => rfl
+  | O => byComputing
   | S n' => minusNN n'
 
 -- In the case `S n'`, `minus (S n') (S n')` computes to `minus n' n'`, so
@@ -156,11 +156,11 @@ theorem evenS ∀ (n: Nat): even (S n) = negb (even n) := ?
 -- Stitchwort's `rewrite` takes the equation as a proof, written in
 -- place:
 
-theorem mult0Plus' ∀ (n m: Nat): mult (plus (plus n O) O) m = mult n m := rewrite plusN0 n, plusN0 n in rfl
+theorem mult0Plus' ∀ (n m: Nat): mult (plus (plus n O) O) m = mult n m := rewrite plusN0 n, plusN0 n then byComputing
 
 -- Here `plusN0 n` proves `plus n O = n`, which rewrites `plus (plus n O)
 -- O` to `plus n O` and then to `n`. A fact with no lemma to cite can be
--- stated in place with its proof, `rewrite (proof: a = b) in rfl`, which
+-- stated in place with its proof, `rewrite (proof: a = b) then byComputing`, which
 -- is the closest thing to `replace`.
 --
 -- As another example, suppose we want to prove `(n + m) + (p + q) =
@@ -172,16 +172,16 @@ theorem mult0Plus' ∀ (n m: Nat): mult (plus (plus n O) O) m = mult n m := rewr
 -- arguments affects only the *outer* one:
 --
 --     theorem plusRearrangeFirstTry (n m p q: Nat): plus (plus n m) (plus p q) = plus (plus m n) (plus p q) :=
---       rewrite addComm in rfl
+--       rewrite addComm in byComputing
 --
---     [E-REFL] Error: `rfl` can't prove this
+--     [E-REFL] Error: `byComputing` can't prove this
 --       ╰─── `plus (plus p q) (plus n m)` and `plus (plus m n) (plus p q)` aren't equal
 --
 -- The book uses `replace` to point at the right `+`. In Stitchwort, give
 -- the rule its arguments, and it rewrites `plus n m` and nothing else:
 
 theorem plusRearrange ∀ (n m p q: Nat): plus (plus n m) (plus p q) = plus (plus m n) (plus p q) :=
-  rewrite addComm n m in rfl
+  rewrite addComm n m then byComputing
 
 -- # Formal vs. Informal Proof
 --
@@ -223,7 +223,7 @@ theorem plusRearrange ∀ (n m p q: Nat): plus (plus n m) (plus p q) = plus (plu
 -- arm says what proves its case:
 
 theorem addAssoc' ∀ (n m p: Nat): plus n (plus m p) = plus (plus n m) p := match n with
-  | O => rfl
+  | O => byComputing
   | S n' => Eq.cong S (addAssoc' n' m p)
 
 -- A (pedantic) mathematician might write the proof like this:

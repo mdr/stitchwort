@@ -36,7 +36,7 @@ theorem part1AnswersIff ∀ (input: Text) (notes: Notes)
   {
     forward = answers =>
       match e: notes.earliestBus with
-        | None => Void.exfalso (answers rfl)
+        | None => (answers byComputing).impossible
         | Some answer =>
           match part1Rules notes answer (parsedPositive input notes parsed) e with
             | Witness id (Witness departure (Both listed rest)) => Witness id listed,
@@ -58,11 +58,11 @@ theorem part2Exactly ∀ (input: Text) (notes: Notes)
     forward = found => part2Rules notes answer positive found,
     backward = (Both lined earliest) =>
       match e: notes.earliestLineUp with
-        | None => Void.exfalso (part2Never notes positive e answer lined)
+        | None => Void.impossible (part2Never notes positive e answer lined)
         | Some other =>
           match part2Rules notes other positive e with
             | Both otherLined otherEarliest =>
-              Eq.cong Some (omega [earliest other otherLined, otherEarliest answer lined])
+              Eq.cong Some (arithmetic [earliest other otherLined, otherEarliest answer lined])
   }
 
 --| Part 2 finds no time exactly when no time lines up.
@@ -74,6 +74,6 @@ theorem part2NoneIff ∀ (input: Text) (notes: Notes)
     forward = none time lined => part2Never notes positive none time lined,
     backward = never =>
       match e: notes.earliestLineUp with
-        | None => rfl
-        | Some answer => Void.exfalso (never answer (And.left (part2Rules notes answer positive e)))
+        | None => byComputing
+        | Some answer => Void.impossible (never answer (And.left (part2Rules notes answer positive e)))
   }

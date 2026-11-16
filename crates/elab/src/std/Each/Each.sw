@@ -60,14 +60,14 @@ def Each.collectIn (prog: () → {Each | e} a): {e} List a :=
 -- `each`, an `if` at each `require`, and `[v]` at the end.
 
 --| A value alone gives just that value.
-theorem Each.collectPure ∀ (v: a): Each.collect (() => v) = [v] := rfl
+theorem Each.collectPure ∀ (v: a): Each.collect (() => v) = [v] := byComputing
 
 --| Choosing from `xs`, then running `k` on the choice, collects `k`'s
 --| results for each element in turn.
 theorem Each.collectEach ∀ (k: a → {Each} b) (xs: List a):
     Each.collect (() => k (Each.each xs)) = List.flatMap xs (x => Each.collect (() => k x)) :=
   match xs with
-    | [] => rfl
+    | [] => byComputing
     | [x, ..xs] => Eq.cong (List.append (Each.collect (u => k x))) (Each.collectEach k xs)
 
 --| `require ok` before `k`: `k`'s results if `ok`, else none.
@@ -77,12 +77,12 @@ theorem Each.collectRequire ∀ (k: () → {Each} b) (ok: Bool):
       k())
       = (if ok then Each.collect k else []) :=
   match ok with
-    | True => rfl
-    | False => rfl
+    | True => byComputing
+    | False => byComputing
 
 --| `each` of a list collects to the list itself.
 theorem Each.collectEachSelf ∀ (xs: List a): Each.collect (() => Each.each xs) = xs := match xs with
-  | [] => rfl
+  | [] => byComputing
   | [x, ..xs] => Eq.cong (Cons x) (Each.collectEachSelf xs)
 
 test "each" := Each.collect (() => Each.each [1, 2, 3]) == [1, 2, 3]

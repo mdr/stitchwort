@@ -41,7 +41,7 @@ def both: Nat → Colour → Bool
 -- computes; in the `_` arm it is none of them, so `isVowel` takes its `_`
 -- arm too.
 theorem vowelsScore ∀ (char: Char) (found: isVowel char = True): score char = 1 := match char with
-  | 'a' | 'e' | 'i' | 'o' | 'u' => rfl
+  | 'a' | 'e' | 'i' | 'o' | 'u' => byComputing
   | _ => cases
 
 test "warm" := [Red, Green, Blue, Yellow].map warm == [True, False, False, True]

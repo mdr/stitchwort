@@ -85,7 +85,7 @@ theorem wordLays ∀ (indent: Nat) (text: Text) (place: Place) (trace: List Even
   match solid with
     | (filled, noGap, layout) =>
       match text.isEmpty, filled with
-        | True, never => Void.exfalso (Bool.falseNotTrue (Eq.sym never))
+        | True, never => (Bool.falseNotTrue never.flipped).impossible
         | False, _ =>
           match gap: text.all (char => char == ' '), noGap, layout with
             | False, _, oneLine =>
@@ -131,8 +131,8 @@ def trailEnd (line: Nat) (after: Option Comment): Place := match after with
 --| After a token, with or without a trailing comment, words are on the
 --| line.
 theorem trailMid ∀ (line: Nat) (after: Option Comment): (trailEnd line after).midLine = True := match after with
-  | None => rfl
-  | Some _ => rfl
+  | None => byComputing
+  | Some _ => byComputing
 
 theorem notesLay ∀ (comments: List Comment) (indent column: Nat) (trace: List Event) (next: Place → List Event → Prop)
     (fine: FineAbove comments) (reached: next (AtStart column) (trace ++ aboveEvents column comments)):
@@ -143,7 +143,7 @@ theorem notesLay ∀ (comments: List Comment) (indent column: Nat) (trace: List 
       trace
       next :=
   match comments, fine, reached with
-    | [], _, reached => rewrite <- List.appendNil trace in reached
+    | [], _, reached => rewrite <- List.appendNil trace then reached
     | [comment, ..rest], Both first others, reached =>
       concatLays
         [Doc.text comment.text, CommentEnd]
@@ -165,14 +165,14 @@ theorem notesLay ∀ (comments: List Comment) (indent column: Nat) (trace: List 
                 next))
           (commentSolid comment.text first)
           ((
-            rfl,
+            byComputing,
             (notesLay rest indent column
               (trace ++ [{ word = comment.text, start = Some column }])
               next
               others
               (rewrite List.appendAssoc trace
                     [{ word = comment.text, start = Some column }]
-                    (aboveEvents column rest) in
+                    (aboveEvents column rest) then
                 reached))
           )))
 
@@ -184,7 +184,7 @@ theorem aboveLays ∀ (above: List Comment) (indent: Nat) (place: Place)
     (reached: next (aboveEnd indent place above) (trace ++ aboveEvents (breakColumn indent place) above)):
     Lays (commentsAbove above) indent place trace next :=
   match above, fine, reached with
-    | [], _, reached => rewrite <- List.appendNil trace in reached
+    | [], _, reached => rewrite <- List.appendNil trace then reached
     | [comment, ..rest], fine, reached =>
       concatLays
         [LineStart, ..[comment, ..rest].map (comment => Doc.concat [Doc.text comment.text, CommentEnd])]
@@ -203,7 +203,7 @@ theorem trailingLays ∀ (after: Option Comment) (indent line: Nat) (trace: List
     (fine: FineAfter after) (reached: next (trailEnd line after) (trace ++ afterEvents after)):
     Lays (trailingComment after) indent (Mid line) trace next :=
   match after, fine, reached with
-    | None, _, reached => rewrite <- List.appendNil trace in reached
+    | None, _, reached => rewrite <- List.appendNil trace then reached
     | Some comment, fine, reached =>
       match commentSolid comment.text fine with
         | (_, _, layout) => (layout, reached)
@@ -251,8 +251,8 @@ theorem tokenLays ∀ (comments: Comments) (text: Text) (indent: Nat) (place: Pl
               ((trace ++ above) ++ [word])
               next
               fineAfter
-              (rewrite List.appendAssoc (trace ++ above) [word] (afterEvents comments.after) in
-                rewrite List.appendAssoc trace above ([word] ++ afterEvents comments.after) in reached))))
+              (rewrite List.appendAssoc (trace ++ above) [word] (afterEvents comments.after) then
+                rewrite List.appendAssoc trace above ([word] ++ afterEvents comments.after) then reached))))
 
 -- Zones: where the parser's layout rule lets a token start a line.
 
@@ -315,15 +315,15 @@ theorem innerStart ∀ (zone: Zone) (indent: Nat) (place: Place) (above: List Co
     (inner: Inner zone place):
     zone.allows (wordStart indent (aboveEnd indent place above)) :=
   match zone, within, inner with
-    | Anywhere column, _, _ => rfl
+    | Anywhere column, _, _ => byComputing
     | Deeper column, within, inner =>
       match above, place, inner with
         | [], AtStart at, inner => inner
-        | [], Mid at, _ => rfl
-        | [], Held at, inner => omega
+        | [], Mid at, _ => byComputing
+        | [], Held at, inner => arithmetic
         | [comment, ..rest], AtStart at, inner => inner
-        | [comment, ..rest], Mid at, inner => omega
-        | [comment, ..rest], Held at, inner => omega
+        | [comment, ..rest], Mid at, inner => arithmetic
+        | [comment, ..rest], Held at, inner => arithmetic
 
 --| The line a token at an inner place is on is indented within the zone.
 theorem innerLine ∀ (zone: Zone) (indent: Nat) (place: Place) (above: List Comment) (within: zone.holds indent)
@@ -334,18 +334,18 @@ theorem innerLine ∀ (zone: Zone) (indent: Nat) (place: Place) (above: List Com
       match above, place, inner with
         | [], AtStart at, inner => inner
         | [], Mid at, inner => inner
-        | [], Held at, inner => omega
+        | [], Held at, inner => arithmetic
         | [comment, ..rest], AtStart at, inner => inner
-        | [comment, ..rest], Mid at, inner => omega
-        | [comment, ..rest], Held at, inner => omega
+        | [comment, ..rest], Mid at, inner => arithmetic
+        | [comment, ..rest], Held at, inner => arithmetic
     | Deeper column, within, inner =>
       match above, place, inner with
-        | [], AtStart at, inner => omega
+        | [], AtStart at, inner => arithmetic
         | [], Mid at, inner => inner
-        | [], Held at, inner => omega
-        | [comment, ..rest], AtStart at, inner => omega
-        | [comment, ..rest], Mid at, inner => omega
-        | [comment, ..rest], Held at, inner => omega
+        | [], Held at, inner => arithmetic
+        | [comment, ..rest], AtStart at, inner => arithmetic
+        | [comment, ..rest], Mid at, inner => arithmetic
+        | [comment, ..rest], Held at, inner => arithmetic
 
 theorem trailEnded ∀ (zone: Zone) (line: Nat) (after: Option Comment) (within: zone.holds line):
     Ended zone (trailEnd line after) :=
@@ -391,8 +391,8 @@ theorem ruleCons ∀ (within: Nat → Prop) (doc: Doc) (docs: List Doc)
       holds
       (between front isFirst met =>
         others indent between (trace ++ front) next inside met (after back isSecond reached =>
-          rewrite List.appendAssoc trace front back in
-            onward after (front ++ back) ((front, back, rfl, isFirst, isSecond)) reached))
+          rewrite List.appendAssoc trace front back then
+            onward after (front ++ back) ((front, back, byComputing, isFirst, isSecond)) reached))
 
 --| `Doc.concat` is its documents one after another.
 theorem ruleConcat ∀ (within: Nat → Prop) (docs: List Doc) (pre post: Place → Prop) (spec: List Event → Prop)
@@ -403,12 +403,12 @@ theorem ruleConcat ∀ (within: Nat → Prop) (docs: List Doc) (pre post: Place 
 
 theorem holdsDeeper ∀ (zone: Zone) (indent more: Nat) (inside: zone.holds indent): zone.under (indent + Succ more) :=
   match zone, inside with
-    | Anywhere column, inside => omega
-    | Deeper column, inside => omega
+    | Anywhere column, inside => arithmetic
+    | Deeper column, inside => arithmetic
 
 theorem underHolds ∀ (zone: Zone) (indent: Nat) (under: zone.under indent): zone.holds indent := match zone, under with
   | Anywhere column, under => under
-  | Deeper column, under => omega
+  | Deeper column, under => arithmetic
 
 --| What holds at any indentation of the zone holds deeper.
 theorem ruleUnder ∀ (zone: Zone) (doc: Doc) (pre post: Place → Prop) (spec: List Event → Prop)
@@ -434,7 +434,7 @@ theorem tokenRule ∀ (zone: Zone) (comments: Comments) (text: Text)
           (breakColumn indent place),
           (wordStart indent (aboveEnd indent place comments.above)),
           (innerStart zone indent place comments.above inside inner),
-          rfl
+          byComputing
         ))
         (trailEnded zone _ comments.after (innerLine zone indent place comments.above inside inner)))
 
@@ -453,8 +453,8 @@ theorem endedSeated ∀ (zone: Zone) (place: Place) (ended: Ended zone place): S
 --| After a token there are words on the line.
 theorem endedMid ∀ (zone: Zone) (place: Place) (ended: Ended zone place): place.midLine = True :=
   match place, ended with
-    | Mid at, _ => rfl
-    | Held at, _ => rfl
+    | Mid at, _ => byComputing
+    | Held at, _ => byComputing
 
 -- A closing bracket.
 
@@ -466,12 +466,12 @@ theorem seatedLine ∀ (zone: Zone) (indent: Nat) (place: Place) (inside: zone.h
       match place, seated with
         | AtStart at, seated => seated
         | Mid at, seated => seated
-        | Held at, seated => omega
+        | Held at, seated => arithmetic
     | Deeper column, inside, seated =>
       match place, seated with
         | AtStart at, seated => seated
         | Mid at, seated => seated
-        | Held at, seated => omega
+        | Held at, seated => arithmetic
 
 --| A start anywhere: what a token in brackets, or a closing bracket, is
 --| allowed.
@@ -511,7 +511,7 @@ theorem closerNotes ∀ (comment: Comment) (rest: List Comment) (indent: Nat)
                 next)
             (commentSolid comment.text first)
             ((
-              rfl,
+              byComputing,
               (Inr
                 (closerNotes second more indent
                   (trace ++ [{ word = comment.text, start = Some indent }])
@@ -519,7 +519,7 @@ theorem closerNotes ∀ (comment: Comment) (rest: List Comment) (indent: Nat)
                   others
                   (rewrite List.appendAssoc trace
                         [{ word = comment.text, start = Some indent }]
-                        (aboveEvents indent [second, ..more]) in
+                        (aboveEvents indent [second, ..more]) then
                     reached)))
             ))
 
@@ -545,7 +545,7 @@ theorem closerRule ∀ (zone: Zone) (comments: Comments) (text: Text)
           (onward
             (tokenEnd indent place { above = [], after })
             (tokenEvents indent place { above = [], after } text)
-            ((0, (wordStart indent place), rfl, rfl))
+            ((0, (wordStart indent place), byComputing, byComputing))
             (trailEnded zone _ after (seatedLine zone indent place inside seated)))
       | { above = [comment, ..rest], after }, (fineAbove, fineAfter) =>
         let notes := aboveEvents (indent + 2) [comment, ..rest]
@@ -585,7 +585,7 @@ theorem closerRule ∀ (zone: Zone) (comments: Comments) (text: Text)
                       LaysAll [HardLine, Doc.text text, trailingComment after] indent out all next)))
                 fineAbove
                 ((
-                  rfl,
+                  byComputing,
                   (Inr
                     (wordLays indent text
                       (AtStart indent)
@@ -596,12 +596,12 @@ theorem closerRule ∀ (zone: Zone) (comments: Comments) (text: Text)
                         ((trace ++ notes) ++ [word])
                         next
                         fineAfter
-                        (rewrite List.appendAssoc (trace ++ notes) [word] (afterEvents after) in
-                          rewrite List.appendAssoc trace notes ([word] ++ afterEvents after) in
+                        (rewrite List.appendAssoc (trace ++ notes) [word] (afterEvents after) then
+                          rewrite List.appendAssoc trace notes ([word] ++ afterEvents after) then
                             onward
                               (trailEnd indent after)
                               (notes ++ [word, ..afterEvents after])
-                              (((indent + 2), (Some indent), rfl, rfl))
+                              (((indent + 2), (Some indent), byComputing, byComputing))
                               (trailEnded zone indent after inside)))))
                 )))))
 

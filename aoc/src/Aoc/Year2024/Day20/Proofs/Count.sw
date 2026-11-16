@@ -32,14 +32,14 @@ theorem countedFromSome ∀ (fromStart toEnd: Map Position Nat) (honest length t
       = (start.diamond length
         |> .filter (savesFrom toEnd honest threshold start before)
         |> .map (end => ({ start, end }: Cheat))) :=
-  rewrite got in rfl
+  rewrite got then byComputing
 
 --| To an end the search back reached, whether the race is short enough.
 theorem savesFromSome ∀ (toEnd: Map Position Nat) (honest threshold: Nat) (start: Position) (before: Nat)
     (end: Position) (after: Nat)
     (got: toEnd.get end = Some after):
     savesFrom toEnd honest threshold start before end = (before + start.distance end + after + threshold ≤ honest) :=
-  rewrite got in rfl
+  rewrite got then byComputing
 
 --| As many cheats from `start` as the program counts there...
 theorem lengthCountedFrom ∀ (fromStart toEnd: Map Position Nat) (honest length threshold: Nat) (start: Position):
@@ -48,15 +48,15 @@ theorem lengthCountedFrom ∀ (fromStart toEnd: Map Position Nat) (honest length
   match got: fromStart.get start with
     | Some before =>
       let kept := start.diamond length |> .filter (savesFrom toEnd honest threshold start before)
-      rewrite List.lengthMap kept (end => ({ start, end }: Cheat)) in
+      rewrite List.lengthMap kept (end => ({ start, end }: Cheat)) then
         List.lengthFilter (start.diamond length) (savesFrom toEnd honest threshold start before)
-    | None => rfl
+    | None => byComputing
 
 --| ...and so as many in all.
 theorem lengthCounted ∀ (racetrack: Racetrack) (fromStart toEnd: Map Position Nat) (honest length threshold: Nat):
     (counted racetrack fromStart toEnd honest length threshold).length
       = (racetrack.track.toList |> .sumBy (cheatsFrom fromStart toEnd honest length threshold)) :=
-  rewrite List.lengthFlatMap (countedFrom fromStart toEnd honest length threshold) racetrack.track.toList in
+  rewrite List.lengthFlatMap (countedFrom fromStart toEnd honest length threshold) racetrack.track.toList then
     List.sumByCong racetrack.track.toList _ _ (start => lengthCountedFrom fromStart toEnd honest length threshold start)
 
 --| No cheat is counted twice.
@@ -81,7 +81,8 @@ theorem distinctCounted ∀ (racetrack: Racetrack) (fromStart toEnd: Map Positio
         | None => Trivial)
     (start member cheat inStart =>
       match got: fromStart.get start with
-        | Some before => Exists.elim (List.memMapElim _ cheat _ inStart) (end both => rewrite <- And.right both in rfl))
+        | Some before =>
+          Exists.elim (List.memMapElim _ cheat _ inStart) (end both => rewrite <- And.right both then byComputing))
 
 --| A position listed by the track is on it, and the other way round.
 theorem listedOnTrack ∀ (racetrack: Racetrack) (position: Position):
@@ -113,7 +114,7 @@ theorem countedSound ∀ (racetrack: Racetrack)
                 let fits: before + cheatTime ({ start, end }: Cheat) + after + threshold ≤ honest := saves
                 let near: cheatTime ({ start, end }: Cheat) ≤ length := aroundSound start length end aroundMember
                 let (Both afterFast endOn) := toEndFastest racetrack endOnTrack end after gotAfter
-                rewrite <- made in
+                rewrite <- made then
                   Both
                     (Both ((listedOnTrack racetrack start).forward startMember) (Both endOn near))
                     (Witness honest
@@ -143,20 +144,19 @@ theorem countedComplete ∀ (racetrack: Racetrack)
             let (Both honestFast (Both beforeFast (Both afterFast fits))) := parts
             let sameHonest: honest = fastest :=
               Option.someInjective
-                (Eq.trans
-                  (Eq.sym honestFound)
+                (Eq.trans honestFound.flipped
                   (fastestFromStart racetrack startOnTrack racetrack.end fastest honestFast))
             let gotBefore := fastestFromStart racetrack startOnTrack start before beforeFast
             let gotAfter := fastestToEnd racetrack endOnTrack end endOn after afterFast
             let saved: savesFrom toEnd honest threshold start before end = True :=
-              rewrite savesFromSome toEnd honest threshold start before end after gotAfter, sameHonest in fits
+              rewrite savesFromSome toEnd honest threshold start before end after gotAfter, sameHonest then fits
             List.memFlatMapIntro
               (countedFrom fromStart toEnd honest length threshold)
               start
               ({ start, end }: Cheat)
               racetrack.track.toList
               ((listedOnTrack racetrack start).backward startOn)
-              (rewrite countedFromSome fromStart toEnd honest length threshold start before gotBefore in
+              (rewrite countedFromSome fromStart toEnd honest length threshold start before gotBefore then
                 List.memMap
                   (start.diamond length |> .filter (savesFrom toEnd honest threshold start before))
                   end
@@ -194,15 +194,15 @@ theorem countCheatsCorrect ∀ (racetrack: Racetrack)
           (Both
             (cheat =>
               {
-                forward = member => Void.exfalso member,
+                forward = member => member.impossible,
                 backward = saves =>
-                  Exists.elim (And.right saves) (fastest rest =>
+                  Exists.elim saves.right (fastest rest =>
                     Exists.elim rest (before more =>
                       Exists.elim more (after parts =>
-                        let found := fastestFromStart racetrack startOnTrack racetrack.end fastest (And.left parts)
-                        Void.exfalso (Option.noneNotSome fastest (Eq.trans (Eq.sym honestFound) found)))))
+                        let found := fastestFromStart racetrack startOnTrack racetrack.end fastest parts.left
+                        Void.impossible (Option.noneNotSome fastest (Eq.trans honestFound.flipped found)))))
               })
-            rfl))
+            byComputing))
 
 theorem part1Correct ∀ (racetrack: Racetrack)
     (startOnTrack: onTrack racetrack racetrack.start = True)

@@ -1,4 +1,4 @@
--- `cases in t` splits first on the condition of an `if` the goal shows
+-- `cases then t` splits first on the condition of an `if` the goal shows
 -- (SW-3530): `t` is written against the goal as shown, and each case's goal
 -- keeps the branch's calls for it (`(printer.newline indent).words`). What
 -- the condition is stuck on inside its definitions (`flat`, then
@@ -24,4 +24,4 @@ theorem softLine ∀
     (if flat && printer.pending.isEmpty then (printer, rest) else (printer.newline indent, rest)).fst.words
       ++ (if flat && printer.pending.isEmpty then (printer, rest) else (printer.newline indent, rest)).snd
       = printer.words ++ rest :=
-  cases in (rewrite newlineWords in rfl)
+  cases then (rewrite newlineWords then byComputing)

@@ -251,8 +251,8 @@ fn a_header_has_its_parameters_result_type_and_body() {
         "(Def def f (Param ( x : Nat )) (Param [ n : Nat ]) (ResultType : Nat) (Body := x))"
     );
     assert_eq!(
-        sexp("theorem t (a: Nat): a = a := rfl"),
-        "(Theorem theorem t (Param ( a : Nat )) (ResultType : (Binary a = a)) (Body := rfl))"
+        sexp("theorem t (a: Nat): a = a := byComputing"),
+        "(Theorem theorem t (Param ( a : Nat )) (ResultType : (Binary a = a)) (Body := byComputing))"
     );
 }
 
@@ -303,8 +303,8 @@ fn calc_and_rewrite() {
         "(Def def f (ResultType : Nat) (Body := (Calc calc a (CalcStep _ = b := h) (CalcStep _ = c := h2))))"
     );
     assert_eq!(
-        sexp("def f: Nat := rewrite h in x"),
-        "(Def def f (ResultType : Nat) (Body := (Rewrite rewrite (RewriteRule h) in x)))"
+        sexp("def f: Nat := rewrite h then x"),
+        "(Def def f (ResultType : Nat) (Body := (Rewrite rewrite (RewriteRule h) then x)))"
     );
 }
 
@@ -320,8 +320,8 @@ fn namespace_and_import_lines() {
 #[test]
 fn attributes_belong_to_their_declaration() {
     assert_eq!(
-        sexp("@[simp] theorem t: a = a := rfl"),
-        "(Theorem (Attributes @ [ (Attribute simp) ]) theorem t (ResultType : (Binary a = a)) (Body := rfl))"
+        sexp("@[simp] theorem t: a = a := byComputing"),
+        "(Theorem (Attributes @ [ (Attribute simp) ]) theorem t (ResultType : (Binary a = a)) (Body := byComputing))"
     );
 }
 

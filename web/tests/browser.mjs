@@ -352,7 +352,7 @@ test("a direct link opens the book at line 167 and shows the line", async (page)
     location.hash === "#book/2:167"`, 60000, "the book's chapter 2 at line 167");
   assert.equal(await page.ev(`window.editor.view.state.doc.lineAt(window.editor.selectionStart).number`), 167);
   assert.equal(await page.ev(`window.editor.view.state.doc.line(167).text`),
-    "theorem noAndAnything (b: Answer): both No b = No := rfl");
+    "theorem noAndAnything (b: Answer): both No b = No := byComputing");
   const visible = await page.ev(`(() => {
     const v = window.editor.view, pos = v.state.selection.main.head;
     const at = v.coordsAtPos(pos), box = v.scrollDOM.getBoundingClientRect();
@@ -712,7 +712,7 @@ test "second part" := part1 1 == 2 && part1 2 == 4
 test("errors show in the Check tab", async (page) => {
   await page.open();
   await page.untilChecked();
-  await page.setSource("def x : Nat := rfl\n");
+  await page.setSource("def x : Nat := byComputing\n");
   await page.untilStatus("1 error");
   assert.match(await page.ev(`document.querySelector("pre.errors").textContent`), /E-TYPE-MISMATCH/);
 });
@@ -743,7 +743,7 @@ test("warnings show apart from errors, without stopping anything", async (page) 
   assert.match(s.warnings, /^\[W-MODULE-NAME\] `a` in this type/);
   assert.equal(s.errors, null);
   // With an error as well: each in its own box, in its own colour.
-  await page.setSource(WARNED + "\ndef bad : Nat := rfl\n");
+  await page.setSource(WARNED + "\ndef bad : Nat := byComputing\n");
   await page.untilStatus("1 error");
   s = await shown();
   assert.equal(s.count, "1 warning");
@@ -794,7 +794,7 @@ test("a ? program shows its open goals in a Goals section", async (page) => {
   await page.untilStatus("1 goal open");
   assert.match((await shown()).goals, /^in `plus_zero`\nn: Nat\n⊢ /);
   // Beside an error: the errors come first, and the goals are collapsed.
-  await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := ?\n\ndef bad : Nat := rfl\n");
+  await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := ?\n\ndef bad : Nat := byComputing\n");
   await page.untilStatus("1 error");
   s = await shown();
   assert.equal(s.headings.length, 1);
@@ -808,7 +808,7 @@ test("a ? program shows its open goals in a Goals section", async (page) => {
   const colours = await page.ev(`["pre.errors", "pre.goals"].map((s) => getComputedStyle(document.querySelector(s)).color)`);
   assert.notEqual(colours[0], colours[1], "errors and goals look different");
   // Gone once filled in.
-  await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := rfl\n");
+  await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := byComputing\n");
   await page.untilChecked();
   assert.equal((await shown()).goals, null);
 });
@@ -837,11 +837,11 @@ test("the goals panel shows the goal at the cursor, and follows it", async (page
   // The Check output keeps its Goals list.
   assert.match(await page.ev(`document.querySelector("#output pre.goals")?.textContent ?? ""`), /⊢ two = 2/);
   // Filled in: no goal, no panel.
-  await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := rfl\n");
+  await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := byComputing\n");
   await page.untilChecked();
   // Filled in, the panel follows the cursor anyway: it still shows the statement's goal at the proof.
-  await caretAt("rfl");
-  await page.until(`document.getElementById("goalpanel").innerText.includes("two = 2")`, 30000, "the expected type at rfl");
+  await caretAt("byComputing");
+  await page.until(`document.getElementById("goalpanel").innerText.includes("two = 2")`, 30000, "the expected type at byComputing");
 });
 
 test("the book's chapter 2 shows a ?'s goal in the panel", async (page) => {
@@ -849,9 +849,9 @@ test("the book's chapter 2 shows a ?'s goal in the panel", async (page) => {
   await page.until(`document.getElementById("example").value === "book:2" &&
     window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
   const text = await sourceText(page);
-  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  const line = "theorem noAndAnything (b: Answer): both No b = No := byComputing";
   assert.ok(text.includes(line), text.slice(0, 80));
-  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  await page.setSource(text.replace(line, line.slice(0, -"byComputing".length) + "?"));
   await caretAt(page, "both No b = No := ?", "both No b = No := ?".length - 1);
   await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
   const panel = await page.ev(`document.getElementById("goalpanel").innerText`);
@@ -865,10 +865,10 @@ test("a book chapter's error comes first, with its open goals collapsed", async 
   await page.until(`document.getElementById("example").value === "book:2" &&
     window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
   const text = await page.ev(`window.editor.value`);
-  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  const line = "theorem noAndAnything (b: Answer): both No b = No := byComputing";
   const at = text.split("\n").findIndex((l) => l === line) + 1;
   assert.ok(at > 0, text.slice(0, 80));
-  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "| x"));
+  await page.setSource(text.replace(line, line.slice(0, -"byComputing".length) + "| x"));
   await page.untilStatus("1 error", 180000);
   const shown = await page.ev(`(() => {
     const out = document.getElementById("output");
@@ -913,9 +913,9 @@ test("a code action on the book's chapter 2 splits the theorem on b", async (pag
   await page.until(`document.getElementById("example").value === "book:2" &&
     window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
   const text = await sourceText(page);
-  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  const line = "theorem noAndAnything (b: Answer): both No b = No := byComputing";
   assert.ok(text.includes(line), text.slice(0, 80));
-  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  await page.setSource(text.replace(line, line.slice(0, -"byComputing".length) + "?"));
   const hole = "both No b = No := ?";
   await caretAt(page, hole, hole.length - 1);
   // The server has checked the file when its goal is on show; from there the
@@ -950,9 +950,9 @@ test("a second Cmd+. on the book's chapter 2 waits instead of saying no action",
   await page.until(`document.getElementById("example").value === "book:2" &&
     window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
   const text = await sourceText(page);
-  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  const line = "theorem noAndAnything (b: Answer): both No b = No := byComputing";
   assert.ok(text.includes(line), text.slice(0, 80));
-  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  await page.setSource(text.replace(line, line.slice(0, -"byComputing".length) + "?"));
   const hole = "both No b = No := ?";
   await caretAt(page, hole, hole.length - 1);
   await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
@@ -981,10 +981,10 @@ test("the goals panel shows the goal at a rewrite step in a proof with no ?", as
   const caretAt = (needle) => page.ev(`(() => { const e = window.editor; e.focus(); const i = e.value.indexOf(${JSON.stringify(needle)}); e.setSelectionRange(i, i); return i; })()`);
   await page.open();
   await page.untilChecked();
-  await page.setSource("theorem swap_eq (a: Nat) (b: Nat) (h: a = b) : b = a :=\n  rewrite h in rfl\n");
+  await page.setSource("theorem swap_eq (a: Nat) (b: Nat) (h: a = b) : b = a :=\n  rewrite h then byComputing\n");
   await page.untilChecked();
   assert.equal(await page.ev(`document.querySelector("#output pre.goals")`), null, "the proof has no goals");
-  await caretAt("h in rfl");
+  await caretAt("h in byComputing");
   await page.until(`document.getElementById("goalpanel").innerText.includes("b = a")`, 60000, "the goal at the rewrite");
   assert.match(await panel(), /a: Nat/);
   assert.match(await panel(), /h: a = b/);
@@ -1076,7 +1076,7 @@ test("completing a library name adds its import", async (page) => {
 });
 
 test("Share puts the program in the link, and opening it keeps the person's own work", async (page) => {
-  const snippet = "def three : Nat := 3\n\ntheorem three_is_three : three = 3 := rfl\n";
+  const snippet = "def three : Nat := 3\n\ntheorem three_is_three : three = 3 := byComputing\n";
   const mine = "def mine : Nat := 1\n";
   await page.open();
   await page.untilChecked();
@@ -1334,7 +1334,7 @@ test("a long run streams its output, and Stop cancels it", async (page) => {
   await page.until(`document.querySelector(".run-result pre.program-output")?.textContent === "tick\\n"`, 10000, "tick");
   assert.match(await page.runResult(), /Running…/);
   // Checking goes on meanwhile, in its own worker.
-  await page.setSource(SPIN + "\ndef bad : Nat := rfl\n");
+  await page.setSource(SPIN + "\ndef bad : Nat := byComputing\n");
   await page.untilStatus("1 error");
   assert.match(await page.runResult(), /Running…/);
   const result = await page.run(5000, () => page.click(".runrow button:nth-child(2)"));
@@ -2112,7 +2112,7 @@ test("an error in a shared file shows in the Check tab, marks its tab, and links
   await openTab(page, "Common/Range.sw");
   await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Common/Range.sw"`);
   const range = await sourceText(page);
-  await edit(page, range + "\ndef broken: Nat := rfl\n");
+  await edit(page, range + "\ndef broken: Nat := byComputing\n");
   await page.untilStatus("1 error", 60000);
   const shown = await page.ev(`({
     errors: [...document.querySelectorAll("#output pre.errors")].map((p) => p.textContent),
@@ -2749,7 +2749,7 @@ test("in a project, after a jump into another file and the whole project's check
   const since = await page.ev(`performance.now() - window.editor.t0`);
   t = Date.now();
   await page.ev(`window.editor.resetPhases()`);
-  await page.setSource(own + "\ndef broken: Nat := rfl\n");
+  await page.setSource(own + "\ndef broken: Nat := byComputing\n");
   try {
     await page.until(`window.editor.stats.published.some((p) => p.t > ${since} && p.uri.endsWith("Day02.sw") && p.count > 0)`, 60000, "the error published");
   } catch (e) {
@@ -2784,7 +2784,7 @@ test("in a project, an error in the day's program is underlined", async (page) =
   console.log(`    (stats: ${JSON.stringify(await page.ev(`(({ ready, libraryCacheMs, longestTick, ticks }) => ({ ready, libraryCacheMs, longestTick, ticks }))(window.editor.stats)`))})`);
   assert.equal(await page.ev(`window.editor.stats.libraryCache`), true, "the library's check cache was read");
   const t = Date.now();
-  await page.setSource((await sourceText(page)) + "\ndef broken: Nat := rfl\n");
+  await page.setSource((await sourceText(page)) + "\ndef broken: Nat := byComputing\n");
   await untilErrorInView(page, "Day02.sw", "broken");
   await page.until(`!!document.querySelector("#editor .cm-lintRange-error")`, 10000, "the error underlined");
   console.log(`    (underlined ${Date.now() - t} ms after the edit)`);
@@ -2815,10 +2815,10 @@ test("a code action on a ? offers a proof search, and the proof picked fills it 
   assert.ok((await page.ev(`window.editor.lastCodeActions`)).includes("Search for a proof"));
   assert.ok(!(await page.ev(`window.editor.lastCodeActions`)).some((t) => t.startsWith("Replace ? with")));
   await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Search for a proof")).click()`);
-  // One proof (the ladder's `rfl`) is inserted without a list.
+  // One proof (the ladder's `byComputing`) is inserted without a list.
   await page.until(`!window.editor.value.includes("?")`, 100000, "the proof");
   assert.equal(await page.ev(`document.querySelector(".pick-panel")`), null);
-  assert.match(await sourceText(page), /two = 2 := (rfl|omega|cases|Std\.byDecision)\n$/);
+  assert.match(await sourceText(page), /two = 2 := (byComputing|arithmetic|cases|Std\.byDecision)\n$/);
 }, { ms: 120000 });
 
 test("a proof search in the book's chapter 2 shows progress, and a second one doesn't load the library again", async (page) => {
@@ -2828,8 +2828,8 @@ test("a proof search in the book's chapter 2 shows progress, and a second one do
   await page.until(`document.getElementById("example").value === "book:2" &&
     window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
   const text = await sourceText(page);
-  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
-  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  const line = "theorem noAndAnything (b: Answer): both No b = No := byComputing";
+  await page.setSource(text.replace(line, line.slice(0, -"byComputing".length) + "?"));
   const hole = "both No b = No := ?";
   await caretAt(page, hole, hole.length - 1);
   await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
@@ -2889,8 +2889,8 @@ test("the search worker warms when the book opens, and a first proof search does
   })()`);
   console.log(`  memory after the warm load: ${JSON.stringify(memory)}`);
   const text = await sourceText(page);
-  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
-  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  const line = "theorem noAndAnything (b: Answer): both No b = No := byComputing";
+  await page.setSource(text.replace(line, line.slice(0, -"byComputing".length) + "?"));
   const hole = "both No b = No := ?";
   await caretAt(page, hole, hole.length - 1);
   await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
@@ -2918,8 +2918,8 @@ test("a single proof is inserted at once with a notice, and undo restores the ?"
   await page.until(`document.getElementById("example").value === "book:2" &&
     window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
   const text = await sourceText(page);
-  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
-  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  const line = "theorem noAndAnything (b: Answer): both No b = No := byComputing";
+  await page.setSource(text.replace(line, line.slice(0, -"byComputing".length) + "?"));
   const hole = "both No b = No := ?";
   await caretAt(page, hole, hole.length - 1);
   await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
@@ -2931,9 +2931,9 @@ test("a single proof is inserted at once with a notice, and undo restores the ?"
   await page.key(".", "Period", 190, { modifiers: CMD });
   await page.until(`document.querySelector(".pick-panel") !== null`, 20000, "the code actions");
   await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Search for a proof")).click()`);
-  await page.until(`window.editor.value.includes("both No b = No := rfl")`, 150000, "the proof");
+  await page.until(`window.editor.value.includes("both No b = No := byComputing")`, 150000, "the proof");
   assert.equal(await page.ev(`document.querySelector(".pick-panel")`), null, "no list");
-  assert.ok((await page.ev(`window.__notices`)).includes("Proved by `rfl`"), JSON.stringify(await page.ev(`window.__notices`)));
+  assert.ok((await page.ev(`window.__notices`)).includes("Proved by `byComputing`"), JSON.stringify(await page.ev(`window.__notices`)));
   await page.key("z", "KeyZ", 90, { modifiers: CMD });
   await page.until(`window.editor.value.includes("both No b = No := ?")`, 20000, "undo to restore the ?");
 }, { ms: 400000 });

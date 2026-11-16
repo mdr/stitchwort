@@ -24,7 +24,7 @@ theorem hasPathFewer ∀ (size: Nat) (bytes: List Position) (fewer more: Nat)
   Exists.elim has (steps path =>
     Witness steps
       (Both
-        (safeFewer size bytes fewer more le topLeft (And.left path))
+        (safeFewer size bytes fewer more le topLeft path.left)
         (isPathWeaken
           (isSafe size (bytes.take more))
           (isSafe size (bytes.take fewer))
@@ -32,7 +32,7 @@ theorem hasPathFewer ∀ (size: Nat) (bytes: List Position) (fewer more: Nat)
           topLeft
           steps
           { row = size - 1, column = size - 1 }
-          (And.right path))))
+          path.right)))
 
 --| The exit reachable with more bytes fallen is reachable with fewer.
 theorem reachableFewer ∀ (size: Nat) (bytes: List Position) (fewer more: Nat)
@@ -47,7 +47,7 @@ theorem pastEnd ∀ (bytes: List Position) (index: Nat)
     (inside: index < bytes.length):
     Void :=
   Bool.falseNotTrue
-    (Eq.trans (Eq.sym (Eq.trans (Eq.sym (List.isSomeGet bytes index)) (Eq.cong Option.isSome missing))) inside)
+    (Eq.trans (Eq.flipped (Eq.trans (List.isSomeGet bytes index).flipped (Eq.cong Option.isSome missing))) inside)
 
 --| Part 2's byte, for each count the search can end at.
 theorem part2SomeCases ∀ (size: Nat) (bytes: List Position) (byte: Position)
@@ -55,32 +55,32 @@ theorem part2SomeCases ∀ (size: Nat) (bytes: List Position) (byte: Position)
     (ended: Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes) = found):
     IsFirstBlocking size bytes byte :=
   match found with
-    | Zero => Void.exfalso (Option.noneNotSome byte (rewrite ended at answer in answer))
+    | Zero => Void.impossible (Option.noneNotSome byte (rewrite ended at answer then answer))
     | Succ index =>
-      let got: bytes.get index = Some byte := rewrite ended at answer in answer
-      let inside: index < bytes.length := Eq.trans (Eq.sym (List.isSomeGet bytes index)) (rewrite got in rfl)
+      let got: bytes.get index = Some byte := rewrite ended at answer then answer
+      let inside: index < bytes.length := Eq.trans (List.isSomeGet bytes index).flipped (rewrite got then byComputing)
       let (Both above (Both below (Both before after))) :=
         Nat.partitionPointBounds 0 (bytes.length + 1) (reachable size bytes) (Nat.zeroLe (bytes.length + 1))
-      let opened: reachable size bytes index = True := match rewrite ended at before in before with
-        | Inl zero => Void.exfalso (omega [zero])
+      let opened: reachable size bytes index = True := match rewrite ended at before then before with
+        | Inl zero => Void.impossible (arithmetic [zero])
         | Inr holds => holds
-      let same: index + 1 = Succ index := omega
-      let blocked: reachable size bytes (Succ index) = False := match rewrite ended at after in after with
-        | Inl high => Void.exfalso (omega [high, inside])
+      let same: index + 1 = Succ index := arithmetic
+      let blocked: reachable size bytes (Succ index) = False := match rewrite ended at after then after with
+        | Inl high => Void.impossible (arithmetic [high, inside])
         | Inr fails => fails
       Witness index
         (Both got
           (Both
             (has =>
               Bool.falseNotTrue
-                (Eq.trans (Eq.sym blocked) (reachableComplete size bytes (Succ index) (rewrite <- same in has))))
+                (Eq.trans blocked.flipped (reachableComplete size bytes (Succ index) (rewrite <- same then has))))
             (earlier le => hasPathFewer size bytes earlier index le (reachableSound size bytes index opened))))
 
 --| When part 2 finds a byte, it is the first whose fall leaves no path.
 theorem part2Some ∀ (size: Nat) (bytes: List Position) (byte: Position)
     (answer: solvePart2 size bytes = Some byte):
     IsFirstBlocking size bytes byte :=
-  part2SomeCases size bytes byte answer (Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes)) rfl
+  part2SomeCases size bytes byte answer (Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes)) byComputing
 
 --| No first blocking byte, for each count the search can end at.
 theorem part2NoneCases ∀ (size: Nat) (bytes: List Position)
@@ -91,7 +91,7 @@ theorem part2NoneCases ∀ (size: Nat) (bytes: List Position)
     (openBefore: ∀ (earlier: Nat) => earlier ≤ index → HasPath size bytes earlier) (found: Nat)
     (ended: Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes) = found):
     Void :=
-  let inside: index < bytes.length := Eq.trans (Eq.sym (List.isSomeGet bytes index)) (rewrite got in rfl)
+  let inside: index < bytes.length := Eq.trans (List.isSomeGet bytes index).flipped (rewrite got then byComputing)
   let (Both holdsBefore failsAfter) :=
     Nat.partitionPointSpec 0
       (bytes.length + 1)
@@ -100,13 +100,13 @@ theorem part2NoneCases ∀ (size: Nat) (bytes: List Position)
       (smaller larger le open => reachableFewer size bytes smaller larger le open)
   match found with
     | Zero =>
-      let startBlocked := failsAfter 0 (rewrite ended in Nat.leRefl 0) (omega)
+      let startBlocked := failsAfter 0 (rewrite ended then Nat.leRefl 0) (arithmetic)
       Bool.falseNotTrue
-        (Eq.trans (Eq.sym startBlocked) (reachableComplete size bytes 0 (openBefore 0 (Nat.zeroLe index))))
+        (Eq.trans startBlocked.flipped (reachableComplete size bytes 0 (openBefore 0 (Nat.zeroLe index))))
     | Succ last =>
-      let missing: bytes.get last = None := rewrite ended at answer in answer
+      let missing: bytes.get last = None := rewrite ended at answer then answer
       let past: ¬(last < bytes.length) := pastEnd bytes last missing
-      let stillOpen := holdsBefore (index + 1) (Nat.zeroLe (index + 1)) (rewrite ended in omega [past, inside])
+      let stillOpen := holdsBefore (index + 1) (Nat.zeroLe (index + 1)) (rewrite ended then arithmetic [past, inside])
       blockedAfter (reachableSound size bytes (index + 1) stillOpen)
 
 --| When part 2 finds no byte, no byte is the first whose fall leaves no
@@ -119,4 +119,4 @@ theorem part2None ∀ (size: Nat) (bytes: List Position)
     let (Both got (Both blockedAfter openBefore)) := parts
     part2NoneCases size bytes answer byte index got blockedAfter openBefore
       (Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes))
-      rfl)
+      byComputing)

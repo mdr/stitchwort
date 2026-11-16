@@ -240,13 +240,13 @@ builtins! {
     ListMem = "List.Mem": Def,
     Cong = "Eq.cong": Def => "[a] [b] f [x] [y] p",
     // `calc` chains combine their steps with these (`crates/elab/src/calc.rs`)
-    EqSym = "Eq.sym": Def => "[a] [x] [y] p",
+    EqFlipped = "Eq.flipped": Def => "[a] [x] [y] p",
     EqTrans = "Eq.trans": Def => "[a] [x] [y] [z] p q",
     LeTrans = "Nat.leTrans": Def => "a b c h1 h2",
     LessTrans = "Nat.lessTrans": Def => "m n p h1 h2",
     // What `decreasing` generates refers to these (crates/elab/src/decreasing.rs)
     VoidAbsurd = "Void.absurd": Def => "[a] v",
-    VoidExfalso = "Void.exfalso": Def => "[p] v",
+    VoidImpossible = "Void.impossible": Def => "[p] v",
     FalseNotTrue = "Bool.falseNotTrue": Def => "",
     LeRefl = "Nat.leRefl": Def => "n",
     ElimDecCong = "Decidable.elimCong": Def => "[p] [a] d y1 y2 n1 n2 sameYes sameNo",
@@ -366,7 +366,7 @@ builtins! {
     FloatDecLessEq = "Float.decLessEq": Def,
     FloatDecLessThan = "Float.decLessThan": Def,
     // `Fin n`, the numbers below n (std/Fin/Fin.sw): a numeral `k` checked
-    // against `Fin n` for a known n is `Fin.ofNatLt n k rfl`, and a number
+    // against `Fin n` for a known n is `Fin.ofNatLt n k byComputing`, and a number
     // pattern on one is `FZero` or `FSucc` (docs/proposals/fin-literals.md)
     Fin = "Fin": Data,
     FZero = "FZero": Ctor(Builtin::Fin),

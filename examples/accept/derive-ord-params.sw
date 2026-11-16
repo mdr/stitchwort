@@ -27,7 +27,7 @@ type Bounded (limit: Nat) =
   | Within (n: Nat) (ok: Nat.leq n limit = True)
   | Over
 
-test "value parameter" := Ord.compare (Within 2 rfl: Bounded 5) (Within 4 rfl) == Less
+test "value parameter" := Ord.compare (Within 2 byComputing: Bounded 5) (Within 4 byComputing) == Less
 
 -- Derived instances nest: a tree of entries, sorted.
 def forest: List (Tree (Entry Text Nat)) := [leaf { key = "z", value = 0 }, Leaf, leaf { key = "a", value = 0 }]

@@ -27,16 +27,18 @@ import Std (Bool, DecEq, Decidable, Eq, Fin, List, Nat, Option, Vec, Void)
 -- Bool and number facts ------------------------------------------------------
 
 theorem andOr ∀ (a: Bool) [x y: Bool]: ((a ∧ x) ∨ (a ∧ y)) = (a ∧ (x ∨ y)) := match a with
-  | True => rfl
-  | False => rfl
+  | True => byComputing
+  | False => byComputing
 
-theorem natEqSelf ∀ (n: Nat): (n == n) = True := (DecEq.decide n n).complete rfl
+theorem natEqSelf ∀ (n: Nat): (n == n) = True := (DecEq.decide n n).complete byComputing
 
-theorem natEqBelow ∀ (m n: Nat) (h: m < n): (m == n) = False := Decidable.toBoolOfNot (DecEq.decide m n) (e => omega)
+theorem natEqBelow ∀ (m n: Nat) (h: m < n): (m == n) = False :=
+  Decidable.toBoolOfNot (DecEq.decide m n) (e => arithmetic)
 
-theorem natEqAbove ∀ (m n: Nat) (h: n < m): (m == n) = False := Decidable.toBoolOfNot (DecEq.decide m n) (e => omega)
+theorem natEqAbove ∀ (m n: Nat) (h: n < m): (m == n) = False :=
+  Decidable.toBoolOfNot (DecEq.decide m n) (e => arithmetic)
 
-theorem ltSucc ∀ (m n: Nat) (h: m < n): m < n + 1 := omega
+theorem ltSucc ∀ (m n: Nat) (h: m < n): m < n + 1 := arithmetic
 
 --| Past the right edge there is no splitter.
 theorem splitterPast ∀ (row: Vec Bool w) (c: Nat) (h: w ≤ c): splitterAt row c = False := Vec.getOrPast row c False h
@@ -71,15 +73,15 @@ theorem anyConsMiss ∀ (x d: Nat) (h: Hit)
     (miss: (h.row == x ∧ h.column == d) = False) (ts: List (List Hit)):
     (ts.map (Cons h)).any (hitIn x d) = ts.any (hitIn x d) :=
   match ts with
-    | [] => rfl
+    | [] => byComputing
     | [t, ..ts] => rewrite miss, anyConsMiss x d h miss ts
 
 --| There is always at least one timeline.
 theorem timelinesSome ∀ (r c: Nat) (ls: List (Vec Bool w)): 0 < List.length (timelinesFrom r c ls) := match ls with
-  | [] => rfl
+  | [] => byComputing
   | [row, ..rest] =>
     match e: splitterAt row c with
-      | True => rewrite List.lengthAppend _ _, List.lengthMap _ _ in omega [timelinesSome (r + 1) (c + 1) rest]
+      | True => rewrite List.lengthAppend _ _, List.lengthMap _ _ then arithmetic [timelinesSome (r + 1) (c + 1) rest]
       | False => timelinesSome (r + 1) c rest
 
 --| ... so putting the splitter looked for in front of them finds it.
@@ -94,7 +96,7 @@ theorem noHitsAbove ∀ (x d r c: Nat) (ls: List (Vec Bool w))
     (h: x < r):
     List.any (timelinesFrom r c ls) (hitIn x d) = False :=
   match ls with
-    | [] => rfl
+    | [] => byComputing
     | [row, ..rest] =>
       let miss: ∀ (turn: Turn) => (({ row = r, column = c, turn }: Hit).row == x
         ∧ ({ row = r, column = c, turn }: Hit).column == d)
@@ -104,7 +106,7 @@ theorem noHitsAbove ∀ (x d r c: Nat) (ls: List (Vec Bool w))
         | True =>
           rewrite List.anyAppend _ _ (hitIn x d),
               anyConsMiss x d { row = r, column = c, turn = Right } (miss Right) _,
-              noHitsAbove x d (r + 1) (c + 1) rest (ltSucc x r h) in
+              noHitsAbove x d (r + 1) (c + 1) rest (ltSucc x r h) then
             match c with
               | Zero => rewrite miss Left
               | Succ b =>
@@ -115,16 +117,16 @@ theorem noHitsAbove ∀ (x d r c: Nat) (ls: List (Vec Bool w))
                   (ltSucc x r h)
         | False => noHitsAbove x d (r + 1) c rest (ltSucc x r h)
 
-theorem ltSelfSucc ∀ (r: Nat): r < r + 1 := omega
+theorem ltSelfSucc ∀ (r: Nat): r < r + 1 := arithmetic
 
-theorem shift ∀ (k r: Nat): k + (r + 1) = Succ (k + r) := omega
+theorem shift ∀ (k r: Nat): k + (r + 1) = Succ (k + r) := arithmetic
 
 --| A timeline reaches the splitter in row k (counted from r), column d,
 --| exactly when there is a splitter there and the particle can fall into it.
 theorem hitsAt ∀ (ls: List (Vec Bool w)) (r c k d: Nat):
     List.any (timelinesFrom r c ls) (hitIn (k + r) d) = (splitterIn ls k d ∧ reach ls c k d) :=
   match ls, k with
-    | [], k => rfl
+    | [], k => byComputing
     | [row, ..rest], Zero =>
       match e: splitterAt row c with
         | True =>
@@ -137,13 +139,13 @@ theorem hitsAt ∀ (ls: List (Vec Bool w)) (r c k d: Nat):
                     ({ row = r, column = c, turn = Right }: Hit)
                     (rewrite natEqSelf r, natEqSelf c)
                     (timelinesFrom (r + 1) (c + 1) rest)
-                    (timelinesSome (r + 1) (c + 1) rest) in
+                    (timelinesSome (r + 1) (c + 1) rest) then
                 Bool.orTrue _
             | False =>
               rewrite Bool.andFalse (splitterAt row d),
                   List.anyAppend _ _ (hitIn r d),
                   anyConsMiss r d ({ row = r, column = c, turn = Right }: Hit) (rewrite natEqSelf r, f) _,
-                  noHitsAbove r d (r + 1) (c + 1) rest (ltSelfSucc r) in
+                  noHitsAbove r d (r + 1) (c + 1) rest (ltSelfSucc r) then
                 match c with
                   | Zero => rewrite natEqSelf r, f
                   | Succ b =>
@@ -151,41 +153,41 @@ theorem hitsAt ∀ (ls: List (Vec Bool w)) (r c k d: Nat):
                       ({ row = r, column = Succ b, turn = Left }: Hit)
                       (rewrite natEqSelf r, f) _, noHitsAbove r d (r + 1) b rest (ltSelfSucc r)
         | False =>
-          rewrite noHitsAbove r d (r + 1) c rest (ltSelfSucc r) in
+          rewrite noHitsAbove r d (r + 1) c rest (ltSelfSucc r) then
             match f: c == d with
               | True => rewrite <- f.read, e
               | False => rewrite Bool.andFalse (splitterAt row d)
     | [row, ..rest], Succ k =>
       let ih: ∀ (c2: Nat) => List.any (timelinesFrom (r + 1) c2 rest) (hitIn (Succ (k + r)) d)
         = (splitterIn rest k d ∧ reach rest c2 k d) :=
-        c2 => rewrite <- shift k r in hitsAt rest (r + 1) c2 k d
-      let above: (r == Succ (k + r)) = False := natEqBelow r (Succ (k + r)) omega
+        c2 => rewrite <- shift k r then hitsAt rest (r + 1) c2 k d
+      let above: (r == Succ (k + r)) = False := natEqBelow r (Succ (k + r)) arithmetic
       match e: splitterAt row c with
         | True =>
           rewrite List.anyAppend _ _ (hitIn (Succ (k + r)) d),
               anyConsMiss (Succ (k + r)) d ({ row = r, column = c, turn = Right }: Hit) (rewrite above) _,
-              ih (c + 1) in
+              ih (c + 1) then
             match c with
               | Zero => rewrite above
               | Succ b =>
                 rewrite anyConsMiss (Succ (k + r)) d ({ row = r, column = Succ b, turn = Left }: Hit) (rewrite above) _,
-                    ih b in
+                    ih b then
                   andOr _
         | False => ih c
 
 --| Past the right edge there are no splitters: a particle there stays there.
 theorem reachPast ∀ (w: Nat) (ls: List (Vec Bool w)) (c k d: Nat) (hc: w ≤ c) (hd: d < w): reach ls c k d = False :=
   match ls, k with
-    | ls, Zero => natEqAbove c d omega
-    | [], Succ k => rfl
-    | [row, ..rest], Succ k => rewrite splitterPast row c hc in reachPast w rest c k d hc hd
+    | ls, Zero => natEqAbove c d arithmetic
+    | [], Succ k => byComputing
+    | [row, ..rest], Succ k => rewrite splitterPast row c hc then reachPast w rest c k d hc hd
 
 -- The program's side ----------------------------------------------------------
 
 --| A flag that is set is inside the row.
 theorem setInside ∀ (v: Vec Bool w) (i: Nat) (h: v.getOr i False = True): i < w := match g: Nat.leq (Succ i) w with
-  | True => rfl
-  | False => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Vec.getOrPast v i False omega)) h))
+  | True => byComputing
+  | False => Void.impossible (Bool.falseNotTrue (Eq.trans (Eq.flipped (Vec.getOrPast v i False arithmetic)) h))
 
 --| What comes into column c of `fall`'s result from the left.
 def fromLeft (row beams: Vec Bool w): Nat → Bool
@@ -206,18 +208,18 @@ theorem fallAt ∀ (row beams: Vec Bool w) (c: Nat)
         False
         False
         False
-        rfl
+        byComputing
         (Vec.zipWith row beams (s b => b ∧ not s))
         (hit.shiftRight False)
         (hit.shiftLeft False)
         c,
-      Vec.getOrZipWith (s b => b ∧ not s) False False False rfl row beams c,
+      Vec.getOrZipWith (s b => b ∧ not s) False False False byComputing row beams c,
       Vec.getOrShiftRight hit c False False h,
       Vec.getOrShiftLeft hit False c,
-      Vec.getOrZipWith (s b => s ∧ b) False False False rfl row beams (Succ c) in
+      Vec.getOrZipWith (s b => s ∧ b) False False False byComputing row beams (Succ c) then
     match c with
-      | Zero => rfl
-      | Succ b => rewrite Vec.getOrZipWith (s b => s ∧ b) False False False rfl row beams b
+      | Zero => byComputing
+      | Succ b => rewrite Vec.getOrZipWith (s b => s ∧ b) False False False byComputing row beams b
 
 --| The splitters a row's beams reach, column by column.
 theorem splitsInSum ∀ (row beams: Vec Bool w):
@@ -228,7 +230,7 @@ theorem splitsInSum ∀ (row beams: Vec Bool w):
     False
     False
     False
-    rfl
+    byComputing
     row
     beams _
 
@@ -246,8 +248,8 @@ theorem beamReachZero ∀ (beams: Vec Bool w) (ls: List (Vec Bool w)) (d: Nat)
     (h =>
       List.anyRangeElim (c => beams.getOr c False ∧ reach ls c 0 d) (beams.getOr d False = True) w 0 h (c lo hi (Both
           beam reached) =>
-        rewrite <- reached.read in beam))
-    (h => List.anyRangeIntro (c => beams.getOr c False ∧ reach ls c 0 d) w 0 d omega hd (Both h (natEqSelf d)))
+        rewrite <- reached.read then beam))
+    (h => List.anyRangeIntro (c => beams.getOr c False ∧ reach ls c 0 d) w 0 d arithmetic hd (Both h (natEqSelf d)))
 
 -- One row of `fall` carries the beams down (`fallKeeps`). A beam comes out
 -- of a row in three ways, and each is a way the particle goes on falling:
@@ -267,17 +269,17 @@ theorem fallStraight ∀ (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Boo
       w
       0
       c
-      omega
+      arithmetic
       inside
-      (Both (rewrite fallAt row v c inside in Inl (Both beam (rewrite empty))) on))
+      (Both (rewrite fallAt row v c inside then Inl (Both beam (rewrite empty))) on))
     (List.anyRangeIntro
       (c => v.getOr c False ∧ reach [row, ..rest] c (Succ k) d)
       w
       0
       c
-      omega
+      arithmetic
       inside
-      (Both beam (rewrite empty in on)))
+      (Both beam (rewrite empty then on)))
 
 --| From the left: a splitter in column b with a beam sends one down column
 --| b + 1, where the particle goes right. (That column is inside the row, as
@@ -290,25 +292,26 @@ theorem fallFromLeft ∀ (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Boo
     (on: reach rest (Succ b) k d = True):
     beamReach (fall row v) rest k d = True ∧ beamReach v [row, ..rest] (Succ k) d = True :=
   let inside: Succ b < w := match g: Nat.leq (Succ (Succ b)) w with
-    | True => rfl
-    | False => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (reachPast w rest (Succ b) k d omega hd)) on))
+    | True => byComputing
+    | False =>
+      Void.impossible (Bool.falseNotTrue (Eq.trans (Eq.flipped (reachPast w rest (Succ b) k d arithmetic hd)) on))
   Both
     (List.anyRangeIntro
       (c => (fall row v).getOr c False ∧ reach rest c k d)
       w
       0
       (Succ b)
-      omega
+      arithmetic
       inside
-      (Both (rewrite fallAt row v (Succ b) inside in Inr (Inl (Both splitter beam))) on))
+      (Both (rewrite fallAt row v (Succ b) inside then Inr (Inl (Both splitter beam))) on))
     (List.anyRangeIntro
       (c => v.getOr c False ∧ reach [row, ..rest] c (Succ k) d)
       w
       0
       b
-      omega
+      arithmetic
       (setInside v b beam)
-      (Both beam (rewrite splitter, Nat.addOne b, on in Bool.orTrue _)))
+      (Both beam (rewrite splitter, Nat.addOne b, on then Bool.orTrue _)))
 
 --| From the right: a splitter in column c + 1 with a beam sends one down
 --| column c, where the particle goes left.
@@ -318,22 +321,22 @@ theorem fallFromRight ∀ (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bo
     (on: reach rest c k d = True):
     beamReach (fall row v) rest k d = True ∧ beamReach v [row, ..rest] (Succ k) d = True :=
   let inside: Succ c < w := setInside v (Succ c) beam
-  let left: c < w := omega [inside]
+  let left: c < w := arithmetic [inside]
   Both
     (List.anyRangeIntro
       (c => (fall row v).getOr c False ∧ reach rest c k d)
       w
       0
       c
-      omega
+      arithmetic
       left
-      (Both (rewrite fallAt row v c left in Inr (Inr (Both splitter beam))) on))
+      (Both (rewrite fallAt row v c left then Inr (Inr (Both splitter beam))) on))
     (List.anyRangeIntro
       (c => v.getOr c False ∧ reach [row, ..rest] c (Succ k) d)
       w
       0
       (Succ c)
-      omega
+      arithmetic
       inside
       (Both beam (rewrite splitter, on)))
 
@@ -353,7 +356,7 @@ theorem fallKeeps ∀ (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w
     (h =>
       List.anyRangeElim after (beamReach v [row, ..rest] (Succ k) d = True) w 0 h (c lo hi (Both out on) =>
         Bool.orElim
-          (Eq.trans (Eq.sym (fallAt row v c hi)) out)
+          (Eq.trans (fallAt row v c hi).flipped out)
           (pass => (fallStraight row rest v k d c pass.left (Bool.notTrue _ pass.right) on).right)
           (sides =>
             Bool.orElim sides
@@ -370,7 +373,7 @@ theorem fallKeeps ∀ (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w
               | Inl left =>
                 match c with
                   | Succ b => (fallFromRight row rest v k d b beam e left).left
-              | Inr right => (fallFromLeft row rest v k d hd c beam e (rewrite <- Nat.addOne c in right)).left))
+              | Inr right => (fallFromLeft row rest v k d hd c beam e (rewrite <- Nat.addOne c then right)).left))
 
 --| The splitters the beams reach in row k, and all of them below.
 def splitsAt (beams: Vec Bool w) (ls: List (Vec Bool w)) (k: Nat): Nat :=
@@ -381,7 +384,7 @@ theorem splitsBelowSum ∀ (w: Nat)
     (beams: Vec Bool w):
     splitsBelow beams ls = List.sumBy (List.range 0 ls.length) (k => splitsAt beams ls k) :=
   match ls with
-    | [] => rfl
+    | [] => byComputing
     | [l, ..rest] =>
       let fallen := fall l beams
       calc splitsIn l beams + splitsBelow fallen rest
@@ -392,7 +395,7 @@ theorem splitsBelowSum ∀ (w: Nat)
             + List.sumBy (List.range 0 rest.length) (k => splitsAt beams [l, ..rest] (Succ k)) :=
           rewrite beamReachZero beams [l, ..rest], fallKeeps l rest beams
         _ = List.sumBy (List.range 0 (Succ rest.length)) (k => splitsAt beams [l, ..rest] k) :=
-          Eq.sym (List.sumByRangeSucc (k => splitsAt beams [l, ..rest] k) rest.length)
+          Eq.flipped (List.sumByRangeSucc (k => splitsAt beams [l, ..rest] k) rest.length)
 
 --| At the start, the only beam is in S's column.
 theorem beamStart ∀ (w: Nat)
@@ -402,7 +405,7 @@ theorem beamStart ∀ (w: Nat)
   let start := Vec.tabulate w (c => c == st)
   rewrite <- Fin.anyRange (c => start.getOr c False ∧ reach ls c k d) w,
       Vec.getOrGet start _ False,
-      Vec.getTabulate w (c => c == st) _ in
+      Vec.getTabulate w (c => c == st) _ then
     Fin.anyEqAnd st (c => reach ls c.toNat k d)
 
 --| The splitters some timeline reaches in row k: those the beams reach.

@@ -15,15 +15,15 @@ def empty: Bag := { items = [] }
 def pick (n: Nat) (bag: Bag): Bag
     decreasing n
 :=
-  if n ≤ 1 then bag else pick (n / 2) { items = [n, ..bag.items] } [decreasing := omega]
+  if n ≤ 1 then bag else pick (n / 2) { items = [n, ..bag.items] } [decreasing := arithmetic]
 
 theorem callFound ∀ (n: Nat) (h: pick n empty = empty): (pick n empty).items = [] := match same: pick n empty with
-  | result => rewrite h in rfl
+  | result => rewrite h then byComputing
 
 theorem armsKeepCall ∀ (n: Nat): (pick n empty).items.length = (pick n empty).items.length + 0 :=
   match small: Nat.leq n 1 with
-    | True => rewrite pick.unfold n empty, small in rfl
-    | False => rewrite pick.unfold n empty, small in rfl
+    | True => rewrite pick.unfold n empty, small then byComputing
+    | False => rewrite pick.unfold n empty, small then byComputing
 
 -- The field still computes to the field of the unfolding.
-theorem computes: (pick 6 empty).items = [3, 6] := rfl
+theorem computes: (pick 6 empty).items = [3, 6] := byComputing

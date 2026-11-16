@@ -9,7 +9,7 @@
 //! `f a b` becoming `f (x := a) (y := b)`, and every declaration must have
 //! the same hash. A call is rewritten when its head is a definition found by
 //! its full name (the file's own, or the library's as `List.map`), not a
-//! name the file binds anywhere else (and not a built-in: `J`, `rfl` and the
+//! name the file binds anywhere else (and not a built-in: `J`, `byComputing` and the
 //! quotient forms are kernel forms, not calls), and only the arguments whose
 //! parameters have names (in the definition's declared type). Effectful
 //! calls are rewritten too: the effect trace is the term's.
@@ -371,7 +371,7 @@ fn named(session: &Session, text: &str, walk: &Walk) -> (String, usize) {
     let mut inserts: Vec<(u32, i64, String)> = Vec::new();
     let mut count = 0;
     for (head, piped, args) in &walk.calls {
-        // `rfl`, `J` and the quotient forms are kernel forms with their own
+        // `byComputing`, `J` and the quotient forms are kernel forms with their own
         // arity checks; `Builtins.sw` only documents them (SW-1146).
         if walk.bound.contains(head) || stitchwort_elab::is_builtin(head) {
             continue;
@@ -731,12 +731,12 @@ def ids (items: List Item): List Nat :=
     |> List.map (f := item => item.id)
 
 theorem positional (items: List Item): ids items = List.map items (item => item.id) :=
-  List.mapZipWithScanLeft (item => item.id) (item => item.id) (item offset => item) (item offset => rfl)
+  List.mapZipWithScanLeft (item => item.id) (item => item.id) (item offset => item) (item offset => byComputing)
     items 0 (offset item => offset + item.size)
 
 theorem named (items: List Item): ids items = List.map items (item => item.id) :=
   List.mapZipWithScanLeft (h := item => item.id) (k := item => item.id) (g := item offset => item)
-    (same := item offset => rfl) (xs := items) (z := 0) (f := offset item => offset + item.size)
+    (same := item offset => byComputing) (xs := items) (z := 0) (f := offset item => offset + item.size)
 "#;
     let hashes = load("named-late.sw", text).unwrap_or_else(|e| panic!("{e}"));
     let hash = |name: &str| {

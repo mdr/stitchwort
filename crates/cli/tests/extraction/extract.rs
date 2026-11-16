@@ -3489,14 +3489,14 @@ import Std (List, Nat)
 def pairsIn (n: Nat) (count: Nat): Nat
     decreasing n
 :=
-  if h: n < 2 then count else pairsIn (n - 2) (count + 1) [decreasing := omega]
+  if h: n < 2 then count else pairsIn (n - 2) (count + 1) [decreasing := arithmetic]
 
 export def pairs (n: Nat): Nat := pairsIn n 0
 
 def countdownFrom (n: Nat): List Nat
     decreasing n
 :=
-  if h: n = 0 then Nil else Cons n (countdownFrom (n - 1) [decreasing := omega])
+  if h: n = 0 then Nil else Cons n (countdownFrom (n - 1) [decreasing := arithmetic])
 
 export def countdown (n: Nat): List Nat := countdownFrom n
 
@@ -3505,7 +3505,7 @@ def countdownNamed (n: Nat): List Nat
 :=
   match e: n with
     | Zero => Nil
-    | Succ k => Cons n (countdownNamed k [decreasing := omega])
+    | Succ k => Cons n (countdownNamed k [decreasing := arithmetic])
 
 export def countdownLength (n: Nat): Nat := List.foldLeft (countdownNamed n) 0 (count d => count + 1)
 
@@ -4613,7 +4613,7 @@ fn only_text_keyed_maps_cross_as_objects() {
         "import Std (Map, Nat, Ord, Text)\n\
          def reversed: Ord Text :=\n  \
            Ord.fromCompare (x y => Text.compare y x)\n    \
-             (x y h => Std.Eq.sym (Text.compareEqual y x h))\n    \
+             (x y h => Std.Eq.flipped (Text.compareEqual y x h))\n    \
              (x y => Text.compareFlip y x)\n    \
              (x y z h1 h2 => Text.compareTrans z y x h2 h1)\n\
          export def f (m: Map Text Nat [ord := reversed]): Nat := Map.size m\n",

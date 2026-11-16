@@ -476,13 +476,13 @@ def Args.run (program: Args.Program) (spec: Args.Spec a) (body: a → {IO | e} (
 --| A spec's items are those of the parts it was joined from, in order.
 theorem Args.Spec.andItems ∀ (functions: Args.Spec (a → b)) (argument: Args.Spec a):
     (functions.and argument).items = functions.items ++ argument.items :=
-  rfl
+  byComputing
 
 --| Everything after `--` reaches the positionals unchanged, in order: a file
 --| called `-x` is always reachable.
 theorem Args.scanAfterDashes ∀ (items: List Args.Info) (found: Args.Found) (rest: List Text):
     Args.scan items found ["--", ..rest] = Ok (Scanned { found | positionals = found.positionals ++ rest }) :=
-  rfl
+  byComputing
 
 -- Tests
 

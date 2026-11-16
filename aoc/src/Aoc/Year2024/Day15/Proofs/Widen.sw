@@ -33,10 +33,11 @@ theorem cellOfWide ∀ (position cell: Cell)
     (half: cell ∈ cellsOf (Cell.widen position)):
     (cell.rows = position.rows) ∧ ((cell.columns = 2 * position.columns) ∨ (cell.columns = 2 * position.columns + 1)) :=
   match half with
-    | Inl same => Both (Eq.sym (Eq.cong (here => here.rows) same)) (Inl (Eq.sym (Eq.cong (here => here.columns) same)))
+    | Inl same =>
+      Both (Eq.flipped (Eq.cong (here => here.rows) same)) (Inl (Eq.flipped (Eq.cong (here => here.columns) same)))
     | Inr (Inl same) =>
-      Both (omega [Eq.cong (here => here.rows) same]) (Inr (omega [Eq.cong (here => here.columns) same]))
-    | Inr (Inr none) => Void.exfalso none
+      Both (arithmetic [Eq.cong (here => here.rows) same]) (Inr (arithmetic [Eq.cong (here => here.columns) same]))
+    | Inr (Inr none) => none.impossible
 
 --| Two tiles whose wide cells meet are the same tile.
 theorem sameTile ∀ (position other cell: Cell)
@@ -45,13 +46,13 @@ theorem sameTile ∀ (position other cell: Cell)
     position = other :=
   let here := cellOfWide position cell half
   let there := cellOfWide other cell otherHalf
-  offsetExt position other (omega) (omega)
+  offsetExt position other (arithmetic) (arithmetic)
 
 --| Widening keeps everything apart.
 theorem widenSeparate ∀ (warehouse: Warehouse) (separate: Separate warehouse): WideSeparate warehouse.widen :=
-  let boxesOffWalls := And.left separate
-  let robotOffWalls := And.left (And.right separate)
-  let robotNotBoxed := And.right (And.right separate)
+  let boxesOffWalls := separate.left
+  let robotOffWalls := separate.right.left
+  let robotNotBoxed := separate.right.right
   let robot := warehouse.robot
   Both
     (box held cell own =>
@@ -61,7 +62,7 @@ theorem widenSeparate ∀ (warehouse: Warehouse) (separate: Separate warehouse):
             match wideBox warehouse box held with
               | Witness narrow (Both isBox same) =>
                 let atWall := sameTile narrow wall cell (rewrite <- same at own) wallHalf
-                Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite <- atWall at isWall)) (boxesOffWalls narrow isBox))))
+                Bool.trueNotFalse (Eq.trans (rewrite <- atWall at isWall).flipped (boxesOffWalls narrow isBox))))
     (Both
       (box held =>
         Bool.falseOfNotTrue _ (rightHeld =>
@@ -69,13 +70,14 @@ theorem widenSeparate ∀ (warehouse: Warehouse) (separate: Separate warehouse):
             | Witness narrow (Both isBox same) =>
               match wideBox warehouse (box.step Right) rightHeld with
                 | Witness other (Both otherBox otherSame) =>
-                  Void.exfalso (omega [Eq.cong (here => here.columns) same, Eq.cong (here => here.columns) otherSame])))
+                  Void.impossible
+                    (arithmetic [Eq.cong (here => here.columns) same, Eq.cong (here => here.columns) otherSame])))
       (Both
         (Bool.falseOfNotTrue _ (wallHeld =>
           match wideWall warehouse (Cell.widen robot) wallHeld with
             | Witness wall (Both isWall wallHalf) =>
-              let atWall := sameTile robot wall (Cell.widen robot) (Inl rfl) wallHalf
-              Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite <- atWall at isWall)) robotOffWalls)))
+              let atWall := sameTile robot wall (Cell.widen robot) (Inl byComputing) wallHalf
+              Bool.trueNotFalse (Eq.trans (rewrite <- atWall at isWall).flipped robotOffWalls)))
         (Both
           (Bool.falseOfNotTrue _ (boxHeld =>
             match wideBox warehouse (Cell.widen robot) boxHeld with
@@ -83,11 +85,12 @@ theorem widenSeparate ∀ (warehouse: Warehouse) (separate: Separate warehouse):
                 let atRobot :=
                   offsetExt narrow robot
                     (Eq.cong (here => here.rows) same)
-                    (omega [Eq.cong (here => here.columns) same])
-                Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite atRobot at isBox)) robotNotBoxed)))
+                    (arithmetic [Eq.cong (here => here.columns) same])
+                Bool.trueNotFalse (Eq.trans (rewrite atRobot at isBox).flipped robotNotBoxed)))
           (Bool.falseOfNotTrue _ (leftHeld =>
             match wideBox warehouse ((Cell.widen robot).step Left) leftHeld with
-              | Witness narrow (Both isBox same) => Void.exfalso (omega [Eq.cong (here => here.columns) same]))))))
+              | Witness narrow (Both isBox same) =>
+                Void.impossible (arithmetic [Eq.cong (here => here.columns) same]))))))
 
 --| Part 2 from a warehouse where nothing overlaps: after every move the
 --| robot is on no wall or box, and every box is whole.
@@ -100,7 +103,7 @@ theorem part2Whole ∀ (warehouse: Warehouse) (moves: List Direction)
 
 --| Widening sends different positions to different places.
 theorem widenInjective ∀ (position other: Cell) (same: (Cell.widen position) = (Cell.widen other)): position = other :=
-  offsetExt position other (Eq.cong (here => here.rows) same) (omega [Eq.cong (here => here.columns) same])
+  offsetExt position other (Eq.cong (here => here.rows) same) (arithmetic [Eq.cong (here => here.columns) same])
 
 --| Widening keeps the number of boxes, and so does every move after it.
 theorem part2Count ∀ (warehouse: Warehouse) (moves: List Direction)

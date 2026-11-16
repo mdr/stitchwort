@@ -67,7 +67,7 @@ theorem rowAfterFits ∀ (jigsaw: Jigsaw) (tile: Tile) (fuel: Nat): RowFits [til
 theorem rowsFromFits ∀ (jigsaw: Jigsaw) (first: Tile) (fuel: Nat):
     (∀ (row: List Tile) => row ∈ jigsaw.rowsFrom first fuel → RowFits row) ∧ ColumnFits (jigsaw.rowsFrom first fuel) :=
   match fuel with
-    | Zero => Both (row member => Void.exfalso member) Trivial
+    | Zero => Both (row member => member.impossible) Trivial
     | Succ fuel =>
       let firstRow := rowAfterFits jigsaw first jigsaw.tiles.length
       match found: jigsaw.below first with
@@ -75,15 +75,15 @@ theorem rowsFromFits ∀ (jigsaw: Jigsaw) (first: Tile) (fuel: Nat):
           Both
             (row member =>
               match member with
-                | Inl same => rewrite <- same in firstRow
-                | Inr never => Void.exfalso never)
+                | Inl same => rewrite <- same then firstRow
+                | Inr never => never.impossible)
             Trivial
         | Some next =>
           let later := rowsFromFits jigsaw next fuel
           Both
             (row member =>
               match member with
-                | Inl same => rewrite <- same in firstRow
+                | Inl same => rewrite <- same then firstRow
                 | Inr more => later.left row more)
             (match fuel with
               | Zero => Trivial

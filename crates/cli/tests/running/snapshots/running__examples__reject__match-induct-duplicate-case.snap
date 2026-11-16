@@ -5,10 +5,10 @@ expression: output
 [E-INDUCT-CASE] Error: the case `eq2IfTrue` has two alternatives
     ╭─[ reject/match-induct-duplicate-case.sw:13:7 ]
     │
- 12 │     | eq2IfTrue x xs h ih => omega
+ 12 │     | eq2IfTrue x xs h ih => arithmetic
     │       ────┬────  
     │           ╰────── and this one
- 13 │     | eq2IfTrue x xs h ih => omega
+ 13 │     | eq2IfTrue x xs h ih => arithmetic
     │       ────┬────  
     │           ╰────── this one
 ────╯

@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `5 ≤ a`
+[E-ARITHMETIC] Error: `arithmetic` can't prove `5 ≤ a`
    ╭─[ reject/omega-or-goal-false.sw:6:52 ]
    │
- 6 │ theorem gap (a: Nat): (a <= 3 || 5 <= a) = True := omega
-   │                                                    ──┬──  
-   │                                                      ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+ 6 │ theorem gap (a: Nat): (a <= 3 || 5 <= a) = True := arithmetic
+   │                                                    ─────┬────  
+   │                                                         ╰────── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │ 
    │ Note 1: facts: `4 ≤ a` (case)
    │ 

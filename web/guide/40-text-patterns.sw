@@ -26,5 +26,5 @@ test "not a command" := command "run" 3 == None
 test "tokens" := token "->".toList == "arrow" ∧ token "-- note".toList == "comment"
 test "flags" := flag "--verbose" == Some "verbose" ∧ flag "-v" == Some "v" ∧ flag "v" == None
 
--- A call on a known word computes, so `rfl` proves what it gives.
-theorem haltStops: command "halt" 0 = Some Stop := rfl
+-- A call on a known word computes, so `byComputing` proves what it gives.
+theorem haltStops: command "halt" 0 = Some Stop := byComputing

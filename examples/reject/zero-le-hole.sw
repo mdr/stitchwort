@@ -11,5 +11,5 @@ theorem keepMore ∀ (keep1: Nat → Bool) (keep2: Nat → Bool) (xs: List Nat)
     (included: ∀ (x: Nat) => keep1 x = True → keep2 x = True):
     List.sumBy xs (x => if keep1 x then x else 0) ≤ List.sumBy xs (x => if keep2 x then x else 0) :=
   List.sumByLe xs _ _ (x => match kept: keep1 x with
-    | True => rewrite included x kept in Nat.leRefl x
+    | True => rewrite included x kept then Nat.leRefl x
     | False => Nat.zeroLe _)

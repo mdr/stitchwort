@@ -28,11 +28,11 @@ theorem thenWider ∀ (first second widerFirst widerSecond: List Event → Prop)
   match holds with
     | (front, back, split, isFirst, isSecond) => (front, back, split, (one front isFirst), (other back isSecond))
 
-theorem freeAllows ∀ (start: Option Nat): (Anywhere 0).allows start := rfl
+theorem freeAllows ∀ (start: Option Nat): (Anywhere 0).allows start := byComputing
 
 theorem freeReaches ∀ (start: Option Nat): (Anywhere 0).reaches start := match start with
-  | None => rfl
-  | Some at => omega
+  | None => byComputing
+  | Some at => arithmetic
 
 --| An expression's events in any zone, its leftmost token starting as
 --| `head` says, are its events inside brackets with that token starting
@@ -175,7 +175,7 @@ theorem bodyEventsFree ∀ (zone: Zone) (body: Body) (events: List Event)
             match allowed with
               | Both _ plain => ((freeAllows start), plain))
           inline)
-    | { statements }, Inr (Witness column (Both under lines)) => Inr ((column, (omega), lines))
+    | { statements }, Inr (Witness column (Both under lines)) => Inr ((column, (arithmetic), lines))
 
 --| Inside brackets the parser reads a body as one expression, wherever
 --| its tokens start: a body of one expression, laid on its keyword's
@@ -185,7 +185,8 @@ theorem bodyFree ∀ (zone: Zone) (blankBefore: Bool) (value: Expr) (events: Lis
     (holds: BodyEvents zone { statements = [{ blankBefore, line = Bare value }] } events):
     Events (Anywhere 0) anyStart value events :=
   match holds with
-    | Inl inline => eventsFree zone (inlineHead zone value) anyStart value events (start allowed => rfl) inline
+    | Inl inline => eventsFree zone (inlineHead zone value) anyStart value events (start allowed => byComputing) inline
     | Inr ((column, under, front, back, split, isValue, done)) =>
-      let whole: events = front := rewrite split, done in List.appendNil front
-      rewrite whole in eventsFree (Deeper column) (atColumn column) anyStart value front (start allowed => rfl) isValue
+      let whole: events = front := rewrite split, done then List.appendNil front
+      rewrite whole then
+        eventsFree (Deeper column) (atColumn column) anyStart value front (start allowed => byComputing) isValue

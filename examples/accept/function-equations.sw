@@ -32,21 +32,21 @@ def isReg: Num → Bool
 theorem exNotReg ∀ (depth: Nat) (left right: Num)
     (notReg: isReg left = False):
     ex depth (Pr left right) = ex (depth + 1) left + ex (depth + 1) right :=
-  ex.eq3 depth left right (a b el er => Bool.trueNotFalse (rewrite el at notReg in notReg))
+  ex.eq3 depth left right (a b el er => Bool.trueNotFalse (rewrite el at notReg then notReg))
 
 -- The call is stuck on `left`, so `rewrite` finds it.
 theorem exAtLeast ∀ (depth: Nat) (left right: Num) (h: ∀ (a b: Nat) => left = Reg a → right = Reg b → Void):
     ex (depth + 1) left ≤ ex depth (Pr left right) :=
-  rewrite ex.eq3 depth left right h in omega
+  rewrite ex.eq3 depth left right h then arithmetic
 
--- Number literals: the catch-all takes `x1 ≠ 3` and `x1 ≠ 7`, which `omega`
+-- Number literals: the catch-all takes `x1 ≠ 3` and `x1 ≠ 7`, which `arithmetic`
 -- proves.
 def kind: Nat → Nat
   | 3 => 1
   | 7 => 2
   | _ => 0
 
-theorem kindBig ∀ (n: Nat) (big: 10 ≤ n): kind n = 0 := kind.eq3 n omega omega
+theorem kindBig ∀ (n: Nat) (big: 10 ≤ n): kind n = 0 := kind.eq3 n arithmetic arithmetic
 
 -- Character literals on one variable: merged into one `char ∉ ['k', 'j']`.
 type Command = | Up | Down
@@ -89,7 +89,7 @@ theorem orpOne: orp (Reg 1) = 5 := orp.eq1.or2
 
 theorem orpPair ∀ (l r: Num): orp (Pr l r) = 6 := orp.eq2 (Pr l r) cases cases
 
--- `decreasing`: the arms don't hold by `rfl` on unknown arguments, so the
+-- `decreasing`: the arms don't hold by `byComputing` on unknown arguments, so the
 -- equation is what states them.
 def takeFirst [a: Type] (xs: List a): Nat → List a
     decreasing List.length xs
@@ -106,7 +106,7 @@ opaque def secret: Nat → Nat
   | 0 => 1
   | n => n + 2
 
-theorem secretPositive ∀ (n: Nat) (h: 0 < n): secret n = n + 2 := secret.eq2 n omega
+theorem secretPositive ∀ (n: Nat) (h: 0 < n): secret n = n + 2 := secret.eq2 n arithmetic
 
 -- A local definition gets its own: `withLocal.go.eq2`.
 def withLocal (n: Nat): Nat :=
@@ -122,7 +122,7 @@ def isZero (n: Nat): Bool := match n with
   | 0 => True
   | _ => False
 
-theorem isZeroOfPos ∀ (n: Nat) (h: 0 < n): isZero n = False := isZero.eq2 n omega
+theorem isZeroOfPos ∀ (n: Nat) (h: 0 < n): isZero n = False := isZero.eq2 n arithmetic
 
 -- An effect-polymorphic definition's equations are at the empty row: the
 -- library's `List.filter.eq2` is `List.filter (Cons x xs) p = List.filterStep
@@ -130,4 +130,4 @@ theorem isZeroOfPos ∀ (n: Nat) (h: 0 < n): isZero n = False := isZero.eq2 n om
 theorem filterCons ∀ (x: Nat) (xs: List Nat) (p: Nat → Bool)
     (h: p x = False):
     List.filter [x, ..xs] p = List.filter xs p :=
-  rewrite List.filter.eq2 x xs p, h in rfl
+  rewrite List.filter.eq2 x xs p, h then byComputing

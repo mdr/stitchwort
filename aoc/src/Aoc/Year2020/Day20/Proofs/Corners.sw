@@ -6,7 +6,7 @@ import Aoc.Year2020.Day20 (..)
 import Aoc.Year2020.Day20 (Spec)
 import Std (Bool, DecEq, Eq, Iff, List, Nat, Void)
 
-theorem edgesPixels ∀ (image: Image): image.edges.map (.pixels) = Spec.edges image := rfl
+theorem edgesPixels ∀ (image: Image): image.edges.map (.pixels) = Spec.edges image := byComputing
 
 theorem fitsIff ∀ (edge other: Edge): edge.fits other = True ↔ Spec.Fit edge.pixels other.pixels := {
   forward = fits =>
@@ -15,8 +15,8 @@ theorem fitsIff ∀ (edge other: Edge): edge.fits other = True ↔ Spec.Fit edge
       | Inr reversed => Inr reversed.read,
   backward = fit =>
     match fit with
-      | Inl same => Inl (rewrite same in DecEq.refl other.pixels)
-      | Inr reversed => Inr (rewrite reversed in DecEq.refl other.pixels.reverse)
+      | Inl same => Inl (rewrite same then DecEq.refl other.pixels)
+      | Inr reversed => Inr (rewrite reversed then DecEq.refl other.pixels.reverse)
 }
 
 theorem matchesIff ∀ (jigsaw: Jigsaw) (tile: Tile) (edge: Edge):
@@ -39,7 +39,7 @@ theorem matchesIff ∀ (jigsaw: Jigsaw) (tile: Tile) (edge: Edge):
               Witness other
                 (Both member
                   (Both differentTrue
-                    (Witness otherEdge (Both onOther ((fitsIff edge otherEdge).backward (rewrite same in fit))))))
+                    (Witness otherEdge (Both onOther ((fitsIff edge otherEdge).backward (rewrite same then fit))))))
   }
 
 theorem cornerIff ∀ (jigsaw: Jigsaw) (tile: Tile): (jigsaw.matchedEdges tile == 2) = True ↔ Spec.Corner jigsaw tile :=
@@ -50,8 +50,8 @@ theorem cornerIff ∀ (jigsaw: Jigsaw) (tile: Tile): (jigsaw.matchedEdges tile =
       (Spec.edges tile.image)
       2
   {
-    forward = two => counted.backward (Eq.sym two.read),
-    backward = corner => rewrite <- counted.forward corner in DecEq.refl 2
+    forward = two => counted.backward two.read.flipped,
+    backward = corner => rewrite <- counted.forward corner then DecEq.refl 2
   }
 
 theorem keptFilter ∀ [p: a → Prop] (decide: a → Bool)
@@ -67,17 +67,20 @@ theorem keptFilter ∀ [p: a → Prop] (decide: a → Bool)
           {
             forward = found =>
               match found with
-                | Inl (Both yes (Witness others (Both more same))) => rewrite same, (later others).forward more in rfl
-                | Inr (Both no more) => Void.exfalso (no holds),
+                | Inl (Both yes (Witness others (Both more same))) =>
+                  rewrite same, (later others).forward more then byComputing
+                | Inr (Both no more) => (no holds).impossible,
             backward = same =>
-              Inl (Both holds (Witness (rest.filter decide) (Both ((later (rest.filter decide)).backward rfl) same)))
+              Inl
+                (Both holds
+                  (Witness (rest.filter decide) (Both ((later (rest.filter decide)).backward byComputing) same)))
           }
         | False =>
-          let fails: ¬p item := holds => Bool.falseNotTrue (Eq.trans (Eq.sym decided) ((decides item).backward holds))
+          let fails: ¬p item := holds => Bool.falseNotTrue (Eq.trans decided.flipped ((decides item).backward holds))
           {
             forward = found =>
               match found with
-                | Inl (Both yes more) => Void.exfalso (fails yes)
+                | Inl (Both yes more) => (fails yes).impossible
                 | Inr (Both no more) => (later kept).forward more,
             backward = same => Inr (Both fails ((later kept).backward same))
           }
@@ -87,6 +90,6 @@ theorem part1Exactly ∀ (jigsaw: Jigsaw) (answer: Nat): Spec.Part1 jigsaw answe
   {
     forward = part1 =>
       match part1 with
-        | Witness corners (Both found product) => rewrite (kept corners).forward found at product in product,
-    backward = same => Witness jigsaw.corners (Both ((kept jigsaw.corners).backward rfl) same)
+        | Witness corners (Both found product) => rewrite (kept corners).forward found at product then product,
+    backward = same => Witness jigsaw.corners (Both ((kept jigsaw.corners).backward byComputing) same)
   }

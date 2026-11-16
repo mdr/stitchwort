@@ -14,7 +14,8 @@ def Sound (device: Device) (values: Values): Prop :=
 
 theorem initialSound ∀ (device: Device): Sound device (Map.fromList device.initial) :=
   (wire value found =>
-    Starts (lookupLastMem wire value device.initial (Eq.trans (Eq.sym (Map.getFromList wire device.initial)) found)))
+    Starts
+      (lookupLastMem wire value device.initial (Eq.trans (Eq.flipped (Map.getFromList wire device.initial)) found)))
 
 --| The program's gates are the puzzle's.
 theorem applyIsGateOutput ∀ (operation: Operation) (left right: Bool):
@@ -42,10 +43,10 @@ theorem fireSound ∀ (device: Device) (values: Values)
         value
         rightPart
         (right rightIs applied =>
-          Fires gate wired rfl left right
+          Fires gate wired byComputing left right
             (sound gate.left left leftIs)
             (sound gate.right right rightIs)
-            (Eq.trans (Eq.sym applied) (applyIsGateOutput gate.operation left right))))
+            (Eq.trans applied.flipped (applyIsGateOutput gate.operation left right))))
 
 --| `fireAll`, inserting into any map.
 def fireOnto (values settled: Values) (ready: List Gate): Values :=
@@ -57,7 +58,7 @@ theorem fireOntoSound ∀ (device: Device) (values: Values)
       → ∀ (settled: Values) => Sound device settled → Sound device (fireOnto values settled ready)
   | [], fit, settled, settledSound, wire, value, found => settledSound wire value found
   | [gate, ..rest], fit, settled, settledSound, wire, value, found =>
-    let gateFits := fit gate (Inl rfl)
+    let gateFits := fit gate (Inl byComputing)
     match fired: gate.fire values with
       | None => cases
       | Some output =>
@@ -66,7 +67,7 @@ theorem fireOntoSound ∀ (device: Device) (values: Values)
           (other otherValue inMap =>
             match Map.getInsertCases settled gate.output output other otherValue inMap with
               | Inl (Both isOutput isValue) =>
-                rewrite isOutput, isValue in fireSound device values sound gate gateFits.left output fired
+                rewrite isOutput, isValue then fireSound device values sound gate gateFits.left output fired
               | Inr before => settledSound other otherValue before)
           wire
           value
@@ -79,12 +80,12 @@ theorem settleMore ∀ (values: Values) (waiting: List Gate)
       = settle
         (fireAll values (waiting.filter (gate => gate.ready values)))
         (waiting.filter (gate => ¬(gate.ready values))) :=
-  rewrite settle.unfold values waiting in rewrite fewer in rfl
+  rewrite settle.unfold values waiting then rewrite fewer then byComputing
 
 theorem settleDone ∀ (values: Values) (waiting: List Gate)
     (done: Nat.leq (Succ (waiting.filter (gate => ¬(gate.ready values))).length) waiting.length = False):
     settle values waiting = values :=
-  rewrite settle.unfold values waiting in rewrite done in rfl
+  rewrite settle.unfold values waiting then rewrite done then byComputing
 
 --| The gates settle to values their wires carry, from values they carry.
 theorem settleSound ∀ (device: Device) (values: Values) (waiting: List Gate)
@@ -94,14 +95,14 @@ theorem settleSound ∀ (device: Device) (values: Values) (waiting: List Gate)
     decreasing waiting.length
 :=
   match fewer: (waiting.filter (gate => ¬(gate.ready values))).length < waiting.length with
-    | False => rewrite settleDone values waiting fewer in sound
+    | False => rewrite settleDone values waiting fewer then sound
     | True =>
       let fit: ∀ (gate: Gate) => gate ∈ waiting.filter (gate => gate.ready values)
         → gate ∈ device.gates ∧ gate.ready values = True :=
         (gate member =>
           let kept := List.memFilter waiting (gate => gate.ready values) member
           Both (wired gate kept.left) kept.right)
-      rewrite settleMore values waiting fewer in
+      rewrite settleMore values waiting fewer then
         settleSound device
           (fireAll values (waiting.filter (gate => gate.ready values)))
           (waiting.filter (gate => ¬(gate.ready values)))
@@ -126,12 +127,13 @@ theorem part1Sound ∀ (device: Device) (number: Nat) (solved: solvePart1 device
     (bits bitsAre isNumber =>
       Both
         (bit member =>
-          let below := countFromAbove Wire.zBit (Z bit) bit rfl device.wires 0 member
+          let below := countFromAbove Wire.zBit (Z bit) bit byComputing device.wires 0 member
           match rangeBits zValue count 0 bits bitsAre bit below with
             | Witness value (Both valueIs bitIs) =>
               let isIn := (List.memContains device.wires (Z bit)).backward member
-              let found: device.settled.get (Z bit) = Some value := rewrite Nat.addZero bit, isIn at valueIs in valueIs
-              rewrite <- isNumber, bitIs in settledSound device (Z bit) value found)
+              let found: device.settled.get (Z bit) = Some value :=
+                rewrite Nat.addZero bit, isIn at valueIs then valueIs
+              rewrite <- isNumber, bitIs then settledSound device (Z bit) value found)
         (bit notMember =>
           match below: bit < count with
             | True =>
@@ -139,6 +141,6 @@ theorem part1Sound ∀ (device: Device) (number: Nat) (solved: solvePart1 device
                 | Witness value (Both valueIs bitIs) =>
                   let isOut :=
                     Bool.falseOfNotTrue _ (isIn => notMember ((List.memContains device.wires (Z bit)).forward isIn))
-                  let noWire: Some False = Some value := rewrite Nat.addZero bit, isOut at valueIs in valueIs
-                  rewrite <- isNumber, bitIs in Eq.sym (Option.someInjective noWire)
-            | False => rewrite <- isNumber in rangeBitsBeyond zValue count 0 bits bitsAre bit (omega)))
+                  let noWire: Some False = Some value := rewrite Nat.addZero bit, isOut at valueIs then valueIs
+                  rewrite <- isNumber, bitIs then Eq.flipped (Option.someInjective noWire)
+            | False => rewrite <- isNumber then rangeBitsBeyond zValue count 0 bits bitsAre bit (arithmetic)))

@@ -6,16 +6,16 @@
 -- (reject/plus-comm-by-rfl.sw).
 
 -- The four equations of `+`, by computation.
-theorem zeroPlus ∀ (x: Nat): 0 + x = x := rfl
-theorem plusZero ∀ (x: Nat): x + 0 = x := rfl
-theorem succPlus ∀ (m n: Nat): Succ m + n = Succ (m + n) := rfl
-theorem plusSucc ∀ (m n: Nat): m + Succ n = Succ (m + n) := rfl
+theorem zeroPlus ∀ (x: Nat): 0 + x = x := byComputing
+theorem plusZero ∀ (x: Nat): x + 0 = x := byComputing
+theorem succPlus ∀ (m n: Nat): Succ m + n = Succ (m + n) := byComputing
+theorem plusSucc ∀ (m n: Nat): m + Succ n = Succ (m + n) := byComputing
 
 -- What follows from them.
-theorem plusOne ∀ (x: Nat): x + 1 = Succ x := rfl
-theorem numberMoves ∀ (x: Nat): x + 3 = 3 + x := rfl
-theorem numbersMoveOut ∀ (x y: Nat): x + (y + 2) = (x + y) + 2 := rfl
-theorem bothSides ∀ (x y: Nat): (2 + x) + (y + 3) = 5 + (x + y) := rfl
+theorem plusOne ∀ (x: Nat): x + 1 = Succ x := byComputing
+theorem numberMoves ∀ (x: Nat): x + 3 = 3 + x := byComputing
+theorem numbersMoveOut ∀ (x y: Nat): x + (y + 2) = (x + y) + 2 := byComputing
+theorem bothSides ∀ (x y: Nat): (2 + x) + (y + 3) = 5 + (x + y) := byComputing
 
 -- An index written `n + 1` is `Succ n`, so it can be declared and matched
 -- like one.

@@ -7,7 +7,7 @@
 -- definition, and `j (p ())` here is an unknown applied, not a call.
 def Holds (f: () → Nat): Prop := f () = f ()
 
-theorem composite (p: () → Nat) (j: Nat → Nat): Holds (() => j (p ())) := rfl
+theorem composite (p: () → Nat) (j: Nat → Nat): Holds (() => j (p ())) := byComputing
 
 def one(): Nat := Succ (Succ 0)
 

@@ -26,7 +26,8 @@ theorem readsField: Parse.Reads field FieldWritten :=
       Parse.readsThen (Parse.readsTakeWhile1) (valueRead value (Both nonEmpty (Both chars made)) =>
         Parse.readsDone
           { key, value } _
-          (rewrite made in Both (rewrite keyIs, colon, List.appendNil valueRead in rfl) (Both nonEmpty chars)))))
+          (rewrite made then
+            Both (rewrite keyIs, colon, List.appendNil valueRead then byComputing) (Both nonEmpty chars)))))
 
 theorem readsFieldBreak: Parse.Reads fieldBreak FieldBreak :=
   Parse.readsOneOf FieldBreak
@@ -37,7 +38,7 @@ theorem readsFieldBreak: Parse.Reads fieldBreak FieldBreak :=
 
 theorem readsPassport: Parse.Reads passport PassportWritten :=
   Parse.readsThen (Parse.readsSepBy1 field fieldBreak _ _ readsField readsFieldBreak) (fieldsRead fields written =>
-    Parse.readsDone { fields } _ (rewrite List.appendNil fieldsRead in written))
+    Parse.readsDone { fields } _ (rewrite List.appendNil fieldsRead then written))
 
 theorem parseWritten ∀ (input: Text) (passports: List Passport)
     (parsed: Fail.toResult (() => parsePassports input) = Ok passports):
@@ -74,8 +75,8 @@ theorem firstPassportWritten ∀ (input: Text) (first: Passport) (rest: List Pas
         (Witness
           (restRead ++ ending)
           (Both
-            (rewrite text, split, List.appendAssoc firstRead restRead ending in rfl)
-            (rewrite firstIs, <- isHead in written)))
+            (rewrite text, split, List.appendAssoc firstRead restRead ending then byComputing)
+            (rewrite firstIs, <- isHead then written)))
 
 --| The same about the input's lines: they are the passports' lines, a blank
 --| line between each two. Each passport is `PassportWritten` of the
@@ -90,4 +91,4 @@ theorem parseWrittenLines ∀ (input: Text) (passports: List Passport)
       let lined: Text.lines input = Text.lines (MkText (read ++ ending)) :=
         Eq.cong (chars => Text.linesFrom [] [] chars) text
       Witness listed
-        (Both same (rewrite lined in Parse.sectionsLinesRead PassportWritten listed read ending written ended))
+        (Both same (rewrite lined then Parse.sectionsLinesRead PassportWritten listed read ending written ended))

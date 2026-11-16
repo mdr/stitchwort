@@ -2,12 +2,12 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-PARSE] Error: `cases in …` as an argument needs brackets
+[E-PARSE] Error: `cases then …` as an argument needs brackets
    ╭─[ reject/cases-in-argument.sw:9:29 ]
    │
- 9 │   let right := andRight a b cases in both
+ 9 │   let right := andRight a b cases then both
    │                             ──┬──  
-   │                               ╰──── `cases in …` as an argument needs brackets
+   │                               ╰──── `cases then …` as an argument needs brackets
    │ 
-   │ Note: the body of `cases in` runs to the end of the expression, so as an argument it's written `(cases in t)`
+   │ Note: the body of `cases then` runs to the end of the expression, so as an argument it's written `(cases then t)`
 ───╯

@@ -13,7 +13,7 @@ theorem sumOfMemoryUnique ∀ (memory: Spec.Memory) (first second: Nat)
     | Witness xs (Both distinctX (Both coversX sumX)) =>
       match isSecond with
         | Witness ys (Both distinctY (Both coversY sumY)) =>
-          rewrite sumX, sumY in
+          rewrite sumX, sumY then
             List.sumByDistinctNonzero memory xs ys distinctX distinctY
               (address nonzero member => coversY address nonzero)
               (address nonzero member => coversX address nonzero)

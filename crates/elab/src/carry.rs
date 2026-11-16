@@ -203,7 +203,7 @@ impl Carry {
         Ok(Term::J(Rc::new(motive(body)), Rc::new(k), Rc::new(q)))
     }
 
-    /// `lhs = rhs` from `p: rhs = lhs`: `J (y _ => y = rhs) rfl p`.
+    /// `lhs = rhs` from `p: rhs = lhs`: `J (y _ => y = rhs) byComputing p`.
     pub(crate) fn sym(&self, g: &Ev, rhs: &Term, p: Term) -> Result<Term> {
         let body = Term::Eq(
             Some(Rc::new(self.bool_ty.clone())),

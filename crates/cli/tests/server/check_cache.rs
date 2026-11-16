@@ -197,7 +197,7 @@ fn commands_share_one_cache() {
     write(
         "src/B/Proofs/Proofs.sw",
         "namespace B.Proofs\nimport B (three)\nimport Std (Fin)\n\n\
-         theorem threeIsThree: Fin.toNat three = 3 := rfl\n",
+         theorem threeIsThree: Fin.toNat three = 3 := byComputing\n",
     );
     let root = project.to_str().unwrap();
     let command = |words: &[&str]| -> Vec<String> {
@@ -403,7 +403,7 @@ fn plain_check_skipping_unneeded_namespaces_is_the_same_after_edits() {
     let base = format!("namespace Base\n{shadow}\ndef one: Nat := 1\n");
     let mid = "namespace Mid\nimport Base (one)\n\n\
                --| Twice [`one`]; see [`Leaf.thing`].\ndef two: Nat := one + one\n";
-    let leaf = "namespace Leaf\nimport Mid (two)\n\ntheorem twoIsTwo: two = 2 := rfl\n";
+    let leaf = "namespace Leaf\nimport Mid (two)\n\ntheorem twoIsTwo: two = 2 := byComputing\n";
     let other = format!("namespace Other\n{shadow}\ndef three: Nat := 3\n");
     let other_tests =
         "namespace Other.Tests\nimport Other (three)\n\ntest \"three\" := three == 3\n";
@@ -481,7 +481,7 @@ fn plain_check_checks_a_namespace_whose_entry_is_corrupt() {
     );
     write(
         "src/App.sw",
-        "namespace App\nimport Lib (double)\n\ntheorem four: double 2 = 4 := rfl\n",
+        "namespace App\nimport Lib (double)\n\ntheorem four: double 2 = 4 := byComputing\n",
     );
     write("src/Solo.sw", "namespace Solo\n\ndef five: Nat := 5\n");
     let skipping = temp_dir("skip-corrupt-on");
@@ -652,7 +652,7 @@ fn an_entry_is_a_miss_when_a_library_file_loaded_beside_it_changed() {
             (
                 "src/B.sw",
                 "namespace B\nimport Std (Option)\n\ndef inc (x: Nat): Nat := Succ x\n\n\
-                 theorem incIs (x: Nat): inc x = Succ x := rfl\n\n\
+                 theorem incIs (x: Nat): inc x = Succ x := byComputing\n\n\
                  theorem t (o: Option Nat): Option.map o (x => inc x) = Option.map o (x => Succ x) := \
                  rewrite incIs\n",
             ),
@@ -664,8 +664,8 @@ fn an_entry_is_a_miss_when_a_library_file_loaded_beside_it_changed() {
     edit_std(
         &std_dir,
         "Option/Option.sw",
-        "Option.map x f1 = Option.map x f2 :=\n  match x with\n    | None => rfl\n    | Some y => Eq.cong Some (ef y)",
-        "Option.map x f1 = Option.map x f1 :=\n  match x with\n    | None => rfl\n    | Some y => rfl",
+        "Option.map x f1 = Option.map x f2 :=\n  match x with\n    | None => byComputing\n    | Some y => Eq.cong Some (ef y)",
+        "Option.map x f1 = Option.map x f1 :=\n  match x with\n    | None => byComputing\n    | Some y => byComputing",
     );
     let after = check_step(dirs, "a lemma found by lookup changed", &["A", "B"]);
     assert!(after.contains("E-REWRITE-CONG"), "{after}");
@@ -686,12 +686,12 @@ fn a_library_edit_re_checks_what_it_can_change_and_nothing_else() {
         (
             "src/Fancy.sw",
             "namespace Fancy\nimport Std (Ansi)\n\ndef hi: Text := Ansi.bold \"hi\"\n\n\
-                 theorem hi_is: hi = \"\\u{1b}[1mhi\\u{1b}[22m\" := rfl\n",
+                 theorem hi_is: hi = \"\\u{1b}[1mhi\\u{1b}[22m\" := byComputing\n",
         ),
         (
             "src/Sum.sw",
             "namespace Sum\n\ndef six: Nat := [1, 2, 3].sumBy (x => x)\n\n\
-                 theorem six_is_six: six = 6 := rfl\n",
+                 theorem six_is_six: six = 6 := byComputing\n",
         ),
         // Uses no library file itself, but depends on `Wild.hi`, whose hash
         // the `Ansi` edit changes, so its entry misses through that
@@ -759,7 +759,7 @@ fn a_library_edit_re_checks_what_it_can_change_and_nothing_else() {
 #[test]
 fn a_namespace_checks_the_same_whatever_else_the_run_loads() {
     let b = "namespace B\nimport Std (Option)\n\ndef inc (x: Nat): Nat := Succ x\n\n\
-             theorem incIs (x: Nat): inc x = Succ x := rfl\n\n\
+             theorem incIs (x: Nat): inc x = Succ x := byComputing\n\n\
              theorem t (o: Option Nat): Option.map o (x => inc x) = Option.map o (x => Succ x) := \
              rewrite incIs\n";
     let lemmas = "namespace A\nimport Std (Option)\n\n\
@@ -833,8 +833,8 @@ fn check_std_checks_the_named_library_file_in_full() {
     edit_std(
         &std_dir,
         "Option/Option.sw",
-        "Option.map x f1 = Option.map x f2 :=\n  match x with\n    | None => rfl\n    | Some y => Eq.cong Some (ef y)",
-        "Option.map x f1 = Option.map x f2 :=\n  match x with\n    | None => rfl\n    | Some y => rfl",
+        "Option.map x f1 = Option.map x f2 :=\n  match x with\n    | None => byComputing\n    | Some y => Eq.cong Some (ef y)",
+        "Option.map x f1 = Option.map x f2 :=\n  match x with\n    | None => byComputing\n    | Some y => byComputing",
     );
     let (status, stderr) = check_std("Std.Option.Option");
     assert_eq!(status, Some(1), "{stderr}");

@@ -12,9 +12,11 @@ theorem runsMaskBit ∀ (read: List Char) (bit: MaskBit) (rest: List Char)
     (written: MaskBitWritten read bit):
     Parse.Runs maskBit read rest bit :=
   match bit with
-    | Off => rewrite written in Parse.runsPick [] "0" Off [("1", On), ("X", X)] rest rfl
-    | On => rewrite written in Parse.runsPick [("0", Off)] "1" On [("X", X)] rest (Both rfl rfl)
-    | X => rewrite written in Parse.runsPick [("0", Off), ("1", On)] "X" X [] rest (Both rfl (Both rfl rfl))
+    | Off => rewrite written then Parse.runsPick [] "0" Off [("1", On), ("X", X)] rest byComputing
+    | On => rewrite written then Parse.runsPick [("0", Off)] "1" On [("X", X)] rest (Both byComputing byComputing)
+    | X =>
+      rewrite written then
+        Parse.runsPick [("0", Off), ("1", On)] "X" X [] rest (Both byComputing (Both byComputing byComputing))
 
 theorem runsInstruction ∀ (read: List Char) (item: Instruction)
     (written: InstructionWritten read item):
@@ -27,14 +29,14 @@ theorem runsInstruction ∀ (read: List Char) (item: Instruction)
             | Witness symbols (Both split (Both each count)) =>
               match Parse.eachSteps maskBit MaskBitWritten [] runsMaskBit bits symbols each with
                 | Witness steps (Both joined (Both valued (Both counted stepsRun))) =>
-                  rewrite split in
+                  rewrite split then
                     Parse.runsBind
                       (() => Parse.optional (() => Parse.text "mask = ")) _
                       "mask = ".toList
                       symbols _
                       []
                       (Some ()) _
-                      rfl
+                      byComputing
                       (Parse.runsOptional
                         (() => Parse.text "mask = ")
                         "mask = ".toList
@@ -48,55 +50,55 @@ theorem runsInstruction ∀ (read: List Char) (item: Instruction)
                         symbols
                         []
                         bits _
-                        (Eq.sym (List.appendNil symbols))
-                        (rewrite <- joined, <- valued in
+                        (List.appendNil symbols).flipped
+                        (rewrite <- joined, <- valued then
                           Parse.runsExactly 36 maskBit steps ([] ++ []) (Eq.trans counted count) stepsRun)
                         (Parse.runsPure (SetMask { bits }) []))
     | Write address value =>
       match written with
         | Witness addressRead
             (Witness valueRead (Both split (Both (Both aSome (Both aAll aValue)) (Both vSome (Both vAll vValue))))) =>
-          rewrite split, aValue, vValue in
+          rewrite split, aValue, vValue then
             Parse.runsBind
               (() => Parse.optional (() => Parse.text "mask = ")) _
               []
               ("mem[".toList ++ addressRead ++ "] = ".toList ++ valueRead) _
               []
               None _
-              rfl
-              (Parse.declinesRuns (() => Parse.text "mask = ") _ (Parse.declinesText "mask = " _ rfl))
+              byComputing
+              (Parse.declinesRuns (() => Parse.text "mask = ") _ (Parse.declinesText "mask = " _ byComputing))
               (Parse.runsBind
                 (() => Parse.text "mem[") _
                 "mem[".toList
                 (addressRead ++ "] = ".toList ++ valueRead) _
                 []
                 () _
-                rfl
+                byComputing
                 (Parse.runsText "mem[" _)
                 (Parse.runsBind Parse.nat _ addressRead
                   ("] = ".toList ++ valueRead) _
                   []
                   (Parse.digitsValue addressRead) _
-                  rfl
-                  (Parse.runsNat addressRead _ aSome aAll rfl)
+                  byComputing
+                  (Parse.runsNat addressRead _ aSome aAll byComputing)
                   (Parse.runsBind
                     (() => Parse.text "] = ") _
                     "] = ".toList
                     valueRead _
                     []
                     () _
-                    rfl
+                    byComputing
                     (Parse.runsText "] = " _)
                     (Parse.runsBind Parse.nat _ valueRead [] _ []
                       (Parse.digitsValue valueRead) _
-                      (Eq.sym (List.appendNil valueRead))
-                      (Parse.runsNat valueRead [] vSome vAll rfl)
+                      (List.appendNil valueRead).flipped
+                      (Parse.runsNat valueRead [] vSome vAll byComputing)
                       (Parse.runsPure (Write (Parse.digitsValue addressRead) (Parse.digitsValue valueRead)) [])))))
 
 theorem startsComplete ∀ (instructions: List Instruction)
     (starts: StartsWithMask instructions):
     startsWithMask instructions = True :=
-  match instructions with | [SetMask mask, ..rest] => rfl
+  match instructions with | [SetMask mask, ..rest] => byComputing
 
 --| Input that is a program written out is read as that program.
 theorem parseComplete ∀ (input: Text) (program: Program)
@@ -107,14 +109,14 @@ theorem parseComplete ∀ (input: Text) (program: Program)
       let ran := Parse.runsEachLine input instruction program.instructions (List.all2Weaken runsInstruction _ _ lines)
       rewrite Fail.toResultThen (() => Parse.eachLine input instruction) (instructions =>
             if startsWithMask instructions then ({ instructions }: Program)
-            else Fail.fail "the program has to start with a mask") in
-        rewrite ran, startsComplete program.instructions starts in
+            else Fail.fail "the program has to start with a mask") then
+        rewrite ran, startsComplete program.instructions starts then
           match program with
-            | { instructions } => rfl
+            | { instructions } => byComputing
 
 --| A program is written by an input in at most one way, since the parser reads it as one.
 theorem writtenUnique ∀ (input: Text) (a b: Program)
     (writtenA: ProgramWritten (input.lines.map Text.toList) a)
     (writtenB: ProgramWritten (input.lines.map Text.toList) b):
     a = b :=
-  Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))
+  Result.okInjective (Eq.trans (parseComplete input a writtenA).flipped (parseComplete input b writtenB))

@@ -14,12 +14,12 @@ theorem Parse.runsNext ∀ (passes: t → Bool) (item: t) (rest: List t)
     (holds: passes item = True):
     Parse.Runs (() => Parse.next passes) [item] rest (Some item) :=
   state starts honest =>
-    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts in rfl
+    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts then byComputing
     Witness
       (state.advance rest 1).at
       (Both
-        (rewrite Parse.runFromNextThere state passes item rest _ starts holds in rfl)
-        (Both rfl (Both (omega [honest, lengths]) rfl)))
+        (rewrite Parse.runFromNextThere state passes item rest _ starts holds then byComputing)
+        (Both byComputing (Both (arithmetic [honest, lengths]) byComputing)))
 
 --| Whether `rest` starts with an operator of level `lowest` or tighter: what
 --| `Parse.operators` would go on to read after an operand of that level.
@@ -39,16 +39,16 @@ theorem Parse.operatorsEndRun ∀ (fuel depth: Nat) (what: Text) (levels: List (
     Parse.runFrom state (() =>
       (Parse.operatorsFrom fuel depth what levels count operand lowest highest left, Parse.mark()))
       = Ok (left, (state.note (Expected what)).at) :=
-  rewrite starts in
+  rewrite starts then
     match fuel with
-      | Zero => rfl
+      | Zero => byComputing
       | Succ more =>
         match rest with
-          | [] => rfl
+          | [] => byComputing
           | [item, ..later] =>
             match found: Parse.operatorFrom item 0 levels with
-              | None => rfl
-              | Some (level, associativity, combine) => rewrite ends in rfl
+              | None => byComputing
+              | Some (level, associativity, combine) => rewrite ends then byComputing
 
 --| `operatorsFrom` where no operator of level `lowest` or tighter comes
 --| next: it reads nothing and gives `left`.
@@ -59,7 +59,8 @@ theorem Parse.runsOperatorsEnd ∀ (fuel depth: Nat) (what: Text) (levels: List 
   state starts honest =>
     let same: (state.note (Expected what)).at = state.at := Parse.noteAt state (Expected what)
     let run := Parse.operatorsEndRun fuel depth what levels count operand lowest highest left rest ends state starts
-    Witness state.at (Both (rewrite same at run in run) (Both starts (Both (rewrite starts at honest in honest) rfl)))
+    Witness state.at
+      (Both (rewrite same at run then run) (Both starts (Both (rewrite starts at honest then honest) byComputing)))
 
 --| One round of `operatorsFrom`: the next item is an operator of a level
 --| from `lowest` to `highest`, its right operand reads `rightRead`, and the
@@ -100,7 +101,7 @@ theorem Parse.runsOperatorsStep ∀ (more depth: Nat) (what: Text) (levels: List
         rest
         (Some right)
         value
-        rfl
+        byComputing
         (Parse.runsOptional
           (() =>
             let operator := Parse.next (item => True)
@@ -117,14 +118,14 @@ theorem Parse.runsOperatorsStep ∀ (more depth: Nat) (what: Text) (levels: List
             (after ++ rest)
             (Some item)
             right
-            rfl
-            (Parse.runsNext (item => True) item (rightRead ++ (after ++ rest)) rfl)
+            byComputing
+            (Parse.runsNext (item => True) item (rightRead ++ (after ++ rest)) byComputing)
             runsRight))
         (middle atRest honest1 offset => runsMore middle)
-    let aboveHolds: (lowest <= level) = True := omega [above]
-    let belowHolds: (level <= highest) = True := omega [below]
+    let aboveHolds: (lowest <= level) = True := arithmetic [above]
+    let belowHolds: (level <= highest) = True := arithmetic [below]
     match core starts honest with
-      | Witness m (Both ran others) => Witness m (Both (rewrite starts, found, aboveHolds, belowHolds in ran) others)
+      | Witness m (Both ran others) => Witness m (Both (rewrite starts, found, aboveHolds, belowHolds then ran) others)
 
 --| `operandsFrom` below the tightest level: the first operand, then
 --| `operatorsFrom` after it. The loop's fuel is the items left, so `runsTail`
@@ -153,19 +154,19 @@ theorem Parse.runsOperandsFrom ∀ (inner: Nat) (what: Text) (levels: List (Pars
       rest
       first
       value
-      rfl
+      byComputing
       runsFirst
       (middle atRest honest offset =>
-        let holds: (lowest < count) = True := omega [within]
+        let holds: (lowest < count) = True := arithmetic [within]
         let lengths: middle.at.rest.length = tailRead.length + rest.length :=
-          rewrite atRest in List.lengthAppend tailRead rest
-        rewrite holds in
+          rewrite atRest then List.lengthAppend tailRead rest
+        rewrite holds then
           Parse.runsFromMark middle
             (at => Parse.operatorsFrom (at.left + 1) inner what levels count operand lowest (count - 1) first)
             tailRead
             rest
             value
-            (runsTail (middle.at.left + 1) (omega [honest, lengths]) middle))
+            (runsTail (middle.at.left + 1) (arithmetic [honest, lengths]) middle))
 
 --| `operandsFrom` past the tightest level is `operand` alone.
 theorem Parse.runsOperandsFromAlone ∀ (depth: Nat) (what: Text) (levels: List (Parse.Level t a)) (count: Nat)
@@ -173,11 +174,11 @@ theorem Parse.runsOperandsFromAlone ∀ (depth: Nat) (what: Text) (levels: List 
     (past: count <= lowest)
     (runsOperand: Parse.Runs operand read rest value):
     Parse.Runs (() => Parse.operandsFrom depth what levels count operand lowest) read rest value :=
-  let fails: (lowest < count) = False := omega [past]
+  let fails: (lowest < count) = False := arithmetic [past]
   let after: Parse.Runs (() => Parse.operandsAfter depth what levels count operand lowest value) [] rest value :=
     match depth with
       | Zero => Parse.runsPure value rest
-      | Succ inner => rewrite fails in Parse.runsPure value rest
+      | Succ inner => rewrite fails then Parse.runsPure value rest
   Parse.runsBind operand
     (Parse.operandsAfter depth what levels count operand lowest)
     read
@@ -186,7 +187,7 @@ theorem Parse.runsOperandsFromAlone ∀ (depth: Nat) (what: Text) (levels: List 
     rest
     value
     value
-    (Eq.sym (List.appendNil read))
+    (List.appendNil read).flipped
     runsOperand
     after
 
@@ -271,11 +272,11 @@ theorem Parse.operatorAheadLooser ∀ (levels: List (Parse.Level t a)) (low high
     (looser: low <= high):
     Parse.operatorAhead levels high rest = False :=
   match rest with
-    | [] => rfl
+    | [] => byComputing
     | [item, ..later] =>
       match found: Parse.operatorFrom item 0 levels with
-        | None => rfl
-        | Some (level, associativity, combine) => omega [stops, looser]
+        | None => byComputing
+        | Some (level, associativity, combine) => arithmetic [stops, looser]
 
 --| The tree's bound is at or past every level its outermost operator is.
 theorem Parse.OperatorTree.boundAtLeast ∀ (count lowest: Nat) (tree: Parse.OperatorTree t a)
@@ -285,7 +286,7 @@ theorem Parse.OperatorTree.boundAtLeast ∀ (count lowest: Nat) (tree: Parse.Ope
     | Operand read value => loose
     | Joined item level associativity combine left right =>
       match associativity with
-        | LeftAssociative => omega [loose]
+        | LeftAssociative => arithmetic [loose]
         | RightAssociative => loose
 
 --| An operator the tree would not have taken is no tighter than the tree's
@@ -295,11 +296,11 @@ theorem Parse.OperatorTree.topFromBound ∀ (count level: Nat) (tree: Parse.Oper
     (small: level < count):
     level <= tree.top count ∧ level <= tree.highest count :=
   match tree with
-    | Operand read value => Both (omega [small]) (omega [small])
+    | Operand read value => Both (arithmetic [small]) (arithmetic [small])
     | Joined item own associativity combine left right =>
       match associativity with
-        | LeftAssociative => Both (omega [under]) (omega [under])
-        | RightAssociative => Both (omega [under]) (omega [under])
+        | LeftAssociative => Both (arithmetic [under]) (arithmetic [under])
+        | RightAssociative => Both (arithmetic [under]) (arithmetic [under])
 
 --| A formed tree whose operators are all past the last level is an operand.
 theorem Parse.OperatorTree.operandIfPast ∀ (levels: List (Parse.Level t a)) (count lowest: Nat)
@@ -312,7 +313,7 @@ theorem Parse.OperatorTree.operandIfPast ∀ (levels: List (Parse.Level t a)) (c
     | Operand read value => runsEach
     | Joined item level associativity combine left right =>
       match formed with
-        | Both found (Both small others) => Void.exfalso (omega [small, loose, past])
+        | Both found (Both small others) => Void.impossible (arithmetic [small, loose, past])
 
 --| [`Parse.runsOperandsTree`], given [`Parse.runsOperandsPrefix`] for this
 --| tree with nothing after it: apart from it so that the prefix lemma can use
@@ -334,12 +335,13 @@ theorem Parse.runsOperandsWhole ∀ (what: Text) (levels: List (Parse.Level t a)
     Parse.Runs (() => Parse.operandsFrom depth what levels count operand lowest) tree.reads rest tree.value :=
   if within: lowest < count then
     match depth with
-      | Succ inner => prefix inner (omega [deep]) within (fuel =>
+      | Succ inner => prefix inner (arithmetic [deep]) within (fuel =>
         Parse.runsOperatorsEnd fuel inner what levels count operand lowest (tree.highest count) tree.value rest stops)
   else
     Parse.runsOperandsFromAlone depth what levels count operand lowest tree.reads rest tree.value
-      (omega [within])
-      (Parse.OperatorTree.operandIfPast levels count lowest operand tree rest formed runsEach loose (omega [within]))
+      (arithmetic [within])
+      (Parse.OperatorTree.operandIfPast levels count lowest operand tree rest formed runsEach loose
+        (arithmetic [within]))
 
 --| `operandsFrom` reads a formed tree as the start of a longer chain: after
 --| the tree's items it is in `operatorsFrom`'s loop with the tree's value on
@@ -387,9 +389,9 @@ theorem Parse.runsOperandsPrefix ∀ (what: Text) (levels: List (Parse.Level t a
               runsRight
               rightOk
               stops
-              (omega [deep, lengths])
+              (arithmetic [deep, lengths])
               (deeper deepEnough inside ends =>
-                rewrite <- List.appendNil right.reads in
+                rewrite <- List.appendNil right.reads then
                   Parse.runsOperandsPrefix what levels count operand right
                     (Parse.nextLowest associativity level)
                     deeper
@@ -408,17 +410,17 @@ theorem Parse.runsOperandsPrefix ∀ (what: Text) (levels: List (Parse.Level t a
                       (Parse.OperatorTree.boundAtLeast count (Parse.nextLowest associativity level) right rightOk))
                     deepEnough
                     (fuel positive => ends fuel))
-          rewrite List.appendAssoc left.reads [item, ..right.reads] more in
+          rewrite List.appendAssoc left.reads [item, ..right.reads] more then
             Parse.runsOperandsPrefix what levels count operand left lowest inner
               [item, ..right.reads ++ more]
               rest
               value
               formedLeft
-              (rewrite List.appendAssoc right.reads more rest in runsLeft)
-              (omega [loose, tops.left])
+              (rewrite List.appendAssoc right.reads more rest then runsLeft)
+              (arithmetic [loose, tops.left])
               within
-              (rewrite found in omega [leftOk])
-              (omega [deep, lengths])
+              (rewrite found then arithmetic [leftOk])
+              (arithmetic [deep, lengths])
               (fuel enough =>
                 match fuel with
                   | Succ less =>
@@ -438,7 +440,7 @@ theorem Parse.runsOperandsPrefix ∀ (what: Text) (levels: List (Parse.Level t a
                       loose
                       tops.right
                       wholeRight
-                      (continues less (omega [enough, List.lengthAppend right.reads more])))
+                      (continues less (arithmetic [enough, List.lengthAppend right.reads more])))
 
 --| `operandsFrom` for levels from `lowest` reads a formed tree whose
 --| outermost operator is of such a level, where no operator of such a level
@@ -452,7 +454,7 @@ theorem Parse.runsOperandsTree ∀ (what: Text) (levels: List (Parse.Level t a))
     Parse.Runs (() => Parse.operandsFrom depth what levels count operand lowest) tree.reads rest tree.value :=
   Parse.runsOperandsWhole what levels count operand tree lowest depth rest formed runsEach loose stops deep
     (inner deepEnough within ends =>
-      rewrite <- List.appendNil tree.reads in
+      rewrite <- List.appendNil tree.reads then
         Parse.runsOperandsPrefix what levels count operand tree lowest inner [] rest tree.value formed runsEach loose
             within
             (Parse.operatorAheadLooser levels lowest
@@ -477,7 +479,7 @@ theorem Parse.runsOperators ∀ (what: Text) (levels: List (Parse.Level t a)) (o
     Parse.Runs (() => Parse.operators what levels operand) tree.reads rest tree.value :=
   state starts honest =>
     let lengths: state.at.rest.length = tree.reads.length + rest.length :=
-      rewrite starts in List.lengthAppend tree.reads rest
+      rewrite starts then List.lengthAppend tree.reads rest
     Parse.runsFromMark state
       (at => Parse.operandsFrom (at.left + 1) what levels levels.length operand 0)
       tree.reads
@@ -488,9 +490,9 @@ theorem Parse.runsOperators ∀ (what: Text) (levels: List (Parse.Level t a)) (o
         rest
         formed
         runsEach
-        (omega [])
+        (arithmetic [])
         ends
-        (omega [honest, lengths])
+        (arithmetic [honest, lengths])
         state)
       starts
       honest
@@ -526,21 +528,25 @@ theorem Parse.runsOperatorsExample: Parse.run "9-1-2*3".toList (() =>
     2
     (Parse.runsOperators "an operator" Parse.operatorsExampleLevels Parse.operatorsExampleDigit
         Parse.operatorsExampleTree []
-        (Both rfl
+        (Both byComputing
           (Both
-            (omega [])
+            (arithmetic [])
             (Both
-              (omega [])
+              (arithmetic [])
               (Both
-                (omega [])
+                (arithmetic [])
                 (Both
-                  (Both rfl (Both (omega []) (Both (omega []) (Both (omega []) (Both rfl rfl)))))
-                  (Both rfl (Both (omega []) (Both (omega []) (Both (omega []) (Both rfl rfl))))))))))
+                  (Both byComputing
+                    (Both (arithmetic []) (Both (arithmetic []) (Both (arithmetic []) (Both byComputing byComputing)))))
+                  (Both byComputing
+                    (Both
+                      (arithmetic [])
+                      (Both (arithmetic []) (Both (arithmetic []) (Both byComputing byComputing))))))))))
         (Both
           (Both
-            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '9' 9 _ rfl)
-            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '1' 1 _ rfl))
+            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '9' 9 _ byComputing)
+            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '1' 1 _ byComputing))
           (Both
-            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '2' 2 _ rfl)
-            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '3' 3 _ rfl)))
-        rfl)
+            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '2' 2 _ byComputing)
+            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '3' 3 _ byComputing)))
+        byComputing)

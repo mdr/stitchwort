@@ -45,8 +45,8 @@ theorem winningCostsWin ∀ (machine: Machine) (tokensSpent: Nat)
         (bPresses bListed costs =>
           let bWins := List.memFilter (List.range 0 101) winning bListed
           let aBelow := And.right (List.memRangeFrom aPresses 101 0 aListed)
-          let bBelow := And.right (List.memRangeFrom bPresses 101 0 (And.left bWins))
-          Witness aPresses (Witness bPresses (Both (omega) (Both (omega) (Both (And.right bWins) (Eq.sym costs)))))))
+          let bBelow := And.right (List.memRangeFrom bPresses 101 0 bWins.left)
+          Witness aPresses (Witness bPresses (Both (arithmetic) (Both (arithmetic) (Both bWins.right costs.flipped))))))
 
 --| The spec lists the cost of every win within 100 presses.
 theorem winListed ∀ (machine: Machine) (aPresses bPresses: Nat)
@@ -57,13 +57,13 @@ theorem winListed ∀ (machine: Machine) (aPresses bPresses: Nat)
   let winning := (bPresses: Nat) => machine.wins aPresses bPresses
   let filtered := List.range 0 101 |> .filter winning
   let bListed :=
-    List.memFilterIntro (List.range 0 101) winning (List.memRangeFromIntro bPresses 101 0 (omega) (omega)) won
+    List.memFilterIntro (List.range 0 101) winning (List.memRangeFromIntro bPresses 101 0 (arithmetic) (arithmetic)) won
   List.memFlatMapIntro
     (costsAfter machine)
     aPresses
     (tokens aPresses bPresses)
     (List.range 0 101)
-    (List.memRangeFromIntro aPresses 101 0 (omega) (omega))
+    (List.memRangeFromIntro aPresses 101 0 (arithmetic) (arithmetic))
     (List.memMap filtered bPresses bListed (bPresses => tokens aPresses bPresses))
 
 --| Two wins are the same presses, with a nonzero determinant.
@@ -72,8 +72,8 @@ theorem sameWin ∀ (machine: Machine)
     (found: machine.onlyPresses nonzero = Some (aPresses, bPresses))
     (won: machine.wins otherA otherB = True):
     (otherA = aPresses) ∧ (otherB = bPresses) :=
-  let same := Option.someInjective (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero otherA otherB won))
-  Both (Eq.sym (Eq.cong (pair => pair.fst) same)) (Eq.sym (Eq.cong (pair => pair.snd) same))
+  let same := Option.someInjective (Eq.trans found.flipped (onlyPressesFinds machine nonzero otherA otherB won))
+  Both (Eq.flipped (Eq.cong (pair => pair.fst) same)) (Eq.flipped (Eq.cong (pair => pair.snd) same))
 
 --| Cramer's rule within 100 presses gives the least of any list that holds
 --| the cost of each win within 100 presses and nothing else.
@@ -97,7 +97,7 @@ theorem cramerWithinCosts ∀ (machine: Machine)
         | True =>
           let Both aWithin bWithin := within
           let won := onlyPressesWins machine nonzero aPresses bPresses found
-          Eq.sym
+          Eq.flipped
             (List.minimumAllEqual
               (tokens aPresses bPresses)
               costs
@@ -106,25 +106,25 @@ theorem cramerWithinCosts ∀ (machine: Machine)
                 match costsWin tokensSpent listed with
                   | Witness otherA (Witness otherB (Both aBelow (Both bBelow (Both otherWon costs)))) =>
                     let same := sameWin machine nonzero aPresses bPresses otherA otherB found otherWon
-                    rewrite costs, And.left same, And.right same in rfl))
+                    rewrite costs, same.left, same.right then byComputing))
         | False =>
-          Eq.sym
+          Eq.flipped
             (List.minimumEmpty costs (tokensSpent listed =>
               match costsWin tokensSpent listed with
                 | Witness otherA (Witness otherB (Both aBelow (Both bBelow (Both otherWon costs)))) =>
                   let same := sameWin machine nonzero aPresses bPresses otherA otherB found otherWon
-                  let aWithin: aPresses ≤ 100 := omega [And.left same]
-                  let bWithin: bPresses ≤ 100 := omega [And.right same]
-                  Bool.falseNotTrue (Eq.trans (Eq.sym within) (Both aWithin bWithin))))
+                  let aWithin: aPresses ≤ 100 := arithmetic [same.left]
+                  let bWithin: bPresses ≤ 100 := arithmetic [same.right]
+                  Bool.falseNotTrue (Eq.trans within.flipped (Both aWithin bWithin))))
     | None =>
-      Eq.sym
+      Eq.flipped
         (List.minimumEmpty costs (tokensSpent listed =>
           match costsWin tokensSpent listed with
             | Witness otherA (Witness otherB (Both aBelow (Both bBelow (Both won costs)))) =>
-              Option.noneNotSome _ (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero otherA otherB won))))
+              Option.noneNotSome _ (Eq.trans found.flipped (onlyPressesFinds machine nonzero otherA otherB won))))
 
 --| The program's search is the spec's.
-theorem searchIsSpec ∀ (machine: Machine): machine.searchTokens 100 = Spec.fewestTokens machine := rfl
+theorem searchIsSpec ∀ (machine: Machine): machine.searchTokens 100 = Spec.fewestTokens machine := byComputing
 
 --| Each machine's part 1 tokens are the least of the costs, whatever its
 --| determinant, for costs as `cramerWithinCosts` has them that the search

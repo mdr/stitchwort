@@ -16,9 +16,9 @@ theorem toResultThen ∀ (t: () → {Fail} a) (k: a → {Fail} b):
 theorem toResultMap ∀ (f: a → {Fail} b) (xs: List a):
     Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x)) :=
   match xs with
-    | [] => rfl
+    | [] => byComputing
     | [x, ..xs] =>
-      rewrite Result.traverseCons (z => Fail.toResult (() => f z)) x xs in
+      rewrite Result.traverseCons (z => Fail.toResult (() => f z)) x xs then
         match reify (() => f x) with
           | return y => ?
-          | Fail.stop msg, _ => rfl
+          | Fail.stop msg, _ => byComputing

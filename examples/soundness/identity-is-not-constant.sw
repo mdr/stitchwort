@@ -5,4 +5,4 @@
 -- differ at a fresh variable. The kernel test is in
 -- crates/core/tests/kernel_bugs_2026.rs. Neighbour: `kOnRfl` in
 -- accept/kernel-2026-neighbours.sw.
-theorem bad (y: Nat): ((x: Nat) => x) = ((z: Nat) => y) := rfl
+theorem bad (y: Nat): ((x: Nat) => x) = ((z: Nat) => y) := byComputing

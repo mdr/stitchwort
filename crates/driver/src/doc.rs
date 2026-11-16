@@ -1610,7 +1610,7 @@ fn render_equations(q: &Equations) -> String {
             "  [stuck]: the left side doesn't compute (an overlap hypothesis, a branch's \
              condition, or a `decreasing` or `opaque` definition), so `rewrite` uses the \
              equation; the others state what \
-             the goal has already computed, which `rfl` proves\n",
+             the goal has already computed, which `byComputing` proves\n",
         );
     }
     if !q.skipped.is_empty() {

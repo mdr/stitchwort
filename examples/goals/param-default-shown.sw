@@ -12,9 +12,9 @@ theorem rangeGoal ∀ (a b: Nat): range a b = [a, b, 1] := ?
 
 theorem scaledGoal ∀ (a: Nat): scaled a = a + a * 2 := ?
 
-theorem rangeShape ∀ (a b: Nat): range a b = [a, b, 2] := rfl
+theorem rangeShape ∀ (a b: Nat): range a b = [a, b, 2] := byComputing
 
-theorem scaledShape ∀ (a: Nat): scaled a = a := rfl
+theorem scaledShape ∀ (a: Nat): scaled a = a := byComputing
 
 -- A local definition's calls are shown the same way.
 def outer (k: Nat): Nat :=

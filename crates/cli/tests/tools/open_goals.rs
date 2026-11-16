@@ -27,7 +27,7 @@ fn project(name: &str, yaml: &str) -> PathBuf {
     std::fs::write(
         dir.join("src/a.sw"),
         "namespace Book\n\n\
-         theorem done (n: Nat): n + 0 = n := omega\n\n\
+         theorem done (n: Nat): n + 0 = n := arithmetic\n\n\
          theorem exercise (n: Nat): 0 + n = n := ?\n\n\
          def two: Nat := ?\n",
     )
@@ -252,8 +252,8 @@ fn users_of_an_open_goal_are_checked_and_stay_unfinished() {
         dir.join("src/u.sw"),
         "namespace Book\n\n\
          theorem uses (n: Nat): 0 + n = n := exercise n\n\n\
-         theorem twoIsTwo: two = two := rfl\n\n\
-         theorem twoIsThree: two = 3 := rfl\n",
+         theorem twoIsTwo: two = two := byComputing\n\n\
+         theorem twoIsThree: two = 3 := byComputing\n",
     )
     .unwrap();
     let out = stitchwort(&dir, &["check"]);
@@ -340,16 +340,19 @@ fn only_a_use_stuck_on_a_goal_waits_for_it() {
         let out = stitchwort(&dir, &["check"]);
         (out.status.code(), text(&out.stderr))
     };
-    let (code, stderr) = check(double, "theorem twoIsThree: Book.two = 3 := rfl");
+    let (code, stderr) = check(double, "theorem twoIsThree: Book.two = 3 := byComputing");
     assert_eq!(code, Some(0), "{stderr}");
-    let wrong = format!("{double}\ntheorem doubleWrong: double 2 = 5 := rfl\n");
+    let wrong = format!("{double}\ntheorem doubleWrong: double 2 = 5 := byComputing\n");
     let (code, stderr) = check(&wrong, "");
     assert_eq!(code, Some(1), "{stderr}");
     assert!(
         stderr.contains("`double 2` and `5` aren't equal"),
         "{stderr}"
     );
-    let (code, stderr) = check(double, "theorem doubleWrong: Book.double 2 = 5 := rfl");
+    let (code, stderr) = check(
+        double,
+        "theorem doubleWrong: Book.double 2 = 5 := byComputing",
+    );
     let _ = std::fs::remove_dir_all(&dir);
     assert_eq!(code, Some(1), "{stderr}");
     assert!(
@@ -367,7 +370,7 @@ fn goal_lists_every_open_goal_with_what_relies_on_it() {
         dir.join("src/u.sw"),
         "namespace Book\n\n\
          theorem uses (n: Nat): 0 + n = n := exercise n\n\n\
-         theorem twoIsThree: two = 3 := rfl\n",
+         theorem twoIsThree: two = 3 := byComputing\n",
     )
     .unwrap();
     let out = stitchwort(&dir, &["goal"]);
@@ -411,7 +414,7 @@ fn goal_summary_counts_each_namespace_and_lists_the_done_ones() {
     let dir = project("goal-summary", "check:\n  open-goals: warn\n");
     std::fs::write(
         dir.join("src/z.sw"),
-        "namespace Other\n\ntheorem quiet (n: Nat): n + 0 = n := omega\n",
+        "namespace Other\n\ntheorem quiet (n: Nat): n + 0 = n := arithmetic\n",
     )
     .unwrap();
     let out = stitchwort(&dir, &["goal", "--summary"]);
@@ -478,17 +481,17 @@ fn a_use_of_what_waits_for_a_goal_waits_for_it_too() {
         dir.join("src/h.sw"),
         "namespace Book\n\n\
          def half: Nat -> Nat\n  | Zero => 0\n  | Succ k => ?\n\n\
-         theorem halfOne: half 1 = 0 := rfl\n\n\
-         theorem usesHalfOne: halfOne = halfOne := rfl\n\n\
-         theorem usesUses: usesHalfOne = usesHalfOne := rfl\n\n\
-         theorem sigWaits: (rfl: half 1 = 0) = rfl := rfl\n",
+         theorem halfOne: half 1 = 0 := byComputing\n\n\
+         theorem usesHalfOne: halfOne = halfOne := byComputing\n\n\
+         theorem usesUses: usesHalfOne = usesHalfOne := byComputing\n\n\
+         theorem sigWaits: (byComputing: half 1 = 0) = byComputing := byComputing\n",
     )
     .unwrap();
     std::fs::write(
         dir.join("src/o.sw"),
         "namespace Other\n\n\
-         theorem otherUses: Book.usesHalfOne = Book.usesHalfOne := rfl\n\n\
-         theorem otherSig: Book.sigWaits = Book.sigWaits := rfl\n",
+         theorem otherUses: Book.usesHalfOne = Book.usesHalfOne := byComputing\n\n\
+         theorem otherSig: Book.sigWaits = Book.sigWaits := byComputing\n",
     )
     .unwrap();
     let out = stitchwort(&dir, &["check"]);
@@ -521,7 +524,7 @@ fn a_use_of_what_waits_for_a_goal_waits_for_it_too() {
     );
     std::fs::write(
         dir.join("src/b.sw"),
-        "namespace Book\n\ntheorem bad (h: halfOne = halfOne): 1 = 2 := rfl\n",
+        "namespace Book\n\ntheorem bad (h: halfOne = halfOne): 1 = 2 := byComputing\n",
     )
     .unwrap();
     let out = stitchwort(&dir, &["check"]);
@@ -542,8 +545,8 @@ fn a_use_stuck_on_goals_in_several_messages_waits_for_all_of_them() {
          def a: Nat -> Nat\n  | Zero => 0\n  | Succ k => ?\n\n\
          def b: Nat -> Nat\n  | Zero => 0\n  | Succ k => ?\n\n\
          def pick: Nat -> Bool\n\
-         \x20 | Zero => (rfl: a 1 = 5) = rfl\n\
-         \x20 | Succ k => (rfl: b 1 = 5) = rfl\n",
+         \x20 | Zero => (byComputing: a 1 = 5) = byComputing\n\
+         \x20 | Succ k => (byComputing: b 1 = 5) = byComputing\n",
     )
     .unwrap();
     let out = stitchwort(&dir, &["check"]);
@@ -572,7 +575,7 @@ fn what_the_compiler_made_is_not_counted_as_written() {
          def gcd2 (a b: Nat): Nat\n    decreasing b\n:=\n\
          \x20 let r := a % b\n\
          \x20 if r < b then (if b = 0 then half a else gcd2 b r) else a\n\n\
-         theorem viaUnfold (a b: Nat): gcd2 a b = gcd2 a b := rewrite gcd2.unfold a b in rfl\n\n\
+         theorem viaUnfold (a b: Nat): gcd2 a b = gcd2 a b := rewrite gcd2.unfold a b then byComputing\n\n\
          type Rose = | Node (xs: List Rose) (n: Std.Vec Nat (half 2))\n",
     )
     .unwrap();

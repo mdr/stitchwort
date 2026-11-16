@@ -36,8 +36,8 @@
 //!
 //! **How it's proved.** As a kernel term, never trusted: a case tree on the
 //! equation's variables that splits wherever the definition's tree does
-//! (walking that tree with the arm's left side), `rfl` at the arm's own
-//! leaves and `Void.exfalso` of the hypothesis at an earlier arm's. A
+//! (walking that tree with the arm's left side), `byComputing` at the arm's own
+//! leaves and `Void.impossible` of the hypothesis at an earlier arm's. A
 //! `decreasing` definition is walked through its `f.%step`, each leaf
 //! proved by `f.unfold`; an `opaque` one's equations are checked with
 //! `unfolding f`, as `f.unfold` is (§4).
@@ -1083,7 +1083,7 @@ struct LeafProof {
     q: Term,
 }
 
-/// How a row's leaf goes on, in an equation's proof: `rfl` (or
+/// How a row's leaf goes on, in an equation's proof: `byComputing` (or
 /// `f.unfold`) alone; for a branch, along a proof that the row's right side
 /// is the branch's, one for every leaf, or (SW-1071) one per leaf; with the
 /// statement's left side (both at the statement's depth).
@@ -1400,7 +1400,7 @@ impl BranchLib {
         )
     }
 
-    /// `Void.exfalso [goal] void`.
+    /// `Void.impossible [goal] void`.
     fn exfalso(&self, goal: Term, void: Term) -> Term {
         apps(
             Term::Def(self.exfalso),
@@ -2501,7 +2501,7 @@ impl Elaborator {
 
     /// `f`, with a step, size and frame budget of its own ([`ATTEMPT`]):
     /// running out of it skips the equation, with the reason, instead of
-    /// failing the definition. An equation whose `rfl` the kernel can only
+    /// failing the definition. An equation whose `byComputing` the kernel can only
     /// check by computing far (a body that calls a definition on a known
     /// number, `digits 40 (k + n) 0`, compared without sharing) would
     /// otherwise take the time and memory of that computation.
@@ -2815,11 +2815,11 @@ impl Elaborator {
                 && matches!(&cx.env[l], Value::Neutral(Head::Var(x, _), s) if *x == l && s.is_empty())
         };
         // A character pattern's proof field (`'k'` is `MkChar 107 p`) is
-        // `rfl` on the left side, the literal's own, so the equation doesn't
+        // `byComputing` on the left side, the literal's own, so the equation doesn't
         // take it as a variable. Only where every argument stays convertible
-        // with itself when `p` becomes `rfl` (the kernel skips the proof
+        // with itself when `p` becomes `byComputing` (the kernel skips the proof
         // field); a bare `p`, or one that a call computes on, stays a
-        // variable, as the equation would be narrower at `rfl`.
+        // variable, as the equation would be narrower at `byComputing`.
         let mut to_refl: Vec<Value> = (0..depth).map(Value::var).collect();
         let mut any_refl = false;
         for l in 1..depth {
@@ -4514,7 +4514,7 @@ impl Elaborator {
             true_,
             false_,
             not: r.def(Builtin::Not).ok_or_else(none)?,
-            exfalso: r.def(Builtin::VoidExfalso).ok_or_else(none)?,
+            exfalso: r.def(Builtin::VoidImpossible).ok_or_else(none)?,
             true_not_false: def("Bool.trueNotFalse")?,
             false_not_true: r.def(Builtin::FalseNotTrue).ok_or_else(none)?,
             bool_unique: r.def(Builtin::BoolUniqueEq).ok_or_else(none)?,
@@ -6401,7 +6401,7 @@ fn data_of(t: &Term) -> Option<DataId> {
 }
 
 /// Whether `ty` is `a = b` in `Bool` with `a` computing to `b`: a proof
-/// that is `rfl` wherever the kernel ignores proofs.
+/// that is `byComputing` wherever the kernel ignores proofs.
 fn is_computed_bool_eq(g: &Ev, depth: usize, ty: &Value) -> R<bool> {
     Ok(match force(g, ty.clone())? {
         Value::Eq(ty, a, b) => {
@@ -6413,7 +6413,7 @@ fn is_computed_bool_eq(g: &Ev, depth: usize, ty: &Value) -> R<bool> {
     })
 }
 
-/// A character literal `MkChar k rfl`'s character.
+/// A character literal `MkChar k byComputing`'s character.
 fn char_literal(g: &Ev, t: &Term) -> Option<char> {
     let char_data = g.env.registry().data(Builtin::Char)?;
     match t.strip_loc() {
@@ -6497,7 +6497,7 @@ impl Lib {
             or: r.data(Builtin::Or)?,
             not: r.def(Builtin::Not)?,
             mem: r.def(Builtin::ListMem)?,
-            exfalso: r.def(Builtin::VoidExfalso)?,
+            exfalso: r.def(Builtin::VoidImpossible)?,
         })
     }
 
@@ -7488,9 +7488,9 @@ impl<'a> Walk<'a> {
         })
     }
 
-    /// A proof of `x = y` here: `rfl`, when they're the same up to the
+    /// A proof of `x = y` here: `byComputing`, when they're the same up to the
     /// proofs in constructors' fields (a character `MkChar k p` against the
-    /// literal `MkChar k rfl`), which the kernel's comparison skips.
+    /// literal `MkChar k byComputing`), which the kernel's comparison skips.
     fn eq_proof(&self, x: &PV, y: &PV) -> R<Term> {
         let x = self.resolve(x);
         let y = self.resolve(y);

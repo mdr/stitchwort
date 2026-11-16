@@ -5,44 +5,44 @@
 import Std (List)
 
 -- Literals: `k` is `OfNat k`, `-k` is `NegSucc (k - 1)`, and `-0` is `OfNat 0`.
-theorem lit: (5: Int) = OfNat 5 := rfl
+theorem lit: (5: Int) = OfNat 5 := byComputing
 
-theorem negLit: (-5: Int) = NegSucc 4 := rfl
+theorem negLit: (-5: Int) = NegSucc 4 := byComputing
 
-theorem negZero: (-0: Int) = OfNat 0 := rfl
+theorem negZero: (-0: Int) = OfNat 0 := byComputing
 
 -- Expected types reach literals inside constructors and lists.
-theorem inSome: (Some 5: Option Int) = Some (OfNat 5) := rfl
+theorem inSome: (Some 5: Option Int) = Some (OfNat 5) := byComputing
 
-theorem inList: ([1, 2, -3]: List Int) = [OfNat 1, OfNat 2, NegSucc 2] := rfl
+theorem inList: ([1, 2, -3]: List Int) = [OfNat 1, OfNat 2, NegSucc 2] := byComputing
 
-theorem inPair: (MkPair 1 (-2): Pair Nat Int) = MkPair 1 (NegSucc 1) := rfl
+theorem inPair: (MkPair 1 (-2): Pair Nat Int) = MkPair 1 (NegSucc 1) := byComputing
 
 -- A definition that unfolds to `Int` takes literals too.
 def Price: Type := Int
 
-theorem price: (7: Price) = OfNat 7 := rfl
+theorem price: (7: Price) = OfNat 7 := byComputing
 
 -- The minus sign makes a group `Int`, wherever it is.
-theorem minusDecides: 3 - 5 = -2 := rfl
+theorem minusDecides: 3 - 5 = -2 := byComputing
 
-theorem negGroup: -(3 - 5) = 2 := rfl
+theorem negGroup: -(3 - 5) = 2 := byComputing
 
 -- Prefix minus binds tighter than `%`: the dial.
-theorem dial: -18 % 100 = 82 := rfl
+theorem dial: -18 % 100 = 82 := byComputing
 
-theorem dialBracketed: -(18 % 100) = -18 := rfl
+theorem dialBracketed: -(18 % 100) = -18 := byComputing
 
 -- With nothing to say otherwise, a group is `Nat`, as before.
 def natDiff: Nat := 3 - 5
 
-theorem natDiffZero: natDiff = 0 := rfl
+theorem natDiffZero: natDiff = 0 := byComputing
 
 def intDiff: Int :=
   let n: Int := 3 - 5
   n
 
-theorem intDiffNeg: intDiff = -2 := rfl
+theorem intDiffNeg: intDiff = -2 := byComputing
 
 def doubled: List Nat := List.map [1, 2] (x => x + 1)
 

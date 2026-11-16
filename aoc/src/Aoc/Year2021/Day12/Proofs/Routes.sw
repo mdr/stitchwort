@@ -26,12 +26,12 @@ theorem routesFollow ∀ (next: Cave → List Cave) (unvisited: List Cave) (spar
       List.anyElim _ _ (next cave) (List.memConcatMapElim _ rest (next cave) found) (other member inOther =>
         Exists.elim (List.memMapElim (Cons other) rest _ inOther) (tail both =>
           let (Both inTail same) := both
-          rewrite <- same in
+          rewrite <- same then
             match e: step unvisited spare cave other with
               | Finish =>
                 match inTail with
-                  | Inl empty => rewrite <- empty in Both member rfl
-                  | Inr nothing => Void.exfalso nothing
+                  | Inl empty => rewrite <- empty then Both member byComputing
+                  | Inr nothing => nothing.impossible
               | Continue left stillSpare => Both member (routesFollow next left stillSpare other more tail inTail)))
 
 --| ...and every route that follows them is listed, if the search goes deep
@@ -42,18 +42,18 @@ theorem followRoutes ∀ (next: Cave → List Cave) (unvisited: List Cave) (spar
     (follows: Follows next unvisited spare cave rest):
     rest ∈ routesFrom next unvisited spare cave steps :=
   match steps, rest, follows with
-    | Succ more, [], follows => Void.exfalso follows
+    | Succ more, [], follows => follows.impossible
     | Succ more, [other, ..tail], Both member after =>
       List.memConcatMapIntro _ other
         [other, ..tail]
         (next cave)
         member
         (match e: step unvisited spare cave other with
-          | Finish => rewrite after in Inl rfl
+          | Finish => rewrite after then Inl byComputing
           | Continue left stillSpare =>
             List.memMap _ tail
               (followRoutes next left stillSpare other more tail
-                (omega [stepDecreases unvisited spare cave other left stillSpare e])
+                (arithmetic [stepDecreases unvisited spare cave other left stillSpare e])
                 after)
               (Cons other))
 
@@ -61,7 +61,7 @@ theorem followRoutes ∀ (next: Cave → List Cave) (unvisited: List Cave) (spar
 theorem viaFirst ∀ (other: Cave) (after: List (List Cave)) (route: List Cave)
     (found: route ∈ routesVia other after):
     route.headOr Cave.start = other :=
-  Exists.elim (List.memMapElim (Cons other) route after found) (tail both => rewrite <- And.right both in rfl)
+  Exists.elim (List.memMapElim (Cons other) route after found) (tail both => rewrite <- And.right both then byComputing)
 
 --| ...and are as many as the routes they continue.
 theorem viaDistinct ∀ (other: Cave) (after: List (List Cave))

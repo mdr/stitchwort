@@ -12,7 +12,8 @@ theorem fromHalfOpen ∀ (n x: Nat) (h: x ∈ 3 ..< n + 2): 3 ≤ x := And.left 
 theorem intoRange ∀ (n x: Nat) (lo: 2 ≤ x) (hi: x < n + 1): x ∈ List.range 2 (n + 1) :=
   (List.memRange _ _ _).backward (Both lo hi)
 
-theorem intoClosed ∀ (n x: Nat) (lo: 2 ≤ x) (hi: x ≤ n): x ∈ 2 ..= n := (List.memRange _ _ _).backward (Both lo (omega))
+theorem intoClosed ∀ (n x: Nat) (lo: 2 ≤ x) (hi: x ≤ n): x ∈ 2 ..= n :=
+  (List.memRange _ _ _).backward (Both lo (arithmetic))
 
 theorem intoHalfOpen ∀ (n x: Nat) (lo: 3 ≤ x) (hi: x < n + 2): x ∈ 3 ..< n + 2 :=
   (List.memRange _ _ _).backward (Both lo hi)

@@ -2056,6 +2056,9 @@ impl Elaborator {
         }
         let mut d = Diagnostic::error("E-UNKNOWN-NAME", format!("unknown name `{}`", name.text))
             .with_label(name.span, "not in scope");
+        if let Some(note) = other_systems_word(&name.text) {
+            return d.with_note(note);
+        }
         // A constructor followed by a member of its type (`BirthYear.valid`
         // for `Key.valid`): neither reading finds a name, so give the two
         // forms that do.
@@ -3353,4 +3356,65 @@ pub fn edit_distance(a: &str, b: &str) -> usize {
         }
     }
     row[b.len()]
+}
+
+/// Words from other proof systems, and Stitchwort's own earlier spellings,
+/// with what Stitchwort writes instead (docs/proposals/proof-vocabulary.md
+/// §6): agents and people arriving from Lean, Rocq, Agda, Idris or Isabelle
+/// write these from habit. Only consulted when the name is unknown, so a
+/// user's own `ring` or `sym` is never second-guessed.
+const OTHER_SYSTEMS: &[(&[&str], &str)] = &[
+    (
+        &["rfl", "refl", "Refl", "reflexivity", "Eq.refl"],
+        "a proof that both sides compute to the same value is written `byComputing`",
+    ),
+    (
+        &["omega", "lia", "linarith", "Nat.omega"],
+        "linear arithmetic over `Nat` and `Int` is proved by `arithmetic`, or `arithmetic [h1, h2]` with extra facts",
+    ),
+    (
+        &["ring", "ring_nf", "nlinarith"],
+        "an equation that holds by multiplying out both sides is proved by `algebra`",
+    ),
+    (
+        &["exfalso", "False.elim", "Void.exfalso", "contradiction"],
+        "anything follows from a proof `h` of `Void`: write `h.impossible` (or `Void.impossible (…)`)",
+    ),
+    (
+        &["absurd"],
+        "from `h` and `nh: ¬p`, write `(nh h).impossible`",
+    ),
+    (
+        &["Eq.symm", "Eq.sym", "symm", "sym", "symmetry", "eq_sym"],
+        "an equation's two sides swap with `h.flipped` (or `Eq.flipped h`)",
+    ),
+    (
+        &["trans", "Eq.chain", "eq_trans"],
+        "two equations chain with `Eq.trans ab bc`",
+    ),
+    (
+        &["congrArg", "congr_arg", "congr", "cong", "f_equal"],
+        "`f x = f y` from `h: x = y` is `Eq.cong f h`",
+    ),
+    (
+        &["Or.inl", "inl", "inj₁", "Left"],
+        "the left side of an `∨` is proved with `Inl`",
+    ),
+    (
+        &["Or.inr", "inr", "inj₂", "Right"],
+        "the right side of an `∨` is proved with `Inr`",
+    ),
+    (
+        &["decide"],
+        "a decidable proposition is proved by evaluating it with `byDecision`",
+    ),
+    (&["trivial", "True.intro"], "`Unit`'s proof is `Trivial`"),
+];
+
+/// The note for `word` if it's another system's word in [`OTHER_SYSTEMS`].
+fn other_systems_word(word: &str) -> Option<String> {
+    OTHER_SYSTEMS
+        .iter()
+        .find(|(words, _)| words.contains(&word))
+        .map(|(_, ours)| format!("`{word}` isn't a Stitchwort name: {ours}"))
 }

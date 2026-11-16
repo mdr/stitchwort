@@ -23,12 +23,12 @@ theorem Parse.startsSame ∀ [whole rest read other: List t]
     (first: whole = read ++ rest)
     (second: whole = other ++ rest):
     read = other :=
-  let same: read ++ rest = other ++ rest := Eq.trans (Eq.sym first) second
+  let same: read ++ rest = other ++ rest := Eq.trans first.flipped second
   let lengths: read.length = other.length :=
-    omega [List.lengthAppend read rest, List.lengthAppend other rest, Eq.cong List.length same]
+    arithmetic [List.lengthAppend read rest, List.lengthAppend other rest, Eq.cong List.length same]
   calc read
-    _ = List.take (read ++ rest) read.length := Eq.sym (List.takeAppend read rest)
-    _ = List.take (other ++ rest) other.length := rewrite same, lengths in rfl
+    _ = List.take (read ++ rest) read.length := (List.takeAppend read rest).flipped
+    _ = List.take (other ++ rest) other.length := rewrite same, lengths then byComputing
     _ = other := List.takeAppend other rest
 
 --| Two specs of one parser hold of the same read and value: a success
@@ -43,7 +43,7 @@ theorem Parse.readsBoth ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [sp
         match second start fine total state value after here honest h with
           | Witness otherRead (Both otherStarts (Both _ otherHolds)) =>
             let same: otherRead = read := Parse.startsSame otherStarts starts
-            Witness read (Both starts (Both honestAfter (Both holds (rewrite <- same in otherHolds))))
+            Witness read (Both starts (Both honestAfter (Both holds (rewrite <- same then otherHolds))))
 
 --| Two properties of one parser's values hold together.
 theorem Parse.givesBoth ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [holds other: a → Prop]
@@ -72,7 +72,7 @@ theorem Parse.readsWithMark ∀ [inv: Parse.Invariant t] (k: Parse.Mark t → {P
     Parse.ReadsIn inv (() => k (Parse.mark())) spec :=
   start fine total state value after here honest h =>
     let ran: Parse.runFrom state (() => (k state.at, Parse.mark())) = Ok (value, after) := h
-    each start fine start fine total state value after here honest (rewrite <- here in ran)
+    each start fine start fine total state value after here honest (rewrite <- here then ran)
 
 --| A value `holds` of: the last step of a [`Parse.givesThen`] chain.
 theorem Parse.givesDone ∀ [inv: Parse.Invariant t] [x: a] [holds: a → Prop] (proved: holds x):
@@ -107,7 +107,7 @@ theorem Parse.givesOptional ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a]
   Parse.readsWeaken (Parse.readsOptional gives) (read value maybe =>
     match value, maybe with
       | Some found, proved => proved
-      | None, none => rfl)
+      | None, none => byComputing)
 
 --| Values each read as `spec` says, all `holds` when every value `spec`
 --| allows does.
@@ -141,15 +141,15 @@ theorem Parse.givesSepBy ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [s
     Parse.Gives inv (() => Parse.sepBy p separator) (List.All holds) :=
   Parse.readsWeaken (Parse.readsSepBy p separator _ _ gives givesSeparator) (read values found =>
     match found with
-      | Inl (Both none same) => rewrite same in ()
+      | Inl (Both none same) => rewrite same then ()
       | Inr
           (Witness values1
             (Both
               (Witness firstRead (Witness restRead (Witness first (Both split (Both firstHolds (Both isHead others))))))
               same)) =>
-        rewrite same in
+        rewrite same then
           Both
-            (rewrite <- isHead in firstHolds)
+            (rewrite <- isHead then firstHolds)
             (Parse.eachAll others (taken value both =>
               match both with
                 | Witness separatorRead (Witness valueRead (Witness u (Both split2 (Both separated proved)))) =>
@@ -194,11 +194,11 @@ theorem Parse.givesRecursiveWith ∀ [inv: Parse.Invariant t]
 --| A note gives nothing to speak of.
 theorem Parse.givesNote ∀ [inv: Parse.Invariant t] (problem: Parse.Problem):
     Parse.Gives inv (() => Parse.note problem) (noted => True) :=
-  Parse.readsWeaken (Parse.readsNote problem) (read noted none => rfl)
+  Parse.readsWeaken (Parse.readsNote problem) (read noted none => byComputing)
 
 --| A mark gives nothing to speak of.
 theorem Parse.givesMark [inv: Parse.Invariant t]: Parse.Gives inv (() => Parse.mark()) ((at: Parse.Mark t) => True) :=
-  Parse.readsWeaken Parse.readsMark (read at none => rfl)
+  Parse.readsWeaken Parse.readsMark (read at none => byComputing)
 
 --| `expected what` never succeeds, so it gives anything.
 theorem Parse.givesExpected ∀ [inv: Parse.Invariant t] (what: Text) [holds: a → Prop]:

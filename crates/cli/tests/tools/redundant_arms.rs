@@ -53,8 +53,9 @@ fn record_updates_and_derived_instances_are_quiet() {
 
 #[test]
 fn a_redundant_arm_in_a_proof_warns() {
-    let found =
-        redundant("theorem t (n: Nat): n = n :=\n  match n with\n    | _ => rfl\n    | 0 => rfl\n");
+    let found = redundant(
+        "theorem t (n: Nat): n = n :=\n  match n with\n    | _ => byComputing\n    | 0 => byComputing\n",
+    );
     assert_eq!(found.len(), 1, "{found:#?}");
 }
 
@@ -80,10 +81,10 @@ fn a_match_with_every_arm_ruled_out_keeps_one() {
          | z, [] => z\n  | z, [x, ..rest] => foldAll q (z ∧ q x) rest\n\n\
          theorem foldAllSpec (q: Nat -> Bool) (z: Bool) (xs: List Nat):\n    \
          foldAll q z xs = (z ∧ foldAll q True xs) :=\n  \
-         match z, xs with\n    | True, [] => rfl\n    | False, [] => rfl\n    \
-         | z, [x, ..rest] =>\n      rewrite foldAllSpec q (z ∧ q x) rest in\n      \
-         match c: z with\n        | False => rfl\n        | True =>\n          \
-         match d: q x with\n            | True => rfl\n            | False => rfl\n",
+         match z, xs with\n    | True, [] => byComputing\n    | False, [] => byComputing\n    \
+         | z, [x, ..rest] =>\n      rewrite foldAllSpec q (z ∧ q x) rest then\n      \
+         match c: z with\n        | False => byComputing\n        | True =>\n          \
+         match d: q x with\n            | True => byComputing\n            | False => byComputing\n",
     );
     result.unwrap();
     let unreachable: Vec<_> = (session.warnings.iter())

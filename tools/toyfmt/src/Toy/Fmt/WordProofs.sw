@@ -22,7 +22,7 @@ def Writes (doc: Doc) (pieces: List Text): Prop := Uniform doc ∧ doc.words = w
 --| The documents, one after another, write `pieces`.
 def WritesAll (docs: List Doc) (pieces: List Text): Prop := AllUniform docs ∧ wordsAll docs = wordsOf pieces
 
-theorem writesNil: WritesAll [] [] := (rfl, rfl)
+theorem writesNil: WritesAll [] [] := (byComputing, byComputing)
 
 theorem writesCons ∀ (doc: Doc) (docs: List Doc) (pieces later: List Text)
     (first: Writes doc pieces)
@@ -31,27 +31,28 @@ theorem writesCons ∀ (doc: Doc) (docs: List Doc) (pieces later: List Text)
   match first, rest with
     | (uniform, words), (restUniform, restWords) => (
       ((uniform, restUniform)),
-      (rewrite words, restWords in Eq.sym (List.filterAppend pieces later (piece => not (isLayout piece))))
+      (rewrite words, restWords then Eq.flipped (List.filterAppend pieces later (piece => not (isLayout piece))))
     )
 
 theorem writesLast ∀ (doc: Doc) (pieces: List Text) (only: Writes doc pieces): WritesAll [doc] pieces :=
-  rewrite <- List.appendNil pieces in writesCons doc [] pieces [] only writesNil
+  rewrite <- List.appendNil pieces then writesCons doc [] pieces [] only writesNil
 
-theorem emptyNoWords ∀ (doc: Doc) (empty: doc.isEmpty = True): doc.words = [] := match doc, empty with | Empty, _ => rfl
+theorem emptyNoWords ∀ (doc: Doc) (empty: doc.isEmpty = True): doc.words = [] := match doc, empty with
+  | Empty, _ => byComputing
 
 theorem filterWords ∀ (docs: List Doc): wordsAll (docs.filter (doc => not doc.isEmpty)) = wordsAll docs :=
   match docs with
-    | [] => rfl
+    | [] => byComputing
     | [doc, ..rest] =>
       match empty: doc.isEmpty with
-        | True => rewrite emptyNoWords doc empty in filterWords rest
+        | True => rewrite emptyNoWords doc empty then filterWords rest
         | False => Eq.cong (later => doc.words ++ later) (filterWords rest)
 
 theorem filterUniform ∀ (docs: List Doc)
     (uniform: AllUniform docs):
     AllUniform (docs.filter (doc => not doc.isEmpty)) :=
   match docs, uniform with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [doc, ..rest], Both first others =>
       match empty: doc.isEmpty with
         | True => filterUniform rest others
@@ -65,18 +66,18 @@ theorem writesConcat ∀ (docs: List Doc) (pieces: List Text)
       let keptUniform := filterUniform docs uniform
       let keptWords := filterWords docs
       match kept: docs.filter (doc => not doc.isEmpty) with
-        | [] => (rfl, (Eq.trans keptWords words))
+        | [] => (byComputing, (Eq.trans keptWords words))
         | [only] =>
           match keptUniform with
-            | Both first _ => (first, (Eq.trans (Eq.sym (List.appendNil only.words)) (Eq.trans keptWords words)))
+            | Both first _ => (first, (Eq.trans (List.appendNil only.words).flipped (Eq.trans keptWords words)))
         | [first, second, ..rest] => (keptUniform, (Eq.trans keptWords words))
 
-theorem writesEmpty: Writes Empty [] := (rfl, rfl)
+theorem writesEmpty: Writes Empty [] := (byComputing, byComputing)
 
-theorem writesText ∀ (text: Text): Writes (Doc.text text) [text] := (rfl, rfl)
+theorem writesText ∀ (text: Text): Writes (Doc.text text) [text] := (byComputing, byComputing)
 
 --| A space between tokens is layout.
-theorem writesSpace: Writes (Doc.text " ") [] := Both rfl rfl
+theorem writesSpace: Writes (Doc.text " ") [] := Both byComputing byComputing
 
 theorem writesNest ∀ (indent: Nat) (inner: Doc) (pieces: List Text)
     (writes: Writes inner pieces):
@@ -107,15 +108,17 @@ theorem writesBelow ∀ (doc: Doc) (pieces: List Text) (writes: Writes doc piece
   writesConcat
     [HardLine, doc]
     pieces
-    (writesCons HardLine [doc] [] pieces (Both rfl rfl) (writesLast doc pieces writes))
+    (writesCons HardLine [doc] [] pieces (Both byComputing byComputing) (writesLast doc pieces writes))
 
 theorem writesChoiceTwo ∀ (first second: Doc) (pieces: List Text)
     (one: Writes first pieces)
     (two: Writes second pieces):
     Writes (Choice [first, second]) pieces :=
   match one, two with
-    | Both uniform words, Both secondUniform secondWords =>
-      (((((uniform, secondUniform, rfl)), rfl, (Eq.trans secondWords (Eq.sym words)), rfl)), words)
+    | Both uniform words, Both secondUniform secondWords => (
+      ((((uniform, secondUniform, byComputing)), byComputing, (Eq.trans secondWords words.flipped), byComputing)),
+      words
+    )
 
 theorem writesChoiceThree ∀ (first second third: Doc) (pieces: List Text)
     (one: Writes first pieces)
@@ -125,11 +128,11 @@ theorem writesChoiceThree ∀ (first second third: Doc) (pieces: List Text)
   match one, two, three with
     | Both uniform words, Both secondUniform secondWords, Both thirdUniform thirdWords => (
       ((
-        ((uniform, secondUniform, thirdUniform, rfl)),
-        rfl,
-        (Eq.trans secondWords (Eq.sym words)),
-        (Eq.trans thirdWords (Eq.sym words)),
-        rfl
+        ((uniform, secondUniform, thirdUniform, byComputing)),
+        byComputing,
+        (Eq.trans secondWords words.flipped),
+        (Eq.trans thirdWords words.flipped),
+        byComputing
       )),
       words
     )
@@ -150,8 +153,8 @@ def tokenPieces (comments: Comments) (text: Text): List Text :=
   commentTexts comments.above ++ [text, ..afterTexts comments.after]
 
 theorem writesTrailing ∀ (after: Option Comment): Writes (trailingComment after) (afterTexts after) := match after with
-  | None => (rfl, rfl)
-  | Some comment => (rfl, rfl)
+  | None => (byComputing, byComputing)
+  | Some comment => (byComputing, byComputing)
 
 theorem writesCommentLines ∀ (comments: List Comment):
     WritesAll (comments.map (comment => Doc.concat [Doc.text comment.text, CommentEnd])) (commentTexts comments) :=
@@ -164,7 +167,11 @@ theorem writesCommentLines ∀ (comments: List Comment):
         (writesConcat
           [Doc.text comment.text, CommentEnd]
           [comment.text]
-          (writesCons _ _ [comment.text] [] (writesText comment.text) (writesLast CommentEnd [] ((rfl, rfl)))))
+          (writesCons _ _
+            [comment.text]
+            []
+            (writesText comment.text)
+            (writesLast CommentEnd [] ((byComputing, byComputing)))))
         (writesCommentLines rest)
 
 theorem writesCommentsAbove ∀ (comments: List Comment): Writes (commentsAbove comments) (commentTexts comments) :=
@@ -172,7 +179,10 @@ theorem writesCommentsAbove ∀ (comments: List Comment): Writes (commentsAbove 
     | [] => writesEmpty
     | [comment, ..rest] =>
       writesConcat _ _
-        (writesCons LineStart _ [] (commentTexts [comment, ..rest]) ((rfl, rfl)) (writesCommentLines [comment, ..rest]))
+        (writesCons LineStart _ []
+          (commentTexts [comment, ..rest])
+          ((byComputing, byComputing))
+          (writesCommentLines [comment, ..rest]))
 
 --| A token is written with its comments around it.
 theorem writesToken ∀ (comments: Comments) (text: Text): Writes (token comments text) (tokenPieces comments text) :=
@@ -197,7 +207,10 @@ theorem writesCloserLines ∀ (comments: List Comment):
         [comment.text]
         (commentTexts [next, ..rest])
         (writesText comment.text)
-        (writesCons HardLine _ [] (commentTexts [next, ..rest]) ((rfl, rfl)) (writesCloserLines [next, ..rest]))
+        (writesCons HardLine _ []
+          (commentTexts [next, ..rest])
+          ((byComputing, byComputing))
+          (writesCloserLines [next, ..rest]))
 
 --| A closing bracket is written as any token: its comments, itself, its
 --| trailing comment.
@@ -219,11 +232,11 @@ theorem writesCloser ∀ (comments: Comments) (text: Text): Writes (closer comme
               [lines]
               []
               (commentTexts [comment, ..rest])
-              ((rfl, rfl))
+              ((byComputing, byComputing))
               (writesLast lines _ (writesConcat _ _ (writesCloserLines [comment, ..rest])))))
           (writesCons HardLine _ []
             [text, ..afterTexts after]
-            ((rfl, rfl))
+            ((byComputing, byComputing))
             (writesCons _ _ [text] (afterTexts after) (writesText text) (writesLast _ _ (writesTrailing after)))))
 
 def itemPieces: List Item → List Text
@@ -308,24 +321,24 @@ theorem writesCloseAfter ∀ (expr: Expr) (doc: Doc) (pieces: List Text)
       writesConcat
         [HardLine, doc]
         pieces
-        (writesCons HardLine [doc] [] pieces ((rfl, rfl)) (writesLast doc pieces writes))
+        (writesCons HardLine [doc] [] pieces ((byComputing, byComputing)) (writesLast doc pieces writes))
     | False => writes
 
 theorem joinedWithWords ∀ (separator: Doc) (docs: List Doc)
     (none: separator.words = []):
     wordsAll (Doc.joinedWith separator docs) = wordsAll docs :=
   match docs with
-    | [] => rfl
-    | [only] => rfl
+    | [] => byComputing
+    | [only] => byComputing
     | [doc, next, ..rest] =>
-      rewrite none in Eq.cong (later => doc.words ++ later) (joinedWithWords separator [next, ..rest] none)
+      rewrite none then Eq.cong (later => doc.words ++ later) (joinedWithWords separator [next, ..rest] none)
 
 theorem joinedWithUniform ∀ (separator: Doc) (docs: List Doc)
     (uniform: Uniform separator)
     (each: AllUniform docs):
     AllUniform (Doc.joinedWith separator docs) :=
   match docs, each with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [only], given => given
     | [doc, next, ..rest], Both first others =>
       (first, uniform, (joinedWithUniform separator [next, ..rest] uniform others))
@@ -351,7 +364,7 @@ theorem writesLink ∀ (operator: Operator) (sign: Comments) (operand: Doc) (pie
   writesConcat _ _
     (writesCons Line _ []
       (tokenPieces sign operator.spelling ++ pieces)
-      ((rfl, rfl))
+      ((byComputing, byComputing))
       (writesCons _ _
         (tokenPieces sign operator.spelling)
         pieces
@@ -362,13 +375,13 @@ theorem concatWords ∀ (docs: List Doc): (Doc.concat docs).words = wordsAll doc
   let keptWords := filterWords docs
   match kept: docs.filter (doc => not doc.isEmpty) with
     | [] => keptWords
-    | [only] => Eq.trans (Eq.sym (List.appendNil only.words)) keptWords
+    | [only] => Eq.trans (List.appendNil only.words).flipped keptWords
     | [first, second, ..rest] => keptWords
 
 theorem concatUniform ∀ (docs: List Doc) (uniform: AllUniform docs): Uniform (Doc.concat docs) :=
   let keptUniform := filterUniform docs uniform
   match kept: docs.filter (doc => not doc.isEmpty) with
-    | [] => rfl
+    | [] => byComputing
     | [only] =>
       (match keptUniform with
         | (first, _) => first)
@@ -381,14 +394,14 @@ theorem writesChain ∀ (first: Doc) (links: List Doc) (pieces: List Text)
   match parts with
     | (((uniform, linksUniform)), words) =>
       let inner: first.words ++ ((Doc.concat links).words ++ []) = wordsOf pieces :=
-        rewrite List.appendNil (Doc.concat links).words, concatWords links in words
+        rewrite List.appendNil (Doc.concat links).words, concatWords links then words
       (
-        (concatUniform [first, Nest 2 (Doc.concat links)] ((uniform, (concatUniform links linksUniform), rfl))),
+        (concatUniform [first, Nest 2 (Doc.concat links)] ((uniform, (concatUniform links linksUniform), byComputing))),
         (Eq.trans (concatWords [first, Nest 2 (Doc.concat links)]) inner)
       )
 
 theorem lastOfCons ∀ (first: a) (rest: List a): ∃ (last: a) => [first, ..rest].last = Some last := match rest with
-  | [] => (first, rfl)
+  | [] => (first, byComputing)
   | [next, ..more] => lastOfCons next more
 
 theorem writesLineStart ∀ (index: Nat) (blankBefore: Bool): Writes (lineStart index blankBefore) [] :=
@@ -396,8 +409,8 @@ theorem writesLineStart ∀ (index: Nat) (blankBefore: Bool): Writes (lineStart 
     | True => writesEmpty
     | False =>
       match blankBefore with
-        | True => (((rfl, rfl, rfl)), rfl)
-        | False => (rfl, rfl)
+        | True => (((byComputing, byComputing, byComputing)), byComputing)
+        | False => (byComputing, byComputing)
 
 theorem ifWrites ∀ (ifComments: Comments) (condition: Expr) (thenComments: Comments) (whenTrue: Body)
     (elseComments: Comments) (whenFalse: Body)
@@ -432,7 +445,7 @@ theorem ifWrites ∀ (ifComments: Comments) (condition: Expr) (thenComments: Com
                 (writesToken thenComments "then")
                 (writesCons _ _ whenTrue.pieces afterElse trueWrites
                   (writesCons Line _ [] afterElse
-                    ((rfl, rfl))
+                    ((byComputing, byComputing))
                     (writesCons _ _
                       (tokenPieces elseComments "else")
                       whenFalse.pieces
@@ -450,7 +463,7 @@ theorem chainWrites ∀ (level: Nat) (expr: Expr)
         | True =>
           let linkPieces := tokenPieces sign operator.spelling ++ right.pieces
           rewrite List.appendAssoc (chainParts level left) [link operator sign right.layout] more,
-              List.appendAssoc left.pieces linkPieces morePieces in
+              List.appendAssoc left.pieces linkPieces morePieces then
             chainWrites level left
               (exprWrites left)
               ([link operator sign right.layout] ++ more)
@@ -490,8 +503,8 @@ theorem exprWrites ∀ (expr: Expr): Writes expr.layout expr.pieces := match exp
       operand.pieces
       (writesToken minus "-")
       (match operand.startsWithMinus with
-        | True => (rfl, rfl)
-        | False => (rfl, rfl))
+        | True => (byComputing, byComputing)
+        | False => (byComputing, byComputing))
       (exprWrites operand)
   | Binary operator sign left right =>
     let parts :=
@@ -503,7 +516,7 @@ theorem exprWrites ∀ (expr: Expr): Writes expr.layout expr.pieces := match exp
     match found: chainParts operator.level left ++ [link operator sign right.layout] with
       | [first, ..links] => writesChain first links _ parts
       | [] => (
-        rfl,
+        byComputing,
         (match parts with
           | (_, words) => words)
       )
@@ -530,7 +543,7 @@ theorem listWrites ∀ (open: Comments) (items: List Item) (close: Comments):
     | [first, ..rest] =>
       match lastOfCons first rest with
         | (last, found) =>
-          rewrite found in
+          rewrite found then
             writesGroup _ _
               (writesThree _ _ _ _ _ _
                 (writesToken open "[")
@@ -559,11 +572,12 @@ theorem argumentsWrite ∀ (open: Comments) (arguments: List Item) (close: Comme
                   (itemPieces [first, ..rest])
                   (writesCons SoftLine _ []
                     (itemPieces [first, ..rest])
-                    ((rfl, rfl))
-                    (writesLast _ _ (writesJoined _ Line _ ((rfl, rfl)) (itemDocsWrite [first, ..rest]))))))
+                    ((byComputing, byComputing))
+                    (writesLast _ _
+                      (writesJoined _ Line _ ((byComputing, byComputing)) (itemDocsWrite [first, ..rest]))))))
               (writesCons SoftLine _ []
                 (tokenPieces close ")")
-                ((rfl, rfl))
+                ((byComputing, byComputing))
                 (writesLast _ _ (writesCloser close ")"))))))
 
 theorem linesWrite ∀ (index: Nat) (statements: List (Spaced Statement)):
@@ -759,9 +773,10 @@ theorem headerWrites ∀ (fnComments: Comments) (name: Text) (nameComments open:
                   (parameterPieces [first, ..others])
                   (writesCons SoftLine _ []
                     (parameterPieces [first, ..others])
-                    ((rfl, rfl))
-                    (writesLast _ _ (writesJoined _ Line _ ((rfl, rfl)) (parameterDocsWrite [first, ..others]))))))
-              (writesCons SoftLine _ [] closingPieces ((rfl, rfl)) (writesLast _ _ closing)))))
+                    ((byComputing, byComputing))
+                    (writesLast _ _
+                      (writesJoined _ Line _ ((byComputing, byComputing)) (parameterDocsWrite [first, ..others]))))))
+              (writesCons SoftLine _ [] closingPieces ((byComputing, byComputing)) (writesLast _ _ closing)))))
 
 --| A declaration's document writes its tokens and comments in order.
 theorem declarationWrites ∀ (declaration: Declaration): Writes declaration.layout declaration.pieces :=
@@ -788,9 +803,9 @@ theorem declarationLinesWrite ∀ (index: Nat) (declarations: List (Spaced Decla
 theorem fileWrites ∀ (file: SourceFile): Writes file.layout file.pieces := match file with
   | { declarations = [] } => writesEmpty
   | { declarations = [first, ..rest] } =>
-    rewrite <- List.appendNil (declarationPieces [first, ..rest]) in
+    rewrite <- List.appendNil (declarationPieces [first, ..rest]) then
       writesTwo _ HardLine
         (declarationPieces [first, ..rest])
         []
         (writesConcat _ _ (declarationLinesWrite 0 [first, ..rest]))
-        ((rfl, rfl))
+        ((byComputing, byComputing))

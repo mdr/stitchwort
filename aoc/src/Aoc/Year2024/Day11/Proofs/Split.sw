@@ -16,15 +16,16 @@ theorem recombine ∀ (stone half: Nat):
       + Nat.fromDigits (stone.digits.toList.drop half)
       = stone :=
   rewrite <- Nat.fromDigitsAppend ((Nat.digits stone).toList.take half) ((Nat.digits stone).toList.drop half),
-      List.appendTakeDrop (Nat.digits stone).toList half in
+      List.appendTakeDrop (Nat.digits stone).toList half then
     Nat.fromDigitsDigits stone
 
 --| With an even number of digits, the right half has half of them.
 theorem rightHalfLength ∀ (stone: Nat)
     (even: stone.digitCount % 2 = 0):
     (stone.digits.toList.drop (stone.digitCount / 2)).length = stone.digitCount / 2 :=
-  let split := List.lengthDrop (Nat.digits stone).toList (stone.digitCount / 2) (omega [Nat.digitCountLength stone])
-  omega [split, even, Nat.digitCountLength stone]
+  let split :=
+    List.lengthDrop (Nat.digits stone).toList (stone.digitCount / 2) (arithmetic [Nat.digitCountLength stone])
+  arithmetic [split, even, Nat.digitCountLength stone]
 
 --| The right half, as a number, is below 10 to the half.
 theorem rightHalfSmall ∀ (stone: Nat)
@@ -47,7 +48,7 @@ theorem recombineHalves ∀ (stone: Nat)
         + Nat.fromDigits (stone.digits.toList.drop (stone.digitCount / 2)) :=
   let half := stone.digitCount / 2
   Eq.trans
-    (Eq.sym (recombine stone half))
+    (recombine stone half).flipped
     (Eq.cong
       (length =>
         Nat.fromDigits ((Nat.digits stone).toList.take half) * Nat.pow 10 length
@@ -80,13 +81,13 @@ theorem splitRight ∀ (stone: Nat)
 
 --| The program changes a stone as the puzzle says.
 theorem changeAgrees ∀ (stone: Nat): changeStone stone = change stone := match zero: stone == 0 with
-  | True => rfl
+  | True => byComputing
   | False =>
     match even: stone.digitCount % 2 == 0 with
       | True =>
         let evenEq := even.read
-        rewrite splitRight stone evenEq, splitLeft stone evenEq in rfl
-      | False => rfl
+        rewrite splitRight stone evenEq, splitLeft stone evenEq then byComputing
+      | False => byComputing
 
 --| A digit list starting with a digit other than 0 is the digits of its
 --| number, and so is any non-empty start of it.
@@ -98,7 +99,7 @@ theorem digitsOfLeading ∀ (xs: List Nat) (count: Nat)
   match xs, count, h with
     | [first, ..rest], Succ count, Both small digits =>
       rewrite Nat.fromDigitsCons first (rest.take count),
-          Nat.digitsShift (rest.take count) first lead (Nat.digitsTake count rest digits) in
+          Nat.digitsShift (rest.take count) first lead (Nat.digitsTake count rest digits) then
         Eq.cong
           (l => List.append l (rest.take count))
           (Eq.trans (Nat.digitsToList first) (Nat.digitsAccSmall first [] small))
@@ -109,10 +110,10 @@ theorem leftStoneDigits ∀ (stone: Nat)
     (positive: 1 ≤ stone)
     (even: stone.digitCount % 2 = 0):
     (stone / Nat.pow 10 (stone.digitCount / 2)).digits.toList = stone.digits.toList.take (stone.digitCount / 2) :=
-  rewrite splitLeft stone even in
+  rewrite splitLeft stone even then
     digitsOfLeading
       (Nat.digits stone).toList
       (stone.digitCount / 2)
       (Nat.digitsDigits stone)
       (Nat.digitsHead stone positive)
-      (omega [Nat.digitCountPos stone, even])
+      (arithmetic [Nat.digitCountPos stone, even])

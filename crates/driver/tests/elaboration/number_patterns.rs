@@ -143,7 +143,7 @@ fn the_kernel_refines_each_arm_and_nothing_else() {
         define(g, ty, |_| body(vec![(404, Term::Var(0))], Term::Var(0))),
         "E-TYPE-MISMATCH"
     );
-    // (n : Nat) -> n = 404: `rfl` checks in the `404` arm, but not in the
+    // (n : Nat) -> n = 404: `byComputing` checks in the `404` arm, but not in the
     // default, nor in an arm for a different number.
     let eq = |g: &stitchwort_core::Ev| {
         pi(

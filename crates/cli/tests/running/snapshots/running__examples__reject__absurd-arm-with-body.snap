@@ -7,9 +7,9 @@ expression: output
     │
  16 │ ╭─▶   match theirs, h with
     ┆ ┆   
- 19 │ ├─▶     | Scissors, _ => rfl
-    │ │                              
-    │ ╰────────────────────────────── these patterns match a `Builtin.UnitType`, but the argument has type `False = True`
+ 19 │ ├─▶     | Scissors, _ => byComputing
+    │ │                                      
+    │ ╰────────────────────────────────────── these patterns match a `Builtin.UnitType`, but the argument has type `False = True`
     │     
     │     Note: `()` in an arm with `=>` is the unit value; for a case that can't happen, write the arm with `()` and no `=>`
 ────╯

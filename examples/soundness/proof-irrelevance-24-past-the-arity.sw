@@ -9,4 +9,4 @@ def g (n: Nat): 0 = 0 → Bool :=
     | Zero => h => J (y e => Bool) True h
     | Succ m => g m
 
-theorem t24 (n: Nat) (h: 0 = 0): g n rfl = g n h := rfl
+theorem t24 (n: Nat) (h: 0 = 0): g n byComputing = g n h := byComputing

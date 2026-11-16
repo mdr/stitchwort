@@ -5,9 +5,9 @@ expression: output
 [E-TYPE-MISMATCH] Error: type mismatch
    ╭─[ reject/proof-tuple-last-part.sw:4:56 ]
    │
- 4 │ theorem small: ∃ (n: Nat) => n > 2 ∧ n * n = 49 := (7, rfl)
-   │                                                        ─┬─  
-   │                                                         ╰─── `rfl` proves an equation, but the expected type is `2 < 7 ∧ 49 = 49`
+ 4 │ theorem small: ∃ (n: Nat) => n > 2 ∧ n * n = 49 := (7, byComputing)
+   │                                                        ─────┬─────  
+   │                                                             ╰─────── `byComputing` proves an equation, but the expected type is `2 < 7 ∧ 49 = 49`
    │ 
    │ Note: the last of these 2 parts must prove all of `2 < 7 ∧ 49 = 49`
 ───╯

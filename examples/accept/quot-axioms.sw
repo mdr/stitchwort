@@ -19,6 +19,6 @@ def viaTheorem: Nat := J (y e => Nat) 7 same
 
 def viaDef: Nat := viaTheorem + 1
 
-def usesLift (q: Q): Bool := Quot.lift (b => False) (x y related => rfl) q
+def usesLift (q: Q): Bool := Quot.lift (b => False) (x y related => byComputing) q
 
 theorem usesInd ∀ (q: Q): Unit := Quot.ind [p := q => Unit] (x => Trivial) q

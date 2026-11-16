@@ -14,4 +14,4 @@ def down (n: Nat): Option Nat
           | None => 0)
       else 0)
 
-theorem downStep ∀ (n: Nat): down n = down n := rfl
+theorem downStep ∀ (n: Nat): down n = down n := byComputing

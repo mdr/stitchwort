@@ -1,4 +1,4 @@
-//! `omega` (docs/syntax.md, "omega"; docs/proposals/omega.md, milestone 1b):
+//! `arithmetic` (docs/syntax.md, "arithmetic"; docs/proposals/omega.md, milestone 1b):
 //! a proof of a linear arithmetic goal about `Nat`s and `Int`s from the facts
 //! in scope.
 //!
@@ -17,7 +17,7 @@
 //!
 //! where the facts and the goal are syntax trees over numbered atoms, the
 //! certificate says how to combine them into something false (found by
-//! `omega_search.rs`, untrusted), `rfl` is the kernel running
+//! `omega_search.rs`, untrusted), `byComputing` is the kernel running
 //! `Std.Omega.check` on them, and each `p` is a hypothesis or a bridge lemma
 //! applied to one. Nothing here is trusted: a mistake is a type error.
 //!
@@ -35,10 +35,10 @@
 //! `Ord`'s `<=` and `<` at the `Nat` and `Int` instances are read as that
 //! instance's relation (`Nat.LessEq`), which the kernel converts to
 //! `Nat.leq a b = True`; the proof is used unchanged. A fact given in
-//! `omega [...]` that reads as nothing is named in the failure's notes.
+//! `arithmetic [...]` that reads as nothing is named in the failure's notes.
 //!
 //! **Disjunctions** among the facts (`Or p q`, `(p || q) = True`,
-//! `(p && q) = False`) are split as Lean's `omega` splits them: only when
+//! `(p && q) = False`) are split as Lean's `arithmetic` splits them: only when
 //! the goal doesn't follow without them, by proving it in each case with
 //! that case's side as a fact, joined by `Or.elim` or `Bool.orElim`, within
 //! [`search::Limits::splits`]. A disjunction one of whose sides contradicts
@@ -53,7 +53,7 @@
 //! left folded as the call when `x` is a variable (`native::folds_mul`) and
 //! otherwise computed to `x + (x + … + 0)`. `a - b`, `Nat.max a b` and
 //! `Nat.min a b` (stage 2) are atoms with an operation fact saying what
-//! they are (`FSub`/`FMax`/`FMin`, proved by `rfl` since the environment
+//! they are (`FSub`/`FMax`/`FMin`, proved by `byComputing` since the environment
 //! holds the atom's own term), whose rows always hold and whose two cases
 //! the certificate may split on (`Cases`); `Not (a = b)` facts have cases
 //! too (`FNe`). `x * y` and `y * x` are two atoms with the fact
@@ -84,7 +84,7 @@
 //! `Nat` atom; if the goal doesn't follow without more about it,
 //! [`linear_split`] tries again with the disjunction `Int.natAbsDichotomy t`
 //! among the facts, split as any other. A goal that
-//! isn't arithmetic is proved by refuting the facts (`Void.exfalso`/`Void.absurd`). Anything else is an atom: two
+//! isn't arithmetic is proved by refuting the facts (`Void.impossible`/`Void.absurd`). Anything else is an atom: two
 //! subterms are one atom if they're the same term, or if a bounded
 //! conversion check says so; an inconclusive check keeps them apart. A
 //! metavariable inside an atom is solved by unifying the atom with the first
@@ -96,7 +96,7 @@
 //! atoms the certificate uses are written, renumbered. Before returning, the
 //! term is checked here the way the kernel will (the checker computes to
 //! `True`, and each part's type matches), so a bug is reported as an
-//! internal error naming `omega`.
+//! internal error naming `arithmetic`.
 
 use std::collections::BTreeSet;
 use std::rc::Rc;
@@ -119,7 +119,7 @@ use crate::omega_search::{self as search, Case, Cert, Failure, Problem, Rat, Row
 const MUL_LEFT_LIMIT: u32 = 1000;
 
 /// The library names the emitted proofs use: the pre-pass loads their files
-/// wherever `omega` is written (`module.rs`, `free_names`).
+/// wherever `arithmetic` is written (`module.rs`, `free_names`).
 pub(crate) const LIBRARY: &[&str] = &[
     "Std.Omega.prove",
     "Std.Omega.proveEq",
@@ -173,14 +173,14 @@ pub(crate) static LIBRARY_NAMES: LazyLock<Vec<ast::Name>> = LazyLock::new(|| {
         .collect()
 });
 
-/// `omega` where nothing says what it should prove.
+/// `arithmetic` where nothing says what it should prove.
 pub(crate) fn no_goal(_cx: &Ctx, expr: &Expr) -> Diagnostic {
-    Diagnostic::error("E-OMEGA", "`omega` needs to know what it proves")
+    Diagnostic::error("E-ARITHMETIC", "`arithmetic` needs to know what it proves")
         .with_label(expr.span(), "the expected type isn't known here")
-        .with_note("give it a type: `(omega: a <= b)`")
+        .with_note("give it a type: `(arithmetic: a <= b)`")
 }
 
-/// `omega` against the goal `expected`. Outside a split of a `cases`, one
+/// `arithmetic` against the goal `expected`. Outside a split of a `cases`, one
 /// that fails while the goal holds an unknown the declaration will still
 /// settle waits for it, whole, and tries again, as `rewrite` and `cases`
 /// do (`queue::tactic_or_wait`; stage 7, rule 2, in
@@ -194,7 +194,7 @@ pub(crate) fn check_omega(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result
     crate::queue::tactic_or_wait(cx, expr, expected, omega_goal)
 }
 
-/// A fact listed in `omega [...]` as written, for the shapes that are short
+/// A fact listed in `arithmetic [...]` as written, for the shapes that are short
 /// and common (names, numbers, applications, dots and operators); `None` for
 /// the rest, which a message names by position. The elaborator holds no
 /// source text, so this prints the syntax tree.
@@ -217,11 +217,11 @@ fn written(expr: &Expr) -> Option<String> {
     (text.chars().count() <= 60).then_some(text)
 }
 
-/// [`check_omega`]'s `omega` itself, counted where the goal holds an
+/// [`check_omega`]'s `arithmetic` itself, counted where the goal holds an
 /// unknown the declaration will still settle (`queue::counted_search`).
 fn omega_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let Expr::Omega { facts, span } = expr else {
-        unreachable!("only called on `omega`")
+        unreachable!("only called on `arithmetic`")
     };
     let mut extra = Vec::new();
     for (i, fact) in facts.iter().enumerate() {
@@ -239,17 +239,17 @@ fn omega_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     })
 }
 
-/// `omega` for a premise of a `rewrite` rule left unknown (`rewrite.rs`,
+/// `arithmetic` for a premise of a `rewrite` rule left unknown (`rewrite.rs`,
 /// `discharge`): a proof of `goal` from the facts in scope, if `goal` is
-/// arithmetic `omega` reads directly (not any goal by contradiction), and
-/// `None` if it isn't, if `omega` can't prove it, or if its library isn't
+/// arithmetic `arithmetic` reads directly (not any goal by contradiction), and
+/// `None` if it isn't, if `arithmetic` can't prove it, or if its library isn't
 /// loaded.
 pub(crate) fn prove_premise(cx: &mut Ctx, goal: &Value, span: Span) -> Result<Option<Term>> {
     prove_premise_within(cx, goal, span, search::LIMITS)
 }
 
-/// The search limits of `omega` for an `auto` argument: smaller than those
-/// of `omega` written out, since `auto` tries it on every goal it can't
+/// The search limits of `arithmetic` for an `auto` argument: smaller than those
+/// of `arithmetic` written out, since `auto` tries it on every goal it can't
 /// decide otherwise.
 const AUTO_LIMITS: search::Limits = search::Limits {
     rows: 2_000,
@@ -257,7 +257,7 @@ const AUTO_LIMITS: search::Limits = search::Limits {
     splits: 2,
 };
 
-/// `omega` for an `auto` argument nothing else proves (`auto.rs`): as
+/// `arithmetic` for an `auto` argument nothing else proves (`auto.rs`): as
 /// [`prove_premise`], within [`AUTO_LIMITS`].
 pub(crate) fn prove_for_auto(cx: &mut Ctx, goal: &Value, span: Span) -> Result<Option<Term>> {
     prove_premise_within(cx, goal, span, AUTO_LIMITS)
@@ -311,9 +311,9 @@ fn prove_premise_within(
     }
 }
 
-/// `omega` at a case `cases` can't split further (`cases.rs`): a proof of
+/// `arithmetic` at a case `cases` can't split further (`cases.rs`): a proof of
 /// `goal` from the facts in scope, arithmetic or by refuting them, or `None`
-/// if `omega` can't find one or its library isn't loaded. Nothing it tried is
+/// if `arithmetic` can't find one or its library isn't loaded. Nothing it tried is
 /// kept when it fails.
 pub(crate) fn prove_case(cx: &mut Ctx, goal: &Value, span: Span) -> Result<Option<Term>> {
     let Ok(lib) = Lib::new(cx, span) else {
@@ -330,8 +330,8 @@ pub(crate) fn prove_case(cx: &mut Ctx, goal: &Value, span: Span) -> Result<Optio
     }
 }
 
-/// A fact given by term (`omega [e]`), elaborated in the context of the
-/// `omega`.
+/// A fact given by term (`arithmetic [e]`), elaborated in the context of the
+/// `arithmetic`.
 #[derive(Clone)]
 struct Extra {
     term: Term,
@@ -751,7 +751,7 @@ impl Lib {
             nat_equal: builtin_def(cx, Builtin::EqNat)?,
             equal_sound: builtin_def(cx, Builtin::EqNatSound)?,
             equal_false: builtin_def(cx, Builtin::NatNeq)?,
-            exfalso: builtin_def(cx, Builtin::VoidExfalso)?,
+            exfalso: builtin_def(cx, Builtin::VoidImpossible)?,
             absurd: builtin_def(cx, Builtin::VoidAbsurd)?,
             add: builtin_def(cx, Builtin::Add)?,
             mul: builtin_def(cx, Builtin::Mul)?,
@@ -823,14 +823,14 @@ fn nat_term(n: impl Into<BigUint>) -> Term {
 
 fn internal(span: Span, message: String) -> Diagnostic {
     Diagnostic::error(
-        "E-OMEGA-INTERNAL",
-        "`omega` made a proof that doesn't check",
+        "E-ARITHMETIC-INTERNAL",
+        "`arithmetic` made a proof that doesn't check",
     )
     .with_label(span, message)
-    .with_note("this is a bug in the compiler's `omega`, not in the program")
+    .with_note("this is a bug in the compiler's `arithmetic`, not in the program")
 }
 
-/// What `omega` was asked to prove, as far as it's linear: `a <= b`, `a = b`
+/// What `arithmetic` was asked to prove, as far as it's linear: `a <= b`, `a = b`
 /// on `Nat`, the same on `Int` with `a < b` and the two comparisons' `False`
 /// (`Int.leq a b = False`, `Int.less a b = False`), or `Void`.
 enum Goal {
@@ -1230,7 +1230,7 @@ fn prove_goal(
     let void = Value::Data(lib.void, Vec::new().into());
     let Ok(proof) = linear(cx, lib, Goal::Void, &void, extra, span) else {
         return Err(unsupported.with_note(
-            "for any other goal, `omega` looks for facts that contradict each other, and found none",
+            "for any other goal, `arithmetic` looks for facts that contradict each other, and found none",
         ));
     };
     let which = if prop { lib.exfalso } else { lib.absurd };
@@ -1283,10 +1283,10 @@ fn lex_less(
         shown(cx, &params[3]),
     );
     Err(Diagnostic::error(
-        "E-OMEGA",
-        format!("`omega` can't show that `({a1}, {a2})` comes before `({b1}, {b2})`"),
+        "E-ARITHMETIC",
+        format!("`arithmetic` can't show that `({a1}, {a2})` comes before `({b1}, {b2})`"),
     )
-    .with_label(span, "this `omega`")
+    .with_label(span, "this `arithmetic`")
     .with_note(format!(
         "it needs `{a1} < {b1}`, or `{a1} = {b1}` and `{a2} < {b2}`, from the facts in scope, and found neither"
     )))
@@ -1421,16 +1421,16 @@ fn prove_or(
 }
 
 fn unsupported_goal(cx: &Ctx, goal: &Value, span: Span) -> Diagnostic {
-    Diagnostic::error("E-OMEGA", format!("`omega` can't prove `{}`", cx.show(goal)))
+    Diagnostic::error("E-ARITHMETIC", format!("`arithmetic` can't prove `{}`", cx.show(goal)))
         .with_label(span, "unsupported structure: this goal isn't linear arithmetic on `Nat` or `Int`")
         .with_note(
-            "`omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s or `Int`s built from `+`, `-`, numbers, multiplication, division and remainder by a number, `Nat.toInt`, `Int.natAbs`, `Nat.max` and `Nat.min`, `Void`, and `Not`, `Or`, `&&`, `||`, `not` and `… = True`/`False` around comparisons",
+            "`arithmetic` proves `a <= b`, `a < b` and `a = b` between `Nat`s or `Int`s built from `+`, `-`, numbers, multiplication, division and remainder by a number, `Nat.toInt`, `Int.natAbs`, `Nat.max` and `Nat.min`, `Void`, and `Not`, `Or`, `&&`, `||`, `not` and `… = True`/`False` around comparisons",
         )
 }
 
 /// A fact the search may use: `a <= b`, `a = b` or `Not (a <= b)`, with a
 /// proof of exactly `prop`; or what an operation atom is (`Op`, from
-/// quoting, proved by `rfl`). On `Int`, `Le` and `NotLe` are `Int.leq a b =
+/// quoting, proved by `byComputing`). On `Int`, `Le` and `NotLe` are `Int.leq a b =
 /// True`/`False` and `Lt` and `NotLt` the same for `Int.less`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Kind {
@@ -1465,7 +1465,7 @@ struct Fact {
     origin: String,
 }
 
-/// A disjunction among the facts, which `omega` may split on: `Or p q`, or
+/// A disjunction among the facts, which `arithmetic` may split on: `Or p q`, or
 /// `(p || q) = True` (`bools`), whose sides are `p = True` and `q = True`.
 #[derive(Clone)]
 struct Disjunction {
@@ -1534,7 +1534,7 @@ struct Reader<'l> {
     disjunctions: Vec<Disjunction>,
     /// Hypotheses about `Nat` that aren't in the fragment, for messages.
     skipped: Vec<String>,
-    /// `let`s that are functions ending in a fact, so `omega` can't use them,
+    /// `let`s that are functions ending in a fact, so `arithmetic` can't use them,
     /// for messages.
     waiting: Vec<String>,
 }
@@ -1986,7 +1986,7 @@ struct Op {
     b: NTerm,
 }
 
-/// An atom: a `Nat` or `Int` subterm `omega` doesn't look inside.
+/// An atom: a `Nat` or `Int` subterm `arithmetic` doesn't look inside.
 struct Atom {
     value: Value,
     /// Read back in full, for finding the same atom again.
@@ -2075,12 +2075,12 @@ impl Quoter {
         if let Some((k, t)) = self.mul_left(cx, lib, &base)? {
             if k > BigUint::from(MUL_LEFT_LIMIT) {
                 return Err(Diagnostic::error(
-                    "E-OMEGA",
-                    format!("`omega` doesn't take `{k} * …`: the number is too large"),
+                    "E-ARITHMETIC",
+                    format!("`arithmetic` doesn't take `{k} * …`: the number is too large"),
                 )
                 .with_label(span, format!("the goal or a fact multiplies by {k} on the left"))
                 .with_note(format!(
-                    "`k * x` computes to `x + (x + … + 0)` with `k` copies, which is slow to check for large `k`; `omega` takes `k` up to {MUL_LEFT_LIMIT}"
+                    "`k * x` computes to `x + (x + … + 0)` with `k` copies, which is slow to check for large `k`; `arithmetic` takes `k` up to {MUL_LEFT_LIMIT}"
                 ))
                 .with_note("write `x * k` instead, which stays as it is"));
             }
@@ -2446,7 +2446,7 @@ impl Quoter {
     /// call isn't folded, is stuck, unfolds to something else (a call stuck on
     /// a variable unfolds to the definition's internal form, which as an atom
     /// would read worse than the call as written), or takes more than
-    /// [`UNFOLD_WORK`] steps: `omega` quotes every fact in scope, so an
+    /// [`UNFOLD_WORK`] steps: `arithmetic` quotes every fact in scope, so an
     /// expensive call in one the goal doesn't need must not fail it. In each
     /// case the caller keeps the folded call as it is.
     fn unfolded_arithmetic(
@@ -2938,7 +2938,7 @@ fn linear(
 
 /// [`linear_once`]; if that fails, one disjunction among the facts split
 /// (`Or.elim`, `Bool.orElim`), each case proved the same way with its side
-/// as a fact, as Lean's `omega` does (`splitDisjunction`). `split` holds the
+/// as a fact, as Lean's `arithmetic` does (`splitDisjunction`). `split` holds the
 /// disjunctions already split, with the depth each proof was read at;
 /// `splits` is how many more splits may be made.
 #[allow(clippy::too_many_arguments)]
@@ -2984,7 +2984,7 @@ fn linear_split(
 type Split = [(Term, usize)];
 
 /// `expected` by splitting a disjunction of `found` that isn't in `split`
-/// and whose sides both say something `omega` reads, each case proved by
+/// and whose sides both say something `arithmetic` reads, each case proved by
 /// `case` with its side in scope; `failure` if there is none, or no splits
 /// are left.
 ///
@@ -3015,7 +3015,7 @@ fn split_first(
                 done = true;
             }
         }
-        // A side that says nothing `omega` reads leaves its case as hard as
+        // A side that says nothing `arithmetic` reads leaves its case as hard as
         // before.
         if done || !says_something(cx, lib, &d.left)? || !says_something(cx, lib, &d.right)? {
             continue;
@@ -3041,7 +3041,7 @@ fn split_first(
             };
             if *splits == 0 {
                 return Err(failure.with_note(format!(
-                    "`omega` splits at most {} disjunctions among the facts, and more are left (the one from {}); split some by `match` first",
+                    "`arithmetic` splits at most {} disjunctions among the facts, and more are left (the one from {}); split some by `match` first",
                     lib.limits.splits, d.origin
                 )));
             }
@@ -3160,7 +3160,7 @@ fn read_context<'l>(cx: &mut Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reade
         reader.read(cx, e.term.clone(), &e.ty, &e.name, 0)?;
         if reader.facts.len() + reader.disjunctions.len() == before {
             reader.waiting.push(format!(
-                "`omega` couldn't use {}: `{}` isn't an arithmetic fact it reads",
+                "`arithmetic` couldn't use {}: `{}` isn't an arithmetic fact it reads",
                 e.written
                     .as_ref()
                     .map_or_else(|| e.name.clone(), |text| format!("listed fact `{text}`")),
@@ -3172,7 +3172,7 @@ fn read_context<'l>(cx: &mut Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reade
 }
 
 /// Whether `ty` is an unsolved unknown that could stand for a fact, or an
-/// equality whose type is such an unknown: `omega` can't read a hypothesis
+/// equality whose type is such an unknown: `arithmetic` can't read a hypothesis
 /// of that type yet. An unknown of `Type` (`?a` for a value, as a lambda
 /// parameter gets) is not a fact, so it's no reason to say the type isn't
 /// known. When the unknown's own type can't be told, it isn't either.
@@ -3212,14 +3212,14 @@ fn meta_is_prop(cx: &Ctx, m: usize, spine: &[Elim]) -> Result<bool> {
 }
 
 /// A note for a local hypothesis called `name` whose type isn't known yet:
-/// `omega` skips it, so the failure says why it's missing from the facts.
+/// `arithmetic` skips it, so the failure says why it's missing from the facts.
 fn unknown_type_note(cx: &Ctx, name: &str, ty: &Value) -> Result<Option<String>> {
     Ok(unknown_type(cx, ty)?
-        .then(|| format!("`{name}`'s type isn't known yet here, so omega couldn't use it")))
+        .then(|| format!("`{name}`'s type isn't known yet here, so arithmetic couldn't use it")))
 }
 
 /// A note for a `let` called `name` whose type is a function ending in a
-/// fact: `omega` can't use it, and the note says which arguments it wants.
+/// fact: `arithmetic` can't use it, and the note says which arguments it wants.
 fn waiting_note(cx: &mut Ctx, lib: &Lib, name: &str, ty: &Value) -> Result<Option<String>> {
     let Some(params) = waiting_fact(cx, lib, ty)? else {
         return Ok(None);
@@ -3230,12 +3230,12 @@ fn waiting_note(cx: &mut Ctx, lib: &Lib, name: &str, ty: &Value) -> Result<Optio
         _ => format!("arguments ({})", crate::named::list(arguments)),
     };
     Ok(Some(format!(
-        "`{name}` is a function still waiting for {arguments}, so omega can't use it as a fact"
+        "`{name}` is a function still waiting for {arguments}, so arithmetic can't use it as a fact"
     )))
 }
 
 /// The explicit parameters of `ty` that are still waiting, when its result
-/// is a fact `omega` reads. A function type whose result is not a fact is
+/// is a fact `arithmetic` reads. A function type whose result is not a fact is
 /// `None`, as is anything that isn't a function.
 fn waiting_fact(cx: &mut Ctx, lib: &Lib, ty: &Value) -> Result<Option<Vec<Name>>> {
     // The parameters are bound while the result is read: reading it reads
@@ -3312,7 +3312,7 @@ fn assuming(
 /// atoms `Int.natAbs t` that quoting found), as facts given by term, leaving
 /// out those already in `extra`. Its type is
 /// `(0 ≤ t ∧ (Int.natAbs t).toInt = t) ∨ (t < 0 ∧ (Int.natAbs t).toInt = 0 - t)`,
-/// proved in std by cases on `t` (`OfNat n`: both sides are `rfl`; `NegSucc
+/// proved in std by cases on `t` (`OfNat n`: both sides are `byComputing`; `NegSucc
 /// n`: likewise), so the kernel checks the fact like any lemma application.
 fn nat_abs_dichotomies(
     cx: &mut Ctx,
@@ -3362,9 +3362,9 @@ fn linear_once(
 ) -> Result<Term> {
     let mut quoter = Quoter::default();
     let unknown = |what: &str| {
-        Diagnostic::error("E-OMEGA", "`omega` needs to know the goal")
+        Diagnostic::error("E-ARITHMETIC", "`arithmetic` needs to know the goal")
             .with_label(span, format!("{what} still has unknowns the compiler hasn't worked out"))
-            .with_note("give the missing arguments, or a type annotation, so the goal is known before `omega`")
+            .with_note("give the missing arguments, or a type annotation, so the goal is known before `arithmetic`")
     };
     let sides = match goal {
         Goal::Le(a, b) | Goal::Eq(a, b) => {
@@ -3433,7 +3433,7 @@ fn linear_once(
             sizes.push(t.clone());
         }
     }
-    // What each operation atom is, proved by `rfl`: the environment holds
+    // What each operation atom is, proved by `byComputing`: the environment holds
     // the atom's own term.
     for op in quoter.ops.clone() {
         let atom = &quoter.atoms[op.t];
@@ -3496,7 +3496,11 @@ fn linear_once(
     }
     let n = quoter.atoms.len();
     let too_large = || {
-        Diagnostic::error("E-OMEGA", "`omega` can't handle numbers this large").with_label(
+        Diagnostic::error(
+            "E-ARITHMETIC",
+            "`arithmetic` can't handle numbers this large",
+        )
+        .with_label(
             span,
             "a number in the goal or a fact is too large for the search",
         )
@@ -3855,7 +3859,7 @@ fn show_fact(cx: &Ctx, quoter: &Quoter, q: &Quoted) -> String {
     }
 }
 
-/// `E-OMEGA` for a goal the search couldn't prove, labelled with what it
+/// `E-ARITHMETIC` for a goal the search couldn't prove, labelled with what it
 /// found (docs/proposals/omega.md §6.8). Nothing here claims the goal is false.
 #[allow(clippy::too_many_arguments)]
 fn failed(
@@ -3885,8 +3889,11 @@ fn failed(
         Failure::Rational(_) => format!("a rational model of the relaxation satisfies {what}"),
         Failure::Budget => "budget exhausted: the search stopped before finishing".to_string(),
     };
-    let mut d = Diagnostic::error("E-OMEGA", format!("`omega` can't prove `{shown}`"))
-        .with_label(span, label);
+    let mut d = Diagnostic::error(
+        "E-ARITHMETIC",
+        format!("`arithmetic` can't prove `{shown}`"),
+    )
+    .with_label(span, label);
     let facts: Vec<String> = quoted
         .iter()
         .filter(|q| !matches!(q.fact.kind, Kind::Op(_)))
@@ -3945,7 +3952,7 @@ fn failed(
     });
     if opaque_division {
         d = d.with_note(
-            "a division by anything but a number is an unknown number to `omega`; hint its facts: `omega [Nat.divLe n k]` (`n / k ≤ n`), `Nat.divLt n k` (`n / k < n`, for `0 < n` and `1 < k`) or `Nat.divMulLe n k`",
+            "a division by anything but a number is an unknown number to `arithmetic`; hint its facts: `arithmetic [Nat.divLe n k]` (`n / k ≤ n`), `Nat.divLt n k` (`n / k < n`, for `0 < n` and `1 < k`) or `Nat.divMulLe n k`",
         );
     }
     d

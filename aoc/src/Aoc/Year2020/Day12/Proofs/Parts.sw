@@ -15,20 +15,20 @@ theorem foldLeftRelate ∀ (relate: s → t) (f: s → a → s) (g: t → a → 
     (items: List a) (x: s):
     relate (items.foldLeft x f) = items.foldLeft (relate x) g :=
   match items with
-    | [] => rfl
-    | [item, ..rest] => rewrite <- commutes x item in foldLeftRelate relate f g commutes rest (f x item)
+    | [] => byComputing
+    | [item, ..rest] => rewrite <- commutes x item then foldLeftRelate relate f g commutes rest (f x item)
 
 theorem alongTimes ∀ (location step: Location) (distance: Nat):
     along location step distance = location.plus (step.times distance.toInt) :=
-  Coords.ext _ _ (ring) (ring)
+  Coords.ext _ _ (algebra) (algebra)
 
 theorem alongUnit ∀ (location: Location) (heading: Heading) (distance: Nat):
     along location (unit heading) distance = location.moved heading distance :=
   match heading with
-    | North => Coords.ext _ _ (omega) (omega)
-    | South => Coords.ext _ _ (omega) (omega)
-    | East => Coords.ext _ _ (omega) (omega)
-    | West => Coords.ext _ _ (omega) (omega)
+    | North => Coords.ext _ _ (arithmetic) (arithmetic)
+    | South => Coords.ext _ _ (arithmetic) (arithmetic)
+    | East => Coords.ext _ _ (arithmetic) (arithmetic)
+    | West => Coords.ext _ _ (arithmetic) (arithmetic)
 
 --| Part 1's ship as the spec sees it: facing a step, not a heading.
 def Ship.inSpec (ship: Ship): Spec.Ship := { position = ship.location, facing = unit ship.facing }
@@ -38,12 +38,12 @@ theorem navigateFollows ∀ (ship: Ship) (instruction: Instruction):
   match instruction with
     | { action, value } =>
       match action with
-        | Move heading => rewrite alongUnit ship.location heading value in rfl
+        | Move heading => rewrite alongUnit ship.location heading value then byComputing
         | Turn side =>
           rewrite headingTurned (clockwiseQuarters side value) ship.facing,
-              <- turnedClockwise side value (unit ship.facing) in
-            rfl
-        | Forward => rewrite alongUnit ship.location ship.facing value in rfl
+              <- turnedClockwise side value (unit ship.facing) then
+            byComputing
+        | Forward => rewrite alongUnit ship.location ship.facing value then byComputing
 
 --| Part 2's ship as the spec sees it.
 def WaypointShip.inSpec (ship: WaypointShip): Spec.Steered := { position = ship.location, waypoint = ship.waypoint }
@@ -53,20 +53,20 @@ theorem steerFollows ∀ (ship: WaypointShip) (instruction: Instruction):
   match instruction with
     | { action, value } =>
       match action with
-        | Move heading => rewrite alongUnit ship.waypoint heading value in rfl
-        | Turn side => rewrite rotatedTurned side value ship.waypoint in rfl
-        | Forward => rewrite alongTimes ship.location ship.waypoint value in rfl
+        | Move heading => rewrite alongUnit ship.waypoint heading value then byComputing
+        | Turn side => rewrite rotatedTurned side value ship.waypoint then byComputing
+        | Forward => rewrite alongTimes ship.location ship.waypoint value then byComputing
 
 theorem part1Rules ∀ (route: Route): Spec.Part1 route.instructions route.shipDistance :=
   rewrite <- foldLeftRelate Ship.inSpec Ship.follow Spec.navigate
-        (ship instruction => Eq.sym (navigateFollows ship instruction))
+        (ship instruction => (navigateFollows ship instruction).flipped)
         route.instructions
-        Ship.start in
-    rfl
+        Ship.start then
+    byComputing
 
 theorem part2Rules ∀ (route: Route): Spec.Part2 route.instructions route.waypointDistance :=
   rewrite <- foldLeftRelate WaypointShip.inSpec WaypointShip.follow Spec.steer
-        (ship instruction => Eq.sym (steerFollows ship instruction))
+        (ship instruction => (steerFollows ship instruction).flipped)
         route.instructions
-        WaypointShip.start in
-    rfl
+        WaypointShip.start then
+    byComputing

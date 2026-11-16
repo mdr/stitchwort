@@ -14,10 +14,10 @@ theorem blankFrom ∀ (lines: List Text) (m s: Nat)
     (h: gridWidth lines ≤ s):
     List.all ((List.rangeFrom m s).map (column lines)) isBlank = True :=
   match m with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ m =>
-      rewrite blankPast s lines (r => Nat.leTrans _ _ _ (List.lengthLeMaxLength (lines.map Text.toList) r) h) in
-        blankFrom lines m (Succ s) (omega)
+      rewrite blankPast s lines (r => Nat.leTrans _ _ _ (List.lengthLeMaxLength (lines.map Text.toList) r) h) then
+        blankFrom lines m (Succ s) (arithmetic)
 
 --| The blocks, read over any number of columns from the widest line's length on.
 theorem blocksOver ∀ (lines: List Text) (n: Nat)
@@ -30,8 +30,8 @@ theorem blocksOver ∀ (lines: List Text) (n: Nat)
           List.mapAppend
             (List.range 0 (gridWidth lines))
             (List.rangeFrom (n - gridWidth lines) (gridWidth lines))
-            (column lines) in
-        Eq.sym
+            (column lines) then
+        Eq.flipped
           (List.splitByAppendSeparators _ isBlank _
             (blankFrom lines (n - gridWidth lines) (gridWidth lines) (Nat.leRefl (gridWidth lines))))
     _ = List.splitBy ((List.range 0 n).map (column lines)) isBlank := rewrite Nat.addSubCancel (gridWidth lines) n h

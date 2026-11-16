@@ -52,7 +52,7 @@ fn rows_must_list_abilities_with_the_right_arguments() {
     // The result of an effectful function is data: not in a larger universe,
     // and not a proof. (`Prop` itself is fine: it's the type of propositions.)
     assert_refused("def f () : {Ask} Type := Nat", "E-UNIVERSE");
-    assert_refused("def f () : {Ask} (1 = 1) := rfl", "E-UNIVERSE");
+    assert_refused("def f () : {Ask} (1 = 1) := byComputing", "E-UNIVERSE");
     assert_eq!(refused("def f () : {Ask} Prop := Unit"), None);
 }
 

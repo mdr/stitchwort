@@ -18,7 +18,7 @@ theorem mayPrecedeTotal ∀ (precedes: Nat → Nat → Bool) (pages: List Nat)
     (inY: y ∈ pages)
     (no: mayPrecede precedes x y = False):
     mayPrecede precedes y x = True :=
-  match yFirst: precedes y x with | True => rewrite asymmetric y x inY inX yFirst in rfl
+  match yFirst: precedes y x with | True => rewrite asymmetric y x inY inX yFirst then byComputing
 
 --| And transitive on the pages, when the order is total and transitive there.
 theorem mayPrecedeTransitive ∀ (precedes: Nat → Nat → Bool) (pages: List Nat)
@@ -36,24 +36,24 @@ theorem mayPrecedeTransitive ∀ (precedes: Nat → Nat → Bool) (pages: List N
     (yz: mayPrecede precedes y z = True):
     mayPrecede precedes x z = True :=
   match zFirst: precedes z x with
-    | False => rfl
+    | False => byComputing
     | True =>
       match same: x == y with
-        | True => Void.exfalso (Bool.falseNotTrue (rewrite <- same.read, zFirst at yz))
+        | True => Void.impossible (Bool.falseNotTrue (rewrite <- same.read, zFirst at yz))
         | False =>
-          let xFirst := total y x inY inX (other => same.read (Eq.sym other)) (cases)
-          Void.exfalso (Bool.falseNotTrue (rewrite transitive z x y inZ inX inY zFirst xFirst at yz))
+          let xFirst := total y x inY inX (other => same.read other.flipped) (cases)
+          Void.impossible (Bool.falseNotTrue (rewrite transitive z x y inZ inX inY zFirst xFirst at yz))
 
 --| Pages each of which may come before every later one are in order.
 theorem inOrderOfPairwise ∀ (precedes: Nat → Nat → Bool) (pages: List Nat)
     (pairwise: List.Pairwise (page next => mayPrecede precedes page next = True) pages):
     inOrder precedes pages = True :=
   match pages, pairwise with
-    | [], pairwise => rfl
+    | [], pairwise => byComputing
     | [page, ..later], Both first rest =>
       rewrite List.allOfAll (laterPage => !(precedes laterPage page)) later first,
-          inOrderOfPairwise precedes later rest in
-        rfl
+          inOrderOfPairwise precedes later rest then
+        byComputing
 
 --| In pages in order, no later page must come before an earlier one.
 theorem inOrderLater ∀ (precedes: Nat → Nat → Bool) (page: Nat) (later: List Nat)
@@ -106,16 +106,16 @@ theorem reorderCorrect ∀ (rules: List Rule) (update: Update)
       let same := mustPrecedeCorrect rules
       let inOrdered :=
         reorderInOrder precedes update
-          (x y inX inY first => Eq.trans (same y x) (asymmetric x y inX inY (Eq.trans (Eq.sym (same x y)) first)))
+          (x y inX inY first => Eq.trans (same y x) (asymmetric x y inX inY (Eq.trans (same x y).flipped first)))
           (x y inX inY different notFirst =>
-            Eq.trans (same y x) (total x y inX inY different (Eq.trans (Eq.sym (same x y)) notFirst)))
+            Eq.trans (same y x) (total x y inX inY different (Eq.trans (same x y).flipped notFirst)))
           (x y z inX inY inZ xy yz =>
             Eq.trans
               (same x z)
-              (transitive x y z inX inY inZ (Eq.trans (Eq.sym (same x y)) xy) (Eq.trans (Eq.sym (same y z)) yz)))
+              (transitive x y z inX inY inZ (Eq.trans (same x y).flipped xy) (Eq.trans (same y z).flipped yz)))
       Both
         (List.sortWithPerm update.pages (mayPrecede precedes))
-        (Eq.trans (Eq.sym (inOrderCorrect rules (update.reorder precedes))) inOrdered)
+        (Eq.trans (Eq.flipped (inOrderCorrect rules (update.reorder precedes))) inOrdered)
 
 --| Two orderings of the same pages, both in order by a total order, are the
 --| same.
@@ -128,16 +128,16 @@ theorem orderUnique ∀ (precedes: Nat → Nat → Bool) (pages: List Nat)
     (secondOrdered: inOrder precedes second = True):
     first = second :=
   match first, second, h with
-    | [], [], inPages => rfl
-    | [], [y, ..ys], inPages => Void.exfalso (Nat.zeroNotSucc (List.length ys) (List.permLength [] [y, ..ys] same))
-    | [x, ..xs], [], inPages => Void.exfalso (Nat.succNotZero (List.length xs) (List.permLength [x, ..xs] [] same))
+    | [], [], inPages => byComputing
+    | [], [y, ..ys], inPages => Void.impossible (Nat.zeroNotSucc (List.length ys) (List.permLength [] [y, ..ys] same))
+    | [x, ..xs], [], inPages => Void.impossible (Nat.succNotZero (List.length xs) (List.permLength [x, ..xs] [] same))
     | [x, ..xs], [y, ..ys], Both inX inPages =>
       let heads: x = y :=
-        match List.memPerm [y, ..ys] [x, ..xs] (List.permSym [x, ..xs] [y, ..ys] same) y (Inl rfl) with
+        match List.memPerm [y, ..ys] [x, ..xs] (List.permSym [x, ..xs] [y, ..ys] same) y (Inl byComputing) with
           | Inl equal => equal
           | Inr yLater =>
-            match List.memPerm [x, ..xs] [y, ..ys] same x (Inl rfl) with
-              | Inl equal => Eq.sym equal
+            match List.memPerm [x, ..xs] [y, ..ys] same x (Inl byComputing) with
+              | Inl equal => equal.flipped
               | Inr xLater =>
                 match equal: x == y with
                   | True => equal.read
@@ -145,8 +145,8 @@ theorem orderUnique ∀ (precedes: Nat → Nat → Bool) (pages: List Nat)
                     let inY := List.allMem (page => page ∈ pages) y xs inPages yLater
                     let yNotFirst := inOrderLater precedes x xs firstOrdered y yLater
                     let xNotFirst := inOrderLater precedes y ys secondOrdered x xLater
-                    Void.exfalso
-                      (Bool.trueNotFalse (Eq.trans (Eq.sym (total x y inX inY equal.read xNotFirst)) yNotFirst))
+                    Void.impossible
+                      (Bool.trueNotFalse (Eq.trans (Eq.flipped (total x y inX inY equal.read xNotFirst)) yNotFirst))
       let Both _ firstRest := firstOrdered
       let Both _ secondRest := secondOrdered
       let tails: xs = ys :=
@@ -158,10 +158,10 @@ theorem orderUnique ∀ (precedes: Nat → Nat → Bool) (pages: List Nat)
               (List.occurrences ys property)
               (Eq.trans
                 (same property)
-                (Eq.cong (head => Bool.toNat (property head) + List.occurrences ys property) (Eq.sym heads))))
+                (Eq.cong (head => Bool.toNat (property head) + List.occurrences ys property) heads.flipped)))
           firstRest
           secondRest
-      rewrite heads, tails in rfl
+      rewrite heads, tails then byComputing
 
 --| Under the assumption there is only one correct ordering of an update.
 theorem correctOrderingUnique ∀ (rules: List Rule) (update: Update)
@@ -186,7 +186,7 @@ theorem correctOrderingUnique ∀ (rules: List Rule) (update: Update)
 
 --| Updates with the same pages are the same.
 theorem updateExt ∀ (first second: Update) (same: first.pages = second.pages): first = second :=
-  match first, second with | { pages = firstPages }, { pages = secondPages } => rewrite same in rfl
+  match first, second with | { pages = firstPages }, { pages = secondPages } => rewrite same then byComputing
 
 --| Part 2 adds up the middle pages of the updates not in the right order,
 --| once correctly ordered, by any correct ordering.
@@ -200,7 +200,7 @@ theorem part2Correct ∀ (queue: PrintQueue)
   let precedes := mustPrecede (ruleSet queue.rules)
   let wrong := (queued: Update) => !(rightOrder queue.rules queued)
   rewrite List.filterCongMem queue.updates (queued => !(inOrder precedes queued.pages)) wrong (queued isIn =>
-        rewrite inOrderCorrect queue.rules queued in rfl),
+        rewrite inOrderCorrect queue.rules queued then byComputing),
       List.mapCongMem (queue.updates.filter wrong) (.reorder precedes) ordering (queued isIn =>
         match List.memFilter queue.updates wrong isIn with
           | Both inQueue isWrong =>
@@ -212,5 +212,5 @@ theorem part2Correct ∀ (queue: PrintQueue)
                 (queued.reorder precedes)
                 (ordering queued)
                 (reorderCorrect queue.rules queued (orders queued inQueue))
-                (correct queued inQueue (cases)))) in
-    rfl
+                (correct queued inQueue (cases)))) then
+    byComputing

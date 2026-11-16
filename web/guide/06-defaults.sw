@@ -17,7 +17,7 @@ test "defaults fill in" := plain.render == "Hello, Ada!"
 test "or are replaced" := excited.render == "Hello, Ada!!!"
 
 -- Leaving a field out is the same as giving its default.
-theorem sameValue: plain = { name = "Ada", greeting = "Hello", punctuation = "!" } := rfl
+theorem sameValue: plain = { name = "Ada", greeting = "Hello", punctuation = "!" } := byComputing
 
 -- A constructor's fields may have defaults too.
 type Shape =

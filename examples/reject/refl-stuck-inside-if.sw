@@ -16,4 +16,4 @@ def play (mine: Move) (theirs: Move): Nat :=
   else if beats theirs mine then 2
   else 0
 
-theorem selfPlayDraws (m: Move): play m m = 0 := rfl
+theorem selfPlayDraws (m: Move): play m m = 0 := byComputing

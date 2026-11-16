@@ -6,7 +6,7 @@
 import Std (byDecision)
 
 -- Building, where the goal is known.
-theorem small: ∃ (n: Nat) => n > 2 ∧ n * n = 49 := (7, byDecision, rfl)
+theorem small: ∃ (n: Nat) => n > 2 ∧ n * n = 49 := (7, byDecision, byComputing)
 
 -- With nothing expected, a tuple whose first part is a proof proves `∧`.
 theorem swapped ∀ (p q: Prop) (a: p) (b: q): q ∧ p :=
@@ -16,7 +16,7 @@ theorem swapped ∀ (p q: Prop) (a: p) (b: q): q ∧ p :=
 -- A definition that unfolds to a chain takes a tuple as its constructors.
 def Square (m: Nat): Prop := ∃ (n: Nat) => n * n = m ∧ n > 0
 
-theorem fortyNine: Square 49 := (7, rfl, byDecision)
+theorem fortyNine: Square 49 := (7, byComputing, byDecision)
 
 -- Taking apart: in a `match` arm.
 theorem rootOf ∀ (h: ∃ (n: Nat) => n > 2 ∧ n * n = 49): ∃ (m: Nat) => m * m = 49 := match h with
@@ -55,7 +55,7 @@ theorem byArms ∀ (p q: Prop): p ∧ q → Nat → q ∧ p
 -- Data in a tuple is still a pair, beside a proof tuple.
 def withProof (n: Nat): (Nat, Nat) := (n, n + 1)
 
-theorem pairStill: withProof 1 = (1, 2) := rfl
+theorem pairStill: withProof 1 = (1, 2) := byComputing
 
 -- `.left` and `.right` project a proof of `∧`.
 theorem projected ∀ (p q: Prop) (h: p ∧ q): q := h.right

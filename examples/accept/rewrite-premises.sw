@@ -4,14 +4,14 @@
 -- `0 <= x` and `x < n` about the function's `x`; `…CongMem` lemmas give
 -- `List.Mem x xs`. A premise the rule leaves unknown is proved by a
 -- hypothesis of exactly its type (those facts among them), or else by
--- `omega`. (docs/syntax.md, "rewrite"; docs/proposals/proof-automation.md,
+-- `arithmetic`. (docs/syntax.md, "rewrite"; docs/proposals/proof-automation.md,
 -- stage 1b.)
 import Std (Eq, List, Nat)
 
 -- Arguments left off a rule's end are unknowns, as if written `_`.
 theorem swapped ∀ (a b: Nat): a + b = b + a := rewrite Nat.addComm
 
--- `Nat.addSubCancel x n` needs `x <= n`: `omega` proves it from `x < n`.
+-- `Nat.addSubCancel x n` needs `x <= n`: `arithmetic` proves it from `x < n`.
 theorem cancelled ∀ (n: Nat): List.sumBy (List.range 0 n) (x => x + (n - x)) = List.sumBy (List.range 0 n) (x => n) :=
   rewrite Nat.addSubCancel
 
@@ -51,8 +51,9 @@ theorem totalCongRange ∀ (f1 f2: Nat → Nat) (c s: Nat)
     (ef: ∀ (x: Nat) (low: s ≤ x) (high: x < s + c) => f1 x = f2 x):
     total f1 (List.rangeFrom c s) = total f2 (List.rangeFrom c s) :=
   match c with
-    | Zero => rfl
-    | Succ c => rewrite ef s omega omega, totalCongRange f1 f2 c (Succ s) (x low high => ef x omega omega)
+    | Zero => byComputing
+    | Succ c =>
+      rewrite ef s arithmetic arithmetic, totalCongRange f1 f2 c (Succ s) (x low high => ef x arithmetic arithmetic)
 
 theorem totalled ∀ (n: Nat): total (x => x + (n - x)) (List.range 0 n) = total (x => n) (List.range 0 n) :=
   rewrite Nat.addSubCancel

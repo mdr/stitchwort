@@ -10,7 +10,7 @@ ability Src (t: Type) where
 
 def Ph (u: Type) (n: Nat): Prop := n = n
 
-theorem ph ∀ (p: () → {Src t} t) (n: Nat): Ph t n := rfl
+theorem ph ∀ (p: () → {Src t} t) (n: Nat): Ph t n := byComputing
 
 def natSrc(): {Src Nat} Nat := Src.next()
 

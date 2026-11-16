@@ -4,4 +4,4 @@
 -- (docs/proposals/opaque-definitions.md §6.2.)
 import Std (Nat)
 
-opaque theorem oneIsOne: 1 = 1 := rfl
+opaque theorem oneIsOne: 1 = 1 := byComputing

@@ -536,7 +536,7 @@ enum Command {
         #[arg(long, value_name = "N")]
         goal: Option<usize>,
         /// With --at: answer with the simplest closer alone if one closes
-        /// the goal (`rfl`, a hypothesis, `byDecision`, `omega`, `ring`,
+        /// the goal (`byComputing`, a hypothesis, `byDecision`, `arithmetic`, `algebra`,
         /// `cases`, in that order), as the editor's "Search for a proof"
         /// does, instead of searching
         #[arg(long)]

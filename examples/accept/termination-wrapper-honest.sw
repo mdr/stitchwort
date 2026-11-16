@@ -43,7 +43,7 @@ def firstBranch: W Tr → Nat
 
 test "firstBranch" := firstBranch (MkW (Sup (n => Sup (m => Leaf)))) == 2
 
-theorem firstBranchStep ∀ (kids: Nat → Tr): firstBranch (MkW (Sup kids)) = 1 + firstBranch (MkW (kids 0)) := rfl
+theorem firstBranchStep ∀ (kids: Nat → Tr): firstBranch (MkW (Sup kids)) = 1 + firstBranch (MkW (kids 0)) := byComputing
 
 -- An indexed wrapper, and a wrapper around a `Vec`.
 type S: Nat → Type = | MkS (l: List Nat): S l.length
@@ -78,7 +78,7 @@ def nodes: Rose → Nat
 
 test "nodes" := nodes (MkRose [MkRose [], MkRose [MkRose [], MkRose []]]) == 5
 
-theorem nodesStep ∀ (k: Rose) (ks: List Rose): nodes (MkRose [k, ..ks]) = nodes k + nodes (MkRose ks) := rfl
+theorem nodesStep ∀ (k: Rose) (ks: List Rose): nodes (MkRose [k, ..ks]) = nodes k + nodes (MkRose ks) := byComputing
 
 -- A one-field record around a number.
 type Age = { years: Nat }

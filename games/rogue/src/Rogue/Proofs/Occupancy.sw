@@ -12,13 +12,13 @@ import Std (Decidable, Eq, List, Option, Void, Bool)
 --| No monster stands on `position`.
 def Clear (position: Position) (monsters: List Monster): Prop := monsterAt position monsters = None
 
-theorem someNotNone ∀ (monster: Monster) (found: Some monster = None): Void := Option.noneNotSome monster (Eq.sym found)
+theorem someNotNone ∀ (monster: Monster) (found: Some monster = None): Void := Option.noneNotSome monster found.flipped
 
 --| The first monster of a clear list isn't on the cell, and the rest are clear.
 theorem clearHead ∀ (position: Position) (monster: Monster) (others: List Monster)
     (clear: Clear position [monster, ..others]):
     (monster.position == position) = False :=
-  match same: monster.position == position with | False => rfl
+  match same: monster.position == position with | False => byComputing
 
 theorem clearTail ∀ (position: Position) (monster: Monster) (others: List Monster)
     (clear: Clear position [monster, ..others]):
@@ -50,7 +50,7 @@ theorem pickFreeAway ∀ (level: Level) (player: Position) (others: List Monster
             | False =>
               match taken: (monsterAt choice others).isSome with
                 | True => pickFreeAway level player others rest destination picked
-                | False => rewrite <- Option.someInjective picked in same
+                | False => rewrite <- Option.someInjective picked then same
 
 --| Changing monsters without moving them keeps them off the cell.
 theorem clearMap ∀ (position: Position) (change: Monster → Monster)
@@ -58,9 +58,9 @@ theorem clearMap ∀ (position: Position) (change: Monster → Monster)
     (clear: Clear position monsters):
     Clear position (monsters.map change) :=
   match monsters with
-    | [] => rfl
+    | [] => byComputing
     | [first, ..rest] =>
-      rewrite stays first, clearHead position first rest clear in
+      rewrite stays first, clearHead position first rest clear then
         clearMap position change stays rest (clearTail position first rest clear)
 
 --| Dropping monsters keeps the rest off the cell.
@@ -68,19 +68,19 @@ theorem clearFilter ∀ (position: Position) (keep: Monster → Bool) (monsters:
     (clear: Clear position monsters):
     Clear position (monsters.filter keep) :=
   match monsters with
-    | [] => rfl
+    | [] => byComputing
     | [first, ..rest] =>
       match kept: keep first with
         | True =>
-          rewrite clearHead position first rest clear in
+          rewrite clearHead position first rest clear then
             clearFilter position keep rest (clearTail position first rest clear)
         | False => clearFilter position keep rest (clearTail position first rest clear)
 
 theorem woundStays ∀ (target: Position) (damage: Nat) (monster: Monster):
     (wound target damage monster).position = monster.position :=
   match hit: monster.position == target with
-    | True => rfl
-    | False => rfl
+    | True => byComputing
+    | False => byComputing
 
 --| The monsters' turn keeps them off the player's cell: those that attack
 --| stay where they are, and those that move pick a free cell, or stay.
@@ -124,7 +124,11 @@ theorem monstersTurnClear ∀ (dice: Dice) (state: State)
     Clear after.player after.monsters :=
   match phase: state.phase with
     | Playing =>
-      actAllClear dice state.level state.player 0 { moved = [], damage = 0, events = [] } state.monsters rfl clear
+      actAllClear dice state.level state.player 0
+        { moved = [], damage = 0, events = [] }
+        state.monsters
+        byComputing
+        clear
     | Won => clear
     | Died => clear
     | GaveUp => clear
@@ -150,14 +154,14 @@ theorem playerMovesClear ∀ (dice: Dice) (state: State) (direction: Direction)
         | True => clear
         | False =>
           let target := state.player.toward direction
-          rewrite enterPlayer state target, enterMonsters state target in found
+          rewrite enterPlayer state target, enterMonsters state target then found
 
 theorem descendClear ∀ (dice: Dice) (state: State)
     (clear: Clear state.player state.monsters):
     let after := descend dice state
     Clear after.player after.monsters :=
   let plan := Random.withSeed dice.seed (() => generateLevel (state.level.depth + 1))
-  placeMonstersClear plan.level plan.level.start [] plan.monsters rfl
+  placeMonstersClear plan.level plan.level.start [] plan.monsters byComputing
 
 theorem resolveClear ∀ (dice: Dice) (state: State) (command: Command)
     (clear: Clear state.player state.monsters):

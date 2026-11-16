@@ -5,4 +5,4 @@ def hit: Nat → Bool
   | 404 => True
   | _   => False
 
-theorem bad (x: Nat): hit x = False := rfl
+theorem bad (x: Nat): hit x = False := byComputing

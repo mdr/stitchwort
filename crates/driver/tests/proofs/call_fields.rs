@@ -26,7 +26,7 @@ def fieldOf (x: Nat): Fn :=
     | Zero => { at = y => y }
     | Succ m => { at = y => m }
 
-def reflAt (x: Nat): x = x := rfl
+def reflAt (x: Nat): x = x := byComputing
 
 def proved (x: Nat): Proved :=
   match x with
@@ -37,14 +37,14 @@ opaque def hiddenFn (x: Nat): Fn := fieldOf x
 
 def NatEq (a: Nat) (b: Nat): Prop := a = b
 
-def liftFn (q: Quot Nat NatEq): Fn := Quot.lift (b => { at = y => b }) (x y h => rewrite h in rfl) q
+def liftFn (q: Quot Nat NatEq): Fn := Quot.lift (b => { at = y => b }) (x y h => rewrite h then byComputing) q
 
 def countDown (x: Nat): Box
   decreasing x
 :=
   match x with
     | Zero => { value = 0 }
-    | Succ m => countDown m [decreasing := omega]
+    | Succ m => countDown m [decreasing := arithmetic]
 
 type Box = { value: Nat }
 
@@ -53,7 +53,7 @@ def innerBox (x: Nat): Box
 :=
   match x with
     | Zero => { value = 1 }
-    | Succ m => innerBox m [decreasing := omega]
+    | Succ m => innerBox m [decreasing := arithmetic]
 
 -- Its `Zero` leaf is the argument itself, as it was given.
 def passBox (x: Nat) (d: Box): Box
@@ -61,7 +61,7 @@ def passBox (x: Nat) (d: Box): Box
 :=
   match x with
     | Zero => d
-    | Succ m => passBox m d [decreasing := omega]
+    | Succ m => passBox m d [decreasing := arithmetic]
 
 def onBox (b: Box): Nat :=
   match b.value with
@@ -171,12 +171,12 @@ fn transported(g: &Ev, proof: Value) -> Value {
 fn j_on_a_stuck_field_computes_the_call_first() {
     let session = loaded();
     let g = &session.elab.ev();
-    // `(proved 0).same` is `reflAt 0`, a call: `J` forces it to `rfl`.
+    // `(proved 0).same` is `reflAt 0`, a call: `J` forces it to `byComputing`.
     let field = stuck_field(def(g, "proved"), zero(g), data(g, "Proved"), 1);
     let v = transported(g, field);
     assert!(
         matches!(v, Value::Ctor(_, 0, _) | Value::Nat(_)),
-        "`J` on `rfl` is its base: {v:?}"
+        "`J` on `byComputing` is its base: {v:?}"
     );
     // Stuck in its own case tree, the field is eliminated as it is.
     let field = stuck_field(def(g, "proved"), Value::var(1), data(g, "Proved"), 1);
@@ -368,7 +368,7 @@ fn a_folded_calls_field_through_a_solved_metavariable_stays_the_calls() {
 /// A `decreasing` definition whose last step calls another: `outer 0`
 /// unfolds to its fuelled helper's call, which computes to `inner 0`,
 /// itself folded. Glued evaluation follows that to the end, as unglued
-/// evaluation does, so these hold by `rfl` (SW-2126, review SW-2125 F1;
+/// evaluation does, so these hold by `byComputing` (SW-2126, review SW-2125 F1;
 /// D3030). Before, each failed: the `match`es stayed stuck on `inner 0`,
 /// and conversion stopped at it.
 #[test]
@@ -387,28 +387,28 @@ def inner (x: Nat): Box
 :=
   match x with
     | Zero => { value = 1 }
-    | Succ m => inner m [decreasing := omega]
+    | Succ m => inner m [decreasing := arithmetic]
 
 def outer (x: Nat): Box
   decreasing x
 :=
   match x with
     | Zero => inner x
-    | Succ m => outer m [decreasing := omega]
+    | Succ m => outer m [decreasing := arithmetic]
 
 def innerN (x: Nat): Nat
   decreasing x
 :=
   match x with
     | Zero => 1
-    | Succ m => innerN m [decreasing := omega]
+    | Succ m => innerN m [decreasing := arithmetic]
 
 def outerN (x: Nat): Nat
   decreasing x
 :=
   match x with
     | Zero => innerN x
-    | Succ m => outerN m [decreasing := omega]
+    | Succ m => outerN m [decreasing := arithmetic]
 
 def onOuter (x: Nat): Nat :=
   match (outer x).value with
@@ -420,10 +420,10 @@ def onOuterN (x: Nat): Nat :=
     | Zero => 0
     | Succ m => m
 
-theorem field: (outer 2).value = 1 := rfl
-theorem number: outerN 2 = 1 := rfl
-theorem caseOnField: onOuter 2 = 0 := rfl
-theorem caseOnCall: onOuterN 2 = 0 := rfl
+theorem field: (outer 2).value = 1 := byComputing
+theorem number: outerN 2 = 1 := byComputing
+theorem caseOnField: onOuter 2 = 0 := byComputing
+theorem caseOnCall: onOuterN 2 = 0 := byComputing
 "#,
         )
         .expect("loads");

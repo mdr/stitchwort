@@ -14,27 +14,27 @@ import Std (And, Bool, Eq, Graph, List, Map, Nat, Option, Set, Void)
 --| The program's corrupted set holds the bytes fallen.
 theorem safeAgrees ∀ (size: Nat) (bytes: List Position) (fallen: Nat) (position: Position):
     (MemorySpace.after size bytes fallen).isSafe position = isSafe size (bytes.take fallen) position :=
-  rewrite Set.containsFromList position (bytes.take fallen) in
+  rewrite Set.containsFromList position (bytes.take fallen) then
     rewrite List.anyCong
           (bytes.take fallen)
           (other => Map.Spec.sameKey position other)
           (other => other == position)
-          (other => Map.Spec.sameKeyDecide position other) in
-      rfl
+          (other => Map.Spec.sameKeyDecide position other) then
+      byComputing
 
 --| A position can be entered exactly when the spec says it is safe.
 theorem canEnterSafe ∀ (size: Nat) (bytes: List Position) (fallen: Nat) (position: Position):
     canEnter (MemorySpace.after size bytes fallen).enter position = isSafe size (bytes.take fallen) position :=
-  rewrite <- safeAgrees size bytes fallen position in
+  rewrite <- safeAgrees size bytes fallen position then
     match safe: (MemorySpace.after size bytes fallen).isSafe position with
-      | True => rfl
-      | False => rfl
+      | True => byComputing
+      | False => byComputing
 
 --| Entering a position costs one step...
 theorem enterUnit ∀ (memory: MemorySpace) (position: Position) (cost: Nat)
     (found: memory.enter position = Some cost):
     cost = 1 :=
-  match safe: memory.isSafe position with | True => Eq.sym (Option.someInjective found)
+  match safe: memory.isSafe position with | True => (Option.someInjective found).flipped
 
 --| ...so each edge of the graph costs one.
 theorem unitSteps ∀ (memory: MemorySpace) (state next: Position) (weight: Nat)
@@ -64,7 +64,7 @@ theorem walkSteps ∀ (size: Nat) (bytes: List Position) (fallen: Nat) (from: Po
           (canEnterSafe size bytes fallen)
           from
           (path.map Pair.fst)
-          to in
+          to then
       entering)
     (Eq.trans costs (unitPathCost memory.enter (enterUnit memory) from (path.map Pair.fst) to entering))
 
@@ -85,7 +85,7 @@ theorem pathSteps ∀ (size: Nat) (bytes: List Position) (fallen: Nat) (from: Po
           (canEnterSafe size bytes fallen)
           from
           steps
-          to in
+          to then
       path
   Both
     (pathWalk memory.enter
@@ -107,5 +107,5 @@ theorem safeFewer ∀ (size: Nat) (bytes: List Position) (fewer more: Nat)
   match there: (bytes.take fewer).contains position with
     | True =>
       let worse := containsTakeMono position bytes fewer more le there
-      rewrite worse at clear in cases
-    | False => Both inside rfl
+      rewrite worse at clear then cases
+    | False => Both inside byComputing

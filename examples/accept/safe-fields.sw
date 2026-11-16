@@ -10,14 +10,14 @@ def counter (n: Nat) (d: Int): Option Counter := match SafeNat.ofNat n, SafeInt.
   | Some c, Some e => Some { name = "c", count = c, delta = e }
   | _, _ => None
 
-def three: SafeNat := { value = 3, fits = rfl }
-def four: SafeNat := { value = 4, fits = rfl }
-def minusTwo: SafeInt := { value = -2, fits = rfl }
-def five: SafeInt := { value = 5, fits = rfl }
+def three: SafeNat := { value = 3, fits = byComputing }
+def four: SafeNat := { value = 4, fits = byComputing }
+def minusTwo: SafeInt := { value = -2, fits = byComputing }
+def five: SafeInt := { value = 5, fits = byComputing }
 
-test "equal values" := three == { value = 3, fits = rfl }
+test "equal values" := three == { value = 3, fits = byComputing }
 test "different values" := three ≠ four
-test "int equal" := minusTwo == { value = -2, fits = rfl }
+test "int equal" := minusTwo == { value = -2, fits = byComputing }
 test "int different" := minusTwo ≠ five
 
 test "record equality" := counter 3 (-2) == Some { name = "c", count = three, delta = minusTwo }

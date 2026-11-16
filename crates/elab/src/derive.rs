@@ -1133,7 +1133,7 @@ impl Elaborator {
         let (Some(nat), Some(absurd), Some(exfalso), Some(unequal)) = (
             reg.data(Builtin::Nat),
             reg.def(Builtin::VoidAbsurd),
-            reg.def(Builtin::VoidExfalso),
+            reg.def(Builtin::VoidImpossible),
             reg.def(Builtin::NatNeq),
         ) else {
             return Ok(());
@@ -1185,7 +1185,7 @@ impl Elaborator {
             let body = if other == c {
                 Term::Var(n - 1 - k)
             } else {
-                // `Nat.equalFalse other c rfl h : Void`, `h` read as `other = c`.
+                // `Nat.equalFalse other c byComputing h : Void`, `h` read as `other = c`.
                 let number = |x: usize| Term::Nat(Rc::new(BigUint::from(x)));
                 let refuted = Term::app(
                     Term::app(
@@ -1315,7 +1315,7 @@ impl Elaborator {
         let reg = self.kernel.env.registry();
         if reg.data(Builtin::Nat).is_none()
             || reg.def(Builtin::VoidAbsurd).is_none()
-            || reg.def(Builtin::VoidExfalso).is_none()
+            || reg.def(Builtin::VoidImpossible).is_none()
             || reg.def(Builtin::NatNeq).is_none()
         {
             return Ok(());
@@ -1418,7 +1418,11 @@ impl Elaborator {
             s.eq(
                 call(
                     &view,
-                    vec![s.var("%s"), call(&tag, vec![s.var("%s")]), s.var("rfl")],
+                    vec![
+                        s.var("%s"),
+                        call(&tag, vec![s.var("%s")]),
+                        s.var("byComputing"),
+                    ],
                 ),
                 s.var("%s"),
             ),
@@ -1436,7 +1440,7 @@ impl Elaborator {
                         .collect(),
                     s.span,
                 );
-                s.equation(&eta, vec![pattern], s.var("rfl"))
+                s.equation(&eta, vec![pattern], s.var("byComputing"))
             })
             .collect();
         let tag_is = s.eq(call(&tag, vec![s.var("%s")]), s.var("%t"));
@@ -1954,7 +1958,7 @@ impl Elaborator {
                     vec![
                         same_as("%y"),
                         var("%h"),
-                        apps(var("Std.Eq.sym"), vec![eta_at.clone()]),
+                        apps(var("Std.Eq.flipped"), vec![eta_at.clone()]),
                     ],
                 );
                 let mut body = apps(
@@ -1981,13 +1985,16 @@ impl Elaborator {
                     span,
                     "%e",
                     Some(eq(tag_s.clone(), number.clone())),
-                    apps(var("Std.Eq.sym"), vec![tags_same]),
+                    apps(var("Std.Eq.flipped"), vec![tags_same]),
                     body,
                 );
                 sound_equations.push(equation(&sound_name, with(second(), Some("%h")), body));
                 // T.%sameComplete (C %a0 …) %s %e =
                 //   J (%y %q => T.%same (C %a0 …) %y = True) (Decidable.complete (… : Decidable (C %a0 … = C %a0 …)) rfl) %e
-                let refl = apps(var("Std.Decidable.complete"), vec![whole(&a), var("rfl")]);
+                let refl = apps(
+                    var("Std.Decidable.complete"),
+                    vec![whole(&a), var("byComputing")],
+                );
                 complete_equations.push(equation(
                     &complete_name,
                     with(second(), Some("%e")),
@@ -2205,7 +2212,7 @@ pub(crate) fn fields_equal(
         args.extend((0..k).map(field));
         apps(var(&helper), args)
     };
-    let mut proof = var("rfl");
+    let mut proof = var("byComputing");
     for (i, &p) in proofs.iter().enumerate() {
         let right = built(&|j| {
             if is_proof[j] {

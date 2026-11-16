@@ -932,7 +932,7 @@ impl<'g> Printer<'g> {
             Term::Sort(Sort::Prop) => ("Prop".into(), Prec::Atom),
             Term::Sort(Sort::Type(0)) => ("Type".into(), Prec::Atom),
             Term::Sort(Sort::Type(i)) => (format!("Type {i}"), Prec::App),
-            Term::Refl => ("rfl".into(), Prec::Atom),
+            Term::Refl => ("byComputing".into(), Prec::Atom),
             Term::Nat(n) => (n.to_string(), Prec::Atom),
             // A compact list of characters, as the list literal it stands for.
             Term::Chars(chars) => (show_chars(chars.as_slice()), Prec::Atom),
@@ -1042,7 +1042,7 @@ impl<'g> Printer<'g> {
             Term::Ctor(d, 0, _) if is(self.g, Builtin::UnitType, *d) => ("()".into(), Prec::Atom),
             // A double with known valid bits, as its literal: `1.5`, `-0.0`,
             // `Float.nan`. Whatever its witness: every way of building a
-            // `Float` with known bits gives `rfl` (`Float.make`), and a
+            // `Float` with known bits gives `byComputing` (`Float.make`), and a
             // value read back from a runtime has none (SW-1000: a list of
             // them printed as `{ bits = …, valid = ?1 }`).
             Term::Ctor(d, 0, args)

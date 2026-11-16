@@ -22,20 +22,20 @@ def sizes: List SafeNat := [1, 2, 3]
 
 def double (x: SafeNat): Nat := x.value * 2
 
--- The literal is the record with its value and `rfl`.
-theorem tenIs: (10: SafeNat) = { value = 10, fits = rfl } := rfl
+-- The literal is the record with its value and `byComputing`.
+theorem tenIs: (10: SafeNat) = { value = 10, fits = byComputing } := byComputing
 
-theorem minusThreeIs: (-3: SafeInt) = { value = -3, fits = rfl } := rfl
+theorem minusThreeIs: (-3: SafeInt) = { value = -3, fits = byComputing } := byComputing
 
-theorem largestValue: largest.value = 9007199254740991 := rfl
+theorem largestValue: largest.value = 9007199254740991 := byComputing
 
-theorem zeroValue: zero.value = 0 := rfl
+theorem zeroValue: zero.value = 0 := byComputing
 
 -- Beside a `SafeNat` in a comparison, a numeral is one too.
-theorem compared: (limits.bytes == 10 ∧ limits.offset < 0) = True := rfl
+theorem compared: (limits.bytes == 10 ∧ limits.offset < 0) = True := byComputing
 
 -- Numbers that aren't expected as a `SafeNat` are as before.
-theorem stillNat: 2 + 3 = 5 := rfl
+theorem stillNat: 2 + 3 = 5 := byComputing
 
 test "fields" := limits.bytes.value == 10 ∧ limits.offset.value == -3
 test "argument" := double 21 == 42

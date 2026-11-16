@@ -14,7 +14,7 @@ def Counter.down (counter: Counter) (n: Nat): Nat
 def Counter.downIf (counter: Counter) (n: Nat): Nat
     decreasing n
 :=
-  if h: n = 0 then counter.start else counter.downIf (n - 1) [decreasing := omega]
+  if h: n = 0 then counter.start else counter.downIf (n - 1) [decreasing := arithmetic]
 
 -- Lexicographic, as `decreasing-lex.sw`'s `ack`.
 def Counter.ack (counter: Counter) (m n: Nat): Nat
@@ -25,9 +25,9 @@ def Counter.ack (counter: Counter) (m n: Nat): Nat
     | Succ k, Zero => counter.ack k 1 [decreasing := Nat.LexLess.First (Nat.leRefl k)]
     | Succ k, Succ j =>
       counter.ack k
-        (counter.ack (Succ k) j [decreasing := Nat.LexLess.Second rfl (Nat.leRefl j)])
+        (counter.ack (Succ k) j [decreasing := Nat.LexLess.Second byComputing (Nat.leRefl j)])
         [decreasing := Nat.LexLess.First (Nat.leRefl k)]
 
-theorem downTwo: Counter.down { start = 5 } 2 = 5 := rfl
+theorem downTwo: Counter.down { start = 5 } 2 = 5 := byComputing
 
-theorem ackTwo: Counter.ack { start = 0 } 2 3 = 9 := rfl
+theorem ackTwo: Counter.ack { start = 0 } 2 3 = 9 := byComputing

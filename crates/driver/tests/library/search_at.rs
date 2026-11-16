@@ -1,7 +1,7 @@
 //! `stitchwort search --at`, stage 2 (SW-915; docs/proposals/search.md
 //! §5.7, §8 S2): what closes a goal, on a small file of goals with known
 //! closers: an exact lemma, one that needs the goal's hypotheses, one whose
-//! premise `omega` closes, one that applies leaving a goal, a rewrite, and
+//! premise `arithmetic` closes, one that applies leaving a goal, a rewrite, and
 //! a goal whose target binds a variable. Every suggestion said to close a
 //! goal is pasted in place of its `?`, and the file checked again: the
 //! goal must be gone, with no error.
@@ -28,7 +28,7 @@ theorem introducing: (n: Nat) → n + 0 = n := ?
 
 theorem falseOne (m: Nat) (n: Nat): m + n = n + m + 1 := ?
 
-theorem byComputing: List.length [1, 2, 3] = 3 := ?
+theorem computes: List.length [1, 2, 3] = 3 := ?
 
 theorem fromHypothesis (a: Nat) (h: a = 3): a = 3 := ?
 
@@ -204,8 +204,11 @@ fn premises_are_filled_from_hypotheses_or_closed_by_omega_or_left() {
         ("withHypotheses", "Nat.leTrans a b c h1 h2"),
         "{report:#?}"
     );
-    // `omega` closes this goal on its own, and says so.
-    assert!(report.tactics.iter().any(|t| t == "omega"), "{report:#?}");
+    // `arithmetic` closes this goal on its own, and says so.
+    assert!(
+        report.tactics.iter().any(|t| t == "arithmetic"),
+        "{report:#?}"
+    );
     // Some apply leaving a goal, each listed, kernel-checked with it as a
     // hypothesis.
     let applicable: Vec<_> = (report.results.iter())
@@ -224,7 +227,7 @@ fn premises_are_filled_from_hypotheses_or_closed_by_omega_or_left() {
     let obligation = (report.results.iter())
         .find(|s| s.class == "afterObligations")
         .expect("one closed after an obligation");
-    assert_eq!(obligation.obligations[0].closer, "omega");
+    assert_eq!(obligation.obligations[0].closer, "arithmetic");
     all_paste(&report, line);
 }
 
@@ -233,12 +236,15 @@ fn rewrites_show_the_goal_they_leave() {
     let line = line_of("rewriting");
     let report = at(GOALS, line);
     let first = &report.rewrites[0];
-    assert_eq!(first.proof, "rewrite List.lengthAppend xs ys in ?");
+    assert_eq!(first.proof, "rewrite List.lengthAppend xs ys then ?");
     assert_eq!(first.goal, "xs.length + ys.length = ys.length + xs.length");
-    assert_eq!((first.closes, first.checked), (Some("omega"), "kernel"));
-    // Then `omega` closes it: a closing suggestion.
     assert_eq!(
-        report.results[0].proof, "rewrite List.lengthAppend xs ys in omega",
+        (first.closes, first.checked),
+        (Some("arithmetic"), "kernel")
+    );
+    // Then `arithmetic` closes it: a closing suggestion.
+    assert_eq!(
+        report.results[0].proof, "rewrite List.lengthAppend xs ys then arithmetic",
         "{report:#?}"
     );
     all_paste(&report, line);
@@ -311,19 +317,19 @@ fn cases_closes_a_goal_alone() {
     all_paste(&report, line);
 }
 
-/// `ring` is a closer of the full search too (SW-2973), not only a rung of
-/// the ladder: a goal it closes, and `omega` doesn't, lists it in `tactics`
+/// `algebra` is a closer of the full search too (SW-2973), not only a rung of
+/// the ladder: a goal it closes, and `arithmetic` doesn't, lists it in `tactics`
 /// without `--simplest-first`.
 #[test]
 fn ring_closes_a_goal_alone_in_the_full_report() {
     let line = line_of("onlyRing");
     let report = at(GOALS, line);
-    assert!(report.tactics.iter().any(|t| t == "ring"), "{report:#?}");
+    assert!(report.tactics.iter().any(|t| t == "algebra"), "{report:#?}");
     assert!(
-        !report.tactics.iter().any(|t| t == "omega"),
-        "omega closes this goal too, so it doesn't show that ring did: {report:#?}"
+        !report.tactics.iter().any(|t| t == "arithmetic"),
+        "arithmetic closes this goal too, so it doesn't show that algebra did: {report:#?}"
     );
-    pastes(GOALS, line, "ring");
+    pastes(GOALS, line, "algebra");
     all_paste(&report, line);
 }
 
@@ -345,10 +351,10 @@ def lineOf (fold: Fold): Nat :=
 theorem afterMatch (fold: Fold) (h: lineOf fold = 3): lineOf fold + 1 = 4 :=
   match fold with
     | AlongX line => ?
-    | AlongY line => omega
+    | AlongY line => arithmetic
 
 theorem unnamed: (xs: List Nat) → List.length (List.map xs (x => x + 1)) = List.length xs
-  | Nil => rfl
+  | Nil => byComputing
   | Cons _ rest => ?
 
 type Leaf = { value: Nat, depth: Nat }
@@ -373,7 +379,7 @@ theorem liftedMatch: (t: Tree) → find t = None → find t = None
   | Node l r, h => ?
 
 theorem captured: (y: Nat) → (xs: List Nat) → y ∈ xs → y ∈ Cons 0 xs
-  | y, Nil, member => Void.exfalso member
+  | y, Nil, member => Void.impossible member
   | y, Cons x rest, member => ?
 ";
 
@@ -457,9 +463,9 @@ fn at_each(text: &str, lines: &[usize]) -> Vec<AtReport> {
 #[test]
 fn goals_that_dont_print_back_are_searched() {
     let cases: [(&str, &[&str]); 5] = [
-        ("theorem afterMatch", &["omega"]),
+        ("theorem afterMatch", &["arithmetic"]),
         ("theorem unnamed", &["lengthMap"]),
-        ("theorem recordInCons", &["rfl"]),
+        ("theorem recordInCons", &["byComputing"]),
         ("theorem liftedMatch", &[]),
         ("theorem captured", &["Inr member"]),
     ];
@@ -485,8 +491,8 @@ fn goals_that_dont_print_back_are_searched() {
 }
 
 /// Recursive theorems whose step needs the induction hypothesis (SW-993):
-/// in `omega`, as a rewrite whose argument matching solved (`x + 2`), and
-/// as a rewrite after which `rfl` closes.
+/// in `arithmetic`, as a rewrite whose argument matching solved (`x + 2`), and
+/// as a rewrite after which `byComputing` closes.
 const RECURSIVE: &str = "\
 import Std (Bool, Nat, List, Void)
 
@@ -495,8 +501,8 @@ def total: List Nat → Nat
   | Cons x rest => x + total rest
 
 theorem totalAtLeast: (xs: List Nat) → (y: Nat) → y ∈ xs → y ≤ total xs
-  | Nil, y, member => Void.exfalso member
-  | Cons x rest, y, Inl same => rewrite same in omega
+  | Nil, y, member => Void.impossible member
+  | Cons x rest, y, Inl same => rewrite same then arithmetic
   | Cons x rest, y, Inr later => ?
 
 def steps: Nat → Nat → Nat
@@ -504,7 +510,7 @@ def steps: Nat → Nat → Nat
   | Succ n, x => steps n (x + 2)
 
 theorem stepsAdd: (n: Nat) → (x: Nat) → steps n x = x + 2 * n
-  | 0, x => omega
+  | 0, x => arithmetic
   | Succ n, x => ?
 
 def size: List Nat → Nat
@@ -512,7 +518,7 @@ def size: List Nat → Nat
   | Cons _ rest => size rest + 1
 
 theorem sizeMap: (xs: List Nat) → size (List.map xs (x => x + 1)) = size xs
-  | Nil => rfl
+  | Nil => byComputing
   | Cons _ rest => ?
 ";
 
@@ -523,7 +529,10 @@ theorem sizeMap: (xs: List Nat) → size (List.map xs (x => x + 1)) = size xs
 #[test]
 fn the_induction_hypothesis_closes_a_step() {
     let cases: [(&str, &str); 3] = [
-        ("theorem totalAtLeast", "omega [totalAtLeast rest y later]"),
+        (
+            "theorem totalAtLeast",
+            "arithmetic [totalAtLeast rest y later]",
+        ),
         ("theorem stepsAdd", "stepsAdd n (x + 2)"),
         ("theorem sizeMap", "sizeMap rest"),
     ];
@@ -565,7 +574,7 @@ import Std (Bool, Nat, List)
 theorem takeLength (xs: List Nat) (ys: List Nat) (k: Nat) (h: xs.length = k): (xs ++ ys).take k = xs := ?
 ";
     let report = &at_each(text, &[3])[0];
-    let want = "rewrite <- h in List.takeAppend xs ys";
+    let want = "rewrite <- h then List.takeAppend xs ys";
     assert!(
         (report.results.iter()).any(|s| s.proof == want && s.class == "withHypotheses"),
         "`{want}` not suggested: {report:#?}"
@@ -586,7 +595,7 @@ def total: List Nat → Nat
 
 def Bounded (xs: List Nat) (n: Nat): Prop := And (total xs ≤ n) (And (List.length xs ≤ n) (0 < n + 1))
 
-theorem boundedSelf (xs: List Nat): Bounded xs (total xs + List.length xs) := Both (omega) (Both (omega) (omega))
+theorem boundedSelf (xs: List Nat): Bounded xs (total xs + List.length xs) := Both (arithmetic) (Both (arithmetic) (arithmetic))
 
 theorem useTotal (ys: List Nat): List.length ys ≤ total ys + List.length ys := ?
 ";
@@ -601,7 +610,7 @@ theorem useTotal (ys: List Nat): List.length ys ≤ total ys + List.length ys :=
 }
 
 /// SW-1017: a check that would run for minutes is stopped from inside at the
-/// deadline `search --at` gives it (a share of its time): here `rfl` on a
+/// deadline `search --at` gives it (a share of its time): here `byComputing` on a
 /// naive `fib 36`, which takes tens of seconds. It fails as having run out
 /// (`E-RESOURCE`), the budget says the deadline stopped it, and the next
 /// check, with no deadline, is unaffected.
@@ -624,7 +633,7 @@ def fib: Nat → Nat
         let limit = std::time::Duration::from_millis(300);
         (session.elab.kernel.machine.budget).set_deadline(Some(std::time::Instant::now() + limit));
         let slow = session
-            .parse_expression("<test>", "((rfl): fib 36 = 14930352)")
+            .parse_expression("<test>", "((byComputing): fib 36 = 14930352)")
             .unwrap();
         let started = std::time::Instant::now();
         let stopped = session.elab.check_proof(&slow);
@@ -640,7 +649,7 @@ def fib: Nat → Nat
         );
         assert!(took < std::time::Duration::from_secs(5), "took {took:?}");
         let quick = session
-            .parse_expression("<test>", "((rfl): fib 10 = 55)")
+            .parse_expression("<test>", "((byComputing): fib 10 = 55)")
             .unwrap();
         assert!(session.elab.check_proof(&quick).is_ok());
         assert!(!session.elab.kernel.machine.budget.take_timed_out());
@@ -670,12 +679,12 @@ fn only_offer(name: &str, rung: &str, proof: &str) {
     pastes(GOALS, line, proof);
 }
 
-/// A goal `rfl` closes is answered with `rfl` alone, where the full search
-/// lists `omega`, `byDecision` and lemmas too.
+/// A goal `byComputing` closes is answered with `byComputing` alone, where the full search
+/// lists `arithmetic`, `byDecision` and lemmas too.
 #[test]
 fn simplest_first_offers_only_rfl() {
-    only_offer("byComputing", "rfl", "rfl");
-    let full = at(GOALS, line_of("byComputing"));
+    only_offer("computes", "byComputing", "byComputing");
+    let full = at(GOALS, line_of("computes"));
     assert!(full.tactics.len() > 1, "{full:#?}");
 }
 
@@ -684,15 +693,15 @@ fn simplest_first_offers_a_hypothesis_that_is_the_goal() {
     only_offer("fromHypothesis", "hypothesis", "h");
 }
 
-/// A goal only `omega` closes: not `ring`, not `cases`, not lemmas.
+/// A goal only `arithmetic` closes: not `algebra`, not `cases`, not lemmas.
 #[test]
 fn simplest_first_offers_only_omega() {
-    only_offer("onlyOmega", "omega", "omega");
+    only_offer("onlyOmega", "arithmetic", "arithmetic");
 }
 
 #[test]
 fn simplest_first_offers_ring_when_omega_cannot() {
-    only_offer("onlyRing", "ring", "ring");
+    only_offer("onlyRing", "algebra", "algebra");
 }
 
 #[test]
@@ -700,24 +709,24 @@ fn simplest_first_offers_cases_for_an_impossible_hypothesis() {
     only_offer("ruledOut", "cases", "cases");
 }
 
-/// A case ruled out by `False = True` gets the direct proof, not `omega` or
+/// A case ruled out by `False = True` gets the direct proof, not `arithmetic` or
 /// `cases` (SW-2912); the full search lists it first among the tactics.
 #[test]
 fn simplest_first_offers_the_direct_proof_of_an_impossible_bool_equation() {
     only_offer(
         "falseIsTrue",
         "absurd",
-        "Std.Void.exfalso (Bool.falseNotTrue h)",
+        "Std.Void.impossible (Bool.falseNotTrue h)",
     );
     only_offer(
         "trueIsFalse",
         "absurd",
-        "Std.Void.exfalso (Bool.trueNotFalse h)",
+        "Std.Void.impossible (Bool.trueNotFalse h)",
     );
     let full = at(GOALS, line_of("falseIsTrue"));
     assert_eq!(
         full.tactics.first().map(String::as_str),
-        Some("Std.Void.exfalso (Bool.falseNotTrue h)"),
+        Some("Std.Void.impossible (Bool.falseNotTrue h)"),
         "{full:#?}"
     );
 }

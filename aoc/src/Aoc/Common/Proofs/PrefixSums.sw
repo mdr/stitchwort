@@ -1,7 +1,7 @@
 --| The summed-area table is right: `PrefixSums.block` of `PrefixSums.of rows`
 --| is the sum of the cells in the block ([`PrefixSums.blockSum`]), whenever the
 --| block is inside the grid.
--- Kept out of PrefixSums.sw because the proofs need `omega`.
+-- Kept out of PrefixSums.sw because the proofs need `arithmetic`.
 
 namespace Aoc.Common.Proofs
 import Aoc.Common (..)
@@ -15,17 +15,17 @@ theorem PrefixSums.tableAt ∀ (c: Nat):
       → ∀ (r: Nat) => r ≤ List.length sums
         → List.getOr (List.getOr (PrefixSums.table above sums) r []) c 0
           = List.getOr above c 0 + List.sumBy (List.range 0 r) (i => List.getOr (List.getOr sums i []) c 0)
-  | above, [], ha, hs, Zero, hr => Eq.sym (Nat.addZero (List.getOr above c 0))
+  | above, [], ha, hs, Zero, hr => Eq.flipped (Nat.addZero (List.getOr above c 0))
   | above, [], ha, hs, Succ r, hr => cases
-  | above, [row, ..rest], ha, hs, Zero, hr => Eq.sym (Nat.addZero (List.getOr above c 0))
+  | above, [row, ..rest], ha, hs, Zero, hr => Eq.flipped (Nat.addZero (List.getOr above c 0))
   | above, [row, ..rest], ha, hs, Succ r, hr =>
-    let hrow: c < List.length row := hs 0 rfl
+    let hrow: c < List.length row := hs 0 byComputing
     let next := List.zipWith above row Nat.add
     let hnext: c < List.length next := List.lengthZipWithAtLeast above (Succ c) row ha hrow Nat.add
     rewrite PrefixSums.tableAt c next rest hnext (i hi => hs (Succ i) hi) r hr,
         List.getOrZipWithAdd above c row ha hrow,
-        List.sumByRangeSucc (i => List.getOr (List.getOr [row, ..rest] i []) c 0) r in
-      omega
+        List.sumByRangeSucc (i => List.getOr (List.getOr [row, ..rest] i []) c 0) r then
+      arithmetic
 
 --| Entry (r, c) of the table is the sum of the cells above row r and left of
 --| column c.
@@ -48,31 +48,31 @@ theorem PrefixSums.atOf ∀ (rows: List (List Nat)) (r c: Nat)
       rewrite List.lengthMap rows (row => PrefixSums.runningSums (List.padRight row width 0)) at hi
     rewrite sumsAt i inRows,
         List.lengthScanLeft (List.padRight (List.getOr rows i []) width 0) 0 Nat.add,
-        paddedLength i in
+        paddedLength i then
       hc
-  let topLength: c < List.length top := rewrite List.lengthReplicate 0 width in hc
+  let topLength: c < List.length top := rewrite List.lengthReplicate 0 width then hc
   let rowSum: ∀ (i: Nat) => 0 ≤ i
     → i < 0 + r
     → List.getOr (List.getOr sums i []) c 0 = List.sumBy (List.rangeFrom (c - 0) 0) (j => PrefixSums.cell rows i j) :=
     i lo hi =>
-      rewrite sumsAt i (omega),
-          List.getOrScanAdd (List.padRight (List.getOr rows i []) width 0) 0 c (rewrite paddedLength i in hc) in
+      rewrite sumsAt i (arithmetic),
+          List.getOrScanAdd (List.padRight (List.getOr rows i []) width 0) 0 c (rewrite paddedLength i then hc) then
         List.sumByCong
           (List.range 0 c)
           (j => List.getOr (List.padRight (List.getOr rows i []) width 0) j 0)
           (j => PrefixSums.cell rows i j)
           (j => List.getOrPadRight (List.getOr rows i []) 0 width j)
   calc PrefixSums.at (PrefixSums.of rows) r c
-    _ = Map.getOr (Map.getOr (Map.byPosition (List.map table Map.byPosition)) r Map.empty) c 0 := rfl
+    _ = Map.getOr (Map.getOr (Map.byPosition (List.map table Map.byPosition)) r Map.empty) c 0 := byComputing
     _ = Map.getOr (List.getOr (List.map table Map.byPosition) r Map.empty) c 0 :=
       rewrite Map.getOrByPosition (List.map table Map.byPosition) r Map.empty
     _ = Map.getOr (Map.byPosition (List.getOr table r [])) c 0 := rewrite List.getOrMap table r [] Map.byPosition
     _ = List.getOr (List.getOr table r []) c 0 := Map.getOrByPosition (List.getOr table r []) c 0
     _ = List.getOr top c 0 + List.sumBy (List.range 0 r) (i => List.getOr (List.getOr sums i []) c 0) :=
       PrefixSums.tableAt c top sums topLength sumsLength r
-        (rewrite List.lengthMap rows (row => PrefixSums.runningSums (List.padRight row width 0)) in hr)
+        (rewrite List.lengthMap rows (row => PrefixSums.runningSums (List.padRight row width 0)) then hr)
     _ = List.sumBy (List.range 0 r) (i => List.getOr (List.getOr sums i []) c 0) :=
-      rewrite List.getOrReplicate 0 c (Succ width) in rfl
+      rewrite List.getOrReplicate 0 c (Succ width) then byComputing
     _ = PrefixSums.blockSpec rows 0 r 0 c :=
       List.sumByCongRange
         (i => List.getOr (List.getOr sums i []) c 0)
@@ -91,9 +91,9 @@ theorem PrefixSums.blockSum ∀ (rows: List (List Nat)) (top bottom left right: 
   let cell := PrefixSums.cell rows
   let upTo: Nat → Nat → Nat := r c => List.sumBy (List.rangeFrom c 0) (j => cell r j)
   let e1 := PrefixSums.atOf rows bottom right bh rw
-  let e2 := PrefixSums.atOf rows top left (omega) (omega)
-  let e3 := PrefixSums.atOf rows top right (omega) rw
-  let e4 := PrefixSums.atOf rows bottom left bh (omega)
+  let e2 := PrefixSums.atOf rows top left (arithmetic) (arithmetic)
+  let e3 := PrefixSums.atOf rows top right (arithmetic) rw
+  let e4 := PrefixSums.atOf rows bottom left bh (arithmetic)
   let split1 := List.sumByRangeSplit (r => upTo r right) top bottom tb
   let split2 := List.sumByRangeSplit (r => upTo r left) top bottom tb
   let split3: List.sumBy (List.rangeFrom (bottom - top) top) (r => upTo r right)
@@ -107,4 +107,4 @@ theorem PrefixSums.blockSum ∀ (rows: List (List Nat)) (top bottom left right: 
           + PrefixSums.blockSpec rows top bottom left right :=
         List.sumByAdd (List.rangeFrom (bottom - top) top) (r => upTo r left) (r =>
           List.sumBy (List.rangeFrom (right - left) left) (j => cell r j))
-  omega
+  arithmetic

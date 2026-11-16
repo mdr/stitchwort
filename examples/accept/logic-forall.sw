@@ -5,7 +5,7 @@
 import Std (Exists, Nat)
 import Std.Exists (Witness)
 
-theorem plusZero: ∀ (n: Nat) => n + 0 = n := n => rfl
+theorem plusZero: ∀ (n: Nat) => n + 0 = n := n => byComputing
 
 theorem plusZeroAscii: forall (n: Nat) => n + 0 = n := plusZero
 
@@ -23,10 +23,10 @@ theorem sameLength ∀ (h: ∀ [a: Type] (xs: List a) => xs.length = xs.length):
 theorem inferred ∀ (h: ∀ n => n * 1 = n): 7 * 1 = 7 := h 7
 
 -- The body takes the rest: an `->` in it is an implication under the `∀`.
-theorem positive: ∀ (n: Nat) => n > 0 -> n ≥ 1 := n => h => omega
+theorem positive: ∀ (n: Nat) => n > 0 -> n ≥ 1 := n => h => arithmetic
 
 -- After `&&`, `||` and `<->`, as `exists` may.
-theorem both: 1 = 1 && ∀ (n: Nat) => n = n := Both rfl (n => rfl)
+theorem both: 1 = 1 && ∀ (n: Nat) => n = n := Both byComputing (n => byComputing)
 
 -- `∀` and `∃` together.
-theorem successor: ∀ (n: Nat) => ∃ (m: Nat) => m = n + 1 := n => Witness (n + 1) rfl
+theorem successor: ∀ (n: Nat) => ∃ (m: Nat) => m = n + 1 := n => Witness (n + 1) byComputing

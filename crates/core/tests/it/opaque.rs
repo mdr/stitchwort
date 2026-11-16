@@ -103,7 +103,7 @@ fn double(p: &mut Prelude, name: &str, how: How) -> DefId {
     submit(&mut p.g, name, how, ty, body).expect("double")
 }
 
-/// `name: f arg = result := rfl`, submitted as `how` says.
+/// `name: f arg = result := byComputing`, submitted as `how` says.
 fn rfl_about(
     p: &mut Prelude,
     name: &str,
@@ -120,7 +120,7 @@ fn rfl_about(
     submit(&mut p.g, name, how, statement, Term::Refl)
 }
 
-// `rfl`, and `unfolding`
+// `byComputing`, and `unfolding`
 
 #[test]
 fn rfl_through_an_opaque_constant_is_refused() {

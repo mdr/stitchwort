@@ -8,7 +8,7 @@
 -- Basics and Induction chapters use. It has the book's definitions and no
 -- lemmas: the library's `Nat` comes with a large stock of proved facts
 -- (`Nat.addComm`, `Nat.mulZero`, ...) and with decision procedures
--- (`omega`) that would solve many of the exercises in one word, so the
+-- (`arithmetic`) that would solve many of the exercises in one word, so the
 -- exercises here are about this type, which none of that applies to.
 --
 -- Differences from the book:
@@ -20,7 +20,7 @@
 -- - Number literals stand for the library's `Nat` only, so `3` can't be
 --   written for this type. Write `S (S (S O))`, or `ofNat 3`, a function
 --   from a library numeral that computes to the chain: `ofNat 3 = S (S (S
---   O))` is `rfl`. The chapters write `O` and `S O` as they are and use
+--   O))` is `byComputing`. The chapters write `O` and `S O` as they are and use
 --   `ofNat` for larger numbers.
 -- - There are no `+`, `*`, `-`, `<=` operators for this type: call `plus`,
 --   `mult`, `minus`, and (in Basics) `eqb` and `leb` by name.
@@ -76,7 +76,7 @@ def ofNat (n: StdNat): Nat := match n with
   | Zero => O
   | Succ n' => S (ofNat n')
 
-theorem ofNatThree: ofNat 3 = S (S (S O)) := rfl
+theorem ofNatThree: ofNat 3 = S (S (S O)) := byComputing
 
 -- Multi-argument functions can be defined by recursion too.
 
@@ -110,7 +110,7 @@ def mult (n m: Nat): Nat := match n with
   | O => O
   | S n' => plus m (mult n' m)
 
-theorem testMult1: mult (ofNat 3) (ofNat 3) = ofNat 9 := rfl
+theorem testMult1: mult (ofNat 3) (ofNat 3) = ofNat 9 := byComputing
 
 -- Two expressions can be matched at once by putting a comma between them:
 

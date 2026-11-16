@@ -195,4 +195,4 @@ def b30 (x: Bool): Nat := match x with
   | True => b29 x
   | False => b29 x
 
-theorem sameChains ∀ (x: Bool): a30 x = b30 x := rfl
+theorem sameChains ∀ (x: Bool): a30 x = b30 x := byComputing

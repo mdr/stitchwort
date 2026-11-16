@@ -1,4 +1,4 @@
--- A function field of a call that is stuck, applied, is equal by `rfl` to
+-- A function field of a call that is stuck, applied, is equal by `byComputing` to
 -- the same field of the call's unfolding, applied: both compute to the
 -- field of the stuck `if`, applied (docs/proposals/match-call-field.md
 -- §2.1, "Conversion").
@@ -15,7 +15,7 @@ def Cave.tiled (cave: Cave): Map :=
 theorem twoWays ∀ (cave: Cave) (n: Nat):
     cave.tiled.level n
       = (if tall: cave.height != 0 then { size = 5, level = m => m + 1 } else { size = 0, level = m => m }).level n :=
-  rfl
+  byComputing
 
 def Cave.levelAt (cave: Cave) (n: Nat): Nat := cave.tiled.level n
 
@@ -23,4 +23,4 @@ def Cave.levelAt (cave: Cave) (n: Nat): Nat := cave.tiled.level n
 theorem throughACall ∀ (cave: Cave) (n: Nat):
     cave.levelAt n
       = (if tall: cave.height != 0 then { size = 5, level = m => m + 1 } else { size = 0, level = m => m }).level n :=
-  rfl
+  byComputing

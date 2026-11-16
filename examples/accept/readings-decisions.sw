@@ -19,7 +19,7 @@ theorem differ ∀ [auto eq: DecEq a] (x y: a) (h: (x == y) = False): x ≠ y :=
 -- Patterns read one layer at a time: `&&` as `∧`, then each side through
 -- its decision.
 theorem chain ∀ [auto eq: DecEq a] (x y z: a) (h: (x == y && y == z) = True): x = z := match h with
-  | Both xy yz => rewrite xy.read, yz.read in rfl
+  | Both xy yz => rewrite xy.read, yz.read then byComputing
 
 -- A decision of `p ∧ q` is taken apart and built as `∧`.
 theorem second ∀ [p q: Prop] (d: Decidable (p ∧ q)) (h: d.holds = True): q := match h with | Both _ y => y
