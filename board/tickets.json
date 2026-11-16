@@ -39126,15 +39126,17 @@
     {
       "id": 3504,
       "title": "[Sonnet] Parse proofs L2: ReadsChars/ReadsOperators/ReadsTokens/locatedToEnd onto L1; delete Among.sw and Paced.sw; move the toy's Fair/Paced uses and aoc's call sites. After L1 and SW-3490. Est. 60 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\n\nLane note (Sonnet, SW-3504): done on lane/SW-3504 (46ec10b56, on top of L1). Std lemmas of ReadsChars/ReadsOperators/ReadsTokens are over ReadsIn [inv]; Among.sw and Paced.sw deleted; toy's Gives/Fair on readsInOfRuns, Fair = ReadsIn (every Good), 8 Paced lemmas gone (1143 -> 1135 theorems). Checks: check --std Parse; toy Toy.Syntax.Proofs and Toy.Fmt.Proofs; goal (none); axioms (none); hash_stability (10 pass, snapshots updated). No aoc call sites. Left: operator lemmas that use the operator item's fineness are duplicated as *Every versions (could fold into one with an item predicate).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "46ec10b56"
+      ]
     },
     {
       "id": 3505,
