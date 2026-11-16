@@ -1,5 +1,5 @@
 {
-  "next": 3582,
+  "next": 3583,
   "tickets": [
     {
       "id": 47,
@@ -40141,6 +40141,19 @@
     {
       "id": 3581,
       "title": "[Sonnet] Errors follow-ups from E4 (SW-3550): (1) member did-you-mean (List.lenght, scope.rs) as a structured fix (label covers the qualified name; replace only the member); (2) structure the other 'did you mean' notes (attributes.rs, doc_links.rs, project.rs, run.rs); (3) audit 'needs import' notes that don't call with_import, so every one carries the fix",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3582,
+      "title": "[Opus] Formatter changes a parse (caught by the tree check; file left unchanged) — fuzz, Overmind, seed 0x951 case 40011: 'the input has App( where the output has Effect('. Minimal (scratchpad fmtbugs/row.sw): theorem-- c / same (t: / () → / {e} a): Unit := / match reify t with / | return x => Trivial. An ability row {e} starting a continuation line after → parses differently from the same row on the arrow's line. First decide which parse is right (likely the parser should read '() → {e} a' the same across a line break), then fix parser or layout; add a parser test and a fmt test",
       "status": "backlog",
       "agent": "",
       "where": "",
