@@ -423,7 +423,7 @@ theorem keywordComments ∀ (column: Nat) (first: Parse.Located Token) (pending:
     comments = (InStatement column first.offset).comments first :=
   match comments, none, same with
     | { above = [], after }, _, same =>
-      firstComments column first.offset first pending kind start after (sameOffset first.offset) same
+      firstComments column first.offset first pending kind start after (ownOffset first.offset) same
 
 --| What tokens with an expression's views have to do outside brackets:
 --| with rising offsets, leading, they spell it.
@@ -515,11 +515,6 @@ theorem closingCoded ∀ (line: Spaced Statement) (more: List (Spaced Statement)
   match more, closed with
     | [], _ => Both rfl rfl
     | [_, .._], closed => closed
-
-theorem closedSome ∀ (line: Spaced Statement) (more: List (Spaced Statement))
-    (closed: LinesClose [] [] [line, ..more]):
-    ClosedLines [line, ..more] :=
-  closed
 
 theorem laterOfLines ∀ (column: Nat) (statements: List (Spaced Statement)) (events: List Event)
     (unspaced: Unspaced statements)

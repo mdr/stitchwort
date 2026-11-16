@@ -1693,6 +1693,8 @@ theorem spelledFirstAbove ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse
               let inner := spelledFirstAbove layout left leftTokens shapedLeft spelledLeft
               rewrite split, leftSplit in (rewrite leftSplit at inner in inner)
 
+--| An offset is its own. The expression proofs and the spelling proofs
+--| both rewrite with it; it is the one copy.
 theorem ownOffset ∀ (offset: Nat): (offset == offset) = True := omega
 
 --| A statement's first token holds no comments above it in the tree.
@@ -1712,18 +1714,6 @@ theorem spelledHeaded ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Loc
       noAboveCleared expr (Eq.trans (spelledFirstAbove (InStatement column start) expr tokens shaped spelled) none)
 
 theorem clearedPostfix ∀ (expr: Expr): expr.withoutFirstAbove.isPostfix = expr.isPostfix := match expr with
-  | Var _ _ => rfl
-  | NumberLiteral _ _ => rfl
-  | StringLiteral _ _ => rfl
-  | Bracketed _ _ _ => rfl
-  | ListLiteral _ _ _ => rfl
-  | Call _ _ _ _ => rfl
-  | Field _ _ _ _ => rfl
-  | Negate _ _ => rfl
-  | Binary _ _ _ _ => rfl
-  | If _ _ _ _ _ _ => rfl
-
-theorem clearedOperand ∀ (expr: Expr): expr.withoutFirstAbove.isOperand = expr.isOperand := match expr with
   | Var _ _ => rfl
   | NumberLiteral _ _ => rfl
   | StringLiteral _ _ => rfl

@@ -111,6 +111,3 @@ def symbolsKind (run: Text): Kind := match symbols run with
   | Some (Sign mark) => Sign mark
   | Some (Op operator) => Op operator
   | _ => Stray run
-
---| A word that lexes as a name spells no keyword.
-theorem nameIsNoKeyword ∀ (word text: Text) (named: wordKind word = Name text): Keyword.fromWord word = None := cases

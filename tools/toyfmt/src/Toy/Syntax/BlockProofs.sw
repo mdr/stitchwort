@@ -205,28 +205,6 @@ theorem inlineBodyRun ∀ (more: Nat) (self: Layout → {Parse (Parse.Located To
         | { at = { rest = [], offset, left }, furthest, expected, messages } => rfl
         | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite inline in rfl
 
---| `body` where no block follows: one expression.
-theorem runsBodyInline ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (value: Expr)
-    (first: Parse.Located Token) (others rest: List (Parse.Located Token))
-    (inline: blockAhead layout [first, ..others] = False)
-    (runsValue: Parse.Runs (() => self layout) [first, ..others] rest value)
-    (headed: layout.headed value = value):
-    Parse.Runs (() => body self layout) [first, ..others] rest (bodyOf value) :=
-  state starts honest =>
-    let ahead: blockAhead layout state.at.rest = False :=
-      rewrite starts in
-        match layout with
-          | InBrackets => rfl
-          | InStatement column from => inline
-    match runsInlineBody self layout value [first, ..others] rest runsValue headed state starts honest with
-      | Witness m (Both ran after) =>
-        Witness m
-          (Both
-            (Eq.trans
-              (Parse.runFromMark state (before => (bodyFuel (before.left + 1) self layout, Parse.mark())))
-              (Eq.trans (inlineBodyRun state.at.left self layout state ahead) ran))
-            after)
-
 --| The column of the first of the tokens: a block's, when it starts one.
 def firstColumn (input: List (Parse.Located Token)): Nat := match input with
   | [token, .._] => token.value.column
@@ -239,31 +217,6 @@ theorem blockBodyRun ∀ (more: Nat) (self: Layout → {Parse (Parse.Located Tok
       = Parse.runFrom state (() => (block more self (firstColumn state.at.rest), Parse.mark())) :=
   match state with
     | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite ahead in rfl
-
---| `body` where the next token starts a line deeper than the statement: a
---| block at that token's column. The block may nest as deep as there are
---| tokens left.
-theorem runsBodyBlock ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (column from: Nat) (found: Body)
-    (first: Parse.Located Token) (others rest: List (Parse.Located Token))
-    (deeper: (first.value.startsLine && first.value.column > column) = True)
-    (runsBlock: ∀ (fuel: Nat) => rest.length + others.length < fuel
-      → Parse.Runs (() => block fuel self first.value.column) [first, ..others] rest found):
-    Parse.Runs (() => body self (InStatement column from)) [first, ..others] rest found :=
-  state starts honest =>
-    let lengths: state.at.rest.length = Succ (others.length + rest.length) :=
-      rewrite starts in rewrite List.lengthAppend others rest in rfl
-    let same: firstColumn state.at.rest = first.value.column := rewrite starts in rfl
-    let step0 := blockBodyRun state.at.left self column from state (rewrite starts in deeper)
-    let step := rewrite same at step0 in step0
-    match runsBlock state.at.left (omega [honest, lengths]) state starts honest with
-      | Witness m (Both ran after) =>
-        Witness m
-          (Both
-            (Eq.trans
-              (Parse.runFromMark state (before =>
-                (bodyFuel (before.left + 1) self (InStatement column from), Parse.mark())))
-              (Eq.trans step ran))
-            after)
 
 --| A statement's line that starts with `let`: a name, `=` and a body.
 theorem runsLineLet ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)

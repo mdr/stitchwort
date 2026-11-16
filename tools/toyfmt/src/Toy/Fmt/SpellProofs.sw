@@ -605,11 +605,6 @@ theorem suitsRestart ∀ (zone: Zone) (layout: Layout) (from: Nat)
         | Deeper at, suits => suits
         | Anywhere _, never => never
 
-theorem bracketedRestart ∀ (layout: Layout) (from: Nat): bracketedOf (restart layout from) = bracketedOf layout :=
-  match layout with
-    | InBrackets => rfl
-    | InStatement _ _ => rfl
-
 --| The events of `expr`, seen with `pending` waiting, are views (one at
 --| least) that leave nothing waiting, and tokens with those views that
 --| lead (`Leads`) spell the expression at `layout`, wherever the
@@ -1776,28 +1771,6 @@ theorem bodySpells ∀ (zone: Zone) (body: Body) (events: List Event)
       Void.exfalso (Bool.falseNotTrue (one rfl))
     | { statements = [_, _, .._] }, _, _, Both _ (Both _ one), _ => Void.exfalso (Bool.falseNotTrue (one rfl))
 
---| Inside brackets, tokens (the newest first) whose views are those of
---| a trace of an expression's events spell the expression.
-theorem spellsBracketed ∀ (zone: Zone) (expr: Expr) (events: List Event) (tokens: List (Parse.Located Token))
-    (shaped: Shaped expr)
-    (lexical: Lexical expr)
-    (headed: HeadedExpr True expr)
-    (laid: Events zone anyStart expr events)
-    (views: tokens.map viewOf = (viewsOf events).views):
-    Spelled InBrackets expr tokens.reverse :=
-  match exprSpells zone InBrackets anyStart expr events [] rfl shaped lexical headed rfl laid with
-    | Witness first (Witness others (Both seen (Both spells _))) =>
-      spells 0 tokens.reverse
-        (Eq.trans
-          (List.mapReverse tokens viewOf)
-          (Eq.trans
-            (Eq.cong
-              ((found: List TokenView) => found.reverse)
-              (Eq.trans views
-                (Eq.trans (Eq.cong ((all: Views) => all.views) (seen [])) (List.appendNil [first, ..others].reverse))))
-            (List.reverseReverse [first, ..others])))
-        (bracketLeads anyStart expr.firstAbove tokens.reverse)
-
 -- A statement's first token, `else`, and a body on its keyword's line.
 
 theorem reachesCast ∀ (zone: Zone) (given wanted: Option Nat)
@@ -1818,8 +1791,6 @@ theorem reachesElse ∀ (at column from: Nat) (found: Parse.Located Token) (star
       let level: (indent >= column) = True := omega [lower, suits]
       rewrite level in rfl
 
-theorem sameOffset ∀ (offset: Nat): (offset == offset) = True := omega
-
 theorem firstAllowed ∀ (column: Nat) (first: Parse.Located Token):
     (InStatement column first.offset).allows first = True :=
   match first with
@@ -1827,7 +1798,7 @@ theorem firstAllowed ∀ (column: Nat) (first: Parse.Located Token):
     | { value = { kind, startsLine = True, column = indent, above, trailing }, offset, length } =>
       match deeper: indent > column with
         | True => rfl
-        | False => rewrite sameOffset offset in rfl
+        | False => rewrite ownOffset offset in rfl
 
 --| The comments of a statement's first token, as the tree keeps them:
 --| none above, whatever its view shows there.
@@ -1852,7 +1823,7 @@ theorem firstLeads ∀ (column: Nat) (pending: List Trivia) (head: Option Nat �
   Both apart (kind start after allowed same =>
     Both
       (firstAllowed column first)
-      (firstComments column first.offset first pending kind start after (sameOffset first.offset) same))
+      (firstComments column first.offset first pending kind start after (ownOffset first.offset) same))
 
 --| Each number above the one before it: the offsets of tokens in source
 --| order.
@@ -1915,117 +1886,9 @@ theorem headedOfNoAbove ∀ (layout: Layout) (value: Expr)
     | InBrackets, none => rfl
     | InStatement column start, none => noAboveCleared value (none rfl)
 
---| Tokens with the views of a body laid on its keyword's line spell the
---| body as one expression, at any layout: outside brackets its first
---| token doesn't start a line (the tree holds no comments above it), so
---| the parser sees no block there.
-theorem inlineSpells ∀ (zone: Zone) (layout: Layout) (value: Expr) (events: List Event)
-    (suits: Suits zone layout)
-    (shaped: Shaped value)
-    (lexical: Lexical value)
-    (headed: HeadedStatement (bracketedOf layout) (Bare value))
-    (covered: Covered layout value)
-    (laid: Events zone (inlineHead zone value) value events):
-    ∃ (first: TokenView) => ∃ (others: List TokenView) => Seen [] events [first, ..others]
-      ∧ (∀ (from: Nat) (tokens: List (Parse.Located Token)) => tokens.map viewOf = [first, ..others]
-        → AllApart (restart layout from) tokens
-        → SpelledInline (restart layout from) (bodyOf value) tokens) :=
-  match headed with
-    | Both noAbove headedValue =>
-      match exprSpells zone layout
-        (inlineHead zone value)
-        value
-        events
-        []
-        suits
-        shaped
-        lexical
-        headedValue
-        covered
-        laid with
-        | Witness first (Witness others (Both seen (Both spells starts))) =>
-          Witness first
-            (Witness others
-              (Both seen (from tokens same apart =>
-                Both rfl
-                  (Both
-                    (inlineAhead (restart layout from) tokens first others same (outside =>
-                      starts.left.right (noAbove (Eq.trans (Eq.sym (bracketedRestart layout from)) outside))))
-                    (Both
-                      (spells from tokens same
-                        (leadsWider
-                          (restart layout from)
-                          []
-                          zone.allows
-                          (inlineHead zone value)
-                          value.firstAbove
-                          tokens
-                          (start held => held.left)
-                          (innerLeads zone
-                            (restart layout from)
-                            value.firstAbove
-                            tokens
-                            (suitsRestart zone layout from suits)
-                            apart)))
-                      (headedOfNoAbove (restart layout from) value (outside =>
-                        noAbove (Eq.trans (Eq.sym (bracketedRestart layout from)) outside))))))))
-
 theorem leadsCast ∀ (layout: Layout) (pending: List Trivia) (head: Option Nat → Prop)
     (above: List Comment) (tokens: List (Parse.Located Token))
     (none: above = [])
     (leads: Leads layout pending head [] tokens):
     Leads layout pending head above tokens :=
   rewrite none in leads
-
---| A statement that is an expression with no `if`, at a line start at
---| `column`: its events are views whose first starts a line there, and
---| tokens with those views and rising offsets spell the expression in
---| the layout of the statement that starts at the first of them,
---| whatever note lines wait above it.
-theorem bareSpells ∀ (column: Nat) (value: Expr) (events: List Event) (pending: List Trivia)
-    (shaped: Shaped value)
-    (lexical: Lexical value)
-    (headed: HeadedStatement False (Bare value))
-    (plain: NoIf value)
-    (laid: Events (Deeper column) (atColumn column) value events):
-    ∃ (firstView: TokenView) => ∃ (others: List TokenView) => Seen pending events [firstView, ..others]
-      ∧ atColumn column firstView.start
-      ∧ (∀ (first: Parse.Located Token) (rest: List (Parse.Located Token)) => [first, ..rest].map viewOf
-        = [firstView, ..others]
-        → Rising ([first, ..rest].map (found => found.offset))
-        → Spelled (InStatement column first.offset) value [first, ..rest]) :=
-  match headed with
-    | Both noAbove headedValue =>
-      match exprSpells
-        (Deeper column)
-        (InStatement column 0)
-        (atColumn column)
-        value
-        events
-        pending
-        rfl
-        shaped
-        lexical
-        headedValue
-        plain
-        laid with
-        | Witness firstView (Witness others (Both seen (Both spells starts))) =>
-          Witness firstView
-            (Witness others
-              (Both seen
-                (Both starts.left (first rest same rising =>
-                  spells first.offset
-                    [first, ..rest]
-                    same
-                    (leadsCast
-                      (InStatement column first.offset)
-                      pending
-                      (atColumn column)
-                      value.firstAbove
-                      [first, ..rest]
-                      (noAbove rfl)
-                      (firstLeads column pending
-                        (atColumn column)
-                        first
-                        rest
-                        (risingApart column first.offset first.offset rest omega rising)))))))

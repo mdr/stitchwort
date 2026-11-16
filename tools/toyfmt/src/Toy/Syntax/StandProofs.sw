@@ -234,8 +234,3 @@ theorem signStands ∀ (mark: Punctuation) (rest: List Char)
     (notDefines: mark ≠ Defines):
     Stands SignLexeme [signChar mark] rest :=
   Witness mark (Both rfl notDefines)
-
---| The second `-` of `- -x`, printed without the space, would not stand:
---| the first reads on into a comment.
-theorem minusBeforeMinus ∀ (rest: List Char): ¬Stands SymbolsLexeme ['-'] (['-'] ++ rest) := stands =>
-  match stands with | Witness first (Witness others (Both same (Both starts isRun))) => cases
