@@ -404,6 +404,7 @@ impl stitchwort_core::Shown for Elaborator {
     }
 
     fn unknown(&self, m: usize) -> Option<String> {
+        self.note_unknown_printed();
         if let Some(ty) = self.attempt.store.meta_instance(m) {
             return Some(pretty::value(&self.ev(), &[], &ty));
         }

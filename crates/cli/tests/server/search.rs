@@ -335,7 +335,7 @@ fn the_query_log_gets_a_line_per_search() {
     assert_eq!(first["query"], "_ ++ _ = _");
     assert_eq!(
         first["elaborated"],
-        serde_json::json!(["List.append ?1 ?2 = ?3", "Text.append ?0 ?1 = ?2"])
+        serde_json::json!(["List.append _ _ = _", "Text.append _ _ = _"])
     );
     let results = first["results"].as_array().unwrap();
     assert_eq!(results.len(), 3, "{first}");

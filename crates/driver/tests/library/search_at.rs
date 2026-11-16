@@ -42,6 +42,8 @@ theorem falseIsTrue (h: False = True): 1 = 2 := ?
 
 theorem trueIsFalse (n: Nat) (h: True = False): n = 5 := ?
 
+theorem withoutMiddle (a: Nat) (c: Nat): a ≤ c := ?
+
 theorem byCases (x: Nat) (shared: Nat) (y: Nat): Bool.toNat (x + shared < shared + y) = Bool.toNat (x < y) := ?
 ";
 
@@ -166,6 +168,30 @@ fn an_exact_lemma_comes_first() {
     assert_eq!(first.name, "Std.List.lengthAppend");
     assert_eq!(first.import.as_deref(), Some("import Std (List)"));
     all_paste(&report, line);
+}
+
+/// Whether `text` shows an unsolved unknown (`_` or `_name`) as the
+/// elaborator prints one.
+fn shows_unknown(text: &str) -> bool {
+    text.split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '\''))
+        .any(|word| word.starts_with('_'))
+}
+
+/// `Nat.leTrans` applies to `a ≤ c` only with a middle `b` nobody gave:
+/// the goals it leaves (`a ≤ _b`) are about an unknown, so they say
+/// nothing about what to prove next. The check is on the goal, not its
+/// printed form, which no longer has a `?` in it.
+#[test]
+fn a_goal_left_about_an_unknown_is_not_suggested() {
+    let line = line_of("withoutMiddle");
+    let report = at(GOALS, line);
+    for s in &report.results {
+        assert!(!s.goals.iter().any(|g| shows_unknown(&g.target)), "{s:?}");
+        assert!(
+            !s.obligations.iter().any(|o| shows_unknown(&o.target)),
+            "{s:?}"
+        );
+    }
 }
 
 #[test]

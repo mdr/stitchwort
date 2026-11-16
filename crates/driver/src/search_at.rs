@@ -1686,6 +1686,7 @@ fn try_plan_with(
             let n = goals.len();
             let mut fills: Vec<String> = vec!["?".to_string(); n];
             let mut obligations = Vec::new();
+            let mut obligation_unknown = false;
             for (j, left) in goals.iter().enumerate() {
                 // With a witness to give, every goal is the writer's: the
                 // goals needn't line up with the `?`s (a witness's goal may
@@ -1706,6 +1707,7 @@ fn try_plan_with(
                     };
                     if ok {
                         fills[j] = closer.clone();
+                        obligation_unknown |= left.has_unknown;
                         obligations.push(Obligation {
                             target: left.target.clone(),
                             closer: name,
@@ -1717,10 +1719,7 @@ fn try_plan_with(
             let proof = render(plan, &fills, infer);
             // An obligation that is the goal itself: the closer alone
             // does it (reported once, as `tactics`).
-            if obligations
-                .iter()
-                .any(|o| o.target == checker.target_now || o.target.contains('?'))
-            {
+            if obligations.iter().any(|o| o.target == checker.target_now) || obligation_unknown {
                 return None;
             }
             if obligations.len() == n {
@@ -1741,7 +1740,7 @@ fn try_plan_with(
                 };
                 // A goal with an unknown in it (`?3 m n`) says nothing
                 // about what to prove next.
-                if witness.is_empty() && left.iter().any(|g| g.target.contains('?')) {
+                if witness.is_empty() && left.iter().any(|g| g.has_unknown) {
                     return None;
                 }
                 // Nor does one that leaves the goal as it was
