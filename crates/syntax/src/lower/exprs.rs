@@ -8,7 +8,7 @@
 //! application with arguments is [`Expr::Bracketed`], and so is a list's
 //! only item `(a ..< b)`. Everywhere else brackets leave no trace.
 
-use super::sections::{fill_receiver, leads_with_section, section_dot};
+use super::sections::{fill_receiver, leads_with_section, ne_form, section_dot};
 use crate::Span;
 use crate::ast::{BinOp, Bracket, CHAIN, Expr, Name, NegForm, SECTION};
 use crate::lexer::Tok;
@@ -470,7 +470,7 @@ impl<'f> Lower<'f> {
             Tok::AndAnd => (BinOp::And, false),
             Tok::OrOr => (BinOp::Or, false),
             Tok::Equals => (BinOp::Eq, false),
-            Tok::NotEq => (BinOp::Ne, false),
+            Tok::NotEq => (BinOp::Ne(ne_form(op.span())), false),
             Tok::EqEq => (BinOp::EqEq, false),
             Tok::Lt => (BinOp::Lt, false),
             Tok::Le => (BinOp::Le, false),

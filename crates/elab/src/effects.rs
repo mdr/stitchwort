@@ -4552,7 +4552,7 @@ fn is_proposition(e: &Expr) -> bool {
     matches!(
         e,
         Expr::Binary(
-            BinOp::In(_) | BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le,
+            BinOp::In(_) | BinOp::Eq | BinOp::Ne(_) | BinOp::Lt | BinOp::Le,
             ..
         )
     )

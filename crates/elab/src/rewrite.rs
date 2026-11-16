@@ -1991,7 +1991,14 @@ fn check_motive(
             "rewrite a larger term that contains it (such as `x % d`), or state the step with \
              `calc`",
         ))
-        .map_err(|d| ne_note(d, &written_under(cx, body, &["x'", "_"]), &shown(cx, lhs)))
+        .map_err(|d| {
+            ne_note(
+                cx,
+                d,
+                &written_under(cx, body, &["x'", "_"]),
+                &shown(cx, lhs),
+            )
+        })
         .map_err(
             |d| match crate::equation_notes::branch_note(cx.e, &[body]) {
                 Some(note) => d.with_note(note),
@@ -2380,7 +2387,7 @@ fn nothing_found(
         1 => " after the rule before this one".to_string(),
         _ => format!(" after the {index} rules before this one"),
     };
-    if ne_read_as_prop(&goal_text, &shown_lhs) {
+    if ne_read_as_prop(cx, &goal_text, &shown_lhs) && crate::check::goal_wrote_ne(cx, goal) {
         error = error.with_note(NE_AS_PROP_NOTE);
     }
     match as_written.map(|t| written(cx, &t)) {
@@ -2530,8 +2537,8 @@ fn budget_error(
 }
 
 /// `d` with the `!=` note when a `Bool` `!=` (`lhs`) was read as `≠` in `goal`.
-fn ne_note(d: Diagnostic, goal: &str, lhs: &str) -> Diagnostic {
-    if ne_read_as_prop(goal, lhs) {
+fn ne_note(cx: &Ctx, d: Diagnostic, goal: &str, lhs: &str) -> Diagnostic {
+    if ne_read_as_prop(cx, goal, lhs) {
         d.with_note(NE_AS_PROP_NOTE)
     } else {
         d

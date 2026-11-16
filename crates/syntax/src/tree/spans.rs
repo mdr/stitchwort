@@ -755,7 +755,7 @@ fn head(mut expr: &Expr) -> &Expr {
 fn is_chain(a: &Expr, b: &Expr) -> bool {
     fn operands(e: &Expr) -> Option<(Span, Span)> {
         match e {
-            Expr::Binary(BinOp::Eq | BinOp::Ne | BinOp::EqEq | BinOp::Lt | BinOp::Le, l, r) => {
+            Expr::Binary(BinOp::Eq | BinOp::Ne(_) | BinOp::EqEq | BinOp::Lt | BinOp::Le, l, r) => {
                 Some((l.span(), r.span()))
             }
             _ => None,

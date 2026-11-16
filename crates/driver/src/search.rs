@@ -232,7 +232,7 @@ fn numeric_group<'e>(expr: &'e Expr, leaves: &mut Vec<&'e Expr>) -> bool {
             if is_arith(*op)
                 || matches!(
                     op,
-                    BinOp::Lt | BinOp::Le | BinOp::Eq | BinOp::Ne | BinOp::EqEq
+                    BinOp::Lt | BinOp::Le | BinOp::Eq | BinOp::Ne(_) | BinOp::EqEq
                 ) =>
         {
             let left = numeric_group(a, leaves);
@@ -323,7 +323,7 @@ fn ambiguities(expr: &Expr, out: &mut Vec<Ambiguity>) {
 fn op_compares(op: BinOp) -> bool {
     matches!(
         op,
-        BinOp::Lt | BinOp::Le | BinOp::Eq | BinOp::Ne | BinOp::EqEq
+        BinOp::Lt | BinOp::Le | BinOp::Eq | BinOp::Ne(_) | BinOp::EqEq
     )
 }
 

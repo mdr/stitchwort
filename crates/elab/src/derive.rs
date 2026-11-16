@@ -153,7 +153,7 @@ use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{eval, force, quote, unused};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::Span;
-use stitchwort_syntax::ast::{self, BinOp, Decl, Expr, Pattern};
+use stitchwort_syntax::ast::{self, BinOp, Decl, Expr, NeForm, Pattern};
 
 use crate::check::Ctx;
 use crate::{Elaborator, Global, Result, interfaces};
@@ -2051,7 +2051,11 @@ impl Elaborator {
                 &n(&format!("{prefix}sameReadsFalse")),
                 pair(iff(
                     eq(test, var("Std.Bool.False")),
-                    Expr::Binary(BinOp::Ne, Box::new(var("%r")), Box::new(var("%s"))),
+                    Expr::Binary(
+                        BinOp::Ne(NeForm::Ascii),
+                        Box::new(var("%r")),
+                        Box::new(var("%s")),
+                    ),
                 )),
                 record(vec![
                     ("forward", lam(&["%e"], refute)),

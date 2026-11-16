@@ -698,7 +698,7 @@ pub(crate) fn is_arith(op: BinOp) -> bool {
 fn is_comparison(op: BinOp) -> bool {
     matches!(
         op,
-        BinOp::Eq | BinOp::Ne | BinOp::EqEq | BinOp::Lt | BinOp::Le
+        BinOp::Eq | BinOp::Ne(_) | BinOp::EqEq | BinOp::Lt | BinOp::Le
     )
 }
 
@@ -710,7 +710,7 @@ pub(crate) fn op_text(op: BinOp) -> &'static str {
         BinOp::Div => "/",
         BinOp::Mod => "%",
         BinOp::Eq => "=",
-        BinOp::Ne => "!=",
+        BinOp::Ne(_) => "!=",
         BinOp::EqEq => "==",
         BinOp::Lt => "<",
         BinOp::Le => "<=",
@@ -875,7 +875,7 @@ pub(crate) fn group(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Resu
     // everything it did undone, the comparison sides are read as `Bool`s,
     // as if written `((m < k): Bool)` (SW-944). If that fails too, the
     // first error is reported.
-    if let Expr::Binary(BinOp::Eq | BinOp::Ne, a, b) = expr
+    if let Expr::Binary(BinOp::Eq | BinOp::Ne(_), a, b) = expr
         && (is_order(a) || is_order(b))
         && cx.e.decl.late_literals.get() == 0
     {
@@ -1019,8 +1019,9 @@ fn group_with(
     let expected = if top.is_some() { None } else { expected };
     let what = what(top);
     // An equation with no arithmetic in it may be on any type.
-    let equality =
-        matches!(top, Some(BinOp::Eq | BinOp::Ne | BinOp::EqEq)) && !g.arith && g.minus.is_none();
+    let equality = matches!(top, Some(BinOp::Eq | BinOp::Ne(_) | BinOp::EqEq))
+        && !g.arith
+        && g.minus.is_none();
     let mut decided: Option<(Value, Decider)> = None;
 
     // 1. The expected type.
@@ -1373,7 +1374,7 @@ impl crate::queue::Check for NumberGroup {
         };
         // A type other than `Nat`, `Int` and `Float` must have what the
         // operators need, as when it is expected from the start (step 1).
-        let equality = matches!(top, Some(BinOp::Eq | BinOp::Ne | BinOp::EqEq)) && !g.arith;
+        let equality = matches!(top, Some(BinOp::Eq | BinOp::Ne(_) | BinOp::EqEq)) && !g.arith;
         if !equality
             && matches!(classify(cx, &t)?, Class::Other)
             && let Some(notes) = g.unsupported(cx, &t)?
@@ -1479,7 +1480,13 @@ fn equation(cx: &mut Ctx, op: BinOp, a: Term, b: Term, t: &Value) -> Result<(Ter
     match op {
         BinOp::Eq => Ok((eq, prop)),
         // `a != b` means `Not (a = b)`.
-        BinOp::Ne => {
+        BinOp::Ne(form) => {
+            // Remember that the source wrote `!=`, not `≠`, so a message
+            // that quotes it is given only where the source says so
+            // (SW-3125).
+            if form.is_ascii() {
+                cx.e.decl.note_ne_ascii(cx.span);
+            }
             let not = builtin_def(cx, Builtin::Not)?;
             Ok((Term::app(Term::Def(not), eq), prop))
         }
@@ -1697,7 +1704,7 @@ fn prop_not_equal(
     while let Expr::Bracketed(inner, _) = decided {
         decided = inner;
     }
-    if !matches!(decided, Expr::Binary(BinOp::Ne, ..)) {
+    if !matches!(decided, Expr::Binary(BinOp::Ne(_), ..)) {
         return None;
     }
     Some(

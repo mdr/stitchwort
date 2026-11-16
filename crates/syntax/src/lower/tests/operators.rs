@@ -107,7 +107,7 @@ fn multiplication_binds_tighter_than_addition_and_both_associate_left() {
     assert!(matches!(**product, Expr::Binary(BinOp::Mul, ..)));
     assert!(matches!(expr("a / b % c"), Expr::Binary(BinOp::Mod, ..)));
     assert!(matches!(expr("a <= b + 1"), Expr::Binary(BinOp::Le, ..)));
-    assert!(matches!(expr("a != b"), Expr::Binary(BinOp::Ne, ..)));
+    assert!(matches!(expr("a != b"), Expr::Binary(BinOp::Ne(_), ..)));
     assert!(matches!(expr("a == b + 1"), Expr::Binary(BinOp::EqEq, ..)));
     assert!(matches!(expr("a < b"), Expr::Binary(BinOp::Lt, ..)));
 }
@@ -544,4 +544,18 @@ fn iff_sits_between_arrow_and_or() {
     // Not associative.
     assert!(parse_errors("def t: Prop := p <-> q <-> r\n").contains("doesn't chain"));
     assert!(parse_module_text("def t: Prop := (p <-> q) <-> r\n").is_ok());
+}
+
+#[test]
+fn ne_remembers_whether_it_was_written_ascii_or_unicode() {
+    // The two spellings mean the same thing, but a message that quotes the
+    // source tells them apart (SW-3125).
+    assert!(matches!(
+        expr("a != b"),
+        Expr::Binary(BinOp::Ne(NeForm::Ascii), ..)
+    ));
+    assert!(matches!(
+        expr("a ≠ b"),
+        Expr::Binary(BinOp::Ne(NeForm::Unicode), ..)
+    ));
 }

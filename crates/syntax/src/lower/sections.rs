@@ -8,7 +8,7 @@
 //! [`is_section_operator`]).
 
 use crate::Span;
-use crate::ast::{BinOp, Expr, Name, SECTION};
+use crate::ast::{BinOp, Expr, Name, NeForm, SECTION};
 use crate::lexer::Tok;
 use crate::tree::{Element, Leaf, Node, NodeKind};
 
@@ -53,6 +53,16 @@ pub(crate) fn is_section_operator(tok: &Tok) -> bool {
     is_operator(tok) && *tok != Tok::Minus
 }
 
+/// How the `!=` operator token written at `at` was spelled: `≠` is three
+/// UTF-8 bytes, `!=` two (SW-3125).
+pub(crate) fn ne_form(at: Span) -> NeForm {
+    if at.range().len() == 2 {
+        NeForm::Ascii
+    } else {
+        NeForm::Unicode
+    }
+}
+
 /// `lhs op rhs` for the operator token `tok` written at `at`.
 pub(crate) fn operation(tok: &Tok, at: Span, lhs: Expr, rhs: Expr) -> Expr {
     let plain = |op, lhs, rhs| Expr::Binary(op, Box::new(lhs), Box::new(rhs));
@@ -64,7 +74,7 @@ pub(crate) fn operation(tok: &Tok, at: Span, lhs: Expr, rhs: Expr) -> Expr {
         Tok::Percent => plain(BinOp::Mod, lhs, rhs),
         Tok::PlusPlus => plain(BinOp::Append, lhs, rhs),
         Tok::Equals => plain(BinOp::Eq, lhs, rhs),
-        Tok::NotEq => plain(BinOp::Ne, lhs, rhs),
+        Tok::NotEq => plain(BinOp::Ne(ne_form(at)), lhs, rhs),
         Tok::EqEq => plain(BinOp::EqEq, lhs, rhs),
         Tok::Lt => plain(BinOp::Lt, lhs, rhs),
         Tok::Le => plain(BinOp::Le, lhs, rhs),

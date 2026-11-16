@@ -784,12 +784,30 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
     }
 }
 
+/// How `!=` was written: the ASCII form or the Unicode spelling `≠`. They
+/// mean the same thing; only messages that quote the source tell them apart
+/// (SW-3125).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NeForm {
+    /// `!=`
+    Ascii,
+    /// `≠`
+    Unicode,
+}
+
+impl NeForm {
+    /// Whether it was written `!=` (the ASCII spelling).
+    pub fn is_ascii(self) -> bool {
+        matches!(self, NeForm::Ascii)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinOp {
     /// `=`: equality, a proposition.
     Eq,
-    /// `!=`: `Not (a = b)`.
-    Ne,
+    /// `!=` or `≠`: `Not (a = b)`, with how it was written.
+    Ne(NeForm),
     /// `a == b`: whether `a = b`, as a `Bool`.
     EqEq,
     /// `&&`, `||`: on `Bool`s (short-circuiting), or on propositions
@@ -839,7 +857,7 @@ impl BinOp {
     pub fn symbol(self) -> &'static str {
         match self {
             BinOp::Eq => "=",
-            BinOp::Ne => "!=",
+            BinOp::Ne(_) => "!=",
             BinOp::EqEq => "==",
             BinOp::And => "&&",
             BinOp::Or => "||",
