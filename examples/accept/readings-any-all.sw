@@ -15,7 +15,7 @@ theorem allSmall ∀ (xs: List Nat) (h: xs.all (x => x < 5)) (x: Nat) (m: x ∈ 
 theorem notAllSmall ∀ (xs: List Nat) (h: xs.all (x => x < 5) = False): ∃ (x: Nat) => x ∈ xs ∧ (x < 5) = False := h.read
 
 -- Built from the proposition: a constructor checked against the test fact.
-theorem builtAny ∀ (xs: List Nat) (m: 3 ∈ xs): xs.any (x => x > 2) := Witness 3 (Both m rfl)
+theorem builtAny ∀ (xs: List Nat) (m: 3 ∈ xs): xs.any (x => x > 2) := Witness 3 (Both m byComputing)
 
 -- The wrappers unfold to `List.any` and `List.all`, which have the readings.
 theorem arrayAny ∀ (a: Array Nat) (h: a.any (x => x > 2)): ∃ (x: Nat) => x ∈ a.toList ∧ x > 2 := h.read

@@ -7,5 +7,5 @@ ability Ask where
 
 def asking(): {Ask} Nat :=
   let k := ask()
-  let p: k = 3 := rfl
+  let p: k = 3 := byComputing
   k

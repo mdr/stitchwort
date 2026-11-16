@@ -12,15 +12,15 @@ theorem chain ∀ (a b: Nat) (h1: a = b) (h2: b ≤ 3): a < 5 := calc a
 -- what you are proving, so you don't spell out the expression around it.
 def double (n: Nat): Nat := n * 2
 
-theorem addZero ∀ (n: Nat): n + 0 = n := omega
+theorem addZero ∀ (n: Nat): n + 0 = n := arithmetic
 
 theorem doubleAddZero ∀ (n: Nat): double (n + 0) = n + n :=
-  rewrite addZero n in
+  rewrite addZero n then
     calc double n
       _ = n * 2
-      _ = n + n := omega
+      _ = n + n := arithmetic
 
 -- Proving two maps equal: the library has `List.mapCong`, and `_` leaves
 -- the two functions for the compiler to read off the goal.
 theorem mapAddZero ∀ (xs: List Nat): xs.map (x => x + 0) = xs.map (x => x) :=
-  List.mapCong xs _ _ (x => rewrite addZero x in rfl)
+  List.mapCong xs _ _ (x => rewrite addZero x then byComputing)

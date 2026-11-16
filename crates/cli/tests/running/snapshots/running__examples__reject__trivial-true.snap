@@ -9,7 +9,7 @@ expression: output
    │                    ───┬───  
    │                       ╰───── `True` has no reading, so it has no parts
    │ 
-   │ Note 1: `rfl` proves this: the fact computes to `True = True`
+   │ Note 1: `byComputing` proves this: the fact computes to `True = True`
    │ 
    │ Note 2: a test fact can always be matched by a name
 ───╯

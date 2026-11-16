@@ -11,6 +11,6 @@ def Code.runFrom (code: Code) (left: Nat) (n: Nat): Nat
     decreasing left
 :=
   let c := code
-  if h: 0 < left then Code.runFrom code (left - 1) (c.run) [decreasing := omega] else n
+  if h: 0 < left then Code.runFrom code (left - 1) (c.run) [decreasing := arithmetic] else n
 
 def Code.run (code: Code) (n: Nat): Nat := Code.runFrom code code.limit n

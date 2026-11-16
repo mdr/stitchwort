@@ -43,10 +43,10 @@ theorem labelThenSuccRewritten ∀ (xs: List Nat):
   rewrite List.mapMap xs (m => m + 1) (n =>
         match n with
           | Zero => 1
-          | Succ k => k) in
-    rfl
+          | Succ k => k) then
+    byComputing
 
--- Under `rfl`, with the binders renamed.
+-- Under `byComputing`, with the binders renamed.
 theorem labelRefl ∀ (xs: List Nat):
     label xs
       = xs.map (m =>
@@ -54,7 +54,7 @@ theorem labelRefl ∀ (xs: List Nat):
           | Zero => 1
           | Succ j => j) :=
   let ys := xs
-  (rfl: label ys
+  (byComputing: label ys
     = ys.map (m =>
       match m with
         | Zero => 1

@@ -10,7 +10,7 @@ import Std (Eq, List, Map, Nat)
 def Agrees (computer: Computer) (machine: Spec.Machine): Prop :=
   computer.mask = machine.mask ∧ (∀ (address: Nat) => machine.memory address = computer.memory.getOr address 0)
 
-theorem startAgrees: Agrees Computer.start Spec.start := Both rfl (address => rfl)
+theorem startAgrees: Agrees Computer.start Spec.start := Both byComputing (address => byComputing)
 
 --| What a part's write does to the program's memory, the spec's write does
 --| to its memory.
@@ -27,10 +27,10 @@ theorem stepAgrees ∀ (write: Computer → Nat → Nat → Computer) (specWrite
     (agrees: Agrees computer machine) (instruction: Instruction):
     Agrees (computer.run instruction write) (Spec.step specWrite machine instruction) :=
   match instruction with
-    | SetMask mask => Both rfl (And.right agrees)
+    | SetMask mask => Both byComputing agrees.right
     | Write address value =>
       match writes computer machine address value agrees with
-        | Both keeps written => Both (Eq.trans keeps (And.left agrees)) written
+        | Both keeps written => Both (Eq.trans keeps agrees.left) written
 
 theorem foldAgrees ∀ (write: Computer → Nat → Nat → Computer) (specWrite: Mask → Nat → Nat → Spec.Memory → Spec.Memory)
     (writes: WritesAgree write specWrite)
@@ -48,32 +48,32 @@ theorem foldAgrees ∀ (write: Computer → Nat → Nat → Computer) (specWrite
         (stepAgrees write specWrite writes computer machine agrees instruction)
 
 theorem writeValueAgrees: WritesAgree Computer.writeValue Spec.writeMasked := computer machine address value agrees =>
-  Both rfl (other =>
+  Both byComputing (other =>
     rewrite Map.getOrInsert computer.memory address (computer.mask.applyTo value) other 0,
         applyToMasked computer.mask value,
         And.left agrees,
-        And.right agrees other in
-      rfl)
+        And.right agrees other then
+      byComputing)
 
 theorem writeDecodedAgrees: WritesAgree Computer.writeDecoded Spec.writeDecoded :=
   computer machine address value agrees =>
-    Both rfl (other =>
+    Both byComputing (other =>
       rewrite Map.getOrInsertAll value other 0 (computer.mask.decode address) computer.memory,
           decodeContains computer.mask address other,
           And.left agrees,
-          And.right agrees other in
-        rfl)
+          And.right agrees other then
+        byComputing)
 
 --| Part 1's answer is the spec's sum of memory, for any program.
 theorem part1Rules ∀ (program: Program): Spec.Part1 program program.valueSum :=
   let agrees :=
     foldAgrees Computer.writeValue Spec.writeMasked writeValueAgrees program.instructions Computer.start Spec.start
         startAgrees
-  sumOfMap _ (Spec.run Spec.writeMasked program) (And.right agrees)
+  sumOfMap _ (Spec.run Spec.writeMasked program) agrees.right
 
 --| Part 2's answer is the spec's sum of memory, for any program.
 theorem part2Rules ∀ (program: Program): Spec.Part2 program program.decodedSum :=
   let agrees :=
     foldAgrees Computer.writeDecoded Spec.writeDecoded writeDecodedAgrees program.instructions Computer.start Spec.start
         startAgrees
-  sumOfMap _ (Spec.run Spec.writeDecoded program) (And.right agrees)
+  sumOfMap _ (Spec.run Spec.writeDecoded program) agrees.right

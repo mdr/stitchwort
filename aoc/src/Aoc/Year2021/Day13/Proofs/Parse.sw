@@ -19,7 +19,9 @@ theorem clearOfFind ∀ (fold: Fold) (dots: List Point)
     Clear fold dot :=
   match e: clears fold dot with
     | True => clearsClear fold dot e
-    | False => Void.exfalso (List.findNoneNotMem dots (dot => not (clears fold dot)) dot (rewrite e in rfl) member none)
+    | False =>
+      Void.impossible
+        (List.findNoneNotMem dots (dot => not (clears fold dot)) dot (rewrite e then byComputing) member none)
 
 --| If no fold is blocked, folding a list that holds the dots, the promise
 --| is kept for every fold.
@@ -47,8 +49,8 @@ theorem checkPaperOk ∀ (paper result: Paper)
     (h: Fail.toResult (() => checkPaper paper) = Ok result):
     result = paper ∧ firstBlocked paper.dots paper.folds = None :=
   match e: firstBlocked paper.dots paper.folds with
-    | Some (index, dot) => Void.exfalso (Result.errNotOk h)
-    | None => Both (Eq.sym (Result.okInjective h)) rfl
+    | Some (index, dot) => (Result.errNotOk h).impossible
+    | None => Both (Result.okInjective h).flipped byComputing
 
 --| ...whatever reads it.
 theorem parsedUnblocked ∀ (read: () → {Fail} Paper) (paper: Paper)
@@ -57,7 +59,7 @@ theorem parsedUnblocked ∀ (read: () → {Fail} Paper) (paper: Paper)
   let split := rewrite Fail.toResultThen read checkPaper at parsed
   Result.flatMapEqOk (Fail.toResult read) (x => Fail.toResult (() => checkPaper x)) paper split (found _ checked =>
     let (Both same none) := checkPaperOk found paper checked
-    rewrite same in none)
+    rewrite same then none)
 
 --| If `parsePaper` reads `input` as `paper`, the puzzle's promise holds for
 --| every fold.

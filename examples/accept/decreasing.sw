@@ -31,8 +31,8 @@ def digits (n: Nat): List Nat := digitsOnto n []
 test "digits" := digits 1234 == [1, 2, 3, 4]
 test "digits of 0" := digits 0 == [0]
 
--- Tests and `rfl` compute: the fuel is a number, used up one step per call.
-theorem digitsByRfl: digits 1234 = [1, 2, 3, 4] := rfl
+-- Tests and `byComputing` compute: the fuel is a number, used up one step per call.
+theorem digitsByRfl: digits 1234 = [1, 2, 3, 4] := byComputing
 
 -- The equation the compiler proves, with `digitsOnto` itself in the
 -- recursive call.
@@ -110,10 +110,10 @@ test "evens" := evens 7 == [5, 3, 1]
 theorem evensShort ∀ (n: Nat): List.length (evens n) ≤ n
     decreasing n
 :=
-  rewrite evens.unfold n in
+  rewrite evens.unfold n then
     match n with
-      | Zero => rfl
-      | Succ Zero => rfl
+      | Zero => byComputing
+      | Succ Zero => byComputing
       | Succ (Succ k) =>
         Nat.leTrans (List.length (evens k)) k (Succ k) (evensShort k [decreasing := Nat.leSucc k]) (Nat.leSucc k)
 

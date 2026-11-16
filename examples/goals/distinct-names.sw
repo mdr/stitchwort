@@ -18,5 +18,5 @@ type Tree = | Leaf (value: Nat) | Pair (left: Tree) (right: Tree)
 -- The last arm's goal names `left1` and `right1`, not the first arm's `a`
 -- and `b`.
 theorem symmetric ∀ (a b: Tree) (same: a = b): b = a := match a, b with
-  | Leaf a, b => Eq.sym same
+  | Leaf a, b => same.flipped
   | Pair left1 right1, Pair left2 right2 => ?

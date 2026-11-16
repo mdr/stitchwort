@@ -11,4 +11,4 @@ import Std.Effect.Comp (Done)
 
 theorem anyIsDone [a: Type] (computation: Effect.Comp Effect.NoOp Effect.NoRes a):
     computation = Effect.runPure computation :=
-  rfl
+  byComputing

@@ -18,4 +18,4 @@ def limit: Nat := 3000
 
 theorem wrongValue (x: Nat) (k: Nat) (y: Nat) (settles: settle x k limit = Some y)
     (q: Option Nat → Prop) (h: q (Some 0)): q (settle x k limit) :=
-  rewrite settles in h
+  rewrite settles then h

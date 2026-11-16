@@ -1,5 +1,5 @@
 -- expect-error: E-DECREASING
--- A `match`'s equation reaches the recursive call unnamed, but `omega`
+-- A `match`'s equation reaches the recursive call unnamed, but `arithmetic`
 -- can't read `set.popMin = Some (least, rest)`: the message lists it and
 -- says to name it, to pass it to a lemma (`Set.sizePopMin`).
 import Std (Nat, Option, Set)

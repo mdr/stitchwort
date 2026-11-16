@@ -21,7 +21,8 @@ def OnGrid (cavern: Cavern) (flashed: Position → Bool): Prop :=
 theorem onGridFlash ∀ (cavern: Cavern) (h: Position → Nat → Bool): OnGrid cavern (cavern.flash h).has
   | q, flashes =>
     match e: cavern.grid.at q with
-      | None => Void.exfalso (Bool.falseNotTrue (rewrite cellAtMapCells cavern.grid.rows h q, e at flashes in flashes))
+      | None =>
+        Void.impossible (Bool.falseNotTrue (rewrite cellAtMapCells cavern.grid.rows h q, e at flashes then flashes))
       | Some level => List.memMap cavern.grid.cells (q, level) ((memCells cavern.grid.rows q level).backward e) Pair.fst
 
 --| Whether `q` has flashed in the flashers `cavern.flash h` made.
@@ -34,7 +35,7 @@ theorem energyAgrees ∀ (cavern: Cavern) (flashed: Flashed)
     (onGrid: OnGrid cavern flashed.has)
     (q: Position) (level: Nat):
     flashed.energy q level = energyIn cavern flashed.has q level :=
-  rewrite countAround cavern flashed.has onGrid q in rfl
+  rewrite countAround cavern flashed.has onGrid q then byComputing
 
 --| The table lookup of the flashers is `has`.
 theorem lookupIsHas ∀ (flashed: Flashed) (q: Position): flashed.lookup q = flashed.has q :=
@@ -61,9 +62,9 @@ theorem flashRoundGrid ∀ (cavern: Cavern) (flashed: Flashed):
     (cavern.flashRound flashed).grid
     (cavern.flash (at level => 9 < flashed.energy at level)).grid
     (calc (cavern.flashRound flashed).grid.rows
-      _ = mapCells cavern.grid.rows (at level => (9 < energyWith flashed.lookup at level: Bool)) := rfl
+      _ = mapCells cavern.grid.rows (at level => (9 < energyWith flashed.lookup at level: Bool)) := byComputing
       _ = mapCells cavern.grid.rows (at level => (9 < flashed.energy at level: Bool)) := mid
-      _ = (cavern.flash (at level => 9 < flashed.energy at level)).grid.rows := rfl)
+      _ = (cavern.flash (at level => 9 < flashed.energy at level)).grid.rows := byComputing)
 
 --| A round of the program is a round of `energy`, octopus by octopus.
 theorem flashRoundIsSpec ∀ (cavern: Cavern) (flashed: Flashed):
@@ -77,10 +78,10 @@ theorem roundIntro ∀ (cavern: Cavern) (flashed: Flashed)
     (member: (q, level) ∈ cavern.grid.cells)
     (above: 9 < energyIn cavern flashed.has q level):
     (cavern.flashRound flashed).has q = True :=
-  rewrite flashRoundIsSpec cavern flashed in
+  rewrite flashRoundIsSpec cavern flashed then
     Eq.trans
       (hasFlash cavern (at level => 9 < flashed.energy at level) q)
-      (rewrite (memCells cavern.grid.rows q level).forward member in
+      (rewrite (memCells cavern.grid.rows q level).forward member then
         Eq.trans (Eq.cong (Nat.leq 10) (energyAgrees cavern flashed onGrid q level)) above)
 
 --| ...and an octopus that has flashed is on the grid, with energy above 9.
@@ -88,14 +89,14 @@ theorem roundElim ∀ (cavern: Cavern) (flashed: Flashed)
     (onGrid: OnGrid cavern flashed.has) (q: Position)
     (flashes: (cavern.flashRound flashed).has q = True):
     ∃ (level: Nat) => (q, level) ∈ cavern.grid.cells ∧ 9 < energyIn cavern flashed.has q level :=
-  rewrite flashRoundIsSpec cavern flashed at flashes in
-    let opened := Eq.trans (Eq.sym (hasFlash cavern (at level => 9 < flashed.energy at level) q)) flashes
+  rewrite flashRoundIsSpec cavern flashed at flashes then
+    let opened := Eq.trans (Eq.flipped (hasFlash cavern (at level => 9 < flashed.energy at level) q)) flashes
     match e: cavern.grid.at q with
       | Some level =>
         Witness level
           (Both
             ((memCells cavern.grid.rows q level).backward e)
-            (Eq.trans (Eq.sym (Eq.cong (Nat.leq 10) (energyAgrees cavern flashed onGrid q level))) opened))
+            (Eq.trans (Eq.flipped (Eq.cong (Nat.leq 10) (energyAgrees cavern flashed onGrid q level))) opened))
 
 --| More flashers, more flashing neighbours.
 theorem neighboursMono ∀ (cavern: Cavern) (f g: Position → Bool)

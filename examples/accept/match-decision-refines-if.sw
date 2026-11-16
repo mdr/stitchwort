@@ -10,20 +10,20 @@ def below (n limit: Nat) (ok: n < limit): Nat := limit - n
 def gap (n limit: Nat): Nat := if ok: n < limit then below n limit ok else 0
 
 theorem gapPositive ∀ (n limit: Nat) (pos: 0 < gap n limit): n < limit := match Nat.leq (Succ n) limit with
-  | True => rfl
-  | False => omega
+  | True => byComputing
+  | False => arithmetic
 
 -- The branch doesn't use the proof.
 def capped (n limit: Nat): Nat := if n < limit then limit - n else 0
 
 theorem cappedSplit ∀ (n limit: Nat) (pos: 0 < capped n limit): n < limit ∨ limit ≤ n :=
   match Nat.decLessThan n limit with
-    | { holds = True, sound = _, complete = _ } => omega
-    | { holds = False, sound = _, complete = _ } => omega
+    | { holds = True, sound = _, complete = _ } => arithmetic
+    | { holds = False, sound = _, complete = _ } => arithmetic
 
 theorem cappedPositive ∀ (n limit: Nat) (pos: 0 < capped n limit): n < limit := match Nat.leq (Succ n) limit with
-  | True => omega
-  | False => omega
+  | True => arithmetic
+  | False => arithmetic
 
 -- 2021 day 18's `split`: the decision's `False` case refines the `if` in
 -- `some` to `None`, which can't be `Some halves`.
@@ -35,8 +35,8 @@ def split: Number → Option Number
 
 theorem splitBig ∀ (value: Nat) (halves: Number) (some: split (Regular value) = Some halves): 10 ≤ value :=
   match Nat.decLessEq 10 value with
-    | { holds = True, sound = big, complete = _ } => big rfl
-    | { holds = False, sound = _, complete = _ } => Void.exfalso (Option.noneNotSome halves some)
+    | { holds = True, sound = big, complete = _ } => big byComputing
+    | { holds = False, sound = _, complete = _ } => (Option.noneNotSome halves some).impossible
 
 -- `cases` splits the test of `xs = []` inside the decision of `xs ≠ []`,
 -- `Decidable.not`, whose own test is `not` of it (2020 day 4's heights).

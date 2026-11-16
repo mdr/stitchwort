@@ -59,7 +59,7 @@ def square (n: Nat): Nat := n * n
 
 test "three squared is nine" := square 3 == 9
 
-theorem squareOfThree: square 3 = 9 := rfl
+theorem squareOfThree: square 3 = 9 := byComputing
 
 -- Three declarations:
 --
@@ -69,11 +69,11 @@ theorem squareOfThree: square 3 = 9 := rfl
 --   box showed.
 -- - `test` runs some code and checks that it gives `True`.
 -- - `theorem` states a fact, `square 3 = 9`, and after `:=` gives its
---   proof. `rfl` is the simplest proof there is: it says "compute both
+--   proof. `byComputing` is the simplest proof there is: it says "compute both
 --   sides, and they come out the same". Chapter 1 says much more about
 --   it.
 --
--- Hover over other names too: `Nat`, `rfl`, `==`. Hovering is how you ask
+-- Hover over other names too: `Nat`, `byComputing`, `==`. Hovering is how you ask
 -- the editor what something is, and you will do it all the time.
 
 -- ## 0.3 Running a test
@@ -95,7 +95,7 @@ theorem squareOfThree: square 3 = 9 := rfl
 --
 -- Change the `9` in `squareOfThree` to `10`. This time the line turns red
 -- at once, without running anything: theorems are checked as you type.
--- Hover over the red `rfl` to read why. The message says that `rfl` can't
+-- Hover over the red `byComputing` to read why. The message says that `byComputing` can't
 -- prove this, that the left side computes to `9`, and that the statement
 -- is false. Put the `9` back and the red goes away.
 --
@@ -106,7 +106,7 @@ theorem squareOfThree: square 3 = 9 := rfl
 -- ## 0.5 A hole, and the Goals panel
 --
 -- A `?` stands for a part you haven't written yet. Try it: replace the
--- `rfl` in `squareOfThree` with `?`.
+-- `byComputing` in `squareOfThree` with `?`.
 --
 -- The `?` is underlined, but not in red: it's an open goal, not an
 -- error. Hover over it. The box shows what has to go in its place,
@@ -124,7 +124,7 @@ theorem squareOfThree: square 3 = 9 := rfl
 -- goal wherever your cursor is, so you don't need to hover. Keep it open
 -- from now on: every chapter uses it.
 --
--- Put `rfl` back in place of the `?`.
+-- Put `byComputing` back in place of the `?`.
 
 -- ## 0.6 Seeing what's left to do
 --

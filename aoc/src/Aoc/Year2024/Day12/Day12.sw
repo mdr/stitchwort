@@ -74,12 +74,12 @@ theorem Garden.unvisitedInsert ∀ (garden: Garden) (visited: Set Position) (pos
     (other => !visited.contains other)
     (other member kept =>
       match same: visited.contains other with
-        | True => rewrite Set.containsInsertMono visited position other same at kept in kept
-        | False => rfl)
+        | True => rewrite Set.containsInsertMono visited position other same at kept then kept
+        | False => byComputing)
     position
     (garden.positionsComplete position plant grows)
-    (rewrite fresh in rfl)
-    (rewrite Set.containsInsert position visited in rfl)
+    (rewrite fresh then byComputing)
+    (rewrite Set.containsInsert position visited then byComputing)
 
 --| The plots growing `plant` reachable from the stack, joined to `members`:
 --| a depth-first flood fill. `visited` has the members, for quick lookup.
@@ -97,8 +97,8 @@ def Garden.fill (garden: Garden) (plant: Char) (stack: List Position) (visited: 
             (visited.insert position)
             [position, ..members]
             [decreasing := Nat.LexLess.First (garden.unvisitedInsert visited position plant grows fresh)]
-        else garden.fill plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
-      else garden.fill plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
+        else garden.fill plant rest visited members [decreasing := Nat.LexLess.Second byComputing (arithmetic)]
+      else garden.fill plant rest visited members [decreasing := Nat.LexLess.Second byComputing (arithmetic)]
 
 --| A region: the plots joined to each other, growing one plant, each listed
 --| once.

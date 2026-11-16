@@ -5,7 +5,7 @@ def yes (x: Nat): Bool
 :=
   match x with
     | Zero => True
-    | Succ m => yes m [decreasing := omega]
+    | Succ m => yes m [decreasing := arithmetic]
 
 def pickA (b: Bool) (x: Nat): Nat :=
   match b with
@@ -21,6 +21,6 @@ def pickB (b: Bool) (x: Nat): Nat :=
       | Succ m => m)
     | False => 1
 
-theorem plainTrees (x: Nat): pickA True x = pickB True x := rfl
+theorem plainTrees (x: Nat): pickA True x = pickB True x := byComputing
 
-theorem foldedTrees (x: Nat): pickA (yes 0) x = pickB (yes 0) x := rfl
+theorem foldedTrees (x: Nat): pickA (yes 0) x = pickB (yes 0) x := byComputing

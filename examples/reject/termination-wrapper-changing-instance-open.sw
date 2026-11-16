@@ -1,7 +1,7 @@
 -- expect-error: E-REFL
 -- Pairs with accept/termination-wrapper-changing-instance.sw: on unknowns,
 -- `f t es n w` unfolds until the match on the type equation `es n` is stuck,
--- so `rfl` fails at once, saying so, rather than running out of steps
+-- so `byComputing` fails at once, saying so, rather than running out of steps
 -- (`E-RESOURCE`) as an endless unfolding would.
 type P (a: Type) (b: Type) = { fst: a, snd: b }
 type R (a: Type) = { only: a }
@@ -19,4 +19,4 @@ def m (t: Nat → Type)
 def m2 (t: Nat → Type) (es: (n: Nat) → TEq (t n) (P (t (Succ n)) Nat)) (n: Nat): (w: R (P (t (Succ n)) Nat)) → Nat
   | { only = { fst = x, snd = y } } => f t es (Succ n) { only = x }
 
-theorem z ∀ (t: Nat → Type) (es: (n: Nat) → TEq (t n) (P (t (Succ n)) Nat)) (n: Nat) (w: R (t n)): f t es n w = 0 := rfl
+theorem z ∀ (t: Nat → Type) (es: (n: Nat) → TEq (t n) (P (t (Succ n)) Nat)) (n: Nat) (w: R (t n)): f t es n w = 0 := byComputing

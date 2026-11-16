@@ -2,18 +2,18 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `x ≤ 0`
+[E-ARITHMETIC] Error: `arithmetic` can't prove `x ≤ 0`
    ╭─[ reject/omega-unusable-fact.sw:7:64 ]
    │
- 7 │ theorem unusable (x: Nat) (xs: List Nat) (h: x ∈ xs): x ≤ 0 := omega [h]
-   │                                                                ────┬────  
-   │                                                                    ╰────── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+ 7 │ theorem unusable (x: Nat) (xs: List Nat) (h: x ∈ xs): x ≤ 0 := arithmetic [h]
+   │                                                                ───────┬──────  
+   │                                                                       ╰──────── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │ 
    │ Note 1: facts: none in scope
    │ 
    │ Note 2: atoms: `x`
    │ 
-   │ Note 3: `omega` couldn't use listed fact `h`: `x ∈ xs` isn't an arithmetic fact it reads
+   │ Note 3: `arithmetic` couldn't use listed fact `h`: `x ∈ xs` isn't an arithmetic fact it reads
    │ 
    │ Note 4: an integer model of the arithmetic abstraction (it may not be a real counterexample): x = 1
    │ 

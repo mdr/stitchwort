@@ -12,7 +12,7 @@ def empty: Bag := { items = [] }
 def pick (n: Nat) (bag: Bag): Bag
   decreasing n
 :=
-  if n ≤ 1 then bag else pick (n / 2) { items = [n, ..bag.items] } [decreasing := omega]
+  if n ≤ 1 then bag else pick (n / 2) { items = [n, ..bag.items] } [decreasing := arithmetic]
 
 def Fits (bag: Bag): Prop := bag.items.length ≤ 100
 

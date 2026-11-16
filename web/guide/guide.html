@@ -142,7 +142,7 @@
 </section>
 
 <section data-slug="proofs" data-title="Theorems and proofs">
-  <p>A <code>theorem</code> states a fact about your programs and the compiler checks the proof. <code>rfl</code> means "both sides compute to the same thing". For a fact about every value of a type, split on the cases like a function does; a call to the theorem on the smaller piece is the induction step.</p>
+  <p>A <code>theorem</code> states a fact about your programs and the compiler checks the proof. <code>byComputing</code> means "both sides compute to the same thing". For a fact about every value of a type, split on the cases like a function does; a call to the theorem on the smaller piece is the induction step.</p>
   <pre data-src="23-proofs.sw"></pre>
 </section>
 
@@ -167,12 +167,12 @@
 </section>
 
 <section data-slug="omega" data-title="omega: arithmetic proofs">
-  <p>For facts about whole numbers and integers built from <code>+</code>, <code>-</code>, comparisons, multiplication by constants, and division and remainder by a constant, <code>omega</code> finds the proof itself, using the hypotheses in scope.</p>
+  <p>For facts about whole numbers and integers built from <code>+</code>, <code>-</code>, comparisons, multiplication by constants, and division and remainder by a constant, <code>arithmetic</code> finds the proof itself, using the hypotheses in scope.</p>
   <pre data-src="24-omega.sw"></pre>
 </section>
 
 <section data-slug="calc-and-rewrite" data-title="calc and rewrite">
-  <p>Two ways to write longer proofs readably. <code>calc</code> is a chain of steps, each related to the one before (<code>=</code>, <code>&lt;=</code>, <code>&lt;</code>), each with its reason. <code>rewrite p in t</code> replaces, in the goal, the left side of the equation <code>p</code> by its right side, so you don't write out the expression around it. When a lemma takes functions as arguments, such as <code>List.mapCong</code>, write <code>_</code> for them and the compiler reads them off the goal.</p>
+  <p>Two ways to write longer proofs readably. <code>calc</code> is a chain of steps, each related to the one before (<code>=</code>, <code>&lt;=</code>, <code>&lt;</code>), each with its reason. <code>rewrite p then t</code> replaces, in the goal, the left side of the equation <code>p</code> by its right side, so you don't write out the expression around it. When a lemma takes functions as arguments, such as <code>List.mapCong</code>, write <code>_</code> for them and the compiler reads them off the goal.</p>
   <pre data-src="25-calc-rewrite.sw"></pre>
 </section>
 
@@ -197,12 +197,12 @@
 </section>
 
 <section data-slug="ranges" data-title="Ranges">
-  <p><code>a ..&lt; b</code> is the numbers from <code>a</code> up to, not including, <code>b</code>, and <code>a ..= b</code> is the numbers from <code>a</code> through <code>b</code>. A range is an ordinary list, so <code>.map</code>, <code>each</code>, <code>in</code> and spreads all work on it. It binds more loosely than <code>+</code> and <code>++</code> and more tightly than <code>==</code>, <code>in</code> and <code>|&gt;</code>. In a proof, <code>omega</code> reads membership as the two bounds (<code>List.memRange</code> states it as a lemma). Write <code>0 ..&lt; n</code>, not <code>[0 ..&lt; n]</code> (a list of one list) or <code>0 .. n</code> (an error).</p>
+  <p><code>a ..&lt; b</code> is the numbers from <code>a</code> up to, not including, <code>b</code>, and <code>a ..= b</code> is the numbers from <code>a</code> through <code>b</code>. A range is an ordinary list, so <code>.map</code>, <code>each</code>, <code>in</code> and spreads all work on it. It binds more loosely than <code>+</code> and <code>++</code> and more tightly than <code>==</code>, <code>in</code> and <code>|&gt;</code>. In a proof, <code>arithmetic</code> reads membership as the two bounds (<code>List.memRange</code> states it as a lemma). Write <code>0 ..&lt; n</code>, not <code>[0 ..&lt; n]</code> (a list of one list) or <code>0 .. n</code> (an error).</p>
   <pre data-src="34-ranges.sw"></pre>
 </section>
 
 <section data-slug="proofs-about-effects" data-title="Proofs about effectful code">
-  <p>A handler applied to code it can see through just computes, so a proof about it is often <code>rfl</code>. For a fact about <em>any</em> computation, <code>match reify t with</code> splits on what the computation does first, with the clauses written as a handler's. It works only in proofs, so programs can never take a computation apart.</p>
+  <p>A handler applied to code it can see through just computes, so a proof about it is often <code>byComputing</code>. For a fact about <em>any</em> computation, <code>match reify t with</code> splits on what the computation does first, with the clauses written as a handler's. It works only in proofs, so programs can never take a computation apart.</p>
   <pre data-src="29-reify.sw"></pre>
 </section>
 

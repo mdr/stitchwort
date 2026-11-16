@@ -61,28 +61,28 @@ def swapPair (p: NatProd): NatProd := match p with | Pair x y => Pair y x
 -- one for the other is an error: `match p with | x, y => x` says "this
 -- alternative has 2 patterns, but the `match` has 1 scrutinee".
 --
--- If we state properties of pairs in a slightly peculiar way, `rfl` can
+-- If we state properties of pairs in a slightly peculiar way, `byComputing` can
 -- prove them by computing:
 
-theorem surjectivePairing' ∀ (n m: Nat): Pair n m = Pair (fst (Pair n m)) (snd (Pair n m)) := rfl
+theorem surjectivePairing' ∀ (n m: Nat): Pair n m = Pair (fst (Pair n m)) (snd (Pair n m)) := byComputing
 
--- But `rfl` is not enough if the statement is more natural:
+-- But `byComputing` is not enough if the statement is more natural:
 --
---     theorem surjectivePairingStuck (p: NatProd): p = Pair (fst p) (snd p) := rfl
+--     theorem surjectivePairingStuck (p: NatProd): p = Pair (fst p) (snd p) := byComputing
 --
---     [E-REFL] Error: `rfl` can't prove this
+--     [E-REFL] Error: `byComputing` can't prove this
 --       ╰─── `p` and `Pair (fst p) (snd p)` aren't equal
 --
 -- `fst p` can't compute until `p` is known to be a `Pair`. A `match`
 -- exposes that structure, as Rocq's `destruct` does:
 
-theorem surjectivePairing ∀ (p: NatProd): p = Pair (fst p) (snd p) := match p with | Pair n m => rfl
+theorem surjectivePairing ∀ (p: NatProd): p = Pair (fst p) (snd p) := match p with | Pair n m => byComputing
 
 -- Unlike the `match` on a `Nat`, which has two arms, this has only one,
 -- because a `NatProd` can be built in only one way.
 --
 -- (Had `NatProd` been declared as a record, `type NatProd = { n1: Nat,
--- n2: Nat }`, `surjectivePairingStuck` would hold by `rfl`: Stitchwort's
+-- n2: Nat }`, `surjectivePairingStuck` would hold by `byComputing`: Stitchwort's
 -- checker knows that a record value is the record of its fields, record
 -- eta.)
 
@@ -120,10 +120,10 @@ def ofList (xs: List StdNat): NatList := match xs with
   | [] => Nil
   | [x, ..rest] => Cons (ofNat x) (ofList rest)
 
-theorem mylist1: mylist = ofList [1, 2, 3] := rfl
+theorem mylist1: mylist = ofList [1, 2, 3] := byComputing
 
 -- `ofList [1, 2, 3]` computes to `Cons (S O) (Cons (S (S O)) (Cons (S (S
--- (S O))) Nil))`, so `rfl` sees the two as equal. The book's three
+-- (S O))) Nil))`, so `byComputing` sees the two as equal. The book's three
 -- spellings of `mylist` (with `::`, without brackets, and with `[1;2;3]`)
 -- become this one.
 
@@ -155,11 +155,11 @@ def app (l1 l2: NatList): NatList := match l1 with
 -- The book writes `app` as the infix `++`. Stitchwort's `++` is the
 -- library's (lists and text), so `app` is called by name.
 
-theorem testApp1: app (ofList [1, 2, 3]) (ofList [4, 5]) = ofList [1, 2, 3, 4, 5] := rfl
+theorem testApp1: app (ofList [1, 2, 3]) (ofList [4, 5]) = ofList [1, 2, 3, 4, 5] := byComputing
 
-theorem testApp2: app Nil (ofList [4, 5]) = ofList [4, 5] := rfl
+theorem testApp2: app Nil (ofList [4, 5]) = ofList [4, 5] := byComputing
 
-theorem testApp3: app (ofList [1, 2, 3]) Nil = ofList [1, 2, 3] := rfl
+theorem testApp3: app (ofList [1, 2, 3]) Nil = ofList [1, 2, 3] := byComputing
 
 -- ## Head and Tail
 --
@@ -175,11 +175,11 @@ def tl (l: NatList): NatList := match l with
   | Nil => Nil
   | Cons h t => t
 
-theorem testHd1: hd O (ofList [1, 2, 3]) = S O := rfl
+theorem testHd1: hd O (ofList [1, 2, 3]) = S O := byComputing
 
-theorem testHd2: hd O Nil = O := rfl
+theorem testHd2: hd O Nil = O := byComputing
 
-theorem testTl: tl (ofList [1, 2, 3]) = ofList [2, 3] := rfl
+theorem testTl: tl (ofList [1, 2, 3]) = ofList [2, 3] := byComputing
 
 -- ## Exercises
 
@@ -250,7 +250,7 @@ type Bag = NatList
 --| Exercise (bag_functions): replace the `?` with the definition.
 def count (v: Nat) (s: Bag): Nat := ?
 
--- All these proofs can be done with `rfl`.
+-- All these proofs can be done with `byComputing`.
 
 theorem testCount1: count (S O) (ofList [1, 2, 3, 1, 4, 1]) = ofNat 3 := ?
 
@@ -332,7 +332,7 @@ theorem testIncluded2: included (ofList [1, 2, 2]) (ofList [2, 1, 4, 1]) = False
 -- As with numbers, simple facts about functions on lists can sometimes be
 -- proved by computing alone:
 
-theorem nilApp ∀ (l: NatList): app Nil l = l := rfl
+theorem nilApp ∀ (l: NatList): app Nil l = l := byComputing
 
 -- This works because `Nil` is the value `app` matches on, its "scrutinee",
 -- so the `match` in `app` can choose its arm.
@@ -341,8 +341,8 @@ theorem nilApp ∀ (l: NatList): app Nil l = l := rfl
 -- its two shapes, empty and non-empty:
 
 theorem tlLengthPred ∀ (l: NatList): pred (length l) = length (tl l) := match l with
-  | Nil => rfl
-  | Cons n l' => rfl
+  | Nil => byComputing
+  | Cons n l' => byComputing
 
 -- The `Nil` case works because `tl Nil` was chosen to be `Nil`. The arm
 -- `Cons n l'` names the two arguments of `Cons`, the head and the tail of
@@ -375,8 +375,8 @@ theorem tlLengthPred ∀ (l: NatList): pred (length l) = length (tl l) := match 
 -- the induction hypothesis.
 
 theorem appAssoc ∀ (l1 l2 l3: NatList): app (app l1 l2) l3 = app l1 (app l2 l3) := match l1 with
-  | Nil => rfl
-  | Cons n l1' => rewrite appAssoc l1' l2 l3 in rfl
+  | Nil => byComputing
+  | Cons n l1' => rewrite appAssoc l1' l2 l3 then byComputing
 
 -- In the `Cons` arm the goal computes to `Cons n (app (app l1' l2) l3) =
 -- Cons n (app l1' (app l2 l3))`; the induction hypothesis rewrites the
@@ -421,7 +421,7 @@ theorem appAssoc ∀ (l1 l2 l3: NatList): app (app l1 l2) l3 = app l1 (app l2 l3
 -- help to step back and try to prove something stronger.
 --
 --     theorem repeatDoubleFirstTry (c n: Nat): app (repeat n c) (repeat n c) = repeat n (plus c c) := match c with
---       | O => rfl
+--       | O => byComputing
 --       | S c' => ?
 --
 --     [GOAL] Goal: in `repeatDoubleFirstTry`
@@ -435,8 +435,8 @@ theorem appAssoc ∀ (l1 l2 l3: NatList): app (app l1 l2) l3 = app l1 (app l2 l3
 -- go through. So we generalise:
 
 theorem repeatPlus ∀ (c1 c2 n: Nat): app (repeat n c1) (repeat n c2) = repeat n (plus c1 c2) := match c1 with
-  | O => rfl
-  | S c1' => rewrite <- repeatPlus c1' c2 n in rfl
+  | O => byComputing
+  | S c1' => rewrite <- repeatPlus c1' c2 n then byComputing
 
 -- ## Reversing a List
 --
@@ -447,15 +447,15 @@ def rev (l: NatList): NatList := match l with
   | Nil => Nil
   | Cons h t => app (rev t) (Cons h Nil)
 
-theorem testRev1: rev (ofList [1, 2, 3]) = ofList [3, 2, 1] := rfl
+theorem testRev1: rev (ofList [1, 2, 3]) = ofList [3, 2, 1] := byComputing
 
-theorem testRev2: rev Nil = Nil := rfl
+theorem testRev2: rev Nil = Nil := byComputing
 
 -- Now let's prove that reversing a list doesn't change its length. The
 -- first attempt gets stuck in the `Cons` case:
 --
 --     theorem revLengthFirstTry (l: NatList): length (rev l) = length l := match l with
---       | Nil => rfl
+--       | Nil => byComputing
 --       | Cons n l' => ?
 --
 --     [GOAL] Goal: in `revLengthFirstTry`
@@ -472,7 +472,7 @@ theorem testRev2: rev Nil = Nil := rfl
 -- fails too, because the induction hypothesis isn't general enough:
 --
 --     theorem appRevLengthSFirstTry (l: NatList) (n: Nat): length (app (rev l) (Cons n Nil)) = S (length (rev l)) := match l with
---       | Nil => rfl
+--       | Nil => byComputing
 --       | Cons m l' => ?
 --
 --     [GOAL] Goal: in `appRevLengthSFirstTry`
@@ -486,21 +486,21 @@ theorem testRev2: rev Nil = Nil := rfl
 -- every list, not only reversed ones.
 
 theorem appLengthS ∀ (l: NatList) (n: Nat): length (app l (Cons n Nil)) = S (length l) := match l with
-  | Nil => rfl
-  | Cons m l' => rewrite appLengthS l' n in rfl
+  | Nil => byComputing
+  | Cons m l' => rewrite appLengthS l' n then byComputing
 
 -- Now the original proof goes through.
 
 theorem revLength ∀ (l: NatList): length (rev l) = length l := match l with
-  | Nil => rfl
-  | Cons n l' => rewrite appLengthS (rev l') n, revLength l' in rfl
+  | Nil => byComputing
+  | Cons n l' => rewrite appLengthS (rev l') n, revLength l' then byComputing
 
 -- `appLengthS` is narrow: its second list has one element. Here is the
 -- general version, for any two lists.
 
 theorem appLength ∀ (l1 l2: NatList): length (app l1 l2) = plus (length l1) (length l2) := match l1 with
-  | Nil => rfl
-  | Cons n l1' => rewrite appLength l1' l2 in rfl
+  | Nil => byComputing
+  | Cons n l1' => rewrite appLength l1' l2 then byComputing
 
 -- For comparison, informal proofs of these two theorems:
 --
@@ -645,7 +645,7 @@ theorem countMemberNonzero ∀ (s: Bag): leb (S O) (count (S O) (Cons (S O) s)) 
 -- chapters use it too).
 
 theorem lebNSn ∀ (n: Nat): leb n (S n) = True := match n with
-  | O => rfl
+  | O => byComputing
   | S n' => lebNSn n'
 
 -- In the `S n'` case, `leb (S n') (S (S n'))` computes to `leb n' (S
@@ -719,11 +719,11 @@ def nthError (l: NatList) (n: Nat): NatOption := match l with
       | O => Some a
       | S n' => nthError l' n'
 
-theorem testNthError1: nthError (ofList [4, 5, 6, 7]) O = Some (ofNat 4) := rfl
+theorem testNthError1: nthError (ofList [4, 5, 6, 7]) O = Some (ofNat 4) := byComputing
 
-theorem testNthError2: nthError (ofList [4, 5, 6, 7]) (ofNat 3) = Some (ofNat 7) := rfl
+theorem testNthError2: nthError (ofList [4, 5, 6, 7]) (ofNat 3) = Some (ofNat 7) := byComputing
 
-theorem testNthError3: nthError (ofList [4, 5, 6, 7]) (ofNat 9) = None := rfl
+theorem testNthError3: nthError (ofList [4, 5, 6, 7]) (ofNat 9) = None := byComputing
 
 -- `optionElim` takes the number out of a `NatOption`, giving a default in
 -- the `None` case.

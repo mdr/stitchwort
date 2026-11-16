@@ -11,11 +11,11 @@ import Std (And, Bool, DecEq, Eq, List, Map, Nat, Not, Pair, Set, Void)
 theorem mustPrecedeCorrect ∀ (rules: List Rule) (x y: Nat): mustPrecede (ruleSet rules) x y = ruleSays rules x y :=
   let pairOf := (rule: Rule) => (rule.before, rule.after)
   rewrite Set.containsFromList (x, y) (rules.map pairOf),
-      List.anyMap rules (pair => Map.Spec.sameKey (x, y) pair) pairOf in
+      List.anyMap rules (pair => Map.Spec.sameKey (x, y) pair) pairOf then
     List.anyCong rules
       (rule => Map.Spec.sameKey (x, y) (pairOf rule))
       (rule => rule.before == x && rule.after == y)
-      (rule => rewrite Map.Spec.sameKeyDecide (x, y) (pairOf rule) in Pair.mkBeqMk rule.before rule.after x y)
+      (rule => rewrite Map.Spec.sameKeyDecide (x, y) (pairOf rule) then Pair.mkBeqMk rule.before rule.after x y)
 
 --| A rule is broken only by an update with both of its pages.
 theorem brokenHasBoth ∀ (x y: Nat) (pages: List Nat)
@@ -29,7 +29,7 @@ theorem brokenHasBoth ∀ (x y: Nat) (pages: List Nat)
             | Both hasX hasY => Both (List.anyConsEqTrue page x later hasX) (List.anyConsEqTrue page y later hasY)
         | True =>
           match isY: page == y, hasX: later.any (== x) with
-            | True, True => Both (cases) rfl
+            | True, True => Both (cases) byComputing
 
 --| So the puzzle's "if both pages are in the update" adds nothing.
 theorem followsRuleIsPrintedBefore ∀ (pages: List Nat) (rule: Rule):
@@ -38,36 +38,37 @@ theorem followsRuleIsPrintedBefore ∀ (pages: List Nat) (rule: Rule):
     | True => cases
     | False =>
       match brokenHasBoth rule.before rule.after pages printed with
-        | Both hasBefore hasAfter => rewrite hasBefore, hasAfter in rfl
+        | Both hasBefore hasAfter => rewrite hasBefore, hasAfter then byComputing
 
 --| `inOrder` depends only on what the test says.
 theorem inOrderCong ∀ (precedes1 precedes2: Nat → Nat → Bool)
     (same: ∀ (x y: Nat) => precedes1 x y = precedes2 x y) (pages: List Nat):
     inOrder precedes1 pages = inOrder precedes2 pages :=
   match pages with
-    | [] => rfl
+    | [] => byComputing
     | [page, ..later] =>
       rewrite List.allCong later
             (laterPage => !(precedes1 laterPage page))
             (laterPage => !(precedes2 laterPage page))
-            (laterPage => rewrite same laterPage page in rfl),
-          inOrderCong precedes1 precedes2 same later in
-        rfl
+            (laterPage => rewrite same laterPage page then byComputing),
+          inOrderCong precedes1 precedes2 same later then
+        byComputing
 
 --| No later page is the rule's first page while this one is its second: this
 --| page isn't the rule's second page, or the first page doesn't follow it.
 theorem ruleKept ∀ (rule: Rule) (page: Nat) (later: List Nat):
     !(later.any (laterPage => rule.before == laterPage && rule.after == page))
       = (!(page == rule.after) || !(later.any (== rule.before))) :=
-  rewrite DecEq.eqComm page rule.after in
+  rewrite DecEq.eqComm page rule.after then
     match isPage: rule.after == page with
       | True =>
         Eq.cong
           (found => !found)
           (List.anyCong later (laterPage => rule.before == laterPage && True) (== rule.before) (laterPage =>
-            rewrite DecEq.eqComm rule.before laterPage in cases))
+            rewrite DecEq.eqComm rule.before laterPage then cases))
       | False =>
-        rewrite List.anyFalse later (laterPage => rule.before == laterPage && False) (laterPage => cases) in rfl
+        rewrite List.anyFalse later (laterPage => rule.before == laterPage && False) (laterPage => cases) then
+          byComputing
 
 --| No later page has a rule putting it before this one: every rule about this
 --| page is kept by it.
@@ -85,7 +86,7 @@ theorem noRuleBroken ∀ (rules: List Rule) (page: Nat) (later: List Nat):
 theorem inOrderPrintedBefore ∀ (rules: List Rule) (pages: List Nat):
     inOrder (ruleSays rules) pages = rules.all (rule => printedBefore rule.before rule.after pages) :=
   match pages with
-    | [] => Eq.sym (List.allTrue rules (rule => printedBefore rule.before rule.after []) (rule => rfl))
+    | [] => Eq.flipped (List.allTrue rules (rule => printedBefore rule.before rule.after []) (rule => byComputing))
     | [page, ..later] =>
       let keptHere := rules.all (rule => printedBefore rule.before rule.after later)
       Eq.trans
@@ -94,16 +95,16 @@ theorem inOrderPrintedBefore ∀ (rules: List Rule) (pages: List Nat):
           (inOrderPrintedBefore rules later))
         (Eq.trans
           (Eq.cong (keptByPage => keptByPage && keptHere) (noRuleBroken rules page later))
-          (Eq.sym
+          (Eq.flipped
             (List.allAnd rules (rule => !(page == rule.after) || !(later.any (== rule.before))) (rule =>
               printedBefore rule.before rule.after later))))
 
 --| The check by the rules as written is the puzzle's "in the right order".
 theorem inOrderRuleSays ∀ (rules: List Rule) (update: Update):
     inOrder (ruleSays rules) update.pages = rightOrder rules update :=
-  rewrite inOrderPrintedBefore rules update.pages in
+  rewrite inOrderPrintedBefore rules update.pages then
     List.allCong rules (rule => printedBefore rule.before rule.after update.pages) (followsRule update.pages) (rule =>
-      Eq.sym (followsRuleIsPrintedBefore update.pages rule))
+      Eq.flipped (followsRuleIsPrintedBefore update.pages rule))
 
 --| So is the program's check, by the rule set.
 theorem inOrderCorrect ∀ (rules: List Rule) (update: Update):
@@ -117,5 +118,5 @@ theorem part1Correct ∀ (queue: PrintQueue): solvePart1 queue = middlesOfOrdere
   rewrite List.filterCongMem queue.updates
         (update => inOrder (mustPrecede (ruleSet queue.rules)) update.pages)
         (rightOrder queue.rules)
-        (queued inQueue => inOrderCorrect queue.rules queued) in
-    rfl
+        (queued inQueue => inOrderCorrect queue.rules queued) then
+    byComputing

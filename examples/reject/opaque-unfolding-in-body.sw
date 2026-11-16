@@ -7,4 +7,4 @@ opaque def double (n: Nat): Nat := n + n
 
 theorem inBody (n: Nat): double n = n + n :=
   unfolding double
-  rfl
+  byComputing

@@ -16,4 +16,4 @@ theorem lexCovers ∀ (source: Text) (lexed: Lexed)
   match e: Fail.toResult (() => Parse.all source lexemes) with
     | Ok found =>
       match c: covers source found with
-        | True => rewrite <- Result.okInjective h in DecEq.sound c
+        | True => rewrite <- Result.okInjective h then DecEq.sound c

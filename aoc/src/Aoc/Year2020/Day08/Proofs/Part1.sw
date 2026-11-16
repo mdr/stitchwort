@@ -7,7 +7,7 @@ import Aoc.Year2020.Day08 (Spec)
 import Std (Eq, Fail, Int, List, Map, Nat, Option, Result, Set, Void)
 
 theorem codeHolds ∀ (program: Program): Holds program.code program :=
-  Both rfl (position => Map.getByPosition program.instructions position)
+  Both byComputing (position => Map.getByPosition program.instructions position)
 
 theorem unvisitedAll ∀ (length: Nat): Unvisited length [] (Set.fromList (0 ..< length)) := position =>
   {
@@ -36,4 +36,4 @@ theorem part1Rules ∀ (program: Program) (answer: Int)
         | Loops accumulator =>
           let (Both seen same) := ended
           Witness positions
-            (Witness last (Both runs (Both distinct (Both seen (rewrite <- Result.okInjective solved in same)))))
+            (Witness last (Both runs (Both distinct (Both seen (rewrite <- Result.okInjective solved then same)))))

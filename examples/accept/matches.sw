@@ -19,7 +19,7 @@ def hasSmallFactor: Instruction → Bool := matches
   | Do
 
 theorem isDontOfDont: isDont Dont = True := isDont.eq1
-theorem isDontOfDo: isDont Do = False := rfl
+theorem isDontOfDo: isDont Do = False := byComputing
 
 test "no result means True" := isKnown 160 && !isKnown 161
 test "the filter form" := ([1, 133, 2, 5760]: List Nat).filter (matches | 133 | 5760) == [133, 5760]

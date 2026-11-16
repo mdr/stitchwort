@@ -10,7 +10,7 @@ opaque  def triple (n: Nat): Nat
 
 theorem tripleTwo: triple 2 = 6
   unfolding triple :=
-  rfl
+  byComputing
 
 opaque def countDown (n: Nat): Nat
         decreasing n

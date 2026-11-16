@@ -32,7 +32,7 @@ theorem readsRange: Parse.Reads range Written := Parse.readsThen Parse.readsNat 
     Parse.readsThen Parse.readsNat (highRead high highDigits =>
       Parse.readsDone
         { low, high } _
-        (rewrite dash in Witness lowRead (Witness highRead (rewrite List.appendNil highRead in rfl))))))
+        (rewrite dash then Witness lowRead (Witness highRead (rewrite List.appendNil highRead then byComputing))))))
 
 theorem readsBounds: Parse.Reads bounds Written := readsRange
 
@@ -42,8 +42,9 @@ theorem readsBoundsStepwise: Parse.Reads bounds Written := Parse.readsThen Parse
     Parse.readsThen Parse.readsNat (highRead high highDigits =>
       Parse.readsDone
         { low, high } _
-        (rewrite dash in Witness lowRead (Witness highRead (rewrite List.appendNil highRead in rfl))))))
+        (rewrite dash then Witness lowRead (Witness highRead (rewrite List.appendNil highRead then byComputing))))))
 
 theorem readsLabelled: Parse.Reads labelled (read r => ∃ (rest: List Char) => read = ['#'] ++ rest ∧ Written rest r) :=
   Parse.readsThen (Parse.readsChar '#') (hashRead u hash =>
-    Parse.readsWeaken readsRange (rangeRead r written => Witness rangeRead (Both (rewrite hash in rfl) written)))
+    Parse.readsWeaken readsRange (rangeRead r written =>
+      Witness rangeRead (Both (rewrite hash then byComputing) written)))

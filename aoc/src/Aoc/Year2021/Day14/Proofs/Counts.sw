@@ -17,10 +17,10 @@ def Represents (counts: PairCounts) (polymer: List Char): Prop :=
 --| Each pair with the same count `n`.
 theorem entriesWeightAll ∀ (f: ElementPair → Nat) (n: Nat) (pairs: List ElementPair):
     entriesWeight (pairs.map (pair => (pair, n))) f = n * pairs.sumBy f :=
-  rewrite List.sumByMap pairs (entry => entry.snd * f entry.fst) (pair => (pair, n)) in List.sumByMulLeft pairs n f
+  rewrite List.sumByMap pairs (entry => entry.snd * f entry.fst) (pair => (pair, n)) then List.sumByMulLeft pairs n f
 
 theorem countPairsRepresents ∀ (polymer: List Char): Represents (countPairs polymer) polymer := f =>
-  omega [
+  arithmetic [
     weightAddAll f Map.empty (List.map (pairsOf polymer) (pair => (pair, 1))),
     entriesWeightAll f 1 (pairsOf polymer)
   ]
@@ -55,10 +55,10 @@ theorem stepRepresents ∀ (rules: List Rule)
           (pairsOf polymer)
           (pair => List.sumBy (pair.becomes (ruleTable rules)) f)
           (pair => List.sumBy (expand rules pair) f)
-          (pair => rewrite becomesExpand rules one pair in rfl)
+          (pair => rewrite becomesExpand rules one pair then byComputing)
       _ = List.sumBy (List.flatMap (pairsOf polymer) (expand rules)) f :=
-        Eq.sym (List.sumByFlatMap (pairsOf polymer) f (expand rules))
-      _ = List.sumBy (pairsOf (step rules polymer)) f := rewrite pairsStep rules polymer in rfl
+        Eq.flipped (List.sumByFlatMap (pairsOf polymer) f (expand rules))
+      _ = List.sumBy (pairsOf (step rules polymer)) f := rewrite pairsStep rules polymer then byComputing
 
 --| After any number of steps, the program's counts stand for the polymer.
 theorem iterateRepresents ∀ (manual: Manual)

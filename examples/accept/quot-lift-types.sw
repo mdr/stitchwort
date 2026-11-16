@@ -20,11 +20,11 @@ def QTy: Type 1 := Quot (Type 0) (a b => a = b)
 
 def seven (a: Type 0): Nat := 7
 
-def answer: Nat := Quot.lift seven (a b h => rfl) (Quot.mk Nat: QTy)
+def answer: Nat := Quot.lift seven (a b h => byComputing) (Quot.mk Nat: QTy)
 
-def answerLambda: Nat := Quot.lift (a => 7) (a b h => rfl) (Quot.mk Nat: QTy)
+def answerLambda: Nat := Quot.lift (a => 7) (a b h => byComputing) (Quot.mk Nat: QTy)
 
-def liftWith (g: Type 0 → Nat) (q: QTy): Nat := Quot.lift g (a b h => J (b' h' => g a = g b') rfl h) q
+def liftWith (g: Type 0 → Nat) (q: QTy): Nat := Quot.lift g (a b h => J (b' h' => g a = g b') byComputing h) q
 
 def answerVariable: Nat := liftWith seven (Quot.mk Nat)
 
@@ -37,15 +37,15 @@ def QE: Type := Quot Bool BoolEq
 
 def toNat (b: Bool): Nat := if b then 1 else 0
 
-def one: Nat := Quot.lift toNat (x y same => rewrite same in rfl) (Quot.mk True: QE)
+def one: Nat := Quot.lift toNat (x y same => rewrite same then byComputing) (Quot.mk True: QE)
 
 def addIf (b: Bool) (n: Nat): Nat := if b then n + 1 else n
 
-def five: Nat := Quot.lift addIf (x y same => rewrite same in rfl) (Quot.mk True: QE) 4
+def five: Nat := Quot.lift addIf (x y same => rewrite same then byComputing) (Quot.mk True: QE) 4
 
-theorem fiveIsFive: five = 5 := rfl
+theorem fiveIsFive: five = 5 := byComputing
 
-theorem answerIsSeven: answer = 7 := rfl
+theorem answerIsSeven: answer = 7 := byComputing
 
 test "a definition lifted" := answer == 7
 test "a lambda lifted" := answerLambda == 7

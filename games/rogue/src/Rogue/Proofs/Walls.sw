@@ -18,13 +18,13 @@ theorem playerMovesOutOfWalls ∀ (dice: Dice) (state: State) (direction: Direct
         | True => inside
         | False =>
           let target := state.player.toward direction
-          rewrite enterLevel state target, enterPlayer state target in wall
+          rewrite enterLevel state target, enterPlayer state target then wall
 
 theorem monstersTurnOutOfWalls ∀ (dice: Dice) (state: State)
     (inside: isWall state.level state.player = False):
     let after := monstersTurn dice state
     isWall after.level after.player = False :=
-  rewrite monstersTurnLevel dice state, monstersTurnPlayer dice state in inside
+  rewrite monstersTurnLevel dice state, monstersTurnPlayer dice state then inside
 
 theorem descendOutOfWalls ∀ (dice: Dice) (state: State):
     let after := descend dice state

@@ -12,18 +12,19 @@ theorem Bits.complementValue ∀ (number: Bits): number.value + number.complemen
 
 --| The first bit is the bit at position 0.
 theorem Bits.getZero ∀ (number: Bits): number.get 0 = number.first := match number with
-  | { bits = [] } => rfl
-  | { bits = [first, ..rest] } => rfl
+  | { bits = [] } => byComputing
+  | { bits = [first, ..rest] } => byComputing
 
 theorem Bits.widthAppend ∀ (number other: Bits): (number.append other).width = number.width + other.width :=
   List.lengthAppend number.bits other.bits
 
-theorem Bits.emptyAppend ∀ (number: Bits): Bits.empty.append number = number := match number with | { bits } => rfl
+theorem Bits.emptyAppend ∀ (number: Bits): Bits.empty.append number = number := match number with
+  | { bits } => byComputing
 
 --| Appending one bit.
 theorem Bits.widthAppendBit ∀ (number: Bits) (bit: Bool):
     (number.append (Bits.cons Bits.empty bit)).width = Succ number.width :=
-  rewrite Bits.widthAppend number (Bits.cons Bits.empty bit) in omega
+  rewrite Bits.widthAppend number (Bits.cons Bits.empty bit) then arithmetic
 
 theorem Bits.appendAssoc ∀ (number other third: Bits):
     (number.append other).append third = number.append (other.append third) :=
@@ -41,4 +42,4 @@ theorem Bits.getAppendWidth ∀ (number prefix: Bits): (prefix.append number).ge
 --| A lowest bit in front of the others doubles their number and adds itself.
 theorem Bits.valueFromLowFirst ∀ (bit: Bool) (rest: List Bool):
     (Bits.fromLowFirst [bit, ..rest]).value = bit.toNat + (Bits.fromLowFirst rest).value * 2 :=
-  rewrite List.reverseCons bit rest, Nat.fromBitsSnoc (List.reverse rest) bit in omega
+  rewrite List.reverseCons bit rest, Nat.fromBitsSnoc (List.reverse rest) bit then arithmetic

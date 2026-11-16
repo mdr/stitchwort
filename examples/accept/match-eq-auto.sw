@@ -10,9 +10,9 @@ def pick [auto ord: Ord k] (x y: k): Nat := match Ord.compare x y with
   | _ => 1
 
 theorem pickLess ∀ [auto ord: Ord k] (x y: k) (h: Ord.compare x y = Less): pick x y = 0 := match e: Ord.compare x y with
-  | Less => rfl
-  | Equal => Void.exfalso (Ordering.equalNotLess h)
-  | Greater => Void.exfalso (Ordering.greaterNotLess h)
+  | Less => byComputing
+  | Equal => (Ordering.equalNotLess h).impossible
+  | Greater => (Ordering.greaterNotLess h).impossible
 
 -- `rewrite` with a proof about the same expression has the same need, and
 -- already waited for the dictionary.
@@ -22,4 +22,4 @@ theorem pickRewrite ∀ [auto ord: Ord k] (x y: k)
       | Less => 0
       | _ => 1)
       = 0 :=
-  rewrite h in rfl
+  rewrite h then byComputing

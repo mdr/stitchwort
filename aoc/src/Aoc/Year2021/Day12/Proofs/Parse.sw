@@ -13,10 +13,10 @@ theorem checkPassagesOk ∀ (passages result: List Passage)
     (h: Fail.toResult (() => checkPassages passages) = Ok result):
     result = passages ∧ passages.all (passage => not passage.joinsBig) = True :=
   match e: firstBigPair passages with
-    | Some (index, passage) => Void.exfalso (Result.errNotOk h)
+    | Some (index, passage) => (Result.errNotOk h).impossible
     | None =>
       Both
-        (Eq.sym (Result.okInjective h))
+        (Result.okInjective h).flipped
         (List.findNoneAll passages Passage.joinsBig (List.findWithIndexFromNone Passage.joinsBig 0 passages e))
 
 --| ...whatever reads them.
@@ -31,7 +31,7 @@ theorem parsedChecked ∀ (read: () → {Fail} List Passage) (passages: List Pas
     split
     (readPassages _ checked =>
       let (Both same none) := checkPassagesOk readPassages passages checked
-      rewrite same in none)
+      rewrite same then none)
 
 --| Of a passage that doesn't join two big caves, if one end is big the
 --| other isn't.
@@ -57,5 +57,5 @@ theorem parseNoBigNeighbours ∀ (input: Text) (passages: List Passage)
       | { from, to } =>
         let fine := checked.read { from, to } member
         match joins with
-          | Inl (Both fromA toB) => rewrite <- toB.read in otherSmall from to fine (rewrite fromA.read in bigA)
-          | Inr (Both fromB toA) => rewrite <- fromB.read in otherSmallBack from to fine (rewrite toA.read in bigA)
+          | Inl (Both fromA toB) => rewrite <- toB.read then otherSmall from to fine (rewrite fromA.read then bigA)
+          | Inr (Both fromB toA) => rewrite <- fromB.read then otherSmallBack from to fine (rewrite toA.read then bigA)

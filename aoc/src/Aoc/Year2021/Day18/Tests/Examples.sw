@@ -85,12 +85,13 @@ def tenAndOne: Number := Pair (Regular 10) (Regular 1)
 
 def tenSplit: Number := Pair (Pair (Regular 5) (Regular 5)) (Regular 1)
 
-theorem exampleSplits: splitLeaves (leaves 0 tenAndOne) = Some (leaves 0 tenSplit) := splitSome tenAndOne tenSplit rfl
+theorem exampleSplits: splitLeaves (leaves 0 tenAndOne) = Some (leaves 0 tenSplit) :=
+  splitSome tenAndOne tenSplit byComputing
 
 theorem exampleSplitsAfter: splitLeaves (leaves 0 tenAndOne ++ []) = Some (leaves 0 tenSplit ++ []) :=
-  splitSomeLeaves 0 tenAndOne tenSplit rfl []
+  splitSomeLeaves 0 tenAndOne tenSplit byComputing []
 
-theorem exampleSplitHeight: height tenSplit ≤ height tenAndOne + 1 := splitHeight tenAndOne tenSplit rfl
+theorem exampleSplitHeight: height tenSplit ≤ height tenAndOne + 1 := splitHeight tenAndOne tenSplit byComputing
 
 def deepLeft: Number :=
   Pair (Pair (Pair (Pair (Pair (Regular 9) (Regular 8)) (Regular 1)) (Regular 2)) (Regular 3)) (Regular 4)
@@ -102,9 +103,10 @@ def deepLeftExploded: Explosion := {
 }
 
 theorem exampleExplodes: explodeLeaves (leaves 0 deepLeft) = Some (leaves 0 deepLeftExploded.number) :=
-  explodeSome deepLeft deepLeftExploded rfl omega
+  explodeSome deepLeft deepLeftExploded byComputing arithmetic
 
-theorem exampleReduceSplits: reduce 1 tenAndOne = reduce 0 tenSplit := reduceSplits 0 tenAndOne tenSplit rfl rfl
+theorem exampleReduceSplits: reduce 1 tenAndOne = reduce 0 tenSplit :=
+  reduceSplits 0 tenAndOne tenSplit byComputing byComputing
 
 theorem exampleReduceExplodes: reduce 1 deepLeft = reduce 0 deepLeftExploded.number :=
-  reduceExplodes 0 deepLeft deepLeftExploded rfl
+  reduceExplodes 0 deepLeft deepLeftExploded byComputing

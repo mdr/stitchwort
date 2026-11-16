@@ -8,7 +8,7 @@ import Std (Nat)
 type Exists (p: Nat → Prop): Prop =
   | MkEx (x: Nat) (h: p x)
 
-def one: Exists (n => n = n) := MkEx 1 rfl
-def two: Exists (n => n = n) := MkEx 2 rfl
+def one: Exists (n => n = n) := MkEx 1 byComputing
+def two: Exists (n => n = n) := MkEx 2 byComputing
 
-theorem t4: one = two := rfl
+theorem t4: one = two := byComputing

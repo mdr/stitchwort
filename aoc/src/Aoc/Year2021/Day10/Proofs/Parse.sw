@@ -24,10 +24,9 @@ theorem parseReadsLines ∀ (input: Text) (lines: List (List Token))
   let readsToken :=
     Parse.readsLabel "a bracket" bracket _ (Parse.readsPickBy allTokens (token => Text.fromList [token.char]))
   let read := Parse.eachLineReads input (() => Parse.many token) _ lines parsed (Parse.readsMany token _ readsToken)
-  Eq.sym
+  Eq.flipped
     (List.all2Map _ _
       (List.all2Weaken
         (line tokens each =>
-          Parse.eachChars Token.char line tokens
-            (Parse.eachWeaken (chars token both => And.right both) tokens each)) _ _
+          Parse.eachChars Token.char line tokens (Parse.eachWeaken (chars token both => both.right) tokens each)) _ _
         read))

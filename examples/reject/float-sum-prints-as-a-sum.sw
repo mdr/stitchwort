@@ -3,4 +3,4 @@
 -- (SW-1763).
 import Std (Float)
 
-theorem sumIsSum (x y: Float): x + y = y + x := rfl
+theorem sumIsSum (x y: Float): x + y = y + x := byComputing

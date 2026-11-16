@@ -20,11 +20,11 @@ theorem pairAheadStep ∀ (before: List Nat) (x: Nat) (rest: List Nat) (a b: Nat
   match ahead with
     | Inl (Both aBefore bIn) =>
       match bIn with
-        | Inl xIs => Inl (Both aBefore (Eq.sym xIs))
+        | Inl xIs => Inl (Both aBefore xIs.flipped)
         | Inr bRest => Inr (Inl (Both (Inr aBefore) bRest))
     | Inr inPairs =>
       match (List.memPairsCons a b x rest).forward inPairs with
-        | Inl (Both aIs bIn) => Inr (Inl (Both (Inl (Eq.sym aIs)) bIn))
+        | Inl (Both aIs bIn) => Inr (Inl (Both (Inl aIs.flipped) bIn))
         | Inr inRest => Inr (Inr inRest)
 
 --| And back: a pair ahead after `x` is passed was ahead before it.
@@ -32,7 +32,7 @@ theorem pairAheadBack ∀ (before: List Nat) (x: Nat) (rest: List Nat) (a b: Nat
     (ahead: PairAhead [x, ..before] rest a b):
     PairAhead before [x, ..rest] a b :=
   match ahead with
-    | Inl (Both (Inl xIs) bRest) => Inr ((List.memPairsCons a b x rest).backward (Inl (Both (Eq.sym xIs) bRest)))
+    | Inl (Both (Inl xIs) bRest) => Inr ((List.memPairsCons a b x rest).backward (Inl (Both xIs.flipped bRest)))
     | Inl (Both (Inr aBefore) bRest) => Inl (Both aBefore (Inr bRest))
     | Inr inRest => Inr ((List.memPairsCons a b x rest).backward (Inr inRest))
 
@@ -51,11 +51,11 @@ theorem findPairAfterSound ∀ (target: Nat) (seen: Set Nat) (before: List Nat)
           let aIs: target - x = a := Pair.mkInjectiveFst same
           let bIs: x = b := Pair.mkInjectiveSnd same
           let Both fits partner := c
-          Both (Inl (Both (rewrite <- aIs in passed (target - x) partner) (Inl bIs))) omega
+          Both (Inl (Both (rewrite <- aIs then passed (target - x) partner) (Inl bIs))) arithmetic
         | False =>
           let passedNow: ∀ (y: Nat) => Set.contains (Set.insert seen x) y = True → y ∈ [x, ..before] := y contained =>
-            if h: y = x then Inl (Eq.sym h)
-            else Inr (passed y (rewrite Set.containsInsertOther seen x y h at contained in contained))
+            if h: y = x then Inl h.flipped
+            else Inr (passed y (rewrite Set.containsInsertOther seen x y h at contained then contained))
           let after := findPairAfterSound target (Set.insert seen x) [x, ..before] passedNow rest a b found
           Both (pairAheadBack before x rest a b after.left) after.right
 
@@ -75,16 +75,16 @@ theorem findPairAfterComplete ∀ (target: Nat) (seen: Set Nat) (before: List Na
         | False =>
           match pairAheadStep before x rest a b ahead with
             | Inl (Both aBefore bIs) =>
-              let fits: x <= target := omega
-              let aIs: target - x = a := omega
-              let partner: Set.contains seen (target - x) = True := rewrite aIs in remembered a aBefore
+              let fits: x <= target := arithmetic
+              let aIs: target - x = a := arithmetic
+              let partner: Set.contains seen (target - x) = True := rewrite aIs then remembered a aBefore
               let holds: (x <= target && Set.contains seen (target - x)) = True := Both fits partner
-              Bool.trueNotFalse (Eq.trans (Eq.sym holds) c)
+              Bool.trueNotFalse (Eq.trans holds.flipped c)
             | Inr aheadNow =>
               let rememberedNow: ∀ (y: Nat) => y ∈ [x, ..before] → Set.contains (Set.insert seen x) y = True :=
                 y member =>
                   match member with
-                    | Inl xIs => rewrite <- xIs in Set.containsInsert x seen
+                    | Inl xIs => rewrite <- xIs then Set.containsInsert x seen
                     | Inr earlier => Set.containsInsertMono seen x y (remembered y earlier)
               findPairAfterComplete target (Set.insert seen x) [x, ..before] rememberedNow rest a b aheadNow sum isNone
 
@@ -95,7 +95,7 @@ theorem findPairSound ∀ (target: Nat) (entries: List Nat) (a b: Nat)
     ((a, b) ∈ entries.pairs) ∧ (a + b = target) :=
   let nothingSeen: ∀ (y: Nat) => Set.contains Set.empty y = True → y ∈ [] := y contained => cases
   match findPairAfterSound target Set.empty [] nothingSeen entries a b found with
-    | Both (Inl (Both aNowhere bIn)) sum => Void.exfalso aNowhere
+    | Both (Inl (Both aNowhere bIn)) sum => aNowhere.impossible
     | Both (Inr inPairs) sum => Both inPairs sum
 
 --| And it finds two whenever there are two.
@@ -103,7 +103,7 @@ theorem findPairComplete ∀ (target: Nat) (entries: List Nat) (a b: Nat)
     (inPairs: (a, b) ∈ entries.pairs)
     (sum: a + b = target):
     findPair target entries ≠ None :=
-  findPairAfterComplete target Set.empty [] (y nowhere => Void.exfalso nowhere) entries a b (Inr inPairs) sum
+  findPairAfterComplete target Set.empty [] (y nowhere => nowhere.impossible) entries a b (Inr inPairs) sum
 
 --| When `findTriple` finds nothing, it finds nothing after the first entry,
 --| nor a pair after it making up the rest.
@@ -113,14 +113,14 @@ theorem findTripleNoneCons ∀ (target x: Nat) (rest: List Nat)
   match c: x <= target with
     | True =>
       match pair: findPair (target - x) rest with
-        | Some (p, q) => Void.exfalso (Option.someNotNone _ none)
-        | None => Both none (fits => rfl)
+        | Some (p, q) => (Option.someNotNone _ none).impossible
+        | None => Both none (fits => byComputing)
     | False => Both none (fits => cases)
 
 --| Three entries add up as a list's sum and product do.
-theorem sum3 ∀ (a b c: Nat): [a, b, c].sum = a + b + c := ring
+theorem sum3 ∀ (a b c: Nat): [a, b, c].sum = a + b + c := algebra
 
-theorem product3 ∀ (a b c: Nat): [a, b, c].product = a * b * c := ring
+theorem product3 ∀ (a b c: Nat): [a, b, c].product = a * b * c := algebra
 
 --| What `findTriple` finds are three entries, in order, summing to the target.
 theorem findTripleSound ∀ (target: Nat) (entries: List Nat) (a b c: Nat)
@@ -144,10 +144,10 @@ theorem findTripleSound ∀ (target: Nat) (entries: List Nat) (a b c: Nat)
               let qIs: q = c := Pair.mkInjectiveSnd pq
               let sound := findPairSound (target - x) rest p q pair
               Both
-                (rewrite <- xIs, <- pIs, <- qIs in
+                (rewrite <- xIs, <- pIs, <- qIs then
                   (List.memCombinationsCons x [p, q] x rest 2).backward
-                    (Inl (Both rfl ((List.memCombinationsTwo p q rest).backward sound.left))))
-                omega
+                    (Inl (Both byComputing ((List.memCombinationsTwo p q rest).backward sound.left))))
+                arithmetic
             | None => later found
         | False => later found
 
@@ -167,8 +167,8 @@ theorem findTripleComplete ∀ (target: Nat) (entries: List Nat) (a b c: Nat)
             b
             c
             ((List.memCombinationsTwo b c rest).forward inPairs)
-            omega
-            (nothing.right omega)
+            arithmetic
+            (nothing.right arithmetic)
         | Inr later => findTripleComplete target rest a b c later sum nothing.left
 
 --| An answer that is sound and complete is the only answer, when there is
@@ -180,8 +180,8 @@ theorem onlyAnswer ∀ (answers: List Nat) (found: Option Nat)
     (only: ∀ (other: Nat) => other ∈ answers → other = answer):
     found = Some answer :=
   match found with
-    | Some x => rewrite only x (sound x rfl) in rfl
-    | None => Void.exfalso (complete answer isAnswer rfl)
+    | Some x => rewrite only x (sound x byComputing) then byComputing
+    | None => Void.impossible (complete answer isAnswer byComputing)
 
 --| Part 1's answer is one of the puzzle's.
 theorem part1Sound ∀ (entries: List Nat) (answer: Nat)
@@ -190,8 +190,9 @@ theorem part1Sound ∀ (entries: List Nat) (answer: Nat)
   match pair: findPair 2020 entries with
     | Some (a, b) =>
       let sound := findPairSound 2020 entries a b pair
-      rewrite <- Option.someInjective found in
-        List.memMap _ (a, b) (List.memFilterIntro _ _ sound.left (rewrite sound.right in rfl)) (((a, b)) => a * b)
+      rewrite <- Option.someInjective found then
+        List.memMap _ (a, b) (List.memFilterIntro _ _ sound.left (rewrite sound.right then byComputing)) (((a, b)) =>
+          a * b)
 
 --| Part 1 has an answer whenever the puzzle has one.
 theorem part1Complete ∀ (entries: List Nat) (answer: Nat)
@@ -225,11 +226,11 @@ theorem part2Sound ∀ (entries: List Nat) (answer: Nat)
   match triple: findTriple 2020 entries with
     | Some (a, b, c) =>
       let sound := findTripleSound 2020 entries a b c triple
-      rewrite <- Option.someInjective found in
-        rewrite <- product3 a b c in
+      rewrite <- Option.someInjective found then
+        rewrite <- product3 a b c then
           List.memMap _
             [a, b, c]
-            (List.memFilterIntro _ _ sound.left (rewrite sum3 a b c, sound.right in rfl))
+            (List.memFilterIntro _ _ sound.left (rewrite sum3 a b c, sound.right then byComputing))
             (choice => choice.product)
 
 --| Part 2 has an answer whenever the puzzle has one.
@@ -243,11 +244,12 @@ theorem part2Complete ∀ (entries: List Nat) (answer: Nat)
       match choice, length with
         | [a, b, c], threeLong => none =>
           match triple: findTriple 2020 entries with
-            | None => findTripleComplete 2020 entries a b c kept.left (rewrite <- sum3 a b c in kept.right.read) triple
-        | [], tooShort => Void.exfalso (omega [tooShort])
-        | [x], tooShort => Void.exfalso (omega [tooShort])
-        | [x, y], tooShort => Void.exfalso (omega [tooShort])
-        | [x, y, z, w, ..rest], tooLong => Void.exfalso (omega [tooLong])
+            | None =>
+              findTripleComplete 2020 entries a b c kept.left (rewrite <- sum3 a b c then kept.right.read) triple
+        | [], tooShort => Void.impossible (arithmetic [tooShort])
+        | [x], tooShort => Void.impossible (arithmetic [tooShort])
+        | [x, y], tooShort => Void.impossible (arithmetic [tooShort])
+        | [x, y, z, w, ..rest], tooLong => Void.impossible (arithmetic [tooLong])
 
 --| So part 2 is the puzzle's answer, when there is exactly one.
 theorem part2Correct ∀ (entries: List Nat) (answer: Nat)

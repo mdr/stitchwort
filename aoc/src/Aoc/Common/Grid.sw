@@ -208,12 +208,12 @@ def Grid.step (grid: Grid a) (position: Position) (direction: Direction): Option
 --| Mapping the cells keeps the first row's length.
 theorem mapFirstWidth ∀ (rows: List (List a)) (f: Position → a → b): firstWidth (mapCells rows f) = firstWidth rows :=
   match rows with
-    | [] => rfl
+    | [] => byComputing
     | [first, ..rest] => List.lengthMapWithIndex first (c cell => f { row = 0, column = c } cell)
 
 --| `f` of every cell and its position.
 def Grid.map (grid: Grid a) (f: Position → a → b): Grid b :=
-  { rows = mapCells grid.rows f, nonEmpty = rewrite mapFirstWidth grid.rows f in grid.nonEmpty }
+  { rows = mapCells grid.rows f, nonEmpty = rewrite mapFirstWidth grid.rows f then grid.nonEmpty }
 
 --| `at`, through a table built once: `let find := grid.lookup` and then
 --| `find position` takes O(1) when run, the table an array of rows, each an

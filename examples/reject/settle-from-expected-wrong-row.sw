@@ -14,7 +14,7 @@ ability Src (t: Type) where
 
 def Good (p: () → {Src t, St s} Char) (k: List t) (z: s): Prop := k = k
 
-theorem good ∀ (p: () → {Src t, St s} Char) (k: List t) (z: s): Good p k z := rfl
+theorem good ∀ (p: () → {Src t, St s} Char) (k: List t) (z: s): Good p k z := byComputing
 
 def counting(): {Src Char, St Nat} Char :=
   St.put 3

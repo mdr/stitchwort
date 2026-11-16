@@ -24,7 +24,7 @@ theorem pairwiseByIeeeLe ∀ (xs: List Float)
 
 -- The NaN is why the hypothesis is needed: `<=` is false on it both ways.
 theorem nanNotLe ∀ (x: Float) (h: Float.ieeeLe Float.nan x = True): Void :=
-  Bool.trueNotFalse (And.left (Float.ieeeLeNotNaN Float.nan x h))
+  Bool.trueNotFalse (Float.ieeeLeNotNaN Float.nan x h).left
 
 -- Stable: `0.0` and `-0.0` are equal under `<=`, so they keep their order.
 test "sorted by <=" := List.sortWith [2.5, -1.0, 0.0, -0.0] Float.ieeeLe == [-1.0, 0.0, -0.0, 2.5]

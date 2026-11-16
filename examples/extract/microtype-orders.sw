@@ -4,7 +4,7 @@
 --
 -- run: parseEmail "ada@example.com"
 -- run: parseEmail "nobody"
--- run: emailText { value = "ada@example.com", valid = rfl }
+-- run: emailText { value = "ada@example.com", valid = byComputing }
 -- run: ownerOf (Map.fromList [({ value = "o1" }, { value = "u1" }), ({ value = "o2" }, { value = "u2" })]) { value = "o2" }
 -- run: ownerOf Map.empty { value = "o1" }
 -- run: assign (Map.fromList [({ value = "o1" }, { value = "u1" })]) { value = "o2" } { value = "u2" }

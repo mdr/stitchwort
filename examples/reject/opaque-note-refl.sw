@@ -8,4 +8,4 @@ opaque def double (n: Nat): Nat := n + n
 
 opaque def triple (n: Nat): Nat := n + n + n
 
-theorem both (n: Nat): double n + triple n = 5 * n := rfl
+theorem both (n: Nat): double n + triple n = 5 * n := byComputing

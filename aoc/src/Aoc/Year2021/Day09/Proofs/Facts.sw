@@ -21,7 +21,9 @@ theorem memCellsElim ∀ (map: HeightMap) (position: Position) (height: Nat)
           let (Both inCells same) := both
           let samePosition: at = position := Eq.cong Pair.fst same
           Witness digit
-            (Both (rewrite <- samePosition in cellAtOfMemCells map.grid.rows at digit inCells) (Eq.cong Pair.snd same)))
+            (Both
+              (rewrite <- samePosition then cellAtOfMemCells map.grid.rows at digit inCells)
+              (Eq.cong Pair.snd same)))
 
 --| A cell's height is the height at its position...
 theorem heightOfMemCells ∀ (map: HeightMap) (position: Position) (height: Nat)
@@ -29,13 +31,13 @@ theorem heightOfMemCells ∀ (map: HeightMap) (position: Position) (height: Nat)
     map.heightAt position = Some height :=
   Exists.elim (memCellsElim map position height member) (digit both =>
     let (Both found same) := both
-    rewrite found, <- same in rfl)
+    rewrite found, <- same then byComputing)
 
 --| ...and a digit's, below 10.
 theorem heightBelow10 ∀ (map: HeightMap) (position: Position) (height: Nat)
     (member: (position, height) ∈ map.cells):
     height < 10 :=
-  Exists.elim (memCellsElim map position height member) (digit both => rewrite <- And.right both in Fin.toNatLt digit)
+  Exists.elim (memCellsElim map position height member) (digit both => rewrite <- And.right both then Fin.toNatLt digit)
 
 --| A location with a height is one of the map's cells.
 theorem memCellsOfHeight ∀ (map: HeightMap) (position: Position) (height: Nat)
@@ -44,6 +46,6 @@ theorem memCellsOfHeight ∀ (map: HeightMap) (position: Position) (height: Nat)
   match c: cellAt map.grid.rows position with
     | Some digit =>
       let same: digit.toNat = height := Option.someInjective found
-      rewrite <- same in
+      rewrite <- same then
         List.memMap (cells map.grid.rows) (position, digit) (memCellsOfCellAt map.grid.rows position digit c) (cell =>
           (cell.fst, cell.snd.toNat))

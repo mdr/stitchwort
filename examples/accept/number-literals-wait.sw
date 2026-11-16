@@ -4,13 +4,13 @@
 import Std (Bool, DecEq, Eq, List, Nat)
 
 -- A literal only the `Nat` default types, in a proof in a later argument
--- of the same application: `rfl` meets `p x = True` while `n == 3` waits,
+-- of the same application: `byComputing` meets `p x = True` while `n == 3` waits,
 -- so it compares `?x = ?x` with it, which waits too.
 def holds [a: Type] (p: a → Bool) (x: a) (h: p x = True): a := x
 
-def three: Nat := holds (n => n == 3) 3 rfl
+def three: Nat := holds (n => n == 3) 3 byComputing
 
-test "rfl waits for the literal" := three == 3
+test "byComputing waits for the literal" := three == 3
 
 -- A comparison whose type a later part of the lambda says (`output a`):
 -- `0 < a` is built at an unknown type, and the `Bool` it is decided into
@@ -24,7 +24,7 @@ theorem positiveKept ∀ (cands: List Nat) (output: Nat → List Nat) (target: L
   List.memFilterIntro _
     (a => 0 < a ∧ output a == target)
     mem
-    (Bool.andIntro positive (rewrite outputs in DecEq.refl target))
+    (Bool.andIntro positive (rewrite outputs then DecEq.refl target))
 
 -- The same decision directly where a `Bool` is expected.
 theorem positiveAlone ∀ (cands: List Nat) (other: Nat)
@@ -38,7 +38,7 @@ theorem positiveAlone ∀ (cands: List Nat) (other: Nat)
 -- `List.sumBy (Cons x rest) (y => 1) = 1 + List.sumBy rest (y => 1)` on
 -- `Nat`, which the goal holds.
 theorem ruleSettled ∀ (rest: List Nat) (x: Nat): List.sumBy [x, ..rest] (y => 1) = Succ (List.sumBy rest (y => 1)) :=
-  rewrite List.sumByCons rest x (y => 1) in rfl
+  rewrite List.sumByCons rest x (y => 1) then byComputing
 
 def positives (xs: List Nat): List Nat := List.filter xs (a => 0 < a ∧ a < 10)
 
@@ -53,5 +53,5 @@ theorem foldSeenThrough ∀ (xs: List Nat):
     List.foldLeft xs 0 (acc x => 10 * acc + x) = List.foldLeft xs 0 (acc x => 10 * acc + (x + 0)) :=
   List.foldLeftCongMem xs 0 _ _ (acc x m =>
     match e: x with
-      | Zero => rfl
-      | Succ p => Eq.cong (k => 10 * acc + k) (Eq.sym (Nat.addZero (Succ p))))
+      | Zero => byComputing
+      | Succ p => Eq.cong (k => 10 * acc + k) (Eq.flipped (Nat.addZero (Succ p))))

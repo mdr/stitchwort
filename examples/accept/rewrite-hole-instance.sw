@@ -6,16 +6,16 @@ import Std (Eq, List, Nat)
 
 theorem splitSum ∀ (xs: List Nat) (f g: Nat → Nat):
     List.sumBy xs (x => f x + g x) = List.sumBy xs f + List.sumBy xs g :=
-  rewrite List.sumByAdd xs _ _ in rfl
+  rewrite List.sumByAdd xs _ _ then byComputing
 
 -- Twice, splitting three summands.
 theorem splitThree ∀ (xs: List Nat) (f g h: Nat → Nat):
     List.sumBy xs (x => f x + g x + h x) = List.sumBy xs f + List.sumBy xs g + List.sumBy xs h :=
-  rewrite List.sumByAdd xs _ _, List.sumByAdd xs _ _ in rfl
+  rewrite List.sumByAdd xs _ _, List.sumByAdd xs _ _ then byComputing
 
 -- Inside a function passed to `List.sumBy`, where the occurrence uses its
 -- variable.
 theorem splitInner ∀ (rows cols: List Nat) (f g: Nat → Nat → Nat):
     List.sumBy rows (r => List.sumBy cols (c => f r c + g r c))
       = List.sumBy rows (r => List.sumBy cols (c => f r c)) + List.sumBy rows (r => List.sumBy cols (c => g r c)) :=
-  rewrite List.sumByAdd cols _ _, List.sumByAdd rows _ _ in rfl
+  rewrite List.sumByAdd cols _ _, List.sumByAdd rows _ _ then byComputing

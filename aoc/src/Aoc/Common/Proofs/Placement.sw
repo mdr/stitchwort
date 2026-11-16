@@ -14,7 +14,7 @@ theorem memRestOfNe ∀ [auto eq: DecEq k] (key first: k) (rest: List k)
     (other: (key == first) = False):
     key ∈ rest :=
   match member with
-    | Inl equal => Void.exfalso (other.read (Eq.sym equal))
+    | Inl equal => (other.read equal.flipped).impossible
     | Inr later => later
 
 --| A key other than the first reads from the rest.
@@ -22,26 +22,26 @@ theorem valueAtLater ∀ [auto eq: DecEq k] (fallback: v) (first: k) (rest: List
     (other: key ≠ first):
     valueAt fallback [first, ..rest] [value, ..values] key = valueAt fallback rest values key :=
   match same: key == first with
-    | True => Void.exfalso (other same.read)
-    | False => rfl
+    | True => (other same.read).impossible
+    | False => byComputing
 
 --| Reading each of distinct keys gives the values, in order.
 theorem mapValueAt ∀ [auto eq: DecEq k] (fallback: v) (keys: List k) (values: List v)
     (lengths: keys.length = values.length) (h: keys.Distinct):
     keys.map (valueAt fallback keys values) = values :=
   match keys, values, h with
-    | [], [], distinct => rfl
+    | [], [], distinct => byComputing
     | [first, ..rest], [value, ..values], Both fresh distinct =>
-      rewrite DecEq.refl first in
+      rewrite DecEq.refl first then
         rewrite List.mapCongMem rest
               (valueAt fallback [first, ..rest] [value, ..values])
               (valueAt fallback rest values)
               (key member =>
-                valueAtLater fallback first rest value values key (same => fresh (rewrite <- same in member))),
-            mapValueAt fallback rest values (Nat.succInjective lengths) distinct in
-          rfl
-    | [], [value, ..values], distinct => Void.exfalso (Nat.zeroNotSucc _ lengths)
-    | [first, ..rest], [], distinct => Void.exfalso (Nat.succNotZero _ lengths)
+                valueAtLater fallback first rest value values key (same => fresh (rewrite <- same then member))),
+            mapValueAt fallback rest values (Nat.succInjective lengths) distinct then
+          byComputing
+    | [], [value, ..values], distinct => (Nat.zeroNotSucc _ lengths).impossible
+    | [first, ..rest], [], distinct => (Nat.succNotZero _ lengths).impossible
 
 --| A key's value is related to it as the values are to the keys.
 theorem valueAtRelated ∀ [auto eq: DecEq k] (fallback: v) (related: v → k → Prop):
@@ -49,20 +49,20 @@ theorem valueAtRelated ∀ [auto eq: DecEq k] (fallback: v) (related: v → k �
       → ∀ (key: k) => key ∈ keys → related (valueAt fallback keys values key) key
   | [first, ..rest], [value, ..values], Both here later, key, member =>
     match same: key == first with
-      | True => rewrite same.read in here
+      | True => rewrite same.read then here
       | False => valueAtRelated fallback related rest values later key (memRestOfNe key first rest member same)
-  | [], values, related2, key, member => Void.exfalso member
-  | [first, ..rest], [], related2, key, member => Void.exfalso related2
+  | [], values, related2, key, member => member.impossible
+  | [first, ..rest], [], related2, key, member => related2.impossible
 
 --| A key's value is one of the values.
 theorem valueAtMember ∀ [auto eq: DecEq k] (fallback: v):
     ∀ (keys: List k) (values: List v) => keys.length = values.length
       → ∀ (key: k) => key ∈ keys → valueAt fallback keys values key ∈ values
-  | [], values, lengths, key, member => Void.exfalso member
-  | [first, ..rest], [], lengths, key, member => Void.exfalso (Nat.succNotZero _ lengths)
+  | [], values, lengths, key, member => member.impossible
+  | [first, ..rest], [], lengths, key, member => (Nat.succNotZero _ lengths).impossible
   | [first, ..rest], [value, ..values], lengths, key, member =>
     match here: key == first with
-      | True => Inl rfl
+      | True => Inl byComputing
       | False =>
         Inr
           (valueAtMember fallback rest values (Nat.succInjective lengths) key (memRestOfNe key first rest member here))
@@ -75,18 +75,18 @@ theorem valueAtInjective ∀ [auto eq: DecEq k] (fallback: v):
         → second ∈ keys
         → valueAt fallback keys values first = valueAt fallback keys values second
         → first = second
-  | [], values, lengths, distinct, first, second, inFirst, inSecond, same => Void.exfalso inFirst
+  | [], values, lengths, distinct, first, second, inFirst, inSecond, same => inFirst.impossible
   | [head, ..rest], [], lengths, distinct, first, second, inFirst, inSecond, same =>
-    Void.exfalso (Nat.succNotZero _ lengths)
+    Void.impossible (Nat.succNotZero _ lengths)
   | [head, ..rest], [value, ..values], lengths, Both fresh distinct, first, second, inFirst, inSecond, same =>
     match firstHere: first == head with
       | True =>
         match secondHere: second == head with
-          | True => Eq.trans firstHere.read (Eq.sym secondHere.read)
+          | True => Eq.trans firstHere.read secondHere.read.flipped
           | False =>
-            Void.exfalso
+            Void.impossible
               (fresh
-                (rewrite same in
+                (rewrite same then
                   valueAtMember fallback rest values
                     (Nat.succInjective lengths)
                     second
@@ -94,9 +94,9 @@ theorem valueAtInjective ∀ [auto eq: DecEq k] (fallback: v):
       | False =>
         match secondHere: second == head with
           | True =>
-            Void.exfalso
+            Void.impossible
               (fresh
-                (rewrite <- same in
+                (rewrite <- same then
                   valueAtMember fallback rest values
                     (Nat.succInjective lengths)
                     first

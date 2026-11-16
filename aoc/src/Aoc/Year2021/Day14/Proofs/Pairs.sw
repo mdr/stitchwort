@@ -20,8 +20,8 @@ theorem pairsAcross ∀ (rules: List Rule) (a b: Char) (tail: List Char):
     pairsOf [a, ..List.append (between rules a b) [b, ..tail]]
       = List.append (expand rules { first = a, second = b }) (pairsOf [b, ..tail]) :=
   match e: insertionFor rules { first = a, second = b } with
-    | Some c => rfl
-    | None => rfl
+    | Some c => byComputing
+    | None => byComputing
 
 theorem pairsStepCons ∀ (rules: List Rule) (a b: Char) (rest: List Char):
     pairsOf (step rules [a, b, ..rest])
@@ -33,6 +33,6 @@ theorem pairsStepCons ∀ (rules: List Rule) (a b: Char) (rest: List Char):
 theorem pairsStep ∀ (rules: List Rule) (polymer: List Char):
     pairsOf (step rules polymer) = List.flatMap (pairsOf polymer) (expand rules) :=
   match polymer with
-    | [] => rfl
-    | [a] => rfl
-    | [a, b, ..rest] => rewrite pairsStepCons rules a b rest, pairsStep rules [b, ..rest] in rfl
+    | [] => byComputing
+    | [a] => byComputing
+    | [a, b, ..rest] => rewrite pairsStepCons rules a b rest, pairsStep rules [b, ..rest] then byComputing

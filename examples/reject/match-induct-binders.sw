@@ -8,6 +8,6 @@ def countAbove (k: Nat): List Nat → Nat
 
 theorem le (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs :=
   match induct (countAbove k xs) with
-    | eq1 => omega
-    | eq2IfTrue x xs => omega
-    | eq2IfFalse x xs h ih => omega
+    | eq1 => arithmetic
+    | eq2IfTrue x xs => arithmetic
+    | eq2IfFalse x xs h ih => arithmetic

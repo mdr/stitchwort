@@ -16,7 +16,7 @@ def choose (b: Bool) (p: () → {Parse Char} List (Fin 10)): () → {Parse Char}
 def tagged (b: Bool) (p: () → {Parse Char} List (Fin 10)): () → {Parse Char} List (Fin 10) := choose b p
 
 theorem lem (b: Bool): tagged b (() => Parse.exactly 36 Parse.digit) = (() => Parse.exactly 36 Parse.digit) := match b with
-  | True => rfl
-  | False => rfl
+  | True => byComputing
+  | False => byComputing
 
 theorem use: tagged True (() => Parse.exactly 35 Parse.digit) = (() => Parse.exactly 36 Parse.digit) := lem _

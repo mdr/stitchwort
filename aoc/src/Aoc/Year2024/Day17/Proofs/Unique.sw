@@ -12,7 +12,7 @@ theorem xorUnique ∀ (x y first second: Nat)
     (isSecond: BitwiseXor x y second):
     first = second :=
   Nat.eqOfTestBit first second (i =>
-    rewrite Nat.testBitDiv first i, Nat.testBitDiv second i in Eq.trans (isFirst i) (Eq.sym (isSecond i)))
+    rewrite Nat.testBitDiv first i, Nat.testBitDiv second i then Eq.trans (isFirst i) (isSecond i).flipped)
 
 --| An instruction with a combo operand takes one step.
 theorem comboUnique ∀ (registers: Registers) (operand: Nat) (first second: Step) (target: Nat → Step)
@@ -20,8 +20,8 @@ theorem comboUnique ∀ (registers: Registers) (operand: Nat) (first second: Ste
     (isSecond: WithCombo registers operand second (value => second = target value)):
     first = second :=
   match found: comboValue registers operand with
-    | Some value => Eq.trans isFirst (Eq.sym isSecond)
-    | None => Eq.trans isFirst (Eq.sym isSecond)
+    | Some value => Eq.trans isFirst isSecond.flipped
+    | None => Eq.trans isFirst isSecond.flipped
 
 theorem executesUnique ∀ (operand: Nat) (machine: Machine) (first second: Step) (opcode: Nat)
     (isFirst: Executes opcode operand machine first)
@@ -30,19 +30,20 @@ theorem executesUnique ∀ (operand: Nat) (machine: Machine) (first second: Step
   match opcode, isFirst, isSecond with
     | 0, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
     | 1, Witness one (Both isOne firstIs), Witness other (Both isOther secondIs) =>
-      rewrite firstIs, secondIs, xorUnique machine.registers.b operand one other isOne isOther in rfl
+      rewrite firstIs, secondIs, xorUnique machine.registers.b operand one other isOne isOther then byComputing
     | 2, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
     | 3, isFirst, isSecond =>
       match zero: machine.registers.a == 0 with
-        | True => Eq.trans isFirst (Eq.sym isSecond)
-        | False => Eq.trans isFirst (Eq.sym isSecond)
+        | True => Eq.trans isFirst isSecond.flipped
+        | False => Eq.trans isFirst isSecond.flipped
     | 4, Witness one (Both isOne firstIs), Witness other (Both isOther secondIs) =>
-      rewrite firstIs, secondIs, xorUnique machine.registers.b machine.registers.c one other isOne isOther in rfl
+      rewrite firstIs, secondIs, xorUnique machine.registers.b machine.registers.c one other isOne isOther then
+        byComputing
     | 5, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
     | 6, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
     | 7, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
     | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ opcode))))))), isFirst, isSecond =>
-      Eq.trans isFirst (Eq.sym isSecond)
+      Eq.trans isFirst isSecond.flipped
 
 --| A machine takes one step.
 theorem stepUnique ∀ (program: List Nat) (machine: Machine) (first second: Step)
@@ -50,10 +51,10 @@ theorem stepUnique ∀ (program: List Nat) (machine: Machine) (first second: Ste
     (isSecond: StepMatches program machine second):
     first = second :=
   match fetched: program.get machine.pointer with
-    | None => Eq.trans isFirst (Eq.sym isSecond)
+    | None => Eq.trans isFirst isSecond.flipped
     | Some opcode =>
       match operandFetched: program.get (machine.pointer + 1) with
-        | None => Eq.trans isFirst (Eq.sym isSecond)
+        | None => Eq.trans isFirst isSecond.flipped
         | Some operand => executesUnique operand machine first second opcode isFirst isSecond
 
 --| Telling steps apart.
@@ -81,27 +82,27 @@ theorem haltsUnique ∀ (program: List Nat) (machine: Machine) (first second: Li
     (h1: Halts program machine second):
     first = second :=
   match first, second, h, h1 with
-    | [], [], Stops _ stop, Stops _ alsoStop => rfl
+    | [], [], Stops _ stop, Stops _ alsoStop => byComputing
     | [], second, Stops _ stop, Quiet _ after _ move rest =>
-      Void.exfalso (haltNotNext after None (stepUnique program machine Halt (Next after None) stop move))
+      Void.impossible (haltNotNext after None (stepUnique program machine Halt (Next after None) stop move))
     | [], [value, ..output], Stops _ stop, Prints _ after _ _ move rest =>
-      Void.exfalso
+      Void.impossible
         (haltNotNext after (Some value) (stepUnique program machine Halt (Next after (Some value)) stop move))
     | first, [], Quiet _ after _ move rest, Stops _ stop =>
-      Void.exfalso (haltNotNext after None (stepUnique program machine Halt (Next after None) stop move))
+      Void.impossible (haltNotNext after None (stepUnique program machine Halt (Next after None) stop move))
     | first, second, Quiet _ after _ move rest, Quiet _ other _ alsoMove alsoRest =>
       let same :=
         Eq.cong (afterOf machine) (stepUnique program machine (Next after None) (Next other None) move alsoMove)
-      haltsUnique program after first second rest (rewrite Eq.sym same at alsoRest)
+      haltsUnique program after first second rest (rewrite Eq.flipped same at alsoRest)
     | first, [value, ..output], Quiet _ after _ move rest, Prints _ other _ _ alsoMove alsoRest =>
-      Void.exfalso
+      Void.impossible
         (quietNotPrints after other value
           (stepUnique program machine (Next after None) (Next other (Some value)) move alsoMove))
     | [value, ..output], [], Prints _ after _ _ move rest, Stops _ stop =>
-      Void.exfalso
+      Void.impossible
         (haltNotNext after (Some value) (stepUnique program machine Halt (Next after (Some value)) stop move))
     | [value, ..output], second, Prints _ after _ _ move rest, Quiet _ other _ alsoMove alsoRest =>
-      Void.exfalso
+      Void.impossible
         (quietNotPrints other after value
           (stepUnique program machine (Next other None) (Next after (Some value)) alsoMove move))
     | [value, ..output], [otherValue, ..otherOutput], Prints _ after _ _ move rest, Prints _ other _ _ alsoMove
@@ -109,4 +110,6 @@ theorem haltsUnique ∀ (program: List Nat) (machine: Machine) (first second: Li
       let steps := stepUnique program machine (Next after (Some value)) (Next other (Some otherValue)) move alsoMove
       let sameAfter := Eq.cong (afterOf machine) steps
       let sameValue := Option.someInjective (Eq.cong printedOf steps)
-      rewrite sameValue, haltsUnique program after output otherOutput rest (rewrite Eq.sym sameAfter at alsoRest) in rfl
+      rewrite sameValue,
+          haltsUnique program after output otherOutput rest (rewrite Eq.flipped sameAfter at alsoRest) then
+        byComputing

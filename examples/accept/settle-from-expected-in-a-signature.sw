@@ -9,12 +9,12 @@ ability Src (t: Type) where
 
 def Ph (u: Type) (n: Nat): Prop := n = n
 
-theorem ph ∀ (p: () → {Src t} a) (n: Nat): Ph t n := rfl
+theorem ph ∀ (p: () → {Src t} a) (n: Nat): Ph t n := byComputing
 
 def natSrc(): {Src Nat} Nat := Src.next()
 
 def Wrap (p: Ph Char 0): Prop := 0 = 0
 
-theorem wrapped: Wrap (ph natSrc 0) := rfl
+theorem wrapped: Wrap (ph natSrc 0) := byComputing
 
 def withWrap (h: Wrap (ph natSrc 0)): Nat := 0

@@ -41,4 +41,4 @@ def playlist: List Track := [
 test "start times" := startTimes 0.0 playlist == [0.0, 0.0, 312.5, 312.6]
 
 theorem playlistAscends: List.Sorted Float.leq (startTimes 0.0 playlist) :=
-  startTimesAscend 0.0 playlist (Both rfl (Both rfl (Both rfl (Both rfl Trivial))))
+  startTimesAscend 0.0 playlist (Both byComputing (Both byComputing (Both byComputing (Both byComputing Trivial))))

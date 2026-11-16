@@ -51,8 +51,8 @@ theorem specAreas ∀ (tiles: List Point):
       List.mapMap
         (List.filter (List.pairs tiles) (p => allRedOrGreen tiles (Rectangle.ofPair p)))
         Rectangle.area
-        Rectangle.ofPair in
-    rfl
+        Rectangle.ofPair then
+    byComputing
 
 --| The areas the program compares are the spec's.
 theorem programAreas ∀ (tiles: List Point):
@@ -79,21 +79,26 @@ theorem programAreas ∀ (tiles: List Point):
               (List.map (List.pairs tiles) (p => (floor.corner p.fst, floor.corner p.snd)))
               FloorRectangle.ofPair)
             (Floor.allRedOrGreen floor))
-          FloorRectangle.area := rewrite List.pairsMap tiles floor.corner in rfl
+          FloorRectangle.area := rewrite List.pairsMap tiles floor.corner then byComputing
       _ = List.map
           (List.filter (List.map (List.pairs tiles) located) (Floor.allRedOrGreen floor))
           FloorRectangle.area :=
-        rewrite List.mapMap (List.pairs tiles) FloorRectangle.ofPair (p => (floor.corner p.fst, floor.corner p.snd)) in
-          rfl
+        rewrite List.mapMap (List.pairs tiles) FloorRectangle.ofPair (p =>
+              (floor.corner p.fst, floor.corner p.snd)) then
+          byComputing
       _ = List.map (List.map (List.filter (List.pairs tiles) keep) located) FloorRectangle.area :=
-        rewrite List.filterOfMap (List.pairs tiles) (Floor.allRedOrGreen floor) located in rfl
+        rewrite List.filterOfMap (List.pairs tiles) (Floor.allRedOrGreen floor) located then byComputing
       _ = List.map (List.filter (List.pairs tiles) keep) (p => Rectangle.area (Rectangle.ofPair p)) :=
         List.mapMap (List.filter (List.pairs tiles) keep) FloorRectangle.area located
   rewrite programSide,
-      List.filterCongMem (List.pairs tiles) keep (p => allRedOrGreen tiles (Rectangle.ofPair p)) (programTest tiles) in
-    Eq.sym (specAreas tiles)
+      List.filterCongMem
+        (List.pairs tiles)
+        keep
+        (p => allRedOrGreen tiles (Rectangle.ofPair p))
+        (programTest tiles) then
+    Eq.flipped (specAreas tiles)
 
 theorem part2Correct ∀ (tiles: List Point): Part2 tiles (solvePart2 tiles) :=
   let areas := List.map (List.filter (rectangles tiles) (allRedOrGreen tiles)) Rectangle.area
   let same: solvePart2 tiles = largest areas := Eq.cong largest (programAreas tiles)
-  rewrite same in largestIsLargest areas
+  rewrite same then largestIsLargest areas

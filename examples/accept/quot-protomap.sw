@@ -104,7 +104,7 @@ theorem ProtoMap.ext ∀ (m n: ProtoMap k v [ord := o])
       (ProtoMap.toList n)
       (ProtoMap.toListSorted m)
       (ProtoMap.toListSorted n)
-      (key => Eq.trans (Eq.sym (ProtoMap.getToList m key)) (Eq.trans (h key) (ProtoMap.getToList n key))))
+      (key => Eq.trans (ProtoMap.getToList m key).flipped (Eq.trans (h key) (ProtoMap.getToList n key))))
 
 -- `==`: compare the entry lists. The branch is chosen by the list
 -- comparison; `Quot.sound` is only inside the yes proof.
@@ -134,9 +134,9 @@ def forwards: ProtoMap Nat Text := ProtoMap.fromList [(1, "a"), (2, "b"), (3, "c
 def backwards: ProtoMap Nat Text := ProtoMap.fromList [(4, "d"), (3, "c"), (2, "b"), (1, "a")]
 def changed: ProtoMap Nat Text := backwards.insert 2 "B"
 
-theorem sameEntriesAreEqual: (forwards == backwards) = True := rfl
-theorem aChangedValueIsNot: (forwards == changed) = False := rfl
-theorem forwardsIsBackwards: forwards = backwards := ProtoMap.toListInjective forwards backwards rfl
+theorem sameEntriesAreEqual: (forwards == backwards) = True := byComputing
+theorem aChangedValueIsNot: (forwards == changed) = False := byComputing
+theorem forwardsIsBackwards: forwards = backwards := ProtoMap.toListInjective forwards backwards byComputing
 
 test "insertion order doesn't matter" := forwards == backwards
 test "a changed value does" := ¬(forwards == changed)
@@ -147,8 +147,8 @@ def rootKey (m: Map.Raw Nat Text): Option Nat := match m.tree with
   | Tip => None
   | Bin _ _ key _ _ => Some key
 
-theorem forwardsRoot: rootKey (Map.Raw.fromList [(1, "a"), (2, "b"), (3, "c"), (4, "d")]) = Some 2 := rfl
-theorem backwardsRoot: rootKey (Map.Raw.fromList [(4, "d"), (3, "c"), (2, "b"), (1, "a")]) = Some 3 := rfl
+theorem forwardsRoot: rootKey (Map.Raw.fromList [(1, "a"), (2, "b"), (3, "c"), (4, "d")]) = Some 2 := byComputing
+theorem backwardsRoot: rootKey (Map.Raw.fromList [(4, "d"), (3, "c"), (2, "b"), (1, "a")]) = Some 3 := byComputing
 
 -- 2. Equality composes: records holding maps, and maps of maps, get `==`
 -- with no deriving change.
@@ -158,8 +158,8 @@ def morning: Inventory := { owner = "Ada", counts = ProtoMap.fromList [("nails",
 def evening: Inventory := { owner = "Ada", counts = ProtoMap.fromList [("screws", 5)] |> .insert "nails" 3 }
 def other: Inventory := { owner = "Bo", counts = evening.counts }
 
-theorem inventoriesEqual: (morning == evening) = True := rfl
-theorem ownersDiffer: (morning == other) = False := rfl
+theorem inventoriesEqual: (morning == evening) = True := byComputing
+theorem ownersDiffer: (morning == other) = False := byComputing
 
 test "records holding maps" := morning == evening ∧ ¬(morning == other)
 
@@ -172,8 +172,8 @@ def nested2: ProtoMap Text (ProtoMap Text Nat) :=
     |> .insert "shed" (ProtoMap.fromList [("screws", 5), ("nails", 3)])
 def nested3: ProtoMap Text (ProtoMap Text Nat) := nested2.insert "shed" (ProtoMap.fromList [("screws", 5)])
 
-theorem nestedEqual: (nested1 == nested2) = True := rfl
-theorem nestedDiffer: (nested1 == nested3) = False := rfl
+theorem nestedEqual: (nested1 == nested2) = True := byComputing
+theorem nestedDiffer: (nested1 == nested3) = False := byComputing
 
 test "maps of maps" := nested1 == nested2 ∧ ¬(nested1 == nested3)
 
@@ -184,7 +184,7 @@ def double (x: Nat): Nat := x + x
 def fns1: ProtoMap Nat (Nat → Nat) := ProtoMap.empty.insert 1 addOne |> .insert 2 double
 def fns2: ProtoMap Nat (Nat → Nat) := ProtoMap.empty.insert 2 double |> .insert 1 addOne
 
-theorem functionMapsEqual: fns1 = fns2 := ProtoMap.toListInjective fns1 fns2 rfl
+theorem functionMapsEqual: fns1 = fns2 := ProtoMap.toListInjective fns1 fns2 byComputing
 
 theorem functionMapsExt ∀ (m n: ProtoMap Nat (Nat → Nat))
     (h: ∀ (key: Nat) => ProtoMap.get m key = ProtoMap.get n key):
@@ -195,23 +195,23 @@ theorem functionMapsByEntries ∀ (m n: ProtoMap Nat (Nat → Nat)) (h: ProtoMap
   ProtoMap.toListInjective m n h
 
 -- 4. Ordinary computation survives: lifted operations reduce in the kernel.
-theorem getComputes: ProtoMap.get backwards 2 = Some "b" := rfl
-theorem getMissing: ProtoMap.get backwards 7 = None := rfl
+theorem getComputes: ProtoMap.get backwards 2 = Some "b" := byComputing
+theorem getMissing: ProtoMap.get backwards 7 = None := byComputing
 theorem insertComputes: ProtoMap.toList (backwards.insert 5 "e") = [(1, "a"), (2, "b"), (3, "c"), (4, "d"), (5, "e")] :=
-  rfl
-theorem sizeComputes: ProtoMap.size (backwards.insert 5 "e") = 5 := rfl
-theorem sizeAfterReplace: ProtoMap.size changed = 4 := rfl
-theorem foldComputes: ProtoMap.foldLeft backwards 0 (total key value => total + key) = 10 := rfl
-theorem emptyComputes: ProtoMap.isEmpty (ProtoMap.empty: ProtoMap Nat Text) = True := rfl
+  byComputing
+theorem sizeComputes: ProtoMap.size (backwards.insert 5 "e") = 5 := byComputing
+theorem sizeAfterReplace: ProtoMap.size changed = 4 := byComputing
+theorem foldComputes: ProtoMap.foldLeft backwards 0 (total key value => total + key) = 10 := byComputing
+theorem emptyComputes: ProtoMap.isEmpty (ProtoMap.empty: ProtoMap Nat Text) = True := byComputing
 theorem functionValueComputes: (match ProtoMap.get fns1 2 with
       | Some f => f 5
       | None => 0)
       = 10 :=
-  rfl
+  byComputing
 
 -- `Ord`: by entry lists.
-theorem compareComputes: ProtoMap.compare forwards changed = Greater := rfl
-theorem compareEqualMaps: ProtoMap.compare forwards backwards = Equal := rfl
+theorem compareComputes: ProtoMap.compare forwards changed = Greater := byComputing
+theorem compareEqualMaps: ProtoMap.compare forwards backwards = Equal := byComputing
 
 test "ordered by entries" := forwards > changed ∧ ¬(forwards < backwards) ∧ forwards ≤ backwards
 
@@ -234,7 +234,7 @@ test "size, isEmpty and foldLeft" :=
 -- 6. Computation limits are deliberate: data transported along a map
 -- equality is stuck in the kernel, through `Quot.sound` (§9.1) and through
 -- `Quot.ind` alone (§7.4.4), and is `0` when run
--- (reject/quot-protomap-transport-stuck.sw has the `rfl` that fails).
+-- (reject/quot-protomap-transport-stuck.sw has the `byComputing` that fails).
 def transported: Nat := J (y p => Nat) 0 forwardsIsBackwards
 def transportedByInd: Nat := J (y p => Nat) 0 (ProtoMap.sizeToList forwards)
 

@@ -12,12 +12,12 @@ import Std (Eq, List, Map, Nat, Option, Pair)
 theorem getOrSome ∀ (totals: Map Changes Nat) (key: Changes) (value: Nat)
     (found: totals.get key = Some value):
     totals.getOr key 0 = value :=
-  rewrite found in rfl
+  rewrite found then byComputing
 
 theorem getOrNone ∀ (totals: Map Changes Nat) (key: Changes) (missing: totals.get key = None): totals.getOr key 0 = 0 :=
-  rewrite missing in rfl
+  rewrite missing then byComputing
 
-theorem leBoth ∀ (m n: Nat) (below: m ≤ n) (above: n ≤ m): m = n := omega
+theorem leBoth ∀ (m n: Nat) (below: m ≤ n) (above: n ≤ m): m = n := arithmetic
 
 --| The best total is no more than the most bananas over any list holding
 --| the changes of every five digits.
@@ -28,7 +28,7 @@ theorem bestTotalAtMost ∀ (possible: List Changes)
   let totals := bananasBySequence count buyers
   let most := (possible.map (bananas count buyers)).foldLeft 0 Nat.max
   match List.foldMaxMem totals.values 0 with
-    | Inl zero => omega [zero]
+    | Inl zero => arithmetic [zero]
     | Inr member =>
       List.anyElim _
         (bestTotal count buyers ≤ most)
@@ -37,7 +37,7 @@ theorem bestTotalAtMost ∀ (possible: List Changes)
         (((key, value)) inList same =>
           let found := (Map.memToList totals key value).forward inList
           let earns: value = bananas count buyers key :=
-            Eq.trans (Eq.sym (getOrSome totals key value found)) (totalsBananas count buyers key)
+            Eq.trans (getOrSome totals key value found).flipped (totalsBananas count buyers key)
           let bound :=
             List.leFoldMax
               (possible.map (bananas count buyers))
@@ -46,7 +46,7 @@ theorem bestTotalAtMost ∀ (possible: List Changes)
               (List.memMap possible key
                 (totalsKeysIn possible contains count buyers key value found)
                 (bananas count buyers))
-          omega [same, earns, bound])
+          arithmetic [same, earns, bound])
 
 --| And no less than the most bananas over any list of sequences.
 theorem bestTotalAtLeast ∀ (possible: List Changes) (count: Nat) (buyers: List Nat):
@@ -54,7 +54,7 @@ theorem bestTotalAtLeast ∀ (possible: List Changes) (count: Nat) (buyers: List
   let totals := bananasBySequence count buyers
   let most := (possible.map (bananas count buyers)).foldLeft 0 Nat.max
   match List.foldMaxMem (possible.map (bananas count buyers)) 0 with
-    | Inl zero => omega [zero]
+    | Inl zero => arithmetic [zero]
     | Inr member =>
       List.anyElim _
         (most ≤ bestTotal count buyers)
@@ -70,8 +70,8 @@ theorem bestTotalAtLeast ∀ (possible: List Changes) (count: Nat) (buyers: List
                     (sequence, value)
                     ((Map.memToList totals sequence value).backward found)
                     Pair.snd)
-              omega [same, earns, getOrSome totals sequence value found, bound]
-            | None => omega [same, earns, getOrNone totals sequence found])
+              arithmetic [same, earns, getOrSome totals sequence value found, bound]
+            | None => arithmetic [same, earns, getOrNone totals sequence found])
 
 --| Stated for any such list and only then for `possibleSequences`: a `≤`
 --| about `possibleSequences` itself makes the checker fold all 130,321

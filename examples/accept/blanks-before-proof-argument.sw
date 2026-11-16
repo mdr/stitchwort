@@ -8,10 +8,10 @@ import Std (Bool, Decidable, Eq, List, Nat)
 def zeros (xs: List Nat): List Nat := xs.filter (n => n == 0)
 
 theorem skipWhole ∀ (x: Nat) (rest: List Nat) (h: x = 1): zeros [x, ..rest] = zeros rest :=
-  List.filterSkip _ _ _ (rewrite h in rfl)
+  List.filterSkip _ _ _ (rewrite h then byComputing)
 
 theorem skipThenRest ∀ (x: Nat) (rest: List Nat) (h: x = 1) (e: zeros rest = []): zeros [x, ..rest] = [] :=
-  Eq.trans (List.filterSkip _ _ _ (rewrite h in rfl)) e
+  Eq.trans (List.filterSkip _ _ _ (rewrite h then byComputing)) e
 
 theorem keepThenRest ∀ (x: Nat) (rest: List Nat) (h: x = 0) (e: zeros rest = []): zeros [x, ..rest] = [0] :=
-  Eq.trans (List.filterKeep _ _ _ (rewrite h in rfl)) (rewrite h, e in rfl)
+  Eq.trans (List.filterKeep _ _ _ (rewrite h then byComputing)) (rewrite h, e then byComputing)

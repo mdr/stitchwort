@@ -7,19 +7,19 @@ def innerN (x: Nat): Nat
 :=
   match x with
     | Zero => 1
-    | Succ m => innerN m [decreasing := omega]
+    | Succ m => innerN m [decreasing := arithmetic]
 
 def outerN (x: Nat): Nat
     decreasing x
 :=
   match x with
     | Zero => innerN x
-    | Succ m => outerN m [decreasing := omega]
+    | Succ m => outerN m [decreasing := arithmetic]
 
 def through (x: Nat): Nat := outerN x
 
-theorem succInner: Succ (innerN 0) = 2 := rfl
+theorem succInner: Succ (innerN 0) = 2 := byComputing
 
-theorem succOuter: Succ (outerN 3) = 2 := rfl
+theorem succOuter: Succ (outerN 3) = 2 := byComputing
 
-theorem succThrough: Succ (Succ (through 0)) = 3 := rfl
+theorem succThrough: Succ (Succ (through 0)) = 3 := byComputing

@@ -46,7 +46,7 @@ theorem pathWalk ∀ (risks: RiskMap) (start: Position) (steps: List Position) (
 theorem levelAtOn ∀ (risks: RiskMap) (position: Position)
     (onMap: (position.row < risks.height && position.column < risks.width) = True):
     risks.levelAt position = Some (risks.level position) :=
-  rewrite onMap in rfl
+  rewrite onMap then byComputing
 
 --| A path leads from the top left to the bottom right of a map with a
 --| position.
@@ -55,7 +55,7 @@ theorem routeOnMap ∀ (risks: RiskMap)
     (wide: 0 < risks.width):
     isPath risks.levelAt topLeft (route risks.height risks.width) (bottomRight risks.height risks.width) = True :=
   routePath (position => (risks.levelAt position).isSome) risks.height risks.width tall wide (position inside =>
-    rewrite levelAtOn risks position inside in rfl)
+    rewrite levelAtOn risks position inside then byComputing)
 
 --| The program's search finds the lowest total risk from the top left to
 --| the bottom right, on any map with a position.
@@ -67,10 +67,10 @@ theorem lowestRiskCorrect ∀ (risks: RiskMap)
   let sources := [(risks.start, 0)]
   let shortest := Graph.distancesShortest risks.graph (index := risks.index) sources
   let routeWalk := pathWalk risks topLeft (route risks.height risks.width) target (routeOnMap risks tall wide)
-  Exists.elim (And.right shortest risks.start 0 (Inl rfl) _ target routeWalk) (found both =>
-    let got := And.left both
-    let answer: risks.lowestRisk = found := rewrite got in rfl
-    rewrite answer in
+  Exists.elim (And.right shortest risks.start 0 (Inl byComputing) _ target routeWalk) (found both =>
+    let got := both.left
+    let answer: risks.lowestRisk = found := rewrite got then byComputing
+    rewrite answer then
       Both (cheapestPath risks target found got) (steps path => noCheaperPath risks target found got steps path))
 
 --| The cost the search finds is some path's total risk...
@@ -85,14 +85,14 @@ theorem cheapestPath ∀ (risks: RiskMap) (target: Position) (found: Nat)
         Exists.elim rest2 (path parts =>
           let (Both isSource (Both walked costs)) := parts
           match isSource with
-            | Inr none => Void.exfalso none
+            | Inr none => none.impossible
             | Inl same =>
               let fromStart: topLeft = source := Eq.cong Pair.fst same
               let startZero: 0 = start := Eq.cong Pair.snd same
               let (Both stepsPath stepsCost) := walkPath risks source path target walked
               Witness
                 (path.map Pair.fst)
-                (Both (rewrite fromStart in stepsPath) (omega [costs, startZero, stepsCost])))))
+                (Both (rewrite fromStart then stepsPath) (arithmetic [costs, startZero, stepsCost])))))
 
 --| ...and no path costs less.
 theorem noCheaperPath ∀ (risks: RiskMap) (target: Position) (found: Nat)
@@ -106,10 +106,10 @@ theorem noCheaperPath ∀ (risks: RiskMap) (target: Position) (found: Nat)
       (Graph.distancesShortest risks.graph (index := risks.index) [(risks.start, 0)])
       risks.start
       0
-      (Inl rfl) _
+      (Inl byComputing) _
       target
       walked)
     (other both =>
       let (Both gotOther below) := both
-      let same: other = found := Option.someInjective (Eq.trans (Eq.sym gotOther) got)
-      omega [same, below, pathWalkCost risks.levelAt steps])
+      let same: other = found := Option.someInjective (Eq.trans gotOther.flipped got)
+      arithmetic [same, below, pathWalkCost risks.levelAt steps])

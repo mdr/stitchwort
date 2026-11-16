@@ -30,10 +30,10 @@ theorem underBinder ∀ (xs: List Nat) (x y: Nat) (h: Some x = Some y): xs.map (
 theorem carriesHypothesis ∀ (p: Nat → Bool) (x y: Nat) (h: Some x = Some y) (hy: p y = True): p x = True := cases
 
 -- So is a variable whose type mentions it: `i: Fin m` becomes `i: Fin n`,
--- and the term after `in` names the copy.
-theorem dependentType ∀ (n m: Nat) (i: Fin m) (h: Some n = Some m): Fin.toNat i < n := cases in Fin.toNatLt i
+-- and the term after `then` names the copy.
+theorem dependentType ∀ (n m: Nat) (i: Fin m) (h: Some n = Some m): Fin.toNat i < n := cases then Fin.toNatLt i
 
--- `omega` sees `f x` and `f y` as one number once `y` is replaced.
+-- `arithmetic` sees `f x` and `f y` as one number once `y` is replaced.
 theorem thenOmega ∀ (f: Nat → Nat) (x y: Nat) (k: f y = 7) (h: Some x = Some y): f x + 1 = 8 := cases
 
 -- The replaced variable's name stands for what replaced it, so a term after
@@ -46,4 +46,4 @@ theorem lem ∀ (p q: Nat → Prop) (step: ∀ (m: Nat) => q m → p m) (n: Nat)
 theorem namesReplaced ∀ (p q: Nat → Prop) (step: ∀ (m: Nat) => q m → p m) (b: Bool) (x y: Nat)
     (h: Some x = Some y) (hy: q y):
     p (k b y) :=
-  cases in lem p q step y hy
+  cases then lem p q step y hy

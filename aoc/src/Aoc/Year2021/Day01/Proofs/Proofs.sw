@@ -22,13 +22,13 @@ theorem increasesOverCons ∀ (x: Nat) (rest: List Nat) (y: Nat) (ys: List Nat):
 --| A list zipped with itself one place on is each element paired with the
 --| next.
 theorem zipNext ∀ (x: Nat) (xs: List Nat): List.zip [x, ..xs] xs = List.zipWithNext [x, ..xs] := match xs with
-  | [] => rfl
+  | [] => byComputing
   | [y, ..rest] => Eq.cong (Cons (MkPair x y)) (zipNext y rest)
 
 --| Part 1 is the puzzle's count, for every list of depths.
 theorem part1Correct ∀ (depths: List Nat): solvePart1 depths = increases depths := match depths with
-  | [] => rfl
-  | [x, ..xs] => rewrite zipNext x xs in rfl
+  | [] => byComputing
+  | [x, ..xs] => rewrite zipNext x xs then byComputing
 
 --| A list with a whole window at its start: the first window, then the
 --| windows of the rest.
@@ -36,16 +36,16 @@ theorem windowsLong ∀ (m: Nat) (xs: List Nat)
     (h: m < xs.length):
     slidingWindows (Succ m) xs = [xs.take (Succ m), ..slidingWindows (Succ m) (xs.drop 1)] :=
   match xs with
-    | [x, ..rest] => List.filterKeep _ _ _ (rewrite List.lengthTake rest m (omega [h]) in DecEq.refl (Succ m))
+    | [x, ..rest] => List.filterKeep _ _ _ (rewrite List.lengthTake rest m (arithmetic [h]) then DecEq.refl (Succ m))
 
 --| A list shorter than a window has none.
 theorem windowsShort ∀ (m: Nat) (xs: List Nat) (h: xs.length ≤ m): slidingWindows (Succ m) xs = [] := match xs with
-  | [] => rfl
+  | [] => byComputing
   | [x, ..rest] =>
     Eq.trans
       (List.filterSkip _ _ _
-        (rewrite List.takeAll rest m (omega [h]) in Decidable.toBoolOfNot _ (same => omega [same, h])))
-      (windowsShort m rest (omega [h]))
+        (rewrite List.takeAll rest m (arithmetic [h]) then Decidable.toBoolOfNot _ (same => arithmetic [same, h])))
+      (windowsShort m rest (arithmetic [h]))
 
 --| Two windows next to each other share all but their ends, so the later sum
 --| is larger exactly when the element it gains is larger than the one it
@@ -56,7 +56,7 @@ theorem slideCompare ∀ (x shared y: Nat): Bool.toNat (x + shared < shared + y)
 --| the one `Succ m` places earlier counts the window sums that increase.
 theorem windowsCorrect ∀ (m: Nat) (depths: List Nat): increasesOver (Succ m) depths = windowIncreases (Succ m) depths :=
   match depths with
-    | [] => rfl
+    | [] => byComputing
     | [x, ..rest] =>
       if h: m < List.length rest then
         -- The window from `x` and the one after it share the `m` elements
@@ -79,20 +79,20 @@ theorem windowsCorrect ∀ (m: Nat) (depths: List Nat): increasesOver (Succ m) d
               List.sum (List.take [x, ..rest] (Succ m)),
               List.sum (List.take rest (Succ m)),
               ..List.map (slidingWindows (Succ m) (List.drop rest 1)) List.sum
-            ] := rewrite windowsLong m rest h in Eq.sym (increasesCons)
+            ] := rewrite windowsLong m rest h then Eq.flipped (increasesCons)
           _ = increases [
               List.sum (List.take [x, ..rest] (Succ m)),
               ..List.map (slidingWindows (Succ m) rest) List.sum
             ] :=
             Eq.cong
               (ws => increases [List.sum (List.take [x, ..rest] (Succ m)), ..List.map ws List.sum])
-              (Eq.sym (windowsLong m rest h))
+              (windowsLong m rest h).flipped
           _ = windowIncreases (Succ m) [x, ..rest] :=
-            Eq.cong (ws => increases (List.map ws List.sum)) (Eq.sym (windowsLong m [x, ..rest] (omega [h])))
+            Eq.cong (ws => increases (List.map ws List.sum)) (Eq.flipped (windowsLong m [x, ..rest] (arithmetic [h])))
       else
         calc increasesOver (Succ m) [x, ..rest]
-          _ = 0 := rewrite List.dropPast rest m (omega [h]) in rfl
-          _ = windowIncreases (Succ m) [x, ..rest] := atMostOneWindow m x rest (omega [h])
+          _ = 0 := rewrite List.dropPast rest m (arithmetic [h]) then byComputing
+          _ = windowIncreases (Succ m) [x, ..rest] := atMostOneWindow m x rest (arithmetic [h])
 
 --| A list with at most one window has no increases between windows.
 theorem atMostOneWindow ∀ (m x: Nat) (rest: List Nat)
@@ -100,7 +100,7 @@ theorem atMostOneWindow ∀ (m x: Nat) (rest: List Nat)
     0 = windowIncreases (Succ m) [x, ..rest] :=
   if one: m < List.length [x, ..rest] then
     -- exactly one window
-    Eq.sym
+    Eq.flipped
       (calc windowIncreases (Succ m) [x, ..rest]
         _ = increases (List.map [List.take [x, ..rest] (Succ m), ..slidingWindows (Succ m) rest] List.sum) :=
           Eq.cong (ws => increases (List.map ws List.sum)) (windowsLong m [x, ..rest] one)
@@ -109,7 +109,7 @@ theorem atMostOneWindow ∀ (m x: Nat) (rest: List Nat)
             (ws => increases [List.sum (List.take [x, ..rest] (Succ m)), ..List.map ws List.sum])
             (windowsShort m rest short)
         _ = 0)
-  else Eq.sym (Eq.cong (ws => increases (List.map ws List.sum)) (windowsShort m [x, ..rest] (omega [one])))
+  else Eq.flipped (Eq.cong (ws => increases (List.map ws List.sum)) (windowsShort m [x, ..rest] (arithmetic [one])))
 
 --| Part 2 is the puzzle's count, for every list of depths.
 theorem part2Correct ∀ (depths: List Nat): solvePart2 depths = windowIncreases 3 depths := windowsCorrect 2 depths

@@ -38,4 +38,4 @@ theorem clampHigh ∀ (lo hi t: Float) (ok: Float.leq lo hi = True): Float.leq (
 
 -- A time already inside is left as it is.
 theorem clampInside ∀ (lo hi t: Float) (low: Float.leq lo t = True) (high: Float.leq t hi = True): clamp lo hi t = t :=
-  rewrite Float.notLessOfLe lo t low, Float.notLessOfLe t hi high in rfl
+  rewrite Float.notLessOfLe lo t low, Float.notLessOfLe t hi high then byComputing

@@ -10,4 +10,4 @@ theorem atMost ∀ (n: Nat) (h: isDigitCode n): n ≤ 57 := match h with | { low
 
 theorem atLeast ∀ (n: Nat) (h: isDigitCode n): 48 ≤ n := h.read.low
 
-theorem zero: isDigitCode 48 := { low = rfl, high = rfl }
+theorem zero: isDigitCode 48 := { low = byComputing, high = byComputing }

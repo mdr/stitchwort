@@ -29,7 +29,7 @@ theorem parsedCell ∀ (lines: List Text)
           rewrite <- Vec.getToList (Vec.fromList lines) i "", Vec.toListFromList lines, Fin.toNatOfNatLt lines.length r
               e
     | False =>
-      let past: lines.length ≤ r := omega
+      let past: lines.length ≤ r := arithmetic
       rewrite rowsCellsBelow rows r c past, List.getOrPast lines r "" past
 
 theorem gridOfCells ∀ (lines: List Text) (grid: Grid)
@@ -41,7 +41,7 @@ theorem gridOfCells ∀ (lines: List Text) (grid: Grid)
   match e: Vec.traverseOption (Vec.fromList lines) f with
     | Some rows =>
       let same: g rows = grid := Eq.cong (.getOrElse (g rows)) h
-      rewrite <- same in parsedCell lines rows e r c
+      rewrite <- same then parsedCell lines rows e r c
 
 theorem parseGridCells ∀ (lines: List Text) (grid: Grid)
     (h: parseGrid lines = Ok grid) (r c: Nat):
@@ -50,6 +50,6 @@ theorem parseGridCells ∀ (lines: List Text) (grid: Grid)
     | Some (row, column, ch) => cases
     | None =>
       gridOfCells lines grid
-        (Eq.trans (Eq.sym (Result.toOptionToResult _ (Grid.of lines))) (Eq.cong Result.toOption h))
+        (Eq.trans (Eq.flipped (Result.toOptionToResult _ (Grid.of lines))) (Eq.cong Result.toOption h))
         r
         c

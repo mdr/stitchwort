@@ -17,7 +17,7 @@ test "a later argument" := clamp 1 -2 3 = 1
 test "an argument of a lambda body" := [-5, 0, 5].map (x => clamp x -1 1) = [-1, 0, 1]
 test "the arguments take one atom each" := shift -2 * 3 = 24
 test "the same term as the brackets" := shift -2 = shift (-2)
-theorem sameTerm: shift -2 = shift (-2) := rfl
+theorem sameTerm: shift -2 = shift (-2) := byComputing
 
 -- Subtraction is as before.
 test "tight" := (7: Int) - 1 = 6

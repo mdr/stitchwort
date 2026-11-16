@@ -132,7 +132,7 @@ theorem notOddZero: ¬(OddM 0)
 -- Axiom K: matching deletes the equation `x = x`.
 type Same (a: Type) (x: a): a → Prop = | Refl: Same a x x
 
-theorem sameK ∀ (p: Same a x x): p = Refl := match p with | Refl => rfl
+theorem sameK ∀ (p: Same a x x): p = Refl := match p with | Refl => byComputing
 
 def vec12: Vec Nat 2 := VCons 1 (VCons 2 VNil)
 

@@ -3,4 +3,4 @@
 -- Partner: `jOnRfl` in accept/proof-irrelevance.sw.
 import Std (Nat)
 
-theorem t5 (n: Nat) (h: n = n) (d: Nat): J (y e => Nat) d h = d := rfl
+theorem t5 (n: Nat) (h: n = n) (d: Nat): J (y e => Nat) d h = d := byComputing

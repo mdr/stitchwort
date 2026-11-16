@@ -13,11 +13,11 @@ theorem runsAsValue ∀ (p: () → {Parse Char} a) (read rest: List Char) (v w: 
     (same: v = w)
     (runs: Parse.Runs p read rest v):
     Parse.Runs p read rest w :=
-  rewrite same at runs in runs
+  rewrite same at runs then runs
 
 theorem digitNotX ∀ (char: Char) (isDigit: Parse.isDigit char = True): (char == 'x') = False :=
   match e: char == 'x' with
-    | False => rfl
+    | False => byComputing
     | True => cases
 
 theorem declinesX ∀ (read after: List Char)
@@ -25,7 +25,7 @@ theorem declinesX ∀ (read after: List Char)
     (all: read.all Parse.isDigit = True):
     Parse.Declines (() => Parse.char 'x') (read ++ after) :=
   match read with
-    | [] => Void.exfalso (some rfl)
+    | [] => (some byComputing).impossible
     | [char, ..more] => Parse.declinesChar 'x' char (more ++ after) (digitNotX char all.left)
 
 --| `slot` on a bus ID or an `x`, before something that doesn't continue the digits.
@@ -35,7 +35,7 @@ theorem runsSlot ∀ (read: List Char) (slot2: Slot)
     Parse.Runs slot read after slot2 :=
   match slot2 with
     | OutOfService =>
-      rewrite written in
+      rewrite written then
         Parse.runsBind
           (() => Parse.optional (() => Parse.char 'x')) _
           ['x']
@@ -44,7 +44,7 @@ theorem runsSlot ∀ (read: List Char) (slot2: Slot)
           after
           (Some ())
           OutOfService
-          (Eq.sym (List.appendNil ['x']))
+          (Eq.flipped (List.appendNil ['x']))
           (Parse.runsOptional (() => Parse.char 'x') ['x'] ([] ++ after) () (Parse.runsChar 'x' ([] ++ after)))
           (Parse.runsPure OutOfService after)
     | Listed id =>
@@ -58,29 +58,29 @@ theorem runsSlot ∀ (read: List Char) (slot2: Slot)
             after
             None
             (Listed id)
-            rfl
+            byComputing
             (Parse.declinesRuns (() => Parse.char 'x') (read ++ after) (declinesX read after nonEmpty allDigits))
             (Parse.runsBind Parse.nat _ read [] read after
               (Parse.digitsValue read)
               (Listed id)
-              (Eq.sym (List.appendNil read))
+              (List.appendNil read).flipped
               (Parse.runsNatBefore read ([] ++ after) nonEmpty allDigits stops)
               (Parse.runsIf
                 (Parse.digitsValue read == 0) _ _
                 []
                 after
                 (Listed id)
-                (zero => Void.exfalso (notZero (Eq.trans decimal zero.read)))
+                (zero => Void.impossible (notZero (Eq.trans decimal zero.read)))
                 (nonZero =>
                   runsAsValue
                     (() => Listed (Parse.digitsValue read))
                     []
                     after _ _
-                    (rewrite decimal in rfl)
+                    (rewrite decimal then byComputing)
                     (Parse.runsPure (Listed (Parse.digitsValue read)) after))))
 
 theorem notesEta ∀ (notes2: Notes): { earliest = notes2.earliest, schedule = notes2.schedule } = notes2 :=
-  match notes2 with | { earliest, schedule } => rfl
+  match notes2 with | { earliest, schedule } => byComputing
 
 --| `notes` on notes written out, before nothing but line breaks.
 theorem runsNotes ∀ (read: List Char) (notes2: Notes)
@@ -97,21 +97,23 @@ theorem runsNotes ∀ (read: List Char) (notes2: Notes)
         | { head, tail }, listed2, same2 =>
           let sameNotes: { earliest = Parse.digitsValue digits, schedule = (NonEmptyList.cons head tail).toList }
             = notes2 :=
-            rewrite <- decimal, <- same2 in notesEta notes2
-          rewrite split in
+            rewrite <- decimal, <- same2 then notesEta notes2
+          rewrite split then
             runsAsValue notes _ ending _ notes2 sameNotes
               (Parse.runsBind Parse.nat _ digits
                 (lineBreak ++ entries) _
                 ending
                 (Parse.digitsValue digits) _
-                rfl
+                byComputing
                 (Parse.runsNatBefore digits
                   ((lineBreak ++ entries) ++ ending)
                   nonEmpty
                   allDigits
-                  (rewrite List.appendAssoc lineBreak entries ending in
-                    Parse.cannotStartAfterBreak Parse.isDigit rfl rfl lineBreak (entries ++ ending) isBreak))
-                (Parse.runsBind Parse.newline _ lineBreak entries _ ending () _ rfl
+                  (rewrite List.appendAssoc lineBreak entries ending then
+                    Parse.cannotStartAfterBreak Parse.isDigit byComputing byComputing lineBreak
+                      (entries ++ ending)
+                      isBreak))
+                (Parse.runsBind Parse.newline _ lineBreak entries _ ending () _ byComputing
                   (Parse.runsNewline lineBreak (entries ++ ending) isBreak)
                   (Parse.runsBind
                     (() => Parse.sepBy1 slot (() => Parse.char ',')) _
@@ -119,7 +121,7 @@ theorem runsNotes ∀ (read: List Char) (notes2: Notes)
                     [] _
                     ending
                     (NonEmptyList.cons head tail) _
-                    (Eq.sym (List.appendNil entries))
+                    (List.appendNil entries).flipped
                     (Parse.runsSepBy1Of slot
                       (() => Parse.char ',')
                       SlotWritten
@@ -127,19 +129,20 @@ theorem runsNotes ∀ (read: List Char) (notes2: Notes)
                       (Parse.CannotStart Parse.isDigit)
                       ending
                       (read2 v after ok stops => runsSlot read2 v ok after stops)
-                      (read2 after u same3 => rewrite same3 in Parse.runsChar ',' after)
-                      (read2 u same3 => rewrite same3 in List.consNotNil ',' [])
+                      (read2 after u same3 => rewrite same3 then Parse.runsChar ',' after)
+                      (read2 u same3 => rewrite same3 then List.consNotNil ',' [])
                       (read2 after u same3 =>
-                        rewrite same3 in (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found in rfl))
-                      (Parse.cannotStartAtBreaks Parse.isDigit rfl rfl ending breaks)
+                        rewrite same3 then
+                          (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found then byComputing))
+                      (Parse.cannotStartAtBreaks Parse.isDigit byComputing byComputing ending breaks)
                       (Parse.declinesSepStep slot
                         (() => Parse.char ',')
                         ending
                         (Parse.declinesCharCannotStart ','
                           (char => char == ',')
-                          rfl
+                          byComputing
                           ending
-                          (Parse.cannotStartAtBreaks (char => char == ',') rfl rfl ending breaks)))
+                          (Parse.cannotStartAtBreaks (char => char == ',') byComputing byComputing ending breaks)))
                       entries
                       head
                       tail
@@ -168,4 +171,4 @@ theorem writtenUnique ∀ (input: Text) (a b: Notes)
     (writtenA: InputWritten input a)
     (writtenB: InputWritten input b):
     a = b :=
-  Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))
+  Result.okInjective (Eq.trans (parseComplete input a writtenA).flipped (parseComplete input b writtenB))

@@ -5,7 +5,7 @@ expression: output
 [E-REWRITE-NOTHING] Error: `rewrite` found no `x * 1` in the goal
     ╭─[ reject/lambda-after-expected-type.sw:13:37 ]
     │
- 13 │   List.mapCong xs _ _ (x => rewrite mulOneRight x in rfl)
+ 13 │   List.mapCong xs _ _ (x => rewrite mulOneRight x then byComputing)
     │                                     ──────┬──────  
     │                                           ╰──────── looking for `x * 1`
     │ 

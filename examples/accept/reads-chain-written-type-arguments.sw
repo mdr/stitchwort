@@ -15,34 +15,35 @@ def Spec (read: List Char) (made: List Nat): Prop := made = made
 
 theorem readsNone: Parse.Reads p Spec := Parse.readsThen Parse.readsNat (r0 x0 h0 =>
   Parse.readsThen Parse.readsNat (r1 x1 h1 =>
-    Parse.readsThen Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, x2] _ rfl)))
+    Parse.readsThen Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, x2] _ byComputing)))
 
 theorem readsT: Parse.Reads p Spec := Parse.readsThen [t := Char] Parse.readsNat (r0 x0 h0 =>
   Parse.readsThen [t := Char] Parse.readsNat (r1 x1 h1 =>
-    Parse.readsThen [t := Char] Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, x2] _ rfl)))
+    Parse.readsThen [t := Char] Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, x2] _ byComputing)))
 
 theorem readsA: Parse.Reads p Spec := Parse.readsThen [a := Nat] Parse.readsNat (r0 x0 h0 =>
   Parse.readsThen [a := Nat] Parse.readsNat (r1 x1 h1 =>
-    Parse.readsThen [a := Nat] Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, x2] _ rfl)))
+    Parse.readsThen [a := Nat] Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, x2] _ byComputing)))
 
 theorem readsB: Parse.Reads p Spec := Parse.readsThen [b := List Nat] Parse.readsNat (r0 x0 h0 =>
   Parse.readsThen [b := List Nat] Parse.readsNat (r1 x1 h1 =>
-    Parse.readsThen [b := List Nat] Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, x2] _ rfl)))
+    Parse.readsThen [b := List Nat] Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, x2] _ byComputing)))
 
 theorem readsTA: Parse.Reads p Spec := Parse.readsThen [t := Char] [a := Nat] Parse.readsNat (r0 x0 h0 =>
   Parse.readsThen [t := Char] [a := Nat] Parse.readsNat (r1 x1 h1 =>
-    Parse.readsThen [t := Char] [a := Nat] Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, x2] _ rfl)))
+    Parse.readsThen [t := Char] [a := Nat] Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, x2] _ byComputing)))
 
 theorem readsTB: Parse.Reads p Spec := Parse.readsThen [t := Char] [b := List Nat] Parse.readsNat (r0 x0 h0 =>
   Parse.readsThen [t := Char] [b := List Nat] Parse.readsNat (r1 x1 h1 =>
-    Parse.readsThen [t := Char] [b := List Nat] Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, x2] _ rfl)))
+    Parse.readsThen [t := Char] [b := List Nat] Parse.readsNat (r2 x2 h2 =>
+      Parse.readsDone [x0, x1, x2] _ byComputing)))
 
 theorem readsAB: Parse.Reads p Spec := Parse.readsThen [a := Nat] [b := List Nat] Parse.readsNat (r0 x0 h0 =>
   Parse.readsThen [a := Nat] [b := List Nat] Parse.readsNat (r1 x1 h1 =>
-    Parse.readsThen [a := Nat] [b := List Nat] Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, x2] _ rfl)))
+    Parse.readsThen [a := Nat] [b := List Nat] Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, x2] _ byComputing)))
 
 theorem readsTAB: Parse.Reads p Spec :=
   Parse.readsThen [t := Char] [a := Nat] [b := List Nat] Parse.readsNat (r0 x0 h0 =>
     Parse.readsThen [t := Char] [a := Nat] [b := List Nat] Parse.readsNat (r1 x1 h1 =>
       Parse.readsThen [t := Char] [a := Nat] [b := List Nat] Parse.readsNat (r2 x2 h2 =>
-        Parse.readsDone [x0, x1, x2] _ rfl)))
+        Parse.readsDone [x0, x1, x2] _ byComputing)))

@@ -29,9 +29,10 @@ def example: List Passage := passagesOf """
 theorem smallParses: Fail.toResult (() => parsePassages """
   start-A
   A-end
-  """) = Ok [link "start" "A", link "A" "end"] := rfl
+  """) = Ok [link "start" "A", link "A" "end"] := byComputing
 
-theorem shortPath: ({ caves = [{ name = "start" }, { name = "A" }, { name = "end" }] }: Path).startToEnd = True := rfl
+theorem shortPath: ({ caves = [{ name = "start" }, { name = "A" }, { name = "end" }] }: Path).startToEnd = True :=
+  byComputing
 
 test "parse the example" :=
   example

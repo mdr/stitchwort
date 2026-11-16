@@ -27,7 +27,7 @@ test "emoji" := Char.toNat '😀' == 128512
 test "escape" := '\n' == '\u{A}'
 test "from lit" := codeOr (Char.fromNat 233) == Char.toNat 'é'
 
-theorem aIsA: 'a' = 'a' := rfl
+theorem aIsA: 'a' = 'a' := byComputing
 
 def sameChar (x y: Char): Bool := if h: x = y then True else False
 

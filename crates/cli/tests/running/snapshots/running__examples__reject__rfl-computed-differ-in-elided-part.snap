@@ -2,14 +2,14 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
     ╭─[ reject/rfl-computed-differ-in-elided-part.sw:12:76 ]
     │
- 12 │     (List.range 0 4 |> .all (p c)) = (p c 0 && p c 1 && p c 2 && p c 3) := rfl
-    │                                                                            ─┬─  
-    │                                                                             ╰─── `(0 ..< 4).all (p c)` and `p c 0 && p c 1 && p c 2 && p c 3` aren't equal
+ 12 │     (List.range 0 4 |> .all (p c)) = (p c 0 && p c 1 && p c 2 && p c 3) := byComputing
+    │                                                                            ─────┬─────  
+    │                                                                                 ╰─────── `(0 ..< 4).all (p c)` and `p c 0 && p c 1 && p c 2 && p c 3` aren't equal
     │ 
     │ Note 1: computing both sides gives `c.equal (c * 0 + c + 6) && (1 * c + c).equal (c * 1 + c + 7) && (2 * c + c).equal (c * 2 + c + 10) && (3 * c + c).equal (c * 3 + c + 15) && True` and `c.equal (c * 0 + c + 6) && (1 * c + c).equal (c * 1 + c + 7) && (2 * c + c).equal (c * 2 + c + 10) && (3 * c + c).equal (c * 3 + c + 15)`
     │ 
-    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
 ────╯

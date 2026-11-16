@@ -9,4 +9,4 @@ type Event =
 def Event.ends (event: Event): Nat := event.startTime + 1
 
 theorem moved (event: Event): ({ event | startTime = 1 }).startTime = 1 :=
-  rewrite Event.startTime.update.ends in rfl
+  rewrite Event.startTime.update.ends then byComputing

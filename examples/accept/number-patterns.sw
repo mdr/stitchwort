@@ -23,7 +23,7 @@ test "404" := statusText 404 == "Not Found"
 test "503" := statusText 503 == "Service Unavailable"
 test "other" := statusText 418 == "Unknown"
 
-theorem notFound: statusText 404 = "Not Found" := rfl
+theorem notFound: statusText 404 = "Not Found" := byComputing
 
 -- Very large numbers are fine.
 def isHuge: Nat → Bool
@@ -36,7 +36,7 @@ test "not huge" := not (isHuge 999999999999999999999999999999)
 -- Inside an equation with a number, the argument *is* that number, so the
 -- types of the result and of other arguments that mention it compute.
 def isNotFound: (n: Nat) → Decidable (n = 404)
-  | 404 => Decidable.yes rfl
+  | 404 => Decidable.yes byComputing
   | n => Nat.decEq n 404
 
 def Shape: Nat → Type
@@ -87,7 +87,7 @@ def constant: Nat → Nat
   | n => 1
   | 404 => 2
 
-theorem constantAnything ∀ (n: Nat): constant n = 1 := rfl
+theorem constantAnything ∀ (n: Nat): constant n = 1 := byComputing
 
 -- Number patterns after a structural split keep the recursion structural.
 def countDown: Nat → Nat → Nat

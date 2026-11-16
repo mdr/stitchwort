@@ -26,11 +26,11 @@ theorem matchAtLimit ∀ (x k answer: Nat)
     (solved: (settle x k limit |> .map (n => n + 1)) = Some answer):
     ∃ (y: Nat) => answer = y + 1 :=
   match found: settle x k limit with
-    | None => Void.exfalso (Option.noneNotSome answer solved)
-    | Some y => Witness y (Eq.sym (Option.someInjective solved))
+    | None => (Option.noneNotSome answer solved).impossible
+    | Some y => Witness y (Option.someInjective solved).flipped
 
 theorem rewriteAtLimit ∀ (x k y: Nat)
     (settles: settle x k limit = Some y)
     (q: Option Nat → Prop) (h: q (Some y)):
     q (settle x k limit) :=
-  rewrite settles in h
+  rewrite settles then h

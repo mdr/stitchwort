@@ -42,10 +42,10 @@ theorem foldOnceHolds ∀ (dots: List Point) (marked: Point → Prop) (fold: Fol
           Witness dot
             (Both
               ((holds dot).forward moved.left)
-              (rewrite <- moved.right in landsFoldDot fold dot (clear dot ((holds dot).forward moved.left))))),
+              (rewrite <- moved.right then landsFoldDot fold dot (clear dot ((holds dot).forward moved.left))))),
       backward = after =>
         Exists.elim after (dot lands =>
           let mapped := List.memMap dots dot ((holds dot).backward lands.left) (foldDot fold)
           (List.memUnique spot (dots.map (foldDot fold))).backward
-            (rewrite landsOnly fold dot spot lands.right in mapped))
+            (rewrite landsOnly fold dot spot lands.right then mapped))
     }

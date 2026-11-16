@@ -3,7 +3,7 @@
 theorem applicationWithTail: Void :=
   g
     (h x y
-      (x => rfl)
+      (x => byComputing)
     D, E, F)
 
 theorem plainElements: Void :=

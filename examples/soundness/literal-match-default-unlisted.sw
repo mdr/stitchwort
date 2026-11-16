@@ -9,5 +9,5 @@ def kind: Nat → Nat
 
 theorem bad (n: Nat): Or (n = 3) (kind n = 0) :=
   match n with
-    | 3 => Inl rfl
-    | _ => Inr rfl
+    | 3 => Inl byComputing
+    | _ => Inr byComputing

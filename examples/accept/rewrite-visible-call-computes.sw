@@ -21,7 +21,7 @@ theorem writeSpace ∀
     (printer: Printer) (rest: List Text) (result: (Printer, List Text))
     (flat: result = (printer.write " ", rest)):
     result.fst.words ++ result.snd = printer.words ++ [" "] ++ rest :=
-  rewrite flat in rewrite writeWords, List.appendAssoc in rfl
+  rewrite flat then rewrite writeWords, List.appendAssoc then byComputing
 
 -- The arguments given, as before.
 theorem writeSpaceGiven ∀
@@ -29,4 +29,4 @@ theorem writeSpaceGiven ∀
     (printer: Printer) (rest: List Text) (result: (Printer, List Text))
     (flat: result = (printer.write " ", rest)):
     result.fst.words ++ result.snd = printer.words ++ [" "] ++ rest :=
-  rewrite flat in rewrite writeWords printer " ", List.appendAssoc in rfl
+  rewrite flat then rewrite writeWords printer " ", List.appendAssoc then byComputing

@@ -93,7 +93,7 @@ theorem andComm ∀ (p q: Prop): p ∧ q → q ∧ p
 theorem swapOr ∀ (p q: Prop): p ∧ q → q ∨ p
   | Both a b => Inl b
 
-theorem literal: 1 < 2 ∧ 2 < 3 := Both rfl rfl
+theorem literal: 1 < 2 ∧ 2 < 3 := Both byComputing byComputing
 
 -- Short-circuiting: the right operand's effects run only when needed.
 ability Log where

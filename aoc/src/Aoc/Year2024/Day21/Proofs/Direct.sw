@@ -17,67 +17,67 @@ theorem movedNear ∀ (aim to: Position) (direction: Direction) (next: Position)
   match direction with
     | Up =>
       match top: aim.row == 0 with
-        | False => rewrite <- Option.someInjective step in omega [top]
-    | Down => rewrite <- Option.someInjective step in omega
+        | False => rewrite <- Option.someInjective step then arithmetic [top]
+    | Down => rewrite <- Option.someInjective step then arithmetic
     | Left =>
       match edge: aim.column == 0 with
-        | False => rewrite <- Option.someInjective step in omega [edge]
-    | Right => rewrite <- Option.someInjective step in omega
+        | False => rewrite <- Option.someInjective step then arithmetic [edge]
+    | Right => rewrite <- Option.someInjective step then arithmetic
 
 --| A walk has at least as many moves as the distance between its ends.
 theorem walkDistance ∀ (rows: List (List (Option k))) (start: Position) (route: List Direction) (end: Position)
     (walked: walk rows start route = Some end):
     distance start end ≤ route.length :=
   match route with
-    | [] => rewrite <- Option.someInjective walked in omega
+    | [] => rewrite <- Option.someInjective walked then arithmetic
     | [direction, ..rest] =>
       match step: moved start direction with
         | Some next =>
           match found: keyAt rows next with
-            | Some key => omega [movedNear start end direction next step, walkDistance rows next rest end walked]
+            | Some key => arithmetic [movedNear start end direction next step, walkDistance rows next rest end walked]
 
 --| Pressing a route's keys yourself takes a press per move and one for A.
 theorem routeCostYours ∀ (route: List Direction): Costs.yours.routeCost route = route.length + 1 :=
   rewrite sequenceCostFrom Costs.yours (routeKeys route),
       costFromOnes Activate (routeKeys route),
       List.lengthAppend (route.map Arrow) [Activate],
-      List.lengthMap route Arrow in
-    rfl
+      List.lengthMap route Arrow then
+    byComputing
 
 --| A key's place is the only one where an arm aims at it.
 theorem numericPlaceOf ∀ (row column: Nat) (key: NumericKey)
     (found: keyAt numericRows { row, column } = Some key):
     ({ row, column }: Position) = Keypad.numeric.place key :=
   match row, column with
-    | 0, 0 => rewrite <- Option.someInjective found in rfl
-    | 0, 1 => rewrite <- Option.someInjective found in rfl
-    | 0, 2 => rewrite <- Option.someInjective found in rfl
-    | 1, 0 => rewrite <- Option.someInjective found in rfl
-    | 1, 1 => rewrite <- Option.someInjective found in rfl
-    | 1, 2 => rewrite <- Option.someInjective found in rfl
-    | 2, 0 => rewrite <- Option.someInjective found in rfl
-    | 2, 1 => rewrite <- Option.someInjective found in rfl
-    | 2, 2 => rewrite <- Option.someInjective found in rfl
-    | 3, 1 => rewrite <- Option.someInjective found in rfl
-    | 3, 2 => rewrite <- Option.someInjective found in rfl
-    | 0, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
-    | 1, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
-    | 2, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
-    | 3, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
-    | Succ (Succ (Succ (Succ row))), column => Void.exfalso (Option.noneNotSome key found)
+    | 0, 0 => rewrite <- Option.someInjective found then byComputing
+    | 0, 1 => rewrite <- Option.someInjective found then byComputing
+    | 0, 2 => rewrite <- Option.someInjective found then byComputing
+    | 1, 0 => rewrite <- Option.someInjective found then byComputing
+    | 1, 1 => rewrite <- Option.someInjective found then byComputing
+    | 1, 2 => rewrite <- Option.someInjective found then byComputing
+    | 2, 0 => rewrite <- Option.someInjective found then byComputing
+    | 2, 1 => rewrite <- Option.someInjective found then byComputing
+    | 2, 2 => rewrite <- Option.someInjective found then byComputing
+    | 3, 1 => rewrite <- Option.someInjective found then byComputing
+    | 3, 2 => rewrite <- Option.someInjective found then byComputing
+    | 0, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
+    | 1, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
+    | 2, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
+    | 3, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
+    | Succ (Succ (Succ (Succ row))), column => (Option.noneNotSome key found).impossible
 
 theorem directionalPlaceOf ∀ (row column: Nat) (key: DirectionKey)
     (found: keyAt directionalRows { row, column } = Some key):
     ({ row, column }: Position) = Keypad.directional.place key :=
   match row, column with
-    | 0, 1 => rewrite <- Option.someInjective found in rfl
-    | 0, 2 => rewrite <- Option.someInjective found in rfl
-    | 1, 0 => rewrite <- Option.someInjective found in rfl
-    | 1, 1 => rewrite <- Option.someInjective found in rfl
-    | 1, 2 => rewrite <- Option.someInjective found in rfl
-    | 0, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
-    | 1, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
-    | Succ (Succ row), column => Void.exfalso (Option.noneNotSome key found)
+    | 0, 1 => rewrite <- Option.someInjective found then byComputing
+    | 0, 2 => rewrite <- Option.someInjective found then byComputing
+    | 1, 0 => rewrite <- Option.someInjective found then byComputing
+    | 1, 1 => rewrite <- Option.someInjective found then byComputing
+    | 1, 2 => rewrite <- Option.someInjective found then byComputing
+    | 0, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
+    | 1, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
+    | Succ (Succ row), column => (Option.noneNotSome key found).impossible
 
 --| The walk fact for your own presses, on a keypad where each key has one place.
 theorem cheapestWalksYours ∀ (fit: Fitted k)
@@ -92,8 +92,8 @@ theorem cheapestWalksYours ∀ (fit: Fitted k)
         routeCostYours (Costs.yours.cheapestRoute (fit.keypad.routes from to)),
         fit.cheapestLength Costs.yours from to,
         <- startPlace,
-        <- endPlace in
-      omega [walkBound]
+        <- endPlace then
+      arithmetic [walkBound]
 
 theorem numericWalksYours: CheapestWalks Keypad.numeric numericRows (robotCosts 0) :=
   cheapestWalksYours numericFitted numericPlaceOf
@@ -102,7 +102,7 @@ theorem directionalWalksYours: CheapestWalks Keypad.directional directionalRows 
   cheapestWalksYours directionalFitted directionalPlaceOf
 
 theorem optimalWithoutRobots: Optimal 0 :=
-  optimalIfCheapestWalks 0 (level below => Void.exfalso (omega [below])) numericWalksYours
+  optimalIfCheapestWalks 0 (level below => Void.impossible (arithmetic [below])) numericWalksYours
 
 --| With you pressing the door's keypad's keys yourself, the program's length
 --| is the shortest.

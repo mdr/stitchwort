@@ -11,6 +11,6 @@ import Std (Bool, List, Nat)
 type Box = { items: List Nat }
 
 def has (b: Box): Bool :=
-  let same := r => (rfl: (r.items, 1) = (r.items, 2))
+  let same := r => (byComputing: (r.items, 1) = (r.items, 2))
   let _ := same b
   True

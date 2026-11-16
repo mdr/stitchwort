@@ -49,7 +49,7 @@ def same (p q: Pretty Nat) (e: p = q): Text := ""
 def mergedLater: Text :=
   let o1: Pretty Nat := build [z := _]
   let o2: Pretty Nat := build [z := _]
-  Pretty.pretty 0 ++ same o1 build rfl ++ same o2 build rfl
+  Pretty.pretty 0 ++ same o1 build byComputing ++ same o2 build byComputing
 
 -- The same, with `?d1` and `?d2` found first.
 def mergedFirst: Text :=

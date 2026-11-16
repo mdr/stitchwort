@@ -54,10 +54,11 @@ test "spec and program score a completion alike" :=
 
 --| The puzzle's examples, proved through the spec.
 theorem exampleIllegalCurly: FirstIllegal (tokens "{([(<{}[<>[]}>{[]{[(<()>") (Closer Curly) :=
-  firstIllegalOfScan (tokens "{([(<{}[<>[]}>{[]{[(<()>") Curly rfl
+  firstIllegalOfScan (tokens "{([(<{}[<>[]}>{[]{[(<()>") Curly byComputing
 theorem exampleIllegalRound: FirstIllegal (tokens "[[<[([]))<([[{}[[()]]]") (Closer Round) :=
-  firstIllegalOfScan (tokens "[[<[([]))<([[{}[[()]]]") Round rfl
-theorem exampleBalanced: Balanced (tokens "[<>({}){}[([])<>]]") := scanBalanced (tokens "[<>({}){}[([])<>]]") rfl
+  firstIllegalOfScan (tokens "[[<[([]))<([[{}[[()]]]") Round byComputing
+theorem exampleBalanced: Balanced (tokens "[<>({}){}[([])<>]]") :=
+  scanBalanced (tokens "[<>({}){}[([])<>]]") byComputing
 theorem exampleCompletion: Completes (tokens "[({(<(())[]>[[{[]{<()<>>") [Curly, Curly, Square, Square, Round, Curly,
       Round, Square] :=
-  completesOfUnclosed rfl
+  completesOfUnclosed byComputing

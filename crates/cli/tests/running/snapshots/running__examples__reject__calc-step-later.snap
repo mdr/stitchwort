@@ -5,22 +5,22 @@ expression: output
 [E-CALC-STEP] Error: this step doesn't prove what its line says
     ╭─[ reject/calc-step-later.sw:14:14 ]
     │
- 14 │     _ = 5 := rfl)
-    │              ─┬─  
-    │               ╰─── `r.x` and `5` aren't equal
+ 14 │     _ = 5 := byComputing)
+    │              ─────┬─────  
+    │                   ╰─────── `r.x` and `5` aren't equal
     │ 
     │ Note 1: the line says `r.x = 5`
     │ 
-    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
 ────╯
 [E-CALC-STEP] Error: this step doesn't prove what its line says
     ╭─[ reject/calc-step-later.sw:20:14 ]
     │
- 20 │     _ = 5 := rfl)
-    │              ─┬─  
-    │               ╰─── `r.x` and `5` aren't equal
+ 20 │     _ = 5 := byComputing)
+    │              ─────┬─────  
+    │                   ╰─────── `r.x` and `5` aren't equal
     │ 
     │ Note 1: the line says `r.x = 5`
     │ 
-    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
 ────╯

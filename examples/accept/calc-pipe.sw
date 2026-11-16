@@ -3,7 +3,7 @@
 import Std (Eq, List, Nat)
 
 theorem sumIsThree ∀ (xs: List Nat) (h: List.sum xs = 3): 3 = (xs |> List.sum) := calc 3
-  _ = xs |> List.sum := Eq.sym h
+  _ = xs |> List.sum := h.flipped
 
 -- In the first expression too, and on a line of its own.
 theorem doubled ∀ (xs: List Nat) (h: List.sum xs = 3): (xs |> List.sum) + 3 = 6 := calc xs |> List.sum |> (n => n + 3)

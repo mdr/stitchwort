@@ -3,4 +3,4 @@
 -- part that is neither a pair nor a proof of `∃` or `∧`.
 theorem opened ∀ (h: ∃ (n: Nat) => n = 7): 1 = 1 :=
   let (n, a, b) := h
-  rfl
+  byComputing

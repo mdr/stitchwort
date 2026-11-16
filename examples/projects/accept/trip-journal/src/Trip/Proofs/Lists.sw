@@ -4,5 +4,5 @@ namespace Trip.Proofs
 import Std (Bool)
 
 theorem ifSame ∀ (c: Bool) (x: a): (if c then x else x) = x := match c with
-  | True => rfl
-  | False => rfl
+  | True => byComputing
+  | False => byComputing

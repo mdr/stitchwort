@@ -2,8 +2,8 @@
 -- 3d): `decreasing (m1, m2)` says that each recursive call makes `m1`
 -- smaller, or keeps it the same and makes `m2` smaller. A call's proof is a
 -- `Nat.LexLess`: `Nat.LexLess.First h` (the first got smaller) or
--- `Nat.LexLess.Second rfl h` (the first stayed put, the second got smaller);
--- `omega` finds either, and `auto` finds one from a guard in scope. The
+-- `Nat.LexLess.Second byComputing h` (the first stayed put, the second got smaller);
+-- `arithmetic` finds either, and `auto` finds one from a guard in scope. The
 -- compiler gives each measure a fuel of its own, so the kernel still sees
 -- only structural recursion.
 --
@@ -25,28 +25,31 @@ def ack (m n: Nat): Nat
     | Succ k, Zero => ack k 1 [decreasing := Nat.LexLess.First (Nat.leRefl k)]
     | Succ k, Succ j =>
       ack k
-        (ack (Succ k) j [decreasing := Nat.LexLess.Second rfl (Nat.leRefl j)])
+        (ack (Succ k) j [decreasing := Nat.LexLess.Second byComputing (Nat.leRefl j)])
         [decreasing := Nat.LexLess.First (Nat.leRefl k)]
 
 test "ack" := ack 2 3 == 9 ∧ ack 3 3 == 61 ∧ ack 0 7 == 8
 
--- Tests and `rfl` compute through the two fuels.
-theorem ackByRfl: ack 2 3 = 9 := rfl
+-- Tests and `byComputing` compute through the two fuels.
+theorem ackByRfl: ack 2 3 = 9 := byComputing
 
 -- `ack.unfold` is the definition's own equation.
 theorem ackStep ∀ (k j: Nat): ack (Succ k) (Succ j) = ack k (ack (Succ k) j) := ack.unfold (Succ k) (Succ j)
 
 -- A theorem recursing on the same pair: the proof makes the calls `ack`
--- makes, and `omega` finds each call's `Nat.LexLess`.
+-- makes, and `arithmetic` finds each call's `Nat.LexLess`.
 theorem ackAbove ∀ (m n: Nat): n < ack m n
     decreasing (m, n)
 :=
-  rewrite ack.unfold m n in
+  rewrite ack.unfold m n then
     match m, n with
-      | Zero, n => omega
-      | Succ k, Zero => omega [ackAbove k 1 [decreasing := omega]]
+      | Zero, n => arithmetic
+      | Succ k, Zero => arithmetic [ackAbove k 1 [decreasing := arithmetic]]
       | Succ k, Succ j =>
-        omega [ackAbove (Succ k) j [decreasing := omega], ackAbove k (ack (Succ k) j) [decreasing := omega]]
+        arithmetic [
+          ackAbove (Succ k) j [decreasing := arithmetic],
+          ackAbove k (ack (Succ k) j) [decreasing := arithmetic]
+        ]
 
 -- Euclid by subtraction: one call makes the first number smaller, the other
 -- keeps it and makes the second smaller.
@@ -55,8 +58,8 @@ def gcd (a b: Nat): Nat
 :=
   if za: a = 0 then b
   else if zb: b = 0 then a
-  else if bigger: b < a then gcd (a - b) b [decreasing := omega]
-  else gcd a (b - a) [decreasing := omega]
+  else if bigger: b < a then gcd (a - b) b [decreasing := arithmetic]
+  else gcd a (b - a) [decreasing := arithmetic]
 
 test "gcd" := gcd 12 18 == 6 ∧ gcd 17 5 == 1 ∧ gcd 0 9 == 9 ∧ gcd 9 0 == 9
 

@@ -5,7 +5,7 @@ expression: output
 [E-UNKNOWN-NAME] Error: unknown name `Event.startTime.update…`
     ╭─[ reject/update-lemma-unknown.sw:12:11 ]
     │
- 12 │   rewrite Event.startTime.update.ends in rfl
+ 12 │   rewrite Event.startTime.update.ends then byComputing
     │           ───────────┬──────────  
     │                      ╰──────────── no such update lemma
     │ 

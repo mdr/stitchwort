@@ -22,11 +22,11 @@ def pick: Nat → Nat → Nat
 
 theorem pickLess ∀ (a b: Nat) (less: a < b): pick a b = b := pick.eq1 a b less
 
-theorem pickZero ∀ (a: Nat): pick a 0 = a := pick.eq2 a (rfl: (a < 0) = False)
+theorem pickZero ∀ (a: Nat): pick a 0 = a := pick.eq2 a (byComputing: (a < 0) = False)
 
 -- The arm below overlaps where the second is `Succ`.
 theorem pickOther ∀ (a b: Nat) (notLess: (a < Succ b) = False): pick a (Succ b) = 0 :=
-  pick.eq3 a (Succ b) notLess (same => omega)
+  pick.eq3 a (Succ b) notLess (same => arithmetic)
 
 -- A decided proposition is stated as itself, though the definition tests
 -- its `Bool`: `skipThree.eq1` takes `n ≠ 3`, and `skipThree.eq2` `n = 3`
@@ -37,7 +37,7 @@ def skipThree: Nat → Nat
 
 theorem skipThreeOther ∀ (n: Nat) (other: n ≠ 3): skipThree n = n := skipThree.eq1 n other
 
-theorem skipThreeThree: skipThree 3 = 0 := skipThree.eq2 3 rfl
+theorem skipThreeThree: skipThree 3 = 0 := skipThree.eq2 3 byComputing
 
 -- `==` on a type with a decision is its equation.
 def emptyOrOne: List Nat → Nat
@@ -55,7 +55,7 @@ def predecessor: Nat → Nat
   | n if h: n > 0 => needsPositive n
   | _ => 0
 
-theorem predecessorZero: predecessor 0 = 0 := predecessor.eq2 0 (positive => omega)
+theorem predecessorZero: predecessor 0 = 0 := predecessor.eq2 0 (positive => arithmetic)
 
 theorem predecessorPositive ∀ (n: Nat) (positive: n > 0): predecessor n = needsPositive n := predecessor.eq1 n positive
 
@@ -76,9 +76,9 @@ def vowelWeight (strict: Bool): Char → Nat
   | 'a' | 'e' => 1
   | _ => 0
 
-theorem strictA: vowelWeight True 'a' = 2 := vowelWeight.eq1.or1 True rfl
+theorem strictA: vowelWeight True 'a' = 2 := vowelWeight.eq1.or1 True byComputing
 
-theorem lenientE: vowelWeight False 'e' = 1 := vowelWeight.eq2.or2 False rfl
+theorem lenientE: vowelWeight False 'e' = 1 := vowelWeight.eq2.or2 False byComputing
 
 -- An indexed family below the guard.
 type Vec (a: Type): Nat → Type =
@@ -102,7 +102,12 @@ def countBig: List Nat → Nat
   | [_, ..rest] => countBig rest
 
 theorem countBigAtMostLength ∀ (xs: List Nat): countBig xs ≤ xs.length :=
-  countBig.induct (xs result => result ≤ xs.length) omega (x rest big atMost => omega) (rest x small atMost => omega) xs
+  countBig.induct
+    (xs result => result ≤ xs.length)
+    arithmetic
+    (x rest big atMost => arithmetic)
+    (rest x small atMost => arithmetic)
+    xs
 
 theorem countBigCons ∀ (x: Nat) (rest: List Nat) (big: x > 3): countBig [x, ..rest] = countBig rest + 1 :=
   countBig.eq2 x rest big
@@ -111,14 +116,19 @@ theorem countBigCons ∀ (x: Nat) (rest: List Nat) (big: x > 3): countBig [x, ..
 -- `f.unfold`.
 def countDown (n: Nat): Bool → Nat
     decreasing n
-  | flag if n > 0 => 1 + countDown (n - 1) flag [decreasing := omega]
+  | flag if n > 0 => 1 + countDown (n - 1) flag [decreasing := arithmetic]
   | _ => 0
 
 theorem countDownStep ∀ (n: Nat) (flag: Bool) (positive: n > 0): countDown n flag = countDown (n - 1) flag + 1 :=
   countDown.eq1 n flag positive
 
 theorem countDownIsN ∀ (n: Nat) (flag: Bool): countDown n flag = n :=
-  countDown.induct (n flag result => result = n) (n flag positive below => omega) (n flag notPositive => omega) n flag
+  countDown.induct
+    (n flag result => result = n)
+    (n flag positive below => arithmetic)
+    (n flag notPositive => arithmetic)
+    n
+    flag
 
 -- The arm below takes the failure in the same form, `(1 <= n) = False`,
 -- though this definition tests `n > 0` by `Decidable.elim` (its recursive
@@ -136,9 +146,9 @@ def countSome: List Nat → Nat
 theorem countSomeAtMostLength ∀ (xs: List Nat): countSome xs ≤ xs.length :=
   countSome.induct
     (xs result => result ≤ xs.length)
-    omega
-    (x rest all atMost => omega)
-    (head rest not atMost => omega)
+    arithmetic
+    (x rest all atMost => arithmetic)
+    (head rest not atMost => arithmetic)
     xs
 
 theorem countSomeStep ∀ (x: Nat) (rest: List Nat)
@@ -154,12 +164,12 @@ def drop3: List Nat → List Nat
   | [x, ..rest] if x != 3 => [x, ..drop3 rest]
   | [_, ..rest] => drop3 rest
 
-theorem drop3Three ∀ (rest: List Nat): drop3 [3, ..rest] = drop3 rest := drop3.eq3 3 rest rfl
+theorem drop3Three ∀ (rest: List Nat): drop3 [3, ..rest] = drop3 rest := drop3.eq3 3 rest byComputing
 
 theorem drop3NoLonger ∀ (xs: List Nat): (drop3 xs).length ≤ xs.length :=
   drop3.induct
     (xs result => result.length ≤ xs.length)
-    omega
-    (x rest ne atMost => omega)
-    (head rest eq atMost => omega)
+    arithmetic
+    (x rest ne atMost => arithmetic)
+    (head rest eq atMost => arithmetic)
     xs

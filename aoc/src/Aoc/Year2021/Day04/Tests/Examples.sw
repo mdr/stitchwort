@@ -72,8 +72,8 @@ test "a number drawn twice" := solvePart1 (tiny [1, 1, 2] [[[1, 2], [3, 4]]]) ==
 test "no boards" := (solvePart1 (tiny [1, 2] []), solvePart2 (tiny [1, 2] [])) == (None, None)
 
 --| The examples, proved by computing them.
-theorem examplePart1: solvePart1 exampleGame = Some 4512 := rfl
-theorem examplePart2: solvePart2 exampleGame = Some 1924 := rfl
+theorem examplePart1: solvePart1 exampleGame = Some 4512 := byComputing
+theorem examplePart2: solvePart2 exampleGame = Some 1924 := byComputing
 
 test "a board's lines and numbers" :=
   let board: Board := { rows = [[1, 2], [3, 4]] }

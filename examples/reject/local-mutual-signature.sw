@@ -7,5 +7,5 @@ def f (n: Nat): Nat :=
   def a: Nat → Nat
     | Zero => 0
     | Succ k => f k
-  theorem b (k: Nat): a k = a k := rfl
+  theorem b (k: Nat): a k = a k := byComputing
   n

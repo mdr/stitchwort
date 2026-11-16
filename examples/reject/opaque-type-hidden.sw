@@ -8,4 +8,4 @@ opaque def Code: Type := Nat
 
 opaque def start: Code unfolding Code := 0
 
-theorem startZero: start = 0 unfolding start := rfl
+theorem startZero: start = 0 unfolding start := byComputing

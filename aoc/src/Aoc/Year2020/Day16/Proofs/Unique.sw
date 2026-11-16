@@ -17,8 +17,8 @@ theorem narrowAgrees ∀ (other: List Rule) (candidates: List (List Rule)) (valu
     | [], [], [] => Trivial
     | [rule, ..other], [fields, ..candidates], [value, ..values] =>
       Both
-        (List.memFilterIntro fields (field => field.allows value) (And.left members) (And.left allows))
-        (narrowAgrees other candidates values (And.right members) (And.right allows))
+        (List.memFilterIntro fields (field => field.allows value) members.left allows.left)
+        (narrowAgrees other candidates values members.right allows.right)
 
 theorem foldAgrees ∀ (other: List Rule) (tickets: List Ticket) (candidates: List (List Rule))
     (members: List.All2 (rule fields => rule ∈ fields) other candidates)
@@ -30,7 +30,7 @@ theorem foldAgrees ∀ (other: List Rule) (tickets: List Ticket) (candidates: Li
     | [ticket, ..tickets] =>
       foldAgrees other tickets
         (narrow candidates ticket)
-        (narrowAgrees other candidates ticket.values members (allows ticket (Inl rfl)))
+        (narrowAgrees other candidates ticket.values members (allows ticket (Inl byComputing)))
         (later member => allows later (Inr member))
 
 theorem replicateAgrees ∀ (rules other: List Rule) (count: Nat)
@@ -39,10 +39,10 @@ theorem replicateAgrees ∀ (rules other: List Rule) (count: Nat)
     List.All2 (rule fields => rule ∈ fields) other (List.replicate count rules) :=
   match other, count with
     | [], Zero => Trivial
-    | [], Succ count => Void.exfalso (Nat.zeroNotSucc _ same)
+    | [], Succ count => (Nat.zeroNotSucc _ same).impossible
     | [rule, ..other], Succ count =>
       Both
-        (members rule (Inl rfl))
+        (members rule (Inl byComputing))
         (replicateAgrees rules other count (Nat.succInjective same) (later member => members later (Inr member)))
 
 --| If the elimination settles every position, every order the puzzle
@@ -61,5 +61,5 @@ theorem fieldOrderOnly ∀ (notes: Notes) (order: List Rule)
               (replicateAgrees notes.rules other notes.rules.length length members)
               (ticket member =>
                 let kept := List.memFilter notes.nearby notes.isValid member
-                tickets ticket (And.left kept) (And.right kept))
+                tickets ticket kept.left kept.right)
           assignOnly notes.candidates order found other inCandidates distinct

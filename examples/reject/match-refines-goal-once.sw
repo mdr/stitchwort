@@ -19,5 +19,5 @@ def run (n: Nat): List Nat → Option Nat
 
 theorem sameRun (n: Nat) (k: Nat) (rest: List Nat): Exists (List Nat) (xs => run n xs = run n (Cons k rest)) :=
   match moved: step n with
-    | Some m => Witness (Cons k rest) rfl
-    | None => Witness (Cons k rest) rfl
+    | Some m => Witness (Cons k rest) byComputing
+    | None => Witness (Cons k rest) byComputing

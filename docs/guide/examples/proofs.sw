@@ -2,17 +2,17 @@
 import Std (Eq, Exists, Fail, Fin, Iff, Int, List, Nat, Option, Quot, Vec, byDecision)
 import Std.Exists (Witness)
 
--- begin rfl
+-- begin byComputing
 def double (n: Nat): Nat := n + n
 
-theorem doubleFour: double 4 = 8 := rfl
+theorem doubleFour: double 4 = 8 := byComputing
 
-theorem zeroPlus ∀ (n: Nat): 0 + n = n := rfl
--- end rfl
+theorem zeroPlus ∀ (n: Nat): 0 + n = n := byComputing
+-- end byComputing
 
 -- begin induction
 theorem timesOne ∀ (n: Nat): n * 1 = n := match n with
-  | Zero => rfl
+  | Zero => byComputing
   | Succ k => Eq.cong Succ (timesOne k)
 -- end induction
 
@@ -22,7 +22,7 @@ def mapList (f: a → b): List a → List b
   | [x, ..rest] => [f x, ..mapList f rest]
 
 theorem lengthMapList ∀ (f: a → b) (xs: List a): (mapList f xs).length = xs.length := match xs with
-  | [] => rfl
+  | [] => byComputing
   | [x, ..rest] => Eq.cong Succ (lengthMapList f rest)
 -- end lists
 
@@ -37,40 +37,41 @@ theorem chain ∀ (a b c: Nat) (ab: a = b) (bc: b ≤ c) (small: c < 10): a < 10
   _ < 10 := small
 -- end calc
 
--- begin omega
-theorem roomForOne ∀ (x y: Nat) (before: x < y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
+-- begin arithmetic
+theorem roomForOne ∀ (x y: Nat) (before: x < y) (limit: y ≤ 10): x + 1 ≤ 10 := arithmetic
 
-theorem twiceIsDouble ∀ (n: Nat): double n = 2 * n := omega
+theorem twiceIsDouble ∀ (n: Nat): double n = 2 * n := arithmetic
 
-theorem stepBack ∀ (n: Nat) (x: Int) (h: x < n.toInt): x - 1 < n.toInt - 1 := omega
+theorem stepBack ∀ (n: Nat) (x: Int) (h: x < n.toInt): x - 1 < n.toInt - 1 := arithmetic
 
-theorem thirdOfTriple ∀ (k: Int): (3 * k) / 3 = k := omega
+theorem thirdOfTriple ∀ (k: Int): (3 * k) / 3 = k := arithmetic
 
-theorem sizeOfSum ∀ (x y: Int): (x + y).natAbs ≤ x.natAbs + y.natAbs := omega
--- end omega
+theorem sizeOfSum ∀ (x y: Int): (x + y).natAbs ≤ x.natAbs + y.natAbs := arithmetic
+-- end arithmetic
 
 -- begin omega-logic
 def isNeighbour (a b: Nat): Bool := a + 1 == b || b + 1 == a
 
-theorem neighboursDiffer ∀ (a b: Nat) (near: isNeighbour a b = True): a != b := omega
+theorem neighboursDiffer ∀ (a b: Nat) (near: isNeighbour a b = True): a != b := arithmetic
 
-theorem nearZero ∀ (a: Nat) (h: a ≤ 1): a = 0 ∨ a = 1 := omega
+theorem nearZero ∀ (a: Nat) (h: a ≤ 1): a = 0 ∨ a = 1 := arithmetic
 -- end omega-logic
 
 -- begin ring
-theorem squareOfSum ∀ (a b: Nat): (a + b) * (a + b) = a * a + 2 * a * b + b * b := ring
+theorem squareOfSum ∀ (a b: Nat): (a + b) * (a + b) = a * a + 2 * a * b + b * b := algebra
 
-theorem areaGrows ∀ (w h: Nat): (w + 1) * (h + 1) = w * h + w + h + 1 := ring
+theorem areaGrows ∀ (w h: Nat): (w + 1) * (h + 1) = w * h + w + h + 1 := algebra
 
-theorem pairCount ∀ (n p: Nat) (twice: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n := ring [twice]
+theorem pairCount ∀ (n p: Nat) (twice: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n :=
+  algebra [twice]
 -- end ring
 
 -- begin ring-coefficients
-theorem scaledUp ∀ (a b: Int) (half: a = 2 * b): 4 * a = 8 * b := ring [4 * half]
+theorem scaledUp ∀ (a b: Int) (half: a = 2 * b): 4 * a = 8 * b := algebra [4 * half]
 
-theorem bothScaled ∀ (x y k: Int) (sum: x + y = 10) (gap: x - y = 2): 2 * k * x = 12 * k := ring [k * sum, k * gap]
+theorem bothScaled ∀ (x y k: Int) (sum: x + y = 10) (gap: x - y = 2): 2 * k * x = 12 * k := algebra [k * sum, k * gap]
 
-theorem turnedRound ∀ (a b: Int) (h: a = b + 1): b - a = -1 := ring [-h]
+theorem turnedRound ∀ (a b: Int) (h: a = b + 1): b - a = -1 := algebra [-h]
 -- end ring-coefficients
 
 -- begin cases
@@ -106,8 +107,8 @@ def sumFast (n: Nat): Nat :=
 -- What the loop computes, for any accumulator: the general statement is
 -- what makes the induction go through.
 theorem loopIsSum ∀ (n total: Nat): sumFast.loop n total = total + sumTo n := match n, total with
-  | Zero, total => rfl
-  | Succ k, total => omega [loopIsSum k (total + Succ k)]
+  | Zero, total => byComputing
+  | Succ k, total => arithmetic [loopIsSum k (total + Succ k)]
 
 theorem sumFastIsSum ∀ (n: Nat): sumFast n = sumTo n := loopIsSum n 0
 -- end spec
@@ -118,9 +119,9 @@ def countAbove (k: Nat): List Nat → Nat
   | [x, ..xs] => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
 
 theorem countAboveLe ∀ (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length := match induct (countAbove k xs) with
-  | eq1 => omega
+  | eq1 => arithmetic
   | eq2IfTrue y ys h ih => ih
-  | eq2IfFalse y ys h ih => omega
+  | eq2IfFalse y ys h ih => arithmetic
 
 theorem skipsSmall ∀ (k x: Nat) (xs: List Nat) (h: (k <= x) = False): countAbove k [x, ..xs] = countAbove k xs :=
   countAbove.eq2.ifFalse k x xs h
@@ -141,7 +142,7 @@ def skipThree: Nat → Nat
 
 theorem skipThreeKeeps ∀ (n: Nat) (other: n ≠ 3): skipThree n = n := skipThree.eq1 n other
 
-theorem skipThreeDrops: skipThree 3 = 0 := skipThree.eq2 3 rfl
+theorem skipThreeDrops: skipThree 3 = 0 := skipThree.eq2 3 byComputing
 -- end guard-eqs
 
 -- begin guard-induct
@@ -151,15 +152,15 @@ def countBig: List Nat → Nat
   | [_, ..rest] => countBig rest
 
 theorem countBigAtMost ∀ (xs: List Nat): countBig xs ≤ xs.length := match induct (countBig xs) with
-  | eq1 => omega
-  | eq2 x rest big ih => omega
-  | eq3 x rest small ih => omega
+  | eq1 => arithmetic
+  | eq2 x rest big ih => arithmetic
+  | eq3 x rest small ih => arithmetic
 -- end guard-induct
 
 -- begin opaque
 opaque def checksum (xs: List Nat): Nat := xs.foldLeft 0 (sum x => (sum * 31 + x) % 65521)
 
-theorem checksumNil: checksum [] = 0 unfolding checksum := rfl
+theorem checksumNil: checksum [] = 0 unfolding checksum := byComputing
 
 test "checksum" := checksum [1, 2] == 33
 -- end opaque
@@ -175,7 +176,7 @@ theorem clampToAtMost ∀ (limit n: Nat): clampTo limit n ≤ limit := match fit
 -- begin match-lemma
 theorem clampToFits ∀ (limit n: Nat): clampTo limit n ≤ limit ∧ clampTo limit n ≤ n := match fits: Nat.leq n limit with
   | True => Both (clampToAtMost limit n) (Nat.leRefl n)
-  | False => Both (clampToAtMost limit n) omega
+  | False => Both (clampToAtMost limit n) arithmetic
 -- end match-lemma
 
 -- begin decide
@@ -214,7 +215,7 @@ theorem eitherSide ∀ (a b: Bool) (h: (a || b) = True): b ∨ a := match h with
 
 -- begin readings-decisions
 theorem sameKey ∀ [auto eq: DecEq k] (a b c: k) (h: (a == b && b == c) = True): a = c := match h with
-  | Both ab bc => rewrite ab.read, bc.read in rfl
+  | Both ab bc => rewrite ab.read, bc.read then byComputing
 
 theorem differ ∀ [auto eq: DecEq k] (a b: k) (h: (a == b) = False): a ≠ b := h.read
 -- end readings-decisions
@@ -230,15 +231,15 @@ theorem inRight ∀ (x: Nat) (xs: List Nat) (b: Bool) (h: (b && xs.contains x) =
 -- begin dependent
 def pick (v: Vec Nat 3): Nat := v.get 2
 
-theorem pickTrio: pick (VCons 1 (VCons 2 (VCons 3 VNil))) = 3 := rfl
+theorem pickTrio: pick (VCons 1 (VCons 2 (VCons 3 VNil))) = 3 := byComputing
 -- end dependent
 
 -- begin reify
 theorem orElseIsGetOrElse ∀ (fallback: a) (t: () → {Fail} a):
     Fail.orElse fallback t = (Fail.toOption t).getOrElse fallback :=
   match reify t with
-    | return x => rfl
-    | Fail.stop message, _ => rfl
+    | return x => byComputing
+    | Fail.stop message, _ => byComputing
 -- end reify
 
 -- begin funext
@@ -254,20 +255,20 @@ theorem clampPercentAtMost ∀ (n: Nat): clampPercent n ≤ 100 := clampToAtMost
 test "the program agrees with the specification on an example" := sumFast 100 == 5050 ∧ sumTo 100 == 5050
 
 -- begin logic
-theorem headIn ∀ (x: Nat) (rest: List Nat): x ∈ [x, ..rest] := Inl rfl
+theorem headIn ∀ (x: Nat) (rest: List Nat): x ∈ [x, ..rest] := Inl byComputing
 
 theorem notInEmpty ∀ (x: Nat): x ∉ [] := none => none
 
 theorem bothWays ∀ (p q: Prop): p ∧ q ↔ q ∧ p :=
-  { forward = h => Both (And.right h) (And.left h), backward = h => Both (And.right h) (And.left h) }
+  { forward = h => Both h.right h.left, backward = h => Both h.right h.left }
 
-theorem hasSquareRoot: ∃ (n: Nat) => n * n = 49 := Witness 7 rfl
+theorem hasSquareRoot: ∃ (n: Nat) => n * n = 49 := Witness 7 byComputing
 
 def unseen (seen xs: List Nat): List Nat := xs.filter (x => x ∉ seen)
 -- end logic
 
 -- begin tuples
-theorem squareRoot: ∃ (n: Nat) => n > 2 ∧ n * n = 49 := (7, byDecision, rfl)
+theorem squareRoot: ∃ (n: Nat) => n > 2 ∧ n * n = 49 := (7, byDecision, byComputing)
 
 theorem rootOf ∀ (h: ∃ (n: Nat) => n > 2 ∧ n * n = 49): ∃ (m: Nat) => m * m = 49 :=
   let (n, _, square) := h
@@ -280,7 +281,7 @@ theorem secondOf ∀ (p q: Prop) (h: p ∧ q): q := h.right
 -- end tuples
 
 -- begin forall
-theorem zeroPlusAll ∀ (n: Nat): 0 + n = n := rfl
+theorem zeroPlusAll ∀ (n: Nat): 0 + n = n := byComputing
 
 theorem atOneAndTwo ∀ (p: Nat -> Prop) (all: ∀ (n: Nat) => p n): p 1 ∧ p 2 := Both (all 1) (all 2)
 
@@ -302,13 +303,13 @@ theorem keywordOther ∀ (word: Text) (notDef: word ≠ "def") (notTheorem: word
 
 theorem onlyDef ∀ (word: Text) (h: keyword word = Some Def): word = "def" :=
   if isDef: word = "def" then isDef
-  else if isTheorem: word = "theorem" then (rewrite isTheorem at h in match Option.someInjective h with | ())
-  else (rewrite keywordOther word isDef isTheorem at h in match h with | ())
+  else if isTheorem: word = "theorem" then (rewrite isTheorem at h then match Option.someInjective h with | ())
+  else (rewrite keywordOther word isDef isTheorem at h then match h with | ())
 -- end literal-arms
 
 -- begin catch-all-facts
 theorem otherWord ∀ (word: Text): keyword word = None ∨ word = "def" ∨ word = "theorem" := match word with
-  | "def" => Inr (Inl rfl)
-  | "theorem" => Inr (Inr rfl)
+  | "def" => Inr (Inl byComputing)
+  | "theorem" => Inr (Inr byComputing)
   | other => Inl (keyword.eq3 other byDecision byDecision)
 -- end catch-all-facts

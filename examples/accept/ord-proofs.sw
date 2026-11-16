@@ -17,11 +17,11 @@ theorem numbersSorted ∀ (xs: List Nat): List.Sorted Nat.leq (List.sort xs) := 
 
 -- Nothing comes before itself.
 theorem lessIrreflexive ∀ [auto ord: Ord a] (x: a): Ord.compare x x ≠ Less
-  | h => Ordering.equalNotLess (Eq.trans (Eq.sym (Ord.compareSelf x)) h)
+  | h => Ordering.equalNotLess (Eq.trans (Ord.compareSelf x).flipped h)
 
 -- `Less` is asymmetric: from `flip`.
 theorem lessAsymmetric ∀ [auto ord: Ord a] (x y: a) (h: Ord.compare x y = Less): Ord.compare y x ≠ Less
-  | e => Ordering.greaterNotLess (Eq.trans (Eq.sym (Eq.cong Ordering.flip h)) (Eq.trans (Eq.sym (ord.flip x y)) e))
+  | e => Ordering.greaterNotLess (Eq.trans (Eq.cong Ordering.flip h).flipped (Eq.trans (ord.flip x y).flipped e))
 
 -- The relation agrees with the comparison, by the law that says so.
 theorem notBack ∀ [auto ord: Ord a] (x y: a) (h: Ord.lessThan x y): ¬(Ord.lessThan y x)
@@ -30,9 +30,9 @@ theorem notBack ∀ [auto ord: Ord a] (x y: a) (h: Ord.lessThan x y): ¬(Ord.les
 -- `Ord.max` is one of its arguments.
 theorem maxIsOne ∀ [auto ord: Ord a] (x y: a): (Ord.max x y = y) ∨ (Ord.max x y = x) :=
   match Ord.compare [ord := ord] x y with
-    | Less => Inl rfl
-    | Equal => Inr rfl
-    | Greater => Inr rfl
+    | Less => Inl byComputing
+    | Equal => Inr byComputing
+    | Greater => Inr byComputing
 
 -- Text's laws, which the library proves through `List.compareLex`.
 theorem textOrderTransitive ∀ (s t u: Text)
@@ -41,7 +41,7 @@ theorem textOrderTransitive ∀ (s t u: Text)
     Ord.compare s u = Less :=
   Text.compareTrans s t u h1 h2
 
-theorem appleFirst: Text.compare "apple" "banana" = Less := rfl
+theorem appleFirst: Text.compare "apple" "banana" = Less := byComputing
 
 -- `<=` is transitive, and `<` is `<=`, for any ordered type (`Ord.leTrans`,
 -- `Ord.lessLe`, `Ord.lessTrans`): here a chain of times, `Float`'s total order.

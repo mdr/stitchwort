@@ -7,5 +7,5 @@ def fib: Nat → Nat
 
 def id2 (n: Nat): Nat := n
 
-theorem direct: fib (id2 24) = fib (id2 24) := rfl
-theorem viaArgs: fib (id2 24) = fib (id2 (23 + 1)) := rfl
+theorem direct: fib (id2 24) = fib (id2 24) := byComputing
+theorem viaArgs: fib (id2 24) = fib (id2 (23 + 1)) := byComputing

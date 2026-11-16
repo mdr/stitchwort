@@ -26,14 +26,14 @@ theorem part2Correct ∀ (input: Text) (route: Route)
 theorem part1Exactly ∀ (route: Route) (answer: Nat):
     route.shipDistance = answer ↔ Spec.Part1 route.instructions answer :=
   {
-    forward = same => rewrite <- same in part1Rules route,
-    backward = spec => Eq.trans (part1Rules route) (Eq.sym spec)
+    forward = same => rewrite <- same then part1Rules route,
+    backward = spec => Eq.trans (part1Rules route) spec.flipped
   }
 
 --| Part 2 likewise.
 theorem part2Exactly ∀ (route: Route) (answer: Nat):
     route.waypointDistance = answer ↔ Spec.Part2 route.instructions answer :=
   {
-    forward = same => rewrite <- same in part2Rules route,
-    backward = spec => Eq.trans (part2Rules route) (Eq.sym spec)
+    forward = same => rewrite <- same then part2Rules route,
+    backward = spec => Eq.trans (part2Rules route) spec.flipped
   }

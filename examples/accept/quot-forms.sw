@@ -9,14 +9,14 @@ def Q: Type := Quot Bool AllTrue
 theorem same: (Quot.mk False: Q) = Quot.mk True := Quot.sound Trivial
 
 -- A function that respects the relation lifts (soundness/quot-lift-projection.sw).
-def constFalse (q: Q): Bool := Quot.lift (b => False) (x y related => rfl) q
+def constFalse (q: Q): Bool := Quot.lift (b => False) (x y related => byComputing) q
 
 -- `Quot.ind` proves propositions about every quotient (soundness/quot-ind-into-data.sw).
 theorem allSame ∀ (q: Q): q = Quot.mk False := Quot.ind [p := q => q = Quot.mk False] (x => Quot.sound Trivial) q
 
 -- A stuck `Quot.ind` is equal to itself (soundness/quot-ind-computes.sw).
 theorem indItself ∀ (q: Q): Quot.ind [p := q => Unit] (b => Trivial) q = Quot.ind [p := q => Unit] (b => Trivial) q :=
-  rfl
+  byComputing
 
 -- The identity respects equality, so it lifts on the quotient by equality
 -- (soundness/quot-relation-mismatch.sw).

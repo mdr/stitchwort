@@ -17,9 +17,9 @@ def countDown [a: Type] (step: a → a): Nat → a → a
   | Zero, x => x
   | Succ n, x => twice (countDown step n) (step x)
 
-theorem sumWithThree: sumWith 3 0 = 6 := rfl
+theorem sumWithThree: sumWith 3 0 = 6 := byComputing
 
-theorem countDownTwo: countDown Succ 2 0 = 3 := rfl
+theorem countDownTwo: countDown Succ 2 0 = 3 := byComputing
 
 -- A local definition in a cycle with its owner, used unapplied: it's given
 -- what it captures, here the smaller `rest`.

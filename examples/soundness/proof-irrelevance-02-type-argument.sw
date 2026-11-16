@@ -6,4 +6,4 @@
 -- Partner: `sameMod` in accept/proof-irrelevance.sw.
 import Std (Bool, Nat)
 
-theorem t2 (f: Type → Nat → Nat) (n: Nat): f Nat n = f Bool n := rfl
+theorem t2 (f: Type → Nat → Nat) (n: Nat): f Nat n = f Bool n := byComputing

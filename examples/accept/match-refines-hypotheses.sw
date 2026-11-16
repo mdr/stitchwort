@@ -11,7 +11,7 @@ def pick (n: Nat): Option Nat := if isBig n then None else Some n
 
 -- `found` is `Some n = Some m` in the `False` branch: no rewrite needed.
 theorem pickSmall ∀ (n m: Nat) (found: pick n = Some m): n = m := match c: isBig n with
-  | True => Void.exfalso (Option.noneNotSome m found)
+  | True => (Option.noneNotSome m found).impossible
   | False => Option.someInjective found
 
 def needsSmall (n: Nat) (small: isBig n = False): Nat := n
@@ -21,4 +21,4 @@ def halveSmall (n: Nat): Nat :=
   let use := (small: isBig n = False) => needsSmall n small
   match c: isBig n with
     | True => 0
-    | False => use rfl
+    | False => use byComputing

@@ -13,9 +13,9 @@ import Std (Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Option, Ord, Void)
 theorem sumByPositive ∀ (f: a → Nat) (xs: List a) (positive: 0 < xs.sumBy f): ∃ (x: a) => x ∈ xs ∧ 0 < f x :=
   match xs with
     | [x, ..rest] =>
-      if h: 0 < f x then Witness x (Both (Inl rfl) h)
+      if h: 0 < f x then Witness x (Both (Inl byComputing) h)
       else
-        match sumByPositive f rest (omega [List.sumByCons rest x f]) with
+        match sumByPositive f rest (arithmetic [List.sumByCons rest x f]) with
           | Witness y (Both member gives) => Witness y (Both (Inr member) gives)
 
 --| An element after the first ends a pair.
@@ -23,8 +23,8 @@ theorem memAfterFirst ∀ (c a: Char) (rest: List Char)
     (h: c ∈ rest):
     ∃ (pair: ElementPair) => pair ∈ pairsOf [a, ..rest] ∧ pair.second = c :=
   match rest, h with
-    | [], member => Void.exfalso member
-    | [b, ..more], Inl same => Witness ({ first = a, second = b }) (Both (Inl rfl) same)
+    | [], member => member.impossible
+    | [b, ..more], Inl same => Witness ({ first = a, second = b }) (Both (Inl byComputing) same)
     | [b, ..more], Inr member =>
       match memAfterFirst c b more member with
         | Witness pair (Both inPairs ends) => Witness pair (Both (Inr inPairs) ends)
@@ -40,11 +40,11 @@ theorem pairCounted ∀ (counts: PairCounts) (polymer: List Char)
   match sumByPositive
     ((entry: (ElementPair, Nat)) => entry.snd * Bool.toNat (entry.fst == pair))
     (Map.toList counts)
-    (omega [counted, asSum, weighted]) with
+    (arithmetic [counted, asSum, weighted]) with
     | Witness entry (Both inCounts gives) =>
       match t: entry.fst == pair with
-        | True => rewrite <- t.read in List.memMap (Map.toList counts) entry inCounts Pair.fst
-        | False => Void.exfalso omega
+        | True => rewrite <- t.read then List.memMap (Map.toList counts) entry inCounts Pair.fst
+        | False => Void.impossible arithmetic
 
 -- The two lists of element counts.
 
@@ -68,10 +68,10 @@ theorem quantitiesInto ∀ (first: Char) (tail: List Char) (counts: PairCounts)
   match List.memMapElim (elementCount first counts) v candidates inMapped with
     | Witness c (Both _ same) =>
       let equal := elementCountQuantity first tail counts represents c
-      let counted: 0 < List.count [first, ..tail] (== c) := omega [equal, same, positive]
+      let counted: 0 < List.count [first, ..tail] (== c) := arithmetic [equal, same, positive]
       let inPolymer := List.memOfCountPositive c [first, ..tail] counted
       let inDistinct := (List.memUnique c [first, ..tail]).backward inPolymer
-      rewrite <- same, equal in List.memMap (List.unique [first, ..tail]) c inDistinct (quantity [first, ..tail])
+      rewrite <- same, equal then List.memMap (List.unique [first, ..tail]) c inDistinct (quantity [first, ..tail])
 
 theorem quantitiesBack ∀ (first: Char) (tail: List Char) (counts: PairCounts)
     (represents: Represents counts [first, ..tail]) (v: Nat)
@@ -88,7 +88,7 @@ theorem quantitiesBack ∀ (first: Char) (tail: List Char) (counts: PairCounts)
           match memAfterFirst c first tail inTail with
             | Witness pair (Both inPairs ends) =>
               Inr
-                (rewrite <- ends in
+                (rewrite <- ends then
                   List.memMap
                     (Map.keys counts)
                     pair
@@ -100,7 +100,7 @@ theorem quantitiesBack ∀ (first: Char) (tail: List Char) (counts: PairCounts)
       List.memFilterIntro
         (List.map (List.unique [first, ..keyEnds]) (elementCount first counts))
         (quantity => 0 < quantity)
-        (rewrite <- same, <- equal in
+        (rewrite <- same, <- equal then
           List.memMap (List.unique [first, ..keyEnds]) c inCandidates (elementCount first counts))
         (cases)
 
@@ -112,8 +112,8 @@ theorem spreadCorrect ∀ (first: Char) (rest tail: List Char) (counts: PairCoun
   let into := quantitiesInto first tail counts represents
   let back := quantitiesBack first tail counts represents
   rewrite List.maximumSameMembers (programQuantities first counts) (puzzleQuantities [first, ..tail]) into back,
-      List.minimumSameMembers (programQuantities first counts) (puzzleQuantities [first, ..tail]) into back in
-    rfl
+      List.minimumSameMembers (programQuantities first counts) (puzzleQuantities [first, ..tail]) into back then
+    byComputing
 
 --| The answer is the puzzle's after any number of steps, if no two rules
 --| are for the same pair.
@@ -121,7 +121,7 @@ theorem spreadAfterCorrect ∀ (steps: Nat) (manual: Manual)
     (one: OneRulePerPair manual.rules):
     spreadAfter steps manual = answer steps manual :=
   match manual with
-    | { template = [], rules } => rewrite stepsEmpty rules steps in rfl
+    | { template = [], rules } => rewrite stepsEmpty rules steps then byComputing
     | { template = [first, ..rest], rules } =>
       let start := { template = [first, ..rest], rules }
       let counts := Nat.iterate steps (stepCounts (ruleTable rules)) (countPairs [first, ..rest])
@@ -132,11 +132,11 @@ theorem spreadAfterCorrect ∀ (steps: Nat) (manual: Manual)
           (countPairsRepresents [first, ..rest])
       match stepsKeepFirst rules steps first rest with
         | Witness tail e =>
-          let ended: Represents counts [first, ..tail] := rewrite e at represents in represents
+          let ended: Represents counts [first, ..tail] := rewrite e at represents then represents
           calc spreadAfter steps start
             _ = spread [first, ..rest] counts
             _ = spreadOf [first, ..tail] := spreadCorrect first rest tail counts ended
-            _ = answer steps start := Eq.sym (Eq.cong spreadOf e)
+            _ = answer steps start := (Eq.cong spreadOf e).flipped
 
 --| Part 1 is the puzzle's answer after 10 steps, part 2 after 40, for every
 --| manual whose rules give each pair at most one insertion.

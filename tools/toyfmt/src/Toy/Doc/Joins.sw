@@ -314,9 +314,9 @@ theorem optionJoins ∀ (follows: Text → Text → Prop) (chosen: Doc) (options
     (joins: OptionsJoin follows options edge next):
     Joins follows chosen edge next :=
   match options, isOption, joins with
-    | [], picked, joins => rewrite picked in joins
-    | [last], picked, joins => rewrite picked in joins
-    | [option, second, ..others], Inl picked, Both first _ => rewrite picked in first
+    | [], picked, joins => rewrite picked then joins
+    | [last], picked, joins => rewrite picked then joins
+    | [option, second, ..others], Inl picked, Both first _ => rewrite picked then first
     | [option, second, ..others], Inr later, Both _ rest =>
       optionJoins follows chosen [second, ..others] edge next later rest
 
@@ -387,47 +387,47 @@ theorem freshAccepts ∀ (follows: Text → Text → Prop) (out: List Text) (lat
     (fresh: Fresh out):
     Accepts follows out later :=
   match out, fresh with
-    | [], _ => rfl
-    | [last, ..earlier], isBreak => Inl (rewrite isBreak in rfl)
+    | [], _ => byComputing
+    | [last, ..earlier], isBreak => Inl (rewrite isBreak then byComputing)
 
 theorem breakAccepts ∀ (follows: Text → Text → Prop) (out: List Text): Accepts follows out "\n" := match out with
-  | [] => rfl
-  | [last, ..earlier] => Inr (Inl rfl)
+  | [] => byComputing
+  | [last, ..earlier] => Inr (Inl byComputing)
 
 theorem freshTouch ∀ (out: List Text) (fresh: Fresh out): outTouch out = None := match out, fresh with
-  | [], _ => rfl
-  | [last, ..earlier], isBreak => rewrite isBreak in rfl
+  | [], _ => byComputing
+  | [last, ..earlier], isBreak => rewrite isBreak then byComputing
 
 theorem freshWhen ∀ (flag: Bool) (out: List Text) (start: flag = True) (either: flag = False ∨ Fresh out): Fresh out :=
   match either with
     | Inr fresh => fresh
-    | Inl other => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym other) start))
+    | Inl other => Void.impossible (Bool.falseNotTrue (Eq.trans other.flipped start))
 
 theorem touchAccepts ∀ (follows: Text → Text → Prop) (out: List Text) (text: Text)
     (ok: PutOk follows (outTouch out) text):
     Accepts follows out text :=
   match out, ok with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [last, ..earlier], ok =>
       match layout: isLayout last, ok with
-        | True, _ => Inl rfl
+        | True, _ => Inl byComputing
         | False, ok => Inr (Inr ok)
 
 theorem touchReady ∀ (follows: Text → Text → Prop) (out: List Text)
     (ok: PutOk follows (outTouch out) " "):
     HeadReady follows out :=
   match out, ok with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [last, ..earlier], ok =>
       match layout: isLayout last, ok with
-        | True, _ => Inl rfl
+        | True, _ => Inl byComputing
         | False, ok => Inr ok
 
 theorem headAccepts ∀ (follows: Text → Text → Prop) (out: List Text)
     (ready: HeadReady follows out):
     Accepts follows out " " :=
   match out, ready with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [last, ..earlier], Inl layout => Inl layout
     | [last, ..earlier], Inr ok => Inr (Inr ok)
 
@@ -435,15 +435,15 @@ theorem trimPairs ∀ (follows: Text → Text → Prop) (out: List Text)
     (pairs: Pairs follows out):
     Pairs follows (trimSpaces out) :=
   match out, pairs with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [last, ..earlier], Both filled (Both first rest) =>
       match spaces: last.all (char => char == ' ') with
         | True => trimPairs follows earlier rest
         | False => (filled, first, rest)
 
 theorem trimFresh ∀ (out: List Text) (fresh: Fresh out): Fresh (trimSpaces out) := match out, fresh with
-  | [], _ => rfl
-  | [last, ..earlier], isBreak => rewrite isBreak in rfl
+  | [], _ => byComputing
+  | [last, ..earlier], isBreak => rewrite isBreak then byComputing
 
 theorem trimFreshOr ∀ (flag: Bool) (out: List Text)
     (either: flag = False ∨ Fresh out):
@@ -458,7 +458,7 @@ theorem readyAccepts ∀ (follows: Text → Text → Prop) (out: List Text)
     (ready: HeadReady follows (trimSpaces out)):
     Accepts follows out " " :=
   match out, ready with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [last, ..earlier], ready =>
       match spaces: last.all (char => char == ' '), ready with
         | True, _ => Inl (spacesIsLayout last spaces)
@@ -466,7 +466,7 @@ theorem readyAccepts ∀ (follows: Text → Text → Prop) (out: List Text)
         | False, Inr ok => Inr (Inr ok)
 
 theorem gapSpaces ∀ (text: Text) (spaces: text.all (char => char == ' ') = True): gapOr text = " " :=
-  rewrite spaces in rfl
+  rewrite spaces then byComputing
 
 --| What stands before spaces may be followed by one space.
 theorem gapBefore ∀ (follows: Text → Text → Prop) (earlier: List Text) (last: Text)
@@ -474,12 +474,12 @@ theorem gapBefore ∀ (follows: Text → Text → Prop) (earlier: List Text) (la
     (accepts: Accepts follows earlier last):
     HeadReady follows earlier :=
   match earlier, accepts with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [before, ..more], Inl layout => Inl layout
     | [before, ..more], Inr (Inl isBreak) =>
-      let breakSpaces: "\n".all (char => char == ' ') = True := rewrite <- isBreak in spaces
-      Void.exfalso (Bool.falseNotTrue breakSpaces)
-    | [before, ..more], Inr (Inr ok) => Inr (rewrite <- gapSpaces last spaces in ok)
+      let breakSpaces: "\n".all (char => char == ' ') = True := rewrite <- isBreak then spaces
+      Void.impossible (Bool.falseNotTrue breakSpaces)
+    | [before, ..more], Inr (Inr ok) => Inr (rewrite <- gapSpaces last spaces then ok)
 
 --| If a space may follow the output, it may once the spaces at its end
 --| are dropped.
@@ -488,7 +488,7 @@ theorem trimmedReady ∀ (follows: Text → Text → Prop) (out: List Text)
     (ready: HeadReady follows out):
     HeadReady follows (trimSpaces out) :=
   match out, pairs, ready with
-    | [], _, _ => rfl
+    | [], _, _ => byComputing
     | [last, ..earlier], Both _ (Both first rest), ready =>
       match spaces: last.all (char => char == ' ') with
         | True => trimmedReady follows earlier rest (gapBefore follows earlier last spaces first)
@@ -496,8 +496,8 @@ theorem trimmedReady ∀ (follows: Text → Text → Prop) (out: List Text)
 
 theorem payOwed ∀ (printer: Printer): printer.payIndent.owed = None := match owed: printer.owed with
   | None => owed
-  | Some Zero => rfl
-  | Some (Succ less) => rfl
+  | Some Zero => byComputing
+  | Some (Succ less) => byComputing
 
 --| Indentation is paid on an empty line, so text may follow it.
 theorem payPairs ∀ (follows: Text → Text → Prop) (printer: Printer) (text: Text)
@@ -513,7 +513,7 @@ theorem payPairs ∀ (follows: Text → Text → Prop) (printer: Printer) (text:
     | Some (Succ less), Inr start => (
       filled,
       (Inl (spacesIsLayout _ (indentSpaces (Succ less)))),
-      rfl,
+      byComputing,
       (freshAccepts follows printer.out _ (freshWhen _ printer.out start freshOk)),
       pairs
     )
@@ -532,8 +532,13 @@ theorem putSound ∀ (follows: Text → Text → Prop) (printer: Printer) (text:
         printer.payIndent.owed
         False
         printer.payIndent.suffixes :=
-        rewrite payOwed printer, suffixes, clear in
-          ((payPairs follows printer text pairs owedOk freshOk filled accepts), (Inl rfl), (Inl rfl), rfl)
+        rewrite payOwed printer, suffixes, clear then
+          (
+            (payPairs follows printer text pairs owedOk freshOk filled accepts),
+            (Inl byComputing),
+            (Inl byComputing),
+            byComputing
+          )
       parts
 
 theorem putEdge ∀ (printer: Printer) (text: Text) (width: Nat)
@@ -542,7 +547,7 @@ theorem putEdge ∀ (printer: Printer) (text: Text) (width: Nat)
   match payIndentWritten printer with
     | (_, suffixes) =>
       let edge: edgeOf printer.payIndent.suffixes [text, ..printer.payIndent.out] = Plain (textTouch text) :=
-        rewrite suffixes, clear in rfl
+        rewrite suffixes, clear then byComputing
       edge
 
 theorem flushOnePairs ∀ (follows: Text → Text → Prop) (printer: Printer) (comment: Text)
@@ -555,10 +560,10 @@ theorem flushOnePairs ∀ (follows: Text → Text → Prop) (printer: Printer) (
   match start: printer.atLineStart, freshOk with
     | True, freshOk =>
       payPairs follows printer comment pairs owedOk
-        (Inr (freshWhen True printer.out rfl freshOk))
+        (Inr (freshWhen True printer.out byComputing freshOk))
         filled
-        (freshAccepts follows printer.out comment (freshWhen True printer.out rfl freshOk))
-    | False, _ => (filled, (Inl rfl), rfl, gap, pairs)
+        (freshAccepts follows printer.out comment (freshWhen True printer.out byComputing freshOk))
+    | False, _ => (filled, (Inl byComputing), byComputing, gap, pairs)
 
 --| The comment waiting at a line break is written where it may stand.
 theorem flushedPairs ∀ (follows: Text → Text → Prop) (printer: Printer)
@@ -577,7 +582,9 @@ theorem flushedPairs ∀ (follows: Text → Text → Prop) (printer: Printer)
             (trimFreshOr printer.atLineStart printer.out freshOk)
             filled
             (headAccepts follows (trimSpaces printer.out) ready)
-        | [first, second, ..more], never => Void.exfalso (Bool.falseNotTrue never)
+        | [first, second, ..more], never =>
+          match never with
+            | ()
 
 --| The comment waiting at the end of the print is written where it may
 --| stand.
@@ -597,7 +604,9 @@ theorem finalPairs ∀ (follows: Text → Text → Prop) (printer: Printer)
             freshOk
             filled
             (readyAccepts follows printer.out ready)
-        | [first, second, ..more], never => Void.exfalso (Bool.falseNotTrue never)
+        | [first, second, ..more], never =>
+          match never with
+            | ()
 
 theorem newlineSound ∀ (follows: Text → Text → Prop) (printer: Printer) (indent: Nat)
     (sound: Sound follows printer):
@@ -609,8 +618,13 @@ theorem newlineSound ∀ (follows: Text → Text → Prop) (printer: Printer) (i
         (Some indent)
         True
         ({ printer | out = trimSpaces printer.out }).flushSuffixes.suffixes :=
-        rewrite none in
-          (((rfl, (breakAccepts follows _), (flushedPairs follows printer sound))), (Inr rfl), (Inr rfl), rfl)
+        rewrite none then
+          (
+            ((byComputing, (breakAccepts follows _), (flushedPairs follows printer sound))),
+            (Inr byComputing),
+            (Inr byComputing),
+            byComputing
+          )
       parts
 
 theorem newlineClear ∀ (printer: Printer) (indent: Nat): (printer.newline indent).suffixes = [] :=
@@ -622,14 +636,14 @@ theorem newlineEdge ∀ (printer: Printer) (indent: Nat): (printer.newline inden
     ..({ printer | out = trimSpaces printer.out }).flushSuffixes.out
   ]
     = Plain None :=
-    rewrite newlineClear printer indent in rfl
+    rewrite newlineClear printer indent then byComputing
   edge
 
 --| After a line break the printer is sound, at a line start.
 theorem newlineHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
     (sound: Sound follows printer) (after: next (Plain None)):
     Holds follows next (printer.newline indent) :=
-  ((newlineSound follows printer indent sound), (rewrite newlineEdge printer indent in after))
+  ((newlineSound follows printer indent sound), (rewrite newlineEdge printer indent then after))
 
 --| A chunk written where the document allowed it.
 theorem writeHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
@@ -646,7 +660,7 @@ theorem writeHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (
             (emptyNil printer.suffixes waiting)
             empty
             (touchAccepts follows printer.out text ok)),
-          (rewrite putEdge printer text width (emptyNil printer.suffixes waiting) in after)
+          (rewrite putEdge printer text width (emptyNil printer.suffixes waiting) then after)
         )
         | False, joins =>
           match spaces: text.all (char => char == ' '), joins with
@@ -659,12 +673,12 @@ theorem writeHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (
                 (newlineSound follows printer (printer.continuation indent) sound)
                 (newlineClear printer (printer.continuation indent))
                 empty
-                (Inl rfl)),
+                (Inl byComputing)),
               (rewrite putEdge
                     (printer.newline (printer.continuation indent))
                     text
                     width
-                    (newlineClear printer (printer.continuation indent)) in
+                    (newlineClear printer (printer.continuation indent)) then
                 joins)
             )
 
@@ -685,11 +699,13 @@ theorem sepWrite ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (pr
     | True, _, Both ok after => (
       (putSound follows printer " " 1 sound
         (emptyNil printer.suffixes waiting)
-        rfl
+        byComputing
         (touchAccepts follows printer.out " " ok)),
-      (rewrite putEdge printer " " 1 (emptyNil printer.suffixes waiting) in after)
+      (rewrite putEdge printer " " 1 (emptyNil printer.suffixes waiting) then after)
     )
-    | False, never, _ => Void.exfalso (Bool.falseNotTrue never)
+    | False, never, _ =>
+      match never with
+        | ()
 
 theorem softBreak ∀ (next: Edge → Prop) (edge: Edge) (joins: SoftJoins edge next): next (Plain None) :=
   match edge, joins with
@@ -702,7 +718,9 @@ theorem softStay ∀ (next: Edge → Prop) (printer: Printer)
     next printer.edge :=
   match waiting: printer.suffixes.isEmpty, clear, joins with
     | True, _, Both same _ => same
-    | False, never, _ => Void.exfalso (Bool.falseNotTrue never)
+    | False, never, _ =>
+      match never with
+        | ()
 
 theorem startBreak ∀ (next: Edge → Prop) (edge: Edge) (joins: StartJoins edge next): next (Plain None) :=
   match edge, joins with
@@ -720,7 +738,7 @@ theorem startStay ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (p
     | (_, _, freshOk, _) =>
       let touch := freshTouch printer.out (freshWhen printer.atLineStart printer.out start freshOk)
       match waiting: printer.suffixes.isEmpty, joins with
-        | True, after => rewrite touch in after
+        | True, after => rewrite touch then after
         | False, Both same _ => same
 
 theorem lineStartHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
@@ -742,14 +760,14 @@ theorem breakWaits ∀ (follows: Text → Text → Prop) (suffixes out: List Tex
     (waits: WaitsParts follows suffixes out):
     WaitsParts follows suffixes ["\n", ..out] :=
   match suffixes, waits with
-    | [], _ => rfl
-    | [only], Both filled _ => (filled, (Inl rfl))
+    | [], _ => byComputing
+    | [only], Both filled _ => (filled, (Inl byComputing))
     | [first, second, ..more], never => never
 
 theorem breakEdge ∀ (suffixes out: List Text) (fresh: Fresh out): edgeOf suffixes ["\n", ..out] = edgeOf suffixes out :=
   match empty: suffixes.isEmpty with
-    | True => rewrite freshTouch out fresh in rfl
-    | False => rfl
+    | True => rewrite freshTouch out fresh then byComputing
+    | False => byComputing
 
 --| A kept blank line: the edge is as it was, a line start.
 theorem blankedHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer)
@@ -759,13 +777,13 @@ theorem blankedHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop)
   match sound with
     | (pairs, owedOk, freshOk, waits) =>
       let edge: next (edgeOf printer.suffixes ["\n", ..printer.out]) :=
-        rewrite breakEdge printer.suffixes printer.out (freshWhen printer.atLineStart printer.out start freshOk) in
+        rewrite breakEdge printer.suffixes printer.out (freshWhen printer.atLineStart printer.out start freshOk) then
           after
       (
         ((
-          ((rfl, (breakAccepts follows printer.out), pairs)),
+          ((byComputing, (breakAccepts follows printer.out), pairs)),
           owedOk,
-          (Inr rfl),
+          (Inr byComputing),
           (breakWaits follows printer.suffixes printer.out waits)
         )),
         edge
@@ -787,11 +805,11 @@ theorem suffixHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) 
   match sound with
     | (pairs, owedOk, freshOk, _) =>
       match waiting: printer.suffixes.isEmpty, joins with
-        | False, never => Void.exfalso (Bool.falseNotTrue never)
+        | False, never => (Bool.falseNotTrue never).impossible
         | True, Both ok after =>
           let none := emptyNil printer.suffixes waiting
           let parts: SoundParts follows printer.out printer.owed printer.atLineStart (printer.suffixes ++ [comment]) :=
-            rewrite none in
+            rewrite none then
               (
                 pairs,
                 owedOk,
@@ -799,7 +817,7 @@ theorem suffixHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) 
                 filled,
                 (trimmedReady follows printer.out pairs (touchReady follows printer.out ok))
               )
-          let edge: next (edgeOf (printer.suffixes ++ [comment]) printer.out) := rewrite none in after
+          let edge: next (edgeOf (printer.suffixes ++ [comment]) printer.out) := rewrite none then after
           (parts, edge)
 
 theorem eitherStep ∀ (follows: Text → Text → Prop) (flat clear: Bool) (yes no: Printer) (rest: List Cmd)
@@ -809,7 +827,7 @@ theorem eitherStep ∀ (follows: Text → Text → Prop) (flat clear: Bool) (yes
       (edge => StackJoins follows (if flat && clear then (yes, rest) else (no, rest)).snd edge)
       (if flat && clear then (yes, rest) else (no, rest)).fst :=
   match flat, clear, whenYes with
-    | True, True, whenYes => whenYes rfl
+    | True, True, whenYes => whenYes byComputing
     | True, False, _ => whenNo
     | False, True, _ => whenNo
     | False, False, _ => whenNo
@@ -824,7 +842,7 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
     Holds follows (edge => StackJoins follows result.snd edge) result.fst :=
   match cmd, steps, joins with
     | FillSep indent item, Inl (Both clear flat), joins =>
-      rewrite flat in
+      rewrite flat then
         sepWrite follows
           (edge => Joins follows item edge (after => StackJoins follows rest after))
           printer
@@ -833,7 +851,7 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
           clear
           joins
     | FillSep indent item, Inr broken, joins =>
-      rewrite broken in
+      rewrite broken then
         newlineHolds follows
           (edge => Joins follows item edge (after => StackJoins follows rest after))
           printer
@@ -845,13 +863,13 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
             joins)
     | Print indent mode doc, steps, joins =>
       match doc, steps, joins with
-        | Empty, steps, joins => rewrite steps in (sound, joins)
-        | BreakParent, steps, joins => rewrite steps in (sound, joins)
+        | Empty, steps, joins => rewrite steps then (sound, joins)
+        | BreakParent, steps, joins => rewrite steps then (sound, joins)
         | Chunk text width, steps, joins =>
-          rewrite steps in
+          rewrite steps then
             writeHolds follows (edge => StackJoins follows rest edge) printer indent text width sound joins
         | Line, steps, joins =>
-          rewrite steps in
+          rewrite steps then
             eitherStep follows mode.isFlat printer.suffixes.isEmpty
               (printer.write indent " " 1)
               (printer.newline indent)
@@ -864,7 +882,7 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
                 sound
                 (sepBreak follows (edge => StackJoins follows rest edge) printer.edge joins))
         | SoftLine, steps, joins =>
-          rewrite steps in
+          rewrite steps then
             eitherStep follows mode.isFlat printer.suffixes.isEmpty printer
               (printer.newline indent)
               rest
@@ -876,16 +894,16 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
                 sound
                 (softBreak (edge => StackJoins follows rest edge) printer.edge joins))
         | HardLine, steps, joins =>
-          rewrite steps in newlineHolds follows (edge => StackJoins follows rest edge) printer indent sound joins
+          rewrite steps then newlineHolds follows (edge => StackJoins follows rest edge) printer indent sound joins
         | CommentEnd, steps, joins =>
-          rewrite steps in
+          rewrite steps then
             newlineHolds follows (edge => StackJoins follows rest edge) printer printer.lineIndent sound joins
         | LineStart, steps, joins =>
-          rewrite steps in lineStartHolds follows (edge => StackJoins follows rest edge) printer indent sound joins
+          rewrite steps then lineStartHolds follows (edge => StackJoins follows rest edge) printer indent sound joins
         | LineStartHere, steps, joins =>
           match start: printer.atLineStart with
             | True =>
-              rewrite steps in
+              rewrite steps then
                 hereHolds follows
                   (edge => StackJoins follows rest edge)
                   printer
@@ -894,7 +912,7 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
                   start
                   (startStay follows (edge => StackJoins follows rest edge) printer sound start joins)
             | False =>
-              rewrite steps in
+              rewrite steps then
                 newlineHolds follows
                   (edge => StackJoins follows rest edge)
                   printer
@@ -902,19 +920,20 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
                   sound
                   (startBreak (edge => StackJoins follows rest edge) printer.edge joins)
         | Blank, steps, joins =>
-          rewrite steps in blankHolds follows (edge => StackJoins follows rest edge) printer sound joins
-        | Nest more inner, steps, joins => rewrite steps in (sound, joins)
-        | OneLineBelow inner, steps, joins => rewrite steps in (sound, joins)
-        | Flatten inner, steps, joins => rewrite steps in (sound, joins)
+          rewrite steps then blankHolds follows (edge => StackJoins follows rest edge) printer sound joins
+        | Nest more inner, steps, joins => rewrite steps then (sound, joins)
+        | OneLineBelow inner, steps, joins => rewrite steps then (sound, joins)
+        | Flatten inner, steps, joins => rewrite steps then (sound, joins)
         | LineSuffix comment, steps, Both filled joins =>
-          rewrite steps in suffixHolds follows (edge => StackJoins follows rest edge) printer comment sound filled joins
-        | Group inner hard, Inl (Both _ flat), joins => rewrite flat in (sound, joins)
-        | Group inner hard, Inr (Both _ broken), joins => rewrite broken in (sound, joins)
+          rewrite steps then
+            suffixHolds follows (edge => StackJoins follows rest edge) printer comment sound filled joins
+        | Group inner hard, Inl (Both _ flat), joins => rewrite flat then (sound, joins)
+        | Group inner hard, Inr (Both _ broken), joins => rewrite broken then (sound, joins)
         | Concat docs, steps, joins =>
-          rewrite steps in (sound, (printsJoin follows indent mode docs rest printer.edge joins))
-        | Fill [], steps, joins => rewrite steps in (sound, joins)
+          rewrite steps then (sound, (printsJoin follows indent mode docs rest printer.edge joins))
+        | Fill [], steps, joins => rewrite steps then (sound, joins)
         | Fill [first, ..others], Inl (Both _ flat), joins =>
-          rewrite flat in
+          rewrite flat then
             (
               sound,
               (printsJoin follows indent Flat
@@ -924,7 +943,7 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
                 (linesJoin follows first others printer.edge (edge => StackJoins follows rest edge) joins))
             )
         | Fill [first, ..others], Inr (Both _ (Witness firstMode broken)), joins =>
-          rewrite broken in
+          rewrite broken then
             (
               sound,
               (joinsWeaker follows first printer.edge
@@ -934,10 +953,10 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
                 joins)
             )
         | Choice options, Inl (Both _ flat), joins =>
-          rewrite flat in
+          rewrite flat then
             (sound, (headOrJoins follows options printer.edge (edge => StackJoins follows rest edge) joins))
         | Choice options, Inr (Both _ (Witness chosen (Both isOption broken))), joins =>
-          rewrite broken in
+          rewrite broken then
             (
               sound,
               (optionJoins follows chosen options printer.edge (edge => StackJoins follows rest edge) isOption joins)
@@ -951,15 +970,15 @@ theorem readingJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (f
     (joins: StackJoins follows stack printer.edge):
     Sound follows final :=
   match fuel, stack, reads, joins with
-    | Zero, [], reads, _ => rewrite reads in sound
-    | Succ more, [], reads, _ => rewrite reads in sound
-    | Zero, [cmd, ..rest], reads, _ => rewrite reads in sound
+    | Zero, [], reads, _ => rewrite reads then sound
+    | Succ more, [], reads, _ => rewrite reads then sound
+    | Zero, [cmd, ..rest], reads, _ => rewrite reads then sound
     | Succ more, [cmd, ..rest], Witness next (Witness later (Both steps laterReads)), joins =>
       match stepJoins follows printer cmd rest (next, later) steps sound joins with
         | Both nextSound nextJoins => readingJoins follows next more later final laterReads nextSound nextJoins
 
 theorem startSound ∀ (follows: Text → Text → Prop) (width: Nat): Sound follows (Printer.start width) :=
-  (rfl, (Inl rfl), (Inr rfl), rfl)
+  (byComputing, (Inl byComputing), (Inr byComputing), byComputing)
 
 --| `printedPieces` are the pieces `print` joins, so that what is said of
 --| `print`'s text can be said of the same pieces as `printLays`.
@@ -979,8 +998,8 @@ theorem printedJoins ∀ (follows: Text → Text → Prop) (doc: Doc) (width: Na
       [Print 0 Break doc]
       ran
       (runIsReading (Printer.start width) fuel fuel [Print 0 Break doc])
-      ((uniform, rfl))
-      (omega)
+      ((uniform, byComputing))
+      (arithmetic)
   let sound: Sound follows ran :=
     readingJoins follows
       (Printer.start width)
@@ -992,7 +1011,7 @@ theorem printedJoins ∀ (follows: Text → Text → Prop) (doc: Doc) (width: Na
       joins
   match flushWritten ran with
     | (written, _) => (
-      rfl,
+      byComputing,
       (Eq.trans written (Eq.trans read (List.appendNil doc.words))),
-      (rewrite List.reverseReverse ran.flushSuffixes.out in finalPairs follows ran sound)
+      (rewrite List.reverseReverse ran.flushSuffixes.out then finalPairs follows ran sound)
     )

@@ -5,14 +5,14 @@
 
 import Std (List, Nat, Ordering, Pair, Text)
 
-theorem sortsNumbers: List.sort [5, 3, 9, 1, 3, 0, 7] = [0, 1, 3, 3, 5, 7, 9] := rfl
+theorem sortsNumbers: List.sort [5, 3, 9, 1, 3, 0, 7] = [0, 1, 3, 3, 5, 7, 9] := byComputing
 
-theorem sortsEmpty: List.sort ([]: List Nat) = [] := rfl
+theorem sortsEmpty: List.sort ([]: List Nat) = [] := byComputing
 
-theorem sortsDot: [2, 1].sort = [1, 2] := rfl
+theorem sortsDot: [2, 1].sort = [1, 2] := byComputing
 
 -- Descending, by flipping the test.
-theorem sortsDescending: List.sortWith [1, 3, 2] (x y => Nat.leq y x) = [3, 2, 1] := rfl
+theorem sortsDescending: List.sortWith [1, 3, 2] (x y => Nat.leq y x) = [3, 2, 1] := byComputing
 
 -- By a key. The sort is stable: pairs with equal keys keep their order.
 def byKey (p q: Pair Nat Text): Ordering := Nat.compare p.fst q.fst

@@ -143,7 +143,7 @@ def lowerLetter (l: Letter): Letter := match l with
 --
 -- The problem is the edge case of lowering `F`:
 
-theorem lowerLetterFIsF: lowerLetter F = F := rfl
+theorem lowerLetterFIsF: lowerLetter F = F := byComputing
 
 -- With that insight, a better statement is provable. Its hypothesis says
 -- that `F` is strictly smaller than `l`, which rules out the problem case:
@@ -230,7 +230,7 @@ theorem applyLatePolicyUnfold ∀ (lateDays: Nat) (g: Grade):
          else if lateDays < 17 then lowerGrade g
          else if lateDays < 21 then lowerGrade (lowerGrade g)
          else lowerGrade (lowerGrade (lowerGrade g))) :=
-  rfl
+  byComputing
 
 -- In Stitchwort this lemma is rarely needed: a `match` on a test, such as
 -- `match early: lateDays < 9 with | True => … | False => …`, finds the

@@ -9,7 +9,7 @@ type Item = { done: Bool }
 
 test "a name" := (b => keep !b) False = True
 test "the same term as the brackets" := keep !False = keep (!False)
-theorem sameTerm: keep !False = keep (!False) := rfl
+theorem sameTerm: keep !False = keep (!False) := byComputing
 test "a later argument" := both True !False = True
 test "two negated arguments" := both !False !False = True
 def doneOf (i: Item): Bool := keep !i.done

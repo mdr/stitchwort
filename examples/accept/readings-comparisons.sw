@@ -26,9 +26,9 @@ def afterFailedInt (x y: Int) (h: (y <= x) = False): Int := belowInt x y
 
 def afterMissing (x: Nat) (xs: List Nat) (h: xs.contains x = False): Nat := absent x xs
 
-test "after failed" := afterFailed 2 5 rfl == 3 ∧ afterFailedInt 2 5 rfl == 3
+test "after failed" := afterFailed 2 5 byComputing == 3 ∧ afterFailedInt 2 5 byComputing == 3
 
-test "after missing" := afterMissing 4 [1, 2] rfl == 4
+test "after missing" := afterMissing 4 [1, 2] byComputing == 4
 
 -- A list that doesn't contain `x`.
 theorem notIn ∀ (x: Nat) (xs: List Nat) (h: xs.contains x = False): x ∉ xs := h.read

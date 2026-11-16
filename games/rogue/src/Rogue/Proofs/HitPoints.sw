@@ -9,13 +9,13 @@ import Std (Eq, Nat)
 theorem healedAtMost ∀ (hitPoints: Nat): healed hitPoints ≤ maxHitPoints :=
   match fits: Nat.leq (hitPoints + potionStrength) maxHitPoints with
     | True => fits
-    | False => rfl
+    | False => byComputing
 
 theorem monstersTurnAtMost ∀ (dice: Dice) (state: State)
     (atMost: state.hitPoints ≤ maxHitPoints):
     (monstersTurn dice state).hitPoints ≤ maxHitPoints :=
   match phase: state.phase with
-    | Playing => omega
+    | Playing => arithmetic
     | Won => atMost
     | Died => atMost
     | GaveUp => atMost
@@ -28,7 +28,7 @@ theorem playerMovesAtMost ∀ (dice: Dice) (state: State) (direction: Direction)
     | None =>
       match wall: isWall state.level (state.player.toward direction) with
         | True => atMost
-        | False => rewrite enterHitPoints state (state.player.toward direction) in atMost
+        | False => rewrite enterHitPoints state (state.player.toward direction) then atMost
 
 theorem descendAtMost ∀ (dice: Dice) (state: State)
     (atMost: state.hitPoints ≤ maxHitPoints):

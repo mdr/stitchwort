@@ -57,7 +57,7 @@ theorem part1Correct ∀ (paper: Paper)
     (foldAll (paper.folds.take 1) paper.dots)
     (Both
       (foldAllDistinct (paper.folds.take 1) paper.dots)
-      (Both (foldAllHolds (paper.folds.take 1) paper.dots promise) rfl))
+      (Both (foldAllHolds (paper.folds.take 1) paper.dots promise) byComputing))
 
 --| Part 2: the picture shows the dots after every fold.
 theorem part2Correct ∀ (paper: Paper)

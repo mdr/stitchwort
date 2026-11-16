@@ -1,7 +1,7 @@
 -- A `match` found as written agrees with the search over the computed goal
 -- under a field too: here the scrutinee is written two ways inside
 -- `(choose …).first`, once up to eta (`xs => chainThrough more xs`), and
--- the `match` found as written replaces both, so both arms are `rfl`.
+-- the `match` found as written replaces both, so both arms are `byComputing`.
 -- (docs/proposals/match-call-field.md §2.4.)
 import Std (Bool, Eq, List, Nat, Option)
 
@@ -18,5 +18,5 @@ theorem underField ∀ (more: Nat) (lists: List (List Nat)) (flag: Bool):
     (choose flag (lists.map (xs => chainThrough more xs) |> .maximum) None).first
       = (choose flag (lists.map (chainThrough more) |> .maximum) None).first :=
   match found: lists.map (chainThrough more) |> .maximum with
-    | None => rfl
-    | Some most => rfl
+    | None => byComputing
+    | Some most => byComputing

@@ -7,9 +7,9 @@ expression: output
     │
  33 │ ╭─▶   match found: outer x k 12 with
     ┆ ┆   
- 35 │ ├─▶     | Some y => Witness y (Option.someInjective solved |> Eq.sym)
-    │ │                                                                       
-    │ ╰─────────────────────────────────────────────────────────────────────── while generalising this `match`
+ 35 │ ├─▶     | Some y => Witness y (Option.someInjective solved |> Eq.flipped)
+    │ │                                                                           
+    │ ╰─────────────────────────────────────────────────────────────────────────── while generalising this `match`
     │     
     │     Note 1: this isn't a type error or a failed test: there's no answer within the limits
     │     

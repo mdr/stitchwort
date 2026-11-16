@@ -19,7 +19,7 @@ import Std (Eq)
 
 def foldLength (l: List a): Nat := fold (_ n => S n) l O
 
-theorem testFoldLength1: foldLength (ofNats [4, 7, 0]) = ofNat 3 := rfl
+theorem testFoldLength1: foldLength (ofNats [4, 7, 0]) = ofNat 3 := byComputing
 
 -- Prove that `foldLength` is correct.
 --
@@ -69,7 +69,7 @@ def prodUncurry (f: a → b → c) (p: Prod a b): c := ?
 -- As a (trivial) example of currying's use, one of the earlier examples
 -- can be shortened:
 
-theorem testMap1': map (plus (ofNat 3)) (ofNats [2, 0, 2]) = ofNats [5, 3, 5] := rfl
+theorem testMap1': map (plus (ofNat 3)) (ofNats [2, 0, 2]) = ofNats [5, 3, 5] := byComputing
 
 -- Thought exercise: before asking `:t` in the REPL, `stitchwort doc` (or
 -- hovering in the editor), can you work out the two functions' types?

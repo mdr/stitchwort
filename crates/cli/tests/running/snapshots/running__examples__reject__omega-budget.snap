@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `a + b + c + d + e + f + g + h ≤ 500`
+[E-ARITHMETIC] Error: `arithmetic` can't prove `a + b + c + d + e + f + g + h ≤ 500`
     ╭─[ reject/omega-budget.sw:11:44 ]
     │
- 11 │     a + b + c + d + e + f + g + h ≤ 500 := omega
-    │                                            ──┬──  
-    │                                              ╰──── budget exhausted: the search stopped before finishing
+ 11 │     a + b + c + d + e + f + g + h ≤ 500 := arithmetic
+    │                                            ─────┬────  
+    │                                                 ╰────── budget exhausted: the search stopped before finishing
     │ 
     │ Note 1: facts: `3 * a + 5 * b ≤ 11 + (7 * c + 2 * d)` (h1), `5 * c + 3 * d ≤ 13 + (7 * e + 2 * f)` (h2), `7 * e + 2 * f ≤ 17 + (3 * g + 5 * h)` (h3), `2 * g + 7 * h ≤ 19 + (5 * a + 3 * b)` (h4), `11 * a + 2 * c ≤ 23 + (3 * e + 5 * g)` (h5), `13 * b + 3 * d ≤ 29 + (2 * f + 7 * h)` (h6), `2 * a + 3 * c + 5 * e + 7 * g ≤ 31 + (b + d + f + h)` (h7), `3 * b + 5 * d + 7 * f + 11 * h ≤ 37 + (a + c + e + g)` (h8), `17 * a + 19 * h ≤ 41 + (23 * c + 29 * f)` (h9), `13 * d + 11 * e ≤ 43 + (7 * b + 5 * g)` (h10)
     │ 

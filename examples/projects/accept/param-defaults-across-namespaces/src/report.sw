@@ -7,6 +7,6 @@ def heading: Text := label "Total"
 
 def wide: Nat := padding "ab" (width := 5)
 
-theorem threeColumns: columns 3 = 5 := rfl
+theorem threeColumns: columns 3 = 5 := byComputing
 
 test "defaults across namespaces" := heading == "Total:" && padding "ab" == 2 && wide == 3 && columns 3 (gap := 2) == 7

@@ -36,7 +36,7 @@ theorem allFallGently ∀ (levels: List Nat):
 
 --| The program's check is the puzzle's rules.
 theorem isSafeCorrect ∀ (report: Report): report.isSafe = safe report :=
-  rewrite allRiseGently report.levels, allFallGently report.levels in cases
+  rewrite allRiseGently report.levels, allFallGently report.levels then cases
 
 --| Part 1 counts the safe reports.
 theorem part1Correct ∀ (reports: List Report): solvePart1 reports = safeReports reports :=
@@ -77,9 +77,9 @@ theorem dampenerAloneSuffices ∀ (level: Nat) (rest: List Nat):
     | True =>
       let kept := safeWithoutFirst level rest wasSafe
       cases
-    | False => rfl
+    | False => byComputing
 
 --| The dampener only adds safe reports: part 2's answer is at least part 1's.
 theorem part2AtLeastPart1 ∀ (reports: List Report): solvePart1 reports ≤ solvePart2 reports :=
-  rewrite part1Correct reports, part2Correct reports in
-    List.countLeMem reports safe safeWithDampener (report _ wasSafe => rewrite wasSafe in rfl)
+  rewrite part1Correct reports, part2Correct reports then
+    List.countLeMem reports safe safeWithDampener (report _ wasSafe => rewrite wasSafe then byComputing)

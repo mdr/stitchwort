@@ -50,8 +50,8 @@ theorem filterInOrder ∀ (m: Map Nat Nat):
     (m.filter (key value => value > 2)).toList = m.toList.filter (e => e.snd > 2) :=
   Map.toListFilterList m (key value => value > 2)
 
--- Closed maps: `toList` computes, so `rfl` proves them equal, and `==`
+-- Closed maps: `toList` computes, so `byComputing` proves them equal, and `==`
 -- computes too.
-theorem forwardsBackwards: forwards = backwards := Map.toListInjective forwards backwards rfl
+theorem forwardsBackwards: forwards = backwards := Map.toListInjective forwards backwards byComputing
 
-theorem equalByComputing: (forwards == backwards) = True := rfl
+theorem equalByComputing: (forwards == backwards) = True := byComputing

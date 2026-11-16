@@ -45,9 +45,9 @@ type YDown = | YGrowsDown
 --| scaled but not turned, nor stepped north.
 type Unoriented = | NoOrientation
 
-instance YUp.instFrame: Frame YUp := { up = 1, unit = rfl }
+instance YUp.instFrame: Frame YUp := { up = 1, unit = byComputing }
 
-instance YDown.instFrame: Frame YDown := { up = -1, unit = rfl }
+instance YDown.instFrame: Frame YDown := { up = -1, unit = byComputing }
 
 --| A place in the plane, or a step across it, `x` to the right and `y` in
 --| the frame `f`'s direction (up for `YUp`). Both are `Int`s, so it can lie

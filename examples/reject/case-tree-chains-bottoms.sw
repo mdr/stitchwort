@@ -41,4 +41,4 @@ def c14 (x: Bool): Nat := match x with | True => c13 x | False => c13 x
 def c15 (x: Bool): Nat := match x with | True => c14 x | False => c14 x
 def c16 (x: Bool): Nat := match x with | True => c15 x | False => c15 x
 
-theorem different (x: Bool): a16 x = c16 x := rfl
+theorem different (x: Bool): a16 x = c16 x := byComputing

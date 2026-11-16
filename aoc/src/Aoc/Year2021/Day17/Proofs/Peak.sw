@@ -8,8 +8,8 @@ import Std (Bool, Eq, Exists, Int, Nat, Void)
 
 --| Twice 1 + 2 + … + k is k * (k + 1).
 theorem triangleDouble ∀ (k: Nat): 2 * (triangle k).toInt = k.toInt * (k.toInt + 1) := match k with
-  | 0 => rfl
-  | Succ k => ring [triangleDouble k]
+  | 0 => byComputing
+  | Succ k => algebra [triangleDouble k]
 
 --| Twice the height after `n` steps (`yFlight`) is at most twice the peak.
 theorem twiceBelowPeak ∀ (dy: Int) (n: Nat): n.toInt * (2 * dy + 1 - n.toInt) ≤ 2 * (triangle dy.toNat).toInt :=
@@ -17,20 +17,20 @@ theorem twiceBelowPeak ∀ (dy: Int) (n: Nat): n.toInt * (2 * dy + 1 - n.toInt) 
     | OfNat k =>
       let gap: k.toInt * (k.toInt + 1) - n.toInt * (2 * k.toInt + 1 - n.toInt)
         = (k.toInt - n.toInt) * (k.toInt - n.toInt + 1) :=
-        ring
-      omega [triangleDouble k, Int.mulNonnegSucc (k.toInt - n.toInt)]
+        algebra
+      arithmetic [triangleDouble k, Int.mulNonnegSucc (k.toInt - n.toInt)]
     | NegSucc k =>
-      let flipped: n.toInt * (2 * NegSucc k + 1 - n.toInt) = -(n.toInt * (n.toInt - 2 * NegSucc k - 1)) := ring
-      omega [Int.mulNonneg n.toInt (n.toInt - 2 * NegSucc k - 1) (omega) (omega)]
+      let flipped: n.toInt * (2 * NegSucc k + 1 - n.toInt) = -(n.toInt * (n.toInt - 2 * NegSucc k - 1)) := algebra
+      arithmetic [Int.mulNonneg n.toInt (n.toInt - 2 * NegSucc k - 1) (arithmetic) (arithmetic)]
 
 --| ... and equal to it after `dy` steps (none, when `dy` isn't positive).
 theorem twicePeakAt ∀ (dy: Int): dy.toNat.toInt * (2 * dy + 1 - dy.toNat.toInt) = 2 * (triangle dy.toNat).toInt :=
   match dy with
-    | OfNat k => ring [triangleDouble k]
-    | NegSucc k => rfl
+    | OfNat k => algebra [triangleDouble k]
+    | NegSucc k => byComputing
 
 theorem peakAbove ∀ (velocity: Velocity) (n: Nat): (flight n velocity).position.y ≤ (peak velocity).toInt :=
-  omega [yFlight velocity n, twiceBelowPeak velocity.y n]
+  arithmetic [yFlight velocity n, twiceBelowPeak velocity.y n]
 
 theorem peakReached ∀ (velocity: Velocity): (flight velocity.y.toNat velocity).position.y = (peak velocity).toInt :=
-  omega [yFlight velocity (Int.toNat velocity.y), twicePeakAt velocity.y]
+  arithmetic [yFlight velocity (Int.toNat velocity.y), twicePeakAt velocity.y]

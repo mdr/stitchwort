@@ -5,5 +5,5 @@
 
 type Bad = {
   size: Nat := 8,
-  ok: size = 8 := rfl
+  ok: size = 8 := byComputing
 }

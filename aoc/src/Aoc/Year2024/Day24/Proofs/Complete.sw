@@ -25,9 +25,9 @@ theorem fireOntoAdds ∀ (values: Values) (gate: Gate) (ready: List Gate) (settl
     (member: gate ∈ ready):
     (fireOnto values settled ready).contains gate.output = True :=
   match ready, member with
-    | [], member => Void.exfalso member
+    | [], member => member.impossible
     | [first, ..rest], Inl same =>
-      rewrite <- same in
+      rewrite <- same then
         fireOntoKeeps values first.output rest _
           (Map.containsInsertSame settled first.output ((first.fire values).getOrElse False))
     | [first, ..rest], Inr later => fireOntoAdds values gate rest _ later
@@ -35,20 +35,20 @@ theorem fireOntoAdds ∀ (values: Values) (gate: Gate) (ready: List Gate) (settl
 --| A filter that drops nothing keeps every element.
 theorem filterFull ∀ (keep: a → Bool):
     ∀ (xs: List a) => Nat.leq (Succ (xs.filter keep).length) xs.length = False → ∀ (x: a) => x ∈ xs → keep x = True
-  | [], full, x, member => Void.exfalso member
+  | [], full, x, member => member.impossible
   | [first, ..rest], full, x, member =>
     match kept: keep first with
       | False =>
-        Void.exfalso
+        Void.impossible
           (Bool.trueNotFalse
             (Eq.trans
-              (Eq.sym
-                (omega [List.lengthFilterLe rest keep]: Nat.leq (Succ (rest.filter keep).length) (Succ rest.length)
+              (Eq.flipped
+                (arithmetic [List.lengthFilterLe rest keep]: Nat.leq (Succ (rest.filter keep).length) (Succ rest.length)
                   = True))
               full))
       | True =>
         match member with
-          | Inl same => rewrite <- same in kept
+          | Inl same => rewrite <- same then kept
           | Inr later => filterFull keep rest full x later
 
 --| Settling keeps every wire that had a value.
@@ -58,9 +58,9 @@ theorem settleKeeps ∀ (wire: Wire) (values: Values) (waiting: List Gate)
     decreasing waiting.length
 :=
   match fewer: (waiting.filter (gate => ¬(gate.ready values))).length < waiting.length with
-    | False => rewrite settleDone values waiting fewer in there
+    | False => rewrite settleDone values waiting fewer then there
     | True =>
-      rewrite settleMore values waiting fewer in
+      rewrite settleMore values waiting fewer then
         settleKeeps wire
           (fireAll values (waiting.filter (gate => gate.ready values)))
           (waiting.filter (gate => ¬(gate.ready values)))
@@ -77,14 +77,14 @@ theorem settleCovers ∀ (device: Device) (values: Values) (waiting: List Gate)
 :=
   match fewer: (waiting.filter (gate => ¬(gate.ready values))).length < waiting.length with
     | False =>
-      rewrite settleDone values waiting fewer in
+      rewrite settleDone values waiting fewer then
         match covered gate wired with
           | Inl member =>
             Inr
               (Bool.falseOfNotTrue _ (ready =>
                 Bool.falseNotTrue
                   (Eq.trans
-                    (Eq.sym (rewrite ready in rfl))
+                    (rewrite ready then byComputing).flipped
                     (filterFull (gate => ¬(gate.ready values)) waiting fewer gate member))))
           | Inr there => Inl there
     | True =>
@@ -103,8 +103,8 @@ theorem settleCovers ∀ (device: Device) (values: Values) (waiting: List Gate)
                       (waiting.filter (gate => gate.ready values))
                       values
                       (List.memFilterIntro waiting _ member isReady))
-                | False => Inl (List.memFilterIntro waiting _ member (rewrite isReady in rfl)))
-      rewrite settleMore values waiting fewer in
+                | False => Inl (List.memFilterIntro waiting _ member (rewrite isReady then byComputing)))
+      rewrite settleMore values waiting fewer then
         settleCovers device next
           (waiting.filter (gate => ¬(gate.ready values)))
           nextCovered
@@ -119,13 +119,13 @@ theorem lookupLastFound ∀ [auto ord: Ord k] (key: k) (value: v) (pairs: List (
   match pairs with
     | [(other, otherValue), ..rest] =>
       match later: Map.lookupLast key rest with
-        | Some laterValue => Witness laterValue rfl
+        | Some laterValue => Witness laterValue byComputing
         | None =>
           match member with
-            | Inl same => Witness otherValue (rewrite Eq.cong Pair.fst same, Ord.compareSelf key in rfl)
+            | Inl same => Witness otherValue (rewrite Eq.cong Pair.fst same, Ord.compareSelf key then byComputing)
             | Inr inRest =>
               match lookupLastFound key value rest inRest with
-                | Witness found isFound => Void.exfalso (Option.noneNotSome found (Eq.trans (Eq.sym later) isFound))
+                | Witness found isFound => Void.impossible (Option.noneNotSome found (Eq.trans later.flipped isFound))
 
 --| Every wire that carries a value has one once the gates settle.
 theorem containsComplete ∀ (device: Device) (wire: Wire) (value: Bool):
@@ -145,7 +145,7 @@ theorem containsComplete ∀ (device: Device) (wire: Wire) (value: Bool):
     let covered :=
       settleCovers device (Map.fromList device.initial) device.gates (other member => Inl member) gate wired
     match covered with
-      | Inl there => rewrite <- onto in there
+      | Inl there => rewrite <- onto then there
       | Inr notReady =>
         match Map.getOfContains device.settled gate.left (containsComplete device gate.left left leftCarries) with
           | Witness leftValue leftIs =>
@@ -163,16 +163,17 @@ theorem settledComplete ∀ (device: Device)
   match Map.getOfContains device.settled wire (containsComplete device wire value carries) with
     | Witness found isFound =>
       rewrite isFound,
-          carriesUnique device wellFormed wire found value (settledSound device wire found isFound) carries in
-        rfl
+          carriesUnique device wellFormed wire found value (settledSound device wire found isFound) carries then
+        byComputing
 
 --| `allSome` of options that each have a value.
 theorem allSomeMap ∀ (f: a → Option b) (g: a → b) (xs: List a)
     (each: ∀ (x: a) => x ∈ xs → f x = Some (g x)):
     List.allSome (xs.map f) = Some (xs.map g) :=
   match xs with
-    | [] => rfl
-    | [x, ..rest] => rewrite each x (Inl rfl), allSomeMap f g rest (other member => each other (Inr member)) in rfl
+    | [] => byComputing
+    | [x, ..rest] =>
+      rewrite each x (Inl byComputing), allSomeMap f g rest (other member => each other (Inr member)) then byComputing
 
 --| Part 1, complete for well-formed devices: a number the device outputs is
 --| the program's answer.
@@ -188,29 +189,31 @@ theorem part1Complete ∀ (device: Device)
         | True => settledComplete device wellFormed (Z bit) _ (outputs.left bit there.read)
         | False =>
           rewrite outputs.right bit (isIn =>
-                Bool.trueNotFalse (Eq.trans (Eq.sym ((List.memContains device.wires (Z bit)).backward isIn)) there)) in
-            rfl)
+                Bool.trueNotFalse
+                  (Eq.trans (Eq.flipped ((List.memContains device.wires (Z bit)).backward isIn)) there)) then
+            byComputing)
   let bitsAre: device.zBits device.settled = Some ((List.range 0 count).map (Nat.testBit number)) :=
     allSomeMap zValue (Nat.testBit number) (List.range 0 count) each
-  rewrite bitsAre in
+  rewrite bitsAre then
     Eq.cong Some
       (Nat.eqOfTestBit _ number (bit =>
         match below: bit < count with
           | True =>
             match rangeBits zValue count 0 _ bitsAre bit below with
               | Witness value (Both valueIs bitIs) =>
-                rewrite bitIs in
+                rewrite bitIs then
                   Option.someInjective
-                    (Eq.trans
-                      (Eq.sym valueIs)
-                      (rewrite Nat.addZero bit in each bit (List.memRangeFromIntro bit count 0 (omega) below)))
+                    (Eq.trans valueIs.flipped
+                      (rewrite Nat.addZero bit then each bit (List.memRangeFromIntro bit count 0 (arithmetic) below)))
           | False =>
-            rewrite rangeBitsBeyond zValue count 0 _ bitsAre bit (omega) in
-              Eq.sym
+            rewrite rangeBitsBeyond zValue count 0 _ bitsAre bit (arithmetic) then
+              Eq.flipped
                 (outputs.right bit (isIn =>
                   Bool.trueNotFalse
                     (Eq.trans
-                      (Eq.sym
-                        (omega [countFromAbove Wire.zBit (Z bit) bit rfl device.wires 0 isIn]: Nat.leq (Succ bit) count
+                      (Eq.flipped
+                        (arithmetic [countFromAbove Wire.zBit (Z bit) bit byComputing device.wires 0 isIn]: Nat.leq
+                          (Succ bit)
+                          count
                           = True))
                       below)))))

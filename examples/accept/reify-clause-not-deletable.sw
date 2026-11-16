@@ -8,5 +8,5 @@ theorem alwaysFails ∀ (t: () → {Fail} Nat)
     (h: Fail.toResult (() => t ()) = Err "no"):
     Fail.toResult (() => t ()) = Err "no" :=
   match reify t with
-    | return x => Void.exfalso (Result.errNotOk (Eq.sym h))
+    | return x => (Result.errNotOk h.flipped).impossible
     | Fail.stop msg, _ => h

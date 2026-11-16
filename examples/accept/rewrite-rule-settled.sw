@@ -11,9 +11,9 @@ type Tag = { label: Nat }
 
 def keep (a: t): t := a
 
-theorem keepSame ∀ (a: t): keep a = a := rfl
+theorem keepSame ∀ (a: t): keep a = a := byComputing
 
-theorem kept: keep { label = 3 } = ({ label = 3 }: Tag) := rewrite keepSame { label = 3 } in rfl
+theorem kept: keep { label = 3 } = ({ label = 3 }: Tag) := rewrite keepSame { label = 3 } then byComputing
 
 -- With the literal's type written, nothing waits.
-theorem annotated: keep { label = 3 } = ({ label = 3 }: Tag) := rewrite keepSame ({ label = 3 }: Tag) in rfl
+theorem annotated: keep { label = 3 } = ({ label = 3 }: Tag) := rewrite keepSame ({ label = 3 }: Tag) then byComputing

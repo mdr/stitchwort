@@ -16,4 +16,4 @@ theorem newline ∀
     (newlineWords: ∀ (printer: Printer) (indent: Nat) => (printer.newline indent).words = printer.words)
     (printer: Printer) (indent: Nat) (rest: List Text):
     (printer.newline indent).words ++ rest = printer.words ++ rest :=
-  rewrite newlineWords in rfl
+  rewrite newlineWords then byComputing

@@ -16,7 +16,7 @@ theorem leavesSmall ∀ (depth: Nat) (number: Number)
   match number with
     | Regular value =>
       match small: Nat.leq 10 value with
-        | False => Both (Both shallow omega) Trivial
+        | False => Both (Both shallow arithmetic) Trivial
     | Pair left right =>
       match el: split left with
         | None =>
@@ -25,8 +25,8 @@ theorem leavesSmall ∀ (depth: Nat) (number: Number)
               List.allAppend _
                 (leaves (depth + 1) left)
                 (leaves (depth + 1) right)
-                (leavesSmall (depth + 1) left omega el)
-                (leavesSmall (depth + 1) right omega er)
+                (leavesSmall (depth + 1) left arithmetic el)
+                (leavesSmall (depth + 1) right arithmetic er)
 
 --| A number whose leaves are inside at most four pairs is at most four
 --| pairs deep.
@@ -34,9 +34,9 @@ theorem leavesShallow ∀ (depth: Nat) (number: Number)
     (small: List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number)):
     depth + height number ≤ 4 :=
   match number with
-    | Regular value => And.left (And.left small)
+    | Regular value => small.left.left
     | Pair left right =>
-      omega [
+      arithmetic [
         leavesShallow
           (depth + 1)
           left

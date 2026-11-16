@@ -19,18 +19,18 @@ theorem turnKey ∀ (seed: Nat) (state: State) (key: Key) (rest: List Key) (comm
     let after := resolve { seed = lcg seed / 65536 } state command
     Terminal.simulate [key, ..rest] (() => Random.withSeed seed (() => playTurn state))
       = MkPair [frame after |> .map Ansi.strip] after :=
-  rewrite isCommand in rfl
+  rewrite isCommand then byComputing
 
 theorem turnOther ∀ (seed: Nat) (state: State) (key: Key) (rest: List Key)
     (notCommand: commandOf key = None):
     Terminal.simulate [key, ..rest] (() => Random.withSeed seed (() => playTurn state)) = MkPair [] state :=
-  rewrite notCommand in rfl
+  rewrite notCommand then byComputing
 
 theorem turnEnd ∀ (seed: Nat) (state: State):
     let after := resolve { seed = lcg seed / 65536 } state Quit
     Terminal.simulate [] (() => Random.withSeed seed (() => playTurn state))
       = MkPair [frame after |> .map Ansi.strip] after :=
-  rfl
+  byComputing
 
 theorem turnValid ∀ (seed: Nat) (state: State)
     (valid: Valid state) (keys: List Key):
@@ -49,5 +49,5 @@ theorem arrowWalks ∀ (seed: Nat) (state: State) (direction: Direction) (rest: 
     (open: isWall state.level (state.player.toward direction) = False):
     (Terminal.simulate [arrow direction, ..rest] (() => Random.withSeed seed (() => playTurn state))).snd.player
       = state.player.toward direction :=
-  rewrite turnKey seed state (arrow direction) rest (Move direction) (arrowMoves direction) in
+  rewrite turnKey seed state (arrow direction) rest (Move direction) (arrowMoves direction) then
     resolveMoves { seed = lcg seed / 65536 } state direction playing vacant open

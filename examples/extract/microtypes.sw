@@ -18,8 +18,8 @@
 -- run: ownerOf Map.empty { value = "o2" }
 -- run: visits (Map.fromList [({ value = "b" }, 1), ({ value = "a" }, 2), ({ value = "__proto__" }, 3)]) { value = "a" }
 -- run: visits Map.empty { value = "" }
--- run: domain { value = "ada@example.com", valid = rfl }
--- run: mailbox (Map.fromList [({ value = "a@b", valid = rfl }, 1)])
+-- run: domain { value = "ada@example.com", valid = byComputing }
+-- run: mailbox (Map.fromList [({ value = "a@b", valid = byComputing }, 1)])
 -- run: bump { value = 41 }
 -- run: tagged { value = ["x", "y"] }
 -- run: named { value = "Ada" }

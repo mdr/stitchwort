@@ -15,21 +15,21 @@ def anyRemoved (holds: List Nat → Bool): List Nat → Bool
 theorem anyRemovedIsRemovals ∀ (levels: List Nat) (holds: List Nat → Bool):
     anyRemoved holds levels = (removals levels |> .any holds) :=
   match levels with
-    | [] => rfl
+    | [] => byComputing
     | [level, ..rest] =>
       rewrite anyRemovedIsRemovals rest (levels => holds [level, ..levels]),
-          List.anyMap (removals rest) holds (Cons level) in
-        rfl
+          List.anyMap (removals rest) holds (Cons level) then
+        byComputing
 
 theorem anyRemovedNever ∀ (levels: List Nat) (holds: List Nat → Bool)
     (never: ∀ (rest: List Nat) => holds rest = False):
     anyRemoved holds levels = False :=
   match levels with
-    | [] => rfl
+    | [] => byComputing
     | [level, ..rest] =>
       rewrite never rest,
-          anyRemovedNever rest (levels => holds [level, ..levels]) (levels => never [level, ..levels]) in
-        rfl
+          anyRemovedNever rest (levels => holds [level, ..levels]) (levels => never [level, ..levels]) then
+        byComputing
 
 --| After a good step from `before` to `level`, the one pass is "passes, or
 --| passes with one of `level` and the rest removed".
@@ -38,28 +38,28 @@ theorem passesDampenedAfterCorrect ∀ (ok: Nat → Nat → Bool) (before level:
     passesDampenedAfter ok before level rest
       = ([level, ..rest].chain ok || anyRemoved (levels => [before, ..levels].chain ok) [level, ..rest]) :=
   match rest with
-    | [] => rfl
+    | [] => byComputing
     | [next, ..rest] =>
       match step: ok level next with
-        | True => rewrite passesDampenedAfterCorrect ok level next rest step, step, good in cases
-        | False => rewrite anyRemovedNever rest (levels => ok before level && False) (levels => cases) in cases
+        | True => rewrite passesDampenedAfterCorrect ok level next rest step, step, good then cases
+        | False => rewrite anyRemovedNever rest (levels => ok before level && False) (levels => cases) then cases
 
 --| The one pass is "passes, or passes with one level removed".
 theorem passesDampenedCorrect ∀ (ok: Nat → Nat → Bool) (levels: List Nat):
     passesDampened ok levels = (levels.chain ok || anyRemoved (rest => rest.chain ok) levels) :=
   match levels with
-    | [] => rfl
-    | [level] => rfl
+    | [] => byComputing
+    | [level] => byComputing
     | [level, next, ..rest] =>
       match step: ok level next with
-        | True => rewrite passesDampenedAfterCorrect ok level next rest step, step in cases
-        | False => rewrite anyRemovedNever rest (levels => False) (levels => rfl) in cases
+        | True => rewrite passesDampenedAfterCorrect ok level next rest step, step then cases
+        | False => rewrite anyRemovedNever rest (levels => False) (levels => byComputing) then cases
 
 --| With the dampener, the program's check is the puzzle's rule.
 theorem isSafeWithDampenerCorrect ∀ (report: Report): report.isSafeWithDampener = safeWithDampener report :=
   rewrite <- isSafeCorrect report,
       List.anyCong (removals report.levels) (levels => safe { levels }) (levels => Report.isSafe { levels }) (levels =>
-        Eq.sym (isSafeCorrect { levels })),
+        Eq.flipped (isSafeCorrect { levels })),
       List.anyOr
         (levels => levels.chain risesGently)
         (levels => levels.chain (level next => risesGently next level))
@@ -67,7 +67,7 @@ theorem isSafeWithDampenerCorrect ∀ (report: Report): report.isSafeWithDampene
       <- anyRemovedIsRemovals report.levels (levels => levels.chain risesGently),
       <- anyRemovedIsRemovals report.levels (levels => levels.chain (level next => risesGently next level)),
       passesDampenedCorrect risesGently report.levels,
-      passesDampenedCorrect (level next => risesGently next level) report.levels in
+      passesDampenedCorrect (level next => risesGently next level) report.levels then
     cases
 
 --| Part 2 counts the reports that are safe with the dampener.

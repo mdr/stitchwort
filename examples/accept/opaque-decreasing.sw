@@ -6,8 +6,8 @@ import Std (Nat)
 opaque def countDown (n: Nat): Nat
     decreasing n
 :=
-  if n < 1 then 0 else 1 + countDown (n - 1) [decreasing := omega]
+  if n < 1 then 0 else 1 + countDown (n - 1) [decreasing := arithmetic]
 
-theorem countDownZero: countDown 0 = 0 := rewrite countDown.unfold in rfl
+theorem countDownZero: countDown 0 = 0 := rewrite countDown.unfold then byComputing
 
 test "countDown runs" := countDown 16 == 16

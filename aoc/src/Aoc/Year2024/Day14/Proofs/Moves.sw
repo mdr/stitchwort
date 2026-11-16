@@ -11,7 +11,7 @@ import Aoc.Year2024.Day14 (..)
 import Aoc.Year2024.Day14.Spec (..)
 import Std (Eq, Int, Nat)
 
-theorem negSuccIs ∀ (steps: Nat): NegSucc steps = (Succ steps).toInt * -1 := rewrite Nat.mulOne steps in rfl
+theorem negSuccIs ∀ (steps: Nat): NegSucc steps = (Succ steps).toInt * -1 := rewrite Nat.mulOne steps then byComputing
 
 --| Moving `tiles` tiles one at a time is adding `tiles` and wrapping.
 theorem moveWrap ∀ (size x: Nat)
@@ -24,11 +24,11 @@ theorem moveWrap ∀ (size x: Nat)
         (y below => Int.modNatSuccWrap size y below)
         steps
         x
-        inside, (ring: x.toInt + steps.toInt * 1 = x.toInt + OfNat steps)
+        inside, (algebra: x.toInt + steps.toInt * 1 = x.toInt + OfNat steps)
     | NegSucc steps =>
       Eq.trans
         (iterateWrap size (-1) (backward size) (y below => Int.modNatPredWrap size y below) (Succ steps) x inside)
-        (Eq.cong (distance => Int.modNat (x.toInt + distance) size) (Eq.sym (negSuccIs steps)))
+        (Eq.cong (distance => Int.modNat (x.toInt + distance) size) (negSuccIs steps).flipped)
 
 --| One second, tile by tile, is the velocity's offset, wrapped.
 theorem secondWrap ∀ (space: Space) (velocity: Offset) (position: Position)
@@ -37,17 +37,17 @@ theorem secondWrap ∀ (space: Space) (velocity: Offset) (position: Position)
   positionExt
     (second space velocity position)
     (space.wrap position velocity)
-    (moveWrap space.height position.row (omega) velocity.rows)
-    (moveWrap space.width position.column (omega) velocity.columns)
+    (moveWrap space.height position.row (arithmetic) velocity.rows)
+    (moveWrap space.width position.column (arithmetic) velocity.columns)
 
 --| Seconds one at a time are wraps one at a time.
 theorem iterateSecond ∀ (space: Space) (velocity: Offset) (seconds: Nat) (position: Position)
     (inside: space.contains position = True):
     seconds.iterate (second space velocity) position = seconds.iterate (here => space.wrap here velocity) position :=
   match seconds with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ seconds =>
-      rewrite secondWrap space velocity position inside in
+      rewrite secondWrap space velocity position inside then
         iterateSecond space velocity seconds
           (space.wrap position velocity)
           (wrapWithin position velocity space.height space.width
@@ -73,6 +73,6 @@ theorem periodic ∀ (space: Space) (seconds: Nat) (robot: Robot):
   positionExt
     (space.positionAfter (seconds + space.period) robot)
     (space.positionAfter seconds robot)
-    (rewrite Nat.mulComm space.width space.height in
+    (rewrite Nat.mulComm space.width space.height then
       Int.modNatPeriodic space.height space.width robot.position.row.toInt seconds robot.velocity.rows)
     (Int.modNatPeriodic space.width space.height robot.position.column.toInt seconds robot.velocity.columns)

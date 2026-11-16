@@ -40,19 +40,19 @@ theorem codeEvent ∀ (seen: Views) (text: Text) (start: Option Nat)
   match isBreak: text == "\n" with
     | True =>
       let same: text = "\n" := DecEq.sound isBreak
-      Void.exfalso
-        (Bool.falseNotTrue (Eq.trans (Eq.sym (Eq.cong ((word: Text) => makesToken (lexemeOf word)) same)) code))
+      Void.impossible
+        (Bool.falseNotTrue (Eq.trans (Eq.flipped (Eq.cong ((word: Text) => makesToken (lexemeOf word)) same)) code))
     | False =>
       match lexeme: lexemeOf text, code with
-        | CommentLexeme, never => Void.exfalso (Bool.falseNotTrue never)
-        | LineBreak, never => Void.exfalso (Bool.falseNotTrue never)
-        | Spaces, _ => rfl
-        | WordLexeme, _ => rfl
-        | DigitsLexeme, _ => rfl
-        | StringLexeme, _ => rfl
-        | SignLexeme, _ => rfl
-        | SymbolsLexeme, _ => rfl
-        | StrayLexeme, _ => rfl
+        | CommentLexeme, never => (Bool.falseNotTrue never).impossible
+        | LineBreak, never => (Bool.falseNotTrue never).impossible
+        | Spaces, _ => byComputing
+        | WordLexeme, _ => byComputing
+        | DigitsLexeme, _ => byComputing
+        | StringLexeme, _ => byComputing
+        | SignLexeme, _ => byComputing
+        | SymbolsLexeme, _ => byComputing
+        | StrayLexeme, _ => byComputing
 
 --| A name's event is a `Name` token of its text.
 theorem nameEvent ∀ (seen: Views) (text: Text) (start: Option Nat)
@@ -62,8 +62,8 @@ theorem nameEvent ∀ (seen: Views) (text: Text) (start: Option Nat)
     | (((first, others, same, starts, all)), noKeyword) =>
       let found: lexemeOf (MkText [first, ..others]) = WordLexeme :=
         Eq.cong ((lexeme: Option Lexeme) => lexeme.getOrElse StrayLexeme) (wordLexemeStart first others starts)
-      let lexeme: lexemeOf text = WordLexeme := rewrite textOf text [first, ..others] same in found
-      let kind: wordKind text = Name text := rewrite noKeyword in rfl
+      let lexeme: lexemeOf text = WordLexeme := rewrite textOf text [first, ..others] same then found
+      let kind: wordKind text = Name text := rewrite noKeyword then byComputing
       Eq.trans
         (codeEvent seen text start (Eq.cong makesToken lexeme))
         (Eq.cong
@@ -80,7 +80,7 @@ theorem digitsEvent ∀ (seen: Views) (text: Text) (start: Option Nat)
         Eq.cong
           ((lexeme: Option Lexeme) => lexeme.getOrElse StrayLexeme)
           (digitsLexemeStart first others digit (digitIsNoWordStart first digit))
-      let lexeme: lexemeOf text = DigitsLexeme := rewrite textOf text [first, ..others] same in found
+      let lexeme: lexemeOf text = DigitsLexeme := rewrite textOf text [first, ..others] same then found
       Eq.trans
         (codeEvent seen text start (Eq.cong makesToken lexeme))
         (Eq.cong ((spelt: Kind) => codeView seen spelt start) (Eq.cong ((read: Lexeme) => lexemeKind read text) lexeme))
@@ -92,7 +92,7 @@ theorem stringEvent ∀ (seen: Views) (text: Text) (start: Option Nat)
   match string with
     | (segments, same, _) =>
       let lexeme: lexemeOf text = StringLexeme :=
-        rewrite textOf text ['"', ..Parse.joinReads segments ++ ['"']] same in rfl
+        rewrite textOf text ['"', ..Parse.joinReads segments ++ ['"']] same then byComputing
       Eq.trans
         (codeEvent seen text start (Eq.cong makesToken lexeme))
         (Eq.cong ((spelt: Kind) => codeView seen spelt start) (Eq.cong ((read: Lexeme) => lexemeKind read text) lexeme))
@@ -101,46 +101,46 @@ theorem stringEvent ∀ (seen: Views) (text: Text) (start: Option Nat)
 theorem keywordEvent ∀ (seen: Views) (keyword: Keyword) (start: Option Nat):
     viewEvent seen { word = keyword.spelling, start } = codeView seen (Reserved keyword) start :=
   match keyword with
-    | FnKeyword => rfl
-    | LetKeyword => rfl
-    | IfKeyword => rfl
-    | ThenKeyword => rfl
-    | ElseKeyword => rfl
+    | FnKeyword => byComputing
+    | LetKeyword => byComputing
+    | IfKeyword => byComputing
+    | ThenKeyword => byComputing
+    | ElseKeyword => byComputing
 
 --| The event of a bracket, the comma, the dot or `=` is its `Sign` token.
 theorem signEvent ∀ (seen: Views) (mark: Punctuation) (start: Option Nat):
     viewEvent seen { word = mark.spelling, start } = codeView seen (Sign mark) start :=
   match mark with
-    | OpenParen => rfl
-    | CloseParen => rfl
-    | OpenSquare => rfl
-    | CloseSquare => rfl
-    | Comma => rfl
-    | Dot => rfl
-    | Defines => rfl
+    | OpenParen => byComputing
+    | CloseParen => byComputing
+    | OpenSquare => byComputing
+    | CloseSquare => byComputing
+    | Comma => byComputing
+    | Dot => byComputing
+    | Defines => byComputing
 
 --| An operator's event is its `Op` token.
 theorem operatorEvent ∀ (seen: Views) (operator: Operator) (start: Option Nat):
     viewEvent seen { word = operator.spelling, start } = codeView seen (Op operator) start :=
   match operator with
-    | Or => rfl
-    | And => rfl
-    | EqualTo => rfl
-    | NotEqual => rfl
-    | LessThan => rfl
-    | LessEqual => rfl
-    | Append => rfl
-    | Plus => rfl
-    | Minus => rfl
-    | Times => rfl
-    | Divide => rfl
-    | Remainder => rfl
+    | Or => byComputing
+    | And => byComputing
+    | EqualTo => byComputing
+    | NotEqual => byComputing
+    | LessThan => byComputing
+    | LessEqual => byComputing
+    | Append => byComputing
+    | Plus => byComputing
+    | Minus => byComputing
+    | Times => byComputing
+    | Divide => byComputing
+    | Remainder => byComputing
 
 theorem commentNoBreak ∀ (text: Text) (comment: IsComment text) (isBreak: (text == "\n") = True): Void :=
   let same: text = "\n" := DecEq.sound isBreak
   Bool.falseNotTrue
     (Eq.trans
-      (Eq.sym (Eq.cong ((word: Text) => isCommentLexeme (lexemeOf word)) same))
+      (Eq.flipped (Eq.cong ((word: Text) => isCommentLexeme (lexemeOf word)) same))
       (Eq.cong isCommentLexeme (commentLexeme text comment)))
 
 --| A comment that starts its line waits for the next token.
@@ -149,8 +149,8 @@ theorem ownLineEvent ∀ (seen: Views) (text: Text) (column: Nat)
     viewEvent seen { word = text, start = Some column }
       = { views = seen.views, pending = [OwnLine { text }, ..seen.pending] } :=
   match isBreak: text == "\n" with
-    | True => Void.exfalso (commentNoBreak text comment isBreak)
-    | False => rewrite commentLexeme text comment in rfl
+    | True => Void.impossible (commentNoBreak text comment isBreak)
+    | False => rewrite commentLexeme text comment then byComputing
 
 --| A comment after words on its line goes on the newest token.
 theorem trailingEvent ∀ (seen: Views) (text: Text)
@@ -158,15 +158,15 @@ theorem trailingEvent ∀ (seen: Views) (text: Text)
     viewEvent seen { word = text, start = None }
       = { views = viewTrailing seen.views { text }, pending = seen.pending } :=
   match isBreak: text == "\n" with
-    | True => Void.exfalso (commentNoBreak text comment isBreak)
-    | False => rewrite commentLexeme text comment in rfl
+    | True => Void.impossible (commentNoBreak text comment isBreak)
+    | False => rewrite commentLexeme text comment then byComputing
 
 -- The views of a token's events, and of events one after another.
 
 theorem viewsAppend ∀ (seen: Views) (front back: List Event):
     viewsFrom seen (front ++ back) = viewsFrom (viewsFrom seen front) back :=
   match front with
-    | [] => rfl
+    | [] => byComputing
     | [event, ..rest] => viewsAppend (viewEvent seen event) rest back
 
 --| The trivia waiting (the newest first) once the comments `above` have
@@ -178,7 +178,7 @@ def waiting (pending: List Trivia) (above: List Comment): List Trivia := match a
 theorem waitingReverse ∀ (pending: List Trivia) (above: List Comment):
     (waiting pending above).reverse = pending.reverse ++ above.map OwnLine :=
   match above with
-    | [] => Eq.sym (List.appendNil pending.reverse)
+    | [] => (List.appendNil pending.reverse).flipped
     | [comment, ..rest] =>
       Eq.trans
         (waitingReverse [OwnLine comment, ..pending] rest)
@@ -193,7 +193,7 @@ theorem aboveViews ∀ (above: List Comment) (column: Nat) (seen: Views)
   match above, fine with
     | [], _ =>
       match seen with
-        | { views, pending } => rfl
+        | { views, pending } => byComputing
     | [{ text }, ..rest], Both fineFirst fineRest =>
       Eq.trans
         (Eq.cong ((next: Views) => viewsFrom next (aboveEvents column rest)) (ownLineEvent seen text column fineFirst))
@@ -224,8 +224,8 @@ theorem seenThen ∀ (pending: List Trivia) (front back: List Event) (first seco
           (Eq.cong
             ((views: List TokenView) => ({ views, pending = [] }: Views))
             (Eq.trans
-              (Eq.sym (List.appendAssoc second.reverse first.reverse earlier))
-              (Eq.cong ((front: List TokenView) => front ++ earlier) (Eq.sym (List.reverseAppend first second)))))))
+              (Eq.flipped (List.appendAssoc second.reverse first.reverse earlier))
+              (Eq.cong ((front: List TokenView) => front ++ earlier) (List.reverseAppend first second).flipped)))))
 
 --| A token's events are one view, starting where the events allow.
 theorem tokenSeen ∀ (allowed: Option Nat → Prop) (comments: Comments) (text: Text) (kind: Kind)
@@ -239,7 +239,7 @@ theorem tokenSeen ∀ (allowed: Option Nat → Prop) (comments: Comments) (text:
       start,
       ok,
       (earlier =>
-        rewrite split in
+        rewrite split then
           Eq.trans
             (viewsAppend { views = earlier, pending } (aboveEvents column above) [{ word = text, start }])
             (Eq.trans
@@ -252,7 +252,7 @@ theorem tokenSeen ∀ (allowed: Option Nat → Prop) (comments: Comments) (text:
       start,
       ok,
       (earlier =>
-        rewrite split in
+        rewrite split then
           Eq.trans
             (viewsAppend { views = earlier, pending } (aboveEvents column above) [
               { word = text, start },
@@ -275,14 +275,14 @@ theorem tokenSeen ∀ (allowed: Option Nat → Prop) (comments: Comments) (text:
 -- A token of the tree from its view.
 
 theorem ownComments ∀ (above: List Comment): ownLineComments (above.map OwnLine) = above := match above with
-  | [] => rfl
+  | [] => byComputing
   | [comment, ..rest] => Eq.cong (Cons comment) (ownComments rest)
 
 theorem trailingOf ∀ (trailing: Option (Parse.Located Comment)):
     trailing.map (comment => comment.value) = commentOf trailing :=
   match trailing with
-    | None => rfl
-    | Some _ => rfl
+    | None => byComputing
+    | Some _ => byComputing
 
 theorem commentsSame ∀ (comments: Comments) (above: List Comment) (after: Option Comment)
     (sameAbove: above = comments.above)
@@ -291,8 +291,8 @@ theorem commentsSame ∀ (comments: Comments) (above: List Comment) (after: Opti
   match comments, sameAbove, sameAfter with
     | { above = held, after = kept }, sameAbove, sameAfter =>
       Eq.trans
-        (Eq.cong ((part: List Comment) => ({ above = part, after = kept }: Comments)) (Eq.sym sameAbove))
-        (Eq.cong ((part: Option Comment) => ({ above, after = part }: Comments)) (Eq.sym sameAfter))
+        (Eq.cong ((part: List Comment) => ({ above = part, after = kept }: Comments)) sameAbove.flipped)
+        (Eq.cong ((part: Option Comment) => ({ above, after = part }: Comments)) sameAfter.flipped)
 
 --| A token that isn't its statement's first holds the comments its view
 --| shows, as the tree keeps them.
@@ -330,7 +330,7 @@ theorem apartFront ∀ (layout: Layout) (front back: List (Parse.Located Token))
     (apart: AllApart layout (front ++ back)):
     AllApart layout front :=
   match front, apart with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [token, ..rest], Both one others => (one, (apartFront layout rest back others))
 
 theorem apartBack ∀ (layout: Layout) (front back: List (Parse.Located Token))
@@ -341,8 +341,8 @@ theorem apartBack ∀ (layout: Layout) (front back: List (Parse.Located Token))
     | [token, ..rest], Both one others => apartBack layout rest back others
 
 theorem bracketApart ∀ (tokens: List (Parse.Located Token)): AllApart InBrackets tokens := match tokens with
-  | [] => rfl
-  | [token, ..rest] => (rfl, (bracketApart rest))
+  | [] => byComputing
+  | [token, ..rest] => (byComputing, (bracketApart rest))
 
 --| `token` is the tree's token of `kind` with `comments`, as `Spelled`
 --| asks at `layout`.
@@ -352,7 +352,7 @@ def Fits (layout: Layout) (token: Parse.Located Token) (kind: Kind) (comments: C
 theorem allowsCast ∀ (zone: Zone) (given wanted: Option Nat)
     (same: wanted = given) (allowed: zone.allows given):
     zone.allows wanted :=
-  rewrite same in allowed
+  rewrite same then allowed
 
 --| A token that starts where the zone deeper than a statement allows is
 --| one the statement's layout allows.
@@ -361,11 +361,11 @@ theorem deeperAllows ∀ (at column from: Nat) (token: Parse.Located Token) (sta
     (same: (viewOf token).start = start):
     (InStatement column from).allows token = True :=
   match token, same with
-    | { value = { kind, startsLine = False, column = indent, above, trailing }, offset, length }, _ => rfl
+    | { value = { kind, startsLine = False, column = indent, above, trailing }, offset, length }, _ => byComputing
     | { value = { kind, startsLine = True, column = indent, above, trailing }, offset, length }, same =>
       let lower: at < indent := allowsCast (Deeper at) start (Some indent) same allowed
-      let deeper: (indent > column) = True := omega [lower, suits]
-      rewrite deeper in rfl
+      let deeper: (indent > column) = True := arithmetic [lower, suits]
+      rewrite deeper then byComputing
 
 --| A token of the tree that isn't its statement's first, from its view.
 theorem innerFits ∀ (zone: Zone) (layout: Layout) (token: Parse.Located Token) (kind: Kind)
@@ -376,19 +376,21 @@ theorem innerFits ∀ (zone: Zone) (layout: Layout) (token: Parse.Located Token)
     Fits layout token kind comments :=
   match layout, zone, suits, apart, allowed with
     | InBrackets, _, _, _, _ =>
-      ((Eq.cong ((view: TokenView) => view.kind) same), rfl, (viewComments token kind start comments same))
+      ((Eq.cong ((view: TokenView) => view.kind) same), byComputing, (viewComments token kind start comments same))
     | InStatement column from, Deeper at, suits, apart, allowed => (
       (Eq.cong ((view: TokenView) => view.kind) same),
       (deeperAllows at column from token start suits allowed (Eq.cong ((view: TokenView) => view.start) same)),
       (match isFirst: token.offset == from, apart with
         | False, _ => viewComments token kind start comments same)
     )
-    | InStatement column from, Anywhere at, never, _, _ => Void.exfalso (Bool.falseNotTrue never)
+    | InStatement column from, Anywhere at, never, _, _ =>
+      match never with
+        | ()
 
 theorem bracketFits ∀ (token: Parse.Located Token) (kind: Kind) (start: Option Nat) (comments: Comments)
     (same: viewOf token = tokenView [] kind start comments):
     Fits InBrackets token kind comments :=
-  innerFits (Anywhere 0) InBrackets token kind start comments rfl rfl rfl same
+  innerFits (Anywhere 0) InBrackets token kind start comments byComputing byComputing byComputing same
 
 --| What the induction knows of the tokens of an expression whose
 --| leftmost token starts as `head` says after `pending`: every other
@@ -420,7 +422,7 @@ theorem innerLeads ∀ (zone: Zone) (layout: Layout) (above: List Comment) (toke
     (apart: AllApart layout tokens):
     Leads layout [] zone.allows above tokens :=
   match tokens, apart with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [first, ..others], Both one rest => (
       rest,
       (kind start after allowed same =>
@@ -431,7 +433,7 @@ theorem innerLeads ∀ (zone: Zone) (layout: Layout) (above: List Comment) (toke
 theorem bracketLeads ∀ (head: Option Nat → Prop) (above: List Comment) (tokens: List (Parse.Located Token)):
     Leads InBrackets [] head above tokens :=
   match tokens with
-    | [] => rfl
+    | [] => byComputing
     | [first, ..others] => (
       (bracketApart others),
       (kind start after allowed same =>
@@ -450,7 +452,7 @@ theorem viewsNil ∀ (goal: List (Parse.Located Token) → Prop) (tokens: List (
     goal tokens :=
   match tokens, same with
     | [], _ => step
-    | [token, ..rest], same => Void.exfalso (Bool.falseNotTrue (Eq.cong noViews same))
+    | [token, ..rest], same => Void.impossible (Bool.falseNotTrue (Eq.cong noViews same))
 
 theorem viewsCons ∀ (goal: List (Parse.Located Token) → Prop) (tokens: List (Parse.Located Token))
     (view: TokenView) (views: List TokenView)
@@ -462,7 +464,7 @@ theorem viewsCons ∀ (goal: List (Parse.Located Token) → Prop) (tokens: List 
   match tokens, same with
     | [token, ..rest], same =>
       step token rest (List.consInjectiveHead (viewOf token) view (rest.map viewOf) views same) (Eq.cong (.drop 1) same)
-    | [], same => Void.exfalso (Bool.falseNotTrue (Eq.sym (Eq.cong noViews same)))
+    | [], same => Void.impossible (Bool.falseNotTrue (Eq.cong noViews same).flipped)
 
 theorem viewsOne ∀ (goal: List (Parse.Located Token) → Prop) (tokens: List (Parse.Located Token)) (view: TokenView)
     (same: tokens.map viewOf = [view]) (step: ∀ (token: Parse.Located Token) => viewOf token = view → goal [token]):
@@ -485,7 +487,7 @@ theorem viewsSplit ∀ (goal: List (Parse.Located Token) → Prop)
       → goal (first ++ second)):
     goal tokens :=
   match front, same, step with
-    | [], same, step => step [] tokens rfl same
+    | [], same, step => step [] tokens byComputing same
     | [view, ..views], same, step => viewsCons goal tokens view (views ++ back) same (found rest tokenSame restSame =>
       viewsSplit
         ((later: List (Parse.Located Token)) => goal [found, ..later])
@@ -592,7 +594,7 @@ theorem coveredPart ∀ (layout: Layout) (whole part: Expr)
     (plain: Covered layout whole):
     Covered layout part :=
   match layout, plain with
-    | InBrackets, _ => rfl
+    | InBrackets, _ => byComputing
     | InStatement _ _, noIf => narrow noIf
 
 --| The layout of a statement like `layout`'s whose first token is at
@@ -606,7 +608,7 @@ theorem suitsRestart ∀ (zone: Zone) (layout: Layout) (from: Nat)
     (suits: Suits zone layout):
     Suits zone (restart layout from) :=
   match layout, suits with
-    | InBrackets, _ => rfl
+    | InBrackets, _ => byComputing
     | InStatement column _, suits =>
       match zone, suits with
         | Deeper at, suits => suits
@@ -646,13 +648,13 @@ theorem leafSpells ∀ (layout: Layout) (pending: List Trivia) (head: Option Nat
     same
     (found foundSame held =>
       match headFits layout pending head above found [] kind start after held allowed foundSame with
-        | (kindSame, allows, notes) => (found, rfl, kindSame, allows, notes))
+        | (kindSame, allows, notes) => (found, byComputing, kindSame, allows, notes))
     leads
 
 theorem blockAheadBrackets ∀ (tokens: List (Parse.Located Token)): blockAhead InBrackets tokens = False :=
   match tokens with
-    | [] => rfl
-    | [_, .._] => rfl
+    | [] => byComputing
+    | [_, .._] => byComputing
 
 --| Tokens with the views of an expression's events spell it.
 theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop) (expr: Expr)
@@ -682,7 +684,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
           (from tokens same leads =>
             leafSpells (restart layout from) pending head above after (Name text) start tokens same allowed leads),
           allowed,
-          rfl
+          byComputing
         )
     | NumberLiteral text { above, after }, _, Both isDigits fine, _, _, laid =>
       match tokenSeen head
@@ -701,7 +703,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
           (from tokens same leads =>
             leafSpells (restart layout from) pending head above after (Number text) start tokens same allowed leads),
           allowed,
-          rfl
+          byComputing
         )
     | StringLiteral text { above, after }, _, Both isString fine, _, _, laid =>
       match tokenSeen head
@@ -720,7 +722,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
           (from tokens same leads =>
             leafSpells (restart layout from) pending head above after (Str text) start tokens same allowed leads),
           allowed,
-          rfl
+          byComputing
         )
     | Bracketed ({ above, after }) inner close, shapedInner, Both fineOpen
         (Both innerLexical fineClose), headedInner, _, Witness front
@@ -734,8 +736,8 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         pending
         fineOpen
         (seen start => signEvent seen OpenParen start)
-        openLaid, exprSpells zone.inside InBrackets anyStart inner mid [] rfl shapedInner innerLexical headedInner rfl
-          innerLaid, tokenSeen anyStart close ")"
+        openLaid, exprSpells zone.inside InBrackets anyStart inner mid [] byComputing shapedInner innerLexical
+          headedInner byComputing innerLaid, tokenSeen anyStart close ")"
         (Sign CloseParen)
         tail
         []
@@ -746,7 +748,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
             (Witness others (Both innerSeen (Both innerSpells _))), Witness closeStart (Both _ closeSeen) => (
           (tokenView pending (Sign OpenParen) openStart { above, after }),
           ([first, ..others] ++ [(tokenView [] (Sign CloseParen) closeStart close)]),
-          (rewrite split, backSplit in
+          (rewrite split, backSplit then
             seenThen pending front
               (mid ++ tail)
               [(tokenView pending (Sign OpenParen) openStart { above, after })]
@@ -804,7 +806,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                             opener,
                             innerTokens,
                             shut,
-                            rfl,
+                            byComputing,
                             openKind,
                             openAllows,
                             closeKind,
@@ -813,7 +815,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                             closeNotes
                           ))))),
           openAllowed,
-          rfl
+          byComputing
         )
     | ListLiteral ({ above, after }) items close, Both shapedItems bare, Both fineOpen
         (Both itemsLexical fineClose), headedItems, _, Witness front
@@ -839,7 +841,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
             (Both _ closeSeen) => (
           (tokenView pending (Sign OpenSquare) openStart { above, after }),
           (found ++ [(tokenView [] (Sign CloseSquare) closeStart close)]),
-          (rewrite split, backSplit in
+          (rewrite split, backSplit then
             seenThen pending front
               (mid ++ tail)
               [(tokenView pending (Sign OpenSquare) openStart { above, after })]
@@ -893,7 +895,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                             opener,
                             itemTokens,
                             shut,
-                            rfl,
+                            byComputing,
                             openKind,
                             openAllows,
                             closeKind,
@@ -902,7 +904,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                             closeNotes
                           ))))),
           openAllowed,
-          rfl
+          byComputing
         )
     | Call callee open arguments close, Both _ (Both shapedCallee (Both shapedArguments bare)), Both calleeLexical
         (Both fineOpen (Both argumentsLexical fineClose)), Both headedCallee headedArguments, plain, Witness front
@@ -938,7 +940,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
           (calleeOthers
             ++ ([(tokenView [] (Sign OpenParen) openStart open)]
               ++ (found ++ [(tokenView [] (Sign CloseParen) closeStart close)]))),
-          (rewrite split, backSplit, innerSplit in
+          (rewrite split, backSplit, innerSplit then
             seenThen pending front
               (mid ++ (inner ++ tail))
               [calleeFirst, ..calleeOthers]
@@ -1040,7 +1042,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                                             opener,
                                             argumentTokens,
                                             shut,
-                                            rfl,
+                                            byComputing,
                                             openKind,
                                             openAllows,
                                             closeKind,
@@ -1087,7 +1089,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
           targetFirst,
           (targetOthers
             ++ ([(tokenView [] (Sign Dot) dotStart dot)] ++ [(tokenView [] (Name name) nameStart nameComments)])),
-          (rewrite split, backSplit in
+          (rewrite split, backSplit then
             seenThen pending front
               (mid ++ tail)
               [targetFirst, ..targetOthers]
@@ -1171,7 +1173,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                                         [lead, ..targetRest],
                                         dotToken,
                                         named,
-                                        rfl,
+                                        byComputing,
                                         dotKind,
                                         dotAllows,
                                         nameKind,
@@ -1206,7 +1208,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
             (Witness others (Both operandSeen (Both operandSpells _))) => (
           (tokenView pending (Op Minus) minusStart { above, after }),
           [first, ..others],
-          (rewrite split in
+          (rewrite split then
             seenThen pending front back
               [(tokenView pending (Op Minus) minusStart { above, after })]
               [first, ..others]
@@ -1238,7 +1240,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                   | (apart, _), (minusKind, minusAllows, minusNotes) => (
                     minus,
                     operandTokens,
-                    rfl,
+                    byComputing,
                     minusKind,
                     minusAllows,
                     (operandSpells from operandTokens operandSame
@@ -1251,7 +1253,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                     minusNotes
                   ))),
           minusAllowed,
-          rfl
+          byComputing
         )
     | Binary operator sign left right, Both _ (Both _ (Both _ (Both _ (Both shapedLeft shapedRight)))), Both fineSign
         (Both leftLexical rightLexical), Both headedLeft headedRight, plain, Witness front
@@ -1273,7 +1275,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
             (Witness rightOthers (Both rightSeen (Both rightSpells _))) => (
           leftFirst,
           (leftOthers ++ ([(tokenView [] (Op operator) signStart sign)] ++ [rightFirst, ..rightOthers])),
-          (rewrite split, backSplit in
+          (rewrite split, backSplit then
             seenThen pending front
               (mid ++ tail)
               [leftFirst, ..leftOthers]
@@ -1330,7 +1332,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                                     [lead, ..leftRest],
                                     signed,
                                     rightTokens,
-                                    rfl,
+                                    byComputing,
                                     signKind,
                                     signAllows,
                                     (leftSpells from
@@ -1374,7 +1376,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                                         (Witness falseEvents
                                           (Both elseSplit (Both elseLaid falseLaid))))))))))))))))))) =>
       match layout, suits, headed, plain with
-        | InStatement _ _, _, _, never => Void.exfalso (Bool.falseNotTrue never)
+        | InStatement _ _, _, _, never => (Bool.falseNotTrue never).impossible
         | InBrackets, _, Both headedCondition (Both headedTrue headedFalse), _ =>
           match tokenSeen head
             { above, after }
@@ -1384,8 +1386,8 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
             pending
             fineIf
             (seen start => keywordEvent seen IfKeyword start)
-            ifLaid, exprSpells zone InBrackets zone.allows condition conditionEvents [] rfl shapedCondition
-              conditionLexical headedCondition rfl conditionLaid, tokenSeen zone.allows thenComments "then"
+            ifLaid, exprSpells zone InBrackets zone.allows condition conditionEvents [] byComputing shapedCondition
+              conditionLexical headedCondition byComputing conditionLaid, tokenSeen zone.allows thenComments "then"
             (Reserved ThenKeyword)
             thenEvents
             []
@@ -1409,7 +1411,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                   ++ ([trueFirst, ..trueOthers]
                     ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
                       ++ [falseFirst, ..falseOthers])))),
-              (rewrite ifSplit, conditionSplit, thenSplit, trueSplit, elseSplit in
+              (rewrite ifSplit, conditionSplit, thenSplit, trueSplit, elseSplit then
                 seenThen pending ifEvents
                   (conditionEvents ++ (thenEvents ++ (trueEvents ++ (elseEvents ++ falseEvents))))
                   [(tokenView pending (Reserved IfKeyword) ifStart { above, after })]
@@ -1537,13 +1539,13 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                                         trueTokens,
                                         elseToken,
                                         falseTokens,
-                                        rfl,
+                                        byComputing,
                                         ifKind,
                                         ifAllows,
                                         thenKind,
                                         thenAllows,
                                         elseKind,
-                                        rfl,
+                                        byComputing,
                                         (conditionSpells 0 conditionTokens conditionSame
                                           (bracketLeads zone.allows condition.firstAbove conditionTokens)),
                                         (rest after =>
@@ -1559,7 +1561,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                                         elseNotes
                                       ))))))),
               ifAllowed,
-              rfl
+              byComputing
             )
 
 --| Tokens with the views of the events of items between brackets spell
@@ -1575,11 +1577,12 @@ theorem itemsSpell ∀ (zone: Zone) (items: List Item) (events: List Event)
   match items, shaped, bare, lexical, headed, laid with
     | [], _, _, _, _, laid => (
       [],
-      (rewrite laid in (earlier => rfl)),
-      (tokens same => viewsNil (later => SpelledItems [] later) tokens same rfl)
+      (rewrite laid then (earlier => byComputing)),
+      (tokens same => viewsNil (later => SpelledItems [] later) tokens same byComputing)
     )
     | [{ value, comma }], Both shapedValue _, bare, Both valueLexical _, Both headedValue _, laid =>
-      match exprSpells zone InBrackets anyStart value events [] rfl shapedValue valueLexical headedValue rfl laid with
+      match exprSpells zone InBrackets anyStart value events [] byComputing shapedValue valueLexical headedValue
+          byComputing laid with
         | Witness first (Witness others (Both seen (Both spells _))) => (
           [first, ..others],
           seen,
@@ -1589,8 +1592,8 @@ theorem itemsSpell ∀ (zone: Zone) (items: List Item) (events: List Event)
         (Both fineComma restLexical), Both headedValue headedRest, Witness front
         (Witness back
           (Both split (Both valueLaid (Witness mid (Witness tail (Both backSplit (Both commaLaid restLaid))))))) =>
-      match exprSpells zone InBrackets anyStart value front [] rfl shapedValue valueLexical headedValue rfl
-          valueLaid, tokenSeen anyStart comma ","
+      match exprSpells zone InBrackets anyStart value front [] byComputing shapedValue valueLexical headedValue
+          byComputing valueLaid, tokenSeen anyStart comma ","
         (Sign Comma)
         mid
         []
@@ -1600,7 +1603,7 @@ theorem itemsSpell ∀ (zone: Zone) (items: List Item) (events: List Event)
         | Witness first (Witness others (Both valueSeen (Both valueSpells _))), Witness commaStart
             (Both _ commaSeen), Witness found (Both restSeen restSpelled) => (
           ([first, ..others] ++ ([tokenView [] (Sign Comma) commaStart comma] ++ found)),
-          (rewrite split, backSplit in
+          (rewrite split, backSplit then
             seenThen [] front
               (mid ++ tail)
               [first, ..others]
@@ -1627,7 +1630,7 @@ theorem itemsSpell ∀ (zone: Zone) (items: List Item) (events: List Event)
                         valueTokens,
                         commaToken,
                         laterTokens,
-                        rfl,
+                        byComputing,
                         commaKind,
                         (valueSpells 0 valueTokens valueSame (bracketLeads anyStart value.firstAbove valueTokens)),
                         commaNotes,
@@ -1655,11 +1658,11 @@ theorem bodySpells ∀ (zone: Zone) (body: Body) (events: List Event)
         value
         events
         []
-        rfl
+        byComputing
         shapedValue
         valueLexical
         headedValue
-        rfl
+        byComputing
         (bodyFree zone blankBefore value events laid) with
         | Witness first (Witness others (Both seen (Both spells _))) => (
           first,
@@ -1667,25 +1670,26 @@ theorem bodySpells ∀ (zone: Zone) (body: Body) (events: List Event)
           seen,
           (tokens same =>
             (
-              (Eq.sym (Eq.cong firstBlankBefore unspaced)),
+              (Eq.flipped (Eq.cong firstBlankBefore unspaced)),
               (blockAheadBrackets tokens),
               (spells 0 tokens same (bracketLeads anyStart value.firstAbove tokens)),
-              rfl
+              byComputing
             ))
         )
-    | { statements = [] }, _, _, Both _ (Both _ one), _ => Void.exfalso (Bool.falseNotTrue (one rfl))
+    | { statements = [] }, _, _, Both _ (Both _ one), _ => Void.impossible (Bool.falseNotTrue (one byComputing))
     | { statements = [{ blankBefore, line = Let _ _ _ _ _ }] }, _, _, Both _ (Both _ one), _ =>
-      Void.exfalso (Bool.falseNotTrue (one rfl))
+      Void.impossible (Bool.falseNotTrue (one byComputing))
     | { statements = [{ blankBefore, line = StatementNote _ }] }, _, _, Both _ (Both _ one), _ =>
-      Void.exfalso (Bool.falseNotTrue (one rfl))
-    | { statements = [_, _, .._] }, _, _, Both _ (Both _ one), _ => Void.exfalso (Bool.falseNotTrue (one rfl))
+      Void.impossible (Bool.falseNotTrue (one byComputing))
+    | { statements = [_, _, .._] }, _, _, Both _ (Both _ one), _ =>
+      Void.impossible (Bool.falseNotTrue (one byComputing))
 
 -- A statement's first token, `else`, and a body on its keyword's line.
 
 theorem reachesCast ∀ (zone: Zone) (given wanted: Option Nat)
     (same: wanted = given) (reaches: zone.reaches given):
     zone.reaches wanted :=
-  rewrite same in reaches
+  rewrite same then reaches
 
 --| An `else` that starts where the zone of a statement reaches is one
 --| the statement's layout allows.
@@ -1694,20 +1698,20 @@ theorem reachesElse ∀ (at column from: Nat) (found: Parse.Located Token) (star
     (same: (viewOf found).start = start):
     (InStatement column from).allowsElse found = True :=
   match found, same with
-    | { value = { kind, startsLine = False, column = indent, above, trailing }, offset, length }, _ => rfl
+    | { value = { kind, startsLine = False, column = indent, above, trailing }, offset, length }, _ => byComputing
     | { value = { kind, startsLine = True, column = indent, above, trailing }, offset, length }, same =>
       let lower: at ≤ indent := reachesCast (Deeper at) start (Some indent) same reaches
-      let level: (indent >= column) = True := omega [lower, suits]
-      rewrite level in rfl
+      let level: (indent >= column) = True := arithmetic [lower, suits]
+      rewrite level then byComputing
 
 theorem firstAllowed ∀ (column: Nat) (first: Parse.Located Token):
     (InStatement column first.offset).allows first = True :=
   match first with
-    | { value = { kind, startsLine = False, column = indent, above, trailing }, offset, length } => rfl
+    | { value = { kind, startsLine = False, column = indent, above, trailing }, offset, length } => byComputing
     | { value = { kind, startsLine = True, column = indent, above, trailing }, offset, length } =>
       match deeper: indent > column with
-        | True => rfl
-        | False => rewrite ownOffset offset in rfl
+        | True => byComputing
+        | False => rewrite ownOffset offset then byComputing
 
 --| The comments of a statement's first token, as the tree keeps them:
 --| none above, whatever its view shows there.
@@ -1720,7 +1724,7 @@ theorem firstComments ∀ (column from: Nat) (first: Parse.Located Token) (pendi
     | True, _ =>
       Eq.cong
         ((part: Option Comment) => ({ above = [], after = part }: Comments))
-        (Eq.sym (Eq.trans (trailingOf first.value.trailing) (Eq.cong ((view: TokenView) => view.trailing) same)))
+        (Eq.flipped (Eq.trans (trailingOf first.value.trailing) (Eq.cong ((view: TokenView) => view.trailing) same)))
 
 --| A statement's first token leads the statement's expression when the
 --| tree holds no comments above it: whatever waits above the token is
@@ -1748,16 +1752,16 @@ theorem risingApart ∀ (column from bound: Nat) (tokens: List (Parse.Located To
     (rising: Rising [bound, ..tokens.map (found => found.offset)]):
     AllApart (InStatement column from) tokens :=
   match tokens, rising with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [next, ..rest], Both above more =>
-      ((omega [low, above]), (risingApart column from next.offset rest (omega [low, above]) more))
+      ((arithmetic [low, above]), (risingApart column from next.offset rest (arithmetic [low, above]) more))
 
 theorem leadsWider ∀ (layout: Layout) (pending: List Trivia) (head wide: Option Nat → Prop) (above: List Comment)
     (tokens: List (Parse.Located Token)) (wider: ∀ (start: Option Nat) => wide start → head start)
     (leads: Leads layout pending head above tokens):
     Leads layout pending wide above tokens :=
   match tokens, leads with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [first, ..others], Both apart fit =>
       (apart, (kind start after allowed same => fit kind start after (wider start allowed) same))
 
@@ -1765,7 +1769,7 @@ theorem notStarting ∀ (column from: Nat) (found: Parse.Located Token) (rest: L
     (unstarted: (viewOf found).start = None):
     blockAhead (InStatement column from) [found, ..rest] = False :=
   match found, unstarted with
-    | { value = { kind, startsLine = False, column = indent, above, trailing }, offset, length }, _ => rfl
+    | { value = { kind, startsLine = False, column = indent, above, trailing }, offset, length }, _ => byComputing
 
 --| No block is ahead of tokens whose first doesn't start a line.
 theorem inlineAhead ∀ (layout: Layout) (tokens: List (Parse.Located Token)) (first: TokenView) (others: List TokenView)
@@ -1783,7 +1787,7 @@ theorem inlineAhead ∀ (layout: Layout) (tokens: List (Parse.Located Token)) (f
         same
         (found rest foundSame _ =>
           notStarting column from found rest
-            (Eq.trans (Eq.cong ((view: TokenView) => view.start) foundSame) (unstarted rfl)))
+            (Eq.trans (Eq.cong ((view: TokenView) => view.start) foundSame) (unstarted byComputing)))
 
 --| Clearing the comments above an expression's first token
 --| (`Layout.headed`) changes nothing in a tree that holds none there
@@ -1792,12 +1796,12 @@ theorem headedOfNoAbove ∀ (layout: Layout) (value: Expr)
     (none: bracketedOf layout = False → value.firstAbove = []):
     layout.headed value = value :=
   match layout, none with
-    | InBrackets, none => rfl
-    | InStatement column start, none => noAboveCleared value (none rfl)
+    | InBrackets, none => byComputing
+    | InStatement column start, none => noAboveCleared value (none byComputing)
 
 theorem leadsCast ∀ (layout: Layout) (pending: List Trivia) (head: Option Nat → Prop)
     (above: List Comment) (tokens: List (Parse.Located Token))
     (none: above = [])
     (leads: Leads layout pending head [] tokens):
     Leads layout pending head above tokens :=
-  rewrite none in leads
+  rewrite none then leads

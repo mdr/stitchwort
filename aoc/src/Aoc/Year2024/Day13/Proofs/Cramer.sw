@@ -18,17 +18,17 @@ theorem aTimesDeterminant ∀ (machine: Machine) (aPresses bPresses: Nat)
     (won: machine.wins aPresses bPresses = True):
     machine.determinant * aPresses.toInt = machine.prize.x * machine.buttonB.y - machine.prize.y * machine.buttonB.x :=
   let equations := winsEquations machine aPresses bPresses won
-  let alongX := And.left equations
-  let alongY := And.right equations
-  ring [machine.buttonB.y * alongX, machine.buttonB.x * alongY]
+  let alongX := equations.left
+  let alongY := equations.right
+  algebra [machine.buttonB.y * alongX, machine.buttonB.x * alongY]
 
 theorem bTimesDeterminant ∀ (machine: Machine) (aPresses bPresses: Nat)
     (won: machine.wins aPresses bPresses = True):
     machine.determinant * bPresses.toInt = machine.buttonA.x * machine.prize.y - machine.buttonA.y * machine.prize.x :=
   let equations := winsEquations machine aPresses bPresses won
-  let alongX := And.left equations
-  let alongY := And.right equations
-  ring [machine.buttonA.x * alongY, machine.buttonA.y * alongX]
+  let alongX := equations.left
+  let alongY := equations.right
+  algebra [machine.buttonA.x * alongY, machine.buttonA.y * alongX]
 
 --| Any presses that win are the ones `Machine.onlyPresses` finds.
 theorem onlyPressesFinds ∀ (machine: Machine)
@@ -37,16 +37,16 @@ theorem onlyPressesFinds ∀ (machine: Machine)
     machine.onlyPresses nonzero = Some (aPresses, bPresses) :=
   let aQuotient: (machine.prize.x * machine.buttonB.y - machine.prize.y * machine.buttonB.x) / machine.determinant
     = aPresses.toInt :=
-    rewrite <- aTimesDeterminant machine aPresses bPresses won in
+    rewrite <- aTimesDeterminant machine aPresses bPresses won then
       Int.mulDivCancel machine.determinant aPresses.toInt [ok := nonzero]
   let bQuotient: (machine.buttonA.x * machine.prize.y - machine.buttonA.y * machine.prize.x) / machine.determinant
     = bPresses.toInt :=
-    rewrite <- bTimesDeterminant machine aPresses bPresses won in
+    rewrite <- bTimesDeterminant machine aPresses bPresses won then
       Int.mulDivCancel machine.determinant bPresses.toInt [ok := nonzero]
-  rewrite aQuotient, bQuotient, won in rfl
+  rewrite aQuotient, bQuotient, won then byComputing
 
 --| The presses `Machine.onlyPresses` finds win.
 theorem onlyPressesWins ∀ (machine: Machine)
     (nonzero: machine.determinant ≠ 0) (aPresses bPresses: Nat):
     machine.onlyPresses nonzero = Some (aPresses, bPresses) → machine.wins aPresses bPresses = True :=
-  found => And.right (Option.filterEqSome _ _ found)
+  found => (Option.filterEqSome _ _ found).right

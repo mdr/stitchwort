@@ -45,16 +45,16 @@ def stepsOfEach (xs: List Nat): {Partial} List Nat := Each.collectIn (() => coll
 test "every choice" := stepsOfEach [6, 7, 27] == [8, 16, 111]
 
 -- Around total code, the same handlers are total, and compute: so a proof
--- by `rfl` about them holds.
+-- by `byComputing` about them holds.
 def parsed (t: Text): Result Nat Text := Fail.toResult (() => t.toNatOrFail)
 
-theorem parsedSeven: parsed "7" = Ok 7 := rfl
+theorem parsedSeven: parsed "7" = Ok 7 := byComputing
 
 def echoedOnce: Pair (List Text) () := IO.simulate ["hi"] (() =>
   match IO.readLine() with
     | None => ()
     | Some line => IO.print line)
 
-theorem echoedOnceHi: echoedOnce = MkPair ["hi"] () := rfl
+theorem echoedOnceHi: echoedOnce = MkPair ["hi"] () := byComputing
 
-theorem collectedTotal: Each.collectIn (() => Each.each [1, 2, 3] + 1) = [2, 3, 4] := rfl
+theorem collectedTotal: Each.collectIn (() => Each.each [1, 2, 3] + 1) = [2, 3, 4] := byComputing

@@ -22,15 +22,15 @@ def pick: Int → Bool → Int
   | z, False => z
   | _, _ => 9
 
-theorem pick1: pick (-1) False = -1 := rfl
+theorem pick1: pick (-1) False = -1 := byComputing
 
-theorem pick2: pick (-2) False = -2 := rfl
+theorem pick2: pick (-2) False = -2 := byComputing
 
-theorem pick3: pick 3 False = 3 := rfl
+theorem pick3: pick 3 False = 3 := byComputing
 
-theorem pick4: pick (-1) True = 7 := rfl
+theorem pick4: pick (-1) True = 7 := byComputing
 
-theorem pick5: pick 3 True = 9 := rfl
+theorem pick5: pick 3 True = 9 := byComputing
 
 -- The sign split is real evidence: a whole branch with no numbers in it is
 -- the catch-all, even for an unknown magnitude.
@@ -38,7 +38,7 @@ def zeroOrOther: Int → Bool
   | 0 => True
   | _ => False
 
-theorem negativeIsOther ∀ (k: Nat): zeroOrOther (NegSucc k) = False := rfl
+theorem negativeIsOther ∀ (k: Nat): zeroOrOther (NegSucc k) = False := byComputing
 
 -- `0` and `-0` are one key; the first row with it wins, and the
 -- second warns `W-REDUNDANT`.
@@ -47,9 +47,9 @@ def zeros: Int → Nat
   | (-0) => 2
   | _ => 3
 
-theorem zerosZero: zeros 0 = 1 := rfl
+theorem zerosZero: zeros 0 = 1 := byComputing
 
-theorem zerosOne: zeros 1 = 3 := rfl
+theorem zerosOne: zeros 1 = 3 := byComputing
 
 -- Repeated literals in different rows, with another column deciding.
 def twice: Int → Bool → Nat
@@ -58,13 +58,13 @@ def twice: Int → Bool → Nat
   | (-3), _ => 3
   | _, _ => 4
 
-theorem twice1: twice (-3) True = 1 := rfl
+theorem twice1: twice (-3) True = 1 := byComputing
 
-theorem twice2: twice (-3) False = 3 := rfl
+theorem twice2: twice (-3) False = 3 := byComputing
 
-theorem twice3: twice 5 False = 4 := rfl
+theorem twice3: twice 5 False = 4 := byComputing
 
-theorem twice4: twice 5 True = 2 := rfl
+theorem twice4: twice 5 True = 2 := byComputing
 
 -- Very large keys, either side of zero.
 def big: Int → Nat
@@ -72,11 +72,11 @@ def big: Int → Nat
   | 1000000000000000000000000000000 => 2
   | _ => 3
 
-theorem bigNeg: big (-1000000000000000000000000000000) = 1 := rfl
+theorem bigNeg: big (-1000000000000000000000000000000) = 1 := byComputing
 
-theorem bigPos: big 1000000000000000000000000000000 = 2 := rfl
+theorem bigPos: big 1000000000000000000000000000000 = 2 := byComputing
 
-theorem bigNear: big (-999999999999999999999999999999) = 3 := rfl
+theorem bigNear: big (-999999999999999999999999999999) = 3 := byComputing
 
 -- A column mixing literals, an explicit constructor and `_`.
 def mixed: Int → Nat
@@ -85,20 +85,20 @@ def mixed: Int → Nat
   | OfNat n => n + 10
   | _ => 99
 
-theorem mixedZero: mixed 0 = 0 := rfl
+theorem mixedZero: mixed 0 = 0 := byComputing
 
-theorem mixedNegOne: mixed (-1) = 1 := rfl
+theorem mixedNegOne: mixed (-1) = 1 := byComputing
 
-theorem mixedPos: mixed 4 = 14 := rfl
+theorem mixedPos: mixed 4 = 14 := byComputing
 
-theorem mixedNeg: mixed (-7) = 99 := rfl
+theorem mixedNeg: mixed (-7) = 99 := byComputing
 
 -- A catch-all before a literal makes the literal's row unreachable (`W-REDUNDANT`).
 def shadowed: Int → Nat
   | _ => 1
   | 5 => 2
 
-theorem shadowedFive: shadowed 5 = 1 := rfl
+theorem shadowedFive: shadowed 5 = 1 := byComputing
 
 -- Two `Int` columns.
 def quadrant: Int → Int → Text
@@ -121,19 +121,19 @@ def inSome: Option Int → Nat
   | Some 2 => 2
   | _ => 3
 
-theorem inSome1: inSome (Some (-1)) = 1 := rfl
+theorem inSome1: inSome (Some (-1)) = 1 := byComputing
 
-theorem inSome2: inSome (Some 2) = 2 := rfl
+theorem inSome2: inSome (Some 2) = 2 := byComputing
 
-theorem inSome3: inSome (Some (-2)) = 3 := rfl
+theorem inSome3: inSome (Some (-2)) = 3 := byComputing
 
 def inPair: (Int, Nat) → Nat
   | (-2, 0) => 1
   | (_, n) => n
 
-theorem inPair1: inPair (-2, 0) = 1 := rfl
+theorem inPair1: inPair (-2, 0) = 1 := byComputing
 
-theorem inPair2: inPair (-2, 5) = 5 := rfl
+theorem inPair2: inPair (-2, 5) = 5 := byComputing
 
 -- A definition that unfolds to `Int` is matched the same way.
 def Price: Type := Int

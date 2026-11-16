@@ -81,7 +81,7 @@ def fromSome0: Option Nat → Nat
 
 -- A program can't take a computation apart (docs/proposals/proof-reification.md,
 -- stage R2), so the hand-written handlers are local definitions of a theorem,
--- and each behaviour is a `let` that `rfl` checks.
+-- and each behaviour is a `let` that `byComputing` checks.
 theorem handlersBehave: Unit :=
   -- Handlers that remove the only ability
   def runState (s: Nat): Comp StateOp StateRes a → Pair a Nat
@@ -134,11 +134,12 @@ theorem handlersBehave: Unit :=
 
   -- State inside, choice outside: each branch has its own state.
   let stateInside: List (Pair Nat Nat) := allResults (runStateL 0 p)
-  let stateInsideChoice: eqPairs stateInside [MkPair 1 1, MkPair 0 0] = True := rfl
+  let stateInsideChoice: eqPairs stateInside [MkPair 1 1, MkPair 0 0] = True := byComputing
 
   -- Choice inside, state outside: one state threads through both branches.
   let choiceInside: Pair (List Nat) Nat := runState 0 (allResultsR p)
-  let choiceInsideState: (if eqNats (fstOf choiceInside) [1, 1] then sndOf choiceInside == 1 else False) = True := rfl
+  let choiceInsideState: (if eqNats (fstOf choiceInside) [1, 1] then sndOf choiceInside == 1 else False) = True :=
+    byComputing
 
   -- A clause performing the ability it handles: its `get` goes to the *next*
   -- State handler out, so the handler's own result still has State.
@@ -150,7 +151,7 @@ theorem handlersBehave: Unit :=
   -- get() + 1
   def getPlusOne: Comp StateOp StateRes Nat := Call Get (n => Done (n + 1))
 
-  let clauseGet: fstOf (runState 5 (scaleGets getPlusOne)) = 51 := rfl
+  let clauseGet: fstOf (runState 5 (scaleGets getPlusOne)) = 51 := byComputing
 
   -- Abort: the polymorphic `abort` is the primitive one (returning `Empty`)
   -- followed by `fromEmpty`.
@@ -158,8 +159,8 @@ theorem handlersBehave: Unit :=
 
   def safeDiv (n d: Nat): Comp AbortOp AbortRes Nat := if h: d ≠ 0 then Done (n / d) else abort
 
-  let abortStops: isNone (toOption (safeDiv 7 0)) = True := rfl
-  let noAbort: fromSome0 (toOption (bind (safeDiv 7 2) (q => safeDiv 100 q))) = 33 := rfl
+  let abortStops: isNone (toOption (safeDiv 7 0)) = True := byComputing
+  let noAbort: fromSome0 (toOption (bind (safeDiv 7 2) (q => safeDiv 100 q))) = 33 := byComputing
 
   -- The generic fold: `allResults` again, written with `foldComp`.
   def both: (o: ChooseOp) → (ChooseRes o → List a) → List a
@@ -171,8 +172,8 @@ theorem handlersBehave: Unit :=
   def threeChoices: Comp ChooseOp ChooseRes Nat := Call Choose (a =>
     Call Choose (b => Call Choose (c => Done ((if a then 4 else 0) + (if b then 2 else 0) + (if c then 1 else 0)))))
 
-  let foldOutcomes: eqNats (allResultsFold threeChoices) [7, 6, 5, 4, 3, 2, 1, 0] = True := rfl
-  let foldAgrees: eqNats (allResultsFold threeChoices) (allResults threeChoices) = True := rfl
+  let foldOutcomes: eqNats (allResultsFold threeChoices) [7, 6, 5, 4, 3, 2, 1, 0] = True := byComputing
+  let foldAgrees: eqNats (allResultsFold threeChoices) (allResults threeChoices) = True := byComputing
 
   -- State holding functions is fine, pure or effectful, as long as the
   -- effects don't refer back to the state's own signature.
@@ -186,7 +187,7 @@ theorem handlersBehave: Unit :=
     Call (PutFn (n => Call Choose (b => Done (if b then n + 10 else n)))) (u =>
       Call GetFn (g => Done (allResults (g 5))))
 
-  let effectfulFunctionInState: eqNats (runFnState (n => Done n) storeAndRun) [15, 5] = True := rfl
+  let effectfulFunctionInState: eqNats (runFnState (n => Done n) storeAndRun) [15, 5] = True := byComputing
 
   def doneAnyway (b: Bool): Comp (OpsOf b) (ResOf b) Nat := Done 7
 
@@ -194,5 +195,5 @@ theorem handlersBehave: Unit :=
     | Done x => x
     | Call c rest => 0
 
-  let stuckOperationType: valueOr0 (doneAnyway True) = 7 := rfl
+  let stuckOperationType: valueOr0 (doneAnyway True) = 7 := byComputing
   Trivial

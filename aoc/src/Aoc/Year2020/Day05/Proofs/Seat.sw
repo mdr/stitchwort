@@ -20,20 +20,20 @@ theorem narrowBits ∀ (lower upper: Char)
   match bits with
     | [] =>
       match same: first == last with
-        | True => rfl
-        | False => Void.exfalso (same.read (omega))
+        | True => byComputing
+        | False => Void.impossible (same.read (arithmetic))
     | [True, ..rest] =>
-      rewrite differ, DecEq.refl upper in
+      rewrite differ, DecEq.refl upper then
         Eq.trans
-          (narrowBits lower upper differ rest (first + (last + 1 - first) / 2) last (omega))
-          (Eq.cong Some (omega [Nat.fromBitsCons True rest]))
+          (narrowBits lower upper differ rest (first + (last + 1 - first) / 2) last (arithmetic))
+          (Eq.cong Some (arithmetic [Nat.fromBitsCons True rest]))
     | [False, ..rest] =>
-      rewrite DecEq.refl lower in
+      rewrite DecEq.refl lower then
         Eq.trans
           (narrowBits lower upper differ rest first
             (first + (last + 1 - first) / 2 - 1)
-            (omega [Nat.powSuccPos 1 rest.length]))
-          (Eq.cong Some (omega [Nat.fromBitsCons False rest]))
+            (arithmetic [Nat.powSuccPos 1 rest.length]))
+          (Eq.cong Some (arithmetic [Nat.fromBitsCons False rest]))
 
 --| A pass's letters.
 def written (pass: Pass): List Char := pass.row.map (letter 'F' 'B') ++ pass.column.map (letter 'L' 'R')
@@ -42,14 +42,15 @@ theorem seatIdSpec ∀ (pass: Pass)
     (rows: pass.row.length = 7)
     (columns: pass.column.length = 3):
     (seat (written pass)).map Seat.id = Some pass.seatId :=
-  let rowLetters: (pass.row.map (letter 'F' 'B')).length = 7 := rewrite List.lengthMap pass.row (letter 'F' 'B') in rows
+  let rowLetters: (pass.row.map (letter 'F' 'B')).length = 7 :=
+    rewrite List.lengthMap pass.row (letter 'F' 'B') then rows
   let columnLetters: (pass.column.map (letter 'L' 'R')).length = 3 :=
-    rewrite List.lengthMap pass.column (letter 'L' 'R') in columns
+    rewrite List.lengthMap pass.column (letter 'L' 'R') then columns
   rewrite List.lengthAppend (pass.row.map (letter 'F' 'B')) (pass.column.map (letter 'L' 'R')),
       rowLetters,
-      columnLetters in
+      columnLetters then
     rewrite List.takeAppendLength _ (pass.column.map (letter 'L' 'R')) 7 rowLetters,
-        List.dropAppendLength _ (pass.column.map (letter 'L' 'R')) 7 rowLetters in
-      rewrite narrowBits 'F' 'B' rfl pass.row 0 127 (rewrite rows in rfl),
-          narrowBits 'L' 'R' rfl pass.column 0 7 (rewrite columns in rfl) in
-        rewrite Nat.fromBitsAppend pass.row pass.column, columns in rfl
+        List.dropAppendLength _ (pass.column.map (letter 'L' 'R')) 7 rowLetters then
+      rewrite narrowBits 'F' 'B' byComputing pass.row 0 127 (rewrite rows then byComputing),
+          narrowBits 'L' 'R' byComputing pass.column 0 7 (rewrite columns then byComputing) then
+        rewrite Nat.fromBitsAppend pass.row pass.column, columns then byComputing

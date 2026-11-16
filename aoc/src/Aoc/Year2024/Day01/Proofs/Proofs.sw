@@ -17,27 +17,27 @@ theorem part1Correct ∀ (lists: LocationLists) (leftInOrder rightInOrder: List 
     (rightLinedUp: LinedUp lists.right rightInOrder):
     solvePart1 lists = totalDistance leftInOrder rightInOrder :=
   rewrite List.sortOfSortedNat lists.left leftInOrder leftLinedUp.increasing leftLinedUp.sameIds,
-      List.sortOfSortedNat lists.right rightInOrder rightLinedUp.increasing rightLinedUp.sameIds in
-    rfl
+      List.sortOfSortedNat lists.right rightInOrder rightLinedUp.increasing rightLinedUp.sameIds then
+    byComputing
 
 --| So the order the ids come in makes no difference to part 1.
 theorem part1AnyOrder ∀ (lists: LocationLists) (left right: List Nat)
     (sameLeft: List.Perm left lists.left)
     (sameRight: List.Perm right lists.right):
     solvePart1 { left = left, right = right } = solvePart1 lists :=
-  rewrite List.sortEqOfPerm left lists.left sameLeft, List.sortEqOfPerm right lists.right sameRight in rfl
+  rewrite List.sortEqOfPerm left lists.left sameLeft, List.sortEqOfPerm right lists.right sameRight then byComputing
 
 --| Part 2 is the similarity score.
 theorem part2Correct ∀ (lists: LocationLists): solvePart2 lists = similarityScore lists :=
-  List.sumByCong lists.left _ _ (id => rewrite Map.getOrCounts id lists.right in rfl)
+  List.sumByCong lists.left _ _ (id => rewrite Map.getOrCounts id lists.right then byComputing)
 
 --| And the order the ids come in makes no difference to part 2.
 theorem part2AnyOrder ∀ (lists: LocationLists) (left right: List Nat)
     (sameLeft: List.Perm left lists.left)
     (sameRight: List.Perm right lists.right):
     solvePart2 { left = left, right = right } = solvePart2 lists :=
-  rewrite part2Correct { left = left, right = right }, part2Correct lists in
+  rewrite part2Correct { left = left, right = right }, part2Correct lists then
     calc similarityScore { left = left, right = right }
       _ = left.sumBy (id => id * lists.right.count (== id)) :=
-        List.sumByCong left _ _ (id => rewrite List.countPerm right lists.right sameRight (== id) in rfl)
+        List.sumByCong left _ _ (id => rewrite List.countPerm right lists.right sameRight (== id) then byComputing)
       _ = similarityScore lists := List.sumByPerm left lists.left sameLeft (id => id * lists.right.count (== id))

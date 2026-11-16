@@ -108,7 +108,7 @@ theorem joinSplit: Text.join ("a,,b".split ',') ',' = "a,,b" := Text.joinSplit "
 theorem roundTrip ∀ (t: Text): Text.fromList (Text.toList t) = t := Text.fromToList t
 
 -- By computation.
-theorem helloLength: "hello".length = 5 := rfl
+theorem helloLength: "hello".length = 5 := byComputing
 
 test "joinWith" := Text.joinWith ["a", "", "b"] ", " == "a, , b"
 test "joinWith nothing" := Text.joinWith [] ", " == "" ∧ Text.joinWith ["a"] ", " == "a"

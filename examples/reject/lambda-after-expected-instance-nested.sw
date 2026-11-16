@@ -9,4 +9,4 @@ theorem nested [auto eq: DecEq a] [x: a] [y: a] (h: x ≠ y) (f: b → c): ((x !
   DecEq.trueOfNe h
 
 theorem otherArgument (a b n: Nat) (differ: a ≠ b) (total: a + b = n): ((a + a != n): Bool) = True :=
-  nested (same => differ (omega)) (z => z == z)
+  nested (same => differ (arithmetic)) (z => z == z)

@@ -24,14 +24,14 @@ theorem scoreAppend ∀ (moves more: List Move): score (moves ++ more) = score m
 theorem finalCons ∀ (maze: Maze) (reindeer: Reindeer) (way: Move) (next: Reindeer)
     (moved: move maze reindeer way = Some next) (rest: List Move):
     final maze reindeer [way, ..rest] = final maze next rest :=
-  rewrite moved in rfl
+  rewrite moved then byComputing
 
 --| Moves then more moves: the more moves from where the first left off.
 theorem finalAppend ∀ (maze: Maze) (more: List Move) (reindeer: Reindeer) (moves: List Move) (middle: Reindeer)
     (ended: final maze reindeer moves = Some middle):
     final maze reindeer (moves ++ more) = final maze middle more :=
   match moves with
-    | [] => rewrite Option.someInjective ended in rfl
+    | [] => rewrite Option.someInjective ended then byComputing
     | [way, ..rest] =>
       match moved: move maze reindeer way with
         | Some next => finalAppend maze more next rest middle ended
@@ -40,7 +40,7 @@ theorem finalAppend ∀ (maze: Maze) (more: List Move) (reindeer: Reindeer) (mov
 theorem finalHolds ∀ (maze: Maze):
     ∀ (reindeer: Reindeer) => maze.holds reindeer = True
       → ∀ (moves: List Move) (last: Reindeer) => final maze reindeer moves = Some last → maze.holds last = True
-  | reindeer, holds, [], last, ended => rewrite <- Option.someInjective ended in holds
+  | reindeer, holds, [], last, ended => rewrite <- Option.someInjective ended then holds
   | reindeer, holds, [way, ..rest], last, ended =>
     match moved: move maze reindeer way with
       | Some next => finalHolds maze next (moveHolds maze reindeer holds way next moved) rest last ended
@@ -56,15 +56,15 @@ theorem followFinal ∀ (maze: Maze) (reindeer: Reindeer) (moves: List Move) (st
     (followed: follow maze reindeer moves = Some standings):
     Exists Reindeer (last => (final maze reindeer moves = Some last) ∧ (standings.last = Some last)) :=
   match moves with
-    | [] => rewrite <- Option.someInjective followed in Witness reindeer (Both rfl rfl)
+    | [] => rewrite <- Option.someInjective followed then Witness reindeer (Both byComputing byComputing)
     | [way, ..rest] =>
       match moved: move maze reindeer way with
         | Some next =>
           match after: follow maze next rest with
             | Some later =>
-              rewrite <- Option.someInjective followed in
+              rewrite <- Option.someInjective followed then
                 Exists.elim (followFinal maze next rest later after) (last both =>
-                  Witness last (Both (And.left both) (lastCons reindeer later last (And.right both))))
+                  Witness last (Both both.left (lastCons reindeer later last both.right)))
 
 --| Moves that don't run into a wall have standings ending where they do.
 theorem finalFollow ∀ (maze: Maze) (reindeer: Reindeer) (moves: List Move) (last: Reindeer)
@@ -72,38 +72,39 @@ theorem finalFollow ∀ (maze: Maze) (reindeer: Reindeer) (moves: List Move) (la
     Exists (List Reindeer) (standings =>
       (follow maze reindeer moves = Some standings) ∧ (standings.last = Some last)) :=
   match moves with
-    | [] => rewrite <- Option.someInjective ended in Witness [reindeer] (Both rfl rfl)
+    | [] => rewrite <- Option.someInjective ended then Witness [reindeer] (Both byComputing byComputing)
     | [way, ..rest] =>
       match moved: move maze reindeer way with
         | Some next => Exists.elim (finalFollow maze next rest last ended) (later both =>
           Witness
             [reindeer, ..later]
-            (Both (rewrite And.left both in rfl) (lastCons reindeer later last (And.right both))))
+            (Both (rewrite And.left both then byComputing) (lastCons reindeer later last both.right)))
 
 --| The reindeer stands where it starts.
 theorem followStarts ∀ (maze: Maze) (reindeer: Reindeer) (moves: List Move) (standings: List Reindeer)
     (followed: follow maze reindeer moves = Some standings):
     reindeer ∈ standings :=
   match moves with
-    | [] => rewrite <- Option.someInjective followed in Inl rfl
+    | [] => rewrite <- Option.someInjective followed then Inl byComputing
     | [way, ..rest] =>
       match moved: move maze reindeer way with
         | Some next =>
           match after: follow maze next rest with
-            | Some later => rewrite <- Option.someInjective followed in Inl rfl
+            | Some later => rewrite <- Option.someInjective followed then Inl byComputing
 
 --| The reindeer stands wherever part of the path leaves it.
 theorem followVisits ∀ (maze: Maze) (more: List Move):
     ∀ (reindeer: Reindeer) (moves: List Move) (middle: Reindeer) => final maze reindeer moves = Some middle
       → ∀ (standings: List Reindeer) => follow maze reindeer (moves ++ more) = Some standings → middle ∈ standings
   | reindeer, [], middle, ended, standings, followed =>
-    rewrite <- Option.someInjective ended in followStarts maze reindeer more standings followed
+    rewrite <- Option.someInjective ended then followStarts maze reindeer more standings followed
   | reindeer, [way, ..rest], middle, ended, standings, followed =>
     match moved: move maze reindeer way with
       | Some next =>
         match after: follow maze next (rest ++ more) with
           | Some later =>
-            rewrite <- Option.someInjective followed in Inr (followVisits maze more next rest middle ended later after)
+            rewrite <- Option.someInjective followed then
+              Inr (followVisits maze more next rest middle ended later after)
 
 --| A path splits where the reindeer stands along it: moves up to there, and
 --| the rest from there.
@@ -115,21 +116,23 @@ theorem followSplits ∀ (maze: Maze):
             (moves = before ++ after)
               ∧ ((final maze reindeer before = Some middle) ∧ (final maze middle after = final maze reindeer moves))))
   | reindeer, [], standings, followed, middle, member =>
-    rewrite <- Option.someInjective followed at member in
+    rewrite <- Option.someInjective followed at member then
       match member with
-        | Inl here => rewrite <- here in Witness [] (Witness [] (Both rfl (Both rfl rfl)))
-        | Inr none => Void.exfalso none
+        | Inl here => rewrite <- here then Witness [] (Witness [] (Both byComputing (Both byComputing byComputing)))
+        | Inr none => none.impossible
   | reindeer, [way, ..rest], standings, followed, middle, member =>
     match moved: move maze reindeer way with
       | Some next =>
         match after: follow maze next rest with
           | Some later =>
-            rewrite <- Option.someInjective followed at member in
+            rewrite <- Option.someInjective followed at member then
               match member with
                 | Inl here =>
-                  rewrite <- here in
+                  rewrite <- here then
                     Witness []
-                      (Witness [way, ..rest] (Both rfl (Both rfl (finalCons maze reindeer way next moved rest))))
+                      (Witness
+                        [way, ..rest]
+                        (Both byComputing (Both byComputing (finalCons maze reindeer way next moved rest))))
                 | Inr inLater => Exists.elim (followSplits maze next rest later after middle inLater) (before rest2 =>
                   Exists.elim rest2 (afterwards parts =>
                     let (Both split (Both reached remaining)) := parts
@@ -137,5 +140,5 @@ theorem followSplits ∀ (maze: Maze):
                       [way, ..before]
                       (Witness afterwards
                         (Both
-                          (rewrite split in rfl)
+                          (rewrite split then byComputing)
                           (Both (Eq.trans (finalCons maze reindeer way next moved before) reached) remaining)))))

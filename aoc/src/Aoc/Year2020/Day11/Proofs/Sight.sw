@@ -18,17 +18,17 @@ theorem firstSeatCong ∀ (f g: Position → Option Seat)
     (from: Position) (direction: Offset) (distance steps: Nat):
     firstSeat f from direction distance steps = firstSeat g from direction distance steps :=
   match steps with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ more =>
       match from.offset (direction.times distance.toInt) with
-        | None => rfl
+        | None => byComputing
         | Some next =>
-          rewrite same next in
+          rewrite same next then
             match g next with
-              | None => rfl
+              | None => byComputing
               | Some Floor => firstSeatCong f g same from direction (distance + 1) more
-              | Some Empty => rfl
-              | Some Occupied => rfl
+              | Some Empty => byComputing
+              | Some Occupied => byComputing
 
 --| The cell `distance` steps from `from` in `direction`, by what `find`
 --| says is there (`Spec.cellAlong` with the layout's `at`).
@@ -49,16 +49,16 @@ theorem walkSeen ∀ (find: Position → Option Seat) (from: Position) (directio
       = ((sightFrom find from direction distance steps).find (((_, seat)) => seat != Floor)).any (((_, seat)) =>
         seat == Occupied) :=
   match steps with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ more =>
       match from.offset (direction.times distance.toInt) with
-        | None => rfl
+        | None => byComputing
         | Some next =>
           match e: find next with
-            | None => rfl
+            | None => byComputing
             | Some Floor => walkSeen find from direction (distance + 1) more
-            | Some Empty => rewrite e in rfl
-            | Some Occupied => rewrite e in rfl
+            | Some Empty => rewrite e then byComputing
+            | Some Occupied => rewrite e then byComputing
 
 --| Checking a position found for an occupied seat, with the table or
 --| with `at`.
@@ -66,8 +66,8 @@ theorem anyLookup ∀ (layout: Layout) (found: Option Position):
     found.any (near => layout.grid.lookup near == Some Occupied)
       = found.any (near => layout.grid.at near == Some Occupied) :=
   match found with
-    | None => rfl
-    | Some near => rewrite lookupAt layout.grid near in rfl
+    | None => byComputing
+    | Some near => rewrite lookupAt layout.grid near then byComputing
 
 --| In one direction, the program's walk with the table and the spec's
 --| first seen seat agree on whether it is occupied, for a reach of the
@@ -83,16 +83,16 @@ theorem seenOccupied ∀ (layout: Layout) (from: Position) (direction: Offset) (
             from
             direction
             1
-            reach in
-        rfl
+            reach then
+        byComputing
     _ = (firstSeat layout.grid.at from direction 1 reach).any (near => layout.grid.at near == Some Occupied) :=
       anyLookup layout (firstSeat layout.grid.at from direction 1 reach)
     _ = ((sightFrom layout.grid.at from direction 1 reach).find (((_, seat)) => seat != Floor)).any (((_, seat)) =>
         seat == Occupied) := walkSeen layout.grid.at from direction 1 reach
-    _ = (Spec.firstSeen layout from direction).any (((_, seat)) => seat == Occupied) := rewrite fits in rfl
+    _ = (Spec.firstSeen layout from direction).any (((_, seat)) => seat == Occupied) := rewrite fits then byComputing
 
 --| The eight directions the program walks are the spec's.
-theorem compassDirections: compass = Spec.directions := rfl
+theorem compassDirections: compass = Spec.directions := byComputing
 
 --| Part 2's count is the spec's occupied seats seen, for a reach of the
 --| layout's height plus its width.
@@ -110,15 +110,15 @@ theorem sightOccupied ∀ (layout: Layout) (reach: Nat)
           (firstSeat layout.grid.lookup position direction 1 reach).any (near =>
             layout.grid.lookup near == Some Occupied))
         (direction => (Spec.firstSeen layout position direction).any (((_, seat)) => seat == Occupied))
-        (direction member => seenOccupied layout position direction reach fits) in
-    rfl
+        (direction member => seenOccupied layout position direction reach fits) then
+    byComputing
 
 --| A spec round keeps the layout's height and width.
 theorem roundShape ∀ (layout: Layout) (considered: Position → Nat) (crowded: Nat):
     (Spec.round layout considered crowded).grid.height + (Spec.round layout considered crowded).grid.width
       = layout.grid.height + layout.grid.width :=
   let (Both wide tall) := mapWidth layout.grid (at seat => Spec.becomes seat (considered at) crowded)
-  rewrite wide, tall in rfl
+  rewrite wide, tall then byComputing
 
 --| The walk depends only on where the seats are: two layouts with seats at
 --| the same positions give the same walk.
@@ -127,16 +127,16 @@ theorem firstSeatPlan ∀ (f g: Position → Option Seat)
     (from: Position) (direction: Offset) (distance steps: Nat):
     firstSeat f from direction distance steps = firstSeat g from direction distance steps :=
   match steps with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ more =>
       match from.offset (direction.times distance.toInt) with
-        | None => rfl
+        | None => byComputing
         | Some next =>
           let plan := same next
           match f next with
             | None =>
               match g next with
-                | None => rfl
+                | None => byComputing
             | Some Floor =>
               match g next with
                 | Some Floor => firstSeatPlan f g same from direction (distance + 1) more
@@ -145,10 +145,10 @@ theorem firstSeatPlan ∀ (f g: Position → Option Seat)
             | Some Empty =>
               match g next with
                 | Some Floor => cases
-                | Some Empty => rfl
-                | Some Occupied => rfl
+                | Some Empty => byComputing
+                | Some Occupied => byComputing
             | Some Occupied =>
               match g next with
                 | Some Floor => cases
-                | Some Empty => rfl
-                | Some Occupied => rfl
+                | Some Empty => byComputing
+                | Some Occupied => byComputing

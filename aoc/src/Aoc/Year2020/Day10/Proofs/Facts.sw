@@ -20,23 +20,23 @@ theorem deviceHighest ∀ (bag: Bag) (device: Nat)
       Witness ordered.maximum
         (Both
           (Both (NonEmptyList.maximumMem ordered) (x member => NonEmptyList.maximumLe ordered x member))
-          (Eq.sym (Option.someInjective found)))
+          (Option.someInjective found).flipped)
 
 theorem deviceOfHighest ∀ (bag: Bag) (highest: Nat)
     (high: Highest bag.adapters highest):
     bag.device = Some (highest + 3) :=
   match a: bag.adapters with
-    | [] => Void.exfalso high.left
+    | [] => high.left.impossible
     | [first, ..rest] =>
       let ordered: NonEmptyList Nat := [first, ..rest]
       let below := NonEmptyList.maximumLe ordered highest high.left
       let above := high.right ordered.maximum (NonEmptyList.maximumMem ordered)
-      Eq.cong (top => Some (top + 3)) (omega: ordered.maximum = highest)
+      Eq.cong (top => Some (top + 3)) (arithmetic: ordered.maximum = highest)
 
 theorem differencesCount ∀ (joltages: List Nat) (difference: Nat)
     (positive: 1 ≤ difference):
     ({ joltages }: Chain).differences.count (d => d == difference) = differencesOf joltages difference :=
-  rewrite List.countMap joltages.zipWithNext (d => d == difference) (step => step.snd - step.fst) in
+  rewrite List.countMap joltages.zipWithNext (d => d == difference) (step => step.snd - step.fst) then
     List.countCongMem joltages.zipWithNext _ _ (step member => cases)
 
 theorem connectsSorted ∀ (low device: Nat) (chain: List Nat)
@@ -51,6 +51,6 @@ theorem connectsSorted ∀ (low device: Nat) (chain: List Nat)
           | [] => Trivial
           | [y, ..more] =>
             let Both fed _ := later
-            let fed: canFeed x y = True := rewrite canFeedTakes in fed
-            omega)
+            let fed: canFeed x y = True := rewrite canFeedTakes then fed
+            arithmetic)
         (connectsSorted x device rest later)

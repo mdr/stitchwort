@@ -15,7 +15,7 @@ def Rose.countList: List (Rose a) → Nat
   | [] => 0
   | [t, ..rest] => Rose.count t + Rose.countList rest
 
-theorem roseCount: Rose.count (Bloom 1 [Bloom 2 [], Bloom 3 [Bloom 4 []]]) = 4 := rfl
+theorem roseCount: Rose.count (Bloom 1 [Bloom 2 [], Bloom 3 [Bloom 4 []]]) = 4 := byComputing
 
 -- Nested twice, and in `Option` and a pair.
 type Nest: Type =
@@ -37,7 +37,7 @@ def Nest.depthRow: List Nest → Nat
   | [] => 0
   | [n, ..rest] => Nat.max (Nest.depth n) (Nest.depthRow rest)
 
-theorem nestDepth: Nest.depth (Deep [[Leaf], [Maybe (Some (MkPair (Deep []) 3))]]) = 3 := rfl
+theorem nestDepth: Nest.depth (Deep [[Leaf], [Maybe (Some (MkPair (Deep []) 3))]]) = 3 := byComputing
 
 -- In `Vec`, at its parameter (its index, the length, is a number).
 type Wide: Type = | Tip | Fork (kids: Vec Wide 2)
@@ -50,7 +50,7 @@ def Wide.tipsVec: Vec Wide n → Nat
   | VNil => 0
   | VCons w rest => Wide.tips w + Wide.tipsVec rest
 
-theorem wideTips: Wide.tips (Fork (VCons Tip (VCons (Fork (VCons Tip (VCons Tip VNil))) VNil))) = 3 := rfl
+theorem wideTips: Wide.tips (Fork (VCons Tip (VCons (Fork (VCons Tip (VCons Tip VNil))) VNil))) = 3 := byComputing
 
 -- Two types defined together, both inside a list.
 type Expr: Type = | Lit (value: Nat) | Block (body: List Stmt)
@@ -69,7 +69,7 @@ def Stmt.sizeList: List Stmt → Nat
   | [] => 0
   | [s, ..rest] => Stmt.size s + Stmt.sizeList rest
 
-theorem exprSize: Expr.size (Block [Assign 0 (Lit 1), Seq [Assign 1 (Block [])]]) = 6 := rfl
+theorem exprSize: Expr.size (Block [Assign 0 (Lit 1), Seq [Assign 1 (Block [])]]) = 6 := byComputing
 
 -- Inside a member of an earlier group of two: `Tree` and `Forest` are
 -- defined together, and `Big` is inside `Tree`.
@@ -90,7 +90,7 @@ def Big.countForest: Forest Big → Nat
   | FNil => 0
   | FCons t rest => Big.countTree t + Big.countForest rest
 
-theorem bigCount: Big.count (Grown (Node Small (FCons (Node (Grown (Node Small FNil)) FNil) FNil))) = 2 := rfl
+theorem bigCount: Big.count (Grown (Node Small (FCons (Node (Grown (Node Small FNil)) FNil) FNil))) = 2 := byComputing
 
 -- An earlier field in the nested type's arguments: a tree whose index is
 -- its height bound, with children one lower.
@@ -106,7 +106,7 @@ def Ranked.countList: List (Ranked n) → Nat
   | [] => 0
   | [t, ..rest] => Ranked.count t + Ranked.countList rest
 
-theorem rankedCount: Ranked.count (RNode 1 [RNode 0 [], RNode 0 []]) = 3 := rfl
+theorem rankedCount: Ranked.count (RNode 1 [RNode 0 [], RNode 0 []]) = 3 := byComputing
 
 -- A predicate parameter: every branch is well typed, `All (t => Typed t r)`.
 type All (a: Type) (p: a → Prop): List a → Prop =
@@ -132,7 +132,7 @@ def Stored.depth: Stored → Nat
   | MkStored None => 0
   | MkStored (Some s) => Succ (Stored.depth s)
 
-theorem storedDepth: Stored.depth (MkStored (Some (MkStored None))) = 1 := rfl
+theorem storedDepth: Stored.depth (MkStored (Some (MkStored None))) = 1 := byComputing
 
 -- An equation between fields that don't hold the type, beside one that
 -- does. An equation on fields that hold it is refused:
@@ -140,7 +140,7 @@ theorem storedDepth: Stored.depth (MkStored (Some (MkStored None))) = 1 := rfl
 type Checked: Type =
   | Check (n: Nat) (m: Nat) (same: n = m) (kids: List Checked)
 
-def Checked.leaf (n: Nat): Checked := Check n n rfl []
+def Checked.leaf (n: Nat): Checked := Check n n byComputing []
 
 -- `Option`'s parameter is nestable; `List.Member`'s isn't, since its other
 -- parameter's type mentions it: soundness/nested-member.sw.

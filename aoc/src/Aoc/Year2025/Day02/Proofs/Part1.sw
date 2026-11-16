@@ -30,7 +30,7 @@ theorem rangeDoubled ∀ (r: Range):
   calc sumOfIdsWrittenTwice r
     -- (`List.range 1 (size + 1)` is `List.rangeFrom (size + 1 - 1) 1`)
     _ = List.sumBy (List.rangeFrom size 1) (k => RepetitionTemplate.sumIn { blockLength = k, copies = 2 } r) :=
-      rewrite (omega: size + 1 - 1 = size)
+      rewrite (arithmetic: size + 1 - 1 = size)
     _ = List.sumBy (List.rangeFrom size 1) (k => repeatedSpec r k 2) := rewrite repeatedCorrect r _ 2
 
 --| (b) Part 1 is the brute-force sum over blocks.
@@ -59,8 +59,8 @@ theorem rangeBlocksIds ∀ (r: Range):
       List.sumBySwap r.ids (List.rangeFrom r.to.digitCount 1) (k x =>
         Nat.keepIf x (writtenAs (Nat.digits x).toList k 2))
     -- ...which is the id once if it is doubled, and not at all if not.
-    _ = List.sumBy r.ids (x => Nat.keepIf x (doubled x)) := rewrite collapse _ 2 rfl _ (idsBelow r _ _ _)
-    _ = List.sum (List.filter r.ids doubled) := Eq.sym (List.sumFilter r.ids doubled)
+    _ = List.sumBy r.ids (x => Nat.keepIf x (doubled x)) := rewrite collapse _ 2 byComputing _ (idsBelow r _ _ _)
+    _ = List.sum (List.filter r.ids doubled) := (List.sumFilter r.ids doubled).flipped
 
 --| The block walk and the id walk agree on every input.
 theorem blocksAreIds ∀ (ranges: List Range): part1Blocks ranges = part1Spec ranges := rewrite rangeBlocksIds _

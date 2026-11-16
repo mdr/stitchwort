@@ -1,7 +1,7 @@
 -- R1: header continuation lines at +4, wherever they were.
 theorem long (a: Nat) (b: Nat)
   (c: Nat): a + b + c = c + b + a :=
-  omega
+  arithmetic
 
 def deep (x: Nat)
           (y: Nat): Nat := x + y

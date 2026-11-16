@@ -16,7 +16,7 @@ def half (n d: Nat) (big: 2 ≤ d): Nat := per n d
 def quotientIfPositive (n d: Nat): Nat := if positive: 0 < d then per n d else 0
 
 def fromLet (n d: Nat) (big: 3 ≤ d): Nat :=
-  let positive: 1 ≤ d := Nat.leTrans 1 3 d rfl big
+  let positive: 1 ≤ d := Nat.leTrans 1 3 d byComputing big
   rem n d
 
 -- 10 to the power of the number of digits.
@@ -24,6 +24,6 @@ def placeValue (number: Nat): Nat := Nat.pow 10 (Nat.digitCount number)
 
 def lastDigits (n number: Nat): Nat := rem n (placeValue number)
 
-test "remainder" := remainder 17 5 rfl == 2
+test "remainder" := remainder 17 5 byComputing == 2
 
 test "lastDigits" := lastDigits 12345 678 == 345

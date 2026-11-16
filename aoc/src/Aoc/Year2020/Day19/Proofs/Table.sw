@@ -8,13 +8,13 @@ import Std (DecEq, Eq, List, Map, Nat, Option, Void)
 
 theorem tableGet ∀ (entries: List (Nat, Rule)) (number: Nat): (ruleTable entries).get number = entries.lookup number :=
   match entries with
-    | [] => rfl
+    | [] => byComputing
     | [(entryNumber, rule), ..later] =>
       match same: entryNumber == number with
-        | True => rewrite same.read in Map.getInsert number rule (ruleTable later)
+        | True => rewrite same.read then Map.getInsert number rule (ruleTable later)
         | False =>
           Eq.trans
-            (Map.getInsertOther entryNumber rule number (equal => same.read (Eq.sym equal)) (ruleTable later))
+            (Map.getInsertOther entryNumber rule number (equal => same.read equal.flipped) (ruleTable later))
             (tableGet later number)
 
 --| The table finds the rule the list does.
@@ -27,13 +27,13 @@ theorem leftAfterSame ∀ (first second: Nat → Option Rule)
     (fuel number: Nat) (message: List Char):
     leftAfterWith first fuel number message = leftAfterWith second fuel number message :=
   match fuel with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ more =>
       match looked: second number with
-        | None => rewrite same number, looked in rfl
-        | Some (Letter letter) => rewrite same number, looked in rfl
+        | None => rewrite same number, looked then byComputing
+        | Some (Letter letter) => rewrite same number, looked then byComputing
         | Some (Alternatives sequences) =>
-          rewrite same number, looked in
+          rewrite same number, looked then
             List.flatMapCong sequences
               (sequence => leftAfterAllWith first more sequence message)
               (sequence => leftAfterAllWith second more sequence message)
@@ -44,9 +44,9 @@ theorem leftAfterAllSame ∀ (first second: Nat → Option Rule)
     (fuel: Nat) (sequence: List Nat) (message: List Char):
     leftAfterAllWith first fuel sequence message = leftAfterAllWith second fuel sequence message :=
   match sequence with
-    | [] => rfl
+    | [] => byComputing
     | [number, ..later] =>
-      rewrite leftAfterSame first second same fuel number message in
+      rewrite leftAfterSame first second same fuel number message then
         List.flatMapCong
           (leftAfterWith second fuel number message)
           (left => leftAfterAllWith first fuel later left)

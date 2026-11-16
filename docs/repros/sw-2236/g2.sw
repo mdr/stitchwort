@@ -5,11 +5,11 @@ def two (x: Nat): Nat
 :=
   match x with
     | Zero => 2
-    | Succ m => two m [decreasing := omega]
+    | Succ m => two m [decreasing := arithmetic]
 
-theorem plainSum (x: Nat): x + 2 = Succ (Succ x) := rfl
+theorem plainSum (x: Nat): x + 2 = Succ (Succ x) := byComputing
 
-theorem foldedSum (x: Nat): x + two 0 = Succ (Succ x) := rfl
+theorem foldedSum (x: Nat): x + two 0 = Succ (Succ x) := byComputing
 
 def isPos (n: Nat): Nat :=
   match n with
@@ -22,6 +22,6 @@ def isZero (n: Nat): Bool :=
     | _ => False
 
 -- A `case` and a number `match` read the sum too.
-theorem foldedSumMatched (x: Nat): isPos (x + two 0) = 1 := rfl
+theorem foldedSumMatched (x: Nat): isPos (x + two 0) = 1 := byComputing
 
-theorem foldedSumNumberMatched (x: Nat): isZero (x + two 0) = False := rfl
+theorem foldedSumNumberMatched (x: Nat): isZero (x + two 0) = False := byComputing

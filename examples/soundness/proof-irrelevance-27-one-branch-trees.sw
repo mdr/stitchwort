@@ -15,4 +15,4 @@ def tokB (t: Tok): Nat :=
   match t with
     | MkTok => 0
 
-theorem t27 (t: Tok) (t2: Tok): tokA t = tokB t2 := rfl
+theorem t27 (t: Tok) (t2: Tok): tokA t = tokB t2 := byComputing

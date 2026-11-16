@@ -11,13 +11,13 @@ expression: output
     │ 
     │ Note 1: goal: Enter ∈ digits ∨ False = True
     │ 
-    │ Note 2: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis, `omega` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases in t`
+    │ Note 2: the goal isn't stuck on anything `cases` can take apart, and neither `byComputing`, a contradiction, a hypothesis, `arithmetic` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases then t`
     │ 
     │ Note 3: it split `flag`, `key` as a fallback, though the goal wasn't stuck on them
     │ 
     │ Note 4: the goal's decision procedure says it is false
     │ 
-    │ Note 5: 11 other cases were closed (1 by `omega`, 10 by deciding)
+    │ Note 5: 11 other cases were closed (1 by `arithmetic`, 10 by deciding)
     │ 
     │ Note 6: this statement is false; a counterexample:
     │           flag = False

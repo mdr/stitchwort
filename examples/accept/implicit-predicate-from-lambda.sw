@@ -16,4 +16,4 @@ theorem useAtAny ∀ (m: Nat): m * 1 = m := atAny (k => Std.Nat.mulOne k)
 
 theorem atAnyFixed ∀ [holds: Nat → Prop] [n: Nat] (which: n = n) (all: ∀ (k: Nat) => holds k): holds n := all n
 
-theorem useFixed ∀ (m: Nat): m * 1 = m := atAnyFixed (rfl: m = m) (k => Std.Nat.mulOne k)
+theorem useFixed ∀ (m: Nat): m * 1 = m := atAnyFixed (byComputing: m = m) (k => Std.Nat.mulOne k)

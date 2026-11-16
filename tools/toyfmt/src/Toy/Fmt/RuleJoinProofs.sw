@@ -88,9 +88,11 @@ theorem passesGroup ∀ (inner: Doc) (pre post: Edge → Prop)
     Passes (Doc.group inner) pre post :=
   passes
 
-theorem passesEmpty ∀ (pre: Edge → Prop): Passes Empty pre pre := (rfl, (edge next holds after => after edge holds))
+theorem passesEmpty ∀ (pre: Edge → Prop): Passes Empty pre pre :=
+  (byComputing, (edge next holds after => after edge holds))
 
-theorem passesBlank ∀ (pre: Edge → Prop): Passes Blank pre pre := (rfl, (edge next holds after => after edge holds))
+theorem passesBlank ∀ (pre: Edge → Prop): Passes Blank pre pre :=
+  (byComputing, (edge next holds after => after edge holds))
 
 theorem tokenMeets ∀ (comments: Comments) (text: Text)
     (fine: Fine comments)
@@ -113,7 +115,7 @@ def EachPasses: List Doc → Prop
   | [doc, ..rest] => Passes doc Free Meets ∧ EachPasses rest
 
 theorem eachProper ∀ (docs: List Doc) (each: EachPasses docs): AllProper (wordsAll docs) := match docs, each with
-  | [], _ => rfl
+  | [], _ => byComputing
   | [doc, ..rest], Both (Both proper _) others => properAppend doc.words (wordsAll rest) proper (eachProper rest others)
 
 theorem sepsPass ∀ (docs: List Doc) (edge: Edge) (next: Edge → Prop)
@@ -124,16 +126,16 @@ theorem sepsPass ∀ (docs: List Doc) (edge: Edge) (next: Edge → Prop)
     | [], _ => after edge meets
     | [item, ..more], Both (Both _ joins) others =>
       let onward: Joins standsBefore item (Plain None) (reached => SepsJoin standsBefore more reached next) :=
-        joins (Plain None) (reached => SepsJoin standsBefore more reached next) rfl (reached met =>
+        joins (Plain None) (reached => SepsJoin standsBefore more reached next) byComputing (reached met =>
           sepsPass more reached next others met after)
       match edge, meets with
-        | Plain None, _ => (rfl, onward)
+        | Plain None, _ => (byComputing, onward)
         | Plain (Some word), any => ((any " " closingSpace), onward)
         | Edge.Waiting, _ => onward
 
 --| A fill: its items with a space or a line break between each two.
 theorem fillPasses ∀ (docs: List Doc) (each: EachPasses docs): Passes (Fill docs) Free Meets := match docs, each with
-  | [], _ => (rfl, (edge next free after => after edge (freeMeets edge free)))
+  | [], _ => (byComputing, (edge next free after => after edge (freeMeets edge free)))
   | [first, ..others], Both (Both proper joins) rest => (
     (properAppend first.words (wordsAll others) proper (eachProper others rest)),
     (edge next free after =>
@@ -182,9 +184,9 @@ theorem negateAdmits ∀ (minus: Comments) (operand: Expr) (edge: Edge)
     (enters: Enters (Negate minus operand) edge):
     Admits "-" edge :=
   match edge, enters with
-    | Plain None, _ => rfl
-    | Edge.Waiting, _ => rfl
-    | Plain (Some word), Both _ startsMinus => startsMinus rfl
+    | Plain None, _ => byComputing
+    | Edge.Waiting, _ => byComputing
+    | Plain (Some word), Both _ startsMinus => startsMinus byComputing
 
 --| After a `-`: a space before an operand that starts with `-`, else
 --| the operand at once.
@@ -221,9 +223,9 @@ theorem chainGroup ∀ (first: Doc) (links: List Doc) (pre post: Edge → Prop)
   match parts with
     | (proper, joins) =>
       let words: AllProper (wordsAll [first, Nest 2 (Doc.concat links)]) :=
-        rewrite List.appendNil (Doc.concat links).words, concatWords links in proper
+        rewrite List.appendNil (Doc.concat links).words, concatWords links then proper
       (
-        (rewrite concatWords [first, Nest 2 (Doc.concat links)] in words),
+        (rewrite concatWords [first, Nest 2 (Doc.concat links)] then words),
         (edge next holds after =>
           concatJoins
             [first, Nest 2 (Doc.concat links)]
@@ -333,7 +335,7 @@ theorem lineStartPasses ∀ (index: Nat) (blankBefore: Bool)
     (pre: Edge → Prop) (first: (index == 0) = True → ∀ (edge: Edge) => pre edge → Loose edge):
     Passes (lineStart index blankBefore) pre Loose :=
   match zero: index == 0 with
-    | True => (rfl, (edge next holds after => after edge (first zero edge holds)))
+    | True => (byComputing, (edge next holds after => after edge (first zero edge holds)))
     | False =>
       match blankBefore with
         | True => passesTwo HardLine Blank pre Loose Loose (passesHard pre) (passesBlank Loose)
@@ -363,7 +365,9 @@ theorem codedMeets ∀ (statement: Statement)
   match statement, coded, leaves with
     | Let _ _ _ _ _, _, meets => meets
     | Bare _, _, meets => meets
-    | StatementNote _, never, _ => Void.exfalso (Bool.falseNotTrue never)
+    | StatementNote _, never, _ =>
+      match never with
+        | ()
 
 theorem bareBranchPasses ∀ (value: Expr)
     (whole: Passes value.layout Loose Meets):
@@ -382,7 +386,7 @@ theorem chainPasses ∀ (level: Nat) (expr: Expr)
     | Binary operator sign left right, Both fineSign (Both lexLeft lexRight) =>
       match same: operator.level == level with
         | True =>
-          rewrite List.appendAssoc (chainParts level left) [link operator sign right.layout] more in
+          rewrite List.appendAssoc (chainParts level left) [link operator sign right.layout] more then
             chainPasses level left lexLeft
               (exprPasses left lexLeft)
               ([link operator sign right.layout] ++ more)
@@ -437,7 +441,7 @@ theorem exprPasses ∀ (expr: Expr) (lexical: Lexical expr): Passes expr.layout 
             (Enters (Bracketed open inner close))
             fineOpen
             openSign
-            (entersAdmits (Bracketed open inner close) "(" (later => rfl)))
+            (entersAdmits (Bracketed open inner close) "(" (later => byComputing)))
           (passesCons _ _ Free Meets Meets
             (passesFrom _ _ Free _ (exprPasses inner lexInner) (freeEnters inner))
             (passesLast _ Meets Meets
@@ -449,7 +453,7 @@ theorem exprPasses ∀ (expr: Expr) (lexical: Lexical expr): Passes expr.layout 
         fineOpen
         fineClose
         (itemDocsPass items lexItems)
-        (entersAdmits (ListLiteral open items close) "[" (later => rfl))
+        (entersAdmits (ListLiteral open items close) "[" (later => byComputing))
     | Call callee open arguments close, Both lexCallee (Both fineOpen (Both lexArguments fineClose)) =>
       passesTwo callee.layout
         (argumentsLayout open arguments close)
@@ -519,13 +523,14 @@ theorem exprPasses ∀ (expr: Expr) (lexical: Lexical expr): Passes expr.layout 
           (exprPasses condition lexCondition)
           (branchPasses thenComments whenTrue lexTrue)
           (elseBranchPasses elseComments whenFalse lexFalse))
-        (entersAdmits (If ifComments condition thenComments whenTrue elseComments whenFalse) "if" (later => rfl))
+        (entersAdmits (If ifComments condition thenComments whenTrue elseComments whenFalse) "if" (later =>
+          byComputing))
 
 theorem itemDocsPass ∀ (items: List Item) (lexical: LexicalItems items): EachPasses (itemDocs items) :=
   match items, lexical with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [{ value, comma }], Both lexValue _ =>
-      ((passesFrom _ _ Free _ (exprPasses value lexValue) (freeEnters value)), rfl)
+      ((passesFrom _ _ Free _ (exprPasses value lexValue) (freeEnters value)), byComputing)
     | [{ value, comma }, next, ..rest], Both lexValue (Both fineComma others) => (
       (passesTwo value.layout
         (closeAfter value (token comma ","))
@@ -557,7 +562,7 @@ theorem listPasses ∀ (open: Comments) (items: List Item) (close: Comments) (pr
     | [first, ..rest] =>
       match lastOfCons first rest with
         | (last, found) =>
-          rewrite found in
+          rewrite found then
             passesGroup _ pre Meets
               (passesConcat _ pre Meets
                 (passesCons
@@ -612,10 +617,10 @@ theorem argumentsPass ∀ (open: Comments) (arguments: List Item) (close: Commen
                 Free
                 Free
                 Meets
-                (passesSoft Free Free (edge holds => holds) rfl)
+                (passesSoft Free Free (edge holds => holds) byComputing)
                 (joinedPasses (itemDocs [first, ..rest]) each))
               (passesCons SoftLine _ Meets Meets Meets
-                (passesSoft Meets Meets (edge holds => holds) rfl)
+                (passesSoft Meets Meets (edge holds => holds) byComputing)
                 (passesLast _ Meets Meets
                   (meetingCloser close ")" fineClose (signToken CloseParen closeSign) closingClose))))))
 
@@ -625,7 +630,7 @@ theorem linesPass ∀ (index: Nat) (statements: List (Spaced Statement))
     (closed: ClosedLines statements):
     PassesAll (statementLines index statements) pre Meets :=
   match statements, lexical, closed with
-    | [], _, never => Void.exfalso (Bool.falseNotTrue never)
+    | [], _, never => (Bool.falseNotTrue never).impossible
     | [{ blankBefore, line }], Both lexLine _, coded =>
       passesCons _ _ pre Loose Meets
         (lineStartPasses index blankBefore pre first)
@@ -635,8 +640,8 @@ theorem linesPass ∀ (index: Nat) (statements: List (Spaced Statement))
       passesCons _ _ pre Loose Meets
         (lineStartPasses index blankBefore pre first)
         (passesCons _ _ Loose Open Meets
-          (passesTo _ _ (Leaves line) Open (statementPasses line lexLine) (edge reached => rfl))
-          (linesPass (index + 1) [next, ..rest] Open (zero => Void.exfalso (succNotZero index zero)) others closed))
+          (passesTo _ _ (Leaves line) Open (statementPasses line lexLine) (edge reached => byComputing))
+          (linesPass (index + 1) [next, ..rest] Open (zero => (succNotZero index zero).impossible) others closed))
 
 --| A block: its statements one a line, below.
 theorem blockPasses ∀ (statements: List (Spaced Statement)) (pre: Edge → Prop)
@@ -660,7 +665,7 @@ theorem branchPasses ∀ (keyword: Comments) (body: Body)
     (lexical: LexicalBody body):
     Passes (branch keyword body) Meets Meets :=
   match body, lexical with
-    | { statements = [] }, Both _ never => Void.exfalso (Bool.falseNotTrue never)
+    | { statements = [] }, Both _ never => (Bool.falseNotTrue never).impossible
     | { statements = [{ blankBefore, line = Bare value }] }, Both (Both lexValue _) _ =>
       let whole := passesFrom value.layout (Enters value) Loose Meets (exprPasses value lexValue) (looseEnters value)
       match g: keyword.after.isNone with
@@ -750,7 +755,7 @@ theorem afterEqualsPasses ∀ (body: Body) (equals: Comments)
                 (passesOneLineBelow _ Meets Meets whole)
                 (passesBelow _ Meets Meets whole)
         | False => passesBelow _ Meets Meets whole
-    | { statements = [] }, Both _ never => Void.exfalso (Bool.falseNotTrue never)
+    | { statements = [] }, Both _ never => (Bool.falseNotTrue never).impossible
     | { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }] }, Both lexLines closed =>
       blockPasses [{ blankBefore, line = Let letComments name nameComments equals inner }] Meets lexLines closed
     | { statements = [{ blankBefore, line = StatementNote comment }] }, Both lexLines closed =>
@@ -804,9 +809,9 @@ theorem parameterDocsPass ∀ (parameters: List Parameter)
     (lexical: LexicalParameters parameters):
     EachPasses (parameterDocs parameters) :=
   match parameters, lexical with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [{ name, comments, comma }], Both (Both word _) (Both fine _) =>
-      ((freeToken comments name fine (wordToken name word)), rfl)
+      ((freeToken comments name fine (wordToken name word)), byComputing)
     | [{ name, comments, comma }, next, ..rest], Both (Both word _) (Both fine (Both fineComma others)) => (
       (passesTwo
         (token comments name)
@@ -885,10 +890,10 @@ theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments open:
                 Free
                 Free
                 Meets
-                (passesSoft Free Free (edge holds => holds) rfl)
+                (passesSoft Free Free (edge holds => holds) byComputing)
                 (joinedPasses (parameterDocs [first, ..others]) (parameterDocsPass [first, ..others] lexParameters)))
               (passesCons SoftLine _ Meets Meets Meets
-                (passesSoft Meets Meets (edge holds => holds) rfl)
+                (passesSoft Meets Meets (edge holds => holds) byComputing)
                 (passesLast _ Meets Meets closing)))))
 
 theorem declarationPasses ∀ (declaration: Declaration)
@@ -909,12 +914,12 @@ theorem declarationPasses ∀ (declaration: Declaration)
           (headerPasses fnComments name nameComments open parameters close equals fineFn word fineName fineOpen
               lexParameters fineClose fineEquals)
           (afterEqualsPasses body equals lexBody))
-        (edge reached => rfl)
+        (edge reached => byComputing)
     | Value letComments name nameComments equals body, Both fineLet
         (Both (Both word _) (Both fineName (Both fineEquals lexBody))) =>
       passesTo _ _ Meets Open
         (bindingPasses letComments name nameComments equals body fineLet word fineName fineEquals lexBody)
-        (edge reached => rfl)
+        (edge reached => byComputing)
     | DeclarationNote comment, fine => passesComment comment fine
 
 theorem declarationLinesPass ∀ (index: Nat) (declarations: List (Spaced Declaration))
@@ -922,7 +927,7 @@ theorem declarationLinesPass ∀ (index: Nat) (declarations: List (Spaced Declar
     (lexical: LexicalDeclarations declarations):
     PassesAll (declarationLines index declarations) pre Open :=
   match declarations, lexical with
-    | [], _ => passesNil pre Open (edge holds => rfl)
+    | [], _ => passesNil pre Open (edge holds => byComputing)
     | [{ blankBefore, line }, ..rest], Both lexLine others =>
       passesCons _ _ pre Open Open
         (passesTwo
@@ -933,14 +938,14 @@ theorem declarationLinesPass ∀ (index: Nat) (declarations: List (Spaced Declar
           Open
           (lineStartPasses index blankBefore pre first)
           (declarationPasses line lexLine))
-        (declarationLinesPass (index + 1) rest Open (zero => Void.exfalso (succNotZero index zero)) others)
+        (declarationLinesPass (index + 1) rest Open (zero => (succNotZero index zero).impossible) others)
 
 --| The document the rules build for a file joins from a line start, and
 --| its words are proper: each token is put only before what it is still
 --| read whole before, whichever way the layout goes.
 theorem fileJoins ∀ (file: SourceFile) (lexical: LexicalFile file): Passes file.layout Loose Open :=
   match file, lexical with
-    | { declarations = [] }, _ => (rfl, (edge next holds after => after edge rfl))
+    | { declarations = [] }, _ => (byComputing, (edge next holds after => after edge byComputing))
     | { declarations = [first, ..rest] }, lexical =>
       passesTwo
         (Doc.concat (declarationLines 0 [first, ..rest]))
@@ -949,7 +954,7 @@ theorem fileJoins ∀ (file: SourceFile) (lexical: LexicalFile file): Passes fil
         Open
         Open
         (passesConcat _ Loose Open (declarationLinesPass 0 [first, ..rest] Loose (zero edge holds => holds) lexical))
-        (passesTo _ _ Loose Open (passesHard Open) (edge reached => rfl))
+        (passesTo _ _ Loose Open (passesHard Open) (edge reached => byComputing))
 
 --| `LexicalFile` can be met: the tree of `let x = 1`.
 theorem lexicalExample: LexicalFile {
@@ -964,12 +969,12 @@ theorem lexicalExample: LexicalFile {
     } :=
   (
     ((
-      ((rfl, rfl)),
-      (((('x', [], rfl, rfl, rfl)), rfl)),
-      ((rfl, rfl)),
-      ((rfl, rfl)),
-      (((((('1', [], rfl, rfl, rfl)), rfl, rfl)), rfl)),
-      rfl
+      ((byComputing, byComputing)),
+      (((('x', [], byComputing, byComputing, byComputing)), byComputing)),
+      ((byComputing, byComputing)),
+      ((byComputing, byComputing)),
+      (((((('1', [], byComputing, byComputing, byComputing)), byComputing, byComputing)), byComputing)),
+      byComputing
     )),
-    rfl
+    byComputing
   )

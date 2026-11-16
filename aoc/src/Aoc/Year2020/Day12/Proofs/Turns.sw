@@ -14,21 +14,21 @@ import Aoc.Year2020.Day12.Spec (quarterLeft, quarterRight, turned, unit)
 import Std (Eq, Int, Nat, Void)
 
 theorem fullTurnLeft ∀ (location: Coords YUp): Nat.iterate 4 quarterLeft location = location :=
-  Coords.ext _ _ (omega) (omega)
+  Coords.ext _ _ (arithmetic) (arithmetic)
 
 theorem fullTurnRight ∀ (location: Coords YUp): Nat.iterate 4 quarterRight location = location :=
-  Coords.ext _ _ (omega) (omega)
+  Coords.ext _ _ (arithmetic) (arithmetic)
 
 --| A turn left by `quarters` is a turn right by the rest of a full turn.
 theorem leftIsRight ∀ (quarters: Nat)
     (small: quarters < 4) (location: Coords YUp):
     Nat.iterate quarters quarterLeft location = Nat.iterate ((4 - quarters) % 4) quarterRight location :=
   match quarters with
-    | 0 => rfl
-    | 1 => Coords.ext _ _ (omega) (omega)
-    | 2 => Coords.ext _ _ (omega) (omega)
-    | 3 => Coords.ext _ _ (omega) (omega)
-    | Succ (Succ (Succ (Succ more))) => Void.exfalso (omega)
+    | 0 => byComputing
+    | 1 => Coords.ext _ _ (arithmetic) (arithmetic)
+    | 2 => Coords.ext _ _ (arithmetic) (arithmetic)
+    | 3 => Coords.ext _ _ (arithmetic) (arithmetic)
+    | Succ (Succ (Succ (Succ more))) => Void.impossible arithmetic
 
 --| The spec's turn, as the program counts it: quarter turns clockwise.
 theorem turnedClockwise ∀ (side: Side) (degrees: Nat) (location: Coords YUp):
@@ -36,12 +36,12 @@ theorem turnedClockwise ∀ (side: Side) (degrees: Nat) (location: Coords YUp):
   match side with
     | Right => iterateMod quarterRight 4 fullTurnRight (degrees / 90) location
     | Left =>
-      rewrite iterateMod quarterLeft 4 fullTurnLeft (degrees / 90) location in
+      rewrite iterateMod quarterLeft 4 fullTurnLeft (degrees / 90) location then
         leftIsRight (degrees / 90 % 4) (Nat.modLt (degrees / 90) 4) location
 
 --| The program's quarter turn is the spec's.
 theorem quarterRightTurn ∀ (location: Location): quarterRight location = location.turnRight :=
-  Coords.ext _ _ (omega) (omega)
+  Coords.ext _ _ (arithmetic) (arithmetic)
 
 --| So many quarter turns right of the spec are the library's.
 theorem turnedQuarters ∀ (quarters: Nat) (location: Location):
@@ -50,17 +50,18 @@ theorem turnedQuarters ∀ (quarters: Nat) (location: Location):
 
 --| The spec's step is the library's step along the heading.
 theorem unitStep ∀ (heading: Heading): unit heading = heading.toCoords := match heading with
-  | North => Coords.ext _ _ (omega) (omega)
-  | South => Coords.ext _ _ (omega) (omega)
-  | East => Coords.ext _ _ (omega) (omega)
-  | West => Coords.ext _ _ (omega) (omega)
+  | North => Coords.ext _ _ (arithmetic) (arithmetic)
+  | South => Coords.ext _ _ (arithmetic) (arithmetic)
+  | East => Coords.ext _ _ (arithmetic) (arithmetic)
+  | West => Coords.ext _ _ (arithmetic) (arithmetic)
 
 --| Turning a heading is turning its step.
 theorem headingTurned ∀ (quarters: Nat) (heading: Heading):
     unit (heading.turned quarters) = Nat.iterate quarters quarterRight (unit heading) :=
-  rewrite unitStep (heading.turned quarters), unitStep heading, turnedQuarters quarters heading.toCoords in
-    Eq.sym (coordsTurnedHeading heading quarters)
+  rewrite unitStep (heading.turned quarters), unitStep heading, turnedQuarters quarters heading.toCoords then
+    Eq.flipped (coordsTurnedHeading heading quarters)
 
 theorem rotatedTurned ∀ (side: Side) (degrees: Nat) (location: Location):
     location.turned (clockwiseQuarters side degrees) = turned side degrees location :=
-  rewrite turnedClockwise side degrees location, turnedQuarters (clockwiseQuarters side degrees) location in rfl
+  rewrite turnedClockwise side degrees location, turnedQuarters (clockwiseQuarters side degrees) location then
+    byComputing

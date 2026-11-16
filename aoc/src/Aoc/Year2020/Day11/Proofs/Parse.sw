@@ -24,7 +24,7 @@ theorem gridWritten ∀ (input: Text) (grid: Grid Seat)
   let split :=
     rewrite Fail.toResultThen (() => Parse.eachLine input (() => Parse.many1 seat |> .toList)) checkGrid at parsed
   Result.flatMapEqOk _ (rows => Fail.toResult (() => checkGrid rows)) grid split (rows read checked =>
-    rewrite <- checkGridRows rows grid checked in
+    rewrite <- checkGridRows rows grid checked then
       Parse.eachLineReads input
         (() => Parse.many1 seat |> .toList) _
         rows
@@ -33,7 +33,7 @@ theorem gridWritten ∀ (input: Text) (grid: Grid Seat)
           (Parse.readsMap (() => Parse.many1 seat) NonEmptyList.toList _ (Parse.readsMany1 seat _ readsSeat))
           (line values h =>
             match h with
-              | Witness seats (Both each same) => rewrite same in Parse.eachChars symbol line seats.toList each)))
+              | Witness seats (Both each same) => rewrite same then Parse.eachChars symbol line seats.toList each)))
 
 --| Every line of the input is its row of the layout written out, and the
 --| layout is a rectangle.
@@ -48,4 +48,4 @@ theorem parseWritten ∀ (input: Text) (layout: Layout)
     split
     (grid read made =>
       let same: ({ grid }: Layout) = layout := Result.okInjective made
-      rewrite <- same in Both (gridWritten input grid read) (And.left (parseGridRectangle input seat grid read)))
+      rewrite <- same then Both (gridWritten input grid read) (And.left (parseGridRectangle input seat grid read)))

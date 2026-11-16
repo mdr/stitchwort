@@ -59,7 +59,7 @@ theorem flagFewestOfThree ∀ (flag: Bool) (earlier later: Month): (flag = True)
   cases
 
 -- Only `key` matters, but fewest first splits `flag` (2 against 11). The
--- case `flag = True` is closed whole by `omega` (`… ∨ True = True`), so
+-- case `flag = True` is closed whole by `arithmetic` (`… ∨ True = True`), so
 -- `key` is split only when `flag = False`: 12 cases, not the 22 that
 -- deciding alone would make (decide/fallback.sw, by hand). The order shows
 -- in examples/reject/cases-fallback-count.sw.

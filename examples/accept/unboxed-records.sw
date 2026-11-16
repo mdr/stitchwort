@@ -16,8 +16,8 @@ def reset (c: Count): Count := { c | n = 0 }
 -- 2: a data field plus a proof.
 type Below (bound: Nat) = { value: Nat, isLt: value < bound }
 
-def two: Below 5 := { value = 2, isLt = rfl }
-def four: Below 5 := { value = 4, isLt = rfl }
+def two: Below 5 := { value = 2, isLt = byComputing }
+def four: Below 5 := { value = 4, isLt = byComputing }
 
 -- 3: polymorphic.
 type Box (a: Type) = { item: a }
@@ -46,7 +46,7 @@ type Ok (n: Nat) = { proof: n < 10 }
 type Wrapped = { n: Nat, ok: Ok n }
 type Pair2 = { a: Nat, b: Text }
 
-def wrapped: Wrapped := { n = 3, ok = { proof = rfl } }
+def wrapped: Wrapped := { n = 3, ok = { proof = byComputing } }
 
 -- 10: containers.
 type Inventory = { stock: Map Text Nat }

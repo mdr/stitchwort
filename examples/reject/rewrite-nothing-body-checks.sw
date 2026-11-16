@@ -9,4 +9,4 @@ theorem computedPast (p: Nat → Prop) (depth: Nat) (more: Nat) (h: p (Succ (dep
     p (depth + Succ more) :=
   match more with
     | Zero => h
-    | Succ m => rewrite Nat.addSucc depth m in h
+    | Succ m => rewrite Nat.addSucc depth m then h

@@ -41,7 +41,7 @@ def parseCavern (input: Text): {Fail} Cavern := Cavern.ofDigits (parseGrid input
 def Cavern.ofDigits (digits: Grid (Fin 10)): Cavern := {
   grid = {
     rows = digits.rows.map (row => row.map Fin.toNat),
-    nonEmpty = rewrite digitsFirstWidth digits.rows in digits.nonEmpty
+    nonEmpty = rewrite digitsFirstWidth digits.rows then digits.nonEmpty
   }
 }
 
@@ -50,7 +50,7 @@ def Cavern.ofDigits (digits: Grid (Fin 10)): Cavern := {
 theorem digitsFirstWidth ∀ (rows: List (List (Fin 10))):
     firstWidth (rows.map (digits => digits.map Fin.toNat)) = firstWidth rows :=
   match rows with
-    | [] => rfl
+    | [] => byComputing
     | [first, ..rest] => List.lengthMap first Fin.toNat
 
 --| The octopuses with their positions and levels, row by row.

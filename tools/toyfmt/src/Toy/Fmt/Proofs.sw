@@ -28,10 +28,10 @@ theorem formatFileUnchanged ∀ (options: Options) (path: Path) (disk: Disk) (so
     (formatted: format source options.width = Formatted printed)
     (same: printed = source):
     Files.simulate disk (() => formatFile options path) = (disk, Outcome.Done path Unchanged) :=
-  rewrite readable, formatted in
+  rewrite readable, formatted then
     match c: printed == source with
-      | True => rfl
-      | False => Void.exfalso (DecEq.soundFalse _ _ c same)
+      | True => byComputing
+      | False => (DecEq.soundFalse _ _ c same).impossible
 
 --| With `--check`, a file whose formatted text differs is not written: the
 --| disk is left as it was and the outcome is `WouldChange`.
@@ -41,10 +41,10 @@ theorem formatFileWouldChange ∀ (options: Options) (path: Path) (disk: Disk) (
     (differs: printed ≠ source)
     (checking: options.check = True):
     Files.simulate disk (() => formatFile options path) = (disk, Outcome.Done path WouldChange) :=
-  rewrite readable, formatted in
+  rewrite readable, formatted then
     match c: printed == source with
-      | True => Void.exfalso (differs (DecEq.sound c))
-      | False => rewrite checking in rfl
+      | True => Void.impossible (differs (DecEq.sound c))
+      | False => rewrite checking then byComputing
 
 --| Without `--check`, a file whose formatted text differs is written once,
 --| with `format`'s text, at its own path: the disk afterwards is the one
@@ -56,10 +56,10 @@ theorem formatFileRewrites ∀ (options: Options) (path: Path) (disk after: Disk
     (writing: options.check = False)
     (allowed: disk.write path printed = Ok after):
     Files.simulate disk (() => formatFile options path) = (after, Outcome.Done path Rewritten) :=
-  rewrite readable, formatted in
+  rewrite readable, formatted then
     match c: printed == source with
-      | True => Void.exfalso (differs (DecEq.sound c))
-      | False => rewrite writing, allowed in rfl
+      | True => Void.impossible (differs (DecEq.sound c))
+      | False => rewrite writing, allowed then byComputing
 
 --| As `formatFileRewrites`, but the disk refuses the write: the disk is left
 --| as it was and the outcome is a `Problem` naming the error.
@@ -70,10 +70,10 @@ theorem formatFileWriteError ∀ (options: Options) (path: Path) (disk: Disk) (s
     (writing: options.check = False)
     (refused: disk.write path printed = Err error):
     Files.simulate disk (() => formatFile options path) = (disk, Problem "${error}") :=
-  rewrite readable, formatted in
+  rewrite readable, formatted then
     match c: printed == source with
-      | True => Void.exfalso (differs (DecEq.sound c))
-      | False => rewrite writing, refused in rfl
+      | True => Void.impossible (differs (DecEq.sound c))
+      | False => rewrite writing, refused then byComputing
 
 --| A file that doesn't parse is not written: the disk is left as it was and
 --| the outcome is a `Problem` with the parser's message.
@@ -81,7 +81,7 @@ theorem formatFileParseError ∀ (options: Options) (path: Path) (disk: Disk) (s
     (readable: disk.read path = Ok source)
     (refused: format source options.width = ParseError message):
     Files.simulate disk (() => formatFile options path) = (disk, Problem (locate path message)) :=
-  rewrite readable, refused in rfl
+  rewrite readable, refused then byComputing
 
 --| A write the disk allows can be read back: reading `path` on the disk
 --| `Disk.write path text` gave returns `text`.
@@ -98,7 +98,8 @@ theorem readAfterWrite ∀ (disk after: Disk) (path: Path) (text: Text)
                 | Some folder =>
                   match folderExists: disk.isFolder folder with
                     | True =>
-                      rewrite <- Result.okInjective written in rewrite Map.getInsert path.normal text disk.files in rfl
+                      rewrite <- Result.okInjective written then
+                        rewrite Map.getInsert path.normal text disk.files then byComputing
 
 --| Formatting twice: if `format source` answered `Formatted printed` and the disk
 --| took `printed` at `path` (as `formatFileRewrites` does), then the next
@@ -111,4 +112,4 @@ theorem formatFileSettles ∀ (options: Options) (path: Path) (disk after: Disk)
   formatFileUnchanged options path after printed printed
     (readAfterWrite disk after path printed allowed)
     (formatIdempotent source options.width printed formatted)
-    rfl
+    byComputing

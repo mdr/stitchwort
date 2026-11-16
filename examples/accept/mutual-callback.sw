@@ -33,5 +33,5 @@ test "weigh adds the list" := weigh [1, 2, 3] 10 == 16
 test "twice" := twice [1, 2] 0 == 6
 test "empty list" := twice [] 7 == 7
 
-theorem weighExample: weigh [1, 2, 3] 10 = 16 := rfl
-theorem twiceExample: twice [1, 2] 0 = 6 := rfl
+theorem weighExample: weigh [1, 2, 3] 10 = 16 := byComputing
+theorem twiceExample: twice [1, 2] 0 = 6 := byComputing

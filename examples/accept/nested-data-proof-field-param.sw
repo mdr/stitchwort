@@ -11,7 +11,7 @@ type Rose (a: Type) = | Leaf (x: a) | Node (w: W (Rose a) a)
 
 def leaf (n: Nat): Rose Nat := Leaf n
 
-def node (n v: Nat): Rose Nat := Node { item = leaf n, v = v, ok = rfl }
+def node (n v: Nat): Rose Nat := Node { item = leaf n, v = v, ok = byComputing }
 
 test "equal" := node 1 2 == node 1 2
 test "differs in the nested item" := node 1 2 != node 3 2
@@ -25,7 +25,7 @@ type Tree (a: Type) = | Tip | Branch (w: W (Forest a) a)
 
 type Forest (a: Type) = | Empty | Plant (t: Tree a) (rest: Forest a)
 
-def branch (v: Nat): Tree Nat := Branch { item = Plant Tip Empty, v = v, ok = rfl }
+def branch (v: Nat): Tree Nat := Branch { item = Plant Tip Empty, v = v, ok = byComputing }
 
 test "a group: equal" := branch 1 == branch 1 && branch 1 != branch 2
 test "a group: order" := Tip < branch 1 && branch 1 < branch 2

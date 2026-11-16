@@ -19,8 +19,8 @@ def run (n: Nat): List Nat → Option Nat
 
 theorem sameRun ∀ (n k: Nat) (rest: List Nat): Exists (List Nat) (xs => run n xs = run n [k, ..rest]) :=
   match moved: step n with
-    | Some m => Witness [k, ..rest] (rewrite moved in rfl)
-    | None => Witness [k, ..rest] (rewrite moved in rfl)
+    | Some m => Witness [k, ..rest] (rewrite moved then byComputing)
+    | None => Witness [k, ..rest] (rewrite moved then byComputing)
 
 -- The same when a `rewrite` in the arm makes the term.
 theorem renamedRun ∀ (n other: Nat)
@@ -28,5 +28,5 @@ theorem renamedRun ∀ (n other: Nat)
     (k: Nat) (rest: List Nat):
     run other [k, ..rest] = run n [k, ..rest] :=
   match moved: step n with
-    | Some m => rewrite same, moved in rfl
-    | None => rewrite same, moved in rfl
+    | Some m => rewrite same, moved then byComputing
+    | None => rewrite same, moved then byComputing

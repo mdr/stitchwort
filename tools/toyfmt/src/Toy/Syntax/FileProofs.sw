@@ -95,18 +95,18 @@ theorem firstBlankOfAppend ∀ (isFirst: Bool) (group later: List (Spaced a))
     (some: group ≠ []):
     firstBlankOf isFirst (group ++ later) = firstBlankOf isFirst group ++ later :=
   match isFirst with
-    | False => rfl
+    | False => byComputing
     | True =>
       match group, some with
-        | [], some => Void.exfalso (some rfl)
-        | [head, ..tail], some => rfl
+        | [], some => (some byComputing).impossible
+        | [head, ..tail], some => byComputing
 
 --| A declaration's lines are never none: they end with the declaration.
 theorem groupSomeOf ∀ (isFirst: Bool) (group pending: List (Spaced a)) (last: Spaced a)
     (noted: firstBlankOf isFirst group = pending ++ [last]):
     group ≠ [] :=
   same =>
-    let empty := rewrite same at noted in noted
+    let empty := rewrite same at noted then noted
     match isFirst, pending, empty with
       | True, [], empty => cases
       | False, [head, ..tail], empty => cases
@@ -144,7 +144,7 @@ theorem declarationsRun ∀ (isFirst: Bool) (pending lines: List (Spaced Declara
         = pending ++ lines :=
   match lines, shaped, spelled with
     | [], shaped, Both noTokens notes =>
-      ([], (Eq.sym noTokens), (declarationDeclines [] rfl), (Eq.trans notes (Eq.sym (List.appendNil pending))))
+      ([], noTokens.flipped, (declarationDeclines [] byComputing), (Eq.trans notes (List.appendNil pending).flipped))
     | [{ blankBefore, line = DeclarationNote comment }, ..more], Both lineShaped moreShaped, spelled =>
       match declarationsRun isFirst
         (pending ++ [{ blankBefore, line = DeclarationNote comment }])
@@ -181,10 +181,10 @@ theorem declarationsRun ∀ (isFirst: Bool) (pending lines: List (Spaced Declara
           let values2: (Parse.stepValues steps).concat ++ (spacedNotes DeclarationNote endTrivia).fst = more := values
           (
             [([first, named, equals, ..bodyTokens], notedDeclaration first.value.above line), ..steps],
-            (rewrite split, joined in rfl),
+            (rewrite split, joined then byComputing),
             ((
               (same => cases),
-              (rewrite joined, List.appendNil later, letCommented, nameCommented, equalsCommented in
+              (rewrite joined, List.appendNil later, letCommented, nameCommented, equalsCommented then
                 runsValueSpelled first named equals bodyTokens later name inner atMargin isLet isName nameAllowed
                     isEquals equalsAllowed innerShaped innerSpelled),
               runs
@@ -246,7 +246,7 @@ theorem declarationsRun ∀ (isFirst: Bool) (pending lines: List (Spaced Declara
               ),
               ..steps
             ],
-            (rewrite split, joined in
+            (rewrite split, joined then
               Eq.cong
                 ((tail: List (Parse.Located Token)) => [first, named, open, ..tail])
                 (List.appendAssoc parameterTokens [close, equals, ..bodyTokens] later)),
@@ -259,7 +259,7 @@ theorem declarationsRun ∀ (isFirst: Bool) (pending lines: List (Spaced Declara
                   nameCommented,
                   openCommented,
                   closeCommented,
-                  equalsCommented in
+                  equalsCommented then
                 runsFunctionSpelled first named open close equals parameterTokens bodyTokens later name listed inner
                     atMargin isFn isName nameAllowed opens openAllowed closes isEquals equalsAllowed runsNames
                     innerShaped innerSpelled),
@@ -280,7 +280,7 @@ theorem declarationsRun ∀ (isFirst: Bool) (pending lines: List (Spaced Declara
 theorem fileOfNotes ∀ (declarations: List (Spaced Declaration)) (endTrivia: List Trivia):
     fileOf declarations endTrivia
       = { declarations = withoutFirstBlank (declarations ++ (spacedNotes DeclarationNote endTrivia).fst) } :=
-  match found: spacedNotes DeclarationNote endTrivia with | (endNotes, blank) => rfl
+  match found: spacedNotes DeclarationNote endTrivia with | (endNotes, blank) => byComputing
 
 --| The parser reads back what spells a file: on tokens and end trivia
 --| that spell `file`, a file of the parser's shape, `sourceFile` reads
@@ -297,4 +297,4 @@ theorem runsFileSpelled ∀ (file: SourceFile) (tokens: List (Parse.Located Toke
             Eq.trans
               (fileOfNotes (Parse.stepValues steps).concat endTrivia)
               (Eq.cong ((lines: List (Spaced Declaration)) => ({ declarations = lines }: SourceFile)) values)
-          rewrite <- joined in (rewrite <- same in runsSourceFile endTrivia steps runs)
+          rewrite <- joined then (rewrite <- same then runsSourceFile endTrivia steps runs)

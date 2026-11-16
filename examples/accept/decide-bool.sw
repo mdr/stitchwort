@@ -4,43 +4,43 @@
 
 def small (k size: Nat) (xs: List Nat): List Nat := xs.filter (n => k * n ≤ size)
 
-theorem smallExample: small 2 10 [1, 5, 6, 2] = [1, 5, 2] := rfl
+theorem smallExample: small 2 10 [1, 5, 6, 2] = [1, 5, 2] := byComputing
 
 def allSmall (xs: List Nat): Bool := xs.all (< 10)
 
-theorem allSmallYes: allSmall [1, 2, 9] = True := rfl
-theorem allSmallNo: allSmall [1, 20] = False := rfl
+theorem allSmallYes: allSmall [1, 2, 9] = True := byComputing
+theorem allSmallNo: allSmall [1, 20] = False := byComputing
 
 -- An `Int` comparison, and an equation.
 def negatives (xs: List Int): List Int := xs.filter (< 0)
 
-theorem negativesExample: negatives [3, -1, 0, -7] = [-1, -7] := rfl
+theorem negativesExample: negatives [3, -1, 0, -7] = [-1, -7] := byComputing
 
 def threes (xs: List Nat): List Nat := xs.filter (n => n = 3)
 
-theorem threesExample: threes [3, 4, 3] = [3, 3] := rfl
+theorem threesExample: threes [3, 4, 3] = [3, 3] := byComputing
 
 -- A definition whose type is a proposition, applied.
 def IsSmall (n: Nat): Prop := n < 10
 
 def keepSmall (xs: List Nat): List Nat := xs.filter (n => IsSmall n)
 
-theorem keepSmallExample: keepSmall [3, 30] = [3] := rfl
+theorem keepSmallExample: keepSmall [3, 30] = [3] := byComputing
 
 -- A body, a branch and an argument, each expecting a `Bool`.
 def le (a b: Nat): Bool := a ≤ b
 
-theorem leExample: le 2 3 = True := rfl
+theorem leExample: le 2 3 = True := byComputing
 
 def pick (b: Bool) (n: Nat): Bool := if b then n < 5 else n = 0
 
-theorem pickExample: pick True 3 = True := rfl
+theorem pickExample: pick True 3 = True := byComputing
 
 def both (a b: Bool): Bool := a ∧ b
 
-theorem bothExample: both (1 < 2) (3 = 3) = True := rfl
+theorem bothExample: both (1 < 2) (3 = 3) = True := byComputing
 
 -- `if` and `&&` still take a proposition as they did.
 def clamp (n: Nat): Nat := if n < 10 ∧ n ≠ 3 then n else 0
 
-theorem clampExample: clamp 3 = 0 := rfl
+theorem clampExample: clamp 3 = 0 := byComputing

@@ -7,7 +7,7 @@ import Std (Eq, Map, Nat, Ord)
 
 def descending: Ord Nat :=
   Ord.fromCompare (x y => Nat.compare y x)
-    (x y h => Eq.sym (Nat.compareEqual y x h))
+    (x y h => Eq.flipped (Nat.compareEqual y x h))
     (x y => Nat.compareFlip y x)
     (x y z h1 h2 => Nat.compareTrans z y x h2 h1)
 

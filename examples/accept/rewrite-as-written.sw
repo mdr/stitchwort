@@ -31,7 +31,7 @@ theorem inHypothesis ∀ (image: Image) (a b: Nat)
     (flipEdges: edges image.flip = [a, b]) (edge: Nat)
     (member: edge ∈ edges image.flip):
     edge ∈ [a, b] :=
-  rewrite flipEdges at member in member
+  rewrite flipEdges at member then member
 
 -- The only occurrence is inside the call `safe …`, which the goal shows as
 -- a call: found in what it computes to, as before.
@@ -50,7 +50,7 @@ def per (n d: Nat) [auto ok: d ≠ 0]: Nat := n / d
 
 theorem hiddenProof ∀ (d: Nat) [auto ok: d ≠ 0] (a n: Nat) (same: Succ a = d): per (d + n) d = per (Succ a + n) d :=
   calc per (d + n) d
-    _ = per (Succ a + n) d := rewrite (omega: d = Succ a)
+    _ = per (Succ a + n) d := rewrite (arithmetic: d = Succ a)
 
 theorem hiddenProofPlain ∀ (d a n: Nat) [auto ok: d ≠ 0] (same: d = Succ a): per (d + n) d = per (Succ a + n) d :=
   rewrite same
@@ -65,4 +65,4 @@ def wrap (n k: Nat): Nat := add k n
 -- would pick, `add c (add a b)` (first in that goal), not the `add a b`
 -- the goal shows; the as-written result is dropped for that reason.
 theorem sameInstance ∀ (comm: ∀ (x y: Nat) => add x y = add y x) (a b c: Nat): wrap (add a b) c = add (add a b) c :=
-  rewrite comm _ _ in rfl
+  rewrite comm _ _ then byComputing

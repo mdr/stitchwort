@@ -5,7 +5,7 @@ expression: output
 [E-TYPE-MISMATCH] Error: type mismatch
     ╭─[ reject/as-written-unconfirmed-other-rounds.sw:35:72 ]
     │
- 35 │     | Some y => Witness y (Option.someInjective [x := y] [y := answer] solved |> Eq.sym)
+ 35 │     | Some y => Witness y (Option.someInjective [x := y] [y := answer] solved |> Eq.flipped)
     │                                                                        ───┬──  
     │                                                                           ╰──── expected `Some y = Some answer`, but this has type `None = Some answer`
 ────╯

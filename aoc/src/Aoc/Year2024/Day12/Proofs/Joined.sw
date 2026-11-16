@@ -16,7 +16,7 @@ theorem chainSnoc ∀ (garden: Garden) (from: Position) (chain: List Position) (
     (touching: touches garden to next = True):
     isChain garden from (chain ++ [next]) next = True :=
   match chain, same with
-    | [], same => rewrite same.read in Both touching (DecEq.refl next)
+    | [], same => rewrite same.read then Both touching (DecEq.refl next)
     | [middle, ..rest], Both step chained => Both step (chainSnoc garden middle rest to next chained touching)
 
 theorem joinedStep ∀ (garden: Garden) (plot other next: Position)
@@ -30,7 +30,7 @@ theorem chainSymmetric ∀ (garden: Garden) (from: Position) (chain: List Positi
     (same: isChain garden from chain to = True):
     Joined garden to from :=
   match chain, same with
-    | [], same => rewrite same.read in joinedRefl garden to
+    | [], same => rewrite same.read then joinedRefl garden to
     | [next, ..rest], Both step chained =>
       joinedStep garden to next from
         (chainSymmetric garden next rest to chained)
@@ -46,7 +46,7 @@ theorem chainTrans ∀ (garden: Garden) (plot from: Position) (chain: List Posit
     (same: isChain garden from chain to = True):
     Joined garden plot to :=
   match chain, same with
-    | [], same => rewrite <- same.read in joined
+    | [], same => rewrite <- same.read then joined
     | [next, ..rest], Both step chained =>
       chainTrans garden plot next rest to (joinedStep garden plot from next joined step) chained
 
@@ -62,10 +62,10 @@ theorem chainPlant ∀ (garden: Garden) (plant: Char) (from: Position) (chain: L
     (h: isChain garden from chain to = True):
     garden.plantAt to = Some plant :=
   match chain, h with
-    | [], same => rewrite <- same.read in grows
+    | [], same => rewrite <- same.read then grows
     | [next, ..rest], Both (Both _ same) chained => Exists.elim (growSameElim garden from next same) (same both =>
-      let plantSame: same = plant := Option.someInjective (Eq.trans (Eq.sym (And.left both)) grows)
-      chainPlant garden plant next rest to (rewrite <- plantSame in And.right both) chained)
+      let plantSame: same = plant := Option.someInjective (Eq.trans both.left.flipped grows)
+      chainPlant garden plant next rest to (rewrite <- plantSame then And.right both) chained)
 
 theorem joinedPlant ∀ (garden: Garden) (plant: Char) (plot other: Position)
     (grows: garden.plantAt plot = Some plant)

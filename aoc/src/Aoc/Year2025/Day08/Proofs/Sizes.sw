@@ -46,7 +46,7 @@ theorem entryCount ∀ (c: Circuits) (n: Nat) (e: (Nat, Nat))
   match e with
     | (label, v) =>
       Eq.trans
-        (Eq.sym (Eq.cong (.getOrElse 0) ((Map.memToList (labelCounts c n) label v).forward m)))
+        (Eq.flipped (Eq.cong (.getOrElse 0) ((Map.memToList (labelCounts c n) label v).forward m)))
         (getOrLabelCounts c n label)
 
 --| A label is counted once at least exactly when some box has it.
@@ -55,22 +55,23 @@ theorem memOfCount ∀ (c: Circuits) (n label: Nat)
     List.Mem label (List.map (List.range 0 n) c.labelOf) :=
   let found: (List.map (List.range 0 n) c.labelOf).any (x => x == label) = True :=
     rewrite List.anyOccurrences (List.map (List.range 0 n) c.labelOf) (x => x == label),
-        <- List.countOccurrences _ (x => x == label) in
+        <- List.countOccurrences _ (x => x == label) then
       h
   let Witness x (Both m e) := found
-  rewrite <- e.read in m
+  rewrite <- e.read then m
 
 theorem countOfMem ∀ (c: Circuits) (n label: Nat)
     (m: List.Mem label (List.map (List.range 0 n) c.labelOf)):
     0 < labelCount c n label :=
-  rewrite List.countOccurrences _ (x => x == label), <- List.anyOccurrences _ (x => x == label) in
+  rewrite List.countOccurrences _ (x => x == label), <- List.anyOccurrences _ (x => x == label) then
     Witness label (Both m (DecEq.refl label))
 
 --| The histogram's keys are the labels.
 theorem keyOfLabel ∀ (c: Circuits) (n label: Nat)
     (m: List.Mem label (List.map (List.range 0 n) c.labelOf)):
     List.Mem label (Map.keys (labelCounts c n)) :=
-  let positive: 0 < Map.getOr (labelCounts c n) label 0 := rewrite getOrLabelCounts c n label in countOfMem c n label m
+  let positive: 0 < Map.getOr (labelCounts c n) label 0 :=
+    rewrite getOrLabelCounts c n label then countOfMem c n label m
   match g: Map.get (labelCounts c n) label with
     | Some v =>
       List.memMap
@@ -95,11 +96,11 @@ theorem labelOfKey ∀ (c: Circuits) (n label: Nat)
             k
             v
             ((Map.memToList (labelCounts c n) k v).forward me)
-      rewrite <- key in memOfCount c n e.fst (rewrite <- entryCount c n e me in positive))
+      rewrite <- key then memOfCount c n e.fst (rewrite <- entryCount c n e me then positive))
 
 --| The histogram's values are the counts of its keys.
 theorem valuesAreCounts ∀ (c: Circuits) (n: Nat): c.sizes n = List.map (Map.keys (labelCounts c n)) (labelCount c n) :=
-  rewrite List.mapMap (Map.toList (labelCounts c n)) (labelCount c n) Pair.fst in
+  rewrite List.mapMap (Map.toList (labelCounts c n)) (labelCount c n) Pair.fst then
     List.mapCongMem (Map.toList (labelCounts c n)) Pair.snd (e => labelCount c n e.fst) (entryCount c n)
 
 -- The spec's first boxes -----------------------------------------------------
@@ -131,9 +132,9 @@ theorem firstsDistinct ∀ (c: Circuits) (k s: Nat):
                           b
                           0
                           s
-                          omega
-                          (omega [List.memRangeFrom b k (Succ s) inRange])
-                          (rewrite same, DecEq.refl (c.labelOf s) in rfl)
+                          arithmetic
+                          (arithmetic [List.memRangeFrom b k (Succ s) inRange])
+                          (rewrite same, DecEq.refl (c.labelOf s) then byComputing)
                       Bool.falseNotTrue (rewrite lower at first)))
             (firstsDistinct c k (Succ s))
         | False => firstsDistinct c k (Succ s)
@@ -151,13 +152,13 @@ theorem firstOf ∀ (c: Circuits) (n fuel b: Nat)
             (List.memFilterIntro
               (List.range 0 n)
               (firstBox c)
-              (List.memRangeFromIntro b n 0 omega hb)
-              (rewrite g in rfl))
+              (List.memRangeFromIntro b n 0 arithmetic hb)
+              (rewrite g then byComputing))
             c.labelOf
         | True =>
           let Witness other (Both mo same) := g
           let below := List.memRangeFrom other b 0 mo
-          rewrite <- same.read in firstOf c n fuel other omega omega
+          rewrite <- same.read then firstOf c n fuel other arithmetic arithmetic
 
 theorem labelOfFirst ∀ (c: Circuits) (n label: Nat)
     (m: List.Mem label (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)):
@@ -168,7 +169,7 @@ theorem labelOfFirst ∀ (c: Circuits) (n label: Nat)
     (List.filter (List.range 0 n) (firstBox c))
     (List.memMapAny _ c.labelOf label m)
     (b mb e =>
-      rewrite <- e in
+      rewrite <- e then
         List.memMap (List.range 0 n) b (And.left (List.memFilter (List.range 0 n) (firstBox c) mb)) c.labelOf)
 
 theorem firstOfLabel ∀ (c: Circuits) (n label: Nat)
@@ -179,20 +180,21 @@ theorem firstOfLabel ∀ (c: Circuits) (n label: Nat)
     (List.Mem label (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf))
     (List.range 0 n)
     (List.memMapAny _ c.labelOf label m)
-    (b mb e => rewrite <- e in firstOf c n (Succ b) b omega (And.right (List.memRangeFrom b n 0 mb)))
+    (b mb e => rewrite <- e then firstOf c n (Succ b) b arithmetic (List.memRangeFrom b n 0 mb).right)
 
 --| The spec's sizes, with "same label" as the test, are the counts of the
 --| first boxes' labels.
 theorem circuitSizesAreCounts ∀ (c: Circuits) (n: Nat):
     circuitSizes n (a b => c.labelOf a == c.labelOf b)
       = List.map (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf) (labelCount c n) :=
-  rewrite List.mapMap _ (labelCount c n) c.labelOf, List.countMap (List.range 0 n) (x => x == c.labelOf _) c.labelOf in
-    rfl
+  rewrite List.mapMap _ (labelCount c n) c.labelOf,
+      List.countMap (List.range 0 n) (x => x == c.labelOf _) c.labelOf then
+    byComputing
 
 --| The program's sizes are the spec's, in another order.
 theorem sizesPerm ∀ (c: Circuits) (n: Nat):
     List.Perm (c.sizes n) (circuitSizes n (a b => c.labelOf a == c.labelOf b)) :=
-  rewrite valuesAreCounts c n, circuitSizesAreCounts c n in
+  rewrite valuesAreCounts c n, circuitSizesAreCounts c n then
     List.permMap
       (Map.keys (labelCounts c n))
       (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)

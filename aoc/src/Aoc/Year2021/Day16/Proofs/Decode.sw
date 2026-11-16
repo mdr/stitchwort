@@ -18,7 +18,7 @@ theorem readPacketSound ∀ (reader: BitReader) (packet: Packet) (rest: BitReade
     | Some ([first], after) =>
       let parts := somePairInjective read
       let sound := readPacketsSound (Packets 1) reader [first] after e
-      rewrite <- parts.left, <- parts.right in
+      rewrite <- parts.left, <- parts.right then
         Both (rewrite List.appendNil (encode first) at sound.left) sound.right.left.left
 
 --| Completeness: a well-formed packet is read back from its bits, whatever
@@ -26,8 +26,8 @@ theorem readPacketSound ∀ (reader: BitReader) (packet: Packet) (rest: BitReade
 theorem readPacketComplete ∀ (packet: Packet)
     (formed: wellFormed packet = True) (rest: List Bool):
     readPacket { unread = encode packet ++ rest } = Some (packet, { unread = rest }) :=
-  let read := countComplete [packet] (Both formed rfl) rest
-  rewrite List.appendNil (encode packet) at read in rewrite read in rfl
+  let read := countComplete [packet] (Both formed byComputing) rest
+  rewrite List.appendNil (encode packet) at read then rewrite read then byComputing
 
 --| So bits start with at most one well-formed packet: the transmission
 --| fixes the packet.
@@ -38,7 +38,7 @@ theorem encodingUnique ∀ (first second: Packet) (rest1 rest2: List Bool)
     first = second ∧ rest1 = rest2 :=
   let read1 := readPacketComplete first formed1 rest1
   let read2 := readPacketComplete second formed2 rest2
-  let both := rewrite same at read1 in somePairInjective (Eq.trans (Eq.sym read1) read2)
+  let both := rewrite same at read1 then somePairInjective (Eq.trans read1.flipped read2)
   Both both.left (Eq.cong (reader => reader.unread) both.right)
 
 --| The parser's guarantee: the input is hexadecimal digits, and the packet
@@ -50,7 +50,7 @@ theorem parsePacketReads ∀ (input: Text) (packet: Packet)
       ∧ bits = encode packet ++ rest
       ∧ rest.all (bit => not bit) = True
       ∧ wellFormed packet = True :=
-  let split := rewrite Fail.toResultThen (() => readBits input) decodeTransmission at parsed in parsed
+  let split := rewrite Fail.toResultThen (() => readBits input) decodeTransmission at parsed then parsed
   Result.flatMapEqOk
     (Fail.toResult (() => readBits input))
     (bits => Fail.toResult (() => decodeTransmission bits))
@@ -62,6 +62,6 @@ theorem parsePacketReads ∀ (input: Text) (packet: Packet)
           match z: zeroBits rest.unread with
             | True =>
               let sound := readPacketSound { unread = bits } found rest e
-              rewrite <- Result.okInjective decoded in
+              rewrite <- Result.okInjective decoded then
                 Witness bits
                   (Witness rest.unread (Both (readBitsHex input bits got) (Both sound.left (Both z sound.right)))))

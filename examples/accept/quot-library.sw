@@ -12,20 +12,20 @@ import Std (Bool, DecEq, Decidable, Eq, Iff, ProofBox, Quot)
 def double (n: Nat): Nat := n + n
 def twice (n: Nat): Nat := 2 * n
 
-theorem doubleIsTwice: double = twice := Quot.funext Nat (n => Nat) double twice (n => omega)
+theorem doubleIsTwice: double = twice := Quot.funext Nat (n => Nat) double twice (n => arithmetic)
 
 -- Two proofs of the same `(n: Nat) -> n + 0 = n`, equal as functions.
 theorem plusZero ∀ (f g: ∀ (n: Nat) => n + 0 = n): f = g :=
   Quot.funextProp Nat (n => n + 0 = n) f g (n => DecEq.uniqueEq (f n) (g n))
 
 -- A proof, stored as data.
-def boxed: ProofBox (1 + 1 = 2) := { proof = rfl }
+def boxed: ProofBox (1 + 1 = 2) := { proof = byComputing }
 
 -- `Bool` equality, decided by `==`.
 def BoolEq (x y: Bool): Prop := x = y
 
 def boolDecides (x y: Bool): ((x == y) = True) ↔ (BoolEq x y) :=
-  { forward = DecEq.sound, backward = e => rewrite e in (DecEq.decide y y).complete rfl }
+  { forward = DecEq.sound, backward = e => rewrite e then (DecEq.decide y y).complete byComputing }
 
 -- In the quotient of `Bool` by its own equality, `True` and `False` stay apart.
 theorem trueNotFalse ∀ (same: (Quot.mk True: Quot Bool BoolEq) = Quot.mk False): Void :=
@@ -33,8 +33,8 @@ theorem trueNotFalse ∀ (same: (Quot.mk True: Quot Bool BoolEq) = Quot.mk False
     (Quot.exactDec Bool BoolEq
       (x y => x == y)
       boolDecides
-      (x => rfl)
-      (x y e => Eq.sym e)
+      (x => byComputing)
+      (x y e => e.flipped)
       (x y z p q => Eq.trans p q)
       True
       False

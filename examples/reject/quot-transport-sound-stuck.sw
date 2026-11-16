@@ -9,4 +9,4 @@ theorem same: (Quot.mk False: Q) = Quot.mk True := Quot.sound Trivial
 
 def n: Nat := J (y p => Nat) 0 same
 
-theorem nIsZero: n = 0 := rfl
+theorem nIsZero: n = 0 := byComputing

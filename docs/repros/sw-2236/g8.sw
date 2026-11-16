@@ -10,4 +10,4 @@ def isThreeB (n: Nat): Nat :=
     | 3 => 10
     | _ => 20
 
-theorem numCaseTrees (n: Nat): isThreeA n = isThreeB n := rfl
+theorem numCaseTrees (n: Nat): isThreeA n = isThreeB n := byComputing

@@ -12,7 +12,7 @@ import Std (And, Bool, DecEq, Decidable, Eq, Exists, List, Nat, Option, Or, Void
 --| `a` is `a / 8` times 8 plus a number below 8, so it is among the values
 --| built from `a / 8`.
 theorem amongLows ∀ (a: Nat): a ∈ List.map (List.range 0 8) (low => a / 8 * 8 + low) :=
-  rewrite Eq.sym (Nat.divModEq a 8) at List.memMap
+  rewrite Eq.flipped (Nat.divModEq a 8) at List.memMap
     (List.range 0 8)
     (a % 8)
     (List.memRangeFromIntro (a % 8) 8 0 (Nat.zeroLe (a % 8)) (Nat.modLess a 8 (Nat.succNotZero 7)))
@@ -28,15 +28,15 @@ theorem candidatesComplete ∀ (output: Nat → List Nat)
   match target with
     | [] =>
       match shape a with
-        | Witness first same => Void.exfalso (List.consNotNil first _ (Eq.trans (Eq.sym same) outputs))
+        | Witness first same => Void.impossible (List.consNotNil first _ (Eq.trans same.flipped outputs))
     | [value, ..rest] =>
       match shape a with
         | Witness first same =>
           let tail: rest = (if a < 8 then [] else output (a / 8)) :=
-            Eq.cong (list => List.drop list 1) (Eq.trans (Eq.sym outputs) same)
+            Eq.cong (list => List.drop list 1) (Eq.trans outputs.flipped same)
           let high: a / 8 ∈ candidates output rest := match small: a < 8 with
-            | True => rewrite tail in Inl (Eq.sym (Nat.divSmall a 8 small))
-            | False => candidatesComplete output shape rest (a / 8) (Eq.sym tail)
+            | True => rewrite tail then Inl (Nat.divSmall a 8 small).flipped
+            | False => candidatesComplete output shape rest (a / 8) tail.flipped
           List.memFilterIntro _
             (candidate => output candidate == [value, ..rest])
             (List.memFlatMapIntro
@@ -46,13 +46,13 @@ theorem candidatesComplete ∀ (output: Nat → List Nat)
               (candidates output rest)
               high
               (amongLows a))
-            (rewrite outputs in DecEq.refl [value, ..rest])
+            (rewrite outputs then DecEq.refl [value, ..rest])
 
 --| What the search returns is positive and outputs the target.
 theorem lowestSound ∀ (output: Nat → List Nat) (target: List Nat) (a: Nat)
     (found: lowestOutputting output target = Some a):
     (0 < a) ∧ (output a = target) :=
-  let kept := And.right (List.memFilter _ _ (And.left (List.minimumSome _ a found)))
+  let kept := And.right (List.memFilter _ _ (List.minimumSome _ a found).left)
   let Both positive outputs := kept
   Both positive outputs.read
 
@@ -66,7 +66,7 @@ theorem finalCandidate ∀ (output: Nat → List Nat)
   List.memFilterIntro _
     (a => 0 < a ∧ output a == target)
     (candidatesComplete output shape target other outputs)
-    (Both positive (rewrite outputs in DecEq.refl target))
+    (Both positive (rewrite outputs then DecEq.refl target))
 
 --| For an output of the loop shape, the search returns at most any positive
 --| value that outputs the target.

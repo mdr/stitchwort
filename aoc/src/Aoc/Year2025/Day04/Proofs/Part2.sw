@@ -23,19 +23,19 @@ theorem roundCells ∀ (grid: Grid)
   r c =>
     Eq.trans
       (cellRound rows r c)
-      (rewrite windowIsNeighbours grid (rowsCells rows) (rowsCellsBelow rows) (rowsCellsRight rows) r c in
+      (rewrite windowIsNeighbours grid (rowsCells rows) (rowsCellsBelow rows) (rowsCellsRight rows) r c then
         keepRemove (rowsCells rows r c) (grid.neighbours (rowsCells rows) r c))
 
 --| One step of `settleRows`: another round when it removes a roll, else done.
 theorem settleMore ∀ (rows: Vec (Vec Cell w) h)
     (fewer: Nat.leq (Succ (countRolls (roundRows rows))) (countRolls rows) = True):
     settleRows rows = settleRows (roundRows rows) :=
-  rewrite settleRows.unfold rows in rewrite fewer in rfl
+  rewrite settleRows.unfold rows then rewrite fewer then byComputing
 
 theorem settleDone ∀ (rows: Vec (Vec Cell w) h)
     (done: Nat.leq (Succ (countRolls (roundRows rows))) (countRolls rows) = False):
     settleRows rows = rows :=
-  rewrite settleRows.unfold rows in rewrite done in rfl
+  rewrite settleRows.unfold rows then rewrite done then byComputing
 
 --| The loop ends where `fuel` rounds do, for any `fuel` of at least the rolls.
 theorem settleRounds ∀ (grid: Grid)
@@ -52,17 +52,17 @@ theorem settleRounds ∀ (grid: Grid)
   let rowsRolls := rollsIsCount grid rows
   match e: Nat.leq (Succ (countRolls next)) (countRolls rows) with
     | True =>
-      let more: fuel = Succ (fuel - 1) := omega
-      let stillEnough: countRolls next ≤ fuel - 1 := omega
-      rewrite settleMore rows e, more in
+      let more: fuel = Succ (fuel - 1) := arithmetic
+      let stillEnough: countRolls next ≤ fuel - 1 := arithmetic
+      rewrite settleMore rows e, more then
         r c =>
           Eq.trans
             (settleRounds grid next (fuel - 1) stillEnough [decreasing := e] r c)
             (roundsSame grid (fuel - 1) (rowsCells next) (grid.removeAccessible cells) (roundCells grid rows) r c)
     | False =>
-      let none: accCount grid cells = 0 := omega [removed, same, nextRolls, rowsRolls]
-      rewrite settleDone rows e in
-        r c => Eq.sym (roundsFixed grid fuel cells (noneStable grid cells (insideRows grid rows) none) r c)
+      let none: accCount grid cells = 0 := arithmetic [removed, same, nextRolls, rowsRolls]
+      rewrite settleDone rows e then
+        r c => Eq.flipped (roundsFixed grid fuel cells (noneStable grid cells (insideRows grid rows) none) r c)
 
 --| Part 2 is right for every grid: the printed answer is the number of rolls
 --| the puzzle's rounds remove.
@@ -70,7 +70,7 @@ theorem part2Correct ∀ (grid: Grid): solvePart2 grid = part2Spec grid :=
   let cells := grid.cells
   let start := grid.rollCount cells
   let settled := settleRows grid.rows
-  let same := settleRounds grid grid.rows start (omega [rollsIsCount grid grid.rows])
+  let same := settleRounds grid grid.rows start (arithmetic [rollsIsCount grid grid.rows])
   calc solvePart2 grid
     _ = start - grid.rollCount (rowsCells settled) := rewrite rollsIsCount grid grid.rows, rollsIsCount grid settled
     _ = start - grid.rollCount (grid.rounds start cells) :=

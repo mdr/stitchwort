@@ -8,9 +8,10 @@ import Aoc.Year2021.Day17.Spec (..)
 import Std (Bool, Eq, Exists, Int, List, Nat, Option, Void)
 
 --| The spec's "within" is the program's `inTarget`.
-theorem withinOf ∀ (target: Target) (probe: Probe) (h: inTarget target probe = True): Within target probe := omega
+theorem withinOf ∀ (target: Target) (probe: Probe) (h: inTarget target probe = True): Within target probe := arithmetic
 
-theorem inTargetOf ∀ (target: Target) (probe: Probe) (h: Within target probe): inTarget target probe = True := omega
+theorem inTargetOf ∀ (target: Target) (probe: Probe) (h: Within target probe): inTarget target probe = True :=
+  arithmetic
 
 --| Every velocity that hits is a candidate: it is in the box.
 theorem hitsCandidate ∀ (target: Target)
@@ -25,14 +26,14 @@ theorem hitsCandidate ∀ (target: Target)
   let late := hitLate target below velocity n h
   let i := Int.toNat (velocity.x - 1)
   let j := Int.toNat (velocity.y - target.bottom)
-  let iOf := Int.toIntToNat (velocity.x - 1) (omega)
-  let jOf := Int.toIntToNat (velocity.y - target.bottom) (omega)
-  let rightOf := Int.toIntToNat target.right (omega)
-  let stepsOf := Int.toIntToNat (-2 * target.bottom) (omega)
+  let iOf := Int.toIntToNat (velocity.x - 1) (arithmetic)
+  let jOf := Int.toIntToNat (velocity.y - target.bottom) (arithmetic)
+  let rightOf := Int.toIntToNat target.right (arithmetic)
+  let stepsOf := Int.toIntToNat (-2 * target.bottom) (arithmetic)
   let iIn: i ∈ List.range 0 (Int.toNat target.right) :=
-    List.memRangeFromIntro i (Int.toNat target.right) 0 (omega) (omega)
-  let jIn: j ∈ List.range 0 (steps target) := List.memRangeFromIntro j (steps target) 0 (omega) (omega)
-  let same: aimed target i j = velocity := Coords.ext (aimed target i j) velocity (omega) (omega)
+    List.memRangeFromIntro i (Int.toNat target.right) 0 (arithmetic) (arithmetic)
+  let jIn: j ∈ List.range 0 (steps target) := List.memRangeFromIntro j (steps target) 0 (arithmetic) (arithmetic)
+  let same: aimed target i j = velocity := Coords.ext (aimed target i j) velocity (arithmetic) (arithmetic)
   List.memFlatMapIntro
     (i => List.range 0 (steps target) |> .map (aimed target i))
     i
@@ -51,18 +52,18 @@ theorem hittingCorrect ∀ (target: Target)
       match hits with
         | Witness n within =>
           let inside: inTarget target (flight n velocity) = True :=
-            rewrite flightIsAfter n velocity in inTargetOf target _ within
+            rewrite flightIsAfter n velocity then inTargetOf target _ within
           let late := hitLate target below velocity n inside
-          let stepsOf := Int.toIntToNat (-2 * target.bottom) (omega)
+          let stepsOf := Int.toIntToNat (-2 * target.bottom) (arithmetic)
           List.memFilterIntro
             (candidates target)
             (v => hitsWithin target (steps target) (launch v))
             (hitsCandidate target right below velocity n inside)
-            (hitsWithinComplete target (steps target) n (launch velocity) (omega) inside),
+            (hitsWithinComplete target (steps target) n (launch velocity) (arithmetic) inside),
     backward = member =>
       let both := List.memFilter (candidates target) (v => hitsWithin target (steps target) (launch v)) member
       match hitsWithinSound target (steps target) (launch velocity) both.right with
-        | Witness n (Both early inside) => Witness n (rewrite <- flightIsAfter n velocity in withinOf target _ inside)
+        | Witness n (Both early inside) => Witness n (rewrite <- flightIsAfter n velocity then withinOf target _ inside)
   }
 
 --| The candidates are distinct, so the hitting velocities are.
@@ -77,11 +78,11 @@ theorem candidatesDistinct ∀ (target: Target): List.Distinct (candidates targe
         (List.range 0 (steps target))
         (List.distinctRangeFrom (steps target) 0)
         (aimed target i)
-        (a b same => omega [Eq.cong (v => v.y) same]))
+        (a b same => arithmetic [Eq.cong (v => v.y) same]))
     (i _ v member =>
       match List.memMapElim (aimed target i) v (List.range 0 (steps target)) member with
         | Witness j (Both _ made) =>
-          rewrite <- made in Eq.trans (Eq.cong Int.toNat (omega: i.toInt + 1 - 1 = i.toInt)) (Int.toNatToInt i))
+          rewrite <- made then Eq.trans (Eq.cong Int.toNat (arithmetic: i.toInt + 1 - 1 = i.toInt)) (Int.toNatToInt i))
 
 theorem hittingDistinct ∀ (target: Target): List.Distinct (hitting target) :=
   List.distinctFilter (candidates target) (v => hitsWithin target (steps target) (launch v)) (candidatesDistinct target)
@@ -91,7 +92,7 @@ theorem part2Correct ∀ (target: Target)
     (right: 0 < target.left)
     (below: target.top < 0):
     HittingCount target (solvePart2 target) :=
-  Witness (hitting target) (Both (hittingDistinct target) (Both (hittingCorrect target right below) rfl))
+  Witness (hitting target) (Both (hittingDistinct target) (Both (hittingCorrect target right below) byComputing))
 
 --| Part 1: the highest y position any hitting velocity reaches, if any
 --| velocity hits ...
@@ -110,11 +111,11 @@ theorem part1Correct ∀ (target: Target)
             ((hittingCorrect target right below velocity).backward member)
             (Witness
               (Int.toNat velocity.y)
-              (rewrite <- flightIsAfter (Int.toNat velocity.y) velocity, <- made in peakReached velocity)))
+              (rewrite <- flightIsAfter (Int.toNat velocity.y) velocity, <- made then peakReached velocity)))
   Both reached (velocity n hits =>
     let member := (hittingCorrect target right below velocity).forward hits
     let below := most.right (peak velocity) (List.memMap (hitting target) velocity member peak)
-    rewrite <- flightIsAfter n velocity in omega [peakAbove velocity n])
+    rewrite <- flightIsAfter n velocity then arithmetic [peakAbove velocity n])
 
 --| ... and none does when the program finds none.
 theorem part1None ∀ (target: Target)

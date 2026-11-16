@@ -15,8 +15,8 @@ theorem concatenateArithmetic ∀ (left right: Nat): concatenate left right = le
   rewrite Nat.fromDigitsAppend (Nat.digits left).toList (Nat.digits right).toList,
       Nat.fromDigitsDigits left,
       Nat.fromDigitsDigits right,
-      Nat.digitCountLength right in
-    rfl
+      Nat.digitCountLength right then
+    byComputing
 
 --| `right` is less than its place value.
 theorem belowPlaceValue ∀ (right: Nat): right < placeValue right := Nat.ltPowTenDigits right
@@ -24,7 +24,7 @@ theorem belowPlaceValue ∀ (right: Nat): right < placeValue right := Nat.ltPowT
 --| Concatenating never makes a smaller number, on either side.
 theorem concatenateAtLeast ∀ (left right: Nat): (left ≤ concatenate left right) ∧ (right ≤ concatenate left right) :=
   let shifted := Nat.leMulPos left (placeValue right) (Nat.powSuccPos 9 (Nat.digitCount right))
-  rewrite concatenateArithmetic left right in Both (omega) (omega)
+  rewrite concatenateArithmetic left right then Both (arithmetic) (arithmetic)
 
 --| `v + last` is `target` when `last ≤ target` and `v` is `target - last`.
 theorem undoAdd ∀ (last target v: Nat): (v + last == target) = (last <= target && v == target - last) :=
@@ -33,11 +33,11 @@ theorem undoAdd ∀ (last target v: Nat): (v + last == target) = (last <= target
     (last <= target && v == target - last)
     (matches =>
       let same := matches
-      Both (omega) (rewrite (omega: v = target - last) in DecEq.refl (target - last)))
+      Both (arithmetic) (rewrite (arithmetic: v = target - last) then DecEq.refl (target - last)))
     (both =>
       let Both fits sameTarget := both
       let same := sameTarget
-      rewrite (omega: v + last = target) in DecEq.refl target)
+      rewrite (arithmetic: v + last = target) then DecEq.refl target)
 
 --| The backwards search over the numbers after `first`, last one first, is
 --| the forwards search over them in order.
@@ -52,13 +52,13 @@ theorem canMakeReaches ∀ (operators: List Operator) (first: Nat) (reversed: Li
           reachesAny operators operators
             (operator value => combine operator value last == target)
             earlier.reverse
-            first in
+            first then
         List.anyCongMem operators _ _ (operator has =>
           let rest := earlier.reverse
           match operator with
             | Add =>
-              rewrite before (target - last) in
-                Eq.sym
+              rewrite before (target - last) then
+                Eq.flipped
                   (Eq.trans
                     (reachesCong operators _
                       (value => last <= target && value == target - last)
@@ -69,38 +69,38 @@ theorem canMakeReaches ∀ (operators: List Operator) (first: Nat) (reversed: Li
             | Multiply =>
               match last with
                 | Zero =>
-                  Eq.sym
+                  Eq.flipped
                     (Eq.trans
                       (reachesCong operators _
                         (value => (target == 0) && True)
                         (value =>
-                          rewrite Nat.mulZero value, DecEq.eqComm 0 target in Eq.sym (Bool.andTrue (target == 0)))
+                          rewrite Nat.mulZero value, DecEq.eqComm 0 target then Eq.flipped (Bool.andTrue (target == 0)))
                         rest
                         first)
                       (rewrite reachesAnd operators (target == 0) (value => True) rest first,
-                          reachesAnything operators Multiply has rest first in
+                          reachesAnything operators Multiply has rest first then
                         Bool.andTrue (target == 0)))
                 | Succ less =>
-                  rewrite before (target / Succ less) in
-                    Eq.sym
+                  rewrite before (target / Succ less) then
+                    Eq.flipped
                       (Eq.trans
                         (reachesCong operators _
                           (value => target % Succ less == 0 && value == target / Succ less)
                           (value =>
                             Eq.trans
-                              (Eq.cong (product => product == target) (Eq.sym (Nat.addZero (value * Succ less))))
-                              (Nat.mulAddDivMatch (Succ less) 0 rfl value target))
+                              (Eq.cong (product => product == target) (Eq.flipped (Nat.addZero (value * Succ less))))
+                              (Nat.mulAddDivMatch (Succ less) 0 byComputing value target))
                           rest
                           first)
                         (reachesAnd operators (target % Succ less == 0) (== target / Succ less) rest first))
             | Concatenate =>
-              rewrite before (target / placeValue last) in
-                Eq.sym
+              rewrite before (target / placeValue last) then
+                Eq.flipped
                   (Eq.trans
                     (reachesCong operators _
                       (value => target % placeValue last == last && value == target / placeValue last)
                       (value =>
-                        rewrite concatenateArithmetic value last in
+                        rewrite concatenateArithmetic value last then
                           Nat.mulAddDivMatch (placeValue last) last (belowPlaceValue last) value target)
                       rest
                       first)
@@ -111,15 +111,15 @@ theorem canMakeReaches ∀ (operators: List Operator) (first: Nat) (reversed: Li
 theorem couldBeTrueCorrect ∀ (operators: List Operator) (equation: Equation):
     equation.couldBeTrue operators = couldPossiblyBeTrue operators equation :=
   rewrite canMakeReaches operators equation.numbers.head equation.numbers.tail.reverse equation.testValue,
-      List.reverseReverse equation.numbers.tail in
-    Eq.sym (combinationsReach operators (== equation.testValue) equation.numbers.tail equation.numbers.head)
+      List.reverseReverse equation.numbers.tail then
+    Eq.flipped (combinationsReach operators (== equation.testValue) equation.numbers.tail equation.numbers.head)
 
 --| So the program's total is the total calibration result.
 theorem calibrationResultCorrect ∀ (operators: List Operator) (equations: List Equation):
     calibrationResult operators equations = totalCalibrationResult operators equations :=
   rewrite List.filterCongMem equations (.couldBeTrue operators) (couldPossiblyBeTrue operators) (equation listed =>
-        couldBeTrueCorrect operators equation) in
-    rfl
+        couldBeTrueCorrect operators equation) then
+    byComputing
 
 theorem part1Correct ∀ (equations: List Equation): solvePart1 equations = part1 equations :=
   calibrationResultCorrect [Add, Multiply] equations
@@ -147,7 +147,7 @@ theorem couldBeTrueMore ∀ (fewer more: List Operator)
     (included: ∀ (operator: Operator) => operator ∈ fewer → operator ∈ more) (equation: Equation):
     equation.couldBeTrue fewer = True → equation.couldBeTrue more = True :=
   rewrite canMakeReaches fewer equation.numbers.head equation.numbers.tail.reverse equation.testValue,
-      canMakeReaches more equation.numbers.head equation.numbers.tail.reverse equation.testValue in
+      canMakeReaches more equation.numbers.head equation.numbers.tail.reverse equation.testValue then
     reachesMore fewer more included (== equation.testValue) equation.numbers.tail.reverse.reverse equation.numbers.head
 
 --| Part 2 adds an operator, so its total is at least part 1's.
@@ -163,4 +163,4 @@ theorem part2AtLeastPart1 ∀ (equations: List Equation): solvePart1 equations �
         | Inr later =>
           match later with
             | Inl same => Inr (Inl same)
-            | Inr nothing => Void.exfalso nothing))
+            | Inr nothing => nothing.impossible))

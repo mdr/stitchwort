@@ -4,6 +4,6 @@
 -- counterexample is a range that exists (counterexample search stage 2).
 type Range = { lo: Nat, hi: Nat, ok: lo ≤ hi }
 
-theorem rangeOrdered (r: Range): r.lo ≤ r.hi := rfl
+theorem rangeOrdered (r: Range): r.lo ≤ r.hi := byComputing
 
-theorem rangeEmpty (r: Range): r.lo = r.hi := rfl
+theorem rangeEmpty (r: Range): r.lo = r.hi := byComputing

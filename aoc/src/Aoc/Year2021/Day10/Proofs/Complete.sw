@@ -14,7 +14,7 @@ def tokenEntry (which: Token): (Text, Token) := (Text.fromList [which.char], whi
 theorem runsToken ∀ (rest: List Char) (which: Token): Parse.Runs token [which.char] rest which := match which with
   | Opener Round =>
     Parse.runsLabel "a bracket" bracket _ rest _
-      (Parse.runsPick [] "(" (Opener Round) (allTokens.drop 1 |> .map tokenEntry) rest rfl)
+      (Parse.runsPick [] "(" (Opener Round) (allTokens.drop 1 |> .map tokenEntry) rest byComputing)
   | Opener Square =>
     Parse.runsLabel "a bracket" bracket _ rest _
       (Parse.runsPick
@@ -23,7 +23,7 @@ theorem runsToken ∀ (rest: List Char) (which: Token): Parse.Runs token [which.
         (Opener Square)
         (allTokens.drop 2 |> .map tokenEntry)
         rest
-        (Both rfl rfl))
+        (Both byComputing byComputing))
   | Opener Curly =>
     Parse.runsLabel "a bracket" bracket _ rest _
       (Parse.runsPick
@@ -32,7 +32,7 @@ theorem runsToken ∀ (rest: List Char) (which: Token): Parse.Runs token [which.
         (Opener Curly)
         (allTokens.drop 3 |> .map tokenEntry)
         rest
-        (Both rfl (Both rfl rfl)))
+        (Both byComputing (Both byComputing byComputing)))
   | Opener Angle =>
     Parse.runsLabel "a bracket" bracket _ rest _
       (Parse.runsPick
@@ -41,7 +41,7 @@ theorem runsToken ∀ (rest: List Char) (which: Token): Parse.Runs token [which.
         (Opener Angle)
         (allTokens.drop 4 |> .map tokenEntry)
         rest
-        (Both rfl (Both rfl (Both rfl rfl))))
+        (Both byComputing (Both byComputing (Both byComputing byComputing))))
   | Closer Round =>
     Parse.runsLabel "a bracket" bracket _ rest _
       (Parse.runsPick
@@ -50,7 +50,7 @@ theorem runsToken ∀ (rest: List Char) (which: Token): Parse.Runs token [which.
         (Closer Round)
         (allTokens.drop 5 |> .map tokenEntry)
         rest
-        (Both rfl (Both rfl (Both rfl (Both rfl rfl)))))
+        (Both byComputing (Both byComputing (Both byComputing (Both byComputing byComputing)))))
   | Closer Square =>
     Parse.runsLabel "a bracket" bracket _ rest _
       (Parse.runsPick
@@ -59,7 +59,7 @@ theorem runsToken ∀ (rest: List Char) (which: Token): Parse.Runs token [which.
         (Closer Square)
         (allTokens.drop 6 |> .map tokenEntry)
         rest
-        (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl rfl))))))
+        (Both byComputing (Both byComputing (Both byComputing (Both byComputing (Both byComputing byComputing))))))
   | Closer Curly =>
     Parse.runsLabel "a bracket" bracket _ rest _
       (Parse.runsPick
@@ -68,7 +68,8 @@ theorem runsToken ∀ (rest: List Char) (which: Token): Parse.Runs token [which.
         (Closer Curly)
         (allTokens.drop 7 |> .map tokenEntry)
         rest
-        (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl rfl)))))))
+        (Both byComputing
+          (Both byComputing (Both byComputing (Both byComputing (Both byComputing (Both byComputing byComputing)))))))
   | Closer Angle =>
     Parse.runsLabel "a bracket" bracket _ rest _
       (Parse.runsPick
@@ -77,7 +78,10 @@ theorem runsToken ∀ (rest: List Char) (which: Token): Parse.Runs token [which.
         (Closer Angle)
         []
         rest
-        (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl rfl))))))))
+        (Both byComputing
+          (Both byComputing
+            (Both byComputing
+              (Both byComputing (Both byComputing (Both byComputing (Both byComputing byComputing))))))))
 
 --| `token` declines at the end of the input.
 theorem declinesTokenEnd: Parse.Declines token [] :=
@@ -85,7 +89,11 @@ theorem declinesTokenEnd: Parse.Declines token [] :=
     (Parse.declinesPick
       (allTokens.map tokenEntry)
       []
-      (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl rfl)))))))))
+      (Both byComputing
+        (Both byComputing
+          (Both byComputing
+            (Both byComputing
+              (Both byComputing (Both byComputing (Both byComputing (Both byComputing byComputing)))))))))
 
 --| The rounds of `many token` on a line of these tokens: a token each.
 def tokenSteps: List Token → List (List Char, Token)
@@ -94,12 +102,12 @@ def tokenSteps: List Token → List (List Char, Token)
 
 theorem joinTokenSteps ∀ (tokens: List Token): Parse.joinReads (tokenSteps tokens) = tokens.map Token.char :=
   match tokens with
-    | [] => rfl
-    | [which, ..more] => rewrite joinTokenSteps more in rfl
+    | [] => byComputing
+    | [which, ..more] => rewrite joinTokenSteps more then byComputing
 
 theorem stepTokens ∀ (tokens: List Token): Parse.stepValues (tokenSteps tokens) = tokens := match tokens with
-  | [] => rfl
-  | [which, ..more] => rewrite stepTokens more in rfl
+  | [] => byComputing
+  | [which, ..more] => rewrite stepTokens more then byComputing
 
 theorem tokenManyRuns ∀ (tokens: List Token): Parse.ManyRuns token (tokenSteps tokens) [] := match tokens with
   | [] => declinesTokenEnd
@@ -113,7 +121,7 @@ theorem runsLine ∀ (chars: List Char) (tokens: List Token)
     (written: tokens.map Token.char = chars):
     Parse.Runs (() => Parse.many token) chars [] tokens :=
   let runs := Parse.runsMany token (tokenSteps tokens) [] (tokenManyRuns tokens)
-  rewrite joinTokenSteps tokens, stepTokens tokens, written at runs in runs
+  rewrite joinTokenSteps tokens, stepTokens tokens, written at runs then runs
 
 theorem linesRun ∀ (lines: List (List Token)):
     List.All2
@@ -122,14 +130,14 @@ theorem linesRun ∀ (lines: List (List Token)):
       lines :=
   match lines with
     | [] => Trivial
-    | [tokens, ..more] => Both (runsLine (tokens.map Token.char) tokens rfl) (linesRun more)
+    | [tokens, ..more] => Both (runsLine (tokens.map Token.char) tokens byComputing) (linesRun more)
 
 --| Input whose lines are the characters of these lists of tokens is read as
 --| them.
 theorem parseComplete ∀ (input: Text) (lines: List (List Token))
     (written: lines.map (tokens => tokens.map Token.char) = input.lines.map Text.toList):
     Fail.toResult (() => parseLines input) = Ok lines :=
-  Parse.runsEachLine input (() => Parse.many token) lines (rewrite <- written in linesRun lines)
+  Parse.runsEachLine input (() => Parse.many token) lines (rewrite <- written then linesRun lines)
 
 --| A line is the characters of at most one list of tokens, because the parser
 --| reads it as one and that read is a function of the line.
@@ -139,5 +147,5 @@ theorem writtenUnique ∀ (chars: List Char) (a b: List Token)
     a = b :=
   Result.okInjective
     (Eq.trans
-      (Eq.sym (Parse.runsRun (() => Parse.many token) chars a (runsLine chars a writtenA)))
+      (Eq.flipped (Parse.runsRun (() => Parse.many token) chars a (runsLine chars a writtenA)))
       (Parse.runsRun (() => Parse.many token) chars b (runsLine chars b writtenB)))

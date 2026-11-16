@@ -10,4 +10,4 @@ def isBig (n: Nat): Bool := table.getOr n 0 == 50
 theorem wrongStep (n: Nat): isBig n = False :=
   match big: isBig n with
     | True => big
-    | False => rfl
+    | False => byComputing

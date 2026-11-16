@@ -1,5 +1,5 @@
--- expect-error: E-OMEGA
+-- expect-error: E-ARITHMETIC
 -- `(a - b) + b = a` needs `b <= a`: with `a = 0` and `b = 1` the left side is 1.
 import Std (Nat)
 
-theorem subAdd (a: Nat) (b: Nat): (a - b) + b = a := omega
+theorem subAdd (a: Nat) (b: Nat): (a - b) + b = a := arithmetic

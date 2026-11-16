@@ -8,38 +8,38 @@ import Std (Eq, List, Option)
 
 theorem monstersTurnPlayer ∀ (dice: Dice) (state: State): (monstersTurn dice state).player = state.player :=
   match phase: state.phase with
-    | Playing => rfl
-    | Won => rfl
-    | Died => rfl
-    | GaveUp => rfl
+    | Playing => byComputing
+    | Won => byComputing
+    | Died => byComputing
+    | GaveUp => byComputing
 
 theorem monstersTurnLevel ∀ (dice: Dice) (state: State): (monstersTurn dice state).level = state.level :=
   match phase: state.phase with
-    | Playing => rfl
-    | Won => rfl
-    | Died => rfl
-    | GaveUp => rfl
+    | Playing => byComputing
+    | Won => byComputing
+    | Died => byComputing
+    | GaveUp => byComputing
 
 theorem pickUpPlayer ∀ (state: State) (loot: Loot): (pickUp state loot).player = state.player := match loot with
-  | Potion => rfl
-  | Sword => rfl
-  | Amulet => rfl
+  | Potion => byComputing
+  | Sword => byComputing
+  | Amulet => byComputing
 
 theorem pickUpLevel ∀ (state: State) (loot: Loot): (pickUp state loot).level = state.level := match loot with
-  | Potion => rfl
-  | Sword => rfl
-  | Amulet => rfl
+  | Potion => byComputing
+  | Sword => byComputing
+  | Amulet => byComputing
 
 theorem pickUpMonsters ∀ (state: State) (loot: Loot): (pickUp state loot).monsters = state.monsters := match loot with
-  | Potion => rfl
-  | Sword => rfl
-  | Amulet => rfl
+  | Potion => byComputing
+  | Sword => byComputing
+  | Amulet => byComputing
 
 theorem pickUpHitPoints ∀ (state: State) (loot: Loot): (pickUp state loot).hitPoints = state.hitPoints :=
   match loot with
-    | Potion => rfl
-    | Sword => rfl
-    | Amulet => rfl
+    | Potion => byComputing
+    | Sword => byComputing
+    | Amulet => byComputing
 
 theorem enterPlayer ∀ (state: State) (target: Position): (enter state target).player = target :=
   match found: itemAt target state.items with
@@ -47,7 +47,7 @@ theorem enterPlayer ∀ (state: State) (target: Position): (enter state target).
       pickUpPlayer
         { state | player = target, message = "", items = state.items.filter (other => other.position ≠ target) }
         item.loot
-    | None => rfl
+    | None => byComputing
 
 theorem enterLevel ∀ (state: State) (target: Position): (enter state target).level = state.level :=
   match found: itemAt target state.items with
@@ -55,7 +55,7 @@ theorem enterLevel ∀ (state: State) (target: Position): (enter state target).l
       pickUpLevel
         { state | player = target, message = "", items = state.items.filter (other => other.position ≠ target) }
         item.loot
-    | None => rfl
+    | None => byComputing
 
 theorem enterMonsters ∀ (state: State) (target: Position): (enter state target).monsters = state.monsters :=
   match found: itemAt target state.items with
@@ -63,7 +63,7 @@ theorem enterMonsters ∀ (state: State) (target: Position): (enter state target
       pickUpMonsters
         { state | player = target, message = "", items = state.items.filter (other => other.position ≠ target) }
         item.loot
-    | None => rfl
+    | None => byComputing
 
 theorem enterHitPoints ∀ (state: State) (target: Position): (enter state target).hitPoints = state.hitPoints :=
   match found: itemAt target state.items with
@@ -71,4 +71,4 @@ theorem enterHitPoints ∀ (state: State) (target: Position): (enter state targe
       pickUpHitPoints
         { state | player = target, message = "", items = state.items.filter (other => other.position ≠ target) }
         item.loot
-    | None => rfl
+    | None => byComputing

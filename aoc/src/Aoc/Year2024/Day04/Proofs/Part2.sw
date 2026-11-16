@@ -24,9 +24,9 @@ theorem bothOrNone ∀ (one other: Option Bool):
     (Option.map2 (x y => Bool.toNat (x ∧ y)) one other).getOrElse 0
       = Bool.toNat (one.getOrElse False ∧ other.getOrElse False) :=
   match one, other with
-    | Some x, Some y => rfl
+    | Some x, Some y => byComputing
     | Some x, None => cases
-    | None, other => rfl
+    | None, other => byComputing
 
 --| `countCrosses` centre by centre, up to any bound at least as long as the
 --| row above: centre j + 1 has MAS from column j to j + 2 down to the right,
@@ -59,17 +59,17 @@ theorem crossesSum ∀ (above middle below: List Char) (n: Nat)
           List.getDrop above 2 _,
           bothOrNone _ _,
           masOrNone _ _ _,
-          masOrNone _ _ _ in
-        rfl
+          masOrNone _ _ _ then
+        byComputing
 
 --| With an empty row among the three, there are no crosses in them.
-theorem crossesEmpty1 ∀ (middle below: List Char): countCrosses [] middle below = 0 := rfl
+theorem crossesEmpty1 ∀ (middle below: List Char): countCrosses [] middle below = 0 := byComputing
 
 theorem crossesEmpty2 ∀ (above below: List Char): countCrosses above [] below = 0 :=
-  rewrite List.zipWith3NilSecond (below.drop 2) spellsMas above in rfl
+  rewrite List.zipWith3NilSecond (below.drop 2) spellsMas above then byComputing
 
 theorem crossesEmpty3 ∀ (above middle: List Char): countCrosses above middle [] = 0 :=
-  rewrite List.zipWith3NilThird spellsMas above (middle.drop 1) in rfl
+  rewrite List.zipWith3NilThird spellsMas above (middle.drop 1) then byComputing
 
 --| An X-MAS read from the top-left corner of its 3 by 3 block at row r,
 --| column c.
@@ -90,7 +90,7 @@ theorem programCrosses ∀ (grid: Grid):
     _ = List.sumBy (List.range 0 tall) (r =>
         Option.getOrElse
           (Option.map3 (x y z => countCrosses x y z) (rows.get r) ((rows.drop 1).get r) ((rows.drop 2).get r))
-          0) := List.sumByZipWith3 (x => x) countCrosses rows (rows.drop 1) (rows.drop 2) tall omega
+          0) := List.sumByZipWith3 (x => x) countCrosses rows (rows.drop 1) (rows.drop 2) tall arithmetic
     _ = List.sumBy (List.range 0 tall) (r => countCrosses (rowOf grid r) (rowOf grid (1 + r)) (rowOf grid (2 + r))) :=
       List.sumByCong (List.range 0 tall) _ _ (r =>
         rewrite List.getDrop rows 1 _,
@@ -106,8 +106,8 @@ theorem programCrosses ∀ (grid: Grid):
               crossesEmpty3 _ _ _,
             <- List.getOrGet rows _ [],
             <- List.getOrGet rows _ [],
-            <- List.getOrGet rows _ [] in
-          rfl)
+            <- List.getOrGet rows _ [] then
+          byComputing)
     _ = List.sumBy (List.range 0 tall) (r => List.sumBy (List.range 0 wide) (c => crossRead grid r c)) :=
       List.sumByCong (List.range 0 tall) _ _ (r =>
         crossesSum (rowOf grid r) (rowOf grid (1 + r)) (rowOf grid (2 + r)) wide (rowFits grid r))
@@ -116,16 +116,16 @@ theorem programCrosses ∀ (grid: Grid):
 theorem crossAtMissing ∀ (grid: Grid) (r c: Nat)
     (missing: letterAt grid r c = None):
     Bool.toNat (crossAt grid r c) = 0 :=
-  rewrite missing in cases
+  rewrite missing then cases
 
 --| No letter at the top-left corner, no cross read from it.
 theorem crossReadMissing ∀ (grid: Grid) (r c: Nat) (missing: letterAt grid r c = None): crossRead grid r c = 0 :=
-  rewrite missing in cases
+  rewrite missing then cases
 
 --| A centre one row and one column on is a block read from its top-left
 --| corner.
 theorem crossAtCorner ∀ (grid: Grid) (r c: Nat): Bool.toNat (crossAt grid (1 + r) (1 + c)) = crossRead grid r c :=
-  rewrite Nat.addComm r 1, Nat.addComm c 1 in rfl
+  rewrite Nat.addComm r 1, Nat.addComm c 1 then byComputing
 
 --| There is no centre in the first row or column.
 theorem crossAtTop ∀ (grid: Grid) (c: Nat): Bool.toNat (crossAt grid 0 c) = 0 := cases
@@ -144,43 +144,45 @@ theorem specCrosses ∀ (grid: Grid):
   let blocks := (r: Nat) => List.sumBy (List.range 0 (width grid + 2)) (c => crossRead grid r c)
   let row := (r: Nat) =>
     calc centres (1 + r)
-      _ = List.sumBy (List.range 0 (width grid + 2 + 1)) (c => Bool.toNat (crossAt grid (1 + r) c)) := rfl
+      _ = List.sumBy (List.range 0 (width grid + 2 + 1)) (c => Bool.toNat (crossAt grid (1 + r) c)) := byComputing
       _ = blocks r :=
         List.sumByRangeSkipZeros 1
           (c => Bool.toNat (crossAt grid (1 + r) c))
           (c => crossRead grid r c)
           (width grid + 2)
           (c early =>
-            let first: c = 0 := omega
-            rewrite first in crossAtLeft grid (1 + r))
+            let first: c = 0 := arithmetic
+            rewrite first then crossAtLeft grid (1 + r))
           (c => crossAtCorner grid r c)
   calc part2Spec grid
     _ = List.sumBy (List.range 0 tall) (r =>
         List.sumBy (List.range 0 (rowOf grid r).length) (c => Bool.toNat (crossAt grid r c))) :=
-      Eq.sym (List.sumByRangeExtend _ rows.length tall omega (r below => rewrite List.getOrPast rows r [] below in rfl))
+      Eq.flipped
+        (List.sumByRangeExtend _ rows.length tall arithmetic (r below =>
+          rewrite List.getOrPast rows r [] below then byComputing))
     _ = List.sumBy (List.range 0 tall) centres := List.sumByCong (List.range 0 tall) _ _ (r =>
-      Eq.sym
+      Eq.flipped
         (List.sumByRangeExtend _ (rowOf grid r).length wide (rowFits grid r) (c right =>
           crossAtMissing grid r c (List.getPast (rowOf grid r) c right))))
-    _ = List.sumBy (List.range 0 (height grid + 2 + 1)) centres := rfl
+    _ = List.sumBy (List.range 0 (height grid + 2 + 1)) centres := byComputing
     _ = List.sumBy (List.range 0 (height grid + 2)) blocks :=
       List.sumByRangeSkipZeros 1 centres blocks
         (height grid + 2)
         (r early =>
-          let first: r = 0 := omega
-          rewrite first in List.sumByRangeZero _ wide (c => crossAtTop grid c))
+          let first: r = 0 := arithmetic
+          rewrite first then List.sumByRangeZero _ wide (c => crossAtTop grid c))
         row
     _ = List.sumBy (List.range 0 (height grid + 2)) (r => List.sumBy (List.range 0 wide) (c => crossRead grid r c)) :=
       List.sumByCong (List.range 0 (height grid + 2)) _ _ (r =>
-        Eq.sym
-          (List.sumByRangeExtend _ (width grid + 2) wide omega (c right =>
-            crossReadMissing grid r c (letterRight grid r c omega))))
+        Eq.flipped
+          (List.sumByRangeExtend _ (width grid + 2) wide arithmetic (c right =>
+            crossReadMissing grid r c (letterRight grid r c arithmetic))))
     _ = List.sumBy (List.range 0 tall) (r => List.sumBy (List.range 0 wide) (c => crossRead grid r c)) :=
-      Eq.sym
-        (List.sumByRangeExtend _ (height grid + 2) tall omega (r below =>
-          List.sumByRangeZero _ wide (c => crossReadMissing grid r c (letterBelow grid r c omega))))
+      Eq.flipped
+        (List.sumByRangeExtend _ (height grid + 2) tall arithmetic (r below =>
+          List.sumByRangeZero _ wide (c => crossReadMissing grid r c (letterBelow grid r c arithmetic))))
 
 --| Part 2 is right for every grid: the printed answer is the number of
 --| centres of an X-MAS.
 theorem part2Correct ∀ (grid: Grid): solvePart2 grid = part2Spec grid :=
-  Eq.trans (programCrosses grid) (Eq.sym (specCrosses grid))
+  Eq.trans (programCrosses grid) (specCrosses grid).flipped

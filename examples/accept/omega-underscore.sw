@@ -1,4 +1,4 @@
--- An `_` in a fact given to `omega` that nothing else pins down is worked out
+-- An `_` in a fact given to `arithmetic` that nothing else pins down is worked out
 -- from the goal: the fact's atom `tally _ xs` is the goal's `tally 3 xs`.
 
 import Std (Nat, List)
@@ -12,14 +12,14 @@ def size: List Nat → Nat
   | [head, ..rest] => 1 + size rest
 
 theorem tallyAtMostSize ∀ (label: Nat) (xs: List Nat): tally label xs ≤ size xs := match xs with
-  | [] => omega
-  | [head, ..rest] => omega [tallyAtMostSize label rest]
+  | [] => arithmetic
+  | [head, ..rest] => arithmetic [tallyAtMostSize label rest]
 
-theorem listed ∀ (xs: List Nat): tally 3 xs ≤ size xs + 1 := omega [tallyAtMostSize _ xs]
+theorem listed ∀ (xs: List Nat): tally 3 xs ≤ size xs + 1 := arithmetic [tallyAtMostSize _ xs]
 
 theorem viaLet ∀ (xs: List Nat) (extra: Nat): tally 3 xs ≤ size xs + extra :=
   let bound := tallyAtMostSize _ xs
-  omega [bound]
+  arithmetic [bound]
 
 -- The unknown sits inside an argument: `1 + _` is the goal's `4`.
-theorem inside ∀ (xs: List Nat): tally 4 xs ≤ size xs + 1 := omega [tallyAtMostSize (1 + _) xs]
+theorem inside ∀ (xs: List Nat): tally 4 xs ≤ size xs + 1 := arithmetic [tallyAtMostSize (1 + _) xs]

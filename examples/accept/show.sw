@@ -23,7 +23,7 @@ def Point.toText (p: Point): Text := "(${p.x}, ${p.y})"
 
 instance Point.instShow: Show Point := Show.fromText Point.toText
 
-def item: Item := { name = "tea", price = 3, positive = rfl }
+def item: Item := { name = "tea", price = 3, positive = byComputing }
 
 -- `toText` and `toSource` differ only for `Text` and `Char`.
 test "text" := "${"tea"}" == "tea"

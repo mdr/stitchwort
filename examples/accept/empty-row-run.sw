@@ -10,22 +10,22 @@ import Std.Effect (Comp, NoOp, NoRes)
 -- A computation that isn't a function, named in a pure definition.
 def f: Comp NoOp NoRes Nat := 3
 def g: Nat := f
-theorem gIsThree: g = 3 := rfl
+theorem gIsThree: g = 3 := byComputing
 
 -- As an operand of `=`, `f` is the computation itself, passed as written
 -- (D1140 (a)), and the `3` on the other side is `Done 3`.
-theorem fIsThree: f = 3 := rfl
+theorem fIsThree: f = 3 := byComputing
 
 -- A parameter of that type, and a function returning one, called.
 def runIt (c: Comp NoOp NoRes Nat): Nat := c
 def next (n: Nat): Comp NoOp NoRes Nat := n + 1
 def two: Nat := next 1
-theorem twoIsTwo: two = 2 := rfl
+theorem twoIsTwo: two = 2 := byComputing
 
 -- A function over any row, used at the empty row.
 def twice (k: () → {e} Nat): {e} Nat := k () + k ()
 def eight: Nat := twice (() => 4)
-theorem eightIsEight: eight = 8 := rfl
+theorem eightIsEight: eight = 8 := byComputing
 
 -- A plain value where the computation is expected becomes `Done`.
 def lifted: Comp NoOp NoRes Nat := g
@@ -34,4 +34,4 @@ def lifted: Comp NoOp NoRes Nat := g
 -- `Nat -> Nat` (unlike `next`).
 def nextPlain (n: Nat): {} Nat := n + 1
 def apply (k: Nat → Nat) (n: Nat): Nat := k n
-theorem applyNextPlain: apply nextPlain 1 = 2 := rfl
+theorem applyNextPlain: apply nextPlain 1 = 2 := byComputing

@@ -11,4 +11,4 @@ type Shape =
 def setRef (c: Shape) (x: Nat): Shape := { c | ref = x }
 def setId (c: Shape) (x: Nat): Shape := { c | id = x }
 
-theorem different (c: Shape) (x: Nat): setRef c x = setId c x := rfl
+theorem different (c: Shape) (x: Nat): setRef c x = setId c x := byComputing

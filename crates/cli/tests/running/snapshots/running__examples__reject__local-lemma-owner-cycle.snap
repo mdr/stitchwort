@@ -5,7 +5,7 @@ expression: output
 [E-MUTUAL-SIGNATURE] Error: `fz`'s type refers to a definition that isn't finished
    ╭─[ reject/local-lemma-owner-cycle.sw:8:3 ]
    │
- 8 │   theorem fz: f 0 = 0 := rfl
+ 8 │   theorem fz: f 0 = 0 := byComputing
    │   ─────────┬─────────  
    │            ╰─────────── here
    │ 

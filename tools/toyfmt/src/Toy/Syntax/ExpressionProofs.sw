@@ -17,7 +17,7 @@ theorem runsSkip ∀ (token: Parse.Located Token) (rest: List (Parse.Located Tok
     [token]
     rest
     (Some token)
-    (Parse.runsNext (token => True) token rest rfl)
+    (Parse.runsNext (token => True) token rest byComputing)
 
 theorem runsSign ∀ (layout: Layout) (what: Text) (wanted: Punctuation)
     (token: Parse.Located Token) (rest: List (Parse.Located Token))
@@ -29,15 +29,15 @@ theorem runsSign ∀ (layout: Layout) (what: Text) (wanted: Punctuation)
     token
     (layout.comments token)
     rest
-    (rewrite allowed, signed in
+    (rewrite allowed, signed then
       match wanted with
-        | OpenParen => rfl
-        | CloseParen => rfl
-        | OpenSquare => rfl
-        | CloseSquare => rfl
-        | Comma => rfl
-        | Dot => rfl
-        | Defines => rfl)
+        | OpenParen => byComputing
+        | CloseParen => byComputing
+        | OpenSquare => byComputing
+        | CloseSquare => byComputing
+        | Comma => byComputing
+        | Dot => byComputing
+        | Defines => byComputing)
 
 theorem runsName ∀ (layout: Layout) (token: Parse.Located Token) (text: Text) (rest: List (Parse.Located Token))
     (named: token.value.kind = Name text)
@@ -48,7 +48,7 @@ theorem runsName ∀ (layout: Layout) (token: Parse.Located Token) (text: Text) 
     token
     (text, layout.comments token)
     rest
-    (rewrite allowed, named in rfl)
+    (rewrite allowed, named then byComputing)
 
 theorem runsAtomNumber ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (token: Parse.Located Token) (digits: Text) (rest: List (Parse.Located Token))
@@ -56,8 +56,14 @@ theorem runsAtomNumber ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (allowed: layout.allows token = True):
     Parse.Runs (() => atom self layout) [token] rest (NumberLiteral digits (layout.comments token)) :=
   state starts honest =>
-    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts in rfl
-    ((state.advance rest 1).at, (rewrite starts, allowed, numbered, starts in rfl), rfl, (omega [honest, lengths]), rfl)
+    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts then byComputing
+    (
+      (state.advance rest 1).at,
+      (rewrite starts, allowed, numbered, starts then byComputing),
+      byComputing,
+      (arithmetic [honest, lengths]),
+      byComputing
+    )
 
 theorem runsAtomString ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (token: Parse.Located Token) (written: Text) (rest: List (Parse.Located Token))
@@ -65,8 +71,14 @@ theorem runsAtomString ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (allowed: layout.allows token = True):
     Parse.Runs (() => atom self layout) [token] rest (StringLiteral written (layout.comments token)) :=
   state starts honest =>
-    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts in rfl
-    ((state.advance rest 1).at, (rewrite starts, allowed, quoted, starts in rfl), rfl, (omega [honest, lengths]), rfl)
+    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts then byComputing
+    (
+      (state.advance rest 1).at,
+      (rewrite starts, allowed, quoted, starts then byComputing),
+      byComputing,
+      (arithmetic [honest, lengths]),
+      byComputing
+    )
 
 theorem runsAtomBracketed ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (open close: Parse.Located Token) (innerTokens rest: List (Parse.Located Token)) (inner: Expr)
@@ -94,7 +106,7 @@ theorem runsAtomBracketed ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
         rest
         ()
         (Bracketed opened inner (Layout.comments InBrackets close))
-        rfl
+        byComputing
         (runsSkip open ((innerTokens ++ [close]) ++ rest))
         (Parse.runsBind
           (() => self InBrackets)
@@ -107,7 +119,7 @@ theorem runsAtomBracketed ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
           rest
           inner
           (Bracketed opened inner (Layout.comments InBrackets close))
-          rfl
+          byComputing
           runsInner
           (Parse.runsMap
             (() => sign InBrackets "')'" CloseParen)
@@ -115,8 +127,8 @@ theorem runsAtomBracketed ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
             [close]
             rest
             (Layout.comments InBrackets close)
-            (runsSign InBrackets "')'" CloseParen close rest closes rfl)))
-    match core state starts honest with | (m, ran, others) => (m, (rewrite starts, allowed, opens in ran), others)
+            (runsSign InBrackets "')'" CloseParen close rest closes byComputing)))
+    match core state starts honest with | (m, ran, others) => (m, (rewrite starts, allowed, opens then ran), others)
 
 --| A round of `suffixesFrom` that reads a field: `.`, a name, and on from
 --| the target with the field.
@@ -149,7 +161,7 @@ theorem runsSuffixesField ∀ (more: Nat) (self: Layout → {Parse (Parse.Locate
         rest
         (Some read)
         value
-        rfl
+        byComputing
         (Parse.runsOptional
           (() =>
             skip()
@@ -169,7 +181,7 @@ theorem runsSuffixesField ∀ (more: Nat) (self: Layout → {Parse (Parse.Locate
             (after ++ rest)
             ()
             read
-            rfl
+            byComputing
             (runsSkip dot [named, ..after ++ rest])
             (Parse.runsMap
               (() => name layout)
@@ -181,7 +193,7 @@ theorem runsSuffixesField ∀ (more: Nat) (self: Layout → {Parse (Parse.Locate
               (field, layout.comments named)
               (runsName layout named field (after ++ rest) isName nameAllowed))))
         runsMore
-    match core state starts honest with | (m, ran, others) => (m, (rewrite starts, dotAllowed, dotted in ran), others)
+    match core state starts honest with | (m, ran, others) => (m, (rewrite starts, dotAllowed, dotted then ran), others)
 
 --| A round of `negationsFrom` that reads a `-`.
 theorem runsNegation ∀ (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
@@ -206,7 +218,7 @@ theorem runsNegation ∀ (more: Nat) (self: Layout → {Parse (Parse.Located Tok
         rest
         ()
         (Negate signed operand)
-        rfl
+        byComputing
         (runsSkip minus (tokens ++ rest))
         (Parse.runsMap
           (() => negationsFrom more self layout)
@@ -215,7 +227,8 @@ theorem runsNegation ∀ (more: Nat) (self: Layout → {Parse (Parse.Located Tok
           rest
           operand
           runsOperand)
-    match core state starts honest with | (m, ran, others) => (m, (rewrite starts, allowed, isMinusSign in ran), others)
+    match core state starts honest with
+      | (m, ran, others) => (m, (rewrite starts, allowed, isMinusSign then ran), others)
 
 --| An atom, then its suffixes: what `negationsFrom` reads once the `-`s
 --| are done. The suffix loop's fuel is the tokens left, so `runsSuffixes`
@@ -242,16 +255,17 @@ theorem runsAtomThenSuffixes ∀ (self: Layout → {Parse (Parse.Located Token)}
       rest
       first
       value
-      rfl
+      byComputing
       runsAtom
       (middle atRest honest offset =>
-        let lengths: middle.at.rest.length = more.length + rest.length := rewrite atRest in List.lengthAppend more rest
+        let lengths: middle.at.rest.length = more.length + rest.length :=
+          rewrite atRest then List.lengthAppend more rest
         Parse.runsFromMark middle
           (at => suffixesFrom (at.left + 1) self layout first)
           more
           rest
           value
-          (runsSuffixes (middle.at.left + 1) (omega [honest, lengths]) middle))
+          (runsSuffixes (middle.at.left + 1) (arithmetic [honest, lengths]) middle))
 
 --| An expression that `atom` and `suffixesFrom` read: an atom with its
 --| calls and fields.
@@ -471,7 +485,7 @@ def After (layout: Layout) (tokens rest: List (Parse.Located Token)): Prop :=
 theorem afterBrackets ∀ (tokens rest: List (Parse.Located Token))
     (ends: EndsExpression InBrackets rest):
     After InBrackets tokens rest :=
-  (ends, rfl)
+  (ends, byComputing)
 
 theorem notAtBack ∀ (offset: Nat) (front back: List (Parse.Located Token))
     (clear: NotAt offset (front ++ back)):
@@ -485,10 +499,10 @@ theorem settledBack ∀ (layout: Layout) (front back rest: List (Parse.Located T
     (settled: Settled layout (front ++ back) rest):
     Settled layout back rest :=
   match layout, settled with
-    | InBrackets, settled => rfl
+    | InBrackets, settled => byComputing
     | InStatement column from, settled =>
       match rest, settled with
-        | [], settled => rfl
+        | [], settled => byComputing
         | [next, ..more], Inl closes => Inl closes
         | [next, ..more], Inr (Both low clear) => Inr ((low, (notAtBack next.offset front back clear)))
 
@@ -550,30 +564,32 @@ theorem postfixStart ∀ (layout: Layout) (expr: Expr) (tokens rest: List (Parse
   match expr with
     | Var name comments =>
       match spelled with
-        | (token, split, kind, allowed, commented) => rewrite split, kind, allowed in (rfl, rfl)
+        | (token, split, kind, allowed, commented) => rewrite split, kind, allowed then (byComputing, byComputing)
     | NumberLiteral digits comments =>
       match spelled with
-        | (token, split, kind, allowed, commented) => rewrite split, kind, allowed in (rfl, rfl)
+        | (token, split, kind, allowed, commented) => rewrite split, kind, allowed then (byComputing, byComputing)
     | StringLiteral written comments =>
       match spelled with
-        | (token, split, kind, allowed, commented) => rewrite split, kind, allowed in (rfl, rfl)
+        | (token, split, kind, allowed, commented) => rewrite split, kind, allowed then (byComputing, byComputing)
     | Bracketed opened inner closed =>
       match spelled with
-        | (open, innerTokens, close, split, opens, allowed, others) => rewrite split, opens, allowed in (rfl, rfl)
+        | (open, innerTokens, close, split, opens, allowed, others) =>
+          rewrite split, opens, allowed then (byComputing, byComputing)
     | Field target dotComments name nameComments =>
       match spelled with
         | (targetTokens, dot, named, split, dotted, dotAllowed, isName, nameAllowed, spelledTarget, dotCommented,
             nameCommented) =>
-          rewrite split, List.appendAssoc targetTokens [dot, named] rest in
+          rewrite split, List.appendAssoc targetTokens [dot, named] rest then
             postfixStart layout target targetTokens [dot, named, ..rest] shaped.left shaped.right spelledTarget
     | ListLiteral opened listed closed =>
       match spelled with
-        | (open, itemTokens, close, split, opens, allowed, others) => rewrite split, opens, allowed in (rfl, rfl)
+        | (open, itemTokens, close, split, opens, allowed, others) =>
+          rewrite split, opens, allowed then (byComputing, byComputing)
     | Call callee opened arguments closed =>
       match spelled with
         | (calleeTokens, open, argumentTokens, close, split, opens, allowed, closes, spelledCallee, spelledArguments,
             openCommented, closeCommented) =>
-          rewrite split, List.appendAssoc calleeTokens [open, ..argumentTokens ++ [close]] rest in
+          rewrite split, List.appendAssoc calleeTokens [open, ..argumentTokens ++ [close]] rest then
             postfixStart layout callee calleeTokens
               ([open, ..argumentTokens ++ [close]] ++ rest)
               shaped.left
@@ -587,12 +603,12 @@ theorem negationsEndRun ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located 
     Parse.runFrom state (() => (negationsFrom fuel self layout, Parse.mark()))
       = Parse.runFrom state (() => (postfix self layout, Parse.mark())) :=
   match fuel with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ more =>
-      rewrite starts in
+      rewrite starts then
         match input with
-          | [] => rfl
-          | [token, ..later] => rewrite noMinus in rfl
+          | [] => byComputing
+          | [token, ..later] => rewrite noMinus then byComputing
 
 --| With no `-` next, `negationsFrom` reads a postfix expression.
 theorem runsNegationsEnd ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
@@ -608,7 +624,7 @@ theorem runsNegationsEnd ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located
 theorem operatorOfSign ∀ (layout: Layout) (level: Nat) (token: Parse.Located Token) (punctuation: Punctuation)
     (signed: token.value.kind = Sign punctuation):
     operatorOf layout level token = None :=
-  rewrite signed in rfl
+  rewrite signed then byComputing
 
 --| No operator is ahead where a punctuation sign comes next.
 theorem noOperatorAtSign ∀ (layout: Layout) (lowest: Nat) (token: Parse.Located Token)
@@ -620,13 +636,13 @@ theorem noOperatorAtSign ∀ (layout: Layout) (lowest: Nat) (token: Parse.Locate
       operatorOfSign layout 3 token punctuation signed,
       operatorOfSign layout 4 token punctuation signed,
       operatorOfSign layout 5 token punctuation signed,
-      operatorOfSign layout 6 token punctuation signed in
-    rfl
+      operatorOfSign layout 6 token punctuation signed then
+    byComputing
 
 theorem endsAtClose ∀ (close: Parse.Located Token) (rest: List (Parse.Located Token))
     (closes: close.value.kind = Sign CloseParen):
     EndsExpression InBrackets [close, ..rest] :=
-  ((rewrite closes in rfl), (noOperatorAtSign InBrackets 0 close CloseParen rest closes))
+  ((rewrite closes then byComputing), (noOperatorAtSign InBrackets 0 close CloseParen rest closes))
 
 --| `postfix`'s atom and suffix loop read a postfix expression as the start
 --| of a longer one: after its tokens the loop holds the expression, and
@@ -653,8 +669,8 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
     | Var name comments =>
       match spelled with
         | (token, split, kind, allowed, commented) =>
-          rewrite commented at continues in
-            rewrite split in
+          rewrite commented at continues then
+            rewrite split then
               runsAtomThenSuffixes self layout
                 [token]
                 more
@@ -666,8 +682,8 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
     | NumberLiteral digits comments =>
       match spelled with
         | (token, split, kind, allowed, commented) =>
-          rewrite commented at continues in
-            rewrite split in
+          rewrite commented at continues then
+            rewrite split then
               runsAtomThenSuffixes self layout
                 [token]
                 more
@@ -679,8 +695,8 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
     | StringLiteral written comments =>
       match spelled with
         | (token, split, kind, allowed, commented) =>
-          rewrite commented at continues in
-            rewrite split in
+          rewrite commented at continues then
+            rewrite split then
               runsAtomThenSuffixes self layout
                 [token]
                 more
@@ -692,10 +708,10 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
     | Bracketed opened inner closed =>
       match spelled with
         | (open, innerTokens, close, split, opens, allowed, closes, spelledInner, openCommented, closeCommented) =>
-          let size: tokens.length = (innerTokens ++ [close]).length + 1 := rewrite split in rfl
+          let size: tokens.length = (innerTokens ++ [close]).length + 1 := rewrite split then byComputing
           let sizes: (innerTokens ++ [close]).length = innerTokens.length + 1 := List.lengthAppend innerTokens [close]
-          rewrite openCommented, closeCommented at continues in
-            rewrite split in
+          rewrite openCommented, closeCommented at continues then
+            rewrite split then
               runsAtomThenSuffixes self layout
                 [open, ..innerTokens ++ [close]]
                 more
@@ -713,16 +729,16 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
                     shaped
                     spelledInner
                     (afterBrackets innerTokens [close, ..more ++ rest] (endsAtClose close (more ++ rest) closes))
-                    (omega [small, size, sizes])))
+                    (arithmetic [small, size, sizes])))
                 continues
     | Field target dotComments name nameComments =>
       match spelled with
         | (targetTokens, dot, named, split, dotted, dotAllowed, isName, nameAllowed, spelledTarget, dotCommented,
             nameCommented) =>
           let size: tokens.length = targetTokens.length + 2 :=
-            rewrite split in List.lengthAppend targetTokens [dot, named]
-          rewrite dotCommented, nameCommented at continues in
-            rewrite split, List.appendAssoc targetTokens [dot, named] more in
+            rewrite split then List.lengthAppend targetTokens [dot, named]
+          rewrite dotCommented, nameCommented at continues then
+            rewrite split, List.appendAssoc targetTokens [dot, named] more then
               runsPostfixPrefix self layout bound nested target targetTokens
                 [dot, named, ..more]
                 rest
@@ -730,20 +746,20 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
                 shaped.left
                 shaped.right
                 spelledTarget
-                (omega [small, size])
+                (arithmetic [small, size])
                 (fuel enough =>
                   match fuel with
                     | Succ less =>
                       runsSuffixesField less self layout target dot named name more rest value dotted dotAllowed isName
                           nameAllowed
-                          (continues less (omega [enough])))
+                          (continues less (arithmetic [enough])))
     | ListLiteral opened listed closed =>
       match spelled with
         | (open, itemTokens, close, split, opens, allowed, closes, spelledItems, openCommented, closeCommented) =>
-          let size: tokens.length = (itemTokens ++ [close]).length + 1 := rewrite split in rfl
+          let size: tokens.length = (itemTokens ++ [close]).length + 1 := rewrite split then byComputing
           let sizes: (itemTokens ++ [close]).length = itemTokens.length + 1 := List.lengthAppend itemTokens [close]
-          rewrite openCommented, closeCommented at continues in
-            rewrite split in
+          rewrite openCommented, closeCommented at continues then
+            rewrite split then
               runsAtomThenSuffixes self layout
                 [open, ..itemTokens ++ [close]]
                 more
@@ -761,21 +777,21 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
                     close
                     CloseSquare
                     closes
-                    rfl
+                    byComputing
                     shaped.left
                     spelledItems
-                    (omega [small, size, sizes])))
+                    (arithmetic [small, size, sizes])))
                 continues
     | Call callee opened arguments closed =>
       match spelled with
         | (calleeTokens, open, argumentTokens, close, split, opens, allowed, closes, spelledCallee, spelledArguments,
             openCommented, closeCommented) =>
           let size: tokens.length = calleeTokens.length + ((argumentTokens ++ [close]).length + 1) :=
-            rewrite split in List.lengthAppend calleeTokens [open, ..argumentTokens ++ [close]]
+            rewrite split then List.lengthAppend calleeTokens [open, ..argumentTokens ++ [close]]
           let sizes: (argumentTokens ++ [close]).length = argumentTokens.length + 1 :=
             List.lengthAppend argumentTokens [close]
-          rewrite openCommented, closeCommented at continues in
-            rewrite split, List.appendAssoc calleeTokens [open, ..argumentTokens ++ [close]] more in
+          rewrite openCommented, closeCommented at continues then
+            rewrite split, List.appendAssoc calleeTokens [open, ..argumentTokens ++ [close]] more then
               runsPostfixPrefix self layout bound nested callee calleeTokens
                 ([open, ..argumentTokens ++ [close]] ++ more)
                 rest
@@ -783,7 +799,7 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
                 shaped.left
                 shaped.right.left
                 spelledCallee
-                (omega [small, size])
+                (arithmetic [small, size])
                 (fuel enough =>
                   match fuel with
                     | Succ less =>
@@ -794,11 +810,11 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
                             close
                             CloseParen
                             closes
-                            rfl
+                            byComputing
                             shaped.right.right.left
                             spelledArguments
-                            (omega [small, size, sizes]))
-                          (continues less (omega [enough, List.lengthAppend (argumentTokens ++ [close]) more])))
+                            (arithmetic [small, size, sizes]))
+                          (continues less (arithmetic [enough, List.lengthAppend (argumentTokens ++ [close]) more])))
 
 theorem runsNegationsPostfix ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (bound: Nat)
     (nested: ReadsNested self bound)
@@ -822,9 +838,9 @@ theorem runsNegationsPostfix ∀ (self: Layout → {Parse (Parse.Located Token)}
       rest
       ()
       expr
-      rfl
+      byComputing
       (Parse.runsNote (Parse.Problem.Expected "an expression") (tokens ++ rest))
-      (rewrite <- List.appendNil tokens in
+      (rewrite <- List.appendNil tokens then
         runsPostfixPrefix self layout bound nested expr tokens [] rest expr postfix shaped spelled small
           (fuel positive => runsSuffixesEnd fuel self layout expr rest ends)))
 
@@ -844,22 +860,31 @@ theorem runsNegations ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
     | Negate minusComments inner =>
       match spelled, fuel with
         | (minus, operandTokens, split, kind, allowed, spelledInner, minusCommented), Succ more =>
-          let size: tokens.length = operandTokens.length + 1 := rewrite split in rfl
-          rewrite split, minusCommented in
+          let size: tokens.length = operandTokens.length + 1 := rewrite split then byComputing
+          rewrite split, minusCommented then
             runsNegation more self layout minus operandTokens rest inner kind allowed
               (runsNegations self layout bound nested inner more operandTokens rest shaped.left shaped.right
                   spelledInner ends
-                  (omega [small, size])
-                  (omega [enough, size]))
+                  (arithmetic [small, size])
+                  (arithmetic [enough, size]))
     | Var name comments =>
-      runsNegationsPostfix self layout bound nested (Var name comments) fuel tokens rest rfl shaped spelled ends small
+      runsNegationsPostfix self layout bound nested
+        (Var name comments)
+        fuel
+        tokens
+        rest
+        byComputing
+        shaped
+        spelled
+        ends
+        small
     | NumberLiteral digits comments =>
       runsNegationsPostfix self layout bound nested
         (NumberLiteral digits comments)
         fuel
         tokens
         rest
-        rfl
+        byComputing
         shaped
         spelled
         ends
@@ -870,7 +895,7 @@ theorem runsNegations ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
         fuel
         tokens
         rest
-        rfl
+        byComputing
         shaped
         spelled
         ends
@@ -881,7 +906,7 @@ theorem runsNegations ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
         fuel
         tokens
         rest
-        rfl
+        byComputing
         shaped
         spelled
         ends
@@ -892,7 +917,7 @@ theorem runsNegations ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
         fuel
         tokens
         rest
-        rfl
+        byComputing
         shaped
         spelled
         ends
@@ -903,7 +928,7 @@ theorem runsNegations ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
         fuel
         tokens
         rest
-        rfl
+        byComputing
         shaped
         spelled
         ends
@@ -914,7 +939,7 @@ theorem runsNegations ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
         fuel
         tokens
         rest
-        rfl
+        byComputing
         shaped
         spelled
         ends
@@ -932,7 +957,7 @@ theorem runsOperand ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (l
     (small: tokens.length <= bound):
     Parse.Runs (() => operand self layout) tokens rest expr :=
   state starts honest =>
-    let lengths: state.at.rest.length = tokens.length + rest.length := rewrite starts in List.lengthAppend tokens rest
+    let lengths: state.at.rest.length = tokens.length + rest.length := rewrite starts then List.lengthAppend tokens rest
     Parse.runsFromMark state
       (at => negationsFrom (at.left + 1) self layout)
       tokens
@@ -947,7 +972,7 @@ theorem runsOperand ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (l
         spelled
         ends
         small
-        (omega [honest, lengths])
+        (arithmetic [honest, lengths])
         state)
       starts
       honest
@@ -960,24 +985,24 @@ theorem operatorOfOp ∀ (layout: Layout) (level: Nat) (sign: Parse.Located Toke
     (kind: sign.value.kind = Op operator)
     (allowed: layout.allows sign = True):
     operatorOf layout level sign = operatorAt operator (layout.comments sign) level :=
-  rewrite kind, allowed in
+  rewrite kind, allowed then
     match same: operator.level == level with
-      | True => rfl
-      | False => rfl
+      | True => byComputing
+      | False => byComputing
 
 theorem levelRange ∀ (operator: Operator): 1 <= operator.level ∧ operator.level <= 6 := match operator with
-  | Or => ((omega []), (omega []))
-  | And => ((omega []), (omega []))
-  | EqualTo => ((omega []), (omega []))
-  | NotEqual => ((omega []), (omega []))
-  | LessThan => ((omega []), (omega []))
-  | LessEqual => ((omega []), (omega []))
-  | Append => ((omega []), (omega []))
-  | Plus => ((omega []), (omega []))
-  | Minus => ((omega []), (omega []))
-  | Times => ((omega []), (omega []))
-  | Divide => ((omega []), (omega []))
-  | Remainder => ((omega []), (omega []))
+  | Or => ((arithmetic []), (arithmetic []))
+  | And => ((arithmetic []), (arithmetic []))
+  | EqualTo => ((arithmetic []), (arithmetic []))
+  | NotEqual => ((arithmetic []), (arithmetic []))
+  | LessThan => ((arithmetic []), (arithmetic []))
+  | LessEqual => ((arithmetic []), (arithmetic []))
+  | Append => ((arithmetic []), (arithmetic []))
+  | Plus => ((arithmetic []), (arithmetic []))
+  | Minus => ((arithmetic []), (arithmetic []))
+  | Times => ((arithmetic []), (arithmetic []))
+  | Divide => ((arithmetic []), (arithmetic []))
+  | Remainder => ((arithmetic []), (arithmetic []))
 
 --| The token of an operator the layout allows is found at its level's
 --| place in `operatorLevels`, chaining from the left.
@@ -993,18 +1018,18 @@ theorem operatorFound ∀ (layout: Layout) (sign: Parse.Located Token) (operator
   let at5 := operatorOfOp layout 5 sign operator kind allowed
   let at6 := operatorOfOp layout 6 sign operator kind allowed
   match operator with
-    | Or => rewrite at1 in rfl
-    | And => rewrite at1, at2 in rfl
-    | EqualTo => rewrite at1, at2, at3 in rfl
-    | NotEqual => rewrite at1, at2, at3 in rfl
-    | LessThan => rewrite at1, at2, at3 in rfl
-    | LessEqual => rewrite at1, at2, at3 in rfl
-    | Append => rewrite at1, at2, at3, at4 in rfl
-    | Plus => rewrite at1, at2, at3, at4, at5 in rfl
-    | Minus => rewrite at1, at2, at3, at4, at5 in rfl
-    | Times => rewrite at1, at2, at3, at4, at5, at6 in rfl
-    | Divide => rewrite at1, at2, at3, at4, at5, at6 in rfl
-    | Remainder => rewrite at1, at2, at3, at4, at5, at6 in rfl
+    | Or => rewrite at1 then byComputing
+    | And => rewrite at1, at2 then byComputing
+    | EqualTo => rewrite at1, at2, at3 then byComputing
+    | NotEqual => rewrite at1, at2, at3 then byComputing
+    | LessThan => rewrite at1, at2, at3 then byComputing
+    | LessEqual => rewrite at1, at2, at3 then byComputing
+    | Append => rewrite at1, at2, at3, at4 then byComputing
+    | Plus => rewrite at1, at2, at3, at4, at5 then byComputing
+    | Minus => rewrite at1, at2, at3, at4, at5 then byComputing
+    | Times => rewrite at1, at2, at3, at4, at5, at6 then byComputing
+    | Divide => rewrite at1, at2, at3, at4, at5, at6 then byComputing
+    | Remainder => rewrite at1, at2, at3, at4, at5, at6 then byComputing
 
 theorem chainTreeOperand ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (bound: Nat)
     (nested: ReadsNested self bound)
@@ -1023,11 +1048,11 @@ theorem chainTreeOperand ∀ (self: Layout → {Parse (Parse.Located Token)} Exp
       ∧ (∀ (below: Nat) => below + 1 <= expr.chainLevel → below < 6 → below < tree.bound 6) :=
   (
     (Operand tokens expr),
-    rfl,
-    rfl,
-    rfl,
+    byComputing,
+    byComputing,
+    byComputing,
     (runsOperand self layout bound nested expr tokens rest isOperand shaped spelled ends small),
-    (Eq.sym level),
+    level.flipped,
     (below fits under => under)
   )
 
@@ -1054,9 +1079,9 @@ theorem chainTree ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
         | (leftLevel, rightLevel, leftChain, rightChain, shapedLeft, shapedRight), (leftTokens, sign, rightTokens,
             split, kind, allowed, spelledLeft, spelledRight, signCommented) =>
           let size: tokens.length = leftTokens.length + (rightTokens.length + 1) :=
-            rewrite split in List.lengthAppend leftTokens [sign, ..rightTokens]
+            rewrite split then List.lengthAppend leftTokens [sign, ..rightTokens]
           let signEnds: endsSuffixes (suffixKind layout [sign, ..rightTokens ++ rest]) = True :=
-            rewrite allowed, kind in rfl
+            rewrite allowed, kind then byComputing
           let range := levelRange operator
           let leftResult :=
             chainTree self layout bound nested left leftTokens
@@ -1065,10 +1090,10 @@ theorem chainTree ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
               shapedLeft
               spelledLeft
               signEnds
-              (omega [small, size])
+              (arithmetic [small, size])
           let rightResult :=
             chainTree self layout bound nested right rightTokens rest rightChain shapedRight spelledRight ends
-              (omega [small, size])
+              (arithmetic [small, size])
           match leftResult, rightResult with
             | (leftTree, leftReads, leftValue, leftFormed, leftRuns, leftTop, leftBound), (rightTree, rightReads,
                 rightValue, rightFormed, rightRuns, rightTop, rightBound) => (
@@ -1078,40 +1103,52 @@ theorem chainTree ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
                 (Binary operator (layout.comments sign))
                 leftTree
                 rightTree),
-              (rewrite leftReads, rightReads, split in rfl),
-              (rewrite leftValue, rightValue, signCommented in rfl),
+              (rewrite leftReads, rightReads, split then byComputing),
+              (rewrite leftValue, rightValue, signCommented then byComputing),
               ((
                 (operatorFound layout sign operator kind allowed),
-                (omega [range.right, range.left]),
-                (leftBound (operator.level - 1) (omega [leftLevel, range.left]) (omega [range.right, range.left])),
-                (omega [rightLevel, rightTop, range.left]),
+                (arithmetic [range.right, range.left]),
+                (leftBound
+                  (operator.level - 1)
+                  (arithmetic [leftLevel, range.left])
+                  (arithmetic [range.right, range.left])),
+                (arithmetic [rightLevel, rightTop, range.left]),
                 leftFormed,
                 rightFormed
               )),
-              (((rewrite rightReads in leftRuns), rightRuns)),
-              (omega [range.left]),
-              (below fits under => omega [fits, range.left])
+              (((rewrite rightReads then leftRuns), rightRuns)),
+              (arithmetic [range.left]),
+              (below fits under => arithmetic [fits, range.left])
             )
     | Negate minusComments inner =>
       chainTreeOperand self layout bound nested
         (Negate minusComments inner)
         tokens
         rest
-        rfl
-        rfl
+        byComputing
+        byComputing
         shaped
         spelled
         ends
         small
     | Var name comments =>
-      chainTreeOperand self layout bound nested (Var name comments) tokens rest rfl rfl shaped spelled ends small
+      chainTreeOperand self layout bound nested
+        (Var name comments)
+        tokens
+        rest
+        byComputing
+        byComputing
+        shaped
+        spelled
+        ends
+        small
     | NumberLiteral digits comments =>
       chainTreeOperand self layout bound nested
         (NumberLiteral digits comments)
         tokens
         rest
-        rfl
-        rfl
+        byComputing
+        byComputing
         shaped
         spelled
         ends
@@ -1121,8 +1158,8 @@ theorem chainTree ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
         (StringLiteral written comments)
         tokens
         rest
-        rfl
-        rfl
+        byComputing
+        byComputing
         shaped
         spelled
         ends
@@ -1132,8 +1169,8 @@ theorem chainTree ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
         (Bracketed opened inner closed)
         tokens
         rest
-        rfl
-        rfl
+        byComputing
+        byComputing
         shaped
         spelled
         ends
@@ -1143,8 +1180,8 @@ theorem chainTree ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
         (Field target dotComments name nameComments)
         tokens
         rest
-        rfl
-        rfl
+        byComputing
+        byComputing
         shaped
         spelled
         ends
@@ -1154,8 +1191,8 @@ theorem chainTree ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
         (ListLiteral opened listed closed)
         tokens
         rest
-        rfl
-        rfl
+        byComputing
+        byComputing
         shaped
         spelled
         ends
@@ -1165,8 +1202,8 @@ theorem chainTree ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
         (Call callee opened arguments closed)
         tokens
         rest
-        rfl
-        rfl
+        byComputing
+        byComputing
         shaped
         spelled
         ends
@@ -1183,25 +1220,25 @@ theorem chainStart ∀ (layout: Layout) (expr: Expr) (tokens rest: List (Parse.L
       match shaped, spelled with
         | (leftLevel, rightLevel, leftChain, rightChain, shapedLeft, shapedRight), (leftTokens, sign, rightTokens,
             split, kind, allowed, spelledLeft, spelledRight, signCommented) =>
-          rewrite split, List.appendAssoc leftTokens [sign, ..rightTokens] rest in
+          rewrite split, List.appendAssoc leftTokens [sign, ..rightTokens] rest then
             chainStart layout left leftTokens [sign, ..rightTokens ++ rest] leftChain shapedLeft spelledLeft
     | Negate minusComments inner =>
       match spelled with
         | (minus, operandTokens, split, kind, allowed, spelledInner, minusCommented) =>
-          rewrite split, kind, allowed in rfl
-    | Var name comments => (postfixStart layout (Var name comments) tokens rest rfl shaped spelled).right
+          rewrite split, kind, allowed then byComputing
+    | Var name comments => (postfixStart layout (Var name comments) tokens rest byComputing shaped spelled).right
     | NumberLiteral digits comments =>
-      (postfixStart layout (NumberLiteral digits comments) tokens rest rfl shaped spelled).right
+      (postfixStart layout (NumberLiteral digits comments) tokens rest byComputing shaped spelled).right
     | StringLiteral written comments =>
-      (postfixStart layout (StringLiteral written comments) tokens rest rfl shaped spelled).right
+      (postfixStart layout (StringLiteral written comments) tokens rest byComputing shaped spelled).right
     | Bracketed opened inner closed =>
-      (postfixStart layout (Bracketed opened inner closed) tokens rest rfl shaped spelled).right
+      (postfixStart layout (Bracketed opened inner closed) tokens rest byComputing shaped spelled).right
     | Field target dotComments name nameComments =>
-      (postfixStart layout (Field target dotComments name nameComments) tokens rest rfl shaped spelled).right
+      (postfixStart layout (Field target dotComments name nameComments) tokens rest byComputing shaped spelled).right
     | ListLiteral opened listed closed =>
-      (postfixStart layout (ListLiteral opened listed closed) tokens rest rfl shaped spelled).right
+      (postfixStart layout (ListLiteral opened listed closed) tokens rest byComputing shaped spelled).right
     | Call callee opened arguments closed =>
-      (postfixStart layout (Call callee opened arguments closed) tokens rest rfl shaped spelled).right
+      (postfixStart layout (Call callee opened arguments closed) tokens rest byComputing shaped spelled).right
 
 theorem chainRuleRun ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (layout: Layout) (state: Parse.State (Parse.Located Token))
@@ -1210,8 +1247,8 @@ theorem chainRuleRun ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
       = Parse.runFrom state (() =>
         (Parse.operators "an operator" (operatorLevels layout) (() => operand self layout), Parse.mark())) :=
   match state with
-    | { at = { rest = [], offset, left }, furthest, expected, messages } => rfl
-    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite noIf in rfl
+    | { at = { rest = [], offset, left }, furthest, expected, messages } => byComputing
+    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite noIf then byComputing
 
 --| One level of the expression parser on anything but an `if`:
 --| `expressionRule` reads a chain, given that `self` reads the expressions
@@ -1232,7 +1269,7 @@ theorem runsChainRule ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
         tokens
         rest
         expr :=
-        rewrite <- reads, <- value in
+        rewrite <- reads, <- value then
           Parse.runsOperators "an operator"
             (operatorLevels layout)
             (() => operand self layout)
@@ -1247,7 +1284,7 @@ theorem runsChainRule ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
             m,
             (Eq.trans
               (chainRuleRun self layout state
-                (rewrite starts in chainStart layout expr tokens rest chain shaped spelled))
+                (rewrite starts then chainStart layout expr tokens rest chain shaped spelled))
               ran),
             after
           )
@@ -1268,13 +1305,13 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
       runsIfSpelled self layout bound nested declines ifComments condition thenComments whenTrue elseComments whenFalse
           tokens rest shaped spelled after small
     | Var name comments, shaped, spelled =>
-      runsChainRule self layout bound nested (Var name comments) tokens rest rfl shaped spelled after.left small
+      runsChainRule self layout bound nested (Var name comments) tokens rest byComputing shaped spelled after.left small
     | NumberLiteral digits comments, shaped, spelled =>
       runsChainRule self layout bound nested
         (NumberLiteral digits comments)
         tokens
         rest
-        rfl
+        byComputing
         shaped
         spelled
         after.left
@@ -1284,7 +1321,7 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
         (StringLiteral written comments)
         tokens
         rest
-        rfl
+        byComputing
         shaped
         spelled
         after.left
@@ -1294,7 +1331,7 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
         (Bracketed opened inner closed)
         tokens
         rest
-        rfl
+        byComputing
         shaped
         spelled
         after.left
@@ -1304,7 +1341,7 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
         (Field target dotComments name nameComments)
         tokens
         rest
-        rfl
+        byComputing
         shaped
         spelled
         after.left
@@ -1314,7 +1351,7 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
         (Negate minusComments operand)
         tokens
         rest
-        rfl
+        byComputing
         shaped
         spelled
         after.left
@@ -1324,7 +1361,7 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
         (Binary operator signComments left right)
         tokens
         rest
-        rfl
+        byComputing
         shaped
         spelled
         after.left
@@ -1334,7 +1371,7 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
         (ListLiteral opened listed closed)
         tokens
         rest
-        rfl
+        byComputing
         shaped
         spelled
         after.left
@@ -1344,7 +1381,7 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
         (Call callee opened arguments closed)
         tokens
         rest
-        rfl
+        byComputing
         shaped
         spelled
         after.left
@@ -1369,8 +1406,8 @@ theorem runsExpression ∀ (layout: Layout) (expr: Expr) (tokens rest: List (Par
     (layout tokens rest expr (Both shaped (Both spelled after)) =>
       match spelledStart layout expr tokens shaped spelled with
         | (first, others, split, _) =>
-          let size: tokens.length = Succ others.length := rewrite split in rfl
-          omega [size])
+          let size: tokens.length = Succ others.length := rewrite split then byComputing
+          arithmetic [size])
     (self layout tokens rest expr (Both shaped (Both spelled after)) declines nested =>
       runsExpressionRule self layout tokens.length
         (nestedLayout nestedExpr nestedTokens nestedRest nestedShaped nestedSpelled nestedAfter shorter =>
@@ -1384,7 +1421,7 @@ theorem runsExpression ∀ (layout: Layout) (expr: Expr) (tokens rest: List (Par
         shaped
         spelled
         after
-        (omega []))
+        (arithmetic []))
     layout
     tokens
     rest
@@ -1415,49 +1452,53 @@ theorem spelledStart ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Loca
           ifToken,
           (conditionTokens ++ [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]]),
           split,
-          (rewrite isIfToken in rfl)
+          (rewrite isIfToken then byComputing)
         )
     | Var name comments =>
       match spelled with
-        | (token, split, kind, allowed, commented) => (token, [], split, (rewrite kind in rfl))
+        | (token, split, kind, allowed, commented) => (token, [], split, (rewrite kind then byComputing))
     | NumberLiteral digits comments =>
       match spelled with
-        | (token, split, kind, allowed, commented) => (token, [], split, (rewrite kind in rfl))
+        | (token, split, kind, allowed, commented) => (token, [], split, (rewrite kind then byComputing))
     | StringLiteral written comments =>
       match spelled with
-        | (token, split, kind, allowed, commented) => (token, [], split, (rewrite kind in rfl))
+        | (token, split, kind, allowed, commented) => (token, [], split, (rewrite kind then byComputing))
     | Bracketed opened inner closed =>
       match spelled with
         | (open, innerTokens, close, split, opens, others) =>
-          (open, (innerTokens ++ [close]), split, (rewrite opens in rfl))
+          (open, (innerTokens ++ [close]), split, (rewrite opens then byComputing))
     | ListLiteral opened listed closed =>
       match spelled with
         | (open, itemTokens, close, split, opens, others) =>
-          (open, (itemTokens ++ [close]), split, (rewrite opens in rfl))
+          (open, (itemTokens ++ [close]), split, (rewrite opens then byComputing))
     | Negate minusComments operand =>
       match spelled with
-        | (minus, operandTokens, split, kind, others) => (minus, operandTokens, split, (rewrite kind in rfl))
+        | (minus, operandTokens, split, kind, others) => (minus, operandTokens, split, (rewrite kind then byComputing))
     | Field target dotComments name nameComments =>
       match spelled with
         | (targetTokens, dot, named, split, dotted, dotAllowed, isName, nameAllowed, spelledTarget, dotCommented,
             nameCommented) =>
           match spelledStart layout target targetTokens shaped.right spelledTarget with
             | (first, others, targetSplit, startKind) =>
-              (first, (others ++ [dot, named]), (rewrite split, targetSplit in rfl), startKind)
+              (first, (others ++ [dot, named]), (rewrite split, targetSplit then byComputing), startKind)
     | Call callee opened arguments closed =>
       match spelled with
         | (calleeTokens, open, argumentTokens, close, split, opens, allowed, closes, spelledCallee, spelledArguments,
             openCommented, closeCommented) =>
           match spelledStart layout callee calleeTokens shaped.right.left spelledCallee with
-            | (first, others, calleeSplit, startKind) =>
-              (first, (others ++ [open, ..argumentTokens ++ [close]]), (rewrite split, calleeSplit in rfl), startKind)
+            | (first, others, calleeSplit, startKind) => (
+              first,
+              (others ++ [open, ..argumentTokens ++ [close]]),
+              (rewrite split, calleeSplit then byComputing),
+              startKind
+            )
     | Binary operator signComments left right =>
       match shaped, spelled with
         | (leftLevel, rightLevel, leftChain, rightChain, shapedLeft, shapedRight), (leftTokens, sign, rightTokens,
             split, kind, allowed, spelledLeft, spelledRight, signCommented) =>
           match spelledStart layout left leftTokens shapedLeft spelledLeft with
             | (first, others, leftSplit, startKind) =>
-              (first, (others ++ [sign, ..rightTokens]), (rewrite split, leftSplit in rfl), startKind)
+              (first, (others ++ [sign, ..rightTokens]), (rewrite split, leftSplit then byComputing), startKind)
 
 -- Clearing the comments above an expression's first token
 -- (`Layout.headed`, which `bareStatement` applies) changes nothing where
@@ -1470,16 +1511,17 @@ def headAbove (layout: Layout) (tokens: List (Parse.Located Token)): List Commen
 
 theorem noAboveCleared ∀ (expr: Expr) (none: expr.firstAbove = []): expr.withoutFirstAbove = expr :=
   match expr, none with
-    | Var name { above, after }, none => rewrite none in rfl
-    | NumberLiteral digits { above, after }, none => rewrite none in rfl
-    | StringLiteral written { above, after }, none => rewrite none in rfl
-    | Bracketed ({ above, after }) inner close, none => rewrite none in rfl
-    | ListLiteral ({ above, after }) items close, none => rewrite none in rfl
-    | Call callee open arguments close, none => rewrite noAboveCleared callee none in rfl
-    | Field target dot name nameComments, none => rewrite noAboveCleared target none in rfl
-    | Negate ({ above, after }) operand, none => rewrite none in rfl
-    | Binary operator sign left right, none => rewrite noAboveCleared left none in rfl
-    | If ({ above, after }) condition thenComments whenTrue elseComments whenFalse, none => rewrite none in rfl
+    | Var name { above, after }, none => rewrite none then byComputing
+    | NumberLiteral digits { above, after }, none => rewrite none then byComputing
+    | StringLiteral written { above, after }, none => rewrite none then byComputing
+    | Bracketed ({ above, after }) inner close, none => rewrite none then byComputing
+    | ListLiteral ({ above, after }) items close, none => rewrite none then byComputing
+    | Call callee open arguments close, none => rewrite noAboveCleared callee none then byComputing
+    | Field target dot name nameComments, none => rewrite noAboveCleared target none then byComputing
+    | Negate ({ above, after }) operand, none => rewrite none then byComputing
+    | Binary operator sign left right, none => rewrite noAboveCleared left none then byComputing
+    | If ({ above, after }) condition thenComments whenTrue elseComments whenFalse, none =>
+      rewrite none then byComputing
 
 --| The comments above a spelled expression are those of its first token.
 theorem spelledFirstAbove ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token))
@@ -1491,27 +1533,28 @@ theorem spelledFirstAbove ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse
       match spelled with
         | (ifToken, conditionTokens, thenToken, trueTokens, elseToken, falseTokens, split, isIfToken, ifAllowed, isThen,
             thenAllowed, isElse, elseAllowed, spelledCondition, spelledTrue, spelledFalse, ifCommented, others) =>
-          rewrite split, ifCommented in rfl
+          rewrite split, ifCommented then byComputing
     | Var name comments =>
       match spelled with
-        | (token, split, kind, allowed, commented) => rewrite split, commented in rfl
+        | (token, split, kind, allowed, commented) => rewrite split, commented then byComputing
     | NumberLiteral digits comments =>
       match spelled with
-        | (token, split, kind, allowed, commented) => rewrite split, commented in rfl
+        | (token, split, kind, allowed, commented) => rewrite split, commented then byComputing
     | StringLiteral written comments =>
       match spelled with
-        | (token, split, kind, allowed, commented) => rewrite split, commented in rfl
+        | (token, split, kind, allowed, commented) => rewrite split, commented then byComputing
     | Bracketed opened inner closed =>
       match spelled with
         | (open, innerTokens, close, split, opens, allowed, closes, spelledInner, openCommented, others) =>
-          rewrite split, openCommented in rfl
+          rewrite split, openCommented then byComputing
     | ListLiteral opened listed closed =>
       match spelled with
         | (open, itemTokens, close, split, opens, allowed, closes, spelledItems, openCommented, others) =>
-          rewrite split, openCommented in rfl
+          rewrite split, openCommented then byComputing
     | Negate minusComments operand =>
       match spelled with
-        | (minus, operandTokens, split, kind, allowed, spelledOperand, commented) => rewrite split, commented in rfl
+        | (minus, operandTokens, split, kind, allowed, spelledOperand, commented) =>
+          rewrite split, commented then byComputing
     | Field target dotComments name nameComments =>
       match spelled with
         | (targetTokens, dot, named, split, dotted, dotAllowed, isName, nameAllowed, spelledTarget, dotCommented,
@@ -1519,7 +1562,7 @@ theorem spelledFirstAbove ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse
           match spelledStart layout target targetTokens shaped.right spelledTarget with
             | (first, others, targetSplit, startKind) =>
               let inner := spelledFirstAbove layout target targetTokens shaped.right spelledTarget
-              rewrite split, targetSplit in (rewrite targetSplit at inner in inner)
+              rewrite split, targetSplit then (rewrite targetSplit at inner then inner)
     | Call callee opened arguments closed =>
       match spelled with
         | (calleeTokens, open, argumentTokens, close, split, opens, allowed, closes, spelledCallee, spelledArguments,
@@ -1527,7 +1570,7 @@ theorem spelledFirstAbove ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse
           match spelledStart layout callee calleeTokens shaped.right.left spelledCallee with
             | (first, others, calleeSplit, startKind) =>
               let inner := spelledFirstAbove layout callee calleeTokens shaped.right.left spelledCallee
-              rewrite split, calleeSplit in (rewrite calleeSplit at inner in inner)
+              rewrite split, calleeSplit then (rewrite calleeSplit at inner then inner)
     | Binary operator signComments left right =>
       match shaped, spelled with
         | (leftLevel, rightLevel, leftChain, rightChain, shapedLeft, shapedRight), (leftTokens, sign, rightTokens,
@@ -1535,16 +1578,16 @@ theorem spelledFirstAbove ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse
           match spelledStart layout left leftTokens shapedLeft spelledLeft with
             | (first, others, leftSplit, startKind) =>
               let inner := spelledFirstAbove layout left leftTokens shapedLeft spelledLeft
-              rewrite split, leftSplit in (rewrite leftSplit at inner in inner)
+              rewrite split, leftSplit then (rewrite leftSplit at inner then inner)
 
 --| An offset is its own. The expression proofs and the spelling proofs
 --| both rewrite with it; it is the one copy.
-theorem ownOffset ∀ (offset: Nat): (offset == offset) = True := omega
+theorem ownOffset ∀ (offset: Nat): (offset == offset) = True := arithmetic
 
 --| A statement's first token holds no comments above it in the tree.
 theorem startAbove ∀ (column: Nat) (first: Parse.Located Token):
     ((InStatement column first.offset).comments first).above = [] :=
-  rewrite ownOffset first.offset in rfl
+  rewrite ownOffset first.offset then byComputing
 
 --| Clearing changes nothing where the first token holds no comments.
 theorem spelledHeaded ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token))
@@ -1553,45 +1596,45 @@ theorem spelledHeaded ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Loc
     (none: headAbove layout tokens = []):
     layout.headed expr = expr :=
   match layout, spelled, none with
-    | InBrackets, spelled, none => rfl
+    | InBrackets, spelled, none => byComputing
     | InStatement column start, spelled, none =>
       noAboveCleared expr (Eq.trans (spelledFirstAbove (InStatement column start) expr tokens shaped spelled) none)
 
 theorem clearedPostfix ∀ (expr: Expr): expr.withoutFirstAbove.isPostfix = expr.isPostfix := match expr with
-  | Var _ _ => rfl
-  | NumberLiteral _ _ => rfl
-  | StringLiteral _ _ => rfl
-  | Bracketed _ _ _ => rfl
-  | ListLiteral _ _ _ => rfl
-  | Call _ _ _ _ => rfl
-  | Field _ _ _ _ => rfl
-  | Negate _ _ => rfl
-  | Binary _ _ _ _ => rfl
-  | If _ _ _ _ _ _ => rfl
+  | Var _ _ => byComputing
+  | NumberLiteral _ _ => byComputing
+  | StringLiteral _ _ => byComputing
+  | Bracketed _ _ _ => byComputing
+  | ListLiteral _ _ _ => byComputing
+  | Call _ _ _ _ => byComputing
+  | Field _ _ _ _ => byComputing
+  | Negate _ _ => byComputing
+  | Binary _ _ _ _ => byComputing
+  | If _ _ _ _ _ _ => byComputing
 
 theorem clearedChain ∀ (expr: Expr): expr.withoutFirstAbove.isChain = expr.isChain := match expr with
-  | Var _ _ => rfl
-  | NumberLiteral _ _ => rfl
-  | StringLiteral _ _ => rfl
-  | Bracketed _ _ _ => rfl
-  | ListLiteral _ _ _ => rfl
-  | Call _ _ _ _ => rfl
-  | Field _ _ _ _ => rfl
-  | Negate _ _ => rfl
-  | Binary _ _ _ _ => rfl
-  | If _ _ _ _ _ _ => rfl
+  | Var _ _ => byComputing
+  | NumberLiteral _ _ => byComputing
+  | StringLiteral _ _ => byComputing
+  | Bracketed _ _ _ => byComputing
+  | ListLiteral _ _ _ => byComputing
+  | Call _ _ _ _ => byComputing
+  | Field _ _ _ _ => byComputing
+  | Negate _ _ => byComputing
+  | Binary _ _ _ _ => byComputing
+  | If _ _ _ _ _ _ => byComputing
 
 theorem clearedLevel ∀ (expr: Expr): expr.withoutFirstAbove.chainLevel = expr.chainLevel := match expr with
-  | Var _ _ => rfl
-  | NumberLiteral _ _ => rfl
-  | StringLiteral _ _ => rfl
-  | Bracketed _ _ _ => rfl
-  | ListLiteral _ _ _ => rfl
-  | Call _ _ _ _ => rfl
-  | Field _ _ _ _ => rfl
-  | Negate _ _ => rfl
-  | Binary _ _ _ _ => rfl
-  | If _ _ _ _ _ _ => rfl
+  | Var _ _ => byComputing
+  | NumberLiteral _ _ => byComputing
+  | StringLiteral _ _ => byComputing
+  | Bracketed _ _ _ => byComputing
+  | ListLiteral _ _ _ => byComputing
+  | Call _ _ _ _ => byComputing
+  | Field _ _ _ _ => byComputing
+  | Negate _ _ => byComputing
+  | Binary _ _ _ _ => byComputing
+  | If _ _ _ _ _ _ => byComputing
 
 theorem shapedCleared ∀ (expr: Expr) (shaped: Shaped expr): Shaped expr.withoutFirstAbove := match expr, shaped with
   | Var name comments, shaped => shaped
@@ -1606,7 +1649,7 @@ theorem shapedCleared ∀ (expr: Expr) (shaped: Shaped expr): Shaped expr.withou
   | Negate minus operand, shaped => shaped
   | Binary operator sign left right, Both leftLevel
       (Both rightLevel (Both leftChain (Both rightChain (Both shapedLeft shapedRight)))) => (
-    (rewrite clearedLevel left in leftLevel),
+    (rewrite clearedLevel left then leftLevel),
     rightLevel,
     (Eq.trans (clearedChain left) leftChain),
     rightChain,
@@ -1631,46 +1674,46 @@ theorem startNoBracket ∀ (kind: Kind) (wanted: Punctuation)
     (bracket: bracketSign wanted = True):
     (signIs wanted kind).isSome = False :=
   match kind with
-    | Name text => rfl
-    | Number digits => rfl
-    | Str written => rfl
-    | Op operator => rfl
-    | Reserved keyword => rfl
+    | Name text => byComputing
+    | Number digits => byComputing
+    | Str written => byComputing
+    | Op operator => byComputing
+    | Reserved keyword => byComputing
     | Sign punctuation =>
       match punctuation, wanted with
-        | OpenParen, CloseParen => rfl
-        | OpenParen, CloseSquare => rfl
-        | OpenSquare, CloseParen => rfl
-        | OpenSquare, CloseSquare => rfl
+        | OpenParen, CloseParen => byComputing
+        | OpenParen, CloseSquare => byComputing
+        | OpenSquare, CloseParen => byComputing
+        | OpenSquare, CloseSquare => byComputing
 
 theorem endsAtSign ∀ (token: Parse.Located Token) (punctuation: Punctuation) (rest: List (Parse.Located Token))
     (signed: token.value.kind = Sign punctuation)
     (quiet: endsSuffixes (Sign punctuation) = True):
     EndsExpression InBrackets [token, ..rest] :=
-  ((rewrite signed in quiet), (noOperatorAtSign InBrackets 0 token punctuation rest signed))
+  ((rewrite signed then quiet), (noOperatorAtSign InBrackets 0 token punctuation rest signed))
 
 theorem bracketQuiet ∀ (closer: Punctuation) (bracket: bracketSign closer = True): endsSuffixes (Sign closer) = True :=
   match closer with
-    | CloseParen => rfl
-    | CloseSquare => rfl
+    | CloseParen => byComputing
+    | CloseSquare => byComputing
 
 theorem noCommaAtBracket ∀ (close: Parse.Located Token) (closer: Punctuation) (after: List (Parse.Located Token))
     (closes: close.value.kind = Sign closer)
     (bracket: bracketSign closer = True):
     signAhead Comma [close, ..after] = False :=
-  rewrite closes in
+  rewrite closes then
     match closer with
-      | CloseParen => rfl
-      | CloseSquare => rfl
+      | CloseParen => byComputing
+      | CloseSquare => byComputing
 
 theorem bracketThere ∀ (close: Parse.Located Token) (closer: Punctuation)
     (closes: close.value.kind = Sign closer)
     (bracket: bracketSign closer = True):
     (signIs closer close.value.kind).isSome = True :=
-  rewrite closes in
+  rewrite closes then
     match closer with
-      | CloseParen => rfl
-      | CloseSquare => rfl
+      | CloseParen => byComputing
+      | CloseSquare => byComputing
 
 --| `itemsFrom` reads the items of a list or call up to its closing
 --| bracket: each item with its comma, the last without, given that `self`
@@ -1691,7 +1734,7 @@ theorem runsItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
       match spelled, fuel with
         | (spelledValue, noComma), Succ more =>
           let read: Item := { value, comma = Comments.none }
-          rewrite noComma in
+          rewrite noComma then
             Parse.runsBind
               (() => item self)
               (itemsAfter more self found)
@@ -1701,7 +1744,7 @@ theorem runsItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
               [close, ..after]
               (read, False)
               (found.reverse ++ [read])
-              (Eq.sym (List.appendNil tokens))
+              (List.appendNil tokens).flipped
               (runsItemLast self value tokens
                 [close, ..after]
                 (nested InBrackets value tokens
@@ -1713,15 +1756,15 @@ theorem runsItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
                     (endsAtSign close closer after closes (bracketQuiet closer bracket)))
                   small)
                 (noCommaAtBracket close closer after closes bracket))
-              (rewrite <- List.reverseCons read found in Parse.runsPure _ [close, ..after])
+              (rewrite <- List.reverseCons read found then Parse.runsPure _ [close, ..after])
     | { value, comma }, [next, ..more] =>
       match spelled, shaped, fuel with
         | (valueTokens, commaToken, laterTokens, split, isComma, spelledValue, commaCommented,
             spelledLater), (shapedValue, shapedLater), Succ less =>
           let read: Item := { value, comma = Layout.comments InBrackets commaToken }
           let sizes: tokens.length = valueTokens.length + (laterTokens.length + 1) :=
-            rewrite split in List.lengthAppend valueTokens [commaToken, ..laterTokens]
-          rewrite commaCommented, split in
+            rewrite split then List.lengthAppend valueTokens [commaToken, ..laterTokens]
+          rewrite commaCommented, split then
             Parse.runsBind
               (() => item self)
               (itemsAfter less self found)
@@ -1731,7 +1774,7 @@ theorem runsItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
               [close, ..after]
               (read, True)
               (found.reverse ++ [read, next, ..more])
-              (Eq.sym (List.appendAssoc valueTokens [commaToken] laterTokens))
+              (Eq.flipped (List.appendAssoc valueTokens [commaToken] laterTokens))
               (runsItemComma self value commaToken valueTokens
                 (laterTokens ++ [close, ..after])
                 (nested InBrackets value valueTokens
@@ -1740,10 +1783,10 @@ theorem runsItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
                   spelledValue
                   (afterBrackets valueTokens
                     [commaToken, ..laterTokens ++ [close, ..after]]
-                    (endsAtSign commaToken Comma (laterTokens ++ [close, ..after]) isComma rfl))
-                  (omega [small, sizes]))
+                    (endsAtSign commaToken Comma (laterTokens ++ [close, ..after]) isComma byComputing))
+                  (arithmetic [small, sizes]))
                 isComma)
-              (rewrite <- List.appendAssoc found.reverse [read] [next, ..more], <- List.reverseCons read found in
+              (rewrite <- List.appendAssoc found.reverse [read] [next, ..more], <- List.reverseCons read found then
                 runsItemsFrom self bound nested next more
                   [read, ..found]
                   less
@@ -1755,8 +1798,8 @@ theorem runsItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
                   bracket
                   shapedLater
                   spelledLater
-                  (omega [small, sizes])
-                  (omega [enough]))
+                  (arithmetic [small, sizes])
+                  (arithmetic [enough]))
 
 --| The tokens of one or more items start with a token that starts an
 --| expression, and there are at least as many as items.
@@ -1769,7 +1812,7 @@ theorem itemsStart ∀ (head: Item) (tail: List Item) (tokens: List (Parse.Locat
   match head, tail with
     | { value, comma }, [] =>
       match spelledStart InBrackets value tokens shaped.left spelled.left with
-        | (first, others, split, startKind) => (first, others, split, startKind, (omega []))
+        | (first, others, split, startKind) => (first, others, split, startKind, (arithmetic []))
     | { value, comma }, [next, ..more] =>
       match spelled, shaped with
         | (valueTokens, commaToken, laterTokens, split, isComma, spelledValue, commaCommented,
@@ -1780,9 +1823,9 @@ theorem itemsStart ∀ (head: Item) (tail: List Item) (tokens: List (Parse.Locat
             | (first, others, valueSplit, startKind), (second, rest, laterSplit, laterKind, short) => (
               first,
               (others ++ [commaToken, ..laterTokens]),
-              (rewrite split, valueSplit in rfl),
+              (rewrite split, valueSplit then byComputing),
               startKind,
-              (rewrite laterSplit in omega [short, List.lengthAppend others [commaToken, second, ..rest]])
+              (rewrite laterSplit then arithmetic [short, List.lengthAppend others [commaToken, second, ..rest]])
             )
 
 --| `items` reads the items between brackets and the closing bracket, and
@@ -1799,7 +1842,7 @@ theorem runsItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bou
   let closed := Layout.comments InBrackets close
   match listed with
     | [] =>
-      rewrite spelled in
+      rewrite spelled then
         Parse.runsBind
           (() => signInBrackets "'${closer.spelling}'" closer)
           (found =>
@@ -1815,15 +1858,15 @@ theorem runsItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bou
           after
           (Some closed)
           ([], closed)
-          rfl
+          byComputing
           (runsSignThere "'${closer.spelling}'" closer close after (bracketThere close closer closes bracket))
           (Parse.runsPure ([], closed) after)
     | [head, ..tail] =>
       match itemsStart head tail tokens shaped spelled with
         | (first, others, split, startKind, short) =>
           let absent: signAhead closer ((tokens ++ [close]) ++ after) = False :=
-            rewrite split in startNoBracket first.value.kind closer startKind bracket
-          let size: tokens.length = Succ others.length := rewrite split in rfl
+            rewrite split then startNoBracket first.value.kind closer startKind bracket
+          let size: tokens.length = Succ others.length := rewrite split then byComputing
           Parse.runsBind
             (() => signInBrackets "'${closer.spelling}'" closer)
             (found =>
@@ -1839,11 +1882,11 @@ theorem runsItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bou
             after
             None
             ([head, ..tail], closed)
-            rfl
+            byComputing
             (runsSignAbsent "'${closer.spelling}'" closer ((tokens ++ [close]) ++ after) absent)
             (state starts honest =>
               let lengths: state.at.rest.length = (tokens ++ [close]).length + after.length :=
-                rewrite starts in List.lengthAppend (tokens ++ [close]) after
+                rewrite starts then List.lengthAppend (tokens ++ [close]) after
               Parse.runsFromMark state
                 (at =>
                   let found := itemsFrom at.left self []
@@ -1863,10 +1906,10 @@ theorem runsItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bou
                   after
                   [head, ..tail]
                   ([head, ..tail], closed)
-                  rfl
+                  byComputing
                   (runsItemsFrom self bound nested head tail [] state.at.left tokens after close closer closes bracket
                       shaped spelled small
-                      (omega [short, size, honest, lengths, List.lengthAppend tokens [close]]))
+                      (arithmetic [short, size, honest, lengths, List.lengthAppend tokens [close]]))
                   (middle atRest honest1 offset =>
                     Parse.runsMap
                       (() => sign InBrackets "'${closer.spelling}'" closer)
@@ -1874,7 +1917,7 @@ theorem runsItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bou
                       [close]
                       after
                       closed
-                      (runsSign InBrackets "'${closer.spelling}'" closer close after closes rfl)
+                      (runsSign InBrackets "'${closer.spelling}'" closer close after closes byComputing)
                       middle))
                 starts
                 honest)
@@ -1906,7 +1949,7 @@ theorem runsAtomList ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (
         rest
         ()
         (ListLiteral opened listed (Layout.comments InBrackets close))
-        rfl
+        byComputing
         (runsSkip open ((itemTokens ++ [close]) ++ rest))
         (Parse.runsMap
           (() => items self CloseSquare)
@@ -1917,7 +1960,7 @@ theorem runsAtomList ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (
           rest
           (listed, Layout.comments InBrackets close)
           runsInside)
-    match core state starts honest with | (m, ran, after) => (m, (rewrite starts, allowed, opens in ran), after)
+    match core state starts honest with | (m, ran, after) => (m, (rewrite starts, allowed, opens then ran), after)
 
 --| A round of `suffixesFrom` that reads a call: `(`, the arguments, `)`,
 --| and on from the target with the call.
@@ -1958,7 +2001,7 @@ theorem runsSuffixesCall ∀ (more: Nat) (self: Layout → {Parse (Parse.Located
         rest
         (Some read)
         value
-        rfl
+        byComputing
         (Parse.runsOptional
           (() =>
             skip()
@@ -1978,7 +2021,7 @@ theorem runsSuffixesCall ∀ (more: Nat) (self: Layout → {Parse (Parse.Located
             (after ++ rest)
             ()
             read
-            rfl
+            byComputing
             (runsSkip open ((argumentTokens ++ [close]) ++ (after ++ rest)))
             (Parse.runsMap
               (() => items self CloseParen)
@@ -1990,7 +2033,7 @@ theorem runsSuffixesCall ∀ (more: Nat) (self: Layout → {Parse (Parse.Located
               (arguments, Layout.comments InBrackets close)
               runsInside)))
         runsMore
-    match core state starts honest with | (m, ran, others) => (m, (rewrite starts, allowed, opens in ran), others)
+    match core state starts honest with | (m, ran, others) => (m, (rewrite starts, allowed, opens then ran), others)
 
 -- Where no expression starts: at a keyword other than `if`. What ends a
 -- block whose next line starts with `then` or `else`.
@@ -2008,23 +2051,23 @@ theorem notMinusAtReserved ∀ (layout: Layout) (token: Parse.Located Token) (ke
     (reserved: token.value.kind = Reserved keyword):
     isMinus layout token = False :=
   match allowed: layout.allows token with
-    | True => rewrite reserved in rfl
-    | False => rfl
+    | True => rewrite reserved then byComputing
+    | False => byComputing
 
 theorem notIfAtReserved ∀ (layout: Layout) (token: Parse.Located Token) (keyword: Keyword)
     (reserved: token.value.kind = Reserved keyword)
     (notIf: keyword ≠ IfKeyword):
     isIf layout token = False :=
   match allowed: layout.allows token with
-    | False => rfl
+    | False => byComputing
     | True =>
-      rewrite reserved in
+      rewrite reserved then
         match keyword, notIf with
-          | IfKeyword, notIf => Void.exfalso (notIf rfl)
-          | FnKeyword, notIf => rfl
-          | LetKeyword, notIf => rfl
-          | ThenKeyword, notIf => rfl
-          | ElseKeyword, notIf => rfl
+          | IfKeyword, notIf => (notIf byComputing).impossible
+          | FnKeyword, notIf => byComputing
+          | LetKeyword, notIf => byComputing
+          | ThenKeyword, notIf => byComputing
+          | ElseKeyword, notIf => byComputing
 
 --| No atom starts with a keyword.
 theorem atomDeclines ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (token: Parse.Located Token)
@@ -2034,10 +2077,10 @@ theorem atomDeclines ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (
   state starts honest =>
     let step: Parse.runFrom state (() => (Parse.optional (() => atom self layout), Parse.mark()))
       = Parse.runFrom state (() => (Parse.optional (() => (Parse.expected "an expression": Expr)), Parse.mark())) :=
-      rewrite starts in
+      rewrite starts then
         match allowed: layout.allows token with
-          | True => rewrite reserved in rfl
-          | False => rfl
+          | True => rewrite reserved then byComputing
+          | False => byComputing
     Eq.trans step (Parse.declinesExpected "an expression" [token, ..later] state starts honest)
 
 theorem postfixDeclines ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
@@ -2064,8 +2107,8 @@ theorem negationsDecline ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located
     let step: Parse.runFrom state (() => (Parse.optional (() => negationsFrom fuel self layout), Parse.mark()))
       = Parse.runFrom state (() => (Parse.optional (() => postfix self layout), Parse.mark())) :=
       match fuel with
-        | Zero => rfl
-        | Succ more => rewrite starts, notMinusAtReserved layout token keyword reserved in rfl
+        | Zero => byComputing
+        | Succ more => rewrite starts, notMinusAtReserved layout token keyword reserved then byComputing
     Eq.trans step (postfixDeclines self layout token later keyword reserved state starts honest)
 
 theorem chainRuleStops ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
@@ -2078,8 +2121,8 @@ theorem chainRuleStops ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
           Parse.mark()
         )) :=
   match state with
-    | { at = { rest = [], offset, left }, furthest, expected, messages } => rfl
-    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite noIf in rfl
+    | { at = { rest = [], offset, left }, furthest, expected, messages } => byComputing
+    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite noIf then byComputing
 
 --| No expression starts with a keyword other than `if`, whatever reads
 --| the expressions nested in it.
@@ -2090,7 +2133,7 @@ theorem expressionRuleDeclines ∀ (self: Layout → {Parse (Parse.Located Token
     Parse.Declines (() => expressionRule self layout) [token, ..later] :=
   state starts honest =>
     Eq.trans
-      (chainRuleStops self layout state (rewrite starts in notIfAtReserved layout token keyword reserved notIf))
+      (chainRuleStops self layout state (rewrite starts then notIfAtReserved layout token keyword reserved notIf))
       (Parse.declinesOperators "an operator"
         (operatorLevels layout)
         (() => operand self layout)
@@ -2133,13 +2176,42 @@ theorem runsExpressionExample: Parse.run exampleTokens (() => expression InBrack
   let close := exampleToken (Sign CloseParen) 3
   let plus := exampleToken (Op Plus) 5
   let b := exampleToken (Name "b") 7
-  let spelledCall: Spelled InBrackets exampleCall [f, open, a, close] :=
-    ([f], open, [a], close, rfl, rfl, rfl, rfl, ((f, rfl, rfl, rfl, rfl)), ((((a, rfl, rfl, rfl, rfl)), rfl)), rfl, rfl)
+  let spelledCall: Spelled InBrackets exampleCall [f, open, a, close] := (
+    [f],
+    open,
+    [a],
+    close,
+    byComputing,
+    byComputing,
+    byComputing,
+    byComputing,
+    ((f, byComputing, byComputing, byComputing, byComputing)),
+    ((((a, byComputing, byComputing, byComputing, byComputing)), byComputing)),
+    byComputing,
+    byComputing
+  )
   Parse.runsRun
     (() => expression InBrackets)
     exampleTokens
     exampleExpr
     (runsExpression InBrackets exampleExpr exampleTokens []
-      (((omega []), (omega []), rfl, rfl, ((rfl, rfl, ((rfl, rfl)), rfl)), rfl))
-      (([f, open, a, close], plus, [b], rfl, rfl, rfl, spelledCall, ((b, rfl, rfl, rfl, rfl)), rfl))
-      ((((rfl, rfl)), rfl)))
+      ((
+        (arithmetic []),
+        (arithmetic []),
+        byComputing,
+        byComputing,
+        ((byComputing, byComputing, ((byComputing, byComputing)), byComputing)),
+        byComputing
+      ))
+      ((
+        [f, open, a, close],
+        plus,
+        [b],
+        byComputing,
+        byComputing,
+        byComputing,
+        spelledCall,
+        ((b, byComputing, byComputing, byComputing, byComputing)),
+        byComputing
+      ))
+      ((((byComputing, byComputing)), byComputing)))

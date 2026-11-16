@@ -25,8 +25,8 @@ test "map" := ([Dot 1 "p" 0, s].map (x => { x | start = 3 })).map .start == [3, 
 -- Whatever the constructor, the new value is read back.
 -- (In a type, `{` starts an effect row, so the update is bracketed.)
 theorem idUpdated ∀ (c: Shape) (x: Text): ({ c | id = x }).id = x := match c with
-  | Dot _ _ _ => rfl
-  | Circle _ _ _ _ => rfl
+  | Dot _ _ _ => byComputing
+  | Circle _ _ _ _ => byComputing
 
 -- A parameterised type.
 type Labelled (a: Type) = | One (label: a) | Two (x: Nat) (label: a)
@@ -58,7 +58,7 @@ type Labelled2 =
 
 def relabel (a: Labelled2): Labelled2 := { a | label = "x" }
 
-test "implicit kept" := (relabel (LA 0 [h := rfl] "a")).label == "x"
+test "implicit kept" := (relabel (LA 0 [h := byComputing] "a")).label == "x"
 
 -- A one-constructor type that is not a record.
 test "pair" := { (1, "x") | fst = 2 } == (2, "x")

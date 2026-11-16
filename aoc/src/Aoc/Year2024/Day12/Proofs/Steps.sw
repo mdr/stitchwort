@@ -14,9 +14,10 @@ def Orthogonal (from to: Position): Prop :=
   ((from.row = to.row) ∧ ((from.column + 1 = to.column) ∨ (to.column + 1 = from.column)))
     ∨ ((from.column = to.column) ∧ ((from.row + 1 = to.row) ∨ (to.row + 1 = from.row)))
 
-theorem eqTrue ∀ [x y: Nat] (same: x = y): (x == y) = True := rewrite same in DecEq.refl y
+theorem eqTrue ∀ [x y: Nat] (same: x = y): (x == y) = True := rewrite same then DecEq.refl y
 
-theorem orthogonalIntro ∀ (from to: Position) (orthogonal: Orthogonal from to): isOrthogonalStep from to = True := omega
+theorem orthogonalIntro ∀ (from to: Position) (orthogonal: Orthogonal from to): isOrthogonalStep from to = True :=
+  arithmetic
 
 theorem orthogonalElim ∀ (from to: Position) (step: isOrthogonalStep from to = True): Orthogonal from to :=
   match step with
@@ -30,10 +31,12 @@ theorem stepOrthogonal ∀ (from: Position) (side: Direction) (to: Position)
     (stepped: from.step side = Some to):
     Orthogonal from to :=
   match from, side with
-    | { row = Succ above, column }, Up => rewrite <- Option.someInjective stepped in Inr (Both rfl (Inr (omega)))
-    | { row, column }, Down => rewrite <- Option.someInjective stepped in Inr (Both rfl (Inl (omega)))
-    | { row, column = Succ before }, Left => rewrite <- Option.someInjective stepped in Inl (Both rfl (Inr (omega)))
-    | { row, column }, Right => rewrite <- Option.someInjective stepped in Inl (Both rfl (Inl (omega)))
+    | { row = Succ above, column }, Up =>
+      rewrite <- Option.someInjective stepped then Inr (Both byComputing (Inr (arithmetic)))
+    | { row, column }, Down => rewrite <- Option.someInjective stepped then Inr (Both byComputing (Inl (arithmetic)))
+    | { row, column = Succ before }, Left =>
+      rewrite <- Option.someInjective stepped then Inl (Both byComputing (Inr (arithmetic)))
+    | { row, column }, Right => rewrite <- Option.someInjective stepped then Inl (Both byComputing (Inl (arithmetic)))
 
 --| One orthogonal step is a step in some direction.
 theorem orthogonalStep ∀ (from to: Position)
@@ -41,45 +44,47 @@ theorem orthogonalStep ∀ (from to: Position)
     Exists Direction (side => from.step side = Some to) :=
   match from, to, h with
     | { row, column }, { row = toRow, column = toColumn }, Inl (Both rows (Inl right)) =>
-      let same: Succ column = toColumn := omega
-      rewrite <- rows, <- same in Witness Right rfl
-    | { row, column = Zero }, { row = toRow, column = toColumn }, Inl (Both rows (Inr left)) => Void.exfalso (omega)
+      let same: Succ column = toColumn := arithmetic
+      rewrite <- rows, <- same then Witness Right byComputing
+    | { row, column = Zero }, { row = toRow, column = toColumn }, Inl (Both rows (Inr left)) =>
+      Void.impossible arithmetic
     | { row, column = Succ before }, { row = toRow, column = toColumn }, Inl (Both rows (Inr left)) =>
-      let same: before = toColumn := omega
-      rewrite <- rows, <- same in Witness Left rfl
+      let same: before = toColumn := arithmetic
+      rewrite <- rows, <- same then Witness Left byComputing
     | { row, column }, { row = toRow, column = toColumn }, Inr (Both columns (Inl down)) =>
-      let same: Succ row = toRow := omega
-      rewrite <- columns, <- same in Witness Down rfl
-    | { row = Zero, column }, { row = toRow, column = toColumn }, Inr (Both columns (Inr up)) => Void.exfalso (omega)
+      let same: Succ row = toRow := arithmetic
+      rewrite <- columns, <- same then Witness Down byComputing
+    | { row = Zero, column }, { row = toRow, column = toColumn }, Inr (Both columns (Inr up)) =>
+      Void.impossible arithmetic
     | { row = Succ above, column }, { row = toRow, column = toColumn }, Inr (Both columns (Inr up)) =>
-      let same: above = toRow := omega
-      rewrite <- columns, <- same in Witness Up rfl
+      let same: above = toRow := arithmetic
+      rewrite <- columns, <- same then Witness Up byComputing
 
 theorem orthogonalSymmetric ∀ (from to: Position) (orthogonal: Orthogonal from to): Orthogonal to from :=
   match orthogonal with
-    | Inl (Both rows (Inl right)) => Inl (Both (Eq.sym rows) (Inr right))
-    | Inl (Both rows (Inr left)) => Inl (Both (Eq.sym rows) (Inl left))
-    | Inr (Both columns (Inl down)) => Inr (Both (Eq.sym columns) (Inr down))
-    | Inr (Both columns (Inr up)) => Inr (Both (Eq.sym columns) (Inl up))
+    | Inl (Both rows (Inl right)) => Inl (Both rows.flipped (Inr right))
+    | Inl (Both rows (Inr left)) => Inl (Both rows.flipped (Inl left))
+    | Inr (Both columns (Inl down)) => Inr (Both columns.flipped (Inr down))
+    | Inr (Both columns (Inr up)) => Inr (Both columns.flipped (Inl up))
 
 --| Every direction is one of `directions`.
 theorem memDirections ∀ (side: Direction): side ∈ directions := match side with
-  | Up => Inl rfl
-  | Right => Inr (Inl rfl)
-  | Down => Inr (Inr (Inl rfl))
-  | Left => Inr (Inr (Inr (Inl rfl)))
+  | Up => Inl byComputing
+  | Right => Inr (Inl byComputing)
+  | Down => Inr (Inr (Inl byComputing))
+  | Left => Inr (Inr (Inr (Inl byComputing)))
 
 --| `growSame` as an equation.
 theorem growSameElim ∀ (garden: Garden) (plot other: Position)
     (same: growSame garden plot other = True):
     Exists Char (plant => (garden.plantAt plot = Some plant) ∧ (garden.plantAt other = Some plant)) :=
-  match grows: garden.plantAt plot with | Some plant => Witness plant (Both rfl same.read)
+  match grows: garden.plantAt plot with | Some plant => Witness plant (Both byComputing same.read)
 
 theorem growSameIntro ∀ (garden: Garden) (plot other: Position) (plant: Char)
     (here: garden.plantAt plot = Some plant)
     (there: garden.plantAt other = Some plant):
     growSame garden plot other = True :=
-  rewrite here, there in DecEq.refl (Some plant)
+  rewrite here, there then DecEq.refl (Some plant)
 
 theorem touchesSymmetric ∀ (garden: Garden) (plot other: Position)
     (touching: touches garden plot other = True):
@@ -88,7 +93,7 @@ theorem touchesSymmetric ∀ (garden: Garden) (plot other: Position)
   Exists.elim (growSameElim garden plot other same) (plant both =>
     Both
       (orthogonalIntro other plot (orthogonalSymmetric plot other (orthogonalElim plot other across)))
-      (growSameIntro garden other plot plant (And.right both) (And.left both)))
+      (growSameIntro garden other plot plant both.right both.left))
 
 --| The neighbours a fill pushes are exactly the plots touching `plot` that
 --| grow `plant`.
@@ -101,16 +106,16 @@ theorem memNeighboursGrowing ∀ (garden: Garden) (plant: Char) (plot other: Pos
         (List.anyElim
           (side => plot.step side = Some other) _
           directions
-          (List.memFilterMapElim plot.step other directions (And.left both))
+          (List.memFilterMapElim plot.step other directions both.left)
           (side inDirections stepped => stepOrthogonal plot side other stepped))
-        (And.right both).read,
+        both.right.read,
     backward = has =>
-      Exists.elim (orthogonalStep plot other (And.left has)) (side stepped =>
+      Exists.elim (orthogonalStep plot other has.left) (side stepped =>
         List.memFilterIntro
           (directions.filterMap plot.step)
           (next => garden.plantAt next == Some plant)
           (List.memFilterMapIntro plot.step side other directions (memDirections side) stepped)
-          (rewrite And.right has in DecEq.refl (Some plant)))
+          (rewrite And.right has then DecEq.refl (Some plant)))
   }
 
 --| A plot touching one that grows `plant` is a neighbour the fill pushes.
@@ -120,9 +125,9 @@ theorem touchingGrowing ∀ (garden: Garden) (plant: Char) (plot other: Position
     other ∈ garden.neighboursGrowing plant plot :=
   let Both across sameGrowth := touching
   Exists.elim (growSameElim garden plot other sameGrowth) (same both =>
-    let plantSame: same = plant := Option.someInjective (Eq.trans (Eq.sym (And.left both)) grows)
+    let plantSame: same = plant := Option.someInjective (Eq.trans both.left.flipped grows)
     (memNeighboursGrowing garden plant plot other).backward
-      (Both (orthogonalElim plot other across) (rewrite <- plantSame in And.right both)))
+      (Both (orthogonalElim plot other across) (rewrite <- plantSame then And.right both)))
 
 --| A neighbour the fill pushes from a plot growing `plant` touches it.
 theorem growingTouches ∀ (garden: Garden) (plant: Char) (plot other: Position)
@@ -130,4 +135,4 @@ theorem growingTouches ∀ (garden: Garden) (plant: Char) (plot other: Position)
     (member: other ∈ garden.neighboursGrowing plant plot):
     touches garden plot other = True :=
   let both := (memNeighboursGrowing garden plant plot other).forward member
-  Both (orthogonalIntro plot other (And.left both)) (growSameIntro garden plot other plant grows (And.right both))
+  Both (orthogonalIntro plot other both.left) (growSameIntro garden plot other plant grows both.right)

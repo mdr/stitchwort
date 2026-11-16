@@ -1,6 +1,6 @@
 -- R: a match body on the next line joins the header when it fits.
 theorem timesOne ∀ (n: Nat): n * 1 = n := match n with
-  | Zero => rfl
+  | Zero => byComputing
   | Succ k => Eq.cong Succ (timesOne k)
 
 def isZero (n: Nat): Bool := match n with

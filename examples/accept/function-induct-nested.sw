@@ -10,10 +10,10 @@ theorem unfoldLengthLe ∀ (seed: s) (step: s → Option (Pair a s)) (measure: s
     List.length (List.unfold seed step measure shrinks) ≤ measure seed :=
   List.unfold.induct
     (seed step measure shrinks result => List.length result ≤ measure seed)
-    (seed step measure shrinks found => omega)
+    (seed step measure shrinks found => arithmetic)
     (seed step measure shrinks v next found ih =>
       let smaller := shrinks seed next v found
-      omega)
+      arithmetic)
     seed
     step
     measure

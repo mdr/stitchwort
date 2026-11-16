@@ -71,5 +71,5 @@ test "with IO, then a bad line" :=
   IO.simulate [] (() => toOption (() => total ["L2 3 red", "nope", "R1 1 blue"])) == (["red"], None)
 
 -- The handler's result on small inputs, by computation.
-theorem parsesL68: signed "L68 1 green" = -68 := rfl
-theorem rejectsJunk: parseTurn "L68" = None := rfl
+theorem parsesL68: signed "L68 1 green" = -68 := byComputing
+theorem rejectsJunk: parseTurn "L68" = None := byComputing

@@ -47,7 +47,7 @@ theorem smallParses: parsed """
   AB
 
   AB -> C
-  """ = Ok { template = ['A', 'B'], rules = [{ pair = { first = 'A', second = 'B' }, insert = 'C' }] } := rfl
+  """ = Ok { template = ['A', 'B'], rules = [{ pair = { first = 'A', second = 'B' }, insert = 'C' }] } := byComputing
 
 test "parse the example" :=
   example.template == ['N', 'N', 'C', 'B']
@@ -55,9 +55,9 @@ test "parse the example" :=
     && example.rules.head == Some { pair = { first = 'C', second = 'H' }, insert = 'B' }
 
 --| The puzzle's polymers after one and two steps, by the spec.
-theorem exampleStep1: afterSteps 1 example = "NCNBCHB".toList := rfl
+theorem exampleStep1: afterSteps 1 example = "NCNBCHB".toList := byComputing
 
-theorem exampleStep2: afterSteps 2 example = "NBCCNBBBCBHCB".toList := rfl
+theorem exampleStep2: afterSteps 2 example = "NBCCNBBBCBHCB".toList := byComputing
 
 test "example, after 4 steps" := afterSteps 4 example == "NBBNBNBBCCNBCNCCNBBNBBNBBBNBBNBBCBHCBHHNHCBBCBHCB".toList
 

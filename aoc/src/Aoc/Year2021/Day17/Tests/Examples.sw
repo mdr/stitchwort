@@ -49,11 +49,11 @@ test "a target above the start" :=
 test "a missing comma" := parsed "target area: x=20..30 y=-10..-5" == Err "column 22: expected ', y=', got ' y=-'"
 
 --| The examples, proved by computing them.
-theorem examplePart1: solvePart1 exampleTarget = Some 45 := rfl
-theorem examplePart2: solvePart2 exampleTarget = 112 := rfl
+theorem examplePart1: solvePart1 exampleTarget = Some 45 := byComputing
+theorem examplePart2: solvePart2 exampleTarget = 112 := byComputing
 
 --| `hitsCandidate`'s hypotheses hold: 7,2 is in the example's target
 --| after 7 steps.
 -- (the audit's random velocities never hit)
 theorem exampleHitIsCandidate: { x = 7, y = 2 } ∈ candidates exampleTarget :=
-  Aoc.Year2021.Day17.Proofs.hitsCandidate exampleTarget rfl rfl { x = 7, y = 2 } 7 rfl
+  Aoc.Year2021.Day17.Proofs.hitsCandidate exampleTarget byComputing byComputing { x = 7, y = 2 } 7 byComputing

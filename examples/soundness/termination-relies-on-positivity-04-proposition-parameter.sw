@@ -9,7 +9,7 @@
 -- Removing that rule alone doesn't let the loop through: `T` also sits inside
 -- `PBox`, whose later parameter `p` mentions `a` (nestable condition 2), and
 -- either refusal holds on its own. With both removed (tried by hand, not a
--- kernel change), `f` is accepted and `rfl` on `f` of a closed value never
+-- kernel change), `f` is accepted and `byComputing` on `f` of a closed value never
 -- finishes.
 import Std (Unit)
 

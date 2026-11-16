@@ -6,4 +6,4 @@ import Std (Nat)
 
 opaque def double (n: Nat): Nat := n + n
 
-theorem doubleIsSucc (n: Nat): double n = n + 1 := rfl
+theorem doubleIsSucc (n: Nat): double n = n + 1 := byComputing

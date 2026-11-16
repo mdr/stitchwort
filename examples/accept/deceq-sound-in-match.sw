@@ -22,9 +22,9 @@ theorem notOnMonster ∀ (player: Position) (monster: Monster) (monsters: List M
     (player == monster.position) = False :=
   match same: player == monster.position with
     | True =>
-      let vacant: monsterAt monster.position monsters = None := rewrite <- DecEq.sound same in clear
-      Void.exfalso (Option.noneNotSome monster (Eq.trans (Eq.sym vacant) located))
-    | False => rfl
+      let vacant: monsterAt monster.position monsters = None := rewrite <- DecEq.sound same then clear
+      Void.impossible (Option.noneNotSome monster (Eq.trans vacant.flipped located))
+    | False => byComputing
 
 -- The monster `monsterAt` finds is on the cell asked about.
 theorem foundThere ∀ (position: Position) (found: Monster) (monsters: List Monster)
@@ -35,7 +35,7 @@ theorem foundThere ∀ (position: Position) (found: Monster) (monsters: List Mon
       match same: monster.position == position with
         | True =>
           let here := DecEq.sound same
-          rewrite <- Option.someInjective located in here
+          rewrite <- Option.someInjective located then here
         | False => foundThere position found others located
 
 -- A table built from a list of caves has an entry for each of them.
@@ -45,8 +45,8 @@ theorem lookupBuilt ∀ (f: Cave → List Cave) (cave: Cave) (caves: List Cave)
   match caves with
     | [c, ..rest] =>
       match e: c == cave with
-        | True => rewrite DecEq.sound e in rfl
+        | True => rewrite DecEq.sound e then byComputing
         | False =>
           match member with
-            | Inl same => Void.exfalso (Bool.trueNotFalse (rewrite same, DecEq.refl cave at e))
+            | Inl same => Void.impossible (Bool.trueNotFalse (rewrite same, DecEq.refl cave at e))
             | Inr later => lookupBuilt f cave rest later

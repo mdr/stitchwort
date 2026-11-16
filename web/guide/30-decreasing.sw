@@ -9,4 +9,4 @@ def halvings (n count: Nat): Nat
   if next < n then halvings next (count + 1) else count
 
 test "halvings of 100" := halvings 100 0 == 7
-theorem halvingsOf8: halvings 8 0 = 4 := rfl
+theorem halvingsOf8: halvings 8 0 = 4 := byComputing

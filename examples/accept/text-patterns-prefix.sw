@@ -68,14 +68,14 @@ def flags (args: List Text): List Text := args.filter (matches | "-" ++ _)
 test "a clause lambda" := flags ["-v", "x", "--all"] == ["-v", "--all"]
 
 -- In an arm, the text matched is the start and the rest: `t = "--" ++ rest`
--- holds by `rfl`, since `"--" ++ rest` computes to the same characters.
+-- holds by `byComputing`, since `"--" ++ rest` computes to the same characters.
 theorem startAndRest ∀ (t: Text):
     (match t with
       | "--" ++ rest => t = "--" ++ rest
       | _ => t = t) :=
   match t with
-    | "--" ++ rest => rfl
-    | _ => rfl
+    | "--" ++ rest => byComputing
+    | _ => byComputing
 
 -- A call on a known text computes.
-theorem readLong: Arg.read "--all" = Long "all" := rfl
+theorem readLong: Arg.read "--all" = Long "all" := byComputing

@@ -14,6 +14,6 @@ def pickB (n: Nat) (x: Nat): Nat :=
       | Zero => 0
       | Succ m => m)
 
-theorem ctorTrees (x: Nat): pickA (Succ Zero) x = pickB (Succ Zero) x := rfl
+theorem ctorTrees (x: Nat): pickA (Succ Zero) x = pickB (Succ Zero) x := byComputing
 
-theorem numberTrees (x: Nat): pickA 3 x = pickB 3 x := rfl
+theorem numberTrees (x: Nat): pickA 3 x = pickB 3 x := byComputing

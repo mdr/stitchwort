@@ -6,7 +6,7 @@ expression: output
 [E-DUPLICATE] Error: `Kind.eq2` is the name of one of `Kind`'s generated equations
     ╭─[ reject/function-equations-reserved.sw:10:9 ]
     │
- 10 │ theorem Kind.eq2: Kind 4 = 0 := rfl
+ 10 │ theorem Kind.eq2: Kind 4 = 0 := byComputing
     │         ────┬───  
     │             ╰───── `Kind.eq2` is the name of one of `Kind`'s generated equations
     │ 

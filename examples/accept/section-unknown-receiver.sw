@@ -28,7 +28,7 @@ def anyOf (p: a -> Bool) (xs: List a): Bool := xs.any p
 
 def pairs: List (Pair Nat Bool) := [(1, False), (2, True)]
 
-theorem waits_for_pairs: anyOf .snd pairs = anyOf Pair.snd pairs := rfl
+theorem waits_for_pairs: anyOf .snd pairs = anyOf Pair.snd pairs := byComputing
 
 test "drop" := f [1, 2, 3] == [2, 3]
 

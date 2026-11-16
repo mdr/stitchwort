@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
-   ╭─[ reject/rewrite-body-mismatch.sw:4:16 ]
+   ╭─[ reject/rewrite-body-mismatch.sw:4:18 ]
    │
- 4 │   rewrite h in p
-   │                ┬  
-   │                ╰── expected `Succ b = b`, but this has type `a + 1 = b`
+ 4 │   rewrite h then p
+   │                  ┬  
+   │                  ╰── expected `Succ b = b`, but this has type `a + 1 = b`
 ───╯

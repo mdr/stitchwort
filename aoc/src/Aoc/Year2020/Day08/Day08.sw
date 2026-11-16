@@ -90,7 +90,7 @@ def Code.runFrom (code: Code) (unvisited: Set Nat) (state: State): Outcome
             Code.runFrom code
               (unvisited.remove position)
               (instruction.execute state)
-              [decreasing := omega [
+              [decreasing := arithmetic [
                 Set.sizeRemovePresent unvisited position fresh,
                 Set.sizePositive unvisited position fresh
               ]]

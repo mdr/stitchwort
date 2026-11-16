@@ -35,11 +35,9 @@ theorem memUphill ∀ (map: TopographicMap) (from to: Position):
   {
     forward = member =>
       let both := List.memFilter from.neighbours (map.isOneHigher from) member
-      Both
-        (higherOnMap map from to (And.right both))
-        (Both (neighbourAdjacent from to (And.left both)) (And.right both)),
+      Both (higherOnMap map from to both.right) (Both (neighbourAdjacent from to both.left) both.right),
     backward = has =>
-      let Both adjacentStep higher := And.right has
+      let Both adjacentStep higher := has.right
       List.memFilterIntro from.neighbours (map.isOneHigher from) (adjacentNeighbour from to adjacentStep) higher
   }
 
@@ -58,4 +56,4 @@ theorem uphillPerm ∀ (map: TopographicMap) (from: Position):
     (to member => (memUphill map from to).backward (List.memFilter map.positions (isStep map from) member))
     (to member =>
       let both := (memUphill map from to).forward member
-      List.memFilterIntro map.positions (isStep map from) (And.left both) (And.right both))
+      List.memFilterIntro map.positions (isStep map from) both.left both.right)

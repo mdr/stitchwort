@@ -16,7 +16,7 @@ test "slots" := slots 10 [2, 3, 4] == [(10, 12), (12, 15), (15, 19)]
 theorem startAt ∀ (start: Nat) (durations: List Nat) (k: Nat)
     (h: k ≤ durations.length):
     (starts start durations).get k = Some (start + (durations.take k |> .sumBy (duration => duration))) :=
-  rewrite List.getScanLeft (total duration => total + duration) durations start k h in
+  rewrite List.getScanLeft (total duration => total + duration) durations start k h then
     Eq.cong Some (List.sumByFrom (durations.take k) start (duration => duration))
 
 theorem slotAt ∀ (start: Nat) (durations: List Nat) (k: Nat):
@@ -29,8 +29,8 @@ theorem slotAt ∀ (start: Nat) (durations: List Nat) (k: Nat):
         durations
         start
         k,
-      List.sumByFrom (durations.take k) start (d => d) in
-    rfl
+      List.sumByFrom (durations.take k) start (d => d) then
+    byComputing
 
 -- Durations from spans: start k folds over the first k (end, begin) pairs.
 theorem startFromSpans ∀ (ends begins: List Nat) (k: Nat)
@@ -39,5 +39,5 @@ theorem startFromSpans ∀ (ends begins: List Nat) (k: Nat)
       = Some (List.zip (ends.take k) (begins.take k) |> .foldLeft 0 (total span => total + (span.fst - span.snd))) :=
   rewrite List.getScanLeft (total duration => total + duration) (ends.zipWith begins Nat.sub) 0 k h,
       List.takeZipWith Nat.sub ends begins k,
-      List.foldLeftZipWith Nat.sub (total duration => total + duration) (ends.take k) (begins.take k) 0 in
-    rfl
+      List.foldLeftZipWith Nat.sub (total duration => total + duration) (ends.take k) (begins.take k) 0 then
+    byComputing

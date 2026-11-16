@@ -84,8 +84,8 @@ def ParsedFile (file: SourceFile): Prop := ShapedFile file ∧ LexicalFile file 
 theorem givesSkip: Parse.Gives GoodTokens (() => skip()) (skipped => True) :=
   Parse.givesThen
     [first := found => True]
-    (Parse.readsWeaken (Parse.readsNext (token => True)) (read found facts => rfl))
-    (skipped done => Parse.givesDone rfl)
+    (Parse.readsWeaken (Parse.readsNext (token => True)) (read found facts => byComputing))
+    (skipped done => Parse.givesDone byComputing)
 
 --| A note, then a value.
 theorem givesNoted ∀ (problem: Parse.Problem) [x: a] [holds: a → Prop] (proved: holds x):
@@ -101,7 +101,7 @@ theorem givesSign ∀ (layout: Layout) (what: Text) (wanted: Punctuation):
   Parse.readsWeaken (Parse.readsOneEvery what (selectComments layout (signIs wanted))) (taken value found =>
     match found with
       | (token, single, good, selected) =>
-        rewrite selectedComments layout (signIs wanted) token value selected in fineComments layout token good)
+        rewrite selectedComments layout (signIs wanted) token value selected then fineComments layout token good)
 
 theorem givesKeyword ∀ (layout: Layout) (wanted: Keyword): Parse.Gives GoodTokens (() => keyword layout wanted) Fine :=
   Parse.readsWeaken
@@ -109,7 +109,7 @@ theorem givesKeyword ∀ (layout: Layout) (wanted: Keyword): Parse.Gives GoodTok
     (taken value found =>
       match found with
         | (token, single, good, selected) =>
-          rewrite selectedComments layout (keywordIs wanted) token value selected in fineComments layout token good)
+          rewrite selectedComments layout (keywordIs wanted) token value selected then fineComments layout token good)
 
 theorem givesName ∀ (layout: Layout): Parse.Gives GoodTokens (() => name layout) FineNamed :=
   Parse.readsWeaken (Parse.readsOneEvery "a name" (selectWithComments layout nameOf)) (taken value found =>
@@ -121,10 +121,10 @@ theorem givesSignInBrackets ∀ (what: Text) (wanted: Punctuation):
     Parse.Gives GoodTokens (() => signInBrackets what wanted) (Parse.Perhaps Fine) :=
   Parse.readsPeek _ _ (start fine =>
     match e: start.rest with
-      | [] => givesNoted (Parse.Problem.Expected what) [x := None] [holds := Parse.Perhaps Fine] rfl
+      | [] => givesNoted (Parse.Problem.Expected what) [x := None] [holds := Parse.Perhaps Fine] byComputing
       | [token, ..later] =>
         match isSign: (signIs wanted token.value.kind).isSome with
-          | False => givesNoted (Parse.Problem.Expected what) [x := None] [holds := Parse.Perhaps Fine] rfl
+          | False => givesNoted (Parse.Problem.Expected what) [x := None] [holds := Parse.Perhaps Fine] byComputing
           | True =>
             Parse.givesThen givesSkip (skipped done => Parse.givesDone (fineComments InBrackets token fine.holds.left)))
 
@@ -139,12 +139,17 @@ theorem givesItem ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
         | Some comments, fine =>
           Parse.givesDone
             ((
-              ((parsed.left, (never => Void.exfalso (Bool.trueNotFalse never)))),
+              ((parsed.left, (never => (Bool.trueNotFalse never).impossible))),
               ((parsed.right.left, fine)),
               parsed.right.right
             ))
         | None, none =>
-          Parse.givesDone ((((parsed.left, (none => rfl))), ((parsed.right.left, rfl, rfl)), parsed.right.right))))
+          Parse.givesDone
+            ((
+              ((parsed.left, (none => byComputing))),
+              ((parsed.right.left, byComputing, byComputing)),
+              parsed.right.right
+            ))))
 
 theorem givesItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (nested: ∀ (inner: Layout) => Parse.Gives GoodTokens (() => self inner) (ParsedExpr inner))
@@ -154,7 +159,7 @@ theorem givesItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (headed: HeadedItems found):
     Parse.Gives GoodTokens (() => itemsFrom fuel self found) ParsedList :=
   match fuel with
-    | Zero => Parse.givesDone ((((rfl, rfl)), rfl, rfl))
+    | Zero => Parse.givesDone ((((byComputing, byComputing)), byComputing, byComputing))
     | Succ more => Parse.givesThen (givesItem self nested) (read parsed =>
       match read, parsed with
         | ({ value, comma }, True), (((valueShaped, bare)), ((valueLexical, commaFine)), valueHeaded) =>
@@ -168,7 +173,7 @@ theorem givesItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
             ((
               ((
                 (shapedItemsReverse [{ value, comma }, ..found] ((valueShaped, shaped))),
-                (bareLastReverse found { value, comma } (bare rfl))
+                (bareLastReverse found { value, comma } (bare byComputing))
               )),
               (lexicalItemsReverse [{ value, comma }, ..found] ((valueLexical, commaFine, lexical))),
               (headedItemsReverse [{ value, comma }, ..found] ((valueHeaded, headed)))
@@ -179,9 +184,9 @@ theorem givesItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (cl
     Parse.Gives GoodTokens (() => items self closer) ParsedItems :=
   Parse.givesThen (givesSignInBrackets "'${closer.spelling}'" closer) (closed found =>
     match closed, found with
-      | Some close, fine => Parse.givesDone ((((((rfl, rfl)), rfl, rfl)), fine))
+      | Some close, fine => Parse.givesDone ((((((byComputing, byComputing)), byComputing, byComputing)), fine))
       | None, none => Parse.readsWithMark _ _ (at marked =>
-        Parse.givesThen (givesItemsFrom self nested at.left [] rfl rfl rfl) (found parsed =>
+        Parse.givesThen (givesItemsFrom self nested at.left [] byComputing byComputing byComputing) (found parsed =>
           Parse.givesThen (givesSign InBrackets "'${closer.spelling}'" closer) (close fine =>
             Parse.givesDone ((parsed, fine))))))
 
@@ -194,21 +199,22 @@ theorem givesAtomOf ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (l
     (goodKind: GoodKind kind):
     Parse.Gives GoodTokens (() => atomOf self comments kind) (ParsedPostfix layout) :=
   match kind, goodKind with
-    | Name text, isName =>
-      Parse.givesThen givesSkip (skipped done => Parse.givesDone ((((rfl, rfl)), ((isName, fine)), rfl)))
-    | Number digits, isDigits =>
-      Parse.givesThen givesSkip (skipped done => Parse.givesDone ((((rfl, rfl)), ((isDigits, fine)), rfl)))
-    | Str written, isString =>
-      Parse.givesThen givesSkip (skipped done => Parse.givesDone ((((rfl, rfl)), ((isString, fine)), rfl)))
+    | Name text, isName => Parse.givesThen givesSkip (skipped done =>
+      Parse.givesDone ((((byComputing, byComputing)), ((isName, fine)), byComputing)))
+    | Number digits, isDigits => Parse.givesThen givesSkip (skipped done =>
+      Parse.givesDone ((((byComputing, byComputing)), ((isDigits, fine)), byComputing)))
+    | Str written, isString => Parse.givesThen givesSkip (skipped done =>
+      Parse.givesDone ((((byComputing, byComputing)), ((isString, fine)), byComputing)))
     | Sign OpenParen, _ => Parse.givesThen givesSkip (skipped done =>
       Parse.givesThen (nested InBrackets) (inner parsed =>
         Parse.givesThen (givesSign InBrackets "')'" CloseParen) (close closeFine =>
-          Parse.givesDone ((((rfl, parsed.left)), ((fine, parsed.right.left, closeFine)), parsed.right.right)))))
+          Parse.givesDone
+            ((((byComputing, parsed.left)), ((fine, parsed.right.left, closeFine)), parsed.right.right)))))
     | Sign OpenSquare, _ => Parse.givesThen givesSkip (skipped done =>
       Parse.givesThen (givesItems self CloseSquare nested) (pair parsed =>
         match pair, parsed with
           | (found, close), (((shapedItems, lexicalItems, headedItems)), closeFine) =>
-            Parse.givesDone ((((rfl, shapedItems)), ((fine, lexicalItems, closeFine)), headedItems))))
+            Parse.givesDone ((((byComputing, shapedItems)), ((fine, lexicalItems, closeFine)), headedItems))))
     | Sign CloseParen, _ => Parse.givesExpected "an expression"
     | Sign CloseSquare, _ => Parse.givesExpected "an expression"
     | Sign Comma, _ => Parse.givesExpected "an expression"
@@ -247,7 +253,7 @@ theorem givesCallAfter ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
         | (arguments, close), (((shapedArguments, lexicalArguments, headedArguments)), closeFine) =>
           Parse.givesDone
             ((
-              ((rfl, parsed.left.left, parsed.left.right, shapedArguments)),
+              ((byComputing, parsed.left.left, parsed.left.right, shapedArguments)),
               ((parsed.right.left, fine, lexicalArguments, closeFine)),
               parsed.right.right,
               headedArguments
@@ -263,7 +269,7 @@ theorem givesFieldAfter ∀ (layout: Layout) (target: Expr) (dot: Comments)
         | (text, nameComments), (isName, nameFine) =>
           Parse.givesDone
             ((
-              ((rfl, parsed.left.left, parsed.left.right)),
+              ((byComputing, parsed.left.left, parsed.left.right)),
               ((parsed.right.left, fine, isName, nameFine)),
               parsed.right.right
             ))))
@@ -306,11 +312,11 @@ theorem givesSuffixNext ∀ (layout: Layout):
       (seen => Fine seen.snd) :=
   Parse.readsPeek _ _ (start fine =>
     match e: start.rest with
-      | [] => Parse.givesDone ((rfl, rfl))
+      | [] => Parse.givesDone ((byComputing, byComputing))
       | [token, ..later] =>
         match allowed: layout.allows token with
           | True => Parse.givesDone (fineComments layout token fine.holds.left)
-          | False => Parse.givesDone ((rfl, rfl)))
+          | False => Parse.givesDone ((byComputing, byComputing)))
 
 --| An atom's calls and fields keep it postfix.
 theorem givesSuffixes ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
@@ -372,7 +378,7 @@ theorem givesNegations ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
                 Parse.givesThen (givesNegations self layout nested more) (inner parsed =>
                   Parse.givesDone
                     ((
-                      ((rfl, parsed.left.left, parsed.left.right)),
+                      ((byComputing, parsed.left.left, parsed.left.right)),
                       (((fineComments layout token fine.holds.left), parsed.right.left)),
                       parsed.right.right
                     )))))
@@ -431,8 +437,8 @@ theorem givesBare ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
   Parse.givesThen (nested layout) (value parsed =>
     Parse.givesDone
       ((
-        (((shapedHeaded layout value parsed.left), rfl)),
-        (((lexicalHeaded layout value parsed.right.left), rfl)),
+        (((shapedHeaded layout value parsed.left), byComputing)),
+        (((lexicalHeaded layout value parsed.right.left), byComputing)),
         (headedBare layout value parsed.right.right)
       )))
 
@@ -443,9 +449,15 @@ theorem givesInline ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (l
     match line, parsed with
       | Bare value, (((shaped, coded)), ((lexical, _)), headed, isBare) =>
         Parse.givesDone
-          ((((((shaped, rfl)), coded)), ((((lexical, rfl)), coded)), ((headed, rfl)), rfl, (inside => rfl)))
-      | Let letComments name nameComments equals inner, (_, _, _, never) => Void.exfalso (Bool.falseNotTrue never)
-      | StatementNote comment, (_, _, _, never) => Void.exfalso (Bool.falseNotTrue never))
+          ((
+            ((((shaped, byComputing)), coded)),
+            ((((lexical, byComputing)), coded)),
+            ((headed, byComputing)),
+            byComputing,
+            (inside => byComputing)
+          ))
+      | Let letComments name nameComments equals inner, (_, _, _, never) => (Bool.falseNotTrue never).impossible
+      | StatementNote comment, (_, _, _, never) => (Bool.falseNotTrue never).impossible)
 
 --| A statement's line at the statement's own start: a `let` takes its
 --| keyword's comments there, where there are none above.
@@ -468,8 +480,8 @@ theorem givesStatementLine ∀ (self: Layout → {Parse (Parse.Located Token)} E
               Parse.givesThen (givesBody (InStatement column start)) (inner parsed =>
                 Parse.givesDone
                   ((
-                    ((parsed.left, rfl)),
-                    ((((fine, isName, nameFine, equalsFine, parsed.right.left)), rfl)),
+                    ((parsed.left, byComputing)),
+                    ((((fine, isName, nameFine, equalsFine, parsed.right.left)), byComputing)),
                     noAbove,
                     parsed.right.right
                   ))))))
@@ -536,7 +548,7 @@ theorem givesBlock ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
         )),
         (headedWithoutFirstBlank lines.toList.concat (headedConcat lines.toList headed)),
         (unspacedWithout lines.toList.concat),
-        (never => Void.exfalso (Bool.falseNotTrue never))
+        (never => (Bool.falseNotTrue never).impossible)
       )))
 
 --| A body, a block or one expression.
@@ -632,7 +644,7 @@ theorem givesParameterList: Parse.Gives GoodTokens parameterList FineList :=
 theorem givesParameters: Parse.Gives GoodTokens (() => parametersOf (Parse.optional parameterList)) ParsedParameters :=
   Parse.givesThen (Parse.givesOptional givesParameterList) (found listed =>
     match found, listed with
-      | None, _ => Parse.givesDone ((rfl, rfl))
+      | None, _ => Parse.givesDone ((byComputing, byComputing))
       | Some (first, others), Both named steps =>
         Parse.givesDone (((withCommasBare first others), (lexicalWithCommas first others named steps))))
 
@@ -768,7 +780,7 @@ theorem parseParsed ∀ (source: Text) (file: SourceFile) (parsed: parse source 
         | Ok found =>
           let same: found = file := Result.okInjective parsed
           let texts := lexTexts source tokens lexed
-          rewrite <- same in
+          rewrite <- same then
             Parse.wholeReadsIn tokens.tokens
               (() => sourceFile tokens.endTrivia)
               (taken value => ParsedFile value)

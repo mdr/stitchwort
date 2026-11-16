@@ -28,12 +28,12 @@ theorem rollsCells ∀ (rows: Vec (Vec Cell w) h):
 theorem taken ∀ (a: Cell) (n: Nat):
     Cell.count a - Cell.count (keep a (n + Cell.count a)) = Bool.toNat (a == Roll ∧ n < 4) :=
   match a with
-    | Floor => rfl
+    | Floor => byComputing
     | Roll =>
-      rewrite keepRemove Roll n in
+      rewrite keepRemove Roll n then
         match Nat.leq (Succ n) 4 with
-          | True => rfl
-          | False => rfl
+          | True => byComputing
+          | False => byComputing
 
 --| Part 1 is right for every grid: the printed answer is the number of rolls
 --| with fewer than four rolls around them.
@@ -60,4 +60,4 @@ theorem part1Correct ∀ (grid: Grid): solvePart1 grid = part1Spec grid :=
         keepLe (cells _ c) (window cells _ c))
     _ = sum2 (r c => Bool.toNat (grid.accessible cells r c)) :=
       rewrite windowIsNeighbours grid cells below right _ _, taken _ _
-    _ = part1Spec grid := Eq.sym (countPositionsSum grid (r c => grid.accessible cells r c))
+    _ = part1Spec grid := Eq.flipped (countPositionsSum grid (r c => grid.accessible cells r c))

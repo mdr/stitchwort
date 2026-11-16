@@ -20,20 +20,20 @@ def total: (n: Nat) → (f: Nat → Nat) → Nat
   | Succ n, f => f 0 + total n (i => f (Succ i))
 
 theorem totalCong ∀ (n: Nat) (f g: Nat → Nat) (agree: ∀ (i: Nat) => f i = g i): total n f = total n g := match n with
-  | Zero => rfl
-  | Succ n => rewrite agree 0, totalCong n (i => f (Succ i)) (i => g (Succ i)) (i => agree (Succ i)) in rfl
+  | Zero => byComputing
+  | Succ n => rewrite agree 0, totalCong n (i => f (Succ i)) (i => g (Succ i)) (i => agree (Succ i)) then byComputing
 
 theorem totalAdd ∀ (n: Nat) (f g: Nat → Nat): total n (i => f i + g i) = total n f + total n g := match n with
-  | Zero => rfl
-  | Succ n => omega [totalAdd n (i => f (Succ i)) (i => g (Succ i))]
+  | Zero => byComputing
+  | Succ n => arithmetic [totalAdd n (i => f (Succ i)) (i => g (Succ i))]
 
 theorem totalZero ∀ (n: Nat) (f: Nat → Nat) (zero: ∀ (i: Nat) => f i = 0): total n f = 0 := match n with
-  | Zero => rfl
-  | Succ n => omega [zero 0, totalZero n (i => f (Succ i)) (i => zero (Succ i))]
+  | Zero => byComputing
+  | Succ n => arithmetic [zero 0, totalZero n (i => f (Succ i)) (i => zero (Succ i))]
 
 theorem totalSnoc ∀ (n: Nat) (f: Nat → Nat): total (Succ n) f = total n f + f n := match n with
-  | Zero => omega
-  | Succ n => omega [totalSnoc n (i => f (Succ i))]
+  | Zero => arithmetic
+  | Succ n => arithmetic [totalSnoc n (i => f (Succ i))]
 
 --| `g` one place later: `0, g 0, g 1, …`.
 def later (g: Nat → Nat): Nat → Nat
@@ -42,17 +42,18 @@ def later (g: Nat → Nat): Nat → Nat
 
 --| Shifting a sum one place either way changes it only at the ends.
 theorem totalLater ∀ (n: Nat) (g: Nat → Nat): total (Succ n) (later g) + g n = total (Succ n) g :=
-  omega [totalSnoc n g, totalCong n (i => later g (Succ i)) g (i => rfl)]
+  arithmetic [totalSnoc n g, totalCong n (i => later g (Succ i)) g (i => byComputing)]
 
 theorem totalEarlier ∀ (n: Nat) (g: Nat → Nat): total n (i => g (Succ i)) + g 0 = total n g + g n :=
-  omega [totalSnoc n g]
+  arithmetic [totalSnoc n g]
 
 theorem totalSwap ∀ (n k: Nat) (f: Nat → Nat → Nat):
     total n (r => total k (c => f r c)) = total k (c => total n (r => f r c)) :=
   match n with
-    | Zero => Eq.sym (totalZero k (c => 0) (c => rfl))
+    | Zero => Eq.flipped (totalZero k (c => 0) (c => byComputing))
     | Succ n =>
-      rewrite totalSwap n k (r => f (Succ r)) in Eq.sym (totalAdd k (c => f 0 c) (c => total n (r => f (Succ r) c)))
+      rewrite totalSwap n k (r => f (Succ r)) then
+        Eq.flipped (totalAdd k (c => f 0 c) (c => total n (r => f (Succ r) c)))
 
 --| `b` one place later, with `first` before it.
 def previous (first: Bool) (b: Nat → Bool): Nat → Bool
@@ -62,8 +63,8 @@ def previous (first: Bool) (b: Nat → Bool): Nat → Bool
 theorem previousShift ∀ (b: Nat → Bool) (first: Bool) (n: Nat):
     previous (b 0) (i => b (Succ i)) n = previous first b (Succ n) :=
   match n with
-    | Zero => rfl
-    | Succ n => rfl
+    | Zero => byComputing
+    | Succ n => byComputing
 
 --| Along a line, runs of `b` start where the one before isn't in `b`, and
 --| end where the one after isn't; the count differs only at the ends.
@@ -71,31 +72,31 @@ theorem telescope ∀ (n: Nat) (b: Nat → Bool) (first: Bool):
     total n (i => Bool.toNat (b i ∧ ¬(previous first b i))) + Bool.toNat (first ∧ b 0)
       = total n (i => Bool.toNat (b i ∧ ¬(b (Succ i)))) + Bool.toNat (previous first b n ∧ b n) :=
   match n with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ n =>
       let rest := telescope n (i => b (Succ i)) (b 0)
       let shifted :=
         totalCong n
           (i => Bool.toNat (b (Succ i) ∧ ¬(previous first b (Succ i))))
           (i => Bool.toNat (b (Succ i) ∧ ¬(previous (b 0) (i => b (Succ i)) i)))
-          (i => rewrite previousShift b first i in rfl)
-      rewrite <- shifted, previousShift b first n at rest in
+          (i => rewrite previousShift b first i then byComputing)
+      rewrite <- shifted, previousShift b first n at rest then
         match atZero: b 0, atOne: b 1, before: first with
-          | True, True, True => omega [rest]
-          | True, True, False => omega [rest]
-          | True, False, True => omega [rest]
-          | True, False, False => omega [rest]
-          | False, True, True => omega [rest]
-          | False, True, False => omega [rest]
-          | False, False, True => omega [rest]
-          | False, False, False => omega [rest]
+          | True, True, True => arithmetic [rest]
+          | True, True, False => arithmetic [rest]
+          | True, False, True => arithmetic [rest]
+          | True, False, False => arithmetic [rest]
+          | False, True, True => arithmetic [rest]
+          | False, True, False => arithmetic [rest]
+          | False, False, True => arithmetic [rest]
+          | False, False, False => arithmetic [rest]
 
 --| As many runs start as end, on a line with nothing at `n`.
 theorem startsEqualEnds ∀ (n: Nat) (b: Nat → Bool)
     (stop: b n = False):
     total n (i => Bool.toNat (b i ∧ ¬(previous False b i))) = total n (i => Bool.toNat (b i ∧ ¬(b (Succ i)))) :=
   let both := telescope n b False
-  rewrite stop, Bool.andFalse (previous False b n) at both in omega [both]
+  rewrite stop, Bool.andFalse (previous False b n) at both then arithmetic [both]
 
 --| The grid around a plot.
 def above (inside: Nat → Nat → Bool) (row column: Nat): Bool := match row with
@@ -227,14 +228,14 @@ theorem columnEndsSplit ∀ (plot out side sideOut: Bool):
 --| No inside corner without the horizontal neighbour, or the plot itself.
 theorem concaveNoHorizontal ∀ (plot vertical diagonal: Bool): concave plot vertical False diagonal = False :=
   match plot, vertical with
-    | True, True => rfl
-    | True, False => rfl
-    | False, vertical => rfl
+    | True, True => byComputing
+    | True, False => byComputing
+    | False, vertical => byComputing
 
 theorem concaveNoVertical ∀ (plot horizontal diagonal: Bool): concave plot False horizontal diagonal = False :=
   match plot with
-    | True => rfl
-    | False => rfl
+    | True => byComputing
+    | False => byComputing
 
 --| A plot's sections of fence above it that start or end a side are the
 --| corners on that side: outside corners of the plot, or inside corners of
@@ -247,19 +248,19 @@ theorem cellUp ∀ (inside: Nat → Nat → Bool) (row column: Nat):
         + concaveUpLeft inside row (Succ column) :=
   match row, column with
     | Zero, Zero =>
-      omega [rowEndsSplit (inside 0 0) False False False, rowEndsSplit (inside 0 0) False (inside 0 1) False]
+      arithmetic [rowEndsSplit (inside 0 0) False False False, rowEndsSplit (inside 0 0) False (inside 0 1) False]
     | Zero, Succ before =>
-      omega [
+      arithmetic [
         rowEndsSplit (inside 0 (Succ before)) False (inside 0 before) False,
         rowEndsSplit (inside 0 (Succ before)) False (inside 0 (Succ (Succ before))) False
       ]
     | Succ up, Zero =>
-      omega [
+      arithmetic [
         rowEndsSplit (inside (Succ up) 0) (inside up 0) False False,
         rowEndsSplit (inside (Succ up) 0) (inside up 0) (inside (Succ up) 1) (inside up 1)
       ]
     | Succ up, Succ before =>
-      omega [
+      arithmetic [
         rowEndsSplit
           (inside (Succ up) (Succ before))
           (inside up (Succ before))
@@ -280,12 +281,12 @@ theorem cellDown ∀ (inside: Nat → Nat → Bool) (row column: Nat):
         + concaveDownLeft inside row (Succ column) :=
   match column with
     | Zero =>
-      omega [
+      arithmetic [
         rowEndsSplit (inside row 0) (inside (Succ row) 0) False False,
         rowEndsSplit (inside row 0) (inside (Succ row) 0) (inside row 1) (inside (Succ row) 1)
       ]
     | Succ before =>
-      omega [
+      arithmetic [
         rowEndsSplit
           (inside row (Succ before))
           (inside (Succ row) (Succ before))
@@ -307,12 +308,12 @@ theorem cellLeft ∀ (inside: Nat → Nat → Bool) (column row: Nat):
         + concaveUpLeft inside (Succ row) column :=
   match row with
     | Zero =>
-      omega [
+      arithmetic [
         columnEndsSplit (inside 0 column) (leftOf inside 0 column) False False,
         columnEndsSplit (inside 0 column) (leftOf inside 0 column) (inside 1 column) (leftOf inside 1 column)
       ]
     | Succ up =>
-      omega [
+      arithmetic [
         columnEndsSplit
           (inside (Succ up) column)
           (leftOf inside (Succ up) column)
@@ -333,12 +334,12 @@ theorem cellRight ∀ (inside: Nat → Nat → Bool) (column row: Nat):
         + concaveUpRight inside (Succ row) column :=
   match row with
     | Zero =>
-      omega [
+      arithmetic [
         columnEndsSplit (inside 0 column) (inside 0 (Succ column)) False False,
         columnEndsSplit (inside 0 column) (inside 0 (Succ column)) (inside 1 column) (inside 1 (Succ column))
       ]
     | Succ up =>
-      omega [
+      arithmetic [
         columnEndsSplit
           (inside (Succ up) column)
           (inside (Succ up) (Succ column))
@@ -352,12 +353,12 @@ theorem cellRight ∀ (inside: Nat → Nat → Bool) (column row: Nat):
       ]
 
 theorem totalDouble ∀ (n: Nat) (f: Nat → Nat): total n (i => 2 * f i) = 2 * total n f := match n with
-  | Zero => rfl
-  | Succ n => omega [totalDouble n (i => f (Succ i))]
+  | Zero => byComputing
+  | Succ n => arithmetic [totalDouble n (i => f (Succ i))]
 
 theorem totalAdd4 ∀ (n: Nat) (f g h k: Nat → Nat):
     total n (i => f i + g i + h i + k i) = total n f + total n g + total n h + total n k :=
-  omega [totalAdd n (i => f i + g i + h i) k, totalAdd n (i => f i + g i) h, totalAdd n f g]
+  arithmetic [totalAdd n (i => f i + g i + h i) k, totalAdd n (i => f i + g i) h, totalAdd n f g]
 
 --| Along a row with nothing at `Succ last`, the corners above and below the
 --| plots are twice the sides above and below them.
@@ -397,35 +398,37 @@ theorem rowCorners ∀ (inside: Nat → Nat → Bool) (last row: Nat)
         (convexDownRight inside row)
         (later (concaveDownRight inside row))
         (column => concaveDownLeft inside row (Succ column)))
-  let upEnds := startsEqualEnds size (fenceUp inside row) (rewrite edge in rfl)
+  let upEnds := startsEqualEnds size (fenceUp inside row) (rewrite edge then byComputing)
   let upStarts :=
     totalCong size
       (column => Bool.toNat (startUp inside row column))
       (column => Bool.toNat (fenceUp inside row column ∧ ¬(previous False (fenceUp inside row) column)))
       (column =>
         match column with
-          | Zero => rfl
-          | Succ before => rfl)
-  let downEnds := startsEqualEnds size (fenceDown inside row) (rewrite edge in rfl)
+          | Zero => byComputing
+          | Succ before => byComputing)
+  let downEnds := startsEqualEnds size (fenceDown inside row) (rewrite edge then byComputing)
   let downStarts :=
     totalCong size
       (column => Bool.toNat (startDown inside row column))
       (column => Bool.toNat (fenceDown inside row column ∧ ¬(previous False (fenceDown inside row) column)))
       (column =>
         match column with
-          | Zero => rfl
-          | Succ before => rfl)
+          | Zero => byComputing
+          | Succ before => byComputing)
   let upRightLast: concaveUpRight inside row last = 0 :=
-    rewrite edge, concaveNoHorizontal (inside row last) (above inside row last) (above (rightOf inside) row last) in rfl
+    rewrite edge, concaveNoHorizontal (inside row last) (above inside row last) (above (rightOf inside) row last) then
+      byComputing
   let upLeftFirst: concaveUpLeft inside row 0 = 0 :=
-    rewrite concaveNoHorizontal (inside row 0) (above inside row 0) (above (leftOf inside) row 0) in rfl
-  let upLeftLast: concaveUpLeft inside row size = 0 := rewrite edge in rfl
+    rewrite concaveNoHorizontal (inside row 0) (above inside row 0) (above (leftOf inside) row 0) then byComputing
+  let upLeftLast: concaveUpLeft inside row size = 0 := rewrite edge then byComputing
   let downRightLast: concaveDownRight inside row last = 0 :=
-    rewrite edge, concaveNoHorizontal (inside row last) (below inside row last) (below (rightOf inside) row last) in rfl
+    rewrite edge, concaveNoHorizontal (inside row last) (below inside row last) (below (rightOf inside) row last) then
+      byComputing
   let downLeftFirst: concaveDownLeft inside row 0 = 0 :=
-    rewrite concaveNoHorizontal (inside row 0) (below inside row 0) (below (leftOf inside) row 0) in rfl
-  let downLeftLast: concaveDownLeft inside row size = 0 := rewrite edge in rfl
-  omega [
+    rewrite concaveNoHorizontal (inside row 0) (below inside row 0) (below (leftOf inside) row 0) then byComputing
+  let downLeftLast: concaveDownLeft inside row size = 0 := rewrite edge then byComputing
+  arithmetic [
     totalAdd4 size
       (cornerUpLeft inside row)
       (cornerUpRight inside row)
@@ -494,39 +497,41 @@ theorem columnCorners ∀ (inside: Nat → Nat → Bool) (last column: Nat)
         (row => convexDownRight inside row column)
         (later (r => concaveDownRight inside r column))
         (row => concaveUpRight inside (Succ row) column))
-  let leftEnds := startsEqualEnds size (row => fenceLeft inside row column) (rewrite edge in rfl)
+  let leftEnds := startsEqualEnds size (row => fenceLeft inside row column) (rewrite edge then byComputing)
   let leftStarts :=
     totalCong size
       (row => Bool.toNat (startLeft inside row column))
       (row => Bool.toNat (fenceLeft inside row column ∧ ¬(previous False (r => fenceLeft inside r column) row)))
       (row =>
         match row with
-          | Zero => rfl
-          | Succ before => rfl)
-  let rightEnds := startsEqualEnds size (row => fenceRight inside row column) (rewrite edge in rfl)
+          | Zero => byComputing
+          | Succ before => byComputing)
+  let rightEnds := startsEqualEnds size (row => fenceRight inside row column) (rewrite edge then byComputing)
   let rightStarts :=
     totalCong size
       (row => Bool.toNat (startRight inside row column))
       (row => Bool.toNat (fenceRight inside row column ∧ ¬(previous False (r => fenceRight inside r column) row)))
       (row =>
         match row with
-          | Zero => rfl
-          | Succ before => rfl)
+          | Zero => byComputing
+          | Succ before => byComputing)
   let downLeftLast: concaveDownLeft inside last column = 0 :=
     rewrite edge,
-        concaveNoVertical (inside last column) (leftOf inside last column) (below (leftOf inside) last column) in
-      rfl
+        concaveNoVertical (inside last column) (leftOf inside last column) (below (leftOf inside) last column) then
+      byComputing
   let upLeftFirst: concaveUpLeft inside 0 column = 0 :=
-    rewrite concaveNoVertical (inside 0 column) (leftOf inside 0 column) (above (leftOf inside) 0 column) in rfl
-  let upLeftLast: concaveUpLeft inside size column = 0 := rewrite edge in rfl
+    rewrite concaveNoVertical (inside 0 column) (leftOf inside 0 column) (above (leftOf inside) 0 column) then
+      byComputing
+  let upLeftLast: concaveUpLeft inside size column = 0 := rewrite edge then byComputing
   let downRightLast: concaveDownRight inside last column = 0 :=
     rewrite edge,
-        concaveNoVertical (inside last column) (rightOf inside last column) (below (rightOf inside) last column) in
-      rfl
+        concaveNoVertical (inside last column) (rightOf inside last column) (below (rightOf inside) last column) then
+      byComputing
   let upRightFirst: concaveUpRight inside 0 column = 0 :=
-    rewrite concaveNoVertical (inside 0 column) (rightOf inside 0 column) (above (rightOf inside) 0 column) in rfl
-  let upRightLast: concaveUpRight inside size column = 0 := rewrite edge in rfl
-  omega [
+    rewrite concaveNoVertical (inside 0 column) (rightOf inside 0 column) (above (rightOf inside) 0 column) then
+      byComputing
+  let upRightLast: concaveUpRight inside size column = 0 := rewrite edge then byComputing
+  arithmetic [
     totalAdd4 size
       (row => cornerUpLeft inside row column)
       (row => cornerUpRight inside row column)
@@ -573,7 +578,7 @@ theorem cornersEqualSides ∀ (inside: Nat → Nat → Bool) (last: Nat)
   let byRows :=
     Eq.trans
       (totalCong size (row => total size (column => corners inside row column)) (row => 2 * rowStarts row) (row =>
-        omega [rowCorners inside last row (right row)]))
+        arithmetic [rowCorners inside last row (right row)]))
       (totalDouble size rowStarts)
   let byColumns :=
     Eq.trans
@@ -582,7 +587,7 @@ theorem cornersEqualSides ∀ (inside: Nat → Nat → Bool) (last: Nat)
         (totalCong size
           (column => total size (row => corners inside row column))
           (column => 2 * columnStarts column)
-          (column => omega [columnCorners inside last column (bottom column)]))
+          (column => arithmetic [columnCorners inside last column (bottom column)]))
         (totalDouble size columnStarts))
   let startsSplit :=
     Eq.trans
@@ -593,7 +598,7 @@ theorem cornersEqualSides ∀ (inside: Nat → Nat → Bool) (last: Nat)
             + total size (column =>
               Bool.toNat (startLeft inside row column) + Bool.toNat (startRight inside row column)))
         (row =>
-          omega [
+          arithmetic [
             totalAdd4 size
               (column => Bool.toNat (startUp inside row column))
               (column => Bool.toNat (startDown inside row column))
@@ -615,4 +620,4 @@ theorem cornersEqualSides ∀ (inside: Nat → Nat → Bool) (last: Nat)
         (column =>
           totalAdd size (row => Bool.toNat (startLeft inside row column)) (row =>
             Bool.toNat (startRight inside row column))))
-  omega [byRows, byColumns, startsSplit, sidesSwapped]
+  arithmetic [byRows, byColumns, startsSplit, sidesSwapped]

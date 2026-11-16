@@ -19,7 +19,7 @@ def small (x: Nat) [auto ok: x < 5]: Nat := x
 -- `(a && b) = True`: each side.
 def inBoth (x: Nat) (xs ys: List Nat) (h: (xs.contains x && ys.contains x) = True): Nat := present x xs + present x ys
 
-test "in both" := inBoth 2 [1, 2] [2, 3] (Both rfl rfl) == 4
+test "in both" := inBoth 2 [1, 2] [2, 3] (Both byComputing byComputing) == 4
 
 -- The equation a `match` gives its branch.
 def whenWanted (x: Nat) (xs: List Nat) (wanted: Bool): Nat := match ok: wanted && xs.contains x with
@@ -31,23 +31,23 @@ test "when wanted" := whenWanted 2 [1, 2] True == 2 ∧ whenWanted 2 [1, 2] Fals
 -- `(a || b) = False`: each side is `False`, read again.
 def different (p q: Point) (h: (p == q || p.x == 0) = False): Nat := apart p q
 
-test "different" := different { x = 1, y = 2 } { x = 3, y = 4 } rfl == 4
+test "different" := different { x = 1, y = 2 } { x = 3, y = 4 } byComputing == 4
 
 def empty (o: Option Nat) (h: o.isSome = False): Nat := none o
 
-test "empty" := empty None rfl == 0
+test "empty" := empty None byComputing == 0
 
 -- `xs.all p = True` reads as `∀ (x: Nat) => x ∈ xs → p x`, applied to `y`
 -- with its membership `m`.
 def member (xs: List Nat) (y: Nat) (m: y ∈ xs) (h: xs.all (x => x < 5) = True): Nat := small y
 
-test "member" := member [1, 4] 4 (Inr (Inl rfl)) rfl == 4
+test "member" := member [1, 4] 4 (Inr (Inl byComputing)) byComputing == 4
 
 def checked (xs: List Nat) (y: Nat) (m: y ∈ xs): Nat := match ok: xs.all (x => x < 5) with
   | True => small y
   | False => 0
 
-test "checked" := checked [1, 4] 4 (Inr (Inl rfl)) == 4 ∧ checked [1, 7] 1 (Inl rfl) == 0
+test "checked" := checked [1, 4] 4 (Inr (Inl byComputing)) == 4 ∧ checked [1, 7] 1 (Inl byComputing) == 0
 
 -- The same `∀`, given as a proposition.
 def given (xs: List Nat) (y: Nat) (m: y ∈ xs) (h: ∀ (x: Nat) => x ∈ xs → x < 5): Nat := small y
@@ -73,4 +73,4 @@ def afterMatch (xs: List Nat) (h: xs.all (x => x < 5)) (y: Nat) (m: y ∈ xs): N
 
 def fromCons (d: Nat) (more: List Nat) (h: [d, ..more].all (x => x < 5)) (y: Nat) (m: y ∈ [d, ..more]): Nat := small y
 
-test "after match" := afterMatch [1, 4] (Both rfl (Both rfl rfl)) 4 (Inr (Inl rfl)) == 4
+test "after match" := afterMatch [1, 4] (Both byComputing (Both byComputing byComputing)) 4 (Inr (Inl byComputing)) == 4

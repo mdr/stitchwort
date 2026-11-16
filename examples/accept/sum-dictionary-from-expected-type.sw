@@ -10,6 +10,6 @@ theorem sumOfZeroInts ∀ (xs: List Text): List.sumBy xs (x => (0: Int)) = 0 := 
 -- The same with the dictionary under a definition of its own.
 def zeroOf [auto add: Add c] (unused: Nat): c := Add.zero
 
-theorem zeroOfSame ∀ [auto add: Add c] (u: Nat): zeroOf [add := add] u = zeroOf [add := add] u := rfl
+theorem zeroOfSame ∀ [auto add: Add c] (u: Nat): zeroOf [add := add] u = zeroOf [add := add] u := byComputing
 
 theorem zeroOfNat ∀ (u: Nat): zeroOf u = (0: Nat) := zeroOfSame u

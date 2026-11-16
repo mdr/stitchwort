@@ -47,4 +47,4 @@ test "too short" := Bank.best [1, 2] 5 == [1, 2]
 test "pick none" := Bank.best [1, 2, 3] 0 == []
 
 --| The same tie, checked when the file is checked.
-theorem leftmostLargest: Bank.maxJoltage [2, 7, 5, 7, 3] 2 = 77 := rfl
+theorem leftmostLargest: Bank.maxJoltage [2, 7, 5, 7, 3] 2 = 77 := byComputing

@@ -22,8 +22,8 @@ test "generic" := count (Node Leaf 1 Leaf) [Leaf, Node Leaf 1 Leaf, Node Leaf 1 
 type Colour = | Red | Green
 
 def anyColour (x y: Colour): Decidable (x = y) := match x, y with
-  | Red, Red => Decidable.yes rfl
-  | Green, Green => Decidable.yes rfl
+  | Red, Red => Decidable.yes byComputing
+  | Green, Green => Decidable.yes byComputing
   | Red, Green => Decidable.no (e => Bool.falseNotTrue (Eq.cong isGreen e))
   | Green, Red => Decidable.no (e => Bool.falseNotTrue (Eq.cong isRed e))
 
@@ -51,7 +51,7 @@ def needsSame (f g: Nat → Nat) [auto ok: f = g]: Nat := f 1
 
 def withProof (f g: Nat → Nat) (h: f = g): Nat := needsSame f g
 
-test "hypothesis" := withProof (x => x + 1) (x => x + 1) rfl == 2
+test "hypothesis" := withProof (x => x + 1) (x => x + 1) byComputing == 2
 
 -- A decision procedure for anything else is an `instance` (D163).
 type Token: Prop = | MkToken

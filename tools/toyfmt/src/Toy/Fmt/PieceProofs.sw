@@ -59,11 +59,13 @@ theorem gapChars ∀ (piece: Text)
     (filled: piece.isEmpty = False):
     ∃ (tail: List Char) => piece.toList = [' ', ..tail] ∧ tail.all (char => char == ' ') = True :=
   match piece, gap, filled with
-    | MkText [], _, never => Void.exfalso (Bool.falseNotTrue (Eq.sym never))
+    | MkText [], _, never => (Bool.falseNotTrue never.flipped).impossible
     | MkText [first, ..tail], gap, _ =>
       match isSpace: first == ' ', gap with
         | True, spaces => (tail, (Eq.cong ((char: Char) => [char, ..tail]) (DecEq.sound isSpace)), spaces)
-        | False, never => Void.exfalso (Bool.falseNotTrue never)
+        | False, never =>
+          match never with
+            | ()
 
 theorem spacesAppend ∀ (front back: List Char)
     (frontSpaces: front.all (char => char == ' ') = True)
@@ -74,7 +76,9 @@ theorem spacesAppend ∀ (front back: List Char)
     | [first, ..others], given =>
       match isSpace: first == ' ', given with
         | True, rest => spacesAppend others back rest backSpaces
-        | False, never => Void.exfalso (Bool.falseNotTrue never)
+        | False, never =>
+          match never with
+            | ()
 
 theorem notSpaceBy ∀ (passes: Char → Bool) (first: Char)
     (holds: passes first = True)
@@ -83,18 +87,18 @@ theorem notSpaceBy ∀ (passes: Char → Bool) (first: Char)
   DecEq.falseOfNe (apartBy passes first ' ' holds fails)
 
 theorem signNoSpace ∀ (mark: Punctuation): (signChar mark == ' ') = False := match mark with
-  | OpenParen => rfl
-  | CloseParen => rfl
-  | OpenSquare => rfl
-  | CloseSquare => rfl
-  | Comma => rfl
-  | Dot => rfl
-  | Defines => rfl
+  | OpenParen => byComputing
+  | CloseParen => byComputing
+  | OpenSquare => byComputing
+  | CloseSquare => byComputing
+  | Comma => byComputing
+  | Dot => byComputing
+  | Defines => byComputing
 
 theorem spaceStartsSpaces ∀ (first: Char) (others rest: List Char)
     (space: first = ' '):
     lexemeStart ([first, ..others] ++ rest) = Some Spaces :=
-  rewrite space in rfl
+  rewrite space then byComputing
 
 theorem spacesNotSymbols ∀ (wrong: Some Spaces = Some SymbolsLexeme): Void := cases
 
@@ -104,47 +108,50 @@ theorem standsNoSpace ∀ (lexeme: Lexeme) (read rest more: List Char)
     (notSpaces: lexeme ≠ Spaces):
     StopsAt (char => char == ' ') (read ++ more) :=
   match lexeme, stands, notSpaces with
-    | Spaces, _, apart => Void.exfalso (apart rfl)
-    | LineBreak, same, _ => rewrite same in rfl
-    | CommentLexeme, Witness others (Both same _), _ => rewrite same in rfl
+    | Spaces, _, apart => (apart byComputing).impossible
+    | LineBreak, same, _ => rewrite same then byComputing
+    | CommentLexeme, Witness others (Both same _), _ => rewrite same then byComputing
     | WordLexeme, Witness first (Witness others (Both same (Both starts _))), _ =>
-      rewrite same in notSpaceBy isWordStart first starts rfl
+      rewrite same then notSpaceBy isWordStart first starts byComputing
     | DigitsLexeme, Witness first (Witness others (Both same (Both digit _))), _ =>
-      rewrite same in notSpaceBy (char => char.isAsciiDigit) first digit rfl
-    | StringLexeme, Witness segments (Both same _), _ => rewrite same in rfl
-    | SignLexeme, Witness mark (Both same _), _ => rewrite same in signNoSpace mark
+      rewrite same then notSpaceBy (char => char.isAsciiDigit) first digit byComputing
+    | StringLexeme, Witness segments (Both same _), _ => rewrite same then byComputing
+    | SignLexeme, Witness mark (Both same _), _ => rewrite same then signNoSpace mark
     | SymbolsLexeme, Witness first (Witness others (Both same (Both starts _))), _ =>
       match isSpace: first == ' ' with
-        | False => rewrite same in isSpace
+        | False => rewrite same then isSpace
         | True =>
           let symbols: lexemeStart ([first, ..others] ++ rest) = Some SymbolsLexeme :=
-            Eq.trans (Eq.sym (Eq.cong ((chars: List Char) => lexemeStart (chars ++ rest)) same)) starts
-          Void.exfalso
-            (spacesNotSymbols (Eq.trans (Eq.sym (spaceStartsSpaces first others rest (DecEq.sound isSpace))) symbols))
-    | StrayLexeme, never, _ => Void.exfalso (Bool.falseNotTrue never)
+            Eq.trans (Eq.flipped (Eq.cong ((chars: List Char) => lexemeStart (chars ++ rest)) same)) starts
+          Void.impossible
+            (spacesNotSymbols
+              (Eq.trans (Eq.flipped (spaceStartsSpaces first others rest (DecEq.sound isSpace))) symbols))
+    | StrayLexeme, never, _ =>
+      match never with
+        | ()
 
 theorem gapConsJoin ∀ (spaces: List Char) (steps: List (List Char, Lexeme)):
     Parse.joinReads (gapCons spaces steps) = spaces ++ Parse.joinReads steps :=
   match steps with
-    | [] => rfl
+    | [] => byComputing
     | [(read, lexeme), ..more] =>
       match lexeme with
         | Spaces => List.appendAssoc spaces read (Parse.joinReads more)
-        | LineBreak => rfl
-        | CommentLexeme => rfl
-        | WordLexeme => rfl
-        | DigitsLexeme => rfl
-        | StringLexeme => rfl
-        | SignLexeme => rfl
-        | SymbolsLexeme => rfl
-        | StrayLexeme => rfl
+        | LineBreak => byComputing
+        | CommentLexeme => byComputing
+        | WordLexeme => byComputing
+        | DigitsLexeme => byComputing
+        | StringLexeme => byComputing
+        | SignLexeme => byComputing
+        | SymbolsLexeme => byComputing
+        | StrayLexeme => byComputing
 
 theorem gapStep ∀ (tail read: List Char) (lexeme: Lexeme) (more: List (List Char, Lexeme))
     (spaces: tail.all (char => char == ' ') = True)
     (noSpace: StopsAt (char => char == ' ') (read ++ Parse.joinReads more))
     (stand: StepsStand [(read, lexeme), ..more]):
     StepsStand [([' ', ..tail], Spaces), (read, lexeme), ..more] :=
-  (((tail, rfl, spaces, noSpace)), stand)
+  (((tail, byComputing, spaces, noSpace)), stand)
 
 --| Spaces before steps that stand: one more step, or more of the first.
 theorem gapConsStand ∀ (tail: List Char) (steps: List (List Char, Lexeme))
@@ -152,11 +159,11 @@ theorem gapConsStand ∀ (tail: List Char) (steps: List (List Char, Lexeme))
     (stand: StepsStand steps):
     StepsStand (gapCons [' ', ..tail] steps) :=
   match steps, stand with
-    | [], _ => (((tail, rfl, spaces, rfl)), rfl)
+    | [], _ => (((tail, byComputing, spaces, byComputing)), byComputing)
     | [(read, lexeme), ..more], Both first rest =>
       match lexeme, first with
         | Spaces, Witness others (Both same (Both moreSpaces stops)) =>
-          ((((tail ++ read), rfl, (spacesAppend tail read spaces (rewrite same in moreSpaces)), stops)), rest)
+          ((((tail ++ read), byComputing, (spacesAppend tail read spaces (rewrite same then moreSpaces)), stops)), rest)
         | LineBreak, first =>
           gapStep tail read LineBreak more spaces
             (standsNoSpace LineBreak read (Parse.joinReads more) (Parse.joinReads more) first (same => cases))
@@ -185,7 +192,9 @@ theorem gapConsStand ∀ (tail: List Char) (steps: List (List Char, Lexeme))
           gapStep tail read SymbolsLexeme more spaces
             (standsNoSpace SymbolsLexeme read (Parse.joinReads more) (Parse.joinReads more) first (same => cases))
             ((first, rest))
-        | StrayLexeme, never => Void.exfalso (Bool.falseNotTrue never)
+        | StrayLexeme, never =>
+          match never with
+            | ()
 
 theorem addPieceJoin ∀ (piece: Text) (steps: List (List Char, Lexeme)):
     Parse.joinReads (addPiece piece steps) = piece.toList ++ Parse.joinReads steps :=
@@ -195,8 +204,8 @@ theorem addPieceJoin ∀ (piece: Text) (steps: List (List Char, Lexeme)):
       match isBreak: piece == "\n" with
         | True =>
           let same: piece = "\n" := DecEq.sound isBreak
-          rewrite same in rfl
-        | False => rfl
+          rewrite same then byComputing
+        | False => byComputing
 
 --| A word before the pieces after it: it stands before what they read.
 theorem wordStands ∀ (before piece: Text) (steps: List (List Char, Lexeme))
@@ -205,12 +214,13 @@ theorem wordStands ∀ (before piece: Text) (steps: List (List Char, Lexeme))
     (filled: piece.isEmpty = False):
     Stands (lexemeOf before) before.toList (Parse.joinReads (addPiece piece steps)) :=
   match after with
-    | Inl isBreak => rewrite isBreak in beforeBreak (Parse.joinReads steps)
+    | Inl isBreak => rewrite isBreak then beforeBreak (Parse.joinReads steps)
     | Inr ok =>
       match gap: piece.all (char => char == ' '), ok with
         | True, ok =>
           match gapChars piece gap filled with
-            | (tail, same, spaces) => rewrite gapConsJoin piece.toList steps, same in ok (tail ++ Parse.joinReads steps)
+            | (tail, same, spaces) =>
+              rewrite gapConsJoin piece.toList steps, same then ok (tail ++ Parse.joinReads steps)
         | False, ok =>
           match isBreak: piece == "\n" with
             | True => beforeBreak (Parse.joinReads steps)
@@ -227,14 +237,14 @@ theorem addStands ∀ (before piece: Text) (steps: List (List Char, Lexeme))
   match gap: before.all (char => char == ' ') with
     | True =>
       match gapChars before gap filledBefore with
-        | (tail, same, spaces) => rewrite same in gapConsStand tail (addPiece piece steps) spaces stand
+        | (tail, same, spaces) => rewrite same then gapConsStand tail (addPiece piece steps) spaces stand
     | False =>
       match isBreak: before == "\n" with
-        | True => (rfl, stand)
+        | True => (byComputing, stand)
         | False =>
           match proper, pair with
-            | Inl layout, _ => Void.exfalso (Bool.falseNotTrue layout)
-            | Inr _, Inl layout => Void.exfalso (Bool.falseNotTrue layout)
+            | Inl layout, _ => (Bool.falseNotTrue layout).impossible
+            | Inr _, Inl layout => (Bool.falseNotTrue layout).impossible
             | Inr ((_, beforeBreak)), Inr after => ((wordStands before piece steps beforeBreak after filled), stand)
 
 --| The last piece stands before the end of the text.
@@ -245,14 +255,14 @@ theorem addLast ∀ (piece: Text)
   match gap: piece.all (char => char == ' ') with
     | True =>
       match gapChars piece gap filled with
-        | (tail, same, spaces) => rewrite same in (((tail, rfl, spaces, rfl)), rfl)
+        | (tail, same, spaces) => rewrite same then (((tail, byComputing, spaces, byComputing)), byComputing)
     | False =>
       match isBreak: piece == "\n" with
-        | True => (rfl, rfl)
+        | True => (byComputing, byComputing)
         | False =>
           match proper with
-            | Inl layout => Void.exfalso (Bool.falseNotTrue layout)
-            | Inr ((atEnd, _)) => (atEnd, rfl)
+            | Inl layout => (Bool.falseNotTrue layout).impossible
+            | Inr ((atEnd, _)) => (atEnd, byComputing)
 
 theorem ontoStand ∀ (piece: Text) (earlier: List Text) (steps: List (List Char, Lexeme))
     (pairs: Pairs standsBefore [piece, ..earlier])
@@ -276,7 +286,7 @@ theorem piecesStand ∀ (out: List Text)
     (proper: AllProper out):
     StepsStand (stepsOnto out []) :=
   match out, pairs, proper with
-    | [], _, _ => rfl
+    | [], _, _ => byComputing
     | [piece, ..earlier], Both filled rest, Both first others =>
       ontoStand piece earlier [] ((filled, rest)) ((first, others)) (addLast piece first filled)
 
@@ -284,8 +294,8 @@ theorem piecesStand ∀ (out: List Text)
 theorem ontoJoin ∀ (out: List Text) (steps: List (List Char, Lexeme)):
     Parse.joinReads (stepsOnto out steps) = charsOnto out (Parse.joinReads steps) :=
   match out with
-    | [] => rfl
-    | [piece, ..earlier] => rewrite ontoJoin earlier (addPiece piece steps), addPieceJoin piece steps in rfl
+    | [] => byComputing
+    | [piece, ..earlier] => rewrite ontoJoin earlier (addPiece piece steps), addPieceJoin piece steps then byComputing
 
 --| A text that is such pieces lexes to them: its lexemes are the pieces
 --| as steps, and its tokens what `assemble` makes of those.
@@ -299,7 +309,7 @@ theorem piecesLex ∀ (source: Text) (out: List Text)
         tokens = (assemble source (Parse.locatedSteps 0 (stepsOnto out []))).fst,
         endTrivia = (assemble source (Parse.locatedSteps 0 (stepsOnto out []))).snd
       } :=
-  standingLex source (stepsOnto out []) (Eq.trans reads (Eq.sym (ontoJoin out []))) (piecesStand out pairs proper)
+  standingLex source (stepsOnto out []) (Eq.trans reads (Eq.flipped (ontoJoin out []))) (piecesStand out pairs proper)
 
 -- The pieces in printing order.
 
@@ -307,25 +317,25 @@ theorem concatSnoc ∀ (lists: List (List Char)) (last: List Char):
     List.concat (lists ++ [last]) = List.concat lists ++ last :=
   match lists with
     | [] => List.appendNil last
-    | [first, ..rest] => rewrite concatSnoc rest last in Eq.sym (List.appendAssoc first (List.concat rest) last)
+    | [first, ..rest] => rewrite concatSnoc rest last then Eq.flipped (List.appendAssoc first (List.concat rest) last)
 
 theorem charsOntoReverse ∀ (out: List Text) (tail: List Char):
     charsOnto out tail = List.concat (out.reverse.map Text.toList) ++ tail :=
   match out with
-    | [] => rfl
+    | [] => byComputing
     | [piece, ..earlier] =>
       rewrite charsOntoReverse earlier (piece.toList ++ tail),
           List.reverseCons piece earlier,
           List.mapAppend earlier.reverse [piece] Text.toList,
-          concatSnoc (earlier.reverse.map Text.toList) piece.toList in
-        Eq.sym (List.appendAssoc (List.concat (earlier.reverse.map Text.toList)) piece.toList tail)
+          concatSnoc (earlier.reverse.map Text.toList) piece.toList then
+        Eq.flipped (List.appendAssoc (List.concat (earlier.reverse.map Text.toList)) piece.toList tail)
 
 --| The characters of pieces joined are those of the pieces, the last
 --| first, put before nothing.
 theorem joinedChars ∀ (pieces: List Text): (pieces.joinWith "").toList = charsOnto pieces.reverse [] :=
   rewrite charsOntoReverse pieces.reverse [],
       List.reverseReverse pieces,
-      List.appendNil (List.concat (pieces.map Text.toList)) in
+      List.appendNil (List.concat (pieces.map Text.toList)) then
     Text.concatToList pieces
 
 theorem properSnoc ∀ (pieces: List Text) (last: Text)
@@ -333,20 +343,20 @@ theorem properSnoc ∀ (pieces: List Text) (last: Text)
     (lastProper: Proper last):
     AllProper (pieces ++ [last]) :=
   match pieces, proper with
-    | [], _ => (lastProper, rfl)
+    | [], _ => (lastProper, byComputing)
     | [piece, ..rest], Both first others => (first, (properSnoc rest last others lastProper))
 
 theorem properReverse ∀ (pieces: List Text) (proper: AllProper pieces): AllProper pieces.reverse :=
   match pieces, proper with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [piece, ..rest], Both first others =>
-      rewrite List.reverseCons piece rest in properSnoc rest.reverse piece (properReverse rest others) first
+      rewrite List.reverseCons piece rest then properSnoc rest.reverse piece (properReverse rest others) first
 
 --| Pieces whose words are proper are proper: layout always is.
 theorem properOfWords ∀ (pieces: List Text) (proper: AllProper (wordsOf pieces)): AllProper pieces :=
   match pieces, proper with
-    | [], _ => rfl
+    | [], _ => byComputing
     | [piece, ..rest], proper =>
       match layout: isLayout piece, proper with
-        | True, others => ((Inl rfl), (properOfWords rest others))
+        | True, others => ((Inl byComputing), (properOfWords rest others))
         | False, Both first others => (first, (properOfWords rest others))

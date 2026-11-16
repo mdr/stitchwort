@@ -9,7 +9,7 @@ expression: output
     │     ──┬──  
     │       ╰──── `evens` is defined here
     │ 
- 15 │ theorem evensNil (n: Nat): evens n = Nil := rfl
+ 15 │ theorem evensNil (n: Nat): evens n = Nil := byComputing
     │                            ──┬──  
     │                              ╰──── `evens` is used here, in `evensNil`'s type
     │ 

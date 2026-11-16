@@ -9,15 +9,15 @@ import Std (Bool, Char, DecEq, Eq, List, Nat, Option, Parse, Text, byDecision)
 theorem betweenToNat ∀ (low high: Nat) (chars: List Char):
     between low high (Text.toNat (Text.fromList chars))
       = (chars ≠ [] ∧ chars.all Parse.isDigit ∧ low <= number chars <= high) :=
-  rewrite Text.toNatDigits chars in cases
+  rewrite Text.toNatDigits chars then cases
 
 theorem andShape [a b c d: Bool]: (a ∧ True ∧ b ∧ c ∧ d) = ((a ∧ b) ∧ c ∧ d) := cases
 
 theorem yearChars ∀ (low high: Nat) (chars: List Char):
     yearBetween low high (Text.fromList chars) = year low high (Text.fromList chars) :=
   match chars with
-    | [] => rfl
-    | [char, ..rest] => rewrite betweenToNat low high [char, ..rest] in andShape
+    | [] => byComputing
+    | [char, ..rest] => rewrite betweenToNat low high [char, ..rest] then andShape
 
 theorem yearSpec ∀ (low high: Nat) (value: Text): yearBetween low high value = year low high value := match value with
   | MkText chars => yearChars low high chars
@@ -27,16 +27,16 @@ theorem andIsSome [a b: Bool] [x: Nat]: (a ∧ Option.isSome (if b then Some x e
 theorem passportIdChars ∀ (chars: List Char):
     Key.valid PassportId (Text.fromList chars) = digits 9 (Text.fromList chars) :=
   match chars with
-    | [] => rfl
-    | [char, ..rest] => rewrite Text.toNatDigits [char, ..rest] in andIsSome
+    | [] => byComputing
+    | [char, ..rest] => rewrite Text.toNatDigits [char, ..rest] then andIsSome
 
 theorem passportIdSpec ∀ (value: Text): Key.valid PassportId value = digits 9 value := match value with
   | MkText chars => passportIdChars chars
 
 theorem hairColorChars ∀ (chars: List Char): hairColorValid (Text.fromList chars) = hairColor (Text.fromList chars) :=
   match chars with
-    | ['#', ..digits] => rfl
-    | _ => rfl
+    | ['#', ..digits] => byComputing
+    | _ => byComputing
 
 theorem hairColorSpec ∀ (value: Text): Key.valid HairColor value = hairColor value := match value with
   | MkText chars => hairColorChars chars
@@ -44,7 +44,7 @@ theorem hairColorSpec ∀ (value: Text): Key.valid HairColor value = hairColor v
 --| The seven colours are different, so a value that is one of them is
 --| exactly one.
 theorem eyeColorSpec ∀ (value: Text): Key.valid EyeColor value = eyeColor value :=
-  rewrite List.lengthFilter eyeColors (== value), List.countEqDistinct value eyeColors byDecision in cases
+  rewrite List.lengthFilter eyeColors (== value), List.countEqDistinct value eyeColors byDecision then cases
 
 theorem lastIs ∀ (chars unit: List Char):
     (Text.drop (Text.fromList chars) (Text.length (Text.fromList chars) - Text.length (Text.fromList unit))
@@ -53,21 +53,21 @@ theorem lastIs ∀ (chars unit: List Char):
   Text.fromListEq
 
 theorem heightChars ∀ (chars: List Char): heightValid (Text.fromList chars) = height (Text.fromList chars) :=
-  rewrite Text.stripSuffixDrop (Text.fromList chars) "cm" in
+  rewrite Text.stripSuffixDrop (Text.fromList chars) "cm" then
     match cm: Text.drop (Text.fromList chars) (Text.length (Text.fromList chars) - Text.length "cm") == "cm" with
       | True =>
-        let isCm := Eq.trans (Eq.sym (lastIs chars ['c', 'm'])) cm;
-        rewrite isCm.read, betweenToNat 150 193 (chars.take (chars.length - 2)) in cases
+        let isCm := Eq.trans (Eq.flipped (lastIs chars ['c', 'm'])) cm;
+        rewrite isCm.read, betweenToNat 150 193 (chars.take (chars.length - 2)) then cases
       | False =>
-        rewrite Text.stripSuffixDrop (Text.fromList chars) "in" in
+        rewrite Text.stripSuffixDrop (Text.fromList chars) "in" then
           match inches: Text.drop (Text.fromList chars) (Text.length (Text.fromList chars) - Text.length "in")
             == "in" with
             | True =>
-              let isIn := Eq.trans (Eq.sym (lastIs chars ['i', 'n'])) inches;
-              rewrite isIn, betweenToNat 59 76 (chars.take (chars.length - 2)) in cases
+              let isIn := Eq.trans (Eq.flipped (lastIs chars ['i', 'n'])) inches;
+              rewrite isIn, betweenToNat 59 76 (chars.take (chars.length - 2)) then cases
             | False =>
-              rewrite Eq.trans (Eq.sym (lastIs chars ['c', 'm'])) cm,
-                  Eq.trans (Eq.sym (lastIs chars ['i', 'n'])) inches in
+              rewrite Eq.trans (Eq.flipped (lastIs chars ['c', 'm'])) cm,
+                  Eq.trans (Eq.flipped (lastIs chars ['i', 'n'])) inches then
                 cases
 
 theorem heightSpec ∀ (value: Text): Key.valid Height value = height value := match value with
@@ -81,4 +81,4 @@ theorem validSpec ∀ (key: Key) (value: Text): key.valid value = validValue key
   | HairColor => hairColorSpec value
   | EyeColor => eyeColorSpec value
   | PassportId => passportIdSpec value
-  | CountryId => rfl
+  | CountryId => byComputing

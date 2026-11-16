@@ -8,7 +8,7 @@ import Aoc.Year2021.Day16.Spec (..)
 import Std (Bool, DecEq, Decidable, Eq, Exists, Fail, List, Nat, NonEmptyList, Option, Result, Text, Void)
 
 theorem versionSumTotal ∀ (packet: Packet): versionSum packet = (packetsIn packet).sumBy versionOf := match packet with
-  | Literal version groups => rfl
+  | Literal version groups => byComputing
   | Operator version operation lengthType ({ head = first, tail = rest }) =>
     rewrite List.sumByCons
           (packetsIn first ++ packetsInAll rest)
@@ -16,8 +16,8 @@ theorem versionSumTotal ∀ (packet: Packet): versionSum packet = (packetsIn pac
           versionOf,
         List.sumByAppend (packetsIn first) (packetsInAll rest) versionOf,
         versionSumTotal first,
-        versionSumsTotal rest in
-      omega
+        versionSumsTotal rest then
+      arithmetic
   | Comparator version comparison lengthType first second =>
     rewrite List.sumByCons
           (packetsIn first ++ packetsIn second)
@@ -25,17 +25,17 @@ theorem versionSumTotal ∀ (packet: Packet): versionSum packet = (packetsIn pac
           versionOf,
         List.sumByAppend (packetsIn first) (packetsIn second) versionOf,
         versionSumTotal first,
-        versionSumTotal second in
-      omega
+        versionSumTotal second then
+      arithmetic
 
 theorem versionSumsTotal ∀ (packets: List Packet): versionSums packets = (packetsInAll packets).sumBy versionOf :=
   match packets with
-    | [] => rfl
+    | [] => byComputing
     | [packet, ..rest] =>
       rewrite List.sumByAppend (packetsIn packet) (packetsInAll rest) versionOf,
           versionSumTotal packet,
-          versionSumsTotal rest in
-        rfl
+          versionSumsTotal rest then
+        byComputing
 
 --| Part 1, for every packet.
 theorem part1Correct ∀ (packet: Packet): solvePart1 packet = versionTotal packet := versionSumTotal packet
@@ -46,12 +46,12 @@ theorem groupsValue ∀ (acc: Nat) (groups: List Nat)
     groups.foldLeft acc (value group => value * 16 + group)
       = (groups.flatMap (Nat.toBits 4)).foldLeft acc (acc bit => acc * 2 + bit.toNat) :=
   match groups with
-    | [] => rfl
+    | [] => byComputing
     | [group, ..rest] =>
-      let fits: group < Nat.pow 2 4 := omega [small.left]
+      let fits: group < Nat.pow 2 4 := arithmetic [small.left]
       let ih := groupsValue (acc * 16 + group) rest small.right
       let inner: List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit) = acc * 16 + group :=
-        rewrite Nat.fromBitsFrom acc (Nat.toBits 4 group), Nat.fromBitsToBits 4 group fits in rfl
+        rewrite Nat.fromBitsFrom acc (Nat.toBits 4 group), Nat.fromBitsToBits 4 group fits then byComputing
       let step: List.foldLeft
         (rest.flatMap (Nat.toBits 4))
         (List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit))
@@ -65,7 +65,7 @@ theorem groupsValue ∀ (acc: Nat) (groups: List Nat)
           (List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit))
           (acc bit => acc * 2 + Bool.toNat bit) :=
         List.foldLeftAppend (Nat.toBits 4 group) acc (rest.flatMap (Nat.toBits 4)) (acc bit => acc * 2 + Bool.toNat bit)
-      Eq.trans ih (Eq.trans (Eq.sym step) (Eq.sym appended))
+      Eq.trans ih (Eq.trans step.flipped appended.flipped)
 
 --| An operation computes the spec's value from the values it is given.
 theorem operationComputes ∀ (operation: Operation) (values: NonEmptyList Nat):
@@ -86,15 +86,15 @@ theorem comparisonCompares ∀ (comparison: Comparison) (first second: Nat):
   match comparison with
     | GreaterThan =>
       match h: (second < first: Bool) with
-        | True => Greater first second (omega [h])
-        | False => NotGreater first second (omega [h])
+        | True => Greater first second (arithmetic [h])
+        | False => NotGreater first second (arithmetic [h])
     | LessThan =>
       match h: (first < second: Bool) with
-        | True => Less first second (omega [h])
-        | False => NotLess first second (omega [h])
+        | True => Less first second (arithmetic [h])
+        | False => NotLess first second (arithmetic [h])
     | EqualTo =>
       match h: first == second with
-        | True => rewrite h.read in Equal second
+        | True => rewrite h.read then Equal second
         | False => NotEqual first second h.read
 
 --| Part 2: a well-formed packet has the value the program computes.
@@ -102,7 +102,7 @@ theorem evaluateCorrect ∀ (packet: Packet) (formed: wellFormed packet = True):
   match packet with
     | Literal version groups =>
       let Both _ groupsOk := formed
-      rewrite groupsValue 0 groups.toList groupsOk in LiteralValue version groups
+      rewrite groupsValue 0 groups.toList groupsOk then LiteralValue version groups
     | Operator version operation lengthType ({ head = first, tail = rest }) =>
       let Both _ (Both _ (Both firstOk restOk)) := formed
       OperationValue

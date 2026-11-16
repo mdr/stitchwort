@@ -12,10 +12,10 @@ theorem allBuilt ∀ (d: Nat) (more: List Nat) (hd: d < 5) (tl: more.all (x => x
   Both hd tl
 
 theorem allCases ∀ (xs: List Nat) (only: xs.all (x => x < 5)): ∀ (x: Nat) => x ∈ xs → x < 5 := match xs with
-  | [] => x m => Void.exfalso m
+  | [] => x m => m.impossible
   | [d, ..more] => x m =>
     match m with
-      | Inl e => rewrite <- e in only.left
+      | Inl e => rewrite <- e then only.left
       | Inr inMore => only.right.read x inMore
 
 -- Not a cons: still the quantifier.

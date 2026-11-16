@@ -14,22 +14,22 @@ theorem hexValueOf ∀ (char: Char) (bits: List Bool)
     (h: hexDigitBits char = Some bits):
     ∃ (value: Nat) => hexValue char = Some value ∧ bits = digitBits value :=
   match char with
-    | '0' => Witness 0 (Both rfl (Eq.sym (Option.someInjective h)))
-    | '1' => Witness 1 (Both rfl (Eq.sym (Option.someInjective h)))
-    | '2' => Witness 2 (Both rfl (Eq.sym (Option.someInjective h)))
-    | '3' => Witness 3 (Both rfl (Eq.sym (Option.someInjective h)))
-    | '4' => Witness 4 (Both rfl (Eq.sym (Option.someInjective h)))
-    | '5' => Witness 5 (Both rfl (Eq.sym (Option.someInjective h)))
-    | '6' => Witness 6 (Both rfl (Eq.sym (Option.someInjective h)))
-    | '7' => Witness 7 (Both rfl (Eq.sym (Option.someInjective h)))
-    | '8' => Witness 8 (Both rfl (Eq.sym (Option.someInjective h)))
-    | '9' => Witness 9 (Both rfl (Eq.sym (Option.someInjective h)))
-    | 'A' => Witness 10 (Both rfl (Eq.sym (Option.someInjective h)))
-    | 'B' => Witness 11 (Both rfl (Eq.sym (Option.someInjective h)))
-    | 'C' => Witness 12 (Both rfl (Eq.sym (Option.someInjective h)))
-    | 'D' => Witness 13 (Both rfl (Eq.sym (Option.someInjective h)))
-    | 'E' => Witness 14 (Both rfl (Eq.sym (Option.someInjective h)))
-    | 'F' => Witness 15 (Both rfl (Eq.sym (Option.someInjective h)))
+    | '0' => Witness 0 (Both byComputing (Option.someInjective h).flipped)
+    | '1' => Witness 1 (Both byComputing (Option.someInjective h).flipped)
+    | '2' => Witness 2 (Both byComputing (Option.someInjective h).flipped)
+    | '3' => Witness 3 (Both byComputing (Option.someInjective h).flipped)
+    | '4' => Witness 4 (Both byComputing (Option.someInjective h).flipped)
+    | '5' => Witness 5 (Both byComputing (Option.someInjective h).flipped)
+    | '6' => Witness 6 (Both byComputing (Option.someInjective h).flipped)
+    | '7' => Witness 7 (Both byComputing (Option.someInjective h).flipped)
+    | '8' => Witness 8 (Both byComputing (Option.someInjective h).flipped)
+    | '9' => Witness 9 (Both byComputing (Option.someInjective h).flipped)
+    | 'A' => Witness 10 (Both byComputing (Option.someInjective h).flipped)
+    | 'B' => Witness 11 (Both byComputing (Option.someInjective h).flipped)
+    | 'C' => Witness 12 (Both byComputing (Option.someInjective h).flipped)
+    | 'D' => Witness 13 (Both byComputing (Option.someInjective h).flipped)
+    | 'E' => Witness 14 (Both byComputing (Option.someInjective h).flipped)
+    | 'F' => Witness 15 (Both byComputing (Option.someInjective h).flipped)
 
 --| `hexDigit` on a digit, whatever follows.
 theorem runsHexDigit ∀ (char: Char) (value: Nat) (rest: List Char)
@@ -44,9 +44,9 @@ theorem runsHexDigit ∀ (char: Char) (value: Nat) (rest: List Char)
     rest
     char
     value
-    (Eq.sym (List.appendNil [char]))
-    (Parse.runsSatisfy _ _ char rest (rewrite found in rfl))
-    (rewrite found in Parse.runsPure value rest)
+    (Eq.flipped (List.appendNil [char]))
+    (Parse.runsSatisfy _ _ char rest (rewrite found then byComputing))
+    (rewrite found then Parse.runsPure value rest)
 
 --| `hexDigit` declines at the end of the input.
 theorem declinesHexDigitEnd: Parse.Declines hexDigit [] :=
@@ -64,7 +64,7 @@ theorem runsDigits ∀ (chars: List Char) (bits: List Bool)
       ∧ Parse.ManyRuns hexDigit steps []
       ∧ bitsOfDigits (Parse.stepValues steps) = bits :=
   match chars with
-    | [] => Witness [] (Both rfl (Both declinesHexDigitEnd (Option.someInjective h)))
+    | [] => Witness [] (Both byComputing (Both declinesHexDigitEnd (Option.someInjective h)))
     | [char, ..rest] =>
       match digit: hexDigitBits char with
         | Some digitBits2 =>
@@ -77,12 +77,12 @@ theorem runsDigits ∀ (chars: List Char) (bits: List Bool)
                       Witness
                         [([char], value), ..steps]
                         (Both
-                          (rewrite joined in rfl)
+                          (rewrite joined then byComputing)
                           (Both
                             (Both
                               (List.consNotNil char [])
                               (Both (runsHexDigit char value (Parse.joinReads steps ++ []) found) manyRuns))
-                            (rewrite <- Option.someInjective h, same, bitsSame in rfl)))
+                            (rewrite <- Option.someInjective h, same, bitsSame then byComputing)))
 
 --| A transmission, trimmed, that the puzzle's table gives bits is read as
 --| exactly those bits.
@@ -93,12 +93,13 @@ theorem parseComplete ∀ (input: Text) (bits: List Bool)
     | Witness steps (Both joined (Both manyRuns bitsSame)) =>
       let runs := Parse.runsMany hexDigit steps [] manyRuns
       let digits :=
-        rewrite joined at runs in
+        rewrite joined at runs then
           Parse.runsLine input.trim
             (() => Parse.many hexDigit)
             (Parse.stepValues steps)
             (Parse.runsWithFinalLineBreakNone _ _ _ runs)
-      rewrite Fail.toResultThen (() => readDigits input) (digits => bitsOfDigits digits), digits, bitsSame in rfl
+      rewrite Fail.toResultThen (() => readDigits input) (digits => bitsOfDigits digits), digits, bitsSame then
+        byComputing
 
 --| A transmission is read as at most one list of bits: the table gives each
 --| character bits, and the parser reads them back.
@@ -106,4 +107,4 @@ theorem writtenUnique ∀ (input: Text) (a b: List Bool)
     (writtenA: transmissionBits input.trim.toList = Some a)
     (writtenB: transmissionBits input.trim.toList = Some b):
     a = b :=
-  Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))
+  Result.okInjective (Eq.trans (parseComplete input a writtenA).flipped (parseComplete input b writtenB))

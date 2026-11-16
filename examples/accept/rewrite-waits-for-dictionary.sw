@@ -10,11 +10,13 @@ import Std (Eq, Int, List, Nat)
 
 def split (xs ys: List Nat) (h: Nat → Int): List.sumBy (xs ++ ys) h = List.sumBy xs h + List.sumBy ys h :=
   let f := g =>
-    (rewrite List.sumByAppend xs ys g in rfl: List.sumBy (xs ++ ys) g = Add.add (List.sumBy xs g) (List.sumBy ys g))
+    (rewrite List.sumByAppend xs ys g then byComputing: List.sumBy (xs ++ ys) g
+      = Add.add (List.sumBy xs g) (List.sumBy ys g))
   f h
 
 -- With `g`'s type written, the instance is found at once.
 def annotated (xs ys: List Nat) (h: Nat → Int): List.sumBy (xs ++ ys) h = List.sumBy xs h + List.sumBy ys h :=
   let f := (g: Nat → Int) =>
-    (rewrite List.sumByAppend xs ys g in rfl: List.sumBy (xs ++ ys) g = Add.add (List.sumBy xs g) (List.sumBy ys g))
+    (rewrite List.sumByAppend xs ys g then byComputing: List.sumBy (xs ++ ys) g
+      = Add.add (List.sumBy xs g) (List.sumBy ys g))
   f h

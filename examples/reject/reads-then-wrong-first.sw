@@ -11,4 +11,4 @@ def two(): {Parse Char} Nat :=
   a + b
 
 theorem wrongFirst: Parse.Reads two (taken v => True) :=
-  Parse.readsThen Parse.readsMark (r x h => Parse.readsThen Parse.readsNat (r2 y h2 => Parse.readsDone (x + y) _ rfl))
+  Parse.readsThen Parse.readsMark (r x h => Parse.readsThen Parse.readsNat (r2 y h2 => Parse.readsDone (x + y) _ byComputing))

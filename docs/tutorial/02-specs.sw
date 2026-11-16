@@ -155,10 +155,10 @@ def Basket.shouldCharge (basket: Basket) (coupon: Coupon): Nat := totalOf basket
 -- theorem on `rest`. Type this at the end of the file:
 --
 --     theorem scanFirstTry: ∀ (items: List Item) => scan 0 items = totalOf items
---       | [] => rfl
+--       | [] => byComputing
 --       | [item, ..rest] => ?
 --
--- The `[]` arm is `rfl`: both sides compute to `0`. Hover over the second
+-- The `[]` arm is `byComputing`: both sides compute to `0`. Hover over the second
 -- `?`:
 --
 --     item: Item
@@ -189,8 +189,8 @@ def Basket.shouldCharge (basket: Basket) (coupon: Coupon): Nat := totalOf basket
 -- match on both, as a function of two arguments would.
 
 theorem scanAdds: ∀ (running: Nat) (items: List Item) => scan running items = running + totalOf items
-  | running, [] => rfl
-  | running, [item, ..rest] => omega [scanAdds (running + item.cost) rest]
+  | running, [] => byComputing
+  | running, [item, ..rest] => arithmetic [scanAdds (running + item.cost) rest]
 
 -- Take it apart as before: replace the second arm's proof with `?`. The
 -- goal is
@@ -201,7 +201,7 @@ theorem scanAdds: ∀ (running: Nat) (items: List Item) => scan running items = 
 -- running total the till has reached, `running + item.cost`, and the
 -- shorter list. It says
 -- `scan (running + item.cost) rest = running + item.cost + totalOf rest`,
--- and what's left is moving brackets, which `omega` does when it's given
+-- and what's left is moving brackets, which `arithmetic` does when it's given
 -- the hypothesis as a fact. Put the proof back.
 --
 -- Making a statement more general so that its induction goes through is
@@ -249,23 +249,23 @@ theorem checkoutCorrect ∀ (basket: Basket) (coupon: Coupon): basket.checkout c
 -- `percentOrder`.
 --
 -- **Pence coupons do add up.** Two pence coupons are one coupon for both
--- amounts. `omega` proves it: once `apply` computes, it's subtraction.
+-- amounts. `arithmetic` proves it: once `apply` computes, it's subtraction.
 
 theorem penceOffTwice ∀ (first second total: Nat):
     (PenceOff second).apply ((PenceOff first).apply total) = (PenceOff (first + second)).apply total :=
-  omega
+  arithmetic
 
 -- **Two facts at once: `∧`.** `p ∧ q` ("and") says both. A pence coupon
 -- never adds to the total, and never takes off more than it says:
 
 theorem penceOffFair ∀ (pence total: Nat):
     (PenceOff pence).apply total ≤ total ∧ total ≤ (PenceOff pence).apply total + pence :=
-  omega
+  arithmetic
 
--- `omega` proves both halves together. A proof of `p ∧ q` is also a pair,
--- `Both p q`: replace `omega` with `Both ? ?`, and the two `?`s have the
+-- `arithmetic` proves both halves together. A proof of `p ∧ q` is also a pair,
+-- `Both p q`: replace `arithmetic` with `Both ? ?`, and the two `?`s have the
 -- goals `total - pence ≤ total` and `total ≤ total - pence + pence`. Prove
--- each with `omega`, then put the single `omega` back.
+-- each with `arithmetic`, then put the single `arithmetic` back.
 --
 -- **Some coupon will do: `∃`.** The shop promises to match any lower
 -- price. `∃ (coupon: Coupon) => …` ("there exists") says some coupon
@@ -274,13 +274,13 @@ theorem penceOffFair ∀ (pence total: Nat):
 -- it works.
 
 theorem priceMatch ∀ (total target: Nat) (cheaper: target ≤ total): ∃ (coupon: Coupon) => coupon.apply total = target :=
-  Witness (PenceOff (total - target)) omega
+  Witness (PenceOff (total - target)) arithmetic
 
--- Replace the `omega` with `?`: the goal is
+-- Replace the `arithmetic` with `?`: the goal is
 -- `total - (total - target) = target`, the statement with the witness
--- put in for `coupon`, and `omega` proves it from the hypothesis
--- `cheaper`. Put `omega` back, and delete `(cheaper: target ≤ total)`
--- from the statement: `omega` turns red, and the model in its notes is
+-- put in for `coupon`, and `arithmetic` proves it from the hypothesis
+-- `cheaper`. Put `arithmetic` back, and delete `(cheaper: target ≤ total)`
+-- from the statement: `arithmetic` turns red, and the model in its notes is
 -- `total = 0` and `target = 1`. A target above the total can't be matched
 -- by taking money off. Put the hypothesis back.
 --
@@ -310,7 +310,7 @@ theorem priceMatch ∀ (total target: Nat) (cheaper: target ≤ total): ∃ (cou
 -- fixed.) Remove the arm.
 --
 -- **Break 3: the wrong witness.** In `priceMatch`, change the witness to
--- `PenceOff target`. `omega` is red: it can't prove
+-- `PenceOff target`. `arithmetic` is red: it can't prove
 -- `total - target = target`. Its model, `total = 1` and `target = 0`,
 -- says it "may not be a real counterexample", and as Step 7 said, the
 -- search that would confirm it doesn't run on an `∃`. Check it by hand:

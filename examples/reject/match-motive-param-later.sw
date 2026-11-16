@@ -15,7 +15,7 @@ def one (m: Nat) (p: m = 1): Bool → Nat
 def apply (f: a → Nat) (v: a): Nat := f v
 
 -- Generalising `length [r]` (which is 1) makes `q`'s type ill-formed.
-def later (b: Bool) (q: one 1 rfl b = 1) (p: P): Nat :=
+def later (b: Bool) (q: one 1 byComputing b = 1) (p: P): Nat :=
   apply (r => match List.length [r] with
     | Zero => 0
     | Succ k => k) p

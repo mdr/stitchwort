@@ -1,4 +1,4 @@
--- expect-error: E-OMEGA
+-- expect-error: E-ARITHMETIC
 -- Ten dense constraints over eight unknowns use up the search budget.
 import Std (Nat)
 
@@ -8,4 +8,4 @@ theorem dense (a: Nat) (b: Nat) (c: Nat) (d: Nat) (e: Nat) (f: Nat) (g: Nat) (h:
     (h5: 11 * a + 2 * c ≤ 3 * e + 5 * g + 23) (h6: 13 * b + 3 * d ≤ 2 * f + 7 * h + 29)
     (h7: 2 * a + 3 * c + 5 * e + 7 * g ≤ 31 + b + d + f + h) (h8: 3 * b + 5 * d + 7 * f + 11 * h ≤ 37 + a + c + e + g)
     (h9: 17 * a + 19 * h ≤ 23 * c + 29 * f + 41) (h10: 13 * d + 11 * e ≤ 7 * b + 5 * g + 43):
-    a + b + c + d + e + f + g + h ≤ 500 := omega
+    a + b + c + d + e + f + g + h ≤ 500 := arithmetic

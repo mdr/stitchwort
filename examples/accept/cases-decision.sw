@@ -1,7 +1,7 @@
 -- `cases`' decision closer (docs/proposals/decide.md §6.1.2): a case that no
 -- other closer proves, with nothing left to split, is closed by running the
 -- goal's decision procedure, as `auto` does, when its test is `True`. The
--- proof is `auto`'s, `d.sound rfl`, which the kernel runs again.
+-- proof is `auto`'s, `d.sound byComputing`, which the kernel runs again.
 import Std (Bool, List, Nat, Void)
 
 type Key = | K0 | K1 | K2
@@ -9,7 +9,7 @@ type Key = | K0 | K1 | K2
 def keys: List Key := [K0, K1, K2]
 
 -- A closed membership: nothing to split, and neither computation nor
--- `omega` proves a disjunction of equations of keys.
+-- `arithmetic` proves a disjunction of equations of keys.
 theorem inKeys: K1 ∈ keys := cases
 
 -- `Decidable.or` decides left to right: a left side whose test is `True` is
@@ -23,6 +23,6 @@ def pick (b: Bool): Key := if b then K2 else K0
 theorem pickIn ∀ (b: Bool): pick b ∈ keys := cases
 
 -- A goal that decides `No`, in a case whose hypotheses contradict each
--- other: `No` doesn't fail the case, and `omega` refutes `h`
+-- other: `No` doesn't fail the case, and `arithmetic` refutes `h`
 -- (examples/accept/cases-pi-goals.sw pins its hash).
 theorem falseGoalImpossibleCase ∀ (n: Nat) (h: n + 1 < n): 2 ∈ [1, 3] := cases

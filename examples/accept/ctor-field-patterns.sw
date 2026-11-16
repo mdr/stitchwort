@@ -56,9 +56,9 @@ def startPositional: Shape → Int
   | Polygon _ _ s _ _ => s
 
 theorem sameStart ∀ (a: Shape): startNamed a = startPositional a := match a with
-  | Dot { .. } => rfl
-  | Circle { .. } => rfl
-  | Polygon { .. } => rfl
+  | Dot { .. } => byComputing
+  | Circle { .. } => byComputing
+  | Polygon { .. } => byComputing
 
 def circle: Shape := Circle 1 "c" 5 "hello"
 

@@ -3,4 +3,4 @@
 -- as their literals.
 import Std (Float)
 
-theorem notPointThree: 0.1 + 0.2 = 0.3 := rfl
+theorem notPointThree: 0.1 + 0.2 = 0.3 := byComputing

@@ -13,7 +13,7 @@ theorem stepMoves ∀ (lab: Lab) (guard: Guard) (ahead: Position)
     (inFront: lab.ahead guard = Some ahead)
     (blocked: lab.obstructions.contains ahead = False):
     lab.step guard = Some { guard | position = ahead } :=
-  rewrite inFront, blocked in rfl
+  rewrite inFront, blocked then byComputing
 
 --| An obstruction changes nothing about what is ahead.
 theorem aheadWith ∀ (lab: Lab) (blocker: Position) (guard: Guard):
@@ -27,14 +27,16 @@ theorem stepWithSame ∀ (lab: Lab) (blocker: Position) (guard: Guard)
       → lab.obstructions.contains ahead = False
       → ahead ≠ blocker):
     (lab.withObstruction blocker).step guard = lab.step guard :=
-  rewrite aheadWith lab blocker guard in
+  rewrite aheadWith lab blocker guard then
     match inFront: lab.ahead guard with
-      | None => rfl
+      | None => byComputing
       | Some ahead =>
         match blocked: lab.obstructions.contains ahead with
-          | True => rewrite Set.containsInsertMono lab.obstructions blocker ahead blocked in rfl
+          | True => rewrite Set.containsInsertMono lab.obstructions blocker ahead blocked then byComputing
           | False =>
-            rewrite Set.containsInsertOther lab.obstructions blocker ahead (fresh ahead rfl blocked), blocked in rfl
+            rewrite Set.containsInsertOther lab.obstructions blocker ahead (fresh ahead byComputing blocked),
+                blocked then
+              byComputing
 
 --| Whether the route has `position`, as `Set.fromList` sees it.
 def onRoute (lab: Lab) (guard: Option Guard) (steps: Nat) (position: Position): Bool :=
@@ -46,8 +48,8 @@ theorem walkWithSame ∀ (lab: Lab) (blocker: Position) (steps: Nat) (guard: Opt
     (absent: onRoute lab guard (Succ steps) blocker = False):
     walk (lab.withObstruction blocker) guard steps = walk lab guard steps :=
   match steps, guard with
-    | Zero, guard => rfl
-    | Succ steps, None => rewrite walkNone (lab.withObstruction blocker) steps, walkNone lab steps in rfl
+    | Zero, guard => byComputing
+    | Succ steps, None => rewrite walkNone (lab.withObstruction blocker) steps, walkNone lab steps then byComputing
     | Succ steps, Some here =>
       let restAbsent: onRoute lab (lab.step here) (Succ steps) blocker = False := Bool.orFalseRight _ _ absent
       let fresh := (ahead: Position) (inFront: lab.ahead here = Some ahead) (blocked: lab.obstructions.contains ahead
@@ -55,7 +57,7 @@ theorem walkWithSame ∀ (lab: Lab) (blocker: Position) (steps: Nat) (guard: Opt
         let movedAbsent := rewrite stepMoves lab here ahead inFront blocked at restAbsent
         let notSame: Map.Spec.sameKey blocker ahead = False := Bool.orFalseLeft _ _ movedAbsent
         DecEq.soundFalse ahead blocker (rewrite Map.Spec.sameKeyDecide blocker ahead at notSame)
-      rewrite stepWithSame lab blocker here fresh in walkWithSame lab blocker steps (lab.step here) restAbsent
+      rewrite stepWithSame lab blocker here fresh then walkWithSame lab blocker steps (lab.step here) restAbsent
 
 --| A new obstruction off the route of a guard who leaves can't trap her.
 theorem offRouteFree ∀ (lab: Lab)
@@ -68,7 +70,7 @@ theorem offRouteFree ∀ (lab: Lab)
       Eq.trans
         (Eq.cong
           (positions => positions.any (other => Map.Spec.sameKey blocker other))
-          (routeAfterGone lab steps (Some lab.startGuard) gone (Succ steps) omega))
+          (routeAfterGone lab steps (Some lab.startGuard) gone (Succ steps) arithmetic))
         absent
     loops steps (Eq.trans (walkWithSame lab blocker steps (Some lab.startGuard) longer) gone)
 
@@ -87,11 +89,11 @@ theorem stepSettled ∀ (lab: Lab) (guard: Guard)
   match inFront: lab.ahead guard with
     | Some ahead =>
       match blocked: lab.obstructions.contains ahead with
-        | True => rewrite <- Option.someInjective stepped in settled
+        | True => rewrite <- Option.someInjective stepped then settled
         | False =>
           let Both onTheMap _ := settled
           let landed := aheadOnMap lab guard onTheMap ahead inFront
-          rewrite <- Option.someInjective stepped in (cases: settledAt lab ahead = True)
+          rewrite <- Option.someInjective stepped then (cases: settledAt lab ahead = True)
 
 theorem routeSettled ∀ (lab: Lab) (position: Position) (steps: Nat) (guard: Option Guard)
     (settled: settledIfAny lab guard = True)
@@ -99,14 +101,14 @@ theorem routeSettled ∀ (lab: Lab) (position: Position) (steps: Nat) (guard: Op
     settledAt lab position = True :=
   match steps, guard with
     | Succ steps, Some here =>
-      Bool.orElim has (same => rewrite Map.Spec.sameKeySound position here.position same in settled) (rest =>
+      Bool.orElim has (same => rewrite Map.Spec.sameKeySound position here.position same then settled) (rest =>
         let nextSettled: settledIfAny lab (lab.step here) = True := match stepped: lab.step here with
-          | None => rfl
+          | None => byComputing
           | Some next => stepSettled lab here settled next stepped
         routeSettled lab position steps (lab.step here) nextSettled rest)
 
 theorem positionEta ∀ (position: Position): ({ row = position.row, column = position.column }: Position) = position :=
-  match position with | { row, column } => rfl
+  match position with | { row, column } => byComputing
 
 --| Every position on the map is in `positions`.
 theorem positionsOnMap ∀ (lab: Lab) (position: Position)
@@ -116,7 +118,7 @@ theorem positionsOnMap ∀ (lab: Lab) (position: Position)
     rewrite positionEta position at List.memMap
       (List.range 0 lab.width)
       position.column
-      (List.memRangeFromIntro position.column lab.width 0 omega (omega [inside]))
+      (List.memRangeFromIntro position.column lab.width 0 arithmetic (arithmetic [inside]))
       (column => ({ row = position.row, column }: Position))
   let member: position ∈ positions lab :=
     List.memFlatMapIntro
@@ -124,15 +126,15 @@ theorem positionsOnMap ∀ (lab: Lab) (position: Position)
       position.row
       position
       (List.range 0 lab.height)
-      (List.memRangeFromIntro position.row lab.height 0 omega (omega [inside]))
+      (List.memRangeFromIntro position.row lab.height 0 arithmetic (arithmetic [inside]))
       inRow
-  Witness position (Both member (rewrite Map.Spec.sameKeyDecide position position in DecEq.refl position))
+  Witness position (Both member (rewrite Map.Spec.sameKeyDecide position position then DecEq.refl position))
 
 theorem positionsOnlyOnMap ∀ (lab: Lab) (position: Position)
     (has: (positions lab).any (other => Map.Spec.sameKey position other) = True):
     onMap lab position = True :=
   let Witness other (Both member same) := has
-  rewrite Map.Spec.sameKeySound position other same in
+  rewrite Map.Spec.sameKeySound position other same then
     List.anyElim
       (row => other ∈ (List.range 0 lab.width |> .map (column => ({ row, column }: Position))))
       (onMap lab other = True)
@@ -151,28 +153,28 @@ theorem positionsOnlyOnMap ∀ (lab: Lab) (position: Position)
           (column columnMember built =>
             let rowSmall := List.memRangeFrom row lab.height 0 rowMember
             let columnSmall := List.memRangeFrom column lab.width 0 columnMember
-            rewrite <- built in omega [rowSmall, columnSmall]))
+            rewrite <- built then arithmetic [rowSmall, columnSmall]))
 
 theorem positionsHas ∀ (lab: Lab) (position: Position):
     Set.contains (Set.fromList (positions lab)) position = onMap lab position :=
-  rewrite Set.containsFromList position (positions lab) in
+  rewrite Set.containsFromList position (positions lab) then
     match inside: onMap lab position with
       | True => positionsOnMap lab position inside
       | False =>
         match has: (positions lab).any (other => Map.Spec.sameKey position other) with
-          | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym inside) (positionsOnlyOnMap lab position has)))
-          | False => rfl
+          | True => Void.impossible (Bool.falseNotTrue (Eq.trans inside.flipped (positionsOnlyOnMap lab position has)))
+          | False => byComputing
 
 --| Two Bools true together are equal.
 theorem boolOfIff ∀ [one other: Bool] (same: (one = True) ↔ (other = True)): one = other :=
   match isOne: one, isOther: other with
-    | True, True => rfl
-    | False, False => rfl
-    | True, False => Void.exfalso (Bool.falseNotTrue (same.forward rfl))
-    | False, True => Void.exfalso (Bool.falseNotTrue (same.backward rfl))
+    | True, True => byComputing
+    | False, False => byComputing
+    | True, False => Void.impossible (Bool.falseNotTrue (same.forward byComputing))
+    | False, True => Void.impossible (Bool.falseNotTrue (same.backward byComputing))
 
 theorem startSettled ∀ (lab: Lab) (inside: onMap lab lab.start = True): settledAt lab lab.start = True :=
-  rewrite inside, DecEq.refl lab.start in rfl
+  rewrite inside, DecEq.refl lab.start then byComputing
 
 --| What the program's filter keeps.
 def keeps (lab: Lab) (sightlines: Sightlines) (position: Position): Bool :=
@@ -190,7 +192,7 @@ theorem shapeOnRoute ∀ [p: Prop] [atStart: Decidable p] [blocked onTheMap loop
     (same: loops = trap):
     (Decidable.holds (Decidable.not atStart) && loops)
       = (onTheMap && (Decidable.holds (Decidable.not atStart) && !blocked && trap)) :=
-  rewrite same in cases
+  rewrite same then cases
 
 --| Off the route nothing is kept.
 theorem shapeOffRoute [onTheMap notStart free: Bool]: False = (onTheMap && (notStart && free && False)) := cases
@@ -221,9 +223,9 @@ theorem keepsTrapsAt ∀ (lab: Lab)
     | False =>
       let free := offRouteFree lab inside steps gone position onIt
       let notTrapped: trapped position = False := match isTrapped: trapped position with
-        | True => Void.exfalso (free ((decides position).forward isTrapped))
-        | False => rfl
-      rewrite notTrapped in shapeOffRoute
+        | True => Void.impossible (free ((decides position).forward isTrapped))
+        | False => byComputing
+      rewrite notTrapped then shapeOffRoute
 
 --| The positions the program keeps from the route are the spec's trap
 --| positions.
@@ -251,8 +253,8 @@ theorem trapSetsSame ∀ (lab: Lab)
           (Eq.trans
             (keepsTrapsAt lab inside steps gone trapped decides simulates position)
             (Eq.trans
-              (Eq.cong (has => has && trapsAt lab trapped position) (Eq.sym (positionsHas lab position)))
-              (Eq.sym (Set.containsFilter (Set.fromList (positions lab)) position (trapsAt lab trapped)))))))
+              (Eq.cong (has => has && trapsAt lab trapped position) (positionsHas lab position).flipped)
+              (Eq.flipped (Set.containsFilter (Set.fromList (positions lab)) position (trapsAt lab trapped)))))))
 
 --| Part 2: for a guard who starts on the map and leaves, in a lab whose
 --| obstructions are on the map, the program counts the spec's trap
@@ -278,9 +280,9 @@ theorem part2Correct ∀ (lab: Lab)
 
 --| A guard who loops has no patrol.
 theorem patrolLoops ∀ (lab: Lab) (loops: Loops lab): lab.patrol = None := match patrolled: lab.patrol with
-  | None => rfl
+  | None => byComputing
   | Some found =>
-    Void.exfalso (loops lab.stateCount (patrolFromGone lab lab.stateCount lab.startGuard Set.empty found patrolled))
+    Void.impossible (loops lab.stateCount (patrolFromGone lab lab.stateCount lab.startGuard Set.empty found patrolled))
 
 --| And part 2 gives no answer when she loops without a new obstruction.
 theorem part2Loops ∀ (lab: Lab) (loops: Loops lab): solvePart2 lab = None :=

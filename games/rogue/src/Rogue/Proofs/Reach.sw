@@ -29,7 +29,7 @@ theorem walkAppend ∀ (level: Level) (second: List Direction) (target origin: P
     (rest: Walk level middle second target):
     Walk level origin (first ++ second) target :=
   match first, same with
-    | [], same => rewrite same in rest
+    | [], same => rewrite same then rest
     | [direction, ..others], Both open walk =>
       Both open (walkAppend level second target (origin.toward direction) others middle walk rest)
 
@@ -37,47 +37,47 @@ theorem walkEast ∀ (level: Level) (row steps column: Nat)
     (floor: ∀ (j: Nat) => column < j → j ≤ column + steps → isWall level { row, column = j } = False):
     Walk level { row, column } (List.replicate steps East) { row, column = column + steps } :=
   match steps with
-    | Zero => rewrite Nat.addZero column in rfl
+    | Zero => rewrite Nat.addZero column then byComputing
     | Succ steps =>
-      let shift: column + Succ steps = (column + 1) + steps := omega
+      let shift: column + Succ steps = (column + 1) + steps := arithmetic
       Both
-        (floor (column + 1) omega omega)
-        (rewrite shift in walkEast level row steps (column + 1) (j after before => floor j omega omega))
+        (floor (column + 1) arithmetic arithmetic)
+        (rewrite shift then walkEast level row steps (column + 1) (j after before => floor j arithmetic arithmetic))
 
 theorem walkWest ∀ (level: Level) (row steps column: Nat)
     (floor: ∀ (j: Nat) => column ≤ j → j < column + steps → isWall level { row, column = j } = False):
     Walk level { row, column = column + steps } (List.replicate steps West) { row, column } :=
   match steps with
-    | Zero => rewrite Nat.addZero column in rfl
+    | Zero => rewrite Nat.addZero column then byComputing
     | Succ steps =>
-      let back: column + Succ steps - 1 = column + steps := omega
-      rewrite back in
+      let back: column + Succ steps - 1 = column + steps := arithmetic
+      rewrite back then
         Both
-          (floor (column + steps) omega omega)
-          (walkWest level row steps column (j after before => floor j omega omega))
+          (floor (column + steps) arithmetic arithmetic)
+          (walkWest level row steps column (j after before => floor j arithmetic arithmetic))
 
 theorem walkSouth ∀ (level: Level) (column steps row: Nat)
     (floor: ∀ (i: Nat) => row < i → i ≤ row + steps → isWall level { row = i, column } = False):
     Walk level { row, column } (List.replicate steps South) { row = row + steps, column } :=
   match steps with
-    | Zero => rewrite Nat.addZero row in rfl
+    | Zero => rewrite Nat.addZero row then byComputing
     | Succ steps =>
-      let shift: row + Succ steps = (row + 1) + steps := omega
+      let shift: row + Succ steps = (row + 1) + steps := arithmetic
       Both
-        (floor (row + 1) omega omega)
-        (rewrite shift in walkSouth level column steps (row + 1) (i after before => floor i omega omega))
+        (floor (row + 1) arithmetic arithmetic)
+        (rewrite shift then walkSouth level column steps (row + 1) (i after before => floor i arithmetic arithmetic))
 
 theorem walkNorth ∀ (level: Level) (column steps row: Nat)
     (floor: ∀ (i: Nat) => row ≤ i → i < row + steps → isWall level { row = i, column } = False):
     Walk level { row = row + steps, column } (List.replicate steps North) { row, column } :=
   match steps with
-    | Zero => rewrite Nat.addZero row in rfl
+    | Zero => rewrite Nat.addZero row then byComputing
     | Succ steps =>
-      let back: row + Succ steps - 1 = row + steps := omega
-      rewrite back in
+      let back: row + Succ steps - 1 = row + steps := arithmetic
+      rewrite back then
         Both
-          (floor (row + steps) omega omega)
-          (walkNorth level column steps row (i after before => floor i omega omega))
+          (floor (row + steps) arithmetic arithmetic)
+          (walkNorth level column steps row (i after before => floor i arithmetic arithmetic))
 
 --| Every cell of `area` is floor.
 def Open (level: Level) (area: Area): Prop :=
@@ -89,7 +89,7 @@ theorem containsOf ∀ (area: Area) (position: Position)
     (left: area.corner.column ≤ position.column)
     (right: position.column ≤ area.corner.column + area.across):
     area.contains position = True :=
-  rewrite top, bottom, left, right in rfl
+  rewrite top, bottom, left, right then byComputing
 
 --| What `contains` says, as four facts.
 type Inside (area: Area) (position: Position): Prop = {
@@ -112,7 +112,7 @@ theorem walkCong ∀ (level: Level) (moves: List Direction) (origin origin2 targ
     (sameTarget: target = target2)
     (walk: Walk level origin moves target):
     Walk level origin2 moves target2 :=
-  rewrite <- sameOrigin, <- sameTarget in walk
+  rewrite <- sameOrigin, <- sameTarget then walk
 
 def across (origin target: Position): List Direction :=
   if origin.column ≤ target.column then List.replicate (target.column - origin.column) East
@@ -137,28 +137,32 @@ theorem walkAcross ∀ (level: Level) (area: Area)
   match east: Nat.leq origin.column target.column with
     | True =>
       let walk := walkEast level origin.row (target.column - origin.column) origin.column (j after before =>
-        open { row = origin.row, column = j } (containsOf area { row = origin.row, column = j } top bottom omega omega))
+        open
+          { row = origin.row, column = j }
+          (containsOf area { row = origin.row, column = j } top bottom arithmetic arithmetic))
       walkCong level
         (List.replicate (target.column - origin.column) East)
         { row = origin.row, column = origin.column }
         origin
         { row = origin.row, column = origin.column + (target.column - origin.column) }
         { row = origin.row, column = target.column }
-        (Eq.sym (positionEta origin))
-        (rewrite (omega: origin.column + (target.column - origin.column) = target.column) in rfl)
+        (positionEta origin).flipped
+        (rewrite (arithmetic: origin.column + (target.column - origin.column) = target.column) then byComputing)
         walk
     | False =>
       let walk := walkWest level origin.row (origin.column - target.column) target.column (j after before =>
-        open { row = origin.row, column = j } (containsOf area { row = origin.row, column = j } top bottom omega omega))
+        open
+          { row = origin.row, column = j }
+          (containsOf area { row = origin.row, column = j } top bottom arithmetic arithmetic))
       walkCong level
         (List.replicate (origin.column - target.column) West)
         { row = origin.row, column = target.column + (origin.column - target.column) }
         origin
         { row = origin.row, column = target.column }
         { row = origin.row, column = target.column }
-        (rewrite (omega: target.column + (origin.column - target.column) = origin.column) in
-          Eq.sym (positionEta origin))
-        rfl
+        (rewrite (arithmetic: target.column + (origin.column - target.column) = origin.column) then
+          Eq.flipped (positionEta origin))
+        byComputing
         walk
 
 theorem walkDown ∀ (level: Level) (area: Area)
@@ -176,29 +180,29 @@ theorem walkDown ∀ (level: Level) (area: Area)
       let walk := walkSouth level target.column (target.row - origin.row) origin.row (i after before =>
         open
           { row = i, column = target.column }
-          (containsOf area { row = i, column = target.column } omega omega left right))
+          (containsOf area { row = i, column = target.column } arithmetic arithmetic left right))
       walkCong level
         (List.replicate (target.row - origin.row) South)
         { row = origin.row, column = target.column }
         { row = origin.row, column = target.column }
         { row = origin.row + (target.row - origin.row), column = target.column }
         target
-        rfl
-        (rewrite (omega: origin.row + (target.row - origin.row) = target.row) in Eq.sym (positionEta target))
+        byComputing
+        (rewrite (arithmetic: origin.row + (target.row - origin.row) = target.row) then Eq.flipped (positionEta target))
         walk
     | False =>
       let walk := walkNorth level target.column (origin.row - target.row) target.row (i after before =>
         open
           { row = i, column = target.column }
-          (containsOf area { row = i, column = target.column } omega omega left right))
+          (containsOf area { row = i, column = target.column } arithmetic arithmetic left right))
       walkCong level
         (List.replicate (origin.row - target.row) North)
         { row = target.row + (origin.row - target.row), column = target.column }
         { row = origin.row, column = target.column }
         { row = target.row, column = target.column }
         target
-        (rewrite (omega: target.row + (origin.row - target.row) = origin.row) in rfl)
-        (Eq.sym (positionEta target))
+        (rewrite (arithmetic: target.row + (origin.row - target.row) = origin.row) then byComputing)
+        (positionEta target).flipped
         walk
 
 --| Any cell of an open area can be walked to from any other.
@@ -223,16 +227,16 @@ theorem openCorridor ∀ (level: Level) (area: Area) (listed: List.Mem area leve
     rewrite List.anyOfMem level.corridors (.contains position) area contained listed,
         Bool.orTrue (level.rooms.any (.contains position)),
         Bool.orTrue (level.exit.contains position),
-        Bool.orTrue (level.entrance.contains position) in
-      rfl
+        Bool.orTrue (level.entrance.contains position) then
+      byComputing
 
 theorem minDistanceLeft ∀ (m n: Nat): m ≤ Nat.min m n + distanceBetween m n := match below: Nat.leq m n with
-  | True => omega
-  | False => omega
+  | True => arithmetic
+  | False => arithmetic
 
 theorem minDistanceRight ∀ (m n: Nat): n ≤ Nat.min m n + distanceBetween m n := match below: Nat.leq m n with
-  | True => omega
-  | False => omega
+  | True => arithmetic
+  | False => arithmetic
 
 --| A corridor's two legs, and the cell where they meet.
 def bend (origin target: Position): Position := { row = origin.row, column = target.column }
@@ -254,8 +258,8 @@ theorem alongContains ∀ (origin target position: Position)
       across = distanceBetween origin.column target.column
     }
     position
-    omega
-    omega
+    arithmetic
+    arithmetic
     left
     right
 
@@ -278,8 +282,8 @@ theorem upContains ∀ (origin target position: Position)
     position
     top
     bottom
-    omega
-    omega
+    arithmetic
+    arithmetic
 
 --| `target` can be walked to from `origin`, by some moves.
 def Reachable (level: Level) (origin target: Position): Prop :=
@@ -326,21 +330,25 @@ theorem corridorJoins ∀ (level: Level) (origin target: Position)
     down = distanceBetween origin.row target.row,
     across = 0
   }
-  let alongOpen := openCorridor level along (listed along (Inl rfl))
-  let upOpen := openCorridor level up (listed up (Inr (Inl rfl)))
+  let alongOpen := openCorridor level along (listed along (Inl byComputing))
+  let upOpen := openCorridor level up (listed up (Inr (Inl byComputing)))
   let corner := bend origin target
   let originAlong :=
-    alongContains origin target origin rfl
+    alongContains origin target origin byComputing
       (Nat.minLeLeft origin.column target.column)
       (minDistanceLeft origin.column target.column)
   let cornerAlong :=
-    alongContains origin target corner rfl
+    alongContains origin target corner byComputing
       (Nat.minLeRight origin.column target.column)
       (minDistanceRight origin.column target.column)
   let cornerUp :=
-    upContains origin target corner rfl (Nat.minLeLeft origin.row target.row) (minDistanceLeft origin.row target.row)
+    upContains origin target corner byComputing
+      (Nat.minLeLeft origin.row target.row)
+      (minDistanceLeft origin.row target.row)
   let targetUp :=
-    upContains origin target target rfl (Nat.minLeRight origin.row target.row) (minDistanceRight origin.row target.row)
+    upContains origin target target byComputing
+      (Nat.minLeRight origin.row target.row)
+      (minDistanceRight origin.row target.row)
   {
     there = reachTrans level origin corner target
       (reachWithin level along alongOpen origin corner originAlong cornerAlong)
@@ -370,7 +378,7 @@ theorem linkJoins ∀ (level: Level) (rooms: List Area) (extra: Nat)
   corridorJoins level (middleOf rooms first) (middleOf rooms second) (area leg =>
     let corridorsFor: (Nat, Nat) → List Area := ((one, other)) =>
       corridorBetween (roomOf rooms one).middle (roomOf rooms other).middle
-    rewrite wired in List.memFlatMapIntro corridorsFor (first, second) area (roomLinks extra) linked leg)
+    rewrite wired then List.memFlatMapIntro corridorsFor (first, second) area (roomLinks extra) linked leg)
 
 --| Room 0 is joined to every room, along the snake: 0, 1, 2, 5, 4, 3.
 theorem hubTwo ∀ (level: Level) (rooms: List Area) (extra: Nat)
@@ -380,8 +388,8 @@ theorem hubTwo ∀ (level: Level) (rooms: List Area) (extra: Nat)
     (middleOf rooms 0)
     (middleOf rooms 1)
     (middleOf rooms 2)
-    (linkJoins level rooms extra wired 0 1 (Inl rfl))
-    (linkJoins level rooms extra wired 1 2 (Inr (Inl rfl)))
+    (linkJoins level rooms extra wired 0 1 (Inl byComputing))
+    (linkJoins level rooms extra wired 1 2 (Inr (Inl byComputing)))
 
 theorem hubFive ∀ (level: Level) (rooms: List Area) (extra: Nat)
     (wired: level.corridors = corridorsOf rooms extra):
@@ -391,7 +399,7 @@ theorem hubFive ∀ (level: Level) (rooms: List Area) (extra: Nat)
     (middleOf rooms 2)
     (middleOf rooms 5)
     (hubTwo level rooms extra wired)
-    (linkJoins level rooms extra wired 2 5 (Inr (Inr (Inl rfl))))
+    (linkJoins level rooms extra wired 2 5 (Inr (Inr (Inl byComputing))))
 
 theorem hubFour ∀ (level: Level) (rooms: List Area) (extra: Nat)
     (wired: level.corridors = corridorsOf rooms extra):
@@ -401,15 +409,15 @@ theorem hubFour ∀ (level: Level) (rooms: List Area) (extra: Nat)
     (middleOf rooms 5)
     (middleOf rooms 4)
     (hubFive level rooms extra wired)
-    (linkJoins level rooms extra wired 5 4 (Inr (Inr (Inr (Inl rfl)))))
+    (linkJoins level rooms extra wired 5 4 (Inr (Inr (Inr (Inl byComputing)))))
 
 theorem hubJoins ∀ (level: Level) (rooms: List Area) (extra: Nat)
     (wired: level.corridors = corridorsOf rooms extra) (index: Nat)
     (small: index < 6):
     Joined level (middleOf rooms 0) (middleOf rooms index) :=
   match index with
-    | Zero => { there = Witness [] rfl, back = Witness [] rfl }
-    | Succ Zero => linkJoins level rooms extra wired 0 1 (Inl rfl)
+    | Zero => { there = Witness [] byComputing, back = Witness [] byComputing }
+    | Succ Zero => linkJoins level rooms extra wired 0 1 (Inl byComputing)
     | Succ (Succ Zero) => hubTwo level rooms extra wired
     | Succ (Succ (Succ Zero)) =>
       joinedTrans level
@@ -417,7 +425,7 @@ theorem hubJoins ∀ (level: Level) (rooms: List Area) (extra: Nat)
         (middleOf rooms 4)
         (middleOf rooms 3)
         (hubFour level rooms extra wired)
-        (linkJoins level rooms extra wired 4 3 (Inr (Inr (Inr (Inr (Inl rfl))))))
+        (linkJoins level rooms extra wired 4 3 (Inr (Inr (Inr (Inr (Inl byComputing))))))
     | Succ (Succ (Succ (Succ Zero))) => hubFour level rooms extra wired
     | Succ (Succ (Succ (Succ (Succ Zero)))) => hubFive level rooms extra wired
 
@@ -431,7 +439,7 @@ theorem goalReachable ∀ (depth: Nat) (rooms: List Area) (entranceIndex exitInd
     GoalReachable (layOut depth rooms entranceIndex exitIndex extra)
     unfolding layOut :=
   let level := layOut depth rooms entranceIndex exitIndex extra
-  let wired: level.corridors = corridorsOf rooms extra := rfl
+  let wired: level.corridors = corridorsOf rooms extra := byComputing
   reachTrans level
     (middleOf rooms entranceIndex)
     (middleOf rooms 0)

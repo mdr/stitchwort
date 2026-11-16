@@ -13,7 +13,8 @@ theorem readsRange: Parse.Reads range RangeWritten := Parse.readsThen Parse.read
       Parse.readsDone
         { low, high } _
         (Witness lowRead
-          (Witness highRead (Both (rewrite dash, List.appendNil highRead in rfl) (Both lowNumber highNumber)))))))
+          (Witness highRead
+            (Both (rewrite dash, List.appendNil highRead then byComputing) (Both lowNumber highNumber)))))))
 
 theorem readsRule: Parse.Reads rule RuleWritten := Parse.readsThen Parse.readsTakeWhile1 (nameRead field (Both named
   (Both chars made)) =>
@@ -23,11 +24,11 @@ theorem readsRule: Parse.Reads rule RuleWritten := Parse.readsThen Parse.readsTa
         Parse.readsThen readsRange (secondRead second secondWritten =>
           Parse.readsDone
             { field, first, second } _
-            (rewrite made in
+            (rewrite made then
               Witness firstRead
                 (Witness secondRead
                   (Both
-                    (rewrite colon, or, List.appendNil secondRead in rfl)
+                    (rewrite colon, or, List.appendNil secondRead then byComputing)
                     (Both named (Both chars (Both firstWritten secondWritten)))))))))))
 
 theorem readsTicket: Parse.Reads ticket TicketWritten :=
@@ -36,7 +37,7 @@ theorem readsTicket: Parse.Reads ticket TicketWritten :=
     (valuesRead values written =>
       Parse.readsDone
         { values = values.toList } _
-        (Witness values (Both (rewrite List.appendNil valuesRead in written) rfl)))
+        (Witness values (Both (rewrite List.appendNil valuesRead then written) byComputing)))
 
 theorem readsNotes: Parse.Reads notes NotesWritten :=
   Parse.readsThen (Parse.readsLines rule RuleWritten readsRule) (rulesRead rules rulesWritten =>
@@ -60,15 +61,16 @@ theorem readsNotes: Parse.Reads notes NotesWritten :=
                                   (Witness blank2
                                     (Witness break2
                                       (Both
-                                        (rewrite yourHeading, nearbyHeading, List.appendNil nearbyRead in rfl)
+                                        (rewrite yourHeading, nearbyHeading, List.appendNil nearbyRead then byComputing)
                                         (Both
-                                          (Witness rules (Both rulesWritten rfl))
+                                          (Witness rules (Both rulesWritten byComputing))
                                           (Both blankFirst
                                             (Both breakFirst
                                               (Both yoursWritten
                                                 (Both blankSecond
                                                   (Both breakSecond
-                                                    (Witness nearby (Both nearbyWritten rfl)))))))))))))))))))))))))
+                                                    (Witness nearby
+                                                      (Both nearbyWritten byComputing)))))))))))))))))))))))))
 
 theorem parseWritten ∀ (input: Text) (notes: Notes)
     (parsed: Fail.toResult (() => parseNotes input) = Ok notes):

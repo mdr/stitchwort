@@ -14,7 +14,7 @@ def Within (rule: Rule) (n: Nat): Prop := ∀ (m: Nat) => rule.holds m → m = n
 
 def Anywhere (n: Nat): Prop := Within Rule.any n
 
-theorem withinAll ∀ [rule: Rule] (n: Nat): Within rule n := m h same => Std.Eq.sym same
+theorem withinAll ∀ [rule: Rule] (n: Nat): Within rule n := m h same => Std.Eq.flipped same
 
 theorem anywhereAll ∀ (n: Nat): Anywhere n := withinAll n
 

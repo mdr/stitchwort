@@ -10,7 +10,7 @@ def total (f: Nat → Nat): List Nat → Nat
 
 theorem totalCong ∀ (f1: Nat → Nat) (f2: Nat → Nat) (ef: ∀ (x: Nat) => f1 x = f2 x) (xs: List Nat): total f1 xs = total f2 xs :=
   match xs with
-    | Nil => rfl
+    | Nil => byComputing
     | Cons x xs => rewrite ef x, totalCong f1 f2 ef xs
 
 def weight (n: Nat): Nat

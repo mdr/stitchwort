@@ -37,13 +37,13 @@ def firstLead: List Team → Text
 -- earlier fields.
 type Sized (a: Type) = { items: List a, size: Nat, ok: items.length = size }
 
-def empty: Sized Nat := { items = [], size = 0, ok = rfl }
+def empty: Sized Nat := { items = [], size = 0, ok = byComputing }
 
 def push (x: a) (s: Sized a): Sized a := { items = [x, ..s.items], size = Succ s.size, ok = Eq.cong Succ s.ok }
 
 -- An update must replace every later field whose type mentions a replaced
 -- one: here `ok`, which mentions `items` and `size`.
-def grown: Sized Nat := { push 1 empty | items = [1, 2], size = 2, ok = rfl }
+def grown: Sized Nat := { push 1 empty | items = [1, 2], size = 2, ok = byComputing }
 
 -- A projection's type mentions the earlier fields as projections.
 theorem sizeIsLength ∀ (s: Sized a): s.items.length = s.size := s.ok
@@ -54,12 +54,12 @@ type Between (lo: Nat) (hi: Nat) (n: Nat): Prop = {
   below: n ≤ hi
 }
 
-theorem fiveBetween: Between 1 10 5 := { above = rfl, below = rfl }
+theorem fiveBetween: Between 1 10 5 := { above = byComputing, below = byComputing }
 
 theorem belowOf ∀ (b: Between 1 10 5): 5 ≤ 10 := b.below
 
--- An update that changes nothing is `rfl`, by record eta.
-theorem sameAge ∀ (p: Person): { p | age = p.age } = p := rfl
+-- An update that changes nothing is `byComputing`, by record eta.
+theorem sameAge ∀ (p: Person): { p | age = p.age } = p := byComputing
 
 -- A field called `tag` is an ordinary field.
 type Labelled = { tag: Text, value: Nat }

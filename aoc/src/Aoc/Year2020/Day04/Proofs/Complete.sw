@@ -7,13 +7,13 @@ namespace Aoc.Year2020.Day04.Proofs
 import Aoc.Year2020.Day04 (..)
 import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, NonEmptyList, Parse, Result, Text, Void)
 
-theorem fieldEta ∀ (f: Field): { key = f.key, value = f.value } = f := match f with | { key, value } => rfl
+theorem fieldEta ∀ (f: Field): { key = f.key, value = f.value } = f := match f with | { key, value } => byComputing
 
 theorem runsAsValue ∀ (p: () → {Parse Char} a) (read rest: List Char) (v w: a)
     (same: v = w)
     (runs: Parse.Runs p read rest v):
     Parse.Runs p read rest w :=
-  rewrite same at runs in runs
+  rewrite same at runs then runs
 
 --| `pick` reads each key's three letters.
 theorem runsKey ∀ (key: Key) (rest: List Char):
@@ -31,7 +31,7 @@ theorem runsKey ∀ (key: Key) (rest: List Char):
           ("cid", CountryId)
         ]
         rest
-        rfl
+        byComputing
     | IssueYear =>
       Parse.runsPick
         [("byr", BirthYear)]
@@ -46,7 +46,7 @@ theorem runsKey ∀ (key: Key) (rest: List Char):
           ("cid", CountryId)
         ]
         rest
-        (Both rfl rfl)
+        (Both byComputing byComputing)
     | ExpirationYear =>
       Parse.runsPick
         [("byr", BirthYear), ("iyr", IssueYear)]
@@ -54,7 +54,7 @@ theorem runsKey ∀ (key: Key) (rest: List Char):
         ExpirationYear
         [("hgt", Height), ("hcl", HairColor), ("ecl", EyeColor), ("pid", PassportId), ("cid", CountryId)]
         rest
-        (Both rfl (Both rfl rfl))
+        (Both byComputing (Both byComputing byComputing))
     | Height =>
       Parse.runsPick
         [("byr", BirthYear), ("iyr", IssueYear), ("eyr", ExpirationYear)]
@@ -62,7 +62,7 @@ theorem runsKey ∀ (key: Key) (rest: List Char):
         Height
         [("hcl", HairColor), ("ecl", EyeColor), ("pid", PassportId), ("cid", CountryId)]
         rest
-        (Both rfl (Both rfl (Both rfl rfl)))
+        (Both byComputing (Both byComputing (Both byComputing byComputing)))
     | HairColor =>
       Parse.runsPick
         [("byr", BirthYear), ("iyr", IssueYear), ("eyr", ExpirationYear), ("hgt", Height)]
@@ -70,7 +70,7 @@ theorem runsKey ∀ (key: Key) (rest: List Char):
         HairColor
         [("ecl", EyeColor), ("pid", PassportId), ("cid", CountryId)]
         rest
-        (Both rfl (Both rfl (Both rfl (Both rfl rfl))))
+        (Both byComputing (Both byComputing (Both byComputing (Both byComputing byComputing))))
     | EyeColor =>
       Parse.runsPick
         [("byr", BirthYear), ("iyr", IssueYear), ("eyr", ExpirationYear), ("hgt", Height), ("hcl", HairColor)]
@@ -78,7 +78,7 @@ theorem runsKey ∀ (key: Key) (rest: List Char):
         EyeColor
         [("pid", PassportId), ("cid", CountryId)]
         rest
-        (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl rfl)))))
+        (Both byComputing (Both byComputing (Both byComputing (Both byComputing (Both byComputing byComputing)))))
     | PassportId =>
       Parse.runsPick
         [
@@ -93,7 +93,8 @@ theorem runsKey ∀ (key: Key) (rest: List Char):
         PassportId
         [("cid", CountryId)]
         rest
-        (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl rfl))))))
+        (Both byComputing
+          (Both byComputing (Both byComputing (Both byComputing (Both byComputing (Both byComputing byComputing))))))
     | CountryId =>
       Parse.runsPick
         [
@@ -109,7 +110,9 @@ theorem runsKey ∀ (key: Key) (rest: List Char):
         CountryId
         []
         rest
-        (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl rfl)))))))
+        (Both byComputing
+          (Both byComputing
+            (Both byComputing (Both byComputing (Both byComputing (Both byComputing (Both byComputing byComputing)))))))
 
 theorem runsFieldPieces ∀ (key: Key) (value: Text)
     (nonEmpty: value.toList ≠ [])
@@ -122,7 +125,7 @@ theorem runsFieldPieces ∀ (key: Key) (value: Text)
     ([':'] ++ value.toList) _
     rest
     key _
-    rfl
+    byComputing
     (runsKey key _)
     (Parse.runsBind
       (() => Parse.char ':') _
@@ -130,7 +133,7 @@ theorem runsFieldPieces ∀ (key: Key) (value: Text)
       value.toList _
       rest
       () _
-      rfl
+      byComputing
       (Parse.runsChar ':' _)
       (Parse.runsBind
         (() => Parse.takeWhile1 "a value" isValueChar) _
@@ -138,7 +141,7 @@ theorem runsFieldPieces ∀ (key: Key) (value: Text)
         [] _
         rest
         (Text.fromList value.toList) _
-        (Eq.sym (List.appendNil value.toList))
+        (List.appendNil value.toList).flipped
         (Parse.runsTakeWhile1 _ _ value.toList rest nonEmpty values stops)
         (Parse.runsPure _ rest)))
 
@@ -149,15 +152,15 @@ theorem runsField ∀ (read: List Char) (f: Field)
   match written with
     | Both split (Both nonEmpty values) =>
       let sameField: ({ key = f.key, value = Text.fromList f.value.toList }: Field) = f :=
-        rewrite Text.fromToList f.value in fieldEta f
-      rewrite split in
+        rewrite Text.fromToList f.value then fieldEta f
+      rewrite split then
         runsAsValue field _ rest _ f sameField
           (runsFieldPieces f.key f.value nonEmpty values rest (Parse.takeWhileOfCannotStart isValueChar rest stops))
 
 theorem spaceNotValue ∀ (char: Char) (isSpace: Parse.isSpace char = True): isValueChar char = False :=
   match isSpace with
-    | Inl space => rewrite space.read in rfl
-    | Inr tab => rewrite tab.read in rfl
+    | Inl space => rewrite space.read then byComputing
+    | Inr tab => rewrite tab.read then byComputing
 
 --| A key's first letter is a value character, so a word starting with it is absent where a space or line break is.
 theorem wordAbsent ∀ (first: Char) (others: List Char) (char: Char) (more: List Char)
@@ -166,12 +169,11 @@ theorem wordAbsent ∀ (first: Char) (others: List Char) (char: Char) (more: Lis
     Text.stripPrefixChars [first, ..others] [char, ..more] = None :=
   match same: Text.sameChar first char with
     | True =>
-      Void.exfalso
+      Void.impossible
         (Bool.trueNotFalse
-          (Eq.trans
-            (Eq.sym letter)
-            (rewrite DecEq.sound (rewrite Text.sameCharEq first char at same in same) in stops)))
-    | False => rfl
+          (Eq.trans letter.flipped
+            (rewrite DecEq.sound (rewrite Text.sameCharEq first char at same then same) then stops)))
+    | False => byComputing
 
 theorem declinesField ∀ (input: List Char) (stops: Parse.CannotStart isValueChar input): Parse.Declines field input :=
   Parse.declinesBind
@@ -179,29 +181,34 @@ theorem declinesField ∀ (input: List Char) (stops: Parse.CannotStart isValueCh
     input
     (Parse.declinesPick _ input
       (match input with
-        | [] => Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl rfl)))))))
+        | [] =>
+          Both byComputing
+            (Both byComputing
+              (Both byComputing
+                (Both byComputing
+                  (Both byComputing (Both byComputing (Both byComputing (Both byComputing byComputing)))))))
         | [char, ..more] =>
-          let stop := stops char more rfl
+          let stop := stops char more byComputing
           Both
-            (wordAbsent 'b' ['y', 'r'] char more rfl stop)
+            (wordAbsent 'b' ['y', 'r'] char more byComputing stop)
             (Both
-              (wordAbsent 'i' ['y', 'r'] char more rfl stop)
+              (wordAbsent 'i' ['y', 'r'] char more byComputing stop)
               (Both
-                (wordAbsent 'e' ['y', 'r'] char more rfl stop)
+                (wordAbsent 'e' ['y', 'r'] char more byComputing stop)
                 (Both
-                  (wordAbsent 'h' ['g', 't'] char more rfl stop)
+                  (wordAbsent 'h' ['g', 't'] char more byComputing stop)
                   (Both
-                    (wordAbsent 'h' ['c', 'l'] char more rfl stop)
+                    (wordAbsent 'h' ['c', 'l'] char more byComputing stop)
                     (Both
-                      (wordAbsent 'e' ['c', 'l'] char more rfl stop)
+                      (wordAbsent 'e' ['c', 'l'] char more byComputing stop)
                       (Both
-                        (wordAbsent 'p' ['i', 'd'] char more rfl stop)
-                        (Both (wordAbsent 'c' ['i', 'd'] char more rfl stop) rfl)))))))))
+                        (wordAbsent 'p' ['i', 'd'] char more byComputing stop)
+                        (Both (wordAbsent 'c' ['i', 'd'] char more byComputing stop) byComputing)))))))))
 
 theorem runsFieldBreak ∀ (read after: List Char) (written: FieldBreak read ()): Parse.Runs fieldBreak read after () :=
   match written with
     | Inl same =>
-      rewrite same in
+      rewrite same then
         Parse.runsOneOfFirst (() => Parse.char ' ') [Parse.newline] [' '] after () (Parse.runsChar ' ' after)
     | Inr isBreak =>
       Parse.runsOneOfNext
@@ -212,8 +219,8 @@ theorem runsFieldBreak ∀ (read after: List Char) (written: FieldBreak read ())
         after
         ()
         (match isBreak with
-          | Inl same => rewrite same in Parse.declinesChar ' ' '\n' after rfl
-          | Inr same => rewrite same in Parse.declinesChar ' ' '\r' ['\n', ..after] rfl)
+          | Inl same => rewrite same then Parse.declinesChar ' ' '\n' after byComputing
+          | Inr same => rewrite same then Parse.declinesChar ' ' '\r' ['\n', ..after] byComputing)
         (Parse.runsNewline read after isBreak)
 
 --| A round of a passport's fields declines after a line break, where no field starts.
@@ -241,34 +248,41 @@ theorem declinesStepAtBreaks ∀ (input: List Char)
     (only: Parse.OnlyBreaks input):
     Parse.Declines (() => Parse.sepStep field fieldBreak) input :=
   match input with
-    | [] => declinesFieldBreak [] (Parse.declinesCharEnd ' ') (Parse.declinesNewline [] rfl rfl)
+    | [] => declinesFieldBreak [] (Parse.declinesCharEnd ' ') (Parse.declinesNewline [] byComputing byComputing)
     | [char, ..more] =>
       let only1: Parse.OnlyBreaks more := only.right
       match Parse.lineBreakChar char only.left with
         | Inl same =>
-          rewrite same in
-            declinesStepAfterBreak ['\n'] more (Inl rfl) (Parse.cannotStartAtBreaks isValueChar rfl rfl more only1)
+          rewrite same then
+            declinesStepAfterBreak
+              ['\n']
+              more
+              (Inl byComputing)
+              (Parse.cannotStartAtBreaks isValueChar byComputing byComputing more only1)
         | Inr same =>
-          rewrite same in
+          rewrite same then
             match more with
               | [] =>
-                declinesFieldBreak ['\r'] (Parse.declinesChar ' ' '\r' [] rfl) (Parse.declinesNewline ['\r'] rfl rfl)
+                declinesFieldBreak
+                  ['\r']
+                  (Parse.declinesChar ' ' '\r' [] byComputing)
+                  (Parse.declinesNewline ['\r'] byComputing byComputing)
               | [next, ..later] =>
                 let only2: Parse.OnlyBreaks later := only1.right
                 match Parse.lineBreakChar next only1.left with
                   | Inl same2 =>
-                    rewrite same2 in
+                    rewrite same2 then
                       declinesStepAfterBreak
                         ['\r', '\n']
                         later
-                        (Inr rfl)
-                        (Parse.cannotStartAtBreaks isValueChar rfl rfl later only2)
+                        (Inr byComputing)
+                        (Parse.cannotStartAtBreaks isValueChar byComputing byComputing later only2)
                   | Inr same2 =>
-                    rewrite same2 in
+                    rewrite same2 then
                       declinesFieldBreak
                         ['\r', '\r', ..later]
-                        (Parse.declinesChar ' ' '\r' ['\r', ..later] rfl)
-                        (Parse.declinesNewline ['\r', '\r', ..later] rfl rfl)
+                        (Parse.declinesChar ' ' '\r' ['\r', ..later] byComputing)
+                        (Parse.declinesNewline ['\r', '\r', ..later] byComputing byComputing)
 
 --| ... or at a blank line.
 theorem declinesStepAtBlank ∀ (blank more: List Char)
@@ -278,10 +292,10 @@ theorem declinesStepAtBlank ∀ (blank more: List Char)
     | Witness first (Witness middle (Witness last (Both split (Both firstBreak (Both spaced lastBreak))))) =>
       let after := middle ++ (last ++ more)
       let afterCannot: Parse.CannotStart isValueChar after := match middle with
-        | [] => Parse.cannotStartAfterBreak isValueChar rfl rfl last more lastBreak
+        | [] => Parse.cannotStartAfterBreak isValueChar byComputing byComputing last more lastBreak
         | [blank1, ..others] => char rest found =>
-          rewrite <- List.consInjectiveHead _ _ _ _ found in spaceNotValue blank1 spaced.left
-      rewrite split, List.appendAssoc first (middle ++ last) more, List.appendAssoc middle last more in
+          rewrite <- List.consInjectiveHead _ _ _ _ found then spaceNotValue blank1 spaced.left
+      rewrite split, List.appendAssoc first (middle ++ last) more, List.appendAssoc middle last more then
         declinesStepAfterBreak first after firstBreak afterCannot
 
 theorem declinesStepAtLinesEnd ∀ (input: List Char)
@@ -289,7 +303,7 @@ theorem declinesStepAtLinesEnd ∀ (input: List Char)
     Parse.Declines (() => Parse.sepStep field fieldBreak) input :=
   match end with
     | Inl only => declinesStepAtBreaks input only
-    | Inr (Witness blank (Witness more (Both isBlank same))) => rewrite same in declinesStepAtBlank blank more isBlank
+    | Inr (Witness blank (Witness more (Both isBlank same))) => rewrite same then declinesStepAtBlank blank more isBlank
 
 theorem runsPassport ∀ (read: List Char) (who: Passport)
     (written: PassportWritten read who) (rest: List Char)
@@ -312,14 +326,15 @@ theorem runsPassport ∀ (read: List Char) (who: Passport)
               (read2 after u written3 => runsFieldBreak read2 after written3)
               (read2 u written3 =>
                 match written3 with
-                  | Inl same => rewrite same in List.consNotNil ' ' []
+                  | Inl same => rewrite same then List.consNotNil ' ' []
                   | Inr isBreak => Parse.lineBreakNotEmpty read2 u isBreak)
               (read2 after u written3 =>
                 match written3 with
                   | Inl same =>
-                    rewrite same in (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found in rfl)
-                  | Inr isBreak => Parse.cannotStartAfterBreak isValueChar rfl rfl read2 after isBreak)
-              (Parse.cannotStartAtLinesEnd isValueChar rfl rfl spaceNotValue rest end)
+                    rewrite same then
+                      (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found then byComputing)
+                  | Inr isBreak => Parse.cannotStartAfterBreak isValueChar byComputing byComputing read2 after isBreak)
+              (Parse.cannotStartAtLinesEnd isValueChar byComputing byComputing spaceNotValue rest end)
               (declinesStepAtLinesEnd rest end)
               read
               head
@@ -343,7 +358,7 @@ theorem runsSections ∀ (read: List Char) (first: Passport) (others: List Passp
     (read2 v after ok end => runsPassport read2 v ok after end)
     Parse.linesEndAfterBlank
     (Parse.linesEndAtBreaks ending breaks)
-    (Parse.declinesSectionsAtBreaks passport isValueChar declinesPassport rfl rfl ending breaks)
+    (Parse.declinesSectionsAtBreaks passport isValueChar declinesPassport byComputing byComputing ending breaks)
     read
     first
     others
@@ -377,7 +392,7 @@ theorem parseComplete ∀ (input: Text) (passports: List Passport)
               read
               ending _
               passports
-              (Eq.sym same2)
+              same2.flipped
               (Parse.runsMap
                 (() => Parse.sections passport)
                 NonEmptyList.toList
@@ -391,4 +406,4 @@ theorem writtenUnique ∀ (input: Text) (a b: List Passport)
     (writtenA: InputWritten input a)
     (writtenB: InputWritten input b):
     a = b :=
-  Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))
+  Result.okInjective (Eq.trans (parseComplete input a writtenA).flipped (parseComplete input b writtenB))

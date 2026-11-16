@@ -27,7 +27,7 @@ theorem otherIsNone ∀ (char: Char): (char ∈ commandKeys) ∨ (commandOf char
   | 'j' => Inl (listed char)
   | 's' => Inl (listed char)
   | 'q' => Inl (listed char)
-  | _ => Inr rfl
+  | _ => Inr byComputing
 
 -- So a character that is a command is one of the five.
 theorem onlyListed ∀ (char: Char) (command: Command) (found: commandOf char = Some command): char ∈ commandKeys :=
@@ -37,7 +37,7 @@ theorem onlyListed ∀ (char: Char) (command: Command) (found: commandOf char = 
     | 'j' => listed char
     | 's' => listed char
     | 'q' => listed char
-    | _ => Void.exfalso (Option.noneNotSome command found)
+    | _ => (Option.noneNotSome command found).impossible
 
 -- From hypotheses: knowing the number is none of the literals, match on
 -- them, rule each out, and the `_` arm is the program's.
@@ -47,31 +47,31 @@ def kind: Nat → Nat
   | _ => 0
 
 theorem kindOfOther ∀ (n: Nat) (not3: n ≠ 3) (not7: n ≠ 7): kind n = 0 := match n with
-  | 3 => Void.exfalso (not3 rfl)
-  | 7 => Void.exfalso (not7 rfl)
-  | _ => rfl
+  | 3 => (not3 byComputing).impossible
+  | 7 => (not7 byComputing).impossible
+  | _ => byComputing
 
 -- A proof may list more literals than the program: the program's are among
 -- them.
 theorem kindOfBig ∀ (n: Nat): (kind n = 0) ∨ ((n = 3) ∨ (n = 7)) := match n with
-  | 0 => Inl rfl
-  | 3 => Inr (Inl rfl)
-  | 7 => Inr (Inr rfl)
-  | _ => Inl rfl
+  | 0 => Inl byComputing
+  | 3 => Inr (Inl byComputing)
+  | 7 => Inr (Inr byComputing)
+  | _ => Inl byComputing
 
 -- Two numbers more than `n` is none of 3 and 7 when `n` is none of 1 and 5.
 theorem kindShifted ∀ (n: Nat): (kind (Succ (Succ n)) = 0) ∨ ((n = 1) ∨ (n = 5)) := match n with
-  | 1 => Inr (Inl rfl)
-  | 5 => Inr (Inr rfl)
-  | _ => Inl rfl
+  | 1 => Inr (Inl byComputing)
+  | 5 => Inr (Inr byComputing)
+  | _ => Inl byComputing
 
 -- Nested: an inner match on the same variable knows the outer literals too.
 theorem kindNested ∀ (n: Nat): (kind n = 0) ∨ ((n = 3) ∨ (n = 7)) := match n with
-  | 3 => Inr (Inl rfl)
+  | 3 => Inr (Inl byComputing)
   | m =>
     match n with
-      | 7 => Inr (Inr rfl)
-      | _ => Inl rfl
+      | 7 => Inr (Inr byComputing)
+      | _ => Inl byComputing
 
 -- On `Int` too: in each sign's catch-all, the size is none of that sign's
 -- literals.
@@ -82,10 +82,10 @@ def sign: Int → Nat
   | _ => 3
 
 theorem signOther ∀ (i: Int): (sign i = 3) ∨ ((i = 0) ∨ ((i = 1) ∨ (i = (-1)))) := match i with
-  | 0 => Inr (Inl rfl)
-  | 1 => Inr (Inr (Inl rfl))
-  | (-1) => Inr (Inr (Inr rfl))
-  | _ => Inl rfl
+  | 0 => Inr (Inl byComputing)
+  | 1 => Inr (Inr (Inl byComputing))
+  | (-1) => Inr (Inr (Inr byComputing))
+  | _ => Inl byComputing
 
 test "commands" := ['k', 'j', 'q', 'x'].map commandOf == [Some Up, Some Down, Some Quit, None]
 test "kind" := [3, 7, 8].map kind == [1, 2, 0]

@@ -13,4 +13,4 @@ def grow: Nat → Tree → Tree
   | Succ n, tree => grow n (Node tree tree)
 
 theorem big (x: Nat) (t: Tree) (same: t = grow 30 (Leaf x)) (p: Tree → Prop) (h: p t): p (grow 30 (Leaf x)) :=
-  rewrite same in h
+  rewrite same then h

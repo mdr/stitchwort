@@ -11,4 +11,4 @@ def pick (d: Nat): List Nat → Nat
 
 theorem pickLe (d: Nat) (xs: List Nat): pick d xs ≥ 0 :=
   match induct (pick d xs) with
-    | eq1 d => omega
+    | eq1 d => arithmetic

@@ -2,14 +2,14 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-REFL] Error: `rfl` can't prove this
+[E-REFL] Error: `byComputing` can't prove this
     ╭─[ reject/float-sum-stays-a-sum.sw:12:74 ]
     │
- 12 │ theorem endCommutes (span: Span): span.end = span.length + span.start := rfl
-    │                                                                          ─┬─  
-    │                                                                           ╰─── `span.end` and `span.length + span.start` aren't equal
+ 12 │ theorem endCommutes (span: Span): span.end = span.length + span.start := byComputing
+    │                                                                          ─────┬─────  
+    │                                                                               ╰─────── `span.end` and `span.length + span.start` aren't equal
     │ 
     │ Note 1: computing the left side gives `span.start + span.length`
     │ 
-    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
 ────╯

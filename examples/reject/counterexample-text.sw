@@ -4,6 +4,6 @@
 -- stage 2).
 import Std (List, Text, Char)
 
-theorem reverseKeeps (t: Text): Text.fromList (List.reverse (Text.toList t)) = t := rfl
+theorem reverseKeeps (t: Text): Text.fromList (List.reverse (Text.toList t)) = t := byComputing
 
-theorem asciiOnly (c: Char): Char.toNat c < 128 := rfl
+theorem asciiOnly (c: Char): Char.toNat c < 128 := byComputing

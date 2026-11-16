@@ -15,4 +15,4 @@ def caught (n: Nat): {Partial} Result Nat Text :=
 
 def settled (n: Nat): {Partial} Result Nat Text := Err "three"
 
-theorem same: ((u => caught 5): () → {Partial} Result Nat Text) = (u => settled 5) := rfl
+theorem same: ((u => caught 5): () → {Partial} Result Nat Text) = (u => settled 5) := byComputing

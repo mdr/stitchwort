@@ -26,15 +26,15 @@ theorem mapKeepsSeat ∀ (found: Option Seat) (f: Seat → Seat)
     (keeps: ∀ (seat: Seat) => (f seat).isSeat = seat.isSeat):
     (found.map f).map Seat.isSeat = found.map Seat.isSeat :=
   match found with
-    | None => rfl
-    | Some seat => rewrite keeps seat in rfl
+    | None => byComputing
+    | Some seat => rewrite keeps seat then byComputing
 
 --| A spec round keeps the floor plan.
 theorem roundPlan ∀ (start layout: Layout) (considered: Position → Nat) (crowded: Nat)
     (same: SamePlan start layout):
     SamePlan start (Spec.round layout considered crowded) :=
   position =>
-    rewrite cellAtMapCells layout.grid.rows (at seat => Spec.becomes seat (considered at) crowded) position in
+    rewrite cellAtMapCells layout.grid.rows (at seat => Spec.becomes seat (considered at) crowded) position then
       Eq.trans
         (mapKeepsSeat
           (cellAt layout.grid.rows position)
@@ -50,24 +50,26 @@ theorem startSeat ∀ (start layout: Layout)
     (seat: here.isSeat = True):
     ∃ (before: Seat) => cellAt start.grid.rows position = Some before ∧ before.isSeat = True :=
   let plan := same position
-  rewrite found at plan in
+  rewrite found at plan then
     match e: cellAt start.grid.rows position with
-      | Some before => Witness before (Both rfl (rewrite <- Option.someInjective plan in seat))
+      | Some before => Witness before (Both byComputing (rewrite <- Option.someInjective plan then seat))
 
 --| An occupied seat on the layout is a seat on the start.
 theorem occupiedSeat ∀ (start layout: Layout)
     (same: SamePlan start layout) (near: Position)
     (occupied: (layout.grid.lookup near == Some Occupied) = True):
     (start.grid.lookup near).any (.isSeat) = True :=
-  rewrite lookupAt start.grid near in
+  rewrite lookupAt start.grid near then
     match e: cellAt layout.grid.rows near with
-      | None => Void.exfalso (Bool.falseNotTrue (rewrite lookupAt layout.grid near, e at occupied in occupied))
+      | None => Void.impossible (Bool.falseNotTrue (rewrite lookupAt layout.grid near, e at occupied then occupied))
       | Some here =>
         match here with
-          | Occupied => Exists.elim (startSeat start layout same near Occupied e rfl) (before both =>
-            rewrite And.left both in And.right both)
-          | Empty => Void.exfalso (Bool.falseNotTrue (rewrite lookupAt layout.grid near, e at occupied in occupied))
-          | Floor => Void.exfalso (Bool.falseNotTrue (rewrite lookupAt layout.grid near, e at occupied in occupied))
+          | Occupied => Exists.elim (startSeat start layout same near Occupied e byComputing) (before both =>
+            rewrite And.left both then And.right both)
+          | Empty =>
+            Void.impossible (Bool.falseNotTrue (rewrite lookupAt layout.grid near, e at occupied then occupied))
+          | Floor =>
+            Void.impossible (Bool.falseNotTrue (rewrite lookupAt layout.grid near, e at occupied then occupied))
 
 --| A seat's planned view is what the rule looks at on the start, seats
 --| only.
@@ -85,8 +87,8 @@ theorem planInView ∀ (rule: Rule) (start layout: Layout)
     rewrite lookupOrAt (start.grid.map looks) [] position,
         cellAtMapCells start.grid.rows looks position,
         And.left both,
-        And.right both in
-      rfl)
+        And.right both then
+      byComputing)
 
 --| On a layout with the start's floor plan, a seat's planned view counts
 --| the occupied seats the rule sees on the layout, when the rule looks at
@@ -105,5 +107,5 @@ theorem planCount ∀ (rule: Rule) (start layout: Layout)
         (near => layout.grid.lookup near == Some Occupied)
         (near => (start.grid.lookup near).any (.isSeat))
         (near occupied => occupiedSeat start layout same near occupied),
-      sameView in
-    rfl
+      sameView then
+    byComputing

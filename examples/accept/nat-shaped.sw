@@ -13,7 +13,7 @@ type Count (a: Type) = | More (rest: Count a) (ok: 1 = 1) | Stop
 
 def Count.of: Nat → Count a
   | Zero => Stop
-  | Succ n => More (Count.of n) rfl
+  | Succ n => More (Count.of n) byComputing
 
 def Count.size: Count a → Nat
   | Stop => 0
@@ -67,7 +67,7 @@ def squares: Vec Nat 6 := Vec.tabulate 6 (i => Fin.toNat i * Fin.toNat i)
 
 def report: Text :=
   let c := Count.join (Count.of 7: Count Nat) (Count.of 5)
-  let atFour := Vec.get squares (Fin.ofNatLt 6 4 rfl)
+  let atFour := Vec.get squares (Fin.ofNatLt 6 4 byComputing)
   let checked := List.filterMap [0, 3, 10, 12] (Fin.ofNatCheck 11)
   "${Count.size c} ${Count.half c} ${Depth.size (Depth.tower 9)} "
     ++ "${List.filterMap [0, 1, 2, 3, 4, 5] (Fin.ofNatCheck 5) |>.map label} "

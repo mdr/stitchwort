@@ -62,7 +62,7 @@ def keywords (words: List Text): List Text := words.filter (matches | "def" | "m
 test "filtered" := keywords ["def", "x", "match"] == ["def", "match"]
 
 -- In a proof: the arm's equation states what the catch-all knows.
-theorem keywordDef: keyword "def" = Some Def := rfl
+theorem keywordDef: keyword "def" = Some Def := byComputing
 
 theorem keywordOther ∀ (word: Text)
     (notDef: word ≠ "def")
@@ -78,7 +78,7 @@ theorem keywordDo: keyword "do" = None := keyword.eq5 "do" byDecision byDecision
 -- equation (a proof that splits `word` itself would meet the characters).
 theorem onlyDef ∀ (word: Text) (h: keyword word = Some Def): word = "def" :=
   if isDef: word = "def" then isDef
-  else if isTheorem: word = "theorem" then (rewrite isTheorem at h in match Option.someInjective h with | ())
-  else if isMatch: word = "match" then (rewrite isMatch at h in match Option.someInjective h with | ())
-  else if isWith: word = "with" then (rewrite isWith at h in match Option.someInjective h with | ())
-  else (rewrite keywordOther word isDef isTheorem isMatch isWith at h in match h with | ())
+  else if isTheorem: word = "theorem" then (rewrite isTheorem at h then match Option.someInjective h with | ())
+  else if isMatch: word = "match" then (rewrite isMatch at h then match Option.someInjective h with | ())
+  else if isWith: word = "with" then (rewrite isWith at h then match Option.someInjective h with | ())
+  else (rewrite keywordOther word isDef isTheorem isMatch isWith at h then match h with | ())

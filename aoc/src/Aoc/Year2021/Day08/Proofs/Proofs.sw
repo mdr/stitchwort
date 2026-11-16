@@ -30,7 +30,7 @@ theorem part1AnswerUnique ∀ (entries: List Entry) (first second: Nat)
     first = second :=
   match h1, h2 with
     | Witness w1 (Both d1 e1), Witness w2 (Both d2 e2) =>
-      Eq.trans e1 (Eq.trans (Eq.sym (part1Correct entries w1 d1)) (Eq.trans (part1Correct entries w2 d2) (Eq.sym e2)))
+      Eq.trans e1 (Eq.trans (part1Correct entries w1 d1).flipped (Eq.trans (part1Correct entries w2 d2) e2.flipped))
 
 theorem part2AnswerUnique ∀ (entries: List Entry) (first second: Nat)
     (h1: Part2Answer entries first)
@@ -38,14 +38,14 @@ theorem part2AnswerUnique ∀ (entries: List Entry) (first second: Nat)
     first = second :=
   match h1, h2 with
     | Witness w1 (Both d1 e1), Witness w2 (Both d2 e2) =>
-      Eq.trans e1 (Eq.trans (Eq.sym (part2Correct entries w1 d1)) (Eq.trans (part2Correct entries w2 d2) (Eq.sym e2)))
+      Eq.trans e1 (Eq.trans (part2Correct entries w1 d1).flipped (Eq.trans (part2Correct entries w2 d2) e2.flipped))
 
 --| Two wirings that decode a display read the same output value.
 theorem decodedValueUnique ∀ (first second: Segment → Segment) (entry: Entry)
     (d1: Decodes first entry)
     (d2: Decodes second entry):
     decodedValue first entry = decodedValue second entry :=
-  Eq.trans (Eq.sym (valueCorrect first entry d1)) (valueCorrect second entry d2)
+  Eq.trans (valueCorrect first entry d1).flipped (valueCorrect second entry d2)
 
 -- One display.
 
@@ -56,7 +56,7 @@ theorem valueCorrect ∀ (wiring: Segment → Segment) (entry: Entry)
   match decodes with
     | Both wired (Both perm outputs) => List.foldLeftCongMem entry.outputs 0 _ _ (n output m =>
       match e: shown wiring output with
-        | None => Void.exfalso (notNone (shown wiring output) (outputs.read output m) e)
+        | None => Void.impossible (notNone (shown wiring output) (outputs.read output m) e)
         | Some digit => Eq.cong (k => 10 * n + k) (decodeShown wiring entry decodes output digit e))
 
 --| The program's count of 1s, 4s, 7s and 8s is the one the wiring reads.
@@ -66,7 +66,7 @@ theorem easyCorrect ∀ (wiring: Segment → Segment) (entry: Entry)
   match decodes with
     | Both wired (Both perm outputs) => List.countCongMem _ _ _ (output m =>
       match e: shown wiring output with
-        | None => Void.exfalso (notNone (shown wiring output) (outputs.read output m) e)
+        | None => Void.impossible (notNone (shown wiring output) (outputs.read output m) e)
         | Some digit =>
           match List.findRangeSome (d => Shows wiring output d) 10 digit e with
             | Both shows (Both below _) =>
@@ -99,7 +99,7 @@ theorem scoreDrawn ∀ (wiring: Segment → Segment) (entry: Entry)
       calc score entry.patterns pattern
         _ = segments.sumBy (wire => if pattern.has wire then litIn entry.patterns wire else 0)
         _ = segments.sumBy (wire => lit (wiring wire)) := List.sumByCong segments _ _ (wire =>
-          rewrite hasDrawn wiring pattern digit shows wire, litDrawn wiring entry decodes wire in rfl)
+          rewrite hasDrawn wiring pattern digit shows wire, litDrawn wiring entry decodes wire then byComputing)
         _ = drawnScore digit := sumRewired wiring wired lit
 
 --| How many patterns have a wire on is how many digits light the segment it
@@ -122,10 +122,10 @@ theorem litDrawn ∀ (wiring: Segment → Segment) (entry: Entry)
               (List.memMap entry.patterns pattern m (shown wiring))
           match List.memMapElim Some (shown wiring pattern) digits listed with
             | Witness digit (Both _ isShown) =>
-              match List.findRangeSome (d => Shows wiring pattern d) 10 digit (Eq.sym isShown) with
-                | Both shows _ => rewrite <- isShown, hasDrawn wiring pattern digit shows wire in rfl)
+              match List.findRangeSome (d => Shows wiring pattern d) 10 digit isShown.flipped with
+                | Both shows _ => rewrite <- isShown, hasDrawn wiring pattern digit shows wire then byComputing)
         _ = (entry.patterns.map (shown wiring)).count lights :=
-          Eq.sym (List.countMap entry.patterns lights (shown wiring))
+          Eq.flipped (List.countMap entry.patterns lights (shown wiring))
         _ = (digits.map Some).count lights :=
           List.countPerm (entry.patterns.map (shown wiring)) (digits.map Some) perm lights
         _ = digitsLighting (wiring wire) := List.countMap digits lights Some
@@ -155,17 +155,17 @@ theorem hasDrawn ∀ (wiring: Segment → Segment) (pattern: Pattern) (digit: Na
 theorem countRewired ∀ (wiring: Segment → Segment)
     (wired: IsWiring wiring) (h: Segment → Bool):
     segments.count (wire => h (wiring wire)) = segments.count h :=
-  Eq.trans (Eq.sym (List.countMap segments h wiring)) (List.countPerm (segments.map wiring) segments wired h)
+  Eq.trans (List.countMap segments h wiring).flipped (List.countPerm (segments.map wiring) segments wired h)
 
 theorem sumRewired ∀ (wiring: Segment → Segment)
     (wired: IsWiring wiring) (h: Segment → Nat):
     segments.sumBy (wire => h (wiring wire)) = segments.sumBy h :=
-  Eq.trans (Eq.sym (List.sumByMap segments h wiring)) (List.sumByPerm (segments.map wiring) segments wired h)
+  Eq.trans (List.sumByMap segments h wiring).flipped (List.sumByPerm (segments.map wiring) segments wired h)
 
 theorem allRewired ∀ (wiring: Segment → Segment)
     (wired: IsWiring wiring) (h: Segment → Bool):
     segments.all (wire => h (wiring wire)) = segments.all h :=
-  Eq.trans (Eq.sym (List.allMapBool segments h wiring)) (List.allPerm (segments.map wiring) segments wired h)
+  Eq.trans (Eq.flipped (List.allMapBool segments h wiring)) (List.allPerm (segments.map wiring) segments wired h)
 
 --| Under a wiring, a pattern shows at most one digit, so it shows the digit
 --| `shown` finds.
@@ -178,7 +178,7 @@ theorem shownOf ∀ (wiring: Segment → Segment)
   let passes := (d: Nat) => Shows wiring pattern d
   match e: digits.find passes with
     | None =>
-      Void.exfalso
+      Void.impossible
         (List.findNoneNotMem digits passes digit shows (List.memRangeFromIntro digit 10 0 (Nat.zeroLe digit) below) e)
     | Some found =>
       match List.findRangeSome passes 10 found e with
@@ -195,11 +195,11 @@ theorem sameDigit ∀ (wiring: Segment → Segment)
     first = second :=
   let agree := (s: Segment) => (digitSegments first).contains s == (digitSegments second).contains s
   let atWires: segments.all (wire => agree (wiring wire)) = True := List.allTrue segments _ (wire =>
-    rewrite <- hasDrawn wiring pattern first firstShows wire, <- hasDrawn wiring pattern second secondShows wire in
+    rewrite <- hasDrawn wiring pattern first firstShows wire, <- hasDrawn wiring pattern second secondShows wire then
       boolEqSelf (pattern.has wire))
-  digitsDiffer first second firstBelow secondBelow (rewrite <- allRewired wiring wired agree in atWires)
+  digitsDiffer first second firstBelow secondBelow (rewrite <- allRewired wiring wired agree then atWires)
 
 theorem boolEqSelf ∀ (b: Bool): (b == b) = True := cases
 
 theorem notNone ∀ (o: Option a) (some: o.isSome = True) (none: o = None): Void :=
-  rewrite none at some in Bool.falseNotTrue some
+  rewrite none at some then Bool.falseNotTrue some

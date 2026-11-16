@@ -69,5 +69,5 @@ test "one number" := solvePart2 (report [[True, True, False]]) == Some 36
 test "no numbers" := (solvePart1 [], solvePart2 [], lifeSupportRating []) == (0, None, None)
 
 --| The examples, proved by computing them.
-theorem examplePart1: solvePart1 exampleReport = 198 := rfl
-theorem examplePart2: solvePart2 exampleReport = Some 230 := rfl
+theorem examplePart1: solvePart1 exampleReport = 198 := byComputing
+theorem examplePart2: solvePart2 exampleReport = Some 230 := byComputing

@@ -17,10 +17,10 @@ type Loop: Prop =
 def Loop.inv: Loop → Loop
   | MkLoop n => n
 
-theorem boxEq (a: Prop) (p: a) (q: a): MkBox p = MkBox q := rfl
+theorem boxEq (a: Prop) (p: a) (q: a): MkBox p = MkBox q := byComputing
 
 theorem Prop.irrel (a: Prop) (p: a) (q: a): p = q :=
-  J (y e2 => p = Box.unbox y) rfl (boxEq a p q)
+  J (y e2 => p = Box.unbox y) byComputing (boxEq a p q)
 
 def Loop.expose (l: Loop): Loop :=
   J (y e => Loop) (MkLoop (Loop.inv l)) (Prop.irrel Loop (MkLoop (Loop.inv l)) l)

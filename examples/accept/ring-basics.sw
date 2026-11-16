@@ -1,4 +1,4 @@
--- `ring` proves equations that hold by the laws of + and * (commutative
+-- `algebra` proves equations that hold by the laws of + and * (commutative
 -- semiring laws over Nat, ring laws over Int): it puts both sides in a normal
 -- form, a sum of monomials, and writes a proof by the Std.Ring soundness
 -- theorem. Anything it does not understand (a call, `a - b` on Nat, `x / y`)
@@ -6,47 +6,47 @@
 
 import Std (Nat, Int, List)
 
-theorem comm ∀ (x y: Nat): x + y = y + x := ring
+theorem comm ∀ (x y: Nat): x + y = y + x := algebra
 
-theorem distrib ∀ (a b c: Nat): a * (b + c) = a * b + a * c := ring
+theorem distrib ∀ (a b c: Nat): a * (b + c) = a * b + a * c := algebra
 
-theorem square ∀ (x: Nat): (x + 1) * (x + 1) = x * x + 2 * x + 1 := ring
+theorem square ∀ (x: Nat): (x + 1) * (x + 1) = x * x + 2 * x + 1 := algebra
 
 -- `Succ` is `+ 1`, numerals are constants, and `Nat.pow` with a literal exponent multiplies out.
-theorem succs ∀ (x y: Nat): Succ x * Succ y = x * y + x + y + 1 := ring
+theorem succs ∀ (x y: Nat): Succ x * Succ y = x * y + x + y + 1 := algebra
 
-theorem pow2 ∀ (x: Nat): Nat.pow x 2 = x * x := ring
+theorem pow2 ∀ (x: Nat): Nat.pow x 2 = x * x := algebra
 
-theorem literals: 2 * 3 + 4 = 10 := ring
+theorem literals: 2 * 3 + 4 = 10 := algebra
 
 -- Degree four.
 theorem fourth ∀ (a b: Nat):
     (a + b) * (a + b) * (a + b) * (a + b)
       = Nat.pow a 4 + 4 * Nat.pow a 3 * b + 6 * a * a * b * b + 4 * a * Nat.pow b 3 + Nat.pow b 4 :=
-  ring
+  algebra
 
 -- Over Int, negation and subtraction cancel.
-theorem difference ∀ (a b: Int): (a + b) * (a - b) = a * a - b * b := ring
+theorem difference ∀ (a b: Int): (a + b) * (a - b) = a * a - b * b := algebra
 
-theorem negNeg ∀ (a: Int): -(-a) = a := ring
+theorem negNeg ∀ (a: Int): -(-a) = a := algebra
 
-theorem subCancel ∀ (d: Int): d + (1 - d) = 1 := ring
+theorem subCancel ∀ (d: Int): d + (1 - d) = 1 := algebra
 
 -- `toInt` of a Nat sum is the Int sum.
-theorem toIntAdd ∀ (x y: Nat): x.toInt + y.toInt = (y + x).toInt := ring
+theorem toIntAdd ∀ (x y: Nat): x.toInt + y.toInt = (y + x).toInt := algebra
 
 -- Calls are atoms: `List.length xs` is one unknown.
-theorem lengthAtom ∀ (xs: List Nat) (b: Nat): b * List.length xs + b = b * (List.length xs + 1) := ring
+theorem lengthAtom ∀ (xs: List Nat) (b: Nat): b * List.length xs + b = b * (List.length xs + 1) := algebra
 
--- `ring [h]` also uses equations: the goal holds once each is added, scaled as needed.
-theorem pairsStep ∀ (n p: Nat) (h: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n := ring [h]
+-- `algebra [h]` also uses equations: the goal holds once each is added, scaled as needed.
+theorem pairsStep ∀ (n p: Nat) (h: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n := algebra [h]
 
 -- A hypothesis is used whichever way round the goal needs it: here `c` is replaced by `a + b`.
-theorem eitherWay ∀ (a b c: Nat) (h: a + b = c): c + c = a + b + c := ring [h]
+theorem eitherWay ∀ (a b c: Nat) (h: a + b = c): c + c = a + b + c := algebra [h]
 
--- `(ring: a = b)` states the equation, here as a rewrite rule.
-theorem asRule ∀ (x y: Nat) (f: Nat → Nat): f (x * y) = f (y * x) := rewrite (ring: x * y = y * x)
+-- `(algebra: a = b)` states the equation, here as a rewrite rule.
+theorem asRule ∀ (x y: Nat) (f: Nat → Nat): f (x * y) = f (y * x) := rewrite (algebra: x * y = y * x)
 
 -- And as a calc step.
 theorem viaCalc ∀ (x: Nat): x + x = 2 * x := calc x + x
-  _ = 2 * x := ring
+  _ = 2 * x := algebra

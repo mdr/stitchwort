@@ -7,25 +7,25 @@ import Aoc.Year2020.Day20 (..)
 import Aoc.Year2020.Day20 (Spec)
 import Std (Bool, DecEq, Eq, List, Nat, Option, Void)
 
-theorem orientationCount ∀ (image: Image): image.orientations.length = 8 := rfl
+theorem orientationCount ∀ (image: Image): image.orientations.length = 8 := byComputing
 
 theorem lastReverseOnto ∀ (xs acc: List a) (y: a): List.last (List.reverseOnto xs [y, ..acc]) = List.last [y, ..acc] :=
   match xs with
-    | [] => rfl
+    | [] => byComputing
     | [x, ..rest] => lastReverseOnto rest [y, ..acc] x
 
 theorem lastReverse ∀ (fallback: a) (xs: List a): xs.reverse.last.getOrElse fallback = xs.headOr fallback :=
   match xs with
-    | [] => rfl
-    | [x, ..rest] => rewrite lastReverseOnto rest [] x in rfl
+    | [] => byComputing
+    | [x, ..rest] => rewrite lastReverseOnto rest [] x then byComputing
 
 theorem headReverse ∀ (fallback: a) (xs: List a): xs.reverse.headOr fallback = xs.last.getOrElse fallback :=
-  rewrite <- lastReverse fallback xs.reverse, List.reverseReverse xs in rfl
+  rewrite <- lastReverse fallback xs.reverse, List.reverseReverse xs then byComputing
 
 theorem flipTwice ∀ (image: Image): image.flip.flip = image :=
   let rows: image.rows.map (.reverse) |> .map (.reverse) = image.rows :=
     rewrite List.mapMap image.rows (.reverse) (.reverse),
-        List.mapCong image.rows (row => row.reverse.reverse) (row => row) List.reverseReverse in
+        List.mapCong image.rows (row => row.reverse.reverse) (row => row) List.reverseReverse then
       List.mapId image.rows
   Image.ext image.flip.flip image rows
 
@@ -40,21 +40,22 @@ theorem flipEdges ∀ (image: Image):
         image.rows.map (row => row.last.getOrElse Calm)
       ] :=
   let top: (image.rows.map (.reverse)).headOr [] = (image.rows.headOr []).reverse := match image.rows with
-    | [] => rfl
-    | [row, ..rest] => rfl
+    | [] => byComputing
+    | [row, ..rest] => byComputing
   let bottom: (image.rows.map (.reverse)).last.getOrElse [] = (image.rows.last.getOrElse []).reverse :=
-    rewrite List.lastMap image.rows (.reverse) in
+    rewrite List.lastMap image.rows (.reverse) then
       match image.rows.last with
-        | None => rfl
-        | Some row => rfl
+        | None => byComputing
+        | Some row => byComputing
   let right: (image.rows.map (.reverse)).map (row => row.last.getOrElse Calm)
     = image.rows.map (row => row.headOr Calm) :=
-    rewrite List.mapMap image.rows (row => row.last.getOrElse Calm) (.reverse) in
+    rewrite List.mapMap image.rows (row => row.last.getOrElse Calm) (.reverse) then
       List.mapCong image.rows _ _ (lastReverse Calm)
   let left: (image.rows.map (.reverse)).map (row => row.headOr Calm)
     = image.rows.map (row => row.last.getOrElse Calm) :=
-    rewrite List.mapMap image.rows (row => row.headOr Calm) (.reverse) in List.mapCong image.rows _ _ (headReverse Calm)
-  rewrite <- top, <- bottom, <- right, <- left in rfl
+    rewrite List.mapMap image.rows (row => row.headOr Calm) (.reverse) then
+      List.mapCong image.rows _ _ (headReverse Calm)
+  rewrite <- top, <- bottom, <- right, <- left then byComputing
 
 -- Columns
 
@@ -62,33 +63,34 @@ theorem firstColumn ∀ (fallback: a) (rows: List (List a)) (k: Nat)
     (h: List.AllLength (Succ k) rows):
     List.filterMap rows (.get 0) = rows.map (row => row.headOr fallback) :=
   match rows, h with
-    | [], sized => rfl
-    | [[], ..rest], Both sized more => Void.exfalso (Nat.zeroNotSucc k sized)
+    | [], sized => byComputing
+    | [[], ..rest], Both sized more => (Nat.zeroNotSucc k sized).impossible
     | [[x, ..xs], ..rest], Both sized more => Eq.cong (Cons x) (firstColumn fallback rest k more)
 
 theorem lastDrop ∀ (fallback: a) (row: List a) (k: Nat)
     (sized: row.length = Succ (Succ k)):
     (row.drop 1).last.getOrElse fallback = row.last.getOrElse fallback :=
   match row with
-    | [] => Void.exfalso (Nat.zeroNotSucc _ sized)
-    | [x] => Void.exfalso (Nat.zeroNotSucc _ (Nat.succInjective sized))
-    | [x, y, ..rest] => rfl
+    | [] => (Nat.zeroNotSucc _ sized).impossible
+    | [x] => Void.impossible (Nat.zeroNotSucc _ (Nat.succInjective sized))
+    | [x, y, ..rest] => byComputing
 
 theorem lastsDrop ∀ (fallback: a) (rows: List (List a)) (k: Nat)
     (h: List.AllLength (Succ (Succ k)) rows):
     (rows.map (.drop 1)).map (row => row.last.getOrElse fallback) = rows.map (row => row.last.getOrElse fallback) :=
   match rows, h with
-    | [], sized => rfl
-    | [row, ..rest], Both sized more => rewrite lastDrop fallback row k sized, lastsDrop fallback rest k more in rfl
+    | [], sized => byComputing
+    | [row, ..rest], Both sized more =>
+      rewrite lastDrop fallback row k sized, lastsDrop fallback rest k more then byComputing
 
 theorem lastColumnOne ∀ (fallback: a) (rows: List (List a))
     (h: List.AllLength 1 rows):
     List.filterMap rows (.get 0) = rows.map (row => row.last.getOrElse fallback) :=
   match rows, h with
-    | [], sized => rfl
-    | [[], ..rest], Both sized more => Void.exfalso (Nat.zeroNotSucc _ sized)
+    | [], sized => byComputing
+    | [[], ..rest], Both sized more => (Nat.zeroNotSucc _ sized).impossible
     | [[x], ..rest], Both sized more => Eq.cong (Cons x) (lastColumnOne fallback rest more)
-    | [[x, y, ..ys], ..rest], Both sized more => Void.exfalso (Nat.zeroNotSucc _ (Nat.succInjective (Eq.sym sized)))
+    | [[x, y, ..ys], ..rest], Both sized more => Void.impossible (Nat.zeroNotSucc _ (Nat.succInjective sized.flipped))
 
 --| The last column of rows all `Succ k` long is the last cell of each row.
 theorem lastColumn ∀ (fallback: a) (k: Nat) (rows: List (List a))
@@ -106,39 +108,40 @@ theorem columnsFirst ∀ (fallback: a) (width: Nat) (first: List a) (rest: List 
     (h: List.AllLength width [first, ..rest]):
     (List.transposeN width [first, ..rest]).map (column => column.headOr fallback) = first :=
   match width, first, h with
-    | Zero, first, Both sized more => Eq.sym (List.lengthZero first sized)
-    | Succ k, [], Both sized more => Void.exfalso (Nat.zeroNotSucc _ sized)
+    | Zero, first, Both sized more => (List.lengthZero first sized).flipped
+    | Succ k, [], Both sized more => (Nat.zeroNotSucc _ sized).impossible
     | Succ k, [x, ..xs], sized =>
       Eq.cong
         (Cons x)
         (columnsFirst fallback k xs (rest.map (.drop 1)) (List.tailsAllLength [[x, ..xs], ..rest] k sized))
 
 theorem lastMemCons ∀ (first: a) (rest: List a): ∃ (last: a) => List.last [first, ..rest] = Some last := match rest with
-  | [] => Witness first rfl
+  | [] => Witness first byComputing
   | [second, ..more] => lastMemCons second more
 
 theorem consHeadDrop ∀ (fallback: a) (row: List a) (k: Nat)
     (sized: row.length = Succ k):
     [row.headOr fallback, ..row.drop 1] = row :=
   match row with
-    | [] => Void.exfalso (Nat.zeroNotSucc _ sized)
-    | [x, ..xs] => rfl
+    | [] => (Nat.zeroNotSucc _ sized).impossible
+    | [x, ..xs] => byComputing
 
 theorem columnsLastRow ∀ (fallback: a) (width: Nat) (rows: List (List a)) (row: List a)
     (sized: List.AllLength width rows)
     (found: List.last rows = Some row):
     (List.transposeN width rows).map (column => column.last.getOrElse fallback) = row :=
   match width with
-    | Zero => Eq.sym (List.lengthZero row (List.allLengthMem rows 0 sized (List.lastMem rows row found)))
+    | Zero => Eq.flipped (List.lengthZero row (List.allLengthMem rows 0 sized (List.lastMem rows row found)))
     | Succ k =>
       let sizedRow := List.allLengthMem rows (Succ k) sized (List.lastMem rows row found)
       let foundTail: List.last (rows.map (.drop 1)) = Some (row.drop 1) :=
-        rewrite List.lastMap rows (.drop 1), found in rfl
+        rewrite List.lastMap rows (.drop 1), found then byComputing
       let later :=
         columnsLastRow fallback k (rows.map (.drop 1)) (row.drop 1) (List.tailsAllLength rows k sized) foundTail
       let head: (List.filterMap rows (.get 0)).last.getOrElse fallback = row.headOr fallback :=
-        rewrite firstColumn fallback rows k sized, List.lastMap rows (row => row.headOr fallback), found in rfl
-      rewrite later, head in consHeadDrop fallback row k sizedRow
+        rewrite firstColumn fallback rows k sized, List.lastMap rows (row => row.headOr fallback), found then
+          byComputing
+      rewrite later, head then consHeadDrop fallback row k sizedRow
 
 --| The last cell of each column is the last row.
 theorem columnsLast ∀ (fallback: a) (width: Nat) (first: List a) (rest: List (List a))
@@ -146,10 +149,10 @@ theorem columnsLast ∀ (fallback: a) (width: Nat) (first: List a) (rest: List (
     (List.transposeN width [first, ..rest]).map (column => column.last.getOrElse fallback)
       = List.last [first, ..rest] |> .getOrElse [] :=
   match lastMemCons first rest with
-    | Witness row found => rewrite found in columnsLastRow fallback width [first, ..rest] row sized found
+    | Witness row found => rewrite found then columnsLastRow fallback width [first, ..rest] row sized found
 
 theorem reverseNil ∀ (xs: List a) (empty: xs.reverse = []): xs = [] :=
-  List.lengthZero xs (rewrite <- List.lengthReverse xs, empty in rfl)
+  List.lengthZero xs (rewrite <- List.lengthReverse xs, empty then byComputing)
 
 --| Turned a quarter clockwise, a rectangle's left edge, reversed, is its
 --| top; its top is its right; its right, reversed, its bottom; and its
@@ -172,9 +175,10 @@ theorem rotateEdges ∀ (image: Image) (k: Nat)
     → Spec.edges { rows = turned.transpose } = [left, image.rows.headOr [], right, image.rows.last.getOrElse []] :=
     turned same =>
       match turned with
-        | [] => Void.exfalso (nonEmpty (reverseNil image.rows (Eq.sym same)))
+        | [] => Void.impossible (nonEmpty (reverseNil image.rows same.flipped))
         | [first, ..rest] =>
-          let turnedSized: List.AllLength (Succ k) [first, ..rest] := rewrite <- same at reversedSized in reversedSized
+          let turnedSized: List.AllLength (Succ k) [first, ..rest] :=
+            rewrite <- same at reversedSized then reversedSized
           let width: first.length = Succ k := turnedSized.left
           let top: List.filterMap [first, ..rest] (.get 0) = left :=
             Eq.trans
@@ -198,8 +202,8 @@ theorem rotateEdges ∀ (image: Image) (k: Nat)
             Eq.trans
               (columnsFirst Calm (Succ k) first rest turnedSized)
               (Eq.trans (Eq.cong (rows => rows.headOr []) same) (headReverse [] image.rows))
-          rewrite width in rewrite <- top, <- toRight, <- bottom, <- toLeft in rfl
-  shaped image.rows.reverse rfl
+          rewrite width then rewrite <- top, <- toRight, <- bottom, <- toLeft then byComputing
+  shaped image.rows.reverse byComputing
 
 -- Every orientation's edges are the tile's, some reversed
 
@@ -212,13 +216,14 @@ theorem allLengthFlip ∀ (n: Nat) (rows: List (List Pixel))
     List.AllLength n (rows.map (.reverse)) :=
   match rows, h with
     | [], sized => Trivial
-    | [row, ..rest], Both sized more => Both (rewrite List.lengthReverse row in sized) (allLengthFlip n rest more)
+    | [row, ..rest], Both sized more => Both (rewrite List.lengthReverse row then sized) (allLengthFlip n rest more)
 
 theorem rectangleFlip ∀ (image: Image) (rectangle: Rectangle image): Rectangle image.flip := match rectangle with
   | Witness k (Both sized nonEmpty) =>
     Witness k
       (Both (allLengthFlip (Succ k) image.rows sized) (empty =>
-        nonEmpty (List.lengthZero image.rows (rewrite <- List.lengthMap image.rows (.reverse), empty in rfl))))
+        nonEmpty
+          (List.lengthZero image.rows (rewrite <- List.lengthMap image.rows (.reverse), empty then byComputing))))
 
 theorem rectangleRotate ∀ (image: Image) (rectangle: Rectangle image): Rectangle image.rotate := match rectangle with
   | Witness k (Both sized nonEmpty) =>
@@ -227,17 +232,17 @@ theorem rectangleRotate ∀ (image: Image) (rectangle: Rectangle image): Rectang
     let shaped: ∀ (turned: List (List Pixel)) => turned = image.rows.reverse → Rectangle { rows = turned.transpose } :=
       turned same =>
         match turned with
-          | [] => Void.exfalso (nonEmpty (reverseNil image.rows (Eq.sym same)))
+          | [] => Void.impossible (nonEmpty (reverseNil image.rows same.flipped))
           | [first, ..rest] =>
             let turnedSized: List.AllLength (Succ k) [first, ..rest] :=
-              rewrite <- same at reversedSized in reversedSized
+              rewrite <- same at reversedSized then reversedSized
             let width: first.length = Succ k := turnedSized.left
-            rewrite width in
+            rewrite width then
               Witness rest.length
                 (Both
-                  (List.columnsAllLength (Succ k) [first, ..rest] (Succ rest.length) rfl turnedSized)
+                  (List.columnsAllLength (Succ k) [first, ..rest] (Succ rest.length) byComputing turnedSized)
                   (List.consNotNil _ _))
-    shaped image.rows.reverse rfl
+    shaped image.rows.reverse byComputing
 
 --| Each edge of `other` fits an edge of `image`.
 def Within (image other: Image): Prop :=
@@ -251,12 +256,12 @@ theorem fitTrans ∀ [edge middle original: List Pixel]
   match first with
     | Inl same =>
       match second with
-        | Inl again => Inl (rewrite same, again in rfl)
-        | Inr reversed => Inr (rewrite same, reversed in rfl)
+        | Inl again => Inl (rewrite same, again then byComputing)
+        | Inr reversed => Inr (rewrite same, reversed then byComputing)
     | Inr reversed =>
       match second with
-        | Inl again => Inr (rewrite reversed, again in rfl)
-        | Inr twice => Inl (rewrite reversed, twice in List.reverseReverse original)
+        | Inl again => Inr (rewrite reversed, again then byComputing)
+        | Inr twice => Inl (rewrite reversed, twice then List.reverseReverse original)
 
 theorem withinTrans ∀ [a b c: Image] (first: Within a b) (second: Within b c): Within a c := edge onC =>
   match second edge onC with
@@ -264,33 +269,34 @@ theorem withinTrans ∀ [a b c: Image] (first: Within a b) (second: Within b c):
       match first middle onB with
         | Witness original (Both onA fitA) => Witness original (Both onA (fitTrans fitB fitA))
 
-theorem withinSelf ∀ (image: Image): Within image image := edge member => Witness edge (Both member (Inl rfl))
+theorem withinSelf ∀ (image: Image): Within image image := edge member => Witness edge (Both member (Inl byComputing))
 
 -- Still needed by `orientedFit`: its goal `edge ∈ Spec.edges turned` arrives with `turned` substituted, already
 -- stepped to a disjunction, so `rewrite` has no `Spec.edges …` to find there; a variable `xs` keeps `∈` folded.
-theorem memEq ∀ [x: a] [xs ys: List a] (same: xs = ys) (member: x ∈ xs): x ∈ ys := rewrite same at member in member
+theorem memEq ∀ [x: a] [xs ys: List a] (same: xs = ys) (member: x ∈ xs): x ∈ ys := rewrite same at member then member
 
 theorem withinFlip ∀ (image: Image): Within image image.flip := edge member =>
   match (rewrite flipEdges image at member) with
-    | Inl same => Witness (image.rows.headOr []) (Both (Inl rfl) (Inr (Eq.sym same)))
+    | Inl same => Witness (image.rows.headOr []) (Both (Inl byComputing) (Inr same.flipped))
     | Inr (Inl same) =>
-      Witness (image.rows.map (row => row.headOr Calm)) (Both (Inr (Inr (Inr (Inl rfl)))) (Inl (Eq.sym same)))
-    | Inr (Inr (Inl same)) => Witness (image.rows.last.getOrElse []) (Both (Inr (Inr (Inl rfl))) (Inr (Eq.sym same)))
+      Witness (image.rows.map (row => row.headOr Calm)) (Both (Inr (Inr (Inr (Inl byComputing)))) (Inl same.flipped))
+    | Inr (Inr (Inl same)) =>
+      Witness (image.rows.last.getOrElse []) (Both (Inr (Inr (Inl byComputing))) (Inr same.flipped))
     | Inr (Inr (Inr (Inl same))) =>
-      Witness (image.rows.map (row => row.last.getOrElse Calm)) (Both (Inr (Inl rfl)) (Inl (Eq.sym same)))
-    | Inr (Inr (Inr (Inr never))) => Void.exfalso never
+      Witness (image.rows.map (row => row.last.getOrElse Calm)) (Both (Inr (Inl byComputing)) (Inl same.flipped))
+    | Inr (Inr (Inr (Inr never))) => never.impossible
 
 theorem withinRotate ∀ (image: Image) (rectangle: Rectangle image): Within image image.rotate := match rectangle with
   | Witness k (Both sized nonEmpty) => edge member =>
     match (rewrite rotateEdges image k sized nonEmpty at member) with
       | Inl same =>
-        Witness (image.rows.map (row => row.headOr Calm)) (Both (Inr (Inr (Inr (Inl rfl)))) (Inr (Eq.sym same)))
-      | Inr (Inl same) => Witness (image.rows.headOr []) (Both (Inl rfl) (Inl (Eq.sym same)))
+        Witness (image.rows.map (row => row.headOr Calm)) (Both (Inr (Inr (Inr (Inl byComputing)))) (Inr same.flipped))
+      | Inr (Inl same) => Witness (image.rows.headOr []) (Both (Inl byComputing) (Inl same.flipped))
       | Inr (Inr (Inl same)) =>
-        Witness (image.rows.map (row => row.last.getOrElse Calm)) (Both (Inr (Inl rfl)) (Inr (Eq.sym same)))
+        Witness (image.rows.map (row => row.last.getOrElse Calm)) (Both (Inr (Inl byComputing)) (Inr same.flipped))
       | Inr (Inr (Inr (Inl same))) =>
-        Witness (image.rows.last.getOrElse []) (Both (Inr (Inr (Inl rfl))) (Inl (Eq.sym same)))
-      | Inr (Inr (Inr (Inr never))) => Void.exfalso never
+        Witness (image.rows.last.getOrElse []) (Both (Inr (Inr (Inl byComputing))) (Inl same.flipped))
+      | Inr (Inr (Inr (Inr never))) => never.impossible
 
 --| Every edge of every orientation of a rectangle fits one of its own edges.
 theorem withinOrientations ∀ (image: Image)
@@ -310,15 +316,15 @@ theorem withinOrientations ∀ (image: Image)
   let flipped2 := rectangleRotate image.flip.rotate flipped1
   let f3 := withinTrans f2 (withinRotate image.flip.rotate.rotate flipped2)
   match member with
-    | Inl same => rewrite <- same in withinSelf image
-    | Inr (Inl same) => rewrite <- same in r1
-    | Inr (Inr (Inl same)) => rewrite <- same in r2
-    | Inr (Inr (Inr (Inl same))) => rewrite <- same in r3
-    | Inr (Inr (Inr (Inr (Inl same)))) => rewrite <- same in f0
-    | Inr (Inr (Inr (Inr (Inr (Inl same))))) => rewrite <- same in f1
-    | Inr (Inr (Inr (Inr (Inr (Inr (Inl same)))))) => rewrite <- same in f2
-    | Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl same))))))) => rewrite <- same in f3
-    | Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inr never))))))) => Void.exfalso never
+    | Inl same => rewrite <- same then withinSelf image
+    | Inr (Inl same) => rewrite <- same then r1
+    | Inr (Inr (Inl same)) => rewrite <- same then r2
+    | Inr (Inr (Inr (Inl same))) => rewrite <- same then r3
+    | Inr (Inr (Inr (Inr (Inl same)))) => rewrite <- same then f0
+    | Inr (Inr (Inr (Inr (Inr (Inl same))))) => rewrite <- same then f1
+    | Inr (Inr (Inr (Inr (Inr (Inr (Inl same)))))) => rewrite <- same then f2
+    | Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl same))))))) => rewrite <- same then f3
+    | Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inr never))))))) => never.impossible
 
 --| An edge that fits one of a rectangle's edges is an edge of one of its
 --| orientations: itself, a quarter turn, or its mirror image.
@@ -327,26 +333,29 @@ theorem orientedFit ∀ (image: Image)
     (onImage: original ∈ Spec.edges image)
     (fit: Spec.Fit edge original):
     ∃ (turned: Image) => turned ∈ image.orientations ∧ edge ∈ Spec.edges turned :=
-  let flipped: image.flip ∈ image.orientations := Inr (Inr (Inr (Inr (Inl rfl))))
-  let rotated: image.rotate ∈ image.orientations := Inr (Inl rfl)
+  let flipped: image.flip ∈ image.orientations := Inr (Inr (Inr (Inr (Inl byComputing))))
+  let rotated: image.rotate ∈ image.orientations := Inr (Inl byComputing)
   match fit with
-    | Inl same => Witness image (Both (Inl rfl) (rewrite same in onImage))
+    | Inl same => Witness image (Both (Inl byComputing) (rewrite same then onImage))
     | Inr reversed =>
       match rectangle with
         | Witness k (Both sized nonEmpty) =>
           let turnedEdges := rotateEdges image k sized nonEmpty
           match onImage with
             | Inl top =>
-              Witness image.flip (Both flipped (memEq (Eq.sym (flipEdges image)) (rewrite reversed, <- top in Inl rfl)))
+              Witness image.flip
+                (Both flipped (memEq (flipEdges image).flipped (rewrite reversed, <- top then Inl byComputing)))
             | Inr (Inl right) =>
               Witness image.rotate
-                (Both rotated (memEq (Eq.sym turnedEdges) (rewrite reversed, <- right in Inr (Inr (Inl rfl)))))
+                (Both rotated (memEq turnedEdges.flipped (rewrite reversed, <- right then Inr (Inr (Inl byComputing)))))
             | Inr (Inr (Inl bottom)) =>
               Witness image.flip
-                (Both flipped (memEq (Eq.sym (flipEdges image)) (rewrite reversed, <- bottom in Inr (Inr (Inl rfl)))))
+                (Both flipped
+                  (memEq (flipEdges image).flipped (rewrite reversed, <- bottom then Inr (Inr (Inl byComputing)))))
             | Inr (Inr (Inr (Inl left))) =>
-              Witness image.rotate (Both rotated (memEq (Eq.sym turnedEdges) (rewrite reversed, <- left in Inl rfl)))
-            | Inr (Inr (Inr (Inr never))) => Void.exfalso never
+              Witness image.rotate
+                (Both rotated (memEq turnedEdges.flipped (rewrite reversed, <- left then Inl byComputing)))
+            | Inr (Inr (Inr (Inr never))) => never.impossible
 
 --| The puzzle's words: an edge matches another tile's when that tile, in
 --| some orientation, has it as an edge. For rectangular tiles that is
@@ -384,8 +393,8 @@ theorem rowsRectangle ∀ (rows: List (List Pixel)) (checked: Image.isRectangle 
         | Succ k => Witness k (Both (allLengthOfAll (Succ k) [first, ..rest] checked) (List.consNotNil first rest))
 
 theorem isRectangleSound ∀ (image: Image) (checked: image.isRectangle = True): Rectangle image :=
-  let eta: { rows = image.rows } = image := Image.ext _ _ rfl
-  rowsRectangle image.rows (rewrite eta in checked)
+  let eta: { rows = image.rows } = image := Image.ext _ _ byComputing
+  rowsRectangle image.rows (rewrite eta then checked)
 
 theorem rectangularSound ∀ (jigsaw: Jigsaw)
     (checked: jigsaw.rectangular = True) (tile: Tile)

@@ -16,4 +16,4 @@ def inMatch (a b c: Option Nat): Nat := match (a, b, c) with
   | (Some x, Some y, Some z) => x + y + z
   | _ => 0
 
-def sum3Example: sum3 (Some 1, Some 2, Some 3) = 6 := rfl
+def sum3Example: sum3 (Some 1, Some 2, Some 3) = 6 := byComputing

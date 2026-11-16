@@ -11,14 +11,14 @@ def g: Nat → Nat
 
 -- soundness/conversion-memo-*.sw: two definitions with the same case tree
 -- are equal on equal arguments, each pair compared.
-theorem good ∀ (x y: Nat): (f x, f y) = (g x, g y) := rfl
+theorem good ∀ (x y: Nat): (f x, f y) = (g x, g y) := byComputing
 
 -- soundness/j-on-hypothesis-stuck.sw and identity-is-not-constant.sw: `J`
--- computes on `rfl`.
-theorem kOnRfl: J (z _ => Nat) 5 (rfl: 0 = 0) = 5 := rfl
+-- computes on `byComputing`.
+theorem kOnRfl: J (z _ => Nat) 5 (byComputing: 0 = 0) = 5 := byComputing
 
 -- soundness/record-of-proof-not-convertible.sw: a value of `Box` is equal
 -- to itself.
 type Box = { h: 0 = 0 }
 
-theorem box ∀ (p: Box): p = p := rfl
+theorem box ∀ (p: Box): p = p := byComputing

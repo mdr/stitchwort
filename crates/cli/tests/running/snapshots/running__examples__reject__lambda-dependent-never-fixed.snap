@@ -5,7 +5,7 @@ expression: output
 [E-CANNOT-INFER] Error: can't tell what `p` is, so can't look up `.name`
     ╭─[ reject/lambda-dependent-never-fixed.sw:11:38 ]
     │
- 11 │ def name: Text := applyChecked (p => p.name) rfl
+ 11 │ def name: Text := applyChecked (p => p.name) byComputing
     │                                      ───┬──  
     │                                         ╰──── its type isn't known yet here
     │ 

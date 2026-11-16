@@ -10,8 +10,8 @@ theorem parseWritten ∀ (input: Text) (data: XmasData)
     (parsed: Fail.toResult (() => parseData input) = Ok data):
     List.All2 NumberWritten (input.lines.map Text.toList) data.numbers :=
   let ran :=
-    rewrite Fail.toResultThen (() => Parse.eachLine input Parse.nat) (numbers => ({ numbers }: XmasData)) at parsed in
+    rewrite Fail.toResultThen (() => Parse.eachLine input Parse.nat) (numbers => ({ numbers }: XmasData)) at parsed then
       parsed
   match e: Fail.toResult (() => Parse.eachLine input Parse.nat) with
     | Ok numbers =>
-      rewrite <- Result.okInjective ran in Parse.eachLineReads input Parse.nat NumberWritten numbers e Parse.readsNat
+      rewrite <- Result.okInjective ran then Parse.eachLineReads input Parse.nat NumberWritten numbers e Parse.readsNat

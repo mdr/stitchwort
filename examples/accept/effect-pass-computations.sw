@@ -95,7 +95,7 @@ theorem bodyDone: IsDone (passOn (Done 3)) := Trivial
 
 -- A written `Done` is a computation where one is expected, so `runPure` takes
 -- it (it was refused while the argument was run in place).
-theorem runIdentity ∀ (n: Nat): Effect.runPure (identityComp (Done n)) = n := rfl
+theorem runIdentity ∀ (n: Nat): Effect.runPure (identityComp (Done n)) = n := byComputing
 
 -- `bind` at the empty row, with its arguments passed: the law is stated and
 -- proved by cases on the computation.
@@ -103,13 +103,13 @@ theorem runPureBindHere [a b: Type]:
     ∀ (computation: Effect.Comp Effect.NoOp Effect.NoRes a) (next: a
       → Effect.Comp Effect.NoOp Effect.NoRes b) => Effect.runPure (Effect.bind computation next)
       = Effect.runPure (next (Effect.runPure computation))
-  | Done x, next => rfl
+  | Done x, next => byComputing
   | Call () rest, next
 
 -- `map` with a pure function, run as a computation, is `map`: the proof uses the library's
 -- `runPureBind` on the stuck `map f xs` (probe 3 of the note).
 theorem runMapIsMap ∀ (f: Nat → Nat) (xs: List Nat): Effect.runPure (List.map xs f) = List.map xs f := match xs with
-  | [] => rfl
+  | [] => byComputing
   | [x, ..xs] =>
     Eq.trans (Effect.runPureBind (List.map xs f) (rest => Done [f x, ..rest])) (Eq.cong (Cons (f x)) (runMapIsMap f xs))
 

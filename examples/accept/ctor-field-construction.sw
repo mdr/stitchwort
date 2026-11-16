@@ -28,7 +28,7 @@ def idOf: Shape → Text
 
 test "any order is the positional form" := Circle { text = "t", id = "a", ref = 1 } == Circle 1 "a" "t"
 
-theorem sameTerm: Circle { id = "a", text = "t", ref = 1 } = Circle 1 "a" "t" := rfl
+theorem sameTerm: Circle { id = "a", text = "t", ref = 1 } = Circle 1 "a" "t" := byComputing
 
 test "punning" := idOf (circle "z") == "z"
 
@@ -36,7 +36,7 @@ test "punning" := idOf (circle "z") == "z"
 def one: Vec Int 1 := VCons { x = 1, xs = VNil }
 
 -- A proof field is an explicit field: it is given.
-def three: Pos := MkPos { n = 3, ok = omega }
+def three: Pos := MkPos { n = 3, ok = arithmetic }
 
 -- A parameterised type; fields nest.
 def boxed: Box (Option Shape) := MkBox { label = "b", inner = Some (Dot { id = "d", ref = 0 }) }

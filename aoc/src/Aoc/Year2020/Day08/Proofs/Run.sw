@@ -32,9 +32,9 @@ theorem executeSteps ∀ (program: Program) (state: State) (instruction: Instruc
   Witness instruction
     (Both at
       (match instruction with
-        | { operation = Acc, argument } => Both rfl rfl
-        | { operation = Jmp, argument } => Both rfl rfl
-        | { operation = Nop, argument } => Both rfl rfl))
+        | { operation = Acc, argument } => Both byComputing byComputing
+        | { operation = Jmp, argument } => Both byComputing byComputing
+        | { operation = Nop, argument } => Both byComputing byComputing))
 
 theorem unvisitedRemove ∀ (length: Nat) (done: List Int) (unvisited: Set Nat)
     (left: Unvisited length done unvisited) (position: Nat):
@@ -42,22 +42,22 @@ theorem unvisitedRemove ∀ (length: Nat) (done: List Int) (unvisited: Set Nat)
   other =>
     match d: other == position with
       | True =>
-        rewrite d.read, Set.containsRemove unvisited position in
+        rewrite d.read, Set.containsRemove unvisited position then
           {
             forward = never => cases,
             backward = (Both below out) =>
-              Void.exfalso (out (List.memAppendRight position.toInt done [position.toInt] (Inl rfl)))
+              Void.impossible (out (List.memAppendRight position.toInt done [position.toInt] (Inl byComputing)))
           }
       | False =>
         let differ: other ≠ position := same => d.read same
-        rewrite Set.containsRemoveOther unvisited position other differ in
+        rewrite Set.containsRemoveOther unvisited position other differ then
           {
             forward = held =>
               let (Both below out) := (left other).forward held
               Both below (m =>
                 match List.memAppend other.toInt done [position.toInt] m with
                   | Inl inDone => out inDone
-                  | Inr (Inl same) => differ (Int.ofNatInjective other position (Eq.sym same))
+                  | Inr (Inl same) => differ (Int.ofNatInjective other position same.flipped)
                   | Inr (Inr none) => none),
             backward = (Both below out) =>
               (left other).backward (Both below (m => out (List.memAppendLeft other.toInt done [position.toInt] m)))
@@ -73,10 +73,10 @@ theorem runFromRuns ∀ (program: Program) (code: Code)
       ∧ Ended program (done ++ positions) last (code.runFrom unvisited state)
     decreasing unvisited.size
 :=
-  let stopped: List.Distinct (done ++ []) := rewrite List.appendNil done in distinct
-  rewrite Code.runFrom.unfold code unvisited state in
+  let stopped: List.Distinct (done ++ []) := rewrite List.appendNil done then distinct
+  rewrite Code.runFrom.unfold code unvisited state then
     match e: state.next.toNatChecked with
-      | None => Witness [] (Witness state (Both rfl (Both stopped ())))
+      | None => Witness [] (Witness state (Both byComputing (Both stopped ())))
       | Some position =>
         let here: state.next = position.toInt := nextIs state.next position e
         match g: code.byPosition.get position with
@@ -84,16 +84,19 @@ theorem runFromRuns ∀ (program: Program) (code: Code)
             match t: position == code.length with
               | True =>
                 Witness []
-                  (Witness state (Both rfl (Both stopped (Both (rewrite here, t.read, And.left holds in rfl) rfl))))
-              | False => Witness [] (Witness state (Both rfl (Both stopped ())))
+                  (Witness state
+                    (Both byComputing
+                      (Both stopped (Both (rewrite here, t.read, holds.left then byComputing) byComputing))))
+              | False => Witness [] (Witness state (Both byComputing (Both stopped ())))
           | Some instruction =>
-            let listed: program.instructions.get position = Some instruction := rewrite <- And.right holds position in g
+            let listed: program.instructions.get position = Some instruction :=
+              rewrite <- And.right holds position then g
             let below: position < code.length :=
-              rewrite And.left holds in List.getSomeLt program.instructions position instruction listed
+              rewrite And.left holds then List.getSomeLt program.instructions position instruction listed
             match c: unvisited.contains position with
               | True =>
                 let out: position.toInt ∉ done := And.right ((left position).forward c)
-                let at: instructionAt program state.next = Some instruction := rewrite e in listed
+                let at: instructionAt program state.next = Some instruction := rewrite e then listed
                 let ih :=
                   runFromRuns program code holds
                     (unvisited.remove position)
@@ -101,7 +104,7 @@ theorem runFromRuns ∀ (program: Program) (code: Code)
                     (done ++ [position.toInt])
                     (unvisitedRemove code.length done unvisited left position)
                     (List.distinctSnoc done position.toInt out distinct)
-                    [decreasing := omega [
+                    [decreasing := arithmetic [
                       Set.sizeRemovePresent unvisited position c,
                       Set.sizePositive unvisited position c
                     ]]
@@ -111,13 +114,16 @@ theorem runFromRuns ∀ (program: Program) (code: Code)
                       [state.next, ..positions]
                       (Witness last
                         (Both
-                          (Both rfl
+                          (Both byComputing
                             (Witness
                               (instruction.execute state)
                               (Both (executeSteps program state instruction at) runs)))
-                          (rewrite <- List.appendAssoc done [state.next] positions, here in Both distinctAll ended)))
+                          (rewrite <- List.appendAssoc done [state.next] positions, here then Both distinctAll ended)))
               | False =>
                 let seen: state.next ∈ done :=
-                  if m: position.toInt ∈ done then rewrite here in m
-                  else Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym c) ((left position).backward (Both below m))))
-                Witness [] (Witness state (Both rfl (Both stopped (Both (rewrite List.appendNil done in seen) rfl))))
+                  if m: position.toInt ∈ done then rewrite here then m
+                  else
+                    Void.impossible (Bool.falseNotTrue (Eq.trans c.flipped ((left position).backward (Both below m))))
+                Witness []
+                  (Witness state
+                    (Both byComputing (Both stopped (Both (rewrite List.appendNil done then seen) byComputing))))

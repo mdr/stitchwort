@@ -26,13 +26,13 @@ def equations: (Nat, ()) → Nat
 
 def viaLambda (ps: List ((), Nat)): List Nat := ps.map (((), n) => n)
 
-theorem secondIs: second ((), 3) = 3 := rfl
+theorem secondIs: second ((), 3) = 3 := byComputing
 
-theorem nestedIs: nested (1, ((), 2)) = 3 := rfl
+theorem nestedIs: nested (1, ((), 2)) = 3 := byComputing
 
-theorem armsIs: arms (True, ()) = 1 := rfl
+theorem armsIs: arms (True, ()) = 1 := byComputing
 
-theorem equationsIs: equations (4, ()) = 4 := rfl
+theorem equationsIs: equations (4, ()) = 4 := byComputing
 
 -- An effectful tuple whose first part is a parser that gives `()`.
 def afterComma(): {Parse Char} Nat :=

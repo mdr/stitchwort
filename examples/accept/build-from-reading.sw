@@ -33,12 +33,12 @@ theorem fromFalse ∀ (b: Bool) (no: b = False): (not b) = True := no
 -- Two layers: `!=` reads as `(a == b) = False`, which reads as `a ≠ b`.
 theorem fromApartBang ∀ (a b: Nat) (ne: a ≠ b): ((a != b): Bool) = True := ne
 
-theorem fromApartLambda ∀ (a b: Nat) (lower: a < b): ((a != b): Bool) = True := same => omega
+theorem fromApartLambda ∀ (a b: Nat) (lower: a < b): ((a != b): Bool) = True := same => arithmetic
 
 -- A lambda takes the binders of the reading it is checked against.
 theorem allSmall ∀ (xs: List Nat) (small: ∀ (x: Nat) => x ∈ xs → x < 10): xs.all (x => x < 10) := x inXs => small x inXs
 
-theorem notZero ∀ (n: Nat) (big: n > 3): Nat.equal n 0 = False := isZero => omega
+theorem notZero ∀ (n: Nat) (big: n > 3): Nat.equal n 0 = False := isZero => arithmetic
 
 -- A negative reading: `<=` that is `False` reads as `<` the other way.
 theorem fromLess ∀ (m n: Nat) (less: n < m): (m <= n) = False := less

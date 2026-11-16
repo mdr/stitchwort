@@ -6,4 +6,4 @@ def AllTrue (x: Bool) (y: Bool): Prop := Unit
 def Q: Type := Quot Bool AllTrue
 
 theorem computes:
-    Quot.ind [p := q => Unit] (b => Trivial) (Quot.mk False: Q) = Trivial := rfl
+    Quot.ind [p := q => Unit] (b => Trivial) (Quot.mk False: Q) = Trivial := byComputing

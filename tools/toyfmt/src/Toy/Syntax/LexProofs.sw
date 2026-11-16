@@ -13,7 +13,7 @@ theorem wordStartApart ∀ (first other: Char)
     (apart: isWordStart other = False):
     first ≠ other :=
   same =>
-    let both: isWordStart other = True := rewrite <- same in starts
+    let both: isWordStart other = True := rewrite <- same then starts
     cases
 
 theorem wordStartIsChar ∀ (first: Char) (starts: isWordStart first = True): isWordChar first = True := cases
@@ -25,11 +25,11 @@ theorem wordLexemeStart ∀ (first: Char) (tail: List Char)
   lexemeStart.eq5 first tail
     (among =>
       match among with
-        | Inl same => wordStartApart first ' ' starts rfl (Eq.sym same)
-        | Inr (Inl same) => wordStartApart first '\n' starts rfl (Eq.sym same)
-        | Inr (Inr (Inl same)) => wordStartApart first '"' starts rfl (Eq.sym same)
+        | Inl same => wordStartApart first ' ' starts byComputing same.flipped
+        | Inr (Inl same) => wordStartApart first '\n' starts byComputing same.flipped
+        | Inr (Inr (Inl same)) => wordStartApart first '"' starts byComputing same.flipped
         | Inr (Inr (Inr never)) => never)
-    (tail1 isMinus sameTail => wordStartApart first '-' starts rfl isMinus)
+    (tail1 isMinus sameTail => wordStartApart first '-' starts byComputing isMinus)
     starts
 
 --| `lexemeAt` reads a word: a letter or `_`, then letters, digits and `_`s,
@@ -39,8 +39,8 @@ theorem runsWordLexeme ∀ (first: Char) (others rest: List Char)
     (word: others.all isWordChar = True)
     (ends: rest.takeWhile isWordChar = []):
     Parse.Runs (() => lexemeAt ([first, ..others] ++ rest)) [first, ..others] rest WordLexeme :=
-  let all: [first, ..others].all isWordChar = True := rewrite wordStartIsChar first starts in word
-  rewrite wordLexemeStart first (others ++ rest) starts in
+  let all: [first, ..others].all isWordChar = True := rewrite wordStartIsChar first starts then word
+  rewrite wordLexemeStart first (others ++ rest) starts then
     Parse.runsMap
       (() => Parse.span isWordChar)
       (read => WordLexeme)
@@ -55,7 +55,7 @@ theorem apartBy ∀ (passes: Char → Bool) (first other: Char)
     (fails: passes other = False):
     first ≠ other :=
   same =>
-    let both: passes other = True := rewrite <- same in holds
+    let both: passes other = True := rewrite <- same then holds
     cases
 
 --| A character that is none of the three is not among them: the first
@@ -67,9 +67,9 @@ theorem notAmong ∀ (char: Char)
     char ∉ [' ', '\n', '"'] :=
   among =>
     match among with
-      | Inl same => noSpace (Eq.sym same)
-      | Inr (Inl same) => noBreak (Eq.sym same)
-      | Inr (Inr (Inl same)) => noQuote (Eq.sym same)
+      | Inl same => noSpace same.flipped
+      | Inr (Inl same) => noBreak same.flipped
+      | Inr (Inr (Inl same)) => noQuote same.flipped
       | Inr (Inr (Inr never)) => never
 
 --| A text that starts with a digit starts with a number.
@@ -79,10 +79,10 @@ theorem digitsLexemeStart ∀ (first: Char) (tail: List Char)
     lexemeStart [first, ..tail] = Some DigitsLexeme :=
   lexemeStart.eq6 first tail
     (notAmong first
-      (apartBy (char => char.isAsciiDigit) first ' ' digit rfl)
-      (apartBy (char => char.isAsciiDigit) first '\n' digit rfl)
-      (apartBy (char => char.isAsciiDigit) first '"' digit rfl))
-    (tail1 isMinus sameTail => apartBy (char => char.isAsciiDigit) first '-' digit rfl isMinus)
+      (apartBy (char => char.isAsciiDigit) first ' ' digit byComputing)
+      (apartBy (char => char.isAsciiDigit) first '\n' digit byComputing)
+      (apartBy (char => char.isAsciiDigit) first '"' digit byComputing))
+    (tail1 isMinus sameTail => apartBy (char => char.isAsciiDigit) first '-' digit byComputing isMinus)
     notWord
     digit
 
@@ -107,7 +107,7 @@ theorem runsLineBreakLexeme ∀ (rest: List Char): Parse.Runs (() => lexemeAt ([
     ['\n']
     rest
     (Some '\n')
-    (Parse.runsNext (char => True) '\n' rest rfl)
+    (Parse.runsNext (char => True) '\n' rest byComputing)
 
 --| `lexemeAt` reads a comment from its `--` to the end of the line.
 theorem runsCommentLexeme ∀ (others rest: List Char)
@@ -128,8 +128,8 @@ theorem runsDigitsLexeme ∀ (first: Char) (others rest: List Char)
     (digits: others.all (char => char.isAsciiDigit) = True)
     (ends: rest.takeWhile (char => char.isAsciiDigit) = []):
     Parse.Runs (() => lexemeAt ([first, ..others] ++ rest)) [first, ..others] rest DigitsLexeme :=
-  let all: [first, ..others].all (char => char.isAsciiDigit) = True := rewrite digit in digits
-  rewrite digitsLexemeStart first (others ++ rest) digit (digitIsNoWordStart first digit) in
+  let all: [first, ..others].all (char => char.isAsciiDigit) = True := rewrite digit then digits
+  rewrite digitsLexemeStart first (others ++ rest) digit (digitIsNoWordStart first digit) then
     Parse.runsMap
       (() => Parse.span (char => char.isAsciiDigit))
       (read => DigitsLexeme)
@@ -142,14 +142,14 @@ theorem runsDigitsLexeme ∀ (first: Char) (others rest: List Char)
 theorem runsSignLexeme ∀ (char: Char) (rest: List Char)
     (starts: lexemeStart ([char] ++ rest) = Some SignLexeme):
     Parse.Runs (() => lexemeAt ([char] ++ rest)) [char] rest SignLexeme :=
-  rewrite starts in
+  rewrite starts then
     Parse.runsMap
       (() => Parse.next (char => True))
       (read => SignLexeme)
       [char]
       rest
       (Some char)
-      (Parse.runsNext (char => True) char rest rfl)
+      (Parse.runsNext (char => True) char rest byComputing)
 
 --| The character a bracket, comma or dot is written as; `=` is lexed
 --| with the operators.
@@ -167,13 +167,13 @@ theorem runsPunctuationLexeme ∀ (mark: Punctuation) (rest: List Char)
     (notDefines: mark ≠ Defines):
     Parse.Runs (() => lexemeAt ([signChar mark] ++ rest)) [signChar mark] rest SignLexeme :=
   match mark, notDefines with
-    | OpenParen, notDefines => runsSignLexeme '(' rest rfl
-    | CloseParen, notDefines => runsSignLexeme ')' rest rfl
-    | OpenSquare, notDefines => runsSignLexeme '[' rest rfl
-    | CloseSquare, notDefines => runsSignLexeme ']' rest rfl
-    | Comma, notDefines => runsSignLexeme ',' rest rfl
-    | Dot, notDefines => runsSignLexeme '.' rest rfl
-    | Defines, notDefines => Void.exfalso (notDefines rfl)
+    | OpenParen, notDefines => runsSignLexeme '(' rest byComputing
+    | CloseParen, notDefines => runsSignLexeme ')' rest byComputing
+    | OpenSquare, notDefines => runsSignLexeme '[' rest byComputing
+    | CloseSquare, notDefines => runsSignLexeme ']' rest byComputing
+    | Comma, notDefines => runsSignLexeme ',' rest byComputing
+    | Dot, notDefines => runsSignLexeme '.' rest byComputing
+    | Defines, notDefines => (notDefines byComputing).impossible
 
 -- Operator runs.
 
@@ -188,18 +188,18 @@ theorem runsOperatorChar ∀ (char: Char) (rest: List Char)
         [char]
         rest
         (Some char)
-        (Parse.runsNext (char => True) char rest rfl)
-    match core state starts honest with | (m, ran, after) => (m, (rewrite starts, next in ran), after)
+        (Parse.runsNext (char => True) char rest byComputing)
+    match core state starts honest with | (m, ran, after) => (m, (rewrite starts, next then ran), after)
 
 theorem operatorCharStops ∀ (state: Parse.State Char)
     (none: operatorNext state.at.rest = False):
     Parse.runFrom state (() => (Parse.optional operatorChar, Parse.mark())) = Ok (None, state.at) :=
-  rewrite none in rfl
+  rewrite none then byComputing
 
 theorem operatorCharDeclines ∀ (input: List Char)
     (none: operatorNext input = False):
     Parse.Declines operatorChar input :=
-  state starts honest => operatorCharStops state (rewrite starts in none)
+  state starts honest => operatorCharStops state (rewrite starts then none)
 
 --| `run` is a run of operator characters as the lexer takes one before
 --| `rest`: at each of its characters an operator character comes next and
@@ -215,8 +215,8 @@ def charSteps: (run: List Char) → List (List Char, ())
   | [char, ..more] => [([char], ()), ..charSteps more]
 
 theorem charStepsJoin ∀ (run: List Char): Parse.joinReads (charSteps run) = run := match run with
-  | [] => rfl
-  | [char, ..more] => rewrite charStepsJoin more in rfl
+  | [] => byComputing
+  | [char, ..more] => rewrite charStepsJoin more then byComputing
 
 theorem operatorRunSteps ∀ (run rest: List Char)
     (isRun: OperatorRun run rest):
@@ -225,7 +225,7 @@ theorem operatorRunSteps ∀ (run rest: List Char)
     | [], isRun => operatorCharDeclines rest isRun
     | [char, ..more], Both next later => (
       (same => cases),
-      (rewrite charStepsJoin more in runsOperatorChar char (more ++ rest) next),
+      (rewrite charStepsJoin more then runsOperatorChar char (more ++ rest) next),
       (operatorRunSteps more rest later)
     )
 
@@ -235,8 +235,8 @@ theorem runsSymbolsLexeme ∀ (run rest: List Char)
     (starts: lexemeStart (run ++ rest) = Some SymbolsLexeme)
     (isRun: OperatorRun run rest):
     Parse.Runs (() => lexemeAt (run ++ rest)) run rest SymbolsLexeme :=
-  rewrite starts in
-    rewrite <- charStepsJoin run in
+  rewrite starts then
+    rewrite <- charStepsJoin run then
       Parse.runsMap
         (() => Parse.many operatorChar)
         (read => SymbolsLexeme)
@@ -264,7 +264,7 @@ theorem runsEscapeSegment ∀ (escaped: Char) (rest: List Char)
         rest
         ()
         ()
-        rfl
+        byComputing
         (Parse.runsChar '\\' ([escaped] ++ rest))
         (Parse.runsMap
           (() => Parse.satisfy "'\"', '\\' or 'n' after '\\'" isEscaped)
@@ -273,7 +273,7 @@ theorem runsEscapeSegment ∀ (escaped: Char) (rest: List Char)
           rest
           escaped
           (Parse.runsSatisfy "'\"', '\\' or 'n' after '\\'" isEscaped escaped rest allowed))
-    match core state starts honest with | (m, ran, after) => (m, (rewrite starts in ran), after)
+    match core state starts honest with | (m, ran, after) => (m, (rewrite starts then ran), after)
 
 --| A string's plain run: characters up to a quote, a backslash or the end
 --| of the line.
@@ -291,16 +291,16 @@ theorem runsPlainSegment ∀ (first: Char) (others rest: List Char)
         rest
         [first, ..others]
         (Parse.runsSpan isPlainChar [first, ..others] rest plain ends)
-    match core state starts honest with | (m, ran, after) => (m, (rewrite starts, plainStart in ran), after)
+    match core state starts honest with | (m, ran, after) => (m, (rewrite starts, plainStart then ran), after)
 
 theorem stringSegmentStops ∀ (state: Parse.State Char)
     (none: segmentStart state.at.rest = None):
     Parse.runFrom state (() => (Parse.optional stringSegment, Parse.mark())) = Ok (None, state.at) :=
-  rewrite none in rfl
+  rewrite none then byComputing
 
 --| A string's pieces end at its closing quote.
 theorem stringSegmentDeclines ∀ (rest: List Char): Parse.Declines stringSegment (['"'] ++ rest) :=
-  state starts honest => stringSegmentStops state (rewrite starts in rfl)
+  state starts honest => stringSegmentStops state (rewrite starts then byComputing)
 
 --| `lexemeAt` reads a string: a quote, its pieces (plain runs and
 --| escapes, `steps`), and the closing quote.
@@ -328,7 +328,7 @@ theorem runsStringLexeme ∀ (steps: List (List Char, ())) (rest: List Char)
       rest
       ()
       ()
-      rfl
+      byComputing
       (Parse.runsChar '"' ((Parse.joinReads steps ++ ['"']) ++ rest))
       (Parse.runsBind
         (() => Parse.many stringSegment)
@@ -339,7 +339,7 @@ theorem runsStringLexeme ∀ (steps: List (List Char, ())) (rest: List Char)
         rest
         (Parse.stepValues steps)
         ()
-        rfl
+        byComputing
         (Parse.runsMany stringSegment steps (['"'] ++ rest) manyRuns)
         (Parse.runsBind
           (() => Parse.next (char => char == '"'))
@@ -350,8 +350,8 @@ theorem runsStringLexeme ∀ (steps: List (List Char, ())) (rest: List Char)
           rest
           (Some '"')
           ()
-          rfl
-          (Parse.runsNext (char => char == '"') '"' rest rfl)
+          byComputing
+          (Parse.runsNext (char => char == '"') '"' rest byComputing)
           (Parse.runsPure () rest))))
 
 --| An instance: the string `"a\n"`, a plain run and an escape.
@@ -362,9 +362,9 @@ theorem runsStringExample ∀ (rest: List Char):
     rest
     ((
       (same => cases),
-      (runsPlainSegment 'a' [] (['\\', 'n', '"'] ++ rest) rfl rfl rfl),
+      (runsPlainSegment 'a' [] (['\\', 'n', '"'] ++ rest) byComputing byComputing byComputing),
       (same => cases),
-      (runsEscapeSegment 'n' (['"'] ++ rest) rfl),
+      (runsEscapeSegment 'n' (['"'] ++ rest) byComputing),
       (stringSegmentDeclines rest)
     ))
 
@@ -378,8 +378,8 @@ theorem lexemesCover ∀ (source: Text) (steps: List (List Char, Lexeme))
   let joined: Text.concat ((Parse.locatedSteps 0 steps).map (lexeme => cut source lexeme)) = source :=
     Parse.locatedStepsCover source steps reads
   match same: Text.concat ((Parse.locatedSteps 0 steps).map (lexeme => cut source lexeme)) == source with
-    | True => rfl
-    | False => Void.exfalso (DecEq.soundFalse _ _ same joined)
+    | True => byComputing
+    | False => (DecEq.soundFalse _ _ same joined).impossible
 
 --| `lex` on a source that `lexemeAt` reads lexeme by lexeme to its end
 --| (`steps`: what each lexeme reads, and which it is): the lexemes with
@@ -398,10 +398,10 @@ theorem lexReads ∀ (source: Text) (steps: List (List Char, Lexeme))
       (Parse.joinReads steps)
       []
       (Parse.locatedSteps 0 steps)
-      (rewrite List.appendNil (Parse.joinReads steps) in reads)
-      rfl
+      (rewrite List.appendNil (Parse.joinReads steps) then reads)
+      byComputing
       (Parse.runsLocatedToEnd lexemeAt steps (Parse.State.start source.toList) runs)
-  rewrite lexed, lexemesCover source steps reads in rfl
+  rewrite lexed, lexemesCover source steps reads then byComputing
 
 --| The lexemes that become tokens: all but spaces, line breaks and
 --| comments.
@@ -436,15 +436,15 @@ theorem addCode ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located L
         lineEmpty = False
       } :=
   match lexeme, code with
-    | { value = WordLexeme, offset, length }, code => rfl
-    | { value = DigitsLexeme, offset, length }, code => rfl
-    | { value = StringLexeme, offset, length }, code => rfl
-    | { value = SignLexeme, offset, length }, code => rfl
-    | { value = SymbolsLexeme, offset, length }, code => rfl
-    | { value = StrayLexeme, offset, length }, code => rfl
+    | { value = WordLexeme, offset, length }, code => byComputing
+    | { value = DigitsLexeme, offset, length }, code => byComputing
+    | { value = StringLexeme, offset, length }, code => byComputing
+    | { value = SignLexeme, offset, length }, code => byComputing
+    | { value = SymbolsLexeme, offset, length }, code => byComputing
+    | { value = StrayLexeme, offset, length }, code => byComputing
 
 --| A digit starts no word: it is no letter and not `_`.
 theorem digitIsNoWordStart ∀ (char: Char) (digit: char.isAsciiDigit = True): isWordStart char = False :=
-  let letter: char.isAsciiLetter = False := omega [digit]
-  let underscore: (char == '_') = False := omega [digit]
-  rewrite letter, underscore in rfl
+  let letter: char.isAsciiLetter = False := arithmetic [digit]
+  let underscore: (char == '_') = False := arithmetic [digit]
+  rewrite letter, underscore then byComputing

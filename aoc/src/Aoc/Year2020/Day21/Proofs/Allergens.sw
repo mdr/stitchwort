@@ -50,14 +50,14 @@ theorem couldHoldIff ∀ (list: FoodList) (ingredient: Ingredient) (allergen: Al
     forward = could food member listed =>
       match could.read food member with
         | Inl unlisted =>
-          Void.exfalso
+          Void.impossible
             (Bool.trueNotFalse
-              (Eq.trans (Eq.sym ((List.memContains food.allergens allergen).backward listed)) unlisted.read))
+              (Eq.trans (Eq.flipped ((List.memContains food.allergens allergen).backward listed)) unlisted.read))
         | Inr passes => passes.read,
     backward = every =>
       List.allOfAll _ list.foods
         (List.allOfMem _ list.foods (food member =>
           match lists: food.allergens.contains allergen with
             | True => (List.memContains food.ingredients ingredient).backward (every food member lists.read)
-            | False => rfl))
+            | False => byComputing))
   }

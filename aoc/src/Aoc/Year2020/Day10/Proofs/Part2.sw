@@ -12,7 +12,7 @@ def connecting (device low: Nat) (adapters: List Nat): Nat :=
   (subsequences adapters).count (kept => [low, ..kept, device].chain Takes)
 
 theorem connectingNil ∀ (device low: Nat): connecting device low [] = (if canFeed low device then 1 else 0) :=
-  cases in canFeedTakes low device
+  cases then canFeedTakes low device
 
 --| Each arrangement from `low` leaves out the next adapter, or goes
 --| through it.
@@ -22,10 +22,10 @@ theorem connectingCons ∀ (device low next: Nat) (higher: List Nat):
   let fits := (kept: List Nat) => [low, ..kept, device].chain Takes
   rewrite List.countAppend (subsequences higher) ((subsequences higher).map (kept => [next, ..kept])) fits,
       List.countMap (subsequences higher) fits (kept => [next, ..kept]),
-      canFeedTakes low next in
+      canFeedTakes low next then
     match t: Takes low next with
-      | True => rfl
-      | False => rewrite List.countFalse (subsequences higher) in rfl
+      | True => byComputing
+      | False => rewrite List.countFalse (subsequences higher) then byComputing
 
 def lowerFirst (a b: Onward): Bool := a.joltage <= b.joltage
 
@@ -40,10 +40,10 @@ theorem sortedOnward ∀ (device: Nat) (adapters: List Nat)
 theorem takeWhileKeep ∀ (x: a) (xs: List a) (p: a → Bool)
     (keep: p x = True):
     [x, ..xs].takeWhile p = [x, ..xs.takeWhile p] :=
-  rewrite keep in rfl
+  rewrite keep then byComputing
 
 theorem takeWhileStop ∀ (x: a) (xs: List a) (p: a → Bool) (stop: p x = False): [x, ..xs].takeWhile p = [] :=
-  rewrite stop in rfl
+  rewrite stop then byComputing
 
 --| What each onward count adds from `joltage`.
 def through (joltage: Nat) (next: Onward): Nat := if canFeed joltage next.joltage then next.ways else 0
@@ -57,36 +57,37 @@ theorem cutAbove ∀ (joltage: Nat) (table: List Onward)
     (h1: List.Sorted lowerFirst table):
     (table.takeWhile (near joltage)).sumBy (through joltage) = table.sumBy (through joltage) :=
   match table, h1 with
-    | [], sorted => rfl
+    | [], sorted => byComputing
     | [first, ..rest], Both head sorted =>
       let all := List.sumByCons rest first (through joltage)
       if h: first.joltage <= joltage + 3 then
         let kept := List.sumByCons (rest.takeWhile (near joltage)) first (through joltage)
-        rewrite takeWhileKeep first rest (near joltage) (omega) in
+        rewrite takeWhileKeep first rest (near joltage) (arithmetic) then
           let later := cutAbove joltage rest sorted
-          omega
+          arithmetic
       else
         let beyond := List.sumByZeroIntro rest (through joltage) (next member =>
-          let above := List.sortedHeadLe lowerFirst (x y z xy yz => omega) first next rest (Both head sorted) member
+          let above :=
+            List.sortedHeadLe lowerFirst (x y z xy yz => arithmetic) first next rest (Both head sorted) member
           match c: canFeed joltage next.joltage with
-            | True => Void.exfalso (omega)
-            | False => rfl)
+            | True => Void.impossible arithmetic
+            | False => byComputing)
         let skipped: through joltage first = 0 := match c: canFeed joltage first.joltage with
-          | True => Void.exfalso (omega)
-          | False => rfl
-        rewrite takeWhileStop first rest (near joltage) (omega) in omega
+          | True => Void.impossible arithmetic
+          | False => byComputing
+        rewrite takeWhileStop first rest (near joltage) (arithmetic) then arithmetic
 
 theorem waysFull ∀ (device low: Nat) (table: List Onward)
     (sorted: List.Sorted lowerFirst table):
     waysFrom device low table = (if canFeed low device then 1 else 0) + table.sumBy (through low) :=
-  rewrite <- cutAbove low table sorted in rfl
+  rewrite <- cutAbove low table sorted then byComputing
 
 --| The onward count from `low`, over sorted adapters above it, is the
 --| spec's number of arrangements from it.
 theorem onwardCounts ∀ (device: Nat):
     ∀ (adapters: List Nat) => List.Sorted Nat.leq adapters
       → ∀ (low: Nat) => waysFrom device low (onwardFrom device adapters) = connecting device low adapters
-  | [], sorted, low => rewrite connectingNil device low in omega
+  | [], sorted, low => rewrite connectingNil device low then arithmetic
   | [adapter, ..higher], Both first rest, low =>
     let table := onwardFrom device higher
     let here: Onward := { joltage = adapter, ways = waysFrom device adapter table }
@@ -97,8 +98,8 @@ theorem onwardCounts ∀ (device: Nat):
     let viaAdapter := onwardCounts device higher rest adapter
     let split := connectingCons device low adapter higher
     match c: canFeed low adapter with
-      | True => omega
-      | False => omega
+      | True => arithmetic
+      | False => arithmetic
 
 theorem part2Rules ∀ (bag: Bag) (answer: Nat) (found: bag.arrangements = Some answer): Part2 bag.adapters answer :=
   match d: bag.device with
@@ -106,13 +107,13 @@ theorem part2Rules ∀ (bag: Bag) (answer: Nat) (found: bag.arrangements = Some 
       let (Witness highest (Both high same)) := deviceHighest bag device d
       Witness highest
         (Both high
-          (rewrite <- same in
+          (rewrite <- same then
             Eq.trans
-              (Eq.sym (Option.someInjective found))
+              (Option.someInjective found).flipped
               (onwardCounts device bag.adapters.sort (List.sortSortedNat bag.adapters) 0)))
 
 theorem part2Complete ∀ (bag: Bag) (answer: Nat) (spec: Part2 bag.adapters answer): bag.arrangements = Some answer :=
   let (Witness highest (Both high counted)) := spec
-  rewrite deviceOfHighest bag highest high in
+  rewrite deviceOfHighest bag highest high then
     Eq.cong Some
-      (Eq.trans (onwardCounts (highest + 3) bag.adapters.sort (List.sortSortedNat bag.adapters) 0) (Eq.sym counted))
+      (Eq.trans (onwardCounts (highest + 3) bag.adapters.sort (List.sortSortedNat bag.adapters) 0) counted.flipped)
