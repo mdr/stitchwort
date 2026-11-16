@@ -4,7 +4,7 @@
 --| come before it there (`lineBlank`), and its column is the width of
 --| what the printer had written on the line (`lineWidth`, the printer's
 --| own column by `readingTracks`). So a parsed file printed at any width
---| lexes to those tokens (`parsedPrintTokens`).
+--| lexes to those tokens (`printedTokens`).
 
 namespace Toy.Fmt.Proofs
 import Toy.Doc (..)
@@ -343,19 +343,6 @@ theorem printedTokens ∀ (file: SourceFile) (width: Nat)
         (joins (Plain None) (after => True) byComputing (after reached => byComputing))
         proper with
         | (printed, same, lexed) => (printed, (Eq.trans same words), lexed)
-
---| `printedTokens` of every parsed file.
-theorem parsedPrintTokens ∀ (source: Text) (file: SourceFile) (width: Nat)
-    (parsed: parse source = Ok file):
-    (file.print width) = (printedPieces file.layout width).joinWith ""
-      ∧ wordsOf (printedPieces file.layout width) = wordsOf file.pieces
-      ∧ lex (file.print width)
-        = Ok {
-          lexemes = Parse.locatedSteps 0 (stepsOnto (printedPieces file.layout width).reverse []),
-          tokens = (placed (printedPieces file.layout width).reverse).tokens.reverse,
-          endTrivia = (placed (printedPieces file.layout width).reverse).pending.reverse
-        } :=
-  printedTokens file width (parseLexical source file parsed)
 
 --| `placed` computes: `f x`, a line break, two spaces and `y` are three
 --| tokens, the last starting its line at column 2.

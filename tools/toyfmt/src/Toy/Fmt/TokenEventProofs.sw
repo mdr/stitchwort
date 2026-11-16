@@ -1,7 +1,7 @@
 --| Tokens against events: the tokens the printed text lexes to, without
 --| their offsets, are a function of the printer's trace alone
---| (`placedViews`). With `parsedPrintTokens` and `parsedPrintEvents` this
---| says what a parsed file's printed text lexes to, at every width, from
+--| (`placedViews`). With `printedTokens` and `printedEvents` this
+--| says what the printed text of a tree with the parser's guarantees lexes to, at every width, from
 --| the file's events: each token's kind, whether it starts its line and at
 --| which column, the comments and blank lines above it and the comment
 --| after it. `DirectProofs` uses the three together.

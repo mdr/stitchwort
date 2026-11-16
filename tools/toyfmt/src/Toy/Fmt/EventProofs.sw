@@ -2689,9 +2689,3 @@ theorem printedEvents ∀ (file: SourceFile) (width: Nat)
     width
     (fileLays file lexical (place events => FileEvents file events) (reached events holds => holds)) with
     | (place, holds) => holds
-
---| `printedEvents` of every parsed file.
-theorem parsedPrintEvents ∀ (source: Text) (file: SourceFile) (width: Nat)
-    (parsed: parse source = Ok file):
-    FileEvents file (eventsOf (printedPieces file.layout width).reverse) :=
-  printedEvents file width (parseLexical source file parsed)
