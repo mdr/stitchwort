@@ -389,8 +389,10 @@ fn note_match_step(cx: &Ctx, alts: &[Alt], span: stitchwort_syntax::Span, goal: 
 
 /// A `match`, lifted (§4.4).
 pub(crate) fn check_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term> {
-    if crate::patlet::applies(cx, expr, goal)? {
-        return crate::patlet::check_let(cx, expr, goal);
+    if crate::patlet::applies(cx, expr, goal)?
+        && let Some(term) = crate::patlet::check_let(cx, expr, goal)?
+    {
+        return Ok(term);
     }
     if let Some(body) = unit_parameter(cx, expr, goal)? {
         return crate::check::check(cx, body, goal);

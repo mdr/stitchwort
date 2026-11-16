@@ -5696,16 +5696,10 @@ pub(crate) fn check_value(
         {
             pair_literal(cx, a, b, params)
         }
-        // `(p, q)` where a proof of `p ∧ q` is wanted: a pair is not the
-        // conjunction's proof, whose constructor is `Both` (SW-3419). The
-        // usual error is kept, with the constructor named.
-        (Expr::Tuple(..), Value::Data(d, _)) if g.env.registry().is_data(Builtin::And, *d) => {
-            fallback_named(cx, expr, &expected, named).map_err(|d| {
-                d.with_note(
-                    "a proof of `p ∧ q` is built with its constructor `Both`, not a pair: \
-                     write `Both <left> <right>`",
-                )
-            })
+        // `(p, q)` where a proof of `p ∧ q` or `∃ (x: T) => p x` is wanted
+        // is `Both p q` or `Witness p q` (docs/proposals/proof-tuples.md).
+        (Expr::Tuple(..), Value::Data(d, _)) if proof_chain(cx, *d).is_some() => {
+            proof_tuple(cx, expr, &expected)
         }
         // `[a: Type] => body` and `[auto h: P] => body` take the parameter
         // of the function type they're checked against, rather than having
@@ -5862,6 +5856,150 @@ fn tuple_type(cx: &mut Ctx, a: &Expr, b: &Expr, expected: &Value) -> Result<Term
     } else {
         Err(cx.mismatch(expected, &ty))
     }
+}
+
+/// Which link of a proof chain the data type `d` is, if either: a proof of
+/// `∧` or of `∃`, which a tuple builds and opens.
+fn proof_chain(cx: &Ctx, d: DataId) -> Option<Builtin> {
+    let g = cx.g();
+    let registry = g.env.registry();
+    if registry.is_data(Builtin::And, d) {
+        Some(Builtin::And)
+    } else if registry.is_data(Builtin::Exists, d) {
+        Some(Builtin::Exists)
+    } else {
+        None
+    }
+}
+
+/// What each of the first `count` parts of a tuple proving `goal` gives,
+/// then the rest as one part, for E-TUPLE-PARTS's list: the chain read with
+/// its witnesses as the names they're bound to (`n > 2`, not `7 > 2`).
+/// `None` if the chain is shorter than `count` read that way.
+fn chain_parts(cx: &mut Ctx, goal: &Value, count: usize) -> Result<Option<Vec<String>>> {
+    let g = cx.g();
+    let mark = cx.mark();
+    let mut parts = Vec::new();
+    let mut goal = goal.clone();
+    let result = (|| {
+        for _ in 0..count {
+            let Value::Data(d, params) = force(&g, goal.clone())? else {
+                return Ok(None);
+            };
+            goal = match proof_chain(cx, d) {
+                Some(Builtin::Exists) => {
+                    let x: Name = match force(&g, params[1].clone())? {
+                        Value::Lam(x, _, _) => x,
+                        _ => "x".into(),
+                    };
+                    parts.push(format!("a value for `{x}`"));
+                    let var = Value::var(cx.level());
+                    cx.bind_hidden(x, params[0].clone());
+                    apply(&g, params[1].clone(), var)?
+                }
+                Some(_) => {
+                    parts.push(format!("a proof of `{}`", cx.show(&params[0])));
+                    params[1].clone()
+                }
+                None => return Ok(None),
+            };
+        }
+        parts.push(format!("a proof of `{}`", cx.show(&goal)));
+        Ok(Some(parts))
+    })();
+    cx.reset(mark);
+    result
+}
+
+/// The tuple `expr` where a proof of `∧` or `∃` is expected: `Both a b` or
+/// `Witness a b`, exactly the term the constructor written out gives, so a
+/// proof keeps its hash whichever way it is written. A longer tuple nests to
+/// the right, as a chain `∃ x => A ∧ B` does: `(x, a, b)` is
+/// `Witness x (Both a b)`. The last part stands for the rest of the chain.
+#[inline(never)]
+fn proof_tuple(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    let g = cx.g();
+    let total = tuple_parts(expr);
+    // The links walked so far, outermost first: each one's data type and
+    // the term of its first part.
+    let mut links: Vec<(DataId, Term)> = Vec::new();
+    let mut rest = expr;
+    let mut goal = expected.clone();
+    while let Expr::Tuple(a, b, _) = unbracket(rest) {
+        let forced = force(&g, goal.clone())?;
+        let Value::Data(d, params) = &forced else {
+            break;
+        };
+        let Some(link) = proof_chain(cx, *d) else {
+            break;
+        };
+        let first = check(cx, a, &params[0])?;
+        goal = match link {
+            Builtin::Exists => {
+                let witness = cx.eval(&first)?;
+                apply(&g, params[1].clone(), witness)?
+            }
+            _ => params[1].clone(),
+        };
+        links.push((*d, first));
+        rest = b;
+    }
+    let forced = force(&g, goal.clone())?;
+    if let Expr::Tuple(..) = unbracket(rest)
+        && !matches!(forced, Value::Neutral(Head::Meta(_), _))
+        && !matches!(&forced, Value::Pi(_, icit, _, _) if icit.is_implicit())
+    {
+        let takes = links.len() + 1;
+        let error = cx.error(
+            "E-TUPLE-PARTS",
+            format!("this gives {total} parts, but the goal takes {takes}"),
+            format!("this proves `{}`", cx.show(expected)),
+        );
+        let Some(parts) = chain_parts(cx, expected, links.len())? else {
+            return Err(error);
+        };
+        let list: String = (parts.iter().enumerate())
+            .map(|(i, part)| format!("\n  {}. {part}", i + 1))
+            .collect();
+        return Err(error.with_note(format!(
+            "a tuple proves a chain of `∃` and `∧` one part at a time, from the outside in:{list}"
+        )));
+    }
+    let last_stands_for_rest = matches!(
+        &forced,
+        Value::Data(d, _) if proof_chain(cx, *d).is_some()
+    );
+    let mut term = check(cx, rest, &goal).map_err(|error| {
+        if last_stands_for_rest && !matches!(unbracket(rest), Expr::Tuple(..)) {
+            error.with_note(format!(
+                "the last of these {total} parts must prove all of `{}`",
+                cx.show(&goal)
+            ))
+        } else {
+            error
+        }
+    })?;
+    for (d, first) in links.into_iter().rev() {
+        term = Term::ctor(d, 0, vec![first, term]);
+    }
+    Ok(term)
+}
+
+/// How many parts the tuple `expr` has, nesting to the right: 3 for
+/// `(a, b, c)`.
+fn tuple_parts(expr: &Expr) -> usize {
+    match unbracket(expr) {
+        Expr::Tuple(_, b, _) => 1 + tuple_parts(b),
+        _ => 1,
+    }
+}
+
+/// `expr` without the brackets written around it.
+fn unbracket(mut expr: &Expr) -> &Expr {
+    while let Expr::Bracketed(inner, _) = expr {
+        expr = inner;
+    }
+    expr
 }
 
 /// `(a, b)` where a `Pair` with parameters `params` is expected:
@@ -8444,7 +8582,39 @@ fn infer_tuple(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
     if let Value::Sort(_) = force(&cx.g(), tya.clone())? {
         return type_tuple(cx, a, b);
     }
+    // A pair's parts are never proofs, so a tuple whose first part is one
+    // proves `∧` (docs/proposals/proof-tuples.md §4.1).
+    if crate::rewrite::is_proof_type(cx, &tya)? {
+        let and = builtin_data(cx, Builtin::And)?;
+        let (tb, tyb) = infer(cx, b)?;
+        if !crate::rewrite::is_proof_type(cx, &tyb)? {
+            return Err(
+                Diagnostic::error("E-TYPE-MISMATCH", "type mismatch").with_label(
+                    b.span(),
+                    "the tuple's first part is a proof, so the tuple proves `∧` and this \
+                     part must be a proof too",
+                ),
+            );
+        }
+        let ty = Value::Data(and, vec![tya, tyb].into());
+        let term = annotate(cx, Term::ctor(and, 0, vec![ta, tb]), &ty)?;
+        return Ok((term, ty));
+    }
     let (tb, tyb) = infer(cx, b)?;
+    // A value and a proof about it fit many `∃` statements: which one is
+    // meant has to come from the expected type.
+    if crate::rewrite::is_proof_type(cx, &tyb)? {
+        return Err(cx
+            .error(
+                "E-CANNOT-INFER",
+                "can't tell which statement this tuple proves",
+                "a value and then a proof: a proof of an `∃`, but of which one?",
+            )
+            .with_note(
+                "a witness and a proof fit many `∃` statements: give the type, as in \
+                 `(…: ∃ (x: T) => …)`, or use the tuple where the goal is known",
+            ));
+    }
     let (pair, mk) = builtin_ctor(cx, Builtin::MkPair)?;
     Ok((
         Term::ctor(pair, mk, vec![ta, tb]),

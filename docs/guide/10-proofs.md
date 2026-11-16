@@ -902,6 +902,49 @@ theorem swapSum ∀ (comm: ∀ (a b: Nat) => a + b = b + a): 2 + 5 = 5 + 2 := co
 
 Write `∀` for a hypothesis that is about every value, as `all` and `comm` are. A theorem's own variables go before the colon, either in brackets (`theorem zeroPlus (n: Nat): 0 + n = n`) or after `∀` (`theorem zeroPlusAll ∀ (n: Nat): 0 + n = n`); the two state the same thing. A `∀` after the colon gets the warning `W-THEOREM-FORALL`, and the editor's quick fix moves its variables before the colon. Goals and messages show a function type whose result is plainly a statement with `∀`, however it was written ([the syntax reference](../syntax.md#logic-notation-in--and-exists) says when).
 
+### Building and opening `∃` and `∧`: tuples
+
+Where a proof of `∃` or `∧` is wanted, a tuple builds it, and as a pattern a tuple takes one apart. Tuples nest to the right, as `∃ (n: Nat) => A ∧ B` does, so one tuple has a part per binder and per `∧`, in the order the statement says them:
+
+<!-- snippet: proofs.sw#tuples -->
+```stitchwort
+theorem squareRoot: ∃ (n: Nat) => n > 2 ∧ n * n = 49 := (7, byDecision, rfl)
+
+theorem rootOf ∀ (h: ∃ (n: Nat) => n > 2 ∧ n * n = 49): ∃ (m: Nat) => m * m = 49 :=
+  let (n, _, square) := h
+  (n, square)
+
+theorem swapAnd ∀ (p q: Prop): p ∧ q → q ∧ p
+  | (a, b) => (b, a)
+
+theorem secondOf ∀ (p q: Prop) (h: p ∧ q): q := h.right
+```
+
+`(7, byDecision, rfl)` is short for `Witness 7 (Both byDecision rfl)`: the same proof, with the same hash, without the constructor names and their brackets. `let (n, _, square) := h` opens `h`, naming the witness and the fact wanted and skipping the other with `_`; in a proof a pattern `let` is the one-arm `match`, so it works wherever `match h with | (n, _, square) => …` would. The same pattern goes in a `match` arm, a lambda's parameter (`(a, b) => …`), a clause lambda (`match | (a, b) => …`) and an arm, as in `swapAnd`. Where a tuple stops early, its last part stands for the rest of the chain: on `p ∧ q ∧ r`, `let (a, rest) := h` gives `rest: q ∧ r`.
+
+To pick one part of a `∧`, `.left` and `.right` are shorter still, as in `secondOf`. For a part deep in a chain, a pattern `let` with `_` for the rest usually reads better than `h.right.right.left`.
+
+A tuple of a value and a proof needs to know which `∃` it proves, since a witness and a proof fit many statements; use it where the goal is known, or give the type. A tuple whose first part is a proof is a `∧` even with nothing expected: `let both := (b, a)`. And too many parts is an error that counts them for you:
+
+<!-- output: check errors/tuple-parts.sw -->
+```text
+[E-TUPLE-PARTS] Error: this gives 4 parts, but the goal takes 3
+   ╭─[ errors/tuple-parts.sw:3:57 ]
+   │
+ 3 │ theorem squareRoot: ∃ (n: Nat) => n > 2 ∧ n * n = 49 := (7, byDecision, rfl, rfl)
+   │                                                         ────────────┬────────────
+   │                                                                     ╰────────────── this proves `∃ (n: Nat) => 2 < n ∧ n * n = 49`
+   │
+   │ Note: a tuple proves a chain of `∃` and `∧` one part at a time, from the outside in:
+   │         1. a value for `n`
+   │         2. a proof of `2 < n`
+   │         3. a proof of `n * n = 49`
+───╯
+1 error: in `squareRoot`
+```
+
+Pairs of data are unchanged: on data, `(a, b)` is a pair as before. For a proposition with many named parts used in several theorems, a record proposition (`{ seen, spelled, .. }`) says which part is which better than a position does; tuples don't build or open records.
+
 ## Types that mention values
 
 A type can mention values: `Vec Nat 3` is a list of exactly three numbers, and `Fin 3` a number below 3. A function's type can then say more than its name does, and the checker holds callers to it:

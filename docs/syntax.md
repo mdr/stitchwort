@@ -1622,7 +1622,7 @@ Loosest-binding first:
 | `handle e with \| return x => … \| op x, k => …` | Runs `e`, handling one ability |
 | `match e with \| p => a \| q => b` | Takes apart `e` by patterns; `match h: e with` also names an equation ([`match`](#match)) |
 | `()` | The unit value, and its type |
-| `(A, B)`, `(a, b)`, `(p, q)` | Tuples: `Pair A B`, `MkPair a b` and the pattern `MkPair p q`, by identity (a user's own `Pair` doesn't change it). Three or more nest to the right: `(a, b, c)` is `(a, (b, c))`. Where a type is expected (a function's domain, a definition of type `Type`) it's the type; otherwise it's the type if its first component's type is a universe. `(e)` is grouping, there is no one-element tuple, and an annotation inside needs brackets: `(a, (b: T))` or `((a, b): T)`. Components are in `Type` (not `Prop`), as `Pair`'s are |
+| `(A, B)`, `(a, b)`, `(p, q)` | Tuples: `Pair A B`, `MkPair a b` and the pattern `MkPair p q`, by identity (a user's own `Pair` doesn't change it). Three or more nest to the right: `(a, b, c)` is `(a, (b, c))`. Where a type is expected (a function's domain, a definition of type `Type`) it's the type; otherwise it's the type if its first component's type is a universe. `(e)` is grouping, there is no one-element tuple, and an annotation inside needs brackets: `(a, (b: T))` or `((a, b): T)`. Components are in `Type` (not `Prop`), as `Pair`'s are. Where a proof of `∧` or `∃` is expected, or a tuple pattern matches one, the same brackets are `Both a b` and `Witness a b` (D3631): see [Proof tuples](#proof-tuples-building-and-opening--and-) |
 | `x \|> f a b` | Pipe forward: `f x a b`, the value becoming the first argument. Tighter than comparisons, `&&` and `\|\|`, looser than `++` and arithmetic; left-associative. See [Pipe forward](#pipe-forward-) |
 | `a \|\| b` | Or. On `Bool`s it's `if a then True else b`: `b` is evaluated, and its operations performed, only if `a` is `False`. Where a proposition is expected (a type, or `if h: …`) it's `Or a b` (constructors `Inl`, `Inr`), decided by `Decidable.or`. Looser than `&&`; groups to the right. See below |
 | `a && b` | And. On `Bool`s it's `if a then b else False`: `b` is evaluated only if `a` is `True`. Where a proposition is expected it's `And a b` (constructor `Both`), decided by `Decidable.and`. Looser than `=`, `==` and `<`; groups to the right. See below |
@@ -2173,6 +2173,31 @@ Precedence, loosest first:
 | `&&` | `∧` | | `exists` | `∃` |
 | `\|\|` | `∨` | | `forall` | `∀` |
 
+#### Proof tuples: building and opening `∃` and `∧`
+
+([proposals/proof-tuples.md](proposals/proof-tuples.md), D3631, D3632.) A tuple where a proof of `p ∧ q` or `∃ (x: T) => p x` is wanted is that proof's constructor: `(a, b)` is `Both a b` or `Witness a b`. Tuples nest to the right, as the chain does, so `(7, big, square)` proves `∃ (n: Nat) => n > 2 ∧ n * n = 49`: one part per binder and per conjunct, in the order written. The term is exactly the one `Witness 7 (Both big square)` gives, so a proof keeps its hash whichever way it is written (`hash_stability::proof_tuples_hash_as_witness_and_both`). The expected type is read after computing it, so a definition that unfolds to a chain (`def Square (m: Nat): Prop := ∃ (n: Nat) => …`) takes a tuple too.
+
+```
+theorem small: ∃ (n: Nat) => n > 2 ∧ n * n = 49 := (7, byDecision, rfl)
+
+match lemma xs with
+  | (n, big, square) => …          -- a `match` arm
+let (n, big, square) := lemma xs   -- a `let`, in a proof the one-arm `match`
+(a, b) => …                        -- a lambda's parameter
+match | (a, b) => …                -- a clause lambda
+| (a, b), ys => …                  -- a definition's arm
+let ((a, b), c) := h               -- `(p ∧ q) ∧ r`: a chain on the left nests visibly
+let (_, rest) := h                 -- the last part stands for the rest: `rest: q ∧ r`
+```
+
+- **With nothing expected**, a tuple whose first part is a proof proves `∧`: `let both := (b, a)` has type `q ∧ p`. A pair's parts are never proofs, so this can't be mistaken for one; a second part that is data is `E-TYPE-MISMATCH`. An `∃` can't be worked out this way, since a witness and a proof fit many statements: `(7, h)` with nothing expected is `E-CANNOT-INFER`, asking for the type.
+- **Too many parts** is `E-TUPLE-PARTS`, counted from the outside and listing what each part of the goal is ("1. a value for `n`, 2. a proof of `2 < n`, 3. a proof of `n * n = 49`"). Too few isn't an error by itself, since the last part stands for the rest; if it fails, a note says it had to prove all of the rest. A tuple pattern with too many parts meets a part that is neither a pair nor a proof of `∃` or `∧`: `E-TYPE-MISMATCH`, with a note saying so.
+- **Patterns** are read by the type of what they match: on a pair `(p, q)` is still `MkPair p q`. A pattern `let` on a proof of `∧` outside a proof is projections through `And.left` and `And.right`, as `let Both a b := h` is; on a proof of `∃`, which has no projections, it is the `match` (`Witness` written out is the same).
+- **Not covered**: records and other one-constructor types (D3632: name their fields), `↔` (a record, `{ forward = …, backward = … }`), and `∨` (two constructors, so `match`). Taking a witness out of a proof as data is `E-PROP-ELIM`, as with `Witness`. A tuple whose type isn't known yet when it is checked (an argument to an unknown parameter type) is read as a pair, or as `∧` when its first part is a proof; give the type for an `∃`.
+- **Projecting**: `h.left` and `h.right` on a proof of `∧`; for one part of a longer chain, `let (_, _, c) := h`. `Witness` and `Both` remain as the constructors, for where a function is wanted (`hs.map (Witness x)`).
+
+Examples: `examples/accept/proof-tuples.sw`, `examples/accept/and-tuple.sw`, `examples/reject/proof-tuple-*.sw`.
+
 Other symbols get an error naming the replacement: `⇒` (`=>` for a lambda or match arm, `->` or `→` for implication), `λ` (`x => e`), `⇔` (`<->`), `≡` (`=`), `⊆` `∪` `∩` and the other set operators (not supported: `Set` has functions), `ℕ` (`Nat`), and so on (`crates/syntax/src/lexer.rs`, `UNSUPPORTED`). There is no user-defined notation (D1207).
 
 **Printing** (D1204, D1211, D3458). Goals and messages show a statement's connectives in Unicode (`∧` `∨` `¬` `≠` `≤` `∈` `∉` `↔` `→`, `∃ (x: T) => P`), whichever spelling the source used, and a `Bool` computation in ASCII (`(n <= limit) = False`, `a && b`), so the two can be told apart. A function type whose result is a proposition prints as `∀ (x: T) => P`: one `∀` for a run of binders the result uses (and implicit ones), neighbours of the same type grouped, `∀ (a b: Nat) => a + b = b + a`; an unused binder is an implication, so `∀ (n: Nat) => n > 0 → P n`. A result counts as a proposition when its form shows it: an equation, a type declared in `Prop`, or a call of a definition whose type ends in `Prop`. A goal's printer also knows the types of the variables in its context, so a variable whose type ends in `Prop` (`p: Nat → Prop`) applied to arguments counts too: `∀ (n: Nat) => p n` (SW-2592). A message has no such types, so there `(x: a) → p x` stays an arrow; so does `(n: Nat) → Vec n` anywhere. Dot calls and `++` print as the source writes them (SW-1674). Comparison on `Nat`/`Int` under a binder may show unfolded (`Nat.leq k y = True`), as before.
@@ -2507,6 +2532,8 @@ acc (k, v) => acc + v
 `let p := e` followed by the rest of the block means `match e with | p => rest`, and a lambda's pattern parameters are matched against its arguments in the same way. `let x := e` and `let (x) := e` are the ordinary `let`.
 
 A pattern made only of tuples, records, variables and `_` is instead projections, outside a proof: `let (a, b) := e` is `let a := e.fst` and `let b := e.snd`, with `e` computed once (in a hidden `let`, unless it's a variable). So a function using one computes even when `e` is unknown: after `def sw (p: (A, B)): (B, A)` whose body is `let (a, b) := p` then `(b, a)` on the next line, `sw p` is `(p.snd, p.fst)` by `rfl`. Where the expected type is a proposition (a proof), it stays the `match`, which splits `e` into a pair and so refines the goal ([proposals/let.md](proposals/let.md) §7, §A.7).
+
+On a proof of `∃` or `∧` a tuple pattern is that proof's constructor, `Witness` or `Both` ([Proof tuples](#proof-tuples-building-and-opening--and-)): `let (n, big, square) := lemma xs` opens `∃ (n: Nat) => n > 2 ∧ n * n = 49`, and `(a, b) => …` takes a proof of `p ∧ q`. In a proof that is the one-arm `match`, as Lean's `obtain ⟨n, big, square⟩ := …` is.
 
 A thunk `() => e` doesn't match at all: its parameter is a `()`, and the lambda is the plain `_ => e` (with the parameter's type `()`), so the same thunk written twice is the same term, and a law about `() => xs.map f` in a theorem's statement applies to `() => xs.map f` written in its proof (`examples/accept/reify-thunk-in-proof.sw`). Only where the type after it mentions the parameter (`(u: ()) -> P u`) is it matched, so that the goal becomes `P ()`.
 

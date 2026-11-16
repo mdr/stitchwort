@@ -4994,8 +4994,15 @@ impl Elaborator {
                     }
                 }))
             }
+            // On a proof of `∃` or `∧` (docs/proposals/proof-tuples.md
+            // §4.2), `(p, q)` is `Witness p q` or `Both p q`, so a longer
+            // tuple, nesting to the right, opens a chain of them; on
+            // anything else it is `MkPair p q`.
             Pattern::Tuple(p, q, span) => {
-                let (data, ctor) = self.builtin_ctor(Builtin::MkPair, *span)?;
+                let (data, ctor) = match self.proof_tuple(ty)? {
+                    Some(data) => (data, 0),
+                    None => self.builtin_ctor(Builtin::MkPair, *span)?,
+                };
                 let args = match pattern {
                     Cow::Borrowed(Pattern::Tuple(p, q, _)) => {
                         vec![Cow::Borrowed(&**p), Cow::Borrowed(&**q)]
@@ -5312,6 +5319,24 @@ impl Elaborator {
     }
 
     /// The library's `NonEmptyList`, when `ty`, the type of a column, is one.
+    /// `ty`'s data type, if it is `∃` or `∧`, whose proofs a tuple builds
+    /// and opens (docs/proposals/proof-tuples.md): each has one constructor.
+    fn proof_tuple(&self, ty: Option<&Value>) -> Result<Option<DataId>> {
+        let Some(ty) = ty else {
+            return Ok(None);
+        };
+        let g = &self.ev();
+        let registry = g.env.registry();
+        Ok(match force(g, ty.clone())? {
+            Value::Data(d, _)
+                if registry.is_data(Builtin::And, d) || registry.is_data(Builtin::Exists, d) =>
+            {
+                Some(d)
+            }
+            _ => None,
+        })
+    }
+
     fn non_empty_list(&self, ty: Option<&Value>) -> Result<Option<DataId>> {
         let g = &self.ev();
         let (Some(ty), Some(non_empty)) = (ty, g.env.registry().loaded_data(Builtin::NonEmptyList))
@@ -6442,6 +6467,13 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                         e = e.with_note(
                             "`()` in an arm with `=>` is the unit value; for a case that can't \
                              happen, write the arm with `()` and no `=>`",
+                        );
+                    }
+                    if Some(*d) == g.env.registry().loaded_data(Builtin::Pair) {
+                        e = e.with_note(
+                            "a tuple pattern opens a pair, a proof of `∧` or a proof of `∃`; \
+                             with more parts than the proof has, the last ones meet a part \
+                             that is none of these",
                         );
                     }
                     return Err(e);

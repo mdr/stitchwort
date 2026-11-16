@@ -413,6 +413,45 @@ theorem c (s: Set Nat) (x: Nat) (h: s.contains x = True): s.contains x = True :=
     assert_eq!(without_d, own_lines(long));
 }
 
+/// A tuple where a proof of `∃` or `∧` is built or opened is the
+/// constructor written out (docs/proposals/proof-tuples.md, D3631): each
+/// declaration, its `match`es' helpers included, has the hash it has
+/// written with `Witness` and `Both`.
+#[test]
+fn proof_tuples_hash_as_witness_and_both() {
+    let tuples = "theorem build: ∃ (n: Nat) => n = 7 ∧ n * n = 49 := (7, rfl, rfl)
+theorem swap (p q: Prop) (h: p ∧ q): q ∧ p := let (a, b) := h; (b, a)
+theorem infer (p q: Prop) (a: p) (b: q): q ∧ p := let both := (b, a); both
+theorem opened (h: ∃ (n: Nat) => n = 7 ∧ n * n = 49): ∃ (m: Nat) => m * m = 49 := match h with | (n, _, sq) => (n, sq)
+theorem atLet (h: ∃ (n: Nat) => n = 7 ∧ n * n = 49): ∃ (m: Nat) => m * m = 49 := let (n, _, sq) := h; (n, sq)
+theorem rest (p q r: Prop) (h: p ∧ q ∧ r): q ∧ r := let (_, more) := h; more
+theorem lambda (p q: Prop) (f: (p ∧ q → q) → q): q := f ((a, b) => b)
+theorem clause (p q: Prop) (f: (p ∧ q → q) → q): q := f (match | (a, b) => b)
+theorem varGoal (pred: Nat → Prop) (q: Prop) (h: ∃ (n: Nat) => pred n ∧ q): q := let (_, _, b) := h; b
+theorem nested (pred: Nat → Prop) (q: Prop) (h: q ∧ ∃ (n: Nat) => pred n): q := let (a, (_, _)) := h; a
+theorem viaCall (pred: Nat → Prop) (q: Prop) (f: Nat → ∃ (n: Nat) => pred n ∧ q): q := let (_, _, b) := f 0; b
+theorem arms (p q: Prop): p ∧ q → Nat → q ∧ p
+  | (a, b), _ => (b, a)
+";
+    let constructors = "theorem build: ∃ (n: Nat) => n = 7 ∧ n * n = 49 := Witness 7 (Both rfl rfl)
+theorem swap (p q: Prop) (h: p ∧ q): q ∧ p := let Both a b := h; Both b a
+theorem infer (p q: Prop) (a: p) (b: q): q ∧ p := let both := Both b a; both
+theorem opened (h: ∃ (n: Nat) => n = 7 ∧ n * n = 49): ∃ (m: Nat) => m * m = 49 := match h with | Witness n (Both _ sq) => Witness n sq
+theorem atLet (h: ∃ (n: Nat) => n = 7 ∧ n * n = 49): ∃ (m: Nat) => m * m = 49 := let Witness n (Both _ sq) := h; Witness n sq
+theorem rest (p q r: Prop) (h: p ∧ q ∧ r): q ∧ r := let Both _ more := h; more
+theorem lambda (p q: Prop) (f: (p ∧ q → q) → q): q := f ((Both a b) => b)
+theorem clause (p q: Prop) (f: (p ∧ q → q) → q): q := f (match | Both a b => b)
+theorem varGoal (pred: Nat → Prop) (q: Prop) (h: ∃ (n: Nat) => pred n ∧ q): q := let Witness _ (Both _ b) := h; b
+theorem nested (pred: Nat → Prop) (q: Prop) (h: q ∧ ∃ (n: Nat) => pred n): q := let Both a (Witness _ _) := h; a
+theorem viaCall (pred: Nat → Prop) (q: Prop) (f: Nat → ∃ (n: Nat) => pred n ∧ q): q := let Witness _ (Both _ b) := f 0; b
+theorem arms (p q: Prop): p ∧ q → Nat → q ∧ p
+  | Both a b, _ => Both b a
+";
+    let lines = own_lines(tuples);
+    assert!(lines.lines().count() >= 12, "{lines}");
+    assert_eq!(lines, own_lines(constructors));
+}
+
 /// `forall` and `∀` are another spelling of the dependent function type
 /// (D3458): a statement written with either is the term `(x: T) -> P`
 /// writes, so its hash is the same. A bare name's type is inferred.

@@ -156,6 +156,11 @@
   <pre data-src="36-forall.sw"></pre>
 </section>
 
+<section data-slug="proof-tuples" data-title="Tuples as proofs: ∃ and ∧">
+  <p>A proof of <code>∃ (n: Nat) =&gt; A ∧ B</code> is a tuple: the witness, then a proof of each part, <code>(7, a, b)</code>. As a pattern, the same tuple takes such a proof apart, in a <code>let</code>, a <code>match</code>, an arm or a lambda. It is short for the constructors <code>Witness</code> and <code>Both</code>, and gives the same proof. On data, a tuple is still a pair.</p>
+  <pre data-src="43-proof-tuples.sw"></pre>
+</section>
+
 <section data-slug="test-facts" data-title="Tests and statements">
   <p>A <code>Bool</code> test and the statement it decides are two views of one fact. A fact about a test, such as <code>booking.fits capacity</code>, can be taken apart with the patterns of its statement (<code>Both</code> for <code>&amp;&amp;</code>, <code>Inl</code> and <code>Inr</code> for <code>||</code>) and built with its constructors. To use the whole fact as its statement, write <code>.read</code>. <code>auto</code> and <code>cases</code> use the facts in scope this way too.</p>
   <pre data-src="39-test-facts.sw"></pre>
