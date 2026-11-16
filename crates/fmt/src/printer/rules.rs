@@ -500,7 +500,7 @@ impl<'a> Rules<'a> {
             Match | Handle | Reify | Induct | ClauseLambda => self.alternatives(node),
             Arm | HandlerClause | InductArm => self.arm(node),
             List | Tuple | Record | Fields | PatternList | PatternTuple | PatternRecord
-            | Attributes => self.comma_bracket(node),
+            | Attributes | RewriteRules => self.comma_bracket(node),
             Paren => self.paren(node),
             Calc => self.calc(node),
             CalcStep => self.calc_step(node),

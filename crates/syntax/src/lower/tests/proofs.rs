@@ -224,6 +224,35 @@ fn rewrite_takes_rules_left_to_right_and_an_optional_body() {
 }
 
 #[test]
+fn rewrite_repeatedly_takes_a_bracketed_list_of_rules() {
+    let text = "def f (a: Nat): a = a :=\n  rewrite repeatedly [p, <- q x,\n    r] then t\n";
+    let Expr::Rewrite {
+        rules,
+        body,
+        repeatedly,
+        ..
+    } = &rhs(text)
+    else {
+        panic!("expected a rewrite");
+    };
+    assert!(repeatedly.is_some());
+    let shape: Vec<bool> = rules.iter().map(|r| r.reverse).collect();
+    assert_eq!(shape, vec![false, true, false]);
+    assert!(body.is_some());
+    // Without a `[`, `repeatedly` is a rule like any other name.
+    let Expr::Rewrite {
+        rules, repeatedly, ..
+    } = &rhs("def f (a: Nat): a = a :=\n  rewrite repeatedly then t\n")
+    else {
+        panic!("expected a rewrite");
+    };
+    assert!(repeatedly.is_none());
+    assert_eq!(rules.len(), 1);
+    assert!(!parse_errors("def f (a: Nat): a = a :=\n  rewrite repeatedly []\n").is_empty());
+    assert!(!parse_errors("def f (a: Nat): a = a :=\n  rewrite repeatedly [p] at h\n").is_empty());
+}
+
+#[test]
 fn rewrite_in_can_start_its_own_line() {
     let body = |text: &str| {
         let expr = rhs(text);

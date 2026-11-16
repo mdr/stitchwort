@@ -481,12 +481,16 @@ impl<'a> Walk<'a> {
                 target,
                 body,
                 keyword,
+                repeatedly,
                 at,
                 then,
                 span,
             } => {
                 self.tagged(what, *span, why);
                 self.span("Rewrite keyword", *keyword);
+                if let Some(repeatedly) = repeatedly {
+                    self.span("Rewrite repeatedly", *repeatedly);
+                }
                 for rule in rules {
                     self.span("RewriteRule", rule.span);
                     self.expr(&rule.proof);

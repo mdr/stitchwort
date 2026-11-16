@@ -261,6 +261,11 @@ pub enum Expr {
         body: Option<Box<Expr>>,
         /// The `rewrite` keyword's span.
         keyword: Span,
+        /// `rewrite repeatedly [rules]` (docs/proposals/simp-revisited.md):
+        /// the word `repeatedly`'s span. The rules are applied wherever they
+        /// fit until none does, then the goal is closed (without `then`) or
+        /// left to the body.
+        repeatedly: Option<Span>,
         /// The `at` keyword's span, with a target.
         at: Option<Span>,
         /// The `then` keyword's span, with a body.
@@ -301,6 +306,10 @@ pub enum Expr {
 pub struct RewriteRule {
     pub reverse: bool,
     pub proof: Expr,
+    /// One step of the definition `proof` names, its equation `f x… =
+    /// <body>` made by the compiler: a definition's name given to `rewrite
+    /// repeatedly` that has no generated arm equations. Never written.
+    pub unfold: bool,
     /// From the `<-` (if any) to the end of the proof.
     pub span: Span,
 }
