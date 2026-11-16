@@ -40706,7 +40706,7 @@
     {
       "id": 3624,
       "title": "[Sonnet] Toy++ T1: printParses over predicates on today's toy (toy-plus-plus.md §8 T1; tools/toyfmt/plus/SKETCH-PLUS.md): Parsed, parseParsed, the wrappers peeled; no syntax change. Est. 15 min (T0's revised estimate)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -40771,12 +40771,12 @@
     {
       "id": 3629,
       "title": "[Sonnet] rewrite repeatedly speed (SW-3602 L1 follow-up): Words.sw conversion (dev/patches/SW-3602-words-conversion.patch) checks 2.8x base vs 1.5x bar; targets: written-pass cost of printer lemmas in stepWords (20-40 ms each), each listed rule checked once per arm (~35 ms); L4: key may_fit on the left side's first call still stuck after computing. Profile first; land the conversion when within 1.5x",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Orchestrator's call: this is finishing rewrite repeatedly's stage-1 bar, not general speed work (D3465 pause), so it runs. Opus (tactic internals).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
