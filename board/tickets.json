@@ -39243,12 +39243,12 @@
     {
       "id": 3513,
       "title": "[Opus] Lean 4 port of the toy's engine layer, measured (D3629, Matt, 16 Nov 2026): docs/proposals/toy-proof-complexity.md §5; plain and idiomatic versions; same functions and top theorems; counts by the same measure",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Merged, Fable 17 min (est. 90). Orchestrator checked printIsReading and readingWords statement pairs: same meaning. Plain Lean 79% of Stitchwort's characters, idiomatic 53%; proofs alone 73% / 30%. Simplifier first; syntax <=21% on this slice. Decision pending: exprSpells experiment.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
