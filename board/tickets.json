@@ -1,5 +1,5 @@
 {
-  "next": 3689,
+  "next": 3690,
   "tickets": [
     {
       "id": 47,
@@ -41570,6 +41570,19 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3689,
+      "title": "[Opus] Parser sharp edge (SW-3683): any line starting with _ at a column right of a calc's indent is read as the next calc step, so a user-written _ argument at the start of a continuation line inside a step's proof misparses ('this step isn't lined up'). Decide the rule (steps start with _ only at the steps' column?) and fix with examples",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
