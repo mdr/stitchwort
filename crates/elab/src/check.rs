@@ -3508,6 +3508,21 @@ fn settle_from_expected(
     let Some((found, found_spine)) = call_parts(&result) else {
         return Ok((term, ty));
     };
+    // `expected` a call of another definition, defined as one of this
+    // (`Reads p spec`, which is `ReadsIn any p spec`): that call's
+    // arguments.
+    let unfolded;
+    let (want, want_spine) = if found != want
+        && let Value::Call(..) = expected
+        && let Value::Call(id, spine, _) =
+            stitchwort_core::value::unfold_once(&g, want, want_spine.clone())?
+        && id == found
+    {
+        unfolded = spine;
+        (id, &unfolded)
+    } else {
+        (want, want_spine)
+    };
     if found != want || found_spine.len() != want_spine.len() {
         return Ok((term, ty));
     }
@@ -6947,6 +6962,9 @@ fn inferred_against(
     {
         return Ok(prop);
     }
+    if as_named(cx, &found, expected, named)? {
+        return Ok(term);
+    }
     if !matches!(expr, Expr::App(..)) {
         return compare(cx, term, &found, expected);
     }
@@ -6959,6 +6977,29 @@ fn inferred_against(
             expected: expected.clone(),
         },
     )
+}
+
+/// Whether `found` unifies with the expected type as written, `named`,
+/// where it didn't with `expected`, `named` computed: `found` a call with
+/// an unknown argument and `named` a call of another definition defined as
+/// one of the same (`ReadsIn ?inv ?p ?spec` against `Reads starting
+/// Written`), whose arguments say what the unknowns are, where the two
+/// computed to `∀`s don't (`?inv.holds m` against `Unit`; SW-3534,
+/// [`crate::unify::unify_abbreviation`]). Tried only in that case and
+/// after `expected` failed, so a comparison that succeeded before solves
+/// what it did.
+fn as_named(cx: &mut Ctx, found: &Value, expected: &Value, named: &Value) -> Result<bool> {
+    if !matches!(named, Value::Call(..))
+        || !crate::unify::abbreviation_meets(&cx.u(), found, named)?
+        || crate::undo::unify(cx, found, expected)?
+    {
+        return Ok(false);
+    }
+    let met = crate::undo::transaction(cx, |cx| {
+        let same = crate::unify::unify_abbreviation(&cx.u(), cx.level(), found, named)?;
+        Ok(same.unwrap_or(false).then_some(()))
+    })?;
+    Ok(met.is_some())
 }
 
 /// A call's last comparison with its expected type, as an error frame
@@ -7517,12 +7558,18 @@ fn propagate(
                 pipes,
                 snapshot,
                 by_holes,
+                by_named,
                 ..
             } = *plan;
             snapshot.restore(cx);
             let args = with_pipes(&args, &pipes);
             Ok(Some(propagate_failed(
-                cx, expr, expected, &args, propagated, by_holes,
+                cx,
+                expr,
+                expected,
+                &args,
+                propagated,
+                (by_holes, by_named),
             )))
         }
     }
@@ -7583,7 +7630,7 @@ fn propagate_failed(
     expected: &Value,
     args: &[Arg],
     propagated: Diagnostic,
-    by_holes: bool,
+    (by_holes, by_named): (bool, bool),
 ) -> Result<Term> {
     // Elaborated again as it would have been without this
     // propagation. After one by `_`s, the applications inside still
@@ -7610,9 +7657,17 @@ fn propagate_failed(
     // Both fail inside the same argument: the first knew what the
     // argument must prove, where the second only had unknowns (a
     // `rewrite` in `Eq.trans (List.filterSkip _ _ _ (rewrite …)) e`
-    // against a goal of `?p ?x = False`, SW-931).
+    // against a goal of `?p ?x = False`, SW-931). Or the call met its goal
+    // only as written ([`as_named`]): the second, compared with the goal
+    // computed, fails at the whole call with the implicits the goal's
+    // arguments gave left unknown, where the first failed inside an
+    // argument, knowing them (SW-3534).
     match old {
-        Err(old) if !crate::undo::fatal(&old) && in_same_argument(args, &propagated, &old) => {
+        Err(old)
+            if !crate::undo::fatal(&old)
+                && (in_same_argument(args, &propagated, &old)
+                    || by_named && inside_argument(args, &propagated)) =>
+        {
             Err(propagated)
         }
         old => old,
@@ -7631,6 +7686,8 @@ struct Propagation<'a> {
     supply: Supply,
     snapshot: crate::undo::Snapshot,
     by_holes: bool,
+    /// Matched only against the expected type as written ([`as_named`]).
+    by_named: bool,
     /// Matched not by `_`s but by the arguments of the two calls, the plain
     /// comparison having failed.
     by_arguments: bool,
@@ -7771,6 +7828,8 @@ fn propagation_plan<'a>(
     // checked against a type that can't fail early, and a lambda is checked
     // in place, fails, and is checked again (SW-3281).
     let plain = crate::undo::unify(cx, &written, expected)?;
+    let by_named = !plain && as_named(cx, &written, expected, named)?;
+    let plain = plain || by_named;
     let by_arguments = !plain
         && (by_holes || cx.e.decl.no_argument_propagation.get() == 0)
         && crate::undo::unify_solving_arguments(cx, &written, expected)?;
@@ -7798,6 +7857,7 @@ fn propagation_plan<'a>(
         supply,
         snapshot,
         by_holes,
+        by_named,
         by_arguments: by_arguments && !by_holes,
     })))
 }
@@ -7827,6 +7887,21 @@ fn in_same_argument(args: &[Arg], first: &Diagnostic, second: &Diagnostic) -> bo
             let whole = value.span();
             let part = |span: Span| inside(whole, span) && (whole_ok || span != whole);
             part(first.span) && part(second.span)
+        }
+        _ => false,
+    })
+}
+
+/// Whether the error `e` points inside one of the explicit arguments
+/// `args`.
+fn inside_argument(args: &[Arg], e: &Diagnostic) -> bool {
+    let Some(at) = e.labels.first() else {
+        return false;
+    };
+    args.iter().any(|arg| match arg {
+        Arg::Explicit(value) => {
+            let whole = value.span();
+            whole.file == at.span.file && whole.start <= at.span.start && at.span.end <= whole.end
         }
         _ => false,
     })
