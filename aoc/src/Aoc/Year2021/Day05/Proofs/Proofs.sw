@@ -84,25 +84,28 @@ theorem pointsCount ∀ (line: Line)
     | point =>
       let steps := Nat.max (Nat.absDiff line.from.x line.to.x) (Nat.absDiff line.from.y line.to.y)
       let k := Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y)
-      Eq.trans
-        (List.countMap (List.range 0 (steps + 1)) (== point) (step =>
-          { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step }))
-        (Eq.trans
-          (List.countCongMem _ _ (i => covers line point ∧ i == k) (i inRange =>
-            pointStep line shape point i (stepInRange steps i inRange)))
-          (countRangeOnce (steps + 1) k (covers line point) (c => coveredWithin line point c)))
+      calc line.points.count (== point)
+        _ = (List.range 0 (steps + 1)).count (step =>
+            ({ x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step }: Point) == point) :=
+          List.countMap (List.range 0 (steps + 1)) (== point) (step =>
+            { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step })
+        _ = (List.range 0 (steps + 1)).count (i => covers line point ∧ i == k) :=
+          List.countCongMem _ _ (i => covers line point ∧ i == k) (i inRange =>
+            pointStep line shape point i (stepInRange steps i inRange))
+        _ = Bool.toNat (covers line point) :=
+          countRangeOnce (steps + 1) k (covers line point) (c => coveredWithin line point c)
 
 --| So every line's points, together, list a point once for each line that
 --| covers it.
 theorem listedCoveredBy ∀ (lines: List Line)
     (shapes: lines.all (line => horizontalOrVertical line ∨ diagonal line) = True) (p: Point):
     (lines.flatMap Line.points).count (== p) = coveredBy lines p :=
-  Eq.trans
-    (List.countFlatMap Line.points (== p) lines)
-    (Eq.trans
-      (List.sumByCongMem lines (line => line.points.count (== p)) (line => Bool.toNat (covers line p)) (line inLines =>
-        pointsCount line (shapes.read line inLines) p))
-      (Eq.flipped (List.countSumBy lines (line => covers line p))))
+  calc (lines.flatMap Line.points).count (== p)
+    _ = List.sumBy lines (line => line.points.count (== p)) := List.countFlatMap Line.points (== p) lines
+    _ = List.sumBy lines (line => Bool.toNat (covers line p)) :=
+      List.sumByCongMem lines (line => line.points.count (== p)) (line => Bool.toNat (covers line p)) (line inLines =>
+        pointsCount line (shapes.read line inLines) p)
+    _ = coveredBy lines p := Eq.flipped (List.countSumBy lines (line => covers line p))
 
 --| The step a line takes to reach a point, `k`, is the only one there: the
 --| steps `0` to `n - 1` count it once if it is one of them.
@@ -135,13 +138,19 @@ theorem pointStep ∀ (line: Line)
     (hi: i ≤ Nat.max (line.from.x.absDiff line.to.x) (line.from.y.absDiff line.to.y)):
     (({ x = towards line.from.x line.to.x i, y = towards line.from.y line.to.y i }: Point) == point)
       = (covers line point ∧ i == Nat.max (line.from.x.absDiff point.x) (line.from.y.absDiff point.y)) :=
-  Eq.trans
-    (Point.beqMk (towards line.from.x line.to.x i) (towards line.from.y line.to.y i) point)
-    (Eq.trans
-      (pointLinear line.from.x line.from.y line.to.x line.to.y i point.x point.y shape hi)
-      (Eq.cong
+  calc (({ x = towards line.from.x line.to.x i, y = towards line.from.y line.to.y i }: Point) == point)
+    _ = (towards line.from.x line.to.x i == point.x ∧ towards line.from.y line.to.y i == point.y) :=
+      Point.beqMk (towards line.from.x line.to.x i) (towards line.from.y line.to.y i) point
+    _ = ((between line.from.x point.x line.to.x
+        ∧ between line.from.y point.y line.to.y
+        ∧ ((line.from.x == line.to.x ∨ line.from.y == line.to.y)
+          ∨ line.from.x.absDiff point.x == line.from.y.absDiff point.y))
+        ∧ i == Nat.max (line.from.x.absDiff point.x) (line.from.y.absDiff point.y)) :=
+      pointLinear line.from.x line.from.y line.to.x line.to.y i point.x point.y shape hi
+    _ = (covers line point ∧ i == Nat.max (line.from.x.absDiff point.x) (line.from.y.absDiff point.y)) :=
+      Eq.cong
         (c => c ∧ i == Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y))
-        (Eq.flipped (coversLinear line.from.x line.from.y line.to.x line.to.y point.x point.y shape))))
+        (Eq.flipped (coversLinear line.from.x line.from.y line.to.x line.to.y point.x point.y shape))
 
 --| A point is another when both coordinates are the same.
 theorem Point.beqMk ∀ (x y: Nat) (point: Point): (({ x, y }: Point) == point) = (x == point.x ∧ y == point.y) :=
