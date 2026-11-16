@@ -40537,7 +40537,7 @@
     {
       "id": 3611,
       "title": "[Sonnet] Std warnings to zero, stage 2 (Matt: no warnings in Stitchwort code; fix or dial down): (1) narrow W-PROOF-CHAIN to nests that span lines (orchestrator's call: one-line nests like Bool.falseNotTrue (Eq.trans c.flipped (Eq.trans …)) read fine; ~40 of 205), lower pins; (2) convert the remaining multi-line nests to calc in batches from docs/reviews/SW-3603-std-warnings.md, one commit per batch, pins lowered, prelude hash snapshot and native pins refreshed. Sequential (all batches touch the prelude snapshot)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
