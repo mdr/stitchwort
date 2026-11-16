@@ -16976,7 +16976,7 @@
     {
       "id": 1960,
       "title": "[DeepSeek] Set nextest terminate-after in the merge and lane profiles, so a hang fails instead of running forever",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -16984,7 +16984,7 @@
         "parked"
       ],
       "epic": "dev-loop-speed",
-      "body": "From docs/proposals/kernel-merge-gate.md. Ticket 3. 30 min.\n\nFrom docs/reviews/code-review-tests.md (T4): widen to daily and full, from their junit times.",
+      "body": "From docs/proposals/kernel-merge-gate.md. Ticket 3. 30 min.\n\nFrom docs/reviews/code-review-tests.md (T4): widen to daily and full, from their junit times.\n\nModel result: deepseek, worked, ~30 min (est. 30). terminate-after in every profile (default/lanes 60s×10, quick 60s×5, broad/all 120s×10). SW-2212 was already done (fuzz.rs reads FUZZ_SEED).",
       "created": "2026-11-07",
       "updated": "2026-11-16",
       "commits": []
@@ -20783,7 +20783,7 @@
     {
       "id": 2212,
       "title": "[DeepSeek] Syntax fuzzer: take its seed from an env var (FUZZ_SEED) instead of the hard-coded SEED (crates/syntax/tests/it/fuzz.rs:15), and print the case count, so soak runs can vary it",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -38226,12 +38226,12 @@
     {
       "id": 3436,
       "title": "[Sonnet] toyfmt: stableInjective := cases, formatChecked's inline proof via cases in DecEq.sound c, delete printedOr (SW-3344 makes them one word); after SW-3418 merges",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~35 min (est. 40). With SW-3469 and SW-3458: 203 lines of subsumed lemmas deleted, Scan.Waiting → Scan.Pending, Chunk shadowing fixed, stableInjective by cases, printedOr gone. Top theorems untouched; no goals, no axioms.",
       "created": "2026-11-15",
       "updated": "2026-11-16",
       "commits": []
@@ -38518,7 +38518,7 @@
     {
       "id": 3458,
       "title": "[DeepSeek] toyfmt small: rename one of the two Waiting constructors (Edge.Waiting vs Scan.Waiting) in Toy.Fmt.Proofs; and a hint when a hypothesis named like a function shadows it ('token comments text' is not a function) (SW-3418 part 7 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -38663,7 +38663,7 @@
     {
       "id": 3469,
       "title": "[Sonnet] toyfmt tidy after SW-3418: delete printJoins/joinedLex/printedLexes/parsedPrintLexes (subsumed by the named-pieces forms), printedPlaces; rename Edge.Waiting vs Scan.Waiting (SW-3458) and Chunk shadowing in Toy.Fmt.Tests; optionally prove reach sound against Lays (part 10 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
