@@ -377,9 +377,6 @@ def RuleAll (within: Nat → Prop) (docs: List Doc) (pre: Place → Prop) (spec:
     → (∀ (after: Place) (events: List Event) => spec events → post after → next after (trace ++ events))
     → LaysAll docs indent place trace next
 
-theorem ruleNil ∀ (within: Nat → Prop) (pre: Place → Prop): RuleAll within [] pre Done pre :=
-  indent place trace next inside holds onward => rewrite <- List.appendNil trace in onward place [] rfl holds
-
 theorem ruleCons ∀ (within: Nat → Prop) (doc: Doc) (docs: List Doc)
     (pre middle post: Place → Prop) (first second: List Event → Prop)
     (one: Rule within doc pre first middle)
@@ -402,11 +399,6 @@ theorem ruleConcat ∀ (within: Nat → Prop) (docs: List Doc) (pre post: Place 
   indent place trace next inside holds onward =>
     concatLays docs indent place trace next (each indent place trace next inside holds onward)
 
-theorem ruleGroup ∀ (within: Nat → Prop) (inner: Doc) (pre post: Place → Prop) (spec: List Event → Prop)
-    (rule: Rule within inner pre spec post):
-    Rule within (Doc.group inner) pre spec post :=
-  rule
-
 theorem holdsDeeper ∀ (zone: Zone) (indent more: Nat) (inside: zone.holds indent): zone.under (indent + Succ more) :=
   match zone, inside with
     | Anywhere column, inside => omega
@@ -416,32 +408,12 @@ theorem underHolds ∀ (zone: Zone) (indent: Nat) (under: zone.under indent): zo
   | Anywhere column, under => under
   | Deeper column, under => omega
 
---| The lines of a nest are deeper than the statement.
-theorem ruleNest ∀ (zone: Zone) (more: Nat) (inner: Doc) (pre post: Place → Prop) (spec: List Event → Prop)
-    (rule: Rule zone.under inner pre spec post):
-    Rule zone.holds (Nest (Succ more) inner) pre spec post :=
-  indent place trace next inside holds onward =>
-    rule (indent + Succ more) place trace next (holdsDeeper zone indent more inside) holds onward
-
 --| What holds at any indentation of the zone holds deeper.
 theorem ruleUnder ∀ (zone: Zone) (doc: Doc) (pre post: Place → Prop) (spec: List Event → Prop)
     (rule: Rule zone.holds doc pre spec post):
     Rule zone.under doc pre spec post :=
   indent place trace next inside holds onward =>
     rule indent place trace next (underHolds zone indent inside) holds onward
-
---| What a rule is asked may be strengthened, and what it promises
---| weakened.
-theorem ruleWeaker ∀ (within: Nat → Prop) (doc: Doc)
-    (pre weakPre post weakPost: Place → Prop) (spec weakSpec: List Event → Prop)
-    (rule: Rule within doc pre spec post)
-    (enters: ∀ (place: Place) => weakPre place → pre place)
-    (says: ∀ (events: List Event) => spec events → weakSpec events)
-    (leaves: ∀ (place: Place) => post place → weakPost place):
-    Rule within doc weakPre weakSpec weakPost :=
-  indent place trace next inside holds onward =>
-    rule indent place trace next inside (enters place holds) (after events isSpec reached =>
-      onward after events (says events isSpec) (leaves after reached))
 
 -- The leaves.
 
@@ -463,17 +435,6 @@ theorem tokenRule ∀ (zone: Zone) (comments: Comments) (text: Text)
             (Both (innerStart zone indent place comments.above inside inner) rfl)))
         (trailEnded zone _ comments.after (innerLine zone indent place comments.above inside inner)))
 
---| A space between two tokens of a line.
-theorem spaceRule ∀ (zone: Zone) (within: Nat → Prop): Rule within (Doc.text " ") (Ended zone) Done (Ended zone) :=
-  indent place trace next inside ended onward =>
-    match place, ended with
-      | Mid at, ended => rewrite <- List.appendNil trace in onward (Mid at) [] rfl ended
-      | Held at, ended => rewrite <- List.appendNil trace in onward (Held at) [] rfl ended
-
---| No text.
-theorem nothingRule ∀ (within: Nat → Prop) (pre: Place → Prop): Rule within (Doc.text "") pre Done pre :=
-  indent place trace next inside holds onward => rewrite <- List.appendNil trace in onward place [] rfl holds
-
 --| A place whose line is indented no less than the zone's statement.
 def Seated (zone: Zone) (place: Place): Prop := match place with
   | AtStart at => zone.holds at
@@ -486,61 +447,11 @@ theorem endedSeated ∀ (zone: Zone) (place: Place) (ended: Ended zone place): S
     | Mid at, ended => ended
     | Held at, ended => ended
 
-theorem innerSeated ∀ (zone: Zone) (place: Place) (inner: Inner zone place): Seated zone place :=
-  match place, inner with
-    | AtStart at, inner => underHolds zone at inner
-    | Mid at, inner => inner
-    | Held at, inner => inner
-
---| A `Line` in a nest of the statement: a space, or a line deeper than
---| the statement, where its next token may start.
-theorem lineRule ∀ (zone: Zone): Rule zone.under Line (Ended zone) Done (Inner zone) :=
-  indent place trace next inside ended onward =>
-    match place, ended with
-      | Mid at, ended =>
-        Both
-          (rewrite <- List.appendNil trace in onward (Mid at) [] rfl ended)
-          (rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside)
-      | Held at, ended => rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside
-
---| A `Line` at the statement's own indentation: a space, or a line that
---| may be at the statement's column (an `else`, a closing bracket).
-theorem lineSeats ∀ (zone: Zone): Rule zone.holds Line (Ended zone) Done (Seated zone) :=
-  indent place trace next inside ended onward =>
-    match place, ended with
-      | Mid at, ended =>
-        Both
-          (rewrite <- List.appendNil trace in onward (Mid at) [] rfl ended)
-          (rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside)
-      | Held at, ended => rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside
-
---| A `SoftLine` after a token: nothing, or a line break to the
---| indentation in force.
-theorem softRule ∀ (zone: Zone): Rule zone.holds SoftLine (Ended zone) Done (Seated zone) :=
-  indent place trace next inside seated onward =>
-    match place, seated with
-      | Mid at, seated =>
-        Both
-          (rewrite <- List.appendNil trace in onward (Mid at) [] rfl seated)
-          (rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside)
-      | Held at, seated => rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside
-
 --| After a token there are words on the line.
 theorem endedMid ∀ (zone: Zone) (place: Place) (ended: Ended zone place): place.midLine = True :=
   match place, ended with
     | Mid at, _ => rfl
     | Held at, _ => rfl
-
---| A `HardLine` after a token: a line at the indentation in force.
-theorem hardRule ∀ (zone: Zone): Rule zone.holds HardLine (Ended zone) Done (Seated zone) :=
-  indent place trace next inside ended onward =>
-    Both (endedMid zone place ended) (Inr (rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside))
-
---| A `HardLine` after a token, in a nest of the statement: a line deeper
---| than the statement.
-theorem hardUnder ∀ (zone: Zone): Rule zone.under HardLine (Ended zone) Done (Inner zone) :=
-  indent place trace next inside ended onward =>
-    Both (endedMid zone place ended) (Inr (rewrite <- List.appendNil trace in onward (AtStart indent) [] rfl inside))
 
 -- A closing bracket.
 
@@ -695,42 +606,3 @@ theorem ruleLast ∀ (within: Nat → Prop) (doc: Doc) (pre post: Place → Prop
     RuleAll within [doc] pre spec post :=
   indent place trace next inside holds onward =>
     rule indent place trace (after later => LaysAll [] indent after later next) inside holds onward
-
---| Two tokens of a statement with a space between, as `let name` or an
---| operator and a one-token operand: each starts a line only deeper than
---| the statement.
-theorem spacedTokens ∀ (zone: Zone) (first second: Comments) (firstText secondText: Text)
-    (fineFirst: Fine first)
-    (solidFirst: Solid firstText)
-    (fineSecond: Fine second)
-    (solidSecond: Solid secondText):
-    Rule zone.holds
-      (Doc.concat [token first firstText, Doc.text " ", token second secondText])
-      (Inner zone)
-      (Then (TokenAt zone.allows first firstText) (Then Done (TokenAt zone.allows second secondText)))
-      (Ended zone) :=
-  ruleConcat zone.holds _
-    (Inner zone)
-    (Ended zone) _
-    (ruleCons zone.holds _ _
-      (Inner zone)
-      (Ended zone)
-      (Ended zone) _ _
-      (tokenRule zone first firstText fineFirst solidFirst)
-      (ruleCons zone.holds _ _
-        (Ended zone)
-        (Ended zone)
-        (Ended zone) _ _
-        (spaceRule zone zone.holds)
-        (ruleLast zone.holds _
-          (Ended zone)
-          (Ended zone) _
-          (ruleWeaker zone.holds _
-            (Inner zone)
-            (Ended zone)
-            (Ended zone)
-            (Ended zone) _ _
-            (tokenRule zone second secondText fineSecond solidSecond)
-            (place ended => endedInner zone place ended)
-            (events spec => spec)
-            (place ended => ended)))))
