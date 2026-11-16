@@ -1,5 +1,5 @@
 {
-  "next": 3523,
+  "next": 3526,
   "tickets": [
     {
       "id": 47,
@@ -39035,12 +39035,12 @@
     {
       "id": 3497,
       "title": "[Sonnet] fmt passes L4: exact checks; remove fallbacks F1-F4, Doc::Verbatim and the CLI's verbatim report (count first whether any F4 guard is reachable); whole-file check per D-A. After L3. Est. 45 min",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3633 (Matt, 16 Nov 2026): yes, keep one whole-file check in the Rust formatter ('sensible'). D3634 (Matt): when it fails, error loudly: CLI as now (error naming the first difference, file unchanged, exit 1); the editor (crates/lsp/src/lib.rs:2484 format_edits) shows a warning once per document version: 'Stitchwort formatter bug: this file was left unchanged. Run stitchwort fmt <file> to see the details.' A refused file (syntax error) stays silent in the editor. Do this in L4 with the fallback removal; test both.\n\n\nLane notes (Sonnet, 16 Nov 2026): done on lane/SW-3497, commit 04039b751. Exact checks and the whole-file check were already in place after L1-L3; L4 removed F1-F4, Doc::Verbatim, VerbatimDecl, Stats, format_with_stats, the CLI report. None of the six F4 guards is reachable (parser refuses each; now an internal error). F2 was reachable: a file whose first tokens start with `:=` and has no column-0 declaration keyword is accepted by the parser, which drops them (decl_ranges); the formatter now refuses such a file (two golden pairs leading-colon-eq* removed, api test added). D3634 in the editor: Main::formatted, unit tests. With the fallback gone the fuzzer shows 3 older formatter bugs (2 fixed here: a closer with a comment after code with one; a comment after := above a match). Two remain: bare/bracketed `;` sequence broken by a comment; comment inside a parameter's function type. Engine assertion not added.\n",
+      "body": "D3633 (Matt, 16 Nov 2026): yes, keep one whole-file check in the Rust formatter ('sensible'). D3634 (Matt): when it fails, error loudly: CLI as now (error naming the first difference, file unchanged, exit 1); the editor (crates/lsp/src/lib.rs:2484 format_edits) shows a warning once per document version: 'Stitchwort formatter bug: this file was left unchanged. Run stitchwort fmt <file> to see the details.' A refused file (syntax error) stays silent in the editor. Do this in L4 with the fallback removal; test both.\n\n\nLane notes (Sonnet, 16 Nov 2026): done on lane/SW-3497, commit 04039b751. Exact checks and the whole-file check were already in place after L1-L3; L4 removed F1-F4, Doc::Verbatim, VerbatimDecl, Stats, format_with_stats, the CLI report. None of the six F4 guards is reachable (parser refuses each; now an internal error). F2 was reachable: a file whose first tokens start with `:=` and has no column-0 declaration keyword is accepted by the parser, which drops them (decl_ranges); the formatter now refuses such a file (two golden pairs leading-colon-eq* removed, api test added). D3634 in the editor: Main::formatted, unit tests. With the fallback gone the fuzzer shows 3 older formatter bugs (2 fixed here: a closer with a comment after code with one; a comment after := above a match). Two remain: bare/bracketed `;` sequence broken by a comment; comment inside a parameter's function type. Engine assertion not added.\n\nModel result: sonnet, worked, 15 min (est. 45). F4 guards unreachable (14 inputs, fuzz, repo). F2 reachable via leading ':=' (now refused; parser ticket SW-3525). Fallback hid two bugs, fixed two more; filed SW-3523 ($;-sequence) and SW-3524 (comment in a function type). CLI exit code stays 2. L5 should count Internal; L6 docs list in report.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": [
@@ -39055,7 +39055,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "From SW-3497: the fuzzer now sees Internal errors where declarations used to be left as written; fuzz properties should report them as findings (with the case), not stop the run at the first.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39367,6 +39367,45 @@
       "id": 3522,
       "title": "[Fable paper] Revisit simp: new design note (D3637, Matt, 16 Nov 2026), reconsidering D2541's 'no simp' in light of the toy proof and the Lean port (SW-3513: proofs 30% with simp/grind vs 73% plain); within D3481 (no propext; ↔ rewriting under connectives, SW-2706), D2541/D2542 (computing decides; rewrite what's visible), D3479-D3482 (tests first)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3523,
+      "title": "[Sonnet] fmt bug (no fallback since SW-3497, so now an internal error): a ';' sequence at a line end followed by a comment and a continuation breaks: 'def three: Nat :=\\n  let x := 1;\\n-- c\\n  x' and '(let x := 1; 2;\\n-- c\\n x)'. Fix with goldens failing first",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3524,
+      "title": "[Sonnet] fmt bug (internal error since SW-3497): a comment inside a parameter's function type: 'def combine (f: Nat ->\\n-- c\\n b -> c): List c := xs'. Fix with a golden failing first",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3525,
+      "title": "[Opus] Parser: tokens before the first declaration starting with ':=' are accepted and silently dropped by decl_ranges (the compiler ignores them); reject with E-PARSE. fmt now refuses such files (SW-3497)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
