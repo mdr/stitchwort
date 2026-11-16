@@ -4904,6 +4904,72 @@ fn evaluate(session: &mut Session, expr: &str, type_only: bool) -> Result<String
     Ok(format!("{value}: {ty}"))
 }
 
+/// The words a REPL line starts with when it is a declaration, not an
+/// expression.
+const DECLARATION_STARTS: [&str; 9] = [
+    "def",
+    "theorem",
+    "type",
+    "interface",
+    "instance",
+    "ability",
+    "test",
+    "export",
+    "opaque",
+];
+
+/// Whether `input` begins a declaration: a keyword that starts one, or an
+/// attribute (`@[…]`).
+fn starts_declaration(input: &str) -> bool {
+    input.starts_with("@[")
+        || DECLARATION_STARTS.iter().any(|word| {
+            input
+                .strip_prefix(word)
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with(char::is_whitespace))
+        })
+}
+
+/// Whether `text`, which doesn't parse, stops short: the parser got to the
+/// end of what was typed and wanted more, so the REPL asks for another line.
+fn needs_more_input(session: &mut Session, text: &str) -> bool {
+    let id = session.sources.add("<input>", text);
+    let (_, errors) =
+        stitchwort_syntax::parse_module_recovering(id, text, session.elab.options.limits.stack);
+    let end = text.trim_end().len() as u32;
+    errors
+        .first()
+        .and_then(Diagnostic::primary_span)
+        .is_some_and(|span| span.start >= end)
+}
+
+/// Reports what the REPL got wrong. A one-line input shows its errors as a
+/// caret under the input and the message, with no box or file name; goals
+/// and what spans more than the line are shown in full, as everywhere.
+fn report_input(sources: &SourceMap, diagnostics: &[Diagnostic]) {
+    let color = color_on_stderr();
+    for diagnostic in diagnostics {
+        match stitchwort_cli::render::render_compact(sources, diagnostic, color, REPL_PROMPT.len())
+        {
+            Some(compact) => eprint!("{compact}"),
+            None => report(sources, std::slice::from_ref(diagnostic)),
+        }
+    }
+}
+
+const REPL_PROMPT: &str = "sw> ";
+
+/// The REPL's `:help`.
+const REPL_HELP: &str = "  expression         evaluate it and show its value and type
+  :t expression      show its type, without evaluating it
+  import Std (List)  bring a namespace's names into scope
+  def, theorem, type, interface, instance, ability, test
+                     declare it for the rest of the session; a declaration
+                     that isn't finished asks for more lines (`...`), and a
+                     blank line gives up. Declaring a name again replaces
+                     it: definitions made earlier keep the one they used
+  :help              this list
+  :q                 quit";
+
 #[inline(never)]
 fn repl(path: Option<&Path>) -> ExitCode {
     let mut session = new_session(false);
@@ -4920,12 +4986,12 @@ fn repl(path: Option<&Path>) -> ExitCode {
         }
     };
     println!(
-        "Stitchwort {}. Enter an expression to evaluate it, `import Std (List)` to use a namespace's names, `:t expr` for its type, `:q` to quit.",
+        "Stitchwort {}. Enter an expression to evaluate it, or a declaration (`def`, `theorem`, `type`, …) to add it to the session; `import Std (List)` to use a namespace's names, `:t expr` for its type, `:help`, `:q` to quit.",
         env!("CARGO_PKG_VERSION")
     );
 
     loop {
-        let line = match editor.readline("sw> ") {
+        let line = match editor.readline(REPL_PROMPT) {
             Ok(line) => line,
             Err(ReadlineError::Interrupted | ReadlineError::Eof) => return ExitCode::SUCCESS,
             Err(err) => {
@@ -4933,21 +4999,61 @@ fn repl(path: Option<&Path>) -> ExitCode {
                 return ExitCode::FAILURE;
             }
         };
-        let input = line.trim();
+        let mut input = line.trim().to_string();
         if input.is_empty() {
             continue;
         }
-        let _ = editor.add_history_entry(input);
+        if starts_declaration(&input) {
+            // A declaration may take several lines: more are asked for
+            // while what was typed stops in the middle.
+            while needs_more_input(&mut session, &input) {
+                match editor.readline("...> ") {
+                    Ok(more) if more.trim().is_empty() => break,
+                    Ok(more) => {
+                        input.push('\n');
+                        input.push_str(&more);
+                    }
+                    Err(ReadlineError::Interrupted) => {
+                        input.clear();
+                        break;
+                    }
+                    Err(_) => return ExitCode::SUCCESS,
+                }
+            }
+            if input.is_empty() {
+                continue;
+            }
+            let _ = editor.add_history_entry(input.replace('\n', " "));
+            match session.add_declarations("<input>", &input) {
+                Ok((declared, reported)) => {
+                    report_input(&session.sources, &reported);
+                    for name in declared {
+                        // What the name now stands for, as a reminder.
+                        if let Ok(shown) = evaluate(&mut session, &name, true) {
+                            println!("{shown}");
+                        }
+                    }
+                }
+                Err(diagnostics) => report_input(&session.sources, &diagnostics),
+            }
+            continue;
+        }
+        let _ = editor.add_history_entry(&input);
+        let input = input.as_str();
         if input == "import" || input.starts_with("import ") {
             // Imports accumulate over the session, as a file's do.
             let diagnostics = session.add_imports("<input>", input);
             if !diagnostics.is_empty() {
-                report(&session.sources, &diagnostics);
+                report_input(&session.sources, &diagnostics);
             }
             continue;
         }
         let result = match input {
             ":q" | ":quit" => return ExitCode::SUCCESS,
+            ":help" | ":h" | ":?" => {
+                println!("{REPL_HELP}");
+                continue;
+            }
             _ => match input.strip_prefix(":t ") {
                 Some(expr) => evaluate(&mut session, expr, true),
                 None => evaluate(&mut session, input, false),
@@ -4955,7 +5061,7 @@ fn repl(path: Option<&Path>) -> ExitCode {
         };
         match result {
             Ok(output) => println!("{output}"),
-            Err(diagnostic) => report(&session.sources, &[diagnostic]),
+            Err(diagnostic) => report_input(&session.sources, &[diagnostic]),
         }
     }
 }

@@ -617,6 +617,15 @@ impl Scope {
         self.entries.remove(key)
     }
 
+    /// [`Scope::remove`], and `key` is no longer a member of its type or a
+    /// follower of its short name either.
+    pub(crate) fn forget(&mut self, key: &str) {
+        self.entries.remove(key);
+        self.members.remove(key);
+        self.followers
+            .update(short(key), |keys| keys.retain(|k| k != key));
+    }
+
     /// Where `key` is among the followers of its short name, if it is one
     /// (for the check cache, which must add them in the same order).
     pub(crate) fn follower_position(&self, key: &str) -> Option<usize> {

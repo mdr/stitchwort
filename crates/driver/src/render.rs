@@ -185,6 +185,96 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
     out
 }
 
+/// `diagnostic` for a one-line input (the REPL's), without ariadne's box:
+/// carets under the part of the line it points at, then the message. The
+/// line itself isn't repeated: it is on the screen just above, after the
+/// prompt, which `margin` columns wide the carets are indented by. `None` if
+/// the diagnostic isn't about that one line alone (it has labels in other
+/// files or on other lines, or is a goal), so [`render`] shows it in full.
+pub fn render_compact(
+    sources: &SourceMap,
+    diagnostic: &Diagnostic,
+    color: bool,
+    margin: usize,
+) -> Option<String> {
+    let primary = diagnostic.primary_span()?;
+    let text = sources.get(primary.file).text.as_str();
+    let line = text.trim_end();
+    let single_line = |span: stitchwort_syntax::Span| {
+        span.file == primary.file
+            && (span.end as usize) <= text.len()
+            && !text[span.start as usize..span.end as usize].contains('\n')
+    };
+    if diagnostic.code == "GOAL"
+        || line.contains('\n')
+        || !diagnostic
+            .labels
+            .iter()
+            .all(|label| single_line(label.span))
+    {
+        return None;
+    }
+    // Column of a byte offset, counting characters: the line is shown as typed.
+    let column = |offset: u32| text[..(offset as usize).min(text.len())].chars().count();
+    let start = column(primary.start);
+    let width = column(primary.end).saturating_sub(start).max(1);
+    let (kind, colour) = match diagnostic.severity {
+        Severity::Error => ("error", "1;31"),
+        Severity::Warning => ("warning", "1;33"),
+        Severity::Goal => ("goal", "1;36"),
+    };
+    let paint = |code: &str, text: &str| {
+        if color {
+            styled(code, text)
+        } else {
+            text.to_string()
+        }
+    };
+    let carets = "^".repeat(width);
+    let labels = diagnostic
+        .labels
+        .iter()
+        .filter(|label| !label.message.is_empty())
+        .collect::<Vec<_>>();
+    // The first label, which is the primary one, goes beside the carets; the
+    // message is the line below.
+    let beside = labels
+        .first()
+        .filter(|label| label.span == primary)
+        .map_or("", |label| label.message.as_str());
+    let mut out = format!(
+        "{}{}\n",
+        " ".repeat(margin + start),
+        paint(colour, format!("{carets} {beside}").trim_end())
+    );
+    out.push_str(&paint(
+        colour,
+        &format!("{kind}[{}]: {}", diagnostic.code, diagnostic.message),
+    ));
+    out.push('\n');
+    for label in labels.iter().skip(usize::from(!beside.is_empty())) {
+        out.push_str(&format!(
+            "  at column {}: {}\n",
+            column(label.span.start) + 1,
+            label.message
+        ));
+    }
+    for note in &diagnostic.notes {
+        let note = if color {
+            highlight_rows(note)
+        } else {
+            note.clone()
+        };
+        out.push_str(&format!("{}note: {note}\n", " ".repeat(margin)));
+    }
+    for fix in crate::fixes::fixes_of(sources, diagnostic) {
+        if fix.applicability == crate::fixes::Applicability::Certain {
+            out.push_str(&format!("{}{}\n", " ".repeat(margin), fix.try_line()));
+        }
+    }
+    Some(out)
+}
+
 /// The longest a line of a goal (a hypothesis, or the target) is shown in
 /// full on the command line: a longer one keeps its first and last
 /// [`GOAL_LINE_LIMIT`]` / 2` characters, and says how many it leaves out

@@ -1,0 +1,8 @@
+def half (n: Nat): Nat := n / 2
+half 10
+def quarter (n: Nat): Nat :=
+  half (half n)
+quarter 40
+def half (n: Nat): Nat := n / 3
+half 30
+quarter 40

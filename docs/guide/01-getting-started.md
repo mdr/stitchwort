@@ -101,11 +101,47 @@ it prints:
 
 <!-- output: repl values.sw < repl-session.txt -->
 ```text
-Stitchwort 0.1.0. Enter an expression to evaluate it, `import Std (List)` to use a namespace's names, `:t expr` for its type, `:q` to quit.
+Stitchwort 0.1.0. Enter an expression to evaluate it, or a declaration (`def`, `theorem`, `type`, …) to add it to the session; `import Std (List)` to use a namespace's names, `:t expr` for its type, `:help`, `:q` to quit.
 42: Nat
 "Ada bought 2 items: [3, 4], costing 7": Text
 describe: Nat → Text
 [0, 1, 2, 3]: List Nat
+```
+
+The REPL also takes declarations: `def`, `theorem`, `type`, `interface`, `instance`, `ability` and `test`. They are added to the session, and each prints what it declared with its type. A declaration that stops in the middle (after `:=`, say) asks for more lines with `...>`, and a blank line gives up. Declaring a name again replaces it for what you type from then on; definitions made earlier keep the one they used. A declaration that fails changes nothing, and a `theorem` with a `?` reports its open goal as `check` does. `:help` lists all of this.
+
+<!-- snippet: repl-declarations.txt -->
+```text
+def half (n: Nat): Nat := n / 2
+half 10
+def quarter (n: Nat): Nat :=
+  half (half n)
+quarter 40
+def half (n: Nat): Nat := n / 3
+half 30
+quarter 40
+```
+
+prints:
+
+<!-- output: repl < repl-declarations.txt -->
+```text
+Stitchwort 0.1.0. Enter an expression to evaluate it, or a declaration (`def`, `theorem`, `type`, …) to add it to the session; `import Std (List)` to use a namespace's names, `:t expr` for its type, `:help`, `:q` to quit.
+half: Nat → Nat
+5: Nat
+quarter: Nat → Nat
+10: Nat
+half: Nat → Nat
+10: Nat
+10: Nat
+```
+
+An error in a one-line entry is shown as a caret under what you typed, with the message below it, rather than a box with the file name:
+
+```text
+sw> 1 + true
+        ^^^^ not in scope
+error[E-UNKNOWN-NAME]: unknown name `true`
 ```
 
 ## Projects

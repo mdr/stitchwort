@@ -148,3 +148,69 @@ fn type_only_works_on_a_declaration_with_an_open_goal() {
     );
     assert!(errors.contains("E-UNFINISHED"), "{errors}");
 }
+
+/// What the REPL printed on stdout and stderr, as text.
+fn printed(input: &str) -> (String, String) {
+    let output = repl(input);
+    (
+        String::from_utf8(output.stdout).expect("output is UTF-8"),
+        String::from_utf8(output.stderr).expect("errors are UTF-8"),
+    )
+}
+
+#[test]
+fn a_definition_is_usable_in_the_next_line() {
+    let (out, err) = printed("def double (n: Nat): Nat := n + n\ndouble 21\n");
+    assert_eq!(err, "");
+    let lines: Vec<&str> = out.lines().collect();
+    assert!(lines.contains(&"double: Nat → Nat"), "{out}");
+    assert!(lines.contains(&"42: Nat"), "{out}");
+}
+
+#[test]
+fn a_definition_can_go_on_over_lines() {
+    let (out, err) = printed("def triple (n: Nat): Nat :=\n  n + n + n\ntriple 14\n");
+    assert_eq!(err, "");
+    assert!(out.lines().any(|line| line == "42: Nat"), "{out}");
+}
+
+/// The new definition answers to the name from then on; one made from the
+/// old one before keeps what it used.
+#[test]
+fn a_redefinition_replaces_the_name_but_not_what_used_it() {
+    let (out, err) = printed(
+        "def one: Nat := 1\n\
+         def next: Nat := one + 1\n\
+         def one: Nat := 10\n\
+         one\n\
+         next\n\
+         def one: Nat := true\n\
+         one\n",
+    );
+    let lines: Vec<&str> = out.lines().collect();
+    assert!(lines.contains(&"10: Nat"), "{out}");
+    assert!(lines.contains(&"2: Nat"), "{out}");
+    // A redefinition that fails leaves the name as it was.
+    assert_eq!(
+        lines.iter().filter(|line| **line == "10: Nat").count(),
+        2,
+        "{out}\n{err}"
+    );
+    assert!(err.contains("E-UNKNOWN-NAME"), "{err}");
+}
+
+#[test]
+fn a_theorem_with_an_open_goal_reports_the_goal() {
+    let (out, err) = printed("theorem t (n: Nat): n = n := ?\n");
+    assert!(err.contains("[GOAL]") && err.contains("⊢ n = n"), "{err}");
+    assert!(out.contains("t: "), "{out}");
+}
+
+#[test]
+fn a_one_line_error_is_a_caret_without_a_box() {
+    let (_, err) = printed("foo\n");
+    assert_eq!(
+        err,
+        "    ^^^ not in scope\nerror[E-UNKNOWN-NAME]: unknown name `foo`\n"
+    );
+}
