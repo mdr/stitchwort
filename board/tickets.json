@@ -40163,7 +40163,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Second layout-changes-the-parse case (Overmind, seed 0x956 case 244012, 'input has ], where the output has Alt {'): fmtbugs/arms.sw — a match whose arms sit at inconsistent columns (15 then 6) after a one-line header; the formatter's re-indent regroups the arms. Decide the right parse for both cases; both caught by the tree check, nothing written.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
