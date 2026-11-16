@@ -40810,7 +40810,7 @@
     {
       "id": 3632,
       "title": "[Fable] Toy++ T1b (D3663 'must' set, proved on today's toy before T2, since Toy++ changes the toy in place): formatKeepsComments (every comment kept, text and order, between the two texts through the lexer only), formatSameTree (same tree, same output), a source that doesn't parse gives ParseError, and Degenerate.sw (identity, delete-comments, one-line formatters each break a named theorem by a computed example). settledNear waits for T3. docs/proposals/formatter-properties.md. Est. 45 min",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
