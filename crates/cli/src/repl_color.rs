@@ -123,6 +123,25 @@ impl Completer for ReplHelper {
         };
         Ok(crate::repl_complete::complete(&mut session, line, pos))
     }
+
+    fn update(
+        &self,
+        line: &mut rustyline::line_buffer::LineBuffer,
+        start: usize,
+        elected: &str,
+        cl: &mut rustyline::Changeset,
+    ) {
+        let text = match self.session.try_borrow_mut() {
+            Ok(mut session) => crate::repl_complete::accept(&mut session, elected),
+            Err(_) => elected
+                .split('\u{1}')
+                .next()
+                .unwrap_or_default()
+                .to_string(),
+        };
+        let end = line.pos();
+        line.replace(start..end, &text, cl);
+    }
 }
 impl Hinter for ReplHelper {
     type Hint = String;

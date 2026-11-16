@@ -5,6 +5,10 @@
 //! session's side: the names in scope, and the members found by checking
 //! the receiver with the same probe the server uses
 //! ([`stitchwort_elab::Elaborator::probe_members`]).
+//!
+//! Library names that need an import are offered too, marked with it: the
+//! candidate's replacement carries the `import` line, which [`accept`] runs
+//! for the session when the name is taken.
 
 use rustyline::completion::Pair;
 use stitchwort_driver::at::{DUMMY, with_dummy};
@@ -50,10 +54,10 @@ fn expression_candidates(session: &mut Session, text: &str) -> (usize, Vec<Pair>
     match complete::typed(text, text.len()) {
         Typed::Nothing => (text.len(), Vec::new()),
         Typed::Name { wanted } => {
-            // What an import would bring is left out: a name that isn't in
-            // scope can't be written by completing it.
+            // The names an import would bring are offered too, marked with
+            // their import ([`accept`] runs it).
             let names: Vec<ScopeName> = (session.elab.names_in_scope().into_iter())
-                .filter(|n| n.import.is_none() && n.name.starts_with(wanted))
+                .filter(|n| n.name.starts_with(wanted))
                 .collect();
             let items = complete::scope_items(Vec::new(), &names, text, wanted);
             (text.len() - wanted.len(), pairs(items, wanted))
@@ -152,7 +156,44 @@ fn pairs(mut items: Vec<lsp_types::CompletionItem>, wanted: &str) -> Vec<Pair> {
     items.sort_by(|a, b| a.sort_text.cmp(&b.sort_text));
     let mut seen = std::collections::BTreeSet::new();
     items.retain(|i| seen.insert(i.label.clone()));
-    (items.iter()).map(|i| pair(&i.label, &i.label)).collect()
+    (items.iter())
+        .map(|i| match import_of(i) {
+            Some(import) => Pair {
+                display: format!("{}  ({import})", i.label),
+                replacement: format!("{}{IMPORT_MARK}{import}", i.label),
+            },
+            None => pair(&i.label, &i.label),
+        })
+        .collect()
+}
+
+/// Separates, in a candidate's replacement, the name written from the
+/// `import` line it needs; [`accept`] splits them.
+const IMPORT_MARK: char = '\u{1}';
+
+/// The `import` line an item adds in the editor, if it adds one.
+fn import_of(item: &lsp_types::CompletionItem) -> Option<String> {
+    let edited = item
+        .additional_text_edits
+        .as_ref()
+        .is_some_and(|e| !e.is_empty());
+    let description = item.label_details.as_ref()?.description.as_deref()?;
+    (edited && description.starts_with("import ")).then(|| description.to_string())
+}
+
+/// Takes the elected replacement: returns the text to put in the line, and
+/// runs the `import` line a name that needs one carries, for the session.
+/// An election cut short by the common prefix of several candidates has no
+/// complete import, and just gives its name.
+pub fn accept(session: &mut Session, elected: &str) -> String {
+    match elected.split_once(IMPORT_MARK) {
+        Some((name, import)) if import.ends_with(')') => {
+            let _ = session.add_imports("<input>", import);
+            name.to_string()
+        }
+        Some((name, _)) => name.to_string(),
+        None => elected.to_string(),
+    }
 }
 
 #[cfg(test)]
@@ -205,12 +246,64 @@ mod tests {
     #[test]
     fn imports_bring_names() {
         in_session(|s| {
-            assert!(!labels(s, "replic").1.contains(&"replicate".to_string()));
-            assert!(
-                s.add_imports("<input>", "import Std.List (replicate)")
-                    .is_empty()
-            );
+            s.add_imports("<input>", "import Std.List (replicate)");
             assert!(labels(s, "replic").1.contains(&"replicate".to_string()));
+        });
+    }
+
+    #[test]
+    fn names_that_need_an_import_are_offered_and_accepting_imports() {
+        in_session(|s| {
+            let (start, found) = complete(s, "sortW", 5);
+            assert_eq!(start, 0);
+            let found = found.iter().find(|p| p.display.starts_with("sortWith  "));
+            let found = found.expect("sortWith is offered");
+            assert_eq!(found.display, "sortWith  (import Std.List (sortWith))");
+            // Not in scope yet: accepting writes the name and imports it.
+            assert_eq!(accept(s, &found.replacement), "sortWith");
+            let (_, after) = complete(s, "sortW", 5);
+            let plain = after.iter().find(|p| p.display == "sortWith");
+            assert_eq!(plain.map(|p| p.replacement.as_str()), Some("sortWith"));
+            // A name cut short by a common prefix imports nothing.
+            assert_eq!(accept(s, "sortW\u{1}import Std.List (sort"), "sortW");
+            // Names already in scope are plain.
+            assert_eq!(accept(s, "length"), "length");
+        });
+    }
+
+    #[test]
+    fn a_type_query_completes_its_expression() {
+        in_session(|s| {
+            let (start, found) = labels(s, ":t [1, 2].le");
+            assert_eq!(start, 10);
+            assert!(found.contains(&"length".to_string()), "{found:?}");
+            let (start, found) = labels(s, ":t Opti");
+            assert_eq!(start, 3);
+            assert!(found.contains(&"Option".to_string()), "{found:?}");
+        });
+    }
+
+    #[test]
+    fn a_continuation_line_completes_by_itself() {
+        in_session(|s| {
+            s.add_declarations("<input>", "def zebraCount: Nat := 3")
+                .unwrap();
+            // The `...>` prompt reads one more line at a time, so the
+            // completer sees only that line, indentation included.
+            assert_eq!(labels(s, "  zebra"), (2, vec!["zebraCount".to_string()]));
+            let (start, found) = labels(s, "    xs.fil");
+            assert_eq!(start, 7);
+            assert!(found.is_empty(), "{found:?}");
+        });
+    }
+
+    #[test]
+    fn bare_import_offers_the_roots() {
+        in_session(|s| {
+            let (start, found) = labels(s, "import ");
+            assert_eq!(start, 7);
+            assert_eq!(found.first().map(String::as_str), Some("Std"));
+            assert_eq!(labels(s, "import"), (6, found));
         });
     }
 
