@@ -35,7 +35,7 @@ theorem List.notMemOfNotIn ∀ [auto eq: DecEq k] (z: k) (zs: List k) (h: Bool.n
   Decidable.refute (List.decMem z zs) (match d: Decidable.holds (List.decMem z zs) with | False => byComputing)
 
 theorem List.notInOfNotMem ∀ [auto eq: DecEq k] (z: k) (zs: List k) (out: z ∉ zs): Bool.not (z ∈ zs) = True :=
-  rewrite Decidable.toBoolOfNot (List.decMem z zs) out then byComputing
+  rewrite Decidable.toBoolOfNot (List.decMem z zs) out
 
 --| What `differenceBy` keeps: the items of `xs` whose key no item of `ys` has.
 theorem List.memDifferenceBy ∀ [auto eq: DecEq k] (x: a) (xs ys: List a) (key: a → k):
@@ -114,7 +114,7 @@ theorem List.differenceByCovered ∀ [auto eq: DecEq k] (xs ys: List a) (key: a 
     (covered: ∀ (x: a) => x ∈ xs → key x ∈ List.map ys key):
     List.differenceBy xs ys key = [] :=
   List.filterNone (x => key x ∉ List.map ys key) xs (x m =>
-    rewrite (List.decMem (key x) (List.map ys key)).complete (covered x m) then byComputing)
+    rewrite (List.decMem (key x) (List.map ys key)).complete (covered x m))
 
 --| `differenceBy` keeps everything when no key of `xs` is a key of `ys`.
 theorem List.differenceByDisjoint ∀ [auto eq: DecEq k] (xs ys: List a) (key: a → k)

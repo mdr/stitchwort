@@ -192,8 +192,8 @@ theorem Int.signedMulRight ∀ (a: Int) (s: Bool) (k: Nat):
   match a, s, k with
     | a, False, k => Int.mulSigned a (OfNat k)
     | a, True, Succ j => Int.mulSigned a (NegSucc j)
-    | OfNat n, True, Zero => rewrite Nat.mulZero n then byComputing
-    | NegSucc n, True, Zero => rewrite Nat.mulZero (Succ n) then byComputing
+    | OfNat n, True, Zero => rewrite Nat.mulZero n
+    | NegSucc n, True, Zero => rewrite Nat.mulZero (Succ n)
 
 theorem Int.mulAssoc ∀ (a b c: Int): Int.mul (Int.mul a b) c = Int.mul a (Int.mul b c) := calc Int.mul (Int.mul a b) c
   _ = Int.mul (Int.signed (Bool.xor (Int.isNeg a) (Int.isNeg b)) (Int.natAbs a * Int.natAbs b)) c :=

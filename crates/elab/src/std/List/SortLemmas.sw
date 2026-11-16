@@ -157,7 +157,7 @@ theorem List.lengthPairsDoubled ∀ (xs: List a):
 
 --| n(n - 1)/2 pairs.
 theorem List.lengthPairs ∀ (xs: List a): List.length (List.pairs xs) = List.length xs * (List.length xs - 1) / 2 :=
-  rewrite Eq.flipped (List.lengthPairsDoubled xs), Nat.halfDouble (List.length (List.pairs xs)) then byComputing
+  rewrite Eq.flipped (List.lengthPairsDoubled xs), Nat.halfDouble (List.length (List.pairs xs))
 
 --| `p` written n times: n times as long, and one more copy goes on the end.
 theorem List.lengthConcatReplicate ∀ (p: List a) (n: Nat):
@@ -1230,8 +1230,7 @@ theorem List.mergeAppend ∀ (le: a → a → Bool) (xs ys: List a)
     | [], ys => byComputing
     | [x, ..xs], [] => Eq.flipped (List.appendNil [x, ..xs])
     | [x, ..xs], [y, ..ys] =>
-      rewrite h x (Inl byComputing) y (Inl byComputing), List.mergeAppend le xs [y, ..ys] (z m => h z (Inr m)) then
-        byComputing
+      rewrite h x (Inl byComputing) y (Inl byComputing), List.mergeAppend le xs [y, ..ys] (z m => h z (Inr m))
 
 --| The runs of `List.sortWith`'s counter, oldest first, joined.
 def List.runsJoined: (runs: List (Option (List a))) → List a
@@ -1376,7 +1375,7 @@ theorem List.memPerm ∀ [auto eq: DecEq a] (xs ys: List a)
 theorem List.occurrencesConsTrue ∀ (xs: List a) (p: a → Bool) (x: a)
     (px: p x = True):
     List.occurrences [x, ..xs] p = Succ (List.occurrences xs p) :=
-  rewrite px then byComputing
+  rewrite px
 
 theorem Bool.toNatAddLeOne ∀ (b: Bool) (n: Nat) (h: Bool.toNat b + n ≤ 1): n ≤ 1 := match b, n with
   | False, n => h
@@ -1390,7 +1389,7 @@ theorem List.occurrencesKeyAbsent ∀ [auto eq: DecEq k] (xs: List a) (key: a �
   match n: List.occurrences xs (y => key y == kk) with
     | Zero => byComputing
     | Succ m =>
-      let found: xs.any (y => key y == kk) := rewrite List.anyOccurrences xs (y => key y == kk), n then byComputing
+      let found: xs.any (y => key y == kk) := rewrite List.anyOccurrences xs (y => key y == kk), n
       let Witness y (Both inXs py) := found
       Void.impossible
         (notMem
@@ -1406,7 +1405,7 @@ theorem List.occurrencesKeyDistinct ∀ [auto eq: DecEq k] (xs: List a) (key: a 
       Bool.inspect
         (key x == kk)
         (c => Bool.toNat c + List.occurrences xs (y => key y == kk) ≤ 1)
-        (t => rewrite List.occurrencesKeyAbsent xs key x kk notMem t then byComputing)
+        (t => rewrite List.occurrencesKeyAbsent xs key x kk notMem t)
         (f => List.occurrencesKeyDistinct xs key kk d)
 
 --| If the head's key is the only one of its kind, it isn't among the keys of the rest.
@@ -1499,7 +1498,7 @@ theorem List.occurrencesAbsent ∀ [auto eq: DecEq a] (xs: List a) (x: a) (p: a 
     | [y, ..ys] =>
       match e: y == x with
         | True => Void.impossible (n (Inl e.read))
-        | False => rewrite Bool.andFalse (p y), List.occurrencesAbsent ys x p (m => n (Inr m)) then byComputing
+        | False => rewrite Bool.andFalse (p y), List.occurrencesAbsent ys x p (m => n (Inr m))
 
 --| Counting at `x` in a list with `x` once finds `x` if it passes `p`.
 theorem List.occurrencesOnce ∀ [auto eq: DecEq a] (xs: List a) (x: a) (p: a → Bool)
@@ -1514,7 +1513,7 @@ theorem List.occurrencesOnce ∀ [auto eq: DecEq a] (xs: List a) (x: a) (p: a �
     | [y, ..ys], Both notMem d, Inr m =>
       match e: y == x with
         | True => Void.impossible (notMem (rewrite e.read then m))
-        | False => rewrite Bool.andFalse (p y), List.occurrencesOnce ys x p d m then byComputing
+        | False => rewrite Bool.andFalse (p y), List.occurrencesOnce ys x p d m
 
 --| Two lists without repeats and with the same members are the same elements
 --| in another order.
@@ -1610,7 +1609,7 @@ theorem List.sortedPermEq ∀ [auto eq: DecEq a] (le: a → a → Bool)
           (List.occurrences xs q)
           (List.occurrences ys q)
           (Eq.trans (p q) (Eq.cong (t => Bool.toNat (q t) + List.occurrences ys q) same.flipped)))
-      rewrite same, rest then byComputing
+      rewrite same, rest
 
 --| Two lists without repeats, sorted by the same order, with the same
 --| members, are equal, when the order puts no two different elements both
@@ -1666,7 +1665,7 @@ theorem List.removeFirstAbsent ∀ [auto eq: DecEq a] (xs: List a) (x: a) (n: ¬
     | [y, ..ys] =>
       match e: y == x with
         | True => Void.impossible (n (Inl e.read))
-        | False => rewrite List.removeFirstAbsent ys x (m => n (Inr m)) then byComputing
+        | False => rewrite List.removeFirstAbsent ys x (m => n (Inr m))
 
 --| With `x` in the list, `x` and the rest are the list in another order.
 theorem List.occurrencesRemoveFirst [auto eq: DecEq a]:
@@ -1675,7 +1674,7 @@ theorem List.occurrencesRemoveFirst [auto eq: DecEq a]:
   | [], x, m, p => m.impossible
   | [y, ..ys], x, m, p =>
     match e: y == x with
-      | True => rewrite e.read then byComputing
+      | True => rewrite e.read
       | False =>
         let later: List.Mem x ys := match m with
           | Inl same => (e.read same).impossible
@@ -1709,7 +1708,7 @@ theorem List.sumByRemoveFirst [auto eq: DecEq a] [auto add: Add b]:
   | [], x, m, f => m.impossible
   | [y, ..ys], x, m, f =>
     match e: y == x with
-      | True => rewrite List.sumByCons ys y f, e.read then byComputing
+      | True => rewrite List.sumByCons ys y f, e.read
       | False =>
         let later: List.Mem x ys := match m with
           | Inl same => (e.read same).impossible
@@ -1724,10 +1723,10 @@ theorem List.sumByPerm [auto eq: DecEq a] [auto add: Add b]:
   | [], [y, ..ys], same, f => Void.impossible (Nat.zeroNotSucc (List.length ys) (List.permLength [] [y, ..ys] same))
   | [x, ..xs], ys, same, f =>
     let found: List.Mem x ys := List.memPerm [x, ..xs] ys same x (Inl byComputing)
-    rewrite List.sumByCons xs x f,
-        List.sumByPerm xs (ys.removeFirst x) (List.permRemoveFirstOfCons x xs ys same) f,
-        List.sumByRemoveFirst ys x found f then
-      byComputing
+    rewrite List.sumByCons xs x f, List.sumByPerm xs
+      (ys.removeFirst x)
+      (List.permRemoveFirstOfCons x xs ys same)
+      f, List.sumByRemoveFirst ys x found f
 
 theorem List.sumPerm ∀ [auto eq: DecEq a] [auto add: Add a] (xs ys: List a)
     (same: List.Perm xs ys):
@@ -1914,9 +1913,9 @@ theorem List.memCombinationsTwo ∀ (u v: a) (xs: List a): ([u, v] ∈ List.comb
 theorem List.lengthCombinationsCons ∀ (x: a) (xs: List a) (k: Nat):
     List.length (List.combinations [x, ..xs] (Succ k))
       = List.length (List.combinations xs k) + List.length (List.combinations xs (Succ k)) :=
-  rewrite List.lengthAppend (List.map (List.combinations xs k) (zs => [x, ..zs])) (List.combinations xs (Succ k)),
-      List.lengthMap (List.combinations xs k) (zs => [x, ..zs]) then
-    byComputing
+  rewrite List.lengthAppend
+    (List.map (List.combinations xs k) (zs => [x, ..zs]))
+    (List.combinations xs (Succ k)), List.lengthMap (List.combinations xs k) (zs => [x, ..zs])
 
 theorem List.mergeCount ∀ (xs ys: List a) (le: a → a → Bool) (p: a → Bool):
     List.occurrences (List.merge le xs ys) p = List.occurrences xs p + List.occurrences ys p :=
@@ -2083,14 +2082,12 @@ theorem List.allNotAnyComm ∀ (related: a → b → Bool) (xs: List a) (ys: Lis
             match r: related x y with
               | True => byComputing
               | False => byComputing)
-      rewrite unfolded,
-          List.allAnd ys (y => ¬(related x y)) (y => ¬(List.any xs (x2 => related x2 y))),
-          <- List.allNotAnyComm related xs ys,
-          List.allNotAny ys (y => ¬(related x y)) then
-        rewrite List.anyCong ys (y => ¬(¬(related x y))) (y => related x y) (y => cases) then byComputing
+      rewrite unfolded, List.allAnd ys (y => ¬(related x y)) (y =>
+        ¬(List.any xs (x2 => related x2 y))), <- List.allNotAnyComm related xs ys, List.allNotAny ys (y =>
+        ¬(related x y)), List.anyCong ys (y => ¬(¬(related x y))) (y => related x y) (y => cases)
 
 theorem List.allPerm ∀ (xs ys: List a) (h: List.Perm xs ys) (p: a → Bool): List.all xs p = List.all ys p :=
-  rewrite List.allNotAny xs p, List.allNotAny ys p, List.anyPerm xs ys h (x => ¬(p x)) then byComputing
+  rewrite List.allNotAny xs p, List.allNotAny ys p, List.anyPerm xs ys h (x => ¬(p x))
 
 theorem List.sortOnEq ∀ [auto ord: Ord k] (xs: List a) (key: a → k):
     List.sortOn xs key = List.sortBy xs (x y => Ord.compare (key x) (key y)) :=
@@ -2176,7 +2173,7 @@ theorem List.sortedDedup ∀ [auto eq: DecEq a] (le: a → a → Bool) (xs: List
 --| A sum over the first n + 1 numbers is the first term and the sum over the rest.
 theorem List.sumByRangeSucc ∀ (f: Nat → Nat) (n: Nat):
     List.sumBy (List.range 0 (Succ n)) f = f 0 + List.sumBy (List.range 0 n) (i => f (Succ i)) :=
-  rewrite List.sumByCons (List.rangeFrom n 1) 0 f, List.sumByRangeShift f n 0 then byComputing
+  rewrite List.sumByCons (List.rangeFrom n 1) 0 f, List.sumByRangeShift f n 0
 
 --| Removing one element keeps the rest: everything left in
 --| `ys.removeFirst x` was in `ys`.

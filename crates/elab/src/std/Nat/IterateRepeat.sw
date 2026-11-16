@@ -35,10 +35,9 @@ theorem Nat.iterateRepeats ∀ (f: a → a) (x: a) (first second: Nat)
     | True =>
       let back := first + (n - second)
       let shifted: Nat.iterate n f x = Nat.iterate back f x := calc Nat.iterate n f x
-        _ = Nat.iterate (second + (n - second)) f x :=
-          rewrite (arithmetic [late]: second + (n - second) = n) then byComputing
+        _ = Nat.iterate (second + (n - second)) f x := rewrite (arithmetic [late]: second + (n - second) = n)
         _ = Nat.iterate (n - second) f (Nat.iterate second f x) := Nat.iterateAdd f second (n - second) x
-        _ = Nat.iterate (n - second) f (Nat.iterate first f x) := rewrite same then byComputing
+        _ = Nat.iterate (n - second) f (Nat.iterate first f x) := rewrite same
         _ = Nat.iterate back f x := Eq.flipped (Nat.iterateAdd f first (n - second) x)
       Exists.elim
         (Nat.iterateRepeats f x first second earlier same back [decreasing := arithmetic [earlier, late]])

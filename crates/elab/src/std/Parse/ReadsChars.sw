@@ -8,7 +8,7 @@ theorem Parse.readsChar ∀ [inv: Parse.Invariant Char] (expected: Char):
     Parse.ReadsIn inv (() => Parse.char expected) (read u => read = [expected]) :=
   Parse.readsWeaken
     (Parse.readsMap (() => Parse.satisfy "'${expected}'" (== expected)) (char => ()) _ (Parse.readsSatisfy))
-    (read u h => match h with | Witness char (Both (Both one same) unit) => rewrite one, same.read then byComputing)
+    (read u h => match h with | Witness char (Both (Both one same) unit) => rewrite one, same.read)
 
 theorem Parse.readsText ∀ [inv: Parse.Invariant Char] (expected: Text):
     Parse.ReadsIn inv (() => Parse.text expected) (read u => read = expected.toList) :=
@@ -29,7 +29,7 @@ theorem Parse.readsText ∀ [inv: Parse.Invariant Char] (expected: Text):
     (read u h =>
       match h with
         | Witness firstRead (Witness nextRead (Witness found (Both split (Both literal (Both isTrue none))))) =>
-          rewrite split, none, List.appendNil firstRead, literal, isTrue then byComputing)
+          rewrite split, none, List.appendNil firstRead, literal, isTrue)
 
 theorem Parse.readsTakeWhile ∀ [inv: Parse.Invariant Char] (passes: Char → Bool):
     Parse.ReadsIn inv (() => Parse.takeWhile passes) (read taken =>
@@ -83,7 +83,7 @@ theorem Parse.readsDigit [inv: Parse.Invariant Char]:
     (read d h =>
       match h with
         | Witness firstRead (Witness nextRead (Witness char (Both split (Both (Both one digit) (Both none made))))) =>
-          Witness char (Both (rewrite split, none, List.appendNil firstRead, one then byComputing) made))
+          Witness char (Both (rewrite split, none, List.appendNil firstRead, one) made))
 
 theorem Parse.readsSpaces [inv: Parse.Invariant Char]:
     Parse.ReadsIn inv Parse.spaces (read u => read.all Parse.isSpace = True) :=
@@ -130,9 +130,7 @@ theorem Parse.readsToken ∀ [inv: Parse.Invariant Char] (p: () → {Parse Char}
               Witness before
                 (Witness middle
                   (Witness after
-                    (Both
-                      (rewrite split, split2 then byComputing)
-                      (Both spaced (Both (rewrite same then holds) spacedAfter))))))
+                    (Both (rewrite split, split2) (Both spaced (Both (rewrite same then holds) spacedAfter))))))
 
 --| A line break: "\n" or "\r\n".
 def Parse.LineBreak (read: List Char): Prop := read = ['\n'] ∨ read = ['\r', '\n']
@@ -172,13 +170,11 @@ theorem Parse.readsLineBreak ∀ [inv: Parse.Invariant Char] (what: Text):
                 match h with
                   | Witness firstRead
                       (Witness nextRead (Witness found (Both split (Both literal (Both isTrue none))))) =>
-                    Inr
-                      (Both byComputing
-                        (Inr (rewrite split, none, List.appendNil firstRead, literal, isTrue then byComputing))))))
+                    Inr (Both byComputing (Inr (rewrite split, none, List.appendNil firstRead, literal, isTrue))))))
     (read u h =>
       match h with
         | Witness firstRead (Witness nextRead (Witness found (Both split (Both literal (Inl (Both isTrue none)))))) =>
-          Inl (rewrite split, none, List.appendNil firstRead, literal, isTrue then byComputing)
+          Inl (rewrite split, none, List.appendNil firstRead, literal, isTrue)
         | Witness firstRead
             (Witness nextRead (Witness found (Both split (Both literal (Inr (Both isFalse breaks)))))) =>
           rewrite split, literal, isFalse then breaks)
@@ -243,14 +239,10 @@ theorem Parse.readsFindWord ∀ [inv: Parse.Invariant Char] (choices: List (Text
           match h with
             | Witness firstRead
                 (Witness nextRead (Witness found (Both split (Both literal (Inl (Both isTrue (Both none same))))))) =>
-              rewrite same then
-                Both (Inl byComputing) (rewrite split, none, List.appendNil firstRead, literal, isTrue then byComputing)
+              rewrite same then Both (Inl byComputing) (rewrite split, none, List.appendNil firstRead, literal, isTrue)
             | Witness firstRead
                 (Witness nextRead (Witness found (Both split (Both literal (Inr (Both isFalse later)))))) =>
-              Parse.findLater choice rest read result firstRead nextRead
-                (rewrite literal, isFalse then byComputing)
-                split
-                later)
+              Parse.findLater choice rest read result firstRead nextRead (rewrite literal, isFalse) split later)
 
 theorem Parse.findLater ∀ (first: (Text, a)) (rest: List (Text, a)) (read: List Char)
     (result: Option (Text, a)) (firstRead nextRead: List Char)
@@ -283,15 +275,14 @@ theorem Parse.readsPick ∀ [inv: Parse.Invariant Char] (choices: List (Text, a)
       (found =>
         match found with
           | Some (word, value) => Parse.readsWeaken (Parse.readsPure value) (read v both =>
-            Both both.left (Witness word (rewrite And.right both then byComputing)))
+            Both both.left (Witness word (rewrite And.right both)))
           | None => Parse.readsThenStop (() => Parse.noteWords choices) _))
     (read value h =>
       match h with
         | Witness firstRead
             (Witness nextRead (Witness found (Both split (Both picked (Both none (Witness word same)))))) =>
           match (rewrite same at picked then picked: Parse.Picked choices firstRead (word, value)) with
-            | Both member read =>
-              Witness word (Both member (rewrite split, none, List.appendNil firstRead, read then byComputing)))
+            | Both member read => Witness word (Both member (rewrite split, none, List.appendNil firstRead, read)))
 
 --| `lines p`: one value per line, line breaks between.
 theorem Parse.readsLines ∀ [inv: Parse.Invariant Char] (p: () → {Parse Char} a) (spec: List Char → a → Prop)
@@ -369,7 +360,7 @@ theorem Parse.eachLineOne ∀ (index: Nat) (line: Text) (parser: () → {Parse C
             "line ${index + 1}, column ${failure.offset + 1}: ${failure.describe chars "the end of the line" "a line break"}")
       = Ok value):
     Parse.whole line.toList parser = Ok value :=
-  match e: Parse.whole line.toList parser with | Ok v => rewrite Result.okInjective h then byComputing
+  match e: Parse.whole line.toList parser with | Ok v => rewrite Result.okInjective h
 
 --| `eachLine input p` succeeded: one value per line, each `spec` of all of
 --| its line.
@@ -406,7 +397,7 @@ theorem Parse.readsPickBy ∀ [inv: Parse.Invariant Char] (values: List a) (word
           | Witness original (Both isIn made) =>
             let valueSame: original = value := Pair.mkInjectiveSnd made
             let wordSame: word original = found := Pair.mkInjectiveFst made
-            rewrite <- valueSame then Both isIn (rewrite same, <- wordSame then byComputing))
+            rewrite <- valueSame then Both isIn (rewrite same, <- wordSame))
 
 --| A repetition each of whose parts is one character, `f` of its value,
 --| read the values' characters.
@@ -418,7 +409,7 @@ theorem Parse.eachChars ∀ (f: a → Char) (read: List Char) (values: List a)
     | [value, ..values] =>
       match each with
         | Witness first (Witness rest (Both split (Both one others))) =>
-          rewrite split, one, Parse.eachChars f rest values others then byComputing
+          rewrite split, one, Parse.eachChars f rest values others
 
 --| `line text p` succeeded: `p` read all of `text` but a final line break.
 theorem Parse.lineReads ∀ (text: Text) (p: () → {Parse Char} a) (spec: List Char → a → Prop) (value: a)
@@ -517,7 +508,7 @@ theorem Parse.readsFinalLineBreaks ∀ [inv: Parse.Invariant Char] (v: a):
               (read w h =>
                 match h with
                   | Witness firstRead (Witness nextRead (Witness u (Both split (Both none (Both none2 same))))) =>
-                    Both (rewrite split, none, none2 then byComputing) same)))
+                    Both (rewrite split, none, none2) same)))
           (read w h =>
             match h with
               | Witness firstRead
@@ -586,9 +577,7 @@ theorem Parse.readsInt [inv: Parse.Invariant Char]: Parse.ReadsIn inv Parse.int 
                 match h with
                   | Witness i (Both (Witness m (Both (Both some (Both all value)) made)) negated) =>
                     Witness read
-                      (Both some
-                        (Both all
-                          (Inl (Both byComputing (Both byComputing (rewrite negated, made, value then byComputing)))))))
+                      (Both some (Both all (Inl (Both byComputing (Both byComputing (rewrite negated, made, value)))))))
           | False =>
             Parse.readsWeaken
               (Parse.readsBind
@@ -605,12 +594,11 @@ theorem Parse.readsInt [inv: Parse.Invariant Char]: Parse.ReadsIn inv Parse.int 
                     | True => Parse.readsWeaken (Parse.readsMap Parse.nat (m => m.toInt) _ Parse.readsNat) (read n h =>
                       match h with
                         | Witness m (Both (Both some (Both all value)) made) =>
-                          Witness read (Both some (Both all (Both byComputing (rewrite made, value then byComputing)))))
+                          Witness read (Both some (Both all (Both byComputing (rewrite made, value)))))
                     | False => Parse.readsWeaken (Parse.readsMap Parse.nat (m => m.toInt) _ Parse.readsNat) (read n h =>
                       match h with
                         | Witness m (Both (Both some (Both all value)) made) =>
-                          Witness read
-                            (Both some (Both all (Both byComputing (rewrite made, value then byComputing)))))))
+                          Witness read (Both some (Both all (Both byComputing (rewrite made, value)))))))
               (read n h =>
                 match h with
                   | Witness plusRead
@@ -621,16 +609,11 @@ theorem Parse.readsInt [inv: Parse.Invariant Char]: Parse.ReadsIn inv Parse.int 
                       | True =>
                         Witness digits
                           (Both some
-                            (Both all
-                              (Inr
-                                (Both byComputing (Inl (Both (rewrite split, literal, same then byComputing) value))))))
+                            (Both all (Inr (Both byComputing (Inl (Both (rewrite split, literal, same) value))))))
                       | False =>
                         Witness digits
                           (Both some
-                            (Both all
-                              (Inr
-                                (Both byComputing
-                                  (Inr (Both (rewrite split, literal, same then byComputing) value)))))))))
+                            (Both all (Inr (Both byComputing (Inr (Both (rewrite split, literal, same) value)))))))))
     (read n h =>
       match h with
         | Witness firstRead
@@ -638,19 +621,15 @@ theorem Parse.readsInt [inv: Parse.Invariant Char]: Parse.ReadsIn inv Parse.int 
               (Witness negative (Both split (Both literal (Witness digits (Both nonEmpty (Both all choice))))))) =>
           match choice with
             | Inl (Both isTrue (Both sameRead value)) =>
-              Witness digits
-                (Both nonEmpty
-                  (Both all (Inl (Both (rewrite split, literal, isTrue, sameRead then byComputing) value))))
+              Witness digits (Both nonEmpty (Both all (Inl (Both (rewrite split, literal, isTrue, sameRead) value))))
             | Inr (Both isFalse inner) =>
               match inner with
                 | Inl (Both plus value) =>
                   Witness digits
-                    (Both nonEmpty
-                      (Both all (Inr (Inl (Both (rewrite split, literal, isFalse, plus then byComputing) value)))))
+                    (Both nonEmpty (Both all (Inr (Inl (Both (rewrite split, literal, isFalse, plus) value)))))
                 | Inr (Both noSign value) =>
                   Witness digits
-                    (Both nonEmpty
-                      (Both all (Inr (Inr (Both (rewrite split, literal, isFalse, noSign then byComputing) value))))))
+                    (Both nonEmpty (Both all (Inr (Inr (Both (rewrite split, literal, isFalse, noSign) value))))))
 
 --| `sectionLineFrom start q` that let the rest succeed: `q` succeeded on
 --| its own. It passes each of `q`'s operations on, and adds a note only
@@ -758,9 +737,7 @@ theorem Parse.readsBlankLine [inv: Parse.Invariant Char]:
             match inner with
               | Witness middle (Witness last (Witness u2 (Both split2 (Both spaced breaks2)))) =>
                 Witness first
-                  (Witness middle
-                    (Witness last
-                      (Both (rewrite split, split2 then byComputing) (Both breaks (Both spaced breaks2)))))))
+                  (Witness middle (Witness last (Both (rewrite split, split2) (Both breaks (Both spaced breaks2)))))))
 
 --| `sections p`: `p`'s blocks, a blank line between each two.
 theorem Parse.readsSections ∀ [inv: Parse.Invariant Char] (p: () → {Parse Char} a) (spec: List Char → a → Prop)
@@ -817,7 +794,7 @@ theorem Parse.readsSection ∀ [inv: Parse.Invariant Char] (p: () → {Parse Cha
                 (firstRead ++ eachRead)
                 (Witness blankRead
                   (Both
-                    (rewrite split, split2, List.appendAssoc firstRead eachRead blankRead then byComputing)
+                    (rewrite split, split2, List.appendAssoc firstRead eachRead blankRead)
                     (Both
                       (rewrite same then
                         Witness firstRead
@@ -889,11 +866,12 @@ def Parse.SectionsLines (spec: List Char → a → Prop) (value: a): (values: Li
 theorem Parse.appendBlank ∀ (first middle last nextRead afterChunk ending: List Char):
     ((((first ++ (middle ++ last)) ++ nextRead) ++ afterChunk) ++ ending)
       = first ++ (middle ++ (last ++ (nextRead ++ (afterChunk ++ ending)))) :=
-  rewrite List.appendAssoc ((first ++ (middle ++ last)) ++ nextRead) afterChunk ending,
-      List.appendAssoc (first ++ (middle ++ last)) nextRead (afterChunk ++ ending),
-      List.appendAssoc first (middle ++ last) (nextRead ++ (afterChunk ++ ending)),
-      List.appendAssoc middle last (nextRead ++ (afterChunk ++ ending)) then
-    byComputing
+  rewrite List.appendAssoc ((first ++ (middle ++ last)) ++ nextRead) afterChunk ending, List.appendAssoc
+    (first ++ (middle ++ last))
+    nextRead
+    (afterChunk ++ ending), List.appendAssoc first
+    (middle ++ last)
+    (nextRead ++ (afterChunk ++ ending)), List.appendAssoc middle last (nextRead ++ (afterChunk ++ ending))
 
 theorem Parse.sectionsLinesEach ∀ (spec: List Char → a → Prop) (ending: List Char)
     (ended: ending.all (char => char == '\n' ∨ char == '\r') = True)

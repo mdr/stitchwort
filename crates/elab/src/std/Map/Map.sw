@@ -365,7 +365,7 @@ theorem Map.memToList ∀ [auto ord: Ord k] (m: Map k v) (key: k) (value: v):
 theorem Map.containsOfGet ∀ [auto ord: Ord k] (m: Map k v) (key: k) (value: v)
     (h: Map.get m key = Some value):
     Map.contains m key = True :=
-  rewrite h then byComputing
+  rewrite h
 
 theorem Map.containsOfMemToList ∀ [auto ord: Ord k] (m: Map k v) (key: k) (e: (k, v))
     (inList: List.Mem e (Map.toList m))
@@ -647,7 +647,7 @@ theorem Map.popMinSpecRaw ∀ [auto ord: Ord k] (r: Map.Raw k v) (x: Option ((k,
       let whole: Map.Raw.toList r = [(key, value), ..Map.Raw.toList rest] :=
         rewrite first, Eq.cong Pair.snd pairs then listed
       let left: Map.Raw.toList rest = Map.Raw.toList (Map.Raw.remove key r) :=
-        rewrite Map.Raw.toListRemove key r, whole, Ord.compareSelf key then byComputing
+        rewrite Map.Raw.toListRemove key r, whole, Ord.compareSelf key
       rewrite <- first then
         Eq.cong
           (later => Some ((key, value), later))
@@ -817,7 +817,7 @@ theorem Map.lookupLastAppendRight ∀ [auto ord: Ord k] (key: k) (ys: List (k, v
     Map.lookupLast key (xs ++ ys) = Some found :=
   match xs with
     | [] => got
-    | [(kk, vv), ..rest] => rewrite Map.lookupLastAppendRight key ys got rest then byComputing
+    | [(kk, vv), ..rest] => rewrite Map.lookupLastAppendRight key ys got rest
 
 --| With no pair for the key in the second list, the last is the first list's.
 theorem Map.lookupLastAppendLeft ∀ [auto ord: Ord k] (key: k) (ys: List (k, v))
@@ -825,7 +825,7 @@ theorem Map.lookupLastAppendLeft ∀ [auto ord: Ord k] (key: k) (ys: List (k, v)
     Map.lookupLast key (xs ++ ys) = Map.lookupLast key xs :=
   match xs with
     | [] => missing
-    | [(kk, vv), ..rest] => rewrite Map.lookupLastAppendLeft key ys missing rest then byComputing
+    | [(kk, vv), ..rest] => rewrite Map.lookupLastAppendLeft key ys missing rest
 
 --| A first pair with another key doesn't change the last pair for `key`.
 theorem Map.lookupLastConsOther ∀ [auto ord: Ord k] (key kk: k) (vv: v) (rest: List (k, v))
@@ -843,7 +843,7 @@ theorem Map.lookupLastConsOther ∀ [auto ord: Ord k] (key kk: k) (vv: v) (rest:
 theorem Map.lookupLastConsSame ∀ [auto ord: Ord k] (key: k) (vv: v) (rest: List (k, v))
     (missing: Map.lookupLast key rest = None):
     Map.lookupLast key [(key, vv), ..rest] = Some vv :=
-  rewrite missing, Ord.compareSelf key then byComputing
+  rewrite missing, Ord.compareSelf key
 
 --| In a map's own list each key appears once, so the last pair for a key is
 --| what `get` finds.
@@ -887,10 +887,10 @@ theorem Map.getInsertKeeps ∀ [auto ord: Ord k] (m: Map k v) (key: k) (value: v
 theorem Map.getOrInsert ∀ [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (other: k) (fallback: v):
     (m.insert key value).getOr other fallback = (if key == other then value else m.getOr other fallback) :=
   match same: key == other with
-    | True => rewrite <- same.read then (rewrite Map.getInsert key value m then byComputing)
+    | True => rewrite <- same.read then (rewrite Map.getInsert key value m)
     | False =>
       let apart: other ≠ key := isSame => Bool.trueNotFalse (rewrite isSame, DecEq.refl key at same then same)
-      rewrite Map.getInsertOther key value other apart m then byComputing
+      rewrite Map.getInsertOther key value other apart m
 
 --| Inserting one value at each of several keys: reading a key among them
 --| gives the value, any other key gives what the map held.
@@ -914,7 +914,7 @@ theorem Map.sumValuesEqSumByKeys ∀ [auto ord: Ord k] (m: Map k Nat) (f: k → 
     _ = m.toList.sumBy Pair.snd := List.foldLeftMap m.toList 0 Nat.add Pair.snd
     _ = m.toList.sumBy (entry => f entry.fst) := List.sumByCongMem m.toList Pair.snd (entry => f entry.fst) (((key,
       value)) member =>
-      Eq.flipped (Eq.trans (reads key) (rewrite (Map.memToList m key value).forward member then byComputing)))
+      Eq.flipped (Eq.trans (reads key) (rewrite (Map.memToList m key value).forward member)))
     _ = m.keys.sumBy f := Eq.flipped (List.foldLeftMap m.toList 0 (total key => total + f key) Pair.fst)
 
 --| A key `contains` finds has a value.
@@ -926,7 +926,7 @@ theorem Map.getOfContains ∀ [auto ord: Ord k] (m: Map k v) (key: k)
 --| A key just inserted is there.
 theorem Map.containsInsertSame ∀ [auto ord: Ord k] (m: Map k v) (key: k) (value: v):
     Map.contains (Map.insert m key value) key = True :=
-  rewrite Map.getInsert key value m then byComputing
+  rewrite Map.getInsert key value m
 
 --| Inserting keeps the keys already there.
 theorem Map.containsInsertKeeps ∀ [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (other: k)
@@ -1098,15 +1098,13 @@ theorem Map.getFoldInsertWith ∀ [auto ord: Ord k] (m: Map k v) (key: k) (xs: L
         match e: Ord.compare key kk with
           | Less =>
             rewrite Map.getInsertWithOther m kk vv key
-                  (Map.Spec.notEqualOfCompare key kk (z => Ordering.lessNotEqual (Eq.trans e.flipped z)))
-                  f then
-              byComputing
-          | Equal => rewrite ord.equal key kk e, Map.getInsertWith m kk vv f then byComputing
+              (Map.Spec.notEqualOfCompare key kk (z => Ordering.lessNotEqual (Eq.trans e.flipped z)))
+              f
+          | Equal => rewrite ord.equal key kk e, Map.getInsertWith m kk vv f
           | Greater =>
             rewrite Map.getInsertWithOther m kk vv key
-                  (Map.Spec.notEqualOfCompare key kk (z => Ordering.greaterNotEqual (Eq.trans e.flipped z)))
-                  f then
-              byComputing
+              (Map.Spec.notEqualOfCompare key kk (z => Ordering.greaterNotEqual (Eq.trans e.flipped z)))
+              f
 
 theorem Map.getFromListWith ∀ [auto ord: Ord k] (xs: List (k, v)) (key: k) (f: v → v → v):
     Map.get (Map.fromListWith xs f) key = Map.lookupWith f key xs :=
@@ -1122,14 +1120,12 @@ theorem Map.getOrCountStep ∀ [auto ord: Ord k] (m: Map k Nat) (key x: k):
           | Some n => byComputing
     | Less =>
       rewrite Map.getInsertWithOther m x 1 key
-            (Map.Spec.notEqualOfCompare key x (z => Ordering.lessNotEqual (Eq.trans e.flipped z)))
-            Nat.add then
-        byComputing
+        (Map.Spec.notEqualOfCompare key x (z => Ordering.lessNotEqual (Eq.trans e.flipped z)))
+        Nat.add
     | Greater =>
       rewrite Map.getInsertWithOther m x 1 key
-            (Map.Spec.notEqualOfCompare key x (z => Ordering.greaterNotEqual (Eq.trans e.flipped z)))
-            Nat.add then
-        byComputing
+        (Map.Spec.notEqualOfCompare key x (z => Ordering.greaterNotEqual (Eq.trans e.flipped z)))
+        Nat.add
 
 theorem Map.getOrFoldCount ∀ [auto ord: Ord k] (m: Map k Nat) (key: k) (xs: List k):
     Map.getOr (List.foldLeft xs m (acc x => Map.insertWith acc x 1 Nat.add)) key 0
@@ -1162,8 +1158,8 @@ theorem Map.countsFoldPositive [auto ord: Ord k]:
           | Equal =>
             let inserted := rewrite ord.equal key x e, Map.getInsertWith m x 1 Nat.add at g
             match c: Map.get m x with
-              | None => rewrite <- Option.someInjective inserted then byComputing
-              | Some old => rewrite <- Option.someInjective inserted then byComputing
+              | None => rewrite <- Option.someInjective inserted
+              | Some old => rewrite <- Option.someInjective inserted
           | Less =>
             h n
               (rewrite Map.getInsertWithOther m x 1 key

@@ -227,7 +227,7 @@ theorem List.uniqueFromSnoc ∀ [auto eq: DecEq a] (y: a) (seen xs: List a)
     (fresh: List.any seen (== y) = False):
     List.uniqueFrom seen (List.append xs [y]) = List.append (List.uniqueFrom seen xs) [y] :=
   match xs with
-    | [] => rewrite fresh then byComputing
+    | [] => rewrite fresh
     | [x, ..xs] =>
       match c: List.any seen (== x) with
         | True => List.uniqueFromSnoc y seen xs (m => out (Inr m)) fresh

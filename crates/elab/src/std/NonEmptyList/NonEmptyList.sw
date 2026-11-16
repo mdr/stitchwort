@@ -201,7 +201,7 @@ theorem NonEmptyList.toListInjective ∀ (xs ys: NonEmptyList a) (same: xs.toLis
     | { head = x, tail = s }, { head = y, tail = t } =>
       let heads := List.consInjectiveHead x y s t same
       let tails: s = t := Eq.cong (.drop 1) same
-      rewrite heads then rewrite tails then byComputing
+      rewrite heads, tails
 
 --| Decides equality from a decision about the elements: the lists' ([`List.decEq`]).
 @[noReceiver]

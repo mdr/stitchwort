@@ -789,7 +789,7 @@ theorem Nat.lessNotLe ∀ (x u: Nat): Nat.leq (Succ x) u = Bool.not (Nat.leq u x
 --| Dividing a bigger number by the same `d` gives a bigger quotient, for any
 --| `d` (both quotients are 0 when `d` is 0).
 theorem Nat.divMonoLeft ∀ (a b d: Nat) (below: a ≤ b): a / d ≤ b / d := match d with
-  | Zero => rewrite Nat.divZero a then byComputing
+  | Zero => rewrite Nat.divZero a
   | Succ n =>
     Nat.leDivOfMulLe (a / Succ n) b (Succ n) (Nat.leTrans ((a / Succ n) * Succ n) a b (Nat.divMulLe a (Succ n)) below)
 

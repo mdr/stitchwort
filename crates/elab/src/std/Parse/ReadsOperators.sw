@@ -587,7 +587,7 @@ theorem Parse.readsOperatorsFromRead ∀ [inv: Parse.Invariant t] (what: Text) (
                   honest2
                   h2 with
                   | (rightRead, starts2, honestAfter2, holds) =>
-                    (rightRead, starts2, honestAfter2, (rightRead, (rewrite single then byComputing), holds)))
+                    (rightRead, starts2, honestAfter2, (rightRead, (rewrite single), holds)))
           match Parse.runFromOptionalFromOk2
             (() =>
               let operator := Parse.next (item => True)
@@ -615,7 +615,7 @@ theorem Parse.readsOperatorsFromRead ∀ [inv: Parse.Invariant t] (what: Text) (
                       rest with
                     | (read2, starts2, honest2, onward) => (
                       (read1 ++ read2),
-                      (rewrite starts1, starts2, List.appendAssoc read1 read2 after.rest then byComputing),
+                      (rewrite starts1, starts2, List.appendAssoc read1 read2 after.rest),
                       honest2,
                       (leftRead holds =>
                         let joined: spec (leftRead ++ [item, ..rightRead]) (combine left right) :=

@@ -91,34 +91,34 @@ theorem Map.Spec.insertWithLess ∀ [auto ord: Ord k] (f: v → v → v) (key: k
     (vv: v) (rest: List (k, v))
     (e: Ord.compare key kk = Less):
     Map.Spec.insertWith f key value [(kk, vv), ..rest] = [(key, value), (kk, vv), ..rest] :=
-  rewrite e then byComputing
+  rewrite e
 
 theorem Map.Spec.insertWithEqual ∀ [auto ord: Ord k] (f: v → v → v) (key: k) (value: v) (kk: k)
     (vv: v) (rest: List (k, v))
     (e: Ord.compare key kk = Equal):
     Map.Spec.insertWith f key value [(kk, vv), ..rest] = [(kk, f value vv), ..rest] :=
-  rewrite e then byComputing
+  rewrite e
 
 theorem Map.Spec.insertWithGreater ∀ [auto ord: Ord k] (f: v → v → v) (key: k) (value: v) (kk: k)
     (vv: v) (rest: List (k, v))
     (e: Ord.compare key kk = Greater):
     Map.Spec.insertWith f key value [(kk, vv), ..rest] = [(kk, vv), ..Map.Spec.insertWith f key value rest] :=
-  rewrite e then byComputing
+  rewrite e
 
 theorem Map.Spec.removeLess ∀ [auto ord: Ord k] (key kk: k) (vv: v) (rest: List (k, v))
     (e: Ord.compare key kk = Less):
     Map.Spec.remove key [(kk, vv), ..rest] = [(kk, vv), ..rest] :=
-  rewrite e then byComputing
+  rewrite e
 
 theorem Map.Spec.removeEqual ∀ [auto ord: Ord k] (key kk: k) (vv: v) (rest: List (k, v))
     (e: Ord.compare key kk = Equal):
     Map.Spec.remove key [(kk, vv), ..rest] = rest :=
-  rewrite e then byComputing
+  rewrite e
 
 theorem Map.Spec.removeGreater ∀ [auto ord: Ord k] (key kk: k) (vv: v) (rest: List (k, v))
     (e: Ord.compare key kk = Greater):
     Map.Spec.remove key [(kk, vv), ..rest] = [(kk, vv), ..Map.Spec.remove key rest] :=
-  rewrite e then byComputing
+  rewrite e
 
 -- Trees and their entries
 
@@ -527,12 +527,12 @@ theorem Map.Spec.lookupBelow ∀ [auto ord: Ord k] (key lo: k) (xs: List (k, v))
 
 theorem Map.Spec.lookupHead ∀ [auto ord: Ord k] (key: k) (value: v) (rest: List (k, v)):
     Map.Tree.lookupList key [(key, value), ..rest] = Some value :=
-  rewrite Ord.compareSelf key then byComputing
+  rewrite Ord.compareSelf key
 
 theorem Map.Spec.lookupEqualHead ∀ [auto ord: Ord k] (key kk: k) (vv: v) (rest: List (k, v))
     (e: Ord.compare key kk = Equal):
     Map.Tree.lookupList key [(kk, vv), ..rest] = Some vv :=
-  rewrite e then byComputing
+  rewrite e
 
 theorem Map.Spec.lookupSkip ∀ [auto ord: Ord k] (key kk: k) (vv: v) (rest: List (k, v))
     (ne: Ord.compare key kk ≠ Equal):
@@ -602,21 +602,18 @@ theorem Map.Spec.extLookup ∀ [auto ord: Ord k] (lo: Option k) (xs ys: List (k,
                 _ = Map.Tree.lookupList a [(b, y), ..ys] := same a
                 _ = None := Map.Spec.lookupAbsentHead a b y ys c bys))
         | Equal =>
-          rewrite Eq.flipped (ord.equal a b c),
-              Eq.cong
-                (.getOrElse x)
-                (calc Some x
-                  _ = Map.Tree.lookupList a [(a, x), ..xs] := (Map.Spec.lookupHead a x xs).flipped
-                  _ = Map.Tree.lookupList a [(b, y), ..ys] := same a
-                  _ = Some y := Map.Spec.lookupEqualHead a b y ys c),
-              Map.Spec.extLookup
-                (Some a)
-                xs
-                ys
-                axs
-                (rewrite ord.equal a b c then bys)
-                (Map.Spec.tailsAgree a x xs b y ys c axs bys same) then
-            byComputing
+          rewrite Eq.flipped (ord.equal a b c), Eq.cong
+            (.getOrElse x)
+            (calc Some x
+              _ = Map.Tree.lookupList a [(a, x), ..xs] := (Map.Spec.lookupHead a x xs).flipped
+              _ = Map.Tree.lookupList a [(b, y), ..ys] := same a
+              _ = Some y := Map.Spec.lookupEqualHead a b y ys c), Map.Spec.extLookup
+            (Some a)
+            xs
+            ys
+            axs
+            (rewrite ord.equal a b c then bys)
+            (Map.Spec.tailsAgree a x xs b y ys c axs bys same)
         | Greater =>
           Void.impossible
             (Option.noneNotSome y
@@ -738,10 +735,8 @@ theorem Map.Spec.lookupFilter ∀ [auto ord: Ord k] (p: k → v → Bool) (key: 
             match c: p kk vv with
               | True => Map.Spec.lookupHead kk vv _
               | False =>
-                rewrite Map.Spec.lookupFilter p kk (Some kk) rest arest,
-                    Map.Spec.lookupBelow kk kk rest arest (z =>
-                      Ordering.equalNotGreater (Eq.trans (Ord.compareSelf kk).flipped z)) then
-                  byComputing
+                rewrite Map.Spec.lookupFilter p kk (Some kk) rest arest, Map.Spec.lookupBelow kk kk rest arest (z =>
+                  Ordering.equalNotGreater (Eq.trans (Ord.compareSelf kk).flipped z))
 
 --| In a sorted list, an entry is there exactly when looking its key up finds
 --| its value.
@@ -771,7 +766,7 @@ theorem Map.Spec.memOfLookup ∀ [auto ord: Ord k] (key: k) (value: v) (xs: List
   match xs with
     | [(kk, vv), ..rest] =>
       match d: Ord.compare key kk with
-        | Equal => Inl (rewrite ord.equal key kk d, Eq.cong (.getOrElse vv) h then byComputing)
+        | Equal => Inl (rewrite ord.equal key kk d, Eq.cong (.getOrElse vv) h)
         | Less => Inr (Map.Spec.memOfLookup key value rest h)
         | Greater => Inr (Map.Spec.memOfLookup key value rest h)
 
@@ -949,13 +944,13 @@ theorem Map.Raw.popMinFromToList ∀ (m: Map.Raw k v [ord := o]) (popped: Option
     | None =>
       let same: Option.map (Map.Raw.popMinFrom m None found) (view => (view.fst, Map.Raw.toList view.snd))
         = Option.map (Map.Tree.popMin m.tree) (view => (view.fst, Map.Tree.toListOnto view.snd [])) :=
-        rewrite found then byComputing
+        rewrite found
       Eq.trans same (Map.Tree.popMinOnto m.tree)
     | Some (smallest, rest) =>
       let same: Option.map (Map.Raw.popMinFrom m (Some (smallest, rest)) found) (view =>
         (view.fst, Map.Raw.toList view.snd))
         = Option.map (Map.Tree.popMin m.tree) (view => (view.fst, Map.Tree.toListOnto view.snd [])) :=
-        rewrite found then byComputing
+        rewrite found
       Eq.trans same (Map.Tree.popMinOnto m.tree)
 
 theorem Map.Raw.popMinToList ∀ (m: Map.Raw k v [ord := o]):
@@ -1075,7 +1070,7 @@ theorem Map.Spec.isLessSound ∀ [auto ord: Ord k] (a b: k) (h: Map.Spec.isLess 
   match e: Ord.compare a b with | Less => byComputing
 
 theorem Map.Spec.isLessOf ∀ [auto ord: Ord k] (a b: k) (h: Ord.compare a b = Less): Map.Spec.isLess a b = True :=
-  rewrite h then byComputing
+  rewrite h
 
 --| Started with an entry, `lastBelow` finds one.
 theorem Map.Spec.lastBelowSomeNotNone ∀ [auto ord: Ord k] (key: k) (entry: (k, v)) (xs: List (k, v)):
@@ -1281,21 +1276,21 @@ theorem Map.Spec.mergeLess ∀ [auto ord: Ord k] (both: k → v → w → Option
     (c: Ord.compare kx ky = Less):
     Map.Spec.merge both onlyLeft onlyRight [(kx, vx), ..xs] [(ky, vy), ..ys]
       = Map.Spec.consEntry kx (Map.Spec.merge both onlyLeft onlyRight xs [(ky, vy), ..ys]) (onlyLeft kx vx) :=
-  rewrite c then byComputing
+  rewrite c
 
 theorem Map.Spec.mergeEqual ∀ [auto ord: Ord k] (both: k → v → w → Option x) (onlyLeft: k → v → Option x)
     (onlyRight: k → w → Option x) (kx: k) (vx: v) (xs: List (k, v)) (ky: k) (vy: w) (ys: List (k, w))
     (c: Ord.compare kx ky = Equal):
     Map.Spec.merge both onlyLeft onlyRight [(kx, vx), ..xs] [(ky, vy), ..ys]
       = Map.Spec.consEntry kx (Map.Spec.merge both onlyLeft onlyRight xs ys) (both kx vx vy) :=
-  rewrite c, Eq.trans (ord.flip kx ky) (Eq.cong Ordering.flip c) then byComputing
+  rewrite c, Eq.trans (ord.flip kx ky) (Eq.cong Ordering.flip c)
 
 theorem Map.Spec.mergeGreater ∀ [auto ord: Ord k] (both: k → v → w → Option x) (onlyLeft: k → v → Option x)
     (onlyRight: k → w → Option x) (kx: k) (vx: v) (xs: List (k, v)) (ky: k) (vy: w) (ys: List (k, w))
     (c: Ord.compare kx ky = Greater):
     Map.Spec.merge both onlyLeft onlyRight [(kx, vx), ..xs] [(ky, vy), ..ys]
       = Map.Spec.consEntry ky (Map.Spec.merge both onlyLeft onlyRight [(kx, vx), ..xs] ys) (onlyRight ky vy) :=
-  rewrite c, Map.Tree.lessOfGreater ord kx ky c then byComputing
+  rewrite c, Map.Tree.lessOfGreater ord kx ky c
 
 theorem Map.Spec.mergeNilRight ∀ [auto ord: Ord k] (both: k → v → w → Option x) (onlyLeft: k → v → Option x)
     (onlyRight: k → w → Option x) (xs: List (k, v)):
@@ -1441,12 +1436,10 @@ theorem Map.Spec.lookupMapMaybe ∀ [auto ord: Ord k] (f: k → v → Option x) 
       match d: Ord.compare key kk with
         | Equal =>
           rewrite Map.Spec.lookupConsEntryEqual key kk
-                (Map.Spec.mapMaybe f rest)
-                d
-                (Map.Spec.mapMaybeAscending ord f (Some kk) rest arest)
-                (f kk vv),
-              ord.equal key kk d then
-            byComputing
+            (Map.Spec.mapMaybe f rest)
+            d
+            (Map.Spec.mapMaybeAscending ord f (Some kk) rest arest)
+            (f kk vv), ord.equal key kk d
         | Less =>
           rewrite Map.Spec.lookupConsEntrySkip key kk
                 (Map.Spec.mapMaybe f rest)
@@ -1526,13 +1519,12 @@ theorem Map.Spec.lookupMergeCons ∀ [auto ord: Ord k] (both: k → v → w → 
           match d: Ord.compare key kx with
             | Equal =>
               rewrite Map.Spec.lookupConsEntryEqual key kx
-                    (Map.Spec.merge both onlyLeft onlyRight xs [(ky, vy), ..ys])
-                    d
-                    (Map.Spec.mergeAscending both onlyLeft onlyRight (Some kx) xs [(ky, vy), ..ys] axs (Both c ays))
-                    (onlyLeft kx vx),
-                  Map.Spec.lookupAbsentHead key ky vy ys (rewrite ord.equal key kx d then c) ays,
-                  ord.equal key kx d then
-                byComputing
+                (Map.Spec.merge both onlyLeft onlyRight xs [(ky, vy), ..ys])
+                d
+                (Map.Spec.mergeAscending both onlyLeft onlyRight (Some kx) xs [(ky, vy), ..ys] axs (Both c ays))
+                (onlyLeft kx vx), Map.Spec.lookupAbsentHead key ky vy ys
+                (rewrite ord.equal key kx d then c)
+                ays, ord.equal key kx d
             | Less =>
               rewrite Map.Spec.lookupConsEntrySkip key kx
                     (Map.Spec.merge both onlyLeft onlyRight xs [(ky, vy), ..ys])
@@ -1550,18 +1542,16 @@ theorem Map.Spec.lookupMergeCons ∀ [auto ord: Ord k] (both: k → v → w → 
             match d: Ord.compare key kx with
               | Equal =>
                 rewrite Map.Spec.lookupConsEntryEqual key kx
-                      (Map.Spec.merge both onlyLeft onlyRight xs ys)
-                      d
-                      (Map.Spec.mergeAscending both onlyLeft onlyRight
-                        (Some kx)
-                        xs
-                        ys
-                        axs
-                        (rewrite ord.equal kx ky c then ays))
-                      (both kx vx vy),
-                    Map.Spec.lookupEqualHead key ky vy ys (rewrite Eq.flipped (ord.equal kx ky c) then d),
-                    ord.equal key kx d then
-                  byComputing
+                  (Map.Spec.merge both onlyLeft onlyRight xs ys)
+                  d
+                  (Map.Spec.mergeAscending both onlyLeft onlyRight
+                    (Some kx)
+                    xs
+                    ys
+                    axs
+                    (rewrite ord.equal kx ky c then ays))
+                  (both kx vx vy), Map.Spec.lookupEqualHead key ky vy ys
+                  (rewrite Eq.flipped (ord.equal kx ky c) then d), ord.equal key kx d
               | Less =>
                 rewrite Map.Spec.lookupConsEntrySkip key kx
                       (Map.Spec.merge both onlyLeft onlyRight xs ys)
@@ -1583,20 +1573,17 @@ theorem Map.Spec.lookupMergeCons ∀ [auto ord: Ord k] (both: k → v → w → 
             match d: Ord.compare key ky with
               | Equal =>
                 rewrite Map.Spec.lookupConsEntryEqual key ky
-                      (Map.Spec.merge both onlyLeft onlyRight [(kx, vx), ..xs] ys)
-                      d
-                      (Map.Spec.mergeAscending both onlyLeft onlyRight
-                        (Some ky)
-                        [(kx, vx), ..xs]
-                        ys
-                        (Both (Map.Tree.lessOfGreater ord kx ky c) axs)
-                        ays)
-                      (onlyRight ky vy),
-                    Map.Spec.lookupAbsentHead key kx vx xs
-                      (rewrite ord.equal key ky d then Map.Tree.lessOfGreater ord kx ky c)
-                      axs,
-                    ord.equal key ky d then
-                  byComputing
+                  (Map.Spec.merge both onlyLeft onlyRight [(kx, vx), ..xs] ys)
+                  d
+                  (Map.Spec.mergeAscending both onlyLeft onlyRight
+                    (Some ky)
+                    [(kx, vx), ..xs]
+                    ys
+                    (Both (Map.Tree.lessOfGreater ord kx ky c) axs)
+                    ays)
+                  (onlyRight ky vy), Map.Spec.lookupAbsentHead key kx vx xs
+                  (rewrite ord.equal key ky d then Map.Tree.lessOfGreater ord kx ky c)
+                  axs, ord.equal key ky d
               | Less =>
                 rewrite Map.Spec.lookupConsEntrySkip key ky
                       (Map.Spec.merge both onlyLeft onlyRight [(kx, vx), ..xs] ys)
@@ -1646,31 +1633,30 @@ theorem Map.Spec.unionWithInsert ∀ [auto ord: Ord k] (f: v → v → v) (kx: k
             xs
             axs
         | Equal =>
-          rewrite Eq.trans (ord.flip kx ky) (Eq.cong Ordering.flip c),
-              Map.Spec.mergeBelow
-                (key x y => Some (f x y))
-                (key x => Some x)
-                (key y => Some y)
-                ky
-                (f vx vy)
-                ys
-                xs
-                (rewrite Eq.flipped (ord.equal kx ky c) then axs),
-              ord.equal kx ky c then
-            byComputing
+          rewrite Eq.trans (ord.flip kx ky) (Eq.cong Ordering.flip c), Map.Spec.mergeBelow
+            (key x y => Some (f x y))
+            (key x => Some x)
+            (key y => Some y)
+            ky
+            (f vx vy)
+            ys
+            xs
+            (rewrite Eq.flipped (ord.equal kx ky c) then axs), ord.equal kx ky c
         | Greater =>
-          rewrite Map.Tree.lessOfGreater ord kx ky c,
-              Map.Spec.mergeBelow
-                (key x y => Some (f x y))
-                (key x => Some x)
-                (key y => Some y)
-                ky
-                vy
-                (Map.Spec.insertWith f kx vx ys)
-                xs
-                (Map.Spec.ascendingWeaken ord (Some ky) kx (Map.Tree.lessOfGreater ord kx ky c) xs axs),
-              Map.Spec.unionWithInsert f kx vx xs axs ys then
-            byComputing
+          rewrite Map.Tree.lessOfGreater ord kx ky c, Map.Spec.mergeBelow
+            (key x y => Some (f x y))
+            (key x => Some x)
+            (key y => Some y)
+            ky
+            vy
+            (Map.Spec.insertWith f kx vx ys)
+            xs
+            (Map.Spec.ascendingWeaken ord
+              (Some ky)
+              kx
+              (Map.Tree.lessOfGreater ord kx ky c)
+              xs
+              axs), Map.Spec.unionWithInsert f kx vx xs axs ys
 
 theorem Map.Spec.mapMaybeSome ∀ (ys: List (k, v)): Map.Spec.mapMaybe (key y => Some y) ys = ys := match ys with
   | [] => byComputing
@@ -1836,7 +1822,7 @@ theorem Map.Tree.joinBuiltRest ∀ (buildRight: List (k, v) → (Map.Tree k v, L
     (hl: left.snd = List.drop xs a):
     (Map.Tree.joinBuilt buildRight left).snd = List.drop xs (a + Succ r) :=
   match left with
-    | (l, []) => rewrite List.dropAdd a (Succ r) xs, hl.flipped then byComputing
+    | (l, []) => rewrite List.dropAdd a (Succ r) xs, hl.flipped
     | (l, [(key, value), ..rest]) => rewrite List.dropAdd a (Succ r) xs, hl.flipped then h rest
 
 theorem Map.Tree.buildRest ∀ (fuel n: Nat) (xs: List (k, v))
@@ -1942,16 +1928,13 @@ theorem Map.Spec.lookupLastAscending ∀ [auto ord: Ord k] (key: k) (lo: Option 
       rewrite Map.Spec.lookupLastAscending key (Some kk) rest arest then
         match d: Ord.compare key kk with
           | Equal =>
-            rewrite Map.Spec.lookupBelow key kk rest arest (z => Ordering.equalNotGreater (Eq.trans d.flipped z)),
-                d then
-              byComputing
+            rewrite Map.Spec.lookupBelow key kk rest arest (z => Ordering.equalNotGreater (Eq.trans d.flipped z)), d
           | Less =>
-            rewrite Map.Spec.lookupBelow key kk rest arest (z => Ordering.lessNotGreater (Eq.trans d.flipped z)), d then
-              byComputing
+            rewrite Map.Spec.lookupBelow key kk rest arest (z => Ordering.lessNotGreater (Eq.trans d.flipped z)), d
           | Greater =>
             match e: Map.Tree.lookupList key rest with
               | Some x => byComputing
-              | None => rewrite d then byComputing
+              | None => rewrite d
 
 --| `fromList`, but O(n) when the keys come in ascending order: then the tree
 --| is built from the list directly.
@@ -2270,8 +2253,8 @@ theorem Map.Spec.mergeAtDifferenceStep ∀ (key: k) (present: Bool) (a: Option v
   match a, b with
     | None, None => byComputing
     | None, Some y => byComputing
-    | Some x, None => rewrite h then byComputing
-    | Some x, Some y => rewrite h then byComputing
+    | Some x, None => rewrite h
+    | Some x, Some y => rewrite h
 
 theorem Map.Raw.toListDifference ∀ [auto ord: Ord k] (a: Map.Raw k v) (b: Map.Raw k w):
     Map.Raw.toList (Map.Raw.difference a b) = Map.Spec.difference (Map.Raw.toList a) (Map.Raw.toList b) :=
@@ -2377,14 +2360,12 @@ theorem Map.Raw.getFoldRemove ∀ [auto ord: Ord k] (key: k) (m: Map.Raw k v) (y
                 | Some value => byComputing
           | Less =>
             rewrite Map.Raw.getRemoveOther kk key
-                  (Map.Spec.notEqualOfCompare key kk (z => Ordering.lessNotEqual (Eq.trans e.flipped z)))
-                  m then
-              byComputing
+              (Map.Spec.notEqualOfCompare key kk (z => Ordering.lessNotEqual (Eq.trans e.flipped z)))
+              m
           | Greater =>
             rewrite Map.Raw.getRemoveOther kk key
-                  (Map.Spec.notEqualOfCompare key kk (z => Ordering.greaterNotEqual (Eq.trans e.flipped z)))
-                  m then
-              byComputing
+              (Map.Spec.notEqualOfCompare key kk (z => Ordering.greaterNotEqual (Eq.trans e.flipped z)))
+              m
 
 -- What `get` finds after each.
 
@@ -2534,7 +2515,7 @@ theorem Map.Raw.getOrRespects ∀ [auto ord: Ord k] (key: k) (d: v) (m n: Map.Ra
 theorem Map.Raw.containsRespects ∀ [auto ord: Ord k] (key: k) (m n: Map.Raw k v)
     (h: Map.Raw.Equiv m n):
     Map.Raw.contains key m = Map.Raw.contains key n :=
-  rewrite Map.Raw.getRespects key m n h then byComputing
+  rewrite Map.Raw.getRespects key m n h
 
 theorem Map.Raw.sizeRespects ∀ (m n: Map.Raw k v [ord := o]) (h: Map.Raw.Equiv m n): Map.Raw.size m = Map.Raw.size n :=
   Eq.trans (Map.Raw.sizeToList m) (Eq.trans (Eq.cong List.length h) (Map.Raw.sizeToList n).flipped)
@@ -2710,7 +2691,7 @@ theorem Map.Raw.filterCongEquiv ∀ [auto ord: Ord k] (p q: k → v → Bool)
         ((l: List (k, v)) (key: k) (value: v) => if q key value then Map.Spec.insert key value l else l)
         []
         (Map.Raw.toList m)
-        (l key value => rewrite same key value then byComputing)
+        (l key value => rewrite same key value)
     _ = (Map.Raw.filter q m).toList := (Map.Raw.toListFilter q m).flipped
 
 --| Deciding `Map.Raw.Equiv` by comparing the entry lists. It needs `DecEq` for

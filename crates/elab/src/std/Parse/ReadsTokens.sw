@@ -110,7 +110,7 @@ theorem Parse.locatedToEndFromReads ∀ [inv: Parse.Invariant Char]
                 (rewrite <- atSame, Parse.noteAt state (Expected "a token") then e)
                 (Both
                   (rewrite <- atSame, Parse.noteAt state (Expected "a token") then arithmetic [honest.left])
-                  (Both (rewrite <- valueSame, List.appendNil found.reverse then byComputing) byComputing))))
+                  (Both (rewrite <- valueSame, List.appendNil found.reverse) byComputing))))
         | [char, ..chars] =>
           match Parse.runFromThenOk2
             (() => lexeme state.at.rest)
@@ -141,7 +141,7 @@ theorem Parse.locatedToEndFromReads ∀ [inv: Parse.Invariant Char]
                       let offsetSame: middle.at.offset = state.at.offset + read1.length :=
                         arithmetic [honest.left, honest.right, honest1.left, honest1.right, lengths, isTrue]
                       let nonEmpty: read1 ≠ [] := isNil =>
-                        let zero: read1.length = 0 := rewrite isNil then byComputing
+                        let zero: read1.length = 0 := rewrite isNil
                         arithmetic [zero, sameLength, isTrue]
                       match Parse.locatedToEndFromReads lexeme spec reads more
                         [newest, ..found]
@@ -161,14 +161,9 @@ theorem Parse.locatedToEndFromReads ∀ [inv: Parse.Invariant Char]
                               (Both empty
                                 (Both zeroLeft
                                   (Both
-                                    (rewrite valueSame,
-                                        List.reverseCons newest found,
-                                        List.appendAssoc found.reverse
-                                          [newest]
-                                          (Parse.locatedSteps middle.at.offset steps),
-                                        sameLength,
-                                        offsetSame then
-                                      byComputing)
+                                    (rewrite valueSame, List.reverseCons newest found, List.appendAssoc found.reverse
+                                      [newest]
+                                      (Parse.locatedSteps middle.at.offset steps), sameLength, offsetSame)
                                     (Both nonEmpty (Both (rewrite <- joined, <- starts1 then holds1) lexemes))))))
 
 --| `locatedToEnd lexeme` succeeded, from an honest state where `inv` holds
@@ -247,7 +242,7 @@ theorem Parse.allLocatedToEnd ∀ [inv: Parse.Invariant Char] (input: Text)
                 (Both byComputing (arithmetic []))
                 ran0 with
                 | Witness steps (Both joined (Both empty (Both zeroLeft (Both valueSame lexemes)))) =>
-                  let honest0: mid0.at.left = mid0.at.rest.length := rewrite empty, zeroLeft then byComputing
+                  let honest0: mid0.at.left = mid0.at.rest.length := rewrite empty, zeroLeft
                   let startsEnd: input.toList = Parse.joinReads steps ++ mid0.at.rest :=
                     rewrite empty, List.appendNil (Parse.joinReads steps) then joined
                   let fitsEnd: Parse.Fits Char inv mid0.at.rest := fits.after startsEnd

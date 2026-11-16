@@ -60,8 +60,7 @@ instance Path.instShow: Show Path := Show.fromText Path.show
 
 --| Two paths are equal when their parts and their absoluteness are.
 theorem Path.ext ∀ (p q: Path) (sameParts: p.parts = q.parts) (sameAbsolute: p.absolute = q.absolute): p = q :=
-  match p, q with
-    | { parts = a, absolute = x }, { parts = b, absolute = y } => rewrite sameParts, sameAbsolute then byComputing
+  match p, q with | { parts = a, absolute = x }, { parts = b, absolute = y } => rewrite sameParts, sameAbsolute
 
 --| `name` inside the folder `path`: `notes.child "today.txt"` is
 --| `notes/today.txt`. The name is added as one part, as written
@@ -86,11 +85,11 @@ def Path.childPath (path other: Path): Path :=
 theorem Path.childPathParts ∀ (path other: Path)
     (relative: other.absolute = False):
     (path.childPath other).parts = path.parts ++ other.parts :=
-  rewrite relative then byComputing
+  rewrite relative
 
 --| An absolute path is its own place, whatever folder it is put under.
 theorem Path.childPathAbsolute ∀ (path other: Path) (absolute: other.absolute = True): path.childPath other = other :=
-  rewrite absolute then byComputing
+  rewrite absolute
 
 --| The last part, if there is one: `today.txt` for `notes/today.txt`.
 def Path.name (path: Path): Option Text := path.parts.last
@@ -351,13 +350,13 @@ theorem Files.simulateInfo ∀ (disk: Disk) (path: Path):
 theorem Files.simulateWriteOk ∀ (disk after: Disk) (path: Path) (text: Text)
     (allowed: disk.write path text = Ok after):
     Files.simulate disk (() => Files.write (path, text)) = (after, Ok ()) :=
-  rewrite allowed then byComputing
+  rewrite allowed
 
 --| A write the disk refuses leaves it as it was, and gives the error.
 theorem Files.simulateWriteErr ∀ (disk: Disk) (path: Path) (text: Text) (error: FileError)
     (refused: disk.write path text = Err error):
     Files.simulate disk (() => Files.write (path, text)) = (disk, Err error) :=
-  rewrite refused then byComputing
+  rewrite refused
 
 --| A read, then the rest of the program: the rest runs on the read's reply.
 theorem Files.simulateReadThen ∀ (disk: Disk) (path: Path) (rest: Result Text FileError → {Files} a):

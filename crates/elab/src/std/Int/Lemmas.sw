@@ -135,7 +135,7 @@ theorem Int.addMulRegroup ∀ (x d q quotient remainder: Int)
 --| Adding a multiple of `d`, a negative one too, keeps the remainder (Lean's
 --| `Int.add_mul_emod_self_left`).
 theorem Int.modAddMul ∀ (x d q: Int): (x + d * q) % d = x % d :=
-  if zero: d = 0 then rewrite zero, Int.zeroMul q, Int.addZero x then byComputing
+  if zero: d = 0 then rewrite zero, Int.zeroMul q, Int.addZero x
   else
     And.right
       (Int.divModUnique

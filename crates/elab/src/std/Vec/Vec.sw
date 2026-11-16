@@ -267,13 +267,10 @@ theorem Vec.traverseOptionLoopDone ∀ (f: a → Option b) (v: Vec a k) (done: L
     | VCons x xs =>
       match e: f x with
         | Some y =>
-          rewrite Vec.traverseOptionLoopDone f xs [y, ..done],
-              Vec.traverseOptionLoopDone f xs [y],
-              Option.mapMap
-                (ys => List.reverseOnto [y] ys)
-                (ys => List.reverseOnto done ys)
-                (Vec.traverseOptionLoop f [] xs) then
-            byComputing
+          rewrite Vec.traverseOptionLoopDone f xs [y, ..done], Vec.traverseOptionLoopDone f xs [y], Option.mapMap
+            (ys => List.reverseOnto [y] ys)
+            (ys => List.reverseOnto done ys)
+            (Vec.traverseOptionLoop f [] xs)
         | None => byComputing
 
 theorem Vec.traverseOptionStep ∀ (y: b) (k: Nat) (m: Option (List b)):
@@ -460,11 +457,7 @@ theorem Vec.countLe ∀ (v: Vec a n) (p: a → Bool): Vec.count v p ≤ n := mat
 --| Vectors that agree at every index are equal (one default for both).
 theorem Vec.extGetOr ∀ (u: Vec a n) (d: a) (v: Vec a n) (h: ∀ (i: Nat) => Vec.getOr u i d = Vec.getOr v i d): u = v :=
   Vec.toListInjective u v
-    (List.extGetOr d
-      (Vec.toList u)
-      (Vec.toList v)
-      (rewrite Vec.lengthToList u, Vec.lengthToList v then byComputing)
-      (i hi => h i))
+    (List.extGetOr d (Vec.toList u) (Vec.toList v) (rewrite Vec.lengthToList u, Vec.lengthToList v) (i hi => h i))
 
 --| A small vector for the tests below: 1, 2, 3.
 def Vec.example: Vec Nat 3 := VCons 1 (VCons 2 (VCons 3 VNil))

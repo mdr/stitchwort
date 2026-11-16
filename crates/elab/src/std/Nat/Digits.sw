@@ -43,12 +43,12 @@ theorem Nat.fromDigitsCons ∀ (d: Nat) (ds: List Nat):
 
 --| One step of `Nat.digitsAcc`, for a number with one digit and for one with more.
 theorem Nat.digitsAccSmall ∀ (n: Nat) (acc: List Nat) (h: Nat.leq n 9 = True): Nat.digitsAcc n acc = [n, ..acc] :=
-  rewrite Nat.digitsAcc.unfold n acc then rewrite h then byComputing
+  rewrite Nat.digitsAcc.unfold n acc, h
 
 theorem Nat.digitsAccBig ∀ (n: Nat) (acc: List Nat)
     (h: Nat.leq n 9 = False):
     Nat.digitsAcc n acc = Nat.digitsAcc (n / 10) [n % 10, ..acc] :=
-  rewrite Nat.digitsAcc.unfold n acc then rewrite h then byComputing
+  rewrite Nat.digitsAcc.unfold n acc, h
 
 theorem Nat.digitsAccNonEmpty ∀ (n: Nat) (acc: List Nat): 1 ≤ List.length (Nat.digitsAcc n acc)
     decreasing n
@@ -507,8 +507,7 @@ theorem Char.digitsOntoValues ∀ (f n: Nat) (acc: List Char)
   match f with
     | Succ f =>
       match e: Nat.leq n 9 with
-        | True =>
-          rewrite Nat.digitsAccSmall n (List.filterMap acc Char.digitValue) e then rewrite Char.digitValueChar n e
+        | True => rewrite Nat.digitsAccSmall n (List.filterMap acc Char.digitValue) e, Char.digitValueChar n e
         | False =>
           rewrite Nat.digitsAccBig n (List.filterMap acc Char.digitValue) e then
             calc List.filterMap (Nat.digitsOnto f (n / 10) [Nat.digitChar (n % 10), ..acc]) Char.digitValue

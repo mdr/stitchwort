@@ -28,7 +28,7 @@ theorem Parse.startsSame ∀ [whole rest read other: List t]
     arithmetic [List.lengthAppend read rest, List.lengthAppend other rest, Eq.cong List.length same]
   calc read
     _ = List.take (read ++ rest) read.length := (List.takeAppend read rest).flipped
-    _ = List.take (other ++ rest) other.length := rewrite same, lengths then byComputing
+    _ = List.take (other ++ rest) other.length := rewrite same, lengths
     _ = other := List.takeAppend other rest
 
 --| Two specs of one parser hold of the same read and value: a success

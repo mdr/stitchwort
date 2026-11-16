@@ -65,27 +65,26 @@ def Nat.xor (m n: Nat): Nat
     (m + n) % 2 + Nat.xor (m / 2) (n / 2) [decreasing := Nat.halvesLess m n some] * 2
   else 0
 
-theorem Nat.xorZero ∀ (m n: Nat) (none: Nat.leq (m + n) 0 = True): Nat.xor m n = 0 :=
-  rewrite Nat.xor.unfold m n then rewrite none then byComputing
+theorem Nat.xorZero ∀ (m n: Nat) (none: Nat.leq (m + n) 0 = True): Nat.xor m n = 0 := rewrite Nat.xor.unfold m n, none
 
 theorem Nat.xorSome ∀ (m n: Nat)
     (some: Nat.leq (m + n) 0 = False):
     Nat.xor m n = (m + n) % 2 + Nat.xor (m / 2) (n / 2) * 2 :=
-  rewrite Nat.xor.unfold m n then rewrite some then byComputing
+  rewrite Nat.xor.unfold m n, some
 
 --| The lowest bit, and the rest.
 theorem Nat.xorMod ∀ (m n: Nat): Nat.xor m n % 2 = (m + n) % 2 := match some: Nat.leq (m + n) 0 with
   | False =>
     rewrite Nat.xorSome m n some, Nat.modAddMul ((m + n) % 2) (Nat.xor (m / 2) (n / 2)) 2 then Nat.modMod (m + n) 2
-  | True => rewrite Nat.xorZero m n some, (arithmetic: m + n = 0) then byComputing
+  | True => rewrite Nat.xorZero m n some, (arithmetic: m + n = 0)
 
 theorem Nat.xorDiv ∀ (m n: Nat): Nat.xor m n / 2 = Nat.xor (m / 2) (n / 2) := match some: Nat.leq (m + n) 0 with
   | False =>
-    rewrite Nat.xorSome m n some,
-        Nat.divAddMul ((m + n) % 2) (Nat.xor (m / 2) (n / 2)) 2,
-        Nat.divSmall ((m + n) % 2) 2 (Nat.modLess (m + n) 2 (Nat.succNotZero 1)) then
-      byComputing
-  | True => rewrite Nat.xorZero m n some, (arithmetic: m = 0), (arithmetic: n = 0) then byComputing
+    rewrite Nat.xorSome m n some, Nat.divAddMul ((m + n) % 2) (Nat.xor (m / 2) (n / 2)) 2, Nat.divSmall
+      ((m + n) % 2)
+      2
+      (Nat.modLess (m + n) 2 (Nat.succNotZero 1))
+  | True => rewrite Nat.xorZero m n some, (arithmetic: m = 0), (arithmetic: n = 0)
 
 --| Whether the sum of two bits is odd is their exclusive or.
 theorem Nat.oddSumBits ∀ (m n: Nat)
@@ -178,26 +177,25 @@ def Nat.and (m n: Nat): Nat
     m * n % 2 + Nat.and (m / 2) (n / 2) [decreasing := Nat.halvesLess m n some] * 2
   else 0
 
-theorem Nat.andZero ∀ (m n: Nat) (none: Nat.leq (m + n) 0 = True): Nat.and m n = 0 :=
-  rewrite Nat.and.unfold m n then rewrite none then byComputing
+theorem Nat.andZero ∀ (m n: Nat) (none: Nat.leq (m + n) 0 = True): Nat.and m n = 0 := rewrite Nat.and.unfold m n, none
 
 theorem Nat.andSome ∀ (m n: Nat)
     (some: Nat.leq (m + n) 0 = False):
     Nat.and m n = m * n % 2 + Nat.and (m / 2) (n / 2) * 2 :=
-  rewrite Nat.and.unfold m n then rewrite some then byComputing
+  rewrite Nat.and.unfold m n, some
 
 theorem Nat.andMod ∀ (m n: Nat): Nat.and m n % 2 = m * n % 2 := match some: Nat.leq (m + n) 0 with
   | False =>
     rewrite Nat.andSome m n some, Nat.modAddMul (m * n % 2) (Nat.and (m / 2) (n / 2)) 2 then Nat.modMod (m * n) 2
-  | True => rewrite Nat.andZero m n some, (arithmetic: m = 0) then byComputing
+  | True => rewrite Nat.andZero m n some, (arithmetic: m = 0)
 
 theorem Nat.andDiv ∀ (m n: Nat): Nat.and m n / 2 = Nat.and (m / 2) (n / 2) := match some: Nat.leq (m + n) 0 with
   | False =>
-    rewrite Nat.andSome m n some,
-        Nat.divAddMul (m * n % 2) (Nat.and (m / 2) (n / 2)) 2,
-        Nat.divSmall (m * n % 2) 2 (Nat.modLess (m * n) 2 (Nat.succNotZero 1)) then
-      byComputing
-  | True => rewrite Nat.andZero m n some, (arithmetic: m = 0), (arithmetic: n = 0) then byComputing
+    rewrite Nat.andSome m n some, Nat.divAddMul (m * n % 2) (Nat.and (m / 2) (n / 2)) 2, Nat.divSmall
+      (m * n % 2)
+      2
+      (Nat.modLess (m * n) 2 (Nat.succNotZero 1))
+  | True => rewrite Nat.andZero m n some, (arithmetic: m = 0), (arithmetic: n = 0)
 
 theorem Nat.testBitAnd ∀ (i m n: Nat): Nat.testBit (Nat.and m n) i = (Nat.testBit m i ∧ Nat.testBit n i) := match i with
   | Zero =>
@@ -216,31 +214,30 @@ def Nat.or (m n: Nat): Nat
     (m % 2 + n % 2 + m % 2 * (n % 2)) % 2 + Nat.or (m / 2) (n / 2) [decreasing := Nat.halvesLess m n some] * 2
   else 0
 
-theorem Nat.orZero ∀ (m n: Nat) (none: Nat.leq (m + n) 0 = True): Nat.or m n = 0 :=
-  rewrite Nat.or.unfold m n then rewrite none then byComputing
+theorem Nat.orZero ∀ (m n: Nat) (none: Nat.leq (m + n) 0 = True): Nat.or m n = 0 := rewrite Nat.or.unfold m n, none
 
 theorem Nat.orSome ∀ (m n: Nat)
     (some: Nat.leq (m + n) 0 = False):
     Nat.or m n = (m % 2 + n % 2 + m % 2 * (n % 2)) % 2 + Nat.or (m / 2) (n / 2) * 2 :=
-  rewrite Nat.or.unfold m n then rewrite some then byComputing
+  rewrite Nat.or.unfold m n, some
 
 theorem Nat.orMod ∀ (m n: Nat): Nat.or m n % 2 = (m % 2 + n % 2 + m % 2 * (n % 2)) % 2 :=
   match some: Nat.leq (m + n) 0 with
     | False =>
       rewrite Nat.orSome m n some, Nat.modAddMul ((m % 2 + n % 2 + m % 2 * (n % 2)) % 2) (Nat.or (m / 2) (n / 2)) 2 then
         Nat.modMod (m % 2 + n % 2 + m % 2 * (n % 2)) 2
-    | True => rewrite Nat.orZero m n some, (arithmetic: m = 0), (arithmetic: n = 0) then byComputing
+    | True => rewrite Nat.orZero m n some, (arithmetic: m = 0), (arithmetic: n = 0)
 
 theorem Nat.orDiv ∀ (m n: Nat): Nat.or m n / 2 = Nat.or (m / 2) (n / 2) := match some: Nat.leq (m + n) 0 with
   | False =>
-    rewrite Nat.orSome m n some,
-        Nat.divAddMul ((m % 2 + n % 2 + m % 2 * (n % 2)) % 2) (Nat.or (m / 2) (n / 2)) 2,
-        Nat.divSmall
-          ((m % 2 + n % 2 + m % 2 * (n % 2)) % 2)
-          2
-          (Nat.modLess (m % 2 + n % 2 + m % 2 * (n % 2)) 2 (Nat.succNotZero 1)) then
-      byComputing
-  | True => rewrite Nat.orZero m n some, (arithmetic: m = 0), (arithmetic: n = 0) then byComputing
+    rewrite Nat.orSome m n some, Nat.divAddMul
+      ((m % 2 + n % 2 + m % 2 * (n % 2)) % 2)
+      (Nat.or (m / 2) (n / 2))
+      2, Nat.divSmall
+      ((m % 2 + n % 2 + m % 2 * (n % 2)) % 2)
+      2
+      (Nat.modLess (m % 2 + n % 2 + m % 2 * (n % 2)) 2 (Nat.succNotZero 1))
+  | True => rewrite Nat.orZero m n some, (arithmetic: m = 0), (arithmetic: n = 0)
 
 theorem Nat.testBitOr ∀ (i m n: Nat): Nat.testBit (Nat.or m n) i = (Nat.testBit m i ∨ Nat.testBit n i) := match i with
   | Zero =>
@@ -338,7 +335,7 @@ theorem Nat.xorModPow ∀ (k x y: Nat): Nat.xor x y % Nat.pow 2 k = Nat.xor (x %
       let highs: Nat.xor x y / 2 % Nat.pow 2 k = Nat.xor (x / 2 % Nat.pow 2 k) (y / 2 % Nat.pow 2 k) :=
         Eq.trans (Eq.cong (half => half % Nat.pow 2 k) (Nat.xorDiv x y)) (Nat.xorModPow k (x / 2) (y / 2))
       let lowHighs: Nat.xor lowX lowY / 2 = Nat.xor (x / 2 % Nat.pow 2 k) (y / 2 % Nat.pow 2 k) :=
-        Eq.trans (Nat.xorDiv lowX lowY) (rewrite halfX, halfY then byComputing)
+        Eq.trans (Nat.xorDiv lowX lowY) (rewrite halfX, halfY)
       let whole := Eq.trans (Nat.modPowSucc (Nat.xor x y) k) (Eq.cong (high => high * 2 + Nat.xor x y % 2) highs)
       let low :=
         Eq.trans (Nat.divModEq (Nat.xor lowX lowY) 2) (Eq.cong (high => high * 2 + Nat.xor lowX lowY % 2) lowHighs)
@@ -415,7 +412,7 @@ theorem Nat.fromBitsAppend ∀ (high low: List Bool):
 --| A bit after the others doubles their number and adds itself.
 theorem Nat.fromBitsSnoc ∀ (bits: List Bool) (bit: Bool):
     Nat.fromBits (bits ++ [bit]) = Nat.fromBits bits * 2 + Bool.toNat bit :=
-  rewrite List.foldLeftAppend bits 0 [bit] (acc bit => acc * 2 + Bool.toNat bit) then byComputing
+  rewrite List.foldLeftAppend bits 0 [bit] (acc bit => acc * 2 + Bool.toNat bit)
 
 --| A number written in `width` bits, the most significant first, `True` for
 --| a 1, and cut off at the low `width` bits if it doesn't fit: the last bit
@@ -431,8 +428,7 @@ theorem Nat.toBitsExample: Nat.toBits 4 5 = [False, True, False, True] := byComp
 --| `Nat.toBits width n` is `width` bits long.
 theorem Nat.toBitsLength ∀ (width n: Nat): List.length (Nat.toBits width n) = width := match width with
   | 0 => byComputing
-  | Succ width =>
-    rewrite List.lengthSnoc (Nat.toBits width (n / 2)) (n % 2 == 1), Nat.toBitsLength width (n / 2) then byComputing
+  | Succ width => rewrite List.lengthSnoc (Nat.toBits width (n / 2)) (n % 2 == 1), Nat.toBitsLength width (n / 2)
 
 --| The last bit of a number is whether it is odd.
 theorem Nat.parityBit ∀ (n: Nat): Bool.toNat (n % 2 == 1) = n % 2 :=
@@ -468,10 +464,10 @@ theorem Nat.parityOfDoubleBit ∀ (acc: Nat) (bit: Bool): ((acc * 2 + Bool.toNat
   match bit with
     | True =>
       let odd: (acc * 2 + 1) % 2 = 1 := arithmetic
-      rewrite odd then byComputing
+      rewrite odd
     | False =>
       let even: (acc * 2 + 0) % 2 = 0 := arithmetic
-      rewrite even then byComputing
+      rewrite even
 
 --| Reading bits after a number `acc`, then writing the result in as many
 --| more bits, gives `acc`'s `k` bits and then those bits.
@@ -479,14 +475,14 @@ theorem Nat.toBitsFold ∀ (k acc: Nat) (bits: List Bool):
     Nat.toBits (k + List.length bits) (List.foldLeft bits acc (acc bit => acc * 2 + Bool.toNat bit))
       = Nat.toBits k acc ++ bits :=
   match bits with
-    | [] => rewrite Nat.addZero k, List.appendNil (Nat.toBits k acc) then byComputing
+    | [] => rewrite Nat.addZero k, List.appendNil (Nat.toBits k acc)
     | [bit, ..rest] =>
       let more := Nat.toBitsFold (Succ k) (acc * 2 + Bool.toNat bit) rest
       let step: Nat.toBits (Succ k) (acc * 2 + Bool.toNat bit) ++ rest = Nat.toBits k acc ++ [bit, ..rest] :=
-        rewrite Nat.parityOfDoubleBit acc bit,
-            Nat.halfOfDoubleBit acc bit,
-            List.appendAssoc (Nat.toBits k acc) [bit] rest then
-          byComputing
+        rewrite Nat.parityOfDoubleBit acc bit, Nat.halfOfDoubleBit acc bit, List.appendAssoc
+          (Nat.toBits k acc)
+          [bit]
+          rest
       Eq.trans more step
 
 --| Any bits are the number they read as, written in as many bits:
@@ -522,7 +518,7 @@ theorem Nat.toBitsAnd ∀ (width m n: Nat):
             (n % 2 == 1)
             (Nat.toBits width (m / 2))
             (Nat.toBits width (n / 2))
-            (rewrite Nat.toBitsLength width (m / 2), Nat.toBitsLength width (n / 2) then byComputing))
+            (rewrite Nat.toBitsLength width (m / 2), Nat.toBitsLength width (n / 2)))
 
 --| The `width` low bits of `Nat.or m n` are the bits of `m` and `n` zipped
 --| with `∨`, for any `width`.
@@ -539,7 +535,7 @@ theorem Nat.toBitsOr ∀ (width m n: Nat):
             (n % 2 == 1)
             (Nat.toBits width (m / 2))
             (Nat.toBits width (n / 2))
-            (rewrite Nat.toBitsLength width (m / 2), Nat.toBitsLength width (n / 2) then byComputing))
+            (rewrite Nat.toBitsLength width (m / 2), Nat.toBitsLength width (n / 2)))
 
 --| The `width` low bits of `Nat.xor m n` are the bits of `m` and `n` zipped
 --| with `Bool.xor`, for any `width`.
@@ -555,7 +551,7 @@ theorem Nat.toBitsXor ∀ (width m n: Nat):
             (n % 2 == 1)
             (Nat.toBits width (m / 2))
             (Nat.toBits width (n / 2))
-            (rewrite Nat.toBitsLength width (m / 2), Nat.toBitsLength width (n / 2) then byComputing))
+            (rewrite Nat.toBitsLength width (m / 2), Nat.toBitsLength width (n / 2)))
 
 theorem Nat.lowBitAnd ∀ (m n: Nat): m * n % 2 ≤ n % 2 :=
   let below := Nat.modLess n 2 (Nat.succNotZero 1)
@@ -598,7 +594,7 @@ theorem Nat.andLeLeft ∀ (m n: Nat): Nat.and m n ≤ m
 --| Two numbers below `2 ^ k` have an `or` below `2 ^ k`.
 theorem Nat.orBelow ∀ (k m n: Nat) (smallM: m < Nat.pow 2 k) (smallN: n < Nat.pow 2 k): Nat.or m n < Nat.pow 2 k :=
   match k with
-    | 0 => rewrite (arithmetic: m = 0), (arithmetic: n = 0) then byComputing
+    | 0 => rewrite (arithmetic: m = 0), (arithmetic: n = 0)
     | Succ k =>
       let power := Nat.powSucc 2 k
       let half := Nat.orBelow k (m / 2) (n / 2) (arithmetic [power]) (arithmetic [power])

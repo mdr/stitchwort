@@ -51,7 +51,7 @@ theorem Ord.compareSelf ∀ [auto ord: Ord a] (x: a): Ord.compare x x = Equal :=
   Ordering.flipSelf (Ord.compare x x) (ord.flip x x)
 
 --| The smaller of a value and itself is that value.
-theorem Ord.minSelf ∀ [auto ord: Ord a] (x: a): Ord.min x x = x := rewrite Ord.compareSelf x then byComputing
+theorem Ord.minSelf ∀ [auto ord: Ord a] (x: a): Ord.min x x = x := rewrite Ord.compareSelf x
 
 --| Anything is at most itself.
 theorem Ord.leRefl ∀ [auto ord: Ord a] (x: a): x <= x :=
@@ -77,7 +77,7 @@ theorem Ord.minEither ∀ [auto ord: Ord a] (x y: a): (Ord.min x y = x) ∨ (Ord
     | Equal => Inl byComputing
 
 --| The larger of a value and itself is that value.
-theorem Ord.maxSelf ∀ [auto ord: Ord a] (x: a): Ord.max x x = x := rewrite Ord.compareSelf x then byComputing
+theorem Ord.maxSelf ∀ [auto ord: Ord a] (x: a): Ord.max x x = x := rewrite Ord.compareSelf x
 
 --| The larger of two values is at least each, and is one of them.
 theorem Ord.leMaxLeft ∀ [auto ord: Ord a] (x y: a): x <= Ord.max x y := match order: Ord.compare x y with

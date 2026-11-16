@@ -19,7 +19,7 @@ theorem Map.lookupLastWithIndex ∀ (d: a) (s i: Nat) (xs: List a):
   match i, xs with
     | i, [] => byComputing
     | Zero, [x, ..xs] =>
-      rewrite Nat.addZero s, Map.lookupLastBelow s (Succ s) xs (Nat.leRefl (Succ s)), Nat.compareSelf s then byComputing
+      rewrite Nat.addZero s, Map.lookupLastBelow s (Succ s) xs (Nat.leRefl (Succ s)), Nat.compareSelf s
     | Succ i, [x, ..xs] =>
       let ih: Option.getOrElse (Map.lookupLast (Succ (s + i)) (List.withIndexFrom (Succ s) xs)) d = List.getOr xs i d :=
         Map.lookupLastWithIndex d (Succ s) i xs
@@ -44,7 +44,7 @@ theorem Map.lookupLastWithIndexGet ∀ (s i: Nat) (xs: List a):
   match i, xs with
     | i, [] => byComputing
     | Zero, [x, ..xs] =>
-      rewrite Nat.addZero s, Map.lookupLastBelow s (Succ s) xs (Nat.leRefl (Succ s)), Nat.compareSelf s then byComputing
+      rewrite Nat.addZero s, Map.lookupLastBelow s (Succ s) xs (Nat.leRefl (Succ s)), Nat.compareSelf s
     | Succ i, [x, ..xs] =>
       rewrite Nat.addSucc s i then
         match r: Map.lookupLast (Succ (s + i)) (List.withIndexFrom (Succ s) xs) with

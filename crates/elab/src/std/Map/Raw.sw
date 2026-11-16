@@ -668,7 +668,7 @@ theorem Map.Tree.minViewSplit ∀ (l: Map.Tree k v) (key: k) (value: v) (r: Map.
       = ((Map.Tree.minKey key l, Map.Tree.minValue value l), Map.Tree.deleteMin l key value r) :=
   match l with
     | Tip => byComputing
-    | Bin _ ll lk lv lr => rewrite Map.Tree.minViewSplit ll lk lv lr then byComputing
+    | Bin _ ll lk lv lr => rewrite Map.Tree.minViewSplit ll lk lv lr
 
 --| What `popMin` leaves of a non-empty tree is `deleteMin`'s.
 theorem Map.Tree.popMinRest ∀ (l: Map.Tree k v) (key: k) (value: v) (r: Map.Tree k v) (s: Nat)
@@ -816,16 +816,12 @@ theorem Map.Tree.lookupOnto ∀ [auto ord: Ord k] (key: k) (lo hi: Option k) (t:
       rewrite Map.Tree.lookupOnto key lo (Some kk) l [(kk, vv), ..Map.Tree.toListOnto r acc] wl then
         match e: Ord.compare key kk with
           | Less =>
-            rewrite Map.Tree.lookupOnto key (Some kk) hi r acc wr,
-                Map.Tree.getAbsentLow key kk hi r wr (x => Ordering.lessNotGreater (Eq.trans e.flipped x)) then
-              byComputing
-          | Equal =>
-            rewrite Map.Tree.getAbsentHigh key lo kk l wl (x => Ordering.equalNotLess (Eq.trans e.flipped x)) then
-              byComputing
+            rewrite Map.Tree.lookupOnto key (Some kk) hi r acc wr, Map.Tree.getAbsentLow key kk hi r wr (x =>
+              Ordering.lessNotGreater (Eq.trans e.flipped x))
+          | Equal => rewrite Map.Tree.getAbsentHigh key lo kk l wl (x => Ordering.equalNotLess (Eq.trans e.flipped x))
           | Greater =>
-            rewrite Map.Tree.getAbsentHigh key lo kk l wl (x => Ordering.greaterNotLess (Eq.trans e.flipped x)),
-                Map.Tree.lookupOnto key (Some kk) hi r acc wr then
-              byComputing
+            rewrite Map.Tree.getAbsentHigh key lo kk l wl (x =>
+              Ordering.greaterNotLess (Eq.trans e.flipped x)), Map.Tree.lookupOnto key (Some kk) hi r acc wr
 
 theorem Map.Tree.getLookup ∀ [auto ord: Ord k] (key: k) (lo hi: Option k) (t: Map.Tree k v)
     (w: Map.Tree.Within ord lo hi t):
@@ -877,7 +873,7 @@ theorem Map.Tree.getInsertWith ∀ [auto ord: Ord k] (f: v → v → v) (key: k)
     (w: Map.Tree.Within ord lo hi t):
     Map.Tree.get key (Map.Tree.insertWith f key value t) = Some (Map.Tree.combine f value (Map.Tree.get key t)) :=
   match t, w with
-    | Tip, w => rewrite Ord.compareSelf key then byComputing
+    | Tip, w => rewrite Ord.compareSelf key
     | Bin s l kk vv r, Both (Both akk bkk) (Both wl wr) =>
       match e: Ord.compare key kk with
         | Less =>
@@ -892,7 +888,7 @@ theorem Map.Tree.getInsertWith ∀ [auto ord: Ord k] (f: v → v → v) (key: k)
                 wr,
               e then
             Map.Tree.getInsertWith f key value lo (Some kk) l ab e wl
-        | Equal => rewrite e then byComputing
+        | Equal => rewrite e
         | Greater =>
           rewrite Map.Tree.getBalance key lo hi l kk vv
                 (Map.Tree.insertWith f key value r)
@@ -1136,7 +1132,7 @@ theorem Map.Tree.getMapWithKey ∀ [auto ord: Ord k] (t: Map.Tree k v) (key: k) 
     | Bin s l kk vv r =>
       match e: Ord.compare key kk with
         | Less => Map.Tree.getMapWithKey l key f
-        | Equal => rewrite ord.equal key kk e then byComputing
+        | Equal => rewrite ord.equal key kk e
         | Greater => Map.Tree.getMapWithKey r key f
 
 theorem Map.Raw.getMapWithKey ∀ [auto ord: Ord k] (m: Map.Raw k v) (key: k) (f: k → v → w):
@@ -1168,15 +1164,13 @@ theorem Map.Raw.getFoldInsert ∀ [auto ord: Ord k] (m: Map.Raw k v) (key: k) (x
             match e: Ord.compare key kk with
               | Less =>
                 rewrite Map.Raw.getInsertOther kk vv key
-                      (x => Ordering.lessNotEqual (Eq.trans e.flipped (rewrite x then Ord.compareSelf kk)))
-                      m then
-                  byComputing
-              | Equal => rewrite ord.equal key kk e, Map.Raw.getInsert kk vv m then byComputing
+                  (x => Ordering.lessNotEqual (Eq.trans e.flipped (rewrite x then Ord.compareSelf kk)))
+                  m
+              | Equal => rewrite ord.equal key kk e, Map.Raw.getInsert kk vv m
               | Greater =>
                 rewrite Map.Raw.getInsertOther kk vv key
-                      (x => Ordering.greaterNotEqual (Eq.trans e.flipped (rewrite x then Ord.compareSelf kk)))
-                      m then
-                  byComputing
+                  (x => Ordering.greaterNotEqual (Eq.trans e.flipped (rewrite x then Ord.compareSelf kk)))
+                  m
 
 --| What `get` says about `fromList`.
 theorem Map.Raw.getFromList ∀ [auto ord: Ord k] (key: k) (xs: List (k, v)):

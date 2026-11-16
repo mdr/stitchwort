@@ -38,8 +38,8 @@ theorem DecEq.falseOfNe ∀ [auto eq: DecEq a] [x y: a] (h: x ≠ y): (x == y) =
 -- it uses [`DecEq.refl`]: in Arith.sw it made every program that loads the
 -- list toolkit load this file too.
 theorem Nat.mulRightCancelBool ∀ [a b c: Nat] (nz: c ≠ 0): (a * c == b * c) = (a == b) :=
-  if same: a = b then rewrite same, DecEq.refl (b * c), DecEq.refl b then byComputing
-  else rewrite DecEq.falseOfNe same, DecEq.falseOfNe (e => same (Nat.mulRightCancel a b c nz e)) then byComputing
+  if same: a = b then rewrite same, DecEq.refl (b * c), DecEq.refl b
+  else rewrite DecEq.falseOfNe same, DecEq.falseOfNe (e => same (Nat.mulRightCancel a b c nz e))
 
 --| A value is never `!=` to itself.
 theorem DecEq.neSelf ∀ [auto eq: DecEq a] (x: a): ((x != x): Bool) = False := match e: ((x != x): Bool) with

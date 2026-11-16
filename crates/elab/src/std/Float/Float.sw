@@ -446,8 +446,8 @@ theorem Float.rankZero ∀ (n: Nat)
     (z: (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808) = True):
     Float.rankOf n (Nat.leq 9223372036854775808 n) = 9218868437227405312 :=
   match z with
-    | Inl e => rewrite e.read then byComputing
-    | Inr e => rewrite e.read then byComputing
+    | Inl e => rewrite e.read
+    | Inr e => rewrite e.read
 
 --| The ranks, from the order keys `ieeeLe` and `ieeeLt` compare, and back.
 theorem Float.rankLeOfKeys ∀ (m n: Nat):
@@ -496,7 +496,7 @@ theorem Float.keysOfRankLe ∀ (m n: Nat)
   | False, hp, True, hq, h =>
     let m0: m = 0 := arithmetic
     let nS: n = 9223372036854775808 := arithmetic
-    rewrite m0, nS then byComputing
+    rewrite m0, nS
   | False, hp, False, hq, h => Inr arithmetic
 
 theorem Float.keysOfRankLt ∀ (m n: Nat)
@@ -517,12 +517,12 @@ theorem Float.keysOfRankLt ∀ (m n: Nat)
     match c: Nat.equal n 0 with
       | True =>
         let eS: Nat.equal m 9223372036854775808 = False := e => arithmetic
-        rewrite e0, eS then byComputing
+        rewrite e0, eS
       | False =>
         let nS: Nat.equal n 9223372036854775808 = False := e => arithmetic
         match d: Nat.equal m 9223372036854775808 with
-          | True => rewrite e0, nS then byComputing
-          | False => rewrite e0 then byComputing
+          | True => rewrite e0, nS
+          | False => rewrite e0
   | False, hp, True, hq, h => arithmetic
   | False, hp, False, hq, h =>
     let mS: Nat.equal m 9223372036854775808 = False := e => arithmetic

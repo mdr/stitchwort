@@ -50,15 +50,13 @@ theorem Text.sliceAppend ∀ (text: Text) (from middle to: Nat)
     (second: middle ≤ to):
     text.slice from middle ++ text.slice middle to = text.slice from to :=
   let meet: List.drop text.toList middle = List.drop (List.drop text.toList from) (middle - from) :=
-    rewrite <- List.dropAdd from (middle - from) text.toList then
-      rewrite (arithmetic: from + (middle - from) = middle) then byComputing
+    rewrite <- List.dropAdd from (middle - from) text.toList, (arithmetic: from + (middle - from) = middle)
   let counts: middle - from + (to - middle) = to - from := arithmetic
   let lists: List.append
     (List.take (List.drop text.toList from) (middle - from))
     (List.take (List.drop text.toList middle) (to - middle))
     = List.take (List.drop text.toList from) (to - from) :=
-    rewrite meet then
-      rewrite <- counts then Eq.flipped (List.takeAdd (List.drop text.toList from) (middle - from) (to - middle))
+    rewrite meet, <- counts then Eq.flipped (List.takeAdd (List.drop text.toList from) (middle - from) (to - middle))
   Eq.cong Text.fromList lists
 
 --| The slice from 0 to the length is the whole text.

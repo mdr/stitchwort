@@ -267,7 +267,7 @@ theorem Text.trimLast ∀ (text: Text) (front: List Char) (last: Char)
     Char.isWhitespace last = False :=
   let kept := Text.dropSpaces (List.reverseOnto (Text.dropSpaces text.toList) [])
   let back: List.reverse [last, ..List.reverse front] = front ++ [last] :=
-    rewrite List.reverseCons last (List.reverse front), List.reverseReverse front then byComputing
+    rewrite List.reverseCons last (List.reverse front), List.reverseReverse front
   let flipped: kept = [last, ..List.reverse front] :=
     rewrite <- List.reverseReverse kept, <- List.reverseReverse [last, ..List.reverse front], back then
       Eq.cong List.reverse h

@@ -16,7 +16,7 @@ def List.gridCells (rows: List (List a)): List ((Nat, Nat), a) :=
 theorem List.getOfMem ∀ (xs: List a) (x: a) (member: x ∈ xs): ∃ (k: Nat) => List.get xs k = Some x :=
   match xs, member with
     | [], member => member.impossible
-    | [first, ..rest], Inl same => Witness Zero (rewrite same then byComputing)
+    | [first, ..rest], Inl same => Witness Zero (rewrite same)
     | [first, ..rest], Inr later =>
       match List.getOfMem rest x later with
         | Witness k found => Witness (Succ k) found
@@ -31,7 +31,7 @@ theorem List.memWithIndex ∀ (xs: List a) (i: Nat) (x: a): ((i, x) ∈ xs.withI
           | Some y =>
             let same: (k, y) = (i, x) := Option.someInjective (rewrite List.getWithIndex xs k, c at found)
             rewrite <- Eq.cong Pair.fst same, <- Eq.cong Pair.snd same then c,
-  backward = found => List.memOfGet xs.withIndex i (i, x) (rewrite List.getWithIndex xs i, found then byComputing)
+  backward = found => List.memOfGet xs.withIndex i (i, x) (rewrite List.getWithIndex xs i, found)
 }
 
 --| A grid has `cell` at `(row, column)` exactly when row `row` is some list
