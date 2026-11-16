@@ -38939,8 +38939,8 @@
     },
     {
       "id": 3490,
-      "title": "[Sonnet] Tidy the toy proof per docs/proposals/after-the-toy-proof.md §3.1-3.3: confirm and delete theorems not reached from printParses (about 157 by name count; confirm by deleting and auditing; keep the examples), merge sameOffset/ownOffset, and (if cheap) join the three parser walks; measure theorems before/after",
-      "status": "backlog",
+      "title": "[DeepSeek] Tidy the toy proof per docs/proposals/after-the-toy-proof.md §3.1-3.3: confirm and delete theorems not reached from printParses (about 157 by name count; confirm by deleting and auditing; keep the examples), merge sameOffset/ownOffset, and (if cheap) join the three parser walks; measure theorems before/after",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
