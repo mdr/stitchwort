@@ -1,5 +1,5 @@
 {
-  "next": 3641,
+  "next": 3642,
   "tickets": [
     {
       "id": 47,
@@ -40921,6 +40921,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3641,
+      "title": "[Fable] Toy++ T1c: prove formatKeepsComments on today's toy (D3664, Matt, 16 Nov 2026: 'doing it on today's toy might be wise ... gives us a heads up in case it's complicated or if we need to learn anything about it'): the carry walk in Toy/Fmt/CarryProofs.sw over the 49 parser functions (tokensCarry), lexTidy, lexRising; move the theorem from plus/src/KeepsComments.sw into the toy, proved. Record what was learnt (cost per parser function, std lemmas needed) for T2/T3 and the real formatter. Est. 2 h (T1b's estimate; 1.5x stop at 3 h)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
