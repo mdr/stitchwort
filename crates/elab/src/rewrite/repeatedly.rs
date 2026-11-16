@@ -443,7 +443,12 @@ fn try_close(cx: &mut Ctx, header: Span, goal: &Value) -> Result<Option<Term>> {
     });
     let snapshot = Snapshot::take(cx);
     let errors = cx.e.attempt.branch_errors.borrow().len();
-    match crate::Elaborator::unnoted_in(cx, |cx| check(cx, &rfl, goal)) {
+    let quiet = &cx.e.decl.quiet_refl;
+    quiet.set(quiet.get() + 1);
+    let checked = crate::Elaborator::unnoted_in(cx, |cx| check(cx, &rfl, goal));
+    let quiet = &cx.e.decl.quiet_refl;
+    quiet.set(quiet.get() - 1);
+    match checked {
         Ok(term) => return Ok(Some(term)),
         Err(e) if fatal(&e) => return Err(e),
         Err(_) => restore(cx, snapshot, errors),

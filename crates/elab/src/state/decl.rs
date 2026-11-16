@@ -232,6 +232,11 @@ pub(crate) struct Decl {
     /// How deep the checker is in a `match` checked again for its cases
     /// alone (`deletable`): an arm's body stands for itself unchecked.
     pub(crate) coverage_only: Cell<usize>,
+    /// Above zero while `byComputing` is tried only to see whether it
+    /// closes a goal, its error thrown away (`rewrite repeatedly`'s
+    /// closers): a failure is a bare `E-REFL`, without the message's
+    /// read-backs and printing, which cost more than the comparison.
+    pub(crate) quiet_refl: Cell<usize>,
     /// The clauses of a `match reify` being checked. Each one is required
     /// whatever its case, so `W-UNREACHABLE` doesn't offer to delete them
     /// (`reify.rs`, `families.rs`).
@@ -367,6 +372,7 @@ impl Decl {
             guard_nodes,
             errors_only,
             coverage_only,
+            quiet_refl,
             keep_arms,
             kept_by_a_check,
             builds,
@@ -418,6 +424,7 @@ impl Decl {
             ("guard_nodes", guard_nodes.get() == 0),
             ("errors_only", errors_only.get() == 0),
             ("coverage_only", coverage_only.get() == 0),
+            ("quiet_refl", quiet_refl.get() == 0),
             ("keep_arms", keep_arms.borrow().is_empty()),
             ("kept_by_a_check", kept_by_a_check.borrow().is_empty()),
             ("builds", builds.borrow().is_empty()),
