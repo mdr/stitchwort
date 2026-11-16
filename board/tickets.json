@@ -1,5 +1,5 @@
 {
-  "next": 3621,
+  "next": 3622,
   "tickets": [
     {
       "id": 47,
@@ -40659,6 +40659,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3621,
+      "title": "[Opus paper] Universe polymorphism: consider how we might do it and what would drive the decision (Matt, 16 Nov 2026: 'let's not worry about it for now', backlog to consider; prompted by [Nat, Nat] failing in the REPL). Note covering: approaches (Lean/Agda level variables, Rocq template polymorphism, cumulativity, Idris' Type:Type) and their kernel cost (docs/core.md), effect on hashing and elaboration; concrete uses that would need it (lists of types, typed tables, generic programming, indexed families' Type 1 limit in indexed-families.md); triggers that should prompt the decision. Not scheduled",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
