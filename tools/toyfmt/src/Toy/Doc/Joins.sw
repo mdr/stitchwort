@@ -6,7 +6,9 @@
 --| the caller's relation: for the toy, that `word` still lexes as itself
 --| before `next`. A space written after a word asks `follows word " "`, so
 --| a comment, which runs to the end of its line, is only ever followed by
---| a line break.
+--| a line break. A closer (`Closing`) that joins the line of a comment
+--| still waiting is written before it, so it asks what any piece asks of
+--| the piece it follows, and that the comment's space may follow it.
 --|
 --| `Joins` is in continuation style: from the edge the printer is at, a
 --| document asks its conditions and hands each edge it may leave to what

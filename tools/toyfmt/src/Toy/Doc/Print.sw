@@ -220,8 +220,9 @@ def Printer.blank (printer: Printer): Printer :=
 def fits (fuel: Nat) (next: List (Mode, Doc)) (rest: List Cmd) (left: Nat): Bool := fitsFrom fuel next rest left False
 
 --| `fits`, where `suffix` says a trailing comment is waiting for the end of
---| the line: any text after it would start a new line (a comment break),
---| so the line ends there for the measure's purposes, and doesn't fit.
+--| the line: a chunk after it would start a new line (a comment break),
+--| so the line ends there for the measure's purposes, and doesn't fit. A
+--| closer after it is on the line, and counts towards its width.
 def fitsFrom (fuel: Nat) (stack: List (Mode, Doc)) (rest: List Cmd) (left: Nat) (suffix: Bool): Bool := match fuel with
   | 0 => True
   | Succ more =>

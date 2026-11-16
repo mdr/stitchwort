@@ -11,6 +11,11 @@
 --| printer is at and the trace so far, a document hands every place and
 --| trace it may leave to what comes after. It doesn't follow modes: a
 --| `Line` may be a space or a break wherever it stands.
+--|
+--| The trace is in the order printed, which is the document's except
+--| where a closer (`Closing`) joins the line of a comment that waits: the
+--| comment is in the trace from when it starts to wait, and the closer
+--| goes in before it (`tucked`), as it does in the text.
 
 namespace Toy.Doc.Proofs
 import Toy.Doc (..)

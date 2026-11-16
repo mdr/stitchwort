@@ -44,9 +44,10 @@ type Doc =
   --| taken only if the doc fits flat on that one line.
   | OneLineBelow (inner: Doc)
   --| A trailing comment: printed, after one space, at the end of the line
-  --| it is on. A group that would put anything after it breaks; text that
-  --| still follows it on the line starts the next line instead (a comment
-  --| break), indented as a continuation line.
+  --| it is on, after any `Closing` that joins that line. A group that
+  --| would put a chunk after it breaks; a chunk that still follows it on
+  --| the line starts the next line instead (a comment break), indented as
+  --| a continuation line.
   | LineSuffix (comment: Text)
   --| A closing bracket or a comma: text that stays on its line when a
   --| trailing comment waits there, written before the comment. Which
