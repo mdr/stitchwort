@@ -321,13 +321,13 @@ def Parse.eachLine (input: Text) (parser: () → {Parse Char} a): {Fail} List a 
         "line ${index + 1}, column ${failure.offset + 1}: ${failure.describe chars "the end of the line" "a line break"}")
 
 -- What each piece does where the input has what it reads. Each holds by
--- `rewrite` and `rfl`.
+-- `rewrite` and `byComputing`.
 
 theorem Parse.runFromTextThere ∀ (state: Parse.State Char) (expected: Text) (rest: List Char) (k: () → {Parse Char} a)
     (starts: state.at.rest = List.append expected.toList rest):
     Parse.runFrom state (() => k (Parse.text expected))
       = Parse.runFrom (state.advance rest expected.toList.length) (() => k ()) :=
-  rewrite starts, List.stripPrefixByAppend Text.sameChar Text.sameCharRefl expected.toList rest in rfl
+  rewrite starts, List.stripPrefixByAppend Text.sameChar Text.sameCharRefl expected.toList rest then byComputing
 
 theorem Parse.sameChar ∀ (char: Char): (char == char) = True := DecEq.refl char
 
@@ -338,20 +338,20 @@ theorem Parse.sameCharExact ∀ (x y: Char) (same: Text.sameChar x y = True): x 
 theorem Parse.stripPrefixBySameChar ∀ (input prefix: List Char):
     List.stripPrefixBy input prefix Text.sameChar = Text.stripPrefixChars prefix input :=
   match input, prefix with
-    | input, [] => rfl
-    | [], [p, ..ps] => rfl
+    | input, [] => byComputing
+    | [], [p, ..ps] => byComputing
     | [x, ..more], [p, ..ps] =>
       let byIf := (b: Bool) => if b then List.stripPrefixBy more ps Text.sameChar else None
       let charsIf := (b: Bool) => if b then Text.stripPrefixChars ps more else None
       match same: Text.sameChar p x with
         | True =>
-          Eq.trans (Eq.cong byIf same) (Eq.trans (Parse.stripPrefixBySameChar more ps) (Eq.sym (Eq.cong charsIf same)))
-        | False => Eq.trans (Eq.cong byIf same) (Eq.sym (Eq.cong charsIf same))
+          Eq.trans (Eq.cong byIf same) (Eq.trans (Parse.stripPrefixBySameChar more ps) (Eq.cong charsIf same).flipped)
+        | False => Eq.trans (Eq.cong byIf same) (Eq.cong charsIf same).flipped
 
 theorem Parse.runFromCharThere ∀ (state: Parse.State Char) (expected: Char) (rest: List Char) (k: () → {Parse Char} a)
     (starts: state.at.rest = [expected, ..rest]):
     Parse.runFrom state (() => k (Parse.char expected)) = Parse.runFrom (state.advance rest 1) (() => k ()) :=
-  rewrite starts, Parse.sameChar expected in rfl
+  rewrite starts, Parse.sameChar expected then byComputing
 
 --| `nat` on a run of digits, followed by something else or nothing.
 theorem Parse.runFromNatThere ∀ (state: Parse.State Char) (digits rest: List Char) (k: Nat → {Parse Char} a)
@@ -363,8 +363,9 @@ theorem Parse.runFromNatThere ∀ (state: Parse.State Char) (digits rest: List C
       = Parse.runFrom (state.advance rest digits.length) (() =>
         k (digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits)) :=
   match digits with
-    | [] => Void.exfalso (some rfl)
-    | [first, ..others] => rewrite starts, List.spanAppend Parse.isDigit [first, ..others] rest all stops in rfl
+    | [] => (some byComputing).impossible
+    | [first, ..others] =>
+      rewrite starts, List.spanAppend Parse.isDigit [first, ..others] rest all stops then byComputing
 
 --| `optional (text expected)` from a state where `expected` comes next reads it and goes on with `Some ()`.
 theorem Parse.runFromOptionalTextThere ∀ (state: Parse.State Char) (expected: Text)
@@ -372,13 +373,13 @@ theorem Parse.runFromOptionalTextThere ∀ (state: Parse.State Char) (expected: 
     (starts: state.at.rest = List.append expected.toList rest):
     Parse.runFrom state (() => k (Parse.optional (() => Parse.text expected)))
       = Parse.runFrom (state.advance rest expected.toList.length) (() => k (Some ())) :=
-  rewrite starts, List.stripPrefixByAppend Text.sameChar Text.sameCharRefl expected.toList rest in rfl
+  rewrite starts, List.stripPrefixByAppend Text.sameChar Text.sameCharRefl expected.toList rest then byComputing
 
 theorem Parse.runFromOptionalTextNotThere ∀ (state: Parse.State Char) (expected: Text) (k: Option () → {Parse Char} a)
     (absent: Text.stripPrefixChars expected.toList state.at.rest = None):
     Parse.runFrom state (() => k (Parse.optional (() => Parse.text expected)))
       = Parse.runFrom { state.note (Literal expected) | at = state.at } (() => k None) :=
-  rewrite Parse.stripPrefixBySameChar state.at.rest expected.toList, absent in rfl
+  rewrite Parse.stripPrefixBySameChar state.at.rest expected.toList, absent then byComputing
 
 --| With concrete alternatives the run computes: the first of two words.
 theorem Parse.runFromOneOfExample ∀ (state: Parse.State Char) (rest: List Char) (k: Nat → {Parse Char} b)
@@ -394,12 +395,12 @@ theorem Parse.runFromOneOfExample ∀ (state: Parse.State Char) (rest: List Char
             2
         ]))
       = Parse.runFrom (state.advance rest 2) (() => k 1) :=
-  rewrite starts in rfl
+  rewrite starts then byComputing
 
 theorem Parse.runFail ∀ (message: Text):
     Parse.run ([]: List Char) (() => (Parse.fail message: Nat))
       = Err { offset = 0, messages = [message], expected = [], width = 0 } :=
-  rfl
+  byComputing
 
 -- Tests. Each runs a parser with `Parse.line` (errors give the column) or
 -- `Parse.all` (the line and column).

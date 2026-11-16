@@ -12,7 +12,7 @@ def Fin.toNat: (i: Fin n) → Nat
   | FSucc i => Succ (Fin.toNat i)
 
 theorem Fin.toNatLt ∀ (i: Fin n): Fin.toNat i < n := match i with
-  | FZero => rfl
+  | FZero => byComputing
   | FSucc i => Fin.toNatLt i
 
 --| `i` as a position below n, from a proof that it is one.
@@ -25,10 +25,10 @@ def Fin.ofNatLt: (n: Nat) → (i: Nat) → (lt: i < n) → Fin n
 def Fin.ofNat (i: Nat) [auto ok: i < n]: Fin n := Fin.ofNatLt n i ok
 
 theorem Fin.toNatOfNatLt ∀ (n i: Nat) (h: i < n): Fin.toNat (Fin.ofNatLt n i h) = i := match n, i with
-  | Succ n, Zero => rfl
+  | Succ n, Zero => byComputing
   | Succ n, Succ i => Eq.cong Succ (Fin.toNatOfNatLt n i h)
 
-theorem Fin.ofNatExample: Fin.toNat (Fin.ofNat 3: Fin 5) = 3 := rfl
+theorem Fin.ofNatExample: Fin.toNat (Fin.ofNat 3: Fin 5) = 3 := byComputing
 
 test "toNat" := Fin.toNat (FSucc (FSucc FZero): Fin 4) == 2
 test "ofNat" := Fin.toNat (Fin.ofNat 4: Fin 5) == 4
@@ -39,10 +39,10 @@ instance Fin.instShow: Show (Fin n) := Show.fromText (i => Nat.toText (Fin.toNat
 --| Positions with the same number are equal (so `Fin.toNat i == Fin.toNat j`
 --| decides `i = j`).
 theorem Fin.toNatInjective ∀ (i j: Fin n) (h: Fin.toNat i = Fin.toNat j): i = j := match i, j with
-  | FZero, FZero => rfl
+  | FZero, FZero => byComputing
   | FSucc i, FSucc j => Eq.cong FSucc (Fin.toNatInjective i j (Nat.succInjective h))
-  | FZero, FSucc j => Void.exfalso (Nat.zeroNotSucc (Fin.toNat j) h)
-  | FSucc i, FZero => Void.exfalso (Nat.succNotZero (Fin.toNat i) h)
+  | FZero, FSucc j => Void.impossible (Nat.zeroNotSucc (Fin.toNat j) h)
+  | FSucc i, FZero => Void.impossible (Nat.succNotZero (Fin.toNat i) h)
 
 --| `==` on positions: they're equal exactly when their numbers are.
 -- Written by hand: deriving `==` for an indexed family is not supported yet.
@@ -61,14 +61,15 @@ def Fin.all: (n: Nat) → List (Fin n)
   | Succ n => [FZero, ..List.concatMap (Fin.all n) (i => [FSucc i])]
 
 theorem Fin.allComplete ∀ (n: Nat) (i: Fin n): List.Mem i (Fin.all n) := match n, i with
-  | Succ m, FZero => Inl rfl
-  | Succ m, FSucc i => Inr (List.memConcatMap (j => [FSucc j]) i (FSucc i) (Fin.all m) (Fin.allComplete m i) (Inl rfl))
+  | Succ m, FZero => Inl byComputing
+  | Succ m, FSucc i =>
+    Inr (List.memConcatMap (j => [FSucc j]) i (FSucc i) (Fin.all m) (Fin.allComplete m i) (Inl byComputing))
 
 --| `Fin n` is finite, its values listed by `Fin.all`, so [`Finite.check`] takes statements about positions.
 -- (written by hand: `Finite` isn't derived for an indexed family)
 instance Fin.instFinite: Finite (Fin n) := { all = Fin.all n, complete = Fin.allComplete n }
 
-theorem Fin.allExample: List.map (Fin.all 3) Fin.toNat = [0, 1, 2] := rfl
+theorem Fin.allExample: List.map (Fin.all 3) Fin.toNat = [0, 1, 2] := byComputing
 
 test "fin: == equal" := (FSucc FZero: Fin 3) == FSucc FZero
 test "fin: == different" := (FSucc FZero: Fin 3) ≠ FZero
@@ -85,7 +86,7 @@ theorem Fin.ofNatCheckDec ∀ (n i: Nat)
     Option.map (Decidable.elim d (h => Some (Fin.ofNatLt n i h)) (h => None)) Fin.toNat = Some i :=
   match d with
     | { holds = True, sound = s, complete = c } => Eq.cong Some (Fin.toNatOfNatLt n i _)
-    | { holds = False, sound = s, complete = c } => Void.exfalso (Bool.falseNotTrue (c lt))
+    | { holds = False, sound = s, complete = c } => Void.impossible (Bool.falseNotTrue (c lt))
 
 theorem Fin.ofNatCheckLt ∀ (n i: Nat) (h: i < n): Option.map (Fin.ofNatCheck n i) Fin.toNat = Some i :=
   Fin.ofNatCheckDec n i (Bool.decTrue (Nat.leq (Succ i) n)) h
@@ -101,7 +102,7 @@ theorem Char.toDigitOf ∀ (m: Option Nat)
     (h: Option.IsDigit m):
     Option.map (Option.flatMap m (Fin.ofNatCheck 10)) Fin.toNat = m :=
   match m with
-    | None => rfl
+    | None => byComputing
     | Some d => Fin.ofNatCheckLt 10 d h
 
 --| `Char.toDigit` is `Char.digitValue`, with the digit's bound in its type.
@@ -124,12 +125,12 @@ def Fin.any: (n: Nat) → (p: Fin n → Bool) → Bool
 
 --| A position that passes makes `Fin.any` true.
 theorem Fin.anyIntro ∀ (p: Fin n → Bool) (i: Fin n) (h: p i = True): Fin.any n p = True := match i with
-  | FZero => rewrite h in rfl
+  | FZero => rewrite h then byComputing
   | FSucc i =>
     Bool.inspect
       (p FZero)
       (b => Bool.ifThenElse b (u => True) (u => Fin.any _ (j => p (FSucc j))) = True)
-      (t => rfl)
+      (t => byComputing)
       (f => Fin.anyIntro (j => p (FSucc j)) i h)
 
 --| When `Fin.any` is true, some position passes.
@@ -139,7 +140,7 @@ theorem Fin.anyElim ∀ (goal: Prop):
   | Succ n, p, h, use => Bool.inspect (p FZero) (u => goal) (t => use FZero t) (f =>
     Fin.anyElim goal n
       (i => p (FSucc i))
-      (Eq.trans (Eq.cong (b => Bool.ifThenElse b (u => True) (u => Fin.any n (i => p (FSucc i)))) (Eq.sym f)) h)
+      (Eq.trans (Eq.cong (b => Bool.ifThenElse b (u => True) (u => Fin.any n (i => p (FSucc i)))) f.flipped) h)
       (i hi => use (FSucc i) hi))
 
 --| When `Fin.any` is true, some position passes, as an `Exists`.
@@ -152,7 +153,7 @@ theorem Fin.anyCong ∀ (n: Nat) (p1 p2: Fin n → Bool) (ep: ∀ (i: Fin n) => 
   Bool.eqOf
     (Fin.any n p1)
     (Fin.any n p2)
-    (h => Fin.anyElim (Fin.any n p2 = True) n p1 h (i hi => Fin.anyIntro p2 i (Eq.trans (Eq.sym (ep i)) hi)))
+    (h => Fin.anyElim (Fin.any n p2 = True) n p1 h (i hi => Fin.anyIntro p2 i (Eq.trans (ep i).flipped hi)))
     (h => Fin.anyElim (Fin.any n p1 = True) n p2 h (i hi => Fin.anyIntro p1 i (Eq.trans (ep i) hi)))
 
 --| `Fin.any` on the numbers of the positions is `List.any` on a run of
@@ -160,18 +161,18 @@ theorem Fin.anyCong ∀ (n: Nat) (p1 p2: Fin n → Bool) (ep: ∀ (i: Fin n) => 
 theorem Fin.anyRangeFrom ∀ (q: Nat → Bool) (n s: Nat):
     Fin.any n (i => q (Fin.toNat i + s)) = List.any (List.rangeFrom n s) q :=
   match n with
-    | Zero => rfl
+    | Zero => byComputing
     | Succ n =>
       rewrite Fin.anyCong _ (i => q (Succ (Fin.toNat i) + s)) (i => q (Fin.toNat i + Succ s)) (i =>
-            Eq.cong q (Eq.sym (Nat.addSucc (Fin.toNat i) s))),
-          Fin.anyRangeFrom q n (Succ s) in
-        rfl
+            Eq.cong q (Eq.flipped (Nat.addSucc (Fin.toNat i) s))),
+          Fin.anyRangeFrom q n (Succ s) then
+        byComputing
 
 --| `Fin.any n` on the numbers of the positions is `List.any` along `List.range 0 n`.
 theorem Fin.anyRange ∀ (q: Nat → Bool) (n: Nat): Fin.any n (i => q (Fin.toNat i)) = List.any (List.range 0 n) q :=
   Eq.trans
     (Fin.anyCong _ (i => q (Fin.toNat i)) (i => q (Fin.toNat i + 0)) (i =>
-      Eq.cong q (Eq.sym (Nat.addZero (Fin.toNat i)))))
+      Eq.cong q (Eq.flipped (Nat.addZero (Fin.toNat i)))))
     (Fin.anyRangeFrom q n 0)
 
 --| Only one position can equal `j`, so asking for one that does and passes
@@ -183,13 +184,13 @@ theorem Fin.anyEqAnd ∀ (j: Fin n) (q: Fin n → Bool): Fin.any n (i => (i == j
     (h =>
       Fin.anyElim (q j = True) n (i => (i == j) ∧ q i) h (i hi =>
         let Both same passes := hi
-        rewrite <- same.read in passes))
+        rewrite <- same.read then passes))
     (h => Fin.anyIntro (i => (i == j) ∧ q i) j (Both (DecEq.refl j) h))
 
-theorem Fin.anyExample: Fin.any 5 (i => Fin.toNat i == 3) = True := rfl
+theorem Fin.anyExample: Fin.any 5 (i => Fin.toNat i == 3) = True := byComputing
 
 theorem Fin.anyIntroExample: Fin.any 4 (i => i == (Fin.ofNat 2: Fin 4)) = True :=
-  Fin.anyIntro (i => i == (Fin.ofNat 2: Fin 4)) (Fin.ofNat 2) rfl
+  Fin.anyIntro (i => i == (Fin.ofNat 2: Fin 4)) (Fin.ofNat 2) byComputing
 
 test "fin any: some position passes" := Fin.any 5 (i => Fin.toNat i == 4)
 test "fin any: none passes" := ¬(Fin.any 5 (i => Fin.toNat i == 5))

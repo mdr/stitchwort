@@ -68,10 +68,10 @@ theorem Parse.runFromThenBack2 ∀ (p: () → {Parse t} a)
       let same := Result.okInjective ran
       let valueSame: x = v := Pair.mkInjectiveFst same
       let atSame: s.at = after.at := Pair.mkInjectiveSnd same
-      let rest2 := rewrite <- valueSame at rest in rest
+      let rest2 := rewrite <- valueSame at rest then rest
       let moved := Parse.runFromAt (() => k (j x)) after s w rest2
-      let moved2 := rewrite <- atSame at moved in moved
-      rewrite Parse.withAtSelf s at moved2 in moved2
+      let moved2 := rewrite <- atSame at moved then moved
+      rewrite Parse.withAtSelf s at moved2 then moved2
     | Parse.span passes, q =>
       match tree with
         | AlwaysCall later =>
@@ -100,7 +100,7 @@ theorem Parse.runFromThenBack2 ∀ (p: () → {Parse t} a)
               v
               after
               w
-              (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (q y, Parse.mark())))) ran)
+              (Eq.trans (Eq.flipped (Parse.runFromNext s passes (y => (q y, Parse.mark())))) ran)
               rest)
     | Parse.literal literal, q =>
       match tree with
@@ -116,7 +116,7 @@ theorem Parse.runFromThenBack2 ∀ (p: () → {Parse t} a)
               v
               after
               w
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s literal (y => (q y, Parse.mark())))) ran)
+              (Eq.trans (Eq.flipped (Parse.runFromLiteral s literal (y => (q y, Parse.mark())))) ran)
               rest)
     | Parse.mark u, q =>
       match tree with
@@ -127,8 +127,8 @@ theorem Parse.runFromThenBack2 ∀ (p: () → {Parse t} a)
     | Parse.note problem, q =>
       match tree with
         | AlwaysCall later => Parse.runFromThenBack2 (() => q ()) (later ()) (s.note problem) j k v after w ran rest
-    | Parse.stop u, q => Void.exfalso (Result.errNotOk ran)
-    | Parse.fatal message, q => Void.exfalso (Result.errNotOk ran)
+    | Parse.stop u, q => (Result.errNotOk ran).impossible
+    | Parse.fatal message, q => (Result.errNotOk ran).impossible
 
 --| The same for `optionalFrom start q` where `q` succeeds: `k (j (Some v))`
 --| follows. The converse of [`Parse.runFromOptionalFromOk2`] for the `Some` case.
@@ -144,10 +144,10 @@ theorem Parse.runFromOptionalFromBack2 ∀ (q: () → {Parse t} a)
       let same := Result.okInjective ran
       let valueSame: x = v := Pair.mkInjectiveFst same
       let atSame: s.at = after.at := Pair.mkInjectiveSnd same
-      let rest2 := rewrite <- valueSame at rest in rest
+      let rest2 := rewrite <- valueSame at rest then rest
       let moved := Parse.runFromAt (() => k (j (Some x))) after s w rest2
-      let moved2 := rewrite <- atSame at moved in moved
-      rewrite Parse.withAtSelf s at moved2 in moved2
+      let moved2 := rewrite <- atSame at moved then moved
+      rewrite Parse.withAtSelf s at moved2 then moved2
     | Parse.span passes, r =>
       match tree with
         | AlwaysCall later =>
@@ -178,7 +178,7 @@ theorem Parse.runFromOptionalFromBack2 ∀ (q: () → {Parse t} a)
               v
               after
               w
-              (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (r y, Parse.mark())))) ran)
+              (Eq.trans (Eq.flipped (Parse.runFromNext s passes (y => (r y, Parse.mark())))) ran)
               rest)
     | Parse.literal literal, r =>
       match tree with
@@ -195,7 +195,7 @@ theorem Parse.runFromOptionalFromBack2 ∀ (q: () → {Parse t} a)
               v
               after
               w
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s literal (y => (r y, Parse.mark())))) ran)
+              (Eq.trans (Eq.flipped (Parse.runFromLiteral s literal (y => (r y, Parse.mark())))) ran)
               rest)
     | Parse.mark u, r =>
       match tree with
@@ -208,8 +208,8 @@ theorem Parse.runFromOptionalFromBack2 ∀ (q: () → {Parse t} a)
       match tree with
         | AlwaysCall later =>
           Parse.runFromOptionalFromBack2 (() => r ()) (later ()) start (s.note problem) j k v after w ran rest
-    | Parse.stop u, r => Void.exfalso (Result.errNotOk ran)
-    | Parse.fatal message, r => Void.exfalso (Result.errNotOk ran)
+    | Parse.stop u, r => (Result.errNotOk ran).impossible
+    | Parse.fatal message, r => (Result.errNotOk ran).impossible
 
 --| [`Parse.runFromOptionalFromBack2`] with no function in between.
 theorem Parse.runFromOptionalFromBack ∀ (q: () → {Parse t} a)
@@ -223,10 +223,10 @@ theorem Parse.runFromOptionalFromBack ∀ (q: () → {Parse t} a)
       let same := Result.okInjective ran
       let valueSame: x = v := Pair.mkInjectiveFst same
       let atSame: s.at = after.at := Pair.mkInjectiveSnd same
-      let rest2 := rewrite <- valueSame at rest in rest
+      let rest2 := rewrite <- valueSame at rest then rest
       let moved := Parse.runFromAt (() => k (Some x)) after s w rest2
-      let moved2 := rewrite <- atSame at moved in moved
-      rewrite Parse.withAtSelf s at moved2 in moved2
+      let moved2 := rewrite <- atSame at moved then moved
+      rewrite Parse.withAtSelf s at moved2 then moved2
     | Parse.span passes, r =>
       match tree with
         | AlwaysCall later =>
@@ -255,7 +255,7 @@ theorem Parse.runFromOptionalFromBack ∀ (q: () → {Parse t} a)
               v
               after
               w
-              (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (r y, Parse.mark())))) ran)
+              (Eq.trans (Eq.flipped (Parse.runFromNext s passes (y => (r y, Parse.mark())))) ran)
               rest)
     | Parse.literal literal, r =>
       match tree with
@@ -271,7 +271,7 @@ theorem Parse.runFromOptionalFromBack ∀ (q: () → {Parse t} a)
               v
               after
               w
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s literal (y => (r y, Parse.mark())))) ran)
+              (Eq.trans (Eq.flipped (Parse.runFromLiteral s literal (y => (r y, Parse.mark())))) ran)
               rest)
     | Parse.mark u, r =>
       match tree with
@@ -284,8 +284,8 @@ theorem Parse.runFromOptionalFromBack ∀ (q: () → {Parse t} a)
       match tree with
         | AlwaysCall later =>
           Parse.runFromOptionalFromBack (() => r ()) (later ()) start (s.note problem) k v after w ran rest
-    | Parse.stop u, r => Void.exfalso (Result.errNotOk ran)
-    | Parse.fatal message, r => Void.exfalso (Result.errNotOk ran)
+    | Parse.stop u, r => (Result.errNotOk ran).impossible
+    | Parse.fatal message, r => (Result.errNotOk ran).impossible
 
 --| If `optionalFrom start q` backs up (gives `None`), so does the optional of
 --| `q` followed by anything: a parser that stops partway stops the longer one.
@@ -295,7 +295,7 @@ theorem Parse.optionalFromNoneBind ∀ (q: () → {Parse t} a)
     (h: Parse.runFrom s (() => (Parse.optionalFrom start q, Parse.mark())) = Ok (None, m)):
     Parse.runFrom s (() => (Parse.optionalFrom start (() => j (q())), Parse.mark())) = Ok (None, m) :=
   match reify q with
-    | return x => Void.exfalso (Option.someNotNone x (Pair.mkInjectiveFst (Result.okInjective h)))
+    | return x => Void.impossible (Option.someNotNone x (Pair.mkInjectiveFst (Result.okInjective h)))
     | Parse.span passes, r =>
       match tree with
         | AlwaysCall later =>
@@ -320,7 +320,7 @@ theorem Parse.optionalFromNoneBind ∀ (q: () → {Parse t} a)
               j
               m
               (Eq.trans
-                (Eq.sym (Parse.runFromNext s passes (y => (Parse.optionalFrom start (() => r y), Parse.mark()))))
+                (Eq.flipped (Parse.runFromNext s passes (y => (Parse.optionalFrom start (() => r y), Parse.mark()))))
                 h))
     | Parse.literal literal, r =>
       match tree with
@@ -335,7 +335,8 @@ theorem Parse.optionalFromNoneBind ∀ (q: () → {Parse t} a)
               j
               m
               (Eq.trans
-                (Eq.sym (Parse.runFromLiteral s literal (y => (Parse.optionalFrom start (() => r y), Parse.mark()))))
+                (Eq.flipped
+                  (Parse.runFromLiteral s literal (y => (Parse.optionalFrom start (() => r y), Parse.mark()))))
                 h))
     | Parse.mark u, r =>
       match tree with
@@ -348,12 +349,12 @@ theorem Parse.optionalFromNoneBind ∀ (q: () → {Parse t} a)
         | AlwaysCall later => Parse.optionalFromNoneBind (() => r ()) (later ()) start (s.note problem) j m h
     | Parse.stop u, r =>
       let atSame: start = m := Pair.mkInjectiveSnd (Result.okInjective h)
-      rewrite <- atSame in rfl
-    | Parse.fatal message, r => Void.exfalso (Result.errNotOk h)
+      rewrite <- atSame then byComputing
+    | Parse.fatal message, r => (Result.errNotOk h).impossible
 
 --| A value reads nothing.
 theorem Parse.runsPure ∀ (x: a) (rest: List t): Parse.Runs (() => x) [] rest x := state starts honest =>
-  Witness state.at (Both rfl (Both starts (Both (rewrite starts at honest in honest) rfl)))
+  Witness state.at (Both byComputing (Both starts (Both (rewrite starts at honest then honest) byComputing)))
 
 --| As [`Parse.runsFromBind`], but `p` need only read `first` from this state:
 --| for a `p` that depends on where it starts, such as `optionalFrom state.at`.
@@ -368,18 +369,19 @@ theorem Parse.runsFromBindAt ∀ (state: Parse.State t) (p: () → {Parse t} a) 
     Parse.RunsFrom state (() => j (p())) read rest value :=
   starts honest =>
     let split: state.at.rest = first ++ (next ++ rest) :=
-      rewrite joined at starts in Eq.trans starts (List.appendAssoc first next rest)
+      rewrite joined at starts then Eq.trans starts (List.appendAssoc first next rest)
     match runsFirst split honest with
       | Witness m (Both ran (Both mrest (Both mleft moff))) =>
         let middle: Parse.State t := { state | at = m }
-        let honest1: middle.at.left = middle.at.rest.length := rewrite mrest in mleft
+        let honest1: middle.at.left = middle.at.rest.length := rewrite mrest then mleft
         match runsNext middle mrest honest1 moff mrest honest1 with
           | Witness m2 (Both ran2 (Both m2rest (Both m2left m2off))) =>
             let tree := Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))
             Witness m2
               (Both
                 (Parse.runFromThenBack2 p tree state j (x => (x, Parse.mark())) v middle _ ran ran2)
-                (Both m2rest (Both m2left (rewrite joined, List.lengthAppend first next in omega [moff, m2off]))))
+                (Both m2rest
+                  (Both m2left (rewrite joined, List.lengthAppend first next then arithmetic [moff, m2off]))))
 
 --| `p` then `j` of its value, from one state: `p` reads `first` and gives `v`
 --| wherever it is run, and `j v` reads `next` from where `p` stopped (given the
@@ -413,7 +415,7 @@ theorem Parse.runsBind ∀ (p: () → {Parse t} a) (j: a → {Parse t} b) (first
 theorem Parse.runsMap ∀ (p: () → {Parse t} a) (f: a → b) (read rest: List t) (v: a)
     (runsP: Parse.Runs p read rest v):
     Parse.Runs (() => f (p())) read rest (f v) :=
-  Parse.runsBind p (x => f x) read [] read rest v (f v) (Eq.sym (List.appendNil read)) runsP (Parse.runsPure (f v) rest)
+  Parse.runsBind p (x => f x) read [] read rest v (f v) (List.appendNil read).flipped runsP (Parse.runsPure (f v) rest)
 
 --| `span passes` on a start `taken` of items that all pass, followed by
 --| `rest`, which doesn't start with one that passes: it reads `taken`.
@@ -422,25 +424,25 @@ theorem Parse.runsSpan ∀ (passes: t → Bool) (taken rest: List t)
     (stops: rest.takeWhile passes = []):
     Parse.Runs (() => Parse.span passes) taken rest taken :=
   state starts honest =>
-    let lengths: state.at.rest.length = taken.length + rest.length := rewrite starts in List.lengthAppend taken rest
+    let lengths: state.at.rest.length = taken.length + rest.length := rewrite starts then List.lengthAppend taken rest
     Witness
       (state.advance rest taken.length).at
       (Both
-        (rewrite Parse.runFromSpanThere state passes taken rest (found => (found, Parse.mark())) starts all stops in
-          rfl)
-        (Both rfl (Both (omega [honest, lengths]) rfl)))
+        (rewrite Parse.runFromSpanThere state passes taken rest (found => (found, Parse.mark())) starts all stops then
+          byComputing)
+        (Both byComputing (Both (arithmetic [honest, lengths]) byComputing)))
 
 --| `satisfy` where the next item passes: it reads it.
 theorem Parse.runsSatisfy ∀ (what: Text) (passes: t → Bool) (char: t) (rest: List t)
     (holds: passes char = True):
     Parse.Runs (() => Parse.satisfy what passes) [char] rest char :=
   state starts honest =>
-    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts in rfl
+    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts then byComputing
     Witness
       (state.advance rest 1).at
       (Both
-        (rewrite Parse.runFromNextThere state passes char rest _ starts holds in rfl)
-        (Both rfl (Both (omega [honest, lengths]) rfl)))
+        (rewrite Parse.runFromNextThere state passes char rest _ starts holds then byComputing)
+        (Both byComputing (Both (arithmetic [honest, lengths]) byComputing)))
 
 --| What `one` does with what `select` gave for the item it read: the value
 --| if there is one, else "expected `what`". Stated apart from `one` so that
@@ -454,7 +456,7 @@ def Parse.oneValue (what: Text) (chosen: Option a): {Parse t} a := match chosen 
 theorem Parse.runsOneStep ∀ (what: Text) (chosen: Option a) (value: a) (rest: List t)
     (selected: chosen = Some value):
     Parse.Runs (() => Parse.oneValue what chosen) [] rest value :=
-  rewrite selected in Parse.runsPure value rest
+  rewrite selected then Parse.runsPure value rest
 
 --| `one` where the next item is one `select` gives a value for: it reads it
 --| and gives that value.
@@ -470,8 +472,8 @@ theorem Parse.runsOne ∀ (what: Text) (select: t → Option a) (item: t) (value
     rest
     item
     value
-    (Eq.sym (List.appendNil [item]))
-    (Parse.runsSatisfy what (item => (select item).isSome) item rest (rewrite selected in rfl))
+    (Eq.flipped (List.appendNil [item]))
+    (Parse.runsSatisfy what (item => (select item).isSome) item rest (rewrite selected then byComputing))
     (Parse.runsOneStep what (select item) value rest selected)
 
 --| `span1` on a non-empty run of items that pass, with `rest` not starting
@@ -482,7 +484,7 @@ theorem Parse.runsSpan1 ∀ (what: Text) (passes: t → Bool) (taken rest: List 
     (stops: rest.takeWhile passes = []):
     Parse.Runs (() => Parse.span1 what passes) taken rest taken :=
   match taken with
-    | [] => Void.exfalso (some rfl)
+    | [] => (some byComputing).impossible
     | [item, ..others] =>
       Parse.runsBind
         (() => Parse.span passes)
@@ -496,7 +498,7 @@ theorem Parse.runsSpan1 ∀ (what: Text) (passes: t → Bool) (taken rest: List 
         rest
         [item, ..others]
         [item, ..others]
-        (Eq.sym (List.appendNil [item, ..others]))
+        (Eq.flipped (List.appendNil [item, ..others]))
         (Parse.runsSpan passes [item, ..others] rest all stops)
         (Parse.runsPure [item, ..others] rest)
 
@@ -515,7 +517,7 @@ theorem Parse.runsOptional ∀ (p: () → {Parse t} a) (read rest: List t) (v: a
               v
               { state | at = m } _
               ran
-              rfl)
+              byComputing)
             (Both mrest (Both mleft moff)))
 
 --| `p` fails on `input`, wherever it fails: `optional p` backs up to the start
@@ -533,7 +535,8 @@ theorem Parse.declinesRuns ∀ (p: () → {Parse t} a) (input: List t)
     (declines: Parse.Declines p input):
     Parse.Runs (() => Parse.optional p) [] input None :=
   state starts honest =>
-    Witness state.at (Both (declines state starts honest) (Both starts (Both (rewrite starts at honest in honest) rfl)))
+    Witness state.at
+      (Both (declines state starts honest) (Both starts (Both (rewrite starts at honest then honest) byComputing)))
 
 --| If `p` declines, so does `p` followed by anything. (If `p` succeeds and
 --| the rest declines, see [`Parse.declinesAfter`].)
@@ -552,13 +555,13 @@ theorem Parse.declinesBind ∀ (p: () → {Parse t} a) (j: a → {Parse t} b) (i
 --| `satisfy` declines at the end of the input.
 theorem Parse.declinesSatisfyEnd ∀ (what: Text) (passes: t → Bool):
     Parse.Declines (() => Parse.satisfy what passes) [] :=
-  state starts honest => rewrite starts in rfl
+  state starts honest => rewrite starts then byComputing
 
 --| `satisfy` declines where the next item doesn't pass.
 theorem Parse.declinesSatisfy ∀ (what: Text) (passes: t → Bool) (char: t) (rest: List t)
     (fails: passes char = False):
     Parse.Declines (() => Parse.satisfy what passes) [char, ..rest] :=
-  state starts honest => rewrite starts, fails in rfl
+  state starts honest => rewrite starts, fails then byComputing
 
 --| `one` declines at the end of the input.
 theorem Parse.declinesOneEnd ∀ (what: Text) (select: t → Option a): Parse.Declines (() => Parse.one what select) [] :=
@@ -582,7 +585,7 @@ theorem Parse.declinesOne ∀ (what: Text) (select: t → Option a) (item: t) (r
         | Some value => value
         | None => Parse.expected what)
     [item, ..rest]
-    (Parse.declinesSatisfy what (item => (select item).isSome) item rest (rewrite none in rfl))
+    (Parse.declinesSatisfy what (item => (select item).isSome) item rest (rewrite none then byComputing))
 
 --| `span1` declines where the first item doesn't pass, or at the end.
 theorem Parse.declinesSpan1 ∀ (what: Text) (passes: t → Bool) (input: List t)
@@ -593,7 +596,7 @@ theorem Parse.declinesSpan1 ∀ (what: Text) (passes: t → Bool) (input: List t
     []
     input
     []
-    (Parse.runsSpan passes [] input rfl stops)
+    (Parse.runsSpan passes [] input byComputing stops)
     (Parse.declinesExpected what input)
 
 --| `oneOf [first, ..others]` where `first` succeeds: it gives `first`'s
@@ -613,7 +616,7 @@ theorem Parse.runsOneOfFirst ∀ (first: () → {Parse t} a) (others: List (() �
         rest
         (Some v)
         v
-        (Eq.sym (List.appendNil read))
+        (List.appendNil read).flipped
         (Parse.runsOptional first read rest v runsFirst)
         (Parse.runsPure v rest)
 
@@ -634,7 +637,7 @@ theorem Parse.runsOneOfNext ∀ (first next: () → {Parse t} a) (more: List (()
     rest
     None
     v
-    rfl
+    byComputing
     (Parse.declinesRuns first (read ++ rest) declines)
     runsNext
 
@@ -645,8 +648,8 @@ theorem Parse.runsFromManyRound ∀ (before: Parse.Mark t) (more: Nat) (p: () �
     (advanced: before.offset < middle.at.offset)
     (runsNext: Parse.RunsFrom middle (() => Parse.manyFrom more p [v, ..found] middle.at) read rest value):
     Parse.RunsFrom middle (() => Parse.manyRound more p found before (Some v)) read rest value :=
-  let holds: (middle.at.offset > before.offset) = True := omega [advanced]
-  rewrite holds in runsNext
+  let holds: (middle.at.offset > before.offset) = True := arithmetic [advanced]
+  rewrite holds then runsNext
 
 --| `mark()` gives the state's own mark, which `k` may use.
 theorem Parse.runsFromMark ∀ (state: Parse.State t) (k: Parse.Mark t → {Parse t} a) (read rest: List t) (v: a)
@@ -682,13 +685,13 @@ theorem Parse.manyStepsShort ∀ (p: () → {Parse t} a) (steps: List (List t, a
     (runs: Parse.ManyRuns p steps rest):
     steps.length ≤ (Parse.joinReads steps).length :=
   match steps, runs with
-    | [], runs => rfl
+    | [], runs => byComputing
     | [(read, v), ..steps], Both nonEmpty (Both runsP later) =>
       match read with
-        | [] => Void.exfalso (nonEmpty rfl)
+        | [] => (nonEmpty byComputing).impossible
         | [char, ..more] =>
           let shorter := Parse.manyStepsShort p steps rest later
-          omega [shorter, List.lengthAppend more (Parse.joinReads steps)]
+          arithmetic [shorter, List.lengthAppend more (Parse.joinReads steps)]
 
 --| `manyFrom` from a state that is at its `before` mark, with enough fuel
 --| (more than the rounds), after `found` (newest first): it gives them all.
@@ -700,9 +703,9 @@ theorem Parse.runsManyFrom ∀ (p: () → {Parse t} a):
         (Parse.joinReads steps)
         rest
         (found.reverse ++ Parse.stepValues steps)
-  | steps, rest, Zero, found, enough, manyRuns, state, starts, honest => Void.exfalso (omega [enough])
+  | steps, rest, Zero, found, enough, manyRuns, state, starts, honest => Void.impossible (arithmetic [enough])
   | [], rest, Succ more, found, enough, declines, state, starts, honest =>
-    rewrite List.appendNil found.reverse in
+    rewrite List.appendNil found.reverse then
       (Parse.runsFromBindAt state
             (() => Parse.optionalFrom state.at p)
             (found2 => Parse.manyRound more p found state.at found2)
@@ -712,14 +715,14 @@ theorem Parse.runsManyFrom ∀ (p: () → {Parse t} a):
             rest
             None
             found.reverse
-            rfl
+            byComputing
             (Parse.declinesRuns p rest declines state)
             (middle atRest honest2 offset => Parse.runsPure found.reverse rest middle)) starts honest
   | [(read, v), ..steps], rest, Succ more, found, enough, Both nonEmpty (Both runsP later), state, starts, honest =>
-    let short: steps.length < more := omega [enough]
+    let short: steps.length < more := arithmetic [enough]
     let value: found.reverse ++ [v, ..Parse.stepValues steps] = [v, ..found].reverse ++ Parse.stepValues steps :=
-      rewrite List.reverseCons v found, List.appendAssoc found.reverse [v] (Parse.stepValues steps) in rfl
-    rewrite value in
+      rewrite List.reverseCons v found, List.appendAssoc found.reverse [v] (Parse.stepValues steps) then byComputing
+    rewrite value then
       (Parse.runsFromBindAt state
             (() => Parse.optionalFrom state.at p)
             (found2 => Parse.manyRound more p found state.at found2)
@@ -729,12 +732,12 @@ theorem Parse.runsManyFrom ∀ (p: () → {Parse t} a):
             rest
             (Some v)
             ([v, ..found].reverse ++ Parse.stepValues steps)
-            rfl
+            byComputing
             (Parse.runsOptional p read (Parse.joinReads steps ++ rest) v runsP state)
             (middle atRest honest2 offset =>
               let advanced: state.at.offset < middle.at.offset := match read with
-                | [] => Void.exfalso (nonEmpty rfl)
-                | [char, ..others] => omega [offset]
+                | [] => (nonEmpty byComputing).impossible
+                | [char, ..others] => arithmetic [offset]
               Parse.runsFromManyRound state.at more p found v middle
                 (Parse.joinReads steps)
                 rest
@@ -752,8 +755,8 @@ theorem Parse.runsMany ∀ (p: () → {Parse t} a) (steps: List (List t, a)) (re
   state starts honest =>
     let short := Parse.manyStepsShort p steps rest manyRuns
     let lengths: state.at.rest.length = (Parse.joinReads steps).length + rest.length :=
-      rewrite starts in List.lengthAppend (Parse.joinReads steps) rest
-    let enough: steps.length < state.at.left + 1 := omega [short, lengths, honest]
+      rewrite starts then List.lengthAppend (Parse.joinReads steps) rest
+    let enough: steps.length < state.at.left + 1 := arithmetic [short, lengths, honest]
     Parse.runsFromMark state
       (at => Parse.manyFrom (at.left + 1) p [] at)
       (Parse.joinReads steps)
@@ -786,7 +789,7 @@ theorem Parse.runsChainStep ∀ (operand: () → {Parse t} a) (operator: () → 
     rest
     combine
     (combine, right)
-    rfl
+    byComputing
     runsOperator
     (Parse.runsMap operand (y => (combine, y)) operandRead rest right runsOperand)
 
@@ -828,7 +831,7 @@ theorem Parse.runsChainLeft ∀ (operand: () → {Parse t} a) (operator: () → 
     rest
     first
     (Parse.chainFold first (Parse.stepValues steps))
-    rfl
+    byComputing
     runsFirst
     (Parse.runsMap
       (() => Parse.many (() => Parse.chainStep operand operator))
@@ -861,7 +864,7 @@ theorem Parse.runFromForgetMark ∀ (p: () → {Parse t} a)
               (s.next passes).snd
               v
               m
-              (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (q y, Parse.mark())))) h))
+              (Eq.trans (Eq.flipped (Parse.runFromNext s passes (y => (q y, Parse.mark())))) h))
     | Parse.literal literal, q =>
       match tree with
         | AlwaysCall later =>
@@ -873,7 +876,7 @@ theorem Parse.runFromForgetMark ∀ (p: () → {Parse t} a)
               (s.literal literal).snd
               v
               m
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s literal (y => (q y, Parse.mark())))) h))
+              (Eq.trans (Eq.flipped (Parse.runFromLiteral s literal (y => (q y, Parse.mark())))) h))
     | Parse.mark u, q =>
       match tree with
         | AlwaysCall later => Parse.runFromForgetMark (() => q s.at) (later s.at) s v m h
@@ -883,8 +886,8 @@ theorem Parse.runFromForgetMark ∀ (p: () → {Parse t} a)
     | Parse.note problem, q =>
       match tree with
         | AlwaysCall later => Parse.runFromForgetMark (() => q ()) (later ()) (s.note problem) v m h
-    | Parse.stop u, q => Void.exfalso (Result.errNotOk h)
-    | Parse.fatal message, q => Void.exfalso (Result.errNotOk h)
+    | Parse.stop u, q => (Result.errNotOk h).impossible
+    | Parse.fatal message, q => (Result.errNotOk h).impossible
 
 --| `p` from the start of `input` reads all of it: `Parse.run` gives the
 --| value. The form of [`Parse.runsRun`] for a `p` whose value depends on
@@ -892,7 +895,7 @@ theorem Parse.runFromForgetMark ∀ (p: () → {Parse t} a)
 theorem Parse.runsFromRun ∀ (p: () → {Parse t} a) (input: List t) (v: a)
     (runs: Parse.RunsFrom (Parse.State.start input) p input [] v):
     Parse.run input p = Ok v :=
-  match runs (Eq.sym (List.appendNil input)) rfl with
+  match runs (List.appendNil input).flipped byComputing with
     | Witness m (Both ran others) =>
       Parse.runFromForgetMark p
         (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ())))
@@ -915,12 +918,13 @@ theorem Parse.runsLiteral ∀ (literal: Parse.Literal t)
     Parse.Runs (() => Parse.literal literal) literal.items rest True :=
   state starts honest =>
     let lengths: state.at.rest.length = literal.items.length + rest.length :=
-      rewrite starts in List.lengthAppend literal.items rest
+      rewrite starts then List.lengthAppend literal.items rest
     Witness
       (state.advance rest literal.items.length).at
       (Both
-        (rewrite Parse.runFromLiteralThere state literal rest (hit => (hit, Parse.mark())) reflexive starts in rfl)
-        (Both rfl (Both (omega [honest, lengths]) rfl)))
+        (rewrite Parse.runFromLiteralThere state literal rest (hit => (hit, Parse.mark())) reflexive starts then
+          byComputing)
+        (Both byComputing (Both (arithmetic [honest, lengths]) byComputing)))
 
 --| If `optionalFrom s0 q` backs up from `s`, so does `optionalFrom start q`,
 --| to `start`: `q` stops on its own, wherever the optional took its mark.
@@ -930,7 +934,7 @@ theorem Parse.optionalFromNoneStart ∀ (q: () → {Parse t} a)
     (h: Parse.runFrom s (() => (Parse.optionalFrom s0 q, Parse.mark())) = Ok (None, s0)):
     Parse.runFrom s (() => (Parse.optionalFrom start q, Parse.mark())) = Ok (None, start) :=
   match reify q with
-    | return x => Void.exfalso (Option.someNotNone x (Pair.mkInjectiveFst (Result.okInjective h)))
+    | return x => Void.impossible (Option.someNotNone x (Pair.mkInjectiveFst (Result.okInjective h)))
     | Parse.span passes, r =>
       match tree with
         | AlwaysCall later =>
@@ -953,7 +957,7 @@ theorem Parse.optionalFromNoneStart ∀ (q: () → {Parse t} a)
               start
               (s.next passes).snd
               (Eq.trans
-                (Eq.sym (Parse.runFromNext s passes (y => (Parse.optionalFrom s0 (() => r y), Parse.mark()))))
+                (Eq.flipped (Parse.runFromNext s passes (y => (Parse.optionalFrom s0 (() => r y), Parse.mark()))))
                 h))
     | Parse.literal literal, r =>
       match tree with
@@ -967,7 +971,7 @@ theorem Parse.optionalFromNoneStart ∀ (q: () → {Parse t} a)
               start
               (s.literal literal).snd
               (Eq.trans
-                (Eq.sym (Parse.runFromLiteral s literal (y => (Parse.optionalFrom s0 (() => r y), Parse.mark()))))
+                (Eq.flipped (Parse.runFromLiteral s literal (y => (Parse.optionalFrom s0 (() => r y), Parse.mark()))))
                 h))
     | Parse.mark u, r =>
       match tree with
@@ -978,8 +982,8 @@ theorem Parse.optionalFromNoneStart ∀ (q: () → {Parse t} a)
     | Parse.note problem, r =>
       match tree with
         | AlwaysCall later => Parse.optionalFromNoneStart (() => r ()) (later ()) s0 start (s.note problem) h
-    | Parse.stop u, r => rfl
-    | Parse.fatal message, r => Void.exfalso (Result.errNotOk h)
+    | Parse.stop u, r => byComputing
+    | Parse.fatal message, r => (Result.errNotOk h).impossible
 
 --| `p` succeeded from `s` to `after`, and from there `j` of its value backs up
 --| to `start`: so `optionalFrom start` of `p` then `j` does, from `s`.
@@ -994,11 +998,11 @@ theorem Parse.optionalFromNoneAfter ∀ (p: () → {Parse t} a)
       let same := Result.okInjective ran
       let valueSame: x = v := Pair.mkInjectiveFst same
       let atSame: s.at = after.at := Pair.mkInjectiveSnd same
-      let stops2 := rewrite <- valueSame at stops in stops
+      let stops2 := rewrite <- valueSame at stops then stops
       let moved :=
         Parse.runFromAt (() => (Parse.optionalFrom start (() => j x), Parse.mark())) after s (None, start) stops2
-      let moved2 := rewrite <- atSame at moved in moved
-      rewrite Parse.withAtSelf s at moved2 in moved2
+      let moved2 := rewrite <- atSame at moved then moved
+      rewrite Parse.withAtSelf s at moved2 then moved2
     | Parse.span passes, q =>
       match tree with
         | AlwaysCall later =>
@@ -1025,7 +1029,7 @@ theorem Parse.optionalFromNoneAfter ∀ (p: () → {Parse t} a)
               j
               v
               after
-              (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (q y, Parse.mark())))) ran)
+              (Eq.trans (Eq.flipped (Parse.runFromNext s passes (y => (q y, Parse.mark())))) ran)
               stops)
     | Parse.literal literal, q =>
       match tree with
@@ -1040,7 +1044,7 @@ theorem Parse.optionalFromNoneAfter ∀ (p: () → {Parse t} a)
               j
               v
               after
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s literal (y => (q y, Parse.mark())))) ran)
+              (Eq.trans (Eq.flipped (Parse.runFromLiteral s literal (y => (q y, Parse.mark())))) ran)
               stops)
     | Parse.mark u, q =>
       match tree with
@@ -1052,8 +1056,8 @@ theorem Parse.optionalFromNoneAfter ∀ (p: () → {Parse t} a)
       match tree with
         | AlwaysCall later =>
           Parse.optionalFromNoneAfter (() => q ()) (later ()) start (s.note problem) j v after ran stops
-    | Parse.stop u, q => Void.exfalso (Result.errNotOk ran)
-    | Parse.fatal message, q => Void.exfalso (Result.errNotOk ran)
+    | Parse.stop u, q => (Result.errNotOk ran).impossible
+    | Parse.fatal message, q => (Result.errNotOk ran).impossible
 
 --| `p` followed by something that declines declines too, where `p` succeeds:
 --| "an operator is there but no operand".
@@ -1065,7 +1069,7 @@ theorem Parse.declinesAfter ∀ (p: () → {Parse t} a) (j: a → {Parse t} b) (
     match runsP state starts honest with
       | Witness m (Both ran (Both mrest (Both mleft moff))) =>
         let middle: Parse.State t := { state | at = m }
-        let honest1: middle.at.left = middle.at.rest.length := rewrite mrest in mleft
+        let honest1: middle.at.left = middle.at.rest.length := rewrite mrest then mleft
         Parse.optionalFromNoneAfter p
           (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ())))
           state.at
@@ -1087,16 +1091,16 @@ theorem Parse.runsNote ∀ (problem: Parse.Problem) (rest: List t): Parse.Runs (
   state starts honest =>
     Witness
       (state.note problem).at
-      (Both rfl
+      (Both byComputing
         (Both
-          (rewrite Parse.noteAt state problem in starts)
+          (rewrite Parse.noteAt state problem then starts)
           (Both
-            (rewrite Parse.noteAt state problem in rewrite starts at honest in honest)
-            (rewrite Parse.noteAt state problem in rfl))))
+            (rewrite Parse.noteAt state problem then rewrite starts at honest then honest)
+            (rewrite Parse.noteAt state problem then byComputing))))
 
 --| `stop` declines.
 theorem Parse.declinesStop ∀ (input: List t): Parse.Declines (() => (Empty.absurd Parse.stop(): a)) input :=
-  state starts honest => rfl
+  state starts honest => byComputing
 
 --| `recursiveFuel`, by induction on the fuel.
 theorem Parse.runsRecursiveFuel ∀ (body: (() → {Parse t} a) → {Parse t} a) (good: List t → List t → a → Prop)
@@ -1117,7 +1121,7 @@ theorem Parse.runsRecursiveFuel ∀ (body: (() → {Parse t} a) → {Parse t} a)
         v
         holds
         (nestedRead nestedRest w nestedHolds shorter =>
-          Parse.runsRecursiveFuel body good step more nestedRead nestedRest w nestedHolds (omega [small, shorter]))
+          Parse.runsRecursiveFuel body good step more nestedRead nestedRest w nestedHolds (arithmetic [small, shorter]))
         state
         starts
         honest
@@ -1136,8 +1140,8 @@ theorem Parse.runsRecursive ∀ (body: (() → {Parse t} a) → {Parse t} a) (go
     (read rest: List t) (v: a) (holds: good read rest v):
     Parse.Runs (() => Parse.recursive body) read rest v :=
   state starts honest =>
-    let lengths: state.at.rest.length = read.length + rest.length := rewrite starts in List.lengthAppend read rest
-    let small: read.length < state.at.left + 1 := omega [lengths, honest]
+    let lengths: state.at.rest.length = read.length + rest.length := rewrite starts then List.lengthAppend read rest
+    let small: read.length < state.at.left + 1 := arithmetic [lengths, honest]
     Parse.runsFromMark state
       (at => Parse.recursiveFuel (at.left + 1) body)
       read
@@ -1168,7 +1172,7 @@ theorem Parse.runsRecursiveWithFuel ∀ (body: (b → {Parse t} a) → b → {Pa
         holds
         (nestedArgument nestedRead nestedRest w nestedHolds shorter =>
           Parse.runsRecursiveWithFuel body good step more nestedArgument nestedRead nestedRest w nestedHolds
-            (omega [small, shorter]))
+            (arithmetic [small, shorter]))
         state
         starts
         honest
@@ -1186,8 +1190,8 @@ theorem Parse.runsRecursiveWith ∀ (body: (b → {Parse t} a) → b → {Parse 
     (argument: b) (read rest: List t) (v: a) (holds: good argument read rest v):
     Parse.Runs (() => Parse.recursiveWith body argument) read rest v :=
   state starts honest =>
-    let lengths: state.at.rest.length = read.length + rest.length := rewrite starts in List.lengthAppend read rest
-    let small: read.length < state.at.left + 1 := omega [lengths, honest]
+    let lengths: state.at.rest.length = read.length + rest.length := rewrite starts then List.lengthAppend read rest
+    let small: read.length < state.at.left + 1 := arithmetic [lengths, honest]
     Parse.runsFromMark state
       (at => Parse.recursiveWithFuel (at.left + 1) body argument)
       read
@@ -1215,7 +1219,7 @@ theorem Parse.runsRecursiveWithFactFuel ∀ (body: (b → {Parse t} a) → b →
     (small: read.length < fuel):
     Parse.Runs (() => Parse.recursiveWithFuel fuel body argument) read rest v :=
   match fuel, small with
-    | Succ Zero, small => Void.exfalso (omega [small, reads argument read rest v holds])
+    | Succ Zero, small => Void.impossible (arithmetic [small, reads argument read rest v holds])
     | Succ (Succ more), small => state starts honest =>
       step
         (inner => Parse.recursiveWithFuel (Succ more) body inner)
@@ -1233,7 +1237,7 @@ theorem Parse.runsRecursiveWithFactFuel ∀ (body: (b → {Parse t} a) → b →
             nestedRest
             w
             nestedHolds
-            (omega [small, shorter]))
+            (arithmetic [small, shorter]))
         state
         starts
         honest
@@ -1256,8 +1260,8 @@ theorem Parse.runsRecursiveWithFact ∀ (body: (b → {Parse t} a) → b → {Pa
     (argument: b) (read rest: List t) (v: a) (holds: good argument read rest v):
     Parse.Runs (() => Parse.recursiveWith body argument) read rest v :=
   state starts honest =>
-    let lengths: state.at.rest.length = read.length + rest.length := rewrite starts in List.lengthAppend read rest
-    let small: read.length < state.at.left + 1 := omega [lengths, honest]
+    let lengths: state.at.rest.length = read.length + rest.length := rewrite starts then List.lengthAppend read rest
+    let small: read.length < state.at.left + 1 := arithmetic [lengths, honest]
     Parse.runsFromMark state
       (at => Parse.recursiveWithFuel (at.left + 1) body argument)
       read
@@ -1287,7 +1291,7 @@ theorem Parse.recursiveFacts ∀ (body: (b → {Parse t} a) → b → {Parse t} 
 theorem Parse.lastReadDrop ∀ (first: t) (others rest: List t):
     (([first, ..others] ++ rest).drop others.length).head = [first, ..others].last :=
   match others with
-    | [] => rfl
+    | [] => byComputing
     | [second, ..more] => Parse.lastReadDrop second more rest
 
 --| `Parse.lastRead` between a mark and the mark after reading some items
@@ -1296,14 +1300,14 @@ theorem Parse.lastReadAfter ∀ (start finish: Parse.Mark t) (first: t) (others 
     (from: start.rest = [first, ..others] ++ rest)
     (moved: finish.offset = start.offset + others.length + 1):
     Parse.lastRead start finish = [first, ..others].last :=
-  let later: (finish.offset > start.offset) = True := omega [moved]
-  let back: finish.offset - start.offset - 1 = others.length := omega [moved]
-  rewrite later, back, from in Parse.lastReadDrop first others rest
+  let later: (finish.offset > start.offset) = True := arithmetic [moved]
+  let back: finish.offset - start.offset - 1 = others.length := arithmetic [moved]
+  rewrite later, back, from then Parse.lastReadDrop first others rest
 
 --| `end` where nothing is left.
 theorem Parse.runsEnd: Parse.Runs Parse.end ([]: List t) [] () := state starts honest =>
-  let atEnd: state.at.left = 0 := rewrite starts at honest in honest
-  Witness state.at (Both (rewrite atEnd in rfl) (Both starts (Both atEnd rfl)))
+  let atEnd: state.at.left = 0 := rewrite starts at honest then honest
+  Witness state.at (Both (rewrite atEnd then byComputing) (Both starts (Both atEnd byComputing)))
 
 --| `whole chars p` where `p` reads all of `chars`.
 --| `p` reads all of `chars`, so `Parse.whole chars p` (the runner under `all`,
@@ -1328,9 +1332,9 @@ theorem Parse.runsWhole ∀ (chars: List t) (p: () → {Parse t} a) (v: a)
       []
       v
       v
-      (Eq.sym (List.appendNil chars))
+      (List.appendNil chars).flipped
       runs
-      (Parse.runsBind Parse.end (u => v) [] [] [] [] () v rfl Parse.runsEnd (Parse.runsPure v [])))
+      (Parse.runsBind Parse.end (u => v) [] [] [] [] () v byComputing Parse.runsEnd (Parse.runsPure v [])))
 
 --| As [`Parse.runsWhole`], for a `p` whose value depends on where it
 --| starts: `p` from the start of `chars` reads all of them.
@@ -1356,10 +1360,10 @@ theorem Parse.runsFromWhole ∀ (chars: List t) (p: () → {Parse t} a) (v: a)
       []
       v
       v
-      (Eq.sym (List.appendNil chars))
+      (List.appendNil chars).flipped
       runs
       (middle atRest honest offset =>
-        Parse.runsBind Parse.end (u => v) [] [] [] [] () v rfl Parse.runsEnd (Parse.runsPure v []) middle))
+        Parse.runsBind Parse.end (u => v) [] [] [] [] () v byComputing Parse.runsEnd (Parse.runsPure v []) middle))
 
 -- Completeness for the rest of the combinators (SW-1584).
 
@@ -1390,7 +1394,7 @@ theorem Parse.runsMany1 ∀ (p: () → {Parse t} a) (firstRead: List t) (first: 
     rest
     first
     (NonEmptyList.cons first (Parse.stepValues steps))
-    rfl
+    byComputing
     runsFirst
     (Parse.runsMap
       (() => Parse.many p)
@@ -1435,7 +1439,7 @@ theorem Parse.runsSepStep ∀ (p: () → {Parse t} a) (separator: () → {Parse 
     rest
     ()
     v
-    rfl
+    byComputing
     runsSeparator
     runsValue
 
@@ -1469,7 +1473,7 @@ theorem Parse.runsSepBy1 ∀ (p: () → {Parse t} a) (separator: () → {Parse t
     rest
     first
     (NonEmptyList.cons first (Parse.stepValues steps))
-    rfl
+    byComputing
     runsFirst
     (Parse.runsMap
       (() => Parse.many (() => Parse.sepStep p separator))
@@ -1529,7 +1533,9 @@ theorem Parse.runsLiteralAbsent ∀ (literal: Parse.Literal t) (input: List t)
     Parse.Runs (() => Parse.literal literal) [] input False :=
   state starts honest =>
     Witness state.at
-      (Both (rewrite starts, absent in rfl) (Both starts (Both (rewrite starts at honest in honest) rfl)))
+      (Both
+        (rewrite starts, absent then byComputing)
+        (Both starts (Both (rewrite starts at honest then honest) byComputing)))
 
 --| `expected what` declines wherever it is: it notes a problem and stops.
 theorem Parse.declinesExpected ∀ (what: Text) (input: List t): Parse.Declines (() => (Parse.expected what: a)) input :=
@@ -1569,7 +1575,7 @@ theorem Parse.declinesPeek ∀ (k: Option t → {Parse t} b) (input: List t)
   state starts honest =>
     let step: Parse.runFrom state (() => (Parse.optional (() => k (Parse.peek ())), Parse.mark()))
       = Parse.runFrom state (() => (Parse.optional (() => k input.head), Parse.mark())) :=
-      rewrite starts in rfl
+      rewrite starts then byComputing
     Eq.trans step (declines state starts honest)
 
 --| `optional p` followed by `j` declines where `p` declines (so `optional p`
@@ -1671,10 +1677,10 @@ theorem Parse.runsRepeatOptional ∀ (p: () → {Parse t} a) (rest: List t) (ext
       (found.reverse ++ Parse.stepValues steps) :=
   match extra, steps, runs with
     | Zero, [], runs => state starts honest =>
-      rewrite List.appendNil found.reverse in (Parse.runsPure found.reverse rest) state starts honest
+      rewrite List.appendNil found.reverse then (Parse.runsPure found.reverse rest) state starts honest
     | Zero, [step, ..steps], runs => state starts honest => cases
     | Succ more, [], declines => state starts honest =>
-      rewrite List.appendNil found.reverse in
+      rewrite List.appendNil found.reverse then
         (Parse.runsBind
               (() => Parse.optional p)
               (found2 =>
@@ -1685,13 +1691,13 @@ theorem Parse.runsRepeatOptional ∀ (p: () → {Parse t} a) (rest: List t) (ext
               rest
               None
               found.reverse
-              rfl
+              byComputing
               (Parse.declinesRuns p rest declines)
               (Parse.runsPure found.reverse rest)) state starts honest
     | Succ more, [(read, v), ..steps], Both runsP later => state starts honest =>
       let value: found.reverse ++ [v, ..Parse.stepValues steps] = [v, ..found].reverse ++ Parse.stepValues steps :=
-        rewrite List.reverseCons v found, List.appendAssoc found.reverse [v] (Parse.stepValues steps) in rfl
-      rewrite value in
+        rewrite List.reverseCons v found, List.appendAssoc found.reverse [v] (Parse.stepValues steps) then byComputing
+      rewrite value then
         (Parse.runsBind
               (() => Parse.optional p)
               (found2 =>
@@ -1702,7 +1708,7 @@ theorem Parse.runsRepeatOptional ∀ (p: () → {Parse t} a) (rest: List t) (ext
               rest
               (Some v)
               ([v, ..found].reverse ++ Parse.stepValues steps)
-              rfl
+              byComputing
               (Parse.runsOptional p read (Parse.joinReads steps ++ rest) v runsP)
               (Parse.runsRepeatOptional p rest more steps [v, ..found] later)) state starts honest
 
@@ -1721,15 +1727,15 @@ theorem Parse.runsRepeatFrom ∀ (p: () → {Parse t} a) (extra: Nat) (rest: Lis
   match count, required, runs with
     | Zero, [], runs => state starts honest =>
       Parse.runsRepeatOptional p rest extra optional found optionalRuns state starts honest
-    | Zero, [step, ..steps], runs => state starts honest => Void.exfalso (omega [counted])
-    | Succ more, [], runs => state starts honest => Void.exfalso (omega [counted])
+    | Zero, [step, ..steps], runs => state starts honest => Void.impossible (arithmetic [counted])
+    | Succ more, [], runs => state starts honest => Void.impossible (arithmetic [counted])
     | Succ more, [(read, v), ..steps], Both runsP later => state starts honest =>
       let value: found.reverse ++ [v, ..(Parse.stepValues steps ++ Parse.stepValues optional)]
         = [v, ..found].reverse ++ (Parse.stepValues steps ++ Parse.stepValues optional) :=
         rewrite List.reverseCons v found,
-            List.appendAssoc found.reverse [v] (Parse.stepValues steps ++ Parse.stepValues optional) in
-          rfl
-      rewrite value in
+            List.appendAssoc found.reverse [v] (Parse.stepValues steps ++ Parse.stepValues optional) then
+          byComputing
+      rewrite value then
         (Parse.runsBind p
               (value2 => Parse.repeatFrom more extra p [value2, ..found])
               read
@@ -1739,9 +1745,11 @@ theorem Parse.runsRepeatFrom ∀ (p: () → {Parse t} a) (extra: Nat) (rest: Lis
               v
               ([v, ..found].reverse ++ (Parse.stepValues steps ++ Parse.stepValues optional))
               (List.appendAssoc read (Parse.joinReads steps) (Parse.joinReads optional))
-              (rewrite List.appendAssoc (Parse.joinReads steps) (Parse.joinReads optional) rest in runsP)
-              (Parse.runsRepeatFrom p extra rest optional optionalRuns more steps [v, ..found] (omega [counted]) later))
-            state starts honest
+              (rewrite List.appendAssoc (Parse.joinReads steps) (Parse.joinReads optional) rest then runsP)
+              (Parse.runsRepeatFrom p extra rest optional optionalRuns more steps
+                [v, ..found]
+                (arithmetic [counted])
+                later)) state starts honest
 
 --| `repeat atLeast atMost p` on `atLeast` rounds that succeed ([`Parse.StepsRun`])
 --| and then up to `atMost - atLeast` more ([`Parse.RepeatRuns`]): it reads them
@@ -1767,9 +1775,9 @@ theorem Parse.runsExactly ∀ (count: Nat) (p: () → {Parse t} a) (steps: List 
     (counted: steps.length = count)
     (runs: Parse.StepsRun p steps rest):
     Parse.Runs (() => Parse.exactly count p) (Parse.joinReads steps) rest (Parse.stepValues steps) :=
-  let none: count - count = 0 := omega
-  let done := Parse.runsRepeat count count p steps [] rest counted runs (rewrite none in rfl)
-  rewrite List.appendNil (Parse.joinReads steps), List.appendNil (Parse.stepValues steps) at done in done
+  let none: count - count = 0 := arithmetic
+  let done := Parse.runsRepeat count count p steps [] rest counted runs (rewrite none then byComputing)
+  rewrite List.appendNil (Parse.joinReads steps), List.appendNil (Parse.stepValues steps) at done then done
 
 --| An `if` reads what the branch it takes reads: the lemma for each branch may
 --| use that the condition holds (or fails).
@@ -1778,8 +1786,8 @@ theorem Parse.runsIf ∀ (c: Bool) (yes no: () → {Parse t} a) (read rest: List
     (runsNo: c = False → Parse.Runs no read rest v):
     Parse.Runs (() => if c then yes() else no()) read rest v :=
   match e: c with
-    | True => runsYes rfl
-    | False => runsNo rfl
+    | True => runsYes byComputing
+    | False => runsNo byComputing
 
 --| `q` ran from `s` to `after`, and from there `k` of its value and whether it
 --| moved goes on to an `Ok`: so `k (attemptFrom start q)` does from `s`. The
@@ -1796,10 +1804,10 @@ theorem Parse.runFromAttemptFromBack ∀ (q: () → {Parse t} a)
       let same := Result.okInjective ran
       let valueSame: x = v := Pair.mkInjectiveFst same
       let atSame: s.at = after.at := Pair.mkInjectiveSnd same
-      let rest2 := rewrite <- valueSame at rest in rest
+      let rest2 := rewrite <- valueSame at rest then rest
       let moved := Parse.runFromAt (() => k (Some (x, after.at.offset > start.offset))) after s w rest2
-      let moved2 := rewrite <- atSame at moved in moved
-      rewrite Parse.withAtSelf s at moved2 in moved2
+      let moved2 := rewrite <- atSame at moved then moved
+      rewrite Parse.withAtSelf s at moved2 then moved2
     | Parse.span passes, r =>
       match tree with
         | AlwaysCall later =>
@@ -1828,7 +1836,7 @@ theorem Parse.runFromAttemptFromBack ∀ (q: () → {Parse t} a)
               v
               after
               w
-              (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (r y, Parse.mark())))) ran)
+              (Eq.trans (Eq.flipped (Parse.runFromNext s passes (y => (r y, Parse.mark())))) ran)
               rest)
     | Parse.literal literal, r =>
       match tree with
@@ -1844,7 +1852,7 @@ theorem Parse.runFromAttemptFromBack ∀ (q: () → {Parse t} a)
               v
               after
               w
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s literal (y => (r y, Parse.mark())))) ran)
+              (Eq.trans (Eq.flipped (Parse.runFromLiteral s literal (y => (r y, Parse.mark())))) ran)
               rest)
     | Parse.mark u, r =>
       match tree with
@@ -1856,8 +1864,8 @@ theorem Parse.runFromAttemptFromBack ∀ (q: () → {Parse t} a)
       match tree with
         | AlwaysCall later =>
           Parse.runFromAttemptFromBack (() => r ()) (later ()) start (s.note problem) k v after w ran rest
-    | Parse.stop u, r => Void.exfalso (Result.errNotOk ran)
-    | Parse.fatal message, r => Void.exfalso (Result.errNotOk ran)
+    | Parse.stop u, r => (Result.errNotOk ran).impossible
+    | Parse.fatal message, r => (Result.errNotOk ran).impossible
 
 --| `attempt p` where `p` succeeds: it reads what `p` read and gives its value
 --| with whether it read anything.
@@ -1870,17 +1878,17 @@ theorem Parse.runsAttempt ∀ (p: () → {Parse t} a) (read rest: List t) (v: a)
         let tree := Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))
         let progressed: ((m.offset > state.at.offset): Bool) = ((0 < read.length): Bool) :=
           match c: ((0 < read.length): Bool) with
-            | True => omega [moff, c]
-            | False => omega [moff, c]
+            | True => arithmetic [moff, c]
+            | False => arithmetic [moff, c]
         Witness m
           (Both
-            (rewrite <- progressed in
+            (rewrite <- progressed then
               Parse.runFromAttemptFromBack p tree state.at state
                 (x => (x, Parse.mark()))
                 v
                 { state | at = m } _
                 ran
-                rfl)
+                byComputing)
             (Both mrest (Both mleft moff)))
 
 --| If `optionalFrom start q` backs up to `start` (gives `None`), so does
@@ -1891,7 +1899,7 @@ theorem Parse.runFromAttemptNone ∀ (q: () → {Parse t} a)
     (h: Parse.runFrom s (() => (Parse.optionalFrom start q, Parse.mark())) = Ok (None, start)):
     Parse.runFrom s (() => (Parse.attemptFrom start q, Parse.mark())) = Ok (None, start) :=
   match reify q with
-    | return x => Void.exfalso (Option.someNotNone x (Pair.mkInjectiveFst (Result.okInjective h)))
+    | return x => Void.impossible (Option.someNotNone x (Pair.mkInjectiveFst (Result.okInjective h)))
     | Parse.span passes, r =>
       match tree with
         | AlwaysCall later =>
@@ -1907,7 +1915,7 @@ theorem Parse.runFromAttemptNone ∀ (q: () → {Parse t} a)
               start
               (s.next passes).snd
               (Eq.trans
-                (Eq.sym (Parse.runFromNext s passes (y => (Parse.optionalFrom start (() => r y), Parse.mark()))))
+                (Eq.flipped (Parse.runFromNext s passes (y => (Parse.optionalFrom start (() => r y), Parse.mark()))))
                 h))
     | Parse.literal literal, r =>
       match tree with
@@ -1920,7 +1928,8 @@ theorem Parse.runFromAttemptNone ∀ (q: () → {Parse t} a)
               start
               (s.literal literal).snd
               (Eq.trans
-                (Eq.sym (Parse.runFromLiteral s literal (y => (Parse.optionalFrom start (() => r y), Parse.mark()))))
+                (Eq.flipped
+                  (Parse.runFromLiteral s literal (y => (Parse.optionalFrom start (() => r y), Parse.mark()))))
                 h))
     | Parse.mark u, r =>
       match tree with
@@ -1931,8 +1940,8 @@ theorem Parse.runFromAttemptNone ∀ (q: () → {Parse t} a)
     | Parse.note problem, r =>
       match tree with
         | AlwaysCall later => Parse.runFromAttemptNone (() => r ()) (later ()) start (s.note problem) h
-    | Parse.stop u, r => rfl
-    | Parse.fatal message, r => Void.exfalso (Result.errNotOk h)
+    | Parse.stop u, r => byComputing
+    | Parse.fatal message, r => (Result.errNotOk h).impossible
 
 --| `attempt p` where `p` declines: it reads nothing and gives `None`.
 theorem Parse.runsAttemptNone ∀ (p: () → {Parse t} a) (input: List t)
@@ -1946,7 +1955,7 @@ theorem Parse.runsAttemptNone ∀ (p: () → {Parse t} a) (input: List t)
           state.at
           state
           (declines state starts honest))
-        (Both starts (Both (rewrite starts at honest in honest) rfl)))
+        (Both starts (Both (rewrite starts at honest then honest) byComputing)))
 
 --| `q` ran from `s` to `after`, and from there `k` of its value goes on to an
 --| `Ok`: so `k (labelFrom what start q)` does from `s`. The label passes
@@ -1963,20 +1972,20 @@ theorem Parse.runFromLabelFromBack ∀ (what: Text) (q: () → {Parse t} a)
       let same := Result.okInjective ran
       let valueSame: x = v := Pair.mkInjectiveFst same
       let atSame: s.at = after.at := Pair.mkInjectiveSnd same
-      let rest2 := rewrite <- valueSame at rest in rest
+      let rest2 := rewrite <- valueSame at rest then rest
       match c: s.at.offset == start.offset with
         | True =>
           let moved := Parse.runFromAt (() => k x) after (s.note (Expected what)) w rest2
-          let moved2 := rewrite <- atSame at moved in moved
+          let moved2 := rewrite <- atSame at moved then moved
           let noted: ({ s.note (Expected what) | at = s.at }) = s.note (Expected what) :=
             Eq.trans
-              (Eq.cong (at => ({ s.note (Expected what) | at })) (Eq.sym (Parse.noteAt s (Expected what))))
+              (Eq.cong (at => ({ s.note (Expected what) | at })) (Eq.flipped (Parse.noteAt s (Expected what))))
               (Parse.withAtSelf (s.note (Expected what)))
-          rewrite noted at moved2 in moved2
+          rewrite noted at moved2 then moved2
         | False =>
           let moved := Parse.runFromAt (() => k x) after s w rest2
-          let moved2 := rewrite <- atSame at moved in moved
-          rewrite Parse.withAtSelf s at moved2 in moved2
+          let moved2 := rewrite <- atSame at moved then moved
+          rewrite Parse.withAtSelf s at moved2 then moved2
     | Parse.span passes, r =>
       match tree with
         | AlwaysCall later =>
@@ -2005,7 +2014,7 @@ theorem Parse.runFromLabelFromBack ∀ (what: Text) (q: () → {Parse t} a)
               v
               after
               w
-              (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (r y, Parse.mark())))) ran)
+              (Eq.trans (Eq.flipped (Parse.runFromNext s passes (y => (r y, Parse.mark())))) ran)
               rest)
     | Parse.literal literal, r =>
       match tree with
@@ -2021,7 +2030,7 @@ theorem Parse.runFromLabelFromBack ∀ (what: Text) (q: () → {Parse t} a)
               v
               after
               w
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s literal (y => (r y, Parse.mark())))) ran)
+              (Eq.trans (Eq.flipped (Parse.runFromLiteral s literal (y => (r y, Parse.mark())))) ran)
               rest)
     | Parse.mark u, r =>
       match tree with
@@ -2047,12 +2056,12 @@ theorem Parse.runFromLabelFromBack ∀ (what: Text) (q: () → {Parse t} a)
                 v
                 after
                 w
-                (rewrite noted at moved in moved)
+                (rewrite noted at moved then moved)
                 rest
             | False =>
               Parse.runFromLabelFromBack what (() => r ()) (later ()) start (s.note problem) k v after w ran rest
-    | Parse.stop u, r => Void.exfalso (Result.errNotOk ran)
-    | Parse.fatal message, r => Void.exfalso (Result.errNotOk ran)
+    | Parse.stop u, r => (Result.errNotOk ran).impossible
+    | Parse.fatal message, r => (Result.errNotOk ran).impossible
 
 --| `label what p` where `p` succeeds: it reads what `p` read.
 theorem Parse.runsLabel ∀ (what: Text) (p: () → {Parse t} a) (read rest: List t) (v: a)
@@ -2069,7 +2078,7 @@ theorem Parse.runsLabel ∀ (what: Text) (p: () → {Parse t} a) (read rest: Lis
               v
               { state | at = m } _
               ran
-              rfl)
+              byComputing)
             (Both mrest (Both mleft moff)))
 
 --| If `optionalFrom s0 q` backs up, so does the optional of `labelFrom what start q`:
@@ -2081,7 +2090,7 @@ theorem Parse.runFromOptionalLabelNone ∀ (what: Text) (q: () → {Parse t} a)
     Parse.runFrom s (() => (Parse.optionalFrom s0 (() => Parse.labelFrom what start q), Parse.mark()))
       = Ok (None, s0) :=
   match reify q with
-    | return x => Void.exfalso (Option.someNotNone x (Pair.mkInjectiveFst (Result.okInjective h)))
+    | return x => Void.impossible (Option.someNotNone x (Pair.mkInjectiveFst (Result.okInjective h)))
     | Parse.span passes, r =>
       match tree with
         | AlwaysCall later =>
@@ -2105,7 +2114,7 @@ theorem Parse.runFromOptionalLabelNone ∀ (what: Text) (q: () → {Parse t} a)
               start
               (s.next passes).snd
               (Eq.trans
-                (Eq.sym (Parse.runFromNext s passes (y => (Parse.optionalFrom s0 (() => r y), Parse.mark()))))
+                (Eq.flipped (Parse.runFromNext s passes (y => (Parse.optionalFrom s0 (() => r y), Parse.mark()))))
                 h))
     | Parse.literal literal, r =>
       match tree with
@@ -2120,7 +2129,7 @@ theorem Parse.runFromOptionalLabelNone ∀ (what: Text) (q: () → {Parse t} a)
               start
               (s.literal literal).snd
               (Eq.trans
-                (Eq.sym (Parse.runFromLiteral s literal (y => (Parse.optionalFrom s0 (() => r y), Parse.mark()))))
+                (Eq.flipped (Parse.runFromLiteral s literal (y => (Parse.optionalFrom s0 (() => r y), Parse.mark()))))
                 h))
     | Parse.mark u, r =>
       match tree with
@@ -2137,10 +2146,10 @@ theorem Parse.runFromOptionalLabelNone ∀ (what: Text) (q: () → {Parse t} a)
                 Parse.runFromAt (() => (Parse.optionalFrom s0 (() => r ()), Parse.mark())) (s.note problem) s _ h
               let noted: ({ s | at = (s.note problem).at }) = s :=
                 Eq.trans (Eq.cong (at => ({ s | at })) (Parse.noteAt s problem)) (Parse.withAtSelf s)
-              Parse.runFromOptionalLabelNone what (() => r ()) (later ()) s0 start s (rewrite noted at moved in moved)
+              Parse.runFromOptionalLabelNone what (() => r ()) (later ()) s0 start s (rewrite noted at moved then moved)
             | False => Parse.runFromOptionalLabelNone what (() => r ()) (later ()) s0 start (s.note problem) h
-    | Parse.stop u, r => rfl
-    | Parse.fatal message, r => Void.exfalso (Result.errNotOk h)
+    | Parse.stop u, r => byComputing
+    | Parse.fatal message, r => (Result.errNotOk h).impossible
 
 --| `label what p` declines where `p` does.
 theorem Parse.declinesLabel ∀ (what: Text) (p: () → {Parse t} a) (input: List t)
@@ -2168,16 +2177,16 @@ theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse t} a)
       let same := Result.okInjective ran
       let valueSame: x = v := Pair.mkInjectiveFst same
       let atSame: s.at = after.at := Pair.mkInjectiveSnd same
-      let rest2 := rewrite <- valueSame at rest in rest
+      let rest2 := rewrite <- valueSame at rest then rest
       let moved := Parse.runFromAt (() => k x) after s w rest2
-      let moved2 := rewrite <- atSame at moved in moved
-      rewrite Parse.withAtSelf s at moved2 in moved2
+      let moved2 := rewrite <- atSame at moved then moved
+      rewrite Parse.withAtSelf s at moved2 then moved2
     | Parse.span passes, r =>
       match tree with
         | AlwaysCall later =>
           match c: (s.span passes).snd.at.offset > furthest.offset with
             | True =>
-              rewrite Effect.translateNoOp _ in
+              rewrite Effect.translateNoOp _ then
                 Parse.runFromLabelWholeFromBack what
                   (() => r (s.span passes).fst)
                   (later (s.span passes).fst)
@@ -2191,7 +2200,7 @@ theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse t} a)
                   ran
                   rest
             | False =>
-              rewrite Effect.translateNoOp _ in
+              rewrite Effect.translateNoOp _ then
                 Parse.runFromLabelWholeFromBack what
                   (() => r (s.span passes).fst)
                   (later (s.span passes).fst)
@@ -2207,15 +2216,15 @@ theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse t} a)
     | Parse.mark u, r =>
       match tree with
         | AlwaysCall later =>
-          rewrite Effect.translateNoOp _ in
+          rewrite Effect.translateNoOp _ then
             Parse.runFromLabelWholeFromBack what (() => r s.at) (later s.at) start furthest s k v after w ran rest
     | Parse.reset at, r =>
       match tree with
         | AlwaysCall later =>
-          rewrite Effect.translateNoOp _ in
+          rewrite Effect.translateNoOp _ then
             Parse.runFromLabelWholeFromBack what (() => r ()) (later ()) start furthest { s | at } k v after w ran rest
-    | Parse.stop u, r => Void.exfalso (Result.errNotOk ran)
-    | Parse.fatal message, r => Void.exfalso (Result.errNotOk ran)
+    | Parse.stop u, r => (Result.errNotOk ran).impossible
+    | Parse.fatal message, r => (Result.errNotOk ran).impossible
     | Parse.next passes, r =>
       match tree with
         | AlwaysCall later =>
@@ -2223,10 +2232,10 @@ theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse t} a)
             | [] =>
               match c: s.at.offset > furthest.offset with
                 | True =>
-                  rewrite Effect.translateNoOp _ in
+                  rewrite Effect.translateNoOp _ then
                     Parse.runFromLabelWholeFromBack what (() => r None) (later None) start s.at s k v after w ran rest
                 | False =>
-                  rewrite Effect.translateNoOp _ in
+                  rewrite Effect.translateNoOp _ then
                     Parse.runFromLabelWholeFromBack what
                       (() => r None)
                       (later None)
@@ -2244,7 +2253,7 @@ theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse t} a)
                 | True =>
                   match c: (s.advance more 1).at.offset > furthest.offset with
                     | True =>
-                      rewrite Effect.translateNoOp _ in
+                      rewrite Effect.translateNoOp _ then
                         Parse.runFromLabelWholeFromBack what
                           (() => r (Some char))
                           (later (Some char))
@@ -2258,7 +2267,7 @@ theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse t} a)
                           ran
                           rest
                     | False =>
-                      rewrite Effect.translateNoOp _ in
+                      rewrite Effect.translateNoOp _ then
                         Parse.runFromLabelWholeFromBack what
                           (() => r (Some char))
                           (later (Some char))
@@ -2274,7 +2283,7 @@ theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse t} a)
                 | False =>
                   match c: s.at.offset > furthest.offset with
                     | True =>
-                      rewrite Effect.translateNoOp _ in
+                      rewrite Effect.translateNoOp _ then
                         Parse.runFromLabelWholeFromBack what
                           (() => r None)
                           (later None)
@@ -2288,7 +2297,7 @@ theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse t} a)
                           ran
                           rest
                     | False =>
-                      rewrite Effect.translateNoOp _ in
+                      rewrite Effect.translateNoOp _ then
                         Parse.runFromLabelWholeFromBack what
                           (() => r None)
                           (later None)
@@ -2308,10 +2317,10 @@ theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse t} a)
             | None =>
               match c: s.at.offset > furthest.offset with
                 | True =>
-                  rewrite Effect.translateNoOp _ in
+                  rewrite Effect.translateNoOp _ then
                     Parse.runFromLabelWholeFromBack what (() => r False) (later False) start s.at s k v after w ran rest
                 | False =>
-                  rewrite Effect.translateNoOp _ in
+                  rewrite Effect.translateNoOp _ then
                     Parse.runFromLabelWholeFromBack what
                       (() => r False)
                       (later False)
@@ -2327,7 +2336,7 @@ theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse t} a)
             | Some more =>
               match c: (s.advance more literal.items.length).at.offset > furthest.offset with
                 | True =>
-                  rewrite Effect.translateNoOp _ in
+                  rewrite Effect.translateNoOp _ then
                     Parse.runFromLabelWholeFromBack what
                       (() => r True)
                       (later True)
@@ -2341,7 +2350,7 @@ theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse t} a)
                       ran
                       rest
                 | False =>
-                  rewrite Effect.translateNoOp _ in
+                  rewrite Effect.translateNoOp _ then
                     Parse.runFromLabelWholeFromBack what
                       (() => r True)
                       (later True)
@@ -2360,7 +2369,7 @@ theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse t} a)
           let moved := Parse.runFromAt (() => (r (), Parse.mark())) (s.note problem) s _ ran
           let noted: ({ s | at = (s.note problem).at }) = s :=
             Eq.trans (Eq.cong (at => ({ s | at })) (Parse.noteAt s problem)) (Parse.withAtSelf s)
-          rewrite Effect.translateNoOp _ in
+          rewrite Effect.translateNoOp _ then
             Parse.runFromLabelWholeFromBack what
               (() => r ())
               (later ())
@@ -2371,7 +2380,7 @@ theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse t} a)
               v
               after
               w
-              (rewrite noted at moved in moved)
+              (rewrite noted at moved then moved)
               rest
 
 --| `labelWhole what p` where `p` succeeds: it reads what `p` read.
@@ -2398,7 +2407,7 @@ theorem Parse.runsLabelWhole ∀ (what: Text) (p: () → {Parse t} a) (read rest
                   v
                   { state | at = m } _
                   ran
-                  rfl)
+                  byComputing)
                 (Both mrest (Both mleft moff))))
       starts
       honest
@@ -2412,13 +2421,13 @@ theorem Parse.runFromOptionalLabelWholeNone ∀ (what: Text) (q: () → {Parse t
     Parse.runFrom s (() => (Parse.optionalFrom s0 (() => Parse.labelWholeFrom what start q furthest), Parse.mark()))
       = Ok (None, s0) :=
   match reify q with
-    | return x => Void.exfalso (Option.someNotNone x (Pair.mkInjectiveFst (Result.okInjective h)))
+    | return x => Void.impossible (Option.someNotNone x (Pair.mkInjectiveFst (Result.okInjective h)))
     | Parse.span passes, r =>
       match tree with
         | AlwaysCall later =>
           match c: (s.span passes).snd.at.offset > furthest.offset with
             | True =>
-              rewrite Effect.translateNoOp _ in
+              rewrite Effect.translateNoOp _ then
                 Parse.runFromOptionalLabelWholeNone what
                   (() => r (s.span passes).fst)
                   (later (s.span passes).fst)
@@ -2428,7 +2437,7 @@ theorem Parse.runFromOptionalLabelWholeNone ∀ (what: Text) (q: () → {Parse t
                   (s.span passes).snd
                   h
             | False =>
-              rewrite Effect.translateNoOp _ in
+              rewrite Effect.translateNoOp _ then
                 Parse.runFromOptionalLabelWholeNone what
                   (() => r (s.span passes).fst)
                   (later (s.span passes).fst)
@@ -2444,17 +2453,17 @@ theorem Parse.runFromOptionalLabelWholeNone ∀ (what: Text) (q: () → {Parse t
             | [] =>
               match c: s.at.offset > furthest.offset with
                 | True =>
-                  rewrite Effect.translateNoOp _ in
+                  rewrite Effect.translateNoOp _ then
                     Parse.runFromOptionalLabelWholeNone what (() => r None) (later None) s0 start s.at s h
                 | False =>
-                  rewrite Effect.translateNoOp _ in
+                  rewrite Effect.translateNoOp _ then
                     Parse.runFromOptionalLabelWholeNone what (() => r None) (later None) s0 start furthest s h
             | [char, ..more] =>
               match passes char with
                 | True =>
                   match c: (s.advance more 1).at.offset > furthest.offset with
                     | True =>
-                      rewrite Effect.translateNoOp _ in
+                      rewrite Effect.translateNoOp _ then
                         Parse.runFromOptionalLabelWholeNone what
                           (() => r (Some char))
                           (later (Some char))
@@ -2464,7 +2473,7 @@ theorem Parse.runFromOptionalLabelWholeNone ∀ (what: Text) (q: () → {Parse t
                           (s.advance more 1)
                           h
                     | False =>
-                      rewrite Effect.translateNoOp _ in
+                      rewrite Effect.translateNoOp _ then
                         Parse.runFromOptionalLabelWholeNone what
                           (() => r (Some char))
                           (later (Some char))
@@ -2476,10 +2485,10 @@ theorem Parse.runFromOptionalLabelWholeNone ∀ (what: Text) (q: () → {Parse t
                 | False =>
                   match c: s.at.offset > furthest.offset with
                     | True =>
-                      rewrite Effect.translateNoOp _ in
+                      rewrite Effect.translateNoOp _ then
                         Parse.runFromOptionalLabelWholeNone what (() => r None) (later None) s0 start s.at s h
                     | False =>
-                      rewrite Effect.translateNoOp _ in
+                      rewrite Effect.translateNoOp _ then
                         Parse.runFromOptionalLabelWholeNone what (() => r None) (later None) s0 start furthest s h
     | Parse.literal literal, r =>
       match tree with
@@ -2488,15 +2497,15 @@ theorem Parse.runFromOptionalLabelWholeNone ∀ (what: Text) (q: () → {Parse t
             | None =>
               match c: s.at.offset > furthest.offset with
                 | True =>
-                  rewrite Effect.translateNoOp _ in
+                  rewrite Effect.translateNoOp _ then
                     Parse.runFromOptionalLabelWholeNone what (() => r False) (later False) s0 start s.at s h
                 | False =>
-                  rewrite Effect.translateNoOp _ in
+                  rewrite Effect.translateNoOp _ then
                     Parse.runFromOptionalLabelWholeNone what (() => r False) (later False) s0 start furthest s h
             | Some more =>
               match c: (s.advance more literal.items.length).at.offset > furthest.offset with
                 | True =>
-                  rewrite Effect.translateNoOp _ in
+                  rewrite Effect.translateNoOp _ then
                     Parse.runFromOptionalLabelWholeNone what
                       (() => r True)
                       (later True)
@@ -2506,7 +2515,7 @@ theorem Parse.runFromOptionalLabelWholeNone ∀ (what: Text) (q: () → {Parse t
                       (s.advance more literal.items.length)
                       h
                 | False =>
-                  rewrite Effect.translateNoOp _ in
+                  rewrite Effect.translateNoOp _ then
                     Parse.runFromOptionalLabelWholeNone what
                       (() => r True)
                       (later True)
@@ -2518,12 +2527,12 @@ theorem Parse.runFromOptionalLabelWholeNone ∀ (what: Text) (q: () → {Parse t
     | Parse.mark u, r =>
       match tree with
         | AlwaysCall later =>
-          rewrite Effect.translateNoOp _ in
+          rewrite Effect.translateNoOp _ then
             Parse.runFromOptionalLabelWholeNone what (() => r s.at) (later s.at) s0 start furthest s h
     | Parse.reset at, r =>
       match tree with
         | AlwaysCall later =>
-          rewrite Effect.translateNoOp _ in
+          rewrite Effect.translateNoOp _ then
             Parse.runFromOptionalLabelWholeNone what (() => r ()) (later ()) s0 start furthest { s | at } h
     | Parse.note problem, r =>
       match tree with
@@ -2531,7 +2540,7 @@ theorem Parse.runFromOptionalLabelWholeNone ∀ (what: Text) (q: () → {Parse t
           let moved := Parse.runFromAt (() => (Parse.optionalFrom s0 (() => r ()), Parse.mark())) (s.note problem) s _ h
           let noted: ({ s | at = (s.note problem).at }) = s :=
             Eq.trans (Eq.cong (at => ({ s | at })) (Parse.noteAt s problem)) (Parse.withAtSelf s)
-          rewrite Effect.translateNoOp _ in
+          rewrite Effect.translateNoOp _ then
             Parse.runFromOptionalLabelWholeNone what
               (() => r ())
               (later ())
@@ -2539,9 +2548,9 @@ theorem Parse.runFromOptionalLabelWholeNone ∀ (what: Text) (q: () → {Parse t
               start
               furthest
               s
-              (rewrite noted at moved in moved)
-    | Parse.stop u, r => rfl
-    | Parse.fatal message, r => Void.exfalso (Result.errNotOk h)
+              (rewrite noted at moved then moved)
+    | Parse.stop u, r => byComputing
+    | Parse.fatal message, r => (Result.errNotOk h).impossible
 
 --| `labelWhole what p` declines where `p` does.
 theorem Parse.declinesLabelWhole ∀ (what: Text) (p: () → {Parse t} a) (input: List t)
@@ -2588,7 +2597,7 @@ theorem Parse.manyRunsOfEach ∀ (p: () → {Parse t} a) (separator: () → {Par
       ∧ Parse.ManyRuns (() => Parse.sepStep p separator) steps rest
       ∧ valueEnd (afterFirst ++ rest) :=
   match values, each with
-    | [], each => Witness [] (Both each (Both rfl (Both declinesEnd (rewrite each in restEnd))))
+    | [], each => Witness [] (Both each (Both byComputing (Both declinesEnd (rewrite each then restEnd))))
     | [value, ..values], Witness stepRead
         (Witness remaining
           (Both split
@@ -2598,34 +2607,35 @@ theorem Parse.manyRunsOfEach ∀ (p: () → {Parse t} a) (separator: () → {Par
       match Parse.manyRunsOfEach p separator spec sepSpec valueEnd rest runsValue runsSeparator separatorNotEmpty
           afterSeparator restEnd declinesEnd remaining values more with
         | Witness steps (Both remainingIs (Both valuesAre (Both manyRuns remainingEnd))) =>
-          let laterEnd: valueEnd (Parse.joinReads steps ++ rest) := rewrite remainingIs at remainingEnd in remainingEnd
+          let laterEnd: valueEnd (Parse.joinReads steps ++ rest) :=
+            rewrite remainingIs at remainingEnd then remainingEnd
           let notEmpty: stepRead ≠ [] := match separatorRead with
-            | [] => Void.exfalso (separatorNotEmpty [] u sepOk rfl)
-            | [char, ..others] => rewrite stepSplit in List.consNotNil char (others ++ valueRead)
+            | [] => Void.impossible (separatorNotEmpty [] u sepOk byComputing)
+            | [char, ..others] => rewrite stepSplit then List.consNotNil char (others ++ valueRead)
           let joined: afterFirst ++ rest = separatorRead ++ (valueRead ++ (remaining ++ rest)) :=
             rewrite split,
                 stepSplit,
                 List.appendAssoc separatorRead valueRead remaining,
                 List.appendAssoc separatorRead (valueRead ++ remaining) rest,
-                List.appendAssoc valueRead remaining rest in
-              rfl
+                List.appendAssoc valueRead remaining rest then
+              byComputing
           Witness
             [(stepRead, value), ..steps]
             (Both
-              (rewrite split, remainingIs in rfl)
+              (rewrite split, remainingIs then byComputing)
               (Both
-                (rewrite valuesAre in rfl)
+                (rewrite valuesAre then byComputing)
                 (Both
                   (Both notEmpty
                     (Both
-                      (rewrite stepSplit in
+                      (rewrite stepSplit then
                         Parse.runsSepStep p separator separatorRead valueRead
                           (Parse.joinReads steps ++ rest)
                           value
                           (runsSeparator separatorRead (valueRead ++ (Parse.joinReads steps ++ rest)) u sepOk)
                           (runsValue valueRead value (Parse.joinReads steps ++ rest) valueOk laterEnd))
                       manyRuns))
-                  (rewrite joined in afterSeparator separatorRead (valueRead ++ (remaining ++ rest)) u sepOk))))
+                  (rewrite joined then afterSeparator separatorRead (valueRead ++ (remaining ++ rest)) u sepOk))))
 
 --| `sepBy1 p separator` reads what [`Parse.SepBy`] says was written: the text
 --| `read` as these values. Give how `p` runs on a value written by `spec`
@@ -2654,12 +2664,12 @@ theorem Parse.runsSepBy1Of ∀ (p: () → {Parse t} a) (separator: () → {Parse
       match Parse.manyRunsOfEach p separator spec sepSpec valueEnd rest runsValue runsSeparator separatorNotEmpty
           afterSeparator restEnd declinesEnd afterFirst tail each with
         | Witness steps (Both afterIs (Both tailIs (Both manyRuns firstEnd))) =>
-          rewrite split, afterIs, tailIs in
+          rewrite split, afterIs, tailIs then
             Parse.runsSepBy1 p separator firstRead head steps rest
               (runsValue firstRead head
                 (Parse.joinReads steps ++ rest)
-                (rewrite isHead at firstOk in firstOk)
-                (rewrite afterIs at firstEnd in firstEnd))
+                (rewrite isHead at firstOk then firstOk)
+                (rewrite afterIs at firstEnd then firstEnd))
               manyRuns
 
 --| `canStart` is false of the input's first item, if it has one: a
@@ -2674,23 +2684,23 @@ theorem Parse.takeWhileOfCannotStart ∀ (p: t → Bool) (rest: List t)
     (stops: Parse.CannotStart p rest):
     rest.takeWhile p = [] :=
   match rest with
-    | [] => rfl
-    | [char, ..more] => rewrite stops char more rfl in rfl
+    | [] => byComputing
+    | [char, ..more] => rewrite stops char more byComputing then byComputing
 
 --| The text and the values of the rounds `many p` makes on items that `p`
 --| reads an item each (`symbol`): the steps are `([symbol v], v)`.
 theorem Parse.joinReadsSymbols ∀ (symbol: a → t) (items: List a):
     Parse.joinReads (items.map (v => ([symbol v], v))) = items.map symbol :=
   match items with
-    | [] => rfl
-    | [v, ..more] => rewrite Parse.joinReadsSymbols symbol more in rfl
+    | [] => byComputing
+    | [v, ..more] => rewrite Parse.joinReadsSymbols symbol more then byComputing
 
 --| See [`Parse.joinReadsSymbols`].
 theorem Parse.stepValuesSymbols ∀ (symbol: a → t) (items: List a):
     Parse.stepValues (items.map (v => ([symbol v], v))) = items :=
   match items with
-    | [] => rfl
-    | [v, ..more] => rewrite Parse.stepValuesSymbols symbol more in rfl
+    | [] => byComputing
+    | [v, ..more] => rewrite Parse.stepValuesSymbols symbol more then byComputing
 
 --| The rounds of `many p` over items that `p` reads one item each
 --| (`symbol v`, passing `canStart`), then `rest`, where `p` declines when
@@ -2717,7 +2727,7 @@ theorem Parse.stepsRunSymbols ∀ (p: () → {Parse t} a) (symbol: a → t)
     (rest: List t) (items: List a):
     Parse.StepsRun p (items.map (v => ([symbol v], v))) rest :=
   match items with
-    | [] => rfl
+    | [] => byComputing
     | [v, ..more] => Both (runsItem v _) (Parse.stepsRunSymbols p symbol runsItem rest more)
 
 --| `exactly count p` over `count` items that `p` reads an item each: it
@@ -2731,9 +2741,9 @@ theorem Parse.runsExactlySymbols ∀ (count: Nat) (p: () → {Parse t} a) (symbo
     Parse.runsExactly count p
       (items.map (v => ([symbol v], v)))
       rest
-      (rewrite List.lengthMap items _ in counted)
+      (rewrite List.lengthMap items _ then counted)
       (Parse.stepsRunSymbols p symbol runsItem rest items)
-  rewrite Parse.joinReadsSymbols symbol items, Parse.stepValuesSymbols symbol items at runs in runs
+  rewrite Parse.joinReadsSymbols symbol items, Parse.stepValuesSymbols symbol items at runs then runs
 
 --| `many1 p` over a non-empty list of items that `p` reads an item each
 --| (`symbol`, see [`Parse.manyRunsSymbols`]): it gives the items. For a row of
@@ -2755,9 +2765,9 @@ theorem Parse.runsMany1Symbols ∀ (p: () → {Parse t} a) (symbol: a → t) (ca
       first
       steps
       rest
-      (rewrite joined in runsItem first (more.map symbol ++ rest) (Bool.andLeft all))
+      (rewrite joined then runsItem first (more.map symbol ++ rest) (Bool.andLeft all))
       manyRuns
-  rewrite joined, valued at runs in runs
+  rewrite joined, valued at runs then runs
 
 --| If `p` runs each part of what `Parse.Each spec` describes (given `spec` of
 --| the part, and whatever follows), the parts are the steps
@@ -2772,14 +2782,16 @@ theorem Parse.eachSteps ∀ (p: () → {Parse t} a) (spec: List t → a → Prop
       ∧ steps.length = values.length
       ∧ Parse.StepsRun p steps rest :=
   match values, h with
-    | [], each => Witness [] (Both (Eq.sym each) (Both rfl (Both rfl rfl)))
+    | [], each => Witness [] (Both each.flipped (Both byComputing (Both byComputing byComputing)))
     | [v, ..values], Witness first (Witness more (Both split (Both ok each))) =>
       match Parse.eachSteps p spec rest runs values more each with
         | Witness steps (Both joined (Both valued (Both counted stepsRun))) =>
           Witness
             [(first, v), ..steps]
             (Both
-              (rewrite split, joined in rfl)
+              (rewrite split, joined then byComputing)
               (Both
-                (rewrite valued in rfl)
-                (Both (rewrite counted in rfl) (Both (runs first v (Parse.joinReads steps ++ rest) ok) stepsRun))))
+                (rewrite valued then byComputing)
+                (Both
+                  (rewrite counted then byComputing)
+                  (Both (runs first v (Parse.joinReads steps ++ rest) ok) stepsRun))))

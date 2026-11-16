@@ -16,7 +16,7 @@ theorem Set.toListRemove ∀ [auto ord: Ord k] (s: Set k) (key: k):
   Eq.cong (.map Pair.fst) (Map.toListRemove s.items key)
 
 theorem Set.sizeToList ∀ (s: Set k [ord := o]): Set.size s = List.length (Set.toList s) :=
-  Eq.trans (Map.sizeToList s.items) (Eq.sym (List.lengthMap (Map.toList s.items) Pair.fst))
+  Eq.trans (Map.sizeToList s.items) (Eq.flipped (List.lengthMap (Map.toList s.items) Pair.fst))
 
 --| Whether an option has a value: how `Set.contains` reads what `Map.get` finds.
 -- `contains` is `get` finding `()`, so the same `contains` everywhere means
@@ -28,11 +28,11 @@ def Set.present: (option: Option ()) → Bool
 theorem Set.containsPresent ∀ [auto ord: Ord k] (key: k) (m: Map k ()):
     Map.contains m key = Set.present (Map.get m key) :=
   match c: Map.get m key with
-    | None => rfl
-    | Some u => rfl
+    | None => byComputing
+    | Some u => byComputing
 
 theorem Set.presentInjective ∀ (x y: Option ()) (h: Set.present x = Set.present y): x = y := match x, y with
-  | None, None => rfl
+  | None, None => byComputing
   | Some u, Some w => Eq.cong Some (Set.unitEq u w)
 
 theorem Set.ext ∀ [auto ord: Ord k] (s t: Set k) (h: ∀ (key: k) => Set.contains s key = Set.contains t key): s = t :=
@@ -44,61 +44,61 @@ theorem Set.ext ∀ [auto ord: Ord k] (s t: Set k) (h: ∀ (key: k) => Set.conta
           Set.presentInjective
             (Map.get m key)
             (Map.get n key)
-            (Eq.trans (Eq.sym (Set.containsPresent key m)) (Eq.trans (h key) (Set.containsPresent key n)))))
+            (Eq.trans (Set.containsPresent key m).flipped (Eq.trans (h key) (Set.containsPresent key n)))))
 
 -- Maps and sets
 
 theorem Map.containsKeySet ∀ [auto ord: Ord k] (m: Map k v) (key: k):
     Set.contains (Map.keySet m) key = Map.contains m key :=
-  rewrite Map.getMap m key (value => ()) in
+  rewrite Map.getMap m key (value => ()) then
     match c: Map.get m key with
-      | None => rfl
-      | Some value => rfl
+      | None => byComputing
+      | Some value => byComputing
 
 theorem Map.getFromKeys ∀ [auto ord: Ord k] (ks: Set k) (f: k → v) (key: k):
     Map.get (Map.fromKeys ks f) key = (if Set.contains ks key then Some (f key) else None) :=
-  rewrite Map.getMapWithKey ks.items key (key2 u => f key2) in
+  rewrite Map.getMapWithKey ks.items key (key2 u => f key2) then
     match c: Map.get ks.items key with
-      | None => rfl
-      | Some u => rfl
+      | None => byComputing
+      | Some u => byComputing
 
 theorem Map.getRemoveAll ∀ [auto ord: Ord k] (m: Map k v) (ks: Set k) (key: k):
     Map.get (Map.removeAll m ks) key = (if Set.contains ks key then None else Map.get m key) :=
-  rewrite Map.getFilter m key (key2 value => ¬(Set.contains ks key2)) in
+  rewrite Map.getFilter m key (key2 value => ¬(Set.contains ks key2)) then
     match c: Set.contains ks key with
       | True =>
         match d: Map.get m key with
-          | None => rfl
-          | Some value => rfl
+          | None => byComputing
+          | Some value => byComputing
       | False =>
         match d: Map.get m key with
-          | None => rfl
-          | Some value => rfl
+          | None => byComputing
+          | Some value => byComputing
 
 theorem Map.getKeepOnly ∀ [auto ord: Ord k] (m: Map k v) (ks: Set k) (key: k):
     Map.get (Map.keepOnly m ks) key = (if Set.contains ks key then Map.get m key else None) :=
-  rewrite Map.getFilter m key (key2 value => Set.contains ks key2) in
+  rewrite Map.getFilter m key (key2 value => Set.contains ks key2) then
     match c: Set.contains ks key with
       | True =>
         match d: Map.get m key with
-          | None => rfl
-          | Some value => rfl
+          | None => byComputing
+          | Some value => byComputing
       | False =>
         match d: Map.get m key with
-          | None => rfl
-          | Some value => rfl
+          | None => byComputing
+          | Some value => byComputing
 
 -- The smallest and largest keys, and what `contains` says about each
 -- operation
 
 theorem Set.minToList ∀ (s: Set k [ord := o]): Set.min s = List.head (Set.toList s) :=
-  rewrite Map.minToList s.items in
+  rewrite Map.minToList s.items then
     match c: Map.toList s.items with
-      | [] => rfl
-      | [e, ..rest] => rfl
+      | [] => byComputing
+      | [e, ..rest] => byComputing
 
 theorem Set.maxToList ∀ (s: Set k [ord := o]): Set.max s = List.last (Set.toList s) :=
-  rewrite Map.maxToList s.items in Set.lastMapFst (Map.toList s.items)
+  rewrite Map.maxToList s.items then Set.lastMapFst (Map.toList s.items)
 
 --| The smallest key is in the set.
 theorem Set.containsMin ∀ [auto ord: Ord k] (s: Set k) (least: k)
@@ -106,12 +106,13 @@ theorem Set.containsMin ∀ [auto ord: Ord k] (s: Set k) (least: k)
     Set.contains s least = True :=
   match entries: Map.toList s.items with
     | [] =>
-      Void.exfalso (Option.someNotNone least (Eq.trans (Eq.sym found) (rewrite Map.minToList s.items, entries in rfl)))
+      Void.impossible
+        (Option.someNotNone least (Eq.trans found.flipped (rewrite Map.minToList s.items, entries then byComputing)))
     | [entry, ..rest] =>
-      let first: Set.min s = Some entry.fst := rewrite Map.minToList s.items, entries in rfl
+      let first: Set.min s = Some entry.fst := rewrite Map.minToList s.items, entries then byComputing
       Map.containsOfMemToList s.items least entry
-        (rewrite entries in Inl rfl)
-        (Option.someInjective (Eq.trans (Eq.sym first) found))
+        (rewrite entries then Inl byComputing)
+        (Option.someInjective (Eq.trans first.flipped found))
 
 --| The smallest key is at most every key of the set.
 theorem Set.minLeast ∀ [auto ord: Ord k] (s: Set k) (least: k)
@@ -120,36 +121,37 @@ theorem Set.minLeast ∀ [auto ord: Ord k] (s: Set k) (least: k)
     least <= key :=
   match entries: Map.toList s.items with
     | [] =>
-      Void.exfalso (Option.someNotNone least (Eq.trans (Eq.sym found) (rewrite Map.minToList s.items, entries in rfl)))
+      Void.impossible
+        (Option.someNotNone least (Eq.trans found.flipped (rewrite Map.minToList s.items, entries then byComputing)))
     | [(first, unit), ..rest] =>
-      let isMin: Set.min s = Some first := rewrite Map.minToList s.items, entries in rfl
-      let same: first = least := Option.someInjective (Eq.trans (Eq.sym isMin) found)
+      let isMin: Set.min s = Some first := rewrite Map.minToList s.items, entries then byComputing
+      let same: first = least := Option.someInjective (Eq.trans isMin.flipped found)
       let member := Map.memKeysOfContains s.items key there
-      rewrite entries at member in
+      rewrite entries at member then
         match member with
-          | Inl here => rewrite <- same, <- here in Ord.leRefl first
+          | Inl here => rewrite <- same, <- here then Ord.leRefl first
           | Inr later =>
             let sorted := Map.toListSorted s.items
-            rewrite entries at sorted in
+            rewrite entries at sorted then
               let (Both bottom ascending) := sorted
               let above := Map.Spec.keysAbove ord key (Some first) rest ascending later
-              rewrite <- same in Ord.lessLe first key (ord.lessThanOf first key above)
+              rewrite <- same then Ord.lessLe first key (ord.lessThanOf first key above)
 
 --| A set holding a key has a smallest one.
 theorem Set.minOfContains ∀ [auto ord: Ord k] (s: Set k) (key: k)
     (there: Set.contains s key = True):
     ∃ (least: k) => Set.min s = Some least :=
   match least: Set.min s with
-    | Some smallest => Witness smallest rfl
-    | None => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Set.missingOfMinNone s least key)) there))
+    | Some smallest => Witness smallest byComputing
+    | None => Void.impossible (Bool.falseNotTrue (Eq.trans (Set.missingOfMinNone s least key).flipped there))
 
 --| `popMin` is `min` and `remove` together.
 theorem Set.popMinSpec ∀ [auto ord: Ord k] (s: Set k):
     Set.popMin s = Option.map (Set.min s) (key => (key, Set.remove s key)) :=
-  rewrite Map.popMinSpec s.items in
+  rewrite Map.popMinSpec s.items then
     match Map.min s.items with
-      | None => rfl
-      | Some entry => rfl
+      | None => byComputing
+      | Some entry => byComputing
 
 --| What `popMin` finds: the smallest key, and the set without it.
 theorem Set.popMinSome ∀ [auto ord: Ord k] (s: Set k) (key: k) (rest: Set k)
@@ -157,17 +159,17 @@ theorem Set.popMinSome ∀ [auto ord: Ord k] (s: Set k) (key: k) (rest: Set k)
     (Set.min s = Some key) ∧ (rest = Set.remove s key) :=
   let spec := Set.popMinSpec s
   match least: Set.min s with
-    | None => Void.exfalso (Option.noneNotSome (key, rest) (Eq.trans (Eq.sym spec) found))
+    | None => Void.impossible (Option.noneNotSome (key, rest) (Eq.trans spec.flipped found))
     | Some smallest =>
-      let pairs: (smallest, Set.remove s smallest) = (key, rest) := Option.someInjective (Eq.trans (Eq.sym spec) found)
-      rewrite <- Eq.cong Pair.fst pairs, <- Eq.cong Pair.snd pairs in Both rfl rfl
+      let pairs: (smallest, Set.remove s smallest) = (key, rest) := Option.someInjective (Eq.trans spec.flipped found)
+      rewrite <- Eq.cong Pair.fst pairs, <- Eq.cong Pair.snd pairs then Both byComputing byComputing
 
 --| `popMin` finds nothing only in an empty set.
 theorem Set.popMinNone ∀ [auto ord: Ord k] (s: Set k) (found: Set.popMin s = None): Set.min s = None :=
   let spec := Set.popMinSpec s
   match least: Set.min s with
-    | None => rfl
-    | Some smallest => Void.exfalso (Option.someNotNone _ (Eq.trans (Eq.sym spec) found))
+    | None => byComputing
+    | Some smallest => Void.impossible (Option.someNotNone _ (Eq.trans spec.flipped found))
 
 --| What `popMin` leaves is one smaller.
 theorem Set.sizePopMin ∀ [auto ord: Ord k] (s: Set k) (key: k) (rest: Set k)
@@ -175,20 +177,20 @@ theorem Set.sizePopMin ∀ [auto ord: Ord k] (s: Set k) (key: k) (rest: Set k)
     Set.size rest < Set.size s :=
   let (Both least restIs) := Set.popMinSome s key rest found
   let present := Set.containsMin s key least
-  rewrite restIs, Set.sizeRemovePresent s key present in omega [Set.sizePositive s key present]
+  rewrite restIs, Set.sizeRemovePresent s key present then arithmetic [Set.sizePositive s key present]
 
 --| A set with no smallest key holds nothing.
 theorem Set.missingOfMinNone ∀ [auto ord: Ord k] (s: Set k)
     (empty: Set.min s = None) (key: k):
     Set.contains s key = False :=
   match there: Set.contains s key with
-    | False => rfl
+    | False => byComputing
     | True =>
       let member := Map.memKeysOfContains s.items key there
       match entries: Map.toList s.items with
         | [entry, ..rest] =>
-          let first: Set.min s = Some entry.fst := rewrite Map.minToList s.items, entries in rfl
-          Void.exfalso (Option.someNotNone entry.fst (Eq.trans (Eq.sym first) empty))
+          let first: Set.min s = Some entry.fst := rewrite Map.minToList s.items, entries then byComputing
+          Void.impossible (Option.someNotNone entry.fst (Eq.trans first.flipped empty))
 
 --| What's left after removing a key was there before.
 theorem Set.containsOfRemove ∀ [auto ord: Ord k] (s: Set k) (key other: k)
@@ -196,14 +198,14 @@ theorem Set.containsOfRemove ∀ [auto ord: Ord k] (s: Set k) (key other: k)
     Set.contains s other = True :=
   match same: other == key with
     | True =>
-      let moved := Eq.cong (found => Set.contains (Set.remove s key) found) (Eq.sym same.read)
-      Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Set.containsRemove s key)) (Eq.trans moved there)))
-    | False => Eq.trans (Eq.sym (Set.containsRemoveOther s key other same.read)) there
+      let moved := Eq.cong (found => Set.contains (Set.remove s key) found) same.read.flipped
+      Void.impossible (Bool.falseNotTrue (Eq.trans (Set.containsRemove s key).flipped (Eq.trans moved there)))
+    | False => Eq.trans (Eq.flipped (Set.containsRemoveOther s key other same.read)) there
 
 theorem Set.lastMapFst ∀ (xs: List (k, ())): Option.map (List.last xs) Pair.fst = List.last (List.map xs Pair.fst) :=
   match xs with
-    | [] => rfl
-    | [e] => rfl
+    | [] => byComputing
+    | [e] => byComputing
     | [e, f, ..rest] => Set.lastMapFst [f, ..rest]
 
 --| What `below` finds: a member below `key`, and no member between the two.
@@ -213,7 +215,7 @@ theorem Set.belowSome ∀ [auto ord: Ord k] (s: Set k) (key found: k)
       ∧ ((found < key) ∧ (∀ (other: k) => found < other → other < key → Set.contains s other = False)) :=
   match below: Map.below s.items key with
     | Some (nearest, unit) =>
-      rewrite <- Option.someInjective h in
+      rewrite <- Option.someInjective h then
         match Map.belowSome s.items key nearest unit below with
           | Both got rest => Both (Map.containsOfGet s.items nearest unit got) rest
 
@@ -231,7 +233,7 @@ theorem Set.aboveSome ∀ [auto ord: Ord k] (s: Set k) (key found: k)
       ∧ ((key < found) ∧ (∀ (other: k) => key < other → other < found → Set.contains s other = False)) :=
   match above: Map.above s.items key with
     | Some (nearest, unit) =>
-      rewrite <- Option.someInjective h in
+      rewrite <- Option.someInjective h then
         match Map.aboveSome s.items key nearest unit above with
           | Both got rest => Both (Map.containsOfGet s.items nearest unit got) rest
 
@@ -243,54 +245,54 @@ theorem Set.aboveNone ∀ [auto ord: Ord k] (s: Set k) (key: k)
   match above: Map.above s.items key with | None => Map.aboveNone s.items key above other more
 
 theorem Set.containsRemove ∀ [auto ord: Ord k] (s: Set k) (key: k): Set.contains (Set.remove s key) key = False :=
-  rewrite Map.getRemove s.items key in rfl
+  rewrite Map.getRemove s.items key then byComputing
 
 theorem Set.containsRemoveOther ∀ [auto ord: Ord k] (s: Set k) (key other: k)
     (ne: other ≠ key):
     Set.contains (Set.remove s key) other = Set.contains s other :=
-  rewrite Map.getRemoveOther s.items key other ne in rfl
+  rewrite Map.getRemoveOther s.items key other ne then byComputing
 
 theorem Set.containsUnion ∀ [auto ord: Ord k] (a: Set k) (key: k) (b: Set k):
     Set.contains (Set.union a b) key = (Set.contains a key ∨ Set.contains b key) :=
-  rewrite Map.getUnion a.items key b.items in
+  rewrite Map.getUnion a.items key b.items then
     match c: Map.get a.items key with
-      | None => rfl
-      | Some u => rfl
+      | None => byComputing
+      | Some u => byComputing
 
 theorem Set.containsFilter ∀ [auto ord: Ord k] (s: Set k) (key: k) (p: k → Bool):
     Set.contains (Set.filter s p) key = (Set.contains s key ∧ p key) :=
-  rewrite Map.getFilter s.items key (key2 u => p key2) in
+  rewrite Map.getFilter s.items key (key2 u => p key2) then
     match c: Map.get s.items key with
-      | None => rfl
+      | None => byComputing
       | Some u =>
         match d: p key with
-          | True => rfl
-          | False => rfl
+          | True => byComputing
+          | False => byComputing
 
 theorem Set.containsIntersect ∀ [auto ord: Ord k] (a: Set k) (key: k) (b: Set k):
     Set.contains (Set.intersect a b) key = (Set.contains a key ∧ Set.contains b key) :=
-  rewrite Map.getIntersectWith a.items key b.items (here there => ()) in
+  rewrite Map.getIntersectWith a.items key b.items (here there => ()) then
     match c: Map.get a.items key with
-      | None => rfl
+      | None => byComputing
       | Some u =>
         match d: Map.get b.items key with
-          | None => rfl
-          | Some u2 => rfl
+          | None => byComputing
+          | Some u2 => byComputing
 
 theorem Set.containsDifference ∀ [auto ord: Ord k] (a: Set k) (key: k) (b: Set k):
     Set.contains (Set.difference a b) key = (Set.contains a key ∧ ¬(Set.contains b key)) :=
-  rewrite Map.getDifference a.items key b.items in
+  rewrite Map.getDifference a.items key b.items then
     match c: Map.get a.items key with
-      | None => rfl
+      | None => byComputing
       | Some u =>
         match d: Map.contains b.items key with
-          | True => rfl
-          | False => rfl
+          | True => byComputing
+          | False => byComputing
 
 theorem Set.containsInsertOther ∀ [auto ord: Ord k] (s: Set k) (key other: k)
     (ne: other ≠ key):
     Set.contains (Set.insert s key) other = Set.contains s other :=
-  rewrite Map.getInsertOther key () other ne s.items in rfl
+  rewrite Map.getInsertOther key () other ne s.items then byComputing
 
 -- What a set has, it still has after an insert, and a union has what
 -- either side has.
@@ -300,20 +302,20 @@ theorem Set.containsInsertMono ∀ [auto ord: Ord k] (s: Set k) (key other: k)
     (h: Set.contains s other = True):
     Set.contains (Set.insert s key) other = True :=
   match e: other == key with
-    | True => rewrite e.read in Set.containsInsert key s
-    | False => rewrite Set.containsInsertOther s key other e.read in h
+    | True => rewrite e.read then Set.containsInsert key s
+    | False => rewrite Set.containsInsertOther s key other e.read then h
 
 --| A union has what its first set has.
 theorem Set.containsUnionLeft ∀ [auto ord: Ord k] (a b: Set k) (key: k)
     (h: Set.contains a key = True):
     Set.contains (Set.union a b) key = True :=
-  rewrite Set.containsUnion a key b, h in rfl
+  rewrite Set.containsUnion a key b, h then byComputing
 
 --| A union has what its second set has.
 theorem Set.containsUnionRight ∀ [auto ord: Ord k] (a b: Set k) (key: k)
     (h: Set.contains b key = True):
     Set.contains (Set.union a b) key = True :=
-  rewrite Set.containsUnion a key b, h in Bool.orTrue (Set.contains a key)
+  rewrite Set.containsUnion a key b, h then Bool.orTrue (Set.contains a key)
 
 theorem Set.containsInsertMonoExample ∀ (s: Set Nat)
     (h: Set.contains s 2 = True):
@@ -327,24 +329,24 @@ theorem Set.containsFoldInsert ∀ [auto ord: Ord k] (s: Set k) (key: k) (xs: Li
   match xs with
     | [] =>
       match c: Set.contains s key with
-        | True => rfl
-        | False => rfl
+        | True => byComputing
+        | False => byComputing
     | [x, ..rest] =>
-      rewrite Set.containsFoldInsert (Set.insert s x) key rest in
+      rewrite Set.containsFoldInsert (Set.insert s x) key rest then
         match e: Ord.compare key x with
           | Equal =>
-            rewrite ord.equal key x e, Set.containsInsert x s in
+            rewrite ord.equal key x e, Set.containsInsert x s then
               match c: Set.contains s x with
-                | True => rfl
-                | False => rfl
+                | True => byComputing
+                | False => byComputing
           | Less =>
             rewrite Set.containsInsertOther s x key
-                  (Map.Spec.notEqualOfCompare key x (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) in
-              rfl
+                  (Map.Spec.notEqualOfCompare key x (z => Ordering.lessNotEqual (Eq.trans e.flipped z))) then
+              byComputing
           | Greater =>
             rewrite Set.containsInsertOther s x key
-                  (Map.Spec.notEqualOfCompare key x (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) in
-              rfl
+                  (Map.Spec.notEqualOfCompare key x (z => Ordering.greaterNotEqual (Eq.trans e.flipped z))) then
+              byComputing
 
 theorem Set.containsFromList ∀ [auto ord: Ord k] (key: k) (xs: List k):
     Set.contains (Set.fromList xs) key = List.any xs (x => Map.Spec.sameKey key x) :=
@@ -355,12 +357,12 @@ theorem Set.containsFromListIff ∀ [auto ord: Ord k] (xs: List k) (key: k):
     (Set.contains (Set.fromList xs) key = True) ↔ (key ∈ xs) :=
   {
     forward = there =>
-      let found: xs.any (x => Map.Spec.sameKey key x) := rewrite Set.containsFromList key xs at there in there
+      let found: xs.any (x => Map.Spec.sameKey key x) := rewrite Set.containsFromList key xs at there then there
       let Witness x (Both member same) := found
-      rewrite Map.Spec.sameKeySound key x same in member,
+      rewrite Map.Spec.sameKeySound key x same then member,
     backward = member =>
-      rewrite Set.containsFromList key xs in
-        Witness key (Both member (rewrite Map.Spec.sameKeyDecide key key in DecEq.refl key))
+      rewrite Set.containsFromList key xs then
+        Witness key (Both member (rewrite Map.Spec.sameKeyDecide key key then DecEq.refl key))
   }
 
 -- `isSubset`: every key of `a` is in `b`
@@ -369,9 +371,9 @@ theorem Set.containsFromListIff ∀ [auto ord: Ord k] (xs: List k) (key: k):
 theorem Set.foldAll ∀ (q: k → Bool) (z: Bool) (xs: List (k, ())):
     Map.Spec.foldLeft (acc key unit => acc ∧ q key) z xs = (z ∧ List.all xs (e => q e.fst)) :=
   match z, xs with
-    | True, [] => rfl
-    | False, [] => rfl
-    | z, [(kk, u), ..rest] => rewrite Set.foldAll q (z ∧ q kk) rest in rfl
+    | True, [] => byComputing
+    | False, [] => byComputing
+    | z, [(kk, u), ..rest] => rewrite Set.foldAll q (z ∧ q kk) rest then byComputing
 
 theorem Set.allEntriesElim ∀ (q: k → Bool) (key: k) (xs: List (k, ()))
     (h: List.all xs (e => q e.fst) = True)
@@ -382,16 +384,16 @@ theorem Set.allEntriesElim ∀ (q: k → Bool) (key: k) (xs: List (k, ()))
       match c: q kk with
         | True =>
           match mem with
-            | Inl e => Eq.trans (Eq.cong q (Eq.sym (Eq.cong Pair.fst e))) c
+            | Inl e => Eq.trans (Eq.cong q (Eq.cong Pair.fst e).flipped) c
             | Inr later => Set.allEntriesElim q key rest h later
 
 theorem Set.allEntriesIntro ∀ (q: k → Bool) (xs: List (k, ()))
     (h: ∀ (key: k) => List.Mem (key, ()) xs → q key = True):
     List.all xs (e => q e.fst) = True :=
   match xs with
-    | [] => rfl
+    | [] => byComputing
     | [(kk, u), ..rest] =>
-      rewrite h kk (Inl (Eq.cong (w => (kk, w)) (Set.unitEq u ()))) in
+      rewrite h kk (Inl (Eq.cong (w => (kk, w)) (Set.unitEq u ()))) then
         Set.allEntriesIntro q rest (key mem => h key (Inr mem))
 
 --| Whether every key of `a` is in `b` ([`Set.isSubsetReads`]). It is declared here, beside its reading, which needs the lemmas below.
@@ -410,7 +412,7 @@ theorem Set.containsToList ∀ [auto ord: Ord k] (s: Set k) (key: k):
     forward = h =>
       match c: Map.get s.items key with
         | Some u => (Map.memToList s.items key ()).backward (Eq.trans c (Eq.cong Some (Set.unitEq u ()))),
-    backward = mem => rewrite (Map.memToList s.items key ()).forward mem in rfl
+    backward = mem => rewrite (Map.memToList s.items key ()).forward mem then byComputing
   }
 
 theorem Set.isSubsetElim ∀ [auto ord: Ord k] (a b: Set k)
@@ -421,7 +423,7 @@ theorem Set.isSubsetElim ∀ [auto ord: Ord k] (a b: Set k)
     (key2 => Set.contains b key2)
     key
     (Map.toList a.items)
-    (Eq.trans (Eq.sym (Set.isSubsetToList a b)) h)
+    (Eq.trans (Set.isSubsetToList a b).flipped h)
     ((Set.containsToList a key).forward inA)
 
 theorem Set.isSubsetIntro ∀ [auto ord: Ord k] [a b: Set k]
@@ -448,13 +450,13 @@ theorem Set.foldEntries ∀ (f: b → k → b) (entries: List (k, ())) (initial:
     Map.Spec.foldLeft (acc key unit => f acc key) initial entries
       = List.foldLeft (List.map entries Pair.fst) initial f :=
   match entries with
-    | [] => rfl
+    | [] => byComputing
     | [(key, unit), ..rest] => Set.foldEntries f rest (f initial key)
 
 --| A fold over a set is a fold over its keys in order.
 theorem Set.foldLeftToList ∀ (s: Set k [ord := o]) (initial: b) (f: b → k → b):
     Set.foldLeft s initial f = List.foldLeft (Set.toList s) initial f :=
-  rewrite Map.foldLeftToList (acc key unit => f acc key) initial s.items in
+  rewrite Map.foldLeftToList (acc key unit => f acc key) initial s.items then
     Set.foldEntries f (Map.toList s.items) initial
 
 --| Counting in a set counts in its list of keys.
@@ -497,7 +499,7 @@ theorem Set.containsInsertIff ∀ [auto ord: Ord k] (s: Set k) (key other: k):
     forward = Set.containsInsertElim s key other,
     backward = either =>
       match either with
-        | Inl same => rewrite same in Set.containsInsert key s
+        | Inl same => rewrite same then Set.containsInsert key s
         | Inr held => Set.containsInsertMono s key other held
   }
 
@@ -505,9 +507,9 @@ theorem Set.containsInsertIff ∀ [auto ord: Ord k] (s: Set k) (key other: k):
 theorem Set.containsUnionIff ∀ [auto ord: Ord k] (a: Set k) (key: k) (b: Set k):
     (Set.contains (Set.union a b) key = True) ↔ ((Set.contains a key = True) ∨ (Set.contains b key = True)) :=
   {
-    forward = h => (rewrite Set.containsUnion a key b at h in h).read,
+    forward = h => (rewrite Set.containsUnion a key b at h then h).read,
     backward = either =>
-      rewrite Set.containsUnion a key b in
+      rewrite Set.containsUnion a key b then
         match either with
           | Inl inA => Inl inA
           | Inr inB => Inr inB
@@ -517,8 +519,8 @@ theorem Set.containsUnionIff ∀ [auto ord: Ord k] (a: Set k) (key: k) (b: Set k
 theorem Set.containsIntersectIff ∀ [auto ord: Ord k] (a: Set k) (key: k) (b: Set k):
     (Set.contains (Set.intersect a b) key = True) ↔ ((Set.contains a key = True) ∧ (Set.contains b key = True)) :=
   {
-    forward = h => (rewrite Set.containsIntersect a key b at h in h).read,
-    backward = (Both inA inB) => rewrite Set.containsIntersect a key b in Both inA inB
+    forward = h => (rewrite Set.containsIntersect a key b at h then h).read,
+    backward = (Both inA inB) => rewrite Set.containsIntersect a key b then Both inA inB
   }
 
 --| A difference `a` minus `b` holds exactly what `a` holds and `b` doesn't.
@@ -526,17 +528,17 @@ theorem Set.containsDifferenceIff ∀ [auto ord: Ord k] (a: Set k) (key: k) (b: 
     (Set.contains (Set.difference a b) key = True) ↔ ((Set.contains a key = True) ∧ (Set.contains b key = False)) :=
   {
     forward = h =>
-      let Both inA outB := rewrite Set.containsDifference a key b at h in h
+      let Both inA outB := rewrite Set.containsDifference a key b at h then h
       Both inA outB.read,
-    backward = (Both inA outB) => rewrite Set.containsDifference a key b in Both inA (Bool.notOfFalse _ outB)
+    backward = (Both inA outB) => rewrite Set.containsDifference a key b then Both inA (Bool.notOfFalse _ outB)
   }
 
 --| A filtered set holds exactly the keys of the set that pass the test.
 theorem Set.containsFilterIff ∀ [auto ord: Ord k] (s: Set k) (key: k) (p: k → Bool):
     (Set.contains (Set.filter s p) key = True) ↔ ((Set.contains s key = True) ∧ (p key = True)) :=
   {
-    forward = h => (rewrite Set.containsFilter s key p at h in h).read,
-    backward = (Both inS kept) => rewrite Set.containsFilter s key p in Both inS kept
+    forward = h => (rewrite Set.containsFilter s key p at h then h).read,
+    backward = (Both inS kept) => rewrite Set.containsFilter s key p then Both inS kept
   }
 
 --| Removing each of `keys` leaves what the set held and `keys` doesn't.
@@ -544,7 +546,7 @@ theorem Set.containsFoldRemove ∀ [auto ord: Ord k] (keys: List k) (s: Set k) (
     (Set.contains (List.foldLeft keys s Set.remove) key = True)
       ↔ ((Set.contains s key = True) ∧ (¬(List.Mem key keys))) :=
   match keys with
-    | [] => { forward = held => Both held (none => none), backward = held => And.left held }
+    | [] => { forward = held => Both held (none => none), backward = held => held.left }
     | [first, ..rest] =>
       let later := Set.containsFoldRemove rest (Set.remove s first) key
       {
@@ -552,17 +554,17 @@ theorem Set.containsFoldRemove ∀ [auto ord: Ord k] (keys: List k) (s: Set k) (
           match later.forward held with
             | Both inRemoved notRest =>
               if same: key = first then
-                Void.exfalso
-                  (Bool.trueNotFalse (Eq.trans (Eq.sym inRemoved) (rewrite same in Set.containsRemove s first)))
+                Void.impossible
+                  (Bool.trueNotFalse (Eq.trans inRemoved.flipped (rewrite same then Set.containsRemove s first)))
               else
                 Both (rewrite Set.containsRemoveOther s first key same at inRemoved) (member =>
                   match member with
-                    | Inl equal => same (Eq.sym equal)
+                    | Inl equal => same equal.flipped
                     | Inr inRest => notRest inRest),
         backward = held =>
-          let different: key ≠ first := same => And.right held (Inl (Eq.sym same))
+          let different: key ≠ first := same => And.right held (Inl same.flipped)
           later.backward
-            (Both (rewrite Set.containsRemoveOther s first key different in And.left held) (inRest =>
+            (Both (rewrite Set.containsRemoveOther s first key different then And.left held) (inRest =>
               And.right held (Inr inRest)))
       }
 
@@ -576,7 +578,7 @@ theorem Set.containsFoldInsertMap ∀ [auto ord: Ord j] (f: k → j) (keys: List
       backward = held =>
         match held with
           | Inl inSet => inSet
-          | Inr (Witness x (Both none same)) => Void.exfalso none
+          | Inr (Witness x (Both none same)) => none.impossible
     }
     | [first, ..rest] =>
       let later := Set.containsFoldInsertMap f rest (Set.insert s (f first)) key
@@ -585,14 +587,14 @@ theorem Set.containsFoldInsertMap ∀ [auto ord: Ord j] (f: k → j) (keys: List
           match later.forward held with
             | Inl inInserted =>
               match Set.containsInsertElim s (f first) key inInserted with
-                | Inl same => Inr (Witness first (Both (Inl rfl) (Eq.sym same)))
+                | Inl same => Inr (Witness first (Both (Inl byComputing) same.flipped))
                 | Inr inSet => Inl inSet
             | Inr (Witness x (Both inRest same)) => Inr (Witness x (Both (Inr inRest) same)),
         backward = held =>
           match held with
             | Inl inSet => later.backward (Inl (Set.containsInsertMono s (f first) key inSet))
             | Inr (Witness x (Both (Inl isFirst) same)) =>
-              later.backward (Inl (rewrite <- same, <- isFirst in Set.containsInsert (f first) s))
+              later.backward (Inl (rewrite <- same, <- isFirst then Set.containsInsert (f first) s))
             | Inr (Witness x (Both (Inr inRest) same)) => later.backward (Inr (Witness x (Both inRest same)))
       }
 
@@ -602,13 +604,13 @@ theorem Set.containsMap ∀ [auto ordKeys: Ord k] [auto ord: Ord j] (s: Set k) (
   let folded := Set.containsFoldInsertMap f (Set.toList s) Set.empty key
   {
     forward = held =>
-      match folded.forward (rewrite <- Set.foldLeftToList s Set.empty (acc x => Set.insert acc (f x)) in held) with
+      match folded.forward (rewrite <- Set.foldLeftToList s Set.empty (acc x => Set.insert acc (f x)) then held) with
         | Inl none => cases
         | Inr (Witness x (Both member same)) => Witness x (Both ((Set.memToList s x).forward member) same),
     backward = held =>
       match held with
         | Witness x (Both inSet same) =>
-          rewrite Set.foldLeftToList s Set.empty (acc x => Set.insert acc (f x)) in
+          rewrite Set.foldLeftToList s Set.empty (acc x => Set.insert acc (f x)) then
             folded.backward (Inr (Witness x (Both ((Set.memToList s x).backward inSet) same)))
   }
 
@@ -620,7 +622,7 @@ theorem Set.mapInsert ∀ [auto ordKeys: Ord k] [auto ord: Ord j] (s: Set k) (f:
         match (Set.containsMap (Set.insert s key) f other).forward held with
           | Witness x (Both inInserted same) =>
             match Set.containsInsertElim s key x inInserted with
-              | Inl isKey => rewrite <- same, isKey in Set.containsInsert (f key) (Set.map s f)
+              | Inl isKey => rewrite <- same, isKey then Set.containsInsert (f key) (Set.map s f)
               | Inr inSet =>
                 Set.containsInsertMono
                   (Set.map s f)
@@ -631,7 +633,7 @@ theorem Set.mapInsert ∀ [auto ordKeys: Ord k] [auto ord: Ord j] (s: Set k) (f:
         match Set.containsInsertElim (Set.map s f) (f key) other held with
           | Inl isImage =>
             (Set.containsMap (Set.insert s key) f other).backward
-              (Witness key (Both (Set.containsInsert key s) (Eq.sym isImage)))
+              (Witness key (Both (Set.containsInsert key s) isImage.flipped))
           | Inr inImage =>
             match (Set.containsMap s f other).forward inImage with
               | Witness x (Both inSet same) =>
@@ -652,33 +654,33 @@ theorem Set.induction ∀ [auto ord: Ord k] [p: Set k → Prop] (base: p Set.emp
         [p := n => p ({ items = n }: Set k)]
         base
         (key value n held absent =>
-          rewrite Set.unitEq value () in
+          rewrite Set.unitEq value () then
             step key ({ items = n }: Set k) held (Eq.trans (Set.containsPresent key n) (Eq.cong Set.present absent)))
         m
 
-theorem Set.sizeEmpty [auto ord: Ord k]: Set.size (Set.empty: Set k) = 0 := rfl
+theorem Set.sizeEmpty [auto ord: Ord k]: Set.size (Set.empty: Set k) = 0 := byComputing
 
 --| Inserting a new key adds one.
 theorem Set.sizeInsertNew ∀ [auto ord: Ord k] (s: Set k) (key: k)
     (absent: Set.contains s key = False):
     Set.size (Set.insert s key) = Set.size s + 1 :=
-  rewrite Map.sizeInsert s.items key (), absent in rfl
+  rewrite Map.sizeInsert s.items key (), absent then byComputing
 
 --| Removing a key the set holds takes one away.
 theorem Set.sizeRemovePresent ∀ [auto ord: Ord k] (s: Set k) (key: k)
     (present: Set.contains s key = True):
     Set.size (Set.remove s key) = Set.size s - 1 :=
-  rewrite Map.sizeRemove s.items key, present in rfl
+  rewrite Map.sizeRemove s.items key, present then byComputing
 
 --| A set holding a key isn't empty.
 theorem Set.sizePositive ∀ [auto ord: Ord k] (s: Set k) (key: k) (present: Set.contains s key = True): 1 ≤ Set.size s :=
   match c: Set.toList s with
-    | [] => Void.exfalso (rewrite c at ((Set.memToList s key).backward present: List.Mem key (Set.toList s)))
-    | [first, ..rest] => rewrite Set.sizeToList s, c in omega
+    | [] => Void.impossible (rewrite c at ((Set.memToList s key).backward present: List.Mem key (Set.toList s)))
+    | [first, ..rest] => rewrite Set.sizeToList s, c then arithmetic
 
 theorem Set.unionEmpty ∀ [auto ord: Ord k] (a: Set k): Set.union a Set.empty = a :=
   Set.ext (Set.union a Set.empty) a (key =>
-    rewrite Set.containsUnion a key Set.empty in Bool.orFalse (Set.contains a key))
+    rewrite Set.containsUnion a key Set.empty then Bool.orFalse (Set.contains a key))
 
 theorem Set.unionInsert ∀ [auto ord: Ord k] (a b: Set k) (key: k):
     Set.union a (Set.insert b key) = Set.insert (Set.union a b) key :=
@@ -687,14 +689,14 @@ theorem Set.unionInsert ∀ [auto ord: Ord k] (a b: Set k) (key: k):
       rewrite same,
           Set.containsUnion a key (Set.insert b key),
           Set.containsInsert key b,
-          Set.containsInsert key (Set.union a b) in
+          Set.containsInsert key (Set.union a b) then
         Bool.orTrue (Set.contains a key)
     else
       rewrite Set.containsUnion a other (Set.insert b key),
           Set.containsInsertOther b key other same,
           Set.containsInsertOther (Set.union a b) key other same,
-          Set.containsUnion a other b in
-        rfl)
+          Set.containsUnion a other b then
+        byComputing)
 
 --| The size of a union of sets with no key in common is the sum of theirs
 --| (Mathlib's `Finset.card_disjUnion`).
@@ -705,15 +707,16 @@ theorem Set.sizeUnionDisjoint ∀ [auto ord: Ord k] (a b: Set k)
     [p := t =>
       (∀ (key: k) => Set.contains a key = True → Set.contains t key = False)
         → Set.size (Set.union a t) = Set.size a + Set.size t]
-    (apart => Eq.trans (Eq.cong Set.size (Set.unionEmpty a)) (Eq.sym (Nat.addZero (Set.size a))))
+    (apart => Eq.trans (Eq.cong Set.size (Set.unionEmpty a)) (Eq.flipped (Nat.addZero (Set.size a))))
     (key t held absent apart =>
       let apartT := (other: k) (inA: Set.contains a other = True) =>
         Bool.falseOfNotTrue (Set.contains t other) (inT =>
-          Bool.falseNotTrue (Eq.trans (Eq.sym (apart other inA)) (Set.containsInsertMono t key other inT)))
+          Bool.falseNotTrue (Eq.trans (apart other inA).flipped (Set.containsInsertMono t key other inT)))
       let notInA: Set.contains a key = False := inA =>
-        Bool.falseNotTrue (Eq.trans (Eq.sym (apart key inA)) (Set.containsInsert key t))
-      let newKey: Set.contains (Set.union a t) key = False := rewrite Set.containsUnion a key t, notInA, absent in rfl
-      omega [
+        Bool.falseNotTrue (Eq.trans (apart key inA).flipped (Set.containsInsert key t))
+      let newKey: Set.contains (Set.union a t) key = False :=
+        rewrite Set.containsUnion a key t, notInA, absent then byComputing
+      arithmetic [
         Eq.cong Set.size (Set.unionInsert a t key),
         Set.sizeInsertNew (Set.union a t) key newKey,
         Set.sizeInsertNew t key absent,
@@ -731,7 +734,7 @@ theorem Set.sizeMapInjective ∀ [auto ordKeys: Ord k] [auto ord: Ord j] (s: Set
     [p := t =>
       (∀ (x y: k) => Set.contains t x = True → Set.contains t y = True → f x = f y → x = y)
         → Set.size (Set.map t f) = Set.size t]
-    (none => rfl)
+    (none => byComputing)
     (key t held absent injectiveInserted =>
       let injectiveT := (x y: k) (inX: Set.contains t x = True) (inY: Set.contains t y = True) (same: f x = f y) =>
         injectiveInserted x y (Set.containsInsertMono t key x inX) (Set.containsInsertMono t key y inY) same
@@ -739,18 +742,18 @@ theorem Set.sizeMapInjective ∀ [auto ordKeys: Ord k] [auto ord: Ord j] (s: Set
         match (Set.containsMap t f (f key)).forward inImage with
           | Witness x (Both inT same) =>
             let isKey := injectiveInserted x key (Set.containsInsertMono t key x inT) (Set.containsInsert key t) same
-            Bool.falseNotTrue (Eq.trans (Eq.sym absent) (Eq.trans (Eq.sym (Eq.cong (Set.contains t) isKey)) inT))
-      rewrite Set.mapInsert t f key in
-        omega [Set.sizeInsertNew (Set.map t f) (f key) newImage, Set.sizeInsertNew t key absent, held injectiveT])
+            Bool.falseNotTrue (Eq.trans absent.flipped (Eq.trans (Eq.flipped (Eq.cong (Set.contains t) isKey)) inT))
+      rewrite Set.mapInsert t f key then
+        arithmetic [Set.sizeInsertNew (Set.map t f) (f key) newImage, Set.sizeInsertNew t key absent, held injectiveT])
     s
     injective
 
 theorem Set.differenceEmpty ∀ [auto ord: Ord k] (a: Set k): Set.difference a Set.empty = a :=
   Set.ext (Set.difference a Set.empty) a (key =>
-    rewrite Set.containsDifference a key Set.empty in
+    rewrite Set.containsDifference a key Set.empty then
       match c: Set.contains a key with
-        | True => rfl
-        | False => rfl)
+        | True => byComputing
+        | False => byComputing)
 
 theorem Set.differenceInsert ∀ [auto ord: Ord k] (a b: Set k) (key: k):
     Set.difference a (Set.insert b key) = Set.remove (Set.difference a b) key :=
@@ -759,16 +762,16 @@ theorem Set.differenceInsert ∀ [auto ord: Ord k] (a b: Set k) (key: k):
       rewrite same,
           Set.containsDifference a key (Set.insert b key),
           Set.containsInsert key b,
-          Set.containsRemove (Set.difference a b) key in
+          Set.containsRemove (Set.difference a b) key then
         match c: Set.contains a key with
-          | True => rfl
-          | False => rfl
+          | True => byComputing
+          | False => byComputing
     else
       rewrite Set.containsDifference a other (Set.insert b key),
           Set.containsInsertOther b key other same,
           Set.containsRemoveOther (Set.difference a b) key other same,
-          Set.containsDifference a other b in
-        rfl)
+          Set.containsDifference a other b then
+        byComputing)
 
 --| Taking away a subset leaves the rest (Mathlib's `Finset.card_sdiff`).
 theorem Set.sizeDifferenceSubset ∀ [auto ord: Ord k] (a b: Set k)
@@ -784,8 +787,8 @@ theorem Set.sizeDifferenceSubset ∀ [auto ord: Ord k] (a b: Set k)
       let insideT := (other: k) (inT: Set.contains t other = True) =>
         inside other (Set.containsInsertMono t key other inT)
       let present: Set.contains (Set.difference a t) key = True :=
-        rewrite Set.containsDifference a key t, inside key (Set.containsInsert key t), absent in rfl
-      omega [
+        rewrite Set.containsDifference a key t, inside key (Set.containsInsert key t), absent then byComputing
+      arithmetic [
         Eq.cong Set.size (Set.differenceInsert a t key),
         Set.sizeRemovePresent (Set.difference a t) key present,
         Set.sizePositive (Set.difference a t) key present,
@@ -799,15 +802,15 @@ theorem Set.sizeDifferenceSubset ∀ [auto ord: Ord k] (a b: Set k)
 theorem Set.sizeSubset ∀ [auto ord: Ord k] (a b: Set k)
     (subset: ∀ (key: k) => Set.contains b key = True → Set.contains a key = True):
     Set.size b ≤ Set.size a :=
-  omega [Set.sizeDifferenceSubset a b subset]
+  arithmetic [Set.sizeDifferenceSubset a b subset]
 
 --| An intersection is no larger than either side (Mathlib's
 --| `Finset.card_inter_le_left` and `card_inter_le_right`).
 theorem Set.sizeIntersectLeft ∀ [auto ord: Ord k] (a b: Set k): Set.size (Set.intersect a b) ≤ Set.size a :=
-  Set.sizeSubset a (Set.intersect a b) (key held => rewrite Set.containsIntersect a key b at held in held.left)
+  Set.sizeSubset a (Set.intersect a b) (key held => rewrite Set.containsIntersect a key b at held then held.left)
 
 theorem Set.sizeIntersectRight ∀ [auto ord: Ord k] (a b: Set k): Set.size (Set.intersect a b) ≤ Set.size b :=
-  Set.sizeSubset b (Set.intersect a b) (key held => rewrite Set.containsIntersect a key b at held in held.right)
+  Set.sizeSubset b (Set.intersect a b) (key held => rewrite Set.containsIntersect a key b at held then held.right)
 
 --| A set holding `count` different keys, `at 0` to `at (count - 1)`, has at
 --| least `count` (Mathlib's `Finset.card_le_card_of_injOn`).
@@ -816,17 +819,18 @@ theorem Set.countAtMostSize ∀ [auto ord: Ord k] (at: Nat → k) (count: Nat) (
     (different: ∀ (i j: Nat) => i < count → j < count → at i = at j → i = j):
     count ≤ Set.size s :=
   match count with
-    | Zero => omega
+    | Zero => arithmetic
     | Succ count =>
       let rest := Set.remove s (at count)
       let restMembers: ∀ (i: Nat) => i < count → Set.contains rest (at i) = True := i below =>
-        rewrite Set.containsRemoveOther s (at count) (at i) (same => omega [different i count (omega) (omega) same]) in
-          members i (omega)
-      let smaller :=
-        Set.countAtMostSize at count rest restMembers (i j below belowJ same => different i j (omega) (omega) same)
-      omega [
-        Set.sizeRemovePresent s (at count) (members count (omega)),
-        Set.sizePositive s (at count) (members count (omega))
+        rewrite Set.containsRemoveOther s (at count) (at i) (same =>
+              arithmetic [different i count (arithmetic) (arithmetic) same]) then
+          members i (arithmetic)
+      let smaller := Set.countAtMostSize at count rest restMembers (i j below belowJ same =>
+        different i j (arithmetic) (arithmetic) same)
+      arithmetic [
+        Set.sizeRemovePresent s (at count) (members count (arithmetic)),
+        Set.sizePositive s (at count) (members count (arithmetic))
       ]
 
 --| Folding a list of sets into `acc` by union holds what `acc` holds or some
@@ -835,9 +839,9 @@ theorem Set.containsFoldUnion ∀ [auto ord: Ord k] (key: k) (ss: List (Set k)) 
     Set.contains (List.foldLeft ss acc Set.union) key
       = (Set.contains acc key ∨ List.any ss (s => Set.contains s key)) :=
   match ss with
-    | [] => Eq.sym (Bool.orFalse (Set.contains acc key))
+    | [] => Eq.flipped (Bool.orFalse (Set.contains acc key))
     | [s, ..ss] =>
-      rewrite Set.containsFoldUnion key ss (Set.union acc s), Set.containsUnion acc key s in
+      rewrite Set.containsFoldUnion key ss (Set.union acc s), Set.containsUnion acc key s then
         Bool.orAssoc (Set.contains acc key) (Set.contains s key) (List.any ss (t => Set.contains t key))
 
 --| `Set.unionAll` of a list of sets holds what some set in the list holds.
@@ -851,9 +855,9 @@ theorem Set.containsFoldIntersect ∀ [auto ord: Ord k] (key: k) (ss: List (Set 
     Set.contains (List.foldLeft ss acc Set.intersect) key
       = (Set.contains acc key ∧ List.all ss (s => Set.contains s key)) :=
   match ss with
-    | [] => Eq.sym (Bool.andTrue (Set.contains acc key))
+    | [] => Eq.flipped (Bool.andTrue (Set.contains acc key))
     | [s, ..ss] =>
-      rewrite Set.containsFoldIntersect key ss (Set.intersect acc s), Set.containsIntersect acc key s in
+      rewrite Set.containsFoldIntersect key ss (Set.intersect acc s), Set.containsIntersect acc key s then
         Bool.andAssoc (Set.contains acc key) (Set.contains s key) (List.all ss (t => Set.contains t key))
 
 --| A set whose members are among the distinct keys of `universe`, and
@@ -873,10 +877,10 @@ theorem Set.sizeOfMembers ∀ [auto ord: Ord k] (set: Set k) (universe: List k) 
       (key member =>
         let found := (Set.memToList set key).forward member
         let known := inside key found
-        List.memFilterIntro universe yes known.read (rewrite <- agree key known in found))
+        List.memFilterIntro universe yes known.read (rewrite <- agree key known then found))
       (key member =>
         match List.memFilter universe yes member with
-          | Both there held => (Set.memToList set key).backward (rewrite agree key there in held))
+          | Both there held => (Set.memToList set key).backward (rewrite agree key there then held))
   Eq.trans (Set.sizeToList set) (List.permLength (Set.toList set) (List.filter universe yes) same)
 
 --| An empty set holds no key.
@@ -884,16 +888,16 @@ theorem Set.missingOfIsEmpty ∀ [auto ord: Ord k] (s: Set k)
     (empty: Set.isEmpty s = True) (key: k):
     Set.contains s key = False :=
   match there: Set.contains s key with
-    | False => rfl
+    | False => byComputing
     | True =>
       let zero: Set.size s = 0 := empty.read
-      Void.exfalso (omega [Set.sizePositive s key there])
+      Void.impossible (arithmetic [Set.sizePositive s key there])
 
 -- Maps of sets: what `get` finds after each operation, then `containsIn`
 
 theorem Map.containsInEq ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v):
     m.containsIn key item = ((m.get key).getOrElse Set.empty).contains item :=
-  rfl
+  byComputing
 
 theorem Map.getInsertIn ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v):
     (m.insertIn key item).get key = Some (((m.get key).getOrElse Set.empty).insert item) :=
@@ -917,12 +921,12 @@ theorem Map.getRemoveInOther ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map
 
 theorem Map.containsInEmpty ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (key: k) (item: v):
     (Map.empty: Map k (Set v)).containsIn key item = False :=
-  rfl
+  byComputing
 
 --| The pair just inserted is there.
 theorem Map.containsInInsertIn ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v):
     (m.insertIn key item).containsIn key item = True :=
-  rewrite Map.containsInEq (m.insertIn key item) key item, Map.getInsertIn m key item in
+  rewrite Map.containsInEq (m.insertIn key item) key item, Map.getInsertIn m key item then
     Set.containsInsert item ((m.get key).getOrElse Set.empty)
 
 --| Inserting a pair leaves every other pair as it was.
@@ -934,28 +938,28 @@ theorem Map.containsInInsertInOther ∀ [auto ord: Ord k] [auto itemOrd: Ord v] 
     | False =>
       rewrite Map.containsInEq (m.insertIn key item) otherKey otherItem,
           Map.containsInEq m otherKey otherItem,
-          Map.getInsertInOther m key item otherKey sameKey.read in
-        rfl
+          Map.getInsertInOther m key item otherKey sameKey.read then
+        byComputing
     | True =>
       let isKey: otherKey = key := sameKey.read
       match sameItem: otherItem == item with
-        | True => Void.exfalso (ne (Both isKey sameItem.read))
+        | True => Void.impossible (ne (Both isKey sameItem.read))
         | False =>
           rewrite isKey,
               Map.containsInEq (m.insertIn key item) key otherItem,
               Map.containsInEq m key otherItem,
-              Map.getInsertIn m key item in
+              Map.getInsertIn m key item then
             Set.containsInsertOther ((m.get key).getOrElse Set.empty) item otherItem sameItem.read
 
 --| The pair just removed is gone.
 theorem Map.containsInRemoveIn ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v):
     (m.removeIn key item).containsIn key item = False :=
-  rewrite Map.containsInEq (m.removeIn key item) key item, Map.getRemoveIn m key item in
+  rewrite Map.containsInEq (m.removeIn key item) key item, Map.getRemoveIn m key item then
     match found: m.get key with
-      | None => rfl
+      | None => byComputing
       | Some s =>
         match gone: Set.isEmpty (Set.remove s item) with
-          | True => rfl
+          | True => byComputing
           | False => Set.containsRemove s item
 
 --| Removing a pair leaves every other pair as it was.
@@ -967,25 +971,25 @@ theorem Map.containsInRemoveInOther ∀ [auto ord: Ord k] [auto itemOrd: Ord v] 
     | False =>
       rewrite Map.containsInEq (m.removeIn key item) otherKey otherItem,
           Map.containsInEq m otherKey otherItem,
-          Map.getRemoveInOther m key item otherKey sameKey.read in
-        rfl
+          Map.getRemoveInOther m key item otherKey sameKey.read then
+        byComputing
     | True =>
       let isKey: otherKey = key := sameKey.read
       match sameItem: otherItem == item with
-        | True => Void.exfalso (ne (Both isKey sameItem.read))
+        | True => Void.impossible (ne (Both isKey sameItem.read))
         | False =>
           let differs: otherItem ≠ item := sameItem.read
           rewrite isKey,
               Map.containsInEq (m.removeIn key item) key otherItem,
               Map.containsInEq m key otherItem,
-              Map.getRemoveIn m key item in
+              Map.getRemoveIn m key item then
             match found: m.get key with
-              | None => rfl
+              | None => byComputing
               | Some s =>
                 match gone: Set.isEmpty (Set.remove s item) with
                   | True =>
-                    rewrite <- Set.containsRemoveOther s item otherItem differs in
-                      Eq.sym (Set.missingOfIsEmpty (Set.remove s item) gone otherItem)
+                    rewrite <- Set.containsRemoveOther s item otherItem differs then
+                      Eq.flipped (Set.missingOfIsEmpty (Set.remove s item) gone otherItem)
                   | False => Set.containsRemoveOther s item otherItem differs
 
 theorem Map.containsInInsertInIff ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v)
@@ -997,7 +1001,7 @@ theorem Map.containsInInsertInIff ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (m
       match same: otherKey == key with
         | False =>
           Inr
-            (rewrite <- Map.containsInInsertInOther m key item otherKey otherItem (pair => same.read pair.left) in
+            (rewrite <- Map.containsInInsertInOther m key item otherKey otherItem (pair => same.read pair.left) then
               there)
         | True =>
           match sameItem: otherItem == item with
@@ -1005,21 +1009,21 @@ theorem Map.containsInInsertInIff ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (m
             | False =>
               Inr
                 (rewrite <- Map.containsInInsertInOther m key item otherKey otherItem (pair =>
-                      sameItem.read pair.right) in
+                      sameItem.read pair.right) then
                   there),
     backward = found =>
       match found with
-        | Inl pair => rewrite pair.left, pair.right in Map.containsInInsertIn m key item
+        | Inl pair => rewrite pair.left, pair.right then Map.containsInInsertIn m key item
         | Inr old =>
           match same: otherKey == key with
             | False =>
-              rewrite Map.containsInInsertInOther m key item otherKey otherItem (pair => same.read pair.left) in old
+              rewrite Map.containsInInsertInOther m key item otherKey otherItem (pair => same.read pair.left) then old
             | True =>
               match sameItem: otherItem == item with
-                | True => rewrite same.read, sameItem.read in Map.containsInInsertIn m key item
+                | True => rewrite same.read, sameItem.read then Map.containsInInsertIn m key item
                 | False =>
                   rewrite Map.containsInInsertInOther m key item otherKey otherItem (pair =>
-                        sameItem.read pair.right) in
+                        sameItem.read pair.right) then
                     old
   }
 
@@ -1030,9 +1034,10 @@ theorem Map.containsInRemoveInIff ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (m
   {
     forward = there =>
       let differs: ¬(otherKey = key ∧ otherItem = item) := pair =>
-        Bool.falseNotTrue (Eq.trans (Eq.sym (rewrite pair.left, pair.right in Map.containsInRemoveIn m key item)) there)
-      Both differs (rewrite <- Map.containsInRemoveInOther m key item otherKey otherItem differs in there),
-    backward = found => rewrite Map.containsInRemoveInOther m key item otherKey otherItem found.left in found.right
+        Bool.falseNotTrue
+          (Eq.trans (Eq.flipped (rewrite pair.left, pair.right then Map.containsInRemoveIn m key item)) there)
+      Both differs (rewrite <- Map.containsInRemoveInOther m key item otherKey otherItem differs then there),
+    backward = found => rewrite Map.containsInRemoveInOther m key item otherKey otherItem found.left then found.right
   }
 
 --| The entries `toList` walks hold exactly the pairs.
@@ -1043,5 +1048,5 @@ theorem Map.containsInToList ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map
       match found: m.get key with | Some s => Witness s (Both ((Map.memToList m key s).backward found) there),
     backward = found =>
       let (Witness s (Both member there)) := found
-      rewrite Map.containsInEq m key item, (Map.memToList m key s).forward member in there
+      rewrite Map.containsInEq m key item, (Map.memToList m key s).forward member then there
   }

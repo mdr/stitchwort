@@ -2,7 +2,7 @@
 --| about `Nat` are written as syntax over numbered atoms; `Omega.check`
 --| replays a certificate saying how to combine them into something false;
 --| [`Omega.prove`] (std/Omega/Sound.sw) says that when the check passes, the
---| facts imply the goal, in every environment. The compiler's `omega` finds
+--| facts imply the goal, in every environment. The compiler's `arithmetic` finds
 --| the certificate and writes the [`Omega.prove`] application; nothing here is
 --| trusted beyond the kernel.
 --|
@@ -104,7 +104,7 @@ def Omega.ITerm.eval (env: Omega.Env): (term: Omega.ITerm) → Int
 --|
 --| Stage 2's operation facts say what an atom is: `FSub t a b` says `t` is
 --| `a - b` (the compiler puts the real `a - b` in the environment as `t` and
---| proves the fact by `rfl`), and `FMax`/`FMin` likewise for `Nat.max` and
+--| proves the fact by `byComputing`), and `FMax`/`FMin` likewise for `Nat.max` and
 --| `Nat.min`. Each gives rows that always hold (`a - b <= a`, ...) and two
 --| cases a certificate may split on (`Cases`); `FNe`, `Not (a = b)`, gives
 --| only the cases.

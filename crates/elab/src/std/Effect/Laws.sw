@@ -15,7 +15,7 @@ theorem Effect.bindDone ∀ [op: Type] [res: op → Type] [a: Type]
     (computation: Comp op res a):
     bind computation Done = computation :=
   match computation with
-    | Done x => rfl
+    | Done x => byComputing
     | Call o rest =>
       let pointwise: ∀ (y: res o) => bind (rest y) Done = rest y := y => Effect.bindDone (rest y)
       let same := Quot.funext (res o) (y => Comp op res a) (y => bind (rest y) Done) rest pointwise
@@ -28,7 +28,7 @@ theorem Effect.bindAssoc ∀ [op: Type] [res: op → Type] [a b r: Type]
     (computation: Comp op res a):
     bind (bind computation first) second = bind computation (x => bind (first x) second) :=
   match computation with
-    | Done x => rfl
+    | Done x => byComputing
     | Call o rest =>
       let pointwise: ∀ (y: res o) => bind (bind (rest y) first) second = bind (rest y) (x => bind (first x) second) :=
         y => Effect.bindAssoc first second (rest y)
@@ -48,7 +48,7 @@ theorem Effect.foldCompBind ∀ [op: Type] [res: op → Type] [a b r: Type] (don
     (computation: Comp op res a):
     foldComp done call (bind computation next) = foldComp (x => foldComp done call (next x)) call computation :=
   match computation with
-    | Done x => rfl
+    | Done x => byComputing
     | Call o rest =>
       let pointwise: ∀ (y: res o) => foldComp done call (bind (rest y) next)
         = foldComp (x => foldComp done call (next x)) call (rest y) :=
@@ -71,5 +71,5 @@ theorem Effect.foldCompBind ∀ [op: Type] [res: op → Type] [a b r: Type] (don
 theorem Effect.translateNoOp ∀ [op: Type] [res: op → Type] [a: Type] (computation: Comp NoOp NoRes a):
     translate (MkSigMap noInject noReply: SigMap NoOp NoRes op res) computation = Done (runPure computation) :=
   match computation with
-    | Done x => rfl
+    | Done x => byComputing
     | Call () rest

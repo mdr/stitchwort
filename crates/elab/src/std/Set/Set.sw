@@ -49,11 +49,11 @@ theorem Set.containsReads ∀ [auto ord: Ord k] (set: Set k) (key: k):
 theorem Set.containsReadsFalse ∀ [auto ord: Ord k] (set: Set k) (key: k):
     (Set.contains set key = False) ↔ key ∉ Set.toList set :=
   {
-    forward = h m => Bool.falseNotTrue (Eq.trans (Eq.sym h) ((Map.memKeys set.items key).forward m)),
+    forward = h m => Bool.falseNotTrue (Eq.trans h.flipped ((Map.memKeys set.items key).forward m)),
     backward = no =>
       match c: Set.contains set key with
-        | True => Void.exfalso (no ((Map.memKeys set.items key).backward c))
-        | False => rfl
+        | True => Void.impossible (no ((Map.memKeys set.items key).backward c))
+        | False => byComputing
   }
 
 --| The set of the list's elements, repeats merged ([`Set.containsFromListIff`]).
@@ -151,21 +151,21 @@ def Map.removeIn [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key
   m.alter key (items => items.map (.remove item) |> .filter (rest => !rest.isEmpty))
 
 theorem Set.containsInsert ∀ [auto ord: Ord k] (key: k) (s: Set k): (s |> Set.insert key |> Set.contains key) = True :=
-  rewrite Map.getInsert key () s.items in rfl
+  rewrite Map.getInsert key () s.items then byComputing
 
-theorem List.toSetFromList ∀ [auto ord: Ord k] (items: List k): items.toSet = Set.fromList items := rfl
+theorem List.toSetFromList ∀ [auto ord: Ord k] (items: List k): items.toSet = Set.fromList items := byComputing
 
 -- Equality: the same keys. A set's map is a quotient (std/Map/Map.sw), so
 -- sets with the same keys are equal, whatever order they were inserted in.
 
-theorem Set.unitEq ∀ (u w: ()): u = w := match u, w with | (), () => rfl
+theorem Set.unitEq ∀ (u w: ()): u = w := match u, w with | (), () => byComputing
 
 --| Entries whose values are all `()` are fixed by their keys.
 theorem Set.unitEntries ∀ (xs ys: List (k, ())) (h: List.map xs Pair.fst = List.map ys Pair.fst): xs = ys :=
   match xs, ys with
-    | [], [] => rfl
+    | [], [] => byComputing
     | [(a, u), ..xs2], [(b, w), ..ys2] =>
-      rewrite Eq.cong (.headOr a) h, Set.unitEq u w, Set.unitEntries xs2 ys2 (Eq.cong List.tailOf h) in rfl
+      rewrite Eq.cong (.headOr a) h, Set.unitEq u w, Set.unitEntries xs2 ys2 (Eq.cong List.tailOf h) then byComputing
 
 --| Sets with the same keys in order are equal.
 theorem Set.toListInjective ∀ (s t: Set k [ord := o]) (same: Set.toList s = Set.toList t): s = t := match s, t with

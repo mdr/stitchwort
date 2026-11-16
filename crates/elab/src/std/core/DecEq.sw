@@ -27,7 +27,7 @@ instance Ordering.instDecEq: DecEq Ordering := { decide = Ordering.decEq }
 
 --| `()` has one value, so any two are equal.
 def Builtin.UnitType.decEq: (x: Builtin.UnitType) → (y: Builtin.UnitType) → Decidable (x = y)
-  | Builtin.UnitType.UnitValue, Builtin.UnitType.UnitValue => Decidable.yes rfl
+  | Builtin.UnitType.UnitValue, Builtin.UnitType.UnitValue => Decidable.yes byComputing
 
 instance Builtin.UnitType.instDecEq: DecEq Builtin.UnitType := { decide = Builtin.UnitType.decEq }
 

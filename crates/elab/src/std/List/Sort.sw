@@ -120,7 +120,7 @@ def List.isLeHead (le: a → a → Bool) (bound: a): (xs: List a) → Bool
 theorem List.isLeHeadIff ∀ (le: a → a → Bool) (bound: a) (xs: List a):
     List.isLeHead le bound xs = True ↔ List.LeHead le bound xs :=
   match xs with
-    | [] => { forward = h => Trivial, backward = h => rfl }
+    | [] => { forward = h => Trivial, backward = h => byComputing }
     | [y, ..ys] => { forward = h => h, backward = h => h }
 
 --| Whether each element may come before the next: `List.Sorted` as a `Bool`
@@ -134,7 +134,7 @@ def List.isSortedBy (le: a → a → Bool): (xs: List a) → Bool
 @[reading]
 theorem List.isSortedByIff ∀ (le: a → a → Bool) (xs: List a): List.isSortedBy le xs = True ↔ List.Sorted le xs :=
   match xs with
-    | [] => { forward = h => Trivial, backward = h => rfl }
+    | [] => { forward = h => Trivial, backward = h => byComputing }
     | [x, ..rest] => {
       forward = h =>
         match h with
@@ -199,10 +199,10 @@ theorem List.mergeMap ∀ (f: a → b) (le: b → b → Bool) (le2: a → a → 
     (h: ∀ (x y: a) => le2 x y = le (f x) (f y)) (xs ys: List a):
     List.map (List.merge le2 xs ys) f = List.merge le (List.map xs f) (List.map ys f) :=
   match xs, ys with
-    | [], ys => rfl
-    | [x, ..xs], [] => rfl
+    | [], ys => byComputing
+    | [x, ..xs], [] => byComputing
     | [x, ..xs], [y, ..ys] =>
-      rewrite h x y in
+      rewrite h x y then
         List.mergeMapStep f
           (le (f x) (f y))
           x
@@ -219,16 +219,16 @@ theorem List.mergeMapStep ∀ (f: a → b) (c: Bool) (x y: a) (l1 l2: List a) (r
     (e2: List.map l2 f = r2):
     List.map (if c then [x, ..l1] else [y, ..l2]) f = (if c then [f x, ..r1] else [f y, ..r2]) :=
   match c with
-    | True => rewrite e1 in rfl
-    | False => rewrite e2 in rfl
+    | True => rewrite e1 then byComputing
+    | False => rewrite e2 then byComputing
 
 theorem List.pushRunMap ∀ (f: a → b) (le: b → b → Bool) (le2: a → a → Bool)
     (h: ∀ (x y: a) => le2 x y = le (f x) (f y))
     (run: List a) (c: List (Option (List a))):
     List.mapRuns f (List.pushRun le2 run c) = List.pushRun le (List.map run f) (List.mapRuns f c) :=
   match c with
-    | [] => rfl
-    | [None, ..rest] => rfl
+    | [] => byComputing
+    | [None, ..rest] => byComputing
     | [Some r, ..rest] => rewrite List.pushRunMap f le le2 h (List.merge le2 r run) rest, List.mergeMap f le le2 h r run
 
 theorem List.buildRunsMap ∀ (f: a → b) (le: b → b → Bool) (le2: a → a → Bool)
@@ -236,7 +236,7 @@ theorem List.buildRunsMap ∀ (f: a → b) (le: b → b → Bool) (le2: a → a 
     (c: List (Option (List a))) (xs: List a):
     List.mapRuns f (List.buildRuns le2 c xs) = List.buildRuns le (List.mapRuns f c) (List.map xs f) :=
   match xs with
-    | [] => rfl
+    | [] => byComputing
     | [x, ..xs] => rewrite List.buildRunsMap f le le2 h (List.pushRun le2 [x] c) xs, List.pushRunMap f le le2 h [x] c
 
 theorem List.mergeRunsMap ∀ (f: a → b) (le: b → b → Bool) (le2: a → a → Bool)
@@ -244,7 +244,7 @@ theorem List.mergeRunsMap ∀ (f: a → b) (le: b → b → Bool) (le2: a → a 
     (acc: List a) (c: List (Option (List a))):
     List.map (List.mergeRuns le2 acc c) f = List.mergeRuns le (List.map acc f) (List.mapRuns f c) :=
   match c with
-    | [] => rfl
+    | [] => byComputing
     | [None, ..rest] => List.mergeRunsMap f le le2 h acc rest
     | [Some r, ..rest] =>
       rewrite List.mergeRunsMap f le le2 h (List.merge le2 r acc) rest, List.mergeMap f le le2 h r acc
@@ -252,16 +252,17 @@ theorem List.mergeRunsMap ∀ (f: a → b) (le: b → b → Bool) (le2: a → a 
 theorem List.sortWithMap ∀ (xs: List a) (f: a → b) (le: b → b → Bool) (le2: a → a → Bool)
     (h: ∀ (x y: a) => le2 x y = le (f x) (f y)):
     List.map (List.sortWith xs le2) f = List.sortWith (List.map xs f) le :=
-  rewrite List.mergeRunsMap f le le2 h [] (List.buildRuns le2 [] xs), List.buildRunsMap f le le2 h [] xs in rfl
+  rewrite List.mergeRunsMap f le le2 h [] (List.buildRuns le2 [] xs), List.buildRunsMap f le le2 h [] xs then
+    byComputing
 
 theorem List.sortByMap ∀ (xs: List a) (f: a → b) (cmp: b → b → Ordering) (cmp2: a → a → Ordering)
     (h: ∀ (x y: a) => cmp2 x y = cmp (f x) (f y)):
     List.map (List.sortBy xs cmp2) f = List.sortBy (List.map xs f) cmp :=
   List.sortWithMap xs f (x y => Ordering.isLessEq (cmp x y)) (x y => Ordering.isLessEq (cmp2 x y)) (x y =>
-    rewrite h x y in rfl)
+    rewrite h x y then byComputing)
 
 theorem List.mapId ∀ (xs: List a): List.map xs (x => x) = xs := match xs with
-  | [] => rfl
+  | [] => byComputing
   | [x, ..xs] => rewrite List.mapId xs
 
 --| Sorting by two comparisons that agree everywhere.
@@ -269,7 +270,7 @@ theorem List.sortByCong ∀ (xs: List a) (cmp1 cmp2: a → a → Ordering)
     (h: ∀ (x y: a) => cmp1 x y = cmp2 x y):
     List.sortBy xs cmp1 = List.sortBy xs cmp2 :=
   calc List.sortBy xs cmp1
-    _ = List.map (List.sortBy xs cmp1) (x => x) := Eq.sym (List.mapId (List.sortBy xs cmp1))
+    _ = List.map (List.sortBy xs cmp1) (x => x) := Eq.flipped (List.mapId (List.sortBy xs cmp1))
     _ = List.sortBy (List.map xs (x => x)) cmp2 := List.sortByMap xs (x => x) cmp2 cmp1 h
     _ = List.sortBy xs cmp2 := rewrite List.mapId xs
 

@@ -15,8 +15,8 @@ def List.gridCells (rows: List (List a)): List ((Nat, Nat), a) :=
 --| What `get` finds is somewhere in the list.
 theorem List.getOfMem ∀ (xs: List a) (x: a) (member: x ∈ xs): ∃ (k: Nat) => List.get xs k = Some x :=
   match xs, member with
-    | [], member => Void.exfalso member
-    | [first, ..rest], Inl same => Witness Zero (rewrite same in rfl)
+    | [], member => member.impossible
+    | [first, ..rest], Inl same => Witness Zero (rewrite same then byComputing)
     | [first, ..rest], Inr later =>
       match List.getOfMem rest x later with
         | Witness k found => Witness (Succ k) found
@@ -27,11 +27,11 @@ theorem List.memWithIndex ∀ (xs: List a) (i: Nat) (x: a): ((i, x) ∈ xs.withI
     match List.getOfMem xs.withIndex (i, x) member with
       | Witness k found =>
         match c: List.get xs k with
-          | None => Void.exfalso (Option.noneNotSome (i, x) (rewrite List.getWithIndex xs k, c at found))
+          | None => Void.impossible (Option.noneNotSome (i, x) (rewrite List.getWithIndex xs k, c at found))
           | Some y =>
             let same: (k, y) = (i, x) := Option.someInjective (rewrite List.getWithIndex xs k, c at found)
-            rewrite <- Eq.cong Pair.fst same, <- Eq.cong Pair.snd same in c,
-  backward = found => List.memOfGet xs.withIndex i (i, x) (rewrite List.getWithIndex xs i, found in rfl)
+            rewrite <- Eq.cong Pair.fst same, <- Eq.cong Pair.snd same then c,
+  backward = found => List.memOfGet xs.withIndex i (i, x) (rewrite List.getWithIndex xs i, found then byComputing)
 }
 
 --| A grid has `cell` at `(row, column)` exactly when row `row` is some list
@@ -56,8 +56,8 @@ theorem List.memGridCells ∀ (rows: List (List a)) (row column: Nat) (cell: a):
                       let cellSame: x = cell := Eq.cong Pair.snd same
                       Witness cells
                         (Both
-                          (rewrite <- rowSame in (List.memWithIndex rows r cells).forward inRows)
-                          (rewrite <- columnSame, <- cellSame in (List.memWithIndex cells c x).forward inColumns)))),
+                          (rewrite <- rowSame then (List.memWithIndex rows r cells).forward inRows)
+                          (rewrite <- columnSame, <- cellSame then (List.memWithIndex cells c x).forward inColumns)))),
     backward = found =>
       match found with
         | Witness cells (Both rowFound cellFound) =>
@@ -99,13 +99,13 @@ def List.transposeFill (rows: List (List a)) (fill: a): List (List a) :=
 theorem List.lengthLeMaxLength ∀ (rows: List (List a)) (r: Nat):
     List.length (List.getOr rows r []) ≤ List.maxLength rows :=
   match rows, r with
-    | [], r => rfl
-    | [x, ..xs], Zero => rewrite List.maxLengthCons xs x in Nat.leMaxLeft (List.length x) (List.maxLength xs)
+    | [], r => byComputing
+    | [x, ..xs], Zero => rewrite List.maxLengthCons xs x then Nat.leMaxLeft (List.length x) (List.maxLength xs)
     | [x, ..xs], Succ r =>
       calc List.length (List.getOr xs r [])
         _ ≤ List.maxLength xs := List.lengthLeMaxLength xs r
         _ ≤ Nat.max (List.length x) (List.maxLength xs) := Nat.leMaxRight (List.length x) (List.maxLength xs)
-        _ = List.maxLength [x, ..xs] := Eq.sym (List.maxLengthCons xs x)
+        _ = List.maxLength [x, ..xs] := (List.maxLengthCons xs x).flipped
 
 --| A row no longer than w, padded to w, is its first w cells read by index.
 theorem List.padRightGetOr ∀ (row: List a) (fill: a) (w: Nat)
@@ -113,7 +113,7 @@ theorem List.padRightGetOr ∀ (row: List a) (fill: a) (w: Nat)
     List.padRight row w fill = List.map (List.range 0 w) (c => List.getOr row c fill) :=
   calc List.padRight row w fill
     _ = List.map (List.range 0 (List.length (List.padRight row w fill))) (c =>
-        List.getOr (List.padRight row w fill) c fill) := Eq.sym (List.mapGetOr (List.padRight row w fill) fill)
+        List.getOr (List.padRight row w fill) c fill) := Eq.flipped (List.mapGetOr (List.padRight row w fill) fill)
     _ = List.map (List.range 0 w) (c => List.getOr (List.padRight row w fill) c fill) :=
       rewrite List.padRightLength row w fill h
     _ = List.map (List.range 0 w) (c => List.getOr row c fill) :=
@@ -128,7 +128,7 @@ theorem List.padRowsGetOr ∀ (rows: List (List a)) (fill: a) (w: Nat)
     List.map rows (row => List.padRight row w fill)
       = List.map rows (row => List.map (List.range 0 w) (c => List.getOr row c fill)) :=
   match rows with
-    | [] => rfl
+    | [] => byComputing
     | [row, ..rest] => rewrite List.padRightGetOr row fill w (h 0), List.padRowsGetOr rest fill w (r => h (Succ r))
 
 --| The whole result, column by column: column c is `getOr c fill` of every
@@ -137,7 +137,7 @@ theorem List.transposeFillColumns ∀ (rows: List (List a)) (fill: a):
     List.transposeFill rows fill
       = List.map (List.range 0 (List.maxLength rows)) (c => List.map rows (row => List.getOr row c fill)) :=
   match rows with
-    | [] => rfl
+    | [] => byComputing
     | [r, ..rs] =>
       calc List.transpose (List.map [r, ..rs] (row => List.padRight row (List.maxLength [r, ..rs]) fill))
         _ = List.transpose
@@ -184,9 +184,9 @@ theorem List.transposeFillCell ∀ (rows: List (List a)) (fill: a) (c r: Nat):
     | True =>
       calc List.getOr (List.getOr (List.transposeFill rows fill) c []) r fill
         _ = List.getOr [] r fill :=
-          rewrite List.getOrPast (List.transposeFill rows fill) c [] (rewrite List.lengthTransposeFill rows fill in t)
+          rewrite List.getOrPast (List.transposeFill rows fill) c [] (rewrite List.lengthTransposeFill rows fill then t)
         _ = List.getOr (List.getOr rows r []) c fill :=
-          Eq.sym
+          Eq.flipped
             (List.getOrPast
               (List.getOr rows r [])
               c
@@ -202,11 +202,11 @@ theorem List.transposeFillCell ∀ (rows: List (List a)) (fill: a) (c r: Nat):
 theorem List.lengthColumnTransposeFill ∀ (rows: List (List a)) (fill: a) (c: Nat)
     (h: c < List.maxLength rows):
     List.length (List.getOr (List.transposeFill rows fill) c []) = List.length rows :=
-  rewrite List.getOrTransposeFill rows fill c h in List.lengthMap rows (row => List.getOr row c fill)
+  rewrite List.getOrTransposeFill rows fill c h then List.lengthMap rows (row => List.getOr row c fill)
 
-theorem List.transposeFillExample: List.transposeFill [[1], [2, 3]] 0 = [[1, 2], [0, 3]] := rfl
+theorem List.transposeFillExample: List.transposeFill [[1], [2, 3]] 0 = [[1, 2], [0, 3]] := byComputing
 
-theorem List.maxLengthExample: List.maxLength [[1], [2, 3, 4], [5, 6]] = 3 := rfl
+theorem List.maxLengthExample: List.maxLength [[1], [2, 3, 4], [5, 6]] = 3 := byComputing
 
 test "transposeFill" := [[1, 2, 3], [4], [5, 6]].transposeFill 0 == [[1, 4, 5], [2, 0, 6], [3, 0, 0]]
 test "transposeFill, rectangular" := [[1, 2], [3, 4]].transposeFill 0 == [[1, 3], [2, 4]]

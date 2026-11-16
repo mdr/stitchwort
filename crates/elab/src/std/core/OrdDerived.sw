@@ -18,7 +18,7 @@ theorem Ordering.thenFlip ∀ [c d c2 d2: Ordering]
     (hc: c2 = Ordering.flip c)
     (hd: d2 = Ordering.flip d):
     Ordering.andThen c2 d2 = Ordering.flip (Ordering.andThen c d) :=
-  rewrite hc, hd in Eq.sym (Ordering.flipAndThen c d)
+  rewrite hc, hd then Eq.flipped (Ordering.flipAndThen c d)
 
 --| `Less` is transitive for a field compared by `cmp`, then the rest.
 theorem Ordering.thenTransBy ∀ (cmp: a → a → Ordering) (x y z: a) [r1 r2 r3: Ordering]
@@ -38,7 +38,7 @@ theorem Ordering.thenTransBy ∀ (cmp: a → a → Ordering) (x y z: a) [r1 r2 r
     r3
     t
     (e => Eq.cong (w => cmp w z) (exy e))
-    (e => Eq.sym (Eq.cong (w => cmp x w) (eyz e)))
+    (e => Eq.flipped (Eq.cong (w => cmp x w) (eyz e)))
     tr
     h1
     h2
@@ -59,7 +59,7 @@ theorem Ordering.tagsEqual ∀ (i j: Nat) (f: Ordering):
     (if Nat.equal i j then f else Nat.compare i j) = Equal → (i = j) ∧ (f = Equal) :=
   match t: Nat.equal i j with
     | True => h => Both (Nat.equalSound i j t) h
-    | False => h => Void.exfalso (Nat.equalFalse i j t (Nat.compareEqual i j h))
+    | False => h => Void.impossible (Nat.equalFalse i j t (Nat.compareEqual i j h))
 
 --| [`Ordering.tagsFlip`] with the tags' tests as variables `b` and `c`.
 theorem Ordering.tagsFlipBy ∀ (i j: Nat) (b c: Bool) (f g: Ordering)
@@ -69,8 +69,8 @@ theorem Ordering.tagsFlipBy ∀ (i j: Nat) (b c: Bool) (f g: Ordering)
     (if c then g else Nat.compare j i) = Ordering.flip (if b then f else Nat.compare i j) :=
   match b, c with
     | True, True => e (Nat.equalSound i j hb)
-    | True, False => Void.exfalso (Nat.equalFalse j i hc (Eq.sym (Nat.equalSound i j hb)))
-    | False, True => Void.exfalso (Nat.equalFalse i j hb (Eq.sym (Nat.equalSound j i hc)))
+    | True, False => Void.impossible (Nat.equalFalse j i hc (Nat.equalSound i j hb).flipped)
+    | False, True => Void.impossible (Nat.equalFalse i j hb (Nat.equalSound j i hc).flipped)
     | False, False => Nat.compareFlip i j
 
 --| Comparing the other way round, tags first: the fields' comparisons `f`
@@ -78,7 +78,7 @@ theorem Ordering.tagsFlipBy ∀ (i j: Nat) (b c: Bool) (f g: Ordering)
 theorem Ordering.tagsFlip ∀ (i j: Nat) (f g: Ordering)
     (e: i = j → g = Ordering.flip f):
     (if Nat.equal j i then g else Nat.compare j i) = Ordering.flip (if Nat.equal i j then f else Nat.compare i j) :=
-  Ordering.tagsFlipBy i j (Nat.equal i j) (Nat.equal j i) f g rfl rfl e
+  Ordering.tagsFlipBy i j (Nat.equal i j) (Nat.equal j i) f g byComputing byComputing e
 
 --| [`Ordering.tagsTrans`] with the tags' tests as variables `b`, `c` and `d`.
 theorem Ordering.tagsTransBy ∀ (i j k: Nat) (b c d: Bool) (f g h: Ordering)
@@ -92,18 +92,18 @@ theorem Ordering.tagsTransBy ∀ (i j k: Nat) (b c d: Bool) (f g h: Ordering)
   match b, c, d with
     | True, True, True => tr (Nat.equalSound i j hb) (Nat.equalSound j k hc) h1 h2
     | True, True, False =>
-      Void.exfalso (Nat.equalFalse i k hd (Eq.trans (Nat.equalSound i j hb) (Nat.equalSound j k hc)))
+      Void.impossible (Nat.equalFalse i k hd (Eq.trans (Nat.equalSound i j hb) (Nat.equalSound j k hc)))
     | True, False, True =>
-      Void.exfalso (Nat.equalFalse j k hc (Eq.trans (Eq.sym (Nat.equalSound i j hb)) (Nat.equalSound i k hd)))
-    | True, False, False => rewrite Nat.equalSound i j hb in h2
+      Void.impossible (Nat.equalFalse j k hc (Eq.trans (Nat.equalSound i j hb).flipped (Nat.equalSound i k hd)))
+    | True, False, False => rewrite Nat.equalSound i j hb then h2
     | False, True, True =>
-      Void.exfalso (Nat.equalFalse i j hb (Eq.trans (Nat.equalSound i k hd) (Eq.sym (Nat.equalSound j k hc))))
-    | False, True, False => rewrite Eq.sym (Nat.equalSound j k hc) in h1
+      Void.impossible (Nat.equalFalse i j hb (Eq.trans (Nat.equalSound i k hd) (Nat.equalSound j k hc).flipped))
+    | False, True, False => rewrite Eq.flipped (Nat.equalSound j k hc) then h1
     | False, False, True =>
       let less: Nat.compare i k = Less := Nat.compareTrans i j k h1 h2
       let equal: Nat.compare i k = Equal :=
-        Eq.trans (Eq.cong (x => Nat.compare i x) (Eq.sym (Nat.equalSound i k hd))) (Nat.compareSelf i)
-      Void.exfalso (Ordering.equalNotLess (Eq.trans (Eq.sym equal) less))
+        Eq.trans (Eq.cong (x => Nat.compare i x) (Nat.equalSound i k hd).flipped) (Nat.compareSelf i)
+      Void.impossible (Ordering.equalNotLess (Eq.trans equal.flipped less))
     | False, False, False => Nat.compareTrans i j k h1 h2
 
 --| `Less` is transitive for comparisons that compare tags first: the fields'
@@ -114,4 +114,16 @@ theorem Ordering.tagsTrans ∀ (i j k: Nat) (f g h: Ordering)
     (h1: (if Nat.equal i j then f else Nat.compare i j) = Less)
     (h2: (if Nat.equal j k then g else Nat.compare j k) = Less):
     (if Nat.equal i k then h else Nat.compare i k) = Less :=
-  Ordering.tagsTransBy i j k (Nat.equal i j) (Nat.equal j k) (Nat.equal i k) f g h rfl rfl rfl tr h1 h2
+  Ordering.tagsTransBy i j k
+    (Nat.equal i j)
+    (Nat.equal j k)
+    (Nat.equal i k)
+    f
+    g
+    h
+    byComputing
+    byComputing
+    byComputing
+    tr
+    h1
+    h2

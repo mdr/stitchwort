@@ -68,34 +68,34 @@ theorem Parse.operatorsFromOk ∀ (more depth: Nat) (what: Text) (levels: List (
       let same := Result.okInjective h
       let valueSame: left = value := Pair.mkInjectiveFst same
       let atSame: (state.note (Expected what)).at = after := Pair.mkInjectiveSnd same
-      Inl (Both (Eq.sym valueSame) (rewrite <- atSame in Parse.noteAt state (Expected what)))
+      Inl (Both valueSame.flipped (rewrite <- atSame then Parse.noteAt state (Expected what)))
     | [item, ..later] =>
       match found: Parse.operatorFrom item 0 levels with
         | None =>
           let same := Result.okInjective h
           let valueSame: left = value := Pair.mkInjectiveFst same
           let atSame: (state.note (Expected what)).at = after := Pair.mkInjectiveSnd same
-          Inl (Both (Eq.sym valueSame) (rewrite <- atSame in Parse.noteAt state (Expected what)))
+          Inl (Both valueSame.flipped (rewrite <- atSame then Parse.noteAt state (Expected what)))
         | Some (level, associativity, combine) =>
           match above: lowest <= level with
             | False =>
               let same := Result.okInjective h
               let valueSame: left = value := Pair.mkInjectiveFst same
               let atSame: (state.note (Expected what)).at = after := Pair.mkInjectiveSnd same
-              Inl (Both (Eq.sym valueSame) (rewrite <- atSame in Parse.noteAt state (Expected what)))
+              Inl (Both valueSame.flipped (rewrite <- atSame then Parse.noteAt state (Expected what)))
             | True =>
               match below: level <= highest with
                 | False =>
                   let same := Result.okInjective h
                   let valueSame: left = value := Pair.mkInjectiveFst same
                   let atSame: (state.note (Expected what)).at = after := Pair.mkInjectiveSnd same
-                  Inl (Both (Eq.sym valueSame) (rewrite <- atSame in Parse.noteAt state (Expected what)))
+                  Inl (Both valueSame.flipped (rewrite <- atSame then Parse.noteAt state (Expected what)))
                 | True =>
                   Inr
                     (Witness item
                       (Witness level
                         (Witness associativity
-                          (Witness combine (Both found (Both (omega [above]) (Both (omega [below]) h)))))))
+                          (Witness combine (Both found (Both (arithmetic [above]) (Both (arithmetic [below]) h)))))))
 
 --| [`Parse.operatorsFromOk`], saying also that the operator's item is the
 --| next one left.
@@ -124,28 +124,28 @@ theorem Parse.operatorsFromOkNext ∀ (more depth: Nat) (what: Text) (levels: Li
       let same := Result.okInjective h
       let valueSame: left = value := Pair.mkInjectiveFst same
       let atSame: (state.note (Expected what)).at = after := Pair.mkInjectiveSnd same
-      Inl (Both (Eq.sym valueSame) (rewrite <- atSame in Parse.noteAt state (Expected what)))
+      Inl (Both valueSame.flipped (rewrite <- atSame then Parse.noteAt state (Expected what)))
     | [item, ..later] =>
       match found: Parse.operatorFrom item 0 levels with
         | None =>
           let same := Result.okInjective h
           let valueSame: left = value := Pair.mkInjectiveFst same
           let atSame: (state.note (Expected what)).at = after := Pair.mkInjectiveSnd same
-          Inl (Both (Eq.sym valueSame) (rewrite <- atSame in Parse.noteAt state (Expected what)))
+          Inl (Both valueSame.flipped (rewrite <- atSame then Parse.noteAt state (Expected what)))
         | Some (level, associativity, combine) =>
           match above: lowest <= level with
             | False =>
               let same := Result.okInjective h
               let valueSame: left = value := Pair.mkInjectiveFst same
               let atSame: (state.note (Expected what)).at = after := Pair.mkInjectiveSnd same
-              Inl (Both (Eq.sym valueSame) (rewrite <- atSame in Parse.noteAt state (Expected what)))
+              Inl (Both valueSame.flipped (rewrite <- atSame then Parse.noteAt state (Expected what)))
             | True =>
               match below: level <= highest with
                 | False =>
                   let same := Result.okInjective h
                   let valueSame: left = value := Pair.mkInjectiveFst same
                   let atSame: (state.note (Expected what)).at = after := Pair.mkInjectiveSnd same
-                  Inl (Both (Eq.sym valueSame) (rewrite <- atSame in Parse.noteAt state (Expected what)))
+                  Inl (Both valueSame.flipped (rewrite <- atSame then Parse.noteAt state (Expected what)))
                 | True =>
                   Inr
                     (Witness item
@@ -153,7 +153,8 @@ theorem Parse.operatorsFromOkNext ∀ (more depth: Nat) (what: Text) (levels: Li
                         (Witness level
                           (Witness associativity
                             (Witness combine
-                              (Both rfl (Both found (Both (omega [above]) (Both (omega [below]) h)))))))))
+                              (Both byComputing
+                                (Both found (Both (arithmetic [above]) (Both (arithmetic [below]) h)))))))))
 
 --| `operatorsFrom` keeps an invariant of the values it builds: from a
 --| `left` that is `chain lowest highest` it gives a value that is `grouped
@@ -188,19 +189,19 @@ theorem Parse.readsOperatorsFrom ∀ [inv: Parse.Invariant t] (fine: t → Prop)
       let valueSame: left = value := Pair.mkInjectiveFst same
       let atSame: (state.note (Expected what)).at = after := Pair.mkInjectiveSnd same
       Witness []
-        (rewrite <- valueSame, <- atSame, Parse.noteAt state (Expected what) in
-          Both rfl (Both honest (finish lowest highest left holds))))
+        (rewrite <- valueSame, <- atSame, Parse.noteAt state (Expected what) then
+          Both byComputing (Both honest (finish lowest highest left holds))))
     | Succ more => Parse.readsInOfRuns (total state value after among honest h =>
       match Parse.operatorsFromOkNext more depth what levels count operand lowest highest left state value after h with
         | Inl (Both valueSame atSame) =>
-          Witness [] (rewrite valueSame, atSame in Both rfl (Both honest (finish lowest highest left holds)))
+          Witness [] (rewrite valueSame, atSame then Both byComputing (Both honest (finish lowest highest left holds)))
         | Inr
             (Witness item
               (Witness later
                 (Witness level
                   (Witness associativity (Witness combine (Both next (Both found (Both above (Both below ran))))))))) =>
           let remaining: inv.holds state.at.rest := among.holds
-          let fineItem: fine item := head item later (rewrite next at remaining in remaining)
+          let fineItem: fine item := head item later (rewrite next at remaining then remaining)
           let readsTried: Parse.ReadsIn inv
             (() =>
               Parse.optional (() =>
@@ -229,7 +230,7 @@ theorem Parse.readsOperatorsFrom ∀ [inv: Parse.Invariant t] (fine: t → Prop)
                             holds facts))
                     (taken value isGrouped => isGrouped)
                 | None => Parse.readsDone left _ (finish lowest highest left holds))
-          readsRound state.at among total state value after rfl honest ran)
+          readsRound state.at among total state value after byComputing honest ran)
 
 --| `operandsFrom` gives a value that is `grouped lowest`, from operands
 --| that are each `atom`: an operand alone starts a chain (`start`), and
@@ -343,10 +344,12 @@ theorem Parse.readsOperatorsFromLeft ∀ [inv: Parse.Invariant t] (what: Text) (
       let same := Result.okInjective h
       let valueSame: left = value := Pair.mkInjectiveFst same
       let atSame: (state.note (Expected what)).at = after := Pair.mkInjectiveSnd same
-      Witness [] (rewrite <- valueSame, <- atSame, Parse.noteAt state (Expected what) in Both rfl (Both honest holds)))
+      Witness []
+        (rewrite <- valueSame, <- atSame, Parse.noteAt state (Expected what) then Both byComputing (Both honest holds)))
     | Succ more => Parse.readsInOfRuns (total state value after fine honest h =>
       match Parse.operatorsFromOk more depth what levels count operand lowest highest left state value after h with
-        | Inl (Both valueSame atSame) => Witness [] (rewrite valueSame, atSame in Both rfl (Both honest holds))
+        | Inl (Both valueSame atSame) =>
+          Witness [] (rewrite valueSame, atSame then Both byComputing (Both honest holds))
         | Inr
             (Witness item
               (Witness level (Witness associativity (Witness combine (Both found (Both above (Both below ran))))))) =>
@@ -375,7 +378,7 @@ theorem Parse.readsOperatorsFromLeft ∀ [inv: Parse.Invariant t] (what: Text) (
                       (keep level associativity combine item left right found holds))
                     (taken value isKept => isKept)
                 | None => Parse.readsDone left _ holds)
-          readsRound state.at fine total state value after rfl honest ran)
+          readsRound state.at fine total state value after byComputing honest ran)
 
 --| `operandsFrom` reads its first operand first and builds on it: what
 --| it read starts with what that operand read (`first` of it), and the
@@ -395,12 +398,13 @@ theorem Parse.readsOperandsFromLeft ∀ [inv: Parse.Invariant t] (what: Text) (l
         ∧ kept start value) :=
   match depth with
     | Zero => Parse.readsThen readsOperand (firstRead start isFirst =>
-      Parse.readsDone start _ (Witness firstRead (Witness [] (Witness start (Both rfl (Both isFirst (same start)))))))
+      Parse.readsDone start _
+        (Witness firstRead (Witness [] (Witness start (Both byComputing (Both isFirst (same start)))))))
     | Succ inner => Parse.readsThen readsOperand (firstRead start isFirst =>
       match within: lowest < count with
         | False =>
           Parse.readsDone start _
-            (Witness firstRead (Witness [] (Witness start (Both rfl (Both isFirst (same start))))))
+            (Witness firstRead (Witness [] (Witness start (Both byComputing (Both isFirst (same start))))))
         | True =>
           Parse.readsThen
             [j := at => Parse.operatorsFrom (at.left + 1) inner what levels count operand lowest (count - 1) start]
@@ -422,12 +426,12 @@ theorem Parse.readsOperandsFromLeft ∀ [inv: Parse.Invariant t] (what: Text) (l
                       (value => True)
                       (level value => True)
                       (level highest value => True)
-                      (Parse.readsWeaken readsOperand (taken value any => rfl))
-                      (level highest value any => rfl)
-                      (level highest value any => rfl)
+                      (Parse.readsWeaken readsOperand (taken value any => byComputing))
+                      (level highest value any => byComputing)
+                      (level highest value any => byComputing)
                       (level highest found associativity combine item left right isFine isOperator above below one other
                           =>
-                        rfl)
+                        byComputing)
                       inner
                       nested)
                   (at.left + 1)
@@ -436,7 +440,8 @@ theorem Parse.readsOperandsFromLeft ∀ [inv: Parse.Invariant t] (what: Text) (l
                   start
                   (same start))
                 (taken value isKept =>
-                  Witness firstRead (Witness (markRead ++ taken) (Witness start (Both rfl (Both isFirst isKept)))))))
+                  Witness firstRead
+                    (Witness (markRead ++ taken) (Witness start (Both byComputing (Both isFirst isKept)))))))
 
 --| `Parse.operators` reads its first operand first and builds on it:
 --| what it read starts with what that operand read, and whatever `kept`
@@ -462,7 +467,7 @@ theorem Parse.readsOperatorsLeft ∀ [inv: Parse.Invariant t] (what: Text) (leve
   Parse.readsThen Parse.readsMark (markRead at none =>
     Parse.readsWeaken
       (Parse.readsOperandsFromLeft what levels levels.length operand first kept readsOperand same keep (at.left + 1) 0)
-      (taken value found => rewrite none in found))
+      (taken value found => rewrite none then found))
 
 --| [`Parse.readsOperators`] under [`Parse.Invariant.every`] `fine`: the value is `grouped 0`
 --| when every operand is `atom`, an atom is a chain (`start`), a chain is

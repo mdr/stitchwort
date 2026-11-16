@@ -15,7 +15,7 @@ theorem Parse.readsLocated ∀ [inv: Parse.Invariant Char] (p: () → {Parse Cha
         Parse.readsDone
           { value, offset = start.offset, length = finish.offset - start.offset }
           (read located => spec (startRead ++ (firstRead ++ (finishRead ++ read))) located.value)
-          (rewrite startFacts, finishFacts, List.appendNil firstRead in firstFacts))))
+          (rewrite startFacts, finishFacts, List.appendNil firstRead then firstFacts))))
 
 --| `Parse.tokens` gave a value: lexing all of the input gave the tokens
 --| (`Parse.all`'s success), and the parser read all of them.
@@ -27,12 +27,12 @@ theorem Parse.tokensOk ∀ (input: Text) (lexer: () → {Parse Char} List (Parse
   match e: Fail.toResult (() => Parse.all input lexer) with
     | Ok tokens =>
       Witness tokens
-        (Both rfl
+        (Both byComputing
           (Parse.runnerOk tokens parser
             (Parse.tokensMessage input.toList tokens)
             value
-            (rewrite Fail.toResultThen _ _, e at h in h)))
-    | Err message => Void.exfalso (Result.errNotOk (rewrite Fail.toResultThen _ _, e at h in h))
+            (rewrite Fail.toResultThen _ _, e at h then h)))
+    | Err message => Void.impossible (Result.errNotOk (rewrite Fail.toResultThen _ _, e at h then h))
 
 --| `Parse.tokens` gave a value: the input is what the lexer read followed by
 --| line breaks only, the lexer's reading (`lexSpec`) holds of it and the
@@ -105,12 +105,12 @@ theorem Parse.locatedToEndFromReads ∀ [inv: Parse.Invariant Char]
           let valueSame: found.reverse = value := Pair.mkInjectiveFst same
           let atSame: (state.note (Expected "a token")).at = after := Pair.mkInjectiveSnd same
           Witness []
-            (Both rfl
+            (Both byComputing
               (Both
-                (rewrite <- atSame, Parse.noteAt state (Expected "a token") in e)
+                (rewrite <- atSame, Parse.noteAt state (Expected "a token") then e)
                 (Both
-                  (rewrite <- atSame, Parse.noteAt state (Expected "a token") in omega [honest.left])
-                  (Both (rewrite <- valueSame, List.appendNil found.reverse in rfl) rfl))))
+                  (rewrite <- atSame, Parse.noteAt state (Expected "a token") then arithmetic [honest.left])
+                  (Both (rewrite <- valueSame, List.appendNil found.reverse then byComputing) byComputing))))
         | [char, ..chars] =>
           match Parse.runFromThenOk2
             (() => lexeme state.at.rest)
@@ -120,7 +120,7 @@ theorem Parse.locatedToEndFromReads ∀ [inv: Parse.Invariant Char]
             (value, after)
             h with
             | Witness v (Witness middle (Both ran rest)) =>
-              match reads state.at fine total state v middle.at rfl honest ran with
+              match reads state.at fine total state v middle.at byComputing honest ran with
                 | Witness read1 (Both starts1 (Both honest1 holds1)) =>
                   let newest: Parse.Located a :=
                     { value = v, offset = state.at.offset, length = middle.at.offset - state.at.offset }
@@ -132,32 +132,32 @@ theorem Parse.locatedToEndFromReads ∀ [inv: Parse.Invariant Char]
                     value
                     after
                     rest with
-                    | Inr (Both isFalse noRun) => Void.exfalso (Result.errNotOk noRun)
+                    | Inr (Both isFalse noRun) => (Result.errNotOk noRun).impossible
                     | Inl (Both isTrue yesRun) =>
                       let lengths: state.at.rest.length = read1.length + middle.at.rest.length :=
-                        rewrite starts1 in List.lengthAppend read1 middle.at.rest
+                        rewrite starts1 then List.lengthAppend read1 middle.at.rest
                       let sameLength: middle.at.offset - state.at.offset = read1.length :=
-                        omega [honest.left, honest.right, honest1.left, honest1.right, lengths, isTrue]
+                        arithmetic [honest.left, honest.right, honest1.left, honest1.right, lengths, isTrue]
                       let offsetSame: middle.at.offset = state.at.offset + read1.length :=
-                        omega [honest.left, honest.right, honest1.left, honest1.right, lengths, isTrue]
+                        arithmetic [honest.left, honest.right, honest1.left, honest1.right, lengths, isTrue]
                       let nonEmpty: read1 ≠ [] := isNil =>
-                        let zero: read1.length = 0 := rewrite isNil in rfl
-                        omega [zero, sameLength, isTrue]
+                        let zero: read1.length = 0 := rewrite isNil then byComputing
+                        arithmetic [zero, sameLength, isTrue]
                       match Parse.locatedToEndFromReads lexeme spec reads more
                         [newest, ..found]
                         total
                         middle
                         value
                         after
-                        (fine.after (rewrite <- e in starts1))
+                        (fine.after (rewrite <- e then starts1))
                         honest1
-                        (omega [enough, honest.left, honest.right, honest1.left, honest1.right, isTrue, lengths])
+                        (arithmetic [enough, honest.left, honest.right, honest1.left, honest1.right, isTrue, lengths])
                         yesRun with
                         | Witness steps (Both joined (Both empty (Both zeroLeft (Both valueSame lexemes)))) =>
                           Witness
                             [(read1, v), ..steps]
                             (Both
-                              (rewrite <- joined in starts1)
+                              (rewrite <- joined then starts1)
                               (Both empty
                                 (Both zeroLeft
                                   (Both
@@ -167,9 +167,9 @@ theorem Parse.locatedToEndFromReads ∀ [inv: Parse.Invariant Char]
                                           [newest]
                                           (Parse.locatedSteps middle.at.offset steps),
                                         sameLength,
-                                        offsetSame in
-                                      rfl)
-                                    (Both nonEmpty (Both (rewrite <- joined, <- starts1 in holds1) lexemes))))))
+                                        offsetSame then
+                                      byComputing)
+                                    (Both nonEmpty (Both (rewrite <- joined, <- starts1 then holds1) lexemes))))))
 
 --| `locatedToEnd lexeme` succeeded, from an honest state where `inv` holds
 --| of the input left: it read all that was left, lexeme by lexeme
@@ -189,7 +189,17 @@ theorem Parse.locatedToEndReads ∀ [inv: Parse.Invariant Char]
       ∧ after.left = 0
       ∧ value = Parse.locatedSteps state.at.offset steps
       ∧ Parse.LexemesRead spec steps :=
-  Parse.locatedToEndFromReads lexeme spec reads (state.at.left + 1) [] total state value after fine honest (omega []) h
+  Parse.locatedToEndFromReads lexeme spec reads
+    (state.at.left + 1)
+    []
+    total
+    state
+    value
+    after
+    fine
+    honest
+    (arithmetic [])
+    h
 
 --| `all input (() => locatedToEnd lexeme)` gave `found`: the input is what
 --| the steps read, one after another, `found` is their values with where
@@ -234,20 +244,20 @@ theorem Parse.allLocatedToEnd ∀ [inv: Parse.Invariant Char] (input: Text)
                 v0
                 mid0.at
                 fits
-                (Both rfl (omega []))
+                (Both byComputing (arithmetic []))
                 ran0 with
                 | Witness steps (Both joined (Both empty (Both zeroLeft (Both valueSame lexemes)))) =>
-                  let honest0: mid0.at.left = mid0.at.rest.length := rewrite empty, zeroLeft in rfl
+                  let honest0: mid0.at.left = mid0.at.rest.length := rewrite empty, zeroLeft then byComputing
                   let startsEnd: input.toList = Parse.joinReads steps ++ mid0.at.rest :=
-                    rewrite empty, List.appendNil (Parse.joinReads steps) in joined
+                    rewrite empty, List.appendNil (Parse.joinReads steps) then joined
                   let fitsEnd: Parse.Fits Char inv mid0.at.rest := fits.after startsEnd
                   match Parse.readsFinalLineBreaks v0 mid0.at fitsEnd
                     (mid0.at.offset + mid0.at.left)
                     mid0
                     v
                     middle.at
-                    rfl
+                    byComputing
                     (Parse.honestOf honest0)
                     rest0 with
                     | Witness read (Both starts (Both honestAfter (Both breaks same2))) =>
-                      Witness steps (Both joined (Both (rewrite <- same, same2 in valueSame) lexemes))
+                      Witness steps (Both joined (Both (rewrite <- same, same2 then valueSame) lexemes))

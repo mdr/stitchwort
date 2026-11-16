@@ -60,5 +60,5 @@ def Void.absurd: (v: Void) → a
 
 --| From a proof of `Void`, any proposition follows. (Without universe
 --| polymorphism, [`Void.absurd`]'s `a` can only be a type of data.)
-def Void.exfalso: [p: Prop] → (v: Void) → p
+def Void.impossible: [p: Prop] → (v: Void) → p
   | ()

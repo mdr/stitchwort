@@ -16,11 +16,11 @@ def NonEmptyList.unionAll [auto ord: Ord k] (sets: NonEmptyList (Set k)): Set k 
 
 theorem NonEmptyList.intersectAllReduce ∀ [auto ord: Ord k] (sets: NonEmptyList (Set k)):
     sets.intersectAll = sets.reduce Set.intersect :=
-  rfl
+  byComputing
 
 theorem NonEmptyList.unionAllReduce ∀ [auto ord: Ord k] (sets: NonEmptyList (Set k)):
     sets.unionAll = sets.reduce Set.union :=
-  rfl
+  byComputing
 
 --| The intersection holds what every set holds.
 theorem NonEmptyList.containsIntersectAll ∀ [auto ord: Ord k] (sets: NonEmptyList (Set k)) (key: k):
@@ -34,9 +34,10 @@ theorem NonEmptyList.containsUnionAll ∀ [auto ord: Ord k] (sets: NonEmptyList 
 
 theorem NonEmptyList.singletonIntersectAll ∀ [auto ord: Ord k] (s: Set k):
     (NonEmptyList.singleton s).intersectAll = s :=
-  rfl
+  byComputing
 
-theorem NonEmptyList.singletonUnionAll ∀ [auto ord: Ord k] (s: Set k): (NonEmptyList.singleton s).unionAll = s := rfl
+theorem NonEmptyList.singletonUnionAll ∀ [auto ord: Ord k] (s: Set k): (NonEmptyList.singleton s).unionAll = s :=
+  byComputing
 
 test "NonEmptyList.intersectAll, unionAll" :=
   let a := Set.fromList [1, 2, 3]

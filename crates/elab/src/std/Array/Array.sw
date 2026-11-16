@@ -150,9 +150,9 @@ instance Array.instShow [auto show: Show a]: Show (Array a) :=
 
 --| Lists that agree at every index are equal (past the end, both give `None`).
 theorem List.extGet ∀ (xs ys: List a) (h: ∀ (i: Nat) => List.get xs i = List.get ys i): xs = ys := match xs, ys with
-  | [], [] => rfl
-  | [], [y, ..ys] => Void.exfalso (Option.noneNotSome y (h 0))
-  | [x, ..xs], [] => Void.exfalso (Option.noneNotSome x (Eq.sym (h 0)))
+  | [], [] => byComputing
+  | [], [y, ..ys] => Void.impossible (Option.noneNotSome y (h 0))
+  | [x, ..xs], [] => Void.impossible (Option.noneNotSome x (h 0).flipped)
   | [x, ..xs], [y, ..ys] =>
     Eq.trans
       (Eq.cong (z => [z, ..xs]) (Option.someInjective (h 0)))
@@ -163,17 +163,17 @@ theorem Array.ext ∀ (a b: Array t) (h: ∀ (i: Nat) => a.get i = b.get i): a =
   Array.toListInjective a b (List.extGet a.toList b.toList h)
 
 --| `toList` of the array of a list is the list.
-theorem Array.toListFromList ∀ (xs: List a): (Array.fromList xs).toList = xs := rfl
+theorem Array.toListFromList ∀ (xs: List a): (Array.fromList xs).toList = xs := byComputing
 
 --| `List.toArray` and `toList` are inverse.
-theorem Array.toListToArray ∀ (xs: List a): xs.toArray.toList = xs := rfl
+theorem Array.toListToArray ∀ (xs: List a): xs.toArray.toList = xs := byComputing
 
 --| The array of an array's list is the array.
 theorem Array.fromListToList ∀ (array: Array a): Array.fromList array.toList = array := match array with
-  | { toList = xs } => rfl
+  | { toList = xs } => byComputing
 
 --| The size is the list's length.
-theorem Array.sizeToList ∀ (array: Array a): array.size = List.length array.toList := rfl
+theorem Array.sizeToList ∀ (array: Array a): array.size = List.length array.toList := byComputing
 
 --| `getLt` finds what `get` finds.
 theorem Array.getLtGet ∀ (array: Array a) (i: Nat)
@@ -213,15 +213,15 @@ theorem Array.getOrSetOther ∀ (array: Array a) (i: Nat) (v: a) (j: Nat) (d: a)
     (Array.getOrGet (array.set i v) j d)
     (Eq.trans
       (Eq.cong (o => Option.getOrElse o d) (Array.getSetOther array i v j h))
-      (Eq.sym (Array.getOrGet array j d)))
+      (Array.getOrGet array j d).flipped)
 
 --| Past the end, `set` leaves the array unchanged.
 theorem Array.setPast ∀ (array: Array a) (i: Nat) (v: a) (h: array.size ≤ i): array.set i v = array :=
   Array.ext (array.set i v) array (j =>
     if same: j = i then
       Eq.trans
-        (Array.getPast (array.set i v) j (rewrite Array.sizeSet array i v in rewrite same in h))
-        (Eq.sym (Array.getPast array j (rewrite same in h)))
+        (Array.getPast (array.set i v) j (rewrite Array.sizeSet array i v then rewrite same then h))
+        (Eq.flipped (Array.getPast array j (rewrite same then h)))
     else Array.getSetOther array i v j same)
 
 --| `push` adds one to the size.
@@ -234,19 +234,19 @@ theorem Array.getPush ∀ (array: Array a) (v: a) (i: Nat) (h: i < array.size): 
 
 --| After a `push`, the last element is the new one.
 theorem Array.getPushLast ∀ (array: Array a) (v: a): (array.push v).get array.size = Some v :=
-  rewrite List.getAppendRight array.toList [v] array.size (Nat.leRefl array.size) in
-    rewrite Nat.subSelf array.size in rfl
+  rewrite List.getAppendRight array.toList [v] array.size (Nat.leRefl array.size) then
+    rewrite Nat.subSelf array.size then byComputing
 
 --| `pop` undoes `push`.
 theorem Array.popPush ∀ (array: Array a) (v: a): (array.push v).pop = Some (array, v) :=
-  rewrite List.reverseSnoc array.toList v in
-    rewrite List.reverseReverse array.toList in rewrite Array.fromListToList array in rfl
+  rewrite List.reverseSnoc array.toList v then
+    rewrite List.reverseReverse array.toList then rewrite Array.fromListToList array then byComputing
 
 --| `modify` keeps the size.
 theorem Array.sizeModify ∀ (array: Array a) (i: Nat) (f: a → a): (array.modify i f).size = array.size :=
   match h: array.get i with
     | Some x => Array.sizeSet array i (f x)
-    | None => rfl
+    | None => byComputing
 
 --| `replicate` has `count` elements.
 theorem Array.sizeReplicate ∀ (count: Nat) (x: a): (Array.replicate count x).size = count :=
@@ -266,7 +266,7 @@ theorem Array.getMap ∀ (array: Array a) (f: a → b) (i: Nat): (array.map f).g
 --| `foldLeft` is the list's.
 theorem Array.foldLeftToList ∀ (array: Array a) (initial: b) (f: b → a → b):
     array.foldLeft initial f = List.foldLeft array.toList initial f :=
-  rfl
+  byComputing
 
 --| The vector of an array has the array's elements.
 theorem Array.toVecToList ∀ (array: Array a): Vec.toList array.toVec = array.toList := Vec.toListFromList array.toList

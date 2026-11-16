@@ -60,7 +60,8 @@ instance Path.instShow: Show Path := Show.fromText Path.show
 
 --| Two paths are equal when their parts and their absoluteness are.
 theorem Path.ext ∀ (p q: Path) (sameParts: p.parts = q.parts) (sameAbsolute: p.absolute = q.absolute): p = q :=
-  match p, q with | { parts = a, absolute = x }, { parts = b, absolute = y } => rewrite sameParts, sameAbsolute in rfl
+  match p, q with
+    | { parts = a, absolute = x }, { parts = b, absolute = y } => rewrite sameParts, sameAbsolute then byComputing
 
 --| `name` inside the folder `path`: `notes.child "today.txt"` is
 --| `notes/today.txt`. The name is added as one part, as written
@@ -72,7 +73,7 @@ theorem Path.ext ∀ (p q: Path) (sameParts: p.parts = q.parts) (sameAbsolute: p
 def Path.child (path: Path) (name: Text): Path := { parts = path.parts ++ [name], absolute = path.absolute }
 
 --| A child's parts are the folder's with the name after them.
-theorem Path.childParts ∀ (path: Path) (name: Text): (path.child name).parts = path.parts ++ [name] := rfl
+theorem Path.childParts ∀ (path: Path) (name: Text): (path.child name).parts = path.parts ++ [name] := byComputing
 
 --| `other` inside the folder `path`, if `other` is relative: `src.childPath
 --| "Day05/Main.sw".toPath` is `src/Day05/Main.sw`. An absolute `other`
@@ -85,11 +86,11 @@ def Path.childPath (path other: Path): Path :=
 theorem Path.childPathParts ∀ (path other: Path)
     (relative: other.absolute = False):
     (path.childPath other).parts = path.parts ++ other.parts :=
-  rewrite relative in rfl
+  rewrite relative then byComputing
 
 --| An absolute path is its own place, whatever folder it is put under.
 theorem Path.childPathAbsolute ∀ (path other: Path) (absolute: other.absolute = True): path.childPath other = other :=
-  rewrite absolute in rfl
+  rewrite absolute then byComputing
 
 --| The last part, if there is one: `today.txt` for `notes/today.txt`.
 def Path.name (path: Path): Option Text := path.parts.last
@@ -329,44 +330,44 @@ def Files.tracing (prog: () → {Files | e} a): {Files | e} (List FileOp, a) :=
       | Files.info path, k => seen => k (Files.info path) (seen ++ [Infos path])
   run []
 
--- Laws. A handled computation computes, so each holds by `rfl` or after one
+-- Laws. A handled computation computes, so each holds by `byComputing` or after one
 -- rewrite: they are what a proof about a file loop is built from.
 
-theorem Files.simulatePure ∀ (disk: Disk) (x: a): Files.simulate disk (() => x) = (disk, x) := rfl
+theorem Files.simulatePure ∀ (disk: Disk) (x: a): Files.simulate disk (() => x) = (disk, x) := byComputing
 
 theorem Files.simulateRead ∀ (disk: Disk) (path: Path):
     Files.simulate disk (() => Files.read path) = (disk, disk.read path) :=
-  rfl
+  byComputing
 
 theorem Files.simulateList ∀ (disk: Disk) (path: Path):
     Files.simulate disk (() => Files.list path) = (disk, disk.list path) :=
-  rfl
+  byComputing
 
 theorem Files.simulateInfo ∀ (disk: Disk) (path: Path):
     Files.simulate disk (() => Files.info path) = (disk, disk.info path) :=
-  rfl
+  byComputing
 
 --| A write the disk allows changes it, and gives `Ok ()`.
 theorem Files.simulateWriteOk ∀ (disk after: Disk) (path: Path) (text: Text)
     (allowed: disk.write path text = Ok after):
     Files.simulate disk (() => Files.write (path, text)) = (after, Ok ()) :=
-  rewrite allowed in rfl
+  rewrite allowed then byComputing
 
 --| A write the disk refuses leaves it as it was, and gives the error.
 theorem Files.simulateWriteErr ∀ (disk: Disk) (path: Path) (text: Text) (error: FileError)
     (refused: disk.write path text = Err error):
     Files.simulate disk (() => Files.write (path, text)) = (disk, Err error) :=
-  rewrite refused in rfl
+  rewrite refused then byComputing
 
 --| A read, then the rest of the program: the rest runs on the read's reply.
 theorem Files.simulateReadThen ∀ (disk: Disk) (path: Path) (rest: Result Text FileError → {Files} a):
     Files.simulate disk (() => rest (Files.read path)) = Files.simulate disk (() => rest (disk.read path)) :=
-  rfl
+  byComputing
 
 --| A program that makes no operation leaves an empty trace.
 theorem Files.tracingPure ∀ (disk: Disk) (x: a):
     Files.simulate disk (() => Files.tracing (() => x)) = (disk, ([], x)) :=
-  rfl
+  byComputing
 
 test "tracing lists each operation in order and changes nothing" :=
   let disk := Disk.fromList [("a.txt".toPath, "x")]

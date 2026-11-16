@@ -3,7 +3,7 @@
 --| (`Ring.NExpr`, `Ring.ZExpr`); `poly` turns it into a polynomial in a normal
 --| form; and [`Ring.proveNat`] / [`Ring.proveInt`] (std/Ring/Sound.sw) say that
 --| two sides with the same normal form are equal, in every environment. The
---| compiler's `ring` writes the syntax and applies the theorem to `rfl`, so
+--| compiler's `algebra` writes the syntax and applies the theorem to `byComputing`, so
 --| the kernel checks the equation by running `poly` on both sides. Nothing
 --| here is trusted beyond the kernel.
 --|
@@ -43,7 +43,7 @@ def Ring.intAt: (xs: List Int) → (i: Nat) → Int
   | [x, ..xs], Zero => x
   | [x, ..xs], Succ i => Ring.intAt xs i
 
---| A quoted `Nat` side of an equation, as `ring` reads it. Each node means what the surface syntax computes to,
+--| A quoted `Nat` side of an equation, as `algebra` reads it. Each node means what the surface syntax computes to,
 --| so a quoted side converts with the side it quotes: `NSucc` is `Succ`,
 --| which `x + 1` and `1 + x` compute to, and `NMul` is `Nat.mul`.
 type Ring.NExpr: Type =
@@ -62,7 +62,7 @@ def Ring.NExpr.eval (env: Ring.Env): (expr: Ring.NExpr) → Nat
   | NMul a b => Ring.NExpr.eval env a * Ring.NExpr.eval env b
   | NSucc a => Succ (Ring.NExpr.eval env a)
 
---| A quoted `Int` side of an equation, as `ring` reads it. `ZOfNat e` is a `Nat` side embedded (`OfNat`), which
+--| A quoted `Int` side of an equation, as `algebra` reads it. `ZOfNat e` is a `Nat` side embedded (`OfNat`), which
 --| is what `x.toInt` and `Int` arithmetic on `OfNat`s compute to, and
 --| `ZNegSucc e` is `-(e + 1)`.
 type Ring.ZExpr: Type =
@@ -87,13 +87,13 @@ def Ring.ZExpr.eval (env: Ring.Env): (expr: Ring.ZExpr) → Int
   | ZOfNat e => OfNat (Ring.NExpr.eval env e)
   | ZNegSucc e => NegSucc (Ring.NExpr.eval env e)
 
---| Hypotheses for `ring [h1, h2]`: each a pair of sides `MkPair l r` with
+--| Hypotheses for `algebra [h1, h2]`: each a pair of sides `MkPair l r` with
 --| `l = r`, as `Both h1 (Both h2 Trivial)`.
 def Ring.NExpr.allHold (env: Ring.Env): (pairs: List (Pair Ring.NExpr Ring.NExpr)) → Prop
   | [] => Unit
   | [MkPair l r, ..hs] => (Ring.NExpr.eval env l = Ring.NExpr.eval env r) ∧ (Ring.NExpr.allHold env hs)
 
---| `Int` hypotheses for `ring [h1, h2]`: each a pair of sides `MkPair l r` with `l = r`.
+--| `Int` hypotheses for `algebra [h1, h2]`: each a pair of sides `MkPair l r` with `l = r`.
 def Ring.ZExpr.allHold (env: Ring.Env): (pairs: List (Pair Ring.ZExpr Ring.ZExpr)) → Prop
   | [] => Unit
   | [MkPair l r, ..hs] => (Ring.ZExpr.eval env l = Ring.ZExpr.eval env r) ∧ (Ring.ZExpr.allHold env hs)
@@ -243,41 +243,41 @@ def Ring.ZExpr.poly: (expr: Ring.ZExpr) → List Ring.Mono
   | ZNegSucc e => Ring.neg (Ring.add (Ring.NExpr.poly e) (Ring.const (OfNat 1)))
 
 -- Unit tests. Library types have no derived `==`, so the normal forms are
--- checked as `rfl` examples (the kernel computes both sides), and the parts
+-- checked as `byComputing` examples (the kernel computes both sides), and the parts
 -- that return numbers and lists of numbers as tests.
 
 --| `Nat` atoms 0 and 1 are variables 0 and 2.
 theorem Ring.polyAddCommExample: Ring.NExpr.poly (NAdd (NAtom 0) (NAtom 1))
       = Ring.NExpr.poly (NAdd (NAtom 1) (NAtom 0)) :=
-  rfl
+  byComputing
 
-theorem Ring.polyMulExample: Ring.NExpr.poly (NMul (NAtom 1) (NAtom 0)) = [MkMono (OfNat 1) [0, 2]] := rfl
+theorem Ring.polyMulExample: Ring.NExpr.poly (NMul (NAtom 1) (NAtom 0)) = [MkMono (OfNat 1) [0, 2]] := byComputing
 
 theorem Ring.polySquareExample: Ring.NExpr.poly (NMul (NSucc (NAtom 0)) (NSucc (NAtom 0)))
       = [MkMono (OfNat 1) [], MkMono (OfNat 2) [0], MkMono (OfNat 1) [0, 0]] :=
-  rfl
+  byComputing
 
 theorem Ring.polyLikeTermsExample: Ring.NExpr.poly (NAdd (NAtom 0) (NAdd (NNum 2) (NAtom 0)))
       = [MkMono (OfNat 2) [], MkMono (OfNat 2) [0]] :=
-  rfl
+  byComputing
 
 --| Zero is the empty list, however it comes about.
-theorem Ring.polyZeroExample: Ring.NExpr.poly (NMul (NNum 0) (NAtom 0)) = [] := rfl
+theorem Ring.polyZeroExample: Ring.NExpr.poly (NMul (NNum 0) (NAtom 0)) = [] := byComputing
 
-theorem Ring.polySubSelfExample: Ring.ZExpr.poly (ZSub (ZAtom 0) (ZAtom 0)) = [] := rfl
+theorem Ring.polySubSelfExample: Ring.ZExpr.poly (ZSub (ZAtom 0) (ZAtom 0)) = [] := byComputing
 
 theorem Ring.polyNegSuccExample: Ring.ZExpr.poly (ZNeg (ZOfNat (NSucc (NAtom 0))))
       = Ring.ZExpr.poly (ZNegSucc (NAtom 0)) :=
-  rfl
+  byComputing
 
 --| A `Nat` atom under `OfNat` is variable `2 * i`, an `Int` atom `2 * j + 1`.
 theorem Ring.polyAtomsExample: Ring.ZExpr.poly (ZAdd (ZOfNat (NAtom 3)) (ZAtom 3))
       = [MkMono (OfNat 1) [6], MkMono (OfNat 1) [7]] :=
-  rfl
+  byComputing
 
 theorem Ring.polySquaresExample: Ring.ZExpr.poly (ZMul (ZAdd (ZAtom 0) (ZAtom 1)) (ZSub (ZAtom 0) (ZAtom 1)))
       = Ring.ZExpr.poly (ZSub (ZMul (ZAtom 0) (ZAtom 0)) (ZMul (ZAtom 1) (ZAtom 1))) :=
-  rfl
+  byComputing
 
 test "poly: different polynomials have different values somewhere" :=
   Ring.Poly.eval (MkEnv [3] []) (Ring.NExpr.poly (NMul (NAtom 0) (NNum 2)))

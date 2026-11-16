@@ -34,8 +34,8 @@ test "id" := id 3 == 3 ∧ id True == True
 theorem Bool.inspect ∀ (b: Bool) (motive: Bool → Prop) (t: b = True → motive True) (f: b = False → motive False):
     motive b :=
   match b, motive with
-    | True, m => t rfl
-    | False, m => f rfl
+    | True, m => t byComputing
+    | False, m => f byComputing
 
 --| 1 for `True`, 0 for `False`.
 def Bool.toNat: (b: Bool) → Nat
