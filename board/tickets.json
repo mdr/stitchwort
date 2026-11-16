@@ -1,5 +1,5 @@
 {
-  "next": 3634,
+  "next": 3635,
   "tickets": [
     {
       "id": 47,
@@ -40630,12 +40630,12 @@
     {
       "id": 3618,
       "title": "[Sonnet] REPL syntax colouring (Matt, 16 Nov 2026: 'consider syntax coloring for expressions ... code in the REPL'): colour input as it's typed via rustyline's Highlighter, from our lexer's tokens with the same categories the LSP's semantic tokens use (keywords, literals, types/constructors, operators, comments); also colour printed values and their types; off under --color=never/NO_COLOR. After SW-3614 (same file)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "\n\n\nProgress: REPL colouring done on lane/SW-3618 (e99acb6e4): lexical classes in driver::marks, helper in cli repl_color.rs; tests pass; capture in scratch sw3618.\n",
+      "body": "\n\n\nProgress: REPL colouring done on lane/SW-3618 (e99acb6e4): lexical classes in driver::marks, helper in cli repl_color.rs; tests pass; capture in scratch sw3618.\n\nModel result: sonnet, worked, 5 min (est. 35). Follow-ups SW-3634.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40825,6 +40825,19 @@
     {
       "id": 3633,
       "title": "[Sonnet] REPL follow-ups (SW-3614): (1) a theorem's echo shows its reduced statement (n + 0 = n echoed as n = n): echo the statement as written; (2) a declaration complete after one line runs at once, so later match arms can't follow: keep reading while the next line is indented; (3) redefining a type with instances, interfaces or abilities: test that stale constructor/instance/extension rows don't survive (retire_names clears scope, followers, members only); (4) declarations go in the root namespace, not a session scratch namespace as D3661 described: fine unless it clashes with a loaded file's names — check and decide",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3634,
+      "title": "[Sonnet] Lexical colouring follow-ups (SW-3618): the LSP falls back to lexical_marks for text not yet resolved (instant colour before a check); a tolerant per-line lexer so a half-typed string keeps the rest of the REPL line coloured; a REPL test for --color=never/NO_COLOR",
       "status": "backlog",
       "agent": "",
       "where": "",
