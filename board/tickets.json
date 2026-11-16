@@ -1,5 +1,5 @@
 {
-  "next": 3587,
+  "next": 3588,
   "tickets": [
     {
       "id": 47,
@@ -40102,7 +40102,7 @@
     {
       "id": 3578,
       "title": "[Sonnet] Formatter polish from SW-3570: (1) after a header comment the ':' can land alone on its line (':' then the type below); keep ': ' with the type; (2) look again at Doc::Displaced's reach (applied wherever a node has a leading/before-trailing comment)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -40130,12 +40130,12 @@
     {
       "id": 3580,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x946 case 35095): record update with trailing comments after the base and after '|' → 'comments: the comment -- c moved'. Minimal (fmtbugs/update.sw): def / bad (t: Timed Int): Timed Nat := { t-- c / |-- c / start = Int.toNat t.start }. Retest on main after SW-3570 first. Add as a fmt test",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Cause: the base's comment prints after the bar, so the bar's own ran into it on one line. Fix: tidy rule N makes the bar's comment an own-line comment of the next token when the base ends with one. Test: a_record_update_with_comments_after_its_base_and_after_the_bar_keeps_both. Commit f06219573 on lane/SW-3580.\n",
+      "body": "Cause: the base's comment prints after the bar, so the bar's own ran into it on one line. Fix: tidy rule N makes the bar's comment an own-line comment of the next token when the base ends with one. Test: a_record_update_with_comments_after_its_base_and_after_the_bar_keeps_both. Commit f06219573 on lane/SW-3580.\n\nModel result: sonnet, worked, 15 min (est. 30). Displaced reach checked: both triggers needed. New bug SW-3587 found by the 20k run.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": [
@@ -40215,6 +40215,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3587,
+      "title": "[Sonnet] Formatter bug (fuzz seed 0x931 case 17742, found by SW-3580's run): a let whose value is a lambda with an own-line comment before its parameter closer, followed by ';' → output where ';' has no expression after it. Minimal (scratchpad fmtbugs/seq.sw): def lambdaValue: Nat := (let f := (n: Nat / -- c / ) => n + 1; f 2). Same message as SW-3574's family; batch with Overmind's 15:30 summary",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
