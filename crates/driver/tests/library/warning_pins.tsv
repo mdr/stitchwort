@@ -1,0 +1,31 @@
+# Warnings the Stitchwort code still gives, at most, by project, file and code.
+# The counts only go down (SW-3603): a project not listed gives none. `stitchwort check --std Std --warnings`
+# prints the current std counts. Columns: project, file, code, count.
+std	core	W-PROOF-CHAIN	8
+std	Array/Array.sw	W-PROOF-CHAIN	1
+std	Float/Theory.sw	W-PROOF-CHAIN	14
+std	Function/Function.sw	W-PROOF-CHAIN	1
+std	Int/Int.sw	W-PROOF-CHAIN	15
+std	Int/Sums.sw	W-PROOF-CHAIN	2
+std	List/Distinct.sw	W-PROOF-CHAIN	2
+std	List/Grid.sw	W-PROOF-CHAIN	1
+std	List/Lemmas.sw	W-PROOF-CHAIN	11
+std	List/SortLemmas.sw	W-PROOF-CHAIN	21
+std	List/Split.sw	W-PROOF-CHAIN	2
+std	List/Toolkit.sw	W-PROOF-CHAIN	1
+std	Map/Map.sw	W-PROOF-CHAIN	11
+std	Map/Raw.sw	W-PROOF-CHAIN	1
+std	Map/Spec.sw	W-PROOF-CHAIN	41
+std	Mod/Mod.sw	W-PROOF-CHAIN	12
+std	Nat/Arith.sw	W-PROOF-CHAIN	14
+std	Nat/Bits.sw	W-PROOF-CHAIN	4
+std	Nat/Digits.sw	W-PROOF-CHAIN	6
+std	NonEmptyList/Lemmas.sw	W-PROOF-CHAIN	1
+std	Omega/Sound.sw	W-PROOF-CHAIN	11
+std	Parse/Chars.sw	W-PROOF-CHAIN	1
+std	Parse/ReadsChars.sw	W-PROOF-CHAIN	1
+std	Parse/RunsTokens.sw	W-PROOF-CHAIN	1
+std	Ring/Sound.sw	W-PROOF-CHAIN	16
+std	Set/Spec.sw	W-PROOF-CHAIN	3
+std	Text/Text.sw	W-PROOF-CHAIN	1
+std	Vec/Vec.sw	W-PROOF-CHAIN	2
