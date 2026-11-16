@@ -39444,7 +39444,7 @@
     {
       "id": 3528,
       "title": "[Sonnet] examples/reject/parser-count-differs-from-lemma.sw lost its point after Parse L1/L2 (SW-3503/3504): it now fails on an unsolved implicit of Parse.readsWeaken instead of the 35-vs-36 count. Restate it with the new Reads/ReadsAt form so the error again names the differing count; regenerate its snapshot",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
