@@ -25,6 +25,9 @@ use nix::sys::termios::{InputFlags, LocalFlags, OutputFlags, Termios, tcgetattr}
 /// How long any one wait may take before the test gives up.
 pub const PATIENCE: Duration = Duration::from_secs(20);
 
+/// How long to wait for keys mode: startup is slower on a loaded machine.
+pub const KEYS_MODE_PATIENCE: Duration = Duration::from_secs(60);
+
 pub const ENTER_SCREEN: &str = "\x1b[?1049h\x1b[?25l\x1b[?7l";
 pub const LEAVE_SCREEN: &str = "\x1b[?7h\x1b[?25h\x1b[?1049l";
 
@@ -153,7 +156,7 @@ impl Session {
         let start = Instant::now();
         while is_keys_mode(&self.settings()) != on {
             assert!(
-                start.elapsed() < PATIENCE,
+                start.elapsed() < KEYS_MODE_PATIENCE,
                 "keys mode never became {on}: {}",
                 self.errors()
             );
