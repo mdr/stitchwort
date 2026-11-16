@@ -1,5 +1,5 @@
 {
-  "next": 3514,
+  "next": 3515,
   "tickets": [
     {
       "id": 47,
@@ -39243,6 +39243,19 @@
     {
       "id": 3513,
       "title": "[Opus] Lean 4 port of the toy's engine layer, measured (D3629, Matt, 16 Nov 2026): docs/proposals/toy-proof-complexity.md §5; plain and idiomatic versions; same functions and top theorems; counts by the same measure",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3514,
+      "title": "[Fable paper] Design note: short syntax for building and taking apart exists/and (and records-as-propositions) facts in proofs (D3630, Matt, 16 Nov 2026), compared with Lean 4, Rocq, Agda, Idris, Isabelle and others; toy-proof-complexity.md §4.3",
       "status": "doing",
       "agent": "",
       "where": "",
