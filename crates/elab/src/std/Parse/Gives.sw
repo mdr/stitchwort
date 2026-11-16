@@ -80,8 +80,8 @@ theorem Parse.givesDone ∀ [inv: Parse.Invariant t] [x: a] [holds: a → Prop] 
   Parse.readsDone x _ proved
 
 --| `p`, then `j` of its value: `holds` of what `j` gives, for each value
---| `p` gives. Name `p` and `j` (`[p := …] [j := …]`) where they can't be
---| read off the goal.
+--| `p` gives. `p` is read off `givesFirst` and `j` off the goal, as for
+--| [`Parse.readsThen`].
 theorem Parse.givesThen ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [j: a → {Parse t} b]
     [first: a → Prop] [holds: b → Prop]
     (givesFirst: Parse.Gives inv p first)

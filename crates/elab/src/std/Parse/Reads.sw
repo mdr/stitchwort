@@ -680,12 +680,15 @@ theorem Parse.readsSatisfy [inv: Parse.Invariant t] [what: Text] [passes: t → 
 --| with no `match` to take the facts apart. A parser of two steps, `a`, then `b`:
 --|
 --|   theorem readsPair: Parse.Reads pair Written :=
---|     Parse.readsThen _ _ _ _ readsA (aRead x aFacts =>
---|       Parse.readsThen _ _ _ _ readsB (bRead y bFacts =>
+--|     Parse.readsThen readsA (aRead x aFacts =>
+--|       Parse.readsThen readsB (bRead y bFacts =>
 --|         Parse.readsDone { x, y } _ (…Written (aRead ++ bRead ++ []) { x, y }…)))
 --|
---| `p` and `j` can be left as `_` when the parser is named (`pair`): checking
---| unfolds it a step to `a`, then the rest, and reads them off.
+--| `p` is read off `readsFirst`, before the goal is looked at, and then
+--| `j` off the goal (`pair` unfolded a step), so a first step whose value
+--| is used inside an argument (`count (Parse.mark().left + 1)`) splits
+--| there. A goal already computed past that step (a `match` on a condition
+--| of the parser's) has no `j` to read off: name it (`[j := …]`).
 theorem Parse.readsThen ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [j: a → {Parse t} b]
     [first: List t → a → Prop] [spec: List t → b → Prop]
     (readsFirst: Parse.ReadsIn inv p first)

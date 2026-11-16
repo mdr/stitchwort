@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use crate::goals::StepForm;
 use crate::kernel;
+use crate::state::AppExpected;
 use stitchwort_core::chars::{self as compact, Chars};
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
@@ -3696,7 +3697,7 @@ fn lambda_arg<'a>(
     // again after it at every level, a failing proof of n
     // nested lambdas costs 2^n (SW-2638).
     let again = cx.e.decl.no_hole_propagation.get() > 0;
-    if again && cx.e.decl.in_place_trial.get() > 0 {
+    if held.hold_lambdas || (again && cx.e.decl.in_place_trial.get() > 0) {
         let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
         held.after_expected.push((value, dom, placeholder, id));
         return Ok((term, ty));
@@ -3967,10 +3968,53 @@ fn explicit_arg_failed<'a>(
     if crate::interfaces::unsolved_in(cx, &dom)?.is_none() {
         return Err(unit_call_hint(cx, &term, value, &dom, next_is_unit, e));
     }
+    if held.hold_lambdas
+        && let Some(applied) = by_arguments_in_place(cx, &term, &cod, value, &dom)?
+    {
+        return Ok(applied);
+    }
     first_error.get_or_insert_with(|| Box::new(e));
     let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
     held.after_expected.push((value, dom, placeholder, id));
     Ok((term, ty))
+}
+
+/// The argument `value` of the application `term`, whose parameter type is
+/// `dom` (with unknowns), inferred and compared with `dom` by the arguments
+/// of the two calls ([`crate::unify::unify_solving_arguments`]); `None`,
+/// with nothing changed, if they don't match so. In an application whose
+/// lambdas wait for its expected type ([`infer_expecting`]), this is how an
+/// argument fixes the unknowns the type applies: `Parse.readsMark`, of type
+/// `Parse.ReadsIn ?inv (() => Parse.mark()) …`, against `Parse.ReadsIn ?inv
+/// ?p ?first`, where the plain comparison unfolds both calls to a run stuck
+/// on `?p ()`.
+#[inline(never)]
+fn by_arguments_in_place(
+    cx: &mut Ctx,
+    term: &Term,
+    cod: &Closure,
+    value: &Expr,
+    dom: &Value,
+) -> Result<Option<(Term, Value)>> {
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let inferred = (|| {
+        let (arg, found) = infer(cx, value)?;
+        insert(cx, arg, found)
+    })();
+    let (arg, found) = match inferred {
+        Ok(inferred) => inferred,
+        Err(e) if crate::undo::fatal(&e) => return Err(e),
+        Err(_) => {
+            snapshot.restore(cx);
+            return Ok(None);
+        }
+    };
+    if !crate::undo::unify_solving_arguments(cx, &found, dom)? {
+        snapshot.restore(cx);
+        return Ok(None);
+    }
+    let ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &arg))?;
+    Ok(Some((Term::app(term.clone(), arg), ty)))
 }
 
 /// An explicit argument, where it is in its application.
@@ -3991,6 +4035,9 @@ struct Held<'a> {
     expecting: Option<Value>,
     /// `expecting` before it was forced.
     expecting_named: Option<Value>,
+    /// Whether lambdas are held for after `expecting` without a trial in
+    /// place ([`infer_expecting`]).
+    hold_lambdas: bool,
     queued_from: usize,
     metas_from: usize,
 }
@@ -4005,15 +4052,19 @@ impl<'a> Held<'a> {
         let metas_from = cx.metas().metas.borrow().len();
         // Lambdas to check after the application's type is compared with
         // the type expected of it, if `infer_expecting` says what that is.
-        let (expecting, expecting_named) = match &*cx.e.decl.app_expected.borrow() {
-            Some((key, expected, named))
-                if args.iter().any(
-                    |a| matches!(a, Arg::Explicit(e) if std::ptr::from_ref(*e) as usize == *key),
-                ) =>
+        let (expecting, expecting_named, hold_lambdas) = match &*cx.e.decl.app_expected.borrow() {
+            Some(AppExpected {
+                key,
+                expected,
+                named,
+                hold_lambdas,
+            }) if args.iter().any(
+                |a| matches!(a, Arg::Explicit(e) if std::ptr::from_ref(*e) as usize == *key),
+            ) =>
             {
-                (Some(expected.clone()), Some(named.clone()))
+                (Some(expected.clone()), Some(named.clone()), *hold_lambdas)
             }
-            _ => (None, None),
+            _ => (None, None, false),
         };
         Held {
             postponed: Vec::new(),
@@ -4023,6 +4074,7 @@ impl<'a> Held<'a> {
             after_expected: Vec::new(),
             expecting,
             expecting_named,
+            hold_lambdas,
             queued_from,
             metas_from,
         }
@@ -6937,7 +6989,7 @@ fn fallback_pipe(
 /// propagated application's arguments stand on doesn't hold its locals.
 #[inline(never)]
 fn fallback_inferred(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Result<Term> {
-    let (term, found) = infer_expecting(cx, expr, expected, named)?;
+    let (term, found) = infer_expecting(cx, expr, expected, named, false)?;
     inferred_against(cx, expr, (term, found), expected, named)
 }
 
@@ -7056,11 +7108,18 @@ fn extra_negative_argument_note(
 /// (`apply_args_postponing`). Its result type may depend on the arguments, so it
 /// couldn't be compared first (`propagate`): `List.mapCong _ _ xs (x => …)`
 /// against `List.map f xs = List.map g xs`.
+///
+/// With `hold_lambdas`, every lambda argument whose type still has unknowns
+/// is checked after that comparison, not tried in place first: the call's
+/// type couldn't be compared before its other arguments fixed the unknowns
+/// applied in it ([`applies_unknown`]), and its lambdas need what the
+/// comparison then fixes.
 fn infer_expecting(
     cx: &mut Ctx,
     expr: &Expr,
     expected: &Value,
     named: &Value,
+    hold_lambdas: bool,
 ) -> Result<(Term, Value)> {
     let key = match spine(expr).1.last() {
         Some(Arg::Explicit(last) | Arg::NamedExplicit(_, last)) => {
@@ -7074,10 +7133,12 @@ fn infer_expecting(
     ) {
         return infer(cx, expr);
     }
-    let outer =
-        cx.e.decl
-            .app_expected
-            .replace(Some((key, expected.clone(), named.clone())));
+    let outer = (cx.e.decl.app_expected).replace(Some(AppExpected {
+        key,
+        expected: expected.clone(),
+        named: named.clone(),
+        hold_lambdas,
+    }));
     let result = infer(cx, expr);
     *cx.e.decl.app_expected.borrow_mut() = outer;
     result
@@ -7541,7 +7602,11 @@ fn propagate(
     // Planned out of line, and applied out of line, so that this frame,
     // which the arguments' checks stand on, holds little more than a
     // pointer to the plan.
-    let Some(mut plan) = propagation_plan(cx, expr, expected, named)? else {
+    let mut applies = false;
+    let Some(mut plan) = propagation_plan(cx, expr, expected, named, &mut applies)? else {
+        if applies {
+            return Ok(Some(fallback_holding_lambdas(cx, expr, expected, named)));
+        }
         return Ok(None);
     };
     match plan.apply(cx, expr.span(), expected) {
@@ -7573,6 +7638,40 @@ fn propagate(
             )))
         }
     }
+}
+
+/// [`propagate`] for an application whose result type applies one of its
+/// unknowns to a value ([`applies_unknown`]): inferred, its arguments other
+/// than lambdas checked first, then its type compared with `expected`, then
+/// its lambdas checked (docs/proposals/parse-proof-library.md §4).
+#[inline(never)]
+fn fallback_holding_lambdas(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: &Value,
+    named: &Value,
+) -> Result<Term> {
+    let (term, found) = infer_expecting(cx, expr, expected, named, true)?;
+    inferred_against(cx, expr, (term, found), expected, named)
+}
+
+/// Whether `ty`, the result type of a call before its arguments are
+/// checked, applies one of the unknowns made for it (those from
+/// `metas_from` on) to something other than variables: `?j (?p ())`
+/// in `Parse.readsThen`'s `Parse.ReadsIn ?inv (() => ?j (?p ())) ?spec`.
+/// Compared with the goal then, that is a problem with many solutions,
+/// and the unifier's choice (by the arguments of two calls, after
+/// unfolding) need not be the one the arguments mean: `afterMark`, which
+/// is `counted (Parse.mark().left + 1)`, splits as `?p` the mark and the
+/// sum. Once the arguments have fixed `?p`, it is an ordinary comparison.
+fn applies_unknown(cx: &Ctx, ty: &Value, metas_from: usize) -> Result<bool> {
+    let term = cx.quote_folded(ty)?;
+    let g = cx.g();
+    Ok(term.subterms().any(|(t, _)| {
+        let (head, args) = t.spine();
+        matches!(head, Term::Meta(m) if *m >= metas_from && g.meta_solution(*m).is_none())
+            && args.iter().any(|a| !matches!(a.strip_loc(), Term::Var(_)))
+    }))
 }
 
 /// The end of [`propagate`]'s application at `span`, `applied`, with the
@@ -7730,11 +7829,15 @@ impl Propagation<'_> {
 /// it before the arguments are checked; `None`, with everything as it was,
 /// if not.
 #[inline(never)]
+///
+/// `applies` is set, and `None` returned, if the result type applies an
+/// unknown of the call to a value ([`applies_unknown`]).
 fn propagation_plan<'a>(
     cx: &mut Ctx,
     expr: &'a Expr,
     expected: &Value,
     named: &Value,
+    applies: &mut bool,
 ) -> Result<Option<Box<Propagation<'a>>>> {
     if matches!(
         force(&cx.g(), expected.clone())?,
@@ -7772,6 +7875,7 @@ fn propagation_plan<'a>(
         (head, args)
     };
     let mut snapshot = crate::undo::Snapshot::take(cx);
+    let metas_from = cx.metas().metas.borrow().len();
     let mut found = written_result(cx, &head.1, &args, false)?;
     // A result type that depends only on arguments written `_` (a lemma's
     // conclusion, as `Parse.readsBind _ _ _ _ reads (x => …)`'s): the
@@ -7792,9 +7896,27 @@ fn propagation_plan<'a>(
         found = written_result(cx, &head.1, &args, true)?;
     }
     let Some((written, supply, doms, checked)) = found else {
+        // A result that mentions an implicit argument given by name (`[j :=
+        // …]` of `Parse.readsThen`) still applies the others' unknowns.
         snapshot.restore(cx);
+        if args.iter().any(|a| matches!(a, Arg::Named(..))) {
+            let unnamed: Vec<Arg> = (args.iter().copied())
+                .filter(|a| !matches!(a, Arg::Named(..)))
+                .collect();
+            let snapshot = crate::undo::Snapshot::take(cx);
+            let metas_from = cx.metas().metas.borrow().len();
+            if let Some((written, ..)) = written_result(cx, &head.1, &unnamed, false)? {
+                *applies = applies_unknown(cx, &written, metas_from)?;
+            }
+            snapshot.restore(cx);
+        }
         return Ok(None);
     };
+    if applies_unknown(cx, &written, metas_from)? {
+        snapshot.restore(cx);
+        *applies = true;
+        return Ok(None);
+    }
     // The arguments written `_`, with the unknowns they got.
     let pipes: Vec<(usize, Piped)> = (checked.into_iter())
         .map(|(i, term)| {

@@ -103,7 +103,7 @@ pub(crate) struct Decl {
     /// compared with it (`check::apply_args_postponing`). The second type is
     /// the first before it was forced (a call such as `Parse.Runs p …`, not
     /// its unfolding), for `check::settle_from_expected`.
-    pub(crate) app_expected: RefCell<Option<(usize, Value, Value)>>,
+    pub(crate) app_expected: RefCell<Option<AppExpected>>,
     /// The calls `check::settle_from_expected` gave type arguments from
     /// their expected type, in the body attempt being elaborated, also in
     /// parts of it later undone (which can only cost a retry not needed).
@@ -421,4 +421,15 @@ impl Decl {
             .find(|(_, empty)| !empty)
             .map(|(name, _)| name)
     }
+}
+
+/// The application [`Decl::app_expected`] describes: the address of
+/// its last written argument, the type expected of it, forced and as
+/// written, and whether its lambdas wait for that type without a trial in
+/// place (`check::infer_expecting`).
+pub(crate) struct AppExpected {
+    pub(crate) key: usize,
+    pub(crate) expected: Value,
+    pub(crate) named: Value,
+    pub(crate) hold_lambdas: bool,
 }

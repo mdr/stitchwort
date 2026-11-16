@@ -83,8 +83,6 @@ def ParsedFile (file: SourceFile): Prop := ShapedFile file ∧ LexicalFile file 
 
 theorem givesSkip: Parse.Gives GoodTokens (() => skip()) (skipped => True) :=
   Parse.givesThen
-    [p := () => Parse.next (token => True)]
-    [j := skipped => ()]
     [first := found => True]
     (Parse.readsWeaken (Parse.readsNext (token => True)) (read found facts => rfl))
     (skipped done => Parse.givesDone rfl)
@@ -96,8 +94,7 @@ theorem givesNoted ∀ (problem: Parse.Problem) [x: a] [holds: a → Prop] (prov
         Parse.note problem
         x)
       holds :=
-  Parse.givesThen [p := () => Parse.note problem] [j := noted => x] (Parse.givesNote problem) (noted none =>
-    Parse.givesDone proved)
+  Parse.givesThen (Parse.givesNote problem) (noted none => Parse.givesDone proved)
 
 theorem givesSign ∀ (layout: Layout) (what: Text) (wanted: Punctuation):
     Parse.Gives GoodTokens (() => sign layout what wanted) Fine :=
@@ -671,11 +668,7 @@ theorem givesNoDeclaration: Parse.Gives GoodTokens
         Empty.absurd Parse.stop())
       ParsedDeclaration :=
   Parse.givesThen (Parse.givesNote (Parse.Problem.Literal "fn")) (noted done =>
-    Parse.givesThen
-      [p := () => Parse.note (Parse.Problem.Literal "let")]
-      [j := noted => Empty.absurd Parse.stop()]
-      (Parse.givesNote (Parse.Problem.Literal "let"))
-      (noted done => Parse.readsStop _))
+    Parse.givesThen (Parse.givesNote (Parse.Problem.Literal "let")) (noted done => Parse.readsStop _))
 
 theorem givesDeclarationLine ∀ (column start: Nat) (first: Parse.Located Token)
     (fine: Fine ((InStatement column start).comments first))
