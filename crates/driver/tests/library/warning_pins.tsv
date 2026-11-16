@@ -1,8 +1,4 @@
 # Warnings the Stitchwort code still gives, at most, by project, file and code.
 # The counts only go down (SW-3603): a project not listed gives none. `stitchwort check --std Std --warnings`
 # prints the current std counts. Columns: project, file, code, count.
-std	Float/Theory.sw	W-PROOF-CHAIN	2
-std	List/Lemmas.sw	W-PROOF-CHAIN	1
-std	List/SortLemmas.sw	W-PROOF-CHAIN	1
-std	Map/Map.sw	W-PROOF-CHAIN	2
-std	Map/Spec.sw	W-PROOF-CHAIN	14
+# Empty: the standard library gives no warnings.

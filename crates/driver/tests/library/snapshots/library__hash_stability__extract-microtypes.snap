@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.UserId 181206861a775feb50a87cdfc3d567babbe197399a3c7d863e2a15dc3a942c45
@@ -148,7 +147,7 @@ Main.creator 600585ef3eaecc609dc39499d08eec0ec32c7caa19fb71707bdc5d74b3dd2c5c
 Main.creator.eq1 aa14eba65be979089abeb70c9b961fb05ed530cdf10dd891431dbdeab1a6ad5e
 Main.creator.eq2 95138d8e8c60ce3f1df7014a9eeec88a3ec0fa6e73c2b25c0af100c4198e2924
 Main.ownerOf eede5c23c109bc775ef67ecbffdb7a90d57d3bd303fae5cd74e4d66eacc537e2
-Main.visits 757e311819d56afac1420caeacdbc5ef4773144aac2f1ac4f3f2b58dc1712907
+Main.visits f6905ad30c34cd495fdda1bdca0f442ece0896a74db7dfdd1528598d00f3645f
 Main.domain f3ea48d6be82484aa737b653d24fd59eb360b7d58f8b6fd2303accaf5dfe1e03
 Main.mailbox 2d8bac8968be3b2f5362228d1395337e44a682f51a49c316a4fbefbaf91ba6bb
 Main.bump b4168cda11bacc83ed28dff4f44c69ccc374a97b9874cbe0e6fef8494ba63371

@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.test "a record of the library compares" 297303323126156bbc737a9145574923a5635d5f94336580efe44e1159b1bb0b
@@ -12,4 +11,4 @@ Main.test "the kinds of a path" abd12f0ed6e51eeeb3c8dd0978486d86f8e993dbc2ecb615
 Main.test "file errors compare by constructor, then by what they carry" 9b55cbb6fbf1b4f8231627defa424e76ac2b1469daa6dbc8819683fecfbff0f2
 Main.test "entries and file information compare" 18893ec0249acbef64f0ab9c72fa83c07ffe528b54e91c183c25dcdb94a1854a
 Main.test "paths order by parts, then relative before absolute" e92b935f18e509ebc17297787d3ee9a007e836a1bbfdd5e3f243e280845a6216
-Main.test "disks compare" 5c8b12ea22ad6980c467800c957c4509029e54e8c3148052f7352a7d2ceeea60
+Main.test "disks compare" 1259becdf7f17c79d50864d289223c8b216e0cffd545b0afb6799af73254d32d

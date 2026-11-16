@@ -1341,10 +1341,9 @@ theorem Map.getIndexByFrom ∀ [auto ord: Ord k] (key: a → k) (kk: k) (xs: Lis
                 Eq.cong
                   (o => Option.orElse o (List.find rest (y => Map.Spec.sameKey (key x) (key y))))
                   (Map.getInsertWith m (key x) x (newer older => older))
-              _ = Option.orElse (Map.get m (key x)) (List.find [x, ..rest] (y => Map.Spec.sameKey (key x) (key y))) :=
-                match c: Map.get m (key x) with
-                  | None => byComputing
-                  | Some o => byComputing
+              _ = Option.orElse (Map.get m (key x)) (Some x) := match c: Map.get m (key x) with
+                | None => byComputing
+                | Some o => byComputing
         | Less =>
           Eq.trans
             (Map.getIndexByFrom key kk rest (Map.insertWith m (key x) x (newer older => older)))
