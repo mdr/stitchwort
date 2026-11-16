@@ -1,5 +1,5 @@
 {
-  "next": 3580,
+  "next": 3581,
   "tickets": [
     {
       "id": 47,
@@ -40115,6 +40115,19 @@
     {
       "id": 3579,
       "title": "[Sonnet] Error headline for reads-then-wrong-first shows an unfolded internal parser 'Call (L (%mark ())) (r => Done r)' (E1 headline from a ReadsIn mismatch); show the parser as written (Parse.mark ()) or fall back to the plain headline when a side mentions %-names",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3580,
+      "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x946 case 35095): record update with trailing comments after the base and after '|' → 'comments: the comment -- c moved'. Minimal (fmtbugs/update.sw): def / bad (t: Timed Int): Timed Nat := { t-- c / |-- c / start = Int.toNat t.start }. Retest on main after SW-3570 first. Add as a fmt test",
       "status": "backlog",
       "agent": "",
       "where": "",
