@@ -130,6 +130,28 @@ impl Elaborator {
         self.kernel.def(id).span()
     }
 
+    /// Whether assumption `id`'s `?` is the whole body of its declaration:
+    /// written as `:= ?`, not as part of a larger expression such as
+    /// `f ? 3` or `if x then ? else 1`. Its parameters' lambdas are the
+    /// declaration's, not the body's, so they are passed over.
+    pub fn assumption_is_whole_body(&self, id: DefId) -> bool {
+        let Some(owner) = self.assumption_owner(id) else {
+            return false;
+        };
+        let g = self.ev();
+        let Some(def) = (g.env.defs().iter()).find(|def| **def.path() == *owner) else {
+            return false;
+        };
+        let Some(body) = def.body() else {
+            return false;
+        };
+        let mut body = body.as_ref();
+        while let Term::Lam(_, _, inner) = body {
+            body = inner;
+        }
+        matches!(body, Term::Loc(span, _) if *span == self.assumption_span(id))
+    }
+
     /// The assumptions of this session still in the kernel, oldest first.
     pub fn assumptions(&self) -> Vec<DefId> {
         let Some(floor) = self.floor() else {

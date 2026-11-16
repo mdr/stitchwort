@@ -248,6 +248,12 @@ impl Session {
             self.elab.blocked_on(test.def).into_iter().collect()
         };
         let goals = self.goal_places(&ids);
+        // Which of them are the whole body of their declaration, `:= ?`,
+        // rather than a `?` inside one (SW-2922).
+        let whole_body: std::collections::BTreeSet<_> = (ids.iter())
+            .filter(|id| self.elab.assumption_is_whole_body(**id))
+            .map(|id| self.goal_place(*id))
+            .collect();
         if goals.is_empty() {
             return Some(match &test.unfinished {
                 Some(uses) => format!("`{uses}` isn't written yet: it has an open goal `?`"),
@@ -264,8 +270,13 @@ impl Session {
             .iter()
             .take(3)
             .map(|g| match (g.is_error(), relies) {
-                (false, _) => format!(
+                (false, _) if whole_body.contains(g) => format!(
                     "`{}` isn't written yet: its body is `?` ({})",
+                    g.short(),
+                    g.place()
+                ),
+                (false, _) => format!(
+                    "`{}` isn't written yet: it has an unfinished `?` at {}",
                     g.short(),
                     g.place()
                 ),
