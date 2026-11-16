@@ -176,9 +176,11 @@ theorem repeatLoops ∀ (lab: Lab) (first second: Nat)
       first
       second
       earlier
-      (Eq.trans
-        (Eq.flipped (walkIterate lab first (Some lab.startGuard)))
-        (Eq.trans same (walkIterate lab second (Some lab.startGuard))))
+      (calc Nat.iterate first (state => state.flatMap lab.step) (Some lab.startGuard)
+        _ = after lab first := Eq.flipped (walkIterate lab first (Some lab.startGuard))
+        _ = after lab second := same
+        _ = Nat.iterate second (state => state.flatMap lab.step) (Some lab.startGuard) :=
+          walkIterate lab second (Some lab.startGuard))
       (stopped => still (Eq.trans (walkIterate lab second (Some lab.startGuard)) stopped))
       steps
       (Eq.trans (Eq.flipped (walkIterate lab steps (Some lab.startGuard))) gone)
