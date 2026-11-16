@@ -40866,7 +40866,7 @@
     {
       "id": 3636,
       "title": "[Sonnet] Two LSP completion tests take ~5 min each (the import test and project dot-completion, it binary): find why and cut them to seconds; also REPL completion untested paths (bare 'import ', ':t ', the ...> prompt) and offering library names that need an import (run the import on pick)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -41124,7 +41124,7 @@
     {
       "id": 3655,
       "title": "[Sonnet] Stage 2 follow-ups (SW-3642): LSP code action for expand (CLI --expand-repeatedly exists, shared printer expand_file); std's name index (library.rs) and rules declarations; hover shows a set's type as (); a set named like a field (words vs Printer.words) gives E-MUTUAL-SIGNATURE via dot-notation dependency analysis; expand drops definition one-step unfolds. Failing-first tests",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
