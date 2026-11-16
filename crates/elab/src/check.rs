@@ -1936,12 +1936,10 @@ fn ne_read_as_prop_here(
 
 /// Whether the expected type mentions a proposition `≠` and what was found
 /// is a `Bool` test (`Decidable.holds …`, or `….holds`): a `Bool` `!=` that was read as `≠`
-/// because it sits beside `=` in a statement. It is given only when the
-/// declaration wrote an ASCII `!=` (SW-3125).
-pub(crate) fn ne_read_as_prop(cx: &Ctx, expected: &str, found: &str) -> bool {
-    expected.contains(" ≠ ")
-        && (found.contains("Decidable.holds") || found.contains(".holds"))
-        && cx.e.decl.wrote_ascii_ne()
+/// because it sits beside `=` in a statement. Callers also ask
+/// [`goal_wrote_ne`], since the note quotes the source (SW-3125).
+pub(crate) fn ne_read_as_prop(expected: &str, found: &str) -> bool {
+    expected.contains(" ≠ ") && (found.contains("Decidable.holds") || found.contains(".holds"))
 }
 
 /// Whether two forced types are built by the same outermost former (the

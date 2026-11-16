@@ -2058,7 +2058,7 @@ impl Elaborator {
                 pair(iff(
                     eq(test, var("Std.Bool.False")),
                     Expr::Binary(
-                        BinOp::Ne(NeForm::Ascii),
+                        BinOp::Ne(NeForm::Unicode),
                         Box::new(var("%r")),
                         Box::new(var("%s")),
                     ),

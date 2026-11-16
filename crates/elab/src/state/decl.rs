@@ -285,12 +285,6 @@ impl Decl {
         }
     }
 
-    /// Whether the declaration being checked has written an ASCII `!=`
-    /// anywhere (SW-3125).
-    pub(crate) fn wrote_ascii_ne(&self) -> bool {
-        !self.ne_ascii.borrow().is_empty()
-    }
-
     /// Whether an `a != b` written `!=` (not `≠`) starts at `span`.
     pub(crate) fn wrote_ascii_ne_at(&self, span: &Span) -> bool {
         self.ne_ascii.borrow().contains(span)

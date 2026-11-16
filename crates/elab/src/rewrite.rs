@@ -1375,7 +1375,7 @@ fn replace_occurrences_carrying(
         Place::Target(_) | Place::Inside => (&equation.lhs, Value::Refl),
     };
     let lhs = &equation.lhs;
-    check_motive(cx, rule, place, &motive, &equation.carrier, from, lhs)?;
+    check_motive(cx, rule, place, goal, &motive, &equation.carrier, from, lhs)?;
     let any_carried = search_carried;
     match round_trip(cx, &motive, lhs, &proof_value, goal, any_carried, remaining)? {
         Some(true) => {}
@@ -1924,10 +1924,12 @@ fn mentions_recent(term: &Term, under: usize, recent: usize) -> bool {
 /// the equation's type and `_ : rhs = x` in scope (`rhs` is the side `J`
 /// starts from). The kernel would reject a `J` whose motive isn't, but here
 /// the message can say why.
+#[allow(clippy::too_many_arguments)]
 fn check_motive(
     cx: &Ctx,
     rule: &RewriteRule,
     place: Place,
+    goal: &Value,
     motive: &Term,
     carrier: &Value,
     rhs: &Value,
@@ -1995,6 +1997,8 @@ fn check_motive(
             ne_note(
                 cx,
                 d,
+                place,
+                goal,
                 &written_under(cx, body, &["x'", "_"]),
                 &shown(cx, lhs),
             )
@@ -2387,7 +2391,7 @@ fn nothing_found(
         1 => " after the rule before this one".to_string(),
         _ => format!(" after the {index} rules before this one"),
     };
-    if ne_read_as_prop(cx, &goal_text, &shown_lhs) && crate::check::goal_wrote_ne(cx, goal) {
+    if ne_read_as_prop(&goal_text, &shown_lhs) && crate::check::goal_wrote_ne(cx, goal) {
         error = error.with_note(NE_AS_PROP_NOTE);
     }
     match as_written.map(|t| written(cx, &t)) {
@@ -2536,9 +2540,21 @@ fn budget_error(
     error.with_note("state the step with `calc`, or rewrite with a more specific equation")
 }
 
-/// `d` with the `!=` note when a `Bool` `!=` (`lhs`) was read as `≠` in `goal`.
-fn ne_note(cx: &Ctx, d: Diagnostic, goal: &str, lhs: &str) -> Diagnostic {
-    if ne_read_as_prop(cx, goal, lhs) {
+/// `d` with the `!=` note when a `Bool` `!=` (`lhs`) was read as `≠` in the
+/// goal as written. Only a rewrite of the goal itself gets it: a target's
+/// type may be written `≠` even where the goal says `!=`.
+fn ne_note(
+    cx: &Ctx,
+    d: Diagnostic,
+    place: Place,
+    goal: &Value,
+    goal_text: &str,
+    lhs: &str,
+) -> Diagnostic {
+    if matches!(place, Place::Goal)
+        && ne_read_as_prop(goal_text, lhs)
+        && crate::check::goal_wrote_ne(cx, goal)
+    {
         d.with_note(NE_AS_PROP_NOTE)
     } else {
         d

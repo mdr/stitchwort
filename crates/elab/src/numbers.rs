@@ -19,7 +19,7 @@ use num_bigint::BigUint;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, eval, force};
 use stitchwort_core::{DataId, DefId, Icit, Sort, Term, Value};
-use stitchwort_syntax::ast::{BinOp, Expr, NegForm};
+use stitchwort_syntax::ast::{BinOp, Expr, NeForm, NegForm};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{
@@ -1704,26 +1704,31 @@ fn prop_not_equal(
     while let Expr::Bracketed(inner, _) = decided {
         decided = inner;
     }
-    if !matches!(decided, Expr::Binary(BinOp::Ne(_), ..)) {
+    let Expr::Binary(BinOp::Ne(form), ..) = decided else {
         return None;
-    }
+    };
+    let written = match form {
+        NeForm::Ascii => "!=",
+        NeForm::Unicode => "≠",
+    };
     Some(
         Diagnostic::error(
             "E-NOT-A-TYPE",
-            "in a statement, `!=` is the proposition, not a `Bool`",
+            format!("in a statement, `{written}` is the proposition, not a `Bool`"),
         )
         .with_label(
             decided.span(),
             format!(
-                "this `!=` is `Not (… = …)`, a proposition, so this `{}` compares propositions",
+                "this `{written}` is `Not (… = …)`, a proposition, so this `{}` compares \
+                 propositions",
                 op
             ),
         )
         .with_label(leaf.span(), "but this isn't a proposition")
-        .with_note(
-            "for the `Bool` that `!=` computes, ascribe it: `((x != y): Bool)`; or compare \
-             with `==` instead, as `(x == y) = False`",
-        ),
+        .with_note(format!(
+            "for the `Bool` that `{written}` computes, ascribe it: `((x {written} y): Bool)`; \
+             or compare with `==` instead, as `(x == y) = False`"
+        )),
     )
 }
 

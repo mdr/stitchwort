@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/bool-ne-unicode-no-note.sw:4:81 ]
+   │
+ 4 │ def neSymm (a: Nat) (b: Nat) (h: ((a != b): Bool) = True): (a ≠ b) = (b ≠ a) := h
+   │                                                                                 ┬  
+   │                                                                                 ╰── expected `(a ≠ b) = (b ≠ a)`, but this has type `(a.decEq b).not.holds = True`
+───╯
