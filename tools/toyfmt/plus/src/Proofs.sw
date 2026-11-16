@@ -452,7 +452,7 @@ theorem parseReads ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
     (runs: Parse.Runs (() => sourceFile lexed.settled.endTrivia) lexed.settled.tokens [] file):
     parse source = Ok file :=
   let whole := Parse.runsWhole lexed.settled.tokens (() => sourceFile lexed.settled.endTrivia) file runs
-  rewrite lexes, whole then byComputing
+  rewrite lexes, whole
 
 --| The toy's theorem, for a tree and not for a source: a tree with the
 --| parser's guarantees and no trailing comma, printed at any width,
@@ -509,7 +509,7 @@ theorem tidyIdempotent ∀ (file: SourceFile): file.tidy.tidy = file.tidy := cal
 theorem formatAnswers ∀ (source: Text) (width: Nat) (tree: SourceFile)
     (parsed: parse source = Ok tree):
     format source width = Formatted (tree.tidy.print width) :=
-  rewrite parsed then byComputing
+  rewrite parsed
 
 --| The output is the source's tree, tidied and printed, and parses to
 --| that tidied tree.

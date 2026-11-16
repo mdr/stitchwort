@@ -181,7 +181,7 @@ theorem declarationsRun ∀ (isFirst: Bool) (pending lines: List (Spaced Declara
           let values2: (Parse.stepValues steps).concat ++ (spacedNotes DeclarationNote endTrivia).fst = more := values
           (
             [([first, named, equals, ..bodyTokens], notedDeclaration first.value.above line), ..steps],
-            (rewrite split, joined then byComputing),
+            (rewrite split, joined),
             ((
               (same => cases),
               (rewrite joined, List.appendNil later, letCommented, nameCommented, equalsCommented then

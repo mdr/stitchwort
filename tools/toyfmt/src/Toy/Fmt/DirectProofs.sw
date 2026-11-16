@@ -62,7 +62,7 @@ theorem printParses ∀ (file: SourceFile) (width: Nat) (parsed: Parsed file): p
 theorem formatAnswers ∀ (source: Text) (width: Nat) (tree: SourceFile)
     (parsed: parse source = Ok tree):
     format source width = Formatted (tree.print width) :=
-  rewrite parsed then byComputing
+  rewrite parsed
 
 --| Round trip: the output of `format` parses to the source's tree.
 theorem formatRoundTrip ∀ (source: Text) (width: Nat) (output: Text)
@@ -90,18 +90,18 @@ theorem formatSameTree ∀ (first second: Text) (width: Nat) (tree: SourceFile)
     (parsesFirst: parse first = Ok tree)
     (parsesSecond: parse second = Ok tree):
     format first width = format second width :=
-  rewrite formatAnswers first width tree parsesFirst, formatAnswers second width tree parsesSecond then byComputing
+  rewrite formatAnswers first width tree parsesFirst, formatAnswers second width tree parsesSecond
 
 --| A source that doesn't parse (or doesn't lex) is not formatted: the
 --| answer is `ParseError` with the parser's message, at every width.
 theorem formatRefuses ∀ (source: Text) (width: Nat) (message: Text)
     (refused: parse source = Err message):
     format source width = ParseError message :=
-  rewrite refused then byComputing
+  rewrite refused
 
 --| `format` refuses nothing else: a `ParseError` is the parser's own, with
 --| its message.
 theorem formatRefusesOnly ∀ (source: Text) (width: Nat) (message: Text)
     (refused: format source width = ParseError message):
     parse source = Err message :=
-  match e: parse source with | Err found => rewrite parseErrorInjective found message refused then byComputing
+  match e: parse source with | Err found => rewrite parseErrorInjective found message refused

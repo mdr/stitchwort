@@ -194,7 +194,7 @@ theorem runsOperatorChar ∀ (char: Char) (rest: List Char)
 theorem operatorCharStops ∀ (state: Parse.State Char)
     (none: operatorNext state.at.rest = False):
     Parse.runFrom state (() => (Parse.optional operatorChar, Parse.mark())) = Ok (None, state.at) :=
-  rewrite none then byComputing
+  rewrite none
 
 theorem operatorCharDeclines ∀ (input: List Char)
     (none: operatorNext input = False):
@@ -216,7 +216,7 @@ def charSteps: (run: List Char) → List (List Char, ())
 
 theorem charStepsJoin ∀ (run: List Char): Parse.joinReads (charSteps run) = run := match run with
   | [] => byComputing
-  | [char, ..more] => rewrite charStepsJoin more then byComputing
+  | [char, ..more] => rewrite charStepsJoin more
 
 theorem operatorRunSteps ∀ (run rest: List Char)
     (isRun: OperatorRun run rest):
@@ -235,15 +235,14 @@ theorem runsSymbolsLexeme ∀ (run rest: List Char)
     (starts: lexemeStart (run ++ rest) = Some SymbolsLexeme)
     (isRun: OperatorRun run rest):
     Parse.Runs (() => lexemeAt (run ++ rest)) run rest SymbolsLexeme :=
-  rewrite starts then
-    rewrite <- charStepsJoin run then
-      Parse.runsMap
-        (() => Parse.many operatorChar)
-        (read => SymbolsLexeme)
-        (Parse.joinReads (charSteps run))
-        rest
-        (Parse.stepValues (charSteps run))
-        (Parse.runsMany operatorChar (charSteps run) rest (operatorRunSteps run rest isRun))
+  rewrite starts, <- charStepsJoin run then
+    Parse.runsMap
+      (() => Parse.many operatorChar)
+      (read => SymbolsLexeme)
+      (Parse.joinReads (charSteps run))
+      rest
+      (Parse.stepValues (charSteps run))
+      (Parse.runsMany operatorChar (charSteps run) rest (operatorRunSteps run rest isRun))
 
 -- Strings.
 
@@ -296,11 +295,11 @@ theorem runsPlainSegment ∀ (first: Char) (others rest: List Char)
 theorem stringSegmentStops ∀ (state: Parse.State Char)
     (none: segmentStart state.at.rest = None):
     Parse.runFrom state (() => (Parse.optional stringSegment, Parse.mark())) = Ok (None, state.at) :=
-  rewrite none then byComputing
+  rewrite none
 
 --| A string's pieces end at its closing quote.
 theorem stringSegmentDeclines ∀ (rest: List Char): Parse.Declines stringSegment (['"'] ++ rest) :=
-  state starts honest => stringSegmentStops state (rewrite starts then byComputing)
+  state starts honest => stringSegmentStops state (rewrite starts)
 
 --| `lexemeAt` reads a string: a quote, its pieces (plain runs and
 --| escapes, `steps`), and the closing quote.
@@ -401,7 +400,7 @@ theorem lexReads ∀ (source: Text) (steps: List (List Char, Lexeme))
       (rewrite List.appendNil (Parse.joinReads steps) then reads)
       byComputing
       (Parse.runsLocatedToEnd lexemeAt steps (Parse.State.start source.toList) runs)
-  rewrite lexed, lexemesCover source steps reads then byComputing
+  rewrite lexed, lexemesCover source steps reads
 
 --| The lexemes that become tokens: all but spaces, line breaks and
 --| comments.
@@ -447,4 +446,4 @@ theorem addCode ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located L
 theorem digitIsNoWordStart ∀ (char: Char) (digit: char.isAsciiDigit = True): isWordStart char = False :=
   let letter: char.isAsciiLetter = False := arithmetic [digit]
   let underscore: (char == '_') = False := arithmetic [digit]
-  rewrite letter, underscore then byComputing
+  rewrite letter, underscore

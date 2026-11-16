@@ -732,27 +732,27 @@ theorem keyCons ∀ (zone: Zone) (keyword: Comments) (text: Text) (bodyDoc: Doc)
             (seatedHead zone indent place keyword.above inside seated)
             (reached events isBody ended =>
               others indent reached ((trace ++ written) ++ events) next inside ended (last rest isRest met =>
-                rewrite List.appendAssoc (trace ++ written) events rest then
-                  rewrite List.appendAssoc trace written (events ++ rest) then
-                    onward last
-                      (written ++ (events ++ rest))
+                rewrite List.appendAssoc (trace ++ written) events rest,
+                    List.appendAssoc trace written (events ++ rest) then
+                  onward last
+                    (written ++ (events ++ rest))
+                    ((
+                      written,
+                      (events ++ rest),
+                      byComputing,
                       ((
-                        written,
-                        (events ++ rest),
-                        byComputing,
-                        ((
-                          (breakColumn indent place),
-                          (wordStart indent (aboveEnd indent place keyword.above)),
-                          isAllowed,
-                          byComputing
-                        )),
-                        events,
-                        rest,
-                        byComputing,
-                        isBody,
-                        isRest
-                      ))
-                      met)))
+                        (breakColumn indent place),
+                        (wordStart indent (aboveEnd indent place keyword.above)),
+                        isAllowed,
+                        byComputing
+                      )),
+                      events,
+                      rest,
+                      byComputing,
+                      isBody,
+                      isRest
+                    ))
+                    met)))
 
 --| A keyword and its body, the last of their construct.
 theorem keyLast ∀ (zone: Zone) (keyword: Comments) (text: Text) (bodyDoc: Doc) (body: Body)
@@ -2518,22 +2518,22 @@ theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments open:
                             (ownHolds 0)
                             seated
                             (reached rest isClosing met =>
-                              rewrite List.appendAssoc (trace ++ events) listedEvents rest then
-                                rewrite List.appendAssoc trace events (listedEvents ++ rest) then
-                                  onward reached
-                                    (events ++ (listedEvents ++ rest))
-                                    ((
-                                      events,
-                                      (listedEvents ++ rest),
-                                      byComputing,
-                                      isOpening,
-                                      listedEvents,
-                                      rest,
-                                      byComputing,
-                                      areParameters,
-                                      isClosing
-                                    ))
-                                    met))))))
+                              rewrite List.appendAssoc (trace ++ events) listedEvents rest,
+                                  List.appendAssoc trace events (listedEvents ++ rest) then
+                                onward reached
+                                  (events ++ (listedEvents ++ rest))
+                                  ((
+                                    events,
+                                    (listedEvents ++ rest),
+                                    byComputing,
+                                    isOpening,
+                                    listedEvents,
+                                    rest,
+                                    byComputing,
+                                    areParameters,
+                                    isClosing
+                                  ))
+                                  met))))))
 
 --| A declaration, from the start of its line at column 0.
 theorem declarationLays ∀ (declaration: Declaration)

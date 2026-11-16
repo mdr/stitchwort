@@ -136,7 +136,7 @@ theorem selectedNamed ∀ (layout: Layout) (token: Tok) (named: (Text, Comments)
   match allowed: layout.allows token with
     | True =>
       match kind: token.value.kind with
-        | Name text => rewrite <- Option.someInjective selected then byComputing
+        | Name text => rewrite <- Option.someInjective selected
 
 theorem innerName ∀ (layout: Layout): Parse.ReadsIn Lexer (() => name layout) (Inner layout namedComments) :=
   Parse.readsWeaken (Parse.readsOne "a name" (selectWithComments layout nameOf)) (taken value found =>
@@ -746,8 +746,8 @@ theorem notedDeclarationComments ∀ (above: List Trivia) (line: Declaration):
 theorem keptAtStart ∀ (column: Nat) (first: Tok):
     first.value.above.flatMap Trivia.comments ++ (InStatement column first.offset).kept first = first.value.comments :=
   match trailing: first.value.trailing with
-    | Some located => rewrite ownOffset first.offset then byComputing
-    | None => rewrite ownOffset first.offset then byComputing
+    | Some located => rewrite ownOffset first.offset
+    | None => rewrite ownOffset first.offset
 
 --| A statement or declaration read from the lexer's tokens, with the
 --| comments above its first token: all the comments of what was read.

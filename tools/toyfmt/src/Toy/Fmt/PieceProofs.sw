@@ -98,7 +98,7 @@ theorem signNoSpace ∀ (mark: Punctuation): (signChar mark == ' ') = False := m
 theorem spaceStartsSpaces ∀ (first: Char) (others rest: List Char)
     (space: first = ' '):
     lexemeStart ([first, ..others] ++ rest) = Some Spaces :=
-  rewrite space then byComputing
+  rewrite space
 
 theorem spacesNotSymbols ∀ (wrong: Some Spaces = Some SymbolsLexeme): Void := cases
 
@@ -109,13 +109,13 @@ theorem standsNoSpace ∀ (lexeme: Lexeme) (read rest more: List Char)
     StopsAt (char => char == ' ') (read ++ more) :=
   match lexeme, stands, notSpaces with
     | Spaces, _, apart => (apart byComputing).impossible
-    | LineBreak, same, _ => rewrite same then byComputing
-    | CommentLexeme, Witness others (Both same _), _ => rewrite same then byComputing
+    | LineBreak, same, _ => rewrite same
+    | CommentLexeme, Witness others (Both same _), _ => rewrite same
     | WordLexeme, Witness first (Witness others (Both same (Both starts _))), _ =>
       rewrite same then notSpaceBy isWordStart first starts byComputing
     | DigitsLexeme, Witness first (Witness others (Both same (Both digit _))), _ =>
       rewrite same then notSpaceBy (char => char.isAsciiDigit) first digit byComputing
-    | StringLexeme, Witness segments (Both same _), _ => rewrite same then byComputing
+    | StringLexeme, Witness segments (Both same _), _ => rewrite same
     | SignLexeme, Witness mark (Both same _), _ => rewrite same then signNoSpace mark
     | SymbolsLexeme, Witness first (Witness others (Both same (Both starts _))), _ =>
       match isSpace: first == ' ' with
@@ -204,7 +204,7 @@ theorem addPieceJoin ∀ (piece: Text) (steps: List (List Char, Lexeme)):
       match isBreak: piece == "\n" with
         | True =>
           let same: piece = "\n" := DecEq.sound isBreak
-          rewrite same then byComputing
+          rewrite same
         | False => byComputing
 
 --| A word before the pieces after it: it stands before what they read.
@@ -295,7 +295,7 @@ theorem ontoJoin ∀ (out: List Text) (steps: List (List Char, Lexeme)):
     Parse.joinReads (stepsOnto out steps) = charsOnto out (Parse.joinReads steps) :=
   match out with
     | [] => byComputing
-    | [piece, ..earlier] => rewrite ontoJoin earlier (addPiece piece steps), addPieceJoin piece steps then byComputing
+    | [piece, ..earlier] => rewrite ontoJoin earlier (addPiece piece steps), addPieceJoin piece steps
 
 --| A text that is such pieces lexes to them: its lexemes are the pieces
 --| as steps, and its tokens what `assemble` makes of those.

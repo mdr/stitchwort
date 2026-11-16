@@ -32,8 +32,7 @@ theorem signAbsentRun ∀ (what: Text) (wanted: Punctuation) (state: Parse.State
       = Ok (None, (state.note (Parse.Problem.Expected what)).at) :=
   match state with
     | { at = { rest = [], offset, left }, furthest, expected, messages } => byComputing
-    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } =>
-      rewrite absent then byComputing
+    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite absent
 
 theorem runsSignAbsent ∀ (what: Text) (wanted: Punctuation) (rest: List (Parse.Located Token))
     (absent: signAhead wanted rest = False):
@@ -96,4 +95,4 @@ theorem runsItemComma ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
       [comma]
       rest
       (Some (Layout.comments InBrackets comma))
-      (runsSignThere "','" Comma comma rest (rewrite isComma then byComputing)))
+      (runsSignThere "','" Comma comma rest (rewrite isComma)))

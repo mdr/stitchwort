@@ -93,8 +93,7 @@ theorem gapFold ∀ (source: Text) (spaces: List Char) (steps: List (List Char, 
     | [] => byComputing
     | [(read, lexeme), ..more] =>
       match lexeme with
-        | Spaces =>
-          rewrite List.lengthAppend spaces read, Nat.addAssoc offset spaces.length read.length then byComputing
+        | Spaces => rewrite List.lengthAppend spaces read, Nat.addAssoc offset spaces.length read.length
         | LineBreak => byComputing
         | CommentLexeme => byComputing
         | WordLexeme => byComputing
@@ -116,7 +115,7 @@ theorem addPieceFold ∀ (source piece: Text) (steps: List (List Char, Lexeme)) 
       match isBreak: piece == "\n" with
         | True =>
           let same: piece = "\n" := DecEq.sound isBreak
-          rewrite same then byComputing
+          rewrite same
         | False => byComputing
 
 theorem ontoFold ∀ (source: Text) (out: List Text) (steps: List (List Char, Lexeme)):
@@ -126,9 +125,9 @@ theorem ontoFold ∀ (source: Text) (out: List Text) (steps: List (List Char, Le
   match out with
     | [] => byComputing
     | [piece, ..earlier] =>
-      rewrite ontoFold source earlier (addPiece piece steps),
-          addPieceFold source piece steps (charsLength earlier) (laid source earlier) then
-        byComputing
+      rewrite ontoFold source earlier (addPiece piece steps), addPieceFold source piece steps
+        (charsLength earlier)
+        (laid source earlier)
 
 --| `assemble` over the pieces' steps is `laid`: reading neighbouring
 --| pieces of spaces as one lexeme changes no token.
@@ -136,7 +135,7 @@ theorem assembleLaid ∀ (source: Text) (out: List Text):
     assemble source (Parse.locatedSteps 0 (stepsOnto out []))
       = ((laid source out).tokens.reverse, (laid source out).pending.reverse) :=
   let folded := ontoFold source out []
-  rewrite folded then byComputing
+  rewrite folded
 
 -- A piece that is a lexeme of its own, as `assemble` and as `placePiece`.
 
@@ -148,7 +147,7 @@ theorem spacesStandGap ∀ (piece: Text) (rest: List Char)
 theorem breakStandsText ∀ (piece: Text) (rest: List Char)
     (stands: Stands LineBreak piece.toList rest):
     (piece == "\n") = True :=
-  match piece, stands with | MkText chars, same => rewrite same then byComputing
+  match piece, stands with | MkText chars, same => rewrite same
 
 --| `addCode` with the lexeme's slice of the source named.
 theorem codeToken ∀ (assembly: Assembly) (source: Text) (lexeme: Lexeme) (offset length: Nat) (piece: Text)
@@ -200,7 +199,7 @@ theorem addPlaced ∀ (source piece: Text) (placed: Placed) (blank: Bool) (lineS
       match isBreak: piece == "\n" with
         | True =>
           let same: piece = "\n" := DecEq.sound isBreak
-          ((lineStart + column + 1), byComputing, (rewrite same then byComputing))
+          ((lineStart + column + 1), byComputing, (rewrite same))
         | False =>
           match proper with
             | Inl never => (Bool.falseNotTrue never).impossible
@@ -212,11 +211,11 @@ theorem addPlaced ∀ (source piece: Text) (placed: Placed) (blank: Bool) (lineS
                   Void.impossible (Bool.falseNotTrue (Eq.trans isBreak.flipped (breakStandsText piece [] stands)))
                 | CommentLexeme, _ =>
                   match blank with
-                    | True => (lineStart, (rewrite cutSame then byComputing), arithmetic)
-                    | False => (lineStart, (rewrite cutSame then byComputing), arithmetic)
-                | WordLexeme, _ => (lineStart, (rewrite cutSame, at then byComputing), arithmetic)
-                | DigitsLexeme, _ => (lineStart, (rewrite cutSame, at then byComputing), arithmetic)
-                | StringLexeme, _ => (lineStart, (rewrite cutSame, at then byComputing), arithmetic)
+                    | True => (lineStart, (rewrite cutSame), arithmetic)
+                    | False => (lineStart, (rewrite cutSame), arithmetic)
+                | WordLexeme, _ => (lineStart, (rewrite cutSame, at), arithmetic)
+                | DigitsLexeme, _ => (lineStart, (rewrite cutSame, at), arithmetic)
+                | StringLexeme, _ => (lineStart, (rewrite cutSame, at), arithmetic)
                 | SignLexeme, _ =>
                   let made :=
                     codeToken
@@ -228,8 +227,8 @@ theorem addPlaced ∀ (source piece: Text) (placed: Placed) (blank: Bool) (lineS
                       piece
                       byComputing
                       cutSame
-                  (lineStart, (Eq.trans made (rewrite at then byComputing)), arithmetic)
-                | SymbolsLexeme, _ => (lineStart, (rewrite cutSame, at then byComputing), arithmetic)
+                  (lineStart, (Eq.trans made (rewrite at)), arithmetic)
+                | SymbolsLexeme, _ => (lineStart, (rewrite cutSame, at), arithmetic)
 
 --| The pieces' characters before `tail` are as many as `charsLength`
 --| counts.
@@ -242,7 +241,7 @@ theorem charsOntoSplit ∀ (out: List Text) (tail: List Char):
         | (before, same, count) => (
           (before ++ piece.toList),
           (rewrite List.appendAssoc before piece.toList tail then same),
-          (rewrite List.lengthAppend before piece.toList, count then byComputing)
+          (rewrite List.lengthAppend before piece.toList, count)
         )
 
 theorem textOfChars ∀ (piece: Text): Text.fromList piece.toList = piece := match piece with
@@ -280,11 +279,10 @@ theorem piecesTokens ∀ (source: Text) (out: List Text)
     (proper: AllProper out):
     assemble source (Parse.locatedSteps 0 (stepsOnto out []))
       = ((placed out).tokens.reverse, (placed out).pending.reverse) :=
-  match laidPlaced source out [] reads proper with
-    | (lineStart, same, _) => rewrite assembleLaid source out, same then byComputing
+  match laidPlaced source out [] reads proper with | (lineStart, same, _) => rewrite assembleLaid source out, same
 
 theorem commentLexeme ∀ (text: Text) (comment: IsComment text): lexemeOf text = CommentLexeme := match comment with
-  | (others, same, _) => rewrite textOf text ['-', '-', ..others] same then byComputing
+  | (others, same, _) => rewrite textOf text ['-', '-', ..others] same
 
 --| A word that isn't layout is placed by `placeWord`.
 theorem wordPlaced ∀ (piece: Text) (placed: Placed) (blank: Bool) (column offset: Nat)

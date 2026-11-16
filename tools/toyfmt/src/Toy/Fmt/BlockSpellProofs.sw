@@ -274,7 +274,7 @@ theorem lowUnallowed ∀ (startsLine: Bool) (indent column: Nat) (same: Bool)
   match startsLine, low with
     | True, low =>
       let shallow: (indent > column) = False := arithmetic [low]
-      rewrite shallow, apart then byComputing
+      rewrite shallow, apart
 
 --| What settles a statement's tokens ends its expression too: a line
 --| start no deeper than the statement, at another offset than its first
@@ -490,7 +490,7 @@ theorem opensStarts ∀ (column: Nat) (lines: List (Spaced Statement)) (views: L
     (opens: LinesOpen column lines views):
     StartsAt column views :=
   match lines, opens with
-    | [], opens => rewrite opens then byComputing
+    | [], opens => rewrite opens
     | [_, .._], Witness first (Witness others (Both same starts)) => rewrite same then starts
 
 theorem opensSome ∀ (column: Nat) (lines: List (Spaced Statement)) (views: List TokenView)
@@ -1572,7 +1572,7 @@ theorem parametersOut ∀ (parameter: Parameter) (rest: List Parameter) (events:
                           )),
                           stepsSpelled
                         )),
-                        (rewrite <- nameNotes, <- commaNotes, <- values then byComputing)
+                        (rewrite <- nameNotes, <- commaNotes, <- values)
                       ))))
         )
 
@@ -1607,7 +1607,7 @@ theorem parameterListOut ∀ (parameters: List Parameter) (events: List Event)
               ∧ ([]: List Parameter) = parametersOf listed)
           tokens
           same
-          ((None, (runsNoParameters close rest (rewrite closeKind then byComputing)), byComputing)))
+          ((None, (runsNoParameters close rest (rewrite closeKind)), byComputing)))
     )
     | [parameter, ..others], lexical, bare, laid =>
       match parametersOut parameter others events lexical bare laid with
@@ -1636,7 +1636,7 @@ theorem parameterListOut ∀ (parameters: List Parameter) (events: List Event)
                         [close, ..rest]
                         (Eq.cong ((view: TokenView) => view.kind) firstSame)
                         stepsSpelled
-                        (rewrite closeKind then byComputing)),
+                        (rewrite closeKind)),
                     values
                   )))
         )

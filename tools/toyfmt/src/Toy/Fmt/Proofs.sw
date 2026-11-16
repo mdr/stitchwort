@@ -47,7 +47,7 @@ theorem formatFileWouldChange ∀ (options: Options) (path: Path) (disk: Disk) (
   rewrite readable, formatted then
     match c: printed == source with
       | True => Void.impossible (differs (DecEq.sound c))
-      | False => rewrite checking then byComputing
+      | False => rewrite checking
 
 --| Without `--check`, a file whose formatted text differs is written once,
 --| with `format`'s text, at its own path: the disk afterwards is the one
@@ -62,7 +62,7 @@ theorem formatFileRewrites ∀ (options: Options) (path: Path) (disk after: Disk
   rewrite readable, formatted then
     match c: printed == source with
       | True => Void.impossible (differs (DecEq.sound c))
-      | False => rewrite writing, allowed then byComputing
+      | False => rewrite writing, allowed
 
 --| As `formatFileRewrites`, but the disk refuses the write: the disk is left
 --| as it was and the outcome is a `Problem` naming the error.
@@ -76,7 +76,7 @@ theorem formatFileWriteError ∀ (options: Options) (path: Path) (disk: Disk) (s
   rewrite readable, formatted then
     match c: printed == source with
       | True => Void.impossible (differs (DecEq.sound c))
-      | False => rewrite writing, refused then byComputing
+      | False => rewrite writing, refused
 
 --| A file that doesn't parse is not written: the disk is left as it was and
 --| the outcome is a `Problem` with the parser's message.
@@ -84,7 +84,7 @@ theorem formatFileParseError ∀ (options: Options) (path: Path) (disk: Disk) (s
     (readable: disk.read path = Ok source)
     (refused: format source options.width = ParseError message):
     Files.simulate disk (() => formatFile options path) = (disk, Problem (locate path message)) :=
-  rewrite readable, refused then byComputing
+  rewrite readable, refused
 
 --| A write the disk allows can be read back: reading `path` on the disk
 --| `Disk.write path text` gave returns `text`.
@@ -100,9 +100,7 @@ theorem readAfterWrite ∀ (disk after: Disk) (path: Path) (text: Text)
               match parent: path.normal.parent with
                 | Some folder =>
                   match folderExists: disk.isFolder folder with
-                    | True =>
-                      rewrite <- Result.okInjective written then
-                        rewrite Map.getInsert path.normal text disk.files then byComputing
+                    | True => rewrite <- Result.okInjective written, Map.getInsert path.normal text disk.files
 
 --| Formatting twice: if `format source` answered `Formatted printed` and the disk
 --| took `printed` at `path` (as `formatFileRewrites` does), then the next

@@ -63,7 +63,7 @@ theorem nameEvent ∀ (seen: Views) (text: Text) (start: Option Nat)
       let found: lexemeOf (MkText [first, ..others]) = WordLexeme :=
         Eq.cong ((lexeme: Option Lexeme) => lexeme.getOrElse StrayLexeme) (wordLexemeStart first others starts)
       let lexeme: lexemeOf text = WordLexeme := rewrite textOf text [first, ..others] same then found
-      let kind: wordKind text = Name text := rewrite noKeyword then byComputing
+      let kind: wordKind text = Name text := rewrite noKeyword
       Eq.trans
         (codeEvent seen text start (Eq.cong makesToken lexeme))
         (Eq.cong
@@ -91,8 +91,7 @@ theorem stringEvent ∀ (seen: Views) (text: Text) (start: Option Nat)
     viewEvent seen { word = text, start } = codeView seen (Str text) start :=
   match string with
     | (segments, same, _) =>
-      let lexeme: lexemeOf text = StringLexeme :=
-        rewrite textOf text ['"', ..Parse.joinReads segments ++ ['"']] same then byComputing
+      let lexeme: lexemeOf text = StringLexeme := rewrite textOf text ['"', ..Parse.joinReads segments ++ ['"']] same
       Eq.trans
         (codeEvent seen text start (Eq.cong makesToken lexeme))
         (Eq.cong ((spelt: Kind) => codeView seen spelt start) (Eq.cong ((read: Lexeme) => lexemeKind read text) lexeme))
@@ -150,7 +149,7 @@ theorem ownLineEvent ∀ (seen: Views) (text: Text) (column: Nat)
       = { views = seen.views, pending = [OwnLine { text }, ..seen.pending] } :=
   match isBreak: text == "\n" with
     | True => Void.impossible (commentNoBreak text comment isBreak)
-    | False => rewrite commentLexeme text comment then byComputing
+    | False => rewrite commentLexeme text comment
 
 --| A comment after words on its line goes on the newest token.
 theorem trailingEvent ∀ (seen: Views) (text: Text)
@@ -159,7 +158,7 @@ theorem trailingEvent ∀ (seen: Views) (text: Text)
       = { views = viewTrailing seen.views { text }, pending = seen.pending } :=
   match isBreak: text == "\n" with
     | True => Void.impossible (commentNoBreak text comment isBreak)
-    | False => rewrite commentLexeme text comment then byComputing
+    | False => rewrite commentLexeme text comment
 
 -- The views of a token's events, and of events one after another.
 
@@ -376,7 +375,7 @@ theorem deeperAllows ∀ (at column from: Nat) (token: Parse.Located Token) (sta
     | { value = { kind, startsLine = True, column = indent, above, trailing }, offset, length }, same =>
       let lower: at < indent := allowsCast (Deeper at) start (Some indent) same allowed
       let deeper: (indent > column) = True := arithmetic [lower, suits]
-      rewrite deeper then byComputing
+      rewrite deeper
 
 --| A token of the tree that isn't its statement's first, from its view.
 theorem innerFits ∀ (zone: Zone) (layout: Layout) (token: Parse.Located Token) (kind: Kind)
@@ -1713,7 +1712,7 @@ theorem reachesElse ∀ (at column from: Nat) (found: Parse.Located Token) (star
     | { value = { kind, startsLine = True, column = indent, above, trailing }, offset, length }, same =>
       let lower: at ≤ indent := reachesCast (Deeper at) start (Some indent) same reaches
       let level: (indent >= column) = True := arithmetic [lower, suits]
-      rewrite level then byComputing
+      rewrite level
 
 theorem firstAllowed ∀ (column: Nat) (first: Parse.Located Token):
     (InStatement column first.offset).allows first = True :=
@@ -1722,7 +1721,7 @@ theorem firstAllowed ∀ (column: Nat) (first: Parse.Located Token):
     | { value = { kind, startsLine = True, column = indent, above, trailing }, offset, length } =>
       match deeper: indent > column with
         | True => byComputing
-        | False => rewrite ownOffset offset then byComputing
+        | False => rewrite ownOffset offset
 
 --| The comments of a statement's first token, as the tree keeps them:
 --| none above, whatever its view shows there.

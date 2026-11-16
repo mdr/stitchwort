@@ -453,19 +453,19 @@ theorem eventsWord ∀ (piece: Text) (earlier: List Text)
 theorem eventsGap ∀ (piece: Text) (earlier: List Text)
     (gap: piece.all (char => char == ' ') = True):
     eventsOf [piece, ..earlier] = eventsOf earlier :=
-  rewrite gapLayout piece gap, gapNoBreak piece gap then byComputing
+  rewrite gapLayout piece gap, gapNoBreak piece gap
 
 --| The line break that ends a line of words is no event.
 theorem eventsBreak ∀ (earlier: List Text)
     (words: lineBlank earlier = False):
     eventsOf ["\n", ..earlier] = eventsOf earlier :=
-  rewrite words then byComputing
+  rewrite words
 
 --| A line break on a line with nothing but spaces is a blank line.
 theorem eventsBlank ∀ (earlier: List Text)
     (blank: lineBlank earlier = True):
     eventsOf ["\n", ..earlier] = eventsOf earlier ++ [Event.blankLine] :=
-  rewrite blank then byComputing
+  rewrite blank
 
 theorem blankWord ∀ (piece: Text) (earlier: List Text)
     (word: isLayout piece = False):
@@ -516,7 +516,7 @@ theorem trimEventsBy ∀ (last: Text) (earlier: List Text) (spaces: Bool)
     eventsOf (trimSpaces [last, ..earlier]) = eventsOf [last, ..earlier] :=
   match spaces, is with
     | True, gap => rewrite trimDrop last earlier gap then Eq.trans rest (eventsGap last earlier gap).flipped
-    | False, word => rewrite trimKeep last earlier word then byComputing
+    | False, word => rewrite trimKeep last earlier word
 
 --| The spaces a line break drops are no words.
 theorem trimEvents ∀ (out: List Text): eventsOf (trimSpaces out) = eventsOf out := match out with
@@ -529,7 +529,7 @@ theorem trimBlankBy ∀ (last: Text) (earlier: List Text) (spaces: Bool)
     lineBlank (trimSpaces [last, ..earlier]) = lineBlank [last, ..earlier] :=
   match spaces, is with
     | True, gap => rewrite trimDrop last earlier gap then Eq.trans rest (blankGap last earlier gap).flipped
-    | False, word => rewrite trimKeep last earlier word then byComputing
+    | False, word => rewrite trimKeep last earlier word
 
 theorem trimBlank ∀ (out: List Text): lineBlank (trimSpaces out) = lineBlank out := match out with
   | [] => byComputing
@@ -608,7 +608,7 @@ theorem putStart ∀ (printer: Printer) (text: Text) (width at: Nat) (trace: Lis
           (blankWord text out word),
           byComputing,
           indent,
-          (rewrite <- owes, eventsWord text out word, blank, empty, same then byComputing),
+          (rewrite <- owes, eventsWord text out word, blank, empty, same),
           byComputing
         )
         | Some Zero, owes => (
@@ -617,7 +617,7 @@ theorem putStart ∀ (printer: Printer) (text: Text) (width at: Nat) (trace: Lis
           (blankWord text out word),
           byComputing,
           indent,
-          (rewrite <- owes, eventsWord text out word, blank, empty, same then byComputing),
+          (rewrite <- owes, eventsWord text out word, blank, empty, same),
           byComputing
         )
         | Some (Succ less), owes =>
@@ -632,13 +632,10 @@ theorem putStart ∀ (printer: Printer) (text: Text) (width at: Nat) (trace: Lis
             (blankWord text [" ".repeat (Succ less), ..out] word),
             byComputing,
             indent,
-            (rewrite <- owes,
-                eventsWord text [" ".repeat (Succ less), ..out] word,
-                eventsGap (" ".repeat (Succ less)) out (indentSpaces (Succ less)),
-                stillBlank,
-                wide,
-                same then
-              byComputing),
+            (rewrite <- owes, eventsWord text [" ".repeat (Succ less), ..out] word, eventsGap
+              (" ".repeat (Succ less))
+              out
+              (indentSpaces (Succ less)), stillBlank, wide, same),
             byComputing
           )
 
@@ -658,7 +655,7 @@ theorem putMid ∀ (printer: Printer) (text: Text) (width at: Nat) (trace: List 
           (blankWord text out word),
           byComputing,
           indent,
-          (rewrite eventsWord text out word, blank, same then byComputing),
+          (rewrite eventsWord text out word, blank, same),
           byComputing
         )
 
@@ -710,7 +707,7 @@ theorem newlineBroken ∀ (printer: Printer) (indent: Nat) (place: Place) (trace
     | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, Held
           at, Both start (Both (Witness comment (Both one (Both word events))) (Both blank (Both owes same))), _ =>
       let written: eventsOf [comment, " ", ..trimSpaces out] = eventsOf out ++ [{ word = comment, start = None }] :=
-        rewrite eventsWord comment [" ", ..trimSpaces out] word, trimBlank out, blank, trimEvents out then byComputing
+        rewrite eventsWord comment [" ", ..trimSpaces out] word, trimBlank out, blank, trimEvents out
       let ended: eventsOf ["\n", comment, " ", ..trimSpaces out] = eventsOf [comment, " ", ..trimSpaces out] :=
         eventsBreak [comment, " ", ..trimSpaces out] (blankWord comment [" ", ..trimSpaces out] word)
       rewrite one, start then
@@ -759,10 +756,10 @@ theorem agreesClear ∀ (printer: Printer) (place: Place) (trace: List Event)
         | Mid _ => True
         | Held _ => False) :=
   match place, agrees with
-    | AtStart at, Both _ (Both none _) => rewrite none then byComputing
-    | Broken at, Both _ (Both none _) => rewrite none then byComputing
-    | Mid at, Both _ (Both none _) => rewrite none then byComputing
-    | Held at, Both _ (Both (Witness comment (Both one _)) _) => rewrite one then byComputing
+    | AtStart at, Both _ (Both none _) => rewrite none
+    | Broken at, Both _ (Both none _) => rewrite none
+    | Mid at, Both _ (Both none _) => rewrite none
+    | Held at, Both _ (Both (Witness comment (Both one _)) _) => rewrite one
 
 theorem agreesStart ∀ (printer: Printer) (place: Place) (trace: List Event)
     (agrees: Agrees printer place trace):
@@ -1036,8 +1033,7 @@ theorem blankAdds ∀ (printer: Printer)
     (started: printer.started = True)
     (one: printer.newlinesAtEnd = 1):
     printer.blank = { printer | out = ["\n", ..printer.out], newlinesAtEnd = printer.newlinesAtEnd + 1 } :=
-  match at: printer.atLineStart, begun: printer.started, start, started with
-    | True, True, _, _ => rewrite one then byComputing
+  match at: printer.atLineStart, begun: printer.started, start, started with | True, True, _, _ => rewrite one
 
 --| A `Blank` leaves a blank line right after a line of words, and
 --| nothing after words.
@@ -1083,7 +1079,7 @@ theorem suffixStays ∀ (next: Place → List Event → Prop) (printer: Printer)
     | Broken at, _, never => (Bool.falseNotTrue never).impossible
     | Held at, _, never => (Bool.falseNotTrue never).impossible
     | Mid at, Both start (Both none (Both blank (Both owes (Both indent (Both events _))))), lays =>
-      let one: printer.suffixes ++ [comment] = [comment] := rewrite none then byComputing
+      let one: printer.suffixes ++ [comment] = [comment] := rewrite none
       (
         (Held at),
         _,
@@ -1348,7 +1344,7 @@ theorem flushAgrees ∀ (printer: Printer) (place: Place) (trace: List Event)
     | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, Held
           at, Both start (Both (Witness comment (Both one (Both word events))) (Both blank _)) =>
       let written: eventsOf [comment, " ", ..out] = eventsOf out ++ [{ word = comment, start = None }] :=
-        rewrite eventsWord comment [" ", ..out] word, blank then byComputing
+        rewrite eventsWord comment [" ", ..out] word, blank
       rewrite one, start then Eq.trans events written.flipped
 
 --| The pieces `print` joins, in the order printed.

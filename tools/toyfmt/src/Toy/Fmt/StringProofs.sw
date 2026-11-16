@@ -35,7 +35,7 @@ theorem plainPieces ∀ (read: List Char) (later: List Piece)
       match first: isPlainChar char with
         | True =>
           match plainPieces chars later plain good with
-            | (goodRest, same) => (((byComputing, goodRest)), (rewrite same then byComputing))
+            | (goodRest, same) => (((byComputing, goodRest)), (rewrite same))
 
 --| What the string's pieces read is some characters and escapes.
 theorem eachPieces ∀ (segments: List ()) (body: List Char)
@@ -48,11 +48,10 @@ theorem eachPieces ∀ (segments: List ()) (body: List Char)
         | Witness later (Both good same) =>
           match read with
             | Inl (Witness escaped (Both isEscape allowed)) =>
-              ([EscapePiece escaped, ..later], ((allowed, good)), (rewrite split, isEscape, same then byComputing))
+              ([EscapePiece escaped, ..later], ((allowed, good)), (rewrite split, isEscape, same))
             | Inr plain =>
               match plainPieces first later plain good with
-                | Both goodAll spelled =>
-                  ((first.map PlainPiece ++ later), goodAll, (rewrite split, spelled, same then byComputing))
+                | Both goodAll spelled => ((first.map PlainPiece ++ later), goodAll, (rewrite split, spelled, same))
 
 --| How the steps for some pieces start, as far as a plain character
 --| before them needs to know: no steps for no pieces; for a plain first
@@ -97,7 +96,7 @@ theorem plainFirst ∀ (char: Char) (others: List Piece) (steps: List (List Char
     (runs: ∀ (after: List Char) => Parse.ManyRuns stringSegment steps (['"'] ++ after))
     (headed: Headed others steps):
     ∃ (longer: List (List Char, ())) => Pieced [PlainPiece char, ..others] longer :=
-  let alone: [char].all isPlainChar = True := rewrite plain then byComputing
+  let alone: [char].all isPlainChar = True := rewrite plain
   match others, joined, headed with
     | [], joined, none => (
       [([char], ())],
@@ -116,10 +115,10 @@ theorem plainFirst ∀ (char: Char) (others: List Piece) (steps: List (List Char
     )
     | [EscapePiece escaped, ..more], joined, _ =>
       let ends: ∀ (after: List Char) => (Parse.joinReads steps ++ (['"'] ++ after)).takeWhile isPlainChar = [] :=
-        after => rewrite joined then byComputing
+        after => rewrite joined
       (
         [([char], ()), ..steps],
-        (rewrite joined then byComputing),
+        (rewrite joined),
         (after =>
           (
             (same => cases),
@@ -176,7 +175,7 @@ theorem piecesRun ∀ (pieces: List Piece)
       match piecesRun others more with
         | Witness steps (Both joined (Both runs headed)) => (
           [(['\\', escaped], ()), ..steps],
-          (rewrite joined then byComputing),
+          (rewrite joined),
           (after =>
             (
               (same => cases),
@@ -196,4 +195,4 @@ theorem stringReadClosed ∀ (text: Text) (read: StringRead text.toList): IsStri
     match eachPieces segments body each with
       | (pieces, good, spelled) =>
         match piecesRun pieces good with
-          | (steps, joined, runs, headed) => (steps, (rewrite shape, joined, spelled then byComputing), runs)
+          | (steps, joined, runs, headed) => (steps, (rewrite shape, joined, spelled), runs)

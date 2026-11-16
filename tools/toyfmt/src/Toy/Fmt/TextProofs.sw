@@ -90,17 +90,10 @@ theorem symbolApart ∀ (first symbol: Char)
   DecEq.falseOfNe (same => apartBy isWordStart first symbol starts apart same.flipped)
 
 theorem wordNoOperator ∀ (first: Char) (starts: isWordStart first = True): isOperatorChar first = False :=
-  rewrite symbolApart first '=' starts byComputing,
-      symbolApart first '|' starts byComputing,
-      symbolApart first '&' starts byComputing,
-      symbolApart first '!' starts byComputing,
-      symbolApart first '<' starts byComputing,
-      symbolApart first '+' starts byComputing,
-      symbolApart first '-' starts byComputing,
-      symbolApart first '*' starts byComputing,
-      symbolApart first '/' starts byComputing,
-      symbolApart first '%' starts byComputing then
-    byComputing
+  rewrite symbolApart first '=' starts byComputing, symbolApart first '|' starts byComputing, symbolApart first '&'
+      starts byComputing, symbolApart first '!' starts byComputing, symbolApart first '<' starts
+      byComputing, symbolApart first '+' starts byComputing, symbolApart first '-' starts byComputing, symbolApart first
+      '*' starts byComputing, symbolApart first '/' starts byComputing, symbolApart first '%' starts byComputing
 
 theorem digitNoOperator ∀ (first: Char) (digit: first.isAsciiDigit = True): isOperatorChar first = False := cases
 

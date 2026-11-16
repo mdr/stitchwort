@@ -93,13 +93,13 @@ def Layout.past (layout: Layout) (token: Tok): Prop := match layout with
 theorem ownLinesSame ∀ (trivia: List Trivia): ownLineComments trivia = trivia.flatMap Trivia.comments :=
   match trivia with
     | [] => byComputing
-    | [OwnLine comment, ..rest] => rewrite ownLinesSame rest then byComputing
-    | [BlankLine, ..rest] => rewrite ownLinesSame rest then byComputing
+    | [OwnLine comment, ..rest] => rewrite ownLinesSame rest
+    | [BlankLine, ..rest] => rewrite ownLinesSame rest
 
 theorem bracketsKept ∀ (token: Tok): Layout.kept InBrackets token = token.value.comments :=
   match trailing: token.value.trailing with
-    | Some located => rewrite ownLinesSame token.value.above then byComputing
-    | None => rewrite ownLinesSame token.value.above then byComputing
+    | Some located => rewrite ownLinesSame token.value.above
+    | None => rewrite ownLinesSame token.value.above
 
 theorem keptPast ∀ (layout: Layout) (token: Tok) (past: layout.past token): layout.kept token = token.value.comments :=
   match layout, past with
@@ -268,7 +268,7 @@ theorem readsSkipAt ∀ (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
         (rewrite here then honest)
         h with
         | (isSome, starts, honestAfter) => ([token], (rewrite <- here then starts), honestAfter, byComputing))
-    (read skipped middle starts single => Parse.readsAtDone middle () _ (rewrite single then byComputing))
+    (read skipped middle starts single => Parse.readsAtDone middle () _ (rewrite single))
 
 --| `skip` of the layout's first token, seen at `start`, then the rest.
 theorem skipStarted ∀ [inv: Parse.Invariant Tok] [j: () → {Parse Tok} b] [measure: b → List Comment] [extra: b → Prop]
@@ -281,7 +281,7 @@ theorem skipStarted ∀ [inv: Parse.Invariant Tok] [j: () → {Parse Tok} b] [me
     Parse.ReadsAt start (() => j (skip())) (Started layout token measure extra) :=
   Parse.readsAtThen (readsSkipAt start token later shape) (read done after starts single =>
     Parse.readsAtWeaken (rest done after (fine.after (rewrite <- shape then starts))) (taken value onto =>
-      (taken, (rewrite single then byComputing), onto.left, onto.right)))
+      (taken, (rewrite single), onto.left, onto.right)))
 
 --| `skip` of a later token, seen at `start` and kept as the layout keeps
 --| it, then the rest.

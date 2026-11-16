@@ -251,8 +251,9 @@ theorem tokenLays ∀ (comments: Comments) (text: Text) (indent: Nat) (place: Pl
               ((trace ++ above) ++ [word])
               next
               fineAfter
-              (rewrite List.appendAssoc (trace ++ above) [word] (afterEvents comments.after) then
-                rewrite List.appendAssoc trace above ([word] ++ afterEvents comments.after) then reached))))
+              (rewrite List.appendAssoc (trace ++ above) [word] (afterEvents comments.after),
+                  List.appendAssoc trace above ([word] ++ afterEvents comments.after) then
+                reached))))
 
 -- Zones: where the parser's layout rule lets a token start a line.
 
@@ -596,13 +597,13 @@ theorem closerRule ∀ (zone: Zone) (comments: Comments) (text: Text)
                         ((trace ++ notes) ++ [word])
                         next
                         fineAfter
-                        (rewrite List.appendAssoc (trace ++ notes) [word] (afterEvents after) then
-                          rewrite List.appendAssoc trace notes ([word] ++ afterEvents after) then
-                            onward
-                              (trailEnd indent after)
-                              (notes ++ [word, ..afterEvents after])
-                              (((indent + 2), (Some indent), byComputing, byComputing))
-                              (trailEnded zone indent after inside)))))
+                        (rewrite List.appendAssoc (trace ++ notes) [word] (afterEvents after),
+                            List.appendAssoc trace notes ([word] ++ afterEvents after) then
+                          onward
+                            (trailEnd indent after)
+                            (notes ++ [word, ..afterEvents after])
+                            (((indent + 2), (Some indent), byComputing, byComputing))
+                            (trailEnded zone indent after inside)))))
                 )))))
 
 -- Rules put together.

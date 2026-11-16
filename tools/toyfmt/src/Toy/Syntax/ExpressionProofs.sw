@@ -48,7 +48,7 @@ theorem runsName ∀ (layout: Layout) (token: Parse.Located Token) (text: Text) 
     token
     (text, layout.comments token)
     rest
-    (rewrite allowed, named then byComputing)
+    (rewrite allowed, named)
 
 theorem runsAtomNumber ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (token: Parse.Located Token) (digits: Text) (rest: List (Parse.Located Token))
@@ -56,10 +56,10 @@ theorem runsAtomNumber ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (allowed: layout.allows token = True):
     Parse.Runs (() => atom self layout) [token] rest (NumberLiteral digits (layout.comments token)) :=
   state starts honest =>
-    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts then byComputing
+    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts
     (
       (state.advance rest 1).at,
-      (rewrite starts, allowed, numbered, starts then byComputing),
+      (rewrite starts, allowed, numbered, starts),
       byComputing,
       (arithmetic [honest, lengths]),
       byComputing
@@ -71,10 +71,10 @@ theorem runsAtomString ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (allowed: layout.allows token = True):
     Parse.Runs (() => atom self layout) [token] rest (StringLiteral written (layout.comments token)) :=
   state starts honest =>
-    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts then byComputing
+    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts
     (
       (state.advance rest 1).at,
-      (rewrite starts, allowed, quoted, starts then byComputing),
+      (rewrite starts, allowed, quoted, starts),
       byComputing,
       (arithmetic [honest, lengths]),
       byComputing
@@ -608,7 +608,7 @@ theorem negationsEndRun ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located 
       rewrite starts then
         match input with
           | [] => byComputing
-          | [token, ..later] => rewrite noMinus then byComputing
+          | [token, ..later] => rewrite noMinus
 
 --| With no `-` next, `negationsFrom` reads a postfix expression.
 theorem runsNegationsEnd ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
@@ -624,25 +624,21 @@ theorem runsNegationsEnd ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located
 theorem operatorOfSign ∀ (layout: Layout) (level: Nat) (token: Parse.Located Token) (punctuation: Punctuation)
     (signed: token.value.kind = Sign punctuation):
     operatorOf layout level token = None :=
-  rewrite signed then byComputing
+  rewrite signed
 
 --| No operator is ahead where a punctuation sign comes next.
 theorem noOperatorAtSign ∀ (layout: Layout) (lowest: Nat) (token: Parse.Located Token)
     (punctuation: Punctuation) (rest: List (Parse.Located Token))
     (signed: token.value.kind = Sign punctuation):
     Parse.operatorAhead (operatorLevels layout) lowest [token, ..rest] = False :=
-  rewrite operatorOfSign layout 1 token punctuation signed,
-      operatorOfSign layout 2 token punctuation signed,
-      operatorOfSign layout 3 token punctuation signed,
-      operatorOfSign layout 4 token punctuation signed,
-      operatorOfSign layout 5 token punctuation signed,
-      operatorOfSign layout 6 token punctuation signed then
-    byComputing
+  rewrite operatorOfSign layout 1 token punctuation signed, operatorOfSign layout 2 token punctuation
+      signed, operatorOfSign layout 3 token punctuation signed, operatorOfSign layout 4 token punctuation
+      signed, operatorOfSign layout 5 token punctuation signed, operatorOfSign layout 6 token punctuation signed
 
 theorem endsAtClose ∀ (close: Parse.Located Token) (rest: List (Parse.Located Token))
     (closes: close.value.kind = Sign CloseParen):
     EndsExpression InBrackets [close, ..rest] :=
-  ((rewrite closes then byComputing), (noOperatorAtSign InBrackets 0 close CloseParen rest closes))
+  ((rewrite closes), (noOperatorAtSign InBrackets 0 close CloseParen rest closes))
 
 --| `postfix`'s atom and suffix loop read a postfix expression as the start
 --| of a longer one: after its tokens the loop holds the expression, and
@@ -708,7 +704,7 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
     | Bracketed opened inner closed =>
       match spelled with
         | (open, innerTokens, close, split, opens, allowed, closes, spelledInner, openCommented, closeCommented) =>
-          let size: tokens.length = (innerTokens ++ [close]).length + 1 := rewrite split then byComputing
+          let size: tokens.length = (innerTokens ++ [close]).length + 1 := rewrite split
           let sizes: (innerTokens ++ [close]).length = innerTokens.length + 1 := List.lengthAppend innerTokens [close]
           rewrite openCommented, closeCommented at continues then
             rewrite split then
@@ -756,7 +752,7 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
     | ListLiteral opened listed closed =>
       match spelled with
         | (open, itemTokens, close, split, opens, allowed, closes, spelledItems, openCommented, closeCommented) =>
-          let size: tokens.length = (itemTokens ++ [close]).length + 1 := rewrite split then byComputing
+          let size: tokens.length = (itemTokens ++ [close]).length + 1 := rewrite split
           let sizes: (itemTokens ++ [close]).length = itemTokens.length + 1 := List.lengthAppend itemTokens [close]
           rewrite openCommented, closeCommented at continues then
             rewrite split then
@@ -860,7 +856,7 @@ theorem runsNegations ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
     | Negate minusComments inner =>
       match spelled, fuel with
         | (minus, operandTokens, split, kind, allowed, spelledInner, minusCommented), Succ more =>
-          let size: tokens.length = operandTokens.length + 1 := rewrite split then byComputing
+          let size: tokens.length = operandTokens.length + 1 := rewrite split
           rewrite split, minusCommented then
             runsNegation more self layout minus operandTokens rest inner kind allowed
               (runsNegations self layout bound nested inner more operandTokens rest shaped.left shaped.right
@@ -1018,18 +1014,18 @@ theorem operatorFound ∀ (layout: Layout) (sign: Parse.Located Token) (operator
   let at5 := operatorOfOp layout 5 sign operator kind allowed
   let at6 := operatorOfOp layout 6 sign operator kind allowed
   match operator with
-    | Or => rewrite at1 then byComputing
-    | And => rewrite at1, at2 then byComputing
-    | EqualTo => rewrite at1, at2, at3 then byComputing
-    | NotEqual => rewrite at1, at2, at3 then byComputing
-    | LessThan => rewrite at1, at2, at3 then byComputing
-    | LessEqual => rewrite at1, at2, at3 then byComputing
-    | Append => rewrite at1, at2, at3, at4 then byComputing
-    | Plus => rewrite at1, at2, at3, at4, at5 then byComputing
-    | Minus => rewrite at1, at2, at3, at4, at5 then byComputing
-    | Times => rewrite at1, at2, at3, at4, at5, at6 then byComputing
-    | Divide => rewrite at1, at2, at3, at4, at5, at6 then byComputing
-    | Remainder => rewrite at1, at2, at3, at4, at5, at6 then byComputing
+    | Or => rewrite at1
+    | And => rewrite at1, at2
+    | EqualTo => rewrite at1, at2, at3
+    | NotEqual => rewrite at1, at2, at3
+    | LessThan => rewrite at1, at2, at3
+    | LessEqual => rewrite at1, at2, at3
+    | Append => rewrite at1, at2, at3, at4
+    | Plus => rewrite at1, at2, at3, at4, at5
+    | Minus => rewrite at1, at2, at3, at4, at5
+    | Times => rewrite at1, at2, at3, at4, at5, at6
+    | Divide => rewrite at1, at2, at3, at4, at5, at6
+    | Remainder => rewrite at1, at2, at3, at4, at5, at6
 
 theorem chainTreeOperand ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (bound: Nat)
     (nested: ReadsNested self bound)
@@ -1080,8 +1076,7 @@ theorem chainTree ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
             split, kind, allowed, spelledLeft, spelledRight, signCommented) =>
           let size: tokens.length = leftTokens.length + (rightTokens.length + 1) :=
             rewrite split then List.lengthAppend leftTokens [sign, ..rightTokens]
-          let signEnds: endsSuffixes (suffixKind layout [sign, ..rightTokens ++ rest]) = True :=
-            rewrite allowed, kind then byComputing
+          let signEnds: endsSuffixes (suffixKind layout [sign, ..rightTokens ++ rest]) = True := rewrite allowed, kind
           let range := levelRange operator
           let leftResult :=
             chainTree self layout bound nested left leftTokens
@@ -1103,8 +1098,8 @@ theorem chainTree ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
                 (Binary operator (layout.comments sign))
                 leftTree
                 rightTree),
-              (rewrite leftReads, rightReads, split then byComputing),
-              (rewrite leftValue, rightValue, signCommented then byComputing),
+              (rewrite leftReads, rightReads, split),
+              (rewrite leftValue, rightValue, signCommented),
               ((
                 (operatorFound layout sign operator kind allowed),
                 (arithmetic [range.right, range.left]),
@@ -1224,8 +1219,7 @@ theorem chainStart ∀ (layout: Layout) (expr: Expr) (tokens rest: List (Parse.L
             chainStart layout left leftTokens [sign, ..rightTokens ++ rest] leftChain shapedLeft spelledLeft
     | Negate minusComments inner =>
       match spelled with
-        | (minus, operandTokens, split, kind, allowed, spelledInner, minusCommented) =>
-          rewrite split, kind, allowed then byComputing
+        | (minus, operandTokens, split, kind, allowed, spelledInner, minusCommented) => rewrite split, kind, allowed
     | Var name comments => (postfixStart layout (Var name comments) tokens rest byComputing shaped spelled).right
     | NumberLiteral digits comments =>
       (postfixStart layout (NumberLiteral digits comments) tokens rest byComputing shaped spelled).right
@@ -1248,7 +1242,7 @@ theorem chainRuleRun ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
         (Parse.operators "an operator" (operatorLevels layout) (() => operand self layout), Parse.mark())) :=
   match state with
     | { at = { rest = [], offset, left }, furthest, expected, messages } => byComputing
-    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite noIf then byComputing
+    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite noIf
 
 --| One level of the expression parser on anything but an `if`:
 --| `expressionRule` reads a chain, given that `self` reads the expressions
@@ -1406,7 +1400,7 @@ theorem runsExpression ∀ (layout: Layout) (expr: Expr) (tokens rest: List (Par
     (layout tokens rest expr (Both shaped (Both spelled after)) =>
       match spelledStart layout expr tokens shaped spelled with
         | (first, others, split, _) =>
-          let size: tokens.length = Succ others.length := rewrite split then byComputing
+          let size: tokens.length = Succ others.length := rewrite split
           arithmetic [size])
     (self layout tokens rest expr (Both shaped (Both spelled after)) declines nested =>
       runsExpressionRule self layout tokens.length
@@ -1452,53 +1446,47 @@ theorem spelledStart ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Loca
           ifToken,
           (conditionTokens ++ [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]]),
           split,
-          (rewrite isIfToken then byComputing)
+          (rewrite isIfToken)
         )
     | Var name comments =>
       match spelled with
-        | (token, split, kind, allowed, commented) => (token, [], split, (rewrite kind then byComputing))
+        | (token, split, kind, allowed, commented) => (token, [], split, (rewrite kind))
     | NumberLiteral digits comments =>
       match spelled with
-        | (token, split, kind, allowed, commented) => (token, [], split, (rewrite kind then byComputing))
+        | (token, split, kind, allowed, commented) => (token, [], split, (rewrite kind))
     | StringLiteral written comments =>
       match spelled with
-        | (token, split, kind, allowed, commented) => (token, [], split, (rewrite kind then byComputing))
+        | (token, split, kind, allowed, commented) => (token, [], split, (rewrite kind))
     | Bracketed opened inner closed =>
       match spelled with
-        | (open, innerTokens, close, split, opens, others) =>
-          (open, (innerTokens ++ [close]), split, (rewrite opens then byComputing))
+        | (open, innerTokens, close, split, opens, others) => (open, (innerTokens ++ [close]), split, (rewrite opens))
     | ListLiteral opened listed closed =>
       match spelled with
-        | (open, itemTokens, close, split, opens, others) =>
-          (open, (itemTokens ++ [close]), split, (rewrite opens then byComputing))
+        | (open, itemTokens, close, split, opens, others) => (open, (itemTokens ++ [close]), split, (rewrite opens))
     | Negate minusComments operand =>
       match spelled with
-        | (minus, operandTokens, split, kind, others) => (minus, operandTokens, split, (rewrite kind then byComputing))
+        | (minus, operandTokens, split, kind, others) => (minus, operandTokens, split, (rewrite kind))
     | Field target dotComments name nameComments =>
       match spelled with
         | (targetTokens, dot, named, split, dotted, dotAllowed, isName, nameAllowed, spelledTarget, dotCommented,
             nameCommented) =>
           match spelledStart layout target targetTokens shaped.right spelledTarget with
             | (first, others, targetSplit, startKind) =>
-              (first, (others ++ [dot, named]), (rewrite split, targetSplit then byComputing), startKind)
+              (first, (others ++ [dot, named]), (rewrite split, targetSplit), startKind)
     | Call callee opened arguments closed =>
       match spelled with
         | (calleeTokens, open, argumentTokens, close, split, opens, allowed, closes, spelledCallee, spelledArguments,
             openCommented, closeCommented) =>
           match spelledStart layout callee calleeTokens shaped.right.left spelledCallee with
-            | (first, others, calleeSplit, startKind) => (
-              first,
-              (others ++ [open, ..argumentTokens ++ [close]]),
-              (rewrite split, calleeSplit then byComputing),
-              startKind
-            )
+            | (first, others, calleeSplit, startKind) =>
+              (first, (others ++ [open, ..argumentTokens ++ [close]]), (rewrite split, calleeSplit), startKind)
     | Binary operator signComments left right =>
       match shaped, spelled with
         | (leftLevel, rightLevel, leftChain, rightChain, shapedLeft, shapedRight), (leftTokens, sign, rightTokens,
             split, kind, allowed, spelledLeft, spelledRight, signCommented) =>
           match spelledStart layout left leftTokens shapedLeft spelledLeft with
             | (first, others, leftSplit, startKind) =>
-              (first, (others ++ [sign, ..rightTokens]), (rewrite split, leftSplit then byComputing), startKind)
+              (first, (others ++ [sign, ..rightTokens]), (rewrite split, leftSplit), startKind)
 
 -- Clearing the comments above an expression's first token
 -- (`Layout.headed`, which `bareStatement` applies) changes nothing where
@@ -1511,17 +1499,16 @@ def headAbove (layout: Layout) (tokens: List (Parse.Located Token)): List Commen
 
 theorem noAboveCleared ∀ (expr: Expr) (none: expr.firstAbove = []): expr.withoutFirstAbove = expr :=
   match expr, none with
-    | Var name { above, after }, none => rewrite none then byComputing
-    | NumberLiteral digits { above, after }, none => rewrite none then byComputing
-    | StringLiteral written { above, after }, none => rewrite none then byComputing
-    | Bracketed ({ above, after }) inner close, none => rewrite none then byComputing
-    | ListLiteral ({ above, after }) items close, none => rewrite none then byComputing
-    | Call callee open arguments close, none => rewrite noAboveCleared callee none then byComputing
-    | Field target dot name nameComments, none => rewrite noAboveCleared target none then byComputing
-    | Negate ({ above, after }) operand, none => rewrite none then byComputing
-    | Binary operator sign left right, none => rewrite noAboveCleared left none then byComputing
-    | If ({ above, after }) condition thenComments whenTrue elseComments whenFalse, none =>
-      rewrite none then byComputing
+    | Var name { above, after }, none => rewrite none
+    | NumberLiteral digits { above, after }, none => rewrite none
+    | StringLiteral written { above, after }, none => rewrite none
+    | Bracketed ({ above, after }) inner close, none => rewrite none
+    | ListLiteral ({ above, after }) items close, none => rewrite none
+    | Call callee open arguments close, none => rewrite noAboveCleared callee none
+    | Field target dot name nameComments, none => rewrite noAboveCleared target none
+    | Negate ({ above, after }) operand, none => rewrite none
+    | Binary operator sign left right, none => rewrite noAboveCleared left none
+    | If ({ above, after }) condition thenComments whenTrue elseComments whenFalse, none => rewrite none
 
 --| The comments above a spelled expression are those of its first token.
 theorem spelledFirstAbove ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token))
@@ -1533,28 +1520,27 @@ theorem spelledFirstAbove ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse
       match spelled with
         | (ifToken, conditionTokens, thenToken, trueTokens, elseToken, falseTokens, split, isIfToken, ifAllowed, isThen,
             thenAllowed, isElse, elseAllowed, spelledCondition, spelledTrue, spelledFalse, ifCommented, others) =>
-          rewrite split, ifCommented then byComputing
+          rewrite split, ifCommented
     | Var name comments =>
       match spelled with
-        | (token, split, kind, allowed, commented) => rewrite split, commented then byComputing
+        | (token, split, kind, allowed, commented) => rewrite split, commented
     | NumberLiteral digits comments =>
       match spelled with
-        | (token, split, kind, allowed, commented) => rewrite split, commented then byComputing
+        | (token, split, kind, allowed, commented) => rewrite split, commented
     | StringLiteral written comments =>
       match spelled with
-        | (token, split, kind, allowed, commented) => rewrite split, commented then byComputing
+        | (token, split, kind, allowed, commented) => rewrite split, commented
     | Bracketed opened inner closed =>
       match spelled with
         | (open, innerTokens, close, split, opens, allowed, closes, spelledInner, openCommented, others) =>
-          rewrite split, openCommented then byComputing
+          rewrite split, openCommented
     | ListLiteral opened listed closed =>
       match spelled with
         | (open, itemTokens, close, split, opens, allowed, closes, spelledItems, openCommented, others) =>
-          rewrite split, openCommented then byComputing
+          rewrite split, openCommented
     | Negate minusComments operand =>
       match spelled with
-        | (minus, operandTokens, split, kind, allowed, spelledOperand, commented) =>
-          rewrite split, commented then byComputing
+        | (minus, operandTokens, split, kind, allowed, spelledOperand, commented) => rewrite split, commented
     | Field target dotComments name nameComments =>
       match spelled with
         | (targetTokens, dot, named, split, dotted, dotAllowed, isName, nameAllowed, spelledTarget, dotCommented,
@@ -1587,7 +1573,7 @@ theorem ownOffset ∀ (offset: Nat): (offset == offset) = True := arithmetic
 --| A statement's first token holds no comments above it in the tree.
 theorem startAbove ∀ (column: Nat) (first: Parse.Located Token):
     ((InStatement column first.offset).comments first).above = [] :=
-  rewrite ownOffset first.offset then byComputing
+  rewrite ownOffset first.offset
 
 --| Clearing changes nothing where the first token holds no comments.
 theorem spelledHeaded ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token))
@@ -1823,7 +1809,7 @@ theorem itemsStart ∀ (head: Item) (tail: List Item) (tokens: List (Parse.Locat
             | (first, others, valueSplit, startKind), (second, rest, laterSplit, laterKind, short) => (
               first,
               (others ++ [commaToken, ..laterTokens]),
-              (rewrite split, valueSplit then byComputing),
+              (rewrite split, valueSplit),
               startKind,
               (rewrite laterSplit then arithmetic [short, List.lengthAppend others [commaToken, second, ..rest]])
             )
@@ -1866,7 +1852,7 @@ theorem runsItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bou
         | (first, others, split, startKind, short) =>
           let absent: signAhead closer ((tokens ++ [close]) ++ after) = False :=
             rewrite split then startNoBracket first.value.kind closer startKind bracket
-          let size: tokens.length = Succ others.length := rewrite split then byComputing
+          let size: tokens.length = Succ others.length := rewrite split
           Parse.runsBind
             (() => signInBrackets "'${closer.spelling}'" closer)
             (found =>
@@ -2051,7 +2037,7 @@ theorem notMinusAtReserved ∀ (layout: Layout) (token: Parse.Located Token) (ke
     (reserved: token.value.kind = Reserved keyword):
     isMinus layout token = False :=
   match allowed: layout.allows token with
-    | True => rewrite reserved then byComputing
+    | True => rewrite reserved
     | False => byComputing
 
 theorem notIfAtReserved ∀ (layout: Layout) (token: Parse.Located Token) (keyword: Keyword)
@@ -2079,7 +2065,7 @@ theorem atomDeclines ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (
       = Parse.runFrom state (() => (Parse.optional (() => (Parse.expected "an expression": Expr)), Parse.mark())) :=
       rewrite starts then
         match allowed: layout.allows token with
-          | True => rewrite reserved then byComputing
+          | True => rewrite reserved
           | False => byComputing
     Eq.trans step (Parse.declinesExpected "an expression" [token, ..later] state starts honest)
 
@@ -2108,7 +2094,7 @@ theorem negationsDecline ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located
       = Parse.runFrom state (() => (Parse.optional (() => postfix self layout), Parse.mark())) :=
       match fuel with
         | Zero => byComputing
-        | Succ more => rewrite starts, notMinusAtReserved layout token keyword reserved then byComputing
+        | Succ more => rewrite starts, notMinusAtReserved layout token keyword reserved
     Eq.trans step (postfixDeclines self layout token later keyword reserved state starts honest)
 
 theorem chainRuleStops ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
@@ -2122,7 +2108,7 @@ theorem chainRuleStops ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
         )) :=
   match state with
     | { at = { rest = [], offset, left }, furthest, expected, messages } => byComputing
-    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite noIf then byComputing
+    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite noIf
 
 --| No expression starts with a keyword other than `if`, whatever reads
 --| the expressions nested in it.
