@@ -340,3 +340,26 @@ fn an_error_keeps_what_finished_before_it() {
         "(Def def f (ResultType : Nat) (Body := (Error (FieldAccess xs . map) ( . + 1 ))))"
     );
 }
+
+/// A row starting the line after an arrow is a row wherever the line
+/// starts, also at the block's own column, where the line continues the
+/// arrow's (SW-3582); it used to read as a record applied to the type.
+#[test]
+fn a_row_on_the_line_after_its_arrow_is_a_row() {
+    let row = "(Arrow (Unit ( )) → (Effect (Row { e }) a))";
+    for text in [
+        "def f: () → {e} a := x",
+        "def f:\n  () →\n  {e} a := x",
+        "def f:\n  () →\n    {e} a := x",
+    ] {
+        assert_eq!(
+            sexp(text),
+            format!("(Def def f (ResultType : {row}) (Body := x))"),
+            "{text:?}"
+        );
+    }
+    assert_eq!(
+        sexp("def f (t:\n () →\n {e} a): Unit := ()"),
+        format!("(Def def f (Param ( t : {row} )) (ResultType : Unit) (Body := (Unit ( ))))")
+    );
+}

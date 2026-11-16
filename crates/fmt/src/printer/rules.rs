@@ -580,7 +580,12 @@ impl<'a> Rules<'a> {
             Some(_) => (None, unfolding),
             None => (unfolding, None),
         };
+        // A `match` in the header shares no alternative with its line when
+        // arms follow: they would read as its own (SW-3582).
+        let arms_follow = usize::from(arms.is_some());
+        self.arm_depth += arms_follow;
         let header = self.header(&head, &params, result, unfolding);
+        self.arm_depth -= arms_follow;
         // A comment ending a line inside a parameter or the result type
         // makes the header span lines whatever fits, so the body goes below
         // it: a `calc`'s steps are measured from the line its keyword is on.
@@ -689,7 +694,7 @@ impl<'a> Rules<'a> {
         unfolding: Option<Element<'_>>,
     ) -> Doc {
         let head_doc = self.join(head);
-        let mut comment_after_colon = false;
+        let mut type_below = false;
         // A comment before the `:` (own-line, or ending the line before it)
         // leaves it to start a line, so its type stays on that line.
         let mut colon_apart = false;
@@ -701,7 +706,14 @@ impl<'a> Rules<'a> {
                 colon_below_comment = self.has_leading(inner[0]);
                 colon_apart = !params.is_empty()
                     && (colon_below_comment || self.ends_line_with_comment_before(first));
-                comment_after_colon = self.trivia[Self::last(inner[0])].trailing.is_some();
+                // A comment after the `:`, or a type that is a block of
+                // lines, starts the type on a line of its own: joined to the
+                // `:`, a block's first line would take the others as its
+                // arguments (SW-3582).
+                type_below = self.trivia[Self::last(inner[0])].trailing.is_some()
+                    || inner
+                        .get(1)
+                        .is_some_and(|&el| Self::kind(el) == Some(NodeKind::Block));
                 let colon = self.el(inner[0]);
                 let ty = self.join(&inner[1..]);
                 (Some(colon), Some(ty))
@@ -713,7 +725,7 @@ impl<'a> Rules<'a> {
             let mut parts = vec![head_doc];
             if let (Some(colon), Some(ty)) = (colon, ty) {
                 parts.push(colon);
-                if comment_after_colon {
+                if type_below {
                     // A comment break would start the type at the depth its
                     // own continuation lines use; it starts its own line
                     // instead, at 4, with the lines after it.
@@ -790,7 +802,7 @@ impl<'a> Rules<'a> {
                 parts.push(Doc::Line);
                 parts.push(colon);
             }
-            parts.push(match (colon_apart, comment_after_colon) {
+            parts.push(match (colon_apart, type_below) {
                 (false, _) => Doc::Line,
                 (true, false) => Doc::text(" "),
                 (true, true) => Doc::HardLine,

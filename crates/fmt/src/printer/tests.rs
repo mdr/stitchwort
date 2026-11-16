@@ -905,3 +905,25 @@ fn a_result_colon_after_own_line_comments_stays_with_its_type() {
         "def f (a: Nat) -- c\n    : Nat := a\n",
     );
 }
+
+/// A `match` in a header followed by the definition's arms keeps its
+/// alternatives on lines of their own, deeper than the arms: sharing the
+/// header's line, the arms after it would read as its own (SW-3582).
+#[test]
+fn a_match_in_a_header_with_arms_after_it_keeps_its_alternatives_below() {
+    check(
+        "def loop (n: Nat): Nat 1 + match Succ n with\n               | Zero   => 0\n      | Succ k => loop k\n",
+        "def loop (n: Nat):\n    Nat 1\n      + match Succ n with\n        | Zero => 0\n  | Succ k => loop k\n",
+    );
+}
+
+/// A result type written as a block of lines keeps its lines, starting
+/// below the `:`: joined to it, `List` would take `Text` as an argument
+/// (SW-3582).
+#[test]
+fn a_result_type_that_is_a_block_starts_below_its_colon() {
+    check(
+        "def names:\n List\n Text := x\n",
+        "def names:\n    List\n    Text :=\n  x\n",
+    );
+}

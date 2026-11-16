@@ -2474,6 +2474,17 @@ impl<'t> Parser<'t> {
     /// A theorem's statement is a result type too, and may start with a
     /// record literal or update: `{ p | x = 3 }.x = 3` ([`record_braces`]).
     fn result_type(&mut self) -> Result<()> {
+        // A line at the block's own column after an arrow ending the line
+        // above continues that line ([`Self::expr`]), so a row starting it
+        // is a row, as on the arrow's line, not a record (SW-3582).
+        if let Some(token) = self.tokens.get(self.pos)
+            && token.tok == Tok::LBrace
+            && token.line_start
+            && self.modes.limit == Some(token.column)
+            && !self.ends_construct(self.pos)
+        {
+            self.modes.allow = Some(self.pos);
+        }
         if self.peek() != Some(&Tok::LBrace) || record_braces(self.tokens, self.pos) {
             return self.expr();
         }
