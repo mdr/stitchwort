@@ -40524,7 +40524,7 @@
     {
       "id": 3610,
       "title": "[Opus] Formatter tree check independent of the tidy passes (SW-3606 audit): equivalence::shape compares the output with the tidied text, so a pass that changed meaning would not be caught. Compare with the original file's tree, normalising parameter groups (one binder per name) for P4 and the other intended changes; at least check passes 1-3 against the original. Failing-first test: a deliberately wrong pass is refused",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
