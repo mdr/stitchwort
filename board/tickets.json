@@ -38966,12 +38966,12 @@
     {
       "id": 3492,
       "title": "[Opus paper] Plan: reshape the Rust formatter (crates/fmt) into tidy passes over the tree then a whitespace-only printer (D3624, Matt, 16 Nov 2026; end state per D3623 and docs/proposals/after-the-toy-proof.md §4.3 C). List every token change, its pass, pass order and interactions, size each lane",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Plan: docs/proposals/fmt-passes.md (commit d2eceb4f9, lane/SW-3492). Opus paper, ~10 min (est. 25).\nChanges beyond white space: C1 forall, C2 brackets, C3 parameter groups, C4 trailing comma, C5 line-first comma comments, C6 comment before closers (rules and engine), C7 record-update bar comment, C8 comment trailing spaces, C9 text blocks; fallbacks F1-F4; loose checks K1-K4. New beyond the note: C7, C8, F2-F4, K3, and a likely latent idempotence bug in a dropped final comma's own-line comments.\nShape: N (where a comment belongs, applied at every parse) then P1 forall, P2 trailing comma, P3 brackets, P4 groups (edits + re-parse), then print, then an exact check.\nLanes: L1 N (Opus 60), L2 runner+P1+P2 (Sonnet 45), L3 P3+P4 (DeepSeek 40), L4 exact check, no fallback (Sonnet 45), L5 fuzz properties (DeepSeek 35), L6 docs (DeepSeek 15).\nDecision for Matt: D-A keep the whole-file check in Rust [rec: yes]. Orchestrator's call: leftward comment anchoring (changes one line, Probes.sw:109).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
