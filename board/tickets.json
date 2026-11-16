@@ -41500,7 +41500,7 @@
     {
       "id": 3683,
       "title": "[Sonnet] Formatter bug on real code: stitchwort fmt aoc/src/Aoc/Year2024/Day04/Proofs/Part2.sw refuses: 'the output doesn't parse: this step isn't lined up with the steps above it' (calc steps). Minimise, fmt test failing first, fix the layout rule. Stops tools fmt::the_repository_sources_are_formatted",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
