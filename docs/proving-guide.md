@@ -109,7 +109,14 @@ that as `(x: a) → p x`. Write an ability row's result type
 without parentheses: `{Fail} List Nat`, not `{Fail} (List Nat)` (D2307).
 Build and match lists with brackets: `[x, ..xs]` and `[a, b, ..rest]`,
 not `Cons x xs` (D2324); `Cons` stays only where it's used as a function
-(`t => Cons t rs`, `fold Cons`).
+(`t => Cons t rs`, `fold Cons`). A rest before an append and an append
+around a bracketed list are the same term to the checker: they compute to the
+same list, so a motive may rely on either form.
+
+```stitchwort
+theorem same (x: Nat) (xs ys: List Nat):
+    [x, ..xs ++ ys] = [x, ..xs] ++ ys := rfl
+```
 
 Values that a lemma's own hypotheses or result determine go in square
 brackets, as implicit parameters, so no caller writes `_` for them (D2422).
