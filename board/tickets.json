@@ -39751,7 +39751,7 @@
     {
       "id": 3551,
       "title": "[DeepSeek] Errors E5: foreign habits table (by, record, fun, λ, -> for =>, where, deriving, simp, theorem … := by): 'in Stitchwort this is …' (docs/proposals/helpful-errors.md §5 rank 5). Est. 45 min",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -41461,7 +41461,7 @@
     {
       "id": 3680,
       "title": "[Sonnet] fmt fuzz (Overmind, plain seed 0x1002 case 96140, task fuzz:fmt SEED=0x1002 CASE=96140): formatter refuses with 'the output parses to a different tree: Pipe( vs Match{'. Minimal: 'def classify (n: Nat): Nat :=\\n  match n with\\n    | 0 => 1\\n  |> k => k + 10' (|> starting a line at the body's column, left of the arms). Input reads Pipe(match, k => ...); output swallows the |> into the match arms. Refused, so nothing wrong written. Fix the layout with the minimal as a fmt test failing first",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
