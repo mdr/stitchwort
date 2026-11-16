@@ -333,6 +333,14 @@ theorem Parse.allLocatedToEnd ∀ (input: Text)
                 ran0 with
                 | Witness steps (Both joined (Both empty (Both zeroLeft (Both valueSame lexemes)))) =>
                   let honest0: mid0.at.left = mid0.at.rest.length := rewrite empty, zeroLeft in rfl
-                  match Parse.readsFinalLineBreaks v0 mid0 v middle.at honest0 rest0 with
+                  match Parse.readsFinalLineBreaks v0 mid0.at
+                    { holds = Trivial }
+                    (mid0.at.offset + mid0.at.left)
+                    mid0
+                    v
+                    middle.at
+                    rfl
+                    (Parse.honestOf honest0)
+                    rest0 with
                     | Witness read (Both starts (Both honestAfter (Both breaks same2))) =>
                       Witness steps (Both joined (Both (rewrite <- same, same2 in valueSame) lexemes))

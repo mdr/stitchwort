@@ -128,14 +128,14 @@ theorem Parse.readsOperatorsFrom ∀ (what: Text) (levels: List (Parse.Level t a
     Parse.Reads (() => Parse.operatorsFrom fuel depth what levels count operand lowest highest left) (taken value =>
       grouped lowest value) :=
   match fuel with
-    | Zero => state value after honest h =>
+    | Zero => Parse.readsInOfRuns (total state value after fine honest h =>
       let same := Result.okInjective h
       let valueSame: left = value := Pair.mkInjectiveFst same
       let atSame: (state.note (Expected what)).at = after := Pair.mkInjectiveSnd same
       Witness []
         (rewrite <- valueSame, <- atSame, Parse.noteAt state (Expected what) in
-          Both rfl (Both honest (finish lowest highest left holds)))
-    | Succ more => state value after honest h =>
+          Both rfl (Both honest (finish lowest highest left holds))))
+    | Succ more => Parse.readsInOfRuns (total state value after fine honest h =>
       match Parse.operatorsFromOk more depth what levels count operand lowest highest left state value after h with
         | Inl (Both valueSame atSame) =>
           Witness [] (rewrite valueSame, atSame in Both rfl (Both honest (finish lowest highest left holds)))
@@ -184,7 +184,7 @@ theorem Parse.readsOperatorsFrom ∀ (what: Text) (levels: List (Parse.Level t a
                               facts))
                       (taken value isGrouped => isGrouped)
                   | None => Parse.readsDone left _ (finish lowest highest left holds))
-          readsRound state value after honest ran
+          readsRound state.at fine total state value after rfl honest ran)
 
 --| `operandsFrom` gives a value that is `grouped lowest`, from operands
 --| that are each `atom`: an operand alone starts a chain (`start`), and
@@ -288,12 +288,12 @@ theorem Parse.readsOperatorsFromLeft ∀ (what: Text) (levels: List (Parse.Level
     Parse.Reads (() => Parse.operatorsFrom fuel depth what levels count operand lowest highest left) (taken value =>
       kept value) :=
   match fuel with
-    | Zero => state value after honest h =>
+    | Zero => Parse.readsInOfRuns (total state value after fine honest h =>
       let same := Result.okInjective h
       let valueSame: left = value := Pair.mkInjectiveFst same
       let atSame: (state.note (Expected what)).at = after := Pair.mkInjectiveSnd same
-      Witness [] (rewrite <- valueSame, <- atSame, Parse.noteAt state (Expected what) in Both rfl (Both honest holds))
-    | Succ more => state value after honest h =>
+      Witness [] (rewrite <- valueSame, <- atSame, Parse.noteAt state (Expected what) in Both rfl (Both honest holds)))
+    | Succ more => Parse.readsInOfRuns (total state value after fine honest h =>
       match Parse.operatorsFromOk more depth what levels count operand lowest highest left state value after h with
         | Inl (Both valueSame atSame) => Witness [] (rewrite valueSame, atSame in Both rfl (Both honest holds))
         | Inr
@@ -339,7 +339,7 @@ theorem Parse.readsOperatorsFromLeft ∀ (what: Text) (levels: List (Parse.Level
                           (keep level associativity combine item left right found holds))
                       (taken value isKept => isKept)
                   | None => Parse.readsDone left _ holds)
-          readsRound state value after honest ran
+          readsRound state.at fine total state value after rfl honest ran)
 
 --| `operandsFrom` reads its first operand first and builds on it: what
 --| it read starts with what that operand read (`first` of it), and the
