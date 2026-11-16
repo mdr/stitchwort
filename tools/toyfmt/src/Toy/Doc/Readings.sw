@@ -3,7 +3,7 @@
 --| width (does this group fit flat, does the next fill item fit, which
 --| option of a choice fits) may be answered either way; everything else,
 --| what a chunk, a line break or a comment writes, is the printer's own
---| step. `print` at any width is one reading (`printIsReading`), so what
+--| step. `print` at any width is one reading (`runIsReading`), so what
 --| is proved of every reading (that its text lexes and parses back to the
 --| tree) holds of `print` at every width, with nothing about `fits`.
 
@@ -143,14 +143,3 @@ theorem runIsReading ∀ (printer: Printer) (total fuel: Nat) (stack: List Cmd):
       let isStep := stepIsReading printer total cmd rest
       match stepped: printer.step total cmd rest with
         | (next, later) => Witness next (Witness later (Both isStep (runIsReading next total more later)))
-
---| `print` is one of the readings: at every width, the text it gives is
---| what some reading of the document, from the empty printer, leaves
---| (its pieces joined, after the last line's trailing comment). So the
---| width never matters to what holds of every reading.
-theorem printIsReading ∀ (doc: Doc) (width: Nat):
-    ∃ (final: Printer) => Reads (Printer.start width) (3 * doc.size + 3) [Print 0 Break doc] final
-      ∧ print doc width = final.flushSuffixes.out.reverse.joinWith "" :=
-  Witness
-    ((Printer.start width).run (3 * doc.size + 3) (3 * doc.size + 3) [Print 0 Break doc])
-    (Both (runIsReading (Printer.start width) (3 * doc.size + 3) (3 * doc.size + 3) [Print 0 Break doc]) rfl)
