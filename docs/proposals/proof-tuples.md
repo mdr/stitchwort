@@ -421,6 +421,20 @@ separate `obtain` word is needed, because in a proof Stitchwort's pattern
 Taking a witness out of a proof to compute with stays an error
 (`E-PROP-ELIM`), exactly as with `Witness` today.
 
+*As built (SW-3566):* the match compiler splits a column before every
+column's type is known (a later column's type is `∧` only once an earlier
+one is split, and a lambda's parameter type may wait for a later
+argument), so a tuple pattern whose column isn't yet known to be a proof
+is compiled as a `Pair` split marked as written with a tuple. When the
+case tree is checked, where the variable's type is known, a marked split
+on `∧` or `∃` becomes that type's split, and one on a test fact goes
+through the fact's reading as `Both` does; the shape is the same, as the
+three types each have one constructor of two fields. At an unknown of sort
+`Prop` a pair can't be right, so the split fails in place
+(`E-CANNOT-INFER`), and a lambda argument that fails so is checked again
+after the arguments after it. The hashes are those of `Both`/`Witness`
+(`hash_stability::proof_tuples_hash_as_witness_and_both`).
+
 ### 4.3 Projecting
 
 **Recommendation: nothing new.** `h.left` and `h.right` exist; for a

@@ -307,6 +307,9 @@ fn destructure(
         Pattern::Tuple(..) if matches!(&ty, Value::Data(d, _) if registry.is_data(Builtin::Exists, *d)) => {
             Ok(false)
         }
+        // At an unknown proposition a pair can't be right: the `match` the
+        // pattern falls back to says so, and fails in place.
+        Pattern::Tuple(..) if crate::prop_unknown(cx, &ty) => Ok(false),
         Pattern::Tuple(a, b, span) => {
             let pair = builtin_data(cx, Builtin::Pair)?;
             let params = match ty {
