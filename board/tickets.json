@@ -40643,12 +40643,12 @@
     {
       "id": 3619,
       "title": "[Sonnet] REPL tab completion (Matt, 16 Nov 2026): rustyline Completer: names in scope (imports, session definitions per D3661), namespaces after 'import', :commands, and members after '.', reusing the LSP's completion logic (crates/lsp) rather than a second implementation. After SW-3614",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Lane notes: completer in crates/cli/src/repl_complete.rs, sharing stitchwort_lsp::complete (typed, scope_items, member_items); members found with the elaborator's probe_members on the typed receiver. Fixed infer_expr_glued leaving metas after an error. Import-needing library names are not offered. Tests: 5 repl_complete unit tests + 6 LSP completion tests pass.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
