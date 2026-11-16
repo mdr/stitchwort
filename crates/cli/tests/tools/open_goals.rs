@@ -117,6 +117,38 @@ fn a_test_that_reaches_an_open_goal_fails_under_warn() {
     );
 }
 
+/// When the `?` is only part of a declaration's body, the test says where
+/// the unfinished `?` is instead of claiming the body is `?` (SW-2922).
+#[test]
+fn a_test_that_reaches_a_hole_inside_a_body_names_it() {
+    let dir = project("test-part", "check:\n  open-goals: warn\n");
+    std::fs::write(
+        dir.join("src/t.sw"),
+        "namespace Book\n\n\
+         def part: Nat := 1 + ?\n\n\
+         test \"uses part\" := part == 2\n",
+    )
+    .unwrap();
+    let out = stitchwort(&dir, &["test"]);
+    let json = stitchwort(&dir, &["test", "--json"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let stdout = text(&out.stdout);
+    let stderr = text(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{stdout}{stderr}");
+    assert!(
+        stdout.contains(
+            "✗ uses part  not run  (`part` isn't written yet: it has an unfinished `?` at "
+        ) && stdout.contains("src/t.sw:3:22)"),
+        "{stdout}"
+    );
+    let json = text(&json.stdout);
+    assert!(
+        json.contains("`part` isn't written yet: it has an unfinished `?` at ")
+            && json.contains("src/t.sw:3:22"),
+        "{json}"
+    );
+}
+
 /// A test that only mentions a theorem with an open goal, which is erased
 /// when the test runs, isn't affected.
 #[test]
