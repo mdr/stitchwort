@@ -1204,9 +1204,39 @@ impl Elaborator {
                     .unwrap_or_else(|| e.ty.clone()),
                 ),
                 value: e.value.as_ref().map(show),
-                splits: self.split_patterns_of(&e.ty),
+                splits: self
+                    .split_patterns_of(&e.ty)
+                    .map(|patterns| self.reachable_patterns(e.level, context, patterns)),
             })
             .collect()
+    }
+
+    /// `patterns` (one for each constructor of the type of the variable at
+    /// `level`, in order) less the ones a hypothesis rules out: with `h: x =
+    /// C …` in `context`, splitting `x` only has the case of `C`, since the
+    /// others would be arms the checker calls unreachable (`W-UNREACHABLE`).
+    fn reachable_patterns(
+        &self,
+        level: usize,
+        context: &[Entry],
+        patterns: Vec<String>,
+    ) -> Vec<String> {
+        let g = &self.ev();
+        let is_variable = |v: &Value| matches!(v, Value::Neutral(Head::Var(l, _), spine) if *l == level && spine.is_empty());
+        let fixed = context.iter().find_map(|h| {
+            let Value::Eq(_, a, b) = force(g, h.ty.clone()).ok()? else {
+                return None;
+            };
+            let (a, b) = (force(g, (*a).clone()).ok()?, force(g, (*b).clone()).ok()?);
+            match (&a, &b) {
+                (v, Value::Ctor(_, c, _)) | (Value::Ctor(_, c, _), v) if is_variable(v) => Some(*c),
+                _ => None,
+            }
+        });
+        match fixed {
+            Some(c) if c < patterns.len() => vec![patterns[c].clone()],
+            _ => patterns,
+        }
     }
 
     /// Asks for the context at byte `offset` of `file` (docs/proposals/

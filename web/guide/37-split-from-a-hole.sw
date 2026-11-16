@@ -14,9 +14,9 @@ import Std (Bool, Void)
 --
 -- "Split on `urgent`" on the first `?` then adds `urgent` as a new column
 -- of that same `match`, instead of nesting another one inside; the other
--- arms get `_`:
+-- arms get `_`. The hypothesis `h` says `urgent` is `True`, so the action
+-- leaves out the `False` case, which could never happen:
 --
---     | Red, False => ?
 --     | Red, True => ?
 --     | Amber, _ => ?
 --     | Green, _ => ?
@@ -32,7 +32,6 @@ def canGo (l: Light) (urgent: Bool): Bool := match l with
   | Green => True
 
 theorem goIfUrgent ∀ (l: Light) (urgent: Bool) (h: urgent = True): canGo l urgent = True := match l, urgent with
-  | Red, False => (Bool.falseNotTrue h).impossible
   | Red, True => byComputing
   | Amber, _ => byComputing
   | Green, _ => byComputing

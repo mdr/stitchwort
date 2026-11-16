@@ -490,7 +490,7 @@ def Doc.width: Doc → Nat
   | Line => 0
 ```
 
-The same goes for a constructor that is named like one the prelude gives you. A file's own `type Cell = | Wall | None` hides `Option`'s `None` in that file, and the declaration warns (`W-CTOR-HIDES`); `Option.None` is still the library's. Goals and error messages write a clashing constructor in this qualified form too, so a goal you copy into your code checks.
+The same goes for a constructor that is named like one the prelude gives you. A file's own `type Cell = | Wall | None` hides `Option`'s `None` in that file, and the declaration warns (`W-CTOR-HIDES`) if the file also writes `Option.None`, which is still the library's. Goals and error messages write a clashing constructor in this qualified form too, so a goal you copy into your code checks.
 
 The habit that avoids all this: keep types that share constructor names in separate files, a lexer's tokens in one and a printer's documents in another. Only code that really uses both, such as a function from tokens to documents, imports both, and writes `Token.Str` and `Doc.Str`. Or rename one of the constructors.
 

@@ -496,16 +496,21 @@ theorem plusON ∀ (n: Nat): plus O n = n := byComputing
 -- `intros n`, which moves `n` from the quantifier into the *context* of
 -- assumptions ("suppose `n` is some number…"). In Stitchwort the usual
 -- way to state it is with `n` as a parameter, before the colon, as a
--- function has (D3470); then `n` is in scope in the proof already. The
--- statement with the quantifier is the same theorem, and its proof is a
--- function of `n`, which is what `intros` builds:
+-- function has (D3470); then `n` is in scope in the proof already.
+--
+-- The statement can also be written with the quantifier,
+-- `∀ (n: Nat) => plus O n = n`, which is the same theorem. Its proof is
+-- then a function of `n`, `n => byComputing`, which is what `intros`
+-- builds. (A theorem stated that way draws a warning, `W-THEOREM-FORALL`,
+-- because the parameter form says the same thing more plainly, so the
+-- examples here use the parameter form.)
 
-theorem plusON': ∀ (n: Nat) => plus O n = n := n => byComputing
+theorem plusON' ∀ (n: Nat): plus O n = n := byComputing
 
 -- Any other name would do in place of `n`, though it might confuse a
 -- human reader:
 
-theorem plusON'': ∀ (n: Nat) => plus O n = n := m => byComputing
+theorem plusON'' ∀ (m: Nat): plus O m = m := byComputing
 
 -- Rocq's `simpl` shows the goal after computing, before `reflexivity`
 -- finishes; `reflexivity` computes more (it unfolds definitions too).
