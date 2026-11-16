@@ -4897,10 +4897,10 @@ fn total_lambda_note(
              building it must finish, so the callback can't run anything that might not"
         ));
     }
-    let param = cx.show(dom);
-    if param.contains('?') {
+    if matches!(crate::interfaces::unsolved_in(cx, dom), Ok(Some(_))) {
         return e;
     }
+    let param = cx.show(dom);
     e.notes.clear();
     e.with_note(if in_std {
         std_callback_note(&helper, &param)
@@ -5030,10 +5030,12 @@ fn partial_callback(cx: &Ctx, head: &Term, arg: &Expr, dom: &Value) -> Option<Di
         _ => "this".to_string(),
     };
     let param = cx.show(dom);
-    // A row that is already open (`| e`), or whose type isn't solved yet
-    // (`?N`), is not one a signature edit can fix: the row variable stands
-    // for total rows only.
-    let open = in_std || param.contains('?') || param.contains('|');
+    // A row that is already open (`| e`), or whose type isn't solved yet,
+    // is not one a signature edit can fix: the row variable stands for total
+    // rows only.
+    let open = in_std
+        || matches!(crate::interfaces::unsolved_in(cx, dom), Ok(Some(_)))
+        || param.contains('|');
     let mut diagnostic = Diagnostic::error(
         "E-PARTIAL-CALLBACK",
         format!("{what} can't be passed to `{helper}` here"),
