@@ -7,5 +7,6 @@ import Std (Char, Fin, List, Parse)
 
 def DigitWritten (read: List Char) (d: Fin 10): Prop := ∃ (char: Char) => read = [char] ∧ char.toDigit = Some d
 
-theorem readsDigits: Parse.Reads (() => Parse.exactly 35 Parse.digit) (read values => Parse.Each DigitWritten read values ∧ values.length = 36) :=
+theorem readsDigits: Parse.Reads (() => Parse.exactly 35 Parse.digit) (read values =>
+      Parse.Each DigitWritten read values ∧ values.length = 36) :=
   Parse.readsExactly 36 Parse.digit DigitWritten Parse.readsDigit
