@@ -1,5 +1,5 @@
 {
-  "next": 3573,
+  "next": 3574,
   "tickets": [
     {
       "id": 47,
@@ -40024,6 +40024,19 @@
     {
       "id": 3572,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, plain seed 0x9ff case 52434): a header whose return type is swallowed by a -- comment ('def collatzSteps (n: Nat): {Partial} --Nat :=') with an if/else-if/else body formats to output where 'else' is at or left of the enclosing block's column → 'expected else'. Repro file: def collatzSteps (n: Nat): {Partial} --Nat := / if n ≤ 1 then 0 / else if … / else …; task fuzz:fmt SEED=0x9ff CASE=52434. Possibly interacts with SW-3538 (if indent from the if's line). Add as a fmt test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3573,
+      "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x923 case 63183): a match inside a constructor field's type, after a comment line, places '|' at or left of the enclosing block's column → 'expected | and an alternative'. Minimal: type Box = | MkBox (n: / -- c /  match 1 with | 0 => Nat | Succ m => Nat). Add as a fmt test",
       "status": "backlog",
       "agent": "",
       "where": "",
