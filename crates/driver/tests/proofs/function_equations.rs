@@ -880,6 +880,9 @@ theorem byRfl (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
             let errors = session
                 .load("wall.sw", source)
                 .expect_err("the three proofs fail");
+            // `rewrite h then byComputing` also draws W-REWRITE-THEN-COMPUTING
+            // (SW-3648); only the errors are under test.
+            let errors: Vec<_> = errors.iter().filter(|d| d.code.starts_with("E-")).collect();
             let mut codes: Vec<&str> = errors.iter().map(|d| d.code).collect();
             codes.sort_unstable();
             assert_eq!(codes, ["E-MATCH-MOTIVE", "E-REFL", "E-REWRITE-MOTIVE"]);
