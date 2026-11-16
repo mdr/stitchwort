@@ -46,6 +46,49 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 16 Nov 2026
 
+### SW-3654: `rewrite repeatedly` rule sets: members only as written, and their checks kept; Words.sw with a set 4.5x to 2.56x, the 1.5x bar still missed
+
+- **Status:** kept (Opus), elaborator (`rewrite/repeatedly.rs`, `cache/rows.rs`).
+  The Words.sw conversion is not landed; dev/patches/SW-3602-words-conversion.patch
+  is updated to check under the new rule (four calls name their rules).
+- **Problem, profiled first.** `STITCHWORT_REWRITE_METRICS` and samply (10 kHz)
+  on `check --no-cache Toy.Doc.Proofs`, patch applied. Of 820 ms in rule
+  searches, 411 ms was the full search (by computing) of set members that
+  didn't fit, `writeLayoutWords` and `writeWords` 290 ms of it: each call
+  listing `wordSteps` gets all eleven printer lemmas, and every stall of the
+  as-written pass searches each by computing. Besides the searches, each
+  call re-ran `check_rule` on every member (unfolding each printer lemma's
+  left side): 141 ms over 232 checks.
+- **Change.** (1) A set's members are tried only in the as-written pass
+  (docs/syntax.md, "Rule sets"): rules listed in the call keep the full
+  search, so calls that list rules directly rewrite as before. With the set
+  version, 4 calls in `stepWords` then fail (as the brief's stop-early
+  experiment found 5); each needed one or two printer lemmas found only by
+  computing (`writeLayoutWords`, `newlineWords`), now listed in the call
+  instead of the set (the set then rewrote nothing there). A left-open
+  error whose set was never found says why. (2) Each set keeps its members'
+  checked shapes (per member and direction, filled at first use, not
+  cached on disk): a set's members are closed names, checked when the set
+  is declared, so the check means the same at every call. Results unchanged.
+- **Measured** (`STITCHWORT_TIMINGS=decls`, sum of elab and kernel over
+  Words.sw's declarations, 5 runs, load 7 to 12, release build): base
+  0.214-0.233 s (median 0.225); set version before 1.07-1.35 s (4.5x); with
+  (1) 0.674-0.738 s; with (1) and (2) 0.570-0.585 s (median 0.577, 2.56x),
+  the same as SW-3629's per-arm lists. stepWords 437 ms with (1), base 77 ms.
+- **What is left** (measured on the converted file, rule searches 340 ms):
+  applied as-written rewrites 131 ms (90), failed as-written tries 78 ms
+  (60), and the full searches of the rules the four calls name 132 ms
+  (`writeLayoutWords` 89 ms). Inside the as-written attempt, today's
+  instance (`todays_instance`, an unfolded search for rules with unknowns)
+  was 135 ms over the namespace: 40 ms of it for attempts that then found
+  nothing as written (computing it after the search would need the search
+  run twice when it does find something), and 55 ms for set members. Not
+  done, each a few percent: skipping the full pass's repeat of the
+  as-written attempt a rule just failed at the same goal (22 ms); skipping
+  today's instance for set members (55 ms, which changes which instance a
+  set's rule rewrites). Even all three would leave about 2x: the rest is
+  the searches themselves, against the base proofs' explicit arguments.
+
 ### SW-3629: `rewrite repeatedly` on the toy's Words.sw, profiled; two hotspots cut, the 1.5x bar still missed
 
 - **Status:** kept (Opus), elaborator only (`rewrite.rs`, `rewrite/repeatedly.rs`,

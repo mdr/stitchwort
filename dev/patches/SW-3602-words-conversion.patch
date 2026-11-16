@@ -1,5 +1,5 @@
 diff --git a/tools/toyfmt/src/Toy/Doc/Words.sw b/tools/toyfmt/src/Toy/Doc/Words.sw
-index a25158c45..c7e9c37ea 100644
+index a25158c45..d7d8ecb81 100644
 --- a/tools/toyfmt/src/Toy/Doc/Words.sw
 +++ b/tools/toyfmt/src/Toy/Doc/Words.sw
 @@ -28,7 +28,7 @@ theorem emptyIsLayout ∀ (text: Text) (empty: text.isEmpty = True): isLayout te
@@ -238,7 +238,7 @@ index a25158c45..c7e9c37ea 100644
      | FillSep indent item, Inl (Both _ flat), _ =>
 -      rewrite flat then rewrite writeWords, List.appendAssoc then byComputing
 -    | FillSep indent item, Inr broken, _ => rewrite broken then keepsWords _ printer _ (newlineWords printer indent)
-+      rewrite repeatedly [flat, wordSteps] then rewrite repeatedly [List.appendAssoc]
++      rewrite repeatedly [flat, writeLayoutWords] then rewrite repeatedly [List.appendAssoc]
 +    | FillSep indent item, Inr broken, _ => rewrite repeatedly [broken, wordSteps]
      | Print indent mode doc, steps, uniform =>
        match doc, steps, uniform with
@@ -260,8 +260,8 @@ index a25158c45..c7e9c37ea 100644
 +        | Empty, steps, _ => rewrite repeatedly [steps]
 +        | BreakParent, steps, _ => rewrite repeatedly [steps]
 +        | Chunk text width, steps, _ => rewrite repeatedly [steps, wordSteps, List.appendAssoc]
-+        | Line, steps, _ => rewrite steps then cases then rewrite repeatedly [wordSteps]
-+        | SoftLine, steps, _ => rewrite steps then cases then rewrite repeatedly [wordSteps]
++        | Line, steps, _ => rewrite steps then cases then rewrite repeatedly [newlineWords, writeLayoutWords]
++        | SoftLine, steps, _ => rewrite steps then cases then rewrite repeatedly [newlineWords]
 +        | HardLine, steps, _ => rewrite repeatedly [steps, wordSteps]
 +        | LineStart, steps, _ => rewrite repeatedly [steps, wordSteps]
 +        | CommentEnd, steps, _ => rewrite repeatedly [steps, wordSteps]
@@ -294,7 +294,7 @@ index a25158c45..c7e9c37ea 100644
 -                  printsWords indent Flat (Doc.joinLines [first, ..others]),
 -                  joinLinesWords [first, ..others] then
 -                byComputing)
-+              (rewrite repeatedly [wordSteps])
++              (rewrite repeatedly [newlineWords])
 +        | Blank, steps, _ => rewrite repeatedly [steps, wordSteps]
 +        | Nest more inner, steps, _ => rewrite repeatedly [steps]
 +        | OneLineBelow inner, steps, _ => rewrite repeatedly [steps]

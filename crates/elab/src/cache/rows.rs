@@ -473,6 +473,6 @@ impl Codec for Rc<crate::rewrite::RuleSet> {
         let rules = (0..k)
             .map(|_| Ok((b.def()?, b.r.bool()?)))
             .collect::<Read<Vec<_>>>()?;
-        Ok(Rc::new(crate::rewrite::RuleSet { rules }))
+        Ok(Rc::new(crate::rewrite::RuleSet::new(rules)))
     }
 }

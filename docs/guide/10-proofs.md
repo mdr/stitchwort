@@ -180,6 +180,8 @@ theorem fromFact ∀ (xs ys: List Nat) (h: (xs ++ ys) ++ [] = [1]): xs ++ ys = [
   rewrite repeatedly [appends] at h then h
 ```
 
+A set's rules are looked for only where the goal shows them, not in what it computes to, which keeps a large shared set cheap; a rule that has to be found by computing goes in the call itself.
+
 A listed rule (or a set) that never rewrote anything gets a warning, so lists stay honest. And `stitchwort check --expand-repeatedly` replaces each `rewrite repeatedly` in a file by the plain `rewrite` steps it made, for a proof that mustn't change when a set does.
 
 `calc` writes a proof as a chain of steps, each with its own justification, like a calculation on paper. The chain may mix `=`, `<=` and `<`:
