@@ -39366,7 +39366,7 @@
     {
       "id": 3522,
       "title": "[Fable paper] Revisit simp: new design note (D3637, Matt, 16 Nov 2026), reconsidering D2541's 'no simp' in light of the toy proof and the Lean port (SW-3513: proofs 30% with simp/grind vs 73% plain); within D3481 (no propext; ↔ rewriting under connectives, SW-2706), D2541/D2542 (computing decides; rewrite what's visible), D3479-D3482 (tests first)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
