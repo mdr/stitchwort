@@ -38771,12 +38771,12 @@
     {
       "id": 3477,
       "title": "[Sonnet] Possible test-cache gap: after toyfmt's bareStatement changed (SW-3418 lane 3), stitchwort test reported '103 from the cache'; --no-cache ran all 103 (passed). Find whether the test cache key misses a changed definition the tests reach (dependency hashing), reproduce with a small project (change a helper a test calls, rerun test), fix with a test that fails before",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\nLane result (Sonnet, 16 Nov 2026): not a bug, no code change. The test key is the test's content hash, which covers every definition reached, mutual groups included. Scratch project, each change followed by `stitchwort test`: g in another file, isOdd (mutual with isEven), a constructor arm reached through a method, a helper passed to List.map. Each re-ran exactly the tests reaching the change; unrelated ones stayed cached. The toy's 103 from the cache: at 725c6d7f5 (e00e98bb6 run first) the only changes were new theorem files (PlaceProofs.sw, FileProofs.sw), which no test reaches; e00e98bb6 itself, which edited Parser.sw, gave 57 cached of 103, and b40dc5663 gave 90 of 105.\n",
       "created": "2026-11-15",
       "updated": "2026-11-16",
       "commits": []
