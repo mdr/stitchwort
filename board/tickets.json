@@ -40892,15 +40892,17 @@
     {
       "id": 3638,
       "title": "[Sonnet] std from Toy++ T1b: move readsOperatorsRead (toyfmt Toy/Syntax/OperatorReads.sw) beside Parse.readsOperators; add mark-level next/skip (nextTakes) and readsOptional lemmas so peek-then-skip parsers are provable with what they read",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\n\nLane (Sonnet) 16 Nov: done on lane/SW-3649, commit ffa9c5ecd. Moved into std, toyfmt uses them. Not done: readsInPeek variant giving rest; toy Falling/fallingRising kept (see report). Tests: check --std List/Parse, audit, toyfmt check, pinned_hashes, hash_stability::prelude (accepted, 32 additions).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "ffa9c5ecd"
+      ]
     },
     {
       "id": 3639,
@@ -41040,15 +41042,17 @@
     {
       "id": 3649,
       "title": "[Sonnet] std from Toy++ T1c (adds to SW-3638): Parse.readsAt helpers readsAtWeaken/Done/Optional/Peek/Mark; a readsInPeek variant handing the proof rest and start.rest = rest (removes ~50 '(rewrite e then fine)'); flatMapAppend, flatMapConcat, allReverse, takenStops; Parse.locatedSteps gives rising offsets (replaces toyfmt's Falling/fallingRising). Move them, toyfmt uses std's",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\n\nLane (Sonnet) 16 Nov: done on lane/SW-3649, commit ffa9c5ecd. Moved into std, toyfmt uses them. Not done: readsInPeek variant giving rest; toy Falling/fallingRising kept (see report). Tests: check --std List/Parse, audit, toyfmt check, pinned_hashes, hash_stability::prelude (accepted, 32 additions).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "ffa9c5ecd"
+      ]
     },
     {
       "id": 3650,
