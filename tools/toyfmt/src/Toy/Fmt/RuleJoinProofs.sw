@@ -149,8 +149,8 @@ theorem sepsPass ∀ (docs: List Doc) (edge: Edge) (next: Edge → Prop)
           sepsPass more reached next others met after)
       match edge, meets with
         | Plain None, _ => (byComputing, onward)
-        | Plain (Some word), any => ((any " " closingSpace), onward)
-        | Edge.Waiting, _ => onward
+        | Plain (Some word), any => ((any " " shutsSpace), onward)
+        | Edge.Waiting _, _ => onward
 
 --| A fill: its items with a space or a line break between each two.
 theorem fillPasses ∀ (docs: List Doc) (each: EachPasses docs): Passes (Fill docs) Free Meets := match docs, each with
@@ -204,7 +204,7 @@ theorem negateAdmits ∀ (minus: Comments) (operand: Expr) (edge: Edge)
     Admits "-" edge :=
   match edge, enters with
     | Plain None, _ => byComputing
-    | Edge.Waiting, _ => byComputing
+    | Edge.Waiting _, _ => byComputing
     | Plain (Some word), Both _ startsMinus => startsMinus byComputing
 
 --| After a `-`: a space before an operand that starts with `-`, else
@@ -465,7 +465,7 @@ theorem exprPasses ∀ (expr: Expr) (lexical: Lexical expr): Passes expr.layout 
             (passesFrom _ _ Free _ (exprPasses inner lexInner) (freeEnters inner))
             (passesLast _ Meets Meets
               (closeAfterPasses inner _ Meets
-                (meetingCloser close ")" fineClose (signToken CloseParen closeSign) closingClose)))))
+                (meetingCloser close ")" fineClose (signToken CloseParen closeSign) shutsClose)))))
     | ListLiteral open items close, Both fineOpen (Both lexItems fineClose) =>
       listPasses open items close
         (Enters (ListLiteral open items close))
@@ -502,7 +502,7 @@ theorem exprPasses ∀ (expr: Expr) (lexical: Lexical expr): Passes expr.layout 
             (exprPasses target lexTarget)
             (edge enters => enters))
           (passesCons _ _ Meets Free Meets
-            (openingToken dot Dot Meets fineDot dotSign (meetsAdmits "." closingDot))
+            (openingToken dot Dot Meets fineDot dotSign (meetsAdmits "." shutsDot))
             (passesLast _ Free Meets (freeToken nameComments name fineName (wordToken name word)))))
     | Negate minus operand, Both fineMinus lexOperand =>
       passesConcat
@@ -557,7 +557,7 @@ theorem itemDocsPass ∀ (items: List Item) (lexical: LexicalItems items): EachP
         Meets
         Meets
         (passesFrom _ _ Free _ (exprPasses value lexValue) (freeEnters value))
-        (closeAfterPasses value _ Meets (meetingToken comma "," fineComma (signToken Comma commaSign) closingComma))),
+        (closeAfterPasses value _ Meets (meetingToken comma "," fineComma (signToken Comma commaSign) shutsComma))),
       (itemDocsPass [next, ..rest] others)
     )
 
@@ -576,7 +576,7 @@ theorem listPasses ∀ (open: Comments) (items: List Item) (close: Comments) (pr
         Meets
         (openingToken open OpenSquare pre fineOpen squareSign admitted)
         (passesFrom _ Meets Free Meets
-          (meetingCloser close "]" fineClose (signToken CloseSquare closeSquareSign) closingSquare)
+          (meetingCloser close "]" fineClose (signToken CloseSquare closeSquareSign) shutsSquare)
           freeMeets)
     | [first, ..rest] =>
       match lastOfCons first rest with
@@ -598,7 +598,7 @@ theorem listPasses ∀ (open: Comments) (items: List Item) (close: Comments) (pr
                     (fillPasses (itemDocs [first, ..rest]) each)
                     (passesLast _ Meets Meets
                       (closeAfterPasses last.value _ Meets
-                        (meetingCloser close "]" fineClose (signToken CloseSquare closeSquareSign) closingSquare))))))
+                        (meetingCloser close "]" fineClose (signToken CloseSquare closeSquareSign) shutsSquare))))))
 
 theorem argumentsPass ∀ (open: Comments) (arguments: List Item) (close: Comments)
     (fineOpen: Fine open)
@@ -613,9 +613,9 @@ theorem argumentsPass ∀ (open: Comments) (arguments: List Item) (close: Commen
         Meets
         Free
         Meets
-        (openingToken open OpenParen Meets fineOpen openSign (meetsAdmits "(" closingOpen))
+        (openingToken open OpenParen Meets fineOpen openSign (meetsAdmits "(" shutsOpen))
         (passesFrom _ Meets Free Meets
-          (meetingCloser close ")" fineClose (signToken CloseParen closeSign) closingClose)
+          (meetingCloser close ")" fineClose (signToken CloseParen closeSign) shutsClose)
           freeMeets)
     | [first, ..rest] =>
       passesGroup _ Meets Meets
@@ -625,7 +625,7 @@ theorem argumentsPass ∀ (open: Comments) (arguments: List Item) (close: Commen
             Meets
             Free
             Meets
-            (openingToken open OpenParen Meets fineOpen openSign (meetsAdmits "(" closingOpen))
+            (openingToken open OpenParen Meets fineOpen openSign (meetsAdmits "(" shutsOpen))
             (passesCons
               (Nest 2 (Doc.concat [SoftLine, itemDocs [first, ..rest] |> joined Line])) _
               Free
@@ -641,7 +641,7 @@ theorem argumentsPass ∀ (open: Comments) (arguments: List Item) (close: Commen
               (passesCons SoftLine _ Meets Meets Meets
                 (passesSoft Meets Meets (edge holds => holds) byComputing)
                 (passesLast _ Meets Meets
-                  (meetingCloser close ")" fineClose (signToken CloseParen closeSign) closingClose))))))
+                  (meetingCloser close ")" fineClose (signToken CloseParen closeSign) shutsClose))))))
 
 theorem linesPass ∀ (index: Nat) (statements: List (Spaced Statement))
     (pre: Edge → Prop) (first: (index == 0) = True → ∀ (edge: Edge) => pre edge → Loose edge)
@@ -826,7 +826,7 @@ theorem bindingPasses ∀ (letComments: Comments) (name: Text) (nameComments equ
 
 theorem colonSign ∀ (same: Colon = Defines): Void := cases
 
-theorem closingColon: Closing ":" := later => (byComputing, byComputing, byComputing)
+theorem shutsColon: Shuts ":" := later => (byComputing, byComputing, byComputing)
 
 theorem typePasses ∀ (annotation: TypeExpr) (lexical: LexicalType annotation): Passes annotation.layout Free Meets :=
   match annotation, lexical with
@@ -837,8 +837,7 @@ theorem typePasses ∀ (annotation: TypeExpr) (lexical: LexicalType annotation):
           (openingToken open OpenParen Free fineOpen openSign (freeAdmits "("))
           (passesCons _ _ Free Meets Meets
             (typePasses inner lexInner)
-            (passesLast _ Meets Meets
-              (meetingCloser close ")" fineClose (signToken CloseParen closeSign) closingClose))))
+            (passesLast _ Meets Meets (meetingCloser close ")" fineClose (signToken CloseParen closeSign) shutsClose))))
 
 theorem namesAfterPasses ∀ (names: List Named) (lexical: LexicalNames names): Passes (namesAfter names) Meets Meets :=
   match names, lexical with
@@ -867,7 +866,7 @@ theorem groupPasses ∀ (group: ParameterGroup) (lexical: LexicalGroup group): P
           (passesCons _ _ Meets Meets Meets
             (namesAfterPasses names.tail lexNames)
             (passesCons _ _ Meets Meets Meets
-              (meetingToken colon ":" fineColon (signToken Colon colonSign) closingColon)
+              (meetingToken colon ":" fineColon (signToken Colon colonSign) shutsColon)
               (passesCons
                 (Doc.text " ") _
                 Meets
@@ -889,7 +888,7 @@ theorem parameterDocsPass ∀ (parameters: List Parameter)
         Meets
         Meets
         (groupPasses group lexGroup)
-        (meetingToken comma "," fineComma (signToken Comma commaSign) closingComma)),
+        (meetingToken comma "," fineComma (signToken Comma commaSign) shutsComma)),
       (parameterDocsPass [next, ..rest] others)
     )
 
@@ -945,7 +944,7 @@ theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments: Comm
             (passesCons _ _ Meets Meets Free
               (takesPasses takes fineTakes)
               (passesLast _ Meets Free
-                (openingToken open OpenParen Meets fineOpen openSign (meetsAdmits "(" closingOpen)))))))
+                (openingToken open OpenParen Meets fineOpen openSign (meetsAdmits "(" shutsOpen)))))))
   let closing: Passes (Doc.concat [closer close ")", Doc.text " ", token equals "="]) Meets Meets :=
     passesConcat _ Meets Meets
       (passesCons
@@ -953,7 +952,7 @@ theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments: Comm
         Meets
         Meets
         Meets
-        (meetingCloser close ")" fineClose (signToken CloseParen closeSign) closingClose)
+        (meetingCloser close ")" fineClose (signToken CloseParen closeSign) shutsClose)
         (passesCons
           (Doc.text " ") _
           Meets
