@@ -168,8 +168,8 @@ theorem joinedLines ∀ (docs: List Doc) (each: EachPasses docs): PassesAll (Doc
     | [only], Both passes _ => passesLast only Free Meets passes
     | [doc, second, ..rest], Both passes others =>
       passesCons doc _ Free Meets Meets passes
-        (passesCons Line _ Meets Loose Meets passesLine
-          (allFrom _ Free Loose Meets (joinedLines [second, ..rest] others) looseFree))
+        (passesCons Line _ Meets Gapped Meets passesLineGap
+          (allFrom _ Free Gapped Meets (joinedLines [second, ..rest] others) gappedFree))
 
 --| Items with a `Line` between each two.
 theorem joinedPasses ∀ (docs: List Doc) (each: EachPasses docs): Passes (joined docs Line) Free Meets :=
@@ -449,7 +449,7 @@ theorem exprPasses ∀ (expr: Expr) (lexical: Lexical expr): Passes expr.layout 
         (stringOpens written string)
     | Bracketed open inner close, Both fineOpen (Both lexInner fineClose) =>
       passesConcat
-        [token open "(", inner.layout, closeAfter inner (closer close ")")]
+        [token open "(", inner.layout, closeAfter inner close ")"]
         (Enters (Bracketed open inner close))
         Meets
         (passesCons _ _
@@ -464,8 +464,7 @@ theorem exprPasses ∀ (expr: Expr) (lexical: Lexical expr): Passes expr.layout 
           (passesCons _ _ Free Meets Meets
             (passesFrom _ _ Free _ (exprPasses inner lexInner) (freeEnters inner))
             (passesLast _ Meets Meets
-              (closeAfterPasses inner _ Meets
-                (meetingCloser close ")" fineClose (signToken CloseParen closeSign) shutsClose)))))
+              (closeAfterPasses inner close ")" fineClose (signToken CloseParen closeSign) shutsClose))))
     | ListLiteral open items close, Both fineOpen (Both lexItems fineClose) =>
       listPasses open items close
         (Enters (ListLiteral open items close))
@@ -554,13 +553,12 @@ theorem itemDocsPass ∀ (items: List Expr) (lexical: LexicalItems items): EachP
     | [value], Both lexValue _ => ((passesFrom _ _ Free _ (exprPasses value lexValue) (freeEnters value)), byComputing)
     | [value, next, ..rest], Both lexValue others => (
       (passesTwo value.layout
-        (closeAfter value (token Comments.none ","))
+        (Closing ",")
         Free
         Meets
         Meets
         (passesFrom _ _ Free _ (exprPasses value lexValue) (freeEnters value))
-        (closeAfterPasses value _ Meets
-          (meetingToken Comments.none "," fineNone (signToken Comma commaSign) shutsComma))),
+        (closingPasses "," (signToken Comma commaSign) shutsComma)),
       (itemDocsPass [next, ..rest] others)
     )
 
@@ -600,8 +598,8 @@ theorem listPasses ∀ (open: Comments) (items: List Expr) (close: Comments) (pr
                     Meets
                     (fillPasses (itemDocs [first, ..rest]) each)
                     (passesLast _ Meets Meets
-                      (closeAfterPasses last _ Meets
-                        (meetingCloser close "]" fineClose (signToken CloseSquare closeSquareSign) shutsSquare))))))
+                      (closeAfterPasses last close "]" fineClose (signToken CloseSquare closeSquareSign)
+                          shutsSquare)))))
 
 theorem argumentsPass ∀ (open: Comments) (arguments: List Expr) (close: Comments)
     (fineOpen: Fine open)
@@ -873,10 +871,10 @@ theorem groupPasses ∀ (group: ParameterGroup) (lexical: LexicalGroup group): P
               (passesCons
                 (Doc.text " ") _
                 Meets
-                Loose
+                Gapped
                 Meets
-                passesSpace
-                (passesLast _ Loose Meets (passesFrom _ _ Loose _ (typePasses annotation lexType) looseFree))))))
+                passesGap
+                (passesLast _ Gapped Meets (passesFrom _ _ Gapped _ (typePasses annotation lexType) gappedFree))))))
 
 theorem parameterDocsPass ∀ (parameters: List ParameterGroup)
     (lexical: LexicalParameters parameters):
@@ -886,12 +884,12 @@ theorem parameterDocsPass ∀ (parameters: List ParameterGroup)
     | [group], Both lexGroup _ => ((groupPasses group lexGroup), byComputing)
     | [group, next, ..rest], Both lexGroup others => (
       (passesTwo group.layout
-        (token Comments.none ",")
+        (Closing ",")
         Free
         Meets
         Meets
         (groupPasses group lexGroup)
-        (meetingToken Comments.none "," fineNone (signToken Comma commaSign) shutsComma)),
+        (closingPasses "," (signToken Comma commaSign) shutsComma)),
       (parameterDocsPass [next, ..rest] others)
     )
 
@@ -908,7 +906,7 @@ theorem takesPasses ∀ (takes: Option Comments) (fine: FineTakes takes): Passes
           passesSpace
           (passesCons _ _ Loose Meets Meets
             (looseKeyword comments TakesKeyword fineTakes)
-            (passesLast _ Meets Meets (passesTo _ _ Loose Meets passesSpace looseMeets))))
+            (passesLast _ Meets Meets (passesTo _ _ Gapped Meets passesGap gappedMeets))))
 
 theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: Option Comments)
     (open: Comments) (parameters: List ParameterGroup) (close equals: Comments)

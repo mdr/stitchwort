@@ -216,7 +216,8 @@ theorem writesCloserLines ∀ (comments: List Comment):
 --| trailing comment.
 theorem writesCloser ∀ (comments: Comments) (text: Text): Writes (closer comments text) (tokenPieces comments text) :=
   match comments with
-    | { above = [], after } => writesToken { above = [], after } text
+    | { above = [], after = None } => (byComputing, byComputing)
+    | { above = [], after = Some held } => writesToken { above = [], after = Some held } text
     | { above = [comment, ..rest], after } =>
       let lines := [comment, ..rest].map (comment => Doc.text comment.text) |> joined HardLine
       writesConcat
@@ -333,16 +334,20 @@ theorem writesThree ∀ (first second third: Doc) (pieces later last: List Text)
     Writes (Doc.concat [first, second, third]) (pieces ++ (later ++ last)) :=
   writesConcat _ _ (writesCons _ _ _ _ one (writesCons _ _ _ _ two (writesLast _ _ three)))
 
-theorem writesCloseAfter ∀ (expr: Expr) (doc: Doc) (pieces: List Text)
-    (writes: Writes doc pieces):
-    Writes (closeAfter expr doc) pieces :=
-  match expr.endsWithComment with
+theorem writesCloseAfter ∀ (expr: Expr) (comments: Comments) (text: Text):
+    Writes (closeAfter expr comments text) (tokenPieces comments text) :=
+  match lowered: expr.endsWithComment && not (comments.above.isEmpty && comments.after.isNone) with
     | True =>
       writesConcat
-        [HardLine, doc]
-        pieces
-        (writesCons HardLine [doc] [] pieces ((byComputing, byComputing)) (writesLast doc pieces writes))
-    | False => writes
+        [HardLine, closer comments text]
+        (tokenPieces comments text)
+        (writesCons HardLine
+          [closer comments text]
+          []
+          (tokenPieces comments text)
+          ((byComputing, byComputing))
+          (writesLast (closer comments text) (tokenPieces comments text) (writesCloser comments text)))
+    | False => writesCloser comments text
 
 theorem joinedWithWords ∀ (separator: Doc) (docs: List Doc)
     (none: separator.words = []):
@@ -511,7 +516,7 @@ theorem exprWrites ∀ (expr: Expr): Writes expr.layout expr.pieces := match exp
     writesThree _ _ _ _ _ _
       (writesToken open "(")
       (exprWrites inner)
-      (writesCloseAfter inner _ _ (writesCloser close ")"))
+      (writesCloseAfter inner close ")")
   | ListLiteral open items close => listWrites open items close
   | Call callee open arguments close => writesTwo _ _ _ _ (exprWrites callee) (argumentsWrite open arguments close)
   | Field target dot name nameComments =>
@@ -553,7 +558,7 @@ theorem itemDocsWrite ∀ (items: List Expr): WritesAll (itemDocs items) (itemPi
     writesCons _ _
       (value.pieces ++ tokenPieces Comments.none ",")
       (itemPieces [next, ..rest])
-      (writesTwo _ _ _ _ (exprWrites value) (writesCloseAfter value _ _ (writesToken Comments.none ",")))
+      (writesTwo _ _ _ _ (exprWrites value) (writesCloser Comments.none ","))
       (itemDocsWrite [next, ..rest])
 
 theorem listWrites ∀ (open: Comments) (items: List Expr) (close: Comments):
@@ -568,7 +573,7 @@ theorem listWrites ∀ (open: Comments) (items: List Expr) (close: Comments):
               (writesThree _ _ _ _ _ _
                 (writesToken open "[")
                 (writesNest 2 _ _ (writesFill _ _ (itemDocsWrite [first, ..rest])))
-                (writesCloseAfter last _ _ (writesCloser close "]")))
+                (writesCloseAfter last close "]"))
 
 theorem argumentsWrite ∀ (open: Comments) (arguments: List Expr) (close: Comments):
     Writes
@@ -763,7 +768,7 @@ theorem parameterDocsWrite ∀ (parameters: List ParameterGroup):
       writesCons _ _
         (group.pieces ++ tokenPieces Comments.none ",")
         (parameterPieces [next, ..rest])
-        (writesTwo _ _ _ _ (groupWrites group) (writesToken Comments.none ","))
+        (writesTwo _ _ _ _ (groupWrites group) (writesCloser Comments.none ","))
         (parameterDocsWrite [next, ..rest])
 
 theorem takesWrites ∀ (takes: Option Comments): Writes (takesDoc takes) (takesPieces takes) := match takes with

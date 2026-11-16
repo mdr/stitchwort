@@ -58,14 +58,22 @@ def trailingComment: Option Comment → Doc
   | None => Empty
   | Some comment => LineSuffix comment.text
 
---| A closing bracket: as any token, except that own-line comments above
---| it are about the items before it, so they go at the items'
---| indentation, and the bracket on a line of its own below them.
+--| A closing bracket or a comma. One that holds no comments is written
+--| on its line as it stands, before a trailing comment that waits there
+--| (`Closing`): `[a, b] -- c`. Own-line comments above a bracket are
+--| about the items before it, so they go at the items' indentation, and
+--| the bracket on a line of its own below them.
 def closer (comments: Comments) (text: Text): Doc := match comments.above with
-  | [] => token comments text
+  | [] => bareCloser comments text
   | above =>
     let lines := above.map (comment => Doc.text comment.text) |> joined HardLine
     Doc.concat [Nest 2 (Doc.concat [LineStartHere, lines]), HardLine, Doc.text text, trailingComment comments.after]
+
+--| A closing bracket with no own-line comments above it: with a trailing
+--| comment of its own it is a token like any other.
+def bareCloser (comments: Comments) (text: Text): Doc := match comments.after with
+  | None => Closing text
+  | Some _ => token comments text
 
 def Declaration.layout: Declaration → Doc
   | Function fnComments name nameComments takes open parameters close equals body =>
@@ -106,7 +114,7 @@ def takesDoc: Option Comments → Doc
 def parameterDocs: List ParameterGroup → List Doc
   | [] => []
   | [group] => [group.layout]
-  | [group, ..rest] => [Doc.concat [group.layout, token Comments.none ","], ..parameterDocs rest]
+  | [group, ..rest] => [Doc.concat [group.layout, Closing ","], ..parameterDocs rest]
 
 --| A group's names a space apart, then `: ` and their type.
 def ParameterGroup.layout: ParameterGroup → Doc
@@ -160,7 +168,7 @@ def Expr.layout: Expr → Doc
   | Var name comments => token comments name
   | NumberLiteral digits comments => token comments digits
   | StringLiteral written comments => token comments written
-  | Bracketed open inner close => Doc.concat [token open "(", inner.layout, closeAfter inner (closer close ")")]
+  | Bracketed open inner close => Doc.concat [token open "(", inner.layout, closeAfter inner close ")"]
   | ListLiteral open items close => listLayout open items close
   | Call callee open arguments close => Doc.concat [callee.layout, argumentsLayout open arguments close]
   | Field target dot name nameComments => Doc.concat [target.layout, token dot ".", token nameComments name]
@@ -182,10 +190,15 @@ def Expr.startsWithMinus: Expr → Bool
   | Field target _ _ _ => target.startsWithMinus
   | _ => False
 
---| `closer` (a `,` or closing bracket) after `expr`: on the line below if
---| `expr` ends in a trailing comment, at the indentation in force, rather
---| than where a comment break would put it.
-def closeAfter (expr: Expr) (closer: Doc): Doc := if expr.endsWithComment then Doc.concat [HardLine, closer] else closer
+--| The closing bracket `text` after `expr`. Where `expr` ends in a
+--| trailing comment, a bracket that holds nothing joins the comment's
+--| line (`closer`), and one with comments of its own goes on the line
+--| below, at the indentation in force, rather than where a comment break
+--| would put it.
+def closeAfter (expr: Expr) (comments: Comments) (text: Text): Doc :=
+  if expr.endsWithComment && not (comments.above.isEmpty && comments.after.isNone) then
+    Doc.concat [HardLine, closer comments text]
+  else closer comments text
 
 --| P6: an operator chain of one level, from its left-nested tree: `a - b +
 --| c` is `a`, then `- b` and `+ c` each after a line break. Operands of
@@ -251,17 +264,16 @@ def argumentsLayout (open: Comments) (arguments: List Expr) (close: Comments): D
         closer close ")"
       ])
 
---| P5: list items fill their lines, the `]` after the last. A trailing
---| comment on the last item puts the `]` on the line below, at the list's
---| indentation: after the `]`, the comment would belong to it.
+--| P5: list items fill their lines, the `]` after the last, before a
+--| trailing comment the last item ends in.
 def listLayout (open: Comments) (items: List Expr) (close: Comments): Doc := match items.last with
   | None => Doc.concat [token open "[", closer close "]"]
   | Some last =>
-    Doc.group (Doc.concat [token open "[", Nest 2 (Fill (itemDocs items)), closeAfter last (closer close "]")])
+    Doc.group (Doc.concat [token open "[", Nest 2 (Fill (itemDocs items)), closeAfter last close "]"])
 
---| Each item, and its comma but the last's: after the item's own line if
---| the item ends in a trailing comment.
+--| Each item, and its comma but the last's: on the item's line, before a
+--| trailing comment the item ends in.
 def itemDocs: List Expr → List Doc
   | [] => []
   | [value] => [value.layout]
-  | [value, ..rest] => [Doc.concat [value.layout, closeAfter value (token Comments.none ",")], ..itemDocs rest]
+  | [value, ..rest] => [Doc.concat [value.layout, Closing ","], ..itemDocs rest]

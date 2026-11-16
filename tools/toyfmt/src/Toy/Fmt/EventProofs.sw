@@ -396,16 +396,19 @@ theorem lineAll ∀ (zone: Zone) (docs: List Doc) (spec: List Event → Prop) (p
       )
       | Held at, ended => rest indent (AtStart indent) trace next inside inside onward
 
---| A `,` or closing bracket after an expression: on the line below if
---| the expression ends in a trailing comment.
-theorem closeAfterRule ∀ (zone: Zone) (expr: Expr) (doc: Doc) (spec: List Event → Prop)
-    (rule: Rule zone.holds doc (Seated zone) spec (Ended zone)):
-    Rule zone.holds (closeAfter expr doc) (Ended zone) spec (Ended zone) :=
+--| A closing bracket after an expression: on the line below if the
+--| expression ends in a trailing comment and the bracket has comments of
+--| its own, else where the expression ends.
+theorem closeAfterRule ∀ (zone: Zone) (expr: Expr) (comments: Comments) (text: Text)
+    (fine: Fine comments)
+    (solid: Solid text)
+    (closes: closesText text = True):
+    Rule zone.holds (closeAfter expr comments text) (Ended zone) (TokenAt anyStart comments text) (Ended zone) :=
   indent place trace next inside ended onward =>
-    match expr.endsWithComment with
+    match lowered: expr.endsWithComment && not (comments.above.isEmpty && comments.after.isNone) with
       | True =>
         concatLays
-          [HardLine, doc]
+          [HardLine, closer comments text]
           indent
           place
           trace
@@ -413,7 +416,7 @@ theorem closeAfterRule ∀ (zone: Zone) (expr: Expr) (doc: Doc) (spec: List Even
           ((
             (endedMid zone place ended),
             (Inr
-              (rule indent
+              (closerRule zone comments text fine solid closes indent
                 (AtStart indent)
                 trace
                 (after later => LaysAll [] indent after later next)
@@ -421,7 +424,20 @@ theorem closeAfterRule ∀ (zone: Zone) (expr: Expr) (doc: Doc) (spec: List Even
                 inside
                 onward))
           ))
-      | False => rule indent place trace next inside (endedSeated zone place ended) onward
+      | False =>
+        closerRule zone comments text fine solid closes indent place trace next inside
+          (endedSeated zone place ended)
+          onward
+
+--| A closing bracket or comma that holds nothing, after a token.
+theorem closingRule ∀ (zone: Zone) (text: Text)
+    (solid: Solid text)
+    (closes: closesText text = True):
+    Rule zone.holds (Closing text) (Ended zone) (TokenAt anyStart Comments.none text) (Ended zone) :=
+  indent place trace next inside ended onward =>
+    closerRule zone Comments.none text ((byComputing, byComputing)) solid closes indent place trace next inside
+      (endedSeated zone place ended)
+      onward
 
 -- A fill and a list joined by `Line` lay alike.
 
@@ -556,7 +572,8 @@ theorem nestJoined ∀ (zone: Zone) (more: Nat) (docs: List Doc) (spec: List Eve
 --| A closing bracket after a `SoftLine`: on the items' line or on its own.
 theorem softCloser ∀ (zone: Zone) (comments: Comments) (text: Text)
     (fine: Fine comments)
-    (solid: Solid text):
+    (solid: Solid text)
+    (closes: closesText text = True):
     RuleAll zone.holds [SoftLine, closer comments text] (Ended zone) (TokenAt anyStart comments text) (Ended zone) :=
   indent place trace next inside ended onward =>
     softSeats zone indent place trace
@@ -564,7 +581,7 @@ theorem softCloser ∀ (zone: Zone) (comments: Comments) (text: Text)
       inside
       ended
       (middle seated =>
-        closerRule zone comments text fine solid indent middle trace
+        closerRule zone comments text fine solid closes indent middle trace
           (after later => LaysAll [] indent after later next)
           inside
           seated
@@ -573,10 +590,11 @@ theorem softCloser ∀ (zone: Zone) (comments: Comments) (text: Text)
 --| A closing bracket right after its opening one.
 theorem emptyCloser ∀ (zone: Zone) (comments: Comments) (text: Text)
     (fine: Fine comments)
-    (solid: Solid text):
+    (solid: Solid text)
+    (closes: closesText text = True):
     RuleAll zone.holds [closer comments text] (Ended zone) (Then Done (TokenAt anyStart comments text)) (Ended zone) :=
   indent place trace next inside ended onward =>
-    closerRule zone comments text fine solid indent place trace
+    closerRule zone comments text fine solid closes indent place trace
       (after later => LaysAll [] indent after later next)
       inside
       (endedSeated zone place ended)
@@ -1002,40 +1020,32 @@ theorem laterStart ∀ (index: Nat) (blankBefore: Bool) (column: Nat) (place: Pl
     | False, reached => (mid, (Inr (rewrite <- List.appendNil trace then reached)))
 
 --| An item and its comma.
-theorem itemRule ∀ (zone: Zone) (value: Expr) (comma: Comments)
-    (fineComma: Fine comma)
+theorem itemRule ∀ (zone: Zone) (value: Expr)
     (rule: HeadRule zone.inside value.layout value.firstAbove (head => Events zone.inside head value)):
     Rule zone.holds
-      (Doc.concat [value.layout, closeAfter value (token comma ",")])
+      (Doc.concat [value.layout, Closing ","])
       (Seated zone)
-      (Then (Events zone.inside anyStart value) (TokenAt anyStart comma ","))
+      (Then (Events zone.inside anyStart value) (TokenAt anyStart Comments.none ","))
       (Ended zone) :=
   ruleConcat zone.holds
-    [value.layout, closeAfter value (token comma ",")]
+    [value.layout, Closing ","]
     (Seated zone)
     (Ended zone)
-    (Then (Events zone.inside anyStart value) (TokenAt anyStart comma ","))
+    (Then (Events zone.inside anyStart value) (TokenAt anyStart Comments.none ","))
     (ruleCons zone.holds value.layout
-      [closeAfter value (token comma ",")]
+      [Closing ","]
       (Seated zone)
       (Ended zone)
       (Ended zone)
       (Events zone.inside anyStart value)
-      (TokenAt anyStart comma ",")
+      (TokenAt anyStart Comments.none ",")
       (headInside zone value.layout value.firstAbove (head => Events zone.inside head value) rule)
       (ruleLast zone.holds
-        (closeAfter value (token comma ","))
+        (Closing ",")
         (Ended zone)
         (Ended zone)
-        (TokenAt anyStart comma ",")
-        (closeAfterRule zone value
-          (token comma ",")
-          (TokenAt anyStart comma ",")
-          (headInside zone
-            (token comma ",")
-            comma.above
-            (head => TokenAt head comma ",")
-            (tokenHead zone.inside comma "," fineComma solidComma)))))
+        (TokenAt anyStart Comments.none ",")
+        (closingRule zone "," solidComma byComputing)))
 
 -- The induction over the tree.
 
@@ -1187,13 +1197,13 @@ theorem exprLays ∀ (expr: Expr)
       head indent place trace next inside seated isHead onward =>
         headCons zone
           (token open "(")
-          [inner.layout, closeAfter inner (closer close ")")]
+          [inner.layout, closeAfter inner close ")"]
           open.above
           (first => TokenAt first open "(")
           (Then (Events zone.inside anyStart inner) (TokenAt anyStart close ")"))
           (tokenHead zone open "(" fineOpen solidOpenParen)
           (ruleCons zone.holds inner.layout
-            [closeAfter inner (closer close ")")]
+            [closeAfter inner close ")"]
             (Ended zone)
             (Ended zone)
             (Ended zone)
@@ -1206,14 +1216,11 @@ theorem exprLays ∀ (expr: Expr)
                 (first => Events zone.inside first inner)
                 (exprLays inner lexInner zone.inside)))
             (ruleLast zone.holds
-              (closeAfter inner (closer close ")"))
+              (closeAfter inner close ")")
               (Ended zone)
               (Ended zone)
               (TokenAt anyStart close ")")
-              (closeAfterRule zone inner
-                (closer close ")")
-                (TokenAt anyStart close ")")
-                (closerRule zone close ")" fineClose solidCloseParen))))
+              (closeAfterRule zone inner close ")" fineClose solidCloseParen byComputing)))
           head
           indent
           place
@@ -1233,7 +1240,7 @@ theorem exprLays ∀ (expr: Expr)
             (first => TokenAt first open "[")
             (Then Done (TokenAt anyStart close "]"))
             (tokenHead zone open "[" fineOpen solidOpenSquare)
-            (emptyCloser zone close "]" fineClose solidCloseSquare)
+            (emptyCloser zone close "]" fineClose solidCloseSquare byComputing)
             head
             indent
             place
@@ -1249,14 +1256,14 @@ theorem exprLays ∀ (expr: Expr)
               rewrite found then
                 headCons zone
                   (token open "[")
-                  [Nest 2 (Fill (itemDocs [first, ..rest])), closeAfter last (closer close "]")]
+                  [Nest 2 (Fill (itemDocs [first, ..rest])), closeAfter last close "]"]
                   open.above
                   (leftmost => TokenAt leftmost open "[")
                   (Then (ItemEvents zone.inside [first, ..rest]) (TokenAt anyStart close "]"))
                   (tokenHead zone open "[" fineOpen solidOpenSquare)
                   (ruleCons zone.holds
                     (Nest 2 (Fill (itemDocs [first, ..rest])))
-                    [closeAfter last (closer close "]")]
+                    [closeAfter last close "]"]
                     (Ended zone)
                     (Ended zone)
                     (Ended zone)
@@ -1267,14 +1274,11 @@ theorem exprLays ∀ (expr: Expr)
                       (ItemEvents zone.inside [first, ..rest])
                       (fillItems first rest lexItems zone))
                     (ruleLast zone.holds
-                      (closeAfter last (closer close "]"))
+                      (closeAfter last close "]")
                       (Ended zone)
                       (Ended zone)
                       (TokenAt anyStart close "]")
-                      (closeAfterRule zone last
-                        (closer close "]")
-                        (TokenAt anyStart close "]")
-                        (closerRule zone close "]" fineClose solidCloseSquare))))
+                      (closeAfterRule zone last close "]" fineClose solidCloseSquare byComputing)))
                   head
                   indent
                   place
@@ -1312,7 +1316,7 @@ theorem exprLays ∀ (expr: Expr)
                   (TokenAt zone.allows open "(")
                   (Then Done (TokenAt anyStart close ")"))
                   (tokenAfter zone open "(" fineOpen solidOpenParen)
-                  (emptyCloser zone close ")" fineClose solidCloseParen))))
+                  (emptyCloser zone close ")" fineClose solidCloseParen byComputing))))
             head
             indent
             place
@@ -1371,7 +1375,7 @@ theorem exprLays ∀ (expr: Expr)
                       (itemDocs [first, ..rest])
                       (ItemEvents zone.inside [first, ..rest])
                       (fillItems first rest lexArguments zone))
-                    (softCloser zone close ")" fineClose solidCloseParen)))))
+                    (softCloser zone close ")" fineClose solidCloseParen byComputing)))))
             head
             indent
             place
@@ -1582,12 +1586,12 @@ theorem sepsItems ∀ (items: List Expr)
     | [value, second, ..more], Both lexValue others, onward =>
       sepSeats zone indent place trace
         (middle between =>
-          Lays (Doc.concat [value.layout, closeAfter value (token Comments.none ",")]) indent middle between (after later =>
+          Lays (Doc.concat [value.layout, Closing ","]) indent middle between (after later =>
             SepsLay (itemDocs [second, ..more]) indent after later next))
         inside
         ended
         (middle seated =>
-          itemRule zone value Comments.none fineNone
+          itemRule zone value
             (exprLays value lexValue zone.inside)
             indent
             middle
@@ -1638,7 +1642,7 @@ theorem fillItems ∀ (first: Expr) (rest: List Expr)
         onward
     | value, [second, ..more], Both lexValue others =>
       indent place trace next inside seated onward =>
-        itemRule zone value Comments.none fineNone
+        itemRule zone value
           (exprLays value lexValue zone.inside)
           indent
           place
@@ -2189,7 +2193,7 @@ theorem typeLays ∀ (zone: Zone) (annotation: TypeExpr)
                 (closer close ")")
                 (TokenAt anyStart close ")")
                 (Ended zone)
-                (closerRule zone close ")" fineClose solidCloseParen)))))
+                (closerRule zone close ")" fineClose solidCloseParen byComputing)))))
 
 --| A group's names after its first, each after a space.
 theorem namesLay ∀ (zone: Zone) (names: List Named)
@@ -2291,37 +2295,32 @@ theorem groupLays ∀ (zone: Zone) (group: ParameterGroup)
                     (typeLays zone annotation lexType)))))))
 
 --| A parameter group and its comma.
-theorem parameterRule ∀ (zone: Zone) (group: ParameterGroup) (comma: Comments)
-    (lexical: LexicalGroup group)
-    (fineComma: Fine comma):
+theorem parameterRule ∀ (zone: Zone) (group: ParameterGroup)
+    (lexical: LexicalGroup group):
     Rule zone.holds
-      (Doc.concat [group.layout, token comma ","])
+      (Doc.concat [group.layout, Closing ","])
       (Seated zone)
-      (Then (GroupEvents group) (TokenAt anyStart comma ","))
+      (Then (GroupEvents group) (TokenAt anyStart Comments.none ","))
       (Ended zone) :=
   ruleConcat zone.holds
-    [group.layout, token comma ","]
+    [group.layout, Closing ","]
     (Seated zone)
     (Ended zone)
-    (Then (GroupEvents group) (TokenAt anyStart comma ","))
+    (Then (GroupEvents group) (TokenAt anyStart Comments.none ","))
     (ruleCons zone.holds group.layout
-      [token comma ","]
+      [Closing ","]
       (Seated zone)
       (Ended zone)
       (Ended zone)
       (GroupEvents group)
-      (TokenAt anyStart comma ",")
+      (TokenAt anyStart Comments.none ",")
       (groupLays zone group lexical)
       (ruleLast zone.holds
-        (token comma ",")
+        (Closing ",")
         (Ended zone)
         (Ended zone)
-        (TokenAt anyStart comma ",")
-        (fromEnded zone zone.holds
-          (token comma ",")
-          (TokenAt anyStart comma ",")
-          (Ended zone)
-          (tokenInside zone comma "," fineComma solidComma))))
+        (TokenAt anyStart Comments.none ",")
+        (closingRule zone "," solidComma byComputing)))
 
 theorem sepsParameters ∀ (parameters: List ParameterGroup)
     (lexical: LexicalParameters parameters)
@@ -2348,12 +2347,12 @@ theorem sepsParameters ∀ (parameters: List ParameterGroup)
     | [group, second, ..more], Both lexGroup others, onward =>
       sepSeats zone indent place trace
         (middle between =>
-          Lays (Doc.concat [group.layout, token Comments.none ","]) indent middle between (after later =>
+          Lays (Doc.concat [group.layout, Closing ","]) indent middle between (after later =>
             SepsLay (parameterDocs [second, ..more]) indent after later next))
         inside
         ended
         (middle seated =>
-          parameterRule zone group Comments.none lexGroup fineNone indent middle trace
+          parameterRule zone group lexGroup indent middle trace
             (after later => SepsLay (parameterDocs [second, ..more]) indent after later next)
             inside
             seated
@@ -2395,7 +2394,7 @@ theorem fillParameters ∀ (first: ParameterGroup) (rest: List ParameterGroup)
         onward
     | group, [second, ..more], Both lexGroup others =>
       indent place trace next inside seated onward =>
-        parameterRule zone group Comments.none lexGroup fineNone indent place trace
+        parameterRule zone group lexGroup indent place trace
           (after later => SepsLay (parameterDocs [second, ..more]) indent after later next)
           inside
           seated
@@ -2553,7 +2552,7 @@ theorem closingLays ∀ (zone: Zone) (close equals: Comments) (bodyDoc: Doc) (bo
         (Ended zone)
         (TokenAt anyStart close ")")
         (Then (TokenAt zone.allows equals "=") (BodyEvents zone body))
-        (closerRule zone close ")" fineClose solidCloseParen)
+        (closerRule zone close ")" fineClose solidCloseParen byComputing)
         (spaceAll zone zone.holds
           [token equals "=", bodyDoc]
           (Then (TokenAt zone.allows equals "=") (BodyEvents zone body))
