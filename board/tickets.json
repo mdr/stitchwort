@@ -1,5 +1,5 @@
 {
-  "next": 3569,
+  "next": 3570,
   "tickets": [
     {
       "id": 47,
@@ -39171,12 +39171,12 @@
     {
       "id": 3507,
       "title": "[Sonnet] Parse proofs L5: declines toolkit for token parsers and runsRecursiveWithFact; the toy's declines lemmas and runsExpressionFuel onto them. Est. 40 min",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Progress (lane/SW-3507, 86fa4193e): 13 std lemmas in Parse/Runs.sw (declinesFail, Note, Peek, OptionalThen, ManyThen, Operators, DeclinesAll, OneOfFrom, OneOf, RecursiveWith, runsRecursiveWithFactFuel, runsRecursiveWithFact, recursiveFacts). Toy: operatorsDecline, fuelDeclines, runsExpressionFuel deleted; postfixDeclines, expressionDeclines, runsExpression onto std. atomDeclines and negationsDecline stay (declinesPeek not usable: rewrite of reserved kind finds nothing after the peek step). Checks pass; prelude snapshot +13 Std.Parse lines.\n",
+      "body": "Progress (lane/SW-3507, 86fa4193e): 13 std lemmas in Parse/Runs.sw (declinesFail, Note, Peek, OptionalThen, ManyThen, Operators, DeclinesAll, OneOfFrom, OneOf, RecursiveWith, runsRecursiveWithFactFuel, runsRecursiveWithFact, recursiveFacts). Toy: operatorsDecline, fuelDeclines, runsExpressionFuel deleted; postfixDeclines, expressionDeclines, runsExpression onto std. atomDeclines and negationsDecline stay (declinesPeek not usable: rewrite of reserved kind finds nothing after the peek step). Checks pass; prelude snapshot +13 Std.Parse lines.\n\nModel result: sonnet, worked, 10 min (est. 40). Std +13 lemmas (statements checked by orchestrator: each says what its name claims); toy -3 theorems, -60 lines. runsRecursiveWithFact needs reads: good → 0 < read.length (innermost fuel is fatal). Follow-ups SW-3569.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": [
@@ -39977,6 +39977,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3569,
+      "title": "[Sonnet] Parse follow-ups from SW-3507: (1) state runsRecursiveWith as the fact := True case of runsRecursiveWithFact (one induction fewer); (2) Parse.DeclinesAll could be List.All (p => Declines p input); (3) a helper so atomDeclines, negationsDecline and chainRuleStops can use declinesPeek (needs 'atomOf … (Reserved k) is expected'); (4) SKETCH.md/NOTES.md still name operatorsDecline/fuelDeclines",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
