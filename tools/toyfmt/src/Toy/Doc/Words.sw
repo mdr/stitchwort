@@ -3,9 +3,9 @@
 --| text of a chunk or a trailing comment. Which way groups, fills and
 --| choices go changes only the layout between the words, as long as every
 --| option of a choice has the same words (`Uniform`); a trailing comment
---| is written before any text that follows it in the document. So what
---| `print` gives, at every width, has exactly the document's words
---| (`printWords`): nothing lost, repeated or moved.
+--| is written before any text that follows it in the document. Through
+--| every reading the words are the document's (`readingWords`): nothing
+--| lost, repeated or moved.
 
 namespace Toy.Doc.Proofs
 import Toy.Doc (..)
@@ -557,27 +557,3 @@ theorem readingWords ∀ (printer: Printer) (fuel: Nat) (stack: List Cmd) (final
       let lighter := readingLighter printer cmd rest (next, later) steps
       let kept := stepUniform printer cmd rest (next, later) steps first others
       Eq.trans (readingWords next more later final laterReads kept (omega)) moved
-
---| `print` writes the document's words, at every width: the text is
---| pieces joined, and the pieces that aren't layout are the document's
---| chunks and trailing comments, in the document's order, each comment
---| before any text that follows it. Nothing is lost, repeated or moved,
---| whatever fits.
-theorem printWords ∀ (doc: Doc) (width: Nat)
-    (uniform: Uniform doc):
-    ∃ (pieces: List Text) => print doc width = pieces.joinWith "" ∧ wordsOf pieces = doc.words :=
-  let fuel := 3 * doc.size + 3
-  let ran := (Printer.start width).run fuel fuel [Print 0 Break doc]
-  let bound := stepsUnderSize doc
-  let read: ran.words = (Printer.start width).words ++ stackWords [Print 0 Break doc] :=
-    readingWords
-      (Printer.start width)
-      fuel
-      [Print 0 Break doc]
-      ran
-      (runIsReading (Printer.start width) fuel fuel [Print 0 Break doc])
-      (Both uniform rfl)
-      (omega)
-  match flushWritten ran with
-    | Both written _ =>
-      Witness ran.flushSuffixes.out.reverse (Both rfl (Eq.trans written (Eq.trans read (List.appendNil doc.words))))
