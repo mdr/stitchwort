@@ -573,8 +573,12 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
     // A trailing comment is waiting for the end of the line: a line break
     // in a group's flat layout would put code after it, and code with no
     // line break before it starts a new line (a comment break), from where
-    // the measure goes on.
+    // the measure goes on. A flat line break before only closers and
+    // commas is no break: they join the comment's line, so a comment on
+    // the last item of a bracket fits as one after its closer does
+    // (rule N, crate::tidy).
     let mut suffix = at.suffix;
+    let mut flat_break = false;
     loop {
         let Some((indent, mode, doc)) = stack.pop() else {
             match rest.next() {
@@ -588,7 +592,10 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
         };
         match doc {
             Doc::Nil | Doc::Blank => {}
-            Doc::LineSuffix(_) => suffix = true,
+            Doc::LineSuffix(_) => {
+                suffix = true;
+                flat_break = false;
+            }
             Doc::BreakParent => {
                 if mode == Mode::Flat {
                     return false;
@@ -600,6 +607,9 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
                         .chars()
                         .all(|c| matches!(c, ')' | ']' | '}' | ',' | ' '))
                 {
+                    if flat_break {
+                        return false;
+                    }
                     suffix = false;
                     left = at.width as isize - indent.max(at.line_indent + 2) as isize;
                 } else if suffix && text.chars().all(|c| c == ' ') {
@@ -613,7 +623,8 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
                     return true;
                 }
                 if suffix {
-                    return false;
+                    flat_break = true;
+                    continue;
                 }
                 if matches!(doc, Doc::Line) {
                     left -= 1;
@@ -669,6 +680,9 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
                 }
             }
             Doc::TextBlock { text, .. } | Doc::Verbatim { text, .. } => {
+                if suffix && flat_break {
+                    return false;
+                }
                 if suffix {
                     suffix = false;
                     left = at.width as isize - indent.max(at.line_indent + 2) as isize;

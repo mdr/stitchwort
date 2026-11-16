@@ -577,14 +577,23 @@ fn a_comment_before_a_closing_bracket_moves_to_the_line_end_without_changing_the
         "type Shape =\n  | Circle (radius: Nat) --eld\n  | Square (side: Nat)\n",
         "type Shape =\n  | Circle (radius: Nat) --eld\n  | Square (side: Nat)\n",
     );
-    check(
+    // Under rule N a comment on the last item and one after the closer
+    // are the same comment, so every spelling prints alike.
+    for text in [
         "def f: Nat := g (a, b --c\n)\n",
-        "def f: Nat := g (\n  a,\n  b --c\n)\n",
-    );
-    check(
+        "def f: Nat := g (a, b) --c\n",
+        "def f: Nat := g (\n  a,\n  b\n) --c\n",
+        "def f: Nat := g (a\n  , b --c\n  )\n",
+    ] {
+        check(text, "def f: Nat := g (a, b) --c\n");
+    }
+    for text in [
         "def f: List Nat := [1, 2 --c\n]\n",
-        "def f: List Nat := [\n  1,\n  2 --c\n]\n",
-    );
+        "def f: List Nat := [1, 2, --c\n]\n",
+        "def f: List Nat := [\n  1,\n  2\n] --c\n",
+    ] {
+        check(text, "def f: List Nat := [1, 2] --c\n");
+    }
 }
 
 /// `type T = | A (x: Nat) | …` padded so the whole declaration line is `width` characters.

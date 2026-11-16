@@ -14,6 +14,7 @@ use stitchwort_test_alloc as _;
 mod check;
 pub mod printer;
 mod spacing;
+pub mod tidy;
 
 use stitchwort_syntax::{Diagnostic, FileId, SourceMap, Tok, Token};
 
