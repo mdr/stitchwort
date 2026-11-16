@@ -39591,12 +39591,12 @@
     {
       "id": 3539,
       "title": "[Opus paper] Helpful compiler errors (D3642, Matt, 16 Nov 2026): audit today's messages against a rubric, survey Elm/Rust/Gleam/Roc/Lean/Idris, house style, agent-facing features (JSON diagnostics, fix-it edits, explain, length limits on printed types), ranked improvements and stages",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nProgress (Opus lane, 16 Nov 2026): design note written, docs/proposals/helpful-errors.md (commit 3e5a1efe8). Audit of 25 errors: 11 score full or nearly; the weak ones cluster in type mismatches (175 of 206 reject mismatches headline just \"type mismatch\"), internals (?N in 27 reject diagnostics, hidden functions, runtime forms), length (85 repeated notes) and other-language habits (by, record). Twelve ranked lanes (§5), first: mismatches lead with the difference (Opus), no ?N (Sonnet), generic notes once (Sonnet), fixes in the JSON (Sonnet). Two decisions for Matt (§6): voice (rec impersonal, as now), JSON fixes + stitchwort explain (rec yes). No builds or tests (paper lane).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
