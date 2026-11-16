@@ -1,5 +1,5 @@
 {
-  "next": 3656,
+  "next": 3657,
   "tickets": [
     {
       "id": 47,
@@ -40990,12 +40990,12 @@
     {
       "id": 3645,
       "title": "[Sonnet] Warnings left after SW-3608 (orchestrator's calls): (1) W-CTOR-HIDES fires only where a hidden constructor is then used unqualified (sf redefines the book's types on purpose); (2) the editor's 'Split on' code action stops generating arms it knows are unreachable (web/guide/37-split-from-a-hole.sw), rather than silencing W-UNREACHABLE for .impossible arms; (3) sf Basics.sw:503 plusON' teaching example: rewrite the passage to show the ∀ form in prose. Then drop sf and web-guide ceilings to zero",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Lane notes (Sonnet), b8ee93867 on lane/SW-3645:\n1. W-CTOR-HIDES: warns only if the module's declarations write a hidden constructor by its qualified key (module.referenced, filled in the dependency pass). New accept example constructor-hides-unused; reject/constructor-hides-mismatch snapshot lost its warning.\n2. Split code action: goals.rs reachable_patterns drops cases ruled out by a hypothesis x = C. LSP test a_split_leaves_out_the_cases_a_hypothesis_rules_out; a_goal_splits_on_a_variable... expectation updated. Guide page 37 fixed.\n3. sf Basics plusON'/plusON'': parameter form, forall form in prose.\n4. sf and web-guide pins removed.\nModel result: Sonnet, worked, ~60 min (est. 45)\n",
+      "body": "Lane notes (Sonnet), b8ee93867 on lane/SW-3645:\n1. W-CTOR-HIDES: warns only if the module's declarations write a hidden constructor by its qualified key (module.referenced, filled in the dependency pass). New accept example constructor-hides-unused; reject/constructor-hides-mismatch snapshot lost its warning.\n2. Split code action: goals.rs reachable_patterns drops cases ruled out by a hypothesis x = C. LSP test a_split_leaves_out_the_cases_a_hypothesis_rules_out; a_goal_splits_on_a_variable... expectation updated. Guide page 37 fixed.\n3. sf Basics plusON'/plusON'': parameter form, forall form in prose.\n4. sf and web-guide pins removed.\nModel result: Sonnet, worked, ~60 min (est. 45)\n\nModel result: sonnet, worked, 36 min (est. 45). Orchestrator's verifier ran the web-guide pin in release. Follow-up SW-3656.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": [
@@ -41129,6 +41129,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3656,
+      "title": "[Sonnet] Split code action: also leave out arms ruled out by other hypotheses (h: f x = C, Bool facts) beyond the direct x = C that SW-3645 handles; and the web-guide warning pin test takes >600 s in a debug build: make it cheaper (check the pages once, cached, or in release only)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
