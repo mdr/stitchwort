@@ -1,5 +1,5 @@
 {
-  "next": 3575,
+  "next": 3576,
   "tickets": [
     {
       "id": 47,
@@ -40050,6 +40050,19 @@
     {
       "id": 3574,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x925 case 3292): a let in a match arm whose value breaks over a comment line before '1; j * 2' → output where ';' has no expression after it. Minimal: def inArm (o: Option Nat): Nat := match o with /   | Some k => let j := k + / -- c /  1; j * 2. Possibly SW-3540 (let keeps its value on the := line) meeting rule N. Add as a fmt test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3575,
+      "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x928 case 19800): a nested record literal as a field value, after a comment line, with a trailing comment after 'name =' → output reads as a record update ('expected | and the fields to update, found ,'). Minimal: def greenOuter: Outer := { thing = / -- c /  { color = Green, name =-- c /  \"g\" } / }. Add as a fmt test",
       "status": "backlog",
       "agent": "",
       "where": "",
