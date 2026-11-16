@@ -2,6 +2,7 @@
 //! variables they bind.
 
 use lsp_types::{Position, Range, TextEdit};
+use stitchwort_syntax::{SourceMap, Tok};
 
 /// The edit that adds one arm per entry of `fills` (the patterns of
 /// `MissingCases::fills`) to the `match` or equations that `range` covers
@@ -15,30 +16,32 @@ pub fn add_arms(text: &str, range: Range, fills: &[String]) -> Option<TextEdit> 
     let lines: Vec<&str> = text.lines().collect();
     let first = range.start.line as usize;
     let last = (range.end.line as usize).min(lines.len().checked_sub(1)?);
-    // The range may stop short of the last arm's body or run on past the
-    // match; the arms are the `|` lines at the column of the first one.
-    let (arm_line, column) = (first..=last).find_map(|i| {
-        let line = lines[i];
-        let indent = line.len() - line.trim_start().len();
-        line.trim_start().starts_with("| ").then_some((i, indent))
+    // Arms start their line with a `|` token. Reading tokens rather than
+    // lines keeps a `| ` in a `"""` text block, which is part of a string
+    // token, from being taken for an arm.
+    let starts = line_starts(text);
+    let file = SourceMap::new().next_id();
+    let tokens = stitchwort_syntax::lex_recovering(file, text).tokens;
+    let start = tokens.iter().position(|t| {
+        t.tok == Tok::Pipe
+            && t.line_start
+            && (first..=last).contains(&line_at(&starts, t.span.start as usize))
     })?;
+    let column = tokens[start].column;
+    let arm_line = line_at(&starts, tokens[start].span.start as usize);
     let mut end = arm_line;
-    let mut i = arm_line + 1;
-    while i < lines.len() {
-        let line = lines[i];
-        let trimmed = line.trim_start();
-        let indent = line.len() - trimmed.len();
-        if trimmed.is_empty() || trimmed.starts_with("--") {
-            i += 1;
-            continue;
-        }
-        // An arm's body goes on while lines are indented more than its `|`.
-        if indent > column || (indent == column && trimmed.starts_with("| ")) {
-            end = i;
+    for token in &tokens[start + 1..] {
+        let line = line_at(&starts, token.span.start as usize);
+        let last_line = line_at(&starts, (token.span.end as usize).saturating_sub(1));
+        let arm = token.tok == Tok::Pipe && token.line_start && token.column == column;
+        // Another arm at the same column; more of the body on a line already
+        // counted (a text block's pieces); or a line indented past the arms,
+        // which is a body's own line.
+        if arm || line <= end || token.column > column {
+            end = end.max(last_line);
         } else {
             break;
         }
-        i += 1;
     }
     let line = lines[end];
     let reserved = names_in_declaration(&lines, arm_line);
@@ -46,7 +49,7 @@ pub fn add_arms(text: &str, range: Range, fills: &[String]) -> Option<TextEdit> 
     for fill in fills {
         let mut used = reserved.clone();
         new_text.push('\n');
-        new_text.push_str(&" ".repeat(column));
+        new_text.push_str(&" ".repeat(column as usize));
         new_text.push_str("| ");
         new_text.push_str(&bind(fill, &mut used));
         new_text.push_str(" => ?");
@@ -56,6 +59,20 @@ pub fn add_arms(text: &str, range: Range, fills: &[String]) -> Option<TextEdit> 
         u32::try_from(line.encode_utf16().count()).ok()?,
     );
     Some(TextEdit::new(Range::new(at, at), new_text))
+}
+
+/// The byte offset of the start of each line of `text`.
+fn line_starts(text: &str) -> Vec<usize> {
+    std::iter::once(0)
+        .chain(text.match_indices('\n').map(|(at, _)| at + 1))
+        .collect()
+}
+
+/// The 0-based line of byte `at` in a text whose lines start at `starts`.
+fn line_at(starts: &[usize], at: usize) -> usize {
+    starts
+        .partition_point(|&start| start <= at)
+        .saturating_sub(1)
 }
 
 /// A variable in an arm's patterns that the cursor is on, and where the
@@ -600,6 +617,24 @@ mod tests {
         assert_eq!(
             applied(text, &["[_, _, .._]", "(Some _, _)"]),
             "def f (x: List Nat): Nat\n  | [] => x\n  | [y, z, ..xs] => ?\n  | (Some y, z) => ?\n"
+        );
+    }
+
+    #[test]
+    fn bars_in_a_text_block_before_the_match_are_not_arms() {
+        let text = "def example: Text := \"\"\"\n  | not an arm\n  \"\"\"\n\ndef f (o: Option Nat): Nat :=\n  match o with\n  | None => 0\n";
+        assert_eq!(
+            applied(text, &["Some ‹value›"]),
+            "def example: Text := \"\"\"\n  | not an arm\n  \"\"\"\n\ndef f (o: Option Nat): Nat :=\n  match o with\n  | None => 0\n  | Some value => ?\n"
+        );
+    }
+
+    #[test]
+    fn a_bar_in_an_arm_bodys_text_block_is_not_an_arm() {
+        let text = "def f (o: Option Nat): Nat :=\n  match o with\n  | None => 0\n  | Some n =>\n      let t := \"\"\"\n| not an arm\n\"\"\"\n      n + t.length\n";
+        assert_eq!(
+            applied(text, &["Some ‹value›"]),
+            "def f (o: Option Nat): Nat :=\n  match o with\n  | None => 0\n  | Some n =>\n      let t := \"\"\"\n| not an arm\n\"\"\"\n      n + t.length\n  | Some value => ?\n"
         );
     }
 
