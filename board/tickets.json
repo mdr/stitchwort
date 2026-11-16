@@ -39284,12 +39284,12 @@
     {
       "id": 3516,
       "title": "[Opus] Proof tuples L1 (docs/proposals/proof-tuples.md §10, D3631 (a), D3632 ∃/∧ only): tuples build and take apart ∃/∧ proofs by expected type (check, infer, patterns in match/let/lambda/clause lambda/arms, patlet guard), messages of §6, examples (and-tuple-not-both becomes accept), syntax.md, guide, proving guide. Est. 60 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Lane 1 of docs/proposals/proof-tuples.md (D3631 (a), D3632 ∃/∧ only). Est. 60 min; started 10:17.\n\nProgress (Opus lane, 16 Nov 2026):\n- check.rs: a tuple checked against `∧`/`∃` is `Both`/`Witness`, walking the chain from the outside (proof_tuple); E-TUPLE-PARTS counts from the outside and lists the goal's parts; the last-part note; SW-3419's \"write `Both`\" note gone. infer_tuple: first part a proof → `∧`; data then proof → E-CANNOT-INFER (\"which `∃`?\"); proof then data → E-TYPE-MISMATCH.\n- lib.rs pattern_ctor: a tuple pattern on `∧`/`∃` is `Both`/`Witness` (by the column's type, like NonEmptyList); a tuple-pattern mismatch on Pair gets a note listing the three readings.\n- patlet.rs: tuple on `∧` projects through And.left/right (as `let Both a b` does); tuple on `∃` falls back to the `match` (applies() says no for a variable scrutinee, so the case tree is used exactly as for `Witness`; otherwise check_let returns None and check_match restores and matches).\n- Other tuple-pattern passes (equations, redundant, module, autobind, nav) are structural: no change needed.\n- Postponed case NOT done: a tuple checked against an unknown type is inferred (pair, or `∧` if its first part is a proof; `∃` asks for the type).\n- Hash test: hash_stability::proof_tuples_hash_as_witness_and_both (13 declarations, every place).\n- Commit aa3235eda on lane/SW-3516. Tests: proof_tuples_hash_as_witness_and_both PASS (178 s); logic_notation_spellings_hash_the_same PASS; examples accepted/rejected with EXAMPLES=proof-tuple,and-tuple,let-patterns,lambda-pair-patterns,tuples,tuple-ctor-patterns,literal-tuples,tuple-prop-component,tuple-wrong-type PASS (5 new reject snapshots). Guide quote test TIMED OUT at 600 s in a debug build (it's meant for --release, task guide:update); the new snippet and error output were checked by hand with the CLI. Hash snapshots for the new accept examples not generated (task snap:hashes NAME=proof-tuples,and-tuple). web guide test not run (page checked with the CLI).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
