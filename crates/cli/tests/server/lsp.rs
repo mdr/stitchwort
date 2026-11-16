@@ -3235,3 +3235,90 @@ fn tests_request_lists_tests_open_or_on_disk() {
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A file that offers each kind of quick fix the server has for a
+/// diagnostic: an import, the missing arms, and the two style rewrites.
+const FIXABLE: &str = "namespace Demo\nimport Std (List)\n\n\
+    def f (m: Map Nat Nat): Nat := 0\n\n\
+    def b: Option Nat -> Nat\n  | Some n => n\n\n\
+    theorem addZero: ∀ (n: Nat) => n + 0 = n\n  | Zero => rfl\n  | Succ k => rfl\n\n\
+    theorem addZero2: (n: Nat) -> n + 0 = n := n => rfl\n\n\
+    def g (xs: List Nat): Nat := xs.lenght\n";
+
+/// Every quick fix the server offers for a diagnostic is among the `fixes`
+/// of the same diagnostic in `check --index` (D3646: a fix the editor
+/// knows but the JSON lacks is a bug), with the same title and edits.
+#[test]
+fn every_quick_fix_of_the_server_is_in_check_index() {
+    let dir = temp_dir("fixes-in-index");
+    let file = dir.join("fixable.sw");
+    std::fs::write(&file, FIXABLE).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["check", "--no-cache", "--index", "-"])
+        .arg(&file)
+        .output()
+        .unwrap();
+    let index: Value = serde_json::from_slice(&out.stdout).expect("an index");
+    let in_index: Vec<Value> = index["diagnostics"].as_array().unwrap().clone();
+
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, FIXABLE);
+    let published = client.diagnostics(&uri, 1);
+    let mut titles = Vec::new();
+    for d in &published {
+        let actions = client.request(
+            "textDocument/codeAction",
+            json!({"textDocument": {"uri": uri}, "range": d["range"],
+                   "context": {"diagnostics": [d]}}),
+        );
+        let fixes: Vec<Value> = (actions.as_array().into_iter().flatten())
+            .filter(|a| a["kind"] == "quickfix" && a.get("edit").is_some())
+            .cloned()
+            .collect();
+        if fixes.is_empty() {
+            continue;
+        }
+        let code = d["code"].as_str().unwrap();
+        let json_fixes = (in_index.iter())
+            .find(|j| j["code"] == code && j["range"] == lsp_range(&d["range"]))
+            .unwrap_or_else(|| panic!("{code} is not in the index: {in_index:?}"))["fixes"]
+            .as_array()
+            .unwrap()
+            .clone();
+        for action in &fixes {
+            let title = action["title"].as_str().unwrap();
+            let fix = json_fixes
+                .iter()
+                .find(|f| f["title"] == title)
+                .unwrap_or_else(|| panic!("{code}: no `{title}` in {json_fixes:?}"));
+            let edits = action["edit"]["documentChanges"][0]["edits"]
+                .as_array()
+                .or_else(|| action["edit"]["changes"][&uri].as_array())
+                .unwrap_or_else(|| panic!("{action}"));
+            let lsp_edits: Vec<(Value, Value)> = edits
+                .iter()
+                .map(|e| (lsp_range(&e["range"]), e["newText"].clone()))
+                .collect();
+            let json_edits: Vec<(Value, Value)> = (fix["edits"].as_array().unwrap().iter())
+                .map(|e| (e["range"].clone(), e["replacement"].clone()))
+                .collect();
+            assert_eq!(lsp_edits, json_edits, "{code}: {title}");
+            titles.push(title.to_string());
+        }
+    }
+    titles.sort();
+    assert_eq!(
+        titles,
+        [
+            "Add `import Std (Map)`",
+            "Add the missing arm",
+            "Move ∀ variables before the colon",
+            "Replace with `length`",
+            "Write ∀ instead of ->",
+        ],
+        "{published:?}"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}

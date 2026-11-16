@@ -12,6 +12,8 @@ stitchwort-elab.workspace = true
 stitchwort-js.workspace = true
 stitchwort-rt.workspace = true
 stitchwort-host.workspace = true
+# The formatter, which finishes the layout of the style fixes (`fixes`) and is run by `tests/fmt_hashes.rs`.
+stitchwort-fmt.workspace = true
 ariadne.workspace = true
 blake3.workspace = true
 serde.workspace = true
@@ -35,8 +37,6 @@ num-traits.workspace = true
 stitchwort-dev-features.workspace = true
 # `cargo metadata`'s output, for the test of the fingerprint's crates.
 serde_json.workspace = true
-# The formatter, for `tests/fmt_hashes.rs`.
-stitchwort-fmt.workspace = true
 # The runtime model of `Partial`, which the runner is compared with.
 stitchwort-partial-model = { path = "../partial-model" }
 # The CLI's allocator, for `tests/resources.rs` (SW-921).

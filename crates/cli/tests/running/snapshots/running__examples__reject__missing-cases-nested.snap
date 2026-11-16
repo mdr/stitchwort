@@ -30,3 +30,4 @@ expression: output
     │ │                           
     │ ╰─────────────────────────── missing cases: no arm matches 2 patterns
 ────╯
+try: add `| (None, False) => ?`, `| (Some x, True) => ?`

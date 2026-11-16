@@ -51,6 +51,9 @@ pub struct Detail {
     /// For `E-UNKNOWN-NAME` when an import would bring the name in: the
     /// import to add, for the editor's quick fix.
     pub import: Option<SuggestedImport>,
+    /// For `E-UNKNOWN-FIELD`: the name that was probably meant, to write in
+    /// place of the first label's span (a guess, so a fix to check).
+    pub replacement: Option<String>,
     /// For `E-TYPE-MISMATCH` where a test fact is expected and the term
     /// given proves one of its readings: where, and the fact. The
     /// declaration is checked again with the fact built there
@@ -206,6 +209,10 @@ impl Diagnostic {
         self.detail.as_ref()?.missing.as_ref()
     }
 
+    pub fn replacement_data(&self) -> Option<&str> {
+        self.detail.as_ref()?.replacement.as_deref()
+    }
+
     pub fn import_data(&self) -> Option<&SuggestedImport> {
         self.detail.as_ref()?.import.as_ref()
     }
@@ -236,6 +243,13 @@ impl Diagnostic {
                 self.detail = None;
             }
         }
+    }
+
+    /// Records the name that was probably meant for the first label's span
+    /// ([`Detail::replacement`]).
+    pub fn with_replacement(mut self, name: impl Into<String>) -> Self {
+        self.detail_mut().replacement = Some(name.into());
+        self
     }
 
     /// Records the import that would fix this diagnostic.

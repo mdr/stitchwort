@@ -65,6 +65,7 @@ def Shape.area: Shape → Nat
    │ │
    │ ╰───────────────────────────────────────────── missing case: no arm matches `Dot`
 ───╯
+try: add `| Dot => ?`
 1 error: in `Shape.area`
 ```
 
@@ -414,6 +415,7 @@ def grade: Nat → Text
    │
    │     Note: an arm with `if` covers no case for sure: add an arm without `if` for these values
 ───╯
+try: add `| x => ?`
 1 error: in `grade`
 ```
 

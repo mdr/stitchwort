@@ -11,3 +11,4 @@ expression: output
     │   ───────┬───────  
     │          ╰───────── missing cases: no arm matches 2 patterns
 ────╯
+try: add `| Square s => ?`, `| Tri a b => ?`

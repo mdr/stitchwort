@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/running/examples.rs
+source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-NONEXHAUSTIVE] Error: missing case: no alternative of this `match` matches `Rock`
@@ -11,3 +11,4 @@ expression: output
     │ │                         
     │ ╰───────────────────────── missing case: no alternative of this `match` matches `Rock`
 ────╯
+try: add `| Rock => ?`

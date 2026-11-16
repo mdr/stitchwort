@@ -12,3 +12,4 @@ expression: output
     │ 
     │ Note: here the argument has type `Vec a n`, and `VCons` can be one
 ────╯
+try: add `| VCons x xs, y => ?`

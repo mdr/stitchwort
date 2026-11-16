@@ -47,11 +47,11 @@ name, kind, name position, whole-declaration range, and the declaration it
 sits in (a constructor or field in its type, an operation in its ability).
 Local definitions aren't listed (they are binders).
 
-## Format (`"version": 3`)
+## Format (`"version": 4`)
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   "errors": false,
   "files": [
     {"path": "Main/Main.sw"},
@@ -183,6 +183,11 @@ as text. Its label is unchanged: the names in scope a line each, then
   - part of it isn't shown in full (`…`) or isn't known (`?`), or whether the
     target is a proposition wasn't known when the hole was checked.
   The name may already be taken; rename it then.
+- `fixes` (version 4): on every diagnostic, a list, empty when the compiler has no fix. Each is `title` (what the editor's quick fix is called), `applicability` and `edits`, each a `range` of the diagnostic's own file (a range as above) and the `replacement` for it; an insertion has an empty range, and the edits of one fix don't overlap. `applicability` is `certain` (apply it as it stands: the fix is what the diagnostic asks for) or `check` (a good guess: apply it, then run `check` again). The fixes are the language server's quick fixes, from the same code (`stitchwort-driver`'s `fixes`), so a fix the editor offers is always here: ``Add `import Std (Map)` `` on an unknown name (`certain`), `Add the missing arm` or `Add the missing arms` on an `E-NONEXHAUSTIVE` with `missing` (`certain`; the new arms' bodies are `?`), `Write ∀ instead of ->` on `W-ARROW-FORALL` (`certain`), `Move ∀ variables before the colon` on `W-THEOREM-FORALL` (`check`: the theorem's hash may change) and, on an `E-UNKNOWN-FIELD` with a near name, ``Replace with `length` `` (`check`). Only diagnostics in the user's files have fixes. `check`'s text output prints a `try:` line after each diagnostic for each `certain` fix: ``try: add `import Std (Map)` ``.
+  ```json
+  {"title": "Add `import Std (Map)`", "applicability": "certain",
+   "edits": [{"range": [1, 16, 1, 16], "replacement": ", Map"}]}
+  ```
 - `counterexample`: on the diagnostic whose note says the counterexample
   search found one (the first error of a failed theorem, or the goal of a
   proof that is wholly `?`): `verdict` (`"false"`: the statement is false, as

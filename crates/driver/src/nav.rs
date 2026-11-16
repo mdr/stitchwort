@@ -18,9 +18,10 @@ use stitchwort_syntax::ast::Import;
 use stitchwort_syntax::docs::Doc;
 
 use crate::driver::Session;
+use crate::fixes::{Fix, fixes_of};
 
 /// The version of the format.
-pub const VERSION: u32 = 3;
+pub const VERSION: u32 = 4;
 
 /// Where the library's files are in the repository, relative to its root.
 const STD_DIR: &str = "crates/elab/src/std/";
@@ -174,6 +175,11 @@ pub struct IndexDiagnostic {
     pub missing: Option<MissingCases>,
     /// The import that would bring in the unknown name.
     pub import: Option<SuggestedImport>,
+    /// The name probably meant, for the diagnostic's span.
+    pub replacement: Option<String>,
+    /// The fixes the compiler knows, as edits of the diagnostic's own file
+    /// ([`crate::fixes`]); only for the user's files.
+    pub fixes: Vec<Fix>,
 }
 
 /// What was parsed from a library file's text, by file and text. The
@@ -357,6 +363,14 @@ pub fn index_json(
             diags.push_str(r#","missing":"#);
             missing_json(&mut diags, missing);
         }
+        diags.push_str(r#","fixes":["#);
+        for (j, fix) in d.fixes.iter().enumerate() {
+            if j > 0 {
+                diags.push(',');
+            }
+            fix_json(&mut diags, fix);
+        }
+        diags.push(']');
         diags.push('}');
     }
 
@@ -688,6 +702,10 @@ pub fn index_data_of(
                 label.message.clone(),
             ));
         }
+        let fixes = match d.labels.first() {
+            Some(first) if user(first.span.file) => fixes_of(sources, d),
+            _ => Vec::new(),
+        };
         diags.push(IndexDiagnostic {
             severity: d.severity,
             code: d.code,
@@ -699,6 +717,8 @@ pub fn index_data_of(
             counterexample: d.counterexample_data().cloned(),
             missing: d.missing_data().cloned(),
             import: d.import_data().cloned(),
+            replacement: d.replacement_data().map(str::to_string),
+            fixes,
         });
     }
 
@@ -842,6 +862,29 @@ impl Parens {
             }
         }
     }
+}
+
+/// A fix: `title`, `applicability` (`certain` or `check`) and `edits`, each
+/// a `range` of the diagnostic's file and the `replacement` for it.
+fn fix_json(out: &mut String, fix: &Fix) {
+    let _ = write!(
+        out,
+        r#"{{"title":{},"applicability":"{}","edits":["#,
+        string(&fix.title),
+        fix.applicability.name()
+    );
+    for (i, edit) in fix.edits.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        let _ = write!(
+            out,
+            r#"{{"range":{},"replacement":{}}}"#,
+            json_range(edit.range),
+            string(&edit.new_text)
+        );
+    }
+    out.push_str("]}");
 }
 
 fn json_range([l1, c1, l2, c2]: Range) -> String {

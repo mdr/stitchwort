@@ -139,6 +139,8 @@ pub struct LiveDiagnostic {
     pub goal: Option<GoalData>,
     /// For an unknown name an import brings in: the import to add.
     pub import: Option<SuggestedImport>,
+    /// The name probably meant, for the span of the diagnostic.
+    pub replacement: Option<String>,
     /// For a non-exhaustive `match`: the arms it lacks.
     pub missing: Option<MissingCases>,
 }
@@ -418,6 +420,7 @@ fn answers_from_with<'t>(
             notes: d.notes.clone(),
             goal: d.goal.clone(),
             import: d.import.clone(),
+            replacement: d.replacement.clone(),
             missing: d.missing.clone(),
         });
     }

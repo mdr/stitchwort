@@ -11,3 +11,4 @@ expression: output
    │ 
    │ Note: `Eq` is `Std.Eq`; add `import Std (Eq)`, or write `Std.Eq.sym`
 ───╯
+try: add `import Std (Eq)`
