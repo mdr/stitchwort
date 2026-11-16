@@ -86,6 +86,21 @@ and `cases` already use the test facts in scope as what they read as, and
 apply a `∀` once. A new test with a statement of its own gets a
 `@[reading]` theorem beside it.
 
+Build, open and project `∃` and `∧` proofs with tuples (D3631,
+docs/syntax.md, "Proof tuples"): `(7, big, square)` proves `∃ (n: Nat) =>
+n > 2 ∧ n * n = 49`, one part per binder and per conjunct, and is the same
+term as `Witness 7 (Both big square)`. Open a hypothesis or a lemma's result
+with a pattern `let`, `let (n, _, square) := lemma xs`, rather than a
+one-arm `match`: in a proof it is that `match`, and it refines the goal.
+Use the same tuple in `match` arms, lambda parameters, clause lambdas and
+arms; `_` skips a part, and a last part names the rest of the chain
+(`(x, a, rest)` gives `rest: B ∧ C`). For one part of a `∧`, write
+`h.left` or `h.right`; deeper than that, a pattern `let` with `_`s reads
+better than `h.right.right.left`. Write `Witness` and `Both` only where a
+function is wanted (`hs.map (Witness x)`). An `∃` tuple needs its goal
+known, so give a `let` the type if nothing else does. Records stay records:
+a proposition with named parts is opened with `{ seen, .. }`.
+
 A theorem puts every variable before the colon, as a parameter
 (`theorem plusZero ∀ (n: Nat): n + 0 = n`), and a proof by cases is a `match`
 on them: `theorem timesOne ∀ (n: Nat): n * 1 = n := match n with | Zero => …
@@ -411,7 +426,8 @@ Import what you use: std's theorems live in namespaces that need an import
   makes recursion through the list need no proof
   (`examples/accept/nested-data-induction.sw`).
 - **Hypotheses are ordinary values.** Pass them on, take them apart with
-  `match`, `And.left`, `And.right`; `Void.exfalso` from a contradiction.
+  a tuple pattern (`let (x, a, b) := h`), `match`, `.left`, `.right`;
+  `Void.exfalso` from a contradiction.
 
 ## 4. Common errors and what they usually mean
 

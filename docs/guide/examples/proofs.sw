@@ -266,6 +266,19 @@ theorem hasSquareRoot: ∃ (n: Nat) => n * n = 49 := Witness 7 rfl
 def unseen (seen xs: List Nat): List Nat := xs.filter (x => x ∉ seen)
 -- end logic
 
+-- begin tuples
+theorem squareRoot: ∃ (n: Nat) => n > 2 ∧ n * n = 49 := (7, byDecision, rfl)
+
+theorem rootOf ∀ (h: ∃ (n: Nat) => n > 2 ∧ n * n = 49): ∃ (m: Nat) => m * m = 49 :=
+  let (n, _, square) := h
+  (n, square)
+
+theorem swapAnd ∀ (p q: Prop): p ∧ q → q ∧ p
+  | (a, b) => (b, a)
+
+theorem secondOf ∀ (p q: Prop) (h: p ∧ q): q := h.right
+-- end tuples
+
 -- begin forall
 theorem zeroPlusAll ∀ (n: Nat): 0 + n = n := rfl
 

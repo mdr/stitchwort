@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/proof-tuple-and-data.sw:5:19 ]
+   │
+ 5 │   let both := (h, 2)
+   │                   ┬  
+   │                   ╰── the tuple's first part is a proof, so the tuple proves `∧` and this part must be a proof too
+───╯

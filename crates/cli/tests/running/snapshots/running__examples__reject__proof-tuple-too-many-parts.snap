@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TUPLE-PARTS] Error: this gives 4 parts, but the goal takes 3
+   ╭─[ reject/proof-tuple-too-many-parts.sw:6:52 ]
+   │
+ 6 │ theorem small: ∃ (n: Nat) => n > 2 ∧ n * n = 49 := (7, byDecision, rfl, rfl)
+   │                                                    ────────────┬────────────  
+   │                                                                ╰────────────── this proves `∃ (n: Nat) => 2 < n ∧ n * n = 49`
+   │ 
+   │ Note: a tuple proves a chain of `∃` and `∧` one part at a time, from the outside in:
+   │         1. a value for `n`
+   │         2. a proof of `2 < n`
+   │         3. a proof of `n * n = 49`
+───╯
