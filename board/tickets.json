@@ -1,5 +1,5 @@
 {
-  "next": 3632,
+  "next": 3633,
   "tickets": [
     {
       "id": 47,
@@ -40706,12 +40706,12 @@
     {
       "id": 3624,
       "title": "[Sonnet] Toy++ T1: printParses over predicates on today's toy (toy-plus-plus.md §8 T1; tools/toyfmt/plus/SKETCH-PLUS.md): Parsed, parseParsed, the wrappers peeled; no syntax change. Est. 15 min (T0's revised estimate)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Lane note (Sonnet, ~25 min): ParsedFile renamed Parsed; parsedPrintTokens and parsedPrintEvents deleted (callers use printedTokens/printedEvents); parsedPrintPlaced became printedPlaced over Parsed; printParses takes (file) (width) (parsed: Parsed file), no source; formatRoundTrip passes parseParsed. Checked: stitchwort check in tools/toyfmt (10 namespaces, no errors), audit Toy.Fmt.Proofs (0 failed). Not done: bare hypothesis (needs withoutTrailingCommas, T4) and SettledFile (T3).\n",
+      "body": "Lane note (Sonnet, ~25 min): ParsedFile renamed Parsed; parsedPrintTokens and parsedPrintEvents deleted (callers use printedTokens/printedEvents); parsedPrintPlaced became printedPlaced over Parsed; printParses takes (file) (width) (parsed: Parsed file), no source; formatRoundTrip passes parseParsed. Checked: stitchwort check in tools/toyfmt (10 namespaces, no errors), audit Toy.Fmt.Proofs (0 failed). Not done: bare hypothesis (needs withoutTrailingCommas, T4) and SettledFile (T3).\n\nModel result: sonnet, worked, 4 min (est. 15). Orchestrator checked the statement: hypothesis weakened from parse source = Ok file to Parsed file (derivable via parseParsed), conclusion unchanged; says what its name says. Next SW-3632.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40802,6 +40802,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3632,
+      "title": "[Fable] Toy++ T1b (D3663 'must' set, proved on today's toy before T2, since Toy++ changes the toy in place): formatKeepsComments (every comment kept, text and order, between the two texts through the lexer only), formatSameTree (same tree, same output), a source that doesn't parse gives ParseError, and Degenerate.sw (identity, delete-comments, one-line formatters each break a named theorem by a computed example). settledNear waits for T3. docs/proposals/formatter-properties.md. Est. 45 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
