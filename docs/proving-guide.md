@@ -278,12 +278,50 @@ theorem selectedIsValueViaHelper ∀ (chosen: Option Nat) (value: Nat) (selected
 6. **Work in a scratch file** for experiments (a lemma's shape, an error you
    don't understand), outside the repo or in the scratchpad, checked with
    `stitchwort check file.sw` (file mode: only `Std` is visible).
-7. **Comment sparingly.** A theorem's statement is usually its doc: give it
-   a `--|` doc only to say which part of the spec it covers or why a
-   hypothesis is needed. Inside a proof, a `--` note is for what the proof
-   can't show, such as why a lemma is stated more generally or why a
-   definition is `opaque` (§1, rule 4). Don't narrate the steps
-   ([syntax.md](syntax.md#what-to-write)).
+7. **Comment sparingly, with one exception: the proof idea** (D3657, Matt,
+   16 Nov 2026). A theorem's statement is usually its doc: give it a `--|`
+   doc only to say which part of the spec it covers or why a hypothesis is
+   needed. Inside a proof, a `--` note is for what the proof can't show, such
+   as why a lemma is stated more generally or why a definition is `opaque`
+   (§1, rule 4). Don't narrate the steps
+   ([syntax.md](syntax.md#what-to-write)). The exception: a theorem whose
+   proof runs over about 15 lines ends its doc with the **proof idea**, one
+   or two sentences naming the induction, the key lemma or the invariant
+   (a sketch of the shape, not a real theorem):
+
+   ```
+   --| The first row of the region after reading the bits is their value: by
+   --| induction on the bits, where each letter halves the region and the
+   --| first row gains the bit's value.
+   theorem regionFirstRow …
+   ```
+
+   A proof is hard to make read as itself; the idea says which proof it is,
+   so a reader can follow the detail, and a repair can check that the plan
+   still holds. It names the plan, not the steps: "by induction on `xs`;
+   the cons case uses `lengthAppend`" is an idea, "rewrite with `addComm`,
+   then …" is narration.
+8. **State, don't chain** (D3656, Matt, 16 Nov 2026). Every fact a proof
+   passes through should be on the page where a reader, or an agent
+   repairing the proof, can see it. Two parts:
+   - A chain of two or more equalities is a `calc`, one line per step, not
+     `Eq.trans a (Eq.trans b c)` or `(a.trans b).trans c`. `check` warns
+     (`W-PROOF-CHAIN`) on `trans` nested two deep, and the fix is the
+     `calc`: the intermediate terms are the ones the nest left out. A single
+     `Eq.trans a b` is fine.
+   - A `rewrite` run of more than about three rules, or one whose result a
+     later step depends on, passes through a typed `let` (or an ascription)
+     that states the fact reached: `let reached: a + b = b + a := rewrite …`,
+     then the rest. A change to a rule then breaks at the stated fact, with
+     a goal to compare, not three steps later.
+
+   Existing proofs move over when they are next touched, not in a sweep.
+9. **Name or leave out a lemma's arguments** (extends D2367 to proofs). An
+   argument that unification fixes is `_`, or implicit in the lemma's
+   statement: `Nat.addComm _ b`, not the whole term again. A lemma call with
+   more than about four arguments left explicit names them,
+   `lemma (tree := later) (rest := k) h`, so a reordered parameter
+   fails at its name, and a reader can tell which argument is which.
 
 ## 3. Tools, and when each fits
 
