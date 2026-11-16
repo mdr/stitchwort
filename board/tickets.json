@@ -1,5 +1,5 @@
 {
-  "next": 3679,
+  "next": 3680,
   "tickets": [
     {
       "id": 47,
@@ -40806,7 +40806,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "SW-3659 (16 Nov): roll out selectively, not as a sweep: convert only where it shortens the proof and the rules are cheap (hypotheses, fully applied lemmas); open arithmetic lemmas keep their arguments (orMod 3 -> 17 ms). Bits sample 2.9x on its proofs, ReadsChars 1.1x but longer. Patch dev/patches/SW-3659-std-samples.patch.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41188,12 +41188,12 @@
     {
       "id": 3659,
       "title": "[Opus] rewrite repeatedly perf, remaining (SW-3654): Words.sw with sets at 2.53x the hand-written base. Candidates: skip today's-instance for set rules (~55 ms, changes which instance: design call), today's instance only after an as-written hit (~40 ms), don't repeat the as-written try in the full pass (~22 ms); writeLayoutWords' full search 89 ms (reachable only by rescue, SW-3629). Before the std/AoC rollout (SW-3631), measure on two std files and decide",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\nLane (Opus, 16 Nov, ~40 min, est. 60): commit f45ac3c4a. Kept: today's instance found only after a hit as written, with the rule made afresh (falls back to the old order where an unknown is left), results and hashes unchanged; Words.sw 556 -> 526 ms, Bits sample 89 -> 81 ms. Dropped: no-repeat of the as-written try in the full pass (never fires: rules reaching the full pass were skipped as written by may_fit); an as-written probe (+0.1%). Not done: today's instance skipped for set members (design call); writeLayoutWords' rescue-first (changes results). Ratios now: Words.sw 2.42x; Nat/Bits.sw nine proofs 2.9x on those proofs (file 1.4x), 20 lines shorter; Parse/ReadsChars.sw six hypothesis-rule proofs 1.1x but 3 chars longer each. Neither committed (dev/patches/SW-3659-std-samples.patch). Cost sits in open lemma rules (Nat.modAddMul unified against every %). Rollout rec: selective, not a sweep. Perf log entry added. Tests: test:example rewrite-repeatedly,rule-set (7 pass); toyfmt check --no-cache clean; check --std Nat/Bits, Parse/ReadsChars, List/Lemmas clean; hash_stability::prelude + pinned_hashes pass; hash_stability::examples EXAMPLES=rewrite-repeatedly,rule-set,rewrite-as-written pass. Finding: test:example NAME=rewrite,as-written fails on 10 stale snapshots (match-as-written, rewrite-nothing-*, rewrite-wrong-direction*, ...) that lack SW-3648's new W-REWRITE-THEN-COMPUTING/THEN-REWRITE warnings; not caused by this lane.\n",
+      "body": "\nLane (Opus, 16 Nov, ~40 min, est. 60): commit f45ac3c4a. Kept: today's instance found only after a hit as written, with the rule made afresh (falls back to the old order where an unknown is left), results and hashes unchanged; Words.sw 556 -> 526 ms, Bits sample 89 -> 81 ms. Dropped: no-repeat of the as-written try in the full pass (never fires: rules reaching the full pass were skipped as written by may_fit); an as-written probe (+0.1%). Not done: today's instance skipped for set members (design call); writeLayoutWords' rescue-first (changes results). Ratios now: Words.sw 2.42x; Nat/Bits.sw nine proofs 2.9x on those proofs (file 1.4x), 20 lines shorter; Parse/ReadsChars.sw six hypothesis-rule proofs 1.1x but 3 chars longer each. Neither committed (dev/patches/SW-3659-std-samples.patch). Cost sits in open lemma rules (Nat.modAddMul unified against every %). Rollout rec: selective, not a sweep. Perf log entry added. Tests: test:example rewrite-repeatedly,rule-set (7 pass); toyfmt check --no-cache clean; check --std Nat/Bits, Parse/ReadsChars, List/Lemmas clean; hash_stability::prelude + pinned_hashes pass; hash_stability::examples EXAMPLES=rewrite-repeatedly,rule-set,rewrite-as-written pass. Finding: test:example NAME=rewrite,as-written fails on 10 stale snapshots (match-as-written, rewrite-nothing-*, rewrite-wrong-direction*, ...) that lack SW-3648's new W-REWRITE-THEN-COMPUTING/THEN-REWRITE warnings; not caused by this lane.\n\nModel result: opus, worked, 37 min (est. 60). Follow-up SW-3679. Skipping today's instance for set members (~55 ms) changes which instance: left out, not brought to Matt (small).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41440,6 +41440,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3679,
+      "title": "[DeepSeek] Main is red: ~10 example snapshots (accept/match-as-written, reject/rewrite-nothing-*, reject/rewrite-wrong-direction* and others; run task test:example NAME=rewrite,as-written to list them) now show SW-3648's W-REWRITE-THEN-COMPUTING / W-REWRITE-THEN-REWRITE. Where the 'then byComputing' or chained rewrite isn't the example's point, apply the quick fix in the .sw; otherwise accept the snapshot. Then hash_stability for those examples",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
