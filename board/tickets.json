@@ -39602,12 +39602,12 @@
     {
       "id": 3540,
       "title": "[Sonnet] fmt bug (internal error): a comment inside a let's type in a parenthesised (let …; …) breaks the type across lines and the body lines up with let ('; needs an expression after it'): 'def s (p: Nat): Nat := (let a: (Nat,\\n-- c\\n Nat) := p; a)'; fuzz 0x806 #12267. Likely S18: the rest after a line-ending ';' should step in when the value spans lines (from SW-3537)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nSonnet lane note: cause was not the body column. A broken let header put the value below :=, and a value starting a line is a block, where the ; reads as a sequence. Fix: an expression let never puts its value below (rules.rs let_line). Golden let-body-after-broken-type. fmt tests and fuzz 0x806/0x809/0x80a x20000 clean.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []

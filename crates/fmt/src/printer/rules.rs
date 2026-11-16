@@ -47,6 +47,8 @@ pub(crate) struct Rules<'a> {
     defer_trailing: Option<usize>,
     /// Set while calls must not hug their last argument.
     no_hug: bool,
+    /// The token where the `let` header of the expression `let` being printed starts.
+    expr_let: Option<usize>,
     /// How many alternatives (arms, clauses) the node being built is in.
     arm_depth: usize,
     /// Each call's hug (S23), by its first token, for a body after `:=`
@@ -153,6 +155,7 @@ impl<'a> Rules<'a> {
             hoisted: vec![false; tokens.len()],
             defer_trailing: None,
             no_hug: false,
+            expr_let: None,
             arm_depth: 0,
             hugs: BTreeMap::new(),
             match_hugs: BTreeMap::new(),
@@ -1189,9 +1192,15 @@ impl<'a> Rules<'a> {
         };
         // As a header (S6): a value after a `let` line that broke goes below.
         let head = self.join(&children[..=assign]);
+        let (below, choice) = self.body_after(&children[assign + 1..]);
+        // An expression `let`'s value never goes below a header that broke:
+        // a value starting a line is a block, where the `;` after it
+        // would be a sequence's, not the `let`'s.
+        if self.expr_let == Some(node.token_range().start) {
+            return Doc::concat([head, choice]);
+        }
         let id = self.fresh_id();
         let hard = head.forces_break();
-        let (below, choice) = self.body_after(&children[assign + 1..]);
         Doc::concat([
             Doc::IdGroup(id, Box::new(head), hard),
             Doc::IfBroken {
@@ -1563,6 +1572,12 @@ impl<'a> Rules<'a> {
                 } else {
                     parts.push(self.space_el(children[k - 1], el));
                 }
+            }
+            if k == 0
+                && node.kind() == NodeKind::LetExpr
+                && let Element::Node(header) = el
+            {
+                self.expr_let = Some(header.token_range().start);
             }
             parts.push(self.el(el));
         }
