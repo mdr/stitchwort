@@ -1,5 +1,5 @@
 {
-  "next": 3653,
+  "next": 3654,
   "tickets": [
     {
       "id": 47,
@@ -40892,7 +40892,7 @@
     {
       "id": 3638,
       "title": "[Sonnet] std from Toy++ T1b: move readsOperatorsRead (toyfmt Toy/Syntax/OperatorReads.sw) beside Parse.readsOperators; add mark-level next/skip (nextTakes) and readsOptional lemmas so peek-then-skip parsers are provable with what they read",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -41042,12 +41042,12 @@
     {
       "id": 3649,
       "title": "[Sonnet] std from Toy++ T1c (adds to SW-3638): Parse.readsAt helpers readsAtWeaken/Done/Optional/Peek/Mark; a readsInPeek variant handing the proof rest and start.rest = rest (removes ~50 '(rewrite e then fine)'); flatMapAppend, flatMapConcat, allReverse, takenStops; Parse.locatedSteps gives rising offsets (replaces toyfmt's Falling/fallingRising). Move them, toyfmt uses std's",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "\n\nLane (Sonnet) 16 Nov: done on lane/SW-3649, commit ffa9c5ecd. Moved into std, toyfmt uses them. Not done: readsInPeek variant giving rest; toy Falling/fallingRising kept (see report). Tests: check --std List/Parse, audit, toyfmt check, pinned_hashes, hash_stability::prelude (accepted, 32 additions).\n",
+      "body": "\n\nLane (Sonnet) 16 Nov: done on lane/SW-3649, commit ffa9c5ecd. Moved into std, toyfmt uses them. Not done: readsInPeek variant giving rest; toy Falling/fallingRising kept (see report). Tests: check --std List/Parse, audit, toyfmt check, pinned_hashes, hash_stability::prelude (accepted, 32 additions).\n\nModel result: sonnet, worked (Falling kept, readsInPeek variant skipped), 12 min (est. 45). Orchestrator checked each statement. Follow-up SW-3653.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": [
@@ -41088,6 +41088,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3653,
+      "title": "[Sonnet] toyfmt follow-ups after SW-3649: (1) a Parse.readsInPeek variant handing the proof rest and start.rest = rest, then remove the ~50 '(rewrite e then fine)' in CarryWalk.sw; (2) replace Falling/fallingRising with std's locatedStepsRising via a lemma that assemble's tokens are a sub-selection of the lexemes' places",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
