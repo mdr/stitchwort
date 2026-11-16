@@ -9,5 +9,7 @@ expression: output
     │                                                                                ──┬─  
     │                                                                                  ╰─── expected `a ≠ b`, but this has type `(DecEq.decide [decEq := Ord.eq] a b).holds = False`
     │ 
-    │ Note: this is the test fact `(DecEq.decide [decEq := Ord.eq] a b).holds = False`, which reads as `a ≠ b`: add `.read` to use it as that
+    │ Note 1: `!=` here is the proposition `≠`; for the `Bool` test write `((a != b): Bool)`
+    │ 
+    │ Note 2: this is the test fact `(DecEq.decide [decEq := Ord.eq] a b).holds = False`, which reads as `a ≠ b`: add `.read` to use it as that
 ────╯
