@@ -16976,7 +16976,7 @@
     {
       "id": 1960,
       "title": "[DeepSeek] Set nextest terminate-after in the merge and lane profiles, so a hang fails instead of running forever",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -16986,7 +16986,7 @@
       "epic": "dev-loop-speed",
       "body": "From docs/proposals/kernel-merge-gate.md. Ticket 3. 30 min.\n\nFrom docs/reviews/code-review-tests.md (T4): widen to daily and full, from their junit times.",
       "created": "2026-11-07",
-      "updated": "2026-11-10",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -20783,7 +20783,7 @@
     {
       "id": 2212,
       "title": "[DeepSeek] Syntax fuzzer: take its seed from an env var (FUZZ_SEED) instead of the hard-coded SEED (crates/syntax/tests/it/fuzz.rs:15), and print the case count, so soak runs can vary it",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -20792,7 +20792,7 @@
       "epic": "test-infra",
       "body": "From Overmind job 7. 20 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
