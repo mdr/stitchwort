@@ -1,5 +1,5 @@
 {
-  "next": 3565,
+  "next": 3566,
   "tickets": [
     {
       "id": 47,
@@ -39917,6 +39917,19 @@
       "id": 3564,
       "title": "[Opus] Syntax: 'then' replaces 'in' after rewrite/cases (D3648, Matt, 16 Nov 2026: 'then seems much more natural'): rewrite p then t, rewrite p at h then t, cases then t (and rewrite repeatedly from birth); in stays membership only; the old spelling gives an error 'write then'; a mechanical sweep of ~3,500 uses (std, aoc, toy, games, examples, docs, web, sf) with hashes unchanged; formatter, syntax.md, guide, proving guide, error messages, LSP actions and goal-search output that print 'rewrite … in'. Sequencing: after SW-3519 and SW-3561 merge (both touch many rewrite lines). Est. 90 min",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3565,
+      "title": "[Opus paper] Proof vocabulary (D3649, Matt, 16 Nov 2026): every proof word and common std proof-lemma name (omega, Inl/Inr, Void.exfalso, rfl, ring, Eq.sym/trans/cong, Bool.falseNotTrue, calc, byDecision, …): rename or keep, compared across Lean, Rocq, Idris, Agda, Isabelle and others (Lean not privileged), names that convey what happens; renames brought one at a time; one sweep alongside SW-3564",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
