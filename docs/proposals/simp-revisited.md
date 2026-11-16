@@ -142,10 +142,10 @@ with 2,244 uses of `Eq.cong`, `Eq.trans` and `Eq.flipped` **[measured, by
 | Form | Meaning |
 |---|---|
 | `simp [r1, r2]` | rewrite the goal with the rules until none applies, then close it (§2.4) |
-| `simp [r1, r2] in t` | the same, then `t` proves what is left |
+| `simp [r1, r2] then t` | the same, then `t` proves what is left |
 | `simp [r1, r2] at h` | the fact `h` (or any term) with its type rewritten, as `rewrite … at` |
-| `simp [r1, r2] at h in t` | `h` rebound for `t` |
-| `simp [r1, r2] in ?` | shows what is left, as a goal |
+| `simp [r1, r2] at h then t` | `h` rebound for `t` |
+| `simp [r1, r2] then ?` | shows what is left, as a goal |
 
 A **rule** is one of:
 
@@ -229,13 +229,13 @@ two hypotheses contradict each other; a hypothesis, or a side of one
 that is a conjunction, is the goal; from stage 3, a goal that is a
 conjunction whose parts each close this way. These are `cases`' closers
 **[checked: `docs/syntax.md`, "Closing a case"]** without `arithmetic` and
-without the decision closer; for those write `simp [..] in arithmetic`.
+without the decision closer; for those write `simp [..] then arithmetic`.
 
 It does **not**:
 
 - unfold definitions on its own, or have reducibility settings (D2541's
   "no Lean-style transparency system" stands);
-- split cases. `cases then simp [..]` and `simp [..] in cases` give either
+- split cases. `cases then simp [..]` and `simp [..] then cases` give either
   order, as simp.md §7 recommended; Lean's `simp` doesn't split either
   **[cited: simp.md §4.2]**, Isabelle's does, in its looper **[cited:
   I1]**;
@@ -252,7 +252,7 @@ It does **not**:
 | conversion, `byComputing` | what computes | `simp`'s closer; `simp` is for what doesn't compute: facts about stuck terms |
 | `rewrite` | one chosen step; fails if the term isn't there | `simp` is many steps to a fixed point; a rule that doesn't fit is skipped. Every `simp` can be printed as a `rewrite` chain |
 | `cases` | splitting on what is stuck | composes: `cases then simp [..]` |
-| `arithmetic`, `algebra` | arithmetic | compose: `simp [..] in arithmetic`; `arithmetic` already discharges rules' premises |
+| `arithmetic`, `algebra` | arithmetic | compose: `simp [..] then arithmetic`; `arithmetic` already discharges rules' premises |
 | `byDecision`, `Finite.check` | closed decidable facts | unchanged; `simp` doesn't decide |
 
 **D2541, exactly.** Stays: "Computing stays the way to decide:
@@ -302,7 +302,7 @@ definitions for `simp`); §1.2's two gaps are places where `rewrite` and
    existing search, it is shown, so a wrong rule set and a false lemma
    look different.
 
-`simp [..] in ?` shows the same left-over goal as an ordinary goal.
+`simp [..] then ?` shows the same left-over goal as an ordinary goal.
 
 ### 3.3 How a reader learns why a step holds
 
