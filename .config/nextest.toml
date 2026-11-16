@@ -345,3 +345,11 @@ priority = -10
 [[profile.default.overrides]]
 filter = "package(stitchwort-driver) & binary(library) & test(=pinned_hashes::every_binding_by_hash_applies_to_the_library)"
 priority = 100
+
+# The evaluator differential runs every example through each evaluator and
+# takes several minutes on a quiet machine, more beside a fuzzer or build;
+# it gets a 30-minute hang cap instead of the default ten (SW-1960). Default
+# overrides apply to every profile.
+[[profile.default.overrides]]
+filter = 'binary(proofs) & test(/^differential::/)'
+slow-timeout = { period = "60s", terminate-after = 30 }
