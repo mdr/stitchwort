@@ -39877,7 +39877,7 @@
     {
       "id": 3561,
       "title": "[Opus] Parse proofs L3 proper: readsThen inference by the proposal's postpone-and-abstract rule (hold back ?j (?p ()) while not a pattern, check readsFirst first, find ?j by abstracting p () in the goal's effect tree); then remove the 12 readsThenOf uses in ReadsOperators.sw; covers SW-3535's first half. Hash changes accepted (orchestrator's call, D2303: migration cost doesn't count). Failure notes on SW-3505. Est. 75 min",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
