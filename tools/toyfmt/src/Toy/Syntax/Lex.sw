@@ -229,3 +229,24 @@ def lex (source: Text): Result Lexed Text := match Fail.toResult (() => Parse.al
       let (tokens, endTrivia) := assemble source found
       Ok { lexemes = found, tokens, endTrivia }
     else Err "internal error: the lexemes don't add up to the source"
+
+--| The comment a piece of trivia is, if it is one.
+def Trivia.comments: Trivia → List Comment
+  | OwnLine comment => [comment]
+  | BlankLine => []
+
+--| The comments a token holds, in source order: those on their own lines
+--| above it, then the one after it on its line.
+def Token.comments (token: Token): List Comment :=
+  let after := match token.trailing with
+    | Some located => [located.value]
+    | None => []
+  token.above.flatMap Trivia.comments ++ after
+
+--| Every comment of the source, in the order written: each token's, then
+--| those after the last token. It reads the lexer's answer and nothing of
+--| the parser, the tree or the printer, so a statement made with it (two
+--| texts have the same comments) can't be satisfied by a parser or a
+--| printer that loses one.
+def Lexed.comments (lexed: Lexed): List Comment :=
+  lexed.tokens.flatMap (token => token.value.comments) ++ lexed.endTrivia.flatMap Trivia.comments

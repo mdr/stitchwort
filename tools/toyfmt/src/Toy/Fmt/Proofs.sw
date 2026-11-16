@@ -18,6 +18,9 @@ import Std (DecEq, Disk, FileError, Files, Map, Path, Result, Text, Void)
 --| `Formatted` holds one printed file: two equal answers have equal texts.
 theorem formattedInjective ∀ (a b: Text) (h: Formatted a = Formatted b): a = b := cases
 
+--| Two equal refusals have equal messages.
+theorem parseErrorInjective ∀ (a b: Text) (h: ParseError a = ParseError b): a = b := cases
+
 -- The file loop, under `Files.simulate`: `formatFile options path` reads
 -- `path` and writes only what `format` answered.
 
