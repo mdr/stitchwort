@@ -1882,6 +1882,11 @@ impl Elaborator {
                         None => k.ends_with(&suffix),
                     }) {
                         if let Some((Global::Unchecked(j), _)) = self.scope.get(key) {
+                            // A rule set has no fields or methods: `p.words`
+                            // is never the set `words`.
+                            if matches!(items[j].decl, Decl::Rules { .. }) {
+                                continue;
+                            }
                             deps.push(Dep {
                                 item: j,
                                 span: n.span,

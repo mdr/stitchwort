@@ -303,6 +303,40 @@ pub fn expand_file(
     (out, done, refused)
 }
 
+/// [`expand_file`] for the one call at byte `at` of `text` (the outermost
+/// call whose range holds it, with the calls inside it): the range of
+/// `text` it replaces and what goes there, or why it isn't expanded. None
+/// if no checked call holds `at`.
+pub fn expand_call(
+    text: &str,
+    file: stitchwort_syntax::FileId,
+    expansions: &[Expansion],
+    at: usize,
+) -> Option<std::result::Result<(std::ops::Range<usize>, String), String>> {
+    let ranges: Vec<_> = (expansions.iter())
+        .filter(|e| e.call.file == file)
+        .map(|e| (call_range(text, e.call), e))
+        .collect();
+    let outer = (ranges.iter())
+        .map(|(r, _)| r)
+        .filter(|r| r.start <= at && at < r.end)
+        .min_by_key(|r| (r.start, std::cmp::Reverse(r.end)))?
+        .clone();
+    let chosen: Vec<Expansion> = (ranges.iter())
+        .filter(|(r, _)| outer.start <= r.start && r.end <= outer.end)
+        .map(|(_, e)| (*e).clone())
+        .collect();
+    let (out, _, refused) = expand_file(text, file, &chosen);
+    if let Some((_, why)) = refused.into_iter().find(|(o, _)| *o == outer.start) {
+        return Some(Err(why));
+    }
+    let tail = text.len() - outer.end;
+    Some(Ok((
+        outer.clone(),
+        out.get(outer.start..out.len() - tail)?.to_string(),
+    )))
+}
+
 /// The range a call replaces: its span, and the `]` that ends its rules
 /// when nothing follows them.
 fn call_range(text: &str, call: Span) -> std::ops::Range<usize> {

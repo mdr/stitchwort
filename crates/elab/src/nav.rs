@@ -1363,7 +1363,9 @@ impl Elaborator {
         match global {
             Global::Def(id) => {
                 let def = self.kernel.def(id);
-                if def.theorem() {
+                if self.tables.rule_sets.contains_key(&id) {
+                    "rules"
+                } else if def.theorem() {
                     "theorem"
                 } else if def.instance() {
                     "instance"
@@ -1547,6 +1549,17 @@ impl Elaborator {
     fn global_type(&self, global: Global) -> Option<String> {
         let g = &self.ev();
         match global {
+            Global::Def(id) if self.tables.rule_sets.contains_key(&id) => {
+                // A set's value is `()`; what it is is its members.
+                let set = self.tables.rule_sets.get(&id)?;
+                let members: Vec<String> = (set.rules.iter())
+                    .map(|&(d, reversed)| {
+                        let name = crate::scope::display(g.def(d).name()).to_string();
+                        format!("{}{name}", if reversed { "<- " } else { "" })
+                    })
+                    .collect();
+                Some(format!("[{}]", members.join(", ")))
+            }
             Global::Def(id) => {
                 let ty = match self.defaulted_header(id) {
                     Some(header) => header,

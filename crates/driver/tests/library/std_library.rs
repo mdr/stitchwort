@@ -1333,3 +1333,43 @@ fn the_library_writes_its_statements_with_forall() {
         );
     });
 }
+
+/// A `rules` declaration in a library file is a name like any other
+/// (SW-3655): the index lists it, a program that names it loads its file,
+/// and the set rewrites there; one declared twice is refused.
+#[test]
+fn a_rule_set_in_a_library_file_is_found_by_name() {
+    let files = [(
+        "A.sw",
+        "def Nat.libDouble (n: Nat): Nat := n + n\n\
+         \n\
+         rules libSteps := [Nat.libDouble]\n",
+    )];
+    let index = LibraryIndex::build(prelude(), &files, STACK).expect("the set indexes");
+    let names: Vec<&str> = (index.files.iter())
+        .flat_map(|f| f.names.iter().map(|n| n.key.as_str()))
+        .collect();
+    assert!(names.contains(&"Std.libSteps"), "{names:?}");
+    let program = "import Std (Nat, libSteps)\n\
+                   theorem t ∀ (m: Nat) (h: m + m = 4): Nat.libDouble m = 4 := rewrite repeatedly [libSteps]\n";
+    let mut session = Session::with_library_files(&files, false, false).unwrap();
+    session
+        .load("t.sw", program)
+        .unwrap_or_else(|e| panic!("{}", messages(&e)));
+    // Written in full, with nothing imported, it loads the file as well.
+    let full = "import Std (Nat)\n\
+                theorem t ∀ (m: Nat) (h: m + m = 4): Nat.libDouble m = 4 := rewrite repeatedly [Std.libSteps]\n";
+    let mut session = Session::with_library_files(&files, false, false).unwrap();
+    session
+        .load("t.sw", full)
+        .unwrap_or_else(|e| panic!("{}", messages(&e)));
+    let twice = [
+        ("A.sw", "rules libTwice := [Nat.add]\n"),
+        ("B.sw", "def libTwice: Nat := 0\n"),
+    ];
+    let error = LibraryIndex::build(prelude(), &twice, STACK).err();
+    assert!(
+        error.is_some_and(|e| e.contains("Std.libTwice")),
+        "a set's name is taken"
+    );
+}
