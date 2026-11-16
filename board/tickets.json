@@ -40944,12 +40944,12 @@
     {
       "id": 3642,
       "title": "[Sonnet] rewrite repeatedly stage 2 (simp-revisited.md §8 stage 2; D3639 named sets; D3665: keep the forgiving search, remeasure after this): 'rules name := [...]' declarations, 'rewrite repeatedly … at h', expand (CLI flag and code action: the explicit rewrite steps), unused-rule warning; bar: stepWords and List.sumTakeMono as in §6, expanding every rewrite repeatedly in Words.sw gives a file that checks; then apply dev/patches/SW-3602-words-conversion.patch with named sets and remeasure vs 1.5x. Est. 60 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Lane (Opus, lane/SW-3642, 18:15-19:05, est. 60 min):\n- Done: `rules name := [...]` (sets of sets, E-RULE-SET for non-name members, members checked at the declaration); W-REWRITE-REPEATEDLY-UNUSED (rule or whole set, deduplicated over `cases then`); `rewrite repeatedly [...] at h` (then t); `stitchwort check --expand-repeatedly` (one printer, expand_file; nested calls, calls per case joined into one `rewrite repeatedly` with the used rules). Cache FORMAT 35.\n- Bar: expanding all 61 calls of the set-converted Words.sw gives a file that checks (toyfmt Toy.Doc.Proofs). Words.sw check time (STITCHWORT_TIMINGS=decls, 3 runs, release): base 0.228 s, per-arm patch 0.581 s (2.55x), named set `wordSteps` 1.026 s (4.5x). Over 1.5x, so the conversion stays a patch: dev/patches/SW-3602-words-conversion.patch regenerated with the set. Experiment: stopping after the as-written pass cuts the set version to 0.73 s but breaks 5 calls, so the cost is mostly rules from the set tried by full search in arms that don't need them.\n- Not done: the LSP code action for expand (CLI only).\n- Tests: task test:example NAME=rewrite-repeatedly,rule-set (7 pass); hash_stability::examples for the 4 new examples (pass); expand_file unit tests (2 pass); stitchwort check of tools/toyfmt (12 namespaces).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
