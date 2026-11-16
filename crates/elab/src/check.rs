@@ -2883,7 +2883,7 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
     }
     cx.e.note_name(name);
     match cx.e.named(&name.text) {
-        None => Err(cx.e.not_found(name)),
+        None => Err(cx.e.not_found_with(name, &cx.scope_names())),
         Some((Global::Def(id), _)) => {
             let head = (Term::Def(*id), crate::kernel::def_ty(&cx.g(), *id)?);
             apply_named_head(cx, head, args, fill, name.span)

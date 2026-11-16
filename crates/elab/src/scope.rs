@@ -1802,6 +1802,46 @@ impl Elaborator {
         }
     }
 
+    /// [`Elaborator::not_found`] for an expression's name, with a "did you
+    /// mean" among `locals` and the unqualified names this file can write
+    /// (imports included) when one is within the distance the field
+    /// suggestion uses (docs/proposals/helpful-errors.md §5 rank 6). Only
+    /// names already in scope are suggested; when the name needs an import,
+    /// the import note says so instead.
+    pub(crate) fn not_found_with(&self, name: &ast::Name, locals: &[String]) -> Diagnostic {
+        let d = self.not_found(name);
+        // A note already says something better about this name (where the
+        // library has it, how to import it, another language's word): a
+        // spelling guess would be noise on top.
+        if d.code != "E-UNKNOWN-NAME" || name.text.contains('.') || !d.notes.is_empty() {
+            return d;
+        }
+        let Some(best) = self.nearest_visible_name(&name.text, locals) else {
+            return d;
+        };
+        d.with_note(format!("did you mean `{best}`?"))
+    }
+
+    /// The nearest in-scope name `written` may be a misspelling of: a local
+    /// in `locals`, or a short name this file can write (imports included),
+    /// within the distance the field suggestion uses (`<= 2`, and less than
+    /// the name's length). The closest, then alphabetically, when several.
+    /// Only called on the error path.
+    fn nearest_visible_name(&self, written: &str, locals: &[String]) -> Option<String> {
+        let visible = self.short_names_visible();
+        let mut near: Vec<(usize, &str)> = locals
+            .iter()
+            .map(String::as_str)
+            .chain(visible.iter().map(|(name, ..)| name.as_str()))
+            .filter(|name| *name != written && !name.starts_with('%'))
+            .map(|name| (edit_distance(name, written), name))
+            .filter(|&(distance, _)| distance <= 2 && distance < written.len())
+            .collect();
+        near.sort_unstable();
+        near.dedup();
+        near.first().map(|&(_, name)| name.to_string())
+    }
+
     /// The meaning of `name`, which must name a declaration exactly: an
     /// error if it's unknown, ambiguous, or followed by field accesses.
     pub(crate) fn resolve_exact(&self, name: &ast::Name) -> Result<(Global, Span, String)> {
