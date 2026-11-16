@@ -1874,6 +1874,12 @@ fn report_library_warnings(session: &Session, named: &[String]) {
                 .is_some_and(|path| named.iter().any(|n| n == path))
     };
     let mut all = session.library_warning_report(&styled);
+    // The files the named ones need were elaborated too; theirs are for
+    // their own check.
+    all.retain(|d| {
+        d.primary_span()
+            .is_none_or(|s| styled(&session.sources.get(s.file).name))
+    });
     all.sort_by_key(|d| {
         d.primary_span().map_or((String::new(), 0), |s| {
             (session.sources.get(s.file).name.clone(), s.start)

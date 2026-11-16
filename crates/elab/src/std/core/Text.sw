@@ -29,7 +29,10 @@ def Text.append (a b: Text): Text := MkText (List.append (Text.toList a) (Text.t
 --| test is theirs.
 def Text.decEqFrom (a b: Text) (listEq: Decidable (Text.toList a = Text.toList b)): Decidable (a = b) :=
   Decidable.map listEq
-    (p => Eq.trans (Text.fromToList a).flipped (Eq.trans (Eq.cong Text.fromList p) (Text.fromToList b)))
+    (p => calc a
+      _ = Text.fromList (Text.toList a) := (Text.fromToList a).flipped
+      _ = Text.fromList (Text.toList b) := Eq.cong Text.fromList p
+      _ = b := Text.fromToList b)
     (Eq.cong Text.toList)
 
 --| Decides whether two texts are equal, character by character.
