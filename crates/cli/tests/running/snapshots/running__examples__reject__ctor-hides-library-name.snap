@@ -1,13 +1,13 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-NOT-A-FUNCTION] Error: `And` takes 0 argument(s)
-   ╭─[ reject/ctor-hides-library-name.sw:7:39 ]
+[E-NOT-A-FUNCTION] Error: `And` takes 0 arguments, but is given 2
+   ╭─[ reject/ctor-hides-library-name.sw:7:43 ]
    │
  7 │ def both (p: Prop) (q: Prop): Prop := And p q
-   │                                       ───┬───  
-   │                                          ╰───── it's given 2
+   │                                           ┬  
+   │                                           ╰── this argument is extra
    │ 
    │ Note: `And` here means `Gate.And`, declared in `Gate`; it hides the library's `And`, which is written `Std.And`
 ───╯

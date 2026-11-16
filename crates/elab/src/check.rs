@@ -2180,6 +2180,15 @@ pub(crate) fn arg_of(arg: &Expr) -> Arg<'_> {
     }
 }
 
+/// Where an argument is written, for a label that points at it.
+fn argument_span(arg: &Arg) -> Option<Span> {
+    match arg {
+        Arg::Explicit(e) | Arg::Named(_, e) | Arg::NamedExplicit(_, e) => Some(e.span()),
+        Arg::Piped(piped) => Some(piped.span),
+        Arg::Default(_) => None,
+    }
+}
+
 /// The arguments of the application `expr` as written, and its head.
 pub(crate) fn spine(expr: &Expr) -> (&Expr, Vec<Arg<'_>>) {
     let mut args = Vec::new();
@@ -2845,7 +2854,7 @@ fn apply_named_head(
             crate::defaults::note_left_out(cx, at, &head, args);
             crate::defaults::apply(cx, head, defaults, args)
         }
-        _ => apply_args(cx, head, args),
+        _ => apply_args_named(cx, head, args),
     }
 }
 
@@ -2867,7 +2876,7 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
         let head = (Term::Var(cx.level() - 1 - level), cx.types[level].clone());
         cx.e.note_local(cx, name, &head.1);
         cx.note_text_fixed_use(level, name.span);
-        return apply_args(cx, head, args);
+        return apply_args_named(cx, head, args);
     }
     if let Some(done) = infer_unusual_name_app(cx, name, args, fill) {
         return done;
@@ -3367,11 +3376,24 @@ fn ctor_fill<'a>(cx: &Ctx, d: DataId, c: usize, args: &[CtorArg<'a>]) -> Result<
         let given = (args.iter())
             .filter(|a| !matches!(a, CtorArg::Named(..)))
             .count();
-        let mut error = cx.error(
-            "E-NOT-A-FUNCTION",
-            format!("`{}` takes {wanted} argument(s)", ctor.name),
-            format!("it's given {given}"),
-        );
+        let mut error = match overflow.iter().find_map(argument_span) {
+            Some(span) => {
+                let plural = if wanted == 1 { "argument" } else { "arguments" };
+                Diagnostic::error(
+                    "E-NOT-A-FUNCTION",
+                    format!(
+                        "`{}` takes {wanted} {plural}, but is given {given}",
+                        ctor.name
+                    ),
+                )
+                .with_label(span, "this argument is extra")
+            }
+            None => cx.error(
+                "E-NOT-A-FUNCTION",
+                format!("`{}` takes {wanted} argument(s)", ctor.name),
+                format!("it's given {given}"),
+            ),
+        };
         if let Some(note) = args.iter().find_map(|a| match a {
             CtorArg::Pos(e) => negative_argument_note(e),
             _ => None,
@@ -3434,7 +3456,13 @@ fn ctor_missing(cx: &Ctx, d: DataId, c: usize, args: &[CtorArg]) -> Result<Vec<N
 
 /// Applies `head` to `args`, inserting implicit arguments where needed.
 pub(crate) fn apply_args(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Result<(Term, Value)> {
-    apply_args_with(cx, head, args, &mut Supply::new())
+    apply_args_with_at(cx, head, args, &mut Supply::new(), false)
+}
+
+/// [`apply_args`] for a call whose head is written as the function's name,
+/// so that too many arguments can name it.
+fn apply_args_named(cx: &mut Ctx, head: (Term, Value), args: &[Arg]) -> Result<(Term, Value)> {
+    apply_args_with_at(cx, head, args, &mut Supply::new(), true)
 }
 
 /// Implicit arguments made in advance, used in order before any new ones:
@@ -3461,30 +3489,43 @@ pub(crate) fn apply_args_with(
     args: &[Arg],
     supply: &mut Supply,
 ) -> Result<(Term, Value)> {
+    apply_args_with_at(cx, head, args, supply, false)
+}
+
+/// [`apply_args_with`], also saying whether the head is written as the
+/// function's name: only then can too many arguments name it.
+fn apply_args_with_at(
+    cx: &mut Ctx,
+    head: (Term, Value),
+    args: &[Arg],
+    supply: &mut Supply,
+    named_head: bool,
+) -> Result<(Term, Value)> {
     // The rarer cases are functions of their own, so that this one's frame,
     // which every nested application's argument stands on, holds only what
     // the common path needs.
     if crate::named::any(args) {
-        return apply_named_args(cx, head, args, supply);
+        return apply_named_args(cx, head, args, supply, named_head);
     }
-    apply_args_in_place(cx, head, args, supply)
+    apply_args_in_place(cx, head, args, supply, named_head)
 }
 
-/// [`apply_args_with`] for arguments all in their parameters' places.
+/// [`apply_args_with_at`] for arguments all in their parameters' places.
 #[inline]
 fn apply_args_in_place(
     cx: &mut Ctx,
     head: (Term, Value),
     args: &[Arg],
     supply: &mut Supply,
+    named_head: bool,
 ) -> Result<(Term, Value)> {
     if (args.iter()).any(|a| matches!(a, Arg::Explicit(value) if numbers_in_list(value))) {
-        return apply_args_retrying(cx, head, args, supply);
+        return apply_args_retrying(cx, head, args, supply, named_head);
     }
-    apply_args_once(cx, head, args, supply)
+    apply_args_once(cx, head, args, supply, named_head)
 }
 
-/// [`apply_args_with`] for arguments some of which are named: in their
+/// [`apply_args_with_at`] for arguments some of which are named: in their
 /// parameters' places (`named.rs`).
 #[inline(never)]
 fn apply_named_args(
@@ -3492,17 +3533,18 @@ fn apply_named_args(
     head: (Term, Value),
     args: &[Arg],
     supply: &mut Supply,
+    named_head: bool,
 ) -> Result<(Term, Value)> {
     let sig = crate::named::signature(cx, &head.1)?;
     // Names behind a type that computes once the arguments are given:
     // `(pick 1) (count := 2)` for `pick 1 (count := 2)`.
     if let Some((first, rest)) = crate::named::split(cx, &sig, args)? {
-        let head = apply_args_with(cx, head, &first, supply)?;
-        return apply_args_with(cx, head, &rest, supply);
+        let head = apply_args_with_at(cx, head, &first, supply, named_head)?;
+        return apply_args_with_at(cx, head, &rest, supply, named_head);
     }
     let slots = crate::named::plan(cx, &sig, args, None)?;
     match crate::named::positional(&slots) {
-        Some(positional) => apply_args_in_place(cx, head, &positional, supply),
+        Some(positional) => apply_args_in_place(cx, head, &positional, supply, named_head),
         None => crate::named::apply_slots(cx, head, &slots),
     }
 }
@@ -3520,10 +3562,11 @@ fn apply_args_once(
     head: (Term, Value),
     args: &[Arg],
     supply: &mut Supply,
+    named_head: bool,
 ) -> Result<(Term, Value)> {
     let mut first_error = None;
     let settled = cx.e.decl.settled.borrow().len();
-    match apply_args_postponing(cx, head, args, supply, &mut first_error) {
+    match apply_args_postponing(cx, head, args, supply, &mut first_error, named_head) {
         Err(e) if !crate::undo::fatal(&e) => {
             if cx.e.decl.settled.borrow().len() > settled {
                 settled_call_failed(cx, settled);
@@ -3542,11 +3585,12 @@ fn apply_args_retrying(
     head: (Term, Value),
     args: &[Arg],
     supply: &mut Supply,
+    named_head: bool,
 ) -> Result<(Term, Value)> {
     let saved = supply.clone();
     let (result, left) = retrying(cx, |cx| {
         let mut left = saved.clone();
-        apply_args_once(cx, head.clone(), args, &mut left).map(|result| (result, left))
+        apply_args_once(cx, head.clone(), args, &mut left, named_head).map(|result| (result, left))
     })?;
     *supply = left;
     Ok(result)
@@ -3602,6 +3646,7 @@ fn apply_args_postponing<'a>(
     args: &[Arg<'a>],
     supply: &mut Supply,
     first_error: &mut FirstError,
+    named_head: bool,
 ) -> Result<(Term, Value)> {
     let mut applied = head;
     let mut held = Held::start(cx, args);
@@ -3627,6 +3672,7 @@ fn apply_args_postponing<'a>(
                     value,
                     later: &args[i + 1..],
                     previous_function_name,
+                    named_head,
                 };
                 let (next, name) = explicit_arg(cx, applied, at, supply, &mut held, first_error)?;
                 function_name = name;
@@ -4040,14 +4086,26 @@ fn explicit_arg_ready<'a>(
         value,
         later,
         previous_function_name,
+        named_head,
     } = at;
     (term, ty) = insert_with(cx, term, ty, supply)?;
     let hole_of = match (value, force(&cx.g(), ty.clone())?) {
         (Expr::Hole(_), Value::Pi(x, ..)) => Some(x),
         _ => None,
     };
-    let (dom, cod) = function_parts(cx, &ty)
-        .map_err(|e| not_a_function_hint(cx, &term, previous_function_name, value, e))?;
+    let (dom, cod) = match function_parts(cx, &ty) {
+        Ok(parts) => parts,
+        Err(e) => {
+            return Err(not_a_function_hint(
+                cx,
+                &term,
+                previous_function_name,
+                value,
+                named_head,
+                e,
+            )?);
+        }
+    };
     // A proof search (`arithmetic`, `cases`, `algebra`, `rewrite`, `byComputing`) is
     // checked last, once the other arguments, the application's
     // own waiting checks, the expected type and the instances
@@ -4215,6 +4273,8 @@ struct Position<'a, 'b> {
     later: &'b [Arg<'a>],
     /// The argument before it, when that was a name given as a function.
     previous_function_name: Option<&'a AstName>,
+    /// The head of the call is written as the function's name.
+    named_head: bool,
 }
 
 /// The arguments [`apply_args_postponing`] held back, and where the
@@ -4661,23 +4721,106 @@ fn not_a_function_hint(
     head: &Term,
     previous_function_name: Option<&AstName>,
     value: &Expr,
+    named_head: bool,
     e: Diagnostic,
-) -> Diagnostic {
-    if let Some(note) = negative_argument_note(value) {
-        return if e.code == "E-NOT-A-FUNCTION" {
-            e.with_note(note)
-        } else {
-            e
-        };
+) -> Result<Diagnostic> {
+    // `twice start ()` is a call missing its brackets, not one argument too
+    // many: keep its hint.
+    if let (Some(arg), Expr::Unit(_), "E-NOT-A-FUNCTION") = (previous_function_name, value, e.code)
+        && let Some(function) = called_name(cx, head)
+    {
+        return Ok(e.with_note(unit_call_note(&function, &arg.text)));
     }
-    let (Some(arg), Expr::Unit(_), "E-NOT-A-FUNCTION") = (previous_function_name, value, e.code)
-    else {
-        return e;
+    let negative = negative_argument_note(value);
+    // A named function given more explicit arguments than it takes: say so,
+    // and label the first one that doesn't fit. Only a call written with the
+    // name itself counts: a dot call may pass arguments to a function of its
+    // own (`h.read x m` is not `Iff.forward` given three).
+    if named_head
+        && e.code == "E-NOT-A-FUNCTION"
+        && let Some((name, wanted)) = head_function_arity(cx, head)?
+    {
+        let given = explicit_arguments(head) + 1;
+        if given > wanted {
+            let mut e = e;
+            let plural = if wanted == 1 { "argument" } else { "arguments" };
+            e.message = format!("`{name}` takes {wanted} {plural}, but is given {given}");
+            let label = "this argument is extra";
+            match e.labels.first_mut() {
+                Some(first) => {
+                    first.span = value.span();
+                    first.message = label.into();
+                }
+                None => e = e.with_label(value.span(), label),
+            }
+            return Ok(match negative {
+                Some(note) => e.with_note(note),
+                None => e,
+            });
+        }
+    }
+    Ok(match negative {
+        Some(note) if e.code == "E-NOT-A-FUNCTION" => e.with_note(note),
+        _ => e,
+    })
+}
+
+/// The name and number of explicit parameters of the definition or local
+/// variable `head` calls, if its type is a function type.
+fn head_function_arity(cx: &Ctx, head: &Term) -> Result<Option<(String, usize)>> {
+    let (head, _) = head.spine();
+    let (name, ty) = match head {
+        Term::Def(id) => (
+            cx.g().def(*id).name().to_string(),
+            kernel::def_ty(&cx.g(), *id)?,
+        ),
+        Term::Var(ix) => {
+            let level = cx.level() - 1 - ix;
+            (cx.names[level].to_string(), cx.types[level].clone())
+        }
+        _ => return Ok(None),
     };
-    match called_name(cx, head) {
-        Some(function) => e.with_note(unit_call_note(&function, &arg.text)),
-        None => e,
+    let Some(wanted) = explicit_parameter_count(cx, &ty)? else {
+        return Ok(None);
+    };
+    Ok(Some((name, wanted)))
+}
+
+/// How many explicit parameters a function type `ty` has, or `None` if it
+/// isn't a function type at all.
+fn explicit_parameter_count(cx: &Ctx, ty: &Value) -> Result<Option<usize>> {
+    let g = cx.g();
+    let mut ty = ty.clone();
+    let mut level = cx.level();
+    let mut wanted = 0;
+    let mut function = false;
+    loop {
+        match force(&g, ty)? {
+            Value::Pi(_, icit, _, cod) => {
+                function = true;
+                if icit == Icit::Explicit {
+                    wanted += 1;
+                }
+                ty = cod.apply(&g, Value::var(level))?;
+                level += 1;
+            }
+            _ => return Ok(function.then_some(wanted)),
+        }
     }
+}
+
+/// How many explicit arguments `term` gives: only those count, not the
+/// implicit ones inserted for it.
+fn explicit_arguments(term: &Term) -> usize {
+    let mut term = term.strip_loc();
+    let mut given = 0;
+    while let Term::App(f, _, icit) = term {
+        if *icit == Icit::Explicit {
+            given += 1;
+        }
+        term = f.strip_loc();
+    }
+    given
 }
 
 /// The note for an unbracketed negative argument, `n -1`, where the function

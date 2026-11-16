@@ -2,12 +2,12 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-NOT-A-FUNCTION] Error: `Nil` takes 0 argument(s)
-   ╭─[ reject/constructor-type-parameter-positional.sw:6:28 ]
+[E-NOT-A-FUNCTION] Error: `Nil` takes 0 arguments, but is given 1
+   ╭─[ reject/constructor-type-parameter-positional.sw:6:32 ]
    │
  6 │ def noNumbers: List Nat := Nil Nat
-   │                            ───┬───  
-   │                               ╰───── it's given 1
+   │                                ─┬─  
+   │                                 ╰─── this argument is extra
    │ 
    │ Note: `List`'s parameters are given by name, if at all: `Nil [a := …]`
 ───╯
