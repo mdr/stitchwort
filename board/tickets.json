@@ -1,5 +1,5 @@
 {
-  "next": 3691,
+  "next": 3692,
   "tickets": [
     {
       "id": 47,
@@ -41565,12 +41565,12 @@
     {
       "id": 3688,
       "title": "[Sonnet] Editor completion: completing 'va' in a project offers std's Std.Parse.Located.value (import Std.Parse.Located (value)) ahead of the project's own Proj.Other.value (found by SW-3682, whose test now uses unclashing names). Rank the project's own namespaces before std, and consider whether a record field accessor like Located.value should be offered as an importable bare name at all",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Model result: sonnet, worked, 35 min (est. 30). Cause was a filter, not ranking. Follow-up SW-3691.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41596,6 +41596,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3691,
+      "title": "[Sonnet] Should field accessors and generated names (Located.value, update lemmas) be offered as importable bare names in completion (import Std.Parse.Located (value))? Check whether such an import is even valid; if not, filter them in importable_names (SW-3688 follow-up)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
