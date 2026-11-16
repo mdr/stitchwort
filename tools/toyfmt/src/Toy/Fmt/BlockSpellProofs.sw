@@ -1153,12 +1153,13 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
                         (notedLine isFirst pending noted more blankBefore
                           (Bare value)
                           firstToken.value.above
-                          (Eq.trans
-                            (Eq.cong ((view: TokenView) => view.above) firstSame)
-                            (Eq.trans aboveSame
-                              (Eq.cong
+                          (calc firstToken.value.above
+                            _ = first.above := Eq.cong ((view: TokenView) => view.above) firstSame
+                            _ = (waiting (blankOf blankBefore pending) value.firstAbove).reverse := aboveSame
+                            _ = (blankOf blankBefore pending).reverse :=
+                              Eq.cong
                                 ((comments: List Comment) => (waiting (blankOf blankBefore pending) comments).reverse)
-                                (noAbove byComputing))))
+                                (noAbove byComputing))
                           waits
                           unspaced),
                         spelled,
@@ -2580,12 +2581,12 @@ theorem spellsFile ∀ (file: SourceFile) (events: List Event)
           let ended: endTrivia = left := Eq.trans pending (Eq.cong ((all: Views) => all.pending) (seen []))
           rewrite ended then
             spells tokens.reverse
-              (Eq.trans
-                (List.mapReverse tokens viewOf)
-                (Eq.trans
-                  (Eq.cong
-                    ((newest: List TokenView) => newest.reverse)
-                    (Eq.trans views
-                      (Eq.trans (Eq.cong ((all: Views) => all.views) (seen [])) (List.appendNil found.reverse))))
-                  (List.reverseReverse found)))
+              (calc tokens.reverse.map viewOf
+                _ = (tokens.map viewOf).reverse := List.mapReverse tokens viewOf
+                _ = ((viewsOf events).views).reverse := Eq.cong ((newest: List TokenView) => newest.reverse) views
+                _ = (found.reverse ++ []).reverse :=
+                  Eq.cong ((newest: List TokenView) => newest.reverse) (Eq.cong ((all: Views) => all.views) (seen []))
+                _ = found.reverse.reverse :=
+                  Eq.cong ((newest: List TokenView) => newest.reverse) (List.appendNil found.reverse)
+                _ = found := List.reverseReverse found)
               (descendingRising tokens offsets)
