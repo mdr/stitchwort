@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/reads-then-wrong-first.sw:14:19 ]
+    │
+ 14 │   Parse.readsThen Parse.readsMark (r x h => Parse.readsThen Parse.readsNat (r2 y h2 => Parse.readsDone (x + y) _ rfl))
+    │                   ───────┬───────  
+    │                          ╰───────── expected `∀ (start: Parse.Mark Char) => Parse.Fits Char Parse.Invariant.any start.rest → Parse.ReadsAt start (x => Parse.nat ()) ?6`, but this has type `Parse.ReadsIn Parse.Invariant.any (arg => Call (L (%mark ())) (r => Done r)) (read m => read = [])`
+    │ 
+    │ Note 1: `?6` is the implicit argument `first` of `Parse.readsThen`, which wasn't worked out from the other arguments or the expected type
+    │ 
+    │ Note 2: `Parse.ReadsIn Parse.Invariant.any (arg => Call (L (%mark ())) (r => Done r)) (read m => read = [])` is `∀ (start: Parse.Mark Char) => Parse.Fits Char { holds = items => Unit, kept = read rest h => Trivial } start.rest → ∀ (total: Nat) (state: Parse.State Char) (value after: Parse.Mark Char) => state.at = start → … ∧ … → … → …`
+    │ 
+    │ Note 3: `t` was taken as `Char` from the expected type
+────╯

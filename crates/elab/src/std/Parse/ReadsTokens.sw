@@ -11,15 +11,11 @@ theorem Parse.readsLocated ∀ [inv: Parse.Invariant Char] (p: () → {Parse Cha
     Parse.ReadsIn inv (() => Parse.located p) (read located => spec read located.value) :=
   Parse.readsThen Parse.readsMark (startRead start startFacts =>
     Parse.readsThen reads (firstRead value firstFacts =>
-      Parse.readsThen
-        [p := () => Parse.mark()]
-        [j := finish => ({ value, offset = start.offset, length = finish.offset - start.offset }: Parse.Located a)]
-        Parse.readsMark
-        (finishRead finish finishFacts =>
-          Parse.readsDone
-            { value, offset = start.offset, length = finish.offset - start.offset }
-            (read located => spec (startRead ++ (firstRead ++ (finishRead ++ read))) located.value)
-            (rewrite startFacts, finishFacts, List.appendNil firstRead in firstFacts))))
+      Parse.readsThen Parse.readsMark (finishRead finish finishFacts =>
+        Parse.readsDone
+          { value, offset = start.offset, length = finish.offset - start.offset }
+          (read located => spec (startRead ++ (firstRead ++ (finishRead ++ read))) located.value)
+          (rewrite startFacts, finishFacts, List.appendNil firstRead in firstFacts))))
 
 --| `Parse.tokens` gave a value: lexing all of the input gave the tokens
 --| (`Parse.all`'s success), and the parser read all of them.

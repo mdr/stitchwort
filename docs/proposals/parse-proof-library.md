@@ -315,6 +315,25 @@ level because the continuation needed a `match`) becomes an ordinary
 chain. Risk: a different solution where the old guess happened to be
 right; aoc's 92 `readsThen` uses are the test set.
 
+**As built (SW-3561, 16 Nov 2026).** Steps 1 and 2 as above
+(`check::applies_unknown`, `AppExpected::hold_lambdas`): the lambdas
+wait for the comparison with no trial in place, and the first lemma is
+compared with its parameter type by the two calls' arguments
+(`check::by_arguments_in_place`), since compared plainly both unfold to
+a run stuck on `?p ()`. Step 3 needs no abstraction where the goal still
+holds the parser: with `p` known, `?j` is a pattern once the run reaches
+it. Where a `match` has computed the goal past `p` (the parser's own
+`if`), the step's value has been substituted and the next step run too;
+abstracting it was tried and gave a wrong `j` (one that reuses the mark
+for the next step's own), so `[j := …]` stays there (2 uses in
+ReadsOperators.sw; SW-3535's second half). `readsThenOf` is gone. The
+trigger is an unknown applied to what another unknown computes (`?j (?p
+())`), not any unknown applied to a value: a predicate applied to a
+value (`?holds 0`) is fixed by its lambda in place, as before. If the
+held way fails, the call is elaborated again the ordinary way, and its
+error is kept when the held way's is about the whole call (a wrong first
+lemma is blamed, as before).
+
 ## 5. Cost and payoff
 
 ### 5.1 Std

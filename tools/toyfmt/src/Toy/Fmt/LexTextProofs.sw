@@ -21,29 +21,19 @@ theorem escapeSegmentReads: Parse.Reads
         let escaped := Parse.satisfy "'\"', '\\' or 'n' after '\\'" isEscaped
         ())
       SegmentRead :=
-  Parse.readsThen
-    [p := () => Parse.char '\\']
-    [j := (u: ()) =>
-      let escaped := Parse.satisfy "'\"', '\\' or 'n' after '\\'" isEscaped
-      ()]
-    (Parse.readsChar '\\')
-    (r1 u f1 =>
-      Parse.readsThen
-        [p := () => Parse.satisfy "'\"', '\\' or 'n' after '\\'" isEscaped]
-        [j := (escaped: Char) => ()]
-        (Parse.readsSatisfy [what := "'\"', '\\' or 'n' after '\\'"] [passes := isEscaped])
-        (r2 escaped f2 => Parse.readsDone () _ (Inl ((escaped, (rewrite f1, And.left f2 in rfl), (And.right f2))))))
+  Parse.readsThen (Parse.readsChar '\\') (r1 u f1 =>
+    Parse.readsThen
+      (Parse.readsSatisfy [what := "'\"', '\\' or 'n' after '\\'"] [passes := isEscaped])
+      (r2 escaped f2 =>
+        Parse.readsDone () _ (Inl ((escaped, (rewrite f1, And.left f2 in rfl), (And.right f2))))))
 
 theorem plainSegmentReads: Parse.Reads
       (() =>
         let plain := Parse.span isPlainChar
         ())
       SegmentRead :=
-  Parse.readsThen
-    [p := () => Parse.span isPlainChar]
-    [j := (plain: List Char) => ()]
-    (Parse.readsSpan isPlainChar)
-    (r plain f => Parse.readsDone () _ (Inr (rewrite List.appendNil r, And.left f in And.right f)))
+  Parse.readsThen (Parse.readsSpan isPlainChar) (r plain f =>
+    Parse.readsDone () _ (Inr (rewrite List.appendNil r, And.left f in And.right f)))
 
 theorem stringSegmentReads: Parse.Reads stringSegment SegmentRead :=
   Parse.readsInOfRuns (total state value after fine honest h =>
@@ -58,26 +48,18 @@ def StringRead (read: List Char): Prop :=
 theorem stringLexemeReads: Parse.Reads stringLexeme (read u => StringRead read) :=
   Parse.readsThen (Parse.readsChar '"') (r1 u f1 =>
     Parse.readsThen (Parse.readsMany stringSegment SegmentRead stringSegmentReads) (r2 segments each =>
-      Parse.readsThen
-        [p := () => Parse.next (char => char == '"')]
-        [j := found => stringClosed found]
-        (Parse.readsNext (char => char == '"'))
-        (r3 found maybe =>
-          match found, maybe with
-            | Some c, Both one quote =>
-              Parse.readsDone () _ ((r2, segments, (rewrite f1, one, quote.read in rfl), each))
-            | None, _ => Parse.readsExpected "'\"' to close the string")))
+      Parse.readsThen (Parse.readsNext (char => char == '"')) (r3 found maybe =>
+        match found, maybe with
+          | Some c, Both one quote =>
+            Parse.readsDone () _ ((r2, segments, (rewrite f1, one, quote.read in rfl), each))
+          | None, _ => Parse.readsExpected "'\"' to close the string")))
 
 theorem nextUnitReads: Parse.Reads
       (() =>
         let read := Parse.next (char => True)
         ())
       ((read: List Char) (u: ()) => read = read) :=
-  Parse.readsThen
-    [p := () => Parse.next (char => True)]
-    [j := (read: Option Char) => ()]
-    (Parse.readsNext (char => True))
-    (r v f => Parse.readsDone () _ rfl)
+  Parse.readsThen (Parse.readsNext (char => True)) (r v f => Parse.readsDone () _ rfl)
 
 theorem operatorCharReads: Parse.Reads operatorChar ((read: List Char) (u: ()) => read = read) :=
   Parse.readsInOfRuns (total state value after fine honest h =>
