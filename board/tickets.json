@@ -1,5 +1,5 @@
 {
-  "next": 3682,
+  "next": 3684,
   "tickets": [
     {
       "id": 47,
@@ -41479,6 +41479,32 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3682,
+      "title": "[Sonnet] Main red (Overmind rolling check be44364dd): two tests panic with unwrap on Err(Any): driver proofs function_equations::the_walls_errors_name_the_branch_equations (function_equations.rs:900) and lsp it features::completion_after_a_dot_in_a_project_checks_only_what_the_namespace_needs (features.rs:25). Last passing proofs 77c2ef273, lsp-features a73d93bd7. Read the panic message, find the merge that caused each, fix (or fix the test if it is stale)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3683,
+      "title": "[Sonnet] Formatter bug on real code: stitchwort fmt aoc/src/Aoc/Year2024/Day04/Proofs/Part2.sw refuses: 'the output doesn't parse: this step isn't lined up with the steps above it' (calc steps). Minimise, fmt test failing first, fix the layout rule. Stops tools fmt::the_repository_sources_are_formatted",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
