@@ -15,6 +15,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use stitchwort_core::DataId;
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_syntax::FileId;
 
@@ -129,6 +130,14 @@ pub struct Session {
     /// ([`crate::FailedDecl`]); a log for the host, cleared with
     /// `broken_tests`.
     pub(crate) failed_decls: Vec<crate::FailedDecl>,
+    /// For a type whose derive waited for a field's instance with an error:
+    /// the instance's definition, by (type, interface), so a use of the
+    /// interface on it waits for that instance rather than saying "no
+    /// instance" (SW-3078). A derive records this; `interfaces::none`
+    /// reads it and ignores it once the instance isn't failed. It isn't in
+    /// the check cache: a module restored from the cache isn't re-derived,
+    /// so a user of it sees the old "no instance" message (accepted).
+    pub(crate) derive_waiting: RefCell<HashMap<(DataId, DataId), stitchwort_core::DefId>>,
 }
 
 /// What a rewind mark keeps of a [`Session`]: the bookkeeping a later load
@@ -145,6 +154,7 @@ pub(crate) struct Mark {
     library_reach: Rc<BTreeMap<String, Rc<BTreeSet<usize>>>>,
     owners: super::owners::Mark,
     paths: super::paths::Mark,
+    derive_waiting: HashMap<(DataId, DataId), stitchwort_core::DefId>,
 }
 
 impl Session {
@@ -182,6 +192,7 @@ impl Session {
             failed_sources: _,
             broken_tests: _,
             failed_decls: _,
+            derive_waiting,
         } = self;
         Mark {
             project_namespaces: project_namespaces.clone(),
@@ -195,6 +206,7 @@ impl Session {
             library_reach: library_reach.clone(),
             owners: owners.mark(),
             paths: paths.borrow().mark(),
+            derive_waiting: derive_waiting.borrow().clone(),
         }
     }
 
@@ -229,6 +241,7 @@ impl Session {
             failed_sources: _,
             broken_tests: _,
             failed_decls: _,
+            derive_waiting,
         } = self;
         *project_namespaces = mark.project_namespaces.clone();
         *project_prefixes = mark.project_prefixes.clone();
@@ -241,6 +254,7 @@ impl Session {
         *library_reach = mark.library_reach.clone();
         owners.rewind(&mark.owners);
         paths.get_mut().rewind(&mark.paths);
+        *derive_waiting.borrow_mut() = mark.derive_waiting.clone();
     }
 }
 

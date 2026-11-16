@@ -247,6 +247,11 @@ impl Elaborator {
             for (ty, what) in to_find {
                 let goal = Value::Data(finite, vec![ty.clone()].into());
                 if let Some(e) = interfaces::findable(&mut cx, &goal)? {
+                    // The field's instance has an error: note it so a use
+                    // waits for it (SW-3078).
+                    if e.code == "E-FAILED-DEPENDENCY" {
+                        cx.e.note_derive_waiting(&[d], finite);
+                    }
                     let mut reason = format!(
                         "{what} has type `{}`, which has no `Finite` instance (when `{name}` was \
                          declared)",

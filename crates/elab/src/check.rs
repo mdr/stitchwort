@@ -1223,7 +1223,7 @@ impl<'e> Ctx<'e> {
         } else {
             d
         };
-        let d = if ne_read_as_prop(&expected_shown, &found_shown) {
+        let d = if ne_read_as_prop_here(self, expected, found, &expected_shown, &found_shown) {
             d.with_note(NE_AS_PROP_NOTE)
         } else {
             d
@@ -1885,9 +1885,59 @@ fn written_comparison(g: &Ev, term: &Term) -> bool {
 pub(crate) const NE_AS_PROP_NOTE: &str =
     "`!=` here is the proposition `≠`; for the `Bool` test write `((a != b): Bool)`";
 
+/// Whether `value` is a `Bool` test, `e = True` or `e = False`: the form the
+/// `!=` note asks the user to write (SW-3125).
+fn is_bool_test(cx: &Ctx, value: &Value) -> bool {
+    let g = cx.g();
+    let Ok(Value::Eq(ty, _, _)) = force(&g, value.clone()) else {
+        return false;
+    };
+    matches!(force(&g, (*ty).clone()), Ok(Value::Data(d, _))
+        if g.env.registry().is_data(Builtin::Bool, d))
+}
+
+/// Whether the declaration's body goal, as written, is the expected type and
+/// has an ASCII `!=` in it: the `!=` note quotes the source, so it is given
+/// only where the source wrote `!=` rather than `≠` (SW-3125).
+pub(crate) fn goal_wrote_ne(cx: &Ctx, expected: &Value) -> bool {
+    let Some((level, goal)) = &cx.goal else {
+        return false;
+    };
+    if *level != cx.level() {
+        return false;
+    }
+    let Ok(value) = cx.eval(goal) else {
+        return false;
+    };
+    if !stitchwort_core::value::conv(&cx.g(), *level, &value, expected).unwrap_or(false) {
+        return false;
+    }
+    goal.subterms()
+        .any(|(t, _)| matches!(t, Term::Loc(span, _) if cx.e.decl.wrote_ascii_ne_at(span)))
+}
+
+/// Whether the `!=` note applies to this mismatch: the expected type is a
+/// proposition `≠`, the found term is the `Bool` test itself (not a written
+/// `.read` of one, whose reading is a different proposition), and the body
+/// goal as written says `!=` (SW-3125).
+fn ne_read_as_prop_here(
+    cx: &Ctx,
+    expected: &Value,
+    found: &Value,
+    expected_shown: &str,
+    found_shown: &str,
+) -> bool {
+    expected_shown.contains(" ≠ ")
+        && (found_shown.contains("Decidable.holds") || found_shown.contains(".holds"))
+        && is_bool_test(cx, found)
+        && !crate::build::is_read(cx)
+        && goal_wrote_ne(cx, expected)
+}
+
 /// Whether the expected type mentions a proposition `≠` and what was found
 /// is a `Bool` test (`Decidable.holds …`, or `….holds`): a `Bool` `!=` that was read as `≠`
-/// because it sits beside `=` in a statement.
+/// because it sits beside `=` in a statement. Callers also ask
+/// [`goal_wrote_ne`], since the note quotes the source (SW-3125).
 pub(crate) fn ne_read_as_prop(expected: &str, found: &str) -> bool {
     expected.contains(" ≠ ") && (found.contains("Decidable.holds") || found.contains(".holds"))
 }

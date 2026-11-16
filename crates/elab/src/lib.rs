@@ -2848,6 +2848,20 @@ impl Elaborator {
         Ok(())
     }
 
+    /// After a derive met a field's instance with an error: remembers that
+    /// the types of `group` wait for it, so a use of `interface` on one of
+    /// them waits for the instance rather than saying "no instance"
+    /// (SW-3078).
+    pub(crate) fn note_derive_waiting(&self, group: &[DataId], interface: DataId) {
+        let Some(def) = self.decl.failed_instance.take() else {
+            return;
+        };
+        let mut waiting = self.session.derive_waiting.borrow_mut();
+        for &r in group {
+            waiting.insert((r, interface), def);
+        }
+    }
+
     /// A definition's body, with the `match`es in it lifted
     /// (docs/proposals/syntax-conveniences.md §2.2): those that are in a
     /// cycle with the definition are returned, to be admitted with it.

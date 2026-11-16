@@ -50,7 +50,7 @@ pub(crate) fn note_read(cx: &Ctx, span: Span) {
 }
 
 /// Whether the term checked at the current span is a written `.read`.
-fn is_read(cx: &Ctx) -> bool {
+pub(crate) fn is_read(cx: &Ctx) -> bool {
     cx.e.decl.builds.borrow().reads.contains(&cx.span)
 }
 

@@ -242,6 +242,14 @@ pub(crate) struct Decl {
     /// (`build.rs`). Kept across the attempts at one body on purpose: a
     /// failed attempt is what adds a place.
     pub(crate) builds: RefCell<crate::build::Builds>,
+    /// Where an `a != b` was written with the ASCII `!=` (not the Unicode
+    /// `≠`): the `!=` note quotes the source, so it is given only where the
+    /// source wrote `!=` (SW-3125). Unlike [`Self::builds`], a declaration's
+    /// type keeps it visible while its body is checked.
+    pub(crate) ne_ascii: RefCell<Vec<Span>>,
+    /// The failed instance the last instance search reached, if any: a
+    /// derive records it so a use waits for it (SW-3078).
+    pub(crate) failed_instance: RefCell<Option<DefId>>,
 }
 
 /// [`Decl::conjunction`].
@@ -269,6 +277,19 @@ pub(crate) struct Conjunction {
 }
 
 impl Decl {
+    /// Notes the `a != b` written `!=` at `span` (SW-3125).
+    pub(crate) fn note_ne_ascii(&self, span: Span) {
+        let mut spans = self.ne_ascii.borrow_mut();
+        if !spans.contains(&span) {
+            spans.push(span);
+        }
+    }
+
+    /// Whether an `a != b` written `!=` (not `≠`) starts at `span`.
+    pub(crate) fn wrote_ascii_ne_at(&self, span: &Span) -> bool {
+        self.ne_ascii.borrow().contains(span)
+    }
+
     /// Empties everything but [`Self::failed_mentioned`] and
     /// [`Self::stuck_on_goal`].
     pub(crate) fn reset(&mut self) {
@@ -342,6 +363,8 @@ impl Decl {
             keep_arms,
             kept_by_a_check,
             builds,
+            ne_ascii,
+            failed_instance,
         } = self;
         let fields = [
             ("sides_capture", sides_capture.borrow().is_empty()),
@@ -390,6 +413,8 @@ impl Decl {
             ("keep_arms", keep_arms.borrow().is_empty()),
             ("kept_by_a_check", kept_by_a_check.borrow().is_empty()),
             ("builds", builds.borrow().is_empty()),
+            ("ne_ascii", ne_ascii.borrow().is_empty()),
+            ("failed_instance", failed_instance.borrow().is_none()),
         ];
         fields
             .into_iter()
