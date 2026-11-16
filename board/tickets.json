@@ -1,5 +1,5 @@
 {
-  "next": 3589,
+  "next": 3590,
   "tickets": [
     {
       "id": 47,
@@ -40236,6 +40236,19 @@
     {
       "id": 3588,
       "title": "[Sonnet] search_at render and checks at ~1100/1490 treat any '?' in rendered text as a placeholder; a name like isEmpty? would trip them. Use a structured placeholder flag (from SW-3577)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3589,
+      "title": "[Sonnet] State, don't chain (D3656, Matt, 16 Nov 2026: yes): proving-guide rule (a chain of two or more equalities is a calc; a rewrite run of more than ~3 rules, or one a later step depends on, passes through a typed let stating the fact) and a warning (W-PROOF-CHAIN or similar) on Eq.trans nested two deep, suggesting calc, with a fix in check's JSON where mechanical. No sweep: convert when touched; the warning must not fail existing checks (warn only). docs/research/readable-proofs.md R1. Guide + syntax.md updated",
       "status": "backlog",
       "agent": "",
       "where": "",
