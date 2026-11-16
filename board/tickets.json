@@ -39461,12 +39461,12 @@
     {
       "id": 3529,
       "title": "[Opus] rewrite with open arguments misses a visible call that can compute: in the toy's stepWords FillSep arm, 'rewrite writeWords' gives E-REWRITE-NOTHING on 'Printer.words (printer.write indent \" \" 1) …'; giving all arguments works. Gap against D2542 (from SW-3522 §, simp-revisited.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Stage 0 of simp (simp-revisited.md §1.2, §8), with SW-3530.\n\nD3647: the simp tactic will be spelled 'rewrite repeatedly' (stage 1 onward).\n\nModel result: opus, worked, 37 min (est. 45). Orchestrator's calls: (1) every-call-kept read-back as first rewrite search, and (2) plain cases splitting a visible if first: both deferred to simp stage 1's design (they could change existing proofs; measure there). Opus review before merge (rewrite/cases build proof terms).",
+      "body": "Stage 0 of simp (simp-revisited.md §1.2, §8), with SW-3530.\n\nD3647: the simp tactic will be spelled 'rewrite repeatedly' (stage 1 onward).\n\nModel result: opus, worked, 37 min (est. 45). Orchestrator's calls: (1) every-call-kept read-back as first rewrite search, and (2) plain cases splitting a visible if first: both deferred to simp stage 1's design (they could change existing proofs; measure there). Opus review before merge (rewrite/cases build proof terms).\n\nReview fixes: 21 min (est. 25). One example hash changes (cases-bool's ieeeLtLeBy: cases in t now splits the visible if, 2 match helpers instead of 7); accepted as orchestrator's call (migration cost doesn't count). Review: scratchpad sw3529review/review.md.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39474,7 +39474,7 @@
     {
       "id": 3530,
       "title": "[Opus] 'cases in t' hands t the computed goal and over-splits (15 cases where one split on a visible if was meant); the toy's eitherWords exists to dodge it (from SW-3522)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
