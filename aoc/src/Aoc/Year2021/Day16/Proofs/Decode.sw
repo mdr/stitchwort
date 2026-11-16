@@ -27,7 +27,7 @@ theorem readPacketComplete ∀ (packet: Packet)
     (formed: wellFormed packet = True) (rest: List Bool):
     readPacket { unread = encode packet ++ rest } = Some (packet, { unread = rest }) :=
   let read := countComplete [packet] (Both formed byComputing) rest
-  rewrite List.appendNil (encode packet) at read then rewrite read then byComputing
+  rewrite List.appendNil (encode packet) at read then rewrite read
 
 --| So bits start with at most one well-formed packet: the transmission
 --| fixes the packet.

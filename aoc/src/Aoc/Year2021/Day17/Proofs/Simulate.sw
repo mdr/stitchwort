@@ -34,7 +34,7 @@ theorem hitsWithinComplete ∀ (target: Target) (steps n: Nat) (probe: Probe)
     hitsWithin target steps probe = True :=
   match steps, n with
     | 0, 0 => h
-    | Succ steps, 0 => rewrite h then byComputing
+    | Succ steps, 0 => rewrite h
     | 0, Succ n => arithmetic
     | Succ steps, Succ n =>
       match i: inTarget target probe with

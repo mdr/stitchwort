@@ -21,7 +21,7 @@ theorem tracksStart ∀ (passages: List Passage) (twice: Bool):
             (caves passages)
             (cave => cave.isSmall && not cave.isStart && not cave.isEnd)
             named
-            (rewrite small, differ c Cave.start notStart, differ c Cave.end notEnd then byComputing)
+            (rewrite small, differ c Cave.start notStart, differ c Cave.end notEnd)
       })
     (Both byComputing
       (Both byComputing
@@ -64,7 +64,7 @@ theorem pathsCorrect ∀ (passages: List Passage)
             (Path.fromStart [])
             (tracksStart passages twice)
             follows
-        rewrite <- same then Both (match rest with | [z, ..more] => rewrite last then byComputing) (Both along within)),
+        rewrite <- same then Both (match rest with | [z, ..more] => rewrite last) (Both along within)),
     backward = both =>
       let (Both ends (Both along within)) := both
       match path with

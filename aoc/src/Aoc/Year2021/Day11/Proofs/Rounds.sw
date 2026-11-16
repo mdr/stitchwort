@@ -35,7 +35,7 @@ theorem energyAgrees ∀ (cavern: Cavern) (flashed: Flashed)
     (onGrid: OnGrid cavern flashed.has)
     (q: Position) (level: Nat):
     flashed.energy q level = energyIn cavern flashed.has q level :=
-  rewrite countAround cavern flashed.has onGrid q then byComputing
+  rewrite countAround cavern flashed.has onGrid q
 
 --| The table lookup of the flashers is `has`.
 theorem lookupIsHas ∀ (flashed: Flashed) (q: Position): flashed.lookup q = flashed.has q :=

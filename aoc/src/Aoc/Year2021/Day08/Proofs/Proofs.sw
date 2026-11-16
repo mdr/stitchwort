@@ -99,7 +99,7 @@ theorem scoreDrawn ∀ (wiring: Segment → Segment) (entry: Entry)
       calc score entry.patterns pattern
         _ = segments.sumBy (wire => if pattern.has wire then litIn entry.patterns wire else 0)
         _ = segments.sumBy (wire => lit (wiring wire)) := List.sumByCong segments _ _ (wire =>
-          rewrite hasDrawn wiring pattern digit shows wire, litDrawn wiring entry decodes wire then byComputing)
+          rewrite hasDrawn wiring pattern digit shows wire, litDrawn wiring entry decodes wire)
         _ = drawnScore digit := sumRewired wiring wired lit
 
 --| How many patterns have a wire on is how many digits light the segment it
@@ -123,7 +123,7 @@ theorem litDrawn ∀ (wiring: Segment → Segment) (entry: Entry)
           match List.memMapElim Some (shown wiring pattern) digits listed with
             | Witness digit (Both _ isShown) =>
               match List.findRangeSome (d => Shows wiring pattern d) 10 digit isShown.flipped with
-                | Both shows _ => rewrite <- isShown, hasDrawn wiring pattern digit shows wire then byComputing)
+                | Both shows _ => rewrite <- isShown, hasDrawn wiring pattern digit shows wire)
         _ = (entry.patterns.map (shown wiring)).count lights :=
           Eq.flipped (List.countMap entry.patterns lights (shown wiring))
         _ = (digits.map Some).count lights :=

@@ -60,7 +60,7 @@ theorem visitsSnoc ∀ (xs: Path) (y cave: Cave): (xs.add y).visits cave = xs.vi
   visitsAppend xs [y] cave
 
 theorem visitsSelf ∀ (xs: Path) (y: Cave): (xs.add y).visits y = xs.visits y + 1 :=
-  rewrite visitsSnoc xs y y, DecEq.refl y then byComputing
+  rewrite visitsSnoc xs y y, DecEq.refl y
 
 theorem visitsOther ∀ (xs: Path) (y cave: Cave) (ne: y ≠ cave): (xs.add y).visits cave = xs.visits cave :=
   rewrite visitsSnoc xs y cave, differ y cave ne then arithmetic
@@ -84,8 +84,7 @@ theorem withoutMem ∀ (caves: List Cave) (y c: Cave):
     forward = found =>
       let both := List.memFilter caves (x => not (x == y)) found.read
       Both both.left (same => Bool.falseNotTrue (rewrite same, DecEq.refl y at And.right both)),
-    backward = both =>
-      List.memFilterIntro caves (x => not (x == y)) both.left.read (rewrite differ c y both.right then byComputing)
+    backward = both => List.memFilterIntro caves (x => not (x == y)) both.left.read (rewrite differ c y both.right)
   }
 
 --| If a path's visits small caves are another's, it keeps the rule
@@ -153,7 +152,7 @@ theorem tracksFresh ∀ (passages: List Passage) (twice: Bool) (unvisited: List 
   let (Both unseen (Both start (Both end (Both within (Both spared used))))) := tracks
   let (Both each (Both once (Both startOnce endOnce))) := within
   let zero: sofar.visits y = 0 := (unseen y named small notStart notEnd).forward fresh
-  let one: (sofar.add y).visits y = 1 := rewrite visitsSelf sofar y, zero then byComputing
+  let one: (sofar.add y).visits y = 1 := rewrite visitsSelf sofar y, zero
   let unseen2 := (c: Cave) =>
     (namedC: c ∈ caves passages) =>
       (smallC: c.isBig = False) =>
@@ -258,10 +257,8 @@ theorem tracksAgain ∀ (passages: List Passage) (twice: Bool) (unvisited: List 
   let each2 := (c: Cave) =>
     (smallC: c.isBig = False) =>
       (rewrite part2 then
-        Decidable.elimProof
-          (DecEq.decide c y)
-          (same => (rewrite same, two then byComputing: (sofar.add y).visits c ≤ 2))
-          (other => rewrite visitsNot sofar y c other then arithmetic [atMostOnce c smallC]): (sofar.add y).visits c
+        Decidable.elimProof (DecEq.decide c y) (same => (rewrite same, two: (sofar.add y).visits c ≤ 2)) (other =>
+          rewrite visitsNot sofar y c other then arithmetic [atMostOnce c smallC]): (sofar.add y).visits c
         ≤ 1 + Bool.toNat twice)
   let once2 := (a: Cave) =>
     (b: Cave) =>
@@ -287,7 +284,7 @@ theorem tracksAgain ∀ (passages: List Passage) (twice: Bool) (unvisited: List 
               (Both
                 (rewrite visitsOther sofar y Cave.start notStart then startOnce)
                 (rewrite visitsOther sofar y Cave.end notEnd then endOnce))))
-          (Both (left => cases) (none => Inr (Witness y (Both small (rewrite two then byComputing))))))))
+          (Both (left => cases) (none => Inr (Witness y (Both small (rewrite two))))))))
 
 --| Reaching `end`, the path keeps the rule.
 theorem finishWithin ∀ (passages: List Passage) (twice: Bool) (unvisited: List Cave) (spare: Bool) (sofar: Path)
@@ -295,7 +292,7 @@ theorem finishWithin ∀ (passages: List Passage) (twice: Bool) (unvisited: List
     Within twice (sofar.add Cave.end) :=
   let (Both _ (Both _ (Both end (Both within _)))) := tracks
   let (Both each (Both once (Both startOnce _))) := within
-  let one: (sofar.add Cave.end).visits Cave.end = 1 := rewrite visitsSelf sofar Cave.end, end then byComputing
+  let one: (sofar.add Cave.end).visits Cave.end = 1 := rewrite visitsSelf sofar Cave.end, end
   Both
     (c smallC =>
       Decidable.elimProof
@@ -315,7 +312,7 @@ theorem finishWithin ∀ (passages: List Passage) (twice: Bool) (unvisited: List
                 once a b smallA smallB
                   (rewrite visitsNot sofar Cave.end a otherA at twiceA)
                   (rewrite visitsNot sofar Cave.end b otherB at twiceB))))
-      (Both (rewrite visitsOther sofar Cave.end Cave.start endNotStart then startOnce) (rewrite one then byComputing)))
+      (Both (rewrite visitsOther sofar Cave.end Cave.start endNotStart then startOnce) (rewrite one)))
 
 --| A path that goes on from `y` goes on from the cave before it.
 theorem completesCons ∀ (passages: List Passage) (twice: Bool) (sofar: Path) (cave y: Cave) (more: List Cave)
@@ -326,7 +323,7 @@ theorem completesCons ∀ (passages: List Passage) (twice: Bool) (sofar: Path) (
   Both
     (match more with | [z, ..rest] => last)
     (Both
-      (rewrite followsCons passages cave y more, joined, follows then byComputing)
+      (rewrite followsCons passages cave y more, joined, follows)
       (Eq.subst (p => Within twice p) (appendStep sofar y more).flipped within))
 
 --| A path from the cave before `y` that isn't at its end goes on from `y`.
@@ -420,7 +417,7 @@ theorem followsCompletes ∀ (passages: List Passage) (next: Cave → List Cave)
           rewrite after, isEnd.read then
             Both byComputing
               (Both
-                (rewrite followsCons passages cave Cave.end [], (rewrite isEnd.read at joined) then byComputing)
+                (rewrite followsCons passages cave Cave.end [], (rewrite isEnd.read at joined))
                 (finishWithin passages twice unvisited spare sofar tracks))
         | False =>
           let notEnd := isEnd.read

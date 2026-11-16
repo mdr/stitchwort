@@ -19,9 +19,7 @@ theorem clearOfFind ∀ (fold: Fold) (dots: List Point)
     Clear fold dot :=
   match e: clears fold dot with
     | True => clearsClear fold dot e
-    | False =>
-      Void.impossible
-        (List.findNoneNotMem dots (dot => not (clears fold dot)) dot (rewrite e then byComputing) member none)
+    | False => Void.impossible (List.findNoneNotMem dots (dot => not (clears fold dot)) dot (rewrite e) member none)
 
 --| If no fold is blocked, folding a list that holds the dots, the promise
 --| is kept for every fold.

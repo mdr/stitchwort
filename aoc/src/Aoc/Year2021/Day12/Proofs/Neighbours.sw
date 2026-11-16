@@ -18,7 +18,7 @@ theorem lookupBuilt ∀ (f: Cave → List Cave) (cave: Cave) (cs: List Cave)
   match cs with
     | [c, ..rest] =>
       match e: c == cave with
-        | True => rewrite e.read then byComputing
+        | True => rewrite e.read
         | False =>
           match member with
             | Inl same => Void.impossible (Bool.trueNotFalse (rewrite same, DecEq.refl cave at e))
@@ -73,15 +73,13 @@ theorem neighboursOfMem ∀ (passages: List Passage) (cave y: Cave):
               match fc: from == cave with
                 | True =>
                   match inEdge with
-                    | Inl same =>
-                      Witness { from, to } (Both member (rewrite fc, <- same, DecEq.refl to then byComputing))
+                    | Inl same => Witness { from, to } (Both member (rewrite fc, <- same, DecEq.refl to))
                     | Inr nothing => nothing.impossible
                 | False =>
                   match tc: to == cave with
                     | True =>
                       match inEdge with
-                        | Inl same =>
-                          Witness { from, to } (Both member (rewrite fc, tc, <- same, DecEq.refl from then byComputing))
+                        | Inl same => Witness { from, to } (Both member (rewrite fc, tc, <- same, DecEq.refl from))
                         | Inr nothing => nothing.impossible),
     backward = joined =>
       let leadsTo := passage => passage.leadsTo cave

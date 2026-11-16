@@ -12,9 +12,13 @@ theorem getMapRange ∀ [b: Type] (f: Nat → b) (n i: Nat)
     (inside: i < n):
     List.get (List.map (List.range 0 n) f) i = Some (f i) :=
   let long: i < List.length (List.map (List.range 0 n) f) :=
-    rewrite List.lengthMap (List.range 0 n) f then rewrite List.lengthRangeFrom n 0 then inside
-  rewrite List.getOfGetOr (List.map (List.range 0 n) f) i (f i) long then
-    rewrite List.getOrMapRange f (f i) n 0 i inside then rewrite Nat.addZero i then byComputing
+    rewrite List.lengthMap (List.range 0 n) f, List.lengthRangeFrom n 0 then inside
+  rewrite List.getOfGetOr (List.map (List.range 0 n) f) i (f i) long, List.getOrMapRange f
+    (f i)
+    n
+    0
+    i
+    inside, Nat.addZero i
 
 --| ...and past it, nothing.
 theorem getMapRangePast ∀ [b: Type] (f: Nat → b) (n i: Nat)
@@ -23,7 +27,7 @@ theorem getMapRangePast ∀ [b: Type] (f: Nat → b) (n i: Nat)
   List.getPast
     (List.map (List.range 0 n) f)
     i
-    (rewrite List.lengthMap (List.range 0 n) f then rewrite List.lengthRangeFrom n 0 then past)
+    (rewrite List.lengthMap (List.range 0 n) f, List.lengthRangeFrom n 0 then past)
 
 --| Every dot of the list is inside the width and height `render` uses.
 theorem widthCovers ∀ (dots: List Point) (spot: Point) (member: spot ∈ dots): spot.x < width dots :=
@@ -55,19 +59,18 @@ theorem cellInside ∀ (dots: List Point) (spot: Point)
     (inY: spot.y < height dots)
     (inX: spot.x < width dots):
     cellAt (render dots) spot = Some (if dots.any (== spot) then '#' else '.') :=
-  rewrite getMapRange _ (height dots) spot.y inY then rewrite getMapRange _ (width dots) spot.x inX then byComputing
+  rewrite getMapRange _ (height dots) spot.y inY, getMapRange _ (width dots) spot.x inX
 
 --| ...and outside it there is nothing.
 theorem cellOutside ∀ (dots: List Point) (spot: Point)
     (out: height dots ≤ spot.y ∨ width dots ≤ spot.x):
     cellAt (render dots) spot = None :=
   match out with
-    | Inl low => rewrite getMapRangePast _ (height dots) spot.y low then byComputing
+    | Inl low => rewrite getMapRangePast _ (height dots) spot.y low
     | Inr wide =>
       if inY: spot.y < height dots then
-        rewrite getMapRange _ (height dots) spot.y inY then
-          rewrite getMapRangePast _ (width dots) spot.x wide then byComputing
-      else rewrite getMapRangePast _ (height dots) spot.y arithmetic then byComputing
+        rewrite getMapRange _ (height dots) spot.y inY, getMapRangePast _ (width dots) spot.x wide
+      else rewrite getMapRangePast _ (height dots) spot.y arithmetic
 
 --| So whatever the picture shows is inside it.
 theorem cellSomeInside ∀ (dots: List Point) (spot: Point) (c: Char)
@@ -89,8 +92,7 @@ theorem shownHash ∀ (b: Bool) (shown: Some (if b then '#' else '.') = Some '#'
 --| Every row is as wide as the dots need.
 theorem rowWidth ∀ (dots: List Point) (row: List Char) (member: row ∈ render dots): row.length = width dots :=
   Exists.elim (List.memMapElim _ row (List.range 0 (height dots)) member) (y made =>
-    rewrite <- made.right then
-      rewrite List.lengthMap (List.range 0 (width dots)) _ then List.lengthRangeFrom (width dots) 0)
+    rewrite <- made.right, List.lengthMap (List.range 0 (width dots)) _ then List.lengthRangeFrom (width dots) 0)
 
 --| The picture shows every list it renders.
 theorem renderShows ∀ (dots: List Point) (marked: Point → Prop)
@@ -99,8 +101,9 @@ theorem renderShows ∀ (dots: List Point) (marked: Point → Prop)
   Both
     (spot isMarked =>
       let member := (holds spot).backward isMarked
-      rewrite cellInside dots spot (heightCovers dots spot member) (widthCovers dots spot member) then
-        rewrite (List.anyEqIff spot dots).backward member then byComputing)
+      rewrite cellInside dots spot
+        (heightCovers dots spot member)
+        (widthCovers dots spot member), (List.anyEqIff spot dots).backward member)
     (Both
       (spot hash =>
         let inside := cellSomeInside dots spot '#' hash
@@ -111,4 +114,4 @@ theorem renderShows ∀ (dots: List Point) (marked: Point → Prop)
           let inside := cellSomeInside dots spot c found
           shownChar _ c (rewrite cellInside dots spot inside.left inside.right at found))
         (row inPicture other otherInPicture =>
-          rewrite rowWidth dots row inPicture then rewrite rowWidth dots other otherInPicture then byComputing)))
+          rewrite rowWidth dots row inPicture, rowWidth dots other otherInPicture)))

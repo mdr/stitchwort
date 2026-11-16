@@ -43,8 +43,7 @@ theorem leavesPrefix ∀ (depth: Nat) (x y: Number) (rest1 rest2: List Leaf)
     (same: leaves depth x ++ rest1 = leaves depth y ++ rest2):
     x = y ∧ rest1 = rest2 :=
   match x, y with
-    | Regular a, Regular b =>
-      Both (rewrite Eq.cong headValue same then byComputing) (Eq.cong (xs => List.drop xs 1) same)
+    | Regular a, Regular b => Both (rewrite Eq.cong headValue same) (Eq.cong (xs => List.drop xs 1) same)
     | Regular a, Pair left right =>
       match leavesHead (depth + 1) left (leaves (depth + 1) right ++ rest2) with
         | Witness first (Witness more (Both starts deep)) =>
@@ -73,7 +72,7 @@ theorem leavesPrefix ∀ (depth: Nat) (x y: Number) (rest1 rest2: List Leaf)
           (leaves (depth + 1) right2 ++ rest2)
           split
       let rights := leavesPrefix (depth + 1) right1 right2 rest1 rest2 lefts.right
-      Both (rewrite And.left lefts, rights.left then byComputing) rights.right
+      Both (rewrite And.left lefts, rights.left) rights.right
 
 theorem leavesInjective ∀ (x y: Number) (same: leaves 0 x = leaves 0 y): x = y :=
   And.left (leavesPrefix 0 x y [] [] (rewrite List.appendNil (leaves 0 x), List.appendNil (leaves 0 y) then same))

@@ -259,7 +259,7 @@ theorem stepComplete ∀ (wanted later: Wanted) (more: List Bool) (packet: Packe
 theorem countComplete: ∀ (packets: List Packet) => allWellFormed packets = True
       → ∀ (more: List Bool) => readPackets (Packets packets.length) { unread = encodeAll packets ++ more }
         = Some (packets, { unread = more })
-  | [], formed, more => rewrite readPackets.unfold (Packets 0) { unread = more } then byComputing
+  | [], formed, more => rewrite readPackets.unfold (Packets 0) { unread = more }
   | [packet, ..rest], formed, more => countCons packet rest formed more
 
 --| The same for a first packet and the rest.
@@ -270,7 +270,7 @@ theorem countCons ∀ (packet: Packet) (rest: List Packet)
   let Both packetOk restOk := formed
   let step :=
     stepComplete (Packets (Succ rest.length)) (Packets rest.length) (encodeAll rest ++ more) packet packetOk byComputing
-  rewrite List.appendAssoc (encode packet) (encodeAll rest) more, step, countComplete rest restOk more then byComputing
+  rewrite List.appendAssoc (encode packet) (encodeAll rest) more, step, countComplete rest restOk more
 
 --| Reading two packets by number. (Spelled out, not through `countCons`:
 --| the termination check needs each packet to come from the one being read.)
@@ -281,18 +281,17 @@ theorem countPair ∀ (first second: Packet)
       = Some ([first, second], { unread = more }) :=
   let step1 := stepComplete (Packets 2) (Packets 1) (encodeAll [second] ++ more) first formedFirst byComputing
   let step2 := stepComplete (Packets 1) (Packets 0) more second formedSecond byComputing
-  rewrite List.appendAssoc (encode first) (encodeAll [second]) more,
-      step1,
-      List.appendAssoc (encode second) [] more,
-      step2 then
-    byComputing
+  rewrite List.appendAssoc (encode first) (encodeAll [second]) more, step1, List.appendAssoc
+    (encode second)
+    []
+    more, step2
 
 --| Filling packets' bits reads them all back.
 theorem fillComplete ∀ (packets: List Packet)
     (formed: allWellFormed packets = True):
     readPackets Filling { unread = encodeAll packets } = Some (packets, { unread = [] }) :=
   match packets with
-    | [] => rewrite readPackets.unfold Filling { unread = [] } then byComputing
+    | [] => rewrite readPackets.unfold Filling { unread = [] }
     | [packet, ..rest] => fillCons packet rest formed
 
 --| The same for a first packet and the rest.
@@ -301,7 +300,7 @@ theorem fillCons ∀ (packet: Packet) (rest: List Packet)
     readPackets Filling { unread = encodeAll [packet, ..rest] } = Some ([packet, ..rest], { unread = [] }) :=
   let Both packetOk restOk := formed
   let step := stepComplete Filling Filling (encodeAll rest) packet packetOk (fillingNext (encodeAll rest) packet)
-  rewrite step, fillComplete rest restOk then byComputing
+  rewrite step, fillComplete rest restOk
 
 --| The same for two packets, spelled out for the same reason.
 theorem fillPair ∀ (first second: Packet)
@@ -311,4 +310,4 @@ theorem fillPair ∀ (first second: Packet)
   let step1 :=
     stepComplete Filling Filling (encodeAll [second]) first formedFirst (fillingNext (encodeAll [second]) first)
   let step2 := stepComplete Filling Filling [] second formedSecond (fillingNext [] second)
-  rewrite step1, step2 then byComputing
+  rewrite step1, step2

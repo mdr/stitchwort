@@ -10,7 +10,7 @@ import Std (DecEq, Eq, Exists, List, Nat, Option, Void)
 theorem magnitudeSame ∀ (number: Number): Aoc.Year2021.Day18.Spec.magnitude number = magnitude number :=
   match number with
     | Regular _ => byComputing
-    | Pair left right => rewrite magnitudeSame left, magnitudeSame right then byComputing
+    | Pair left right => rewrite magnitudeSame left, magnitudeSame right
 
 --| A sum of two reduced numbers that `add` finishes is their sum, and is
 --| reduced.
@@ -76,7 +76,7 @@ theorem part1Unique ∀ (numbers: List Number) (answer1 answer2: Nat)
       let firsts := Option.someInjective (Eq.cong (xs => List.get xs 0) same)
       let rests: rest1 = rest2 := Eq.cong (xs => List.drop xs 1) same
       let finals := addsUpToUnique final2 first2 rest2 final1 (rewrite firsts, rests at adds1 then adds1) adds2
-      rewrite <- magnitude1, <- magnitude2, finals then byComputing
+      rewrite <- magnitude1, <- magnitude2, finals
 
 --| Two numbers on different lines are a pair `orderedPairs` lists.
 theorem memberPairs ∀ (numbers: List Number) (i j: Nat) (x y: Number)

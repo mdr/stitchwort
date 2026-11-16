@@ -28,7 +28,7 @@ theorem zipNext ∀ (x: Nat) (xs: List Nat): List.zip [x, ..xs] xs = List.zipWit
 --| Part 1 is the puzzle's count, for every list of depths.
 theorem part1Correct ∀ (depths: List Nat): solvePart1 depths = increases depths := match depths with
   | [] => byComputing
-  | [x, ..xs] => rewrite zipNext x xs then byComputing
+  | [x, ..xs] => rewrite zipNext x xs
 
 --| A list with a whole window at its start: the first window, then the
 --| windows of the rest.
@@ -91,7 +91,7 @@ theorem windowsCorrect ∀ (m: Nat) (depths: List Nat): increasesOver (Succ m) d
             Eq.cong (ws => increases (List.map ws List.sum)) (Eq.flipped (windowsLong m [x, ..rest] (arithmetic [h])))
       else
         calc increasesOver (Succ m) [x, ..rest]
-          _ = 0 := rewrite List.dropPast rest m (arithmetic [h]) then byComputing
+          _ = 0 := rewrite List.dropPast rest m (arithmetic [h])
           _ = windowIncreases (Succ m) [x, ..rest] := atMostOneWindow m x rest (arithmetic [h])
 
 --| A list with at most one window has no increases between windows.

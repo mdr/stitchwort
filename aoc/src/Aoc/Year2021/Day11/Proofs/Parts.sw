@@ -41,9 +41,7 @@ theorem runIsProgram ∀ [cavern: Cavern] [steps: Nat] [final: Cavern] [total: N
     | Step flashed spec rest =>
       let (Both finalSame totalSame) := runIsProgram rest
       let same: after cavern flashed = cavern.step := (stepCorrect cavern flashed spec).flipped
-      Both
-        (rewrite finalSame, same then byComputing)
-        (rewrite totalSame, same, <- zerosCorrect cavern flashed spec then byComputing)
+      Both (rewrite finalSame, same) (rewrite totalSame, same, <- zerosCorrect cavern flashed spec)
 
 --| Part 1: the program's answer is the spec's...
 theorem part1Correct ∀ (cavern: Cavern): Part1Answer cavern cavern.solvePart1 :=

@@ -38,9 +38,8 @@ theorem addToLastAppend ∀ (amount: Nat) (ys: List Leaf)
   match xs with
     | [] => byComputing
     | [x, ..rest] =>
-      rewrite addToLastCons amount x (rest ++ ys) (List.appendNotNilRight rest ys some),
-          addToLastAppend amount ys some rest then
-        byComputing
+      rewrite addToLastCons amount x (rest ++ ys) (List.appendNotNilRight rest ys some), addToLastAppend amount ys some
+          rest
 
 --| Adding 0 to a leaf leaves it as it was.
 theorem addZeroLeaf ∀ (leaf: Leaf): ({ value = leaf.value + 0, depth = leaf.depth }: Leaf) = leaf :=
@@ -60,21 +59,17 @@ theorem leavesAddLeftmost ∀ (amount depth: Nat) (number: Number):
   match number with
     | Regular value => byComputing
     | Pair left right =>
-      rewrite leavesAddLeftmost amount (depth + 1) left,
-          addToFirstAppend amount
-            (leaves (depth + 1) right)
-            (leaves (depth + 1) left)
-            (leavesNotNil (depth + 1) left) then
-        byComputing
+      rewrite leavesAddLeftmost amount (depth + 1) left, addToFirstAppend amount
+        (leaves (depth + 1) right)
+        (leaves (depth + 1) left)
+        (leavesNotNil (depth + 1) left)
 
 theorem leavesAddRightmost ∀ (amount depth: Nat) (number: Number):
     leaves depth (addRightmost amount number) = addToLast amount (leaves depth number) :=
   match number with
     | Regular value => byComputing
     | Pair left right =>
-      rewrite leavesAddRightmost amount (depth + 1) right,
-          addToLastAppend amount
-            (leaves (depth + 1) right)
-            (leavesNotNil (depth + 1) right)
-            (leaves (depth + 1) left) then
-        byComputing
+      rewrite leavesAddRightmost amount (depth + 1) right, addToLastAppend amount
+        (leaves (depth + 1) right)
+        (leavesNotNil (depth + 1) right)
+        (leaves (depth + 1) left)

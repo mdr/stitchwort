@@ -12,29 +12,29 @@ theorem hexAgree ∀ (char: Char) (value: Nat)
     (h: hexValue char = Some value):
     hexDigitBits char = Some (digitBits value) :=
   match char with
-    | '0' => rewrite <- Option.someInjective h then byComputing
-    | '1' => rewrite <- Option.someInjective h then byComputing
-    | '2' => rewrite <- Option.someInjective h then byComputing
-    | '3' => rewrite <- Option.someInjective h then byComputing
-    | '4' => rewrite <- Option.someInjective h then byComputing
-    | '5' => rewrite <- Option.someInjective h then byComputing
-    | '6' => rewrite <- Option.someInjective h then byComputing
-    | '7' => rewrite <- Option.someInjective h then byComputing
-    | '8' => rewrite <- Option.someInjective h then byComputing
-    | '9' => rewrite <- Option.someInjective h then byComputing
-    | 'A' => rewrite <- Option.someInjective h then byComputing
-    | 'B' => rewrite <- Option.someInjective h then byComputing
-    | 'C' => rewrite <- Option.someInjective h then byComputing
-    | 'D' => rewrite <- Option.someInjective h then byComputing
-    | 'E' => rewrite <- Option.someInjective h then byComputing
-    | 'F' => rewrite <- Option.someInjective h then byComputing
+    | '0' => rewrite <- Option.someInjective h
+    | '1' => rewrite <- Option.someInjective h
+    | '2' => rewrite <- Option.someInjective h
+    | '3' => rewrite <- Option.someInjective h
+    | '4' => rewrite <- Option.someInjective h
+    | '5' => rewrite <- Option.someInjective h
+    | '6' => rewrite <- Option.someInjective h
+    | '7' => rewrite <- Option.someInjective h
+    | '8' => rewrite <- Option.someInjective h
+    | '9' => rewrite <- Option.someInjective h
+    | 'A' => rewrite <- Option.someInjective h
+    | 'B' => rewrite <- Option.someInjective h
+    | 'C' => rewrite <- Option.someInjective h
+    | 'D' => rewrite <- Option.someInjective h
+    | 'E' => rewrite <- Option.someInjective h
+    | 'F' => rewrite <- Option.someInjective h
 
 --| `hexDigit` reads one hexadecimal digit and gives its value.
 theorem readsHexDigit: Parse.Reads hexDigit (read value =>
       ∃ (char: Char) => read = [char] ∧ hexValue char = Some value) :=
   Parse.readsThen (Parse.readsSatisfy) (charRead char (Both one passes) =>
     Parse.readsWeaken (Parse.readsNeed (hexValue char) _) (read value (Both none found) =>
-      Witness char (Both (rewrite one, none then byComputing) found)))
+      Witness char (Both (rewrite one, none) found)))
 
 --| Hexadecimal digits read one after another: their bits are the
 --| transmission's.
@@ -42,9 +42,9 @@ theorem digitsBits ∀ (read: List Char) (values: List Nat)
     (none: Parse.Each (read value => ∃ (char: Char) => read = [char] ∧ hexValue char = Some value) read values):
     transmissionBits read = Some (bitsOfDigits values) :=
   match values, none with
-    | [], none => rewrite none then byComputing
+    | [], none => rewrite none
     | [value, ..values], Witness first (Witness rest (Both split (Both (Witness char (Both one found)) others))) =>
-      rewrite split, one, hexAgree char value found, digitsBits rest values others then byComputing
+      rewrite split, one, hexAgree char value found, digitsBits rest values others
 
 --| The digits `readDigits` reads are the input's, all hexadecimal.
 theorem readDigitsBits ∀ (input: Text) (values: List Nat)
@@ -58,14 +58,11 @@ theorem readDigitsBits ∀ (input: Text) (values: List Nat)
     | Witness digits (Witness ending (Both split (Both each (Inl none)))) =>
       rewrite split, none, List.appendNil digits then digitsBits digits values each
     | Witness digits (Witness ending (Both split (Both each (Inr (Inl newline))))) =>
-      Void.impossible (Bool.trueNotFalse (Text.trimLast input digits '\n' (rewrite split, newline then byComputing)))
+      Void.impossible (Bool.trueNotFalse (Text.trimLast input digits '\n' (rewrite split, newline)))
     | Witness digits (Witness ending (Both split (Both each (Inr (Inr crlf))))) =>
       Void.impossible
         (Bool.trueNotFalse
-          (Text.trimLast input
-            (digits ++ ['\r'])
-            '\n'
-            (rewrite split, crlf, List.appendAssoc digits ['\r'] ['\n'] then byComputing)))
+          (Text.trimLast input (digits ++ ['\r']) '\n' (rewrite split, crlf, List.appendAssoc digits ['\r'] ['\n'])))
 
 --| The bits `readBits` reads are the transmission's.
 theorem readBitsHex ∀ (input: Text) (bits: List Bool)

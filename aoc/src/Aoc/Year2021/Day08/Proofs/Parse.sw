@@ -73,7 +73,7 @@ theorem wiredDecodes ∀ (entry: Entry) (ok: entry.wired = True): Decodes entry.
   let outputsShown: entry.outputs.all (output => (shown wiring output).isSome) = True :=
     Eq.trans
       (List.allCongMem entry.outputs (output => (shown wiring output).isSome) (output => True) (output m =>
-        rewrite showsDecoded output (List.memAppendRight output patterns entry.outputs m) then byComputing))
+        rewrite showsDecoded output (List.memAppendRight output patterns entry.outputs m)))
       (List.allTrue entry.outputs (output => True) (output => byComputing))
   Both wired (Both (rewrite patternsShown then List.permMap (patterns.map decode) digits digitsOnce Some) outputsShown)
 
@@ -90,6 +90,6 @@ theorem readShown ∀ (entry: Entry) (pattern: Pattern)
       (List.allCong segments
         (wire => pattern.has wire == (digitSegments digit).contains (entry.wiring.at wire))
         matches
-        (wire => rewrite displayDrawn digit below (entry.wiring.at wire) then byComputing))
+        (wire => rewrite displayDrawn digit below (entry.wiring.at wire)))
       each
   shownOf entry.wiring.at wired pattern digit below shows

@@ -12,7 +12,7 @@ theorem dragSign ∀ (dx: Int): dx - dx.sign = drag dx := match dx with
   | OfNat (Succ k) => byComputing
   | NegSucc k => byComputing
 
-theorem stepIsMove ∀ (probe: Probe): step probe = move probe := rewrite dragSign probe.velocity.x then byComputing
+theorem stepIsMove ∀ (probe: Probe): step probe = move probe := rewrite dragSign probe.velocity.x
 
 --| The probe after `n` steps of the program, from `velocity`.
 def flight (n: Nat) (velocity: Velocity): Probe := Nat.iterate n step (launch velocity)

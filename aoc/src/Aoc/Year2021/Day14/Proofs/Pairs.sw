@@ -35,4 +35,4 @@ theorem pairsStep ∀ (rules: List Rule) (polymer: List Char):
   match polymer with
     | [] => byComputing
     | [a] => byComputing
-    | [a, b, ..rest] => rewrite pairsStepCons rules a b rest, pairsStep rules [b, ..rest] then byComputing
+    | [a, b, ..rest] => rewrite pairsStepCons rules a b rest, pairsStep rules [b, ..rest]

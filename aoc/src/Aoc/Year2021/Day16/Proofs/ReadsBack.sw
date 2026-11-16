@@ -45,7 +45,7 @@ theorem runsHexDigit ∀ (char: Char) (value: Nat) (rest: List Char)
     char
     value
     (Eq.flipped (List.appendNil [char]))
-    (Parse.runsSatisfy _ _ char rest (rewrite found then byComputing))
+    (Parse.runsSatisfy _ _ char rest (rewrite found))
     (rewrite found then Parse.runsPure value rest)
 
 --| `hexDigit` declines at the end of the input.
@@ -77,12 +77,12 @@ theorem runsDigits ∀ (chars: List Char) (bits: List Bool)
                       Witness
                         [([char], value), ..steps]
                         (Both
-                          (rewrite joined then byComputing)
+                          (rewrite joined)
                           (Both
                             (Both
                               (List.consNotNil char [])
                               (Both (runsHexDigit char value (Parse.joinReads steps ++ []) found) manyRuns))
-                            (rewrite <- Option.someInjective h, same, bitsSame then byComputing)))
+                            (rewrite <- Option.someInjective h, same, bitsSame)))
 
 --| A transmission, trimmed, that the puzzle's table gives bits is read as
 --| exactly those bits.
@@ -98,8 +98,7 @@ theorem parseComplete ∀ (input: Text) (bits: List Bool)
             (() => Parse.many hexDigit)
             (Parse.stepValues steps)
             (Parse.runsWithFinalLineBreakNone _ _ _ runs)
-      rewrite Fail.toResultThen (() => readDigits input) (digits => bitsOfDigits digits), digits, bitsSame then
-        byComputing
+      rewrite Fail.toResultThen (() => readDigits input) (digits => bitsOfDigits digits), digits, bitsSame
 
 --| A transmission is read as at most one list of bits: the table gives each
 --| character bits, and the parser reads them back.

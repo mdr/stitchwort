@@ -18,7 +18,7 @@ import Std (Bool, DecEq, Decidable, Eq, Exists, Graph, List, Map, Nat, Option, V
 theorem part2Correct ∀ (map: HeightMap): Part2Answer map (solvePart2 map) :=
   Witness
     (low => map.basinSize map.graph low)
-    (Both (low height member => basinSizeCorrect map low height member) (rewrite lowPointsAgree map then byComputing))
+    (Both (low height member => basinSizeCorrect map low height member) (rewrite lowPointsAgree map))
 
 --| Each low point's basin has the size the program finds.
 theorem basinSizeCorrect ∀ (map: HeightMap) (low: Position) (height: Nat)
