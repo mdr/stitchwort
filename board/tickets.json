@@ -40879,7 +40879,7 @@
     {
       "id": 3637,
       "title": "[Sonnet] Cached re-check after stitchwort fmt reports spurious W-ARROW-FORALL on plain 'theorem name ∀ (…)' (15+ in toyfmt CarryProofs.sw, 9 in Degenerate.sw) and a W-MATCH-NOT-FOUND that comes and goes; --no-cache reports none. Find why the cache keeps stale warnings; failing-first test",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -41040,7 +41040,7 @@
     {
       "id": 3649,
       "title": "[Sonnet] std from Toy++ T1c (adds to SW-3638): Parse.readsAt helpers readsAtWeaken/Done/Optional/Peek/Mark; a readsInPeek variant handing the proof rest and start.rest = rest (removes ~50 '(rewrite e then fine)'); flatMapAppend, flatMapConcat, allReverse, takenStops; Parse.locatedSteps gives rising offsets (replaces toyfmt's Falling/fallingRising). Move them, toyfmt uses std's",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
