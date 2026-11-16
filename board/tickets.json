@@ -1,5 +1,5 @@
 {
-  "next": 3572,
+  "next": 3573,
   "tickets": [
     {
       "id": 47,
@@ -40011,6 +40011,19 @@
     {
       "id": 3571,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x921 case 13977): a calc whose first expression carries two trailing comments ('calc a ∨-- c / b-- c') gives 'formatter bug: output doesn't parse: expected a step _ = e on the next line'. Repro: task fuzz:fmt SEED=0x921 COMMENTS=0.3 CASE=13977. Add as a fmt test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Corrected minimal (Overmind, fmtmin/c2.sw; the 2-line one in the title is too small and is correctly refused): 'theorem andChain ∀ (a b: Bool-- c / ): (a ∧ b) = (a ∧ b) := calc a ∧ b /   _ = a ∧-- c /  b' → formatter bug 'expected a step _ = e on the next line'. Trigger: a trailing comment inside a calc step's expression (with a comment in the binder bracket). Also seed 0x922 case 35083, same message.",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3572,
+      "title": "[Sonnet] Formatter bug (fuzz, Overmind, plain seed 0x9ff case 52434): a header whose return type is swallowed by a -- comment ('def collatzSteps (n: Nat): {Partial} --Nat :=') with an if/else-if/else body formats to output where 'else' is at or left of the enclosing block's column → 'expected else'. Repro file: def collatzSteps (n: Nat): {Partial} --Nat := / if n ≤ 1 then 0 / else if … / else …; task fuzz:fmt SEED=0x9ff CASE=52434. Possibly interacts with SW-3538 (if indent from the if's line). Add as a fmt test",
       "status": "backlog",
       "agent": "",
       "where": "",
