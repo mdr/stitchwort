@@ -1,5 +1,5 @@
 {
-  "next": 3642,
+  "next": 3643,
   "tickets": [
     {
       "id": 47,
@@ -40934,6 +40934,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3642,
+      "title": "[Sonnet] rewrite repeatedly stage 2 (simp-revisited.md §8 stage 2; D3639 named sets; D3665: keep the forgiving search, remeasure after this): 'rules name := [...]' declarations, 'rewrite repeatedly … at h', expand (CLI flag and code action: the explicit rewrite steps), unused-rule warning; bar: stepWords and List.sumTakeMono as in §6, expanding every rewrite repeatedly in Words.sw gives a file that checks; then apply dev/patches/SW-3602-words-conversion.patch with named sets and remeasure vs 1.5x. Est. 60 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
