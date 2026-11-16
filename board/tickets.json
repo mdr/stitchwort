@@ -1,5 +1,5 @@
 {
-  "next": 3570,
+  "next": 3572,
   "tickets": [
     {
       "id": 47,
@@ -39624,7 +39624,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Fuzz refusal sample (Overmind, seed 0x91f case 1987, COMMENTS=0.3): a comment line cut a def header so ':=' starts line 3 → E-PARSE ':=' can't start a declaration. Refused, not a bug; same class as SW-3525.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39990,6 +39990,32 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3570,
+      "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x920 case 18424): a trailing comment after a constructor field's colon plus a comment line after → in its function type gives 'formatter bug: output doesn't parse: expected ), found →'. Minimal: type Stream: Type = | MkStream (head: Nat) (rest:-- c / Nat → / -- c / Stream). Repro: task fuzz:fmt SEED=0x920 COMMENTS=0.3 CASE=18424. Add as a fmt test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3571,
+      "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x921 case 13977): a calc whose first expression carries two trailing comments ('calc a ∨-- c / b-- c') gives 'formatter bug: output doesn't parse: expected a step _ = e on the next line'. Repro: task fuzz:fmt SEED=0x921 COMMENTS=0.3 CASE=13977. Add as a fmt test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
