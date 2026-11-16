@@ -1,5 +1,5 @@
 {
-  "next": 3490,
+  "next": 3492,
   "tickets": [
     {
       "id": 47,
@@ -38927,12 +38927,38 @@
     {
       "id": 3489,
       "title": "[Fable paper] Stock-take after the toy proof (Matt, 16 Nov 2026): (1) lessons for std, the language and proving in general; (2) the toy proof itself: generic facts for std, and where it could be simpler; (3) directions toward a formally verified Stitchwort formatter written in Stitchwort (token insertions and rewrites, not only whitespace), with the dual goal of improving the language and environment. Takes in SW-3417 and SW-3434's questions",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Paper: docs/proposals/after-the-toy-proof.md (lane/SW-3489, ae0a8a782). Fable, 16 Nov 2026; no builds or tests.\nMeasured: 1,262 theorems, 27,349 proof lines for 1,679 program lines; 157 theorems not reached from the result by name (all 56 of LayoutProofs.sw); three clone walks are 201; 17 plain std facts.\nRecommends: tidy the toy (to ~900), one std Reads design note (SW-3460+3465+3478 + declines), Toy++ with a sketch first, then passes + a white-space-only printer as the real formatter's end state.\nFour decisions for Matt (note §6): direction C as end state; Toy++ next; 'same program' as a Stitchwort meaning function plus the fuzz hash cross-check; the proved formatter's parser on std Parse.\nAbsorbs SW-3434 (§4.4) and replaces SW-3417's refresh (roadmap step 7).\n",
+      "body": "Paper: docs/proposals/after-the-toy-proof.md (lane/SW-3489, ae0a8a782). Fable, 16 Nov 2026; no builds or tests.\nMeasured: 1,262 theorems, 27,349 proof lines for 1,679 program lines; 157 theorems not reached from the result by name (all 56 of LayoutProofs.sw); three clone walks are 201; 17 plain std facts.\nRecommends: tidy the toy (to ~900), one std Reads design note (SW-3460+3465+3478 + declines), Toy++ with a sketch first, then passes + a white-space-only printer as the real formatter's end state.\nFour decisions for Matt (note §6): direction C as end state; Toy++ next; 'same program' as a Stitchwort meaning function plus the fuzz hash cross-check; the proved formatter's parser on std Parse.\nAbsorbs SW-3434 (§4.4) and replaces SW-3417's refresh (roadmap step 7).\n\nMerged. Fable, 9 min. Note: docs/proposals/after-the-toy-proof.md. Four decisions for Matt in §6 (direction C end state; Toy++ next; meaning function; parser on std Parse). Filed SW-3490 (tidy), SW-3491 (std facts). Existing: SW-3477 (test cache), SW-3478 (walk), diagnostics flood and duplicate-name tickets.",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3490,
+      "title": "[Sonnet] Tidy the toy proof per docs/proposals/after-the-toy-proof.md §3.1-3.3: confirm and delete theorems not reached from printParses (about 157 by name count; confirm by deleting and auditing; keep the examples), merge sameOffset/ownOffset, and (if cheap) join the three parser walks; measure theorems before/after",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3491,
+      "title": "[DeepSeek] std: List.Sorted (or Rising/Descending generalised) and the 17 plain std facts from the toy proof listed with file:line in docs/proposals/after-the-toy-proof.md §3.2, moved into std with API docs; toyfmt uses them",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
