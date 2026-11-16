@@ -1,5 +1,5 @@
 {
-  "next": 3610,
+  "next": 3611,
   "tickets": [
     {
       "id": 47,
@@ -40459,7 +40459,7 @@
     {
       "id": 3605,
       "title": "[Sonnet] Formatter fuzz round 2 (Overmind, 33 seeds on 9dba062b7, 1.17M cases): five families still failing on main, minimal inputs in scratchpad fmtbugs/round2/: (1) exists-binder.sw 'expected an expression, found )' (9 seeds, first 0x953/31305); (2) let-semicolon.sw 'expected ; after the value of let' (4 plain seeds, 0xa01/4759); (3) attr-arms.sw 'arms are indented further than the definition' (3 seeds, 0x950/54875); (4) else-chain.sw 'expected else' (0x958/82932); (5) lambda-let.sw (SW-3587, 0x931/17742). Each fixed in the general rule with a failing-first fmt test. Absorbs SW-3587",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -40472,12 +40472,12 @@
     {
       "id": 3606,
       "title": "[Opus] Formatter silently loses a comment (found by Toy++ T0): 'def a: Nat := (f (1) -- c1\\n  ) -- c2' formats with exit 0 to 'def a: Nat := (f (1)) -- c2'; place_comments in crates/fmt/src/tidy.rs (~53-61) overwrites a token that already has a comment. Also: why didn't the whole-file comments check catch it? Fix both, failing-first test; minimal in scratchpad fmtbugs/round2/lost-comment.sw",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Run together with SW-3605 in one Opus lane (both crates/fmt).\n\nMatt, 16 Nov 2026: 'It's pretty bad that it got past the runtime check.' Lane redirected: the check's gap first (comments compared from independent lexer tokens), then an audit of every part of the run-time check for independence, then the tidy.rs fix.",
+      "body": "Run together with SW-3605 in one Opus lane (both crates/fmt).\n\nMatt, 16 Nov 2026: 'It's pretty bad that it got past the runtime check.' Lane redirected: the check's gap first (comments compared from independent lexer tokens), then an audit of every part of the run-time check for independence, then the tidy.rs fix.\n\nModel result: opus, worked, 20 min (est. 70). Check missed it because comment_anchors ran place_comments on both sides; new check::same_comments compares lexer comments of the original vs output. Audit: tree check trusts the tidy passes -> SW-3610. Orchestrator's call: closer column at the opener line's indentation (only where old output didn't parse) and nested-if after a commented else are fine.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40516,6 +40516,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3610,
+      "title": "[Opus] Formatter tree check independent of the tidy passes (SW-3606 audit): equivalence::shape compares the output with the tidied text, so a pass that changed meaning would not be caught. Compare with the original file's tree, normalising parameter groups (one binder per name) for P4 and the other intended changes; at least check passes 1-3 against the original. Failing-first test: a deliberately wrong pass is refused",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
