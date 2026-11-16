@@ -777,6 +777,14 @@ fn completion_after_a_namespace_offers_its_members() {
 /// project with namespaces it doesn't import: `Proj.Other`, and
 /// `Proj.Uses`, which imports it.
 fn open_in_project(main: &str) -> Session {
+    open_in_project_with(
+        main,
+        "namespace Proj.Other\n\ndef zephyr: Nat := 1\n\ndef zenith (k n: Nat): Nat := k * n\n",
+    )
+}
+
+/// [`open_in_project`] with `other` as `src/Other.sw`.
+fn open_in_project_with(main: &str, other: &str) -> Session {
     let memory = cached_memory();
     let files = [
         ("src/Demo.sw", main),
@@ -784,10 +792,7 @@ fn open_in_project(main: &str) -> Session {
             "src/Base.sw",
             "namespace Proj.Base\n\ntype Box = { size: Nat }\n\ndef Box.twice (b: Box): Nat := b.size * 2\n",
         ),
-        (
-            "src/Other.sw",
-            "namespace Proj.Other\n\ndef zephyr: Nat := 1\n\ndef zenith (k n: Nat): Nat := k * n\n",
-        ),
+        ("src/Other.sw", other),
         (
             "src/Uses.sw",
             "namespace Proj.Uses\nimport Proj.Main (f)\n\ndef gather: Nat := 2\n",
@@ -867,6 +872,35 @@ fn completion_after_a_dot_in_a_project_checks_only_what_the_namespace_needs() {
         s.change(7, &typing);
         let items = s.complete_at_end(&typing, 4, None);
         assert!(!labels(&items).contains(&"gather"), "{:?}", labels(&items));
+    });
+}
+
+#[test]
+fn a_projects_own_name_is_offered_before_the_librarys_of_the_same_name() {
+    big_stack(|| {
+        let main = "namespace Proj.Main\nimport Proj.Base (Box)\n\n\
+            def f (b: Box): Nat := b.twice\n";
+        // `value` is also a name of std's `Std.Parse.Located`.
+        let mut s = open_in_project_with(main, "namespace Proj.Other\n\ndef value: Nat := 1\n");
+        let typing = format!("{main}def h: Nat := va\n");
+        s.change(2, &typing);
+        let items = s.complete_at_end(&typing, 4, None);
+        let imports: Vec<(&str, &str)> = {
+            let mut found: Vec<&Value> = items.iter().filter(|i| i["label"] == "value").collect();
+            found.sort_by_key(|i| i["sortText"].as_str().unwrap_or(""));
+            found
+                .iter()
+                .map(|i| {
+                    let d = i["labelDetails"]["description"].as_str().unwrap();
+                    (d, i["sortText"].as_str().unwrap())
+                })
+                .collect()
+        };
+        assert_eq!(
+            imports.first().map(|(d, _)| *d),
+            Some("import Proj.Other (value)"),
+            "{imports:?}"
+        );
     });
 }
 

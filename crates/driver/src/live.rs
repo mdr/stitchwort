@@ -901,7 +901,12 @@ impl LiveProject {
             return Vec::new();
         };
         let cyclic: BTreeSet<String> = dependents(analysis, own).into_iter().collect();
-        let visible: BTreeSet<&str> = names.iter().map(|n| n.name.as_str()).collect();
+        // The library's importable names are among `names`: a project name
+        // that one shares is still offered, ahead of it.
+        let visible: BTreeSet<&str> = (names.iter())
+            .filter(|n| n.import.is_none())
+            .map(|n| n.name.as_str())
+            .collect();
         declared
             .iter()
             .filter(|(name, _)| !visible.contains(name.as_str()))
