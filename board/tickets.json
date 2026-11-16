@@ -39022,12 +39022,12 @@
     {
       "id": 3496,
       "title": "[DeepSeek] fmt passes L3: redundant brackets and parameter groups through the pass runner (also fixes K3's inconsistent checks). After L2. Est. 40 min",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: deepseek, needed fixes (left the old text passes as dead files), ~35 min (est. 40). P3 still reads raw lexer trivia, not N's (plan §5.1 item 2 unchanged): for L4.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
