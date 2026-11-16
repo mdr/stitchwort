@@ -241,12 +241,14 @@ theorem wrapIterate ∀ (offset: Offset) (height width: Nat)
             (offsetExt (offset.times (Nat.toInt 0)) Offset.zero (arithmetic) (arithmetic)))
           (wrapZero position height width inside))
     | Succ times =>
-      Eq.trans
-        (wrapIterate offset height width times
-          (position.wrap offset height width)
-          (wrapWithin position offset height width))
-        (Eq.trans
-          (wrapPlus position offset (offset.times times.toInt) height width)
-          (Eq.cong
+      calc (Succ times).iterate (here => here.wrap offset height width) position
+        _ = (position.wrap offset height width).wrap (offset.times times.toInt) height width :=
+          wrapIterate offset height width times
+            (position.wrap offset height width)
+            (wrapWithin position offset height width)
+        _ = position.wrap (offset.plus (offset.times times.toInt)) height width :=
+          wrapPlus position offset (offset.times times.toInt) height width
+        _ = position.wrap (offset.times (Succ times).toInt) height width :=
+          Eq.cong
             (moved => position.wrap moved height width)
-            (offsetExt (offset.plus (offset.times times.toInt)) (offset.times (Succ times).toInt) (algebra) (algebra))))
+            (offsetExt (offset.plus (offset.times times.toInt)) (offset.times (Succ times).toInt) (algebra) (algebra))
