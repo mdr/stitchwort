@@ -8,13 +8,15 @@
 //! goes like any other: the layout joins the type to the row whatever the
 //! input's breaks, so keeping it would make a second pass drop it.
 //!
-//! Like [`super::merge`], it rewrites the text before printing, and the
-//! rewrite is checked on its own.
+//! This is pass P3 of docs/proposals/fmt-passes.md §2: it returns the pairs
+//! as deletions, which [`crate::passes::run`] applies and re-parses.
 
 use std::ops::Range;
 
-use stitchwort_syntax::{SourceMap, Tok, Token, decl_ranges, equivalence, lex_with_trivia};
+use stitchwort_syntax::tree::SyntaxFile;
+use stitchwort_syntax::{Tok, Token, equivalence};
 
+use crate::passes::Edit;
 use crate::spacing::{Role, roles};
 
 /// The `)` matching the `(` at `open`, before `end`.
@@ -129,21 +131,20 @@ fn binder_types(tokens: &[Token], range: &Range<usize>) -> Vec<usize> {
     found
 }
 
-/// `text` with the redundant parentheses dropped, and how many pairs; `None`
-/// if there are none.
-pub(crate) fn drop_parens(text: &str) -> Option<(String, usize)> {
-    let file = SourceMap::new().next_id();
-    let lexed = lex_with_trivia(file, text).ok()?;
-    let (tokens, trivia) = (&lexed.tokens, &lexed.trivia);
-    let ranges = decl_ranges(tokens).ok()?;
+/// P3: the redundant parentheses in `text`, as deletions; empty if there are
+/// none.
+pub fn drop_parens(tree: &SyntaxFile, text: &str) -> Vec<Edit> {
+    let tokens = tree.tokens();
+    let trivia = tree.trivia();
     let roles = roles(tokens);
     let after_row =
         |k: usize| k > 0 && tokens[k - 1].tok == Tok::RBrace && roles[k - 1] == Role::Row;
-    let mut cuts: Vec<Range<usize>> = Vec::new();
-    for range in ranges {
+    let mut edits = Vec::new();
+    for decl in tree.decls() {
+        let range = decl.token_range();
         let binders = binder_types(tokens, &range);
         // Most declarations have nothing to try, and are not parsed.
-        if !binders.iter().any(|_| true)
+        if binders.is_empty()
             && !range
                 .clone()
                 .any(|k| tokens[k].tok == Tok::LParen && after_row(k))
@@ -220,36 +221,43 @@ pub(crate) fn drop_parens(text: &str) -> Option<(String, usize)> {
             }
         }
         for (open, close) in dropped {
-            cuts.push(span_of(tokens, open));
-            cuts.push(span_of(tokens, close));
+            for k in [open, close] {
+                edits.push(Edit {
+                    range: span(k),
+                    text: String::new(),
+                });
+            }
         }
     }
-    if cuts.is_empty() {
-        return None;
-    }
-    let pairs = cuts.len() / 2;
-    cuts.sort_by_key(|c| std::cmp::Reverse(c.start));
-    let mut out = text.to_string();
-    for cut in cuts {
-        out.replace_range(cut, "");
-    }
-    Some((out, pairs))
-}
-
-fn span_of(tokens: &[Token], k: usize) -> Range<usize> {
-    tokens[k].span.start as usize..tokens[k].span.end as usize
+    edits
 }
 
 #[cfg(test)]
 mod tests {
+    use stitchwort_syntax::SourceMap;
+
     use super::*;
+
+    /// The text after the pass, and how many pairs it dropped.
+    fn dropped(text: &str) -> (String, usize) {
+        let file = SourceMap::new().add("t.sw", text);
+        let tidied = crate::passes::run(file, text, &[drop_parens]);
+        let pairs = tidied.edits[0] / 2;
+        (tidied.text, pairs)
+    }
+
+    /// `text` after the pass, if it changed.
+    fn drop(text: &str) -> Option<String> {
+        let (out, _) = dropped(text);
+        (out != text).then_some(out)
+    }
 
     #[test]
     fn parentheses_after_a_row_and_around_a_binder_type_go() {
         let text = "def a: {Fail} (List Nat) := []\n\
                     def b: {Fail} ((Nat, Nat)) := (0, 0)\n\
                     theorem c ∀ (h: (∀ (i: Nat) => i = i)): True := h\n";
-        let (out, pairs) = drop_parens(text).unwrap();
+        let (out, pairs) = dropped(text);
         assert_eq!(pairs, 3);
         assert_eq!(
             out,
@@ -265,7 +273,7 @@ mod tests {
                     def b: {IO} ((halvings 100 0)) := halvings 100 0\n\
                     def c: {IO} (((halvings 100 0)))\n\
                     def d: {IO} (((halvings 100 0))) := halvings 100 0\n";
-        let (out, pairs) = drop_parens(text).unwrap();
+        let (out, pairs) = dropped(text);
         assert_eq!(pairs, 10);
         assert_eq!(
             out,
@@ -283,6 +291,6 @@ mod tests {
                     def c: {Fail} (Nat, Nat) := (0, 0)\n\
                     def d: {IO} () := ()\n\
                     theorem e ∀ (h: (a ≤ b) = True): a ≤ b := h\n";
-        assert_eq!(drop_parens(text), None);
+        assert_eq!(drop(text), None);
     }
 }

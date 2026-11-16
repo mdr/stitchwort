@@ -8,45 +8,66 @@
 //!
 //! - P1: a `∀` after the name of every theorem with explicit parameters and
 //!   a result type;
-//! - P2: no comma before the closing bracket of a comma bracket.
+//! - P2: no comma before the closing bracket of a comma bracket;
+//! - P3: no redundant round brackets after a row or around a binder's whole
+//!   type;
+//! - P4: no adjacent parameters of one type that merge into one group.
 
 use std::ops::Range;
 
 use stitchwort_syntax::tree::{Element, Node, NodeKind, SyntaxFile};
 use stitchwort_syntax::{DEFAULT_STACK, FileId, Tok, parse_tree};
 
+pub use crate::merge::merge_parameters;
+pub use crate::parens::drop_parens;
+
 /// A change to the text: the bytes in `range` become `text`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Edit {
     pub range: Range<usize>,
-    pub text: &'static str,
+    pub text: String,
 }
 
 /// A tidy pass: the edits that make the tree tidy for it, none if it is.
-pub type Pass = fn(&SyntaxFile) -> Vec<Edit>;
+/// The text is what the tree was parsed from, which a pass that tries a
+/// candidate needs to parse it.
+pub type Pass = fn(&SyntaxFile, &str) -> Vec<Edit>;
 
 /// The passes, in the order they run (docs/proposals/fmt-passes.md §3.1).
-pub const PASSES: [Pass; 2] = [theorem_forall, trailing_comma];
+pub const PASSES: [Pass; 4] = [
+    theorem_forall,
+    trailing_comma,
+    drop_parens,
+    merge_parameters,
+];
 
 /// A file's text after the passes, and its tree.
 pub struct Tidied {
     pub text: String,
     pub tree: SyntaxFile,
+    /// How many edits each pass made, in the order they ran.
+    pub edits: Vec<usize>,
 }
 
 /// Runs each of `passes` on the file, in order.
 pub fn run(file: FileId, text: &str, passes: &[Pass]) -> Tidied {
     let mut text = text.to_string();
     let mut tree = parse_tree(file, &text, DEFAULT_STACK);
+    let mut made = Vec::with_capacity(passes.len());
     for pass in passes {
-        let edits = pass(&tree);
+        let edits = pass(&tree, &text);
+        made.push(edits.len());
         if edits.is_empty() {
             continue;
         }
         text = apply(&text, edits);
         tree = parse_tree(file, &text, DEFAULT_STACK);
     }
-    Tidied { text, tree }
+    Tidied {
+        text,
+        tree,
+        edits: made,
+    }
 }
 
 /// `text` with the edits made. They must not overlap.
@@ -54,7 +75,7 @@ fn apply(text: &str, mut edits: Vec<Edit>) -> String {
     edits.sort_by_key(|edit| std::cmp::Reverse(edit.range.start));
     let mut out = text.to_string();
     for edit in edits {
-        out.replace_range(edit.range, edit.text);
+        out.replace_range(edit.range, &edit.text);
     }
     out
 }
@@ -89,7 +110,7 @@ fn first_token(element: Element<'_>) -> usize {
 /// nothing is quantified over by name. The edit goes before the first
 /// parameter when it is on the name's line, else at the end of the name's
 /// line.
-pub fn theorem_forall(tree: &SyntaxFile) -> Vec<Edit> {
+pub fn theorem_forall(tree: &SyntaxFile, _text: &str) -> Vec<Edit> {
     let tokens = tree.tokens();
     let mut edits = Vec::new();
     each_node(tree, &mut |node| {
@@ -129,13 +150,13 @@ pub fn theorem_forall(tree: &SyntaxFile) -> Vec<Edit> {
             let end = name.token().span.end as usize;
             edits.push(Edit {
                 range: end..end,
-                text: " ∀",
+                text: " ∀".to_string(),
             });
         } else {
             let start = first.span.start as usize;
             edits.push(Edit {
                 range: start..start,
-                text: "∀ ",
+                text: "∀ ".to_string(),
             });
         }
     });
@@ -145,7 +166,7 @@ pub fn theorem_forall(tree: &SyntaxFile) -> Vec<Edit> {
 /// P2, D1012: no comma before the closing bracket of a comma bracket. Rule
 /// N has already moved the comma's comments elsewhere, so deleting it
 /// leaves every comment on the token it belongs to.
-pub fn trailing_comma(tree: &SyntaxFile) -> Vec<Edit> {
+pub fn trailing_comma(tree: &SyntaxFile, _text: &str) -> Vec<Edit> {
     use NodeKind::*;
     let tokens = tree.tokens();
     fn tok<'f>(element: &Element<'f>) -> Option<&'f Tok> {
@@ -186,7 +207,7 @@ pub fn trailing_comma(tree: &SyntaxFile) -> Vec<Edit> {
             let span = tokens[first_token(*comma)].span;
             edits.push(Edit {
                 range: span.start as usize..span.end as usize,
-                text: "",
+                text: String::new(),
             });
         }
     });
@@ -260,6 +281,37 @@ mod tests {
         assert_eq!(
             tidied("theorem t (a: Nat): f [a,] := rfl\n", &PASSES),
             "theorem t ∀ (a: Nat): f [a] := rfl\n"
+        );
+    }
+
+    #[test]
+    fn the_redundant_brackets_after_a_row_and_around_a_binder_type_are_dropped() {
+        assert_eq!(
+            tidied("def a: {Fail} (List Nat) := []\n", &[drop_parens]),
+            "def a: {Fail} List Nat := []\n"
+        );
+        assert_eq!(
+            tidied(
+                "theorem c ∀ (h: (∀ (i: Nat) => i = i)): True := h\n",
+                &[drop_parens]
+            ),
+            "theorem c ∀ (h: ∀ (i: Nat) => i = i): True := h\n"
+        );
+    }
+
+    #[test]
+    fn adjacent_parameters_of_one_type_are_merged() {
+        assert_eq!(
+            tidied("def f (a: Nat) (b: Nat): Nat := a\n", &[merge_parameters]),
+            "def f (a b: Nat): Nat := a\n"
+        );
+    }
+
+    #[test]
+    fn the_brackets_of_a_parameter_are_dropped_before_the_group_is_merged() {
+        assert_eq!(
+            tidied("def f (a: (Nat)) (b: Nat): Nat := a\n", &PASSES),
+            "def f (a b: Nat): Nat := a\n"
         );
     }
 }

@@ -2,7 +2,7 @@
 //! (docs/proposals/formatter-style.md; the comment and tree checks are in
 //! `printer`): the same tokens, in the same order.
 
-use stitchwort_syntax::{Lexed, Tok, Token};
+use stitchwort_syntax::Lexed;
 
 /// Line and column (from 1) of byte `at` in `text`, for messages.
 fn position(text: &str, at: usize) -> String {
@@ -14,22 +14,15 @@ fn position(text: &str, at: usize) -> String {
 
 /// The same tokens, in the same order, each with the same text (a `"""`
 /// text block, whose lines move, with the same value). This catches tokens
-/// glued together or split apart.
+/// glued together or split apart, and a bracket dropped where it matters.
 pub(crate) fn same_tokens(
     before: &str,
     lexed_before: &Lexed,
     after: &str,
     lexed_after: &Lexed,
 ) -> Result<(), String> {
-    // Parentheses are the one allowed difference (D2307): the formatter
-    // drops the redundant ones after an ability row. The tree check catches
-    // any parenthesis whose removal changed the parse.
-    let strip = |lexed: &Lexed| -> Vec<Token> {
-        let kept = |t: &&Token| !matches!(t.tok, Tok::LParen | Tok::RParen);
-        lexed.tokens.iter().filter(kept).cloned().collect()
-    };
-    let (a, b) = (strip(lexed_before), strip(lexed_after));
-    for (x, y) in a.iter().zip(&b) {
+    let (a, b) = (&lexed_before.tokens, &lexed_after.tokens);
+    for (x, y) in a.iter().zip(b) {
         let text_x = &before[x.span.range()];
         let text_y = &after[y.span.range()];
         let same_text = text_x == text_y || (text_x.contains('\n') && text_y.contains('\n'));
@@ -69,5 +62,13 @@ mod tests {
         assert!(error.contains("tokens"), "{error}");
         let (before, after) = ("def x := a.b", "def x := a .b");
         assert!(same_tokens(before, &lexed(before), after, &lexed(after)).is_ok());
+    }
+
+    #[test]
+    fn round_brackets_are_compared_like_every_other_token() {
+        let (before, after) = ("def x := (a)\n", "def x := a\n");
+        assert!(same_tokens(before, &lexed(before), after, &lexed(after)).is_err());
+        let (before, after) = ("def x := ((a))\n", "def x := (a)\n");
+        assert!(same_tokens(before, &lexed(before), after, &lexed(after)).is_err());
     }
 }

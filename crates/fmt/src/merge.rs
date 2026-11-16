@@ -2,17 +2,19 @@
 //! merged, `(a: Nat) (b: Nat)` into `(a b: Nat)`, in definition and theorem
 //! headers, `∀` binders and lambdas (docs/proposals/formatter-style.md §4).
 //!
-//! It is a rewrite of tokens, done before layout and checked on its own
-//! ([`check`]). The compiler's tree keeps a group as one binder with
-//! several names, so the check compares the two texts with every group
-//! split into one binder a name ([`split`]). Splitting `(x y: P x)` would
-//! change which `x` the second type means, which is why a type that
-//! mentions a name of the group is never merged: then splitting is exact,
-//! and the comparison sees everything the merge did.
+//! This is pass P4 of docs/proposals/fmt-passes.md §2: it returns the merges
+//! as edits, which [`crate::passes::run`] applies and re-parses. The
+//! compiler's tree keeps a group as one binder with several names; a type
+//! that mentions a name of the group is never merged, since splitting
+//! `(x y: P x)` would change which `x` the second type means.
 
-use super::token_text_range;
+use std::ops::Range;
+
+use stitchwort_syntax::Tok;
 use stitchwort_syntax::tree::{Element, Node, NodeKind, SyntaxFile};
-use stitchwort_syntax::{DEFAULT_STACK, SourceMap, Tok, equivalence, parse_tree};
+
+use crate::passes::Edit;
+use crate::printer::token_text_range;
 
 /// A parameter in brackets, read from its node: `(a b: T)` or `[a: T]`.
 struct Param {
@@ -24,7 +26,7 @@ struct Param {
     /// The type's source text, from its first token to its last.
     ty_text: String,
     /// Its bytes in the source.
-    range: std::ops::Range<usize>,
+    range: Range<usize>,
 }
 
 /// Reads a parameter that may be merged or split: names, a colon and a
@@ -113,25 +115,9 @@ fn walk<'f>(node: Node<'f>, f: &mut impl FnMut(Node<'f>)) {
     }
 }
 
-/// Replaces byte ranges of `text`; `edits` don't overlap.
-fn apply(text: &str, mut edits: Vec<(std::ops::Range<usize>, String)>) -> String {
-    edits.sort_by_key(|(range, _)| range.start);
-    let mut out = String::with_capacity(text.len());
-    let mut at = 0;
-    for (range, replacement) in edits {
-        out.push_str(&text[at..range.start]);
-        out.push_str(&replacement);
-        at = range.end;
-    }
-    out.push_str(&text[at..]);
-    out
-}
-
-/// `text` with D3565's merges made, and how many groups they made; `None`
+/// P4: the parameter groups in `text`, as edits, one per group made; empty
 /// if there are none.
-pub(crate) fn merge(text: &str) -> Option<(String, usize)> {
-    let file = SourceMap::new().next_id();
-    let tree = parse_tree(file, text, DEFAULT_STACK);
+pub fn merge_parameters(tree: &SyntaxFile, text: &str) -> Vec<Edit> {
     let mut edits = Vec::new();
     for decl in tree.decls() {
         walk(decl, &mut |node| {
@@ -151,14 +137,17 @@ pub(crate) fn merge(text: &str) -> Option<(String, usize)> {
                         .collect();
                     let merged = format!("{open}{}: {}{close}", names.join(" "), run[0].ty_text);
                     let range = run[0].range.start..run[run.len() - 1].range.end;
-                    edits.push((range, merged));
+                    edits.push(Edit {
+                        range,
+                        text: merged,
+                    });
                 }
                 run.clear();
             };
             let mut previous_end = None;
             for child in node.children() {
                 let next = match child {
-                    Element::Node(n) if n.kind() == kind => param(&tree, text, n),
+                    Element::Node(n) if n.kind() == kind => param(tree, text, n),
                     _ => None,
                 };
                 let Some(next) = next else {
@@ -187,74 +176,28 @@ pub(crate) fn merge(text: &str) -> Option<(String, usize)> {
             flush(&mut run);
         });
     }
-    let groups = edits.len();
-    (groups > 0).then(|| (apply(text, edits), groups))
-}
-
-/// `text` with every parameter group split into one binder a name, `(a b:
-/// T)` into `(a: T) (b: T)`, for comparing trees.
-fn split(text: &str) -> Option<String> {
-    let file = SourceMap::new().next_id();
-    let tree = parse_tree(file, text, DEFAULT_STACK);
-    let mut edits = Vec::new();
-    for decl in tree.decls() {
-        walk(decl, &mut |node| {
-            if !matches!(node.kind(), NodeKind::Param | NodeKind::LambdaParam) {
-                return;
-            }
-            if let Some(p) = param(&tree, text, node)
-                && p.names.len() > 1
-            {
-                let (open, close) = bracket(&p.open);
-                let parts: Vec<String> = p
-                    .names
-                    .iter()
-                    .map(|name| format!("{open}{name}: {}{close}", p.ty_text))
-                    .collect();
-                edits.push((p.range, parts.join(" ")));
-            }
-        });
-    }
-    Some(apply(text, edits))
-}
-
-/// Checks a merge on its own: the same comments in the same order, and the
-/// same tree once every group on either side is split.
-pub(crate) fn check(before: &str, after: &str) -> Result<(), String> {
-    let file = SourceMap::new().next_id();
-    let comments = |text: &str| -> Option<Vec<String>> {
-        let lexed = stitchwort_syntax::lex_with_trivia(file, text).ok()?;
-        let mut out = Vec::new();
-        for trivia in lexed.trivia.iter().chain([&lexed.eof]) {
-            out.extend(trivia.leading.iter().map(|c| c.text.clone()));
-            out.extend(trivia.trailing.iter().map(|c| c.text.clone()));
-        }
-        Some(out)
-    };
-    if comments(before) != comments(after) {
-        return Err("merging parameters moved a comment".into());
-    }
-    let (Some(a), Some(b)) = (split(before), split(after)) else {
-        return Err("merging parameters made text that doesn't parse".into());
-    };
-    let (a, b) = (equivalence::parse_shape(&a), equivalence::parse_shape(&b));
-    match (a, b) {
-        (Ok(a), Ok(b)) if a == b => Ok(()),
-        (Ok(_), Ok(_)) => Err("merging parameters changed the tree".into()),
-        _ => Err("merging parameters made text that doesn't parse".into()),
-    }
+    edits
 }
 
 #[cfg(test)]
 mod tests {
+    use stitchwort_syntax::SourceMap;
+
     use super::*;
+
+    /// The text after the pass, and how many groups it made.
+    fn merged(text: &str) -> (String, usize) {
+        let file = SourceMap::new().add("t.sw", text);
+        let tidied = crate::passes::run(file, text, &[merge_parameters]);
+        (tidied.text, tidied.edits[0])
+    }
 
     #[test]
     fn adjacent_parameters_of_one_type_merge() {
         let text = "def f (a: Nat) (b: Nat) [t: Type] [u: Type] (x: t): Nat := a\n\
                     theorem g ∀ (xs: List Nat) (ys: List Nat): xs = ys := h\n\
                     def h: Nat := forall (x: Nat) (y: Nat) => (p: Nat) (q: Nat) => x\n";
-        let (merged, groups) = merge(text).unwrap();
+        let (merged, groups) = merged(text);
         assert_eq!(groups, 5);
         assert_eq!(
             merged,
@@ -262,7 +205,6 @@ mod tests {
              theorem g ∀ (xs ys: List Nat): xs = ys := h\n\
              def h: Nat := forall (x y: Nat) => (p q: Nat) => x\n"
         );
-        assert_eq!(check(text, &merged), Ok(()));
     }
 
     #[test]
@@ -275,13 +217,8 @@ mod tests {
                     def i [auto e: Eq a] [auto f: Eq a]: Nat := 1\n\
                     def j (a: Nat) [b: Nat]: Nat := a\n\
                     type T = | C (a: Nat) (b: Nat)\n";
-        assert_eq!(merge(text), None);
-    }
-
-    #[test]
-    fn a_merge_that_changes_the_tree_is_caught() {
-        let before = "def f (a: Nat) (b: Nat): Nat := a\n";
-        assert!(check(before, "def f (a b: Int): Nat := a\n").is_err());
-        assert!(check(before, "def f (a b: Nat): Nat := a\n").is_ok());
+        let (out, groups) = merged(text);
+        assert_eq!(groups, 0);
+        assert_eq!(out, text);
     }
 }
