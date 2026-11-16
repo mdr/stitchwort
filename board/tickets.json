@@ -1,5 +1,5 @@
 {
-  "next": 3584,
+  "next": 3586,
   "tickets": [
     {
       "id": 47,
@@ -29265,9 +29265,9 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Bring forward: readable-proofs.md rec 2 (goal --steps shows every state of a proof in one query).",
       "created": "2026-11-11",
-      "updated": "2026-11-11",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -40167,12 +40167,38 @@
     {
       "id": 3583,
       "title": "[Opus paper] Readable, repairable proofs in the age of AI: research note (Matt, 16 Nov 2026): how proofs are best written in Lean, Rocq, Agda, Idris, Isabelle and Stitchwort for humans and agents to follow, repair and understand; what AI-prover work and proof-engineering research say; recommendations for Stitchwort's language, tools and style guide",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
       "body": "Progress (Opus lane, 16 Nov 2026): note written, docs/research/readable-proofs.md (registered in docs/research/README.md). Covers the four styles, AI provers (stepwise vs whole-proof, sketches), hammers (Sledgehammer, HOL(y)Hammer, CoqHammer, SMTCoq, Lean hammers; added at the coordinator's request), proof repair and brittleness, a scorecard of Stitchwort's proofs, R1-R10, and D candidates D-a (proof idea in long theorems' docs), D-b (checked `show`), D-c (hammer experiment, source-writing only), D-d (state, don't chain, with a warning). No builds or tests (paper lane). Moved to review.\n",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3584,
+      "title": "[Sonnet] stitchwort goal --at … --as-lemma: print the goal at a point as a ready-to-paste lemma statement (hypotheses as parameters), so a stuck step can be extracted (docs/research/readable-proofs.md rec 3; Goedel-Prover-V2's subgoal extraction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3585,
+      "title": "[Sonnet] One shared induction lemma for std's repeated Parse.runFrom…Tree eight-arm proof structure (readable-proofs.md rec 6)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
