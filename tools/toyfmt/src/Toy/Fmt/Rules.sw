@@ -20,10 +20,7 @@ import Std (List, Option, Text)
 --| The width `toyfmt` prints in unless told otherwise.
 def defaultWidth: Nat := 80
 
---| A file printed.
-type Printed = { text: Text }
-
-def SourceFile.print (file: SourceFile) (width: Nat): Printed := { text = Toy.Doc.print file.layout width }
+def SourceFile.print (file: SourceFile) (width: Nat): Text := Toy.Doc.print file.layout width
 
 --| P9: declarations one a line at column 0, with the kept blank lines.
 def SourceFile.layout (file: SourceFile): Doc := match file.declarations with

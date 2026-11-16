@@ -6,15 +6,16 @@ namespace Toy.Fmt
 import Toy.Syntax (..)
 import Std (Option, Result, Text)
 
---| What `format` answers: the file formatted (`Stable`), or why there is
---| no answer: the parse error as "line 3, column 9: expected ',' or ')',
---| got 'b'".
-type FormatResult = | Stable (printed: Printed) | Refused (message: Text)
+--| What `format` answers: the file formatted (`Formatted`), or why there is
+--| no answer: the source isn't valid toy syntax, a lex or parse error
+--| (`ParseError`), the only case with no answer, as "line 3, column 9:
+--| expected ',' or ')', got 'b'".
+type FormatResult = | Formatted (text: Text) | ParseError (message: Text)
 
---| The answer as an `Option`: the printed file if there is one.
-def FormatResult.toOption: FormatResult → Option Printed
-  | Stable printed => Some printed
-  | Refused _ => None
+--| The answer as an `Option`: the formatted file if there is one.
+def FormatResult.toOption: FormatResult → Option Text
+  | FormatResult.Formatted text => Some text
+  | ParseError _ => None
 
 --| The source laid out afresh at `width`. The rules read the parsed tree
 --| and nothing else, so the output depends on the source only through its
@@ -22,5 +23,5 @@ def FormatResult.toOption: FormatResult → Option Printed
 --| Both theorems about `format` (`formatRoundTrip`, `formatIdempotent`)
 --| rest on that.
 def format (source: Text) (width: Nat): FormatResult := match parse source with
-  | Err message => Refused message
-  | Ok tree => Stable (tree.print width)
+  | Err message => ParseError message
+  | Ok tree => FormatResult.Formatted (tree.print width)

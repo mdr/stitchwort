@@ -21,7 +21,7 @@ theorem parsedPrintPlaced ∀ (source: Text) (file: SourceFile) (width: Nat)
     (parsed: parse source = Ok file):
     ∃ (events: List Event) => ∃ (lexemes: List (Parse.Located Lexeme)) => ∃ (tokens: List (Parse.Located Token)) =>
       ∃ (endTrivia: List Trivia) => FileEvents file events
-        ∧ lex (file.print width).text = Ok { lexemes, tokens = tokens.reverse, endTrivia = endTrivia.reverse }
+        ∧ lex (file.print width) = Ok { lexemes, tokens = tokens.reverse, endTrivia = endTrivia.reverse }
         ∧ tokens.map viewOf = (viewsOf events).views
         ∧ endTrivia = (viewsOf events).pending
         ∧ Descending (tokens.map (token => token.offset)) :=
@@ -48,13 +48,13 @@ theorem parsedPrintPlaced ∀ (source: Text) (file: SourceFile) (width: Nat)
 --| width.
 theorem printParses ∀ (source: Text) (file: SourceFile) (width: Nat)
     (parsed: parse source = Ok file):
-    parse (file.print width).text = Ok file :=
+    parse (file.print width) = Ok file :=
   match parsedPrintPlaced source file width parsed with
     | Witness events
         (Witness lexemes
           (Witness tokens (Witness endTrivia (Both laid (Both lexed (Both views (Both pending offsets))))))) =>
       parseReads
-        (file.print width).text
+        (file.print width)
         { lexemes, tokens = tokens.reverse, endTrivia = endTrivia.reverse }
         file
         lexed
@@ -73,23 +73,23 @@ theorem printParses ∀ (source: Text) (file: SourceFile) (width: Nat)
 --| refuses only what the parser refuses.
 theorem formatAnswers ∀ (source: Text) (width: Nat) (tree: SourceFile)
     (parsed: parse source = Ok tree):
-    format source width = Stable (tree.print width) :=
+    format source width = FormatResult.Formatted (tree.print width) :=
   rewrite parsed in rfl
 
 --| Round trip: the output of `format` parses to the source's tree.
-theorem formatRoundTrip ∀ (source: Text) (width: Nat) (output: Printed)
-    (h: format source width = Stable output):
-    ∃ (tree: SourceFile) => parse source = Ok tree ∧ output = tree.print width ∧ parse output.text = Ok tree :=
+theorem formatRoundTrip ∀ (source: Text) (width: Nat) (output: Text)
+    (h: format source width = FormatResult.Formatted output):
+    ∃ (tree: SourceFile) => parse source = Ok tree ∧ output = tree.print width ∧ parse output = Ok tree :=
   match e: parse source with
     | Ok tree =>
-      let same := stableInjective (tree.print width) output h
+      let same := formattedInjective (tree.print width) output h
       Witness tree (Both rfl (Both (Eq.sym same) (rewrite <- same in printParses source tree width e)))
 
 --| Idempotence: formatting the output again, at the same width, gives
 --| the output.
-theorem formatIdempotent ∀ (source: Text) (width: Nat) (output: Printed)
-    (h: format source width = Stable output):
-    format output.text width = Stable output :=
+theorem formatIdempotent ∀ (source: Text) (width: Nat) (output: Text)
+    (h: format source width = FormatResult.Formatted output):
+    format output width = FormatResult.Formatted output :=
   match formatRoundTrip source width output h with
     | Witness tree (Both parsed (Both same reparsed)) =>
-      rewrite same in formatAnswers (tree.print width).text width tree (rewrite <- same in reparsed)
+      rewrite same in formatAnswers (tree.print width) width tree (rewrite <- same in reparsed)

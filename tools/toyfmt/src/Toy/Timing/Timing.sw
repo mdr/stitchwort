@@ -15,7 +15,7 @@ def main(): {IO} () :=
   let phase := args.head |> .getOrElse "print"
   let copies := args.drop 1 |> .head |> .flatMap Text.toNat |> .getOrElse 100
   let file: SourceFile := { declarations = List.range 0 copies |> .concatMap sample }
-  let source := (file.print defaultWidth).text
+  let source := file.print defaultWidth
   IO.print "${copies} copies: ${source.length} characters; ${phase}: ${measure phase source}"
 
 def measure (phase source: Text): Text := match phase with
@@ -29,8 +29,8 @@ def measure (phase source: Text): Text := match phase with
       | Err message => message
   | "format" =>
     match format source defaultWidth with
-      | Stable printed => if printed.text == source then "unchanged" else "changed"
-      | Refused message => message
+      | FormatResult.Formatted text => if text == source then "unchanged" else "changed"
+      | ParseError message => message
   | _ => "nothing more"
 
 def none: Comments := Comments.none

@@ -192,7 +192,7 @@ theorem parsedPrintViews ∀ (source: Text) (file: SourceFile) (width: Nat)
     (parsed: parse source = Ok file):
     ∃ (events: List Event) => ∃ (lexemes: List (Parse.Located Lexeme)) => ∃ (tokens: List (Parse.Located Token)) =>
       ∃ (endTrivia: List Trivia) => FileEvents file events
-        ∧ lex (file.print width).text = Ok { lexemes, tokens = tokens.reverse, endTrivia = endTrivia.reverse }
+        ∧ lex (file.print width) = Ok { lexemes, tokens = tokens.reverse, endTrivia = endTrivia.reverse }
         ∧ tokens.map viewOf = (viewsOf events).views
         ∧ endTrivia = (viewsOf events).pending :=
   match parsedPrintTokens source file width parsed with

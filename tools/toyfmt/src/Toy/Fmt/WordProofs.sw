@@ -804,7 +804,7 @@ theorem fileWrites ∀ (file: SourceFile): Writes file.layout file.pieces := mat
 --| comment is lost, repeated or moved, and a trailing comment is written
 --| before the token after it.
 theorem printPieces ∀ (file: SourceFile) (width: Nat):
-    ∃ (printed: List Text) => (file.print width).text = printed.joinWith "" ∧ wordsOf printed = wordsOf file.pieces :=
+    ∃ (printed: List Text) => (file.print width) = printed.joinWith "" ∧ wordsOf printed = wordsOf file.pieces :=
   match fileWrites file with
     | Both uniform words =>
       match printWords file.layout width uniform with

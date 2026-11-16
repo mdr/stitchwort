@@ -434,9 +434,9 @@ theorem joinedPlaced ∀ (doc: Doc) (width: Nat)
 --| it there, at the column the line was wide before it.
 theorem printedTokens ∀ (file: SourceFile) (width: Nat)
     (lexical: LexicalFile file):
-    (file.print width).text = (printedPieces file.layout width).joinWith ""
+    (file.print width) = (printedPieces file.layout width).joinWith ""
       ∧ wordsOf (printedPieces file.layout width) = wordsOf file.pieces
-      ∧ lex (file.print width).text
+      ∧ lex (file.print width)
         = Ok {
           lexemes = Parse.locatedSteps 0 (stepsOnto (printedPieces file.layout width).reverse []),
           tokens = (placed (printedPieces file.layout width).reverse).tokens.reverse,
@@ -452,9 +452,9 @@ theorem printedTokens ∀ (file: SourceFile) (width: Nat)
 --| `printedTokens` of every parsed file.
 theorem parsedPrintTokens ∀ (source: Text) (file: SourceFile) (width: Nat)
     (parsed: parse source = Ok file):
-    (file.print width).text = (printedPieces file.layout width).joinWith ""
+    (file.print width) = (printedPieces file.layout width).joinWith ""
       ∧ wordsOf (printedPieces file.layout width) = wordsOf file.pieces
-      ∧ lex (file.print width).text
+      ∧ lex (file.print width)
         = Ok {
           lexemes = Parse.locatedSteps 0 (stepsOnto (printedPieces file.layout width).reverse []),
           tokens = (placed (printedPieces file.layout width).reverse).tokens.reverse,

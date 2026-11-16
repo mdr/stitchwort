@@ -33,7 +33,7 @@ def runOn (disk: Disk) (check: Bool) (paths: List Text): (Disk, List Outcome) :=
 --| The paths, as the disk records the writes to them.
 def written (paths: List Text): List Path := paths.map Text.toPath
 
-def formatted (path: Text) (change: Change): Outcome := Formatted path.toPath change
+def formatted (path: Text) (change: Change): Outcome := Outcome.Formatted path.toPath change
 
 test "a folder is walked: files are rewritten, formatted ones aren't written, the broken one is reported" :=
   let (after, outcomes) := runOn project False ["src"]
@@ -60,7 +60,7 @@ test "a second run changes nothing and writes nothing" :=
   let (again, moreOutcomes) := runOn after False ["src"]
   again == after
     && moreOutcomes.all (match
-      | Formatted _ Unchanged => True
+      | Outcome.Formatted _ Unchanged => True
       | Problem _ => True
       | _ => False)
 
@@ -68,7 +68,7 @@ test "--check writes nothing and says which files would change" :=
   let (after, outcomes) := runOn project True ["src"]
   after == project
     && outcomes.filter (match
-      | Formatted _ WouldChange => True
+      | Outcome.Formatted _ WouldChange => True
       | _ => False)
       == [formatted "src/a.sprig" WouldChange, formatted "src/deep/c.sprig" WouldChange]
 

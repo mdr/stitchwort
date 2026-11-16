@@ -12,8 +12,7 @@ type Probe = { name: Text, source: Text, dump: Text, formatted: Text }
 
 def probeWidth: Nat := 40
 
-def Probe.formats (probe: Probe) (text: Text): Option Text :=
-  format text probeWidth |> .toOption |> .map (printed => printed.text)
+def Probe.formats (probe: Probe) (text: Text): Option Text := format text probeWidth |> .toOption
 
 def probes: List Probe :=
   [
