@@ -557,3 +557,61 @@ be leftmost, one in `withoutFirstAboveSame`.
   `Falling` and `fallingRising` for any lexer built on
   `Parse.locatedToEnd`.
 
+
+## T2a: the syntax, parser side (SW-3666)
+
+Opus, 16 November 2026. **[checked]**: `stitchwort check` in
+`tools/toyfmt` (only the 18 declarations below fail) and here (49 goals
+open, as before); `stitchwort audit Toy.Syntax.Proofs Toy.Fmt.Carry`
+(0 failed). **[run]**: the parsing tests named below.
+
+### The syntax
+
+`fn area takes (w h: Int) = …`: `takes` is a keyword
+(`Keyword.TakesKeyword`), `:` a sign (`Punctuation.Colon`). The tree is
+§1's, with commas still holding comments until T3: `Parameter` is
+`{ group: ParameterGroup, comma: Comments }`, and `Function` has
+`takes: Option Comments` after `nameComments`. A type is a name or a type
+in brackets, read by `Parse.recursiveWith`, as expressions are. Several
+names need a type (`fn f(a b)` is "expected a name or ':', got ')'").
+
+The parser's new functions (`Syntax/Parser.sw`): `functionHeader` (a
+`Header` record: `takes`, `(`, the groups, `)`), `parameterGroup`,
+`typing`, `groupOf`, `namedOf`, `typeExpr`, `typeRule`, `typeOf` (the
+"look, then skip" one, with the token's comments and kind as arguments,
+as `atomOf`). `groupOf` matches on the type first, so a typed group
+reduces whatever its names.
+
+### Lemmas
+
+31 new, 19 restated, by walk: the read-back (`Syntax/GroupProofs.sw`, 16;
+`runsHeader`, `runsTakes`, `runsNoTakes` in `BlockProofs.sw`), the `Gives`
+walk (`givesTypeOf`, `givesTypeExpr`, `givesTyping`, `givesGroupOf`,
+`givesGroup`, `givesHeader`), the carry walk (`innerOptional`,
+`innerTypeOf`, `innerTypeExpr`, `innerTyping`, `ontoGroupOf`,
+`innerGroup`, `innerHeader`, `namesOfComments`). About 3.9 lemmas for each
+new function: one in each of three walks, and a few small ones.
+`SpelledDeclarations` (`FileProofs.sw`) now takes the header's tokens
+whole, with a `Parse.Runs` of `functionHeader`, so the read-back of
+groups and types is the printer side's to supply through `runsHeader`.
+
+### Open for T2b (SW-3667)
+
+Each is marked `-- Open for T2b (SW-3667)` above it; all are the
+printer's lemmas over `Function`, parameters and their pieces, words,
+joins and events:
+
+- `WordProofs.sw`: `parameterPieces`, `Declaration.pieces`,
+  `parameterDocsWrite`, `headerWrites`, `declarationWrites`;
+- `RuleJoinProofs.sw`: `parameterDocsPass`, `headerPasses`,
+  `declarationPasses`;
+- `EventProofs.sw`: `ParameterEvents`, `DeclarationEvents`,
+  `sepsParameters`, `fillParameters`, `functionLays`, `declarationLays`;
+- `BlockSpellProofs.sw`: `ParametersGoal`, `parametersOut`,
+  `parameterListOut`, `declarationsOut`.
+
+What waits on them: `printParses`, `formatRoundTrip`, `formatIdempotent`,
+`formatKeepsComments`, and in `Degenerate.sw` `formatHasKeepsComments`
+and `formatRoundTrips`. `formatSameTree`, `formatRefuses`,
+`formatRefusesOnly`, `parseCarries`, `tokensCarry`, `parseParsed` and
+`Degenerate.sw`'s other theorems and examples check now.
