@@ -368,3 +368,91 @@ a pass that forgets to tidy.
 Not Matt's, for the orchestrator: file finding 1 as a formatter bug with
 its reproducer, and finding 5 as friction; (A) is chosen; (b) stays
 after `toy-v2`.
+
+## T1b: the must set on today's toy (SW-3632)
+
+Fable, 16 November 2026 (D3663). **[checked]** as above; **[inferred]**
+and **[estimated]** are mine.
+
+### Proved, in the toy itself
+
+| Statement | Where | Proof |
+|---|---|---|
+| `formatSameTree` (P7) | `Toy/Fmt/DirectProofs.sw` | two uses of `formatAnswers` |
+| `formatRefuses`, `formatRefusesOnly` (P14, both ways) | `Toy/Fmt/DirectProofs.sw` | by computing |
+| `Degenerate.sw` (P15): `identityNotSameTree`, `deleteCommentsLosesOne`, `oneLineDoesNotParse`, and nine tree examples | `Toy/Fmt/Degenerate.sw` | computed examples |
+| `readsOperatorsRead`: what `Parse.operators` read | `Toy/Syntax/OperatorReads.sw` | 4 lemmas |
+| the walk's spec and its chain lemmas (`Onto`, `thenFresh`, `thenInner`, `ontoDone`, `keptAllAppend`) | `Toy/Fmt/CarryProofs.sw` | 15 lemmas |
+
+`Degenerate.sw` restates each theorem for any formatter (`SameTree`,
+`KeepsComments`, `RoundTrips`), so "breaks the theorem" is a proof of
+`SameTree identity → Void`, not a remark; `format` has `SameTree` and
+`RoundTrips` by the theorems of those names [checked]. Today's toy has no
+`meaning` (it arrives at T4): the tree stands in for it, so the examples
+say that sources differing in a comment, its text, its place, a blank
+line, an operator, brackets, a string or the order of two declarations
+have different trees, and two layouts have the same one.
+
+### `formatKeepsComments` (P4): stated, not proved
+
+`src/KeepsComments.sw` here states it as the note has it, with
+`Lexed.comments` (`Toy/Syntax/Lex.sw`, 3 definitions, reading the
+lexer's answer only), and proves it from `formatRoundTrip` and
+`parseCarries` (the tree holds the lexer's comments), which is proved
+from three open lemmas [checked]:
+
+- `tokensCarry`: the walk, finished;
+- `lexTidy`: a token that doesn't start a line has no own-line comments
+  above it;
+- `lexRising`: token offsets rise.
+
+Seven computed examples (comments above declarations and statements,
+inside brackets, on continuation lines, at the end; at widths 80 and 10)
+agree with both statements [computed]. So the statement is right as
+phrased; what is missing is the parser's half, and it costs more than
+formatter-properties.md §2 estimated ("15 to 25 lemmas and a conjunct").
+Why:
+
+1. **The walk can't take a conjunct.** `Toy.Fmt.Proofs`'s walk is
+   `Parse.Gives`, whose specs ignore what was read. "The tree's comments
+   are the tokens'" needs `Parse.ReadsIn` with the read, so it is a
+   second walk over the same 49 functions, not a conjunct.
+2. **Std said nothing of what `Parse.operators` read.**
+   `Parse.readsOperators` speaks of the value alone. `readsOperatorsRead`
+   now carries any spec that joining two sides by an operator keeps
+   [checked]; it belongs in std.
+3. **Peek, then skip.** The parser looks at a token, keeps its comments,
+   then calls `skip()`. A `ReadsIn` lemma is over every mark, so it can't
+   say the token skipped is the one looked at. Those functions (`atom`,
+   `negationsFrom`, `expressionRule`, `elseKeyword`, `signInBrackets`,
+   `suffixesFrom` with its `optional`, `statement`, `declaration`) need
+   lemmas from one mark (`Parse.readsInPeek`, `Parse.readsAtThen`, and
+   `nextTakes` in `OperatorReads.sw`) [inferred; the operators lemma is
+   proved this way].
+4. **The statement's first token.** `Layout.comments` leaves out the
+   own-line comments above the token at the layout's `start` (they are
+   note lines). So a value holds `layout.keptAll read`, and that is the
+   tokens' comments only if no later token is at `start`: `lexRising`,
+   used once per statement and declaration. `CarryProofs.sw`'s `Onto`
+   carries this as a condition (`PastTail`) so that no walk lemma needs
+   an invariant for it [checked for the chain lemmas].
+5. **`Layout.headed` drops `firstAbove`.** It loses nothing only because
+   an inline body's first token doesn't start a line (`lexTidy`) and was
+   allowed by the layout. So the expression lemmas need a second spec:
+   the read is `head :: tail`, `layout.allows head`, and
+   `value.firstAbove = (layout.comments head).above` (about 10 lemmas),
+   and a tree lemma `comments = firstAbove ++ withoutFirstAbove.comments`.
+6. **`itemsFrom`'s `Zero` case returns `[]` whatever it had found.** It
+   is unreachable, but a lemma over any fuel must say why: fuel is at
+   least the tokens left, and more once an item is found. That needs
+   "an expression reads at least one token" (from 5) and a lemma from
+   one mark.
+
+What is left [estimated]: the leaves and `skip` helpers (8), the head
+spec (10), the expression walk (14), items (3), bodies, statements and
+blocks (12), declarations and the file (10), the two lexer lemmas (10 to
+20, by the fold `lexTexts` uses), and joining them (3): 70 to 80 lemmas,
+about 2 hours of agent time at this lane's rate (about 45 lemmas and
+examples in 30 minutes, the easy ones first). T2 then adds one carry
+lemma per new parser function, and T3's `closed` and rule N change what
+`tokensCarry` says (`lexed.settled.tokens`, with `settledKeepsComments`).

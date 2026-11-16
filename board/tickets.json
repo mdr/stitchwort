@@ -40812,12 +40812,12 @@
     {
       "id": 3632,
       "title": "[Fable] Toy++ T1b (D3663 'must' set, proved on today's toy before T2, since Toy++ changes the toy in place): formatKeepsComments (every comment kept, text and order, between the two texts through the lexer only), formatSameTree (same tree, same output), a source that doesn't parse gives ParseError, and Degenerate.sw (identity, delete-comments, one-line formatters each break a named theorem by a computed example). settledNear waits for T3. docs/proposals/formatter-properties.md. Est. 45 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "**Lane notes (Fable, 16 Nov 2026, 17:05 to 17:35; branch `lane/SW-3632`).**\n\nThree of the four items are proved on today's toy; `formatKeepsComments` is stated and reduced, not proved.\n\n- Proved (`tools/toyfmt/src/Toy/Fmt/DirectProofs.sw`): `formatSameTree`, `formatRefuses`, `formatRefusesOnly`.\n- Proved (`Toy/Fmt/Degenerate.sw`): `identityNotSameTree`, `deleteCommentsLosesOne`, `oneLineDoesNotParse`, each a refutation of the theorem's statement for that formatter; nine tree examples. Today's toy has no `meaning` (T4), so the tree stands in for it.\n- `formatKeepsComments`: stated between the two texts with `Lexed.comments` (`Toy/Syntax/Lex.sw`), in `tools/toyfmt/plus/src/KeepsComments.sw`, proved from `parseCarries`, which is proved from three open lemmas (`tokensCarry`, `lexTidy`, `lexRising`). Seven computed examples agree. Not proved: the parser's half is a second walk of 70 to 80 lemmas (about 2 h), not the \"15 to 25 lemmas and a conjunct\" the note estimated. Reasons and the plan: `tools/toyfmt/plus/SKETCH-PLUS.md`, \"T1b\".\n- Proved towards it: `readsOperatorsRead` (`Toy/Syntax/OperatorReads.sw`; std's operator lemmas said nothing of what was read; belongs in std), and the walk's spec and chain lemmas (`Toy/Fmt/CarryProofs.sw`).\n\nChecks: `stitchwort check` in `tools/toyfmt` (\"checked 12 namespaces\", also with `--no-cache`) and in `tools/toyfmt/plus` (52 goals open, was 49: the three above). Audit of the added namespaces and theorems: \"audited 38 theorems and 42 generated lemmas: 0 failed, 3 with warnings, 77 passed\" (the three are narrow hypotheses: a parse error with a given message, a run of `next`).\n\nCommits: 2bc6b0def, ba3a8f1c4, 1f6c02323.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []

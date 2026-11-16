@@ -6,7 +6,9 @@
 --| tokens spell the file (`spellsFile`); and the parser reads back what
 --| spells a file (`runsFileSpelled`). So `format` keeps the tree
 --| (`formatRoundTrip`) and formats its own output to itself
---| (`formatIdempotent`).
+--| (`formatIdempotent`). Two sources with one tree format alike
+--| (`formatSameTree`), and what doesn't parse is refused with the parser's
+--| message (`formatRefuses`).
 
 namespace Toy.Fmt.Proofs
 import Toy.Doc (..)
@@ -79,3 +81,27 @@ theorem formatIdempotent ∀ (source: Text) (width: Nat) (output: Text)
   match formatRoundTrip source width output h with
     | (tree, parsed, same, reparsed) =>
       rewrite same then formatAnswers (tree.print width) width tree (rewrite <- same then reparsed)
+
+--| The output depends on the source only through its tree: two sources
+--| that parse to the same tree format to the same text, however each was
+--| laid out. A formatter that gave its input back would fail this on any
+--| two layouts of one tree (`Toy.Fmt.Degenerate`).
+theorem formatSameTree ∀ (first second: Text) (width: Nat) (tree: SourceFile)
+    (parsesFirst: parse first = Ok tree)
+    (parsesSecond: parse second = Ok tree):
+    format first width = format second width :=
+  rewrite formatAnswers first width tree parsesFirst, formatAnswers second width tree parsesSecond then byComputing
+
+--| A source that doesn't parse (or doesn't lex) is not formatted: the
+--| answer is `ParseError` with the parser's message, at every width.
+theorem formatRefuses ∀ (source: Text) (width: Nat) (message: Text)
+    (refused: parse source = Err message):
+    format source width = ParseError message :=
+  rewrite refused then byComputing
+
+--| `format` refuses nothing else: a `ParseError` is the parser's own, with
+--| its message.
+theorem formatRefusesOnly ∀ (source: Text) (width: Nat) (message: Text)
+    (refused: format source width = ParseError message):
+    parse source = Err message :=
+  match e: parse source with | Err found => rewrite parseErrorInjective found message refused then byComputing
