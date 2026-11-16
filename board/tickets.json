@@ -1,5 +1,5 @@
 {
-  "next": 3657,
+  "next": 3658,
   "tickets": [
     {
       "id": 47,
@@ -40866,12 +40866,12 @@
     {
       "id": 3636,
       "title": "[Sonnet] Two LSP completion tests take ~5 min each (the import test and project dot-completion, it binary): find why and cut them to seconds; also REPL completion untested paths (bare 'import ', ':t ', the ...> prompt) and offering library names that need an import (run the import on pick)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Lane notes (commit 37e87ae38): (1) the two LSP tests are slow only when the test std cache is cold (a fresh target dir or any Rust source change): the first lsp test fills it, ~284 s for the import test; warm they take 15 s and 32 s (any lsp test about 15-30 s in debug: session open replays the cache). Not cut further. (2) Added unit tests for bare import, :t expr, and a continuation line. (3) Names needing an import are offered marked '(import Std.List (x))'; Completer::update runs the import on accept. Model result: sonnet, worked, ~25 min (est. 40).",
+      "body": "Lane notes (commit 37e87ae38): (1) the two LSP tests are slow only when the test std cache is cold (a fresh target dir or any Rust source change): the first lsp test fills it, ~284 s for the import test; warm they take 15 s and 32 s (any lsp test about 15-30 s in debug: session open replays the cache). Not cut further. (2) Added unit tests for bare import, :t expr, and a continuation line. (3) Names needing an import are offered marked '(import Std.List (x))'; Completer::update runs the import on accept. Model result: sonnet, worked, ~25 min (est. 40).\n\nModel result: sonnet, worked (slow tests explained, not cut), 25 min (est. 40). Follow-up SW-3657.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41142,6 +41142,19 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3657,
+      "title": "[Sonnet] Test std cache cold start: the first LSP 'it' test after a Rust change fills target/test-std-cache (284 s debug) while the others wait. Pre-fill it once per build (a task the verifier/Overmind runs first) or share it across worktrees keyed by the compiler hash; also: REPL completion doesn't offer 'replicate' as an importable name (only replicateAdd): find why",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
