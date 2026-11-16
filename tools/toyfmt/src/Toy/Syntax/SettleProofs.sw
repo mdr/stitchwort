@@ -310,3 +310,18 @@ theorem settledStable ∀ (lexed: Lexed) (newest: List (Parse.Located Token))
   let carried: carryForward [] newest.reverse lexed.endTrivia = (newest.reverse, lexed.endTrivia) :=
     carryStable newest.reverse lexed.endTrivia (List.allReverse BareComma newest bare)
   rewrite homed, carried, same then (byComputing, byComputing)
+
+--| Rule N on tokens whose first half leaves no comma holding a comment:
+--| the second half changes nothing, so the settled tokens are the first
+--| half's.
+theorem settledHomed ∀ (lexed: Lexed) (newest: List (Parse.Located Token))
+    (same: lexed.tokens = newest.reverse)
+    (bare: List.All BareComma (newest.reverse.foldLeft [] homeStep)):
+    lexed.settled.tokens = (newest.reverse.foldLeft [] homeStep).reverse
+      ∧ lexed.settled.endTrivia = lexed.endTrivia :=
+  let carried: carryForward [] (newest.reverse.foldLeft [] homeStep).reverse lexed.endTrivia
+    = ((newest.reverse.foldLeft [] homeStep).reverse, lexed.endTrivia) :=
+    carryStable (newest.reverse.foldLeft [] homeStep).reverse
+      lexed.endTrivia
+      (List.allReverse BareComma (newest.reverse.foldLeft [] homeStep) bare)
+  rewrite same, carried then (byComputing, byComputing)

@@ -206,7 +206,7 @@ theorem trailingLays ∀ (after: Option Comment) (indent line: Nat) (trace: List
     | None, _, reached => rewrite <- List.appendNil trace then reached
     | Some comment, fine, reached =>
       match commentSolid comment.text fine with
-        | (_, _, layout) => (layout, reached)
+        | (_, _, layout) => (fine, layout, reached)
 
 -- A token.
 

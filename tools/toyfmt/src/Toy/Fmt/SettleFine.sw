@@ -8,6 +8,7 @@ namespace Toy.Fmt.Proofs
 import Toy.Syntax (..)
 import Toy.Syntax.Proofs (..)
 import Toy.Fmt (..)
+import Toy.Doc.Proofs (IsComment)
 import Std (Bool, Eq, List, Nat, Option, Parse, Text, Void)
 
 theorem homedGood ∀ (comment: Parse.Located Comment) (current: Parse.Located Token)

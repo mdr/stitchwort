@@ -2905,15 +2905,16 @@ theorem fileLays ∀ (file: SourceFile)
               ((endedMid (Deeper 0) reached ended), (Inr (onward (AtStart 0) events areLines))))))
 
 --| Where the rules put every word of a file that satisfies what the
---| parser guarantees: at every width, the words of the printed pieces
---| in order, each with where it starts its line if it does, are the
---| file's events.
+--| parser guarantees: at every width, the file's events are a trace the
+--| printed pieces' words, each with where it starts its line if it does,
+--| are in order, but that a trailing comment comes after the closers
+--| printed on its line (`Tucks`).
 theorem printedEvents ∀ (file: SourceFile) (width: Nat)
     (lexical: LexicalFile file):
-    FileEvents file (eventsOf (printedPieces file.layout width).reverse) :=
+    ∃ (laid: List Event) => FileEvents file laid ∧ Tucks laid (eventsOf (printedPieces file.layout width).reverse) :=
   match printLays
     (place events => FileEvents file events)
     file.layout
     width
     (fileLays file lexical (place events => FileEvents file events) (reached events holds => holds)) with
-    | (place, holds) => holds
+    | (place, laid, holds, tucks) => (laid, holds, tucks)
