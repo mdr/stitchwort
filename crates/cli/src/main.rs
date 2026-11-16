@@ -50,6 +50,23 @@ struct Cli {
     /// colour only adds to it
     #[arg(long, global = true, value_enum, default_value_t = ColorArg::Auto, value_name = "WHEN")]
     color: ColorArg,
+    /// The colour theme, for terminals with a dark or a light background:
+    /// `dark` (Catppuccin Mocha) or `light` (Latte). `auto` (the default)
+    /// uses the environment variable `STITCHWORT_THEME` (`dark` or `light`)
+    /// if set, else asks the terminal for its background colour (when
+    /// stdin and stdout are terminals), else reads `COLORFGBG`, else is
+    /// dark. 24-bit colours are used when `COLORTERM` is `truecolor` or
+    /// `24bit`, else the nearest of 256
+    #[arg(long, global = true, value_enum, default_value_t = ThemeArg::Auto, value_name = "THEME")]
+    theme: ThemeArg,
+}
+
+/// `--theme`'s values.
+#[derive(Clone, Copy, clap::ValueEnum)]
+enum ThemeArg {
+    Auto,
+    Dark,
+    Light,
 }
 
 /// `--color`'s values.
@@ -73,7 +90,11 @@ fn color_on_stderr() -> bool {
         _ => ColorChoice::Auto,
     };
     let no_color = std::env::var("NO_COLOR").ok();
-    choice.enabled(std::io::stderr().is_terminal(), no_color.as_deref())
+    let on = choice.enabled(std::io::stderr().is_terminal(), no_color.as_deref());
+    if on {
+        stitchwort_cli::theme::init();
+    }
+    on
 }
 
 /// Whether goals are shown in full (`--full-goals`).
@@ -953,6 +974,7 @@ fn main() -> ExitCode {
     let cli = Cli::parse();
     FULL_GOALS.store(cli.full_goals, std::sync::atomic::Ordering::Relaxed);
     COLOR.store(cli.color as u8, std::sync::atomic::Ordering::Relaxed);
+    stitchwort_cli::theme::THEME_FLAG.store(cli.theme as u8, std::sync::atomic::Ordering::Relaxed);
     if let Some(dir) = &cli.std_dir
         && let Err(e) = stitchwort_elab::use_std_dir(dir)
     {
@@ -4933,7 +4955,11 @@ fn color_on_stdout() -> bool {
         _ => ColorChoice::Auto,
     };
     let no_color = std::env::var("NO_COLOR").ok();
-    choice.enabled(std::io::stdout().is_terminal(), no_color.as_deref())
+    let on = choice.enabled(std::io::stdout().is_terminal(), no_color.as_deref());
+    if on {
+        stitchwort_cli::theme::init();
+    }
+    on
 }
 
 /// The words a REPL line starts with when it is a declaration, not an

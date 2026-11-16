@@ -1,5 +1,6 @@
 //! Renders [`Diagnostic`]s with source excerpts.
 
+use crate::palette::{self, Role};
 use ariadne::{Config, IndexType, Label, Report, ReportKind};
 use stitchwort_syntax::{Diagnostic, Severity, SourceMap};
 
@@ -75,17 +76,20 @@ fn highlight_rows(note: &str) -> String {
     };
     format!(
         "expected: {}\n   found: {}",
-        paint(&e, "1;4;32"),
-        paint(&f, "1;4;31")
+        paint(&e, &palette::current().sgr(Role::Fix, "1;4")),
+        paint(&f, &palette::current().sgr(Role::Error, "1;4"))
     )
 }
 
 /// Renders `diagnostic` as text. Pass `color: false` for snapshots and pipes.
 pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> String {
+    let palette = palette::current();
     let kind = match diagnostic.severity {
+        Severity::Error if color => ReportKind::Custom("Error", palette.ariadne(Role::Error)),
+        Severity::Warning if color => ReportKind::Custom("Warning", palette.ariadne(Role::Warning)),
         Severity::Error => ReportKind::Error,
         Severity::Warning => ReportKind::Warning,
-        Severity::Goal => ReportKind::Custom("Goal", ariadne::Color::Cyan),
+        Severity::Goal => ReportKind::Custom("Goal", palette.ariadne(Role::Goal)),
     };
 
     let Some(primary) = diagnostic.primary_span() else {
@@ -122,13 +126,13 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
             // a calm one; the `─┬─` and `╰──` marks carry the same
             // information without it.
             shown = shown.with_color(if std::ptr::eq(label, &diagnostic.labels[0]) {
-                match diagnostic.severity {
-                    Severity::Error => ariadne::Color::Red,
-                    Severity::Warning => ariadne::Color::Yellow,
-                    Severity::Goal => ariadne::Color::Cyan,
-                }
+                palette.ariadne(match diagnostic.severity {
+                    Severity::Error => Role::Error,
+                    Severity::Warning => Role::Warning,
+                    Severity::Goal => Role::Goal,
+                })
             } else {
-                ariadne::Color::Blue
+                palette.ariadne(Role::Secondary)
             });
         }
         report = report.with_label(shown);
@@ -176,7 +180,10 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
         if fix.applicability == crate::fixes::Applicability::Certain {
             let line = fix.try_line();
             match line.strip_prefix("try:").filter(|_| color) {
-                Some(rest) => out.push_str(&format!("{}{rest}", styled("1;32", "try:"))),
+                Some(rest) => out.push_str(&format!(
+                    "{}{rest}",
+                    styled(&palette.sgr(Role::Fix, "1"), "try:")
+                )),
                 None => out.push_str(&line),
             }
             out.push('\n');
@@ -218,11 +225,13 @@ pub fn render_compact(
     let column = |offset: u32| text[..(offset as usize).min(text.len())].chars().count();
     let start = column(primary.start);
     let width = column(primary.end).saturating_sub(start).max(1);
-    let (kind, colour) = match diagnostic.severity {
-        Severity::Error => ("error", "1;31"),
-        Severity::Warning => ("warning", "1;33"),
-        Severity::Goal => ("goal", "1;36"),
+    let palette = palette::current();
+    let (kind, role) = match diagnostic.severity {
+        Severity::Error => ("error", Role::Error),
+        Severity::Warning => ("warning", Role::Warning),
+        Severity::Goal => ("goal", Role::Goal),
     };
+    let colour = palette.sgr(role, "1");
     let paint = |code: &str, text: &str| {
         if color {
             styled(code, text)
@@ -245,10 +254,10 @@ pub fn render_compact(
     let mut out = format!(
         "{}{}\n",
         " ".repeat(margin + start),
-        paint(colour, format!("{carets} {beside}").trim_end())
+        paint(&colour, format!("{carets} {beside}").trim_end())
     );
     out.push_str(&paint(
-        colour,
+        &colour,
         &format!("{kind}[{}]: {}", diagnostic.code, diagnostic.message),
     ));
     out.push('\n');
@@ -472,23 +481,29 @@ mod tests {
     fn colour_marks_labels_and_the_first_difference() {
         let (sources, diagnostic) = mismatch();
         let out = render(&sources, &diagnostic, true);
-        // Escape codes are on the labels (red primary, blue secondary).
-        assert!(out.contains("\u{1b}[31m"), "{out:?}");
-        assert!(out.contains("\u{1b}[34m"), "{out:?}");
+        // Escape codes are on the labels (Mocha red primary, lavender secondary).
+        assert!(out.contains("\u{1b}[38;2;243;139;168m"), "{out:?}");
+        assert!(out.contains("\u{1b}[38;2;180;190;254m"), "{out:?}");
         // The differing words are bold and underlined, one in each row.
-        assert!(out.contains("\u{1b}[1;4;32m<=\u{1b}[0m"), "{out:?}");
-        assert!(out.contains("\u{1b}[1;4;31m<\u{1b}[0m"), "{out:?}");
+        assert!(
+            out.contains("\u{1b}[1;4;38;2;166;227;161m<=\u{1b}[0m"),
+            "{out:?}"
+        );
+        assert!(
+            out.contains("\u{1b}[1;4;38;2;243;139;168m<\u{1b}[0m"),
+            "{out:?}"
+        );
         // Colour only adds codes: without them it is the plain form.
         assert_eq!(without_colour(&out), render(&sources, &diagnostic, false));
     }
 
     #[test]
-    fn warnings_are_yellow() {
+    fn warnings_are_mochas_yellow() {
         let mut sources = SourceMap::new();
         let file = sources.add("example.sw", "def x := 1\n");
         let diagnostic =
             Diagnostic::warning("W-X", "careful").with_label(Span::new(file, 4, 5), "here");
-        assert!(render(&sources, &diagnostic, true).contains("\u{1b}[33m"));
+        assert!(render(&sources, &diagnostic, true).contains("\u{1b}[38;2;249;226;175m"));
     }
 
     #[test]

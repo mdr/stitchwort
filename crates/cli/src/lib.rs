@@ -11,5 +11,6 @@ pub mod node_wait;
 pub mod repl_color;
 pub mod repl_complete;
 pub mod search_log;
+pub mod theme;
 
 pub use stitchwort_driver::{counterexample, driver, nav, project, render, run};
