@@ -4,7 +4,7 @@
 --| parser gives is `Lexical`: its names, numbers, strings and comments
 --| are those tokens', and its bodies end in statements. So `LexicalFile`
 --| holds of every parsed file (`parseLexical`), and a parsed file
---| printed at any width lexes to its pieces (`parsedPrintLexes`). Built
+--| printed at any width lexes to its pieces (`parsedPrintTokens`). Built
 --| from std's `Parse.ReadsAmong`, soundness over items known to be good.
 
 namespace Toy.Fmt.Proofs
@@ -1367,21 +1367,3 @@ theorem parseLexical ∀ (source: Text) (file: SourceFile) (parsed: parse source
               (fairSourceFile tokens.endTrivia texts.right)
               (goodTokens tokens.tokens texts.left)
               whole
-
---| A parsed file printed, at every width, lexes to its pieces:
---| [`printedLexes`] from `parse` alone. For the file of any source that
---| parses, the printed text is `pieces` joined, the pieces that aren't
---| layout are the file's tokens and comments in order, and `lex` of the
---| text gives the pieces as lexemes (neighbouring spaces as one) and the
---| tokens `assemble` makes of them.
-theorem parsedPrintLexes ∀ (source: Text) (file: SourceFile) (width: Nat)
-    (parsed: parse source = Ok file):
-    ∃ (pieces: List Text) => (file.print width).text = pieces.joinWith ""
-      ∧ wordsOf pieces = wordsOf file.pieces
-      ∧ lex (file.print width).text
-        = Ok {
-          lexemes = Parse.locatedSteps 0 (stepsOnto pieces.reverse []),
-          tokens = (assemble (file.print width).text (Parse.locatedSteps 0 (stepsOnto pieces.reverse []))).fst,
-          endTrivia = (assemble (file.print width).text (Parse.locatedSteps 0 (stepsOnto pieces.reverse []))).snd
-        } :=
-  printedLexes file width (parseLexical source file parsed)

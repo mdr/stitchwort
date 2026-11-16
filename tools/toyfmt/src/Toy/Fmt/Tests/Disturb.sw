@@ -123,14 +123,14 @@ def Dice.roll (dice: Dice) (sides: Nat): (Nat, Dice) :=
   (next / 65536 % sides, { state = next })
 
 --| A declaration's lines, and how many blank lines were above it.
-type Chunk = { blanksBefore: Nat, lines: List Text }
+type LineGroup = { blanksBefore: Nat, lines: List Text }
 
 --| The text's declarations: each starts at a line at column 0, and takes
 --| the indented lines after it and the blank lines between them.
-def chunks (text: Text): List Chunk :=
+def chunks (text: Text): List LineGroup :=
   let (done, current, pending) :=
     text.lines.foldLeft
-      (([], None, 0): (List Chunk, Option Chunk, Nat))
+      (([], None, 0): (List LineGroup, Option LineGroup, Nat))
       (((done, current, pending) line =>
         if line.isEmpty then (done, current, pending + 1)
         else if line.startsWith " " then

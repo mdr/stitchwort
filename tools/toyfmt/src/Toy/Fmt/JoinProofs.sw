@@ -1,8 +1,8 @@
 --| The rules' half of "what the printer puts next to what": the document
 --| the rules build for a tree whose texts are the lexer's (`LexicalFile`)
 --| joins (`Joins standsBefore`, `fileJoins`), and its words are all
---| `Proper`. So by the engine's half (`joinedLex`) a file printed at any
---| width lexes to its pieces (`printedLexes`).
+--| `Proper`. So by the engine's half (`joinedPlaced`) a file printed at any
+--| width lexes to its pieces (`printedTokens`).
 --|
 --| Each rule is a triple (`Passes doc pre post`): from every edge that
 --| satisfies `pre`, the document joins and leaves an edge that satisfies

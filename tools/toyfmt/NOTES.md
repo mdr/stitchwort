@@ -2772,3 +2772,5 @@ docs outside `tools/toyfmt` were not searched.
     checker (they are) decided how every motive here is written; the
     proving guide could say so.
 
+Tidy-up (SW-3436, SW-3458, SW-3469): deleted `printJoins`, `joinedLex` (with its only user `joinedLexExample`), `printedLexes`, `parsedPrintLexes`, `printedPlaces` and `printedOr`; renamed `Scan.Waiting` to `Scan.Pending` and the disturber's `Chunk` type to `LineGroup`.
+

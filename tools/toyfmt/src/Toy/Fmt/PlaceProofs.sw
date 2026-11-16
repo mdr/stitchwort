@@ -403,8 +403,8 @@ theorem wordPlaced ∀ (piece: Text) (placed: Placed) (blank: Bool) (column offs
         | False, _ => rfl
 
 --| A document printed, at every width, lexes to the tokens `placed`
---| gives of the pieces `print` joins (`printedPieces`): `joinedLex` with
---| the pieces named and the tokens placed.
+--| gives of the pieces `print` joins (`printedPieces`): `printedJoins`
+--| with the pieces named and the tokens placed.
 theorem joinedPlaced ∀ (doc: Doc) (width: Nat)
     (uniform: Uniform doc)
     (joins: Joins standsBefore doc (Plain None) (after => True))
@@ -461,16 +461,6 @@ theorem parsedPrintTokens ∀ (source: Text) (file: SourceFile) (width: Nat)
           endTrivia = (placed (printedPieces file.layout width).reverse).pending.reverse
         } :=
   printedTokens file width (parseLexical source file parsed)
-
---| Where the words of a printed file are: whatever a file's layout
---| lays (`Lays`, from the start of an unindented line) holds of the
---| words of the same pieces `parsedPrintTokens` speaks of, each with the
---| column it starts its line at, if it does: the `startsLine` and
---| `column` that `placed` gives its token.
-theorem printedPlaces ∀ (file: SourceFile) (width: Nat) (spec: Place → List Event → Prop)
-    (lays: Lays file.layout 0 (AtStart 0) [] spec):
-    ∃ (place: Place) => spec place (eventsOf (printedPieces file.layout width).reverse) :=
-  printLays spec file.layout width lays
 
 --| `placed` computes: `f x`, a line break, two spaces and `y` are three
 --| tokens, the last starting its line at column 2.
