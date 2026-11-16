@@ -315,9 +315,15 @@ impl Session {
                 return None;
             }
             if shadowed.contains(name) {
-                if !found.is_empty() {
-                    hidden.push((name, found.len()));
+                // `E-USES-FAILED` names the broken declaration or the syntax
+                // error that lost it: the one dependent diagnostic that
+                // leads back to the cause.
+                let before = found.len();
+                found.retain(|d| d.code == "E-USES-FAILED");
+                if found.len() < before {
+                    hidden.push((name, before - found.len()));
                 }
+                diagnostics.extend(found);
                 continue;
             }
             // The recovered declarations of a file that doesn't parse are

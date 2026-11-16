@@ -9,6 +9,19 @@ expression: output
    │                 ┬  
    │                 ╰── expected `)` to close the parameter `(n: …`, but found `:`
 ───╯
-[W-AFTER-SYNTAX-ERROR] Warning: 2 diagnostics in 2 namespaces not shown: they use `Lib`, which has a syntax error, so declarations it lost are missing
-  note: namespaces: `Other` (1), `User` (1)
+[E-USES-FAILED] Error: `pick` has an error, so `seven` can't be checked until it's fixed
+   ╭─[ parse-error-dependents/src/other.sw:3:13 ]
+   │
+ 3 │ import Lib (pick)
+   │             ──┬─  
+   │               ╰─── `pick` has an error
+   │
+   ├─[ parse-error-dependents/src/lib.sw:5:17 ]
+   │
+ 5 │ def pick (n: Nat: Nat := match n with
+   │                 ┬  
+   │                 ╰── the error is here
+───╯
+[W-AFTER-SYNTAX-ERROR] Warning: 1 diagnostics in 1 namespace not shown: they use `Lib`, which has a syntax error, so declarations it lost are missing
+  note: namespaces: `User` (1)
   note: fix the syntax error and check again to see them
