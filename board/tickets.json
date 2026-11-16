@@ -41097,12 +41097,12 @@
     {
       "id": 3652,
       "title": "[Sonnet] Follow-ups to SW-3637: (1) the intermittent W-MATCH-NOT-FOUND in toyfmt after an fmt edit (Toy/Syntax/OperatorReads.sw): repro, then fix if it's the cache-entry family; (2) check whether elab library.rs:1452, live.rs and the LSP paths skip the W-ARROW-FORALL text filter on a cache hit. Failing-first tests",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Model result: sonnet, worked (no bug: other paths already filter; W-MATCH-NOT-FOUND not reproduced in 4 rounds), 20 min (est. 40). Closed as not reproduced.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
