@@ -317,7 +317,7 @@ on GitHub.
   cats-effect's `IO` keeps continuations on heap stacks
   ([IOFiber.scala](https://github.com/typelevel/cats-effect/blob/series/3.x/core/shared/src/main/scala/cats/effect/IOFiber.scala)).
   Both run on JS (PureScript natively, Scala through Scala.js
-  **[unverified]** for the Scala.js detail). `Aff` and `IO` resume each
+  [cited: cats-effect's README, "published for Scala 2.12, 2.13, 3.2, and Scala.js 1.13"; Cats' README, "available for Scala.js and Scala Native"; read 16 Nov 2026]). `Aff` and `IO` resume each
   continuation once; `Free` is an immutable value, so it may be resumed
   more often.
 
