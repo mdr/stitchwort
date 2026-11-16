@@ -1,5 +1,5 @@
 {
-  "next": 3488,
+  "next": 3489,
   "tickets": [
     {
       "id": 47,
@@ -38901,7 +38901,20 @@
     {
       "id": 3487,
       "title": "[DeepSeek] fmt not idempotent: a trailing comment right after a record update's base moves the | (Overmind seeds 0x80e case 183312 and 0x80f case 88328, COMMENTS=0.3, main 63bf561cc). Input: 'def updated(): {IO} V := { base(-- c' newline ') | b = next(), a = next() }'. Pass 1: '{ base( ) -- c' / '  |' / '  b = next(),' / '  a = next()' / '}'; pass 2: '{ base( ) | -- c' / '  b = next(), ...'. Repro: task fuzz:fmt SEED=0x80e COMMENTS=0.3 CASE=183312. Same family as SW-3462/3481/3485 (layout depends on which side of a closer a comment was written); after SW-3485 lands, check whether its fix covers this",
-      "status": "backlog",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3488,
+      "title": "[DeepSeek] toyfmt: rename the driver's Outcome.Formatted to Outcome.Done (path) (change), so FormatResult's Formatted needs no qualification and the theorems read 'format source width = Formatted output' (orchestrator's call after SW-3486)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
