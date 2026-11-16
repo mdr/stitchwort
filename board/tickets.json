@@ -38880,7 +38880,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Second hit, same diff (Overmind seed 0x80a COMMENTS=0.3 case 81208 on 63bf561cc): the _ after '(read n => ... ) -- c' in the readsStarting proof of the Parse examples. Comment seeds 0x801-0x804, 0x806-0x809 clean.\n\nModel result: deepseek, worked, ~35 min (est. 40). trails_comment removed; keep and section rules ask comment_ends_at_closers; golden failing before; seed 0x805 200k clean.",
+      "body": "Second hit, same diff (Overmind seed 0x80a COMMENTS=0.3 case 81208 on 63bf561cc): the _ after '(read n => ... ) -- c' in the readsStarting proof of the Parse examples. Comment seeds 0x801-0x804, 0x806-0x809 clean.\n\nModel result: deepseek, worked, ~35 min (est. 40). trails_comment removed; keep and section rules ask comment_ends_at_closers; golden failing before; seed 0x805 200k clean.\n\nConfirmed by Overmind on 6cc8a7ef7: the three failing seeds (0x805, 0x80a, 0x811) now pass in full (250k cases each, COMMENTS=0.3).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -38901,12 +38901,12 @@
     {
       "id": 3487,
       "title": "[DeepSeek] fmt not idempotent: a trailing comment right after a record update's base moves the | (Overmind seeds 0x80e case 183312 and 0x80f case 88328, COMMENTS=0.3, main 63bf561cc). Input: 'def updated(): {IO} V := { base(-- c' newline ') | b = next(), a = next() }'. Pass 1: '{ base( ) -- c' / '  |' / '  b = next(),' / '  a = next()' / '}'; pass 2: '{ base( ) | -- c' / '  b = next(), ...'. Repro: task fuzz:fmt SEED=0x80e COMMENTS=0.3 CASE=183312. Same family as SW-3462/3481/3485 (layout depends on which side of a closer a comment was written); after SW-3485 lands, check whether its fix covers this",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~30 min (est. 40). comment_at_closers; golden failing before; fmt crate 78/78.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -38914,12 +38914,12 @@
     {
       "id": 3488,
       "title": "[DeepSeek] toyfmt: rename the driver's Outcome.Formatted to Outcome.Done (path) (change), so FormatResult's Formatted needs no qualification and the theorems read 'format source width = Formatted output' (orchestrator's call after SW-3486)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~15 min (est. 20).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
