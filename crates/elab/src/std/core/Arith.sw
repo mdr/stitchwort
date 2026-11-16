@@ -135,8 +135,7 @@ theorem Int.addAssoc ∀ (a b c: Int): Int.add (Int.add a b) c = Int.add a (Int.
   | NegSucc a, OfNat b, NegSucc c =>
     calc Int.add (Int.subNatNat b (Succ a)) (NegSucc c)
       _ = Int.subNatNat b (Succ (Succ (a + c))) := Int.subNatNatAddNegSucc c b (Succ a)
-      _ = Int.subNatNat b (Succ (Succ (c + a))) :=
-        Eq.cong (t => Int.subNatNat b (Succ (Succ t))) (Nat.addComm a c)
+      _ = Int.subNatNat b (Succ (Succ (c + a))) := Eq.cong (t => Int.subNatNat b (Succ (Succ t))) (Nat.addComm a c)
       _ = Int.add (NegSucc a) (Int.subNatNat b (Succ c)) := Eq.flipped (Int.negSuccAddSubNatNat a b (Succ c))
   | NegSucc a, NegSucc b, OfNat c =>
     Eq.trans
@@ -196,27 +195,28 @@ theorem Int.signedMulRight ∀ (a: Int) (s: Bool) (k: Nat):
     | OfNat n, True, Zero => rewrite Nat.mulZero n then byComputing
     | NegSucc n, True, Zero => rewrite Nat.mulZero (Succ n) then byComputing
 
-theorem Int.mulAssoc ∀ (a b c: Int): Int.mul (Int.mul a b) c = Int.mul a (Int.mul b c) :=
-  calc Int.mul (Int.mul a b) c
-    _ = Int.mul (Int.signed (Bool.xor (Int.isNeg a) (Int.isNeg b)) (Int.natAbs a * Int.natAbs b)) c :=
-      Eq.cong (t => Int.mul t c) (Int.mulSigned a b)
-    _ = Int.signed (Bool.xor (Bool.xor (Int.isNeg a) (Int.isNeg b)) (Int.isNeg c))
-        ((Int.natAbs a * Int.natAbs b) * Int.natAbs c) :=
-      Int.signedMulLeft (Bool.xor (Int.isNeg a) (Int.isNeg b)) (Int.natAbs a * Int.natAbs b) c
-    _ = Int.signed (Bool.xor (Int.isNeg a) (Bool.xor (Int.isNeg b) (Int.isNeg c)))
-        ((Int.natAbs a * Int.natAbs b) * Int.natAbs c) :=
-      Eq.cong
-        (s => Int.signed s ((Int.natAbs a * Int.natAbs b) * Int.natAbs c))
-        (Bool.xorAssoc (Int.isNeg a) (Int.isNeg b) (Int.isNeg c))
-    _ = Int.signed (Bool.xor (Int.isNeg a) (Bool.xor (Int.isNeg b) (Int.isNeg c)))
-        (Int.natAbs a * (Int.natAbs b * Int.natAbs c)) :=
-      Eq.cong
-        (Int.signed (Bool.xor (Int.isNeg a) (Bool.xor (Int.isNeg b) (Int.isNeg c))))
-        (Nat.mulAssoc (Int.natAbs a) (Int.natAbs b) (Int.natAbs c))
-    _ = Int.mul a (Int.signed (Bool.xor (Int.isNeg b) (Int.isNeg c)) (Int.natAbs b * Int.natAbs c)) :=
-      Eq.flipped
-        (Int.signedMulRight a (Bool.xor (Int.isNeg b) (Int.isNeg c)) (Int.natAbs b * Int.natAbs c))
-    _ = Int.mul a (Int.mul b c) := Eq.flipped (Eq.cong (Int.mul a) (Int.mulSigned b c))
+theorem Int.mulAssoc ∀ (a b c: Int): Int.mul (Int.mul a b) c = Int.mul a (Int.mul b c) := calc Int.mul (Int.mul a b) c
+  _ = Int.mul (Int.signed (Bool.xor (Int.isNeg a) (Int.isNeg b)) (Int.natAbs a * Int.natAbs b)) c :=
+    Eq.cong (t => Int.mul t c) (Int.mulSigned a b)
+  _ = Int.signed
+      (Bool.xor (Bool.xor (Int.isNeg a) (Int.isNeg b)) (Int.isNeg c))
+      ((Int.natAbs a * Int.natAbs b) * Int.natAbs c) :=
+    Int.signedMulLeft (Bool.xor (Int.isNeg a) (Int.isNeg b)) (Int.natAbs a * Int.natAbs b) c
+  _ = Int.signed
+      (Bool.xor (Int.isNeg a) (Bool.xor (Int.isNeg b) (Int.isNeg c)))
+      ((Int.natAbs a * Int.natAbs b) * Int.natAbs c) :=
+    Eq.cong
+      (s => Int.signed s ((Int.natAbs a * Int.natAbs b) * Int.natAbs c))
+      (Bool.xorAssoc (Int.isNeg a) (Int.isNeg b) (Int.isNeg c))
+  _ = Int.signed
+      (Bool.xor (Int.isNeg a) (Bool.xor (Int.isNeg b) (Int.isNeg c)))
+      (Int.natAbs a * (Int.natAbs b * Int.natAbs c)) :=
+    Eq.cong
+      (Int.signed (Bool.xor (Int.isNeg a) (Bool.xor (Int.isNeg b) (Int.isNeg c))))
+      (Nat.mulAssoc (Int.natAbs a) (Int.natAbs b) (Int.natAbs c))
+  _ = Int.mul a (Int.signed (Bool.xor (Int.isNeg b) (Int.isNeg c)) (Int.natAbs b * Int.natAbs c)) :=
+    Eq.flipped (Int.signedMulRight a (Bool.xor (Int.isNeg b) (Int.isNeg c)) (Int.natAbs b * Int.natAbs c))
+  _ = Int.mul a (Int.mul b c) := Eq.flipped (Eq.cong (Int.mul a) (Int.mulSigned b c))
 
 theorem Int.oneMul ∀ (a: Int): Int.mul (OfNat 1) a = a := match a with
   | OfNat n => Eq.cong OfNat (Nat.addZero n)

@@ -121,10 +121,22 @@ theorem List.uniqueLoopFrom [auto ord: Ord a]:
       | True =>
         match d: List.any seenList (== x) with
           | True => List.uniqueLoopFrom seen seenList same acc xs
-          | False => Void.impossible (Bool.trueNotFalse (Eq.trans c.flipped (Eq.trans (same x) d)))
+          | False =>
+            Void.impossible
+              (Bool.trueNotFalse
+                (calc True
+                  _ = Set.contains seen x := c.flipped
+                  _ = List.any seenList (== x) := same x
+                  _ = False := d))
       | False =>
         match d: List.any seenList (== x) with
-          | True => Void.impossible (Bool.falseNotTrue (Eq.trans c.flipped (Eq.trans (same x) d)))
+          | True =>
+            Void.impossible
+              (Bool.falseNotTrue
+                (calc False
+                  _ = Set.contains seen x := c.flipped
+                  _ = List.any seenList (== x) := same x
+                  _ = True := d))
           | False =>
             List.uniqueLoopFrom
               (Set.insert seen x)

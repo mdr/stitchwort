@@ -178,14 +178,13 @@ theorem Text.compareEqual ∀ (s t: Text) (h: Text.compare s t = Equal): s = t :
       (Text.toList t)
       (Eq.trans (Eq.flipped (Text.compareCharsLex (Text.toList s) (Text.toList t))) h))
 
-theorem Text.compareFlip ∀ (s t: Text): Text.compare t s = Ordering.flip (Text.compare s t) :=
-  calc Text.compare t s
-    _ = List.compareLex Char.compare (Text.toList t) (Text.toList s) :=
-      Text.compareCharsLex (Text.toList t) (Text.toList s)
-    _ = Ordering.flip (List.compareLex Char.compare (Text.toList s) (Text.toList t)) :=
-      List.compareLexFlip Char.compare Char.compareFlip (Text.toList s) (Text.toList t)
-    _ = Ordering.flip (Text.compare s t) :=
-      Eq.cong Ordering.flip (Eq.flipped (Text.compareCharsLex (Text.toList s) (Text.toList t)))
+theorem Text.compareFlip ∀ (s t: Text): Text.compare t s = Ordering.flip (Text.compare s t) := calc Text.compare t s
+  _ = List.compareLex Char.compare (Text.toList t) (Text.toList s) :=
+    Text.compareCharsLex (Text.toList t) (Text.toList s)
+  _ = Ordering.flip (List.compareLex Char.compare (Text.toList s) (Text.toList t)) :=
+    List.compareLexFlip Char.compare Char.compareFlip (Text.toList s) (Text.toList t)
+  _ = Ordering.flip (Text.compare s t) :=
+    Eq.cong Ordering.flip (Eq.flipped (Text.compareCharsLex (Text.toList s) (Text.toList t)))
 
 theorem Text.compareTrans ∀ (s t u: Text)
     (h1: Text.compare s t = Less)
