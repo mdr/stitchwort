@@ -6128,6 +6128,22 @@ pub(crate) fn check_value(
         (Expr::Tuple(..), Value::Data(d, _)) if proof_chain(cx, *d).is_some() => {
             proof_tuple(cx, expr, &expected)
         }
+        // A tuple can't be a known data type that isn't a pair or a proof.
+        // The type is right here, so say so rather than asking which `∃` it
+        // proves, and say how that type is written
+        // (docs/proposals/proof-tuples.md §6).
+        (Expr::Tuple(_, _, span), Value::Data(..)) => {
+            let shown = cx.show(&expected);
+            let mut e = Diagnostic::error(
+                "E-TYPE-MISMATCH",
+                format!("expected `{shown}`, but a tuple builds a pair or a proof of `∧` or `∃`"),
+            )
+            .with_label(*span, "this tuple");
+            if let Some(note) = tuple_target_note(cx, &expected, TupleNote::Value) {
+                e = e.with_note(note);
+            }
+            Err(e)
+        }
         // `[a: Type] => body` and `[auto h: P] => body` take the parameter
         // of the function type they're checked against, rather than having
         // it introduced for them (§4.3 of docs/proposals/lambda-syntax.md).
@@ -9214,6 +9230,47 @@ pub(crate) fn without_inferred_annotation(expr: &Expr, term: Term) -> Term {
             None => (**inner).clone(),
         },
         _ => term,
+    }
+}
+
+/// Whether a tuple note is for a pattern (which names fields) or a value
+/// (whose record literal writes them).
+#[derive(Clone, Copy)]
+pub(crate) enum TupleNote {
+    Pattern,
+    Value,
+}
+
+/// The tail of a tuple message for `value`: what it is written with, if it
+/// is a data type. `None` for anything else (an equation, a variable of
+/// proposition type), where the caller's own wording applies.
+pub(crate) fn tuple_target_note(cx: &Ctx, value: &Value, note: TupleNote) -> Option<String> {
+    let g = cx.g();
+    let shown = cx.show(value);
+    match value {
+        Value::Data(d, _) if g.data(*d).record() => {
+            let fields = g.data(*d).ctors()[0]
+                .fields
+                .iter()
+                .map(|(name, _)| match note {
+                    TupleNote::Pattern => name.to_string(),
+                    TupleNote::Value => format!("{name} = …"),
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            Some(format!("`{shown}` is a record: write `{{ {fields} }}`"))
+        }
+        Value::Data(d, _) => {
+            let names = g
+                .data(*d)
+                .ctors()
+                .iter()
+                .map(|c| format!("`{}`", c.name))
+                .collect::<Vec<_>>()
+                .join(" or ");
+            Some(format!("`{shown}` is built with {names}"))
+        }
+        _ => None,
     }
 }
 

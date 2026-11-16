@@ -318,10 +318,23 @@ fn destructure(
                     let params = crate::check::fresh_telescope(cx, g.data(pair).params())?;
                     let expected = Value::Data(pair, params.into());
                     if !cx.unify(&other, &expected)? {
+                        let note = match crate::check::tuple_target_note(
+                            cx,
+                            &other,
+                            crate::check::TupleNote::Pattern,
+                        ) {
+                            Some(tail) => format!(
+                                "a tuple pattern opens a pair, a proof of `∧` or a proof of \
+                                 `∃`; {tail}"
+                            ),
+                            None => "a tuple pattern opens a pair, a proof of `∧` or a proof of \
+                                     `∃`"
+                            .to_string(),
+                        };
                         let saved = std::mem::replace(&mut cx.span, *span);
                         let e = cx.mismatch(&other, &expected);
                         cx.span = saved;
-                        return Err(e.with_note("a tuple pattern matches a pair"));
+                        return Err(e.with_note(note));
                     }
                     let Value::Data(_, params) = force(&g, expected)? else {
                         unreachable!("a data type")

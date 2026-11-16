@@ -736,7 +736,11 @@ enum Tree<'a> {
         /// The number of variables in scope: the constructor's fields are
         /// bound at the levels from here.
         depth: usize,
-        branches: Vec<(Vec<Name>, Tree<'a>)>,
+        /// Each branch's bound names: `None` where the pattern left a `_`,
+        /// filled from the constructor actually split (`check_tree` knows it
+        /// once the column's type is known; a tuple read as a pair first may
+        /// turn out to be `∧` or `∃`).
+        branches: Vec<(Vec<Option<Name>>, Tree<'a>)>,
         span: Span,
         /// The pattern that split the variable: where a fact it can't take
         /// apart is reported.
@@ -980,8 +984,8 @@ impl<'a> FinNumbers<'a> {
             }
         };
         let mut branches = vec![
-            (self.zero_fields.clone(), zero),
-            (self.succ_fields.clone(), succ),
+            (self.zero_fields.iter().cloned().map(Some).collect(), zero),
+            (self.succ_fields.iter().cloned().map(Some).collect(), succ),
         ];
         if self.zero_ctor > self.succ_ctor {
             branches.swap(0, 1);
@@ -5004,7 +5008,7 @@ impl Elaborator {
                 // (docs/proposals/indexed-families.md §7.3). Without
                 // indices, only if another column's type becomes empty in
                 // this branch (`Fin n` with `n := Zero`): SW-181.
-                let names = (ctor.fields.iter()).map(|(x, _)| x.clone()).collect();
+                let names = (0..ctor.fields.len()).map(|_| None).collect();
                 branches.push((
                     names,
                     Tree::Missing {
@@ -5018,7 +5022,7 @@ impl Elaborator {
             if branch_rows.is_empty() {
                 // Certainly missing; the others are found before it is
                 // reported (`compile_top`).
-                let names = (ctor.fields.iter()).map(|(x, _)| x.clone()).collect();
+                let names = (0..ctor.fields.len()).map(|_| None).collect();
                 let mut arm = missing::Arm::definite();
                 arm.text_gap = self.text_gap(rows.iter().map(|row| row.pats[j].span()));
                 branches.push((
@@ -5038,11 +5042,6 @@ impl Elaborator {
                 &branch_types,
                 span,
             )?;
-            let names = names
-                .into_iter()
-                .zip(&ctor.fields)
-                .map(|(n, (field, _))| n.unwrap_or_else(|| field.clone()))
-                .collect();
             branches.push((names, body));
         }
         Ok(Tree::Case {
@@ -6769,7 +6768,7 @@ fn read_case(
     x: usize,
     d: DataId,
     depth: usize,
-    branches: &[(Vec<Name>, Tree)],
+    branches: &[(Vec<Option<Name>>, Tree)],
     span: Span,
     pattern: Span,
     tuple: bool,
@@ -6795,7 +6794,23 @@ fn read_case(
             d = d2;
             found
         }
-        _ if tuple => return Ok(None),
+        // A tuple pattern can't be a pair here either: say what the fact
+        // reads as, as `Both` or `Witness` written out does.
+        read if tuple => {
+            return Err(reading::no_reading(
+                cx,
+                pattern,
+                &test,
+                polarity,
+                "taken apart with a tuple pattern",
+                &read,
+                None,
+            )
+            .with_note(
+                "a tuple pattern takes apart a proof of `∧` or `∃`, and this test fact's \
+                 reading isn't one",
+            ));
+        }
         read => {
             let how = format!("taken apart with {}", reading::constructors_shown(cx, d));
             return Err(reading::no_reading(
@@ -6927,10 +6942,31 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     "can't tell which proof this tuple takes apart",
                 )
                 .with_note(format!(
-                    "its type is a proposition not yet worked out (`{}`), so not a pair: \
-                     give the parameter's type",
+                    "it was read as a pair because nothing said what it proves when it was \
+                     checked, but its type is a proposition not yet worked out (`{}`): give \
+                     the parameter's type",
                     cx.show(&ty)
                 )));
+            }
+            // A tuple pattern on a proof of `∃` is `Witness` written shorter:
+            // taking the witness out as data is `E-PROP-ELIM`, and the note
+            // shows the tuple form (docs/proposals/proof-tuples.md §6).
+            if *tuple
+                && g.env.registry().is_data(Builtin::Exists, *d)
+                && matches!(force(&g, goal.clone())?, Value::Data(..) | Value::Eq(..))
+                && !crate::rewrite::is_proof_type(cx, goal)?
+            {
+                return Err(error(
+                    "E-PROP-ELIM",
+                    *pattern,
+                    "can't match on a proof of `Exists` to produce data",
+                )
+                .with_note(
+                    "`Exists` is a proposition, so its proofs are erased at runtime. Matching on \
+                     one can only produce data when the proposition has at most one constructor \
+                     and every field is itself a proof. A tuple pattern is `Witness` written \
+                     shorter (`(n, p)` is `Witness n p`), so it isn't a way out",
+                ));
             }
             if let Value::Neutral(Head::Meta(_), _) = ty {
                 // A variable of a type not yet known, matched by a
@@ -6977,12 +7013,24 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                              happen, write the arm with `()` and no `=>`",
                         );
                     }
-                    if Some(*d) == g.env.registry().loaded_data(Builtin::Pair) {
-                        e = e.with_note(
-                            "a tuple pattern opens a pair, a proof of `∧` or a proof of `∃`; \
-                             with more parts than the proof has, the last ones meet a part \
-                             that is none of these",
-                        );
+                    if *tuple && Some(*d) == g.env.registry().loaded_data(Builtin::Pair) {
+                        let note = match crate::check::tuple_target_note(
+                            cx,
+                            &other,
+                            crate::check::TupleNote::Pattern,
+                        ) {
+                            Some(tail) => format!(
+                                "a tuple pattern opens a pair, a proof of `∧` or a proof of \
+                                 `∃`; {tail}"
+                            ),
+                            // Not a data type at all: any part after the first
+                            // has no part of it to meet.
+                            None => "a tuple pattern opens a pair, a proof of `∧` or a proof of \
+                                     `∃`; with more parts than the proof has, the last ones meet \
+                                     a part that is none of these"
+                                .to_string(),
+                        };
+                        e = e.with_note(note);
                     }
                     return Err(e);
                 }
@@ -6998,6 +7046,15 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             let mut out = Vec::new();
             let mut failed = Vec::new();
             for (c, ((names, subtree), ctor)) in branches.iter().zip(data.ctors()).enumerate() {
+                // A `_` takes the field name of the constructor this split
+                // actually uses, which may differ from the one it was
+                // compiled against (`fst`/`snd` before a tuple turned out to
+                // be `∧`/`∃`).
+                let names: Vec<Name> = names
+                    .iter()
+                    .zip(&ctor.fields)
+                    .map(|(name, (field, _))| name.clone().unwrap_or_else(|| field.clone()))
+                    .collect();
                 let mark = cx.mark();
                 let base = cx.level();
                 let fields: Vec<Value> = (0..ctor.fields.len())

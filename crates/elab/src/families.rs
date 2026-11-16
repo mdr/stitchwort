@@ -643,7 +643,7 @@ pub(crate) fn check_case(
     x: usize,
     d: DataId,
     args: &[Value],
-    branches: &[(Vec<Name>, Tree)],
+    branches: &[(Vec<Option<Name>>, Tree)],
     goal: &Value,
     span: Span,
 ) -> Result<Term> {
@@ -657,13 +657,18 @@ pub(crate) fn check_case(
     let scrutinee = cx.show(&Value::Data(d, args.to_vec().into()));
     let split_start = crate::arm_display::root_of(cx, &goal);
     for (c, (names, subtree)) in branches.iter().enumerate() {
+        let names: Vec<Name> = names
+            .iter()
+            .zip(&cx.g().data(d).ctors()[c].fields)
+            .map(|(name, (field, _))| name.clone().unwrap_or_else(|| field.clone()))
+            .collect();
         let mark = cx.mark();
         let saved_env = cx.env.clone();
         let saved_types = cx.types.clone();
         cx.e.decl.leaf_log.borrow_mut().path.push(c as u32);
         let split = (&split_start, &saved_env[..]);
         let result = case_branch(
-            cx, x, d, c, args, names, subtree, &goal, span, &scrutinee, split,
+            cx, x, d, c, args, &names, subtree, &goal, span, &scrutinee, split,
         );
         cx.e.decl.leaf_log.borrow_mut().path.pop();
         cx.reset(mark);
