@@ -40459,12 +40459,12 @@
     {
       "id": 3605,
       "title": "[Sonnet] Formatter fuzz round 2 (Overmind, 33 seeds on 9dba062b7, 1.17M cases): five families still failing on main, minimal inputs in scratchpad fmtbugs/round2/: (1) exists-binder.sw 'expected an expression, found )' (9 seeds, first 0x953/31305); (2) let-semicolon.sw 'expected ; after the value of let' (4 plain seeds, 0xa01/4759); (3) attr-arms.sw 'arms are indented further than the definition' (3 seeds, 0x950/54875); (4) else-chain.sw 'expected else' (0x958/82932); (5) lambda-let.sw (SW-3587, 0x931/17742). Each fixed in the general rule with a failing-first fmt test. Absorbs SW-3587",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Lane (Opus, 16 Nov, lane/SW-3605, commit a53f73518): all five families fixed in the general rule, each with a failing-first printer test (crates/fmt/src/printer/tests.rs): bracketed block opens below its bracket (let-semicolon); if after a commented else is the else's branch (else-chain); lambda before ; keeps its body after => (lambda-let, also failed without comments for a long body); closer after comments goes at its opener's line when a line inside is at/left of the indent in force, Doc::Mark/CloserLine (exists-binder); comments between attributes and keyword at the decl's column (attr-arms). Repo sources unchanged (the_repository_sources_are_formatted passes). Absorbs SW-3587.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40472,12 +40472,12 @@
     {
       "id": 3606,
       "title": "[Opus] Formatter silently loses a comment (found by Toy++ T0): 'def a: Nat := (f (1) -- c1\\n  ) -- c2' formats with exit 0 to 'def a: Nat := (f (1)) -- c2'; place_comments in crates/fmt/src/tidy.rs (~53-61) overwrites a token that already has a comment. Also: why didn't the whole-file comments check catch it? Fix both, failing-first test; minimal in scratchpad fmtbugs/round2/lost-comment.sw",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Run together with SW-3605 in one Opus lane (both crates/fmt).",
+      "body": "Run together with SW-3605 in one Opus lane (both crates/fmt).\n\nLane (Opus, 16 Nov, commit 39efbaa0a): rule N's walk checked the token before a closer for a comment after an earlier step of the same walk had moved it away, so both comments landed on one token. Now looks back through closers/commas/bars (line_ends_with_comment). The comments check compared anchors after place_comments on both sides, so a comment N lost vanished from both; new check::same_comments compares lexer comments (text, order) of the original file and the output, no shared code with placement. Tests: tidy a_trailing_comment_stays_on_a_closer..., printer comments_after_two_closers..., an_output_missing_a_comment_is_refused (fails with the check disabled). Audit of the other checks in the lane report (tree check compares with the tidied text: P4 changes the AST, follow-up needed).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
