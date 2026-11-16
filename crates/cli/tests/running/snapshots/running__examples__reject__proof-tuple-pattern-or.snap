@@ -10,5 +10,5 @@ expression: output
    │ │                         
    │ ╰───────────────────────── these patterns match a `Pair`, but the argument has type `p ∨ q`
    │     
-   │     Note: a tuple pattern opens a pair, a proof of `∧` or a proof of `∃`; `p ∨ q` is none of these: split it with `Inl` or `Inr`
+   │     Note: a tuple pattern opens a pair, a proof of `∧` or a proof of `∃`; `p ∨ q` is built with `Inl` or `Inr`
 ───╯

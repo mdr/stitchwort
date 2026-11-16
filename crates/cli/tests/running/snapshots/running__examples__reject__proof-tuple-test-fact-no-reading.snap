@@ -1,0 +1,23 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NO-READING] Error: this test fact can't be taken apart with a tuple pattern
+   ╭─[ reject/proof-tuple-test-fact-no-reading.sw:6:5 ]
+   │
+ 6 │   | (x, _) => x
+   │     ───┬──  
+   │        ╰──── `a && b = False` reads as `a = False ∨ b = False` (`Bool.andReadsFalse`)
+   │ 
+   │ Note 1: a test fact can always be matched by a name, and `.read` gives the proposition
+   │ 
+   │ Note 2: a tuple pattern takes apart a proof of `∧` or `∃`, and this test fact's reading isn't one
+   │ 
+   │ Note 3: this statement is false; a counterexample:
+   │           a = True
+   │           b = False
+   │         `(a && b) = False` holds
+   │         `a = False` is false:
+   │           left:  True
+   │           right: False
+───╯

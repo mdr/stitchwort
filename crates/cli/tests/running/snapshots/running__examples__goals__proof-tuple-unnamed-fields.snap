@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `t`
+   ╭─[ goals/proof-tuple-unnamed-fields.sw:9:21 ]
+   │
+ 9 │   | True, (_, _) => ?
+   │                     ┬  
+   │                     ╰── left✝: 1 = 1
+   │                         right✝: 2 = 2
+   │                         ⊢ 1 = 1 ∧ 2 = 2
+───╯

@@ -318,35 +318,18 @@ fn destructure(
                     let params = crate::check::fresh_telescope(cx, g.data(pair).params())?;
                     let expected = Value::Data(pair, params.into());
                     if !cx.unify(&other, &expected)? {
-                        let shown = cx.show(&other);
-                        let note = match &other {
-                            Value::Data(d, _) if g.data(*d).record() => {
-                                let fields = g.data(*d).ctors()[0]
-                                    .fields
-                                    .iter()
-                                    .map(|(name, _)| name.to_string())
-                                    .collect::<Vec<_>>()
-                                    .join(", ");
-                                format!(
-                                    "a tuple pattern opens a pair, a proof of `∧` or a proof of \
-                                     `∃`; `{shown}` is a record: write `{{ {fields} }}`"
-                                )
-                            }
-                            Value::Data(d, _) => {
-                                let names = g
-                                    .data(*d)
-                                    .ctors()
-                                    .iter()
-                                    .map(|c| format!("`{}`", c.name))
-                                    .collect::<Vec<_>>()
-                                    .join(" or ");
-                                format!(
-                                    "a tuple pattern opens a pair, a proof of `∧` or a proof of \
-                                     `∃`; `{shown}` is none of these: split it with {names}"
-                                )
-                            }
-                            _ => "a tuple pattern opens a pair, a proof of `∧` or a proof of `∃`"
-                                .to_string(),
+                        let note = match crate::check::tuple_target_note(
+                            cx,
+                            &other,
+                            crate::check::TupleNote::Pattern,
+                        ) {
+                            Some(tail) => format!(
+                                "a tuple pattern opens a pair, a proof of `∧` or a proof of \
+                                 `∃`; {tail}"
+                            ),
+                            None => "a tuple pattern opens a pair, a proof of `∧` or a proof of \
+                                     `∃`"
+                            .to_string(),
                         };
                         let saved = std::mem::replace(&mut cx.span, *span);
                         let e = cx.mismatch(&other, &expected);

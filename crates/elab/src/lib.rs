@@ -6784,6 +6784,7 @@ fn read_case(
         return Ok(None);
     };
     // A tuple pattern takes apart a reading that is `∧` or `∃`.
+    let written = d;
     let mut d = d;
     let found = match reading::read_through(cx, &test, polarity)? {
         reading::Read::Found(found) if matches!(force(&cx.g(), found.prop.clone())?, Value::Data(d2, _) if d2 == d) => {
@@ -6795,7 +6796,23 @@ fn read_case(
             d = d2;
             found
         }
-        _ if tuple => return Ok(None),
+        // A tuple pattern can't be a pair here either: say what the fact
+        // reads as, as `Both` or `Witness` written out does.
+        read if tuple => {
+            return Err(reading::no_reading(
+                cx,
+                pattern,
+                &test,
+                polarity,
+                "taken apart with a tuple pattern",
+                &read,
+                None,
+            )
+            .with_note(
+                "a tuple pattern takes apart a proof of `∧` or `∃`, and this test fact's \
+                 reading isn't one",
+            ));
+        }
         read => {
             let how = format!("taken apart with {}", reading::constructors_shown(cx, d));
             return Err(reading::no_reading(
@@ -6819,7 +6836,14 @@ fn read_case(
         depth: depth + 1,
         branches: branches
             .iter()
-            .map(|(names, t)| (names.clone(), t.shifted(depth, 1)))
+            .map(|(names, t)| {
+                let names = if d == written {
+                    names.clone()
+                } else {
+                    fields_named_by(&cx.g(), written, d, names)
+                };
+                (names, t.shifted(depth, 1))
+            })
             .collect(),
         span,
         pattern,
@@ -6830,6 +6854,24 @@ fn read_case(
         .and_then(|body| lift::draft(cx, depth, vec![read], body, goal, span));
     cx.reset(mark);
     Ok(Some(body?))
+}
+
+/// Branch names compiled against `from`, with the fields `to` actually names
+/// wherever the pattern left a `_`: until the type is known those are the
+/// compile-time fields (`fst`, `snd` for a tuple read as a pair).
+fn fields_named_by(g: &Ev<'_>, from: DataId, to: DataId, names: &[Name]) -> Vec<Name> {
+    let (from, to) = (g.data(from), g.data(to));
+    let (Some(from), Some(to)) = (from.ctors().first(), to.ctors().first()) else {
+        return names.to_vec();
+    };
+    names
+        .iter()
+        .enumerate()
+        .map(|(i, name)| match (from.fields.get(i), to.fields.get(i)) {
+            (Some((old, _)), Some((new, _))) if name == old => new.clone(),
+            _ => name.clone(),
+        })
+        .collect()
 }
 
 /// `∧` or `∃`, if `ty` (forced) is one of them: what a tuple takes apart
@@ -6915,7 +6957,8 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 Value::Data(d2, _) if d2 == d => None,
                 other => proof_data(cx, other),
             };
-            let d = &switched.unwrap_or(*d);
+            let written = *d;
+            let d = &switched.unwrap_or(written);
             let data = g.data(*d);
             // At an unknown proposition a pair can't be right: the tuple
             // fails here, and an argument that does is checked again once
@@ -6999,39 +7042,20 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                         );
                     }
                     if *tuple && Some(*d) == g.env.registry().loaded_data(Builtin::Pair) {
-                        let shown = cx.show(&other);
-                        let note = match &other {
-                            Value::Data(d2, _) if g.data(*d2).record() => {
-                                let fields = g.data(*d2).ctors()[0]
-                                    .fields
-                                    .iter()
-                                    .map(|(name, _)| name.to_string())
-                                    .collect::<Vec<_>>()
-                                    .join(", ");
-                                format!(
-                                    "a tuple pattern opens a pair, a proof of `∧` or a proof of \
-                                     `∃`; `{shown}` is a record: write `{{ {fields} }}`"
-                                )
-                            }
-                            // Another data type: the tuple isn't a pair or a
-                            // proof at all, so no part of it is surplus. Name
-                            // the constructors that do take it apart.
-                            Value::Data(d2, _) => {
-                                let names = g
-                                    .data(*d2)
-                                    .ctors()
-                                    .iter()
-                                    .map(|c| format!("`{}`", c.name))
-                                    .collect::<Vec<_>>()
-                                    .join(" or ");
-                                format!(
-                                    "a tuple pattern opens a pair, a proof of `∧` or a proof of \
-                                     `∃`; `{shown}` is none of these: split it with {names}"
-                                )
-                            }
-                            _ => "a tuple pattern opens a pair, a proof of `∧` or a proof of `∃`; \
-                                  with more parts than the proof has, the last ones meet a part \
-                                  that is none of these"
+                        let note = match crate::check::tuple_target_note(
+                            cx,
+                            &other,
+                            crate::check::TupleNote::Pattern,
+                        ) {
+                            Some(tail) => format!(
+                                "a tuple pattern opens a pair, a proof of `∧` or a proof of \
+                                 `∃`; {tail}"
+                            ),
+                            // Not a data type at all: any part after the first
+                            // has no part of it to meet.
+                            None => "a tuple pattern opens a pair, a proof of `∧` or a proof of \
+                                     `∃`; with more parts than the proof has, the last ones meet \
+                                     a part that is none of these"
                                 .to_string(),
                         };
                         e = e.with_note(note);
@@ -7050,6 +7074,10 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             let mut out = Vec::new();
             let mut failed = Vec::new();
             for (c, ((names, subtree), ctor)) in branches.iter().zip(data.ctors()).enumerate() {
+                let names = match switched {
+                    Some(_) => fields_named_by(&g, written, *d, names),
+                    None => names.clone(),
+                };
                 let mark = cx.mark();
                 let base = cx.level();
                 let fields: Vec<Value> = (0..ctor.fields.len())
