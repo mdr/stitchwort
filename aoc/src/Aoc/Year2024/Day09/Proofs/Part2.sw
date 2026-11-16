@@ -78,17 +78,22 @@ theorem movedBlocks ∀ (diskMap: DiskMap):
   let layout := layoutFrom 0 0 diskMap.lengths
   let initial := FreeSpace.of (joinTouching layout.snd)
   rewrite List.mapAccumLeftList layout.fst.reverse initial FreeSpace.moveFile then
-    Eq.trans
-      (List.flatMapEqConcatMap File.blocks _)
-      (Eq.trans
-        (Eq.cong List.concat
+    let zipped :=
+      List.zipWith layout.fst.reverse
+        (List.scanLeft layout.fst.reverse initial (free file => (free.moveFile file).fst))
+        (file free => (free.moveFile file).snd)
+    calc zipped.flatMap .blocks
+      _ = (zipped.map File.blocks).concat := List.flatMapEqConcatMap File.blocks zipped
+      _ = (layout.fst.reverse.map File.blocks).concat :=
+        Eq.cong List.concat
           (List.mapZipWithScanLeft File.blocks File.blocks
             (file free => (free.moveFile file).snd)
             (file free => moveFileBlocks free file)
             layout.fst.reverse
             initial
-            (free file => (free.moveFile file).fst)))
-        (Eq.flipped (List.flatMapEqConcatMap File.blocks _)))
+            (free file => (free.moveFile file).fst))
+      _ = (filesOf diskMap).reverse.flatMap .blocks :=
+        Eq.flipped (List.flatMapEqConcatMap File.blocks (filesOf diskMap).reverse)
 
 theorem fileBlocksReplicate ∀ (n id: Nat): fileBlocks (List.replicate n (FileBlock id)) = List.replicate n id :=
   match n with
@@ -171,14 +176,15 @@ theorem fileChecksumCorrect ∀ (file: File):
   rewrite <- checksumCorrect {
         blocks = List.replicate file.span.start Free ++ List.replicate file.span.length (FileBlock file.id)
       } then
-    Eq.trans
-      (fileChecksumSpec file)
-      (Eq.trans
-        (Eq.flipped
+    let disk: Disk :=
+      { blocks = List.replicate file.span.start Free ++ List.replicate file.span.length (FileBlock file.id) }
+    calc file.checksum
+      _ = (List.rangeFrom file.span.length file.span.start).sumBy (position => position * file.id) :=
+        fileChecksumSpec file
+      _ = (List.withIndexFrom 0 disk.blocks).sumBy blockChecksum :=
+        Eq.flipped
           (Eq.trans
             (checksumSkipFree (List.replicate file.span.length (FileBlock file.id)) file.span.start 0)
-            (rewrite Nat.addZero file.span.start then checksumFileRun file.id file.span.length file.span.start)))
-        (Eq.flipped
-          (checksumSum {
-            blocks = List.replicate file.span.start Free ++ List.replicate file.span.length (FileBlock file.id)
-          })))
+            (rewrite Nat.addZero file.span.start then checksumFileRun file.id file.span.length file.span.start))
+      _ = disk.blocks.withIndex.sumBy (pair => pair.fst * pair.snd.idOr 0) := byComputing
+      _ = disk.checksum := Eq.flipped (checksumSum disk)
