@@ -39252,7 +39252,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Merged, Fable 17 min (est. 90). Orchestrator checked printIsReading and readingWords statement pairs: same meaning. Plain Lean 79% of Stitchwort's characters, idiomatic 53%; proofs alone 73% / 30%. Simplifier first; syntax <=21% on this slice. Decision pending: exprSpells experiment.",
+      "body": "Merged, Fable 17 min (est. 90). Orchestrator checked printIsReading and readingWords statement pairs: same meaning. Plain Lean 79% of Stitchwort's characters, idiomatic 53%; proofs alone 73% / 30%. Simplifier first; syntax <=21% on this slice. Decision pending: exprSpells experiment.\n\nD3641 (Matt, 16 Nov 2026): drop the second Lean port (exprSpells); 'happy to drop ... if we think we can learn the same things a different way'. Measured instead by proof tuples L4 (SW-3519, toy sweep) and simp stage 4 (re-measure against the Lean table).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39332,7 +39332,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "D3641: this lane's before/after counts replace the dropped exprSpells Lean port: report proof characters and lines saved by tuples on the toy, by file.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
