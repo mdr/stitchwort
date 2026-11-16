@@ -1,7 +1,7 @@
 # What a literal match's catch-all arm knows
 
-**Status:** built on a branch, 26 October 2026 (SW-533, D1306). **Changes
-the kernel**, so it waits for Matt's review before merging. User
+**Status:** built, merged 26 October 2026 (SW-533, D1306, `91eead3c9`). **Changes
+the kernel**. User
 documentation: [syntax.md, Declarations](../syntax.md#declarations) (the
 paragraph on number patterns).
 

@@ -1,7 +1,7 @@
 # Default values for function parameters
 
 Status: accepted (D1340). Decisions D1345 to D1356 in §10 all taken as recommended (26 Oct 2026).
-Nothing here is built.
+Stage 1 is built (SW-620, `crates/elab/src/defaults.rs`); stages 2-3 are open (SW-622, SW-623).
 
 This note takes up the part of
 [named-arguments.md](named-arguments.md) that was put off: §5.4,

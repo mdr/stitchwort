@@ -3,7 +3,8 @@
 Status: decided (SW-390). Built: stage 1 (named arguments, SW-399), stage 1b
 (SW-400: formatter, completion and hover of parameter names), stage 2 (field
 defaults, SW-401) and stage 2b (field defaults at the JS boundary, SW-402); see
-the "As built" sections. Stage 3 (signature defaults) not built. Revised after external review
+the "As built" sections. Stage 3 (signature defaults) is partly built (stage 1, SW-620;
+stages 2-3 open). Revised after external review
 (24 Oct 2026). All decisions in §8 were taken as recommended (Matt, 24 Oct
 2026).
 

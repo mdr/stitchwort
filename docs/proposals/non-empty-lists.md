@@ -2,8 +2,8 @@
 
 **Update, 5 November 2026:** Matt took every recommendation (D2393-D2399) and named the type `NonEmptyList`, not `NonEmpty` (D2394); the text below says `NonEmptyList` for ours, and `NonEmpty` only for Haskell's. Stage 1 is built (SW-1343) in `std/NonEmptyList/`: `++` is `List`'s and `Text`'s only, so the joins are `append`, `appendList` and `prependList`.
 
-**Status:** design note, 5 November 2026, for Matt's decisions (§13). No
-implementation yet. Background: Matt (D2383): "how we might do non-empty
+**Status:** design note, 5 November 2026; stages 1-4 are built (SW-1343-SW-1346),
+in `crates/elab/src/std/NonEmptyList/`. Background: Matt (D2383): "how we might do non-empty
 lists in the standard library so that we can have things like reduce …
 having more precise types is powerful." The prompt was 2020 day 6, where
 `group.people.foldLeft (Set.fromList questions) …` would be

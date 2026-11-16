@@ -1,7 +1,7 @@
 # Source maps for generated JavaScript
 
-Status: exploration, with a working prototype of the per-definition option.
-Decisions at the end (D940 onward).
+Status: built: the per-definition option merged as SW-361, in
+`crates/js/src/sourcemap.rs`. Decisions at the end (D940 onward).
 
 ## 1. The problem and what users would get
 

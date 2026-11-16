@@ -225,7 +225,7 @@ program outside the library can't name `Done`, `Call`, `foldComp`, `bind`,
 `translate` or `runPure` in code that runs (`E-PROOF-ONLY`) **[checked]**.
 The library uses them at run time only in the definitions above, in the
 row helpers built from them (`doneIn`, `bindIn`, `liftIn`, `lowerIn`,
-`widenIn`, `Effect.sw:165-200`) and in what the elaborator generates
+`widenIn`, in `Effect.sw`) and in what the elaborator generates
 (`Done` and `Call` for operations, `bind` for sequencing, `foldComp` for
 `handle`, `translate` between rows) **[checked]**. Apart from these, the only
 consumers of a computation at run time are the runners, which step `main`'s

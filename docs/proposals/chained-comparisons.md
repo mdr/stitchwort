@@ -1,7 +1,7 @@
 # Chained comparisons, `low <= x <= high` (SW-1339)
 
-**Status:** design note, 5 November 2026, for Matt's decisions (§11). No
-implementation yet. Background: Matt (D2385), after Python: `entry.low <=
+**Status:** design note, 5 November 2026; built (SW-1341), as `comparison_chain` in
+`crates/syntax/src/parser.rs`. Background: Matt (D2385), after Python: `entry.low <=
 times <= entry.high` should mean `entry.low <= times ∧ times <= entry.high`.
 
 Claims about Stitchwort are **[checked]** when I read or ran the thing named

@@ -1,7 +1,7 @@
 # Proposal: a fast runtime for running programs
 
-**Status:** draft 1, 21 October 2026. Research and recommendation only: nothing here changes the
-compiler. The measurements were made with scratch programs, then thrown away. Decisions are at
+**Status:** draft 1, 21 October 2026; built, stages 1-4 (`crates/rt/`, SW-230-SW-233). The
+measurements were made with scratch programs, then thrown away. Decisions are at
 the [end](#decisions).
 
 **The question (Matt):** "It might be interesting to explore a fast native evaluator: what

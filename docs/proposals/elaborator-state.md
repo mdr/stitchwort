@@ -1,8 +1,8 @@
 # Proposal: the elaborator's state, by lifetime
 
 **Status:** Draft 2, 3 November 2026 (SW-1137, D2250; revised for the
-external review by SW-1169, D2281). Steps 0-5 are built. Step 6 is specified
-in §4.8 and waits for Matt's decisions there (§8, D2283-D2287). §4.9 says
+external review by SW-1169, D2281). Steps 0-6c are built; D2283-D2287 were
+decided on 3 Nov (SW-1169). §4.9 says
 what the design keeps open for parallel checking, and §10 answers the review
 ([elaborator-state-review.md](../reviews/elaborator-state-review.md)) point
 by point. Draft 1 was written at `b9627b79`; draft 2's claims about the code

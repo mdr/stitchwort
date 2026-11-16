@@ -1,8 +1,8 @@
 # Moving a closed computation into an open row (SW-424)
 
-Status: design note, stopped for review. A prototype of the recommended
-option is on branch `sw-424-delayed-translate` (commit marked PROTOTYPE).
-The kernel is unchanged in every option considered here.
+Status: built: merged 24 Oct 2026 as `8046d40cc`, with D1150 (a), D1151 (a) and
+D1152 (a) decided by the orchestrator (ratification is D2960); the merge was
+not reviewed. The kernel is unchanged in every option considered here.
 
 Claims marked [checked] were run or read on `main` at `f87729a2` (after
 SW-422); file:line references are to that commit unless they say
@@ -286,9 +286,13 @@ need in the common case without it.
   the declaration ends) would still differ, and it has to recognise which
   `translate`s the compiler made. B gets the effect by computation instead.
 
-## 5. Prototype (option B)
+## 5. Prototype (option B), as merged
 
-Branch `sw-424-delayed-translate`, commit `626d63d5` ("PROTOTYPE (SW-424)"):
+Merged into `main` on 24 Oct 2026 as `8046d40cc`, which includes the
+PROTOTYPE commit `626d63d5` ("PROTOTYPE (SW-424)"). There was no independent
+review; the merge message records the orchestrator's decisions (D1150 a,
+D1151 yes, D1152 note the limit), and D2960 asks Matt to ratify them. The
+change was:
 
 - `crates/elab/src/std/core/Effect.sw`: `Effect.widenIn` (above).
 - `crates/core/src/registry.rs`: `Builtin::WidenIn` (a name for the
@@ -297,9 +301,9 @@ Branch `sw-424-delayed-translate`, commit `626d63d5` ("PROTOTYPE (SW-424)"):
 - `crates/elab/src/effects.rs`: in `lift`, the `widens` case and `fn
   widen`, with helpers `ops_ending`/`res_ending` that build `pre` and
   `preRes` as lambdas over the row's tail.
-- `crates/elab/src/std/Fail/Fail.sw`: `Fail.toResultMapIn` with the short
-  proof (one split, then `rewrite Fail.toResultThen …, Fail.toResultMapIn f xs
-  in rfl`).
+- `crates/elab/src/std/Fail/Fail.sw`: `Fail.toResultMap` (then
+  `toResultMapIn`, renamed by SW-408) with the short proof (one split, then
+  `rewrite Fail.toResultThen …, Fail.toResultMap f xs in rfl`).
 - `examples/accept/reify-thunk-in-proof.sw`: the minimal repro as
   `twiceThen`.
 
@@ -308,7 +312,7 @@ Results (release builds):
 | Check | `main` | prototype |
 |---|---|---|
 | `minimal.sw` (§2) | `E-REWRITE-NOTHING` | checks |
-| short `toResultMapIn` proof | `E-REWRITE-NOTHING` | checks; `stitchwort axioms` on a theorem using it prints nothing |
+| short `toResultMap` proof | `E-REWRITE-NOTHING` | checks; `stitchwort axioms` on a theorem using it prints nothing |
 | `Each.sw` tests (in `the_standard_library_passes_its_own_tests`) | pass | pass |
 | `-p stitchwort-elab --lib` | | 57 passed, 1 ignored |
 | `-p stitchwort-cli --test examples` | | 7 passed |
@@ -321,11 +325,14 @@ There is no `effect_rows` test binary; the row examples
 `examples` binary. `cargo clippy -p stitchwort-elab` is clean. The full gate
 (`nix flake check`) was not run.
 
-Before merging it as the real change it would need: a unit test of `lift`'s
-new case (closed into open with the same abilities; different order; more
-abilities; partial), an example where `e` turns out non-empty and a law still
-applies (`Each`-style), a test that `widenIn` is `E-STD-INTERNAL` from a program,
-and the R1 note's limit bullet updated.
+These were the prototype's own requirements before merging it as the real
+change: a unit test of `lift`'s new case (closed into open with the same
+abilities; different order; more abilities; partial), an example where `e`
+turns out non-empty and a law still applies (`Each`-style), a test that
+`widenIn` is `E-STD-INTERNAL` from a program, and the R1 note's limit bullet
+updated. None of the four was done before the merge; the first three are
+still missing (the SW-2072 review, F2), and the R1 limit is now recorded in
+[proof-reification.md](proof-reification.md) (D1152 a).
 
 ## 6. What stays open, with any option except C and D
 

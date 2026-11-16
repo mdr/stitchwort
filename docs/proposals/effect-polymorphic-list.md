@@ -1,6 +1,7 @@
 # Proposal: one effect-polymorphic version of the other list functions
 
-**Status:** plan for review, 25 Oct 2026. Nothing is built. Decisions
+**Status:** plan for review, 25 Oct 2026. Lane 1 is built (`cd8863d99`,
+D1239-D1241); lanes 2-3 are open (D1242, D1243, no tickets yet). Decisions
 D1239–D1243 at the end.
 
 It continues [effect-polymorphism.md](effect-polymorphism.md) (D1110: one

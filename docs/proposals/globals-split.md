@@ -1,7 +1,7 @@
 # Proposal: splitting `Globals` by lifetime
 
-**Status:** Draft 1, 3 November 2026 (SW-1174, D2288). Nothing here is built.
-This is step 8 of [elaborator-state.md](elaborator-state.md) §7, and the
+**Status:** Draft 1, 3 November 2026 (SW-1174, D2288); built, lanes 8a-8f
+(SW-1186-SW-1191), and `Globals` is deleted (`2bd54e185`). This is step 8 of [elaborator-state.md](elaborator-state.md) §7, and the
 architecture review's step 9 and issue 3
 ([architecture-review.md](../research/architecture-review.md)). The claims
 about the code were checked by reading it at `70ce52e2`. Measurements say

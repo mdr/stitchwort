@@ -1,7 +1,8 @@
 # A finer test-cache key (SW-1328)
 
 **Status:** design note, 5 November 2026, for Matt's decisions (D2375: "an
-Opus note on what's safe"). Nothing is built. Decisions P1–P5 are at the
+Opus note on what's safe"); built as SW-1329 and SW-1330, with the key in
+`crates/driver/src/fingerprint.rs`. Decisions P1–P5 are at the
 [end](#10-decisions-for-matt).
 
 Claims about Stitchwort are **[checked]** when I read the code or ran the

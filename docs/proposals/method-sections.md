@@ -1,6 +1,6 @@
 # Passing a method as an argument: `_.isZero`? (D504)
 
-**Status:** design note, 22 October 2026 (SW-264). No code has changed. The
+**Status:** design note, 22 October 2026 (SW-264); built in SW-266 (see "As built" at the end). The
 decisions are D505–D507 (§8).
 
 ## 1. The short answer

@@ -1,7 +1,7 @@
 # Keeping calls folded while checking
 
-*SW-251 (D480), 22 October 2026. A design note: nothing here is
-implemented. Measured on `main` at `2f527af3`, release build, M-series Mac
+*SW-251 (D480), 22 October 2026. A design note: stages 1-4 are built (SW-256, SW-257
+and opaque-definitions.md §9 lane 5); the "As built" sections record them. Measured on `main` at `2f527af3`, release build, M-series Mac
 with other lanes running (load average about 20), so instruction counts
 (`/usr/bin/time -l`, which vary by under 0.1% between runs) are the steady
 measure and milliseconds are the minimum of three runs.*
