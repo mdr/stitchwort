@@ -1,5 +1,5 @@
 {
-  "next": 3668,
+  "next": 3671,
   "tickets": [
     {
       "id": 47,
@@ -39422,7 +39422,7 @@
     {
       "id": 3526,
       "title": "[Sonnet] Proof tuples: a tuple pattern doesn't open a test fact such as (a && b) = True; only Both does, via its reading (from SW-3516)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -39946,12 +39946,12 @@
     {
       "id": 3566,
       "title": "[Opus] Proof tuples: a tuple pattern in a later column of a multi-value match (match a, b with | X, (p, q)) is read as a data Pair when that column's type only reduces after splitting the earlier one (SW-3519 left 550 such patterns as Witness/Both); postpone resolving the tuple until the column's type is known",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: opus, worked, 21 min (est. 75). Filed SW-3668 SW-3669; Opus review SW-3670.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41297,6 +41297,45 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3668,
+      "title": "[DeepSeek] Sweep the toy (tools/toyfmt): convert the remaining ~545 Witness/Both patterns to tuple patterns now that later columns and test facts work (SW-3566); every theorem hash must stay the same (hash_stability for toyfmt by name). Leave the variable-first shape (| x, (p, q) => … | [], _) as is",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3669,
+      "title": "[Sonnet] Tuple pattern still read as Pair when an earlier arm has a variable in the first column and a later arm splits it (| x, (p, q) => … | [], _): defer a tuple whose column type is still unknown during the scan (SW-3566 report)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3670,
+      "title": "[Opus paper] Review SW-3566 (generates kernel terms, D2364): the tuple marker and check_tree's switch to ∧/∃ or a reading; lambda_arg's recheck of a lambda over an unknown proposition; can a marked split ever become the wrong constructor. 20 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
