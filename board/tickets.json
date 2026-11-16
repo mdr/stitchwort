@@ -1,5 +1,5 @@
 {
-  "next": 3537,
+  "next": 3539,
   "tickets": [
     {
       "id": 47,
@@ -39392,12 +39392,12 @@
     {
       "id": 3524,
       "title": "[Sonnet] fmt bug (internal error since SW-3497): a comment inside a parameter's function type: 'def combine (f: Nat ->\\n-- c\\n b -> c): List c := xs'. Fix with a golden failing first",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\n\nLane note (Sonnet, 16 Nov): fixed on lane/SW-3524. Rule 4 of N (tidy.rs) moves own-line comments after a type's `->` onto the arrow; a header with a comment ending a line inside a parameter or result type now breaks whole (rules.rs decl). Tests: printer::tests a_comment_on_its_own_line_after_an_arrow_goes_before_it, a_comment_inside_the_header_puts_the_body_below_it.\n",
+      "body": "\n\nLane note (Sonnet, 16 Nov): fixed on lane/SW-3524. Rule 4 of N (tidy.rs) moves own-line comments after a type's `->` onto the arrow; a header with a comment ending a line inside a parameter or result type now breaks whole (rules.rs decl). Tests: printer::tests a_comment_on_its_own_line_after_an_arrow_goes_before_it, a_comment_inside_the_header_puts_the_body_below_it.\n\nModel result: sonnet, worked, 10 min (est. 25). Fixed SW-3524, SW-3533 (rule N rule 4: arrow comments) and SW-3532 (header comment forces header break). Found SW-3537, SW-3538.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39498,7 +39498,7 @@
     {
       "id": 3532,
       "title": "[Sonnet] fmt bug (internal error): a calc theorem whose header has a comment inside a parameter type breaks the printed calc: 'theorem t (h: a =-- c\\n 3): 3 = a :=\\n  calc 3\\n    _ = a := h' (fuzz 0x805 #16812, 0x806 #83, 0x808 #4274; from SW-3523)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -39511,7 +39511,7 @@
     {
       "id": 3533,
       "title": "[Sonnet] fmt bug (internal error): a comment on its own line after → in a declaration type: 'def pick: Option Bool →\\n-- c\\n Nat → Nat\\n  | Some _, 0 => 1' (fuzz 0x80e #14030, 0x807 #4883; from SW-3523). Probably the same family as SW-3524 (comment in a function type)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -39550,6 +39550,32 @@
     {
       "id": 3536,
       "title": "[Sonnet] W-LAMBDA-SHADOW is noisy in proofs: fires on a lambda parameter named 'next' because it hides Parse.next (from SW-3506); consider not warning when the hidden name is a function and the parameter is used as a value, or not in theorem bodies",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3537,
+      "title": "[Sonnet] fmt bug (internal error): trailing comment after a theorem's ':' plus an own-line comment before an application argument: 'theorem t: -- c\\n f 2 = Some\\n-- c\\n (R 2) := rfl' (output fails to re-parse, found '('); fuzz 0x807 #19391 (from SW-3524)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3538,
+      "title": "[Sonnet] fmt bug (internal error): own-line comment after 'if' with an 'h:' binder: 'def f (b: Bool): Nat := if\\n-- c\\n h: b then 1 else 0' prints else too far left; fuzz 0x805 #9335 (from SW-3524)",
       "status": "backlog",
       "agent": "",
       "where": "",
