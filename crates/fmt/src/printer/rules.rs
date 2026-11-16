@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::token_text_range;
 use stitchwort_syntax::tree::{Element, Leaf, Node, NodeKind, SyntaxFile};
-use stitchwort_syntax::{Tok, Token};
+use stitchwort_syntax::{Tok, Token, Trivia};
 
 use super::WIDTH;
 
@@ -42,7 +42,11 @@ pub(crate) fn unruled(root: Node<'_>, counts: &mut BTreeMap<NodeKind, usize>) {
 }
 
 pub(crate) struct Rules<'a> {
-    file: &'a SyntaxFile,
+    /// The file's comments as rule N places them ([`crate::tidy`]): no
+    /// comma has one, and a closer or record update's `|` has no trailing
+    /// one (but for N's limits), so an element's line ends with a comment
+    /// exactly when its last code token has one.
+    trivia: &'a [Trivia],
     src: &'a str,
     tokens: &'a [Token],
     roles: Vec<Role>,
@@ -56,8 +60,8 @@ pub(crate) struct Rules<'a> {
     /// outside its groups, so they don't break them: set while the element
     /// is built.
     hoisted: Vec<bool>,
-    /// A token whose trailing comment is printed elsewhere for now: a
-    /// record update's base, whose comment follows the `|` (S31).
+    /// A token whose trailing comment is printed elsewhere: a record
+    /// update's base, whose comment follows the `|` (S31).
     defer_trailing: Option<usize>,
     /// Set while calls must not hug their last argument.
     no_hug: bool,
@@ -147,7 +151,7 @@ fn level(tok: &Tok) -> Option<u8> {
 }
 
 impl<'a> Rules<'a> {
-    pub(crate) fn new(file: &'a SyntaxFile, src: &'a str) -> Self {
+    pub(crate) fn new(file: &'a SyntaxFile, trivia: &'a [Trivia], src: &'a str) -> Self {
         let tokens = file.tokens();
         let mut file_comments = vec![false; tokens.len()];
         for decl in file.decls() {
@@ -156,7 +160,7 @@ impl<'a> Rules<'a> {
             }
         }
         Rules {
-            file,
+            trivia,
             src,
             tokens,
             roles: crate::spacing::roles(tokens),
@@ -252,7 +256,7 @@ impl<'a> Rules<'a> {
 
     /// Own-line comments and kept blank lines before token `i`.
     fn leading(&self, i: usize) -> Vec<Doc> {
-        let trivia = &self.file.trivia()[i];
+        let trivia = &self.trivia[i];
         let keep = self.keep_blank[i];
         let mut parts = Vec::new();
         if self.hoisted[i] {
@@ -269,7 +273,7 @@ impl<'a> Rules<'a> {
                         comments.push(Doc::Blank);
                     }
                 }
-                comments.push(Doc::text(comment.text.trim_end_matches(' ')));
+                comments.push(Doc::text(&comment.text));
             }
             parts.extend([
                 Doc::BreakParent,
@@ -283,7 +287,7 @@ impl<'a> Rules<'a> {
                 if comment.blank_lines_before > 0 && (k > 0 || keep) {
                     parts.push(Doc::Blank);
                 }
-                parts.push(Doc::text(comment.text.trim_end_matches(' ')));
+                parts.push(Doc::text(&comment.text));
                 parts.push(Doc::HardLine);
             }
             if trivia.blank_lines_before > 0 {
@@ -301,10 +305,8 @@ impl<'a> Rules<'a> {
         if self.defer_trailing == Some(i) {
             return Vec::new();
         }
-        match &self.file.trivia()[i].trailing {
-            Some(comment) => vec![Doc::LineSuffix(
-                comment.text.trim_end_matches(' ').to_string(),
-            )],
+        match &self.trivia[i].trailing {
+            Some(comment) => vec![Doc::LineSuffix(comment.text.clone())],
             None => Vec::new(),
         }
     }
@@ -331,48 +333,6 @@ impl<'a> Rules<'a> {
         Doc::concat(parts)
     }
 
-    /// The comments of a comma that starts its line (D1012), as own-line
-    /// comments for the item after it: the comma moves to the end of the
-    /// previous item's line, and a comment on either side of it stays with
-    /// the next token, as `comment_anchors` reads them.
-    fn comma_first_comments(&mut self, i: usize) -> Vec<Doc> {
-        let trivia = &self.file.trivia()[i];
-        let has_leading = !trivia.leading.is_empty();
-        let trailing = trivia.trailing.clone();
-        let first_on_line = comma_first_on_line(self.src, token_text_range(&self.tokens[i]).start);
-        let mut parts = Vec::new();
-        if has_leading {
-            self.keep_blank[i] = true;
-            parts.extend(self.leading(i));
-        }
-        if let (true, Some(comment)) = (first_on_line, trailing) {
-            parts.extend([
-                Doc::BreakParent,
-                Doc::LineStart,
-                Doc::text(comment.text.trim_end_matches(' ')),
-                Doc::HardLine,
-            ]);
-        }
-        parts
-    }
-
-    /// A comma's text and its trailing comment, unless it starts its line
-    /// (then `comma_first_comments` placed the comment).
-    fn comma_end(&self, i: usize) -> Doc {
-        let mut parts = vec![self.token_text(i)];
-        if !comma_first_on_line(self.src, token_text_range(&self.tokens[i]).start) {
-            parts.extend(self.trailing(i));
-        }
-        Doc::concat(parts)
-    }
-
-    /// A token's comments without its text: a comma the formatter drops.
-    fn leaf_trivia_only(&self, i: usize) -> Doc {
-        let mut parts = self.leading(i);
-        parts.extend(self.trailing(i));
-        Doc::concat(parts)
-    }
-
     fn el(&mut self, el: Element<'_>) -> Doc {
         match el {
             Element::Leaf(leaf) => self.leaf(leaf),
@@ -389,7 +349,7 @@ impl<'a> Rules<'a> {
 
     /// Whether own-line comments come before the element.
     fn has_leading(&self, el: Element<'_>) -> bool {
-        !self.file.trivia()[Self::first(el)].leading.is_empty()
+        !self.trivia[Self::first(el)].leading.is_empty()
     }
 
     /// Elements on one line, with the usual spaces between them.
@@ -421,62 +381,48 @@ impl<'a> Rules<'a> {
         (a..=b).any(|i| self.src[token_text_range(&self.tokens[i])].contains('\n'))
     }
 
-    /// Whether a comment ends a line anywhere inside the node: a vertical
-    /// list holding one stays broken (S39), so the comment keeps
-    /// describing its item's line.
-    fn holds_trailing_comment(&self, node: Node<'_>) -> bool {
-        let range = node.token_range();
-        self.file.trivia()[range.start..range.end - 1]
-            .iter()
-            .any(|t| t.trailing.is_some())
+    /// The node's last token that is no closer or comma: under rule N the
+    /// token whose trailing comment ends the node's line, printed after
+    /// the closers and commas that follow it (S39).
+    fn last_code(&self, first: usize, last: usize) -> usize {
+        (first..=last)
+            .rev()
+            .find(|&i| {
+                !matches!(
+                    self.tokens[i].tok,
+                    Tok::RParen | Tok::RBracket | Tok::RBrace | Tok::Comma
+                )
+            })
+            .unwrap_or(first)
     }
 
-    /// Whether a comment ends a line with code after it in the node, other
-    /// than closers and commas. One before only those is printed at the end
-    /// of the last line either way (a `)` on the next line joins it), so it
-    /// decides nothing: the same layout must come out once it has moved
-    /// there.
-    fn holds_comment_before_code(&self, node: Node<'_>) -> bool {
+    /// Whether a comment ends a line inside the node, with code after it:
+    /// a vertical list holding one stays broken (S39), so the comment keeps
+    /// describing its item's line. The one ending the node's own line
+    /// ([`Self::comment_at_end`]) is printed after its closers and decides
+    /// nothing here.
+    fn holds_trailing_comment(&self, node: Node<'_>) -> bool {
         let range = node.token_range();
-        let last_code = (range.start..range.end).rev().find(|&i| {
-            !matches!(
-                self.tokens[i].tok,
-                Tok::RParen | Tok::RBracket | Tok::RBrace | Tok::Comma
-            )
-        });
-        last_code.is_some_and(|last| {
-            self.file.trivia()[range.start..last]
-                .iter()
-                .any(|t| t.trailing.is_some())
-        })
+        let end = self.comment_at_end(Element::Node(node));
+        range
+            .clone()
+            .any(|i| self.trivia[i].trailing.is_some() && Some(i) != end)
     }
 
     /// The token whose trailing comment ends the element's line, or `None`
-    /// if it has none: the comment may sit before only the closers and
-    /// commas that end the element. It is printed after them either way (a
-    /// comment before a closing bracket moves to the line end), so the
-    /// layout must not depend on which side of them it was written.
-    fn comment_at_closers(&self, el: Element<'_>) -> Option<usize> {
-        let (first, mut i) = (Self::first(el), Self::last(el));
-        loop {
-            if self.file.trivia()[i].trailing.is_some() {
-                return Some(i);
-            }
-            let closer = matches!(
-                self.tokens[i].tok,
-                Tok::RParen | Tok::RBracket | Tok::RBrace | Tok::Comma
-            );
-            if !closer || i == first {
-                return None;
-            }
-            i -= 1;
-        }
+    /// if it has none: its last code token's, or a closer's after it where
+    /// rule N left one there (one that starts its line after a commented
+    /// one).
+    fn comment_at_end(&self, el: Element<'_>) -> Option<usize> {
+        let (first, last) = (Self::first(el), Self::last(el));
+        (self.last_code(first, last)..=last)
+            .rev()
+            .find(|&i| self.trivia[i].trailing.is_some())
     }
 
-    /// Whether a comment ends a line at the element's end, or before only
-    /// the closers and commas that end it.
-    fn comment_ends_at_closers(&self, el: Element<'_>) -> bool {
-        self.comment_at_closers(el).is_some()
+    /// Whether a comment ends the element's line.
+    fn ends_with_comment(&self, el: Element<'_>) -> bool {
+        self.comment_at_end(el).is_some()
     }
 
     /// A construct with no rule yet: as written, moved with its line, its
@@ -935,7 +881,7 @@ impl<'a> Rules<'a> {
             lines.push(Doc::Line);
             lines.push(self.el(ctor));
         }
-        if self.holds_comment_before_code(node) {
+        if self.holds_trailing_comment(node) {
             lines.push(Doc::BreakParent);
         }
         Doc::concat([
@@ -1076,10 +1022,9 @@ impl<'a> Rules<'a> {
         {
             let space = self.space_el(children[open], inside[0]);
             // A trailing comment on the base belongs to the `{ r |` line,
-            // so it prints after the bar, not between the base and it,
-            // whichever side of the base's closers it was written on
+            // so it prints after the bar, not between the base and it
             // (SW-3487).
-            let comment_at = self.comment_at_closers(inside[bar - 1]);
+            let comment_at = self.comment_at_end(inside[bar - 1]);
             let saved = self.defer_trailing;
             if comment_at.is_some() {
                 self.defer_trailing = comment_at;
@@ -1113,9 +1058,6 @@ impl<'a> Rules<'a> {
         let plain = node.kind() == NodeKind::List
             && inside.len() == items.len() * 2 - usize::from(dropped.is_none())
             && !self.holds_trailing_comment(node)
-            && items.iter().all(|(_, comma)| {
-                comma.is_none_or(|c| self.file.trivia()[Self::first(c)].leading.is_empty())
-            })
             && items.iter().all(|(item, _)| {
                 matches!(item.as_slice(), [el @ Element::Leaf(_)]
                 if !self.has_leading(*el)
@@ -1145,23 +1087,16 @@ impl<'a> Rules<'a> {
             return Doc::concat([prefix, Doc::nest(2, Doc::Fill(cells)), closer_doc]);
         }
         let mut body = Vec::new();
-        let mut pending = Vec::new();
         for (k, (item, comma)) in items.iter().enumerate() {
             if item.is_empty() {
                 return self.as_written(node);
             }
             self.mark_item(item[0]);
             body.push(if k == 0 { edge() } else { Doc::Line });
-            body.append(&mut pending);
             body.push(self.join(item));
             if let Some(comma) = comma {
-                let i = Self::first(*comma);
-                pending = self.comma_first_comments(i);
-                body.push(self.comma_end(i));
+                body.push(self.token_text(Self::first(*comma)));
             }
-        }
-        if let Some(comma) = dropped {
-            body.push(self.leaf_trivia_only(Self::first(comma)));
         }
         let closer_doc = self.el(children[close]);
         let mut parts = vec![prefix, Doc::nest(2, Doc::concat(body)), edge(), closer_doc];
@@ -1352,7 +1287,7 @@ impl<'a> Rules<'a> {
         let mut keep = 1;
         while keep < n
             && (self.simple(children[keep]) || self.section(children[keep]))
-            && !self.comment_ends_at_closers(children[keep - 1])
+            && !self.ends_with_comment(children[keep - 1])
         {
             keep += 1;
         }
@@ -1380,7 +1315,7 @@ impl<'a> Rules<'a> {
         };
         let mut rest = Vec::new();
         for k in keep..n {
-            if self.section(children[k]) && !self.comment_ends_at_closers(children[k - 1]) {
+            if self.section(children[k]) && !self.ends_with_comment(children[k - 1]) {
                 rest.push(self.space_el(children[k - 1], children[k]));
             } else {
                 rest.push(Doc::HardLine);
@@ -1435,7 +1370,7 @@ impl<'a> Rules<'a> {
     /// on which side of them it was written (SW-3481, as SW-3462).
     fn comment_between(&self, children: &[Element<'_>]) -> bool {
         (1..children.len())
-            .any(|k| self.has_leading(children[k]) || self.comment_ends_at_closers(children[k - 1]))
+            .any(|k| self.has_leading(children[k]) || self.ends_with_comment(children[k - 1]))
     }
 
     /// The operands and operators of a chain at one level, flattened from
@@ -1602,7 +1537,7 @@ impl<'a> Rules<'a> {
             || self.comment_between(children)
             || children[..children.len() - 1]
                 .iter()
-                .any(|&el| self.comment_ends_at_closers(el))
+                .any(|&el| self.ends_with_comment(el))
         {
             return self.join(children);
         }
@@ -1877,44 +1812,4 @@ impl<'a> Rules<'a> {
             Doc::nest(2, Doc::concat([Doc::Line, body])),
         ]))
     }
-}
-
-/// Whether the comma at byte `start` is the first token on its line.
-pub(crate) fn comma_first_on_line(src: &str, start: usize) -> bool {
-    let line = src[..start].rfind('\n').map_or(0, |k| k + 1);
-    src[line..start].trim().is_empty()
-}
-
-/// Whether the `|` at `bar` is a record update's, `{ r | … }`: the first
-/// `|` at its depth after the opening brace, which opens a record
-/// (SW-1015), with no comma before it. An alternative's bar (after a
-/// `=>`, or with another `|` before it) is not one.
-pub(crate) fn record_update_bar(tokens: &[Token], bar: usize) -> bool {
-    let mut depth = 0usize;
-    let mut open = None;
-    for i in (0..bar).rev() {
-        match tokens[i].tok {
-            Tok::RParen | Tok::RBracket | Tok::RBrace => depth += 1,
-            Tok::LParen | Tok::LBracket => depth = depth.saturating_sub(1),
-            Tok::LBrace if depth > 0 => depth -= 1,
-            Tok::LBrace => {
-                open = Some(i);
-                break;
-            }
-            _ => {}
-        }
-    }
-    let Some(open) = open else {
-        return false;
-    };
-    let mut depth = 0usize;
-    for token in &tokens[open + 1..bar] {
-        match token.tok {
-            Tok::LParen | Tok::LBracket | Tok::LBrace => depth += 1,
-            Tok::RParen | Tok::RBracket | Tok::RBrace => depth = depth.saturating_sub(1),
-            Tok::Comma | Tok::Pipe | Tok::FatArrow if depth == 0 => return false,
-            _ => {}
-        }
-    }
-    stitchwort_syntax::record_braces(tokens, open)
 }

@@ -176,7 +176,8 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
         }
     }
     let tree = parse_tree(file, &input, DEFAULT_STACK);
-    let mut printer = rules::Rules::new(&tree, &input);
+    let (trivia, eof) = crate::tidy::place_comments(tree.tokens(), tree.trivia(), tree.eof());
+    let mut printer = rules::Rules::new(&tree, &trivia, &input);
     let mut stats = TreeStats {
         merged_groups,
         ..TreeStats::default()
@@ -200,13 +201,9 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
             continue;
         }
         let range = decl.token_range();
-        let trivia = &tree.trivia()[range.start];
-        for comment in &trivia.leading {
-            item(
-                &mut out,
-                comment.blank_lines_before,
-                comment.text.trim_end_matches(' '),
-            );
+        let first = &trivia[range.start];
+        for comment in &first.leading {
+            item(&mut out, comment.blank_lines_before, &comment.text);
         }
         let before = decl_source(&tree, &input, range.start, range.end);
         let first_line = input[..token_text_range(&tree.tokens()[range.start]).start]
@@ -254,14 +251,10 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
                     }
                 }
             };
-        item(&mut out, trivia.blank_lines_before, &text);
+        item(&mut out, first.blank_lines_before, &text);
     }
-    for comment in &tree.eof().leading {
-        item(
-            &mut out,
-            comment.blank_lines_before,
-            comment.text.trim_end_matches(' '),
-        );
+    for comment in &eof.leading {
+        item(&mut out, comment.blank_lines_before, &comment.text);
     }
     if !out.is_empty() {
         out.push('\n');
@@ -287,55 +280,28 @@ fn decl_source<'t>(tree: &SyntaxFile, text: &'t str, first: usize, end: usize) -
     text[start..line_end].trim_end_matches('\r')
 }
 
-/// Every comment with the token it is attached to: an own-line comment to
-/// the token after it, a trailing one to the token it follows, skipping
-/// commas and closing brackets, which move freely around a line's end.
-/// Tokens are counted without commas, which D1012 adds and drops.
-fn comment_anchors<'a>(text: &str, lexed: &'a Lexed) -> Vec<(&'a str, bool, usize)> {
+/// Every comment with the token it belongs to, read by rule N
+/// ([`crate::tidy`]): an own-line comment's token is the one after it, a
+/// trailing one's the one it follows. Tokens are counted without commas,
+/// which D1012 adds and drops (N leaves them no comments).
+fn comment_anchors(lexed: &Lexed) -> Vec<(String, bool, usize)> {
     let tokens = &lexed.tokens;
-    let mut index = Vec::with_capacity(tokens.len());
+    let (trivia, eof) = crate::tidy::place_comments(tokens, &lexed.trivia, &lexed.eof);
+    let mut out = Vec::new();
     let mut n = 0;
-    for token in tokens {
-        index.push(n);
+    for (token, trivia) in tokens.iter().zip(trivia) {
+        for comment in trivia.leading {
+            out.push((comment.text, false, n));
+        }
+        if let Some(comment) = trivia.trailing {
+            out.push((comment.text, true, n));
+        }
         if token.tok != Tok::Comma {
             n += 1;
         }
     }
-    let mut out = Vec::new();
-    for (i, trivia) in lexed.trivia.iter().enumerate() {
-        for comment in &trivia.leading {
-            out.push((comment.text.trim_end_matches(' '), false, index[i]));
-        }
-        if let Some(comment) = &trivia.trailing {
-            // A comment after a comma that starts its line belongs to the
-            // token after it.
-            if tokens[i].tok == Tok::Comma
-                && rules::comma_first_on_line(text, token_text_range(&tokens[i]).start)
-            {
-                out.push((comment.text.trim_end_matches(' '), false, index[i]));
-                continue;
-            }
-            // A record update's `{ r |` keeps its base's comment on its
-            // line, after the bar (S31), so a comment after that bar
-            // belongs to the token before it, as the base's did.
-            let mut j = if tokens[i].tok == Tok::Pipe && rules::record_update_bar(tokens, i) {
-                i.saturating_sub(1)
-            } else {
-                i
-            };
-            while j > 0
-                && matches!(
-                    tokens[j].tok,
-                    Tok::Comma | Tok::RParen | Tok::RBracket | Tok::RBrace
-                )
-            {
-                j -= 1;
-            }
-            out.push((comment.text.trim_end_matches(' '), true, index[j]));
-        }
-    }
-    for comment in &lexed.eof.leading {
-        out.push((comment.text.trim_end_matches(' '), false, n));
+    for comment in eof.leading {
+        out.push((comment.text, false, n));
     }
     out
 }
@@ -351,14 +317,14 @@ fn compare(
         return Err(("doesn't lex", String::new()));
     };
     check::same_tokens(before, &a, after, &b).map_err(|e| ("tokens", e))?;
-    let (x, y) = (comment_anchors(before, &a), comment_anchors(after, &b));
+    let (x, y) = (comment_anchors(&a), comment_anchors(&b));
     if x != y {
         let at = x
             .iter()
             .zip(&y)
             .position(|(p, q)| p != q)
             .unwrap_or(x.len().min(y.len()));
-        let what = x.get(at).or(y.get(at)).map_or("", |c| c.0);
+        let what = x.get(at).or(y.get(at)).map_or("", |c| c.0.as_str());
         return Err(("comments", format!("the comment `{what}` moved")));
     }
     match shapes() {
