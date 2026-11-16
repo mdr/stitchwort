@@ -17,7 +17,7 @@ theorem foldMaxBelow ∀ (k: Nat) (xs: List Nat) (start: Nat):
 theorem withFlag ∀ (b: Bool) (k: Nat): (b ∧ k < 3) = (k < 3 ∧ b) := cases
 
 -- On the right, a comparison beside a `Bool` too.
-theorem flagged ∀ (b: Bool) (k: Nat) (h: b = True): (k <= 2) = (b ∧ k < 3) := rewrite h then byComputing
+theorem flagged ∀ (b: Bool) (k: Nat) (h: b = True): (k <= 2) = (b ∧ k < 3) := rewrite h
 
 -- Two comparisons: an equation between propositions, as before.
 theorem sameProp ∀ (k: Nat): (k < 3) = (k < 3) := byComputing

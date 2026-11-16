@@ -22,4 +22,4 @@ theorem pickRewrite ∀ [auto ord: Ord k] (x y: k)
       | Less => 0
       | _ => 1)
       = 0 :=
-  rewrite h then byComputing
+  rewrite h

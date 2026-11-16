@@ -24,4 +24,4 @@ theorem softLine ∀
     (if flat && printer.pending.isEmpty then (printer, rest) else (printer.newline indent, rest)).fst.words
       ++ (if flat && printer.pending.isEmpty then (printer, rest) else (printer.newline indent, rest)).snd
       = printer.words ++ rest :=
-  cases then (rewrite newlineWords then byComputing)
+  cases then (rewrite newlineWords)

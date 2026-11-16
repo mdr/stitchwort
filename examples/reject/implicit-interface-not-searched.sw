@@ -6,7 +6,7 @@
 import Std (List, Add)
 
 theorem sumCong [a: Type] [add: Add a] (xs: List a) (f: a → a) (g: a → a) (same: f = g):
-    xs.sumBy f = xs.sumBy g := rewrite same then byComputing
+    xs.sumBy f = xs.sumBy g := rewrite same
 
 def idI (x: Int): Int := x
 def idI2 (x: Int): Int := x

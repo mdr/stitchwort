@@ -10,13 +10,13 @@ import Std (Eq, List, Nat, Option)
 theorem addZeroRight ∀ (n: Nat): n + 0 = n := arithmetic
 
 theorem mapAddZero ∀ (xs: List Nat): List.map xs (x => x + 0) = List.map xs (x => x) :=
-  List.mapCong xs _ _ (x => rewrite addZeroRight x then byComputing)
+  List.mapCong xs _ _ (x => rewrite addZeroRight x)
 
 theorem filterMapAddZero ∀ (xs: List Nat): List.filterMap xs (x => Some (x + 0)) = List.filterMap xs (x => Some x) :=
-  List.filterMapCong xs _ _ (x => rewrite addZeroRight x then byComputing)
+  List.filterMapCong xs _ _ (x => rewrite addZeroRight x)
 
 -- The same as a step of a `calc` chain, which says what each step proves.
 theorem mapTwice ∀ (xs: List Nat): List.map xs (x => x + 0 + 0) = List.map xs (x => x) := calc List.map xs
   (x => x + 0 + 0)
-  _ = List.map xs (x => x + 0) := List.mapCong xs _ _ (x => rewrite addZeroRight (x + 0) then byComputing)
-  _ = List.map xs (x => x) := List.mapCong xs _ _ (x => rewrite addZeroRight x then byComputing)
+  _ = List.map xs (x => x + 0) := List.mapCong xs _ _ (x => rewrite addZeroRight (x + 0))
+  _ = List.map xs (x => x) := List.mapCong xs _ _ (x => rewrite addZeroRight x)

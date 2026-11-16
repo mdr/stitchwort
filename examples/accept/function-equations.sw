@@ -130,4 +130,4 @@ theorem isZeroOfPos ∀ (n: Nat) (h: 0 < n): isZero n = False := isZero.eq2 n ar
 theorem filterCons ∀ (x: Nat) (xs: List Nat) (p: Nat → Bool)
     (h: p x = False):
     List.filter [x, ..xs] p = List.filter xs p :=
-  rewrite List.filter.eq2 x xs p, h then byComputing
+  rewrite List.filter.eq2 x xs p, h

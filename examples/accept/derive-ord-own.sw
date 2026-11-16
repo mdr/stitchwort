@@ -8,7 +8,7 @@ type Item = { name: Text, price: Nat }
 
 theorem Item.byPriceInjective ∀ (x y: Item) (h: (x.price, x.name) = (y.price, y.name)): x = y := match x, y with
   | { name = n1, price = p1 }, { name = n2, price = p2 } =>
-    rewrite Eq.cong Pair.fst h, Eq.cong Pair.snd h then byComputing
+    rewrite Eq.cong Pair.fst h, Eq.cong Pair.snd h
 
 instance Item.instOrd: Ord Item := Ord.byKey ((i: Item) => (i.price, i.name)) Item.byPriceInjective
 

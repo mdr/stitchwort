@@ -17,6 +17,5 @@ theorem lcgBelowGiven ∀ (seed: Nat): lcg seed < 2147483648 :=
 
 -- Two occurrences with different arguments: each match solves its own copy.
 theorem twoBelow ∀ (a b: Nat): lcg a < 2147483648 ∧ lcg b < 2147483648 :=
-  rewrite lcg.unfold then
-    rewrite lcg.unfold then
-      Both (Nat.modLt (a * 1103515245 + 12345) 2147483648) (Nat.modLt (b * 1103515245 + 12345) 2147483648)
+  rewrite lcg.unfold, lcg.unfold then
+    Both (Nat.modLt (a * 1103515245 + 12345) 2147483648) (Nat.modLt (b * 1103515245 + 12345) 2147483648)

@@ -113,7 +113,7 @@ theorem commonKeyHeld ∀ (a b: Set Nat) (n: Nat)
     (inA: Set.contains a n = True)
     (inB: Set.contains b n = True):
     Set.contains (Set.intersect a b) n = True :=
-  rewrite Set.containsIntersect a n b, inA, inB then byComputing
+  rewrite Set.containsIntersect a n b, inA, inB
 
 theorem commonAtMostEither ∀ (a b: Set Nat):
     Set.size (Set.intersect a b) ≤ Set.size a ∧ Set.size (Set.intersect a b) ≤ Set.size b :=

@@ -1,17 +1,19 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REFL] Error: `byComputing` can't prove this
-    ╭─[ reject/opaque-note-body-name.sw:10:30 ]
+    ╭─[ reject/opaque-note-body-name.sw:10:11 ]
     │
- 10 │   rewrite half.unfold n then byComputing
-    │                              ─────┬─────  
-    │                                   ╰─────── `(body of half) n` and `0` aren't equal
+ 10 │   rewrite half.unfold n
+    │           ──────┬──────  
+    │                 ╰──────── `(body of half) n` and `0` aren't equal
     │ 
     │ Note 1: `byComputing` proves `a = b` only when both sides compute to the same value
     │ 
-    │ Note 2: this statement is false; a counterexample:
+    │ Note 2: this is the goal after rewriting; `rewrite p` without `then` closes it with `byComputing`: `(body of half) n = 0`
+    │ 
+    │ Note 3: this statement is false; a counterexample:
     │           n = 2
     │         `half n = 0` is false:
     │           left:  1

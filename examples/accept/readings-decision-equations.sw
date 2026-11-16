@@ -83,8 +83,8 @@ theorem lightsApart ∀ (a b: Light) (h: (a == b) = False): a ≠ b := h.read
 type Code = { n: Nat }
 
 def Code.decEq (a b: Code): Decidable (a = b) :=
-  Decidable.map (Nat.decEq a.n b.n) (e => match a, b with | { n }, { n = m } => rewrite e then byComputing) (e =>
-    rewrite e then byComputing)
+  Decidable.map (Nat.decEq a.n b.n) (e => match a, b with | { n }, { n = m } => rewrite e) (e =>
+    rewrite e)
 
 instance Code.instDecEq: DecEq Code := { decide = Code.decEq }
 

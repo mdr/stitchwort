@@ -18,23 +18,23 @@ type Note =
 def shift (by: Nat) (note: Note): Note := { note | start = note.start + by }
 
 theorem shiftKeepsId ∀ (by: Nat) (note: Note): (shift by note).id = note.id :=
-  rewrite Note.start.update.id then byComputing
+  rewrite Note.start.update.id
 
 theorem shiftMoves ∀ (by: Nat) (note: Note): (shift by note).start = note.start + by :=
-  rewrite Note.start.update.start then byComputing
+  rewrite Note.start.update.start
 
 -- Under other functions, and with another rewrite after it.
 theorem shiftTwice ∀ (note: Note) (h: note.start = 3): (shift 2 note).start + 1 = 6 :=
-  rewrite Note.start.update.start, h then byComputing
+  rewrite Note.start.update.start, h
 
 -- Nested updates chain, one lemma for each.
 def rename (id: Text) (note: Note): Note := { note | id = id }
 
 theorem renameShifted ∀ (id: Text) (note: Note): (rename id (shift 1 note)).start = note.start + 1 :=
-  rewrite Note.id.update.start, Note.start.update.start then byComputing
+  rewrite Note.id.update.start, Note.start.update.start
 
 theorem renameShiftedId ∀ (id: Text) (note: Note): (rename id (shift 1 note)).id = id :=
-  rewrite Note.id.update.id then byComputing
+  rewrite Note.id.update.id
 
 -- Applied by name, as any theorem.
 theorem renamedId ∀ (note: Note): ({ note | id = "n" }).id = "n" := Note.id.update.id note "n"
@@ -52,13 +52,13 @@ type Sized =
   | Large (name: Text) (n: Nat) (xs: Vec Nat n)
 
 theorem resizedName ∀ (s: Sized) (m: Nat) (ys: Vec Nat m): ({ s | n = m, xs = ys }).name = s.name :=
-  rewrite Sized.n.update.name then byComputing
+  rewrite Sized.n.update.name
 
 theorem resizedN ∀ (s: Sized) (m: Nat) (ys: Vec Nat m): ({ s | n = m, xs = ys }).n = m :=
-  rewrite Sized.n.update.n then byComputing
+  rewrite Sized.n.update.n
 
 theorem refilledN ∀ (s: Sized) (ys: Vec Nat s.n): ({ s | xs = ys }).n = s.n :=
-  rewrite Sized.xs.update.n then byComputing
+  rewrite Sized.xs.update.n
 
 -- A one-constructor type that isn't a record has them too.
 theorem pairKeepsSnd ∀ (p: (Nat, Text)) (n: Nat): ({ p | fst = n }).snd = p.snd := Pair.fst.update.snd p n

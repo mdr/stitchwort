@@ -9,7 +9,7 @@ import Std (Eq, List, Nat)
 theorem addZeroRight ∀ (n: Nat): n + 0 = n := arithmetic
 
 theorem sumAddZero ∀ (xs: List Nat): List.sumBy xs (x => x + 0) = List.sumBy xs (x => x) :=
-  List.sumByCong xs _ _ (x => rewrite addZeroRight x then byComputing)
+  List.sumByCong xs _ _ (x => rewrite addZeroRight x)
 
 -- Through a definition that is a `List.sumBy` call, and with the callback's
 -- goal mentioning a hypothesis.
@@ -18,12 +18,12 @@ def score (xs ys: List Nat): Nat := xs.sumBy (x => x * ys.count (== x))
 theorem scoreSameCounts ∀ (xs ys: List Nat)
     (same: ∀ (p: Nat → Bool) => ys.count p = xs.count p):
     score xs ys = score xs xs :=
-  List.sumByCong xs _ _ (x => rewrite same (== x) then byComputing)
+  List.sumByCong xs _ _ (x => rewrite same (== x))
 
 -- As a step of a `calc` chain.
 theorem scoreTwice ∀ (xs ys: List Nat)
     (same: ∀ (p: Nat → Bool) => ys.count p = xs.count p):
     score xs ys = score xs xs :=
   calc score xs ys
-    _ = xs.sumBy (x => x * xs.count (== x)) := List.sumByCong xs _ _ (x => rewrite same (== x) then byComputing)
+    _ = xs.sumBy (x => x * xs.count (== x)) := List.sumByCong xs _ _ (x => rewrite same (== x))
     _ = score xs xs := byComputing

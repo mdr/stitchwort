@@ -45,7 +45,7 @@ theorem lookupBuilt ∀ (f: Cave → List Cave) (cave: Cave) (caves: List Cave)
   match caves with
     | [c, ..rest] =>
       match e: c == cave with
-        | True => rewrite DecEq.sound e then byComputing
+        | True => rewrite DecEq.sound e
         | False =>
           match member with
             | Inl same => Void.impossible (Bool.trueNotFalse (rewrite same, DecEq.refl cave at e))

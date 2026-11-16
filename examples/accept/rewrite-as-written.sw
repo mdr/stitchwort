@@ -65,4 +65,4 @@ def wrap (n k: Nat): Nat := add k n
 -- would pick, `add c (add a b)` (first in that goal), not the `add a b`
 -- the goal shows; the as-written result is dropped for that reason.
 theorem sameInstance ∀ (comm: ∀ (x y: Nat) => add x y = add y x) (a b c: Nat): wrap (add a b) c = add (add a b) c :=
-  rewrite comm _ _ then byComputing
+  rewrite comm _ _

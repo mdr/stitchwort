@@ -19,7 +19,7 @@ theorem countUpUnfolds ∀ (bound i: Nat):
   countUp.unfold bound i
 
 theorem countUpDone ∀ (bound i: Nat) (done: Nat.leq (i + 1) bound = False): countUp bound i = i :=
-  rewrite countUp.unfold bound i then rewrite done then byComputing
+  rewrite countUp.unfold bound i, done
 
 -- A proposition: `a % b < b` is the fact the call needs.
 def gcd (a b: Nat): Nat

@@ -9,7 +9,7 @@ def QE: Type := Quot Bool BoolEq
 def toNat (b: Bool): Nat := if b then 1 else 0
 
 def toNatRespects (x: Bool) (y: Bool) (same: BoolEq x y): toNat x = toNat y :=
-  rewrite same then byComputing
+  rewrite same
 
 def observe (q: QE): Nat := Quot.lift toNat toNatRespects q
 

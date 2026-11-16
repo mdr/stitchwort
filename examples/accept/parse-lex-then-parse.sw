@@ -91,7 +91,7 @@ def NumberToken (read: List (Parse.Located Token)) (value: Nat): Prop :=
 theorem numberOfNum ∀ (token: Parse.Located Token) (value: Nat)
     (selected: numberOf token = Some value):
     token.value = Num value :=
-  match token with | { value = Num n, .. } => rewrite Option.someInjective selected then byComputing
+  match token with | { value = Num n, .. } => rewrite Option.someInjective selected
 
 theorem readsOperand: Parse.Reads operand NumberToken :=
   Parse.readsWeaken (Parse.readsOne "a number" numberOf) (read value h =>

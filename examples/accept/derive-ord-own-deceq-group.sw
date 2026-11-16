@@ -15,7 +15,7 @@ def Frame.decide (x y: Frame): Decidable (x = y) :=
 
 theorem Frame.sameParts ∀ (x y: Frame) (h: (x.inner, x.depth) = (y.inner, y.depth)): x = y := match x, y with
   | { inner = a1, depth = b1 }, { inner = a2, depth = b2 } =>
-    rewrite Eq.cong Pair.fst h, Eq.cong Pair.snd h then byComputing
+    rewrite Eq.cong Pair.fst h, Eq.cong Pair.snd h
 
 instance Frame.instDecEq: DecEq Frame := { decide = Frame.decide }
 

@@ -13,6 +13,6 @@ def halves (m: Nat) (n: Nat): Nat
   else 0
 
 theorem halvesNone: halves 0 0 = 0 :=
-  rewrite halves.unfold 0 0 then byComputing
+  rewrite halves.unfold 0 0
 
 def halvesOfSeven: Nat := halves 3 4

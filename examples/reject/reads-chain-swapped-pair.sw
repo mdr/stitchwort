@@ -14,4 +14,4 @@ def Written (read: List Char) (pair: (Char, Char)): Prop := read = [pair.fst, pa
 theorem readsTwo: Parse.Reads twoLetters Written := Parse.readsThen Parse.readsSatisfy (firstRead first (Both firstIs
     letter1) =>
   Parse.readsThen Parse.readsSatisfy (secondRead second (Both secondIs letter2) =>
-    Parse.readsDone (second, first) _ (rewrite firstIs, secondIs then byComputing)))
+    Parse.readsDone (second, first) _ (rewrite firstIs, secondIs)))

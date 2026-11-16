@@ -37,11 +37,11 @@ def QE: Type := Quot Bool BoolEq
 
 def toNat (b: Bool): Nat := if b then 1 else 0
 
-def one: Nat := Quot.lift toNat (x y same => rewrite same then byComputing) (Quot.mk True: QE)
+def one: Nat := Quot.lift toNat (x y same => rewrite same) (Quot.mk True: QE)
 
 def addIf (b: Bool) (n: Nat): Nat := if b then n + 1 else n
 
-def five: Nat := Quot.lift addIf (x y same => rewrite same then byComputing) (Quot.mk True: QE) 4
+def five: Nat := Quot.lift addIf (x y same => rewrite same) (Quot.mk True: QE) 4
 
 theorem fiveIsFive: five = 5 := byComputing
 

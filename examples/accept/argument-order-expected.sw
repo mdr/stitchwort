@@ -43,7 +43,7 @@ def listing (n: Nat): List Nat := match n with
 
 theorem countIsLength ∀ (n: Nat): count n = List.length (listing n) := match n with
   | Zero => byComputing
-  | Succ k => rewrite countIsLength k then byComputing
+  | Succ k => rewrite countIsLength k
 
 theorem sums ∀ (xs: List Nat): List.sumBy xs count = List.sumBy xs (n => List.length (listing n)) :=
   List.sumByCong xs _ _ (n =>

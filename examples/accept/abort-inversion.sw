@@ -31,8 +31,7 @@ theorem pickStock ∀ (warehouse: Warehouse) (order: Order) (pick: Pick)
     Abort.needEqSome rest (label foundLabel rest =>
       Abort.needEqSome rest (bin foundBin rest =>
         Abort.ensureEqSome rest (enough picked =>
-          rewrite foundStock, <- Option.someInjective picked then
-            rewrite (arithmetic: order.quantity + (onHand - order.quantity) = onHand) then byComputing))))
+          rewrite foundStock, <- Option.someInjective picked, (arithmetic: order.quantity + (onHand - order.quantity) = onHand)))))
 
 -- The bin picked from is the one the item's label names.
 theorem pickBin ∀ (warehouse: Warehouse) (order: Order) (pick: Pick)
@@ -51,7 +50,7 @@ theorem pickOrderSome ∀ (warehouse: Warehouse) (order: Order) (onHand: Nat) (l
     (enough: order.quantity <= onHand):
     pickOrder warehouse order
       = Some { item = order.item, bin, quantity = order.quantity, left = onHand - order.quantity } :=
-  rewrite foundStock, foundLabel, foundBin, enough then byComputing
+  rewrite foundStock, foundLabel, foundBin, enough
 
 -- A step that is a call to another `{Abort}` function: `Abort.thenEqSome`
 -- says it gave `Some`.
@@ -70,7 +69,7 @@ theorem pickFromBinFound ∀ (warehouse: Warehouse) (order: Order) (picked: Pair
     toOption (() => binFor warehouse order.item) = Some picked.fst :=
   Abort.thenEqSome h (found foundBin rest =>
     Abort.needEqSome rest (onHand foundStock rest =>
-      Abort.ensureEqSome rest (enough result => rewrite foundBin, <- Option.someInjective result then byComputing)))
+      Abort.ensureEqSome rest (enough result => rewrite foundBin, <- Option.someInjective result)))
 
 -- The last step of `binFor` has no rest: `Abort.toOptionNeed` reads it.
 theorem binForLabel ∀ (warehouse: Warehouse) (item: Text) (bin: Bin)
@@ -108,7 +107,7 @@ theorem pickFromBinOrFailFound ∀ (warehouse: Warehouse) (order: Order) (picked
     (h: pickFromBinOrFail warehouse order = Ok picked):
     Fail.toResult (() => binOrFail warehouse order.item) = Ok picked.fst :=
   Fail.thenEqOk h (found foundBin rest =>
-    Fail.needEqOk rest (onHand foundStock result => rewrite foundBin, <- Result.okInjective result then byComputing))
+    Fail.needEqOk rest (onHand foundStock result => rewrite foundBin, <- Result.okInjective result))
 
 def warehouse: Warehouse := {
   stock = [("bolt", 40), ("nut", 5)].toMap,

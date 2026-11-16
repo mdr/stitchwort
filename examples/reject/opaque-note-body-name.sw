@@ -7,4 +7,4 @@ import Std (Nat)
 opaque def half (n: Nat): Nat := n / 2
 
 theorem halfZero (n: Nat): half n = 0 :=
-  rewrite half.unfold n then byComputing
+  rewrite half.unfold n
