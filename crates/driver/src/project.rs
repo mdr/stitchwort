@@ -304,7 +304,13 @@ impl Session {
         for name in order {
             if let Some(warnings) = skipped.get(name) {
                 left_out = true;
-                diagnostics.extend(warnings.iter().cloned());
+                // The entry holds the elaborator's own warnings, which the
+                // files' text then filters and adds to, as for a namespace
+                // that is loaded (SW-3637).
+                let ns = analysis.namespace(name).expect("a namespace");
+                let mut warnings = warnings.clone();
+                self.statement_style(&mut warnings, &ns.files);
+                diagnostics.extend(warnings);
                 continue;
             }
             let ns = analysis.namespace(name).expect("a namespace");
