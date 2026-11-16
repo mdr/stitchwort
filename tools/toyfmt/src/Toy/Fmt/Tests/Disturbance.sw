@@ -7,8 +7,8 @@ namespace Toy.Fmt.Tests
 import Toy.Syntax (..)
 import Std (List, Option, Text)
 
-def goldens: List Golden :=
-  [groups, headers, bodies, calls, lists, operators, conditionals, comments, blankLines, longText, order, route]
+def goldens: List Golden := [groups, headers, bodies, calls, lists, operators, conditionals, comments, blankLines,
+  longText, order, route, parameterGroups]
 
 def seeds: List Nat := List.range 0 50
 

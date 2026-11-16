@@ -9,8 +9,18 @@ def failure (source: Text): Text := match parse source with
   | Ok _ => "parsed"
   | Err message => message
 
-test "a missing comma between parameters" :=
-  failure "fn f(a b) =\n  a" == "line 1, column 8: expected ',' or ')', got 'b'"
+test "a group of names with no type" :=
+  failure "fn f(a b) =\n  a" == "line 1, column 9: expected a name or ':', got ')'"
+
+test "a missing comma between parameter groups" :=
+  failure "fn f(a: Int b: Int) =\n  a" == "line 1, column 13: expected ',' or ')', got 'b'"
+
+test "a colon with no type" := failure "fn f(a: ) = a" == "line 1, column 9: expected a type, got ')'"
+
+test "takes with no parameters after it" := failure "fn f takes = 1" == "line 1, column 12: expected '(', got '='"
+
+test "a parameter list left open after a type in brackets" :=
+  failure "fn f(a: (Int) = a" == "line 1, column 15: expected ',' or ')', got '='"
 
 test "a string left open is a lexing message" :=
   failure "let s = \"abc\nlet t = 1" == "line 1, column 13: expected '\"' to close the string, got the end of the line"
@@ -38,7 +48,8 @@ test "else left of its if" :=
   failure "fn f() =\n  if a then b\nelse c"
     == "line 3, column 1: 'else' must not start a line to the left of its 'if' statement"
 
-test "a character no token is made of" := failure "fn f(a $ b) = a" == "line 1, column 8: expected ',' or ')', got '$'"
+test "a character no token is made of" :=
+  failure "fn f(a $ b) = a" == "line 1, column 8: expected a name, ':', ',' or ')', got '$'"
 
 test "operator characters that make no operator" := failure "let x =- 1" == "line 1, column 7: expected '=', got '=-'"
 

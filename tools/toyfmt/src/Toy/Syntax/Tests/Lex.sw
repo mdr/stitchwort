@@ -53,6 +53,24 @@ test "keywords, names, numbers and punctuation" :=
       Name "b"
     ]
 
+test "takes and the colon" :=
+  kinds "fn f takes (a b: (T)) = a"
+    == Ok [
+      Reserved FnKeyword,
+      Name "f",
+      Reserved TakesKeyword,
+      Sign OpenParen,
+      Name "a",
+      Name "b",
+      Sign Colon,
+      Sign OpenParen,
+      Name "T",
+      Sign CloseParen,
+      Sign CloseParen,
+      Sign Defines,
+      Name "a"
+    ]
+
 test "line starts and columns" :=
   tokens "fn f() =\n  let x = 1\n  x +\n      y"
     |> .map (found => found.filter (token => token.startsLine) |> .map (token => token.column))

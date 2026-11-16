@@ -89,11 +89,7 @@ def parametersComments (parameters: List Parameter): List Comment :=
 
 def Declaration.comments: Declaration → List Comment
   | Function fnComments _ nameComments takes open parameters close equals body =>
-    fnComments.all
-      ++ nameComments.all
-      ++ headerComments takes open parameters close
-      ++ equals.all
-      ++ body.comments
+    fnComments.all ++ nameComments.all ++ headerComments takes open parameters close ++ equals.all ++ body.comments
   | Value letComments _ nameComments equals body => letComments.all ++ nameComments.all ++ equals.all ++ body.comments
   | DeclarationNote comment => [comment]
 

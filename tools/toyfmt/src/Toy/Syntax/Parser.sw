@@ -435,12 +435,25 @@ def functionLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse.Lo
   let (declared, nameComments) := name layout
   let header := functionHeader layout
   let equals := sign layout "'='" Defines
-  Function (layout.comments first) declared nameComments header.takes header.open header.parameters header.close equals
+  Function
+    (layout.comments first)
+    declared
+    nameComments
+    header.takes
+    header.open
+    header.parameters
+    header.close
+    equals
     (body expression layout)
 
 --| What a function has between its name and `=`, with each token's
 --| comments: `takes` if it was written, then the parameters in brackets.
-type Header = { takes: Option Comments, open: Comments, parameters: List Parameter, close: Comments }
+type Header = {
+  takes: Option Comments,
+  open: Comments,
+  parameters: List Parameter,
+  close: Comments
+}
 
 def functionHeader (layout: Layout): {Parse (Parse.Located Token)} Header :=
   let takes := Parse.optional (() => keyword layout TakesKeyword)
@@ -518,16 +531,14 @@ def typeOf (self: () → {Parse (Parse.Located Token)} TypeExpr) (comments: Comm
       TypeBracketed comments inner close
     | _ => Parse.expected "a type"
 
-def parametersOf (found: Option (ParameterGroup, List (Comments, ParameterGroup))): List Parameter :=
-  match found with
-    | None => []
-    | Some (first, others) => withCommas first others
+def parametersOf (found: Option (ParameterGroup, List (Comments, ParameterGroup))): List Parameter := match found with
+  | None => []
+  | Some (first, others) => withCommas first others
 
 --| Each group with the comments of the comma after it.
-def withCommas (first: ParameterGroup) (others: List (Comments, ParameterGroup)): List Parameter :=
-  match others with
-    | [] => [{ group = first, comma = Comments.none }]
-    | [(comma, next), ..rest] => [{ group = first, comma }, ..withCommas next rest]
+def withCommas (first: ParameterGroup) (others: List (Comments, ParameterGroup)): List Parameter := match others with
+  | [] => [{ group = first, comma = Comments.none }]
+  | [(comma, next), ..rest] => [{ group = first, comma }, ..withCommas next rest]
 
 --| A declaration's lines: the own-line comments in `above`, the trivia on
 --| its first token, then `parsed`.

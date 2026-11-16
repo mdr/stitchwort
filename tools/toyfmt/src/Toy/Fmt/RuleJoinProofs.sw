@@ -824,6 +824,7 @@ theorem bindingPasses ∀ (letComments: Comments) (name: Text) (nameComments equ
 
 -- Declarations and the file.
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: `ParameterGroup.layout` and `TypeExpr.layout`.
 theorem parameterDocsPass ∀ (parameters: List Parameter)
     (lexical: LexicalParameters parameters):
     EachPasses (parameterDocs parameters) :=
@@ -843,6 +844,7 @@ theorem parameterDocsPass ∀ (parameters: List Parameter)
       (parameterDocsPass [next, ..rest] others)
     )
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: `takesDoc`.
 theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments open: Comments)
     (parameters: List Parameter) (close equals: Comments)
     (fineFn: Fine fnComments)
@@ -915,6 +917,7 @@ theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments open:
                 (passesSoft Meets Meets (edge holds => holds) byComputing)
                 (passesLast _ Meets Meets closing)))))
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: `Function` has `takes`.
 theorem declarationPasses ∀ (declaration: Declaration)
     (lexical: LexicalDeclaration declaration):
     Passes declaration.layout Loose Open :=

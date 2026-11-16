@@ -585,7 +585,7 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
   let equalsComments := layout.comments equals
   let read :=
     Function fnComments declared nameComments header.takes header.open header.parameters header.close equalsComments
-      found
+        found
   rewrite isFn then
     Parse.runsBind
       (() => skip())
@@ -610,8 +610,8 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
           let header1 := functionHeader layout
           let equals1 := sign layout "'='" Defines
           Function fnComments declared1 nameComments1 header1.takes header1.open header1.parameters header1.close
-            equals1
-            (body expression layout))
+              equals1
+              (body expression layout))
         [named]
         (headerTokens ++ [equals, ..bodyTokens])
         [named, ..headerTokens ++ [equals, ..bodyTokens]]
@@ -625,8 +625,8 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
           (header1 =>
             let equals1 := sign layout "'='" Defines
             Function fnComments declared nameComments header1.takes header1.open header1.parameters header1.close
-              equals1
-              (body expression layout))
+                equals1
+                (body expression layout))
           headerTokens
           [equals, ..bodyTokens]
           (headerTokens ++ [equals, ..bodyTokens])
@@ -638,8 +638,7 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
           (Parse.runsBind
             (() => sign layout "'='" Defines)
             (equals1 =>
-              Function fnComments declared nameComments header.takes header.open header.parameters header.close
-                equals1
+              Function fnComments declared nameComments header.takes header.open header.parameters header.close equals1
                 (body expression layout))
             [equals]
             bodyTokens
@@ -653,8 +652,7 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
               (() => body expression layout)
               (inner =>
                 Function fnComments declared nameComments header.takes header.open header.parameters header.close
-                  equalsComments
-                  inner)
+                    equalsComments inner)
               bodyTokens
               rest
               found
@@ -664,8 +662,8 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
 --| `runsNoTakes` read it), `(`, the parameters (as `runsParameters` and
 --| `runsNoParameters` read them) and `)`.
 theorem runsHeader ∀ (layout: Layout) (open close: Parse.Located Token)
-    (takesTokens parameterTokens rest: List (Parse.Located Token)) (takes: Option Comments)
-    (listed: Option (ParameterGroup, List (Comments, ParameterGroup)))
+    (takesTokens parameterTokens rest: List (Parse.Located Token))
+    (takes: Option Comments) (listed: Option (ParameterGroup, List (Comments, ParameterGroup)))
     (runsTakes: Parse.Runs
       (() => Parse.optional (() => keyword layout TakesKeyword))
       takesTokens
@@ -675,16 +673,12 @@ theorem runsHeader ∀ (layout: Layout) (open close: Parse.Located Token)
     (openAllowed: layout.allows open = True)
     (runsParameters: Parse.Runs (() => Parse.optional parameterList) parameterTokens ([close] ++ rest) listed)
     (closes: close.value.kind = Sign CloseParen):
-    Parse.Runs
-      (() => functionHeader layout)
-      (takesTokens ++ [open, ..parameterTokens ++ [close]])
-      rest
-      {
-        takes,
-        open = layout.comments open,
-        parameters = parametersOf listed,
-        close = Layout.comments InBrackets close
-      } :=
+    Parse.Runs (() => functionHeader layout) (takesTokens ++ [open, ..parameterTokens ++ [close]]) rest {
+      takes,
+      open = layout.comments open,
+      parameters = parametersOf listed,
+      close = Layout.comments InBrackets close
+    } :=
   let opened := layout.comments open
   let closed := Layout.comments InBrackets close
   let read: Header := { takes, open = opened, parameters = parametersOf listed, close = closed }
@@ -749,7 +743,8 @@ theorem runsTakes ∀ (layout: Layout) (token: Parse.Located Token) (rest: List 
     (isTakes: token.value.kind = Reserved TakesKeyword)
     (allowed: layout.allows token = True):
     Parse.Runs (() => Parse.optional (() => keyword layout TakesKeyword)) [token] rest (Some (layout.comments token)) :=
-  Parse.runsOptional (() => keyword layout TakesKeyword)
+  Parse.runsOptional
+    (() => keyword layout TakesKeyword)
     [token]
     rest
     (layout.comments token)
@@ -759,9 +754,11 @@ theorem runsTakes ∀ (layout: Layout) (token: Parse.Located Token) (rest: List 
 theorem runsNoTakes ∀ (layout: Layout) (token: Parse.Located Token) (rest: List (Parse.Located Token))
     (opens: token.value.kind = Sign OpenParen):
     Parse.Runs (() => Parse.optional (() => keyword layout TakesKeyword)) [] [token, ..rest] None :=
-  Parse.declinesRuns (() => keyword layout TakesKeyword)
+  Parse.declinesRuns
+    (() => keyword layout TakesKeyword)
     [token, ..rest]
-    (Parse.declinesOne "'${Keyword.spelling TakesKeyword}'"
+    (Parse.declinesOne
+      "'${Keyword.spelling TakesKeyword}'"
       (selectComments layout (keywordIs TakesKeyword))
       token
       rest

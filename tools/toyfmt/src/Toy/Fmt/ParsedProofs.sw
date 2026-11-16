@@ -234,7 +234,8 @@ theorem lexicalWithCommas ∀ (first: ParameterGroup) (others: List (Comments, P
     | [(comma, next), ..rest], Both (Both commaFine nextGrouped) more =>
       (grouped, commaFine, (lexicalWithCommas next rest nextGrouped more))
 
-theorem lexicalNamesOf ∀ (others: List (Text, Comments)) (named: List.All FineNamed others):
+theorem lexicalNamesOf ∀ (others: List (Text, Comments))
+    (named: List.All FineNamed others):
     LexicalNames (others.map namedOf) :=
   match others, named with
     | [], _ => byComputing

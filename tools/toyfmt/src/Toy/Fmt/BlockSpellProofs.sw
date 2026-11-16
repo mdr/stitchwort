@@ -1437,6 +1437,7 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
 
 -- Parameters.
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: the read-back goal of a parameter list: needs `GroupProofs.sw`'s `ParameterSteps`, whose steps are groups.
 --| What tokens after a parameter list's first name have to be: the
 --| rounds of a comma and a name the parameter parser reads, giving the
 --| parameters.
@@ -1447,6 +1448,7 @@ def ParametersGoal (parameters: List Parameter) (name: Text)
     ∧ ParameterSteps steps
     ∧ parameters = withCommas (name, Layout.comments InBrackets first) (Parse.stepValues steps)
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: the events of the parameter groups, read back with `runsUntyped`/`runsTyped`.
 --| Tokens with the views of a parameter list's events are its first
 --| name and then the rounds the parser reads.
 theorem parametersOut ∀ (parameter: Parameter) (rest: List Parameter) (events: List Event)
@@ -1576,6 +1578,7 @@ theorem parametersOut ∀ (parameter: Parameter) (rest: List Parameter) (events:
                       ))))
         )
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: as `parametersOut`, through `runsParameters` and `runsNoParameters` (`GroupProofs.sw`).
 --| Tokens with the views of a declaration's parameters, before `)`, are
 --| read back by the parameter parser as the parameters.
 theorem parameterListOut ∀ (parameters: List Parameter) (events: List Event)
@@ -1756,6 +1759,7 @@ theorem laterOfDeclarations ∀ (declarations: List (Spaced Declaration)) (event
           unspaced
       rewrite <- none then (events, byComputing, laid)
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: the `Function` case: `SpelledDeclarations` now takes the header's tokens and `runsHeader` (`BlockProofs.sw`).
 --| Tokens with the views of a file's declarations spell them: each
 --| declaration's first token starts a line at column 0 and holds the
 --| comment lines and the blank line above the declaration, and the

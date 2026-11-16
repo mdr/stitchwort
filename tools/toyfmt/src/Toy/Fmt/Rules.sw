@@ -88,7 +88,8 @@ def binding (letComments: Comments) (name: Text) (nameComments equals: Comments)
 def header (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: Option Comments) (open: Comments)
     (parameters: List Parameter) (close equals: Comments):
     Doc :=
-  let opening := Doc.concat [token fnComments "fn", Doc.text " ", token nameComments name, takesDoc takes, token open "("]
+  let opening :=
+    Doc.concat [token fnComments "fn", Doc.text " ", token nameComments name, takesDoc takes, token open "("]
   let closing := Doc.concat [closer close ")", Doc.text " ", token equals "="]
   match parameters with
     | [] => Doc.concat [opening, closing]
@@ -110,8 +111,13 @@ def parameterDocs: List Parameter → List Doc
 --| A group's names a space apart, then `: ` and their type.
 def ParameterGroup.layout: ParameterGroup → Doc
   | Untyped { name, comments } => token comments name
-  | Typed names colon annotation =>
-    Doc.concat [token names.head.comments names.head.name, namesAfter names.tail, token colon ":", Doc.text " ", annotation.layout]
+  | Typed names colon annotation => Doc.concat [
+    token names.head.comments names.head.name,
+    namesAfter names.tail,
+    token colon ":",
+    Doc.text " ",
+    annotation.layout
+  ]
 
 def namesAfter: List Named → Doc
   | [] => Empty

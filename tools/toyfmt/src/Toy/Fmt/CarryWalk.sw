@@ -1213,7 +1213,8 @@ theorem innerTypeOf ∀ (self: () → {Parse Tok} TypeExpr)
 
 --| Every type the parser reads holds its tokens' comments.
 theorem innerTypeExpr: Parse.ReadsIn Lexer (() => typeExpr()) (Inner InBrackets TypeExpr.comments) :=
-  Parse.readsRecursiveWith typeRule (unit => Inner InBrackets TypeExpr.comments)
+  Parse.readsRecursiveWith typeRule
+    (unit => Inner InBrackets TypeExpr.comments)
     (self nested unit =>
       Parse.readsInPeek _ _ (start fine =>
         match e: start.rest with
@@ -1239,7 +1240,8 @@ theorem ontoGroupOf ∀ (first: (Text, Comments)) (others: List (Text, Comments)
     Parse.ReadsIn Lexer
       (() => groupOf first others typed)
       (Onto InBrackets
-        (later => namedComments first ++ (others.flatMap namedComments ++ (perhapsComments typingComments typed ++ later)))
+        (later =>
+          namedComments first ++ (others.flatMap namedComments ++ (perhapsComments typingComments typed ++ later)))
         ParameterGroup.comments
         (found => True)) :=
   match typed, others with
@@ -1315,7 +1317,8 @@ def Header.comments (header: Header): List Comment :=
 
 --| A function's header holds its tokens' comments: `takes` and `(` at
 --| the declaration's layout, the rest inside brackets.
-theorem innerHeader ∀ (layout: Layout): Parse.ReadsIn Lexer (() => functionHeader layout) (Inner layout Header.comments) :=
+theorem innerHeader ∀ (layout: Layout):
+    Parse.ReadsIn Lexer (() => functionHeader layout) (Inner layout Header.comments) :=
   innerOf
     (andThen (innerOptional layout (innerKeyword layout TakesKeyword)) (takes =>
       andThen (innerSign layout "'('" OpenParen) (open =>

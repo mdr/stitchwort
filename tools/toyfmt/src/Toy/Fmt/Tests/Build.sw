@@ -57,6 +57,18 @@ def letIn (name: Text) (value: Expr): Spaced Statement := plain (letBody name (e
 
 def parameter (name: Text): Parameter := { group = Untyped { name, comments = none }, comma = none }
 
+def named (name: Text): Named := { name, comments = none }
+
+--| `first others…: annotation`, with no comments but `colon`'s.
+def typed (first: Text) (others: List Text) (colon: Comments) (annotation: TypeExpr): Parameter :=
+  { group = Typed { head = named first, tail = others.map named } colon annotation, comma = none }
+
+--| A function declared with `takes` (or not, at `None`) and parameter groups.
+def fnGroups (name: Text) (takes: Option Comments) (open: Comments) (parameters: List Parameter)
+    (close: Comments) (body: Body):
+    Spaced Declaration :=
+  plain (Function none name none takes open parameters close none body)
+
 def fn (name: Text) (parameters: List Text) (body: Body): Spaced Declaration :=
   plain (Function none name none None none (parameters.map parameter) none none body)
 

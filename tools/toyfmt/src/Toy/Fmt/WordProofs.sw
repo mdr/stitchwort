@@ -279,6 +279,7 @@ def Statement.pieces: Statement → List Text
 def bindingPieces (letComments: Comments) (name: Text) (nameComments equals: Comments) (body: List Text): List Text :=
   tokenPieces letComments "let" ++ (tokenPieces nameComments name ++ (tokenPieces equals "=" ++ body))
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: pieces of groups and types.
 --| Each parameter, and its comma but the last's.
 def parameterPieces: List Parameter → List Text
   | [] => []
@@ -291,6 +292,7 @@ def headerPieces (fnComments: Comments) (name: Text) (nameComments open: Comment
   (tokenPieces fnComments "fn" ++ (tokenPieces nameComments name ++ tokenPieces open "("))
     ++ (parameterPieces parameters ++ (tokenPieces close ")" ++ tokenPieces equals "="))
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: `Function` has `takes`.
 def Declaration.pieces: Declaration → List Text
   | Function fnComments name nameComments open parameters close equals body =>
     headerPieces fnComments name nameComments open parameters close equals ++ body.pieces
@@ -712,6 +714,7 @@ theorem bindingWrites ∀ (letComments: Comments) (name: Text) (nameComments equ
               (writesToken equals "=")
               (writesLast _ _ (afterEqualsWrites body equals)))))))
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: `ParameterGroup.layout` and `TypeExpr.layout`.
 theorem parameterDocsWrite ∀ (parameters: List Parameter):
     WritesAll (parameterDocs parameters) (parameterPieces parameters) :=
   match parameters with
@@ -724,6 +727,7 @@ theorem parameterDocsWrite ∀ (parameters: List Parameter):
         (writesTwo _ _ _ _ (writesToken comments name) (writesToken comma ","))
         (parameterDocsWrite [next, ..rest])
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: `takesDoc`.
 theorem headerWrites ∀ (fnComments: Comments) (name: Text) (nameComments open: Comments)
     (parameters: List Parameter) (close equals: Comments):
     Writes
@@ -778,6 +782,7 @@ theorem headerWrites ∀ (fnComments: Comments) (name: Text) (nameComments open:
                       (writesJoined _ Line _ ((byComputing, byComputing)) (parameterDocsWrite [first, ..others]))))))
               (writesCons SoftLine _ [] closingPieces ((byComputing, byComputing)) (writesLast _ _ closing)))))
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: `Function` has `takes`.
 --| A declaration's document writes its tokens and comments in order.
 theorem declarationWrites ∀ (declaration: Declaration): Writes declaration.layout declaration.pieces :=
   match declaration with

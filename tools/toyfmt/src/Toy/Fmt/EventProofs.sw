@@ -2039,6 +2039,7 @@ theorem statementLays ∀ (statement: Statement)
 
 -- Declarations and the file.
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: events of groups and types.
 --| A declaration's parameters between their brackets: each name, and
 --| the comma after each but the last.
 def ParameterEvents (parameters: List Parameter): List Event → Prop := match parameters with
@@ -2047,6 +2048,7 @@ def ParameterEvents (parameters: List Parameter): List Event → Prop := match p
   | [{ name, comments, comma }, ..rest] =>
     Then (TokenAt anyStart comments name) (Then (TokenAt anyStart comma ",") (ParameterEvents rest))
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: `Function` has `takes`.
 --| A declaration, from the start of a line at column 0: its first token
 --| starts that line, the others stand in it as a statement's do. A
 --| function is `fn name (`, the parameters, then `) =` and the body.
@@ -2147,6 +2149,7 @@ theorem parameterRule ∀ (zone: Zone) (name: Text) (comments comma: Comments)
           (Ended zone)
           (tokenInside zone comma "," fineComma solidComma))))
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: groups, not names.
 theorem sepsParameters ∀ (parameters: List Parameter)
     (lexical: LexicalParameters parameters)
     (zone: Zone) (indent: Nat) (place: Place) (trace: List Event)
@@ -2211,6 +2214,7 @@ theorem sepsParameters ∀ (parameters: List Parameter)
                         areParameters)
                       met)))
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: groups, not names.
 --| A declaration's parameters, as a fill lays them.
 theorem fillParameters ∀ (first: Parameter) (rest: List Parameter)
     (lexical: LexicalParameters [first, ..rest]) (zone: Zone):
@@ -2352,6 +2356,7 @@ theorem closingLays ∀ (zone: Zone) (close equals: Comments) (bodyDoc: Doc) (bo
         seated
         onward))
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: `takes` and groups.
 --| A function declaration (P2), from the start of its line.
 theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments open: Comments) (parameters: List Parameter)
     (close equals: Comments) (body: Body)
@@ -2535,6 +2540,7 @@ theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments open:
                                   ))
                                   met))))))
 
+-- Open for T2b (SW-3667), the printer side of Toy++ T2: `Function` has `takes`.
 --| A declaration, from the start of its line at column 0.
 theorem declarationLays ∀ (declaration: Declaration)
     (lexical: LexicalDeclaration declaration)

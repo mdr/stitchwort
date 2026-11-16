@@ -10,7 +10,13 @@
 namespace Toy.Syntax
 import Std (List, Option, Parse, Text)
 
-type Keyword = | FnKeyword | LetKeyword | IfKeyword | ThenKeyword | ElseKeyword | TakesKeyword
+type Keyword =
+  | FnKeyword
+  | LetKeyword
+  | IfKeyword
+  | ThenKeyword
+  | ElseKeyword
+  | TakesKeyword
 
 def Keyword.spelling: Keyword → Text
   | FnKeyword => "fn"

@@ -664,7 +664,8 @@ theorem givesTypeOf ∀ (self: () → {Parse (Parse.Located Token)} TypeExpr) (c
 
 --| Every type the parser gives from good tokens has the lexer's texts.
 theorem givesTypeExpr: Parse.Gives GoodTokens (() => typeExpr()) LexicalType :=
-  Parse.givesRecursiveWith typeRule (unit found => LexicalType found)
+  Parse.givesRecursiveWith typeRule
+    (unit found => LexicalType found)
     (self nested unit =>
       Parse.readsPeek _ _ (start fine =>
         match e: start.rest with
@@ -678,12 +679,12 @@ theorem givesTypeExpr: Parse.Gives GoodTokens (() => typeExpr()) LexicalType :=
               fine.holds.left.left))
     ()
 
-theorem givesTyping: Parse.Gives GoodTokens typing ((found: (Comments, TypeExpr)) => Fine found.fst ∧ LexicalType found.snd) :=
+theorem givesTyping: Parse.Gives GoodTokens typing ((found: (Comments, TypeExpr)) =>
+      Fine found.fst ∧ LexicalType found.snd) :=
   Parse.givesThen (givesSign InBrackets "':'" Colon) (colon colonFine =>
     Parse.givesThen givesTypeExpr (annotation lexical => Parse.givesDone ((colonFine, lexical))))
 
-theorem givesGroupOf ∀ (first: (Text, Comments)) (others: List (Text, Comments))
-    (typed: Option (Comments, TypeExpr))
+theorem givesGroupOf ∀ (first: (Text, Comments)) (others: List (Text, Comments)) (typed: Option (Comments, TypeExpr))
     (named: FineNamed first)
     (more: List.All FineNamed others)
     (typedFine: Parse.Perhaps ((found: (Comments, TypeExpr)) => Fine found.fst ∧ LexicalType found.snd) typed):
