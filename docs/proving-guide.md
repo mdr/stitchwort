@@ -315,7 +315,9 @@ Import what you use: std's theorems live in namespaces that need an import
   (`theorem t: (x: Bool) → P x := cases`). When nothing is stuck and nothing
   closes it, it falls back to splitting a variable the goal mentions, the
   one that makes the fewest cases. `cases in t` tries `t` in every case
-  first. A hypothesis `h: Some x = Some y` (any one constructor on both
+  first, and splits the condition of an `if` the goal shows before what it
+  is stuck on inside definitions, so each case's goal keeps the calls `t`
+  names. A hypothesis `h: Some x = Some y` (any one constructor on both
   sides) gives `x = y`, and `cases` then replaces `y` by `x` in the goal and
   the hypotheses, so `f x = f y` needs no `rewrite` or `Eq.cong`; a term
   after `in` may still name `y`. An equation with no variable side (`f x =
@@ -382,12 +384,15 @@ Import what you use: std's theorems live in namespaces that need an import
   goal keeps `isSafe`), and uses that when no copy of the left side is
   left hidden inside a call; otherwise, and when it finds nothing, in the
   goal *as it computes*, so a rule can still rewrite inside a definition.
-  What the goal already unfolded (a call that steps at once, arithmetic) is
-  not there to find in either (8 items in agentic-proving.md §5 E). Give the rule its arguments
-  when you can (§6). Inside a function argument it goes through the
-  call's congruence lemma (`List.mapCong`, …). A rule for `/` also rewrites
-  the `/` inside `x % 2`, since `%` computes to `x - x / 2 * 2`: rewrite the
-  `%` rule first (SW-976 item 4, AoC 2021 day 16 notes).
+  When both find nothing, a call the goal shows that steps at once (an
+  argument is known: `(printer.write " ").words`) is still found, with the
+  rule's open arguments solved from the call's. Arithmetic the goal already
+  unfolded is not there to find (8 items in agentic-proving.md §5 E). Give
+  the rule its arguments when you can (§6). Inside a function argument it
+  goes through the call's congruence lemma (`List.mapCong`, …). A rule for
+  `/` also rewrites the `/` inside `x % 2`, since `%` computes to
+  `x - x / 2 * 2`: rewrite the `%` rule first (SW-976 item 4, AoC 2021
+  day 16 notes).
 - **`match e:` and `cases`** look for `e` the same way: in the goal and
   the hypotheses *as written* first, comparing up to computation, so
   `xs.map (f a)` finds the goal's `xs.map (y => f a y)` and the arms keep

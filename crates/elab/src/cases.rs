@@ -391,6 +391,11 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
     if let Some(term) = apply_guarded(cx, run, goal)? {
         return Ok(term);
     }
+    if run.body.is_some()
+        && let Some(atom) = visible_condition(cx, run, goal)?
+    {
+        return split_on(cx, run, atom, goal, false);
+    }
     let (atom, stuck, fallback) = {
         let mut finder = Finder::new(cx, run);
         let atom = finder.find(goal)?;
@@ -2307,6 +2312,54 @@ fn blocker(cx: &Ctx, value: &Value) -> Result<Option<(Value, DataId)>> {
             _ => return Ok(None),
         }
     }
+}
+
+/// For `cases in t`, the condition of the first `if` the goal shows (read
+/// back folded, calls as calls, in pre-order), when it is stuck and not
+/// known in this case (SW-3530, D2542). `t` is written against the goal
+/// as it is shown, so the split it is given is the one it can see: on
+/// `(if fits then wide else narrow).words = …` that is `fits`, and each
+/// case's goal keeps the branch's calls (`wide.words`), which `t` can
+/// rewrite. What [`Finder::find`] would split instead is what the
+/// condition's call is stuck on inside its definition, innermost first,
+/// and each of those cases' goals is computed past the calls `t` names.
+/// Only an `if` outside every binder of the goal is taken.
+fn visible_condition(cx: &Ctx, run: &Run, goal: &Value) -> Result<Option<Atom>> {
+    let ite = builtin_def(cx, Builtin::IfThenElse)?;
+    let bool_data = builtin_data(cx, Builtin::Bool)?;
+    // A goal too large to read back has no condition to show: the usual
+    // search goes on, and the budget check before a split reports it.
+    let written = match cx.quote_folded(goal) {
+        Ok(written) => written,
+        Err(e) if crate::undo::recoverable(cx, &e) => {
+            crate::undo::recovered(cx);
+            return Ok(None);
+        }
+        Err(e) => return Err(e),
+    };
+    let finder = Finder::new(cx, run);
+    for (term, under) in written.subterms() {
+        if under > 0 {
+            continue;
+        }
+        let (head, args) = term.spine();
+        if !matches!(head, Term::Def(id) if *id == ite) || args.len() != 4 {
+            continue;
+        }
+        let condition = cx.eval(args[1])?;
+        if !matches!(force(&cx.g(), condition.clone())?, Value::Neutral(..))
+            || finder.is_known(&condition)?
+            || has_meta(cx, &condition)?
+        {
+            continue;
+        }
+        return Ok(Some(Atom {
+            value: condition,
+            d: bool_data,
+            side: false,
+        }));
+    }
+    Ok(None)
 }
 
 /// Splits the case on `atom`: the generated `match` with one alternative

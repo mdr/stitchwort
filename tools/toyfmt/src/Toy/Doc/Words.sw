@@ -356,8 +356,7 @@ theorem stepWords ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: (P
     (uniform: CmdUniform cmd):
     result.fst.words ++ stackWords result.snd = printer.words ++ (cmd.words ++ stackWords rest) :=
   match cmd, steps, uniform with
-    | FillSep indent item, Inl (Both _ flat), _ =>
-      rewrite flat in keepsWords _ printer _ (writeLayoutWords printer indent " " 1 rfl)
+    | FillSep indent item, Inl (Both _ flat), _ => rewrite flat in rewrite writeWords, List.appendAssoc in rfl
     | FillSep indent item, Inr broken, _ => rewrite broken in keepsWords _ printer _ (newlineWords printer indent)
     | Print indent mode doc, steps, uniform =>
       match doc, steps, uniform with
@@ -371,13 +370,7 @@ theorem stepWords ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: (P
               (printer.newline indent, rest) _
               (keepsWords _ printer _ (writeLayoutWords printer indent " " 1 rfl))
               (keepsWords _ printer _ (newlineWords printer indent))
-        | SoftLine, steps, _ =>
-          rewrite steps in
-            eitherWords _
-              (printer, rest)
-              (printer.newline indent, rest) _
-              rfl
-              (keepsWords _ printer _ (newlineWords printer indent))
+        | SoftLine, steps, _ => rewrite steps in cases in (rewrite newlineWords in rfl)
         | HardLine, steps, _ => rewrite steps in keepsWords _ printer _ (newlineWords printer indent)
         | LineStart, steps, _ => rewrite steps in keepsWords _ printer _ (lineStartWords printer indent)
         | CommentEnd, steps, _ => rewrite steps in keepsWords _ printer _ (newlineWords printer printer.lineIndent)
