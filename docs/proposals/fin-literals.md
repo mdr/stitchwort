@@ -47,6 +47,27 @@ coverage (`| 0 | 1 | 2` on `Fin 3` is complete, `| 0 => … | FSucc _ => …`
 works for `Fin (Succ n)`), and a pattern at or above a known n is
 `E-FIN-LITERAL` ("2 isn't below 2, so it can't match a `Fin 2`").
 
+**Patterns: compiled as numbers (SW-2467).** A column of number patterns
+(with variables and `_`) on a `Fin` is compiled as a `Nat` column is, one
+subtree per number written plus the rows with a variable (`FinNumbers` in
+`crates/elab/src/lib.rs`), and turned into the `FZero`/`FSucc` cases above
+one `FSucc` at a time while it is checked, stopping at the first number no
+arm matches. So `| _, 0 | _, 2^128` on `Fin (Succ (Succ n))` is "no arm
+matches 1" at once, where the chain was built 2^128 deep first. The kernel
+terms are those of the constructor split, so no hash moves for a match on
+one `Fin` column; with several columns the `Fin` is split first, as a `Nat`
+column is. Each case still refines the context, at a cost that grows faster
+than the number, about sevenfold for each doubling (a full table of 128
+arms on a `Fin 128` checks in 3.5 s on Speedwell, 256 arms in 20 s, 512 in
+three minutes and 1.5 GB), so a number pattern on a `Fin` is at most 256
+(`MAX_FIN_PATTERN`): checking that would go further is `E-MATCH-SIZE`, with
+a note to compare the number in a condition instead. The limit is where
+checking stops being practical, so no match that checked in reasonable time
+before the numbers were compiled as numbers is refused; a number lowering
+that compares against the bound arithmetically, without a case per
+`FSucc`, would lift it (SW-2467). A missing case listing several columns shows a `Fin` column as the
+number written (`2, False`), or as `FSucc`s around `_` above the largest.
+
 **Missing numbers (D1079).** The indexed-family coverage check finds a
 missing case some levels down (`FZero` under two `FSucc`s), and it is
 reported as the number, worded as for `Nat`: `FSucc` twice around `FZero`

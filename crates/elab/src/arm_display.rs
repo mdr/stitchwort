@@ -168,20 +168,30 @@ fn arm_key(rhs: &Option<&Expr>, span: Span) -> ArmKey {
 
 /// Sets how many leaves check each arm in `tree`.
 pub(crate) fn count_cases(tree: &mut Tree) {
-    fn tally(tree: &Tree, counts: &mut HashMap<ArmKey, usize>) {
+    fn tally(tree: &Tree, counts: &mut HashMap<ArmKey, usize>, times: usize) {
         match tree {
-            Tree::Leaf { span, rhs, .. } => *counts.entry(arm_key(rhs, *span)).or_default() += 1,
+            Tree::Leaf { span, rhs, .. } => {
+                let n = counts.entry(arm_key(rhs, *span)).or_default();
+                *n = n.saturating_add(times);
+            }
             Tree::Guard {
                 leaf, otherwise, ..
             } => {
-                tally(leaf, counts);
-                tally(otherwise, counts);
+                tally(leaf, counts, times);
+                tally(otherwise, counts, times);
             }
             Tree::Absurd { .. } | Tree::Missing { .. } => {}
-            Tree::Case { branches, .. } => branches.iter().for_each(|(_, t)| tally(t, counts)),
+            Tree::Case { branches, .. } => {
+                branches.iter().for_each(|(_, t)| tally(t, counts, times));
+            }
             Tree::NumCase { arms, default, .. } => {
-                arms.iter().for_each(|(_, t)| tally(t, counts));
-                tally(default, counts);
+                arms.iter().for_each(|(_, t)| tally(t, counts, times));
+                tally(default, counts, times);
+            }
+            Tree::FinNumbers { numbers, .. } => {
+                for (tree, once) in numbers.weighted_subtrees() {
+                    tally(tree, counts, times.saturating_mul(once));
+                }
             }
         }
     }
@@ -202,10 +212,15 @@ pub(crate) fn count_cases(tree: &mut Tree) {
                 arms.iter_mut().for_each(|(_, t)| set(t, counts));
                 set(default, counts);
             }
+            Tree::FinNumbers { numbers, .. } => {
+                Rc::make_mut(numbers)
+                    .subtrees_mut()
+                    .for_each(|t| set(t, counts));
+            }
         }
     }
     let mut counts = HashMap::default();
-    tally(tree, &mut counts);
+    tally(tree, &mut counts, 1);
     set(tree, &counts);
 }
 
@@ -231,6 +246,11 @@ pub(crate) fn set_facts(tree: &mut Tree, facts: &HashMap<usize, Rc<[ArmFact]>>) 
         Tree::NumCase { arms, default, .. } => {
             arms.iter_mut().for_each(|(_, t)| set_facts(t, facts));
             set_facts(default, facts);
+        }
+        Tree::FinNumbers { numbers, .. } => {
+            Rc::make_mut(numbers)
+                .subtrees_mut()
+                .for_each(|t| set_facts(t, facts));
         }
     }
 }
