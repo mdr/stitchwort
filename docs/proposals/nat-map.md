@@ -210,7 +210,7 @@ runtime keeps something faster.
   against 7 µs **[inferred; the 0.04 µs is from arrays.md §7]**.
 - **JS.** A version map (Baker's trick again: the newest version holds a JS `Map`, older
   ones hold the change back to it), sorting the keys when an ordered operation (`toList`,
-  `min`, `below`) needs them. `bigint` keys in a JS `Map` compare by value **[unverified]**.
+  `min`, `below`) needs them. `bigint` keys in a JS `Map` compare by value: MDN says Map keys use SameValueZero, where all values but `NaN` match "according to the semantics of the `===` operator" ([MDN Map, key equality](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map)), and `1n === 1n` is true; the page doesn't mention BigInt, so the BigInt case is inferred from that, and the spec text (BigInt::equal) wasn't read.
 - **Bridges.** Code that reads `.toMap` pays an O(n) conversion, as with `Array.toList`.
   So every operation in the API must be native, or a missed one silently costs O(n).
 - **Maintenance.** A new value kind in the runtime, the native-code layout probe, the JS

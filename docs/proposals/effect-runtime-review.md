@@ -699,8 +699,8 @@ runs on machine frames **[source]**.
 - **Stack safety.** Through `tailRecM`.
 - **Multi-shot.** Yes: `runChoose` resumes `k true` and `k false`
   ([Choose.purs](https://github.com/natefaubion/purescript-run/blob/master/src/Run/Choose.purs)).
-  Whether the amortised bound survives resuming one list twice is
-  undocumented **[unverified]**. A plain cons list, as in A, has only
+  `Run` is a newtype over `Free (VariantF r)` ([Run.purs:93](https://github.com/natefaubion/purescript-run/blob/master/src/Run.purs), read). Whether the amortised bound survives resuming one list twice is
+  undocumented **[unverified]**: I read the `Run` source, not the Aff queue. A plain cons list, as in A, has only
   worst-case O(1) operations, so the question doesn't arise.
 
 **Scala `cats.Free`.**
