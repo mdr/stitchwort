@@ -66,3 +66,21 @@ opt-level = 3
 
 [profile.dev.package.similar]
 opt-level = 3
+
+# The checker is what a cold test std cache spends its time in (the first LSP
+# test checks the whole library from source, 264 s unoptimised, SW-3657), and
+# nothing in these crates needs debug-level stepping.
+[profile.dev.package.stitchwort-core]
+opt-level = 1
+
+[profile.dev.package.stitchwort-syntax]
+opt-level = 1
+
+[profile.dev.package.stitchwort-elab]
+opt-level = 1
+
+[profile.dev.package.stitchwort-rt]
+opt-level = 1
+
+[profile.dev.package.stitchwort-driver]
+opt-level = 1

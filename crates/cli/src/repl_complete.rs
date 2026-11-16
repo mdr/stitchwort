@@ -272,6 +272,18 @@ mod tests {
     }
 
     #[test]
+    fn a_name_declared_in_several_namespaces_is_offered() {
+        in_session(|s| {
+            let (_, found) = complete(s, "replic", 6);
+            let shown: Vec<&str> = found.iter().map(|p| p.display.as_str()).collect();
+            assert!(
+                shown.contains(&"replicate  (import Std.List (replicate))"),
+                "{shown:?}"
+            );
+        });
+    }
+
+    #[test]
     fn a_type_query_completes_its_expression() {
         in_session(|s| {
             let (start, found) = labels(s, ":t [1, 2].le");

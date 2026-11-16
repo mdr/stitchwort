@@ -3150,7 +3150,10 @@ impl Elaborator {
     /// the unknown-name error suggests them: a root name outside the
     /// prelude (`import Std (Map)`), or the one declaration of the
     /// library's namespaces with that short name (`import Std.List
-    /// (replicate)`). Each with its key, what it is, and the import's path.
+    /// (replicate)`). A short name several namespaces declare
+    /// (`List.replicate`, `Array.replicate`) is listed once for each, since
+    /// each import brings a different declaration. Each with its key, what
+    /// it is, and the import's path.
     pub(crate) fn importable_names(&self) -> Vec<(String, String, Global, String)> {
         if self.unit.loading_prelude {
             return Vec::new();
@@ -3174,14 +3177,15 @@ impl Elaborator {
         }
         by_short
             .into_iter()
-            .filter_map(|(name, keys)| {
-                let (path, key) = match keys.as_slice() {
-                    [STD, ..] => (STD.to_string(), format!("{STD}.{name}")),
-                    [key] => (parent(key)?.to_string(), key.to_string()),
-                    _ => return None,
-                };
-                let (global, _) = self.scope.get(&key)?;
-                Some((name.to_string(), key, global, path))
+            .flat_map(|(name, keys)| {
+                keys.into_iter().filter_map(move |key| {
+                    let (path, key) = match key {
+                        STD => (STD.to_string(), format!("{STD}.{name}")),
+                        key => (parent(key)?.to_string(), key.to_string()),
+                    };
+                    let (global, _) = self.scope.get(&key)?;
+                    Some((name.to_string(), key, global, path))
+                })
             })
             .collect()
     }
