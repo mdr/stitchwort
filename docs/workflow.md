@@ -472,7 +472,10 @@ lane missed it and a batch failed:
   error: on 6 Nov 2026 SW-1558 made an `Int` lemma's arguments implicit and
   `DecEqInt` silently stopped binding (SW-1582 repinned it; SW-1586 is the
   structural fix). The batch's check includes `test(/bound_to_the_prelude/)` for such
-  lanes.
+  lanes, and `pinned_hashes::every_binding_by_hash_applies_to_the_library`
+  (binary `library`), which lists every native by content hash: a proof
+  rewritten inside a definition (SW-3603's `calc` conversion of
+  `Text.decEqFrom`) moves its hash too, and went unnoticed until SW-3617.
 - **Touches comments:** say which rules apply ([syntax.md, "What to
   write"](syntax.md#what-to-write)): std's full API docs, or application
   code's few comments. Never "document every X" outside std. Lanes keep
