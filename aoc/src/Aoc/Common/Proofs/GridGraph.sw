@@ -45,7 +45,7 @@ theorem stepEdgeIntro ∀ (enter: Position → Option Nat) (from next: Position)
     (next, cost)
     from.neighbours
     (adjacentNeighbour from next near)
-    (rewrite found then byComputing)
+    (rewrite found)
 
 --| A walk is a path through the positions it enters, and costs what
 --| entering them costs...
@@ -60,9 +60,9 @@ theorem walkPath ∀ (enter: Position → Option Nat) (states: List Position)
     | [(next, weight), ..rest], (Both edge later) =>
       let (Both near found) := stepEdgeElim enter start next weight edge
       let (Both restPath restCost) := walkPath enter states complete next rest finish later
-      let entered: enterCost enter next = weight := rewrite found then byComputing
+      let entered: enterCost enter next = weight := rewrite found
       Both
-        (Both near (Both (rewrite found then byComputing) restPath))
+        (Both near (Both (rewrite found) restPath))
         (arithmetic [
           Graph.costCons next weight rest,
           restCost,
@@ -141,7 +141,7 @@ theorem isPathCong ∀ (f g: Position → Bool)
     isPath f from steps to = isPath g from steps to :=
   match steps with
     | [] => byComputing
-    | [next, ..rest] => rewrite same next, isPathCong f g same next rest to then byComputing
+    | [next, ..rest] => rewrite same next, isPathCong f g same next rest to
 
 --| A path, then another from where it ends.
 theorem isPathAppend ∀ (allowed: Position → Bool) (more: List Position) (to from: Position)

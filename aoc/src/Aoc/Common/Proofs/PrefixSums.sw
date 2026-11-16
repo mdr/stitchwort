@@ -72,7 +72,7 @@ theorem PrefixSums.atOf ∀ (rows: List (List Nat)) (r c: Nat)
       PrefixSums.tableAt c top sums topLength sumsLength r
         (rewrite List.lengthMap rows (row => PrefixSums.runningSums (List.padRight row width 0)) then hr)
     _ = List.sumBy (List.range 0 r) (i => List.getOr (List.getOr sums i []) c 0) :=
-      rewrite List.getOrReplicate 0 c (Succ width) then byComputing
+      rewrite List.getOrReplicate 0 c (Succ width)
     _ = PrefixSums.blockSpec rows 0 r 0 c :=
       List.sumByCongRange
         (i => List.getOr (List.getOr sums i []) c 0)

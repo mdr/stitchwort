@@ -33,7 +33,7 @@ theorem cellAtOfMemCells ∀ (rows: List (List a)) (position: Position) (x: a)
           let sameCell: cell = x := Eq.cong Pair.snd same
           Exists.elim ((List.memGridCells rows row column cell).forward inGrid) (line found =>
             let (Both atRow atColumn) := found
-            rewrite <- samePosition, <- sameCell then rewrite atRow then atColumn))
+            rewrite <- samePosition, <- sameCell, atRow then atColumn))
 
 --| ...and the other way round.
 theorem memCells ∀ (rows: List (List a)) (position: Position) (x: a):
@@ -73,10 +73,8 @@ theorem cellsMapCells ∀ (rows: List (List a)) (f: Position → a → b):
     cells (mapCells rows f) = (cells rows).map (((at, x)) => (at, f at x)) :=
   let toCell := (arg: ((Nat, Nat), b)) => (({ row = arg.fst.fst, column = arg.fst.snd }: Position), arg.snd)
   let toCellBefore := (arg: ((Nat, Nat), a)) => (({ row = arg.fst.fst, column = arg.fst.snd }: Position), arg.snd)
-  rewrite gridCellsMapCells rows f,
-      List.mapMap rows.gridCells toCell (((at, x)) => (at, f { row = at.fst, column = at.snd } x)),
-      List.mapMap rows.gridCells (((at, x)) => (at, f at x)) toCellBefore then
-    byComputing
+  rewrite gridCellsMapCells rows f, List.mapMap rows.gridCells toCell (((at, x)) =>
+    (at, f { row = at.fst, column = at.snd } x)), List.mapMap rows.gridCells (((at, x)) => (at, f at x)) toCellBefore
 
 --| The grid cells after `mapCells`.
 theorem gridCellsMapCells ∀ (rows: List (List a)) (f: Position → a → b):
@@ -98,14 +96,12 @@ theorem gridCellsMapCells ∀ (rows: List (List a)) (f: Position → a → b):
       Eq.cong List.concat (List.mapCong (List.withIndex rows) _ _ (p => rowCellsMapWithIndex p.fst p.snd f))
     _ = rows.gridCells.map (((at, x)) => (at, f { row = at.fst, column = at.snd } x)) :=
       Eq.flipped
-        (rewrite List.flatMapEqConcatMap (p => rowCells p.fst p.snd) (List.withIndex rows),
-            List.mapConcat (List.map (List.withIndex rows) (p => rowCells p.fst p.snd)) (((at, x)) =>
-              (at, f { row = at.fst, column = at.snd } x)),
-            List.mapMap
-              (List.withIndex rows)
-              (xs => List.map xs (((at, x)) => (at, f { row = at.fst, column = at.snd } x)))
-              (p => rowCells p.fst p.snd) then
-          byComputing)
+        (rewrite List.flatMapEqConcatMap (p => rowCells p.fst p.snd) (List.withIndex rows), List.mapConcat
+          (List.map (List.withIndex rows) (p => rowCells p.fst p.snd))
+          (((at, x)) => (at, f { row = at.fst, column = at.snd } x)), List.mapMap
+          (List.withIndex rows)
+          (xs => List.map xs (((at, x)) => (at, f { row = at.fst, column = at.snd } x)))
+          (p => rowCells p.fst p.snd))
 
 --| Row r's cells, as `gridCells` makes them.
 def rowCells (r: Nat) (row: List a): List ((Nat, Nat), a) := row.withIndex |> .map (((c, cell)) => ((r, c), cell))
@@ -114,12 +110,13 @@ def rowCells (r: Nat) (row: List a): List ((Nat, Nat), a) := row.withIndex |> .m
 theorem rowCellsMapWithIndex ∀ (r: Nat) (row: List a) (f: Position → a → b):
     rowCells r (row.mapWithIndex (c cell => f { row = r, column = c } cell))
       = List.map (rowCells r row) (((at, x)) => (at, f { row = at.fst, column = at.snd } x)) :=
-  rewrite List.withIndexFromMap 0 row (q => f { row = r, column = q.fst } q.snd),
-      List.mapMap (List.withIndex row) (((c, cell)) => ((r, c), cell)) (q =>
-        (q.fst, f { row = r, column = q.fst } q.snd)),
-      List.mapMap (List.withIndex row) (((at, x)) => (at, f { row = at.fst, column = at.snd } x)) (((c, cell)) =>
-        ((r, c), cell)) then
-    byComputing
+  rewrite List.withIndexFromMap 0 row (q => f { row = r, column = q.fst } q.snd), List.mapMap
+    (List.withIndex row)
+    (((c, cell)) => ((r, c), cell))
+    (q => (q.fst, f { row = r, column = q.fst } q.snd)), List.mapMap
+    (List.withIndex row)
+    (((at, x)) => (at, f { row = at.fst, column = at.snd } x))
+    (((c, cell)) => ((r, c), cell))
 
 --| No position is a cell twice.
 theorem cellPositionsDistinct ∀ (rows: List (List a)): List.Distinct ((cells rows).map Pair.fst) :=
@@ -134,7 +131,7 @@ theorem cellPositionsDistinct ∀ (rows: List (List a)): List.Distinct ((cells r
 
 --| Pairs with equal parts are equal.
 theorem pairExt ∀ (x y: (Nat, Nat)) (first: x.fst = y.fst) (second: x.snd = y.snd): x = y := match x, y with
-  | (a, b), (c, d) => rewrite first, second then byComputing
+  | (a, b), (c, d) => rewrite first, second
 
 --| No position is in `gridCells` twice.
 theorem gridPositionsDistinct ∀ (rows: List (List a)): List.Distinct (rows.gridCells.map Pair.fst) :=
@@ -166,7 +163,7 @@ theorem rowCellsRow ∀ (r: Nat) (row: List a) (cell: ((Nat, Nat), a))
     (member: cell ∈ rowCells r row):
     cell.fst.fst = r :=
   Exists.elim (List.memMapElim (((c, x)) => ((r, c), x)) cell (List.withIndex row) member) (p both =>
-    rewrite <- And.right both then byComputing)
+    rewrite <- And.right both)
 
 --| The cells of rows s, s + 1, … are in row s or below.
 theorem rowsAbove ∀ (s: Nat) (rows: List (List a)) (q: (Nat, Nat))
@@ -229,8 +226,8 @@ theorem withinOfAt ∀ (grid: Grid a) (rectangle: grid.Rectangle) (position: Pos
   Exists.elim (cellAtElim grid.rows position x found) (line both =>
     let (Both atRow atColumn) := both
     let wide: line.length = grid.width := rectangle line (List.memOfGet grid.rows position.row line atRow)
-    let tall := (List.getInRange grid.rows position.row).backward (rewrite atRow then byComputing)
-    let across := (List.getInRange line position.column).backward (rewrite atColumn then byComputing)
+    let tall := (List.getInRange grid.rows position.row).backward (rewrite atRow)
+    let across := (List.getInRange line position.column).backward (rewrite atColumn)
     Both tall (rewrite <- wide then across))
 
 --| ...and the other way round.
@@ -314,7 +311,7 @@ theorem gridStepIntro ∀ (grid: Grid a) (position: Position) (direction: Direct
     (stepped: position.step direction = Some next)
     (inside: grid.contains next = True):
     grid.step position direction = Some next :=
-  rewrite stepped then rewrite inside then byComputing
+  rewrite stepped, inside
 
 --| A cell `positionsWhere` keeps is at that position, and its tile passes.
 theorem keptCell ∀ (keep: a → Bool) (at: Position) (tile: a) (position: Position)

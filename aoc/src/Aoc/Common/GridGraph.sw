@@ -153,7 +153,10 @@ theorem boxIndexRoundTrip ∀ (height width: Nat) (position: Position) (number: 
       match inside: ({ row, column }: Position).within height width with
         | True =>
           let before: column < width := inside.right
-          rewrite <- Option.someInjective numbered then
-            rewrite Nat.modUnique (row * width + column) width row column before byComputing,
-                Nat.mulAddDivSmall row width column before then
-              byComputing
+          rewrite <- Option.someInjective numbered, Nat.modUnique
+            (row * width + column)
+            width
+            row
+            column
+            before
+            byComputing, Nat.mulAddDivSmall row width column before

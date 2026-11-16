@@ -56,10 +56,10 @@ theorem stepOpposite ∀ (position: Position) (direction: Direction) (next: Posi
     (stepped: position.step direction = Some next):
     next.step direction.opposite = Some position :=
   match position, direction with
-    | { row = Succ row, column }, Up => rewrite <- Option.someInjective stepped then byComputing
-    | { row, column }, Right => rewrite <- Option.someInjective stepped then byComputing
-    | { row, column }, Down => rewrite <- Option.someInjective stepped then byComputing
-    | { row, column = Succ column }, Left => rewrite <- Option.someInjective stepped then byComputing
+    | { row = Succ row, column }, Up => rewrite <- Option.someInjective stepped
+    | { row, column }, Right => rewrite <- Option.someInjective stepped
+    | { row, column }, Down => rewrite <- Option.someInjective stepped
+    | { row, column = Succ column }, Left => rewrite <- Option.someInjective stepped
 
 --| ...and each adjacent position is a step away.
 theorem adjacentStep ∀ (position next: Position)
@@ -153,7 +153,7 @@ theorem notMemDirections ∀ (direction: Direction) (others: List Direction)
     | [] => member => member
     | [other, ..rest] =>
       match
-        | Inl same => DecEq.neTrue differ.left (rewrite same then byComputing)
+        | Inl same => DecEq.neTrue differ.left (rewrite same)
         | Inr later => notMemDirections direction rest differ.right later
 
 --| ...and there are at most four.
@@ -276,7 +276,7 @@ theorem aroundDistinct ∀ (at: Position): List.Distinct at.around :=
             position
             (List.range (at.column - 1) (at.column + 1 + 1))
             inRow)
-          (column both => rewrite <- And.right both then byComputing)))
+          (column both => rewrite <- And.right both)))
 
 --| ...and there are at most eight: the block is at most three by three,
 --| and holds `at` itself, which isn't around.
@@ -297,7 +297,7 @@ theorem aroundAtMost8 ∀ (at: Position): at.around.length ≤ 8 :=
   rewrite List.lengthFilter block keep then arithmetic
 
 theorem centreDropped ∀ (centre: Position): not (centre.row == centre.row && centre.column == centre.column) = False :=
-  rewrite DecEq.refl centre.row, DecEq.refl centre.column then byComputing
+  rewrite DecEq.refl centre.row, DecEq.refl centre.column
 
 theorem atInBlock ∀ (centre: Position): centre ∈ aroundBlock centre.row centre.column := match centre with
   | { row = r, column = c } =>

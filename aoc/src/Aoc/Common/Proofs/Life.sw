@@ -27,7 +27,7 @@ theorem countsActive ∀ [auto ord: Ord c] (neighbours: c → List c) (adjacent:
 theorem ruleOfCount ∀ (rule: Bool → Nat → Bool) (alive: Bool) (count near: Nat)
     (same: count = near):
     rule alive count = rule alive near :=
-  rewrite same then byComputing
+  rewrite same
 
 theorem ruleOfNone ∀ (rule: Bool → Nat → Bool) (alive: Bool) (near: Nat)
     (none: 0 = near)
