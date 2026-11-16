@@ -434,6 +434,110 @@ Stitchwort's size, the gap is the simplifier and rank 1 is everything;
 if (ii) is not much smaller than (i), my §3 estimates are too rosy and
 the task's share is larger than a quarter.
 
+### 5.1 Measured
+
+Run as SW-3513 (D3629, 16 November 2026), in one Fable lane. The Lean
+sources, the script that counts and the way to check them are in
+[experiments/lean-engine/](../../experiments/lean-engine/README.md).
+Everything in this section is **[measured]** unless marked.
+
+**What was compared.** The exact Stitchwort set is what the two top
+theorems, `printIsReading` and `readingWords`, rest on: all of
+`Readings.sw` and `Words.sw` (48 theorems) and 11 of `Proofs.sw`'s 42,
+the step budget. That is 59 theorems and 886 lines, not the 1,400 §5
+guessed from file sizes; the other 31 theorems of `Proofs.sw` prove
+that the fuel is enough, which neither top theorem uses. Lean is 4.35.0
+from nixpkgs, core only; it has `grind`. `Doc` and `Print` were ported
+function for function, and the toy's twelve engine tests pass as
+`#guard`s. Neither version has a `sorry`; the top theorems' axioms are
+`propext` and `Quot.sound` in the plain version, and those with
+`Classical.choice` in the idiomatic one.
+
+| | Stitchwort, live core | Lean (i) plain | Lean (ii) idiomatic |
+|---|---|---|---|
+| Proof-file lines | 886 | 841 (95%) | 469 (53%) |
+| Non-blank characters | 32,104 | 25,430 (79%) | 16,985 (53%) |
+| Theorems | 59 | 53 | 48 |
+| Definitions used only by the proofs | 21 | 21 | 21 |
+| Proof lines (after the statement) | 492 | 515 (105%) | 176 (36%) |
+| Proof non-blank characters | 17,184 | 12,607 (73%) | 5,134 (30%) |
+| Everything but the proofs, characters | 14,920 | 12,823 | 11,851 |
+| Median proof, lines | 3 | 4 | 2 |
+| Largest proof, lines (`stepWords` in all three) | 65 | 83 | 17 |
+| Check time, proofs only | not measured | 1.3 s | 2.1 s |
+| Lane minutes | | about 6 | about 3, with (i) already written |
+
+Percentages are of the Stitchwort column. Lines depend on layout
+(Stitchwort's formatter gives each hypothesis its own line), so the
+character rows are the steadier ones. The program and tests took about
+4 lane minutes more.
+
+**Against §5's two tests.**
+
+- *"If version (i) is within a third of Stitchwort's size, the gap is
+  the simplifier."* It is: 95% of the lines and 79% of the characters.
+  Angle brackets, `obtain`, implicit arguments and one script for many
+  cases, with no simplifier, made the proofs 27% smaller in characters
+  and 5% *longer* in lines. Part of that 27% is not syntax at all: the
+  port proves `readingLighter` directly, where the toy quotes the
+  printer's own `stepLighter` and so carries four more theorems (88
+  lines).
+- *"If (ii) is not much smaller than (i), §3's estimates are too
+  rosy."* The proofs collapse as §3 said they would: 176 lines against
+  515, and `stepWords`, the 26-arm match, goes from 83 lines to 17. But
+  the file only halves (469 lines against 841), because the definitions
+  and statements don't shrink at all: about 12,000 characters in every
+  version, and 70% of the idiomatic file. §3.3 put the engine at a
+  fifth to a third of its Stitchwort size in Lean; this part of it
+  comes out at 53%. So on this evidence §3 is rosy by a factor of about
+  1.5 to 2.5, for a reason it named but under-weighted: saying what is
+  to be proved is the larger half once the proofs are short.
+
+**What it means for §4.1's split.** For this slice, with no dead
+lemmas in it: 53% of the Stitchwort text is what idiomatic Lean still
+writes (the task), 26% is what the simplifier and `grind` remove, and
+21% is what plain Lean's syntax removes (less the route difference
+above). If the other layers behaved the same, the task would be nearer
+a third to a half of the 16 times than a quarter, and the language
+nearer a third than a half **[estimated]**. Two things could pull that
+back towards §4.1: this is the engine's tersest part (median proof 3
+lines already; the long `Witness`/`Both` proofs are in `Places.sw`,
+`Joins.sw` and the spelling layer), and the port kept the toy's lemma
+structure, where a Lean user starting fresh might state fewer lemmas.
+
+**What it means for §4.3's ordering.**
+
+- *Rank 1 (a simplifier) stays first, and rank 3's "lemma sets applied
+  by the goal's shape" belongs beside it,* not two places below. From
+  (i) to (ii) the proofs lose 59% of their characters, and the work is
+  shared: `simp` with each printer operation's effect on the words as a
+  `@[simp]` lemma (29 of them) does the rewriting, and `grind` (17
+  uses) finishes the arms that have an "or" or a "there is" among the
+  hypotheses. I didn't write a third version to separate the two.
+- *Ranks 2, 4 and 6 (syntax) are worth less here than §4.3 says:* at
+  most 21% of the characters, nothing in lines. This slice has 146 `_`s
+  (patterns included) for rank 6 and 99 `Witness`/`Both` for rank 2,
+  three-quarters of the toy's density per line. It doesn't hold the proofs rank 2 was aimed at, so §5's
+  second experiment, `exprSpells` alone, is still what would rank it.
+- *Two things Stitchwort already does better than plain Lean,* worth
+  keeping when a simplifier arrives. Its `omega` and `rfl` compute
+  through definitions; Lean's `omega` doesn't, so the plain version
+  restates the goal with `show` 12 times before calling it. And
+  `match fit: e with` finds `e` in a goal that has yet to compute;
+  Lean's `cases h : e` needs the definition unfolded first.
+- *The cost side of §3.3's "`simp` is not free" showed up as
+  predicted:* the idiomatic version failed the checker six times before it
+  passed, where the plain one checked first time, checks 60% slower, and its
+  closing lines (`simp_all [...]` then `first | done | split … |
+  grind`) don't say which arm needed what.
+
+**Caveats.** One slice, 3% of the toy's lines. Both versions were
+written with the Stitchwort proof open, so the lane minutes measure
+transcription, not discovery, and say nothing about what the toy's
+lanes spent. `Text` is a 26-line list-of-characters stand-in, as §3.3
+expected: on Lean's `String`, `isLayout " " = true` doesn't reduce and
+core has no lemmas for `String.all`.
+
 ## 6. Recommendations
 
 ### For Stitchwort's language and tactics
