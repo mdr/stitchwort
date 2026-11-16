@@ -7658,7 +7658,11 @@ pub(crate) fn propagate_comp(
 /// meant. Returns the lambda's first two parameters then, and records the
 /// warning (once per lambda). Called for the lambda as written, not for the
 /// rest of its parameters that checking peels off one at a time.
-fn lambda_shadow(cx: &Ctx, names: &[AstName], span: Span) -> Result<Option<(AstName, AstName)>> {
+fn lambda_shadow(
+    cx: &mut Ctx,
+    names: &[AstName],
+    span: Span,
+) -> Result<Option<(AstName, AstName)>> {
     let [first, second, ..] = names else {
         return Ok(None);
     };
@@ -7748,10 +7752,12 @@ fn shadow_note(d: Diagnostic, shadowed: Option<&(AstName, AstName)>) -> Diagnost
 }
 
 /// Whether `name`, as seen from where the lambda starts, is a function: a
-/// local variable or local definition whose type is one, a definition or
-/// ability operation, or a definition of this module not checked yet that is
-/// declared with a function type.
-fn names_a_function(cx: &Ctx, name: &str) -> Result<bool> {
+/// local variable or local definition whose type is one, a definition, or a
+/// definition of this module not checked yet that is declared with a function
+/// type. An ability's operation counts when its first argument is itself a
+/// function: `span (total => …)` could be meant, but `read value => …` can't
+/// mean `read (value => …)` when `read` takes a `Path` (SW-3453).
+fn names_a_function(cx: &mut Ctx, name: &str) -> Result<bool> {
     let g = cx.g();
     let takes_argument = |ty: &Value| -> Result<bool> { takes_lambda_argument(&g, ty) };
     if let Some((_, ty)) = cx.local(name)? {
@@ -7760,13 +7766,35 @@ fn names_a_function(cx: &Ctx, name: &str) -> Result<bool> {
     if let Some(level) = cx.lookup(name) {
         return takes_argument(&cx.types[level]);
     }
-    match cx.e.named(name) {
-        Some((Global::Def(id), _)) => takes_argument(g.def(*id).ty_value()),
-        Some((Global::Op(..), _)) => Ok(true),
-        Some((Global::Unchecked(item), _)) => Ok(cx.e.item_is_function(*item)),
+    let named = cx.e.named(name).map(|(global, _)| *global);
+    match named {
+        Some(Global::Def(id)) => takes_argument(g.def(id).ty_value()),
+        Some(Global::Op(a, i)) => {
+            let (_, ty) = crate::effects::op_value(cx, a, i)?;
+            takes_function_argument(&g, &ty)
+        }
+        Some(Global::Unchecked(item)) => Ok(cx.e.item_is_function(item)),
         // A library name whose file isn't loaded: the index knows its type's shape.
-        Some((Global::Pending(file, _), _)) => Ok(cx.e.pending_is_function(name, *file)),
+        Some(Global::Pending(file, _)) => Ok(cx.e.pending_is_function(name, file)),
         _ => Ok(false),
+    }
+}
+
+/// Whether `ty`'s first explicit argument, after implicit and `auto` ones, is
+/// itself a function type, so an unbracketed lambda could have been meant for
+/// the argument.
+fn takes_function_argument(g: &Ev<'_>, ty: &Value) -> Result<bool> {
+    let mut ty = force(g, ty.clone())?;
+    loop {
+        match ty {
+            Value::Pi(_, Icit::Implicit | Icit::Auto, _, cod) => {
+                ty = force(g, cod.apply(g, Value::var(usize::MAX - 2))?)?;
+            }
+            Value::Pi(_, Icit::Explicit, dom, _) => {
+                return Ok(matches!(force(g, (*dom).clone())?, Value::Pi(..)));
+            }
+            _ => return Ok(false),
+        }
     }
 }
 

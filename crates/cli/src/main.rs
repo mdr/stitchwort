@@ -8,7 +8,7 @@ use rustyline::error::ReadlineError;
 use stitchwort_cli::driver::{Cache, Outcome, Session, TestResult};
 use stitchwort_cli::project::{
     DiskFiles, Load, Target, TheoremCount, analyse, find_project, namespace_of, project_sources,
-    run_unknown_namespace,
+    run_unknown_namespace, unknown_namespace,
 };
 use stitchwort_cli::render::render;
 use stitchwort_cli::run::Main;
@@ -3995,7 +3995,10 @@ fn audit(
                 namespaces.push(namespace.to_string());
                 named.push(target.clone());
             } else {
-                let d = run_unknown_namespace(&project.name, target, &analysis);
+                let known: BTreeSet<String> = (analysis.namespaces.iter())
+                    .map(|n| n.name.clone())
+                    .collect();
+                let d = unknown_namespace(&project.name, target, &known);
                 report(&session.sources, &[d]);
                 return ExitCode::FAILURE;
             }
@@ -4093,6 +4096,15 @@ fn audit_loaded(
     for failed in session.audit_failed(&keep) {
         if !audits.iter().any(|a| a.name == failed.name) {
             audits.push(failed);
+        }
+    }
+    // A lane audits every namespace it touched, and some (an AoC day's
+    // program namespace, say) have no theorems: say so and carry on, so the
+    // namespaces that do have theorems are still audited. A namespace the
+    // project doesn't have is an error before this (`E-NAMESPACE-UNKNOWN`).
+    for root in roots {
+        if !audits.iter().any(|a| is_under(&a.name, root)) {
+            eprintln!("note: no theorems in `{root}`");
         }
     }
     Ok(audits)

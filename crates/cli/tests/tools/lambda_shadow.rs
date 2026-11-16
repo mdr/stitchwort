@@ -54,6 +54,24 @@ fn an_ability_operation_in_scope_is_named_in_full() {
 }
 
 #[test]
+fn a_name_brought_in_by_an_imported_type_is_not_a_shadow() {
+    // `Files.read` takes a `Path`, so `read (value => …)` can't be meant:
+    // `read value => …` is a lambda whose first parameter is `read`, the
+    // spelling std's `Parse.Reads` specs use (SW-3453).
+    let (session, result) = load(
+        "import Std (Char, Files, List)\n\n\
+         def spec (f: List Char -> Nat -> Prop): Prop := f [] 0\n\n\
+         def readSpec: Prop := spec (read value => read = [])\n",
+    );
+    result.unwrap();
+    assert!(
+        shadow_warnings(&session).is_empty(),
+        "{:#?}",
+        session.warnings
+    );
+}
+
+#[test]
 fn a_function_of_the_same_file_is_named_as_written() {
     let (session, _) = load(
         "def r (i: Nat): Nat := i\n\n\
