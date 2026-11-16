@@ -166,9 +166,9 @@ type Computes: Operation → List Nat → Nat → Prop =
 --| What each comparison makes of its two sub-packets' values: 1 if the
 --| first is greater than, less than, or equal to the second, and 0 if not.
 type Compares: Comparison → Nat → Nat → Nat → Prop =
-  | Greater (first: Nat) (second: Nat) (greater: second < first): Compares GreaterThan first second 1
+  | IsGreater (first: Nat) (second: Nat) (greater: second < first): Compares GreaterThan first second 1
   | NotGreater (first: Nat) (second: Nat) (notGreater: first ≤ second): Compares GreaterThan first second 0
-  | Less (first: Nat) (second: Nat) (less: first < second): Compares LessThan first second 1
+  | IsLess (first: Nat) (second: Nat) (less: first < second): Compares LessThan first second 1
   | NotLess (first: Nat) (second: Nat) (notLess: second ≤ first): Compares LessThan first second 0
-  | Equal (first: Nat): Compares EqualTo first first 1
+  | IsEqual (first: Nat): Compares EqualTo first first 1
   | NotEqual (first: Nat) (second: Nat) (different: first ≠ second): Compares EqualTo first second 0
