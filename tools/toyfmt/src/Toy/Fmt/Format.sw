@@ -1,5 +1,7 @@
---| Formatting a Sprig source: parsed, printed by the rules, and checked. This
---| is what the `toyfmt` driver calls for each file.
+--| Formatting a Sprig source: parsed and printed by the rules
+--| (`formatDirect`, what the `toyfmt` driver calls for each file), or
+--| that with the output checked at run time (`format`, which the tests
+--| use: it answers the same, `formatAgrees`).
 
 namespace Toy.Fmt
 import Toy.Syntax (..)
@@ -27,3 +29,13 @@ def format (source: Text) (width: Nat): FormatResult := match parse source with
     let printed := tree.print width
     if parse printed.text == Ok tree then Stable printed
     else Refused "internal error: the formatted text doesn't read back as the same tree"
+
+--| `format` without its re-parse: the source parsed and its tree printed.
+--| Nothing is checked at run time, and nothing needs to be: the printed
+--| text of a parsed file parses to the same file (`printParses`), so this
+--| answers what `format` does on every source (`formatAgrees`), and
+--| formats again to itself (`formatDirectIdempotent`). The `toyfmt` driver
+--| calls this.
+def formatDirect (source: Text) (width: Nat): FormatResult := match parse source with
+  | Err message => Refused message
+  | Ok tree => Stable (tree.print width)
