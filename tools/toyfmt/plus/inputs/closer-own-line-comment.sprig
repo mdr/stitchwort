@@ -1,0 +1,3 @@
+fn next(n: Nat
+-- c
+) = n + 1

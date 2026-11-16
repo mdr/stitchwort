@@ -40392,12 +40392,12 @@
     {
       "id": 3600,
       "title": "[Fable] Toy++ T0: sketch in code (docs/proposals/toy-plus-plus.md §8 T0; D3620's SKETCH.md approach): the new tree, settle, meaning (D3643: same tree in plain form wrapped in Meaning), the four passes and every §3 theorem stated in a side project with open goals, checked for fit; decide (A)/(B) for Settled, whether §3.4's traversal type-checks, and whether structural experiment (b) goes first. Also collect the 16 Nov fuzz minimal inputs (scratchpad fmtbugs/) as Toy++ test inputs. Est. 75 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (lane, Fable, 16 Nov 2026, 15:01-15:22): T0 done on lane/SW-3600. The sketch is the project tools/toyfmt/plus/ (check: open-goals: warn; `toy` symlinks ../src): the new tree, rule N (`Lexed.settled`), `meaning`, the shared traversal and the four passes written; 56 theorems stated, 44 open, 12 proved from them (printParses, tidy's six, format's four, parseReads); 16 examples by computing. `stitchwort check` there: 49 goals open, no errors. Notes: tools/toyfmt/plus/SKETCH-PLUS.md.\n\nDecisions: route (A) for `Settled` (`closed`, `closedList`, `Expr.receive`); §3.4's traversal type-checks (`Expr.walk`, all four passes on it); experiment (b) not first.\n\nFindings: (1) the Rust formatter's rule N drops a comment: `(f (1) -- c1` / `  ) -- c2` formats to `(f (1)) -- c2` (crates/fmt/src/tidy.rs, place_comments overwrites an occupied token); (2) P3 as proposed breaks Headed for a bracketed `if` whose branch has a comment above it, fixed in the sketch with `standsOutside`; (3) E-TERMINATION on a same-named method passed as a function.\n\nTest inputs: tools/toyfmt/plus/inputs/*.sprig, 11 files from 12 of the 20 fuzz inputs plus finding 1; SKETCH-PLUS.md lists which apply and why.\n\nD candidates: \"no comment is lost\" as a stated theorem [rec: yes]; same meaning formats the same [rec: test, don't prove; make P1 exact].\n\nRevised T1-T7: about 5 h 15 min (was 8 h 15 min). Actual for T0: about 21 min (est. 75).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
