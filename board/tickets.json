@@ -1,5 +1,5 @@
 {
-  "next": 3516,
+  "next": 3522,
   "tickets": [
     {
       "id": 47,
@@ -39261,7 +39261,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\n\nSW-3514 lane (Fable, 16 Nov 2026): note written, docs/proposals/proof-tuples.md (commit 0d54a2004). Proposal: the existing round tuple, read by expected type, builds and opens ∃/∧ proofs: (x, a, b) for Witness x (Both a b), in match, let, lambda parameters and clause lambdas; no kernel change, hashes unchanged; named propositions with 4+ parts become records (house rule). Measured on the toy: 980 Witness + 3,000 Both, 2,620 brackets, 673 arms on 1,105 pattern lines (about 770 after), 286 one-arm matches that could be a pattern let today (0 uses). Estimated saving 600-1,100 lines (3-5%), not the 2,500-4,000 in toy-proof-complexity.md §4.3: the big proofs are tall from 11-argument calls and repeated arms. Two decisions for Matt (note §9): Q1 the bracket (round tuple [rec], angle brackets, or no new syntax); Q2 ∃/∧ only [rec] or every one-constructor type. Lanes in §10 (about 3.5 h). Paper lane: no builds or tests run.\n\nMerged, Fable 11 min. Saving on the toy measured/estimated at 600-1,100 lines (3-5%), not 2,500-4,000 as toy-proof-complexity §4.3 guessed. Q1 (which bracket) and Q2 (∃/∧ only or all one-constructor types) to Matt. Filed SW-3515. Correct the two earlier notes' figure (lane 6, orchestrator).",
+      "body": "\n\nSW-3514 lane (Fable, 16 Nov 2026): note written, docs/proposals/proof-tuples.md (commit 0d54a2004). Proposal: the existing round tuple, read by expected type, builds and opens ∃/∧ proofs: (x, a, b) for Witness x (Both a b), in match, let, lambda parameters and clause lambdas; no kernel change, hashes unchanged; named propositions with 4+ parts become records (house rule). Measured on the toy: 980 Witness + 3,000 Both, 2,620 brackets, 673 arms on 1,105 pattern lines (about 770 after), 286 one-arm matches that could be a pattern let today (0 uses). Estimated saving 600-1,100 lines (3-5%), not the 2,500-4,000 in toy-proof-complexity.md §4.3: the big proofs are tall from 11-argument calls and repeated arms. Two decisions for Matt (note §9): Q1 the bracket (round tuple [rec], angle brackets, or no new syntax); Q2 ∃/∧ only [rec] or every one-constructor type. Lanes in §10 (about 3.5 h). Paper lane: no builds or tests run.\n\nMerged, Fable 11 min. Saving on the toy measured/estimated at 600-1,100 lines (3-5%), not 2,500-4,000 as toy-proof-complexity §4.3 guessed. Q1 (which bracket) and Q2 (∃/∧ only or all one-constructor types) to Matt. Filed SW-3515. Correct the two earlier notes' figure (lane 6, orchestrator).\n\nD3631 (Matt, 16 Nov 2026): (a) round tuple read by type. D3632: ∃ and ∧ only for now; every one-constructor type is a future idea (SW-3521). Lanes SW-3516-SW-3520.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": [
@@ -39271,6 +39271,84 @@
     {
       "id": 3515,
       "title": "[Sonnet] Proving guide: pattern let (let Witness x (Both a b) := lemma …, docs/syntax.md:2491-2513) and .left/.right projections are documented but unused in the toy (0 uses vs 286 one-arm matches; friction 27 partly stale); add a guide paragraph (SW-3514)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3516,
+      "title": "[Opus] Proof tuples L1 (docs/proposals/proof-tuples.md §10, D3631 (a), D3632 ∃/∧ only): tuples build and take apart ∃/∧ proofs by expected type (check, infer, patterns in match/let/lambda/clause lambda/arms, patlet guard), messages of §6, examples (and-tuple-not-both becomes accept), syntax.md, guide, proving guide. Est. 60 min",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3517,
+      "title": "[Opus paper] Proof tuples L2: review of L1's diff (generates kernel terms, D2364): can a tuple be read as a proof where a pair was meant; the postponed case. Est. 20 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3518,
+      "title": "[Sonnet] Proof tuples L3: tool output writes tuples (goal search, missing-arm fixes, E-NONEXHAUSTIVE); formatter fills name-only tuple patterns. After L1. Est. 40 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3519,
+      "title": "[DeepSeek] Proof tuples L4: sweep the toy: Witness/Both to tuples, one-arm matches to let; every theorem hash unchanged; recount lines vs docs/proposals/proof-tuples.md §7. After L1. Est. 45 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3520,
+      "title": "[Sonnet] Proof tuples L5: trial Spells and DeclarationsSpell as record propositions; check projections of dependent proof fields and their message; house rule in proving guide. After L1. Est. 40 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3521,
+      "title": "[Idea, later] Tuples for every one-constructor type, as Lean's anonymous constructor (D3632: Matt, 16 Nov 2026: 'an interesting one that we could consider in the future, but not for now')",
       "status": "backlog",
       "agent": "",
       "where": "",
