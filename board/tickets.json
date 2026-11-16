@@ -41448,7 +41448,7 @@
     {
       "id": 3679,
       "title": "[DeepSeek] Main is red: ~10 example snapshots (accept/match-as-written, reject/rewrite-nothing-*, reject/rewrite-wrong-direction* and others; run task test:example NAME=rewrite,as-written to list them) now show SW-3648's W-REWRITE-THEN-COMPUTING / W-REWRITE-THEN-REWRITE. Where the 'then byComputing' or chained rewrite isn't the example's point, apply the quick fix in the .sw; otherwise accept the snapshot. Then hash_stability for those examples",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
