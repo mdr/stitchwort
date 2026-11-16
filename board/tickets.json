@@ -39379,12 +39379,12 @@
     {
       "id": 3523,
       "title": "[Sonnet] fmt bug (no fallback since SW-3497, so now an internal error): a ';' sequence at a line end followed by a comment and a continuation breaks: 'def three: Nat :=\\n  let x := 1;\\n-- c\\n  x' and '(let x := 1; 2;\\n-- c\\n x)'. Fix with goldens failing first",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\n\nSonnet lane: fixed (Doc::AlignInset: a Seq starting a line breaks 2 columns in; the repro 1 as written already passed, the failing shape was 3+ parts or a comment forcing a break in a paren/list/lambda). Goldens + printer tests added. Not fixed, unrelated: calc-step and arrow-after-comment fmt internal errors (see report).\n",
+      "body": "\n\nSonnet lane: fixed (Doc::AlignInset: a Seq starting a line breaks 2 columns in; the repro 1 as written already passed, the failing shape was 3+ parts or a comment forcing a break in a paren/list/lambda). Goldens + printer tests added. Not fixed, unrelated: calc-step and arrow-after-comment fmt internal errors (see report).\n\nModel result: sonnet, worked, 7 min (est. 25). Doc::AlignInset; staircase shape (2;\\n   3; -- c\\n     x) follows from the parser. Check formatter-style.md S18 in L6. Found SW-3532, SW-3533.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39444,12 +39444,12 @@
     {
       "id": 3528,
       "title": "[Sonnet] examples/reject/parser-count-differs-from-lemma.sw lost its point after Parse L1/L2 (SW-3503/3504): it now fails on an unsolved implicit of Parse.readsWeaken instead of the 35-vs-36 count. Restate it with the new Reads/ReadsAt form so the error again names the differing count; regenerate its snapshot",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nLane note: the example was already in the Reads form and already failed on the 35-vs-36 count (the old snapshot predated Parse L1/L2); no source change beyond fmt rewrap. Snapshot regenerated (302376a70); 36-vs-36 copy checks clean; check takes ~0.4 s.\n",
+      "body": "\n\nLane note: the example was already in the Reads form and already failed on the 35-vs-36 count (the old snapshot predated Parse L1/L2); no source change beyond fmt rewrap. Snapshot regenerated (302376a70); 36-vs-36 copy checks clean; check takes ~0.4 s.\n\nModel result: sonnet, worked, 5 min (est. 15): snapshot refresh only.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": [
