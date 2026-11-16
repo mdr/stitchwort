@@ -2753,8 +2753,8 @@ What the top theorems say, with nothing assumed:
 - `formatAgrees`: `format source width = formatDirect source width`.
 
 **Not done:** the checked `format` is still there (the tests use it);
-the comments in `Rules.sw` and the README, if any, that say the output
-is checked at run time were not swept.
+`Rules.sw` and `Cli.sw` say nothing of a run-time check (searched);
+docs outside `tools/toyfmt` were not searched.
 
 **Friction** (beyond parts 1 to 17):
 
