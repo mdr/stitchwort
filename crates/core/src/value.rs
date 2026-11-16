@@ -3411,8 +3411,10 @@ fn visit(
         }
     } else {
         // A `Float` order comparison says more as itself than as the two
-        // order keys it computes to (SW-3426): keep it a call in a message.
-        if let Value::Call(id, spine, _) = &value
+        // order keys it computes to (SW-3426): keep it a call in a message,
+        // never in the read-back the elaborator uses (`Readback::Unfolded`).
+        if mode.for_display()
+            && let Value::Call(id, spine, _) = &value
             && (g.env.registry().is_def(Builtin::FloatLeq, *id)
                 || g.env.registry().is_def(Builtin::FloatLess, *id))
         {
