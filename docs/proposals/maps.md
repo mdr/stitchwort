@@ -167,7 +167,7 @@ and Tarjan give related bounds and note that randomised treaps (Aragon–Seidel)
 expected [cited: [abstract](https://user.it.uu.se/~arnea/abs/andetigh.html);
 [SIAM](https://epubs.siam.org/doi/10.1137/S0097539792241102)]. Tries (Patricia trees, as in
 Haskell's `IntMap`) are unique for their contents, but only for keys made of bits or characters
-[unverified for `IntMap`'s exact form].
+[cited: containers' `Data.IntMap.Internal`, "based on big-endian patricia trees", `data IntMap a = Bin !Prefix … | Tip !Key a | Nil`, read 16 Nov 2026; the claim that such a trie is unique for its contents is the trie's invariants ("Nil is never found as a child of Bin", fixed prefix and mask per node) and I haven't proved it].
 
 ## 3. Options for equality
 
@@ -221,7 +221,7 @@ canonical, but every update costs O(n) (§2's lower bound). Not practical.
 ### (b) Quotients or extensionality
 
 This would mean adding quotient types to the kernel, as Lean's `Quot` does with `Quot.sound`, an
-axiom from which function extensionality follows [unverified for the precise Lean axiom set], or
+axiom from which function extensionality follows [cited: `theorem funext` is proved from `Quot.sound` in Lean's `Init/Prelude.lean`, and the reference manual lists the standard axioms as `Classical.choice`, `propext` and `Quot.sound`, read 16 Nov 2026], or
 adding funext to the kernel. Then `Map := Quotient (Tree, Equiv)`, with `=` extensional and the
 fast tree inside. Costs:
 
@@ -395,8 +395,7 @@ Also built: `getInsertWithOther`, `getAlterOther`, `getAdjustOther`, `getOrCount
 - **Keep** `Map Text V` (in `Text` order) as a plain object, unchanged.
 - **Add** maps with `Nat`/`Int`/`Char`/`Bool` keys, in the default order, as `ReadonlyMap<K, V>`
   on input and `Map<K, V>` on output, with entries inserted in key order. JS `Map` compares
-  `bigint` and `string` keys by value [unverified for the spec's SameValueZero on `bigint`; check
-  before building].
+  `bigint` and `string` keys by value [cited: ECMA-262 `SameValueZero` → `SameValueNonNumber` → `BigInt::equal` (equal mathematical values) for a BigInt, and same length and code units for a String, tc39.es/ecma262, read 16 Nov 2026].
 - **Add** compound keys (tuples, records) as `ReadonlyArray<readonly [K, V]>`, with a duplicate
   key refused with `StitchwortInputError`. JS `Map` would compare object keys by identity, which
   is wrong.
