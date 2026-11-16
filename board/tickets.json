@@ -41162,7 +41162,7 @@
     {
       "id": 3657,
       "title": "[Sonnet] Test std cache cold start: the first LSP 'it' test after a Rust change fills target/test-std-cache (284 s debug) while the others wait. Pre-fill it once per build (a task the verifier/Overmind runs first) or share it across worktrees keyed by the compiler hash; also: REPL completion doesn't offer 'replicate' as an importable name (only replicateAdd): find why",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
