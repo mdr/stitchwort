@@ -93,6 +93,35 @@ when it's unclear.
 Claude's own lanes work the same way, in git worktrees instead of scratch
 clones.
 
+## Reviewing a lane
+
+These tiers are current practice (Matt, 16 Nov 2026: "these aren't set in
+stone ... the current operating practices we want, and we may change them
+in the future"). How deep the orchestrator looks depends on what a mistake
+would cost, and on how quietly it would fail:
+
+| Kind of change | Review |
+|---|---|
+| Paper (designs, research) | Read the conclusions and decisions. Check that sources are cited and that claims are marked measured or estimated. |
+| Mechanical (renames, sweeps, snapshots) | DeepSeek: every line. Sonnet: the diff's size and shape, plus a sample of hunks. |
+| Ordinary feature or fix | The report, `git diff --stat`, and the core logic hunk read. A bug fix has a failing-first test. A user-visible change updated the guide and `syntax.md`. |
+| New or restated theorems | Each statement checked against its name and doc (D2436). |
+| Generates kernel terms, weakens a theorem, changes a tactic's meaning, touches a safety check | A separate Opus review lane before merge, or Fable for the kernel and soundness. It gets the code, not the orchestrator's conclusion, and the lane fixes what it finds. The lane and the review run the soundness set on the branch. |
+
+Every review also:
+
+- reads what the lane says it didn't do or wasn't sure of;
+- files its findings;
+- checks the lane kept to its brief;
+- skims `git diff --stat` for anything unexpectedly wide: hashes, pins,
+  snapshots, files outside the brief. Wide changes are where narrow checks
+  miss things. On 16 Nov 2026 a std change moved 268 hash snapshots and a
+  native's pin, and its merge check saw neither.
+
+Once a lane's result is merged or dropped, its agent is stopped with
+`TaskStop` in the same step as `worktree:rm` (Matt, 3 and 16 Nov 2026: no
+zombie lanes).
+
 ## Merging
 
 A failed merge must stop everything after it: the board edits, the commit
@@ -151,10 +180,24 @@ bisecting a batch's merges is cheap while the batch is unpushed. Only one
 verifier runs at a time, and none while timing-sensitive work is running.
 
 After each batch the tests run are a selection that fits the change, not a
-fixed set (SW-1098; D2255, Matt, 3 Nov 2026). The verifier's budget is about
-90 s of tests chosen by what the batch touched: hash snapshots always,
-example kinds for elaborator changes, and std's own tests and pins for std
-changes. What it misses is caught later by Overmind's rolling broad check,
+fixed set (SW-1098; D2255, Matt, 3 Nov 2026). It is a quick sanity check of
+what came in, made of the same narrow, named tests a lane runs:
+
+- the batch's new or changed tests and examples, by name;
+- hash snapshots for the touched examples only, or the prelude ones for a
+  std change.
+
+That is about a minute of tests, run like a lane's (`nice -n 19`, two test
+threads). Whole example suites, all hash snapshots, the soundness set,
+std-loading pin tests and guide checks are left to Overmind.
+
+When something slips past, it is fixed or reverted; the merge check does
+not grow to cover it. Matt, 16 Nov 2026: "We want to be really
+parsimonious, really selective with the tests that we run at merge time
+... we don't want to just keep burning time running bazillions of tests
+that are just passing and slowing down our active work ... If we hit a
+bug, we can roll back." That day's checks had crept to 2½–3 min each,
+unthrottled, and held the machine's load at 40–60. What it misses is caught later by Overmind's rolling broad check,
 which runs the quick tier and the whole-AoC and roguelike `check --no-cache`
 of each newly pushed commit, about an hour behind, and reports only new
 failures with the last passing commit.
