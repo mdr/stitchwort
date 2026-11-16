@@ -1226,7 +1226,7 @@ impl<'e> Ctx<'e> {
             .filter(|found| {
                 [&found.left, &found.right]
                     .iter()
-                    .all(|part| part.chars().count() <= HEADLINE_PART && !part.starts_with('?'))
+                    .all(|part| part.chars().count() <= HEADLINE_PART && !part.starts_with('_'))
             });
         let d = match &rows {
             Some(rows) => {
@@ -1443,11 +1443,12 @@ impl<'e> Ctx<'e> {
         clash.is_ok_and(|c| c.any)
     }
 
-    /// A note for each unknown printed as `?N` in `shown` whose origin is
+    /// A note for each unknown printed as `_name` in `shown` whose origin is
     /// recorded ([`stitchwort_core::globals::Meta::origin`]): what it stands
-    /// for, so that the message doesn't leave `?N` unexplained.
+    /// for, so that the message doesn't leave `_name` unexplained.
     fn unknown_notes(&self, mut d: Diagnostic, shown: &[&str], values: &[&Value]) -> Diagnostic {
         let mut seen = Vec::new();
+        let mut present: Vec<(usize, String)> = Vec::new();
         let mut clashes = None;
         for value in values {
             let Ok(term) = crate::interfaces::scanned(self, value) else {
@@ -1458,16 +1459,27 @@ impl<'e> Ctx<'e> {
             };
             for (t, _) in term.subterms() {
                 let Term::Meta(m) = t else { continue };
-                let name = format!("?{m}");
+                let Some(name) = stitchwort_core::Shown::unknown(self.e, *m) else {
+                    continue;
+                };
+                if self.metas().meta_param_label(*m).is_none() {
+                    continue;
+                }
+                let instance = self.metas().meta_instance(*m).is_some();
                 let printed = shown.iter().any(|s| {
                     s.match_indices(&name).any(|(i, _)| {
-                        !s[i + name.len()..].starts_with(|c: char| c.is_ascii_digit())
+                        !s[i + name.len()..]
+                            .starts_with(|c: char| c.is_alphanumeric() || c == '_' || c == '\'')
+                            && !s[i + name.len()..].starts_with(|c| ('₀'..='₉').contains(&c))
                     })
                 });
                 if !printed || seen.contains(m) || self.g().meta_solution(*m).is_some() {
                     continue;
                 }
                 seen.push(*m);
+                if !instance {
+                    present.push((*m, name.clone()));
+                }
                 if let Some(origin) = self.metas().meta_origin(*m) {
                     // Where the types clash apart from it, giving it isn't
                     // the fix, so the advice is left out.
@@ -1485,6 +1497,28 @@ impl<'e> Ctx<'e> {
                     };
                     d = d.with_note(format!("`{name}` is {origin}"));
                 }
+            }
+        }
+        // Subscripts only tell apart the unknowns that are in this message.
+        let mut relabels = Vec::new();
+        for (i, (m, label)) in present.iter().enumerate() {
+            let param = self.metas().metas.borrow()[*m].param.clone();
+            let earlier = present[..i]
+                .iter()
+                .filter(|(o, _)| self.metas().metas.borrow()[*o].param == param)
+                .count();
+            let compact = unknown_label(param.as_deref().unwrap_or(""), earlier);
+            if compact != *label {
+                relabels.push((label.clone(), compact));
+            }
+        }
+        if !relabels.is_empty() {
+            d.message = relabel_unknowns(&d.message, &relabels);
+            for l in &mut d.labels {
+                l.message = relabel_unknowns(&l.message, &relabels);
+            }
+            for n in &mut d.notes {
+                *n = relabel_unknowns(n, &relabels);
             }
         }
         d
@@ -5121,24 +5155,28 @@ fn note_origin(
     if cx.metas().meta_origin(*m).is_some() {
         return;
     }
-    let of = match callee.spine().0 {
-        Term::Def(id) => format!(" of `{}`", cx.g().def(*id).name()),
-        _ => String::new(),
+    let owner = match callee.spine().0 {
+        Term::Def(id) => format!("`{}`'s", cx.g().def(*id).name()),
+        _ => "this call's".to_string(),
     };
     let origin = match implicit_ty {
-        None => format!(
-            "the `_` for the argument `{param}`{of}, which wasn't worked out from the other arguments or the expected type"
-        ),
+        None => format!("{owner} `_` for `{param}`, not worked out"),
         // A plain implicit is solved only by unification; a dictionary
         // that nothing in the call fixes needs `auto` to be searched for.
         Some((Icit::Implicit, dom)) if is_interface_type(cx, dom) => format!(
-            "the implicit argument `{param}`{of}, which wasn't worked out from the other arguments or the expected type. Its type is an interface, but a plain implicit parameter is never searched for an instance: declare it `[auto {param}: …]` to have the instance found, or give it with `[{param} := …]`"
+            "{owner} implicit `{param}`, not worked out. Its type is an interface, but a plain implicit parameter is never searched for an instance: declare it `[auto {param}: …]` to have the instance found, or give it with `[{param} := …]`"
         ),
-        Some(_) => format!(
-            "the implicit argument `{param}`{of}, which wasn't worked out from the other arguments or the expected type; give it with `[{param} := …]`"
-        ),
+        Some(_) => {
+            format!("{owner} implicit `{param}`, not worked out; give it with `[{param} := …]`")
+        }
     };
-    cx.metas().set_meta_origin(*m, origin.into());
+    if let Some((_, dom)) = implicit_ty
+        && is_interface_type(cx, dom)
+    {
+        cx.metas().set_meta_instance(*m, dom.clone());
+    }
+    cx.metas()
+        .set_meta_origin(*m, param.to_string().into(), origin.into());
 }
 
 pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
@@ -9512,4 +9550,44 @@ mod tests {
             Ok("[a: Type] → a → a")
         );
     }
+}
+
+/// How a message prints an unknown for parameter `param`, the `earlier`-th
+/// of that name in it: `_n`, `_n₂`, `_n₃`.
+pub(crate) fn unknown_label(param: &str, earlier: usize) -> String {
+    if earlier == 0 {
+        return format!("_{param}");
+    }
+    let digits: String = (earlier + 1)
+        .to_string()
+        .chars()
+        .filter_map(|c| c.to_digit(10).and_then(|d| char::from_u32('₀' as u32 + d)))
+        .collect();
+    format!("_{param}{digits}")
+}
+
+/// `text` with each unknown's label `from` replaced by its `to`, all at
+/// once, matching whole labels only.
+fn relabel_unknowns(text: &str, relabels: &[(String, String)]) -> String {
+    let word = |c: char| c.is_alphanumeric() || c == '_' || c == '\'' || ('₀'..='₉').contains(&c);
+    let mut out = String::new();
+    let mut rest = text;
+    let mut prev: Option<char> = None;
+    while let Some(c) = rest.chars().next() {
+        let hit = relabels.iter().find(|(from, _)| {
+            rest.starts_with(from.as_str())
+                && !prev.is_some_and(word)
+                && !rest[from.len()..].chars().next().is_some_and(word)
+        });
+        if let Some((from, to)) = hit {
+            out.push_str(to);
+            prev = to.chars().last();
+            rest = &rest[from.len()..];
+        } else {
+            out.push(c);
+            prev = Some(c);
+            rest = &rest[c.len_utf8()..];
+        }
+    }
+    out
 }

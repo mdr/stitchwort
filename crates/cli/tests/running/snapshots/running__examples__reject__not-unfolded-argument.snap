@@ -7,11 +7,11 @@ expression: output
     │
  14 │ theorem oneHolds: Holds one := composite _ _
     │                                ──────┬──────  
-    │                                      ╰──────── expected `one () = one ()`, but this has type `Holds (arg => ?1 (?0 ()))`
+    │                                      ╰──────── expected `one () = one ()`, but this has type `Holds (arg => _j (_p ()))`
     │ 
-    │ Note 1: `?1` is the `_` for the argument `j` of `composite`, which wasn't worked out from the other arguments or the expected type
+    │ Note 1: `_j` is `composite`'s `_` for `j`, not worked out
     │ 
-    │ Note 2: `?0` is the `_` for the argument `p` of `composite`, which wasn't worked out from the other arguments or the expected type
+    │ Note 2: `_p` is `composite`'s `_` for `p`, not worked out
     │ 
-    │ Note 3: `Holds (arg => ?1 (?0 ()))` is `?1 (?0 ()) = ?1 (?0 ())`
+    │ Note 3: `Holds (arg => _j (_p ()))` is `_j (_p ()) = _j (_p ())`
 ────╯

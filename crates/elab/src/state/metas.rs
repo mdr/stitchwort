@@ -40,6 +40,12 @@ pub struct Meta {
     /// For a message that prints it as `?N`: which argument of which call it
     /// stands for ("the argument `b` of `lem`").
     pub origin: Option<Rc<str>>,
+    /// The name of the parameter it stands for, which a message prints it
+    /// by (`_n`): set with [`Meta::origin`].
+    pub param: Option<Rc<str>>,
+    /// For an instance argument, its type (`Add Int`), which a message
+    /// prints it by instead of its parameter's name.
+    pub instance: Option<Value>,
 }
 
 /// A [`MetaStore::lifted_calls`] entry: how many variables the call is a
@@ -137,13 +143,41 @@ impl MetaStore {
             ignorable: None,
             ty: None,
             origin: None,
+            param: None,
+            instance: None,
         });
         metas.len() - 1
     }
 
     /// Records what unknown `m` stands for (see [`Meta::origin`]).
-    pub fn set_meta_origin(&self, m: usize, origin: Rc<str>) {
-        self.metas.borrow_mut()[m].origin = Some(origin);
+    pub fn set_meta_origin(&self, m: usize, param: Rc<str>, origin: Rc<str>) {
+        let mut metas = self.metas.borrow_mut();
+        metas[m].origin = Some(origin);
+        metas[m].param = Some(param);
+    }
+
+    /// Records that unknown `m` is an instance of `ty`.
+    pub fn set_meta_instance(&self, m: usize, ty: Value) {
+        self.metas.borrow_mut()[m].instance = Some(ty);
+    }
+
+    /// See [`Meta::instance`].
+    pub fn meta_instance(&self, m: usize) -> Option<Value> {
+        self.metas.borrow()[m].instance.clone()
+    }
+
+    /// What a message prints unknown `m` as: `_` and its parameter's name
+    /// (`_n`), with a subscript when an earlier unsolved unknown has the
+    /// same parameter name, so that two never print alike. `None` for one
+    /// without a parameter name.
+    pub fn meta_param_label(&self, m: usize) -> Option<String> {
+        let metas = self.metas.borrow();
+        let param = metas.get(m)?.param.clone()?;
+        let earlier = metas[..m]
+            .iter()
+            .filter(|o| o.solution.is_none() && o.param.as_deref() == Some(&*param))
+            .count();
+        Some(crate::check::unknown_label(&param, earlier))
     }
 
     /// See [`Meta::origin`].

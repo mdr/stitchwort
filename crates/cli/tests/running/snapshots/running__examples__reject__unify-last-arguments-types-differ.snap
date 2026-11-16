@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/running/examples.rs
+source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
@@ -7,9 +7,9 @@ expression: output
     │
  10 │   let e := use _ (app (mk _))
     │                        ──┬─  
-    │                          ╰─── expected `?1 t mk use True`, but this has type `t (?2 t mk use)`
+    │                          ╰─── expected `_p True`, but this has type `t _g`
     │ 
-    │ Note 1: `?1` is the implicit argument `p` of `app`, which wasn't worked out from the other arguments or the expected type; give it with `[p := …]`
+    │ Note 1: `_p` is `app`'s implicit `p`, not worked out; give it with `[p := …]`
     │ 
-    │ Note 2: `?2` is the `_` for the argument `g`, which wasn't worked out from the other arguments or the expected type
+    │ Note 2: `_g` is this call's `_` for `g`, not worked out
 ────╯

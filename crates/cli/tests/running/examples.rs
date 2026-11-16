@@ -532,42 +532,12 @@ fn rejected_projects_fail_for_the_expected_reason() {
     });
 }
 
-/// The reject examples whose messages print an unknown (`?N`), the only ones
-/// allowed to (D2091; docs/proposals/postponement.md, "Stage 4: design for
-/// the third attempt", rule 3). An unknown a waiting check stands for or
-/// waits on is never printed: the placeholder prints as the source it
-/// stands for, and whatever would print a waiting check's type waits too.
-/// Each of these prints an ordinary unknown left unsolved where its error
-/// is found (an implicit argument, a hole, a row, a rewrite rule's
-/// argument). The design counted 15 on 31 October 2026;
-/// `unify-last-arguments-types-differ.sw` (SW-919) came the same day,
-/// after it. A file added here needs the same reading first.
-const PRINTS_UNKNOWNS: &[&str] = &[
-    "reject/case-tree-chains-meta.sw",
-    "reject/eqeq-nil-nil.sw",
-    "reject/fin-literal-unknown-bound.sw",
-    "reject/implicit-interface-not-searched.sw",
-    "reject/instance-stuck.sw",
-    "reject/instance-unknown-type.sw",
-    "reject/lambda-after-expected-instance-nested.sw",
-    "reject/lambda-pattern-annotation-shape.sw",
-    "reject/match-equation-leaves-solution.sw",
-    "reject/match-equation-unknown-motive-unnamed.sw",
-    "reject/match-equation-unknown-motive.sw",
-    "reject/match-equation-unknown-motive2-unnamed.sw",
-    "reject/match-equation-unknown-motive2.sw",
-    "reject/not-unfolded-argument.sw",
-    "reject/parser-count-differs-from-lemma-with-unknown.sw",
-    "reject/pipe-wrong-type.sw",
-    "reject/plus-unknown-against-itself.sw",
-    "reject/plus-unknown-against-zero.sw",
-    "reject/rewrite-inside-function-no-lemma.sw",
-    "reject/rewrite-under-binder.sw",
-    "reject/row-defaulted.sw",
-    "reject/section-minus-is-negation.sw",
-    "reject/unify-bool-argument.sw",
-    "reject/unify-last-arguments-types-differ.sw",
-];
+/// The reject examples whose messages may print an unknown as `?N`: none
+/// (SW-3548). An unknown prints as `_name` after its parameter, or `_`, and
+/// an unknown a waiting check stands for or waits on is never printed (D2091;
+/// docs/proposals/postponement.md, "Stage 4: design for the third attempt",
+/// rule 3): the placeholder prints as the source it stands for.
+const PRINTS_UNKNOWNS: &[&str] = &[];
 
 /// Whether `text` shows an unknown: a `?` followed by a digit.
 fn shows_unknown(text: &str) -> bool {

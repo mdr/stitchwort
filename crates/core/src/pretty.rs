@@ -1452,8 +1452,23 @@ impl<'g> Printer<'g> {
                 shown
             }
             Term::Meta(_) if let Some(name) = self.label(names, term) => name,
-            Term::Meta(m) => (format!("?{m}"), Prec::Atom),
+            Term::Meta(m) => (
+                self.g.shown.unknown(*m).unwrap_or_else(|| format!("?{m}")),
+                Prec::Atom,
+            ),
             Term::App(..) if let Some(shown) = self.label(names, term) => shown,
+            // An unknown applied to the variables it may depend on, as
+            // its name: those variables are not what the reader cares about.
+            Term::App(..)
+                if let (Term::Meta(m), args) = term.spine()
+                    && let Some(name) = self.g.shown.unknown(*m) =>
+            {
+                let skip = args
+                    .iter()
+                    .take_while(|a| matches!(a.strip_loc(), Term::Var(_)))
+                    .count();
+                self.applied(names, name, args.into_iter().skip(skip))
+            }
             Term::App(..) if let Some(shown) = self.update(names, term) => (shown, Prec::Atom),
             Term::App(..)
                 if !self.show_hidden.get()

@@ -403,6 +403,18 @@ impl stitchwort_core::Shown for Elaborator {
         self.attempt.store.mirrors.syntax(m)
     }
 
+    fn unknown(&self, m: usize) -> Option<String> {
+        if let Some(ty) = self.attempt.store.meta_instance(m) {
+            return Some(pretty::value(&self.ev(), &[], &ty));
+        }
+        Some(
+            self.attempt
+                .store
+                .meta_param_label(m)
+                .unwrap_or_else(|| "_".into()),
+        )
+    }
+
     fn has_print_labels(&self) -> bool {
         !self.attempt.store.print_labels.borrow().is_empty()
     }

@@ -7,7 +7,7 @@ expression: output
    │
  6 │ def toZero (x: Nat) (f: (d: Nat) → x + d = 0 → Nat): Nat := f _ rfl
    │                                                                 ─┬─  
-   │                                                                  ╰─── `x + ?0 x f` and `0` aren't equal
+   │                                                                  ╰─── `x + _d` and `0` aren't equal
    │ 
    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯
