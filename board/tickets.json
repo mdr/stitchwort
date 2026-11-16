@@ -39929,12 +39929,12 @@
     {
       "id": 3565,
       "title": "[Opus paper] Proof vocabulary (D3649, Matt, 16 Nov 2026): every proof word and common std proof-lemma name (omega, Inl/Inr, Void.exfalso, rfl, ring, Eq.sym/trans/cong, Bool.falseNotTrue, calc, byDecision, …): rename or keep, compared across Lean, Rocq, Idris, Agda, Isabelle and others (Lean not privileged), names that convey what happens; renames brought one at a time; one sweep alongside SW-3564",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Note: docs/proposals/proof-vocabulary.md (Opus paper lane, 16 Nov 2026, commit on lane/SW-3565). Ranked renames: rfl → byComputing (8,908 uses), omega → arithmetic (3,118), Inl/Inr → Left/Right (2,910; hash change; AoC Grid's Direction → North/East/South/West for D3615), Void.exfalso → Void.impossible / h.impossible (1,212), Eq.sym → h.flipped (1,760), Eq.trans → ab.chain bc (1,913), Eq.cong → Eq.map (1,449), ring → algebra (308). Keeps: cases, calc, rewrite, byDecision, .forward/.backward, Both/Witness, Void, Trivial, auto, decreasing, .read, DecEq, lemma suffixes. Decisions (one at a time): D(a) omega/ring, D(b) rfl, D(c) exfalso, D(d) Inl/Inr + Direction, D(e) Eq helpers. Sweep: one lane with SW-3564's then, constructors in their own commit; plus E-UNKNOWN-NAME hints mapping other systems' words. Probed: h.trans/h.sym/v.exfalso method forms work today; match h with | () closes h: False = True.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
