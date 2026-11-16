@@ -153,7 +153,7 @@ fn shape(e: &Expr) -> String {
         Expr::Neg(x, _, _) => format!("(- {})", shape(x)),
         Expr::App(f, a) => format!("({} {})", shape(f), shape(a)),
         Expr::Field(x, n) => format!("{}.{}", shape(x), n.text),
-        Expr::Binary(op, a, b) => format!("({op:?} {} {})", shape(a), shape(b)),
+        Expr::Binary(op, a, b) => format!("({} {} {})", op_name(op), shape(a), shape(b)),
         other => panic!("unexpected {other:?}"),
     }
 }
@@ -222,7 +222,7 @@ fn pshape(e: &Expr) -> String {
         Expr::Num(n, _) => n.to_string(),
         Expr::App(f, a) => format!("({} {})", pshape(f), pshape(a)),
         Expr::Field(x, n) => format!("{}.{}", pshape(x), n.text),
-        Expr::Binary(op, a, b) => format!("({op:?} {} {})", pshape(a), pshape(b)),
+        Expr::Binary(op, a, b) => format!("({} {} {})", op_name(op), pshape(a), pshape(b)),
         Expr::Pipe(a, b) => format!("(|> {} {})", pshape(a), pshape(b)),
         Expr::Arrow(a, b) => format!("(-> {} {})", pshape(a), pshape(b)),
         Expr::Lam(names, body, _) => {
@@ -348,3 +348,12 @@ mod operators;
 mod patterns;
 mod proofs;
 mod recovery;
+
+/// An operator's name in a shape: `Ne` whichever way it was spelled, since
+/// the spelling matters only to messages (SW-3125).
+fn op_name(op: &crate::ast::BinOp) -> String {
+    match op {
+        crate::ast::BinOp::Ne(_) => "Ne".to_string(),
+        other => format!("{other:?}"),
+    }
+}
