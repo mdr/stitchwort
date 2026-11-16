@@ -561,6 +561,8 @@ const PRINTS_UNKNOWNS: &[&str] = &[
     "reject/pipe-wrong-type.sw",
     "reject/plus-unknown-against-itself.sw",
     "reject/plus-unknown-against-zero.sw",
+    // `first` of `Parse.readsThen`, which only a right first lemma fixes.
+    "reject/reads-then-wrong-first.sw",
     "reject/rewrite-inside-function-no-lemma.sw",
     "reject/rewrite-under-binder.sw",
     "reject/row-defaulted.sw",

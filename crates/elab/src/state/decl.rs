@@ -63,6 +63,12 @@ pub(crate) struct Decl {
     /// arguments that way, so a failing chain of lemmas isn't tried twice at
     /// every level (`check::propagate`, SW-3281).
     pub(crate) no_argument_propagation: Cell<usize>,
+    /// Above zero while an application whose lambdas were held for its
+    /// expected type (`check::fallback_holding_lambdas`) is elaborated
+    /// again the ordinary way after that failed: no application inside
+    /// holds its lambdas, so a failing chain isn't tried both ways at
+    /// every level.
+    pub(crate) no_holding: Cell<usize>,
     /// Above zero while a lambda is checked in place in an application
     /// elaborated again after a propagation by `_`s failed
     /// (`check::apply_args_postponing`): a lambda inside is not tried in
@@ -325,6 +331,7 @@ impl Decl {
             no_propagation,
             no_hole_propagation,
             no_argument_propagation,
+            no_holding,
             in_place_trial,
             bare_rows_pure,
             late_literals,
@@ -375,6 +382,7 @@ impl Decl {
                 "no_argument_propagation",
                 no_argument_propagation.get() == 0,
             ),
+            ("no_holding", no_holding.get() == 0),
             ("in_place_trial", in_place_trial.get() == 0),
             ("bare_rows_pure", !bare_rows_pure.get()),
             ("late_literals", late_literals.get() == 0),

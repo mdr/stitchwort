@@ -7113,7 +7113,9 @@ fn extra_negative_argument_note(
 /// is checked after that comparison, not tried in place first: the call's
 /// type couldn't be compared before its other arguments fixed the unknowns
 /// applied in it ([`applies_unknown`]), and its lambdas need what the
-/// comparison then fixes.
+/// comparison then fixes. A call whose last argument is an implicit given
+/// by name is only inferred, so it holds nothing (`[j := …]` goes before
+/// the explicit arguments).
 fn infer_expecting(
     cx: &mut Ctx,
     expr: &Expr,
@@ -7641,9 +7643,18 @@ fn propagate(
 }
 
 /// [`propagate`] for an application whose result type applies one of its
-/// unknowns to a value ([`applies_unknown`]): inferred, its arguments other
-/// than lambdas checked first, then its type compared with `expected`, then
-/// its lambdas checked (docs/proposals/parse-proof-library.md §4).
+/// unknowns to what another computes ([`applies_unknown`]): inferred, its
+/// arguments other than lambdas checked first, then its type compared with
+/// `expected`, then its lambdas checked
+/// (docs/proposals/parse-proof-library.md §4).
+///
+/// If that fails, the application is elaborated again the ordinary way,
+/// as [`propagate`] would without this rule, with no application inside
+/// holding its lambdas: a call this rule doesn't help (a predicate a
+/// lambda fixes) is accepted as it was. If both fail, the error is the
+/// ordinary way's when the held way's is about the whole call: a first
+/// lemma about another parser is then blamed, as it was, rather than the
+/// `j` its mistake left unknown.
 #[inline(never)]
 fn fallback_holding_lambdas(
     cx: &mut Ctx,
@@ -7651,27 +7662,102 @@ fn fallback_holding_lambdas(
     expected: &Value,
     named: &Value,
 ) -> Result<Term> {
-    let (term, found) = infer_expecting(cx, expr, expected, named, true)?;
-    inferred_against(cx, expr, (term, found), expected, named)
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let held = (|| {
+        let (term, found) = infer_expecting(cx, expr, expected, named, true)?;
+        inferred_against(cx, expr, (term, found), expected, named)
+    })();
+    let held_error = match held {
+        Ok(term) => return Ok(term),
+        Err(e) if crate::undo::fatal(&e) => return Err(e),
+        Err(e) => e,
+    };
+    snapshot.restore(cx);
+    let off = &cx.e.decl.no_holding;
+    off.set(off.get() + 1);
+    let ordinary = match propagate(cx, expr, expected, named) {
+        Ok(Some(result)) => result,
+        Ok(None) => fallback_inferred(cx, expr, expected, named),
+        Err(e) => Err(e),
+    };
+    let off = &cx.e.decl.no_holding;
+    off.set(off.get() - 1);
+    match ordinary {
+        Err(e) if !crate::undo::fatal(&e) && !about_whole(expr, &held_error) => Err(held_error),
+        ordinary => ordinary,
+    }
+}
+
+/// Whether the error `e` is about the whole of `expr`, not a part of it.
+fn about_whole(expr: &Expr, e: &Diagnostic) -> bool {
+    e.labels.first().is_none_or(|at| at.span == expr.span())
 }
 
 /// Whether `ty`, the result type of a call before its arguments are
-/// checked, applies one of the unknowns made for it (those from
-/// `metas_from` on) to something other than variables: `?j (?p ())`
-/// in `Parse.readsThen`'s `Parse.ReadsIn ?inv (() => ?j (?p ())) ?spec`.
-/// Compared with the goal then, that is a problem with many solutions,
-/// and the unifier's choice (by the arguments of two calls, after
-/// unfolding) need not be the one the arguments mean: `afterMark`, which
-/// is `counted (Parse.mark().left + 1)`, splits as `?p` the mark and the
-/// sum. Once the arguments have fixed `?p`, it is an ordinary comparison.
+/// checked, feeds what one of the unknowns made for it (those from
+/// `metas_from` on) computes to another: an unknown applied to more than
+/// the variables in scope (`?p ()`), as an argument of a call or of an
+/// unknown that also has another of the call's unknowns among its
+/// arguments, as `Parse.readsThen`'s `Parse.ReadsIn ?inv (() => ?j (?p
+/// ())) ?spec`, which is `Effect.bind (?p ()) (x => ?j x)`. Compared with
+/// the goal then, that is a problem with many solutions, and the
+/// unifier's choice (by the arguments of two calls, after unfolding) need
+/// not be the one the arguments mean: `afterMark`, which is `counted
+/// (Parse.mark().left + 1)`, splits as `?p` the mark and the sum. Once the
+/// arguments have fixed `?p`, it is an ordinary comparison. A predicate
+/// applied to a value (`?holds 0`, `?holds ?n`) is not this shape: its
+/// lambdas may be what fixes it, tried in place.
 fn applies_unknown(cx: &Ctx, ty: &Value, metas_from: usize) -> Result<bool> {
     let term = cx.quote_folded(ty)?;
     let g = cx.g();
-    Ok(term.subterms().any(|(t, _)| {
+    let unknown = |m: &usize| *m >= metas_from && g.meta_solution(*m).is_none();
+    let mentions_unknown = |t: &Term, but: usize| {
+        t.subterms()
+            .any(|(t, _)| matches!(t, Term::Meta(m) if *m != but && unknown(m)))
+    };
+    // An unknown of the call applied to more than variables: its own.
+    let applied = |t: &Term| {
         let (head, args) = t.spine();
-        matches!(head, Term::Meta(m) if *m >= metas_from && g.meta_solution(*m).is_none())
-            && args.iter().any(|a| !matches!(a.strip_loc(), Term::Var(_)))
+        match head {
+            Term::Meta(m) if unknown(m) => args
+                .iter()
+                .any(|a| !matches!(a.strip_loc(), Term::Var(_)))
+                .then_some(*m),
+            _ => None,
+        }
+    };
+    Ok(term.subterms().any(|(t, _)| {
+        if !matches!(t, Term::App(..)) {
+            return false;
+        }
+        let (head, args) = t.spine();
+        args.iter().any(|a| {
+            let Some(inner) = applied(a.strip_loc()) else {
+                return false;
+            };
+            matches!(head, Term::Meta(m) if *m != inner && unknown(m))
+                || args
+                    .iter()
+                    .any(|b| !std::ptr::eq(*b, *a) && mentions_unknown(b, inner))
+        })
     }))
+}
+
+/// Whether a function of type `ty` has an implicit parameter of function
+/// type before its result: [`applies_unknown`] can only hold of a call of
+/// one.
+fn has_implicit_function(cx: &Ctx, ty: &Value) -> Result<bool> {
+    let g = cx.g();
+    let mut ty = force(&g, ty.clone())?;
+    let mut level = cx.level();
+    while let Value::Pi(_, icit, dom, cod) = ty {
+        if icit == Icit::Implicit && matches!(force(&g, (*dom).clone())?, Value::Pi(..)) {
+            return Ok(true);
+        }
+        ty = force(&g, cod.apply(&g, Value::var(level))?)?;
+        level += 1;
+    }
+    Ok(false)
 }
 
 /// The end of [`propagate`]'s application at `span`, `applied`, with the
@@ -7828,10 +7914,11 @@ impl Propagation<'_> {
 /// `expected` (named `named`), if its result type as written unifies with
 /// it before the arguments are checked; `None`, with everything as it was,
 /// if not.
-#[inline(never)]
 ///
 /// `applies` is set, and `None` returned, if the result type applies an
-/// unknown of the call to a value ([`applies_unknown`]).
+/// unknown of the call to what another of its unknowns computes
+/// ([`applies_unknown`]).
+#[inline(never)]
 fn propagation_plan<'a>(
     cx: &mut Ctx,
     expr: &'a Expr,
@@ -7899,7 +7986,10 @@ fn propagation_plan<'a>(
         // A result that mentions an implicit argument given by name (`[j :=
         // …]` of `Parse.readsThen`) still applies the others' unknowns.
         snapshot.restore(cx);
-        if args.iter().any(|a| matches!(a, Arg::Named(..))) {
+        if cx.e.decl.no_holding.get() == 0
+            && args.iter().any(|a| matches!(a, Arg::Named(..)))
+            && has_implicit_function(cx, &head.1)?
+        {
             let unnamed: Vec<Arg> = (args.iter().copied())
                 .filter(|a| !matches!(a, Arg::Named(..)))
                 .collect();
@@ -7912,7 +8002,10 @@ fn propagation_plan<'a>(
         }
         return Ok(None);
     };
-    if applies_unknown(cx, &written, metas_from)? {
+    if cx.e.decl.no_holding.get() == 0
+        && has_implicit_function(cx, &head.1)?
+        && applies_unknown(cx, &written, metas_from)?
+    {
         snapshot.restore(cx);
         *applies = true;
         return Ok(None);
