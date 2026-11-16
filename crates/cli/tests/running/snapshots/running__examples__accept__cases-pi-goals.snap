@@ -1,5 +1,6 @@
 ---
 source: crates/cli/tests/running/examples.rs
+assertion_line: 210
 expression: warnings
 ---
 [W-THEOREM-FORALL] Warning: the statement of `byHyp` starts with `∀`
@@ -14,7 +15,7 @@ expression: warnings
 [W-THEOREM-FORALL] Warning: the statement of `byTerm` starts with `∀`
     ╭─[ accept/cases-pi-goals.sw:17:17 ]
     │
- 17 │ theorem byTerm: ∀ (a b: Bool) => (a ∨ b) = (b ∨ a) := cases in Bool.orComm
+ 17 │ theorem byTerm: ∀ (a b: Bool) => (a ∨ b) = (b ∨ a) := cases then Bool.orComm
     │                 ┬  
     │                 ╰── write these variables before the colon
     │ 
