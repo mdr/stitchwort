@@ -20858,7 +20858,7 @@
     {
       "id": 2217,
       "title": "[DeepSeek] W-MATCH-NOT-FOUND in docs/syntax.md; a paragraph on the language server's recovery pop-ups (what they mean, what to do) in editors/vscode/README.md",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -20867,7 +20867,7 @@
       "epic": "docs-tutorials",
       "body": "From docs/reviews/SW-2213-guide-coverage.md, lane D. 30 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -33271,14 +33271,14 @@
     {
       "id": 3078,
       "title": "[DeepSeek] A derive (DecEq/Ord/Show/Finite) on a type whose field's instance failed reports '… colorOrd has errors' (derive*.rs) instead of waiting for it (SW-2970 finding 2)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
       "body": "",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -33882,7 +33882,7 @@
     {
       "id": 3125,
       "title": "[DeepSeek] Misleading note: on ((a != b): Bool) = True used through .read, the mismatch says 'for the Bool test write ((a != b): Bool)' though the user wrote that; ne_read_as_prop matches on printed text (probe in docs/proposals/bool-as-proposition-building.md; SW-3087 finding 1)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -38155,7 +38155,7 @@
     {
       "id": 3431,
       "title": "[DeepSeek] Docs lines from the 2021 notes: rewrite x / 2 also rewrites inside x % 2 (rewrite % first), a field read inside a lambda is recomputed on every call (hoist it: 31.7 s to 17.6 s on day 15), and decreasing cannot go through an earlier recursive call's result (SW-976 items 4 and 6, SW-973 item 2)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -38164,7 +38164,7 @@
       "epic": "docs-tutorials",
       "body": "From the triage (SW-2015). Check docs/proving-guide.md and docs/performance first; add a short line or example for each that is missing. SW-1814 (hoisting by the compiler) is parked, so the performance line stays useful.",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
