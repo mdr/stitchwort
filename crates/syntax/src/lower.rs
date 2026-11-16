@@ -241,6 +241,7 @@ impl<'f> Lower<'f> {
             NodeKind::Namespace => self.namespace(root).map(LoweredDecl::Namespace),
             NodeKind::Import => self.import(root).map(LoweredDecl::Import),
             NodeKind::Test => Ok(LoweredDecl::Decls(vec![self.test(root)?])),
+            NodeKind::Rules => Ok(LoweredDecl::Decls(vec![self.rule_set(root)?])),
             NodeKind::Def | NodeKind::Theorem | NodeKind::Instance => {
                 self.definition(root).map(LoweredDecl::Decls)
             }

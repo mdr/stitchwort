@@ -1507,6 +1507,7 @@ impl Elaborator {
                     Decl::Signature { name, synonym, .. } => {
                         (Kind::Def, name.text.clone(), name.span, *synonym)
                     }
+                    Decl::Rules { name, .. } => (Kind::Def, name.text.clone(), name.span, false),
                     Decl::Test { name, span, .. } => {
                         (Kind::Test, format!("test \"{name}\""), *span, false)
                     }
@@ -2511,6 +2512,7 @@ impl Elaborator {
             decl @ Decl::Data { .. } => self.data(decl),
             decl @ Decl::Ability { .. } => self.ability(decl),
             Decl::Test { name, expr, span } => self.test(name, expr, *span),
+            decl @ Decl::Rules { .. } => self.rule_set(decl),
             decl @ Decl::Signature { .. } => {
                 let found = self.group(&[(index, decl, item.equations)], false);
                 diagnostics.extend(
@@ -3266,7 +3268,7 @@ pub(crate) fn declared_names(decl: &Decl) -> (Option<ast::Name>, Vec<(ast::Name,
                 false,
             )],
         ),
-        Decl::Signature { name, .. } => (Some(name.clone()), Vec::new()),
+        Decl::Signature { name, .. } | Decl::Rules { name, .. } => (Some(name.clone()), Vec::new()),
         Decl::Test { .. } | Decl::Equation { .. } => (None, Vec::new()),
     }
 }
@@ -3670,6 +3672,10 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
             }
         }
         Decl::Test { expr, .. } => add(free_names(vec![Work::Expr(expr)]), false),
+        Decl::Rules { rules, .. } => add(
+            free_names(rules.iter().map(|r| Work::Expr(&r.proof)).collect()),
+            false,
+        ),
         Decl::Equation { .. } => {}
     }
     out

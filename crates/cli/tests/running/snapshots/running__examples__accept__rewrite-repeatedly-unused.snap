@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: warnings
+---
+[W-REWRITE-REPEATEDLY-UNUSED] Warning: `List.reverseCons` never applied
+   ╭─[ accept/rewrite-repeatedly-unused.sw:9:87 ]
+   │
+ 9 │ theorem unused ∀ (xs: List Nat): xs ++ [] = xs := rewrite repeatedly [List.appendNil, List.reverseCons]
+   │                                                                                       ────────┬───────  
+   │                                                                                               ╰───────── the goal never had a place this rewrites
+   │ 
+   │ Note: take it out of the list: a rule that isn't used hides which ones the proof needs
+───╯
+[W-REWRITE-REPEATEDLY-UNUSED] Warning: none of the rules of `appends` applied
+    ╭─[ accept/rewrite-repeatedly-unused.sw:11:78 ]
+    │
+ 11 │ theorem unusedSet ∀ (n: Nat) (h: n = 3): n + 1 = 4 := rewrite repeatedly [h, appends]
+    │                                                                              ───┬───  
+    │                                                                                 ╰───── the goal never had a place this rewrites
+    │ 
+    │ Note: take it out of the list: a rule that isn't used hides which ones the proof needs
+────╯

@@ -373,6 +373,13 @@ enum Command {
             conflicts_with_all = ["index", "counterexamples"]
         )]
         only: Vec<String>,
+        /// Replace each `rewrite repeatedly` in the files checked by the
+        /// `rewrite` steps it made (`rewrite r1, r2 then t`), writing the
+        /// files back. Checks without the check cache, which skips what it
+        /// answers for. A call that rewrites differently in the cases it is
+        /// checked in (under `cases then`) is left as it is, and listed
+        #[arg(long, conflicts_with_all = ["index", "counterexamples"])]
+        expand_repeatedly: bool,
         #[command(flatten)]
         counterexamples: CounterexampleArgs,
         #[command(flatten)]
@@ -1047,6 +1054,7 @@ fn run(cli: Cli) -> ExitCode {
             warnings: _,
             index,
             only,
+            expand_repeatedly,
             counterexamples,
             cache,
         } => check(
@@ -1054,6 +1062,7 @@ fn run(cli: Cli) -> ExitCode {
             project.as_deref(),
             index.as_deref(),
             &only,
+            expand_repeatedly,
             &counterexamples,
             &cache,
         ),
@@ -1961,6 +1970,7 @@ fn check(
     project: Option<&Path>,
     index: Option<&str>,
     only: &[String],
+    expand: bool,
     counterexamples: &CounterexampleArgs,
     cache: &CacheArgs,
 ) -> ExitCode {
@@ -1982,7 +1992,11 @@ fn check(
         for path in targets {
             // Each file gets its own session.
             let mut session = new_session(index.is_some());
-            use_cache(&mut session, cache, Path::new("."));
+            if expand {
+                session.elab.record_expansions();
+            } else {
+                use_cache(&mut session, cache, Path::new("."));
+            }
             let mut reported = Vec::new();
             let loaded = load_file_into(
                 &mut session,
@@ -2001,6 +2015,9 @@ fn check(
             }
             if counterexamples.counterexamples {
                 ok = search_counterexamples(&mut session, counterexamples, &|_| true) && ok;
+            }
+            if expand && loaded {
+                ok = write_expansions(&session, Path::new(".")) && ok;
             }
             discard(session);
         }
@@ -2023,7 +2040,11 @@ fn check(
         return ExitCode::FAILURE;
     };
     let mut session = new_session(index.is_some());
-    use_cache(&mut session, cache, &project.dir);
+    if expand {
+        session.elab.record_expansions();
+    } else {
+        use_cache(&mut session, cache, &project.dir);
+    }
     let mut reported = Vec::new();
     // Only the diagnostics are wanted, unless the loaded namespaces are
     // indexed or searched.
@@ -2076,6 +2097,9 @@ fn check(
                 })
         };
         ok = search_counterexamples(&mut session, counterexamples, &keep) && ok;
+    }
+    if expand && ok {
+        ok = write_expansions(&session, &project.dir) && ok;
     }
     discard(session);
     exit(ok)
@@ -2173,6 +2197,44 @@ fn search_counterexamples(
 /// checked project's terms and values apart one by one took about 2% of a
 /// `check` (docs/proposals/proof-check-speed.md). Nothing in a session
 /// needs dropping to be written out (the caches are written as they go).
+/// `check --expand-repeatedly`: writes back each file with a `rewrite
+/// repeatedly` checked, each call replaced by its `rewrite` steps
+/// ([`stitchwort_elab::expansion_text`]); a file's name is read from `base`
+/// if it isn't found as it is. Whether every call was expanded.
+fn write_expansions(session: &Session, base: &Path) -> bool {
+    let expansions = session.elab.take_expansions();
+    let mut ok = true;
+    for (file, source) in session.sources.iter() {
+        if !expansions.iter().any(|e| e.call.file == file) {
+            continue;
+        }
+        let (text, done, refused) = stitchwort_elab::expand_file(&source.text, file, &expansions);
+        for (offset, why) in refused {
+            let line = source.text[..offset].matches('\n').count() + 1;
+            eprintln!("{}:{line}: not expanded: {why}", source.name);
+            ok = false;
+        }
+        // A project's files are named from the folder above it.
+        let name = Path::new(&source.name);
+        let path = [
+            Some(name.to_path_buf()),
+            Some(base.join(name)),
+            base.parent().map(|p| p.join(name)),
+        ]
+        .into_iter()
+        .flatten()
+        .find(|p| p.exists())
+        .unwrap_or_else(|| name.to_path_buf());
+        if let Err(e) = std::fs::write(&path, text) {
+            eprintln!("error: can't write {}: {e}", path.display());
+            return false;
+        }
+        let plural = if done == 1 { "" } else { "s" };
+        eprintln!("expanded {done} call{plural} in {}", path.display());
+    }
+    ok
+}
+
 fn discard(session: Session) {
     std::mem::forget(session);
 }

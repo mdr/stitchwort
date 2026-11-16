@@ -334,6 +334,7 @@ fn declared_names(text: &str) -> BTreeSet<String> {
             Decl::Data { name, .. }
             | Decl::Signature { name, .. }
             | Decl::Ability { name, .. }
+            | Decl::Rules { name, .. }
             | Decl::Equation { name, .. } => {
                 out.insert(qualify(&name.text));
             }

@@ -154,6 +154,12 @@ impl Parser<'_> {
                 Ok(self.definition(start, false, true)?.kind)
             }
             Some(Tok::KwDef | Tok::KwTheorem) => Ok(self.definition(start, false, false)?.kind),
+            Some(Tok::Lower(w))
+                if w == "rules" && matches!(self.peek_at(1), Some(Tok::Lower(_))) =>
+            {
+                self.rule_set()?;
+                Ok(NodeKind::Rules)
+            }
             Some(Tok::Lower(_) | Tok::Upper(_)) => Err(self.missing_keyword().into()),
             _ => Err(self.unexpected("a declaration").into()),
         }
@@ -197,6 +203,27 @@ impl Parser<'_> {
         let body = self.mark();
         self.expect(Tok::ColonEq, "`:=`")?;
         self.expr()?;
+        self.node(body, NodeKind::Body);
+        Ok(())
+    }
+
+    /// `rules name := [r1, <- r2]`. `rules` is a word only at the start of
+    /// a declaration, before a name, so a variable called `rules` still
+    /// reads as one elsewhere.
+    fn rule_set(&mut self) -> Result<()> {
+        self.bump();
+        self.def_name()?;
+        if self.peek() == Some(&Tok::Equals) {
+            return Err(self.def_equals().into());
+        }
+        let body = self.mark();
+        self.expect(Tok::ColonEq, "`:=`")?;
+        if self.peek() != Some(&Tok::LBracket) {
+            return Err(self
+                .unexpected("the set's rules, in brackets: `[r1, <- r2]`")
+                .into());
+        }
+        self.repeated_rules()?;
         self.node(body, NodeKind::Body);
         Ok(())
     }

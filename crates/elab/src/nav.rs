@@ -1717,6 +1717,10 @@ impl Walk<'_> {
                     self.item(name, "test", *span, *span, None);
                     self.run(vec![Work::Expr(expr)]);
                 }
+                Decl::Rules { name, rules, span } => {
+                    self.item(&name.text, "rules", name.span, *span, None);
+                    self.run(rules.iter().map(|r| Work::Expr(&r.proof)).collect());
+                }
                 Decl::Equation { .. } => {}
             }
             i += 1;

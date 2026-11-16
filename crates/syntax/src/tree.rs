@@ -143,6 +143,9 @@ pub enum NodeKind {
     Ability,
     /// `test "name" := e`
     Test,
+    /// `rules words := [r1, <- r2]`: a named set of rules for `rewrite
+    /// repeatedly` (docs/proposals/simp-revisited.md §2.3).
+    Rules,
     /// A single expression parsed on its own ([`crate::parse_expression_tree`]),
     /// as a search query or in the playground: the root of its tree, with
     /// the expression its one child.

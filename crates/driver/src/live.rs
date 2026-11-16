@@ -1587,6 +1587,10 @@ fn syntactic_outline(file: &ParsedFile, implicit_namespace: Option<&str>) -> Vec
                     None,
                 );
             }
+            Decl::Rules { name, .. } => {
+                let full = format!("{prefix}{}", name.text);
+                item(&mut out, full, "rules", name_range(name), None, None);
+            }
             Decl::Equation { .. } => {}
         }
     }

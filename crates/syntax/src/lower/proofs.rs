@@ -1,7 +1,7 @@
 //! Proofs: `calc`, `rewrite`, `arithmetic`, `algebra` and `cases`.
 
 use crate::Span;
-use crate::ast::{BinOp, CalcStep, Expr, Name, RewriteRule};
+use crate::ast::{BinOp, CalcStep, Decl, Expr, Name, RewriteRule};
 use crate::lexer::Tok;
 use crate::tree::{Element, Node, NodeKind};
 
@@ -132,6 +132,39 @@ impl<'f> Lower<'f> {
             at: at.map(|at| at.span()),
             then: then.map(|then| then.span()),
             span: keyword.to(end),
+        })
+    }
+
+    /// `rules name := [r1, <- r2]`.
+    pub(crate) fn rule_set(&self, root: Node<'f>) -> Lowering<Decl> {
+        let kind = NodeKind::Rules;
+        let keyword = required(root.own_leaves().next(), kind, "`rules`")?;
+        let name = required(
+            root.own_leaves()
+                .nth(1)
+                .filter(|leaf| matches!(leaf.tok(), Tok::Lower(_))),
+            kind,
+            "its name",
+        )?;
+        let body = required(root.child(NodeKind::Body), kind, "its rules")?;
+        let list = required(body.child(NodeKind::RewriteRules), kind, "its rules")?;
+        let rules = list
+            .child_nodes()
+            .filter(|child| child.kind() == NodeKind::RewriteRule)
+            .map(|rule| self.rewrite_rule(rule))
+            .collect::<Lowering<Vec<_>>>()?;
+        let close = required(list.own_leaves().last(), kind, "`]`")?;
+        let start = keyword.span();
+        Ok(Decl::Rules {
+            name: Name {
+                text: match name.tok() {
+                    Tok::Lower(text) => text.to_string(),
+                    _ => unreachable!("filtered"),
+                },
+                span: name.span(),
+            },
+            rules,
+            span: start.to(close.span()),
         })
     }
 

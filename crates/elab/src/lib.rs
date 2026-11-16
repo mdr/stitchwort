@@ -85,6 +85,7 @@ mod redundant;
 mod reify;
 mod rewind;
 mod rewrite;
+pub use rewrite::{Closer, ExpandedRule, Expansion, RuleSource, expand_file};
 mod ring;
 mod rows;
 mod saturate;
@@ -1246,6 +1247,25 @@ impl Elaborator {
         let result = self.infer_expr_in_operation(expr, true);
         self.kernel.machine.budget.restore(saved);
         result.map_err(|d| self.locate(d, expr.span()))
+    }
+
+    /// From now on, records what each `rewrite repeatedly` checked does,
+    /// for [`Elaborator::take_expansions`]. Units the check cache answers
+    /// for aren't checked, so record without it.
+    pub fn record_expansions(&self) {
+        *self.session.expansions.borrow_mut() = Some(Vec::new());
+    }
+
+    /// What each `rewrite repeatedly` checked since
+    /// [`Elaborator::record_expansions`] did, one per check of a call;
+    /// [`expansion_text`] writes the `rewrite` steps of a call.
+    pub fn take_expansions(&self) -> Vec<Expansion> {
+        self.session
+            .expansions
+            .borrow_mut()
+            .as_mut()
+            .map(std::mem::take)
+            .unwrap_or_default()
     }
 
     /// The definition with key `key` (its full name), if there is one.

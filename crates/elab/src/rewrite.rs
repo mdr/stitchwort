@@ -68,6 +68,8 @@ use crate::undo::{Snapshot, fatal};
 
 mod as_written;
 mod repeatedly;
+pub use repeatedly::{Closer, ExpandedRule, Expansion, RuleSource, expand_file};
+pub(crate) use repeatedly::{RuleSet, UNUSED_RULE};
 mod under;
 
 /// Evaluation steps all the comparisons of one `rewrite` may use between
@@ -136,6 +138,15 @@ fn infer_rewrite_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         unreachable!("only called on a rewrite");
     };
     if target.is_some() {
+        if matches!(
+            expr,
+            Expr::Rewrite {
+                repeatedly: Some(_),
+                ..
+            }
+        ) {
+            return repeatedly::rewrite_repeatedly(cx, expr, None);
+        }
         return rewrite_at(cx, expr, None);
     }
     Err(Diagnostic::error(
@@ -312,9 +323,6 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     else {
         unreachable!("only called on a rewrite");
     };
-    if target.is_some() {
-        return Ok(rewrite_at(cx, expr, Some(expected))?.0);
-    }
     if matches!(
         expr,
         Expr::Rewrite {
@@ -322,7 +330,10 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             ..
         }
     ) {
-        return repeatedly::rewrite_repeatedly(cx, expr, expected);
+        return Ok(repeatedly::rewrite_repeatedly(cx, expr, Some(expected))?.0);
+    }
+    if target.is_some() {
+        return Ok(rewrite_at(cx, expr, Some(expected))?.0);
     }
     let extra = [Some(*keyword), *at, *then]
         .into_iter()

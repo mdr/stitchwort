@@ -138,6 +138,9 @@ pub struct Session {
     /// the check cache: a module restored from the cache isn't re-derived,
     /// so a user of it sees the old "no instance" message (accepted).
     pub(crate) derive_waiting: RefCell<HashMap<(DataId, DataId), stitchwort_core::DefId>>,
+    /// What each `rewrite repeatedly` did, for expanding it into `rewrite`
+    /// steps: `None` unless asked for ([`crate::Elaborator::record_expansions`]).
+    pub(crate) expansions: RefCell<Option<Vec<crate::rewrite::Expansion>>>,
 }
 
 /// What a rewind mark keeps of a [`Session`]: the bookkeeping a later load
@@ -192,6 +195,8 @@ impl Session {
             failed_sources: _,
             broken_tests: _,
             failed_decls: _,
+            // Recorded for the caller, never taken back.
+            expansions: _,
             derive_waiting,
         } = self;
         Mark {
@@ -241,6 +246,8 @@ impl Session {
             failed_sources: _,
             broken_tests: _,
             failed_decls: _,
+            // Recorded for the caller, never taken back.
+            expansions: _,
             derive_waiting,
         } = self;
         *project_namespaces = mark.project_namespaces.clone();

@@ -76,6 +76,10 @@ struct Listed {
     origin: usize,
     /// What its left side is looked for by ([`Shape`]).
     shape: Shape,
+    /// Whether the written rule it comes from is a set.
+    origin_set: bool,
+    /// How it is written as one `rewrite` step, for expanding.
+    source: ExpandedRule,
 }
 
 /// What a rule's left side needs a goal to have for it to fit: its head as
@@ -158,38 +162,503 @@ fn may_fit(shape: &Shape, present: &Present, written_only: bool) -> bool {
         || (!written_only && fits(&shape.computed, &present.computed))
 }
 
+/// A `rules name := [r1, <- r2]` declaration's rules, filed under the
+/// definition it declares: each a definition (a lemma, or a function whose
+/// arm equations it stands for) and whether it is turned round. A member
+/// that is a set is replaced by that set's rules when it is declared, so a
+/// set never refers to another.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct RuleSet {
+    pub(crate) rules: Vec<(DefId, bool)>,
+}
+
+/// Where a rule of an expansion is written: the text of a rule as written
+/// in the call, or (for a set's rule) its name as the call's file writes it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RuleSource {
+    Written(Span),
+    Named(String),
+}
+
+/// One `rewrite` step of an expansion: the rule, the arm equation it is of
+/// a definition named (`eq2`, or `eq2`, `or1`), and its direction.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExpandedRule {
+    pub source: RuleSource,
+    pub fields: Vec<String>,
+    pub reverse: bool,
+    /// Its place among the call's rules, sets' and definitions' put in.
+    pub order: usize,
+}
+
+/// How what the rules left was proved.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Closer {
+    /// By computing: a plain `rewrite`'s own close.
+    Computing,
+    /// By the hypothesis of that name.
+    Hypothesis(String),
+    /// By two hypotheses that contradict, or a part of one: `cases`.
+    Cases,
+    /// By the call's `then t`, `t` written there.
+    Body(Span),
+}
+
+/// What one check of a `rewrite repeatedly` call did: the rewrites in
+/// order, and how it closed. A call checked once per case (`cases then`)
+/// has one for each.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Expansion {
+    pub call: Span,
+    pub rules: Vec<ExpandedRule>,
+    /// The term after `at`, if there is one.
+    pub target: Option<Span>,
+    pub closer: Closer,
+}
+
+/// A file's text (`text`) with each `rewrite repeatedly` call replaced by
+/// the `rewrite` steps it made, from what each check of it did
+/// (`expansions`, those of other files ignored): `rewrite r1, r2 then t`, or
+/// the closer alone when no rule applied. A call checked once per case
+/// (under `cases then`) that rewrites differently in each can't be one
+/// chain: it becomes one `rewrite repeatedly` with only the rules some case
+/// used. Calls inside another's `then` are expanded there. Also how many
+/// calls were expanded, and where (an offset) and why the others weren't.
+pub fn expand_file(
+    text: &str,
+    file: stitchwort_syntax::FileId,
+    expansions: &[Expansion],
+) -> (String, usize, Vec<(usize, String)>) {
+    let mut calls: Vec<(std::ops::Range<usize>, Vec<&Expansion>)> = Vec::new();
+    for e in expansions.iter().filter(|e| e.call.file == file) {
+        let range = call_range(text, e.call);
+        match calls.iter_mut().find(|(r, _)| *r == range) {
+            Some((_, checks)) => checks.push(e),
+            None => calls.push((range, vec![e])),
+        }
+    }
+    calls.sort_by_key(|(r, _)| (r.start, std::cmp::Reverse(r.end)));
+    let mut done = 0;
+    let mut refused = Vec::new();
+    let out = render(text, &calls, 0..text.len(), None, &mut done, &mut refused);
+    (out, done, refused)
+}
+
+/// The range a call replaces: its span, and the `]` that ends its rules
+/// when nothing follows them.
+fn call_range(text: &str, call: Span) -> std::ops::Range<usize> {
+    let call = call.range();
+    let rest = text.get(call.end..).unwrap_or("");
+    match rest.trim_start().starts_with(']') {
+        true => call.start..call.end + (rest.len() - rest.trim_start().len()) + 1,
+        false => call,
+    }
+}
+
+/// `text[range]` with the outermost calls in it (but `own`, the call the
+/// range is, if it is one) expanded.
+fn render(
+    text: &str,
+    calls: &[(std::ops::Range<usize>, Vec<&Expansion>)],
+    range: std::ops::Range<usize>,
+    own: Option<usize>,
+    done: &mut usize,
+    refused: &mut Vec<(usize, String)>,
+) -> String {
+    let mut out = String::new();
+    let mut at = range.start;
+    // A call ends with its `]`, which may be past the end of a `then` body
+    // that is the call.
+    for (k, (r, checks)) in calls.iter().enumerate() {
+        if Some(k) == own || r.start < at || r.start >= range.end {
+            continue;
+        }
+        out.push_str(&text[at..r.start]);
+        let mut slice = |span: Span| {
+            let range = balanced(text, span.range());
+            render(text, calls, range, None, done, refused)
+        };
+        match expansion_steps(checks, &mut slice) {
+            Ok(new) => {
+                // A plain `rewrite`'s rules go on past a comma: in a tuple
+                // or a list it needs brackets.
+                let next = text[r.end..].trim_start();
+                match next.starts_with(',') && !new.starts_with("rewrite repeatedly") {
+                    true => out.push_str(&format!("({new})")),
+                    false => out.push_str(&new),
+                }
+                *done += 1;
+            }
+            Err(why) => {
+                refused.push((r.start, why));
+                out.push_str(&render(text, calls, r.clone(), Some(k), done, refused));
+            }
+        }
+        at = r.end;
+    }
+    if at < range.end {
+        out.push_str(&text[at..range.end]);
+    }
+    out
+}
+
+/// `range` extended over the closing brackets it opens and doesn't close: a
+/// call's span ends inside its last bracketed argument's `)`.
+fn balanced(text: &str, range: std::ops::Range<usize>) -> std::ops::Range<usize> {
+    let open = |s: &str| {
+        s.chars().filter(|c| matches!(c, '(' | '[' | '{')).count() as isize
+            - s.chars().filter(|c| matches!(c, ')' | ']' | '}')).count() as isize
+    };
+    let mut end = range.end;
+    let mut missing = open(&text[range.start..end]);
+    while missing > 0 {
+        let rest = &text[end..];
+        let skipped = rest.len() - rest.trim_start().len();
+        match rest.trim_start().chars().next() {
+            Some(c @ (')' | ']' | '}')) => {
+                end += skipped + c.len_utf8();
+                missing -= 1;
+            }
+            _ => break,
+        }
+    }
+    range.start..end
+}
+
+fn expansion_steps(
+    checks: &[&Expansion],
+    slice: &mut dyn FnMut(Span) -> String,
+) -> std::result::Result<String, String> {
+    let Some(first) = checks.first() else {
+        return Err("it was never checked".to_string());
+    };
+    let at = first
+        .target
+        .map(|t| format!(" at {}", slice(t)))
+        .unwrap_or_default();
+    if checks.iter().any(|c| c != first) {
+        // Checked once per case, rewriting differently in each: one call
+        // with only the rules some case used, in the order they're tried.
+        let mut used: Vec<&ExpandedRule> = checks.iter().flat_map(|c| &c.rules).collect();
+        used.sort_by_key(|r| r.order);
+        used.dedup_by_key(|r| r.order);
+        let then = match &first.closer {
+            Closer::Body(span) => format!(" then {}", slice(*span)),
+            _ => String::new(),
+        };
+        let rules = used
+            .into_iter()
+            .map(|r| rule_text(r, slice))
+            .collect::<Vec<_>>();
+        return match rules.is_empty() {
+            true => Err("no rule applied in any case it is checked in".to_string()),
+            false => Ok(format!(
+                "rewrite repeatedly [{}]{at}{then}",
+                rules.join(", ")
+            )),
+        };
+    }
+    let closer = match &first.closer {
+        Closer::Computing => None,
+        Closer::Hypothesis(name) => Some(name.clone()),
+        Closer::Cases => Some("cases".to_string()),
+        Closer::Body(span) => Some(slice(*span)),
+    };
+    if first.rules.is_empty() {
+        return Ok(match (first.target, closer) {
+            // Nothing rewritten: the body, or the target unchanged.
+            (_, Some(closer)) => closer,
+            (Some(target), None) => slice(target),
+            (None, None) => "byComputing".to_string(),
+        });
+    }
+    let rules = first
+        .rules
+        .iter()
+        .map(|r| rule_text(r, slice))
+        .collect::<Vec<_>>();
+    let mut out = format!("rewrite {}{at}", rules.join(", "));
+    if let Some(closer) = closer {
+        out = format!("{out} then {closer}");
+    }
+    Ok(out)
+}
+
+/// How a rule of an expansion is written as one `rewrite` rule.
+fn rule_text(rule: &ExpandedRule, slice: &mut dyn FnMut(Span) -> String) -> String {
+    let mut name = match &rule.source {
+        RuleSource::Written(span) => slice(*span),
+        RuleSource::Named(name) => name.clone(),
+    };
+    if !rule.fields.is_empty() && name.contains(' ') {
+        name = format!("({name})");
+    }
+    for field in &rule.fields {
+        name = format!("{name}.{field}");
+    }
+    match rule.reverse {
+        true => format!("<- {name}"),
+        false => name,
+    }
+}
+
+/// The field names `expanded` adds to `proof` (`f` to `f.eq2.or1`).
+fn added_fields(proof: &Expr, expanded: &Expr) -> Vec<String> {
+    fn depth(e: &Expr) -> usize {
+        match e {
+            Expr::Field(base, _) => 1 + depth(base),
+            _ => 0,
+        }
+    }
+    let mut extra = depth(expanded).saturating_sub(depth(proof));
+    let mut fields = Vec::new();
+    let mut e = expanded;
+    while extra > 0
+        && let Expr::Field(base, name) = e
+    {
+        fields.push(name.text.to_string());
+        e = base;
+        extra -= 1;
+    }
+    fields.reverse();
+    fields
+}
+
+/// How the file being checked writes a set's rule, given by its key.
+fn member_name(cx: &Ctx, proof: &Expr) -> String {
+    match proof {
+        Expr::Var(n) => match n.text.strip_prefix(crate::scope::EXACT_KEY) {
+            Some(key) => cx.e.shortest_written(key),
+            None => n.text.to_string(),
+        },
+        _ => rule_name(&RewriteRule {
+            reverse: false,
+            unfold: false,
+            proof: proof.clone(),
+            span: proof.span(),
+        }),
+    }
+}
+
+/// The set `proof` names, if it names one.
+fn set_named(cx: &mut Ctx, proof: &Expr) -> Result<Option<(DefId, Rc<RuleSet>)>> {
+    if !matches!(proof, Expr::Var(_) | Expr::Field(..)) || cx.e.tables.rule_sets.is_empty() {
+        return Ok(None);
+    }
+    if let Expr::Var(n) = proof
+        && (cx.lookup(&n.text).is_some() || cx.local(&n.text)?.is_some())
+    {
+        return Ok(None);
+    }
+    let snapshot = Snapshot::take(cx);
+    let errors = cx.e.attempt.branch_errors.borrow().len();
+    let found = infer(cx, proof);
+    restore(cx, snapshot, errors);
+    match found {
+        Ok((term, _)) => Ok(match term.strip_loc() {
+            Term::Def(d) => cx.e.tables.rule_sets.get(d).map(|set| (*d, Rc::clone(set))),
+            _ => None,
+        }),
+        Err(e) if fatal(&e) => Err(e),
+        Err(_) => Ok(None),
+    }
+}
+
+/// The written rule standing for definition `d` (a set's member), named
+/// by its key so that it means the same wherever the set is used.
+fn member_rule(cx: &Ctx, d: DefId, reverse: bool, at: Span) -> RewriteRule {
+    let key = cx.e.def_key(d);
+    RewriteRule {
+        reverse,
+        unfold: false,
+        proof: Expr::Var(AstName {
+            text: format!("{}{key}", crate::scope::EXACT_KEY),
+            span: at,
+        }),
+        span: at,
+    }
+}
+
+impl crate::Elaborator {
+    /// `rules name := [r1, <- r2]`: checks each rule as `rewrite repeatedly`
+    /// would (`E-REWRITE-REPEATEDLY-RULE`), and declares `name`, a
+    /// definition of `()` under which the rules are filed.
+    pub(crate) fn rule_set(&mut self, decl: &stitchwort_syntax::ast::Decl) -> Result<()> {
+        let stitchwort_syntax::ast::Decl::Rules { name, rules, span } = decl else {
+            unreachable!("only called on a rule set")
+        };
+        let key = self.check_new_name(name)?;
+        self.clear_metas();
+        self.unit.module.phase = crate::module::Phase::Body;
+        let (members, ty, body) = {
+            let mut cx = Ctx::new(self, *span);
+            let mut members: Vec<(DefId, bool)> = Vec::new();
+            for rule in rules {
+                if let Some((_, set)) = set_named(&mut cx, &rule.proof)? {
+                    members.extend(set.rules.iter().map(|&(d, r)| (d, r != rule.reverse)));
+                    continue;
+                }
+                let d = match &rule.proof {
+                    Expr::Var(_) | Expr::Field(..) => {
+                        match infer(&mut cx, &rule.proof)?.0.strip_loc() {
+                            Term::Def(d) => Some(*d),
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                };
+                let Some(d) = d else {
+                    return Err(Diagnostic::error(
+                        "E-RULE-SET",
+                        "a set's rules are named lemmas, definitions or other sets",
+                    )
+                    .with_label(rule.proof.span(), "not the name of a lemma or definition")
+                    .with_note(
+                        "a set is used wherever it is named, so it can't hold a hypothesis or a lemma \
+                         applied to arguments; list those in the `rewrite repeatedly` itself",
+                    ));
+                };
+                for each in expand(&mut cx, rule)? {
+                    check_rule(&mut cx, &each)?;
+                }
+                members.push((d, rule.reverse));
+            }
+            let (body, ty) = infer(&mut cx, &Expr::Unit(*span))?;
+            let ty = cx.quote(&ty)?;
+            (members, ty, body)
+        };
+        let id = crate::kernel::declare_def(
+            &mut self.kernel,
+            &self.tables,
+            &self.unit,
+            &crate::scope::display(&key).into(),
+            &ty,
+            false,
+            false,
+            *span,
+        )?;
+        if let Some(item) = self.unit.module.item {
+            self.unit.module.note_def(id, item);
+        }
+        self.scope
+            .insert(&key, crate::Global::Def(id), name.span, false);
+        crate::kernel::define_def(&mut self.kernel, &self.tables, id, &body)?;
+        self.tables.rule_sets.insert(
+            &self.session.owners,
+            id,
+            Rc::new(RuleSet { rules: members }),
+        );
+        Ok(())
+    }
+}
+
 /// `rewrite repeatedly [rules]` against `expected`, with or without `then`.
-pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+///
+/// With `at h` the rules rewrite the type of `h` (any term) instead, nothing
+/// is closed, and the result is `h` along the rewrites, as for `rewrite … at`:
+/// with `then t`, `t` with `h` rebound to it (`h` must be a local name);
+/// without, the term itself, checked against `expected` when there is one.
+pub(super) fn rewrite_repeatedly(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: Option<&Value>,
+) -> Result<(Term, Value)> {
     let Expr::Rewrite {
         rules: written,
+        target,
         body,
         keyword,
         repeatedly,
+        at,
         then,
         ..
     } = expr
     else {
         unreachable!("only called on a rewrite");
     };
+    let target = target.as_deref();
+    let name = match target {
+        Some(Expr::Var(n)) if cx.lookup(&n.text).is_some() || cx.local(&n.text)?.is_some() => {
+            Some(n)
+        }
+        _ => None,
+    };
+    if let (Some(target), Some(_), None) = (target, body, name) {
+        return Err(Diagnostic::error(
+            "E-REWRITE-TARGET",
+            "`rewrite repeatedly … at … then` needs a local name after `at`",
+        )
+        .with_label(
+            target.span(),
+            "this isn't a local name, so there is nothing to give the new type for the rest of the proof",
+        )
+        .with_note("drop `then …` to use the rewritten term directly, or name it first with `let`"));
+    }
+    let place = match target {
+        Some(_) => Place::Target(name.map(|n| n.text.as_str())),
+        None => Place::Goal,
+    };
     let header = keyword.to(written.last().map_or(*keyword, |r| r.span));
     let mut rules = Vec::new();
     for (origin, rule) in written.iter().enumerate() {
-        for rule in expand(cx, rule)? {
-            let shape = check_rule(cx, &rule)?;
-            rules.push(Listed {
-                rule,
-                origin,
-                shape,
-            });
+        let named = set_named(cx, &rule.proof)?;
+        let origin_set = named.is_some();
+        let members = match named {
+            Some((_, set)) => set
+                .rules
+                .iter()
+                .map(|&(d, reverse)| member_rule(cx, d, reverse != rule.reverse, rule.span))
+                .collect(),
+            None => vec![rule.clone()],
+        };
+        for member in &members {
+            let named = match origin_set {
+                true => Some(member_name(cx, &member.proof)),
+                false => None,
+            };
+            for rule in expand(cx, member)? {
+                let shape = check_rule(cx, &rule)?;
+                let source = ExpandedRule {
+                    source: match &named {
+                        Some(name) => RuleSource::Named(name.clone()),
+                        None => RuleSource::Written(member.proof.span()),
+                    },
+                    fields: added_fields(&member.proof, &rule.proof),
+                    reverse: rule.reverse,
+                    order: rules.len(),
+                };
+                rules.push(Listed {
+                    rule,
+                    origin,
+                    shape,
+                    origin_set,
+                    source,
+                });
+            }
         }
     }
+    // With a target, its type is what the rules rewrite: the "goal" below.
+    let fact = match target {
+        Some(target) => {
+            let (fact, ty) = infer(cx, target)?;
+            Some(crate::check::insert(cx, fact, ty)?)
+        }
+        None => None,
+    };
+    let start = match (&fact, expected) {
+        (Some((_, ty)), _) => ty.clone(),
+        (None, Some(expected)) => expected.clone(),
+        (None, None) => unreachable!("a rewrite of the goal is checked against one"),
+    };
     let mut goal = match cx.e.tables.interfaces.is_empty() {
-        true => expected.clone(),
-        false => crate::interfaces::find_ready_dictionaries(cx, expected, None)?
-            .unwrap_or_else(|| expected.clone()),
+        true => start,
+        false => crate::interfaces::find_ready_dictionaries(cx, &start, None)?.unwrap_or(start),
     };
     // Only a goal as written known to denote the goal, as for `rewrite`.
-    let given = cx.written_goal.take();
+    let given = match target {
+        Some(_) => None,
+        None => cx.written_goal.take(),
+    };
     let mut written_goal = goal_as_written(cx, given, &goal)?;
     let mut steps: Vec<Step> = Vec::new();
     // Per rewrite: the rule used, and for `goal --at`, the goal before and
@@ -222,9 +691,10 @@ pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) ->
             match written_only {
                 true => {
                     if body.is_none()
-                        && let Some(term) = try_close(cx, header, &goal)?
+                        && target.is_none()
+                        && let Some(found) = try_close(cx, header, &goal)?
                     {
-                        closed = Some(term);
+                        closed = Some(found);
                         break;
                     }
                     written_only = false;
@@ -271,7 +741,7 @@ pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) ->
             // Not 0: that asks whether the body proves the goal without
             // the rule, which is for a message this never shows.
             this + 1,
-            Place::Goal,
+            place,
             &goal,
             written_goal.clone(),
             None,
@@ -342,7 +812,7 @@ pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) ->
         .map(|(k, _)| k)
         .collect::<Vec<_>>();
     if !notes.is_empty() {
-        let extra = [Some(*keyword), *repeatedly, *then]
+        let extra = [Some(*keyword), *repeatedly, *at, *then]
             .into_iter()
             .flatten()
             .collect::<Vec<_>>();
@@ -366,19 +836,33 @@ pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) ->
                     adds: Vec::new(),
                     rule: used.clone(),
                     parts: Vec::new(),
-                    target: None,
+                    target: target
+                        .map(|_| name.map_or_else(|| "the term".into(), |n| n.text.clone())),
                     extra: extra.clone(),
                 },
             );
         }
     }
-    let base = match body {
+    if let Some((fact, _)) = fact {
+        let mut term = fact;
+        for step in steps {
+            term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
+        }
+        note_unused(cx, written, &rules, &trail);
+        let closer = body
+            .as_ref()
+            .map_or(Closer::Computing, |b| Closer::Body(b.span()));
+        record_expansion(cx, expr, &rules, &trail, closer);
+        return rebound(cx, term, goal, name, body.as_deref(), expected);
+    }
+    let expected = expected.expect("checked above");
+    let (base, closer) = match body {
         _ if closed.is_some() => closed.expect("just checked"),
         Some(body) => {
             if !stated(body) {
                 warn_unstated(cx, header, body);
             }
-            check(cx, body, &goal)?
+            (check(cx, body, &goal)?, Closer::Body(body.span()))
         }
         None => close(
             cx,
@@ -391,11 +875,136 @@ pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) ->
             written_goal.as_ref(),
         )?,
     };
+    note_unused(cx, written, &rules, &trail);
+    record_expansion(cx, expr, &rules, &trail, closer);
     let mut term = base;
     for step in steps.into_iter().rev() {
         term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
     }
-    Ok(term)
+    Ok((term, expected.clone()))
+}
+
+/// Records what the call did, when expansions are asked for.
+fn record_expansion(
+    cx: &Ctx,
+    expr: &Expr,
+    rules: &[Listed],
+    trail: &[(usize, Value, Option<Value>)],
+    closer: Closer,
+) {
+    let Expr::Rewrite { target, .. } = expr else {
+        return;
+    };
+    if let Some(expansions) = cx.e.session.expansions.borrow_mut().as_mut() {
+        expansions.push(Expansion {
+            call: expr.span(),
+            // A definition's step is proved by computing, so the goal after
+            // it is the goal before to `rewrite`, whose search reads what
+            // the goal computes to: it has no `rewrite` step of its own.
+            rules: trail
+                .iter()
+                .filter(|(index, _, _)| !rules[*index].rule.unfold)
+                .map(|(index, _, _)| rules[*index].source.clone())
+                .collect(),
+            target: target.as_ref().map(|t| t.span()),
+            closer,
+        });
+    }
+}
+
+/// `rewrite repeatedly … at` once the rules are done: `term`, of type `ty`,
+/// is the target along them. With `then body`, `body` with `name` rebound
+/// to it; without, `term` itself.
+fn rebound(
+    cx: &mut Ctx,
+    term: Term,
+    ty: Value,
+    name: Option<&AstName>,
+    body: Option<&Expr>,
+    expected: Option<&Value>,
+) -> Result<(Term, Value)> {
+    let Some(body) = body else {
+        let Some(expected) = expected else {
+            return Ok((term, ty));
+        };
+        return match crate::check::compare(cx, term, &ty, expected) {
+            Err(e) if e.code == "E-TYPE-MISMATCH" => Err(e.with_note(format!(
+                "after `rewrite repeatedly … at`, {} is `{}`",
+                name.map_or_else(|| "the term".into(), |n| format!("`{}`", n.text)),
+                cx.show(&ty)
+            ))),
+            result => Ok((result?, expected.clone())),
+        };
+    };
+    let name = name.expect("checked before rewriting");
+    let ty_term = cx.quote_folded(&ty)?;
+    let mark = cx.mark();
+    let x: stitchwort_core::Name = name.text.as_str().into();
+    let result = cx
+        .define(
+            Some(&name.text),
+            x.clone(),
+            ty,
+            ty_term.clone(),
+            term.clone(),
+        )
+        .and_then(|()| match expected {
+            Some(t) => check(cx, body, t).map(|b| (b, t.clone())),
+            None => infer(cx, body),
+        });
+    cx.reset(mark);
+    let (body, block_ty) = result?;
+    Ok((Term::let_(x, ty_term, term, body), block_ty))
+}
+
+/// The code of the warning for a listed rule that never applied.
+pub(crate) const UNUSED_RULE: &str = "W-REWRITE-REPEATEDLY-UNUSED";
+
+/// `W-REWRITE-REPEATEDLY-UNUSED` for each written rule (or set) none of
+/// whose rules applied. A call checked more than once (in each case of
+/// `cases then`) warns about a rule only if it applied in none of them.
+fn note_unused(
+    cx: &Ctx,
+    written: &[RewriteRule],
+    rules: &[Listed],
+    trail: &[(usize, Value, Option<Value>)],
+) {
+    let mut applied = vec![false; written.len()];
+    for (index, _, _) in trail {
+        applied[rules[*index].origin] = true;
+    }
+    let mut fired = cx.e.attempt.fired_rules.borrow_mut();
+    let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
+    let at = |w: &Diagnostic, span: Span| {
+        w.code == UNUSED_RULE && w.labels.first().map(|l| l.span) == Some(span)
+    };
+    for (rule, applied) in written.iter().zip(applied) {
+        if applied {
+            if !fired.contains(&rule.span) {
+                fired.push(rule.span);
+            }
+            warnings.retain(|w| !at(w, rule.span));
+            continue;
+        }
+        if fired.contains(&rule.span) || warnings.iter().any(|w| at(w, rule.span)) {
+            continue;
+        }
+        let is_set = rules
+            .iter()
+            .any(|r| r.origin_set && written.get(r.origin).is_some_and(|w| w.span == rule.span));
+        let what = match is_set {
+            true => format!("none of the rules of `{}` applied", rule_name(rule)),
+            false => format!("`{}` never applied", rule_name(rule)),
+        };
+        warnings.push(
+            Diagnostic::warning(UNUSED_RULE, what)
+                .with_label(rule.span, "the goal never had a place this rewrites")
+                .with_note(
+                    "take it out of the list: a rule that isn't used hides which ones the proof \
+                     needs",
+                ),
+        );
+    }
 }
 
 fn restore(cx: &mut Ctx, snapshot: Snapshot, errors: usize) {
@@ -435,8 +1044,9 @@ fn written_after(cx: &Ctx, written: &Term, found: &[Step]) -> Result<Option<Term
     Ok(Some(written))
 }
 
-/// [`close`]'s closers, or `None` if none closes `goal`.
-fn try_close(cx: &mut Ctx, header: Span, goal: &Value) -> Result<Option<Term>> {
+/// [`close`]'s closers, or `None` if none closes `goal`: the proof, and
+/// which closer it was.
+fn try_close(cx: &mut Ctx, header: Span, goal: &Value) -> Result<Option<(Term, Closer)>> {
     let rfl = Expr::Var(AstName {
         text: "byComputing".into(),
         span: header,
@@ -449,11 +1059,19 @@ fn try_close(cx: &mut Ctx, header: Span, goal: &Value) -> Result<Option<Term>> {
     let quiet = &cx.e.decl.quiet_refl;
     quiet.set(quiet.get() - 1);
     match checked {
-        Ok(term) => return Ok(Some(term)),
+        Ok(term) => return Ok(Some((term, Closer::Computing))),
         Err(e) if fatal(&e) => return Err(e),
         Err(_) => restore(cx, snapshot, errors),
     }
-    crate::cases::close_by_hypotheses(cx, goal)
+    Ok(crate::cases::close_by_hypotheses(cx, goal)?.map(|term| {
+        let named = match term.strip_loc() {
+            Term::Var(ix) if *ix < cx.level() => cx
+                .name_of_level(cx.level() - 1 - ix)
+                .map(|n| Closer::Hypothesis(n.to_string())),
+            _ => None,
+        };
+        (term, named.unwrap_or(Closer::Cases))
+    }))
 }
 
 /// Closes what the rules left: by computing, by contradicting hypotheses,
@@ -468,9 +1086,9 @@ fn close(
     skipped: &[Option<Diagnostic>],
     goal: &Value,
     written_goal: Option<&Term>,
-) -> Result<Term> {
-    if let Some(term) = try_close(cx, header, goal)? {
-        return Ok(term);
+) -> Result<(Term, Closer)> {
+    if let Some(found) = try_close(cx, header, goal)? {
+        return Ok(found);
     }
     Err(left_open(
         cx,
@@ -664,6 +1282,10 @@ fn rule_name(rule: &RewriteRule) -> String {
         }
     }
     let name = path(&rule.proof).unwrap_or_else(|| "this rule".into());
+    let name = match name.strip_prefix(crate::scope::EXACT_KEY) {
+        Some(key) => crate::scope::display(key).to_string(),
+        None => name,
+    };
     match rule.reverse {
         true => format!("<- {name}"),
         false => name,
@@ -1143,5 +1765,85 @@ mod tests {
             "List.appendAssoc"
         );
         assert_eq!(rule_name(&rule("h", true)), "<- h");
+    }
+
+    /// The span of the `n`th (from 0) occurrence of `part` in `text`.
+    fn at(file: stitchwort_syntax::FileId, text: &str, part: &str, n: usize) -> Span {
+        let start = text.match_indices(part).nth(n).expect("in the text").0;
+        Span::new(file, start as u32, (start + part.len()) as u32)
+    }
+
+    fn written(span: Span, order: usize) -> ExpandedRule {
+        ExpandedRule {
+            source: RuleSource::Written(span),
+            fields: Vec::new(),
+            reverse: false,
+            order,
+        }
+    }
+
+    #[test]
+    fn expand_file_prints_chains_targets_and_closers() {
+        let text = "a := rewrite repeatedly [P, Q]\nb := rewrite repeatedly [S] at H then H\n";
+        let mut sources = stitchwort_syntax::SourceMap::new();
+        let file = sources.add("t.sw", text);
+        // The first call's span ends at its last rule, before the `]`.
+        let first = Span::new(file, 5, text.find("Q]").unwrap() as u32 + 1);
+        let second_start = text.find("rewrite repeatedly [S]").unwrap();
+        let second = Span::new(file, second_start as u32, text.len() as u32 - 1);
+        let p = written(at(file, text, "P", 0), 0);
+        let q = written(at(file, text, "Q", 0), 1);
+        let set_member = ExpandedRule {
+            source: RuleSource::Named("List.appendNil".into()),
+            fields: vec!["eq2".into()],
+            reverse: true,
+            order: 0,
+        };
+        let expansions = [
+            Expansion {
+                call: first,
+                rules: vec![p.clone(), q, p],
+                target: None,
+                closer: Closer::Hypothesis("h".into()),
+            },
+            Expansion {
+                call: second,
+                rules: vec![set_member],
+                target: Some(at(file, text, "H", 0)),
+                closer: Closer::Body(at(file, text, "H", 1)),
+            },
+        ];
+        let (out, done, refused) = expand_file(text, file, &expansions);
+        assert_eq!(
+            out,
+            "a := rewrite P, Q, P then h\nb := rewrite <- List.appendNil.eq2 at H then H\n"
+        );
+        assert_eq!((done, refused), (2, Vec::new()));
+    }
+
+    #[test]
+    fn expand_file_joins_cases_that_differ() {
+        let text = "a := cases then rewrite repeatedly [P, Q, R], x";
+        let mut sources = stitchwort_syntax::SourceMap::new();
+        let file = sources.add("t.sw", text);
+        let call = Span::new(file, 16, text.find("R]").unwrap() as u32 + 1);
+        let [p, q, r] = ["P", "Q", "R"].map(|n| at(file, text, n, 0));
+        let case = |rules: Vec<ExpandedRule>| Expansion {
+            call,
+            rules,
+            target: None,
+            closer: Closer::Computing,
+        };
+        // Rules no case used are left out; the rest stay in their order.
+        let checks = [
+            case(vec![written(r, 2)]),
+            case(vec![written(p, 0), written(r, 2)]),
+        ];
+        let (out, done, _) = expand_file(text, file, &checks);
+        assert_eq!(out, "a := cases then rewrite repeatedly [P, R], x");
+        assert_eq!(done, 1);
+        // One chain followed by a comma is bracketed.
+        let (out, _, _) = expand_file(text, file, &[case(vec![written(q, 1)])]);
+        assert_eq!(out, "a := cases then (rewrite Q), x");
     }
 }

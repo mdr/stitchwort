@@ -1841,6 +1841,22 @@ impl Elaborator {
         self.written_in_full(key)
     }
 
+    /// How `key` is written here, shortest first: its last name, or more of
+    /// its path, as long as that means `key` here; else [`Self::written`].
+    pub(crate) fn shortest_written(&self, key: &str) -> String {
+        let parts: Vec<&str> = display(key).split('.').collect();
+        for k in (0..parts.len()).rev() {
+            let short = parts[k..].join(".");
+            if matches!(
+                self.resolve_any(&short),
+                Resolved::Found { key: found, rest, .. } if found == key && rest.is_empty()
+            ) {
+                return short;
+            }
+        }
+        self.written(key)
+    }
+
     /// [`Self::written`], ignoring the names this file gives imports: for
     /// saying where a declaration is.
     fn written_in_full(&self, key: &str) -> String {
@@ -1851,6 +1867,11 @@ impl Elaborator {
             }
             _ => key.to_string(),
         }
+    }
+
+    /// The key of definition `id`, as [`Self::declaration_key_of`].
+    pub(crate) fn def_key(&self, id: DefId) -> String {
+        self.declaration_key_of(Declaration::Def(id))
     }
 
     /// The key of `declaration`: its kernel name, with `Std.` for the

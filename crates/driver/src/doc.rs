@@ -351,7 +351,8 @@ impl Decls {
                     start,
                     source: source(),
                 }),
-                Decl::Equation { .. } => {}
+                // Documented in a later stage of simp-revisited.md.
+                Decl::Rules { .. } | Decl::Equation { .. } => {}
             }
         }
     }

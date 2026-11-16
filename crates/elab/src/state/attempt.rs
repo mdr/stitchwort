@@ -60,6 +60,11 @@ pub(crate) struct Attempt {
     /// Swapped out while a library file is loaded (`library::Context`), and
     /// not emptied by [`Attempt::reset`].
     pub(crate) lambda_warnings: RefCell<Vec<Diagnostic>>,
+    /// The rules of `rewrite repeatedly` calls (by the rule's span) that
+    /// have applied in the declaration being checked: a call checked again
+    /// (once per case of `cases then`) warns that a rule never applied
+    /// (`W-REWRITE-REPEATEDLY-UNUSED`) only if it applied in none.
+    pub(crate) fired_rules: RefCell<Vec<Span>>,
     /// Errors from the other bad branches of a case whose first bad branch's
     /// error is the one returned. Where only a shared reference to the
     /// elaborator is at hand; a definition that fails reports them after its
@@ -168,8 +173,9 @@ pub(crate) struct Attempt {
 
 /// The warnings undoing an attempt drops ([`Mark`]): those that say
 /// something about what the attempt did.
-const UNDONE_WARNINGS: [&str; 3] = [
+const UNDONE_WARNINGS: [&str; 4] = [
     crate::no_effect::CODE,
+    crate::rewrite::UNUSED_RULE,
     "W-REWRITE-UNCONFIRMED",
     "W-MATCH-UNCONFIRMED",
 ];
@@ -225,6 +231,7 @@ impl Attempt {
     /// Where this is now, to [`Attempt::restore`] to.
     pub(crate) fn mark(&self) -> Mark {
         let Attempt {
+            fired_rules: _,
             store,
             obligations,
             row_metas,
@@ -282,6 +289,7 @@ impl Attempt {
     /// them, cut at the metavariables' mark.
     pub(crate) fn restore(&self, mark: Mark) {
         let Attempt {
+            fired_rules: _,
             store,
             obligations,
             row_metas,
@@ -371,6 +379,7 @@ impl Attempt {
             local_keys: _,
             lambda_warnings: _,
             branch_errors: _,
+            fired_rules,
             rigid_divergence: _,
             // Set only inside a call, by a guard.
             postponed: _,
@@ -399,11 +408,13 @@ impl Attempt {
         defaulted_records.borrow_mut().clear();
         lossy.borrow_mut().clear();
         instance_steps.borrow_mut().clear();
+        fired_rules.borrow_mut().clear();
     }
 
     /// Empties everything, for `Elaborator::rewind`.
     pub(crate) fn rewind(&mut self) {
         let Attempt {
+            fired_rules,
             store,
             obligations,
             row_metas,
@@ -449,6 +460,7 @@ impl Attempt {
         drafts.get_mut().clear();
         local_keys.get_mut().clear();
         lambda_warnings.get_mut().clear();
+        fired_rules.get_mut().clear();
         branch_errors.get_mut().clear();
         local_metas.get_mut().clear();
         meta_names.get_mut().clear();

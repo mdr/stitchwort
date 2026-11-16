@@ -3235,17 +3235,7 @@ impl<'t> Parser<'t> {
         {
             self.bump();
             self.repeated_rules()?;
-            if matches!(self.peek(), Some(Tok::Lower(x)) if x == "at") {
-                return Err(error(
-                    self.here(),
-                    "`rewrite repeatedly … at h` isn't built yet",
-                )
-                .with_note(
-                    "rewrite the fact's type rule by rule with `rewrite r1, r2 at h`, or state \
-                     the fact you want and prove it with `rewrite repeatedly [..]`",
-                )
-                .into());
-            }
+            self.rewrite_target()?;
             return self.rewrite_then(start, column);
         }
         loop {
@@ -3267,6 +3257,12 @@ impl<'t> Parser<'t> {
                 break;
             }
         }
+        self.rewrite_target()?;
+        self.rewrite_then(start, column)
+    }
+
+    /// A `rewrite`'s optional `at` and target, after its rules.
+    fn rewrite_target(&mut self) -> Result<()> {
         if matches!(self.peek(), Some(Tok::Lower(x)) if x == "at") {
             let at = self.bump().span;
             if self
@@ -3282,7 +3278,7 @@ impl<'t> Parser<'t> {
             self.modes.rewrite_rule = None;
             target?;
         }
-        self.rewrite_then(start, column)
+        Ok(())
     }
 
     /// The rules of `rewrite repeatedly [r1, <- r2]`, from the `[`: each a

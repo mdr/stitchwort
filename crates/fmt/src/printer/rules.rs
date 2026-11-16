@@ -502,7 +502,7 @@ impl<'a> Rules<'a> {
     pub(crate) fn node(&mut self, node: Node<'_>) -> Doc {
         use NodeKind::*;
         match node.kind() {
-            Def | Theorem | Instance | Test => self.decl(node),
+            Def | Theorem | Instance | Test | Rules => self.decl(node),
             DataType => self.data_type(node),
             RecordType | Interface | TypeSynonym => self.type_decl(node),
             Ability => self.ability(node),

@@ -457,9 +457,10 @@ pub fn direct_names(ns: &NamespaceSyntax) -> BTreeSet<String> {
 /// The text of the name a declaration declares, as written.
 fn written(decl: &Decl) -> &str {
     match decl {
-        Decl::Data { name, .. } | Decl::Ability { name, .. } | Decl::Signature { name, .. } => {
-            &name.text
-        }
+        Decl::Data { name, .. }
+        | Decl::Ability { name, .. }
+        | Decl::Signature { name, .. }
+        | Decl::Rules { name, .. } => &name.text,
         Decl::Test { .. } | Decl::Equation { .. } => "",
     }
 }
