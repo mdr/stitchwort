@@ -39777,12 +39777,12 @@
     {
       "id": 3553,
       "title": "[DeepSeek] Errors E7: too many arguments: 'double takes 1 argument, but is given 2', labelling the extra (docs/proposals/helpful-errors.md §5 rank 7). Est. 30 min",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~40 min (est. 30). Reviewed line by line. Grouped calls ((double 3) 4) keep the old message.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
