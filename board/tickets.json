@@ -40929,15 +40929,20 @@
     {
       "id": 3641,
       "title": "[Fable] Toy++ T1c: prove formatKeepsComments on today's toy (D3664, Matt, 16 Nov 2026: 'doing it on today's toy might be wise ... gives us a heads up in case it's complicated or if we need to learn anything about it'): the carry walk in Toy/Fmt/CarryProofs.sw over the 49 parser functions (tokensCarry), lexTidy, lexRising; move the theorem from plus/src/KeepsComments.sw into the toy, proved. Record what was learnt (cost per parser function, std lemmas needed) for T2/T3 and the real formatter. Est. 2 h (T1b's estimate; 1.5x stop at 3 h)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "**Lane notes (Fable, 16 Nov 2026, 17:54 to 18:30; branch `lane/SW-3641`).**\n\n`formatKeepsComments` is proved on today's toy and is in the toy: `tools/toyfmt/src/Toy/Fmt/KeepsComments.sw`, statement unchanged. `Degenerate.sw` has `formatHasKeepsComments: KeepsComments format`. `plus/src/KeepsComments.sw` is deleted.\n\n- The three open lemmas became two: `tokensCarry` (the walk, `Toy/Fmt/CarryWalk.sw`) and `lexFits` (the lexer's tokens are `Tidy` and `Rising`, as the walk's `Parse.Invariant`; `Toy/Fmt/CarryLex.sw`).\n- Lemmas by file: CarryProofs.sw 26, CarryWalk.sw 85, CarryLex.sw 16, KeepsComments.sw 2 and 7 computed examples: 129 theorems, about 2,100 lines.\n- Parser change: `itemsFrom`'s unreachable `Zero` arm is now `Parse.fatal` (as `bodyFuel`'s), not `found.reverse`: `found.reverse` breaks `givesItemsFrom` (`BareLastItem`). For the orchestrator to confirm.\n- What was learnt (cost per kind of parser function, what recurs, std candidates): `tools/toyfmt/plus/SKETCH-PLUS.md`, \"T1c\".\n\nChecks: `stitchwort check` in `tools/toyfmt` (\"checked 13 namespaces of toyfmt\", also `--no-cache`) and `tools/toyfmt/plus` (\"49 goals open\", as before T1b). `stitchwort audit Toy.Fmt.Carry Toy.Fmt.KeepsComments Toy.Fmt.Degenerate Toy.Fmt.Proofs.givesItemsFrom Toy.Fmt.Proofs.givesItems`: \"audited 154 theorems and 67 generated lemmas: 0 failed, 0 with warnings, 221 passed\". `stitchwort test src/Toy/Fmt/Tests/Parsing.sw`: 4 passed.\n\nCommits: b0e8d3bd3, 5c21d3cf3, 20125f2df, 374e7cc7f.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "b0e8d3bd3",
+        "5c21d3cf3",
+        "20125f2df",
+        "374e7cc7f"
+      ]
     },
     {
       "id": 3642,
