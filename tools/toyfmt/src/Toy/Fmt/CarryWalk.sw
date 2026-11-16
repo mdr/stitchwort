@@ -150,6 +150,110 @@ theorem innerName ∀ (layout: Layout): Parse.ReadsIn Lexer (() => name layout) 
             value
             (Eq.cong Comments.all (selectedNamed layout token value selected)))
 
+theorem noComments ∀ (value: Comments) (wrong: None = Some value): Void := cases
+
+theorem commaIsSign ∀ (kind: Kind) (comma: kind.isComma = True): kind = Sign Comma := cases
+
+--| A token `select` took is no comma, where `select` takes none.
+theorem selectedNotComma ∀ (layout: Layout) (select: Kind → Option ()) (token: Tok) (value: Comments)
+    (selected: selectComments layout select token = Some value)
+    (never: select (Sign Comma) = None):
+    token.value.kind.isComma = False :=
+  match comma: token.value.kind.isComma with
+    | False => byComputing
+    | True =>
+      let same := commaIsSign token.value.kind comma
+      let stuck: selectComments layout select token = None := match allowed: layout.allows token with
+        | True => rewrite same, never
+      (noComments value (Eq.trans stuck.flipped selected)).impossible
+
+--| `sign`, of a sign that is no comma, as a `Word`.
+theorem wordSign ∀ (layout: Layout) (what: Text) (wanted: Punctuation)
+    (never: signIs wanted (Sign Comma) = None):
+    Parse.ReadsIn Lexer (() => sign layout what wanted) (Word layout Comments.all) :=
+  Parse.readsWeaken (Parse.readsOne what (selectComments layout (signIs wanted))) (taken value found =>
+    match found with
+      | (token, single, selected) => (
+        (rewrite single then
+          innerOne
+            [measure := Comments.all]
+            layout
+            token
+            value
+            (Eq.cong Comments.all (selectedComments layout (signIs wanted) token value selected))),
+        token,
+        single,
+        (selectedNotComma layout (signIs wanted) token value selected never)
+      ))
+
+--| `keyword` as a `Word`.
+theorem wordKeyword ∀ (layout: Layout) (wanted: Keyword):
+    Parse.ReadsIn Lexer (() => keyword layout wanted) (Word layout Comments.all) :=
+  Parse.readsWeaken
+    (Parse.readsOne "'${wanted.spelling}'" (selectComments layout (keywordIs wanted)))
+    (taken value found =>
+      match found with
+        | (token, single, selected) => (
+          (rewrite single then
+            innerOne
+              [measure := Comments.all]
+              layout
+              token
+              value
+              (Eq.cong Comments.all (selectedComments layout (keywordIs wanted) token value selected))),
+          token,
+          single,
+          (selectedNotComma layout (keywordIs wanted) token value selected byComputing)
+        ))
+
+--| A comma the walk's invariant says is bare holds no comments.
+theorem bareKept ∀ (token: Tok)
+    (bare: BareComma token)
+    (comma: token.value.kind.isComma = True):
+    Layout.kept InBrackets token = [] :=
+  match token, bare, comma with
+    | { value = { kind, startsLine, column, above, trailing }, offset, length }, bare, comma =>
+      let facts := bare comma
+      rewrite facts.left, facts.right
+
+theorem signIsComma ∀ (kind: Kind) (is: (signIs Comma kind).isSome = True): kind.isComma = True := cases
+
+theorem commaSelected ∀ (kind: Kind) (value: ()) (is: signIs Comma kind = Some value): kind.isComma = True := cases
+
+--| The comma `sign` reads holds nothing, so it adds nothing to what the
+--| tree must hold: the tree keeps no comments for a comma.
+theorem innerComma: Parse.ReadsIn Lexer (() => sign InBrackets "','" Comma) (Inner InBrackets (comments => [])) :=
+  start fine total state value after here honest h =>
+    match Parse.readsOne
+      [inv := Lexer]
+      "','"
+      (selectComments InBrackets (signIs Comma))
+      start
+      fine
+      total
+      state
+      value
+      after
+      here
+      honest
+      h with
+      | (read, starts, honestAfter, (token, single, selected)) =>
+        let held := fine.holds.left
+        let settling: Settling [token, ..after.rest] := rewrite starts, single at held then held
+        let comma: token.value.kind.isComma = True := match is: signIs Comma token.value.kind with
+          | Some found => commaSelected token.value.kind found is
+        (
+          read,
+          starts,
+          honestAfter,
+          (past =>
+            rewrite single then
+              calc ([]: List Comment)
+                _ = Layout.kept InBrackets token := (bareKept token (settlingBare token after.rest settling) comma).flipped
+                _ = token.value.comments := bracketsKept token
+                _ = allCarried [token] := (allCarriedOne token).flipped)
+        )
+
 def optionComments: Option Comments → List Comment
   | Some comments => comments.all
   | None => []
@@ -208,46 +312,83 @@ theorem innerSignInBrackets ∀ (what: Text) (wanted: Punctuation):
               (rewrite e then fine)
           | True => innerSignTaken start token later fine e)
 
+--| `signInBrackets` where a comma that holds nothing is next: it is read.
+theorem innerCommaTaken ∀ (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
+    (fine: Parse.Fits Tok Lexer [token, ..later])
+    (shape: start.rest = [token, ..later])
+    (none: Layout.kept InBrackets token = []):
+    Parse.ReadsAt start
+      (() =>
+        skip()
+        Some (Layout.comments InBrackets token))
+      (Inner InBrackets ((found: Option Comments) => [])) :=
+  skipInner InBrackets start token later fine shape (done => ontoDone byComputing (rewrite none))
+
+--| `signInBrackets` of a comma adds nothing: the comma it reads holds no
+--| comment (`Settling`).
+theorem innerCommaInBrackets: Parse.ReadsIn Lexer
+      (() => signInBrackets "','" Comma)
+      (Inner InBrackets ((found: Option Comments) => [])) :=
+  Parse.readsInPeek _ _ (start fine =>
+    match e: start.rest with
+      | [] =>
+        innerNoted
+          [measure := (found: Option Comments) => []]
+          InBrackets
+          (Parse.Problem.Expected "','")
+          None
+          byComputing
+          start
+          (rewrite e then fine)
+      | [token, ..later] =>
+        match isSign: (signIs Comma token.value.kind).isSome with
+          | False =>
+            innerNoted
+              [measure := (found: Option Comments) => []]
+              InBrackets
+              (Parse.Problem.Expected "','")
+              None
+              byComputing
+              start
+              (rewrite e then fine)
+          | True =>
+            let settling: Settling [token, ..later] := fine.holds.left
+            let none: Layout.kept InBrackets token = [] :=
+              bareKept token (settlingBare token later settling) (signIsComma token.value.kind isSign)
+            innerCommaTaken start token later fine e none)
+
 -- Items.
 
-def itemComments (item: Item): List Comment := item.value.comments ++ item.comma.all
+def itemComments (item: Expr): List Comment := item.comments
 
-def readItemComments (read: (Item, Bool)): List Comment := itemComments read.fst
+def readItemComments (read: (Expr, Bool)): List Comment := itemComments read.fst
 
 theorem innerItem ∀ (self: Layout → {Parse Tok} Expr)
     (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner)):
     Parse.ReadsIn Lexer (() => item self) (Inner InBrackets readItemComments) :=
   innerOf
     (andThen (innerExpr InBrackets (nested InBrackets)) (value =>
-      lastly (innerSignInBrackets "','" Comma) (comma => byComputing) (comma =>
-        match comma with
-          | Some comments => byComputing
-          | None => byComputing)))
+      lastly innerCommaInBrackets (comma => byComputing) (comma => (List.appendNil value.comments).flipped)))
 
-theorem itemsOne ∀ (item: Item): itemsComments [item] = itemComments item := match item with
-  | { value, comma } => Eq.cong ((later: List Comment) => value.comments ++ later) (List.appendNil comma.all)
+theorem itemsOne ∀ (item: Expr): itemsComments [item] = itemComments item := List.appendNil item.comments
 
-theorem itemsCommentsAppend ∀ (first second: List Item):
+theorem itemsCommentsAppend ∀ (first second: List Expr):
     itemsComments (first ++ second) = itemsComments first ++ itemsComments second :=
   match first with
     | [] => byComputing
-    | [{ value, comma }, ..rest] =>
-      calc itemsComments ([{ value, comma }, ..rest] ++ second)
-        _ = value.comments ++ (comma.all ++ (itemsComments rest ++ itemsComments second)) :=
-          Eq.cong ((later: List Comment) => value.comments ++ (comma.all ++ later)) (itemsCommentsAppend rest second)
-        _ = value.comments ++ ((comma.all ++ itemsComments rest) ++ itemsComments second) :=
-          Eq.cong
-            ((later: List Comment) => value.comments ++ later)
-            (List.appendAssoc comma.all (itemsComments rest) (itemsComments second)).flipped
-        _ = (value.comments ++ (comma.all ++ itemsComments rest)) ++ itemsComments second :=
-          (List.appendAssoc value.comments (comma.all ++ itemsComments rest) (itemsComments second)).flipped
+    | [value, ..rest] =>
+      calc itemsComments ([value, ..rest] ++ second)
+        _ = value.comments ++ (itemsComments rest ++ itemsComments second) :=
+          Eq.cong ((later: List Comment) => value.comments ++ later) (itemsCommentsAppend rest second)
+        _ = (value.comments ++ itemsComments rest) ++ itemsComments second :=
+          (List.appendAssoc value.comments (itemsComments rest) (itemsComments second)).flipped
 
 --| What one more item adds to those found, which are newest first.
-theorem itemsReverseCons ∀ (found: List Item) (item: Item) (later: List Comment):
+theorem itemsReverseCons ∀ (found: List Expr) (item: Expr) (later: List Comment):
     itemsComments [item, ..found].reverse ++ later = itemsComments found.reverse ++ (itemComments item ++ later) :=
   calc itemsComments [item, ..found].reverse ++ later
     _ = itemsComments (found.reverse ++ [item]) ++ later :=
-      Eq.cong ((items: List Item) => itemsComments items ++ later) (List.reverseCons item found)
+      Eq.cong ((items: List Expr) => itemsComments items ++ later) (List.reverseCons item found)
     _ = (itemsComments found.reverse ++ itemsComments [item]) ++ later :=
       Eq.cong ((front: List Comment) => front ++ later) (itemsCommentsAppend found.reverse [item])
     _ = itemsComments found.reverse ++ (itemsComments [item] ++ later) :=
@@ -257,7 +398,7 @@ theorem itemsReverseCons ∀ (found: List Item) (item: Item) (later: List Commen
 
 theorem ontoItemsFrom ∀ (self: Layout → {Parse Tok} Expr)
     (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner))
-    (fuel: Nat) (found: List Item):
+    (fuel: Nat) (found: List Expr):
     Parse.ReadsIn Lexer
       (() => itemsFrom fuel self found)
       (Onto InBrackets (later => itemsComments found.reverse ++ later) itemsComments (items => True)) :=
@@ -274,7 +415,7 @@ theorem ontoItemsFrom ∀ (self: Layout → {Parse Tok} Expr)
               (itemsReverseCons found item [])))
 
 --| Items and their closing bracket's comments.
-def closedComments (found: (List Item, Comments)): List Comment := itemsComments found.fst ++ found.snd.all
+def closedComments (found: (List Expr, Comments)): List Comment := itemsComments found.fst ++ found.snd.all
 
 theorem innerItems ∀ (self: Layout → {Parse Tok} Expr) (closer: Punctuation)
     (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner)):
@@ -312,7 +453,7 @@ theorem exprAtomOf ∀ (self: Layout → {Parse Tok} Expr) (layout: Layout)
     | Sign OpenParen => skipExpr layout start token later fine shape allowed (done =>
       andThen (Parse.readsWeaken (nested InBrackets) (exprBrackets layout)) (inner =>
         lastly (inBrackets layout (innerSign InBrackets "')'" CloseParen)) (close => byComputing) (close =>
-          byComputing)))
+          rewrite closingAll close inner.endsWithComment)))
     | Sign OpenSquare => skipExpr layout start token later fine shape allowed (done =>
       lastly
         (inBrackets layout (innerItems self CloseSquare nested))
@@ -321,7 +462,7 @@ theorem exprAtomOf ∀ (self: Layout → {Parse Tok} Expr) (layout: Layout)
             | (found, close) => byComputing)
         (pair =>
           match pair with
-            | (found, close) => byComputing))
+            | (found, close) => rewrite closingAll close (itemsEndWithComment (layout.comments token) found)))
     | Sign CloseParen => Parse.readsExpected "an expression" start (rewrite shape then fine)
     | Sign CloseSquare => Parse.readsExpected "an expression" start (rewrite shape then fine)
     | Sign Comma => Parse.readsExpected "an expression" start (rewrite shape then fine)
@@ -381,7 +522,9 @@ theorem growsCall ∀ (self: Layout → {Parse Tok} Expr) (layout: Layout)
     lastly
       (inBrackets layout (innerItems self CloseParen nested))
       (pair => match pair with | (arguments, close) => byComputing)
-      (pair => match pair with | (arguments, close) => byComputing))
+      (pair =>
+        match pair with
+          | (arguments, close) => rewrite closingAll close (itemsEndWithComment (layout.comments token) arguments)))
 
 theorem growsField ∀ (layout: Layout) (target: Expr) (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
     (fine: Parse.Fits Tok Lexer [token, ..later])
@@ -929,7 +1072,7 @@ theorem innerInline ∀ (self: Layout → {Parse Tok} Expr) (layout: Layout)
 --| layout keeps nothing above it (`startAbove`).
 theorem openedStatementLine ∀ (self: Layout → {Parse Tok} Expr)
     (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner)) (fuel: Nat)
-    (readsBody: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => bodyFuel fuel self inner) (Inner inner Body.comments))
+    (readsBody: ∀ (inner: Layout) => TidyReads (() => bodyFuel fuel self inner) (Inner inner Body.comments))
     (column: Nat) (start: Parse.Mark Tok) (first: Tok) (later: List Tok)
     (fine: Parse.Fits Tok Lexer [first, ..later])
     (shape: start.rest = [first, ..later]):
@@ -945,8 +1088,9 @@ theorem openedStatementLine ∀ (self: Layout → {Parse Tok} Expr)
     | Reserved LetKeyword => skipOpened (InStatement column first.offset) start first later fine shape (done =>
       andThen (innerName (InStatement column first.offset)) (pair =>
         match pair with
-          | (bound, nameComments) => andThen (innerSign (InStatement column first.offset) "'='" Defines) (equals =>
-            lastly (readsBody (InStatement column first.offset)) (inner => byComputing) (inner => byComputing))))
+          | (bound, nameComments) =>
+            andThenWord (wordSign (InStatement column first.offset) "'='" Defines byComputing) (equals =>
+              lastlyTidy (readsBody (InStatement column first.offset)) (inner => byComputing) (inner => byComputing))))
     | Reserved FnKeyword => bare
     | Reserved IfKeyword => bare
     | Reserved ThenKeyword => bare
@@ -961,7 +1105,7 @@ theorem openedStatementLine ∀ (self: Layout → {Parse Tok} Expr)
 
 theorem innerStatementAt ∀ (self: Layout → {Parse Tok} Expr)
     (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner)) (fuel: Nat)
-    (readsBody: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => bodyFuel fuel self inner) (Inner inner Body.comments))
+    (readsBody: ∀ (inner: Layout) => TidyReads (() => bodyFuel fuel self inner) (Inner inner Body.comments))
     (column: Nat) (start: Parse.Mark Tok) (first: Tok) (later: List Tok)
     (fine: Parse.Fits Tok Lexer [first, ..later])
     (shape: start.rest = [first, ..later]):
@@ -991,7 +1135,7 @@ theorem innerStatementAt ∀ (self: Layout → {Parse Tok} Expr)
 --| stops.
 theorem innerStatement ∀ (self: Layout → {Parse Tok} Expr)
     (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner)) (fuel: Nat)
-    (readsBody: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => bodyFuel fuel self inner) (Inner inner Body.comments))
+    (readsBody: ∀ (inner: Layout) => TidyReads (() => bodyFuel fuel self inner) (Inner inner Body.comments))
     (column: Nat):
     Parse.ReadsIn Lexer (() => statement fuel self column) (Inner InBrackets (spacedComments Statement.comments)) :=
   Parse.readsInMark _ _ (start fine =>
@@ -1026,7 +1170,7 @@ theorem blockCarried ∀ (read: List Tok) (groups: List (List (Spaced Statement)
 
 theorem innerBlock ∀ (self: Layout → {Parse Tok} Expr)
     (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner)) (fuel: Nat)
-    (readsBody: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => bodyFuel fuel self inner) (Inner inner Body.comments))
+    (readsBody: ∀ (inner: Layout) => TidyReads (() => bodyFuel fuel self inner) (Inner inner Body.comments))
     (column: Nat):
     Parse.ReadsIn Lexer (() => block fuel self column) (Inner InBrackets Body.comments) :=
   Parse.readsThen
@@ -1040,8 +1184,9 @@ theorem innerBlock ∀ (self: Layout → {Parse Tok} Expr)
         (rewrite List.appendNil read then blockCarried read lines.toList each))
 
 --| An inline body's first token holds no comments above it in the tree:
---| it is the statement's first, or it doesn't start a line, and then the
---| lexer put none above it (`Tidy`).
+--| it is the statement's first, or it doesn't start a line, and then it
+--| has none above it (`Tidy`): it follows `=`, `then` or `else`, and
+--| rule N gives own-line comments only to the token after a comma.
 theorem inlineClear ∀ (column at: Nat) (token: Tok)
     (tidy: Tidy token)
     (deeper: (token.value.startsLine && token.value.column > column) = False)
@@ -1054,7 +1199,8 @@ theorem inlineClear ∀ (column at: Nat) (token: Tok)
         | False => Eq.trans (ownLinesSame token.value.above) (tidy starts)
         | True => (Bool.falseNotTrue (rewrite deeper at allowed then allowed)).impossible
 
---| A body, a block or one expression.
+--| A body, a block or one expression, read from where the next token is
+--| `Tidy` (after `=`, `then` or `else`).
 --|
 --| Proof idea: induction on the fuel, from the mark where the next token is
 --| seen. A token starting a deeper line starts a block (`innerBlock`, with
@@ -1063,68 +1209,83 @@ theorem inlineClear ∀ (column at: Nat) (token: Tok)
 theorem innerBodyFuel ∀ (self: Layout → {Parse Tok} Expr)
     (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner))
     (fuel: Nat) (layout: Layout):
-    Parse.ReadsIn Lexer (() => bodyFuel fuel self layout) (Inner layout Body.comments) :=
-  Parse.readsInPeek [t := Parse.Located Token] _ _ (start fine =>
-    match fuel with
-      | Zero => Parse.readsFatal [inv := Lexer] _ (Inner layout Body.comments) start fine
-      | Succ more =>
-        match layout with
-          | InBrackets =>
-            innerInline self InBrackets nested start start.rest byComputing fine (clearBrackets start.rest)
-          | InStatement column at =>
-            match e: start.rest with
-              | [] => innerInline self (InStatement column at) nested start [] e fine byComputing
-              | [token, ..later] =>
-                match deeper: token.value.startsLine && token.value.column > column with
-                  | False => innerInline self (InStatement column at) nested start [token, ..later] e fine (allowed =>
-                    inlineClear column at token fine.holds.left.left deeper allowed)
-                  | True =>
-                    inBrackets
-                      [p := () => block more self token.value.column]
-                      (InStatement column at)
-                      (innerBlock self nested more (inner => innerBodyFuel self nested more inner) token.value.column)
-                      start
-                      (rewrite e then fine))
+    TidyReads (() => bodyFuel fuel self layout) (Inner layout Body.comments) :=
+  start fine tidy =>
+    Parse.readsAtPeek _ _ start
+      (match fuel with
+        | Zero => Parse.readsFatal [inv := Lexer] _ (Inner layout Body.comments) start fine
+        | Succ more =>
+          match layout with
+            | InBrackets =>
+              innerInline self InBrackets nested start start.rest byComputing fine (clearBrackets start.rest)
+            | InStatement column at =>
+              match e: start.rest with
+                | [] => innerInline self (InStatement column at) nested start [] e fine byComputing
+                | [token, ..later] =>
+                  match deeper: token.value.startsLine && token.value.column > column with
+                    | False =>
+                      innerInline self (InStatement column at) nested start [token, ..later] e fine (allowed =>
+                        inlineClear column at token tidy deeper allowed)
+                    | True =>
+                      inBrackets
+                        [p := () => block more self token.value.column]
+                        (InStatement column at)
+                        (innerBlock self nested more
+                          (inner => innerBodyFuel self nested more inner)
+                          token.value.column)
+                        start
+                        (rewrite e then fine))
 
 theorem innerBody ∀ (self: Layout → {Parse Tok} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner)):
-    Parse.ReadsIn Lexer (() => body self layout) (Inner layout Body.comments) :=
-  Parse.readsWithMark _ _ (at fine => innerBodyFuel self nested (at.left + 1) layout)
+    TidyReads (() => body self layout) (Inner layout Body.comments) :=
+  start fine tidy =>
+    readsAtMark
+      (at => bodyFuel (at.left + 1) self layout)
+      (Inner layout Body.comments)
+      start
+      (innerBodyFuel self nested (start.left + 1) layout start fine tidy)
 
 -- `if`, and the expression parser.
 
---| A token seen next and read for its comments.
-theorem innerTaken ∀ (layout: Layout) (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
-    (fine: Parse.Fits Tok Lexer [token, ..later])
-    (shape: start.rest = [token, ..later]):
+theorem elseNotComma ∀ (kind: Kind) (isElse: (keywordIs ElseKeyword kind).isSome = True): kind.isComma = False :=
+  cases
+
+--| A token seen next, which is no comma, and read for its comments.
+theorem wordTaken ∀ (layout: Layout) (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
+    (shape: start.rest = [token, ..later])
+    (notComma: token.value.kind.isComma = False):
     Parse.ReadsAt start
       (() =>
         skip()
         layout.comments token)
-      (Inner layout Comments.all) :=
-  skipInner layout start token later fine shape (done =>
-    ontoDone byComputing (List.appendNil (layout.kept token)).flipped)
+      (Word layout Comments.all) :=
+  Parse.readsAtThen (readsSkipAt start token later shape) (read done after starts single =>
+    Parse.readsAtDone after
+      (layout.comments token) _
+      (rewrite List.appendNil read, single then
+        ((innerOne [measure := Comments.all] layout token (layout.comments token) byComputing), token, byComputing, notComma)))
 
---| `elseKeyword` holds its token's comments.
+--| `elseKeyword` holds its token's comments, and that token is no comma.
 --|
 --| Proof idea: from the mark where it looks. An `else` seen there is the
---| token skipped (`innerTaken`), or the parse fails; otherwise `keyword`
+--| token skipped (`wordTaken`), or the parse fails; otherwise `keyword`
 --| reads it or fails.
-theorem innerElse ∀ (layout: Layout): Parse.ReadsIn Lexer (() => elseKeyword layout) (Inner layout Comments.all) :=
+theorem wordElse ∀ (layout: Layout): Parse.ReadsIn Lexer (() => elseKeyword layout) (Word layout Comments.all) :=
   Parse.readsInPeek _ _ (start fine =>
     match e: start.rest with
-      | [] => innerKeyword layout ElseKeyword start (rewrite e then fine)
+      | [] => wordKeyword layout ElseKeyword start (rewrite e then fine)
       | [token, ..later] =>
         match isElse: (keywordIs ElseKeyword token.value.kind).isSome with
-          | False => innerKeyword layout ElseKeyword start (rewrite e then fine)
+          | False => wordKeyword layout ElseKeyword start (rewrite e then fine)
           | True =>
             match allowed: layout.allowsElse token with
-              | True => innerTaken layout start token later fine e
+              | True => wordTaken layout start token later e (elseNotComma token.value.kind isElse)
               | False =>
                 Parse.readsFail
                   [inv := Lexer]
                   "'else' must not start a line to the left of its 'if' statement"
-                  (Inner layout Comments.all)
+                  (Word layout Comments.all)
                   start
                   (rewrite e then fine))
 
@@ -1147,10 +1308,10 @@ theorem exprIf ∀ (self: Layout → {Parse Tok} Expr) (layout: Layout)
       (ExprSpec layout) :=
   skipExpr layout start token later fine shape allowed (done =>
     andThen (innerExpr layout (nested layout)) (condition =>
-      andThen (innerKeyword layout ThenKeyword) (thenComments =>
-        andThen (innerBody self layout nested) (whenTrue =>
-          andThen (innerElse layout) (elseComments =>
-            lastly (innerBody self layout nested) (whenFalse => byComputing) (whenFalse => byComputing))))))
+      andThenWord (wordKeyword layout ThenKeyword) (thenComments =>
+        andThenTidy (innerBody self layout nested) (whenTrue =>
+          andThenWord (wordElse layout) (elseComments =>
+            lastlyTidy (innerBody self layout nested) (whenFalse => byComputing) (whenFalse => byComputing))))))
 
 --| One level of the expression parser, given that `self` reads what it
 --| should for the expressions nested in it.
@@ -1197,7 +1358,8 @@ theorem innerTypeOf ∀ (self: () → {Parse Tok} TypeExpr)
       ontoDone byComputing (List.appendNil (Layout.kept InBrackets token)).flipped)
     | Sign OpenParen => skipInner [measure := TypeExpr.comments] InBrackets start token later fine shape (done =>
       andThen (nested ()) (inner =>
-        lastly (innerSign InBrackets "')'" CloseParen) (close => byComputing) (close => byComputing)))
+        lastly (innerSign InBrackets "')'" CloseParen) (close => byComputing) (close =>
+          rewrite closingAll close inner.endsWithComment)))
     | Sign CloseParen => Parse.readsExpected "a type" start (rewrite shape then fine)
     | Sign OpenSquare => Parse.readsExpected "a type" start (rewrite shape then fine)
     | Sign CloseSquare => Parse.readsExpected "a type" start (rewrite shape then fine)
@@ -1266,40 +1428,23 @@ theorem innerGroup: Parse.ReadsIn Lexer parameterGroup (Inner InBrackets Paramet
 
 -- Declarations and the file.
 
-def stepComments (step: (Comments, ParameterGroup)): List Comment := step.fst.all ++ step.snd.comments
-
-theorem innerParameterStep: Parse.ReadsIn Lexer parameterStep (Inner InBrackets stepComments) :=
+theorem innerParameterStep: Parse.ReadsIn Lexer parameterStep (Inner InBrackets ParameterGroup.comments) :=
   innerOf
-    (andThen (innerSign InBrackets "','" Comma) (comma =>
-      lastly innerGroup (group => byComputing) (group => byComputing)))
+    (andThen innerComma (comma =>
+      Parse.readsWeaken innerGroup (read group inner => (byComputing, (past => inner past)))))
 
-def listComments (found: (ParameterGroup, List (Comments, ParameterGroup))): List Comment :=
-  found.fst.comments ++ found.snd.flatMap stepComments
+def listComments (found: (ParameterGroup, List ParameterGroup)): List Comment :=
+  found.fst.comments ++ found.snd.flatMap (group => group.comments)
 
 theorem innerParameterList: Parse.ReadsIn Lexer parameterList (Inner InBrackets listComments) :=
   innerOf
     (andThen innerGroup (first =>
       lastly
         (Parse.readsWeaken
-          (Parse.readsMany parameterStep (Inner InBrackets stepComments) innerParameterStep)
-          (eachInner [measure := stepComments] InBrackets))
+          (Parse.readsMany parameterStep (Inner InBrackets ParameterGroup.comments) innerParameterStep)
+          (eachInner [measure := ParameterGroup.comments] InBrackets))
         (others => byComputing)
         (others => byComputing)))
-
-theorem withCommasComments ∀ (first: ParameterGroup) (others: List (Comments, ParameterGroup)):
-    parametersComments (withCommas first others) = first.comments ++ others.flatMap stepComments :=
-  match others with
-    | [] => List.appendNil (first.comments ++ [])
-    | [(comma, next), ..rest] =>
-      calc parametersComments (withCommas first [(comma, next), ..rest])
-        _ = (first.comments ++ comma.all) ++ (next.comments ++ rest.flatMap stepComments) :=
-          Eq.cong ((back: List Comment) => (first.comments ++ comma.all) ++ back) (withCommasComments next rest)
-        _ = first.comments ++ (comma.all ++ (next.comments ++ rest.flatMap stepComments)) :=
-          List.appendAssoc first.comments comma.all (next.comments ++ rest.flatMap stepComments)
-        _ = first.comments ++ ((comma.all ++ next.comments) ++ rest.flatMap stepComments) :=
-          Eq.cong
-            ((back: List Comment) => first.comments ++ back)
-            (List.appendAssoc comma.all next.comments (rest.flatMap stepComments)).flipped
 
 theorem innerParameters: Parse.ReadsIn Lexer
       (() => parametersOf (Parse.optional parameterList))
@@ -1308,9 +1453,7 @@ theorem innerParameters: Parse.ReadsIn Lexer
     match found, maybe with
       | None, none => Parse.readsDone [] _ (rewrite none then (past => byComputing))
       | Some (first, others), inner =>
-        Parse.readsDone
-          (withCommas first others) _
-          (rewrite List.appendNil read then (past => Eq.trans (withCommasComments first others) (inner past))))
+        Parse.readsDone [first, ..others] _ (rewrite List.appendNil read then (past => inner past)))
 
 def Header.comments (header: Header): List Comment :=
   headerComments header.takes header.open header.parameters header.close
@@ -1324,7 +1467,7 @@ theorem innerHeader ∀ (layout: Layout):
       andThen (innerSign layout "'('" OpenParen) (open =>
         andThen (inBrackets layout innerParameters) (parameters =>
           lastly (inBrackets layout (innerSign InBrackets "')'" CloseParen)) (close => byComputing) (close =>
-            byComputing)))))
+            rewrite closingAll close (groupsEndWithComment open parameters))))))
 
 theorem openedFunctionLine ∀ (layout: Layout) (start: Parse.Mark Tok) (first: Tok) (later: List Tok)
     (fine: Parse.Fits Tok Lexer [first, ..later])
@@ -1334,8 +1477,8 @@ theorem openedFunctionLine ∀ (layout: Layout) (start: Parse.Mark Tok) (first: 
     andThen (innerName layout) (pair =>
       match pair with
         | (declared, nameComments) => andThen (innerHeader layout) (header =>
-          andThen (innerSign layout "'='" Defines) (equals =>
-            lastly (innerBody expression layout exprExpression) (inner => byComputing) (inner => byComputing)))))
+          andThenWord (wordSign layout "'='" Defines byComputing) (equals =>
+            lastlyTidy (innerBody expression layout exprExpression) (inner => byComputing) (inner => byComputing)))))
 
 theorem openedValueLine ∀ (layout: Layout) (start: Parse.Mark Tok) (first: Tok) (later: List Tok)
     (fine: Parse.Fits Tok Lexer [first, ..later])
@@ -1344,8 +1487,8 @@ theorem openedValueLine ∀ (layout: Layout) (start: Parse.Mark Tok) (first: Tok
   skipOpened layout start first later fine shape (done =>
     andThen (innerName layout) (pair =>
       match pair with
-        | (declared, nameComments) => andThen (innerSign layout "'='" Defines) (equals =>
-          lastly (innerBody expression layout exprExpression) (inner => byComputing) (inner => byComputing))))
+        | (declared, nameComments) => andThenWord (wordSign layout "'='" Defines byComputing) (equals =>
+          lastlyTidy (innerBody expression layout exprExpression) (inner => byComputing) (inner => byComputing))))
 
 --| Not a declaration: what `declarationLine` does at any other token.
 theorem noDeclaration ∀ (layout: Layout):

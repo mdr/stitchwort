@@ -246,3 +246,67 @@ theorem settledOffsets ∀ (lexed: Lexed):
 
 --| The lexemes are the lexer's: rule N reads tokens only.
 theorem settledLexemes ∀ (lexed: Lexed): lexed.settled.lexemes = lexed.lexemes := byComputing
+
+-- Tokens rule N leaves as they are: the printer's.
+
+--| Rule N's first half leaves `current` where it is after `earlier`
+--| (newest first): its trailing comment doesn't move back.
+def Steady (current: Parse.Located Token) (earlier: List (Parse.Located Token)): Prop :=
+  homeStep earlier current = [current, ..earlier]
+
+--| Rule N's first half moves no comment of these tokens (newest first).
+def Stable: List (Parse.Located Token) → Prop
+  | [] => True
+  | [newest, ..earlier] => Steady newest earlier ∧ Stable earlier
+
+--| A comma that holds no comment.
+def BareComma (token: Parse.Located Token): Prop :=
+  token.value.kind.isComma = True → token.value.above = [] ∧ token.value.trailing = None
+
+theorem homeStable ∀ (newest: List (Parse.Located Token))
+    (stable: Stable newest):
+    newest.reverse.foldLeft [] homeStep = newest :=
+  match newest, stable with
+    | [], _ => byComputing
+    | [token, ..earlier], (steady, others) =>
+      calc [token, ..earlier].reverse.foldLeft [] homeStep
+        _ = (earlier.reverse ++ [token]).foldLeft [] homeStep :=
+          Eq.cong
+            ((tokens: List (Parse.Located Token)) => tokens.foldLeft [] homeStep)
+            (List.reverseCons token earlier)
+        _ = homeStep (earlier.reverse.foldLeft [] homeStep) token :=
+          List.foldLeftAppend earlier.reverse [] [token] homeStep
+        _ = homeStep earlier token :=
+          Eq.cong ((found: List (Parse.Located Token)) => homeStep found token) (homeStable earlier others)
+        _ = [token, ..earlier] := steady
+
+theorem joinEmpty ∀ (back: List Trivia): joinTrivia [] back = back := match back with
+  | [] => byComputing
+  | [first, ..rest] => byComputing
+
+--| Rule N's second half changes nothing where no comma holds a comment:
+--| by induction on the tokens, nothing being carried.
+theorem carryStable ∀ (tokens: List (Parse.Located Token)) (endTrivia: List Trivia)
+    (bare: List.All BareComma tokens):
+    carryForward [] tokens endTrivia = (tokens, endTrivia) :=
+  match tokens, bare with
+    | [], _ => rewrite joinEmpty endTrivia
+    | [{ value = { kind, startsLine, column, above, trailing }, offset, length }, ..rest], (first, others) =>
+      match comma: kind.isComma with
+        | True =>
+          let (noAbove, noTrailing) := first byComputing
+          rewrite noAbove, noTrailing, carryStable rest endTrivia others
+        | False => rewrite joinEmpty above, carryStable rest endTrivia others
+
+--| Rule N changes nothing of tokens it has nothing to move in: no
+--| trailing comment that would go back (`Stable`), no comma holding a
+--| comment.
+theorem settledStable ∀ (lexed: Lexed) (newest: List (Parse.Located Token))
+    (same: lexed.tokens = newest.reverse)
+    (stable: Stable newest)
+    (bare: List.All BareComma newest):
+    lexed.settled.tokens = lexed.tokens ∧ lexed.settled.endTrivia = lexed.endTrivia :=
+  let homed: lexed.tokens.foldLeft [] homeStep = newest := rewrite same then homeStable newest stable
+  let carried: carryForward [] newest.reverse lexed.endTrivia = (newest.reverse, lexed.endTrivia) :=
+    carryStable newest.reverse lexed.endTrivia (List.allReverse BareComma newest bare)
+  rewrite homed, carried, same then (byComputing, byComputing)

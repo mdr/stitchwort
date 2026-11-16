@@ -239,10 +239,10 @@ theorem writesCloser ∀ (comments: Comments) (text: Text): Writes (closer comme
             ((byComputing, byComputing))
             (writesCons _ _ [text] (afterTexts after) (writesText text) (writesLast _ _ (writesTrailing after)))))
 
-def itemPieces: List Item → List Text
+def itemPieces: List Expr → List Text
   | [] => []
-  | [{ value, .. }] => value.pieces
-  | [{ value, comma }, ..rest] => (value.pieces ++ tokenPieces comma ",") ++ itemPieces rest
+  | [value] => value.pieces
+  | [value, ..rest] => (value.pieces ++ tokenPieces Comments.none ",") ++ itemPieces rest
 
 --| The expression's tokens and comments, in the source's order. The last
 --| item of a list or call has no comma.
@@ -296,17 +296,17 @@ def ParameterGroup.pieces: ParameterGroup → List Text
       ++ (namesPieces names.tail ++ (tokenPieces colon ":" ++ annotation.pieces))
 
 --| Each parameter group, and its comma but the last's.
-def parameterPieces: List Parameter → List Text
+def parameterPieces: List ParameterGroup → List Text
   | [] => []
-  | [{ group, .. }] => group.pieces
-  | [{ group, comma }, ..rest] => (group.pieces ++ tokenPieces comma ",") ++ parameterPieces rest
+  | [group] => group.pieces
+  | [group, ..rest] => (group.pieces ++ tokenPieces Comments.none ",") ++ parameterPieces rest
 
 def takesPieces: Option Comments → List Text
   | None => []
   | Some comments => tokenPieces comments "takes"
 
 def headerPieces (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: Option Comments) (open: Comments)
-    (parameters: List Parameter) (close equals: Comments):
+    (parameters: List ParameterGroup) (close equals: Comments):
     List Text :=
   (tokenPieces fnComments "fn" ++ (tokenPieces nameComments name ++ (takesPieces takes ++ tokenPieces open "(")))
     ++ (parameterPieces parameters ++ (tokenPieces close ")" ++ tokenPieces equals "="))
@@ -546,17 +546,17 @@ theorem exprWrites ∀ (expr: Expr): Writes expr.layout expr.pieces := match exp
       (branchWrites thenComments whenTrue)
       (elseBranchWrites elseComments whenFalse)
 
-theorem itemDocsWrite ∀ (items: List Item): WritesAll (itemDocs items) (itemPieces items) := match items with
+theorem itemDocsWrite ∀ (items: List Expr): WritesAll (itemDocs items) (itemPieces items) := match items with
   | [] => writesNil
-  | [{ value, comma }] => writesLast _ _ (exprWrites value)
-  | [{ value, comma }, next, ..rest] =>
+  | [value] => writesLast _ _ (exprWrites value)
+  | [value, next, ..rest] =>
     writesCons _ _
-      (value.pieces ++ tokenPieces comma ",")
+      (value.pieces ++ tokenPieces Comments.none ",")
       (itemPieces [next, ..rest])
-      (writesTwo _ _ _ _ (exprWrites value) (writesCloseAfter value _ _ (writesToken comma ",")))
+      (writesTwo _ _ _ _ (exprWrites value) (writesCloseAfter value _ _ (writesToken Comments.none ",")))
       (itemDocsWrite [next, ..rest])
 
-theorem listWrites ∀ (open: Comments) (items: List Item) (close: Comments):
+theorem listWrites ∀ (open: Comments) (items: List Expr) (close: Comments):
     Writes (listLayout open items close) (ListLiteral open items close).pieces :=
   match items with
     | [] => writesTwo _ _ _ _ (writesToken open "[") (writesCloser close "]")
@@ -568,9 +568,9 @@ theorem listWrites ∀ (open: Comments) (items: List Item) (close: Comments):
               (writesThree _ _ _ _ _ _
                 (writesToken open "[")
                 (writesNest 2 _ _ (writesFill _ _ (itemDocsWrite [first, ..rest])))
-                (writesCloseAfter last.value _ _ (writesCloser close "]")))
+                (writesCloseAfter last _ _ (writesCloser close "]")))
 
-theorem argumentsWrite ∀ (open: Comments) (arguments: List Item) (close: Comments):
+theorem argumentsWrite ∀ (open: Comments) (arguments: List Expr) (close: Comments):
     Writes
       (argumentsLayout open arguments close)
       (tokenPieces open "(" ++ (itemPieces arguments ++ tokenPieces close ")")) :=
@@ -754,16 +754,16 @@ theorem groupWrites ∀ (group: ParameterGroup): Writes group.layout group.piece
             (writesToken colon ":")
             (writesCons _ _ [] _ writesSpace (writesLast _ _ (typeWrites annotation))))))
 
-theorem parameterDocsWrite ∀ (parameters: List Parameter):
+theorem parameterDocsWrite ∀ (parameters: List ParameterGroup):
     WritesAll (parameterDocs parameters) (parameterPieces parameters) :=
   match parameters with
     | [] => writesNil
-    | [{ group, comma }] => writesLast _ _ (groupWrites group)
-    | [{ group, comma }, next, ..rest] =>
+    | [group] => writesLast _ _ (groupWrites group)
+    | [group, next, ..rest] =>
       writesCons _ _
-        (group.pieces ++ tokenPieces comma ",")
+        (group.pieces ++ tokenPieces Comments.none ",")
         (parameterPieces [next, ..rest])
-        (writesTwo _ _ _ _ (groupWrites group) (writesToken comma ","))
+        (writesTwo _ _ _ _ (groupWrites group) (writesToken Comments.none ","))
         (parameterDocsWrite [next, ..rest])
 
 theorem takesWrites ∀ (takes: Option Comments): Writes (takesDoc takes) (takesPieces takes) := match takes with
@@ -773,7 +773,7 @@ theorem takesWrites ∀ (takes: Option Comments): Writes (takesDoc takes) (takes
       writesThree _ _ _ [] _ [] writesSpace (writesToken comments "takes") writesSpace
 
 theorem headerWrites ∀ (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: Option Comments)
-    (open: Comments) (parameters: List Parameter) (close equals: Comments):
+    (open: Comments) (parameters: List ParameterGroup) (close equals: Comments):
     Writes
       (header fnComments name nameComments takes open parameters close equals)
       (headerPieces fnComments name nameComments takes open parameters close equals) :=

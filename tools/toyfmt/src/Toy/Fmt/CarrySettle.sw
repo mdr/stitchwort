@@ -18,10 +18,6 @@ def TidyFrom (afterComma: Bool): List Tok → Prop
   | [] => True
   | [token, ..rest] => (afterComma = False → Tidy token) ∧ TidyFrom token.value.kind.isComma rest
 
---| A comma holds no comment.
-def BareComma (token: Tok): Prop :=
-  token.value.kind.isComma = True → token.value.above = [] ∧ token.value.trailing = None
-
 theorem homedTidy ∀ (comment: Parse.Located Comment) (current: Tok) (earlier: List Tok)
     (tidy: Tidy current)
     (all: List.All Tidy earlier):
@@ -134,3 +130,62 @@ theorem settledBareCommas ∀ (lexed: Lexed): List.All BareComma lexed.settled.t
   let carried := carryBare (lexed.tokens.foldLeft [] homeStep).reverse [] lexed.endTrivia
   match step: carryForward [] (lexed.tokens.foldLeft [] homeStep).reverse lexed.endTrivia with
     | (tokens, endTrivia) => carried
+
+--| `TidyFrom` and bare commas, as the walk's invariant says them.
+theorem settlingOf ∀ (tokens: List Tok) (afterComma: Bool)
+    (tidy: TidyFrom afterComma tokens)
+    (bare: List.All BareComma tokens):
+    Settling tokens :=
+  match tokens, tidy, bare with
+    | [], _, _ => byComputing
+    | [token], _, (first, _) => first
+    | [token, next, ..rest], (_, later), (first, others) =>
+      (first, later.left, (settlingOf [next, ..rest] token.value.kind.isComma later others))
+
+--| Offsets that rise, as `Rising` says of tokens.
+def RisingOffsets: List Nat → Prop
+  | [] => True
+  | [first, ..later] => List.All (other => first < other) later ∧ RisingOffsets later
+
+theorem aboveOffsets ∀ (first: Nat) (tokens: List Tok)
+    (all: List.All (other => first < other.offset) tokens):
+    List.All (other => first < other) (tokens.map (token => token.offset)) :=
+  match tokens, all with
+    | [], _ => ()
+    | [token, ..rest], (lower, others) => (lower, (aboveOffsets first rest others))
+
+theorem offsetsAbove ∀ (first: Nat) (tokens: List Tok)
+    (all: List.All (other => first < other) (tokens.map (token => token.offset))):
+    List.All (other => first < other.offset) tokens :=
+  match tokens, all with
+    | [], _ => ()
+    | [token, ..rest], (lower, others) => (lower, (offsetsAbove first rest others))
+
+theorem risingOffsets ∀ (tokens: List Tok) (rising: Rising tokens): RisingOffsets (tokens.map (token => token.offset)) :=
+  match tokens, rising with
+    | [], _ => byComputing
+    | [token, ..rest], (apart, later) => ((aboveOffsets token.offset rest apart), (risingOffsets rest later))
+
+theorem offsetsRising ∀ (tokens: List Tok)
+    (rising: RisingOffsets (tokens.map (token => token.offset))):
+    Rising tokens :=
+  match tokens, rising with
+    | [], _ => byComputing
+    | [token, ..rest], (apart, later) => ((offsetsAbove token.offset rest apart), (offsetsRising rest later))
+
+--| The settled tokens of a source are what the walk assumes: rule N moves
+--| comments only, so the offsets still rise (`settledOffsets`), a comma
+--| holds nothing (`settledBareCommas`), and every token but one straight
+--| after a comma is still `Tidy` (`settledTidy`).
+theorem settledFits ∀ (source: Text) (lexed: Lexed)
+    (lexes: lex source = Ok lexed):
+    Parse.Fits Tok Lexer lexed.settled.tokens :=
+  let fits := lexFits source lexed lexes
+  let rising: RisingOffsets (lexed.settled.tokens.map (token => token.offset)) :=
+    rewrite settledOffsets lexed then risingOffsets lexed.tokens fits.right
+  {
+    holds = (
+      (settlingOf lexed.settled.tokens False (settledTidy lexed fits.left) (settledBareCommas lexed)),
+      (offsetsRising lexed.settled.tokens rising)
+    )
+  }

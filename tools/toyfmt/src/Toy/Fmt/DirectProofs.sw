@@ -42,20 +42,45 @@ theorem printedPlaced ∀ (file: SourceFile) (width: Nat)
       (placedOffsets (printedPieces file.layout width).reverse)
     )
 
+--| What the parser reads of a printed file, once rule N has been through
+--| its tokens: tokens with the views of the file's events, as
+--| `printedPlaced` gives them. Rule N moves nothing there
+--| (`fileStable`): the tree has no comments for a comma, and each closing
+--| bracket's are ones rule N leaves on it.
+theorem settledViews ∀ (file: SourceFile) (width: Nat)
+    (parsed: Parsed file):
+    ∃ (events: List Event) => ∃ (lexed: Lexed) => ∃ (tokens: List (Parse.Located Token)) =>
+      ∃ (endTrivia: List Trivia) => FileEvents file events
+        ∧ lex (file.print width) = Ok lexed
+        ∧ lexed.settled.tokens = tokens.reverse
+        ∧ lexed.settled.endTrivia = endTrivia.reverse
+        ∧ tokens.map viewOf = (viewsOf events).views
+        ∧ endTrivia = (viewsOf events).pending
+        ∧ Descending (tokens.map (token => token.offset)) :=
+  match printedPlaced file width parsed with
+    | (events, lexemes, tokens, endTrivia, laid, lexed, views, pending, offsets) =>
+      let found: Lexed := { lexemes, tokens = tokens.reverse, endTrivia = endTrivia.reverse }
+      let stable: StableViews (tokens.map viewOf) :=
+        rewrite views then fileStable file events parsed.left parsed.right.left laid
+      let steady := stableTokens tokens stable
+      let same := settledStable found tokens byComputing steady.left steady.right
+      (events, found, tokens, endTrivia, laid, lexed, same.left, same.right, views, pending, offsets)
+
 --| The printed text of a tree with the parser's guarantees parses to the
 --| same tree, at every width. No source is mentioned: a tree a pass built
 --| qualifies as well as one the parser read.
 theorem printParses ∀ (file: SourceFile) (width: Nat) (parsed: Parsed file): parse (file.print width) = Ok file :=
-  match printedPlaced file width parsed with
-    | (events, lexemes, tokens, endTrivia, laid, lexed, views, pending, offsets) =>
+  match settledViews file width parsed with
+    | (events, lexed, tokens, endTrivia, laid, lexes, sameTokens, sameTrivia, views, pending, offsets) =>
       parseReads
         (file.print width)
-        { lexemes, tokens = tokens.reverse, endTrivia = endTrivia.reverse }
-        file
         lexed
-        (runsFileSpelled file tokens.reverse endTrivia.reverse parsed.left
-          (spellsFile file events tokens endTrivia parsed.left parsed.right.left parsed.right.right laid views pending
-              offsets))
+        file
+        lexes
+        (rewrite sameTokens, sameTrivia then
+          runsFileSpelled file tokens.reverse endTrivia.reverse parsed.left
+            (spellsFile file events tokens endTrivia parsed.left parsed.right.left parsed.right.right laid views
+                pending offsets))
 
 --| `format` answers every source that parses, with its tree printed; it
 --| refuses only what the parser refuses.

@@ -36,9 +36,9 @@ def Lexical: Expr → Prop
       ∧ Fine elseComments
       ∧ LexicalBody whenFalse
 
-def LexicalItems: List Item → Prop
+def LexicalItems: List Expr → Prop
   | [] => True
-  | [{ value, comma }, ..rest] => Lexical value ∧ Fine comma ∧ LexicalItems rest
+  | [value, ..rest] => Lexical value ∧ LexicalItems rest
 
 def LexicalBody: Body → Prop
   | { statements } => LexicalLines statements ∧ ClosedLines statements
@@ -68,9 +68,9 @@ def LexicalGroup: ParameterGroup → Prop
   | Typed names colon annotation =>
     LexicalNamed names.head ∧ LexicalNames names.tail ∧ Fine colon ∧ LexicalType annotation
 
-def LexicalParameters: List Parameter → Prop
+def LexicalParameters: List ParameterGroup → Prop
   | [] => True
-  | [{ group, comma }, ..rest] => LexicalGroup group ∧ Fine comma ∧ LexicalParameters rest
+  | [group, ..rest] => LexicalGroup group ∧ LexicalParameters rest
 
 --| `takes`, if it was written, holds the lexer's comments.
 def FineTakes (takes: Option Comments): Prop := Parse.Perhaps Fine takes
@@ -545,23 +545,26 @@ theorem exprPasses ∀ (expr: Expr) (lexical: Lexical expr): Passes expr.layout 
         (entersAdmits (If ifComments condition thenComments whenTrue elseComments whenFalse) "if" (later =>
           byComputing))
 
-theorem itemDocsPass ∀ (items: List Item) (lexical: LexicalItems items): EachPasses (itemDocs items) :=
+--| A comma holds no comments.
+theorem fineNone: Fine Comments.none := (byComputing, byComputing)
+
+theorem itemDocsPass ∀ (items: List Expr) (lexical: LexicalItems items): EachPasses (itemDocs items) :=
   match items, lexical with
     | [], _ => byComputing
-    | [{ value, comma }], Both lexValue _ =>
-      ((passesFrom _ _ Free _ (exprPasses value lexValue) (freeEnters value)), byComputing)
-    | [{ value, comma }, next, ..rest], Both lexValue (Both fineComma others) => (
+    | [value], Both lexValue _ => ((passesFrom _ _ Free _ (exprPasses value lexValue) (freeEnters value)), byComputing)
+    | [value, next, ..rest], Both lexValue others => (
       (passesTwo value.layout
-        (closeAfter value (token comma ","))
+        (closeAfter value (token Comments.none ","))
         Free
         Meets
         Meets
         (passesFrom _ _ Free _ (exprPasses value lexValue) (freeEnters value))
-        (closeAfterPasses value _ Meets (meetingToken comma "," fineComma (signToken Comma commaSign) shutsComma))),
+        (closeAfterPasses value _ Meets
+          (meetingToken Comments.none "," fineNone (signToken Comma commaSign) shutsComma))),
       (itemDocsPass [next, ..rest] others)
     )
 
-theorem listPasses ∀ (open: Comments) (items: List Item) (close: Comments) (pre: Edge → Prop)
+theorem listPasses ∀ (open: Comments) (items: List Expr) (close: Comments) (pre: Edge → Prop)
     (fineOpen: Fine open)
     (fineClose: Fine close)
     (each: EachPasses (itemDocs items)) (admitted: ∀ (edge: Edge) => pre edge → Admits "[" edge):
@@ -597,10 +600,10 @@ theorem listPasses ∀ (open: Comments) (items: List Item) (close: Comments) (pr
                     Meets
                     (fillPasses (itemDocs [first, ..rest]) each)
                     (passesLast _ Meets Meets
-                      (closeAfterPasses last.value _ Meets
+                      (closeAfterPasses last _ Meets
                         (meetingCloser close "]" fineClose (signToken CloseSquare closeSquareSign) shutsSquare))))))
 
-theorem argumentsPass ∀ (open: Comments) (arguments: List Item) (close: Comments)
+theorem argumentsPass ∀ (open: Comments) (arguments: List Expr) (close: Comments)
     (fineOpen: Fine open)
     (fineClose: Fine close)
     (each: EachPasses (itemDocs arguments)):
@@ -875,20 +878,20 @@ theorem groupPasses ∀ (group: ParameterGroup) (lexical: LexicalGroup group): P
                 passesSpace
                 (passesLast _ Loose Meets (passesFrom _ _ Loose _ (typePasses annotation lexType) looseFree))))))
 
-theorem parameterDocsPass ∀ (parameters: List Parameter)
+theorem parameterDocsPass ∀ (parameters: List ParameterGroup)
     (lexical: LexicalParameters parameters):
     EachPasses (parameterDocs parameters) :=
   match parameters, lexical with
     | [], _ => byComputing
-    | [{ group, comma }], Both lexGroup _ => ((groupPasses group lexGroup), byComputing)
-    | [{ group, comma }, next, ..rest], Both lexGroup (Both fineComma others) => (
+    | [group], Both lexGroup _ => ((groupPasses group lexGroup), byComputing)
+    | [group, next, ..rest], Both lexGroup others => (
       (passesTwo group.layout
-        (token comma ",")
+        (token Comments.none ",")
         Free
         Meets
         Meets
         (groupPasses group lexGroup)
-        (meetingToken comma "," fineComma (signToken Comma commaSign) shutsComma)),
+        (meetingToken Comments.none "," fineNone (signToken Comma commaSign) shutsComma)),
       (parameterDocsPass [next, ..rest] others)
     )
 
@@ -908,7 +911,7 @@ theorem takesPasses ∀ (takes: Option Comments) (fine: FineTakes takes): Passes
             (passesLast _ Meets Meets (passesTo _ _ Loose Meets passesSpace looseMeets))))
 
 theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: Option Comments)
-    (open: Comments) (parameters: List Parameter) (close equals: Comments)
+    (open: Comments) (parameters: List ParameterGroup) (close equals: Comments)
     (fineFn: Fine fnComments)
     (word: IsWord name)
     (fineName: Fine nameComments)

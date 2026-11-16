@@ -73,23 +73,22 @@ theorem headedBare ∀ (layout: Layout) (value: Expr)
 
 -- Items.
 
-theorem headedItemsAppend ∀ (front: List Item) (last: Item)
+theorem headedItemsAppend ∀ (front: List Expr) (last: Expr)
     (headed: HeadedItems front)
-    (lastHeaded: HeadedExpr True last.value):
+    (lastHeaded: HeadedExpr True last):
     HeadedItems (front ++ [last]) :=
-  match front, headed, last, lastHeaded with
-    | [], headed, { value, comma }, lastHeaded => (lastHeaded, byComputing)
-    | [{ value, comma }, ..rest], Both valueHeaded restHeaded, last, lastHeaded =>
-      (valueHeaded, (headedItemsAppend rest last restHeaded lastHeaded))
+  match front, headed with
+    | [], headed => (lastHeaded, byComputing)
+    | [value, ..rest], Both valueHeaded restHeaded => (valueHeaded, (headedItemsAppend rest last restHeaded lastHeaded))
 
-theorem headedItemsReverse ∀ (found: List Item) (headed: HeadedItems found): HeadedItems found.reverse :=
+theorem headedItemsReverse ∀ (found: List Expr) (headed: HeadedItems found): HeadedItems found.reverse :=
   match found, headed with
     | [], headed => byComputing
-    | [{ value, comma }, ..rest], Both valueHeaded restHeaded =>
-      rewrite List.reverseCons ({ value, comma }: Item) rest then
-        headedItemsAppend rest.reverse { value, comma } (headedItemsReverse rest restHeaded) valueHeaded
+    | [value, ..rest], Both valueHeaded restHeaded =>
+      rewrite List.reverseCons value rest then
+        headedItemsAppend rest.reverse value (headedItemsReverse rest restHeaded) valueHeaded
 
-def HeadedItem (read: (Item, Bool)): Prop := HeadedExpr True read.fst.value
+def HeadedItem (read: (Expr, Bool)): Prop := HeadedExpr True read.fst
 
 -- Atoms and their calls and fields.
 

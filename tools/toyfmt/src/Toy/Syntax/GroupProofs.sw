@@ -49,7 +49,10 @@ theorem runsTypeBracketed ∀ (self: () → {Parse (Parse.Located Token)} TypeEx
       (() => typeRule self ())
       [open, ..innerTokens ++ [close]]
       rest
-      (TypeBracketed (Layout.comments InBrackets open) inner (Layout.comments InBrackets close)) :=
+      (TypeBracketed
+        (Layout.comments InBrackets open)
+        inner
+        ((Layout.comments InBrackets close).closing inner.endsWithComment)) :=
   state starts honest =>
     let opened := Layout.comments InBrackets open
     let core :=
@@ -58,31 +61,31 @@ theorem runsTypeBracketed ∀ (self: () → {Parse (Parse.Located Token)} TypeEx
         (skipped =>
           let inner := self ()
           let close := sign InBrackets "')'" CloseParen
-          TypeBracketed opened inner close)
+          TypeBracketed opened inner (close.closing inner.endsWithComment))
         [open]
         (innerTokens ++ [close])
         [open, ..innerTokens ++ [close]]
         rest
         ()
-        (TypeBracketed opened inner (Layout.comments InBrackets close))
+        (TypeBracketed opened inner ((Layout.comments InBrackets close).closing inner.endsWithComment))
         byComputing
         (runsSkip open ((innerTokens ++ [close]) ++ rest))
         (Parse.runsBind
           (() => self ())
           (inner =>
             let close := sign InBrackets "')'" CloseParen
-            TypeBracketed opened inner close)
+            TypeBracketed opened inner (close.closing inner.endsWithComment))
           innerTokens
           [close]
           (innerTokens ++ [close])
           rest
           inner
-          (TypeBracketed opened inner (Layout.comments InBrackets close))
+          (TypeBracketed opened inner ((Layout.comments InBrackets close).closing inner.endsWithComment))
           byComputing
           runsInner
           (Parse.runsMap
             (() => sign InBrackets "')'" CloseParen)
-            (closed => TypeBracketed opened inner closed)
+            (closed => TypeBracketed opened inner (closed.closing inner.endsWithComment))
             [close]
             rest
             (Layout.comments InBrackets close)
@@ -95,34 +98,43 @@ theorem bracketedShorter ∀ (open close: Parse.Located Token) (inner: List (Par
   arithmetic [lengths]
 
 --| The parser reads back any type from tokens that spell it, whatever
---| follows: a type ends at its name or its `)`.
+--| follows: a type ends at its name or its `)`. The type's closing
+--| brackets hold what rule N leaves on one (`ShapedType`), so the parser
+--| keeps their comments as they are.
 --|
 --| By `Parse.runsRecursiveWith`: a name is one token, and a type in
 --| brackets reads the shorter inner type with the nested parser.
 theorem runsType ∀ (annotation: TypeExpr) (tokens rest: List (Parse.Located Token))
-    (spelled: SpelledType annotation tokens):
+    (spelled: SpelledType annotation tokens)
+    (shaped: ShapedType annotation):
     Parse.Runs (() => typeExpr()) tokens rest annotation :=
   Parse.runsRecursiveWith typeRule
-    (unit read after found => SpelledType found read)
-    (self unit read after found spelledFound nested =>
-      match found, spelledFound, unit with
-        | TypeName text comments, Witness token (Both split (Both named commented)), () =>
+    (unit read after found => SpelledType found read ∧ ShapedType found)
+    (self unit read after found both nested =>
+      match found, both, unit with
+        | TypeName text comments, Both (Witness token (Both split (Both named commented))) _, () =>
           rewrite split, commented then runsTypeName self token text after named
-        | TypeBracketed open inner close, Witness opener
-            (Witness innerTokens
-              (Witness closer (Both split (Both opens (Both opened (Both closes (Both closed innerSpelled))))))), () =>
-          rewrite split, opened, closed then
+        | TypeBracketed open inner close, Both
+            (Witness opener
+              (Witness innerTokens
+                (Witness closer (Both split (Both opens (Both opened (Both closes (Both closed innerSpelled))))))))
+            (Both innerShaped settled), () =>
+          let settledClose: settledCloser inner.endsWithComment (Layout.comments InBrackets closer) = True :=
+            rewrite <- closed then settled
+          let ran :=
             runsTypeBracketed self opener closer innerTokens after inner opens closes
               (nested () innerTokens
                 [closer, ..after]
                 inner
-                innerSpelled
-                (rewrite split then bracketedShorter opener closer innerTokens)))
+                ((innerSpelled, innerShaped))
+                (rewrite split then bracketedShorter opener closer innerTokens))
+          rewrite split, opened, closed then
+            (rewrite closingSame (Layout.comments InBrackets closer) inner.endsWithComment settledClose at ran then ran))
     ()
     tokens
     rest
     annotation
-    spelled
+    ((spelled, shaped))
 
 -- Groups.
 
@@ -181,7 +193,8 @@ theorem nameRounds ∀ (steps: List (List (Parse.Located Token), (Text, Comments
 --| A group's type: `:` and tokens that spell a type.
 theorem runsTyping ∀ (colon: Parse.Located Token) (typeTokens rest: List (Parse.Located Token)) (annotation: TypeExpr)
     (isColon: colon.value.kind = Sign Colon)
-    (spelled: SpelledType annotation typeTokens):
+    (spelled: SpelledType annotation typeTokens)
+    (shaped: ShapedType annotation):
     Parse.Runs
       (() => Parse.optional typing)
       ([colon] ++ typeTokens)
@@ -211,7 +224,7 @@ theorem runsTyping ∀ (colon: Parse.Located Token) (typeTokens rest: List (Pars
         typeTokens
         rest
         annotation
-        (runsType annotation typeTokens rest spelled)))
+        (runsType annotation typeTokens rest spelled shaped)))
 
 --| No type: the next token is not `:`.
 theorem runsNoTyping ∀ (rest: List (Parse.Located Token))
@@ -311,7 +324,8 @@ theorem runsTyped ∀ (first colon: Parse.Located Token) (text: Text)
     (isName: first.value.kind = Name text)
     (spelled: NameSteps steps)
     (isColon: colon.value.kind = Sign Colon)
-    (typeSpelled: SpelledType annotation typeTokens):
+    (typeSpelled: SpelledType annotation typeTokens)
+    (typeShaped: ShapedType annotation):
     Parse.Runs
       (() => parameterGroup())
       ([first] ++ Parse.joinReads steps ++ [colon, ..typeTokens])
@@ -337,73 +351,52 @@ theorem runsTyped ∀ (first colon: Parse.Located Token) (text: Text)
     isName
     spelled
     (rewrite isColon)
-    (runsTyping colon typeTokens rest annotation isColon typeSpelled)
+    (runsTyping colon typeTokens rest annotation isColon typeSpelled typeShaped)
     (Parse.runsPure group rest)
 
 -- Parameter lists.
 
 --| The rounds of a parameter list after its first group: each a comma
 --| and tokens the group parser reads, whatever follows them.
-def ParameterSteps: (steps: List (List (Parse.Located Token), (Comments, ParameterGroup)))
+def ParameterSteps: (steps: List (List (Parse.Located Token), ParameterGroup))
       → (rest: List (Parse.Located Token))
       → Prop
   | [], rest => True
   | [(read, found), ..more], rest =>
-    (∃ (comma: Parse.Located Token) => ∃ (groupTokens: List (Parse.Located Token)) => ∃ (group: ParameterGroup) => read
-      = [comma, ..groupTokens]
+    (∃ (comma: Parse.Located Token) => ∃ (groupTokens: List (Parse.Located Token)) => read = [comma, ..groupTokens]
       ∧ comma.value.kind = Sign Comma
-      ∧ found = (Layout.comments InBrackets comma, group)
-      ∧ Parse.Runs (() => parameterGroup()) groupTokens (Parse.joinReads more ++ rest) group)
+      ∧ Parse.Runs (() => parameterGroup()) groupTokens (Parse.joinReads more ++ rest) found)
       ∧ ParameterSteps more rest
 
-theorem parameterRounds ∀
-    (steps: List (List (Parse.Located Token), (Comments, ParameterGroup))) (rest: List (Parse.Located Token))
+theorem parameterRounds ∀ (steps: List (List (Parse.Located Token), ParameterGroup)) (rest: List (Parse.Located Token))
     (spelled: ParameterSteps steps rest)
     (ends: signAhead Comma rest = False):
     Parse.ManyRuns parameterStep steps rest :=
   match steps, spelled with
     | [], spelled =>
-      Parse.declinesBind
-        (() => sign InBrackets "','" Comma)
-        (comma =>
-          let group := parameterGroup()
-          (comma, group))
-        rest
-        (commaDeclines rest ends)
-    | [(read, found), ..more], Both
-        (Witness comma (Witness groupTokens (Witness group (Both split (Both isComma (Both valued runsGroup))))))
-        later =>
-      let commaComments := Layout.comments InBrackets comma
-      (
-        (rewrite split then (same => cases)),
-        (rewrite split, valued then
-          Parse.runsBind
-            (() => sign InBrackets "','" Comma)
-            (comma1 =>
-              let group1 := parameterGroup()
-              (comma1, group1))
-            [comma]
-            groupTokens
-            [comma, ..groupTokens]
-            (Parse.joinReads more ++ rest)
-            commaComments
-            (commaComments, group)
-            byComputing
-            (runsSign InBrackets "','" Comma comma (groupTokens ++ (Parse.joinReads more ++ rest)) isComma byComputing)
-            (Parse.runsMap
-              (() => parameterGroup())
-              (group1 => (commaComments, group1))
-              groupTokens
-              (Parse.joinReads more ++ rest)
-              group
-              runsGroup)),
-        (parameterRounds more rest later ends)
-      )
+      Parse.declinesBind (() => sign InBrackets "','" Comma) (comma => parameterGroup()) rest (commaDeclines rest ends)
+    | [(read, found), ..more], Both (Witness comma (Witness groupTokens (Both split (Both isComma runsGroup)))) later => (
+      (rewrite split then (same => cases)),
+      (rewrite split then
+        Parse.runsBind
+          (() => sign InBrackets "','" Comma)
+          (comma1 => parameterGroup())
+          [comma]
+          groupTokens
+          [comma, ..groupTokens]
+          (Parse.joinReads more ++ rest)
+          (Layout.comments InBrackets comma)
+          found
+          byComputing
+          (runsSign InBrackets "','" Comma comma (groupTokens ++ (Parse.joinReads more ++ rest)) isComma byComputing)
+          runsGroup),
+      (parameterRounds more rest later ends)
+    )
 
 --| A function's parameters: a group, then a comma and a group any number
 --| of times, up to a token that is no comma.
 theorem runsParameters ∀ (firstTokens: List (Parse.Located Token)) (first: ParameterGroup)
-    (steps: List (List (Parse.Located Token), (Comments, ParameterGroup))) (rest: List (Parse.Located Token))
+    (steps: List (List (Parse.Located Token), ParameterGroup)) (rest: List (Parse.Located Token))
     (runsFirst: Parse.Runs (() => parameterGroup()) firstTokens (Parse.joinReads steps ++ rest) first)
     (spelled: ParameterSteps steps rest)
     (ends: signAhead Comma rest = False):

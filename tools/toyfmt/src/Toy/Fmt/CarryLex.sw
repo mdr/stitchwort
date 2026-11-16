@@ -246,13 +246,16 @@ theorem fallingRising ∀ (bound: Nat) (tokens: List Tok)
                 ((known.left, ())))
             )
 
---| The lexer's tokens are what the walk assumes: tidy, at rising offsets.
+--| The lexer's tokens are tidy, at rising offsets: what rule N starts
+--| from (`settledFits`).
 --|
 --| Proof idea: the lex read the source lexeme by lexeme (`lexRead`), each
 --| reading something and each comment followed by a line break
 --| (`linedOf`); `assemble`'s fold keeps `Kept` over such lexemes
 --| (`foldKept`), and its tokens reversed are tidy and rising.
-theorem lexFits ∀ (source: Text) (lexed: Lexed) (lexes: lex source = Ok lexed): Parse.Fits Tok Lexer lexed.tokens :=
+theorem lexFits ∀ (source: Text) (lexed: Lexed)
+    (lexes: lex source = Ok lexed):
+    List.All Tidy lexed.tokens ∧ Rising lexed.tokens :=
   match lexRead source lexed lexes with
     | (steps, joined, lexemesSame, tokensSame, triviaSame, lexemes) =>
       match foldKept source steps 0 Assembly.start
@@ -260,15 +263,13 @@ theorem lexFits ∀ (source: Text) (lexed: Lexed) (lexes: lex source = Ok lexed)
         ((byComputing, (), (busy => (Bool.trueNotFalse busy).impossible))) with
         | (end, falling, tidy, settled) =>
           rewrite tokensSame, lexemesSame then
-            {
-              holds = (
-                (List.allReverse Tidy
-                  ((Parse.locatedSteps 0 steps).foldLeft Assembly.start (assembly lexeme =>
-                    assembly.add source lexeme)).tokens
-                  tidy),
-                (fallingRising end
-                  ((Parse.locatedSteps 0 steps).foldLeft Assembly.start (assembly lexeme =>
-                    assembly.add source lexeme)).tokens
-                  falling).left
-              )
-            }
+            (
+              (List.allReverse Tidy
+                ((Parse.locatedSteps 0 steps).foldLeft Assembly.start (assembly lexeme =>
+                  assembly.add source lexeme)).tokens
+                tidy),
+              (fallingRising end
+                ((Parse.locatedSteps 0 steps).foldLeft Assembly.start (assembly lexeme =>
+                  assembly.add source lexeme)).tokens
+                falling).left
+            )

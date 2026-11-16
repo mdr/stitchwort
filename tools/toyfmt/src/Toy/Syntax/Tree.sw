@@ -19,6 +19,9 @@
 --|   copies them there as it reads each token and decides nothing from
 --|   them, so every source that parses has a tree, and the tree holds every
 --|   comment once.
+--| - A comma holds no comments and isn't in the tree: rule N
+--|   (`Settle.sw`) gives what was written beside one to the tokens around
+--|   it before the parser reads them.
 --| - The own-line comments above a declaration's or statement's first
 --|   token are the exception: they are lines of the vertical list
 --|   (`DeclarationNote`, `StatementNote`), each with its kept blank line,
@@ -86,8 +89,8 @@ type Expr =
   | StringLiteral (written: Text) (comments: Comments)
   --| `( … )`: brackets are kept as written.
   | Bracketed (open: Comments) (inner: Expr) (close: Comments)
-  | ListLiteral (open: Comments) (items: List Item) (close: Comments)
-  | Call (callee: Expr) (open: Comments) (arguments: List Item) (close: Comments)
+  | ListLiteral (open: Comments) (items: List Expr) (close: Comments)
+  | Call (callee: Expr) (open: Comments) (arguments: List Expr) (close: Comments)
   | Field (target: Expr) (dot: Comments) (name: Text) (nameComments: Comments)
   | Negate (minus: Comments) (operand: Expr)
   --| Left-nested for a chain of one level: `a - b + c` is `(a - b) + c`.
@@ -100,9 +103,6 @@ type Expr =
       (elseComments: Comments)
       (whenFalse: Body)
 
---| A list item or a call's argument, and the comments of the comma after it
---| (none for the last item, which has no comma).
-type Item = { value: Expr, comma: Comments }
 
 --| A parameter's type: a name, or a type in brackets.
 type TypeExpr =
@@ -117,9 +117,6 @@ type ParameterGroup =
   --| `w h: Int`: one or more names and the type they share.
   | Typed (names: NonEmptyList Named) (colon: Comments) (annotation: TypeExpr)
 
---| A group of a declaration's parameters, and the comments of the comma
---| after it (none for the last).
-type Parameter = { group: ParameterGroup, comma: Comments }
 
 --| A line of a vertical list (a file's declarations, a block's statements),
 --| and whether the author left a blank line above it.
@@ -143,7 +140,7 @@ type Declaration =
       (nameComments: Comments)
       (takes: Option Comments)
       (open: Comments)
-      (parameters: List Parameter)
+      (parameters: List ParameterGroup)
       (close: Comments)
       (equals: Comments)
       (body: Body)

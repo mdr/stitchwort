@@ -13,24 +13,29 @@ import Toy.Fmt (..)
 import Toy.Fmt.Carry (..)
 import Toy.Fmt.Proofs (..)
 import Toy.Syntax (..)
+import Toy.Syntax.Proofs (settledKeepsComments)
 import Std (Bool, List, Nat, Option, Parse, Result, Text)
 
 --| The parser's half: the tree holds exactly the comments the lexer
---| found, in the same order. The lexer's tokens are tidy and at rising
---| offsets (`lexFits`), and the walk over the parser's functions gives
---| the tree's comments from such tokens (`tokensCarry`).
+--| found, in the same order. Rule N keeps every comment in order
+--| (`settledKeepsComments`), its tokens are what the walk assumes
+--| (`settledFits`), and the walk over the parser's functions gives the
+--| tree's comments from such tokens (`tokensCarry`).
 theorem parseCarries ∀ (source: Text) (lexed: Lexed) (tree: SourceFile)
     (lexes: lex source = Ok lexed)
     (parsed: parse source = Ok tree):
     tree.comments = lexed.comments :=
   match found: lex source with
     | Ok tokens =>
-      match whole: Parse.whole tokens.tokens (() => sourceFile tokens.endTrivia) with
+      match whole: Parse.whole tokens.settled.tokens (() => sourceFile tokens.settled.endTrivia) with
         | Ok file =>
           let sameTree: file = tree := Result.okInjective parsed
           let sameLexed: tokens = lexed := Result.okInjective lexes
           rewrite <- sameTree, <- sameLexed then
-            tokensCarry tokens.tokens tokens.endTrivia file (lexFits source tokens found) whole
+            calc file.comments
+              _ = tokens.settled.comments :=
+                tokensCarry tokens.settled.tokens tokens.settled.endTrivia file (settledFits source tokens found) whole
+              _ = tokens.comments := settledKeepsComments tokens
 
 --| Formatting keeps every comment, with the same text and in the same
 --| order: the comments the lexer finds in the output are those it finds

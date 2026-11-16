@@ -24,13 +24,11 @@ def str (text: Text): Expr := StringLiteral "\"${text}\"" none
 def dots (target: Text) (names: List Text): Expr :=
   names.foldLeft (v target) (target name => Field target none name none)
 
-def item (value: Expr): Item := { value, comma = none }
-
-def callOn (callee: Expr) (arguments: List Expr): Expr := Call callee none (arguments.map item) none
+def callOn (callee: Expr) (arguments: List Expr): Expr := Call callee none arguments none
 
 def call (callee: Text) (arguments: List Expr): Expr := callOn (v callee) arguments
 
-def list (items: List Expr): Expr := ListLiteral none (items.map item) none
+def list (items: List Expr): Expr := ListLiteral none items none
 
 def op (operator: Operator) (left right: Expr): Expr := Binary operator none left right
 
@@ -55,16 +53,16 @@ def letBody (name: Text) (body: Body): Statement := Let none name none none body
 
 def letIn (name: Text) (value: Expr): Spaced Statement := plain (letBody name (expr value))
 
-def parameter (name: Text): Parameter := { group = Untyped { name, comments = none }, comma = none }
+def parameter (name: Text): ParameterGroup := Untyped { name, comments = none }
 
 def named (name: Text): Named := { name, comments = none }
 
 --| `first others…: annotation`, with no comments but `colon`'s.
-def typed (first: Text) (others: List Text) (colon: Comments) (annotation: TypeExpr): Parameter :=
-  { group = Typed { head = named first, tail = others.map named } colon annotation, comma = none }
+def typed (first: Text) (others: List Text) (colon: Comments) (annotation: TypeExpr): ParameterGroup :=
+  Typed { head = named first, tail = others.map named } colon annotation
 
 --| A function declared with `takes` (or not, at `None`) and parameter groups.
-def fnGroups (name: Text) (takes: Option Comments) (open: Comments) (parameters: List Parameter)
+def fnGroups (name: Text) (takes: Option Comments) (open: Comments) (parameters: List ParameterGroup)
     (close: Comments) (body: Body):
     Spaced Declaration :=
   plain (Function none name none takes open parameters close none body)

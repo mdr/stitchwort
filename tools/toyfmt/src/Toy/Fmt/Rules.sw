@@ -86,7 +86,7 @@ def binding (letComments: Comments) (name: Text) (nameComments equals: Comments)
 --| P2: the parameters on the header's line, else one a line at +4, with
 --| `) =` back at the header's column.
 def header (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: Option Comments) (open: Comments)
-    (parameters: List Parameter) (close equals: Comments):
+    (parameters: List ParameterGroup) (close equals: Comments):
     Doc :=
   let opening :=
     Doc.concat [token fnComments "fn", Doc.text " ", token nameComments name, takesDoc takes, token open "("]
@@ -103,10 +103,10 @@ def takesDoc: Option Comments → Doc
   | Some comments => Doc.concat [Doc.text " ", token comments "takes", Doc.text " "]
 
 --| Each parameter group, and its comma but the last's.
-def parameterDocs: List Parameter → List Doc
+def parameterDocs: List ParameterGroup → List Doc
   | [] => []
-  | [{ group, .. }] => [group.layout]
-  | [{ group, comma }, ..rest] => [Doc.concat [group.layout, token comma ","], ..parameterDocs rest]
+  | [group] => [group.layout]
+  | [group, ..rest] => [Doc.concat [group.layout, token Comments.none ","], ..parameterDocs rest]
 
 --| A group's names a space apart, then `: ` and their type.
 def ParameterGroup.layout: ParameterGroup → Doc
@@ -182,33 +182,6 @@ def Expr.startsWithMinus: Expr → Bool
   | Field target _ _ _ => target.startsWithMinus
   | _ => False
 
---| Whether the expression's last token has a trailing comment.
-def Expr.endsWithComment: Expr → Bool
-  | Var _ comments => comments.after.isSome
-  | NumberLiteral _ comments => comments.after.isSome
-  | StringLiteral _ comments => comments.after.isSome
-  | Bracketed _ _ close => close.after.isSome
-  | ListLiteral _ _ close => close.after.isSome
-  | Call _ _ _ close => close.after.isSome
-  | Field _ _ _ nameComments => nameComments.after.isSome
-  | Negate _ operand => operand.endsWithComment
-  | Binary _ _ _ right => right.endsWithComment
-  | If _ _ _ _ _ whenFalse => whenFalse.endsWithComment
-
-def Body.endsWithComment: Body → Bool
-  | { statements } => statementsEndWithComment statements
-
---| Whether the last of the statements ends in a trailing comment.
-def statementsEndWithComment: List (Spaced Statement) → Bool
-  | [] => False
-  | [{ line, .. }] => line.endsWithComment
-  | [_, ..rest] => statementsEndWithComment rest
-
-def Statement.endsWithComment: Statement → Bool
-  | Bare value => value.endsWithComment
-  | Let _ _ _ _ body => body.endsWithComment
-  | StatementNote _ => False
-
 --| `closer` (a `,` or closing bracket) after `expr`: on the line below if
 --| `expr` ends in a trailing comment, at the indentation in force, rather
 --| than where a comment break would put it.
@@ -267,7 +240,7 @@ def elseBranch (elseComments: Comments) (body: Body): Doc := match body with
 
 --| P4: the arguments on the call's line, else one a line at +2 with `)` at
 --| the call's line.
-def argumentsLayout (open: Comments) (arguments: List Item) (close: Comments): Doc := match arguments with
+def argumentsLayout (open: Comments) (arguments: List Expr) (close: Comments): Doc := match arguments with
   | [] => Doc.concat [token open "(", closer close ")"]
   | _ =>
     Doc.group
@@ -281,14 +254,14 @@ def argumentsLayout (open: Comments) (arguments: List Item) (close: Comments): D
 --| P5: list items fill their lines, the `]` after the last. A trailing
 --| comment on the last item puts the `]` on the line below, at the list's
 --| indentation: after the `]`, the comment would belong to it.
-def listLayout (open: Comments) (items: List Item) (close: Comments): Doc := match items.last with
+def listLayout (open: Comments) (items: List Expr) (close: Comments): Doc := match items.last with
   | None => Doc.concat [token open "[", closer close "]"]
   | Some last =>
-    Doc.group (Doc.concat [token open "[", Nest 2 (Fill (itemDocs items)), closeAfter last.value (closer close "]")])
+    Doc.group (Doc.concat [token open "[", Nest 2 (Fill (itemDocs items)), closeAfter last (closer close "]")])
 
 --| Each item, and its comma but the last's: after the item's own line if
 --| the item ends in a trailing comment.
-def itemDocs: List Item → List Doc
+def itemDocs: List Expr → List Doc
   | [] => []
-  | [{ value, .. }] => [value.layout]
-  | [{ value, comma }, ..rest] => [Doc.concat [value.layout, closeAfter value (token comma ",")], ..itemDocs rest]
+  | [value] => [value.layout]
+  | [value, ..rest] => [Doc.concat [value.layout, closeAfter value (token Comments.none ",")], ..itemDocs rest]
