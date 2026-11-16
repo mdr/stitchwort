@@ -26,12 +26,9 @@ theorem lineAfterAdd ∀ (lines: Map Nat (Set Nat)) (line item key other: Nat):
     | True =>
       rewrite onLine.read, Map.getInsert line (lines.getOr line Set.empty |> .insert item) lines then
         match isItem: other == item with
-          | True => rewrite isItem.read, Set.containsInsert item (lines.getOr line Set.empty) then byComputing
-          | False =>
-            rewrite Set.containsInsertOther (lines.getOr line Set.empty) item other isItem.read then byComputing
-    | False =>
-      rewrite Map.getInsertOther line (lines.getOr line Set.empty |> .insert item) key onLine.read lines then
-        byComputing
+          | True => rewrite isItem.read, Set.containsInsert item (lines.getOr line Set.empty)
+          | False => rewrite Set.containsInsertOther (lines.getOr line Set.empty) item other isItem.read
+    | False => rewrite Map.getInsertOther line (lines.getOr line Set.empty |> .insert item) key onLine.read lines
 
 --| Adding an obstruction adds it to its row and column.
 theorem addRepresents ∀ (sightlines: Sightlines) (has: Position → Bool)
@@ -41,11 +38,10 @@ theorem addRepresents ∀ (sightlines: Sightlines) (has: Position → Bool)
     | { row = addedRow, column = addedColumn } => row column =>
       let before := represents row column
       Both
-        (rewrite lineAfterAdd sightlines.byRow addedRow addedColumn row column, before.left then byComputing)
-        (rewrite lineAfterAdd sightlines.byColumn addedColumn addedRow column row,
-            And.right before,
-            Bool.andComm (column == addedColumn) (row == addedRow) then
-          byComputing)
+        (rewrite lineAfterAdd sightlines.byRow addedRow addedColumn row column, before.left)
+        (rewrite lineAfterAdd sightlines.byColumn addedColumn addedRow column row, And.right before, Bool.andComm
+          (column == addedColumn)
+          (row == addedRow))
 
 theorem orShift ∀ (a b c: Bool): ((a || b) || c) = (b || (if a then True else c)) := cases
 
@@ -77,11 +73,10 @@ theorem positionExt ∀ (one other: Position)
     (rows: one.row = other.row)
     (columns: one.column = other.column):
     one = other :=
-  match one, other with
-    | { row, column }, { row = otherRow, column = otherColumn } => rewrite rows, columns then byComputing
+  match one, other with | { row, column }, { row = otherRow, column = otherColumn } => rewrite rows, columns
 
 theorem isAtSelf ∀ (position: Position): isAt position.row position.column position = True :=
-  rewrite DecEq.refl position.row, DecEq.refl position.column then byComputing
+  rewrite DecEq.refl position.row, DecEq.refl position.column
 
 theorem isAtSound ∀ (key position: Position) (here: isAt key.row key.column position = True): position = key :=
   let Both sameRow sameColumn := here
@@ -100,8 +95,7 @@ theorem containsEntries ∀ (obstructions: Set Position) (position: Position):
           let Witness entry (Both inList hit) := found
           match entry with
             | (key, unit) =>
-              let entryIs: (key, unit) = (position, ()) :=
-                rewrite isAtSound key position hit, Set.unitEq unit () then byComputing
+              let entryIs: (key, unit) = (position, ()) := rewrite isAtSound key position hit, Set.unitEq unit ()
               Eq.flipped
                 (Eq.trans has.flipped
                   ((Set.containsToList obstructions position).backward (rewrite <- entryIs then inList)))
@@ -135,10 +129,10 @@ theorem stepTurns ∀ (lab: Lab) (guard: Guard) (ahead: Position)
     (inFront: lab.ahead guard = Some ahead)
     (blocked: lab.obstructions.contains ahead = True):
     lab.step guard = Some { guard | facing = guard.facing.turnRight } :=
-  rewrite inFront, blocked then byComputing
+  rewrite inFront, blocked
 
 theorem stepLeaves ∀ (lab: Lab) (guard: Guard) (inFront: lab.ahead guard = None): lab.step guard = None :=
-  rewrite inFront then byComputing
+  rewrite inFront
 
 --| What is ahead in each direction, inside the map and at its edge.
 theorem aheadUp ∀ (lab: Lab) (row column: Nat)
@@ -527,7 +521,7 @@ theorem insertContains ∀ (obstructions: Set Position) (added position: Positio
     | False =>
       let other: position ≠ added := same =>
         Bool.falseNotTrue (Eq.trans here.flipped (rewrite same then isAtSelf added))
-      rewrite Set.containsInsertOther obstructions added position other then byComputing
+      rewrite Set.containsInsertOther obstructions added position other
 
 --| The program's sightlines with each new obstruction on the map simulate
 --| the walk in the lab with it, when the lab's obstructions are on the map.

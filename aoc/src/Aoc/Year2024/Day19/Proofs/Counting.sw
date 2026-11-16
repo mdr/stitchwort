@@ -63,11 +63,9 @@ theorem matchingSucc ∀ (patterns: List Pattern) (count: Nat) (stripes: List St
 theorem matchingEmpty ∀ (patterns: List Pattern) (count: Nat): matching patterns count [] = 1 := match count with
   | Zero => byComputing
   | Succ count =>
-    rewrite matchingSucc patterns count [],
-        List.sumByZeroIntro patterns
-          (pattern =>
-            if List.startsWith [] pattern.stripes.toList then
-              matching patterns count (List.drop [] pattern.stripes.toList.length)
-            else 0)
-          (pattern member => byComputing) then
-      byComputing
+    rewrite matchingSucc patterns count [], List.sumByZeroIntro patterns
+      (pattern =>
+        if List.startsWith [] pattern.stripes.toList then
+          matching patterns count (List.drop [] pattern.stripes.toList.length)
+        else 0)
+      (pattern member => byComputing)

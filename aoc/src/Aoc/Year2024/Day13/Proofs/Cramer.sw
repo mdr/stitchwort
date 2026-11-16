@@ -43,7 +43,7 @@ theorem onlyPressesFinds ∀ (machine: Machine)
     = bPresses.toInt :=
     rewrite <- bTimesDeterminant machine aPresses bPresses won then
       Int.mulDivCancel machine.determinant bPresses.toInt [ok := nonzero]
-  rewrite aQuotient, bQuotient, won then byComputing
+  rewrite aQuotient, bQuotient, won
 
 --| The presses `Machine.onlyPresses` finds win.
 theorem onlyPressesWins ∀ (machine: Machine)

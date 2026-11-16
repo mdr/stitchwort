@@ -13,7 +13,7 @@ theorem stepMoves ∀ (lab: Lab) (guard: Guard) (ahead: Position)
     (inFront: lab.ahead guard = Some ahead)
     (blocked: lab.obstructions.contains ahead = False):
     lab.step guard = Some { guard | position = ahead } :=
-  rewrite inFront, blocked then byComputing
+  rewrite inFront, blocked
 
 --| An obstruction changes nothing about what is ahead.
 theorem aheadWith ∀ (lab: Lab) (blocker: Position) (guard: Guard):
@@ -32,11 +32,9 @@ theorem stepWithSame ∀ (lab: Lab) (blocker: Position) (guard: Guard)
       | None => byComputing
       | Some ahead =>
         match blocked: lab.obstructions.contains ahead with
-          | True => rewrite Set.containsInsertMono lab.obstructions blocker ahead blocked then byComputing
+          | True => rewrite Set.containsInsertMono lab.obstructions blocker ahead blocked
           | False =>
-            rewrite Set.containsInsertOther lab.obstructions blocker ahead (fresh ahead byComputing blocked),
-                blocked then
-              byComputing
+            rewrite Set.containsInsertOther lab.obstructions blocker ahead (fresh ahead byComputing blocked), blocked
 
 --| Whether the route has `position`, as `Set.fromList` sees it.
 def onRoute (lab: Lab) (guard: Option Guard) (steps: Nat) (position: Position): Bool :=
@@ -49,7 +47,7 @@ theorem walkWithSame ∀ (lab: Lab) (blocker: Position) (steps: Nat) (guard: Opt
     walk (lab.withObstruction blocker) guard steps = walk lab guard steps :=
   match steps, guard with
     | Zero, guard => byComputing
-    | Succ steps, None => rewrite walkNone (lab.withObstruction blocker) steps, walkNone lab steps then byComputing
+    | Succ steps, None => rewrite walkNone (lab.withObstruction blocker) steps, walkNone lab steps
     | Succ steps, Some here =>
       let restAbsent: onRoute lab (lab.step here) (Succ steps) blocker = False := Bool.orFalseRight _ _ absent
       let fresh := (ahead: Position) (inFront: lab.ahead here = Some ahead) (blocked: lab.obstructions.contains ahead
@@ -174,7 +172,7 @@ theorem boolOfIff ∀ [one other: Bool] (same: (one = True) ↔ (other = True)):
     | False, True => Void.impossible (Bool.falseNotTrue (same.backward byComputing))
 
 theorem startSettled ∀ (lab: Lab) (inside: onMap lab lab.start = True): settledAt lab lab.start = True :=
-  rewrite inside, DecEq.refl lab.start then byComputing
+  rewrite inside, DecEq.refl lab.start
 
 --| What the program's filter keeps.
 def keeps (lab: Lab) (sightlines: Sightlines) (position: Position): Bool :=

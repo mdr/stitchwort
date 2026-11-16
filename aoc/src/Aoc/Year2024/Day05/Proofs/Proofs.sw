@@ -38,7 +38,7 @@ theorem followsRuleIsPrintedBefore ∀ (pages: List Nat) (rule: Rule):
     | True => cases
     | False =>
       match brokenHasBoth rule.before rule.after pages printed with
-        | Both hasBefore hasAfter => rewrite hasBefore, hasAfter then byComputing
+        | Both hasBefore hasAfter => rewrite hasBefore, hasAfter
 
 --| `inOrder` depends only on what the test says.
 theorem inOrderCong ∀ (precedes1 precedes2: Nat → Nat → Bool)
@@ -48,11 +48,9 @@ theorem inOrderCong ∀ (precedes1 precedes2: Nat → Nat → Bool)
     | [] => byComputing
     | [page, ..later] =>
       rewrite List.allCong later
-            (laterPage => !(precedes1 laterPage page))
-            (laterPage => !(precedes2 laterPage page))
-            (laterPage => rewrite same laterPage page then byComputing),
-          inOrderCong precedes1 precedes2 same later then
-        byComputing
+        (laterPage => !(precedes1 laterPage page))
+        (laterPage => !(precedes2 laterPage page))
+        (laterPage => rewrite same laterPage page), inOrderCong precedes1 precedes2 same later
 
 --| No later page is the rule's first page while this one is its second: this
 --| page isn't the rule's second page, or the first page doesn't follow it.
@@ -66,9 +64,7 @@ theorem ruleKept ∀ (rule: Rule) (page: Nat) (later: List Nat):
           (found => !found)
           (List.anyCong later (laterPage => rule.before == laterPage && True) (== rule.before) (laterPage =>
             rewrite DecEq.eqComm rule.before laterPage then cases))
-      | False =>
-        rewrite List.anyFalse later (laterPage => rule.before == laterPage && False) (laterPage => cases) then
-          byComputing
+      | False => rewrite List.anyFalse later (laterPage => rule.before == laterPage && False) (laterPage => cases)
 
 --| No later page has a rule putting it before this one: every rule about this
 --| page is kept by it.
@@ -119,7 +115,6 @@ theorem inOrderCorrect ∀ (rules: List Rule) (update: Update):
 --| Part 1 adds up the middle pages of the updates in the right order.
 theorem part1Correct ∀ (queue: PrintQueue): solvePart1 queue = middlesOfOrdered queue :=
   rewrite List.filterCongMem queue.updates
-        (update => inOrder (mustPrecede (ruleSet queue.rules)) update.pages)
-        (rightOrder queue.rules)
-        (queued inQueue => inOrderCorrect queue.rules queued) then
-    byComputing
+    (update => inOrder (mustPrecede (ruleSet queue.rules)) update.pages)
+    (rightOrder queue.rules)
+    (queued inQueue => inOrderCorrect queue.rules queued)

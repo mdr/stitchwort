@@ -80,12 +80,12 @@ theorem settleMore ∀ (values: Values) (waiting: List Gate)
       = settle
         (fireAll values (waiting.filter (gate => gate.ready values)))
         (waiting.filter (gate => ¬(gate.ready values))) :=
-  rewrite settle.unfold values waiting then rewrite fewer then byComputing
+  rewrite settle.unfold values waiting, fewer
 
 theorem settleDone ∀ (values: Values) (waiting: List Gate)
     (done: Nat.leq (Succ (waiting.filter (gate => ¬(gate.ready values))).length) waiting.length = False):
     settle values waiting = values :=
-  rewrite settle.unfold values waiting then rewrite done then byComputing
+  rewrite settle.unfold values waiting, done
 
 --| The gates settle to values their wires carry, from values they carry.
 theorem settleSound ∀ (device: Device) (values: Values) (waiting: List Gate)

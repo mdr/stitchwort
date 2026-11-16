@@ -87,7 +87,7 @@ theorem besideNotCovers ∀ (file other: File) (position: Nat) (beside: file.Bes
 theorem besideNumber ∀ (file other: File) (position: Nat) (beside: file.Beside other)
     (covered: file.span.covers position = True):
     other.numberAt position = 0 :=
-  rewrite besideNotCovers file other position beside covered then byComputing
+  rewrite besideNotCovers file other position beside covered
 
 --| In files with no shared block, the file covering `position` is the one found.
 theorem findCovering ∀ (position: Nat):
@@ -100,7 +100,7 @@ theorem findCovering ∀ (position: Nat):
     match e: first.span.covers position with
       | True =>
         match member with
-          | Inl same => rewrite <- same then byComputing
+          | Inl same => rewrite <- same
           | Inr later =>
             Void.impossible
               (Bool.falseNotTrue
@@ -150,8 +150,7 @@ theorem drawFilesFile ∀ (size: Nat) (files: List File) (position: Nat)
     | Both distinct (Both pairwise within) =>
       let fits := List.allMem (other => other.span.end ≤ size) file files within member
       let below: position < size := arithmetic [(Span.coversIff file.span position).forward covered, fits]
-      rewrite drawFilesAt size files position below, findCovering position files pairwise file member covered then
-        byComputing
+      rewrite drawFilesAt size files position below, findCovering position files pairwise file member covered
 
 --| Where no file covers, the block is free.
 theorem drawFilesFree ∀ (size: Nat) (files: List File) (position: Nat)
@@ -159,8 +158,7 @@ theorem drawFilesFree ∀ (size: Nat) (files: List File) (position: Nat)
     (drawFiles size files).at position = Free :=
   match e: Nat.leq (Succ position) size with
     | True =>
-      rewrite drawFilesAt size files position e, List.findNoneOfMem (file => file.span.covers position) files none then
-        byComputing
+      rewrite drawFilesAt size files position e, List.findNoneOfMem (file => file.span.covers position) files none
     | False => drawFilesPast size files position (arithmetic)
 
 --| Each position's file number (0 if free) is the sum of the files' numbers there.
@@ -174,9 +172,8 @@ theorem drawFilesIdOr ∀ (size: Nat) (files: List File)
         | False =>
           let none := List.sumByZeroIntro files (file => file.numberAt position) (file member =>
             rewrite notCoversPast file.span position
-                  (arithmetic [List.allMem (other => other.span.end ≤ size) file files within member]) then
-              byComputing)
-          rewrite drawFilesPast size files position (arithmetic), none then byComputing
+              (arithmetic [List.allMem (other => other.span.end ≤ size) file files within member]))
+          rewrite drawFilesPast size files position (arithmetic), none
 
 --| A span doesn't cover a position before its start.
 theorem notCoversBefore ∀ (span: Span) (position: Nat) (before: position < span.start): span.covers position = False :=
@@ -190,7 +187,7 @@ theorem fileChecksumSpec ∀ (file: File):
   calc file.checksum
     _ = file.id * (file.span.length * file.span.start + file.span.length * (file.span.length - 1) / 2) := byComputing
     _ = file.id * List.sum (List.rangeFrom file.span.length file.span.start) :=
-      rewrite List.sumRangeFrom file.span.length file.span.start then byComputing
+      rewrite List.sumRangeFrom file.span.length file.span.start
     _ = List.sumBy (List.rangeFrom file.span.length file.span.start) (x => file.id * x) :=
       Eq.flipped (List.sumByMulLeft _ file.id (x => x))
     _ = List.sumBy (List.rangeFrom file.span.length file.span.start) (* file.id) :=
@@ -214,8 +211,7 @@ theorem fileChecksumRange ∀ (file: File) (size: Nat)
         (i => byComputing)
     _ = (List.range 0 file.span.length).sumBy (i => (file.span.start + i) * file.id) :=
       List.sumByCongRange _ _ 0 file.span.length (i low high =>
-        rewrite (Span.coversIff file.span (file.span.start + i)).backward (Both (arithmetic) (arithmetic)) then
-          byComputing)
+        rewrite (Span.coversIff file.span (file.span.start + i)).backward (Both (arithmetic) (arithmetic)))
     _ = file.checksum :=
       Eq.trans
         (Eq.flipped (List.sumByRangeOffset (position => position * file.id) file.span.start file.span.length))
@@ -233,7 +229,7 @@ theorem drawFilesChecksum ∀ (size: Nat) (files: List File):
       Eq.trans (checksumSum disk) (Eq.cong (.sumBy term) (List.withIndexRange disk.blocks Free))
     _ = (List.range 0 disk.blocks.length).sumBy (i => i * (disk.at i).idOr 0) :=
       List.sumByMap (List.range 0 disk.blocks.length) term (i => (i, disk.blocks.getOr i Free))
-    _ = (List.range 0 size).sumBy (i => i * (disk.at i).idOr 0) := rewrite length then byComputing
+    _ = (List.range 0 size).sumBy (i => i * (disk.at i).idOr 0) := rewrite length
 
 --| The drawing's checksum, as the puzzle states it, is the files' checksums added up.
 theorem drawFilesChecksumCorrect ∀ (size: Nat) (files: List File)

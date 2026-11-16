@@ -18,7 +18,7 @@ theorem mayPrecedeTotal ∀ (precedes: Nat → Nat → Bool) (pages: List Nat)
     (inY: y ∈ pages)
     (no: mayPrecede precedes x y = False):
     mayPrecede precedes y x = True :=
-  match yFirst: precedes y x with | True => rewrite asymmetric y x inY inX yFirst then byComputing
+  match yFirst: precedes y x with | True => rewrite asymmetric y x inY inX yFirst
 
 --| And transitive on the pages, when the order is total and transitive there.
 theorem mayPrecedeTransitive ∀ (precedes: Nat → Nat → Bool) (pages: List Nat)
@@ -51,9 +51,7 @@ theorem inOrderOfPairwise ∀ (precedes: Nat → Nat → Bool) (pages: List Nat)
   match pages, pairwise with
     | [], pairwise => byComputing
     | [page, ..later], Both first rest =>
-      rewrite List.allOfAll (laterPage => !(precedes laterPage page)) later first,
-          inOrderOfPairwise precedes later rest then
-        byComputing
+      rewrite List.allOfAll (laterPage => !(precedes laterPage page)) later first, inOrderOfPairwise precedes later rest
 
 --| In pages in order, no later page must come before an earlier one.
 theorem inOrderLater ∀ (precedes: Nat → Nat → Bool) (page: Nat) (later: List Nat)
@@ -161,7 +159,7 @@ theorem orderUnique ∀ (precedes: Nat → Nat → Bool) (pages: List Nat)
                 (Eq.cong (head => Bool.toNat (property head) + List.occurrences ys property) heads.flipped)))
           firstRest
           secondRest
-      rewrite heads, tails then byComputing
+      rewrite heads, tails
 
 --| Under the assumption there is only one correct ordering of an update.
 theorem correctOrderingUnique ∀ (rules: List Rule) (update: Update)
@@ -186,7 +184,7 @@ theorem correctOrderingUnique ∀ (rules: List Rule) (update: Update)
 
 --| Updates with the same pages are the same.
 theorem updateExt ∀ (first second: Update) (same: first.pages = second.pages): first = second :=
-  match first, second with | { pages = firstPages }, { pages = secondPages } => rewrite same then byComputing
+  match first, second with | { pages = firstPages }, { pages = secondPages } => rewrite same
 
 --| Part 2 adds up the middle pages of the updates not in the right order,
 --| once correctly ordered, by any correct ordering.
@@ -200,17 +198,19 @@ theorem part2Correct ∀ (queue: PrintQueue)
   let precedes := mustPrecede (ruleSet queue.rules)
   let wrong := (queued: Update) => !(rightOrder queue.rules queued)
   rewrite List.filterCongMem queue.updates (queued => !(inOrder precedes queued.pages)) wrong (queued isIn =>
-        rewrite inOrderCorrect queue.rules queued then byComputing),
-      List.mapCongMem (queue.updates.filter wrong) (.reorder precedes) ordering (queued isIn =>
-        match List.memFilter queue.updates wrong isIn with
-          | Both inQueue isWrong =>
-            updateExt
+    rewrite inOrderCorrect queue.rules queued), List.mapCongMem
+    (queue.updates.filter wrong)
+    (.reorder precedes)
+    ordering
+    (queued isIn =>
+      match List.memFilter queue.updates wrong isIn with
+        | Both inQueue isWrong =>
+          updateExt
+            (queued.reorder precedes)
+            (ordering queued)
+            (correctOrderingUnique queue.rules queued
+              (orders queued inQueue)
               (queued.reorder precedes)
               (ordering queued)
-              (correctOrderingUnique queue.rules queued
-                (orders queued inQueue)
-                (queued.reorder precedes)
-                (ordering queued)
-                (reorderCorrect queue.rules queued (orders queued inQueue))
-                (correct queued inQueue (cases)))) then
-    byComputing
+              (reorderCorrect queue.rules queued (orders queued inQueue))
+              (correct queued inQueue (cases))))

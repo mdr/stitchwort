@@ -94,8 +94,7 @@ theorem noneHeld ∀ (set: Set Computer)
   let least := Set.popMinNone set found
   let listed: List.Mem key set.toList := held.read
   match keys: set.toList with
-    | [first, ..rest] =>
-      Option.someNotNone first (Eq.trans (Eq.flipped (rewrite Set.minToList set, keys then byComputing)) least)
+    | [first, ..rest] => Option.someNotNone first (Eq.trans (Eq.flipped (rewrite Set.minToList set, keys)) least)
 
 theorem sizeNone ∀ (set: Set Computer) (found: set.popMin = None): set.size = 0 :=
   rewrite Set.sizeToList set then
@@ -208,8 +207,7 @@ theorem withinWithCandidate ∀ (network: Network) (clique candidates: Set Compu
             (clique.insert candidate)
             narrowed
             key
-            (rewrite Set.containsIntersect (network.links.neighbours candidate) key others, neighbour, inOthers then
-              byComputing))
+            (rewrite Set.containsIntersect (network.links.neighbours candidate) key others, neighbour, inOthers))
 
 --| A clique without the candidate is within the clique and the other
 --| candidates.

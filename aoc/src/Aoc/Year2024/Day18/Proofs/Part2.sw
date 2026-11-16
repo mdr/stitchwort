@@ -58,7 +58,7 @@ theorem part2SomeCases ∀ (size: Nat) (bytes: List Position) (byte: Position)
     | Zero => Void.impossible (Option.noneNotSome byte (rewrite ended at answer then answer))
     | Succ index =>
       let got: bytes.get index = Some byte := rewrite ended at answer then answer
-      let inside: index < bytes.length := Eq.trans (List.isSomeGet bytes index).flipped (rewrite got then byComputing)
+      let inside: index < bytes.length := Eq.trans (List.isSomeGet bytes index).flipped (rewrite got)
       let (Both above (Both below (Both before after))) :=
         Nat.partitionPointBounds 0 (bytes.length + 1) (reachable size bytes) (Nat.zeroLe (bytes.length + 1))
       let opened: reachable size bytes index = True := match rewrite ended at before then before with
@@ -91,7 +91,7 @@ theorem part2NoneCases ∀ (size: Nat) (bytes: List Position)
     (openBefore: ∀ (earlier: Nat) => earlier ≤ index → HasPath size bytes earlier) (found: Nat)
     (ended: Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes) = found):
     Void :=
-  let inside: index < bytes.length := Eq.trans (List.isSomeGet bytes index).flipped (rewrite got then byComputing)
+  let inside: index < bytes.length := Eq.trans (List.isSomeGet bytes index).flipped (rewrite got)
   let (Both holdsBefore failsAfter) :=
     Nat.partitionPointSpec 0
       (bytes.length + 1)

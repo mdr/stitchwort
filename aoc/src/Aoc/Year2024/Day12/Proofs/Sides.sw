@@ -112,11 +112,8 @@ theorem diagonalSame ∀ (garden: Garden) (start: Position) (plant: Char)
     | Some next =>
       let nextIn := faces.read
       let nextGrows := joinedPlant garden plant start next grows ((isRegion next).forward nextIn)
-      rewrite notEqualNot,
-          plotGrows,
-          <- sameAcrossFaces garden start plant grows region isRegion next nextIn horizontal,
-          nextGrows then
-        byComputing
+      rewrite notEqualNot, plotGrows, <- sameAcrossFaces garden start plant grows region isRegion next nextIn
+          horizontal, nextGrows
 
 --| A corner of the program's, split into outside and inside.
 theorem isCornerSplit ∀ (garden: Garden) (plot: Position)
@@ -189,7 +186,7 @@ theorem programCornersCell ∀ (garden: Garden) (start: Position) (plant: Char)
           down
           right
           (same => rewrite <- diagonalDownRight region row column then diagonal Down Right (Eq.trans down same)),
-        (rewrite isIn then byComputing: corners inside row column
+        (rewrite isIn: corners inside row column
           = Bool.toNat (convex True (above inside row column) (leftOf inside row column))
             + Bool.toNat
               (concave True (above inside row column) (leftOf inside row column) (above (leftOf inside) row column))
@@ -213,7 +210,7 @@ theorem programCornersCell ∀ (garden: Garden) (start: Position) (plant: Char)
 --| `total` is the sum over `List.range`.
 theorem totalRange ∀ (n: Nat) (f: Nat → Nat): (List.range 0 n).sumBy f = total n f := match n with
   | Zero => byComputing
-  | Succ n => rewrite List.sumByRangeSucc f n, totalRange n (i => f (Succ i)) then byComputing
+  | Succ n => rewrite List.sumByRangeSucc f n, totalRange n (i => f (Succ i))
 
 --| The square of the grid with rows and columns up to `last`, row by row.
 def square (last: Nat): List Position :=
@@ -253,7 +250,7 @@ theorem squareDistinct ∀ (last: Nat): List.Distinct (square last) :=
         (position.row = row)
         (List.range 0 (Succ last))
         (List.memMapAny (List.range 0 (Succ last)) (column => ({ row, column }: Position)) position member)
-        (column inColumns built => rewrite <- built then byComputing))
+        (column inColumns built => rewrite <- built))
 
 --| A sum over a region's plots, of something that is 0 off the region, is
 --| the sum over a square of the grid that holds the region.
@@ -333,7 +330,7 @@ theorem sidesCorrect ∀ (garden: Garden) (start: Position) (plant: Char)
       (List.sumByCongMem region.plots garden.cornerCount (plot => corners inside plot.row plot.column) (plot member =>
         programCornersCell garden start plant grows region isRegion plot member))
       (sumOverGrid region distinct last within (row column => corners inside row column) (row column outside =>
-        rewrite outside then byComputing))
+        rewrite outside))
   let specSide :=
     Eq.trans
       (List.sumByCong region.plots
@@ -341,5 +338,5 @@ theorem sidesCorrect ∀ (garden: Garden) (start: Position) (plant: Char)
         (plot => starts inside plot.row plot.column)
         (plot => match plot with | { row, column } => specSidesCell region row column))
       (sumOverGrid region distinct last within (row column => starts inside row column) (row column outside =>
-        rewrite outside then byComputing))
+        rewrite outside))
   Eq.trans programSide (Eq.trans (cornersEqualSides inside last right bottom) specSide.flipped)

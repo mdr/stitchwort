@@ -26,16 +26,16 @@ theorem stepBack ∀ (position: Position) (direction: Direction) (next: Position
     (stepped: position.step direction = Some next):
     next.step (opposite direction) = Some position :=
   match position, direction with
-    | { row, column }, Down => rewrite <- Option.someInjective stepped then byComputing
-    | { row, column }, Right => rewrite <- Option.someInjective stepped then byComputing
+    | { row, column }, Down => rewrite <- Option.someInjective stepped
+    | { row, column }, Right => rewrite <- Option.someInjective stepped
     | { row, column }, Up =>
       match row with
         | Zero => (Option.noneNotSome next stepped).impossible
-        | Succ above => rewrite <- Option.someInjective stepped then byComputing
+        | Succ above => rewrite <- Option.someInjective stepped
     | { row, column }, Left =>
       match column with
         | Zero => (Option.noneNotSome next stepped).impossible
-        | Succ before => rewrite <- Option.someInjective stepped then byComputing
+        | Succ before => rewrite <- Option.someInjective stepped
 
 --| A move is a step onto track.
 theorem moveCases ∀ (racetrack: Racetrack) (position: Position) (direction: Direction) (next: Position)
@@ -51,7 +51,7 @@ theorem moveIntro ∀ (racetrack: Racetrack) (position: Position) (direction: Di
     (stepped: position.step direction = Some next)
     (onIt: onTrack racetrack next = True):
     moveTo racetrack position direction = Some next :=
-  rewrite stepped, onIt then byComputing
+  rewrite stepped, onIt
 
 --| A move from track can be taken back.
 theorem moveBack ∀ (racetrack: Racetrack) (position: Position)
@@ -101,7 +101,7 @@ theorem edgesComplete ∀ (racetrack: Racetrack) (position: Position) (direction
     (next, 1)
     directions
     (directionsComplete direction)
-    (rewrite moveAgrees racetrack position direction, moved then byComputing)
+    (rewrite moveAgrees racetrack position direction, moved)
 
 --| Edges lead onto track.
 theorem edgeOnTrack ∀ (racetrack: Racetrack) (position next: Position) (weight: Nat)
@@ -114,7 +114,7 @@ theorem edgeOnTrack ∀ (racetrack: Racetrack) (position next: Position) (weight
 theorem raceCons ∀ (racetrack: Racetrack) (position: Position) (direction: Direction) (next: Position)
     (moved: moveTo racetrack position direction = Some next) (rest: List Direction):
     race racetrack position [direction, ..rest] = race racetrack next rest :=
-  rewrite moved then byComputing
+  rewrite moved
 
 --| Moves then more moves: the more moves from where the first left off.
 theorem raceAppend ∀ (racetrack: Racetrack) (more: List Direction) (position: Position)
@@ -122,7 +122,7 @@ theorem raceAppend ∀ (racetrack: Racetrack) (more: List Direction) (position: 
     (ended: race racetrack position moves = Some middle):
     race racetrack position (moves ++ more) = race racetrack middle more :=
   match moves with
-    | [] => rewrite Option.someInjective ended then byComputing
+    | [] => rewrite Option.someInjective ended
     | [direction, ..rest] =>
       match moved: moveTo racetrack position direction with
         | Some next => raceAppend racetrack more next rest middle ended

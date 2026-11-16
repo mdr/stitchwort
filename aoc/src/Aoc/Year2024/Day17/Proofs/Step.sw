@@ -24,7 +24,7 @@ theorem xorBitwise ∀ (x y: Nat): BitwiseXor x y (x.xor y) := i =>
   calc bitSet (x.xor y) i
     _ = Nat.testBit (x.xor y) i := Eq.flipped (Nat.testBitDiv (x.xor y) i)
     _ = Bool.xor (Nat.testBit x i) (Nat.testBit y i) := Nat.testBitXor i x y
-    _ = Bool.xor (bitSet x i) (bitSet y i) := rewrite Nat.testBitDiv x i, Nat.testBitDiv y i then byComputing
+    _ = Bool.xor (bitSet x i) (bitSet y i) := rewrite Nat.testBitDiv x i, Nat.testBitDiv y i
 
 --| An instruction with a combo operand, made by `make`, does what `happens`
 --| says of the operand's value.
@@ -43,7 +43,7 @@ theorem comboStep ∀ (machine: Machine) (operand: Nat) (make: Combo → Instruc
           = Next (after value) (printed value)) :=
   let agrees := comboAgrees machine.registers operand
   match found: Combo.decode operand with
-    | None => rewrite Eq.flipped agrees then byComputing
+    | None => rewrite Eq.flipped agrees
     | Some combo => rewrite Eq.flipped agrees then executes combo
 
 --| Each opcode, with each operand, does what the puzzle says.
@@ -57,7 +57,7 @@ theorem executesDecode ∀ (operand: Nat) (machine: Machine) (opcode: Nat):
       comboStep machine operand Adv
         (value => advanced machine { machine.registers | a = machine.registers.a / Nat.pow 2 value })
         (value => None)
-        (combo => rewrite Nat.shiftRightDiv machine.registers.a (machine.registers.value combo) then byComputing)
+        (combo => rewrite Nat.shiftRightDiv machine.registers.a (machine.registers.value combo))
     | 1 => Witness (machine.registers.b.xor operand) (Both (xorBitwise machine.registers.b operand) byComputing)
     | 2 =>
       comboStep machine operand Bst
@@ -79,12 +79,12 @@ theorem executesDecode ∀ (operand: Nat) (machine: Machine) (opcode: Nat):
       comboStep machine operand Bdv
         (value => advanced machine { machine.registers | b = machine.registers.a / Nat.pow 2 value })
         (value => None)
-        (combo => rewrite Nat.shiftRightDiv machine.registers.a (machine.registers.value combo) then byComputing)
+        (combo => rewrite Nat.shiftRightDiv machine.registers.a (machine.registers.value combo))
     | 7 =>
       comboStep machine operand Cdv
         (value => advanced machine { machine.registers | c = machine.registers.a / Nat.pow 2 value })
         (value => None)
-        (combo => rewrite Nat.shiftRightDiv machine.registers.a (machine.registers.value combo) then byComputing)
+        (combo => rewrite Nat.shiftRightDiv machine.registers.a (machine.registers.value combo))
     | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ opcode))))))) => byComputing
 
 --| Every step the program takes is the puzzle's.

@@ -128,7 +128,7 @@ theorem directionIndexInjective ∀ (one other: Direction)
     one = other :=
   calc one
     _ = directionOfIndex (directionIndex one) := (directionOfIndexOf one).flipped
-    _ = directionOfIndex (directionIndex other) := rewrite same then byComputing
+    _ = directionOfIndex (directionIndex other) := rewrite same
     _ = other := directionOfIndexOf other
 
 theorem guardExt ∀ (one other: Guard)
@@ -140,7 +140,7 @@ theorem guardExt ∀ (one other: Guard)
     | { position = { row, column }, facing }, {
         position = { row = otherRow, column = otherColumn },
         facing = otherFacing
-      } => rewrite rows, columns, facings then byComputing
+      } => rewrite rows, columns, facings
 
 --| Different states on the map have different numbers.
 theorem stateCodeInjective ∀ (lab: Lab) (one other: Guard)
@@ -157,7 +157,7 @@ theorem stateCodeInjective ∀ (lab: Lab) (one other: Guard)
   let rows: one.position.row = other.position.row := calc one.position.row
     _ = (one.position.row * lab.width + one.position.column) / lab.width :=
       Eq.flipped (Nat.mulAddDivSmall one.position.row lab.width one.position.column (arithmetic [oneInside]))
-    _ = (other.position.row * lab.width + other.position.column) / lab.width := rewrite cells then byComputing
+    _ = (other.position.row * lab.width + other.position.column) / lab.width := rewrite cells
     _ = other.position.row :=
       Nat.mulAddDivSmall other.position.row lab.width other.position.column (arithmetic [otherInside])
   let columns: one.position.column = other.position.column := arithmetic [rewrite rows at cells]

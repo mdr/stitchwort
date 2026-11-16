@@ -151,9 +151,9 @@ theorem joinedPath ∀ (maze: Maze) (reindeer: Reindeer) (fromStart toEnd: Nat)
             (first ++ second)
             (Witness standings
               (Both
-                (Both both.left (rewrite And.right both, atEnd then byComputing))
+                (Both both.left (rewrite And.right both, atEnd))
                 (Both
-                  (rewrite scoreAppend first second, parts.right, scored then byComputing)
+                  (rewrite scoreAppend first second, parts.right, scored)
                   (followVisits maze second
                     (startingReindeer maze)
                     first
@@ -213,8 +213,7 @@ theorem bestTilesCorrect ∀ (maze: Maze)
   let (Both reachesAll (Both endBounds closedBackward)) := toEndCorrect maze endOpen
   Exists.elim (lowestScoreCorrect maze startOpen reachable) (found both =>
     let same := lowestUnique maze found best both.right lowest
-    let tiles: maze.bestTiles = tilesScoring maze.fromStart maze.toEnd best :=
-      rewrite And.left both, same then byComputing
+    let tiles: maze.bestTiles = tilesScoring maze.fromStart maze.toEnd best := rewrite And.left both, same
     rewrite tiles then
       {
         forward = there =>
@@ -233,7 +232,7 @@ theorem bestTilesCorrect ∀ (maze: Maze)
                         (Witness standings
                           (Both path
                             (Both
-                              (rewrite scored, sum then byComputing)
+                              (rewrite scored, sum)
                               (rewrite <- at then
                                 List.memMap standings reindeer member (standing => standing.position)))))))))),
         backward = onPath =>

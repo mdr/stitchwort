@@ -12,11 +12,8 @@ import Std (And, Bool, DecEq, Eq, List, Nat, Void)
 --| `left || right` is `left`, shifted left by the digits of `right`, plus
 --| `right`.
 theorem concatenateArithmetic ∀ (left right: Nat): concatenate left right = left * placeValue right + right :=
-  rewrite Nat.fromDigitsAppend (Nat.digits left).toList (Nat.digits right).toList,
-      Nat.fromDigitsDigits left,
-      Nat.fromDigitsDigits right,
-      Nat.digitCountLength right then
-    byComputing
+  rewrite Nat.fromDigitsAppend (Nat.digits left).toList (Nat.digits right).toList, Nat.fromDigitsDigits
+      left, Nat.fromDigitsDigits right, Nat.digitCountLength right
 
 --| `right` is less than its place value.
 theorem belowPlaceValue ∀ (right: Nat): right < placeValue right := Nat.ltPowTenDigits right
@@ -118,8 +115,7 @@ theorem couldBeTrueCorrect ∀ (operators: List Operator) (equation: Equation):
 theorem calibrationResultCorrect ∀ (operators: List Operator) (equations: List Equation):
     calibrationResult operators equations = totalCalibrationResult operators equations :=
   rewrite List.filterCongMem equations (.couldBeTrue operators) (couldPossiblyBeTrue operators) (equation listed =>
-        couldBeTrueCorrect operators equation) then
-    byComputing
+    couldBeTrueCorrect operators equation)
 
 theorem part1Correct ∀ (equations: List Equation): solvePart1 equations = part1 equations :=
   calibrationResultCorrect [Add, Multiply] equations

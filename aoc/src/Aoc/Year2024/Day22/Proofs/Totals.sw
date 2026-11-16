@@ -35,7 +35,7 @@ theorem totalsGetOr ∀ (count: Nat) (key: Changes) (buyers: List Nat) (totals: 
 --| What the monkey sells for, as the program finds it.
 theorem salesGetOr ∀ (count: Nat) (key: Changes) (buyer: Nat):
     (firstSales (prices count buyer)).getOr key 0 = sellingPrice key (offeredPrices count buyer) |> .getOrElse 0 :=
-  rewrite firstSalesSells (prices count buyer) key, pricesMatch count buyer then byComputing
+  rewrite firstSalesSells (prices count buyer) key, pricesMatch count buyer
 
 theorem totalsBananas ∀ (count: Nat) (buyers: List Nat) (key: Changes):
     (bananasBySequence count buyers).getOr key 0 = bananas count buyers key :=

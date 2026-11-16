@@ -91,9 +91,8 @@ theorem part2AnswerUnique ∀ (machines: List Machine) (first second: Nat)
           rewrite firstSum, secondSum then
             List.sumByCongMem machines _ _ (machine member =>
               rewrite fewestUnique
-                    (correctedMachine machine)
-                    (firstFewest machine)
-                    (secondFewest machine)
-                    (firstRight machine member)
-                    (secondRight machine member) then
-                byComputing)
+                (correctedMachine machine)
+                (firstFewest machine)
+                (secondFewest machine)
+                (firstRight machine member)
+                (secondRight machine member))

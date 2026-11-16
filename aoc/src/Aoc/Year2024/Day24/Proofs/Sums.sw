@@ -17,18 +17,13 @@ def carryFrom (x y: Nat) (carry: Bool): Nat → Bool
 --| The carry into bit `bit` when adding `x` and `y`.
 def carryInto (x y bit: Nat): Bool := carryFrom x y False bit
 
-theorem testBitZero ∀ (n: Nat): n.testBit 0 = (n % 2 == 1) := rewrite Nat.shiftRightNone n then byComputing
+theorem testBitZero ∀ (n: Nat): n.testBit 0 = (n % 2 == 1) := rewrite Nat.shiftRightNone n
 
 --| The lowest bit of a sum of two numbers and a carry.
 theorem lowSumBit ∀ (x y: Nat) (carry: Bool):
     Nat.testBit (x + y + carry.toNat) 0 = ((x.testBit 0).xor (y.testBit 0)).xor carry :=
-  rewrite testBitZero (x + y + carry.toNat),
-      testBitZero x,
-      testBitZero y,
-      Nat.oddSum (x + y) carry.toNat,
-      Nat.oddSum x y,
-      Bool.toNatOdd carry then
-    byComputing
+  rewrite testBitZero (x + y + carry.toNat), testBitZero x, testBitZero y, Nat.oddSum (x + y) carry.toNat, Nat.oddSum x
+      y, Bool.toNatOdd carry
 
 --| Half the sum of two bits and a carry is the carry out.
 theorem halfBits ∀ (a b: Nat) (carry: Bool)
@@ -60,7 +55,7 @@ theorem carryFromHalves ∀ (x y: Nat) (carry: Bool) (bit: Nat):
     carryFrom x y carry (Succ bit) = carryFrom (x / 2) (y / 2) (carryOut (x.testBit 0) (y.testBit 0) carry) bit :=
   match bit with
     | Zero => byComputing
-    | Succ bit => rewrite carryFromHalves x y carry bit, Nat.testBitSucc x bit, Nat.testBitSucc y bit then byComputing
+    | Succ bit => rewrite carryFromHalves x y carry bit, Nat.testBitSucc x bit, Nat.testBitSucc y bit
 
 --| Each bit of a sum of two numbers and a carry.
 theorem sumBitFrom ∀ (bit x y: Nat) (carry: Bool):

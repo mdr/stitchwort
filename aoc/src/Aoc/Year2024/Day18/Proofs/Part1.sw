@@ -17,7 +17,7 @@ import Std (And, Bool, Eq, Exists, Graph, List, Map, Nat, Option, Void)
 theorem fromStartSafe ∀ (memory: MemorySpace)
     (safe: memory.isSafe topLeft = True):
     memory.fromStart = memory.graph.breadthFirst [topLeft] :=
-  rewrite safe then byComputing
+  rewrite safe
 
 --| When part 1 finds a number of steps, it is the fewest of any path.
 theorem part1Some ∀ (size: Nat) (bytes: List Position) (fallen fewest: Nat)

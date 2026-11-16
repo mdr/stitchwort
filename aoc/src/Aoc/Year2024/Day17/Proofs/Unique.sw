@@ -30,15 +30,14 @@ theorem executesUnique ∀ (operand: Nat) (machine: Machine) (first second: Step
   match opcode, isFirst, isSecond with
     | 0, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
     | 1, Witness one (Both isOne firstIs), Witness other (Both isOther secondIs) =>
-      rewrite firstIs, secondIs, xorUnique machine.registers.b operand one other isOne isOther then byComputing
+      rewrite firstIs, secondIs, xorUnique machine.registers.b operand one other isOne isOther
     | 2, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
     | 3, isFirst, isSecond =>
       match zero: machine.registers.a == 0 with
         | True => Eq.trans isFirst isSecond.flipped
         | False => Eq.trans isFirst isSecond.flipped
     | 4, Witness one (Both isOne firstIs), Witness other (Both isOther secondIs) =>
-      rewrite firstIs, secondIs, xorUnique machine.registers.b machine.registers.c one other isOne isOther then
-        byComputing
+      rewrite firstIs, secondIs, xorUnique machine.registers.b machine.registers.c one other isOne isOther
     | 5, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
     | 6, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
     | 7, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
@@ -110,6 +109,4 @@ theorem haltsUnique ∀ (program: List Nat) (machine: Machine) (first second: Li
       let steps := stepUnique program machine (Next after (Some value)) (Next other (Some otherValue)) move alsoMove
       let sameAfter := Eq.cong (afterOf machine) steps
       let sameValue := Option.someInjective (Eq.cong printedOf steps)
-      rewrite sameValue,
-          haltsUnique program after output otherOutput rest (rewrite Eq.flipped sameAfter at alsoRest) then
-        byComputing
+      rewrite sameValue, haltsUnique program after output otherOutput rest (rewrite Eq.flipped sameAfter at alsoRest)

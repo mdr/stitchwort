@@ -14,13 +14,11 @@ import Std (And, Bool, Eq, Graph, List, Map, Nat, Option, Set, Void)
 --| The program's corrupted set holds the bytes fallen.
 theorem safeAgrees ∀ (size: Nat) (bytes: List Position) (fallen: Nat) (position: Position):
     (MemorySpace.after size bytes fallen).isSafe position = isSafe size (bytes.take fallen) position :=
-  rewrite Set.containsFromList position (bytes.take fallen) then
-    rewrite List.anyCong
-          (bytes.take fallen)
-          (other => Map.Spec.sameKey position other)
-          (other => other == position)
-          (other => Map.Spec.sameKeyDecide position other) then
-      byComputing
+  rewrite Set.containsFromList position (bytes.take fallen), List.anyCong
+    (bytes.take fallen)
+    (other => Map.Spec.sameKey position other)
+    (other => other == position)
+    (other => Map.Spec.sameKeyDecide position other)
 
 --| A position can be entered exactly when the spec says it is safe.
 theorem canEnterSafe ∀ (size: Nat) (bytes: List Position) (fallen: Nat) (position: Position):

@@ -17,11 +17,10 @@ theorem routeNone ∀ (lab: Lab) (steps: Nat): route lab None steps = [] := matc
 theorem routeAfterGone ∀ (lab: Lab):
     ∀ (steps: Nat) (guard: Option Guard) => walk lab guard steps = None
       → ∀ (more: Nat) => steps ≤ more → route lab guard more = route lab guard steps
-  | Zero, guard, gone, more, le => rewrite gone, routeNone lab more then byComputing
-  | Succ steps, None, gone, more, le => rewrite routeNone lab more then byComputing
+  | Zero, guard, gone, more, le => rewrite gone, routeNone lab more
+  | Succ steps, None, gone, more, le => rewrite routeNone lab more
   | Succ steps, Some here, gone, Zero, le => arithmetic
-  | Succ steps, Some here, gone, Succ more, le =>
-    rewrite routeAfterGone lab steps (lab.step here) gone more le then byComputing
+  | Succ steps, Some here, gone, Succ more, le => rewrite routeAfterGone lab steps (lab.step here) gone more le
 
 --| With budget enough to leave, the walk collects the route's positions.
 theorem patrolFromRoute ∀ (lab: Lab) (budget: Nat) (guard: Guard) (visited: Set Position)
@@ -31,7 +30,7 @@ theorem patrolFromRoute ∀ (lab: Lab) (budget: Nat) (guard: Guard) (visited: Se
   match budget with
     | Succ budget =>
       match stepped: lab.step guard with
-        | None => rewrite routeNone lab budget then byComputing
+        | None => rewrite routeNone lab budget
         | Some next => patrolFromRoute lab budget next (visited.insert guard.position) gone
 
 --| A walk that collects anything leaves within its budget.
@@ -63,14 +62,14 @@ theorem patrolRoute ∀ (lab: Lab)
     match early: Nat.leq steps lab.stateCount with
       | True => routeAfterGone lab steps (Some lab.startGuard) gone lab.stateCount early
       | False => Eq.flipped (routeAfterGone lab lab.stateCount (Some lab.startGuard) inBudget steps arithmetic)
-  rewrite patrolFromRoute lab lab.stateCount lab.startGuard Set.empty inBudget, sameRoute then byComputing
+  rewrite patrolFromRoute lab lab.stateCount lab.startGuard Set.empty inBudget, sameRoute
 
 --| Part 1 counts the distinct positions the guard visits before leaving.
 theorem part1Correct ∀ (lab: Lab)
     (inside: onMap lab lab.start = True) (steps: Nat)
     (gone: after lab steps = None):
     solvePart1 lab = Some (distinctPositions lab steps) :=
-  rewrite patrolRoute lab inside steps gone then byComputing
+  rewrite patrolRoute lab inside steps gone
 
 --| And gives no answer when she loops.
 theorem part1Loops ∀ (lab: Lab) (loops: Loops lab): solvePart1 lab = None := match patrolled: lab.patrol with

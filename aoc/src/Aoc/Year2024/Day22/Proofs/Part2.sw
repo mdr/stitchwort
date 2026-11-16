@@ -12,10 +12,10 @@ import Std (Eq, List, Map, Nat, Option, Pair)
 theorem getOrSome ∀ (totals: Map Changes Nat) (key: Changes) (value: Nat)
     (found: totals.get key = Some value):
     totals.getOr key 0 = value :=
-  rewrite found then byComputing
+  rewrite found
 
 theorem getOrNone ∀ (totals: Map Changes Nat) (key: Changes) (missing: totals.get key = None): totals.getOr key 0 = 0 :=
-  rewrite missing then byComputing
+  rewrite missing
 
 theorem leBoth ∀ (m n: Nat) (below: m ≤ n) (above: n ≤ m): m = n := arithmetic
 

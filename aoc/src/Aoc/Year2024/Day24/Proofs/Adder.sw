@@ -46,7 +46,7 @@ theorem outputCarries ∀ (device: Device) (operation: Operation) (a b output: W
           Fires gate member onto aValue bValue
             (rewrite leftIsA.read then aCarries)
             (rewrite rightIsB.read then bCarries)
-            (rewrite operationIs then byComputing)
+            (rewrite operationIs)
         | Inr (Both leftIsB rightIsA) =>
           Fires gate member onto bValue aValue
             (rewrite leftIsB.read then bCarries)
@@ -285,7 +285,7 @@ theorem shapeAdds ∀ (gates: List Gate) (bits: Nat)
                 (Y k, Nat.testBit y k))))))
     let carried := adderCarries device bits x y inputs (Z bits) shaped
     let topBit: Nat.testBit (x + y) bits = carryInto x y bits :=
-      rewrite sumBit x y bits, testBitSmall x bits xSmall, testBitSmall y bits ySmall then byComputing
+      rewrite sumBit x y bits, testBitSmall x bits xSmall, testBitSmall y bits ySmall
     let carriesUpTo: ∀ (bit: Nat) => bit ≤ bits → Carries device (Z bit) (Nat.testBit (x + y) bit) :=
       (bit within =>
         match below: bit < bits with

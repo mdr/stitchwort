@@ -29,7 +29,7 @@ theorem hasAdd ∀ (free: FreeSpace) (span other: Span):
         match either with
           | Inl pair =>
             (Map.containsInInsertInIff free span.length span.start other.length other.start).backward
-              (Inl (Both (rewrite pair.right then byComputing) (rewrite pair.right then byComputing)))
+              (Inl (Both (rewrite pair.right) (rewrite pair.right)))
           | Inr old =>
             (Map.containsInInsertInIff free span.length span.start other.length other.start).backward (Inr old)
     }
@@ -40,7 +40,7 @@ theorem hasRemove ∀ (free: FreeSpace) (span other: Span):
     forward = held =>
       let (Both differs old) :=
         (Map.containsInRemoveInIff free span.length span.start other.length other.start).forward held
-      Both (same => differs (Both (rewrite same then byComputing) (rewrite same then byComputing))) old,
+      Both (same => differs (Both (rewrite same) (rewrite same))) old,
     backward = both =>
       (Map.containsInRemoveInIff free span.length span.start other.length other.start).backward
         (Both (pair => both.left (Span.ext other span pair.right pair.left)) both.right)
@@ -106,7 +106,7 @@ theorem fitInIntro ∀ (length key: Nat) (items: Set Nat) (start: Nat)
     (fits: length ≤ key)
     (least: items.min = Some start):
     fitIn length (key, items) = Some { start, length = key } :=
-  match enough: length <= key with | True => rewrite least then byComputing
+  match enough: length <= key with | True => rewrite least
 
 --| A span the map holds, long enough, is not before the span `fitIn` makes of its entry.
 theorem fitMember ∀ (free: FreeSpace) (length: Nat) (other: Span)

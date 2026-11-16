@@ -33,7 +33,7 @@ theorem endsAndSteps ∀ (map: TopographicMap) (from: Position) (rest: List Posi
 --| A hiking trail is a start at height 0 and a climb from it.
 theorem trailCons ∀ (map: TopographicMap) (start: Position) (rest: List Position):
     isHikingTrail map [start, ..rest] = (map.heightAt start == Some 0 && climbs map start rest) :=
-  rewrite <- endsAndSteps map start rest then byComputing
+  rewrite <- endsAndSteps map start rest
 
 --| Where a climb ends is a 9.
 theorem endHeight ∀ (map: TopographicMap) (from: Position) (rest: List Position) (end: Position)
@@ -56,7 +56,7 @@ theorem memTrailEnds ∀ (map: TopographicMap) (steps: Nat) (from end: Position)
         | True => {
           forward = member =>
             match member with
-              | Inl same => rewrite <- same, DecEq.refl (Some from) then byComputing
+              | Inl same => rewrite <- same, DecEq.refl (Some from)
               | Inr none => none.impossible,
           backward = has =>
             match equal: Some from == Some end with
@@ -139,7 +139,7 @@ theorem ratingAtZero ∀ (map: TopographicMap) (start: Position)
     (trailsFrom map start).length = (pathsOf map 9).count (climbs map start) :=
   rewrite List.lengthFilter ((pathsOf map 9).map (Cons start)) (isHikingTrail map),
       List.countMap (pathsOf map 9) (isHikingTrail map) (Cons start) then
-    List.countCongMem _ _ _ (rest member => rewrite trailCons map start rest, zero then byComputing)
+    List.countCongMem _ _ _ (rest member => rewrite trailCons map start rest, zero)
 
 --| No trail starts anywhere but a 0.
 theorem noTrailsOffZero ∀ (map: TopographicMap) (start: Position)
@@ -147,7 +147,7 @@ theorem noTrailsOffZero ∀ (map: TopographicMap) (start: Position)
     (trailsFrom map start).length = 0 :=
   rewrite List.lengthFilter ((pathsOf map 9).map (Cons start)) (isHikingTrail map),
       List.countMap (pathsOf map 9) (isHikingTrail map) (Cons start) then
-    List.countNone (pathsOf map 9) _ (rest member => rewrite trailCons map start rest, zero then byComputing)
+    List.countNone (pathsOf map 9) _ (rest member => rewrite trailCons map start rest, zero)
 
 theorem ratingCorrect ∀ (map: TopographicMap) (start: Position)
     (zero: map.heightAt start = Some 0):
@@ -305,4 +305,4 @@ theorem pathsDistinct ∀ (map: TopographicMap) (count: Nat): List.Distinct (pat
           (rest => [position, ..rest] = path) _
           (pathsOf map count)
           (List.memMapAny (pathsOf map count) (Cons position) path inMapped)
-          (rest restIn built => rewrite <- built then byComputing))
+          (rest restIn built => rewrite <- built))

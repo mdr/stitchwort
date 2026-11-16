@@ -29,7 +29,7 @@ theorem frontOrOwn ∀ (box: Cell) (direction: Direction) (cell: Cell)
         (cellsOf (box.step direction))
         (other => other ∉ cellsOf box)
         covered
-        (rewrite Decidable.toBoolOfNot (List.decMem cell (cellsOf box)) notOwn then byComputing))
+        (rewrite Decidable.toBoolOfNot (List.decMem cell (cellsOf box)) notOwn))
 
 --| A cell some boxes move into is free for them: not a wall, and every box
 --| covering it is in `group`, so moves too.
@@ -125,7 +125,7 @@ theorem gatherOk ∀ (warehouse: Warehouse) (direction: Direction) (fuel: Nat) (
                           (warehouse.boxesAt cell)
                           (other => !group.contains other)
                           (coversInBoxesAt warehouse box cell boxed covers)
-                          (rewrite held then byComputing))
+                          (rewrite held))
                         byComputing))))
           let invariantAfter: GatherInvariant warehouse direction larger pending := box held =>
             match newOrOld box held with
@@ -430,12 +430,8 @@ theorem wholeOfSeparate ∀ (warehouse: Warehouse) (separate: WideSeparate wareh
           rewrite <- atRobot.read then offsetStepOpposite position Right
         Void.impossible (Bool.trueNotFalse (Eq.trans (rewrite <- leftOfRobot at boxed).flipped robotNotRight))
       | False =>
-        (rewrite atRobot,
-            offWalls position boxed right (Inr (Inl byComputing)),
-            noneRight position boxed,
-            offsetStepOpposite position Right,
-            boxed then
-          byComputing: wideTile warehouse right = BoxRight)
+        (rewrite atRobot, offWalls position boxed right (Inr (Inl byComputing)), noneRight position
+            boxed, offsetStepOpposite position Right, boxed: wideTile warehouse right = BoxRight)
   {
     forward = isLeft =>
       match atRobot: position == warehouse.robot with
@@ -460,7 +456,7 @@ theorem wholeOfSeparate ∀ (warehouse: Warehouse) (separate: WideSeparate wareh
                         rewrite offsetStepOpposite position Right at boxedLeft
                       let notRobot: (position == warehouse.robot) = False := Bool.falseOfNotTrue _ (atRobot =>
                         Bool.trueNotFalse (Eq.trans (rewrite atRobot.read at boxed).flipped robotNotBoxed))
-                      rewrite notRobot, offWalls position boxed position (Inl byComputing), boxed then byComputing
+                      rewrite notRobot, offWalls position boxed position (Inl byComputing), boxed
   }
 
 --| A move in the wide warehouse never moves a wall.

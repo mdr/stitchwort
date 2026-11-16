@@ -178,7 +178,7 @@ theorem harmonicsCorrect ∀ (city: City) (first second: Position)
       let cross :=
         crossOnLine fr fc step.rows step.columns scale k pr pc second.row.toInt second.column.toInt secondRow
             secondColumn rowAt columnAt
-      (rewrite cross then byComputing: inLine point first second = True)
+      (rewrite cross: inLine point first second = True)
     {
       forward = has =>
         List.anyElim
@@ -245,9 +245,8 @@ theorem part2Correct ∀ (city: City)
 --| A point is in line with itself and any other.
 theorem inLineSelf ∀ (point other: Position): inLine point point other = True :=
   rewrite (algebra: (point.row.toInt - point.row.toInt) * (other.column.toInt - point.column.toInt)
-        - (point.column.toInt - point.column.toInt) * (other.row.toInt - point.row.toInt)
-        = 0) then
-    byComputing
+    - (point.column.toInt - point.column.toInt) * (other.row.toInt - point.row.toInt)
+    = 0)
 
 --| "Some of the new antinodes will occur at the position of each antenna
 --| (unless that antenna is the only one of its frequency)": an antenna with

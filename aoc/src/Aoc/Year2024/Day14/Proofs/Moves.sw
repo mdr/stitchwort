@@ -11,7 +11,7 @@ import Aoc.Year2024.Day14 (..)
 import Aoc.Year2024.Day14.Spec (..)
 import Std (Eq, Int, Nat)
 
-theorem negSuccIs ∀ (steps: Nat): NegSucc steps = (Succ steps).toInt * -1 := rewrite Nat.mulOne steps then byComputing
+theorem negSuccIs ∀ (steps: Nat): NegSucc steps = (Succ steps).toInt * -1 := rewrite Nat.mulOne steps
 
 --| Moving `tiles` tiles one at a time is adding `tiles` and wrapping.
 theorem moveWrap ∀ (size x: Nat)
