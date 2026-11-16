@@ -6927,10 +6927,31 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     "can't tell which proof this tuple takes apart",
                 )
                 .with_note(format!(
-                    "its type is a proposition not yet worked out (`{}`), so not a pair: \
-                     give the parameter's type",
+                    "it was read as a pair because nothing said what it proves when it was \
+                     checked, but its type is a proposition not yet worked out (`{}`): give \
+                     the parameter's type",
                     cx.show(&ty)
                 )));
+            }
+            // A tuple pattern on a proof of `∃` is `Witness` written shorter:
+            // taking the witness out as data is `E-PROP-ELIM`, and the note
+            // shows the tuple form (docs/proposals/proof-tuples.md §6).
+            if *tuple
+                && g.env.registry().is_data(Builtin::Exists, *d)
+                && matches!(force(&g, goal.clone())?, Value::Data(..) | Value::Eq(..))
+                && !crate::rewrite::is_proof_type(cx, goal)?
+            {
+                return Err(error(
+                    "E-PROP-ELIM",
+                    *pattern,
+                    "can't match on a proof of `Exists` to produce data",
+                )
+                .with_note(
+                    "`Exists` is a proposition, so its proofs are erased at runtime. Matching on \
+                     one can only produce data when the proposition has at most one constructor \
+                     and every field is itself a proof. A tuple pattern is `Witness` written \
+                     shorter (`(n, p)` is `Witness n p`), so it isn't a way out",
+                ));
             }
             if let Value::Neutral(Head::Meta(_), _) = ty {
                 // A variable of a type not yet known, matched by a
@@ -6977,12 +6998,43 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                              happen, write the arm with `()` and no `=>`",
                         );
                     }
-                    if Some(*d) == g.env.registry().loaded_data(Builtin::Pair) {
-                        e = e.with_note(
-                            "a tuple pattern opens a pair, a proof of `∧` or a proof of `∃`; \
-                             with more parts than the proof has, the last ones meet a part \
-                             that is none of these",
-                        );
+                    if *tuple && Some(*d) == g.env.registry().loaded_data(Builtin::Pair) {
+                        let shown = cx.show(&other);
+                        let note = match &other {
+                            Value::Data(d2, _) if g.data(*d2).record() => {
+                                let fields = g.data(*d2).ctors()[0]
+                                    .fields
+                                    .iter()
+                                    .map(|(name, _)| name.to_string())
+                                    .collect::<Vec<_>>()
+                                    .join(", ");
+                                format!(
+                                    "a tuple pattern opens a pair, a proof of `∧` or a proof of \
+                                     `∃`; `{shown}` is a record: write `{{ {fields} }}`"
+                                )
+                            }
+                            // Another data type: the tuple isn't a pair or a
+                            // proof at all, so no part of it is surplus. Name
+                            // the constructors that do take it apart.
+                            Value::Data(d2, _) => {
+                                let names = g
+                                    .data(*d2)
+                                    .ctors()
+                                    .iter()
+                                    .map(|c| format!("`{}`", c.name))
+                                    .collect::<Vec<_>>()
+                                    .join(" or ");
+                                format!(
+                                    "a tuple pattern opens a pair, a proof of `∧` or a proof of \
+                                     `∃`; `{shown}` is none of these: split it with {names}"
+                                )
+                            }
+                            _ => "a tuple pattern opens a pair, a proof of `∧` or a proof of `∃`; \
+                                  with more parts than the proof has, the last ones meet a part \
+                                  that is none of these"
+                                .to_string(),
+                        };
+                        e = e.with_note(note);
                     }
                     return Err(e);
                 }

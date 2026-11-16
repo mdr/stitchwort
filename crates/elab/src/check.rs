@@ -5985,6 +5985,37 @@ pub(crate) fn check_value(
         (Expr::Tuple(..), Value::Data(d, _)) if proof_chain(cx, *d).is_some() => {
             proof_tuple(cx, expr, &expected)
         }
+        // A tuple can't be a known data type that isn't a pair or a proof.
+        // The type is right here, so say so rather than asking which `∃` it
+        // proves, and say how that type is written
+        // (docs/proposals/proof-tuples.md §6).
+        (Expr::Tuple(_, _, span), Value::Data(d, _)) => {
+            let shown = cx.show(&expected);
+            let data = g.data(*d);
+            let mut e = Diagnostic::error(
+                "E-TYPE-MISMATCH",
+                format!("expected `{shown}`, but a tuple builds a pair or a proof of `∧` or `∃`"),
+            )
+            .with_label(*span, "this tuple");
+            if data.record() {
+                let fields = data.ctors()[0]
+                    .fields
+                    .iter()
+                    .map(|(name, _)| format!("{name} = …"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                e = e.with_note(format!("`{shown}` is a record: write `{{ {fields} }}`"));
+            } else {
+                let names = data
+                    .ctors()
+                    .iter()
+                    .map(|c| format!("`{}`", c.name))
+                    .collect::<Vec<_>>()
+                    .join(" or ");
+                e = e.with_note(format!("`{shown}` is built with {names}"));
+            }
+            Err(e)
+        }
         // `[a: Type] => body` and `[auto h: P] => body` take the parameter
         // of the function type they're checked against, rather than having
         // it introduced for them (§4.3 of docs/proposals/lambda-syntax.md).

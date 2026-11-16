@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/proof-tuple-pattern-iff.sw:5:7 ]
+   │
+ 5 │   let (f, _) := h
+   │       ───┬──  
+   │          ╰──── expected `p ↔ p`, but this has type `(_, _)`
+   │ 
+   │ Note: a tuple pattern opens a pair, a proof of `∧` or a proof of `∃`; `p ↔ p` is a record: write `{ forward, backward }`
+───╯

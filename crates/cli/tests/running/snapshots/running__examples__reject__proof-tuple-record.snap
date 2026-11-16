@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: expected `Pos`, but a tuple builds a pair or a proof of `∧` or `∃`
+   ╭─[ reject/proof-tuple-record.sw:5:28 ]
+   │
+ 5 │ def one (h: 1 > 0): Pos := (1, h)
+   │                            ───┬──  
+   │                               ╰──── this tuple
+   │ 
+   │ Note: `Pos` is a record: write `{ n = …, pos = … }`
+───╯

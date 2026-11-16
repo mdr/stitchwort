@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-CANNOT-INFER] Error: can't tell which proof this tuple takes apart
+   ╭─[ reject/proof-tuple-pattern-unknown.sw:6:19 ]
+   │
+ 6 │   let f := wrapP ((x, y) => x)
+   │                   ───┬──  
+   │                      ╰──── can't tell which proof this tuple takes apart
+   │ 
+   │ Note: it was read as a pair because nothing said what it proves when it was checked, but its type is a proposition not yet worked out (`_p`): give the parameter's type
+───╯

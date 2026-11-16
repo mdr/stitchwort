@@ -441,6 +441,9 @@ theorem later (b: Bool) (h: P b): 1 = 1 := match b, h with
 theorem testFact (a b: Bool) (h: (a && b) = True): a = True := match h with | (x, _) => x
 def applyP [p q: Prop] (f: p → q) (x: p): q := f x
 theorem unknown (p q: Prop) (h: p ∧ q): q := applyP ((_, b) => b) h
+def dataGoal (p q: Prop) (h: p ∧ q) (n: Nat): Nat :=
+  let (a, _) := h
+  n
 ";
     let constructors = "theorem build: ∃ (n: Nat) => n = 7 ∧ n * n = 49 := Witness 7 (Both byComputing byComputing)
 theorem swap (p q: Prop) (h: p ∧ q): q ∧ p := let Both a b := h; Both b a
@@ -464,6 +467,9 @@ theorem later (b: Bool) (h: P b): 1 = 1 := match b, h with
 theorem testFact (a b: Bool) (h: (a && b) = True): a = True := match h with | Both x _ => x
 def applyP [p q: Prop] (f: p → q) (x: p): q := f x
 theorem unknown (p q: Prop) (h: p ∧ q): q := applyP ((Both _ b) => b) h
+def dataGoal (p q: Prop) (h: p ∧ q) (n: Nat): Nat :=
+  let Both a _ := h
+  n
 ";
     let lines = own_lines(tuples);
     assert!(lines.lines().count() >= 17, "{lines}");
