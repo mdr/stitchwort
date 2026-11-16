@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REWRITE-REPEATEDLY-RULE] Error: this rule would rewrite forever
+   ╭─[ reject/rewrite-repeatedly-rule-loops.sw:8:64 ]
+   │
+ 8 │ theorem bad ∀ (x y: Nat): x + y = y + x := rewrite repeatedly [Nat.addComm]
+   │                                                                ─────┬─────  
+   │                                                                     ╰─────── it rewrites `_ + _` to `_ + _`, which it fits again
+   │ 
+   │ Note 1: its right side holds an instance of its left side, so each rewrite makes another place it applies
+   │ 
+   │ Note 2: use it once with `rewrite`, with its arguments given; reordering a sum or product is `algebra`'s or `arithmetic`'s job
+───╯

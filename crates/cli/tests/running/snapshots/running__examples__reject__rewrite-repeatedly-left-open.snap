@@ -1,0 +1,29 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REWRITE-REPEATEDLY] Error: `rewrite repeatedly` left a goal it can't close
+   ╭─[ reject/rewrite-repeatedly-left-open.sw:8:65 ]
+   │
+ 8 │ theorem bad ∀ (xs ys: List Nat): (xs ++ []) ++ ys = ys ++ xs := rewrite repeatedly [List.appendNil, List.appendAssoc]
+   │                                                                 ──────────────────────────┬─────────────────────────  
+   │                                                                                           ╰─────────────────────────── no rule applies any more, and what is left isn't closed
+   │ 
+   │ Note 1: what is left: `xs ++ ys = ys ++ xs`
+   │ 
+   │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 3: the rules applied: `List.appendNil` (1×)
+   │ 
+   │ Note 4: never applied: `List.appendAssoc` (a rule applies where its left side is in the goal, as written or as it computes, with its premises proved)
+   │ 
+   │ Note 5: prove what is left with `then t` (state it: `then (t: P)`), or see it as a goal with `then ?`
+   │ 
+   │ Note 6: this statement is false; a counterexample:
+   │           xs = [0]
+   │           ys = [1]
+   │         `(xs ++ []) ++ ys = ys ++ xs` is false:
+   │           left:  [0, 1]
+   │           right: [1, 0]
+   │           first difference at [0]: 0 vs 1
+───╯

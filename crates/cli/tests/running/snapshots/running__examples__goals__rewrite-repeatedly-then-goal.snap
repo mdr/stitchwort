@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `left`
+   ╭─[ goals/rewrite-repeatedly-then-goal.sw:4:107 ]
+   │
+ 4 │ theorem left ∀ (xs ys: List Nat): (xs ++ []) ++ ys = ys ++ xs := rewrite repeatedly [List.appendNil] then ?
+   │                                                                                                           ┬  
+   │                                                                                                           ╰── xs: List Nat
+   │                                                                                                               ys: List Nat
+   │                                                                                                               ⊢ xs ++ ys = ys ++ xs
+───╯
