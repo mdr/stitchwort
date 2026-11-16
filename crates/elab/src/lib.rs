@@ -741,6 +741,12 @@ enum Tree<'a> {
         /// The pattern that split the variable: where a fact it can't take
         /// apart is reported.
         pattern: Span,
+        /// Split by a tuple pattern whose column's type wasn't yet known to
+        /// be a proof, so `data` is `Pair`: `check_tree` reads it as `∧` or
+        /// `∃` (or a test fact's reading) if the type turns out to be one
+        /// (docs/proposals/proof-tuples.md §4.2). The three each have one
+        /// constructor of two fields, so the tree's shape is the same.
+        tuple: bool,
     },
     /// The variable at `level` is a `Nat`, compared with numbers in
     /// increasing order (docs/proposals/number-patterns.md).
@@ -856,6 +862,7 @@ impl<'a> Tree<'a> {
                 branches,
                 span,
                 pattern,
+                tuple,
             } => Tree::Case {
                 level: at(*level),
                 data: *data,
@@ -865,6 +872,7 @@ impl<'a> Tree<'a> {
                     .collect(),
                 span: *span,
                 pattern: *pattern,
+                tuple: *tuple,
             },
             Tree::NumCase {
                 level,
@@ -985,6 +993,7 @@ impl<'a> FinNumbers<'a> {
             branches,
             span: self.span,
             pattern: self.largest_span,
+            tuple: false,
         })
     }
 }
@@ -4832,7 +4841,8 @@ impl Elaborator {
                     return self.compile_fin_numbers(rows, depth, columns, types, j, span);
                 }
                 if let Some(ctor) = self.pattern_ctor(pattern, types[j].as_ref())? {
-                    split = Some((j, ctor.data, ctor.span));
+                    let tuple = matches!(**pattern, Pattern::Tuple(..));
+                    split = Some((j, ctor.data, ctor.span, tuple));
                     break 'rows;
                 }
             }
@@ -4840,7 +4850,7 @@ impl Elaborator {
                 break;
             }
         }
-        let Some((j, d, pattern)) = split else {
+        let Some((j, d, pattern, tuple)) = split else {
             // The first row matches whatever is left: it's the result.
             let mut aliases = first.aliases.clone();
             let mut texts = first.texts.clone();
@@ -5042,6 +5052,7 @@ impl Elaborator {
             branches,
             span,
             pattern,
+            tuple,
         })
     }
 
@@ -6761,20 +6772,30 @@ fn read_case(
     branches: &[(Vec<Name>, Tree)],
     span: Span,
     pattern: Span,
+    tuple: bool,
     ty: &Value,
     goal: &Value,
 ) -> Result<Option<Term>> {
-    if !reading::readable_data(cx, d) || cx.level() != depth {
+    if !(tuple || reading::readable_data(cx, d)) || cx.level() != depth {
         return Ok(None);
     }
     let ty = reading::variable_as_written(cx, x, ty)?;
     let Some((test, polarity)) = reading::test_fact(cx, &ty)? else {
         return Ok(None);
     };
+    // A tuple pattern takes apart a reading that is `∧` or `∃`.
+    let mut d = d;
     let found = match reading::read_through(cx, &test, polarity)? {
         reading::Read::Found(found) if matches!(force(&cx.g(), found.prop.clone())?, Value::Data(d2, _) if d2 == d) => {
             found
         }
+        reading::Read::Found(found)
+            if tuple && let Some(d2) = proof_data(cx, &force(&cx.g(), found.prop.clone())?) =>
+        {
+            d = d2;
+            found
+        }
+        _ if tuple => return Ok(None),
         read => {
             let how = format!("taken apart with {}", reading::constructors_shown(cx, d));
             return Err(reading::no_reading(
@@ -6794,6 +6815,7 @@ fn read_case(
     let split = Tree::Case {
         level: depth,
         data: d,
+        tuple: false,
         depth: depth + 1,
         branches: branches
             .iter()
@@ -6808,6 +6830,33 @@ fn read_case(
         .and_then(|body| lift::draft(cx, depth, vec![read], body, goal, span));
     cx.reset(mark);
     Ok(Some(body?))
+}
+
+/// `∧` or `∃`, if `ty` (forced) is one of them: what a tuple takes apart
+/// there instead of a pair.
+fn proof_data(cx: &Ctx, ty: &Value) -> Option<DataId> {
+    let registry = cx.g().env.registry();
+    match ty {
+        Value::Data(d, _)
+            if registry.is_data(Builtin::And, *d) || registry.is_data(Builtin::Exists, *d) =>
+        {
+            Some(*d)
+        }
+        _ => None,
+    }
+}
+
+/// Whether `ty` (forced) is an unknown whose own type is `Prop`.
+pub(crate) fn prop_unknown(cx: &Ctx, ty: &Value) -> bool {
+    let Value::Neutral(Head::Meta(m), spine) = ty else {
+        return false;
+    };
+    let g = cx.g();
+    matches!(
+        cx.metas().meta_type(*m),
+        Some((t, arity)) if arity == spine.len()
+            && matches!(force(&g, t.clone()), Ok(Value::Sort(Sort::Prop)))
+    )
 }
 
 fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
@@ -6855,10 +6904,34 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             span,
             pattern,
             depth,
+            tuple,
         } => {
             let g = cx.g();
-            let data = g.data(*d);
             let mut ty = force(&g, cx.types[*x].clone())?;
+            // A tuple split as a pair before its column's type was known
+            // takes apart the proof that type turns out to be.
+            let switched = match &ty {
+                _ if !*tuple => None,
+                Value::Data(d2, _) if d2 == d => None,
+                other => proof_data(cx, other),
+            };
+            let d = &switched.unwrap_or(*d);
+            let data = g.data(*d);
+            // At an unknown proposition a pair can't be right: the tuple
+            // fails here, and an argument that does is checked again once
+            // the later arguments have fixed the unknown.
+            if *tuple && prop_unknown(cx, &ty) {
+                return Err(error(
+                    "E-CANNOT-INFER",
+                    *pattern,
+                    "can't tell which proof this tuple takes apart",
+                )
+                .with_note(format!(
+                    "its type is a proposition not yet worked out (`{}`), so not a pair: \
+                     give the parameter's type",
+                    cx.show(&ty)
+                )));
+            }
             if let Value::Neutral(Head::Meta(_), _) = ty {
                 // A variable of a type not yet known, matched by a
                 // constructor: a pattern lambda's parameter checked before
@@ -6881,9 +6954,9 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             let params = match ty {
                 Value::Data(d2, params) if d2 == *d => params,
                 other => {
-                    if let Some(term) =
-                        read_case(cx, *x, *d, *depth, branches, *span, *pattern, &other, goal)?
-                    {
+                    if let Some(term) = read_case(
+                        cx, *x, *d, *depth, branches, *span, *pattern, *tuple, &other, goal,
+                    )? {
                         return Ok(term);
                     }
                     let mut e = error(

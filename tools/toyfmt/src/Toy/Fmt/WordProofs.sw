@@ -53,7 +53,7 @@ theorem filterUniform ∀ (docs: List Doc)
     AllUniform (docs.filter (doc => not doc.isEmpty)) :=
   match docs, uniform with
     | [], _ => byComputing
-    | [doc, ..rest], Both first others =>
+    | [doc, ..rest], (first, others) =>
       match empty: doc.isEmpty with
         | True => filterUniform rest others
         | False => (first, (filterUniform rest others))
@@ -115,7 +115,7 @@ theorem writesChoiceTwo ∀ (first second: Doc) (pieces: List Text)
     (two: Writes second pieces):
     Writes (Choice [first, second]) pieces :=
   match one, two with
-    | Both uniform words, Both secondUniform secondWords => (
+    | (uniform, words), (secondUniform, secondWords) => (
       ((((uniform, secondUniform, byComputing)), byComputing, (Eq.trans secondWords words.flipped), byComputing)),
       words
     )
@@ -126,7 +126,7 @@ theorem writesChoiceThree ∀ (first second third: Doc) (pieces: List Text)
     (three: Writes third pieces):
     Writes (Choice [first, second, third]) pieces :=
   match one, two, three with
-    | Both uniform words, Both secondUniform secondWords, Both thirdUniform thirdWords => (
+    | (uniform, words), (secondUniform, secondWords), (thirdUniform, thirdWords) => (
       ((
         ((uniform, secondUniform, thirdUniform, byComputing)),
         byComputing,
@@ -342,7 +342,7 @@ theorem joinedWithUniform ∀ (separator: Doc) (docs: List Doc)
   match docs, each with
     | [], _ => byComputing
     | [only], given => given
-    | [doc, next, ..rest], Both first others =>
+    | [doc, next, ..rest], (first, others) =>
       (first, uniform, (joinedWithUniform separator [next, ..rest] uniform others))
 
 --| Documents joined by layout write what they write one after another.

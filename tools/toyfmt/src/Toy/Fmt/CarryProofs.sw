@@ -160,7 +160,7 @@ def Rising: List Tok → Prop
 
 theorem risingAfter ∀ (read rest: List Tok) (rising: Rising (read ++ rest)): Rising rest := match read, rising with
   | [], rising => rising
-  | [head, ..tail], Both apart later => risingAfter tail rest later
+  | [head, ..tail], (apart, later) => risingAfter tail rest later
 
 --| What the walk assumes of the input left: tidy tokens at rising offsets.
 def Lexer: Parse.Invariant Tok :=

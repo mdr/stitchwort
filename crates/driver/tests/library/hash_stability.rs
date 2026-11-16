@@ -432,6 +432,15 @@ theorem nested (pred: Nat → Prop) (q: Prop) (h: q ∧ ∃ (n: Nat) => pred n):
 theorem viaCall (pred: Nat → Prop) (q: Prop) (f: Nat → ∃ (n: Nat) => pred n ∧ q): q := let (_, _, b) := f 0; b
 theorem arms (p q: Prop): p ∧ q → Nat → q ∧ p
   | (a, b), _ => (b, a)
+def P: Bool → Prop
+  | True => 1 = 1 ∧ 2 = 2
+  | False => 3 = 3
+theorem later (b: Bool) (h: P b): 1 = 1 := match b, h with
+  | True, (x, _) => x
+  | False, _ => byComputing
+theorem testFact (a b: Bool) (h: (a && b) = True): a = True := match h with | (x, _) => x
+def applyP [p q: Prop] (f: p → q) (x: p): q := f x
+theorem unknown (p q: Prop) (h: p ∧ q): q := applyP ((_, b) => b) h
 ";
     let constructors = "theorem build: ∃ (n: Nat) => n = 7 ∧ n * n = 49 := Witness 7 (Both byComputing byComputing)
 theorem swap (p q: Prop) (h: p ∧ q): q ∧ p := let Both a b := h; Both b a
@@ -446,9 +455,18 @@ theorem nested (pred: Nat → Prop) (q: Prop) (h: q ∧ ∃ (n: Nat) => pred n):
 theorem viaCall (pred: Nat → Prop) (q: Prop) (f: Nat → ∃ (n: Nat) => pred n ∧ q): q := let Witness _ (Both _ b) := f 0; b
 theorem arms (p q: Prop): p ∧ q → Nat → q ∧ p
   | Both a b, _ => Both b a
+def P: Bool → Prop
+  | True => 1 = 1 ∧ 2 = 2
+  | False => 3 = 3
+theorem later (b: Bool) (h: P b): 1 = 1 := match b, h with
+  | True, Both x _ => x
+  | False, _ => byComputing
+theorem testFact (a b: Bool) (h: (a && b) = True): a = True := match h with | Both x _ => x
+def applyP [p q: Prop] (f: p → q) (x: p): q := f x
+theorem unknown (p q: Prop) (h: p ∧ q): q := applyP ((Both _ b) => b) h
 ";
     let lines = own_lines(tuples);
-    assert!(lines.lines().count() >= 12, "{lines}");
+    assert!(lines.lines().count() >= 17, "{lines}");
     assert_eq!(lines, own_lines(constructors));
 }
 

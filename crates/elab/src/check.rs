@@ -3614,7 +3614,8 @@ fn apply_args_postponing<'a>(
         let previous_function_name = function_name.take();
         applied = match arg {
             Arg::Explicit(value @ Expr::Lam(..)) => {
-                lambda_arg(cx, applied, value, supply, &mut held, first_error)?
+                let later = &args[i + 1..];
+                lambda_arg(cx, applied, value, later, supply, &mut held, first_error)?
             }
             Arg::NamedExplicit(..) => {
                 unreachable!("`apply_args_with` puts named arguments in their places")
@@ -3858,6 +3859,7 @@ fn lambda_arg<'a>(
     cx: &mut Ctx,
     (mut term, mut ty): (Term, Value),
     value: &'a Expr,
+    later: &[Arg],
     supply: &mut Supply,
     held: &mut Held<'a>,
     first_error: &mut FirstError,
@@ -3877,7 +3879,25 @@ fn lambda_arg<'a>(
         && only_lambdas_depend_on_it(&cod.body, &[])
         && crate::interfaces::unsolved_in(cx, &dom)?.is_some();
     if !late_able {
-        let value = check_arg(cx, &term, value, &dom)?;
+        // A lambda whose parameter is a proposition not yet known, which
+        // it can't take apart (a tuple pattern can't tell `∧` from `∃`),
+        // is checked again after the arguments after it, which may say
+        // what it is: `applyP ((a, b) => b) h` (proof-tuples.md §4.2).
+        let waits = (later.iter()).any(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)))
+            && only_lambdas_depend_on_it(&cod.body, later)
+            && matches!(force(&cx.g(), dom.clone())?, Value::Pi(_, _, ref param, _)
+                if crate::prop_unknown(cx, &force(&cx.g(), (**param).clone())?));
+        let snapshot = waits.then(|| crate::undo::Snapshot::take(cx));
+        let value = match (check_arg(cx, &term, value, &dom), snapshot) {
+            (Ok(value), _) => value,
+            (Err(e), Some(snapshot)) if e.code == "E-CANNOT-INFER" && !crate::undo::fatal(&e) => {
+                snapshot.restore(cx);
+                let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
+                held.postponed.push((value, dom, placeholder, id));
+                return Ok((term, ty));
+            }
+            (Err(e), _) => return Err(e),
+        };
         ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
         term = Term::app(term, value);
         return Ok((term, ty));
