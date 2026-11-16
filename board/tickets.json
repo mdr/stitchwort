@@ -20858,7 +20858,7 @@
     {
       "id": 2217,
       "title": "[DeepSeek] W-MATCH-NOT-FOUND in docs/syntax.md; a paragraph on the language server's recovery pop-ups (what they mean, what to do) in editors/vscode/README.md",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -33887,7 +33887,7 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Reverted on main (7ee900e03, 2a40e0984): the term-based check fired the '!= here is the proposition' note where the user wrote ≠ (examples/reject/match-not-found-goal-as-written.sw gained the note; batch verifier caught it). Redo: decide from the term AND only when the source wrote != (the span's text, or a flag the parser keeps), keeping the earlier reject example; run rejected_examples_fail_for_the_expected_reason. Model result: deepseek, failed (regression on review), ~40 min.",
+      "body": "Reverted on main (7ee900e03, 2a40e0984): the term-based check fired the '!= here is the proposition' note where the user wrote ≠ (examples/reject/match-not-found-goal-as-written.sw gained the note; batch verifier caught it). Redo: decide from the term AND only when the source wrote != (the span's text, or a flag the parser keeps), keeping the earlier reject example; run rejected_examples_fail_for_the_expected_reason. Model result: deepseek, failed (regression on review), ~40 min.\n\nRedo (DeepSeek, with SW-3078) done in scratch clone .claude/worktrees/scratch-sw-3125 (a48627d5f, 55c6d90d6), NOT merged: 24 files, including a syntax AST change (BinOp::Ne(NeForm), spelling from the token's byte length), per-declaration ne_ascii spans in elab state, and for SW-3078 a derive_waiting map in Session with rewind that changes instance search (a use waits for a failed field instance instead of E-INSTANCE-NONE). Bigger than a message fix and touching syntax and elaborator state, so it needs an Opus review before merging (orchestrator's call). Snapshots changed: two reading-needs-read-ne-* lose the wrong != note (correct).",
       "created": "2026-11-13",
       "updated": "2026-11-16",
       "commits": []
@@ -38155,14 +38155,14 @@
     {
       "id": 3431,
       "title": "[DeepSeek] Docs lines from the 2021 notes: rewrite x / 2 also rewrites inside x % 2 (rewrite % first), a field read inside a lambda is recomputed on every call (hoist it: 31.7 s to 17.6 s on day 15), and decreasing cannot go through an earlier recursive call's result (SW-976 items 4 and 6, SW-973 item 2)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "From the triage (SW-2015). Check docs/proving-guide.md and docs/performance first; add a short line or example for each that is missing. SW-1814 (hoisting by the compiler) is parked, so the performance line stays useful.",
+      "body": "From the triage (SW-2015). Check docs/proving-guide.md and docs/performance first; add a short line or example for each that is missing. SW-1814 (hoisting by the compiler) is parked, so the performance line stays useful.\n\nModel result: deepseek, worked, ~40 min (est. 40). With SW-2217.",
       "created": "2026-11-15",
       "updated": "2026-11-16",
       "commits": []
