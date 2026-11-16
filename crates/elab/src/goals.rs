@@ -140,6 +140,9 @@ pub(crate) struct Goals {
     /// [`Elaborator::take_error_hole_shown`] last asked: the printer notes
     /// it through the elaborator's `Shown`.
     error_hole_shown: std::cell::Cell<bool>,
+    /// Whether the printer has shown any unknown since a goal began to be
+    /// printed ([`GoalData::has_unknown`]).
+    unknown_shown: std::cell::Cell<bool>,
     /// Printed: one per span, the last checked there.
     found: Vec<Found>,
     /// The context asked for at a position ([`Elaborator::probe_context`]).
@@ -1026,6 +1029,14 @@ impl Elaborator {
             .any(|(t, _)| matches!(t, Term::Meta(m) if cx.e.is_error_hole(*m)))
     }
 
+    /// Notes that the printer showed an unsolved unknown as `_` or `_name`
+    /// ([`GoalData::has_unknown`]).
+    pub(crate) fn note_unknown_printed(&self) {
+        if let Ok(goals) = self.goals.try_borrow() {
+            goals.unknown_shown.set(true);
+        }
+    }
+
     /// Notes that a message showed metavariable `m`: if it is an error
     /// hole's, the message is about the hole, not the program.
     pub(crate) fn note_meta_shown(&self, m: usize) {
@@ -1598,6 +1609,9 @@ impl Elaborator {
                 None => format!("{}: {}", h.name, h.ty),
             })
             .collect();
+        if let Ok(goals) = self.goals.try_borrow() {
+            goals.unknown_shown.set(false);
+        }
         // Forcing leaves a metavariable only if it's unsolved.
         let known = !matches!(
             force(g, p.expected.clone()),
@@ -1613,6 +1627,7 @@ impl Elaborator {
         } else {
             None
         };
+        let has_unknown = (self.goals.try_borrow()).is_ok_and(|g| g.unknown_shown.replace(false));
         if let Some(a) = arm {
             lines.extend(a.facts.iter().cloned());
         }
@@ -1669,6 +1684,7 @@ impl Elaborator {
             facts: arm.map(|a| a.facts.clone()).unwrap_or_default(),
             target,
             written,
+            has_unknown,
             prop: p.prop,
             lemma: None,
         });

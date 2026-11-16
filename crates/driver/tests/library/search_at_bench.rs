@@ -103,6 +103,7 @@ fn goal_of(session: &Session, id: DefId) -> Option<FoundGoal> {
             facts: Vec::new(),
             target,
             written: None,
+            has_unknown: false,
             prop: Some(true),
             lemma: Some(String::new()),
         },

@@ -130,6 +130,10 @@ pub struct GoalData {
     /// `False = False`); `None` when it prints the same as `target`
     /// (D3522).
     pub written: Option<String>,
+    /// Whether printing the target showed an unknown nothing has solved
+    /// (`_` or `_n`). Proof search asks this instead of looking for the
+    /// printed form.
+    pub has_unknown: bool,
     /// Whether the target is a proposition (a proof goal), if that was
     /// known when the hole was checked: `None` when its sort couldn't be
     /// told.
