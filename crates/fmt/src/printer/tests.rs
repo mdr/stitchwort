@@ -1077,3 +1077,31 @@ fn an_operator_after_a_match_block_stays_outside_its_arms() {
         assert!(gate.idempotent, "not idempotent:\n{}", gate.text);
     }
 }
+
+#[test]
+fn a_calc_proof_never_wraps_a_hole_to_the_start_of_a_line() {
+    // S35: a line starting with `_` would read as the next step. SW-3683.
+    for k in 100..112 {
+        let text = format!(
+            "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a :=\n    f {} {} _\n  _ = a := byComputing\n",
+            long(k),
+            long(10)
+        );
+        fmt(&text);
+    }
+}
+
+#[test]
+fn a_rewrite_without_then_breaks_one_rule_a_line() {
+    // S36 without a body: the last rule is the proof. As a calc step's proof,
+    // the breaks used to fall before a `_`, which started a step (SW-3683).
+    let a = long(40);
+    check(
+        &format!(
+            "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a :=\n    rewrite f {a} _, g {a} _,\n      h {a} _ _\n  _ = a := byComputing\n"
+        ),
+        &format!(
+            "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a :=\n    rewrite f {a} _,\n        g {a} _,\n        h {a} _ _\n  _ = a := byComputing\n"
+        ),
+    );
+}

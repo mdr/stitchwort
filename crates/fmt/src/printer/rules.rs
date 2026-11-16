@@ -1563,14 +1563,17 @@ impl<'a> Rules<'a> {
     }
 
     /// The elements as the items of a fill. Pieces written with nothing
-    /// between them (`f()`) are one item.
+    /// between them (`f()`), and ones that mustn't start a line, are one
+    /// item.
     fn fill_items(&self, children: &[Element<'_>], docs: &[Doc]) -> Vec<Doc> {
         let mut items = vec![docs[0].clone()];
         for k in 1..children.len() {
             let space = self.space_el(children[k - 1], children[k]);
-            if matches!(space, Doc::Nil) {
+            // A `_` or a method section can't start a line (see `section`),
+            // so it stays on its predecessor's line.
+            if matches!(space, Doc::Nil) || self.section(children[k]) {
                 let last = items.pop().expect("an item");
-                items.push(Doc::concat([last, docs[k].clone()]));
+                items.push(Doc::concat([last, space, docs[k].clone()]));
             } else {
                 items.push(docs[k].clone());
             }
@@ -2030,20 +2033,20 @@ impl<'a> Rules<'a> {
     /// one rule a line at 4 with `then` at the end of the last.
     fn rewrite(&mut self, node: Node<'_>) -> Doc {
         let children: Vec<Element> = node.children().collect();
-        let Some(then_at) = children
+        // Without `then`, the last rule is the proof: the rules lay out as
+        // before a `then`, one a line at 4 when they don't fit, and no body.
+        let then_at = children
             .iter()
-            .rposition(|&el| self.is_tok(el, &Tok::KwThen))
-        else {
-            return self.join(&children);
-        };
-        if then_at < 2 {
+            .rposition(|&el| self.is_tok(el, &Tok::KwThen));
+        let rules_end = then_at.unwrap_or(children.len());
+        if rules_end < 2 || then_at.is_some_and(|at| at < 2) {
             return self.join(&children);
         }
         let keyword = self.el(children[0]);
         let mut rules = Vec::new();
         let mut current: Vec<Element> = Vec::new();
         let mut items = Vec::new();
-        for &el in &children[1..then_at] {
+        for &el in &children[1..rules_end] {
             if self.is_tok(el, &Tok::Comma) {
                 items.push((std::mem::take(&mut current), Some(el)));
             } else {
@@ -2064,9 +2067,16 @@ impl<'a> Rules<'a> {
                 rules.push(self.el(*comma));
             }
         }
+        let first_space = self.space_el(children[0], children[1]);
+        let Some(then_at) = then_at else {
+            return Doc::group(Doc::concat([
+                keyword,
+                first_space,
+                Doc::nest(4, Doc::concat(rules)),
+            ]));
+        };
         let then_doc = self.el(children[then_at]);
         let body = self.join(&children[then_at + 1..]);
-        let first_space = self.space_el(children[0], children[1]);
         let rules = Doc::group(Doc::concat([
             keyword,
             first_space,

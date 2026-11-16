@@ -156,8 +156,7 @@ theorem specCrosses ∀ (grid: Grid):
     _ = List.sumBy (List.range 0 tall) (r =>
         List.sumBy (List.range 0 (rowOf grid r).length) (c => Bool.toNat (crossAt grid r c))) :=
       Eq.flipped
-        (List.sumByRangeExtend _ rows.length tall arithmetic (r below =>
-          rewrite List.getOrPast rows r [] below))
+        (List.sumByRangeExtend _ rows.length tall arithmetic (r below => rewrite List.getOrPast rows r [] below))
     _ = List.sumBy (List.range 0 tall) centres := List.sumByCong (List.range 0 tall) _ _ (r =>
       Eq.flipped
         (List.sumByRangeExtend _ (rowOf grid r).length wide (rowFits grid r) (c right =>
