@@ -1,5 +1,5 @@
 {
-  "next": 3627,
+  "next": 3629,
   "tickets": [
     {
       "id": 47,
@@ -40732,12 +40732,38 @@
     {
       "id": 3626,
       "title": "[Fable paper] Formatter properties worth proving (D3662, Matt, 16 Nov 2026: 'don't go overboard with the contract', but every way the real formatter has failed should be covered by a theorem, incl. every comment kept; a paper lane to evaluate candidate properties: most valuable, less valuable, how hard, so Matt can choose the proof surface). For Toy++ (and later the real formatter). Est. 40 min",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Lane (Fable, 16 Nov 2026, 16:41-16:47, est. 40 min): docs/proposals/formatter-properties.md on lane/SW-3626, commit f35f9139c. Paper only; nothing built or run.\n- 12 failure classes (F1-F12) from the tickets and the 27 fuzz minimals; 15 candidate properties rated.\n- Recommended must set: the three planned theorems, plus formatKeepsComments stated between the two texts through the lexer only (P4), settledNear (rule N moves a comment only past closers and commas, P5), formatSameTree (output depends only on the tree; rules out the identity formatter, P7), the ParseError half (P14), and Degenerate.sw (silly formatters, each breaking a named theorem, P15). About 40-60 lemmas, +45 min on T3-T7 (3 h 40 -> about 4 h 25, estimated).\n- Worth considering: code tokens kept between texts (P9), text-level blank lines, tree-level locality. Tests: normal form for meaning, width, tidy output, style, depth, driver.\n- Two D candidates: the must set as Toy++'s surface [rec yes]; P9 in Toy++ [rec not now, decide after T6].\n- Findings: a unit test that same_tokens refuses two different text blocks (check.rs:28); check each of the 27 fuzz minimals is a named test.",
+      "body": "Lane (Fable, 16 Nov 2026, 16:41-16:47, est. 40 min): docs/proposals/formatter-properties.md on lane/SW-3626, commit f35f9139c. Paper only; nothing built or run.\n- 12 failure classes (F1-F12) from the tickets and the 27 fuzz minimals; 15 candidate properties rated.\n- Recommended must set: the three planned theorems, plus formatKeepsComments stated between the two texts through the lexer only (P4), settledNear (rule N moves a comment only past closers and commas, P5), formatSameTree (output depends only on the tree; rules out the identity formatter, P7), the ParseError half (P14), and Degenerate.sw (silly formatters, each breaking a named theorem, P15). About 40-60 lemmas, +45 min on T3-T7 (3 h 40 -> about 4 h 25, estimated).\n- Worth considering: code tokens kept between texts (P9), text-level blank lines, tree-level locality. Tests: normal form for meaning, width, tidy output, style, depth, driver.\n- Two D candidates: the must set as Toy++'s surface [rec yes]; P9 in Toy++ [rec not now, decide after T6].\n- Findings: a unit test that same_tokens refuses two different text blocks (check.rs:28); check each of the 27 fuzz minimals is a named test.\n\nModel result: fable, worked, 6 min (est. 40). D candidates: must set as Toy++ surface (rec yes); code tokens kept later (rec decide after T6). Inputs copied to dev/fuzz-findings/fmt for SW-3628.",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3627,
+      "title": "[Sonnet] fmt check::same_tokens (crates/fmt/src/check.rs:28) treats any two tokens whose texts both contain a line break as the same; add a failing-first test that two different \"\"\" blocks are refused, then fix (from SW-3626, reading only)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3628,
+      "title": "[DeepSeek] Make all 27 formatter fuzz minimals (session scratchpad fmtbugs/, copy into the repo first) named fmt tests, so they outlive the scratchpad; each must format, pass checks and be idempotent (one known non-parsing input: test it's refused)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
