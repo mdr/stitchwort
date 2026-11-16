@@ -1,5 +1,5 @@
 {
-  "next": 3602,
+  "next": 3603,
   "tickets": [
     {
       "id": 47,
@@ -40406,6 +40406,19 @@
       "id": 3601,
       "title": "[DeepSeek] Small test hygiene: rename tests simplest_first_offers_only_omega/_rfl to the new vocabulary; split or re-limit search_at_on_real_2021_goals (~8 min under load, at the 600 s terminate-after limit)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3602,
+      "title": "[Opus] rewrite repeatedly stage 1 (docs/proposals/simp-revisited.md §8 stage 1): 'rewrite repeatedly [rules]', '… then t', '… then ?' (D3647 name, D3648 then): equations, hypotheses, Bool facts, f; visible matching; closers; budget; error codes; steps in goal --at; named rule sets per D3639 if in stage 1's scope; no propext (D3640, a soft default); R7 flexible rule from readable-proofs.md (a non-terminal rewrite repeatedly is followed by a stated fact; warn otherwise). Bar: §6's five equation proofs check as written; Words.sw converted on a branch, proof characters -15%+, check time ≤1.5x. Guide, syntax.md, tour page. Est. 100 min agent time, then an Opus review",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
