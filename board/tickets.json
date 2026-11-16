@@ -38205,9 +38205,9 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "D3625 (Matt, 16 Nov 2026): yes, Toy++ before the real formatter ('doing a toy before we attempt a real formatter is very wise'). Scope per docs/proposals/after-the-toy-proof.md §4.4; starts after SW-3490 (toy tidy) merges, sketch first.",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
