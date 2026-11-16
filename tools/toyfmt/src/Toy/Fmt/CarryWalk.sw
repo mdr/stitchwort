@@ -612,3 +612,691 @@ theorem exprChain ∀ (self: Layout → {Parse Tok} Expr) (layout: Layout)
     (ExprSpec layout)
     (exprOperand self layout nested)
     (exprJoins layout)
+
+-- Lines, and the notes above them.
+
+--| The comments of a list's lines.
+def spacedComments (measure: a → List Comment) (lines: List (Spaced a)): List Comment :=
+  lines.flatMap (spaced => measure spaced.line)
+
+theorem flatMapAppend ∀ (f: a → List b) (first second: List a):
+    (first ++ second).flatMap f = first.flatMap f ++ second.flatMap f :=
+  match first with
+    | [] => byComputing
+    | [head, ..tail] =>
+      calc ([head, ..tail] ++ second).flatMap f
+        _ = f head ++ (tail.flatMap f ++ second.flatMap f) :=
+          Eq.cong ((back: List b) => f head ++ back) (flatMapAppend f tail second)
+        _ = (f head ++ tail.flatMap f) ++ second.flatMap f :=
+          (List.appendAssoc (f head) (tail.flatMap f) (second.flatMap f)).flipped
+
+theorem flatMapConcat ∀ (f: a → List b) (groups: List (List a)):
+    groups.concat.flatMap f = groups.flatMap (group => group.flatMap f) :=
+  match groups with
+    | [] => byComputing
+    | [group, ..rest] =>
+      calc ([group, ..rest]).concat.flatMap f
+        _ = group.flatMap f ++ rest.concat.flatMap f := flatMapAppend f group rest.concat
+        _ = group.flatMap f ++ rest.flatMap (group => group.flatMap f) :=
+          Eq.cong ((back: List b) => group.flatMap f ++ back) (flatMapConcat f rest)
+
+theorem linesFlat ∀ (lines: List (Spaced Statement)): linesComments lines = spacedComments Statement.comments lines :=
+  match lines with
+    | [] => byComputing
+    | [{ blankBefore, line }, ..rest] => Eq.cong ((back: List Comment) => line.comments ++ back) (linesFlat rest)
+
+theorem unblankedSame ∀ (measure: a → List Comment) (lines: List (Spaced a)):
+    spacedComments measure (withoutFirstBlank lines) = spacedComments measure lines :=
+  match lines with
+    | [] => byComputing
+    | [{ blankBefore, line }, ..rest] => byComputing
+
+--| One more note among those found adds its comment.
+theorem snocNote ∀ [note: Comment → a] (measure: a → List Comment)
+    (noted: ∀ (comment: Comment) => measure (note comment) = [comment])
+    (found: (List (Spaced a), Bool)) (comment: Comment):
+    spacedComments measure (noteStep note found (OwnLine comment)).fst = spacedComments measure found.fst ++ [comment] :=
+  calc spacedComments measure (found.fst ++ [{ blankBefore = found.snd, line = note comment }])
+    _ = spacedComments measure found.fst ++ spacedComments measure [{ blankBefore = found.snd, line = note comment }] :=
+      flatMapAppend (spaced => measure spaced.line) found.fst [{ blankBefore = found.snd, line = note comment }]
+    _ = spacedComments measure found.fst ++ [comment] :=
+      Eq.cong
+        ((back: List Comment) => spacedComments measure found.fst ++ back)
+        (Eq.trans (List.appendNil (measure (note comment))) (noted comment))
+
+--| The note lines made of trivia hold its comments.
+theorem notesFold ∀ [note: Comment → a] (measure: a → List Comment)
+    (noted: ∀ (comment: Comment) => measure (note comment) = [comment])
+    (trivia: List Trivia) (found: (List (Spaced a), Bool)):
+    spacedComments measure (trivia.foldLeft found (noteStep note)).fst
+      = spacedComments measure found.fst ++ trivia.flatMap Trivia.comments :=
+  match trivia with
+    | [] => (List.appendNil (spacedComments measure found.fst)).flipped
+    | [BlankLine, ..rest] => notesFold measure noted rest (noteStep note found BlankLine)
+    | [OwnLine comment, ..rest] =>
+      calc spacedComments measure (rest.foldLeft (noteStep note found (OwnLine comment)) (noteStep note)).fst
+        _ = spacedComments measure (noteStep note found (OwnLine comment)).fst ++ rest.flatMap Trivia.comments :=
+          notesFold measure noted rest (noteStep note found (OwnLine comment))
+        _ = (spacedComments measure found.fst ++ [comment]) ++ rest.flatMap Trivia.comments :=
+          Eq.cong
+            ((front: List Comment) => front ++ rest.flatMap Trivia.comments)
+            (snocNote measure noted found comment)
+        _ = spacedComments measure found.fst ++ ([comment] ++ rest.flatMap Trivia.comments) :=
+          List.appendAssoc (spacedComments measure found.fst) [comment] (rest.flatMap Trivia.comments)
+
+--| A line under the notes made of the trivia above it: the trivia's
+--| comments, then the line's.
+theorem notedCore ∀ [note: Comment → a] (measure: a → List Comment)
+    (noted: ∀ (comment: Comment) => measure (note comment) = [comment])
+    (above: List Trivia) (line: a) (notes: List (Spaced a)) (blankBefore: Bool)
+    (found: spacedNotes note above = (notes, blankBefore)):
+    spacedComments measure (notes ++ [{ blankBefore, line }]) = above.flatMap Trivia.comments ++ measure line :=
+  let folded: spacedComments measure (spacedNotes note above).fst = above.flatMap Trivia.comments :=
+    notesFold measure noted above ([], False)
+  let known: spacedComments measure notes = above.flatMap Trivia.comments := rewrite found at folded then folded
+  calc spacedComments measure (notes ++ [{ blankBefore, line }])
+    _ = spacedComments measure notes ++ spacedComments measure [{ blankBefore, line }] :=
+      flatMapAppend (spaced => measure spaced.line) notes [{ blankBefore, line }]
+    _ = spacedComments measure notes ++ measure line :=
+      Eq.cong ((back: List Comment) => spacedComments measure notes ++ back) (List.appendNil (measure line))
+    _ = above.flatMap Trivia.comments ++ measure line := Eq.cong ((front: List Comment) => front ++ measure line) known
+
+theorem notedStatementComments ∀ (above: List Trivia) (line: Statement):
+    spacedComments Statement.comments (notedStatement above line) = above.flatMap Trivia.comments ++ line.comments :=
+  match found: spacedNotes StatementNote above with
+    | (notes, blankBefore) => notedCore Statement.comments (comment => byComputing) above line notes blankBefore found
+
+theorem notedDeclarationComments ∀ (above: List Trivia) (line: Declaration):
+    spacedComments Declaration.comments (notedDeclaration above line)
+      = above.flatMap Trivia.comments ++ line.comments :=
+  match found: spacedNotes DeclarationNote above with
+    | (notes, blankBefore) => notedCore Declaration.comments (comment => byComputing) above line notes blankBefore found
+
+--| A statement's first token keeps only its trailing comment in the
+--| tree; with the own-line comments above it, that is all it holds.
+theorem keptAtStart ∀ (column: Nat) (first: Tok):
+    first.value.above.flatMap Trivia.comments ++ (InStatement column first.offset).kept first = first.value.comments :=
+  match trailing: first.value.trailing with
+    | Some located => rewrite ownOffset first.offset then byComputing
+    | None => rewrite ownOffset first.offset then byComputing
+
+--| A statement or declaration read from the lexer's tokens, with the
+--| comments above its first token: all the comments of what was read.
+--|
+--| Proof idea: the first token read is the one the statement starts at,
+--| so the layout keeps only its trailing comment (`keptAtStart`); every
+--| later token has a greater offset (`Rising`), so none is at the
+--| layout's start and `Opened` gives the rest.
+theorem firstCarried ∀ [measure: a → List Comment] (column: Nat) (first: Tok) (later read: List Tok)
+    (value: a) (rest: List Tok)
+    (rising: Rising [first, ..later])
+    (split: [first, ..later] = read ++ rest)
+    (opened: Opened (InStatement column first.offset) measure read value):
+    first.value.above.flatMap Trivia.comments ++ measure value = allCarried read :=
+  match read, opened, split with
+    | [], never, _ => never.impossible
+    | [head, ..tail], carried, split =>
+      let isFirst: first = head := List.consInjectiveHead first head later (tail ++ rest) split
+      let laterSame: later = tail ++ rest := Eq.cong (.drop 1) split
+      let apart: List.All (other => first.offset < other.offset) (tail ++ rest) := rewrite <- laterSame then rising.left
+      let tailPast: List.All (InStatement column first.offset).past tail :=
+        List.allImplies
+          (other => first.offset < other.offset)
+          (InStatement column first.offset).past
+          (other below => Nat.equalOfLess first.offset other.offset below)
+          tail
+          (List.allAppendLeft (other => first.offset < other.offset) tail rest apart)
+      let sum := carried tailPast
+      rewrite <- isFirst at sum then
+        rewrite <- isFirst then
+          calc first.value.above.flatMap Trivia.comments ++ measure value
+            _ = first.value.above.flatMap Trivia.comments
+                ++ ((InStatement column first.offset).kept first ++ allCarried tail) :=
+              Eq.cong ((back: List Comment) => first.value.above.flatMap Trivia.comments ++ back) sum
+            _ = (first.value.above.flatMap Trivia.comments ++ (InStatement column first.offset).kept first)
+                ++ allCarried tail :=
+              (List.appendAssoc
+                (first.value.above.flatMap Trivia.comments)
+                ((InStatement column first.offset).kept first)
+                (allCarried tail)).flipped
+            _ = first.value.comments ++ allCarried tail :=
+              Eq.cong ((front: List Comment) => front ++ allCarried tail) (keptAtStart column first)
+
+theorem eachInner ∀ [measure: a → List Comment] (layout: Layout) (read: List Tok) (values: List a)
+    (each: Parse.Each (Inner layout measure) read values):
+    Inner layout (found => found.flatMap measure) read values :=
+  match values, each with
+    | [], none => rewrite none then (past => byComputing)
+    | [value, ..rest], found =>
+      match found with
+        | (first, later, split, holds, others) =>
+          rewrite split then
+            (past =>
+              calc ([value, ..rest]).flatMap measure
+                _ = allCarried first ++ rest.flatMap measure :=
+                  Eq.cong
+                    ((front: List Comment) => front ++ rest.flatMap measure)
+                    (holds (List.allAppendLeft layout.past first later past))
+                _ = allCarried first ++ allCarried later :=
+                  Eq.cong
+                    ((back: List Comment) => allCarried first ++ back)
+                    (eachInner layout later rest others (List.allAppendRight layout.past first later past))
+                _ = allCarried (first ++ later) := (allCarriedAppend first later).flipped)
+
+-- Bodies and blocks.
+
+theorem clearedAll ∀ (comments: Comments) (none: comments.above = []):
+    Comments.all { comments | above = [] } = comments.all :=
+  Eq.cong ((above: List Comment) => above ++ comments.after.toList) none.flipped
+
+--| Clearing changes nothing where the first token holds no comments.
+theorem withoutFirstAboveSame ∀ (expr: Expr) (none: expr.firstAbove = []):
+    expr.withoutFirstAbove.comments = expr.comments :=
+  match expr with
+    | Var name comments => clearedAll comments none
+    | NumberLiteral digits comments => clearedAll comments none
+    | StringLiteral written comments => clearedAll comments none
+    | Bracketed open inner close =>
+      Eq.cong ((front: List Comment) => front ++ (inner.comments ++ close.all)) (clearedAll open none)
+    | ListLiteral open items close =>
+      Eq.cong ((front: List Comment) => front ++ (itemsComments items ++ close.all)) (clearedAll open none)
+    | Call callee open arguments close =>
+      Eq.cong
+        ((front: List Comment) => front ++ (open.all ++ (itemsComments arguments ++ close.all)))
+        (withoutFirstAboveSame callee none)
+    | Field target dot name nameComments =>
+      Eq.cong ((front: List Comment) => front ++ (dot.all ++ nameComments.all)) (withoutFirstAboveSame target none)
+    | Negate minus operand => Eq.cong ((front: List Comment) => front ++ operand.comments) (clearedAll minus none)
+    | Binary operator sign left right =>
+      Eq.cong ((front: List Comment) => front ++ (sign.all ++ right.comments)) (withoutFirstAboveSame left none)
+    | If ifComments condition thenComments whenTrue elseComments whenFalse =>
+      Eq.cong
+        ((front: List Comment) =>
+          front
+            ++ (condition.comments
+              ++ (thenComments.all ++ (whenTrue.comments ++ (elseComments.all ++ whenFalse.comments)))))
+        (clearedAll ifComments none)
+
+--| `Layout.headed` loses nothing of an expression whose first token is
+--| `head`: inside brackets it changes nothing, and outside them the
+--| layout keeps no comments above `head`.
+def HeadClear (layout: Layout) (head: Tok): Prop := match layout with
+  | InBrackets => True
+  | InStatement column begin => ((InStatement column begin).comments head).above = []
+
+--| `HeadClear` of the next token, if the layout allows it.
+def ClearAt (layout: Layout) (rest: List Tok): Prop := match rest with
+  | [] => True
+  | [head, ..tail] => layout.allows head = True → HeadClear layout head
+
+theorem clearBrackets ∀ (rest: List Tok): ClearAt InBrackets rest := match rest with
+  | [] => byComputing
+  | [head, ..tail] => allowed => byComputing
+
+theorem headedSame ∀ (layout: Layout) (head: Tok) (value: Expr)
+    (clear: HeadClear layout head)
+    (above: value.firstAbove = (layout.comments head).above):
+    (layout.headed value).comments = value.comments :=
+  match layout, clear, above with
+    | InBrackets, _, _ => byComputing
+    | InStatement column begin, none, above => withoutFirstAboveSame value (Eq.trans above none)
+
+theorem bareOpened ∀ (layout: Layout) (read: List Tok) (value: Expr) (others: List Tok)
+    (clear: ClearAt layout (read ++ others))
+    (spec: ExprSpec layout read value):
+    Opened layout Statement.comments read (Bare (layout.headed value)) :=
+  match read, spec, clear with
+    | [], never, _ => never.impossible
+    | [head, ..tail], known, clear => past =>
+      calc (layout.headed value).comments
+        _ = value.comments := headedSame layout head value (clear known.left) known.right.left
+        _ = layout.kept head ++ allCarried tail := known.right.right past
+
+--| An expression as a statement, where the next token is one `headed`
+--| loses nothing of.
+theorem openedBare ∀ (self: Layout → {Parse Tok} Expr) (layout: Layout)
+    (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner))
+    (start: Parse.Mark Tok) (rest: List Tok)
+    (shape: start.rest = rest)
+    (fine: Parse.Fits Tok Lexer rest)
+    (clear: ClearAt layout rest):
+    Parse.ReadsAt start (() => bareStatement self layout) (Opened layout Statement.comments) :=
+  Parse.readsAtThen (nested layout start (rewrite shape then fine)) (read value after starts spec =>
+    readsAtDone after (Bare (layout.headed value)) _
+      (rewrite List.appendNil read then
+        bareOpened layout read value after.rest (rewrite <- starts, shape then clear) spec))
+
+theorem innerInline ∀ (self: Layout → {Parse Tok} Expr) (layout: Layout)
+    (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner))
+    (start: Parse.Mark Tok) (rest: List Tok)
+    (shape: start.rest = rest)
+    (fine: Parse.Fits Tok Lexer rest)
+    (clear: ClearAt layout rest):
+    Parse.ReadsAt start (() => inlineBody self layout) (Inner layout Body.comments) :=
+  Parse.readsAtThen (openedBare self layout nested start rest shape fine clear) (read line after starts opened =>
+    readsAtDone after ({ statements = [{ blankBefore = False, line }] }: Body) _
+      (rewrite List.appendNil read then
+        (past => Eq.trans (List.appendNil line.comments) (openedInner layout read line opened past))))
+
+--| A statement's line read from its first token, `first`.
+theorem openedStatementLine ∀ (self: Layout → {Parse Tok} Expr)
+    (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner)) (fuel: Nat)
+    (readsBody: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => bodyFuel fuel self inner) (Inner inner Body.comments))
+    (column: Nat) (start: Parse.Mark Tok) (first: Tok) (later: List Tok)
+    (fine: Parse.Fits Tok Lexer [first, ..later])
+    (shape: start.rest = [first, ..later]):
+    Parse.ReadsAt start
+      (() => statementLine fuel self (InStatement column first.offset) first first.value.kind)
+      (Opened (InStatement column first.offset) Statement.comments) :=
+  let bare: Parse.ReadsAt start
+    (() => bareStatement self (InStatement column first.offset))
+    (Opened (InStatement column first.offset) Statement.comments) :=
+    openedBare self (InStatement column first.offset) nested start [first, ..later] shape fine (allowed =>
+      startAbove column first)
+  match kind: first.value.kind with
+    | Reserved LetKeyword =>
+      skipOpened (InStatement column first.offset) start first later fine shape (done =>
+        andThen (innerName (InStatement column first.offset)) (pair =>
+          match pair with
+            | (bound, nameComments) =>
+              andThen (innerSign (InStatement column first.offset) "'='" Defines) (equals =>
+                lastly (readsBody (InStatement column first.offset)) (inner => byComputing) (inner => byComputing))))
+    | Reserved FnKeyword => bare
+    | Reserved IfKeyword => bare
+    | Reserved ThenKeyword => bare
+    | Reserved ElseKeyword => bare
+    | Name text => bare
+    | Number digits => bare
+    | Str written => bare
+    | Sign punctuation => bare
+    | Op operator => bare
+    | Stray text => bare
+
+theorem innerStatementAt ∀ (self: Layout → {Parse Tok} Expr)
+    (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner)) (fuel: Nat)
+    (readsBody: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => bodyFuel fuel self inner) (Inner inner Body.comments))
+    (column: Nat) (start: Parse.Mark Tok) (first: Tok) (later: List Tok)
+    (fine: Parse.Fits Tok Lexer [first, ..later])
+    (shape: start.rest = [first, ..later]):
+    Parse.ReadsAt start
+      (() =>
+        notedStatement first.value.above
+          (statementLine fuel self (InStatement column first.offset) first first.value.kind))
+      (Inner InBrackets (spacedComments Statement.comments)) :=
+  Parse.readsAtThen
+    (openedStatementLine self nested fuel readsBody column start first later fine shape)
+    (read line after starts opened =>
+      readsAtDone after (notedStatement first.value.above line) _
+        (rewrite List.appendNil read then
+          (past =>
+            Eq.trans
+              (notedStatementComments first.value.above line)
+              (firstCarried column first later read line after.rest fine.holds.right
+                (Eq.trans shape.flipped starts)
+                opened))))
+
+theorem innerStatement ∀ (self: Layout → {Parse Tok} Expr)
+    (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner)) (fuel: Nat)
+    (readsBody: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => bodyFuel fuel self inner) (Inner inner Body.comments))
+    (column: Nat):
+    Parse.ReadsIn Lexer (() => statement fuel self column) (Inner InBrackets (spacedComments Statement.comments)) :=
+  readsAtMark _ _ (start fine =>
+    match e: start.rest with
+      | [] =>
+        Parse.readsStop [inv := Lexer] (Inner InBrackets (spacedComments Statement.comments)) start
+          (rewrite e then fine)
+      | [first, ..later] =>
+        match starts: first.value.startsLine && first.value.column == column with
+          | False =>
+            Parse.readsStop [inv := Lexer] (Inner InBrackets (spacedComments Statement.comments)) start
+              (rewrite e then fine)
+          | True => innerStatementAt self nested fuel readsBody column start first later fine e)
+
+theorem blockCarried ∀ (read: List Tok) (groups: List (List (Spaced Statement)))
+    (each: Parse.Each (Inner InBrackets (spacedComments Statement.comments)) read groups):
+    Inner InBrackets Body.comments read { statements = withoutFirstBlank groups.concat } :=
+  past =>
+    calc linesComments (withoutFirstBlank groups.concat)
+      _ = spacedComments Statement.comments (withoutFirstBlank groups.concat) :=
+        linesFlat (withoutFirstBlank groups.concat)
+      _ = spacedComments Statement.comments groups.concat := unblankedSame Statement.comments groups.concat
+      _ = groups.flatMap (spacedComments Statement.comments) :=
+        flatMapConcat (spaced => Statement.comments spaced.line) groups
+      _ = allCarried read := eachInner InBrackets read groups each past
+
+theorem innerBlock ∀ (self: Layout → {Parse Tok} Expr)
+    (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner)) (fuel: Nat)
+    (readsBody: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => bodyFuel fuel self inner) (Inner inner Body.comments))
+    (column: Nat):
+    Parse.ReadsIn Lexer (() => block fuel self column) (Inner InBrackets Body.comments) :=
+  Parse.readsThen
+    (Parse.readsMany1
+      (() => statement fuel self column)
+      (Inner InBrackets (spacedComments Statement.comments))
+      (innerStatement self nested fuel readsBody column))
+    (read lines each =>
+      Parse.readsDone
+        ({ statements = withoutFirstBlank lines.toList.concat }: Body)
+        _
+        (rewrite List.appendNil read then blockCarried read lines.toList each))
+
+--| An inline body's first token holds no comments above it in the tree:
+--| it is the statement's first, or it doesn't start a line, and then the
+--| lexer put none above it (`Tidy`).
+theorem inlineClear ∀ (column at: Nat) (token: Tok)
+    (tidy: Tidy token)
+    (deeper: (token.value.startsLine && token.value.column > column) = False)
+    (allowed: (InStatement column at).allows token = True):
+    ((InStatement column at).comments token).above = [] :=
+  match same: token.offset == at with
+    | True => byComputing
+    | False =>
+      match starts: token.value.startsLine with
+        | False => Eq.trans (ownLinesSame token.value.above) (tidy starts)
+        | True => (Bool.falseNotTrue (rewrite deeper at allowed then allowed)).impossible
+
+--| A body, a block or one expression.
+theorem innerBodyFuel ∀ (self: Layout → {Parse Tok} Expr)
+    (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner))
+    (fuel: Nat) (layout: Layout):
+    Parse.ReadsIn Lexer (() => bodyFuel fuel self layout) (Inner layout Body.comments) :=
+  Parse.readsInPeek [t := Parse.Located Token] _ _ (start fine =>
+    match fuel with
+      | Zero => Parse.readsFatal [inv := Lexer] _ (Inner layout Body.comments) start fine
+      | Succ more =>
+        match layout with
+          | InBrackets =>
+            innerInline self InBrackets nested start start.rest byComputing fine (clearBrackets start.rest)
+          | InStatement column at =>
+            match e: start.rest with
+              | [] => innerInline self (InStatement column at) nested start [] e fine byComputing
+              | [token, ..later] =>
+                match deeper: token.value.startsLine && token.value.column > column with
+                  | False =>
+                    innerInline self (InStatement column at) nested start [token, ..later] e fine (allowed =>
+                      inlineClear column at token fine.holds.left.left deeper allowed)
+                  | True =>
+                    inBrackets
+                      [p := () => block more self token.value.column]
+                      (InStatement column at)
+                      (innerBlock self nested more (inner => innerBodyFuel self nested more inner) token.value.column)
+                      start
+                      (rewrite e then fine))
+
+theorem innerBody ∀ (self: Layout → {Parse Tok} Expr) (layout: Layout)
+    (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner)):
+    Parse.ReadsIn Lexer (() => body self layout) (Inner layout Body.comments) :=
+  Parse.readsWithMark _ _ (at fine => innerBodyFuel self nested (at.left + 1) layout)
+
+-- `if`, and the expression parser.
+
+--| A token seen next and read for its comments.
+theorem innerTaken ∀ (layout: Layout) (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
+    (fine: Parse.Fits Tok Lexer [token, ..later])
+    (shape: start.rest = [token, ..later]):
+    Parse.ReadsAt start
+      (() =>
+        skip()
+        layout.comments token)
+      (Inner layout Comments.all) :=
+  skipInner layout start token later fine shape (done =>
+    ontoDone byComputing (List.appendNil (layout.kept token)).flipped)
+
+theorem innerElse ∀ (layout: Layout): Parse.ReadsIn Lexer (() => elseKeyword layout) (Inner layout Comments.all) :=
+  Parse.readsInPeek _ _ (start fine =>
+    match e: start.rest with
+      | [] => innerKeyword layout ElseKeyword start (rewrite e then fine)
+      | [token, ..later] =>
+        match isElse: (keywordIs ElseKeyword token.value.kind).isSome with
+          | False => innerKeyword layout ElseKeyword start (rewrite e then fine)
+          | True =>
+            match allowed: layout.allowsElse token with
+              | True => innerTaken layout start token later fine e
+              | False =>
+                Parse.readsFail [inv := Lexer] "'else' must not start a line to the left of its 'if' statement"
+                  (Inner layout Comments.all)
+                  start
+                  (rewrite e then fine))
+
+--| An `if` from its keyword, the token seen next.
+theorem exprIf ∀ (self: Layout → {Parse Tok} Expr) (layout: Layout)
+    (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner))
+    (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
+    (fine: Parse.Fits Tok Lexer [token, ..later])
+    (shape: start.rest = [token, ..later])
+    (allowed: layout.allows token = True):
+    Parse.ReadsAt start
+      (() =>
+        skip()
+        let condition := self layout
+        let thenComments := keyword layout ThenKeyword
+        let whenTrue := body self layout
+        let elseComments := elseKeyword layout
+        let whenFalse := body self layout
+        If (layout.comments token) condition thenComments whenTrue elseComments whenFalse)
+      (ExprSpec layout) :=
+  skipExpr layout start token later fine shape allowed (done =>
+    andThen (innerExpr layout (nested layout)) (condition =>
+      andThen (innerKeyword layout ThenKeyword) (thenComments =>
+        andThen (innerBody self layout nested) (whenTrue =>
+          andThen (innerElse layout) (elseComments =>
+            lastly (innerBody self layout nested) (whenFalse => byComputing) (whenFalse => byComputing))))))
+
+--| One level of the expression parser, given that `self` reads what it
+--| should for the expressions nested in it.
+theorem exprRule ∀ (self: Layout → {Parse Tok} Expr) (layout: Layout)
+    (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner)):
+    Parse.ReadsIn Lexer (() => expressionRule self layout) (ExprSpec layout) :=
+  Parse.readsInPeek _ _ (start fine =>
+    match e: start.rest with
+      | [] => exprChain self layout nested start (rewrite e then fine)
+      | [token, ..later] =>
+        match found: isIf layout token with
+          | False => exprChain self layout nested start (rewrite e then fine)
+          | True =>
+            exprIf self layout nested start token later fine e (Bool.andLeft [a := layout.allows token] found))
+
+--| Every expression the parser reads from the lexer's tokens holds
+--| their comments.
+theorem exprExpression ∀ (layout: Layout): Parse.ReadsIn Lexer (() => expression layout) (ExprSpec layout) :=
+  Parse.readsRecursiveWith expressionRule ExprSpec (self nested argument => exprRule self argument nested) layout
+
+-- Declarations and the file.
+
+def stepComments (step: (Comments, (Text, Comments))): List Comment := step.fst.all ++ step.snd.snd.all
+
+theorem innerParameterStep: Parse.ReadsIn Lexer parameterStep (Inner InBrackets stepComments) :=
+  innerOf
+    (andThen (innerSign InBrackets "','" Comma) (comma =>
+      lastly (innerName InBrackets) (named => byComputing) (named => byComputing)))
+
+def listComments (found: ((Text, Comments), List (Comments, (Text, Comments)))): List Comment :=
+  found.fst.snd.all ++ found.snd.flatMap stepComments
+
+theorem innerParameterList: Parse.ReadsIn Lexer parameterList (Inner InBrackets listComments) :=
+  innerOf
+    (andThen (innerName InBrackets) (first =>
+      lastly
+        (Parse.readsWeaken
+          (Parse.readsMany parameterStep (Inner InBrackets stepComments) innerParameterStep)
+          (eachInner [measure := stepComments] InBrackets))
+        (others => byComputing)
+        (others => byComputing)))
+
+def parametersComments (parameters: List Parameter): List Comment := parameters.flatMap Parameter.allComments
+
+theorem withCommasComments ∀ (first: (Text, Comments)) (others: List (Comments, (Text, Comments))):
+    parametersComments (withCommas first others) = first.snd.all ++ others.flatMap stepComments :=
+  match others with
+    | [] => List.appendNil (first.snd.all ++ [])
+    | [(comma, next), ..rest] =>
+      calc parametersComments (withCommas first [(comma, next), ..rest])
+        _ = (first.snd.all ++ comma.all) ++ (next.snd.all ++ rest.flatMap stepComments) :=
+          Eq.cong ((back: List Comment) => (first.snd.all ++ comma.all) ++ back) (withCommasComments next rest)
+        _ = first.snd.all ++ (comma.all ++ (next.snd.all ++ rest.flatMap stepComments)) :=
+          List.appendAssoc first.snd.all comma.all (next.snd.all ++ rest.flatMap stepComments)
+        _ = first.snd.all ++ ((comma.all ++ next.snd.all) ++ rest.flatMap stepComments) :=
+          Eq.cong
+            ((back: List Comment) => first.snd.all ++ back)
+            (List.appendAssoc comma.all next.snd.all (rest.flatMap stepComments)).flipped
+
+theorem innerParameters: Parse.ReadsIn Lexer
+      (() => parametersOf (Parse.optional parameterList))
+      (Inner InBrackets parametersComments) :=
+  Parse.readsThen (Parse.readsOptional innerParameterList) (read found maybe =>
+    match found, maybe with
+      | None, none => Parse.readsDone [] _ (rewrite none then (past => byComputing))
+      | Some (first, others), inner =>
+        Parse.readsDone (withCommas first others) _
+          (rewrite List.appendNil read then (past => Eq.trans (withCommasComments first others) (inner past))))
+
+theorem openedFunctionLine ∀ (layout: Layout) (start: Parse.Mark Tok) (first: Tok) (later: List Tok)
+    (fine: Parse.Fits Tok Lexer [first, ..later])
+    (shape: start.rest = [first, ..later]):
+    Parse.ReadsAt start (() => functionLine layout first) (Opened layout Declaration.comments) :=
+  skipOpened layout start first later fine shape (done =>
+    andThen (innerName layout) (pair =>
+      match pair with
+        | (declared, nameComments) =>
+          andThen (innerSign layout "'('" OpenParen) (open =>
+            andThen (inBrackets layout innerParameters) (parameters =>
+              andThen (inBrackets layout (innerSign InBrackets "')'" CloseParen)) (close =>
+                andThen (innerSign layout "'='" Defines) (equals =>
+                  lastly
+                    (innerBody expression layout exprExpression)
+                    (inner => byComputing)
+                    (inner => byComputing)))))))
+
+theorem openedValueLine ∀ (layout: Layout) (start: Parse.Mark Tok) (first: Tok) (later: List Tok)
+    (fine: Parse.Fits Tok Lexer [first, ..later])
+    (shape: start.rest = [first, ..later]):
+    Parse.ReadsAt start (() => valueLine layout first) (Opened layout Declaration.comments) :=
+  skipOpened layout start first later fine shape (done =>
+    andThen (innerName layout) (pair =>
+      match pair with
+        | (declared, nameComments) =>
+          andThen (innerSign layout "'='" Defines) (equals =>
+            lastly (innerBody expression layout exprExpression) (inner => byComputing) (inner => byComputing))))
+
+--| Not a declaration: what `declarationLine` does at any other token.
+theorem noDeclaration ∀ (layout: Layout):
+    Parse.ReadsIn Lexer
+      (() =>
+        Parse.note (Parse.Problem.Literal "fn")
+        Parse.note (Parse.Problem.Literal "let")
+        Empty.absurd Parse.stop())
+      (Opened layout Declaration.comments) :=
+  Parse.readsThen (Parse.readsNote (Parse.Problem.Literal "fn")) (noted done none =>
+    Parse.readsThen (Parse.readsNote (Parse.Problem.Literal "let")) (notedToo doneToo noneToo => Parse.readsStop _))
+
+theorem openedDeclarationLine ∀ (layout: Layout) (start: Parse.Mark Tok) (first: Tok) (later: List Tok)
+    (fine: Parse.Fits Tok Lexer [first, ..later])
+    (shape: start.rest = [first, ..later]):
+    Parse.ReadsAt start (() => declarationLine layout first) (Opened layout Declaration.comments) :=
+  match kind: first.value.kind with
+    | Reserved FnKeyword => openedFunctionLine layout start first later fine shape
+    | Reserved LetKeyword => openedValueLine layout start first later fine shape
+    | Reserved IfKeyword => noDeclaration layout start (rewrite shape then fine)
+    | Reserved ThenKeyword => noDeclaration layout start (rewrite shape then fine)
+    | Reserved ElseKeyword => noDeclaration layout start (rewrite shape then fine)
+    | Name text => noDeclaration layout start (rewrite shape then fine)
+    | Number digits => noDeclaration layout start (rewrite shape then fine)
+    | Str written => noDeclaration layout start (rewrite shape then fine)
+    | Sign punctuation => noDeclaration layout start (rewrite shape then fine)
+    | Op operator => noDeclaration layout start (rewrite shape then fine)
+    | Stray text => noDeclaration layout start (rewrite shape then fine)
+
+theorem innerDeclarationAt ∀ (start: Parse.Mark Tok) (first: Tok) (later: List Tok)
+    (fine: Parse.Fits Tok Lexer [first, ..later])
+    (shape: start.rest = [first, ..later]):
+    Parse.ReadsAt start
+      (() => notedDeclaration first.value.above (declarationLine (InStatement 0 first.offset) first))
+      (Inner InBrackets (spacedComments Declaration.comments)) :=
+  Parse.readsAtThen
+    (openedDeclarationLine (InStatement 0 first.offset) start first later fine shape)
+    (read parsed after starts opened =>
+      readsAtDone after (notedDeclaration first.value.above parsed) _
+        (rewrite List.appendNil read then
+          (past =>
+            Eq.trans
+              (notedDeclarationComments first.value.above parsed)
+              (firstCarried 0 first later read parsed after.rest fine.holds.right
+                (Eq.trans shape.flipped starts)
+                opened))))
+
+theorem innerDeclaration: Parse.ReadsIn Lexer declaration (Inner InBrackets (spacedComments Declaration.comments)) :=
+  readsAtMark _ _ (start fine =>
+    match e: start.rest with
+      | [] =>
+        Parse.readsStop [inv := Lexer] (Inner InBrackets (spacedComments Declaration.comments)) start
+          (rewrite e then fine)
+      | [first, ..later] =>
+        match starts: first.value.startsLine && first.value.column == 0 with
+          | False =>
+            Parse.readsStop [inv := Lexer] (Inner InBrackets (spacedComments Declaration.comments)) start
+              (rewrite e then fine)
+          | True => innerDeclarationAt start first later fine e)
+
+theorem fileOfComments ∀ (declarations: List (Spaced Declaration)) (endTrivia: List Trivia):
+    (fileOf declarations endTrivia).comments
+      = spacedComments Declaration.comments declarations ++ endTrivia.flatMap Trivia.comments :=
+  let folded: spacedComments Declaration.comments (spacedNotes DeclarationNote endTrivia).fst
+    = endTrivia.flatMap Trivia.comments :=
+    notesFold Declaration.comments (comment => byComputing) endTrivia ([], False)
+  match found: spacedNotes DeclarationNote endTrivia with
+    | (endNotes, blank) =>
+      calc spacedComments Declaration.comments (withoutFirstBlank (declarations ++ endNotes))
+        _ = spacedComments Declaration.comments (declarations ++ endNotes) :=
+          unblankedSame Declaration.comments (declarations ++ endNotes)
+        _ = spacedComments Declaration.comments declarations ++ spacedComments Declaration.comments endNotes :=
+          flatMapAppend (spaced => Declaration.comments spaced.line) declarations endNotes
+        _ = spacedComments Declaration.comments declarations ++ endTrivia.flatMap Trivia.comments :=
+          Eq.cong ((back: List Comment) => spacedComments Declaration.comments declarations ++ back) folded
+
+--| What the file holds, given its declarations: their comments, then the
+--| end's.
+def FileEnds (declarations: List (Spaced Declaration)) (endTrivia: List Trivia) (read: List Tok) (file: SourceFile):
+    Prop :=
+  read = []
+    ∧ file.comments = spacedComments Declaration.comments declarations ++ endTrivia.flatMap Trivia.comments
+
+theorem carriesFileEnd ∀ (declarations: List (Spaced Declaration)) (endTrivia: List Trivia):
+    Parse.ReadsIn Lexer (() => fileEnd declarations endTrivia) (FileEnds declarations endTrivia) :=
+  let done: Parse.ReadsIn Lexer (() => fileOf declarations endTrivia) (FileEnds declarations endTrivia) :=
+    Parse.readsDone (fileOf declarations endTrivia) _ ((byComputing, (fileOfComments declarations endTrivia)))
+  Parse.readsPeek _ _ (start fine =>
+    match e: start.rest with
+      | [] => done
+      | [token, ..later] =>
+        match indented: token.value.startsLine && token.value.column > 0 with
+          | False => done
+          | True => Parse.readsFail _ _)
+
+--| A file read from the lexer's tokens holds all their comments, then
+--| those after the last token.
+def FileCarries (endTrivia: List Trivia) (read: List Tok) (file: SourceFile): Prop :=
+  file.comments = allCarried read ++ endTrivia.flatMap Trivia.comments
+
+theorem carriesSourceFile ∀ (endTrivia: List Trivia):
+    Parse.ReadsIn Lexer (() => sourceFile endTrivia) (FileCarries endTrivia) :=
+  Parse.readsThen
+    (Parse.readsMany declaration (Inner InBrackets (spacedComments Declaration.comments)) innerDeclaration)
+    (read found each =>
+      Parse.readsWeaken (carriesFileEnd found.concat endTrivia) (endRead file facts =>
+        rewrite facts.left, List.appendNil read then
+          calc file.comments
+            _ = spacedComments Declaration.comments found.concat ++ endTrivia.flatMap Trivia.comments := facts.right
+            _ = allCarried read ++ endTrivia.flatMap Trivia.comments :=
+              Eq.cong
+                ((front: List Comment) => front ++ endTrivia.flatMap Trivia.comments)
+                (Eq.trans
+                  (flatMapConcat (spaced => Declaration.comments spaced.line) found)
+                  (eachInner InBrackets read found each (bracketsPast read)))))
+
+--| The walk, finished: a file read from the lexer's tokens holds their
+--| comments, then the end's.
+theorem tokensCarry ∀ (tokens: List Tok) (endTrivia: List Trivia) (file: SourceFile)
+    (fits: Parse.Fits Tok Lexer tokens)
+    (whole: Parse.whole tokens (() => sourceFile endTrivia) = Ok file):
+    file.comments = allCarried tokens ++ endTrivia.flatMap Trivia.comments :=
+  Parse.wholeReadsIn tokens (() => sourceFile endTrivia) (FileCarries endTrivia) file (carriesSourceFile endTrivia) fits whole
