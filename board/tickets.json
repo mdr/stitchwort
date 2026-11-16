@@ -40856,7 +40856,7 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Paper audit done (Sonnet, 16 Nov 2026). Full write-up: palette.md and preview.html in the lane scratch folder (scratchpad/sw3635).\n\nFindings: normal blue (34) on black has WCAG contrast 2.2 (xterm), 1.6 (Terminal.app), 2.1 (iTerm2); 4.3 only in VS Code Dark+. Yellow, green and cyan are 7-12 on black but 1.7-3.3 on white; magenta is 3.5-5.9 on both; 90 (comments) is exactly the background on Solarized Dark. Prior art: nobody uses blue operators (CPython 3.13 default colour, ptpython bright black, bpython bold yellow); bold goes on keywords/prompts/definitions; ANSI-name palettes (ptpython, fish, bat `ansi`) rely on the terminal theme, bat otherwise detects the background.\n\nRecommendation: operators bold in the default foreground (`1`); 256-colour mid-tones with >= 4.3:1 on both black and white: keyword `1;38;5;163`, number `38;5;130`, text `38;5;28`, names/types/goal `38;5;30`, comment `38;5;243`, error `1;38;5;196`, warning `1;38;5;130`, secondary label `38;5;98`, try: `1;38;5;28`. 16-colour fallback for no-256 terminals. Honour NO_COLOR; no dark/light switch. Not verified: factory bold-as-bright defaults in iTerm2/Terminal.app; whether bold+256-colour is brightened.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
