@@ -40003,7 +40003,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Probably same cause (Overmind, seed 0x92b case 35752, message 'expected ->, but the line starting with → is at or left of the enclosing block's column'): def first: [a: Type-- c / ] →-- c /  [b: Type] → a → b → a := [a b: Type] (x: a) (y: /  b) => x. Fix both; test both.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
