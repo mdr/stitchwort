@@ -824,39 +824,89 @@ theorem bindingPasses ∀ (letComments: Comments) (name: Text) (nameComments equ
 
 -- Declarations and the file.
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: `ParameterGroup.layout` and `TypeExpr.layout`.
+theorem colonSign ∀ (same: Colon = Defines): Void := cases
+
+theorem closingColon: Closing ":" := later => (byComputing, byComputing, byComputing)
+
+theorem typePasses ∀ (annotation: TypeExpr) (lexical: LexicalType annotation): Passes annotation.layout Free Meets :=
+  match annotation, lexical with
+    | TypeName name comments, Both (Both word _) fine => freeToken comments name fine (wordToken name word)
+    | TypeBracketed open inner close, Both fineOpen (Both lexInner fineClose) =>
+      passesConcat _ Free Meets
+        (passesCons _ _ Free Free Meets
+          (openingToken open OpenParen Free fineOpen openSign (freeAdmits "("))
+          (passesCons _ _ Free Meets Meets
+            (typePasses inner lexInner)
+            (passesLast _ Meets Meets
+              (meetingCloser close ")" fineClose (signToken CloseParen closeSign) closingClose))))
+
+theorem namesAfterPasses ∀ (names: List Named) (lexical: LexicalNames names): Passes (namesAfter names) Meets Meets :=
+  match names, lexical with
+    | [], _ => passesEmpty Meets
+    | [{ name, comments }, ..rest], Both (Both (Both word _) fine) others =>
+      passesConcat _ Meets Meets
+        (passesCons (Doc.text " ") _ Meets Loose Meets passesSpace
+          (passesCons _ _ Loose Meets Meets
+            (looseToken comments name fine (wordToken name word))
+            (passesLast _ Meets Meets (namesAfterPasses rest others))))
+
+--| A group from after `(` or `,`: its names, `:` against the last, then a
+--| space and the type.
+theorem groupPasses ∀ (group: ParameterGroup) (lexical: LexicalGroup group): Passes group.layout Free Meets :=
+  match group, lexical with
+    | Untyped { name, comments }, Both (Both word _) fine => freeToken comments name fine (wordToken name word)
+    | Typed names colon annotation, Both (Both (Both word _) fine) (Both lexNames (Both fineColon lexType)) =>
+      passesConcat _ Free Meets
+        (passesCons _ _ Free Meets Meets
+          (freeToken names.head.comments names.head.name fine (wordToken names.head.name word))
+          (passesCons _ _ Meets Meets Meets
+            (namesAfterPasses names.tail lexNames)
+            (passesCons _ _ Meets Meets Meets
+              (meetingToken colon ":" fineColon (signToken Colon colonSign) closingColon)
+              (passesCons (Doc.text " ") _ Meets Loose Meets passesSpace
+                (passesLast _ Loose Meets (passesFrom _ _ Loose _ (typePasses annotation lexType) looseFree))))))
+
 theorem parameterDocsPass ∀ (parameters: List Parameter)
     (lexical: LexicalParameters parameters):
     EachPasses (parameterDocs parameters) :=
   match parameters, lexical with
     | [], _ => byComputing
-    | [{ name, comments, comma }], Both (Both word _) (Both fine _) =>
-      ((freeToken comments name fine (wordToken name word)), byComputing)
-    | [{ name, comments, comma }, next, ..rest], Both (Both word _) (Both fine (Both fineComma others)) => (
+    | [{ group, comma }], Both lexGroup _ => ((groupPasses group lexGroup), byComputing)
+    | [{ group, comma }, next, ..rest], Both lexGroup (Both fineComma others) => (
       (passesTwo
-        (token comments name)
+        group.layout
         (token comma ",")
         Free
         Meets
         Meets
-        (freeToken comments name fine (wordToken name word))
+        (groupPasses group lexGroup)
         (meetingToken comma "," fineComma (signToken Comma commaSign) closingComma)),
       (parameterDocsPass [next, ..rest] others)
     )
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: `takesDoc`.
-theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments open: Comments)
-    (parameters: List Parameter) (close equals: Comments)
+theorem takesPasses ∀ (takes: Option Comments) (fine: FineTakes takes): Passes (takesDoc takes) Meets Meets :=
+  match takes, fine with
+    | None, _ => passesEmpty Meets
+    | Some comments, fineTakes =>
+      passesConcat _ Meets Meets
+        (passesCons (Doc.text " ") _ Meets Loose Meets passesSpace
+          (passesCons _ _ Loose Meets Meets
+            (looseKeyword comments TakesKeyword fineTakes)
+            (passesLast _ Meets Meets (passesTo _ _ Loose Meets passesSpace looseMeets))))
+
+theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: Option Comments)
+    (open: Comments) (parameters: List Parameter) (close equals: Comments)
     (fineFn: Fine fnComments)
     (word: IsWord name)
     (fineName: Fine nameComments)
+    (fineTakes: FineTakes takes)
     (fineOpen: Fine open)
     (lexParameters: LexicalParameters parameters)
     (fineClose: Fine close)
     (fineEquals: Fine equals):
-    Passes (header fnComments name nameComments open parameters close equals) Loose Meets :=
+    Passes (header fnComments name nameComments takes open parameters close equals) Loose Meets :=
   let opening: Passes
-    (Doc.concat [token fnComments "fn", Doc.text " ", token nameComments name, token open "("])
+    (Doc.concat [token fnComments "fn", Doc.text " ", token nameComments name, takesDoc takes, token open "("])
     Loose
     Free :=
     passesConcat _ Loose Free
@@ -878,8 +928,10 @@ theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments open:
             Meets
             Free
             (looseToken nameComments name fineName (wordToken name word))
-            (passesLast _ Meets Free
-              (openingToken open OpenParen Meets fineOpen openSign (meetsAdmits "(" closingOpen))))))
+            (passesCons _ _ Meets Meets Free
+              (takesPasses takes fineTakes)
+              (passesLast _ Meets Free
+                (openingToken open OpenParen Meets fineOpen openSign (meetsAdmits "(" closingOpen)))))))
   let closing: Passes (Doc.concat [closer close ")", Doc.text " ", token equals "="]) Meets Meets :=
     passesConcat _ Meets Meets
       (passesCons
@@ -917,24 +969,21 @@ theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments open:
                 (passesSoft Meets Meets (edge holds => holds) byComputing)
                 (passesLast _ Meets Meets closing)))))
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: `Function` has `takes`.
 theorem declarationPasses ∀ (declaration: Declaration)
     (lexical: LexicalDeclaration declaration):
     Passes declaration.layout Loose Open :=
   match declaration, lexical with
-    | Function fnComments name nameComments open parameters close equals body, Both fineFn
-        (Both
-          (Both word _)
-          (Both fineName (Both fineOpen (Both lexParameters (Both fineClose (Both fineEquals lexBody)))))) =>
+    | Function fnComments name nameComments takes open parameters close equals body,
+      (fineFn, (word, _), fineName, fineTakes, fineOpen, lexParameters, fineClose, fineEquals, lexBody) =>
       passesTo _ _ Meets Open
         (passesTwo
-          (header fnComments name nameComments open parameters close equals)
+          (header fnComments name nameComments takes open parameters close equals)
           (body.afterEquals equals)
           Loose
           Meets
           Meets
-          (headerPasses fnComments name nameComments open parameters close equals fineFn word fineName fineOpen
-              lexParameters fineClose fineEquals)
+          (headerPasses fnComments name nameComments takes open parameters close equals fineFn word fineName fineTakes
+              fineOpen lexParameters fineClose fineEquals)
           (afterEqualsPasses body equals lexBody))
         (edge reached => byComputing)
     | Value letComments name nameComments equals body, Both fineLet

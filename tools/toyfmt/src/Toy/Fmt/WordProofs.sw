@@ -279,23 +279,41 @@ def Statement.pieces: Statement → List Text
 def bindingPieces (letComments: Comments) (name: Text) (nameComments equals: Comments) (body: List Text): List Text :=
   tokenPieces letComments "let" ++ (tokenPieces nameComments name ++ (tokenPieces equals "=" ++ body))
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: pieces of groups and types.
---| Each parameter, and its comma but the last's.
+--| A type's tokens and comments, its brackets' included.
+def TypeExpr.pieces: TypeExpr → List Text
+  | TypeName name comments => tokenPieces comments name
+  | TypeBracketed open inner close => tokenPieces open "(" ++ (inner.pieces ++ tokenPieces close ")")
+
+def namesPieces: List Named → List Text
+  | [] => []
+  | [{ name, comments }, ..rest] => tokenPieces comments name ++ namesPieces rest
+
+--| A group's names, then its `:` and type if it has them.
+def ParameterGroup.pieces: ParameterGroup → List Text
+  | Untyped { name, comments } => tokenPieces comments name
+  | Typed names colon annotation =>
+    tokenPieces names.head.comments names.head.name
+      ++ (namesPieces names.tail ++ (tokenPieces colon ":" ++ annotation.pieces))
+
+--| Each parameter group, and its comma but the last's.
 def parameterPieces: List Parameter → List Text
   | [] => []
-  | [{ name, comments, .. }] => tokenPieces comments name
-  | [{ name, comments, comma }, ..rest] => (tokenPieces comments name ++ tokenPieces comma ",") ++ parameterPieces rest
+  | [{ group, .. }] => group.pieces
+  | [{ group, comma }, ..rest] => (group.pieces ++ tokenPieces comma ",") ++ parameterPieces rest
 
-def headerPieces (fnComments: Comments) (name: Text) (nameComments open: Comments)
+def takesPieces: Option Comments → List Text
+  | None => []
+  | Some comments => tokenPieces comments "takes"
+
+def headerPieces (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: Option Comments) (open: Comments)
     (parameters: List Parameter) (close equals: Comments):
     List Text :=
-  (tokenPieces fnComments "fn" ++ (tokenPieces nameComments name ++ tokenPieces open "("))
+  (tokenPieces fnComments "fn" ++ (tokenPieces nameComments name ++ (takesPieces takes ++ tokenPieces open "(")))
     ++ (parameterPieces parameters ++ (tokenPieces close ")" ++ tokenPieces equals "="))
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: `Function` has `takes`.
 def Declaration.pieces: Declaration → List Text
-  | Function fnComments name nameComments open parameters close equals body =>
-    headerPieces fnComments name nameComments open parameters close equals ++ body.pieces
+  | Function fnComments name nameComments takes open parameters close equals body =>
+    headerPieces fnComments name nameComments takes open parameters close equals ++ body.pieces
   | Value letComments name nameComments equals body => bindingPieces letComments name nameComments equals body.pieces
   | DeclarationNote comment => [comment.text]
 
@@ -714,45 +732,76 @@ theorem bindingWrites ∀ (letComments: Comments) (name: Text) (nameComments equ
               (writesToken equals "=")
               (writesLast _ _ (afterEqualsWrites body equals)))))))
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: `ParameterGroup.layout` and `TypeExpr.layout`.
+theorem typeWrites ∀ (annotation: TypeExpr): Writes annotation.layout annotation.pieces := match annotation with
+  | TypeName name comments => writesToken comments name
+  | TypeBracketed open inner close =>
+    writesThree _ _ _ _ _ _ (writesToken open "(") (typeWrites inner) (writesCloser close ")")
+
+theorem namesAfterWrites ∀ (names: List Named): Writes (namesAfter names) (namesPieces names) := match names with
+  | [] => writesEmpty
+  | [{ name, comments }, ..rest] =>
+    writesThree _ _ _ [] _ _ writesSpace (writesToken comments name) (namesAfterWrites rest)
+
+theorem groupWrites ∀ (group: ParameterGroup): Writes group.layout group.pieces := match group with
+  | Untyped { name, comments } => writesToken comments name
+  | Typed names colon annotation =>
+    writesConcat _ _
+      (writesCons _ _ _ _
+        (writesToken names.head.comments names.head.name)
+        (writesCons _ _ _ _
+          (namesAfterWrites names.tail)
+          (writesCons _ _ _ _
+            (writesToken colon ":")
+            (writesCons _ _ [] _ writesSpace (writesLast _ _ (typeWrites annotation))))))
+
 theorem parameterDocsWrite ∀ (parameters: List Parameter):
     WritesAll (parameterDocs parameters) (parameterPieces parameters) :=
   match parameters with
     | [] => writesNil
-    | [{ name, comments, comma }] => writesLast _ _ (writesToken comments name)
-    | [{ name, comments, comma }, next, ..rest] =>
+    | [{ group, comma }] => writesLast _ _ (groupWrites group)
+    | [{ group, comma }, next, ..rest] =>
       writesCons _ _
-        (tokenPieces comments name ++ tokenPieces comma ",")
+        (group.pieces ++ tokenPieces comma ",")
         (parameterPieces [next, ..rest])
-        (writesTwo _ _ _ _ (writesToken comments name) (writesToken comma ","))
+        (writesTwo _ _ _ _ (groupWrites group) (writesToken comma ","))
         (parameterDocsWrite [next, ..rest])
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: `takesDoc`.
-theorem headerWrites ∀ (fnComments: Comments) (name: Text) (nameComments open: Comments)
-    (parameters: List Parameter) (close equals: Comments):
+theorem takesWrites ∀ (takes: Option Comments): Writes (takesDoc takes) (takesPieces takes) := match takes with
+  | None => writesEmpty
+  | Some comments =>
+    rewrite <- List.appendNil (tokenPieces comments "takes") then
+      writesThree _ _ _ [] _ [] writesSpace (writesToken comments "takes") writesSpace
+
+theorem headerWrites ∀ (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: Option Comments)
+    (open: Comments) (parameters: List Parameter) (close equals: Comments):
     Writes
-      (header fnComments name nameComments open parameters close equals)
-      (headerPieces fnComments name nameComments open parameters close equals) :=
-  let openingPieces := tokenPieces fnComments "fn" ++ (tokenPieces nameComments name ++ tokenPieces open "(")
+      (header fnComments name nameComments takes open parameters close equals)
+      (headerPieces fnComments name nameComments takes open parameters close equals) :=
+  let afterName := takesPieces takes ++ tokenPieces open "("
+  let openingPieces := tokenPieces fnComments "fn" ++ (tokenPieces nameComments name ++ afterName)
   let closingPieces := tokenPieces close ")" ++ tokenPieces equals "="
   let opening: Writes
-    (Doc.concat [token fnComments "fn", Doc.text " ", token nameComments name, token open "("])
+    (Doc.concat [token fnComments "fn", Doc.text " ", token nameComments name, takesDoc takes, token open "("])
     openingPieces :=
     writesConcat _ _
       (writesCons _ _
         (tokenPieces fnComments "fn")
-        (tokenPieces nameComments name ++ tokenPieces open "(")
+        (tokenPieces nameComments name ++ afterName)
         (writesToken fnComments "fn")
         (writesCons
           (Doc.text " ") _
           []
-          (tokenPieces nameComments name ++ tokenPieces open "(")
+          (tokenPieces nameComments name ++ afterName)
           writesSpace
           (writesCons _ _
             (tokenPieces nameComments name)
-            (tokenPieces open "(")
+            afterName
             (writesToken nameComments name)
-            (writesLast _ _ (writesToken open "(")))))
+            (writesCons _ _
+              (takesPieces takes)
+              (tokenPieces open "(")
+              (takesWrites takes)
+              (writesLast _ _ (writesToken open "("))))))
   let closing: Writes (Doc.concat [closer close ")", Doc.text " ", token equals "="]) closingPieces :=
     writesConcat _ _
       (writesCons _ _
@@ -782,13 +831,12 @@ theorem headerWrites ∀ (fnComments: Comments) (name: Text) (nameComments open:
                       (writesJoined _ Line _ ((byComputing, byComputing)) (parameterDocsWrite [first, ..others]))))))
               (writesCons SoftLine _ [] closingPieces ((byComputing, byComputing)) (writesLast _ _ closing)))))
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: `Function` has `takes`.
 --| A declaration's document writes its tokens and comments in order.
 theorem declarationWrites ∀ (declaration: Declaration): Writes declaration.layout declaration.pieces :=
   match declaration with
-    | Function fnComments name nameComments open parameters close equals body =>
+    | Function fnComments name nameComments takes open parameters close equals body =>
       writesTwo _ _ _ _
-        (headerWrites fnComments name nameComments open parameters close equals)
+        (headerWrites fnComments name nameComments takes open parameters close equals)
         (afterEqualsWrites body equals)
     | Value letComments name nameComments equals body => bindingWrites letComments name nameComments equals body
     | DeclarationNote comment => writesText comment.text
