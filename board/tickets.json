@@ -39695,15 +39695,17 @@
     {
       "id": 3547,
       "title": "[Opus] Errors E1: type mismatches lead with the difference: first-difference search on every long E-TYPE-MISMATCH, headline names it, aligned expected:/found: rows; expected type as declared (docs/proposals/helpful-errors.md §5 rank 1; check the six places in crates/elab that read message text first). Est. 1.5 h",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Lane (Opus, 16 Nov 2026, 11:39-12:21, est. 60 min): branch lane/SW-3547, d70e5f2e9.\n- Threshold: a side over 60 characters (LONG_MISMATCH) gets rows; a differing part named in the headline only when each part is at most 40 characters and not an unsolved `?N`. 144 of 161 mismatch labels in the reject set are under 40 a side and keep the one-line label.\n- 9 reject snapshots changed: 8 better, 1 the same (parser-count-differs-from-lemma-with-unknown: rows, but the first difference is `?0` against `True`, E2's ground). None worse. Guide unchanged.\n- Found: reject/reads-weaken-over-map-implicits already fails on HEAD (prints `?3`, at 17:3 not the snapshot's 18:6); not caused by this lane.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "d70e5f2e9"
+      ]
     },
     {
       "id": 3548,
