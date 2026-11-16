@@ -39544,7 +39544,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "SW-3561 (16 Nov, branch lane/SW-3561): first half fixed by the same mechanism (givesThen after note/skip infers p from the first lemma; WalkProofs' named p/j removed). Second half still open: in a `match e:` branch whose goal the match computed past the step (std ReadsOperators.sw readsOperandsFrom / readsOperandsFromLeft, `match within: lowest < count`), the goal holds a run, not `j (p ())`, so `j` can't be read off; those two keep `[j := ...]`. Abstracting the substituted mark (kabstract) was tried and gave a wrong j (it also abstracted the next step's own mark). A fix likely belongs in the refining match: keep the goal folded, unfolding only to the `if`.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39879,12 +39879,12 @@
     {
       "id": 3561,
       "title": "[Opus] Parse proofs L3 proper: readsThen inference by the proposal's postpone-and-abstract rule (hold back ?j (?p ()) while not a pattern, check readsFirst first, find ?j by abstracting p () in the goal's effect tree); then remove the 12 readsThenOf uses in ReadsOperators.sw; covers SW-3535's first half. Hash changes accepted (orchestrator's call, D2303: migration cost doesn't count). Failure notes on SW-3505. Est. 75 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane 16 Nov (Opus, branch lane/SW-3561, commits fd79bb763 b0d7cd4f1, ~50 min of est. 75).\n\nMechanism (crates/elab/src/check.rs): `applies_unknown` in `propagation_plan` spots a result type applying a call's unknown to a non-variable (`?j (?p ())`), also with implicits given by name; such a call skips expected-first and goes `fallback_holding_lambdas` -> `infer_expecting(hold_lambdas)`: lambdas held for after the expected type with no in-place trial; a non-lambda argument failing in place is retried by `by_arguments_in_place` (infer, then `unify_solving_arguments` against the parameter type), which is what fixes `?p` from `Parse.readsMark`. Unifier unchanged.\n\nFailing first: examples/accept/reads-then-finds-split.sw fails on main at `Parse.readsMark` (wrong split: p = mark + Done (Succ y.left)); passes here.\n\nreadsThenOf: deleted; 12 uses -> readsThen, 2 of them with `[j := ...]` inside `match within: lowest < count` (goal computed past the mark; SW-3535's second half). ReadsTokens readsLocated drops [p][j]. Toy: WalkProofs named p/j 6 -> 0 (givesThen after note/skip: SW-3535 first half fixed); LexTextProofs 15 -> 5.\n\nHashes changed (accepted): std operator proofs, readsChainLeft, readsLocated, givesOperators; examples reads-named-parser, reads-chain-written-type-arguments, reads-done-spec-from-expected, parse-lex-then-parse; new snapshot reads-then-finds-split.\n\nTests: examples reads-/parse-/abbreviation-meets-call (accept+reject) pass; soundness pass; hash_stability 11/11 (updated); check --std Parse --no-cache ok; AoC 2020 Day16/19/07/21/20/02/14 Proofs --no-cache ok; toy Toy.Fmt.Proofs, Toy.Syntax.Proofs --no-cache ok.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39923,7 +39923,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "D3650 (Matt, 16 Nov 2026): yes: omega → arithmetic, ring → algebra (E-ARITHMETIC, E-ALGEBRA); old names and lia/linarith give a 'write arithmetic' error; in the then sweep.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39936,7 +39936,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Note: docs/proposals/proof-vocabulary.md (Opus paper lane, 16 Nov 2026, commit on lane/SW-3565). Ranked renames: rfl → byComputing (8,908 uses), omega → arithmetic (3,118), Inl/Inr → Left/Right (2,910; hash change; AoC Grid's Direction → North/East/South/West for D3615), Void.exfalso → Void.impossible / h.impossible (1,212), Eq.sym → h.flipped (1,760), Eq.trans → ab.chain bc (1,913), Eq.cong → Eq.map (1,449), ring → algebra (308). Keeps: cases, calc, rewrite, byDecision, .forward/.backward, Both/Witness, Void, Trivial, auto, decreasing, .read, DecEq, lemma suffixes. Decisions (one at a time): D(a) omega/ring, D(b) rfl, D(c) exfalso, D(d) Inl/Inr + Direction, D(e) Eq helpers. Sweep: one lane with SW-3564's then, constructors in their own commit; plus E-UNKNOWN-NAME hints mapping other systems' words. Probed: h.trans/h.sym/v.exfalso method forms work today; match h with | () closes h: False = True.\n\nNote merged. Decisions to bring one at a time: omega→arithmetic + ring→algebra; rfl→byComputing; Void.exfalso→impossible; Inl/Inr→Left/Right (+Direction compass); Eq.sym/trans/cong→flipped/chain/map. No-decision sweeps (h.left, tuple let, match h with | ()) and E-UNKNOWN-NAME hints for other systems' words go with SW-3564.",
+      "body": "Note: docs/proposals/proof-vocabulary.md (Opus paper lane, 16 Nov 2026, commit on lane/SW-3565). Ranked renames: rfl → byComputing (8,908 uses), omega → arithmetic (3,118), Inl/Inr → Left/Right (2,910; hash change; AoC Grid's Direction → North/East/South/West for D3615), Void.exfalso → Void.impossible / h.impossible (1,212), Eq.sym → h.flipped (1,760), Eq.trans → ab.chain bc (1,913), Eq.cong → Eq.map (1,449), ring → algebra (308). Keeps: cases, calc, rewrite, byDecision, .forward/.backward, Both/Witness, Void, Trivial, auto, decreasing, .read, DecEq, lemma suffixes. Decisions (one at a time): D(a) omega/ring, D(b) rfl, D(c) exfalso, D(d) Inl/Inr + Direction, D(e) Eq helpers. Sweep: one lane with SW-3564's then, constructors in their own commit; plus E-UNKNOWN-NAME hints mapping other systems' words. Probed: h.trans/h.sym/v.exfalso method forms work today; match h with | () closes h: False = True.\n\nNote merged. Decisions to bring one at a time: omega→arithmetic + ring→algebra; rfl→byComputing; Void.exfalso→impossible; Inl/Inr→Left/Right (+Direction compass); Eq.sym/trans/cong→flipped/chain/map. No-decision sweeps (h.left, tuple let, match h with | ()) and E-UNKNOWN-NAME hints for other systems' words go with SW-3564.\n\nD3650 (Matt, 16 Nov 2026): yes: omega → arithmetic, ring → algebra (E-ARITHMETIC, E-ALGEBRA); old names and lia/linarith give a 'write arithmetic' error; in the then sweep.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
