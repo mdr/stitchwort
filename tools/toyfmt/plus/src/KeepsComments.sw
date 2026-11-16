@@ -1,7 +1,7 @@
 --| `formatKeepsComments` on today's toy (D3663, stage T1b): stated, and
---| proved from one open lemma, `parseCarries`, the parser's half. It is
---| here and not in `Toy.Fmt.Proofs` because that lemma is open
---| (SKETCH-PLUS.md, "T1b").
+--| proved from the parser's half, `parseCarries`, which rests on three
+--| open lemmas. It is here and not in `Toy.Fmt.Proofs` because they are
+--| open (SKETCH-PLUS.md, "T1b").
 --|
 --| The statement is between two texts and reads them with `lex` and
 --| `Lexed.comments` only. The tree's comments (`SourceFile.comments`) are
@@ -9,72 +9,58 @@
 
 namespace Toy.Fmt.KeepsComments
 import Toy.Fmt (..)
+import Toy.Fmt.Carry (..)
 import Toy.Fmt.Proofs (..)
 import Toy.Syntax (..)
-import Std (Bool, List, Nat, Option, Result, Text)
+import Std (Bool, List, Nat, Option, Parse, Result, Text)
 
--- The comments a tree holds, token by token in source order.
+-- What the parser's half rests on. Each is open; SKETCH-PLUS.md ("T1b")
+-- says how each is to be proved.
 
-def Comments.all (comments: Comments): List Comment := comments.above ++ comments.after.toList
+--| A token that doesn't start a line has no own-line comments above it:
+--| the lexer gives those to the first token of the next line.
+def Tidy (token: Tok): Prop := token.value.startsLine = False → token.value.above.flatMap Trivia.comments = []
 
-def Expr.comments: Expr → List Comment
-  | Var _ comments => comments.all
-  | NumberLiteral _ comments => comments.all
-  | StringLiteral _ comments => comments.all
-  | Bracketed open inner close => open.all ++ inner.comments ++ close.all
-  | ListLiteral open items close => open.all ++ itemsComments items ++ close.all
-  | Call callee open arguments close => callee.comments ++ open.all ++ itemsComments arguments ++ close.all
-  | Field target dot _ nameComments => target.comments ++ dot.all ++ nameComments.all
-  | Negate minus operand => minus.all ++ operand.comments
-  | Binary _ sign left right => left.comments ++ sign.all ++ right.comments
-  | If ifComments condition thenComments whenTrue elseComments whenFalse =>
-    ifComments.all
-      ++ condition.comments
-      ++ thenComments.all
-      ++ whenTrue.comments
-      ++ elseComments.all
-      ++ whenFalse.comments
+--| Each number below all those after it.
+def Rising: List Nat → Prop
+  | [] => True
+  | [first, ..later] => List.All (other => first < other) later ∧ Rising later
 
-def itemsComments: List Item → List Comment
-  | [] => []
-  | [{ value, comma }, ..rest] => value.comments ++ comma.all ++ itemsComments rest
+theorem lexTidy ∀ (source: Text) (lexed: Lexed) (lexes: lex source = Ok lexed): List.All Tidy lexed.tokens := ?
 
-def Body.comments: Body → List Comment
-  | { statements } => linesComments statements
+--| No two tokens start at one place, so only a statement's first token is
+--| at its layout's `start`.
+theorem lexRising ∀ (source: Text) (lexed: Lexed)
+    (lexes: lex source = Ok lexed):
+    Rising (lexed.tokens.map (token => token.offset)) :=
+  ?
 
-def linesComments: List (Spaced Statement) → List Comment
-  | [] => []
-  | [{ blankBefore, line }, ..rest] => line.comments ++ linesComments rest
-
-def Statement.comments: Statement → List Comment
-  | Let letComments _ nameComments equals body => letComments.all ++ nameComments.all ++ equals.all ++ body.comments
-  | Bare value => value.comments
-  | StatementNote comment => [comment]
-
-def Parameter.allComments (parameter: Parameter): List Comment := parameter.comments.all ++ parameter.comma.all
-
-def Declaration.comments: Declaration → List Comment
-  | Function fnComments _ nameComments open parameters close equals body =>
-    fnComments.all
-      ++ nameComments.all
-      ++ open.all
-      ++ parameters.flatMap Parameter.allComments
-      ++ close.all
-      ++ equals.all
-      ++ body.comments
-  | Value letComments _ nameComments equals body => letComments.all ++ nameComments.all ++ equals.all ++ body.comments
-  | DeclarationNote comment => [comment]
-
-def SourceFile.comments (file: SourceFile): List Comment := file.declarations.flatMap (spaced => spaced.line.comments)
+--| The walk (`Toy.Fmt.Carry`), finished: a file read from the lexer's
+--| tokens holds their comments, then the end's.
+theorem tokensCarry ∀ (tokens: List Tok) (endTrivia: List Trivia) (file: SourceFile)
+    (tidy: List.All Tidy tokens)
+    (rising: Rising (tokens.map (token => token.offset)))
+    (whole: Parse.whole tokens (() => sourceFile endTrivia) = Ok file):
+    file.comments = allCarried tokens ++ endTrivia.flatMap Trivia.comments :=
+  ?
 
 --| The parser's half: the tree holds exactly the comments the lexer
---| found, in the same order. Open; SKETCH-PLUS.md ("T1b") says what its
---| proof needs.
+--| found, in the same order.
 theorem parseCarries ∀ (source: Text) (lexed: Lexed) (tree: SourceFile)
     (lexes: lex source = Ok lexed)
     (parsed: parse source = Ok tree):
     tree.comments = lexed.comments :=
-  ?
+  match found: lex source with
+    | Ok tokens =>
+      match whole: Parse.whole tokens.tokens (() => sourceFile tokens.endTrivia) with
+        | Ok file =>
+          let sameTree: file = tree := Result.okInjective parsed
+          let sameLexed: tokens = lexed := Result.okInjective lexes
+          rewrite <- sameTree, <- sameLexed then
+            tokensCarry tokens.tokens tokens.endTrivia file
+              (lexTidy source tokens found)
+              (lexRising source tokens found)
+              whole
 
 --| Formatting keeps every comment, with the same text and in the same
 --| order: the comments the lexer finds in the output are those it finds

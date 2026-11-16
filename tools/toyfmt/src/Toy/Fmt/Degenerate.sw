@@ -1,9 +1,10 @@
 --| Formatters nobody wants, each shown to break one of `format`'s
 --| theorems by a computed example. A theorem that no formatter could fail
 --| says nothing, so each statement here is restated for any formatter
---| (`SameTree`, `KeepsComments`, `RoundTrips`), `format` has it by the
---| theorem of that name, and a degenerate formatter is refuted on one
---| small source.
+--| (`SameTree`, `KeepsComments`, `RoundTrips`), and a degenerate formatter
+--| is refuted on one small source. `format` has `SameTree` and
+--| `RoundTrips` by the theorems of those names; `formatKeepsComments` is
+--| stated in `tools/toyfmt/plus` until the parser's half of it is proved.
 --|
 --| The last part shows the tree telling files apart: sources that differ
 --| in a comment, a blank line, an operator or the order of two
@@ -23,22 +24,21 @@ type Formatter = Text → Nat → FormatResult
 
 --| `formatSameTree`'s statement.
 def SameTree (formatter: Formatter): Prop :=
-  ∀ (first second: Text) (width: Nat) (tree: SourceFile) => parse first = Ok tree
-    → parse second = Ok tree
-    → formatter first width = formatter second width
+  ∀ (first second: Text) (width: Nat) (tree: SourceFile) (parsesFirst: parse first = Ok tree) (parsesSecond: parse
+      second
+    = Ok tree) => formatter first width = formatter second width
 
 --| `formatKeepsComments`'s statement.
 def KeepsComments (formatter: Formatter): Prop :=
-  ∀ (source output: Text) (width: Nat) (before after: Lexed) => formatter source width = Formatted output
-    → lex source = Ok before
-    → lex output = Ok after
-    → after.comments = before.comments
+  ∀ (source output: Text) (width: Nat) (before after: Lexed) (formats: formatter source width
+    = Formatted output) (lexedBefore: lex source = Ok before) (lexedAfter: lex output = Ok after) => after.comments
+    = before.comments
 
 --| `formatRoundTrip`'s statement, without the part that names the printer:
 --| the output parses to the source's tree.
 def RoundTrips (formatter: Formatter): Prop :=
-  ∀ (source: Text) (width: Nat) (output: Text) => formatter source width = Formatted output
-    → ∃ (tree: SourceFile) => parse source = Ok tree ∧ parse output = Ok tree
+  ∀ (source: Text) (width: Nat) (output: Text) (formats: formatter source width
+    = Formatted output) => ∃ (tree: SourceFile) => parse source = Ok tree ∧ parse output = Ok tree
 
 theorem formatHasSameTree: SameTree format := formatSameTree
 
