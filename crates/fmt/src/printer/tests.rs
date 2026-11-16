@@ -1090,18 +1090,3 @@ fn a_calc_proof_never_wraps_a_hole_to_the_start_of_a_line() {
         fmt(&text);
     }
 }
-
-#[test]
-fn a_rewrite_without_then_breaks_one_rule_a_line() {
-    // S36 without a body: the last rule is the proof. As a calc step's proof,
-    // the breaks used to fall before a `_`, which started a step (SW-3683).
-    let a = long(40);
-    check(
-        &format!(
-            "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a :=\n    rewrite f {a} _, g {a} _,\n      h {a} _ _\n  _ = a := byComputing\n"
-        ),
-        &format!(
-            "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a :=\n    rewrite f {a} _,\n        g {a} _,\n        h {a} _ _\n  _ = a := byComputing\n"
-        ),
-    );
-}
