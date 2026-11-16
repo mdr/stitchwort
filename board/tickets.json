@@ -1,5 +1,5 @@
 {
-  "next": 3631,
+  "next": 3632,
   "tickets": [
     {
       "id": 47,
@@ -40784,6 +40784,19 @@
     {
       "id": 3630,
       "title": "[Sonnet] rewrite repeatedly follow-ups (SW-3615 review L2, L3, notes): Snapshot::restore doesn't truncate lambda_warnings (a rolled-back attempt's warning survives); a rule naming a failed definition gets a follow-on 'needs a proof of an equation' error; the counterexample note should come first (helpful-errors §3.2) in the shared code; the 'first differ' note repeats both sides when they differ at the top. Failing-first tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3631,
+      "title": "[Sonnet + DeepSeek] rewrite repeatedly rollout (Matt asked, 16 Nov 2026), after stage 4 and the speed bar: (1) a candidate finder: runs of consecutive rewrite steps (and rewrite … then rewrite chains across lines) in std, aoc/, games/rogue, tools/toyfmt, sf/, ranked by length; ~5,000 rewrite uses today; (2) convert in batches by namespace, keeping a conversion only where proof text shrinks and check time stays within the stage-1 bar (measured per file), following 'state, don't chain' (stated fact after a non-final use); (3) report per batch: proofs converted, characters saved, time change, rules that would have helped as named sets. Std first (its rule sets serve everyone), then the toy, then AoC by year",
       "status": "backlog",
       "agent": "",
       "where": "",
