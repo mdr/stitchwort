@@ -249,7 +249,8 @@ theorem innerComma: Parse.ReadsIn Lexer (() => sign InBrackets "','" Comma) (Inn
           (past =>
             rewrite single then
               calc ([]: List Comment)
-                _ = Layout.kept InBrackets token := (bareKept token (settlingBare token after.rest settling) comma).flipped
+                _ = Layout.kept InBrackets token :=
+                  (bareKept token (settlingBare token after.rest settling) comma).flipped
                 _ = token.value.comments := bracketsKept token
                 _ = allCarried [token] := (allCarriedOne token).flipped)
         )
@@ -1223,16 +1224,13 @@ theorem innerBodyFuel ∀ (self: Layout → {Parse Tok} Expr)
                 | [] => innerInline self (InStatement column at) nested start [] e fine byComputing
                 | [token, ..later] =>
                   match deeper: token.value.startsLine && token.value.column > column with
-                    | False =>
-                      innerInline self (InStatement column at) nested start [token, ..later] e fine (allowed =>
-                        inlineClear column at token tidy deeper allowed)
+                    | False => innerInline self (InStatement column at) nested start [token, ..later] e fine (allowed =>
+                      inlineClear column at token tidy deeper allowed)
                     | True =>
                       inBrackets
                         [p := () => block more self token.value.column]
                         (InStatement column at)
-                        (innerBlock self nested more
-                          (inner => innerBodyFuel self nested more inner)
-                          token.value.column)
+                        (innerBlock self nested more (inner => innerBodyFuel self nested more inner) token.value.column)
                         start
                         (rewrite e then fine))
 
@@ -1248,8 +1246,7 @@ theorem innerBody ∀ (self: Layout → {Parse Tok} Expr) (layout: Layout)
 
 -- `if`, and the expression parser.
 
-theorem elseNotComma ∀ (kind: Kind) (isElse: (keywordIs ElseKeyword kind).isSome = True): kind.isComma = False :=
-  cases
+theorem elseNotComma ∀ (kind: Kind) (isElse: (keywordIs ElseKeyword kind).isSome = True): kind.isComma = False := cases
 
 --| A token seen next, which is no comma, and read for its comments.
 theorem wordTaken ∀ (layout: Layout) (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
@@ -1264,7 +1261,12 @@ theorem wordTaken ∀ (layout: Layout) (start: Parse.Mark Tok) (token: Tok) (lat
     Parse.readsAtDone after
       (layout.comments token) _
       (rewrite List.appendNil read, single then
-        ((innerOne [measure := Comments.all] layout token (layout.comments token) byComputing), token, byComputing, notComma)))
+        (
+          (innerOne [measure := Comments.all] layout token (layout.comments token) byComputing),
+          token,
+          byComputing,
+          notComma
+        )))
 
 --| `elseKeyword` holds its token's comments, and that token is no comma.
 --|

@@ -67,8 +67,7 @@ def ParsedBody (layout: Layout) (found: Body): Prop := ShapedBody found ∧ Lexi
 --| A block's body: outside brackets.
 def ParsedBlock (found: Body): Prop := ShapedBody found ∧ LexicalBody found ∧ HeadedBody False found
 
-def ParsedParameters (parameters: List ParameterGroup): Prop :=
-  ShapedGroups parameters ∧ LexicalParameters parameters
+def ParsedParameters (parameters: List ParameterGroup): Prop := ShapedGroups parameters ∧ LexicalParameters parameters
 
 def ParsedDeclaration (line: Declaration): Prop :=
   ShapedDeclaration line ∧ LexicalDeclaration line ∧ HeadedDeclaration line
@@ -723,8 +722,7 @@ theorem givesParameters: Parse.Gives GoodTokens (() => parametersOf (Parse.optio
   Parse.givesThen (Parse.givesOptional givesParameterList) (found listed =>
     match found, listed with
       | None, _ => Parse.givesDone ((byComputing, byComputing))
-      | Some (first, others), Both grouped steps =>
-        Parse.givesDone (parsedGroups [first, ..others] ((grouped, steps))))
+      | Some (first, others), Both grouped steps => Parse.givesDone (parsedGroups [first, ..others] ((grouped, steps))))
 
 --| A function's header: `takes`, the brackets and the parameters, each
 --| as the parser gives them.

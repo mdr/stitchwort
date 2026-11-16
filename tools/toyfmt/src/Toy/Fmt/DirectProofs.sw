@@ -70,24 +70,23 @@ theorem settledViews ∀ (file: SourceFile) (width: Nat)
           let found: Lexed := { lexemes, tokens = tokens.reverse, endTrivia = endTrivia.reverse }
           let homed := tokens.reverse.foldLeft [] homeStep
           let home := tucksHome laid printed after tucks calms
-          let homedViews: homed.map viewOf = (viewsOf laid).views :=
-            calc homed.map viewOf
-              _ = homeViews (tokens.map viewOf) := tokensHomeViews tokens
-              _ = homeViews (viewsOf printed).views := Eq.cong homeViews views
-              _ = (viewsOf laid).views := home.left
+          let homedViews: homed.map viewOf = (viewsOf laid).views := calc homed.map viewOf
+            _ = homeViews (tokens.map viewOf) := tokensHomeViews tokens
+            _ = homeViews (viewsOf printed).views := Eq.cong homeViews views
+            _ = (viewsOf laid).views := home.left
           let stable: StableViews (homed.map viewOf) := rewrite homedViews then home.right.right
           let steady := stableTokens homed stable
           let same := settledHomed found tokens byComputing steady.right
-          let sameOffsets: homed.map (token => token.offset) = tokens.map (token => token.offset) :=
-            calc homed.map (token => token.offset)
-              _ = tokens.reverse.reverse.map (token => token.offset) ++ [] :=
-                homeFoldSame (each => each.offset) (each trailing => byComputing) tokens.reverse []
-              _ = tokens.reverse.reverse.map (token => token.offset) :=
-                List.appendNil (tokens.reverse.reverse.map (token => token.offset))
-              _ = tokens.map (token => token.offset) :=
-                Eq.cong
-                  ((found: List (Parse.Located Token)) => found.map (token => token.offset))
-                  (List.reverseReverse tokens)
+          let sameOffsets: homed.map (token => token.offset) = tokens.map (token => token.offset) := calc homed.map
+            (token => token.offset)
+            _ = tokens.reverse.reverse.map (token => token.offset) ++ [] :=
+              homeFoldSame (each => each.offset) (each trailing => byComputing) tokens.reverse []
+            _ = tokens.reverse.reverse.map (token => token.offset) :=
+              List.appendNil (tokens.reverse.reverse.map (token => token.offset))
+            _ = tokens.map (token => token.offset) :=
+              Eq.cong
+                ((found: List (Parse.Located Token)) => found.map (token => token.offset))
+                (List.reverseReverse tokens)
           (
             laid,
             found,
@@ -115,8 +114,8 @@ theorem printParses ∀ (file: SourceFile) (width: Nat) (parsed: Parsed file): p
         lexes
         (rewrite sameTokens, sameTrivia then
           runsFileSpelled file tokens.reverse endTrivia.reverse parsed.left
-            (spellsFile file events tokens endTrivia parsed.left parsed.right.left parsed.right.right laid views
-                pending offsets))
+            (spellsFile file events tokens endTrivia parsed.left parsed.right.left parsed.right.right laid views pending
+                offsets))
 
 --| `format` answers every source that parses, with its tree printed; it
 --| refuses only what the parser refuses.

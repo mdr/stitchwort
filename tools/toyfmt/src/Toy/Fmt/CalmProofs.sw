@@ -164,8 +164,7 @@ theorem ownLineLast ∀ (front: List Trivia) (comment: Comment): hasOwnLine (fro
     | [OwnLine first, ..rest] => byComputing
     | [BlankLine, ..rest] => ownLineLast rest comment
 
-theorem ownLineReversed ∀ (comment: Comment) (rest: List Trivia):
-    hasOwnLine [OwnLine comment, ..rest].reverse = True :=
+theorem ownLineReversed ∀ (comment: Comment) (rest: List Trivia): hasOwnLine [OwnLine comment, ..rest].reverse = True :=
   rewrite List.reverseCons (OwnLine comment) rest then ownLineLast rest.reverse comment
 
 --| Whether a trailing comment stays on a token doesn't depend on which
@@ -194,10 +193,8 @@ theorem afterWordViews ∀ (prior: Prior) (kind: Kind) (start: Option Nat) (seen
       let view: TokenView := { kind, start, above = pending.reverse, trailing = None }
       match comma: kind.isComma with
         | True =>
-          let bare: pending = [] → SteadyView view views := none => (
-            (isComma => ((rewrite none), byComputing)),
-            (wrong => (Bool.falseNotTrue wrong).impossible)
-          )
+          let bare: pending = [] → SteadyView view views := none =>
+            ((isComma => ((rewrite none), byComputing)), (wrong => (Bool.falseNotTrue wrong).impossible))
           match prior, suited with
             | Blanked, _ => byComputing
             | Noted, _ => byComputing
@@ -504,16 +501,14 @@ theorem calmsLoose ∀ [spec: List Event → Prop] [pre post: Prior → Prop]
     (calms: Calms spec pre post):
     Calms spec pre anyPrior :=
   events prior laid holds =>
-    match calms events prior laid holds with
-      | (after, calmed, _) => (after, calmed, byComputing)
+    match calms events prior laid holds with | (after, calmed, _) => (after, calmed, byComputing)
 
 theorem calmsAny ∀ [spec: List Event → Prop] [post: Prior → Prop] (pre: Prior → Prop)
     (calms: Calms spec anyPrior post):
     Calms spec pre post :=
   events prior laid holds => calms events prior laid byComputing
 
-theorem calmsDone ∀ (pre: Prior → Prop): Calms Done pre pre :=
-  events prior none holds => (prior, (rewrite none), holds)
+theorem calmsDone ∀ (pre: Prior → Prop): Calms Done pre pre := events prior none holds => (prior, (rewrite none), holds)
 
 theorem plainAfter ∀ (prior: Prior) (kind: Kind) (comments: Comments)
     (notComma: kind.isComma = False)
@@ -541,7 +536,12 @@ theorem signCalms ∀ (allowed: Option Nat → Prop) (comments: Comments) (mark:
     (notComma: (Sign mark).isComma = False)
     (notCloser: (Sign mark).isCloser = False):
     Calms (TokenAt allowed comments mark.spelling) anyPrior (EndsWith comments.after.isSome) :=
-  tokenCalms allowed comments mark.spelling (Sign mark) fine (seen start => signEvent seen mark start) notComma notCloser
+  tokenCalms allowed comments mark.spelling
+    (Sign mark)
+    fine
+    (seen start => signEvent seen mark start)
+    notComma
+    notCloser
 
 theorem keywordCalms ∀ (allowed: Option Nat → Prop) (comments: Comments) (keyword: Keyword)
     (fine: Fine comments):
@@ -557,7 +557,11 @@ theorem nameCalms ∀ (allowed: Option Nat → Prop) (comments: Comments) (name:
     (isName: IsName name)
     (fine: Fine comments):
     Calms (TokenAt allowed comments name) anyPrior (EndsWith comments.after.isSome) :=
-  tokenCalms allowed comments name (Name name) fine (seen start => nameEvent seen name start isName) byComputing
+  tokenCalms allowed comments name
+    (Name name)
+    fine
+    (seen start => nameEvent seen name start isName)
+    byComputing
     byComputing
 
 theorem closerWord ∀ (from: Prior) (kind: Kind)
@@ -612,9 +616,8 @@ theorem commaCalms ∀ (before: Bool): Calms (TokenAt anyStart Comments.none ","
   events prior laid holds =>
     match laid with
       | (column, start, _, split) =>
-        let read :=
-          tokenCalm Comments.none "," (Sign Comma) column start prior fineNone (seen start =>
-            signEvent seen Comma start)
+        let read := tokenCalm Comments.none "," (Sign Comma) column start prior fineNone (seen start =>
+          signEvent seen Comma start)
         let worded: wholeToken prior (Sign Comma) Comments.none = Some (Worded False) := match before, holds with
           | True, trailed => rewrite trailed
           | False, (free, isWorded) => rewrite isWorded
@@ -992,5 +995,4 @@ theorem fileStable ∀ (file: SourceFile) (events: List Event)
     (lexical: LexicalFile file)
     (laid: FileEvents file events):
     StableViews (viewsOf events).views :=
-  match fileCalm file events shaped lexical laid with
-    | (after, calmed) => calmStable events after calmed
+  match fileCalm file events shaped lexical laid with | (after, calmed) => calmStable events after calmed

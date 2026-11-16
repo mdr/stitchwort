@@ -47,6 +47,12 @@ def chunkStep (indent: Nat) (text: Text) (place: Place): Option (List Place) :=
       | Mid at => Some [Mid at]
       | Held at => Some [Mid (Nat.max indent (at + 2))]
 
+--| A closer: on a waiting comment's line if it is one of the texts
+--| `Closing` is for, else as a chunk.
+def closeStep (indent: Nat) (text: Text) (place: Place): Option (List Place) := match place with
+  | Held at => if closesText text then Some [Held at] else None
+  | _ => chunkStep indent text place
+
 def sepStep (indent: Nat) (place: Place): Option (List Place) := match place with
   | AtStart _ => None
   | Broken _ => None
@@ -83,6 +89,7 @@ def suffixStep (comment: Text) (place: Place): Option (List Place) := match plac
 --| construct indented `indent`; `None` if `Lays` refuses a way through it.
 def reach: Doc → Nat → List Place → Option (List Place)
   | Doc.Chunk text _, indent, places => eachPlace (chunkStep indent text) places
+  | Closing text, indent, places => eachPlace (closeStep indent text) places
   | Line, indent, places => eachPlace (sepStep indent) places
   | SoftLine, indent, places => eachPlace (softStep indent) places
   | HardLine, indent, places => eachPlace (breakStep (Broken indent)) places

@@ -161,7 +161,9 @@ theorem offsetsAbove ∀ (first: Nat) (tokens: List Tok)
     | [], _ => ()
     | [token, ..rest], (lower, others) => (lower, (offsetsAbove first rest others))
 
-theorem risingOffsets ∀ (tokens: List Tok) (rising: Rising tokens): RisingOffsets (tokens.map (token => token.offset)) :=
+theorem risingOffsets ∀ (tokens: List Tok)
+    (rising: Rising tokens):
+    RisingOffsets (tokens.map (token => token.offset)) :=
   match tokens, rising with
     | [], _ => byComputing
     | [token, ..rest], (apart, later) => ((aboveOffsets token.offset rest apart), (risingOffsets rest later))

@@ -103,7 +103,6 @@ type Expr =
       (elseComments: Comments)
       (whenFalse: Body)
 
-
 --| A parameter's type: a name, or a type in brackets.
 type TypeExpr =
   | TypeName (name: Text) (comments: Comments)
@@ -116,7 +115,6 @@ type ParameterGroup =
   | Untyped (parameter: Named)
   --| `w h: Int`: one or more names and the type they share.
   | Typed (names: NonEmptyList Named) (colon: Comments) (annotation: TypeExpr)
-
 
 --| A line of a vertical list (a file's declarations, a block's statements),
 --| and whether the author left a blank line above it.

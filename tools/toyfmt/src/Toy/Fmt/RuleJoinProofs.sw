@@ -603,8 +603,9 @@ theorem listPasses ∀ (open: Comments) (items: List Expr) (close: Comments) (pr
                     Meets
                     (fillPasses (itemDocs [first, ..rest]) each)
                     (passesLast _ Meets Meets
-                      (closeAfterPasses last close "]" fineClose (signToken CloseSquare closeSquareSign)
-                          shutsSquare)))))
+                      (closeAfterPasses last close "]" fineClose
+                        (signToken CloseSquare closeSquareSign)
+                        shutsSquare)))))
 
 theorem argumentsPass ∀ (open: Comments) (arguments: List Expr) (close: Comments)
     (fineOpen: Fine open)
@@ -641,30 +642,30 @@ theorem argumentsPass ∀ (open: Comments) (arguments: List Expr) (close: Commen
                 (joinedPasses (itemDocs [first, ..rest]) each)
                 (passesLast _ Meets Meets
                   (meetingCloser close ")" fineClose (signToken CloseParen closeSign) shutsClose))))))
-       (passesGroup _ Meets Meets
-        (passesConcat _ Meets Meets
-          (passesCons
-            (token open "(") _
-            Meets
-            Free
-            Meets
-            (openingToken open OpenParen Meets fineOpen openSign (meetsAdmits "(" shutsOpen))
+        (passesGroup _ Meets Meets
+          (passesConcat _ Meets Meets
             (passesCons
-              (Nest 2 (Doc.concat [SoftLine, itemDocs [first, ..rest] |> joined Line])) _
+              (token open "(") _
+              Meets
               Free
               Meets
-              Meets
-              (passesTwo SoftLine
-                (itemDocs [first, ..rest] |> joined Line)
-                Free
+              (openingToken open OpenParen Meets fineOpen openSign (meetsAdmits "(" shutsOpen))
+              (passesCons
+                (Nest 2 (Doc.concat [SoftLine, itemDocs [first, ..rest] |> joined Line])) _
                 Free
                 Meets
-                (passesSoft Free Free (edge holds => holds) byComputing)
-                (joinedPasses (itemDocs [first, ..rest]) each))
-              (passesCons SoftLine _ Meets Meets Meets
-                (passesSoft Meets Meets (edge holds => holds) byComputing)
-                (passesLast _ Meets Meets
-                  (meetingCloser close ")" fineClose (signToken CloseParen closeSign) shutsClose)))))))
+                Meets
+                (passesTwo SoftLine
+                  (itemDocs [first, ..rest] |> joined Line)
+                  Free
+                  Free
+                  Meets
+                  (passesSoft Free Free (edge holds => holds) byComputing)
+                  (joinedPasses (itemDocs [first, ..rest]) each))
+                (passesCons SoftLine _ Meets Meets Meets
+                  (passesSoft Meets Meets (edge holds => holds) byComputing)
+                  (passesLast _ Meets Meets
+                    (meetingCloser close ")" fineClose (signToken CloseParen closeSign) shutsClose)))))))
 
 theorem linesPass ∀ (index: Nat) (statements: List (Spaced Statement))
     (pre: Edge → Prop) (first: (index == 0) = True → ∀ (edge: Edge) => pre edge → Loose edge)
@@ -986,18 +987,7 @@ theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments: Comm
   match parameters with
     | [] => passesTwo _ _ Loose Free Meets opening (passesFrom _ Meets Free Meets closing freeMeets)
     | [first, ..others] =>
-      passesChoiceTwo _ _ Loose Meets
-        (passesFlatten _ Loose Meets
-          (passesConcat _ Loose Meets
-            (passesCons _ _ Loose Free Meets opening
-              (passesCons
-                (parameterDocs [first, ..others] |> joined Line) _
-                Free
-                Meets
-                Meets
-                (joinedPasses (parameterDocs [first, ..others]) (parameterDocsPass [first, ..others] lexParameters))
-                (passesLast _ Meets Meets closing)))))
-       (passesGroup _ Loose Meets
+      passesGroup _ Loose Meets
         (passesConcat _ Loose Meets
           (passesCons _ _ Loose Free Meets opening
             (passesCons
@@ -1014,7 +1004,7 @@ theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments: Comm
                 (joinedPasses (parameterDocs [first, ..others]) (parameterDocsPass [first, ..others] lexParameters)))
               (passesCons SoftLine _ Meets Meets Meets
                 (passesSoft Meets Meets (edge holds => holds) byComputing)
-                (passesLast _ Meets Meets closing))))))
+                (passesLast _ Meets Meets closing)))))
 
 theorem declarationPasses ∀ (declaration: Declaration)
     (lexical: LexicalDeclaration declaration):

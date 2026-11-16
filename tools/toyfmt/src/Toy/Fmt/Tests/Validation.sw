@@ -30,8 +30,9 @@ test "a minus before a minus is spaced, so the two don't print as a comment" :=
     format source 80 |> .toOption == Some source)
 
 --| A comment ending an `if` inside brackets belongs to the `if`'s last
---| branch; a `,` or closing bracket printed after it would take it.
-test "a comma or closing bracket after an if's trailing comment goes on the next line" :=
+--| branch. A `,` or closing bracket is printed before it on its line, and
+--| rule N gives the comment back to the branch when the text is read.
+test "a comma or closing bracket after an if's trailing comment keeps the comment on the if" :=
   ["let y = f(if a then b else c -- k\n, d)\n", "let y = [a, if b then c else d -- k\n]\n",
     "let y = (if a then b else c -- k\n)\n", "let y = f(if a then b else if c then d else e -- k\n, x)\n"].all
     (source =>

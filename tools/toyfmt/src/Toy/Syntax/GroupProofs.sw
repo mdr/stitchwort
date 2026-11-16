@@ -129,7 +129,8 @@ theorem runsType ∀ (annotation: TypeExpr) (tokens rest: List (Parse.Located To
                 ((innerSpelled, innerShaped))
                 (rewrite split then bracketedShorter opener closer innerTokens))
           rewrite split, opened, closed then
-            (rewrite closingSame (Layout.comments InBrackets closer) inner.endsWithComment settledClose at ran then ran))
+            (rewrite closingSame (Layout.comments InBrackets closer) inner.endsWithComment settledClose at ran then
+              ran))
     ()
     tokens
     rest
@@ -375,23 +376,24 @@ theorem parameterRounds ∀ (steps: List (List (Parse.Located Token), ParameterG
   match steps, spelled with
     | [], spelled =>
       Parse.declinesBind (() => sign InBrackets "','" Comma) (comma => parameterGroup()) rest (commaDeclines rest ends)
-    | [(read, found), ..more], Both (Witness comma (Witness groupTokens (Both split (Both isComma runsGroup)))) later => (
-      (rewrite split then (same => cases)),
-      (rewrite split then
-        Parse.runsBind
-          (() => sign InBrackets "','" Comma)
-          (comma1 => parameterGroup())
-          [comma]
-          groupTokens
-          [comma, ..groupTokens]
-          (Parse.joinReads more ++ rest)
-          (Layout.comments InBrackets comma)
-          found
-          byComputing
-          (runsSign InBrackets "','" Comma comma (groupTokens ++ (Parse.joinReads more ++ rest)) isComma byComputing)
-          runsGroup),
-      (parameterRounds more rest later ends)
-    )
+    | [(read, found), ..more], Both (Witness comma (Witness groupTokens (Both split (Both isComma runsGroup)))) later =>
+      (
+        (rewrite split then (same => cases)),
+        (rewrite split then
+          Parse.runsBind
+            (() => sign InBrackets "','" Comma)
+            (comma1 => parameterGroup())
+            [comma]
+            groupTokens
+            [comma, ..groupTokens]
+            (Parse.joinReads more ++ rest)
+            (Layout.comments InBrackets comma)
+            found
+            byComputing
+            (runsSign InBrackets "','" Comma comma (groupTokens ++ (Parse.joinReads more ++ rest)) isComma byComputing)
+            runsGroup),
+        (parameterRounds more rest later ends)
+      )
 
 --| A function's parameters: a group, then a comma and a group any number
 --| of times, up to a token that is no comma.

@@ -271,9 +271,7 @@ theorem homeStable ∀ (newest: List (Parse.Located Token))
     | [token, ..earlier], (steady, others) =>
       calc [token, ..earlier].reverse.foldLeft [] homeStep
         _ = (earlier.reverse ++ [token]).foldLeft [] homeStep :=
-          Eq.cong
-            ((tokens: List (Parse.Located Token)) => tokens.foldLeft [] homeStep)
-            (List.reverseCons token earlier)
+          Eq.cong ((tokens: List (Parse.Located Token)) => tokens.foldLeft [] homeStep) (List.reverseCons token earlier)
         _ = homeStep (earlier.reverse.foldLeft [] homeStep) token :=
           List.foldLeftAppend earlier.reverse [] [token] homeStep
         _ = homeStep earlier token :=
@@ -317,11 +315,11 @@ theorem settledStable ∀ (lexed: Lexed) (newest: List (Parse.Located Token))
 theorem settledHomed ∀ (lexed: Lexed) (newest: List (Parse.Located Token))
     (same: lexed.tokens = newest.reverse)
     (bare: List.All BareComma (newest.reverse.foldLeft [] homeStep)):
-    lexed.settled.tokens = (newest.reverse.foldLeft [] homeStep).reverse
-      ∧ lexed.settled.endTrivia = lexed.endTrivia :=
+    lexed.settled.tokens = (newest.reverse.foldLeft [] homeStep).reverse ∧ lexed.settled.endTrivia = lexed.endTrivia :=
   let carried: carryForward [] (newest.reverse.foldLeft [] homeStep).reverse lexed.endTrivia
     = ((newest.reverse.foldLeft [] homeStep).reverse, lexed.endTrivia) :=
-    carryStable (newest.reverse.foldLeft [] homeStep).reverse
+    carryStable
+      (newest.reverse.foldLeft [] homeStep).reverse
       lexed.endTrivia
       (List.allReverse BareComma (newest.reverse.foldLeft [] homeStep) bare)
   rewrite same, carried then (byComputing, byComputing)

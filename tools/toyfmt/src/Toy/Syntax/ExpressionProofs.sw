@@ -2204,8 +2204,7 @@ def exampleTokens: List (Parse.Located Token) := [
   exampleToken (Name "b") 7
 ]
 
-def exampleCall: Expr :=
-  Call (Var "f" Comments.none) Comments.none [Var "a" Comments.none] Comments.none
+def exampleCall: Expr := Call (Var "f" Comments.none) Comments.none [Var "a" Comments.none] Comments.none
 
 def exampleExpr: Expr := Binary Plus Comments.none exampleCall (Var "b" Comments.none)
 

@@ -11,8 +11,8 @@ import Toy.Fmt (..)
 import Toy.Doc.Proofs (IsComment)
 import Std (Bool, Eq, List, Nat, Option, Parse, Text, Void)
 
-theorem homedGood ∀ (comment: Parse.Located Comment) (current: Parse.Located Token)
-    (earlier: List (Parse.Located Token))
+theorem homedGood ∀ (comment: Parse.Located Comment)
+    (current: Parse.Located Token) (earlier: List (Parse.Located Token))
     (fine: IsComment comment.value.text)
     (good: Good current)
     (all: List.All Good earlier):
@@ -79,7 +79,8 @@ theorem carryGood ∀ (tokens: List (Parse.Located Token)) (carried endTrivia: L
     (all: List.All Good tokens)
     (fineCarried: FineTrivia carried)
     (fineEnd: FineTrivia endTrivia):
-    List.All Good (carryForward carried tokens endTrivia).fst ∧ FineTrivia (carryForward carried tokens endTrivia).snd :=
+    List.All Good (carryForward carried tokens endTrivia).fst
+      ∧ FineTrivia (carryForward carried tokens endTrivia).snd :=
   match tokens, all with
     | [], _ => ((), (joinFine carried endTrivia fineCarried fineEnd))
     | [token, ..rest], (good, others) =>

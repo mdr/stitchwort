@@ -128,8 +128,7 @@ theorem leftMeets ∀ (text: Text) (ends: Ends text) (edge: Edge) (left: Left te
   match edge, left with
     | Plain None, never => (Bool.falseNotTrue never).impossible
     | Edge.Waiting None, never => (Bool.falseNotTrue never).impossible
-    | Edge.Waiting (Some word), same =>
-      rewrite same then (following closing => endsBefore text following ends closing)
+    | Edge.Waiting (Some word), same => rewrite same then (following closing => endsBefore text following ends closing)
     | Plain (Some word), same => rewrite same then (following closing => endsBefore text following ends closing)
 
 theorem leftFree ∀ (text: Text) (free: ∀ (next: Text) => standsBefore text next) (edge: Edge)
@@ -540,8 +539,8 @@ theorem closerLines ∀ (comments: List Comment)
         (passesCons HardLine _ Open Loose Open (passesHard Open) (closerLines [next, ..rest] others))
 
 --| A closing bracket below its own-line comments, as any token.
-theorem closerPasses ∀ (comment: Comment) (rest: List Comment) (after: Option Comment) (text: Text)
-    (fine: Fine { above = [comment, ..rest], after })
+theorem closerPasses ∀ (comment: Comment) (rest: List Comment) (after: Option Comment)
+    (text: Text) (fine: Fine { above = [comment, ..rest], after })
     (spelled: TokenText text):
     Passes (closer { above = [comment, ..rest], after } text) (Admits text) (Left text) :=
   match fine, spelled with
@@ -627,7 +626,8 @@ theorem meetingCloser ∀ (comments: Comments) (text: Text)
     Passes (closer comments text) Meets Meets :=
   match comments, fine with
     | { above = [], after = None }, _ => closingPasses text spelled closing
-    | { above = [], after = Some held }, fine => meetingToken { above = [], after = Some held } text fine spelled closing
+    | { above = [], after = Some held }, fine =>
+      meetingToken { above = [], after = Some held } text fine spelled closing
     | { above = [comment, ..rest], after }, fine =>
       passesTo _ _ _ Meets
         (passesFrom _ _ Meets _ (closerPasses comment rest after text fine spelled) (meetsAdmits text closing))

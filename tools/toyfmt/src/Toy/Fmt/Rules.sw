@@ -92,9 +92,9 @@ def binding (letComments: Comments) (name: Text) (nameComments equals: Comments)
 ]
 
 --| P2: the parameters on the header's line, else one a line at +4, with
---| `) =` back at the header's column. The header on one line is the first
---| of two choices, as a call is (`argumentsLayout`), so that its `)`
---| joins the line of a trailing comment the last parameter ends in.
+--| `) =` back at the header's column. After a trailing comment the last
+--| parameter ends in, the `)` goes below as before: ` =` follows it, and
+--| no code follows a comment on its line.
 def header (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: Option Comments) (open: Comments)
     (parameters: List ParameterGroup) (close equals: Comments):
     Doc :=
@@ -105,10 +105,7 @@ def header (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: 
     | [] => Doc.concat [opening, closing]
     | _ =>
       let listed := parameterDocs parameters |> joined Line
-      Choice [
-        Flatten (Doc.concat [opening, listed, closing]),
-        Doc.group (Doc.concat [opening, Nest 4 (Doc.concat [SoftLine, listed]), SoftLine, closing])
-      ]
+      Doc.group (Doc.concat [opening, Nest 4 (Doc.concat [SoftLine, listed]), SoftLine, closing])
 
 --| ` takes ` where it was written, as written.
 def takesDoc: Option Comments → Doc
@@ -281,8 +278,7 @@ def brokenArguments (open: Comments) (arguments: List Expr) (close: Comments): D
 --| trailing comment the last item ends in.
 def listLayout (open: Comments) (items: List Expr) (close: Comments): Doc := match items.last with
   | None => Doc.concat [token open "[", closer close "]"]
-  | Some last =>
-    Doc.group (Doc.concat [token open "[", Nest 2 (Fill (itemDocs items)), closeAfter last close "]"])
+  | Some last => Doc.group (Doc.concat [token open "[", Nest 2 (Fill (itemDocs items)), closeAfter last close "]"])
 
 --| Each item, and its comma but the last's: on the item's line, before a
 --| trailing comment the item ends in.

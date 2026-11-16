@@ -82,8 +82,7 @@ def headerComments (takes: Option Comments) (open: Comments) (parameters: List P
     List Comment :=
   perhapsComments Comments.all takes ++ open.all ++ parametersComments parameters ++ close.all
 
-def parametersComments (parameters: List ParameterGroup): List Comment :=
-  parameters.flatMap (group => group.comments)
+def parametersComments (parameters: List ParameterGroup): List Comment := parameters.flatMap (group => group.comments)
 
 def Declaration.comments: Declaration → List Comment
   | Function fnComments _ nameComments takes open parameters close equals body =>
@@ -169,8 +168,7 @@ theorem risingAfter ∀ (read rest: List Tok) (rising: Rising (read ++ rest)): R
 def Settling: List Tok → Prop
   | [] => True
   | [token] => BareComma token
-  | [token, next, ..rest] =>
-    BareComma token ∧ (token.value.kind.isComma = False → Tidy next) ∧ Settling [next, ..rest]
+  | [token, next, ..rest] => BareComma token ∧ (token.value.kind.isComma = False → Tidy next) ∧ Settling [next, ..rest]
 
 theorem settlingAfter ∀ (read rest: List Tok) (settling: Settling (read ++ rest)): Settling rest :=
   match read, settling with
@@ -446,8 +444,7 @@ theorem andThenTidy ∀ [p: () → {Parse Tok} a] [j: a → {Parse Tok} b] [firs
         (
           onward.left,
           (past =>
-            let firstSum: first v = allCarried firstRead :=
-              carried (List.allAppendLeft layout.past firstRead read past)
+            let firstSum: first v = allCarried firstRead := carried (List.allAppendLeft layout.past firstRead read past)
             let whole := onward.right (List.allAppendRight layout.past firstRead read past)
             rewrite allCarriedAppend firstRead read, <- firstSum then whole)
         )))

@@ -841,8 +841,8 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         pending
         fineOpen
         (seen start => signEvent seen OpenSquare start)
-        openLaid, itemsSpell zone.inside items mid shapedItems itemsLexical headedItems itemsLaid, tokenSeen
-          anyStart close "]"
+        openLaid, itemsSpell zone.inside items mid shapedItems itemsLexical headedItems itemsLaid, tokenSeen anyStart
+          close "]"
           (Sign CloseSquare)
           tail
           []
@@ -1600,7 +1600,7 @@ theorem itemsSpell ∀ (zone: Zone) (items: List Expr) (events: List Event)
           (tokens same => spells 0 tokens same (bracketLeads anyStart value.firstAbove tokens))
         )
     | [value, second, ..rest], Both shapedValue shapedRest, Both valueLexical restLexical, Both headedValue
-        headedRest, Witness front
+          headedRest, Witness front
         (Witness back
           (Both split (Both valueLaid (Witness mid (Witness tail (Both backSplit (Both commaLaid restLaid))))))) =>
       match exprSpells zone InBrackets anyStart value front [] byComputing shapedValue valueLexical headedValue

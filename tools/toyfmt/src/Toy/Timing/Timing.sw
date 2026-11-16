@@ -67,10 +67,11 @@ def sample (index: Nat): List (Spaced Declaration) :=
             (bare
               (binary Minus
                 (binary Plus (var "base") (var "tax"))
-                (Call (var "discount") none [name "order", name "rates"] {
-                  above = [],
-                  after = Some { text = "-- loyal" }
-                })))
+                (Call
+                  (var "discount")
+                  none
+                  [name "order", Var "rates" { above = [], after = Some { text = "-- loyal" } }]
+                  none)))
             none
             (bare (binary Plus (var "base") (var "tax"))))
       }

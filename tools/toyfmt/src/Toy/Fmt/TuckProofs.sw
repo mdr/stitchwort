@@ -39,8 +39,8 @@ def homeViews: List TokenView → List TokenView
   | [] => []
   | [newest, ..earlier] => homeStepView (homeViews earlier) newest
 
-theorem homedViews ∀ (comment: Parse.Located Comment) (current: Parse.Located Token)
-    (earlier: List (Parse.Located Token)):
+theorem homedViews ∀ (comment: Parse.Located Comment)
+    (current: Parse.Located Token) (earlier: List (Parse.Located Token)):
     (homed comment current earlier).map viewOf = homedView comment.value (viewOf current) (earlier.map viewOf) :=
   match earlier with
     | [] => byComputing
@@ -75,8 +75,7 @@ theorem homeStepViews ∀ (earlier: List (Parse.Located Token)) (token: Parse.Lo
                 earlier
 
 theorem homeFoldViews ∀ (tokens earlier: List (Parse.Located Token)):
-    (tokens.foldLeft earlier homeStep).map viewOf
-      = (tokens.map viewOf).foldLeft (earlier.map viewOf) homeStepView :=
+    (tokens.foldLeft earlier homeStep).map viewOf = (tokens.map viewOf).foldLeft (earlier.map viewOf) homeStepView :=
   match tokens with
     | [] => byComputing
     | [token, ..rest] =>
@@ -92,9 +91,7 @@ theorem homeViewsFold ∀ (views: List TokenView): views.reverse.foldLeft [] hom
     | [newest, ..earlier] =>
       calc [newest, ..earlier].reverse.foldLeft [] homeStepView
         _ = (earlier.reverse ++ [newest]).foldLeft [] homeStepView :=
-          Eq.cong
-            ((found: List TokenView) => found.foldLeft [] homeStepView)
-            (List.reverseCons newest earlier)
+          Eq.cong ((found: List TokenView) => found.foldLeft [] homeStepView) (List.reverseCons newest earlier)
         _ = homeStepView (earlier.reverse.foldLeft [] homeStepView) newest :=
           List.foldLeftAppend earlier.reverse [] [newest] homeStepView
         _ = homeStepView (homeViews earlier) newest :=
@@ -115,12 +112,11 @@ theorem tokensHomeViews ∀ (tokens: List (Parse.Located Token)):
 theorem freshHome ∀ (view: TokenView) (earlier: List TokenView)
     (none: view.trailing = None):
     homeStepView earlier view = [view, ..earlier] :=
-  match view, none with
-    | { kind, start, above, trailing = None }, _ => byComputing
+  match view, none with | { kind, start, above, trailing = None }, _ => byComputing
 
 --| A trailing comment on a steady view doesn't move back from it.
-theorem steadyHomed ∀ (comment: Comment) (top: TokenView) (earlier: List TokenView)
-    (steady: SteadyView { top | trailing = Some comment } earlier):
+theorem steadyHomed ∀ (comment: Comment) (top: TokenView)
+    (earlier: List TokenView) (steady: SteadyView { top | trailing = Some comment } earlier):
     homedView comment top earlier = [{ top | trailing = Some comment }, ..earlier] :=
   match top, steady with
     | { kind, start, above, trailing }, (_, blocked) =>
@@ -216,9 +212,7 @@ theorem tuckViewsFront ∀ (closers: List Event)
           (front ++ [closerView closer]),
           (closerViewsSnoc front (closerView closer) allFront (closerSeen [] closer first).right),
           (onto =>
-            Eq.trans
-              (same [closerView closer, ..onto])
-              (List.appendAssoc front [closerView closer] onto).flipped)
+            Eq.trans (same [closerView closer, ..onto]) (List.appendAssoc front [closerView closer] onto).flipped)
         )
 
 --| Closers hold no trailing comment, so rule N leaves them where they
@@ -230,9 +224,7 @@ theorem prefixHome ∀ (front: List TokenView) (top: TokenView) (rest home: List
     homeViews (front ++ [top, ..rest]) = front ++ [top, ..home] :=
   match front, all with
     | [], _ =>
-      Eq.trans
-        (Eq.cong ((found: List TokenView) => homeStepView found top) sameHome)
-        (freshHome top home topFree)
+      Eq.trans (Eq.cong ((found: List TokenView) => homeStepView found top) sameHome) (freshHome top home topFree)
     | [first, ..others], (closer, more) =>
       Eq.trans
         (Eq.cong
@@ -245,12 +237,11 @@ theorem noneNotSome ∀ (comment: Comment) (wrong: Some comment = (None: Option 
 --| A comment on the newest of the closers written before it goes back
 --| over all of them, each holding nothing, to the token before them,
 --| where it stays: by induction on the closers.
-theorem pastClosers ∀ (comment: Comment) (newest: TokenView) (others: List TokenView) (top: TokenView)
-    (home: List TokenView)
+theorem pastClosers ∀ (comment: Comment) (newest: TokenView) (others: List TokenView)
+    (top: TokenView) (home: List TokenView)
     (closer: CloserView newest)
     (all: List.All CloserView others)
-    (topFree: top.trailing = None)
-    (steady: SteadyView { top | trailing = Some comment } home):
+    (topFree: top.trailing = None) (steady: SteadyView { top | trailing = Some comment } home):
     homedView comment newest (others ++ [top, ..home])
       = [newest, ..others ++ [{ top | trailing = Some comment }, ..home]] :=
   match newest, closer with
@@ -268,10 +259,8 @@ theorem pastClosers ∀ (comment: Comment) (newest: TokenView) (others: List Tok
             (_, _, wrong),
             _
           ) => (noneNotSome held wrong).impossible
-        | [{ kind = nextKind, start = nextStart, above = nextAbove, trailing = None }, ..more], (
-            nextCloser,
-            moreClosers
-          ) =>
+        | [{ kind = nextKind, start = nextStart, above = nextAbove, trailing = None }, ..more], (nextCloser,
+            moreClosers) =>
           let later :=
             pastClosers comment
               { kind = nextKind, start = nextStart, above = nextAbove, trailing = None }
@@ -297,16 +286,14 @@ theorem closerHomes ∀ (comment: Comment) (view: TokenView) (earlier: List Toke
     (closes: (view.kind.isCloser || view.kind.isComma) = True):
     homeStepView earlier { view | trailing = Some comment }
       = homedView comment { view | trailing = Some comment } earlier :=
-  match view, closes with
-    | { kind, start, above, trailing }, closes => rewrite closes
+  match view, closes with | { kind, start, above, trailing }, closes => rewrite closes
 
 --| The printed views of a comment after the closers tucked before it,
 --| homed, are the laid ones: the comment on the token before the closers.
 theorem tuckHome ∀ (front: List TokenView) (comment: Comment) (top: TokenView) (rest home: List TokenView)
     (all: List.All CloserView front)
     (topFree: top.trailing = None)
-    (sameHome: homeViews rest = home)
-    (steady: SteadyView { top | trailing = Some comment } home):
+    (sameHome: homeViews rest = home) (steady: SteadyView { top | trailing = Some comment } home):
     homeViews (viewTrailing (front ++ [top, ..rest]) comment) = front ++ [{ top | trailing = Some comment }, ..home] :=
   match front, all with
     | [], _ =>
@@ -334,10 +321,7 @@ theorem tuckHome ∀ (front: List TokenView) (comment: Comment) (top: TokenView)
 def JoinedAt (found: Option Prior) (laid printed: Views): Prop := match found with
   | None => True
   | Some prior =>
-    homeViews printed.views = laid.views
-      ∧ printed.pending = laid.pending
-      ∧ Suited prior laid
-      ∧ StableViews laid.views
+    homeViews printed.views = laid.views ∧ printed.pending = laid.pending ∧ Suited prior laid ∧ StableViews laid.views
 
 --| After a token, the newest printed view is that token's, with no
 --| trailing comment yet.
@@ -381,10 +365,15 @@ theorem wordHome ∀ (prior: Prior) (kind: Kind) (start: Option Nat) (laid print
     JoinedAt (afterWord prior kind) (codeView laid kind start) (codeView printed kind start)
       ∧ FreshAt (afterWord prior kind) (codeView printed kind start) :=
   (
-    (joinedOf (afterWord prior kind) (codeView laid kind start) (codeView printed kind start) kept
+    (joinedOf
+      (afterWord prior kind)
+      (codeView laid kind start)
+      (codeView printed kind start)
+      kept
       (rewrite home, pending)
       byComputing),
-    (freshOf (afterWord prior kind)
+    (freshOf
+      (afterWord prior kind)
       (codeView printed kind start)
       { kind, start, above = printed.pending.reverse, trailing = None }
       printed.views
@@ -444,7 +433,8 @@ theorem keptHome ∀ (event: Event) (found: Option Prior) (laid printed: Views)
                               let after: StaysCalm (Some Trailed) {
                                 views = [{ top | trailing = Some { text = word } }, ..homeViews rest],
                                 pending = laidPending
-                              } := rewrite sameLaid at kept then kept
+                              } :=
+                                rewrite sameLaid at kept then kept
                               rewrite same, sameLaid then
                                 (
                                   (
@@ -508,8 +498,7 @@ theorem tuckedFree ∀ (word: Text) (closers: List Event) (laidViews printedView
   let printed: Views := { views = printedViews, pending = printedPending }
   let moved: TokenView := { top | trailing = Some held }
   let homed: homeViews [top, ..rest] = laidViews := rewrite same at home then home
-  let sameLaid: laidViews = [top, ..homeViews rest] :=
-    Eq.trans homed.flipped (freshHome top (homeViews rest) topFree)
+  let sameLaid: laidViews = [top, ..homeViews rest] := Eq.trans homed.flipped (freshHome top (homeViews rest) topFree)
   let noneLaid: laidPending = [] := suited.left
   let nonePrinted: printedPending = [] := Eq.trans pending noneLaid
   match tuckViewsFront closers closing with
@@ -517,7 +506,8 @@ theorem tuckedFree ∀ (word: Text) (closers: List Event) (laidViews printedView
       let trailed: viewEvent laid comment = { views = [moved, ..homeViews rest], pending = [] } :=
         Eq.trans (trailingEvent laid word isComment) (rewrite sameLaid, noneLaid)
       let once: StaysCalm (Some Trailed) { views = [moved, ..homeViews rest], pending = [] } :=
-        staysCast _ (Some Trailed) _ _
+        staysCast _
+          (Some Trailed) _ _
           (trailingCalm (Worded True) word isComment)
           trailed
           (calmStepViews (Worded True) comment laid suited stable)
@@ -529,9 +519,7 @@ theorem tuckedFree ∀ (word: Text) (closers: List Event) (laidViews printedView
           _ = { views = tuckViews closers [moved, ..homeViews rest], pending = [] } :=
             closersSeen closers [moved, ..homeViews rest] closing
           _ = { views = front ++ [moved, ..homeViews rest], pending = [] } :=
-            Eq.cong
-              ((views: List TokenView) => ({ views, pending = [] }: Views))
-              (frontSame [moved, ..homeViews rest])
+            Eq.cong ((views: List TokenView) => ({ views, pending = [] }: Views)) (frontSame [moved, ..homeViews rest])
       let before: viewsFrom printed closers = { views = tuckViews closers [top, ..rest], pending = [] } :=
         rewrite same, nonePrinted then closersSeen closers [top, ..rest] closing
       let printedAfter: viewsFrom printed (closers ++ [comment])
@@ -557,8 +545,7 @@ theorem tuckedFree ∀ (word: Text) (closers: List Event) (laidViews printedView
           _ = homeViews (viewTrailing (front ++ [top, ..rest]) held) :=
             Eq.cong ((seen: Views) => homeViews seen.views) printedAfter
           _ = front ++ [moved, ..homeViews rest] := back
-          _ = (viewsFrom laid [comment, ..closers]).views :=
-            (Eq.cong ((seen: Views) => seen.views) laidAfter).flipped)
+          _ = (viewsFrom laid [comment, ..closers]).views := (Eq.cong ((seen: Views) => seen.views) laidAfter).flipped)
         (Eq.trans
           (Eq.cong ((seen: Views) => seen.pending) printedAfter)
           (Eq.cong ((seen: Views) => seen.pending) laidAfter).flipped)
@@ -592,10 +579,12 @@ theorem tuckedHome ∀ (comment: Event) (closers: List Event) (found: Option Pri
         | Some (Worded False), _, _ => rewrite stops (Worded False) byComputing
         | Some (Worded True), (home, pending, suited, stable), (top, rest, same, topFree) =>
           match laid, printed, home, pending, suited, stable, same with
-            | { views = laidViews, pending = laidPending }, { views = printedViews, pending = printedPending }, home,
-                pending, suited, stable, same =>
-              tuckedFree word closers laidViews printedViews laidPending printedPending top rest isComment closing
-                home pending suited stable same topFree
+            | { views = laidViews, pending = laidPending }, {
+                views = printedViews,
+                pending = printedPending
+              }, home, pending, suited, stable, same =>
+              tuckedFree word closers laidViews printedViews laidPending printedPending top rest isComment closing home
+                  pending suited stable same topFree
 
 --| Whether the first stretch finds the printed views fresh, or starts a
 --| line.
@@ -669,7 +658,12 @@ theorem tucksHome ∀ (laid printed: List Event) (after: Prior)
     | (stretches, fits, spaced, sameLaid, samePrinted) =>
       let start: Views := { views = [], pending = [] }
       let joined :=
-        stretchesHome stretches (Some Blanked) start start fits spaced
+        stretchesHome stretches
+          (Some Blanked)
+          start
+          start
+          fits
+          spaced
           ((byComputing, byComputing, byComputing, byComputing))
           (match stretches with
             | [] => byComputing

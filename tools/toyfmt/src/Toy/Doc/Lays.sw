@@ -343,12 +343,13 @@ theorem linesLay ∀ (first: Doc) (others: List Doc) (indent: Nat) (place: Place
             seps)
         lays
 
-
 -- The laid order against the printed order.
 
 --| A stretch of a trace: one event, or a trailing comment that waited
 --| and the closers written on its line while it did.
-type Stretch = | Kept (event: Event) | Tucked (comment: Event) (closers: List Event)
+type Stretch =
+  | Kept (event: Event)
+  | Tucked (comment: Event) (closers: List Event)
 
 --| The stretch as the document has it: the comment, then the closers.
 def Stretch.laid: Stretch → List Event
@@ -433,8 +434,7 @@ def Tracks (place: Place) (laid printed: List Event): Prop := match place with
   | _ => Tucks laid printed
 
 theorem fitsSnoc ∀ (stretches: List Stretch) (last: Stretch)
-    (all: List.All Stretch.Fits stretches)
-    (fits: last.Fits):
+    (all: List.All Stretch.Fits stretches) (fits: last.Fits):
     List.All Stretch.Fits (stretches ++ [last]) :=
   match stretches, all with
     | [], _ => (fits, ())
@@ -611,7 +611,7 @@ theorem closesWord ∀ (text: Text) (closes: closesText text = True): isLayout t
 -- Every `Lays` is a `Puts`.
 
 theorem writeLaysPuts ∀ (indent: Nat) (text: Text) (place: Place) (laid printed: List Event)
-    (next: Place → List Event → Prop) (put: Place → List Event → Prop)
+    (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -645,7 +645,7 @@ theorem writeLaysPuts ∀ (indent: Nat) (text: Text) (place: Place) (laid printe
             )
 
 theorem closeLaysPuts ∀ (indent: Nat) (text: Text) (place: Place) (laid printed: List Event)
-    (next: Place → List Event → Prop) (put: Place → List Event → Prop)
+    (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -659,8 +659,7 @@ theorem closeLaysPuts ∀ (indent: Nat) (text: Text) (place: Place) (laid printe
     | Broken at, tracks, lays => writeLaysPuts indent text (Broken at) laid printed next put onward tracks lays
     | Mid at, tracks, lays => writeLaysPuts indent text (Mid at) laid printed next put onward tracks lays
 
-theorem sepLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event)
-    (next: Place → List Event → Prop) (put: Place → List Event → Prop)
+theorem sepLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event) (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -674,8 +673,7 @@ theorem sepLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event)
       ((onward _ _ _ tracks same), (onward _ _ _ (settlesTucks laid printed tracks) broken))
     | Held at, tracks, broken => onward _ _ _ (waitsTucks laid printed tracks) broken
 
-theorem softLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event)
-    (next: Place → List Event → Prop) (put: Place → List Event → Prop)
+theorem softLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event) (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -689,8 +687,7 @@ theorem softLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event)
       ((onward _ _ _ tracks same), (onward _ _ _ (settlesTucks laid printed tracks) broken))
     | Held at, tracks, broken => onward _ _ _ (waitsTucks laid printed tracks) broken
 
-theorem startLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event)
-    (next: Place → List Event → Prop) (put: Place → List Event → Prop)
+theorem startLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event) (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -703,8 +700,7 @@ theorem startLaysPuts ∀ (indent: Nat) (place: Place) (laid printed: List Event
     | Mid at, tracks, lays => onward _ _ _ (settlesTucks laid printed tracks) lays
     | Held at, tracks, lays => onward _ _ _ (waitsTucks laid printed tracks) lays
 
-theorem suffixLaysPuts ∀ (comment: Text) (place: Place) (laid printed: List Event)
-    (next: Place → List Event → Prop) (put: Place → List Event → Prop)
+theorem suffixLaysPuts ∀ (comment: Text) (place: Place) (laid printed: List Event) (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -718,8 +714,7 @@ theorem suffixLaysPuts ∀ (comment: Text) (place: Place) (laid printed: List Ev
     | Mid at, tracks, lays => onward _ _ _ (settlesWaits laid printed comment tracks isComment) lays
     | Held at, _, never => never
 
-theorem blankLaysPuts ∀ (place: Place) (laid printed: List Event)
-    (next: Place → List Event → Prop) (put: Place → List Event → Prop)
+theorem blankLaysPuts ∀ (place: Place) (laid printed: List Event) (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -729,9 +724,7 @@ theorem blankLaysPuts ∀ (place: Place) (laid printed: List Event)
   match place, tracks, lays with
     | AtStart at, _, never => never
     | Broken at, tracks, lays =>
-      onward _ _ _
-        (settlesTucks _ _ (tucksSnoc laid printed Event.blankLine tracks (Inr byComputing)))
-        lays
+      onward _ _ _ (settlesTucks _ _ (tucksSnoc laid printed Event.blankLine tracks (Inr byComputing))) lays
     | Mid at, tracks, lays => onward _ _ _ tracks lays
     | Held at, tracks, lays => onward _ _ _ tracks lays
 
@@ -740,7 +733,7 @@ theorem blankLaysPuts ∀ (place: Place) (laid printed: List Event)
 --| induction on the document; only a closer where a comment waits puts
 --| its word elsewhere than it lays it (`waitsClose`).
 theorem laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid printed: List Event)
-    (next: Place → List Event → Prop) (put: Place → List Event → Prop)
+    (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -755,10 +748,8 @@ theorem laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid printed: List
     | Closing text, lays => closeLaysPuts indent text place laid printed next put onward tracks lays
     | Line, lays => sepLaysPuts indent place laid printed next put onward tracks lays
     | SoftLine, lays => softLaysPuts indent place laid printed next put onward tracks lays
-    | HardLine, Both mid (Inl broken) =>
-      (mid, (Inl (onward _ _ _ (tracksTucks place laid printed tracks) broken)))
-    | HardLine, Both mid (Inr started) =>
-      (mid, (Inr (onward _ _ _ (tracksTucks place laid printed tracks) started)))
+    | HardLine, Both mid (Inl broken) => (mid, (Inl (onward _ _ _ (tracksTucks place laid printed tracks) broken)))
+    | HardLine, Both mid (Inr started) => (mid, (Inr (onward _ _ _ (tracksTucks place laid printed tracks) started)))
     | CommentEnd, Both mid lays => (mid, (onward _ _ _ (tracksTucks place laid printed tracks) lays))
     | LineStart, lays => startLaysPuts indent place laid printed next put onward tracks lays
     | LineStartHere, lays => onward _ _ _ (tracksTucks place laid printed tracks) lays
@@ -785,7 +776,7 @@ theorem laysPuts ∀ (doc: Doc) (indent: Nat) (place: Place) (laid printed: List
       (word, (suffixLaysPuts comment place laid printed next put onward tracks isComment lays))
 
 theorem allLaysPuts ∀ (docs: List Doc) (indent: Nat) (place: Place) (laid printed: List Event)
-    (next: Place → List Event → Prop) (put: Place → List Event → Prop)
+    (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -804,7 +795,7 @@ theorem allLaysPuts ∀ (docs: List Doc) (indent: Nat) (place: Place) (laid prin
         lays
 
 theorem fillLaysPuts ∀ (items: List Doc) (indent: Nat) (place: Place) (laid printed: List Event)
-    (next: Place → List Event → Prop) (put: Place → List Event → Prop)
+    (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -817,13 +808,12 @@ theorem fillLaysPuts ∀ (items: List Doc) (indent: Nat) (place: Place) (laid pr
       laysPuts first indent place laid printed
         (after later => SepsLay others indent after later next)
         (after written => SepsPut others indent after written put)
-        (after later written tracked seps =>
-          sepsLayPuts others indent after later written next put onward tracked seps)
+        (after later written tracked seps => sepsLayPuts others indent after later written next put onward tracked seps)
         tracks
         lays
 
 theorem sepsLayPuts ∀ (items: List Doc) (indent: Nat) (place: Place) (laid printed: List Event)
-    (next: Place → List Event → Prop) (put: Place → List Event → Prop)
+    (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -840,15 +830,14 @@ theorem sepsLayPuts ∀ (items: List Doc) (indent: Nat) (place: Place) (laid pri
           laysPuts item indent middle between written
             (after later => SepsLay more indent after later next)
             (after wrote => SepsPut more indent after wrote put)
-            (after later wrote followed seps =>
-              sepsLayPuts more indent after later wrote next put onward followed seps)
+            (after later wrote followed seps => sepsLayPuts more indent after later wrote next put onward followed seps)
             tracked
             inner)
         tracks
         lays
 
 theorem optionsLayPuts ∀ (options: List Doc) (indent: Nat) (place: Place) (laid printed: List Event)
-    (next: Place → List Event → Prop) (put: Place → List Event → Prop)
+    (next put: Place → List Event → Prop)
     (onward: ∀ (after: Place) (later written: List Event) => Tracks after later written
       → next after later
       → put after written)
@@ -872,8 +861,7 @@ theorem printLays ∀ (spec: Place → List Event → Prop) (doc: Doc) (width: N
     (lays: Lays doc 0 (AtStart 0) [] spec):
     ∃ (place: Place) => ∃ (laid: List Event) => spec place laid
       ∧ Tucks laid (eventsOf (printedPieces doc width).reverse) :=
-  let put: Place → List Event → Prop := place printed =>
-    ∃ (laid: List Event) => spec place laid ∧ Tucks laid printed
+  let put: Place → List Event → Prop := place printed => ∃ (laid: List Event) => spec place laid ∧ Tucks laid printed
   let puts: Puts doc 0 (AtStart 0) [] put :=
     laysPuts doc 0
       (AtStart 0)
@@ -884,5 +872,4 @@ theorem printLays ∀ (spec: Place → List Event → Prop) (doc: Doc) (width: N
       (after later written tracked holds => (later, holds, (tracksTucks after later written tracked)))
       (([], (), byComputing, byComputing, byComputing))
       lays
-  match printPuts put doc width puts with
-    | (place, laid, holds, tucks) => (place, laid, holds, tucks)
+  match printPuts put doc width puts with | (place, laid, holds, tucks) => (place, laid, holds, tucks)

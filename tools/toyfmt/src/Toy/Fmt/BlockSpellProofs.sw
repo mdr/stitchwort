@@ -1626,8 +1626,8 @@ theorem groupOut ∀ (group: ParameterGroup) (events: List Event)
         lexNames,
         fineColon,
         lexType
-      ), typeShaped, (headEvents, afterHead, split, headAt, namesEvents, afterNames, namesSplit, namesLaid, colonEvents, typeEvents,
-        colonSplit, colonAt, typeLaid) =>
+      ), typeShaped, (headEvents, afterHead, split, headAt, namesEvents, afterNames, namesSplit, namesLaid, colonEvents,
+        typeEvents, colonSplit, colonAt, typeLaid) =>
       match tokenSeen anyStart comments name
         (Name name)
         headEvents
