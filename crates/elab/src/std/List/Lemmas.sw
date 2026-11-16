@@ -1304,6 +1304,14 @@ theorem List.lengthReverseOnto ∀ (xs acc: List a):
 theorem List.lengthReverse ∀ (xs: List a): List.length (List.reverse xs) = List.length xs :=
   Eq.trans (List.lengthReverseOnto xs []) (Nat.addZero (List.length xs))
 
+--| What holds of every item holds of every item reversed.
+theorem List.allReverse ∀ (p: a → Prop) (xs: List a) (all: List.All p xs): List.All p (List.reverse xs) :=
+  match xs, all with
+    | [], _ => ()
+    | [x, ..rest], Both hx hrest =>
+      rewrite List.reverseCons x rest then
+        List.allAppend p (List.reverse rest) [x] (List.allReverse p rest hrest) (Both hx ())
+
 theorem List.lengthSnoc ∀ (xs: List a) (x: a): List.length (List.append xs [x]) = Succ (List.length xs) := match xs with
   | [] => byComputing
   | [y, ..rest] => Eq.cong Succ (List.lengthSnoc rest x)
@@ -1558,6 +1566,30 @@ theorem List.memFlatMapIntro ∀ (f: a → List b) (x: a) (y: b) (xs: List a)
     | [], h => h.impossible
     | [z, ..zs], Inl h => List.anyAppendLeft (w => w = y) (f z) (List.flatMap zs f) (rewrite h then m)
     | [z, ..zs], Inr h => List.anyAppendRight (w => w = y) (f z) (List.flatMap zs f) (List.memFlatMapIntro f x y zs h m)
+
+--| `flatMap` over an appended list is the two `flatMap`s appended.
+theorem List.flatMapAppend ∀ (f: a → List b) (first second: List a):
+    List.flatMap (List.append first second) f = List.append (List.flatMap first f) (List.flatMap second f) :=
+  match first with
+    | [] => byComputing
+    | [head, ..tail] =>
+      calc List.flatMap (List.append [head, ..tail] second) f
+        _ = List.append (f head) (List.append (List.flatMap tail f) (List.flatMap second f)) :=
+          Eq.cong (back => List.append (f head) back) (List.flatMapAppend f tail second)
+        _ = List.append (List.append (f head) (List.flatMap tail f)) (List.flatMap second f) :=
+          (List.appendAssoc (f head) (List.flatMap tail f) (List.flatMap second f)).flipped
+
+--| `flatMap` over a concatenation is the `flatMap` of each group's `flatMap`.
+theorem List.flatMapConcat ∀ (f: a → List b) (groups: List (List a)):
+    List.flatMap (List.concat groups) f = List.flatMap groups (group => List.flatMap group f) :=
+  match groups with
+    | [] => byComputing
+    | [group, ..rest] =>
+      calc List.flatMap (List.concat [group, ..rest]) f
+        _ = List.append (List.flatMap group f) (List.flatMap (List.concat rest) f) :=
+          List.flatMapAppend f group (List.concat rest)
+        _ = List.append (List.flatMap group f) (List.flatMap rest (group => List.flatMap group f)) :=
+          Eq.cong (back => List.append (List.flatMap group f) back) (List.flatMapConcat f rest)
 
 --| What is in a `flatMap` is in `f x` for some `x` of the list.
 theorem List.memFlatMapElim ∀ (f: a → List b) (y: b) (xs: List a)
@@ -2792,6 +2824,20 @@ theorem List.dropWhileStops ∀ (p: a → Bool) (xs: List a) (stops: List.takeWh
     | [x, ..xs] =>
       match p x with
         | False => byComputing
+
+--| Where `takeWhile` took all of `read` from `read` followed by `rest`, it
+--| takes nothing from `rest`: it stopped at `rest`'s start.
+theorem List.takeWhileAppendStops ∀ (p: a → Bool) (read rest: List a)
+    (taken: read = List.takeWhile (List.append read rest) p):
+    List.takeWhile rest p = [] :=
+  match read, taken with
+    | [], taken => taken.flipped
+    | [x, ..more], taken =>
+      let unfolded: [x, ..more] = (if p x then [x, ..List.takeWhile (List.append more rest) p] else []) := taken
+      match passed: p x with
+        | True =>
+          List.takeWhileAppendStops p more rest
+            (List.consInjective x more (List.takeWhile (List.append more rest) p) unfolded)
 
 --| What `takeWhile` takes and `dropWhile` leaves make up the list.
 theorem List.takeWhileDropWhile ∀ (p: a → Bool) (xs: List a):

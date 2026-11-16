@@ -13,18 +13,6 @@ import Std (And, Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text, 
 
 -- A comment is followed by a line break.
 
---| What stops a `takeWhile`: where it took `read` of `read ++ rest`, it
---| takes nothing of `rest`.
-theorem takenStops ∀ (passes: a → Bool) (read rest: List a)
-    (shape: read = (read ++ rest).takeWhile passes):
-    rest.takeWhile passes = [] :=
-  match read, shape with
-    | [], shape => shape.flipped
-    | [head, ..tail], shape =>
-      let unfolded: [head, ..tail] = (if passes head then [head, ..(tail ++ rest).takeWhile passes] else []) := shape
-      match passed: passes head with
-        | True => takenStops passes tail rest (List.consInjective head tail ((tail ++ rest).takeWhile passes) unfolded)
-
 --| The text left where a comment stopped starts with a line break, if a
 --| lexeme starts there at all.
 theorem breakAfter ∀ (rest: List Char) (lexeme: Lexeme)
@@ -66,7 +54,7 @@ theorem commentBreaks ∀ (read: List Char) (lexeme: Lexeme) (later: List (List 
           breakAfter
             (next ++ Parse.joinReads more)
             following
-            (takenStops (char => char != '\n') read (next ++ Parse.joinReads more) shape)
+            (List.takeWhileAppendStops (char => char != '\n') read (next ++ Parse.joinReads more) shape)
             nextSpec.left
 
 theorem linedOf ∀ (steps: List (List Char, Lexeme)) (lexemes: Parse.LexemesRead LexemeSpec steps): Lined steps :=
@@ -218,13 +206,6 @@ theorem foldKept ∀ (source: Text) (steps: List (List Char, Lexeme)) (bound: Na
 
 -- From the fold, newest first, to the tokens in order.
 
-theorem allReverse ∀ (holds: a → Prop) (items: List a) (all: List.All holds items): List.All holds items.reverse :=
-  match items, all with
-    | [], _ => ()
-    | [item, ..rest], known =>
-      rewrite List.reverseCons item rest then
-        List.allAppend holds rest.reverse [item] (allReverse holds rest known.right) ((known.left, ()))
-
 theorem risingSnoc ∀ (tokens: List Tok) (last: Tok)
     (rising: Rising tokens)
     (below: List.All (other => other.offset < last.offset) tokens):
@@ -281,7 +262,7 @@ theorem lexFits ∀ (source: Text) (lexed: Lexed) (lexes: lex source = Ok lexed)
           rewrite tokensSame, lexemesSame then
             {
               holds = (
-                (allReverse Tidy
+                (List.allReverse Tidy
                   ((Parse.locatedSteps 0 steps).foldLeft Assembly.start (assembly lexeme =>
                     assembly.add source lexeme)).tokens
                   tidy),

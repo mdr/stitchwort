@@ -557,6 +557,23 @@ theorem Parse.readsAtSpan ∀ (start: Parse.Mark t) (passes: t → Bool):
               (Both (arithmetic [honest.left, lengths]) (arithmetic [honest.left, honest.right, lengths]))
               (Both byComputing byComputing)))
 
+--| `next` with no test, where an item is left: it takes that item.
+theorem Parse.nextTakes ∀ (total: Nat) (state: Parse.State t) (value: Option t) (after: Parse.Mark t)
+    (item: t) (later: List t)
+    (shape: state.at.rest = [item, ..later])
+    (honest: Parse.Honest total state.at)
+    (h: Parse.runFrom state (() => (Parse.next (item => True), Parse.mark())) = Ok (value, after)):
+    value = Some item ∧ state.at.rest = [item, ..after.rest] ∧ Parse.Honest total after :=
+  match e: state.at.rest with
+    | [char, ..more] =>
+      let same := Result.okInjective h
+      let valueSame: Some char = value := Pair.mkInjectiveFst same
+      let atSame: (state.advance more 1).at = after := Pair.mkInjectiveSnd same
+      let counted: state.at.left = more.length + 1 := honest.left
+      let isItem: char = item := List.consInjectiveHead char item more later shape
+      rewrite <- valueSame, <- atSame, <- isItem then
+        (byComputing, byComputing, (arithmetic [counted]), (arithmetic [counted, honest.right]))
+
 --| `next` reads the item it gives, which passes, or nothing.
 theorem Parse.readsNext ∀ [inv: Parse.Invariant t] (passes: t → Bool):
     Parse.ReadsIn inv (() => Parse.next passes) (Parse.Maybe (read char => read = [char] ∧ passes char = True)) :=
@@ -764,6 +781,61 @@ theorem Parse.readsInPeek ∀ [inv: Parse.Invariant t] (k: Option t → {Parse t
 theorem Parse.readsDone ∀ [inv: Parse.Invariant t] (x: a) (spec: List t → a → Prop) (holds: spec [] x):
     Parse.ReadsIn inv (() => x) spec :=
   Parse.readsWeaken (Parse.readsPure x) (read v h => match h with | Both none same => rewrite none, same then holds)
+
+--| [`Parse.readsInPeek`] at one mark: `k` of the item at `start`, read from
+--| `start`, is `k (Parse.peek())` read from `start`. For a proof about
+--| marks ([`Parse.ReadsAt`]) that peeks, as [`Parse.readsInPeek`] is for
+--| one about an invariant.
+theorem Parse.readsAtPeek ∀ (k: Option t → {Parse t} a) (spec: List t → a → Prop) (start: Parse.Mark t)
+    (each: Parse.ReadsAt start (() => k start.rest.head) spec):
+    Parse.ReadsAt start (() => k (Parse.peek())) spec :=
+  total state value after here honest h =>
+    let ran: Parse.runFrom state (() => (k state.at.rest.head, Parse.mark())) = Ok (value, after) := h
+    each total state value after here honest (rewrite <- here then ran)
+
+--| A parser that looks at where it is, `k (Parse.mark())`, read as `spec`
+--| says when `k start` is read from each mark `start` where `inv` holds.
+--| [`Parse.readsWithMark`] with each case a [`Parse.ReadsAt`], as
+--| [`Parse.readsInPeek`] is to [`Parse.readsPeek`].
+theorem Parse.readsInMark ∀ [inv: Parse.Invariant t] (k: Parse.Mark t → {Parse t} a) (spec: List t → a → Prop)
+    (each: ∀ (start: Parse.Mark t) => Parse.Fits t inv start.rest → Parse.ReadsAt start (() => k start) spec):
+    Parse.ReadsIn inv (() => k (Parse.mark())) spec :=
+  start fine total state value after here honest h =>
+    let ran: Parse.runFrom state (() => (k state.at, Parse.mark())) = Ok (value, after) := h
+    each start fine total state value after here honest (rewrite <- here then ran)
+
+--| [`Parse.readsDone`] from one mark.
+theorem Parse.readsAtDone ∀ (start: Parse.Mark t) (x: a) (spec: List t → a → Prop) (holds: spec [] x):
+    Parse.ReadsAt start (() => x) spec :=
+  Parse.readsDone [inv := Parse.Invariant.any] x spec holds start { holds = Trivial }
+
+--| [`Parse.readsWeaken`] from one mark.
+theorem Parse.readsAtWeaken ∀ [start: Parse.Mark t] [p: () → {Parse t} a] [spec weaker: List t → a → Prop]
+    (reads: Parse.ReadsAt start p spec) (implies: ∀ (read: List t) (value: a) => spec read value → weaker read value):
+    Parse.ReadsAt start p weaker :=
+  total state value after here honest h =>
+    match reads total state value after here honest h with
+      | (read, starts, honestAfter, holds) => (read, starts, honestAfter, (implies read value holds))
+
+--| [`Parse.readsOptional`] from one mark: `optional p` reads what `p` read
+--| from `start`, or nothing for `None`.
+theorem Parse.readsAtOptional ∀ [start: Parse.Mark t] [p: () → {Parse t} a] [spec: List t → a → Prop]
+    (reads: Parse.ReadsAt start p spec):
+    Parse.ReadsAt start (() => Parse.optional p) (Parse.Maybe spec) :=
+  total state value after here honest h =>
+    match Parse.runFromOptionalFromOk p state.at state _ _ h with
+      | Inl (v, middle, ran, rest) =>
+        match reads total state v middle.at here honest ran with
+          | (read, starts, honest1, holds) =>
+            let same := Result.okInjective rest
+            let valueSame: Some v = value := Pair.mkInjectiveFst same
+            let atSame: middle.at = after := Pair.mkInjectiveSnd same
+            (read, (rewrite <- valueSame, <- atSame then (starts, honest1, holds)))
+      | Inr (middle, back, rest) =>
+        let same := Result.okInjective rest
+        let valueSame: None = value := Pair.mkInjectiveFst same
+        let atSame: middle.at = after := Pair.mkInjectiveSnd same
+        ([], (rewrite <- valueSame, <- atSame, back, here then (byComputing, honest, byComputing)))
 
 --| `one` reads the item `select` gives its value for.
 theorem Parse.readsOne ∀ [inv: Parse.Invariant t] (what: Text) (select: t → Option a):
