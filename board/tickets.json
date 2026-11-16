@@ -1,5 +1,5 @@
 {
-  "next": 3492,
+  "next": 3493,
   "tickets": [
     {
       "id": 47,
@@ -38958,6 +38958,19 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3492,
+      "title": "[Opus paper] Plan: reshape the Rust formatter (crates/fmt) into tidy passes over the tree then a whitespace-only printer (D3624, Matt, 16 Nov 2026; end state per D3623 and docs/proposals/after-the-toy-proof.md §4.3 C). List every token change, its pass, pass order and interactions, size each lane",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
