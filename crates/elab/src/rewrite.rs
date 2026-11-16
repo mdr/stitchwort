@@ -1163,13 +1163,40 @@ fn replace_occurrences(
         shape,
         recent,
         by_instances,
-        false,
+        Reading::Unfolded,
         remaining,
     )
 }
 
+/// How a search reads the goal and the rule's left side back.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Reading {
+    /// Every call as what it computes to: the usual search.
+    Unfolded,
+    /// Calls as calls, except one that steps at once ([`Ctx::quote_folded`]):
+    /// `isSafe xs` stays, `if True then a else b` is `a`.
+    Folded,
+    /// Every call as the call, as the goal is printed: a call whose argument
+    /// is known stays a call, though it computes (`write printer " "`).
+    AsWritten,
+}
+
+impl Reading {
+    fn quote(self, cx: &Ctx, value: &Value) -> Result<Term> {
+        match self {
+            Reading::Unfolded => cx.quote(value),
+            Reading::Folded => cx.quote_folded(value),
+            Reading::AsWritten => Ok(stitchwort_core::value::quote_as_written(
+                &cx.g(),
+                cx.level(),
+                value,
+            )?),
+        }
+    }
+}
+
 /// [`replace_occurrences`], over the goal and the left side read back as
-/// they are written (`folded`, calls kept: [`as_written`]) or unfolded.
+/// `reading` says.
 #[allow(clippy::too_many_arguments)]
 fn replace_occurrences_as(
     cx: &mut Ctx,
@@ -1180,7 +1207,7 @@ fn replace_occurrences_as(
     shape: Shape,
     recent: usize,
     by_instances: bool,
-    folded: bool,
+    reading: Reading,
     remaining: &mut u64,
 ) -> Result<Replaced> {
     // A decision's test, replaced where the decision is, takes the
@@ -1207,7 +1234,7 @@ fn replace_occurrences_as(
         shape,
         recent,
         by_instances,
-        folded,
+        reading,
         first,
         remaining,
     ) {
@@ -1225,7 +1252,7 @@ fn replace_occurrences_as(
             shape,
             recent,
             by_instances,
-            folded,
+            reading,
             carrying,
             &mut again,
         ) {
@@ -1294,16 +1321,12 @@ fn replace_occurrences_carrying(
     shape: Shape,
     recent: usize,
     by_instances: bool,
-    folded: bool,
+    reading: Reading,
     carrying: Carrying,
     remaining: &mut u64,
 ) -> Result<Replaced> {
     let g = cx.g();
-    let lhs_term = if folded {
-        cx.quote_folded(&equation.lhs)?
-    } else {
-        cx.quote(&equation.lhs)?
-    };
+    let lhs_term = reading.quote(cx, &equation.lhs)?;
     let Some(key) = key(&lhs_term, 0) else {
         return Err(waiting_head(cx, &lhs_term)?
             .unwrap_or_else(|| unknown_head(rule, place, &equation.premises)));
@@ -1323,7 +1346,7 @@ fn replace_occurrences_carrying(
         key,
         recent,
         by_instances,
-        folded,
+        reading,
         *remaining,
     )?;
     search.carry = carried.map(|(carry, equation)| (carry, level, equation, carrying));
@@ -1487,10 +1510,10 @@ struct Search<'a, 'e> {
     /// the arguments of calls of the same definition
     /// ([`crate::unify::unify_solving_arguments`]).
     by_instances: bool,
-    /// Whether the goal and the left side are read back as written
-    /// ([`as_written`]): a candidate is then also compared by the arguments
-    /// of calls of the same definition, which solves the rule's unknowns.
-    folded: bool,
+    /// How the goal and the left side are read back. Read with their calls
+    /// ([`as_written`]), a candidate is also compared by the arguments of
+    /// calls of the same definition, which solves the rule's unknowns.
+    reading: Reading,
     /// Metavariables from this index on were made for the rule.
     rule_metas: usize,
     remaining: Cell<u64>,
@@ -1521,7 +1544,7 @@ impl<'a, 'e> Search<'a, 'e> {
         key: Key,
         recent: usize,
         by_instances: bool,
-        folded: bool,
+        reading: Reading,
         remaining: u64,
     ) -> Result<Self> {
         let kcx = kernel_context(cx)?;
@@ -1536,7 +1559,7 @@ impl<'a, 'e> Search<'a, 'e> {
             key,
             recent,
             by_instances,
-            folded,
+            reading,
             rule_metas: equation.rule_metas,
             remaining: Cell::new(remaining),
             stats: RefCell::new(Stats::default()),
@@ -1695,6 +1718,14 @@ impl Search<'_, '_> {
         ))
     }
 
+    /// Whether the left side still holds one of the rule's own unknowns.
+    fn leaves_open(&self, cx: &Ctx) -> Result<bool> {
+        let lhs = self.reading.quote(cx, self.lhs)?;
+        Ok(lhs
+            .subterms()
+            .any(|(t, _)| matches!(t, Term::Meta(m) if *m >= self.rule_metas)))
+    }
+
     /// Whether `t` is an occurrence of the left side, solving the rule's
     /// metavariables if it is and nothing if it isn't. An occurrence comes
     /// back as a term in the goal's own context.
@@ -1742,10 +1773,32 @@ impl Search<'_, '_> {
                     return Ok(crate::undo::unify(cx, &value, &lhs)?
                         || crate::undo::unify_solving_arguments(cx, &value, &lhs)?);
                 }
+                let before = (self.reading != Reading::Unfolded).then(|| Snapshot::take(cx));
                 if crate::undo::unify(cx, &value, self.lhs)? {
-                    return Ok(true);
+                    let Some(before) = before else {
+                        return Ok(true);
+                    };
+                    if !self.leaves_open(cx)? {
+                        return Ok(true);
+                    }
+                    // Matched by unfolding, with one of the rule's unknowns
+                    // left open: `(?p.newline ?i).words` against
+                    // `(printer.newline indent).words`, whose words don't
+                    // depend on the indent. The call's arguments, as shown,
+                    // say what it is; if they can't, the match stands.
+                    before.restore(cx);
+                    let again = Snapshot::take(cx);
+                    if crate::undo::unify_solving_arguments(cx, &value, self.lhs)?
+                        && !self.leaves_open(cx)?
+                    {
+                        return Ok(true);
+                    }
+                    again.restore(cx);
+                    return crate::undo::unify(cx, &value, self.lhs);
                 }
-                if self.folded && crate::undo::unify_solving_arguments(cx, &value, self.lhs)? {
+                if self.reading != Reading::Unfolded
+                    && crate::undo::unify_solving_arguments(cx, &value, self.lhs)?
+                {
                     return Ok(true);
                 }
                 // A `match` in the rule not lifted yet: an occurrence if it turns
@@ -1770,11 +1823,7 @@ impl Search<'_, '_> {
                     snapshot.restore(cx);
                     return Ok(None);
                 }
-                let solved = if self.folded {
-                    cx.quote_folded(self.lhs)?
-                } else {
-                    cx.quote(self.lhs)?
-                };
+                let solved = self.reading.quote(cx, self.lhs)?;
                 *self.lhs_term.borrow_mut() = solved;
                 Ok(Some(candidate))
             }
