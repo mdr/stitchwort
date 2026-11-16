@@ -1,5 +1,5 @@
 {
-  "next": 3563,
+  "next": 3564,
   "tickets": [
     {
       "id": 47,
@@ -39895,6 +39895,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3563,
+      "title": "[Sonnet] Editor: hovering a 'rewrite repeatedly [...]' shows the rewrite chain it performed (each rule, its arguments, before/after), from the same data as goal --at and expand (simp-revisited.md §3.3). Matt, 16 Nov 2026: 'pretty cool ... maybe these are more someday features'. After rewrite repeatedly stage 2",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
