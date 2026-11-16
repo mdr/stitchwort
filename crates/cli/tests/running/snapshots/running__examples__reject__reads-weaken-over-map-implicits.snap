@@ -1,5 +1,6 @@
 ---
 source: crates/cli/tests/running/examples.rs
+assertion_line: 730
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
@@ -7,5 +8,8 @@ expression: output
     │
  26 │     (read value h => h)
     │                      ┬  
-    │                      ╰── expected `∃ (numbers: NonEmptyList Nat) => value = { numbers = numbers }`, but this has type `∃ (v: NonEmptyList Nat) => Parse.SepBy (read n => read ≠ [] ∧ read.all Parse.isDigit ∧ n = Parse.digitsValue read) (x x1 => x = [',']) read v ∧ value = { numbers = v }`
+    │                      ╰── this has the `found` type below
+    │ 
+    │ Note: expected: ∃ (numbers: NonEmptyList Nat) => value = { numbers = numbers }
+    │          found: ∃ (v: NonEmptyList Nat) => Parse.SepBy (read n => read ≠ [] ∧ read.all Parse.isDigit ∧ n = Parse.digitsValue read) (x x1 => x = [',']) read v ∧ value = { numbers = v }
 ────╯
