@@ -31097,14 +31097,14 @@
     {
       "id": 2922,
       "title": "[DeepSeek] Unfinished-test message says \"its body is `?`\" even when the ? is only part of the body; say \"it has an unfinished ? at …\" in that case (SW-2909)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-11",
-      "updated": "2026-11-11",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -41565,7 +41565,7 @@
     {
       "id": 3688,
       "title": "[Sonnet] Editor completion: completing 'va' in a project offers std's Std.Parse.Located.value (import Std.Parse.Located (value)) ahead of the project's own Proj.Other.value (found by SW-3682, whose test now uses unclashing names). Rank the project's own namespaces before std, and consider whether a record field accessor like Located.value should be offered as an importable bare name at all",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
