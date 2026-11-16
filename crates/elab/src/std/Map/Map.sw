@@ -911,10 +911,8 @@ theorem Map.sumValuesEqSumByKeys ∀ [auto ord: Ord k] (m: Map k Nat) (f: k → 
     m.values.sum = m.keys.sumBy f :=
   calc m.values.sum
     _ = m.toList.sumBy Pair.snd := List.foldLeftMap m.toList 0 Nat.add Pair.snd
-    _ = m.toList.sumBy (entry => f entry.fst) := List.sumByCongMem m.toList Pair.snd (entry => f entry.fst) (((
-      key,
-      value
-    )) member =>
+    _ = m.toList.sumBy (entry => f entry.fst) := List.sumByCongMem m.toList Pair.snd (entry => f entry.fst) (((key,
+      value)) member =>
       Eq.sym (Eq.trans (reads key) (rewrite (Map.memToList m key value).forward member in rfl)))
     _ = m.keys.sumBy f := Eq.sym (List.foldLeftMap m.toList 0 (total key => total + f key) Pair.fst)
 

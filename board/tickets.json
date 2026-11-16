@@ -1,5 +1,5 @@
 {
-  "next": 3560,
+  "next": 3561,
   "tickets": [
     {
       "id": 47,
@@ -39851,6 +39851,19 @@
     {
       "id": 3559,
       "title": "[DeepSeek] Messages: E-NO-READING ('taken apart with Both', 'built with Both', reading.rs) names the constructor when the user wrote a tuple; say 'tuple' when the source was one. Also E-NONEXHAUSTIVE shows (_, _) where (_, _, _) fits when a nested Both was never split (from SW-3518)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3560,
+      "title": "[Sonnet] fmt layout: a lambda whose parameter is a tuple pattern, as the last argument of a long line, splits the pattern across lines: 'List.sumByCongMem … (((key,\\n      value)) member =>' (Map.sw:914) and 'input.lines.withIndex.map (((index,\\n  line)) =>' (Parse/Chars.sw:314). Better: break before the lambda (or keep a short name-only tuple pattern whole); also the doubled brackets around a tuple parameter look redundant. Since SW-3518's fill rule",
       "status": "backlog",
       "agent": "",
       "where": "",

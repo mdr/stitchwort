@@ -311,10 +311,8 @@ def Parse.lineMessage (chars: List Char) (failure: Parse.Failure): Text :=
 --| `parser` on each line of `input`, split as `Text.lines` splits, else fail
 --| with "line 3, column 5: expected ',', got ';'" for the first line that
 --| fails. Lines are numbered from 1.
-def Parse.eachLine (input: Text) (parser: () → {Parse Char} a): {Fail} List a := input.lines.withIndex.map (((
-  index,
-  line
-)) =>
+def Parse.eachLine (input: Text) (parser: () → {Parse Char} a): {Fail} List a := input.lines.withIndex.map (((index,
+  line)) =>
   let chars := line.toList
   match Parse.whole chars parser with
     | Ok value => value
