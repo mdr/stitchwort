@@ -39563,28 +39563,32 @@
     {
       "id": 3537,
       "title": "[Sonnet] fmt bug (internal error): trailing comment after a theorem's ':' plus an own-line comment before an application argument: 'theorem t: -- c\\n f 2 = Some\\n-- c\\n (R 2) := rfl' (output fails to re-parse, found '('); fuzz 0x807 #19391 (from SW-3524)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nLane note (Sonnet): fixed in 47442b5ff. SW-3537: result type after a colon with a trailing comment starts on its own line at 4 (rules.rs header). SW-3538: parser measured then/else against the binder's line; now the if's (parser.rs if_expr). Tests added in printer/tests.rt failing first; fuzz 0x805/0x807/0x808 clean, 0x806 finds SW-3537-unrelated let-value case.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "47442b5ff"
+      ]
     },
     {
       "id": 3538,
       "title": "[Sonnet] fmt bug (internal error): own-line comment after 'if' with an 'h:' binder: 'def f (b: Bool): Nat := if\\n-- c\\n h: b then 1 else 0' prints else too far left; fuzz 0x805 #9335 (from SW-3524)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nLane note (Sonnet): fixed in 47442b5ff. SW-3537: result type after a colon with a trailing comment starts on its own line at 4 (rules.rs header). SW-3538: parser measured then/else against the binder's line; now the if's (parser.rs if_expr). Tests added in printer/tests.rt failing first; fuzz 0x805/0x807/0x808 clean, 0x806 finds SW-3537-unrelated let-value case.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "47442b5ff"
+      ]
     }
   ]
 }
