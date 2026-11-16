@@ -40477,7 +40477,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Run together with SW-3605 in one Opus lane (both crates/fmt).",
+      "body": "Run together with SW-3605 in one Opus lane (both crates/fmt).\n\nMatt, 16 Nov 2026: 'It's pretty bad that it got past the runtime check.' Lane redirected: the check's gap first (comments compared from independent lexer tokens), then an audit of every part of the run-time check for independence, then the tidy.rs fix.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
