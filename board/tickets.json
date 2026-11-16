@@ -1,5 +1,5 @@
 {
-  "next": 3539,
+  "next": 3540,
   "tickets": [
     {
       "id": 47,
@@ -39577,6 +39577,19 @@
       "id": 3538,
       "title": "[Sonnet] fmt bug (internal error): own-line comment after 'if' with an 'h:' binder: 'def f (b: Bool): Nat := if\\n-- c\\n h: b then 1 else 0' prints else too far left; fuzz 0x805 #9335 (from SW-3524)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3539,
+      "title": "[Opus paper] Helpful compiler errors (D3642, Matt, 16 Nov 2026): audit today's messages against a rubric, survey Elm/Rust/Gleam/Roc/Lean/Idris, house style, agent-facing features (JSON diagnostics, fix-it edits, explain, length limits on printed types), ranked improvements and stages",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
