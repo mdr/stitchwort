@@ -39256,15 +39256,17 @@
     {
       "id": 3514,
       "title": "[Fable paper] Design note: short syntax for building and taking apart exists/and (and records-as-propositions) facts in proofs (D3630, Matt, 16 Nov 2026), compared with Lean 4, Rocq, Agda, Idris, Isabelle and others; toy-proof-complexity.md §4.3",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nSW-3514 lane (Fable, 16 Nov 2026): note written, docs/proposals/proof-tuples.md (commit 0d54a2004). Proposal: the existing round tuple, read by expected type, builds and opens ∃/∧ proofs: (x, a, b) for Witness x (Both a b), in match, let, lambda parameters and clause lambdas; no kernel change, hashes unchanged; named propositions with 4+ parts become records (house rule). Measured on the toy: 980 Witness + 3,000 Both, 2,620 brackets, 673 arms on 1,105 pattern lines (about 770 after), 286 one-arm matches that could be a pattern let today (0 uses). Estimated saving 600-1,100 lines (3-5%), not the 2,500-4,000 in toy-proof-complexity.md §4.3: the big proofs are tall from 11-argument calls and repeated arms. Two decisions for Matt (note §9): Q1 the bracket (round tuple [rec], angle brackets, or no new syntax); Q2 ∃/∧ only [rec] or every one-constructor type. Lanes in §10 (about 3.5 h). Paper lane: no builds or tests run.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "0d54a2004"
+      ]
     }
   ]
 }
