@@ -285,6 +285,22 @@ impl Session {
     ) -> Option<Vec<Diagnostic>> {
         let mut diagnostics: Vec<Diagnostic> = Vec::new();
         let mut left_out = false;
+        // A namespace with a syntax error is checked without the
+        // declarations it lost, so what the namespaces using it report is
+        // mostly their consequence (SW-3475).
+        let broken: Vec<&String> = order
+            .iter()
+            .filter(|n| {
+                analysis
+                    .namespace(n)
+                    .is_some_and(|ns| !ns.parse_errors.is_empty())
+            })
+            .collect();
+        let shadowed: BTreeSet<String> = (broken.iter())
+            .flat_map(|n| dependents(analysis, n))
+            .filter(|n| !broken.contains(&n))
+            .collect();
+        let mut hidden: Vec<(&str, usize)> = Vec::new();
         for name in order {
             if let Some(warnings) = skipped.get(name) {
                 left_out = true;
@@ -292,13 +308,29 @@ impl Session {
                 continue;
             }
             let ns = analysis.namespace(name).expect("a namespace");
-            let (found, _) = self.check_project_namespace(analysis, ns);
+            let (mut found, _) = self.check_project_namespace(analysis, ns);
             if left_out
                 && (found.iter()).any(|d| matches!(d.severity, Severity::Error | Severity::Goal))
             {
                 return None;
             }
+            if shadowed.contains(name) {
+                if !found.is_empty() {
+                    hidden.push((name, found.len()));
+                }
+                continue;
+            }
+            // The recovered declarations of a file that doesn't parse are
+            // a guess, so its warnings aren't reliable either.
+            if !ns.parse_errors.is_empty() {
+                found.retain(|d| d.severity != Severity::Warning);
+            }
             diagnostics.extend(found);
+        }
+        // The syntax errors come first: they are what to fix.
+        diagnostics.sort_by_key(|d| d.code != "E-PARSE");
+        if let Some(summary) = hidden_summary(&broken, &hidden) {
+            diagnostics.push(summary);
         }
         Some(diagnostics)
     }
@@ -1048,6 +1080,40 @@ pub fn closure(analysis: &Analysis, roots: &[String]) -> Vec<String> {
         }
     }
     seen.into_iter().collect()
+}
+
+/// The line that says what a check left out after syntax errors: the
+/// diagnostics of `hidden` namespaces (with a count each), which use
+/// `broken` ones (SW-3475). `None` if nothing was left out.
+fn hidden_summary(broken: &[&String], hidden: &[(&str, usize)]) -> Option<Diagnostic> {
+    if hidden.is_empty() {
+        return None;
+    }
+    let count: usize = hidden.iter().map(|(_, n)| n).sum();
+    let broken: Vec<String> = broken.iter().map(|n| format!("`{n}`")).collect();
+    let uses: Vec<String> = (hidden.iter())
+        .map(|(n, c)| format!("`{n}` ({c})"))
+        .collect();
+    let mut summary = Diagnostic::warning(
+        "W-AFTER-SYNTAX-ERROR",
+        format!(
+            "{count} diagnostics in {} not shown: they use {}, which has a syntax error, \
+             so declarations it lost are missing",
+            if hidden.len() == 1 {
+                "1 namespace".to_string()
+            } else {
+                format!("{} namespaces", hidden.len())
+            },
+            broken.join(", "),
+        ),
+    );
+    summary
+        .notes
+        .push(format!("namespaces: {}", uses.join(", ")));
+    summary
+        .notes
+        .push("fix the syntax error and check again to see them".to_string());
+    Some(summary)
 }
 
 /// `root` and every namespace that uses it, directly or not (by importing

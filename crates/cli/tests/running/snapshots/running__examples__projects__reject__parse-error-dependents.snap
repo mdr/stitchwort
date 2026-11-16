@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected `)` to close the parameter `(n: …`, but found `:`
+   ╭─[ parse-error-dependents/src/lib.sw:5:17 ]
+   │
+ 5 │ def pick (n: Nat: Nat := match n with
+   │                 ┬  
+   │                 ╰── expected `)` to close the parameter `(n: …`, but found `:`
+───╯
+[W-AFTER-SYNTAX-ERROR] Warning: 2 diagnostics in 2 namespaces not shown: they use `Lib`, which has a syntax error, so declarations it lost are missing
+  note: namespaces: `Other` (1), `User` (1)
+  note: fix the syntax error and check again to see them
