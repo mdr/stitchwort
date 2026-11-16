@@ -2039,25 +2039,49 @@ theorem statementLays ∀ (statement: Statement)
 
 -- Declarations and the file.
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: events of groups and types.
---| A declaration's parameters between their brackets: each name, and
---| the comma after each but the last.
+--| A parameter's type, inside brackets.
+def TypeEvents (annotation: TypeExpr): List Event → Prop := match annotation with
+  | TypeName name comments => TokenAt anyStart comments name
+  | TypeBracketed open inner close =>
+    Then (TokenAt anyStart open "(") (Then (TypeEvents inner) (TokenAt anyStart close ")"))
+
+--| The names of a group after its first.
+def NamesEvents (names: List Named): List Event → Prop := match names with
+  | [] => Done
+  | [{ name, comments }, ..rest] => Then (TokenAt anyStart comments name) (NamesEvents rest)
+
+--| A parameter group: its names, then `:` and its type if it has them.
+def GroupEvents (group: ParameterGroup): List Event → Prop := match group with
+  | Untyped { name, comments } => TokenAt anyStart comments name
+  | Typed names colon annotation =>
+    Then
+      (TokenAt anyStart names.head.comments names.head.name)
+      (Then (NamesEvents names.tail) (Then (TokenAt anyStart colon ":") (TypeEvents annotation)))
+
+--| A declaration's parameter groups between their brackets, and the
+--| comma after each but the last.
 def ParameterEvents (parameters: List Parameter): List Event → Prop := match parameters with
   | [] => Done
-  | [{ name, comments, .. }] => TokenAt anyStart comments name
-  | [{ name, comments, comma }, ..rest] =>
-    Then (TokenAt anyStart comments name) (Then (TokenAt anyStart comma ",") (ParameterEvents rest))
+  | [{ group, .. }] => GroupEvents group
+  | [{ group, comma }, ..rest] => Then (GroupEvents group) (Then (TokenAt anyStart comma ",") (ParameterEvents rest))
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: `Function` has `takes`.
+--| `takes`, where it was written, standing in its statement.
+def TakesEvents (zone: Zone) (takes: Option Comments): List Event → Prop := match takes with
+  | None => Done
+  | Some comments => TokenAt zone.allows comments "takes"
+
 --| A declaration, from the start of a line at column 0: its first token
 --| starts that line, the others stand in it as a statement's do. A
---| function is `fn name (`, the parameters, then `) =` and the body.
+--| function is `fn name (`, with `takes` before `(` if it was written,
+--| the parameters, then `) =` and the body.
 def DeclarationEvents (declaration: Declaration): List Event → Prop := match declaration with
-  | Function fnComments name nameComments open parameters close equals body =>
+  | Function fnComments name nameComments takes open parameters close equals body =>
     Then
       (Then
         (TokenAt (atColumn 0) fnComments "fn")
-        (Then (TokenAt (Deeper 0).allows nameComments name) (TokenAt (Deeper 0).allows open "(")))
+        (Then
+          (TokenAt (Deeper 0).allows nameComments name)
+          (Then (TakesEvents (Deeper 0) takes) (TokenAt (Deeper 0).allows open "("))))
       (Then
         (ParameterEvents parameters)
         (Then (TokenAt anyStart close ")") (Then (TokenAt (Deeper 0).allows equals "=") (BodyEvents (Deeper 0) body))))
@@ -2089,6 +2113,10 @@ def FileEvents (file: SourceFile): List Event → Prop := DeclarationsEvents fil
 
 theorem solidFn: Solid "fn" := Both byComputing (Both byComputing byComputing)
 
+theorem solidTakes: Solid "takes" := (byComputing, byComputing, byComputing)
+
+theorem solidColon: Solid ":" := (byComputing, byComputing, byComputing)
+
 --| Documents laid one after another may be taken in two parts.
 theorem allAppend ∀ (front back: List Doc) (indent: Nat) (place: Place)
     (trace: List Event) (next: Place → List Event → Prop)
@@ -2114,30 +2142,180 @@ theorem tokenInside ∀ (zone: Zone) (comments: Comments) (text: Text)
     (head => TokenAt head comments text)
     (tokenHead zone.inside comments text fine solid)
 
---| A parameter and its comma.
-theorem parameterRule ∀ (zone: Zone) (name: Text) (comments comma: Comments)
-    (isName: IsName name)
-    (fine: Fine comments)
+--| Where a rule puts down nothing.
+theorem ruleEmpty ∀ (zone: Zone) (doc: Doc) (empty: doc = Empty):
+    Rule zone.holds doc (Ended zone) Done (Ended zone) :=
+  indent place trace next inside ended onward =>
+    rewrite empty, <- List.appendNil trace then onward place [] byComputing ended
+
+theorem allNone ∀ (zone: Zone): RuleAll zone.holds [] (Ended zone) Done (Ended zone) :=
+  indent place trace next inside ended onward => rewrite <- List.appendNil trace then onward place [] byComputing ended
+
+--| A type inside brackets.
+theorem typeLays ∀ (zone: Zone) (annotation: TypeExpr)
+    (lexical: LexicalType annotation):
+    Rule zone.holds annotation.layout (Seated zone) (TypeEvents annotation) (Ended zone) :=
+  match annotation, lexical with
+    | TypeName name comments, (isName, fine) => tokenInside zone comments name fine (nameSolid name isName)
+    | TypeBracketed open inner close, (fineOpen, lexInner, fineClose) =>
+      ruleConcat zone.holds
+        [token open "(", inner.layout, closer close ")"]
+        (Seated zone)
+        (Ended zone)
+        (TypeEvents (TypeBracketed open inner close))
+        (ruleCons zone.holds
+          (token open "(")
+          [inner.layout, closer close ")"]
+          (Seated zone)
+          (Ended zone)
+          (Ended zone)
+          (TokenAt anyStart open "(")
+          (Then (TypeEvents inner) (TokenAt anyStart close ")"))
+          (tokenInside zone open "(" fineOpen solidOpenParen)
+          (ruleCons zone.holds
+            inner.layout
+            [closer close ")"]
+            (Ended zone)
+            (Ended zone)
+            (Ended zone)
+            (TypeEvents inner)
+            (TokenAt anyStart close ")")
+            (fromEnded zone zone.holds inner.layout (TypeEvents inner) (Ended zone) (typeLays zone inner lexInner))
+            (ruleLast zone.holds
+              (closer close ")")
+              (Ended zone)
+              (Ended zone)
+              (TokenAt anyStart close ")")
+              (fromEnded zone zone.holds
+                (closer close ")")
+                (TokenAt anyStart close ")")
+                (Ended zone)
+                (closerRule zone close ")" fineClose solidCloseParen)))))
+
+--| A group's names after its first, each after a space.
+theorem namesLay ∀ (zone: Zone) (names: List Named)
+    (lexical: LexicalNames names):
+    Rule zone.holds (namesAfter names) (Ended zone) (NamesEvents names) (Ended zone) :=
+  match names, lexical with
+    | [], _ => ruleEmpty zone Empty byComputing
+    | [{ name, comments }, ..rest], ((isName, fine), others) =>
+      ruleConcat zone.holds
+        [Doc.text " ", token comments name, namesAfter rest]
+        (Ended zone)
+        (Ended zone)
+        (NamesEvents [{ name, comments }, ..rest])
+        (spaceAll zone zone.holds
+          [token comments name, namesAfter rest]
+          (NamesEvents [{ name, comments }, ..rest])
+          (Ended zone)
+          (ruleCons zone.holds
+            (token comments name)
+            [namesAfter rest]
+            (Ended zone)
+            (Ended zone)
+            (Ended zone)
+            (TokenAt anyStart comments name)
+            (NamesEvents rest)
+            (fromEnded zone zone.holds
+              (token comments name)
+              (TokenAt anyStart comments name)
+              (Ended zone)
+              (tokenInside zone comments name fine (nameSolid name isName)))
+            (ruleLast zone.holds
+              (namesAfter rest)
+              (Ended zone)
+              (Ended zone)
+              (NamesEvents rest)
+              (namesLay zone rest others))))
+
+--| A parameter group inside its brackets.
+theorem groupLays ∀ (zone: Zone) (group: ParameterGroup)
+    (lexical: LexicalGroup group):
+    Rule zone.holds group.layout (Seated zone) (GroupEvents group) (Ended zone) :=
+  match group, lexical with
+    | Untyped { name, comments }, (isName, fine) => tokenInside zone comments name fine (nameSolid name isName)
+    | Typed names colon annotation, ((isName, fine), lexNames, fineColon, lexType) =>
+      let typed := Then (TokenAt anyStart colon ":") (TypeEvents annotation)
+      ruleConcat zone.holds
+        [
+          token names.head.comments names.head.name,
+          namesAfter names.tail,
+          token colon ":",
+          Doc.text " ",
+          annotation.layout
+        ]
+        (Seated zone)
+        (Ended zone)
+        (GroupEvents (Typed names colon annotation))
+        (ruleCons zone.holds
+          (token names.head.comments names.head.name)
+          [namesAfter names.tail, token colon ":", Doc.text " ", annotation.layout]
+          (Seated zone)
+          (Ended zone)
+          (Ended zone)
+          (TokenAt anyStart names.head.comments names.head.name)
+          (Then (NamesEvents names.tail) typed)
+          (tokenInside zone names.head.comments names.head.name fine (nameSolid names.head.name isName))
+          (ruleCons zone.holds
+            (namesAfter names.tail)
+            [token colon ":", Doc.text " ", annotation.layout]
+            (Ended zone)
+            (Ended zone)
+            (Ended zone)
+            (NamesEvents names.tail)
+            typed
+            (namesLay zone names.tail lexNames)
+            (ruleCons zone.holds
+              (token colon ":")
+              [Doc.text " ", annotation.layout]
+              (Ended zone)
+              (Ended zone)
+              (Ended zone)
+              (TokenAt anyStart colon ":")
+              (TypeEvents annotation)
+              (fromEnded zone zone.holds
+                (token colon ":")
+                (TokenAt anyStart colon ":")
+                (Ended zone)
+                (tokenInside zone colon ":" fineColon solidColon))
+              (spaceAll zone zone.holds
+                [annotation.layout]
+                (TypeEvents annotation)
+                (Ended zone)
+                (ruleLast zone.holds
+                  annotation.layout
+                  (Ended zone)
+                  (Ended zone)
+                  (TypeEvents annotation)
+                  (fromEnded zone zone.holds
+                    annotation.layout
+                    (TypeEvents annotation)
+                    (Ended zone)
+                    (typeLays zone annotation lexType)))))))
+
+--| A parameter group and its comma.
+theorem parameterRule ∀ (zone: Zone) (group: ParameterGroup) (comma: Comments)
+    (lexical: LexicalGroup group)
     (fineComma: Fine comma):
     Rule zone.holds
-      (Doc.concat [token comments name, token comma ","])
+      (Doc.concat [group.layout, token comma ","])
       (Seated zone)
-      (Then (TokenAt anyStart comments name) (TokenAt anyStart comma ","))
+      (Then (GroupEvents group) (TokenAt anyStart comma ","))
       (Ended zone) :=
   ruleConcat zone.holds
-    [token comments name, token comma ","]
+    [group.layout, token comma ","]
     (Seated zone)
     (Ended zone)
-    (Then (TokenAt anyStart comments name) (TokenAt anyStart comma ","))
+    (Then (GroupEvents group) (TokenAt anyStart comma ","))
     (ruleCons zone.holds
-      (token comments name)
+      group.layout
       [token comma ","]
       (Seated zone)
       (Ended zone)
       (Ended zone)
-      (TokenAt anyStart comments name)
+      (GroupEvents group)
       (TokenAt anyStart comma ",")
-      (tokenInside zone comments name fine (nameSolid name isName))
+      (groupLays zone group lexical)
       (ruleLast zone.holds
         (token comma ",")
         (Ended zone)
@@ -2149,7 +2327,6 @@ theorem parameterRule ∀ (zone: Zone) (name: Text) (comments comma: Comments)
           (Ended zone)
           (tokenInside zone comma "," fineComma solidComma))))
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: groups, not names.
 theorem sepsParameters ∀ (parameters: List Parameter)
     (lexical: LexicalParameters parameters)
     (zone: Zone) (indent: Nat) (place: Place) (trace: List Event)
@@ -2161,31 +2338,26 @@ theorem sepsParameters ∀ (parameters: List Parameter)
     SepsLay (parameterDocs parameters) indent place trace next :=
   match parameters, lexical, onward with
     | [], _, onward => rewrite <- List.appendNil trace then onward place [] byComputing ended
-    | [{ name, comments, comma }], Both isName (Both fine _), onward =>
+    | [{ group, comma }], Both lexGroup _, onward =>
       sepSeats zone indent place trace
-        (middle between =>
-          Lays (token comments name) indent middle between (after later => SepsLay [] indent after later next))
+        (middle between => Lays group.layout indent middle between (after later => SepsLay [] indent after later next))
         inside
         ended
         (middle seated =>
-          tokenInside zone comments name fine
-            (nameSolid name isName)
-            indent
-            middle
-            trace
+          groupLays zone group lexGroup indent middle trace
             (after later => SepsLay [] indent after later next)
             inside
             seated
             onward)
-    | [{ name, comments, comma }, second, ..more], Both isName (Both fine (Both fineComma others)), onward =>
+    | [{ group, comma }, second, ..more], Both lexGroup (Both fineComma others), onward =>
       sepSeats zone indent place trace
         (middle between =>
-          Lays (Doc.concat [token comments name, token comma ","]) indent middle between (after later =>
+          Lays (Doc.concat [group.layout, token comma ","]) indent middle between (after later =>
             SepsLay (parameterDocs [second, ..more]) indent after later next))
         inside
         ended
         (middle seated =>
-          parameterRule zone name comments comma isName fine fineComma indent middle trace
+          parameterRule zone group comma lexGroup fineComma indent middle trace
             (after later => SepsLay (parameterDocs [second, ..more]) indent after later next)
             inside
             seated
@@ -2205,7 +2377,7 @@ theorem sepsParameters ∀ (parameters: List Parameter)
                     onward last
                       (events ++ rest)
                       (thenAssoc
-                        (TokenAt anyStart comments name)
+                        (GroupEvents group)
                         (TokenAt anyStart comma ",")
                         (ParameterEvents [second, ..more])
                         events
@@ -2214,25 +2386,20 @@ theorem sepsParameters ∀ (parameters: List Parameter)
                         areParameters)
                       met)))
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: groups, not names.
 --| A declaration's parameters, as a fill lays them.
 theorem fillParameters ∀ (first: Parameter) (rest: List Parameter)
     (lexical: LexicalParameters [first, ..rest]) (zone: Zone):
     FillRule zone (parameterDocs [first, ..rest]) (ParameterEvents [first, ..rest]) :=
   match first, rest, lexical with
-    | { name, comments, comma }, [], Both isName (Both fine _) => indent place trace next inside seated onward =>
-      tokenInside zone comments name fine
-        (nameSolid name isName)
-        indent
-        place
-        trace
+    | { group, comma }, [], Both lexGroup _ => indent place trace next inside seated onward =>
+      groupLays zone group lexGroup indent place trace
         (after later => SepsLay [] indent after later next)
         inside
         seated
         onward
-    | { name, comments, comma }, [second, ..more], Both isName (Both fine (Both fineComma others)) =>
+    | { group, comma }, [second, ..more], Both lexGroup (Both fineComma others) =>
       indent place trace next inside seated onward =>
-        parameterRule zone name comments comma isName fine fineComma indent place trace
+        parameterRule zone group comma lexGroup fineComma indent place trace
           (after later => SepsLay (parameterDocs [second, ..more]) indent after later next)
           inside
           seated
@@ -2252,7 +2419,7 @@ theorem fillParameters ∀ (first: Parameter) (rest: List Parameter)
                   onward last
                     (events ++ later)
                     (thenAssoc
-                      (TokenAt anyStart comments name)
+                      (GroupEvents group)
                       (TokenAt anyStart comma ",")
                       (ParameterEvents [second, ..more])
                       events
@@ -2261,45 +2428,98 @@ theorem fillParameters ∀ (first: Parameter) (rest: List Parameter)
                       areParameters)
                     met))
 
---| `fn name (`: the keyword starts as `head` says.
-theorem openingRule ∀ (zone: Zone) (fnComments: Comments) (name: Text) (nameComments open: Comments)
+--| ` takes ` where it was written: nothing where it wasn't.
+theorem takesLays ∀ (zone: Zone) (takes: Option Comments)
+    (fine: FineTakes takes):
+    Rule zone.holds (takesDoc takes) (Ended zone) (TakesEvents zone takes) (Ended zone) :=
+  match takes, fine with
+    | None, _ => ruleEmpty zone Empty byComputing
+    | Some comments, fineTakes => indent place trace next inside ended onward =>
+      ruleConcat zone.holds
+        [Doc.text " ", token comments "takes", Doc.text " "]
+        (Ended zone)
+        (Ended zone)
+        (Then (TokenAt zone.allows comments "takes") Done)
+        (spaceAll zone zone.holds
+          [token comments "takes", Doc.text " "]
+          (Then (TokenAt zone.allows comments "takes") Done)
+          (Ended zone)
+          (ruleCons zone.holds
+            (token comments "takes")
+            [Doc.text " "]
+            (Ended zone)
+            (Ended zone)
+            (Ended zone)
+            (TokenAt zone.allows comments "takes")
+            Done
+            (tokenAfter zone comments "takes" fineTakes solidTakes)
+            (spaceAll zone zone.holds [] Done (Ended zone) (allNone zone))))
+        indent
+        place
+        trace
+        next
+        inside
+        ended
+        (after events isTakes reached =>
+          match isTakes with
+            | (front, back, split, holds, none) =>
+              let whole: events = front := rewrite split, none then List.appendNil front
+              rewrite whole then onward after front holds reached)
+
+--| `fn name (`, with `takes` before `(` if it was written: the keyword
+--| starts as `head` says.
+theorem openingRule ∀ (zone: Zone) (fnComments: Comments) (name: Text) (nameComments: Comments)
+    (takes: Option Comments) (open: Comments)
     (fineFn: Fine fnComments)
     (isName: IsName name)
     (fineName: Fine nameComments)
+    (fineTakes: FineTakes takes)
     (fineOpen: Fine open):
     HeadRule zone
-      (Doc.concat [token fnComments "fn", Doc.text " ", token nameComments name, token open "("])
+      (Doc.concat [token fnComments "fn", Doc.text " ", token nameComments name, takesDoc takes, token open "("])
       fnComments.above
       (head =>
         Then
           (TokenAt head fnComments "fn")
-          (Then (TokenAt zone.allows nameComments name) (TokenAt zone.allows open "("))) :=
+          (Then
+            (TokenAt zone.allows nameComments name)
+            (Then (TakesEvents zone takes) (TokenAt zone.allows open "(")))) :=
+  let afterName := Then (TakesEvents zone takes) (TokenAt zone.allows open "(")
   headCons zone
     (token fnComments "fn")
-    [Doc.text " ", token nameComments name, token open "("]
+    [Doc.text " ", token nameComments name, takesDoc takes, token open "("]
     fnComments.above
     (head => TokenAt head fnComments "fn")
-    (Then (TokenAt zone.allows nameComments name) (TokenAt zone.allows open "("))
+    (Then (TokenAt zone.allows nameComments name) afterName)
     (tokenHead zone fnComments "fn" fineFn solidFn)
     (spaceAll zone zone.holds
-      [token nameComments name, token open "("]
-      (Then (TokenAt zone.allows nameComments name) (TokenAt zone.allows open "("))
+      [token nameComments name, takesDoc takes, token open "("]
+      (Then (TokenAt zone.allows nameComments name) afterName)
       (Ended zone)
       (ruleCons zone.holds
         (token nameComments name)
-        [token open "("]
+        [takesDoc takes, token open "("]
         (Ended zone)
         (Ended zone)
         (Ended zone)
         (TokenAt zone.allows nameComments name)
-        (TokenAt zone.allows open "(")
+        afterName
         (tokenAfter zone nameComments name fineName (nameSolid name isName))
-        (ruleLast zone.holds
-          (token open "(")
+        (ruleCons zone.holds
+          (takesDoc takes)
+          [token open "("]
           (Ended zone)
           (Ended zone)
+          (Ended zone)
+          (TakesEvents zone takes)
           (TokenAt zone.allows open "(")
-          (tokenAfter zone open "(" fineOpen solidOpenParen))))
+          (takesLays zone takes fineTakes)
+          (ruleLast zone.holds
+            (token open "(")
+            (Ended zone)
+            (Ended zone)
+            (TokenAt zone.allows open "(")
+            (tokenAfter zone open "(" fineOpen solidOpenParen)))))
 
 --| `) =` and the body after it.
 theorem closingLays ∀ (zone: Zone) (close equals: Comments) (bodyDoc: Doc) (body: Body)
@@ -2356,27 +2576,30 @@ theorem closingLays ∀ (zone: Zone) (close equals: Comments) (bodyDoc: Doc) (bo
         seated
         onward))
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: `takes` and groups.
 --| A function declaration (P2), from the start of its line.
-theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments open: Comments) (parameters: List Parameter)
-    (close equals: Comments) (body: Body)
-    (lexical: LexicalDeclaration (Function fnComments name nameComments open parameters close equals body))
+--|
+--| The opening (`openingRule`), then the parameters as `nestJoined`
+--| lays them (none: nothing), then `closingLays`; the events are
+--| `DeclarationEvents`' parts in that order.
+theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: Option Comments)
+    (open: Comments) (parameters: List Parameter) (close equals: Comments) (body: Body)
+    (lexical: LexicalDeclaration (Function fnComments name nameComments takes open parameters close equals body))
     (trace: List Event) (next: Place → List Event → Prop)
     (onward: ∀ (reached: Place) (events: List Event) => DeclarationEvents
-      (Function fnComments name nameComments open parameters close equals body)
+      (Function fnComments name nameComments takes open parameters close equals body)
       events
       → Ended (Deeper 0) reached
       → next reached (trace ++ events)):
     Lays
-      (Declaration.layout (Function fnComments name nameComments open parameters close equals body))
+      (Declaration.layout (Function fnComments name nameComments takes open parameters close equals body))
       0
       (AtStart 0)
       trace
       next :=
   match lexical with
-    | Both fineFn
-        (Both isName (Both fineName (Both fineOpen (Both lexParameters (Both fineClose (Both fineEquals lexBody)))))) =>
-      let opening := Doc.concat [token fnComments "fn", Doc.text " ", token nameComments name, token open "("]
+    | (fineFn, isName, fineName, fineTakes, fineOpen, lexParameters, fineClose, fineEquals, lexBody) =>
+      let opening :=
+        Doc.concat [token fnComments "fn", Doc.text " ", token nameComments name, takesDoc takes, token open "("]
       let closing := Doc.concat [closer close ")", Doc.text " ", token equals "="]
       let bodyRule := afterEqualsLays (Deeper 0) equals body lexBody
       match parameters, lexParameters, onward with
@@ -2398,10 +2621,12 @@ theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments open:
                 fnComments
                 name
                 nameComments
+                takes
                 open
                 fineFn
                 isName
                 fineName
+                fineTakes
                 fineOpen
                 (atColumn 0)
                 0
@@ -2465,10 +2690,12 @@ theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments open:
                 fnComments
                 name
                 nameComments
+                takes
                 open
                 fineFn
                 isName
                 fineName
+                fineTakes
                 fineOpen
                 (atColumn 0)
                 0
@@ -2540,7 +2767,6 @@ theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments open:
                                   ))
                                   met))))))
 
--- Open for T2b (SW-3667), the printer side of Toy++ T2: `Function` has `takes`.
 --| A declaration, from the start of its line at column 0.
 theorem declarationLays ∀ (declaration: Declaration)
     (lexical: LexicalDeclaration declaration)
@@ -2550,8 +2776,8 @@ theorem declarationLays ∀ (declaration: Declaration)
       → next reached (trace ++ events)):
     Lays declaration.layout 0 (AtStart 0) trace next :=
   match declaration, lexical, onward with
-    | Function fnComments name nameComments open parameters close equals body, lexical, onward =>
-      functionLays fnComments name nameComments open parameters close equals body lexical trace next onward
+    | Function fnComments name nameComments takes open parameters close equals body, lexical, onward =>
+      functionLays fnComments name nameComments takes open parameters close equals body lexical trace next onward
     | Value letComments name nameComments equals body, Both fineLet
         (Both isName (Both fineName (Both fineEquals lexBody))), onward =>
       bindingRule
