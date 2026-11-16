@@ -1,5 +1,5 @@
 {
-  "next": 3509,
+  "next": 3512,
   "tickets": [
     {
       "id": 47,
@@ -39072,12 +39072,12 @@
     {
       "id": 3500,
       "title": "[Fable paper] Why is the toy proof 16x its program? (D3627, Matt, 16 Nov 2026): intrinsic to the task, our approach, or Stitchwort's gaps. Literature on verified pretty printers/parsers/formatters and their tricks; published proof-to-code ratios; how the toy proof would go in idiomatic Lean 4 and Coq/Rocq, layer by layer; verdict per cause; whether to run a measured Lean port of one layer",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\n\n**Lane note (Fable paper, 16 Nov 2026, about 15 min against 45 expected).** Note written: `docs/proposals/toy-proof-complexity.md` (commit 51e1dee36 on `lane/SW-3500`). Verdict [estimated]: roughly a quarter the task (3-6x), a quarter our approach (3-4x: 2,000 dead lines, the walk done three times, tokens recovered from printed text), half Stitchwort (6-8x: no simplifier, `Witness`/`Both` written 4,157 times [measured], no rule sets or walker). Published ratios [cited]: functional programs 3-10x (CompCert about 6, a Lean printer proof 9, ZipLex lexer 10), seL4 about 20. No verified source formatter found in the literature; the toy already uses its best tricks. Proposes a measured Lean 4 port of the engine layer (two versions, with and without automation). Two decisions for Matt in section 6: run the Lean port [rec yes]; make short proofs a language goal now (exists/and syntax first, then `simp`) [rec yes]. No builds or tests run. Web research was done by two research subagents; quotations are theirs from fetched sources.\n",
+      "body": "\n\n**Lane note (Fable paper, 16 Nov 2026, about 15 min against 45 expected).** Note written: `docs/proposals/toy-proof-complexity.md` (commit 51e1dee36 on `lane/SW-3500`). Verdict [estimated]: roughly a quarter the task (3-6x), a quarter our approach (3-4x: 2,000 dead lines, the walk done three times, tokens recovered from printed text), half Stitchwort (6-8x: no simplifier, `Witness`/`Both` written 4,157 times [measured], no rule sets or walker). Published ratios [cited]: functional programs 3-10x (CompCert about 6, a Lean printer proof 9, ZipLex lexer 10), seL4 about 20. No verified source formatter found in the literature; the toy already uses its best tricks. Proposes a measured Lean 4 port of the engine layer (two versions, with and without automation). Two decisions for Matt in section 6: run the Lean port [rec yes]; make short proofs a language goal now (exists/and syntax first, then `simp`) [rec yes]. No builds or tests run. Web research was done by two research subagents; quotations are theirs from fetched sources.\n\nMerged, Fable 13 min. Two decisions for Matt (Lean port of the engine layer; short proofs as a language goal). Filed SW-3509 (implicit params), SW-3510 (count task), SW-3511 (may-follow table).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39181,6 +39181,45 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3509,
+      "title": "[Sonnet] Why are the toy's lemmas all explicit? 1,774 '_' arguments, 1 of 1,262 theorems uses implicit parameters (SW-3500), against D2422: inference failures or habit? Find out on a sample, and file what inference would need",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3510,
+      "title": "[DeepSeek] task proof:count: count live theorems and split statements, proof-only definitions, proof bodies and doc comments for a project or namespace, so proof-to-code ratios are comparable (SW-3500)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3511,
+      "title": "[Sonnet] toyfmt: decide the lexer's 'may follow' table with Finite.check over token kinds instead of one lemma per lexeme (SW-3500); after Parse proofs L2/L4",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
