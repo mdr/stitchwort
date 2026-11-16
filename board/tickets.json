@@ -39427,7 +39427,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Fixed in SW-3566's lane (commit 942c8089e on lane/SW-3566): a tuple-marked split meeting a test fact goes through its reading (read_case), as `Both` does; examples/accept/proof-tuple-test-fact.sw.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39946,12 +39946,12 @@
     {
       "id": 3566,
       "title": "[Opus] Proof tuples: a tuple pattern in a later column of a multi-value match (match a, b with | X, (p, q)) is read as a data Pair when that column's type only reduces after splitting the earlier one (SW-3519 left 550 such patterns as Witness/Both); postpone resolving the tuple until the column's type is known",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Opus lane, 16 Nov 2026 (20:13-20:35; est. 45, rescoped to 75 at 20:20 to take in SW-3526 and SW-3517 finding 1).\n\nCause: the match compiler picks a tuple pattern's constructor from its column's type at compile time; a later column's type (`AllSmall items`), a test fact, or a lambda parameter's `Prop` unknown isn't `∧`/`∃` yet there, so the split was `Pair` and check_tree failed.\n\nFix (review's mechanism, SW-3517 finding 3): Tree::Case gets `tuple: bool` (split written with a tuple). check_tree switches a marked Pair split to `∧`/`∃` when the variable's type is one; read_case takes a test fact apart through its reading for a marked split (SW-3526); at a `Prop` unknown the split fails in place with E-CANNOT-INFER (finding 1), patlet falls back to the match there, and lambda_arg holds a lambda over a `Prop` unknown that fails so until after the later arguments (the after-expected retry didn't apply: no expected type held there). Tried first and dropped: substituting the split constructor into later columns' types at compile time (needed nothing once the check-time switch existed).\n\nExamples (each failing on main's binary first): accept/proof-tuple-later-column.sw (plus a column that stays a pair: Slot), proof-tuple-test-fact.sw, proof-tuple-prop-unknown.sw (plus a Type unknown that stays a pair). Hash test proof_tuples_hash_as_witness_and_both gains the three shapes (same hashes as Both). Toy: 5 patterns converted (WordProofs 56, 118, 129, 343; CarryProofs 142), Toy.Fmt.Proofs --no-cache and Toy.Fmt.Carry check.\n\nTests: task test:example NAME=proof-tuple 7/7 PASS; examples::soundness PASS; hash_stability::examples (EXAMPLES=the 3 new) PASS, snapshots added; proof_tuples_hash_as_witness_and_both PASS. Docs: syntax.md proof tuples bullet, proof-tuples.md §4.2 \"As built\".\n\nCommit 942c8089e on lane/SW-3566.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
