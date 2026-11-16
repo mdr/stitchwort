@@ -1,5 +1,5 @@
 {
-  "next": 3528,
+  "next": 3532,
   "tickets": [
     {
       "id": 47,
@@ -39436,6 +39436,58 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3528,
+      "title": "[Sonnet] examples/reject/parser-count-differs-from-lemma.sw lost its point after Parse L1/L2 (SW-3503/3504): it now fails on an unsolved implicit of Parse.readsWeaken instead of the 35-vs-36 count. Restate it with the new Reads/ReadsAt form so the error again names the differing count; regenerate its snapshot",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3529,
+      "title": "[Opus] rewrite with open arguments misses a visible call that can compute: in the toy's stepWords FillSep arm, 'rewrite writeWords' gives E-REWRITE-NOTHING on 'Printer.words (printer.write indent \" \" 1) …'; giving all arguments works. Gap against D2542 (from SW-3522 §, simp-revisited.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3530,
+      "title": "[Opus] 'cases in t' hands t the computed goal and over-splits (15 cases where one split on a visible if was meant); the toy's eitherWords exists to dodge it (from SW-3522)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3531,
+      "title": "[Sonnet] Toy: keepsWords/addsWords aren't needed (those arms check as open-argument rewrite chains); remove them and show the form in the proving guide (from SW-3522)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
