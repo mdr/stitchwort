@@ -1,5 +1,5 @@
 {
-  "next": 3609,
+  "next": 3610,
   "tickets": [
     {
       "id": 47,
@@ -40504,6 +40504,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "Matt clarified (16 Nov 2026): no warnings in any Stitchwort code in the repo; fix them, 'or maybe the warning isn't appropriate and we should dial down the warnings'. So each warning kind is judged: fix the code, or narrow the warning.",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3609,
+      "title": "[Sonnet] h.flipped should pass the expected type through: '(rewrite p then t).flipped' where b = a is expected fails E-REWRITE-NO-GOAL, while 'Eq.flipped (…)' works (found in Day 24, 16 Nov). Check the receiver against the flipped expected type when the method is Eq.flipped; failing-first example",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
