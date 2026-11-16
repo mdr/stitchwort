@@ -20,8 +20,8 @@ type Report = { changed: List Text, problems: List Text }
 --| What the outcomes say.
 def report (outcomes: List Outcome): Report := {
   changed = outcomes.filterMap (match
-    | Formatted path Rewritten => Some "${path}"
-    | Formatted path WouldChange => Some "${path}"
+    | Outcome.Formatted path Rewritten => Some "${path}"
+    | Outcome.Formatted path WouldChange => Some "${path}"
     | _ => None),
   problems = outcomes.filterMap (match
     | Problem message => Some message
@@ -51,7 +51,7 @@ def status (options: Options) (outcomes: List Outcome): ExitStatus :=
   if hasProblem outcomes then couldNotFormat
   else if options.check
     && outcomes.any (match
-      | Formatted _ WouldChange => True
+      | Outcome.Formatted _ WouldChange => True
       | _ => False) then
     wouldChange
   else clean

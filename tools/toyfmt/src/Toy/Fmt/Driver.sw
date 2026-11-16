@@ -89,14 +89,14 @@ def formatFile (options: Options) (path: Path): {Files} Outcome := match Files.r
   | Err error => Problem "${error}"
   | Ok source =>
     match format source options.width with
-      | Refused message => Problem (locate path message)
-      | Stable printed =>
-        if printed.text == source then Formatted path Unchanged
-        else if options.check then Formatted path WouldChange
+      | ParseError message => Problem (locate path message)
+      | FormatResult.Formatted text =>
+        if text == source then Outcome.Formatted path Unchanged
+        else if options.check then Outcome.Formatted path WouldChange
         else
-          match Files.write (path, printed.text) with
+          match Files.write (path, text) with
             | Err error => Problem "${error}"
-            | Ok written => Formatted path Rewritten
+            | Ok written => Outcome.Formatted path Rewritten
 
 --| Formats the files the paths name, folders walked: the problems with the
 --| paths come first, then one outcome per file in path order. A problem with

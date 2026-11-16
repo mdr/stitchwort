@@ -2776,3 +2776,5 @@ Tidy-up (SW-3436, SW-3458, SW-3469): deleted `printJoins`, `joinedLex` (with its
 
 
 SW-3484: the checked `format` was deleted and `formatDirect` renamed to `format`.
+
+SW-3486: `FormatResult` is now `Formatted`/`ParseError`, `Printed` is gone (`SourceFile.print` returns `Text`), and lemmas named for `Stable`, `Refused` or `Printed` are renamed (`formattedInjective`, `formatFileParseError`, `formatFileWriteError`).

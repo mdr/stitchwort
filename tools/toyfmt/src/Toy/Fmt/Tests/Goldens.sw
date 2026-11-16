@@ -11,7 +11,7 @@ import Std (List, Option, Text)
 
 type Golden = { width: Nat, source: Text, tree: SourceFile, formatted: Text }
 
-def Golden.printed (golden: Golden): Text := (golden.tree.print golden.width).text
+def Golden.printed (golden: Golden): Text := golden.tree.print golden.width
 
 --| P1: a group goes on one line if it fits, else all its breaks break; the
 --| group inside decides again, and fits.
@@ -448,7 +448,7 @@ test "mixed: nesting in a narrow width" := route.printed == route.formatted
 
 test "P8: a trailing comment on a list's last item puts the ] below" :=
   let tree := sprig [value "pair" (ListLiteral none [item (num "1"), item (NumberLiteral "2" (after "-- two"))] none)]
-  (tree.print 40).text == "let pair = [1, 2 -- two\n]\n"
+  tree.print 40 == "let pair = [1, 2 -- two\n]\n"
 
 test "a tree's dump shows its structure" :=
   headers.tree.dump
@@ -457,4 +457,4 @@ test "a tree's dump shows its structure" :=
 --| The printer writes indentation only before text, so no line it prints
 --| ends with a space, at any width.
 test "no printed line ends with a space" := goldens.all (golden =>
-  List.range 1 13 |> .all (step => (golden.tree.print (step * 8)).text.lines.all (line => not (line.endsWith " "))))
+  List.range 1 13 |> .all (step => (golden.tree.print (step * 8)).lines.all (line => not (line.endsWith " "))))

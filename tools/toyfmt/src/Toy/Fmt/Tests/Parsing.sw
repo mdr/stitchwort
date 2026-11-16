@@ -7,8 +7,7 @@ import Toy.Fmt (..)
 import Toy.Syntax (..)
 import Std (List, Option, Result, Text)
 
-def Golden.formats (golden: Golden) (text: Text): Option Text :=
-  format text golden.width |> .toOption |> .map (printed => printed.text)
+def Golden.formats (golden: Golden) (text: Text): Option Text := format text golden.width |> .toOption
 
 def Golden.parsesToTree (golden: Golden): Bool := parse golden.source == Ok golden.tree
 
