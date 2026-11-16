@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `frobnicate`
+   ╭─[ reject/unknown-name-did-you-mean-nothing-close.sw:4:3 ]
+   │
+ 4 │   frobnicate
+   │   ─────┬────  
+   │        ╰────── not in scope
+───╯
