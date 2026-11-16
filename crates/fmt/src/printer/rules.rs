@@ -1627,7 +1627,27 @@ impl<'a> Rules<'a> {
         let Some((&first, rest)) = parts.split_first() else {
             return Doc::Nil;
         };
+        // Alternatives that an operator continues are always broken into
+        // lines: printed flat, the operator after the one arm would read as
+        // part of that arm (SW-3680).
+        let opens_arms = !rest.is_empty()
+            && matches!(
+                Self::kind(first),
+                Some(
+                    NodeKind::Match
+                        | NodeKind::Induct
+                        | NodeKind::Reify
+                        | NodeKind::Handle
+                        | NodeKind::ClauseLambda
+                )
+            );
+        if opens_arms {
+            self.arm_depth += 1;
+        }
         let head = self.el(first);
+        if opens_arms {
+            self.arm_depth -= 1;
+        }
         let mut tail = Vec::new();
         let mut k = 0;
         while k < rest.len() {

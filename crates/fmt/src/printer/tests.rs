@@ -1061,3 +1061,19 @@ fn a_tidy_pass_that_changes_the_program_is_refused() {
         }
     }
 }
+
+/// A `|>` (or other operator) that starts a line left of a `match`'s arms
+/// continues the whole match; the printed form must keep it out of the
+/// last arm (SW-3680).
+#[test]
+fn an_operator_after_a_match_block_stays_outside_its_arms() {
+    for text in [
+        "def classify (n: Nat): Nat :=\n  match n with\n    | 0 => 1\n  |> k => k + 10\n",
+        "def classify (n: Nat): Nat :=\n  match n with\n    | 0 => 1\n  + 10\n",
+        "def classify (n: Nat): Nat :=\n  if n = 0 then 1 else 2\n  |> k => k + 10\n",
+    ] {
+        let gate = gate(text).expect("it parses");
+        assert_eq!(gate.check, Ok(()), "{text}\n=> {}", gate.text);
+        assert!(gate.idempotent, "not idempotent:\n{}", gate.text);
+    }
+}
