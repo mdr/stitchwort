@@ -1,5 +1,5 @@
 {
-  "next": 3503,
+  "next": 3509,
   "tickets": [
     {
       "id": 47,
@@ -38544,14 +38544,14 @@
     {
       "id": 3460,
       "title": "[Opus] Std Parse: should Parse.Reads say the offset moved by read.length, so Paced (std/Parse/Paced.sw) goes away? Changes every primitive's proof, no combinator's (SW-3418 part 8; orchestrator's call: separate ticket, after SW-3418)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Covered by docs/proposals/parse-proof-library.md (SW-3493), adopted as D3628 (Matt, 16 Nov 2026); work in SW-3503-SW-3508.",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -38611,14 +38611,14 @@
     {
       "id": 3465,
       "title": "[Opus] Std Parse: one Reads with an invariant of the items left, so ReadsAmong (Reads with fine) and perhaps Paced are instances, removing ~300 lines of repeated combinator proofs (SW-3418 part 9; pairs with SW-3460)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Covered by docs/proposals/parse-proof-library.md (SW-3493), adopted as D3628 (Matt, 16 Nov 2026); work in SW-3503-SW-3508.",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -38784,14 +38784,14 @@
     {
       "id": 3478,
       "title": "[Opus] Std Parse: a generic 'every parser function preserves P' walk (Gives-style over a parser's call graph) so toyfmt's three clones (Shaped, Lexical, Headed walks in ShapeProofs/ParsedProofs/HeadProofs) collapse; design note first (SW-3418 lane 3 finding; ~45 lemmas saved per walk)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Covered by docs/proposals/parse-proof-library.md (SW-3493), adopted as D3628 (Matt, 16 Nov 2026); work in SW-3503-SW-3508.",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -38984,7 +38984,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "16 Nov 2026 (Opus paper lane, ~25 min): note written, docs/proposals/parse-proof-library.md (commit a34079da9 on lane/SW-3493). Design: Parse.Honest total (offset in the honest mark, so combinators don't change), Parse.ReadsAt start, Parse.Invariant (list-level, kept), Parse.ReadsIn inv; Reads = ReadsIn any; Among.sw and Paced.sw go. Gives layer with givesBoth/readsBoth, readsInPeek + readsAtThen to end state-level peek proofs; one joint walk, no parser-as-data; gives tactic deferred. Declines toolkit (note, peek, optional, many, operators, oneOf, recursiveWith) + runsRecursiveWithFact. readsThen: postpone non-pattern expected-type unification, abstract p (). Runs unchanged. Lanes L1 (Opus 60) / L3 (Opus elab 60) / L5 (Sonnet 40) parallel; then L2 (Sonnet 60), L4 (Sonnet 30 + Opus 90), L6 guide (Sonnet 20). Decision for Matt: D3625 (provisional number) adopt this end state [rec: yes].\n\nMerged, Opus 8 min. Awaiting Matt's decision on adopting the end state (one D question) before lanes L1-L6 are filed; then SW-3460/3465/3478 close into them.",
+      "body": "16 Nov 2026 (Opus paper lane, ~25 min): note written, docs/proposals/parse-proof-library.md (commit a34079da9 on lane/SW-3493). Design: Parse.Honest total (offset in the honest mark, so combinators don't change), Parse.ReadsAt start, Parse.Invariant (list-level, kept), Parse.ReadsIn inv; Reads = ReadsIn any; Among.sw and Paced.sw go. Gives layer with givesBoth/readsBoth, readsInPeek + readsAtThen to end state-level peek proofs; one joint walk, no parser-as-data; gives tactic deferred. Declines toolkit (note, peek, optional, many, operators, oneOf, recursiveWith) + runsRecursiveWithFact. readsThen: postpone non-pattern expected-type unification, abstract p (). Runs unchanged. Lanes L1 (Opus 60) / L3 (Opus elab 60) / L5 (Sonnet 40) parallel; then L2 (Sonnet 60), L4 (Sonnet 30 + Opus 90), L6 guide (Sonnet 20). Decision for Matt: D3625 (provisional number) adopt this end state [rec: yes].\n\nMerged, Opus 8 min. Awaiting Matt's decision on adopting the end state (one D question) before lanes L1-L6 are filed; then SW-3460/3465/3478 close into them.\n\nD3628 (Matt, 16 Nov 2026): yes ('happy to take your recommendation'). Lanes SW-3503 (L1) .. SW-3508 (L6).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39103,6 +39103,84 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3503,
+      "title": "[Opus] Parse proofs L1 (docs/proposals/parse-proof-library.md §6, D3628): Honest, ReadsAt, Invariant, ReadsIn; restate Reads.sw's 78 theorems; honestMoved, readsInOf, readsOneEvery, readsAtThen, readsInPeek, Parse.peek. Est. 60 min",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3504,
+      "title": "[Sonnet] Parse proofs L2: ReadsChars/ReadsOperators/ReadsTokens/locatedToEnd onto L1; delete Among.sw and Paced.sw; move the toy's Fair/Paced uses and aoc's call sites. After L1 and SW-3490. Est. 60 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3505,
+      "title": "[Opus] Parse proofs L3: readsThen inference in the elaborator (postpone non-pattern expected-type problems, abstract p ()); then remove readsThenOf/amongThenOf. aoc's 92 readsThen uses are the test set. Est. 60 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3506,
+      "title": "[Sonnet+Opus] Parse proofs L4: Parse.Gives and lemmas, givesBoth, readsBoth in std; the toy's three walks into one with readsInPeek; measure how mechanical the walk lemmas remain (for the gives-tactic question). After L1, L2. Est. 120 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3507,
+      "title": "[Sonnet] Parse proofs L5: declines toolkit for token parsers and runsRecursiveWithFact; the toy's declines lemmas and runsExpressionFuel onto them. Est. 40 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3508,
+      "title": "[Sonnet] Parse proofs L6: docs/guide section on proving parsers (Reads, ReadsIn, Gives, Declines). After L1-L5. Est. 20 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
