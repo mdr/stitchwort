@@ -175,19 +175,6 @@ theorem runsPunctuationLexeme ∀ (mark: Punctuation) (rest: List Char)
     | Dot, notDefines => runsSignLexeme '.' rest rfl
     | Defines, notDefines => Void.exfalso (notDefines rfl)
 
---| `lexemeAt` reads a character no token is made of, alone.
-theorem runsStrayLexeme ∀ (char: Char) (rest: List Char)
-    (starts: lexemeStart ([char] ++ rest) = Some StrayLexeme):
-    Parse.Runs (() => lexemeAt ([char] ++ rest)) [char] rest StrayLexeme :=
-  rewrite starts in
-    Parse.runsMap
-      (() => Parse.next (char => True))
-      (read => StrayLexeme)
-      [char]
-      rest
-      (Some char)
-      (Parse.runsNext (char => True) char rest rfl)
-
 -- Operator runs.
 
 theorem runsOperatorChar ∀ (char: Char) (rest: List Char)
@@ -424,46 +411,6 @@ def isCode: Lexeme → Bool
   | LineBreak => False
   | CommentLexeme => False
   | _ => True
-
---| Spaces change nothing: columns are counted from offsets.
-theorem addSpaces ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexeme)
-    (isSpaces: lexeme.value = Spaces):
-    assembly.add source lexeme = assembly :=
-  rewrite isSpaces in rfl
-
---| A line break starts a line after it, and after a line with nothing on
---| it leaves a blank line waiting for the next token.
-theorem addLineBreak ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexeme)
-    (isBreak: lexeme.value = LineBreak):
-    assembly.add source lexeme
-      = { assembly |
-        pending = if assembly.lineEmpty then addBlank assembly.pending else assembly.pending,
-        lineStart = lexeme.offset + 1,
-        lineEmpty = True
-      } :=
-  rewrite isBreak in rfl
-
---| A comment on a line with nothing before it waits for the next token.
-theorem addOwnLineComment ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexeme)
-    (isComment: lexeme.value = CommentLexeme)
-    (alone: assembly.lineEmpty = True):
-    assembly.add source lexeme
-      = { assembly | pending = [OwnLine { text = cut source lexeme }, ..assembly.pending], lineEmpty = False } :=
-  rewrite isComment, alone in rfl
-
---| A comment after code on its line goes on the newest token.
-theorem addTrailingComment ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexeme)
-    (isComment: lexeme.value = CommentLexeme)
-    (afterCode: assembly.lineEmpty = False):
-    assembly.add source lexeme
-      = { assembly |
-        tokens = withTrailing assembly.tokens {
-          value = { text = cut source lexeme },
-          offset = lexeme.offset,
-          length = lexeme.length
-        }
-      } :=
-  rewrite isComment, afterCode in rfl
 
 --| Any other lexeme is a token: of the kind its text spells, starting its
 --| line if nothing but spaces came before it, at its column on the line,
