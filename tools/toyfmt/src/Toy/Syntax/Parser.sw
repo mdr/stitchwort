@@ -272,9 +272,9 @@ def signInBrackets (what: Text) (wanted: Punctuation): {Parse (Parse.Located Tok
 def itemsFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (found: List Item):
     {Parse (Parse.Located Token)} List Item :=
   match fuel with
-    -- Reached only with no tokens left, so with nothing found: every round
-    -- reads a token, and `fuel` starts as the tokens left.
-    | Zero => []
+    -- Never reached: every round reads a token, and `fuel` starts as the
+    -- tokens left.
+    | Zero => Empty.absurd (Parse.fatal "more items than tokens")
     | Succ more => itemsAfter more self found (item self)
 
 --| What `itemsFrom` does with the item it read and whether a comma followed

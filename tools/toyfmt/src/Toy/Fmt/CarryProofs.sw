@@ -5,11 +5,13 @@
 --|
 --| A token read at a layout gives the tree `layout.comments token`, which
 --| leaves out the own-line comments above the statement's first token
---| (they are note lines). So a value read at `layout` holds
---| `layout.keptAll read`: the first token's comments as the layout keeps
---| them, and every comment of the others, provided no other token is the
---| statement's first (`PastTail`). `Onto` is that spec in the form a chain
---| of steps builds up.
+--| (they are note lines). So a value read at `layout` holds its first
+--| token's comments as the layout keeps them and every comment of the
+--| others, provided none of the others is the statement's first
+--| (`Opened`); a value read after the first token holds every comment of
+--| its tokens (`Inner`). `Onto` is `Inner` in the form a chain of steps
+--| builds up. This file has the specs and the chain lemmas; the walk
+--| itself is in CarryWalk.sw.
 
 namespace Toy.Fmt.Carry
 import Toy.Fmt (..)
@@ -86,16 +88,6 @@ def Layout.past (layout: Layout) (token: Tok): Prop := match layout with
   | InBrackets => True
   | InStatement _ start => (token.offset == start) = False
 
---| What a value read at `layout` from `tokens` holds.
-def Layout.keptAll (layout: Layout): List Tok → List Comment
-  | [] => []
-  | [head, ..tail] => layout.kept head ++ allCarried tail
-
---| No token after the first is the statement's first.
-def PastTail (layout: Layout): List Tok → Prop
-  | [] => True
-  | [head, ..tail] => List.All layout.past tail
-
 -- A token's comments, the tree's way and the lexer's.
 
 theorem ownLinesSame ∀ (trivia: List Trivia): ownLineComments trivia = trivia.flatMap Trivia.comments :=
@@ -126,120 +118,250 @@ theorem allCarriedAppend ∀ (first second: List Tok):
       rewrite allCarriedAppend tail second then
         (List.appendAssoc head.value.comments (allCarried tail) (allCarried second)).flipped
 
-theorem keptAllPast ∀ (layout: Layout) (tokens: List Tok)
-    (past: List.All layout.past tokens):
-    layout.keptAll tokens = allCarried tokens :=
-  match tokens, past with
-    | [], _ => byComputing
-    | [head, ..tail], Both headPast tailPast => rewrite keptPast layout head headPast then byComputing
-
-theorem allPastTail ∀ (layout: Layout) (tokens: List Tok) (past: List.All layout.past tokens): PastTail layout tokens :=
-  match tokens, past with
-    | [], _ => byComputing
-    | [head, ..tail], Both headPast tailPast => tailPast
-
-theorem pastTailLeft ∀ (layout: Layout) (first second: List Tok)
-    (past: PastTail layout (first ++ second)):
-    PastTail layout first :=
-  match first, past with
-    | [], _ => byComputing
-    | [head, ..tail], all => List.allAppendLeft layout.past tail second all
-
---| What `second` needs after `first`: all of it past if `first` read a
---| token, else as `first ++ second` is.
-theorem pastTailRight ∀ (layout: Layout) (first second: List Tok)
-    (past: PastTail layout (first ++ second)):
-    PastTail layout second :=
-  match first, past with
-    | [], all => all
-    | [head, ..tail], all => allPastTail layout second (List.allAppendRight layout.past tail second all)
-
-theorem keptAllAppend ∀ (layout: Layout) (first second: List Tok)
-    (past: PastTail layout (first ++ second)):
-    layout.keptAll (first ++ second) = layout.keptAll first ++ layout.keptAll second :=
-  match first, past with
-    | [], _ => byComputing
-    | [head, ..tail], all =>
-      rewrite keptAllPast layout second (List.allAppendRight layout.past tail second all),
-          allCarriedAppend tail second then
-        (List.appendAssoc (layout.kept head) (allCarried tail) (allCarried second)).flipped
-
 theorem bracketsPast ∀ (tokens: List Tok): List.All (Layout.past InBrackets) tokens := match tokens with
   | [] => ()
   | [head, ..tail] => (byComputing, (bracketsPast tail))
 
--- The spec a chain of steps builds.
+theorem allCarriedOne ∀ (token: Tok): allCarried [token] = token.value.comments :=
+  List.appendNil token.value.comments
 
---| What is asked of the tokens a step read: before a token has been read
---| at this layout (`started = False`), only those after the first must be
---| past; after, all.
-def Seen (layout: Layout) (started: Bool) (read: List Tok): Prop := match started with
-  | True => List.All layout.past read
-  | False => PastTail layout read
+-- What the lexer's tokens are like: the walk's invariant.
 
-def sumOf (layout: Layout) (started: Bool) (read: List Tok): List Comment := match started with
-  | True => allCarried read
-  | False => layout.keptAll read
+--| A token that doesn't start a line has no own-line comments above it:
+--| the lexer gives those to the first token of the next line.
+def Tidy (token: Tok): Prop := token.value.startsLine = False → token.value.above.flatMap Trivia.comments = []
 
---| `measure` of the value is `before` and then the comments of what was
---| read.
-def Onto (layout: Layout) (started: Bool) (before: List Comment) (measure: a → List Comment)
+--| Each token's offset is below those of all after it, so no two tokens
+--| start at one place and only a statement's first token is at its
+--| layout's `start`.
+def Rising: List Tok → Prop
+  | [] => True
+  | [first, ..later] => List.All (other => first.offset < other.offset) later ∧ Rising later
+
+theorem risingAfter ∀ (read rest: List Tok) (rising: Rising (read ++ rest)): Rising rest := match read, rising with
+  | [], rising => rising
+  | [head, ..tail], Both apart later => risingAfter tail rest later
+
+--| What the walk assumes of the input left: tidy tokens at rising offsets.
+def Lexer: Parse.Invariant Tok := Parse.Invariant.both (Parse.Invariant.every Tidy) { holds = Rising, kept = risingAfter }
+
+-- The specs.
+
+--| A value read after its layout's first token holds its tokens' comments.
+def Inner (layout: Layout) (measure: a → List Comment) (read: List Tok) (value: a): Prop :=
+  List.All layout.past read → measure value = allCarried read
+
+--| `Inner` as a chain of steps builds it: `before` is what the steps so
+--| far add in front of the comments still to be read, and `extra` is
+--| anything else the chain's value must satisfy.
+def Onto (layout: Layout) (before: List Comment → List Comment) (measure: a → List Comment) (extra: a → Prop)
     (read: List Tok) (value: a):
     Prop :=
-  Seen layout started read → measure value = before ++ sumOf layout started read
+  extra value ∧ (List.All layout.past read → measure value = before (allCarried read))
 
---| A value read at `layout` holds the comments of its tokens.
-def Carries (layout: Layout) (measure: a → List Comment): List Tok → a → Prop := Onto layout False [] measure
+--| A value read from the layout's first token on: it read a token, and
+--| holds that token's comments as the layout keeps them, then the others'.
+def Opened (layout: Layout) (measure: a → List Comment) (read: List Tok) (value: a): Prop := match read with
+  | [] => Void
+  | [head, ..tail] => List.All layout.past tail → measure value = layout.kept head ++ allCarried tail
 
---| The same of a value read after the layout's first token.
-def Inner (layout: Layout) (measure: a → List Comment): List Tok → a → Prop := Onto layout True [] measure
+--| `Opened` where the first token is known to be `token`.
+def Started (layout: Layout) (token: Tok) (measure: a → List Comment) (extra: a → Prop) (read: List Tok) (value: a):
+    Prop :=
+  ∃ (more: List Tok) => read = [token, ..more]
+    ∧ extra value
+    ∧ (List.All layout.past more → measure value = layout.kept token ++ allCarried more)
 
-theorem carriesInner ∀ [measure: a → List Comment] (layout: Layout) (read: List Tok) (value: a)
-    (carries: Carries layout measure read value):
+--| An expression read at `layout`: `Opened`, its first token allowed
+--| there, and that token's comments above it the expression's
+--| `firstAbove` (which `Layout.headed` drops).
+def ExprSpec (layout: Layout) (read: List Tok) (value: Expr): Prop := match read with
+  | [] => Void
+  | [head, ..tail] =>
+    layout.allows head = True
+      ∧ value.firstAbove = (layout.comments head).above
+      ∧ (List.All layout.past tail → value.comments = layout.kept head ++ allCarried tail)
+
+theorem startedOpened ∀ [measure: a → List Comment] [extra: a → Prop] (layout: Layout) (token: Tok)
+    (read: List Tok) (value: a)
+    (started: Started layout token measure extra read value):
+    Opened layout measure read value :=
+  match started with | (more, split, holds, carried) => rewrite split then carried
+
+theorem startedExpr ∀ (layout: Layout) (token: Tok)
+    (allowed: layout.allows token = True) (read: List Tok) (value: Expr)
+    (started: Started layout token Expr.comments (found => found.firstAbove = (layout.comments token).above) read value):
+    ExprSpec layout read value :=
+  match started with | (more, split, above, carried) => rewrite split then (allowed, above, carried)
+
+theorem startedInner ∀ [measure: a → List Comment] [extra: a → Prop] (layout: Layout) (token: Tok)
+    (read: List Tok) (value: a)
+    (started: Started layout token measure extra read value):
     Inner layout measure read value :=
-  past => rewrite <- keptAllPast layout read past then carries (allPastTail layout read past)
+  match started with
+    | (more, split, holds, carried) =>
+      rewrite split then
+        (past =>
+          match past with
+            | Both tokenPast morePast => rewrite <- keptPast layout token tokenPast then carried morePast)
 
+theorem openedInner ∀ [measure: a → List Comment] (layout: Layout) (read: List Tok) (value: a)
+    (opened: Opened layout measure read value):
+    Inner layout measure read value :=
+  match read, opened with
+    | [], never => never.impossible
+    | [head, ..tail], carried => past =>
+      match past with
+        | Both headPast tailPast => rewrite <- keptPast layout head headPast then carried tailPast
+
+theorem exprOpened ∀ (layout: Layout) (read: List Tok) (value: Expr)
+    (spec: ExprSpec layout read value):
+    Opened layout Expr.comments read value :=
+  match read, spec with
+    | [], never => never.impossible
+    | [head, ..tail], known => known.right.right
+
+theorem exprInner ∀ (layout: Layout) (read: List Tok) (value: Expr)
+    (spec: ExprSpec layout read value):
+    Inner layout Expr.comments read value :=
+  openedInner layout read value (exprOpened layout read value spec)
+
+--| Inside brackets every token is past, so what was read there is `Inner`
+--| at any layout.
 theorem bracketsInner ∀ [measure: a → List Comment] (layout: Layout) (read: List Tok) (value: a)
-    (carries: Carries InBrackets measure read value):
+    (inner: Inner InBrackets measure read value):
     Inner layout measure read value :=
+  past => inner (bracketsPast read)
+
+theorem exprBrackets ∀ (layout: Layout) (read: List Tok) (value: Expr)
+    (spec: ExprSpec InBrackets read value):
+    Inner layout Expr.comments read value :=
+  bracketsInner layout read value (exprInner InBrackets read value spec)
+
+--| One token read at `layout`, after its first.
+theorem innerOne ∀ [measure: a → List Comment] (layout: Layout) (token: Tok) (value: a)
+    (same: measure value = (layout.comments token).all):
+    Inner layout measure [token] value :=
   past =>
-    rewrite <- keptAllPast InBrackets read (bracketsPast read) then
-      carries (allPastTail InBrackets read (bracketsPast read))
+    calc measure value
+      _ = layout.kept token := same
+      _ = token.value.comments := keptPast layout token past.left
+      _ = allCarried [token] := (allCarriedOne token).flipped
 
---| A step that may be the layout's first, then the rest.
-theorem thenFresh ∀ [inv: Parse.Invariant Tok] [p: () → {Parse Tok} a] [j: a → {Parse Tok} b] [first: a → List Comment]
-    [measure: b → List Comment] (layout: Layout) (before: List Comment)
-    (readsFirst: Parse.ReadsIn inv p (Carries layout first))
-    (rest: ∀ (v: a) => Parse.ReadsIn inv (() => j v) (Onto layout False (before ++ first v) measure)):
-    Parse.ReadsIn inv (() => j (p())) (Onto layout False before measure) :=
-  Parse.readsThen readsFirst (firstRead v carried =>
-    Parse.readsWeaken (rest v) (read w onward past =>
-      let firstSum: first v = layout.keptAll firstRead := carried (pastTailLeft layout firstRead read past)
-      let whole := onward (pastTailRight layout firstRead read past)
-      rewrite keptAllAppend layout firstRead read past,
-          <- firstSum,
-          <- List.appendAssoc before (first v) (layout.keptAll read) then
-        whole))
+-- From one mark. A parser that looks at the next token and then skips it
+-- can only be followed from the mark it looked at, where the token it
+-- skips is the one it saw.
 
---| A step after the layout's first token, then the rest.
-theorem thenInner ∀ [inv: Parse.Invariant Tok] [p: () → {Parse Tok} a] [j: a → {Parse Tok} b] [first: a → List Comment]
-    [measure: b → List Comment] (layout: Layout) (before: List Comment)
+theorem readsAtDone ∀ (start: Parse.Mark t) (x: a) (spec: List t → a → Prop) (holds: spec [] x):
+    Parse.ReadsAt start (() => x) spec :=
+  Parse.readsDone [inv := Parse.Invariant.any] x spec holds start { holds = Trivial }
+
+theorem readsAtWeaken ∀ [start: Parse.Mark t] [p: () → {Parse t} a] [spec weaker: List t → a → Prop]
+    (reads: Parse.ReadsAt start p spec) (implies: ∀ (read: List t) (value: a) => spec read value → weaker read value):
+    Parse.ReadsAt start p weaker :=
+  total state value after here honest h =>
+    match reads total state value after here honest h with
+      | (read, starts, honestAfter, holds) => (read, starts, honestAfter, (implies read value holds))
+
+--| `Parse.readsWithMark` with each case from its own mark.
+theorem readsAtMark ∀ [inv: Parse.Invariant t] (k: Parse.Mark t → {Parse t} a) (spec: List t → a → Prop)
+    (each: ∀ (start: Parse.Mark t) => Parse.Fits t inv start.rest → Parse.ReadsAt start (() => k start) spec):
+    Parse.ReadsIn inv (() => k (Parse.mark())) spec :=
+  start fine total state value after here honest h =>
+    let ran: Parse.runFrom state (() => (k state.at, Parse.mark())) = Ok (value, after) := h
+    each start fine total state value after here honest (rewrite <- here then ran)
+
+--| `Parse.readsInPeek` at one mark.
+theorem readsAtPeek ∀ (k: Option t → {Parse t} a) (spec: List t → a → Prop) (start: Parse.Mark t)
+    (each: Parse.ReadsAt start (() => k start.rest.head) spec):
+    Parse.ReadsAt start (() => k (Parse.peek())) spec :=
+  total state value after here honest h =>
+    let ran: Parse.runFrom state (() => (k state.at.rest.head, Parse.mark())) = Ok (value, after) := h
+    each total state value after here honest (rewrite <- here then ran)
+
+--| `Parse.readsOptional` from one mark.
+theorem readsAtOptional ∀ [start: Parse.Mark t] [p: () → {Parse t} a] [spec: List t → a → Prop]
+    (reads: Parse.ReadsAt start p spec):
+    Parse.ReadsAt start (() => Parse.optional p) (Parse.Maybe spec) :=
+  total state value after here honest h =>
+    match Parse.runFromOptionalFromOk p state.at state _ _ h with
+      | Inl (v, middle, ran, rest) =>
+        match reads total state v middle.at here honest ran with
+          | (read, starts, honest1, holds) =>
+            let same := Result.okInjective rest
+            let valueSame: Some v = value := Pair.mkInjectiveFst same
+            let atSame: middle.at = after := Pair.mkInjectiveSnd same
+            (read, (rewrite <- valueSame, <- atSame then (starts, honest1, holds)))
+      | Inr (middle, back, rest) =>
+        let same := Result.okInjective rest
+        let valueSame: None = value := Pair.mkInjectiveFst same
+        let atSame: middle.at = after := Pair.mkInjectiveSnd same
+        ([], (rewrite <- valueSame, <- atSame, back, here then (byComputing, honest, byComputing)))
+
+--| `skip` where `token` is next reads it.
+theorem readsSkipAt ∀ (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
+    (shape: start.rest = [token, ..later]):
+    Parse.ReadsAt start (() => skip()) (read done => read = [token]) :=
+  Parse.readsAtThen
+    [first := read skipped => read = [token]]
+    (total state value after here honest h =>
+      match nextTakes total state value after token later (rewrite here then shape) (rewrite here then honest) h with
+        | (isSome, starts, honestAfter) => ([token], (rewrite <- here then starts), honestAfter, byComputing))
+    (read skipped middle starts single => readsAtDone middle () _ (rewrite single then byComputing))
+
+--| `skip` of the layout's first token, seen at `start`, then the rest.
+theorem skipStarted ∀ [inv: Parse.Invariant Tok] [j: () → {Parse Tok} b] [measure: b → List Comment] [extra: b → Prop]
+    (layout: Layout) (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
+    (fine: Parse.Fits Tok inv [token, ..later])
+    (shape: start.rest = [token, ..later])
+    (rest: ∀ (done: ()) => Parse.ReadsIn inv (() => j done) (Onto layout (more => layout.kept token ++ more) measure extra)):
+    Parse.ReadsAt start (() => j (skip())) (Started layout token measure extra) :=
+  Parse.readsAtThen (readsSkipAt start token later shape) (read done after starts single =>
+    readsAtWeaken (rest done after (fine.after (rewrite <- shape then starts))) (taken value onto =>
+      (taken, (rewrite single then byComputing), onto.left, onto.right)))
+
+--| `skip` of a later token, seen at `start` and kept as the layout keeps
+--| it, then the rest.
+theorem skipOnto ∀ [inv: Parse.Invariant Tok] [j: () → {Parse Tok} b] [measure: b → List Comment] [extra: b → Prop]
+    [before: List Comment → List Comment] (layout: Layout) (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
+    (fine: Parse.Fits Tok inv [token, ..later])
+    (shape: start.rest = [token, ..later])
+    (rest: ∀ (done: ()) => Parse.ReadsIn inv
+      (() => j done)
+      (Onto layout (more => before (layout.kept token ++ more)) measure extra)):
+    Parse.ReadsAt start (() => j (skip())) (Onto layout before measure extra) :=
+  Parse.readsAtThen (readsSkipAt start token later shape) (read done after starts single =>
+    readsAtWeaken (rest done after (fine.after (rewrite <- shape then starts))) (taken value onto =>
+      (
+        onto.left,
+        (rewrite single then
+          (past =>
+            match past with
+              | Both tokenPast morePast => rewrite <- keptPast layout token tokenPast then onto.right morePast))
+      )))
+
+-- Chains of steps after the layout's first token.
+
+--| A step, then the rest.
+theorem andThen ∀ [inv: Parse.Invariant Tok] [p: () → {Parse Tok} a] [j: a → {Parse Tok} b] [first: a → List Comment]
+    [measure: b → List Comment] [extra: b → Prop] [layout: Layout] [before: List Comment → List Comment]
     (readsFirst: Parse.ReadsIn inv p (Inner layout first))
-    (rest: ∀ (v: a) => Parse.ReadsIn inv (() => j v) (Onto layout True (before ++ first v) measure)):
-    Parse.ReadsIn inv (() => j (p())) (Onto layout True before measure) :=
+    (rest: ∀ (v: a) => Parse.ReadsIn inv (() => j v) (Onto layout (later => before (first v ++ later)) measure extra)):
+    Parse.ReadsIn inv (() => j (p())) (Onto layout before measure extra) :=
   Parse.readsThen readsFirst (firstRead v carried =>
-    Parse.readsWeaken (rest v) (read w onward past =>
-      let firstSum: first v = allCarried firstRead := carried (List.allAppendLeft layout.past firstRead read past)
-      let whole := onward (List.allAppendRight layout.past firstRead read past)
-      rewrite allCarriedAppend firstRead read, <- firstSum, <- List.appendAssoc before (first v) (allCarried read) then
-        whole))
+    Parse.readsWeaken (rest v) (read w onward =>
+      (
+        onward.left,
+        (past =>
+          let firstSum: first v = allCarried firstRead := carried (List.allAppendLeft layout.past firstRead read past)
+          let whole := onward.right (List.allAppendRight layout.past firstRead read past)
+          rewrite allCarriedAppend firstRead read, <- firstSum then whole)
+      )))
 
 --| The last step: a value whose measure is what the chain built.
-theorem ontoDone ∀ [inv: Parse.Invariant Tok] [measure: a → List Comment] (layout: Layout) (started: Bool)
-    (before: List Comment) (x: a)
-    (same: measure x = before):
-    Parse.ReadsIn inv (() => x) (Onto layout started before measure) :=
-  Parse.readsDone x _ (seen =>
-    match started with
-      | True => rewrite same then (List.appendNil before).flipped
-      | False => rewrite same then (List.appendNil before).flipped)
+theorem ontoDone ∀ [inv: Parse.Invariant Tok] [measure: a → List Comment] [extra: a → Prop] [layout: Layout]
+    [before: List Comment → List Comment] [x: a]
+    (holds: extra x)
+    (same: measure x = before []):
+    Parse.ReadsIn inv (() => x) (Onto layout before measure extra) :=
+  Parse.readsDone x _ (holds, (past => same))
