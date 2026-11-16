@@ -4771,20 +4771,7 @@ impl Elaborator {
                 }
                 // So is a column of numbers on a `Fin`, but as `FZero` and
                 // `FSucc` cases in the end (`FinNumbers`).
-                if matches!(**pattern, Pattern::Num(..))
-                    && !self.options.numbers_as_succ
-                    && rows.iter().all(|r| {
-                        matches!(
-                            *r.pats[j],
-                            Pattern::Num(..)
-                                | Pattern::NegNum(..)
-                                | Pattern::Var(_)
-                                | Pattern::Wildcard(_)
-                                | Pattern::Absurd(_)
-                        )
-                    })
-                    && self.number_kind(types[j].as_ref())? == NumberKind::Fin
-                {
+                if matches!(**pattern, Pattern::Num(..)) && self.is_fin_numbers(rows, types, j)? {
                     return self.compile_fin_numbers(rows, depth, columns, types, j, span);
                 }
                 if let Some(ctor) = self.pattern_ctor(pattern, types[j].as_ref())? {
@@ -5186,6 +5173,25 @@ impl Elaborator {
             default: Box::new(default),
             span,
         })
+    }
+
+    /// Whether column `j` holds `Fin` number patterns (with variables, `_`
+    /// and `()`) in every row. Kept out of line: `compile` recurses, so its
+    /// frame counts against the stack guard (`tests/elaboration/nesting.rs`).
+    #[inline(never)]
+    fn is_fin_numbers(&self, rows: &[Row], types: &[Option<Value>], j: usize) -> Result<bool> {
+        Ok(!self.options.numbers_as_succ
+            && rows.iter().all(|r| {
+                matches!(
+                    *r.pats[j],
+                    Pattern::Num(..)
+                        | Pattern::NegNum(..)
+                        | Pattern::Var(_)
+                        | Pattern::Wildcard(_)
+                        | Pattern::Absurd(_)
+                )
+            })
+            && self.number_kind(types[j].as_ref())? == NumberKind::Fin)
     }
 
     /// Compiles a split on column `j`, a `Fin` holding numbers, variables
