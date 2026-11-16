@@ -40321,7 +40321,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Fuzz confirms (Overmind, seeds 0x95d/182788, 0x962/164395, 0x965/124100): a parameter's function type 'X → {e} Y' split across lines with {e} starting a line reads the row as a record (tree differs, refused). Fold into SW-3605's lane or run alongside.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
