@@ -39459,12 +39459,12 @@
     {
       "id": 3529,
       "title": "[Opus] rewrite with open arguments misses a visible call that can compute: in the toy's stepWords FillSep arm, 'rewrite writeWords' gives E-REWRITE-NOTHING on 'Printer.words (printer.write indent \" \" 1) …'; giving all arguments works. Gap against D2542 (from SW-3522 §, simp-revisited.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Stage 0 of simp (simp-revisited.md §1.2, §8), with SW-3530.",
+      "body": "Stage 0 of simp (simp-revisited.md §1.2, §8), with SW-3530.\n\nLane (Opus, 16 Nov 2026, 11:01-11:37, est. 45 min), branch lane/SW-3529, commit 9854c5b36.\n- Cause: the as-written search reads the goal back folded, which steps a call that matches at once (`printer.write indent \" \" 1`: `\" \".isEmpty` is decided), so the call the goal prints isn't in the term searched; the unfolded search can't match the computed `if` against the rule's, stuck on its unknown text. The printed goal uses a read-back that keeps every call.\n- Fix: when both searches find nothing, the rescue also searches the goal read back with every call kept (Reading::AsWritten), solving the rule's unknowns from the call's arguments. Reached only where the rewrite failed before.\n- Test: examples/accept/rewrite-visible-call-computes.sw: E-REWRITE-NOTHING with main's binary, checks with the fix. Toy FillSep arm now `rewrite flat in rewrite writeWords, List.appendAssoc in rfl`.\n- Ran: hash_stability (11 tests, via snap:hashes; prelude and existing examples unchanged), EXAMPLES=rewrite,cases,as-written accept/reject, soundness set, driver rewrite:: tests, Toy.Doc.Proofs / Toy.Fmt.Proofs / Toy.Syntax.Proofs, Aoc.Year2020.Day10.Proofs (index output identical to main's).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39472,12 +39472,12 @@
     {
       "id": 3530,
       "title": "[Opus] 'cases in t' hands t the computed goal and over-splits (15 cases where one split on a visible if was meant); the toy's eitherWords exists to dodge it (from SW-3522)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Stage 0 of simp (simp-revisited.md §1.2, §3.5, §8), with SW-3529 (same lane and commit 9854c5b36).\n- Cause: `cases` follows what the goal is stuck on innermost first (the chain through the condition's call into definitions: `mode`, then `printer.suffixes`), so each case's goal is computed past the calls `t` names, and the as-written generalisation finds none of those atoms in the goal as shown.\n- Fix: `cases in t` (only; plain `cases` unchanged) first splits the condition of the first `if` the goal shows (read back folded, pre-order, outside binders), if stuck and not yet split. A second gap showed once it did: a rewrite whose open argument the matched value doesn't depend on (`(?p.newline ?i).words`) matched by unfolding and left `?i` open (E-UNSOLVED); in a folded search, such a match now goes by the call's arguments when they solve it.\n- Test: examples/accept/cases-in-visible-if.sw: E-REWRITE-NOTHING with main's binary, E-UNSOLVED with the argument preference switched off, checks with both. Toy SoftLine arm now `rewrite steps in cases in (rewrite newlineWords in rfl)` (was 11 cases, all computed).\n- Existing proofs: `cases in` has no uses in std, one in AoC (2020 day 10 Part2: check --index output identical to main's), the toy, and 8 in examples (pass).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
