@@ -1563,14 +1563,17 @@ impl<'a> Rules<'a> {
     }
 
     /// The elements as the items of a fill. Pieces written with nothing
-    /// between them (`f()`) are one item.
+    /// between them (`f()`), and ones that mustn't start a line, are one
+    /// item.
     fn fill_items(&self, children: &[Element<'_>], docs: &[Doc]) -> Vec<Doc> {
         let mut items = vec![docs[0].clone()];
         for k in 1..children.len() {
             let space = self.space_el(children[k - 1], children[k]);
-            if matches!(space, Doc::Nil) {
+            // A `_` or a method section can't start a line (see `section`),
+            // so it stays on its predecessor's line.
+            if matches!(space, Doc::Nil) || self.section(children[k]) {
                 let last = items.pop().expect("an item");
-                items.push(Doc::concat([last, docs[k].clone()]));
+                items.push(Doc::concat([last, space, docs[k].clone()]));
             } else {
                 items.push(docs[k].clone());
             }

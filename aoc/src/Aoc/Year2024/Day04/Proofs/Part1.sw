@@ -70,8 +70,8 @@ theorem acrossSum ∀ (grid: Grid) (r n: Nat)
     countAcross (rowOf grid r)
       = List.sumBy (List.range 0 n) (c => readsAt grid r c 0 0 0 1 0 2 0 3 + readsAt grid r c 0 3 0 2 0 1 0 0) :=
   let row := rowOf grid r
-  rewrite countXmasSum row (row.drop 1) (row.drop 2) (row.drop 3) n h, List.getDrop row 1 _, List.getDrop row 2
-      _, List.getDrop row 3 _, at4Spells
+  rewrite countXmasSum row (row.drop 1) (row.drop 2) (row.drop 3) n h, List.getDrop row 1 _, List.getDrop row
+      2 _, List.getDrop row 3 _, at4Spells
 
 --| Through rows r to r + 3: XMAS down and up, along the diagonal down to the
 --| right both ways, and along the one down to the left both ways.
@@ -91,9 +91,9 @@ theorem throughSum ∀ (grid: Grid) (r n: Nat)
     (third.drop 2)
     (fourth.drop 3)
     n
-    h, countXmasSum (first.drop 3) (second.drop 2) (third.drop 1) fourth n shortened, List.getDrop first 3
-      _, List.getDrop second 1 _, List.getDrop second 2 _, List.getDrop third 1 _, List.getDrop third 2 _, List.getDrop
-      fourth 3 _, at4Spells
+    h, countXmasSum (first.drop 3) (second.drop 2) (third.drop 1) fourth n shortened, List.getDrop first
+      3 _, List.getDrop second 1 _, List.getDrop second 2 _, List.getDrop third 1 _, List.getDrop third
+      2 _, List.getDrop fourth 3 _, at4Spells
 
 --| With an empty row among the four, nothing is found through them.
 theorem throughEmpty1 ∀ (second third fourth: List Char): countThrough [] second third fourth = 0 := byComputing
