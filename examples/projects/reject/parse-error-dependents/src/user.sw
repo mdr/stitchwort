@@ -1,6 +1,6 @@
 namespace User
 
-import Lib (one, pick)
+import Lib (..)
 
 def total: Nat := one + pick 1
 

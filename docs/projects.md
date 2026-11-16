@@ -298,7 +298,8 @@ name that resolves into `M`.
   A plain `check` also shows the syntax errors first, drops the warnings of
   the file that has them, and doesn't list the diagnostics of the
   namespaces that use it, which see it without the declarations it lost (a
-  flood of unknown names): one `W-AFTER-SYNTAX-ERROR` says how many were
+  flood of unknown names), except their `E-USES-FAILED`, which leads back to
+  it: one `W-AFTER-SYNTAX-ERROR` says how many were
   left out and in which namespaces (SW-3475).
 
 ## `auto` across files
@@ -423,7 +424,7 @@ the working directory. `--cache-dir` overrides both.
 | `E-FOREIGN-NAMESPACE` | A file adds something other than a function to another namespace's type, or names another namespace as a declaration's qualifier. |
 | `E-EXTENSION-CLASH` | A function added to another namespace's type has the name of one of the type's own. |
 | `E-USES-FAILED` | Declarations of this file use a declaration of another namespace that has an error, so they can't be checked until it's fixed: one per broken name per file, listing what waits. Also an import of a name that namespace no longer declares because it has a syntax error (`A` has a syntax error, so `beats` can't be found). |
-| `W-AFTER-SYNTAX-ERROR` | `check` left out the diagnostics of namespaces that use one with a syntax error: how many, and in which namespaces. Fix the syntax error to see them. |
+| `W-AFTER-SYNTAX-ERROR` | `check` left out the diagnostics, other than `E-USES-FAILED`, of namespaces that use one with a syntax error: how many, and in which namespaces. Fix the syntax error to see them. |
 | `E-NAMESPACE-UNKNOWN` | A command named a namespace the project doesn't have. |
 | `E-UNKNOWN-THEOREM` | `check --only` named something that is not a theorem of the namespaces being checked. |
 | `E-IMPORT-WILDCARD` | `import N (..)` names the file's own namespace, `Std`, or a part of a namespace instead of a whole one. |
