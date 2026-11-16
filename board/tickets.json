@@ -1,5 +1,5 @@
 {
-  "next": 3501,
+  "next": 3502,
   "tickets": [
     {
       "id": 47,
@@ -38745,12 +38745,12 @@
     {
       "id": 3475,
       "title": "[Sonnet] Diagnostics: one unbalanced bracket in a project file still floods the output after SW-3439: 2,242 W-ARROW-FORALL plus unknown-name errors in five other files, the real E-PARSE at line 1,261 of ~14,000 (SW-3418 lane 2). Suppress the cascade after a parse error (other files' unknown names from the broken file's declarations; the arrow filter); show the E-PARSE first",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "\n\n\n\nLane notes (Sonnet): fix in check_in_order (project.rs): E-PARSE first, broken ns warnings dropped, dependents hidden behind one W-AFTER-SYNTAX-ERROR line. toyfmt repro 7,438 -> 34 lines. Test: reject/parse-error-dependents (fails without fix, passes with). Caveats: summary counts include hidden diagnostics; LSP path unchanged; suppression by dependency not name.\n",
+      "body": "\n\n\n\nLane notes (Sonnet): fix in check_in_order (project.rs): E-PARSE first, broken ns warnings dropped, dependents hidden behind one W-AFTER-SYNTAX-ERROR line. toyfmt repro 7,438 -> 34 lines. Test: reject/parse-error-dependents (fails without fix, passes with). Caveats: summary counts include hidden diagnostics; LSP path unchanged; suppression by dependency not name.\n\nModel result: sonnet, needed fixes (started a workspace-wide test build; redirected), ~35 min (est. 30). 7,438 lines -> 34 on a broken toy copy. Could not reproduce the W-ARROW-FORALL/buried E-PARSE form; SW-3439 may cover it. Filed SW-3501 (counts). LSP path unchanged.",
       "created": "2026-11-15",
       "updated": "2026-11-16",
       "commits": []
@@ -39071,6 +39071,19 @@
       "id": 3500,
       "title": "[Fable paper] Why is the toy proof 16x its program? (D3627, Matt, 16 Nov 2026): intrinsic to the task, our approach, or Stitchwort's gaps. Literature on verified pretty printers/parsers/formatters and their tricks; published proof-to-code ratios; how the toy proof would go in idiomatic Lean 4 and Coq/Rocq, layer by layer; verdict per cause; whether to run a measured Lean port of one layer",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3501,
+      "title": "[DeepSeek] check's end-of-run counts ('N errors', 'N declarations can't be checked') include diagnostics hidden by W-AFTER-SYNTAX-ERROR (SW-3475); count only what is shown, or say how many are hidden",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
