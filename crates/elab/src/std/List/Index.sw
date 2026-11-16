@@ -289,7 +289,7 @@ theorem List.getOrWithIndexFrom ∀ (d: a) (fallback: Pair Nat a) (start: Nat) (
     (h: i < List.length xs):
     List.getOr (List.withIndexFrom start xs) i fallback = MkPair (start + i) (List.getOr xs i d) :=
   match xs, i with
-    | [x, ..xs], Zero => rewrite Nat.addZero start then byComputing
+    | [x, ..xs], Zero => rewrite Nat.addZero start
     | [x, ..xs], Succ i => rewrite Nat.addSucc start i then List.getOrWithIndexFrom d fallback (Succ start) xs i h
 
 theorem List.getOrWithIndex ∀ (xs: List a) (i: Nat) (d: a) (fallback: Pair Nat a)
@@ -384,10 +384,9 @@ theorem List.sumByZipWith ∀ (g: c → Nat) (f: a → b → c) (xs: List a) (ys
   Eq.trans
     (List.sumByGet g (List.zipWith xs ys f) n (Nat.leTrans _ _ n (List.lengthZipWithLe f xs ys) h))
     (List.sumByCong (List.range 0 n) _ _ (j =>
-      rewrite List.getZipWith f xs ys j,
-          <- Option.map2FlatMap f (List.get ys j) (List.get xs j),
-          Option.mapMap2 f g (List.get xs j) (List.get ys j) then
-        byComputing))
+      rewrite List.getZipWith f xs ys j, <- Option.map2FlatMap f (List.get ys j) (List.get xs j), Option.mapMap2 f g
+        (List.get xs j)
+        (List.get ys j)))
 
 theorem List.sumByZipWith3 ∀ (g: d → Nat) (f: a → b → c → d) (xs: List a) (ys: List b) (zs: List c) (n: Nat)
     (h: List.length xs ≤ n):
@@ -397,8 +396,7 @@ theorem List.sumByZipWith3 ∀ (g: d → Nat) (f: a → b → c → d) (xs: List
   Eq.trans
     (List.sumByGet g (List.zipWith3 xs ys zs f) n (Nat.leTrans _ _ n (List.lengthZipWith3Le f xs ys zs) h))
     (List.sumByCong (List.range 0 n) _ _ (j =>
-      rewrite List.getZipWith3 f xs ys zs j, Option.mapMap3 f g (List.get xs j) (List.get ys j) (List.get zs j) then
-        byComputing))
+      rewrite List.getZipWith3 f xs ys zs j, Option.mapMap3 f g (List.get xs j) (List.get ys j) (List.get zs j)))
 
 theorem List.sumByZipWith4 ∀ (g: e → Nat) (f: a → b → c → d → e) (xs: List a) (ys: List b) (zs: List c)
     (ws: List d) (n: Nat)
@@ -411,9 +409,11 @@ theorem List.sumByZipWith4 ∀ (g: e → Nat) (f: a → b → c → d → e) (xs
   Eq.trans
     (List.sumByGet g (List.zipWith4 xs ys zs ws f) n (Nat.leTrans _ _ n (List.lengthZipWith4Le f xs ys zs ws) h))
     (List.sumByCong (List.range 0 n) _ _ (j =>
-      rewrite List.getZipWith4 f xs ys zs ws j,
-          Option.mapMap4 f g (List.get xs j) (List.get ys j) (List.get zs j) (List.get ws j) then
-        byComputing))
+      rewrite List.getZipWith4 f xs ys zs ws j, Option.mapMap4 f g
+        (List.get xs j)
+        (List.get ys j)
+        (List.get zs j)
+        (List.get ws j)))
 
 theorem List.sumByZipWithExample: List.sumBy (List.zipWith [1, 2, 3] [10, 20] Nat.add) (x => x) = 33 :=
   List.sumByZipWith (x => x) Nat.add [1, 2, 3] [10, 20] 3 byComputing
@@ -441,7 +441,7 @@ theorem List.sumByRangeSkipZeros ∀ (k: Nat) (f g: Nat → Nat) (n: Nat)
   calc List.sumBy (List.range 0 (n + k)) f
     _ = List.sumBy (List.range 0 k) f + List.sumBy (List.rangeFrom (n + k - k) k) f :=
       List.sumByRangeSplit f k (n + k) arithmetic
-    _ = List.sumBy (List.rangeFrom n k) f := rewrite first, back then byComputing
+    _ = List.sumBy (List.rangeFrom n k) f := rewrite first, back
     _ = List.sumBy (List.range 0 n) (i => f (k + i)) := List.sumByRangeOffset f k n
     _ = List.sumBy (List.range 0 n) g := rewrite later _
 

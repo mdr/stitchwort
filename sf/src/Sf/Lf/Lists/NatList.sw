@@ -376,7 +376,7 @@ theorem tlLengthPred ∀ (l: NatList): pred (length l) = length (tl l) := match 
 
 theorem appAssoc ∀ (l1 l2 l3: NatList): app (app l1 l2) l3 = app l1 (app l2 l3) := match l1 with
   | Nil => byComputing
-  | Cons n l1' => rewrite appAssoc l1' l2 l3 then byComputing
+  | Cons n l1' => rewrite appAssoc l1' l2 l3
 
 -- In the `Cons` arm the goal computes to `Cons n (app (app l1' l2) l3) =
 -- Cons n (app l1' (app l2 l3))`; the induction hypothesis rewrites the
@@ -436,7 +436,7 @@ theorem appAssoc ∀ (l1 l2 l3: NatList): app (app l1 l2) l3 = app l1 (app l2 l3
 
 theorem repeatPlus ∀ (c1 c2 n: Nat): app (repeat n c1) (repeat n c2) = repeat n (plus c1 c2) := match c1 with
   | O => byComputing
-  | S c1' => rewrite <- repeatPlus c1' c2 n then byComputing
+  | S c1' => rewrite <- repeatPlus c1' c2 n
 
 -- ## Reversing a List
 --
@@ -487,20 +487,20 @@ theorem testRev2: rev Nil = Nil := byComputing
 
 theorem appLengthS ∀ (l: NatList) (n: Nat): length (app l (Cons n Nil)) = S (length l) := match l with
   | Nil => byComputing
-  | Cons m l' => rewrite appLengthS l' n then byComputing
+  | Cons m l' => rewrite appLengthS l' n
 
 -- Now the original proof goes through.
 
 theorem revLength ∀ (l: NatList): length (rev l) = length l := match l with
   | Nil => byComputing
-  | Cons n l' => rewrite appLengthS (rev l') n, revLength l' then byComputing
+  | Cons n l' => rewrite appLengthS (rev l') n, revLength l'
 
 -- `appLengthS` is narrow: its second list has one element. Here is the
 -- general version, for any two lists.
 
 theorem appLength ∀ (l1 l2: NatList): length (app l1 l2) = plus (length l1) (length l2) := match l1 with
   | Nil => byComputing
-  | Cons n l1' => rewrite appLength l1' l2 then byComputing
+  | Cons n l1' => rewrite appLength l1' l2
 
 -- For comparison, informal proofs of these two theorems:
 --

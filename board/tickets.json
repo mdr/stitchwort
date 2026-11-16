@@ -41031,15 +41031,27 @@
     {
       "id": 3648,
       "title": "[Sonnet] Check whether 'rewrite p then byComputing' is the same as plain 'rewrite p' (SW-3647 counted 1,374 such goal rewrites); if so, a warning with a fix or formatter rule drops the redundant 'then byComputing'; likewise merging 'rewrite a then rewrite b' (89 chains) into 'rewrite a, b' where it's the same. Measure on std first",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nLane notes (Sonnet, lane/SW-3648): W-REWRITE-THEN-COMPUTING and W-REWRITE-THEN-REWRITE added with quick fixes (driver/src/fixes.rs); example examples/accept/rewrite-then-warning.sw. Equivalence: same term and same errors except the E-REFL note's wording and the nothing-found note's \"body proves it without the rewrite\" hint; not equivalent syntactically before a comma (record field, list element), where the warning is withheld. Swept std (400+23), toyfmt (244+16, Words.sw pinned), rogue, sf, guide, aoc (all years). Formatter bug on Year2024 Day04 Proofs Part2.sw left unformatted.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "cec03a100",
+        "5a6a854a1",
+        "187b4eb2a",
+        "95d6e8149",
+        "b12c39245",
+        "62efced4b",
+        "83ba9187f",
+        "b5093f64f",
+        "421379053",
+        "474797b69",
+        "a5a2dd686"
+      ]
     },
     {
       "id": 3649,

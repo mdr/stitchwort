@@ -111,9 +111,11 @@ theorem spreadCorrect ∀ (first: Char) (rest tail: List Char) (counts: PairCoun
     spread [first, ..rest] counts = spreadOf [first, ..tail] :=
   let into := quantitiesInto first tail counts represents
   let back := quantitiesBack first tail counts represents
-  rewrite List.maximumSameMembers (programQuantities first counts) (puzzleQuantities [first, ..tail]) into back,
-      List.minimumSameMembers (programQuantities first counts) (puzzleQuantities [first, ..tail]) into back then
-    byComputing
+  rewrite List.maximumSameMembers
+    (programQuantities first counts)
+    (puzzleQuantities [first, ..tail])
+    into
+    back, List.minimumSameMembers (programQuantities first counts) (puzzleQuantities [first, ..tail]) into back
 
 --| The answer is the puzzle's after any number of steps, if no two rules
 --| are for the same pair.
@@ -121,7 +123,7 @@ theorem spreadAfterCorrect ∀ (steps: Nat) (manual: Manual)
     (one: OneRulePerPair manual.rules):
     spreadAfter steps manual = answer steps manual :=
   match manual with
-    | { template = [], rules } => rewrite stepsEmpty rules steps then byComputing
+    | { template = [], rules } => rewrite stepsEmpty rules steps
     | { template = [first, ..rest], rules } =>
       let start := { template = [first, ..rest], rules }
       let counts := Nat.iterate steps (stepCounts (ruleTable rules)) (countPairs [first, ..rest])

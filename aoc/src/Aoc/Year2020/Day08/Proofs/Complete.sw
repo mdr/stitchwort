@@ -64,10 +64,8 @@ theorem parseComplete ∀ (input: Text) (program: Program)
     Fail.toResult (() => parseProgram input) = Ok program :=
   let lines: Fail.toResult (() => Parse.eachLine input instruction) = Ok program.instructions :=
     Parse.runsEachLine input instruction program.instructions (List.all2Weaken runsInstruction _ _ written)
-  rewrite Fail.toResultThen (() => Parse.eachLine input instruction) (instructions => ({ instructions }: Program)),
-      lines,
-      programEta program then
-    byComputing
+  rewrite Fail.toResultThen (() => Parse.eachLine input instruction) (instructions =>
+    ({ instructions }: Program)), lines, programEta program
 
 --| A line is written as at most one instruction, because the parser reads it as one.
 theorem writtenUnique ∀ (chars: List Char) (a b: Instruction)

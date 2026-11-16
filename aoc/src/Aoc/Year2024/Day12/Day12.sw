@@ -78,8 +78,8 @@ theorem Garden.unvisitedInsert ∀ (garden: Garden) (visited: Set Position) (pos
         | False => byComputing)
     position
     (garden.positionsComplete position plant grows)
-    (rewrite fresh then byComputing)
-    (rewrite Set.containsInsert position visited then byComputing)
+    (rewrite fresh)
+    (rewrite Set.containsInsert position visited)
 
 --| The plots growing `plant` reachable from the stack, joined to `members`:
 --| a depth-first flood fill. `visited` has the members, for quick lookup.

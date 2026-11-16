@@ -22,9 +22,8 @@ theorem sumByPairs ∀ (cost: k → k → Nat) (from: k) (keys: List k):
   match keys with
     | [] => byComputing
     | [to, ..rest] =>
-      rewrite List.sumByCons [to, ..rest].zipWithNext (MkPair from to) (((before, after)) => cost before after),
-          sumByPairs cost to rest then
-        byComputing
+      rewrite List.sumByCons [to, ..rest].zipWithNext (MkPair from to) (((before, after)) =>
+        cost before after), sumByPairs cost to rest
 
 --| Pressing one list then another: the second starts from the first's last key.
 theorem costFromAppend ∀ (cost: k → k → Nat) (from: k) (first second: List k):
@@ -40,7 +39,7 @@ theorem costFromCong ∀ (cost same: k → k → Nat)
     costFrom cost from keys = costFrom same from keys :=
   match keys with
     | [] => byComputing
-    | [to, ..rest] => rewrite equal from to, costFromCong cost same equal to rest then byComputing
+    | [to, ..rest] => rewrite equal from to, costFromCong cost same equal to rest
 
 --| When every press costs one, the total is the number of keys.
 theorem costFromOnes ∀ (from: k) (keys: List k): costFrom (before after => 1) from keys = keys.length := match keys with
@@ -53,7 +52,7 @@ theorem lastFromAppendOne ∀ (from: k) (keys: List k) (key: k): lastFrom from (
     | [first, ..rest] => lastFromAppendOne first rest key
 
 theorem flatMapSome ∀ (f: a → Option b) (x: Option a) (value: a) (same: x = Some value): x.flatMap f = f value :=
-  match x with | Some found => rewrite Option.someInjective same then byComputing
+  match x with | Some found => rewrite Option.someInjective same
 
 theorem flatMapIntoSome ∀ (x: Option a): x.flatMap (value => Some value) = x := match x with
   | None => byComputing

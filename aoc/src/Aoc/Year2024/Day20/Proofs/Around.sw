@@ -68,4 +68,4 @@ theorem distinctAround ∀ (position: Position) (length: Nat): List.Distinct (po
           (column => ({ row, column }: Position))
           (first second same => Eq.cong (other => other.column) same))
       (row member other inRow =>
-        Exists.elim (List.memMapElim _ other _ inRow) (column both => rewrite <- And.right both then byComputing))
+        Exists.elim (List.memMapElim _ other _ inRow) (column both => rewrite <- And.right both))

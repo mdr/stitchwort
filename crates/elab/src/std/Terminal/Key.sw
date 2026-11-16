@@ -214,7 +214,7 @@ theorem Key.nextEscape ∀ (byte: Nat) (rest: List Nat)
     (notCsi: (byte == 91) = False)
     (notSs3: (byte == 79) = False):
     Key.next (List.append (Key.bytes Escape) [byte, ..rest]) = Got Escape [byte, ..rest] :=
-  rewrite notCsi, notSs3 then byComputing
+  rewrite notCsi, notSs3
 
 theorem Key.nextLoneEscape: Key.next (Key.bytes Escape) = Incomplete := byComputing
 

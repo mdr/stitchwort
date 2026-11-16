@@ -31,8 +31,8 @@ theorem levelsAgree ∀ (cave: Cave)
   rewrite levelAtCell cave position then
     match inside: position.within cave.height cave.width with
       | True => Exists.elim (atOfWithin cave.grid rectangle.right position inside) (digit found =>
-        let level: cave.levels position = digit.toNat := rewrite levelsAt cave position, found then byComputing
-        rewrite found, level then byComputing)
+        let level: cave.levels position = digit.toNat := rewrite levelsAt cave position, found
+        rewrite found, level)
       | False =>
         match found: cellAt cave.grid.rows position with
           | None => byComputing
@@ -42,17 +42,17 @@ theorem levelsAgree ∀ (cave: Cave)
 
 --| `wrap` leaves a level up to 9...
 theorem wrapSmall ∀ (level: Nat) (small: level ≤ 9): wrap level = level :=
-  rewrite Nat.leqFalseOfLess level 10 (arithmetic [small]) then byComputing
+  rewrite Nat.leqFalseOfLess level 10 (arithmetic [small])
 
 --| ...and takes 9 from one above.
-theorem wrapLarge ∀ (level: Nat) (large: 9 < level): wrap level = level - 9 := rewrite large then byComputing
+theorem wrapLarge ∀ (level: Nat) (large: 9 < level): wrap level = level - 9 := rewrite large
 
 theorem iterateRaise ∀ (count level: Nat)
     (low: level ≤ 9)
     (sum: level + count ≤ 17):
     count.iterate raise level = wrap (level + count) :=
   match count with
-    | Zero => rewrite Nat.addZero level, wrapSmall level low then byComputing
+    | Zero => rewrite Nat.addZero level, wrapSmall level low
     | Succ count =>
       match nine: level == 9 with
         | True =>
@@ -66,7 +66,7 @@ theorem iterateRaise ∀ (count level: Nat)
           let other := nine
           let later := iterateRaise count (level + 1) (arithmetic [low, other]) (arithmetic [sum])
           let same: level + 1 + count = level + Succ count := arithmetic
-          rewrite later, same then byComputing
+          rewrite later, same
 
 --| A cave with a row and a column tiles in full.
 theorem tiledIsTiles ∀ (cave: Cave) (tall: cave.height ≠ 0) (wide: cave.width ≠ 0): cave.tiled = cave.tiles :=
@@ -121,7 +121,7 @@ theorem tiledLevelsAgree ∀ (cave: Cave)
                 base
                 (arithmetic [levelBelow10 cave place base found])
                 (arithmetic [levelBelow10 cave place base found, tileRow, tileColumn])
-            rewrite found, raised then byComputing
+            rewrite found, raised
 
 --| A rectangle has a row.
 theorem heightNotZero ∀ (cave: Cave) (rectangle: Rectangle cave): cave.height ≠ 0 := zero =>

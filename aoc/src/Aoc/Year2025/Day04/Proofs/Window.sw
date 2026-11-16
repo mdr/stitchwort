@@ -46,10 +46,10 @@ theorem keepRemove ∀ (a: Cell) (n: Nat): keep a (n + a.count) = (if a == Roll 
     match e: Nat.leq 4 n with
       | True =>
         let notFew: Nat.leq (Succ n) 4 = False := arithmetic
-        rewrite notFew then byComputing
+        rewrite notFew
       | False =>
         let few: Nat.leq (Succ n) 4 = True := arithmetic
-        rewrite few then byComputing
+        rewrite few
 
 --| The rolls in column j (counted from 1) of three rows.
 def tri (a x b: Vec Cell w) (j: Nat): Nat :=

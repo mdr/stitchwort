@@ -33,7 +33,7 @@ theorem overlapsCorrect ∀ (lines: List Line)
   List.numberWithCong
     (overlaps lines) _
     (overlap lines)
-    (p => rewrite listedCoveredBy lines shapes p then byComputing)
+    (p => rewrite listedCoveredBy lines shapes p)
     (countedTwice (lines.flatMap Line.points))
 
 --| The program's straight lines are the spec's horizontal and vertical ones.
@@ -47,7 +47,7 @@ theorem straightShapes ∀ (lines: List Line):
     | [] => byComputing
     | [line, ..rest] =>
       match e: Line.isStraight line with
-        | True => rewrite straightShapes rest then rewrite e then byComputing
+        | True => rewrite straightShapes rest, e
         | False => straightShapes rest
 
 -- Counting with a map.
@@ -57,7 +57,7 @@ theorem containsTwice ∀ (listed: List Point) (p: Point):
     Map.contains (Map.counts listed |> .filter (_ times => 2 ≤ times)) p = (2 ≤ listed.count (== p)) :=
   rewrite <- Map.getOrCounts p listed then
     match e: Map.get (Map.counts listed) p with
-      | None => rewrite Map.getFilter (Map.counts listed) p (_ times => 2 ≤ times), e then byComputing
+      | None => rewrite Map.getFilter (Map.counts listed) p (_ times => 2 ≤ times), e
       | Some times => rewrite Map.getFilter (Map.counts listed) p (_ times => 2 ≤ times), e then cases
 
 --| The points listed at least twice in `listed`: the keys of the counts
@@ -241,13 +241,13 @@ theorem bothThen ∀ [p q: Bool] (bx by: Bool) (h: bx = True → by = True → p
   match bx, by with
     | False, by => byComputing
     | True, False => byComputing
-    | True, True => rewrite h byComputing byComputing then byComputing
+    | True, True => rewrite h byComputing byComputing
 
 theorem productZeroLeft ∀ (ax ay dx dy: Nat) (h1: ax = 0) (h2: dx = 0): (ax * dy == ay * dx) = True :=
-  rewrite h1, h2, Nat.mulZero ay then byComputing
+  rewrite h1, h2, Nat.mulZero ay
 
 theorem productZeroRight ∀ (ax ay dx dy: Nat) (h1: ay = 0) (h2: dy = 0): (ax * dy == ay * dx) = True :=
-  rewrite h1, h2, Nat.mulZero ax then byComputing
+  rewrite h1, h2, Nat.mulZero ax
 
 --| On a horizontal or vertical line, every point in the rectangle the ends
 --| span is on the line; on a diagonal one, those as far across as down.
@@ -260,25 +260,23 @@ theorem coversLinear ∀ (x1 y1 x2 y2 x y: Nat)
       | True =>
         let hv := vertical.read
         rewrite productZeroLeft
-              (Nat.absDiff x1 x)
-              (Nat.absDiff y1 y)
-              (Nat.absDiff x1 x2)
-              (Nat.absDiff y1 y2)
-              (betweenFixed x1 x x2 hv bx)
-              (absDiffFixed x1 x2 hv) then
-          byComputing
+          (Nat.absDiff x1 x)
+          (Nat.absDiff y1 y)
+          (Nat.absDiff x1 x2)
+          (Nat.absDiff y1 y2)
+          (betweenFixed x1 x x2 hv bx)
+          (absDiffFixed x1 x2 hv)
       | False =>
         match horizontal: y1 == y2 with
           | True =>
             let hh := horizontal.read
             rewrite productZeroRight
-                  (Nat.absDiff x1 x)
-                  (Nat.absDiff y1 y)
-                  (Nat.absDiff x1 x2)
-                  (Nat.absDiff y1 y2)
-                  (betweenFixed y1 y y2 hh by)
-                  (absDiffFixed y1 y2 hh) then
-              byComputing
+              (Nat.absDiff x1 x)
+              (Nat.absDiff y1 y)
+              (Nat.absDiff x1 x2)
+              (Nat.absDiff y1 y2)
+              (betweenFixed y1 y y2 hh by)
+              (absDiffFixed y1 y2 hh)
           | False =>
             let same := diagonalSame x1 x2 y1 y2 shape
             rewrite <- same then Nat.mulRightCancelBool (absDiffPositive x1 x2 vertical.read))

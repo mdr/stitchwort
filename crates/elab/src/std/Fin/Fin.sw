@@ -125,7 +125,7 @@ def Fin.any: (n: Nat) → (p: Fin n → Bool) → Bool
 
 --| A position that passes makes `Fin.any` true.
 theorem Fin.anyIntro ∀ (p: Fin n → Bool) (i: Fin n) (h: p i = True): Fin.any n p = True := match i with
-  | FZero => rewrite h then byComputing
+  | FZero => rewrite h
   | FSucc i =>
     Bool.inspect
       (p FZero)
@@ -164,9 +164,7 @@ theorem Fin.anyRangeFrom ∀ (q: Nat → Bool) (n s: Nat):
     | Zero => byComputing
     | Succ n =>
       rewrite Fin.anyCong _ (i => q (Succ (Fin.toNat i) + s)) (i => q (Fin.toNat i + Succ s)) (i =>
-            Eq.cong q (Eq.flipped (Nat.addSucc (Fin.toNat i) s))),
-          Fin.anyRangeFrom q n (Succ s) then
-        byComputing
+        Eq.cong q (Eq.flipped (Nat.addSucc (Fin.toNat i) s))), Fin.anyRangeFrom q n (Succ s)
 
 --| `Fin.any n` on the numbers of the positions is `List.any` along `List.range 0 n`.
 theorem Fin.anyRange ∀ (q: Nat → Bool) (n: Nat): Fin.any n (i => q (Fin.toNat i)) = List.any (List.range 0 n) q :=

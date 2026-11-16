@@ -118,7 +118,7 @@ theorem Parse.locatedStepsSlices ∀ (source: Text) (before: List Char) (steps: 
         rewrite List.appendAssoc before read (Parse.joinReads later ++ after) then split
       let rest := Parse.locatedStepsSlices source (before ++ read) later after regrouped
       let first := Eq.cong Text.toList (Text.sliceMiddle source before read (Parse.joinReads later ++ after) split)
-      rewrite first then rewrite <- List.lengthAppend before read then rewrite rest then byComputing
+      rewrite first, <- List.lengthAppend before read, rest
 
 --| Lexemes cut from a source and joined give the source back: the slices
 --| of `source` at the places of the steps that read all of it, joined, are
@@ -138,9 +138,10 @@ theorem Parse.locatedStepsCover ∀ (source: Text) (steps: List (List Char, a))
       source.slice located.offset (located.offset + located.length)))).toList
     = source.toList :=
     rewrite Text.concatToList
-          ((Parse.locatedSteps 0 steps).map (located =>
-            source.slice located.offset (located.offset + located.length))) then
-      rewrite mapped, chars then Eq.flipped reads
+          ((Parse.locatedSteps 0 steps).map (located => source.slice located.offset (located.offset + located.length))),
+        mapped,
+        chars then
+      Eq.flipped reads
   let joined :=
     Text.concat
       ((Parse.locatedSteps 0 steps).map (located => source.slice located.offset (located.offset + located.length)))
@@ -168,10 +169,10 @@ theorem Parse.runsLocatedToEndFrom ∀ (lexeme: List Char → {Parse Char} a) (s
           Witness
             (state.note (Expected "a token")).at
             (Both
-              (rewrite List.appendNil found.reverse, starts then byComputing)
+              (rewrite List.appendNil found.reverse, starts)
               (Both
                 (rewrite same then starts)
-                (Both (rewrite same then rewrite starts at honest then honest) (rewrite same then byComputing))))
+                (Both (rewrite same then rewrite starts at honest then honest) (rewrite same))))
     | [(read, value), ..later], Both nonEmpty (Both runsLexeme runsLater) => starts honest =>
       match fuel, read with
         | Succ more, [] => (nonEmpty byComputing).impossible
@@ -200,14 +201,12 @@ theorem Parse.runsLocatedToEndFrom ∀ (lexeme: List Char → {Parse Char} a) (s
                   Parse.runsLocatedToEndFrom lexeme later more [newest, ..found] middle runsLater (arithmetic [enough])
                 let step: Parse.locatedToEndRound more lexeme found state.at value middle.at
                   = Parse.locatedToEndFrom more lexeme [newest, ..found] middle.at :=
-                  rewrite moved then byComputing
+                  rewrite moved
                 let result: [newest, ..found].reverse ++ Parse.locatedSteps middle.at.offset later
                   = found.reverse ++ Parse.locatedSteps state.at.offset [([char, ..chars], value), ..later] :=
-                  rewrite List.reverseCons newest found,
-                      List.appendAssoc found.reverse [newest] (Parse.locatedSteps middle.at.offset later),
-                      sameLength,
-                      offsetSame then
-                    byComputing
+                  rewrite List.reverseCons newest found, List.appendAssoc found.reverse
+                    [newest]
+                    (Parse.locatedSteps middle.at.offset later), sameLength, offsetSame
                 Parse.runsFromMark middle
                   (finish => Parse.locatedToEndRound more lexeme found state.at value finish)
                   (Parse.joinReads later)
@@ -245,7 +244,7 @@ theorem Parse.runsLocatedToEnd ∀ (lexeme: List Char → {Parse Char} a)
   starts honest =>
     let short := Parse.lexemeStepsShort lexeme steps runs
     let lengths: state.at.rest.length = (Parse.joinReads steps).length :=
-      rewrite starts, List.appendNil (Parse.joinReads steps) then byComputing
+      rewrite starts, List.appendNil (Parse.joinReads steps)
     Parse.runsFromMark state
       (start => Parse.locatedToEndFrom (start.left + 1) lexeme [] start)
       (Parse.joinReads steps)
@@ -263,4 +262,4 @@ theorem Parse.runsTokens ∀ (input: Text) (lexer: () → {Parse Char} List (Par
     (lexed: Fail.toResult (() => Parse.all input lexer) = Ok tokens)
     (runs: Parse.Runs parser tokens [] v):
     Fail.toResult (() => Parse.tokens input lexer parser) = Ok v :=
-  rewrite Fail.toResultThen _ _, lexed, Parse.runsWhole tokens parser v runs then byComputing
+  rewrite Fail.toResultThen _ _, lexed, Parse.runsWhole tokens parser v runs

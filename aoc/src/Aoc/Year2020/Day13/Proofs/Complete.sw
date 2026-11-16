@@ -76,7 +76,7 @@ theorem runsSlot ∀ (read: List Char) (slot2: Slot)
                     (() => Listed (Parse.digitsValue read))
                     []
                     after _ _
-                    (rewrite decimal then byComputing)
+                    (rewrite decimal)
                     (Parse.runsPure (Listed (Parse.digitsValue read)) after))))
 
 theorem notesEta ∀ (notes2: Notes): { earliest = notes2.earliest, schedule = notes2.schedule } = notes2 :=
@@ -132,8 +132,7 @@ theorem runsNotes ∀ (read: List Char) (notes2: Notes)
                       (read2 after u same3 => rewrite same3 then Parse.runsChar ',' after)
                       (read2 u same3 => rewrite same3 then List.consNotNil ',' [])
                       (read2 after u same3 =>
-                        rewrite same3 then
-                          (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found then byComputing))
+                        rewrite same3 then (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found))
                       (Parse.cannotStartAtBreaks Parse.isDigit byComputing byComputing ending breaks)
                       (Parse.declinesSepStep slot
                         (() => Parse.char ',')

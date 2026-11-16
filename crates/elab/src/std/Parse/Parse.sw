@@ -800,7 +800,7 @@ theorem Parse.runFromSpanThere ∀ (state: Parse.State t) (passes: t → Bool)
     (stops: List.takeWhile rest passes = []):
     Parse.runFrom state (() => k (Parse.span passes))
       = Parse.runFrom (state.advance rest taken.length) (() => k taken) :=
-  rewrite Parse.runFromSpan state passes k, starts, List.spanAppend passes taken rest all stops then byComputing
+  rewrite Parse.runFromSpan state passes k, starts, List.spanAppend passes taken rest all stops
 
 --| `next` where the next item passes: it reads it.
 theorem Parse.runFromNextThere ∀ (state: Parse.State t) (passes: t → Bool) (char: t)
@@ -808,12 +808,12 @@ theorem Parse.runFromNextThere ∀ (state: Parse.State t) (passes: t → Bool) (
     (starts: state.at.rest = [char, ..rest])
     (holds: passes char = True):
     Parse.runFrom state (() => k (Parse.next passes)) = Parse.runFrom (state.advance rest 1) (() => k (Some char)) :=
-  rewrite starts, holds then byComputing
+  rewrite starts, holds
 
 theorem Parse.runFromEndThere ∀ (state: Parse.State t) (k: () → {Parse t} a)
     (atEnd: state.at.left = 0):
     Parse.runFrom state (() => k (Parse.end())) = Parse.runFrom state (() => k ()) :=
-  rewrite atEnd then byComputing
+  rewrite atEnd
 
 -- `optional` marks where it starts, then runs the parser under
 -- `optionalFrom`, which passes each reading operation on, gives `Some` of a

@@ -106,7 +106,7 @@ theorem cramerWithinCosts ∀ (machine: Machine)
                 match costsWin tokensSpent listed with
                   | Witness otherA (Witness otherB (Both aBelow (Both bBelow (Both otherWon costs)))) =>
                     let same := sameWin machine nonzero aPresses bPresses otherA otherB found otherWon
-                    rewrite costs, same.left, same.right then byComputing))
+                    rewrite costs, same.left, same.right))
         | False =>
           Eq.flipped
             (List.minimumEmpty costs (tokensSpent listed =>

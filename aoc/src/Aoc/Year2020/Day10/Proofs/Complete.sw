@@ -21,10 +21,7 @@ theorem parseComplete ∀ (input: Text) (bag: Bag)
     Fail.toResult (() => parseBag input) = Ok bag :=
   let lines: Fail.toResult (() => Parse.eachLine input Parse.nat) = Ok bag.adapters :=
     Parse.runsEachLine input Parse.nat bag.adapters (List.all2Weaken runsRating _ _ written)
-  rewrite Fail.toResultThen (() => Parse.eachLine input Parse.nat) (adapters => ({ adapters }: Bag)),
-      lines,
-      bagEta bag then
-    byComputing
+  rewrite Fail.toResultThen (() => Parse.eachLine input Parse.nat) (adapters => ({ adapters }: Bag)), lines, bagEta bag
 
 --| A line is written as at most one rating, because the parser reads it as one.
 theorem writtenUnique ∀ (chars: List Char) (a b: Nat)

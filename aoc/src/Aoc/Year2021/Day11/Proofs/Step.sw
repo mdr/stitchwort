@@ -34,8 +34,7 @@ theorem stepIsSpec ∀ (cavern: Cavern):
       (mapCellsCong cavern.grid.rows
         (at level => if cavern.flashers.lookup at then 0 else energyWith cavern.flashers.lookup at level)
         (at level => if cavern.flashers.has at then 0 else cavern.flashers.energy at level)
-        (q level =>
-          rewrite lookupIsHas cavern.flashers q, energyWithIsEnergy cavern.flashers q level then byComputing)))
+        (q level => rewrite lookupIsHas cavern.flashers q, energyWithIsEnergy cavern.flashers q level)))
 
 --| The step's cavern is the spec's cavern after the step, for the spec's
 --| flashers (any: there is one set, `flashersUnique`).
@@ -55,7 +54,7 @@ theorem stepCorrect ∀ (cavern: Cavern) (flashed: Position → Bool)
             let up := energyMono cavern cavern.flashers.has flashed (p h => rewrite <- same p then h) q level
             let down := energyMono cavern flashed cavern.flashers.has (p h => rewrite same p then h) q level
             let energies: cavern.flashers.energy q level = energyIn cavern flashed q level := arithmetic
-            rewrite same q, energies then byComputing)))
+            rewrite same q, energies)))
 
 --| A cell is 0 after the step exactly when it flashed.
 theorem zeroAfter ∀ (flashed: Flashed) (at: Position) (level: Nat):

@@ -9,10 +9,10 @@ import Std (Bool, DecEq, Eq, List, Map, Nat, Option, Void)
 
 theorem secretsMatch ∀ (count secret: Nat): secrets count secret = secretNumbers count secret := match count with
   | Zero => byComputing
-  | Succ count => rewrite nextSecretEvolves secret, secretsMatch count (evolve secret) then byComputing
+  | Succ count => rewrite nextSecretEvolves secret, secretsMatch count (evolve secret)
 
 theorem pricesMatch ∀ (count buyer: Nat): prices count buyer = offeredPrices count buyer :=
-  rewrite secretsMatch count buyer then byComputing
+  rewrite secretsMatch count buyer
 
 --| Folding sales into a map, keeping the first price for each sequence,
 --| adds the first price in the list for a sequence the map lacks.
@@ -26,16 +26,14 @@ theorem keepFirstGet ∀ (key: Changes) (found: List (Changes, Nat)) (sales: Map
       match same: entry.fst == key with
         | True =>
           let equal := same.read
-          rewrite later then
-            rewrite equal, Map.getInsertWith sales key entry.snd (new old => old) then
-              match sales.get key with
-                | None => byComputing
-                | Some old => byComputing
+          rewrite later, equal, Map.getInsertWith sales key entry.snd (new old => old) then
+            match sales.get key with
+              | None => byComputing
+              | Some old => byComputing
         | False =>
-          rewrite later then
-            rewrite Map.getInsertWithOther sales entry.fst entry.snd key (equal => same.read equal.flipped) (new old =>
-                  old) then
-              byComputing
+          rewrite later, Map.getInsertWithOther sales entry.fst entry.snd key
+            (equal => same.read equal.flipped)
+            (new old => old)
 
 --| Looking for the first place the monkey sells is looking for the first
 --| sale with that sequence.

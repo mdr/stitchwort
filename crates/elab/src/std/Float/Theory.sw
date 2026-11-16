@@ -15,7 +15,7 @@ theorem Float.Theory.pow2FromPow ∀ (fuel k: Nat): Float.Model.pow2From fuel k 
   | Zero => byComputing
   | Succ fuel =>
     match z: Nat.equal k 0 with
-      | True => rewrite z.read then byComputing
+      | True => rewrite z.read
       | False =>
         let d: Nat := Nat.divFuel k k 2
         let low: d * 2 ≤ k := Nat.divFuelLe k k 2
@@ -133,8 +133,7 @@ theorem Float.Theory.magUnitsField ∀ (e f: Nat)
       = (if Nat.equal e 0 then f else Nat.pow 2 (e - 1) * (f + 4503599627370496)) :=
   let d: Nat.divFuel (e * 4503599627370496 + f) (e * 4503599627370496 + f) 4503599627370496 = e :=
     Nat.divUnique (e * 4503599627370496 + f) 4503599627370496 e f h byComputing
-  rewrite d, (arithmetic: e * 4503599627370496 + f - e * 4503599627370496 = f), Float.Theory.pow2Pow (e - 1) then
-    byComputing
+  rewrite d, (arithmetic: e * 4503599627370496 + f - e * 4503599627370496 = f), Float.Theory.pow2Pow (e - 1)
 
 --| A normal pattern, exponent field `e + 1`.
 theorem Float.Theory.magUnitsFieldNext ∀ (e f: Nat)
@@ -318,7 +317,7 @@ def Float.Theory.IsEven (n: Nat): Prop := Nat.equal (n - Nat.divFuel n n 2 * 2) 
 
 theorem Float.Theory.isEvenOf ∀ (n h: Nat) (e: n = h * 2): Float.Theory.IsEven n :=
   let d: Nat.divFuel n n 2 = h := Nat.divUnique n 2 h 0 byComputing (arithmetic [e])
-  rewrite d, (arithmetic [e]: n - h * 2 = 0) then byComputing
+  rewrite d, (arithmetic [e]: n - h * 2 = 0)
 
 --| Halfway between the largest finite double and 2^1024, in units: from
 --| here on, a value rounds to infinity.
@@ -608,8 +607,7 @@ theorem Float.Theory.mulLtLeft ∀ (a c d: Nat) (h: a < c) (pos: 0 < d): d * a <
 theorem Float.Theory.mulLeLeft ∀ (a c d: Nat) (h: a ≤ c): d * a ≤ d * c :=
   rewrite Nat.mulComm d a, Nat.mulComm d c then Nat.leMulRight a c d h
 
-theorem Float.Theory.isEvenOfZero ∀ (n: Nat) (e: n - Nat.divFuel n n 2 * 2 = 0): Float.Theory.IsEven n :=
-  rewrite e then byComputing
+theorem Float.Theory.isEvenOfZero ∀ (n: Nat) (e: n - Nat.divFuel n n 2 * 2 = 0): Float.Theory.IsEven n := rewrite e
 
 --| An even significand makes an even pattern.
 theorem Float.Theory.evenShift ∀ (e q: Nat)
@@ -775,11 +773,8 @@ theorem Float.Theory.scaleLess ∀ (x t1 d1 t2 d2: Nat)
 theorem Float.Theory.distScale ∀ (u t1 d1 t2 d2: Nat)
     (e: t1 * d2 = t2 * d1):
     Nat.absDiff (u * d1) t1 * d2 = Nat.absDiff (u * d2) t2 * d1 :=
-  rewrite Float.Theory.absDiffMul (u * d1) t1 d2,
-      Float.Theory.absDiffMul (u * d2) t2 d1,
-      e,
-      (algebra: u * d1 * d2 = u * d2 * d1) then
-    byComputing
+  rewrite Float.Theory.absDiffMul (u * d1) t1 d2, Float.Theory.absDiffMul (u * d2) t2 d1, e, (algebra: u * d1 * d2
+    = u * d2 * d1)
 
 theorem Float.Theory.leAcross ∀ (a b c d k1 k2: Nat)
     (p1: 0 < k1)
@@ -1033,7 +1028,7 @@ theorem Float.Theory.firstHigh ∀ (n den u v a dd: Nat)
     ])
 
 theorem Float.Theory.subNatNatCancel ∀ (x a: Nat): Int.subNatNat (x + a) a = OfNat x :=
-  rewrite (arithmetic: a - (x + a) = 0) then rewrite (arithmetic: x + a - a = x) then byComputing
+  rewrite (arithmetic: a - (x + a) = 0), (arithmetic: x + a - a = x)
 
 --| `2^E × top / bottom` at `shift + E = s` is `n / den × 2^s`.
 theorem Float.Theory.shiftCross ∀ (n den u v us vs x: Nat)
@@ -1398,7 +1393,7 @@ theorem Float.Theory.roundRatioValid ∀ (den: Nat) (scale: Int) (z: Bool)
 theorem Float.Theory.keyLow ∀ (m: Nat)
     (h: m ≤ 9218868437227405312):
     Float.keyOf m (Nat.leq 9223372036854775808 m) = OfNat m :=
-  rewrite (arithmetic [h]: Nat.leq 9223372036854775808 m = False) then byComputing
+  rewrite (arithmetic [h]: Nat.leq 9223372036854775808 m = False)
 
 theorem Float.Theory.keyHigh ∀ (m: Nat):
     Float.keyOf (m + 9223372036854775808) (Nat.leq 9223372036854775808 (m + 9223372036854775808)) = NegSucc m :=
@@ -1640,10 +1635,9 @@ theorem Float.Theory.andSwap ∀ (a b: Bool): (a ∧ b) = (b ∧ a) := match a, 
   | False, True => byComputing
   | False, False => byComputing
 
-theorem Float.Theory.ifTrue ∀ (c: Bool) (x y: Nat) (h: c = True): (if c then x else y) = x := rewrite h then byComputing
+theorem Float.Theory.ifTrue ∀ (c: Bool) (x y: Nat) (h: c = True): (if c then x else y) = x := rewrite h
 
-theorem Float.Theory.ifFalse ∀ (c: Bool) (x y: Nat) (h: c = False): (if c then x else y) = y :=
-  rewrite h then byComputing
+theorem Float.Theory.ifFalse ∀ (c: Bool) (x y: Nat) (h: c = False): (if c then x else y) = y := rewrite h
 
 -- `addBits`'s branches past the NaN check: an infinite first argument,
 -- and two finite ones.
@@ -1665,7 +1659,7 @@ theorem Float.Theory.finWithCong ∀ (n1 n2: Int) (z1 z2: Bool)
     (en: n1 = n2)
     (ez: z1 = z2):
     Float.Theory.finWith n1 z1 = Float.Theory.finWith n2 z2 :=
-  rewrite en, ez then byComputing
+  rewrite en, ez
 
 --| `addBits` past the NaN check: an infinity if either is one, otherwise the rounded sum.
 def Float.Theory.addRest (a b: Nat): Nat :=
@@ -1716,8 +1710,7 @@ theorem Float.Theory.addRestFin ∀ (a b: Nat)
       ha)
     (Float.Theory.ifFalse (Float.Model.isInfinite b) b (Float.Theory.addFin a b) hb)
 
-theorem Float.Theory.orFalse ∀ (x y: Bool) (hx: x = False) (hy: y = False): (x ∨ y) = False :=
-  rewrite hx, hy then byComputing
+theorem Float.Theory.orFalse ∀ (x y: Bool) (hx: x = False) (hy: y = False): (x ∨ y) = False := rewrite hx, hy
 
 --| A valid pattern that is neither the NaN nor infinite is finite.
 theorem Float.Theory.finiteOf ∀ (a: Nat)
@@ -1730,14 +1723,14 @@ theorem Float.Theory.finiteOf ∀ (a: Nat)
       arithmetic [
         Float.highBound a v (arithmetic [c]),
         c,
-        (rewrite c then byComputing: Float.Model.magnitude a = a - 9223372036854775808),
+        (rewrite c: Float.Model.magnitude a = a - 9223372036854775808),
         Nat.equalFalse (Float.Model.magnitude a) 9218868437227405312 ia
       ]
     | Inr c =>
       arithmetic [
         Float.lowBound a v na c,
         c,
-        (rewrite c then byComputing: Float.Model.magnitude a = a),
+        (rewrite c: Float.Model.magnitude a = a),
         Nat.equalFalse (Float.Model.magnitude a) 9218868437227405312 ia
       ]
 
@@ -1773,12 +1766,11 @@ theorem Float.Theory.addInfComm ∀ (a b: Nat)
   match Float.Theory.boolCases (Nat.equal a b) with
     | Inl e =>
       let ab: a = b := e.read
-      rewrite ab then byComputing
+      rewrite ab
     | Inr e =>
       Eq.trans
-        (rewrite ib, e then byComputing: Float.Theory.addInf a b = 9221120237041090560)
-        (Eq.flipped
-          (rewrite ia, Eq.trans (Nat.equalComm b a) e then byComputing: Float.Theory.addInf b a = 9221120237041090560))
+        (rewrite ib, e: Float.Theory.addInf a b = 9221120237041090560)
+        (Eq.flipped (rewrite ia, Eq.trans (Nat.equalComm b a) e: Float.Theory.addInf b a = 9221120237041090560))
 
 --| A case split that leaves the goal as it is, for goals that are costly to
 --| search.
@@ -1800,7 +1792,7 @@ theorem Float.Theory.addRestComm ∀ (a b: Nat): Float.Theory.addRest a b = Floa
         (ib =>
           calc Float.Theory.addRest a b
             _ = Float.Theory.addInf a b := Float.Theory.addRestInfA a b ia
-            _ = a := (rewrite ib then byComputing: Float.Theory.addInf a b = a)
+            _ = a := (rewrite ib: Float.Theory.addInf a b = a)
             _ = Float.Theory.addRest b a := Eq.flipped (Float.Theory.addRestInfB b a ib ia)))
     (ia =>
       Float.Theory.orCase
@@ -1808,7 +1800,7 @@ theorem Float.Theory.addRestComm ∀ (a b: Nat): Float.Theory.addRest a b = Floa
         (ib =>
           calc Float.Theory.addRest a b
             _ = b := Float.Theory.addRestInfB a b ia ib
-            _ = Float.Theory.addInf b a := Eq.flipped (rewrite ia then byComputing: Float.Theory.addInf b a = b)
+            _ = Float.Theory.addInf b a := Eq.flipped (rewrite ia: Float.Theory.addInf b a = b)
             _ = Float.Theory.addRest b a := (Float.Theory.addRestInfA b a ib).flipped)
         (ib =>
           calc Float.Theory.addRest a b
@@ -1853,10 +1845,10 @@ theorem Float.Theory.keyRefl ∀ (x: Int): Int.leq x x = True := match x with
 theorem Float.Theory.keySet ∀ (a: Nat)
     (c: Nat.leq 9223372036854775808 a = True):
     Float.Theory.key a = NegSucc (a - 9223372036854775808) :=
-  rewrite c then byComputing
+  rewrite c
 
 theorem Float.Theory.keyClear ∀ (a: Nat) (c: Nat.leq 9223372036854775808 a = False): Float.Theory.key a = OfNat a :=
-  rewrite c then byComputing
+  rewrite c
 
 --| Every valid pattern's key is at most the NaN's.
 theorem Float.Theory.keyLeNaN ∀ (a: Nat)
@@ -1909,8 +1901,7 @@ theorem Float.Theory.keyLeInf ∀ (a: Nat)
         (OfNat 9218868437227405312)
         (Float.Theory.keyClear a c)
         byComputing
-        (arithmetic [fin, (rewrite c then byComputing: Float.Model.magnitude a = a)]: Nat.leq a 9218868437227405312
-          = True))
+        (arithmetic [fin, (rewrite c: Float.Model.magnitude a = a)]: Nat.leq a 9218868437227405312 = True))
 
 --| The keys of the two zeros' patterns are at most `0.0`'s.
 theorem Float.Theory.zeroLeZeroBits ∀ (a: Nat)
@@ -2047,7 +2038,7 @@ theorem Float.Theory.addFinMono ∀ (a b: Nat)
     (fa: Float.Theory.FiniteBits a)
     (sb: Nat.leq 9223372036854775808 b = False):
     Int.leq (Float.Theory.key a) (Float.Theory.key (Float.Theory.addFin a b)) = True :=
-  let ub: Float.Model.units b = OfNat (Float.Theory.magUnits b) := rewrite sb then byComputing
+  let ub: Float.Model.units b = OfNat (Float.Theory.magUnits b) := rewrite sb
   let sum: Float.Theory.addFin a b
     = Float.Theory.finWith
       (Int.add (Float.Model.units a) (OfNat (Float.Theory.magUnits b)))
@@ -2204,7 +2195,7 @@ theorem Float.Theory.addNegZeroBits ∀ (a: Nat)
     Float.Model.addBits a 9223372036854775808 = a :=
   Float.Theory.orCase
     (Float.Theory.boolCases (Float.Model.isNaN a))
-    (n => Eq.trans (Float.Theory.addBitsNaN a 9223372036854775808 (rewrite n then byComputing)) n.read.flipped)
+    (n => Eq.trans (Float.Theory.addBitsNaN a 9223372036854775808 (rewrite n)) n.read.flipped)
     (n =>
       Eq.trans
         (Float.Theory.addBitsRest a 9223372036854775808
@@ -2286,7 +2277,7 @@ test "Float.Theory.unitsZeroIsZero" :=
 theorem Float.Theory.unitsPositive ∀ (x: Float) (h: 0.0 < x): Int.less (OfNat 0) (Float.Theory.units x) = True :=
   Float.Theory.orCase (Float.Theory.boolCases (Nat.leq 9223372036854775808 x.bits)) (c => cases) (c =>
     let pos: Nat.leq 1 x.bits = True := J (y w => Int.less (OfNat 0) (Float.keyOf x.bits y) = True) h c
-    let u: Float.Theory.units x = OfNat (Float.Theory.magUnits x.bits) := rewrite c then byComputing
+    let u: Float.Theory.units x = OfNat (Float.Theory.magUnits x.bits) := rewrite c
     Float.Theory.orCase
       (Float.Theory.zeroOrPos (Float.Theory.magUnits x.bits))
       (k0 => Void.impossible (arithmetic [pos, Float.Theory.magUnitsInjective x.bits 0 k0]))

@@ -22,10 +22,8 @@ theorem parseComplete ∀ (input: Text) (data: XmasData)
     Fail.toResult (() => parseData input) = Ok data :=
   let lines: Fail.toResult (() => Parse.eachLine input Parse.nat) = Ok data.numbers :=
     Parse.runsEachLine input Parse.nat data.numbers (List.all2Weaken runsNumber _ _ written)
-  rewrite Fail.toResultThen (() => Parse.eachLine input Parse.nat) (numbers => ({ numbers }: XmasData)),
-      lines,
-      dataEta data then
-    byComputing
+  rewrite Fail.toResultThen (() => Parse.eachLine input Parse.nat) (numbers => ({ numbers }: XmasData)), lines, dataEta
+      data
 
 --| A line is written as at most one number, because the parser reads it as one.
 theorem writtenUnique ∀ (chars: List Char) (a b: Nat)

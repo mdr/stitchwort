@@ -29,7 +29,7 @@ theorem readsTile: Parse.Reads tile TileWritten := Parse.readsThen (Parse.readsT
               (Witness breakRead
                 (Witness rowsRead
                   (Both
-                    (rewrite head, colon, List.appendNil rowsRead then byComputing)
+                    (rewrite head, colon, List.appendNil rowsRead)
                     (Both idWritten (Both break (Witness rows (Both rowsWritten byComputing)))))))))))))
 
 theorem readsJigsaw: Parse.Reads jigsaw JigsawWritten :=

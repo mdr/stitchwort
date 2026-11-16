@@ -64,6 +64,7 @@ mod named;
 mod nav;
 mod no_effect;
 mod proof_chain;
+mod rewrite_then;
 pub use dot::DUMMY as COMPLETION_DUMMY;
 pub use nav::{NavIndex, NavRef, NavSymbol, NavTarget, ScopeName, std_source};
 mod cases;
@@ -3462,6 +3463,7 @@ impl Elaborator {
             found.extend(
                 crate::proof_chain::warnings(equations)
                     .into_iter()
+                    .chain(crate::rewrite_then::warnings(equations))
                     .map(|d| (*index, d)),
             );
         }

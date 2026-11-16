@@ -151,7 +151,7 @@ def Map.removeIn [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key
   m.alter key (items => items.map (.remove item) |> .filter (rest => !rest.isEmpty))
 
 theorem Set.containsInsert ∀ [auto ord: Ord k] (key: k) (s: Set k): (s |> Set.insert key |> Set.contains key) = True :=
-  rewrite Map.getInsert key () s.items then byComputing
+  rewrite Map.getInsert key () s.items
 
 theorem List.toSetFromList ∀ [auto ord: Ord k] (items: List k): items.toSet = Set.fromList items := byComputing
 
@@ -165,7 +165,7 @@ theorem Set.unitEntries ∀ (xs ys: List (k, ())) (h: List.map xs Pair.fst = Lis
   match xs, ys with
     | [], [] => byComputing
     | [(a, u), ..xs2], [(b, w), ..ys2] =>
-      rewrite Eq.cong (.headOr a) h, Set.unitEq u w, Set.unitEntries xs2 ys2 (Eq.cong List.tailOf h) then byComputing
+      rewrite Eq.cong (.headOr a) h, Set.unitEq u w, Set.unitEntries xs2 ys2 (Eq.cong List.tailOf h)
 
 --| Sets with the same keys in order are equal.
 theorem Set.toListInjective ∀ (s t: Set k [ord := o]) (same: Set.toList s = Set.toList t): s = t := match s, t with

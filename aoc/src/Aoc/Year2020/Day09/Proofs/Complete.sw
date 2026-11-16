@@ -40,12 +40,11 @@ theorem growsInside ∀ (numbers: List Nat) (target start length: Nat)
   if h: from + count < start + length then h
   else
     let skipped: front.drop (start - from) = numbers.drop start :=
-      rewrite at, <- List.dropAdd from (start - from) numbers, (arithmetic: from + (start - from) = start) then
-        byComputing
+      rewrite at, <- List.dropAdd from (start - from) numbers, (arithmetic: from + (start - from) = start)
     let covered := List.sumDropTakeLe front (start - from) length
     let runSum := rewrite <- skipped at sums then sums
     let whole: (front.take (start - from + length)).sum = sum :=
-      rewrite (arithmetic: start - from + length = count), total then byComputing
+      rewrite (arithmetic: start - from + length = count), total
     Void.impossible (unfinished (arithmetic) (arithmetic))
 
 theorem runFromComplete ∀ (numbers: List Nat) (target start length: Nat)
@@ -78,7 +77,7 @@ theorem runFromComplete ∀ (numbers: List Nat) (target start length: Nat)
                   (sum - first)
                   rest
                   (from + 1)
-                  (rewrite List.dropAdd from 1 numbers, <- at then byComputing)
+                  (rewrite List.dropAdd from 1 numbers, <- at)
                   (arithmetic)
                   after
                   (arithmetic [List.sumCons first (later.take k)])
@@ -117,7 +116,7 @@ theorem runFromComplete ∀ (numbers: List Nat) (target start length: Nat)
                   from
                   at
                   (arithmetic)
-                  (rewrite List.dropAdd count 1 front, <- after then byComputing)
+                  (rewrite List.dropAdd count 1 front, <- after)
                   (rewrite taken, List.sumAppend (front.take count) [next] then arithmetic)
                   notPast
                   (arithmetic)
@@ -147,8 +146,7 @@ theorem weaknessComplete ∀ (data: XmasData) (invalid answer: Nat)
     if h: start ≤ data.numbers.length then arithmetic [List.lengthDrop data.numbers start h, Eq.cong List.length isRun]
     else
       let empty: run = [] :=
-        rewrite isRun, List.dropPast data.numbers start (arithmetic), List.takeAll [] length (arithmetic) then
-          byComputing
+        rewrite isRun, List.dropPast data.numbers start (arithmetic), List.takeAll [] length (arithmetic)
       Void.impossible (arithmetic [Eq.cong List.length empty])
   match r: data.runSumming invalid with
     | None => Void.impossible (runSummingComplete data invalid start run.length sums long inside r)

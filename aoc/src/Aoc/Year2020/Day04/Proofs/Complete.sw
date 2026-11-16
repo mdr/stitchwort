@@ -159,8 +159,8 @@ theorem runsField ∀ (read: List Char) (f: Field)
 
 theorem spaceNotValue ∀ (char: Char) (isSpace: Parse.isSpace char = True): isValueChar char = False :=
   match isSpace with
-    | Inl space => rewrite space.read then byComputing
-    | Inr tab => rewrite tab.read then byComputing
+    | Inl space => rewrite space.read
+    | Inr tab => rewrite tab.read
 
 --| A key's first letter is a value character, so a word starting with it is absent where a space or line break is.
 theorem wordAbsent ∀ (first: Char) (others: List Char) (char: Char) (more: List Char)
@@ -330,9 +330,7 @@ theorem runsPassport ∀ (read: List Char) (who: Passport)
                   | Inr isBreak => Parse.lineBreakNotEmpty read2 u isBreak)
               (read2 after u written3 =>
                 match written3 with
-                  | Inl same =>
-                    rewrite same then
-                      (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found then byComputing)
+                  | Inl same => rewrite same then (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found)
                   | Inr isBreak => Parse.cannotStartAfterBreak isValueChar byComputing byComputing read2 after isBreak)
               (Parse.cannotStartAtLinesEnd isValueChar byComputing byComputing spaceNotValue rest end)
               (declinesStepAtLinesEnd rest end)

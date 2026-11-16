@@ -63,9 +63,9 @@ theorem Ordering.andThenTrans ∀ (c1 c2 c3 r1 r2 r3: Ordering)
     (h2: Ordering.andThen c2 r2 = Less):
     Ordering.andThen c3 r3 = Less :=
   match c1, c2 with
-    | Less, Less => rewrite t byComputing byComputing then byComputing
-    | Less, Equal => rewrite e2 byComputing then byComputing
-    | Equal, Less => rewrite e1 byComputing then byComputing
+    | Less, Less => rewrite t byComputing byComputing
+    | Less, Equal => rewrite e2 byComputing
+    | Equal, Less => rewrite e1 byComputing
     | Equal, Equal => rewrite e1 byComputing then tr h1 h2
 
 -- `Nat.compare` steps down both numbers together, so its laws are proved by

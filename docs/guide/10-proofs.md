@@ -198,6 +198,8 @@ A step with no proof is proved by computing.
 
 Write a chain of equalities as a `calc`, not as `Eq.trans` nested inside `Eq.trans`: the `calc` names every term the proof passes through, and `check` warns (`W-PROOF-CHAIN`) on a nested `trans` written over several lines. In the same way, a `rewrite` that runs more than about three rules, or whose result a later step uses, goes through a `let` that states the fact it reaches:
 
+A `rewrite` closes the goal by computing by itself, so `rewrite h then byComputing` is written `rewrite h` (`W-REWRITE-THEN-COMPUTING`), and `rewrite a then rewrite b` is `rewrite a, b` (`W-REWRITE-THEN-REWRITE`); the editor offers both fixes.
+
 <!-- snippet: proofs.sw#stated -->
 ```stitchwort
 theorem swappedSum ∀ (a b c: Nat): (a + b) * 1 + c = b + a + c :=

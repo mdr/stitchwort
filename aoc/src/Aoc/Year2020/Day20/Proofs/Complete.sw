@@ -23,8 +23,8 @@ def pixelSymbol: Pixel → Char
   | Calm => '.'
 
 theorem spaceNotPixel ∀ (char: Char) (isSpace: Parse.isSpace char = True): pixelChar char = False := match isSpace with
-  | Inl space => rewrite space.read then byComputing
-  | Inr tab => rewrite tab.read then byComputing
+  | Inl space => rewrite space.read
+  | Inr tab => rewrite tab.read
 
 --| A word that starts with a different character is not a start of the input.
 theorem stripDifferent ∀ (first: Char) (others: List Char) (char: Char) (more: List Char)
@@ -61,8 +61,8 @@ theorem pixelWritten ∀ (read: List Char) (shape: Pixel)
     (written: PixelWritten read shape):
     read = [pixelSymbol shape] :=
   match written with
-    | Inl (Both single same) => rewrite same, single then byComputing
-    | Inr (Both single same) => rewrite same, single then byComputing
+    | Inl (Both single same) => rewrite same, single
+    | Inr (Both single same) => rewrite same, single
 
 theorem eachPixels ∀ (pixels: List Pixel) (read: List Char)
     (h: Parse.Each PixelWritten read pixels):
@@ -70,7 +70,7 @@ theorem eachPixels ∀ (pixels: List Pixel) (read: List Char)
   match pixels, h with
     | [], each => each
     | [shape, ..more], Witness first (Witness later (Both split (Both written each))) =>
-      rewrite split, pixelWritten first shape written, eachPixels more later each then byComputing
+      rewrite split, pixelWritten first shape written, eachPixels more later each
 
 theorem runsRow ∀ (read: List Char) (row: List Pixel)
     (written: RowWritten read row) (after: List Char)
@@ -119,7 +119,7 @@ theorem runsTile ∀ (read: List Char) (tile2: Tile)
               runsAsValue tile read after
                 ({ id = Parse.digitsValue idRead, image = { rows = (NonEmptyList.cons head tail).toList } }: Tile)
                 { id, image = { rows = imageRows } }
-                (rewrite idValue, rowsSame2 then byComputing)
+                (rewrite idValue, rowsSame2)
                 (rewrite split then
                   Parse.runsBind
                     (() => Parse.text "Tile ") _
@@ -189,7 +189,7 @@ theorem runsJigsaw ∀ (read: List Char) (jigsaw2: Jigsaw)
           runsAsValue jigsaw read ending
             ({ tiles = (NonEmptyList.cons head tail).toList }: Jigsaw)
             { tiles }
-            (rewrite same then byComputing)
+            (rewrite same)
             (Parse.runsMap
               (() => Parse.sections tile)
               (tiles2 => { tiles = tiles2.toList })

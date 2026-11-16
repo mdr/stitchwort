@@ -208,8 +208,7 @@ theorem Fail.toResultMap ∀ (f: a → {Fail} b) (xs: List a):
     | [x, ..xs] =>
       rewrite Result.traverseCons (z => Fail.toResult (() => f z)) x xs then
         match reify (() => f x) with
-          | return y =>
-            rewrite Fail.toResultThen (() => xs.map f) (ys => [y, ..ys]), Fail.toResultMap f xs then byComputing
+          | return y => rewrite Fail.toResultThen (() => xs.map f) (ys => [y, ..ys]), Fail.toResultMap f xs
           | Fail.stop msg, _ => byComputing
 
 test "Fail: need Some" := Fail.toResult (() => Fail.need (Some 3) "none") == Ok 3

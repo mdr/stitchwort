@@ -9,7 +9,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Void)
 theorem withoutShorter ∀ (caves: List Cave) (cave: Cave)
     (member: cave ∈ caves):
     (without caves cave).length < caves.length :=
-  List.lengthFilterLt (c => not (c == cave)) cave (rewrite DecEq.refl cave then byComputing) caves member
+  List.lengthFilterLt (c => not (c == cave)) cave (rewrite DecEq.refl cave) caves member
 
 --| A step that goes on makes the search's reach smaller.
 theorem stepDecreases ∀ (unvisited: List Cave) (spare: Bool) (cave other: Cave) (left: List Cave) (stillSpare: Bool)

@@ -61,8 +61,11 @@ theorem apartStay ∀ (moved: List Monster) (monster stayed: Monster)
     (same: stayed.position = monster.position) (waiting: List Monster)
     (apart: Apart (moved ++ [monster, ..waiting])):
     Apart ((moved ++ [stayed]) ++ waiting) :=
-  rewrite List.appendAssoc moved [stayed] waiting, positionsAppend moved [stayed, ..waiting], same then
-    rewrite <- positionsAppend moved [monster, ..waiting] then apart
+  rewrite List.appendAssoc moved [stayed] waiting,
+      positionsAppend moved [stayed, ..waiting],
+      same,
+      <- positionsAppend moved [monster, ..waiting] then
+    apart
 
 --| ...and so does one that moves to a cell no other monster stands on.
 theorem apartMove ∀ (moved: List Monster) (monster: Monster) (destination: Position) (waiting: List Monster)
@@ -124,8 +127,7 @@ theorem positionsWound ∀ (target: Position) (damage: Nat) (monsters: List Mons
     positions (monsters.map (wound target damage)) = positions monsters :=
   match monsters with
     | [] => byComputing
-    | [monster, ..others] =>
-      rewrite woundStays target damage monster, positionsWound target damage others then byComputing
+    | [monster, ..others] => rewrite woundStays target damage monster, positionsWound target damage others
 
 theorem playerMovesApart ∀ (dice: Dice) (state: State) (direction: Direction)
     (apart: Apart state.monsters):
@@ -200,7 +202,7 @@ theorem monsterAtOwnCell ∀ (found: Monster) (monsters: List Monster)
     monsterAt found.position monsters = Some found :=
   match monsters, apart, inside with
     | [], apart, inside => inside.impossible
-    | [monster, ..others], Both notMem rest, Inl same => rewrite same, DecEq.refl found.position then byComputing
+    | [monster, ..others], Both notMem rest, Inl same => rewrite same, DecEq.refl found.position
     | [monster, ..others], Both notMem rest, Inr later =>
       let elsewhere: monster.position ≠ found.position := same =>
         notMem (rewrite same then List.memMap others found later (monster => monster.position))

@@ -39,7 +39,7 @@ theorem balancedScan ∀ (stack: List Bracket) (rest: List Token):
 --| A closer matching the top of the stack takes it off.
 theorem closeTop ∀ (bracket: Bracket) (stack: List Bracket) (rest: List Token):
     scan [bracket, ..stack] [Closer bracket, ..rest] = scan stack rest :=
-  rewrite DecEq.refl bracket then byComputing
+  rewrite DecEq.refl bracket
 
 --| The tokens a scan has read, cut at the brackets still open: `base`,
 --| then each open bracket (outermost first) with what follows it. `frames`
@@ -56,10 +56,9 @@ def AllBalanced (base: List Token): List (Bracket, List Token) → Prop
 --| Closing the innermost open bracket, as lists.
 theorem closeShape ∀ (start: List Token) (opener: Token) (piece: List Token) (closer: Token) (rest: List Token):
     (start ++ [opener, ..piece]) ++ [closer, ..rest] = (start ++ [opener, ..piece ++ [closer]]) ++ rest :=
-  rewrite List.appendAssoc start [opener, ..piece] [closer, ..rest],
-      List.appendAssoc start [opener, ..piece ++ [closer]] rest,
-      List.appendAssoc piece [closer] rest then
-    byComputing
+  rewrite List.appendAssoc start [opener, ..piece] [closer, ..rest], List.appendAssoc start
+    [opener, ..piece ++ [closer]]
+    rest, List.appendAssoc piece [closer] rest
 
 --| If the scan from the open brackets of `frames` ends with none open,
 --| what was read and what is left make a balanced line.
@@ -142,7 +141,4 @@ theorem legalOpener ∀ (start: List Token) (bracket: Bracket) (legal: Legal sta
   match e: scan [] start with
     | Corrupted illegal => Void.impossible (notCorruptedOfLegal start illegal legal e)
     | Unclosed stack =>
-      legalOfUnclosed
-        (start ++ [Opener bracket])
-        [bracket, ..stack]
-        (rewrite scanAppend [] start [Opener bracket], e then byComputing)
+      legalOfUnclosed (start ++ [Opener bracket]) [bracket, ..stack] (rewrite scanAppend [] start [Opener bracket], e)

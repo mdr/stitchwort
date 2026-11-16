@@ -40,24 +40,29 @@ theorem splitSomeLeaves ∀ (depth: Nat):
       → ∀ (rest: List Leaf) => splitLeaves (leaves depth number ++ rest) = Some (leaves depth split2 ++ rest)
   | Regular value, split2, some, rest =>
     match Nat.leq 10 value with
-      | True => rewrite <- Option.someInjective some then byComputing
+      | True => rewrite <- Option.someInjective some
   | Pair left right, split2, some, rest =>
     match el: split left with
       | Some left2 =>
-        rewrite <- Option.someInjective some then
-          rewrite List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right) rest,
-              splitSomeLeaves (depth + 1) left left2 el (leaves (depth + 1) right ++ rest),
-              List.appendAssoc (leaves (depth + 1) left2) (leaves (depth + 1) right) rest then
-            byComputing
+        rewrite <- Option.someInjective some, List.appendAssoc
+          (leaves (depth + 1) left)
+          (leaves (depth + 1) right)
+          rest, splitSomeLeaves (depth + 1) left left2 el (leaves (depth + 1) right ++ rest), List.appendAssoc
+          (leaves (depth + 1) left2)
+          (leaves (depth + 1) right)
+          rest
       | None =>
         match er: split right with
           | Some right2 =>
-            rewrite <- Option.someInjective some then
-              rewrite List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right) rest,
-                  splitNoneLeaves (depth + 1) left el (leaves (depth + 1) right ++ rest),
-                  splitSomeLeaves (depth + 1) right right2 er rest,
-                  List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right2) rest then
-                byComputing
+            rewrite <- Option.someInjective some, List.appendAssoc
+              (leaves (depth + 1) left)
+              (leaves (depth + 1) right)
+              rest, splitNoneLeaves (depth + 1) left el (leaves (depth + 1) right ++ rest), splitSomeLeaves
+              (depth + 1)
+              right
+              right2
+              er
+              rest, List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right2) rest
 
 --| At the top.
 theorem splitSome ∀ (number split2: Number)

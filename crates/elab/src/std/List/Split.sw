@@ -488,7 +488,7 @@ theorem List.sumRangeLast ∀ (f: Nat → Nat) (n: Nat):
     List.sumBy (List.range 0 (Succ n)) f = List.sumBy (List.range 0 n) f + f n :=
   calc List.sumBy (List.rangeFrom (Succ n) 0) f
     _ = List.sumBy (List.append (List.rangeFrom n 0) (List.rangeFrom 1 (0 + n))) f :=
-      rewrite <- List.rangeFromAppend n 1 0 then byComputing
+      rewrite <- List.rangeFromAppend n 1 0
     _ = List.sumBy (List.range 0 n) f + f n := List.sumByAppend (List.rangeFrom n 0) (List.rangeFrom 1 n) f
 
 --| The runs by where they start: at 0, or just after a separator.

@@ -59,17 +59,16 @@ theorem crossesSum ∀ (above middle below: List Char) (n: Nat)
           List.getDrop above 2 _,
           bothOrNone _ _,
           masOrNone _ _ _,
-          masOrNone _ _ _ then
-        byComputing
+          masOrNone _ _ _
 
 --| With an empty row among the three, there are no crosses in them.
 theorem crossesEmpty1 ∀ (middle below: List Char): countCrosses [] middle below = 0 := byComputing
 
 theorem crossesEmpty2 ∀ (above below: List Char): countCrosses above [] below = 0 :=
-  rewrite List.zipWith3NilSecond (below.drop 2) spellsMas above then byComputing
+  rewrite List.zipWith3NilSecond (below.drop 2) spellsMas above
 
 theorem crossesEmpty3 ∀ (above middle: List Char): countCrosses above middle [] = 0 :=
-  rewrite List.zipWith3NilThird spellsMas above (middle.drop 1) then byComputing
+  rewrite List.zipWith3NilThird spellsMas above (middle.drop 1)
 
 --| An X-MAS read from the top-left corner of its 3 by 3 block at row r,
 --| column c.
@@ -106,8 +105,7 @@ theorem programCrosses ∀ (grid: Grid):
               crossesEmpty3 _ _ _,
             <- List.getOrGet rows _ [],
             <- List.getOrGet rows _ [],
-            <- List.getOrGet rows _ [] then
-          byComputing)
+            <- List.getOrGet rows _ [])
     _ = List.sumBy (List.range 0 tall) (r => List.sumBy (List.range 0 wide) (c => crossRead grid r c)) :=
       List.sumByCong (List.range 0 tall) _ _ (r =>
         crossesSum (rowOf grid r) (rowOf grid (1 + r)) (rowOf grid (2 + r)) wide (rowFits grid r))
@@ -125,7 +123,7 @@ theorem crossReadMissing ∀ (grid: Grid) (r c: Nat) (missing: letterAt grid r c
 --| A centre one row and one column on is a block read from its top-left
 --| corner.
 theorem crossAtCorner ∀ (grid: Grid) (r c: Nat): Bool.toNat (crossAt grid (1 + r) (1 + c)) = crossRead grid r c :=
-  rewrite Nat.addComm r 1, Nat.addComm c 1 then byComputing
+  rewrite Nat.addComm r 1, Nat.addComm c 1
 
 --| There is no centre in the first row or column.
 theorem crossAtTop ∀ (grid: Grid) (c: Nat): Bool.toNat (crossAt grid 0 c) = 0 := cases
@@ -159,7 +157,7 @@ theorem specCrosses ∀ (grid: Grid):
         List.sumBy (List.range 0 (rowOf grid r).length) (c => Bool.toNat (crossAt grid r c))) :=
       Eq.flipped
         (List.sumByRangeExtend _ rows.length tall arithmetic (r below =>
-          rewrite List.getOrPast rows r [] below then byComputing))
+          rewrite List.getOrPast rows r [] below))
     _ = List.sumBy (List.range 0 tall) centres := List.sumByCong (List.range 0 tall) _ _ (r =>
       Eq.flipped
         (List.sumByRangeExtend _ (rowOf grid r).length wide (rowFits grid r) (c right =>

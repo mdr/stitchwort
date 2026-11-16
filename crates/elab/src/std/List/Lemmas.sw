@@ -75,7 +75,7 @@ theorem List.chainZipWithNext ∀ (xs: List a) (holds: a → a → Bool):
   match xs with
     | [] => byComputing
     | [x] => byComputing
-    | [x, next, ..rest] => rewrite List.chainZipWithNext [next, ..rest] holds then byComputing
+    | [x, next, ..rest] => rewrite List.chainZipWithNext [next, ..rest] holds
 
 --| Without the first element, it still holds.
 theorem List.chainTail ∀ (xs: List a) (holds: a → a → Bool)
@@ -197,8 +197,8 @@ theorem List.lengthReplicate ∀ (x: a) (n: Nat): List.length (List.replicate n 
 --| `replicate (m + n) x = replicate m x ++ replicate n x`.
 theorem List.replicateAdd ∀ (x: a) (m n: Nat): List.replicate (m + n) x = List.replicate m x ++ List.replicate n x :=
   match m with
-    | Zero => rewrite (arithmetic: 0 + n = n) then byComputing
-    | Succ m => rewrite List.replicateAdd x m n then byComputing
+    | Zero => rewrite (arithmetic: 0 + n = n)
+    | Succ m => rewrite List.replicateAdd x m n
 
 --| Padding makes a list exactly n long, when it was no longer than that.
 theorem List.padRightLength ∀ (xs: List a) (n: Nat) (x: a)
@@ -461,8 +461,7 @@ theorem Nat.sumFromRangeFrom ∀ (f: Nat → Nat) (length start: Nat):
   match length with
     | Zero => byComputing
     | Succ more =>
-      rewrite List.sumByCons (List.rangeFrom more (Succ start)) start f, Nat.sumFromRangeFrom f more (Succ start) then
-        byComputing
+      rewrite List.sumByCons (List.rangeFrom more (Succ start)) start f, Nat.sumFromRangeFrom f more (Succ start)
 
 theorem List.sumByAppend ∀ [auto add: Add b] (xs ys: List a) (f: a → b):
     List.sumBy (List.append xs ys) f = List.sumBy xs f + List.sumBy ys f :=
@@ -486,8 +485,8 @@ theorem List.filterAppend ∀ (xs ys: List a) (p: a → Bool):
     | [] => byComputing
     | [x, ..rest] =>
       match t: p x with
-        | True => rewrite List.filterAppend rest ys p then byComputing
-        | False => rewrite List.filterAppend rest ys p then byComputing
+        | True => rewrite List.filterAppend rest ys p
+        | False => rewrite List.filterAppend rest ys p
 
 theorem List.foldLeftAppend ∀ (xs: List a) (z: b) (ys: List a) (f: b → a → b):
     List.foldLeft (List.append xs ys) z f = List.foldLeft ys (List.foldLeft xs z f) f :=
@@ -647,10 +646,7 @@ theorem List.countNone ∀ (xs: List a) (p: a → Bool) (none: ∀ (x: a) => x �
   match xs with
     | [] => byComputing
     | [x, ..rest] =>
-      rewrite List.countCons rest x p,
-          none x (Inl byComputing),
-          List.countNone rest p (y member => none y (Inr member)) then
-        byComputing
+      rewrite List.countCons rest x p, none x (Inl byComputing), List.countNone rest p (y member => none y (Inr member))
 
 theorem List.anyEmpty ∀ (xs: List a) (p: a → Bool) (empty: List.length xs = 0): List.any xs p = False := match xs with
   | [] => byComputing
@@ -673,10 +669,8 @@ theorem List.countFlatMap ∀ (f: a → List b) (p: b → Bool) (xs: List a):
   match xs with
     | [] => byComputing
     | [x, ..rest] =>
-      rewrite List.countAppend (f x) (List.flatMap rest f) p,
-          List.sumByCons rest x (x => List.count (f x) p),
-          List.countFlatMap f p rest then
-        byComputing
+      rewrite List.countAppend (f x) (List.flatMap rest f) p, List.sumByCons rest x (x =>
+        List.count (f x) p), List.countFlatMap f p rest
 
 --| `answer` of `items` have the property `p`: counting by a proposition,
 --| for a `p` with no decision procedure to count with (a statement that
@@ -780,7 +774,7 @@ theorem List.takeOwnLength ∀ (xs: List a) (n: Nat): List.take xs (List.length 
   match xs, n with
     | xs, Zero => byComputing
     | [], Succ n => byComputing
-    | [x, ..xs], Succ n => rewrite List.takeOwnLength xs n then byComputing
+    | [x, ..xs], Succ n => rewrite List.takeOwnLength xs n
 
 --| Taking one past a drop that starts with `y` gives the prefix before `y`
 --| and then `y`, and puts `y` inside the list. A run search knows the
@@ -793,10 +787,10 @@ theorem List.takeOfDropCons ∀ (xs: List a) (k: Nat) (y: a) (ys: List a)
     List.take xs (k + 1) = List.append (List.take xs k) [y] ∧ k < List.length xs :=
   match xs, k with
     | [], Zero => cases
-    | [x, ..xs], Zero => Both (rewrite List.consInjectiveHead x y xs ys d then byComputing) (arithmetic)
+    | [x, ..xs], Zero => Both (rewrite List.consInjectiveHead x y xs ys d) (arithmetic)
     | [x, ..xs], Succ k =>
       let (Both taken below) := List.takeOfDropCons xs k y ys d
-      Both (rewrite taken then byComputing) (arithmetic)
+      Both (rewrite taken) (arithmetic)
 
 --| A longer prefix of `Nat`s sums to at least as much, since every element
 --| is non-negative. [`List.sumDropTakeLe`] compares a slice with the prefix
@@ -843,7 +837,7 @@ theorem List.stripPrefixByAppend ∀ (same: a → a → Bool)
     List.stripPrefixBy (List.append prefix rest) prefix same = Some rest :=
   match prefix with
     | [] => byComputing
-    | [p, ..ps] => rewrite reflexive p, List.stripPrefixByAppend same reflexive ps rest then byComputing
+    | [p, ..ps] => rewrite reflexive p, List.stripPrefixByAppend same reflexive ps rest
 
 --| When `same` holds only of equal items, stripping `prefix` from `xs` leaves
 --| `rest` only if `xs` is `prefix` followed by `rest`.
@@ -899,14 +893,14 @@ theorem List.stripPrefixByRelated ∀ (same: a → a → Bool) (r: a → a → P
         | True =>
           match List.stripPrefixByRelated same r sound more ps h with
             | Witness taken (Both split related) =>
-              Witness [x, ..taken] (Both (rewrite split then byComputing) (Both (sound p x holds) related))
+              Witness [x, ..taken] (Both (rewrite split) (Both (sound p x holds) related))
 
 --| A list starts with what was appended to.
 theorem List.startsWithAppend ∀ [auto eq: DecEq a] (prefix rest: List a):
     List.startsWith (List.append prefix rest) prefix = True :=
   match prefix with
     | [] => byComputing
-    | [p, ..ps] => rewrite DecEq.refl p, List.startsWithAppend ps rest then byComputing
+    | [p, ..ps] => rewrite DecEq.refl p, List.startsWithAppend ps rest
 
 --| A list that starts with `prefix` is `prefix`, then the rest of it.
 theorem List.startsWithSplit ∀ [auto eq: DecEq a] (xs prefix: List a)
@@ -916,7 +910,7 @@ theorem List.startsWithSplit ∀ [auto eq: DecEq a] (xs prefix: List a)
     | xs, [] => byComputing
     | [x, ..xs], [p, ..ps] =>
       let Both sameHead more := starts
-      rewrite sameHead.read, List.startsWithSplit xs ps more then byComputing
+      rewrite sameHead.read, List.startsWithSplit xs ps more
 
 --| A prefix is no longer than the list.
 theorem List.startsWithLength ∀ [auto eq: DecEq a] (xs prefix: List a)
@@ -984,10 +978,9 @@ theorem List.occurrencesFlatMap ∀ (f: a → List b) (p: b → Bool) (xs: List 
   match xs with
     | [] => byComputing
     | [x, ..rest] =>
-      rewrite List.occurrencesAppend (f x) (List.flatMap rest f) p,
-          List.occurrencesFlatMap f p rest,
-          List.sumByCons rest x (x => List.occurrences (f x) p) then
-        byComputing
+      rewrite List.occurrencesAppend (f x) (List.flatMap rest f) p, List.occurrencesFlatMap f p rest, List.sumByCons
+          rest x
+          (x => List.occurrences (f x) p)
 
 --| Summing 1 for each element counts them.
 theorem List.sumByOne ∀ (xs: List a): List.sumBy xs (x => 1) = List.length xs := match xs with
@@ -1274,9 +1267,7 @@ theorem List.reverseCons ∀ (x: a) (xs: List a): List.reverse [x, ..xs] = List.
 theorem List.reverseSnoc ∀ (xs: List a) (x: a): List.reverse (List.append xs [x]) = [x, ..List.reverse xs] :=
   match xs with
     | [] => byComputing
-    | [y, ..rest] =>
-      rewrite List.reverseCons y (List.append rest [x]), List.reverseSnoc rest x, List.reverseCons y rest then
-        byComputing
+    | [y, ..rest] => rewrite List.reverseCons y (List.append rest [x]), List.reverseSnoc rest x, List.reverseCons y rest
 
 --| Reversing a list that is two lists joined reverses each and swaps them:
 --| `(xs ++ ys).reverse = ys.reverse ++ xs.reverse`.
@@ -1549,13 +1540,11 @@ theorem List.filterAll ∀ (p: a → Bool) (xs: List a) (h: ∀ (x: a) => x ∈ 
 --| No successor is zero, and every one is at least 1.
 theorem List.filterNoneExample ∀ (xs: List Nat): List.filter (List.map xs Succ) (n => n == 0) = [] :=
   List.filterNone (n => n == 0) (List.map xs Succ) (n m =>
-    List.anyElim (x => Succ x = n) ((n == 0) = False) xs (List.memMapAny xs Succ n m) (x inXs e =>
-      rewrite <- e then byComputing))
+    List.anyElim (x => Succ x = n) ((n == 0) = False) xs (List.memMapAny xs Succ n m) (x inXs e => rewrite <- e))
 
 theorem List.filterAllExample ∀ (xs: List Nat): List.filter (List.map xs Succ) (n => Nat.leq 1 n) = List.map xs Succ :=
   List.filterAll (n => Nat.leq 1 n) (List.map xs Succ) (n m =>
-    List.anyElim (x => Succ x = n) (Nat.leq 1 n = True) xs (List.memMapAny xs Succ n m) (x inXs e =>
-      rewrite <- e then byComputing))
+    List.anyElim (x => Succ x = n) (Nat.leq 1 n = True) xs (List.memMapAny xs Succ n m) (x inXs e => rewrite <- e))
 
 --| A list's `flatMap`: an element of `f x` for an `x` of the list is in it.
 theorem List.memFlatMapIntro ∀ (f: a → List b) (x: a) (y: b) (xs: List a)
@@ -1780,7 +1769,7 @@ theorem List.memSplit ∀ (x: a) (xs: List a)
     ∃ (before: List a) => ∃ (after: List a) => xs = before ++ [x, ..after] :=
   match xs, member with
     | [], member => member.impossible
-    | [z, ..zs], Inl same => Witness [] (Witness zs (rewrite same then byComputing))
+    | [z, ..zs], Inl same => Witness [] (Witness zs (rewrite same))
     | [z, ..zs], Inr later =>
       match List.memSplit x zs later with
         | Witness before (Witness after eq) => Witness [z, ..before] (Witness after (Eq.cong (Cons z) eq))
@@ -1796,7 +1785,7 @@ theorem List.distinctLength ∀ [auto eq: DecEq a] (xs ys: List a)
     | [], d => Nat.zeroLe (List.length ys)
     | [x, ..rest], Both out d =>
       let others := ys.filter (y => Bool.not (y == x))
-      let dropped: Bool.not (x == x) = False := rewrite DecEq.refl x then byComputing
+      let dropped: Bool.not (x == x) = False := rewrite DecEq.refl x
       let drawnOthers: ∀ (y: a) => y ∈ rest → y ∈ others := y inRest =>
         List.memFilterIntro ys
           (y => Bool.not (y == x))
@@ -2137,14 +2126,13 @@ theorem List.findIndexFromOf ∀ (p: a → Bool) (start: Nat) (xs: List a) (inde
       match e: p z with
         | True =>
           match same: index == start with
-            | True => rewrite same.read then byComputing
+            | True => rewrite same.read
             | False =>
               let ne: index ≠ start := same.read
               let less: start < index := arithmetic
               let zero: start - start = 0 := arithmetic
               Void.impossible
-                (Bool.falseNotTrue
-                  (Eq.trans (Eq.flipped (before start (Nat.leRefl start) less z (rewrite zero then byComputing))) e))
+                (Bool.falseNotTrue (Eq.trans (Eq.flipped (before start (Nat.leRefl start) less z (rewrite zero))) e))
         | False =>
           match same: index == start with
             | True =>
@@ -2404,7 +2392,7 @@ theorem List.foldMinByFirstKeep ∀ [auto ord: Ord b] (f: a → b) (ys: List a) 
   match split with
     | Witness [] (Witness after (Both same earlier)) =>
       let isStart: start = List.foldLeft ys start (List.minByStep f) := List.consInjectiveHead start _ ys after same
-      Witness [] (Witness [y, ..ys] (Both (rewrite <- isStart then byComputing) (z member => member.impossible)))
+      Witness [] (Witness [y, ..ys] (Both (rewrite <- isStart) (z member => member.impossible)))
     | Witness [c, ..before] (Witness after (Both same earlier)) =>
       let isStart: start = c :=
         List.consInjectiveHead start c ys (before ++ [List.foldLeft ys start (List.minByStep f), ..after]) same
@@ -2453,7 +2441,7 @@ theorem List.foldMinByFirst ∀ [auto ord: Ord b] (f: a → b) (xs: List a) (sta
                           (List.foldMinByLeStart f ys y)
                           startAbove
                     | Inr inBefore => earlier z inBefore
-              Witness [start, ..before] (Witness after (Both (rewrite split then byComputing) below))
+              Witness [start, ..before] (Witness after (Both (rewrite split) below))
         | Less =>
           List.foldMinByFirstKeep f ys start y
             (ord.lessEqOf (f start) (f y) (greater => Ordering.lessNotGreater (Eq.trans order.flipped greater)))
@@ -2648,7 +2636,7 @@ theorem List.findAny ∀ (xs: List a) (p q: a → Bool) (y: a)
 theorem List.findKeyDistinct ∀ [auto eq: DecEq k] (key: a → k):
     ∀ (xs: List a) => List.Distinct (List.map xs key) → ∀ (x: a) => x ∈ xs → List.find xs (y => key y == key x) = Some x
   | [], d, x, m => m.impossible
-  | [z, ..zs], Both notMem d, x, Inl e => rewrite e, DecEq.refl (key x) then byComputing
+  | [z, ..zs], Both notMem d, x, Inl e => rewrite e, DecEq.refl (key x)
   | [z, ..zs], Both notMem d, x, Inr m =>
     match c: key z == key x with
       | True => Void.impossible (notMem (rewrite c.read then List.memMap zs x m key))
@@ -2866,12 +2854,11 @@ theorem List.takeWhileRangeCutoff ∀ (p: Nat → Bool) (cutoff: Nat)
     List.takeWhile (List.rangeFrom n start) p = List.takeWhile (List.rangeFrom m start) p :=
   match n, m with
     | Zero, Zero => byComputing
-    | Zero, Succ m => rewrite fails start arithmetic then byComputing
-    | Succ n, Zero => rewrite fails start arithmetic then byComputing
+    | Zero, Succ m => rewrite fails start arithmetic
+    | Succ n, Zero => rewrite fails start arithmetic
     | Succ n, Succ m =>
       match passes: p start with
-        | True =>
-          rewrite List.takeWhileRangeCutoff p cutoff fails n m (Succ start) arithmetic arithmetic then byComputing
+        | True => rewrite List.takeWhileRangeCutoff p cutoff fails n m (Succ start) arithmetic arithmetic
         | False => byComputing
 
 --| Everything `takeWhile` takes passes.
@@ -2888,13 +2875,8 @@ theorem List.spanAppend ∀ (p: a → Bool) (taken rest: List a)
     (all: List.all taken p = True)
     (stops: List.takeWhile rest p = []):
     List.span (List.append taken rest) p = MkPair taken rest :=
-  rewrite List.spanTakeDrop (List.append taken rest) p,
-      List.takeWhileAppend p rest taken all,
-      stops,
-      List.appendNil taken,
-      List.dropWhileAppend p rest taken all,
-      List.dropWhileStops p rest stops then
-    byComputing
+  rewrite List.spanTakeDrop (List.append taken rest) p, List.takeWhileAppend p rest taken all, stops, List.appendNil
+      taken, List.dropWhileAppend p rest taken all, List.dropWhileStops p rest stops
 
 -- `map` through the other list functions (SW-198, day 8).
 
@@ -2976,7 +2958,7 @@ theorem List.allMapBool ∀ (xs: List a) (p: b → Bool) (f: a → b):
     List.all (List.map xs f) p = List.all xs (x => p (f x)) :=
   match xs with
     | [] => byComputing
-    | [x, ..xs] => rewrite List.allMapBool xs p f then byComputing
+    | [x, ..xs] => rewrite List.allMapBool xs p f
 
 --| Some element of a `flatMap` passes exactly when some list it is made of
 --| has one.
@@ -3016,7 +2998,7 @@ theorem List.occurrencesMap ∀ (xs: List a) (f: a → b) (p: b → Bool):
     List.occurrences (List.map xs f) p = List.occurrences xs (x => p (f x)) :=
   match xs with
     | [] => byComputing
-    | [x, ..xs] => rewrite List.occurrencesMap xs f p then byComputing
+    | [x, ..xs] => rewrite List.occurrencesMap xs f p
 
 --| Mapping both lists of a permutation keeps it one.
 theorem List.permMap ∀ (xs ys: List a) (h: List.Perm xs ys) (f: a → b): List.Perm (List.map xs f) (List.map ys f) :=
@@ -3164,9 +3146,7 @@ theorem List.sumByZeroElim: ∀ (xs: List a) (f: a → Nat) => List.sumBy xs f =
 theorem List.sumByZeroIntro ∀ (xs: List a) (f: a → Nat) (h: ∀ (x: a) => x ∈ xs → f x = 0): List.sumBy xs f = 0 :=
   match xs with
     | [] => byComputing
-    | [y, ..ys] =>
-      rewrite List.sumByCons ys y f, h y (Inl byComputing), List.sumByZeroIntro ys f (x m => h x (Inr m)) then
-        byComputing
+    | [y, ..ys] => rewrite List.sumByCons ys y f, h y (Inl byComputing), List.sumByZeroIntro ys f (x m => h x (Inr m))
 
 -- filtering what can't pass anyway ------------------------------------------
 
@@ -3179,7 +3159,7 @@ theorem List.anyFilter ∀ (xs: List a) (p q: a → Bool)
     | [] => byComputing
     | [x, ..xs] =>
       match e: q x with
-        | True => rewrite List.anyFilter xs p q h then byComputing
+        | True => rewrite List.anyFilter xs p q h
         | False =>
           match f: p x with
             | True => Void.impossible (Bool.falseNotTrue (Eq.trans e.flipped (h x f)))
@@ -3242,7 +3222,7 @@ theorem List.filterOfMap ∀ (xs: List a) (q: b → Bool) (g: a → b):
     | [] => byComputing
     | [x, ..xs] =>
       match e: q (g x) with
-        | True => rewrite List.filterOfMap xs q g then byComputing
+        | True => rewrite List.filterOfMap xs q g
         | False => List.filterOfMap xs q g
 
 --| A pair in `List.pairs xs` is two elements of `xs`.
@@ -3387,8 +3367,8 @@ theorem List.countFilterMap ∀ (f: a → Option b) (p: b → Bool) (xs: List a)
     | [x, ..rest] =>
       rewrite List.countCons rest x (x => (f x).any p) then
         match f x with
-          | None => rewrite List.countFilterMap f p rest then byComputing
-          | Some y => rewrite List.countCons (rest.filterMap f) y p, List.countFilterMap f p rest then byComputing
+          | None => rewrite List.countFilterMap f p rest
+          | Some y => rewrite List.countCons (rest.filterMap f) y p, List.countFilterMap f p rest
 
 --| Counting one value `wanted` among the results of a `filterMap` is counting
 --| the elements that give `Some wanted`. The `==` form of
@@ -3425,14 +3405,14 @@ theorem List.lengthFilterMapBool ∀ (f: a → Option Bool) (xs: List a):
       rewrite List.countCons rest x (x => f x == Some True), List.countCons rest x (x => f x == Some False) then
         match f x with
           | None => List.lengthFilterMapBool f rest
-          | Some True => rewrite List.lengthFilterMapBool f rest then byComputing
+          | Some True => rewrite List.lengthFilterMapBool f rest
           | Some False => rewrite List.lengthFilterMapBool f rest then arithmetic
 
 --| Mapping over a `concat` is the `concat` of mapping over each part.
 theorem List.mapConcat ∀ (xss: List (List a)) (k: a → b): xss.concat.map k = (xss.map (xs => xs.map k)).concat :=
   match xss with
     | [] => byComputing
-    | [xs, ..rest] => rewrite List.mapAppend xs (List.concat rest) k, List.mapConcat rest k then byComputing
+    | [xs, ..rest] => rewrite List.mapAppend xs (List.concat rest) k, List.mapConcat rest k
 
 --| A list whose keys are distinct is distinct. The converse needs `key` to
 --| be injective ([`List.distinctMap`]).
@@ -3565,7 +3545,7 @@ theorem List.anyToAny ∀ (p: a → Bool) (xs: List a) (h: List.any xs p = True)
 theorem List.anyOfAny ∀ (p: a → Bool) (xs: List a) (h1: List.Any (x => p x = True) xs): List.any xs p = True :=
   match xs, h1 with
     | [], h => h.impossible
-    | [x, ..xs], Inl px => rewrite px then byComputing
+    | [x, ..xs], Inl px => rewrite px
     | [x, ..xs], Inr h =>
       match c: p x with
         | True => byComputing
@@ -3626,7 +3606,7 @@ theorem List.mapZipWithLeft ∀ (h: c → d) (k: a → d) (g: a → b → c)
     List.map (List.zipWith xs ys g) h = List.map xs k :=
   match xs, ys with
     | [], ys => byComputing
-    | [x, ..xs], [y, ..ys] => rewrite same x y, List.mapZipWithLeft h k g same xs ys le then byComputing
+    | [x, ..xs], [y, ..ys] => rewrite same x y, List.mapZipWithLeft h k g same xs ys le
 
 theorem List.mapZipWithScanLeft ∀ (h: c → d) (k: a → d) (g: a → b → c)
     (same: ∀ (x: a) (y: b) => h (g x y) = k x)
@@ -3743,7 +3723,7 @@ theorem List.getWithIndexFrom ∀ (start: Nat) (xs: List a) (k: Nat):
     List.get (List.withIndexFrom start xs) k = Option.map (List.get xs k) (x => MkPair (start + k) x) :=
   match xs, k with
     | [], k => byComputing
-    | [x, ..xs], Zero => rewrite Nat.addZero start then byComputing
+    | [x, ..xs], Zero => rewrite Nat.addZero start
     | [x, ..xs], Succ k => rewrite Nat.addSucc start k then List.getWithIndexFrom (Succ start) xs k
 
 theorem List.getWithIndex ∀ (xs: List a) (k: Nat):
@@ -3947,7 +3927,7 @@ theorem List.all2WeakenMem ∀ [r s: a → b → Prop] (xs: List a)
 theorem List.all2Map ∀ [f: b → a] (xs: List a) (ys: List b) (all: List.All2 (x y => x = f y) xs ys): xs = ys.map f :=
   match xs, ys with
     | [], [] => byComputing
-    | [x, ..xs], [y, ..ys] => rewrite And.left all, List.all2Map xs ys all.right then byComputing
+    | [x, ..xs], [y, ..ys] => rewrite And.left all, List.all2Map xs ys all.right
 
 theorem List.all2MapLeft ∀ (f: a → c) (r: c → b → Prop) (xs: List a) (ys: List b)
     (all: List.All2 (x y => r (f x) y) xs ys):
@@ -4012,8 +3992,7 @@ theorem List.lengthZipWith ∀ (f: a → b → c) (xs: List a) (ys: List b):
   match xs, ys with
     | [], ys => byComputing
     | [x, ..xs], [] => byComputing
-    | [x, ..xs], [y, ..ys] =>
-      rewrite List.lengthZipWith f xs ys, Nat.minSucc (List.length xs) (List.length ys) then byComputing
+    | [x, ..xs], [y, ..ys] => rewrite List.lengthZipWith f xs ys, Nat.minSucc (List.length xs) (List.length ys)
 
 --| Zipping appended lists, when the first parts have the same length, is
 --| appending what the parts zip to.
@@ -4022,7 +4001,7 @@ theorem List.zipWithAppend ∀ (f: a → b → c) (xs2: List a) (ys2: List b) (x
     List.zipWith (xs ++ xs2) (ys ++ ys2) f = List.zipWith xs ys f ++ List.zipWith xs2 ys2 f :=
   match xs, ys with
     | [], [] => byComputing
-    | [x, ..xs], [y, ..ys] => rewrite List.zipWithAppend f xs2 ys2 xs ys (Nat.succInjective same) then byComputing
+    | [x, ..xs], [y, ..ys] => rewrite List.zipWithAppend f xs2 ys2 xs ys (Nat.succInjective same)
     | [], [y, ..ys] => Void.impossible arithmetic
     | [x, ..xs], [] => Void.impossible arithmetic
 
@@ -4031,7 +4010,7 @@ theorem List.zipWithAppend ∀ (f: a → b → c) (xs2: List a) (ys2: List b) (x
 theorem List.zipWithSnoc ∀ (f: a → b → c) (x: a) (y: b) (xs: List a) (ys: List b)
     (same: List.length xs = List.length ys):
     List.zipWith (xs ++ [x]) (ys ++ [y]) f = List.zipWith xs ys f ++ [f x y] :=
-  rewrite List.zipWithAppend f [x] [y] xs ys same then byComputing
+  rewrite List.zipWithAppend f [x] [y] xs ys same
 
 --| Mapping the first list before zipping is zipping with `f` composed with
 --| the map.
@@ -4040,7 +4019,7 @@ theorem List.zipWithMapLeft ∀ (f: b → c → d) (g: a → b) (xs: List a) (ys
   match xs, ys with
     | [], ys => byComputing
     | [x, ..xs], [] => byComputing
-    | [x, ..xs], [y, ..ys] => rewrite List.zipWithMapLeft f g xs ys then byComputing
+    | [x, ..xs], [y, ..ys] => rewrite List.zipWithMapLeft f g xs ys
 
 --| Mapping the second list before zipping is zipping with `f` composed with
 --| the map.
@@ -4049,7 +4028,7 @@ theorem List.zipWithMapRight ∀ (f: a → c → d) (g: b → c) (xs: List a) (y
   match xs, ys with
     | [], ys => byComputing
     | [x, ..xs], [] => byComputing
-    | [x, ..xs], [y, ..ys] => rewrite List.zipWithMapRight f g xs ys then byComputing
+    | [x, ..xs], [y, ..ys] => rewrite List.zipWithMapRight f g xs ys
 
 --| Mapping over zipped lists is zipping with `f` followed by the map.
 theorem List.mapZipWith ∀ (f: a → b → c) (g: c → d) (xs: List a) (ys: List b):
@@ -4057,7 +4036,7 @@ theorem List.mapZipWith ∀ (f: a → b → c) (g: c → d) (xs: List a) (ys: Li
   match xs, ys with
     | [], ys => byComputing
     | [x, ..xs], [] => byComputing
-    | [x, ..xs], [y, ..ys] => rewrite List.mapZipWith f g xs ys then byComputing
+    | [x, ..xs], [y, ..ys] => rewrite List.mapZipWith f g xs ys
 
 --| Zipping with the arguments to `f` swapped is zipping the lists the other
 --| way round.
@@ -4067,7 +4046,7 @@ theorem List.zipWithSwap ∀ (f: a → b → c) (xs: List a) (ys: List b):
     | [], [] => byComputing
     | [], [y, ..ys] => byComputing
     | [x, ..xs], [] => byComputing
-    | [x, ..xs], [y, ..ys] => rewrite List.zipWithSwap f xs ys then byComputing
+    | [x, ..xs], [y, ..ys] => rewrite List.zipWithSwap f xs ys
 
 --| Chaining two `All2` facts through the middle list: if each `x`, `y`, `z`
 --| at the same place with `r x y` and `s y z` have `t x z`, then `r` from

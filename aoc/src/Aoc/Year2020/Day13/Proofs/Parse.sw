@@ -34,7 +34,7 @@ theorem readsNotes: Parse.Reads notes NotesWritten := Parse.readsThen Parse.read
               (Witness entries
                 (Witness slots
                   (Both
-                    (rewrite List.appendNil entries then byComputing)
+                    (rewrite List.appendNil entries)
                     (Both nonEmpty (Both allDigits (Both decimal (Both breaks (Both listed byComputing)))))))))))))
 
 theorem parseWritten ∀ (input: Text) (notes: Notes)

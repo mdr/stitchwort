@@ -148,8 +148,7 @@ theorem allSettledFields ∀ (slots: List (Slot a)) (order: List a)
           match rest: allSettled slots with
             | Some tail =>
               match allSettledFields slots tail rest with
-                | Both items same =>
-                  rewrite <- Option.someInjective found then Both (Both pick items) (rewrite same then byComputing)
+                | Both items same => rewrite <- Option.someInjective found then Both (Both pick items) (rewrite same)
 
 theorem eliminateFinds ∀ [auto eq: DecEq a] (candidates: List (List a)):
     ∀ (rounds: Nat) (slots: List (Slot a)) => Keeps slots candidates
@@ -282,7 +281,7 @@ theorem settleAgrees ∀ [auto eq: DecEq a] (settled other: List a) (slots next:
                 List.memFilterIntro slot.candidates
                   (pick => not (settled.contains pick))
                   agrees.left.left
-                  (rewrite notSettled then byComputing)
+                  (rewrite notSettled)
               let forced: item = only := match (rewrite left at remains then remains) with
                 | Inl same => same.flipped
                 | Inr none => none.impossible
@@ -297,8 +296,7 @@ theorem settledSame ∀ [auto eq: DecEq a] (other order: List a) (slots: List (S
   match other, order, slots with
     | [], [], [] => byComputing
     | [item, ..other], [pick, ..order], [slot, ..slots] =>
-      rewrite And.right agrees.left pick items.left, settledSame other order slots agrees.right items.right then
-        byComputing
+      rewrite And.right agrees.left pick items.left, settledSame other order slots agrees.right items.right
     | [], [pick, ..order], [] => items.impossible
     | [item, ..other], [], [] => agrees.impossible
 

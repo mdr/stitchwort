@@ -327,7 +327,7 @@ theorem Parse.runFromTextThere ∀ (state: Parse.State Char) (expected: Text) (r
     (starts: state.at.rest = List.append expected.toList rest):
     Parse.runFrom state (() => k (Parse.text expected))
       = Parse.runFrom (state.advance rest expected.toList.length) (() => k ()) :=
-  rewrite starts, List.stripPrefixByAppend Text.sameChar Text.sameCharRefl expected.toList rest then byComputing
+  rewrite starts, List.stripPrefixByAppend Text.sameChar Text.sameCharRefl expected.toList rest
 
 theorem Parse.sameChar ∀ (char: Char): (char == char) = True := DecEq.refl char
 
@@ -351,7 +351,7 @@ theorem Parse.stripPrefixBySameChar ∀ (input prefix: List Char):
 theorem Parse.runFromCharThere ∀ (state: Parse.State Char) (expected: Char) (rest: List Char) (k: () → {Parse Char} a)
     (starts: state.at.rest = [expected, ..rest]):
     Parse.runFrom state (() => k (Parse.char expected)) = Parse.runFrom (state.advance rest 1) (() => k ()) :=
-  rewrite starts, Parse.sameChar expected then byComputing
+  rewrite starts, Parse.sameChar expected
 
 --| `nat` on a run of digits, followed by something else or nothing.
 theorem Parse.runFromNatThere ∀ (state: Parse.State Char) (digits rest: List Char) (k: Nat → {Parse Char} a)
@@ -364,8 +364,7 @@ theorem Parse.runFromNatThere ∀ (state: Parse.State Char) (digits rest: List C
         k (digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits)) :=
   match digits with
     | [] => (some byComputing).impossible
-    | [first, ..others] =>
-      rewrite starts, List.spanAppend Parse.isDigit [first, ..others] rest all stops then byComputing
+    | [first, ..others] => rewrite starts, List.spanAppend Parse.isDigit [first, ..others] rest all stops
 
 --| `optional (text expected)` from a state where `expected` comes next reads it and goes on with `Some ()`.
 theorem Parse.runFromOptionalTextThere ∀ (state: Parse.State Char) (expected: Text)
@@ -373,13 +372,13 @@ theorem Parse.runFromOptionalTextThere ∀ (state: Parse.State Char) (expected: 
     (starts: state.at.rest = List.append expected.toList rest):
     Parse.runFrom state (() => k (Parse.optional (() => Parse.text expected)))
       = Parse.runFrom (state.advance rest expected.toList.length) (() => k (Some ())) :=
-  rewrite starts, List.stripPrefixByAppend Text.sameChar Text.sameCharRefl expected.toList rest then byComputing
+  rewrite starts, List.stripPrefixByAppend Text.sameChar Text.sameCharRefl expected.toList rest
 
 theorem Parse.runFromOptionalTextNotThere ∀ (state: Parse.State Char) (expected: Text) (k: Option () → {Parse Char} a)
     (absent: Text.stripPrefixChars expected.toList state.at.rest = None):
     Parse.runFrom state (() => k (Parse.optional (() => Parse.text expected)))
       = Parse.runFrom { state.note (Literal expected) | at = state.at } (() => k None) :=
-  rewrite Parse.stripPrefixBySameChar state.at.rest expected.toList, absent then byComputing
+  rewrite Parse.stripPrefixBySameChar state.at.rest expected.toList, absent
 
 --| With concrete alternatives the run computes: the first of two words.
 theorem Parse.runFromOneOfExample ∀ (state: Parse.State Char) (rest: List Char) (k: Nat → {Parse Char} b)
@@ -395,7 +394,7 @@ theorem Parse.runFromOneOfExample ∀ (state: Parse.State Char) (rest: List Char
             2
         ]))
       = Parse.runFrom (state.advance rest 2) (() => k 1) :=
-  rewrite starts then byComputing
+  rewrite starts
 
 theorem Parse.runFail ∀ (message: Text):
     Parse.run ([]: List Char) (() => (Parse.fail message: Nat))

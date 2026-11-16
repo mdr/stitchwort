@@ -134,7 +134,7 @@ theorem firstsDistinct ∀ (c: Circuits) (k s: Nat):
                           s
                           arithmetic
                           (arithmetic [List.memRangeFrom b k (Succ s) inRange])
-                          (rewrite same, DecEq.refl (c.labelOf s) then byComputing)
+                          (rewrite same, DecEq.refl (c.labelOf s))
                       Bool.falseNotTrue (rewrite lower at first)))
             (firstsDistinct c k (Succ s))
         | False => firstsDistinct c k (Succ s)
@@ -149,11 +149,7 @@ theorem firstOf ∀ (c: Circuits) (n fuel b: Nat)
       match g: List.any (List.range 0 b) (other => c.labelOf other == c.labelOf b) with
         | False =>
           List.memMap _ b
-            (List.memFilterIntro
-              (List.range 0 n)
-              (firstBox c)
-              (List.memRangeFromIntro b n 0 arithmetic hb)
-              (rewrite g then byComputing))
+            (List.memFilterIntro (List.range 0 n) (firstBox c) (List.memRangeFromIntro b n 0 arithmetic hb) (rewrite g))
             c.labelOf
         | True =>
           let Witness other (Both mo same) := g
@@ -187,9 +183,7 @@ theorem firstOfLabel ∀ (c: Circuits) (n label: Nat)
 theorem circuitSizesAreCounts ∀ (c: Circuits) (n: Nat):
     circuitSizes n (a b => c.labelOf a == c.labelOf b)
       = List.map (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf) (labelCount c n) :=
-  rewrite List.mapMap _ (labelCount c n) c.labelOf,
-      List.countMap (List.range 0 n) (x => x == c.labelOf _) c.labelOf then
-    byComputing
+  rewrite List.mapMap _ (labelCount c n) c.labelOf, List.countMap (List.range 0 n) (x => x == c.labelOf _) c.labelOf
 
 --| The program's sizes are the spec's, in another order.
 theorem sizesPerm ∀ (c: Circuits) (n: Nat):

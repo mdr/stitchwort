@@ -388,7 +388,7 @@ theorem freshAccepts ∀ (follows: Text → Text → Prop) (out: List Text) (lat
     Accepts follows out later :=
   match out, fresh with
     | [], _ => byComputing
-    | [last, ..earlier], isBreak => Inl (rewrite isBreak then byComputing)
+    | [last, ..earlier], isBreak => Inl (rewrite isBreak)
 
 theorem breakAccepts ∀ (follows: Text → Text → Prop) (out: List Text): Accepts follows out "\n" := match out with
   | [] => byComputing
@@ -396,7 +396,7 @@ theorem breakAccepts ∀ (follows: Text → Text → Prop) (out: List Text): Acc
 
 theorem freshTouch ∀ (out: List Text) (fresh: Fresh out): outTouch out = None := match out, fresh with
   | [], _ => byComputing
-  | [last, ..earlier], isBreak => rewrite isBreak then byComputing
+  | [last, ..earlier], isBreak => rewrite isBreak
 
 theorem freshWhen ∀ (flag: Bool) (out: List Text) (start: flag = True) (either: flag = False ∨ Fresh out): Fresh out :=
   match either with
@@ -443,7 +443,7 @@ theorem trimPairs ∀ (follows: Text → Text → Prop) (out: List Text)
 
 theorem trimFresh ∀ (out: List Text) (fresh: Fresh out): Fresh (trimSpaces out) := match out, fresh with
   | [], _ => byComputing
-  | [last, ..earlier], isBreak => rewrite isBreak then byComputing
+  | [last, ..earlier], isBreak => rewrite isBreak
 
 theorem trimFreshOr ∀ (flag: Bool) (out: List Text)
     (either: flag = False ∨ Fresh out):
@@ -465,8 +465,7 @@ theorem readyAccepts ∀ (follows: Text → Text → Prop) (out: List Text)
         | False, Inl layout => Inl layout
         | False, Inr ok => Inr (Inr ok)
 
-theorem gapSpaces ∀ (text: Text) (spaces: text.all (char => char == ' ') = True): gapOr text = " " :=
-  rewrite spaces then byComputing
+theorem gapSpaces ∀ (text: Text) (spaces: text.all (char => char == ' ') = True): gapOr text = " " := rewrite spaces
 
 --| What stands before spaces may be followed by one space.
 theorem gapBefore ∀ (follows: Text → Text → Prop) (earlier: List Text) (last: Text)
@@ -547,7 +546,7 @@ theorem putEdge ∀ (printer: Printer) (text: Text) (width: Nat)
   match payIndentWritten printer with
     | (_, suffixes) =>
       let edge: edgeOf printer.payIndent.suffixes [text, ..printer.payIndent.out] = Plain (textTouch text) :=
-        rewrite suffixes, clear then byComputing
+        rewrite suffixes, clear
       edge
 
 theorem flushOnePairs ∀ (follows: Text → Text → Prop) (printer: Printer) (comment: Text)
@@ -636,7 +635,7 @@ theorem newlineEdge ∀ (printer: Printer) (indent: Nat): (printer.newline inden
     ..({ printer | out = trimSpaces printer.out }).flushSuffixes.out
   ]
     = Plain None :=
-    rewrite newlineClear printer indent then byComputing
+    rewrite newlineClear printer indent
   edge
 
 --| After a line break the printer is sound, at a line start.
@@ -766,7 +765,7 @@ theorem breakWaits ∀ (follows: Text → Text → Prop) (suffixes out: List Tex
 
 theorem breakEdge ∀ (suffixes out: List Text) (fresh: Fresh out): edgeOf suffixes ["\n", ..out] = edgeOf suffixes out :=
   match empty: suffixes.isEmpty with
-    | True => rewrite freshTouch out fresh then byComputing
+    | True => rewrite freshTouch out fresh
     | False => byComputing
 
 --| A kept blank line: the edge is as it was, a line start.

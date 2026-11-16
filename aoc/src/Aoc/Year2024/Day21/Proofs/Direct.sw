@@ -38,28 +38,26 @@ theorem walkDistance ∀ (rows: List (List (Option k))) (start: Position) (route
 
 --| Pressing a route's keys yourself takes a press per move and one for A.
 theorem routeCostYours ∀ (route: List Direction): Costs.yours.routeCost route = route.length + 1 :=
-  rewrite sequenceCostFrom Costs.yours (routeKeys route),
-      costFromOnes Activate (routeKeys route),
-      List.lengthAppend (route.map Arrow) [Activate],
-      List.lengthMap route Arrow then
-    byComputing
+  rewrite sequenceCostFrom Costs.yours (routeKeys route), costFromOnes Activate (routeKeys route), List.lengthAppend
+    (route.map Arrow)
+    [Activate], List.lengthMap route Arrow
 
 --| A key's place is the only one where an arm aims at it.
 theorem numericPlaceOf ∀ (row column: Nat) (key: NumericKey)
     (found: keyAt numericRows { row, column } = Some key):
     ({ row, column }: Position) = Keypad.numeric.place key :=
   match row, column with
-    | 0, 0 => rewrite <- Option.someInjective found then byComputing
-    | 0, 1 => rewrite <- Option.someInjective found then byComputing
-    | 0, 2 => rewrite <- Option.someInjective found then byComputing
-    | 1, 0 => rewrite <- Option.someInjective found then byComputing
-    | 1, 1 => rewrite <- Option.someInjective found then byComputing
-    | 1, 2 => rewrite <- Option.someInjective found then byComputing
-    | 2, 0 => rewrite <- Option.someInjective found then byComputing
-    | 2, 1 => rewrite <- Option.someInjective found then byComputing
-    | 2, 2 => rewrite <- Option.someInjective found then byComputing
-    | 3, 1 => rewrite <- Option.someInjective found then byComputing
-    | 3, 2 => rewrite <- Option.someInjective found then byComputing
+    | 0, 0 => rewrite <- Option.someInjective found
+    | 0, 1 => rewrite <- Option.someInjective found
+    | 0, 2 => rewrite <- Option.someInjective found
+    | 1, 0 => rewrite <- Option.someInjective found
+    | 1, 1 => rewrite <- Option.someInjective found
+    | 1, 2 => rewrite <- Option.someInjective found
+    | 2, 0 => rewrite <- Option.someInjective found
+    | 2, 1 => rewrite <- Option.someInjective found
+    | 2, 2 => rewrite <- Option.someInjective found
+    | 3, 1 => rewrite <- Option.someInjective found
+    | 3, 2 => rewrite <- Option.someInjective found
     | 0, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
     | 1, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
     | 2, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
@@ -70,11 +68,11 @@ theorem directionalPlaceOf ∀ (row column: Nat) (key: DirectionKey)
     (found: keyAt directionalRows { row, column } = Some key):
     ({ row, column }: Position) = Keypad.directional.place key :=
   match row, column with
-    | 0, 1 => rewrite <- Option.someInjective found then byComputing
-    | 0, 2 => rewrite <- Option.someInjective found then byComputing
-    | 1, 0 => rewrite <- Option.someInjective found then byComputing
-    | 1, 1 => rewrite <- Option.someInjective found then byComputing
-    | 1, 2 => rewrite <- Option.someInjective found then byComputing
+    | 0, 1 => rewrite <- Option.someInjective found
+    | 0, 2 => rewrite <- Option.someInjective found
+    | 1, 0 => rewrite <- Option.someInjective found
+    | 1, 1 => rewrite <- Option.someInjective found
+    | 1, 2 => rewrite <- Option.someInjective found
     | 0, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
     | 1, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
     | Succ (Succ row), column => (Option.noneNotSome key found).impossible

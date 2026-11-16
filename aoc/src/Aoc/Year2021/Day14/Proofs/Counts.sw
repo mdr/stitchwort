@@ -55,10 +55,10 @@ theorem stepRepresents ∀ (rules: List Rule)
           (pairsOf polymer)
           (pair => List.sumBy (pair.becomes (ruleTable rules)) f)
           (pair => List.sumBy (expand rules pair) f)
-          (pair => rewrite becomesExpand rules one pair then byComputing)
+          (pair => rewrite becomesExpand rules one pair)
       _ = List.sumBy (List.flatMap (pairsOf polymer) (expand rules)) f :=
         Eq.flipped (List.sumByFlatMap (pairsOf polymer) f (expand rules))
-      _ = List.sumBy (pairsOf (step rules polymer)) f := rewrite pairsStep rules polymer then byComputing
+      _ = List.sumBy (pairsOf (step rules polymer)) f := rewrite pairsStep rules polymer
 
 --| After any number of steps, the program's counts stand for the polymer.
 theorem iterateRepresents ∀ (manual: Manual)

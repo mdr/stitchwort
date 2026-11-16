@@ -65,7 +65,7 @@ theorem carriesUnique ∀ (device: Device)
         carriesUnique device wellFormed gate.left left otherLeft leftCarries (rewrite same then otherLeftCarries)
       let rightSame :=
         carriesUnique device wellFormed gate.right right otherRight rightCarries (rewrite same then otherRightCarries)
-      rewrite output, otherOutput, same, leftSame, rightSame then byComputing
+      rewrite output, otherOutput, same, leftSame, rightSame
 
 --| A device outputs at most one number.
 theorem outputsUnique ∀ (device: Device)

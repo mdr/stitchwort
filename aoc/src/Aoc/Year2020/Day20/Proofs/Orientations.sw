@@ -17,10 +17,10 @@ theorem lastReverseOnto ∀ (xs acc: List a) (y: a): List.last (List.reverseOnto
 theorem lastReverse ∀ (fallback: a) (xs: List a): xs.reverse.last.getOrElse fallback = xs.headOr fallback :=
   match xs with
     | [] => byComputing
-    | [x, ..rest] => rewrite lastReverseOnto rest [] x then byComputing
+    | [x, ..rest] => rewrite lastReverseOnto rest [] x
 
 theorem headReverse ∀ (fallback: a) (xs: List a): xs.reverse.headOr fallback = xs.last.getOrElse fallback :=
-  rewrite <- lastReverse fallback xs.reverse, List.reverseReverse xs then byComputing
+  rewrite <- lastReverse fallback xs.reverse, List.reverseReverse xs
 
 theorem flipTwice ∀ (image: Image): image.flip.flip = image :=
   let rows: image.rows.map (.reverse) |> .map (.reverse) = image.rows :=
@@ -55,7 +55,7 @@ theorem flipEdges ∀ (image: Image):
     = image.rows.map (row => row.last.getOrElse Calm) :=
     rewrite List.mapMap image.rows (row => row.headOr Calm) (.reverse) then
       List.mapCong image.rows _ _ (headReverse Calm)
-  rewrite <- top, <- bottom, <- right, <- left then byComputing
+  rewrite <- top, <- bottom, <- right, <- left
 
 -- Columns
 
@@ -80,8 +80,7 @@ theorem lastsDrop ∀ (fallback: a) (rows: List (List a)) (k: Nat)
     (rows.map (.drop 1)).map (row => row.last.getOrElse fallback) = rows.map (row => row.last.getOrElse fallback) :=
   match rows, h with
     | [], sized => byComputing
-    | [row, ..rest], Both sized more =>
-      rewrite lastDrop fallback row k sized, lastsDrop fallback rest k more then byComputing
+    | [row, ..rest], Both sized more => rewrite lastDrop fallback row k sized, lastsDrop fallback rest k more
 
 theorem lastColumnOne ∀ (fallback: a) (rows: List (List a))
     (h: List.AllLength 1 rows):
@@ -134,13 +133,11 @@ theorem columnsLastRow ∀ (fallback: a) (width: Nat) (rows: List (List a)) (row
     | Zero => Eq.flipped (List.lengthZero row (List.allLengthMem rows 0 sized (List.lastMem rows row found)))
     | Succ k =>
       let sizedRow := List.allLengthMem rows (Succ k) sized (List.lastMem rows row found)
-      let foundTail: List.last (rows.map (.drop 1)) = Some (row.drop 1) :=
-        rewrite List.lastMap rows (.drop 1), found then byComputing
+      let foundTail: List.last (rows.map (.drop 1)) = Some (row.drop 1) := rewrite List.lastMap rows (.drop 1), found
       let later :=
         columnsLastRow fallback k (rows.map (.drop 1)) (row.drop 1) (List.tailsAllLength rows k sized) foundTail
       let head: (List.filterMap rows (.get 0)).last.getOrElse fallback = row.headOr fallback :=
-        rewrite firstColumn fallback rows k sized, List.lastMap rows (row => row.headOr fallback), found then
-          byComputing
+        rewrite firstColumn fallback rows k sized, List.lastMap rows (row => row.headOr fallback), found
       rewrite later, head then consHeadDrop fallback row k sizedRow
 
 --| The last cell of each column is the last row.
@@ -152,7 +149,7 @@ theorem columnsLast ∀ (fallback: a) (width: Nat) (first: List a) (rest: List (
     | Witness row found => rewrite found then columnsLastRow fallback width [first, ..rest] row sized found
 
 theorem reverseNil ∀ (xs: List a) (empty: xs.reverse = []): xs = [] :=
-  List.lengthZero xs (rewrite <- List.lengthReverse xs, empty then byComputing)
+  List.lengthZero xs (rewrite <- List.lengthReverse xs, empty)
 
 --| Turned a quarter clockwise, a rectangle's left edge, reversed, is its
 --| top; its top is its right; its right, reversed, its bottom; and its
@@ -204,7 +201,7 @@ theorem rotateEdges ∀ (image: Image) (k: Nat)
               _ = [first, ..rest].headOr [] := columnsFirst Calm (Succ k) first rest turnedSized
               _ = image.rows.reverse.headOr [] := Eq.cong (rows => rows.headOr []) same
               _ = image.rows.last.getOrElse [] := headReverse [] image.rows
-          rewrite width then rewrite <- top, <- toRight, <- bottom, <- toLeft then byComputing
+          rewrite width, <- top, <- toRight, <- bottom, <- toLeft
   shaped image.rows.reverse byComputing
 
 -- Every orientation's edges are the tile's, some reversed
@@ -224,8 +221,7 @@ theorem rectangleFlip ∀ (image: Image) (rectangle: Rectangle image): Rectangle
   | Witness k (Both sized nonEmpty) =>
     Witness k
       (Both (allLengthFlip (Succ k) image.rows sized) (empty =>
-        nonEmpty
-          (List.lengthZero image.rows (rewrite <- List.lengthMap image.rows (.reverse), empty then byComputing))))
+        nonEmpty (List.lengthZero image.rows (rewrite <- List.lengthMap image.rows (.reverse), empty))))
 
 theorem rectangleRotate ∀ (image: Image) (rectangle: Rectangle image): Rectangle image.rotate := match rectangle with
   | Witness k (Both sized nonEmpty) =>
@@ -258,11 +254,11 @@ theorem fitTrans ∀ [edge middle original: List Pixel]
   match first with
     | Inl same =>
       match second with
-        | Inl again => Inl (rewrite same, again then byComputing)
-        | Inr reversed => Inr (rewrite same, reversed then byComputing)
+        | Inl again => Inl (rewrite same, again)
+        | Inr reversed => Inr (rewrite same, reversed)
     | Inr reversed =>
       match second with
-        | Inl again => Inr (rewrite reversed, again then byComputing)
+        | Inl again => Inr (rewrite reversed, again)
         | Inr twice => Inl (rewrite reversed, twice then List.reverseReverse original)
 
 theorem withinTrans ∀ [a b c: Image] (first: Within a b) (second: Within b c): Within a c := edge onC =>

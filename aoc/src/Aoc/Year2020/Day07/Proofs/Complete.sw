@@ -159,7 +159,7 @@ theorem listStartsWithDigit ∀ (read: List Char) (head: Content) (tail: List Co
                 (Witness
                   ((more ++ ([' ', ..colourRead] ++ (if firstValue.count == 1 then " bag" else " bags").toList))
                     ++ nextRead)
-                  (Both (rewrite split, split2 then byComputing) digitsAll2.left))
+                  (Both (rewrite split, split2) digitsAll2.left))
 
 --| "no other bags" doesn't start with a digit.
 theorem noOtherAbsent ∀ (digit: Char) (more: List Char)
@@ -257,8 +257,7 @@ theorem parseComplete ∀ (input: Text) (rules: Rules)
     Fail.toResult (() => parseRules input) = Ok rules :=
   let lines: Fail.toResult (() => Parse.eachLine input rule) = Ok rules.all :=
     Parse.runsEachLine input rule rules.all (List.all2Weaken runsRule _ _ written)
-  rewrite Fail.toResultThen (() => Parse.eachLine input rule) (all => ({ all }: Rules)), lines, rulesEta rules then
-    byComputing
+  rewrite Fail.toResultThen (() => Parse.eachLine input rule) (all => ({ all }: Rules)), lines, rulesEta rules
 
 --| A line is written as at most one rule, because the parser reads it as one.
 theorem writtenUnique ∀ (chars: List Char) (a b: Rule)

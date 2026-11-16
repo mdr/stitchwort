@@ -56,7 +56,7 @@ theorem chain ∀ (a b c: Nat) (ab: a = b) (bc: b ≤ c) (small: c < 10): a < 10
 -- begin stated
 theorem swappedSum ∀ (a b c: Nat): (a + b) * 1 + c = b + a + c :=
   let swapped: (a + b) * 1 = b + a := rewrite Nat.mulOne (a + b), Nat.addComm a b
-  rewrite swapped then byComputing
+  rewrite swapped
 -- end stated
 
 -- begin arithmetic
@@ -237,7 +237,7 @@ theorem eitherSide ∀ (a b: Bool) (h: (a || b) = True): b ∨ a := match h with
 
 -- begin readings-decisions
 theorem sameKey ∀ [auto eq: DecEq k] (a b c: k) (h: (a == b && b == c) = True): a = c := match h with
-  | Both ab bc => rewrite ab.read, bc.read then byComputing
+  | Both ab bc => rewrite ab.read, bc.read
 
 theorem differ ∀ [auto eq: DecEq k] (a b: k) (h: (a == b) = False): a ≠ b := h.read
 -- end readings-decisions

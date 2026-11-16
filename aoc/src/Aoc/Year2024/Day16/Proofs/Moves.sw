@@ -21,19 +21,19 @@ theorem moveForwardOpen ∀ (maze: Maze) (position: Position) (facing: Heading) 
     (stepped: position.step facing.toDirection = Some ahead)
     (open: maze.isOpen ahead = True):
     move maze { position, facing } Forward = Some ({ position = ahead, facing }: Reindeer) :=
-  rewrite stepped, open then byComputing
+  rewrite stepped, open
 
 theorem forwardOpen ∀ (maze: Maze) (position: Position) (facing: Heading) (ahead: Position)
     (stepped: position.step facing.toDirection = Some ahead)
     (open: maze.isOpen ahead = True):
     maze.forward { position, facing } = [{ position = ahead, facing }] :=
-  rewrite stepped, open then byComputing
+  rewrite stepped, open
 
 theorem backwardOpen ∀ (maze: Maze) (position: Position) (facing: Heading) (behind: Position)
     (stepped: position.step facing.toDirection.opposite = Some behind)
     (open: maze.isOpen behind = True):
     maze.backward { position, facing } = [{ position = behind, facing }] :=
-  rewrite stepped, open then byComputing
+  rewrite stepped, open
 
 --| Each edge out of a way of standing is a move, costing its points.
 theorem afterSound ∀ (maze: Maze) (reindeer next: Reindeer) (weight: Nat)
@@ -85,11 +85,10 @@ theorem beforeSound ∀ (maze: Maze):
     match List.memAppend (previous, weight) _ _ edge with
       | Inr (Inl turn) =>
         rewrite <- Eq.cong Pair.fst turn, <- Eq.cong Pair.snd turn then
-          Witness Counterclockwise
-            (Both (rewrite Aoc.Common.Proofs.headingTurnLeftRight facing then byComputing) byComputing)
+          Witness Counterclockwise (Both (rewrite Aoc.Common.Proofs.headingTurnLeftRight facing) byComputing)
       | Inr (Inr (Inl turn)) =>
         rewrite <- Eq.cong Pair.fst turn, <- Eq.cong Pair.snd turn then
-          Witness Clockwise (Both (rewrite Aoc.Common.Proofs.headingTurnRightLeft facing then byComputing) byComputing)
+          Witness Clockwise (Both (rewrite Aoc.Common.Proofs.headingTurnRightLeft facing) byComputing)
       | Inr (Inr (Inr none)) => none.impossible
       | Inl backward =>
         match stepped: position.step facing.toDirection.opposite with
@@ -101,9 +100,7 @@ theorem beforeSound ∀ (maze: Maze):
                   | Inl here =>
                     rewrite <- Eq.cong Pair.fst here, <- Eq.cong Pair.snd here then
                       Witness Forward
-                        (Both
-                          (rewrite stepForwardOfBack position facing.toDirection behind stepped, holds then byComputing)
-                          byComputing)
+                        (Both (rewrite stepForwardOfBack position facing.toDirection behind stepped, holds) byComputing)
 
 --| Each move from an open tile is an edge into where it ends.
 theorem beforeComplete ∀ (maze: Maze):
@@ -111,10 +108,10 @@ theorem beforeComplete ∀ (maze: Maze):
       → ∀ (way: Move) (next: Reindeer) => move maze reindeer way = Some next → (reindeer, way.points) ∈ maze.before next
   | { position, facing }, holds, Clockwise, next, moved =>
     rewrite <- Option.someInjective moved then
-      List.memAppendRight _ _ _ (Inr (Inl (rewrite Aoc.Common.Proofs.headingTurnLeftRight facing then byComputing)))
+      List.memAppendRight _ _ _ (Inr (Inl (rewrite Aoc.Common.Proofs.headingTurnLeftRight facing)))
   | { position, facing }, holds, Counterclockwise, next, moved =>
     rewrite <- Option.someInjective moved then
-      List.memAppendRight _ _ _ (Inl (rewrite Aoc.Common.Proofs.headingTurnRightLeft facing then byComputing))
+      List.memAppendRight _ _ _ (Inl (rewrite Aoc.Common.Proofs.headingTurnRightLeft facing))
   | { position, facing }, holds, Forward, next, moved =>
     match stepped: position.step facing.toDirection with
       | Some ahead =>

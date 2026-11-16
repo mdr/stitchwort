@@ -24,14 +24,14 @@ theorem scoreAppend ∀ (moves more: List Move): score (moves ++ more) = score m
 theorem finalCons ∀ (maze: Maze) (reindeer: Reindeer) (way: Move) (next: Reindeer)
     (moved: move maze reindeer way = Some next) (rest: List Move):
     final maze reindeer [way, ..rest] = final maze next rest :=
-  rewrite moved then byComputing
+  rewrite moved
 
 --| Moves then more moves: the more moves from where the first left off.
 theorem finalAppend ∀ (maze: Maze) (more: List Move) (reindeer: Reindeer) (moves: List Move) (middle: Reindeer)
     (ended: final maze reindeer moves = Some middle):
     final maze reindeer (moves ++ more) = final maze middle more :=
   match moves with
-    | [] => rewrite Option.someInjective ended then byComputing
+    | [] => rewrite Option.someInjective ended
     | [way, ..rest] =>
       match moved: move maze reindeer way with
         | Some next => finalAppend maze more next rest middle ended
@@ -76,9 +76,7 @@ theorem finalFollow ∀ (maze: Maze) (reindeer: Reindeer) (moves: List Move) (la
     | [way, ..rest] =>
       match moved: move maze reindeer way with
         | Some next => Exists.elim (finalFollow maze next rest last ended) (later both =>
-          Witness
-            [reindeer, ..later]
-            (Both (rewrite And.left both then byComputing) (lastCons reindeer later last both.right)))
+          Witness [reindeer, ..later] (Both (rewrite And.left both) (lastCons reindeer later last both.right)))
 
 --| The reindeer stands where it starts.
 theorem followStarts ∀ (maze: Maze) (reindeer: Reindeer) (moves: List Move) (standings: List Reindeer)
@@ -140,5 +138,5 @@ theorem followSplits ∀ (maze: Maze):
                       [way, ..before]
                       (Witness afterwards
                         (Both
-                          (rewrite split then byComputing)
+                          (rewrite split)
                           (Both (Eq.trans (finalCons maze reindeer way next moved before) reached) remaining)))))

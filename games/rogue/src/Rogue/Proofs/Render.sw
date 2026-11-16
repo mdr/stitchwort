@@ -16,7 +16,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Text, Void)
 --| The player's mark is the first on the player's row, so it's drawn.
 theorem glyphAtPlayer ∀ (state: State) (terrain: Char):
     glyphAt (marksIn state state.player.row) state.player.column terrain = '@' :=
-  rewrite natEqSelf state.player.row, natEqSelf state.player.column then byComputing
+  rewrite natEqSelf state.player.row, natEqSelf state.player.column
 
 --| Among the monsters' marks on a cell's row, the first in the cell's column
 --| is the glyph of the monster `monsterAt` finds there.
@@ -33,7 +33,7 @@ theorem lookupMonsterMark ∀ (position: Position) (found: Monster) (rest: List 
         | True =>
           let here := same.read
           let itIs := Option.someInjective located
-          rewrite here, natEqSelf position.row, natEqSelf position.column, itIs then byComputing
+          rewrite here, natEqSelf position.row, natEqSelf position.column, itIs
         | False =>
           match sameRow: monster.position.row == position.row with
             | True =>
@@ -50,10 +50,9 @@ theorem glyphAtMonster ∀ (state: State) (position: Position) (found: Monster)
     if item.position.row == position.row then Some (item.position.column, item.loot.glyph) else None)
   match sameRow: state.player.row == position.row with
     | True =>
-      rewrite columnDiffers state.player position notPlayer sameRow,
-          lookupMonsterMark position found items state.monsters located then
-        byComputing
-    | False => rewrite lookupMonsterMark position found items state.monsters located then byComputing
+      rewrite columnDiffers state.player position notPlayer sameRow, lookupMonsterMark position found items
+          state.monsters located
+    | False => rewrite lookupMonsterMark position found items state.monsters located
 
 --| The character `render` draws at a cell of the level is `glyphAt` of what
 --| stands on the cell's row, over the terrain there (for a cell the terrain
@@ -81,7 +80,7 @@ theorem renderCell ∀ (state: State) (position: Position)
   let third: (chars.mapWithIndex (glyphAt (marksIn state row))).getOr column ' '
     = glyphAt (marksIn state row) column (chars.getOr column ' ') :=
     List.getOrMapWithIndex chars column ' ' ' ' wide (glyphAt (marksIn state row))
-  rewrite first, second then rewrite third then byComputing
+  rewrite first, second, third
 
 --| `render` draws `@` at the player's row and column.
 theorem renderPlayer ∀ (state: State)

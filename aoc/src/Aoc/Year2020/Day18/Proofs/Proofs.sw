@@ -11,12 +11,12 @@ import Std (Eq, Fail, List, Nat, Parse, Result, Text)
 
 theorem valueSpec ∀ (expression: Expression): expression.value = Spec.value expression := match expression with
   | Number value => byComputing
-  | Operation Plus left right => rewrite valueSpec left, valueSpec right then byComputing
-  | Operation Times left right => rewrite valueSpec left, valueSpec right then byComputing
+  | Operation Plus left right => rewrite valueSpec left, valueSpec right
+  | Operation Times left right => rewrite valueSpec left, valueSpec right
   | Parenthesised inner => valueSpec inner
 
 theorem sumSpec ∀ (homework: Homework): homework.sum = (homework.expressions.map Spec.value).sum :=
-  rewrite List.mapCong homework.expressions Expression.value Spec.value valueSpec then byComputing
+  rewrite List.mapCong homework.expressions Expression.value Spec.value valueSpec
 
 --| If `parseHomework` reads `input`, each line is its expression, under
 --| the rules `strengthOf` that `precedence`'s levels rank.

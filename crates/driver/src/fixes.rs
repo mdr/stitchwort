@@ -19,6 +19,8 @@ use crate::nav::Range;
 
 pub const THEOREM_FORALL: &str = binder_sweep::WARNING;
 pub const ARROW_FORALL: &str = "W-ARROW-FORALL";
+pub const REWRITE_THEN_COMPUTING: &str = "W-REWRITE-THEN-COMPUTING";
+pub const REWRITE_THEN_REWRITE: &str = "W-REWRITE-THEN-REWRITE";
 
 /// How far a fix can be trusted, as Rust's `MachineApplicable` and
 /// `MaybeIncorrect`.
@@ -204,6 +206,8 @@ pub fn style_title(code: &str) -> Option<&'static str> {
     match code {
         THEOREM_FORALL => Some("Move ∀ variables before the colon"),
         ARROW_FORALL => Some("Write ∀ instead of ->"),
+        REWRITE_THEN_COMPUTING => Some("Drop `then byComputing`"),
+        REWRITE_THEN_REWRITE => Some("Join into one `rewrite`"),
         _ => None,
     }
 }
@@ -216,6 +220,20 @@ pub fn style_edits(text: &str, code: &str, at: Range) -> Vec<Edit> {
     match code {
         THEOREM_FORALL => theorem(text, from, to).into_iter().collect(),
         ARROW_FORALL => arrow(text, from, to),
+        // The label covers `then byComputing`, or `then rewrite`; the
+        // whitespace before it goes too, and the rules are joined by a comma.
+        REWRITE_THEN_COMPUTING | REWRITE_THEN_REWRITE => {
+            let start = text.get(..from).map_or(from, |t| t.trim_end().len());
+            let new_text = if code == REWRITE_THEN_REWRITE {
+                ","
+            } else {
+                ""
+            };
+            vec![Edit {
+                range: span(text, start, to),
+                new_text: new_text.to_string(),
+            }]
+        }
         _ => Vec::new(),
     }
 }
@@ -521,6 +539,35 @@ mod tests {
             out.push('\n');
         }
         out
+    }
+
+    /// The text after applying the one edit of the fix for `code` at the
+    /// first `needle` of `text` to the end of `until`.
+    fn rewrite_fix(text: &str, code: &str, needle: &str, until: &str) -> String {
+        let from = text.find(needle).unwrap();
+        let to = from + text[from..].find(until).unwrap() + until.len();
+        let at = span(text, from, to);
+        let fixes = fixes_for(text, code, at, &[], None, None);
+        let edit = &fixes[0].edits[0];
+        let (a, b) = (
+            offset_at(text, edit.range[0], edit.range[1]),
+            offset_at(text, edit.range[2], edit.range[3]),
+        );
+        format!("{}{}{}", &text[..a], edit.new_text, &text[b..])
+    }
+
+    #[test]
+    fn the_rewrite_fixes_drop_the_then_and_join_the_rules() {
+        let text = "theorem t := rewrite h then\n    byComputing\n";
+        assert_eq!(
+            rewrite_fix(text, REWRITE_THEN_COMPUTING, "then", "byComputing"),
+            "theorem t := rewrite h\n"
+        );
+        let text = "theorem t := rewrite a then rewrite b then c\n";
+        assert_eq!(
+            rewrite_fix(text, REWRITE_THEN_REWRITE, "then", "rewrite"),
+            "theorem t := rewrite a, b then c\n"
+        );
     }
 
     #[test]

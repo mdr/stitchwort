@@ -46,7 +46,7 @@ theorem pathWalk ∀ (risks: RiskMap) (start: Position) (steps: List Position) (
 theorem levelAtOn ∀ (risks: RiskMap) (position: Position)
     (onMap: (position.row < risks.height && position.column < risks.width) = True):
     risks.levelAt position = Some (risks.level position) :=
-  rewrite onMap then byComputing
+  rewrite onMap
 
 --| A path leads from the top left to the bottom right of a map with a
 --| position.
@@ -55,7 +55,7 @@ theorem routeOnMap ∀ (risks: RiskMap)
     (wide: 0 < risks.width):
     isPath risks.levelAt topLeft (route risks.height risks.width) (bottomRight risks.height risks.width) = True :=
   routePath (position => (risks.levelAt position).isSome) risks.height risks.width tall wide (position inside =>
-    rewrite levelAtOn risks position inside then byComputing)
+    rewrite levelAtOn risks position inside)
 
 --| The program's search finds the lowest total risk from the top left to
 --| the bottom right, on any map with a position.
@@ -69,7 +69,7 @@ theorem lowestRiskCorrect ∀ (risks: RiskMap)
   let routeWalk := pathWalk risks topLeft (route risks.height risks.width) target (routeOnMap risks tall wide)
   Exists.elim (And.right shortest risks.start 0 (Inl byComputing) _ target routeWalk) (found both =>
     let got := both.left
-    let answer: risks.lowestRisk = found := rewrite got then byComputing
+    let answer: risks.lowestRisk = found := rewrite got
     rewrite answer then
       Both (cheapestPath risks target found got) (steps path => noCheaperPath risks target found got steps path))
 

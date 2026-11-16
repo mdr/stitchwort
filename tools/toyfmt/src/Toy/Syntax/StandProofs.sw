@@ -19,7 +19,7 @@ theorem stopsTakeWhile ∀ (passes: Char → Bool) (rest: List Char)
     rest.takeWhile passes = [] :=
   match rest, stops with
     | [], _ => byComputing
-    | [char, ..later], fails => rewrite fails then byComputing
+    | [char, ..later], fails => rewrite fails
 
 --| `read` is one `lexeme` as the lexer takes it before `rest`: its
 --| characters are that lexeme's, and `rest` doesn't continue it. A stray

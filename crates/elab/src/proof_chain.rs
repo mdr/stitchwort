@@ -100,7 +100,7 @@ fn diagnostic(e: &Expr) -> Diagnostic {
 }
 
 /// The expressions directly inside `e`.
-fn sub_expressions<'a>(e: &'a Expr, out: &mut Vec<&'a Expr>) {
+pub(crate) fn sub_expressions<'a>(e: &'a Expr, out: &mut Vec<&'a Expr>) {
     match e {
         Expr::Var(_)
         | Expr::Num(..)

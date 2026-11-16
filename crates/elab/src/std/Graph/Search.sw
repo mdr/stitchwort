@@ -212,8 +212,8 @@ theorem Graph.unsettledFewer ∀ [auto ord: Ord s] (universe: List s) (settled m
         | False => byComputing)
     state
     member
-    (rewrite fresh then byComputing)
-    (rewrite now then byComputing)
+    (rewrite fresh)
+    (rewrite now)
 
 -- Cost tables
 
@@ -255,7 +255,7 @@ def Graph.Costs.has (costs: Graph.Costs s t) (table: t) (state: s): Bool := matc
 theorem Graph.Costs.hasOfGet ∀ (costs: Graph.Costs s t) [table: t] [state: s] [cost: Nat]
     (got: costs.get table state = Some cost):
     costs.has table state = True :=
-  rewrite got then byComputing
+  rewrite got
 
 --| A state the table has has some cost.
 theorem Graph.Costs.getOfHas ∀ (costs: Graph.Costs s t) [table: t] [state: s]
@@ -682,8 +682,8 @@ theorem Graph.unsettledAtFewer ∀ (costs: Graph.Costs s t) (universe: List s) (
         | False => byComputing)
     state
     member
-    (rewrite fresh then byComputing)
-    (rewrite now then byComputing)
+    (rewrite fresh)
+    (rewrite now)
 
 --| Whether `total` is less than the cost `best` has for `state`; it is
 --| when `best` has none.
@@ -883,11 +883,9 @@ theorem Graph.minLeast ∀ [auto ord: Ord s] (queue: Set (Nat, s)) (cost: Nat) (
   match entries: Map.toList queue.items with
     | [] =>
       Void.impossible
-        (Option.someNotNone
-          (cost, state)
-          (Eq.trans found.flipped (rewrite Map.minToList queue.items, entries then byComputing)))
+        (Option.someNotNone (cost, state) (Eq.trans found.flipped (rewrite Map.minToList queue.items, entries)))
     | [(key, unit), ..rest] =>
-      let first: queue.min = Some key := rewrite Map.minToList queue.items, entries then byComputing
+      let first: queue.min = Some key := rewrite Map.minToList queue.items, entries
       let same: key = (cost, state) := Option.someInjective (Eq.trans first.flipped found)
       let member := Map.memKeysOfContains queue.items (other, otherState) there
       rewrite entries at member then
@@ -1488,7 +1486,7 @@ theorem Graph.visitNew ∀ [auto ord: Ord s] (depth: Nat) (edges: List (s, Nat))
                           [target, ..next]
                           state
                           (Inl same.flipped))
-                        (Witness weight (Inl (rewrite same then byComputing)))))
+                        (Witness weight (Inl (rewrite same)))))
 
 --| What is on the list after visiting edges was on it, or wasn't settled
 --| before and is now, at `depth`, an edge's state.
@@ -1620,7 +1618,7 @@ theorem Graph.breadthDone ∀ [auto ord: Ord s] (graph: Graph s) (depth: Nat) (s
     (frontier: List s) (more: Map s Nat)
     (found: graph.visitFrontier (depth + 1) frontier settled = (more, [])):
     graph.breadthFrom depth settled frontier (more, []) found = more :=
-  rewrite Graph.breadthFrom.unfold graph depth settled frontier (more, []) found then byComputing
+  rewrite Graph.breadthFrom.unfold graph depth settled frontier (more, []) found
 
 theorem Graph.breadthStep ∀ [auto ord: Ord s] (graph: Graph s) (depth: Nat) (settled: Map s Nat) (frontier: List s)
     (more: Map s Nat) (first: s) (rest: List s)
@@ -1632,7 +1630,7 @@ theorem Graph.breadthStep ∀ [auto ord: Ord s] (graph: Graph s) (depth: Nat) (s
         [first, ..rest]
         (graph.visitFrontier (depth + 1 + 1) [first, ..rest] more)
         byComputing :=
-  rewrite Graph.breadthFrom.unfold graph depth settled frontier (more, [first, ..rest]) found then byComputing
+  rewrite Graph.breadthFrom.unfold graph depth settled frontier (more, [first, ..rest]) found
 
 --| What holds at each level of the search, for a `reach` that holds at the sources for 0 and along every edge for one more.
 --| Every settled state is reached for its cost, at most `depth`; the frontier

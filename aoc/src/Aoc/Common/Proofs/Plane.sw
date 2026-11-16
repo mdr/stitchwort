@@ -30,11 +30,10 @@ theorem iterateMod ∀ (f: a → a) (period: Nat)
     (count: Nat) (x: a):
     Nat.iterate count f x = Nat.iterate (count % period) f x :=
   calc Nat.iterate count f x
-    _ = Nat.iterate ((count / period) * period + count % period) f x :=
-      rewrite <- Nat.divModEq count period then byComputing
+    _ = Nat.iterate ((count / period) * period + count % period) f x := rewrite <- Nat.divModEq count period
     _ = Nat.iterate (count % period) f (Nat.iterate ((count / period) * period) f x) :=
       Nat.iterateAdd f ((count / period) * period) (count % period) x
-    _ = Nat.iterate (count % period) f x := rewrite iterateCycles f period cycle (count / period) x then byComputing
+    _ = Nat.iterate (count % period) f x := rewrite iterateCycles f period cycle (count / period) x
 
 -- Headings
 
@@ -80,7 +79,7 @@ theorem headingToDirectionOpposite ∀ (heading: Heading): heading.opposite.toDi
 -- Coordinates
 
 theorem coordsExt ∀ (coords other: Coords f) (sameX: coords.x = other.x) (sameY: coords.y = other.y): coords = other :=
-  match coords, other with | { x, y }, { x = otherX, y = otherY } => rewrite sameX, sameY then byComputing
+  match coords, other with | { x, y }, { x = otherX, y = otherY } => rewrite sameX, sameY
 
 theorem coordsPlusComm ∀ (coords other: Coords f): coords.plus other = other.plus coords :=
   coordsExt _ _ (arithmetic) (arithmetic)
@@ -158,11 +157,9 @@ theorem coordsTurnedHeading ∀ [auto frame: Frame f] (heading: Heading) (quarte
       calc (heading.toCoords: Coords f).turned (Succ quarters)
         _ = ((heading.toCoords: Coords f).turned quarters).turnRight :=
           Nat.iterateSuccLast (Coords.turnRight: Coords f → Coords f) quarters heading.toCoords
-        _ = (heading.turned quarters).toCoords.turnRight :=
-          rewrite coordsTurnedHeading heading quarters then byComputing
+        _ = (heading.turned quarters).toCoords.turnRight := rewrite coordsTurnedHeading heading quarters
         _ = (heading.turned quarters).turnRight.toCoords := coordsTurnRightHeading (heading.turned quarters)
-        _ = (heading.turned (Succ quarters)).toCoords :=
-          rewrite Nat.iterateSuccLast Heading.turnRight quarters heading then byComputing
+        _ = (heading.turned (Succ quarters)).toCoords := rewrite Nat.iterateSuccLast Heading.turnRight quarters heading
 
 -- Steps
 
@@ -208,7 +205,7 @@ theorem manhattanZeroOnly ∀ (coords: Coords f) (zero: coords.manhattan = 0): c
   coordsExt _ _ (Int.natAbsZero coords.x (arithmetic)) (Int.natAbsZero coords.y (arithmetic))
 
 theorem manhattanNegate ∀ (coords: Coords f): coords.negate.manhattan = coords.manhattan :=
-  rewrite Int.natAbsNegate coords.x, Int.natAbsNegate coords.y then byComputing
+  rewrite Int.natAbsNegate coords.x, Int.natAbsNegate coords.y
 
 theorem manhattanTimes ∀ (coords: Coords f) (factor: Int):
     (coords.times factor).manhattan = coords.manhattan * factor.natAbs :=
@@ -232,10 +229,10 @@ theorem manhattanTriangle ∀ (coords other: Coords f):
 theorem distanceSelf ∀ (coords: Coords f): coords.distance coords = 0 :=
   let sameX: coords.x - coords.x = 0 := arithmetic
   let sameY: coords.y - coords.y = 0 := arithmetic
-  rewrite sameX, sameY then byComputing
+  rewrite sameX, sameY
 
 theorem distanceSymm ∀ (coords other: Coords f): coords.distance other = other.distance coords :=
-  rewrite Int.natAbsSubComm coords.x other.x, Int.natAbsSubComm coords.y other.y then byComputing
+  rewrite Int.natAbsSubComm coords.x other.x, Int.natAbsSubComm coords.y other.y
 
 theorem distanceTriangle ∀ (coords other third: Coords f):
     coords.distance third ≤ coords.distance other + other.distance third :=

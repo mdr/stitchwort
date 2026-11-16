@@ -57,7 +57,7 @@ theorem booked ∀ (bookings: List Booking) (b: Booking) (m: b ∈ bookings): bo
 -- end build-from-proof
 
 -- begin same
-theorem sameName ∀ (a b: Booking) (h: a == b): a.name = b.name := rewrite h.read then byComputing
+theorem sameName ∀ (a b: Booking) (h: a == b): a.name = b.name := rewrite h.read
 -- end same
 
 -- begin auto

@@ -7,7 +7,7 @@ import Aoc.Year2020.Day02.Spec (..)
 import Std (Bool, DecEq, Eq, List, Nat, Option, Text)
 
 theorem validByCountSpec ∀ (entry: Entry): entry.validByCount = validPart1 entry :=
-  rewrite List.lengthFilter entry.password.toList (== entry.letter) then byComputing
+  rewrite List.lengthFilter entry.password.toList (== entry.letter)
 
 theorem part1Correct ∀ (entries: List Entry): solvePart1 entries = part1Answer entries :=
   rewrite List.lengthFilter entries validPart1 then List.countCongMem _ _ _ (e m => validByCountSpec e)

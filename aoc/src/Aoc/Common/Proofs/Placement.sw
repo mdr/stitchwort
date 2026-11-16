@@ -32,14 +32,14 @@ theorem mapValueAt ∀ [auto eq: DecEq k] (fallback: v) (keys: List k) (values: 
   match keys, values, h with
     | [], [], distinct => byComputing
     | [first, ..rest], [value, ..values], Both fresh distinct =>
-      rewrite DecEq.refl first then
-        rewrite List.mapCongMem rest
-              (valueAt fallback [first, ..rest] [value, ..values])
-              (valueAt fallback rest values)
-              (key member =>
-                valueAtLater fallback first rest value values key (same => fresh (rewrite <- same then member))),
-            mapValueAt fallback rest values (Nat.succInjective lengths) distinct then
-          byComputing
+      rewrite DecEq.refl first, List.mapCongMem rest
+        (valueAt fallback [first, ..rest] [value, ..values])
+        (valueAt fallback rest values)
+        (key member =>
+          valueAtLater fallback first rest value values key (same => fresh (rewrite <- same then member))), mapValueAt
+          fallback rest values
+          (Nat.succInjective lengths)
+          distinct
     | [], [value, ..values], distinct => (Nat.zeroNotSucc _ lengths).impossible
     | [first, ..rest], [], distinct => (Nat.succNotZero _ lengths).impossible
 

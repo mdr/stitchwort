@@ -20,7 +20,7 @@ theorem memBusesFrom ∀ (start: Nat) (schedule: List Slot) (bus: Bus)
     Listed bus.id ∈ schedule :=
   match schedule, h with
     | [], member => member.impossible
-    | [Listed id, ..rest], Inl same => Inl (rewrite <- same then byComputing)
+    | [Listed id, ..rest], Inl same => Inl (rewrite <- same)
     | [Listed id, ..rest], Inr member => Inr (memBusesFrom (Succ start) rest bus member)
     | [OutOfService, ..rest], member => Inr (memBusesFrom (Succ start) rest bus member)
 

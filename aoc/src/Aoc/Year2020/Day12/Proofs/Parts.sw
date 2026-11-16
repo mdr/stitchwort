@@ -38,12 +38,11 @@ theorem navigateFollows ∀ (ship: Ship) (instruction: Instruction):
   match instruction with
     | { action, value } =>
       match action with
-        | Move heading => rewrite alongUnit ship.location heading value then byComputing
+        | Move heading => rewrite alongUnit ship.location heading value
         | Turn side =>
-          rewrite headingTurned (clockwiseQuarters side value) ship.facing,
-              <- turnedClockwise side value (unit ship.facing) then
-            byComputing
-        | Forward => rewrite alongUnit ship.location ship.facing value then byComputing
+          rewrite headingTurned (clockwiseQuarters side value) ship.facing, <- turnedClockwise side value
+            (unit ship.facing)
+        | Forward => rewrite alongUnit ship.location ship.facing value
 
 --| Part 2's ship as the spec sees it.
 def WaypointShip.inSpec (ship: WaypointShip): Spec.Steered := { position = ship.location, waypoint = ship.waypoint }
@@ -53,20 +52,18 @@ theorem steerFollows ∀ (ship: WaypointShip) (instruction: Instruction):
   match instruction with
     | { action, value } =>
       match action with
-        | Move heading => rewrite alongUnit ship.waypoint heading value then byComputing
-        | Turn side => rewrite rotatedTurned side value ship.waypoint then byComputing
-        | Forward => rewrite alongTimes ship.location ship.waypoint value then byComputing
+        | Move heading => rewrite alongUnit ship.waypoint heading value
+        | Turn side => rewrite rotatedTurned side value ship.waypoint
+        | Forward => rewrite alongTimes ship.location ship.waypoint value
 
 theorem part1Rules ∀ (route: Route): Spec.Part1 route.instructions route.shipDistance :=
   rewrite <- foldLeftRelate Ship.inSpec Ship.follow Spec.navigate
-        (ship instruction => (navigateFollows ship instruction).flipped)
-        route.instructions
-        Ship.start then
-    byComputing
+    (ship instruction => (navigateFollows ship instruction).flipped)
+    route.instructions
+    Ship.start
 
 theorem part2Rules ∀ (route: Route): Spec.Part2 route.instructions route.waypointDistance :=
   rewrite <- foldLeftRelate WaypointShip.inSpec WaypointShip.follow Spec.steer
-        (ship instruction => (steerFollows ship instruction).flipped)
-        route.instructions
-        WaypointShip.start then
-    byComputing
+    (ship instruction => (steerFollows ship instruction).flipped)
+    route.instructions
+    WaypointShip.start

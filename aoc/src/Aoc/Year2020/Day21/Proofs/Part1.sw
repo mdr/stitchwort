@@ -84,7 +84,7 @@ theorem safeIff ∀ (list: FoodList)
                     (cannot
                       (Witness
                         (moveTo holder allergen ingredient)
-                        (Both moved (Witness allergen (Both listed (rewrite DecEq.refl allergen then byComputing))))))
+                        (Both moved (Witness allergen (Both listed (rewrite DecEq.refl allergen))))))
   }
 
 --| Part 1: given a way the allergens could be, the answer is the spec's.

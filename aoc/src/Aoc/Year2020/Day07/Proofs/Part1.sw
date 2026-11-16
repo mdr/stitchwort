@@ -49,7 +49,7 @@ theorem holderDirectly ∀ (rules: Rules) (inner holder: Colour):
         (rule member inRule =>
           let (Witness content (Both inContents made)) :=
             List.memMapElim (content => { inside = content.colour, holder = rule.colour }) pair rule.contents inRule
-          let ruleColour: rule.colour = holder := rewrite <- same, <- made then byComputing
+          let ruleColour: rule.colour = holder := rewrite <- same, <- made
           let contentColour: content.colour = inner :=
             Eq.flipped (Map.Spec.sameKeySound inner content.colour (rewrite <- made at matching then matching))
           Witness content

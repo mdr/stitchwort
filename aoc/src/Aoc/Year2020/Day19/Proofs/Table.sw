@@ -30,8 +30,8 @@ theorem leftAfterSame ∀ (first second: Nat → Option Rule)
     | Zero => byComputing
     | Succ more =>
       match looked: second number with
-        | None => rewrite same number, looked then byComputing
-        | Some (Letter letter) => rewrite same number, looked then byComputing
+        | None => rewrite same number, looked
+        | Some (Letter letter) => rewrite same number, looked
         | Some (Alternatives sequences) =>
           rewrite same number, looked then
             List.flatMapCong sequences

@@ -86,7 +86,7 @@ theorem changeAgrees ∀ (stone: Nat): changeStone stone = change stone := match
     match even: stone.digitCount % 2 == 0 with
       | True =>
         let evenEq := even.read
-        rewrite splitRight stone evenEq, splitLeft stone evenEq then byComputing
+        rewrite splitRight stone evenEq, splitLeft stone evenEq
       | False => byComputing
 
 --| A digit list starting with a digit other than 0 is the digits of its

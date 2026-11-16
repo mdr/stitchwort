@@ -24,7 +24,7 @@ theorem Parse.runsText ∀ (expected: Text) (rest: List Char):
     Witness
       (state.advance rest expected.toList.length).at
       (Both
-        (rewrite Parse.runFromTextThere state expected rest _ starts then byComputing)
+        (rewrite Parse.runFromTextThere state expected rest _ starts)
         (Both byComputing (Both (arithmetic [honest, lengths]) byComputing)))
 
 --| `nat` on a run of digits, with `rest` not starting with another digit (the
@@ -40,7 +40,7 @@ theorem Parse.runsNat ∀ (digits rest: List Char)
     Witness
       (state.advance rest digits.length).at
       (Both
-        (rewrite Parse.runFromNatThere state digits rest _ starts some all stops then byComputing)
+        (rewrite Parse.runFromNatThere state digits rest _ starts some all stops)
         (Both byComputing (Both (arithmetic [honest, lengths]) byComputing)))
 
 --| `spaces` on a run of spaces and tabs, with `rest` not starting with one.
@@ -109,13 +109,13 @@ theorem Parse.runsToken ∀ (p: () → {Parse Char} a) (before inside after rest
 theorem Parse.declinesText ∀ (expected: Text) (input: List Char)
     (absent: Text.stripPrefixChars expected.toList input = None):
     Parse.Declines (() => Parse.text expected) input :=
-  state starts honest => rewrite starts, Parse.stripPrefixBySameChar input expected.toList, absent then byComputing
+  state starts honest => rewrite starts, Parse.stripPrefixBySameChar input expected.toList, absent
 
 --| `nat` declines where the input doesn't start with a digit.
 theorem Parse.declinesNat ∀ (input: List Char)
     (stops: input.takeWhile Parse.isDigit = []):
     Parse.Declines Parse.nat input :=
-  state starts honest => rewrite starts, List.spanAppend Parse.isDigit [] input byComputing stops then byComputing
+  state starts honest => rewrite starts, List.spanAppend Parse.isDigit [] input byComputing stops
 
 --| `char` declines at the end of the input.
 theorem Parse.declinesCharEnd ∀ (expected: Char): Parse.Declines (() => Parse.char expected) [] :=
@@ -219,8 +219,7 @@ theorem Parse.runsFindWord ∀ (found: (Text, a)) (later: List (Text, a)) (rest:
           Witness m
             (Both
               (Eq.trans
-                (rewrite starts, Parse.stripPrefixBySameChar (found.fst.toList ++ rest) choice.fst.toList, gone then
-                  byComputing)
+                (rewrite starts, Parse.stripPrefixBySameChar (found.fst.toList ++ rest) choice.fst.toList, gone)
                 ran)
               others)
 
@@ -273,9 +272,7 @@ theorem Parse.runsFindNone ∀ (rest: List Char) (choices: List (Text, a))
       match Parse.runsFindNone rest more absent state starts honest with
         | Witness m (Both ran others) =>
           Witness m
-            (Both
-              (Eq.trans (rewrite starts, Parse.stripPrefixBySameChar rest choice.fst.toList, gone then byComputing) ran)
-              others)
+            (Both (Eq.trans (rewrite starts, Parse.stripPrefixBySameChar rest choice.fst.toList, gone) ran) others)
 
 --| `pick` declines where none of its words comes next.
 theorem Parse.declinesPick ∀ (choices: List (Text, a)) (input: List Char)
@@ -315,7 +312,7 @@ theorem Parse.runsEachLine ∀ (input: Text) (p: () → {Parse Char} a) (values:
   rewrite Fail.toResultMap _ input.lines.withIndex then
     Result.traverseOfAll2 _
       (entry v => Parse.Runs p entry.snd.toList [] v)
-      (entry v run => match entry with | (index, line) => rewrite Parse.runsWhole line.toList p v run then byComputing)
+      (entry v run => match entry with | (index, line) => rewrite Parse.runsWhole line.toList p v run)
       input.lines.withIndex
       values
       (List.all2OfWithIndex
@@ -749,7 +746,7 @@ theorem Parse.runsWithFinalLineBreakSome ∀ (p: () → {Parse Char} a) (read li
 theorem Parse.runsLine ∀ (line: Text) (p: () → {Parse Char} a) (v: a)
     (runs: Parse.Runs (() => Parse.withFinalLineBreak p) line.toList [] v):
     Fail.toResult (() => Parse.line line p) = Ok v :=
-  rewrite Parse.runsWhole line.toList (() => Parse.withFinalLineBreak p) v runs then byComputing
+  rewrite Parse.runsWhole line.toList (() => Parse.withFinalLineBreak p) v runs
 
 --| The check `withFinalLineBreaks` makes of the line breaks at the end succeeds
 --| (reading nothing) when `start` is where they begin and they are all that is
@@ -918,10 +915,9 @@ theorem Parse.runsAll ∀ (input: Text) (p: () → {Parse Char} a) (read breaks:
     (runs: Parse.Runs p read breaks v):
     Fail.toResult (() => Parse.all input p) = Ok v :=
   rewrite Parse.runsWhole input.toList
-        (() => Parse.withFinalLineBreaks p)
-        v
-        (rewrite split then Parse.runsWithFinalLineBreaks p read breaks v allBreaks runs) then
-    byComputing
+    (() => Parse.withFinalLineBreaks p)
+    v
+    (rewrite split then Parse.runsWithFinalLineBreaks p read breaks v allBreaks runs)
 
 --| As [`Parse.runsAll`], for a `p` whose value depends on where it starts
 --| (the start of the input here): `Parse.locatedToEnd`'s offsets, say.
@@ -932,11 +928,10 @@ theorem Parse.runsFromAll ∀ (input: Text) (p: () → {Parse Char} a) (read bre
     Fail.toResult (() => Parse.all input p) = Ok v :=
   let moved := rewrite split at runs then runs
   rewrite Parse.runsFromWhole input.toList
-        (() => Parse.withFinalLineBreaks p)
-        v
-        (rewrite split then
-          Parse.runsFromWithFinalLineBreaks (Parse.State.start (read ++ breaks)) p read breaks v allBreaks moved) then
-    byComputing
+    (() => Parse.withFinalLineBreaks p)
+    v
+    (rewrite split then
+      Parse.runsFromWithFinalLineBreaks (Parse.State.start (read ++ breaks)) p read breaks v allBreaks moved)
 
 --| `newline` on a line break, "\n" or "\r\n".
 theorem Parse.runsNewline ∀ (lineBreak rest: List Char)
@@ -951,8 +946,8 @@ theorem Parse.lineBreakNotSpace ∀ (lineBreak rest: List Char)
     (isBreak: Parse.LineBreak lineBreak):
     (lineBreak ++ rest).takeWhile Parse.isSpace = [] :=
   match isBreak with
-    | Inl same => rewrite same then byComputing
-    | Inr same => rewrite same then byComputing
+    | Inl same => rewrite same
+    | Inr same => rewrite same
 
 --| `blankLine` on a line break, spaces and tabs, and a line break.
 theorem Parse.runsBlankLine ∀ (first blanks last rest: List Char)
@@ -1258,10 +1253,7 @@ theorem Parse.declinesAfterSpacesBreak ∀ (p: () → {Parse Char} a) (q: Char �
       rewrite same then declinesRun middle more (rewrite List.appendNil middle at all then all)
     | Inr same =>
       rewrite same, <- List.appendAssoc middle ['\r'] ['\n', ..more] then
-        declinesRun
-          (middle ++ ['\r'])
-          more
-          (Parse.allSpacesThen q spaces ['\r'] (rewrite carriageReturn then byComputing) middle spaced)
+        declinesRun (middle ++ ['\r']) more (Parse.allSpacesThen q spaces ['\r'] (rewrite carriageReturn) middle spaced)
 
 --| What can follow a block of lines (a `lines` inside `sections`): only line
 --| breaks, or a blank line and then anything.
@@ -1396,15 +1388,14 @@ theorem Parse.declinesSectionsAfterBreak ∀ (p: () → {Parse Char} a) (canStar
       let only1: Parse.OnlyBreaks others := only.right
       match Parse.lineBreakChar char only.left with
         | Inl same =>
-          rewrite same then
-            rewrite <- List.appendAssoc first ['\n'] others then
-              Parse.declinesAfter Parse.blankLine
-                (u => p())
-                (first ++ ['\n'])
-                others
-                ()
-                (Parse.runsBlankLine first [] ['\n'] others isBreak byComputing (Inl byComputing))
-                (declinesP others (Parse.cannotStartAtBreaks canStart lf cr others only1))
+          rewrite same, <- List.appendAssoc first ['\n'] others then
+            Parse.declinesAfter Parse.blankLine
+              (u => p())
+              (first ++ ['\n'])
+              others
+              ()
+              (Parse.runsBlankLine first [] ['\n'] others isBreak byComputing (Inl byComputing))
+              (declinesP others (Parse.cannotStartAtBreaks canStart lf cr others only1))
         | Inr same =>
           rewrite same then
             match others with
@@ -1421,15 +1412,14 @@ theorem Parse.declinesSectionsAfterBreak ∀ (p: () → {Parse Char} a) (canStar
                 let only2: Parse.OnlyBreaks later := only1.right
                 match Parse.lineBreakChar next only1.left with
                   | Inl same2 =>
-                    rewrite same2 then
-                      rewrite <- List.appendAssoc first ['\r', '\n'] later then
-                        Parse.declinesAfter Parse.blankLine
-                          (u => p())
-                          (first ++ ['\r', '\n'])
-                          later
-                          ()
-                          (Parse.runsBlankLine first [] ['\r', '\n'] later isBreak byComputing (Inr byComputing))
-                          (declinesP later (Parse.cannotStartAtBreaks canStart lf cr later only2))
+                    rewrite same2, <- List.appendAssoc first ['\r', '\n'] later then
+                      Parse.declinesAfter Parse.blankLine
+                        (u => p())
+                        (first ++ ['\r', '\n'])
+                        later
+                        ()
+                        (Parse.runsBlankLine first [] ['\r', '\n'] later isBreak byComputing (Inr byComputing))
+                        (declinesP later (Parse.cannotStartAtBreaks canStart lf cr later only2))
                   | Inr same2 =>
                     rewrite same2 then
                       Parse.declinesSepStep p Parse.blankLine

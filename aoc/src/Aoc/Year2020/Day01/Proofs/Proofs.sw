@@ -180,7 +180,7 @@ theorem onlyAnswer ∀ (answers: List Nat) (found: Option Nat)
     (only: ∀ (other: Nat) => other ∈ answers → other = answer):
     found = Some answer :=
   match found with
-    | Some x => rewrite only x (sound x byComputing) then byComputing
+    | Some x => rewrite only x (sound x byComputing)
     | None => Void.impossible (complete answer isAnswer byComputing)
 
 --| Part 1's answer is one of the puzzle's.
@@ -191,8 +191,7 @@ theorem part1Sound ∀ (entries: List Nat) (answer: Nat)
     | Some (a, b) =>
       let sound := findPairSound 2020 entries a b pair
       rewrite <- Option.someInjective found then
-        List.memMap _ (a, b) (List.memFilterIntro _ _ sound.left (rewrite sound.right then byComputing)) (((a, b)) =>
-          a * b)
+        List.memMap _ (a, b) (List.memFilterIntro _ _ sound.left (rewrite sound.right)) (((a, b)) => a * b)
 
 --| Part 1 has an answer whenever the puzzle has one.
 theorem part1Complete ∀ (entries: List Nat) (answer: Nat)
@@ -226,12 +225,9 @@ theorem part2Sound ∀ (entries: List Nat) (answer: Nat)
   match triple: findTriple 2020 entries with
     | Some (a, b, c) =>
       let sound := findTripleSound 2020 entries a b c triple
-      rewrite <- Option.someInjective found then
-        rewrite <- product3 a b c then
-          List.memMap _
-            [a, b, c]
-            (List.memFilterIntro _ _ sound.left (rewrite sum3 a b c, sound.right then byComputing))
-            (choice => choice.product)
+      rewrite <- Option.someInjective found, <- product3 a b c then
+        List.memMap _ [a, b, c] (List.memFilterIntro _ _ sound.left (rewrite sum3 a b c, sound.right)) (choice =>
+          choice.product)
 
 --| Part 2 has an answer whenever the puzzle has one.
 theorem part2Complete ∀ (entries: List Nat) (answer: Nat)

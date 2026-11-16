@@ -256,15 +256,14 @@ theorem runsOperatorFrom ∀ (target: Operator) (rest: List Char) (before: List 
       match same: first == target with
         | True =>
           let equal: first = target := same.read
-          rewrite <- equal then
-            rewrite List.mapAppend before [first, ..more] (other => (other.spaced, other)) then
-              Parse.runsPick
-                (before.map (other => (other.spaced, other)))
-                first.spaced
-                first
-                (more.map (other => (other.spaced, other)))
-                rest
-                (wordsAbsentBefore first rest before (rewrite equal then notBefore))
+          rewrite <- equal, List.mapAppend before [first, ..more] (other => (other.spaced, other)) then
+            Parse.runsPick
+              (before.map (other => (other.spaced, other)))
+              first.spaced
+              first
+              (more.map (other => (other.spaced, other)))
+              rest
+              (wordsAbsentBefore first rest before (rewrite equal then notBefore))
         | False =>
           let later: target ∈ more := match member with
             | Inl itIsFirst => cases
@@ -339,15 +338,15 @@ theorem goodStepsWeaken ∀ (strengthOf: Operator → Nat) (strength bound large
 theorem joinReadsSnoc ∀ (read: List Char) (value: a) (steps: List (List Char, a)):
     Parse.joinReads (steps ++ [(read, value)]) = Parse.joinReads steps ++ read :=
   match steps with
-    | [] => rewrite List.appendNil read then byComputing
+    | [] => rewrite List.appendNil read
     | [(first, v), ..steps] =>
-      rewrite joinReadsSnoc read value steps, List.appendAssoc first (Parse.joinReads steps) read then byComputing
+      rewrite joinReadsSnoc read value steps, List.appendAssoc first (Parse.joinReads steps) read
 
 theorem stepValuesSnoc ∀ (read: List Char) (value: a) (steps: List (List Char, a)):
     Parse.stepValues (steps ++ [(read, value)]) = Parse.stepValues steps ++ [value] :=
   match steps with
     | [] => byComputing
-    | [(first, v), ..steps] => rewrite stepValuesSnoc read value steps then byComputing
+    | [(first, v), ..steps] => rewrite stepValuesSnoc read value steps
 
 theorem chainFoldSnoc ∀ (start: Expression) (read: List Char) (combine: Expression → Expression → Expression)
     (right: Expression) (steps: List (List Char, (Expression → Expression → Expression, Expression))):
@@ -438,12 +437,10 @@ theorem chainOf ∀ (strengthOf: Operator → Nat) (strength: Nat) (expression: 
                   (steps ++ [rightStep])
                   (Both
                     (rewrite chainFoldSnoc start
-                          ([' ', Spec.symbol operator, ' '] ++ rightRead)
-                          (Operator.node operator)
-                          right
-                          steps,
-                        <- made then
-                      byComputing)
+                      ([' ', Spec.symbol operator, ' '] ++ rightRead)
+                      (Operator.node operator)
+                      right
+                      steps, <- made)
                     (Both
                       (rewrite joinReadsSnoc
                             ([' ', Spec.symbol operator, ' '] ++ rightRead)
@@ -584,8 +581,7 @@ theorem levelInner ∀ (strengthOf: Operator → Nat) (self: () → {Parse Char}
     | [], Parenthesised inner => read rest short written follows binds exact stop =>
       match written with
         | Witness innerRead (Both split innerWritten) =>
-          let lengths: read.length = innerRead.length + 2 :=
-            rewrite split, List.lengthAppend (['('] ++ innerRead) [')'] then byComputing
+          let lengths: read.length = innerRead.length + 2 := rewrite split, List.lengthAppend (['('] ++ innerRead) [')']
           rewrite split then
             runsOperandParen strengthOf self limit selfRuns innerRead rest inner innerWritten follows
               (arithmetic [short, lengths])
@@ -726,16 +722,13 @@ theorem parseComplete ∀ (input: Text) (precedence: Precedence) (strengthOf: Op
     (means: List.All2 (Spec.Means strengthOf) (input.lines.map Text.toList) expressions):
     Fail.toResult (() => parseHomework input precedence) = Ok ({ expressions }: Homework) :=
   rewrite Fail.toResultThen (() => Parse.eachLine input (() => precedence.expression)) (expressions =>
-        ({ expressions }: Homework)) then
-    rewrite Parse.runsEachLine input
-          (() => precedence.expression)
-          expressions
-          (List.all2Weaken
-            (read expression (Both written follows) =>
-              runsExpression precedence.levels strengthOf exact read [] expression written follows
-                (stopNil strengthOf)) _ _
-            means) then
-      byComputing
+    ({ expressions }: Homework)), Parse.runsEachLine input
+    (() => precedence.expression)
+    expressions
+    (List.all2Weaken
+      (read expression (Both written follows) =>
+        runsExpression precedence.levels strengthOf exact read [] expression written follows (stopNil strengthOf)) _ _
+      means)
 
 --| Lines that each mean one expression mean one list of them.
 theorem linesUnique ∀ (all: List (List Operator)) (strengthOf: Operator → Nat)
@@ -747,9 +740,8 @@ theorem linesUnique ∀ (all: List (List Operator)) (strengthOf: Operator → Na
   match lines, ones, others, none, alsoNone with
     | [], [], [], none, alsoNone => byComputing
     | [line, ..lines], [one, ..ones], [other, ..others], Both means rest, Both alsoMeans alsoRest =>
-      rewrite writtenUnique all strengthOf exactAll line one other means alsoMeans,
-          linesUnique all strengthOf exactAll lines ones others rest alsoRest then
-        byComputing
+      rewrite writtenUnique all strengthOf exactAll line one other means alsoMeans, linesUnique all strengthOf exactAll
+          lines ones others rest alsoRest
     | [], [], [other, ..others], none, alsoNone => alsoNone.impossible
     | [], [one, ..ones], others, none, alsoNone => none.impossible
     | [line, ..lines], [], others, none, alsoNone => none.impossible

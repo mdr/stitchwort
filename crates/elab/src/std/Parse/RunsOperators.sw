@@ -14,11 +14,11 @@ theorem Parse.runsNext ∀ (passes: t → Bool) (item: t) (rest: List t)
     (holds: passes item = True):
     Parse.Runs (() => Parse.next passes) [item] rest (Some item) :=
   state starts honest =>
-    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts then byComputing
+    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts
     Witness
       (state.advance rest 1).at
       (Both
-        (rewrite Parse.runFromNextThere state passes item rest _ starts holds then byComputing)
+        (rewrite Parse.runFromNextThere state passes item rest _ starts holds)
         (Both byComputing (Both (arithmetic [honest, lengths]) byComputing)))
 
 --| Whether `rest` starts with an operator of level `lowest` or tighter: what
@@ -48,7 +48,7 @@ theorem Parse.operatorsEndRun ∀ (fuel depth: Nat) (what: Text) (levels: List (
           | [item, ..later] =>
             match found: Parse.operatorFrom item 0 levels with
               | None => byComputing
-              | Some (level, associativity, combine) => rewrite ends then byComputing
+              | Some (level, associativity, combine) => rewrite ends
 
 --| `operatorsFrom` where no operator of level `lowest` or tighter comes
 --| next: it reads nothing and gives `left`.

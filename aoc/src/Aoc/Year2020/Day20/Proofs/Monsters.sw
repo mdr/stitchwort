@@ -20,8 +20,7 @@ theorem roughAtIff ∀ (image: Image) (at: List Nat):
                   let rowFound := (List.memWithIndex image.rows row pixels).forward inRows
                   let pixelFound := (List.memWithIndex pixels column Rough).forward inPixels
                   Witness row
-                    (Witness column
-                      (Both (Option.someInjective kept).flipped (rewrite rowFound, pixelFound then byComputing))),
+                    (Witness column (Both (Option.someInjective kept).flipped (rewrite rowFound, pixelFound))),
     backward = found =>
       match found with
         | Witness row (Witness column (Both same rough)) =>
@@ -38,7 +37,7 @@ theorem roughAtIff ∀ (image: Image) (at: List Nat):
                       at
                       pixels.withIndex
                       ((List.memWithIndex pixels column Rough).backward pixelFound)
-                      (rewrite same then byComputing))))
+                      (rewrite same))))
   }
 
 theorem monsterIff ∀ (image monster: Image) (row column: Nat):
@@ -132,9 +131,7 @@ theorem monsterPixelsIff ∀ (image monster: Image) (at: List Nat):
                           (Witness r
                             (Witness c
                               (Both rowFits
-                                (Both columnFits
-                                  (Both monsterAt
-                                    (Both rough (rewrite <- shifted, same, drawnAt then byComputing)))))))),
+                                (Both columnFits (Both monsterAt (Both rough (rewrite <- shifted, same, drawnAt)))))))),
     backward = covered =>
       match covered with
         | Witness row
@@ -192,8 +189,7 @@ theorem roughnessExactly ∀ (image monster: Image) (cells: List (List Nat))
         let inRough := ((Set.containsDifferenceIff rough at covered).forward inDifference).left
         let found := (roughAtIff image at).forward ((Set.containsFromListIff image.roughAt at).forward inRough)
         (listed.right at).backward found)
-      (key listedHere =>
-        rewrite Set.containsDifference rough key covered, roughCell key listedHere.read then byComputing)
+      (key listedHere => rewrite Set.containsDifference rough key covered, roughCell key listedHere.read)
   let lengthCount := List.lengthFilter cells free
   {
     forward = numbered => rewrite (counted.forward numbered) then arithmetic,
@@ -253,8 +249,7 @@ theorem roughAtDistinct ∀ (image: Image): List.Distinct image.roughAt :=
             | Witness (column, pixel) (Both inPixels kept) =>
               match pixel with
                 | Rough =>
-                  rewrite <- Option.someInjective kept, (List.memWithIndex image.rows row pixels).forward member then
-                    byComputing)
+                  rewrite <- Option.someInjective kept, (List.memWithIndex image.rows row pixels).forward member)
 
 theorem roughCells ∀ (image: Image): Spec.RoughCells image image.roughAt :=
   Both (roughAtDistinct image) (at => roughAtIff image at)

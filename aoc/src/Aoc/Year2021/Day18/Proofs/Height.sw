@@ -8,12 +8,12 @@ import Std (Nat, Option, Void)
 theorem addLeftmostHeight ∀ (amount: Nat) (number: Number): height (addLeftmost amount number) = height number :=
   match number with
     | Regular _ => byComputing
-    | Pair left right => rewrite addLeftmostHeight amount left then byComputing
+    | Pair left right => rewrite addLeftmostHeight amount left
 
 theorem addRightmostHeight ∀ (amount: Nat) (number: Number): height (addRightmost amount number) = height number :=
   match number with
     | Regular _ => byComputing
-    | Pair left right => rewrite addRightmostHeight amount right then byComputing
+    | Pair left right => rewrite addRightmostHeight amount right
 
 --| An explosion in a pair that isn't two regular numbers, from one in a
 --| part, is no higher than the pair (`explode`'s last arm, by its generated
@@ -26,14 +26,16 @@ theorem pairHeight ∀ (depth: Nat) (left right: Number)
     height exploded.number ≤ height (Pair left right) :=
   match el: explode (depth + 1) left with
     | Some e =>
-      rewrite <- Option.someInjective (rewrite explode.eq3.some depth left right notArm2 e el at some then some) then
-        rewrite addLeftmostHeight e.toRight right then arithmetic [leftLower e byComputing]
+      rewrite <- Option.someInjective (rewrite explode.eq3.some depth left right notArm2 e el at some then some),
+          addLeftmostHeight e.toRight right then
+        arithmetic [leftLower e byComputing]
     | None =>
       match er: explode (depth + 1) right with
         | Some e =>
           rewrite <- Option.someInjective
-                (rewrite explode.eq3.none.some depth left right notArm2 el e er at some then some) then
-            rewrite addRightmostHeight e.toLeft left then arithmetic [rightLower e byComputing]
+                (rewrite explode.eq3.none.some depth left right notArm2 el e er at some then some),
+              addRightmostHeight e.toLeft left then
+            arithmetic [rightLower e byComputing]
         | None =>
           Void.impossible
             (Option.noneNotSome exploded

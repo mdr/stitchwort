@@ -666,9 +666,12 @@ impl Session {
         // The core's own proofs aren't a program's to be told to restyle
         // (SW-3589: nested `trans` is the core's style until it is touched).
         // They are kept as the library's warnings (`library_warnings`).
-        let (chains, rest): (Vec<_>, Vec<_>) = diagnostics
-            .into_iter()
-            .partition(|d| d.code == "W-PROOF-CHAIN");
+        let (chains, rest): (Vec<_>, Vec<_>) = diagnostics.into_iter().partition(|d| {
+            matches!(
+                d.code,
+                "W-PROOF-CHAIN" | "W-REWRITE-THEN-COMPUTING" | "W-REWRITE-THEN-REWRITE"
+            )
+        });
         session.elab.library_warnings.extend(chains);
         let mut diagnostics = rest;
         // A broken doc link in the core fails the load, as in a library

@@ -24,7 +24,7 @@ theorem escapeSegmentReads: Parse.Reads
   Parse.readsThen (Parse.readsChar '\\') (r1 u f1 =>
     Parse.readsThen
       (Parse.readsSatisfy [what := "'\"', '\\' or 'n' after '\\'"] [passes := isEscaped])
-      (r2 escaped f2 => Parse.readsDone () _ (Inl ((escaped, (rewrite f1, f2.left then byComputing), f2.right)))))
+      (r2 escaped f2 => Parse.readsDone () _ (Inl ((escaped, (rewrite f1, f2.left), f2.right)))))
 
 theorem plainSegmentReads: Parse.Reads
       (() =>
@@ -49,8 +49,7 @@ theorem stringLexemeReads: Parse.Reads stringLexeme (read u => StringRead read) 
     Parse.readsThen (Parse.readsMany stringSegment SegmentRead stringSegmentReads) (r2 segments each =>
       Parse.readsThen (Parse.readsNext (char => char == '"')) (r3 found maybe =>
         match found, maybe with
-          | Some c, Both one quote =>
-            Parse.readsDone () _ ((r2, segments, (rewrite f1, one, quote.read then byComputing), each))
+          | Some c, Both one quote => Parse.readsDone () _ ((r2, segments, (rewrite f1, one, quote.read), each))
           | None, _ => Parse.readsExpected "'\"' to close the string")))
 
 theorem nextUnitReads: Parse.Reads
@@ -283,7 +282,7 @@ theorem commentStarts ∀ (rest: List Char)
       match a: first == '-' with
         | True =>
           match b: second == '-' with
-            | True => (tail, (rewrite a.read, b.read then byComputing))
+            | True => (tail, (rewrite a.read, b.read))
 
 theorem classNoComment ∀ (char: Char) (same: CommentLexeme = charClass char): Void := match w: isWordStart char with
   | False =>
@@ -366,7 +365,7 @@ theorem commentTaken ∀ (read rest tail: List Char)
     (shape: read = rest.takeWhile (char => char != '\n'))
     (same: rest = ['-', '-', ..tail]):
     read = ['-', '-', ..tail.takeWhile (char => char != '\n')] :=
-  rewrite shape, same then byComputing
+  rewrite shape, same
 
 --| A lexeme that `lexemeAt` read from the text it starts has its kind's
 --| text.

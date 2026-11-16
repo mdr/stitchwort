@@ -219,7 +219,7 @@ theorem Array.setPast ∀ (array: Array a) (i: Nat) (v: a) (h: array.size ≤ i)
   Array.ext (array.set i v) array (j =>
     if same: j = i then
       Eq.trans
-        (Array.getPast (array.set i v) j (rewrite Array.sizeSet array i v then rewrite same then h))
+        (Array.getPast (array.set i v) j (rewrite Array.sizeSet array i v, same then h))
         (Eq.flipped (Array.getPast array j (rewrite same then h)))
     else Array.getSetOther array i v j same)
 
@@ -233,13 +233,11 @@ theorem Array.getPush ∀ (array: Array a) (v: a) (i: Nat) (h: i < array.size): 
 
 --| After a `push`, the last element is the new one.
 theorem Array.getPushLast ∀ (array: Array a) (v: a): (array.push v).get array.size = Some v :=
-  rewrite List.getAppendRight array.toList [v] array.size (Nat.leRefl array.size) then
-    rewrite Nat.subSelf array.size then byComputing
+  rewrite List.getAppendRight array.toList [v] array.size (Nat.leRefl array.size), Nat.subSelf array.size
 
 --| `pop` undoes `push`.
 theorem Array.popPush ∀ (array: Array a) (v: a): (array.push v).pop = Some (array, v) :=
-  rewrite List.reverseSnoc array.toList v then
-    rewrite List.reverseReverse array.toList then rewrite Array.fromListToList array then byComputing
+  rewrite List.reverseSnoc array.toList v, List.reverseReverse array.toList, Array.fromListToList array
 
 --| `modify` keeps the size.
 theorem Array.sizeModify ∀ (array: Array a) (i: Nat) (f: a → a): (array.modify i f).size = array.size :=

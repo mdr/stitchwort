@@ -23,8 +23,7 @@ theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
         Parse.readsDone
           { operation, argument } _
           (Witness operationRead
-            (Witness argumentRead
-              (Both (rewrite space, List.appendNil argumentRead then byComputing) (Both written signed)))))))
+            (Witness argumentRead (Both (rewrite space, List.appendNil argumentRead) (Both written signed)))))))
 
 --| If `parseProgram` reads `input`, each of its lines is an instruction written out.
 theorem parseWritten ∀ (input: Text) (program: Program)

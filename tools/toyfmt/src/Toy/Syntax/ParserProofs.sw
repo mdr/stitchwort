@@ -11,10 +11,10 @@ theorem runsAtomName ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (
     (allowed: layout.allows token = True):
     Parse.Runs (() => atom self layout) [token] rest (Var text (layout.comments token)) :=
   state starts honest =>
-    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts then byComputing
+    let lengths: state.at.rest.length = rest.length + 1 := rewrite starts
     (
       (state.advance rest 1).at,
-      (rewrite starts, allowed, named, starts then byComputing),
+      (rewrite starts, allowed, named, starts),
       byComputing,
       (arithmetic [honest, lengths]),
       byComputing
@@ -79,6 +79,6 @@ theorem runsSuffixesEnd ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located 
     Parse.Runs (() => suffixesFrom fuel self layout target) [] rest target :=
   state starts honest =>
     let after := ((state.note (Parse.Problem.Expected "'('")).note (Parse.Problem.Expected "'.'")).at
-    let same: after = state.at := rewrite Parse.noteAt, Parse.noteAt then byComputing
+    let same: after = state.at := rewrite Parse.noteAt, Parse.noteAt
     let run := suffixesEndRun fuel self layout target rest ends state starts
     (state.at, (rewrite same at run then run), starts, (rewrite starts at honest then honest), byComputing)

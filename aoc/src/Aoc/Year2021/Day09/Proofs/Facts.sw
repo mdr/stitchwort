@@ -31,7 +31,7 @@ theorem heightOfMemCells ∀ (map: HeightMap) (position: Position) (height: Nat)
     map.heightAt position = Some height :=
   Exists.elim (memCellsElim map position height member) (digit both =>
     let (Both found same) := both
-    rewrite found, <- same then byComputing)
+    rewrite found, <- same)
 
 --| ...and a digit's, below 10.
 theorem heightBelow10 ∀ (map: HeightMap) (position: Position) (height: Nat)

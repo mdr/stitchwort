@@ -31,7 +31,7 @@ theorem doneNext ∀ (wanted later: Wanted) (reader: BitReader) (packet: Packet)
     (done: Done later more left):
     Done wanted [packet, ..more] left :=
   match wanted, reader with
-    | Packets (Succ count), _ => rewrite <- Option.someInjective next at done then rewrite done then byComputing
+    | Packets (Succ count), _ => rewrite <- Option.someInjective next at done then rewrite done
     | Filling, { unread = [_, .._] } => rewrite <- Option.someInjective next at done then done
 
 --| Nothing more wanted: none was what was wanted.
@@ -131,9 +131,8 @@ theorem operatorOfBits ∀ (version: Nat) (operatorType: OperatorType) (lengthTy
     (made: operatorOf version operatorType lengthType subPackets = Some packet):
     encode packet = operatorBits version (typeId operatorType) lengthType subPackets.length (encodeAll subPackets) :=
   match operatorType, subPackets with
-    | Calculation operation, [first, ..rest] => rewrite <- Option.someInjective made then byComputing
-    | Comparing comparison, [first, second] =>
-      rewrite <- Option.someInjective made then rewrite List.appendNil (encode second) then byComputing
+    | Calculation operation, [first, ..rest] => rewrite <- Option.someInjective made
+    | Comparing comparison, [first, second] => rewrite <- Option.someInjective made, List.appendNil (encode second)
 
 --| The operator made of well-formed sub-packets whose bits fit is well
 --| formed.

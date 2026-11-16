@@ -22,8 +22,7 @@ theorem eachLetters ∀ (read letters: List Char)
     | [], each => Both each byComputing
     | [letter, ..rest], Witness first (Witness after (Both split (Both (Both one question) more))) =>
       match eachLetters after rest more with
-        | Both same questions =>
-          Both (rewrite split, one, same then byComputing) (rewrite question, questions then byComputing)
+        | Both same questions => Both (rewrite split, one, same) (rewrite question, questions)
 
 theorem containsFromList ∀ (letters: List Char) (question: Char):
     (Set.fromList letters).contains question = letters.contains question :=

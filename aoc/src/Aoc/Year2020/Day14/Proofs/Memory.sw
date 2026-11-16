@@ -16,6 +16,6 @@ theorem sumOfMap ∀ (memory: Map Nat Nat) (spec: Spec.Memory)
   let covered := (address: Nat) (nonzero: spec address ≠ 0) =>
     match found: memory.get address with
       | Some value => (Map.memKeys memory address).backward (Map.containsOfGet memory address value found)
-      | None => Void.impossible (nonzero (Eq.trans (same address) (rewrite found then byComputing)))
+      | None => Void.impossible (nonzero (Eq.trans (same address) (rewrite found)))
   let summed: memory.values.sum = memory.keys.sumBy spec := Map.sumValuesEqSumByKeys memory spec same
   Witness memory.keys (Both (Map.keysDistinct memory) (Both covered summed))

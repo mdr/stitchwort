@@ -32,7 +32,7 @@ theorem closersExact ∀ (stack closers: List Bracket)
     | stack, [] => Eq.flipped (unclosedInjective stack [] h)
     | [top, ..below], [closer, ..rest] =>
       match same: top == closer with
-        | True => rewrite closersExact below rest h, same.read then byComputing
+        | True => rewrite closersExact below rest h, same.read
 
 --| Any completion of a line is what its scan leaves open.
 theorem completionIsOpen ∀ (line: List Token) (stack: List Bracket)
@@ -49,8 +49,7 @@ theorem completionUnique ∀ (line: List Token) (a b: List Bracket)
     a = b :=
   match e: scan [] line with
     | Corrupted illegal => Void.impossible (notCorruptedOfLegal line illegal (Witness (a.map Closer) first) e)
-    | Unclosed stack =>
-      rewrite completionIsOpen line stack e a first, completionIsOpen line stack e b second then byComputing
+    | Unclosed stack => rewrite completionIsOpen line stack e a first, completionIsOpen line stack e b second
 
 --| A line whose scan leaves something open is incomplete.
 theorem incompleteOfUnclosed ∀ (line: List Token) (top: Bracket) (below: List Bracket)
@@ -94,7 +93,7 @@ theorem completionScoresUnique ∀ (lines: List (List Token)) (a b: List Nat):
     CompletionScores lines a → CompletionScores lines b → a = b
   | NoneLeft, NoneLeft => byComputing
   | Scored [closers := x] [scores := xs] _ first rest, Scored [closers := y] [scores := ys] _ second rest2 =>
-    rewrite completionUnique _ x y first second, completionScoresUnique _ xs ys rest rest2 then byComputing
+    rewrite completionUnique _ x y first second, completionScoresUnique _ xs ys rest rest2
   | Scored incomplete _ _, Skipped complete _ => (complete incomplete).impossible
   | Skipped complete _, Scored incomplete _ _ => (complete incomplete).impossible
   | Skipped _ rest, Skipped _ rest2 => completionScoresUnique _ a b rest rest2

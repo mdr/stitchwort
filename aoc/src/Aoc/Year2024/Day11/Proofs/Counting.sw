@@ -18,7 +18,7 @@ theorem weighCong ∀ (first second: Nat → Nat)
     weigh first entries = weigh second entries :=
   match entries with
     | [] => byComputing
-    | [(stone, count), ..rest] => rewrite same stone, weighCong first second same rest then byComputing
+    | [(stone, count), ..rest] => rewrite same stone, weighCong first second same rest
 
 --| The weight as a sum over the entries (std's `Map.weightInsertWith` and
 --| `Map.sumByCounts` are about this form).
@@ -27,8 +27,7 @@ theorem weighSumBy ∀ (weight: Nat → Nat) (entries: List (Nat, Nat)):
   match entries with
     | [] => byComputing
     | [(stone, count), ..rest] =>
-      rewrite List.sumByCons rest (stone, count) (entry => entry.snd * weight entry.fst), weighSumBy weight rest then
-        byComputing
+      rewrite List.sumByCons rest (stone, count) (entry => entry.snd * weight entry.fst), weighSumBy weight rest
 
 --| Adding `count` stones of one number adds their weight, whether the number
 --| is new or already there.
@@ -78,15 +77,11 @@ theorem representsBlink ∀ (counts: Map Nat Nat) (stones: List Nat)
     (represents: Represents counts stones):
     Represents (blinkCounts counts) (blink stones) :=
   weight =>
-    rewrite weighBlinkCounts weight counts,
-        weighCong
-          (stone => (changeStone stone).sumBy weight)
-          (stone => (change stone).sumBy weight)
-          (stone => rewrite changeAgrees stone then byComputing)
-          counts.toList,
-        represents (stone => (change stone).sumBy weight),
-        List.sumByFlatMap stones weight change then
-      byComputing
+    rewrite weighBlinkCounts weight counts, weighCong
+      (stone => (changeStone stone).sumBy weight)
+      (stone => (change stone).sumBy weight)
+      (stone => rewrite changeAgrees stone)
+      counts.toList, represents (stone => (change stone).sumBy weight), List.sumByFlatMap stones weight change
 
 theorem representsAfter ∀ (blinks: Nat) (counts: Map Nat Nat) (stones: List Nat)
     (represents: Represents counts stones):
@@ -105,7 +100,8 @@ theorem sumCounts ∀ (entries: List (Nat, Nat)): (entries.map Pair.snd).sum = w
 --| The program's count is the length of the puzzle's line, after any number
 --| of blinks.
 theorem countCorrect ∀ (blinks: Nat) (stones: List Nat): countAfter blinks stones = (blinkTimes blinks stones).length :=
-  rewrite sumCounts (blinks.iterate blinkCounts (Map.counts stones)).toList,
-      representsAfter blinks (Map.counts stones) stones (representsCounts stones) (stone => 1),
-      List.sumByOne (blinkTimes blinks stones) then
-    byComputing
+  rewrite sumCounts (blinks.iterate blinkCounts (Map.counts stones)).toList, representsAfter blinks
+    (Map.counts stones)
+    stones
+    (representsCounts stones)
+    (stone => 1), List.sumByOne (blinkTimes blinks stones)

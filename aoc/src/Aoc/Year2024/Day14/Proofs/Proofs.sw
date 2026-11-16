@@ -37,7 +37,7 @@ theorem part1Correct ∀ (space: Space) (robots: List Robot)
 theorem periodicLaps ∀ (space: Space) (seconds: Nat) (robot: Robot) (laps: Nat):
     space.positionAfter (seconds + laps * space.period) robot = space.positionAfter seconds robot :=
   match laps with
-    | Zero => rewrite Nat.addZero seconds then byComputing
+    | Zero => rewrite Nat.addZero seconds
     | Succ laps =>
       rewrite (arithmetic: seconds + Succ laps * space.period = seconds + laps * space.period + space.period),
           periodic space (seconds + laps * space.period) robot then

@@ -24,15 +24,13 @@ theorem bagsAgree ∀ (rules: List Rule) (depth: Nat) (colour: Colour):
   match depth with
     | 0 => byComputing
     | Succ depth =>
-      rewrite contentsAgree rules colour,
-          List.mapCong
-            (Spec.contentsOf rules colour)
-            (content =>
-              ({ all = rules }: Rules).book.bagsToDepth depth content.colour
-                |> .map (inside => content.count * (1 + inside)))
-            (content => Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside)))
-            (content => rewrite bagsAgree rules depth content.colour then byComputing) then
-        byComputing
+      rewrite contentsAgree rules colour, List.mapCong
+        (Spec.contentsOf rules colour)
+        (content =>
+          ({ all = rules }: Rules).book.bagsToDepth depth content.colour
+            |> .map (inside => content.count * (1 + inside)))
+        (content => Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside)))
+        (content => rewrite bagsAgree rules depth content.colour)
 
 --| When part 2 gives an answer, the rules settle the total at some depth,
 --| and it is theirs.
@@ -43,7 +41,7 @@ theorem part2Rules ∀ (rules: Rules) (total: Nat)
     | Some found =>
       Witness
         (rules.all.length + 1)
-        (rewrite <- bagsAgree rules.all (rules.all.length + 1) shinyGold, e, Result.okInjective solved then byComputing)
+        (rewrite <- bagsAgree rules.all (rules.all.length + 1) shinyGold, e, Result.okInjective solved)
 
 -- The spec's total doesn't depend on the depth it was settled at.
 

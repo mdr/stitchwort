@@ -14,8 +14,7 @@ theorem mixBitwise ∀ (value secret: Nat): BitwiseXor value secret (mix value s
   calc bitSet (mix value secret) i
     _ = Nat.testBit (Nat.xor value secret) i := Eq.flipped (Nat.testBitDiv (Nat.xor value secret) i)
     _ = Bool.xor (Nat.testBit value i) (Nat.testBit secret i) := Nat.testBitXor i value secret
-    _ = Bool.xor (bitSet value i) (bitSet secret i) :=
-      rewrite Nat.testBitDiv value i, Nat.testBitDiv secret i then byComputing
+    _ = Bool.xor (bitSet value i) (bitSet secret i) := rewrite Nat.testBitDiv value i, Nat.testBitDiv secret i
 
 --| And it is the only number that is.
 theorem bitwiseXorUnique ∀ (x y result: Nat) (bitwise: BitwiseXor x y result): result = mix x y :=
@@ -39,11 +38,11 @@ theorem nextSecretEvolves ∀ (secret: Nat): nextSecret secret = evolve secret :
     Nat.xorBelow 24 (secret * 64 % modulus) (secret % modulus) (belowModulus (secret * 64)) (belowModulus secret)
   let second := Nat.xor (first / 32) first
   let secondSmall: second < modulus := Nat.xorBelow 24 (first / 32) first (arithmetic [firstSmall]) firstSmall
-  rewrite pruneMix (secret * 64) secret then
-    rewrite pruneMix (first / 32) first,
-        Nat.modSmall (first / 32) modulus (arithmetic [firstSmall]),
-        Nat.modSmall first modulus firstSmall then
-      rewrite pruneMix (second * 2048) second, Nat.modSmall second modulus secondSmall then byComputing
+  rewrite pruneMix (secret * 64) secret, pruneMix (first / 32) first, Nat.modSmall
+    (first / 32)
+    modulus
+    (arithmetic [firstSmall]), Nat.modSmall first modulus firstSmall, pruneMix (second * 2048) second, Nat.modSmall
+      second modulus secondSmall
 
 theorem part1Correct ∀ (buyers: List Nat): solvePart1 buyers = part1 buyers :=
   List.sumByCong buyers (buyer => Nat.iterate 2000 nextSecret buyer) (buyer => Nat.iterate 2000 evolve buyer) (buyer =>

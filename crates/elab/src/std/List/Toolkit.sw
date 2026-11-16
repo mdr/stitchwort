@@ -317,7 +317,7 @@ def List.contains [auto eq: DecEq a] (xs: List a) (x: a): Bool := List.any xs (m
 theorem List.anyOfMem ∀ (xs: List a) (q: a → Bool) (y: a) (qy: q y = True) (h: List.Mem y xs): List.any xs q = True :=
   match xs, h with
     | [], m => m.impossible
-    | [x, ..xs], Inl e => rewrite e, qy then byComputing
+    | [x, ..xs], Inl e => rewrite e, qy
     | [x, ..xs], Inr m =>
       match c: q x with
         | True => byComputing

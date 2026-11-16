@@ -68,7 +68,7 @@ theorem programLeast ∀ (fuel: Nat → Nat)
 theorem leastFuelIs ∀ (fuel: Nat → Nat) (crabs: List Nat) (least: Nat)
     (found: (List.range (leftmost crabs) (rightmost crabs + 1) |> .map (fuelAt fuel crabs) |> .minimum) = Some least):
     leastFuel fuel crabs = least :=
-  rewrite found then byComputing
+  rewrite found
 
 --| The spec's total fuel is the program's, for the same fuel.
 theorem totalFuelIs ∀ (fuel specFuel: Nat → Nat)
@@ -82,10 +82,7 @@ theorem totalFuelIs ∀ (fuel specFuel: Nat → Nat)
         _ = specFuel (distance crab position) + totalFuel specFuel rest position :=
           List.sumCons (specFuel (distance crab position)) (rest.map (c => specFuel (distance c position)))
         _ = fuel (Nat.absDiff crab position) + fuelAt fuel rest position :=
-          rewrite same (distance crab position),
-              distanceIs crab position,
-              totalFuelIs fuel specFuel same rest position then
-            byComputing
+          rewrite same (distance crab position), distanceIs crab position, totalFuelIs fuel specFuel same rest position
         _ = fuelAt fuel [crab, ..rest] position :=
           Eq.flipped (List.sumByCons rest crab (c => fuel (Nat.absDiff c position)))
 

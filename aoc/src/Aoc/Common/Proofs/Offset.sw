@@ -16,8 +16,7 @@ theorem positionExt ∀ (position other: Position)
     (rows: position.row = other.row)
     (columns: position.column = other.column):
     position = other :=
-  match position, other with
-    | { row, column }, { row = otherRow, column = otherColumn } => rewrite rows, columns then byComputing
+  match position, other with | { row, column }, { row = otherRow, column = otherColumn } => rewrite rows, columns
 
 --| Positions are equal when their rows and columns are, as `Int`s.
 theorem positionExtInt ∀ (position other: Position)
@@ -31,7 +30,7 @@ theorem offsetExt ∀ (offset other: Offset)
     (sameColumns: offset.columns = other.columns):
     offset = other :=
   match offset, other with
-    | { rows, columns }, { rows = otherRows, columns = otherColumns } => rewrite sameRows, sameColumns then byComputing
+    | { rows, columns }, { rows = otherRows, columns = otherColumns } => rewrite sameRows, sameColumns
 
 -- Where an offset lands
 
@@ -183,7 +182,7 @@ theorem gridOffsetOf ∀ (grid: Grid a) (position: Position) (offset: Offset) (n
     (landed: position.offset offset = Some next)
     (inside: grid.contains next = True):
     grid.offset position offset = Some next :=
-  rewrite landed, inside then byComputing
+  rewrite landed, inside
 
 -- On a board that wraps
 

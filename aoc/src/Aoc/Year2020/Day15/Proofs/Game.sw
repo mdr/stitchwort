@@ -24,7 +24,7 @@ theorem turnsBackAtMost ∀ (number: Nat) (older: List Nat) (back: Nat)
   match older with
     | [spoken, ..older] =>
       match same: spoken == number with
-        | True => rewrite <- Option.someInjective found then byComputing
+        | True => rewrite <- Option.someInjective found
         | False =>
           match inner: Spec.turnsBack number older with
             | Some earlier =>
@@ -58,8 +58,7 @@ theorem sayTracks ∀ (game: Game) (spoken: List Nat)
             (Both (rewrite sized then fits) (other inside =>
               rewrite isSpoken then
                 match same: game.last == other with
-                  | True =>
-                    rewrite <- same.read, Array.getOrSet game.lastSeen game.last game.turn 0 lastFits then byComputing
+                  | True => rewrite <- same.read, Array.getOrSet game.lastSeen game.last game.turn 0 lastFits
                   | False =>
                     rewrite Array.getOrSetOther game.lastSeen game.last game.turn other 0 (equal =>
                           same.read equal.flipped),
@@ -73,7 +72,7 @@ theorem replyTracks ∀ (game: Game) (spoken: List Nat) (tracks: Tracks game spo
     | Witness older (Both isSpoken (Both turns (Both lastFits seen))) =>
       rewrite isSpoken then
         match found: Spec.turnsBack game.last older with
-          | None => rewrite seen game.last lastFits, found then byComputing
+          | None => rewrite seen game.last lastFits, found
           | Some back =>
             let atMost := turnsBackAtMost game.last older back found
             rewrite seen game.last lastFits, found then

@@ -47,7 +47,7 @@ theorem fromStartResult ∀ (racetrack: Racetrack)
               (steps ++ [direction])
               (Both
                 (raceSnoc racetrack racetrack.start steps state parts.left direction next moved)
-                (rewrite List.lengthAppend steps [direction], isOne, <- And.right parts then byComputing))))))
+                (rewrite List.lengthAppend steps [direction], isOne, <- And.right parts))))))
     (state next weight edge => And.right (edgesSound racetrack state next weight edge))
 
 --| The search from an end on track, every move taken back.

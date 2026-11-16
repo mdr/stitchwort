@@ -68,7 +68,7 @@ theorem Nat.dividesReadsFalse ∀ (d n: Nat): Nat.divides d n = False ↔ ¬(∃
 
 --| `Nat.divides` is the remainder test (for 0 too, since `n % 0` is `n`).
 theorem Nat.dividesMod ∀ (m n: Nat): Nat.divides m n = (n % m == 0) := match m with
-  | Zero => rewrite Nat.modZero n then byComputing
+  | Zero => rewrite Nat.modZero n
   | Succ d => byComputing
 
 --| A divisor of two numbers divides their sum (Lean's `Nat.dvd_add`).
@@ -89,14 +89,14 @@ theorem Nat.dividesMulLeft ∀ (d n q: Nat) (h: Nat.divides d n = True): Nat.div
 --| `t * m`.
 theorem Nat.modAddOfModZero ∀ (x z m: Nat) (h: z % m = 0): (x + z) % m = x % m := calc (x + z) % m
   _ = (x + z % m) % m := (Nat.addModMod x z m).flipped
-  _ = (x + 0) % m := rewrite h then byComputing
-  _ = x % m := rewrite Nat.addZero x then byComputing
+  _ = (x + 0) % m := rewrite h
+  _ = x % m := rewrite Nat.addZero x
 
 --| A multiple of a number with remainder 0 has remainder 0 too.
 theorem Nat.modMulOfModZero ∀ (q z m: Nat) (h: z % m = 0): (q * z) % m = 0 := calc (q * z) % m
   _ = (q * (z % m)) % m := (Nat.mulModMod q z m).flipped
-  _ = (q * 0) % m := rewrite h then byComputing
-  _ = 0 := rewrite Nat.mulZero q then byComputing
+  _ = (q * 0) % m := rewrite h
+  _ = 0 := rewrite Nat.mulZero q
 
 --| A number from 1 up is divided by nothing bigger than itself.
 theorem Nat.dividesSmall ∀ (d n: Nat) (h1: 1 ≤ n) (h2: n < d): Nat.divides d n = False := match d with
@@ -155,9 +155,9 @@ test "Nat.gcd" :=
 
 --| One step of Euclid's algorithm.
 theorem Nat.gcdStep ∀ (a c: Nat): Nat.gcd a (Succ c) = Nat.gcd (Succ c) (a % Succ c) :=
-  rewrite Nat.gcd.unfold a (Succ c) then byComputing
+  rewrite Nat.gcd.unfold a (Succ c)
 
-theorem Nat.gcdZero ∀ (a: Nat): Nat.gcd a 0 = a := rewrite Nat.gcd.unfold a 0 then byComputing
+theorem Nat.gcdZero ∀ (a: Nat): Nat.gcd a 0 = a := rewrite Nat.gcd.unfold a 0
 
 --| The gcd divides both numbers (Lean's `Nat.gcd_dvd_left` and `_right`).
 theorem Nat.gcdDivides ∀ (a b: Nat): (∃ (x: Nat) => a = x * Nat.gcd a b) ∧ (∃ (y: Nat) => b = y * Nat.gcd a b)
@@ -212,7 +212,7 @@ theorem Nat.mulNeZero ∀ (a b: Nat) (aPositive: a ≠ 0) (bPositive: b ≠ 0): 
 --| Taking one `w` off a number at least `w` leaves its remainder by `w`.
 theorem Nat.subModSelf ∀ (column width: Nat) (past: width ≤ column): (column - width) % width = column % width :=
   match width with
-    | Zero => rewrite (arithmetic: column - 0 = column) then byComputing
+    | Zero => rewrite (arithmetic: column - 0 = column)
     | Succ n =>
       let back: column - Succ n + 1 * Succ n = column := arithmetic
       let shifted := Nat.modAddMul (column - Succ n) 1 (Succ n)
@@ -231,7 +231,7 @@ theorem Nat.divSuccStep ∀ (d a: Nat)
       _ = (d + n) / d := (Nat.addDivSelf d n).flipped
       _ = (Succ a + n) / d := rewrite (arithmetic: d = Succ a)
       _ = (a + Succ n) / d := rewrite (algebra: a + Succ n = Succ a + n)
-  else rewrite Nat.modSmall (Succ a) d (arithmetic [same]: Succ a < d) then byComputing
+  else rewrite Nat.modSmall (Succ a) d (arithmetic [same]: Succ a < d)
 
 --| Counting backwards from the top of a dial of `Succ m` positions: the
 --| position `Succ m - v` is on a multiple of `Succ m` exactly when `v` is 0.

@@ -23,4 +23,4 @@ theorem doubleAddZero ∀ (n: Nat): double (n + 0) = n + n :=
 -- Proving two maps equal: the library has `List.mapCong`, and `_` leaves
 -- the two functions for the compiler to read off the goal.
 theorem mapAddZero ∀ (xs: List Nat): xs.map (x => x + 0) = xs.map (x => x) :=
-  List.mapCong xs _ _ (x => rewrite addZero x then byComputing)
+  List.mapCong xs _ _ (x => rewrite addZero x)

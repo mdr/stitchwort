@@ -185,16 +185,17 @@ theorem Text.spaceTabPlain ∀ (char: Char)
 theorem Text.linesFromAcc ∀ (chars line: List Char) (acc: List Text):
     Text.linesFrom line acc chars = List.append (List.reverseOnto acc []) (Text.linesFrom line [] chars) :=
   match chars, line with
-    | [], [] => rewrite List.appendNil (List.reverseOnto acc []) then byComputing
+    | [], [] => rewrite List.appendNil (List.reverseOnto acc [])
     | [], [c, ..cs] => List.reverseOntoAppend acc [MkText (List.reverseOnto [c, ..cs] [])]
     | [char, ..chars], line =>
       match Char.isLineFeedCode (Char.toNat char) with
         | True =>
-          rewrite Text.linesFromAcc chars [] [Text.endLine line, ..acc],
-              Text.linesFromAcc chars [] [Text.endLine line],
-              List.reverseOntoAppend acc [Text.endLine line],
-              List.appendAssoc (List.reverseOnto acc []) [Text.endLine line] (Text.linesFrom [] [] chars) then
-            byComputing
+          rewrite Text.linesFromAcc chars [] [Text.endLine line, ..acc], Text.linesFromAcc chars [] [
+            Text.endLine line
+          ], List.reverseOntoAppend acc [Text.endLine line], List.appendAssoc
+            (List.reverseOnto acc [])
+            [Text.endLine line]
+            (Text.linesFrom [] [] chars)
         | False => Text.linesFromAcc chars [char, ..line] acc
 
 theorem Text.linesFromAppend ∀ (front line: List Char) (acc: List Text) (rest: List Char):
@@ -235,8 +236,7 @@ theorem Text.endLinePlain ∀ (middle: List Char)
       middle):
     Text.endLine (List.reverseOnto middle []) = MkText middle :=
   match e: List.reverseOnto middle [] with
-    | [] =>
-      Eq.cong MkText (Eq.flipped (Eq.trans (Eq.flipped (List.reverseOntoTwice middle [])) (rewrite e then byComputing)))
+    | [] => Eq.cong MkText (Eq.flipped (Eq.trans (Eq.flipped (List.reverseOntoTwice middle [])) (rewrite e)))
     | [char, ..chars] =>
       let member: char ∈ List.reverseOnto middle [] := rewrite e then Inl byComputing
       let inMiddle: char ∈ middle :=
@@ -319,12 +319,12 @@ theorem Text.endLineNoReturn ∀ (line: List Char)
     Text.endLine line = MkText (List.reverseOnto line []) :=
   match line, none with
     | [], none => byComputing
-    | [char, ..chars], Both notReturn others => rewrite notReturn then byComputing
+    | [char, ..chars], Both notReturn others => rewrite notReturn
 
 theorem Text.unlinesFrom: ∀ (front: List Char) => List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) front
       → ∀ (line: List Char) => List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) line
         → Text.unlinesChars (Text.linesFrom line [] (front ++ ['\n'])) = List.reverseOnto line [] ++ front ++ ['\n']
-  | [], none, line, noReturn => rewrite Text.endLineNoReturn line noReturn then byComputing
+  | [], none, line, noReturn => rewrite Text.endLineNoReturn line noReturn
   | [char, ..chars], Both notReturn others, line, noReturn =>
     match c: Char.isLineFeedCode (Char.toNat char) with
       | True =>
@@ -353,7 +353,7 @@ theorem Text.linesFromUnterminated ∀ (last: Char)
     (front line: List Char) (acc: List Text):
     Text.linesFrom line acc (front ++ [last]) = Text.linesFrom line acc (front ++ [last, '\n']) :=
   match front with
-    | [] => rewrite notFeed, notReturn then byComputing
+    | [] => rewrite notFeed, notReturn
     | [char, ..chars] =>
       match Char.isLineFeedCode (Char.toNat char) with
         | True => Text.linesFromUnterminated last notFeed notReturn chars [] [Text.endLine line, ..acc]
@@ -523,7 +523,7 @@ theorem Text.stripPrefixSome ∀ (text prefix rest: Text):
         | Some chars =>
           Text.ext text
             (Text.append prefix rest)
-            (rewrite Text.stripPrefixCharsForward _ _ found, (Option.someInjective h).flipped then byComputing),
+            (rewrite Text.stripPrefixCharsForward _ _ found, (Option.someInjective h).flipped),
     backward = e => rewrite e then Text.stripPrefixAppend prefix rest
   }
 
@@ -542,18 +542,13 @@ theorem Text.stripSuffixSome ∀ (text suffix rest: Text):
             (Text.append rest suffix)
             (Eq.trans
               (Eq.flipped (List.reverseReverse (Text.toList text)))
-              (rewrite Text.stripPrefixCharsForward _ _ found,
-                  Eq.flipped (Option.someInjective h),
-                  List.reverseAppend (List.reverse (Text.toList suffix)) chars,
-                  List.reverseReverse (Text.toList suffix) then
-                byComputing)),
+              (rewrite Text.stripPrefixCharsForward _ _ found, Eq.flipped (Option.someInjective h), List.reverseAppend
+                (List.reverse (Text.toList suffix))
+                chars, List.reverseReverse (Text.toList suffix))),
     backward = e =>
-      rewrite e,
-          List.reverseAppend (Text.toList rest) (Text.toList suffix),
-          Text.stripPrefixCharsAppend (List.reverse (Text.toList rest)) (List.reverse (Text.toList suffix)),
-          List.reverseReverse (Text.toList rest),
-          Text.fromToList rest then
-        byComputing
+      rewrite e, List.reverseAppend (Text.toList rest) (Text.toList suffix), Text.stripPrefixCharsAppend
+        (List.reverse (Text.toList rest))
+        (List.reverse (Text.toList suffix)), List.reverseReverse (Text.toList rest), Text.fromToList rest
   }
 
 --| `stripPrefix` as a computation on the text: if the first `prefix.length`

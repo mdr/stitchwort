@@ -22,7 +22,7 @@ def Simulates (sightlines: Sightlines) (lab: Lab): Prop :=
 theorem afterAdd ∀ (lab: Lab) (now: Nat) (guard: Guard)
     (reached: after lab now = Some guard) (steps: Nat):
     after lab (now + steps) = walk lab (Some guard) steps :=
-  rewrite walkAdd lab now (Some lab.startGuard) steps then rewrite reached then byComputing
+  rewrite walkAdd lab now (Some lab.startGuard) steps, reached
 
 --| Seen once, at a step no later than `now`.
 def SeenBy (lab: Lab) (seen: Set Guard) (now: Nat): Prop :=
@@ -109,7 +109,7 @@ theorem loopsFromComplete ∀ (lab: Lab) (sightlines: Sightlines)
 
 theorem seenStart ∀ (lab: Lab): SeenBy lab (Set.singleton lab.startGuard) 0 := guard has =>
   match containsInsertEither Set.empty lab.startGuard guard has with
-    | Inl isStart => Witness 0 (Both byComputing (rewrite isStart then byComputing))
+    | Inl isStart => Witness 0 (Both byComputing (rewrite isStart))
     | Inr inEmpty => cases
 
 --| The program's loop test decides `Loops`.

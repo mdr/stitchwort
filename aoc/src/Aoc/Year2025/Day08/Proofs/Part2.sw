@@ -40,12 +40,16 @@ theorem countWithout ∀ (p: Nat → Bool) (n v: Nat)
     (hv: p v = True)
     (vn: v < n):
     List.occurrences (List.range 0 n) p = List.occurrences (List.range 0 n) (b => p b ∧ ¬(b == v)) + 1 :=
-  rewrite List.occurrencesSplit (List.range 0 n) v p,
-      countOne (b => p b ∧ (b == v)) n v (rewrite hv, DecEq.refl v then byComputing) vn (b h =>
-        match e: b == v with
-          | True => e.read
-          | False => cases) then
-    byComputing
+  rewrite List.occurrencesSplit (List.range 0 n) v p, countOne
+    (b => p b ∧ (b == v))
+    n
+    v
+    (rewrite hv, DecEq.refl v)
+    vn
+    (b h =>
+      match e: b == v with
+        | True => e.read
+        | False => cases)
 
 --| Two numbers below n that pass p, when only one does, are the same.
 theorem onlyOne ∀ (p: Nat → Bool) (n: Nat)
@@ -60,7 +64,7 @@ theorem onlyOne ∀ (p: Nat → Bool) (n: Nat)
     | False =>
       let some: Nat.leq 1 (List.occurrences (List.range 0 n) (b => p b ∧ ¬(b == x))) = True :=
         rewrite <- List.anyOccurrences (List.range 0 n) (b => p b ∧ ¬(b == x)) then
-          List.anyRangeIntro (b => p b ∧ ¬(b == x)) n 0 y arithmetic yn (rewrite hy, e then byComputing)
+          List.anyRangeIntro (b => p b ∧ ¬(b == x)) n 0 y arithmetic yn (rewrite hy, e)
       arithmetic [countWithout p n x hx xn]
 
 -- The count is the number of circuits -----------------------------------------
@@ -83,7 +87,7 @@ theorem countedAtStart ∀ (n: Nat): Counted n (Circuits.separate n) := {
       List.lengthRangeFrom n 0 then
     byComputing,
   labelBelow = b h => rewrite labelAtStart n b h then h,
-  labelOwn = b h => rewrite labelAtStart n b h, labelAtStart n b h then byComputing
+  labelOwn = b h => rewrite labelAtStart n b h, labelAtStart n b h
 }
 
 --| After the move, a box is its own label when it was and isn't f's old label.
@@ -99,15 +103,15 @@ theorem ownAfterMove ∀ (c: Circuits) (f s n: Nat)
         | True =>
           -- b would be s's label, so its own label: then f's label is s's.
           let bs := h2.read
-          Void.impossible (differ.read (Eq.trans lf.flipped (rewrite <- bs, counted.labelOwn s hs then byComputing)))
+          Void.impossible (differ.read (Eq.trans lf.flipped (rewrite <- bs, counted.labelOwn s hs)))
         | False =>
           rewrite lf then
             match h3: b == c.labelOf f with
-              | True => rewrite Bool.andFalse (c.labelOf f == b) then byComputing
-              | False => rewrite DecEq.eqComm (c.labelOf f) b, h3 then byComputing
+              | True => rewrite Bool.andFalse (c.labelOf f == b)
+              | False => rewrite DecEq.eqComm (c.labelOf f) b, h3
     | False =>
       match h2: c.labelOf b == b with
-        | True => rewrite <- h2.read, g then byComputing
+        | True => rewrite <- h2.read, g
         | False => byComputing
 
 theorem countedMoved ∀ (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f s: Nat)
@@ -125,7 +129,7 @@ theorem countedMoved ∀ (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f s: Na
       | False => counted.labelBelow b h
   {
     counts = calc (moved c f s).count
-      _ = ownLabels c n - 1 := rewrite counted.counts then byComputing
+      _ = ownLabels c n - 1 := rewrite counted.counts
       _ = List.occurrences (List.range 0 n) (b => c.labelOf b == b ∧ ¬(b == c.labelOf f)) :=
         rewrite countWithout
               (b => c.labelOf b == b)
@@ -140,7 +144,7 @@ theorem countedMoved ∀ (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f s: Na
       rewrite after b h, after (relabel (c.labelOf f) (c.labelOf s) (c.labelOf b)) (below b h) then
         match g: c.labelOf b == c.labelOf f with
           | True => rewrite counted.labelOwn s hs then relabelTo (c.labelOf f) (c.labelOf s) differ
-          | False => rewrite counted.labelOwn b h, g then byComputing
+          | False => rewrite counted.labelOwn b h, g
   }
 
 theorem countedJoin ∀ (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f s: Nat)
@@ -259,9 +263,13 @@ theorem lastJoinFinds ∀ (points: List Point) (ps: List (Nat, Nat)) (k: Nat) (d
               let notYet: ¬(OneCircuit n done) := one => before (rewrite List.appendNil done then one)
               let some: 0 < n := match n with
                 | Succ m => byComputing
-              rewrite countAboveOne n done c inv counted notYet,
-                  countOneOf n (List.append done [(f, s)]) (c.join f s) inv2 counted2 some after then
-                byComputing
+              rewrite countAboveOne n done c inv counted notYet, countOneOf n
+                (List.append done [(f, s)])
+                (c.join f s)
+                inv2
+                counted2
+                some
+                after
             | Succ k =>
               -- A later connection: after this one, not yet one circuit.
               let moreAfter: ∀ (e: (Nat, Nat)) => List.Mem e (List.append done [(f, s)])
@@ -299,18 +307,16 @@ theorem allOrderInRange ∀ (points: List Point): List.all (connectionOrder poin
 theorem part2Correct ∀ (points: List Point) (k: Nat)
     (last: LastNeeded points k):
     solvePart2 (Boxes.of points) = Some (xProduct points (connectionAt points k)) :=
-  rewrite closestFirstIsOrder points,
-      lastJoinFinds points
-        (connectionOrder points)
-        k
-        []
-        (Circuits.separate points.length)
-        (labelledAtStart points.length)
-        (countedAtStart points.length)
-        (allOrderInRange points)
-        last.left
-        last.right then
-    byComputing
+  rewrite closestFirstIsOrder points, lastJoinFinds points
+    (connectionOrder points)
+    k
+    []
+    (Circuits.separate points.length)
+    (labelledAtStart points.length)
+    (countedAtStart points.length)
+    (allOrderInRange points)
+    last.left
+    last.right
 
 --| With fewer than two boxes, they start in one circuit and there is no answer.
 theorem part2NoBoxesToJoin ∀ (points: List Point) (h: points.length ≤ 1): solvePart2 (Boxes.of points) = None :=

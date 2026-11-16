@@ -19,7 +19,7 @@ theorem sameAcrossFaces ∀ (garden: Garden) (start: Position) (plant: Char)
   let joined := (isRegion plot).forward member
   let plotGrows := joinedPlant garden plant start plot grows joined
   match stepped: plot.step side with
-    | None => rewrite plotGrows then byComputing
+    | None => rewrite plotGrows
     | Some other =>
       rewrite plotGrows then
         match otherGrows: garden.plantAt other == Some plant with
@@ -51,5 +51,4 @@ theorem perimeterCorrect ∀ (garden: Garden) (start: Position) (plant: Char)
       List.countCongMem _
         (side => !garden.sameAcross plot side)
         (side => !facesRegion region plot side)
-        (side inDirections =>
-          rewrite sameAcrossFaces garden start plant grows region isRegion plot member side then byComputing))
+        (side inDirections => rewrite sameAcrossFaces garden start plant grows region isRegion plot member side))

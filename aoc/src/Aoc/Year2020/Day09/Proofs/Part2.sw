@@ -33,7 +33,7 @@ theorem runFromSound ∀ (numbers: List Nat) (target: Nat) (run front: List Nat)
                   (sum - first)
                   rest
                   (start + 1)
-                  (rewrite List.dropAdd start 1 numbers, <- at then byComputing)
+                  (rewrite List.dropAdd start 1 numbers, <- at)
                   (arithmetic)
                   after
                   (arithmetic [List.sumCons first (later.take k)])
@@ -43,7 +43,7 @@ theorem runFromSound ∀ (numbers: List Nat) (target: Nat) (run front: List Nat)
           | True =>
             let runIs: front.take count = run := Option.someInjective found
             Both
-              (Witness start (Witness count (rewrite <- runIs, at then byComputing)))
+              (Witness start (Witness count (rewrite <- runIs, at)))
               (Both
                 (rewrite <- runIs, List.lengthTake front count fits then arithmetic)
                 (rewrite <- runIs then arithmetic))
@@ -58,7 +58,7 @@ theorem runFromSound ∀ (numbers: List Nat) (target: Nat) (run front: List Nat)
                   start
                   at
                   (arithmetic)
-                  (rewrite List.dropAdd count 1 front, <- after then byComputing)
+                  (rewrite List.dropAdd count 1 front, <- after)
                   (rewrite taken, List.sumAppend (front.take count) [next] then arithmetic)
                   found
 

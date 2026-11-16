@@ -34,7 +34,7 @@ theorem nextAgrees ∀ (starting: Starting) (room: Nat) (game: Game)
     starting.next game
       = (if game.turn < starting.numbers.toList.length then starting.numbers.toList.getOr game.turn 0
          else Spec.reply (Spec.spoken starting.numbers.toList game.turn)) :=
-  rewrite <- replyTracks game _ playing.left then byComputing
+  rewrite <- replyTracks game _ playing.left
 
 --| Short of `room`'s count of turns, the next number has room.
 theorem nextFits ∀ (starting: Starting) (turns: Nat) (game: Game)
@@ -59,7 +59,7 @@ theorem takeTurnPlaying ∀ (starting: Starting) (turns: Nat) (game: Game)
     (Eq.trans (Array.sizeSet game.lastSeen game.last game.turn) playing.right)
 
 theorem lastTracks ∀ (game: Game) (spoken: List Nat) (tracks: Tracks game spoken): spoken.headOr 0 = game.last :=
-  match tracks with | Witness older (Both isSpoken rest) => rewrite isSpoken then byComputing
+  match tracks with | Witness older (Both isSpoken rest) => rewrite isSpoken
 
 theorem iterateTurn ∀ (starting: Starting) (count: Nat) (game: Game):
     (Nat.iterate count starting.takeTurn game).turn = game.turn + count :=

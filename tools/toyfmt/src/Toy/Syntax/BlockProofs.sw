@@ -202,8 +202,7 @@ theorem inlineBodyRun ∀ (more: Nat) (self: Layout → {Parse (Parse.Located To
     | InStatement column from =>
       match state with
         | { at = { rest = [], offset, left }, furthest, expected, messages } => byComputing
-        | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } =>
-          rewrite inline then byComputing
+        | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite inline
 
 --| The column of the first of the tokens: a block's, when it starts one.
 def firstColumn (input: List (Parse.Located Token)): Nat := match input with
@@ -215,8 +214,7 @@ theorem blockBodyRun ∀ (more: Nat) (self: Layout → {Parse (Parse.Located Tok
     (ahead: blockAhead (InStatement column from) state.at.rest = True):
     Parse.runFrom state (() => (bodyFuel (Succ more) self (InStatement column from), Parse.mark()))
       = Parse.runFrom state (() => (block more self (firstColumn state.at.rest), Parse.mark())) :=
-  match state with
-    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite ahead then byComputing
+  match state with | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite ahead
 
 --| A statement's line that starts with `let`: a name, `=` and a body.
 theorem runsLineLet ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
@@ -359,7 +357,7 @@ theorem statementStops ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located T
       = Ok (None, state.at) :=
   match state with
     | { at = { rest = [], offset, left }, furthest, expected, messages } => byComputing
-    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite none then byComputing
+    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite none
 
 --| A block ends at a token that doesn't start a line at its column, or at
 --| the end: `statement` declines there.
@@ -420,7 +418,7 @@ theorem statementLineDeclines ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Lo
               (statementLine fuel self (InStatement column first.offset) first first.value.kind)),
           Parse.mark()
         )) :=
-      rewrite starts, atColumn then byComputing
+      rewrite starts, atColumn
     Eq.trans step
       (Parse.declinesBind
         (() => statementLine fuel self (InStatement column first.offset) first first.value.kind)
@@ -742,7 +740,7 @@ theorem declarationStops ∀ (state: Parse.State (Parse.Located Token))
     Parse.runFrom state (() => (Parse.optional declaration, Parse.mark())) = Ok (None, state.at) :=
   match state with
     | { at = { rest = [], offset, left }, furthest, expected, messages } => byComputing
-    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite none then byComputing
+    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite none
 
 --| The declarations end at a token that doesn't start a line at column 0,
 --| or at the end of the file.
@@ -771,8 +769,7 @@ theorem runsSourceFile ∀ (endTrivia: List Trivia) (steps: List (List (Parse.Lo
     (fileOf (Parse.stepValues steps).concat endTrivia)
     (Eq.flipped (List.appendNil (Parse.joinReads steps)))
     (Parse.runsMany declaration steps [] manyRuns)
-    (state starts honest =>
-      (state.at, (rewrite starts then byComputing), starts, (rewrite starts at honest then honest), byComputing))
+    (state starts honest => (state.at, (rewrite starts), starts, (rewrite starts at honest then honest), byComputing))
 
 --| `parse` on a source that lexes, whose tokens `sourceFile` reads to the
 --| end as `file`, gives `file`.
@@ -781,14 +778,14 @@ theorem parseReads ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
     (runs: Parse.Runs (() => sourceFile lexed.endTrivia) lexed.tokens [] file):
     parse source = Ok file :=
   let whole := Parse.runsWhole lexed.tokens (() => sourceFile lexed.endTrivia) file runs
-  rewrite lexes, whole then byComputing
+  rewrite lexes, whole
 
 -- An `if` whose branches are each one expression, from its spelling.
 
 theorem operatorOfReserved ∀ (layout: Layout) (level: Nat) (token: Parse.Located Token) (keyword: Keyword)
     (reserved: token.value.kind = Reserved keyword):
     operatorOf layout level token = None :=
-  rewrite reserved then byComputing
+  rewrite reserved
 
 --| A keyword ends an expression: it is no call, field or operator.
 theorem endsAtReserved ∀ (layout: Layout) (token: Parse.Located Token)
@@ -797,15 +794,12 @@ theorem endsAtReserved ∀ (layout: Layout) (token: Parse.Located Token)
     EndsExpression layout [token, ..rest] :=
   (
     (match allowed: layout.allows token with
-      | True => rewrite reserved then byComputing
+      | True => rewrite reserved
       | False => byComputing),
-    (rewrite operatorOfReserved layout 1 token keyword reserved,
-        operatorOfReserved layout 2 token keyword reserved,
-        operatorOfReserved layout 3 token keyword reserved,
-        operatorOfReserved layout 4 token keyword reserved,
-        operatorOfReserved layout 5 token keyword reserved,
-        operatorOfReserved layout 6 token keyword reserved then
-      byComputing)
+    (rewrite operatorOfReserved layout 1 token keyword reserved, operatorOfReserved layout 2 token keyword
+        reserved, operatorOfReserved layout 3 token keyword reserved, operatorOfReserved layout 4 token keyword
+        reserved, operatorOfReserved layout 5 token keyword reserved, operatorOfReserved layout 6 token keyword
+        reserved)
   )
 
 --| A keyword that may follow a body follows anything.
@@ -834,7 +828,7 @@ theorem operatorOfUnallowed ∀ (layout: Layout) (level: Nat) (token: Parse.Loca
   match kind: token.value.kind with
     | Op operator =>
       match same: operator.level == level with
-        | True => rewrite unallowed then byComputing
+        | True => rewrite unallowed
         | False => byComputing
     | Name text => byComputing
     | Number digits => byComputing
@@ -848,14 +842,10 @@ theorem endsUnallowed ∀ (layout: Layout) (token: Parse.Located Token) (rest: L
     (unallowed: layout.allows token = False):
     EndsExpression layout [token, ..rest] :=
   (
-    (rewrite unallowed then byComputing),
-    (rewrite operatorOfUnallowed layout 1 token unallowed,
-        operatorOfUnallowed layout 2 token unallowed,
-        operatorOfUnallowed layout 3 token unallowed,
-        operatorOfUnallowed layout 4 token unallowed,
-        operatorOfUnallowed layout 5 token unallowed,
-        operatorOfUnallowed layout 6 token unallowed then
-      byComputing)
+    (rewrite unallowed),
+    (rewrite operatorOfUnallowed layout 1 token unallowed, operatorOfUnallowed layout 2 token
+        unallowed, operatorOfUnallowed layout 3 token unallowed, operatorOfUnallowed layout 4 token
+        unallowed, operatorOfUnallowed layout 5 token unallowed, operatorOfUnallowed layout 6 token unallowed)
   )
 
 --| A line start no deeper than `column`, seen from a statement at a
@@ -871,7 +861,7 @@ theorem lowLine ∀ (startsLine: Bool) (indent column deeper: Nat) (same: Bool)
   match startsLine, low with
     | True, low =>
       let shallow: (indent > deeper) = False := arithmetic [low, below]
-      ((rewrite shallow, apart then byComputing), (arithmetic [low, below]), (arithmetic [low, below]))
+      ((rewrite shallow, apart), (arithmetic [low, below]), (arithmetic [low, below]))
 
 --| What may follow a statement may follow the last line of a block
 --| inside it, and ends the block: the tokens `[first, ..others]` of a line
@@ -953,7 +943,7 @@ theorem runsIfSpelled ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
       let inner := List.lengthAppend trueTokens [elseToken, ..falseTokens]
       let outer := List.lengthAppend conditionTokens [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]]
       let size: tokens.length = Succ (conditionTokens.length + Succ (trueTokens.length + Succ falseTokens.length)) :=
-        rewrite split, outer, inner then byComputing
+        rewrite split, outer, inner
       let settled: Settled layout
         [ifToken, ..conditionTokens ++ [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]]]
         rest :=
@@ -1017,7 +1007,7 @@ theorem commaDeclines ∀ (input: List (Parse.Located Token))
         (selectComments InBrackets (signIs Comma))
         token
         later
-        (rewrite noneOfNotSome (signIs Comma token.value.kind) absent then byComputing)
+        (rewrite noneOfNotSome (signIs Comma token.value.kind) absent)
 
 --| The rounds of a parameter list after its first name: each a comma and
 --| a name, giving the comma's comments and the name with its own.
@@ -1124,7 +1114,7 @@ theorem runsNoParameters ∀ (token: Parse.Located Token) (rest: List (Parse.Loc
         let others := Parse.many parameterStep
         (first, others))
       [token, ..rest]
-      (Parse.declinesOne "a name" (selectWithComments InBrackets nameOf) token rest (rewrite notName then byComputing)))
+      (Parse.declinesOne "a name" (selectWithComments InBrackets nameOf) token rest (rewrite notName)))
 
 -- An instance of `runsExpression` with an `if`: the six tokens of
 -- `if a then b else c`.
@@ -1455,7 +1445,7 @@ theorem runsBodyFuelBlock ∀ (more: Nat) (self: Layout → {Parse (Parse.Locate
     (runsBlock: Parse.Runs (() => block more self first.value.column) [first, ..others] rest found):
     Parse.Runs (() => bodyFuel (Succ more) self (InStatement column from)) [first, ..others] rest found :=
   state starts honest =>
-    let same: firstColumn state.at.rest = first.value.column := rewrite starts then byComputing
+    let same: firstColumn state.at.rest = first.value.column := rewrite starts
     let step0 := blockBodyRun more self column from state (rewrite starts then deeper)
     let step := rewrite same at step0 then step0
     match runsBlock state starts honest with | Witness m (Both ran after) => (m, (Eq.trans step ran), after)
@@ -1507,7 +1497,7 @@ theorem linesRun ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (boun
           (Witness later
             (Both split (Both atColumn (Both notLet (Both noted (Both valueSpelled (Both ends laterSpelled)))))))) =>
       let sizes := List.lengthAppend others later
-      let whole: tokens.length = Succ (others.length + later.length) := rewrite split, sizes then byComputing
+      let whole: tokens.length = Succ (others.length + later.length) := rewrite split, sizes
       match linesRun self bound nested declines column False [] more later rest fuel moreShaped laterSpelled
         (arithmetic [whole, enough])
         (arithmetic [whole, short]) with
@@ -1515,7 +1505,7 @@ theorem linesRun ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (boun
           let values2: (Parse.stepValues steps).concat = more := values
           (
             [([first, ..others], notedStatement first.value.above (Bare value)), ..steps],
-            (rewrite split, joined then byComputing),
+            (rewrite split, joined),
             ((
               (same => cases),
               (rewrite joined then
@@ -1577,8 +1567,7 @@ theorem linesRun ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (boun
                                   (Both equalsCommented (Both noted (Both innerSpelled laterSpelled)))))))))))))))) =>
       let line := Let letComments name nameComments equalsComments inner
       let sizes := List.lengthAppend bodyTokens later
-      let whole: tokens.length = Succ (Succ (Succ (bodyTokens.length + later.length))) :=
-        rewrite split, sizes then byComputing
+      let whole: tokens.length = Succ (Succ (Succ (bodyTokens.length + later.length))) := rewrite split, sizes
       match linesRun self bound nested declines column False [] more later rest fuel moreShaped laterSpelled
         (arithmetic [whole, enough])
         (arithmetic [whole, short]) with
@@ -1586,7 +1575,7 @@ theorem linesRun ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (boun
           let values2: (Parse.stepValues steps).concat = more := values
           (
             [([first, named, equals, ..bodyTokens], notedStatement first.value.above line), ..steps],
-            (rewrite split, joined then byComputing),
+            (rewrite split, joined),
             ((
               (same => cases),
               (rewrite joined, letCommented, nameCommented, equalsCommented then

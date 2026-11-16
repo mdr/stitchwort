@@ -61,7 +61,7 @@ theorem fromStartCorrect ∀ (maze: Maze):
               (moves ++ [way])
               (Both
                 (finalSnoc maze (startingReindeer maze) moves state parts.left way next both.left)
-                (rewrite scoreSnoc moves way, parts.right, both.right then byComputing)))))
+                (rewrite scoreSnoc moves way, parts.right, both.right)))))
 
 --| Moves from an open tile are a walk in the maze's graph, scoring the
 --| same.
@@ -81,7 +81,7 @@ theorem movesWalk ∀ (maze: Maze):
               (Both
                 (edgeOfMove maze False reindeer holds next way.points (afterComplete maze reindeer way next moved))
                 both.left)
-              (rewrite Graph.costCons next way.points path, scoreCons way rest, both.right then byComputing)))
+              (rewrite Graph.costCons next way.points path, scoreCons way rest, both.right)))
 
 --| Along any moves from an open tile, the search's bound grows by no more
 --| than their score.
@@ -113,7 +113,7 @@ theorem listedAtEnd ∀ (maze: Maze) (reindeer: Reindeer)
     reindeer.position = maze.end :=
   Exists.elim
     (List.memMapElim (way => ({ position = maze.end, facing = way }: Reindeer)) reindeer headings member)
-    (facing both => rewrite <- And.right both then byComputing)
+    (facing both => rewrite <- And.right both)
 
 --| A path's moves end on the end tile.
 theorem pathEnds ∀ (maze: Maze) (moves: List Move) (standings: List Reindeer)
@@ -129,7 +129,7 @@ theorem pathOfFinal ∀ (maze: Maze) (moves: List Move) (last: Reindeer)
     (atEnd: last.position = maze.end):
     Exists (List Reindeer) (standings => IsPath maze moves standings) :=
   Exists.elim (finalFollow maze (startingReindeer maze) moves last ended) (standings both =>
-    Witness standings (Both both.left (rewrite And.right both, atEnd then byComputing)))
+    Witness standings (Both both.left (rewrite And.right both, atEnd)))
 
 --| When some path reaches the end, the program's least score is the
 --| lowest score of any path.
@@ -188,7 +188,7 @@ theorem part1Correct ∀ (maze: Maze)
     (reachable: Exists (List Move) (moves => Exists (List Reindeer) (standings => IsPath maze moves standings))):
     IsLowestScore maze (solvePart1 maze) :=
   Exists.elim (lowestScoreCorrect maze startOpen reachable) (best both =>
-    let answer: solvePart1 maze = best := rewrite And.left both then byComputing
+    let answer: solvePart1 maze = best := rewrite And.left both
     rewrite answer then And.right both)
 
 --| There is only one lowest score.

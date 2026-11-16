@@ -28,4 +28,4 @@ theorem plusAssoc ∀ (n m p: Nat): plus n (plus m p) = plus (plus n m) p := mat
 
 theorem multNSm ∀ (n m: Nat): plus (mult n m) n = mult n (S m) := match n with
   | O => byComputing
-  | S n' => rewrite plusSuccR (plus m (mult n' m)) n', <- plusAssoc m (mult n' m) n', multNSm n' m then byComputing
+  | S n' => rewrite plusSuccR (plus m (mult n' m)) n', <- plusAssoc m (mult n' m) n', multNSm n' m

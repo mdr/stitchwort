@@ -28,7 +28,7 @@ theorem startOnFloor ∀ (level: Level): isWall level level.start = False := rew
 
 --| So is the goal: the middle of the exit.
 theorem goalOnFloor ∀ (level: Level): isWall level level.goal = False :=
-  rewrite middleInside level.exit, Bool.orTrue (level.entrance.contains level.exit.middle) then byComputing
+  rewrite middleInside level.exit, Bool.orTrue (level.entrance.contains level.exit.middle)
 
 --| No placed monster stands on the start...
 theorem placeMonstersClear ∀ (level: Level) (start: Position) (placed planned: List Monster)

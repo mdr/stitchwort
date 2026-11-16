@@ -14,7 +14,7 @@ theorem readGroupsLast ∀ (reader afterBit after: BitReader) (group: Nat)
     (bit: reader.readBit = Some (False, afterBit))
     (number: afterBit.readNumber 4 = Some (group, after)):
     readGroups reader = Some (NonEmptyList.singleton group, after) :=
-  rewrite readGroups.unfold reader, bit, number then byComputing
+  rewrite readGroups.unfold reader, bit, number
 
 --| A group that another follows.
 theorem readGroupsMore ∀ (reader afterBit after: BitReader) (group: Nat) (groups: NonEmptyList Nat) (rest: BitReader)
@@ -24,7 +24,7 @@ theorem readGroupsMore ∀ (reader afterBit after: BitReader) (group: Nat) (grou
     (others: readGroups after = Some (groups, rest)):
     readGroups reader = Some (NonEmptyList.cons group groups.toList, rest) :=
   rewrite readGroups.unfold reader, bit, number then
-    match h: (after.length < reader.length: Bool) with | True => rewrite others then byComputing
+    match h: (after.length < reader.length: Bool) with | True => rewrite others
 
 --| A literal's groups, each below 16, are read back from their bits.
 theorem readGroupsBitsFrom ∀ (rest: List Bool) (tail: List Nat) (group: Nat)
@@ -89,14 +89,11 @@ theorem readGroupsSome ∀ (reader: BitReader) (groups: NonEmptyList Nat) (rest:
                           | Both split small =>
                             let first: (group < 16) = True := arithmetic [fits]
                             rewrite <- parts.left, <- parts.right then
-                              Both
-                                (rewrite bitRead, numberRead.left, split then byComputing)
-                                (Bool.andIntro first small)
+                              Both (rewrite bitRead, numberRead.left, split) (Bool.andIntro first small)
               | False =>
                 let parts := somePairInjective read
                 let small: (NonEmptyList.singleton group).all (x => x < 16) = True := arithmetic [fits]
-                rewrite <- parts.left, <- parts.right then
-                  Both (rewrite bitRead, numberRead.left then byComputing) small
+                rewrite <- parts.left, <- parts.right then Both (rewrite bitRead, numberRead.left) small
 
 --| Each operator type is read back from its type id.
 theorem operatorTypeOfTypeId ∀ (operatorType: OperatorType): operatorTypeOf (typeId operatorType) = Some operatorType :=
@@ -107,10 +104,10 @@ theorem operatorTypeOfSome ∀ (n: Nat) (operatorType: OperatorType)
     (read: operatorTypeOf n = Some operatorType):
     n = typeId operatorType :=
   match n with
-    | 0 => rewrite <- Option.someInjective read then byComputing
-    | 1 => rewrite <- Option.someInjective read then byComputing
-    | 2 => rewrite <- Option.someInjective read then byComputing
-    | 3 => rewrite <- Option.someInjective read then byComputing
-    | 5 => rewrite <- Option.someInjective read then byComputing
-    | 6 => rewrite <- Option.someInjective read then byComputing
-    | 7 => rewrite <- Option.someInjective read then byComputing
+    | 0 => rewrite <- Option.someInjective read
+    | 1 => rewrite <- Option.someInjective read
+    | 2 => rewrite <- Option.someInjective read
+    | 3 => rewrite <- Option.someInjective read
+    | 5 => rewrite <- Option.someInjective read
+    | 6 => rewrite <- Option.someInjective read
+    | 7 => rewrite <- Option.someInjective read

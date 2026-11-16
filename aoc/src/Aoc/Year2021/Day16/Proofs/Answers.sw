@@ -32,10 +32,8 @@ theorem versionSumsTotal ∀ (packets: List Packet): versionSums packets = (pack
   match packets with
     | [] => byComputing
     | [packet, ..rest] =>
-      rewrite List.sumByAppend (packetsIn packet) (packetsInAll rest) versionOf,
-          versionSumTotal packet,
-          versionSumsTotal rest then
-        byComputing
+      rewrite List.sumByAppend (packetsIn packet) (packetsInAll rest) versionOf, versionSumTotal
+          packet, versionSumsTotal rest
 
 --| Part 1, for every packet.
 theorem part1Correct ∀ (packet: Packet): solvePart1 packet = versionTotal packet := versionSumTotal packet
@@ -51,7 +49,7 @@ theorem groupsValue ∀ (acc: Nat) (groups: List Nat)
       let fits: group < Nat.pow 2 4 := arithmetic [small.left]
       let ih := groupsValue (acc * 16 + group) rest small.right
       let inner: List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit) = acc * 16 + group :=
-        rewrite Nat.fromBitsFrom acc (Nat.toBits 4 group), Nat.fromBitsToBits 4 group fits then byComputing
+        rewrite Nat.fromBitsFrom acc (Nat.toBits 4 group), Nat.fromBitsToBits 4 group fits
       let step: List.foldLeft
         (rest.flatMap (Nat.toBits 4))
         (List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit))

@@ -52,7 +52,7 @@ theorem fileBlocksFreeLast ∀ (blocks: List Block) (id: Nat)
               | Free => byComputing
         | None =>
           match block with
-            | FileBlock here => rewrite noFileBlocks rest later, Option.someInjective found then byComputing
+            | FileBlock here => rewrite noFileBlocks rest later, Option.someInjective found
 
 --| Some block is a file block exactly when there is a last file.
 theorem anyFileBlock ∀ (blocks: List Block): blocks.any (block => block.isFile) = (lastFile blocks).isSome :=
@@ -88,7 +88,7 @@ theorem fillFrontFreeLast ∀ (blocks: List Block) (moving: List Nat) (count: Na
     (bound: count ≤ fileCount (freeLastFileBlock blocks)):
     fillFront blocks moving count = fillFront (freeLastFileBlock blocks) moving count :=
   match blocks, count with
-    | blocks, Zero => rewrite lengthFreeLast blocks then byComputing
+    | blocks, Zero => rewrite lengthFreeLast blocks
     | [block, ..rest], Succ count =>
       match later: lastFile rest with
         | Some id =>
@@ -160,7 +160,7 @@ theorem stepsFill ∀ (moves: Nat) (blocks: List Block)
                   stepsPastFile id (freeLastFileBlock rest) fewer,
                   compactGap rest id later then
                 Eq.cong (Cons (FileBlock id)) (stepsFill fewer (freeLastFileBlock rest) (arithmetic))
-            | None => rewrite anyFileBlock rest, later, compactFree rest later then byComputing
+            | None => rewrite anyFileBlock rest, later, compactFree rest later
 
 --| The fill leaves no gaps.
 theorem fillNoGaps ∀ (blocks: List Block): hasGap (compactBlocks blocks) = False
@@ -174,7 +174,7 @@ theorem fillNoGaps ∀ (blocks: List Block): hasGap (compactBlocks blocks) = Fal
         | Some id =>
           let freedLength := lengthFreeLast rest
           rewrite compactGap rest id later then fillNoGaps (freeLastFileBlock rest)
-        | None => rewrite compactFree rest later, anyFileBlock rest, later then byComputing
+        | None => rewrite compactFree rest later, anyFileBlock rest, later
 
 --| A block's part of the checksum, as the program and as the puzzle say it.
 theorem blockChecksumCorrect ∀ (position: Nat) (block: Block):

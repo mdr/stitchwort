@@ -84,7 +84,7 @@ theorem settleCovers ∀ (device: Device) (values: Values) (waiting: List Gate)
               (Bool.falseOfNotTrue _ (ready =>
                 Bool.falseNotTrue
                   (Eq.trans
-                    (Eq.flipped (rewrite ready then byComputing))
+                    (Eq.flipped (rewrite ready))
                     (filterFull (gate => ¬(gate.ready values)) waiting fewer gate member))))
           | Inr there => Inl there
     | True =>
@@ -103,7 +103,7 @@ theorem settleCovers ∀ (device: Device) (values: Values) (waiting: List Gate)
                       (waiting.filter (gate => gate.ready values))
                       values
                       (List.memFilterIntro waiting _ member isReady))
-                | False => Inl (List.memFilterIntro waiting _ member (rewrite isReady then byComputing)))
+                | False => Inl (List.memFilterIntro waiting _ member (rewrite isReady)))
       rewrite settleMore values waiting fewer then
         settleCovers device next
           (waiting.filter (gate => ¬(gate.ready values)))
@@ -122,7 +122,7 @@ theorem lookupLastFound ∀ [auto ord: Ord k] (key: k) (value: v) (pairs: List (
         | Some laterValue => Witness laterValue byComputing
         | None =>
           match member with
-            | Inl same => Witness otherValue (rewrite Eq.cong Pair.fst same, Ord.compareSelf key then byComputing)
+            | Inl same => Witness otherValue (rewrite Eq.cong Pair.fst same, Ord.compareSelf key)
             | Inr inRest =>
               match lookupLastFound key value rest inRest with
                 | Witness found isFound => Void.impossible (Option.noneNotSome found (Eq.trans later.flipped isFound))
@@ -162,9 +162,7 @@ theorem settledComplete ∀ (device: Device)
     device.settled.get wire = Some value :=
   match Map.getOfContains device.settled wire (containsComplete device wire value carries) with
     | Witness found isFound =>
-      rewrite isFound,
-          carriesUnique device wellFormed wire found value (settledSound device wire found isFound) carries then
-        byComputing
+      rewrite isFound, carriesUnique device wellFormed wire found value (settledSound device wire found isFound) carries
 
 --| `allSome` of options that each have a value.
 theorem allSomeMap ∀ (f: a → Option b) (g: a → b) (xs: List a)
@@ -172,8 +170,7 @@ theorem allSomeMap ∀ (f: a → Option b) (g: a → b) (xs: List a)
     List.allSome (xs.map f) = Some (xs.map g) :=
   match xs with
     | [] => byComputing
-    | [x, ..rest] =>
-      rewrite each x (Inl byComputing), allSomeMap f g rest (other member => each other (Inr member)) then byComputing
+    | [x, ..rest] => rewrite each x (Inl byComputing), allSomeMap f g rest (other member => each other (Inr member))
 
 --| Part 1, complete for well-formed devices: a number the device outputs is
 --| the program's answer.
@@ -189,9 +186,7 @@ theorem part1Complete ∀ (device: Device)
         | True => settledComplete device wellFormed (Z bit) _ (outputs.left bit there.read)
         | False =>
           rewrite outputs.right bit (isIn =>
-                Bool.trueNotFalse
-                  (Eq.trans (Eq.flipped ((List.memContains device.wires (Z bit)).backward isIn)) there)) then
-            byComputing)
+            Bool.trueNotFalse (Eq.trans (Eq.flipped ((List.memContains device.wires (Z bit)).backward isIn)) there)))
   let bitsAre: device.zBits device.settled = Some ((List.range 0 count).map (Nat.testBit number)) :=
     allSomeMap zValue (Nat.testBit number) (List.range 0 count) each
   rewrite bitsAre then

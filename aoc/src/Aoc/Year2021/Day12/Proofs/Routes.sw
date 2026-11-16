@@ -61,7 +61,7 @@ theorem followRoutes ∀ (next: Cave → List Cave) (unvisited: List Cave) (spar
 theorem viaFirst ∀ (other: Cave) (after: List (List Cave)) (route: List Cave)
     (found: route ∈ routesVia other after):
     route.headOr Cave.start = other :=
-  Exists.elim (List.memMapElim (Cons other) route after found) (tail both => rewrite <- And.right both then byComputing)
+  Exists.elim (List.memMapElim (Cons other) route after found) (tail both => rewrite <- And.right both)
 
 --| ...and are as many as the routes they continue.
 theorem viaDistinct ∀ (other: Cave) (after: List (List Cave))

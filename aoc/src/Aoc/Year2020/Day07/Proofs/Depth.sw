@@ -61,7 +61,7 @@ theorem walkOfDeep ∀ (rules: List Rule) (steps: Nat) (start: Colour)
     | 0, Witness inner (Both directly _) => Witness [] (Witness inner (Both byComputing directly))
     | Succ steps, Witness inner (Both directly deeper) =>
       let (Witness between (Witness finish (Both long walk))) := walkOfDeep rules steps inner deeper
-      Witness [inner, ..between] (Witness finish (Both (rewrite long then byComputing) (Both directly walk)))
+      Witness [inner, ..between] (Witness finish (Both (rewrite long) (Both directly walk)))
 
 theorem walkSplit ∀ (rules: List Rule) (middle: Colour) (after: List Colour)
     (finish start: Colour) (before: List Colour)
@@ -187,7 +187,7 @@ theorem allSomeOfEach ∀ (f: a → Option b) (xs: List a)
     | [first, ..rest] =>
       let (Witness value atFirst) := each first (Inl byComputing)
       let (Witness values atRest) := allSomeOfEach f rest (x member => each x (Inr member))
-      Witness [value, ..values] (rewrite atFirst, atRest then byComputing)
+      Witness [value, ..values] (rewrite atFirst, atRest)
 
 theorem settledNotDeep ∀ (rules: List Rule) (depth: Nat) (colour: Colour) (total: Nat)
     (settled: Spec.bagsWithin rules depth colour = Some total)
@@ -208,7 +208,7 @@ theorem contentSettled ∀ (rules: List Rule) (depth: Nat)
     ∃ (value: Nat) => (Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside)))
       = Some value :=
   let (Witness inside e) := noDeepSettled rules depth content.colour none
-  Witness (content.count * (1 + inside)) (rewrite e then byComputing)
+  Witness (content.count * (1 + inside)) (rewrite e)
 
 theorem noDeepSettled ∀ (rules: List Rule) (depth: Nat) (colour: Colour) (none: Deep rules depth colour → Void):
     ∃ (total: Nat) => Spec.bagsWithin rules depth colour = Some total :=
@@ -220,7 +220,7 @@ theorem noDeepSettled ∀ (rules: List Rule) (depth: Nat) (colour: Colour) (none
       let (Witness counts found) := allSomeOfEach step (Spec.contentsOf rules colour) (content inContents =>
         contentSettled rules depth content (deeper =>
           none (Witness content.colour (Both (Witness content (Both inContents byComputing)) deeper))))
-      Witness (List.sum counts) (rewrite found then byComputing)
+      Witness (List.sum counts) (rewrite found)
 
 --| Whatever depth settles part 2, the program's depth settles it too, to the
 --| same total: it fails with a cycle only where no depth gives an answer.
@@ -231,4 +231,4 @@ theorem part2Complete ∀ (rules: Rules) (total: Nat)
   let (Witness found atProgramDepth) := noDeepSettled rules.all (rules.all.length + 1) Spec.shinyGold (deep =>
     settledNotDeep rules.all depth Spec.shinyGold total settledAt (deepEverywhere rules.all Spec.shinyGold deep depth))
   let same: found = total := part2Unique rules.all found total (Witness (rules.all.length + 1) atProgramDepth) settled
-  rewrite bagsAgree rules.all (rules.all.length + 1) shinyGold, atProgramDepth, same then byComputing
+  rewrite bagsAgree rules.all (rules.all.length + 1) shinyGold, atProgramDepth, same

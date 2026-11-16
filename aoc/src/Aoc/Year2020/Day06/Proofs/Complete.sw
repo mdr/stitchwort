@@ -32,7 +32,7 @@ theorem runsPerson ∀ (read: List Char) (who: Person)
           let sameAnswers: [letter, ..more].toSet = who.answers :=
             Set.ext _ _ (question => Eq.trans (containsFromList [letter, ..more] question) (same question).flipped)
           let sameSet: ({ answers = [letter, ..more].toSet }: Person) = who := match who with
-            | { answers } => rewrite sameAnswers then byComputing
+            | { answers } => rewrite sameAnswers
           let lettersRun :=
             Parse.runsMany1Symbols
               (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion)
@@ -60,8 +60,8 @@ theorem runsPerson ∀ (read: List Char) (who: Person)
 
 theorem spaceNotQuestion ∀ (char: Char) (isSpace: Parse.isSpace char = True): isQuestion char = False :=
   match isSpace with
-    | Inl space => rewrite space.read then byComputing
-    | Inr tab => rewrite tab.read then byComputing
+    | Inl space => rewrite space.read
+    | Inr tab => rewrite tab.read
 
 theorem declinesPerson ∀ (rest: List Char) (stops: Parse.CannotStart isQuestion rest): Parse.Declines person rest :=
   Parse.declinesBind

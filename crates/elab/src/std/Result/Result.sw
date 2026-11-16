@@ -66,20 +66,17 @@ theorem Result.traverseLoopDone ∀ (f: a → Result b e) (xs: List a) (done: Li
     | [x, ..xs] =>
       match e: f x with
         | Ok y =>
-          rewrite Result.traverseLoopDone f xs [y, ..done],
-              Result.traverseLoopDone f xs [y],
-              Result.mapMap
-                (ys => List.reverseOnto [y] ys)
-                (ys => List.reverseOnto done ys)
-                (Result.traverseLoop f [] xs) then
-            byComputing
+          rewrite Result.traverseLoopDone f xs [y, ..done], Result.traverseLoopDone f xs [y], Result.mapMap
+            (ys => List.reverseOnto [y] ys)
+            (ys => List.reverseOnto done ys)
+            (Result.traverseLoop f [] xs)
         | Err m => byComputing
 
 --| The step of `Result.traverse`, which the loop form hides.
 theorem Result.traverseCons ∀ (f: a → Result b e) (x: a) (xs: List a):
     Result.traverse [x, ..xs] f = Result.flatMap (f x) (y => Result.map (Result.traverse xs f) (Cons y)) :=
   match e: f x with
-    | Ok y => rewrite Result.traverseLoopDone f xs [y] then byComputing
+    | Ok y => rewrite Result.traverseLoopDone f xs [y]
     | Err m => byComputing
 
 --| A `traverse` that gave `Ok ys`: each value is what `f` gave for its input,
@@ -112,8 +109,7 @@ theorem Result.traverseOfAll2 ∀ (f: a → Result b e) (r: a → b → Prop)
   match xs, ys with
     | [], [] => byComputing
     | [x, ..rest], [y, ..more] =>
-      rewrite Result.traverseCons f x rest, each x y all.left, Result.traverseOfAll2 f r each rest more all.right then
-        byComputing
+      rewrite Result.traverseCons f x rest, each x y all.left, Result.traverseOfAll2 f r each rest more all.right
 
 --| The value in an `Option`, or `Err err`: `t.toNat.toResult "not a number"`.
 def Option.toResult: (option: Option a) → (err: e) → Result a e

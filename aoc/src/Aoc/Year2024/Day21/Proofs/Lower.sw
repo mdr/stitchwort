@@ -64,12 +64,10 @@ theorem walksCost ∀ (keypad: Keypad k) (rows: List (List (Option k))) (costs: 
         match found: keyAt rows next with
           | Some key =>
             let walkedOn: walk rows start (List.append route [direction]) = Some next :=
-              rewrite walkAppend rows start route [direction], walked, step, found then byComputing
+              rewrite walkAppend rows start route [direction], walked, step, found
             let shape: List.append ((List.append route [direction]).map Arrow) rest
               = List.append (route.map Arrow) [Arrow direction, ..rest] :=
-              rewrite List.mapAppend route [direction] Arrow,
-                  List.appendAssoc (route.map Arrow) [Arrow direction] rest then
-                byComputing
+              rewrite List.mapAppend route [direction] Arrow, List.appendAssoc (route.map Arrow) [Arrow direction] rest
             rewrite <- shape then
               walksCost keypad rows costs cheapest rest start from onFrom
                 (List.append route [direction])

@@ -19,12 +19,12 @@ theorem turnKey ∀ (seed: Nat) (state: State) (key: Key) (rest: List Key) (comm
     let after := resolve { seed = lcg seed / 65536 } state command
     Terminal.simulate [key, ..rest] (() => Random.withSeed seed (() => playTurn state))
       = MkPair [frame after |> .map Ansi.strip] after :=
-  rewrite isCommand then byComputing
+  rewrite isCommand
 
 theorem turnOther ∀ (seed: Nat) (state: State) (key: Key) (rest: List Key)
     (notCommand: commandOf key = None):
     Terminal.simulate [key, ..rest] (() => Random.withSeed seed (() => playTurn state)) = MkPair [] state :=
-  rewrite notCommand then byComputing
+  rewrite notCommand
 
 theorem turnEnd ∀ (seed: Nat) (state: State):
     let after := resolve { seed = lcg seed / 65536 } state Quit

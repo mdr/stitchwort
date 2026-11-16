@@ -85,8 +85,7 @@ theorem runFromRuns ∀ (program: Program) (code: Code)
               | True =>
                 Witness []
                   (Witness state
-                    (Both byComputing
-                      (Both stopped (Both (rewrite here, t.read, holds.left then byComputing) byComputing))))
+                    (Both byComputing (Both stopped (Both (rewrite here, t.read, holds.left) byComputing))))
               | False => Witness [] (Witness state (Both byComputing (Both stopped ())))
           | Some instruction =>
             let listed: program.instructions.get position = Some instruction :=

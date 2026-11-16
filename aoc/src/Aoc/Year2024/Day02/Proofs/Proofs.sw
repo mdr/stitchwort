@@ -82,4 +82,4 @@ theorem dampenerAloneSuffices ∀ (level: Nat) (rest: List Nat):
 --| The dampener only adds safe reports: part 2's answer is at least part 1's.
 theorem part2AtLeastPart1 ∀ (reports: List Report): solvePart1 reports ≤ solvePart2 reports :=
   rewrite part1Correct reports, part2Correct reports then
-    List.countLeMem reports safe safeWithDampener (report _ wasSafe => rewrite wasSafe then byComputing)
+    List.countLeMem reports safe safeWithDampener (report _ wasSafe => rewrite wasSafe)

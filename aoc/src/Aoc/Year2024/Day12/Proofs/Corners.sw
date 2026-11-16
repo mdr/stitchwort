@@ -21,7 +21,7 @@ def total: (n: Nat) → (f: Nat → Nat) → Nat
 
 theorem totalCong ∀ (n: Nat) (f g: Nat → Nat) (agree: ∀ (i: Nat) => f i = g i): total n f = total n g := match n with
   | Zero => byComputing
-  | Succ n => rewrite agree 0, totalCong n (i => f (Succ i)) (i => g (Succ i)) (i => agree (Succ i)) then byComputing
+  | Succ n => rewrite agree 0, totalCong n (i => f (Succ i)) (i => g (Succ i)) (i => agree (Succ i))
 
 theorem totalAdd ∀ (n: Nat) (f g: Nat → Nat): total n (i => f i + g i) = total n f + total n g := match n with
   | Zero => byComputing
@@ -79,7 +79,7 @@ theorem telescope ∀ (n: Nat) (b: Nat → Bool) (first: Bool):
         totalCong n
           (i => Bool.toNat (b (Succ i) ∧ ¬(previous first b (Succ i))))
           (i => Bool.toNat (b (Succ i) ∧ ¬(previous (b 0) (i => b (Succ i)) i)))
-          (i => rewrite previousShift b first i then byComputing)
+          (i => rewrite previousShift b first i)
       rewrite <- shifted, previousShift b first n at rest then
         match atZero: b 0, atOne: b 1, before: first with
           | True, True, True => arithmetic [rest]
@@ -398,7 +398,7 @@ theorem rowCorners ∀ (inside: Nat → Nat → Bool) (last row: Nat)
         (convexDownRight inside row)
         (later (concaveDownRight inside row))
         (column => concaveDownLeft inside row (Succ column)))
-  let upEnds := startsEqualEnds size (fenceUp inside row) (rewrite edge then byComputing)
+  let upEnds := startsEqualEnds size (fenceUp inside row) (rewrite edge)
   let upStarts :=
     totalCong size
       (column => Bool.toNat (startUp inside row column))
@@ -407,7 +407,7 @@ theorem rowCorners ∀ (inside: Nat → Nat → Bool) (last row: Nat)
         match column with
           | Zero => byComputing
           | Succ before => byComputing)
-  let downEnds := startsEqualEnds size (fenceDown inside row) (rewrite edge then byComputing)
+  let downEnds := startsEqualEnds size (fenceDown inside row) (rewrite edge)
   let downStarts :=
     totalCong size
       (column => Bool.toNat (startDown inside row column))
@@ -417,17 +417,15 @@ theorem rowCorners ∀ (inside: Nat → Nat → Bool) (last row: Nat)
           | Zero => byComputing
           | Succ before => byComputing)
   let upRightLast: concaveUpRight inside row last = 0 :=
-    rewrite edge, concaveNoHorizontal (inside row last) (above inside row last) (above (rightOf inside) row last) then
-      byComputing
+    rewrite edge, concaveNoHorizontal (inside row last) (above inside row last) (above (rightOf inside) row last)
   let upLeftFirst: concaveUpLeft inside row 0 = 0 :=
-    rewrite concaveNoHorizontal (inside row 0) (above inside row 0) (above (leftOf inside) row 0) then byComputing
-  let upLeftLast: concaveUpLeft inside row size = 0 := rewrite edge then byComputing
+    rewrite concaveNoHorizontal (inside row 0) (above inside row 0) (above (leftOf inside) row 0)
+  let upLeftLast: concaveUpLeft inside row size = 0 := rewrite edge
   let downRightLast: concaveDownRight inside row last = 0 :=
-    rewrite edge, concaveNoHorizontal (inside row last) (below inside row last) (below (rightOf inside) row last) then
-      byComputing
+    rewrite edge, concaveNoHorizontal (inside row last) (below inside row last) (below (rightOf inside) row last)
   let downLeftFirst: concaveDownLeft inside row 0 = 0 :=
-    rewrite concaveNoHorizontal (inside row 0) (below inside row 0) (below (leftOf inside) row 0) then byComputing
-  let downLeftLast: concaveDownLeft inside row size = 0 := rewrite edge then byComputing
+    rewrite concaveNoHorizontal (inside row 0) (below inside row 0) (below (leftOf inside) row 0)
+  let downLeftLast: concaveDownLeft inside row size = 0 := rewrite edge
   arithmetic [
     totalAdd4 size
       (cornerUpLeft inside row)
@@ -497,7 +495,7 @@ theorem columnCorners ∀ (inside: Nat → Nat → Bool) (last column: Nat)
         (row => convexDownRight inside row column)
         (later (r => concaveDownRight inside r column))
         (row => concaveUpRight inside (Succ row) column))
-  let leftEnds := startsEqualEnds size (row => fenceLeft inside row column) (rewrite edge then byComputing)
+  let leftEnds := startsEqualEnds size (row => fenceLeft inside row column) (rewrite edge)
   let leftStarts :=
     totalCong size
       (row => Bool.toNat (startLeft inside row column))
@@ -506,7 +504,7 @@ theorem columnCorners ∀ (inside: Nat → Nat → Bool) (last column: Nat)
         match row with
           | Zero => byComputing
           | Succ before => byComputing)
-  let rightEnds := startsEqualEnds size (row => fenceRight inside row column) (rewrite edge then byComputing)
+  let rightEnds := startsEqualEnds size (row => fenceRight inside row column) (rewrite edge)
   let rightStarts :=
     totalCong size
       (row => Bool.toNat (startRight inside row column))
@@ -516,21 +514,18 @@ theorem columnCorners ∀ (inside: Nat → Nat → Bool) (last column: Nat)
           | Zero => byComputing
           | Succ before => byComputing)
   let downLeftLast: concaveDownLeft inside last column = 0 :=
-    rewrite edge,
-        concaveNoVertical (inside last column) (leftOf inside last column) (below (leftOf inside) last column) then
-      byComputing
+    rewrite edge, concaveNoVertical (inside last column) (leftOf inside last column) (below (leftOf inside) last column)
   let upLeftFirst: concaveUpLeft inside 0 column = 0 :=
-    rewrite concaveNoVertical (inside 0 column) (leftOf inside 0 column) (above (leftOf inside) 0 column) then
-      byComputing
-  let upLeftLast: concaveUpLeft inside size column = 0 := rewrite edge then byComputing
+    rewrite concaveNoVertical (inside 0 column) (leftOf inside 0 column) (above (leftOf inside) 0 column)
+  let upLeftLast: concaveUpLeft inside size column = 0 := rewrite edge
   let downRightLast: concaveDownRight inside last column = 0 :=
-    rewrite edge,
-        concaveNoVertical (inside last column) (rightOf inside last column) (below (rightOf inside) last column) then
-      byComputing
+    rewrite edge, concaveNoVertical
+      (inside last column)
+      (rightOf inside last column)
+      (below (rightOf inside) last column)
   let upRightFirst: concaveUpRight inside 0 column = 0 :=
-    rewrite concaveNoVertical (inside 0 column) (rightOf inside 0 column) (above (rightOf inside) 0 column) then
-      byComputing
-  let upRightLast: concaveUpRight inside size column = 0 := rewrite edge then byComputing
+    rewrite concaveNoVertical (inside 0 column) (rightOf inside 0 column) (above (rightOf inside) 0 column)
+  let upRightLast: concaveUpRight inside size column = 0 := rewrite edge
   arithmetic [
     totalAdd4 size
       (row => cornerUpLeft inside row column)

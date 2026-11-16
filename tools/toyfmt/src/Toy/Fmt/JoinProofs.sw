@@ -274,11 +274,9 @@ theorem passesTwo ∀ (first second: Doc) (pre middle post: Edge → Prop)
 
 -- The leaves.
 
-theorem gapSolid ∀ (text: Text) (noGap: text.all (char => char == ' ') = False): gapOr text = text :=
-  rewrite noGap then byComputing
+theorem gapSolid ∀ (text: Text) (noGap: text.all (char => char == ' ') = False): gapOr text = text := rewrite noGap
 
-theorem touchSolid ∀ (text: Text) (layout: isLayout text = False): textTouch text = Some text :=
-  rewrite layout then byComputing
+theorem touchSolid ∀ (text: Text) (layout: isLayout text = False): textTouch text = Some text := rewrite layout
 
 theorem textJoins ∀ (text: Text) (edge: Edge) (next: Edge → Prop)
     (solid: Solid text)
@@ -451,7 +449,7 @@ theorem trailingPasses ∀ (after: Option Comment) (text: Text)
     (ends: Ends text):
     Passes (trailingComment after) (edge => edge = Plain (Some text)) (Left text) :=
   match after, fine with
-    | None, _ => (byComputing, (edge next same reached => reached edge (rewrite same then byComputing)))
+    | None, _ => (byComputing, (edge next same reached => reached edge (rewrite same)))
     | Some comment, fine =>
       match commentSolid comment.text fine with
         | (filled, _) => (

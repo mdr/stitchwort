@@ -32,14 +32,14 @@ theorem countedFromSome ∀ (fromStart toEnd: Map Position Nat) (honest length t
       = (start.diamond length
         |> .filter (savesFrom toEnd honest threshold start before)
         |> .map (end => ({ start, end }: Cheat))) :=
-  rewrite got then byComputing
+  rewrite got
 
 --| To an end the search back reached, whether the race is short enough.
 theorem savesFromSome ∀ (toEnd: Map Position Nat) (honest threshold: Nat) (start: Position) (before: Nat)
     (end: Position) (after: Nat)
     (got: toEnd.get end = Some after):
     savesFrom toEnd honest threshold start before end = (before + start.distance end + after + threshold ≤ honest) :=
-  rewrite got then byComputing
+  rewrite got
 
 --| As many cheats from `start` as the program counts there...
 theorem lengthCountedFrom ∀ (fromStart toEnd: Map Position Nat) (honest length threshold: Nat) (start: Position):
@@ -81,8 +81,7 @@ theorem distinctCounted ∀ (racetrack: Racetrack) (fromStart toEnd: Map Positio
         | None => Trivial)
     (start member cheat inStart =>
       match got: fromStart.get start with
-        | Some before =>
-          Exists.elim (List.memMapElim _ cheat _ inStart) (end both => rewrite <- And.right both then byComputing))
+        | Some before => Exists.elim (List.memMapElim _ cheat _ inStart) (end both => rewrite <- And.right both))
 
 --| A position listed by the track is on it, and the other way round.
 theorem listedOnTrack ∀ (racetrack: Racetrack) (position: Position):

@@ -29,8 +29,7 @@ theorem readsHalf ∀ (lower upper: Char):
       (Parse.readsSatisfy))
     (read bit h =>
       match h with
-        | Witness char (Both (Both one allowed) made) =>
-          rewrite made, one, letterOf lower upper char allowed then byComputing)
+        | Witness char (Both (Both one allowed) made) => rewrite made, one, letterOf lower upper char allowed)
 
 theorem readsPass: Parse.Reads pass PassWritten :=
   Parse.readsThen (Parse.readsExactly 7 frontBack _ (readsHalf 'F' 'B')) (rowRead row (Both rowEach rowLength) =>
@@ -42,10 +41,11 @@ theorem readsPass: Parse.Reads pass PassWritten :=
           (arithmetic)
           (Both
             (arithmetic)
-            (rewrite List.appendNil columnRead,
-                Parse.eachChars (letter 'F' 'B') rowRead row rowEach,
-                Parse.eachChars (letter 'L' 'R') columnRead column columnEach then
-              byComputing)))))
+            (rewrite List.appendNil columnRead, Parse.eachChars (letter 'F' 'B') rowRead row rowEach, Parse.eachChars
+              (letter 'L' 'R')
+              columnRead
+              column
+              columnEach)))))
 
 --| Every line of the input is its pass written out.
 theorem parseWritten ∀ (input: Text) (passes: List Pass)

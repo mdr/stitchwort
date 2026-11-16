@@ -40,7 +40,7 @@ theorem countAround ∀ (rows: List (List a)) (keep: a → Bool) (at: Position):
         (cells rows)
         (cell => near cell.fst)
         (((other, x)) => touching at other && keep x)
-        (cell member => match cell with | (other, x) => rewrite cellAtOfMemCells rows other x member then byComputing)
+        (cell member => match cell with | (other, x) => rewrite cellAtOfMemCells rows other x member)
 
 --| Counting the positions around `at` that pass `keep` without building
 --| them as lists is counting them in the list `at.around`.

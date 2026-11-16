@@ -29,7 +29,7 @@ theorem containsInsertAll ∀ (seen: Set Position) (plots: List Position) (posit
           | False => Inr ((List.memContains plots position).forward either),
       backward = either =>
         match either with
-          | Inl before => rewrite before then byComputing
+          | Inl before => rewrite before
           | Inr isIn => rewrite (List.memContains plots position).backward isIn then Bool.orTrue _
     }
 

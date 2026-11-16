@@ -192,7 +192,7 @@ theorem antinodesOfCorrect ∀ (far near point: Position):
       forward = c => Both c.left.read c.right.read,
       backward = m =>
         let Both inLineHere twiceHere := m
-        Both (rewrite inLineHere then byComputing) (rewrite twiceHere then byComputing)
+        Both (rewrite inLineHere) (rewrite twiceHere)
     }
 
 --| Part 1 counts the puzzle's antinodes, for every city.

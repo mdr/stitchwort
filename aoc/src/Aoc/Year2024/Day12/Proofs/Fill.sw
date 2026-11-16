@@ -230,7 +230,7 @@ theorem closedChain ∀ (garden: Garden) (plant: Char) (result: List Position)
 theorem regionOfFill ∀ (garden: Garden) (start: Position) (plant: Char)
     (grows: garden.plantAt start = Some plant):
     (garden.regionOf start).plots = Garden.fill garden plant [start] Set.empty [] :=
-  rewrite grows then byComputing
+  rewrite grows
 
 --| From a plot growing `plant`, the region the fill finds.
 theorem regionOfIsRegion ∀ (garden: Garden) (start: Position) (plant: Char)

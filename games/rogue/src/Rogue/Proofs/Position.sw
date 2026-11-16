@@ -5,7 +5,7 @@ namespace Rogue.Proofs
 import Rogue (..)
 import Std (DecEq, Eq, Nat, Void)
 
-theorem natEqSelf ∀ (n: Nat): (n == n) = True := rewrite Nat.eqIsEqual n n, Nat.equalRefl n then byComputing
+theorem natEqSelf ∀ (n: Nat): (n == n) = True := rewrite Nat.eqIsEqual n n, Nat.equalRefl n
 
 theorem natSound ∀ (m n: Nat) (same: (m == n) = True): m = n := same.read
 

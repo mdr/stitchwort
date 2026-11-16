@@ -52,9 +52,7 @@ theorem repairSound ∀ (bits budget: Nat) (gates: List Gate) (swaps result: Lis
                 | Witness more (Both isResult (Both short adder)) =>
                   Witness
                     [fix, ..more]
-                    (Both
-                      (rewrite isResult, List.appendAssoc swaps [fix] more then byComputing)
-                      (Both (arithmetic) adder))
+                    (Both (rewrite isResult, List.appendAssoc swaps [fix] more) (Both (arithmetic) adder))
 
 --| Part 2, sound for every device: the answer names at most four swaps,
 --| which make the device's gates add any two numbers as wide as its x
@@ -79,7 +77,7 @@ theorem xNamed ∀ (bits x: Nat) (wire: Wire)
   match List.memMapElim .fst wire _ member with
     | Witness pair (Both inPairs isWire) =>
       match List.memMapElim (k => (X k, Nat.testBit x k)) pair _ inPairs with
-        | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair then byComputing
+        | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair
 
 theorem yNamed ∀ (bits y: Nat) (wire: Wire)
     (member: wire ∈ ((List.range 0 bits).map (k => (Y k, y.testBit k))).map .fst):
@@ -87,7 +85,7 @@ theorem yNamed ∀ (bits y: Nat) (wire: Wire)
   match List.memMapElim .fst wire _ member with
     | Witness pair (Both inPairs isWire) =>
       match List.memMapElim (k => (Y k, Nat.testBit y k)) pair _ inPairs with
-        | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair then byComputing
+        | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair
 
 theorem notXAndY ∀ (wire: Wire) (isX: wire.xBit.isSome = True) (isY: wire.yBit.isSome = True): Void := match wire with
   | Other name => Bool.falseNotTrue isX
@@ -124,7 +122,7 @@ theorem wellFormedInputs ∀ (bits x y: Nat) (gates: List Gate)
           (xPairs.map .fst)
           (yPairs.map .fst)
           (rewrite <- List.mapAppend xPairs yPairs .fst then named) with
-          | Inl inX => rewrite xNamed bits x gate.output inX then byComputing
+          | Inl inX => rewrite xNamed bits x gate.output inX
           | Inr inY => rewrite yNamed bits y gate.output inY then Bool.orTrue _
       notInputOutput gate.output notInput input))
 

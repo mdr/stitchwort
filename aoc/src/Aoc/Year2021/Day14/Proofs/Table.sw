@@ -32,7 +32,7 @@ theorem lookupRules ∀ (key: ElementPair) (rules: List Rule)
           let none := findAbsent key rest (rewrite <- same then fresh)
           let lookupNone: Map.lookupLast key (List.map rest (rule => (rule.pair, rule.insert))) = None :=
             rewrite none at earlier then earlier
-          rewrite lookupNone, <- same, Ord.compareSelf rule.pair then byComputing
+          rewrite lookupNone, <- same, Ord.compareSelf rule.pair
         | False =>
           rewrite <- earlier then
             match found: Map.lookupLast key (List.map rest (rule => (rule.pair, rule.insert))) with
@@ -53,5 +53,4 @@ theorem tableInsertion ∀ (rules: List Rule)
 theorem becomesExpand ∀ (rules: List Rule)
     (one: OneRulePerPair rules) (pair: ElementPair):
     pair.becomes (ruleTable rules) = expand rules pair :=
-  match pair with
-    | { first = a, second = b } => rewrite tableInsertion rules one { first = a, second = b } then byComputing
+  match pair with | { first = a, second = b } => rewrite tableInsertion rules one { first = a, second = b }

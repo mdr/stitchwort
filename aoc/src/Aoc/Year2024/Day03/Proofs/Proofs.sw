@@ -10,16 +10,13 @@ import Std (Bool, Eq, List, Nat, Void)
 --| A `mul` leaves `mul` enabled or disabled, as it was.
 theorem enabledAfterMul ∀ (earlier: List Instruction) (left right: Nat):
     enabledAfter (earlier.append [Mul left right]) = enabledAfter earlier :=
-  rewrite List.filterMapAppend earlier [Mul left right] setting, List.appendNil (List.filterMap earlier setting) then
-    byComputing
+  rewrite List.filterMapAppend earlier [Mul left right] setting, List.appendNil (List.filterMap earlier setting)
 
 theorem enabledAfterDo ∀ (earlier: List Instruction): enabledAfter (earlier.append [Do]) = True :=
-  rewrite List.filterMapAppend earlier [Do] setting, List.lastSnoc True (List.filterMap earlier setting) then
-    byComputing
+  rewrite List.filterMapAppend earlier [Do] setting, List.lastSnoc True (List.filterMap earlier setting)
 
 theorem enabledAfterDont ∀ (earlier: List Instruction): enabledAfter (earlier.append [Dont]) = False :=
-  rewrite List.filterMapAppend earlier [Dont] setting, List.lastSnoc False (List.filterMap earlier setting) then
-    byComputing
+  rewrite List.filterMapAppend earlier [Dont] setting, List.lastSnoc False (List.filterMap earlier setting)
 
 --| One step of the fold, from a tally that agrees with the spec on the
 --| instructions before.
@@ -63,15 +60,12 @@ theorem tallyAfter ∀ (instructions: List Instruction) (k: Nat)
     | Zero => byComputing
     | Succ k =>
       let before := tallyAfter instructions k (Nat.leTrans k (Succ k) instructions.length (Nat.leSucc k) inRange)
-      rewrite List.foldLeftTakeSucc Tally.step Do instructions Tally.start k inRange,
-          before,
-          stepAgrees
-            (instructions.take k)
-            (List.range 0 k |> .sumBy (enabledResult instructions))
-            (instructions.getOr k Do),
-          List.takeSucc Do instructions k inRange,
-          List.sumRangeLast (enabledResult instructions) k then
-        byComputing
+      rewrite List.foldLeftTakeSucc Tally.step Do instructions Tally.start k inRange, before, stepAgrees
+        (instructions.take k)
+        (List.range 0 k |> .sumBy (enabledResult instructions))
+        (instructions.getOr k Do), List.takeSucc Do instructions k inRange, List.sumRangeLast
+        (enabledResult instructions)
+        k
 
 --| The spec's sum, by index.
 theorem enabledResultsByIndex ∀ (instructions: List Instruction):
@@ -101,14 +95,12 @@ theorem foldWithoutDont ∀ (instructions: List Instruction) (total: Nat)
     instructions.foldLeft ({ enabled = True, total }: Tally) Tally.step
       = { enabled = True, total = total + instructions.sumBy Instruction.result } :=
   match instructions with
-    | [] => rewrite Nat.addZero total then byComputing
+    | [] => rewrite Nat.addZero total
     | [Mul left right, ..rest] =>
-      rewrite foldWithoutDont rest (total + left * right) noDont,
-          List.sumByCons rest (Mul left right) Instruction.result,
-          Nat.addAssoc total (left * right) (rest.sumBy Instruction.result) then
-        byComputing
-    | [Do, ..rest] =>
-      rewrite foldWithoutDont rest total noDont, List.sumByCons rest Do Instruction.result then byComputing
+      rewrite foldWithoutDont rest (total + left * right) noDont, List.sumByCons rest
+        (Mul left right)
+        Instruction.result, Nat.addAssoc total (left * right) (rest.sumBy Instruction.result)
+    | [Do, ..rest] => rewrite foldWithoutDont rest total noDont, List.sumByCons rest Do Instruction.result
 
 --| Without a `don't()`, part 2 is part 1.
 theorem part2WithoutDont ∀ (instructions: List Instruction)

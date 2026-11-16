@@ -1,0 +1,44 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: warnings
+---
+[W-REWRITE-THEN-COMPUTING] Warning: `rewrite … then byComputing` is `rewrite …`: closing the goal by computing is what a rewrite without `then` does
+    ╭─[ accept/rewrite-then-warning.sw:12:68 ]
+    │
+ 12 │ theorem closed ∀ (a b: Nat) (h: a = b): a + 1 = b + 1 := rewrite h then byComputing
+    │                                                                    ────────┬───────  
+    │                                                                            ╰───────── drop this
+    │ 
+    │ Note: the quick fix "Drop `then byComputing`" does it (docs/syntax.md, `rewrite`)
+────╯
+try: drop `then byComputing`
+[W-REWRITE-THEN-REWRITE] Warning: `rewrite a then rewrite b` is `rewrite a, b`: the rules of one `rewrite` apply left to right
+    ╭─[ accept/rewrite-then-warning.sw:14:82 ]
+    │
+ 14 │ theorem chained ∀ (a b c: Nat) (h: a = b) (g: b = c): a + 1 = c + 1 := rewrite h then rewrite g
+    │                                                                                  ──────┬─────  
+    │                                                                                        ╰─────── write a comma here
+    │ 
+    │ Note: the quick fix "Join into one `rewrite`" does it (docs/syntax.md, `rewrite`)
+────╯
+try: join into one `rewrite`
+[W-REWRITE-THEN-COMPUTING] Warning: `rewrite … then byComputing` is `rewrite …`: closing the goal by computing is what a rewrite without `then` does
+    ╭─[ accept/rewrite-then-warning.sw:20:100 ]
+    │
+ 20 │ theorem bracketed ∀ (a b c: Nat) (h: a = b) (g: b = c): a + 1 = c + 1 := rewrite h then (rewrite g then byComputing)
+    │                                                                                                    ────────┬───────  
+    │                                                                                                            ╰───────── drop this
+    │ 
+    │ Note: the quick fix "Drop `then byComputing`" does it (docs/syntax.md, `rewrite`)
+────╯
+try: drop `then byComputing`
+[W-REWRITE-THEN-COMPUTING] Warning: `rewrite … then byComputing` is `rewrite …`: closing the goal by computing is what a rewrite without `then` does
+    ╭─[ accept/rewrite-then-warning.sw:23:42 ]
+    │
+ 23 │   (rewrite h then byComputing, rewrite h then byComputing)
+    │                                          ────────┬───────  
+    │                                                  ╰───────── drop this
+    │ 
+    │ Note: the quick fix "Drop `then byComputing`" does it (docs/syntax.md, `rewrite`)
+────╯
+try: drop `then byComputing`

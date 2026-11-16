@@ -129,7 +129,7 @@ theorem stableWhere ∀ (grid: Grid) (s: Cells)
 --| A roll that isn't accessible has at least 4 neighbours.
 theorem andTrueLeft ∀ (a b: Bool) (ha: a = True) (h: (a ∧ b) = False): b = False := match a with | True => h
 
-theorem rollIsRoll ∀ (x: Cell) (h: x = Roll): (x == Roll) = True := rewrite h then byComputing
+theorem rollIsRoll ∀ (x: Cell) (h: x = Roll): (x == Roll) = True := rewrite h
 
 theorem notAccessible ∀ (grid: Grid) (s: Cells) (r c: Nat)
     (h: grid.accessible s r c = False)
@@ -155,7 +155,7 @@ theorem stableNotAccessible ∀ (grid: Grid) (s: Cells)
 theorem roundsFixed ∀ (grid: Grid) (n: Nat) (s: Cells) (stable: Stable grid s): Same (grid.rounds n s) s := match n with
   | Zero => r c => byComputing
   | Succ n => r c =>
-    let same: Same (grid.removeAccessible s) s := x y => rewrite stableNotAccessible grid s stable x y then byComputing
+    let same: Same (grid.removeAccessible s) s := x y => rewrite stableNotAccessible grid s stable x y
     Eq.trans (roundsSame grid n (grid.removeAccessible s) s same r c) (roundsFixed grid n s stable r c)
 
 --| As many rounds as there are rolls leave no accessible roll.

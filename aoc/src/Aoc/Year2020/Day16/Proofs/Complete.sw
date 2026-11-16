@@ -19,13 +19,13 @@ theorem runsAsValue ∀ (p: () → {Parse Char} a) (read rest: List Char) (v w: 
 def continues (char: Char): Bool := Parse.isDigit char ∨ char == ','
 
 theorem spaceStops ∀ (char: Char) (isSpace: Parse.isSpace char = True): continues char = False := match isSpace with
-  | Inl space => rewrite space.read then byComputing
-  | Inr tab => rewrite tab.read then byComputing
+  | Inl space => rewrite space.read
+  | Inr tab => rewrite tab.read
 
 theorem spaceNotDigit ∀ (char: Char) (isSpace: Parse.isSpace char = True): Parse.isDigit char = False :=
   match isSpace with
-    | Inl space => rewrite space.read then byComputing
-    | Inr tab => rewrite tab.read then byComputing
+    | Inl space => rewrite space.read
+    | Inr tab => rewrite tab.read
 
 theorem continuesNotDigit ∀ (rest: List Char)
     (stops: Parse.CannotStart continues rest):
@@ -79,7 +79,7 @@ theorem runsRule ∀ (read: List Char) (rule2: Rule)
       runsAsValue rule read after
         { field = Text.fromList field.toList, first, second }
         { field, first, second }
-        (rewrite Text.fromToList field then byComputing)
+        (rewrite Text.fromToList field)
         (rewrite split then
           Parse.runsBind
             (() => Parse.takeWhile1 "a field name" isNameChar) _
@@ -103,7 +103,7 @@ theorem runsRule ∀ (read: List Char) (rule2: Rule)
                 first _
                 byComputing
                 (runsRange firstRead first firstWritten _ (char more found =>
-                  rewrite <- List.consInjectiveHead _ _ _ _ found then byComputing))
+                  rewrite <- List.consInjectiveHead _ _ _ _ found))
                 (Parse.runsBind
                   (() => Parse.text " or ") _
                   " or ".toList
@@ -128,7 +128,7 @@ theorem runsTicket ∀ (read: List Char) (ticket2: Ticket)
           runsAsValue ticket read after
             { values = (NonEmptyList.cons head tail).toList }
             { values = vs }
-            (rewrite same then byComputing)
+            (rewrite same)
             (Parse.runsMap
               (() => Parse.sepBy1 Parse.nat (() => Parse.char ','))
               (values2 => { values = values2.toList })
@@ -145,8 +145,7 @@ theorem runsTicket ∀ (read: List Char) (ticket2: Ticket)
                 (read2 after2 u same2 => rewrite same2 then Parse.runsChar ',' after2)
                 (read2 u same2 => rewrite same2 then List.consNotNil ',' [])
                 (read2 after2 u same2 =>
-                  rewrite same2 then
-                    (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found then byComputing))
+                  rewrite same2 then (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found))
                 (continuesNotDigit after stops)
                 (Parse.declinesSepStep Parse.nat
                   (() => Parse.char ',')
@@ -172,8 +171,8 @@ theorem declinesTicket ∀ (input: List Char) (stops: Parse.CannotStart continue
 -- character.
 
 theorem spaceIsName ∀ (char: Char) (isSpace: Parse.isSpace char = True): isNameChar char = True := match isSpace with
-  | Inl space => rewrite space.read then byComputing
-  | Inr tab => rewrite tab.read then byComputing
+  | Inl space => rewrite space.read
+  | Inr tab => rewrite tab.read
 
 --| `rule` declines on a run of name characters and then a line feed.
 theorem declinesRuleBeforeBreak ∀ (run more: List Char)
@@ -243,7 +242,7 @@ theorem runsNotes ∀ (read: List Char) (notes2: Notes)
                 nearby = (NonEmptyList.cons firstNearby otherNearby).toList
               }: Notes)
                 = { rules, yours, nearby } :=
-                rewrite <- rulesSame, <- nearbySame then byComputing
+                rewrite <- rulesSame, <- nearbySame
               let afterTickets :=
                 "your ticket:".toList
                   ++ break1

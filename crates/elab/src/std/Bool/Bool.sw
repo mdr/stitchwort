@@ -71,7 +71,7 @@ theorem Bool.orElim ∀ [a b: Bool] [goal: Prop]
     | True => left byComputing
     | False => right h
 
-theorem Bool.orLeft ∀ [a b: Bool] (h: a = True): (a ∨ b) = True := rewrite h then byComputing
+theorem Bool.orLeft ∀ [a b: Bool] (h: a = True): (a ∨ b) = True := rewrite h
 
 theorem Bool.orRight ∀ [a b: Bool] (h: b = True): (a ∨ b) = True := match e: a with
   | True => byComputing

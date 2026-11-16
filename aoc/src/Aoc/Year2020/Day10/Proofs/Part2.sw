@@ -25,7 +25,7 @@ theorem connectingCons ∀ (device low next: Nat) (higher: List Nat):
       canFeedTakes low next then
     match t: Takes low next with
       | True => byComputing
-      | False => rewrite List.countFalse (subsequences higher) then byComputing
+      | False => rewrite List.countFalse (subsequences higher)
 
 def lowerFirst (a b: Onward): Bool := a.joltage <= b.joltage
 
@@ -40,10 +40,10 @@ theorem sortedOnward ∀ (device: Nat) (adapters: List Nat)
 theorem takeWhileKeep ∀ (x: a) (xs: List a) (p: a → Bool)
     (keep: p x = True):
     [x, ..xs].takeWhile p = [x, ..xs.takeWhile p] :=
-  rewrite keep then byComputing
+  rewrite keep
 
 theorem takeWhileStop ∀ (x: a) (xs: List a) (p: a → Bool) (stop: p x = False): [x, ..xs].takeWhile p = [] :=
-  rewrite stop then byComputing
+  rewrite stop
 
 --| What each onward count adds from `joltage`.
 def through (joltage: Nat) (next: Onward): Nat := if canFeed joltage next.joltage then next.ways else 0
@@ -80,7 +80,7 @@ theorem cutAbove ∀ (joltage: Nat) (table: List Onward)
 theorem waysFull ∀ (device low: Nat) (table: List Onward)
     (sorted: List.Sorted lowerFirst table):
     waysFrom device low table = (if canFeed low device then 1 else 0) + table.sumBy (through low) :=
-  rewrite <- cutAbove low table sorted then byComputing
+  rewrite <- cutAbove low table sorted
 
 --| The onward count from `low`, over sorted adapters above it, is the
 --| spec's number of arrangements from it.

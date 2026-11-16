@@ -103,11 +103,11 @@ def tokenSteps: List Token → List (List Char, Token)
 theorem joinTokenSteps ∀ (tokens: List Token): Parse.joinReads (tokenSteps tokens) = tokens.map Token.char :=
   match tokens with
     | [] => byComputing
-    | [which, ..more] => rewrite joinTokenSteps more then byComputing
+    | [which, ..more] => rewrite joinTokenSteps more
 
 theorem stepTokens ∀ (tokens: List Token): Parse.stepValues (tokenSteps tokens) = tokens := match tokens with
   | [] => byComputing
-  | [which, ..more] => rewrite stepTokens more then byComputing
+  | [which, ..more] => rewrite stepTokens more
 
 theorem tokenManyRuns ∀ (tokens: List Token): Parse.ManyRuns token (tokenSteps tokens) [] := match tokens with
   | [] => declinesTokenEnd
