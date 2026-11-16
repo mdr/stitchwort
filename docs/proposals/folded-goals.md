@@ -1,6 +1,8 @@
 # Proposal: keeping definitions folded in goals
 
-**Status:** proposed, awaiting Matt's review (draft 1, 28 October 2026). Design only; the scratch patches used to measure are not
+**Status:** superseded: the folded-first search became
+[goal-as-written.md](goal-as-written.md) (D2475, SW-1628-SW-1630, stages 1-4 built);
+the size cap became [bounded-readback.md](bounded-readback.md). Draft 1, 28 October 2026; the scratch patches used to measure are not
 committed. Ticket SW-742. Written against commit `7a7dfd00`. Related:
 [folded-calls.md](folded-calls.md) (glued calls, D483, D484),
 [goal-readback.md](goal-readback.md) (the size cap, D1280, deferred),

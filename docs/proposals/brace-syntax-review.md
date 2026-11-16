@@ -2,8 +2,9 @@
 
 **Status:** draft 1, 6 November 2026. Ticket SW-1613 (D2455, Matt, 6 Nov 2026: "maybe kick
 that off now as a design session. It should look at other languages. It should try and
-consider alternatives."). Nothing is built; this note stops for Matt's decisions
-([§10](#10-decisions), Q1–Q6). Written against `main` at `cfa90ebf1`. Migration cost (hashes,
+consider alternatives."). Built (SW-1632, D2481-D2485), with the repository sweep as
+SW-1633; this note records the decisions ([§10](#10-decisions), Q1–Q6). Written against
+`main` at `cfa90ebf1`. Migration cost (hashes,
 snapshots, sweeps) is not counted; options are judged by where they end up.
 
 It revisits three decisions: **D593 (b)** (braces after a constructor in a pattern name its

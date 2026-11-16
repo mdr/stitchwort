@@ -1,6 +1,6 @@
 # Stitchwort: text, `IO` and `main`
 
-**Status:** draft 2, 15 October 2026. Accepted after review. Build steps 1 to 6 are implemented: `Char`, `Text`, the JavaScript boundary, the `IO` ability and `simulate`, `main` and `stitchwort run`, and the playground's Run button; see [As built](#as-built). Step 7 (compact text) has its first stage built: in generated JavaScript a `Text` is a string and the prelude's text operations are native, so they handle millions of characters ([compact text, as built](compact-text.md#as-built-stage-1)); the checking evaluator's stages are later. [Acceptance criteria](#acceptance-criteria) lists what the first milestone must show.
+**Status:** draft 2, 15 October 2026. Accepted after review. Build steps 1 to 6 are implemented: `Char`, `Text`, the JavaScript boundary, the `IO` ability and `simulate`, `main` and `stitchwort run`, and the playground's Run button; see [As built](#as-built). Step 7 (compact text) has its first two stages built: in generated JavaScript a `Text` is a string and the prelude's text operations are native, so they handle millions of characters ([compact text, as built](compact-text.md#as-built-stage-1)), and the checking evaluator keeps literals compact ([B1](compact-text.md#as-built-stage-2)); B2's natives stay parked. [Acceptance criteria](#acceptance-criteria) lists what the first milestone must show.
 
 ## As built
 

@@ -2,8 +2,9 @@
 
 **Status:** draft 1, 6 November 2026. Ticket SW-1238 (Matt, 4 Nov 2026: "I think it might be
 interesting to consider a total modular operator ... We would want to do a design review of
-simple languages in the space"). Nothing is built; this note stops for Matt's decisions
-([§8](#8-decisions), Q1–Q6). Written against `main` at `46d6ea30`. Migration cost (hashes,
+simple languages in the space"). Built (SW-1640, D2469-D2473): `/` and `%` are total
+(`x / 0 = 0`, `x % 0 = x`); this note records the decisions ([§8](#8-decisions), Q1–Q6).
+Written against `main` at `46d6ea30`. Migration cost (hashes,
 snapshots, sweeps) is not counted; options are judged by where they end up.
 
 Related notes: [division.md](division.md) (SW-922: how `Nat.div` is *defined*, so that it

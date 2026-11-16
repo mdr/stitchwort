@@ -7,7 +7,7 @@ sums, `writeTimesMul`'s seven-step regrouping, and the non-linear residue `omega
 Related: [omega.md](omega.md) (built; this note copies its design for `ring`),
 [calc-rewrite.md](calc-rewrite.md) and [rewrite-hypothesis.md](rewrite-hypothesis.md) (built;
 `simp` reuses their search), [folded-calls.md](folded-calls.md) (built as SW-257),
-[proof-irrelevance.md](proof-irrelevance.md) (not built), [attributes.md](attributes.md),
+[proof-irrelevance.md](proof-irrelevance.md) (built, stages 1-2; stage 3 waits), [attributes.md](attributes.md),
 [well-founded-recursion.md](well-founded-recursion.md) (its congruence-lemma lookup is reused
 here).
 

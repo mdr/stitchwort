@@ -1,6 +1,6 @@
 # Proposal: compact text
 
-**Status:** draft 2, 15 October 2026. Revised after external review; see [Changes since draft 1](#changes-since-draft-1). Option A (stage 1) is approved and built; see [As built (stage 1)](#as-built-stage-1). B1 (stage 2) is approved and built; see [As built (stage 2)](#as-built-stage-2). B2 (stage 3) awaits a further decision. This is step 7 of [the text proposal](text-and-io.md#making-it-fast-in-stages), "compact text in generated JS, then possibly in the checking evaluator".
+**Status:** draft 2, 15 October 2026. Revised after external review; see [Changes since draft 1](#changes-since-draft-1). Option A (stage 1) is approved and built; see [As built (stage 1)](#as-built-stage-1). B1 (stage 2) is approved and built; see [As built (stage 2)](#as-built-stage-2). B2 (stage 3) stays parked (SW-36, D13: revisit when a program needs it). This is step 7 of [the text proposal](text-and-io.md#making-it-fast-in-stages), "compact text in generated JS, then possibly in the checking evaluator".
 
 ## Summary
 

@@ -2,8 +2,10 @@
 
 **Status:** draft 1, 6 November 2026. Ticket SW-1473, for Matt's D2450 ("do a full design
 note with Opus, thoroughly search both the literature for this and how other functional
-languages, Lean, Haskell, Rocq, Idris, Agda etc."). Nothing is built; this note stops for
-Matt's decisions ([§9](#9-decisions), Q1–Q10). Written against `main` at `750f3222`.
+languages, Lean, Haskell, Rocq, Idris, Agda etc."). Stages 1-4 are built (SW-1637, SW-1638,
+SW-1639): `Std.Array` is in `crates/elab/src/std/Array/Array.sw`, with version arrays in
+generated JS and the guide. The note's decisions ([§9](#9-decisions), Q1–Q10) were taken as
+recommended (D2459-D2468). Written against `main` at `750f3222`.
 
 It takes over two earlier threads, and agrees with both:
 

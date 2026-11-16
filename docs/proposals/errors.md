@@ -2,7 +2,7 @@
 
 **Status:** accepted 23 October 2026 with the decisions in §6 (SW-367, D1042 (b)). Stage 1
 is built ("Stage 1 as built", §5); `Fail.toResultMapIn` from §3.7 followed with proof-only
-reification (SW-419, closing SW-378); stage 2 is next.
+reification (SW-419, closing SW-378); stage 2 is built ("Stage 2 as built", §5).
 
 ## 1. The problem and the goals
 
