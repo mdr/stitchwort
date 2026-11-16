@@ -41175,12 +41175,12 @@
     {
       "id": 3658,
       "title": "[DeepSeek] keys_mode::the_walking_example_reads_one_key_at_a_time_machine flaked under load in Overmind's rolling check (a73d93bd7: 'keys mode never became true' after 20 s, crates/cli/tests/running/pty/mod.rs:155); passes in 3 s quiet. Widen the pty wait (e.g. 60 s) for both siblings",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~10 min (est. 10).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
