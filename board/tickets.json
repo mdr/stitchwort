@@ -1,5 +1,5 @@
 {
-  "next": 3654,
+  "next": 3656,
   "tickets": [
     {
       "id": 47,
@@ -40951,12 +40951,12 @@
     {
       "id": 3642,
       "title": "[Sonnet] rewrite repeatedly stage 2 (simp-revisited.md §8 stage 2; D3639 named sets; D3665: keep the forgiving search, remeasure after this): 'rules name := [...]' declarations, 'rewrite repeatedly … at h', expand (CLI flag and code action: the explicit rewrite steps), unused-rule warning; bar: stepWords and List.sumTakeMono as in §6, expanding every rewrite repeatedly in Words.sw gives a file that checks; then apply dev/patches/SW-3602-words-conversion.patch with named sets and remeasure vs 1.5x. Est. 60 min",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "D3666 deferred (SW-3651): stage 2 keeps today's spelling, including 'rewrite repeatedly [rules] at h' for the hypothesis form (orchestrator's call; switchable later).",
+      "body": "D3666 deferred (SW-3651): stage 2 keeps today's spelling, including 'rewrite repeatedly [rules] at h' for the hypothesis form (orchestrator's call; switchable later).\n\nModel result: opus, worked (LSP expand action not done; sets 4.5x), 50 min (est. 60). Follow-ups SW-3654 SW-3655.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41101,6 +41101,32 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3654,
+      "title": "[Opus] rewrite repeatedly sets cost: Words.sw with a shared named set checks at 4.5x (per-arm lists 2.55x, bar 1.5x) because each arm gets rules it doesn't need, which go through the full search. Try: a set's members only by the cheap as-written match unless the call names them; remeasure with dev/patches/SW-3602-words-conversion.patch; land the conversion if <= 1.5x",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3655,
+      "title": "[Sonnet] Stage 2 follow-ups (SW-3642): LSP code action for expand (CLI --expand-repeatedly exists, shared printer expand_file); std's name index (library.rs) and rules declarations; hover shows a set's type as (); a set named like a field (words vs Printer.words) gives E-MUTUAL-SIGNATURE via dot-notation dependency analysis; expand drops definition one-step unfolds. Failing-first tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
