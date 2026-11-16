@@ -703,3 +703,44 @@ fn an_if_with_an_else_if_goes_one_clause_a_line_and_a_plain_if_still_fits() {
         "def f (n: Nat): Nat := if n = 0 then 1 else 2\n",
     );
 }
+
+#[test]
+fn a_semicolon_that_ends_a_line_before_a_comment_keeps_the_sequence() {
+    // S18.
+    check(
+        "def three: Nat :=\n  let x := 1;\n-- c\n  x\n",
+        "def three: Nat :=\n  let x := 1;\n  -- c\n  x\n",
+    );
+}
+
+#[test]
+fn a_line_ending_semicolon_is_followed_by_a_rest_that_goes_deeper_when_it_breaks() {
+    // S18: a second line ending `;` would meet a line at its block's column,
+    // which ends the block, so each later line of the rest steps in by 2.
+    check(
+        "def three: Nat :=\n  (let x := 1; 2;\n-- c\n   x)\n",
+        "def three: Nat :=\n  (let x := 1;\n   2;\n     -- c\n     x)\n",
+    );
+    check(
+        "def three: Nat :=\n  (2; 3; -- c\n   x)\n",
+        "def three: Nat :=\n  (2;\n   3; -- c\n     x)\n",
+    );
+    let part = format!("f {}", long(50));
+    check(
+        &format!("def three: Nat :=\n  let x := 1; {part}; {part}; {part}\n"),
+        &format!("def three: Nat :=\n  let x := 1;\n  {part};\n    {part}; {part}\n"),
+    );
+}
+
+#[test]
+fn a_sequence_that_starts_a_line_breaks_after_a_semicolon_two_columns_in() {
+    // S18: a line at the sequence's own column would end its block.
+    check(
+        "def d: Nat :=\n  [a; -- c\n   b]\n",
+        "def d: Nat := [\n  a; -- c\n    b\n]\n",
+    );
+    check(
+        "def d: Nat :=\n  xs.map (x => a; -- c\n    b)\n",
+        "def d: Nat := xs.map (x =>\n  a; -- c\n    b)\n",
+    );
+}

@@ -41,6 +41,11 @@ pub enum Doc {
     /// The contents, with line breaks indented to the column this starts
     /// at: the parts of `(let x := e; body)` line up inside the bracket.
     Align(Box<Doc>),
+    /// Like [`Doc::Align`], except that where this starts a line the
+    /// breaks go 2 columns in rather than to the line's own column: a line
+    /// ending in `;` followed by a line at its block's column ends the
+    /// block instead of continuing the sequence.
+    AlignInset(Box<Doc>),
     /// Printed flat if it fits, otherwise with every line in it broken. The
     /// flag says it holds a hard break, so it never prints flat.
     Group(Box<Doc>, bool),
@@ -118,6 +123,10 @@ impl Doc {
         Doc::Align(Box::new(doc))
     }
 
+    pub fn align_inset(doc: Doc) -> Doc {
+        Doc::AlignInset(Box::new(doc))
+    }
+
     pub fn group(doc: Doc) -> Doc {
         let hard = doc.forces_break();
         Doc::Group(Box::new(doc), hard)
@@ -170,7 +179,9 @@ impl Doc {
             Doc::NarrowGroup(_, _, hard) => *hard,
             Doc::IfBroken { broken, flat, .. } => broken.forces_break() && flat.forces_break(),
             Doc::OneLineBelow(_) => true,
-            Doc::Nest(_, doc) | Doc::Align(doc) | Doc::Flat(doc) => doc.forces_break(),
+            Doc::Nest(_, doc) | Doc::Align(doc) | Doc::AlignInset(doc) | Doc::Flat(doc) => {
+                doc.forces_break()
+            }
             Doc::Concat(docs) | Doc::Fill(docs) => docs.iter().any(Doc::forces_break),
             Doc::Choice(options) => options.iter().all(Doc::forces_break),
         }
@@ -301,6 +312,14 @@ impl Printer {
                 Doc::Align(inner) => {
                     let column = if self.at_line_start {
                         indent
+                    } else {
+                        self.column
+                    };
+                    stack.push(Cmd::Doc(column, mode, inner));
+                }
+                Doc::AlignInset(inner) => {
+                    let column = if self.at_line_start {
+                        indent + 2
                     } else {
                         self.column
                     };
@@ -623,7 +642,7 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
             }
             Doc::HardLine | Doc::LineStart | Doc::LineStartHere => return mode == Mode::Break,
             Doc::Nest(more, inner) => stack.push((indent + more, mode, inner)),
-            Doc::Align(inner) => stack.push((indent, mode, inner)),
+            Doc::Align(inner) | Doc::AlignInset(inner) => stack.push((indent, mode, inner)),
             Doc::Shared(inner, _) => stack.push((indent, mode, inner)),
             Doc::Flat(inner) => stack.push((indent, Mode::Flat, inner)),
             Doc::OneLineBelow(_) => return true,
