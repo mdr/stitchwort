@@ -695,7 +695,7 @@ disturbance tests. `printParses`, `formatRoundTrip`, `formatIdempotent`,
 doesn't call `settle` yet, so every printed text and every tree is what
 it was.
 
-About 35 minutes of agent time against 90 estimated.
+About 40 minutes of agent time against 90 estimated.
 
 ### What is in the toy now
 
