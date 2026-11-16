@@ -14,9 +14,7 @@ type Change = | Unchanged | Rewritten | WouldChange
 
 --| What happened to one path: a file formatted, or something that went
 --| wrong, as a sentence that names the path.
-type Outcome =
-  | Formatted (path: Path) (change: Change)
-  | Problem (message: Text)
+type Outcome = | Done (path: Path) (change: Change) | Problem (message: Text)
 
 --| The extension of the files a folder walk picks.
 def sourceExtension: Text := "sprig"
@@ -90,13 +88,13 @@ def formatFile (options: Options) (path: Path): {Files} Outcome := match Files.r
   | Ok source =>
     match format source options.width with
       | ParseError message => Problem (locate path message)
-      | FormatResult.Formatted text =>
-        if text == source then Outcome.Formatted path Unchanged
-        else if options.check then Outcome.Formatted path WouldChange
+      | Formatted text =>
+        if text == source then Outcome.Done path Unchanged
+        else if options.check then Outcome.Done path WouldChange
         else
           match Files.write (path, text) with
             | Err error => Problem "${error}"
-            | Ok written => Outcome.Formatted path Rewritten
+            | Ok written => Outcome.Done path Rewritten
 
 --| Formats the files the paths name, folders walked: the problems with the
 --| paths come first, then one outcome per file in path order. A problem with

@@ -14,7 +14,7 @@ type FormatResult = | Formatted (text: Text) | ParseError (message: Text)
 
 --| The answer as an `Option`: the formatted file if there is one.
 def FormatResult.toOption: FormatResult → Option Text
-  | FormatResult.Formatted text => Some text
+  | Formatted text => Some text
   | ParseError _ => None
 
 --| The source laid out afresh at `width`. The rules read the parsed tree
@@ -24,4 +24,4 @@ def FormatResult.toOption: FormatResult → Option Text
 --| rest on that.
 def format (source: Text) (width: Nat): FormatResult := match parse source with
   | Err message => ParseError message
-  | Ok tree => FormatResult.Formatted (tree.print width)
+  | Ok tree => Formatted (tree.print width)

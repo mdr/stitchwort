@@ -29,7 +29,7 @@ def measure (phase source: Text): Text := match phase with
       | Err message => message
   | "format" =>
     match format source defaultWidth with
-      | FormatResult.Formatted text => if text == source then "unchanged" else "changed"
+      | Formatted text => if text == source then "unchanged" else "changed"
       | ParseError message => message
   | _ => "nothing more"
 
