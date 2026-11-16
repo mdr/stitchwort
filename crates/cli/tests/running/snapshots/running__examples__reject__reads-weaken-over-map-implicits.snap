@@ -1,16 +1,11 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
-    ╭─[ reject/reads-weaken-over-map-implicits.sw:18:6 ]
+    ╭─[ reject/reads-weaken-over-map-implicits.sw:26:22 ]
     │
- 18 │ ╭─▶     (Parse.readsMap (() => Parse.sepBy1 Parse.nat (() => Parse.char ',')) (numbers => { numbers }) _
- 19 │ ├─▶       (Parse.readsSepBy1 Parse.nat (() => Parse.char ',') (read n => read ≠ [] ∧ read.all Parse.isDigit = True ∧ n = Parse.digitsValue read) _ Parse.readsNat (Parse.readsChar ',')))
-    │ │                                                                                                                                                                                           
-    │ ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── expected `∀ (state: Parse.State Char) (value: Starting) (after: Parse.Mark Char) => state.at.left = state.at.rest.length → Parse.runFrom state (arg => …) = Ok (value, after) → ∃ (read: List Char) => … = … ∧ … ∧ …`, but this has type `Parse.Reads (arg => Std.Effect.bind (Parse.sepBy1 Parse.nat (arg1 => Parse.char ',')) (x => Done { numbers = x })) (read value => ∃ (v: NonEmptyList Nat) => Parse.SepBy (read n => … ∧ …) (x x1 => x = …) read v ∧ value = { numbers = v })`
-    │     
-    │     Note 1: they first differ at `value = { numbers = numbers }` against `(∃ (firstRead: List …) => ∃ (nextRead: …) => …) ∧ value = { numbers = numbers }`
-    │     
-    │     Note 2: `Parse.Reads (arg => Std.Effect.bind (Parse.sepBy1 Parse.nat (arg1 => Parse.char ',')) (x => Done { numbers = x })) (read value => ∃ (v: NonEmptyList Nat) => Parse.SepBy (read n => … ∧ …) (x x1 => x = …) read v ∧ value = { numbers = v })` is `∀ (state: Parse.State Char) (value: Starting) (after: Parse.Mark Char) => state.at.left = ….rest.length → Std.Effect.runPure … … = Ok … → ∃ (read: List …) => … ∧ …`
+ 26 │     (read value h => h)
+    │                      ┬  
+    │                      ╰── expected `∃ (numbers: NonEmptyList Nat) => value = { numbers = numbers }`, but this has type `∃ (v: NonEmptyList Nat) => Parse.SepBy (read n => read ≠ [] ∧ read.all Parse.isDigit ∧ n = Parse.digitsValue read) (x x1 => x = [',']) read v ∧ value = { numbers = v }`
 ────╯
