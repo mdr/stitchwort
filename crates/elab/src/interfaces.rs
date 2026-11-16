@@ -1008,6 +1008,9 @@ pub(crate) fn attempt(
         // declaration with one, reported there (tests-with-errors.md §4.2).
         if failed && let Some(key) = cx.e.instance_key(info.def) {
             crate::module::note_failed_used(&key);
+            // A derive that met this records it (`derive*.rs`), so a use of
+            // the type's instance waits for it (SW-3078).
+            cx.e.decl.failed_instance.replace(Some(info.def));
             return Err(crate::module::failed_name(&ast::Name {
                 text: name,
                 span: cx.span,
@@ -1138,6 +1141,23 @@ pub(crate) fn no_ord_note(e: &Elaborator, ty: &Value) -> Option<String> {
 fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diagnostic {
     let g = cx.g();
     let e = cx.e;
+    // A derived instance that wasn't built because a field's instance has
+    // an error: what needs it waits for that instance, as it would for any
+    // declaration with an error (SW-3078).
+    if let Some(head) = head
+        && let Some(&def) = e.session.derive_waiting.borrow().get(&(head, interface))
+        && e.kernel.def(def).state() == stitchwort_core::globals::State::Failed
+    {
+        if let Some(key) = e.instance_key(def) {
+            crate::module::note_failed_used(&key);
+        }
+        let path = e.kernel.def(def).name().to_string();
+        let text = path.rsplit('.').next().unwrap_or(&path).to_string();
+        return crate::module::failed_name(&ast::Name {
+            text,
+            span: cx.span,
+        });
+    }
     let iface_name = g.data(interface).name().to_string();
     let dict = e.tables.interfaces[&interface].dict.clone();
     let arg = match goal {
@@ -1623,6 +1643,7 @@ pub(crate) fn decide_eq_of(cx: &mut Ctx, ty: &Value, xt: Term, yt: Term) -> Resu
 /// found in `cx` now: `Ok(None)` if so (or if it has to wait), the error if
 /// not. What it found is undone.
 pub(crate) fn findable(cx: &mut Ctx, goal: &Value) -> Result<Option<Diagnostic>> {
+    cx.e.decl.failed_instance.take();
     let mut why = None;
     crate::undo::transaction(cx, |cx| {
         let meta = implicit_arg(cx, Icit::Auto, goal);

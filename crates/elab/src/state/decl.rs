@@ -247,6 +247,9 @@ pub(crate) struct Decl {
     /// source wrote `!=` (SW-3125). Unlike [`Self::builds`], a declaration's
     /// type keeps it visible while its body is checked.
     pub(crate) ne_ascii: RefCell<Vec<Span>>,
+    /// The failed instance the last instance search reached, if any: a
+    /// derive records it so a use waits for it (SW-3078).
+    pub(crate) failed_instance: RefCell<Option<DefId>>,
 }
 
 /// [`Decl::conjunction`].
@@ -367,6 +370,7 @@ impl Decl {
             kept_by_a_check,
             builds,
             ne_ascii,
+            failed_instance,
         } = self;
         let fields = [
             ("sides_capture", sides_capture.borrow().is_empty()),
@@ -416,6 +420,7 @@ impl Decl {
             ("kept_by_a_check", kept_by_a_check.borrow().is_empty()),
             ("builds", builds.borrow().is_empty()),
             ("ne_ascii", ne_ascii.borrow().is_empty()),
+            ("failed_instance", failed_instance.borrow().is_none()),
         ];
         fields
             .into_iter()
