@@ -2516,6 +2516,41 @@ theorem stepZero ∀ (highest: Nat) (n: Nat):
 
 Examples: `examples/accept/rewrite.sw`, `examples/reject/rewrite-*.sw`. Design: [calc-rewrite.md](proposals/calc-rewrite.md) section 6; as built, its "As built" note.
 
+#### `rewrite repeatedly`
+
+`rewrite repeatedly [r1, r2]` rewrites the goal with the rules wherever they fit, as often as they fit, until none does, and then closes what is left (docs/proposals/simp-revisited.md, stage 1; D3647 for the name):
+
+```
+theorem regroup ∀ (xs ys zs: List Nat): ((xs ++ ys) ++ zs) ++ [] = xs ++ (ys ++ zs) :=
+  rewrite repeatedly [List.appendAssoc, List.appendNil]
+
+theorem reverseSnoc ∀ (xs: List a) (x: a): List.reverse (List.append xs [x]) = [x, ..List.reverse xs] :=
+  match xs with
+    | [] => byComputing
+    | [y, ..rest] => rewrite repeatedly [List.reverseCons, reverseSnoc rest x]
+```
+
+| form | meaning |
+|---|---|
+| `rewrite repeatedly [r1, r2]` | rewrite until no rule fits, then close the goal (below) |
+| `rewrite repeatedly [r1, r2] then t` | the same, then `t` proves what is left |
+| `rewrite repeatedly [r1, r2] then ?` | shows what is left, as a goal |
+
+`repeatedly` is a word only directly after `rewrite` and before a `[`, so a rule called `repeatedly` is still a rule (`rewrite repeatedly then t`). The brackets are required, with at least one rule. `rewrite repeatedly … at h` is not built yet (`E-PARSE`): rewrite a fact's type with `rewrite r1, r2 at h`.
+
+- **Rules** are what `rewrite` takes, each used left to right or, with `<-`, right to left: a proof of an equation with its arguments left open (`List.appendAssoc`), a hypothesis that is one (`steps`), a `Bool` fact (`h: isLayout piece` is `isLayout piece = True`, so it rewrites the test to `True`), and premises found as `rewrite` finds them (a premise that isn't proved means the rule doesn't fit there, not an error). **A definition's name**, `f`, stands for one step of it: its arm equations `f.eqK` ([Generated equations](#generated-equations)) where it has arms, leaving out arms whose patterns are constructors (a call on those computes already); otherwise `f x… = <its body>`, proved by `byComputing`. There is no default set and no attribute: every `rewrite repeatedly` lists its rules (D3639; named rule sets are stage 2).
+- **How it rewrites.** The rules are tried in turn, in the order listed and round again, each by `rewrite`'s own search: the goal as written first, then what it computes to ([`rewrite`](#rewrite), "Finding occurrences"). A rule that fits rewrites every occurrence of the instance it found, as `rewrite` does; one that doesn't is skipped, and isn't tried again until another rule has changed the goal. It stops once every rule in turn has found nothing. A rewrite that leaves the goal as written as it was (a definition's step found where it has computed already) doesn't count as one.
+- **Closing**, without `then`, by the first of: both sides compute to the same value (`byComputing`); two hypotheses contradict each other; a hypothesis, or a part of one, has the goal's type. These are `cases`' closers ([Closing a case](#cases)) without splitting, `arithmetic` or deciding: for those write `then arithmetic`, `then cases`.
+- **`then t`, stated** (D3656, from readable-proofs.md R7). What the rules leave is not written in the proof, so a `t` that relies on its exact form breaks far from the cause when a rule changes. `t` should state it (an ascription `(t: P)`, a typed `let`, `calc`) or be a closer that doesn't depend on the form (`arithmetic`, `algebra`, `cases`, `byComputing`, `byDecision`, `?`, another `rewrite repeatedly`); any other `t` is `W-REWRITE-REPEATEDLY-UNSTATED`.
+- **Bad rules** are refused where they are listed, before anything is rewritten, as `E-REWRITE-REPEATEDLY-RULE`: one that isn't an equation; one whose left side has no head to look for (an unknown); one that would rewrite forever by itself, its right side holding an instance of its left (`Nat.addComm`: reordering a sum is `algebra`'s job); and a definition by arms with no arm equation generated.
+- **Budget.** At most 500 rewrites. Past that it is `E-REWRITE-REPEATEDLY-BUDGET`, with the last rules applied and, when they go round in a cycle, which ones (`there`, `back` undo each other's work). Each rule's search has `rewrite`'s own evaluation budget, and running out of that is `E-REWRITE-BUDGET`, as for `rewrite`.
+- **When it doesn't close**, it is `E-REWRITE-REPEATEDLY`: what is left, where its sides first differ (as `E-REFL` says), the rules that applied with how many times each, and those that never did.
+- **The proof** is the `J` chain the same `rewrite`s would write, then the closer's term; the kernel checks it, and nothing new is trusted.
+- **Steps.** `stitchwort goal --at` on a rule shows a rewrite it made, `step 2 of 3 of `rewrite repeatedly`, by `List.appendAssoc``, with the goal before and after and the rule as used; `--json` lists every step (form `rewriteRepeatedly`).
+- **Cost.** A rule whose left side is in the goal as written is found cheaply; one found only in what the goal computes to compares by computing, which for a lemma about a call that unfolds into a large term (the toy formatter's `writeWords`) is most of the time a `rewrite repeatedly` takes. `STITCHWORT_REWRITE_METRICS` prints, per rule tried, whether it applied and the evaluation steps its search used.
+
+Examples: `examples/accept/rewrite-repeatedly*.sw`, `examples/reject/rewrite-repeatedly-*.sw`, `examples/goals/rewrite-repeatedly-then-goal.sw`. Design: [simp-revisited.md](proposals/simp-revisited.md).
+
 #### Patterns in `let` and lambdas
 
 `let` and a lambda's parameters take patterns too:

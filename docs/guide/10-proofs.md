@@ -156,6 +156,18 @@ theorem swapTimesOne ∀ (a b: Nat): (a + b) * 1 = b + a := rewrite Nat.mulOne (
 
 `Nat.mulOne (a + b)` turns `(a + b) * 1` into `a + b`, and `Nat.addComm a b` turns `a + b` into `b + a`, leaving `b + a = b + a`. The library's lemmas are named after what they say: `Nat.addComm`, `Nat.addAssoc`, `List.lengthMap`, `List.lengthAppend`. `rewrite <- p` rewrites from right to left, and `rewrite p at h` rewrites the type of a hypothesis `h` instead of the goal. `rewrite` also goes inside a function passed as an argument, through the congruence lemma of the function it is passed to: `rewrite Nat.mulOne _` proves `List.map xs (x => x * 1) = List.map xs (x => x)` by `List.mapCong`, with `_` standing for `x`. Arguments left off a rule's end are filled in the same way, and a premise the rule needs, such as `x <= n` for `Nat.addSubCancel x n`, is proved by a hypothesis or by `arithmetic`; inside `(0 ..< n).sumBy f` the congruence lemma also says that `x` is below `n`, which proves it, so `rewrite Nat.addSubCancel` turns `x + (n - x)` into `n` there.
 
+`rewrite repeatedly [rules]` is `rewrite` on repeat. It uses each rule wherever it fits, as often as it fits and in whatever order that takes, until none does, and then closes what is left: by computing, or by a hypothesis of that type (or two that contradict each other):
+
+<!-- snippet: proofs.sw#rewrite-repeatedly -->
+```stitchwort
+theorem regroup ∀ (xs ys zs: List Nat): ((xs ++ ys) ++ zs) ++ [] = xs ++ (ys ++ zs) :=
+  rewrite repeatedly [List.appendAssoc, List.appendNil]
+
+theorem joined ∀ (xs ys: List Nat) (h: xs ++ ys = ys): (xs ++ []) ++ ys = ys := rewrite repeatedly [List.appendNil]
+```
+
+A rule is anything `rewrite` takes: a lemma with its arguments left open, a hypothesis, a `Bool` fact (which rewrites its test to `True`), or `<- p`; a definition's name, `f`, is one step of `f`. There is no default set of rules: every `rewrite repeatedly` lists its own, so a proof means the same thing until something it names changes. A rule that would fit its own result again forever, such as `Nat.addComm`, is refused; reordering a sum is `algebra`'s job. With `then t`, `t` proves what the rules leave, and `then ?` shows it as a goal. Since what is left depends on the rules, follow it with a closer that doesn't depend on its exact shape (`arithmetic`, `cases`) or state it (`then (t: P)`); otherwise the compiler warns. `stitchwort goal --at` on a rule shows each rewrite it made, before and after.
+
 `calc` writes a proof as a chain of steps, each with its own justification, like a calculation on paper. The chain may mix `=`, `<=` and `<`:
 
 <!-- snippet: proofs.sw#calc -->

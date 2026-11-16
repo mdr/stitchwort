@@ -30,6 +30,13 @@ theorem lengthMapList ∀ (f: a → b) (xs: List a): (mapList f xs).length = xs.
 theorem swapTimesOne ∀ (a b: Nat): (a + b) * 1 = b + a := rewrite Nat.mulOne (a + b), Nat.addComm a b
 -- end rewrite
 
+-- begin rewrite-repeatedly
+theorem regroup ∀ (xs ys zs: List Nat): ((xs ++ ys) ++ zs) ++ [] = xs ++ (ys ++ zs) :=
+  rewrite repeatedly [List.appendAssoc, List.appendNil]
+
+theorem joined ∀ (xs ys: List Nat) (h: xs ++ ys = ys): (xs ++ []) ++ ys = ys := rewrite repeatedly [List.appendNil]
+-- end rewrite-repeatedly
+
 -- begin calc
 theorem chain ∀ (a b c: Nat) (ab: a = b) (bc: b ≤ c) (small: c < 10): a < 10 := calc a
   _ = b := ab
