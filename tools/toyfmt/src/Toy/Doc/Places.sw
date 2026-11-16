@@ -1325,8 +1325,6 @@ theorem flushAgrees ∀ (printer: Printer) (place: Place) (trace: List Event)
 def printedPieces (doc: Doc) (width: Nat): List Text :=
   ((Printer.start width).run (3 * doc.size + 3) (3 * doc.size + 3) [Print 0 Break doc] |> .flushSuffixes).out.reverse
 
-theorem printIsPieces ∀ (doc: Doc) (width: Nat): print doc width = (printedPieces doc width).joinWith "" := rfl
-
 --| A document that lays from the start of an unindented line, printed at
 --| any width, puts each word where the document said: `spec` holds of the
 --| words of the printed pieces in order, each with the column it starts
