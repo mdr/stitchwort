@@ -370,7 +370,9 @@ Import what you use: std's theorems live in namespaces that need an import
   What the goal already unfolded (a call that steps at once, arithmetic) is
   not there to find in either (8 items in agentic-proving.md §5 E). Give the rule its arguments
   when you can (§6). Inside a function argument it goes through the
-  call's congruence lemma (`List.mapCong`, …).
+  call's congruence lemma (`List.mapCong`, …). A rule for `/` also rewrites
+  the `/` inside `x % 2`, since `%` computes to `x - x / 2 * 2`: rewrite the
+  `%` rule first (SW-976 item 4, AoC 2021 day 16 notes).
 - **`match e:` and `cases`** look for `e` the same way: in the goal and
   the hypotheses *as written* first, comparing up to computation, so
   `xs.map (f a)` finds the goal's `xs.map (y => f a y)` and the arms keep
@@ -537,7 +539,23 @@ Each was run on the example named; the output is quoted, shortened.
   **`E-DECREASING`** is the same with
   `decreasing`: the message shows the goal (`n - step < n`) and what's in
   scope; give `[decreasing := …]` or guard with `if … then`
-  (`examples/reject/decreasing-missing-proof.sw`).
+  (`examples/reject/decreasing-missing-proof.sw`). A later call's decrease
+  can't come from an earlier recursive call's result: the checker knows the
+  arguments' parts, not facts about the function's own result. Take the
+  result apart and guard the next call (`| Succ k => if h: k < n then f k
+  else …`), or carry the bound in an argument (SW-976 item 6, AoC 2021 day
+  16's decoder; it used the run-time guard).
+
+  ```stitchwort
+  def throughResult (n: Nat): Nat
+      decreasing n
+  :=
+    if one: 1 < n then
+      match throughResult (n - 1) with
+        | Zero => 0
+        | Succ k => if h: k < n then throughResult k else 0
+    else 0
+  ```
 - **`E-RESOURCE`** ("ran out of resources"): not a type error and not a
   failed test; the checker gave up within its limits. In proofs it usually
   means a definition is being computed in full, on a big literal or on
@@ -698,6 +716,12 @@ program can be an enormous term.
   transparent checked in under a second. Watch any definition with a `%`
   or `/` by a large literal (`% 2147483648`, `% 16777216`) that proofs
   mention, and time the check.
+- **A field read inside a lambda is a call.** `cave.height` is
+  `cave.rows.length`, computed again whenever the lambda runs; hoist it into
+  a `let` outside. In AoC 2021 day 15's run, moving `cave.height` out of the
+  `level` lambda took the day from 31.7 s to 17.6 s (the AoC 2021 day 15
+  notes, `aoc/NOTES-2021.md:3676`), and the proofs didn't change. Nothing
+  warns about it, and hoisting by the compiler is parked (SW-1814).
 - **Big normal forms.** A definition that is the whole search
   (`reachable`, day 18), a 130,321-element closed list (day 22), or a
   generator run under a handler (roguelike) is computed in full when a

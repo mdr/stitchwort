@@ -125,6 +125,38 @@ changes. Which project a file belongs to is the server's decision. The server's
 log is in the "Stitchwort" output channel. Changing `stitchwort.path` restarts
 it. If the program can't be run, a warning says so.
 
+## Recovery messages
+
+The server catches internal errors and tells the editor in a pop-up; these
+are bugs in the server, not errors in your program. The "Stitchwort" output
+channel has the details.
+
+- **"Stitchwort hit an internal error and recovered. Details are in the
+  Stitchwort output; please report it."** A checker or proof-search thread
+  panicked, and the server restarted that part and carried on. It is shown
+  once per session. Read the output channel and report the crash.
+- **"Stitchwort stopped checking after an internal error. Reload the
+  window."** The checker ended and a replacement could not be started, so
+  diagnostics have stopped. Reload the window.
+- **"Stitchwort stopped checking after repeated internal errors. Reload
+  the window to start again."** Checking used up its session-wide restart
+  budget, so it has stopped for every project. Reload the window.
+- **"Stitchwort stopped checking `<project>` after repeated internal
+  errors. Reload the window to start again."** (or "... Edit one of its
+  files to try again.") One project used up its own restart budget. Edit a
+  file of that project when the pop-up says so; otherwise reload the
+  window. Other projects keep checking.
+- **"Stitchwort stopped running proof searches after repeated internal
+  errors. Reload the window to get them back."** The pool behind "Search
+  for a proof" and the proof quick fixes has stopped; diagnostics keep
+  working. Reload the window to restart it.
+- **The standard library can't be found or read.** The server shows that
+  error, naming the directory it tried and suggesting `--std-dir` or
+  `STITCHWORT_STD_DIR`, and stops. Fix the location and reload the window.
+
+The "Rename anyway" question (see **Rename** above) is a normal refusal,
+not one of these.
+
 ## The command line program
 
 Build it and make it findable:
