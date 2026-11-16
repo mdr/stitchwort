@@ -40433,12 +40433,12 @@
     {
       "id": 3603,
       "title": "[Sonnet] std library warnings can't be seen with check --std (only a library test hook sees them); add a way to print them (e.g. --warnings) so std's W-PROOF-CHAIN count (~286) can be tracked",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Matt, 16 Nov 2026: 'We should address warnings in STD.' Scope widened: make std's warnings visible, count them by code, fix them (W-PROOF-CHAIN by calc conversion and any others), and keep std at zero with a test. Stage 1 (this lane): visibility, the count, a zero-warnings test that lists current exceptions, and the non-chain warnings fixed; chain conversions split into batches (DeepSeek/Sonnet) from the count.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
