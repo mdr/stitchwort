@@ -451,25 +451,32 @@ impl<'a> Rules<'a> {
         })
     }
 
-    /// Whether a comment ends a line at the element's end, or before only
-    /// the closers and commas that end it: it is printed after them either
-    /// way (a comment before a closing bracket moves to the line end), so
-    /// the layout must not depend on which side of them it was written.
-    fn comment_ends_at_closers(&self, el: Element<'_>) -> bool {
+    /// The token whose trailing comment ends the element's line, or `None`
+    /// if it has none: the comment may sit before only the closers and
+    /// commas that end the element. It is printed after them either way (a
+    /// comment before a closing bracket moves to the line end), so the
+    /// layout must not depend on which side of them it was written.
+    fn comment_at_closers(&self, el: Element<'_>) -> Option<usize> {
         let (first, mut i) = (Self::first(el), Self::last(el));
         loop {
             if self.file.trivia()[i].trailing.is_some() {
-                return true;
+                return Some(i);
             }
             let closer = matches!(
                 self.tokens[i].tok,
                 Tok::RParen | Tok::RBracket | Tok::RBrace | Tok::Comma
             );
             if !closer || i == first {
-                return false;
+                return None;
             }
             i -= 1;
         }
+    }
+
+    /// Whether a comment ends a line at the element's end, or before only
+    /// the closers and commas that end it.
+    fn comment_ends_at_closers(&self, el: Element<'_>) -> bool {
+        self.comment_at_closers(el).is_some()
     }
 
     /// A construct with no rule yet: as written, moved with its line, its
@@ -1069,12 +1076,17 @@ impl<'a> Rules<'a> {
         {
             let space = self.space_el(children[open], inside[0]);
             // A trailing comment on the base belongs to the `{ r |` line,
-            // so it prints after the bar, not between the base and it.
-            let base_last = Self::last(inside[bar - 1]);
-            let saved = self.defer_trailing.replace(base_last);
+            // so it prints after the bar, not between the base and it,
+            // whichever side of the base's closers it was written on
+            // (SW-3487).
+            let comment_at = self.comment_at_closers(inside[bar - 1]);
+            let saved = self.defer_trailing;
+            if comment_at.is_some() {
+                self.defer_trailing = comment_at;
+            }
             let base = self.join(&inside[..=bar]);
             self.defer_trailing = saved;
-            let comment = self.trailing(base_last);
+            let comment = comment_at.map(|i| self.trailing(i)).unwrap_or_default();
             prefix = Doc::concat([prefix, space, base, Doc::concat(comment)]);
             inside = &inside[bar + 1..];
         }
