@@ -39422,7 +39422,7 @@
     {
       "id": 3526,
       "title": "[Sonnet] Proof tuples: a tuple pattern doesn't open a test fact such as (a && b) = True; only Both does, via its reading (from SW-3516)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -39777,7 +39777,7 @@
     {
       "id": 3553,
       "title": "[DeepSeek] Errors E7: too many arguments: 'double takes 1 argument, but is given 2', labelling the extra (docs/proposals/helpful-errors.md §5 rank 7). Est. 30 min",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -39946,7 +39946,7 @@
     {
       "id": 3566,
       "title": "[Opus] Proof tuples: a tuple pattern in a later column of a multi-value match (match a, b with | X, (p, q)) is read as a data Pair when that column's type only reduces after splitting the earlier one (SW-3519 left 550 such patterns as Witness/Both); postpone resolving the tuple until the column's type is known",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
