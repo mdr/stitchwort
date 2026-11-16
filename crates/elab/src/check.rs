@@ -9918,6 +9918,46 @@ fn difference_note(found: pretty::Difference) -> String {
 /// How [`Ctx::mismatch_rows`] begins each row.
 const ROWS: (&str, &str) = ("expected: ", "\n   found: ");
 
+/// How a message prints an unknown for parameter `param`, the `earlier`-th
+/// of that name in it: `_n`, `_n₂`, `_n₃`.
+pub(crate) fn unknown_label(param: &str, earlier: usize) -> String {
+    if earlier == 0 {
+        return format!("_{param}");
+    }
+    let digits: String = (earlier + 1)
+        .to_string()
+        .chars()
+        .filter_map(|c| c.to_digit(10).and_then(|d| char::from_u32('₀' as u32 + d)))
+        .collect();
+    format!("_{param}{digits}")
+}
+
+/// `text` with each unknown's label `from` replaced by its `to`, all at
+/// once, matching whole labels only.
+fn relabel_unknowns(text: &str, relabels: &[(String, String)]) -> String {
+    let word = |c: char| c.is_alphanumeric() || c == '_' || c == '\'' || ('₀'..='₉').contains(&c);
+    let mut out = String::new();
+    let mut rest = text;
+    let mut prev: Option<char> = None;
+    while let Some(c) = rest.chars().next() {
+        let hit = relabels.iter().find(|(from, _)| {
+            rest.starts_with(from.as_str())
+                && !prev.is_some_and(word)
+                && !rest[from.len()..].chars().next().is_some_and(word)
+        });
+        if let Some((from, to)) = hit {
+            out.push_str(to);
+            prev = to.chars().last();
+            rest = &rest[from.len()..];
+        } else {
+            out.push(c);
+            prev = Some(c);
+            rest = &rest[c.len_utf8()..];
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use stitchwort_syntax::SourceMap;
@@ -10052,44 +10092,4 @@ mod tests {
             Ok("[a: Type] → a → a")
         );
     }
-}
-
-/// How a message prints an unknown for parameter `param`, the `earlier`-th
-/// of that name in it: `_n`, `_n₂`, `_n₃`.
-pub(crate) fn unknown_label(param: &str, earlier: usize) -> String {
-    if earlier == 0 {
-        return format!("_{param}");
-    }
-    let digits: String = (earlier + 1)
-        .to_string()
-        .chars()
-        .filter_map(|c| c.to_digit(10).and_then(|d| char::from_u32('₀' as u32 + d)))
-        .collect();
-    format!("_{param}{digits}")
-}
-
-/// `text` with each unknown's label `from` replaced by its `to`, all at
-/// once, matching whole labels only.
-fn relabel_unknowns(text: &str, relabels: &[(String, String)]) -> String {
-    let word = |c: char| c.is_alphanumeric() || c == '_' || c == '\'' || ('₀'..='₉').contains(&c);
-    let mut out = String::new();
-    let mut rest = text;
-    let mut prev: Option<char> = None;
-    while let Some(c) = rest.chars().next() {
-        let hit = relabels.iter().find(|(from, _)| {
-            rest.starts_with(from.as_str())
-                && !prev.is_some_and(word)
-                && !rest[from.len()..].chars().next().is_some_and(word)
-        });
-        if let Some((from, to)) = hit {
-            out.push_str(to);
-            prev = to.chars().last();
-            rest = &rest[from.len()..];
-        } else {
-            out.push(c);
-            prev = Some(c);
-            rest = &rest[c.len_utf8()..];
-        }
-    }
-    out
 }
