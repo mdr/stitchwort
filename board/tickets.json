@@ -40988,7 +40988,7 @@
     {
       "id": 3645,
       "title": "[Sonnet] Warnings left after SW-3608 (orchestrator's calls): (1) W-CTOR-HIDES fires only where a hidden constructor is then used unqualified (sf redefines the book's types on purpose); (2) the editor's 'Split on' code action stops generating arms it knows are unreachable (web/guide/37-split-from-a-hole.sw), rather than silencing W-UNREACHABLE for .impossible arms; (3) sf Basics.sw:503 plusON' teaching example: rewrite the passage to show the ∀ form in prose. Then drop sf and web-guide ceilings to zero",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
