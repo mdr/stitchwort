@@ -1,5 +1,5 @@
 {
-  "next": 3561,
+  "next": 3563,
   "tickets": [
     {
       "id": 47,
@@ -39145,12 +39145,12 @@
     {
       "id": 3505,
       "title": "[Opus] Parse proofs L3: readsThen inference in the elaborator (postpone non-pattern expected-type problems, abstract p ()); then remove readsThenOf/amongThenOf. aoc's 92 readsThen uses are the test set. Est. 60 min",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "From SW-3503 (L1): the elaborator can't solve ?inv.holds x against Unit even when unfolding one def would line them up; L1 worked around it with type Parse.Fits. Repro: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw3503/t1.sw (working form t3.sw). Also E-MATCH-MOTIVE for a match arm as a raw lambda inside readsWeaken/readsBind while inv is unknown (readsNatDigits). Consider both here; if fixed, Fits could become plain inv.holds (orchestrator's call later).\n\nFrom SW-3504: dropping [inv := Parse.Invariant.any] in readsNatDigits fails with E-MATCH-MOTIVE unless [inv := inv]: implicit invariant + match motive weakness.\n\nLane 16 Nov (Opus, commit 483ccfccf, ~45 min): fixed the Fits gap's mechanism for expected types (a call `ReadsIn ?inv ?p ?spec` meets a goal written `Reads p spec`, defined as `ReadsIn any p spec`, by arguments; examples/accept/abbreviation-meets-call.sw is SW-3503's t1 repro) and SW-3534. L3 proper NOT done: `readsThen` for `readsThenOf` in Parse.readsOperators still picks the wrong split (`?j (?p ())` against `operators …` takes `mark` plus `Done (Succ y.left)` as `p`), and the no-propagation path fails too (`first` stays unknown inside `rest`). Needs the postpone-and-abstract rule of the proposal §4; readsThenOf (12 uses in ReadsOperators.sw) kept. readsNatDigits without `[inv := inv]` still E-MATCH-MOTIVE (a `match` whose goal holds the unknown invariant), a different mechanism. SW-3535 not attempted.\n",
+      "body": "From SW-3503 (L1): the elaborator can't solve ?inv.holds x against Unit even when unfolding one def would line them up; L1 worked around it with type Parse.Fits. Repro: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw3503/t1.sw (working form t3.sw). Also E-MATCH-MOTIVE for a match arm as a raw lambda inside readsWeaken/readsBind while inv is unknown (readsNatDigits). Consider both here; if fixed, Fits could become plain inv.holds (orchestrator's call later).\n\nFrom SW-3504: dropping [inv := Parse.Invariant.any] in readsNatDigits fails with E-MATCH-MOTIVE unless [inv := inv]: implicit invariant + match motive weakness.\n\nLane 16 Nov (Opus, commit 483ccfccf, ~45 min): fixed the Fits gap's mechanism for expected types (a call `ReadsIn ?inv ?p ?spec` meets a goal written `Reads p spec`, defined as `ReadsIn any p spec`, by arguments; examples/accept/abbreviation-meets-call.sw is SW-3503's t1 repro) and SW-3534. L3 proper NOT done: `readsThen` for `readsThenOf` in Parse.readsOperators still picks the wrong split (`?j (?p ())` against `operators …` takes `mark` plus `Done (Succ y.left)` as `p`), and the no-propagation path fails too (`first` stays unknown inside `rest`). Needs the postpone-and-abstract rule of the proposal §4; readsThenOf (12 uses in ReadsOperators.sw) kept. readsNatDigits without `[inv := inv]` still E-MATCH-MOTIVE (a `match` whose goal holds the unknown invariant), a different mechanism. SW-3535 not attempted.\n\nModel result: opus, partly done (SW-3534 + the Fits/?inv gap fixed via unify_abbreviation; L3 proper not done, needs the full postpone-and-abstract rule), 37 min (est. 60). Continued as SW-3561. Fits can't become plain inv.holds yet (under binders).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39526,7 +39526,7 @@
     {
       "id": 3534,
       "title": "[Opus] Regression from Parse L1/L2 (SW-3503/3504, already pushed): examples/reject/reads-weaken-over-map-implicits.sw now prints an unknown ?3 (readsWeaken's implicit p not worked out) and the expected type shows Reads unfolded to its ∀ start => Fits → ReadsAt form, failing rejected_examples (PRINTS_UNKNOWNS, D2091). Make p inferable again from a Parse.Reads/ReadsIn expected type (Reads = ReadsIn any should meet ReadsIn ?inv ?p before unfolding), so the message is SW-1528's spec mismatch again. Likely overlaps Parse L3 (SW-3505, readsThen inference)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -39869,6 +39869,32 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3561,
+      "title": "[Opus] Parse proofs L3 proper: readsThen inference by the proposal's postpone-and-abstract rule (hold back ?j (?p ()) while not a pattern, check readsFirst first, find ?j by abstracting p () in the goal's effect tree); then remove the 12 readsThenOf uses in ReadsOperators.sw; covers SW-3535's first half. Hash changes accepted (orchestrator's call, D2303: migration cost doesn't count). Failure notes on SW-3505. Est. 75 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3562,
+      "title": "[Opus] E-MATCH-MOTIVE for a match whose goal still holds an unknown implicit (readsNatDigits without [inv := inv]): wait for the unknown instead of failing (from SW-3505)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
