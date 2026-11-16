@@ -363,6 +363,15 @@ impl<'a> Rules<'a> {
                 let saved = std::mem::replace(&mut self.hoisted[first], true);
                 let doc = self.node(node);
                 self.hoisted[first] = saved;
+                // A comment puts the node's first line below where the
+                // construct's own indentation would have it.
+                let doc = if !self.trivia[first].leading.is_empty()
+                    || self.ends_line_with_comment_before(first)
+                {
+                    Doc::displaced(doc)
+                } else {
+                    doc
+                };
                 Doc::concat([Doc::concat(leading), doc])
             }
         }
@@ -588,8 +597,38 @@ impl<'a> Rules<'a> {
             .chain(&params)
             .map(|&el| self.last_code(Self::first(el), Self::last(el)))
             .collect();
-        let comment_inside = (header_first..header_last)
-            .any(|i| self.trivia[i].trailing.is_some() && !item_ends.contains(&i));
+        // A comment after the last parameter is inside too when the result
+        // follows it and the body's layout is measured from its line: the
+        // `:` can't join the comment's line, so it starts the next, where
+        // the body would hug it.
+        let last_item_end = item_ends.last().copied();
+        let layout_body = matches!(body, Some(Element::Node(body)) if {
+            let rest: Vec<Element> = body.children().skip(1).collect();
+            matches!(rest.as_slice(), [Element::Node(value)] if matches!(
+                value.kind(),
+                NodeKind::Match
+                    | NodeKind::Induct
+                    | NodeKind::Reify
+                    | NodeKind::Handle
+                    | NodeKind::ClauseLambda
+                    | NodeKind::Calc
+                    | NodeKind::If
+                    | NodeKind::Block
+            ))
+        });
+        // The head's words (`theorem name`) are joined by spaces, not by
+        // breaks the layout chooses, so a comment after one is inside too.
+        let head_words: Vec<usize> = head
+            .iter()
+            .take(head.len().saturating_sub(1))
+            .map(|&el| Self::last(el))
+            .collect();
+        let comment_inside = (header_first..header_last).any(|i| {
+            self.trivia[i].trailing.is_some()
+                && (!item_ends.contains(&i)
+                    || head_words.contains(&i)
+                    || (layout_body && result.is_some() && last_item_end == Some(i)))
+        });
         parts.push(Doc::IdGroup(
             id,
             Box::new(header.clone()),
@@ -1202,6 +1241,19 @@ impl<'a> Rules<'a> {
         // a value starting a line is a block, where the `;` after it
         // would be a sequence's, not the `let`'s.
         if self.expr_let == Some(node.token_range().start) {
+            // Not even when the value itself breaks over a comment: it
+            // starts on the `:=` line and goes on below.
+            let value = &children[assign + 1..];
+            let starts_below = value.first().is_some_and(|&el| {
+                let first = Self::first(el);
+                self.has_leading(el)
+                    || Self::kind(el) == Some(NodeKind::Block)
+                    || self.ends_line_with_comment_before(first)
+            });
+            if !starts_below {
+                let value = self.join(value);
+                return Doc::concat([head, Doc::text(" "), value]);
+            }
             return Doc::concat([head, choice]);
         }
         let id = self.fresh_id();

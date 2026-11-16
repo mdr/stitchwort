@@ -10,8 +10,8 @@
 //!    comment, except one kept by the limits in [`place_comments`];
 //! 2. no comma has any comment;
 //! 3. no comment's text ends in a space;
-//! 4. no `->` has own-line comments after it (the type that follows has
-//!    none before it): they come before the `->`.
+//! 4. no `->` has a trailing comment or own-line comments after it (the
+//!    type that follows has none before it): they come before the `->`.
 //!
 //! Applying it to its own result changes nothing.
 
@@ -28,10 +28,10 @@ use stitchwort_syntax::{Comment, Tok, Token, Trivia};
 ///    starts its line, become own-line comments of the token after it, with
 ///    their blank lines.
 /// 3. Comment text loses its trailing spaces.
-/// 4. When own-line comments come between a `->` and the type after it, they
-///    (and the `->`'s own trailing comment) become own-line comments of the
-///    `->`, in order. A type's operand starting its own line would open a
-///    block that ends the arrow chain at the next `->`.
+/// 4. A `->`'s trailing comment, and own-line comments between it and the
+///    type after it, become own-line comments of the `->`, in order. A
+///    type's operand starting its own line would open a block that ends the
+///    arrow chain at the next `->`.
 pub fn place_comments(tokens: &[Token], trivia: &[Trivia], eof: &Trivia) -> (Vec<Trivia>, Trivia) {
     let mut out: Vec<Trivia> = trivia.to_vec();
     let mut eof = eof.clone();
@@ -84,7 +84,9 @@ pub fn place_comments(tokens: &[Token], trivia: &[Trivia], eof: &Trivia) -> (Vec
         next.leading = moved;
     }
     for i in 0..out.len().saturating_sub(1) {
-        if tokens[i].tok != Tok::Arrow || out[i + 1].leading.is_empty() {
+        if tokens[i].tok != Tok::Arrow
+            || (out[i + 1].leading.is_empty() && out[i].trailing.is_none())
+        {
             continue;
         }
         let mut moved = std::mem::take(&mut out[i + 1].leading);
