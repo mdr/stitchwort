@@ -1,5 +1,5 @@
 {
-  "next": 3535,
+  "next": 3537,
   "tickets": [
     {
       "id": 47,
@@ -39143,7 +39143,7 @@
     {
       "id": 3505,
       "title": "[Opus] Parse proofs L3: readsThen inference in the elaborator (postpone non-pattern expected-type problems, abstract p ()); then remove readsThenOf/amongThenOf. aoc's 92 readsThen uses are the test set. Est. 60 min",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -39156,12 +39156,12 @@
     {
       "id": 3506,
       "title": "[Sonnet+Opus] Parse proofs L4: Parse.Gives and lemmas, givesBoth, readsBoth in std; the toy's three walks into one with readsInPeek; measure how mechanical the walk lemmas remain (for the gives-tactic question). After L1, L2. Est. 120 min",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Started 10:26 (Opus, est. 90 min). Brief: L4 of docs/proposals/parse-proof-library.md (D3628).\n\nProgress (16 Nov, Opus lane):\n- std: new Parse/Gives.sw: `Parse.Gives inv parser holds` (ReadsIn with a spec ignoring what was read; `inv` explicit, since a def can't infer it) and givesDone, givesThen, givesWeaken, givesOptional (with `Parse.Perhaps`), givesMany, givesMany1, givesSepBy, givesOneOf, givesOperators, givesRecursiveWith, givesNote, givesMark, givesExpected, givesBoth, readsBoth (with `startsSame`, `eachAll`). Plus `Parse.readsPeek` and `Parse.readsWithMark`: per-mark forms whose case is an ordinary ReadsIn, so a walk can `match start.rest` without applying `start fine` (which the elaborator couldn't type in refined branches).\n- std: ReadsOperators.sw: the `*Every` copies folded into the plain lemmas. `readsOperatorsFrom`/`readsOperandsFrom` now take `fine` and `head: inv.holds [item, ..later] → fine item`; `readsOperators` and `readsOperatorsEvery` are corollaries. 15 → 12 theorems, 681 → 548 lines; `allHead`, `readsOperatorsFromEvery`, `readsOperandsFromEvery` gone.\n- toy: one joint walk, tools/toyfmt/src/Toy/Fmt/WalkProofs.sw (45 theorems, 804 lines), proving `ParsedFile = ShapedFile ∧ LexicalFile ∧ HeadedFile` under `Parse.Invariant.every Good`; parseShaped/parseLexical/parseHeaded are its projections. No lemma takes the handler state apart. ShapeProofs/ParsedProofs/HeadProofs keep only value lemmas: 201 → 73 theorems, 4024 → 888 lines. Walk + value files: 4024 → 1692 lines; toy theorems 1135 → 1052. printParses, formatRoundTrip, formatIdempotent unchanged (DirectProofs.sw untouched), no axioms; no goals open.\n- Tactic measurement (45 walk theorems): about 26 are syntax-dictated (a givesThen per bind, a readsPeek/match per peek mirroring the parser's arms, givesDone with the property assembled from hypotheses, or a delegation), e.g. givesCallAfter (2 givesThen + one leaf of 12 `Both`s copied from hypotheses). About 19 need thought: leaf facts about tokens (givesSign/Keyword/Name, givesAtomOf, givesSuffixNext, parseParsed), loop invariants (givesItemsFrom's reverse accumulators, givesBlock, givesBodyFuel) and operator invariants (givesChain). Even the mechanical ones spend most of their lines on `Both` nesting of the three-way conjunction and on naming `[p := …] [j := …]` where givesThen can't split the body (notes, marks).\n- Checks: std `check --std Parse` ok; toy Toy.Fmt.Proofs and Toy.Syntax.Proofs ok; `goal` none open; `axioms` printParses/formatRoundTrip/formatIdempotent none; hash_stability (10 tests) passed, prelude snapshot updated (only Std.Parse names).\n- Commit ea8168dba on lane/SW-3506. Done 11:01 (34 min).\n",
+      "body": "Started 10:26 (Opus, est. 90 min). Brief: L4 of docs/proposals/parse-proof-library.md (D3628).\n\nProgress (16 Nov, Opus lane):\n- std: new Parse/Gives.sw: `Parse.Gives inv parser holds` (ReadsIn with a spec ignoring what was read; `inv` explicit, since a def can't infer it) and givesDone, givesThen, givesWeaken, givesOptional (with `Parse.Perhaps`), givesMany, givesMany1, givesSepBy, givesOneOf, givesOperators, givesRecursiveWith, givesNote, givesMark, givesExpected, givesBoth, readsBoth (with `startsSame`, `eachAll`). Plus `Parse.readsPeek` and `Parse.readsWithMark`: per-mark forms whose case is an ordinary ReadsIn, so a walk can `match start.rest` without applying `start fine` (which the elaborator couldn't type in refined branches).\n- std: ReadsOperators.sw: the `*Every` copies folded into the plain lemmas. `readsOperatorsFrom`/`readsOperandsFrom` now take `fine` and `head: inv.holds [item, ..later] → fine item`; `readsOperators` and `readsOperatorsEvery` are corollaries. 15 → 12 theorems, 681 → 548 lines; `allHead`, `readsOperatorsFromEvery`, `readsOperandsFromEvery` gone.\n- toy: one joint walk, tools/toyfmt/src/Toy/Fmt/WalkProofs.sw (45 theorems, 804 lines), proving `ParsedFile = ShapedFile ∧ LexicalFile ∧ HeadedFile` under `Parse.Invariant.every Good`; parseShaped/parseLexical/parseHeaded are its projections. No lemma takes the handler state apart. ShapeProofs/ParsedProofs/HeadProofs keep only value lemmas: 201 → 73 theorems, 4024 → 888 lines. Walk + value files: 4024 → 1692 lines; toy theorems 1135 → 1052. printParses, formatRoundTrip, formatIdempotent unchanged (DirectProofs.sw untouched), no axioms; no goals open.\n- Tactic measurement (45 walk theorems): about 26 are syntax-dictated (a givesThen per bind, a readsPeek/match per peek mirroring the parser's arms, givesDone with the property assembled from hypotheses, or a delegation), e.g. givesCallAfter (2 givesThen + one leaf of 12 `Both`s copied from hypotheses). About 19 need thought: leaf facts about tokens (givesSign/Keyword/Name, givesAtomOf, givesSuffixNext, parseParsed), loop invariants (givesItemsFrom's reverse accumulators, givesBlock, givesBodyFuel) and operator invariants (givesChain). Even the mechanical ones spend most of their lines on `Both` nesting of the three-way conjunction and on naming `[p := …] [j := …]` where givesThen can't split the body (notes, marks).\n- Checks: std `check --std Parse` ok; toy Toy.Fmt.Proofs and Toy.Syntax.Proofs ok; `goal` none open; `axioms` printParses/formatRoundTrip/formatIdempotent none; hash_stability (10 tests) passed, prelude snapshot updated (only Std.Parse names).\n- Commit ea8168dba on lane/SW-3506. Done 11:01 (34 min).\n\nModel result: opus, worked, 34 min (est. 90). Gives takes inv explicitly (orchestrator's call: keep). Tactic measurement: 26 of 45 walk lemmas syntax-dictated, 19 need thought; gives-tactic decision waits for simp + tuples sweep. Filed SW-3535, SW-3536.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39529,6 +39529,32 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3535,
+      "title": "[Opus] Elaborator: givesThen's higher-order ?j (?p ()) inference picks the wrong split when the first step is note/mark/skip; and a lemma applied inside a refined 'match e:' branch can't infer p from a ReadsAt expected type (worked around in SW-3506 with named implicits and readsPeek/readsWithMark)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3536,
+      "title": "[Sonnet] W-LAMBDA-SHADOW is noisy in proofs: fires on a lambda parameter named 'next' because it hides Parse.next (from SW-3506); consider not warning when the hidden name is a function and the parameter is used as a value, or not in theorem bodies",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
