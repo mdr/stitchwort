@@ -41097,7 +41097,7 @@
     {
       "id": 3652,
       "title": "[Sonnet] Follow-ups to SW-3637: (1) the intermittent W-MATCH-NOT-FOUND in toyfmt after an fmt edit (Toy/Syntax/OperatorReads.sw): repro, then fix if it's the cache-entry family; (2) check whether elab library.rs:1452, live.rs and the LSP paths skip the W-ARROW-FORALL text filter on a cache hit. Failing-first tests",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -41188,7 +41188,7 @@
     {
       "id": 3659,
       "title": "[Opus] rewrite repeatedly perf, remaining (SW-3654): Words.sw with sets at 2.53x the hand-written base. Candidates: skip today's-instance for set rules (~55 ms, changes which instance: design call), today's instance only after an as-written hit (~40 ms), don't repeat the as-written try in the full pass (~22 ms); writeLayoutWords' full search 89 ms (reachable only by rescue, SW-3629). Before the std/AoC rollout (SW-3631), measure on two std files and decide",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
