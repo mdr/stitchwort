@@ -59,6 +59,46 @@ def Parse.locatedSteps (offset: Nat): (steps: List (List Char, a)) → List (Par
   | [(read, value), ..steps] =>
     [{ value, offset, length = read.length }, ..Parse.locatedSteps (offset + read.length) steps]
 
+--| Every step's place, from the first, is at or after `offset`.
+theorem Parse.locatedStepsFrom ∀ (offset: Nat) (steps: List (List Char, a)):
+    List.All (located => offset ≤ located.offset) (Parse.locatedSteps offset steps) :=
+  match steps with
+    | [] => ()
+    | [(read, value), ..later] => (
+      (arithmetic []),
+      (List.allImplies
+        (located => offset + read.length ≤ located.offset)
+        (located => offset ≤ located.offset)
+        (located above => arithmetic [above])
+        (Parse.locatedSteps (offset + read.length) later)
+        (Parse.locatedStepsFrom (offset + read.length) later))
+    )
+
+--| The steps' places rise: when every step reads something, each starts
+--| before the next, so the offsets of `locatedSteps` are strictly
+--| increasing.
+--|
+--| Proof idea: induction on the steps. The first is at `offset` and the
+--| rest start at `offset + read.length`, above it since `read` is not
+--| empty, and all at or after that (`locatedStepsFrom`).
+theorem Parse.locatedStepsRising ∀ (offset: Nat) (steps: List (List Char, a))
+    (nonEmpty: List.All (step => step.fst ≠ []) steps):
+    List.Pairwise (earlier later => earlier.offset < later.offset) (Parse.locatedSteps offset steps) :=
+  match steps, nonEmpty with
+    | [], _ => ()
+    | [(read, value), ..later], known =>
+      match read, known with
+        | [], known => (known.left byComputing).impossible
+        | [char, ..chars], known => (
+          (List.allImplies
+            (located => offset + ([char, ..chars]).length ≤ located.offset)
+            (located => offset < located.offset)
+            (located above => arithmetic [above])
+            (Parse.locatedSteps (offset + ([char, ..chars]).length) later)
+            (Parse.locatedStepsFrom (offset + ([char, ..chars]).length) later)),
+          (Parse.locatedStepsRising (offset + ([char, ..chars]).length) later known.right)
+        )
+
 --| The characters of the slices of `source` at the steps' places, one after
 --| another, are what the steps read, when `source` is `before`, then what
 --| the steps read, then `after`, and the first step is placed after

@@ -256,52 +256,6 @@ theorem innerOne ∀ [measure: a → List Comment] (layout: Layout) (token: Tok)
 -- can only be followed from the mark it looked at, where the token it
 -- skips is the one it saw.
 
-theorem readsAtDone ∀ (start: Parse.Mark t) (x: a) (spec: List t → a → Prop) (holds: spec [] x):
-    Parse.ReadsAt start (() => x) spec :=
-  Parse.readsDone [inv := Parse.Invariant.any] x spec holds start { holds = Trivial }
-
-theorem readsAtWeaken ∀ [start: Parse.Mark t] [p: () → {Parse t} a] [spec weaker: List t → a → Prop]
-    (reads: Parse.ReadsAt start p spec) (implies: ∀ (read: List t) (value: a) => spec read value → weaker read value):
-    Parse.ReadsAt start p weaker :=
-  total state value after here honest h =>
-    match reads total state value after here honest h with
-      | (read, starts, honestAfter, holds) => (read, starts, honestAfter, (implies read value holds))
-
---| `Parse.readsWithMark` with each case from its own mark.
-theorem readsAtMark ∀ [inv: Parse.Invariant t] (k: Parse.Mark t → {Parse t} a) (spec: List t → a → Prop)
-    (each: ∀ (start: Parse.Mark t) => Parse.Fits t inv start.rest → Parse.ReadsAt start (() => k start) spec):
-    Parse.ReadsIn inv (() => k (Parse.mark())) spec :=
-  start fine total state value after here honest h =>
-    let ran: Parse.runFrom state (() => (k state.at, Parse.mark())) = Ok (value, after) := h
-    each start fine total state value after here honest (rewrite <- here then ran)
-
---| `Parse.readsInPeek` at one mark.
-theorem readsAtPeek ∀ (k: Option t → {Parse t} a) (spec: List t → a → Prop) (start: Parse.Mark t)
-    (each: Parse.ReadsAt start (() => k start.rest.head) spec):
-    Parse.ReadsAt start (() => k (Parse.peek())) spec :=
-  total state value after here honest h =>
-    let ran: Parse.runFrom state (() => (k state.at.rest.head, Parse.mark())) = Ok (value, after) := h
-    each total state value after here honest (rewrite <- here then ran)
-
---| `Parse.readsOptional` from one mark.
-theorem readsAtOptional ∀ [start: Parse.Mark t] [p: () → {Parse t} a] [spec: List t → a → Prop]
-    (reads: Parse.ReadsAt start p spec):
-    Parse.ReadsAt start (() => Parse.optional p) (Parse.Maybe spec) :=
-  total state value after here honest h =>
-    match Parse.runFromOptionalFromOk p state.at state _ _ h with
-      | Inl (v, middle, ran, rest) =>
-        match reads total state v middle.at here honest ran with
-          | (read, starts, honest1, holds) =>
-            let same := Result.okInjective rest
-            let valueSame: Some v = value := Pair.mkInjectiveFst same
-            let atSame: middle.at = after := Pair.mkInjectiveSnd same
-            (read, (rewrite <- valueSame, <- atSame then (starts, honest1, holds)))
-      | Inr (middle, back, rest) =>
-        let same := Result.okInjective rest
-        let valueSame: None = value := Pair.mkInjectiveFst same
-        let atSame: middle.at = after := Pair.mkInjectiveSnd same
-        ([], (rewrite <- valueSame, <- atSame, back, here then (byComputing, honest, byComputing)))
-
 --| `skip` where `token` is next reads it.
 theorem readsSkipAt ∀ (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
     (shape: start.rest = [token, ..later]):
@@ -309,9 +263,12 @@ theorem readsSkipAt ∀ (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
   Parse.readsAtThen
     [first := read skipped => read = [token]]
     (total state value after here honest h =>
-      match nextTakes total state value after token later (rewrite here then shape) (rewrite here then honest) h with
+      match Parse.nextTakes total state value after token later
+        (rewrite here then shape)
+        (rewrite here then honest)
+        h with
         | (isSome, starts, honestAfter) => ([token], (rewrite <- here then starts), honestAfter, byComputing))
-    (read skipped middle starts single => readsAtDone middle () _ (rewrite single then byComputing))
+    (read skipped middle starts single => Parse.readsAtDone middle () _ (rewrite single then byComputing))
 
 --| `skip` of the layout's first token, seen at `start`, then the rest.
 theorem skipStarted ∀ [inv: Parse.Invariant Tok] [j: () → {Parse Tok} b] [measure: b → List Comment] [extra: b → Prop]
@@ -323,7 +280,7 @@ theorem skipStarted ∀ [inv: Parse.Invariant Tok] [j: () → {Parse Tok} b] [me
       (Onto layout (more => layout.kept token ++ more) measure extra)):
     Parse.ReadsAt start (() => j (skip())) (Started layout token measure extra) :=
   Parse.readsAtThen (readsSkipAt start token later shape) (read done after starts single =>
-    readsAtWeaken (rest done after (fine.after (rewrite <- shape then starts))) (taken value onto =>
+    Parse.readsAtWeaken (rest done after (fine.after (rewrite <- shape then starts))) (taken value onto =>
       (taken, (rewrite single then byComputing), onto.left, onto.right)))
 
 --| `skip` of a later token, seen at `start` and kept as the layout keeps
@@ -337,7 +294,7 @@ theorem skipOnto ∀ [inv: Parse.Invariant Tok] [j: () → {Parse Tok} b] [measu
       (Onto layout (more => before (layout.kept token ++ more)) measure extra)):
     Parse.ReadsAt start (() => j (skip())) (Onto layout before measure extra) :=
   Parse.readsAtThen (readsSkipAt start token later shape) (read done after starts single =>
-    readsAtWeaken (rest done after (fine.after (rewrite <- shape then starts))) (taken value onto =>
+    Parse.readsAtWeaken (rest done after (fine.after (rewrite <- shape then starts))) (taken value onto =>
       (
         onto.left,
         (rewrite single then
