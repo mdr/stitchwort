@@ -1791,8 +1791,6 @@ theorem reachesElse ∀ (at column from: Nat) (found: Parse.Located Token) (star
       let level: (indent >= column) = True := omega [lower, suits]
       rewrite level in rfl
 
-theorem sameOffset ∀ (offset: Nat): (offset == offset) = True := omega
-
 theorem firstAllowed ∀ (column: Nat) (first: Parse.Located Token):
     (InStatement column first.offset).allows first = True :=
   match first with
@@ -1800,7 +1798,7 @@ theorem firstAllowed ∀ (column: Nat) (first: Parse.Located Token):
     | { value = { kind, startsLine = True, column = indent, above, trailing }, offset, length } =>
       match deeper: indent > column with
         | True => rfl
-        | False => rewrite sameOffset offset in rfl
+        | False => rewrite ownOffset offset in rfl
 
 --| The comments of a statement's first token, as the tree keeps them:
 --| none above, whatever its view shows there.
@@ -1825,7 +1823,7 @@ theorem firstLeads ∀ (column: Nat) (pending: List Trivia) (head: Option Nat �
   Both apart (kind start after allowed same =>
     Both
       (firstAllowed column first)
-      (firstComments column first.offset first pending kind start after (sameOffset first.offset) same))
+      (firstComments column first.offset first pending kind start after (ownOffset first.offset) same))
 
 --| Each number above the one before it: the offsets of tokens in source
 --| order.

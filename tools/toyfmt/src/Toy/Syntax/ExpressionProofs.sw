@@ -1693,6 +1693,8 @@ theorem spelledFirstAbove ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse
               let inner := spelledFirstAbove layout left leftTokens shapedLeft spelledLeft
               rewrite split, leftSplit in (rewrite leftSplit at inner in inner)
 
+--| An offset is its own. The expression proofs and the spelling proofs
+--| both rewrite with it; it is the one copy.
 theorem ownOffset ∀ (offset: Nat): (offset == offset) = True := omega
 
 --| A statement's first token holds no comments above it in the tree.

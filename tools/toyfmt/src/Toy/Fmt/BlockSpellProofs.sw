@@ -423,7 +423,7 @@ theorem keywordComments ∀ (column: Nat) (first: Parse.Located Token) (pending:
     comments = (InStatement column first.offset).comments first :=
   match comments, none, same with
     | { above = [], after }, _, same =>
-      firstComments column first.offset first pending kind start after (sameOffset first.offset) same
+      firstComments column first.offset first pending kind start after (ownOffset first.offset) same
 
 --| What tokens with an expression's views have to do outside brackets:
 --| with rising offsets, leading, they spell it.
