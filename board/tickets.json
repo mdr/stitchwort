@@ -41109,7 +41109,7 @@
     {
       "id": 3654,
       "title": "[Opus] rewrite repeatedly sets cost: Words.sw with a shared named set checks at 4.5x (per-arm lists 2.55x, bar 1.5x) because each arm gets rules it doesn't need, which go through the full search. Try: a set's members only by the cheap as-written match unless the call names them; remeasure with dev/patches/SW-3602-words-conversion.patch; land the conversion if <= 1.5x",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
