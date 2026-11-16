@@ -9,88 +9,6 @@ import Toy.Syntax (..)
 import Toy.Syntax.Proofs (..)
 import Std (And, Bool, DecEq, Empty, Eq, Fail, List, Option, Pair, Parse, Result, Text, Void)
 
--- The lexer keeps count (`Parse.Paced`), so `Parse.locatedToEnd`'s
--- offsets are where the lexemes are.
-
-theorem operatorCharPaced: Parse.Paced operatorChar :=
-  Parse.pacedThen
-    [p := () => Parse.mark()]
-    [j := (start: Parse.Mark Char) =>
-      if operatorNext start.rest then
-        let read := Parse.next (char => True)
-        ()
-      else Empty.absurd Parse.stop()]
-    Parse.pacedMark
-    (start =>
-      Parse.pacedIf
-        (operatorNext start.rest)
-        (() =>
-          let read := Parse.next (char => True)
-          ())
-        (() => Empty.absurd Parse.stop())
-        (Parse.pacedThen (Parse.pacedNext (char => True)) (read => Parse.pacedPure ()))
-        Parse.pacedStop)
-
-theorem escapeSegmentPaced: Parse.Paced (() =>
-      Parse.char '\\'
-      let escaped := Parse.satisfy "'\"', '\\' or 'n' after '\\'" isEscaped
-      ()) :=
-  Parse.pacedThen
-    [p := () => Parse.char '\\']
-    [j := (u: ()) =>
-      let escaped := Parse.satisfy "'\"', '\\' or 'n' after '\\'" isEscaped
-      ()]
-    (Parse.pacedChar '\\')
-    (u =>
-      Parse.pacedThen
-        [p := () => Parse.satisfy "'\"', '\\' or 'n' after '\\'" isEscaped]
-        [j := (escaped: Char) => ()]
-        (Parse.pacedSatisfy "'\"', '\\' or 'n' after '\\'" isEscaped)
-        (escaped => Parse.pacedPure ()))
-
-theorem plainSegmentPaced: Parse.Paced (() =>
-      let plain := Parse.span isPlainChar
-      ()) :=
-  Parse.pacedThen
-    [p := () => Parse.span isPlainChar]
-    [j := (plain: List Char) => ()]
-    (Parse.pacedSpan isPlainChar)
-    (plain => Parse.pacedPure ())
-
-theorem stringSegmentPaced: Parse.Paced stringSegment := state value after honest h =>
-  match e: segmentStart state.at.rest with
-    | Some EscapeSegment => escapeSegmentPaced state value after honest h
-    | Some PlainSegment => plainSegmentPaced state value after honest h
-
-theorem stringClosedPaced ∀ (found: Option Char): Parse.Paced (() => stringClosed found) := match found with
-  | Some _ => Parse.pacedPure ()
-  | None => Parse.pacedExpected "'\"' to close the string"
-
-theorem stringLexemePaced: Parse.Paced stringLexeme := Parse.pacedThen (Parse.pacedChar '"') (u =>
-  Parse.pacedThen (Parse.pacedMany stringSegment stringSegmentPaced) (segments =>
-    Parse.pacedThen
-      [p := () => Parse.next (char => char == '"')]
-      [j := found => stringClosed found]
-      (Parse.pacedNext (char => char == '"'))
-      (found => stringClosedPaced found)))
-
-theorem readLexemePaced ∀ (lexeme: Lexeme): Parse.Paced (() => readLexeme lexeme) := match lexeme with
-  | Spaces => Parse.pacedThen (Parse.pacedSpan (char => char == ' ')) (spaces => Parse.pacedPure Spaces)
-  | LineBreak => Parse.pacedThen (Parse.pacedNext (char => True)) (lineBreak => Parse.pacedPure LineBreak)
-  | CommentLexeme => Parse.pacedThen (Parse.pacedSpan (char => char != '\n')) (comment => Parse.pacedPure CommentLexeme)
-  | StringLexeme => Parse.pacedThen stringLexemePaced (u => Parse.pacedPure StringLexeme)
-  | WordLexeme => Parse.pacedThen (Parse.pacedSpan isWordChar) (word => Parse.pacedPure WordLexeme)
-  | DigitsLexeme =>
-    Parse.pacedThen (Parse.pacedSpan (char => char.isAsciiDigit)) (digits => Parse.pacedPure DigitsLexeme)
-  | SignLexeme => Parse.pacedThen (Parse.pacedNext (char => True)) (sign => Parse.pacedPure SignLexeme)
-  | SymbolsLexeme =>
-    Parse.pacedThen (Parse.pacedMany operatorChar operatorCharPaced) (run => Parse.pacedPure SymbolsLexeme)
-  | StrayLexeme => Parse.pacedThen (Parse.pacedNext (char => True)) (stray => Parse.pacedPure StrayLexeme)
-
-theorem lexemePaced ∀ (rest: List Char): Parse.Paced (() => lexemeAt rest) := match lexemeStart rest with
-  | Some lexeme => readLexemePaced lexeme
-  | None => Parse.pacedExpected "a token"
-
 -- What each lexeme read.
 
 --| What a piece of a string read: an escape, or plain characters.
@@ -128,10 +46,11 @@ theorem plainSegmentReads: Parse.Reads
     (Parse.readsSpan isPlainChar)
     (r plain f => Parse.readsDone () _ (Inr (rewrite List.appendNil r, And.left f in And.right f)))
 
-theorem stringSegmentReads: Parse.Reads stringSegment SegmentRead := state value after honest h =>
-  match e: segmentStart state.at.rest with
-    | Some EscapeSegment => escapeSegmentReads state value after honest h
-    | Some PlainSegment => plainSegmentReads state value after honest h
+theorem stringSegmentReads: Parse.Reads stringSegment SegmentRead :=
+  Parse.readsInOfRuns (total state value after fine honest h =>
+    match e: segmentStart state.at.rest with
+      | Some EscapeSegment => escapeSegmentReads state.at fine total state value after rfl honest h
+      | Some PlainSegment => plainSegmentReads state.at fine total state value after rfl honest h)
 
 --| What a string lexeme read: a quote, pieces, a quote.
 def StringRead (read: List Char): Prop :=
@@ -162,8 +81,8 @@ theorem nextUnitReads: Parse.Reads
     (r v f => Parse.readsDone () _ rfl)
 
 theorem operatorCharReads: Parse.Reads operatorChar ((read: List Char) (u: ()) => read = read) :=
-  state value after honest h =>
-    match e: operatorNext state.at.rest with | True => nextUnitReads state value after honest h
+  Parse.readsInOfRuns (total state value after fine honest h =>
+    match e: operatorNext state.at.rest with | True => nextUnitReads state.at fine total state value after rfl honest h)
 
 --| What `readLexeme lexeme` read of `rest`: for the lexemes whose text a
 --| token keeps, the longest run of their characters, or a string.
@@ -179,92 +98,98 @@ def LexemeRead (lexeme: Lexeme) (rest read: List Char): Prop := match lexeme wit
 def LexemeSpec (rest read: List Char) (lexeme: Lexeme): Prop :=
   lexemeStart rest = Some lexeme ∧ LexemeRead lexeme rest read
 
-theorem spanLexemeReads ∀ (state: Parse.State Char) (passes: Char → Bool) (lexeme: Lexeme):
-    Parse.ReadsFrom state
+theorem spanLexemeReads ∀ (start: Parse.Mark Char) (passes: Char → Bool) (lexeme: Lexeme):
+    Parse.ReadsAt start
       (() =>
         let run := Parse.span passes
         lexeme)
-      (read value => value = lexeme ∧ read = state.at.rest.takeWhile passes) :=
-  value after honest h =>
-    match Parse.runFromThenOk2
-      (() => Parse.span passes)
-      state
-      (run => lexeme)
-      (x => (x, Parse.mark()))
-      (value, after)
-      h with
-      | Witness v (Witness middle (Both ran rest)) =>
-        match Parse.readsFromSpan state passes v middle.at honest ran with
-          | Witness read (Both starts (Both honest1 (Both same taken))) =>
-            let done := Result.okInjective rest
-            let valueSame: lexeme = value := Pair.mkInjectiveFst done
-            let atSame: middle.at = after := Pair.mkInjectiveSnd done
-            Witness read
-              (rewrite <- atSame, <- valueSame in Both starts (Both honest1 (Both rfl (rewrite same in taken))))
+      (read value => value = lexeme ∧ read = start.rest.takeWhile passes) :=
+  total state value after here honestStart h =>
+    let honest: Parse.Honest total state.at := rewrite here in honestStart
+    rewrite <- here in
+      match Parse.runFromThenOk2
+        (() => Parse.span passes)
+        state
+        (run => lexeme)
+        (x => (x, Parse.mark()))
+        (value, after)
+        h with
+        | Witness v (Witness middle (Both ran rest)) =>
+          match Parse.readsAtSpan state.at passes total state v middle.at rfl honest ran with
+            | Witness read (Both starts (Both honest1 (Both same taken))) =>
+              let done := Result.okInjective rest
+              let valueSame: lexeme = value := Pair.mkInjectiveFst done
+              let atSame: middle.at = after := Pair.mkInjectiveSnd done
+              Witness read
+                (rewrite <- atSame, <- valueSame in Both starts (Both honest1 (Both rfl (rewrite same in taken))))
 
 theorem plainLexemeReads ∀ [p: () → {Parse Char} b] [first: List Char → b → Prop]
-    (lexeme: Lexeme) (state: Parse.State Char)
+    (lexeme: Lexeme) (start: Parse.Mark Char)
     (reads: Parse.Reads p first)
-    (shape: ∀ (read: List Char) => LexemeRead lexeme state.at.rest read):
-    Parse.ReadsFrom state
+    (shape: ∀ (read: List Char) => LexemeRead lexeme start.rest read):
+    Parse.ReadsAt start
       (() =>
         let v := p()
         lexeme)
-      (read value => value = lexeme ∧ LexemeRead lexeme state.at.rest read) :=
-  value after honest h =>
+      (read value => value = lexeme ∧ LexemeRead lexeme start.rest read) :=
+  total state value after here honest h =>
     match Parse.readsThen
       [p := p]
       [j := (v: b) => lexeme]
       [spec := (read: List Char) (value: Lexeme) => value = lexeme]
       reads
       (r v f => Parse.readsDone lexeme _ rfl)
+      start
+      { holds = Trivial }
+      total
       state
       value
       after
+      here
       honest
       h with
       | Witness read (Both starts (Both honestAfter same)) =>
         Witness read (Both starts (Both honestAfter (Both same (shape read))))
 
-theorem stringLexemeRead ∀ (state: Parse.State Char):
-    Parse.ReadsFrom state (() => readLexeme StringLexeme) (read value =>
-      value = StringLexeme ∧ LexemeRead StringLexeme state.at.rest read) :=
-  Parse.readsThen
+theorem stringLexemeRead ∀ (start: Parse.Mark Char):
+    Parse.ReadsAt start (() => readLexeme StringLexeme) (read value =>
+      value = StringLexeme ∧ LexemeRead StringLexeme start.rest read) :=
+  Parse.readsAtThen
     [p := stringLexeme]
     [j := (u: ()) => StringLexeme]
-    [spec := (read: List Char) (value: Lexeme) => value = StringLexeme ∧ LexemeRead StringLexeme state.at.rest read]
-    stringLexemeReads
-    (r u f => Parse.readsDone StringLexeme _ (Both rfl (rewrite List.appendNil r in f)))
-    state
+    [spec := (read: List Char) (value: Lexeme) => value = StringLexeme ∧ LexemeRead StringLexeme start.rest read]
+    (stringLexemeReads start { holds = Trivial })
+    (r u after starts f =>
+      Parse.readsDone [inv := Parse.Invariant.any] StringLexeme _ (Both rfl (rewrite List.appendNil r in f)) after {
+        holds = Trivial
+      })
 
-theorem readLexemeReads ∀ (state: Parse.State Char) (lexeme: Lexeme):
-    Parse.ReadsFrom state (() => readLexeme lexeme) (read value =>
-      value = lexeme ∧ LexemeRead lexeme state.at.rest read) :=
+theorem readLexemeReads ∀ (start: Parse.Mark Char) (lexeme: Lexeme):
+    Parse.ReadsAt start (() => readLexeme lexeme) (read value => value = lexeme ∧ LexemeRead lexeme start.rest read) :=
   match lexeme with
-    | Spaces => plainLexemeReads Spaces state (Parse.readsSpan (char => char == ' ')) (read => rfl)
-    | LineBreak => plainLexemeReads LineBreak state (Parse.readsNext (char => True)) (read => rfl)
-    | CommentLexeme => spanLexemeReads state (char => char != '\n') CommentLexeme
-    | StringLexeme => stringLexemeRead state
-    | WordLexeme => spanLexemeReads state isWordChar WordLexeme
-    | DigitsLexeme => spanLexemeReads state (char => char.isAsciiDigit) DigitsLexeme
-    | SignLexeme => plainLexemeReads SignLexeme state (Parse.readsNext (char => True)) (read => rfl)
+    | Spaces => plainLexemeReads Spaces start (Parse.readsSpan (char => char == ' ')) (read => rfl)
+    | LineBreak => plainLexemeReads LineBreak start (Parse.readsNext (char => True)) (read => rfl)
+    | CommentLexeme => spanLexemeReads start (char => char != '\n') CommentLexeme
+    | StringLexeme => stringLexemeRead start
+    | WordLexeme => spanLexemeReads start isWordChar WordLexeme
+    | DigitsLexeme => spanLexemeReads start (char => char.isAsciiDigit) DigitsLexeme
+    | SignLexeme => plainLexemeReads SignLexeme start (Parse.readsNext (char => True)) (read => rfl)
     | SymbolsLexeme =>
       plainLexemeReads
         [p := () => Parse.many operatorChar]
         [first := Parse.Each ((read: List Char) (u: ()) => read = read)]
         SymbolsLexeme
-        state
+        start
         (Parse.readsMany operatorChar (read u => read = read) operatorCharReads)
         (read => rfl)
-    | StrayLexeme => plainLexemeReads StrayLexeme state (Parse.readsNext (char => True)) (read => rfl)
+    | StrayLexeme => plainLexemeReads StrayLexeme start (Parse.readsNext (char => True)) (read => rfl)
 
 --| `lexemeAt`, given what is left, reads the lexeme that starts it.
-theorem lexemeReads ∀ (state: Parse.State Char):
-    Parse.ReadsFrom state (() => lexemeAt state.at.rest) (LexemeSpec state.at.rest) :=
-  value after honest h =>
-    match e: lexemeStart state.at.rest with
+theorem lexemeReads: Parse.LexemeReads Parse.Invariant.any lexemeAt LexemeSpec :=
+  start fits total state value after here honest h =>
+    match e: lexemeStart start.rest with
       | Some lexeme =>
-        match readLexemeReads state lexeme value after honest h with
+        match readLexemeReads start lexeme total state value after here honest h with
           | Witness read (Both starts (Both honestAfter (Both same shape))) =>
             Witness read (Both starts (Both honestAfter (Both (rewrite same in e) (rewrite same in shape))))
 
@@ -276,7 +201,7 @@ theorem lexemesRead ∀ (source: Text) (found: List (Parse.Located Lexeme))
     ∃ (steps: List (List Char, Lexeme)) => source.toList = Parse.joinReads steps
       ∧ found = Parse.locatedSteps 0 steps
       ∧ Parse.LexemesRead LexemeSpec steps :=
-  Parse.allLocatedToEnd source lexemeAt LexemeSpec lexemeReads lexemePaced found h
+  Parse.allLocatedToEnd source lexemeAt LexemeSpec lexemeReads { holds = Trivial } found h
 
 -- From what `lexemeStart` chose back to the first characters.
 

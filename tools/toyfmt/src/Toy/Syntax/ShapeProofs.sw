@@ -62,12 +62,40 @@ theorem givesName ∀ (layout: Layout): Gives (() => name layout) (named => True
 
 theorem givesSignInBrackets ∀ (what: Text) (wanted: Punctuation):
     Gives (() => signInBrackets what wanted) (found => True) :=
-  state value after honest h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match e: state.at.rest with
-      | [] => givesNoted (Parse.Problem.Expected what) None (found => True) rfl state value after honest h
+      | [] =>
+        givesNoted
+          (Parse.Problem.Expected what)
+          None
+          (found => True)
+          rfl
+          state.at
+          fine
+          total
+          state
+          value
+          after
+          rfl
+          honest
+          h
       | [token, ..later] =>
         match isSign: (signIs wanted token.value.kind).isSome with
-          | False => givesNoted (Parse.Problem.Expected what) None (found => True) rfl state value after honest h
+          | False =>
+            givesNoted
+              (Parse.Problem.Expected what)
+              None
+              (found => True)
+              rfl
+              state.at
+              fine
+              total
+              state
+              value
+              after
+              rfl
+              honest
+              h
           | True =>
             givesThen
               (() => skip())
@@ -76,11 +104,15 @@ theorem givesSignInBrackets ∀ (what: Text) (wanted: Punctuation):
               (found => True)
               givesSkip
               (skipped holds => givesDone _ _ rfl)
+              state.at
+              fine
+              total
               state
               value
               after
+              rfl
               honest
-              h
+              h)
 
 theorem givesMark: Gives (() => Parse.mark()) ((at: Parse.Mark (Parse.Located Token)) => True) :=
   Parse.readsWeaken Parse.readsMark (taken at none => rfl)
@@ -313,11 +345,24 @@ theorem givesAtomOf ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (c
 theorem givesAtom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):
     Gives (() => atom self layout) PostfixShaped :=
-  state value after honest h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match e: state.at.rest with
       | [token, ..later] =>
         match allowed: layout.allows token with
-          | True => givesAtomOf self (layout.comments token) token.value.kind nested state value after honest h
+          | True =>
+            givesAtomOf self
+              (layout.comments token)
+              token.value.kind
+              nested
+              state.at
+              fine
+              total
+              state
+              value
+              after
+              rfl
+              honest
+              h)
 
 theorem givesCallAfter ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (target: Expr) (open: Comments)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped)
@@ -385,33 +430,33 @@ theorem givesSuffixes ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
     (shaped: PostfixShaped target):
     Gives (() => suffixesFrom fuel self layout target) PostfixShaped :=
   match fuel with
-    | Zero => state value after honest h =>
+    | Zero => Parse.readsInOfRuns (total state value after fine honest h =>
       match e: state.at.rest with
-        | [] => givesSuffixesStop target shaped state value after honest h
+        | [] => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
         | [token, ..later] =>
           match allowed: layout.allows token with
-            | False => givesSuffixesStop target shaped state value after honest h
+            | False => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
             | True =>
               match kind: token.value.kind with
-                | Sign OpenParen => givesSuffixesStop target shaped state value after honest h
-                | Sign Dot => givesSuffixesStop target shaped state value after honest h
-                | Sign CloseParen => givesSuffixesStop target shaped state value after honest h
-                | Sign OpenSquare => givesSuffixesStop target shaped state value after honest h
-                | Sign CloseSquare => givesSuffixesStop target shaped state value after honest h
-                | Sign Comma => givesSuffixesStop target shaped state value after honest h
-                | Sign Defines => givesSuffixesStop target shaped state value after honest h
-                | Name text => givesSuffixesStop target shaped state value after honest h
-                | Number digits => givesSuffixesStop target shaped state value after honest h
-                | Str written => givesSuffixesStop target shaped state value after honest h
-                | Reserved keyword => givesSuffixesStop target shaped state value after honest h
-                | Op operator => givesSuffixesStop target shaped state value after honest h
-                | Stray text => givesSuffixesStop target shaped state value after honest h
-    | Succ more => state value after honest h =>
+                | Sign OpenParen => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Sign Dot => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Sign CloseParen => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Sign OpenSquare => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Sign CloseSquare => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Sign Comma => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Sign Defines => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Name text => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Number digits => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Str written => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Reserved keyword => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Op operator => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Stray text => givesSuffixesStop target shaped state.at fine total state value after rfl honest h)
+    | Succ more => Parse.readsInOfRuns (total state value after fine honest h =>
       match e: state.at.rest with
-        | [] => givesSuffixesStop target shaped state value after honest h
+        | [] => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
         | [token, ..later] =>
           match allowed: layout.allows token with
-            | False => givesSuffixesStop target shaped state value after honest h
+            | False => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
             | True =>
               match kind: token.value.kind with
                 | Sign OpenParen =>
@@ -420,9 +465,13 @@ theorem givesSuffixes ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
                     shaped
                     (givesCallAfter self target (layout.comments token) nested shaped)
                     (longer longerShaped => givesSuffixes self layout nested more longer longerShaped)
+                    state.at
+                    fine
+                    total
                     state
                     value
                     after
+                    rfl
                     honest
                     h
                 | Sign Dot =>
@@ -431,22 +480,26 @@ theorem givesSuffixes ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
                     shaped
                     (givesFieldAfter layout target (layout.comments token) shaped)
                     (longer longerShaped => givesSuffixes self layout nested more longer longerShaped)
+                    state.at
+                    fine
+                    total
                     state
                     value
                     after
+                    rfl
                     honest
                     h
-                | Sign CloseParen => givesSuffixesStop target shaped state value after honest h
-                | Sign OpenSquare => givesSuffixesStop target shaped state value after honest h
-                | Sign CloseSquare => givesSuffixesStop target shaped state value after honest h
-                | Sign Comma => givesSuffixesStop target shaped state value after honest h
-                | Sign Defines => givesSuffixesStop target shaped state value after honest h
-                | Name text => givesSuffixesStop target shaped state value after honest h
-                | Number digits => givesSuffixesStop target shaped state value after honest h
-                | Str written => givesSuffixesStop target shaped state value after honest h
-                | Reserved keyword => givesSuffixesStop target shaped state value after honest h
-                | Op operator => givesSuffixesStop target shaped state value after honest h
-                | Stray text => givesSuffixesStop target shaped state value after honest h
+                | Sign CloseParen => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Sign OpenSquare => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Sign CloseSquare => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Sign Comma => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Sign Defines => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Name text => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Number digits => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Str written => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Reserved keyword => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Op operator => givesSuffixesStop target shaped state.at fine total state value after rfl honest h
+                | Stray text => givesSuffixesStop target shaped state.at fine total state value after rfl honest h)
 
 theorem givesPostfix ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):
@@ -487,13 +540,14 @@ theorem givesNegations ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
       (givesPostfix self layout nested)
       (expr shaped => Both (postfixIsOperand expr shaped.left) shaped.right)
   match fuel with
-    | Zero => state value after honest h => plain state value after honest h
-    | Succ more => state value after honest h =>
+    | Zero => Parse.readsInOfRuns (total state value after fine honest h =>
+      plain state.at fine total state value after rfl honest h)
+    | Succ more => Parse.readsInOfRuns (total state value after fine honest h =>
       match e: state.at.rest with
-        | [] => plain state value after honest h
+        | [] => plain state.at fine total state value after rfl honest h
         | [token, ..later] =>
           match minus: isMinus layout token with
-            | False => plain state value after honest h
+            | False => plain state.at fine total state value after rfl honest h
             | True =>
               givesThen
                 (() => skip())
@@ -509,11 +563,15 @@ theorem givesNegations ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
                     OperandShaped
                     (givesNegations self layout nested more)
                     (inner shaped => givesDone _ OperandShaped (Both rfl (Both shaped.left shaped.right))))
+                state.at
+                fine
+                total
                 state
                 value
                 after
+                rfl
                 honest
-                h
+                h)
 
 theorem givesOperand ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):
@@ -790,7 +848,7 @@ theorem givesStatement ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped) (fuel: Nat)
     (givesBody: ∀ (inner: Layout) => Gives (() => bodyFuel fuel self inner) ShapedBody) (column: Nat):
     Gives (() => statement fuel self column) ClosedShaped :=
-  state value after honest h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match e: state.at.rest with
       | [first, ..later] =>
         match starts: first.value.startsLine && first.value.column == column with
@@ -806,11 +864,15 @@ theorem givesStatement ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
                   | Both shaped coded =>
                     givesDone _ ClosedShaped
                       (Both (shapedNoted first.value.above line shaped) (closedNoted first.value.above line coded)))
+              state.at
+              fine
+              total
               state
               value
               after
+              rfl
               honest
-              h
+              h)
 
 theorem givesBlock ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped) (fuel: Nat)
@@ -840,25 +902,31 @@ theorem givesBodyFuel ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (fuel: Nat) (layout: Layout):
     Gives (() => bodyFuel fuel self layout) ShapedBody :=
   match fuel with
-    | Zero => state value after honest h => Void.exfalso (Result.errNotOk h)
-    | Succ more => state value after honest h =>
+    | Zero => Parse.readsInOfRuns (total state value after fine honest h => Void.exfalso (Result.errNotOk h))
+    | Succ more => Parse.readsInOfRuns (total state value after fine honest h =>
       match layout with
-        | InBrackets => givesInline self InBrackets nested state value after honest h
+        | InBrackets => givesInline self InBrackets nested state.at fine total state value after rfl honest h
         | InStatement column start =>
           match e: state.at.rest with
-            | [] => givesInline self (InStatement column start) nested state value after honest h
+            | [] =>
+              givesInline self (InStatement column start) nested state.at fine total state value after rfl honest h
             | [token, ..later] =>
               match deeper: token.value.startsLine && token.value.column > column with
-                | False => givesInline self (InStatement column start) nested state value after honest h
+                | False =>
+                  givesInline self (InStatement column start) nested state.at fine total state value after rfl honest h
                 | True =>
                   givesBlock self nested more
                     (inner => givesBodyFuel self nested more inner)
                     token.value.column
+                    state.at
+                    fine
+                    total
                     state
                     value
                     after
+                    rfl
                     honest
-                    h
+                    h)
 
 theorem givesBody ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):
@@ -874,12 +942,12 @@ theorem givesBody ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
 -- `if`, and the expression parser.
 
 theorem givesElse ∀ (layout: Layout): Gives (() => elseKeyword layout) (comments => True) :=
-  state value after honest h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match e: state.at.rest with
-      | [] => givesKeyword layout ElseKeyword state value after honest h
+      | [] => givesKeyword layout ElseKeyword state.at fine total state value after rfl honest h
       | [token, ..later] =>
         match isElse: (keywordIs ElseKeyword token.value.kind).isSome with
-          | False => givesKeyword layout ElseKeyword state value after honest h
+          | False => givesKeyword layout ElseKeyword state.at fine total state value after rfl honest h
           | True =>
             match allowed: layout.allowsElse token with
               | True =>
@@ -890,23 +958,27 @@ theorem givesElse ∀ (layout: Layout): Gives (() => elseKeyword layout) (commen
                   (comments => True)
                   givesSkip
                   (skipped done => givesDone _ _ rfl)
+                  state.at
+                  fine
+                  total
                   state
                   value
                   after
+                  rfl
                   honest
-                  h
+                  h)
 
 --| One level of the expression parser gives an expression of the
 --| parser's shape, given that `self` does for the expressions nested in it.
 theorem givesExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):
     Gives (() => expressionRule self layout) Shaped :=
-  state value after honest h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match e: state.at.rest with
-      | [] => givesChain self layout nested state value after honest h
+      | [] => givesChain self layout nested state.at fine total state value after rfl honest h
       | [token, ..later] =>
         match found: isIf layout token with
-          | False => givesChain self layout nested state value after honest h
+          | False => givesChain self layout nested state.at fine total state value after rfl honest h
           | True =>
             givesThen
               (() => skip())
@@ -972,11 +1044,15 @@ theorem givesExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} 
                                   (givesBody self layout nested)
                                   (whenFalse falseShaped =>
                                     givesDone _ Shaped (Both conditionShaped (Both trueShaped falseShaped))))))))
+              state.at
+              fine
+              total
               state
               value
               after
+              rfl
               honest
-              h
+              h)
 
 --| Every expression the parser gives is of the parser's shape (`Shaped`):
 --| whatever the tokens, if `expression` succeeds, its operators are
@@ -1190,10 +1266,10 @@ theorem givesValueLine ∀ (layout: Layout) (first: Parse.Located Token):
 
 theorem givesDeclarationLine ∀ (layout: Layout) (first: Parse.Located Token):
     Gives (() => declarationLine layout first) ShapedDeclaration :=
-  state value after honest h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match kind: first.value.kind with
-      | Reserved FnKeyword => givesFunctionLine layout first state value after honest h
-      | Reserved LetKeyword => givesValueLine layout first state value after honest h
+      | Reserved FnKeyword => givesFunctionLine layout first state.at fine total state value after rfl honest h
+      | Reserved LetKeyword => givesValueLine layout first state.at fine total state value after rfl honest h)
 
 theorem declarationsAppend ∀ (front back: List (Spaced Declaration))
     (frontShaped: ShapedDeclarations front)
@@ -1252,23 +1328,28 @@ theorem declarationsConcat ∀ (groups: List (List (Spaced Declaration)))
     | [first, ..rest], Both firstShaped restShaped =>
       declarationsAppend first rest.concat firstShaped (declarationsConcat rest restShaped)
 
-theorem givesDeclaration: Gives declaration ShapedDeclarations := state value after honest h =>
-  match e: state.at.rest with
-    | [first, ..later] =>
-      match starts: first.value.startsLine && first.value.column == 0 with
-        | True =>
-          givesThen
-            (() => declarationLine (InStatement 0 first.offset) first)
-            (parsed => notedDeclaration first.value.above parsed)
-            ShapedDeclaration
-            ShapedDeclarations
-            (givesDeclarationLine (InStatement 0 first.offset) first)
-            (parsed shaped => givesDone _ ShapedDeclarations (shapedNotedDeclaration first.value.above parsed shaped))
-            state
-            value
-            after
-            honest
-            h
+theorem givesDeclaration: Gives declaration ShapedDeclarations :=
+  Parse.readsInOfRuns (total state value after fine honest h =>
+    match e: state.at.rest with
+      | [first, ..later] =>
+        match starts: first.value.startsLine && first.value.column == 0 with
+          | True =>
+            givesThen
+              (() => declarationLine (InStatement 0 first.offset) first)
+              (parsed => notedDeclaration first.value.above parsed)
+              ShapedDeclaration
+              ShapedDeclarations
+              (givesDeclarationLine (InStatement 0 first.offset) first)
+              (parsed shaped => givesDone _ ShapedDeclarations (shapedNotedDeclaration first.value.above parsed shaped))
+              state.at
+              fine
+              total
+              state
+              value
+              after
+              rfl
+              honest
+              h)
 
 theorem shapedFileOf ∀ (declarations: List (Spaced Declaration)) (endTrivia: List Trivia)
     (shaped: ShapedDeclarations declarations):
@@ -1284,16 +1365,20 @@ theorem shapedFileOf ∀ (declarations: List (Spaced Declaration)) (endTrivia: L
 theorem givesFileEnd ∀ (declarations: List (Spaced Declaration)) (endTrivia: List Trivia)
     (shaped: ShapedDeclarations declarations):
     Gives (() => fileEnd declarations endTrivia) ShapedFile :=
-  state value after honest h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match e: state.at.rest with
       | [] =>
         givesDone
           (fileOf declarations endTrivia)
           ShapedFile
           (shapedFileOf declarations endTrivia shaped)
+          state.at
+          fine
+          total
           state
           value
           after
+          rfl
           honest
           h
       | [token, ..later] =>
@@ -1303,11 +1388,15 @@ theorem givesFileEnd ∀ (declarations: List (Spaced Declaration)) (endTrivia: L
               (fileOf declarations endTrivia)
               ShapedFile
               (shapedFileOf declarations endTrivia shaped)
+              state.at
+              fine
+              total
               state
               value
               after
+              rfl
               honest
-              h
+              h)
 
 theorem givesSourceFile ∀ (endTrivia: List Trivia): Gives (() => sourceFile endTrivia) ShapedFile :=
   givesThen

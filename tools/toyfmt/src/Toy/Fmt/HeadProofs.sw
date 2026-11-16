@@ -240,7 +240,7 @@ theorem givesHeadedAtomOf ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
 theorem givesHeadedAtom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) (HeadedAt inner)):
     Gives (() => atom self layout) (HeadedAt layout) :=
-  state value after honest h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match e: state.at.rest with
       | [token, ..later] =>
         match allowed: layout.allows token with
@@ -250,11 +250,15 @@ theorem givesHeadedAtom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr
               (layout.comments token)
               token.value.kind
               nested
+              state.at
+              fine
+              total
               state
               value
               after
+              rfl
               honest
-              h
+              h)
 
 theorem givesHeadedCall ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bracketed: Bool)
     (target: Expr) (open: Comments)
@@ -316,33 +320,40 @@ theorem givesHeadedSuffixes ∀ (self: Layout → {Parse (Parse.Located Token)} 
     (headed: HeadedAt layout target):
     Gives (() => suffixesFrom fuel self layout target) (HeadedAt layout) :=
   match fuel with
-    | Zero => state value after honest h =>
+    | Zero => Parse.readsInOfRuns (total state value after fine honest h =>
       match e: state.at.rest with
-        | [] => givesHeadedStop layout target headed state value after honest h
+        | [] => givesHeadedStop layout target headed state.at fine total state value after rfl honest h
         | [token, ..later] =>
           match allowed: layout.allows token with
-            | False => givesHeadedStop layout target headed state value after honest h
+            | False => givesHeadedStop layout target headed state.at fine total state value after rfl honest h
             | True =>
               match kind: token.value.kind with
-                | Sign OpenParen => givesHeadedStop layout target headed state value after honest h
-                | Sign Dot => givesHeadedStop layout target headed state value after honest h
-                | Sign CloseParen => givesHeadedStop layout target headed state value after honest h
-                | Sign OpenSquare => givesHeadedStop layout target headed state value after honest h
-                | Sign CloseSquare => givesHeadedStop layout target headed state value after honest h
-                | Sign Comma => givesHeadedStop layout target headed state value after honest h
-                | Sign Defines => givesHeadedStop layout target headed state value after honest h
-                | Name text => givesHeadedStop layout target headed state value after honest h
-                | Number digits => givesHeadedStop layout target headed state value after honest h
-                | Str written => givesHeadedStop layout target headed state value after honest h
-                | Reserved keyword => givesHeadedStop layout target headed state value after honest h
-                | Op operator => givesHeadedStop layout target headed state value after honest h
-                | Stray text => givesHeadedStop layout target headed state value after honest h
-    | Succ more => state value after honest h =>
+                | Sign OpenParen =>
+                  givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Sign Dot => givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Sign CloseParen =>
+                  givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Sign OpenSquare =>
+                  givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Sign CloseSquare =>
+                  givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Sign Comma => givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Sign Defines =>
+                  givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Name text => givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Number digits =>
+                  givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Str written => givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Reserved keyword =>
+                  givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Op operator => givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Stray text => givesHeadedStop layout target headed state.at fine total state value after rfl honest h)
+    | Succ more => Parse.readsInOfRuns (total state value after fine honest h =>
       match e: state.at.rest with
-        | [] => givesHeadedStop layout target headed state value after honest h
+        | [] => givesHeadedStop layout target headed state.at fine total state value after rfl honest h
         | [token, ..later] =>
           match allowed: layout.allows token with
-            | False => givesHeadedStop layout target headed state value after honest h
+            | False => givesHeadedStop layout target headed state.at fine total state value after rfl honest h
             | True =>
               match kind: token.value.kind with
                 | Sign OpenParen =>
@@ -351,9 +362,13 @@ theorem givesHeadedSuffixes ∀ (self: Layout → {Parse (Parse.Located Token)} 
                     headed
                     (givesHeadedCall self (bracketedOf layout) target (layout.comments token) nested headed)
                     (longer longerHeaded => givesHeadedSuffixes self layout nested more longer longerHeaded)
+                    state.at
+                    fine
+                    total
                     state
                     value
                     after
+                    rfl
                     honest
                     h
                 | Sign Dot =>
@@ -362,22 +377,32 @@ theorem givesHeadedSuffixes ∀ (self: Layout → {Parse (Parse.Located Token)} 
                     headed
                     (givesHeadedField (bracketedOf layout) layout target (layout.comments token) headed)
                     (longer longerHeaded => givesHeadedSuffixes self layout nested more longer longerHeaded)
+                    state.at
+                    fine
+                    total
                     state
                     value
                     after
+                    rfl
                     honest
                     h
-                | Sign CloseParen => givesHeadedStop layout target headed state value after honest h
-                | Sign OpenSquare => givesHeadedStop layout target headed state value after honest h
-                | Sign CloseSquare => givesHeadedStop layout target headed state value after honest h
-                | Sign Comma => givesHeadedStop layout target headed state value after honest h
-                | Sign Defines => givesHeadedStop layout target headed state value after honest h
-                | Name text => givesHeadedStop layout target headed state value after honest h
-                | Number digits => givesHeadedStop layout target headed state value after honest h
-                | Str written => givesHeadedStop layout target headed state value after honest h
-                | Reserved keyword => givesHeadedStop layout target headed state value after honest h
-                | Op operator => givesHeadedStop layout target headed state value after honest h
-                | Stray text => givesHeadedStop layout target headed state value after honest h
+                | Sign CloseParen =>
+                  givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Sign OpenSquare =>
+                  givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Sign CloseSquare =>
+                  givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Sign Comma => givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Sign Defines =>
+                  givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Name text => givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Number digits =>
+                  givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Str written => givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Reserved keyword =>
+                  givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Op operator => givesHeadedStop layout target headed state.at fine total state value after rfl honest h
+                | Stray text => givesHeadedStop layout target headed state.at fine total state value after rfl honest h)
 
 theorem givesHeadedPostfix ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) (HeadedAt inner)):
@@ -410,13 +435,14 @@ theorem givesHeadedNegations ∀ (self: Layout → {Parse (Parse.Located Token)}
     (nested: ∀ (inner: Layout) => Gives (() => self inner) (HeadedAt inner)) (fuel: Nat):
     Gives (() => negationsFrom fuel self layout) (HeadedAt layout) :=
   match fuel with
-    | Zero => state value after honest h => givesHeadedPostfix self layout nested state value after honest h
-    | Succ more => state value after honest h =>
+    | Zero => Parse.readsInOfRuns (total state value after fine honest h =>
+      givesHeadedPostfix self layout nested state.at fine total state value after rfl honest h)
+    | Succ more => Parse.readsInOfRuns (total state value after fine honest h =>
       match e: state.at.rest with
-        | [] => givesHeadedPostfix self layout nested state value after honest h
+        | [] => givesHeadedPostfix self layout nested state.at fine total state value after rfl honest h
         | [token, ..later] =>
           match minus: isMinus layout token with
-            | False => givesHeadedPostfix self layout nested state value after honest h
+            | False => givesHeadedPostfix self layout nested state.at fine total state value after rfl honest h
             | True =>
               givesThen
                 (() => skip())
@@ -432,11 +458,15 @@ theorem givesHeadedNegations ∀ (self: Layout → {Parse (Parse.Located Token)}
                     (HeadedAt layout)
                     (givesHeadedNegations self layout nested more)
                     (inner headed => givesDone (Negate (layout.comments token) inner) (HeadedAt layout) headed))
+                state.at
+                fine
+                total
                 state
                 value
                 after
+                rfl
                 honest
-                h
+                h)
 
 theorem givesHeadedOperand ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) (HeadedAt inner)):
@@ -628,7 +658,7 @@ theorem givesHeadedStatement ∀ (self: Layout → {Parse (Parse.Located Token)}
     (nested: ∀ (inner: Layout) => Gives (() => self inner) (HeadedAt inner)) (fuel: Nat)
     (givesBody: ∀ (inner: Layout) => Gives (() => bodyFuel fuel self inner) (HeadedBodyAt inner)) (column: Nat):
     Gives (() => statement fuel self column) (HeadedLines False) :=
-  state value after honest h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match e: state.at.rest with
       | [first, ..later] =>
         match starts: first.value.startsLine && first.value.column == column with
@@ -641,11 +671,15 @@ theorem givesHeadedStatement ∀ (self: Layout → {Parse (Parse.Located Token)}
               (givesHeadedStatementLine self nested fuel givesBody column first.offset first first.value.kind
                 (startAbove column first))
               (line headed => givesDone _ (HeadedLines False) (headedNoted first.value.above line headed))
+              state.at
+              fine
+              total
               state
               value
               after
+              rfl
               honest
-              h
+              h)
 
 theorem givesHeadedBlock ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) (HeadedAt inner)) (fuel: Nat)
@@ -674,25 +708,53 @@ theorem givesHeadedBodyFuel ∀ (self: Layout → {Parse (Parse.Located Token)} 
     (fuel: Nat) (layout: Layout):
     Gives (() => bodyFuel fuel self layout) (HeadedBodyAt layout) :=
   match fuel with
-    | Zero => state value after honest h => Void.exfalso (Result.errNotOk h)
-    | Succ more => state value after honest h =>
+    | Zero => Parse.readsInOfRuns (total state value after fine honest h => Void.exfalso (Result.errNotOk h))
+    | Succ more => Parse.readsInOfRuns (total state value after fine honest h =>
       match layout with
-        | InBrackets => givesHeadedInline self InBrackets nested state value after honest h
+        | InBrackets => givesHeadedInline self InBrackets nested state.at fine total state value after rfl honest h
         | InStatement column start =>
           match e: state.at.rest with
-            | [] => givesHeadedInline self (InStatement column start) nested state value after honest h
+            | [] =>
+              givesHeadedInline self
+                (InStatement column start)
+                nested
+                state.at
+                fine
+                total
+                state
+                value
+                after
+                rfl
+                honest
+                h
             | [token, ..later] =>
               match deeper: token.value.startsLine && token.value.column > column with
-                | False => givesHeadedInline self (InStatement column start) nested state value after honest h
+                | False =>
+                  givesHeadedInline self
+                    (InStatement column start)
+                    nested
+                    state.at
+                    fine
+                    total
+                    state
+                    value
+                    after
+                    rfl
+                    honest
+                    h
                 | True =>
                   givesHeadedBlock self nested more
                     (inner => givesHeadedBodyFuel self nested more inner)
                     token.value.column
+                    state.at
+                    fine
+                    total
                     state
                     value
                     after
+                    rfl
                     honest
-                    h
+                    h)
 
 theorem givesHeadedBody ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) (HeadedAt inner)):
@@ -710,12 +772,12 @@ theorem givesHeadedBody ∀ (self: Layout → {Parse (Parse.Located Token)} Expr
 theorem givesHeadedExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) (HeadedAt inner)):
     Gives (() => expressionRule self layout) (HeadedAt layout) :=
-  state value after honest h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match e: state.at.rest with
-      | [] => givesHeadedChain self layout nested state value after honest h
+      | [] => givesHeadedChain self layout nested state.at fine total state value after rfl honest h
       | [token, ..later] =>
         match found: isIf layout token with
-          | False => givesHeadedChain self layout nested state value after honest h
+          | False => givesHeadedChain self layout nested state.at fine total state value after rfl honest h
           | True =>
             givesThen
               (() => skip())
@@ -783,11 +845,15 @@ theorem givesHeadedExpressionRule ∀ (self: Layout → {Parse (Parse.Located To
                                     givesDone _
                                       (HeadedAt layout)
                                       (Both conditionHeaded (Both trueHeaded falseHeaded))))))))
+              state.at
+              fine
+              total
               state
               value
               after
+              rfl
               honest
-              h
+              h)
 
 --| Every expression the parser gives is `HeadedExpr`, inside brackets or
 --| not as its layout is.
@@ -929,10 +995,12 @@ theorem givesHeadedValueLine ∀ (column start: Nat) (first: Parse.Located Token
 theorem givesHeadedDeclarationLine ∀ (column start: Nat) (first: Parse.Located Token)
     (noAbove: ((InStatement column start).comments first).above = []):
     Gives (() => declarationLine (InStatement column start) first) HeadedDeclaration :=
-  state value after honest h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match kind: first.value.kind with
-      | Reserved FnKeyword => givesHeadedFunctionLine column start first noAbove state value after honest h
-      | Reserved LetKeyword => givesHeadedValueLine column start first noAbove state value after honest h
+      | Reserved FnKeyword =>
+        givesHeadedFunctionLine column start first noAbove state.at fine total state value after rfl honest h
+      | Reserved LetKeyword =>
+        givesHeadedValueLine column start first noAbove state.at fine total state value after rfl honest h)
 
 theorem headedDeclarationsAppend ∀ (front back: List (Spaced Declaration))
     (frontHeaded: HeadedDeclarations front)
@@ -992,23 +1060,28 @@ theorem headedDeclarationsConcat ∀ (groups: List (List (Spaced Declaration)))
     | [first, ..rest], Both firstHeaded restHeaded =>
       headedDeclarationsAppend first rest.concat firstHeaded (headedDeclarationsConcat rest restHeaded)
 
-theorem givesHeadedDeclaration: Gives declaration HeadedDeclarations := state value after honest h =>
-  match e: state.at.rest with
-    | [first, ..later] =>
-      match starts: first.value.startsLine && first.value.column == 0 with
-        | True =>
-          givesThen
-            (() => declarationLine (InStatement 0 first.offset) first)
-            (parsed => notedDeclaration first.value.above parsed)
-            HeadedDeclaration
-            HeadedDeclarations
-            (givesHeadedDeclarationLine 0 first.offset first (startAbove 0 first))
-            (parsed headed => givesDone _ HeadedDeclarations (headedNotedDeclaration first.value.above parsed headed))
-            state
-            value
-            after
-            honest
-            h
+theorem givesHeadedDeclaration: Gives declaration HeadedDeclarations :=
+  Parse.readsInOfRuns (total state value after fine honest h =>
+    match e: state.at.rest with
+      | [first, ..later] =>
+        match starts: first.value.startsLine && first.value.column == 0 with
+          | True =>
+            givesThen
+              (() => declarationLine (InStatement 0 first.offset) first)
+              (parsed => notedDeclaration first.value.above parsed)
+              HeadedDeclaration
+              HeadedDeclarations
+              (givesHeadedDeclarationLine 0 first.offset first (startAbove 0 first))
+              (parsed headed => givesDone _ HeadedDeclarations (headedNotedDeclaration first.value.above parsed headed))
+              state.at
+              fine
+              total
+              state
+              value
+              after
+              rfl
+              honest
+              h)
 
 theorem headedFileOf ∀ (declarations: List (Spaced Declaration)) (endTrivia: List Trivia)
     (headed: HeadedDeclarations declarations):
@@ -1026,16 +1099,20 @@ theorem headedFileOf ∀ (declarations: List (Spaced Declaration)) (endTrivia: L
 theorem givesHeadedFileEnd ∀ (declarations: List (Spaced Declaration)) (endTrivia: List Trivia)
     (headed: HeadedDeclarations declarations):
     Gives (() => fileEnd declarations endTrivia) HeadedFile :=
-  state value after honest h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match e: state.at.rest with
       | [] =>
         givesDone
           (fileOf declarations endTrivia)
           HeadedFile
           (headedFileOf declarations endTrivia headed)
+          state.at
+          fine
+          total
           state
           value
           after
+          rfl
           honest
           h
       | [token, ..later] =>
@@ -1045,11 +1122,15 @@ theorem givesHeadedFileEnd ∀ (declarations: List (Spaced Declaration)) (endTri
               (fileOf declarations endTrivia)
               HeadedFile
               (headedFileOf declarations endTrivia headed)
+              state.at
+              fine
+              total
               state
               value
               after
+              rfl
               honest
-              h
+              h)
 
 theorem givesHeadedSourceFile ∀ (endTrivia: List Trivia): Gives (() => sourceFile endTrivia) HeadedFile :=
   givesThen

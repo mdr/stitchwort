@@ -272,6 +272,11 @@ def Parse.span1 (what: Text) (passes: t → Bool): {Parse t} List t := match Par
 --| The end of the input, else "expected the end".
 def Parse.end(): {Parse t} () := if Parse.mark().left == 0 then () else Parse.expected "the end"
 
+--| The next item, without reading it: `None` at the end of the input. For
+--| a parser that decides what to read by looking ahead
+--| (`match Parse.peek() with …`); [`Parse.readsInPeek`] proves one.
+def Parse.peek(): {Parse t} Option t := Parse.mark().rest.head
+
 -- Choice and repetition. A failed alternative leaves the input as it was.
 
 --| `Some` of `parser`'s value, or `None` with the input as it was if it

@@ -39113,12 +39113,12 @@
     {
       "id": 3503,
       "title": "[Opus] Parse proofs L1 (docs/proposals/parse-proof-library.md §6, D3628): Honest, ReadsAt, Invariant, ReadsIn; restate Reads.sw's 78 theorems; honestMoved, readsInOf, readsOneEvery, readsAtThen, readsInPeek, Parse.peek. Est. 60 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Progress (Opus lane, 16 Nov 2026, 09:46-10:15):\n- Std: `Parse.Honest`, `ReadsAt`, `Invariant` (`any`, `every`, `both`), `Fits`, `ReadsIn`; `Reads` = `ReadsIn any`. Reads.sw's lemmas restated over `ReadsIn inv` (inv implicit); primitives prove the offset half of `Honest`; chaining combinators pass the invariant on with `fine.after starts1`.\n- New: `honestMoved`, `honestOf`, `readsInOfRuns` (state-level proofs), `Fits.after`, `readsInOf`, `readsInOfReads`, `readsOneEvery`, `readsAtThen`, `readsInPeek`, `Parse.peek`.\n- Deviation from the note: the invariant appears in `ReadsIn` as `Parse.Fits t inv start.rest` (a one-field Prop record), not `inv.holds start.rest`: with the latter the elaborator can't find `inv` when a `Reads` meets a lemma over `ReadsIn ?inv` (`?inv.holds rest` against `Unit`). With `Fits` it unifies rigidly and every std/aoc call site infers it.\n- Among.sw: `ReadsAmong fine` is now `ReadsIn (every fine)`; its simple lemmas are one-line aliases; `amongManyFrom` deleted (state-level, unused outside std); `amongOperatorsFrom`, `wholeAmong` ported. Paced.sw, ReadsChars.sw, ReadsOperators.sw: state-level spots ported (a few lines each).\n- Checks: std Parse (13 files) checks; aoc 2020 days 16, 19, 07 Proofs check (--no-cache). Toy: its 117 state-level `Reads` openings break (ShapeProofs: 11 errors); left for L2 (SW-3504).\n- Hash snapshots: prelude (Parse additions; changed Reads, ReadsAmong, the restated lemmas) and 6 Reads examples' proof hashes accepted; `binary(library) & test(/hash_stability/)` then 10/10 pass.\n- Moved to review.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39126,15 +39126,17 @@
     {
       "id": 3504,
       "title": "[Sonnet] Parse proofs L2: ReadsChars/ReadsOperators/ReadsTokens/locatedToEnd onto L1; delete Among.sw and Paced.sw; move the toy's Fair/Paced uses and aoc's call sites. After L1 and SW-3490. Est. 60 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\n\nLane note (Sonnet, SW-3504): done on lane/SW-3504 (46ec10b56, on top of L1). Std lemmas of ReadsChars/ReadsOperators/ReadsTokens are over ReadsIn [inv]; Among.sw and Paced.sw deleted; toy's Gives/Fair on readsInOfRuns, Fair = ReadsIn (every Good), 8 Paced lemmas gone (1143 -> 1135 theorems). Checks: check --std Parse; toy Toy.Syntax.Proofs and Toy.Fmt.Proofs; goal (none); axioms (none); hash_stability (10 pass, snapshots updated). No aoc call sites. Left: operator lemmas that use the operator item's fineness are duplicated as *Every versions (could fold into one with an item predicate).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "46ec10b56"
+      ]
     },
     {
       "id": 3505,

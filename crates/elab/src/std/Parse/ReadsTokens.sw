@@ -6,9 +6,9 @@ import Parse.Problem (Expected, Literal, Literals, Message)
 -- (`Parse.runsFromLocated`, Parse/RunsTokens.sw).
 
 --| `located p` reads what `p` read, and its value is `p`'s.
-theorem Parse.readsLocated ∀ (p: () → {Parse Char} a) (spec: List Char → a → Prop)
-    (reads: Parse.Reads p spec):
-    Parse.Reads (() => Parse.located p) (read located => spec read located.value) :=
+theorem Parse.readsLocated ∀ [inv: Parse.Invariant Char] (p: () → {Parse Char} a) (spec: List Char → a → Prop)
+    (reads: Parse.ReadsIn inv p spec):
+    Parse.ReadsIn inv (() => Parse.located p) (read located => spec read located.value) :=
   Parse.readsThen Parse.readsMark (startRead start startFacts =>
     Parse.readsThen reads (firstRead value firstFacts =>
       Parse.readsThen
@@ -62,3 +62,196 @@ theorem Parse.tokensReads ∀ (input: Text) (lexer: () → {Parse Char} List (Pa
             (Witness ending
               (Witness tokens
                 (Both split (Both holds (Both ended (Parse.wholeReads tokens parser spec value readsParser ran))))))
+
+-- What `Parse.locatedToEnd` gave when it succeeded (the converse of
+-- `Parse.runsLocatedToEnd`, Parse/RunsTokens.sw).
+
+--| What a lexeme reads, given the characters left: from every mark where
+--| `inv` holds of them, `lexeme rest` reads as `spec rest` says
+--| ([`Parse.ReadsAt`]). [`Parse.locatedToEnd`]'s lexeme is such a parser.
+def Parse.LexemeReads (inv: Parse.Invariant Char)
+    (lexeme: List Char → {Parse Char} a) (spec: List Char → List Char → a → Prop):
+    Prop :=
+  ∀ (start: Parse.Mark Char) => Parse.Fits Char inv start.rest
+    → Parse.ReadsAt start (() => lexeme start.rest) (spec start.rest)
+
+--| What `locatedToEnd` read, lexeme by lexeme: each step's characters
+--| (never none) and value, of which `spec` holds given the characters that
+--| were left when it was read (the step's own, then the later steps').
+def Parse.LexemesRead (spec: List Char → List Char → a → Prop): (steps: List (List Char, a)) → Prop
+  | [] => True
+  | [(read, value), ..steps] =>
+    read ≠ [] ∧ spec (read ++ Parse.joinReads steps) read value ∧ Parse.LexemesRead spec steps
+
+--| `locatedToEndFrom` from a state at its `start` mark, with fuel for every
+--| character left, after `found` (newest first), succeeded: it read to the
+--| end, lexeme by lexeme, and gave each with its offset and length.
+theorem Parse.locatedToEndFromReads ∀ [inv: Parse.Invariant Char]
+    (lexeme: List Char → {Parse Char} a) (spec: List Char → List Char → a → Prop)
+    (reads: Parse.LexemeReads inv lexeme spec)
+    (fuel: Nat) (found: List (Parse.Located a)) (total: Nat) (state: Parse.State Char)
+    (value: List (Parse.Located a)) (after: Parse.Mark Char)
+    (fine: Parse.Fits Char inv state.at.rest)
+    (honest: Parse.Honest total state.at)
+    (enough: state.at.left < fuel)
+    (h: Parse.runFrom state (() => (Parse.locatedToEndFrom fuel lexeme found state.at, Parse.mark()))
+      = Ok (value, after)):
+    ∃ (steps: List (List Char, a)) => state.at.rest = Parse.joinReads steps
+      ∧ after.rest = []
+      ∧ after.left = 0
+      ∧ value = found.reverse ++ Parse.locatedSteps state.at.offset steps
+      ∧ Parse.LexemesRead spec steps :=
+  match fuel with
+    | Succ more =>
+      match e: state.at.rest with
+        | [] =>
+          let same := Result.okInjective h
+          let valueSame: found.reverse = value := Pair.mkInjectiveFst same
+          let atSame: (state.note (Expected "a token")).at = after := Pair.mkInjectiveSnd same
+          Witness []
+            (Both rfl
+              (Both
+                (rewrite <- atSame, Parse.noteAt state (Expected "a token") in e)
+                (Both
+                  (rewrite <- atSame, Parse.noteAt state (Expected "a token") in omega [honest.left])
+                  (Both (rewrite <- valueSame, List.appendNil found.reverse in rfl) rfl))))
+        | [char, ..chars] =>
+          match Parse.runFromThenOk2
+            (() => lexeme state.at.rest)
+            state
+            (x => Parse.locatedToEndRound more lexeme found state.at x Parse.mark())
+            (x => (x, Parse.mark()))
+            (value, after)
+            h with
+            | Witness v (Witness middle (Both ran rest)) =>
+              match reads state.at fine total state v middle.at rfl honest ran with
+                | Witness read1 (Both starts1 (Both honest1 holds1)) =>
+                  let newest: Parse.Located a :=
+                    { value = v, offset = state.at.offset, length = middle.at.offset - state.at.offset }
+                  match Parse.runFromIfOk
+                    (middle.at.offset > state.at.offset)
+                    (() => Parse.locatedToEndFrom more lexeme [newest, ..found] middle.at)
+                    (() => Empty.absurd (Parse.fatal "`locatedToEnd`: the lexeme matched without reading anything"))
+                    middle
+                    value
+                    after
+                    rest with
+                    | Inr (Both isFalse noRun) => Void.exfalso (Result.errNotOk noRun)
+                    | Inl (Both isTrue yesRun) =>
+                      let lengths: state.at.rest.length = read1.length + middle.at.rest.length :=
+                        rewrite starts1 in List.lengthAppend read1 middle.at.rest
+                      let sameLength: middle.at.offset - state.at.offset = read1.length :=
+                        omega [honest.left, honest.right, honest1.left, honest1.right, lengths, isTrue]
+                      let offsetSame: middle.at.offset = state.at.offset + read1.length :=
+                        omega [honest.left, honest.right, honest1.left, honest1.right, lengths, isTrue]
+                      let nonEmpty: read1 ≠ [] := isNil =>
+                        let zero: read1.length = 0 := rewrite isNil in rfl
+                        omega [zero, sameLength, isTrue]
+                      match Parse.locatedToEndFromReads lexeme spec reads more
+                        [newest, ..found]
+                        total
+                        middle
+                        value
+                        after
+                        (fine.after (rewrite <- e in starts1))
+                        honest1
+                        (omega [enough, honest.left, honest.right, honest1.left, honest1.right, isTrue, lengths])
+                        yesRun with
+                        | Witness steps (Both joined (Both empty (Both zeroLeft (Both valueSame lexemes)))) =>
+                          Witness
+                            [(read1, v), ..steps]
+                            (Both
+                              (rewrite <- joined in starts1)
+                              (Both empty
+                                (Both zeroLeft
+                                  (Both
+                                    (rewrite valueSame,
+                                        List.reverseCons newest found,
+                                        List.appendAssoc found.reverse
+                                          [newest]
+                                          (Parse.locatedSteps middle.at.offset steps),
+                                        sameLength,
+                                        offsetSame in
+                                      rfl)
+                                    (Both nonEmpty (Both (rewrite <- joined, <- starts1 in holds1) lexemes))))))
+
+--| `locatedToEnd lexeme` succeeded, from an honest state where `inv` holds
+--| of the input left: it read all that was left, lexeme by lexeme
+--| (`steps`), and gave each lexeme's value with its offset and length;
+--| `spec` holds of each ([`Parse.LexemesRead`]). `lexeme`, given the
+--| characters left, must read as `spec` of them says ([`Parse.LexemeReads`]).
+--| The converse of [`Parse.runsLocatedToEnd`].
+theorem Parse.locatedToEndReads ∀ [inv: Parse.Invariant Char]
+    (lexeme: List Char → {Parse Char} a) (spec: List Char → List Char → a → Prop)
+    (reads: Parse.LexemeReads inv lexeme spec)
+    (total: Nat) (state: Parse.State Char) (value: List (Parse.Located a)) (after: Parse.Mark Char)
+    (fine: Parse.Fits Char inv state.at.rest)
+    (honest: Parse.Honest total state.at)
+    (h: Parse.runFrom state (() => (Parse.locatedToEnd lexeme, Parse.mark())) = Ok (value, after)):
+    ∃ (steps: List (List Char, a)) => state.at.rest = Parse.joinReads steps
+      ∧ after.rest = []
+      ∧ after.left = 0
+      ∧ value = Parse.locatedSteps state.at.offset steps
+      ∧ Parse.LexemesRead spec steps :=
+  Parse.locatedToEndFromReads lexeme spec reads (state.at.left + 1) [] total state value after fine honest (omega []) h
+
+--| `all input (() => locatedToEnd lexeme)` gave `found`: the input is what
+--| the steps read, one after another, `found` is their values with where
+--| each is in the input (the first at 0), and `spec` holds of each step.
+--| So the slice of the input at a lexeme's offset and length is what its
+--| step read ([`Parse.locatedStepsSlices`]).
+theorem Parse.allLocatedToEnd ∀ [inv: Parse.Invariant Char] (input: Text)
+    (lexeme: List Char → {Parse Char} a) (spec: List Char → List Char → a → Prop)
+    (reads: Parse.LexemeReads inv lexeme spec)
+    (fits: Parse.Fits Char inv input.toList) (found: List (Parse.Located a))
+    (h: Fail.toResult (() => Parse.all input (() => Parse.locatedToEnd lexeme)) = Ok found):
+    ∃ (steps: List (List Char, a)) => input.toList = Parse.joinReads steps
+      ∧ found = Parse.locatedSteps 0 steps
+      ∧ Parse.LexemesRead spec steps :=
+  let whole :=
+    Parse.runnerOk input.toList
+      (() => Parse.withFinalLineBreaks (() => Parse.locatedToEnd lexeme))
+      (Parse.allMessage input.toList)
+      found
+      h
+  match Parse.runFromThenOk
+    (() => Parse.withFinalLineBreaks (() => Parse.locatedToEnd lexeme))
+    (Parse.State.start input.toList)
+    (v =>
+      Parse.end()
+      v)
+    found
+    whole with
+    | Witness v (Witness middle (Both ran rest)) =>
+      match Parse.endOk middle v found rest with
+        | Both atEnd same =>
+          match Parse.runFromThenOk2
+            (() => Parse.locatedToEnd lexeme)
+            (Parse.State.start input.toList)
+            (value => Parse.withFinalLineBreaks (() => value))
+            (x => (x, Parse.mark()))
+            (v, middle.at)
+            ran with
+            | Witness v0 (Witness mid0 (Both ran0 rest0)) =>
+              match Parse.locatedToEndReads lexeme spec reads input.toList.length
+                (Parse.State.start input.toList)
+                v0
+                mid0.at
+                fits
+                (Both rfl (omega []))
+                ran0 with
+                | Witness steps (Both joined (Both empty (Both zeroLeft (Both valueSame lexemes)))) =>
+                  let honest0: mid0.at.left = mid0.at.rest.length := rewrite empty, zeroLeft in rfl
+                  let startsEnd: input.toList = Parse.joinReads steps ++ mid0.at.rest :=
+                    rewrite empty, List.appendNil (Parse.joinReads steps) in joined
+                  let fitsEnd: Parse.Fits Char inv mid0.at.rest := fits.after startsEnd
+                  match Parse.readsFinalLineBreaks v0 mid0.at fitsEnd
+                    (mid0.at.offset + mid0.at.left)
+                    mid0
+                    v
+                    middle.at
+                    rfl
+                    (Parse.honestOf honest0)
+                    rest0 with
+                    | Witness read (Both starts (Both honestAfter (Both breaks same2))) =>
+                      Witness steps (Both joined (Both (rewrite <- same, same2 in valueSame) lexemes))
