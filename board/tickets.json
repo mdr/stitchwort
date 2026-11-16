@@ -1,5 +1,5 @@
 {
-  "next": 3622,
+  "next": 3624,
   "tickets": [
     {
       "id": 47,
@@ -40537,12 +40537,12 @@
     {
       "id": 3611,
       "title": "[Sonnet] Std warnings to zero, stage 2 (Matt: no warnings in Stitchwort code; fix or dial down): (1) narrow W-PROOF-CHAIN to nests that span lines (orchestrator's call: one-line nests like Bool.falseNotTrue (Eq.trans c.flipped (Eq.trans …)) read fine; ~40 of 205), lower pins; (2) convert the remaining multi-line nests to calc in batches from docs/reviews/SW-3603-std-warnings.md, one commit per batch, pins lowered, prelude hash snapshot and native pins refreshed. Sequential (all batches touch the prelude snapshot)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Progress (lane, 16 Nov): W-PROOF-CHAIN now reports only multi-line nests (filter in keep_written_arrows, which has the file text); std 205 -> 157 on narrowing -> 0 after converting 157 nests to calc (a harvest script took intermediate terms from the checker's mismatch messages, about 20 by hand where the printer elides terms). Native pins for Float.neg/abs/sub moved; hash snapshots (prelude, examples, projects), warning_pins (now empty), pinned_hashes::every_binding_by_hash_applies_to_the_library all pass. Branch lane/SW-3611.\n",
+      "body": "Progress (lane, 16 Nov): W-PROOF-CHAIN now reports only multi-line nests (filter in keep_written_arrows, which has the file text); std 205 -> 157 on narrowing -> 0 after converting 157 nests to calc (a harvest script took intermediate terms from the checker's mismatch messages, about 20 by hand where the printer elides terms). Native pins for Float.neg/abs/sub moved; hash snapshots (prelude, examples, projects), warning_pins (now empty), pinned_hashes::every_binding_by_hash_applies_to_the_library all pass. Branch lane/SW-3611.\n\nModel result: sonnet, worked, 47 min (est. 75). Std warnings 194 -> 157 after narrowing -> 0. Follow-ups SW-3622 SW-3623.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40672,6 +40672,32 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3622,
+      "title": "[Sonnet] E-CALC-STEP / mismatch messages: an option (or a rule for calc steps) to print terms in full, without '…' elision, List.sumBy unfolding or _n₂ names, so calc steps can be written from the message (SW-3611 hand-converted ~25 nests because of it)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3623,
+      "title": "[Sonnet] A code action / tool turning an Eq.trans nest into a calc (start from scratchpad sw3611/conv.py, which reads intermediate terms from the checker's messages); also the fix for W-PROOF-CHAIN in check --index",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
