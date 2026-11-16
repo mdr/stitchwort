@@ -597,9 +597,8 @@ groups and types is the printer side's to supply through `runsHeader`.
 
 ### Open for T2b (SW-3667)
 
-Each is marked `-- Open for T2b (SW-3667)` above it; all are the
-printer's lemmas over `Function`, parameters and their pieces, words,
-joins and events:
+Done in T2b (below). They were the printer's lemmas over `Function`,
+parameters and their pieces, words, joins and events:
 
 - `WordProofs.sw`: `parameterPieces`, `Declaration.pieces`,
   `parameterDocsWrite`, `headerWrites`, `declarationWrites`;
@@ -615,3 +614,67 @@ What waits on them: `printParses`, `formatRoundTrip`, `formatIdempotent`,
 and `formatRoundTrips`. `formatSameTree`, `formatRefuses`,
 `formatRefusesOnly`, `parseCarries`, `tokensCarry`, `parseParsed` and
 `Degenerate.sw`'s other theorems and examples check now.
+
+## T2b: the syntax, printer side (SW-3667)
+
+Opus, 16 November 2026. **[checked]**: `stitchwort check` in
+`tools/toyfmt` (13 namespaces, clean) and here (49 goals open, as
+before); `stitchwort audit Toy.Fmt.Proofs` (656 theorems and 404
+generated lemmas: 0 failed, 9 with warnings, none of them T2's) and
+`Toy.Fmt.KeepsComments Toy.Fmt.Degenerate` (25 and 16: 0 failed, 0
+with warnings). **[run]**: the goldens, `Parsing.sw` and the disturber
+tests. `printParses`, `formatRoundTrip`, `formatIdempotent`,
+`formatKeepsComments`, `formatSameTree`, `formatRefuses(Only)` and
+`Degenerate.sw`'s `formatHasKeepsComments` and `formatRoundTrips` check
+again; the "Open for T2b" markers are gone.
+
+About 20 minutes of agent time against 70 estimated.
+
+| File | New | Restated | What |
+|---|---|---|---|
+| `WordProofs.sw` | 4 theorems, 4 pieces defs | 3, and 3 defs | `typeWrites`, `namesAfterWrites`, `groupWrites`, `takesWrites` |
+| `RuleJoinProofs.sw` | 6 | 3 | `typePasses`, `namesAfterPasses`, `groupPasses`, `takesPasses`, and `:` is a closing sign |
+| `EventProofs.sw` | 8, and 4 event defs | 6, and 2 defs | `typeLays`, `namesLay`, `groupLays`, `takesLays`, `ruleEmpty`, `allNone` |
+| `BlockSpellProofs.sw` | 6 | 3, and `ParametersGoal` | `typeOut`, `namesOut`, `groupOut`, `takesOut`, `headerOut`, `headerEventsTogether` |
+
+24 new theorems and 15 restated. With T2a's 31 and 19, T2 is about 55
+new theorems, against the plan's "about 100".
+
+### How it went
+
+- **Each new tree form cost one lemma per layer, of the same shape as
+  the nearest old one**: a type is an expression in brackets
+  (`TypeBracketed` follows `Bracketed`), a group a run of tokens
+  (`namesAfter` follows a statement's tokens), `takes` an optional
+  token. Every layer's lemma was written once and checked first time
+  but for brackets and a pattern's parentheses.
+- **Events kept the layout's shape.** `DeclarationEvents` has `takes`
+  inside the opening, where `openingRule` lays it, so `functionLays`
+  changed only in its arguments. The read-back wants the header whole
+  (`SpelledDeclarations` takes its tokens with a `Parse.Runs` of
+  `functionHeader`), so `declarationsOut` regroups the events once
+  (`headerEventsTogether`, six `List.appendAssoc` steps) and reads the
+  header back through one lemma, `headerOut`, built on `runsHeader`,
+  `takesOut` (`runsTakes`/`runsNoTakes`), `parameterListOut`
+  (`runsParameters`/`runsNoParameters`) and `groupOut`
+  (`runsUntyped`/`runsTyped`, with `typeOut` giving `runsType`'s
+  `SpelledType`). The `Function` case of `declarationsOut` went from
+  about 500 lines to 230.
+- **Proof tuples in later match columns** (SW-3566) replaced the
+  `Witness`/`Both` towers in every new lemma and in the rewritten
+  `Function` case: a `Then` of `Then`s destructures as one flat tuple.
+- What follows a group matters to its read-back (`nameAhead` and
+  `signAhead Colon` of the rest must be false for an untyped group), so
+  `groupOut` takes those two facts and its callers give them from the
+  `,` or `)` after it.
+
+### For T3
+
+- Rule N's comma move changes `Parameter` to `{ group }` with the
+  comma's comments on the next token: `ParameterEvents`,
+  `parameterDocs` and `ParametersGoal` lose the comma's comments, and
+  `parametersOut`'s round becomes a bare comma then a group.
+- A record pattern under a constructor needs brackets:
+  `Typed ({ head = { name, comments }, tail }) colon annotation`
+  (`Typed { … }` is read as the constructor's named fields).
+
