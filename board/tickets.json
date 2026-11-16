@@ -1,5 +1,5 @@
 {
-  "next": 3586,
+  "next": 3587,
   "tickets": [
     {
       "id": 47,
@@ -40198,6 +40198,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3586,
+      "title": "[Opus] Hammer stage 0 (D3655, Matt, 16 Nov 2026: 'yes, run a hammer experiment'): measured experiment, no product. Translate goal + hypotheses + top-k search lemmas to SMT-LIB, ask cvc5 (nix) for an unsat core, map back to Stitchwort names, then try Stitchwort's own closers (omega/arithmetic, cases, rewrite chain, calc) with exactly those facts. Fixed rule: writes Stitchwort source; no solver at check time; trusted base unchanged. Corpus: real goals from lanes (holes / goal --at at proof steps in std, AoC and the toy), report success rate by goal kind, core sizes, time, and what the written proofs look like. docs/research/readable-proofs.md §3.3, R9. Est. 90 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
