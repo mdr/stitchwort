@@ -218,7 +218,7 @@ stage 2, conditional.
 **The change.** Names accept any eliminations after the projection: `(Cave.tiled cave).level
 position` stays a name, instead of computing first as SW-2095 makes it. `is_folded`,
 `folded_parts`, `unfold_folded`, the read-back, and the readers F9 lists accept `[args…, .i,
-more…]`. This is Agda's spine shape **[from memory]**.
+more…]`. This is Agda's spine shape: `Def QName Elims`, with `Elims = [Elim]`, "eliminations ordered left-to-right" [cited: [Agda/Syntax/Internal.hs](https://github.com/agda/agda/blob/master/src/full/Agda/Syntax/Internal.hs) lines 349, 415, read 16 Nov 2026].
 
 **Against it now.** D2992 chose 1a "for now" partly because 1a re-runs the call once per
 application, and asked SW-1914 to revisit. With design A, 1a's application reads the call's

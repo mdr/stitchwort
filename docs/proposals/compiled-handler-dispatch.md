@@ -598,7 +598,7 @@ perform sites (only sometimes possible).
 5.3 **[from memory]**. *Links* (generalised continuations) and *Frank* look up clauses by
 operation label at run time in interpreters; neither is a performance design
 (operations-in-place.md §4) **[from memory]**. *Lean* has no handlers: `EStateM` is a
-state-passing function, inlined, so an "operation" is a call **[from memory]**: fusion.rs's end
+state-passing function, inlined, so an "operation" is a call **[cited: `def EStateM (ε σ α : Type u) := σ → Result ε σ α` and `@[always_inline, inline]` on its `bind`, [Init/Prelude.lean](https://github.com/leanprover/lean4/blob/master/src/Init/Prelude.lean) lines 4655, 4745, read 16 Nov 2026; "no handlers" is the absence of any such construct in Lean's reference, not searched]**: fusion.rs's end
 state, not a dispatch technique. *Defunctionalisation* (Reynolds 1972) and MLton's
 flow-directed closure conversion (Cejtin, Jagannathan, Weeks, ESOP 2000) replace a call of an
 unknown function by a switch on a tag over known code **[lit: Reynolds 1972 reprint, HOSC 11 (1998): "a given program contains only finitely many function abstractions", each replaced by an identifier (per a search summary); Cejtin, Jagannathan, Weeks, ESOP 2000, LNCS 1782 pp. 56-71, doi:10.1007/3-540-46425-5_4, abstract: a closure conversion for simply-typed languages implemented in MLton, with dispatches inserted; that the dispatch is a switch on a tag is [unverified]]**. Our dispatch is

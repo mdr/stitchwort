@@ -459,7 +459,7 @@ the library index. About half a day.
 | Rust | `usize` | `+` checked in debug, wraps in release | `wrapping_add`, `Wrapping<T>` | — | [RFC 560](https://raw.githubusercontent.com/rust-lang/rfcs/master/text/0560-integer-overflow.md) |
 | Zig | integers | no: overflow is illegal | `+%` (wrap), `+|` (saturate) | — | [Zig docs](https://ziglang.org/documentation/master/) |
 | Go | unsigned ints | yes, by the spec | the default | — | [Go spec](https://go.dev/ref/spec#Arithmetic_operators) |
-| Java | `int` | wraps [unverified from the JLS] | `Math.addExact` throws; `Math.floorMod` | — | [Math](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Math.html) |
+| Java | `int` | wraps silently: JLS 4.2.2, "The integer operators do not indicate overflow or underflow in any way", with `i * i` for `i = 1000000` giving -727379968, the low 32 bits ([JLS SE 21 §4.2.2](https://docs.oracle.com/javase/specs/jls/se21/html/jls-4.html), read 16 Nov 2026) | `Math.addExact` throws; `Math.floorMod` | — | [Math](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Math.html) |
 | C | `unsigned` | wraps; signed overflow is undefined [unverified from the standard] | — | — | — |
 | Dafny | `newtype` with bounds | no: a result out of range is a proof obligation | `bv8` etc. wrap | — | [Dafny reference §5.7, §5.2.3](https://dafny.org/latest/DafnyRef/DafnyRef) |
 | F* | `UInt32.t` | no: `add` requires no overflow | `add_mod`; `add_underspec` | — | [FStar.UInt32.fsti](https://raw.githubusercontent.com/FStarLang/FStar/master/ulib/FStar.UInt32.fsti) |
