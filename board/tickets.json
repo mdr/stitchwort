@@ -41331,12 +41331,12 @@
     {
       "id": 3670,
       "title": "[Opus paper] Review SW-3566 (generates kernel terms, D2364): the tuple marker and check_tree's switch to ∧/∃ or a reading; lambda_arg's recheck of a lambda over an unknown proposition; can a marked split ever become the wrong constructor. 20 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Review: docs/reviews/SW-3566-tuple-patterns.md. Sound (nothing past the kernel). Findings: 1 medium (written MkPair in a later row read as Both, row-order dependent), 3 low (nested lambda still commits to Pair via untyped pruned meta; tuple row + Both row refused; fst/snd names and lost E-NO-READING message). 3 tickets proposed.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
