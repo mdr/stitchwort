@@ -1539,7 +1539,15 @@ impl<'a> Rules<'a> {
             }
             parts.push(self.el(el));
         }
-        Doc::group(Doc::align(Doc::concat(parts)))
+        let parts = Doc::concat(parts);
+        // A `let` body may continue at the `let`'s own column; a plain
+        // sequence's later lines may not (the parser reads the `;` as ending
+        // the block), so where one starts a line they go in by 2.
+        Doc::group(if node.kind() == NodeKind::Seq {
+            Doc::align_inset(parts)
+        } else {
+            Doc::align(parts)
+        })
     }
 
     /// An interpolated text (S32): its pieces touch each other as written,
