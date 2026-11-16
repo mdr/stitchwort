@@ -39243,15 +39243,18 @@
     {
       "id": 3513,
       "title": "[Opus] Lean 4 port of the toy's engine layer, measured (D3629, Matt, 16 Nov 2026): docs/proposals/toy-proof-complexity.md §5; plain and idiomatic versions; same functions and top theorems; counts by the same measure",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\n**Lane note (Fable, 16 Nov 2026, 09:54-10:11, 17 min against 90 expected).** Done; in review. Branch lane/SW-3513, commits 93cd893e5 and d006e653c. Sources in experiments/lean-engine/ (README has the table and the statement pairs); results in toy-proof-complexity.md §5.1.\n- Exact Stitchwort set: 59 theorems, 886 lines, 32,104 non-blank characters (all of Readings.sw and Words.sw, 11 of Proofs.sw's 42).\n- Lean 4.35.0 (has grind), core only. Program ported, 12 engine tests pass as #guards. No sorry.\n- (i) plain: 841 lines (95%), 25,430 characters (79%), 53 theorems; checked first time; about 6 lane minutes.\n- (ii) idiomatic: 469 lines (53%), 16,985 characters (53%), 48 theorems; proofs 176 lines against 515; six failed checks first; about 3 lane minutes.\n- Reading: (i) is within a third of Stitchwort, so the gap is the simplifier and grind-style search, not syntax; and the whole file only halves, since definitions and statements (about 12,000 characters) don't shrink, so §3's engine estimate (a fifth to a third) is rosy.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "93cd893e5",
+        "d006e653c"
+      ]
     }
   ]
 }
