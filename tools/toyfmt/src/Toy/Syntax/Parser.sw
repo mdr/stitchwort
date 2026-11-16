@@ -204,7 +204,7 @@ def atom (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout):
     | _ => Parse.expected "an expression"
 
 --| The atom whose first token is of `kind` and holds `comments`.
--- A function of its own so that proofs (ShapeProofs.sw) can name it; so
+-- A function of its own so that proofs (Fmt/WalkProofs.sw) can name it; so
 -- are `callAfter` and `fieldAfter`.
 def atomOf (self: Layout → {Parse (Parse.Located Token)} Expr) (comments: Comments) (kind: Kind):
     {Parse (Parse.Located Token)} Expr :=
@@ -427,7 +427,7 @@ def declarationLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse
       Empty.absurd Parse.stop()
 
 --| A function declaration, from its `fn`, the token `first`.
--- A function of its own so that proofs (ShapeProofs.sw) can name it; so
+-- A function of its own so that proofs (Fmt/WalkProofs.sw) can name it; so
 -- is `valueLine`.
 def functionLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse.Located Token)} Declaration :=
   skip()
