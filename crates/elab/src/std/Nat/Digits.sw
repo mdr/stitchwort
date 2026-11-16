@@ -225,18 +225,19 @@ theorem Nat.digitsAccAppend ∀ (n: Nat) (acc: List Nat): Nat.digitsAcc n acc = 
     | True =>
       Eq.trans (Nat.digitsAccSmall n acc e) (Eq.flipped (Eq.cong (l => List.append l acc) (Nat.digitsAccSmall n [] e)))
     | False =>
-      Eq.trans
-        (Nat.digitsAccBig n acc e)
-        (Eq.trans
-          (Nat.digitsAccAppend (n / 10) [n % 10, ..acc] [decreasing := Nat.divTenLess n e])
-          (Eq.flipped
+      calc n.digitsAcc acc
+        _ = (n / 10).digitsAcc [n % 10, ..acc] := Nat.digitsAccBig n acc e
+        _ = (n / 10).digitsAcc [] ++ [n % 10, ..acc] :=
+          Nat.digitsAccAppend (n / 10) [n % 10, ..acc] [decreasing := Nat.divTenLess n e]
+        _ = n.digitsAcc [] ++ acc :=
+          Eq.flipped
             (Eq.trans
               (Eq.cong
                 (l => List.append l acc)
                 (Eq.trans
                   (Nat.digitsAccBig n [] e)
                   (Nat.digitsAccAppend (n / 10) [n % 10] [decreasing := Nat.divTenLess n e])))
-              (List.appendAssoc (Nat.digitsAcc (n / 10) []) [n % 10] acc))))
+              (List.appendAssoc (Nat.digitsAcc (n / 10) []) [n % 10] acc))
 
 theorem Nat.digitsAccDigits ∀ (n: Nat) (acc: List Nat) (ha: Nat.Digits acc): Nat.Digits (Nat.digitsAcc n acc)
     decreasing n
@@ -260,15 +261,16 @@ theorem Nat.fromDigitsAcc ∀ (n: Nat) (acc: List Nat):
   match e: Nat.leq n 9 with
     | True => Eq.trans (Eq.cong Nat.fromDigits (Nat.digitsAccSmall n acc e)) (Nat.fromDigitsCons n acc)
     | False =>
-      Eq.trans
-        (Eq.cong Nat.fromDigits (Nat.digitsAccBig n acc e))
-        (Eq.trans
-          (Nat.fromDigitsAcc (n / 10) [n % 10, ..acc] [decreasing := Nat.divTenLess n e])
-          (Eq.trans
-            (Eq.cong (t => (n / 10) * Nat.pow 10 (Succ (List.length acc)) + t) (Nat.fromDigitsCons (n % 10) acc))
-            (Eq.trans
-              (Nat.shiftDigitArith (n / 10) (n % 10) (Nat.pow 10 (List.length acc)) (Nat.fromDigits acc))
-              (Eq.cong (t => t * Nat.pow 10 (List.length acc) + Nat.fromDigits acc) (Nat.divModEq n 10).flipped))))
+      calc Nat.fromDigits (n.digitsAcc acc)
+        _ = Nat.fromDigits ((n / 10).digitsAcc [n % 10, ..acc]) := Eq.cong Nat.fromDigits (Nat.digitsAccBig n acc e)
+        _ = n / 10 * (Nat.pow 10 acc.length * 10) + Nat.fromDigits [n % 10, ..acc] :=
+          Nat.fromDigitsAcc (n / 10) [n % 10, ..acc] [decreasing := Nat.divTenLess n e]
+        _ = n / 10 * (Nat.pow 10 acc.length * 10) + (n % 10 * Nat.pow 10 acc.length + Nat.fromDigits acc) :=
+          Eq.cong (t => (n / 10) * Nat.pow 10 (Succ (List.length acc)) + t) (Nat.fromDigitsCons (n % 10) acc)
+        _ = (n / 10 * 10 + (n % 10)) * Nat.pow 10 acc.length + Nat.fromDigits acc :=
+          Nat.shiftDigitArith (n / 10) (n % 10) (Nat.pow 10 (List.length acc)) (Nat.fromDigits acc)
+        _ = n * Nat.pow 10 acc.length + Nat.fromDigits acc :=
+          Eq.cong (t => t * Nat.pow 10 (List.length acc) + Nat.fromDigits acc) (Nat.divModEq n 10).flipped
 
 theorem Nat.fromDigitsDigitsAcc ∀ (n: Nat): Nat.fromDigits (Nat.digitsAcc n []) = n :=
   rewrite Nat.fromDigitsAcc n [] then algebra
@@ -299,28 +301,29 @@ theorem Nat.digitsSnoc ∀ (a d: Nat)
     (ha: 1 ≤ a)
     (hd: d < 10):
     (Nat.digits (a * 10 + d)).toList = List.append (Nat.digits a).toList [d] :=
-  Eq.trans
-    (Nat.digitsToList (a * 10 + d))
-    (Eq.trans
-      (Eq.trans
-        (Nat.digitsAccBig
-          (a * 10 + d)
-          []
-          (Nat.leTrans 10 (a * 10) (a * 10 + d) (Nat.leMulRight 1 a 10 ha) (Nat.leAddRight (a * 10) d)))
-        (Eq.trans
-          (Eq.cong
-            (t => Nat.digitsAcc t [(a * 10 + d) % 10])
-            (Eq.trans
-              (Eq.cong (t => t / 10) (algebra: a * 10 + d = d + a * 10))
-              (Eq.trans (Nat.divAddMul d a 10) (Eq.cong (t => t + a) (Nat.divSmall d 10 hd)))))
-          (Eq.trans
-            (Eq.cong
-              (t => Nat.digitsAcc a [t])
-              (Eq.trans
-                (Eq.cong (t => t % 10) (algebra: a * 10 + d = d + a * 10))
-                (Eq.trans (Nat.modAddMul d a 10) (Nat.modSmall d 10 hd))))
-            (Nat.digitsAccAppend a [d]))))
-      (Eq.flipped (Eq.cong (l => List.append l [d]) (Nat.digitsToList a))))
+  calc (a * 10 + d).digits.toList
+    _ = (a * 10 + d).digitsAcc [] := Nat.digitsToList (a * 10 + d)
+    _ = ((a * 10 + d) / 10).digitsAcc [(a * 10 + d) % 10] :=
+      Nat.digitsAccBig
+        (a * 10 + d)
+        []
+        (Nat.leTrans 10 (a * 10) (a * 10 + d) (Nat.leMulRight 1 a 10 ha) (Nat.leAddRight (a * 10) d))
+    _ = a.digitsAcc [(a * 10 + d) % 10] :=
+      (Eq.cong
+        (t => Nat.digitsAcc t [(a * 10 + d) % 10])
+        (calc (a * 10 + d) / 10
+          _ = (d + (a * 10)) / 10 := Eq.cong (t => t / 10) (algebra: a * 10 + d = d + a * 10)
+          _ = d / 10 + a := Nat.divAddMul d a 10
+          _ = a := Eq.cong (t => t + a) (Nat.divSmall d 10 hd)))
+    _ = a.digitsAcc [d] :=
+      (Eq.cong
+        (t => Nat.digitsAcc a [t])
+        (calc (a * 10 + d) % 10
+          _ = (d + (a * 10)) % 10 := Eq.cong (t => t % 10) (algebra: a * 10 + d = d + a * 10)
+          _ = d % 10 := Nat.modAddMul d a 10
+          _ = d := Nat.modSmall d 10 hd))
+    _ = a.digitsAcc [] ++ [d] := Nat.digitsAccAppend a [d]
+    _ = a.digits.toList ++ [d] := Eq.flipped (Eq.cong (l => List.append l [d]) (Nat.digitsToList a))
 
 theorem Nat.digitsShift ∀ (ds: List Nat) (a: Nat)
     (ha: 1 ≤ a)
@@ -332,23 +335,23 @@ theorem Nat.digitsShift ∀ (ds: List Nat) (a: Nat)
         (Eq.cong (n => (Nat.digits n).toList) (algebra: a * 1 + 0 = a))
         (Eq.flipped (List.appendNil (Nat.digits a).toList))
     | [d, ..ds], Both hd hds =>
-      Eq.trans
-        (Eq.cong
-          (n => (Nat.digits n).toList)
-          (Eq.trans
-            (Eq.cong (t => a * (Nat.pow 10 (List.length ds) * 10) + t) (Nat.fromDigitsCons d ds))
-            (Nat.shiftDigitArith a d (Nat.pow 10 (List.length ds)) (Nat.fromDigits ds))))
-        (Eq.trans
-          (Nat.digitsShift ds
+      calc (a * (Nat.pow 10 ds.length * 10) + Nat.fromDigits [d, ..ds]).digits.toList
+        _ = ((a * 10 + d) * Nat.pow 10 ds.length + Nat.fromDigits ds).digits.toList :=
+          Eq.cong
+            (n => (Nat.digits n).toList)
+            (Eq.trans
+              (Eq.cong (t => a * (Nat.pow 10 (List.length ds) * 10) + t) (Nat.fromDigitsCons d ds))
+              (Nat.shiftDigitArith a d (Nat.pow 10 (List.length ds)) (Nat.fromDigits ds)))
+        _ = (a * 10 + d).digits.toList ++ ds :=
+          Nat.digitsShift ds
             (a * 10 + d)
             (Nat.leTrans 1 a
               (a * 10 + d)
               ha
               (Nat.leTrans a (a * 10) (a * 10 + d) (Nat.leMulPos a 10 byComputing) (Nat.leAddRight (a * 10) d)))
-            hds)
-          (Eq.trans
-            (Eq.cong (l => List.append l ds) (Nat.digitsSnoc a d ha hd))
-            (List.appendAssoc (Nat.digits a).toList [d] ds)))
+            hds
+        _ = (a.digits.toList ++ [d]) ++ ds := Eq.cong (l => List.append l ds) (Nat.digitsSnoc a d ha hd)
+        _ = a.digits.toList ++ [d, ..ds] := List.appendAssoc (Nat.digits a).toList [d] ds
 
 theorem Nat.fromDigitsAppend ∀ (xs ys: List Nat):
     Nat.fromDigits (List.append xs ys) = Nat.fromDigits xs * Nat.pow 10 (List.length ys) + Nat.fromDigits ys :=

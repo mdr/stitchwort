@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Big ca368be6e0cc6e469f2dc1d10ba3c2995ebd489f614d72ff087ec9b98c081179
@@ -12,7 +11,7 @@ Main.big.eq2.ifFalse d4d618095537961f2180ba4950cbc3a7470525a75c0617728f88bc039c0
 Main.big.induct e879e3c7d10aa8679d5534f80597e9033e487b43aaae98192e0f2d66ef45e27c
 Main.bigHit 9e6aa4653a16d9faae344c7d352a70dae8d8d53b0f12d8c323357a630bc3f220
 Main.bigMiss ebf0961a79b502e1aa2397326e8d4f6d45f7b8594ad0bfce51e8b143e4c98d38
-Main.bigAtMostRest f1787935807a3c0469c64bf1d647bed5efdff1868c8e881e342320e85a471527
+Main.bigAtMostRest 689f48d20ffb2d86a0ce5922e63d473a82eea6c7128704171074fca909c6ed82
 Main.countFresh 5a1534a50871d34930ddb48413e44701d86abad19b5fd3ff3bf5e98357aad338
 Main.countFresh.eq1 0d4235bfbe298dc7c7f3b2204360e63e640213f3bc427d42205406524c7e8d66
 Main.countFresh.eq2 f11d9d32c088b6659e71d3c764bdcd36cf1710fdced473b8e3dbfb553895d1e3

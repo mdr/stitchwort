@@ -89,15 +89,16 @@ theorem List.splitGroupsTotal ∀ (xs: List a) (p: a → Bool):
     | [] => byComputing
     | [x, ..xs] =>
       rewrite List.splitGroupsCons xs x p then
-        Eq.trans
-          (Eq.flipped
-            (Nat.addAssoc
-              (List.splitTotal (List.splitStep x (p x) (List.splitGroups xs p)))
-              (Bool.toNat (p x))
-              (List.occurrences xs p)))
-          (Eq.trans
-            (Eq.cong (t => t + List.occurrences xs p) (List.splitStepTotal x (p x) (List.splitGroups xs p)))
-            (Eq.cong Succ (List.splitGroupsTotal xs p)))
+        calc List.splitTotal (List.splitStep x (p x) (xs.splitGroups p)) + ((p x).toNat + xs.occurrences p)
+          _ = List.splitTotal (List.splitStep x (p x) (xs.splitGroups p)) + (p x).toNat + xs.occurrences p :=
+            Eq.flipped
+              (Nat.addAssoc
+                (List.splitTotal (List.splitStep x (p x) (List.splitGroups xs p)))
+                (Bool.toNat (p x))
+                (List.occurrences xs p))
+          _ = (xs.splitGroups p).fst.length + (xs.splitGroups p).snd.sumBy NonEmptyList.length + xs.occurrences p + 1 :=
+            Eq.cong (t => t + List.occurrences xs p) (List.splitStepTotal x (p x) (List.splitGroups xs p))
+          _ = Succ xs.length := Eq.cong Succ (List.splitGroupsTotal xs p)
 
 theorem List.finishGroupsSum ∀ (st: Pair (List a) (List (NonEmptyList a))):
     List.sumBy (List.finishGroups st) NonEmptyList.length = List.splitTotal st :=
@@ -162,9 +163,10 @@ theorem List.splitStepKeeps ∀ (p: a → Bool) (x: a) (xs: List a):
       → ∀ (st: Pair (List a) (List (NonEmptyList a))) => List.SplitKeeps p xs st
         → List.SplitKeeps p [x, ..xs] (List.splitStep x b st)
   | True, e, MkPair cur done, h =>
-    Eq.trans
-      (List.closeGroupConcat cur done)
-      (Eq.trans h (Eq.flipped (List.filterSkip xs (z => ¬(p z)) x (Eq.cong Bool.not e))))
+    calc List.flatMap (List.closeGroup cur done) NonEmptyList.toList
+      _ = List.append cur (List.flatMap done NonEmptyList.toList) := List.closeGroupConcat cur done
+      _ = List.filter xs (z => ¬(p z)) := h
+      _ = List.filter [x, ..xs] (z => ¬(p z)) := Eq.flipped (List.filterSkip xs (z => ¬(p z)) x (Eq.cong Bool.not e))
   | False, e, MkPair cur done, h =>
     Eq.trans (Eq.cong (Cons x) h) (Eq.flipped (List.filterKeep xs (z => ¬(p z)) x (Eq.cong Bool.not e)))
 

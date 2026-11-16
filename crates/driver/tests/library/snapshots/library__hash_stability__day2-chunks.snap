@@ -1,15 +1,14 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
-Main.repeatsWith daeea4d7133d801d8f24aa236506bb2ea3244671e30bcaac367d29189795b5b7
-Main.repeatsAny b2829542b745b6905dfacf3e24e2fc472e95674be02536b971c82ffef12139a3
-Main.test "1212 repeats a block of two" fbc3ce0ac4da2f2ffcbc3ee45c7da631e9bd4333f94f6a3e0050bf65a9ec0486
-Main.test "1212 is not a block of three" 248b8e95b3d1ed6a102dbad8d3d07c95ad3d71fd011ed8cae631e8b83d995977
-Main.test "block length zero never repeats" 31ac70bbcebbf7385c3a6a1ebf37a397fc67cc16e20bcab2d830b65df8f56b6d
-Main.test "111 repeats a block of one" 578733f726b287111dc220b1787250654de02e735302d08943365c618d2568aa
-Main.test "12341234 repeats a block of four" 1ce9bb68e443daf54a9440284f6154c296903fbd0548aed55575acb001b3eb19
-Main.test "123123123 is found" 86d74a0e808c8e56c47827ac4b01b63bd82904403ef58cdd519558cfa1a6f7e4
-Main.test "1213 repeats nothing" 1016339d33607020a54ef6a7761c441dcc92d03a11ad0147c055fa751ca8d565
-Main.test "a repeat is its block, repeated" f99f697d62ea96eb8fbedaa9afbd6342ca0c1ae6837f46ccb01cd030586e7af1
+Main.repeatsWith 2d85c9ed47759da018b682e98e13fc1af31ef95ece5cee4e55e166523c938ae3
+Main.repeatsAny bd127f56e68845d1a9c068eeec6f972941b4ae11f41e8b17ecdd951c8bb79ba7
+Main.test "1212 repeats a block of two" 94a6aba0cdde716ff9a48b69d634cc7e148858b1cd7530692c760ec44d2b68db
+Main.test "1212 is not a block of three" 3a7147e5ca00d5f1cc2490bb5a60debcf7cb91b5cb7c859992e7667f066e3d8f
+Main.test "block length zero never repeats" 387b237f1288deaf47f418fd6d7af5f1457f132bc41c0097eab227f6fa468636
+Main.test "111 repeats a block of one" 01ec6f6f1c0cd875d46c02e96cd7d7f27a2129e67b6e78af338c524409d7e9c4
+Main.test "12341234 repeats a block of four" 9e749a8328f3f691ce98fc06a7f55306dbc1d807308d9de64e6ea3cf1647231a
+Main.test "123123123 is found" 474c75d1a52e24b71da6e7de2d69835457d8d4658cd846e37b9e1fbf58227461
+Main.test "1213 repeats nothing" ed51b36a3afeee77ee174f791acd96ed0c14040f1e1a55114b0a28568c4cdf94
+Main.test "a repeat is its block, repeated" c552b3073642cf3131e1997011935951536974a2858c46dc12964ebf283b1cb3

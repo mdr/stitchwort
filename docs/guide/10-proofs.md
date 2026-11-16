@@ -168,7 +168,7 @@ theorem chain ∀ (a b c: Nat) (ab: a = b) (bc: b ≤ c) (small: c < 10): a < 10
 
 A step with no proof is proved by computing.
 
-Write a chain of equalities as a `calc`, not as `Eq.trans` nested inside `Eq.trans`: the `calc` names every term the proof passes through, and `check` warns (`W-PROOF-CHAIN`) on a nested `trans`. In the same way, a `rewrite` that runs more than about three rules, or whose result a later step uses, goes through a `let` that states the fact it reaches:
+Write a chain of equalities as a `calc`, not as `Eq.trans` nested inside `Eq.trans`: the `calc` names every term the proof passes through, and `check` warns (`W-PROOF-CHAIN`) on a nested `trans` written over several lines. In the same way, a `rewrite` that runs more than about three rules, or whose result a later step uses, goes through a `let` that states the fact it reaches:
 
 <!-- snippet: proofs.sw#stated -->
 ```stitchwort

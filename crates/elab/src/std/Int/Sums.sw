@@ -8,22 +8,21 @@ theorem Int.toIntSumBy ∀ (f: a → Nat) (xs: List a): (List.sumBy xs f).toInt 
   match xs with
     | [] => byComputing
     | [x, ..xs] =>
-      Eq.trans
-        (Eq.cong Nat.toInt (List.sumByCons xs x f))
-        (Eq.trans
-          (Eq.cong (t => Int.add (Nat.toInt (f x)) t) (Int.toIntSumBy f xs))
-          (Eq.flipped (List.sumByCons xs x (y => (f y).toInt))))
+      calc (List.sumBy [x, ..xs] f).toInt
+        _ = (f x + List.sumBy xs f).toInt := Eq.cong Nat.toInt (List.sumByCons xs x f)
+        _ = Int.add (Nat.toInt (f x)) (List.sumBy xs (y => (f y).toInt)) :=
+          Eq.cong (t => Int.add (Nat.toInt (f x)) t) (Int.toIntSumBy f xs)
+        _ = List.sumBy [x, ..xs] (y => (f y).toInt) := Eq.flipped (List.sumByCons xs x (y => (f y).toInt))
 
 --| A common factor comes out of a sum.
 theorem Int.sumByMulLeft ∀ (c: Int) (f: a → Int) (xs: List a): List.sumBy xs (x => c * f x) = c * List.sumBy xs f :=
   match xs with
     | [] => (Int.mulZero c).flipped
     | [x, ..xs] =>
-      Eq.trans
-        (List.sumByCons xs x (y => c * f y))
-        (Eq.trans
-          (Eq.cong (t => c * f x + t) (Int.sumByMulLeft c f xs))
-          (Eq.flipped
-            (Eq.trans (Eq.cong (t => c * t) (List.sumByCons xs x f)) (Int.mulDistribLeft c (f x) (List.sumBy xs f)))))
+      calc List.sumBy [x, ..xs] (y => c * f y)
+        _ = c * f x + List.sumBy xs (y => c * f y) := List.sumByCons xs x (y => c * f y)
+        _ = c * f x + c * List.sumBy xs f := Eq.cong (t => c * f x + t) (Int.sumByMulLeft c f xs)
+        _ = c * (f x + List.sumBy xs f) := Eq.flipped (Int.mulDistribLeft c (f x) (List.sumBy xs f))
+        _ = c * List.sumBy [x, ..xs] f := Eq.flipped (Eq.cong (t => c * t) (List.sumByCons xs x f))
 
 test "Int.toIntSumBy" := (List.sumBy [1, 2, 3] (x => x * x)).toInt == List.sumBy [1, 2, 3] (x => (x * x).toInt)

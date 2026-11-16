@@ -148,13 +148,13 @@ theorem List.rangeCons ∀ (a b: Nat) (h: a < b): List.range a b = [a, ..List.ra
 
 --| Ranges that meet end to end join into one.
 theorem List.rangeAppend ∀ (a b c: Nat) (ab: a ≤ b) (bc: b ≤ c): List.range a b ++ List.range b c = List.range a c :=
-  Eq.trans
-    (Eq.cong
-      (t => List.append (List.rangeFrom (b - a) a) (List.rangeFrom (c - b) t))
-      (Eq.flipped (arithmetic: a + (b - a) = b)))
-    (Eq.trans
-      (Eq.flipped (List.rangeFromAppend (b - a) (c - b) a))
-      (Eq.cong (t => List.rangeFrom t a) (arithmetic: (b - a) + (c - b) = c - a)))
+  calc List.rangeFrom (b - a) a ++ List.rangeFrom (c - b) b
+    _ = List.rangeFrom (b - a) a ++ List.rangeFrom (c - b) (a + (b - a)) :=
+      Eq.cong
+        (t => List.append (List.rangeFrom (b - a) a) (List.rangeFrom (c - b) t))
+        (Eq.flipped (arithmetic: a + (b - a) = b))
+    _ = List.rangeFrom (b - a + (c - b)) a := Eq.flipped (List.rangeFromAppend (b - a) (c - b) a)
+    _ = List.rangeFrom (c - a) a := Eq.cong (t => List.rangeFrom t a) (arithmetic: (b - a) + (c - b) = c - a)
 
 --| A range that includes its end is the range before the end, then the end.
 theorem List.rangeSnoc ∀ (a b: Nat) (h: a ≤ b): List.range a (b + 1) = [..List.range a b, b] :=
@@ -204,11 +204,11 @@ theorem List.replicateAdd ∀ (x: a) (m n: Nat): List.replicate (m + n) x = List
 theorem List.padRightLength ∀ (xs: List a) (n: Nat) (x: a)
     (h: List.length xs ≤ n):
     List.length (List.padRight xs n x) = n :=
-  Eq.trans
-    (List.lengthAppend xs (List.replicate (n - List.length xs) x))
-    (Eq.trans
-      (Eq.cong (t => List.length xs + t) (List.lengthReplicate x (n - List.length xs)))
-      (Nat.addSubCancel (List.length xs) n h))
+  calc (xs ++ List.replicate (n - xs.length) x).length
+    _ = xs.length + (List.replicate (n - xs.length) x).length :=
+      List.lengthAppend xs (List.replicate (n - List.length xs) x)
+    _ = xs.length + (n - xs.length) := Eq.cong (t => List.length xs + t) (List.lengthReplicate x (n - List.length xs))
+    _ = n := Nat.addSubCancel (List.length xs) n h
 
 theorem List.padRightExample: List.padRight [1, 2] 4 0 = [1, 2, 0, 0] := byComputing
 
@@ -362,25 +362,28 @@ theorem List.transposeNTwice ∀ (w h: Nat) (rows: List (List a))
   match w with
     | Zero => Eq.trans (List.transposeNNil h) (List.allLengthZero rows h hl hr).flipped
     | Succ k =>
-      Eq.trans
-        (List.transposeNCons
-          (List.filterMap rows (.get 0))
-          h
-          (List.transposeN k (List.map rows (.drop 1)))
-          (Eq.trans (List.headsLength rows k hr) hl)
-          (List.columnsAllLength k
-            (List.map rows (.drop 1))
+      calc List.transposeN h [rows.filterMap (x => x.get 0), ..List.transposeN k (rows.map (x => x.drop 1))]
+        _ = (rows.filterMap (x => x.get 0)).zipWith
+            (List.transposeN h (List.transposeN k (rows.map (x => x.drop 1))))
+            (head tail => [head, ..tail]) :=
+          List.transposeNCons
+            (List.filterMap rows (.get 0))
             h
-            (Eq.trans (List.lengthMap rows (.drop 1)) hl)
-            (List.tailsAllLength rows k hr)))
-        (Eq.trans
-          (Eq.cong
+            (List.transposeN k (List.map rows (.drop 1)))
+            (Eq.trans (List.headsLength rows k hr) hl)
+            (List.columnsAllLength k
+              (List.map rows (.drop 1))
+              h
+              (Eq.trans (List.lengthMap rows (.drop 1)) hl)
+              (List.tailsAllLength rows k hr))
+        _ = (rows.filterMap (x => x.get 0)).zipWith (rows.map (x => x.drop 1)) (head tail => [head, ..tail]) :=
+          Eq.cong
             (tails => List.zipWith (List.filterMap rows (.get 0)) tails Cons)
             (List.transposeNTwice k h
               (List.map rows (.drop 1))
               (Eq.trans (List.lengthMap rows (.drop 1)) hl)
-              (List.tailsAllLength rows k hr)))
-          (Eq.flipped (List.rowsAreHeadsAndTails rows k hr)))
+              (List.tailsAllLength rows k hr))
+        _ = rows := Eq.flipped (List.rowsAreHeadsAndTails rows k hr)
 
 --| There are as many columns as the first row is long.
 theorem List.transposeLength ∀ (rows: List (List a)):
@@ -572,13 +575,11 @@ theorem List.countCons ∀ (xs: List a) (x: a) (p: a → Bool):
 
 theorem List.countAppend ∀ (xs ys: List a) (p: a → Bool):
     List.count (List.append xs ys) p = List.count xs p + List.count ys p :=
-  Eq.trans
-    (List.countOccurrences (List.append xs ys) p)
-    (Eq.trans
-      (List.occurrencesAppend xs ys p)
-      (Eq.trans
-        (Eq.cong (n => n + List.occurrences ys p) (List.countOccurrences xs p).flipped)
-        (Eq.cong (n => List.count xs p + n) (List.countOccurrences ys p).flipped)))
+  calc (xs ++ ys).count p
+    _ = (xs ++ ys).occurrences p := List.countOccurrences (List.append xs ys) p
+    _ = xs.occurrences p + ys.occurrences p := List.occurrencesAppend xs ys p
+    _ = xs.count p + ys.occurrences p := Eq.cong (n => n + List.occurrences ys p) (List.countOccurrences xs p).flipped
+    _ = xs.count p + ys.count p := Eq.cong (n => List.count xs p + n) (List.countOccurrences ys p).flipped
 
 --| The length of a `filter` is the `count` with the same test.
 theorem List.lengthFilter ∀ (xs: List a) (p: a → Bool): List.length (List.filter xs p) = List.count xs p :=
@@ -1015,13 +1016,14 @@ theorem List.scanLeftAppend ∀ (xs: List a) (z: b) (ys: List a) (f: b → a →
   match xs with
     | [] => byComputing
     | [x, ..xs] =>
-      Eq.trans
-        (List.scanLeftCons (List.append xs ys) (f z x) f)
-        (Eq.trans
-          (Eq.cong (Cons (f z x)) (List.scanLeftAppend xs (f z x) ys f))
-          (Eq.cong
+      calc (xs ++ ys).scanLeft (f z x) f
+        _ = [f z x, ..((xs ++ ys).scanLeft (f z x) f).drop 1] := List.scanLeftCons (List.append xs ys) (f z x) f
+        _ = [f z x, ..(xs.scanLeft (f z x) f).drop 1 ++ (ys.scanLeft (xs.foldLeft (f z x) f) f).drop 1] :=
+          Eq.cong (Cons (f z x)) (List.scanLeftAppend xs (f z x) ys f)
+        _ = xs.scanLeft (f z x) f ++ (ys.scanLeft (xs.foldLeft (f z x) f) f).drop 1 :=
+          Eq.cong
             (l => List.append l (List.drop (List.scanLeft ys (List.foldLeft xs (f z x) f) f) 1))
-            (Eq.flipped (List.scanLeftCons xs (f z x) f))))
+            (Eq.flipped (List.scanLeftCons xs (f z x) f))
 
 theorem List.permRefl ∀ (xs: List a): List.Perm xs xs := p => byComputing
 
@@ -1060,11 +1062,12 @@ theorem List.occurrencesReverseOnto ∀ (xs acc: List a) (p: a → Bool):
   match xs with
     | [] => byComputing
     | [x, ..xs] =>
-      Eq.trans
-        (List.occurrencesReverseOnto xs [x, ..acc] p)
-        (Eq.trans
-          (Nat.addLeftComm (List.occurrences xs p) (Bool.toNat (p x)) (List.occurrences acc p))
-          (Eq.flipped (Nat.addAssoc (Bool.toNat (p x)) (List.occurrences xs p) (List.occurrences acc p))))
+      calc (xs.reverseOnto [x, ..acc]).occurrences p
+        _ = xs.occurrences p + ((p x).toNat + acc.occurrences p) := List.occurrencesReverseOnto xs [x, ..acc] p
+        _ = (p x).toNat + (xs.occurrences p + acc.occurrences p) :=
+          Nat.addLeftComm (List.occurrences xs p) (Bool.toNat (p x)) (List.occurrences acc p)
+        _ = (p x).toNat + xs.occurrences p + acc.occurrences p :=
+          Eq.flipped (Nat.addAssoc (Bool.toNat (p x)) (List.occurrences xs p) (List.occurrences acc p))
 
 --| Reversing a list gives a permutation of it.
 theorem List.reversePerm ∀ (xs: List a): List.Perm (List.reverse xs) xs := p =>
@@ -1075,15 +1078,14 @@ theorem List.sumByReverseOnto ∀ (xs acc: List a) (f: a → Nat):
   match xs with
     | [] => byComputing
     | [x, ..xs] =>
-      Eq.trans
-        (List.sumByReverseOnto xs [x, ..acc] f)
-        (Eq.trans
-          (Eq.cong (t => List.sumBy xs f + t) (List.sumByCons acc x f))
-          (Eq.trans
-            (Nat.addLeftComm (List.sumBy xs f) (f x) (List.sumBy acc f))
-            (Eq.trans
-              (Eq.flipped (Nat.addAssoc (f x) (List.sumBy xs f) (List.sumBy acc f)))
-              (Eq.cong (t => t + List.sumBy acc f) (List.sumByCons xs x f).flipped))))
+      calc (xs.reverseOnto [x, ..acc]).sumBy f
+        _ = xs.sumBy f + [x, ..acc].sumBy f := List.sumByReverseOnto xs [x, ..acc] f
+        _ = xs.sumBy f + (f x + List.sumBy acc (x => f x)) :=
+          Eq.cong (t => List.sumBy xs f + t) (List.sumByCons acc x f)
+        _ = f x + (xs.sumBy f + acc.sumBy f) := Nat.addLeftComm (List.sumBy xs f) (f x) (List.sumBy acc f)
+        _ = f x + xs.sumBy f + acc.sumBy f := Eq.flipped (Nat.addAssoc (f x) (List.sumBy xs f) (List.sumBy acc f))
+        _ = xs.foldLeft (f x) (acc x => acc + f x) + acc.sumBy f :=
+          Eq.cong (t => t + List.sumBy acc f) (List.sumByCons xs x f).flipped
 
 theorem List.sumByReverse ∀ (xs: List a) (f: a → Nat): List.sumBy (List.reverse xs) f = List.sumBy xs f :=
   Eq.trans (List.sumByReverseOnto xs [] f) (Nat.addZero (List.sumBy xs f))
@@ -1283,13 +1285,13 @@ theorem List.reverseAppend ∀ (xs ys: List a):
   match xs with
     | [] => Eq.flipped (List.appendNil (List.reverse ys))
     | [x, ..rest] =>
-      Eq.trans
-        (List.reverseCons x (List.append rest ys))
-        (Eq.trans
-          (Eq.cong (reversed => List.append reversed [x]) (List.reverseAppend rest ys))
-          (Eq.trans
-            (List.appendAssoc (List.reverse ys) (List.reverse rest) [x])
-            (Eq.cong (tail => List.append (List.reverse ys) tail) (List.reverseCons x rest).flipped)))
+      calc [x, ..rest ++ ys].reverse
+        _ = (rest ++ ys).reverse ++ [x] := List.reverseCons x (List.append rest ys)
+        _ = (ys.reverse ++ rest.reverse) ++ [x] :=
+          Eq.cong (reversed => List.append reversed [x]) (List.reverseAppend rest ys)
+        _ = ys.reverse ++ rest.reverse ++ [x] := List.appendAssoc (List.reverse ys) (List.reverse rest) [x]
+        _ = ys.reverse ++ [x, ..rest].reverse :=
+          Eq.cong (tail => List.append (List.reverse ys) tail) (List.reverseCons x rest).flipped
 
 theorem List.lengthReverseOnto ∀ (xs acc: List a):
     List.length (List.reverseOnto xs acc) = List.length xs + List.length acc :=
@@ -2589,14 +2591,18 @@ theorem List.countEqDistinct ∀ [auto eq: DecEq a] (v: a) (xs: List a)
   match xs, h with
     | [], d => byComputing
     | [y, ..ys], Both notMem d =>
-      Eq.trans
-        (Eq.trans (List.countCons ys y (== v)) (Eq.cong (n => Bool.toNat (y == v) + n) (List.countEqDistinct v ys d)))
-        (match same: y == v with
+      let finish: Bool.toNat (y == v) + Bool.toNat (List.contains ys v) = Bool.toNat (List.contains [y, ..ys] v) :=
+        match same: y == v with
           | True =>
             match later: List.contains ys v with
               | True => Void.impossible (notMem (rewrite same.read then later.read))
               | False => byComputing
-          | False => byComputing)
+          | False => byComputing
+      calc List.count [y, ..ys] (== v)
+        _ = Bool.toNat (y == v) + List.count ys (== v) := List.countCons ys y (== v)
+        _ = Bool.toNat (y == v) + Bool.toNat (List.contains ys v) :=
+          Eq.cong (n => Bool.toNat (y == v) + n) (List.countEqDistinct v ys d)
+        _ = Bool.toNat (List.contains [y, ..ys] v) := finish
 
 --| What `(.find p)` finds passes any other test some element passes.
 theorem List.findAny ∀ (xs: List a) (p q: a → Bool) (y: a)

@@ -101,13 +101,13 @@ theorem Parse.locatedStepsCover ∀ (source: Text) (steps: List (List Char, a))
           ((Parse.locatedSteps 0 steps).map (located =>
             source.slice located.offset (located.offset + located.length))) then
       rewrite mapped, chars then Eq.flipped reads
-  Eq.trans
-    (Eq.flipped
-      (Text.fromToList
-        (Text.concat
-          ((Parse.locatedSteps 0 steps).map (located =>
-            source.slice located.offset (located.offset + located.length))))))
-    (Eq.trans (Eq.cong Text.fromList listed) (Text.fromToList source))
+  let joined :=
+    Text.concat
+      ((Parse.locatedSteps 0 steps).map (located => source.slice located.offset (located.offset + located.length)))
+  calc joined
+    _ = Text.fromList joined.toList := Eq.flipped (Text.fromToList joined)
+    _ = Text.fromList source.toList := Eq.cong Text.fromList listed
+    _ = source := Text.fromToList source
 
 --| `locatedToEndFrom` from a state at its `start` mark, with enough fuel
 --| (more than the lexemes), after `found` (newest first): it gives them all.

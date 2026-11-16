@@ -836,11 +836,13 @@ theorem Parse.linesBreak ∀ (read first rest: List Char)
     | Inl feed => rewrite feed then Text.linesAppend read rest
     | Inr both =>
       rewrite both then
-        Eq.trans
-          (Eq.cong (l => Text.lines (MkText l)) (Eq.flipped (List.appendAssoc read ['\r'] ['\n', ..rest])))
-          (Eq.trans
-            (Text.linesAppend (read ++ ['\r']) rest)
-            (Eq.cong (l => Text.lines (MkText l) ++ Text.lines (MkText rest)) (List.appendAssoc read ['\r'] ['\n'])))
+        calc (MkText (read ++ ['\r', '\n', ..rest])).lines
+          _ = (MkText ((read ++ ['\r']) ++ ['\n', ..rest])).lines :=
+            Eq.cong (l => Text.lines (MkText l)) (Eq.flipped (List.appendAssoc read ['\r'] ['\n', ..rest]))
+          _ = (MkText ((read ++ ['\r']) ++ ['\n'])).lines ++ (MkText rest).lines :=
+            Text.linesAppend (read ++ ['\r']) rest
+          _ = (MkText (read ++ ['\r', '\n'])).lines ++ (MkText rest).lines :=
+            Eq.cong (l => Text.lines (MkText l) ++ Text.lines (MkText rest)) (List.appendAssoc read ['\r'] ['\n'])
 
 --| `read`, a blank line, and `rest`: the lines of `read` with its line
 --| break, a line of the blank line's spaces and tabs, and the lines of the

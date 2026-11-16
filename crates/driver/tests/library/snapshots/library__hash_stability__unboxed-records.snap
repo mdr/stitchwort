@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.UserId 181206861a775feb50a87cdfc3d567babbe197399a3c7d863e2a15dc3a942c45
@@ -225,4 +224,4 @@ Main.test "two fields" 6f4053ba2abe6f1242e14f19837b00259b8ff7a53be05770b769ea5ec
 Main.test "map of records" 0fd68dd6addbb5337ae56a9ee3ff34e19d8c459e7b889d421b464c2a963252e5
 Main.test "inventory" 1758352b668e95c4db44bf24b0496cc605ca61374565e880885c97fc6b782955
 Main.test "interface" 6a326039d277dc45da306d11276d3d9efe0ebb167b4b61f9894c2fd9a48bd9b0
-Main.main 983c744c4fe7895395783ead1c0078f302787a760c34d165364f320c9d93a0ad
+Main.main ed769c83c13cdd0b732c88a826a34685e7565abe362ca12b5a1e3008cce7f39b

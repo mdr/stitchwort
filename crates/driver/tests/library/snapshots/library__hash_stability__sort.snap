@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.sortsNumbers 3f9154103c582eb47b4e3b33f9dadd0cccb948ea4c5cb157a42789c2d59df7de
@@ -12,6 +11,6 @@ Main.test "sorts by key, stably" e2db99a0c6b39e6804a1a5bfdee03400bec93a735540050
 Main.test "sorts texts" b1c327f11b1568e4bab0fc8cb93df7b0e52ddb59a0fc5d1b1814031ba0d6d599
 Main.test "sorts many numbers" 140ae4d9862a7a10e9245f68878476064cc551f6e66661f61ae57d3c728023f5
 Main.firstLeSecond cea08cd9a42306ee0765d1d7ad64387753b83e18394f3c9bd7d8cbeaa7443319
-Main.keepsThrees 7101b3c3b0b0193e81e67cbd4d33d5ab4d2789da15101ed8d3a8f3e9440067f4
-Main.keepsLength 0679cca129378db3823b26310db84c9cd81ec4221f4c4c01d1afb8d7d84e2cd4
+Main.keepsThrees 5e42a0ff92877c3f43db89c33c64a10597c883fcd1948fca6c82918142ddf3f9
+Main.keepsLength 85a3b5d8d216680991fe2b5091dc9d73aa7736b4770158079eba4a996e2f878c
 Main.byKeySorted e3a32e82adc3f851f66e8961af9b89abd477fb711e6199f36e96e315a777732a

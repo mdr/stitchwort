@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.belowOfRun 235b21284b6cf5178cac640c7962e5e68c4b61ff7fb8c03c04dd62b7bdcd67e4
@@ -20,7 +19,7 @@ Main.chains.%step.%respects 339984bf32e8fe3551c4f32218519929d31ee16d4ccf2bf8e9e1
 Main.chains.%irrel c4a73419ffc16fc4fb641c1bb3960820fb8ed29ffd3ebfc66b0328c76ed9cb0f
 Main.chains.unfold 8ab5bf5b2dd37214a55d5653cf0e7ac6325b4efddb8fa38f3ef7133fa6c28a28
 Main.weightStep 42a9375fe9bed6643c3d3468ff17954eba6dbc1d0d9afdd8520c7d52a527424c
-Main.weightPlain b20e796ebcc59ab3cf26f4f26c9396fdbc04c02177e2ac31f449cbf691cec662
+Main.weightPlain 27bb4511e7aeee609f664ece394f3e7a88cb9afd178b5f5cd13440686e223f79
 Main.test "chains" fd60f062e756b478f707b31c424629177aaaa20c7d07ff05260fb994c3e1086d
 Main.fourInRange 088955a62ad9c769de316fcb444b81f5d04d545f438bc45c2f9a64bcb7a55299
 Main.rangeBounds 2392cdd0ebe4d530d934625216f215433e2728da411aacb3afc26b9d33025f09

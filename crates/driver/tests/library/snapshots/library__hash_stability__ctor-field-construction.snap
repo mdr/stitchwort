@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Shape b51c402963a5221a13db139913626c12cdd69433463dc7b13157e02066cd6190
@@ -122,7 +121,7 @@ Main.test "any order is the positional form" 404c5b8a728c08facbb4e6c3215891ce7d2
 Main.sameTerm 6881c070a6d7eb15e7a3f76f96a5db51e1c762e475ada69d7861f60072870109
 Main.test "punning" 8f4eca99666b91c3645241d7242eca64c813e2cdaa72b2958933807752d88c90
 Main.one 6a6e6176e35d4d8551ba3e88d7305c3968418125805b1d9d3246344230f8531d
-Main.three b154985145c63e9cd28fb8b6b419211cd3498c1ae227d12d85e096301da5f3d8
+Main.three 35215d539ef3c835093d1062900d33ca9fb46db2223eeb224409603ad27f79c7
 Main.boxed 48dc93db9ae036f196b1dbdb9c65800a1fdfb9eda686a5f2c42fcb5d6aab6d99
 Main.test "nesting".%match1 a91d1c65b00c5f7e9073dbfb5d2ebfbb4073afa5348776061d3b77c8fa9695e8
 Main.test "nesting" c1cd2e9a2e979efb31c9271f35a303235404ca727b08f55b63b0e74c0cd96224

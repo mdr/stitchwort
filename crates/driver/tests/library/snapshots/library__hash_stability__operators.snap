@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Point 5dd4584bf836b2c69a4727d7fb1925dc583b9e3b00439b58abdfc5d2dbc1a13a
@@ -40,7 +39,7 @@ Main.test "square" 110cf7546736d9b2e914cdaffec98cd864f468743b310a60f5ca7e8d3cfad
 Main.test "sum of squares" 6f1ae4db5e13eb6221d0b2700944fb9b5fd47a5076da46129cabe41f2ec281a8
 Main.test "sums" b9a0774087e64687e9c3d98b27a9b2f0f22553cb31ad4ae439b80e847c715368
 Main.test "products" 7037713c358565dc3b8c16bdc332bfd4440a6272218fb4da141a0d5741ba8b3a
-Main.pointsAppend 4d47d9f7d7f40d2f8eee9c1a30e32be37ae9b63b9c1bbde51205d3a04e8bade4
+Main.pointsAppend e9ee06d668d85d7ad657634cde53d8b77c919b7f4db04d133420a0a2b53af4fc
 Main.before 7c18b2b51f6c5a636c7769f955d453d910f7eb36af6dffc98c9cd66dffcbe2b9
 Main.before.eq.ifTrue 09e7c3196836f87e1efdcfd2fb9daee2c6f11906e75545c49e2dcb1c2b946319
 Main.before.eq.ifFalse 147392348d175ee571cb36ed78dc82e391c9ad8090c3e0d6dac98409c82e78dc

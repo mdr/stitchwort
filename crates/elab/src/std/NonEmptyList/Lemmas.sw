@@ -165,11 +165,11 @@ theorem NonEmptyList.sortPerm ∀ [auto ord: Ord a] (xs: NonEmptyList a): List.P
   J (l e => List.Perm l xs.toList) (List.sortPerm xs.toList) (NonEmptyList.sortToList xs).flipped
 
 theorem NonEmptyList.sortLength ∀ [auto ord: Ord a] (xs: NonEmptyList a): xs.sort.length = xs.length :=
-  Eq.trans
-    (Eq.flipped (NonEmptyList.lengthToList xs.sort))
-    (Eq.trans
-      (Eq.cong (.length) (NonEmptyList.sortToList xs))
-      (Eq.trans (List.sortLength xs.toList) (NonEmptyList.lengthToList xs)))
+  calc xs.sort.length
+    _ = xs.sort.toList.length := Eq.flipped (NonEmptyList.lengthToList xs.sort)
+    _ = xs.toList.sort.length := Eq.cong (.length) (NonEmptyList.sortToList xs)
+    _ = xs.toList.length := List.sortLength xs.toList
+    _ = xs.toList.length := NonEmptyList.lengthToList xs
 
 theorem NonEmptyList.containsToList ∀ [auto eq: DecEq a] (xs: NonEmptyList a) (x: a):
     xs.contains x = List.contains xs.toList x :=

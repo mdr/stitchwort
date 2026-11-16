@@ -306,9 +306,10 @@ theorem selectedIsValueViaHelper ∀ (chosen: Option Nat) (value: Nat) (selected
    repairing the proof, can see it. Two parts:
    - A chain of two or more equalities is a `calc`, one line per step, not
      `Eq.trans a (Eq.trans b c)` or `(a.trans b).trans c`. `check` warns
-     (`W-PROOF-CHAIN`) on `trans` nested two deep, and the fix is the
-     `calc`: the intermediate terms are the ones the nest left out. A single
-     `Eq.trans a b` is fine.
+     (`W-PROOF-CHAIN`) on `trans` nested two deep and spread over more than
+     one line, and the fix is the `calc`: the intermediate terms are the
+     ones the nest left out. A single `Eq.trans a b`, or a nest that fits
+     on one line, is fine.
    - A `rewrite` run of more than about three rules, or one whose result a
      later step depends on, passes through a typed `let` (or an ascription)
      that states the fact reached: `let reached: a + b = b + a := rewrite …`,

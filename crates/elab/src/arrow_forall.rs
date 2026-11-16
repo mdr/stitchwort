@@ -81,13 +81,23 @@ pub(crate) fn note(
 }
 
 /// Drops the candidates among `diagnostics` that aren't written with an
-/// arrow after their binder group (a header's parameter, a `∀`).
+/// arrow after their binder group (a header's parameter, a `∀`), and the
+/// `W-PROOF-CHAIN` nests that sit on one line.
 /// `text` is the text of a file.
 pub fn keep_written_arrows<'a>(
     diagnostics: &mut Vec<Diagnostic>,
     text: impl Fn(FileId) -> Option<&'a str>,
 ) {
     diagnostics.retain(|d| {
+        // A `trans` nest on one line reads fine (SW-3611): only a nest
+        // spanning lines is a chain a `calc` would help with.
+        if d.code == crate::proof_chain::CODE {
+            return d.labels.first().is_none_or(|l| {
+                text(l.span.file)
+                    .and_then(|t| t.get(l.span.range()))
+                    .is_none_or(|t| t.contains('\n'))
+            });
+        }
         d.code != CODE
             || d.labels.first().is_some_and(|l| {
                 let rest = text(l.span.file).and_then(|t| t.get(l.span.end as usize..));

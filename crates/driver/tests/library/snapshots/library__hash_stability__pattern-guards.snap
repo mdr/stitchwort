@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Vec 4cc4104f40e64ca89957132f93fe7cb53692d7d69310cda043fe66224774bb54
@@ -97,8 +96,8 @@ Main.fallThroughWith.eq2 5eb53221d66c6ce23ca005f3c9062e6a675c52cd9e88c676bebf2f3
 Main.fallThroughWith.eq2.alt1 61be70c3e0217191bd71c9580bbee2e7b4c64927a5239ea5c6b7df6ddc71bdef
 Main.fallThroughWith.eq2.succ 375fd9ab9e270aa6d8e133a51f0648ad0537db510ccca0c7d2e9343fe0f4e737
 Main.test "match with" d0b86bdc93a6077219ba6343250f3d57e2e29040bda6d42e1b5dc811f7131c40
-Main.zeroOrPositive 9a8976263a10b282be49e28b41f4429165891405398ae0c57a4678dfe70ceef7
-Main.zeroOrPositive.%match1 7ef91cb7ecebc85ccb42bfbaadcad5f599108b699664112773e1262f5f796bea
+Main.zeroOrPositive 2ec594be2e16839acc426b8b52b2a5db5db0296ffe41fcc16b917da3946785bc
+Main.zeroOrPositive.%match1 a8b88227d0b628c6f14de68f62dbfe0c07b174cfb8d9804619374edf3a85c1f9
 Main.unitBelow e4926fb4f7b68cc6e85bc6a537ab587a5dadeceff2577b42057901ff1719550e
 Main.unitBelow.eq1 e754f05e0c91bfa26968f5f26e4d9846be38b89d043895381d15e9880e0a5649
 Main.unitBelow.eq2 7dbd32e7a46935aee42795d03a63dee6e62ecf57a6ae2e246c833076038a9e24

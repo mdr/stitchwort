@@ -15,11 +15,12 @@ theorem Nat.halfDivPow ∀ (n k: Nat): n / 2 / Nat.pow 2 k = n / Nat.pow 2 (Succ
       (n / 2 / power)
       (n / 2 % power * 2 + n % 2)
       (arithmetic [Nat.modLess (n / 2) power positive, Nat.modLess n 2 (Nat.succNotZero 1)])
-      (Eq.trans
-        (Nat.divModEq n 2)
-        (Eq.trans
-          (Eq.cong (half => half * 2 + n % 2) (Nat.divModEq (n / 2) power))
-          (Nat.regroupHalf (n / 2 / power) power (n / 2 % power) (n % 2)))))
+      (calc n
+        _ = n / 2 * 2 + (n % 2) := Nat.divModEq n 2
+        _ = (n / 2 / Nat.pow 2 k * Nat.pow 2 k + (n / 2 % Nat.pow 2 k)) * 2 + (n % 2) :=
+          Eq.cong (half => half * 2 + n % 2) (Nat.divModEq (n / 2) power)
+        _ = n / 2 / Nat.pow 2 k * (Nat.pow 2 k * 2) + (n / 2 % Nat.pow 2 k * 2 + (n % 2)) :=
+          Nat.regroupHalf (n / 2 / power) power (n / 2 % power) (n % 2)))
 
 --| `n` shifted right by `count` bits: `n / 2 ^ count` ([`Nat.shiftRightDiv`]),
 --| in at most one step per bit of `n`.
@@ -289,11 +290,12 @@ theorem Nat.modPowSucc ∀ (n k: Nat): n % Nat.pow 2 (Succ k) = n / 2 % Nat.pow 
     (n / 2 / power)
     (n / 2 % power * 2 + n % 2)
     (arithmetic [Nat.modLess (n / 2) power positive, Nat.modLess n 2 (Nat.succNotZero 1)])
-    (Eq.trans
-      (Nat.divModEq n 2)
-      (Eq.trans
-        (Eq.cong (half => half * 2 + n % 2) (Nat.divModEq (n / 2) power))
-        (Nat.regroupHalf (n / 2 / power) power (n / 2 % power) (n % 2))))
+    (calc n
+      _ = n / 2 * 2 + (n % 2) := Nat.divModEq n 2
+      _ = (n / 2 / Nat.pow 2 k * Nat.pow 2 k + (n / 2 % Nat.pow 2 k)) * 2 + (n % 2) :=
+        Eq.cong (half => half * 2 + n % 2) (Nat.divModEq (n / 2) power)
+      _ = n / 2 / Nat.pow 2 k * (Nat.pow 2 k * 2) + (n / 2 % Nat.pow 2 k * 2 + (n % 2)) :=
+        Nat.regroupHalf (n / 2 / power) power (n / 2 % power) (n % 2))
 
 --| Two numbers with the same bits above the lowest, and the same lowest bit.
 theorem Nat.xorSameHalves ∀ (whole other high wholeBit otherBit: Nat)
@@ -340,12 +342,11 @@ theorem Nat.xorModPow ∀ (k x y: Nat): Nat.xor x y % Nat.pow 2 k = Nat.xor (x %
       let whole := Eq.trans (Nat.modPowSucc (Nat.xor x y) k) (Eq.cong (high => high * 2 + Nat.xor x y % 2) highs)
       let low :=
         Eq.trans (Nat.divModEq (Nat.xor lowX lowY) 2) (Eq.cong (high => high * 2 + Nat.xor lowX lowY % 2) lowHighs)
-      let parity :=
-        Eq.trans
-          (Nat.xorMod x y)
-          (Eq.trans
-            (Eq.flipped (Nat.xorSumParity lowX lowY (x / 2 % Nat.pow 2 k) (y / 2 % Nat.pow 2 k) x y splitX splitY))
-            (Nat.xorMod lowX lowY).flipped)
+      let parity := calc x.xor y % 2
+        _ = (x + y) % 2 := Nat.xorMod x y
+        _ = (x % (Nat.pow 2 k * 2) + (y % (Nat.pow 2 k * 2))) % 2 :=
+          Eq.flipped (Nat.xorSumParity lowX lowY (x / 2 % Nat.pow 2 k) (y / 2 % Nat.pow 2 k) x y splitX splitY)
+        _ = (x % (Nat.pow 2 k * 2)).xor (y % (Nat.pow 2 k * 2)) % 2 := (Nat.xorMod lowX lowY).flipped
       Nat.xorSameHalves
         (Nat.xor x y % Nat.pow 2 (Succ k))
         (Nat.xor lowX lowY)
