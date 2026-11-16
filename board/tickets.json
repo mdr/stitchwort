@@ -38862,12 +38862,12 @@
     {
       "id": 3484,
       "title": "[DeepSeek] toyfmt: delete the checked format (it re-parses its output) and rename formatDirect to format, with its theorems (formatDirectRoundTrip → formatRoundTrip etc.); formatAgrees goes; tests point at the new format. Matt, 16 Nov 2026: 'yes, delete it and rename formatDirect to format'",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~10 min (est. 30). Orchestrator checked: format/formatAnswers/formatRoundTrip/formatIdempotent statements; file-loop theorems only renamed; no tests deleted.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
