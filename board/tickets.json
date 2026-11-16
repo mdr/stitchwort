@@ -1,5 +1,5 @@
 {
-  "next": 3600,
+  "next": 3601,
   "tickets": [
     {
       "id": 47,
@@ -40384,6 +40384,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3600,
+      "title": "[Fable] Toy++ T0: sketch in code (docs/proposals/toy-plus-plus.md §8 T0; D3620's SKETCH.md approach): the new tree, settle, meaning (D3643: same tree in plain form wrapped in Meaning), the four passes and every §3 theorem stated in a side project with open goals, checked for fit; decide (A)/(B) for Settled, whether §3.4's traversal type-checks, and whether structural experiment (b) goes first. Also collect the 16 Nov fuzz minimal inputs (scratchpad fmtbugs/) as Toy++ test inputs. Est. 75 min",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
