@@ -1,5 +1,5 @@
 {
-  "next": 3690,
+  "next": 3691,
   "tickets": [
     {
       "id": 47,
@@ -41500,12 +41500,12 @@
     {
       "id": 3683,
       "title": "[Sonnet] Formatter bug on real code: stitchwort fmt aoc/src/Aoc/Year2024/Day04/Proofs/Part2.sw refuses: 'the output doesn't parse: this step isn't lined up with the steps above it' (calc steps). Minimise, fmt test failing first, fix the layout rule. Stops tools fmt::the_repository_sources_are_formatted",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "Model result: sonnet, needed fixes (first version also changed the no-then rewrite layout, reformatting ~460 files: split out as proposal SW-3690), 25 min (est. 30). Proposal sample: before 'rewrite countXmasSum row (row.drop 1) (row.drop 2) (row.drop 3) n h, List.getDrop row 1 _, List.getDrop row 2 / _, List.getDrop row 3 _, at4Spells'; after: one rule a line at 4.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41578,6 +41578,19 @@
     {
       "id": 3689,
       "title": "[Opus] Parser sharp edge (SW-3683): any line starting with _ at a column right of a calc's indent is read as the next calc step, so a user-written _ argument at the start of a continuation line inside a step's proof misparses ('this step isn't lined up'). Decide the rule (steps start with _ only at the steps' column?) and fix with examples",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3690,
+      "title": "[Matt decision, formatter style] Lay out rewrite without then like S36's rule lists: one rule per line at 4 when they don't fit (now a fill with mid-rule breaks like 'List.getDrop row 2\\n _'). ~460 files reformat (measured, SW-3683). Before/after in SW-3683's notes (Day04 Part1 acrossSum). Then a sweep",
       "status": "backlog",
       "agent": "",
       "where": "",
