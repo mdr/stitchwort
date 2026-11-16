@@ -73,12 +73,12 @@ theorem printParses ∀ (source: Text) (file: SourceFile) (width: Nat)
 --| refuses only what the parser refuses.
 theorem formatAnswers ∀ (source: Text) (width: Nat) (tree: SourceFile)
     (parsed: parse source = Ok tree):
-    format source width = FormatResult.Formatted (tree.print width) :=
+    format source width = Formatted (tree.print width) :=
   rewrite parsed in rfl
 
 --| Round trip: the output of `format` parses to the source's tree.
 theorem formatRoundTrip ∀ (source: Text) (width: Nat) (output: Text)
-    (h: format source width = FormatResult.Formatted output):
+    (h: format source width = Formatted output):
     ∃ (tree: SourceFile) => parse source = Ok tree ∧ output = tree.print width ∧ parse output = Ok tree :=
   match e: parse source with
     | Ok tree =>
@@ -88,8 +88,8 @@ theorem formatRoundTrip ∀ (source: Text) (width: Nat) (output: Text)
 --| Idempotence: formatting the output again, at the same width, gives
 --| the output.
 theorem formatIdempotent ∀ (source: Text) (width: Nat) (output: Text)
-    (h: format source width = FormatResult.Formatted output):
-    format output width = FormatResult.Formatted output :=
+    (h: format source width = Formatted output):
+    format output width = Formatted output :=
   match formatRoundTrip source width output h with
     | Witness tree (Both parsed (Both same reparsed)) =>
       rewrite same in formatAnswers (tree.print width) width tree (rewrite <- same in reparsed)

@@ -9,7 +9,7 @@ import Std (Option, Result, Text)
 
 test "format answers Formatted for an untidy source, and Formatted with the same text for its output" :=
   match format untidy 80 with
-    | FormatResult.Formatted text => text == tidy && (format text 80).toOption == Some text
+    | Formatted text => text == tidy && (format text 80).toOption == Some text
     | ParseError _ => False
 
 test "a source that doesn't parse is a ParseError, with the parser's message" :=
@@ -36,5 +36,5 @@ test "a comma or closing bracket after an if's trailing comment goes on the next
     "let y = (if a then b else c -- k\n)\n", "let y = f(if a then b else if c then d else e -- k\n, x)\n"].all
     (source =>
       match format source 80 with
-        | FormatResult.Formatted text => (format text 80).toOption == Some text
+        | Formatted text => (format text 80).toOption == Some text
         | ParseError _ => False)
