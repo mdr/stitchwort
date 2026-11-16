@@ -1148,6 +1148,9 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
         && let Some(&def) = e.session.derive_waiting.borrow().get(&(head, interface))
         && e.kernel.def(def).state() == stitchwort_core::globals::State::Failed
     {
+        // A derive over this type (an `Outer` whose field is it) waits for
+        // the same instance (SW-3078).
+        cx.e.decl.failed_instance.replace(Some(def));
         if let Some(key) = e.instance_key(def) {
             crate::module::note_failed_used(&key);
         }

@@ -134,7 +134,9 @@ pub struct Session {
     /// the instance's definition, by (type, interface), so a use of the
     /// interface on it waits for that instance rather than saying "no
     /// instance" (SW-3078). A derive records this; `interfaces::none`
-    /// reads it and ignores it once the instance isn't failed.
+    /// reads it and ignores it once the instance isn't failed. It isn't in
+    /// the check cache: a module restored from the cache isn't re-derived,
+    /// so a user of it sees the old "no instance" message (accepted).
     pub(crate) derive_waiting: RefCell<HashMap<(DataId, DataId), stitchwort_core::DefId>>,
 }
 
