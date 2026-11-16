@@ -1,5 +1,5 @@
 {
-  "next": 3502,
+  "next": 3503,
   "tickets": [
     {
       "id": 47,
@@ -38992,12 +38992,12 @@
     {
       "id": 3494,
       "title": "[Opus] fmt passes L1 (docs/proposals/fmt-passes.md §6): N, where each comment belongs, run on every tree the formatter builds; the rules' comment/comma tolerance (comment_at_closers etc.) goes. Ends the comment-moves-layout bug family. Est. 60 min",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "lane/SW-3494",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Orchestrator's call: N moves comments leftward (the plan's preference).\n\nProgress (Opus lane, 16 Nov 2026, 09:33-09:45):\n- `crates/fmt/src/tidy.rs`: `place_comments`, rule N, with unit tests. Rule 1 stops early (leaves the comment on a closer or bar that starts its line) when going on would pass that token's own-line comments or land on a token that already has a trailing comment.\n- Rules read N's trivia; `comment_at_closers`/`comment_ends_at_closers` -> `comment_at_end`/`ends_with_comment`; `holds_comment_before_code` merged into `holds_trailing_comment`; `comma_first_comments`, `comma_end`, `leaf_trivia_only`, `comma_first_on_line` and the trim sites gone; `record_update_bar` moved to tidy; `comment_anchors` reads N's trivia exactly.\n- Engine S39 kept (white space under N, as the plan says); its measure now allows a flat line break between a waiting comment and closers.\n- Output changes: a fitting bracket with the comment on its last item joins one line (`[1, 2 -- c\\n]` -> `[1, 2] -- c`), a broken one prints `] -- c` on its own line as `last -- c` then `]`. Goldens: comment-on-the-last-item, comment-after-a-closer-on-its-own-line (both fail before), comma-comments (guard, same output before).\n- Probes.sw:109 is inside a toy-language text block: the Rust formatter leaves it unchanged; nothing to reformat.\n- Tests: golden test, printer::tests, tidy::, `comment` tests: pass. fuzz:fmt 0x805 and 0x80e, COMMENTS=0.3, 20000: pass; per-declaration fallbacks in those runs are the same cases as before the change.\n",
+      "body": "Orchestrator's call: N moves comments leftward (the plan's preference).\n\nProgress (Opus lane, 16 Nov 2026, 09:33-09:45):\n- `crates/fmt/src/tidy.rs`: `place_comments`, rule N, with unit tests. Rule 1 stops early (leaves the comment on a closer or bar that starts its line) when going on would pass that token's own-line comments or land on a token that already has a trailing comment.\n- Rules read N's trivia; `comment_at_closers`/`comment_ends_at_closers` -> `comment_at_end`/`ends_with_comment`; `holds_comment_before_code` merged into `holds_trailing_comment`; `comma_first_comments`, `comma_end`, `leaf_trivia_only`, `comma_first_on_line` and the trim sites gone; `record_update_bar` moved to tidy; `comment_anchors` reads N's trivia exactly.\n- Engine S39 kept (white space under N, as the plan says); its measure now allows a flat line break between a waiting comment and closers.\n- Output changes: a fitting bracket with the comment on its last item joins one line (`[1, 2 -- c\\n]` -> `[1, 2] -- c`), a broken one prints `] -- c` on its own line as `last -- c` then `]`. Goldens: comment-on-the-last-item, comment-after-a-closer-on-its-own-line (both fail before), comma-comments (guard, same output before).\n- Probes.sw:109 is inside a toy-language text block: the Rust formatter leaves it unchanged; nothing to reformat.\n- Tests: golden test, printer::tests, tidy::, `comment` tests: pass. fuzz:fmt 0x805 and 0x80e, COMMENTS=0.3, 20000: pass; per-declaration fallbacks in those runs are the same cases as before the change.\n\nOpus, 12 min (est. 60). New crates/fmt/src/tidy.rs (rule N). Engine's comment-past-closers kept (whitespace only after N), with one fits change. Output change: '[1, 2 -- c\\n]' now joins to '[1, 2] -- c' (orchestrator: accepted). Plan's latent dropped-comma bug can't occur (doesn't parse). Filed SW-3502 (fuzz counter). Note for L4: two trailing comments may meet in a construct that never asks holds_trailing_comment; exact check should catch it.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": [
@@ -39085,6 +39085,19 @@
     {
       "id": 3501,
       "title": "[DeepSeek] check's end-of-run counts ('N errors', 'N declarations can't be checked') include diagnostics hidden by W-AFTER-SYNTAX-ERROR (SW-3475); count only what is shown, or say how many are hidden",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3502,
+      "title": "[DeepSeek] fmt fuzzer: count and report declarations left as written (per-declaration fallback), so a rule change can't quietly fall back; ~15 per 40,000 comment-mode cases today (SW-3494). Until fmt passes L4 removes the fallback",
       "status": "backlog",
       "agent": "",
       "where": "",
