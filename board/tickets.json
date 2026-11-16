@@ -41253,7 +41253,7 @@
     {
       "id": 3664,
       "title": "[DeepSeek] Proof tuple messages from the L1 review (docs/reviews/SW-3516-proof-tuples-l1.md findings 4-7): check_tree's pair note false on ∨/test facts/∧ (lib.rs:6905); patlet's stale 'a tuple pattern matches a pair' (patlet.rs:321); a known record type gets 'which ∃? give the type' (p22); proposal §6's 'read as a pair because nothing said what it proves' and the E-PROP-ELIM tuple form; add dataGoal to proof_tuples_hash_as_witness_and_both. After SW-3566 merges",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -41331,7 +41331,7 @@
     {
       "id": 3670,
       "title": "[Opus paper] Review SW-3566 (generates kernel terms, D2364): the tuple marker and check_tree's switch to ∧/∃ or a reading; lambda_arg's recheck of a lambda over an unknown proposition; can a marked split ever become the wrong constructor. 20 min",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
