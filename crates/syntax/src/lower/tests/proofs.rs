@@ -249,7 +249,14 @@ fn rewrite_repeatedly_takes_a_bracketed_list_of_rules() {
     assert!(repeatedly.is_none());
     assert_eq!(rules.len(), 1);
     assert!(!parse_errors("def f (a: Nat): a = a :=\n  rewrite repeatedly []\n").is_empty());
-    assert!(!parse_errors("def f (a: Nat): a = a :=\n  rewrite repeatedly [p] at h\n").is_empty());
+    // `at h` rewrites a hypothesis (SW-3642).
+    assert!(matches!(
+        rhs("def f (a: Nat): a = a :=\n  rewrite repeatedly [p] at h\n"),
+        Expr::Rewrite {
+            repeatedly: Some(_),
+            ..
+        }
+    ));
 }
 
 #[test]

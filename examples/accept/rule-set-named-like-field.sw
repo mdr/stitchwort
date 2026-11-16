@@ -12,8 +12,8 @@ def total (lists: List (List Nat)): List Nat := lists.map (xs => xs.length)
 
 theorem totalNil: total [] = [] := byComputing
 
-theorem totalCons ∀ (xs: List Nat) (rest: List (List Nat)):
-    total [xs, ..rest] = [xs.length, ..total rest] := byComputing
+theorem totalCons ∀ (xs: List Nat) (rest: List (List Nat)): total [xs, ..rest] = [xs.length, ..total rest] :=
+  byComputing
 
 rules length := [totalCons, totalNil]
 
