@@ -44,6 +44,55 @@ in [../proposals/README.md](../proposals/README.md).
 
 ---
 
+## 16 Nov 2026
+
+### SW-3629: `rewrite repeatedly` on the toy's Words.sw, profiled; two hotspots cut, the 1.5x bar still missed
+
+- **Status:** kept (Opus), elaborator only (`rewrite.rs`, `rewrite/repeatedly.rs`,
+  `check.rs`). The Words.sw conversion (dev/patches/SW-3602-words-conversion.patch)
+  is still not landed: 2.46x against a 1.5x bar.
+- **Problem, profiled first.** samply at 10 kHz on
+  `check --no-cache Toy.Doc.Proofs --only Toy.Doc.Proofs.stepWords`, with the
+  patch applied, plus `STITCHWORT_REWRITE_METRICS` and temporary timers. Of
+  the time under `rewrite_repeatedly`: comparing candidates with a rule's
+  left side (`Search::decide`) 45%, as unify 17%, `has_carrier` (a kernel
+  `infer` of each candidate) 12%, `unify_solving_arguments` 11%; in the
+  instance-solving second search of `replace_solving_instances`,
+  `interfaces::refresh` re-read the whole (large, unfolded) left side for
+  every candidate, 60% of that search; and `try_close`'s failing
+  `byComputing` built its `E-REFL` message (`refl_error`, read-backs and
+  printing) only to throw it away, 8%. In stepWords the as-written pass's
+  `todays_instance` (a search of the unfolded goal, for rules with
+  unknowns) was 86 ms of 380.
+- **Change.** (1) The refreshed left side is kept for the search and used
+  for every candidate that solved nothing on the way (the meta store is
+  then as it was when the search started); dropped when a candidate
+  matches. Same values, so same results; it speeds plain `rewrite` too.
+  (2) `try_close` tries `byComputing` with a new `Decl::quiet_refl` set, under
+  which a failure is a bare `E-REFL`; the message was never shown.
+- **Measured** (`STITCHWORT_TIMINGS=decls`, sum over Words.sw's
+  declarations, 3 runs each, load 7 to 36, so read the ratios): before,
+  base 0.24 s, converted 0.65-0.68 s (2.8x); after, base 0.223-0.229 s,
+  converted 0.555-0.570 s (2.46x). stepWords: base 89 to 74 ms, converted
+  400 to 325 ms. `try_close` fell from 616 to 108 samples.
+- **Dropped.** A pre-check that skips `todays_instance` when no part of the
+  folded goal has the left side's key: same results, but in these proofs
+  the goal always holds such a part (`.words` everywhere), so no
+  measurable change. L4's key for `may_fit` (the first stuck call after
+  computing) wouldn't filter here either: every rule searched in the full
+  pass also fits as written. A negative cache of `decide` across searches
+  was sized by instrumenting: repeated (rule, candidate) pairs are about
+  40 ms of stepWords' 150 ms in `decide`; not built.
+- **What is left, and why it isn't a micro-optimisation.** The extra time
+  over the base proofs is searches for rules that don't apply: after every
+  step each listed rule is tried as written (2 ms each, ~60 per run of
+  stepWords), and each written-pass stall runs the full search of every
+  printer lemma (25-35 ms each, compared by computing). Two of those
+  (`writeWords` in the `FillSep` arm, `writeLayoutWords` in the `Line` arm)
+  are found only by `rescue`'s as-printed reading, after both unfolded
+  searches fail. Cutting these changes which rewrites run, so it is a
+  design call (stage 2's as-written-only question).
+
 ## 15 Nov 2026
 
 ### SW-3391: `Parse.operators` and `Parse.locatedToEnd`, the toy's hand-written loops moved into std

@@ -1586,6 +1586,13 @@ struct Search<'a, 'e> {
     carry: Option<(crate::carry::Carry, usize, Term, Carrying)>,
     /// Whether a decision's proofs were carried along.
     carried: Cell<bool>,
+    /// The left side refreshed ([`crate::interfaces::refresh`]) for a
+    /// candidate that solved nothing on the way, when `by_instances`. The
+    /// meta store is then as it was when the search started (a candidate
+    /// that doesn't match is undone), so it is the same for every such
+    /// candidate until one matches; reading back a large left side for each
+    /// was most of the time this search took.
+    refreshed: RefCell<Option<Value>>,
 }
 
 impl<'a, 'e> Search<'a, 'e> {
@@ -1631,6 +1638,7 @@ impl<'a, 'e> Search<'a, 'e> {
             first: RefCell::new(None),
             carry: None,
             carried: Cell::new(false),
+            refreshed: RefCell::new(None),
         })
     }
 }
@@ -1860,7 +1868,20 @@ impl Search<'_, '_> {
                     let only: Vec<usize> =
                         (self.rule_metas..cx.metas().metas.borrow().len()).collect();
                     cx.e.solve_ready_instances_keeping(&[], Some(&only))?;
-                    let lhs = crate::interfaces::refresh(cx, self.lhs)?;
+                    let lhs = match snapshot.solved_since(cx).is_empty() {
+                        true => {
+                            let cached = self.refreshed.borrow().clone();
+                            match cached {
+                                Some(lhs) => lhs,
+                                None => {
+                                    let lhs = crate::interfaces::refresh(cx, self.lhs)?;
+                                    *self.refreshed.borrow_mut() = Some(lhs.clone());
+                                    lhs
+                                }
+                            }
+                        }
+                        false => crate::interfaces::refresh(cx, self.lhs)?,
+                    };
                     return Ok(crate::undo::unify(cx, &value, &lhs)?
                         || crate::undo::unify_solving_arguments(cx, &value, &lhs)?);
                 }
@@ -1917,6 +1938,7 @@ impl Search<'_, '_> {
                 }
                 let solved = self.reading.quote(cx, self.lhs)?;
                 *self.lhs_term.borrow_mut() = solved;
+                self.refreshed.take();
                 Ok(Some(candidate))
             }
             Ok(Some(false)) => {

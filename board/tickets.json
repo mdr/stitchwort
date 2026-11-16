@@ -40773,12 +40773,12 @@
     {
       "id": 3629,
       "title": "[Sonnet] rewrite repeatedly speed (SW-3602 L1 follow-up): Words.sw conversion (dev/patches/SW-3602-words-conversion.patch) checks 2.8x base vs 1.5x bar; targets: written-pass cost of printer lemmas in stepWords (20-40 ms each), each listed rule checked once per arm (~35 ms); L4: key may_fit on the left side's first call still stuck after computing. Profile first; land the conversion when within 1.5x",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Orchestrator's call: this is finishing rewrite repeatedly's stage-1 bar, not general speed work (D3465 pause), so it runs. Opus (tactic internals).",
+      "body": "Orchestrator's call: this is finishing rewrite repeatedly's stage-1 bar, not general speed work (D3465 pause), so it runs. Opus (tactic internals).\n\nLane (Opus, 16 Nov, 35 min, est. 60): profiled stepWords (samply + rewrite metrics). Kept two safe cuts in 77e1e6309: refreshed left side reused per search in replace_solving_instances' instance pass (was 60% of that search), and try_close's byComputing fails without building its E-REFL message (Decl::quiet_refl; 616 to 108 samples). Words.sw decls: base 0.24 to 0.226 s, converted 0.65 to 0.56 s = 2.46x, still over the 1.5x bar, so the conversion stays a patch. What is left is searches of rules that don't apply (as-written tries after each step, full-pass printer-lemma searches 25-35 ms each, two lemmas found only by rescue's as-printed reading): cutting those changes which rewrites run, a design call (stage 2 as-written-only). L4's may_fit key wouldn't filter here (every full-pass rule fits as written). Performance log entry added. Tests: examples rewrite-repeatedly (7 pass), hash_stability examples EXAMPLES=rewrite-repeatedly (pass), Toy.Doc + Toy.Doc.Proofs check clean before and after.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []

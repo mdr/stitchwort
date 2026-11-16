@@ -6353,6 +6353,11 @@ fn rfl_against_equation(cx: &mut Ctx, name: &AstName, a: &Value, b: &Value) -> R
         || crate::queue::compare_waiting(cx, a, b, crate::queue::Failure::Refl)?
     {
         Ok(Term::Refl)
+    } else if cx.e.decl.quiet_refl.get() > 0 {
+        Err(Diagnostic::error(
+            "E-REFL",
+            "`byComputing` can't prove this",
+        ))
     } else {
         // The message shows the sides as the failed comparison left
         // them.
