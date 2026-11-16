@@ -122,13 +122,13 @@ theorem groupValues ∀ (isFirst: Bool)
     Eq.trans
       (List.appendAssoc group later endNotes)
       (Eq.cong ((tail: List (Spaced Declaration)) => group ++ tail) values)
-  Eq.trans
-    (Eq.cong ((lines: List (Spaced Declaration)) => firstBlankOf isFirst lines) assoc)
-    (Eq.trans
-      (firstBlankOfAppend isFirst group more (groupSomeOf isFirst group pending last noted))
-      (Eq.trans
-        (Eq.cong ((front: List (Spaced Declaration)) => front ++ more) noted)
-        (List.appendAssoc pending [last] more)))
+  calc firstBlankOf isFirst ((group ++ later) ++ endNotes)
+    _ = firstBlankOf isFirst (group ++ more) :=
+      Eq.cong ((lines: List (Spaced Declaration)) => firstBlankOf isFirst lines) assoc
+    _ = firstBlankOf isFirst group ++ more :=
+      firstBlankOfAppend isFirst group more (groupSomeOf isFirst group pending last noted)
+    _ = (pending ++ [last]) ++ more := Eq.cong ((front: List (Spaced Declaration)) => front ++ more) noted
+    _ = pending ++ [last, ..more] := List.appendAssoc pending [last] more
 
 --| The declarations of a file read back, as the rounds of the file's
 --| repetition: each round reads a declaration's tokens and gives its
