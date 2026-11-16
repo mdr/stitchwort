@@ -77,7 +77,7 @@ def ParsedDeclarations (lines: List (Spaced Declaration)): Prop :=
 
 --| What the parser guarantees of a file: `ShapedFile`, `LexicalFile` and
 --| `HeadedFile`.
-def ParsedFile (file: SourceFile): Prop := ShapedFile file ∧ LexicalFile file ∧ HeadedFile file
+def Parsed (file: SourceFile): Prop := ShapedFile file ∧ LexicalFile file ∧ HeadedFile file
 
 -- Tokens.
 
@@ -737,8 +737,8 @@ theorem givesDeclaration: Parse.Gives GoodTokens declaration ParsedDeclarations 
 theorem givesFileEnd ∀ (declarations: List (Spaced Declaration)) (endTrivia: List Trivia)
     (fineEnd: FineTrivia endTrivia)
     (parsed: ParsedDeclarations declarations):
-    Parse.Gives GoodTokens (() => fileEnd declarations endTrivia) ParsedFile :=
-  let done: Parse.Gives GoodTokens (() => fileOf declarations endTrivia) ParsedFile :=
+    Parse.Gives GoodTokens (() => fileEnd declarations endTrivia) Parsed :=
+  let done: Parse.Gives GoodTokens (() => fileOf declarations endTrivia) Parsed :=
     Parse.givesDone
       ((
         (shapedFileOf declarations endTrivia parsed.left),
@@ -755,7 +755,7 @@ theorem givesFileEnd ∀ (declarations: List (Spaced Declaration)) (endTrivia: L
 
 theorem givesSourceFile ∀ (endTrivia: List Trivia)
     (fineEnd: FineTrivia endTrivia):
-    Parse.Gives GoodTokens (() => sourceFile endTrivia) ParsedFile :=
+    Parse.Gives GoodTokens (() => sourceFile endTrivia) Parsed :=
   Parse.givesThen (Parse.givesMany givesDeclaration) (found all =>
     givesFileEnd found.concat endTrivia fineEnd
       ((
@@ -773,7 +773,7 @@ theorem givesSourceFile ∀ (endTrivia: List Trivia)
 --| whatever the source, is `ShapedFile`, `LexicalFile` and `HeadedFile`.
 --| The lexer's tokens are `Good` (`lexTexts`), and the walk gives all
 --| three from good tokens.
-theorem parseParsed ∀ (source: Text) (file: SourceFile) (parsed: parse source = Ok file): ParsedFile file :=
+theorem parseParsed ∀ (source: Text) (file: SourceFile) (parsed: parse source = Ok file): Parsed file :=
   match lexed: lex source with
     | Ok tokens =>
       match whole: Parse.whole tokens.tokens (() => sourceFile tokens.endTrivia) with
@@ -783,7 +783,7 @@ theorem parseParsed ∀ (source: Text) (file: SourceFile) (parsed: parse source 
           rewrite <- same then
             Parse.wholeReadsIn tokens.tokens
               (() => sourceFile tokens.endTrivia)
-              (taken value => ParsedFile value)
+              (taken value => Parsed value)
               found
               (givesSourceFile tokens.endTrivia texts.right)
               { holds = goodTokens tokens.tokens texts.left }
