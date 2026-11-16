@@ -1,5 +1,5 @@
 {
-  "next": 3493,
+  "next": 3494,
   "tickets": [
     {
       "id": 47,
@@ -38771,14 +38771,14 @@
     {
       "id": 3477,
       "title": "[Sonnet] Possible test-cache gap: after toyfmt's bareStatement changed (SW-3418 lane 3), stitchwort test reported '103 from the cache'; --no-cache ran all 103 (passed). Find whether the test cache key misses a changed definition the tests reach (dependency hashing), reproduce with a small project (change a helper a test calls, rerun test), fix with a test that fails before",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
       "body": "",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -38971,6 +38971,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3493,
+      "title": "[Opus paper] One design note for std's parser-proof library (after-the-toy-proof.md §2.1; takes in SW-3460, SW-3465, SW-3478): Reads with an invariant and offsets, a Gives/keeps-P layer with joint walks, a declines toolkit for token parsers, readsThen taking its parsers from the term",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
