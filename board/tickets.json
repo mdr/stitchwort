@@ -39007,7 +39007,7 @@
     {
       "id": 3495,
       "title": "[Sonnet] fmt passes L2: pass runner; ∀ (C1) and trailing comma (C2) as passes; golden for the dropped-final-comma comment bug, failing first. After L1. Est. 45 min",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
