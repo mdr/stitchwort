@@ -340,6 +340,122 @@ pub fn differ_only_in_proofs(g: &Ev, a: &Term, b: &Term) -> bool {
     matches!(compare(false), Ok(Some(_))) && matches!(compare(true), Ok(None))
 }
 
+/// `a` and `b` with the parts they agree on as `…`, for printing the two
+/// one above the other so that the difference stands out: matching calls,
+/// binders and equations are kept and their parts compared in turn, and a
+/// part the same on both sides becomes `…` unless it is small enough to
+/// read at a glance (a name, a number, a short call), which keeps the
+/// context of the difference. Parts that differ are kept whole.
+pub fn elide_agreeing(a: &Term, b: &Term) -> (Term, Term) {
+    // The most nodes an agreeing part may have and still be printed: `x`,
+    // `slot.field`, `Parse.digit` stay; `(read values => …)` doesn't.
+    const KEPT_NODES: usize = 5;
+    // Nodes as printed: arguments the compiler fills in aren't shown.
+    fn size(t: &Term) -> usize {
+        match bare(t) {
+            Term::App(f, _, icit) if *icit != Icit::Explicit => size(f),
+            Term::App(f, a, _) | Term::Pi(_, _, f, a) | Term::Eq(_, f, a) => size(f) + size(a) + 1,
+            Term::Lam(_, _, b) | Term::Proj(_, _, b) => size(b) + 1,
+            Term::Data(_, xs) | Term::Ctor(_, _, xs) => {
+                xs.iter().map(|x| size(x)).sum::<usize>() + 1
+            }
+            _ => 1,
+        }
+    }
+    fn go(a: &Term, b: &Term, top: bool) -> (Term, Term) {
+        let (x, y) = (bare(a), bare(b));
+        if same_term(x, y) {
+            return if top || size(x) <= KEPT_NODES {
+                (x.clone(), y.clone())
+            } else {
+                (
+                    Term::Meta(crate::value::ELIDED),
+                    Term::Meta(crate::value::ELIDED),
+                )
+            };
+        }
+        let pair = |l: &Rc<Term>, r: &Rc<Term>| {
+            let (l, r) = go(l, r, false);
+            (Rc::new(l), Rc::new(r))
+        };
+        match (x, y) {
+            (Term::App(..), Term::App(..)) => {
+                let ((f, xs), (g, ys)) = (full_spine(x), full_spine(y));
+                // Arguments are matched from the last, so that two calls of
+                // different functions (`Parse.Reads p s` and `Parse.ReadsIn
+                // inv p s`) still line up on the arguments they share.
+                let paired = xs
+                    .iter()
+                    .rev()
+                    .zip(ys.iter().rev())
+                    .take_while(|((_, i), (_, j))| i == j)
+                    .count();
+                // A call of a lambda or a `match` prints in a form of its
+                // own, which a `…` among its arguments would break.
+                let named = |t: &Term| matches!(t, Term::Def(_) | Term::Var(_));
+                if paired == 0 || !named(f) || !named(g) {
+                    return (x.clone(), y.clone());
+                }
+                let rebuild = |f: &Term, args: Vec<(Term, Icit)>| {
+                    args.into_iter().fold(f.clone(), |f, (arg, icit)| {
+                        Term::App(Rc::new(f), Rc::new(arg), icit)
+                    })
+                };
+                let (keep_x, keep_y) = (xs.len() - paired, ys.len() - paired);
+                let (mut l, mut r): (Vec<_>, Vec<_>) = (
+                    xs[..keep_x]
+                        .iter()
+                        .map(|(t, i)| ((*t).clone(), *i))
+                        .collect(),
+                    ys[..keep_y]
+                        .iter()
+                        .map(|(t, i)| ((*t).clone(), *i))
+                        .collect(),
+                );
+                let (f, g) = if keep_x == 0 && keep_y == 0 {
+                    go(f, g, true)
+                } else {
+                    (f.clone(), g.clone())
+                };
+                for ((p, icit), (q, _)) in xs[keep_x..].iter().zip(&ys[keep_y..]) {
+                    let (p, q) = go(p, q, false);
+                    l.push((p, *icit));
+                    r.push((q, *icit));
+                }
+                (rebuild(&f, l), rebuild(&g, r))
+            }
+            (Term::Pi(n, i, d, c), Term::Pi(m, j, e, k)) if i == j => {
+                let ((d, e), (c, k)) = (pair(d, e), pair(c, k));
+                (Term::Pi(n.clone(), *i, d, c), Term::Pi(m.clone(), *j, e, k))
+            }
+            (Term::Lam(n, i, s), Term::Lam(m, j, t)) if i == j => {
+                let (s, t) = pair(s, t);
+                (Term::Lam(n.clone(), *i, s), Term::Lam(m.clone(), *j, t))
+            }
+            (Term::Eq(ty, l, r), Term::Eq(ty2, l2, r2)) => {
+                let ((l, l2), (r, r2)) = (pair(l, l2), pair(r, r2));
+                (Term::Eq(ty.clone(), l, r), Term::Eq(ty2.clone(), l2, r2))
+            }
+            (Term::Data(d, xs), Term::Data(e, ys)) if d == e && xs.len() == ys.len() => {
+                let (l, r): (Vec<_>, Vec<_>) = xs.iter().zip(ys).map(|(p, q)| pair(p, q)).unzip();
+                (Term::Data(*d, l), Term::Data(*e, r))
+            }
+            (Term::Ctor(d, c, xs), Term::Ctor(e, k, ys))
+                if d == e && c == k && xs.len() == ys.len() =>
+            {
+                let (l, r): (Vec<_>, Vec<_>) = xs.iter().zip(ys).map(|(p, q)| pair(p, q)).unzip();
+                (Term::Ctor(*d, *c, l), Term::Ctor(*e, *k, r))
+            }
+            (Term::Proj(d, i, s), Term::Proj(e, j, t)) if d == e && i == j => {
+                let (s, t) = pair(s, t);
+                (Term::Proj(*d, *i, s), Term::Proj(*e, *j, t))
+            }
+            _ => (x.clone(), y.clone()),
+        }
+    }
+    go(a, b, true)
+}
+
 /// [`value_for_message`], for a term.
 pub fn term_for_message(g: &Ev, names: &[Name], term_: &Term) -> String {
     term_within(g, None, names, term_, MESSAGE_LIMIT, Prec::Arrow, None)
