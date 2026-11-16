@@ -2,8 +2,8 @@
 --| D3620): `formatDirect`, which prints the parsed tree with no check of
 --| any kind, its theorems, and every lemma between them and what
 --| `tools/toyfmt/src` has proved. The theorems here are proved from each
---| other, so the only gaps are the `?`s, one per open lemma; `stitchwort
---| goal` lists them and `../SKETCH.md` sizes them.
+--| other, and every lemma they need is now proved in `src/`, so there are no
+--| `?`s left; `../SKETCH.md` has the history.
 --|
 --| A project of its own (`check: open-goals: warn`), so that `Toy`'s
 --| `check`, `test` and `audit` don't see the open goals.
@@ -87,33 +87,12 @@ theorem parsedPrintPlaced ∀ (source: Text) (file: SourceFile) (width: Nat)
 
 -- Layer E, spelling: from the trace to the tokens the parser asks for.
 
---| OPEN (E2). Tokens whose views are those of a trace of the file's
---| events, with distinct offsets, spell the file.
---|
---| Proved in `Toy.Fmt.Proofs` (`SpellProofs.sw`), so no longer part of
---| what is open here: an expression's tokens from its events
---| (`exprSpells`: every form inside brackets, every form but `if`
---| outside them), a statement that is such an expression at its line
---| start (`bareSpells`), a body on its keyword's line (`inlineSpells`),
---| `else` (`reachesElse`), and the two ways a token fits its layout
---| (`innerFits`, `firstLeads`). Left: `if` outside brackets (its
---| branches as `SpelledBody` before anything `After` allows; what follows
---| a block there is `afterDeeper`'s to settle), blocks and their lines
---| with the notes and blank lines above them, `let`, declarations and
---| parameters, `After` (`EndsExpression` and `Settled`) after each
---| statement and body, and this statement's newest-first lists against
---| `Rising`.
-theorem spellsFile ∀ (file: SourceFile) (events: List Event)
-    (tokens: List (Parse.Located Token)) (endTrivia: List Trivia)
-    (shaped: ShapedFile file)
-    (lexical: LexicalFile file)
-    (headed: HeadedFile file)
-    (laid: FileEvents file events)
-    (views: tokens.map viewOf = (viewsOf events).views)
-    (pending: endTrivia = (viewsOf events).pending)
-    (offsets: Descending (tokens.map (token => token.offset))):
-    SpelledFile file tokens.reverse endTrivia.reverse :=
-  ?
+-- E2 is proved: `spellsFile` (`Toy.Fmt.Proofs`, `BlockSpellProofs.sw`)
+-- says tokens whose views are those of a trace of the file's events,
+-- with falling offsets, spell the file: `exprSpells` for expressions,
+-- `exprOut`, `bodyOut` and `linesOut` for an `if` outside brackets, bodies
+-- and blocks, `declarationsOut` for the declarations. Nothing is open
+-- here now.
 
 -- The theorems.
 
