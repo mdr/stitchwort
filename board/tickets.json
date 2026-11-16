@@ -1,5 +1,5 @@
 {
-  "next": 3486,
+  "next": 3487,
   "tickets": [
     {
       "id": 47,
@@ -38875,6 +38875,19 @@
     {
       "id": 3485,
       "title": "[DeepSeek] fmt not idempotent (comment mode, after SW-3481/3482): an argument after a lambda argument whose body ends in a trailing comment is indented one level too deep on the first pass (10 vs 8), then settles at its siblings' column (Overmind seed 0x805 COMMENTS=0.3 case 143343 on 63bf561cc). Input core: '(read n => ... n = Parse.digitsValue read-- c' newline ')' then '_ Parse.readsNat (Parse.readsChar ',')))'. Repro on main: task fuzz:fmt SEED=0x805 COMMENTS=0.3 CASE=143343 (~2 min; case numbers depend on the generator, so reproduce on a main where this command still fails, and save the input as a golden). Same family as SW-3462/SW-3481: a comment pushing layout state onto the next sibling",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Second hit, same diff (Overmind seed 0x80a COMMENTS=0.3 case 81208 on 63bf561cc): the _ after '(read n => ... ) -- c' in the readsStarting proof of the Parse examples. Comment seeds 0x801-0x804, 0x806-0x809 clean.",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3486,
+      "title": "[DeepSeek] toyfmt: type FormatResult = | Formatted (text: Text) | ParseError (message: Text) (was Stable Printed / Refused); drop Printed (SourceFile.print returns Text); theorems and tests follow, statements unchanged but for names and .text (Matt, 16 Nov 2026: 'yes')",
       "status": "doing",
       "agent": "",
       "where": "",
