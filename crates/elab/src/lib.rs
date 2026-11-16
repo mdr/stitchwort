@@ -1444,6 +1444,32 @@ impl Elaborator {
         diagnostics
     }
 
+    /// For the REPL, where a declaration typed again replaces the earlier
+    /// one: frees each name in `names` (written as in the source), and the
+    /// names under it (a type's constructors, a definition's generated
+    /// equations), so that the next load can declare them again. Earlier
+    /// definitions that used the old ones keep them: they refer to them by
+    /// hash, not by name. Returns how many names were freed. Undone by
+    /// rewinding to a mark taken before.
+    pub fn retire_names(&mut self, names: &[String]) -> usize {
+        let root = self.root().to_string();
+        let mut retired = Vec::new();
+        for name in names {
+            let key = format!("{root}{name}");
+            let under = format!("{key}.");
+            retired.extend(
+                self.scope
+                    .keys()
+                    .filter(|k| **k == key || k.starts_with(&under))
+                    .cloned(),
+            );
+        }
+        for key in &retired {
+            self.scope.forget(key);
+        }
+        retired.len()
+    }
+
     /// Whether what is loaded next is checked as the prelude is: its
     /// built-in types and natively implemented definitions registered with
     /// the kernel by name.

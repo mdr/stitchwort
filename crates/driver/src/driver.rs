@@ -997,6 +997,54 @@ impl Session {
         self.elab.add_session_imports(&module.imports)
     }
 
+    /// Declares what the REPL was given: `def`s, `theorem`s, `data` and the
+    /// like, as the top of a file without a namespace line. A name declared
+    /// before is replaced: the new declaration takes the name, and
+    /// definitions already made keep the old one they used. Returns the
+    /// names declared (each once), then the warnings and open goals, as
+    /// loading a file keeps them; on errors, nothing is declared, and the earlier names stay as they were.
+    pub fn add_declarations(
+        &mut self,
+        name: &str,
+        text: &str,
+    ) -> Result<(Vec<String>, Vec<Diagnostic>), Vec<Diagnostic>> {
+        let file = self.sources.add(name, text);
+        let (module, errors) = parse_module_recovering(file, text, self.elab.options.limits.stack);
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+        let mut declared: Vec<String> = Vec::new();
+        for decl in &module.decls {
+            use stitchwort_syntax::ast::Decl;
+            let (Decl::Data { name, .. }
+            | Decl::Signature { name, .. }
+            | Decl::Ability { name, .. }) = decl
+            else {
+                continue;
+            };
+            if !declared.contains(&name.text) {
+                declared.push(name.text.clone());
+            }
+        }
+        let mark = self.elab.mark();
+        self.elab.retire_names(&declared);
+        let first_new_def = self.elab.kernel.env.defs().len();
+        self.elab.set_file_mode(None);
+        let mut diagnostics = self.elab.elaborate_module(&module);
+        self.statement_style(&mut diagnostics, &[file]);
+        match self.finish_load(first_new_def, diagnostics) {
+            Ok(()) => {
+                self.elab.release(mark);
+                Ok((declared, std::mem::take(&mut self.warnings)))
+            }
+            Err(diagnostics) => {
+                self.elab.rewind(&mark);
+                self.elab.release(mark);
+                Err(diagnostics)
+            }
+        }
+    }
+
     /// Parses an expression the driver wrote itself.
     pub(crate) fn parse_internal(&mut self, name: &str, text: &str) -> Result<Expr, Diagnostic> {
         self.parse_expression(name, text)
