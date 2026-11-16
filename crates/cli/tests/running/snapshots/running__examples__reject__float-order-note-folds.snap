@@ -1,0 +1,34 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/float-order-note-folds.sw:6:56 ]
+   │
+ 6 │ theorem leqBad ∀ (x: Float): Float.leq x 0.0 = True := rfl
+   │                                                        ─┬─  
+   │                                                         ╰─── `x <= 0.0` and `True` aren't equal
+   │ 
+   │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 2: this statement is false; a counterexample:
+   │           x = 1.0
+   │         `x ≤ 0.0` is false:
+   │           left:  False
+   │           right: True
+───╯
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ reject/float-order-note-folds.sw:8:58 ]
+   │
+ 8 │ theorem lessBad ∀ (x: Float): Float.less x 0.0 = True := rfl
+   │                                                          ─┬─  
+   │                                                           ╰─── `x < 0.0` and `True` aren't equal
+   │ 
+   │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 2: this statement is false; a counterexample:
+   │           x = 0.0
+   │         `x < 0.0` is false:
+   │           left:  False
+   │           right: True
+───╯
