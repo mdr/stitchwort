@@ -559,6 +559,32 @@ fn a_list_of_plain_values_fills_its_lines_and_any_other_list_has_one_item_a_line
 }
 
 #[test]
+fn a_tuple_pattern_of_names_fills_its_lines_and_any_other_has_one_item_a_line() {
+    // proof-tuples.md §5: names and `_` fill the line; a tuple with a
+    // nested pattern is a comma bracket, one item a line.
+    let names: Vec<String> = (0..12).map(|k| format!("part{k:x<9}")).collect();
+    let flat = format!(
+        "def f (x: Nat): Nat := match x with\n  | ({}, _, last) => 0\n",
+        names.join(", ")
+    );
+    let fill = format!(
+        "def f (x: Nat): Nat := match x with\n  | ({},\n      {}, _, last) => 0\n",
+        names[..7].join(", "),
+        names[7..].join(", ")
+    );
+    check(&flat, &fill);
+    let nested = format!(
+        "def f (x: Nat): Nat := match x with\n  | ({}, Some y, last) => 0\n",
+        names.join(", ")
+    );
+    assert!(
+        fmt(&nested).contains("(\n"),
+        "one item a line: {}",
+        fmt(&nested)
+    );
+}
+
+#[test]
 fn a_single_variable_after_a_premise_shares_the_premise_line() {
     // D3564, D3571: no variable stands alone on a line.
     let before = "theorem shrinks ∀ (numbers: List Nat) (target: Nat) (start: Nat) \

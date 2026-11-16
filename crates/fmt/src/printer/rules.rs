@@ -1116,24 +1116,29 @@ impl<'a> Rules<'a> {
         }
         items.push((current, None));
         // D3572: a list of only plain values fills its lines, the bracket
-        // staying on the first.
-        let plain = node.kind() == NodeKind::List
+        // staying on the first. A tuple pattern of only names and `_` does
+        // too (proof-tuples.md §5: a proof of a long `∃`/`∧` chain is
+        // opened by one tuple, whose one-per-line form would be taller than
+        // the nested constructors it replaces).
+        let pattern_names = node.kind() == NodeKind::PatternTuple;
+        let plain = (node.kind() == NodeKind::List || pattern_names)
             && inside.len() == items.len() * 2 - 1
             && !self.holds_trailing_comment(node)
             && items.iter().all(|(item, _)| {
                 matches!(item.as_slice(), [el @ Element::Leaf(_)]
                 if !self.has_leading(*el)
-                    && matches!(
-                        self.tok(*el),
+                    && match self.tok(*el) {
+                        Some(Tok::Lower(_)) => true,
+                        Some(Tok::Underscore) => pattern_names,
                         Some(
                             Tok::Num(_)
-                                | Tok::Float(_)
-                                | Tok::Char(_)
-                                | Tok::Str(_)
-                                | Tok::Lower(_)
-                                | Tok::Upper(_)
-                        )
-                    ))
+                            | Tok::Float(_)
+                            | Tok::Char(_)
+                            | Tok::Str(_)
+                            | Tok::Upper(_),
+                        ) => !pattern_names,
+                        _ => false,
+                    })
             });
         if plain {
             let mut cells = Vec::new();

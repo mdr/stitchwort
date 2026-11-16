@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no alternative of this `match` matches numbers other than 0, in the case `(_, _)`
+   ╭─[ reject/proof-tuple-pattern-nonexhaustive.sw:4:61 ]
+   │
+ 4 │ theorem opened ∀ (h: ∃ (n: Nat) => n = 7 ∧ n > 1): 1 = 1 := match h with | (0, a, b) => rfl
+   │                                                             ───────────────┬───────────────  
+   │                                                                            ╰───────────────── missing case: no alternative of this `match` matches numbers other than 0, in the case `(_, _)`
+   │ 
+   │ Note: add an arm with a variable or `_` in that position
+───╯
