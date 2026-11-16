@@ -3,6 +3,83 @@
 use ariadne::{Config, IndexType, Label, Report, ReportKind};
 use stitchwort_syntax::{Diagnostic, Severity, SourceMap};
 
+/// When to colour the report on the command line (`--color`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ColorChoice {
+    /// Colour when the report goes to a terminal and `NO_COLOR` isn't set.
+    #[default]
+    Auto,
+    Always,
+    Never,
+}
+
+impl ColorChoice {
+    /// Whether to colour. `no_color` is the value of the `NO_COLOR`
+    /// environment variable: any non-empty value turns `Auto` off, an empty
+    /// one is ignored (<https://no-color.org>). An explicit
+    /// `--color=always` or `never` wins over it.
+    pub fn enabled(self, is_terminal: bool, no_color: Option<&str>) -> bool {
+        match self {
+            ColorChoice::Always => true,
+            ColorChoice::Never => false,
+            ColorChoice::Auto => is_terminal && no_color.is_none_or(str::is_empty),
+        }
+    }
+}
+
+/// `text` in the terminal style `code` (an SGR parameter list, `1;32`).
+fn styled(code: &str, text: &str) -> String {
+    format!("\u{1b}[{code}m{text}\u{1b}[0m")
+}
+
+/// Colours the part where the rows of a type mismatch's note differ
+/// (`expected: …\n   found: …`, as the checker writes them): from the first
+/// to the last character that isn't shared, widened to whole tokens (up to a space or bracket). The
+/// text is unchanged, so the colourless form says the same.
+fn highlight_rows(note: &str) -> String {
+    let Some((expected, found)) = note
+        .strip_prefix("expected: ")
+        .and_then(|rest| rest.split_once("\n   found: "))
+    else {
+        return note.to_string();
+    };
+    let e: Vec<char> = expected.chars().collect();
+    let f: Vec<char> = found.chars().collect();
+    let word = |c: char| !c.is_whitespace() && !"()[]{},".contains(c);
+    let mut start = e.iter().zip(&f).take_while(|(a, b)| a == b).count();
+    let mut shared = e[start..]
+        .iter()
+        .rev()
+        .zip(f[start..].iter().rev())
+        .take_while(|(a, b)| a == b)
+        .count();
+    // Widen to whole tokens on both sides.
+    while start > 0 && word(e[start - 1]) && e.get(start).is_some_and(|&c| word(c)) {
+        start -= 1;
+    }
+    while shared > 0 && word(e[e.len() - shared]) && word(e[e.len() - shared - 1]) {
+        shared -= 1;
+    }
+    let paint = |chars: &[char], code: &str| {
+        let end = chars.len() - shared;
+        let part: String = chars[start.min(end)..end].iter().collect();
+        if part.is_empty() || part == "…" {
+            return chars.iter().collect::<String>();
+        }
+        format!(
+            "{}{}{}",
+            chars[..start].iter().collect::<String>(),
+            styled(code, &part),
+            chars[end..].iter().collect::<String>()
+        )
+    };
+    format!(
+        "expected: {}\n   found: {}",
+        paint(&e, "1;4;32"),
+        paint(&f, "1;4;31")
+    )
+}
+
 /// Renders `diagnostic` as text. Pass `color: false` for snapshots and pipes.
 pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> String {
     let kind = match diagnostic.severity {
@@ -39,11 +116,29 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
         )
     });
     for label in labels {
-        report =
-            report.with_label(Label::new(place(sources, label.span)).with_message(&label.message));
+        let mut shown = Label::new(place(sources, label.span)).with_message(&label.message);
+        if color {
+            // The primary label in the report's own colour, the others in
+            // a calm one; the `─┬─` and `╰──` marks carry the same
+            // information without it.
+            shown = shown.with_color(if std::ptr::eq(label, &diagnostic.labels[0]) {
+                match diagnostic.severity {
+                    Severity::Error => ariadne::Color::Red,
+                    Severity::Warning => ariadne::Color::Yellow,
+                    Severity::Goal => ariadne::Color::Cyan,
+                }
+            } else {
+                ariadne::Color::Blue
+            });
+        }
+        report = report.with_label(shown);
     }
     for note in &diagnostic.notes {
-        report = report.with_note(note);
+        report = report.with_note(if color {
+            highlight_rows(note)
+        } else {
+            note.clone()
+        });
     }
 
     let cache = ariadne::sources(
@@ -79,7 +174,11 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
     // only. One line for each fix that can be applied as it stands.
     for fix in crate::fixes::fixes_of(sources, diagnostic) {
         if fix.applicability == crate::fixes::Applicability::Certain {
-            out.push_str(&fix.try_line());
+            let line = fix.try_line();
+            match line.strip_prefix("try:").filter(|_| color) {
+                Some(rest) => out.push_str(&format!("{}{rest}", styled("1;32", "try:"))),
+                None => out.push_str(&line),
+            }
             out.push('\n');
         }
     }
@@ -267,6 +366,57 @@ mod tests {
             .with_label(Span::new(second, 2, 8), "defined again here")
             .with_label(Span::new(first, 0, 6), "first defined here");
         insta::assert_snapshot!(render(&sources, &diagnostic, false));
+    }
+
+    fn mismatch() -> (SourceMap, Diagnostic) {
+        let mut sources = SourceMap::new();
+        let file = sources.add("example.sw", "def innocent (n : Nat) : Nat := spin n + 1\n");
+        let diagnostic = Diagnostic::error("E-TYPE-MISMATCH", "mismatch")
+            .with_label(Span::new(file, 32, 36), "primary")
+            .with_label(Span::new(file, 25, 28), "secondary")
+            .with_note("expected: f (n <= height) …\n   found: f (n < height) …");
+        (sources, diagnostic)
+    }
+
+    #[test]
+    fn colour_marks_labels_and_the_first_difference() {
+        let (sources, diagnostic) = mismatch();
+        let out = render(&sources, &diagnostic, true);
+        // Escape codes are on the labels (red primary, blue secondary).
+        assert!(out.contains("\u{1b}[31m"), "{out:?}");
+        assert!(out.contains("\u{1b}[34m"), "{out:?}");
+        // The differing words are bold and underlined, one in each row.
+        assert!(out.contains("\u{1b}[1;4;32m<=\u{1b}[0m"), "{out:?}");
+        assert!(out.contains("\u{1b}[1;4;31m<\u{1b}[0m"), "{out:?}");
+        // Colour only adds codes: without them it is the plain form.
+        assert_eq!(without_colour(&out), render(&sources, &diagnostic, false));
+    }
+
+    #[test]
+    fn warnings_are_yellow() {
+        let mut sources = SourceMap::new();
+        let file = sources.add("example.sw", "def x := 1\n");
+        let diagnostic =
+            Diagnostic::warning("W-X", "careful").with_label(Span::new(file, 4, 5), "here");
+        assert!(render(&sources, &diagnostic, true).contains("\u{1b}[33m"));
+    }
+
+    #[test]
+    fn plain_form_has_no_escapes() {
+        let (sources, diagnostic) = mismatch();
+        assert!(!render(&sources, &diagnostic, false).contains('\u{1b}'));
+    }
+
+    #[test]
+    fn colour_choice_follows_flag_and_no_color() {
+        use ColorChoice::*;
+        assert!(Auto.enabled(true, None));
+        assert!(!Auto.enabled(false, None));
+        // Any non-empty NO_COLOR turns it off; an empty one is ignored.
+        assert!(!Auto.enabled(true, Some("1")));
+        assert!(Auto.enabled(true, Some("")));
+        assert!(Always.enabled(false, Some("1")));
+        assert!(!Never.enabled(true, None));
     }
 
     #[test]

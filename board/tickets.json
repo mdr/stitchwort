@@ -40563,12 +40563,12 @@
     {
       "id": 3613,
       "title": "[Sonnet] Errors E13, colour (Matt, 16 Nov 2026: 'It'd be nice to improve our color ... makes it feel nice to use from a human point of view'): colour labels and the code in them (ariadne Label::with_color: primary red, secondary blue/other), highlight E1's first difference in a long mismatch (keeping the ^^), dim notes' lead word, honour NO_COLOR and add --color=always|never|auto (helpful-errors.md §3.5); colour never the only signal; plain/snapshot output unchanged. Show before/after captures with --color=always in the report",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Lane (Sonnet), 16 Nov 2026: built on lane/SW-3613 (b3b101297): --color=auto|always|never (global flag) and NO_COLOR; coloured labels, E1 difference highlight in the rows, bold try: lead; REPL goes through the same report(). SW-3547 marks differences with an ellipsis, not ^^, so nothing to keep. Plain output unchanged (examples snapshots pass).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
