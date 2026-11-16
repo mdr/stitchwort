@@ -40589,12 +40589,12 @@
     {
       "id": 3615,
       "title": "[Opus paper] Review SW-3602 (rewrite repeatedly stage 1): soundness of the generated chain, the as-written carry between steps, closers, budget and cycle naming, messages, docs; read lane/SW-3602's diff; write docs/reviews/SW-3602-rewrite-repeatedly.md with must-fix / should-fix / later",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Review written (Opus paper, ~10 min agent time, est. 35): scratchpad sw3615/SW-3602-rewrite-repeatedly.md, for docs/reviews/. Verdict: sound (all J steps via rewrite_once, closers and unfold Refl kernel-checked; the carried as-written goal only feeds the pre-filter and no-progress check). Must-fix: M1 Words.sw 3.6x is in the merge (bar said on a branch); M2 budget 'cycle' named by rule indices, false when goal progresses (repro p4); M3 rule with rhs-only unknown accepted, leaves _ and a misleading E-UNSOLVED (refuse in check_rule). 7 should-fix, 5 later.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
