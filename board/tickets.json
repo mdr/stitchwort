@@ -1,5 +1,5 @@
 {
-  "next": 3620,
+  "next": 3621,
   "tickets": [
     {
       "id": 47,
@@ -40641,6 +40641,19 @@
     {
       "id": 3619,
       "title": "[Sonnet] REPL tab completion (Matt, 16 Nov 2026): rustyline Completer: names in scope (imports, session definitions per D3661), namespaces after 'import', :commands, and members after '.', reusing the LSP's completion logic (crates/lsp) rather than a second implementation. After SW-3614",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3620,
+      "title": "[Sonnet] E-UNIVERSE message for a type used where a value of a Type-0 parameter is expected (Matt tried [Nat, Nat] in the REPL, 16 Nov 2026): say which parameter fixed the universe ('a List's elements must be values, in Type; Nat is itself a type, which lives in Type 1'), label the element not the whole list, and add a note that Stitchwort's universes have no polymorphism (docs/core.md). Reject example; part of the errors track",
       "status": "backlog",
       "agent": "",
       "where": "",
