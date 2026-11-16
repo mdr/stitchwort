@@ -39444,15 +39444,17 @@
     {
       "id": 3528,
       "title": "[Sonnet] examples/reject/parser-count-differs-from-lemma.sw lost its point after Parse L1/L2 (SW-3503/3504): it now fails on an unsolved implicit of Parse.readsWeaken instead of the 35-vs-36 count. Restate it with the new Reads/ReadsAt form so the error again names the differing count; regenerate its snapshot",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nLane note: the example was already in the Reads form and already failed on the 35-vs-36 count (the old snapshot predated Parse L1/L2); no source change beyond fmt rewrap. Snapshot regenerated (302376a70); 36-vs-36 copy checks clean; check takes ~0.4 s.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "302376a70"
+      ]
     },
     {
       "id": 3529,
