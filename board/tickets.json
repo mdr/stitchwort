@@ -33882,12 +33882,12 @@
     {
       "id": 3125,
       "title": "[DeepSeek] Misleading note: on ((a != b): Bool) = True used through .read, the mismatch says 'for the Bool test write ((a != b): Bool)' though the user wrote that; ne_read_as_prop matches on printed text (probe in docs/proposals/bool-as-proposition-building.md; SW-3087 finding 1)",
-      "status": "done",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Reverted on main (7ee900e03, 2a40e0984): the term-based check fired the '!= here is the proposition' note where the user wrote ≠ (examples/reject/match-not-found-goal-as-written.sw gained the note; batch verifier caught it). Redo: decide from the term AND only when the source wrote != (the span's text, or a flag the parser keeps), keeping the earlier reject example; run rejected_examples_fail_for_the_expected_reason. Model result: deepseek, failed (regression on review), ~40 min.",
       "created": "2026-11-13",
       "updated": "2026-11-16",
       "commits": []
