@@ -949,49 +949,8 @@ theorem readingJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (f
 theorem startSound ∀ (follows: Text → Text → Prop) (width: Nat): Sound follows (Printer.start width) :=
   Both rfl (Both (Inl rfl) (Both (Inr rfl) rfl))
 
---| A document that joins from a line start, printed at any width: the
---| text is `pieces` joined, no piece is empty, each piece that isn't
---| layout is followed by a line break, by nothing, or by a piece the
---| document allowed after it (`Pairs`, over the pieces the last first),
---| and the pieces' words are the document's.
-theorem printJoins ∀ (follows: Text → Text → Prop) (doc: Doc) (width: Nat)
-    (uniform: Uniform doc)
-    (joins: Joins follows doc (Plain None) (after => True)):
-    ∃ (pieces: List Text) => print doc width = pieces.joinWith ""
-      ∧ wordsOf pieces = doc.words
-      ∧ Pairs follows pieces.reverse :=
-  let fuel := 3 * doc.size + 3
-  let ran := (Printer.start width).run fuel fuel [Print 0 Break doc]
-  let bound := stepsUnderSize doc
-  let read: ran.words = (Printer.start width).words ++ stackWords [Print 0 Break doc] :=
-    readingWords
-      (Printer.start width)
-      fuel
-      [Print 0 Break doc]
-      ran
-      (runIsReading (Printer.start width) fuel fuel [Print 0 Break doc])
-      (Both uniform rfl)
-      (omega)
-  let sound: Sound follows ran :=
-    readingJoins follows
-      (Printer.start width)
-      fuel
-      [Print 0 Break doc]
-      ran
-      (runIsReading (Printer.start width) fuel fuel [Print 0 Break doc])
-      (startSound follows width)
-      joins
-  match flushWritten ran with
-    | Both written _ =>
-      Witness ran.flushSuffixes.out.reverse
-        (Both rfl
-          (Both
-            (Eq.trans written (Eq.trans read (List.appendNil doc.words)))
-            (rewrite List.reverseReverse ran.flushSuffixes.out in finalPairs follows ran sound)))
-
---| `printJoins` of the pieces `print` joins themselves
---| (`printedPieces`), so that it can be said of the same pieces as
---| `printLays`.
+--| `printedPieces` are the pieces `print` joins, so that what is said of
+--| `print`'s text can be said of the same pieces as `printLays`.
 theorem printedJoins ∀ (follows: Text → Text → Prop) (doc: Doc) (width: Nat)
     (uniform: Uniform doc)
     (joins: Joins follows doc (Plain None) (after => True)):

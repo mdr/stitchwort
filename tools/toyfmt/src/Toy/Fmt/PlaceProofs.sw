@@ -462,16 +462,6 @@ theorem parsedPrintTokens ∀ (source: Text) (file: SourceFile) (width: Nat)
         } :=
   printedTokens file width (parseLexical source file parsed)
 
---| Where the words of a printed file are: whatever a file's layout
---| lays (`Lays`, from the start of an unindented line) holds of the
---| words of the same pieces `parsedPrintTokens` speaks of, each with the
---| column it starts its line at, if it does: the `startsLine` and
---| `column` that `placed` gives its token.
-theorem printedPlaces ∀ (file: SourceFile) (width: Nat) (spec: Place → List Event → Prop)
-    (lays: Lays file.layout 0 (AtStart 0) [] spec):
-    ∃ (place: Place) => spec place (eventsOf (printedPieces file.layout width).reverse) :=
-  printLays spec file.layout width lays
-
 --| `placed` computes: `f x`, a line break, two spaces and `y` are three
 --| tokens, the last starting its line at column 2.
 theorem placedExample: ((placed ["y", "  ", "\n", "x", " ", "f"]).tokens.map (token =>

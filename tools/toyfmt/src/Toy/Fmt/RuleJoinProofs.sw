@@ -948,31 +948,6 @@ theorem fileJoins ∀ (file: SourceFile) (lexical: LexicalFile file): Passes fil
         (passesConcat _ Loose Open (declarationLinesPass 0 [first, ..rest] Loose (zero edge holds => holds) lexical))
         (passesTo _ _ Loose Open (passesHard Open) (edge reached => rfl))
 
---| A file printed, at every width, lexes to its pieces. For a file whose
---| texts are the lexer's (`LexicalFile`), the printed text is `pieces`
---| joined, the pieces that aren't layout are the file's tokens and
---| comments in order, and `lex` of the text gives the pieces as lexemes
---| (neighbouring spaces as one) and the tokens `assemble` makes of them:
---| no two tokens run together, none is cut, and nothing follows a
---| comment on its line.
-theorem printedLexes ∀ (file: SourceFile) (width: Nat)
-    (lexical: LexicalFile file):
-    ∃ (pieces: List Text) => (file.print width).text = pieces.joinWith ""
-      ∧ wordsOf pieces = wordsOf file.pieces
-      ∧ lex (file.print width).text
-        = Ok {
-          lexemes = Parse.locatedSteps 0 (stepsOnto pieces.reverse []),
-          tokens = (assemble (file.print width).text (Parse.locatedSteps 0 (stepsOnto pieces.reverse []))).fst,
-          endTrivia = (assemble (file.print width).text (Parse.locatedSteps 0 (stepsOnto pieces.reverse []))).snd
-        } :=
-  match fileJoins file lexical, fileWrites file with
-    | Both proper joins, Both uniform words =>
-      match joinedLex file.layout width uniform
-        (joins (Plain None) (after => True) rfl (after reached => rfl))
-        proper with
-        | Witness pieces (Both printed (Both same lexed)) =>
-          Witness pieces (Both printed (Both (Eq.trans same words) lexed))
-
 --| `LexicalFile` can be met: the tree of `let x = 1`.
 theorem lexicalExample: LexicalFile {
       declarations = [
