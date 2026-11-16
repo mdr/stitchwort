@@ -279,7 +279,7 @@ def comments: Golden :=
           [item (NumberLiteral "1" (above ["-- light"])), { value = num "2", comma = after "-- two" }, item (num "3")]
           none),
       plain
-        (Function none "odd" none none [parameter "x"] none (after "-- why") (expr (op Remainder (v "x") (num "2"))))
+        (Function none "odd" none None none [parameter "x"] none (after "-- why") (expr (op Remainder (v "x") (num "2"))))
     ],
     formatted = """
       -- Totals for one order.

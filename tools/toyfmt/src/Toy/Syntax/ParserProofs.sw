@@ -63,6 +63,7 @@ theorem suffixesEndRun ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located T
                       | OpenSquare => byComputing
                       | CloseSquare => byComputing
                       | Comma => byComputing
+                      | Colon => byComputing
                       | Defines => byComputing
                   | Name text => byComputing
                   | Number digits => byComputing

@@ -28,7 +28,7 @@
 --| - Line starts inside brackets don't matter to layout.
 
 namespace Toy.Syntax
-import Std (List, Option, Text)
+import Std (List, NonEmptyList, Option, Text)
 
 --| A `--` comment as written, `--` included.
 type Comment = { text: Text }
@@ -104,9 +104,22 @@ type Expr =
 --| (none for the last item, which has no comma).
 type Item = { value: Expr, comma: Comments }
 
---| A declaration's parameter, its name's comments, and the comments of the
---| comma after it (none for the last).
-type Parameter = { name: Text, comments: Comments, comma: Comments }
+--| A parameter's type: a name, or a type in brackets.
+type TypeExpr =
+  | TypeName (name: Text) (comments: Comments)
+  | TypeBracketed (open: Comments) (inner: TypeExpr) (close: Comments)
+
+--| A parameter's name and its comments.
+type Named = { name: Text, comments: Comments }
+
+type ParameterGroup =
+  | Untyped (parameter: Named)
+  --| `w h: Int`: one or more names and the type they share.
+  | Typed (names: NonEmptyList Named) (colon: Comments) (annotation: TypeExpr)
+
+--| A group of a declaration's parameters, and the comments of the comma
+--| after it (none for the last).
+type Parameter = { group: ParameterGroup, comma: Comments }
 
 --| A line of a vertical list (a file's declarations, a block's statements),
 --| and whether the author left a blank line above it.
@@ -121,13 +134,14 @@ type Statement =
 --| What follows `=`: one or more statements.
 type Body = { statements: List (Spaced Statement) }
 
---| The comments are the tokens': `fn` or `let`, the name, the brackets
---| around the parameters and `=`.
+--| The comments are the tokens': `fn` or `let`, the name, `takes` if it
+--| was written, the brackets around the parameters and `=`.
 type Declaration =
   | Function
       (fnComments: Comments)
       (name: Text)
       (nameComments: Comments)
+      (takes: Option Comments)
       (open: Comments)
       (parameters: List Parameter)
       (close: Comments)

@@ -37,6 +37,7 @@ theorem runsSign ∀ (layout: Layout) (what: Text) (wanted: Punctuation)
         | CloseSquare => byComputing
         | Comma => byComputing
         | Dot => byComputing
+        | Colon => byComputing
         | Defines => byComputing)
 
 theorem runsName ∀ (layout: Layout) (token: Parse.Located Token) (text: Text) (rest: List (Parse.Located Token))
@@ -2054,6 +2055,7 @@ theorem notIfAtReserved ∀ (layout: Layout) (token: Parse.Located Token) (keywo
           | LetKeyword, notIf => byComputing
           | ThenKeyword, notIf => byComputing
           | ElseKeyword, notIf => byComputing
+          | TakesKeyword, notIf => byComputing
 
 --| No atom starts with a keyword.
 theorem atomDeclines ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (token: Parse.Located Token)

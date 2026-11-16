@@ -297,6 +297,7 @@ def Punctuation.spelling: Punctuation → Text
   | CloseSquare => "]"
   | Comma => ","
   | Dot => "."
+  | Colon => ":"
   | Defines => "="
 
 -- Bodies and blocks.
@@ -432,11 +433,21 @@ def declarationLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse
 def functionLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse.Located Token)} Declaration :=
   skip()
   let (declared, nameComments) := name layout
+  let header := functionHeader layout
+  let equals := sign layout "'='" Defines
+  Function (layout.comments first) declared nameComments header.takes header.open header.parameters header.close equals
+    (body expression layout)
+
+--| What a function has between its name and `=`, with each token's
+--| comments: `takes` if it was written, then the parameters in brackets.
+type Header = { takes: Option Comments, open: Comments, parameters: List Parameter, close: Comments }
+
+def functionHeader (layout: Layout): {Parse (Parse.Located Token)} Header :=
+  let takes := Parse.optional (() => keyword layout TakesKeyword)
   let open := sign layout "'('" OpenParen
   let parameters := parametersOf (Parse.optional parameterList)
   let close := sign InBrackets "')'" CloseParen
-  let equals := sign layout "'='" Defines
-  Function (layout.comments first) declared nameComments open parameters close equals (body expression layout)
+  { takes, open, parameters, close }
 
 --| A value declaration, from its `let`, the token `first`.
 def valueLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse.Located Token)} Declaration :=
@@ -445,29 +456,78 @@ def valueLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse.Locat
   let equals := sign layout "'='" Defines
   Value (layout.comments first) declared nameComments equals (body expression layout)
 
---| A header's parameters: a name, then a comma and a name as long as both
---| come, as `Parse.sepBy1` reads them but keeping each comma's comments.
-def parameterList(): {Parse (Parse.Located Token)} ((Text, Comments), List (Comments, (Text, Comments))) :=
-  let first := name InBrackets
+--| A header's parameter groups: a group, then a comma and a group as long
+--| as both come, as `Parse.sepBy1` reads them but keeping each comma's
+--| comments.
+def parameterList(): {Parse (Parse.Located Token)} (ParameterGroup, List (Comments, ParameterGroup)) :=
+  let first := parameterGroup()
   let others := Parse.many parameterStep
   (first, others)
 
---| A comma and the parameter after it.
-def parameterStep(): {Parse (Parse.Located Token)} (Comments, (Text, Comments)) :=
+--| A comma and the group after it.
+def parameterStep(): {Parse (Parse.Located Token)} (Comments, ParameterGroup) :=
   let comma := sign InBrackets "','" Comma
-  let named := name InBrackets
-  (comma, named)
+  let group := parameterGroup()
+  (comma, group)
 
-def parametersOf (found: Option ((Text, Comments), List (Comments, (Text, Comments)))): List Parameter :=
+--| A parameter group: one name, or names, then `:` and the type they share.
+def parameterGroup(): {Parse (Parse.Located Token)} ParameterGroup :=
+  let first := name InBrackets
+  let others := Parse.many (() => name InBrackets)
+  let typing := Parse.optional typing
+  groupOf first others typing
+
+--| A group's `:` and its type.
+def typing(): {Parse (Parse.Located Token)} (Comments, TypeExpr) :=
+  let colon := sign InBrackets "':'" Colon
+  let annotation := typeExpr()
+  (colon, annotation)
+
+--| The group of the names read, `first` then `others`, and their type if
+--| one followed: several names need one.
+def groupOf (first: (Text, Comments)) (others: List (Text, Comments)) (typing: Option (Comments, TypeExpr)):
+    {Parse (Parse.Located Token)} ParameterGroup :=
+  match typing, others with
+    | Some (colon, annotation), _ => Typed { head = namedOf first, tail = others.map namedOf } colon annotation
+    | None, [] => Untyped (namedOf first)
+    | None, [_, .._] => Parse.expected "':'"
+
+def namedOf (found: (Text, Comments)): Named := { name = found.fst, comments = found.snd }
+
+-- Types nest, so they are read by `Parse.recursiveWith`, as expressions are.
+
+def typeExpr(): {Parse (Parse.Located Token)} TypeExpr := Parse.recursiveWith typeRule ()
+
+def typeRule (self: () → {Parse (Parse.Located Token)} TypeExpr) (unit: ()): {Parse (Parse.Located Token)} TypeExpr :=
+  match peek() with
+    | Some token => typeOf self (Layout.comments InBrackets token) token.value.kind
+    | None => Parse.expected "a type"
+
+--| The type whose first token is of `kind` and holds `comments`.
+-- A function of its own so that proofs can name it, as `atomOf` is.
+def typeOf (self: () → {Parse (Parse.Located Token)} TypeExpr) (comments: Comments) (kind: Kind):
+    {Parse (Parse.Located Token)} TypeExpr :=
+  match kind with
+    | Name text =>
+      skip()
+      TypeName text comments
+    | Sign OpenParen =>
+      skip()
+      let inner := self ()
+      let close := sign InBrackets "')'" CloseParen
+      TypeBracketed comments inner close
+    | _ => Parse.expected "a type"
+
+def parametersOf (found: Option (ParameterGroup, List (Comments, ParameterGroup))): List Parameter :=
   match found with
     | None => []
     | Some (first, others) => withCommas first others
 
---| Each parameter with the comments of the comma after it.
-def withCommas (first: (Text, Comments)) (others: List (Comments, (Text, Comments))): List Parameter :=
+--| Each group with the comments of the comma after it.
+def withCommas (first: ParameterGroup) (others: List (Comments, ParameterGroup)): List Parameter :=
   match others with
-    | [] => [{ name = first.fst, comments = first.snd, comma = Comments.none }]
-    | [(comma, next), ..rest] => [{ name = first.fst, comments = first.snd, comma }, ..withCommas next rest]
+    | [] => [{ group = first, comma = Comments.none }]
+    | [(comma, next), ..rest] => [{ group = first, comma }, ..withCommas next rest]
 
 --| A declaration's lines: the own-line comments in `above`, the trivia on
 --| its first token, then `parsed`.

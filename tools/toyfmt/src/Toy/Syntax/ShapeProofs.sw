@@ -257,13 +257,13 @@ def BareLast: List Parameter → Prop
   | [{ comma, .. }] => comma = Comments.none
   | [_, ..rest] => BareLast rest
 
-theorem withCommasCons ∀ (first: (Text, Comments)) (others: List (Comments, (Text, Comments))):
+theorem withCommasCons ∀ (first: ParameterGroup) (others: List (Comments, ParameterGroup)):
     ∃ (head: Parameter) => ∃ (tail: List Parameter) => withCommas first others = [head, ..tail] :=
   match others with
     | [] => (_, [], byComputing)
     | [(comma, next), ..rest] => (_, (withCommas next rest), byComputing)
 
-theorem withCommasBare ∀ (first: (Text, Comments)) (others: List (Comments, (Text, Comments))):
+theorem withCommasBare ∀ (first: ParameterGroup) (others: List (Comments, ParameterGroup)):
     BareLast (withCommas first others) :=
   match others with
     | [] => byComputing
@@ -273,7 +273,7 @@ theorem withCommasBare ∀ (first: (Text, Comments)) (others: List (Comments, (T
         | (head, tail, same) => rewrite same then (rewrite same at bare then bare)
 
 --| The parameters the parser builds end in one with no comma.
-theorem parametersBare ∀ (found: Option ((Text, Comments), List (Comments, (Text, Comments)))):
+theorem parametersBare ∀ (found: Option (ParameterGroup, List (Comments, ParameterGroup))):
     BareLast (parametersOf found) :=
   match found with
     | None => byComputing
@@ -282,7 +282,7 @@ theorem parametersBare ∀ (found: Option ((Text, Comments), List (Comments, (Te
 --| Each expression in the declaration is of the parser's shape, and a
 --| function's last parameter has no comma.
 def ShapedDeclaration: Declaration → Prop
-  | Function _ _ _ _ parameters _ _ found => BareLast parameters ∧ ShapedBody found
+  | Function _ _ _ _ _ parameters _ _ found => BareLast parameters ∧ ShapedBody found
   | Value _ _ _ _ found => ShapedBody found
   | DeclarationNote _ => True
 

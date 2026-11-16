@@ -55,10 +55,10 @@ def letBody (name: Text) (body: Body): Statement := Let none name none none body
 
 def letIn (name: Text) (value: Expr): Spaced Statement := plain (letBody name (expr value))
 
-def parameter (name: Text): Parameter := { name, comments = none, comma = none }
+def parameter (name: Text): Parameter := { group = Untyped { name, comments = none }, comma = none }
 
 def fn (name: Text) (parameters: List Text) (body: Body): Spaced Declaration :=
-  plain (Function none name none none (parameters.map parameter) none none body)
+  plain (Function none name none None none (parameters.map parameter) none none body)
 
 def valueBody (name: Text) (body: Body): Declaration := Value none name none none body
 

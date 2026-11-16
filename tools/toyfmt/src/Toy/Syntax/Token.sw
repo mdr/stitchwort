@@ -10,7 +10,7 @@
 namespace Toy.Syntax
 import Std (List, Option, Parse, Text)
 
-type Keyword = | FnKeyword | LetKeyword | IfKeyword | ThenKeyword | ElseKeyword
+type Keyword = | FnKeyword | LetKeyword | IfKeyword | ThenKeyword | ElseKeyword | TakesKeyword
 
 def Keyword.spelling: Keyword → Text
   | FnKeyword => "fn"
@@ -18,6 +18,7 @@ def Keyword.spelling: Keyword → Text
   | IfKeyword => "if"
   | ThenKeyword => "then"
   | ElseKeyword => "else"
+  | TakesKeyword => "takes"
 
 type Punctuation =
   | OpenParen
@@ -26,6 +27,8 @@ type Punctuation =
   | CloseSquare
   | Comma
   | Dot
+  --| The `:` before a parameter group's type.
+  | Colon
   --| The `=` of a declaration or `let`; `==` is an operator.
   | Defines
 
@@ -71,6 +74,7 @@ def Keyword.fromWord: Text → Option Keyword
   | "if" => Some IfKeyword
   | "then" => Some ThenKeyword
   | "else" => Some ElseKeyword
+  | "takes" => Some TakesKeyword
   | _ => None
 
 --| What a run of operator characters means, if anything.
@@ -98,6 +102,7 @@ def punctuation: Char → Option Punctuation
   | ']' => Some CloseSquare
   | ',' => Some Comma
   | '.' => Some Dot
+  | ':' => Some Colon
   | _ => None
 
 --| A word is a name unless it spells a keyword.

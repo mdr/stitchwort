@@ -43,49 +43,43 @@ def SpelledDeclarations (isFirst: Bool) (pending lines: List (Spaced Declaration
     | [
         {
           blankBefore,
-          line = Function fnComments name nameComments openComments parameters closeComments equalsComments inner
+          line = Function fnComments name nameComments takes openComments parameters closeComments equalsComments
+              inner
         },
         ..more
       ] =>
-      ∃ (first: Parse.Located Token) => ∃ (named: Parse.Located Token) => ∃ (open: Parse.Located Token) =>
-        ∃ (close: Parse.Located Token) => ∃ (equals: Parse.Located Token) =>
-          ∃ (parameterTokens: List (Parse.Located Token)) => ∃ (bodyTokens: List (Parse.Located Token)) =>
-            ∃ (later: List (Parse.Located Token)) =>
-              ∃ (listed: Option ((Text, Comments), List (Comments, (Text, Comments)))) => tokens
-                = [first, named, open, ..parameterTokens ++ ([close, equals, ..bodyTokens] ++ later)]
-                ∧ (first.value.startsLine && first.value.column == 0) = True
-                ∧ first.value.kind = Reserved FnKeyword
-                ∧ named.value.kind = Name name
-                ∧ (InStatement 0 first.offset).allows named = True
-                ∧ open.value.kind = Sign OpenParen
-                ∧ (InStatement 0 first.offset).allows open = True
-                ∧ close.value.kind = Sign CloseParen
-                ∧ equals.value.kind = Sign Defines
-                ∧ (InStatement 0 first.offset).allows equals = True
-                ∧ Parse.Runs
-                  (() => Parse.optional parameterList)
-                  parameterTokens
-                  ([close, equals, ..bodyTokens] ++ later)
-                  listed
-                ∧ parameters = parametersOf listed
-                ∧ fnComments = (InStatement 0 first.offset).comments first
-                ∧ nameComments = (InStatement 0 first.offset).comments named
-                ∧ openComments = (InStatement 0 first.offset).comments open
-                ∧ closeComments = Layout.comments InBrackets close
-                ∧ equalsComments = (InStatement 0 first.offset).comments equals
-                ∧ firstBlankOf isFirst
-                  (notedDeclaration first.value.above
-                    (Function fnComments name nameComments openComments parameters closeComments equalsComments inner))
-                  = pending
-                    ++ [
-                      {
-                        blankBefore,
-                        line = Function fnComments name nameComments openComments parameters closeComments
-                            equalsComments inner
-                      }
-                    ]
-                ∧ SpelledBody (InStatement 0 first.offset) inner bodyTokens later
-                ∧ SpelledDeclarations False [] more later endTrivia
+      ∃ (first: Parse.Located Token) => ∃ (named: Parse.Located Token) => ∃ (equals: Parse.Located Token) =>
+        ∃ (headerTokens: List (Parse.Located Token)) => ∃ (bodyTokens: List (Parse.Located Token)) =>
+          ∃ (later: List (Parse.Located Token)) => tokens
+            = [first, named, ..headerTokens ++ ([equals, ..bodyTokens] ++ later)]
+            ∧ (first.value.startsLine && first.value.column == 0) = True
+            ∧ first.value.kind = Reserved FnKeyword
+            ∧ named.value.kind = Name name
+            ∧ (InStatement 0 first.offset).allows named = True
+            ∧ equals.value.kind = Sign Defines
+            ∧ (InStatement 0 first.offset).allows equals = True
+            ∧ Parse.Runs
+              (() => functionHeader (InStatement 0 first.offset))
+              headerTokens
+              ([equals, ..bodyTokens] ++ later)
+              { takes, open = openComments, parameters, close = closeComments }
+            ∧ fnComments = (InStatement 0 first.offset).comments first
+            ∧ nameComments = (InStatement 0 first.offset).comments named
+            ∧ equalsComments = (InStatement 0 first.offset).comments equals
+            ∧ firstBlankOf isFirst
+              (notedDeclaration first.value.above
+                (Function fnComments name nameComments takes openComments parameters closeComments equalsComments
+                  inner))
+              = pending
+                ++ [
+                  {
+                    blankBefore,
+                    line = Function fnComments name nameComments takes openComments parameters closeComments
+                        equalsComments inner
+                  }
+                ]
+            ∧ SpelledBody (InStatement 0 first.offset) inner bodyTokens later
+            ∧ SpelledDeclarations False [] more later endTrivia
 
 --| `tokens` and `endTrivia` (both in source order) spell `file`.
 def SpelledFile (file: SourceFile) (tokens: List (Parse.Located Token)) (endTrivia: List Trivia): Prop :=
@@ -202,67 +196,60 @@ theorem declarationsRun ∀ (isFirst: Bool) (pending lines: List (Spaced Declara
     | [
         {
           blankBefore,
-          line = Function fnComments name nameComments openComments parameters closeComments equalsComments inner
+          line = Function fnComments name nameComments takes openComments parameters closeComments equalsComments
+              inner
         },
         ..more
       ], Both (Both bare innerShaped) moreShaped, Witness first
         (Witness named
-          (Witness open
-            (Witness close
-              (Witness equals
-                (Witness parameterTokens
-                  (Witness bodyTokens
-                    (Witness later
-                      (Witness listed
-                        (Both split
-                          (Both atMargin
-                            (Both isFn
-                              (Both isName
-                                (Both nameAllowed
-                                  (Both opens
-                                    (Both openAllowed
-                                      (Both closes
-                                        (Both isEquals
-                                          (Both equalsAllowed
-                                            (Both runsNames
-                                              (Both listedSame
-                                                (Both fnCommented
-                                                  (Both nameCommented
-                                                    (Both openCommented
-                                                      (Both closeCommented
-                                                        (Both equalsCommented
-                                                          (Both noted
-                                                            (Both innerSpelled
-                                                                laterSpelled))))))))))))))))))))))))))) =>
-      let line := Function fnComments name nameComments openComments parameters closeComments equalsComments inner
+          (Witness equals
+            (Witness headerTokens
+              (Witness bodyTokens
+                (Witness later
+                  (Both split
+                    (Both atMargin
+                      (Both isFn
+                        (Both isName
+                          (Both nameAllowed
+                            (Both isEquals
+                              (Both equalsAllowed
+                                (Both runsHeader
+                                  (Both fnCommented
+                                    (Both nameCommented
+                                      (Both equalsCommented (Both noted (Both innerSpelled laterSpelled)))))))))))))))))) =>
+      let line :=
+        Function fnComments name nameComments takes openComments parameters closeComments equalsComments inner
       match declarationsRun False [] more later endTrivia moreShaped laterSpelled with
         | Witness steps (Both joined (Both runs values)) =>
           let values2: (Parse.stepValues steps).concat ++ (spacedNotes DeclarationNote endTrivia).fst = more := values
           (
-            [
-              (
-                [first, named, open, ..parameterTokens ++ [close, equals, ..bodyTokens]],
-                notedDeclaration first.value.above line
-              ),
-              ..steps
-            ],
+            [([first, named, ..headerTokens ++ [equals, ..bodyTokens]], notedDeclaration first.value.above line), ..steps],
             (rewrite split, joined then
               Eq.cong
-                ((tail: List (Parse.Located Token)) => [first, named, open, ..tail])
-                (List.appendAssoc parameterTokens [close, equals, ..bodyTokens] later)),
+                ((tail: List (Parse.Located Token)) => [first, named, ..tail])
+                (List.appendAssoc headerTokens [equals, ..bodyTokens] later)),
             ((
               (same => cases),
-              (rewrite joined,
-                  List.appendNil later,
-                  listedSame,
-                  fnCommented,
-                  nameCommented,
-                  openCommented,
-                  closeCommented,
-                  equalsCommented then
-                runsFunctionSpelled first named open close equals parameterTokens bodyTokens later name listed inner
-                    atMargin isFn isName nameAllowed opens openAllowed closes isEquals equalsAllowed runsNames
-                    innerShaped innerSpelled),
+              (rewrite joined, List.appendNil later, fnCommented, nameCommented, equalsCommented then
+                runsFunctionSpelled
+                  (first := first)
+                  (named := named)
+                  (equals := equals)
+                  (headerTokens := headerTokens)
+                  (bodyTokens := bodyTokens)
+                  (rest := later)
+                  (declared := name)
+                  (header := { takes, open = openComments, parameters, close = closeComments })
+                  (found := inner)
+                  atMargin
+                  isFn
+                  isName
+                  nameAllowed
+                  isEquals
+                  equalsAllowed
+                  runsHeader
+                  innerShaped
+                  innerSpelled),
               runs
             )),
             (groupValues isFirst

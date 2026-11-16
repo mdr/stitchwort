@@ -68,8 +68,8 @@ def closer (comments: Comments) (text: Text): Doc := match comments.above with
     Doc.concat [Nest 2 (Doc.concat [LineStartHere, lines]), HardLine, Doc.text text, trailingComment comments.after]
 
 def Declaration.layout: Declaration → Doc
-  | Function fnComments name nameComments open parameters close equals body =>
-    Doc.concat [header fnComments name nameComments open parameters close equals, body.afterEquals equals]
+  | Function fnComments name nameComments takes open parameters close equals body =>
+    Doc.concat [header fnComments name nameComments takes open parameters close equals, body.afterEquals equals]
   | Value letComments name nameComments equals body => binding letComments name nameComments equals body
   | DeclarationNote comment => Doc.text comment.text
 
@@ -85,10 +85,10 @@ def binding (letComments: Comments) (name: Text) (nameComments equals: Comments)
 
 --| P2: the parameters on the header's line, else one a line at +4, with
 --| `) =` back at the header's column.
-def header (fnComments: Comments) (name: Text) (nameComments open: Comments)
+def header (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: Option Comments) (open: Comments)
     (parameters: List Parameter) (close equals: Comments):
     Doc :=
-  let opening := Doc.concat [token fnComments "fn", Doc.text " ", token nameComments name, token open "("]
+  let opening := Doc.concat [token fnComments "fn", Doc.text " ", token nameComments name, takesDoc takes, token open "("]
   let closing := Doc.concat [closer close ")", Doc.text " ", token equals "="]
   match parameters with
     | [] => Doc.concat [opening, closing]
@@ -96,11 +96,30 @@ def header (fnComments: Comments) (name: Text) (nameComments open: Comments)
       let listed := parameterDocs parameters |> joined Line
       Doc.group (Doc.concat [opening, Nest 4 (Doc.concat [SoftLine, listed]), SoftLine, closing])
 
---| Each parameter, and its comma but the last's.
+--| ` takes ` where it was written, as written.
+def takesDoc: Option Comments → Doc
+  | None => Empty
+  | Some comments => Doc.concat [Doc.text " ", token comments "takes", Doc.text " "]
+
+--| Each parameter group, and its comma but the last's.
 def parameterDocs: List Parameter → List Doc
   | [] => []
-  | [{ name, comments, .. }] => [token comments name]
-  | [{ name, comments, comma }, ..rest] => [Doc.concat [token comments name, token comma ","], ..parameterDocs rest]
+  | [{ group, .. }] => [group.layout]
+  | [{ group, comma }, ..rest] => [Doc.concat [group.layout, token comma ","], ..parameterDocs rest]
+
+--| A group's names a space apart, then `: ` and their type.
+def ParameterGroup.layout: ParameterGroup → Doc
+  | Untyped { name, comments } => token comments name
+  | Typed names colon annotation =>
+    Doc.concat [token names.head.comments names.head.name, namesAfter names.tail, token colon ":", Doc.text " ", annotation.layout]
+
+def namesAfter: List Named → Doc
+  | [] => Empty
+  | [{ name, comments }, ..rest] => Doc.concat [Doc.text " ", token comments name, namesAfter rest]
+
+def TypeExpr.layout: TypeExpr → Doc
+  | TypeName name comments => token comments name
+  | TypeBracketed open inner close => Doc.concat [token open "(", inner.layout, closer close ")"]
 
 --| P3: a body after `=` goes on the `=` line if it fits there, else on one
 --| line below at +2, else below and broken. A list opens on the `=` line

@@ -229,6 +229,7 @@ theorem keywordStands ∀ (keyword: Keyword) (rest: List Char)
     | IfKeyword => ('i', ['f'], byComputing, byComputing, byComputing, stops)
     | ThenKeyword => ('t', ['h', 'e', 'n'], byComputing, byComputing, byComputing, stops)
     | ElseKeyword => ('e', ['l', 's', 'e'], byComputing, byComputing, byComputing, stops)
+    | TakesKeyword => ('t', ['a', 'k', 'e', 's'], byComputing, byComputing, byComputing, stops)
 
 --| Brackets, commas and dots stand before anything.
 theorem signStands ∀ (mark: Punctuation) (rest: List Char)
