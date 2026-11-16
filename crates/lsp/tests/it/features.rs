@@ -1942,27 +1942,26 @@ fn hover_on_a_rule_set_shows_its_members() {
     big_stack(|| {
         let text = "namespace Demo\n\nimport Std (Eq, List, Nat)\n\nrules appends := [List.appendAssoc, List.appendNil]\n\ntheorem t ∀ (xs ys zs: List Nat): ((xs ++ ys) ++ zs) ++ [] = xs ++ (ys ++ zs) := rewrite repeatedly [appends]\n";
         let mut s = Session::open(text);
-        for needle in ["rules appends"] {
-            let at = text.find(needle).unwrap() + needle.len() - 4;
-            let (line, character) = {
-                let before = &text[..at];
-                (
-                    before.matches('\n').count(),
-                    before.rsplit('\n').next().unwrap().chars().count(),
-                )
-            };
-            let hover = s.request(
-                "textDocument/hover",
-                json!({"textDocument": {"uri": URI},
-                       "position": {"line": line, "character": character}}),
-            );
-            let shown = hover["contents"]["value"].as_str().unwrap_or_default();
-            assert!(
-                shown.contains("rules `Demo.appends`")
-                    && shown.contains("[List.appendAssoc, List.appendNil]")
-                    && !shown.contains("()"),
-                "{needle}: {shown}"
-            );
-        }
+        let needle = "rules appends";
+        let at = text.find(needle).unwrap() + needle.len() - 4;
+        let (line, character) = {
+            let before = &text[..at];
+            (
+                before.matches('\n').count(),
+                before.rsplit('\n').next().unwrap().chars().count(),
+            )
+        };
+        let hover = s.request(
+            "textDocument/hover",
+            json!({"textDocument": {"uri": URI},
+                   "position": {"line": line, "character": character}}),
+        );
+        let shown = hover["contents"]["value"].as_str().unwrap_or_default();
+        assert!(
+            shown.contains("rules `Demo.appends`")
+                && shown.contains("[List.appendAssoc, List.appendNil]")
+                && !shown.contains("()"),
+            "{needle}: {shown}"
+        );
     });
 }
