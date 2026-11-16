@@ -1129,8 +1129,24 @@ impl<'e> Ctx<'e> {
         term
     }
 
+    /// [`Ctx::show`], except that the expected type of the declaration's body
+    /// is shown as it was written when it is a comparison: `3 < n` rather
+    /// than `4 ≤ n`, what `<` computes to (SW-3100).
+    fn show_expected(&self, expected: &Value) -> String {
+        if let Some((level, goal)) = &self.goal
+            && *level == self.level()
+            && written_comparison(&self.g(), goal)
+            && self.eval(goal).is_ok_and(|v| {
+                stitchwort_core::value::conv(&self.g(), *level, &v, expected).unwrap_or(false)
+            })
+        {
+            return pretty::term_for_message_in(&self.g(), self.e, &self.shown_names(false), goal);
+        }
+        self.show(expected)
+    }
+
     pub(crate) fn mismatch(&self, expected: &Value, found: &Value) -> Diagnostic {
-        let expected_shown = self.show(expected);
+        let expected_shown = self.show_expected(expected);
         let found_shown = self.show(found);
         if let (Ok(Value::Sort(_)), Ok(Value::Sort(_))) = (
             force(&self.g(), expected.clone()),
@@ -1207,7 +1223,7 @@ impl<'e> Ctx<'e> {
         } else {
             d
         };
-        let d = if ne_read_as_prop(&expected_shown, &found_shown) {
+        let d = if ne_read_as_prop(self, expected, found) {
             d.with_note(NE_AS_PROP_NOTE)
         } else {
             d
@@ -1829,14 +1845,64 @@ fn bool_found_prop(expected: &str, found: &str) -> bool {
     expected.contains("Bool") && found.contains("Prop") && expected.replace("Bool", "Prop") == found
 }
 
+/// Whether `term`, a statement as written, is a comparison `a < b` or
+/// `a <= b`: the `Bool` comparison being `True`, or the comparison itself
+/// (SW-3100).
+fn written_comparison(g: &Ev, term: &Term) -> bool {
+    let reg = &g.env.registry();
+    let is_comparison = |t: &Term| {
+        let (head, _) = t.strip_loc().spine();
+        let Term::Def(id) = head else {
+            return false;
+        };
+        matches!(
+            reg.def_builtin(*id),
+            Some(
+                Builtin::Leq
+                    | Builtin::LessEq
+                    | Builtin::LessThan
+                    | Builtin::IntLeq
+                    | Builtin::IntLess
+                    | Builtin::IntLessEq
+                    | Builtin::IntLessThan
+                    | Builtin::FloatLeq
+                    | Builtin::FloatLess
+                    | Builtin::FloatLessEq
+                    | Builtin::FloatLessThan
+            )
+        )
+    };
+    match term.strip_loc() {
+        Term::Eq(_, a, b) => {
+            matches!(b.strip_loc(), Term::Ctor(d, c, fields)
+                if fields.is_empty() && reg.ctor(Builtin::True) == Some((*d, *c)))
+                && is_comparison(a)
+        }
+        other => is_comparison(other),
+    }
+}
+
 pub(crate) const NE_AS_PROP_NOTE: &str =
     "`!=` here is the proposition `≠`; for the `Bool` test write `((a != b): Bool)`";
 
+/// Whether `value` is a `Bool` test, `e = True` or `e = False`: the form the
+/// `!=` note asks the user to write (SW-3125).
+fn is_bool_test(cx: &Ctx, value: &Value) -> bool {
+    let g = cx.g();
+    let Ok(Value::Eq(ty, _, _)) = force(&g, value.clone()) else {
+        return false;
+    };
+    matches!(force(&g, (*ty).clone()), Ok(Value::Data(d, _))
+        if g.env.registry().is_data(Builtin::Bool, d))
+}
+
 /// Whether the expected type mentions a proposition `≠` and what was found
-/// is a `Bool` test (`Decidable.holds …`, or `….holds`): a `Bool` `!=` that was read as `≠`
-/// because it sits beside `=` in a statement.
-pub(crate) fn ne_read_as_prop(expected: &str, found: &str) -> bool {
-    expected.contains(" ≠ ") && (found.contains("Decidable.holds") || found.contains(".holds"))
+/// is not already the `Bool` test `((a != b): Bool) = True`: a `Bool` `!=`
+/// that was read as `≠` because it sits beside `=` in a statement. The note
+/// asks for the `Bool` test, so it isn't given when the term is one
+/// (SW-3125).
+pub(crate) fn ne_read_as_prop(cx: &Ctx, expected: &Value, found: &Value) -> bool {
+    cx.show(expected).contains(" ≠ ") && !is_bool_test(cx, found)
 }
 
 /// Whether two forced types are built by the same outermost former (the
