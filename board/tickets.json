@@ -41111,12 +41111,12 @@
     {
       "id": 3654,
       "title": "[Opus] rewrite repeatedly sets cost: Words.sw with a shared named set checks at 4.5x (per-arm lists 2.55x, bar 1.5x) because each arm gets rules it doesn't need, which go through the full search. Try: a set's members only by the cheap as-written match unless the call names them; remeasure with dev/patches/SW-3602-words-conversion.patch; land the conversion if <= 1.5x",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Lane (Opus, 16 Nov): set members only as written + their check_rule shapes memoised in the set. Words.sw with the set 4.5x -> 2.53x (0.57 s vs 0.225 s; per-arm lists were 2.55x); bar 1.5x missed, conversion not landed. Patch updated (4 stepWords calls name writeLayoutWords/newlineWords instead of the set). Remaining costs and untried options (todays_instance for set members ~55 ms, full pass repeating the failed as-written try ~22 ms) in docs/performance/log.md. Commit 7d7e2e86c.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []

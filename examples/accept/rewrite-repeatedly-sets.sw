@@ -30,3 +30,14 @@ theorem fromFact ∀ (xs ys zs: List Nat) (h: ((xs ++ ys) ++ zs) ++ [] = []): xs
 -- Without `then`, `rewrite repeatedly … at h` is `h` itself, rewritten.
 theorem fromFactAlone ∀ (xs ys: List Nat) (h: (xs ++ ys) ++ [] = [1]): xs ++ ys = [1] :=
   rewrite repeatedly [List.appendNil] at h
+
+def padded (xs: List Nat): List Nat := xs ++ []
+
+-- A set's rules are looked for only where the goal shows them: `padded ys`
+-- computes to `ys ++ []` but shows as `padded ys`, so `[appends]` alone
+-- leaves it (examples/reject/rule-set-written-only.sw). A rule listed in
+-- the call itself is also looked for in what the goal computes to; or list
+-- `padded`, one step of which shows the `++ []`.
+theorem unpadded ∀ (ys: List Nat): padded ys = ys := rewrite repeatedly [List.appendNil]
+
+theorem unpaddedByStep ∀ (ys: List Nat): padded ys = ys := rewrite repeatedly [padded, appends]

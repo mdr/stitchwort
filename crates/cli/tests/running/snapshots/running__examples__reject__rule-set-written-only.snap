@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/running/examples.rs
+assertion_line: 700
+expression: output
+---
+[E-REWRITE-REPEATEDLY] Error: `rewrite repeatedly` left a goal it can't close
+    ╭─[ reject/rule-set-written-only.sw:13:54 ]
+    │
+ 13 │ theorem unpadded ∀ (ys: List Nat): padded ys = ys := rewrite repeatedly [appends]
+    │                                                      ─────────────┬─────────────  
+    │                                                                   ╰─────────────── no rule applies any more, and what is left isn't closed
+    │ 
+    │ Note 1: what is left: `padded ys = ys`
+    │ 
+    │ Note 2: no rule applied: the goal is as it was
+    │ 
+    │ Note 3: never found in the goal: `appends`
+    │ 
+    │ Note 4: a set's rules are looked for only where the goal shows them, not in what it computes to: list a rule in the call itself to search that too
+    │ 
+    │ Note 5: prove what is left with `then (t: P)`, or see it as a goal with `then ?`
+────╯

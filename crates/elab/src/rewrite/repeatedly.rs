@@ -10,7 +10,8 @@
 //! The rules are tried in turn, in the order listed and round again, in two
 //! passes per goal: first each only in the goal as written, and when none
 //! fits there, each by `rewrite`'s full search ([`super::rewrite_once`]: as
-//! written, then what the goal computes to). A rule that finds nothing, or
+//! written, then what the goal computes to), except a set's rules, which are
+//! only looked for as written. A rule that finds nothing, or
 //! whose premise isn't proved, is skipped, and not tried again in the same
 //! pass until another rule has changed the goal. It stops when no rule fits
 //! either way, and then closes the goal: by computing (`byComputing`), by
@@ -42,6 +43,7 @@
 
 use std::rc::Rc;
 
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::value::{Elim, Spine, force, unfold_once};
 use stitchwort_core::{DefId, Term, Value};
 use stitchwort_syntax::ast::{Expr, Name as AstName, RewriteRule};
@@ -88,6 +90,7 @@ struct Listed {
 /// costly part, is skipped: matching what it computes to compares by
 /// computing, which for a large left side (a call that unfolds into the
 /// printer's whole state) is most of the time a `rewrite repeatedly` takes.
+#[derive(Clone)]
 struct Shape {
     written: Option<(Key, Vec<DefId>)>,
     computed: Option<(Key, Vec<DefId>)>,
@@ -170,6 +173,62 @@ fn may_fit(shape: &Shape, present: &Present, written_only: bool) -> bool {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RuleSet {
     pub(crate) rules: Vec<(DefId, bool)>,
+    /// Each rule's checked [`Shape`]s, one per equation it stands for, by
+    /// its place and whether the call turns it round: filled at a rule's
+    /// first use. A set's rules are closed names, so the check means the
+    /// same at every call, and repeating it (unfolding the printer lemmas'
+    /// left sides) was a fifth of what a set cost (SW-3654).
+    pub(crate) shapes: ShapeMemo,
+}
+
+impl RuleSet {
+    pub(crate) fn new(rules: Vec<(DefId, bool)>) -> RuleSet {
+        RuleSet {
+            rules,
+            shapes: ShapeMemo::default(),
+        }
+    }
+}
+
+/// [`RuleSet::shapes`]: not part of what a set is, so it compares equal,
+/// prints as nothing and isn't cached.
+#[derive(Default)]
+pub(crate) struct ShapeMemo(std::cell::RefCell<Shapes>);
+
+/// A set's members' shapes by place and direction.
+type Shapes = HashMap<(usize, bool), Rc<[Shape]>>;
+
+impl ShapeMemo {
+    fn get(&self, at: (usize, bool)) -> Option<Rc<[Shape]>> {
+        self.0.borrow().get(&at).cloned()
+    }
+
+    fn insert(&self, at: (usize, bool), shapes: Rc<[Shape]>) {
+        self.0.borrow_mut().insert(at, shapes);
+    }
+}
+
+/// A rule a call lists, or one of a set's with the set and its place there.
+type Member<'a> = (RewriteRule, Option<(&'a Rc<RuleSet>, usize)>);
+
+impl Clone for ShapeMemo {
+    fn clone(&self) -> ShapeMemo {
+        ShapeMemo::default()
+    }
+}
+
+impl PartialEq for ShapeMemo {
+    fn eq(&self, _: &ShapeMemo) -> bool {
+        true
+    }
+}
+
+impl Eq for ShapeMemo {}
+
+impl std::fmt::Debug for ShapeMemo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ShapeMemo")
+    }
 }
 
 /// Where a rule of an expansion is written: the text of a rule as written
@@ -543,11 +602,9 @@ impl crate::Elaborator {
         self.scope
             .insert(&key, crate::Global::Def(id), name.span, false);
         crate::kernel::define_def(&mut self.kernel, &self.tables, id, &body)?;
-        self.tables.rule_sets.insert(
-            &self.session.owners,
-            id,
-            Rc::new(RuleSet { rules: members }),
-        );
+        self.tables
+            .rule_sets
+            .insert(&self.session.owners, id, Rc::new(RuleSet::new(members)));
         Ok(())
     }
 }
@@ -603,21 +660,42 @@ pub(super) fn rewrite_repeatedly(
     for (origin, rule) in written.iter().enumerate() {
         let named = set_named(cx, &rule.proof)?;
         let origin_set = named.is_some();
-        let members = match named {
+        let members: Vec<Member> = match &named {
             Some((_, set)) => set
                 .rules
                 .iter()
-                .map(|&(d, reverse)| member_rule(cx, d, reverse != rule.reverse, rule.span))
+                .enumerate()
+                .map(|(k, &(d, reverse))| {
+                    (
+                        member_rule(cx, d, reverse != rule.reverse, rule.span),
+                        Some((set, k)),
+                    )
+                })
                 .collect(),
-            None => vec![rule.clone()],
+            None => vec![(rule.clone(), None)],
         };
-        for member in &members {
+        for (member, slot) in &members {
             let named = match origin_set {
                 true => Some(member_name(cx, &member.proof)),
                 false => None,
             };
-            for rule in expand(cx, member)? {
-                let shape = check_rule(cx, &rule)?;
+            let expanded = expand(cx, member)?;
+            let memo = slot.map(|(set, k)| (set, (k, member.reverse)));
+            let known = memo.and_then(|(set, at)| set.shapes.get(at));
+            let shapes: Rc<[Shape]> = match known {
+                Some(shapes) if shapes.len() == expanded.len() => shapes,
+                _ => {
+                    let shapes = expanded
+                        .iter()
+                        .map(|rule| check_rule(cx, rule))
+                        .collect::<Result<Rc<[Shape]>>>()?;
+                    if let Some((set, at)) = memo {
+                        set.shapes.insert(at, Rc::clone(&shapes));
+                    }
+                    shapes
+                }
+            };
+            for (rule, shape) in expanded.into_iter().zip(shapes.iter().cloned()) {
                 let source = ExpandedRule {
                     source: match &named {
                         Some(name) => RuleSource::Named(name.clone()),
@@ -726,7 +804,10 @@ pub(super) fn rewrite_repeatedly(
             present = Some((version, computed, keys));
         }
         let (_, computed, keys) = present.as_ref().expect("just read back");
-        if !may_fit(&listed.shape, keys, written_only) {
+        // A set's rules are looked for only as written: a set is shared, so
+        // most of its rules don't fit a given call, and the full search for
+        // a printer lemma that doesn't fit is the costly part (SW-3654).
+        if (listed.origin_set && !written_only) || !may_fit(&listed.shape, keys, written_only) {
             continue;
         }
         let computed = computed.clone();
@@ -1150,6 +1231,7 @@ fn left_open(
     // For each rule that never applied, why: its last reason for skipping
     // a place it fits, or that its left side is nowhere in the goal.
     let mut missing = Vec::new();
+    let mut set_missing = false;
     for (origin, rule) in written.iter().enumerate() {
         if counts[origin] > 0 {
             continue;
@@ -1169,11 +1251,20 @@ fn left_open(
                         .map_or(e.message.as_str(), |l| l.message.as_str())
                 ));
             }
-            None => missing.push(format!("`{}`", rule_name(rule))),
+            None => {
+                set_missing |= rules.iter().any(|l| l.origin == origin && l.origin_set);
+                missing.push(format!("`{}`", rule_name(rule)));
+            }
         }
     }
     if !missing.is_empty() {
         error = error.with_note(format!("never found in the goal: {}", missing.join(", ")));
+    }
+    if set_missing {
+        error = error.with_note(
+            "a set's rules are looked for only where the goal shows them, not in what it \
+             computes to: list a rule in the call itself to search that too",
+        );
     }
     error.with_note("prove what is left with `then (t: P)`, or see it as a goal with `then ?`")
 }
