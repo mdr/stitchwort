@@ -2774,3 +2774,5 @@ docs outside `tools/toyfmt` were not searched.
 
 Tidy-up (SW-3436, SW-3458, SW-3469): deleted `printJoins`, `joinedLex` (with its only user `joinedLexExample`), `printedLexes`, `parsedPrintLexes`, `printedPlaces` and `printedOr`; renamed `Scan.Waiting` to `Scan.Pending` and the disturber's `Chunk` type to `LineGroup`.
 
+
+SW-3484: the checked `format` was deleted and `formatDirect` renamed to `format`.

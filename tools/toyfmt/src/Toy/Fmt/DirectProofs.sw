@@ -1,14 +1,12 @@
---| The formatter with no check at run time (SW-3418): `formatDirect`
---| parses and prints, and here is why that is enough. The printed text
---| of a parsed file parses to the same file (`printParses`), from the
+--| Why `format` keeps the tree. It parses and prints, and the printed
+--| text of a parsed file parses to the same file (`printParses`), from the
 --| chain the other files of this namespace prove: the printed pieces lex
 --| to tokens whose views are those of the file's events
 --| (`parsedPrintTokens`), with falling offsets (`placedOffsets`); such
 --| tokens spell the file (`spellsFile`); and the parser reads back what
---| spells a file (`runsFileSpelled`). So `formatDirect` keeps the tree
---| (`formatDirectRoundTrip`), formats its own output to itself
---| (`formatDirectIdempotent`), and answers what the checked `format`
---| does (`formatAgrees`).
+--| spells a file (`runsFileSpelled`). So `format` keeps the tree
+--| (`formatRoundTrip`) and formats its own output to itself
+--| (`formatIdempotent`).
 
 namespace Toy.Fmt.Proofs
 import Toy.Doc (..)
@@ -16,7 +14,7 @@ import Toy.Doc.Proofs (..)
 import Toy.Syntax (..)
 import Toy.Syntax.Proofs (..)
 import Toy.Fmt (..)
-import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Result, Text, Void)
+import Std (Bool, Eq, List, Nat, Option, Parse, Result, Text)
 
 --| `parsedPrintViews` with the offsets: the same witnesses.
 theorem parsedPrintPlaced ∀ (source: Text) (file: SourceFile) (width: Nat)
@@ -71,16 +69,16 @@ theorem printParses ∀ (source: Text) (file: SourceFile) (width: Nat)
             pending
             offsets))
 
---| `formatDirect` answers every source that parses, with its tree
---| printed; it refuses only what the parser refuses.
-theorem formatDirectAnswers ∀ (source: Text) (width: Nat) (tree: SourceFile)
+--| `format` answers every source that parses, with its tree printed; it
+--| refuses only what the parser refuses.
+theorem formatAnswers ∀ (source: Text) (width: Nat) (tree: SourceFile)
     (parsed: parse source = Ok tree):
-    formatDirect source width = Stable (tree.print width) :=
+    format source width = Stable (tree.print width) :=
   rewrite parsed in rfl
 
---| Round trip: the output of `formatDirect` parses to the source's tree.
-theorem formatDirectRoundTrip ∀ (source: Text) (width: Nat) (output: Printed)
-    (h: formatDirect source width = Stable output):
+--| Round trip: the output of `format` parses to the source's tree.
+theorem formatRoundTrip ∀ (source: Text) (width: Nat) (output: Printed)
+    (h: format source width = Stable output):
     ∃ (tree: SourceFile) => parse source = Ok tree ∧ output = tree.print width ∧ parse output.text = Ok tree :=
   match e: parse source with
     | Ok tree =>
@@ -89,19 +87,9 @@ theorem formatDirectRoundTrip ∀ (source: Text) (width: Nat) (output: Printed)
 
 --| Idempotence: formatting the output again, at the same width, gives
 --| the output.
-theorem formatDirectIdempotent ∀ (source: Text) (width: Nat) (output: Printed)
-    (h: formatDirect source width = Stable output):
-    formatDirect output.text width = Stable output :=
-  match formatDirectRoundTrip source width output h with
+theorem formatIdempotent ∀ (source: Text) (width: Nat) (output: Printed)
+    (h: format source width = Stable output):
+    format output.text width = Stable output :=
+  match formatRoundTrip source width output h with
     | Witness tree (Both parsed (Both same reparsed)) =>
-      rewrite same in formatDirectAnswers (tree.print width).text width tree (rewrite <- same in reparsed)
-
---| `format`'s check never fails: it answers what `formatDirect` does, on
---| every source at every width.
-theorem formatAgrees ∀ (source: Text) (width: Nat): format source width = formatDirect source width :=
-  match e: parse source with
-    | Err message => rfl
-    | Ok tree =>
-      match c: parse (tree.print width).text == Ok tree with
-        | True => rfl
-        | False => Void.exfalso (DecEq.soundFalse _ _ c (printParses source tree width e))
+      rewrite same in formatAnswers (tree.print width).text width tree (rewrite <- same in reparsed)
