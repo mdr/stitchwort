@@ -38979,12 +38979,12 @@
     {
       "id": 3493,
       "title": "[Opus paper] One design note for std's parser-proof library (after-the-toy-proof.md §2.1; takes in SW-3460, SW-3465, SW-3478): Reads with an invariant and offsets, a Gives/keeps-P layer with joint walks, a declines toolkit for token parsers, readsThen taking its parsers from the term",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "16 Nov 2026 (Opus paper lane, ~25 min): note written, docs/proposals/parse-proof-library.md (commit a34079da9 on lane/SW-3493). Design: Parse.Honest total (offset in the honest mark, so combinators don't change), Parse.ReadsAt start, Parse.Invariant (list-level, kept), Parse.ReadsIn inv; Reads = ReadsIn any; Among.sw and Paced.sw go. Gives layer with givesBoth/readsBoth, readsInPeek + readsAtThen to end state-level peek proofs; one joint walk, no parser-as-data; gives tactic deferred. Declines toolkit (note, peek, optional, many, operators, oneOf, recursiveWith) + runsRecursiveWithFact. readsThen: postpone non-pattern expected-type unification, abstract p (). Runs unchanged. Lanes L1 (Opus 60) / L3 (Opus elab 60) / L5 (Sonnet 40) parallel; then L2 (Sonnet 60), L4 (Sonnet 30 + Opus 90), L6 guide (Sonnet 20). Decision for Matt: D3625 (provisional number) adopt this end state [rec: yes].\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
