@@ -38836,7 +38836,7 @@
     {
       "id": 3482,
       "title": "[DeepSeek] fmt not idempotent on doubled parens around a return type after an ability row (Overmind plain fuzz, seed 0x60c case 28149, main 7adb49e19): 'def main(): {IO} ( (halvings 100 0))' (no body). Pass 1 leaves one pair: 'def main(): {IO} (halvings 100 0)'; pass 2 drops it: '{IO} halvings 100 0'. drop_parens should strip nested redundant pairs in one pass (or keep the last pair both times, whichever is right for an application after an ability row; see SW-3456). Repro: task fuzz:fmt SEED=0x60c CASE=28149",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
