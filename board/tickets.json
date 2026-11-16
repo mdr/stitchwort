@@ -1,5 +1,5 @@
 {
-  "next": 3483,
+  "next": 3484,
   "tickets": [
     {
       "id": 47,
@@ -38841,6 +38841,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3483,
+      "title": "[Sonnet] Soundness fuzz: a mutant of Aoc.Year2024.Day06.Proofs.positionsOnlyOnMap (Part2.sw) took 91.9 s, over the fuzzer's 90 s cap, saved as too expensive (Overmind seed 0x700; file on Overmind at chain/filler/sound2-0x700.findings/700-1760-1-expensive.sw). Find why the mutant is slow to check (likely a failing proof search that explores far) and whether an error path is unbounded",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",

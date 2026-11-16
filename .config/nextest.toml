@@ -358,5 +358,5 @@ slow-timeout = { period = "60s", terminate-after = 30 }
 # (`task fuzz:*`), so the ten-minute hang cap would stop a big run; they get
 # four hours, enough for any overnight seed while still ending a real hang.
 [[profile.default.overrides]]
-filter = 'binary(soundness_fuzz) | (binary(it) & test(/^fuzz::/))'
+filter = 'binary(soundness_fuzz) | binary(fuzz_elab) | (binary(it) & test(/^fuzz::/))'
 slow-timeout = { period = "60s", terminate-after = 240 }
