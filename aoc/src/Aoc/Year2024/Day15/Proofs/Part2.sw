@@ -358,10 +358,11 @@ theorem moveWideSeparate ∀ (warehouse: Warehouse) (direction: Direction)
                         offsetStepInjective movedRight
                           (moved.step Right)
                           direction
-                          (Eq.trans steppedRight
-                            (Eq.trans
-                              (Eq.flipped (Eq.cong (here => Offset.step here Right) stepped))
-                              (offsetStepComm moved direction Right)))
+                          (calc movedRight.step direction
+                            _ = box.step Right := steppedRight
+                            _ = (moved.step direction).step Right :=
+                              Eq.flipped (Eq.cong (here => Offset.step here Right) stepped)
+                            _ = (moved.step Right).step direction := offsetStepComm moved direction Right)
                       Bool.trueNotFalse
                         (Eq.trans
                           (Eq.flipped (rewrite besides at And.left (ok movedRight inGroupRight)))
@@ -396,10 +397,10 @@ theorem moveWideSeparate ∀ (warehouse: Warehouse) (direction: Direction)
               (Bool.falseOfNotTrue _ (heldLeft =>
                 match after (next.step Left) heldLeft with
                   | Inl (Witness moved (Both inGroup stepped)) =>
-                    let rightOfMoved: (moved.step Right).step direction = next :=
-                      Eq.trans
-                        (Eq.flipped (offsetStepComm moved direction Right))
-                        (Eq.trans (Eq.cong (here => Offset.step here Right) stepped) (offsetStepOpposite next Left))
+                    let rightOfMoved: (moved.step Right).step direction = next := calc (moved.step Right).step direction
+                      _ = (moved.step direction).step Right := Eq.flipped (offsetStepComm moved direction Right)
+                      _ = (next.step Left).step Right := Eq.cong (here => Offset.step here Right) stepped
+                      _ = next := offsetStepOpposite next Left
                     let atRobot: moved.step Right = warehouse.robot :=
                       offsetStepInjective (moved.step Right) warehouse.robot direction rightOfMoved
                     let leftOfRobot: warehouse.robot.step Left = moved :=

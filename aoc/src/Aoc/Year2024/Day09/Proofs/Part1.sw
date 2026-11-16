@@ -211,15 +211,15 @@ theorem checksumSum ∀ (disk: Disk): disk.checksum = disk.blocks.withIndex.sumB
   rewrite checksumFold disk.blocks 0 0 then algebra
 
 --| The program's checksum is the puzzle's.
-theorem checksumCorrect ∀ (disk: Disk): disk.checksum = filesystemChecksum disk :=
-  Eq.trans
-    (checksumSum disk)
-    (Eq.trans
-      (List.sumByCongMem disk.blocks.withIndex
-        (pair => pair.fst * pair.snd.idOr 0)
-        (pair => Option.getOrElse (Option.map pair.snd.id (id => pair.fst * id)) 0)
-        (pair member => blockChecksumCorrect pair.fst pair.snd))
-      (Eq.flipped (List.sumFilterMap (pair => pair.snd.id.map (id => pair.fst * id)) disk.blocks.withIndex)))
+theorem checksumCorrect ∀ (disk: Disk): disk.checksum = filesystemChecksum disk := calc disk.checksum
+  _ = disk.blocks.withIndex.sumBy (pair => pair.fst * pair.snd.idOr 0) := checksumSum disk
+  _ = disk.blocks.withIndex.sumBy (pair => Option.getOrElse (Option.map pair.snd.id (id => pair.fst * id)) 0) :=
+    List.sumByCongMem disk.blocks.withIndex
+      (pair => pair.fst * pair.snd.idOr 0)
+      (pair => Option.getOrElse (Option.map pair.snd.id (id => pair.fst * id)) 0)
+      (pair member => blockChecksumCorrect pair.fst pair.snd)
+  _ = filesystemChecksum disk :=
+    Eq.flipped (List.sumFilterMap (pair => pair.snd.id.map (id => pair.fst * id)) disk.blocks.withIndex)
 
 --| Part 1 is the puzzle's moves, one block at a time, then the checksum.
 theorem part1Correct ∀ (diskMap: DiskMap): solvePart1 diskMap = part1 diskMap :=

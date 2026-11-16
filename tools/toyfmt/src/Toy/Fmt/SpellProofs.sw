@@ -180,11 +180,12 @@ theorem waitingReverse ∀ (pending: List Trivia) (above: List Comment):
   match above with
     | [] => (List.appendNil pending.reverse).flipped
     | [comment, ..rest] =>
-      Eq.trans
-        (waitingReverse [OwnLine comment, ..pending] rest)
-        (Eq.trans
-          (Eq.cong ((front: List Trivia) => front ++ rest.map OwnLine) (List.reverseCons (OwnLine comment) pending))
-          (List.appendAssoc pending.reverse [OwnLine comment] (rest.map OwnLine)))
+      calc (waiting pending [comment, ..rest]).reverse
+        _ = [OwnLine comment, ..pending].reverse ++ rest.map OwnLine := waitingReverse [OwnLine comment, ..pending] rest
+        _ = (pending.reverse ++ [OwnLine comment]) ++ rest.map OwnLine :=
+          Eq.cong ((front: List Trivia) => front ++ rest.map OwnLine) (List.reverseCons (OwnLine comment) pending)
+        _ = pending.reverse ++ [comment, ..rest].map OwnLine :=
+          List.appendAssoc pending.reverse [OwnLine comment] (rest.map OwnLine)
 
 --| The comments above a token, each starting its line, all wait.
 theorem aboveViews ∀ (above: List Comment) (column: Nat) (seen: Views)
@@ -215,17 +216,20 @@ theorem seenThen ∀ (pending: List Trivia) (front back: List Event) (first seco
     (other: Seen [] back second):
     Seen pending (front ++ back) (first ++ second) :=
   earlier =>
-    Eq.trans
-      (viewsAppend { views = earlier, pending } front back)
-      (Eq.trans
-        (Eq.cong ((seen: Views) => viewsFrom seen back) (one earlier))
-        (Eq.trans
-          (other (first.reverse ++ earlier))
-          (Eq.cong
-            ((views: List TokenView) => ({ views, pending = [] }: Views))
-            (Eq.trans
-              (Eq.flipped (List.appendAssoc second.reverse first.reverse earlier))
-              (Eq.cong ((front: List TokenView) => front ++ earlier) (List.reverseAppend first second).flipped)))))
+    calc viewsFrom { views = earlier, pending } (front ++ back)
+      _ = viewsFrom (viewsFrom { views = earlier, pending } front) back :=
+        viewsAppend { views = earlier, pending } front back
+      _ = viewsFrom { views = first.reverse ++ earlier, pending = [] } back :=
+        Eq.cong ((seen: Views) => viewsFrom seen back) (one earlier)
+      _ = { views = second.reverse ++ (first.reverse ++ earlier), pending = [] } := other (first.reverse ++ earlier)
+      _ = { views = (second.reverse ++ first.reverse) ++ earlier, pending = [] } :=
+        Eq.cong
+          ((views: List TokenView) => ({ views, pending = [] }: Views))
+          (Eq.flipped (List.appendAssoc second.reverse first.reverse earlier))
+      _ = { views = (first ++ second).reverse ++ earlier, pending = [] } :=
+        Eq.cong
+          ((views: List TokenView) => ({ views, pending = [] }: Views))
+          (Eq.cong ((front: List TokenView) => front ++ earlier) (List.reverseAppend first second).flipped)
 
 --| A token's events are one view, starting where the events allow.
 theorem tokenSeen ∀ (allowed: Option Nat → Prop) (comments: Comments) (text: Text) (kind: Kind)
@@ -240,36 +244,43 @@ theorem tokenSeen ∀ (allowed: Option Nat → Prop) (comments: Comments) (text:
       ok,
       (earlier =>
         rewrite split then
-          Eq.trans
-            (viewsAppend { views = earlier, pending } (aboveEvents column above) [{ word = text, start }])
-            (Eq.trans
-              (Eq.cong
+          calc viewsFrom { views = earlier, pending } (aboveEvents column above ++ [{ word = text, start }])
+            _ = viewsFrom (viewsFrom { views = earlier, pending } (aboveEvents column above)) [
+                { word = text, start }
+              ] := viewsAppend { views = earlier, pending } (aboveEvents column above) [{ word = text, start }]
+            _ = viewsFrom { views = earlier, pending = waiting pending above } [{ word = text, start }] :=
+              Eq.cong
                 ((seen: Views) => viewsFrom seen [{ word = text, start }])
-                (aboveViews above column { views = earlier, pending } fineAbove))
-              (reads { views = earlier, pending = waiting pending above } start)))
+                (aboveViews above column { views = earlier, pending } fineAbove)
+            _ = codeView { views = earlier, pending = waiting pending above } kind start :=
+              reads { views = earlier, pending = waiting pending above } start)
     )
     | { above, after = Some { text = written } }, (fineAbove, fineAfter), (column, start, ok, split) => (
       start,
       ok,
       (earlier =>
         rewrite split then
-          Eq.trans
-            (viewsAppend { views = earlier, pending } (aboveEvents column above) [
+          let waited: Views := { views = earlier, pending = waiting pending above }
+          calc viewsFrom
+            { views = earlier, pending }
+            (aboveEvents column above ++ [{ word = text, start }, { word = written, start = None }])
+            _ = viewsFrom (viewsFrom { views = earlier, pending } (aboveEvents column above)) [
+                { word = text, start },
+                { word = written, start = None }
+              ] := viewsAppend { views = earlier, pending } (aboveEvents column above) [
               { word = text, start },
               { word = written, start = None }
-            ])
-            (Eq.trans
-              (Eq.cong
+            ]
+            _ = viewsFrom waited [{ word = text, start }, { word = written, start = None }] :=
+              Eq.cong
                 ((seen: Views) => viewsFrom seen [{ word = text, start }, { word = written, start = None }])
-                (aboveViews above column { views = earlier, pending } fineAbove))
-              (Eq.trans
-                (Eq.cong
-                  ((seen: Views) => viewEvent seen { word = written, start = None })
-                  (reads { views = earlier, pending = waiting pending above } start))
-                (trailingEvent
-                  (codeView { views = earlier, pending = waiting pending above } kind start)
-                  written
-                  fineAfter))))
+                (aboveViews above column { views = earlier, pending } fineAbove)
+            _ = viewEvent (codeView waited kind start) { word = written, start = None } :=
+              Eq.cong ((seen: Views) => viewEvent seen { word = written, start = None }) (reads waited start)
+            _ = {
+                views = viewTrailing (codeView waited kind start).views { text = written },
+                pending = (codeView waited kind start).pending
+              } := trailingEvent (codeView waited kind start) written fineAfter)
     )
 
 -- A token of the tree from its view.

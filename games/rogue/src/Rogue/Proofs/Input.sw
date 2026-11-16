@@ -68,9 +68,7 @@ theorem listedKey ∀ (char: Char) (yes: (List.decMem char commandKeys).holds = 
 theorem onlyListedKeys ∀ (char: Char) (command: Command)
     (found: commandOfChar char = Some command):
     char ∈ commandKeys :=
-  match char with
-    | 'k' | 'w' | 'j' | 's' | 'h' | 'a' | 'l' | 'd' | '.' | '>' | 'p' | 'q' => listedKey char byComputing
-    | _ => (Option.noneNotSome command found).impossible
+  match char with | 'k' | 'w' | 'j' | 's' | 'h' | 'a' | 'l' | 'd' | '.' | '>' | 'p' | 'q' => listedKey char byComputing
 
 --| And no other key at all: a key that is a command is an arrow, or one of
 --| those printable keys.

@@ -86,15 +86,15 @@ theorem comparisonCompares ∀ (comparison: Comparison) (first second: Nat):
   match comparison with
     | GreaterThan =>
       match h: (second < first: Bool) with
-        | True => Greater first second (arithmetic [h])
+        | True => IsGreater first second (arithmetic [h])
         | False => NotGreater first second (arithmetic [h])
     | LessThan =>
       match h: (first < second: Bool) with
-        | True => Less first second (arithmetic [h])
+        | True => IsLess first second (arithmetic [h])
         | False => NotLess first second (arithmetic [h])
     | EqualTo =>
       match h: first == second with
-        | True => rewrite h.read then Equal second
+        | True => rewrite h.read then IsEqual second
         | False => NotEqual first second h.read
 
 --| Part 2: a well-formed packet has the value the program computes.

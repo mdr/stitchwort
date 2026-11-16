@@ -40498,15 +40498,17 @@
     {
       "id": 3608,
       "title": "[Sonnet] Zero warnings in every Stitchwort project (Matt, 16 Nov 2026: 'we probably shouldn't have any warnings in any … code in the repo'): after SW-3603 (std), extend its visibility and pinned-count test to aoc/, games/rogue, tools/toyfmt (incl. plus/), sf/, docs/guide examples; fix or batch the warnings; pins only go down; examples meant to show a warning excepted",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Matt clarified (16 Nov 2026): no warnings in any Stitchwort code in the repo; fix them, 'or maybe the warning isn't appropriate and we should dial down the warnings'. So each warning kind is judged: fix the code, or narrow the warning.",
+      "body": "Matt clarified (16 Nov 2026): no warnings in any Stitchwort code in the repo; fix them, 'or maybe the warning isn't appropriate and we should dial down the warnings'. So each warning kind is judged: fix the code, or narrow the warning.\n\n\nLane notes (Sonnet, 16 Nov 2026): counted every project with check --no-cache. Found 25 W-PROOF-CHAIN (toyfmt 15, plus 2 more, aoc 26 in total across years), 3 W-CTOR-HIDES (aoc 2021 day 16), 1 W-UNREACHABLE (rogue), and in sf 6 W-CTOR-HIDES + 1 W-THEOREM-FORALL, in web/guide 37 1 W-UNREACHABLE. Fixed all but the last two groups: chains to calc, the unreachable arm deleted, Compares constructors renamed IsGreater/IsLess/IsEqual. Pins: cli test tools::warning_pins (toyfmt, toyfmt-plus, rogue, sf, guide examples, guide project, web guide, AoC Common and each year, all by name), same warning_pins.tsv; sf and web-guide keep ceilings, everything else zero. sf and web-guide left for Matt (narrowing proposals in the report). Branch lane/SW-3608.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "fe7e82c0c"
+      ]
     },
     {
       "id": 3609,

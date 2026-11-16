@@ -153,7 +153,8 @@ theorem turnAt ∀ [n: Nat] (dial: Dial n) (t: Turn): t.clicks.foldLeft dial Dia
 theorem turnCount ∀ [n: Nat] (dial: Dial n) (t: Turn): zerosLandedOn t.clicks dial = Dial.zerosDuring dial t :=
   match t with
     | Left k =>
-      Eq.trans
-        (leftMirror dial k)
-        (Eq.trans (rightCount dial.mirror k) (Eq.cong (v => (v + k) / Mod.size n) (Mod.valueNeg dial.position)))
+      calc zerosLandedOn (Left k).clicks dial
+        _ = zerosLandedOn (List.replicate k (Right 1)) dial.mirror := leftMirror dial k
+        _ = (dial.mirror.position.value + k) / Mod.size n := rightCount dial.mirror k
+        _ = Dial.zerosDuring dial (Left k) := Eq.cong (v => (v + k) / Mod.size n) (Mod.valueNeg dial.position)
     | Right k => rightCount dial k

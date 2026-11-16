@@ -124,9 +124,10 @@ theorem periodZero ∀ (g: Nat → Nat) (len: Nat) (hl: len ≠ 0): Period g len
 
 theorem periodLen ∀ (g: Nat → Nat) (len: Nat) (hl: len ≠ 0): Period g len hl len := i hi =>
   Eq.cong g
-    (Eq.trans
-      (Eq.cong (y => y % len) (algebra: i + len = len + i))
-      (Eq.trans (Nat.addModSelf len i) (Nat.modSmall i len hi)))
+    (calc (i + len) % len
+      _ = (len + i) % len := Eq.cong (y => y % len) (algebra: i + len = len + i)
+      _ = i % len := Nat.addModSelf len i
+      _ = i := Nat.modSmall i len hi)
 
 --| Doing one rotation and then the other is a rotation too.
 theorem periodAdd ∀ (g: Nat → Nat) (len: Nat)

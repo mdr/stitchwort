@@ -289,20 +289,22 @@ theorem sumOverGrid ∀ (region: Region)
             match found: insideOf region row column with
               | True => byComputing
               | False => (zero row column found).flipped))
-  let bySquare :=
-    Eq.trans
-      (List.sumByFlatMap (List.range 0 (Succ last)) term (row =>
-        List.range 0 (Succ last) |> .map (column => ({ row, column }: Position))))
-      (Eq.trans
-        (List.sumByCong
-          (List.range 0 (Succ last))
-          (row => (List.range 0 (Succ last) |> .map (column => ({ row, column }: Position))).sumBy term)
-          (row => total (Succ last) (column => f row column))
-          (row =>
-            Eq.trans
-              (List.sumByMap (List.range 0 (Succ last)) term (column => ({ row, column }: Position)))
-              (totalRange (Succ last) (column => f row column))))
-        (totalRange (Succ last) (row => total (Succ last) (column => f row column))))
+  let bySquare := calc (square last).sumBy term
+    _ = (List.range 0 (Succ last)).sumBy (row =>
+        (List.range 0 (Succ last) |> .map (column => ({ row, column }: Position))).sumBy term) :=
+      List.sumByFlatMap (List.range 0 (Succ last)) term (row =>
+        List.range 0 (Succ last) |> .map (column => ({ row, column }: Position)))
+    _ = (List.range 0 (Succ last)).sumBy (row => total (Succ last) (column => f row column)) :=
+      List.sumByCong
+        (List.range 0 (Succ last))
+        (row => (List.range 0 (Succ last) |> .map (column => ({ row, column }: Position))).sumBy term)
+        (row => total (Succ last) (column => f row column))
+        (row =>
+          Eq.trans
+            (List.sumByMap (List.range 0 (Succ last)) term (column => ({ row, column }: Position)))
+            (totalRange (Succ last) (column => f row column)))
+    _ = total (Succ last) (row => total (Succ last) (column => f row column)) :=
+      totalRange (Succ last) (row => total (Succ last) (column => f row column))
   Eq.trans (Eq.flipped (List.sumByPerm kept region.plots same term)) (Eq.trans filtered bySquare)
 
 --| The program's count of a region's corners is the spec's count of its

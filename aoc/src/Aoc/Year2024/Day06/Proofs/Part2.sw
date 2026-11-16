@@ -241,20 +241,25 @@ theorem trapSetsSame ∀ (lab: Lab)
     ((Set.fromList (route lab (Some lab.startGuard) steps)).filter (keeps lab (Sightlines.of lab.obstructions)))
     (trapPositions lab trapped)
     (position =>
-      Eq.trans
-        (Set.containsFilter
-          (Set.fromList (route lab (Some lab.startGuard) steps))
-          position
-          (keeps lab (Sightlines.of lab.obstructions)))
-        (Eq.trans
-          (Eq.cong
+      calc Set.contains
+        ((Set.fromList (route lab (Some lab.startGuard) steps)).filter (keeps lab (Sightlines.of lab.obstructions)))
+        position
+        _ = (Set.contains (Set.fromList (route lab (Some lab.startGuard) steps)) position
+            && keeps lab (Sightlines.of lab.obstructions) position) :=
+          Set.containsFilter
+            (Set.fromList (route lab (Some lab.startGuard) steps))
+            position
+            (keeps lab (Sightlines.of lab.obstructions))
+        _ = (onRoute lab (Some lab.startGuard) steps position && keeps lab (Sightlines.of lab.obstructions) position) :=
+          Eq.cong
             (has => has && keeps lab (Sightlines.of lab.obstructions) position)
-            (Set.containsFromList position (route lab (Some lab.startGuard) steps)))
-          (Eq.trans
-            (keepsTrapsAt lab inside steps gone trapped decides simulates position)
-            (Eq.trans
-              (Eq.cong (has => has && trapsAt lab trapped position) (positionsHas lab position).flipped)
-              (Eq.flipped (Set.containsFilter (Set.fromList (positions lab)) position (trapsAt lab trapped)))))))
+            (Set.containsFromList position (route lab (Some lab.startGuard) steps))
+        _ = (onMap lab position && trapsAt lab trapped position) :=
+          keepsTrapsAt lab inside steps gone trapped decides simulates position
+        _ = (Set.contains (Set.fromList (positions lab)) position && trapsAt lab trapped position) :=
+          Eq.cong (has => has && trapsAt lab trapped position) (positionsHas lab position).flipped
+        _ = Set.contains (trapPositions lab trapped) position :=
+          Eq.flipped (Set.containsFilter (Set.fromList (positions lab)) position (trapsAt lab trapped)))
 
 --| Part 2: for a guard who starts on the map and leaves, in a lab whose
 --| obstructions are on the map, the program counts the spec's trap

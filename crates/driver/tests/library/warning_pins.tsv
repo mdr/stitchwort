@@ -1,4 +1,13 @@
 # Warnings the Stitchwort code still gives, at most, by project, file and code.
-# The counts only go down (SW-3603): a project not listed gives none. `stitchwort check --std Std --warnings`
-# prints the current std counts. Columns: project, file, code, count.
-# Empty: the standard library gives no warnings.
+# The counts only go down (SW-3603, SW-3608): a project, file or code not listed gives none.
+# Columns: project, file, code, count.
+#   std            warning_pins::the_library_warnings_stay_within_their_pins
+#                  (`stitchwort check --std Std --warnings` prints the counts); empty.
+#   toyfmt, toyfmt-plus, rogue, sf, guide-examples, web-guide, aoc-2020 ...
+#                  the same names in the cli test tools::warning_pins; the files are
+#                  as `check` prints them, without the project folder; only sf and web-guide
+#                  still give any.
+sf	src/Sf/Lf/Basics/Basics.sw	W-THEOREM-FORALL	1
+sf	src/Sf/Lf/Lists/NatList.sw	W-CTOR-HIDES	4
+sf	src/Sf/Lf/Poly/Poly.sw	W-CTOR-HIDES	2
+web-guide	37-split-from-a-hole.sw	W-UNREACHABLE	1

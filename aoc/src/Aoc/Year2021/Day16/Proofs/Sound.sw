@@ -322,15 +322,17 @@ theorem readPacketsSound ∀ (wanted: Wanted) (reader: BitReader) (packets: List
                                                 let countField: afterBit.unread
                                                   = Nat.toBits 11 subPackets.length
                                                     ++ (encodeAll subPackets ++ following.unread) :=
-                                                  Eq.trans countRead.left
-                                                    (Eq.trans
-                                                      (Eq.cong
-                                                        (rest => Nat.toBits 11 count.value ++ rest)
-                                                        subsRead.left)
-                                                      (Eq.cong
+                                                  calc afterBit.unread
+                                                    _ = Nat.toBits 11 count.value ++ after.unread := countRead.left
+                                                    _ = Nat.toBits 11 count.value
+                                                        ++ (encodeAll subPackets ++ following.unread) :=
+                                                      Eq.cong (rest => Nat.toBits 11 count.value ++ rest) subsRead.left
+                                                    _ = Nat.toBits 11 subPackets.length
+                                                        ++ (encodeAll subPackets ++ following.unread) :=
+                                                      Eq.cong
                                                         (n =>
                                                           Nat.toBits 11 n ++ (encodeAll subPackets ++ following.unread))
-                                                        counted.flipped))
+                                                        counted.flipped
                                                 let hereBits :=
                                                   countHere version
                                                     (typeId operatorType)

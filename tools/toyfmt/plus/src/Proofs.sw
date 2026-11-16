@@ -470,12 +470,12 @@ theorem printParses ∀ (file: SourceFile) (width: Nat)
         lexes
         (rewrite sameTokens, sameEnd then readsBack file events tokens endTrivia parsed bare laid views pending offsets)
 
-theorem tidyKeepsMeaning ∀ (file: SourceFile): file.tidy.meaning = file.meaning :=
-  Eq.trans
-    (mergeKeepsMeaning file.withTakes.withoutTrailingCommas.withoutSpareBrackets)
-    (Eq.trans
-      (bracketsKeepMeaning file.withTakes.withoutTrailingCommas)
-      (Eq.trans (commasKeepMeaning file.withTakes) (takesKeepMeaning file)))
+theorem tidyKeepsMeaning ∀ (file: SourceFile): file.tidy.meaning = file.meaning := calc file.tidy.meaning
+  _ = file.withTakes.withoutTrailingCommas.withoutSpareBrackets.meaning :=
+    mergeKeepsMeaning file.withTakes.withoutTrailingCommas.withoutSpareBrackets
+  _ = file.withTakes.withoutTrailingCommas.meaning := bracketsKeepMeaning file.withTakes.withoutTrailingCommas
+  _ = file.withTakes.meaning := commasKeepMeaning file.withTakes
+  _ = file.meaning := takesKeepMeaning file
 
 theorem tidyParsed ∀ (file: SourceFile) (parsed: Parsed file): Parsed file.tidy :=
   mergeKeepsParsed file.withTakes.withoutTrailingCommas.withoutSpareBrackets
@@ -496,16 +496,15 @@ theorem tidyBrackets ∀ (file: SourceFile): file.tidy.withoutSpareBrackets = fi
     (bracketsIdempotent file.withTakes.withoutTrailingCommas)
 
 --| Each pass leaves a tidied tree alone, so all four do.
-theorem tidyIdempotent ∀ (file: SourceFile): file.tidy.tidy = file.tidy :=
-  Eq.trans
-    (Eq.cong
+theorem tidyIdempotent ∀ (file: SourceFile): file.tidy.tidy = file.tidy := calc file.tidy.tidy
+  _ = file.tidy.withoutTrailingCommas.withoutSpareBrackets.withMergedParameters :=
+    Eq.cong
       ((tree: SourceFile) => tree.withoutTrailingCommas.withoutSpareBrackets.withMergedParameters)
-      (tidyTakes file))
-    (Eq.trans
-      (Eq.cong ((tree: SourceFile) => tree.withoutSpareBrackets.withMergedParameters) (tidyBare file))
-      (Eq.trans
-        (Eq.cong ((tree: SourceFile) => tree.withMergedParameters) (tidyBrackets file))
-        (mergeIdempotent file.withTakes.withoutTrailingCommas.withoutSpareBrackets)))
+      (tidyTakes file)
+  _ = file.tidy.withoutSpareBrackets.withMergedParameters :=
+    Eq.cong ((tree: SourceFile) => tree.withoutSpareBrackets.withMergedParameters) (tidyBare file)
+  _ = file.tidy.withMergedParameters := Eq.cong ((tree: SourceFile) => tree.withMergedParameters) (tidyBrackets file)
+  _ = file.tidy := mergeIdempotent file.withTakes.withoutTrailingCommas.withoutSpareBrackets
 
 theorem formatAnswers ∀ (source: Text) (width: Nat) (tree: SourceFile)
     (parsed: parse source = Ok tree):

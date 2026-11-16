@@ -11,18 +11,19 @@ import Std (Bool, Eq, List, Nat)
 
 --| `mix` is the puzzle's bitwise XOR.
 theorem mixBitwise ∀ (value secret: Nat): BitwiseXor value secret (mix value secret) := i =>
-  Eq.trans
-    (Eq.flipped (Nat.testBitDiv (Nat.xor value secret) i))
-    (Eq.trans
-      (Nat.testBitXor i value secret)
-      (rewrite Nat.testBitDiv value i, Nat.testBitDiv secret i then byComputing))
+  calc bitSet (mix value secret) i
+    _ = Nat.testBit (Nat.xor value secret) i := Eq.flipped (Nat.testBitDiv (Nat.xor value secret) i)
+    _ = Bool.xor (Nat.testBit value i) (Nat.testBit secret i) := Nat.testBitXor i value secret
+    _ = Bool.xor (bitSet value i) (bitSet secret i) :=
+      rewrite Nat.testBitDiv value i, Nat.testBitDiv secret i then byComputing
 
 --| And it is the only number that is.
 theorem bitwiseXorUnique ∀ (x y result: Nat) (bitwise: BitwiseXor x y result): result = mix x y :=
   Nat.eqOfTestBit result (mix x y) (i =>
-    Eq.trans
-      (Nat.testBitDiv result i)
-      (Eq.trans (bitwise i) (Eq.flipped (Eq.trans (Nat.testBitDiv (mix x y) i) (mixBitwise x y i)))))
+    calc Nat.testBit result i
+      _ = bitSet result i := Nat.testBitDiv result i
+      _ = Bool.xor (bitSet x i) (bitSet y i) := bitwise i
+      _ = Nat.testBit (mix x y) i := Eq.flipped (Eq.trans (Nat.testBitDiv (mix x y) i) (mixBitwise x y i)))
 
 theorem powModulus: Nat.pow 2 24 = modulus := byComputing
 

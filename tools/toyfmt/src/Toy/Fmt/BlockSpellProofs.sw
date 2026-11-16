@@ -31,11 +31,14 @@ theorem notesOfReverse ∀ (note: Comment → a) (trivia: List Trivia):
   match trivia with
     | [] => byComputing
     | [piece, ..older] =>
-      Eq.trans
-        (Eq.cong ((list: List Trivia) => spacedNotes note list) (List.reverseCons piece older))
-        (Eq.trans
-          (List.foldLeftAppend older.reverse (([], False): (List (Spaced a), Bool)) [piece] (noteStep note))
-          (Eq.cong ((found: (List (Spaced a), Bool)) => noteStep note found piece) (notesOfReverse note older)))
+      calc spacedNotes note ([piece, ..older]).reverse
+        _ = spacedNotes note (older.reverse ++ [piece]) :=
+          Eq.cong ((list: List Trivia) => spacedNotes note list) (List.reverseCons piece older)
+        _ = noteStep note (spacedNotes note older.reverse) piece :=
+          List.foldLeftAppend older.reverse (([], False): (List (Spaced a), Bool)) [piece] (noteStep note)
+        _ = noteStep note (notesOf note older) piece :=
+          Eq.cong ((found: (List (Spaced a), Bool)) => noteStep note found piece) (notesOfReverse note older)
+        _ = notesOf note [piece, ..older]
 
 --| The trivia waiting once a line's blank line, if it has one, is seen.
 def blankOf (blankBefore: Bool) (pending: List Trivia): List Trivia := match blankBefore with
@@ -136,27 +139,31 @@ theorem seenToThen ∀ (pending middle left: List Trivia) (front back: List Even
     (other: SeenTo middle back second left):
     SeenTo pending (front ++ back) (first ++ second) left :=
   earlier =>
-    Eq.trans
-      (viewsAppend { views = earlier, pending } front back)
-      (Eq.trans
-        (Eq.cong ((seen: Views) => viewsFrom seen back) (one earlier))
-        (Eq.trans
-          (other (first.reverse ++ earlier))
-          (Eq.cong
-            ((views: List TokenView) => ({ views, pending = left }: Views))
-            (Eq.trans
-              (Eq.flipped (List.appendAssoc second.reverse first.reverse earlier))
-              (Eq.cong ((front: List TokenView) => front ++ earlier) (List.reverseAppend first second).flipped)))))
+    calc viewsFrom { views = earlier, pending } (front ++ back)
+      _ = viewsFrom (viewsFrom { views = earlier, pending } front) back :=
+        viewsAppend { views = earlier, pending } front back
+      _ = viewsFrom { views = first.reverse ++ earlier, pending = middle } back :=
+        Eq.cong ((seen: Views) => viewsFrom seen back) (one earlier)
+      _ = { views = second.reverse ++ (first.reverse ++ earlier), pending = left } := other (first.reverse ++ earlier)
+      _ = { views = (second.reverse ++ first.reverse) ++ earlier, pending = left } :=
+        Eq.cong
+          ((views: List TokenView) => ({ views, pending = left }: Views))
+          (Eq.flipped (List.appendAssoc second.reverse first.reverse earlier))
+      _ = { views = (first ++ second).reverse ++ earlier, pending = left } :=
+        Eq.cong
+          ((views: List TokenView) => ({ views, pending = left }: Views))
+          (Eq.cong ((front: List TokenView) => front ++ earlier) (List.reverseAppend first second).flipped)
 
 theorem seenBlank ∀ (blankBefore: Bool) (pending left: List Trivia) (events: List Event) (found: List TokenView)
     (seen: SeenTo (blankOf blankBefore pending) events found left):
     SeenTo pending (blankEvents blankBefore ++ events) found left :=
   earlier =>
-    Eq.trans
-      (viewsAppend { views = earlier, pending } (blankEvents blankBefore) events)
-      (Eq.trans
-        (Eq.cong ((before: Views) => viewsFrom before events) (blankSeen blankBefore { views = earlier, pending }))
-        (seen earlier))
+    calc viewsFrom { views = earlier, pending } (blankEvents blankBefore ++ events)
+      _ = viewsFrom (viewsFrom { views = earlier, pending } (blankEvents blankBefore)) events :=
+        viewsAppend { views = earlier, pending } (blankEvents blankBefore) events
+      _ = viewsFrom { views = earlier, pending = blankOf blankBefore pending } events :=
+        Eq.cong ((before: Views) => viewsFrom before events) (blankSeen blankBefore { views = earlier, pending })
+      _ = { views = found.reverse ++ earlier, pending = left } := seen earlier
 
 theorem seenNote ∀ (comment: Comment) (column: Nat) (pending left: List Trivia)
     (events: List Event) (found: List TokenView)
@@ -1146,12 +1153,13 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
                         (notedLine isFirst pending noted more blankBefore
                           (Bare value)
                           firstToken.value.above
-                          (Eq.trans
-                            (Eq.cong ((view: TokenView) => view.above) firstSame)
-                            (Eq.trans aboveSame
-                              (Eq.cong
+                          (calc firstToken.value.above
+                            _ = first.above := Eq.cong ((view: TokenView) => view.above) firstSame
+                            _ = (waiting (blankOf blankBefore pending) value.firstAbove).reverse := aboveSame
+                            _ = (blankOf blankBefore pending).reverse :=
+                              Eq.cong
                                 ((comments: List Comment) => (waiting (blankOf blankBefore pending) comments).reverse)
-                                (noAbove byComputing))))
+                                (noAbove byComputing))
                           waits
                           unspaced),
                         spelled,
@@ -2573,12 +2581,12 @@ theorem spellsFile ∀ (file: SourceFile) (events: List Event)
           let ended: endTrivia = left := Eq.trans pending (Eq.cong ((all: Views) => all.pending) (seen []))
           rewrite ended then
             spells tokens.reverse
-              (Eq.trans
-                (List.mapReverse tokens viewOf)
-                (Eq.trans
-                  (Eq.cong
-                    ((newest: List TokenView) => newest.reverse)
-                    (Eq.trans views
-                      (Eq.trans (Eq.cong ((all: Views) => all.views) (seen [])) (List.appendNil found.reverse))))
-                  (List.reverseReverse found)))
+              (calc tokens.reverse.map viewOf
+                _ = (tokens.map viewOf).reverse := List.mapReverse tokens viewOf
+                _ = ((viewsOf events).views).reverse := Eq.cong ((newest: List TokenView) => newest.reverse) views
+                _ = (found.reverse ++ []).reverse :=
+                  Eq.cong ((newest: List TokenView) => newest.reverse) (Eq.cong ((all: Views) => all.views) (seen []))
+                _ = found.reverse.reverse :=
+                  Eq.cong ((newest: List TokenView) => newest.reverse) (List.appendNil found.reverse)
+                _ = found := List.reverseReverse found)
               (descendingRising tokens offsets)
