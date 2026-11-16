@@ -78,6 +78,8 @@ struct Listed {
     shape: Shape,
     /// Whether the written rule it comes from is a set.
     origin_set: bool,
+    /// How it is written as one `rewrite` step, for expanding.
+    source: ExpandedRule,
 }
 
 /// What a rule's left side needs a goal to have for it to fit: its head as
@@ -168,6 +170,156 @@ fn may_fit(shape: &Shape, present: &Present, written_only: bool) -> bool {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RuleSet {
     pub(crate) rules: Vec<(DefId, bool)>,
+}
+
+/// Where a rule of an expansion is written: the text of a rule as written
+/// in the call, or (for a set's rule) its name as the call's file writes it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RuleSource {
+    Written(Span),
+    Named(String),
+}
+
+/// One `rewrite` step of an expansion: the rule, the arm equation it is of
+/// a definition named (`eq2`, or `eq2`, `or1`), and its direction.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExpandedRule {
+    pub source: RuleSource,
+    pub fields: Vec<String>,
+    pub reverse: bool,
+}
+
+/// How what the rules left was proved.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Closer {
+    /// By computing: a plain `rewrite`'s own close.
+    Computing,
+    /// By the hypothesis of that name.
+    Hypothesis(String),
+    /// By two hypotheses that contradict, or a part of one: `cases`.
+    Cases,
+    /// By the call's `then t`, `t` written there.
+    Body(Span),
+}
+
+/// What one check of a `rewrite repeatedly` call did: the rewrites in
+/// order, and how it closed. A call checked once per case (`cases then`)
+/// has one for each.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Expansion {
+    pub call: Span,
+    pub rules: Vec<ExpandedRule>,
+    pub closer: Closer,
+}
+
+/// The source that replaces a `rewrite repeatedly` call (`text` is its
+/// file's) by the `rewrite` steps it made, from what each check of it did:
+/// `rewrite r1, r2 then t`, or the closer alone when no rule applied. An
+/// error when its checks did different things (in different cases), since
+/// one chain can't be written for them all. With it, the range of `text`
+/// it replaces: the call's, with the `]` that ends its rules.
+pub fn expansion_text(
+    text: &str,
+    checks: &[&Expansion],
+) -> std::result::Result<(std::ops::Range<usize>, String), String> {
+    let new = expansion_steps(text, checks)?;
+    let call = checks[0].call.range();
+    // A call without `then` ends at its last rule, before the `]`.
+    let rest = text.get(call.end..).unwrap_or("");
+    let end = match rest.trim_start().starts_with(']') {
+        true => call.end + (rest.len() - rest.trim_start().len()) + 1,
+        false => call.end,
+    };
+    Ok((call.start..end, new))
+}
+
+fn expansion_steps(text: &str, checks: &[&Expansion]) -> std::result::Result<String, String> {
+    let Some(first) = checks.first() else {
+        return Err("it was never checked".to_string());
+    };
+    if checks
+        .iter()
+        .any(|c| c.rules != first.rules || c.closer != first.closer)
+    {
+        return Err(
+            "it rewrites differently in the cases it is checked in, so no one chain of `rewrite` \
+             steps replaces it"
+                .to_string(),
+        );
+    }
+    let slice = |span: Span| text.get(span.range()).unwrap_or("").to_string();
+    let closer = match &first.closer {
+        Closer::Computing => None,
+        Closer::Hypothesis(name) => Some(name.clone()),
+        Closer::Cases => Some("cases".to_string()),
+        Closer::Body(span) => Some(slice(*span)),
+    };
+    if first.rules.is_empty() {
+        return Ok(closer.unwrap_or_else(|| "byComputing".to_string()));
+    }
+    let rules = first
+        .rules
+        .iter()
+        .map(|rule| {
+            let mut name = match &rule.source {
+                RuleSource::Written(span) => slice(*span),
+                RuleSource::Named(name) => name.clone(),
+            };
+            if !rule.fields.is_empty() && name.contains(' ') {
+                name = format!("({name})");
+            }
+            for field in &rule.fields {
+                name = format!("{name}.{field}");
+            }
+            match rule.reverse {
+                true => format!("<- {name}"),
+                false => name,
+            }
+        })
+        .collect::<Vec<_>>();
+    let mut out = format!("rewrite {}", rules.join(", "));
+    if let Some(closer) = closer {
+        out = format!("{out} then {closer}");
+    }
+    Ok(out)
+}
+
+/// The field names `expanded` adds to `proof` (`f` to `f.eq2.or1`).
+fn added_fields(proof: &Expr, expanded: &Expr) -> Vec<String> {
+    fn depth(e: &Expr) -> usize {
+        match e {
+            Expr::Field(base, _) => 1 + depth(base),
+            _ => 0,
+        }
+    }
+    let mut extra = depth(expanded).saturating_sub(depth(proof));
+    let mut fields = Vec::new();
+    let mut e = expanded;
+    while extra > 0
+        && let Expr::Field(base, name) = e
+    {
+        fields.push(name.text.to_string());
+        e = base;
+        extra -= 1;
+    }
+    fields.reverse();
+    fields
+}
+
+/// How the file being checked writes a set's rule, given by its key.
+fn member_name(cx: &Ctx, proof: &Expr) -> String {
+    match proof {
+        Expr::Var(n) => match n.text.strip_prefix(crate::scope::EXACT_KEY) {
+            Some(key) => cx.e.written(key),
+            None => n.text.to_string(),
+        },
+        _ => rule_name(&RewriteRule {
+            reverse: false,
+            unfold: false,
+            proof: proof.clone(),
+            span: proof.span(),
+        }),
+    }
 }
 
 /// The set `proof` names, if it names one.
@@ -308,20 +460,29 @@ pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) ->
                 .collect(),
             None => vec![rule.clone()],
         };
-        for rule in members
-            .iter()
-            .map(|m| expand(cx, m))
-            .collect::<Result<Vec<_>>>()?
-            .into_iter()
-            .flatten()
-        {
-            let shape = check_rule(cx, &rule)?;
-            rules.push(Listed {
-                rule,
-                origin,
-                shape,
-                origin_set,
-            });
+        for member in &members {
+            let named = match origin_set {
+                true => Some(member_name(cx, &member.proof)),
+                false => None,
+            };
+            for rule in expand(cx, member)? {
+                let shape = check_rule(cx, &rule)?;
+                let source = ExpandedRule {
+                    source: match &named {
+                        Some(name) => RuleSource::Named(name.clone()),
+                        None => RuleSource::Written(member.proof.span()),
+                    },
+                    fields: added_fields(&member.proof, &rule.proof),
+                    reverse: rule.reverse,
+                };
+                rules.push(Listed {
+                    rule,
+                    origin,
+                    shape,
+                    origin_set,
+                    source,
+                });
+            }
         }
     }
     let mut goal = match cx.e.tables.interfaces.is_empty() {
@@ -363,9 +524,9 @@ pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) ->
             match written_only {
                 true => {
                     if body.is_none()
-                        && let Some(term) = try_close(cx, header, &goal)?
+                        && let Some(found) = try_close(cx, header, &goal)?
                     {
-                        closed = Some(term);
+                        closed = Some(found);
                         break;
                     }
                     written_only = false;
@@ -513,13 +674,13 @@ pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) ->
             );
         }
     }
-    let base = match body {
+    let (base, closer) = match body {
         _ if closed.is_some() => closed.expect("just checked"),
         Some(body) => {
             if !stated(body) {
                 warn_unstated(cx, header, body);
             }
-            check(cx, body, &goal)?
+            (check(cx, body, &goal)?, Closer::Body(body.span()))
         }
         None => close(
             cx,
@@ -533,6 +694,20 @@ pub(super) fn rewrite_repeatedly(cx: &mut Ctx, expr: &Expr, expected: &Value) ->
         )?,
     };
     note_unused(cx, written, &rules, &trail);
+    if let Some(expansions) = cx.e.session.expansions.borrow_mut().as_mut() {
+        expansions.push(Expansion {
+            call: expr.span(),
+            // A definition's step is proved by computing, so the goal after
+            // it is the goal before to `rewrite`, whose search reads what
+            // the goal computes to: it has no `rewrite` step of its own.
+            rules: trail
+                .iter()
+                .filter(|(index, _, _)| !rules[*index].rule.unfold)
+                .map(|(index, _, _)| rules[*index].source.clone())
+                .collect(),
+            closer,
+        });
+    }
     let mut term = base;
     for step in steps.into_iter().rev() {
         term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
@@ -627,8 +802,9 @@ fn written_after(cx: &Ctx, written: &Term, found: &[Step]) -> Result<Option<Term
     Ok(Some(written))
 }
 
-/// [`close`]'s closers, or `None` if none closes `goal`.
-fn try_close(cx: &mut Ctx, header: Span, goal: &Value) -> Result<Option<Term>> {
+/// [`close`]'s closers, or `None` if none closes `goal`: the proof, and
+/// which closer it was.
+fn try_close(cx: &mut Ctx, header: Span, goal: &Value) -> Result<Option<(Term, Closer)>> {
     let rfl = Expr::Var(AstName {
         text: "byComputing".into(),
         span: header,
@@ -641,11 +817,19 @@ fn try_close(cx: &mut Ctx, header: Span, goal: &Value) -> Result<Option<Term>> {
     let quiet = &cx.e.decl.quiet_refl;
     quiet.set(quiet.get() - 1);
     match checked {
-        Ok(term) => return Ok(Some(term)),
+        Ok(term) => return Ok(Some((term, Closer::Computing))),
         Err(e) if fatal(&e) => return Err(e),
         Err(_) => restore(cx, snapshot, errors),
     }
-    crate::cases::close_by_hypotheses(cx, goal)
+    Ok(crate::cases::close_by_hypotheses(cx, goal)?.map(|term| {
+        let named = match term.strip_loc() {
+            Term::Var(ix) if *ix < cx.level() => cx
+                .name_of_level(cx.level() - 1 - ix)
+                .map(|n| Closer::Hypothesis(n.to_string())),
+            _ => None,
+        };
+        (term, named.unwrap_or(Closer::Cases))
+    }))
 }
 
 /// Closes what the rules left: by computing, by contradicting hypotheses,
@@ -660,9 +844,9 @@ fn close(
     skipped: &[Option<Diagnostic>],
     goal: &Value,
     written_goal: Option<&Term>,
-) -> Result<Term> {
-    if let Some(term) = try_close(cx, header, goal)? {
-        return Ok(term);
+) -> Result<(Term, Closer)> {
+    if let Some(found) = try_close(cx, header, goal)? {
+        return Ok(found);
     }
     Err(left_open(
         cx,

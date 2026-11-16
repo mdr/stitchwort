@@ -68,6 +68,7 @@ use crate::undo::{Snapshot, fatal};
 
 mod as_written;
 mod repeatedly;
+pub use repeatedly::{Closer, ExpandedRule, Expansion, RuleSource, expansion_text};
 pub(crate) use repeatedly::{RuleSet, UNUSED_RULE};
 mod under;
 
