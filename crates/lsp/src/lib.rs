@@ -733,6 +733,14 @@ enum SearchKind {
     /// What can follow the `.` at byte `dot`, after `wanted` bytes of a
     /// name typed ([`Main::member_completion`]).
     Members { dot: usize, wanted: usize },
+    /// Replacing the `rewrite repeatedly` at byte `at` with the `rewrite`
+    /// steps it made ([`expand_action`]), after the quick fixes `fixes`
+    /// already found.
+    Expand {
+        at: usize,
+        versioned: Option<i32>,
+        fixes: serde_json::Value,
+    },
 }
 
 impl Search {
@@ -850,8 +858,88 @@ impl Search {
             SearchKind::Members { dot, wanted } => {
                 members_at(server, source, target, dot, wanted, cancel)
             }
+            SearchKind::Expand {
+                at,
+                versioned,
+                fixes,
+            } => {
+                let mut actions = fixes.as_array().cloned().unwrap_or_default();
+                actions.extend(expand_action(
+                    server, source, target, at, &uri, versioned, cancel,
+                ));
+                if actions.is_empty() {
+                    serde_json::Value::Null
+                } else {
+                    serde_json::Value::Array(actions)
+                }
+            }
         }
     }
+}
+
+/// The offset of a `rewrite repeatedly` keyword on `line` of `text`, if
+/// there is one: what the "Expand" action is offered on.
+fn expand_target(text: &str, line: u32) -> Option<usize> {
+    let start = offset_at(text, Position::new(line, 0));
+    let rest = text.get(start..)?;
+    let line_text = rest.lines().next()?;
+    let found = line_text.find("rewrite repeatedly")?;
+    let after = line_text[found + "rewrite repeatedly".len()..].trim_start();
+    (after.starts_with('[') || after.is_empty()).then_some(start + found)
+}
+
+/// The "Expand rewrite repeatedly" action for the call at byte `at`: its
+/// file is checked afresh with the steps recorded, and the call replaced by
+/// the `rewrite` steps it made (SW-3642). Nothing when the call isn't
+/// reached or can't be one chain.
+fn expand_action(
+    server: &Options,
+    source: &dyn Source,
+    target: SearchTarget,
+    at: usize,
+    uri: &Url,
+    versioned: Option<i32>,
+    cancel: Arc<AtomicBool>,
+) -> Vec<serde_json::Value> {
+    let text = target.text.clone();
+    let found = match target.project {
+        Some((root, relative, open)) => {
+            let base = source.files(&root);
+            let files = stitchwort_driver::search_at::Overlay {
+                base: &*base,
+                texts: open,
+            };
+            let name = root
+                .file_name()
+                .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
+            with_project_session(server, None, cancel, |session| {
+                session.expansion_at_project(&name, &files, &relative, at)
+            })
+        }
+        None => {
+            let mut session = search_session(server);
+            session.share_cancel_flag(cancel);
+            let name = (target.path.file_name())
+                .and_then(|n| n.to_str())
+                .unwrap_or("file.sw");
+            session.expansion_at_text(name, &text, at)
+        }
+    };
+    let Some(Ok((range, new_text))) = found else {
+        return Vec::new();
+    };
+    let edits = [lsp_types::TextEdit::new(
+        lsp_types::Range::new(
+            position_at(&text, range.start),
+            position_at(&text, range.end),
+        ),
+        new_text,
+    )];
+    vec![serde_json::json!({
+        "title": "Expand rewrite repeatedly",
+        "kind": "refactor.rewrite",
+        "edit": workspace_edit(uri, versioned, &edits),
+    })]
 }
 
 /// Runs proof searches handed out by [`Inline::take_searches`]: the
@@ -1470,6 +1558,25 @@ impl Main {
                         versioned: document_changes.then_some(version),
                         fixes,
                         last: None,
+                    },
+                });
+                return;
+            }
+            let expand = {
+                let texts = self.texts.borrow();
+                let at = p.range.start;
+                (texts.get(&uri)).and_then(|t| expand_target(t, at.line))
+            };
+            if let (Some(at), Some(target), true) = (expand, self.search_target(&uri), searching) {
+                let document_changes = self.document_changes;
+                self.queue_search(id, &uri.clone(), "codeAction", move |version| Search {
+                    uri,
+                    target,
+                    time_ms: None,
+                    kind: SearchKind::Expand {
+                        at,
+                        versioned: document_changes.then_some(version),
+                        fixes,
                     },
                 });
                 return;

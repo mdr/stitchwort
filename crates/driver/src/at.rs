@@ -928,7 +928,7 @@ impl Session {
         line: u32,
         character: u32,
     ) -> Option<Context> {
-        let (text, _) = self.probe_project(project, files, path, cache, |e, file, text| {
+        let (text, _, _) = self.probe_project(project, files, path, cache, |e, file, text| {
             e.probe_context(file, offset_at(text, line, character) as u32);
         })?;
         self.probed(&text)
@@ -967,7 +967,7 @@ impl Session {
         cache: Option<&std::path::Path>,
         dot: usize,
     ) -> Option<Vec<ScopeName>> {
-        let (text, namespaces) =
+        let (text, namespaces, _) =
             self.probe_project(project, files, path, cache, |e, file, _| {
                 e.probe_members(file, (dot + 1) as u32);
             })?;
@@ -1030,7 +1030,7 @@ impl Session {
         path: &str,
         cache: Option<&std::path::Path>,
         probe: impl FnOnce(&stitchwort_elab::Elaborator, stitchwort_syntax::FileId, &str),
-    ) -> Option<(String, Vec<String>)> {
+    ) -> Option<(String, Vec<String>, stitchwort_syntax::FileId)> {
         if let Some(dir) = cache {
             self.use_check_cache(dir);
         }
@@ -1057,7 +1057,43 @@ impl Session {
         Some((
             text,
             analysis.namespaces.iter().map(|n| n.name.clone()).collect(),
+            file_id,
         ))
+    }
+
+    /// The `rewrite` steps the `rewrite repeatedly` at byte `at` of `text`
+    /// (a file on its own named `name`, loaded into this session, a fresh
+    /// one) made, as an edit: the range it replaces and its text
+    /// ([`stitchwort_elab::expand_call`]), or why it can't be expanded.
+    /// The file is checked, without the check cache. None if no checked
+    /// call is there.
+    pub fn expansion_at_text(
+        &mut self,
+        name: &str,
+        text: &str,
+        at: usize,
+    ) -> Option<Result<(std::ops::Range<usize>, String), String>> {
+        self.elab.record_expansions();
+        let file = self.sources.next_id();
+        let _ = self.load(name, text);
+        let found = self.elab.take_expansions();
+        stitchwort_elab::expand_call(text, file, &found, at)
+    }
+
+    /// [`Session::expansion_at_text`] for a file of a project, read as
+    /// [`Session::context_at_project`] reads one, but without the check
+    /// cache, which doesn't check the units it answers for.
+    pub fn expansion_at_project(
+        &mut self,
+        project: &str,
+        files: &dyn Files,
+        path: &str,
+        at: usize,
+    ) -> Option<Result<(std::ops::Range<usize>, String), String>> {
+        self.elab.record_expansions();
+        let (text, _, file) = self.probe_project(project, files, path, None, |_, _, _| ())?;
+        let found = self.elab.take_expansions();
+        stitchwort_elab::expand_call(&text, file, &found, at)
     }
 }
 

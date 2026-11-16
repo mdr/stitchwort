@@ -85,7 +85,7 @@ mod redundant;
 mod reify;
 mod rewind;
 mod rewrite;
-pub use rewrite::{Closer, ExpandedRule, Expansion, RuleSource, expand_file};
+pub use rewrite::{Closer, ExpandedRule, Expansion, RuleSource, expand_call, expand_file};
 mod ring;
 mod rows;
 mod saturate;

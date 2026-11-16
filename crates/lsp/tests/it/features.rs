@@ -1901,3 +1901,68 @@ fn go_to_definition_on_a_declaration_with_an_error_goes_to_its_name() {
         }
     });
 }
+
+/// "Expand rewrite repeatedly" on a call replaces it with the `rewrite`
+/// steps it made (SW-3655, the editor's form of `check --expand-repeatedly`);
+/// a line with no such call is offered nothing.
+#[test]
+fn a_rewrite_repeatedly_call_expands_into_its_steps() {
+    big_stack(|| {
+        let text = "namespace Demo\n\nimport Std (Eq, List, Nat)\n\nrules appends := [List.appendAssoc, List.appendNil]\n\ntheorem regroup ∀ (xs ys zs: List Nat): ((xs ++ ys) ++ zs) ++ [] = xs ++ (ys ++ zs) := rewrite repeatedly [appends]\n\ntheorem plain (n: Nat): n = n := byComputing\n";
+        let mut s = Session::open(text);
+        let expand = |s: &mut Session, line: u32| {
+            let actions = s.request_any(
+                "textDocument/codeAction",
+                json!({"textDocument": {"uri": URI},
+                       "range": {"start": {"line": line, "character": 4},
+                                 "end": {"line": line, "character": 4}},
+                       "context": {"diagnostics": []}}),
+            );
+            (actions.as_array().into_iter().flatten())
+                .find(|a| a["title"] == "Expand rewrite repeatedly")
+                .cloned()
+        };
+        let action = expand(&mut s, 6).expect("an action on the call");
+        let edit = &action["edit"]["documentChanges"][0]["edits"][0];
+        let new_text = edit["newText"].as_str().unwrap();
+        assert!(
+            new_text.starts_with("rewrite ") && !new_text.contains("repeatedly"),
+            "{new_text}"
+        );
+        assert!(new_text.contains("List.appendAssoc"), "{new_text}");
+        assert_eq!(edit["range"]["start"]["line"], 6);
+        assert!(expand(&mut s, 8).is_none(), "offered where there's no call");
+    });
+}
+
+/// Hover on a rule set shows its members, not the `()` it is underneath
+/// (SW-3655).
+#[test]
+fn hover_on_a_rule_set_shows_its_members() {
+    big_stack(|| {
+        let text = "namespace Demo\n\nimport Std (Eq, List, Nat)\n\nrules appends := [List.appendAssoc, List.appendNil]\n\ntheorem t ∀ (xs ys zs: List Nat): ((xs ++ ys) ++ zs) ++ [] = xs ++ (ys ++ zs) := rewrite repeatedly [appends]\n";
+        let mut s = Session::open(text);
+        for needle in ["rules appends"] {
+            let at = text.find(needle).unwrap() + needle.len() - 4;
+            let (line, character) = {
+                let before = &text[..at];
+                (
+                    before.matches('\n').count(),
+                    before.rsplit('\n').next().unwrap().chars().count(),
+                )
+            };
+            let hover = s.request(
+                "textDocument/hover",
+                json!({"textDocument": {"uri": URI},
+                       "position": {"line": line, "character": character}}),
+            );
+            let shown = hover["contents"]["value"].as_str().unwrap_or_default();
+            assert!(
+                shown.contains("rules `Demo.appends`")
+                    && shown.contains("[List.appendAssoc, List.appendNil]")
+                    && !shown.contains("()"),
+                "{needle}: {shown}"
+            );
+        }
+    });
+}
