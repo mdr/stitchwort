@@ -39,6 +39,8 @@ def homeViews: List TokenView → List TokenView
   | [] => []
   | [newest, ..earlier] => homeStepView (homeViews earlier) newest
 
+--| `homed` on tokens is `homedView` on their views: by induction on the
+--| earlier tokens, by cases on the three things `movesPast` reads.
 theorem homedViews ∀ (comment: Parse.Located Comment)
     (current: Parse.Located Token) (earlier: List (Parse.Located Token)):
     (homed comment current earlier).map viewOf = homedView comment.value (viewOf current) (earlier.map viewOf) :=

@@ -15,7 +15,9 @@
 --| The trace is in the order printed, which is the document's except
 --| where a closer (`Closing`) joins the line of a comment that waits: the
 --| comment is in the trace from when it starts to wait, and the closer
---| goes in before it (`tucked`), as it does in the text.
+--| goes in before it (`tucked`), as it does in the text. The rules prove
+--| `Lays` (Lays.sw), the same predicate with the trace in the document's
+--| order, and `laysPuts` there takes it to this one.
 
 namespace Toy.Doc.Proofs
 import Toy.Doc (..)

@@ -4,7 +4,8 @@
 --| token: a comma's own-line comments go above the token after it, which
 --| needn't start its line (`[a`, `-- c`, `, b]` puts `-- c` above `b`). It
 --| holds of every token but one straight after a comma (`settledTidy`),
---| and a comma holds no comment at all (`settledBareCommas`).
+--| and a comma holds no comment at all (`settledBareCommas`). Together
+--| they are the walk's invariant of the settled tokens (`settledFits`).
 
 namespace Toy.Fmt.Carry
 import Toy.Fmt (..)

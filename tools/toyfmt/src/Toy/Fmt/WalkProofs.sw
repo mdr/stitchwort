@@ -6,8 +6,9 @@
 --|
 --| - `Shaped` (ShapeProofs.sw): operators grouped by precedence and
 --|   chaining from the left, a call's callee and a field's target postfix,
---|   `-` before an operand; every body ends in a statement; no last
---|   parameter or item keeps a comma's comments;
+--|   `-` before an operand; every body ends in a statement; every closing
+--|   bracket holds only a trailing comment rule N leaves on one
+--|   (`settledCloser`);
 --| - `Lexical` (ParsedProofs.sw): names, numbers, strings and comments are
 --|   the lexer's tokens' texts, given tokens that are `Good`;
 --| - `Headed` (HeadProofs.sw): no first token outside brackets holds
@@ -15,7 +16,8 @@
 --|   its first line.
 --|
 --| The walk runs under `Parse.Invariant.every Good` (`GoodTokens`), which
---| `Lexical` needs and the other two ignore. A function that looks at the
+--| `Lexical` needs and the other two ignore; the tokens are the lexer's
+--| after rule N, which keeps them `Good` (`settledGood`). A function that looks at the
 --| next token is proved from each mark (`Parse.readsPeek`,
 --| `Parse.readsWithMark`), so no lemma takes the handler's state apart.
 
@@ -906,9 +908,10 @@ theorem parseParsed ∀ (source: Text) (file: SourceFile) (parsed: parse source 
 --| a call's callee and a field's target postfix, `-` before an operand),
 --| in every declaration, block and branch; every body (after `=`, `then`
 --| and `else`) ends in a statement, not a comment line (`ClosedLines`);
---| a function's last parameter has no comma's comments (`BareLast`), and
---| neither has the last item of a list or the last argument of a call
---| (`BareLastItem`).
+--| and every closing bracket, of an expression, a type or a parameter
+--| list, holds a trailing comment only where rule N leaves one: below
+--| own-line comments of its own, or after a token that has a trailing
+--| comment (`settledCloser`).
 --| So the read-back theorems' `Shaped` hypotheses hold of every parsed
 --| tree, with no check at run time.
 theorem parseShaped ∀ (source: Text) (file: SourceFile) (parsed: parse source = Ok file): ShapedFile file :=

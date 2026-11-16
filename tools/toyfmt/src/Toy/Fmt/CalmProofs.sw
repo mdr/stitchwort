@@ -44,6 +44,9 @@ def StableViews: List TokenView → Prop
 theorem boolNotBoth ∀ (value: Bool) (yes: value = True) (no: value = False): Void :=
   Bool.trueNotFalse (Eq.trans yes.flipped no)
 
+--| A token whose view is steady is one rule N leaves where it is, and a
+--| bare comma if it is a comma: by cases on its trailing comment, its
+--| kind and, where rule N would look further, on what blocks it.
 theorem steadyToken ∀ (token: Parse.Located Token) (earlier: List (Parse.Located Token))
     (steady: SteadyView (viewOf token) (earlier.map viewOf)):
     Steady token earlier ∧ BareComma token :=

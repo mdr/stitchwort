@@ -583,6 +583,9 @@ theorem meetingToken ∀ (comments: Comments) (text: Text)
 
 --| A closer that holds nothing: after anything a closing sign may
 --| follow, on the line as it stands, before a comment that waits there.
+--| By cases on the edge: with no comment waiting it is a chunk; with one
+--| it follows the line's last word, which `Meets` says it may, and the
+--| comment's space may follow it.
 theorem closingPasses ∀ (text: Text)
     (spelled: TokenText text)
     (closing: Shuts text):

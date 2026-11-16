@@ -1,8 +1,11 @@
 --| Why `format` keeps the tree. It parses and prints, and the printed
 --| text of a parsed file parses to the same file (`printParses`), from the
 --| chain the other files of this namespace prove: the printed pieces lex
---| to tokens whose views are those of the file's events
---| (`printedTokens`), with falling offsets (`placedOffsets`); such
+--| to tokens whose views are those of the printed trace
+--| (`printedTokens`), with falling offsets (`placedOffsets`); rule N
+--| takes them to tokens with the views of the file's events
+--| (`settledViews`), since the printed trace is the file's events but for
+--| each trailing comment coming after the closers on its line; such
 --| tokens spell the file (`spellsFile`); and the parser reads back what
 --| spells a file (`runsFileSpelled`). So `format` keeps the tree
 --| (`formatRoundTrip`) and formats its own output to itself

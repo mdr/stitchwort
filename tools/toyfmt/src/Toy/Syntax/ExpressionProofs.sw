@@ -302,7 +302,10 @@ def Expr.chainLevel: Expr → Nat
 --| postfix expression, `-` stands before an operand, and an operator's
 --| sides are grouped by precedence, the same level chaining from the left.
 --| An `if`'s branches, blocks included, hold expressions of that shape
---| and end in a statement, not a comment line (`ShapedBody`).
+--| and end in a statement, not a comment line (`ShapedBody`). A closing
+--| bracket holds a trailing comment only where rule N leaves one
+--| (`settledCloser`): the parser builds its comments with
+--| `Comments.closing`.
 def Shaped: Expr → Prop
   | Var _ _ => True
   | NumberLiteral _ _ => True

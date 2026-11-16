@@ -10,7 +10,9 @@
 --|
 --| Comments are carried, not placed: each token's comments go into the
 --| tree beside it (`Layout.comments`) as the token is read, so no source
---| that parses is left without a tree.
+--| that parses is left without a tree. The tokens are the lexer's after
+--| rule N (`Lexed.settled`), so a comma holds none, and is read and
+--| dropped.
 
 namespace Toy.Syntax
 import Std.Parse.Associativity (LeftAssociative)

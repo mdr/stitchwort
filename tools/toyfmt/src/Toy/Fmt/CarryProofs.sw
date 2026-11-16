@@ -12,6 +12,11 @@
 --| its tokens (`Inner`). `Onto` is `Inner` in the form a chain of steps
 --| builds up. This file has the specs and the chain lemmas; the walk
 --| itself is in CarryWalk.sw.
+--|
+--| The tokens are the lexer's after rule N. A comma among them holds no
+--| comment, so the tree, which keeps none for a comma, loses none; a
+--| closing bracket's comments are the token's, in order, however
+--| `Comments.closing` holds them (`closingAll`).
 
 namespace Toy.Fmt.Carry
 import Toy.Fmt (..)

@@ -1,4 +1,5 @@
---| The lexer's half of the walk's invariant (`Lexer`, CarryProofs.sw):
+--| The lexer's half of the walk's invariant (`Lexer`, CarryProofs.sw;
+--| rule N's half is CarrySettle.sw):
 --| the tokens of a lex that succeeded are at rising offsets, and one that
 --| doesn't start its line has no own-line comments above it. Both are
 --| facts about `assemble`'s fold over the lexemes, given that every
