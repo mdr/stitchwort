@@ -30,7 +30,7 @@ theorem printedPlaced ∀ (file: SourceFile) (width: Nat)
         ∧ endTrivia = (viewsOf events).pending
         ∧ Descending (tokens.map (token => token.offset)) :=
   match printedTokens file width parsed.right.left with
-    | (_, _, lexed) => (
+    | (_, lexed) => (
       (eventsOf (printedPieces file.layout width).reverse),
       (Parse.locatedSteps 0 (stepsOnto (printedPieces file.layout width).reverse [])),
       (placed (printedPieces file.layout width).reverse).tokens,

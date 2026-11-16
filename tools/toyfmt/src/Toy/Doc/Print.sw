@@ -78,6 +78,7 @@ def Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: D
     | Empty => (printer, rest)
     | BreakParent => (printer, rest)
     | Chunk text width => (printer.write indent text width, rest)
+    | Closing text => (printer.close text, rest)
     -- A trailing comment that is waiting ends its line at a `Line` or
     -- `SoftLine` even in a flat group. `fits` already keeps such a group
     -- from being flat; breaking here too makes "no code after a comment on
@@ -154,6 +155,11 @@ def Printer.write (printer: Printer) (indent: Nat) (text: Text) (width: Nat): Pr
   else if printer.suffixes.isEmpty then printer.put text width
   else if text.all (char => char == ' ') then printer
   else (printer.newline (printer.continuation indent)).put text width
+
+--| A closing bracket or comma: on the line as it stands, before any
+--| trailing comment waiting there.
+def Printer.close (printer: Printer) (text: Text): Printer :=
+  if text.isEmpty then printer else printer.put text text.length
 
 def Printer.put (printer: Printer) (text: Text) (width: Nat): Printer :=
   let paid := printer.payIndent
@@ -233,6 +239,8 @@ def fitsFrom (fuel: Nat) (stack: List (Mode, Doc)) (rest: List Cmd) (left: Nat) 
           | BreakParent => not mode.isFlat && fitsFrom more stack rest left suffix
           | Chunk text width =>
             if suffix then False else width <= left && fitsFrom more stack rest (left - width) suffix
+          -- It joins the line of a waiting comment, which still waits.
+          | Closing text => text.length <= left && fitsFrom more stack rest (left - text.length) suffix
           | Line => not mode.isFlat || (not suffix && 1 <= left && fitsFrom more stack rest (left - 1) suffix)
           | SoftLine => not mode.isFlat || (not suffix && fitsFrom more stack rest left suffix)
           | HardLine => not mode.isFlat

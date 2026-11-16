@@ -76,6 +76,21 @@ def WriteLays (indent: Nat) (text: Text) (place: Place) (trace: List Event) (nex
         | Held at =>
           next (Mid (Nat.max indent (at + 2))) (trace ++ [{ word = text, start = Some (Nat.max indent (at + 2)) }]))
 
+--| `event` put before the last of `trace`. Where a comment waits, it is
+--| the trace's last event already, and a closer written then is printed
+--| before it.
+def tucked (event: Event): List Event → List Event
+  | [] => [event]
+  | [last] => [event, last]
+  | [first, ..rest] => [first, ..tucked event rest]
+
+--| A closer in a construct indented `indent`: a chunk where no comment
+--| waits; where one waits, a word on the comment's line, before it.
+def CloseLays (indent: Nat) (text: Text) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
+  match place with
+    | Held at => isLayout text = False ∧ next (Held at) (tucked { word = text, start = None } trace)
+    | _ => WriteLays indent text place trace next
+
 --| Whether words are on the line: a line break here ends their line, and
 --| leaves no blank line.
 def Place.midLine: Place → Bool
@@ -138,6 +153,7 @@ def Lays (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Plac
     | BreakParent => next place trace
     | Blank => BlankLays place trace next
     | Chunk text _ => WriteLays indent text place trace next
+    | Closing text => CloseLays indent text place trace next
     | Line => SepLays indent place trace next
     | SoftLine => SoftLays indent place trace next
     | HardLine => place.midLine = True ∧ (next (Broken indent) trace ∨ next (AtStart indent) trace)
@@ -211,6 +227,17 @@ theorem writeLaysWeaker ∀ (indent: Nat) (text: Text) (place: Place) (trace: Li
             | Mid at, lays => (oneLine, (implies _ _ lays))
             | Held at, lays => (oneLine, (implies _ _ lays))
 
+theorem closeLaysWeaker ∀ (indent: Nat) (text: Text) (place: Place) (trace: List Event)
+    (strong weak: Place → List Event → Prop)
+    (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
+    (lays: CloseLays indent text place trace strong):
+    CloseLays indent text place trace weak :=
+  match place, lays with
+    | Held at, (word, lays) => (word, (implies _ _ lays))
+    | AtStart at, lays => writeLaysWeaker indent text (AtStart at) trace strong weak implies lays
+    | Broken at, lays => writeLaysWeaker indent text (Broken at) trace strong weak implies lays
+    | Mid at, lays => writeLaysWeaker indent text (Mid at) trace strong weak implies lays
+
 theorem sepLaysWeaker ∀ (indent: Nat) (place: Place) (trace: List Event) (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: SepLays indent place trace strong):
@@ -272,6 +299,7 @@ theorem laysWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Even
     | BreakParent, lays => implies _ _ lays
     | Blank, lays => blankLaysWeaker place trace strong weak implies lays
     | Chunk text width, lays => writeLaysWeaker indent text place trace strong weak implies lays
+    | Closing text, lays => closeLaysWeaker indent text place trace strong weak implies lays
     | Line, lays => sepLaysWeaker indent place trace strong weak implies lays
     | SoftLine, lays => softLaysWeaker indent place trace strong weak implies lays
     | HardLine, Both mid (Inl broken) => (mid, (Inl (implies _ _ broken)))
@@ -907,6 +935,62 @@ theorem writeStays ∀ (next: Place → List Event → Prop) (printer: Printer) 
     | Held at, agrees, lays =>
       writeHeld next printer indent text width at trace agrees (agreesClear printer (Held at) trace agrees) lays
 
+theorem tuckedSnoc ∀ (event last: Event) (before: List Event):
+    tucked event (before ++ [last]) = before ++ [event, last] :=
+  match before with
+    | [] => byComputing
+    | [first] => byComputing
+    | [first, second, ..rest] => rewrite repeatedly [tuckedSnoc event last [second, ..rest]]
+
+--| A word put on a line where a comment waits goes before the comment,
+--| which still waits.
+theorem putHeld ∀ (printer: Printer) (text: Text) (width at: Nat) (trace: List Event)
+    (agrees: Agrees printer (Held at) trace)
+    (word: isLayout text = False):
+    Agrees (printer.put text width) (Held at) (tucked { word = text, start = None } trace) :=
+  match printer, agrees with
+    | { width = total, out, column, owed, atLineStart, suffixes, lineIndent, newlinesAtEnd, started }, Both start
+        (Both (Witness comment (Both one (Both isWord same))) (Both blank (Both owes indent))) =>
+      match owed, owes with
+        | Some value, never => (someNotNone value never).impossible
+        | None, _ => (
+          byComputing,
+          ((
+            comment,
+            one,
+            isWord,
+            (rewrite repeatedly [same, tuckedSnoc, eventsWord text out word, blank, List.appendAssoc])
+          )),
+          (blankWord text out word),
+          byComputing,
+          indent
+        )
+
+--| A closer written where the document said.
+theorem closeStays ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (text: Text)
+    (place: Place) (trace: List Event)
+    (agrees: Agrees printer place trace)
+    (lays: CloseLays indent text place trace next):
+    Stays next (printer.close text) :=
+  match place, agrees, lays with
+    | AtStart at, agrees, lays =>
+      rewrite closeClear printer indent text (agreesClear printer (AtStart at) trace agrees) then
+        writeStays next printer indent text text.length (AtStart at) trace agrees lays
+    | Broken at, agrees, lays =>
+      rewrite closeClear printer indent text (agreesClear printer (Broken at) trace agrees) then
+        writeStays next printer indent text text.length (Broken at) trace agrees lays
+    | Mid at, agrees, lays =>
+      rewrite closeClear printer indent text (agreesClear printer (Mid at) trace agrees) then
+        writeStays next printer indent text text.length (Mid at) trace agrees lays
+    | Held at, agrees, (word, lays) =>
+      rewrite closePut printer text (wordFilled text word) then
+        (
+          (Held at),
+          (tucked { word = text, start = None } trace),
+          (putHeld printer text text.length at trace agrees word),
+          lays
+        )
+
 theorem sepBroken ∀ (next: Place → List Event → Prop) (indent: Nat) (place: Place) (trace: List Event)
     (lays: SepLays indent place trace next):
     next (AtStart indent) trace :=
@@ -1167,6 +1251,9 @@ theorem stepLays ∀ (spec: Place → List Event → Prop) (printer: Printer) (c
               trace
               agrees
               lays
+        | Closing text, steps, lays =>
+          rewrite steps then
+            closeStays (after later => StackLays spec rest after later) printer indent text place trace agrees lays
         | Line, steps, lays =>
           rewrite steps then
             eitherStays spec mode.isFlat printer.suffixes.isEmpty
@@ -1390,6 +1477,18 @@ theorem printLaysExample ∀ (width: Nat):
     (Concat [Chunk "f" 1, Nest 2 (Concat [HardLine, Chunk "x" 1])])
     width
     ((byComputing, byComputing, (Inr ((byComputing, byComputing)))))
+
+--| A closer after a trailing comment is printed before it: `x) -- c` at
+--| every width, the comment last in the trace.
+theorem closerLaysExample ∀ (width: Nat):
+    ∃ (place: Place) => eventsOf (printedPieces (Concat [Chunk "x" 1, LineSuffix "-- c", Closing ")"]) width).reverse
+      = [{ word = "x", start = Some 0 }, { word = ")", start = None }, { word = "-- c", start = None }] :=
+  printLays
+    (place trace =>
+      trace = [{ word = "x", start = Some 0 }, { word = ")", start = None }, { word = "-- c", start = None }])
+    (Concat [Chunk "x" 1, LineSuffix "-- c", Closing ")"])
+    width
+    ((byComputing, byComputing, byComputing, byComputing))
 
 --| `putMid`'s and `putSpaces`' hypothesis can be met: after `f` at the
 --| start, the printer is in the middle of an unindented line.

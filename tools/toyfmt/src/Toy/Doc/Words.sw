@@ -1,11 +1,22 @@
---| Every reading writes the document's words, in order. A word is a piece
---| of output that isn't layout (spaces, indentation, a line break): the
---| text of a chunk or a trailing comment. Which way groups, fills and
---| choices go changes only the layout between the words, as long as every
---| option of a choice has the same words (`Uniform`); a trailing comment
---| is written before any text that follows it in the document. Through
---| every reading the words are the document's (`readingWords`): nothing
---| lost, repeated or moved.
+--| Every reading writes the document's words. A word is a piece of
+--| output that isn't layout (spaces, indentation, a line break): the text
+--| of a chunk, a closer or a trailing comment. Which way groups, fills
+--| and choices go changes only the layout between the words, as long as
+--| every option of a choice has the same words (`Uniform`). A trailing
+--| comment is written before any chunk that follows it in the document,
+--| and after the closers (`Closing`) that join its line: which closers
+--| those are is the reading's choice, so the order of the words is the
+--| document's only up to that.
+--|
+--| Three statements, each through every reading: a step moves words from
+--| the work list to the printer in order, a closer alone going before
+--| the comments that wait (`stepWords`); what holds of every word of the
+--| document holds of every word written (`readingEvery`); and the words
+--| a filter keeps are the document's in order, if the filter keeps no
+--| closer (`readingWords`: with a filter that keeps everything, the old
+--| theorem for a document without closers; with one that drops only the
+--| closers, every other word and comment in the document's order). The
+--| exact place of each closer is `Lays`' to say (`Places.sw`).
 
 namespace Toy.Doc.Proofs
 import Toy.Doc (..)
@@ -152,6 +163,46 @@ theorem blankWords ∀ (printer: Printer): printer.blank.words = printer.words :
     | True => rewrite repeatedly [layoutSnoc "\n" printer.out byComputing]
     | False => byComputing
 
+--| A closer is the next word written, before the comments that wait.
+theorem closeWords ∀ (printer: Printer) (text: Text):
+    (printer.close text).words = printer.written ++ (wordsOf [text] ++ wordsOf printer.suffixes) :=
+  match empty: text.isEmpty with
+    | True => rewrite repeatedly [layoutNoWord text (emptyIsLayout text empty)]
+    | False =>
+      match putWritten printer text text.length with
+        | (written, suffixes) => rewrite repeatedly [written, suffixes, List.appendAssoc]
+
+--| Where no comment waits, a closer is written as a chunk is.
+theorem closeClear ∀ (printer: Printer) (indent: Nat) (text: Text)
+    (clear: printer.suffixes.isEmpty = True):
+    printer.close text = printer.write indent text text.length :=
+  match empty: text.isEmpty with
+    | True => byComputing
+    | False =>
+      match waiting: printer.suffixes.isEmpty, clear with
+        | True, _ => byComputing
+        | False, never =>
+          match never with
+            | ()
+
+theorem closePut ∀ (printer: Printer) (text: Text)
+    (filled: text.isEmpty = False):
+    printer.close text = printer.put text text.length :=
+  match empty: text.isEmpty, filled with
+    | False, _ => byComputing
+    | True, never =>
+      match never with
+        | ()
+
+--| A word has at least one character.
+theorem wordFilled ∀ (text: Text) (word: isLayout text = False): text.isEmpty = False := match empty: text.isEmpty with
+  | False => byComputing
+  | True => (Bool.falseNotTrue (Eq.trans word.flipped (emptyIsLayout text empty))).impossible
+
+theorem trueOrFalse ∀ (flag: Bool): flag = True ∨ flag = False := match flag with
+  | True => Inl byComputing
+  | False => Inr byComputing
+
 -- The document's words, and the readings.
 
 --| The words of a document, in order: its chunks' texts and its trailing
@@ -159,6 +210,7 @@ theorem blankWords ∀ (printer: Printer): printer.blank.words = printer.words :
 --| `Uniform` document every option has the same.
 def Doc.words: Doc → List Text
   | Chunk text _ => wordsOf [text]
+  | Closing text => wordsOf [text]
   | LineSuffix comment => wordsOf [comment]
   | Nest _ inner => inner.words
   | Group inner _ => inner.words
@@ -344,13 +396,25 @@ rules wordSteps :=
     headOrWords
   ]
 
+--| The printer's words, then `cmd`'s, then `later`, as the step that
+--| prints `cmd` leaves them: in that order, except that a closer goes
+--| before the comments that wait.
+def Cmd.wordsFrom (cmd: Cmd) (printer: Printer) (later: List Text): List Text := match cmd with
+  | Print _ _ doc => doc.wordsFrom printer later
+  | FillSep _ item => printer.words ++ (item.words ++ later)
+
+def Doc.wordsFrom (doc: Doc) (printer: Printer) (later: List Text): List Text := match doc with
+  | Closing text => printer.written ++ (wordsOf [text] ++ (wordsOf printer.suffixes ++ later))
+  | _ => printer.words ++ (doc.words ++ later)
+
 --| A step of a reading moves words from the work list to the printer, in
---| order: the words printed and those still to print, together, stay the
---| same.
+--| order, a closer alone going before the comments that wait: the words
+--| printed and those still to print, together, stay the same but for
+--| that.
 theorem stepWords ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: (Printer, List Cmd))
     (steps: StepsTo printer cmd rest result)
     (uniform: CmdUniform cmd):
-    result.fst.words ++ stackWords result.snd = printer.words ++ (cmd.words ++ stackWords rest) :=
+    result.fst.words ++ stackWords result.snd = cmd.wordsFrom printer (stackWords rest) :=
   match cmd, steps, uniform with
     | FillSep indent item, Inl (Both _ flat), _ =>
       rewrite repeatedly [flat, writeLayoutWords] then rewrite repeatedly [List.appendAssoc]
@@ -360,6 +424,7 @@ theorem stepWords ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: (P
         | Empty, steps, _ => rewrite repeatedly [steps]
         | BreakParent, steps, _ => rewrite repeatedly [steps]
         | Chunk text width, steps, _ => rewrite repeatedly [steps, wordSteps, List.appendAssoc]
+        | Closing text, steps, _ => rewrite repeatedly [steps, closeWords, List.appendAssoc]
         | Line, steps, _ => rewrite steps then cases then rewrite repeatedly [newlineWords, writeLayoutWords]
         | SoftLine, steps, _ => rewrite steps then cases then rewrite repeatedly [newlineWords]
         | HardLine, steps, _ => rewrite repeatedly [steps, wordSteps]
@@ -402,6 +467,7 @@ theorem stepUniform ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (result: 
         | Empty, steps, _ => rewrite repeatedly [steps]
         | BreakParent, steps, _ => rewrite repeatedly [steps]
         | Chunk text width, steps, _ => rewrite repeatedly [steps]
+        | Closing text, steps, _ => rewrite repeatedly [steps]
         | Line, steps, _ =>
           rewrite steps then
             eitherUniform _ (printer.write indent " " 1, rest) (printer.newline indent, rest) restUniform restUniform
@@ -475,6 +541,7 @@ theorem readingLighter ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (resul
         | BreakParent, steps => rewrite steps then stepLighter printer 0 (Print indent mode BreakParent) rest
         | Chunk text width, steps =>
           rewrite steps then stepLighter printer 0 (Print indent mode (Chunk text width)) rest
+        | Closing text, steps => rewrite steps then stepLighter printer 0 (Print indent mode (Closing text)) rest
         | Line, steps => rewrite steps then stepLighter printer 0 (Print indent mode Line) rest
         | SoftLine, steps => rewrite steps then stepLighter printer 0 (Print indent mode SoftLine) rest
         | HardLine, steps => rewrite steps then stepLighter printer 0 (Print indent mode HardLine) rest
@@ -504,22 +571,69 @@ theorem readingLighter ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd) (resul
           let bound := optionSteps chosen options isOption
           rewrite broken then arithmetic
 
---| A reading that has the steps to finish its work list writes the work
---| list's words after the printer's, in order, whichever way its groups,
---| fills and choices go.
-theorem readingWords ∀ (printer: Printer) (fuel: Nat) (stack: List Cmd) (final: Printer)
+--| `holds` of each of the words.
+def Every (holds: Text → Prop): List Text → Prop
+  | [] => True
+  | [word, ..rest] => holds word ∧ Every holds rest
+
+theorem everyAppend ∀ (holds: Text → Prop) (front back: List Text)
+    (first: Every holds front)
+    (second: Every holds back):
+    Every holds (front ++ back) :=
+  match front, first with
+    | [], _ => second
+    | [word, ..rest], (head, others) => (head, (everyAppend holds rest back others second))
+
+theorem everySplit ∀ (holds: Text → Prop) (front back: List Text)
+    (all: Every holds (front ++ back)):
+    Every holds front ∧ Every holds back :=
+  match front, all with
+    | [], all => (byComputing, all)
+    | [word, ..rest], (head, others) =>
+      match everySplit holds rest back others with
+        | (first, second) => ((head, first), second)
+
+--| What holds of the printer's words, a command's and the words after
+--| holds of them as the command's step leaves them.
+theorem everyFrom ∀ (holds: Text → Prop) (cmd: Cmd) (printer: Printer) (later: List Text)
+    (all: Every holds (printer.words ++ (cmd.words ++ later))):
+    Every holds (cmd.wordsFrom printer later) :=
+  match cmd, all with
+    | FillSep indent item, all => all
+    | Print indent mode doc, all =>
+      match doc, all with
+        | Closing text, all =>
+          match everySplit holds printer.words (wordsOf [text] ++ later) all with
+            | (printed, after) =>
+              match everySplit holds printer.written (wordsOf printer.suffixes) printed, everySplit holds
+                (wordsOf [text])
+                later
+                after with
+                | (written, waiting), (closer, rest) =>
+                  everyAppend holds printer.written
+                    (wordsOf [text] ++ (wordsOf printer.suffixes ++ later))
+                    written
+                    (everyAppend holds
+                      (wordsOf [text])
+                      (wordsOf printer.suffixes ++ later)
+                      closer
+                      (everyAppend holds (wordsOf printer.suffixes) later waiting rest))
+        | _, all => all
+
+--| What holds of every word the printer has and of every word on the
+--| work list holds of every word a reading ends with, whichever way its
+--| groups, fills and choices go and whichever closers join a comment's
+--| line: a reading writes no word of its own.
+theorem readingEvery ∀ (holds: Text → Prop) (printer: Printer) (fuel: Nat) (stack: List Cmd) (final: Printer)
     (reads: Reads printer fuel stack final)
     (uniform: StackUniform stack)
-    (enough: stackCost stack ≤ fuel):
-    final.words = printer.words ++ stackWords stack :=
-  match fuel, stack, reads, uniform with
-    | Zero, [], reads, _ => rewrite repeatedly [reads, List.appendNil]
-    | Succ more, [], reads, _ => rewrite repeatedly [reads, List.appendNil]
-    | Zero, [cmd, ..rest], _, _ =>
-      let positive := costPositive cmd
-      Void.impossible (arithmetic)
-    | Succ more, [cmd, ..rest], Witness next (Witness later (Both steps laterReads)), Both first others =>
+    (all: Every holds (printer.words ++ stackWords stack)):
+    Every holds final.words :=
+  match fuel, stack, reads, uniform, all with
+    | Zero, stack, reads, _, all => rewrite reads then (everySplit holds printer.words (stackWords stack) all).left
+    | Succ more, [], reads, _, all => rewrite reads then (everySplit holds printer.words [] all).left
+    | Succ more, [cmd, ..rest], Witness next (Witness later (Both steps laterReads)), Both first others, all =>
       let moved := stepWords printer cmd rest (next, later) steps first
-      let lighter := readingLighter printer cmd rest (next, later) steps
       let kept := stepUniform printer cmd rest (next, later) steps first others
-      Eq.trans (readingWords next more later final laterReads kept (arithmetic)) moved
+      readingEvery holds next more later final laterReads kept
+        (rewrite moved then everyFrom holds cmd printer (stackWords rest) all)

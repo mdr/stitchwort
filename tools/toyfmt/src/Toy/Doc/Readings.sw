@@ -122,6 +122,7 @@ theorem stepIsReading ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List
                 ))
         | Empty => byComputing
         | Chunk text width => byComputing
+        | Closing text => byComputing
         | Line => byComputing
         | SoftLine => byComputing
         | HardLine => byComputing
