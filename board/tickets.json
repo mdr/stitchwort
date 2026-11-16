@@ -41357,7 +41357,7 @@
     {
       "id": 3672,
       "title": "[Sonnet] Tuple marker scope (SW-3670 review findings 1, 3; docs/reviews/SW-3566-tuple-patterns.md): mark a split as a tuple only when every row splitting that column wrote a tuple, so a written MkPair isn't read as Both by row order; a tuple row followed by a written Both row should work. Reject + accept examples, failing first",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -41474,7 +41474,7 @@
     {
       "id": 3681,
       "title": "[DeepSeek] More examples still emit W-REWRITE-THEN-COMPUTING/THEN-REWRITE outside SW-3679's filter: reject/opaque-note-body-name, implicit-interface-not-searched, unfold-of-failed-definition, quot-lift-folded-goal, reads-chain-swapped-pair, blanks-proof-argument-error-against-goal, update-lemma-unknown, lambda-after-expected-type; accept rewrite.sw and others. Apply the quick fix where the then isn't the example's point; refresh snapshots; find the rest with stitchwort check over examples/ grepping the two codes",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
