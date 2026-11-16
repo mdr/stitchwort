@@ -27,7 +27,7 @@ theorem mapKeepsSeat ∀ (found: Option Seat) (f: Seat → Seat)
     (found.map f).map Seat.isSeat = found.map Seat.isSeat :=
   match found with
     | None => byComputing
-    | Some seat => rewrite keeps seat then byComputing
+    | Some seat => rewrite keeps seat
 
 --| A spec round keeps the floor plan.
 theorem roundPlan ∀ (start layout: Layout) (considered: Position → Nat) (crowded: Nat)
@@ -84,11 +84,8 @@ theorem planInView ∀ (rule: Rule) (start layout: Layout)
     let looks := (at: Position) (cell: Seat) =>
       if cell.isSeat then rule.inView start.grid.lookup at |> .filter (near => (start.grid.lookup near).any (.isSeat))
       else []
-    rewrite lookupOrAt (start.grid.map looks) [] position,
-        cellAtMapCells start.grid.rows looks position,
-        And.left both,
-        And.right both then
-      byComputing)
+    rewrite lookupOrAt (start.grid.map looks) [] position, cellAtMapCells start.grid.rows looks position, And.left
+        both, And.right both)
 
 --| On a layout with the start's floor plan, a seat's planned view counts
 --| the occupied seats the rule sees on the layout, when the rule looks at
@@ -101,11 +98,8 @@ theorem planCount ∀ (rule: Rule) (start layout: Layout)
     (sameView: rule.inView start.grid.lookup position = rule.inView layout.grid.lookup position):
     ((rule.planFor start).inView position).count (near => layout.grid.lookup near == Some Occupied)
       = (rule.inView layout.grid.lookup position).count (near => layout.grid.lookup near == Some Occupied) :=
-  rewrite planInView rule start layout same position here found seat,
-      List.countFilter
-        (rule.inView start.grid.lookup position)
-        (near => layout.grid.lookup near == Some Occupied)
-        (near => (start.grid.lookup near).any (.isSeat))
-        (near occupied => occupiedSeat start layout same near occupied),
-      sameView then
-    byComputing
+  rewrite planInView rule start layout same position here found seat, List.countFilter
+    (rule.inView start.grid.lookup position)
+    (near => layout.grid.lookup near == Some Occupied)
+    (near => (start.grid.lookup near).any (.isSeat))
+    (near occupied => occupiedSeat start layout same near occupied), sameView

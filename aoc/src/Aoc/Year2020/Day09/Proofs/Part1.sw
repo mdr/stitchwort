@@ -18,11 +18,10 @@ theorem walkAt ∀ (numbers: List Nat) (preamble start: Nat) (front: List Nat)
     (number: Nat) (later: List Nat)
     (ahead: front.drop preamble = [number, ..later]):
     numbers.get (start + preamble) = Some number ∧ previous numbers preamble (start + preamble) = front.take preamble :=
-  let here: front.get preamble = Some number :=
-    rewrite <- Nat.addZero preamble, <- List.getDrop front preamble 0, ahead then byComputing
+  let here: front.get preamble = Some number := rewrite <- Nat.addZero preamble, <- List.getDrop front preamble 0, ahead
   Both
     (rewrite <- List.getDrop numbers start preamble, <- at then here)
-    (rewrite (arithmetic: start + preamble - preamble = start), <- at then byComputing)
+    (rewrite (arithmetic: start + preamble - preamble = start), <- at)
 
 theorem walkSound ∀ (numbers: List Nat) (preamble answer: Nat) (front: List Nat) (start: Nat)
     (at: front = numbers.drop start)
@@ -50,7 +49,7 @@ theorem walkSound ∀ (numbers: List Nat) (preamble answer: Nat) (front: List Na
         | True =>
           match front with
             | [first, ..rest] =>
-              let moved: rest = numbers.drop (start + 1) := rewrite List.dropAdd start 1 numbers, <- at then byComputing
+              let moved: rest = numbers.drop (start + 1) := rewrite List.dropAdd start 1 numbers, <- at
               walkSound numbers preamble answer rest
                 (start + 1)
                 moved
@@ -83,12 +82,9 @@ theorem walkComplete ∀ (numbers: List Nat) (preamble answer position: Nat)
     | [] =>
       let index: start + (preamble + (position - start - preamble)) = position := arithmetic
       let gone: numbers.get position = None :=
-        rewrite <- index,
-            <- List.getDrop numbers start (preamble + (position - start - preamble)),
-            <- at,
-            <- List.getDrop front preamble (position - start - preamble),
-            d then
-          byComputing
+        rewrite <- index, <- List.getDrop numbers start
+          (preamble + (position - start - preamble)), <- at, <- List.getDrop front preamble
+          (position - start - preamble), d
       Void.impossible (Option.noneNotSome answer (Eq.trans gone.flipped listed))
     | [number, ..later] =>
       let (Both atPosition window) := walkAt numbers preamble start front at number later d
@@ -98,7 +94,7 @@ theorem walkComplete ∀ (numbers: List Nat) (preamble answer position: Nat)
           | True =>
             Void.impossible
               (notSum (rewrite <- h, window, <- isAnswer then sumsToSound { numbers = front.take preamble } number c))
-          | False => rewrite isAnswer then byComputing
+          | False => rewrite isAnswer
       else
         let sums: SumOfTwo (front.take preamble) number :=
           rewrite <- window then valid (start + preamble) (arithmetic) number atPosition
@@ -113,7 +109,7 @@ theorem walkComplete ∀ (numbers: List Nat) (preamble answer position: Nat)
               | [first, ..rest] =>
                 walkComplete numbers preamble answer position listed notSum valid rest
                   (start + 1)
-                  (rewrite List.dropAdd start 1 numbers, <- at then byComputing)
+                  (rewrite List.dropAdd start 1 numbers, <- at)
                   (arithmetic)
 
 --| Whenever there is a first invalid number, part 1 finds it.

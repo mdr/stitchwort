@@ -79,7 +79,7 @@ theorem parseComplete ∀ (input: Text) (map: Grid Square)
           (List.all2WeakenMem _ _
             (line row member same =>
               runsRow line row same (rowEmpty =>
-                map.widthNonZero (Eq.trans (rectangle row member).flipped (rewrite rowEmpty then byComputing))))
+                map.widthNonZero (Eq.trans (rectangle row member).flipped (rewrite rowEmpty))))
             lines)
       parseGridComplete input square map rectangle rowsRead
 

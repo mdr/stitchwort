@@ -40,7 +40,7 @@ theorem lookupMember ∀ (entries: List (Nat, Rule)) (number: Nat) (rule: Rule)
   match entries with
     | [(entryNumber, value), ..rest] =>
       match same: entryNumber == number with
-        | True => Inl (rewrite same.read, Option.someInjective found then byComputing)
+        | True => Inl (rewrite same.read, Option.someInjective found)
         | False => Inr (lookupMember rest number rule found)
 
 theorem productiveRanked ∀ (rules: Rules) (rank: Nat → Nat) (bound: Nat)
@@ -69,13 +69,12 @@ theorem anyEmpty ∀ (lefts: List (List Char)) (any: lefts.any .isEmpty = True):
 theorem matchesCompletelyList ∀ (rules: Rules) (message: Message):
     rules.matchesCompletely message = (rules.leftAfter (rules.enough message) 0 message.letters |> .any .isEmpty) :=
   rewrite leftAfterSame
-        (ruleTable rules.numbered).get
-        rules.rule
-        (tableRule rules)
-        (rules.enough message)
-        0
-        message.letters then
-    byComputing
+    (ruleTable rules.numbered).get
+    rules.rule
+    (tableRule rules)
+    (rules.enough message)
+    0
+    message.letters
 
 theorem matchesCompletelyCorrect ∀ (rules: Rules)
     (productive: rules.productive = True) (message: Message):

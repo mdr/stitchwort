@@ -85,12 +85,11 @@ theorem parseComplete ∀ (input: Text) (slice2: Slice)
           (List.all2WeakenMem _ _
             (line row member same =>
               runsRow line row same (rowEmpty =>
-                grid.widthNonZero (Eq.trans (rectangle row member).flipped (rewrite rowEmpty then byComputing))))
+                grid.widthNonZero (Eq.trans (rectangle row member).flipped (rewrite rowEmpty))))
             lines)
       let gridRead: Fail.toResult (() => parseGrid input cubeState) = Ok grid :=
         parseGridComplete input cubeState grid rectangle rowsRead
-      rewrite Fail.toResultThen (() => parseGrid input cubeState) (grid2 => ({ grid = grid2 }: Slice)) then
-        rewrite gridRead then byComputing
+      rewrite Fail.toResultThen (() => parseGrid input cubeState) (grid2 => ({ grid = grid2 }: Slice)), gridRead
 
 --| A slice is written by an input in at most one way, since the parser reads it as one.
 theorem writtenUnique ∀ (input: Text) (a b: Slice)

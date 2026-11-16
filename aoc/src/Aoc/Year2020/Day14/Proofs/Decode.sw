@@ -22,12 +22,12 @@ theorem decodedFit ∀ (mask: List MaskBit) (address bits: List Bool)
       match List.memMapElim (Cons bit) bits (decodeBits mask address) member with
         | Witness rest (Both inRest built) =>
           match decodedFit mask address rest inRest (arithmetic) with
-            | Both length fit => rewrite <- built then Both (arithmetic) (rewrite fit, DecEq.refl bit then byComputing)
+            | Both length fit => rewrite <- built then Both (arithmetic) (rewrite fit, DecEq.refl bit)
     | [On, ..mask], [bit, ..address] =>
       match List.memMapElim (Cons True) bits (decodeBits mask address) member with
         | Witness rest (Both inRest built) =>
           match decodedFit mask address rest inRest (arithmetic) with
-            | Both length fit => rewrite <- built then Both (arithmetic) (rewrite fit then byComputing)
+            | Both length fit => rewrite <- built then Both (arithmetic) (rewrite fit)
     | [X, ..mask], [bit, ..address] =>
       let rest := decodeBits mask address
       match List.memAppend bits (rest.map (Cons False)) (rest.map (Cons True)) member with
@@ -35,12 +35,12 @@ theorem decodedFit ∀ (mask: List MaskBit) (address bits: List Bool)
           match List.memMapElim (Cons False) bits rest low with
             | Witness tail (Both inRest built) =>
               match decodedFit mask address tail inRest (arithmetic) with
-                | Both length fit => rewrite <- built then Both (arithmetic) (rewrite fit then byComputing)
+                | Both length fit => rewrite <- built then Both (arithmetic) (rewrite fit)
         | Inr high =>
           match List.memMapElim (Cons True) bits rest high with
             | Witness tail (Both inRest built) =>
               match decodedFit mask address tail inRest (arithmetic) with
-                | Both length fit => rewrite <- built then Both (arithmetic) (rewrite fit then byComputing)
+                | Both length fit => rewrite <- built then Both (arithmetic) (rewrite fit)
     | [], [bit, ..address] => Void.impossible arithmetic
     | [maskBit, ..mask], [] => Void.impossible arithmetic
 
@@ -99,7 +99,7 @@ theorem decodeSound ∀ (mask: Mask) (address target: Nat)
           let back: Nat.toBits width (Nat.fromBits bits) = bits := rewrite length at Nat.toBitsFromBits bits
           rewrite <- built then
             match small: Nat.fromBits bits < Nat.pow 2 width with
-              | True => rewrite back, fit then byComputing
+              | True => rewrite back, fit
 
 theorem decodeComplete ∀ (mask: Mask) (address target: Nat)
     (decodes: Spec.Decodes mask address target = True):

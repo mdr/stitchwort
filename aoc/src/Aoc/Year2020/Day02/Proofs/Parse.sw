@@ -38,7 +38,7 @@ theorem readsLine: Parse.Reads line Written := Parse.readsThen Parse.readsNat (l
                   Witness lowRead
                     (Witness highRead
                       (Both
-                        (rewrite dash, space, letterIs, colon, List.appendNil passwordRead then byComputing)
+                        (rewrite dash, space, letterIs, colon, List.appendNil passwordRead)
                         (Both lowDigits (Both highDigits (Both lower (Both nonEmpty lowers))))))))))))))
 
 --| Every line of the input is its entry written out, and there is one entry

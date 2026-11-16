@@ -79,10 +79,10 @@ theorem settleComplete ∀ (plan: Plan) (specRound: Layout → Layout) (keep: La
     match e: start.round plan == start with
       | True =>
         let still: specRound start = start := rewrite <- same then e.read
-        rewrite <- Nat.iterateFixed specRound start still reached, there then byComputing
+        rewrite <- Nat.iterateFixed specRound start still reached, there
       | False =>
         match reached with
-          | Zero => Void.impossible (e.read (rewrite same, there, fixed then byComputing))
+          | Zero => Void.impossible (e.read (rewrite same, there, fixed))
           | Succ earlier =>
             rewrite same then
               settleComplete plan specRound keep agree keeps final fixed more

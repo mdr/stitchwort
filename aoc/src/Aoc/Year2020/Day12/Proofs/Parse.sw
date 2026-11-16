@@ -31,7 +31,7 @@ theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
             (Witness letter
               (Witness digits
                 (Both
-                  (rewrite single, List.appendNil digits then byComputing)
+                  (rewrite single, List.appendNil digits)
                   (Both written (Both nonEmpty (Both allDigits (Both decimal (turn => cases))))))))))
 
 --| If `parseRoute` reads `input`, each of its lines is an instruction written out.

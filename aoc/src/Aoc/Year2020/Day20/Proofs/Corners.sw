@@ -67,8 +67,7 @@ theorem keptFilter ∀ [p: a → Prop] (decide: a → Bool)
           {
             forward = found =>
               match found with
-                | Inl (Both yes (Witness others (Both more same))) =>
-                  rewrite same, (later others).forward more then byComputing
+                | Inl (Both yes (Witness others (Both more same))) => rewrite same, (later others).forward more
                 | Inr (Both no more) => (no holds).impossible,
             backward = same =>
               Inl

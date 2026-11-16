@@ -12,7 +12,7 @@ theorem anyAnswers: ∀ (lines: List (List Char)) (people: List Person) => List.
         = lines.any (line => line.contains question)
   | [], [], all, question => byComputing
   | [line, ..lines], [person, ..people], Both (Both nonEmpty (Both questions same)) rest, question =>
-    rewrite same question, anyAnswers lines people rest question then byComputing
+    rewrite same question, anyAnswers lines people rest question
   | [], [_, .._], impossible, question => impossible.impossible
   | [_, .._], [], impossible, question => impossible.impossible
 
@@ -21,7 +21,7 @@ theorem allAnswers: ∀ (lines: List (List Char)) (people: List Person) => List.
         = lines.all (line => line.contains question)
   | [], [], all, question => byComputing
   | [line, ..lines], [person, ..people], Both (Both nonEmpty (Both questions same)) rest, question =>
-    rewrite same question, allAnswers lines people rest question then byComputing
+    rewrite same question, allAnswers lines people rest question
   | [], [_, .._], impossible, question => impossible.impossible
   | [_, .._], [], impossible, question => impossible.impossible
 

@@ -13,8 +13,7 @@ theorem readsRange: Parse.Reads range RangeWritten := Parse.readsThen Parse.read
       Parse.readsDone
         { low, high } _
         (Witness lowRead
-          (Witness highRead
-            (Both (rewrite dash, List.appendNil highRead then byComputing) (Both lowNumber highNumber)))))))
+          (Witness highRead (Both (rewrite dash, List.appendNil highRead) (Both lowNumber highNumber)))))))
 
 theorem readsRule: Parse.Reads rule RuleWritten := Parse.readsThen Parse.readsTakeWhile1 (nameRead field (Both named
   (Both chars made)) =>
@@ -28,7 +27,7 @@ theorem readsRule: Parse.Reads rule RuleWritten := Parse.readsThen Parse.readsTa
               Witness firstRead
                 (Witness secondRead
                   (Both
-                    (rewrite colon, or, List.appendNil secondRead then byComputing)
+                    (rewrite colon, or, List.appendNil secondRead)
                     (Both named (Both chars (Both firstWritten secondWritten)))))))))))
 
 theorem readsTicket: Parse.Reads ticket TicketWritten :=
@@ -61,7 +60,7 @@ theorem readsNotes: Parse.Reads notes NotesWritten :=
                                   (Witness blank2
                                     (Witness break2
                                       (Both
-                                        (rewrite yourHeading, nearbyHeading, List.appendNil nearbyRead then byComputing)
+                                        (rewrite yourHeading, nearbyHeading, List.appendNil nearbyRead)
                                         (Both
                                           (Witness rules (Both rulesWritten byComputing))
                                           (Both blankFirst

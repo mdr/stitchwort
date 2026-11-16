@@ -109,10 +109,11 @@ theorem parseComplete ∀ (input: Text) (program: Program)
       let ran := Parse.runsEachLine input instruction program.instructions (List.all2Weaken runsInstruction _ _ lines)
       rewrite Fail.toResultThen (() => Parse.eachLine input instruction) (instructions =>
             if startsWithMask instructions then ({ instructions }: Program)
-            else Fail.fail "the program has to start with a mask") then
-        rewrite ran, startsComplete program.instructions starts then
-          match program with
-            | { instructions } => byComputing
+            else Fail.fail "the program has to start with a mask"),
+          ran,
+          startsComplete program.instructions starts then
+        match program with
+          | { instructions } => byComputing
 
 --| A program is written by an input in at most one way, since the parser reads it as one.
 theorem writtenUnique ∀ (input: Text) (a b: Program)

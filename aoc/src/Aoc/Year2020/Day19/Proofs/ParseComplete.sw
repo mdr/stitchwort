@@ -28,8 +28,8 @@ def seqChar (char: Char): Bool := Parse.isDigit char ∨ char == ' '
 
 theorem spaceNotDigit ∀ (char: Char) (isSpace: Parse.isSpace char = True): Parse.isDigit char = False :=
   match isSpace with
-    | Inl space => rewrite space.read then byComputing
-    | Inr tab => rewrite tab.read then byComputing
+    | Inl space => rewrite space.read
+    | Inr tab => rewrite tab.read
 
 theorem runsNumber ∀ (read: List Char) (number: Nat) (after: List Char)
     (written: NumberWritten read number)
@@ -46,8 +46,7 @@ def SeqFollow (after: List Char): Prop :=
 theorem followNotDigit ∀ (after: List Char) (follow: SeqFollow after): Parse.CannotStart Parse.isDigit after :=
   match follow with
     | Inl stops => char more found => Bool.orFalseLeft _ _ (stops char more found)
-    | Inr (Witness more same) =>
-      rewrite same then (char more2 found => rewrite <- List.consInjectiveHead _ _ _ _ found then byComputing)
+    | Inr (Witness more same) => rewrite same then (char more2 found => rewrite <- List.consInjectiveHead _ _ _ _ found)
 
 --| A sequence's numbers end where the next space isn't followed by a number: at ` | ` or the line's end.
 theorem declinesNumberStep ∀ (after: List Char)
@@ -100,8 +99,7 @@ theorem runsSequence ∀ (read: List Char) (seq: List Nat)
                 (read2 after2 u same2 => rewrite same2 then Parse.runsChar ' ' after2)
                 (read2 u same2 => rewrite same2 then List.consNotNil ' ' [])
                 (read2 after2 u same2 =>
-                  rewrite same2 then
-                    (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found then byComputing))
+                  rewrite same2 then (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found))
                 (followNotDigit after follow)
                 (declinesNumberStep after follow)
                 read
@@ -126,9 +124,7 @@ theorem sequencesStart ∀ (read: List Char) (head: List Nat) (tail: List (List 
               Witness digit
                 (Witness
                   (more ++ afterNumber ++ afterFirst)
-                  (Both
-                    (rewrite split, split2, List.appendAssoc more afterNumber afterFirst then byComputing)
-                    digits.left))
+                  (Both (rewrite split, split2, List.appendAssoc more afterNumber afterFirst) digits.left))
 
 theorem notSpace ∀ (char: Char) (stops: seqChar char = False): Text.sameChar ' ' char = False :=
   match e: Text.sameChar ' ' char with
@@ -186,7 +182,7 @@ theorem runsRuleBody ∀ (read: List Char) (rule2: Rule)
               runsAsValue ruleBody read after
                 (Alternatives (NonEmptyList.cons head tail).toList)
                 (Alternatives sequences)
-                (rewrite same then byComputing)
+                (rewrite same)
                 (Parse.runsOneOfNext _ _ [] read after _
                   (rewrite split then
                     Parse.declinesBind
@@ -216,8 +212,7 @@ theorem runsRuleBody ∀ (read: List Char) (rule2: Rule)
                         (Parse.declinesText " | " after
                           (match after with
                             | [] => byComputing
-                            | [char, ..more2] =>
-                              rewrite notSpace char (stops char more2 byComputing) then byComputing)))
+                            | [char, ..more2] => rewrite notSpace char (stops char more2 byComputing))))
                       read
                       head
                       tail
@@ -236,7 +231,7 @@ theorem runsNumbered ∀ (read: List Char) (numbered: (Nat, Rule))
           number _
           byComputing
           (runsNumber numberRead number _ numberWritten (char more found =>
-            rewrite <- List.consInjectiveHead _ _ _ _ found then byComputing))
+            rewrite <- List.consInjectiveHead _ _ _ _ found))
           (Parse.runsBind
             (() => Parse.text ": ") _
             ": ".toList
@@ -265,7 +260,7 @@ theorem eachLetters ∀ (letters read: List Char)
     | [], each => Both each byComputing
     | [found, ..more], Witness first (Witness later (Both split (Both (Both single lower) each))) =>
       match eachLetters more later each with
-        | Both same all => Both (rewrite split, single, same then byComputing) (Both lower all)
+        | Both same all => Both (rewrite split, single, same) (Both lower all)
 
 theorem runsMessage ∀ (read: List Char) (message2: Message)
     (written: MessageWritten read message2) (after: List Char)
@@ -346,7 +341,7 @@ theorem runsReceived ∀ (read: List Char) (received2: Received)
                   messages = (NonEmptyList.cons firstMessage otherMessages).toList
                 }: Received)
                 { rules = { numbered }, messages }
-                (rewrite <- rulesSame2, <- messagesSame then byComputing)
+                (rewrite <- rulesSame2, <- messagesSame)
                 (rewrite split then
                   Parse.runsBind
                     (() => Parse.lines numberedRule) _

@@ -26,8 +26,7 @@ theorem readsField: Parse.Reads field FieldWritten :=
       Parse.readsThen (Parse.readsTakeWhile1) (valueRead value (Both nonEmpty (Both chars made)) =>
         Parse.readsDone
           { key, value } _
-          (rewrite made then
-            Both (rewrite keyIs, colon, List.appendNil valueRead then byComputing) (Both nonEmpty chars)))))
+          (rewrite made then Both (rewrite keyIs, colon, List.appendNil valueRead) (Both nonEmpty chars)))))
 
 theorem readsFieldBreak: Parse.Reads fieldBreak FieldBreak :=
   Parse.readsOneOf FieldBreak
@@ -75,7 +74,7 @@ theorem firstPassportWritten ∀ (input: Text) (first: Passport) (rest: List Pas
         (Witness
           (restRead ++ ending)
           (Both
-            (rewrite text, split, List.appendAssoc firstRead restRead ending then byComputing)
+            (rewrite text, split, List.appendAssoc firstRead restRead ending)
             (rewrite firstIs, <- isHead then written)))
 
 --| The same about the input's lines: they are the passports' lines, a blank

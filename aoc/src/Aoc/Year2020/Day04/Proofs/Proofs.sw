@@ -49,4 +49,4 @@ theorem valuesValidSpec ∀ (passport: Passport):
 
 theorem part2Correct ∀ (passports: List Passport): solvePart2 passports = part2Answer passports :=
   rewrite List.lengthFilter passports validPart2 then
-    List.countCongMem _ _ _ (passport m => rewrite hasRequiredSpec passport, valuesValidSpec passport then byComputing)
+    List.countCongMem _ _ _ (passport m => rewrite hasRequiredSpec passport, valuesValidSpec passport)

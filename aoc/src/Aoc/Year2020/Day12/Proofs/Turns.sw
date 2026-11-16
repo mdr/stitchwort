@@ -63,5 +63,4 @@ theorem headingTurned ∀ (quarters: Nat) (heading: Heading):
 
 theorem rotatedTurned ∀ (side: Side) (degrees: Nat) (location: Location):
     location.turned (clockwiseQuarters side degrees) = turned side degrees location :=
-  rewrite turnedClockwise side degrees location, turnedQuarters (clockwiseQuarters side degrees) location then
-    byComputing
+  rewrite turnedClockwise side degrees location, turnedQuarters (clockwiseQuarters side degrees) location

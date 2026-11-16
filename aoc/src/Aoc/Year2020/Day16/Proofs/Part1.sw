@@ -14,7 +14,7 @@ theorem errorTerm ∀ (notes: Notes) (value: Nat):
 
 theorem errorRateSpec ∀ (notes: Notes): Spec.Part1 notes notes.errorRate := calc notes.errorRate
   _ = (notes.nearby.flatMap .values).sumBy (value => if not (notes.fitsSomeField value) then value else 0) :=
-    rewrite List.sumIsSumBy, List.sumByFilter then byComputing
+    rewrite List.sumIsSumBy, List.sumByFilter
   _ = notes.nearby.sumBy (ticket =>
       ticket.values.sumBy (value => if not (notes.fitsSomeField value) then value else 0)) := List.sumByFlatMap _ _ _
   _ = Spec.errorRate notes :=

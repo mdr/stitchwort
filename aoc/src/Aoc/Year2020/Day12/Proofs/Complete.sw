@@ -142,9 +142,9 @@ theorem runsInstruction ∀ (read: List Char) (item: Instruction)
 theorem parseComplete ∀ (input: Text) (route: Route)
     (written: List.All2 InstructionWritten (input.lines.map Text.toList) route.instructions):
     Fail.toResult (() => parseRoute input) = Ok route :=
-  rewrite Fail.toResultThen (() => Parse.eachLine input instruction) (instructions => ({ instructions }: Route)) then
-    rewrite Parse.runsEachLine input instruction route.instructions (List.all2Weaken runsInstruction _ _ written) then
-      match route with | { instructions } => byComputing
+  rewrite Fail.toResultThen (() => Parse.eachLine input instruction) (instructions => ({ instructions }: Route)),
+      Parse.runsEachLine input instruction route.instructions (List.all2Weaken runsInstruction _ _ written) then
+    match route with | { instructions } => byComputing
 
 --| A route is written by an input in at most one way, since the parser reads it as one.
 theorem writtenUnique ∀ (input: Text) (a b: Route)

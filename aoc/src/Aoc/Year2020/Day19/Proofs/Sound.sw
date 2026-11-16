@@ -54,8 +54,7 @@ theorem sound ∀ (rules: Rules) (fuel number: Nat): LeavesAfter rules fuel numb
                     | Inl leftIsRest =>
                       Witness
                         [letter]
-                        (Both (rewrite same.read, leftIsRest then byComputing) (later restRead matched =>
-                          MatchesLetter looked matched))
+                        (Both (rewrite same.read, leftIsRest) (later restRead matched => MatchesLetter looked matched))
                     | Inr never => never.impossible
         | Some (Alternatives sequences) =>
           match (List.memFlatMap (sequence => rules.leftAfterAll more sequence message) left sequences).forward

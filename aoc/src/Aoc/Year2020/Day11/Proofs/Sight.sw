@@ -57,8 +57,8 @@ theorem walkSeen ∀ (find: Position → Option Seat) (from: Position) (directio
           match e: find next with
             | None => byComputing
             | Some Floor => walkSeen find from direction (distance + 1) more
-            | Some Empty => rewrite e then byComputing
-            | Some Occupied => rewrite e then byComputing
+            | Some Empty => rewrite e
+            | Some Occupied => rewrite e
 
 --| Checking a position found for an occupied seat, with the table or
 --| with `at`.
@@ -67,7 +67,7 @@ theorem anyLookup ∀ (layout: Layout) (found: Option Position):
       = found.any (near => layout.grid.at near == Some Occupied) :=
   match found with
     | None => byComputing
-    | Some near => rewrite lookupAt layout.grid near then byComputing
+    | Some near => rewrite lookupAt layout.grid near
 
 --| In one direction, the program's walk with the table and the spec's
 --| first seen seat agree on whether it is occupied, for a reach of the
@@ -79,17 +79,16 @@ theorem seenOccupied ∀ (layout: Layout) (from: Position) (direction: Offset) (
   calc (firstSeat layout.grid.lookup from direction 1 reach).any (near => layout.grid.lookup near == Some Occupied)
     _ = (firstSeat layout.grid.at from direction 1 reach).any (near => layout.grid.lookup near == Some Occupied) :=
       rewrite firstSeatCong layout.grid.lookup layout.grid.at
-            (position => lookupAt layout.grid position)
-            from
-            direction
-            1
-            reach then
-        byComputing
+        (position => lookupAt layout.grid position)
+        from
+        direction
+        1
+        reach
     _ = (firstSeat layout.grid.at from direction 1 reach).any (near => layout.grid.at near == Some Occupied) :=
       anyLookup layout (firstSeat layout.grid.at from direction 1 reach)
     _ = ((sightFrom layout.grid.at from direction 1 reach).find (((_, seat)) => seat != Floor)).any (((_, seat)) =>
         seat == Occupied) := walkSeen layout.grid.at from direction 1 reach
-    _ = (Spec.firstSeen layout from direction).any (((_, seat)) => seat == Occupied) := rewrite fits then byComputing
+    _ = (Spec.firstSeen layout from direction).any (((_, seat)) => seat == Occupied) := rewrite fits
 
 --| The eight directions the program walks are the spec's.
 theorem compassDirections: compass = Spec.directions := byComputing
@@ -102,23 +101,20 @@ theorem sightOccupied ∀ (layout: Layout) (reach: Nat)
       layout.grid.lookup near == Some Occupied)
       = Spec.occupiedSeen layout position :=
   rewrite List.countFilterMap
-        (direction => firstSeat layout.grid.lookup position direction 1 reach)
-        (near => layout.grid.lookup near == Some Occupied)
-        compass,
-      List.countCongMem compass
-        (direction =>
-          (firstSeat layout.grid.lookup position direction 1 reach).any (near =>
-            layout.grid.lookup near == Some Occupied))
-        (direction => (Spec.firstSeen layout position direction).any (((_, seat)) => seat == Occupied))
-        (direction member => seenOccupied layout position direction reach fits) then
-    byComputing
+    (direction => firstSeat layout.grid.lookup position direction 1 reach)
+    (near => layout.grid.lookup near == Some Occupied)
+    compass, List.countCongMem compass
+    (direction =>
+      (firstSeat layout.grid.lookup position direction 1 reach).any (near => layout.grid.lookup near == Some Occupied))
+    (direction => (Spec.firstSeen layout position direction).any (((_, seat)) => seat == Occupied))
+    (direction member => seenOccupied layout position direction reach fits)
 
 --| A spec round keeps the layout's height and width.
 theorem roundShape ∀ (layout: Layout) (considered: Position → Nat) (crowded: Nat):
     (Spec.round layout considered crowded).grid.height + (Spec.round layout considered crowded).grid.width
       = layout.grid.height + layout.grid.width :=
   let (Both wide tall) := mapWidth layout.grid (at seat => Spec.becomes seat (considered at) crowded)
-  rewrite wide, tall then byComputing
+  rewrite wide, tall
 
 --| The walk depends only on where the seats are: two layouts with seats at
 --| the same positions give the same walk.

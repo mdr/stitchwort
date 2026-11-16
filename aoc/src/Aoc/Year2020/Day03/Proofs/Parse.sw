@@ -29,8 +29,7 @@ theorem readsSquare: Parse.Reads square (read square => read = [symbol square]) 
     [p := square]
     (Parse.readsMap (() => Parse.satisfy "'.' or '#'" isSquare) Square.ofChar _ (Parse.readsSatisfy))
     (read square h =>
-      match h with
-        | Witness char (Both (Both one allowed) made) => rewrite made, one, symbolOfChar char allowed then byComputing)
+      match h with | Witness char (Both (Both one allowed) made) => rewrite made, one, symbolOfChar char allowed)
 
 --| Every line of the input is its row of the map written out.
 theorem parseWritten ∀ (input: Text) (map: Grid Square)

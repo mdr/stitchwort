@@ -21,7 +21,7 @@ theorem readsWord: Parse.Reads word (read taken =>
 theorem readsIngredient: Parse.Reads ingredient IngredientWritten :=
   Parse.readsThen readsWord (nameRead name (Both named (Both letters made)) =>
     Parse.readsThen (Parse.readsChar ' ') (spaceRead u space =>
-      Parse.readsDone { name } _ (rewrite made then Both (rewrite space then byComputing) (Both named letters))))
+      Parse.readsDone { name } _ (rewrite made then Both (rewrite space) (Both named letters))))
 
 theorem readsAllergen: Parse.Reads allergen AllergenWritten := Parse.readsThen readsWord (nameRead name (Both named
   (Both letters made)) =>
@@ -46,7 +46,7 @@ theorem readsFood: Parse.Reads food FoodWritten :=
                 (Witness ingredientsRead
                   (Witness allergensRead
                     (Both
-                      (rewrite contains, close then byComputing)
+                      (rewrite contains, close)
                       (Both
                         (Witness ingredients (Both ingredientsWritten byComputing))
                         (Witness allergens (Both allergensWritten byComputing))))))))))

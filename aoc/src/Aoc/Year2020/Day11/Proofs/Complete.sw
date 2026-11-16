@@ -92,12 +92,10 @@ theorem parseComplete ∀ (input: Text) (layout: Layout)
           (List.all2WeakenMem _ _
             (line row member same =>
               runsRow line row same (rowEmpty =>
-                layout.grid.widthNonZero (Eq.trans (rectangle row member).flipped (rewrite rowEmpty then byComputing))))
+                layout.grid.widthNonZero (Eq.trans (rectangle row member).flipped (rewrite rowEmpty))))
             lines)
-      rewrite Fail.toResultThen (() => parseGrid input seat) (grid => ({ grid }: Layout)),
-          parseGridComplete input seat layout.grid rectangle rowsRead,
-          layoutEta layout then
-        byComputing
+      rewrite Fail.toResultThen (() => parseGrid input seat) (grid => ({ grid }: Layout)), parseGridComplete input seat
+          layout.grid rectangle rowsRead, layoutEta layout
 
 --| Soundness (`parseWritten`) is the converse: the input is written as at most one layout.
 theorem writtenUnique ∀ (input: Text) (a b: Layout)

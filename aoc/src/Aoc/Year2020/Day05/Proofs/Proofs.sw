@@ -13,7 +13,7 @@ theorem seatIdsWritten ∀ (lines: List (List Char)) (passes: List Pass)
   match lines, passes, impossible with
     | [], [], all => byComputing
     | [line, ..lines], [pass, ..passes], Both (Both rows (Both columns same)) rest =>
-      rewrite same, seatIdSpec pass rows columns, seatIdsWritten lines passes rest then byComputing
+      rewrite same, seatIdSpec pass rows columns, seatIdsWritten lines passes rest
     | [], [_, .._], impossible => impossible.impossible
     | [_, .._], [], impossible => impossible.impossible
 
@@ -114,10 +114,7 @@ theorem yourSeatOf ∀ (ids: List Nat) (seat: Nat)
   let notFound: ids.contains seat = False := match found: ids.contains seat with
     | True => (missing found.read).impossible
     | False => byComputing
-  rewrite notFound,
-      (List.memContains ids (seat + 1)).backward above,
-      (List.memContains ids (seat - 1)).backward below then
-    byComputing
+  rewrite notFound, (List.memContains ids (seat + 1)).backward above, (List.memContains ids (seat - 1)).backward below
 
 theorem yourSeatMembers ∀ (ids: List Nat) (seat: Nat)
     (yours: isYourSeat ids seat = True):
@@ -200,7 +197,7 @@ theorem onlyAnswer ∀ (answers: List Nat) (seat: Nat) (result: Option Nat)
       let member := sound found made
       rewrite only at member then
         match member with
-          | Inl same => rewrite made, same then byComputing
+          | Inl same => rewrite made, same
           | Inr nothing => nothing.impossible
 
 --| "Your seat should be the only missing boarding pass in your list": when

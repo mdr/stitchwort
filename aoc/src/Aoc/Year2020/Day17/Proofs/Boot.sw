@@ -24,8 +24,7 @@ theorem startsPocket ∀ (slice: Slice) (dimensions: Nat):
             Exists.elim ((memGridPositionsWhere slice.grid (== Active) at).forward member) (state (Both found active) =>
               match at with
                 | { row, column } =>
-                  Witness column
-                    (Witness row (Both (rewrite <- active.read then found) (rewrite <- made then byComputing))))),
+                  Witness column (Witness row (Both (rewrite <- active.read then found) (rewrite <- made))))),
       backward = (Witness x (Witness y (Both found written))) =>
         let at: Position := { row = y, column = x }
         let member: at ∈ cubes :=

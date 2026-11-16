@@ -26,7 +26,7 @@ theorem readsContent: Parse.Reads content ContentWritten :=
             (Witness digitsRead
               (Witness colourRead
                 (Both
-                  (rewrite List.appendNil bagRead, space, bag then byComputing)
+                  (rewrite List.appendNil bagRead, space, bag)
                   (Both nonEmpty (Both digits (Both value written))))))))))
 
 theorem readsContentList: Parse.Reads contentList (read contents =>
@@ -51,8 +51,7 @@ theorem readsRule: Parse.Reads rule RuleWritten := Parse.readsThen readsColour (
       Parse.readsThen (Parse.readsChar '.') (stopRead u stop =>
         Parse.readsDone
           { colour, contents } _
-          (Witness colourRead
-            (Witness contentsRead (Both (rewrite contain, stop then byComputing) (Both written listed))))))))
+          (Witness colourRead (Witness contentsRead (Both (rewrite contain, stop) (Both written listed))))))))
 
 --| If `parseRules` reads `input`, each of its lines is a rule written out.
 theorem parseWritten ∀ (input: Text) (rules: Rules)
