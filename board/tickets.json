@@ -39751,12 +39751,12 @@
     {
       "id": 3551,
       "title": "[DeepSeek] Errors E5: foreign habits table (by, record, fun, λ, -> for =>, where, deriving, simp, theorem … := by): 'in Stitchwort this is …' (docs/proposals/helpful-errors.md §5 rank 5). Est. 45 min",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: deepseek, needed fixes (deriving note overclaimed what is derived; fixed in review), ~25 min (est. 45). Not covered: bare x -> e (indistinguishable from a function type), fun x => that typechecks as a 2-parameter lambda.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
