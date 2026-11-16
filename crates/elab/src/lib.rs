@@ -1717,7 +1717,9 @@ impl Elaborator {
             Ok((term, cx.quote_folded(&ty)?))
         })();
         self.decl.owner.borrow_mut().clear();
-        let (term, ty) = elaborated?;
+        // An input that fails leaves no metavariables behind, so that the
+        // REPL can take a mark (a declaration) after it.
+        let (term, ty) = elaborated.inspect_err(|_| self.clear_metas())?;
         // A `match` typed in is lifted to a helper, as in a definition.
         self.lift(&key, false)?;
         let term = self.finish(&term, 0)?;

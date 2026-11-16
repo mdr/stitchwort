@@ -9,6 +9,7 @@ pub use stitchwort_lsp as lsp;
 #[cfg(unix)]
 pub mod node_wait;
 pub mod repl_color;
+pub mod repl_complete;
 pub mod search_log;
 
 pub use stitchwort_driver::{counterexample, driver, nav, project, render, run};

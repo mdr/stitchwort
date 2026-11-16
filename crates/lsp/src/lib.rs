@@ -62,7 +62,7 @@ use stitchwort_core::budget::Instant;
 use wasm::FileUrl as _;
 
 mod arms;
-mod complete;
+pub mod complete;
 mod lens;
 mod rename;
 mod source;
