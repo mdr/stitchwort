@@ -1,5 +1,5 @@
 {
-  "next": 3482,
+  "next": 3483,
   "tickets": [
     {
       "id": 47,
@@ -18655,14 +18655,14 @@
     {
       "id": 2071,
       "title": "[DeepSeek] Fix the 20 stale status lines in docs/proposals (\"nothing is built\" on built work, decided D numbers shown open), from the stale-claims list in docs/proposals/README.md",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "From docs/proposals/README.md. D2952 [rec: yes]. 30 min.\n\nFrom docs/reviews/SW-2072-widen-in-prototype.md: also fix delayed-translate.md's status line and §5 (merged 24 Oct as 8046d40cc, unreviewed; D1152's limit never written), the stale limit bullet in proof-reification.md:589-594, line numbers cited in effect-runtime.md:228, and the delayed-translate row and stale claim 16 in docs/proposals/README.md. About 15 min more.",
+      "body": "From docs/proposals/README.md. D2952 [rec: yes]. 30 min.\n\nFrom docs/reviews/SW-2072-widen-in-prototype.md: also fix delayed-translate.md's status line and §5 (merged 24 Oct as 8046d40cc, unreviewed; D1152's limit never written), the stale limit bullet in proof-reification.md:589-594, line numbers cited in effect-runtime.md:228, and the delayed-translate row and stale claim 16 in docs/proposals/README.md. About 15 min more.\n\nModel result: deepseek, worked, ~45 min (est. 45). With SW-2215; orchestrator checked the unnamed-guard wording against guide/07-recursion.md.",
       "created": "2026-11-07",
       "updated": "2026-11-16",
       "commits": []
@@ -20828,7 +20828,7 @@
     {
       "id": 2215,
       "title": "[DeepSeek] Tour page web/guide/30-decreasing.sw:9 and docs/proving-guide.md:286-287 still write if h:; show the unnamed forms from decreasing stages 1 and 2",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -33557,14 +33557,14 @@
     {
       "id": 3100,
       "title": "[DeepSeek] E-TYPE-MISMATCH shows expected 4 ≤ n where the statement says 3 < n (< computes); print the expected type as written when it is a comparison (SW-3098 finding 3)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-13",
-      "updated": "2026-11-15",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -33882,14 +33882,14 @@
     {
       "id": 3125,
       "title": "[DeepSeek] Misleading note: on ((a != b): Bool) = True used through .read, the mismatch says 'for the Bool test write ((a != b): Bool)' though the user wrote that; ne_read_as_prop matches on printed text (probe in docs/proposals/bool-as-proposition-building.md; SW-3087 finding 1)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-13",
-      "updated": "2026-11-15",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -38080,16 +38080,16 @@
     {
       "id": 3426,
       "title": "[DeepSeek] Float printing: failing-test output prints Floats inside lists as { bits = …, valid = ?1 } (use toSource), and type-mismatch notes on Float order show the unfolded Int-key form, not t <= hi (SW-999 items 4 and 5)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "diagnostics"
       ],
       "epic": "diagnostics",
-      "body": "From the triage of SW-999 (SW-2015). Both from the trip-journal example (examples/projects/accept). SW-2076 and SW-2152 (Proj printing after record eta) may cover the second; re-test first and fold Float.leq/less when printing if not.",
+      "body": "From the triage of SW-999 (SW-2015). Both from the trip-journal example (examples/projects/accept). SW-2076 and SW-2152 (Proj printing after record eta) may cover the second; re-test first and fold Float.leq/less when printing if not.\n\nModel result: deepseek, needed fixes (Float-order fold also ran in Readback::Unfolded; restricted to for_display on review), ~60 min (est. 40). With SW-3125, SW-3100.",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -38823,12 +38823,25 @@
     {
       "id": 3481,
       "title": "[DeepSeek] fmt not idempotent: a comment right after an opening paren in an application argument (Overmind fmt fuzz, seed 0x500 COMMENTS=0.3 case 85387, main 7adb49e19). Input: 'theorem bothUnit: Unit && Unit := Both (-- c' newline ') ()'. Pass 1: ':=' newline '  Both ( ) -- c' newline '      ()' ; pass 2: ':= Both ( ) -- c' newline '  ()' (body pulled back onto the := line). Same family as SW-3462 (comment pushing a body down) but in an argument list. Repro: task fuzz:fmt SEED=0x500 COMMENTS=0.3 CASE=85387 (~4 min), or the input directly in a crates/fmt idempotence test",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Second case, same family (seed 0x502 COMMENTS=0.3 case 43289): 'test \"...\" := (total (xs := zeros-- c' newline ')) 2 == 4'. Pass 1: ':=' newline '  (total (xs := zeros)) -- c' newline '      2' newline '    == 4'; pass 2: ':= (total (xs := zeros)) -- c' newline '  2 == 4'. Repro: task fuzz:fmt SEED=0x502 COMMENTS=0.3 CASE=43289. Fix must cover both (a closer-trailing comment followed by more of the expression). Seed 0x501 plain clean (205,922 formatted).\n\nThird case (seed 0x504 COMMENTS=0.3 case 53346): 'List.map (withDefaults [] -- c' newline 'defaults) (.value) == [80, 4]': a comment inside an argument's parens, not only after the opener. Every comment-mode seed fails here within 80 s, so this blocks comment-mode fuzzing; prioritised.",
+      "body": "Second case, same family (seed 0x502 COMMENTS=0.3 case 43289): 'test \"...\" := (total (xs := zeros-- c' newline ')) 2 == 4'. Pass 1: ':=' newline '  (total (xs := zeros)) -- c' newline '      2' newline '    == 4'; pass 2: ':= (total (xs := zeros)) -- c' newline '  2 == 4'. Repro: task fuzz:fmt SEED=0x502 COMMENTS=0.3 CASE=43289. Fix must cover both (a closer-trailing comment followed by more of the expression). Seed 0x501 plain clean (205,922 formatted).\n\nThird case (seed 0x504 COMMENTS=0.3 case 53346): 'List.map (withDefaults [] -- c' newline 'defaults) (.value) == [80, 4]': a comment inside an argument's parens, not only after the opener. Every comment-mode seed fails here within 80 s, so this blocks comment-mode fuzzing; prioritised.\n\nModel result: deepseek, worked, ~40 min (est. 40). One-line fix in rules.rs (comment_ends_at_closers in place of trails_comment), golden of the three cases failing before; seed 0x500 COMMENTS=0.3 100k cases now clean.",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3482,
+      "title": "[DeepSeek] fmt not idempotent on doubled parens around a return type after an ability row (Overmind plain fuzz, seed 0x60c case 28149, main 7adb49e19): 'def main(): {IO} ( (halvings 100 0))' (no body). Pass 1 leaves one pair: 'def main(): {IO} (halvings 100 0)'; pass 2 drops it: '{IO} halvings 100 0'. drop_parens should strip nested redundant pairs in one pass (or keep the last pair both times, whichever is right for an application after an ability row; see SW-3456). Repro: task fuzz:fmt SEED=0x60c CASE=28149",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
