@@ -112,6 +112,15 @@ pub enum Doc {
     /// line moves that line there: own-line comments before a closing
     /// bracket, at its items' indentation (S40).
     LineStartHere,
+    /// Notes the indentation of the line this is on, for the
+    /// [`Doc::CloserLine`] with the same key: before an opening bracket.
+    Mark(usize),
+    /// Starts a new line for a closing bracket that comments put on a line
+    /// of its own: at the indentation in force, unless a line written since
+    /// the [`Doc::Mark`] with the same key is at or left of that, which
+    /// would make the bracket a line of the block that line starts; then at
+    /// the indentation of the marked line (S40).
+    CloserLine(usize),
 }
 
 impl Doc {
@@ -178,13 +187,18 @@ impl Doc {
     /// can't be flat.
     pub fn forces_break(&self) -> bool {
         match self {
-            Doc::HardLine | Doc::BreakParent | Doc::LineStart | Doc::LineStartHere => true,
+            Doc::HardLine
+            | Doc::BreakParent
+            | Doc::LineStart
+            | Doc::LineStartHere
+            | Doc::CloserLine(_) => true,
             Doc::Nil
             | Doc::Text(..)
             | Doc::Line
             | Doc::SoftLine
             | Doc::Blank
             | Doc::TextBlock { .. }
+            | Doc::Mark(_)
             | Doc::LineSuffix(_) => false,
             Doc::Group(_, hard) | Doc::IdGroup(_, _, hard) | Doc::Shared(_, hard) => *hard,
             Doc::NarrowGroup(_, _, hard) => *hard,
@@ -235,6 +249,7 @@ pub fn print(doc: &Doc, width: usize) -> Printed {
         held_spaces: 0,
         comment_floor: None,
         modes: BTreeMap::new(),
+        marks: BTreeMap::new(),
         printed: Printed::default(),
     };
     printer.run(doc);
@@ -264,6 +279,9 @@ struct Printer {
     comment_floor: Option<usize>,
     /// How each [`Doc::IdGroup`] printed.
     modes: BTreeMap<u32, Mode>,
+    /// For each [`Doc::Mark`] whose [`Doc::CloserLine`] hasn't come: the
+    /// marked line's indentation, and the least of the lines since.
+    marks: BTreeMap<usize, (usize, usize)>,
     printed: Printed,
 }
 
@@ -308,6 +326,17 @@ impl Printer {
                         self.newline(floor);
                         self.comment_floor = Some(floor);
                     }
+                }
+                Doc::Mark(key) => {
+                    self.marks.insert(*key, (self.line_indent, usize::MAX));
+                }
+                Doc::CloserLine(key) => {
+                    let column = match self.marks.remove(key) {
+                        Some((marked, least)) if least <= indent => marked.min(indent),
+                        _ => indent,
+                    };
+                    self.comment_floor = None;
+                    self.newline(column);
                 }
                 Doc::LineStartHere => {
                     if self.at_line_start {
@@ -540,6 +569,9 @@ impl Printer {
         self.owed = Some(indent);
         self.line_indent = indent;
         self.at_line_start = true;
+        for (_, least) in self.marks.values_mut() {
+            *least = (*least).min(indent);
+        }
     }
 
     fn verbatim(&mut self, text: &str, src_indent: usize, indent: usize) {
@@ -663,7 +695,10 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
                     left -= 1;
                 }
             }
-            Doc::HardLine | Doc::LineStart | Doc::LineStartHere => return mode == Mode::Break,
+            Doc::HardLine | Doc::LineStart | Doc::LineStartHere | Doc::CloserLine(_) => {
+                return mode == Mode::Break;
+            }
+            Doc::Mark(_) => {}
             Doc::Nest(more, inner) => stack.push((indent + more, mode, inner)),
             Doc::Align(inner) | Doc::AlignInset(inner) | Doc::Displaced(inner) => {
                 stack.push((indent, mode, inner))

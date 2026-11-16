@@ -61,6 +61,10 @@ pub(crate) struct Rules<'a> {
     /// which join one line only within [`TYPE_WIDTH`].
     narrow_fields: BTreeSet<usize>,
     next_id: u32,
+    /// For each closing bracket with own-line comments before it, its
+    /// opening bracket ([`Doc::CloserLine`]); for each such opening
+    /// bracket, itself.
+    commented_pair: Vec<Option<usize>>,
     /// The first node whose shape no rule expects, and what was expected.
     unexpected: Option<String>,
 }
@@ -145,7 +149,21 @@ impl<'a> Rules<'a> {
                 file_comments[start] = true;
             }
         }
+        let mut commented_pair = vec![None; tokens.len()];
+        let mut open = Vec::new();
+        for (i, token) in tokens.iter().enumerate() {
+            if opener(&token.tok) {
+                open.push(i);
+            } else if closer(&token.tok)
+                && let Some(o) = open.pop()
+                && !trivia[i].leading.is_empty()
+            {
+                commented_pair[i] = Some(o);
+                commented_pair[o] = Some(o);
+            }
+        }
         Rules {
+            commented_pair,
             trivia,
             src,
             tokens,
@@ -266,7 +284,7 @@ impl<'a> Rules<'a> {
             parts.extend([
                 Doc::BreakParent,
                 Doc::nest(2, Doc::concat(comments)),
-                Doc::HardLine,
+                self.commented_pair[i].map_or(Doc::HardLine, Doc::CloserLine),
             ]);
         } else if !self.file_comments[i] && !trivia.leading.is_empty() {
             parts.push(Doc::BreakParent);
@@ -348,6 +366,9 @@ impl<'a> Rules<'a> {
                 }))
         {
             parts.push(Doc::HardLine);
+        }
+        if opener(&self.tokens[i].tok) && self.commented_pair[i] == Some(i) {
+            parts.push(Doc::Mark(i));
         }
         parts.push(self.token_text(i));
         parts.extend(self.trailing(i));
@@ -515,11 +536,19 @@ impl<'a> Rules<'a> {
     }
 
     /// `( … )`. A bracketed `if` keeps its `else` lines under the `if`, not
-    /// under the bracket (S19: the clauses start at the `if`'s column).
+    /// under the bracket (S19: the clauses start at the `if`'s column). A
+    /// block opens below the bracket at 2 (S17), as a hugged one does
+    /// ([`Self::last_argument`]): its lines go at the indentation in force,
+    /// so after the bracket they would sit left of its first.
     fn paren(&mut self, node: Node<'_>) -> Doc {
         let children: Vec<Element> = node.children().collect();
         let mut parts = Vec::new();
         for (k, &el) in children.iter().enumerate() {
+            if Self::kind(el) == Some(NodeKind::Block) {
+                let doc = self.el(el);
+                parts.push(Doc::nest(2, Doc::concat([Doc::HardLine, doc])));
+                continue;
+            }
             if k > 0 {
                 parts.push(self.space_el(children[k - 1], el));
             }
@@ -546,6 +575,11 @@ impl<'a> Rules<'a> {
             parts.push(self.el(el));
             parts.push(Doc::HardLine);
             k += 1;
+        }
+        if k > 0
+            && let Some(&el) = children.get(k)
+        {
+            parts.push(self.comments_above(Self::first(el)));
         }
         let head_end = children[k..]
             .iter()
@@ -1039,7 +1073,33 @@ impl<'a> Rules<'a> {
             parts.push(Doc::HardLine);
             k += 1;
         }
+        if k > 0
+            && let Some(&el) = els.get(k)
+        {
+            parts.push(self.comments_above(Self::first(el)));
+        }
         (Doc::concat(parts), &els[k..])
+    }
+
+    /// Own-line comments before token `i`, which starts a line at the
+    /// indentation in force (a declaration's keyword after its attributes),
+    /// each on a line of its own there; the token's own [`Self::leading`]
+    /// no longer prints them. As a continuation, the declaration would be
+    /// indented past its arms.
+    fn comments_above(&mut self, i: usize) -> Doc {
+        let mut parts = Vec::new();
+        for comment in &self.trivia[i].leading {
+            if comment.blank_lines_before > 0 {
+                parts.push(Doc::Blank);
+            }
+            parts.push(Doc::text(&comment.text));
+            parts.push(Doc::HardLine);
+        }
+        if !parts.is_empty() && self.trivia[i].blank_lines_before > 0 {
+            parts.push(Doc::Blank);
+        }
+        self.hoisted[i] = true;
+        Doc::concat(parts)
     }
 
     /// `| C fields`: the fields stay on its line (S14).
@@ -1734,6 +1794,15 @@ impl<'a> Rules<'a> {
         // parameters.
         let filled = Doc::shared(self.lambda_head(&children[..=arrow]));
         let body = Doc::shared(self.join(&children[arrow + 1..]));
+        // A body starting a line is a block, which a `;` right after it
+        // would end as a sequence of its own (a `let` value's, `x => b; e`):
+        // it stays after `=>` and breaks inside itself.
+        let end = node.token_range().end;
+        if self.tokens.get(end).is_some_and(|t| t.tok == Tok::Semi) {
+            let space = self.space_el(children[arrow], children[arrow + 1]);
+            let doc = Doc::concat([head, space, body]);
+            return (doc.clone(), doc);
+        }
         let flat = Doc::group(Doc::concat([
             filled,
             Doc::nest(2, Doc::concat([Doc::Line, body.clone()])),
@@ -1775,8 +1844,13 @@ impl<'a> Rules<'a> {
                 Doc::nest(2, Doc::concat([Doc::Line, branch])),
             ])));
             let other = children[els + 1];
+            // An `if` that a comment puts on the line after its `else`
+            // starts a block there, which a later `else` at the chain's
+            // column would end: it is the branch, with its own clauses.
+            let starts_line =
+                self.has_leading(other) || self.ends_line_with_comment_before(Self::first(other));
             match other {
-                Element::Node(next) if next.kind() == NodeKind::If => {
+                Element::Node(next) if next.kind() == NodeKind::If && !starts_line => {
                     else_prefix = Some(children[els]);
                     current = next;
                 }
