@@ -1,5 +1,5 @@
 {
-  "next": 3617,
+  "next": 3618,
   "tickets": [
     {
       "id": 47,
@@ -40607,6 +40607,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3617,
+      "title": "[Sonnet] main: pinned_hashes::every_binding_by_hash_applies_to_the_library fails: Text.decEq (runtimes) now hashes 9d609bc0…, so its native is silently off. Find which std change moved it (likely SW-3564 vocabulary or SW-3603 calc conversions in core), check the native still matches the new declaration's meaning, pin the new hash; add the pinned_hashes test to the verifier list for std changes (docs/workflow.md)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
