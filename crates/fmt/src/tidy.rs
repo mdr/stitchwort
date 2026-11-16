@@ -22,8 +22,9 @@ use stitchwort_syntax::{Comment, Tok, Token, Trivia};
 /// 1. A trailing comment on a comma, a closing bracket or a record update's
 ///    `|` moves to the nearest token before it that is none of those. It
 ///    stops early, staying on a closer or bar that starts its line, when
-///    going further would pass that token's own-line comments or land on a
-///    token that already ends its line with a comment.
+///    going further would pass that token's own-line comments, or the line
+///    before ends with a comment (on its last token, or moved back from
+///    it by this rule).
 ///    A bar's trailing comment that stays where it is although the base
 ///    before it ends its line with a comment becomes an own-line comment of
 ///    the token after the bar.
@@ -51,7 +52,8 @@ pub fn place_comments(tokens: &[Token], trivia: &[Trivia], eof: &Trivia) -> (Vec
         }
         let mut j = i;
         while j > 0 && skipped(tokens, j) {
-            if tokens[j].line_start && (!out[j].leading.is_empty() || out[j - 1].trailing.is_some())
+            if tokens[j].line_start
+                && (!out[j].leading.is_empty() || line_ends_with_comment(tokens, &out, j - 1))
             {
                 break;
             }
@@ -113,6 +115,23 @@ pub fn place_comments(tokens: &[Token], trivia: &[Trivia], eof: &Trivia) -> (Vec
         }
     }
     (out, eof)
+}
+
+/// Whether the line ending at token `end` ends with a comment: on `end`
+/// itself, or on the token rule 1 has moved it back to, past the closers,
+/// commas and bars before `end` (SW-3606: two closers ending two lines,
+/// whose comments would both land on one token).
+fn line_ends_with_comment(tokens: &[Token], out: &[Trivia], end: usize) -> bool {
+    let mut k = end;
+    loop {
+        if out[k].trailing.is_some() {
+            return true;
+        }
+        if k == 0 || !skipped(tokens, k) {
+            return false;
+        }
+        k -= 1;
+    }
 }
 
 /// Whether rule 1 walks past token `j`: a comma, a closer or a record
@@ -217,6 +236,16 @@ mod tests {
         assert_eq!(note[1], ("-- c".to_string(), false, "]".to_string()));
         let both = placed("def x := [\n  1 -- a\n] -- b\n");
         assert_eq!(both[1], ("-- b".to_string(), false, "]".to_string()));
+        // SW-3606: the inner closer's comment has already moved to `1`, so
+        // the line before the outer closer still ends with a comment.
+        let nested = placed("def a: Nat := (f (1) -- c1\n  ) -- c2\n");
+        assert_eq!(
+            nested,
+            vec![
+                ("-- c1".to_string(), false, "1".to_string()),
+                ("-- c2".to_string(), false, ")".to_string()),
+            ]
+        );
     }
 
     #[test]

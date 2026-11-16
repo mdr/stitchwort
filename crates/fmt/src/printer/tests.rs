@@ -927,3 +927,90 @@ fn a_result_type_that_is_a_block_starts_below_its_colon() {
         "def names:\n    List\n    Text :=\n  x\n",
     );
 }
+
+/// Two closers that each end a line with a comment keep both comments
+/// (SW-3606: the second overwrote the first, and the file was written).
+#[test]
+fn comments_after_two_closers_on_two_lines_are_both_kept() {
+    let out = fmt("def a: Nat := (f (1) -- c1\n  ) -- c2\n");
+    assert!(out.contains("-- c1") && out.contains("-- c2"), "{out}");
+}
+
+/// The comments check counts comments as written, so an output missing one
+/// is refused even where rule N reads both texts' comments alike.
+#[test]
+fn an_output_missing_a_comment_is_refused() {
+    let file = SourceMap::new().add("input.sw", "");
+    let before = "def a: Nat := (f (1) -- c1\n  ) -- c2\n";
+    let error = check_file(file, before, before, "def a: Nat := (f (1)) -- c2\n").unwrap_err();
+    assert!(error.contains("-- c1"), "{error}");
+}
+
+/// A bracketed block that isn't a call's last argument opens below its
+/// bracket at 2, as one that is does (S17): after `(let`, the block's next
+/// line would be left of the `let` and end it (SW-3605).
+#[test]
+fn a_bracketed_block_before_more_arguments_opens_below_the_bracket() {
+    check(
+        "theorem t ∀ (n: Nat): n + 1 = n + 1 := ident (\n  let m := n + 1\n  (rfl: m = m))\n  ys.length\n",
+        "theorem t ∀ (n: Nat): n + 1 = n + 1 :=\n  ident\n    (\n      let m := n + 1\n      (rfl: m = m))\n    ys.length\n",
+    );
+}
+
+/// An `if` that a comment puts on the line after an `else` is that
+/// `else`'s branch, with its own clauses below it: at the chain's column,
+/// its `else` would end the block the `if` starts (SW-3605).
+#[test]
+fn an_if_a_comment_puts_below_its_else_is_the_else_branch() {
+    check(
+        "def clamp (x lo hi: Int): Int :=\n if x < lo then lo\n  else-- c\n if hi < x then hi\n  else x\n",
+        "def clamp (x lo hi: Int): Int :=\n  if x < lo then lo\n  else -- c\n    if hi < x then hi else x\n",
+    );
+    check(
+        "def f (a b c: Bool): Nat := if a then 1 else -- c\n  if b then 2 else if c then 3 else 4\n",
+        "def f (a b c: Bool): Nat :=\n  if a then 1\n  else -- c\n    if b then 2\n    else if c then 3\n    else 4\n",
+    );
+}
+
+/// A closing bracket that comments put on a line of its own goes left of
+/// the lines inside it: at the indentation in force, `Nat`'s, it would be
+/// a line of the block `Nat` starts. It lines up with its opener's line
+/// instead (SW-3605).
+#[test]
+fn a_closer_after_comments_goes_left_of_the_lines_inside_its_brackets() {
+    check(
+        "theorem small: ∃ (n:-- c\n Nat\n-- c\n) => n >\n (7, rfl)\n",
+        "theorem small: ∃ (n: -- c\n    Nat\n      -- c\n) =>\n      n > (7, rfl)\n",
+    );
+}
+
+/// A lambda right before a `;` keeps its body after `=>`: below, the body
+/// would be a block, which the `;` would end as a sequence of its own
+/// (SW-3605, SW-3587: here after a comment broke the parameters).
+#[test]
+fn a_lambda_before_a_semicolon_keeps_its_body_after_the_arrow() {
+    check(
+        "def lambdaValue: Nat := (let f := (n: Nat\n-- c\n) => n + 1; f 2)\n",
+        "def lambdaValue: Nat :=\n  (let f := (n: Nat\n     -- c\n   ) => n + 1;\n   f 2)\n",
+    );
+    let name = long(100);
+    check(
+        &format!("def lambdaValue: Nat := (let f := (n: Nat) => n + {name}; f 2)\n"),
+        &format!("def lambdaValue: Nat :=\n  (let f := (n: Nat) => n\n     + {name};\n   f 2)\n"),
+    );
+}
+
+/// Comments between a declaration's attributes and its keyword stay at
+/// its column, and so does the keyword: as a continuation line it would be
+/// indented past its arms (SW-3605).
+#[test]
+fn a_comment_after_attributes_keeps_the_definition_at_its_column() {
+    check(
+        "@[noReceiver\n]\n-- c\ndef Meter.sumOnto (acc: Nat): List Meter → Nat\n  | [] => acc\n",
+        "@[noReceiver]\n-- c\ndef Meter.sumOnto (acc: Nat): List Meter → Nat\n  | [] => acc\n",
+    );
+    check(
+        "@[noReceiver]\n-- c\n\n-- d\n\ndef f (acc: Nat): Nat := acc\n",
+        "@[noReceiver]\n-- c\n\n-- d\n\ndef f (acc: Nat): Nat := acc\n",
+    );
+}
