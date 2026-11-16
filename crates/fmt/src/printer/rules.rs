@@ -1422,10 +1422,13 @@ impl<'a> Rules<'a> {
     }
 
     /// Whether a comment sits between the elements, so that their line
-    /// breaks matter.
+    /// breaks matter. A comment before only a child's closers and commas
+    /// counts too: it prints at the end of the child's last line, as the
+    /// same comment written after them does, so the layout must not depend
+    /// on which side of them it was written (SW-3481, as SW-3462).
     fn comment_between(&self, children: &[Element<'_>]) -> bool {
         (1..children.len())
-            .any(|k| self.has_leading(children[k]) || self.trails_comment(children[k - 1]))
+            .any(|k| self.has_leading(children[k]) || self.comment_ends_at_closers(children[k - 1]))
     }
 
     /// The operands and operators of a chain at one level, flattened from
