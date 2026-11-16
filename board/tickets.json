@@ -40102,7 +40102,7 @@
     {
       "id": 3578,
       "title": "[Sonnet] Formatter polish from SW-3570: (1) after a header comment the ':' can land alone on its line (':' then the type below); keep ': ' with the type; (2) look again at Doc::Displaced's reach (applied wherever a node has a leading/before-trailing comment)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -40128,7 +40128,7 @@
     {
       "id": 3580,
       "title": "[Sonnet] Formatter bug (fuzz, Overmind, seed 0x946 case 35095): record update with trailing comments after the base and after '|' → 'comments: the comment -- c moved'. Minimal (fmtbugs/update.sw): def / bad (t: Timed Int): Timed Nat := { t-- c / |-- c / start = Int.toNat t.start }. Retest on main after SW-3570 first. Add as a fmt test",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
