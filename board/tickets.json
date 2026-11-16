@@ -1,5 +1,5 @@
 {
-  "next": 3540,
+  "next": 3541,
   "tickets": [
     {
       "id": 47,
@@ -39563,12 +39563,12 @@
     {
       "id": 3537,
       "title": "[Sonnet] fmt bug (internal error): trailing comment after a theorem's ':' plus an own-line comment before an application argument: 'theorem t: -- c\\n f 2 = Some\\n-- c\\n (R 2) := rfl' (output fails to re-parse, found '('); fuzz 0x807 #19391 (from SW-3524)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: sonnet, worked, 5 min (est. 25). SW-3538 was a parser bug (if_expr measured then/else from the binder's line); fixed, accepts strictly more. Found SW-3540.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -39576,7 +39576,7 @@
     {
       "id": 3538,
       "title": "[Sonnet] fmt bug (internal error): own-line comment after 'if' with an 'h:' binder: 'def f (b: Bool): Nat := if\\n-- c\\n h: b then 1 else 0' prints else too far left; fuzz 0x805 #9335 (from SW-3524)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -39589,6 +39589,19 @@
     {
       "id": 3539,
       "title": "[Opus paper] Helpful compiler errors (D3642, Matt, 16 Nov 2026): audit today's messages against a rubric, survey Elm/Rust/Gleam/Roc/Lean/Idris, house style, agent-facing features (JSON diagnostics, fix-it edits, explain, length limits on printed types), ranked improvements and stages",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3540,
+      "title": "[Sonnet] fmt bug (internal error): a comment inside a let's type in a parenthesised (let …; …) breaks the type across lines and the body lines up with let ('; needs an expression after it'): 'def s (p: Nat): Nat := (let a: (Nat,\\n-- c\\n Nat) := p; a)'; fuzz 0x806 #12267. Likely S18: the rest after a line-ending ';' should step in when the value spans lines (from SW-3537)",
       "status": "doing",
       "agent": "",
       "where": "",
