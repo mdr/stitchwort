@@ -39920,7 +39920,7 @@
     {
       "id": 3564,
       "title": "[Opus] Syntax: 'then' replaces 'in' after rewrite/cases (D3648, Matt, 16 Nov 2026: 'then seems much more natural'): rewrite p then t, rewrite p at h then t, cases then t (and rewrite repeatedly from birth); in stays membership only; the old spelling gives an error 'write then'; a mechanical sweep of ~3,500 uses (std, aoc, toy, games, examples, docs, web, sf) with hashes unchanged; formatter, syntax.md, guide, proving guide, error messages, LSP actions and goal-search output that print 'rewrite … in'. Sequencing: after SW-3519 and SW-3561 merge (both touch many rewrite lines). Est. 90 min",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
