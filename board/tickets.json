@@ -40316,7 +40316,7 @@
     {
       "id": 3594,
       "title": "[Sonnet] Parser: binder_type has SW-3582's blind spot: a row at the block's column inside a parameter type misses its targeted error and reads as a record. Same fix as result_type; parser test",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -40498,7 +40498,7 @@
     {
       "id": 3608,
       "title": "[Sonnet] Zero warnings in every Stitchwort project (Matt, 16 Nov 2026: 'we probably shouldn't have any warnings in any … code in the repo'): after SW-3603 (std), extend its visibility and pinned-count test to aoc/, games/rogue, tools/toyfmt (incl. plus/), sf/, docs/guide examples; fix or batch the warnings; pins only go down; examples meant to show a warning excepted",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
