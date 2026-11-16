@@ -39314,12 +39314,12 @@
     {
       "id": 3518,
       "title": "[Sonnet] Proof tuples L3: tool output writes tuples (goal search, missing-arm fixes, E-NONEXHAUSTIVE); formatter fills name-only tuple patterns. After L1. Est. 40 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\n\nProgress (Sonnet lane, 16 Nov 2026): E-NONEXHAUSTIVE shows Both/Witness chains as tuples (missing.rs show_column); fmt fills name-only tuple patterns (rules.rs, test a_tuple_pattern_of_names_fills_its_lines...); example reject/proof-tuple-pattern-nonexhaustive; syntax.md bullet. goal/search output writes no Both/Witness (checked): nothing to change. Not done: too-many-parts count in patterns; split suggestions for hypotheses of ∧/∃ (constructor_patterns returns None for Prop). Commit on lane/SW-3518.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
