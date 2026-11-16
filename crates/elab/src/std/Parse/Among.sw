@@ -5,11 +5,11 @@ import Parse.Problem (Expected)
 -- that copies parts of them into its value, where the lexer's theorem
 -- says what every token is like.
 
---| [`Parse.Reads`] where every item left is `fine`: run from an honest
---| state whose items left all satisfy `fine`, a success of `parser` read a
---| start `read` of them, left an honest state, and `spec read value`
---| holds. What is left afterwards is an end of what was left before, so
---| its items are `fine` too and the lemmas chain.
+--| [`Parse.Reads`] where every item left is `fine`: [`Parse.ReadsIn`]
+--| under [`Parse.Invariant.every`] `fine`. Run from an honest mark whose
+--| items left all satisfy `fine`, a success of `parser` read a start
+--| `read` of them, stopped at an honest mark, and `spec read value` holds.
+--| The lemmas here are the general ones under that invariant.
 --|
 --| A spec of [`Parse.Reads`] can speak of the items a parser read, but
 --| not of one it only looked at (through [`Parse.mark`]), and
@@ -18,10 +18,7 @@ import Parse.Problem (Expected)
 --| "the names in the tree are names the lexer made" follows from "every
 --| token's name is one".
 def Parse.ReadsAmong (fine: t → Prop) (parser: () → {Parse t} a) (spec: List t → a → Prop): Prop :=
-  ∀ (state: Parse.State t) (value: a) (after: Parse.Mark t) => state.at.left = state.at.rest.length
-    → List.All fine state.at.rest
-    → Parse.runFrom state (() => (parser(), Parse.mark())) = Ok (value, after)
-    → ∃ (read: List t) => state.at.rest = read ++ after.rest ∧ after.left = after.rest.length ∧ spec read value
+  Parse.ReadsIn (Parse.Invariant.every fine) parser spec
 
 --| The first of a list of `fine` items is `fine`.
 theorem Parse.allHead ∀ (fine: t → Prop) (items: List t) (item: t) (later: List t)
@@ -35,7 +32,7 @@ theorem Parse.allHead ∀ (fine: t → Prop) (items: List t) (item: t) (later: L
 theorem Parse.amongOf ∀ [fine: t → Prop] [p: () → {Parse t} a] [spec: List t → a → Prop]
     (reads: Parse.Reads p spec):
     Parse.ReadsAmong fine p spec :=
-  state value after honest among h => reads state value after honest h
+  Parse.readsInOfReads reads
 
 --| A value, read as `spec` says when `spec` holds of nothing read and it:
 --| the last step of a [`Parse.amongThen`] chain.
@@ -47,10 +44,7 @@ theorem Parse.amongDone ∀ [fine: t → Prop] (x: a) (spec: List t → a → Pr
 theorem Parse.amongWeaken ∀ [fine: t → Prop] [p: () → {Parse t} a] [spec weaker: List t → a → Prop]
     (reads: Parse.ReadsAmong fine p spec) (implies: ∀ (read: List t) (value: a) => spec read value → weaker read value):
     Parse.ReadsAmong fine p weaker :=
-  state value after honest among h =>
-    match reads state value after honest among h with
-      | Witness read (Both starts (Both honestAfter holds)) =>
-        Witness read (Both starts (Both honestAfter (implies read value holds)))
+  Parse.readsWeaken reads implies
 
 --| [`Parse.readsThen`] among `fine` items: `p`, then `j` of its value,
 --| reads as `spec` says when `j` does after whatever `p` read.
@@ -60,20 +54,7 @@ theorem Parse.amongThen ∀ [fine: t → Prop] [p: () → {Parse t} a] [j: a →
     (rest: ∀ (firstRead: List t) (v: a) => first firstRead v
       → Parse.ReadsAmong fine (() => j v) (taken w => spec (firstRead ++ taken) w)):
     Parse.ReadsAmong fine (() => j (p())) spec :=
-  state value after honest among h =>
-    match Parse.runFromThenOk2 p state j _ _ h with
-      | Witness v (Witness middle (Both ran restRun)) =>
-        match readsFirst state v middle.at honest among ran with
-          | Witness firstRead (Both starts1 (Both honest1 holds1)) =>
-            let amongRest: List.All fine middle.at.rest :=
-              List.allAppendRight fine firstRead middle.at.rest (rewrite <- starts1 in among)
-            match rest firstRead v holds1 middle value after honest1 amongRest restRun with
-              | Witness nextRead (Both starts2 (Both honest2 holds2)) =>
-                Witness
-                  (firstRead ++ nextRead)
-                  (Both
-                    (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest in rfl)
-                    (Both honest2 holds2))
+  Parse.readsThen readsFirst rest
 
 --| [`Parse.amongThen`] with the two parsers named, for where they can't
 --| be read off the goal.
@@ -90,114 +71,20 @@ theorem Parse.amongThenOf ∀ [fine: t → Prop] (p: () → {Parse t} a) (j: a �
 theorem Parse.amongOne ∀ [fine: t → Prop] (what: Text) (select: t → Option a):
     Parse.ReadsAmong fine (() => Parse.one what select) (taken value =>
       ∃ (item: t) => taken = [item] ∧ fine item ∧ select item = Some value) :=
-  state value after honest among h =>
-    match Parse.readsOne what select state value after honest h with
-      | Witness taken (Both starts (Both honestAfter (Witness item (Both single selected)))) =>
-        let next: state.at.rest = [item, ..after.rest] := rewrite starts, single in rfl
-        Witness taken
-          (Both starts
-            (Both honestAfter
-              (Witness item
-                (Both single (Both (Parse.allHead fine state.at.rest item after.rest next among) selected)))))
+  Parse.readsOneEvery what select
 
 --| [`Parse.readsOptional`] among `fine` items.
 theorem Parse.amongOptional ∀ [fine: t → Prop] [p: () → {Parse t} a] [spec: List t → a → Prop]
     (reads: Parse.ReadsAmong fine p spec):
     Parse.ReadsAmong fine (() => Parse.optional p) (Parse.Maybe spec) :=
-  state value after honest among h =>
-    match Parse.runFromOptionalFromOk p state.at state _ _ h with
-      | Inl (Witness v (Witness middle (Both ran rest))) =>
-        match reads state v middle.at honest among ran with
-          | Witness read (Both starts (Both honest1 holds)) =>
-            let same := Result.okInjective rest
-            let valueSame: Some v = value := Pair.mkInjectiveFst same
-            let atSame: middle.at = after := Pair.mkInjectiveSnd same
-            Witness read (rewrite <- valueSame, <- atSame in Both starts (Both honest1 holds))
-      | Inr (Witness middle (Both back rest)) =>
-        let same := Result.okInjective rest
-        let valueSame: None = value := Pair.mkInjectiveFst same
-        let atSame: middle.at = after := Pair.mkInjectiveSnd same
-        Witness [] (rewrite <- valueSame, <- atSame, back in Both rfl (Both honest rfl))
-
---| `manyFrom` among `fine` items, run from a state that is at its
---| `before` mark: it read one part per value, after the `found` ones.
-theorem Parse.amongManyFrom ∀ (fine: t → Prop) (p: () → {Parse t} a) (spec: List t → a → Prop)
-    (reads: Parse.ReadsAmong fine p spec)
-    (fuel: Nat) (found: List a) (state: Parse.State t) (value: List a) (after: Parse.Mark t)
-    (honest: state.at.left = state.at.rest.length)
-    (among: List.All fine state.at.rest)
-    (h: Parse.runFrom state (() => (Parse.manyFrom fuel p found state.at, Parse.mark())) = Ok (value, after)):
-    ∃ (read: List t) => state.at.rest = read ++ after.rest
-      ∧ after.left = after.rest.length
-      ∧ Parse.ManyFound spec found read value :=
-  match fuel with
-    | Zero =>
-      match Parse.readsPure (List.reverse found) state value after honest h with
-        | Witness read (Both starts (Both honestAfter (Both none same))) =>
-          Witness read
-            (Both starts
-              (Both honestAfter (Witness [] (Both (rewrite same, List.appendNil (List.reverse found) in rfl) none))))
-    | Succ more =>
-      match Parse.runFromOptionalFromOk2 p state.at state
-        (found2 => Parse.manyRound more p found state.at found2)
-        (x => (x, Parse.mark()))
-        (value, after)
-        h with
-        | Inl (Witness v (Witness middle (Both ran rest))) =>
-          match reads state v middle.at honest among ran with
-            | Witness read1 (Both starts1 (Both honest1 holds1)) =>
-              match Parse.runFromIfOk
-                (middle.at.offset > state.at.offset)
-                (() => Parse.manyFrom more p [v, ..found] middle.at)
-                (() => Empty.absurd (Parse.fatal "`many`: the parser matched without reading anything"))
-                middle
-                value
-                after
-                rest with
-                | Inl (Both isTrue yesRun) =>
-                  let amongRest: List.All fine middle.at.rest :=
-                    List.allAppendRight fine read1 middle.at.rest (rewrite <- starts1 in among)
-                  match Parse.amongManyFrom fine p spec reads more
-                    [v, ..found]
-                    middle
-                    value
-                    after
-                    honest1
-                    amongRest
-                    yesRun with
-                    | Witness read2 (Both starts2 (Both honest2 (Witness more2 (Both same each2)))) =>
-                      Witness
-                        (read1 ++ read2)
-                        (Both
-                          (rewrite starts1, starts2, List.appendAssoc read1 read2 after.rest in rfl)
-                          (Both honest2
-                            (Witness
-                              [v, ..more2]
-                              (Both
-                                (rewrite same,
-                                    List.reverseCons v found,
-                                    List.appendAssoc (List.reverse found) [v] more2 in
-                                  rfl)
-                                (Witness read1 (Witness read2 (Both rfl (Both holds1 each2))))))))
-                | Inr (Both isFalse noRun) => Void.exfalso (Result.errNotOk noRun)
-        | Inr (Witness middle (Both back rest)) =>
-          let honest1: middle.at.left = middle.at.rest.length := rewrite back in honest
-          match Parse.readsPure (List.reverse found) middle value after honest1 rest with
-            | Witness read (Both starts (Both honestAfter (Both none same))) =>
-              Witness []
-                (Both
-                  (rewrite <- back in (rewrite none at starts in starts))
-                  (Both honestAfter (Witness [] (Both (rewrite same, List.appendNil (List.reverse found) in rfl) rfl))))
+  Parse.readsOptional reads
 
 --| [`Parse.readsMany`] among `fine` items: `many p` reads one part per
 --| value, each what `p` read.
 theorem Parse.amongMany ∀ [fine: t → Prop] (p: () → {Parse t} a) (spec: List t → a → Prop)
     (reads: Parse.ReadsAmong fine p spec):
     Parse.ReadsAmong fine (() => Parse.many p) (Parse.Each spec) :=
-  state value after honest among h =>
-    match Parse.amongManyFrom fine p spec reads (state.at.left + 1) [] state value after honest among h with
-      | Witness read (Both starts (Both honestAfter (Witness more (Both same each)))) =>
-        Witness read (Both starts (Both honestAfter (rewrite same in each)))
+  Parse.readsMany p spec reads
 
 --| [`Parse.readsMany1`] among `fine` items: the same, with at least one
 --| value.
@@ -326,14 +213,14 @@ theorem Parse.amongOperatorsFrom ∀ (fine: t → Prop) (what: Text) (levels: Li
       (() => Parse.operatorsFrom fuel depth what levels count operand lowest highest left)
       (taken value => grouped lowest value) :=
   match fuel with
-    | Zero => state value after honest among h =>
+    | Zero => Parse.readsInOfRuns (total state value after among honest h =>
       let same := Result.okInjective h
       let valueSame: left = value := Pair.mkInjectiveFst same
       let atSame: (state.note (Expected what)).at = after := Pair.mkInjectiveSnd same
       Witness []
         (rewrite <- valueSame, <- atSame, Parse.noteAt state (Expected what) in
-          Both rfl (Both honest (finish lowest highest left holds)))
-    | Succ more => state value after honest among h =>
+          Both rfl (Both honest (finish lowest highest left holds))))
+    | Succ more => Parse.readsInOfRuns (total state value after among honest h =>
       match Parse.operatorsFromOkNext more depth what levels count operand lowest highest left state value after h with
         | Inl (Both valueSame atSame) =>
           Witness [] (rewrite valueSame, atSame in Both rfl (Both honest (finish lowest highest left holds)))
@@ -342,7 +229,7 @@ theorem Parse.amongOperatorsFrom ∀ (fine: t → Prop) (what: Text) (levels: Li
               (Witness later
                 (Witness level
                   (Witness associativity (Witness combine (Both next (Both found (Both above (Both below ran))))))))) =>
-          let fineItem: fine item := Parse.allHead fine state.at.rest item later next among
+          let fineItem: fine item := Parse.allHead fine state.at.rest item later next among.holds
           let readsTried: Parse.ReadsAmong fine
             (() =>
               Parse.optional (() =>
@@ -385,7 +272,7 @@ theorem Parse.amongOperatorsFrom ∀ (fine: t → Prop) (what: Text) (levels: Li
                               holds facts))
                       (taken value isGrouped => isGrouped)
                   | None => Parse.amongDone left _ (finish lowest highest left holds))
-          readsRound state value after honest among ran
+          readsRound state.at among total state value after rfl honest ran)
 
 --| [`Parse.readsOperandsFrom`] among `fine` items.
 theorem Parse.amongOperandsFrom ∀ (fine: t → Prop) (what: Text) (levels: List (Parse.Level t a)) (count: Nat)
@@ -483,9 +370,18 @@ theorem Parse.wholeAmong ∀ (fine: t → Prop) (items: List t) (p: () → {Pars
     value
     h with
     | Witness v (Witness middle (Both ran rest)) =>
-      match reads (Parse.State.start items) v middle.at rfl all ran with
+      match reads
+        (Parse.State.start items).at
+        { holds = all }
+        items.length
+        (Parse.State.start items)
+        v
+        middle.at
+        rfl
+        (Both rfl (omega []))
+        ran with
         | Witness read (Both starts (Both honest holds)) =>
           match Parse.endOk middle v value rest with
             | Both atEnd same =>
-              let empty := List.lengthZero middle.at.rest (omega [honest, atEnd])
+              let empty := List.lengthZero middle.at.rest (omega [honest.left, atEnd])
               rewrite starts, empty, List.appendNil read, <- same in holds

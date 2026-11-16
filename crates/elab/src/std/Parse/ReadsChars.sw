@@ -24,7 +24,7 @@ theorem Parse.readsText ∀ (expected: Text):
       (found =>
         match found with
           | True => Parse.readsWeaken (Parse.readsPure ()) (read u both => Both rfl (And.left both))
-          | False => state value after honest h => Void.exfalso (Result.errNotOk h)))
+          | False => from fine total state value after here honest h => Void.exfalso (Result.errNotOk h)))
     (read u h =>
       match h with
         | Witness firstRead (Witness nextRead (Witness found (Both split (Both literal (Both isTrue none))))) =>
@@ -681,7 +681,7 @@ theorem Parse.runFromSectionLineFromOkTree ∀ (q: () → {Parse Char} a)
 theorem Parse.readsSectionLine ∀ (p: () → {Parse Char} a) (spec: List Char → a → Prop)
     (reads: Parse.Reads p spec):
     Parse.Reads (() => Parse.sectionLine p) spec :=
-  state value after honest h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match Parse.runFromSectionLineFromOkTree p
       (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ())))
       state.at
@@ -690,7 +690,7 @@ theorem Parse.readsSectionLine ∀ (p: () → {Parse Char} a) (spec: List Char �
       (value, after)
       h with
       | Witness v (Witness middle (Both ran rest)) =>
-        Parse.readsFromRun p spec reads state value after honest v middle ran rest
+        Parse.readsFromRun p spec reads total state value after fine honest v middle ran rest)
 
 --| What `blankLine` reads: a line break, spaces and tabs, a line break.
 def Parse.BlankLine (read: List Char): Prop :=
@@ -940,6 +940,7 @@ theorem Parse.readsNatDigits ∀ (atLeast atMost: Nat):
     (Parse.readsBind _ _ (read at => read = []) (start => Parse.DigitsRead atLeast atMost) Parse.readsMark (start =>
       Parse.readsWeaken
         (Parse.readsBind
+          [inv := Parse.Invariant.any]
           (() => Parse.span Parse.isDigit)
           (digits =>
             let count := digits.length
@@ -961,7 +962,7 @@ theorem Parse.readsNatDigits ∀ (atLeast atMost: Nat):
                   [p := (() => Parse.digitsValue digits)]
                   (Parse.readsPure (Parse.digitsValue digits))
                   (read n both => Both (And.left both) (Both (omega) (Both (Both (omega) (omega)) (And.right both))))
-              | False => state value after honest h => Void.exfalso (Result.errNotOk h)))
+              | False => from fine total state value after here honest h => Void.exfalso (Result.errNotOk h)))
         (read n h =>
           match h with
             | Witness firstRead
