@@ -4,7 +4,7 @@
 --| not a comment line), the document the rules build puts next to each
 --| token only what the token is still read whole before, through every
 --| layout (`fileJoins`). With the engine's half, a file printed at any
---| width lexes to its pieces (`printedLexes`).
+--| width lexes to its pieces (`printedTokens`).
 
 namespace Toy.Fmt.Proofs
 import Toy.Doc (..)

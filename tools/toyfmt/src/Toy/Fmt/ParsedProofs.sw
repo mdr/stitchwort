@@ -4,7 +4,7 @@
 --| parser gives is `Lexical`: its names, numbers, strings and comments
 --| are those tokens', and its bodies end in statements. So `LexicalFile`
 --| holds of every parsed file (`parseLexical`), and a parsed file
---| printed at any width lexes to its pieces (`parsedPrintLexes`). Built
+--| printed at any width lexes to its pieces (`parsedPrintTokens`). Built
 --| from std's `Parse.ReadsAmong`, soundness over items known to be good.
 
 namespace Toy.Fmt.Proofs

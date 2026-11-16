@@ -403,8 +403,8 @@ theorem wordPlaced ∀ (piece: Text) (placed: Placed) (blank: Bool) (column offs
         | False, _ => rfl
 
 --| A document printed, at every width, lexes to the tokens `placed`
---| gives of the pieces `print` joins (`printedPieces`): `joinedLex` with
---| the pieces named and the tokens placed.
+--| gives of the pieces `print` joins (`printedPieces`): `printedJoins`
+--| with the pieces named and the tokens placed.
 theorem joinedPlaced ∀ (doc: Doc) (width: Nat)
     (uniform: Uniform doc)
     (joins: Joins standsBefore doc (Plain None) (after => True))

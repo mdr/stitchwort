@@ -1,6 +1,6 @@
 --| What the printer puts next to what. Through every reading, each piece
 --| of output that isn't layout is followed by a line break, or by a piece
---| the document allowed after it (`readingJoins`, `printJoins`): no reading
+--| the document allowed after it (`readingJoins`, `printedJoins`): no reading
 --| brings two chunks together, or puts a space after one, that the
 --| document's own predicate (`Joins`) didn't list. `follows word next` is
 --| the caller's relation: for the toy, that `word` still lexes as itself
