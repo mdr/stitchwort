@@ -210,6 +210,92 @@ pub fn semantic_marks(file: &FileAnswers, place: &Place) -> Vec<Mark> {
     kept
 }
 
+// ---- lexical colours ----------------------------------------------------
+
+/// What a token looks like, before anything is resolved: for the colouring
+/// of text that isn't checked (the REPL's line editor). The names a
+/// resolved file gets ([`semantic_marks`]) refine these: a capitalised name
+/// is `type`, or `enumMember` once it resolves to a constructor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Lexical {
+    Keyword,
+    Number,
+    /// A text or character literal, or a piece of an interpolated one.
+    Text,
+    /// A capitalised name, `Type` or `Prop`: a type or a constructor.
+    Name,
+    Operator,
+    Comment,
+}
+
+impl Lexical {
+    /// The legend entry ([`TOKEN_TYPES`]) the class corresponds to, if the
+    /// legend has one.
+    pub fn token_type(self) -> Option<&'static str> {
+        match self {
+            Lexical::Name => Some("type"),
+            _ => None,
+        }
+    }
+}
+
+/// The byte ranges of `text` worth colouring, in text order. Text that
+/// doesn't lex still gets what does: a declaration with a lexical error
+/// loses its tokens, but its comments are found.
+pub fn lexical_marks(text: &str) -> Vec<(std::ops::Range<usize>, Lexical)> {
+    let mut sources = SourceMap::new();
+    let id = sources.add("colour", "");
+    let tokens = lex_recovering(id, text).tokens;
+    let mut marks = Vec::new();
+    let mut covered = 0;
+    for token in &tokens {
+        let range = token.span.start as usize..token.span.end as usize;
+        comments_in(text, covered..range.start, &mut marks);
+        covered = range.end;
+        let class = match &token.tok {
+            Tok::Num(_) | Tok::Float(_) => Lexical::Number,
+            Tok::Str(_) | Tok::StrStart(_) | Tok::StrMid(_) | Tok::StrEnd(_) | Tok::Char(_) => {
+                Lexical::Text
+            }
+            Tok::Upper(_) | Tok::TypeU | Tok::Prop => Lexical::Name,
+            Tok::Lower(_) | Tok::Underscore | Tok::Question => continue,
+            tok if tok.keyword().is_some() => Lexical::Keyword,
+            Tok::LParen
+            | Tok::RParen
+            | Tok::LBracket
+            | Tok::RBracket
+            | Tok::LBrace
+            | Tok::RBrace
+            | Tok::InterpOpen
+            | Tok::InterpClose
+            | Tok::Comma
+            | Tok::Semi
+            | Tok::Dot
+            | Tok::At => continue,
+            _ => Lexical::Operator,
+        };
+        marks.push((range, class));
+    }
+    comments_in(text, covered..text.len(), &mut marks);
+    marks
+}
+
+/// The comments in the stretch of `text` that no token covers: from a `--`
+/// to the end of its line.
+fn comments_in(
+    text: &str,
+    gap: std::ops::Range<usize>,
+    marks: &mut Vec<(std::ops::Range<usize>, Lexical)>,
+) {
+    let mut at = gap.start;
+    while let Some(i) = text[at..gap.end].find("--") {
+        let start = at + i;
+        let end = text[start..].find('\n').map_or(text.len(), |n| start + n);
+        marks.push((start..end, Lexical::Comment));
+        at = end;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -220,5 +306,27 @@ mod tests {
         assert_eq!(lines.position(1), (0, 1));
         assert_eq!(lines.position(3), (1, 0));
         assert_eq!(lines.position(3 + 4), (1, 2));
+    }
+
+    #[test]
+    fn lexical_marks_classify_tokens_and_comments() {
+        let text = "if x then Some 1 else \"a\" ++ y -- done";
+        let classes: Vec<(&str, Lexical)> = lexical_marks(text)
+            .into_iter()
+            .map(|(r, c)| (&text[r], c))
+            .collect();
+        assert_eq!(
+            classes,
+            [
+                ("if", Lexical::Keyword),
+                ("then", Lexical::Keyword),
+                ("Some", Lexical::Name),
+                ("1", Lexical::Number),
+                ("else", Lexical::Keyword),
+                ("\"a\"", Lexical::Text),
+                ("++", Lexical::Operator),
+                ("-- done", Lexical::Comment),
+            ]
+        );
     }
 }

@@ -4894,14 +4894,46 @@ fn load_for_evaluation(session: &mut Session, path: &Path) -> bool {
 
 /// Evaluates `expr`, or with `type_only`, shows it with its type.
 fn evaluate(session: &mut Session, expr: &str, type_only: bool) -> Result<String, Diagnostic> {
+    let (value, ty) = evaluate_parts(session, expr, type_only)?;
+    Ok(format!("{value}: {ty}"))
+}
+
+/// [`evaluate`], as the value (or the expression, with `type_only`) and the
+/// type, for showing each in its own colour.
+fn evaluate_parts(
+    session: &mut Session,
+    expr: &str,
+    type_only: bool,
+) -> Result<(String, String), Diagnostic> {
     let expr = expr.trim();
     let parsed = session.parse_expression("<input>", expr)?;
     if type_only {
         let (_, ty) = session.elab.infer_expr_type_only(&parsed)?;
-        return Ok(format!("{expr}: {}", session.elab.show(&ty)));
+        return Ok((expr.to_string(), session.elab.show(&ty)));
     }
     let (value, ty) = session.elab.eval_expr(&parsed)?;
-    Ok(format!("{value}: {ty}"))
+    Ok((value.to_string(), ty.to_string()))
+}
+
+/// How the REPL shows a result: plain, or with colour.
+fn show_result(parts: (String, String), color: bool) -> String {
+    if color {
+        stitchwort_cli::repl_color::colour_result(&parts.0, &parts.1)
+    } else {
+        format!("{}: {}", parts.0, parts.1)
+    }
+}
+
+/// Whether the REPL's own output, on stdout, is coloured: as
+/// [`color_on_stderr`], by whether stdout is a terminal.
+fn color_on_stdout() -> bool {
+    let choice = match COLOR.load(std::sync::atomic::Ordering::Relaxed) {
+        1 => ColorChoice::Always,
+        2 => ColorChoice::Never,
+        _ => ColorChoice::Auto,
+    };
+    let no_color = std::env::var("NO_COLOR").ok();
+    choice.enabled(std::io::stdout().is_terminal(), no_color.as_deref())
 }
 
 /// The words a REPL line starts with when it is a declaration, not an
@@ -4978,8 +5010,16 @@ fn repl(path: Option<&Path>) -> ExitCode {
     {
         return ExitCode::FAILURE;
     }
-    let mut editor = match rustyline::DefaultEditor::new() {
-        Ok(editor) => editor,
+    let color = color_on_stdout();
+    let mut editor = match rustyline::Editor::<
+        stitchwort_cli::repl_color::ReplHelper,
+        rustyline::history::DefaultHistory,
+    >::new()
+    {
+        Ok(mut editor) => {
+            editor.set_helper(Some(stitchwort_cli::repl_color::ReplHelper { color }));
+            editor
+        }
         Err(err) => {
             eprintln!("error: can't start the REPL: {err}");
             return ExitCode::FAILURE;
@@ -5029,8 +5069,8 @@ fn repl(path: Option<&Path>) -> ExitCode {
                     report_input(&session.sources, &reported);
                     for name in declared {
                         // What the name now stands for, as a reminder.
-                        if let Ok(shown) = evaluate(&mut session, &name, true) {
-                            println!("{shown}");
+                        if let Ok(shown) = evaluate_parts(&mut session, &name, true) {
+                            println!("{}", show_result(shown, color));
                         }
                     }
                 }
@@ -5055,12 +5095,12 @@ fn repl(path: Option<&Path>) -> ExitCode {
                 continue;
             }
             _ => match input.strip_prefix(":t ") {
-                Some(expr) => evaluate(&mut session, expr, true),
-                None => evaluate(&mut session, input, false),
+                Some(expr) => evaluate_parts(&mut session, expr, true),
+                None => evaluate_parts(&mut session, input, false),
             },
         };
         match result {
-            Ok(output) => println!("{output}"),
+            Ok(parts) => println!("{}", show_result(parts, color)),
             Err(diagnostic) => report_input(&session.sources, &[diagnostic]),
         }
     }
