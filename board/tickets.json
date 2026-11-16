@@ -1,5 +1,5 @@
 {
-  "next": 3611,
+  "next": 3612,
   "tickets": [
     {
       "id": 47,
@@ -40433,12 +40433,12 @@
     {
       "id": 3603,
       "title": "[Sonnet] std library warnings can't be seen with check --std (only a library test hook sees them); add a way to print them (e.g. --warnings) so std's W-PROOF-CHAIN count (~286) can be tracked",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Matt, 16 Nov 2026: 'We should address warnings in STD.' Scope widened: make std's warnings visible, count them by code, fix them (W-PROOF-CHAIN by calc conversion and any others), and keep std at zero with a test. Stage 1 (this lane): visibility, the count, a zero-warnings test that lists current exceptions, and the non-chain warnings fixed; chain conversions split into batches (DeepSeek/Sonnet) from the count.\n\n\nLane notes (Sonnet, 16 Nov): stage 1 done on lane/SW-3603. `check --std X --warnings` prints std warnings and a code/file/count table; pin test warning_pins (crates/driver/tests/library/warning_pins.tsv, keyed project/file/code). Std had 205 warnings, all W-PROOF-CHAIN; now 194 (core 8, Function 1, Distinct 2 converted). Details: docs/reviews/SW-3603-std-warnings.md. Proposed narrowing (not applied): do not warn when the nest sits on one line (40 of 205).\n",
+      "body": "Matt, 16 Nov 2026: 'We should address warnings in STD.' Scope widened: make std's warnings visible, count them by code, fix them (W-PROOF-CHAIN by calc conversion and any others), and keep std at zero with a test. Stage 1 (this lane): visibility, the count, a zero-warnings test that lists current exceptions, and the non-chain warnings fixed; chain conversions split into batches (DeepSeek/Sonnet) from the count.\n\n\nLane notes (Sonnet, 16 Nov): stage 1 done on lane/SW-3603. `check --std X --warnings` prints std warnings and a code/file/count table; pin test warning_pins (crates/driver/tests/library/warning_pins.tsv, keyed project/file/code). Std had 205 warnings, all W-PROOF-CHAIN; now 194 (core 8, Function 1, Distinct 2 converted). Details: docs/reviews/SW-3603-std-warnings.md. Proposed narrowing (not applied): do not warn when the nest sits on one line (40 of 205).\n\nModel result: sonnet, worked, 26 min (est. 60). 205 std warnings, all W-PROOF-CHAIN (estimate of 286 high); other codes 0. Pin test ~3 min (loads std from source). Stage 2: SW-3611.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40529,6 +40529,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3611,
+      "title": "[Sonnet] Std warnings to zero, stage 2 (Matt: no warnings in Stitchwort code; fix or dial down): (1) narrow W-PROOF-CHAIN to nests that span lines (orchestrator's call: one-line nests like Bool.falseNotTrue (Eq.trans c.flipped (Eq.trans …)) read fine; ~40 of 205), lower pins; (2) convert the remaining multi-line nests to calc in batches from docs/reviews/SW-3603-std-warnings.md, one commit per batch, pins lowered, prelude hash snapshot and native pins refreshed. Sequential (all batches touch the prelude snapshot)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
