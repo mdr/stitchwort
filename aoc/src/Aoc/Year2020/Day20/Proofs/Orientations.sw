@@ -180,28 +180,30 @@ theorem rotateEdges ∀ (image: Image) (k: Nat)
           let turnedSized: List.AllLength (Succ k) [first, ..rest] :=
             rewrite <- same at reversedSized then reversedSized
           let width: first.length = Succ k := turnedSized.left
-          let top: List.filterMap [first, ..rest] (.get 0) = left :=
-            Eq.trans
-              (firstColumn Calm [first, ..rest] k turnedSized)
-              (Eq.trans
-                (Eq.cong (rows => rows.map (row => row.headOr Calm)) same)
-                (List.mapReverse image.rows (row => row.headOr Calm)))
+          let top: List.filterMap [first, ..rest] (.get 0) = left := calc List.filterMap [first, ..rest] (.get 0)
+            _ = [first, ..rest].map (row => row.headOr Calm) := firstColumn Calm [first, ..rest] k turnedSized
+            _ = image.rows.reverse.map (row => row.headOr Calm) :=
+              Eq.cong (rows => rows.map (row => row.headOr Calm)) same
+            _ = left := List.mapReverse image.rows (row => row.headOr Calm)
           let toRight: (List.transposeN (Succ k) [first, ..rest]).map (column => column.last.getOrElse Calm)
             = image.rows.headOr [] :=
-            Eq.trans
-              (columnsLast Calm (Succ k) first rest turnedSized)
-              (Eq.trans (Eq.cong (rows => List.last rows |> .getOrElse []) same) (lastReverse [] image.rows))
+            calc (List.transposeN (Succ k) [first, ..rest]).map (column => column.last.getOrElse Calm)
+              _ = List.last [first, ..rest] |> .getOrElse [] := columnsLast Calm (Succ k) first rest turnedSized
+              _ = List.last image.rows.reverse |> .getOrElse [] :=
+                Eq.cong (rows => List.last rows |> .getOrElse []) same
+              _ = image.rows.headOr [] := lastReverse [] image.rows
           let bottom: (List.transposeN (Succ k) [first, ..rest]).last.getOrElse [] = right :=
-            Eq.trans
-              (lastColumn Calm k [first, ..rest] turnedSized)
-              (Eq.trans
-                (Eq.cong (rows => rows.map (row => row.last.getOrElse Calm)) same)
-                (List.mapReverse image.rows (row => row.last.getOrElse Calm)))
+            calc (List.transposeN (Succ k) [first, ..rest]).last.getOrElse []
+              _ = [first, ..rest].map (row => row.last.getOrElse Calm) := lastColumn Calm k [first, ..rest] turnedSized
+              _ = image.rows.reverse.map (row => row.last.getOrElse Calm) :=
+                Eq.cong (rows => rows.map (row => row.last.getOrElse Calm)) same
+              _ = right := List.mapReverse image.rows (row => row.last.getOrElse Calm)
           let toLeft: (List.transposeN (Succ k) [first, ..rest]).map (column => column.headOr Calm)
             = image.rows.last.getOrElse [] :=
-            Eq.trans
-              (columnsFirst Calm (Succ k) first rest turnedSized)
-              (Eq.trans (Eq.cong (rows => rows.headOr []) same) (headReverse [] image.rows))
+            calc (List.transposeN (Succ k) [first, ..rest]).map (column => column.headOr Calm)
+              _ = [first, ..rest].headOr [] := columnsFirst Calm (Succ k) first rest turnedSized
+              _ = image.rows.reverse.headOr [] := Eq.cong (rows => rows.headOr []) same
+              _ = image.rows.last.getOrElse [] := headReverse [] image.rows
           rewrite width then rewrite <- top, <- toRight, <- bottom, <- toLeft then byComputing
   shaped image.rows.reverse byComputing
 
