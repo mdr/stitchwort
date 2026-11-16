@@ -303,9 +303,10 @@ Import what you use: std's theorems live in namespaces that need an import
   **64 cases**, then `E-CASES-BUDGET`. It doesn't do
   induction (`List`, `Nat`). Examples: `examples/accept/cases-*.sw`.
 - **`omega`** proves `<=`, `<`, `=` on `Nat` and `Int` (and contradictions)
-  from every arithmetic fact in scope: parameters, pattern variables, `if
-  h:` and `match e:` equations, `let`s. Pass other facts as `omega [lemma a
-  b]`. It knows `-`, `max`, `min`, multiplication by a literal, and `x / k`
+  from every arithmetic fact in scope: parameters, pattern variables, a
+  plain `if`'s condition and a `match`'s equation in a `decreasing`
+  definition (neither needs a name), and `let`s. Pass other facts as
+  `omega [lemma a b]`. It knows `-`, `max`, `min`, multiplication by a literal, and `x / k`
   by a literal only by its two bounds (`(x / k) * k ≤ x ≤ (x / k) * k + k -
   1`); `x * y`, `x % k`, `List.length xs` and calls are atoms it knows
   nothing about. It reads a hypothesis `x ∈ a ..< b` (or `..=`) as `a ≤ x` and
@@ -378,7 +379,7 @@ Import what you use: std's theorems live in namespaces that need an import
   argument is a proof by induction; the recursive call is the induction
   hypothesis. For other measures, `decreasing e` (or `decreasing (m1, m2)`)
   after the type: each recursive call needs a proof that the measure went
-  down, from `auto` (a guard `if h: next < n` in scope) or `[decreasing :=
+  down, from `auto` (a guard `if next < n` in scope) or `[decreasing :=
   proof]`. `f.unfold x` is a `decreasing` definition's own equation, for
   `rewrite f.unfold x in …`; on unknown arguments `f x` doesn't unfold by
   itself.
@@ -528,7 +529,7 @@ Each was run on the example named; the output is quoted, shortened.
   decreased at each call, failing (or returning a default) when it runs out.
   **`E-DECREASING`** is the same with
   `decreasing`: the message shows the goal (`n - step < n`) and what's in
-  scope; give `[decreasing := …]` or guard with `if h: … then`
+  scope; give `[decreasing := …]` or guard with `if … then`
   (`examples/reject/decreasing-missing-proof.sw`).
 - **`E-RESOURCE`** ("ran out of resources"): not a type error and not a
   failed test; the checker gave up within its limits. In proofs it usually

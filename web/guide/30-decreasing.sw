@@ -6,7 +6,7 @@ def halvings (n count: Nat): Nat
     decreasing n
 :=
   let next := n / 2
-  if h: next < n then halvings next (count + 1) else count
+  if next < n then halvings next (count + 1) else count
 
 test "halvings of 100" := halvings 100 0 == 7
 theorem halvingsOf8: halvings 8 0 = 4 := rfl
