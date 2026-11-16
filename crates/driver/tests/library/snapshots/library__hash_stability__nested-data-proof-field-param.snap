@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.W db59f70bbe4cfa905f2c662da17b2742e26ee27d0a3880454e3f7af751b763f4
@@ -75,7 +76,7 @@ Main.test "differs in the nested item" 4f3af9b56c2e26b184b4a8464e55d7ea143c66d7d
 Main.test "differs in the data next to the proof" 279afdaf168be1fb2b6fbd45122c5b1fabb5de359294231a1e85f6c4612143ab
 Main.test "order by constructor" a829b35d5ee240291e2877eba7db481712d5f305d7311f8b75b88a6a6d213109
 Main.test "order by item then value" 98384382158a445a5dffa4b733536b754ee136bc6c054b3246791e5b721fdf44
-Main.test "show" e4a8401c535b3b7630da384b9bcc338a0f528f45d0f953ec6cfcd5cada444cd4
+Main.test "show" 75c5911eac333ceb1b003eda8d4dbf8c63a2f63cfb5487e731676a562622ecf3
 Main.Tree.%tag 5e352091dabde2e1b0d627791732aef758501b62048dbdf2cc42028ce9b92642
 Main.Tree.%Branch%0 67dd208b786877c2378d71ad3802dc183960ced8ccbf24813cf189a78981bd4b
 Main.Forest.%tag 4354a095113ebad1fc530a6afd64cc501f3da73b6bea8978e89821136523403a
@@ -137,4 +138,4 @@ Main.Forest.%instOrd 6c387d4df1d02250275e6db6200a6989b75eb9955c675beb6f62d7485bc
 Main.branch d549b99dfc1ffa1b0a7a3c4927db04027ef81e9e1c219917ac31548864f27c2d
 Main.test "a group: equal" efb1783bfbdfd5c4fb6ffa06672680786933ab8ad2876d51126310c330315ca2
 Main.test "a group: order" 8ba216099459aa3733afa8f4730c27fa27d1f53e3ac79a013206a381a3307da3
-Main.test "a group: show" 309ddf98cae8fef89b614acf14fc29303a88be66a7fb6c25d339c97670a27d0f
+Main.test "a group: show" 2405c0bb2f40ec6e387abc71e94bcd25669b30a13be6db53645218593a6f00d2

@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Tree c7cb8ef825cc225766e67fa359b5d6d1addc090f399cbaf9ba27ba0843b47a7d
@@ -32,7 +33,7 @@ Main.Tree.%trans 9b152f8b7ab27696d42f84f0bea9cc90446bac9856518b2dc8cd0201924aa14
 Main.Tree.%instOrd 91993fdeddf3b0f9f57cfbef02d2e37b080feb1978ac9c6d1fbb66aa76bc0054
 Main.leaf fe8e5763aafec51fe2506176154c7101c183f7170f7c3aff6b3124dea70fa678
 Main.test "trees of numbers" 781bb0a02373ed838150ee7b19d11ef7939cb179bb3a73bf6815eac516da0991
-Main.test "trees of text" ef1ff1cc2942f2b5684c849d62be28f2b95a116c0b2b3b26a691e7ca57a28b41
+Main.test "trees of text" b99f34e63609b21d48c0e69259d9b44b906f652a11e4f56f54f73e5a0e68453e
 Main.test "leaf first" 6480346f0bf2adac5a99fe6f2d4b7bef139e4f3397cb80dbc55079626d02fe43
 Main.test "left subtree first" 457413bb1e87289f425f8a49243f0e2cbd03b92a65e6ce0372b011b22eb39d40
 Main.Entry.key 5affb69e2fc9500e213b2c2d8329c8bdb0746924575733a46fa9c519857033b4
@@ -64,7 +65,7 @@ Main.Entry.%complete e9ea0cf31b2fe0716e85a4e4ffed59aeb3013029c940726df827192871d
 Main.Entry.%instFinite 93257699b327591d70e36a3e34c46e9a16439391f05698c4c2ef32dd1a9dc74e
 Main.Entry.ext b7fbebefc4027644ad89ca6ceac673666592e544b6e2fb43656912683371453f
 Main.entries 25ddddf7c120567ad25364b2c768c45caa55a95350e29475e3cef96bb1469c62
-Main.test "two parameters" 183b417b63d26984fbce0f24d36f19910ab19cda7fc32beb39f7ed94bca2b908
+Main.test "two parameters" 2990493d8449524326a23e2489f8febcf7600ebf43c94e0ddaf3f9323cb89f10
 Main.Bounded.%tag 333b1f66132e48fa9047d2c4b45674d73e434e58b3280044fb33c41bbc219193
 Main.Bounded.%Within%0 413cd965b1dce3e3c50d6acf410bc9af46f5330c9a88bcf5d62f194c883d1ae9
 Main.Bounded.%Within%P%1 b7ae73cda27c31b926268ad9ff7969d808ed6b2deae81ce7794d61f54c26679b
@@ -90,6 +91,6 @@ Main.Bounded.%trans 14b2eb11c01c04bc708d68689bf1f90989e34a855f560fbe8acf0f676a8f
 Main.Bounded.%instOrd cbef4fdb60a449b829a8fa45eeba07bb143dd5531e714b0ec6b95d1a762e2d94
 Main.test "value parameter" da13e7ddb93ab51e139decb6111cb3e95ca9079185f6fe7a5eea5472b345dbf6
 Main.forest e6d3001dd0706e0940c6145173e479b4e00a45a170b2da4e10f690e834d1dd1b
-Main.test "nested instances" 2d11634c740e791f7e5624636093c3c1970919ca6022e9772340b47887a5ce1f
+Main.test "nested instances" f559e41b8261e63ec04c7f50aa300d8e6c31f297bf45118a1641db4cb611dc29
 Main.smallest e93d29193ec3557bc58b4b2146f32821399b3af0666bb850e6f7a96ac8db8ae5
 Main.test "generic" b861f595024a65577572b75ffa919e731a4c86fe3d346aac3bfac13d28b3bb3e

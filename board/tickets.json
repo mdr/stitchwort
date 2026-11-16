@@ -40524,12 +40524,12 @@
     {
       "id": 3610,
       "title": "[Opus] Formatter tree check independent of the tidy passes (SW-3606 audit): equivalence::shape compares the output with the tidied text, so a pass that changed meaning would not be caught. Compare with the original file's tree, normalising parameter groups (one binder per name) for P4 and the other intended changes; at least check passes 1-3 against the original. Failing-first test: a deliberately wrong pass is refused",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Lane (Opus, 16 Nov 2026, 15:44-15:58, est. 60 min), branch lane/SW-3610, commit d9b0978ad.\n- Tree check now parses the ORIGINAL file and compares with the output (crates/fmt/src/same_program.rs), shares no code with the passes.\n- Tolerated: only P4's merged groups show in the compiler's tree (Pi with several names); `one_binder_per_name` splits them on both sides, except a group whose type mentions its own names. P1 ∀, P2 trailing commas, P3 spare brackets aren't in the tree at all (P3 never drops Expr::Bracketed).\n- Failing-first test: a_tidy_pass_that_changes_the_program_is_refused (swapped args, dropped brackets that matter): Ok before, refused after.\n- Tests: stitchwort-fmt package 123/123; fuzz minimals (fmtbugs/, 26 files) all format; the_repository_sources_are_formatted passes: no repo file refused.\n- Cost: dev fmt-tree examples/accept (debug) 3.6 s -> 4.5 s user.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []

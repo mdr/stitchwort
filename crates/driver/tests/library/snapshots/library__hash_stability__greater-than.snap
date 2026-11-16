@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Suit 1b844bd5a200565c27b440cd488c868e35fe20ed1c2d46630dbc0f80297ca55d
@@ -31,7 +32,7 @@ Main.Suit.%complete 4fcbf65d6a5ef6a4f466398873f5eb4aa0e5976d9c143409ac944ca56fe4
 Main.Suit.%instFinite 5080312c861a17814c70f9246bcf5abb214c741267d5d120531d58b3f0b25540
 Main.test "Nat" 9ed5d08dcff48a57bab4be7d1fa65aa3f473d7283a99ed732f7b287ea540ffee
 Main.test "Int" eb913b51026d777a4658f36577bc2ce5bd6e61bc20460ca33e1f5f221ed80613
-Main.test "Text" c70c87083236aeb619930f5463ff5e2f3c445c44b2f68b9fcd3f08eacd2c4d43
+Main.test "Text" 06e9ff82f79ee15018e6c9404f22d4b0eb7b0f25a2349ff961284e10c4bb9730
 Main.test "a derived Ord" af20163bc14fc3181c778b7e0a54ae46d82404447c15191e6030dc40622bc135
 Main.test "not" 76504e34731e8361d5b4d08417441e3aac0d8198b64a206349c2809b7a99d02c
 Main.test "precedence" 9cde2b115c3af929e3c8d4fbd827ac436b5ab6475d16defeb3c61c98629cf783

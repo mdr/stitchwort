@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.ratio 8e8fe4ee66cf811b51f5f446a9829bd83c723359edcc91d53a6abf32474d1780
@@ -12,4 +13,4 @@ Main.test "Int.modNat by 0" 2b7afa3399247c9ed1b29e8c565818f865e21527ee842a211044
 Main.divByZero 13bba530e547df021156b5b6a1adcff15302617478dc150c35b816067fce9133
 Main.modByZero aae3fcd717e67f7275c77a879749a76770d8074481667271b78acf12d4811b0e
 Main.divisionLaw 35d06b0b5f07f0b8466c44a493602ad0dab7828f9c06843f0e4e95d9190c8320
-Main.intDivisionLaw f9d44b823bb77812f8a7434ef119f9c7c903f38def0a7b766c547bb37d1b0c90
+Main.intDivisionLaw c164ac50fafbee97721c34f86911bb40a399951fe370b4b5e4184fb1b14bf84e

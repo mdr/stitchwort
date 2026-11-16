@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Position db747cbf0cb136d27f1a5f306e0b8dcc3087e30dc362ecea4760b9dc442eb481
@@ -53,5 +54,5 @@ Main.test "walls stop it" 63fccf56c9af46e96d193e66d99380347156813615ba540615fd28
 Main.test "the far walls too" ff1b0cbf63f7d9794090acb98f1678dce86f0e946848e5d52469c2e276f09773
 Main.test "other keys do nothing" b700fd0692c0cececeb2b63bc1a4dfd029a7bad713eb8e25009c44b034bbcc4f
 Main.test "q stops it" 2fa2ccf950f273ba0f3bb6175c553b297df371c636a9bb6e12c9d77ea8c5e9b6
-Main.test "one frame per key, and one at the start" 30f233c7ca42561cba88e9b2e05271a29484c36b10105ab44207fb95c29b36ac
-Main.test "main on piped input" 28d91f3b02bfca955925792f475ec65024fccad2f5e9e7a094b66e1e38b32d35
+Main.test "one frame per key, and one at the start" 5325e4320524b08d1fab402f431c4c21d9b93f8269e6039a1ea19288fddbdbd5
+Main.test "main on piped input" 30c8ac4f4c6ede0d9b045eed83cb95d8f0c485f9025c3be53553f0be20920485

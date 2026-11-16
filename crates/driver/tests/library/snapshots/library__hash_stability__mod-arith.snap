@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.turns e7e30587d0a9570525ec81c224a0cee42cb84bafb5aaaea3fdf9531e2d69771a
@@ -16,7 +17,7 @@ Main.subWraps 13ed3058fafe9f33f0b973e6c6f55eb8c646040bdb84355acc9e2deb11fd03eb
 Main.negWraps c526f14e6cde8e68736a1391634c4d7977aa7ccedc7ca70eb01eb7f94ecdc8b6
 Main.modZero b117db8726c3d0bad07a31effb294f580bf5f73e49b86eb5335d1c1f2bb0eea7
 Main.addComm 5cab3188a9dfbbe82d4f0f53749c2a54af72012cd1891dfd33557c71aa1c7aa3
-Main.mulAssoc 59bb7ba7770c2c5e49540017e8c2c176aa2c936eeb7607a216631773de18790a
+Main.mulAssoc 8b77dccb316702e7b2b89d1ce3ba271956932e0349a95b54751f6a13fc32f716
 Main.subSelf 48a51aba2643c0a895590d0b5208eb0b05c83a0dfe551f0b95896626f5f38af6
 Main.bigWrap a3712af3a261fa259b00e7cb6f5a227ab437dac29d23804b1bc7fec44978501f
 Main.bigValue 90d04a850704afa45e1602d8aa043bfad51e52cf4fca15e17540114122ba28ea
@@ -24,4 +25,4 @@ Main.bigAdd 480727b836861e58f031a5129abacc57f21371c0b3bcbafe4ce89dec8b1ce392
 Main.finRound 407ca443865e2cb6349a284d72f4688cdb425a23459bc0ec2d4cc0c754d7d18b
 Main.test "toFin" 74170d8066648ec53b6c42049a2edb0a1c7338d8b831b322ebaff38b8cdae386
 Main.test "== and <" 3c25e7038f6d328638ea0813b5901791653d65f58d54c8ca248d4e5edd2ddf09
-Main.test "show" ee8ad30845358ee318cd93cdcebd4ab8f5e01f08e945075af5aea378405d5761
+Main.test "show" 1a6fbe7a104113194010923a572b6007d44462b17597976de5517df1d9bcdbf1

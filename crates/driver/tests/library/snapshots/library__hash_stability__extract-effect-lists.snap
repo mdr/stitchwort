@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Trace 40734dde6249251b446db94e9552283c4bbc12ddc0dc7b6e287e630c98b286f1
@@ -48,11 +49,11 @@ Main.filterFirstBad b99143e86c62c3327a0d151131384d875b384d6468f63c4a7e324f5ce4c8
 Main.partitionFirstBad c1607c221bf2f876fffefc00add5d0e897c69b1848337f52e2be70a599721c0c
 Main.countFirstBad be94cf90a3365a3ef276a1f63a7da05cb7b78141bcedf186352df8fd945ffa6a
 Main.allFirstBad a4394c61af01cd6f065249868a1bebf2e0a7e44a432201ceb58bbb7a280e85f6
-Main.test "filter: the first bad element" 42434d10a6bcdbaf17c8f48529fb8745b29453061028f2d91283601c2c55e77b
-Main.test "filter: all good" a263c1047ad46749c9cb21117ef7621795e521569c77fd1805b696a69da37077
-Main.test "partition: the first bad element" 5d95703d1f3ccd5ac62d047a95142072fe0c85db0b6ca654b73f82788c16e5ad
-Main.test "count: the first bad element" 7d4df7bd9a464643722095b0aae236532aebf9bae07bfd49ad683382350a12ed
-Main.test "all: the first bad element" 6c79e94fa05fc551b1d03194e7061ca91bd07ac410098b82df22a6d6f848aa27
+Main.test "filter: the first bad element" 0ee1a48c9dd9076814ba9ce0dfecfc0fe7814101331d2d78c1193199ed406128
+Main.test "filter: all good" 8de1688972cfa9bdb2c0818a698b3aa54e80446979d970b7439162e0b197d590
+Main.test "partition: the first bad element" 0d34ff8feeddaf00dda652c59cfc2347f78a5f5481dded0dac889c727571d5d5
+Main.test "count: the first bad element" 4434e54287a1c67a9854da06ed1ef2d1b6972abb52666b73d470c2a684fa341a
+Main.test "all: the first bad element" 85ef8eb08582df4fb746c3bfa75a8262b1b3c2e80a90b5d6fcb7174148c47125
 Main.pureFilter 3f522ae4eb659917d5bb6678eacf363e8c8dd3e3f981c7437326e05d584443b4
 Main.pureFilter.eq1 28ad810927d8cedba36ebd07592b27c09c537b3d6c476a86f238a30332a56469
 Main.pureFilter.eq2 e697e88e487db26ffca814dbdf9258894c463af64b6c33d54ed5258c7034015e

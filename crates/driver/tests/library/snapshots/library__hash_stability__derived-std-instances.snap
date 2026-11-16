@@ -1,14 +1,15 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.test "a record of the library compares" 297303323126156bbc737a9145574923a5635d5f94336580efe44e1159b1bb0b
 Main.test "records differing in a field are unequal" 1ed487850c1b1ee7bfb20c0fb3d9451591fb28b622158a18a8579fdad81f6ce8
 Main.test "a record of the library orders by its fields in turn" d0a3d4d5a38b08877172142690a95198aabf6d4ed8aaa055a1e43f5406d76ee1
-Main.test "its text lists the fields" dd100ea8a6e73cc40298a6bb0bdf8c1b29909bc9a111bb3f41f9fe25a6c4b1e3
+Main.test "its text lists the fields" aeb111507e5bd495d0a4f181cb051b701ce63cba1bc4b68ffa7a5654553ac77e
 Main.test "keys compare and keep their declaration order" 873b7dfb037f1b2170ae5264cf2c9c8c62031c14c76c5c03c293a051b559dcba
 Main.test "the kinds of a path" abd12f0ed6e51eeeb3c8dd0978486d86f8e993dbc2ecb61516ba24c4f57a927a
-Main.test "file errors compare by constructor, then by what they carry" a57c89b8ab2c97bf412105c06843a05d2131cd184acc71c3f9ab23f9a926d650
-Main.test "entries and file information compare" c39e137fc60fdece46ff5297f2124f6a73d289a34dc5a7f1b725f4d5ad452231
-Main.test "paths order by parts, then relative before absolute" c158fc0466704d73794dbe6b8dd49262c9a1c45aee2e6afa7fe27175377b04a9
-Main.test "disks compare" 796275e0302f0f5625c8861a0a671fd60dc8bd163bc62ada24bde59206945911
+Main.test "file errors compare by constructor, then by what they carry" 9b55cbb6fbf1b4f8231627defa424e76ac2b1469daa6dbc8819683fecfbff0f2
+Main.test "entries and file information compare" 18893ec0249acbef64f0ab9c72fa83c07ffe528b54e91c183c25dcdb94a1854a
+Main.test "paths order by parts, then relative before absolute" e92b935f18e509ebc17297787d3ee9a007e836a1bbfdd5e3f243e280845a6216
+Main.test "disks compare" 5c8b12ea22ad6980c467800c957c4509029e54e8c3148052f7352a7d2ceeea60

@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Range c441faa90e48c60d9a56c515925e8af6ae75506fc394aec6419c6600986e8260
@@ -44,10 +45,10 @@ Main.Database.%instOrd 3529ade0f0d1d5ee63f7b51483929c96e0e81cb6de27aa07c35233d55
 Main.Database.ext eb9086849227c5c0df46eaced57d8d8491bde15d8bf4e5b0449bdfc4c1952a8e
 Main.range 07ee5dc99d5a16aa21dc5fb1d910a45b937bf773c1e971ddb3de146cff3c56c5
 Main.database 3965f09a1481080df991bc60e31bb5c0f59efdea5d568f505878ebf8209e1981
-Main.parseDatabase 8bcae80520620c9cfec77d46bd2d0c53e96c1a3b5fa9d33abd6002c99ba345d8
-Main.test "database" ca696ed6406ed50609970f3f264b289ea0f105eb685d881d44a5de5678fd36b5
-Main.test "spaces around numbers" 3f02de7755113c257c3bfb20c15e69a3a27794f15fbb9bc5a9f4c2abf3cd696d
-Main.test "a bad id" f25ff814a92e9cc0ef9a615540f7533b4c6387f77941031add3af50cc58ad450
-Main.test "a bad range" 2bd50983e03ba0de6b8310507b0f4b57b38deab1344196c7622de32a806af749
-Main.test "a backwards range" 8d738f466f8930e62a7f89abc3025642e7fbc2b39c07dfe02b739bce874c7ed9
-Main.test "no blank line" a11971894200ba7e55daf7a36c833087e9be6c4cb635e3ffa11d91b20611669d
+Main.parseDatabase a1569035632d803a1d8b616b10334b1ecc2cf8585e46c69111aeae4576b5e424
+Main.test "database" 70ec804347a5de130d0718854788549c8b70e1a822d5f8cd14a62e566cbde70c
+Main.test "spaces around numbers" e53f1dab275c2a78021cc0c855498da0e6fdf28d67675dd0f8345185e73d66cf
+Main.test "a bad id" 121c0ccaca13c1382dd8316ba51222ff35f070863efe4cb021b7ea386c7cd62d
+Main.test "a bad range" 2745f87b4b4195bff1639d611b797396735576fc98b4d3ba2773835d102d1e26
+Main.test "a backwards range" 91900be2dd5cc6c5b3a8097260fe6a2a659ac1321529423a5140af94a5b455db
+Main.test "no blank line" 29fbee0b0301a6948fd5f2278dc2716713c31ee7a0994daea7743572201ce030

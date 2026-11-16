@@ -1,12 +1,13 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.twoSpans c6e9936a3117384ddd1cc27146d9d3886a17a5f7cedd7a6f910c453025850970
 Main.oneSpan 2bb245040b1cae3680ca8438fc308133ecebe34d79bc48ea08900e7b20ee5c8f
 Main.twoLambdas 5ce167d156f51d2af3882768a9bc85e4d16d1e94d1fae6b36075ea75607a406c
 Main.badSpan 98c29a6a74ff5229881e7d28081c2c62d87e66ea7137040303c8ae90790386b8
-Main.test "one lambda, two calls" 093732b090bc96e138e70da30cce7aec60f52a0e37e5227d950b1be53e00c048
-Main.test "one lambda, one call" 0fc97473814ce00659b5d7588735d42985665eb70c51728459fc41cdcb1ebfb1
-Main.test "two lambdas" f452fdb360c393ede971e335dc27e102a83f50e999fafb6e2bd45213bc4ddc34
-Main.test "a call that fails" 3408f2ec1fe7f18d21cf30ae079f8c7a99953da7c17d0b72f1ac94749a029bfd
+Main.test "one lambda, two calls" badd66cc3deef25e8feb6345614b3f5db8d6d7243c79dba4b0da1cead1723c1f
+Main.test "one lambda, one call" 0e05d1a0b23337770afa4976d5064054707b0f7656fb0be8937c552ef178725d
+Main.test "two lambdas" 6802d5864af9a5a3a97458f0179b75c8501f63c3f63691b76663afd42b5339f5
+Main.test "a call that fails" e2a9865686477efc167babf6388189dac869501a6de19694ff51dfaa3554c7bf

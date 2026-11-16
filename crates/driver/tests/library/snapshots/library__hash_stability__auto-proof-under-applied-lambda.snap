@@ -1,6 +1,7 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.congOverMod d00396cc0876037f6549f33d7b800128d0aa490516ede1633526d47bb801b050
-Main.congOverModSucc 15408e9ac11036d53f9f398b30d5d650f58aaa6d4dd6b003f48a21233bb7cf86
+Main.congOverModSucc 480af2c3861edfc4cc6733d72aac8aa39b794522797bf5ca80589d8357591ef8

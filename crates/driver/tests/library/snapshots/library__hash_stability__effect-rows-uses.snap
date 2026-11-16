@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Log 81059c4c5dcce55d38b91d239bd3d30e0cf21e8686fe7ecd2e6d51d19ebdfe22
@@ -12,8 +13,8 @@ Main.test "a pure use compared with ==" 67779ebd32eee795bb5552ec4920b982bc4b0cf2
 Main.useFirst a9bbf85b3c83fb88c3eb8f682b2a8de4f4261d2661896f4065485447d39265c2
 Main.test "a pure use on a computed receiver" 665e7bddb68047c8fca8c7cae4797be9ddaf93e6627fbe48bd159941dbe37917
 Main.halve f8c670523e5d67d6f0d2bd2dd931295a3953e6b803ad753c99099456733944aa
-Main.test "an effectful use, failing" 479f809eaaa2e89f3333d7157dcad3c3331f75c302655d47dc40e63593244f7c
-Main.test "an effectful use, succeeding" 8bff30575acaf964801ae15f82f7bfd040329f7c8c5befa1754a6b93ff457ea0
+Main.test "an effectful use, failing" 9abc5c3f3d524f940a76d8086273832affa0c36074abdb476425d78da4f67bf3
+Main.test "an effectful use, succeeding" faa9353ba832ad313c83c7e081748758b9fcdfafc7f91331a7c478dcc9fe7435
 Main.sayAndDouble ceee317d523afc6de1beccc010d073acc557162edc0b17fbd86952c6915383b9
 Main.ResultOf d662d75d331f3f0d0c29450b7b39626edacba5776bd045e138c8465cd7ad73e1
 Main.Answer 3565e1888bb065f8f9883e4d8e0a978f61101adb39f923ca2a7e8a11e1b882ee
@@ -69,4 +70,4 @@ Main.Hit.%trans c323f126c840b571a495d767ae701f83c5ddbfc40482947f29825b0354fe8158
 Main.Hit.%instOrd 4f2436e000eedee377c51b3d528dac7fa64f48ecac2ff4f6ff240944c376e0fd
 Main.Hit.ext ee58889506f62a40b48106923311e149bf0dc69496a1f57ce26d2e5f912775cd
 Main.prefixed 529cae7a7175bb74c10419271ecb2dd5d900cb4324a31512769a36e79cf82622
-Main.test "a constructor with a record literal, in a computation" 1c04e8cd727fc4b841f8beed3503014bccbd6554e0d24d23434ffeefa193e504
+Main.test "a constructor with a record literal, in a computation" 4b1ff385786132122ecceb0c5838eced2efef386d1f6e584fe71e0a2e16a6cf5

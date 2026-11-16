@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Shape 758618b1bd2d967456a25479d235a3ddc5737712affd88a07aa402a9dce21fa1
@@ -32,7 +33,7 @@ Main.radius 5d0c0eb092b80f8888dd12b764fb0afdcd7ce74e77fb8f086a42405ca37805fa
 Main.radius.eq1 cb577e62831433a7e381e980ddbef67bbfe1afdfbdc268bb2c2e18107e7139c6
 Main.radius.eq2 ce17c71baab5f69bbe3849183cf0cd2748e9023912a016dbea993c98c6cef0cc
 Main.test "patterns use the Stitchwort names" 00eca400f3d47ef74af0d8a697b3f4602fe09277dea0040ab3ce38384dd7231b
-Main.test "show uses the Stitchwort names" 09bf768e6b6f6d9f3a5604c3cd29c8af898e939fa7c54acfdb31105f3a877fba
+Main.test "show uses the Stitchwort names" d1a420146e9410ac1c820804111bc84c9be2040863d4105dc4c02d2f7ac1fe20
 Main.Point.x c78ca872cea2b82441d1a270515e32cf3fa150c72b715137752358615378a877
 Main.Point.y c889fd33c7333f54395fc02bf1205a5143b3932ded517e76d3a3a7e6735899cf
 Main.Point.%%mk%0 40b1192d77e199f46e786929402b203365227beb33eb76dcea495e81a20635ea
