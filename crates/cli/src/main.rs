@@ -293,6 +293,12 @@ enum Command {
             conflicts_with_all = ["project", "index", "only", "counterexamples"]
         )]
         std: bool,
+        /// With --std: also print the warnings the core and the library
+        /// files give (programs never see them), and a count by code and
+        /// file. Checks every file in full, without the check cache, since
+        /// a file the cache answers for has no warnings to give
+        #[arg(long, requires = "std")]
+        warnings: bool,
         /// The project folder (the one with `stitchwort.yaml`), if not the
         /// folder you're in or the nearest one above it
         #[arg(long)]
@@ -976,13 +982,15 @@ fn run(cli: Cli) -> ExitCode {
         Command::Check {
             targets,
             std: true,
+            warnings,
             cache,
             ..
-        } => check_std(&targets, &cache),
+        } => check_std(&targets, warnings, &cache),
         Command::Check {
             targets,
             std: false,
             project,
+            warnings: _,
             index,
             only,
             counterexamples,
@@ -1832,13 +1840,18 @@ fn write_index(
 /// `check --std`: the library files and folders `targets` name, with what
 /// they need, checked in full.
 #[inline(never)]
-fn check_std(targets: &[String], cache: &CacheArgs) -> ExitCode {
+fn check_std(targets: &[String], warnings: bool, cache: &CacheArgs) -> ExitCode {
     let mut session = new_session(false);
-    use_cache(&mut session, cache, Path::new("."));
+    if !warnings {
+        use_cache(&mut session, cache, Path::new("."));
+    }
     match session.elab.check_library_targets(targets) {
         Ok(files) => {
             let plural = if files.len() == 1 { "" } else { "s" };
             eprintln!("checked {} standard library file{plural}", files.len());
+            if warnings {
+                report_library_warnings(&session, &files);
+            }
             discard(session);
             ExitCode::SUCCESS
         }
@@ -1848,6 +1861,44 @@ fn check_std(targets: &[String], cache: &CacheArgs) -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// `check --std --warnings`: each warning the library gave, then a count
+/// by code and file. `named` are the library paths (`Nat/Arith.sw`) the
+/// check named; the core is always included.
+fn report_library_warnings(session: &Session, named: &[String]) {
+    let styled = |name: &str| {
+        name == "<prelude>"
+            || name
+                .strip_prefix("std/")
+                .is_some_and(|path| named.iter().any(|n| n == path))
+    };
+    let mut all = session.library_warning_report(&styled);
+    // The files the named ones need were elaborated too; theirs are for
+    // their own check.
+    all.retain(|d| {
+        d.primary_span()
+            .is_none_or(|s| styled(&session.sources.get(s.file).name))
+    });
+    all.sort_by_key(|d| {
+        d.primary_span().map_or((String::new(), 0), |s| {
+            (session.sources.get(s.file).name.clone(), s.start)
+        })
+    });
+    report(&session.sources, &all);
+    let mut counts: std::collections::BTreeMap<(String, String), usize> = Default::default();
+    for d in &all {
+        let file = d.primary_span().map_or_else(
+            || "?".to_string(),
+            |s| session.sources.get(s.file).name.clone(),
+        );
+        *counts.entry((d.code.to_string(), file)).or_default() += 1;
+    }
+    println!("code\tfile\tcount");
+    for ((code, file), n) in &counts {
+        println!("{code}\t{file}\t{n}");
+    }
+    eprintln!("{} library warning(s)", all.len());
 }
 
 #[inline(never)]

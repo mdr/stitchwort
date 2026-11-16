@@ -37,11 +37,11 @@ theorem Nat.mulSucc ∀ (n m: Nat): n * Succ m = n + n * m := match n with
   | Zero => byComputing
   | Succ n =>
     Eq.cong Succ
-      (Eq.trans
-        (Eq.cong (t => m + t) (Nat.mulSucc n m))
-        (Eq.trans
-          (Eq.flipped (Nat.addAssoc m n (n * m)))
-          (Eq.trans (Eq.cong (t => t + n * m) (Nat.addComm m n)) (Nat.addAssoc n m (n * m)))))
+      (calc m + n * Succ m
+        _ = m + (n + n * m) := Eq.cong (t => m + t) (Nat.mulSucc n m)
+        _ = (m + n) + n * m := Eq.flipped (Nat.addAssoc m n (n * m))
+        _ = (n + m) + n * m := Eq.cong (t => t + n * m) (Nat.addComm m n)
+        _ = n + (m + n * m) := Nat.addAssoc n m (n * m))
 
 theorem Nat.mulComm ∀ (n m: Nat): n * m = m * n := match n with
   | Zero => (Nat.mulZero m).flipped
@@ -89,13 +89,15 @@ theorem Int.ofNatAddSubNatNat ∀ (k m n: Nat): Int.add (OfNat k) (Int.subNatNat
     | Zero, Zero => Eq.trans (Eq.cong OfNat (Nat.addZero k)) (Int.subNatNatZeroRight k).flipped
     | Zero, Succ n => byComputing
     | Succ m, Zero =>
-      Eq.trans
-        (Eq.cong OfNat (Eq.trans (Nat.addSucc k m) (Eq.cong Succ (Nat.addComm k m))))
-        (Eq.flipped (Int.subNatNatZeroRight (Succ (m + k))))
+      calc Int.add (OfNat k) (Int.subNatNat (Succ m) 0)
+        _ = OfNat (Succ (k + m)) := Eq.cong OfNat (Nat.addSucc k m)
+        _ = OfNat (Succ (m + k)) := Eq.cong OfNat (Eq.cong Succ (Nat.addComm k m))
+        _ = Int.subNatNat (Succ (m + k)) 0 := Eq.flipped (Int.subNatNatZeroRight (Succ (m + k)))
     | Succ m, Succ n =>
-      Eq.trans
-        (Eq.cong (Int.add (OfNat k)) (Int.subNatNatSucc m n))
-        (Eq.trans (Int.ofNatAddSubNatNat k m n) (Eq.flipped (Int.subNatNatSucc (m + k) n)))
+      calc Int.add (OfNat k) (Int.subNatNat (Succ m) (Succ n))
+        _ = Int.add (OfNat k) (Int.subNatNat m n) := Eq.cong (Int.add (OfNat k)) (Int.subNatNatSucc m n)
+        _ = Int.subNatNat (m + k) n := Int.ofNatAddSubNatNat k m n
+        _ = Int.subNatNat (Succ (m + k)) (Succ n) := Eq.flipped (Int.subNatNatSucc (m + k) n)
 
 theorem Int.subNatNatAddOfNat ∀ (k m n: Nat): Int.add (Int.subNatNat m n) (OfNat k) = Int.subNatNat (m + k) n :=
   Eq.trans (Int.addComm (Int.subNatNat m n) (OfNat k)) (Int.ofNatAddSubNatNat k m n)
@@ -108,9 +110,10 @@ theorem Int.negSuccAddSubNatNat ∀ (k m n: Nat):
     | Zero, Succ n => Eq.cong (t => NegSucc (Succ t)) (Nat.addComm k n)
     | Succ m, Zero => byComputing
     | Succ m, Succ n =>
-      Eq.trans
-        (Eq.cong (Int.add (NegSucc k)) (Int.subNatNatSucc m n))
-        (Eq.trans (Int.negSuccAddSubNatNat k m n) (Eq.flipped (Int.subNatNatSucc m (Succ (n + k)))))
+      calc Int.add (NegSucc k) (Int.subNatNat (Succ m) (Succ n))
+        _ = Int.add (NegSucc k) (Int.subNatNat m n) := Eq.cong (Int.add (NegSucc k)) (Int.subNatNatSucc m n)
+        _ = Int.subNatNat m (Succ (n + k)) := Int.negSuccAddSubNatNat k m n
+        _ = Int.subNatNat (Succ m) (Succ (Succ (n + k))) := Eq.flipped (Int.subNatNatSucc m (Succ (n + k)))
 
 theorem Int.subNatNatAddNegSucc ∀ (k m n: Nat):
     Int.add (Int.subNatNat m n) (NegSucc k) = Int.subNatNat m (Succ (n + k)) :=
@@ -123,19 +126,17 @@ theorem Int.addAssoc ∀ (a b c: Int): Int.add (Int.add a b) c = Int.add a (Int.
       (Eq.cong (t => Int.subNatNat t (Succ c)) (Nat.addComm a b))
       (Eq.flipped (Int.ofNatAddSubNatNat a b (Succ c)))
   | OfNat a, NegSucc b, OfNat c =>
-    Eq.trans
-      (Int.subNatNatAddOfNat c a (Succ b))
-      (Eq.trans
-        (Eq.cong (t => Int.subNatNat t (Succ b)) (Nat.addComm a c))
-        (Eq.flipped (Int.ofNatAddSubNatNat a c (Succ b))))
+    calc Int.add (Int.subNatNat a (Succ b)) (OfNat c)
+      _ = Int.subNatNat (a + c) (Succ b) := Int.subNatNatAddOfNat c a (Succ b)
+      _ = Int.subNatNat (c + a) (Succ b) := Eq.cong (t => Int.subNatNat t (Succ b)) (Nat.addComm a c)
+      _ = Int.add (OfNat a) (Int.subNatNat c (Succ b)) := Eq.flipped (Int.ofNatAddSubNatNat a c (Succ b))
   | NegSucc a, OfNat b, OfNat c => Int.subNatNatAddOfNat c b (Succ a)
   | OfNat a, NegSucc b, NegSucc c => Int.subNatNatAddNegSucc c a (Succ b)
   | NegSucc a, OfNat b, NegSucc c =>
-    Eq.trans
-      (Int.subNatNatAddNegSucc c b (Succ a))
-      (Eq.trans
-        (Eq.cong (t => Int.subNatNat b (Succ (Succ t))) (Nat.addComm a c))
-        (Eq.flipped (Int.negSuccAddSubNatNat a b (Succ c))))
+    calc Int.add (Int.subNatNat b (Succ a)) (NegSucc c)
+      _ = Int.subNatNat b (Succ (Succ (a + c))) := Int.subNatNatAddNegSucc c b (Succ a)
+      _ = Int.subNatNat b (Succ (Succ (c + a))) := Eq.cong (t => Int.subNatNat b (Succ (Succ t))) (Nat.addComm a c)
+      _ = Int.add (NegSucc a) (Int.subNatNat b (Succ c)) := Eq.flipped (Int.negSuccAddSubNatNat a b (Succ c))
   | NegSucc a, NegSucc b, OfNat c =>
     Eq.trans
       (Eq.cong (t => Int.subNatNat c (Succ (Succ t))) (Nat.addComm a b))
@@ -194,23 +195,28 @@ theorem Int.signedMulRight ∀ (a: Int) (s: Bool) (k: Nat):
     | OfNat n, True, Zero => rewrite Nat.mulZero n then byComputing
     | NegSucc n, True, Zero => rewrite Nat.mulZero (Succ n) then byComputing
 
-theorem Int.mulAssoc ∀ (a b c: Int): Int.mul (Int.mul a b) c = Int.mul a (Int.mul b c) :=
-  Eq.trans
-    (Eq.cong (t => Int.mul t c) (Int.mulSigned a b))
-    (Eq.trans
-      (Int.signedMulLeft (Bool.xor (Int.isNeg a) (Int.isNeg b)) (Int.natAbs a * Int.natAbs b) c)
-      (Eq.trans
-        (Eq.trans
-          (Eq.cong
-            (s => Int.signed s ((Int.natAbs a * Int.natAbs b) * Int.natAbs c))
-            (Bool.xorAssoc (Int.isNeg a) (Int.isNeg b) (Int.isNeg c)))
-          (Eq.cong
-            (Int.signed (Bool.xor (Int.isNeg a) (Bool.xor (Int.isNeg b) (Int.isNeg c))))
-            (Nat.mulAssoc (Int.natAbs a) (Int.natAbs b) (Int.natAbs c))))
-        (Eq.flipped
-          (Eq.trans
-            (Eq.cong (Int.mul a) (Int.mulSigned b c))
-            (Int.signedMulRight a (Bool.xor (Int.isNeg b) (Int.isNeg c)) (Int.natAbs b * Int.natAbs c))))))
+theorem Int.mulAssoc ∀ (a b c: Int): Int.mul (Int.mul a b) c = Int.mul a (Int.mul b c) := calc Int.mul (Int.mul a b) c
+  _ = Int.mul (Int.signed (Bool.xor (Int.isNeg a) (Int.isNeg b)) (Int.natAbs a * Int.natAbs b)) c :=
+    Eq.cong (t => Int.mul t c) (Int.mulSigned a b)
+  _ = Int.signed
+      (Bool.xor (Bool.xor (Int.isNeg a) (Int.isNeg b)) (Int.isNeg c))
+      ((Int.natAbs a * Int.natAbs b) * Int.natAbs c) :=
+    Int.signedMulLeft (Bool.xor (Int.isNeg a) (Int.isNeg b)) (Int.natAbs a * Int.natAbs b) c
+  _ = Int.signed
+      (Bool.xor (Int.isNeg a) (Bool.xor (Int.isNeg b) (Int.isNeg c)))
+      ((Int.natAbs a * Int.natAbs b) * Int.natAbs c) :=
+    Eq.cong
+      (s => Int.signed s ((Int.natAbs a * Int.natAbs b) * Int.natAbs c))
+      (Bool.xorAssoc (Int.isNeg a) (Int.isNeg b) (Int.isNeg c))
+  _ = Int.signed
+      (Bool.xor (Int.isNeg a) (Bool.xor (Int.isNeg b) (Int.isNeg c)))
+      (Int.natAbs a * (Int.natAbs b * Int.natAbs c)) :=
+    Eq.cong
+      (Int.signed (Bool.xor (Int.isNeg a) (Bool.xor (Int.isNeg b) (Int.isNeg c))))
+      (Nat.mulAssoc (Int.natAbs a) (Int.natAbs b) (Int.natAbs c))
+  _ = Int.mul a (Int.signed (Bool.xor (Int.isNeg b) (Int.isNeg c)) (Int.natAbs b * Int.natAbs c)) :=
+    Eq.flipped (Int.signedMulRight a (Bool.xor (Int.isNeg b) (Int.isNeg c)) (Int.natAbs b * Int.natAbs c))
+  _ = Int.mul a (Int.mul b c) := Eq.flipped (Eq.cong (Int.mul a) (Int.mulSigned b c))
 
 theorem Int.oneMul ∀ (a: Int): Int.mul (OfNat 1) a = a := match a with
   | OfNat n => Eq.cong OfNat (Nat.addZero n)
