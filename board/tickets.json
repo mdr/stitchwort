@@ -39764,12 +39764,12 @@
     {
       "id": 3552,
       "title": "[DeepSeek] Errors E6: did-you-mean for locals and unqualified names via edit_distance (docs/proposals/helpful-errors.md §5 rank 6). Est. 30 min",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~16 min (est. 30).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
