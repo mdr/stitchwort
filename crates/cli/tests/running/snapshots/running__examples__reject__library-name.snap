@@ -1,5 +1,6 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
+assertion_line: 700
 expression: output
 ---
 [E-UNKNOWN-NAME] Error: unknown name `split`
@@ -11,3 +12,4 @@ expression: output
    │ 
    │ Note: the library has `Std.Text.split`: write it in full, or `import Std.Text (split)`
 ───╯
+try: add `import Std.Text (split)`
