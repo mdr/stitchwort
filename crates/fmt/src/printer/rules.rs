@@ -647,9 +647,11 @@ impl<'a> Rules<'a> {
         unfolding: Option<Element<'_>>,
     ) -> Doc {
         let head_doc = self.join(head);
+        let mut comment_after_colon = false;
         let (colon, ty) = match result {
             Some(Element::Node(result)) => {
                 let inner: Vec<Element> = result.children().collect();
+                comment_after_colon = self.trivia[Self::last(inner[0])].trailing.is_some();
                 let colon = self.el(inner[0]);
                 let ty = self.join(&inner[1..]);
                 (Some(colon), Some(ty))
@@ -661,8 +663,15 @@ impl<'a> Rules<'a> {
             let mut parts = vec![head_doc];
             if let (Some(colon), Some(ty)) = (colon, ty) {
                 parts.push(colon);
-                parts.push(Doc::text(" "));
-                parts.push(Doc::nest(4, ty));
+                if comment_after_colon {
+                    // A comment break would start the type at the depth its
+                    // own continuation lines use; it starts its own line
+                    // instead, at 4, with the lines after it.
+                    parts.push(Doc::nest(4, Doc::concat([Doc::HardLine, ty])));
+                } else {
+                    parts.push(Doc::text(" "));
+                    parts.push(Doc::nest(4, ty));
+                }
             }
             if let Some(unfolding) = unfolding {
                 parts.push(Doc::nest(4, Doc::concat([Doc::Line, unfolding])));

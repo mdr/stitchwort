@@ -771,3 +771,21 @@ fn a_comment_inside_the_header_puts_the_body_below_it() {
         "theorem t ∀\n    (h: a = -- c\n      3):\n    3 = a :=\n  calc 3\n    _ = a := h\n",
     );
 }
+
+#[test]
+fn a_comment_after_a_result_colon_starts_the_type_on_its_own_line() {
+    // SW-3537: the type's continuation lines were left of its first line.
+    check(
+        "theorem t: -- c\n f 2 = Some\n-- c\n (R 2) := rfl\n",
+        "theorem t: -- c\n    f 2 = Some\n    -- c\n    (R 2) :=\n  rfl\n",
+    );
+}
+
+#[test]
+fn an_else_may_line_up_with_an_if_whose_binder_a_comment_moved_down() {
+    // SW-3538: the parser measured `else` against the binder's line.
+    check(
+        "def f (b: Bool): Nat := if\n-- c\n h: b then 1 else 0\n",
+        "def f (b: Bool): Nat :=\n  if\n    -- c\n    h: b then\n    1\n  else 0\n",
+    );
+}
