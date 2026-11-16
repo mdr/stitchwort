@@ -1,10 +1,20 @@
-//! The surface syntax tree, as written by the user: what the elaborator reads.
+//! The surface syntax tree the elaborator reads: what the user wrote, with
+//! the shorthands below already expanded.
 //!
 //! It is not built by the parser. The parser marks constructs in the lossless
 //! tree ([`crate::tree`]), and the lowering ([`crate::lower`]) builds this
-//! tree from it, expanding shorthand (a chain, a method section, `let (a, b)
-//! = e`) into the forms below, so a new construct's grammar goes in the parser
-//! and its meaning in the lowering (docs/syntax.md, "Where to add syntax").
+//! tree from it. Five written forms arrive here expanded, not as written:
+//!
+//! - `let (a, b) := e` (or another pattern) is a one-alternative `match`;
+//! - a chain `a <= b < c` is `a <= b && b < c`, a non-atomic middle operand
+//!   bound once with `let %chain…`;
+//! - a section `.f` is `%section => %section.f`;
+//! - a tuple of three or more is nested pairs, `(a, (b, c))`;
+//! - a text with interpolations is its pieces joined with `++`, each
+//!   interpolation `Std.Show.toText e`.
+//!
+//! So a new construct's grammar goes in the parser and its meaning in the
+//! lowering (docs/syntax.md, "Where to add syntax").
 
 use num_bigint::BigUint;
 
