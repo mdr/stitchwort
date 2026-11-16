@@ -393,13 +393,12 @@ say that sources differing in a comment, its text, its place, a blank
 line, an operator, brackets, a string or the order of two declarations
 have different trees, and two layouts have the same one.
 
-### `formatKeepsComments` (P4): stated, not proved
+### `formatKeepsComments` (P4): why it was bigger than estimated
 
-`src/KeepsComments.sw` here states it as the note has it, with
-`Lexed.comments` (`Toy/Syntax/Lex.sw`, 3 definitions, reading the
-lexer's answer only), and proves it from `formatRoundTrip` and
-`parseCarries` (the tree holds the lexer's comments), which is proved
-from three open lemmas [checked]:
+SW-3632 stated it as the note has it, with `Lexed.comments`
+(`Toy/Syntax/Lex.sw`, 3 definitions, reading the lexer's answer only),
+and proved it from `formatRoundTrip` and `parseCarries` (the tree holds
+the lexer's comments), which it left resting on three open lemmas:
 
 - `tokensCarry`: the walk, finished;
 - `lexTidy`: a token that doesn't start a line has no own-line comments
@@ -448,11 +447,113 @@ Why:
    "an expression reads at least one token" (from 5) and a lemma from
    one mark.
 
-What is left [estimated]: the leaves and `skip` helpers (8), the head
-spec (10), the expression walk (14), items (3), bodies, statements and
-blocks (12), declarations and the file (10), the two lexer lemmas (10 to
-20, by the fold `lexTexts` uses), and joining them (3): 70 to 80 lemmas,
-about 2 hours of agent time at this lane's rate (about 45 lemmas and
-examples in 30 minutes, the easy ones first). T2 then adds one carry
-lemma per new parser function, and T3's `closed` and rule N change what
-`tokensCarry` says (`lexed.settled.tokens`, with `settledKeepsComments`).
+## T1c: `formatKeepsComments` proved on today's toy (SW-3641)
+
+Fable, 16 November 2026 (D3664). **[checked]**: `stitchwort check` in
+`tools/toyfmt` (13 namespaces, also with `--no-cache`) and here (49
+goals open again), and `stitchwort audit Toy.Fmt.Carry
+Toy.Fmt.KeepsComments Toy.Fmt.Degenerate` (0 failed, 0 with warnings).
+
+The theorem is in the toy, `Toy/Fmt/KeepsComments.sw`, with the
+statement unchanged, and `Degenerate.sw` has `formatHasKeepsComments:
+KeepsComments format`. The three open lemmas became two: `tokensCarry`
+(the walk) and `lexFits` (the lexer's tokens are `Tidy` and `Rising`,
+together, as the walk's `Parse.Invariant`).
+
+| File | Theorems | Lines | Holds |
+|---|---|---|---|
+| `Toy/Fmt/CarryProofs.sw` | 26 | 372 | the tree's comments, the specs (`Inner`, `Onto`, `Opened`, `Started`, `ExprSpec`), the chain lemmas, and `Parse.ReadsAt` versions of five std lemmas |
+| `Toy/Fmt/CarryWalk.sw` | 85 | 1,401 | the walk over the 49 parser functions, to `tokensCarry` |
+| `Toy/Fmt/CarryLex.sw` | 16 | 293 | `lexFits`, by `assemble`'s fold |
+| `Toy/Fmt/KeepsComments.sw` | 2 and 7 examples | 95 | `parseCarries`, `formatKeepsComments` |
+
+129 theorems, about 2,100 lines, in about 40 minutes of agent time
+against the 2 hours estimated (a third of it; the note's "15 to 25
+lemmas" was 5 times low in lemmas, the 2 hours 3 times high in time).
+
+### What changed outside the proofs
+
+`itemsFrom`'s `Zero` arm now fails the parse (`Parse.fatal`), as
+`bodyFuel`'s does, in place of returning `[]`. Returning
+`found.reverse` would have broken `givesItemsFrom` (the last item found
+may keep a comma's comments, so `BareLastItem` fails of the reversed
+list); a fatal arm needs no fuel argument in either walk. The arm is
+unreachable, and `runsItemsFrom` and the read-back theorems check
+unchanged. **[orchestrator's or Matt's call: the brief allowed
+`found.reverse`, not this.]**
+
+### What each kind of parser function cost
+
+| Kind | Functions | Lemmas each | Lines each | How |
+|---|---|---|---|---|
+| a token (`sign`, `keyword`, `name`) | 3 | 1 | 8 | `Parse.readsOne`, then `innerOne` |
+| a chain of steps (`item`, `items`, `parameterStep`, `parameterList`, `postfix`, `block`, `functionLine`, `valueLine`, …) | about 20 | 1 | 6 to 15 | `andThen` per step, `lastly` at the end; the comments' equation is `byComputing` |
+| look, then skip (`atom`, `signInBrackets`, `negationsFrom`, `elseKeyword`, `expressionRule`, `statement`, `declaration`, `bodyFuel`) | 8 | 2 | 25 to 45 | a lemma from the mark for the case that skips (`skipStarted`, `skipOnto`), and a dispatcher over what is next |
+| look, then try under `optional` (`suffixesFrom`) | 1 | 6 | 110 | the dearest: the value looked at is in a `let`, so the lemma goes through `Parse.readsAtThen` and a lemma about what was seen |
+| a loop over fuel (`itemsFrom`, `negationsFrom`, `suffixesFrom`, `bodyFuel`) | 4 | +0 or +1 | | induction on the fuel inside the lemma |
+| `Parse.operators` | 1 | 3 | 60 | `readsOperatorsRead` and one `OperatorJoins` proof |
+| pure helpers (`notedStatement`, `withCommas`, `fileOf`, `Layout.headed`) | 6 | 1 to 3 | 10 to 25 | list inductions |
+
+So T2 pays one lemma of 6 to 15 lines for a new function that is a
+chain, and two of about 35 lines together for one that looks at the next
+token. A new *tree form* costs a line in `Expr.comments` and, if it can
+be leftmost, one in `withoutFirstAboveSame`.
+
+### What recurred
+
+- **`before` as a function, not a list.** `Onto layout before measure`
+  says `measure value = before (comments still to read)`. With `before`
+  a list (`before ++ …`, as SW-3632 had it) every chain ended in a
+  reassociation proof; with a function the end is `byComputing`, or one
+  `List.appendNil` where a chain ends in a token (7 places).
+- **One spec for "read after the first token" (`Inner`)** covers every
+  step but the first, and inside brackets covers the first too, so the
+  walk has no `started` flag and two conversions (`openedInner`,
+  `bracketsInner`).
+- **A lemma from the mark for each case that skips**, stated with the
+  computation written out (`skip()` then the constructor). Inside a
+  `match e: start.rest` the goal is unfolded, and a lemma whose implicit
+  arguments must be read off the goal doesn't elaborate there; one whose
+  arguments are all explicit does. This is the main cost above the
+  first walk.
+- **`(rewrite e then fine)`**, about 50 times: the `match` refines the
+  hypothesis `fine`, and a lemma applied in the branch still expects it
+  of `start.rest`.
+- **The invariant carried the lexer's facts** (`Tidy`, `Rising`) to the
+  two places that use them (`inlineClear`, `firstCarried`); no walk
+  lemma mentions them.
+
+### For T2, T3 and the real formatter
+
+- T2: the walk's lemmas are one per function and follow the first
+  walk's shape; a new function's lemma is written when the function is.
+  Keep every "look, then skip" as its own named function with the token
+  as an argument (as `atomOf`, `callAfter` and `fieldAfter` are): the
+  lemma from the mark can then name the computation. `suffixesFrom`
+  shows what it costs otherwise.
+- T3: rule N changes what the parser reads (`lexed.settled.tokens`), so
+  `tokensCarry` then needs `Lexer` of the settled tokens and
+  `settledKeepsComments` beside it; `closed` adds no tokens, so the walk
+  itself should not change.
+- The real formatter: `parseCarries` is a property of the parser alone
+  and can be proved before any printer exists. Its size follows the
+  parser's function count (here 1.7 lemmas and about 29 lines a
+  function), and the lexer's half is small if the lexer's theorem says
+  offsets rise and where own-line comments go.
+
+### What belongs in std
+
+- `Parse.readsAtWeaken`, `Parse.readsAtDone`, `Parse.readsAtOptional`,
+  `Parse.readsAtPeek`, `Parse.readsAtMark` (`CarryProofs.sw`): the
+  `Parse.ReadsAt` versions of `readsWeaken`, `readsDone`,
+  `readsOptional`, `readsInPeek` and `readsWithMark`. Std has
+  `readsAtThen` and `readsAtSpan` only.
+- `readsOperatorsRead` (`Toy/Syntax/OperatorReads.sw`, SW-3632).
+- `flatMapAppend`, `flatMapConcat` (`CarryWalk.sw`); `allReverse`
+  (`List.All` of a reversed list) and `takenStops` (where a `takeWhile`
+  took `read` of `read ++ rest`, it takes nothing of `rest`)
+  (`CarryLex.sw`).
+- A lemma that `Parse.locatedSteps` gives rising offsets would replace
+  `Falling` and `fallingRising` for any lexer built on
+  `Parse.locatedToEnd`.
+

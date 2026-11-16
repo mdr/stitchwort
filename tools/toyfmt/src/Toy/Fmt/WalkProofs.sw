@@ -159,7 +159,7 @@ theorem givesItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (headed: HeadedItems found):
     Parse.Gives GoodTokens (() => itemsFrom fuel self found) ParsedList :=
   match fuel with
-    | Zero => Parse.givesDone ((((byComputing, byComputing)), byComputing, byComputing))
+    | Zero => Parse.readsFatal _ _
     | Succ more => Parse.givesThen (givesItem self nested) (read parsed =>
       match read, parsed with
         | ({ value, comma }, True), (((valueShaped, bare)), ((valueLexical, commaFine)), valueHeaded) =>

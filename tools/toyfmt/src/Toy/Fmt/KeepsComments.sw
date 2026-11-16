@@ -1,11 +1,12 @@
---| `formatKeepsComments` on today's toy (D3663, stage T1b): stated, and
---| proved from the parser's half, `parseCarries`, which rests on three
---| open lemmas. It is here and not in `Toy.Fmt.Proofs` because they are
---| open (SKETCH-PLUS.md, "T1b").
+--| `formatKeepsComments`: formatting keeps every comment, with the same
+--| text and in the same order.
 --|
 --| The statement is between two texts and reads them with `lex` and
 --| `Lexed.comments` only. The tree's comments (`SourceFile.comments`) are
---| the proof's middle term and appear in no statement about `format`.
+--| the proof's middle term and appear in no statement about `format`:
+--| the parser's half (`parseCarries`) says the tree holds exactly the
+--| lexer's comments, and `formatRoundTrip` says the output parses to the
+--| source's tree.
 
 namespace Toy.Fmt.KeepsComments
 import Toy.Fmt (..)
@@ -14,38 +15,10 @@ import Toy.Fmt.Proofs (..)
 import Toy.Syntax (..)
 import Std (Bool, List, Nat, Option, Parse, Result, Text)
 
--- What the parser's half rests on. Each is open; SKETCH-PLUS.md ("T1b")
--- says how each is to be proved.
-
---| A token that doesn't start a line has no own-line comments above it:
---| the lexer gives those to the first token of the next line.
-def Tidy (token: Tok): Prop := token.value.startsLine = False → token.value.above.flatMap Trivia.comments = []
-
---| Each number below all those after it.
-def Rising: List Nat → Prop
-  | [] => True
-  | [first, ..later] => List.All (other => first < other) later ∧ Rising later
-
-theorem lexTidy ∀ (source: Text) (lexed: Lexed) (lexes: lex source = Ok lexed): List.All Tidy lexed.tokens := ?
-
---| No two tokens start at one place, so only a statement's first token is
---| at its layout's `start`.
-theorem lexRising ∀ (source: Text) (lexed: Lexed)
-    (lexes: lex source = Ok lexed):
-    Rising (lexed.tokens.map (token => token.offset)) :=
-  ?
-
---| The walk (`Toy.Fmt.Carry`), finished: a file read from the lexer's
---| tokens holds their comments, then the end's.
-theorem tokensCarry ∀ (tokens: List Tok) (endTrivia: List Trivia) (file: SourceFile)
-    (tidy: List.All Tidy tokens)
-    (rising: Rising (tokens.map (token => token.offset)))
-    (whole: Parse.whole tokens (() => sourceFile endTrivia) = Ok file):
-    file.comments = allCarried tokens ++ endTrivia.flatMap Trivia.comments :=
-  ?
-
 --| The parser's half: the tree holds exactly the comments the lexer
---| found, in the same order.
+--| found, in the same order. The lexer's tokens are tidy and at rising
+--| offsets (`lexFits`), and the walk over the parser's functions gives
+--| the tree's comments from such tokens (`tokensCarry`).
 theorem parseCarries ∀ (source: Text) (lexed: Lexed) (tree: SourceFile)
     (lexes: lex source = Ok lexed)
     (parsed: parse source = Ok tree):
@@ -57,10 +30,7 @@ theorem parseCarries ∀ (source: Text) (lexed: Lexed) (tree: SourceFile)
           let sameTree: file = tree := Result.okInjective parsed
           let sameLexed: tokens = lexed := Result.okInjective lexes
           rewrite <- sameTree, <- sameLexed then
-            tokensCarry tokens.tokens tokens.endTrivia file
-              (lexTidy source tokens found)
-              (lexRising source tokens found)
-              whole
+            tokensCarry tokens.tokens tokens.endTrivia file (lexFits source tokens found) whole
 
 --| Formatting keeps every comment, with the same text and in the same
 --| order: the comments the lexer finds in the output are those it finds

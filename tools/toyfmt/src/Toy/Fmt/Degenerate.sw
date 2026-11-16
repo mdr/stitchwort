@@ -2,9 +2,8 @@
 --| theorems by a computed example. A theorem that no formatter could fail
 --| says nothing, so each statement here is restated for any formatter
 --| (`SameTree`, `KeepsComments`, `RoundTrips`), and a degenerate formatter
---| is refuted on one small source. `format` has `SameTree` and
---| `RoundTrips` by the theorems of those names; `formatKeepsComments` is
---| stated in `tools/toyfmt/plus` until the parser's half of it is proved.
+--| is refuted on one small source. `format` has all three by the theorems
+--| of those names.
 --|
 --| The last part shows the tree telling files apart: sources that differ
 --| in a comment, a blank line, an operator or the order of two
@@ -13,6 +12,7 @@
 
 namespace Toy.Fmt.Degenerate
 import Toy.Fmt (..)
+import Toy.Fmt.KeepsComments (formatKeepsComments)
 import Toy.Fmt.Proofs (..)
 import Toy.Syntax (..)
 import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Result, Text, Void)
@@ -41,6 +41,8 @@ def RoundTrips (formatter: Formatter): Prop :=
     = Formatted output) => ∃ (tree: SourceFile) => parse source = Ok tree ∧ parse output = Ok tree
 
 theorem formatHasSameTree: SameTree format := formatSameTree
+
+theorem formatHasKeepsComments: KeepsComments format := formatKeepsComments
 
 theorem formatRoundTrips: RoundTrips format := source width output formats =>
   match formatRoundTrip source width output formats with | (tree, parsed, same, reparsed) => (tree, parsed, reparsed)
