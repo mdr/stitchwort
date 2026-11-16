@@ -170,10 +170,10 @@ instance FileError.instShow: Show FileError := Show.fromText FileError.show
 --| executables); in Stitchwort code, [`Files.simulate`] interprets them on a
 --| [`Disk`]. Symbolic links are followed.
 ability Files where
-  read: Path → {Files} (Result Text FileError) -- the whole file, as UTF-8 text
-  write: (Path, Text) → {Files} (Result () FileError) -- replaces the file whole, or creates it; never creates a folder
-  list: Path → {Files} (Result (List Entry) FileError) -- a folder's entries, sorted by name
-  info: Path → {Files} (Result FileInfo FileError) -- what is at the path
+  read: Path → {Files} Result Text FileError -- the whole file, as UTF-8 text
+  write: (Path, Text) → {Files} Result () FileError -- replaces the file whole, or creates it; never creates a folder
+  list: Path → {Files} Result (List Entry) FileError -- a folder's entries, sorted by name
+  info: Path → {Files} Result FileInfo FileError -- what is at the path
 
 -- The pretend disk
 

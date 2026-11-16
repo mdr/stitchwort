@@ -25,7 +25,7 @@ type Terminal.Size = { columns: Nat, rows: Nat }
 --| The three operations: keys in, whole frames out.
 -- (D1247)
 ability Terminal where
-  readKey: () → {Terminal} (Option Key) -- the next key; None only at end of input
+  readKey: () → {Terminal} Option Key -- the next key; None only at end of input
   draw: List Text → {Terminal} () -- replaces the whole screen with these lines
   size: () → {Terminal} Terminal.Size -- the screen's size (80 by 24 when it isn't known)
 

@@ -23,14 +23,14 @@ type Console = {
 -- (docs/proposals/terminal-io.md §4)
 ability IO where
   print: Text → {IO} () -- writes the text, then a line ending
-  readLine: () → {IO} (Option Text) -- None only at end of input
+  readLine: () → {IO} Option Text -- None only at end of input
   readAll: () → {IO} Text -- the rest of the input, all at once
   console: () → {IO} Console -- whether input and output are terminals, and the size
   keysMode: Bool → {IO} () -- enter (True) or leave (False) keys mode
-  readBytes: () → {IO} (Option (List Nat)) -- the bytes of one read; None at end of input
+  readBytes: () → {IO} Option (List Nat) -- the bytes of one read; None at end of input
   write: Text → {IO} () -- the text with no line ending, then flush
   randomSeed: () → {IO} Nat -- a fresh 64-bit number each run, from the host's entropy; 0 in `IO.simulate`
-  args: () → {IO} (List Text) -- the arguments after the program's name; none in `IO.simulate`
+  args: () → {IO} List Text -- the arguments after the program's name; none in `IO.simulate`
   printError: Text → {IO} () -- writes the text, then a line ending, on standard error; dropped by `IO.simulate`
 
 --| The first line of scripted input, if there is one.
