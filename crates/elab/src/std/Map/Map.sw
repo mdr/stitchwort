@@ -1326,15 +1326,25 @@ theorem Map.getIndexByFrom ∀ [auto ord: Ord k] (key: a → k) (kk: k) (xs: Lis
       match e: Ord.compare kk (key x) with
         | Equal =>
           rewrite ord.equal kk (key x) e then
-            Eq.trans
-              (Map.getIndexByFrom key (key x) rest (Map.insertWith m (key x) x (newer older => older)))
-              (Eq.trans
-                (Eq.cong
+            calc Map.get
+              (List.foldLeft rest
+                (Map.insertWith m (key x) x (newer older => older))
+                (index element => Map.insertWith index (key element) element (newer older => older)))
+              (key x)
+              _ = Option.orElse
+                  (Map.get (Map.insertWith m (key x) x (newer older => older)) (key x))
+                  (List.find rest (y => Map.Spec.sameKey (key x) (key y))) :=
+                Map.getIndexByFrom key (key x) rest (Map.insertWith m (key x) x (newer older => older))
+              _ = Option.orElse
+                  (Some (Map.Tree.combine (newer older => older) x (Map.get m (key x))))
+                  (List.find rest (y => Map.Spec.sameKey (key x) (key y))) :=
+                Eq.cong
                   (o => Option.orElse o (List.find rest (y => Map.Spec.sameKey (key x) (key y))))
-                  (Map.getInsertWith m (key x) x (newer older => older)))
-                (match c: Map.get m (key x) with
+                  (Map.getInsertWith m (key x) x (newer older => older))
+              _ = Option.orElse (Map.get m (key x)) (List.find [x, ..rest] (y => Map.Spec.sameKey (key x) (key y))) :=
+                match c: Map.get m (key x) with
                   | None => byComputing
-                  | Some o => byComputing))
+                  | Some o => byComputing
         | Less =>
           Eq.trans
             (Map.getIndexByFrom key kk rest (Map.insertWith m (key x) x (newer older => older)))
@@ -1590,10 +1600,10 @@ theorem Map.inductionToList ∀ [auto ord: Ord k] [p: Map k v → Prop] (base: p
       let back: Map.insert (Map.remove m kk) kk vv = m := Map.ext ((m.remove kk).insert kk vv) m (other =>
         if e: other = kk then rewrite e then Eq.trans (Map.getInsert kk vv (m.remove kk)) found.flipped
         else Eq.trans (Map.getInsertOther kk vv other e (m.remove kk)) (Map.getRemoveOther m kk other e))
-      let smaller: Map.toList (Map.remove m kk) = rest :=
-        Eq.trans
-          (Map.toListRemove m kk)
-          (Eq.trans (Eq.cong (Map.Spec.remove kk) h) (Map.Spec.removeEqual kk kk vv rest (Ord.compareSelf kk)))
+      let smaller: Map.toList (Map.remove m kk) = rest := calc Map.toList (Map.remove m kk)
+        _ = Map.Spec.remove kk (Map.toList m) := Map.toListRemove m kk
+        _ = Map.Spec.remove kk [(kk, vv), ..rest] := Eq.cong (Map.Spec.remove kk) h
+        _ = rest := Map.Spec.removeEqual kk kk vv rest (Ord.compareSelf kk)
       rewrite Eq.flipped back then
         step kk vv
           (Map.remove m kk)

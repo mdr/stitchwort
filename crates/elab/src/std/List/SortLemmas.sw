@@ -1473,17 +1473,22 @@ theorem List.occurrencesSplit ∀ [auto eq: DecEq a] (xs: List a) (v: a) (p: a �
         | True, False => byComputing
         | False, True => byComputing
         | False, False => byComputing
-      Eq.trans
-        (Eq.cong (t => t + List.occurrences xs p) one)
-        (Eq.trans
-          (Eq.cong
-            (t => (Bool.toNat (p x ∧ ¬(x == v)) + Bool.toNat (p x ∧ (x == v))) + t)
-            (List.occurrencesSplit xs v p))
-          (Nat.addSwap
+      calc List.occurrences [x, ..xs] p
+        _ = Bool.toNat (p x) + List.occurrences xs p := byComputing
+        _ = (Bool.toNat (p x ∧ ¬(x == v)) + Bool.toNat (p x ∧ (x == v))) + List.occurrences xs p :=
+          Eq.cong (t => t + List.occurrences xs p) one
+        _ = (Bool.toNat (p x ∧ ¬(x == v)) + Bool.toNat (p x ∧ (x == v)))
+            + (List.occurrences xs (y => p y ∧ ¬(y == v)) + List.occurrences xs (y => p y ∧ (y == v))) :=
+          Eq.cong (t => (Bool.toNat (p x ∧ ¬(x == v)) + Bool.toNat (p x ∧ (x == v))) + t) (List.occurrencesSplit xs v p)
+        _ = (Bool.toNat (p x ∧ ¬(x == v)) + List.occurrences xs (y => p y ∧ ¬(y == v)))
+            + (Bool.toNat (p x ∧ (x == v)) + List.occurrences xs (y => p y ∧ (y == v))) :=
+          Nat.addSwap
             (Bool.toNat (p x ∧ ¬(x == v)))
             (Bool.toNat (p x ∧ (x == v)))
             (List.occurrences xs (y => p y ∧ ¬(y == v)))
-            (List.occurrences xs (y => p y ∧ (y == v)))))
+            (List.occurrences xs (y => p y ∧ (y == v)))
+        _ = List.occurrences [x, ..xs] (y => p y ∧ ¬(y == v)) + List.occurrences [x, ..xs] (y => p y ∧ (y == v)) :=
+          byComputing
 
 --| Counting at `x` in a list without `x` finds nothing.
 theorem List.occurrencesAbsent ∀ [auto eq: DecEq a] (xs: List a) (x: a) (p: a → Bool)

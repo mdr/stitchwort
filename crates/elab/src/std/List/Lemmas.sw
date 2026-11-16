@@ -2591,14 +2591,18 @@ theorem List.countEqDistinct ∀ [auto eq: DecEq a] (v: a) (xs: List a)
   match xs, h with
     | [], d => byComputing
     | [y, ..ys], Both notMem d =>
-      Eq.trans
-        (Eq.trans (List.countCons ys y (== v)) (Eq.cong (n => Bool.toNat (y == v) + n) (List.countEqDistinct v ys d)))
-        (match same: y == v with
+      let finish: Bool.toNat (y == v) + Bool.toNat (List.contains ys v) = Bool.toNat (List.contains [y, ..ys] v) :=
+        match same: y == v with
           | True =>
             match later: List.contains ys v with
               | True => Void.impossible (notMem (rewrite same.read then later.read))
               | False => byComputing
-          | False => byComputing)
+          | False => byComputing
+      calc List.count [y, ..ys] (== v)
+        _ = Bool.toNat (y == v) + List.count ys (== v) := List.countCons ys y (== v)
+        _ = Bool.toNat (y == v) + Bool.toNat (List.contains ys v) :=
+          Eq.cong (n => Bool.toNat (y == v) + n) (List.countEqDistinct v ys d)
+        _ = Bool.toNat (List.contains [y, ..ys] v) := finish
 
 --| What `(.find p)` finds passes any other test some element passes.
 theorem List.findAny ∀ (xs: List a) (p q: a → Bool) (y: a)

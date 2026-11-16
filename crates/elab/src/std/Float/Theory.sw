@@ -371,17 +371,19 @@ theorem Float.Theory.largestOdd: ¬(Float.Theory.IsEven 9218868437227405311) := 
 theorem Float.Theory.overflowHalf ∀ (b: Nat):
     Float.Theory.magUnits 9218868437227405311 * b + Float.Theory.magUnits 9218868437227405312 * b
       = b * Float.Theory.overflowUnits + b * Float.Theory.overflowUnits :=
-  Eq.trans
-    (Eq.flipped
-      (Nat.mulDistribRight (Float.Theory.magUnits 9218868437227405311) (Float.Theory.magUnits 9218868437227405312) b))
-    (Eq.trans
-      (Eq.cong
+  calc Float.Theory.magUnits 9218868437227405311 * b + Float.Theory.magUnits 9218868437227405312 * b
+    _ = (Float.Theory.magUnits 9218868437227405311 + Float.Theory.magUnits 9218868437227405312) * b :=
+      Eq.flipped
+        (Nat.mulDistribRight (Float.Theory.magUnits 9218868437227405311) (Float.Theory.magUnits 9218868437227405312) b)
+    _ = (Float.Theory.overflowUnits + Float.Theory.overflowUnits) * b :=
+      Eq.cong
         (k => k * b)
         (byComputing: Float.Theory.magUnits 9218868437227405311 + Float.Theory.magUnits 9218868437227405312
-          = Float.Theory.overflowUnits + Float.Theory.overflowUnits))
-      (Eq.trans
-        (Nat.mulDistribRight Float.Theory.overflowUnits Float.Theory.overflowUnits b)
-        (Eq.cong (k => k + k) (Nat.mulComm Float.Theory.overflowUnits b))))
+          = Float.Theory.overflowUnits + Float.Theory.overflowUnits)
+    _ = Float.Theory.overflowUnits * b + Float.Theory.overflowUnits * b :=
+      Nat.mulDistribRight Float.Theory.overflowUnits Float.Theory.overflowUnits b
+    _ = b * Float.Theory.overflowUnits + b * Float.Theory.overflowUnits :=
+      Eq.cong (k => k + k) (Nat.mulComm Float.Theory.overflowUnits b)
 
 theorem Float.Theory.largestBelow ∀ (b: Nat)
     (pos: 0 < b):
@@ -1180,13 +1182,15 @@ theorem Float.Theory.roundMagnitudeSpec ∀ (n den: Nat) (s: Int)
       (Float.Theory.powShift c a)
       cEq
   let relc: Float.Theory.upPow c * Nat.pow 2 a = Nat.pow 2 d * 9007199254740992 * Float.Theory.downPow c :=
-    Eq.trans
-      (algebra: Float.Theory.upPow c * Nat.pow 2 a = Float.Theory.upPow c * 1 * Nat.pow 2 a)
-      (Eq.trans shifted
-        (Eq.trans
-          (Eq.cong (x => x * Float.Theory.downPow c) (Nat.powAdd 2 d 53))
-          (algebra: Nat.pow 2 d * Nat.pow 2 53 * Float.Theory.downPow c
-            = Nat.pow 2 d * 9007199254740992 * Float.Theory.downPow c)))
+    calc Float.Theory.upPow c * Nat.pow 2 a
+      _ = Float.Theory.upPow c * 1 * Nat.pow 2 a :=
+        (algebra: Float.Theory.upPow c * Nat.pow 2 a = Float.Theory.upPow c * 1 * Nat.pow 2 a)
+      _ = Nat.pow 2 (d + 53) * Float.Theory.downPow c := shifted
+      _ = Nat.pow 2 d * Nat.pow 2 53 * Float.Theory.downPow c :=
+        Eq.cong (x => x * Float.Theory.downPow c) (Nat.powAdd 2 d 53)
+      _ = Nat.pow 2 d * 9007199254740992 * Float.Theory.downPow c :=
+        (algebra: Nat.pow 2 d * Nat.pow 2 53 * Float.Theory.downPow c
+          = Nat.pow 2 d * 9007199254740992 * Float.Theory.downPow c)
   let lowc: den * Float.Theory.downPow c * 4503599627370496 < n * Float.Theory.upPow c :=
     Float.Theory.firstLow n den
       (Float.Theory.upPow c)
