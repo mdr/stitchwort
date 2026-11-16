@@ -39171,15 +39171,17 @@
     {
       "id": 3507,
       "title": "[Sonnet] Parse proofs L5: declines toolkit for token parsers and runsRecursiveWithFact; the toy's declines lemmas and runsExpressionFuel onto them. Est. 40 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Progress (lane/SW-3507, 86fa4193e): 13 std lemmas in Parse/Runs.sw (declinesFail, Note, Peek, OptionalThen, ManyThen, Operators, DeclinesAll, OneOfFrom, OneOf, RecursiveWith, runsRecursiveWithFactFuel, runsRecursiveWithFact, recursiveFacts). Toy: operatorsDecline, fuelDeclines, runsExpressionFuel deleted; postfixDeclines, expressionDeclines, runsExpression onto std. atomDeclines and negationsDecline stay (declinesPeek not usable: rewrite of reserved kind finds nothing after the peek step). Checks pass; prelude snapshot +13 Std.Parse lines.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
-      "commits": []
+      "commits": [
+        "86fa4193e"
+      ]
     },
     {
       "id": 3508,
