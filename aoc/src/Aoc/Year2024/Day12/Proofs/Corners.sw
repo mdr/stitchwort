@@ -580,15 +580,15 @@ theorem cornersEqualSides ∀ (inside: Nat → Nat → Bool) (last: Nat)
       (totalCong size (row => total size (column => corners inside row column)) (row => 2 * rowStarts row) (row =>
         arithmetic [rowCorners inside last row (right row)]))
       (totalDouble size rowStarts)
-  let byColumns :=
-    Eq.trans
-      (totalSwap size size (row column => corners inside row column))
-      (Eq.trans
-        (totalCong size
-          (column => total size (row => corners inside row column))
-          (column => 2 * columnStarts column)
-          (column => arithmetic [columnCorners inside last column (bottom column)]))
-        (totalDouble size columnStarts))
+  let byColumns := calc total size (row => total size (column => corners inside row column))
+    _ = total size (column => total size (row => corners inside row column)) :=
+      totalSwap size size (row column => corners inside row column)
+    _ = total size (column => 2 * columnStarts column) :=
+      totalCong size
+        (column => total size (row => corners inside row column))
+        (column => 2 * columnStarts column)
+        (column => arithmetic [columnCorners inside last column (bottom column)])
+    _ = 2 * total size columnStarts := totalDouble size columnStarts
   let startsSplit :=
     Eq.trans
       (totalCong size
