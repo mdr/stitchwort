@@ -39764,7 +39764,7 @@
     {
       "id": 3552,
       "title": "[DeepSeek] Errors E6: did-you-mean for locals and unqualified names via edit_distance (docs/proposals/helpful-errors.md §5 rank 6). Est. 30 min",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
