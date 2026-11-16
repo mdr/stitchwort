@@ -1,0 +1,5 @@
+# expect-error: E-PARSE
+# A namespace with a syntax error is shown first, and the namespaces that
+# use it don't report unknown names or warnings that only follow from its
+# declarations being missing: one line says so (SW-3475).
+sources: [src]
