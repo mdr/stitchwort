@@ -67,6 +67,7 @@ use crate::matching::same;
 use crate::undo::{Snapshot, fatal};
 
 mod as_written;
+mod repeatedly;
 mod under;
 
 /// Evaluation steps all the comparisons of one `rewrite` may use between
@@ -164,6 +165,7 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
         at,
         then,
         span,
+        ..
     } = expr
     else {
         unreachable!("only called on a rewrite with a target");
@@ -214,6 +216,7 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
             None,
             &mut remaining,
             &mut stats,
+            false,
         ) {
             Ok(steps) => {
                 let used = cx.e.take_rule();
@@ -304,12 +307,22 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         at,
         then,
         span,
+        ..
     } = expr
     else {
         unreachable!("only called on a rewrite");
     };
     if target.is_some() {
         return Ok(rewrite_at(cx, expr, Some(expected))?.0);
+    }
+    if matches!(
+        expr,
+        Expr::Rewrite {
+            repeatedly: Some(_),
+            ..
+        }
+    ) {
+        return repeatedly::rewrite_repeatedly(cx, expr, expected);
     }
     let extra = [Some(*keyword), *at, *then]
         .into_iter()
@@ -339,6 +352,7 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             body.as_deref(),
             &mut remaining,
             &mut stats,
+            false,
         ) {
             Ok(found) => {
                 let used = cx.e.take_rule();
@@ -442,6 +456,9 @@ struct Step {
     /// `G[rhs]`: what the rest of the `rewrite` proves (or the target's new
     /// type).
     goal: Value,
+    /// The rule's two sides as used, its unknowns solved: what
+    /// `rewrite repeatedly` replaces in the goal as written.
+    sides: Box<(Value, Value)>,
 }
 
 /// What the searches did, for [`report`].
@@ -550,6 +567,9 @@ impl Equation {
 /// Explicit arguments left off the end are unknowns, as if written `_`
 /// (`rewrite Nat.addComm` is `rewrite Nat.addComm _ _`).
 fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equation> {
+    if rule.unfold {
+        return repeatedly::unfold_equation(cx, rule);
+    }
     let g = cx.g();
     let rule_metas = cx.metas().metas.borrow().len();
     let outer = cx.e.decl.hole_log.replace(Some(Vec::new()));
@@ -825,6 +845,10 @@ fn rewrite_once(
     body: Option<&Expr>,
     remaining: &mut u64,
     stats: &mut Stats,
+    // For `rewrite repeatedly`, where a rule that finds nothing is skipped:
+    // its error is a bare `E-REWRITE-NOTHING`, without the searches that
+    // explain it.
+    quiet: bool,
 ) -> Result<Vec<Step>> {
     let g = cx.g();
     let goal_value = force(&g, goal.clone())?;
@@ -914,7 +938,7 @@ fn rewrite_once(
             (&current, &current_term),
             remaining,
         )? {
-            as_written::First::Kept(replaced) => (replaced, true),
+            as_written::First::Kept(replaced) => (*replaced, true),
             first => {
                 let before = Snapshot::take(cx);
                 let replaced = match replace_solving_instances(
@@ -985,6 +1009,12 @@ fn rewrite_once(
     }
     if let Some(e) = under::missing_lemma(cx, rule, place, &equation.lhs, &skipped.missing) {
         return Err(e);
+    }
+    if quiet {
+        return Err(Diagnostic::error(
+            "E-REWRITE-NOTHING",
+            "the rule's left side isn't in the goal",
+        ));
     }
     let as_written = match place {
         Place::Goal => goal_as_written(cx, written, &goal_value)?,
@@ -1445,6 +1475,7 @@ fn replace_occurrences_carrying(
             motive,
             proof: equation.to_lhs.clone(),
             goal: next,
+            sides: Box::new((equation.lhs.clone(), equation.rhs.clone())),
         }),
         stats: found,
     })
@@ -2371,6 +2402,7 @@ fn other_direction_rewrites(
     let attempt = Snapshot::take(cx);
     let flipped = RewriteRule {
         reverse: !rule.reverse,
+        unfold: rule.unfold,
         proof: rule.proof.clone(),
         span: rule.span,
     };

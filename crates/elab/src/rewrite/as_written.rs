@@ -57,7 +57,7 @@ use crate::undo::{Snapshot, fatal, recoverable, recovered};
 
 /// What [`first`] came to.
 pub(super) enum First {
-    Kept(Replaced),
+    Kept(Box<Replaced>),
     /// Found as written, but a check ran out of resources before it could
     /// say whether a copy is hidden: [`unconfirmed`] may use it if the usual
     /// search runs out too.
@@ -88,7 +88,7 @@ pub(super) fn first(
             Mode::Complete,
             Reading::Folded,
         )? {
-            (Some(replaced), _) => First::Kept(replaced),
+            (Some(replaced), _) => First::Kept(Box::new(replaced)),
             (None, Outcome::RanOut) => First::RanOut,
             (None, _) => First::Not,
         },

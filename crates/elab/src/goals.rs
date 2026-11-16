@@ -203,6 +203,8 @@ pub enum StepForm {
     Arm,
     /// A rule of `rewrite r1, r2 then t`, or of `rewrite … at h`.
     RewriteRule,
+    /// One rewrite of `rewrite repeatedly [rules]`, by the rule it names.
+    RepeatedRule,
     /// A line `_ R e` of a `calc`.
     CalcLine,
     /// A lambda's parameter.
@@ -220,6 +222,7 @@ impl StepForm {
             StepForm::Match => "match",
             StepForm::Arm => "arm",
             StepForm::RewriteRule => "rewriteRule",
+            StepForm::RepeatedRule => "rewriteRepeatedly",
             StepForm::CalcLine => "calcLine",
             StepForm::Lambda => "lambda",
             StepForm::Let => "let",

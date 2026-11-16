@@ -743,6 +743,19 @@ fn is_fact(cx: &Ctx, ty: &Value) -> bool {
 
 // The closers.
 
+/// `cases`' closers that don't split or search: a contradiction among the
+/// hypotheses, a hypothesis of the goal's type, or a part of one. For
+/// `rewrite repeatedly`, after computing has failed to close the goal.
+pub(crate) fn close_by_hypotheses(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
+    if let Some(term) = by_contradiction(cx, goal, &visible(cx))? {
+        return Ok(Some(term));
+    }
+    if let Some(term) = by_hypothesis(cx, goal)? {
+        return Ok(Some(term));
+    }
+    by_hypothesis_part(cx, goal)
+}
+
 fn by_computation(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
     if let Value::Eq(_, l, r) = force(&cx.g(), goal.clone())?
         && cx.conv_now(&l, &r)?
