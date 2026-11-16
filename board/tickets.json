@@ -41357,12 +41357,12 @@
     {
       "id": 3672,
       "title": "[Sonnet] Tuple marker scope (SW-3670 review findings 1, 3; docs/reviews/SW-3566-tuple-patterns.md): mark a split as a tuple only when every row splitting that column wrote a tuple, so a written MkPair isn't read as Both by row order; a tuple row followed by a written Both row should work. Reject + accept examples, failing first",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Model result: sonnet, worked, 11 min (est. 40). Also fixed Both-then-tuple (not in review).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
