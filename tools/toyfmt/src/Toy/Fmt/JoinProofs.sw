@@ -87,7 +87,7 @@ theorem meetsAdmits ∀ (text: Text) (closing: Closing text) (edge: Edge) (meets
 theorem freeEnters ∀ (expr: Expr) (edge: Edge) (free: Free edge): Enters expr edge := match edge, free with
   | Plain None, _ => rfl
   | Edge.Waiting, _ => rfl
-  | Plain (Some word), any => Both (text opens => any text) (minus => any "-")
+  | Plain (Some word), any => ((text opens => any text), (minus => any "-"))
 
 theorem looseEnters ∀ (expr: Expr) (edge: Edge) (loose: Loose edge): Enters expr edge :=
   freeEnters expr edge (looseFree edge loose)
@@ -125,20 +125,22 @@ theorem minusEnters ∀ (operand: Expr) (edge: Edge)
     | Edge.Waiting, _ => rfl
     | Plain (Some word), same =>
       rewrite same in
-        Both (text opens => minusBefore text opens) (minus =>
-          Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym plain) minus)))
+        (
+          (text opens => minusBefore text opens),
+          (minus => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym plain) minus)))
+        )
 
-theorem closingSpace: Closing " " := later => Both rfl (Both rfl rfl)
+theorem closingSpace: Closing " " := later => (rfl, rfl, rfl)
 
-theorem closingOpen: Closing "(" := later => Both rfl (Both rfl rfl)
+theorem closingOpen: Closing "(" := later => (rfl, rfl, rfl)
 
-theorem closingClose: Closing ")" := later => Both rfl (Both rfl rfl)
+theorem closingClose: Closing ")" := later => (rfl, rfl, rfl)
 
-theorem closingSquare: Closing "]" := later => Both rfl (Both rfl rfl)
+theorem closingSquare: Closing "]" := later => (rfl, rfl, rfl)
 
-theorem closingComma: Closing "," := later => Both rfl (Both rfl rfl)
+theorem closingComma: Closing "," := later => (rfl, rfl, rfl)
 
-theorem closingDot: Closing "." := later => Both rfl (Both rfl rfl)
+theorem closingDot: Closing "." := later => (rfl, rfl, rfl)
 
 -- The triples.
 
@@ -162,50 +164,50 @@ theorem properAppend ∀ (front back: List Text)
     AllProper (front ++ back) :=
   match front, first with
     | [], _ => second
-    | [piece, ..rest], Both head others => Both head (properAppend rest back others second)
+    | [piece, ..rest], Both head others => (head, (properAppend rest back others second))
 
 theorem properWord ∀ (text: Text) (proper: Proper text): AllProper (wordsOf [text]) := match layout: isLayout text with
   | True => rfl
-  | False => Both proper rfl
+  | False => (proper, rfl)
 
 theorem passesFrom ∀ (doc: Doc) (pre weaker post: Edge → Prop)
     (passes: Passes doc pre post) (implies: ∀ (edge: Edge) => weaker edge → pre edge):
     Passes doc weaker post :=
-  match passes with
-    | Both proper joins => Both proper (edge next holds after => joins edge next (implies edge holds) after)
+  match passes with | (proper, joins) => (proper, (edge next holds after => joins edge next (implies edge holds) after))
 
 theorem passesTo ∀ (doc: Doc) (pre post weaker: Edge → Prop)
     (passes: Passes doc pre post) (implies: ∀ (edge: Edge) => post edge → weaker edge):
     Passes doc pre weaker :=
   match passes with
-    | Both proper joins =>
-      Both proper (edge next holds after => joins edge next holds (left reached => after left (implies left reached)))
+    | (proper, joins) =>
+      (proper, (edge next holds after => joins edge next holds (left reached => after left (implies left reached))))
 
 theorem allFrom ∀ (docs: List Doc) (pre weaker post: Edge → Prop)
     (passes: PassesAll docs pre post) (implies: ∀ (edge: Edge) => weaker edge → pre edge):
     PassesAll docs weaker post :=
-  match passes with
-    | Both proper joins => Both proper (edge next holds after => joins edge next (implies edge holds) after)
+  match passes with | (proper, joins) => (proper, (edge next holds after => joins edge next (implies edge holds) after))
 
 theorem allTo ∀ (docs: List Doc) (pre post weaker: Edge → Prop)
     (passes: PassesAll docs pre post) (implies: ∀ (edge: Edge) => post edge → weaker edge):
     PassesAll docs pre weaker :=
   match passes with
-    | Both proper joins =>
-      Both proper (edge next holds after => joins edge next holds (left reached => after left (implies left reached)))
+    | (proper, joins) =>
+      (proper, (edge next holds after => joins edge next holds (left reached => after left (implies left reached))))
 
 theorem passesNil ∀ (pre post: Edge → Prop) (implies: ∀ (edge: Edge) => pre edge → post edge): PassesAll [] pre post :=
-  Both rfl (edge next holds after => after edge (implies edge holds))
+  (rfl, (edge next holds after => after edge (implies edge holds)))
 
 theorem passesCons ∀ (doc: Doc) (docs: List Doc) (pre middle post: Edge → Prop)
     (first: Passes doc pre middle)
     (rest: PassesAll docs middle post):
     PassesAll [doc, ..docs] pre post :=
   match first, rest with
-    | Both proper joins, Both restProper restJoins =>
-      Both (properAppend doc.words (wordsAll docs) proper restProper) (edge next holds after =>
+    | (proper, joins), (restProper, restJoins) => (
+      (properAppend doc.words (wordsAll docs) proper restProper),
+      (edge next holds after =>
         joins edge (between => JoinsAll standsBefore docs between next) holds (between reached =>
           restJoins between next reached after))
+    )
 
 --| The last of a list.
 theorem passesLast ∀ (doc: Doc) (pre post: Edge → Prop) (only: Passes doc pre post): PassesAll [doc] pre post :=
@@ -253,8 +255,10 @@ theorem passesConcat ∀ (docs: List Doc) (pre post: Edge → Prop)
     (each: PassesAll docs pre post):
     Passes (Doc.concat docs) pre post :=
   match each with
-    | Both proper joins => Both (rewrite concatWords docs in proper) (edge next holds after =>
-      concatJoins docs edge next (joins edge next holds after))
+    | (proper, joins) => (
+      (rewrite concatWords docs in proper),
+      (edge next holds after => concatJoins docs edge next (joins edge next holds after))
+    )
 
 theorem passesTwo ∀ (first second: Doc) (pre middle post: Edge → Prop)
     (one: Passes first pre middle)
@@ -278,14 +282,14 @@ theorem textJoins ∀ (text: Text) (edge: Edge) (next: Edge → Prop)
     (admits: Admits text edge) (reached: next (Plain (Some text))):
     WriteJoins standsBefore edge text next :=
   match solid with
-    | Both filled (Both noGap layout) =>
+    | (filled, noGap, layout) =>
       let touched: next (Plain (textTouch text)) := rewrite touchSolid text layout in reached
       match text.isEmpty, filled with
         | True, never => Void.exfalso (Bool.falseNotTrue (Eq.sym never))
         | False, _ =>
           match edge, admits with
-            | Plain None, _ => Both rfl touched
-            | Plain (Some word), ok => Both (rewrite gapSolid text noGap in ok) touched
+            | Plain None, _ => (rfl, touched)
+            | Plain (Some word), ok => ((rewrite gapSolid text noGap in ok), touched)
             | Edge.Waiting, _ =>
               match text.all (char => char == ' '), noGap with
                 | False, _ => touched
@@ -295,48 +299,63 @@ theorem passesText ∀ (text: Text)
     (solid: Solid text)
     (proper: Proper text):
     Passes (Doc.text text) (Admits text) (edge => edge = Plain (Some text)) :=
-  Both (properWord text proper) (edge next admits after => textJoins text edge next solid admits (after _ rfl))
+  ((properWord text proper), (edge next admits after => textJoins text edge next solid admits (after _ rfl)))
 
 --| A space, after anything a space may follow.
-theorem passesSpace: Passes (Doc.text " ") Meets Loose := Both rfl (edge next meets after =>
-  match edge, meets with
-    | Plain None, _ => Both rfl (after (Plain None) rfl)
-    | Plain (Some word), any => Both (any " " closingSpace) (after (Plain None) rfl)
-    | Edge.Waiting, _ => after Edge.Waiting rfl)
+theorem passesSpace: Passes (Doc.text " ") Meets Loose := (
+  rfl,
+  (edge next meets after =>
+    match edge, meets with
+      | Plain None, _ => (rfl, (after (Plain None) rfl))
+      | Plain (Some word), any => ((any " " closingSpace), (after (Plain None) rfl))
+      | Edge.Waiting, _ => after Edge.Waiting rfl)
+)
 
 --| The empty text `Negate` writes before an operand that doesn't start
 --| with `-`.
 theorem passesNothing ∀ (pre: Edge → Prop): Passes (Doc.text "") pre pre :=
-  Both rfl (edge next holds after => after edge holds)
+  (rfl, (edge next holds after => after edge holds))
 
-theorem passesLine: Passes Line Meets Loose := Both rfl (edge next meets after =>
-  match edge, meets with
-    | Plain None, _ => Both rfl (after (Plain None) rfl)
-    | Plain (Some word), any => Both (any " " closingSpace) (after (Plain None) rfl)
-    | Edge.Waiting, _ => after (Plain None) rfl)
+theorem passesLine: Passes Line Meets Loose := (
+  rfl,
+  (edge next meets after =>
+    match edge, meets with
+      | Plain None, _ => (rfl, (after (Plain None) rfl))
+      | Plain (Some word), any => ((any " " closingSpace), (after (Plain None) rfl))
+      | Edge.Waiting, _ => after (Plain None) rfl)
+)
 
 theorem passesHard ∀ (pre: Edge → Prop): Passes HardLine pre Loose :=
-  Both rfl (edge next holds after => after (Plain None) rfl)
+  (rfl, (edge next holds after => after (Plain None) rfl))
 
 theorem passesCommentEnd ∀ (pre: Edge → Prop): Passes CommentEnd pre Loose :=
-  Both rfl (edge next holds after => after (Plain None) rfl)
+  (rfl, (edge next holds after => after (Plain None) rfl))
 
 theorem passesSoft ∀ (pre post: Edge → Prop) (keeps: ∀ (edge: Edge) => pre edge → post edge) (fresh: post (Plain None)):
     Passes SoftLine pre post :=
-  Both rfl (edge next holds after =>
-    match edge, holds with
-      | Plain touching, holds => Both (after (Plain touching) (keeps (Plain touching) holds)) (after (Plain None) fresh)
-      | Edge.Waiting, _ => after (Plain None) fresh)
+  (
+    rfl,
+    (edge next holds after =>
+      match edge, holds with
+        | Plain touching, holds => ((after (Plain touching) (keeps (Plain touching) holds)), (after (Plain None) fresh))
+        | Edge.Waiting, _ => after (Plain None) fresh)
+  )
 
-theorem passesStart ∀ (pre: Edge → Prop): Passes LineStart pre Loose := Both rfl (edge next holds after =>
-  match edge with
-    | Plain touching => after (Plain None) rfl
-    | Edge.Waiting => Both (after Edge.Waiting rfl) (after (Plain None) rfl))
+theorem passesStart ∀ (pre: Edge → Prop): Passes LineStart pre Loose := (
+  rfl,
+  (edge next holds after =>
+    match edge with
+      | Plain touching => after (Plain None) rfl
+      | Edge.Waiting => ((after Edge.Waiting rfl), (after (Plain None) rfl)))
+)
 
-theorem passesStartHere ∀ (pre: Edge → Prop): Passes LineStartHere pre Loose := Both rfl (edge next holds after =>
-  match edge with
-    | Plain touching => after (Plain None) rfl
-    | Edge.Waiting => Both (after Edge.Waiting rfl) (after (Plain None) rfl))
+theorem passesStartHere ∀ (pre: Edge → Prop): Passes LineStartHere pre Loose := (
+  rfl,
+  (edge next holds after =>
+    match edge with
+      | Plain touching => after (Plain None) rfl
+      | Edge.Waiting => ((after Edge.Waiting rfl), (after (Plain None) rfl)))
+)
 
 theorem passesBelow ∀ (doc: Doc) (pre post: Edge → Prop) (passes: Passes doc Loose post): Passes (below doc) pre post :=
   passesTwo HardLine doc pre Loose post (passesHard pre) passes
@@ -344,15 +363,15 @@ theorem passesBelow ∀ (doc: Doc) (pre post: Edge → Prop) (passes: Passes doc
 theorem passesOneLineBelow ∀ (doc: Doc) (pre post: Edge → Prop)
     (passes: Passes doc Loose post):
     Passes (OneLineBelow doc) pre post :=
-  match passes with | Both proper joins => Both proper (edge next holds after => joins (Plain None) next rfl after)
+  match passes with | (proper, joins) => (proper, (edge next holds after => joins (Plain None) next rfl after))
 
 theorem passesChoiceTwo ∀ (first second: Doc) (pre post: Edge → Prop)
     (one: Passes first pre post)
     (other: Passes second pre post):
     Passes (Choice [first, second]) pre post :=
   match one, other with
-    | Both proper joins, Both _ otherJoins =>
-      Both proper (edge next holds after => Both (joins edge next holds after) (otherJoins edge next holds after))
+    | (proper, joins), (_, otherJoins) =>
+      (proper, (edge next holds after => ((joins edge next holds after), (otherJoins edge next holds after))))
 
 theorem passesChoiceThree ∀ (first second third: Doc) (pre post: Edge → Prop)
     (one: Passes first pre post)
@@ -360,8 +379,11 @@ theorem passesChoiceThree ∀ (first second third: Doc) (pre post: Edge → Prop
     (last: Passes third pre post):
     Passes (Choice [first, second, third]) pre post :=
   match one, other, last with
-    | Both proper joins, Both _ otherJoins, Both _ lastJoins => Both proper (edge next holds after =>
-      Both (joins edge next holds after) (Both (otherJoins edge next holds after) (lastJoins edge next holds after)))
+    | (proper, joins), (_, otherJoins), (_, lastJoins) => (
+      proper,
+      (edge next holds after =>
+        ((joins edge next holds after), (otherJoins edge next holds after), (lastJoins edge next holds after)))
+    )
 
 -- Tokens and their comments.
 
@@ -409,7 +431,7 @@ theorem abovePasses ∀ (above: List Comment) (text: Text)
     (fine: FineAbove above):
     Passes (commentsAbove above) (Admits text) (Admits text) :=
   match above, fine with
-    | [], _ => Both rfl (edge next holds after => after edge holds)
+    | [], _ => (rfl, (edge next holds after => after edge holds))
     | [comment, ..rest], fine =>
       passesConcat _
         (Admits text)
@@ -426,11 +448,14 @@ theorem trailingPasses ∀ (after: Option Comment) (text: Text)
     (ends: Ends text):
     Passes (trailingComment after) (edge => edge = Plain (Some text)) (Left text) :=
   match after, fine with
-    | None, _ => Both rfl (edge next same reached => reached edge (rewrite same in rfl))
+    | None, _ => (rfl, (edge next same reached => reached edge (rewrite same in rfl)))
     | Some comment, fine =>
       match commentSolid comment.text fine with
-        | Both filled _ => Both (properWord comment.text (commentProper comment.text fine)) (edge next same reached =>
-          rewrite same in Both filled (Both (endsBefore text " " ends closingSpace) (reached Edge.Waiting rfl)))
+        | (filled, _) => (
+          (properWord comment.text (commentProper comment.text fine)),
+          (edge next same reached =>
+            rewrite same in (filled, (endsBefore text " " ends closingSpace), (reached Edge.Waiting rfl)))
+        )
 
 --| A token with its comments: after anything its text may follow, and
 --| it leaves the line at its text or at its trailing comment.
@@ -439,7 +464,7 @@ theorem tokenPasses ∀ (comments: Comments) (text: Text)
     (spelled: TokenText text):
     Passes (token comments text) (Admits text) (Left text) :=
   match fine, spelled with
-    | Both fineAbove fineAfter, Both solid ends =>
+    | (fineAbove, fineAfter), (solid, ends) =>
       passesConcat _
         (Admits text)
         (Left text)
@@ -473,7 +498,7 @@ theorem closerPasses ∀ (comments: Comments) (text: Text)
     Passes (closer comments text) (Admits text) (Left text) :=
   match comments, fine, spelled with
     | { above = [], after }, fine, spelled => tokenPasses { above = [], after } text fine spelled
-    | { above = [comment, ..rest], after }, Both fineAbove fineAfter, Both solid ends =>
+    | { above = [comment, ..rest], after }, (fineAbove, fineAfter), (solid, ends) =>
       let lines := [comment, ..rest].map (comment => Doc.text comment.text) |> joined HardLine
       passesConcat
         [Nest 2 (Doc.concat [LineStartHere, lines]), HardLine, Doc.text text, trailingComment after]
@@ -505,9 +530,9 @@ theorem meetingToken ∀ (comments: Comments) (text: Text)
     (closing: Closing text):
     Passes (token comments text) Meets Meets :=
   match spelled with
-    | Both solid ends =>
+    | (solid, ends) =>
       passesTo _ _ _ Meets
-        (passesFrom _ _ Meets _ (tokenPasses comments text fine (Both solid ends)) (meetsAdmits text closing))
+        (passesFrom _ _ Meets _ (tokenPasses comments text fine ((solid, ends))) (meetsAdmits text closing))
         (leftMeets text ends)
 
 theorem meetingCloser ∀ (comments: Comments) (text: Text)
@@ -516,9 +541,9 @@ theorem meetingCloser ∀ (comments: Comments) (text: Text)
     (closing: Closing text):
     Passes (closer comments text) Meets Meets :=
   match spelled with
-    | Both solid ends =>
+    | (solid, ends) =>
       passesTo _ _ _ Meets
-        (passesFrom _ _ Meets _ (closerPasses comments text fine (Both solid ends)) (meetsAdmits text closing))
+        (passesFrom _ _ Meets _ (closerPasses comments text fine ((solid, ends))) (meetsAdmits text closing))
         (leftMeets text ends)
 
 --| A token after layout.
@@ -527,9 +552,9 @@ theorem looseToken ∀ (comments: Comments) (text: Text)
     (spelled: TokenText text):
     Passes (token comments text) Loose Meets :=
   match spelled with
-    | Both solid ends =>
+    | (solid, ends) =>
       passesTo _ _ _ Meets
-        (passesFrom _ _ Loose _ (tokenPasses comments text fine (Both solid ends)) (looseAdmits text))
+        (passesFrom _ _ Loose _ (tokenPasses comments text fine ((solid, ends))) (looseAdmits text))
         (leftMeets text ends)
 
 --| An opening bracket or a dot: anything may come next.

@@ -183,7 +183,7 @@ theorem risingFront ∀ (front back: List (Parse.Located Token))
   match front, rising with
     | [], _ => rfl
     | [only], _ => rfl
-    | [lower, higher, ..rest], Both above more => Both above (risingFront [higher, ..rest] back more)
+    | [lower, higher, ..rest], Both above more => (above, (risingFront [higher, ..rest] back more))
 
 theorem risingBack ∀ (front back: List (Parse.Located Token))
     (rising: Rising ((front ++ back).map (found => found.offset))):
@@ -202,17 +202,17 @@ theorem risingBelow ∀ (tokens: List (Parse.Located Token))
     Below next.offset tokens :=
   match tokens, rising with
     | [], _ => rfl
-    | [only], Both above _ => Both above rfl
+    | [only], Both above _ => (above, rfl)
     | [lower, higher, ..rest], Both above later =>
       match risingBelow [higher, ..rest] next more later with
-        | Both under others => Both (omega [above, under]) (Both under others)
+        | Both under others => ((omega [above, under]), under, others)
 
 theorem belowNotAt ∀ (bound: Nat) (tokens: List (Parse.Located Token))
     (below: Below bound tokens):
     NotAt bound tokens :=
   match tokens, below with
     | [], _ => rfl
-    | [token, ..rest], Both under others => Both (omega [under]) (belowNotAt bound rest others)
+    | [token, ..rest], Both under others => ((omega [under]), (belowNotAt bound rest others))
 
 --| The tokens after a statement's first aren't its first.
 theorem laterApart ∀ (column: Nat) (first: Parse.Located Token) (others: List (Parse.Located Token))
@@ -227,7 +227,7 @@ theorem startColumn ∀ (token: Parse.Located Token) (column: Nat)
     token.value.startsLine = True ∧ token.value.column = column :=
   match token, starts with
     | { value = { kind, startsLine = True, column = indent, above, trailing }, offset, length }, starts =>
-      Both rfl (Option.someInjective starts)
+      (rfl, (Option.someInjective starts))
 
 theorem startsLow ∀ (token: Parse.Located Token) (column: Nat)
     (starts: (viewOf token).start = Some column):
@@ -276,26 +276,26 @@ theorem settledAfter ∀ (column from: Nat) (front: List (Parse.Located Token))
     (settled: Settled (InStatement column from) (front ++ [first, ..others]) rest):
     After (InStatement column first.offset) [first, ..others] rest :=
   match rest, settled with
-    | [], settled => Both (Both rfl rfl) rfl
+    | [], settled => (((rfl, rfl)), rfl)
     | [next, ..more], Inl closes =>
       match closerReserved next.value.kind closes with
         | Witness keyword reserved =>
-          Both (endsAtReserved (InStatement column first.offset) next keyword more reserved) (Inl closes)
+          ((endsAtReserved (InStatement column first.offset) next keyword more reserved), (Inl closes))
     | [next, ..more], Inr (Both low clear) =>
       match notAtBack next.offset front [first, ..others] clear with
-        | Both apart othersClear =>
-          Both
-            (endsUnallowed
-              (InStatement column first.offset)
-              next
-              more
-              (lowUnallowed next.value.startsLine next.value.column column (next.offset == first.offset) low apart))
-            (Inr (Both low (Both apart othersClear)))
+        | Both apart othersClear => (
+          (endsUnallowed
+            (InStatement column first.offset)
+            next
+            more
+            (lowUnallowed next.value.startsLine next.value.column column (next.offset == first.offset) low apart)),
+          (Inr ((low, apart, othersClear)))
+        )
 
 theorem afterBack ∀ (layout: Layout) (front back rest: List (Parse.Located Token))
     (after: After layout (front ++ back) rest):
     After layout back rest :=
-  match after with | Both ends settled => Both ends (settledBack layout front back rest settled)
+  match after with | (ends, settled) => (ends, (settledBack layout front back rest settled))
 
 --| A statement of a block ends before the next line of the block, and
 --| the last one before what the block's tokens are settled by.
@@ -311,9 +311,10 @@ theorem lineAfter ∀ (column: Nat) (first: Parse.Located Token) (others later r
       settledAfter column 0 [] first others
         ([next, ..more] ++ rest)
         (Inr
-          (Both
-            (startsLow next column starts)
-            (belowNotAt next.offset [first, ..others] (risingBelow [first, ..others] next more rising))))
+          ((
+            (startsLow next column starts),
+            (belowNotAt next.offset [first, ..others] (risingBelow [first, ..others] next more rising))
+          )))
 
 --| What settles a statement settles a block inside it, and ends the
 --| block.
@@ -322,11 +323,11 @@ theorem settledDeeper ∀ (column from deeper: Nat) (tokens rest: List (Parse.Lo
     (settled: Settled (InStatement column from) tokens rest):
     Settled (InStatement deeper 0) tokens rest ∧ BlockEnds deeper rest :=
   match rest, settled with
-    | [], _ => Both rfl (Inl rfl)
-    | [next, ..more], Inl closes => Both (Inl closes) (Inr closes)
+    | [], _ => (rfl, (Inl rfl))
+    | [next, ..more], Inl closes => ((Inl closes), (Inr closes))
     | [next, ..more], Inr (Both low clear) =>
       match lowLine next.value.startsLine next.value.column column deeper False low below rfl with
-        | Both _ (Both lower elsewhere) => Both (Inr (Both lower clear)) (Inl elsewhere)
+        | Both _ (Both lower elsewhere) => ((Inr ((lower, clear))), (Inl elsewhere))
 
 theorem startNotLet ∀ (kind: Kind) (starts: startsExpression kind = True): kind ≠ Reserved LetKeyword := same =>
   Bool.falseNotTrue (rewrite same at starts in starts)
@@ -367,7 +368,7 @@ theorem chainNoIf ∀ (expr: Expr) (shaped: Shaped expr) (chain: expr.isChain = 
     | Negate _ operand, Both isOperand shapedOperand, _ =>
       chainNoIf operand shapedOperand (operandChain operand isOperand)
     | Binary _ _ left right, Both _ (Both _ (Both leftChain (Both rightChain (Both shapedLeft shapedRight)))), _ =>
-      Both (chainNoIf left shapedLeft leftChain) (chainNoIf right shapedRight rightChain)
+      ((chainNoIf left shapedLeft leftChain), (chainNoIf right shapedRight rightChain))
 
 --| `Spells` outside brackets, in a statement at `column`: the tokens'
 --| offsets rise too, which a block inside the expression needs to tell
@@ -401,9 +402,8 @@ theorem plainOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (eve
     headed
     plain
     laid with
-    | Witness first (Witness others (Both seen (Both spells starts))) =>
-      Witness first
-        (Witness others (Both seen (Both (from tokens same rising leads => spells from tokens same leads) starts)))
+    | (first, others, seen, spells, starts) =>
+      (first, others, seen, (from tokens same rising leads => spells from tokens same leads), starts)
 
 --| The comments of a token that isn't its statement's first, from its
 --| view.
@@ -498,7 +498,7 @@ theorem opensNote ∀ (column: Nat) (note: Spaced Statement) (more: List (Spaced
     (opens: LinesOpen column more views):
     LinesOpen column [note, ..more] views :=
   match more, some, opens with
-    | [], some, _ => Void.exfalso (Bool.falseNotTrue (some (Both rfl rfl)))
+    | [], some, _ => Void.exfalso (Bool.falseNotTrue (some ((rfl, rfl))))
     | [_, .._], _, opens => opens
 
 theorem closingNote ∀ (noted: List (Spaced Statement)) (pending: List Trivia) (blankBefore: Bool)
@@ -507,13 +507,13 @@ theorem closingNote ∀ (noted: List (Spaced Statement)) (pending: List Trivia) 
     LinesClose noted pending more ∧ ClosedLines more :=
   match more, closed with
     | [], never => Void.exfalso (Bool.falseNotTrue never)
-    | [_, .._], closed => Both closed closed
+    | [_, .._], closed => (closed, closed)
 
 theorem closingCoded ∀ (line: Spaced Statement) (more: List (Spaced Statement))
     (closed: ClosedLines [line, ..more]):
     LinesClose [] [] more :=
   match more, closed with
-    | [], _ => Both rfl rfl
+    | [], _ => (rfl, rfl)
     | [_, .._], closed => closed
 
 theorem laterOfLines ∀ (column: Nat) (statements: List (Spaced Statement)) (events: List Event)
@@ -524,7 +524,7 @@ theorem laterOfLines ∀ (column: Nat) (statements: List (Spaced Statement)) (ev
     | [], _, laid => laid
     | [{ blankBefore, line }, ..rest], unspaced, laid =>
       let none: False = blankBefore := Eq.cong firstBlankBefore unspaced
-      rewrite <- none in Witness events (Both rfl laid)
+      rewrite <- none in (events, rfl, laid)
 
 theorem closingBody ∀ (statements: List (Spaced Statement))
     (closed: ClosedLines statements):
@@ -655,242 +655,211 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
             (Witness conditionOthers (Both conditionSeen (Both conditionSpells _))), Witness thenStart
             (Both thenAllowed thenSeen), Witness trueFirst
             (Witness trueOthers (Both trueSeen trueSpells)), Witness elseStart
-            (Both elseReaches elseSeen), Witness falseFirst (Witness falseOthers (Both falseSeen falseSpells)) =>
-          Witness
-            (tokenView pending (Reserved IfKeyword) ifStart { above, after })
-            (Witness
+            (Both elseReaches elseSeen), Witness falseFirst (Witness falseOthers (Both falseSeen falseSpells)) => (
+          (tokenView pending (Reserved IfKeyword) ifStart { above, after }),
+          ([conditionFirst, ..conditionOthers]
+            ++ ([(tokenView [] (Reserved ThenKeyword) thenStart thenComments)]
+              ++ ([trueFirst, ..trueOthers]
+                ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)] ++ [falseFirst, ..falseOthers])))),
+          (rewrite ifSplit, conditionSplit, thenSplit, trueSplit, elseSplit in
+            seenThen pending ifEvents
+              (conditionEvents ++ (thenEvents ++ (trueEvents ++ (elseEvents ++ falseEvents))))
+              [(tokenView pending (Reserved IfKeyword) ifStart { above, after })]
               ([conditionFirst, ..conditionOthers]
                 ++ ([(tokenView [] (Reserved ThenKeyword) thenStart thenComments)]
                   ++ ([trueFirst, ..trueOthers]
                     ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
                       ++ [falseFirst, ..falseOthers]))))
-              (Both
-                (rewrite ifSplit, conditionSplit, thenSplit, trueSplit, elseSplit in
-                  seenThen pending ifEvents
-                    (conditionEvents ++ (thenEvents ++ (trueEvents ++ (elseEvents ++ falseEvents))))
-                    [(tokenView pending (Reserved IfKeyword) ifStart { above, after })]
-                    ([conditionFirst, ..conditionOthers]
-                      ++ ([(tokenView [] (Reserved ThenKeyword) thenStart thenComments)]
-                        ++ ([trueFirst, ..trueOthers]
-                          ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
-                            ++ [falseFirst, ..falseOthers]))))
-                    ifSeen
-                    (seenThen [] conditionEvents
-                      (thenEvents ++ (trueEvents ++ (elseEvents ++ falseEvents)))
-                      [conditionFirst, ..conditionOthers]
-                      ([(tokenView [] (Reserved ThenKeyword) thenStart thenComments)]
-                        ++ ([trueFirst, ..trueOthers]
-                          ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
-                            ++ [falseFirst, ..falseOthers])))
-                      conditionSeen
-                      (seenThen [] thenEvents
-                        (trueEvents ++ (elseEvents ++ falseEvents))
-                        [(tokenView [] (Reserved ThenKeyword) thenStart thenComments)]
-                        ([trueFirst, ..trueOthers]
-                          ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
-                            ++ [falseFirst, ..falseOthers]))
-                        thenSeen
-                        (seenThen [] trueEvents
-                          (elseEvents ++ falseEvents)
-                          [trueFirst, ..trueOthers]
-                          ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
-                            ++ [falseFirst, ..falseOthers])
-                          trueSeen
-                          (seenThen [] elseEvents falseEvents
-                            [(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
-                            [falseFirst, ..falseOthers]
-                            elseSeen
-                            falseSeen)))))
-                (Both
-                  (from tokens same =>
+              ifSeen
+              (seenThen [] conditionEvents
+                (thenEvents ++ (trueEvents ++ (elseEvents ++ falseEvents)))
+                [conditionFirst, ..conditionOthers]
+                ([(tokenView [] (Reserved ThenKeyword) thenStart thenComments)]
+                  ++ ([trueFirst, ..trueOthers]
+                    ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)] ++ [falseFirst, ..falseOthers])))
+                conditionSeen
+                (seenThen [] thenEvents
+                  (trueEvents ++ (elseEvents ++ falseEvents))
+                  [(tokenView [] (Reserved ThenKeyword) thenStart thenComments)]
+                  ([trueFirst, ..trueOthers]
+                    ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)] ++ [falseFirst, ..falseOthers]))
+                  thenSeen
+                  (seenThen [] trueEvents
+                    (elseEvents ++ falseEvents)
+                    [trueFirst, ..trueOthers]
+                    ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)] ++ [falseFirst, ..falseOthers])
+                    trueSeen
+                    (seenThen [] elseEvents falseEvents
+                      [(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
+                      [falseFirst, ..falseOthers]
+                      elseSeen
+                      falseSeen))))),
+          (from tokens same =>
+            viewsCons
+              (later =>
+                IfGoal column from pending head above
+                  (If ({ above, after }) condition thenComments whenTrue elseComments whenFalse)
+                  later)
+              tokens
+              (tokenView pending (Reserved IfKeyword) ifStart { above, after })
+              ([conditionFirst, ..conditionOthers]
+                ++ ([(tokenView [] (Reserved ThenKeyword) thenStart thenComments)]
+                  ++ ([trueFirst, ..trueOthers]
+                    ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
+                      ++ [falseFirst, ..falseOthers]))))
+              same
+              (ifToken afterIfTokens ifSame afterIfSame =>
+                viewsSplit
+                  (later =>
+                    IfGoal column from pending head above
+                      (If ({ above, after }) condition thenComments whenTrue elseComments whenFalse)
+                      [ifToken, ..later])
+                  afterIfTokens
+                  [conditionFirst, ..conditionOthers]
+                  ([(tokenView [] (Reserved ThenKeyword) thenStart thenComments)]
+                    ++ ([trueFirst, ..trueOthers]
+                      ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
+                        ++ [falseFirst, ..falseOthers])))
+                  afterIfSame
+                  (conditionTokens afterConditionTokens conditionSame afterConditionSame =>
                     viewsCons
                       (later =>
                         IfGoal column from pending head above
                           (If ({ above, after }) condition thenComments whenTrue elseComments whenFalse)
-                          later)
-                      tokens
-                      (tokenView pending (Reserved IfKeyword) ifStart { above, after })
-                      ([conditionFirst, ..conditionOthers]
-                        ++ ([(tokenView [] (Reserved ThenKeyword) thenStart thenComments)]
-                          ++ ([trueFirst, ..trueOthers]
-                            ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
-                              ++ [falseFirst, ..falseOthers]))))
-                      same
-                      (ifToken afterIfTokens ifSame afterIfSame =>
+                          [ifToken, ..conditionTokens ++ later])
+                      afterConditionTokens
+                      (tokenView [] (Reserved ThenKeyword) thenStart thenComments)
+                      ([trueFirst, ..trueOthers]
+                        ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
+                          ++ [falseFirst, ..falseOthers]))
+                      afterConditionSame
+                      (thenToken afterThenTokens thenSame afterThenSame =>
                         viewsSplit
                           (later =>
                             IfGoal column from pending head above
                               (If ({ above, after }) condition thenComments whenTrue elseComments whenFalse)
-                              [ifToken, ..later])
-                          afterIfTokens
-                          [conditionFirst, ..conditionOthers]
-                          ([(tokenView [] (Reserved ThenKeyword) thenStart thenComments)]
-                            ++ ([trueFirst, ..trueOthers]
-                              ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
-                                ++ [falseFirst, ..falseOthers])))
-                          afterIfSame
-                          (conditionTokens afterConditionTokens conditionSame afterConditionSame =>
+                              [ifToken, ..conditionTokens ++ [thenToken, ..later]])
+                          afterThenTokens
+                          [trueFirst, ..trueOthers]
+                          ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
+                            ++ [falseFirst, ..falseOthers])
+                          afterThenSame
+                          (trueTokens afterTrueTokens trueSame afterTrueSame =>
                             viewsCons
                               (later =>
                                 IfGoal column from pending head above
                                   (If ({ above, after }) condition thenComments whenTrue elseComments whenFalse)
-                                  [ifToken, ..conditionTokens ++ later])
-                              afterConditionTokens
-                              (tokenView [] (Reserved ThenKeyword) thenStart thenComments)
-                              ([trueFirst, ..trueOthers]
-                                ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
-                                  ++ [falseFirst, ..falseOthers]))
-                              afterConditionSame
-                              (thenToken afterThenTokens thenSame afterThenSame =>
-                                viewsSplit
-                                  (later =>
-                                    IfGoal column from pending head above
-                                      (If ({ above, after }) condition thenComments whenTrue elseComments whenFalse)
-                                      [ifToken, ..conditionTokens ++ [thenToken, ..later]])
-                                  afterThenTokens
-                                  [trueFirst, ..trueOthers]
-                                  ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)]
-                                    ++ [falseFirst, ..falseOthers])
-                                  afterThenSame
-                                  (trueTokens afterTrueTokens trueSame afterTrueSame =>
-                                    viewsCons
-                                      (later =>
-                                        IfGoal column from pending head above
-                                          (If ({ above, after }) condition thenComments whenTrue elseComments whenFalse)
-                                          [ifToken, ..conditionTokens ++ [thenToken, ..trueTokens ++ later]])
-                                      afterTrueTokens
-                                      (tokenView [] (Reserved ElseKeyword) elseStart elseComments)
-                                      [falseFirst, ..falseOthers]
-                                      afterTrueSame
-                                      (elseToken falseTokens elseSame falseSame rising leads =>
-                                        let risingRest :=
-                                          risingBack
-                                            [ifToken]
-                                            (conditionTokens ++ [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]])
-                                            rising
-                                        let risingAfterCondition :=
-                                          risingBack conditionTokens
-                                            [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]]
-                                            risingRest
-                                        let risingAfterThen :=
-                                          risingBack
-                                            [thenToken]
-                                            (trueTokens ++ [elseToken, ..falseTokens])
-                                            risingAfterCondition
-                                        let apartAfterCondition :=
-                                          apartBack
-                                            (InStatement column from)
-                                            conditionTokens
-                                            [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]]
-                                            leads.left
-                                        let apartAfterTrue :=
-                                          apartBack
-                                            (InStatement column from)
-                                            trueTokens
-                                            [elseToken, ..falseTokens]
-                                            apartAfterCondition.right
-                                        match headFits
+                                  [ifToken, ..conditionTokens ++ [thenToken, ..trueTokens ++ later]])
+                              afterTrueTokens
+                              (tokenView [] (Reserved ElseKeyword) elseStart elseComments)
+                              [falseFirst, ..falseOthers]
+                              afterTrueSame
+                              (elseToken falseTokens elseSame falseSame rising leads =>
+                                let risingRest :=
+                                  risingBack
+                                    [ifToken]
+                                    (conditionTokens ++ [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]])
+                                    rising
+                                let risingAfterCondition :=
+                                  risingBack conditionTokens
+                                    [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]]
+                                    risingRest
+                                let risingAfterThen :=
+                                  risingBack [thenToken] (trueTokens ++ [elseToken, ..falseTokens]) risingAfterCondition
+                                let apartAfterCondition :=
+                                  apartBack
+                                    (InStatement column from)
+                                    conditionTokens
+                                    [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]]
+                                    leads.left
+                                let apartAfterTrue :=
+                                  apartBack
+                                    (InStatement column from)
+                                    trueTokens
+                                    [elseToken, ..falseTokens]
+                                    apartAfterCondition.right
+                                match headFits
+                                  (InStatement column from)
+                                  pending
+                                  head
+                                  above
+                                  ifToken
+                                  (conditionTokens ++ [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]])
+                                  (Reserved IfKeyword)
+                                  ifStart
+                                  after
+                                  leads
+                                  ifAllowed
+                                  ifSame, innerFits
+                                  (Deeper column)
+                                  (InStatement column from)
+                                  thenToken
+                                  (Reserved ThenKeyword)
+                                  thenStart
+                                  thenComments
+                                  rfl
+                                  apartAfterCondition.left
+                                  thenAllowed
+                                  thenSame with
+                                  | (ifKind, ifAllows, ifNotes), (thenKind, thenAllows, thenNotes) => (
+                                    ifToken,
+                                    conditionTokens,
+                                    thenToken,
+                                    trueTokens,
+                                    elseToken,
+                                    falseTokens,
+                                    rfl,
+                                    ifKind,
+                                    ifAllows,
+                                    thenKind,
+                                    thenAllows,
+                                    (Eq.cong ((view: TokenView) => view.kind) elseSame),
+                                    (reachesElse column column from elseToken elseStart rfl elseReaches
+                                      (Eq.cong ((view: TokenView) => view.start) elseSame)),
+                                    (conditionSpells from conditionTokens conditionSame
+                                      (risingFront conditionTokens
+                                        [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]]
+                                        risingRest)
+                                      (innerLeads
+                                        (Deeper column)
+                                        (InStatement column from)
+                                        condition.firstAbove
+                                        conditionTokens
+                                        rfl
+                                        (apartFront
                                           (InStatement column from)
-                                          pending
-                                          head
-                                          above
-                                          ifToken
-                                          (conditionTokens ++ [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]])
-                                          (Reserved IfKeyword)
-                                          ifStart
-                                          after
-                                          leads
-                                          ifAllowed
-                                          ifSame, innerFits
-                                          (Deeper column)
+                                          conditionTokens
+                                          [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]]
+                                          leads.left))),
+                                    (rest follows =>
+                                      trueSpells from trueTokens rest trueSame
+                                        (risingFront trueTokens [elseToken, ..falseTokens] risingAfterThen)
+                                        (apartFront
                                           (InStatement column from)
-                                          thenToken
-                                          (Reserved ThenKeyword)
-                                          thenStart
-                                          thenComments
-                                          rfl
-                                          apartAfterCondition.left
-                                          thenAllowed
-                                          thenSame with
-                                          | Both ifKind (Both ifAllows ifNotes), Both thenKind
-                                              (Both thenAllows thenNotes) =>
-                                            Witness ifToken
-                                              (Witness conditionTokens
-                                                (Witness thenToken
-                                                  (Witness trueTokens
-                                                    (Witness elseToken
-                                                      (Witness falseTokens
-                                                        (Both rfl
-                                                          (Both ifKind
-                                                            (Both ifAllows
-                                                              (Both thenKind
-                                                                (Both thenAllows
-                                                                  (Both
-                                                                    (Eq.cong ((view: TokenView) => view.kind) elseSame)
-                                                                    (Both
-                                                                      (reachesElse column column from elseToken
-                                                                          elseStart rfl elseReaches
-                                                                          (Eq.cong
-                                                                            ((view: TokenView) => view.start)
-                                                                            elseSame))
-                                                                      (Both
-                                                                        (conditionSpells from conditionTokens
-                                                                            conditionSame
-                                                                            (risingFront conditionTokens
-                                                                              [
-                                                                                thenToken,
-                                                                                ..trueTokens
-                                                                                  ++ [elseToken, ..falseTokens]
-                                                                              ]
-                                                                              risingRest)
-                                                                            (innerLeads
-                                                                              (Deeper column)
-                                                                              (InStatement column from)
-                                                                              condition.firstAbove
-                                                                              conditionTokens
-                                                                              rfl
-                                                                              (apartFront
-                                                                                (InStatement column from)
-                                                                                conditionTokens
-                                                                                [
-                                                                                  thenToken,
-                                                                                  ..trueTokens
-                                                                                    ++ [elseToken, ..falseTokens]
-                                                                                ]
-                                                                                leads.left)))
-                                                                        (Both
-                                                                          (rest follows =>
-                                                                            trueSpells from trueTokens rest trueSame
-                                                                              (risingFront trueTokens
-                                                                                [elseToken, ..falseTokens]
-                                                                                risingAfterThen)
-                                                                              (apartFront
-                                                                                (InStatement column from)
-                                                                                trueTokens
-                                                                                [elseToken, ..falseTokens]
-                                                                                apartAfterCondition.right)
-                                                                              follows)
-                                                                          (Both
-                                                                            (rest follows =>
-                                                                              falseSpells from falseTokens rest
-                                                                                  falseSame
-                                                                                  (risingBack
-                                                                                    [elseToken]
-                                                                                    falseTokens
-                                                                                    (risingBack trueTokens
-                                                                                      [elseToken, ..falseTokens]
-                                                                                      risingAfterThen))
-                                                                                  apartAfterTrue.right
-                                                                                  follows)
-                                                                            (Both ifNotes
-                                                                              (Both thenNotes
-                                                                                (apartComments column from elseToken
-                                                                                  (Reserved ElseKeyword)
-                                                                                  elseStart
-                                                                                  elseComments
-                                                                                  apartAfterTrue.left
-                                                                                  elseSame))))))))))))))))))))))))
-                  (Both ifAllowed rfl))))
+                                          trueTokens
+                                          [elseToken, ..falseTokens]
+                                          apartAfterCondition.right)
+                                        follows),
+                                    (rest follows =>
+                                      falseSpells from falseTokens rest falseSame
+                                        (risingBack
+                                          [elseToken]
+                                          falseTokens
+                                          (risingBack trueTokens [elseToken, ..falseTokens] risingAfterThen))
+                                        apartAfterTrue.right
+                                        follows),
+                                    ifNotes,
+                                    thenNotes,
+                                    (apartComments column from elseToken
+                                      (Reserved ElseKeyword)
+                                      elseStart
+                                      elseComments
+                                      apartAfterTrue.left
+                                      elseSame)
+                                  ))))))),
+          ifAllowed,
+          rfl
+        )
 
 --| Tokens with the views of a body's events spell the body: its one
 --| expression on its keyword's line, or a block of lines deeper than
@@ -913,63 +882,63 @@ theorem bodyOut ∀ (column: Nat) (body: Body) (events: List Event)
         valueLexical
         headedValue
         inline with
-        | Witness first (Witness others (Both seen (Both spells (Both starts _)))) =>
-          Witness first
-            (Witness others
-              (Both seen (from tokens rest same =>
-                viewsCons
-                  (later =>
-                    Rising (later.map (found => found.offset))
-                      → AllApart (InStatement column from) later
-                      → After (InStatement column from) later rest
-                      → SpelledBody
+        | Witness first (Witness others (Both seen (Both spells (Both starts _)))) => (
+          first,
+          others,
+          seen,
+          (from tokens rest same =>
+            viewsCons
+              (later =>
+                Rising (later.map (found => found.offset))
+                  → AllApart (InStatement column from) later
+                  → After (InStatement column from) later rest
+                  → SpelledBody
+                    (InStatement column from)
+                    { statements = [{ blankBefore, line = Bare value }] }
+                    later
+                    rest)
+              tokens
+              first
+              others
+              same
+              (firstToken otherTokens firstSame othersSame rising apart after =>
+                Inl
+                  ((
+                    (Eq.sym (Eq.cong firstBlankBefore unspaced)),
+                    firstToken,
+                    otherTokens,
+                    rfl,
+                    (inlineAhead
+                      (InStatement column from)
+                      [firstToken, ..otherTokens]
+                      first
+                      others
+                      (consViews firstToken otherTokens first others firstSame othersSame)
+                      (outside => starts.right (noAbove outside))),
+                    shapedValue,
+                    (spells from
+                      [firstToken, ..otherTokens]
+                      (consViews firstToken otherTokens first others firstSame othersSame)
+                      rising
+                      (leadsWider
                         (InStatement column from)
-                        { statements = [{ blankBefore, line = Bare value }] }
-                        later
-                        rest)
-                  tokens
-                  first
-                  others
-                  same
-                  (firstToken otherTokens firstSame othersSame rising apart after =>
-                    Inl
-                      (Both
-                        (Eq.sym (Eq.cong firstBlankBefore unspaced))
-                        (Witness firstToken
-                          (Witness otherTokens
-                            (Both rfl
-                              (Both
-                                (inlineAhead
-                                  (InStatement column from)
-                                  [firstToken, ..otherTokens]
-                                  first
-                                  others
-                                  (consViews firstToken otherTokens first others firstSame othersSame)
-                                  (outside => starts.right (noAbove outside)))
-                                (Both shapedValue
-                                  (Both
-                                    (spells from
-                                      [firstToken, ..otherTokens]
-                                      (consViews firstToken otherTokens first others firstSame othersSame)
-                                      rising
-                                      (leadsWider
-                                        (InStatement column from)
-                                        []
-                                        (Deeper column).allows
-                                        (inlineHead (Deeper column) value)
-                                        value.firstAbove
-                                        [firstToken, ..otherTokens]
-                                        (start held => held.left)
-                                        (innerLeads
-                                          (Deeper column)
-                                          (InStatement column from)
-                                          value.firstAbove
-                                          [firstToken, ..otherTokens]
-                                          rfl
-                                          apart)))
-                                    (Both after
-                                      (headedOfNoAbove (InStatement column from) value (outside =>
-                                        noAbove outside))))))))))))))
+                        []
+                        (Deeper column).allows
+                        (inlineHead (Deeper column) value)
+                        value.firstAbove
+                        [firstToken, ..otherTokens]
+                        (start held => held.left)
+                        (innerLeads
+                          (Deeper column)
+                          (InStatement column from)
+                          value.firstAbove
+                          [firstToken, ..otherTokens]
+                          rfl
+                          apart))),
+                    after,
+                    (headedOfNoAbove (InStatement column from) value (outside => noAbove outside))
+                  ))))
+        )
     | { statements = [] }, _, _, _, Inl never => Void.exfalso (Bool.falseNotTrue never)
     | { statements = [{ blankBefore, line = Let _ _ _ _ _ }] }, _, _, _, Inl never =>
       Void.exfalso (Bool.falseNotTrue never)
@@ -985,42 +954,45 @@ theorem bodyOut ∀ (column: Nat) (body: Body) (events: List Event)
         (laterOfLines deeper statements events unspaced lines) with
         | Witness views (Both seen (Both opens spells)) =>
           match opensSome deeper statements views closed opens with
-            | Witness first (Witness others (Both viewsSame starts)) =>
-              Witness first
-                (Witness others
-                  (Both (rewrite <- viewsSame in seen) (from tokens rest same =>
-                    viewsCons
-                      (later =>
-                        Rising (later.map (found => found.offset))
-                          → AllApart (InStatement column from) later
-                          → After (InStatement column from) later rest
-                          → SpelledBody (InStatement column from) { statements } later rest)
-                      tokens
-                      first
-                      others
-                      same
-                      (firstToken otherTokens firstSame othersSame rising apart after =>
-                        match startColumn firstToken deeper
-                          (Eq.trans (Eq.cong ((view: TokenView) => view.start) firstSame) starts), settledDeeper column
-                            from deeper
-                            [firstToken, ..otherTokens]
-                            rest
-                            under
-                            after.right with
-                          | Both _ atDeeper, Both settled ends =>
-                            Inr
-                              (Both
-                                (startsDeeper firstToken column deeper under
-                                  (Eq.trans (Eq.cong ((view: TokenView) => view.start) firstSame) starts))
-                                (rewrite atDeeper in
-                                  spells
-                                    [firstToken, ..otherTokens]
-                                    rest
-                                    (rewrite viewsSame in
-                                      consViews firstToken otherTokens first others firstSame othersSame)
-                                    ends
-                                    rising
-                                    settled))))))
+            | Witness first (Witness others (Both viewsSame starts)) => (
+              first,
+              others,
+              (rewrite <- viewsSame in seen),
+              (from tokens rest same =>
+                viewsCons
+                  (later =>
+                    Rising (later.map (found => found.offset))
+                      → AllApart (InStatement column from) later
+                      → After (InStatement column from) later rest
+                      → SpelledBody (InStatement column from) { statements } later rest)
+                  tokens
+                  first
+                  others
+                  same
+                  (firstToken otherTokens firstSame othersSame rising apart after =>
+                    match startColumn firstToken deeper
+                      (Eq.trans (Eq.cong ((view: TokenView) => view.start) firstSame) starts), settledDeeper column from
+                        deeper
+                        [firstToken, ..otherTokens]
+                        rest
+                        under
+                        after.right with
+                      | (_, atDeeper), (settled, ends) =>
+                        Inr
+                          ((
+                            (startsDeeper firstToken column deeper under
+                              (Eq.trans (Eq.cong ((view: TokenView) => view.start) firstSame) starts)),
+                            (rewrite atDeeper in
+                              spells
+                                [firstToken, ..otherTokens]
+                                rest
+                                (rewrite viewsSame in
+                                  consViews firstToken otherTokens first others firstSame othersSame)
+                                ends
+                                rising
+                                settled)
+                          ))))
+            )
 
 --| Tokens with the views of a block's lines spell the lines: each
 --| statement's first token starts a line at the block's column and
@@ -1036,13 +1008,14 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
     (laid: LaterLines column lines events):
     LinesSpell column isFirst noted lines pending events :=
   match lines, shaped, lexical, headed, closed, unspaced, laid with
-    | [], _, _, _, Both notedNone pendingNone, _, laid =>
-      Witness []
-        (Both
-          (rewrite laid, pendingNone in (earlier => rfl))
-          (Both rfl (tokens rest same ends =>
-            viewsNil (later => LinesGoal column isFirst noted [] rest later) tokens same (rising settled =>
-              Both rfl (Both notedNone ends)))))
+    | [], _, _, _, Both notedNone pendingNone, _, laid => (
+      [],
+      (rewrite laid, pendingNone in (earlier => rfl)),
+      rfl,
+      (tokens rest same ends =>
+        viewsNil (later => LinesGoal column isFirst noted [] rest later) tokens same (rising settled =>
+          (rfl, notedNone, ends)))
+    )
     | [{ blankBefore, line = StatementNote comment }, ..more], Both _ shapedMore, Both fine lexicalMore, Both _
           headedMore, closed, unspaced, Witness later
         (Both split (Witness front (Witness back (Both thenSplit (Both noteLaid moreLaid))))) =>
@@ -1064,22 +1037,21 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
         (first => rewrite List.appendAssoc noted [{ blankBefore, line = StatementNote comment }] more in unspaced first)
         (noteNotes StatementNote blankBefore pending noted comment waits)
         moreLaid with
-        | Witness views (Both seen (Both opens spells)) =>
-          Witness views
-            (Both
-              (rewrite split, thenSplit, noteLaid in
-                seenBlank blankBefore pending []
-                  ([{ word = comment.text, start = Some column }] ++ back)
-                  views
-                  (seenNote comment column (blankOf blankBefore pending) [] back views fine seen))
-              (Both
-                (opensNote column
-                  { blankBefore, line = StatementNote comment }
-                  more
-                  views
-                  (_ => (closingNote noted pending blankBefore comment more closed).right)
-                  opens)
-                spells))
+        | Witness views (Both seen (Both opens spells)) => (
+          views,
+          (rewrite split, thenSplit, noteLaid in
+            seenBlank blankBefore pending []
+              ([{ word = comment.text, start = Some column }] ++ back)
+              views
+              (seenNote comment column (blankOf blankBefore pending) [] back views fine seen)),
+          (opensNote column
+            { blankBefore, line = StatementNote comment }
+            more
+            views
+            (_ => (closingNote noted pending blankBefore comment more closed).right)
+            opens),
+          spells
+        )
     | [{ blankBefore, line = Bare value }, ..more], Both shapedValue shapedMore, Both valueLexical lexicalMore, Both
         (Both noAbove headedValue)
         headedMore, closed, unspaced, Witness later
@@ -1098,108 +1070,98 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
         rfl
         moreLaid with
         | Witness first (Witness others (Both valueSeen (Both valueSpells (Both starts aboveSame)))), Witness moreViews
-            (Both moreSeen (Both moreOpens moreSpells)) =>
-          Witness
-            ([first, ..others] ++ moreViews)
-            (Both
-              (rewrite split, thenSplit in
-                seenBlank blankBefore pending []
-                  (front ++ back)
-                  ([first, ..others] ++ moreViews)
-                  (seenToThen
-                    (blankOf blankBefore pending)
-                    []
-                    []
-                    front
-                    back
-                    [first, ..others]
-                    moreViews
-                    valueSeen
-                    moreSeen))
-              (Both (Witness first (Witness (others ++ moreViews) (Both rfl starts))) (tokens rest same ends =>
-                viewsSplit
-                  (later => LinesGoal column isFirst noted [{ blankBefore, line = Bare value }, ..more] rest later)
-                  tokens
-                  [first, ..others]
-                  moreViews
-                  same
-                  (statementTokens laterTokens statementSame laterSame =>
-                    viewsCons
-                      (found =>
-                        LinesGoal column isFirst noted
-                          [{ blankBefore, line = Bare value }, ..more]
-                          rest
-                          (found ++ laterTokens))
-                      statementTokens
-                      first
-                      others
-                      statementSame
-                      (firstToken otherTokens firstSame othersSame rising settled =>
-                        let risingStatement := risingFront [firstToken, ..otherTokens] laterTokens rising
-                        let spelled :=
-                          valueSpells firstToken.offset
-                            [firstToken, ..otherTokens]
-                            (consViews firstToken otherTokens first others firstSame othersSame)
-                            risingStatement
-                            (leadsCast
-                              (InStatement column firstToken.offset)
-                              (blankOf blankBefore pending)
-                              (atColumn column)
-                              value.firstAbove
-                              [firstToken, ..otherTokens]
-                              (noAbove rfl)
-                              (firstLeads column
-                                (blankOf blankBefore pending)
-                                (atColumn column)
-                                firstToken
-                                otherTokens
-                                (laterApart column firstToken otherTokens risingStatement)))
-                        match spelledStart
+            (Both moreSeen (Both moreOpens moreSpells)) => (
+          ([first, ..others] ++ moreViews),
+          (rewrite split, thenSplit in
+            seenBlank blankBefore pending []
+              (front ++ back)
+              ([first, ..others] ++ moreViews)
+              (seenToThen
+                (blankOf blankBefore pending)
+                []
+                []
+                front
+                back
+                [first, ..others]
+                moreViews
+                valueSeen
+                moreSeen)),
+          ((first, (others ++ moreViews), rfl, starts)),
+          (tokens rest same ends =>
+            viewsSplit
+              (later => LinesGoal column isFirst noted [{ blankBefore, line = Bare value }, ..more] rest later)
+              tokens
+              [first, ..others]
+              moreViews
+              same
+              (statementTokens laterTokens statementSame laterSame =>
+                viewsCons
+                  (found =>
+                    LinesGoal column isFirst noted
+                      [{ blankBefore, line = Bare value }, ..more]
+                      rest
+                      (found ++ laterTokens))
+                  statementTokens
+                  first
+                  others
+                  statementSame
+                  (firstToken otherTokens firstSame othersSame rising settled =>
+                    let risingStatement := risingFront [firstToken, ..otherTokens] laterTokens rising
+                    let spelled :=
+                      valueSpells firstToken.offset
+                        [firstToken, ..otherTokens]
+                        (consViews firstToken otherTokens first others firstSame othersSame)
+                        risingStatement
+                        (leadsCast
                           (InStatement column firstToken.offset)
-                          value
+                          (blankOf blankBefore pending)
+                          (atColumn column)
+                          value.firstAbove
                           [firstToken, ..otherTokens]
-                          shapedValue
-                          spelled with
-                          | Witness found (Witness foundOthers (Both foundSplit startKind)) =>
-                            Witness firstToken
-                              (Witness otherTokens
-                                (Witness laterTokens
-                                  (Both rfl
-                                    (Both
-                                      (startsAtLine firstToken column
-                                        (Eq.trans (Eq.cong ((view: TokenView) => view.start) firstSame) starts))
-                                      (Both
-                                        (startNotLet firstToken.value.kind
-                                          (rewrite List.consInjectiveHead firstToken found otherTokens foundOthers
-                                                  foundSplit in
-                                            startKind))
-                                        (Both
-                                          (notedLine isFirst pending noted more blankBefore
-                                            (Bare value)
-                                            firstToken.value.above
-                                            (Eq.trans
-                                              (Eq.cong ((view: TokenView) => view.above) firstSame)
-                                              (Eq.trans aboveSame
-                                                (Eq.cong
-                                                  ((comments: List Comment) =>
-                                                    (waiting (blankOf blankBefore pending) comments).reverse)
-                                                  (noAbove rfl))))
-                                            waits
-                                            unspaced)
-                                          (Both spelled
-                                            (Both
-                                              (lineAfter column firstToken otherTokens laterTokens rest
-                                                (rewrite laterSame in opensStarts column more moreViews moreOpens)
-                                                rising
-                                                settled)
-                                              (moreSpells laterTokens rest laterSame ends
-                                                (risingBack [firstToken, ..otherTokens] laterTokens rising)
-                                                (settledBack
-                                                  (InStatement column 0)
-                                                  [firstToken, ..otherTokens]
-                                                  laterTokens
-                                                  rest
-                                                  settled)))))))))))))))
+                          (noAbove rfl)
+                          (firstLeads column
+                            (blankOf blankBefore pending)
+                            (atColumn column)
+                            firstToken
+                            otherTokens
+                            (laterApart column firstToken otherTokens risingStatement)))
+                    match spelledStart
+                      (InStatement column firstToken.offset)
+                      value
+                      [firstToken, ..otherTokens]
+                      shapedValue
+                      spelled with
+                      | (found, foundOthers, foundSplit, startKind) => (
+                        firstToken,
+                        otherTokens,
+                        laterTokens,
+                        rfl,
+                        (startsAtLine firstToken column
+                          (Eq.trans (Eq.cong ((view: TokenView) => view.start) firstSame) starts)),
+                        (startNotLet firstToken.value.kind
+                          (rewrite List.consInjectiveHead firstToken found otherTokens foundOthers foundSplit in
+                            startKind)),
+                        (notedLine isFirst pending noted more blankBefore
+                          (Bare value)
+                          firstToken.value.above
+                          (Eq.trans
+                            (Eq.cong ((view: TokenView) => view.above) firstSame)
+                            (Eq.trans aboveSame
+                              (Eq.cong
+                                ((comments: List Comment) => (waiting (blankOf blankBefore pending) comments).reverse)
+                                (noAbove rfl))))
+                          waits
+                          unspaced),
+                        spelled,
+                        (lineAfter column firstToken otherTokens laterTokens rest
+                          (rewrite laterSame in opensStarts column more moreViews moreOpens)
+                          rising
+                          settled),
+                        (moreSpells laterTokens rest laterSame ends
+                          (risingBack [firstToken, ..otherTokens] laterTokens rising)
+                          (settledBack (InStatement column 0) [firstToken, ..otherTokens] laterTokens rest settled))
+                      ))))
+        )
     | [{ blankBefore, line = Let letComments name nameComments equals body }, ..more], Both shapedBody shapedMore, Both
         (Both fineLet (Both isName (Both fineName (Both fineEquals bodyLexical))))
         lexicalMore, Both (Both letAbove headedBody) headedMore, closed, unspaced, Witness later
@@ -1255,242 +1217,213 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
         | Witness letStart (Both letAllowed letSeen), Witness nameStart (Both nameAllowed nameSeen), Witness equalsStart
             (Both equalsAllowed equalsSeen), Witness bodyFirst
             (Witness bodyOthers (Both bodySeen bodySpells)), Witness moreViews
-            (Both moreSeen (Both moreOpens moreSpells)) =>
-          Witness
-            ([
-              tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments,
-              tokenView [] (Name name) nameStart nameComments,
-              tokenView [] (Sign Defines) equalsStart equals,
-              bodyFirst,
-              ..bodyOthers
-            ]
-              ++ moreViews)
-            (Both
-              (rewrite split, thenSplit, letSplit, nameSplit, equalsSplit in
-                seenBlank blankBefore pending []
-                  ((letEvents ++ (nameEvents ++ (equalsEvents ++ bodyEvents))) ++ back)
-                  ([
-                    tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments,
+            (Both moreSeen (Both moreOpens moreSpells)) => (
+          ([
+            tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments,
+            tokenView [] (Name name) nameStart nameComments,
+            tokenView [] (Sign Defines) equalsStart equals,
+            bodyFirst,
+            ..bodyOthers
+          ]
+            ++ moreViews),
+          (rewrite split, thenSplit, letSplit, nameSplit, equalsSplit in
+            seenBlank blankBefore pending []
+              ((letEvents ++ (nameEvents ++ (equalsEvents ++ bodyEvents))) ++ back)
+              ([
+                tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments,
+                tokenView [] (Name name) nameStart nameComments,
+                tokenView [] (Sign Defines) equalsStart equals,
+                bodyFirst,
+                ..bodyOthers
+              ]
+                ++ moreViews)
+              (seenToThen
+                (blankOf blankBefore pending)
+                []
+                []
+                (letEvents ++ (nameEvents ++ (equalsEvents ++ bodyEvents)))
+                back
+                [
+                  tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments,
+                  tokenView [] (Name name) nameStart nameComments,
+                  tokenView [] (Sign Defines) equalsStart equals,
+                  bodyFirst,
+                  ..bodyOthers
+                ]
+                moreViews
+                (seenThen
+                  (blankOf blankBefore pending)
+                  letEvents
+                  (nameEvents ++ (equalsEvents ++ bodyEvents))
+                  [tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments]
+                  [
                     tokenView [] (Name name) nameStart nameComments,
                     tokenView [] (Sign Defines) equalsStart equals,
                     bodyFirst,
                     ..bodyOthers
                   ]
-                    ++ moreViews)
-                  (seenToThen
-                    (blankOf blankBefore pending)
-                    []
-                    []
-                    (letEvents ++ (nameEvents ++ (equalsEvents ++ bodyEvents)))
-                    back
-                    [
-                      tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments,
-                      tokenView [] (Name name) nameStart nameComments,
-                      tokenView [] (Sign Defines) equalsStart equals,
-                      bodyFirst,
-                      ..bodyOthers
-                    ]
-                    moreViews
-                    (seenThen
-                      (blankOf blankBefore pending)
-                      letEvents
-                      (nameEvents ++ (equalsEvents ++ bodyEvents))
-                      [tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments]
-                      [
-                        tokenView [] (Name name) nameStart nameComments,
-                        tokenView [] (Sign Defines) equalsStart equals,
-                        bodyFirst,
-                        ..bodyOthers
-                      ]
-                      letSeen
-                      (seenThen [] nameEvents
-                        (equalsEvents ++ bodyEvents)
-                        [tokenView [] (Name name) nameStart nameComments]
-                        [tokenView [] (Sign Defines) equalsStart equals, bodyFirst, ..bodyOthers]
-                        nameSeen
-                        (seenThen [] equalsEvents bodyEvents
-                          [tokenView [] (Sign Defines) equalsStart equals]
+                  letSeen
+                  (seenThen [] nameEvents
+                    (equalsEvents ++ bodyEvents)
+                    [tokenView [] (Name name) nameStart nameComments]
+                    [tokenView [] (Sign Defines) equalsStart equals, bodyFirst, ..bodyOthers]
+                    nameSeen
+                    (seenThen [] equalsEvents bodyEvents
+                      [tokenView [] (Sign Defines) equalsStart equals]
+                      [bodyFirst, ..bodyOthers]
+                      equalsSeen
+                      bodySeen)))
+                moreSeen)),
+          ((
+            (tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments),
+            ([
+              tokenView [] (Name name) nameStart nameComments,
+              tokenView [] (Sign Defines) equalsStart equals,
+              bodyFirst,
+              ..bodyOthers
+            ]
+              ++ moreViews),
+            rfl,
+            letAllowed
+          )),
+          (tokens rest same ends =>
+            viewsCons
+              (found =>
+                LinesGoal column isFirst noted
+                  [{ blankBefore, line = Let letComments name nameComments equals body }, ..more]
+                  rest
+                  found)
+              tokens
+              (tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments)
+              ([
+                tokenView [] (Name name) nameStart nameComments,
+                tokenView [] (Sign Defines) equalsStart equals,
+                bodyFirst,
+                ..bodyOthers
+              ]
+                ++ moreViews)
+              same
+              (firstToken afterFirst firstSame afterFirstSame =>
+                viewsCons
+                  (found =>
+                    LinesGoal column isFirst noted
+                      [{ blankBefore, line = Let letComments name nameComments equals body }, ..more]
+                      rest
+                      [firstToken, ..found])
+                  afterFirst
+                  (tokenView [] (Name name) nameStart nameComments)
+                  ([tokenView [] (Sign Defines) equalsStart equals, bodyFirst, ..bodyOthers] ++ moreViews)
+                  afterFirstSame
+                  (named afterNamed namedSame afterNamedSame =>
+                    viewsCons
+                      (found =>
+                        LinesGoal column isFirst noted
+                          [{ blankBefore, line = Let letComments name nameComments equals body }, ..more]
+                          rest
+                          [firstToken, named, ..found])
+                      afterNamed
+                      (tokenView [] (Sign Defines) equalsStart equals)
+                      ([bodyFirst, ..bodyOthers] ++ moreViews)
+                      afterNamedSame
+                      (equalsToken afterEquals equalsSame afterEqualsSame =>
+                        viewsSplit
+                          (found =>
+                            LinesGoal column isFirst noted
+                              [{ blankBefore, line = Let letComments name nameComments equals body }, ..more]
+                              rest
+                              [firstToken, named, equalsToken, ..found])
+                          afterEquals
                           [bodyFirst, ..bodyOthers]
-                          equalsSeen
-                          bodySeen)))
-                    moreSeen))
-              (Both
-                (Witness
-                  (tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments)
-                  (Witness
-                    ([
-                      tokenView [] (Name name) nameStart nameComments,
-                      tokenView [] (Sign Defines) equalsStart equals,
-                      bodyFirst,
-                      ..bodyOthers
-                    ]
-                      ++ moreViews)
-                    (Both rfl letAllowed)))
-                (tokens rest same ends =>
-                  viewsCons
-                    (found =>
-                      LinesGoal column isFirst noted
-                        [{ blankBefore, line = Let letComments name nameComments equals body }, ..more]
-                        rest
-                        found)
-                    tokens
-                    (tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments)
-                    ([
-                      tokenView [] (Name name) nameStart nameComments,
-                      tokenView [] (Sign Defines) equalsStart equals,
-                      bodyFirst,
-                      ..bodyOthers
-                    ]
-                      ++ moreViews)
-                    same
-                    (firstToken afterFirst firstSame afterFirstSame =>
-                      viewsCons
-                        (found =>
-                          LinesGoal column isFirst noted
-                            [{ blankBefore, line = Let letComments name nameComments equals body }, ..more]
-                            rest
-                            [firstToken, ..found])
-                        afterFirst
-                        (tokenView [] (Name name) nameStart nameComments)
-                        ([tokenView [] (Sign Defines) equalsStart equals, bodyFirst, ..bodyOthers] ++ moreViews)
-                        afterFirstSame
-                        (named afterNamed namedSame afterNamedSame =>
-                          viewsCons
-                            (found =>
-                              LinesGoal column isFirst noted
-                                [{ blankBefore, line = Let letComments name nameComments equals body }, ..more]
+                          moreViews
+                          afterEqualsSame
+                          (bodyTokens laterTokens bodySame laterSame rising settled =>
+                            let risingStatement :=
+                              risingFront [firstToken, named, equalsToken, ..bodyTokens] laterTokens rising
+                            let apart := laterApart column firstToken [named, equalsToken, ..bodyTokens] risingStatement
+                            let after :=
+                              lineAfter column firstToken
+                                [named, equalsToken, ..bodyTokens]
+                                laterTokens
                                 rest
-                                [firstToken, named, ..found])
-                            afterNamed
-                            (tokenView [] (Sign Defines) equalsStart equals)
-                            ([bodyFirst, ..bodyOthers] ++ moreViews)
-                            afterNamedSame
-                            (equalsToken afterEquals equalsSame afterEqualsSame =>
-                              viewsSplit
-                                (found =>
-                                  LinesGoal column isFirst noted
-                                    [{ blankBefore, line = Let letComments name nameComments equals body }, ..more]
+                                (rewrite laterSame in opensStarts column more moreViews moreOpens)
+                                rising
+                                settled
+                            match innerFits
+                              (Deeper column)
+                              (InStatement column firstToken.offset)
+                              named
+                              (Name name)
+                              nameStart
+                              nameComments
+                              rfl
+                              apart.left
+                              nameAllowed
+                              namedSame, innerFits
+                              (Deeper column)
+                              (InStatement column firstToken.offset)
+                              equalsToken
+                              (Sign Defines)
+                              equalsStart
+                              equals
+                              rfl
+                              apart.right.left
+                              equalsAllowed
+                              equalsSame with
+                              | (nameKind, nameAllows, nameNotes), (equalsKind, equalsAllows, equalsNotes) => (
+                                firstToken,
+                                named,
+                                equalsToken,
+                                bodyTokens,
+                                laterTokens,
+                                rfl,
+                                (startsAtLine firstToken column
+                                  (Eq.trans (Eq.cong ((view: TokenView) => view.start) firstSame) letAllowed)),
+                                (Eq.cong ((view: TokenView) => view.kind) firstSame),
+                                nameKind,
+                                nameAllows,
+                                equalsKind,
+                                equalsAllows,
+                                (keywordComments column firstToken
+                                  (blankOf blankBefore pending)
+                                  (Reserved LetKeyword)
+                                  letStart
+                                  letComments
+                                  letAbove
+                                  firstSame),
+                                nameNotes,
+                                equalsNotes,
+                                (notedLine isFirst pending noted more blankBefore
+                                  (Let letComments name nameComments equals body)
+                                  firstToken.value.above
+                                  (Eq.trans
+                                    (Eq.cong ((view: TokenView) => view.above) firstSame)
+                                    (Eq.cong
+                                      ((comments: List Comment) =>
+                                        (waiting (blankOf blankBefore pending) comments).reverse)
+                                      letAbove))
+                                  waits
+                                  unspaced),
+                                (bodySpells firstToken.offset bodyTokens
+                                  (laterTokens ++ rest)
+                                  bodySame
+                                  (risingBack [firstToken, named, equalsToken] bodyTokens risingStatement)
+                                  apart.right.right
+                                  (afterBack
+                                    (InStatement column firstToken.offset)
+                                    [firstToken, named, equalsToken]
+                                    bodyTokens
+                                    (laterTokens ++ rest)
+                                    after)),
+                                (moreSpells laterTokens rest laterSame ends
+                                  (risingBack [firstToken, named, equalsToken, ..bodyTokens] laterTokens rising)
+                                  (settledBack
+                                    (InStatement column 0)
+                                    [firstToken, named, equalsToken, ..bodyTokens]
+                                    laterTokens
                                     rest
-                                    [firstToken, named, equalsToken, ..found])
-                                afterEquals
-                                [bodyFirst, ..bodyOthers]
-                                moreViews
-                                afterEqualsSame
-                                (bodyTokens laterTokens bodySame laterSame rising settled =>
-                                  let risingStatement :=
-                                    risingFront [firstToken, named, equalsToken, ..bodyTokens] laterTokens rising
-                                  let apart :=
-                                    laterApart column firstToken [named, equalsToken, ..bodyTokens] risingStatement
-                                  let after :=
-                                    lineAfter column firstToken
-                                      [named, equalsToken, ..bodyTokens]
-                                      laterTokens
-                                      rest
-                                      (rewrite laterSame in opensStarts column more moreViews moreOpens)
-                                      rising
-                                      settled
-                                  match innerFits
-                                    (Deeper column)
-                                    (InStatement column firstToken.offset)
-                                    named
-                                    (Name name)
-                                    nameStart
-                                    nameComments
-                                    rfl
-                                    apart.left
-                                    nameAllowed
-                                    namedSame, innerFits
-                                    (Deeper column)
-                                    (InStatement column firstToken.offset)
-                                    equalsToken
-                                    (Sign Defines)
-                                    equalsStart
-                                    equals
-                                    rfl
-                                    apart.right.left
-                                    equalsAllowed
-                                    equalsSame with
-                                    | Both nameKind (Both nameAllows nameNotes), Both equalsKind
-                                        (Both equalsAllows equalsNotes) =>
-                                      Witness firstToken
-                                        (Witness named
-                                          (Witness equalsToken
-                                            (Witness bodyTokens
-                                              (Witness laterTokens
-                                                (Both rfl
-                                                  (Both
-                                                    (startsAtLine firstToken column
-                                                      (Eq.trans
-                                                        (Eq.cong ((view: TokenView) => view.start) firstSame)
-                                                        letAllowed))
-                                                    (Both
-                                                      (Eq.cong ((view: TokenView) => view.kind) firstSame)
-                                                      (Both nameKind
-                                                        (Both nameAllows
-                                                          (Both equalsKind
-                                                            (Both equalsAllows
-                                                              (Both
-                                                                (keywordComments column firstToken
-                                                                  (blankOf blankBefore pending)
-                                                                  (Reserved LetKeyword)
-                                                                  letStart
-                                                                  letComments
-                                                                  letAbove
-                                                                  firstSame)
-                                                                (Both nameNotes
-                                                                  (Both equalsNotes
-                                                                    (Both
-                                                                      (notedLine isFirst pending noted more blankBefore
-                                                                        (Let letComments name nameComments equals body)
-                                                                        firstToken.value.above
-                                                                        (Eq.trans
-                                                                          (Eq.cong
-                                                                            ((view: TokenView) => view.above)
-                                                                            firstSame)
-                                                                          (Eq.cong
-                                                                            ((comments: List Comment) =>
-                                                                              (waiting
-                                                                                (blankOf blankBefore pending)
-                                                                                comments).reverse)
-                                                                            letAbove))
-                                                                        waits
-                                                                        unspaced)
-                                                                      (Both
-                                                                        (bodySpells firstToken.offset bodyTokens
-                                                                          (laterTokens ++ rest)
-                                                                          bodySame
-                                                                          (risingBack
-                                                                            [firstToken, named, equalsToken]
-                                                                            bodyTokens
-                                                                            risingStatement)
-                                                                          apart.right.right
-                                                                          (afterBack
-                                                                            (InStatement column firstToken.offset)
-                                                                            [firstToken, named, equalsToken]
-                                                                            bodyTokens
-                                                                            (laterTokens ++ rest)
-                                                                            after))
-                                                                        (moreSpells laterTokens rest laterSame ends
-                                                                          (risingBack
-                                                                            [
-                                                                              firstToken,
-                                                                              named,
-                                                                              equalsToken,
-                                                                              ..bodyTokens
-                                                                            ]
-                                                                            laterTokens
-                                                                            rising)
-                                                                          (settledBack
-                                                                            (InStatement column 0)
-                                                                            [
-                                                                              firstToken,
-                                                                              named,
-                                                                              equalsToken,
-                                                                              ..bodyTokens
-                                                                            ]
-                                                                            laterTokens
-                                                                            rest
-                                                                            settled)))))))))))))))))))))))))
+                                    settled))
+                              ))))))
+        )
 
 -- Parameters.
 
@@ -1527,23 +1460,26 @@ theorem parametersOut ∀ (parameter: Parameter) (rest: List Parameter) (events:
         fine
         (seen start => nameEvent seen name start isName)
         laid with
-        | Witness start (Both _ seen) =>
-          Witness start
-            (Witness []
-              (Both seen (first otherTokens firstSame othersSame =>
-                viewsNil
-                  (found => ParametersGoal [{ name, comments, comma }] name first found)
-                  otherTokens
-                  othersSame
-                  (match bracketFits first (Name name) start comments firstSame with
-                    | Both _ (Both _ notes) =>
-                      Witness []
-                        (Both rfl
-                          (Both rfl
-                            (rewrite bare in
-                              Eq.cong
-                                ((found: Comments) => [({ name, comments = found, comma = Comments.none }: Parameter)])
-                                notes)))))))
+        | Witness start (Both _ seen) => (
+          start,
+          [],
+          seen,
+          (first otherTokens firstSame othersSame =>
+            viewsNil
+              (found => ParametersGoal [{ name, comments, comma }] name first found)
+              otherTokens
+              othersSame
+              (match bracketFits first (Name name) start comments firstSame with
+                | (_, _, notes) => (
+                  [],
+                  rfl,
+                  rfl,
+                  (rewrite bare in
+                    Eq.cong
+                      ((found: Comments) => [({ name, comments = found, comma = Comments.none }: Parameter)])
+                      notes)
+                )))
+        )
     | { name, comments, comma }, [next, ..more], Both isName
         (Both fine (Both fineComma lexicalRest)), bare, Witness nameEvents
         (Witness afterName
@@ -1563,78 +1499,72 @@ theorem parametersOut ∀ (parameter: Parameter) (rest: List Parameter) (events:
         (seen start => signEvent seen Comma start)
         commaAt, parametersOut next more restEvents lexicalRest bare restLaid with
         | Witness start (Both _ nameSeen), Witness commaStart (Both _ commaSeen), Witness nextStart
-            (Witness nextOthers (Both nextSeen nextSpells)) =>
-          Witness start
-            (Witness
+            (Witness nextOthers (Both nextSeen nextSpells)) => (
+          start,
+          [
+            tokenView [] (Sign Comma) commaStart comma,
+            tokenView [] (Name next.name) nextStart next.comments,
+            ..nextOthers
+          ],
+          (rewrite nameSplit, commaSplit in
+            seenThen [] nameEvents
+              (commaEvents ++ restEvents)
+              [tokenView [] (Name name) start comments]
               [
                 tokenView [] (Sign Comma) commaStart comma,
                 tokenView [] (Name next.name) nextStart next.comments,
                 ..nextOthers
               ]
-              (Both
-                (rewrite nameSplit, commaSplit in
-                  seenThen [] nameEvents
-                    (commaEvents ++ restEvents)
-                    [tokenView [] (Name name) start comments]
-                    [
-                      tokenView [] (Sign Comma) commaStart comma,
-                      tokenView [] (Name next.name) nextStart next.comments,
-                      ..nextOthers
-                    ]
-                    nameSeen
-                    (seenThen [] commaEvents restEvents
-                      [tokenView [] (Sign Comma) commaStart comma]
-                      [tokenView [] (Name next.name) nextStart next.comments, ..nextOthers]
-                      commaSeen
-                      nextSeen))
-                (first otherTokens firstSame othersSame =>
-                  viewsCons
-                    (found => ParametersGoal [{ name, comments, comma }, next, ..more] name first found)
-                    otherTokens
-                    (tokenView [] (Sign Comma) commaStart comma)
-                    [tokenView [] (Name next.name) nextStart next.comments, ..nextOthers]
-                    othersSame
-                    (commaToken afterComma commaSame afterCommaSame =>
-                      viewsCons
-                        (found =>
-                          ParametersGoal [{ name, comments, comma }, next, ..more] name first [commaToken, ..found])
-                        afterComma
-                        (tokenView [] (Name next.name) nextStart next.comments)
-                        nextOthers
-                        afterCommaSame
-                        (nextToken laterTokens nextSame laterSame =>
-                          match nextSpells nextToken laterTokens nextSame laterSame, bracketFits first
-                            (Name name)
-                            start
-                            comments
-                            firstSame, bracketFits commaToken (Sign Comma) commaStart comma commaSame with
-                            | Witness steps (Both joined (Both stepsSpelled values)), Both _
-                                (Both _ nameNotes), Both commaKind (Both _ commaNotes) =>
-                              Witness
-                                [
-                                  (
-                                    [commaToken, nextToken],
-                                    (
-                                      Layout.comments InBrackets commaToken,
-                                      (next.name, Layout.comments InBrackets nextToken)
-                                    )
-                                  ),
-                                  ..steps
-                                ]
-                                (Both
-                                  (Eq.cong
-                                    ((tail: List (Parse.Located Token)) => [commaToken, nextToken, ..tail])
-                                    joined)
-                                  (Both
-                                    (Both
-                                      (Witness commaToken
-                                        (Witness nextToken
-                                          (Witness next.name
-                                            (Both rfl
-                                              (Both commaKind
-                                                (Both (Eq.cong ((view: TokenView) => view.kind) nextSame) rfl))))))
-                                      stepsSpelled)
-                                    (rewrite <- nameNotes, <- commaNotes, <- values in rfl))))))))
+              nameSeen
+              (seenThen [] commaEvents restEvents
+                [tokenView [] (Sign Comma) commaStart comma]
+                [tokenView [] (Name next.name) nextStart next.comments, ..nextOthers]
+                commaSeen
+                nextSeen)),
+          (first otherTokens firstSame othersSame =>
+            viewsCons
+              (found => ParametersGoal [{ name, comments, comma }, next, ..more] name first found)
+              otherTokens
+              (tokenView [] (Sign Comma) commaStart comma)
+              [tokenView [] (Name next.name) nextStart next.comments, ..nextOthers]
+              othersSame
+              (commaToken afterComma commaSame afterCommaSame =>
+                viewsCons
+                  (found => ParametersGoal [{ name, comments, comma }, next, ..more] name first [commaToken, ..found])
+                  afterComma
+                  (tokenView [] (Name next.name) nextStart next.comments)
+                  nextOthers
+                  afterCommaSame
+                  (nextToken laterTokens nextSame laterSame =>
+                    match nextSpells nextToken laterTokens nextSame laterSame, bracketFits first
+                      (Name name)
+                      start
+                      comments
+                      firstSame, bracketFits commaToken (Sign Comma) commaStart comma commaSame with
+                      | (steps, joined, stepsSpelled, values), (_, _, nameNotes), (commaKind, _, commaNotes) => (
+                        [
+                          (
+                            [commaToken, nextToken],
+                            (Layout.comments InBrackets commaToken, (next.name, Layout.comments InBrackets nextToken))
+                          ),
+                          ..steps
+                        ],
+                        (Eq.cong ((tail: List (Parse.Located Token)) => [commaToken, nextToken, ..tail]) joined),
+                        ((
+                          ((
+                            commaToken,
+                            nextToken,
+                            next.name,
+                            rfl,
+                            commaKind,
+                            (Eq.cong ((view: TokenView) => view.kind) nextSame),
+                            rfl
+                          )),
+                          stepsSpelled
+                        )),
+                        (rewrite <- nameNotes, <- commaNotes, <- values in rfl)
+                      ))))
+        )
 
 --| Tokens with the views of a declaration's parameters, before `)`, are
 --| read back by the parameter parser as the parameters.
@@ -1653,51 +1583,53 @@ theorem parameterListOut ∀ (parameters: List Parameter) (events: List Event)
           listed
           ∧ parameters = parametersOf listed) :=
   match parameters, lexical, bare, laid with
-    | [], _, _, laid =>
-      Witness []
-        (Both (rewrite laid in (earlier => rfl)) (tokens close rest same closeKind =>
-          viewsNil
-            (found =>
-              ∃ (listed: Option ((Text, Comments), List (Comments, (Text, Comments)))) => Parse.Runs
-                (() => Parse.optional parameterList)
-                found
-                [close, ..rest]
-                listed
-                ∧ ([]: List Parameter) = parametersOf listed)
-            tokens
-            same
-            (Witness None (Both (runsNoParameters close rest (rewrite closeKind in rfl)) rfl))))
+    | [], _, _, laid => (
+      [],
+      (rewrite laid in (earlier => rfl)),
+      (tokens close rest same closeKind =>
+        viewsNil
+          (found =>
+            ∃ (listed: Option ((Text, Comments), List (Comments, (Text, Comments)))) => Parse.Runs
+              (() => Parse.optional parameterList)
+              found
+              [close, ..rest]
+              listed
+              ∧ ([]: List Parameter) = parametersOf listed)
+          tokens
+          same
+          ((None, (runsNoParameters close rest (rewrite closeKind in rfl)), rfl)))
+    )
     | [parameter, ..others], lexical, bare, laid =>
       match parametersOut parameter others events lexical bare laid with
-        | Witness start (Witness otherViews (Both seen spells)) =>
-          Witness
-            [tokenView [] (Name parameter.name) start parameter.comments, ..otherViews]
-            (Both seen (tokens close rest same closeKind =>
-              viewsCons
-                (found =>
-                  ∃ (listed: Option ((Text, Comments), List (Comments, (Text, Comments)))) => Parse.Runs
-                    (() => Parse.optional parameterList)
-                    found
-                    [close, ..rest]
-                    listed
-                    ∧ [parameter, ..others] = parametersOf listed)
-                tokens
-                (tokenView [] (Name parameter.name) start parameter.comments)
-                otherViews
-                same
-                (first otherTokens firstSame othersSame =>
-                  match spells first otherTokens firstSame othersSame with
-                    | Witness steps (Both joined (Both stepsSpelled values)) =>
-                      Witness
-                        (Some ((parameter.name, Layout.comments InBrackets first), Parse.stepValues steps))
-                        (Both
-                          (rewrite joined in
-                            runsParameters first parameter.name steps
-                              [close, ..rest]
-                              (Eq.cong ((view: TokenView) => view.kind) firstSame)
-                              stepsSpelled
-                              (rewrite closeKind in rfl))
-                          values))))
+        | Witness start (Witness otherViews (Both seen spells)) => (
+          [tokenView [] (Name parameter.name) start parameter.comments, ..otherViews],
+          seen,
+          (tokens close rest same closeKind =>
+            viewsCons
+              (found =>
+                ∃ (listed: Option ((Text, Comments), List (Comments, (Text, Comments)))) => Parse.Runs
+                  (() => Parse.optional parameterList)
+                  found
+                  [close, ..rest]
+                  listed
+                  ∧ [parameter, ..others] = parametersOf listed)
+              tokens
+              (tokenView [] (Name parameter.name) start parameter.comments)
+              otherViews
+              same
+              (first otherTokens firstSame othersSame =>
+                match spells first otherTokens firstSame othersSame with
+                  | (steps, joined, stepsSpelled, values) => (
+                    (Some ((parameter.name, Layout.comments InBrackets first), Parse.stepValues steps)),
+                    (rewrite joined in
+                      runsParameters first parameter.name steps
+                        [close, ..rest]
+                        (Eq.cong ((view: TokenView) => view.kind) firstSame)
+                        stepsSpelled
+                        (rewrite closeKind in rfl)),
+                    values
+                  )))
+        )
 
 -- Newest first against source order.
 
@@ -1715,7 +1647,7 @@ theorem risingCons ∀ (lower: Nat) (acc: List Nat)
     Rising [lower, ..acc] :=
   match acc, rising, joins with
     | [], _, _ => rfl
-    | [next, ..rest], rising, joins => Both joins rising
+    | [next, ..rest], rising, joins => (joins, rising)
 
 theorem descendingOnto ∀ (offsets acc: List Nat)
     (falling: Descending offsets)
@@ -1773,14 +1705,15 @@ theorem lastAfter ∀ (column: Nat) (first: Parse.Located Token) (others later: 
     (rising: Rising (([first, ..others] ++ later).map (found => found.offset))):
     After (InStatement column first.offset) [first, ..others] later :=
   match later, starts, rising with
-    | [], _, _ => Both (Both rfl rfl) rfl
+    | [], _, _ => (((rfl, rfl)), rfl)
     | [next, ..more], starts, rising =>
       settledAfter column 0 [] first others
         [next, ..more]
         (Inr
-          (Both
-            (startsLow next column starts)
-            (belowNotAt next.offset [first, ..others] (risingBelow [first, ..others] next more rising))))
+          ((
+            (startsLow next column starts),
+            (belowNotAt next.offset [first, ..others] (risingBelow [first, ..others] next more rising))
+          )))
 
 --| What tokens with the views of a file's declarations have to do: with
 --| rising offsets, they spell the declarations to the end of the file.
@@ -1811,7 +1744,7 @@ theorem laterOfDeclarations ∀ (declarations: List (Spaced Declaration)) (event
               | [first, .._] => first.blankBefore
               | [] => False)
           unspaced
-      rewrite <- none in Witness events (Both rfl laid)
+      rewrite <- none in (events, rfl, laid)
 
 --| Tokens with the views of a file's declarations spell them: each
 --| declaration's first token starts a line at column 0 and holds the
@@ -1827,21 +1760,24 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
     (laid: LaterDeclarations lines events):
     DeclarationsSpell isFirst noted lines pending events :=
   match lines, shaped, lexical, headed, unspaced, laid with
-    | [], _, _, _, unspaced, laid =>
-      Witness []
-        (Witness pending
-          (Both
-            (rewrite laid in (earlier => rfl))
-            (Both rfl (tokens same =>
-              viewsNil (found => DeclarationsGoal isFirst noted [] pending.reverse found) tokens same (rising =>
-                Both rfl
-                  (Eq.trans
-                    (Eq.cong
-                      ((found: (List (Spaced Declaration), Bool)) => firstBlankOf isFirst found.fst)
-                      (Eq.trans (notesOfReverse DeclarationNote pending) waits))
-                    (firstBlankOfSame isFirst noted (first =>
-                      let whole := unspaced first
-                      rewrite List.appendNil noted at whole in whole))))))))
+    | [], _, _, _, unspaced, laid => (
+      [],
+      pending,
+      (rewrite laid in (earlier => rfl)),
+      rfl,
+      (tokens same =>
+        viewsNil (found => DeclarationsGoal isFirst noted [] pending.reverse found) tokens same (rising =>
+          (
+            rfl,
+            (Eq.trans
+              (Eq.cong
+                ((found: (List (Spaced Declaration), Bool)) => firstBlankOf isFirst found.fst)
+                (Eq.trans (notesOfReverse DeclarationNote pending) waits))
+              (firstBlankOfSame isFirst noted (first =>
+                let whole := unspaced first
+                rewrite List.appendNil noted at whole in whole)))
+          )))
+    )
     | [{ blankBefore, line = DeclarationNote comment }, ..more], Both _ shapedMore, Both fine lexicalMore, Both _
           headedMore, unspaced, Witness later
         (Both split (Witness front (Witness back (Both thenSplit (Both noteLaid moreLaid))))) =>
@@ -1857,16 +1793,17 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
           rewrite List.appendAssoc noted [{ blankBefore, line = DeclarationNote comment }] more in unspaced first)
         (noteNotes DeclarationNote blankBefore pending noted comment waits)
         moreLaid with
-        | Witness views (Witness left (Both seen (Both starts spells))) =>
-          Witness views
-            (Witness left
-              (Both
-                (rewrite split, thenSplit, noteLaid in
-                  seenBlank blankBefore pending left
-                    ([{ word = comment.text, start = Some 0 }] ++ back)
-                    views
-                    (seenNote comment 0 (blankOf blankBefore pending) left back views fine seen))
-                (Both starts spells)))
+        | Witness views (Witness left (Both seen (Both starts spells))) => (
+          views,
+          left,
+          (rewrite split, thenSplit, noteLaid in
+            seenBlank blankBefore pending left
+              ([{ word = comment.text, start = Some 0 }] ++ back)
+              views
+              (seenNote comment 0 (blankOf blankBefore pending) left back views fine seen)),
+          starts,
+          spells
+        )
     | [{ blankBefore, line = Value letComments name nameComments equals body }, ..more], Both shapedBody
           shapedMore, Both (Both fineLet (Both isName (Both fineName (Both fineEquals bodyLexical)))) lexicalMore, Both
         (Both letAbove headedBody)
@@ -1922,219 +1859,193 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
         | Witness letStart (Both letAllowed letSeen), Witness nameStart (Both nameAllowed nameSeen), Witness equalsStart
             (Both equalsAllowed equalsSeen), Witness bodyFirst
             (Witness bodyOthers (Both bodySeen bodySpells)), Witness moreViews
-            (Witness left (Both moreSeen (Both moreStarts moreSpells))) =>
-          Witness
-            ([
-              tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments,
-              tokenView [] (Name name) nameStart nameComments,
-              tokenView [] (Sign Defines) equalsStart equals,
-              bodyFirst,
-              ..bodyOthers
-            ]
-              ++ moreViews)
-            (Witness left
-              (Both
-                (rewrite split, thenSplit, letSplit, nameSplit, equalsSplit in
-                  seenBlank blankBefore pending left
-                    ((letEvents ++ (nameEvents ++ (equalsEvents ++ bodyEvents))) ++ back)
-                    ([
-                      tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments,
-                      tokenView [] (Name name) nameStart nameComments,
-                      tokenView [] (Sign Defines) equalsStart equals,
-                      bodyFirst,
-                      ..bodyOthers
-                    ]
-                      ++ moreViews)
-                    (seenToThen
-                      (blankOf blankBefore pending)
-                      []
-                      left
-                      (letEvents ++ (nameEvents ++ (equalsEvents ++ bodyEvents)))
-                      back
-                      [
-                        tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments,
-                        tokenView [] (Name name) nameStart nameComments,
-                        tokenView [] (Sign Defines) equalsStart equals,
-                        bodyFirst,
-                        ..bodyOthers
-                      ]
-                      moreViews
-                      (seenThen
-                        (blankOf blankBefore pending)
-                        letEvents
-                        (nameEvents ++ (equalsEvents ++ bodyEvents))
-                        [tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments]
-                        [
-                          tokenView [] (Name name) nameStart nameComments,
-                          tokenView [] (Sign Defines) equalsStart equals,
-                          bodyFirst,
-                          ..bodyOthers
-                        ]
-                        letSeen
-                        (seenThen [] nameEvents
-                          (equalsEvents ++ bodyEvents)
-                          [tokenView [] (Name name) nameStart nameComments]
-                          [tokenView [] (Sign Defines) equalsStart equals, bodyFirst, ..bodyOthers]
-                          nameSeen
-                          (seenThen [] equalsEvents bodyEvents
-                            [tokenView [] (Sign Defines) equalsStart equals]
-                            [bodyFirst, ..bodyOthers]
-                            equalsSeen
-                            bodySeen)))
-                      moreSeen))
-                (Both letAllowed (tokens same =>
-                  viewsCons
-                    (found =>
-                      DeclarationsGoal isFirst noted
-                        [{ blankBefore, line = Value letComments name nameComments equals body }, ..more]
-                        left.reverse
-                        found)
-                    tokens
-                    (tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments)
-                    ([
-                      tokenView [] (Name name) nameStart nameComments,
-                      tokenView [] (Sign Defines) equalsStart equals,
-                      bodyFirst,
-                      ..bodyOthers
-                    ]
-                      ++ moreViews)
-                    same
-                    (firstToken afterFirst firstSame afterFirstSame =>
-                      viewsCons
-                        (found =>
-                          DeclarationsGoal isFirst noted
-                            [{ blankBefore, line = Value letComments name nameComments equals body }, ..more]
-                            left.reverse
-                            [firstToken, ..found])
-                        afterFirst
-                        (tokenView [] (Name name) nameStart nameComments)
-                        ([tokenView [] (Sign Defines) equalsStart equals, bodyFirst, ..bodyOthers] ++ moreViews)
-                        afterFirstSame
-                        (named afterNamed namedSame afterNamedSame =>
-                          viewsCons
-                            (found =>
-                              DeclarationsGoal isFirst noted
-                                [{ blankBefore, line = Value letComments name nameComments equals body }, ..more]
-                                left.reverse
-                                [firstToken, named, ..found])
-                            afterNamed
-                            (tokenView [] (Sign Defines) equalsStart equals)
-                            ([bodyFirst, ..bodyOthers] ++ moreViews)
-                            afterNamedSame
-                            (equalsToken afterEquals equalsSame afterEqualsSame =>
-                              viewsSplit
-                                (found =>
-                                  DeclarationsGoal isFirst noted
-                                    [{ blankBefore, line = Value letComments name nameComments equals body }, ..more]
-                                    left.reverse
-                                    [firstToken, named, equalsToken, ..found])
-                                afterEquals
-                                [bodyFirst, ..bodyOthers]
-                                moreViews
-                                afterEqualsSame
-                                (bodyTokens laterTokens bodySame laterSame rising =>
-                                  let risingStatement :=
-                                    risingFront [firstToken, named, equalsToken, ..bodyTokens] laterTokens rising
-                                  let apart :=
-                                    laterApart 0 firstToken [named, equalsToken, ..bodyTokens] risingStatement
-                                  let after :=
-                                    lastAfter 0 firstToken
-                                      [named, equalsToken, ..bodyTokens]
-                                      laterTokens
-                                      (rewrite laterSame in moreStarts)
-                                      rising
-                                  match innerFits
-                                    (Deeper 0)
+            (Witness left (Both moreSeen (Both moreStarts moreSpells))) => (
+          ([
+            tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments,
+            tokenView [] (Name name) nameStart nameComments,
+            tokenView [] (Sign Defines) equalsStart equals,
+            bodyFirst,
+            ..bodyOthers
+          ]
+            ++ moreViews),
+          left,
+          (rewrite split, thenSplit, letSplit, nameSplit, equalsSplit in
+            seenBlank blankBefore pending left
+              ((letEvents ++ (nameEvents ++ (equalsEvents ++ bodyEvents))) ++ back)
+              ([
+                tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments,
+                tokenView [] (Name name) nameStart nameComments,
+                tokenView [] (Sign Defines) equalsStart equals,
+                bodyFirst,
+                ..bodyOthers
+              ]
+                ++ moreViews)
+              (seenToThen
+                (blankOf blankBefore pending)
+                []
+                left
+                (letEvents ++ (nameEvents ++ (equalsEvents ++ bodyEvents)))
+                back
+                [
+                  tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments,
+                  tokenView [] (Name name) nameStart nameComments,
+                  tokenView [] (Sign Defines) equalsStart equals,
+                  bodyFirst,
+                  ..bodyOthers
+                ]
+                moreViews
+                (seenThen
+                  (blankOf blankBefore pending)
+                  letEvents
+                  (nameEvents ++ (equalsEvents ++ bodyEvents))
+                  [tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments]
+                  [
+                    tokenView [] (Name name) nameStart nameComments,
+                    tokenView [] (Sign Defines) equalsStart equals,
+                    bodyFirst,
+                    ..bodyOthers
+                  ]
+                  letSeen
+                  (seenThen [] nameEvents
+                    (equalsEvents ++ bodyEvents)
+                    [tokenView [] (Name name) nameStart nameComments]
+                    [tokenView [] (Sign Defines) equalsStart equals, bodyFirst, ..bodyOthers]
+                    nameSeen
+                    (seenThen [] equalsEvents bodyEvents
+                      [tokenView [] (Sign Defines) equalsStart equals]
+                      [bodyFirst, ..bodyOthers]
+                      equalsSeen
+                      bodySeen)))
+                moreSeen)),
+          letAllowed,
+          (tokens same =>
+            viewsCons
+              (found =>
+                DeclarationsGoal isFirst noted
+                  [{ blankBefore, line = Value letComments name nameComments equals body }, ..more]
+                  left.reverse
+                  found)
+              tokens
+              (tokenView (blankOf blankBefore pending) (Reserved LetKeyword) letStart letComments)
+              ([
+                tokenView [] (Name name) nameStart nameComments,
+                tokenView [] (Sign Defines) equalsStart equals,
+                bodyFirst,
+                ..bodyOthers
+              ]
+                ++ moreViews)
+              same
+              (firstToken afterFirst firstSame afterFirstSame =>
+                viewsCons
+                  (found =>
+                    DeclarationsGoal isFirst noted
+                      [{ blankBefore, line = Value letComments name nameComments equals body }, ..more]
+                      left.reverse
+                      [firstToken, ..found])
+                  afterFirst
+                  (tokenView [] (Name name) nameStart nameComments)
+                  ([tokenView [] (Sign Defines) equalsStart equals, bodyFirst, ..bodyOthers] ++ moreViews)
+                  afterFirstSame
+                  (named afterNamed namedSame afterNamedSame =>
+                    viewsCons
+                      (found =>
+                        DeclarationsGoal isFirst noted
+                          [{ blankBefore, line = Value letComments name nameComments equals body }, ..more]
+                          left.reverse
+                          [firstToken, named, ..found])
+                      afterNamed
+                      (tokenView [] (Sign Defines) equalsStart equals)
+                      ([bodyFirst, ..bodyOthers] ++ moreViews)
+                      afterNamedSame
+                      (equalsToken afterEquals equalsSame afterEqualsSame =>
+                        viewsSplit
+                          (found =>
+                            DeclarationsGoal isFirst noted
+                              [{ blankBefore, line = Value letComments name nameComments equals body }, ..more]
+                              left.reverse
+                              [firstToken, named, equalsToken, ..found])
+                          afterEquals
+                          [bodyFirst, ..bodyOthers]
+                          moreViews
+                          afterEqualsSame
+                          (bodyTokens laterTokens bodySame laterSame rising =>
+                            let risingStatement :=
+                              risingFront [firstToken, named, equalsToken, ..bodyTokens] laterTokens rising
+                            let apart := laterApart 0 firstToken [named, equalsToken, ..bodyTokens] risingStatement
+                            let after :=
+                              lastAfter 0 firstToken
+                                [named, equalsToken, ..bodyTokens]
+                                laterTokens
+                                (rewrite laterSame in moreStarts)
+                                rising
+                            match innerFits
+                              (Deeper 0)
+                              (InStatement 0 firstToken.offset)
+                              named
+                              (Name name)
+                              nameStart
+                              nameComments
+                              rfl
+                              apart.left
+                              nameAllowed
+                              namedSame, innerFits
+                              (Deeper 0)
+                              (InStatement 0 firstToken.offset)
+                              equalsToken
+                              (Sign Defines)
+                              equalsStart
+                              equals
+                              rfl
+                              apart.right.left
+                              equalsAllowed
+                              equalsSame with
+                              | (nameKind, nameAllows, nameNotes), (equalsKind, equalsAllows, equalsNotes) => (
+                                firstToken,
+                                named,
+                                equalsToken,
+                                bodyTokens,
+                                laterTokens,
+                                rfl,
+                                (startsAtLine firstToken 0
+                                  (Eq.trans (Eq.cong ((view: TokenView) => view.start) firstSame) letAllowed)),
+                                (Eq.cong ((view: TokenView) => view.kind) firstSame),
+                                nameKind,
+                                nameAllows,
+                                equalsKind,
+                                equalsAllows,
+                                (keywordComments 0 firstToken
+                                  (blankOf blankBefore pending)
+                                  (Reserved LetKeyword)
+                                  letStart
+                                  letComments
+                                  letAbove
+                                  firstSame),
+                                nameNotes,
+                                equalsNotes,
+                                (notedDeclarationLine isFirst pending noted more blankBefore
+                                  (Value letComments name nameComments equals body)
+                                  firstToken.value.above
+                                  (Eq.trans
+                                    (Eq.cong ((view: TokenView) => view.above) firstSame)
+                                    (Eq.cong
+                                      ((comments: List Comment) =>
+                                        (waiting (blankOf blankBefore pending) comments).reverse)
+                                      letAbove))
+                                  waits
+                                  unspaced),
+                                (bodySpells firstToken.offset bodyTokens laterTokens bodySame
+                                  (risingBack [firstToken, named, equalsToken] bodyTokens risingStatement)
+                                  apart.right.right
+                                  (afterBack
                                     (InStatement 0 firstToken.offset)
-                                    named
-                                    (Name name)
-                                    nameStart
-                                    nameComments
-                                    rfl
-                                    apart.left
-                                    nameAllowed
-                                    namedSame, innerFits
-                                    (Deeper 0)
-                                    (InStatement 0 firstToken.offset)
-                                    equalsToken
-                                    (Sign Defines)
-                                    equalsStart
-                                    equals
-                                    rfl
-                                    apart.right.left
-                                    equalsAllowed
-                                    equalsSame with
-                                    | Both nameKind (Both nameAllows nameNotes), Both equalsKind
-                                        (Both equalsAllows equalsNotes) =>
-                                      Witness firstToken
-                                        (Witness named
-                                          (Witness equalsToken
-                                            (Witness bodyTokens
-                                              (Witness laterTokens
-                                                (Both rfl
-                                                  (Both
-                                                    (startsAtLine firstToken 0
-                                                      (Eq.trans
-                                                        (Eq.cong ((view: TokenView) => view.start) firstSame)
-                                                        letAllowed))
-                                                    (Both
-                                                      (Eq.cong ((view: TokenView) => view.kind) firstSame)
-                                                      (Both nameKind
-                                                        (Both nameAllows
-                                                          (Both equalsKind
-                                                            (Both equalsAllows
-                                                              (Both
-                                                                (keywordComments 0 firstToken
-                                                                  (blankOf blankBefore pending)
-                                                                  (Reserved LetKeyword)
-                                                                  letStart
-                                                                  letComments
-                                                                  letAbove
-                                                                  firstSame)
-                                                                (Both nameNotes
-                                                                  (Both equalsNotes
-                                                                    (Both
-                                                                      (notedDeclarationLine isFirst pending noted more
-                                                                          blankBefore
-                                                                          (Value letComments name nameComments equals
-                                                                              body)
-                                                                          firstToken.value.above
-                                                                          (Eq.trans
-                                                                            (Eq.cong
-                                                                              ((view: TokenView) => view.above)
-                                                                              firstSame)
-                                                                            (Eq.cong
-                                                                              ((comments: List Comment) =>
-                                                                                (waiting
-                                                                                  (blankOf blankBefore pending)
-                                                                                  comments).reverse)
-                                                                              letAbove))
-                                                                          waits
-                                                                          unspaced)
-                                                                      (Both
-                                                                        (bodySpells firstToken.offset bodyTokens
-                                                                            laterTokens bodySame
-                                                                            (risingBack
-                                                                              [firstToken, named, equalsToken]
-                                                                              bodyTokens
-                                                                              risingStatement)
-                                                                            apart.right.right
-                                                                            (afterBack
-                                                                              (InStatement 0 firstToken.offset)
-                                                                              [firstToken, named, equalsToken]
-                                                                              bodyTokens
-                                                                              laterTokens
-                                                                              after))
-                                                                        (moreSpells laterTokens laterSame
-                                                                          (risingBack
-                                                                            [
-                                                                              firstToken,
-                                                                              named,
-                                                                              equalsToken,
-                                                                              ..bodyTokens
-                                                                            ]
-                                                                            laterTokens
-                                                                            rising))))))))))))))))))))))))))
+                                    [firstToken, named, equalsToken]
+                                    bodyTokens
+                                    laterTokens
+                                    after)),
+                                (moreSpells laterTokens laterSame
+                                  (risingBack [firstToken, named, equalsToken, ..bodyTokens] laterTokens rising))
+                              ))))))
+        )
     | [{ blankBefore, line = Function fnComments name nameComments open parameters close equals body }, ..more], Both
         (Both bare shapedBody)
         shapedMore, Both
@@ -2221,500 +2132,421 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
             (Both parametersSeen parametersSpell), Witness closeStart (Both _ closeSeen), Witness equalsStart
             (Both equalsAllowed equalsSeen), Witness bodyFirst
             (Witness bodyOthers (Both bodySeen bodySpells)), Witness moreViews
-            (Witness left (Both moreSeen (Both moreStarts moreSpells))) =>
-          Witness
-            (([
-              tokenView (blankOf blankBefore pending) (Reserved FnKeyword) fnStart fnComments,
-              tokenView [] (Name name) nameStart nameComments,
-              tokenView [] (Sign OpenParen) openStart open
-            ]
-              ++ (parameterViews
-                ++ [
-                  tokenView [] (Sign CloseParen) closeStart close,
-                  tokenView [] (Sign Defines) equalsStart equals,
-                  bodyFirst,
-                  ..bodyOthers
-                ]))
-              ++ moreViews)
-            (Witness left
-              (Both
-                (rewrite split, thenSplit, headSplit, fnSplit, nameSplit, parameterSplit, closeSplit, equalsSplit in
-                  seenBlank blankBefore pending left
-                    (((fnEvents ++ (nameEvents ++ openEvents))
-                      ++ (parameterEvents ++ (closeEvents ++ (equalsEvents ++ bodyEvents))))
-                      ++ back)
-                    (([
-                      tokenView (blankOf blankBefore pending) (Reserved FnKeyword) fnStart fnComments,
-                      tokenView [] (Name name) nameStart nameComments,
-                      tokenView [] (Sign OpenParen) openStart open
+            (Witness left (Both moreSeen (Both moreStarts moreSpells))) => (
+          (([
+            tokenView (blankOf blankBefore pending) (Reserved FnKeyword) fnStart fnComments,
+            tokenView [] (Name name) nameStart nameComments,
+            tokenView [] (Sign OpenParen) openStart open
+          ]
+            ++ (parameterViews
+              ++ [
+                tokenView [] (Sign CloseParen) closeStart close,
+                tokenView [] (Sign Defines) equalsStart equals,
+                bodyFirst,
+                ..bodyOthers
+              ]))
+            ++ moreViews),
+          left,
+          (rewrite split, thenSplit, headSplit, fnSplit, nameSplit, parameterSplit, closeSplit, equalsSplit in
+            seenBlank blankBefore pending left
+              (((fnEvents ++ (nameEvents ++ openEvents))
+                ++ (parameterEvents ++ (closeEvents ++ (equalsEvents ++ bodyEvents))))
+                ++ back)
+              (([
+                tokenView (blankOf blankBefore pending) (Reserved FnKeyword) fnStart fnComments,
+                tokenView [] (Name name) nameStart nameComments,
+                tokenView [] (Sign OpenParen) openStart open
+              ]
+                ++ (parameterViews
+                  ++ [
+                    tokenView [] (Sign CloseParen) closeStart close,
+                    tokenView [] (Sign Defines) equalsStart equals,
+                    bodyFirst,
+                    ..bodyOthers
+                  ]))
+                ++ moreViews)
+              (seenToThen
+                (blankOf blankBefore pending)
+                []
+                left
+                ((fnEvents ++ (nameEvents ++ openEvents))
+                  ++ (parameterEvents ++ (closeEvents ++ (equalsEvents ++ bodyEvents))))
+                back
+                ([
+                  tokenView (blankOf blankBefore pending) (Reserved FnKeyword) fnStart fnComments,
+                  tokenView [] (Name name) nameStart nameComments,
+                  tokenView [] (Sign OpenParen) openStart open
+                ]
+                  ++ (parameterViews
+                    ++ [
+                      tokenView [] (Sign CloseParen) closeStart close,
+                      tokenView [] (Sign Defines) equalsStart equals,
+                      bodyFirst,
+                      ..bodyOthers
+                    ]))
+                moreViews
+                (seenThen
+                  (blankOf blankBefore pending)
+                  (fnEvents ++ (nameEvents ++ openEvents))
+                  (parameterEvents ++ (closeEvents ++ (equalsEvents ++ bodyEvents)))
+                  [
+                    tokenView (blankOf blankBefore pending) (Reserved FnKeyword) fnStart fnComments,
+                    tokenView [] (Name name) nameStart nameComments,
+                    tokenView [] (Sign OpenParen) openStart open
+                  ]
+                  (parameterViews
+                    ++ [
+                      tokenView [] (Sign CloseParen) closeStart close,
+                      tokenView [] (Sign Defines) equalsStart equals,
+                      bodyFirst,
+                      ..bodyOthers
+                    ])
+                  (seenThen
+                    (blankOf blankBefore pending)
+                    fnEvents
+                    (nameEvents ++ openEvents)
+                    [tokenView (blankOf blankBefore pending) (Reserved FnKeyword) fnStart fnComments]
+                    [tokenView [] (Name name) nameStart nameComments, tokenView [] (Sign OpenParen) openStart open]
+                    fnSeen
+                    (seenThen [] nameEvents openEvents
+                      [tokenView [] (Name name) nameStart nameComments]
+                      [tokenView [] (Sign OpenParen) openStart open]
+                      nameSeen
+                      openSeen))
+                  (seenThen [] parameterEvents
+                    (closeEvents ++ (equalsEvents ++ bodyEvents))
+                    parameterViews
+                    [
+                      tokenView [] (Sign CloseParen) closeStart close,
+                      tokenView [] (Sign Defines) equalsStart equals,
+                      bodyFirst,
+                      ..bodyOthers
                     ]
-                      ++ (parameterViews
-                        ++ [
-                          tokenView [] (Sign CloseParen) closeStart close,
-                          tokenView [] (Sign Defines) equalsStart equals,
-                          bodyFirst,
-                          ..bodyOthers
-                        ]))
-                      ++ moreViews)
-                    (seenToThen
-                      (blankOf blankBefore pending)
-                      []
-                      left
-                      ((fnEvents ++ (nameEvents ++ openEvents))
-                        ++ (parameterEvents ++ (closeEvents ++ (equalsEvents ++ bodyEvents))))
-                      back
-                      ([
-                        tokenView (blankOf blankBefore pending) (Reserved FnKeyword) fnStart fnComments,
-                        tokenView [] (Name name) nameStart nameComments,
-                        tokenView [] (Sign OpenParen) openStart open
+                    parametersSeen
+                    (seenThen [] closeEvents
+                      (equalsEvents ++ bodyEvents)
+                      [tokenView [] (Sign CloseParen) closeStart close]
+                      [tokenView [] (Sign Defines) equalsStart equals, bodyFirst, ..bodyOthers]
+                      closeSeen
+                      (seenThen [] equalsEvents bodyEvents
+                        [tokenView [] (Sign Defines) equalsStart equals]
+                        [bodyFirst, ..bodyOthers]
+                        equalsSeen
+                        bodySeen))))
+                moreSeen)),
+          fnAllowed,
+          (tokens same =>
+            viewsCons
+              (found =>
+                DeclarationsGoal isFirst noted
+                  [
+                    { blankBefore, line = Function fnComments name nameComments open parameters close equals body },
+                    ..more
+                  ]
+                  left.reverse
+                  found)
+              tokens
+              (tokenView (blankOf blankBefore pending) (Reserved FnKeyword) fnStart fnComments)
+              (([tokenView [] (Name name) nameStart nameComments, tokenView [] (Sign OpenParen) openStart open]
+                ++ (parameterViews
+                  ++ [
+                    tokenView [] (Sign CloseParen) closeStart close,
+                    tokenView [] (Sign Defines) equalsStart equals,
+                    bodyFirst,
+                    ..bodyOthers
+                  ]))
+                ++ moreViews)
+              same
+              (firstToken afterFirst firstSame afterFirstSame =>
+                viewsCons
+                  (found =>
+                    DeclarationsGoal isFirst noted
+                      [
+                        { blankBefore, line = Function fnComments name nameComments open parameters close equals body },
+                        ..more
                       ]
-                        ++ (parameterViews
-                          ++ [
-                            tokenView [] (Sign CloseParen) closeStart close,
-                            tokenView [] (Sign Defines) equalsStart equals,
-                            bodyFirst,
-                            ..bodyOthers
-                          ]))
-                      moreViews
-                      (seenThen
-                        (blankOf blankBefore pending)
-                        (fnEvents ++ (nameEvents ++ openEvents))
-                        (parameterEvents ++ (closeEvents ++ (equalsEvents ++ bodyEvents)))
-                        [
-                          tokenView (blankOf blankBefore pending) (Reserved FnKeyword) fnStart fnComments,
-                          tokenView [] (Name name) nameStart nameComments,
-                          tokenView [] (Sign OpenParen) openStart open
-                        ]
-                        (parameterViews
-                          ++ [
-                            tokenView [] (Sign CloseParen) closeStart close,
-                            tokenView [] (Sign Defines) equalsStart equals,
-                            bodyFirst,
-                            ..bodyOthers
-                          ])
-                        (seenThen
-                          (blankOf blankBefore pending)
-                          fnEvents
-                          (nameEvents ++ openEvents)
-                          [tokenView (blankOf blankBefore pending) (Reserved FnKeyword) fnStart fnComments]
+                      left.reverse
+                      [firstToken, ..found])
+                  afterFirst
+                  (tokenView [] (Name name) nameStart nameComments)
+                  (([tokenView [] (Sign OpenParen) openStart open]
+                    ++ (parameterViews
+                      ++ [
+                        tokenView [] (Sign CloseParen) closeStart close,
+                        tokenView [] (Sign Defines) equalsStart equals,
+                        bodyFirst,
+                        ..bodyOthers
+                      ]))
+                    ++ moreViews)
+                  afterFirstSame
+                  (named afterNamed namedSame afterNamedSame =>
+                    viewsCons
+                      (found =>
+                        DeclarationsGoal isFirst noted
                           [
-                            tokenView [] (Name name) nameStart nameComments,
-                            tokenView [] (Sign OpenParen) openStart open
+                            {
+                              blankBefore,
+                              line = Function fnComments name nameComments open parameters close equals body
+                            },
+                            ..more
                           ]
-                          fnSeen
-                          (seenThen [] nameEvents openEvents
-                            [tokenView [] (Name name) nameStart nameComments]
-                            [tokenView [] (Sign OpenParen) openStart open]
-                            nameSeen
-                            openSeen))
-                        (seenThen [] parameterEvents
-                          (closeEvents ++ (equalsEvents ++ bodyEvents))
-                          parameterViews
-                          [
-                            tokenView [] (Sign CloseParen) closeStart close,
-                            tokenView [] (Sign Defines) equalsStart equals,
-                            bodyFirst,
-                            ..bodyOthers
-                          ]
-                          parametersSeen
-                          (seenThen [] closeEvents
-                            (equalsEvents ++ bodyEvents)
-                            [tokenView [] (Sign CloseParen) closeStart close]
-                            [tokenView [] (Sign Defines) equalsStart equals, bodyFirst, ..bodyOthers]
-                            closeSeen
-                            (seenThen [] equalsEvents bodyEvents
-                              [tokenView [] (Sign Defines) equalsStart equals]
-                              [bodyFirst, ..bodyOthers]
-                              equalsSeen
-                              bodySeen))))
-                      moreSeen))
-                (Both fnAllowed (tokens same =>
-                  viewsCons
-                    (found =>
-                      DeclarationsGoal isFirst noted
-                        [
-                          {
-                            blankBefore,
-                            line = Function fnComments name nameComments open parameters close equals body
-                          },
-                          ..more
-                        ]
-                        left.reverse
-                        found)
-                    tokens
-                    (tokenView (blankOf blankBefore pending) (Reserved FnKeyword) fnStart fnComments)
-                    (([tokenView [] (Name name) nameStart nameComments, tokenView [] (Sign OpenParen) openStart open]
-                      ++ (parameterViews
+                          left.reverse
+                          [firstToken, named, ..found])
+                      afterNamed
+                      (tokenView [] (Sign OpenParen) openStart open)
+                      ((parameterViews
                         ++ [
                           tokenView [] (Sign CloseParen) closeStart close,
                           tokenView [] (Sign Defines) equalsStart equals,
                           bodyFirst,
                           ..bodyOthers
-                        ]))
-                      ++ moreViews)
-                    same
-                    (firstToken afterFirst firstSame afterFirstSame =>
-                      viewsCons
-                        (found =>
-                          DeclarationsGoal isFirst noted
-                            [
-                              {
-                                blankBefore,
-                                line = Function fnComments name nameComments open parameters close equals body
-                              },
-                              ..more
-                            ]
-                            left.reverse
-                            [firstToken, ..found])
-                        afterFirst
-                        (tokenView [] (Name name) nameStart nameComments)
-                        (([tokenView [] (Sign OpenParen) openStart open]
-                          ++ (parameterViews
+                        ])
+                        ++ moreViews)
+                      afterNamedSame
+                      (openToken afterOpen openSame afterOpenSame =>
+                        viewsSplit
+                          (found =>
+                            DeclarationsGoal isFirst noted
+                              [
+                                {
+                                  blankBefore,
+                                  line = Function fnComments name nameComments open parameters close equals body
+                                },
+                                ..more
+                              ]
+                              left.reverse
+                              [firstToken, named, openToken, ..found])
+                          afterOpen
+                          (parameterViews
                             ++ [
                               tokenView [] (Sign CloseParen) closeStart close,
                               tokenView [] (Sign Defines) equalsStart equals,
                               bodyFirst,
                               ..bodyOthers
-                            ]))
-                          ++ moreViews)
-                        afterFirstSame
-                        (named afterNamed namedSame afterNamedSame =>
-                          viewsCons
-                            (found =>
-                              DeclarationsGoal isFirst noted
-                                [
-                                  {
-                                    blankBefore,
-                                    line = Function fnComments name nameComments open parameters close equals body
-                                  },
-                                  ..more
-                                ]
-                                left.reverse
-                                [firstToken, named, ..found])
-                            afterNamed
-                            (tokenView [] (Sign OpenParen) openStart open)
-                            ((parameterViews
-                              ++ [
+                            ])
+                          moreViews
+                          afterOpenSame
+                          (statementRest laterTokens restSame laterSame =>
+                            viewsSplit
+                              (found =>
+                                DeclarationsGoal isFirst noted
+                                  [
+                                    {
+                                      blankBefore,
+                                      line = Function fnComments name nameComments open parameters close equals body
+                                    },
+                                    ..more
+                                  ]
+                                  left.reverse
+                                  [firstToken, named, openToken, ..found ++ laterTokens])
+                              statementRest
+                              parameterViews
+                              [
                                 tokenView [] (Sign CloseParen) closeStart close,
                                 tokenView [] (Sign Defines) equalsStart equals,
                                 bodyFirst,
                                 ..bodyOthers
-                              ])
-                              ++ moreViews)
-                            afterNamedSame
-                            (openToken afterOpen openSame afterOpenSame =>
-                              viewsSplit
-                                (found =>
-                                  DeclarationsGoal isFirst noted
-                                    [
-                                      {
-                                        blankBefore,
-                                        line = Function fnComments name nameComments open parameters close equals body
-                                      },
-                                      ..more
-                                    ]
-                                    left.reverse
-                                    [firstToken, named, openToken, ..found])
-                                afterOpen
-                                (parameterViews
-                                  ++ [
-                                    tokenView [] (Sign CloseParen) closeStart close,
-                                    tokenView [] (Sign Defines) equalsStart equals,
-                                    bodyFirst,
-                                    ..bodyOthers
-                                  ])
-                                moreViews
-                                afterOpenSame
-                                (statementRest laterTokens restSame laterSame =>
-                                  viewsSplit
-                                    (found =>
-                                      DeclarationsGoal isFirst noted
-                                        [
-                                          {
-                                            blankBefore,
-                                            line = Function fnComments name nameComments open parameters close equals
-                                                body
-                                          },
-                                          ..more
-                                        ]
-                                        left.reverse
-                                        [firstToken, named, openToken, ..found ++ laterTokens])
-                                    statementRest
-                                    parameterViews
-                                    [
-                                      tokenView [] (Sign CloseParen) closeStart close,
-                                      tokenView [] (Sign Defines) equalsStart equals,
-                                      bodyFirst,
-                                      ..bodyOthers
-                                    ]
-                                    restSame
-                                    (parameterTokens afterParameterTokens parameterSame afterParameterSame =>
-                                      viewsCons
-                                        (found =>
-                                          DeclarationsGoal isFirst noted
+                              ]
+                              restSame
+                              (parameterTokens afterParameterTokens parameterSame afterParameterSame =>
+                                viewsCons
+                                  (found =>
+                                    DeclarationsGoal isFirst noted
+                                      [
+                                        {
+                                          blankBefore,
+                                          line = Function fnComments name nameComments open parameters close equals body
+                                        },
+                                        ..more
+                                      ]
+                                      left.reverse
+                                      [firstToken, named, openToken, ..(parameterTokens ++ found) ++ laterTokens])
+                                  afterParameterTokens
+                                  (tokenView [] (Sign CloseParen) closeStart close)
+                                  [tokenView [] (Sign Defines) equalsStart equals, bodyFirst, ..bodyOthers]
+                                  afterParameterSame
+                                  (closeToken afterCloseTokens closeSame afterCloseSame =>
+                                    viewsCons
+                                      (found =>
+                                        DeclarationsGoal isFirst noted
+                                          [
+                                            {
+                                              blankBefore,
+                                              line = Function fnComments name nameComments open parameters close equals
+                                                  body
+                                            },
+                                            ..more
+                                          ]
+                                          left.reverse
+                                          [
+                                            firstToken,
+                                            named,
+                                            openToken,
+                                            ..(parameterTokens ++ [closeToken, ..found]) ++ laterTokens
+                                          ])
+                                      afterCloseTokens
+                                      (tokenView [] (Sign Defines) equalsStart equals)
+                                      [bodyFirst, ..bodyOthers]
+                                      afterCloseSame
+                                      (equalsToken bodyTokens equalsSame bodySame rising =>
+                                        let risingStatement :=
+                                          risingFront
                                             [
-                                              {
-                                                blankBefore,
-                                                line = Function fnComments name nameComments open parameters close
-                                                    equals body
-                                              },
-                                              ..more
+                                              firstToken,
+                                              named,
+                                              openToken,
+                                              ..parameterTokens ++ [closeToken, equalsToken, ..bodyTokens]
                                             ]
-                                            left.reverse
-                                            [firstToken, named, openToken, ..(parameterTokens ++ found) ++ laterTokens])
-                                        afterParameterTokens
-                                        (tokenView [] (Sign CloseParen) closeStart close)
-                                        [tokenView [] (Sign Defines) equalsStart equals, bodyFirst, ..bodyOthers]
-                                        afterParameterSame
-                                        (closeToken afterCloseTokens closeSame afterCloseSame =>
-                                          viewsCons
-                                            (found =>
-                                              DeclarationsGoal isFirst noted
-                                                [
-                                                  {
-                                                    blankBefore,
-                                                    line = Function fnComments name nameComments open parameters close
-                                                        equals body
-                                                  },
-                                                  ..more
-                                                ]
-                                                left.reverse
+                                            laterTokens
+                                            rising
+                                        let apart :=
+                                          laterApart 0 firstToken
+                                            [
+                                              named,
+                                              openToken,
+                                              ..parameterTokens ++ [closeToken, equalsToken, ..bodyTokens]
+                                            ]
+                                            risingStatement
+                                        let apartTail :=
+                                          apartBack
+                                            (InStatement 0 firstToken.offset)
+                                            parameterTokens
+                                            [closeToken, equalsToken, ..bodyTokens]
+                                            apart.right.right
+                                        let after :=
+                                          lastAfter 0 firstToken
+                                            [
+                                              named,
+                                              openToken,
+                                              ..parameterTokens ++ [closeToken, equalsToken, ..bodyTokens]
+                                            ]
+                                            laterTokens
+                                            (rewrite laterSame in moreStarts)
+                                            rising
+                                        match innerFits
+                                          (Deeper 0)
+                                          (InStatement 0 firstToken.offset)
+                                          named
+                                          (Name name)
+                                          nameStart
+                                          nameComments
+                                          rfl
+                                          apart.left
+                                          nameAllowed
+                                          namedSame, innerFits
+                                          (Deeper 0)
+                                          (InStatement 0 firstToken.offset)
+                                          openToken
+                                          (Sign OpenParen)
+                                          openStart
+                                          open
+                                          rfl
+                                          apart.right.left
+                                          openAllowed
+                                          openSame, bracketFits closeToken
+                                          (Sign CloseParen)
+                                          closeStart
+                                          close
+                                          closeSame, innerFits
+                                          (Deeper 0)
+                                          (InStatement 0 firstToken.offset)
+                                          equalsToken
+                                          (Sign Defines)
+                                          equalsStart
+                                          equals
+                                          rfl
+                                          apartTail.right.left
+                                          equalsAllowed
+                                          equalsSame, parametersSpell parameterTokens closeToken
+                                          [equalsToken, ..bodyTokens ++ laterTokens]
+                                          parameterSame
+                                          (Eq.cong ((view: TokenView) => view.kind) closeSame) with
+                                          | (nameKind, nameAllows, nameNotes), (openKind, openAllows,
+                                              openNotes), (closeKind, _, closeNotes), (equalsKind, equalsAllows,
+                                              equalsNotes), (listed, runs, listedSame) => (
+                                            firstToken,
+                                            named,
+                                            openToken,
+                                            closeToken,
+                                            equalsToken,
+                                            parameterTokens,
+                                            bodyTokens,
+                                            laterTokens,
+                                            listed,
+                                            (Eq.cong
+                                              ((tail: List (Parse.Located Token)) =>
+                                                [firstToken, named, openToken, ..tail])
+                                              (List.appendAssoc parameterTokens
+                                                [closeToken, equalsToken, ..bodyTokens]
+                                                laterTokens)),
+                                            (startsAtLine firstToken 0
+                                              (Eq.trans
+                                                (Eq.cong ((view: TokenView) => view.start) firstSame)
+                                                fnAllowed)),
+                                            (Eq.cong ((view: TokenView) => view.kind) firstSame),
+                                            nameKind,
+                                            nameAllows,
+                                            openKind,
+                                            openAllows,
+                                            closeKind,
+                                            equalsKind,
+                                            equalsAllows,
+                                            runs,
+                                            listedSame,
+                                            (keywordComments 0 firstToken
+                                              (blankOf blankBefore pending)
+                                              (Reserved FnKeyword)
+                                              fnStart
+                                              fnComments
+                                              fnAbove
+                                              firstSame),
+                                            nameNotes,
+                                            openNotes,
+                                            closeNotes,
+                                            equalsNotes,
+                                            (notedDeclarationLine isFirst pending noted more blankBefore
+                                              (Function fnComments name nameComments open parameters close equals body)
+                                              firstToken.value.above
+                                              (Eq.trans
+                                                (Eq.cong ((view: TokenView) => view.above) firstSame)
+                                                (Eq.cong
+                                                  ((comments: List Comment) =>
+                                                    (waiting (blankOf blankBefore pending) comments).reverse)
+                                                  fnAbove))
+                                              waits
+                                              unspaced),
+                                            (bodySpells firstToken.offset bodyTokens laterTokens bodySame
+                                              (risingBack
+                                                [closeToken, equalsToken]
+                                                bodyTokens
+                                                (risingBack
+                                                  [firstToken, named, openToken, ..parameterTokens]
+                                                  [closeToken, equalsToken, ..bodyTokens]
+                                                  risingStatement))
+                                              apartTail.right.right
+                                              (afterBack
+                                                (InStatement 0 firstToken.offset)
+                                                [closeToken, equalsToken]
+                                                bodyTokens
+                                                laterTokens
+                                                (afterBack
+                                                  (InStatement 0 firstToken.offset)
+                                                  [firstToken, named, openToken, ..parameterTokens]
+                                                  [closeToken, equalsToken, ..bodyTokens]
+                                                  laterTokens
+                                                  after))),
+                                            (moreSpells laterTokens laterSame
+                                              (risingBack
                                                 [
                                                   firstToken,
                                                   named,
                                                   openToken,
-                                                  ..(parameterTokens ++ [closeToken, ..found]) ++ laterTokens
-                                                ])
-                                            afterCloseTokens
-                                            (tokenView [] (Sign Defines) equalsStart equals)
-                                            [bodyFirst, ..bodyOthers]
-                                            afterCloseSame
-                                            (equalsToken bodyTokens equalsSame bodySame rising =>
-                                              let risingStatement :=
-                                                risingFront
-                                                  [
-                                                    firstToken,
-                                                    named,
-                                                    openToken,
-                                                    ..parameterTokens ++ [closeToken, equalsToken, ..bodyTokens]
-                                                  ]
-                                                  laterTokens
-                                                  rising
-                                              let apart :=
-                                                laterApart 0 firstToken
-                                                  [
-                                                    named,
-                                                    openToken,
-                                                    ..parameterTokens ++ [closeToken, equalsToken, ..bodyTokens]
-                                                  ]
-                                                  risingStatement
-                                              let apartTail :=
-                                                apartBack
-                                                  (InStatement 0 firstToken.offset)
-                                                  parameterTokens
-                                                  [closeToken, equalsToken, ..bodyTokens]
-                                                  apart.right.right
-                                              let after :=
-                                                lastAfter 0 firstToken
-                                                  [
-                                                    named,
-                                                    openToken,
-                                                    ..parameterTokens ++ [closeToken, equalsToken, ..bodyTokens]
-                                                  ]
-                                                  laterTokens
-                                                  (rewrite laterSame in moreStarts)
-                                                  rising
-                                              match innerFits
-                                                (Deeper 0)
-                                                (InStatement 0 firstToken.offset)
-                                                named
-                                                (Name name)
-                                                nameStart
-                                                nameComments
-                                                rfl
-                                                apart.left
-                                                nameAllowed
-                                                namedSame, innerFits
-                                                (Deeper 0)
-                                                (InStatement 0 firstToken.offset)
-                                                openToken
-                                                (Sign OpenParen)
-                                                openStart
-                                                open
-                                                rfl
-                                                apart.right.left
-                                                openAllowed
-                                                openSame, bracketFits closeToken
-                                                (Sign CloseParen)
-                                                closeStart
-                                                close
-                                                closeSame, innerFits
-                                                (Deeper 0)
-                                                (InStatement 0 firstToken.offset)
-                                                equalsToken
-                                                (Sign Defines)
-                                                equalsStart
-                                                equals
-                                                rfl
-                                                apartTail.right.left
-                                                equalsAllowed
-                                                equalsSame, parametersSpell parameterTokens closeToken
-                                                [equalsToken, ..bodyTokens ++ laterTokens]
-                                                parameterSame
-                                                (Eq.cong ((view: TokenView) => view.kind) closeSame) with
-                                                | Both nameKind (Both nameAllows nameNotes), Both openKind
-                                                    (Both openAllows openNotes), Both closeKind
-                                                    (Both _ closeNotes), Both equalsKind
-                                                    (Both equalsAllows equalsNotes), Witness listed
-                                                    (Both runs listedSame) =>
-                                                  Witness firstToken
-                                                    (Witness named
-                                                      (Witness openToken
-                                                        (Witness closeToken
-                                                          (Witness equalsToken
-                                                            (Witness parameterTokens
-                                                              (Witness bodyTokens
-                                                                (Witness laterTokens
-                                                                  (Witness listed
-                                                                    (Both
-                                                                      (Eq.cong
-                                                                        ((tail: List (Parse.Located Token)) =>
-                                                                          [firstToken, named, openToken, ..tail])
-                                                                        (List.appendAssoc parameterTokens
-                                                                          [closeToken, equalsToken, ..bodyTokens]
-                                                                          laterTokens))
-                                                                      (Both
-                                                                        (startsAtLine firstToken 0
-                                                                          (Eq.trans
-                                                                            (Eq.cong
-                                                                              ((view: TokenView) => view.start)
-                                                                              firstSame)
-                                                                            fnAllowed))
-                                                                        (Both
-                                                                          (Eq.cong
-                                                                            ((view: TokenView) => view.kind)
-                                                                            firstSame)
-                                                                          (Both nameKind
-                                                                            (Both nameAllows
-                                                                              (Both openKind
-                                                                                (Both openAllows
-                                                                                  (Both closeKind
-                                                                                    (Both equalsKind
-                                                                                      (Both equalsAllows
-                                                                                        (Both runs
-                                                                                          (Both listedSame
-                                                                                            (Both
-                                                                                              (keywordComments 0
-                                                                                                  firstToken
-                                                                                                  (blankOf blankBefore
-                                                                                                      pending)
-                                                                                                  (Reserved FnKeyword)
-                                                                                                  fnStart
-                                                                                                  fnComments
-                                                                                                  fnAbove
-                                                                                                  firstSame)
-                                                                                              (Both nameNotes
-                                                                                                (Both openNotes
-                                                                                                  (Both closeNotes
-                                                                                                    (Both equalsNotes
-                                                                                                      (Both
-                                                                                                        (notedDeclarationLine
-                                                                                                            isFirst
-                                                                                                            pending
-                                                                                                            noted more
-                                                                                                            blankBefore
-                                                                                                            (Function
-                                                                                                                fnComments
-                                                                                                                name
-                                                                                                                nameComments
-                                                                                                                open
-                                                                                                                parameters
-                                                                                                                close
-                                                                                                                equals
-                                                                                                                body)
-                                                                                                            firstToken.value.above
-                                                                                                            (Eq.trans
-                                                                                                              (Eq.cong
-                                                                                                                ((view: TokenView) =>
-                                                                                                                  view.above)
-                                                                                                                firstSame)
-                                                                                                              (Eq.cong
-                                                                                                                ((comments: List
-                                                                                                                    Comment) =>
-                                                                                                                  (waiting
-                                                                                                                    (blankOf
-                                                                                                                        blankBefore
-                                                                                                                        pending)
-                                                                                                                    comments).reverse)
-                                                                                                                fnAbove))
-                                                                                                            waits
-                                                                                                            unspaced)
-                                                                                                        (Both
-                                                                                                          (bodySpells
-                                                                                                              firstToken.offset
-                                                                                                              bodyTokens
-                                                                                                              laterTokens
-                                                                                                              bodySame
-                                                                                                              (risingBack
-                                                                                                                [closeToken,
-                                                                                                                  equalsToken]
-                                                                                                                bodyTokens
-                                                                                                                (risingBack
-                                                                                                                  [
-                                                                                                                    firstToken,
-                                                                                                                    named,
-                                                                                                                    openToken,
-                                                                                                                    ..parameterTokens
-                                                                                                                  ]
-                                                                                                                  [
-                                                                                                                    closeToken,
-                                                                                                                    equalsToken,
-                                                                                                                    ..bodyTokens
-                                                                                                                  ]
-                                                                                                                  risingStatement))
-                                                                                                              apartTail.right.right
-                                                                                                              (afterBack
-                                                                                                                (InStatement
-                                                                                                                    0
-                                                                                                                    firstToken.offset)
-                                                                                                                [closeToken,
-                                                                                                                  equalsToken]
-                                                                                                                bodyTokens
-                                                                                                                laterTokens
-                                                                                                                (afterBack
-                                                                                                                  (InStatement
-                                                                                                                      0
-                                                                                                                      firstToken.offset)
-                                                                                                                  [
-                                                                                                                    firstToken,
-                                                                                                                    named,
-                                                                                                                    openToken,
-                                                                                                                    ..parameterTokens
-                                                                                                                  ]
-                                                                                                                  [
-                                                                                                                    closeToken,
-                                                                                                                    equalsToken,
-                                                                                                                    ..bodyTokens
-                                                                                                                  ]
-                                                                                                                  laterTokens
-                                                                                                                  after)))
-                                                                                                          (moreSpells
-                                                                                                              laterTokens
-                                                                                                              laterSame
-                                                                                                              (risingBack
-                                                                                                                [
-                                                                                                                  firstToken,
-                                                                                                                  named,
-                                                                                                                  openToken,
-                                                                                                                  ..parameterTokens
-                                                                                                                    ++ [
-                                                                                                                      closeToken,
-                                                                                                                      equalsToken,
-                                                                                                                      ..bodyTokens
-                                                                                                                    ]
-                                                                                                                ]
-                                                                                                                laterTokens
-                                                                                                                rising))))))))))))))))))))))))))))))))))))))))
+                                                  ..parameterTokens ++ [closeToken, equalsToken, ..bodyTokens]
+                                                ]
+                                                laterTokens
+                                                rising))
+                                          )))))))))
+        )
 
 --| E2. Tokens whose views are those of a trace of the file's events,
 --| with falling offsets (they are listed the newest first), spell the
@@ -2730,12 +2562,12 @@ theorem spellsFile ∀ (file: SourceFile) (events: List Event)
     (offsets: Descending (tokens.map (token => token.offset))):
     SpelledFile file tokens.reverse endTrivia.reverse :=
   match file, shaped, lexical, headed, laid with
-    | { declarations }, shaped, lexical, Both headedLines unspaced, laid =>
+    | { declarations }, shaped, lexical, (headedLines, unspaced), laid =>
       match declarationsOut True [] declarations events [] shaped lexical headedLines
         (first => unspaced)
         rfl
         (laterOfDeclarations declarations events unspaced laid) with
-        | Witness found (Witness left (Both seen (Both _ spells))) =>
+        | (found, left, seen, _, spells) =>
           let ended: endTrivia = left := Eq.trans pending (Eq.cong ((all: Views) => all.pending) (seen []))
           rewrite ended in
             spells tokens.reverse

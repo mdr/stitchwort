@@ -99,10 +99,11 @@ def StepsStand: (steps: List (List Char, Lexeme)) → Prop
 theorem standingRun ∀ (steps: List (List Char, Lexeme)) (stand: StepsStand steps): Parse.LexemesRun lexemeAt steps :=
   match steps, stand with
     | [], _ => rfl
-    | [(read, lexeme), ..later], Both first others =>
-      Both
-        (standsNonEmpty lexeme read (Parse.joinReads later) first)
-        (Both (standsRuns lexeme read (Parse.joinReads later) first) (standingRun later others))
+    | [(read, lexeme), ..later], Both first others => (
+      (standsNonEmpty lexeme read (Parse.joinReads later) first),
+      (standsRuns lexeme read (Parse.joinReads later) first),
+      (standingRun later others)
+    )
 
 --| A source made of pieces that each stand before the next lexes to those
 --| pieces as its lexemes, and to the tokens `assemble` makes of them.
@@ -177,8 +178,7 @@ theorem oneStands ∀ (char: Char) (rest: List Char)
     (holds: isOperatorChar char = True)
     (stops: StopsAt isOperatorChar rest):
     Stands SymbolsLexeme [char] rest :=
-  Witness char
-    (Witness [] (Both rfl (Both starts (Both (lastGoesOn char rest holds stops) (operatorStops rest stops)))))
+  (char, [], rfl, starts, (lastGoesOn char rest holds stops), (operatorStops rest stops))
 
 --| Two operator characters stand before text that starts with none, if
 --| they aren't a comment's `--`.
@@ -188,10 +188,7 @@ theorem twoStand ∀ (first second: Char) (rest: List Char)
     (holds: isOperatorChar second = True)
     (stops: StopsAt isOperatorChar rest):
     Stands SymbolsLexeme [first, second] rest :=
-  Witness first
-    (Witness
-      [second]
-      (Both rfl (Both starts (Both goesOn (Both (lastGoesOn second rest holds stops) (operatorStops rest stops))))))
+  (first, [second], rfl, starts, goesOn, (lastGoesOn second rest holds stops), (operatorStops rest stops))
 
 --| Every operator, as it is spelled, stands before text that starts with
 --| no operator character: a space, a name, a number, a bracket. Before a
@@ -223,14 +220,14 @@ theorem keywordStands ∀ (keyword: Keyword) (rest: List Char)
     (stops: StopsAt isWordChar rest):
     Stands WordLexeme keyword.spelling.toList rest :=
   match keyword with
-    | FnKeyword => Witness 'f' (Witness ['n'] (Both rfl (Both rfl (Both rfl stops))))
-    | LetKeyword => Witness 'l' (Witness ['e', 't'] (Both rfl (Both rfl (Both rfl stops))))
-    | IfKeyword => Witness 'i' (Witness ['f'] (Both rfl (Both rfl (Both rfl stops))))
-    | ThenKeyword => Witness 't' (Witness ['h', 'e', 'n'] (Both rfl (Both rfl (Both rfl stops))))
-    | ElseKeyword => Witness 'e' (Witness ['l', 's', 'e'] (Both rfl (Both rfl (Both rfl stops))))
+    | FnKeyword => ('f', ['n'], rfl, rfl, rfl, stops)
+    | LetKeyword => ('l', ['e', 't'], rfl, rfl, rfl, stops)
+    | IfKeyword => ('i', ['f'], rfl, rfl, rfl, stops)
+    | ThenKeyword => ('t', ['h', 'e', 'n'], rfl, rfl, rfl, stops)
+    | ElseKeyword => ('e', ['l', 's', 'e'], rfl, rfl, rfl, stops)
 
 --| Brackets, commas and dots stand before anything.
 theorem signStands ∀ (mark: Punctuation) (rest: List Char)
     (notDefines: mark ≠ Defines):
     Stands SignLexeme [signChar mark] rest :=
-  Witness mark (Both rfl notDefines)
+  (mark, rfl, notDefines)

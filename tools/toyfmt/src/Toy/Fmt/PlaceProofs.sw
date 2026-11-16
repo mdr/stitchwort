@@ -142,7 +142,7 @@ theorem assembleLaid ∀ (source: Text) (out: List Text):
 theorem spacesStandGap ∀ (piece: Text) (rest: List Char)
     (stands: Stands Spaces piece.toList rest):
     piece.all (char => char == ' ') = True :=
-  match piece, stands with | MkText chars, Witness others (Both same (Both spaces _)) => rewrite same in spaces
+  match piece, stands with | MkText chars, (others, same, spaces, _) => rewrite same in spaces
 
 theorem breakStandsText ∀ (piece: Text) (rest: List Char)
     (stands: Stands LineBreak piece.toList rest):
@@ -194,16 +194,16 @@ theorem addPlaced ∀ (source piece: Text) (placed: Placed) (blank: Bool) (lineS
       ∧ nextStart + (if piece == "\n" then 0 else piece.length + column) = lineStart + column + piece.length :=
   let at: lineStart + column - lineStart = column := omega
   match gap: piece.all (char => char == ' ') with
-    | True => Witness lineStart (Both rfl (rewrite gapNoBreak piece gap in omega))
+    | True => (lineStart, rfl, (rewrite gapNoBreak piece gap in omega))
     | False =>
       match isBreak: piece == "\n" with
         | True =>
           let same: piece = "\n" := DecEq.sound isBreak
-          Witness (lineStart + column + 1) (Both rfl (rewrite same in rfl))
+          ((lineStart + column + 1), rfl, (rewrite same in rfl))
         | False =>
           match proper with
             | Inl never => Void.exfalso (Bool.falseNotTrue never)
-            | Inr (Both stands _) =>
+            | Inr ((stands, _)) =>
               match lexeme: lexemeOf piece, stands with
                 | Spaces, stands =>
                   Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym gap) (spacesStandGap piece [] stands)))
@@ -211,11 +211,11 @@ theorem addPlaced ∀ (source piece: Text) (placed: Placed) (blank: Bool) (lineS
                   Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym isBreak) (breakStandsText piece [] stands)))
                 | CommentLexeme, _ =>
                   match blank with
-                    | True => Witness lineStart (Both (rewrite cutSame in rfl) omega)
-                    | False => Witness lineStart (Both (rewrite cutSame in rfl) omega)
-                | WordLexeme, _ => Witness lineStart (Both (rewrite cutSame, at in rfl) omega)
-                | DigitsLexeme, _ => Witness lineStart (Both (rewrite cutSame, at in rfl) omega)
-                | StringLexeme, _ => Witness lineStart (Both (rewrite cutSame, at in rfl) omega)
+                    | True => (lineStart, (rewrite cutSame in rfl), omega)
+                    | False => (lineStart, (rewrite cutSame in rfl), omega)
+                | WordLexeme, _ => (lineStart, (rewrite cutSame, at in rfl), omega)
+                | DigitsLexeme, _ => (lineStart, (rewrite cutSame, at in rfl), omega)
+                | StringLexeme, _ => (lineStart, (rewrite cutSame, at in rfl), omega)
                 | SignLexeme, _ =>
                   let made :=
                     codeToken
@@ -227,23 +227,22 @@ theorem addPlaced ∀ (source piece: Text) (placed: Placed) (blank: Bool) (lineS
                       piece
                       rfl
                       cutSame
-                  Witness lineStart (Both (Eq.trans made (rewrite at in rfl)) omega)
-                | SymbolsLexeme, _ => Witness lineStart (Both (rewrite cutSame, at in rfl) omega)
+                  (lineStart, (Eq.trans made (rewrite at in rfl)), omega)
+                | SymbolsLexeme, _ => (lineStart, (rewrite cutSame, at in rfl), omega)
 
 --| The pieces' characters before `tail` are as many as `charsLength`
 --| counts.
 theorem charsOntoSplit ∀ (out: List Text) (tail: List Char):
     ∃ (before: List Char) => charsOnto out tail = before ++ tail ∧ before.length = charsLength out :=
   match out with
-    | [] => Witness [] (Both rfl rfl)
+    | [] => ([], rfl, rfl)
     | [piece, ..earlier] =>
       match charsOntoSplit earlier (piece.toList ++ tail) with
-        | Witness before (Both same count) =>
-          Witness
-            (before ++ piece.toList)
-            (Both
-              (rewrite List.appendAssoc before piece.toList tail in same)
-              (rewrite List.lengthAppend before piece.toList, count in rfl))
+        | (before, same, count) => (
+          (before ++ piece.toList),
+          (rewrite List.appendAssoc before piece.toList tail in same),
+          (rewrite List.lengthAppend before piece.toList, count in rfl)
+        )
 
 theorem textOfChars ∀ (piece: Text): Text.fromList piece.toList = piece := match piece with | MkText chars => rfl
 
@@ -257,7 +256,7 @@ theorem laidPlaced ∀ (source: Text) (out: List Text) (after: List Char)
       = { tokens = (placed out).tokens, pending = (placed out).pending, lineStart, lineEmpty = lineBlank out }
       ∧ lineStart + lineWidth out = charsLength out :=
   match out, reads, proper with
-    | [], _, _ => Witness 0 (Both rfl rfl)
+    | [], _, _ => (0, rfl, rfl)
     | [piece, ..earlier], reads, Both first others =>
       match laidPlaced source earlier (piece.toList ++ after) reads others, charsOntoSplit earlier
         (piece.toList ++ after) with
@@ -269,7 +268,7 @@ theorem laidPlaced ∀ (source: Text) (out: List Text) (after: List Char)
             rewrite sum, <- count in cutBefore
           match addPlaced source piece (placed earlier) (lineBlank earlier) start (lineWidth earlier) cutSame first with
             | Witness nextStart (Both added width) =>
-              Witness nextStart (Both (rewrite same, <- sum in added) (rewrite <- sum in width))
+              (nextStart, (rewrite same, <- sum in added), (rewrite <- sum in width))
 
 --| The tokens `assemble` makes of proper pieces' steps are `placed`'s:
 --| each word a token of the kind its text spells, starting its line when
@@ -280,10 +279,10 @@ theorem piecesTokens ∀ (source: Text) (out: List Text)
     assemble source (Parse.locatedSteps 0 (stepsOnto out []))
       = ((placed out).tokens.reverse, (placed out).pending.reverse) :=
   match laidPlaced source out [] reads proper with
-    | Witness lineStart (Both same _) => rewrite assembleLaid source out, same in rfl
+    | (lineStart, same, _) => rewrite assembleLaid source out, same in rfl
 
 theorem commentLexeme ∀ (text: Text) (comment: IsComment text): lexemeOf text = CommentLexeme := match comment with
-  | Witness others (Both same _) => rewrite textOf text ['-', '-', ..others] same in rfl
+  | (others, same, _) => rewrite textOf text ['-', '-', ..others] same in rfl
 
 --| A word that isn't layout is placed by `placeWord`.
 theorem wordPlaced ∀ (piece: Text) (placed: Placed) (blank: Bool) (column offset: Nat)
@@ -312,14 +311,14 @@ theorem joinedPlaced ∀ (doc: Doc) (width: Nat)
           endTrivia = (placed (printedPieces doc width).reverse).pending.reverse
         } :=
   match printedJoins standsBefore doc width uniform joins with
-    | Both printed (Both words pairs) =>
+    | (printed, words, pairs) =>
       let reads: (print doc width).toList = charsOnto (printedPieces doc width).reverse [] :=
         rewrite printed in joinedChars (printedPieces doc width)
       let properWords: AllProper (wordsOf (printedPieces doc width)) := rewrite words in proper
       let properPieces := properReverse (printedPieces doc width) (properOfWords (printedPieces doc width) properWords)
       let lexed := piecesLex (print doc width) (printedPieces doc width).reverse reads pairs properPieces
       let tokens := piecesTokens (print doc width) (printedPieces doc width).reverse reads properPieces
-      Both printed (Both words (rewrite tokens at lexed in lexed))
+      (printed, words, (rewrite tokens at lexed in lexed))
 
 --| A file with the lexer's texts, printed at any width, lexes to the
 --| tokens `placed` gives of its printed pieces: the pieces between whose
@@ -337,11 +336,11 @@ theorem printedTokens ∀ (file: SourceFile) (width: Nat)
           endTrivia = (placed (printedPieces file.layout width).reverse).pending.reverse
         } :=
   match fileJoins file lexical, fileWrites file with
-    | Both proper joins, Both uniform words =>
+    | (proper, joins), (uniform, words) =>
       match joinedPlaced file.layout width uniform
         (joins (Plain None) (after => True) rfl (after reached => rfl))
         proper with
-        | Both printed (Both same lexed) => Both printed (Both (Eq.trans same words) lexed)
+        | (printed, same, lexed) => (printed, (Eq.trans same words), lexed)
 
 --| `printedTokens` of every parsed file.
 theorem parsedPrintTokens ∀ (source: Text) (file: SourceFile) (width: Nat)
@@ -382,7 +381,7 @@ theorem belowDescending ∀ (bound: Nat) (offsets: List Nat) (below: DescendingB
     | [], below => rfl
     | [only], below => rfl
     | [newer, older, ..rest], Both first (Both second others) =>
-      Both second (belowDescending newer [older, ..rest] (Both second others))
+      (second, (belowDescending newer [older, ..rest] ((second, others))))
 
 theorem belowWider ∀ (bound wider: Nat) (offsets: List Nat)
     (grows: bound ≤ wider)
@@ -390,7 +389,7 @@ theorem belowWider ∀ (bound wider: Nat) (offsets: List Nat)
     DescendingBelow wider offsets :=
   match offsets, below with
     | [], below => rfl
-    | [newest, ..older], Both first others => Both (omega [first, grows]) others
+    | [newest, ..older], Both first others => ((omega [first, grows]), others)
 
 --| A piece that isn't all spaces has a character.
 theorem wordLength ∀ (piece: Text) (word: piece.all (char => char == ' ') = False): 0 < piece.length :=
@@ -439,7 +438,7 @@ theorem pieceOffsets ∀ (placed: Placed) (piece: Text) (blank: Bool) (column of
         | False =>
           match wordOffsets placed piece blank column offset with
             | Inl same => Inl same
-            | Inr pushed => Inr (Both pushed rfl)
+            | Inr pushed => Inr ((pushed, rfl))
 
 --| The placed tokens' offsets fall from the newest, which is inside the
 --| text so far.
@@ -462,7 +461,7 @@ theorem placedBelow ∀ (out: List Text):
               (token => token.offset)) :=
             rewrite same in belowWider (charsLength earlier) (charsLength earlier + piece.length) _ omega before
           wider
-        | Inr (Both pushed word) =>
+        | Inr ((pushed, word)) =>
           let longer: DescendingBelow
             (charsLength earlier + piece.length)
             ((placePiece
@@ -472,7 +471,7 @@ theorem placedBelow ∀ (out: List Text):
               (lineWidth earlier)
               (charsLength earlier)).tokens.map
               (token => token.offset)) :=
-            rewrite pushed in Both (omega [wordLength piece word]) before
+            rewrite pushed in ((omega [wordLength piece word]), before)
           longer
 
 --| The tokens of printed pieces have falling offsets (newest first), so

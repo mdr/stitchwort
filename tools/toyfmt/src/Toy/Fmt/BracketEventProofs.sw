@@ -18,9 +18,7 @@ theorem tokenWider ∀ (strong weak: Option Nat → Prop) (comments: Comments) (
     (events: List Event) (wider: ∀ (start: Option Nat) => strong start → weak start)
     (holds: TokenAt strong comments text events):
     TokenAt weak comments text events :=
-  match holds with
-    | Witness column (Witness start (Both allowed same)) =>
-      Witness column (Witness start (Both (wider start allowed) same))
+  match holds with | (column, start, allowed, same) => (column, start, (wider start allowed), same)
 
 theorem thenWider ∀ (first second widerFirst widerSecond: List Event → Prop) (events: List Event)
     (one: ∀ (part: List Event) => first part → widerFirst part)
@@ -28,8 +26,7 @@ theorem thenWider ∀ (first second widerFirst widerSecond: List Event → Prop)
     (holds: Then first second events):
     Then widerFirst widerSecond events :=
   match holds with
-    | Witness front (Witness back (Both split (Both isFirst isSecond))) =>
-      Witness front (Witness back (Both split (Both (one front isFirst) (other back isSecond))))
+    | (front, back, split, isFirst, isSecond) => (front, back, split, (one front isFirst), (other back isSecond))
 
 theorem freeAllows ∀ (start: Option Nat): (Anywhere 0).allows start := rfl
 
@@ -176,9 +173,9 @@ theorem bodyEventsFree ∀ (zone: Zone) (body: Body) (events: List Event)
           events
           (start allowed =>
             match allowed with
-              | Both _ plain => Both (freeAllows start) plain)
+              | Both _ plain => ((freeAllows start), plain))
           inline)
-    | { statements }, Inr (Witness column (Both under lines)) => Inr (Witness column (Both (omega) lines))
+    | { statements }, Inr (Witness column (Both under lines)) => Inr ((column, (omega), lines))
 
 --| Inside brackets the parser reads a body as one expression, wherever
 --| its tokens start: a body of one expression, laid on its keyword's
@@ -189,6 +186,6 @@ theorem bodyFree ∀ (zone: Zone) (blankBefore: Bool) (value: Expr) (events: Lis
     Events (Anywhere 0) anyStart value events :=
   match holds with
     | Inl inline => eventsFree zone (inlineHead zone value) anyStart value events (start allowed => rfl) inline
-    | Inr (Witness column (Both under (Witness front (Witness back (Both split (Both isValue done)))))) =>
+    | Inr ((column, under, front, back, split, isValue, done)) =>
       let whole: events = front := rewrite split, done in List.appendNil front
       rewrite whole in eventsFree (Deeper column) (atColumn column) anyStart value front (start allowed => rfl) isValue

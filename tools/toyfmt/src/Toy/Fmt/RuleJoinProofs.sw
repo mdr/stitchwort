@@ -88,16 +88,16 @@ theorem passesGroup ∀ (inner: Doc) (pre post: Edge → Prop)
     Passes (Doc.group inner) pre post :=
   passes
 
-theorem passesEmpty ∀ (pre: Edge → Prop): Passes Empty pre pre := Both rfl (edge next holds after => after edge holds)
+theorem passesEmpty ∀ (pre: Edge → Prop): Passes Empty pre pre := (rfl, (edge next holds after => after edge holds))
 
-theorem passesBlank ∀ (pre: Edge → Prop): Passes Blank pre pre := Both rfl (edge next holds after => after edge holds)
+theorem passesBlank ∀ (pre: Edge → Prop): Passes Blank pre pre := (rfl, (edge next holds after => after edge holds))
 
 theorem tokenMeets ∀ (comments: Comments) (text: Text)
     (fine: Fine comments)
     (spelled: TokenText text):
     Passes (token comments text) (Admits text) Meets :=
   match spelled with
-    | Both solid ends => passesTo _ _ _ Meets (tokenPasses comments text fine (Both solid ends)) (leftMeets text ends)
+    | (solid, ends) => passesTo _ _ _ Meets (tokenPasses comments text fine ((solid, ends))) (leftMeets text ends)
 
 --| A token after a bracket or a dot.
 theorem freeToken ∀ (comments: Comments) (text: Text)
@@ -127,17 +127,19 @@ theorem sepsPass ∀ (docs: List Doc) (edge: Edge) (next: Edge → Prop)
         joins (Plain None) (reached => SepsJoin standsBefore more reached next) rfl (reached met =>
           sepsPass more reached next others met after)
       match edge, meets with
-        | Plain None, _ => Both rfl onward
-        | Plain (Some word), any => Both (any " " closingSpace) onward
+        | Plain None, _ => (rfl, onward)
+        | Plain (Some word), any => ((any " " closingSpace), onward)
         | Edge.Waiting, _ => onward
 
 --| A fill: its items with a space or a line break between each two.
 theorem fillPasses ∀ (docs: List Doc) (each: EachPasses docs): Passes (Fill docs) Free Meets := match docs, each with
-  | [], _ => Both rfl (edge next free after => after edge (freeMeets edge free))
-  | [first, ..others], Both (Both proper joins) rest =>
-    Both (properAppend first.words (wordsAll others) proper (eachProper others rest)) (edge next free after =>
+  | [], _ => (rfl, (edge next free after => after edge (freeMeets edge free)))
+  | [first, ..others], Both (Both proper joins) rest => (
+    (properAppend first.words (wordsAll others) proper (eachProper others rest)),
+    (edge next free after =>
       joins edge (reached => SepsJoin standsBefore others reached next) free (reached met =>
         sepsPass others reached next rest met after))
+  )
 
 theorem joinedLines ∀ (docs: List Doc) (each: EachPasses docs): PassesAll (Doc.joinedWith Line docs) Free Meets :=
   match docs, each with
@@ -164,7 +166,7 @@ theorem commaSign ∀ (same: Comma = Defines): Void := cases
 
 theorem dotSign ∀ (same: Dot = Defines): Void := cases
 
-theorem minusEnds: Ends "-" := match operatorToken Minus with | Both _ ends => ends
+theorem minusEnds: Ends "-" := match operatorToken Minus with | (_, ends) => ends
 
 -- Expressions.
 
@@ -217,25 +219,28 @@ theorem chainGroup ∀ (first: Doc) (links: List Doc) (pre post: Edge → Prop)
     (parts: PassesAll [first, ..links] pre post):
     Passes (Doc.group (Doc.concat [first, Nest 2 (Doc.concat links)])) pre post :=
   match parts with
-    | Both proper joins =>
+    | (proper, joins) =>
       let words: AllProper (wordsAll [first, Nest 2 (Doc.concat links)]) :=
         rewrite List.appendNil (Doc.concat links).words, concatWords links in proper
-      Both (rewrite concatWords [first, Nest 2 (Doc.concat links)] in words) (edge next holds after =>
-        concatJoins
-          [first, Nest 2 (Doc.concat links)]
-          edge
-          next
-          (joinsWeaker standsBefore first edge
-            (between => JoinsAll standsBefore links between next)
-            (between => JoinsAll standsBefore [Nest 2 (Doc.concat links)] between next)
-            (between reached =>
-              concatJoins links between
-                (final => JoinsAll standsBefore [] final next)
-                (allWeaker standsBefore links between next
+      (
+        (rewrite concatWords [first, Nest 2 (Doc.concat links)] in words),
+        (edge next holds after =>
+          concatJoins
+            [first, Nest 2 (Doc.concat links)]
+            edge
+            next
+            (joinsWeaker standsBefore first edge
+              (between => JoinsAll standsBefore links between next)
+              (between => JoinsAll standsBefore [Nest 2 (Doc.concat links)] between next)
+              (between reached =>
+                concatJoins links between
                   (final => JoinsAll standsBefore [] final next)
-                  (final done => done)
-                  reached))
-            (joins edge next holds after)))
+                  (allWeaker standsBefore links between next
+                    (final => JoinsAll standsBefore [] final next)
+                    (final done => done)
+                    reached))
+              (joins edge next holds after)))
+      )
 
 --| An operator and its right side, after a space or a line break.
 theorem linkPasses ∀ (operator: Operator) (sign: Comments) (operand: Doc)
@@ -328,7 +333,7 @@ theorem lineStartPasses ∀ (index: Nat) (blankBefore: Bool)
     (pre: Edge → Prop) (first: (index == 0) = True → ∀ (edge: Edge) => pre edge → Loose edge):
     Passes (lineStart index blankBefore) pre Loose :=
   match zero: index == 0 with
-    | True => Both rfl (edge next holds after => after edge (first zero edge holds))
+    | True => (rfl, (edge next holds after => after edge (first zero edge holds)))
     | False =>
       match blankBefore with
         | True => passesTwo HardLine Blank pre Loose Loose (passesHard pre) (passesBlank Loose)
@@ -520,17 +525,17 @@ theorem itemDocsPass ∀ (items: List Item) (lexical: LexicalItems items): EachP
   match items, lexical with
     | [], _ => rfl
     | [{ value, comma }], Both lexValue _ =>
-      Both (passesFrom _ _ Free _ (exprPasses value lexValue) (freeEnters value)) rfl
-    | [{ value, comma }, next, ..rest], Both lexValue (Both fineComma others) =>
-      Both
-        (passesTwo value.layout
-          (closeAfter value (token comma ","))
-          Free
-          Meets
-          Meets
-          (passesFrom _ _ Free _ (exprPasses value lexValue) (freeEnters value))
-          (closeAfterPasses value _ Meets (meetingToken comma "," fineComma (signToken Comma commaSign) closingComma)))
-        (itemDocsPass [next, ..rest] others)
+      ((passesFrom _ _ Free _ (exprPasses value lexValue) (freeEnters value)), rfl)
+    | [{ value, comma }, next, ..rest], Both lexValue (Both fineComma others) => (
+      (passesTwo value.layout
+        (closeAfter value (token comma ","))
+        Free
+        Meets
+        Meets
+        (passesFrom _ _ Free _ (exprPasses value lexValue) (freeEnters value))
+        (closeAfterPasses value _ Meets (meetingToken comma "," fineComma (signToken Comma commaSign) closingComma))),
+      (itemDocsPass [next, ..rest] others)
+    )
 
 theorem listPasses ∀ (open: Comments) (items: List Item) (close: Comments) (pre: Edge → Prop)
     (fineOpen: Fine open)
@@ -551,7 +556,7 @@ theorem listPasses ∀ (open: Comments) (items: List Item) (close: Comments) (pr
           freeMeets)
     | [first, ..rest] =>
       match lastOfCons first rest with
-        | Witness last found =>
+        | (last, found) =>
           rewrite found in
             passesGroup _ pre Meets
               (passesConcat _ pre Meets
@@ -678,9 +683,7 @@ theorem elseBranchPasses ∀ (elseComments: Comments) (body: Body)
           match g: elseComments.after.isNone && ifComments.above.isEmpty with
             | True =>
               match lexical with
-                | Both
-                    (Both
-                      (Both fineIf (Both lexCondition (Both fineThen (Both lexTrue (Both fineElse lexFalse))))) _) _ =>
+                | (((((fineIf, lexCondition, fineThen, lexTrue, fineElse, lexFalse)), _)), _) =>
                   passesTwo
                     (Doc.text " ")
                     (ifLayout ifComments condition thenComments whenTrue innerElse whenFalse)
@@ -803,18 +806,18 @@ theorem parameterDocsPass ∀ (parameters: List Parameter)
   match parameters, lexical with
     | [], _ => rfl
     | [{ name, comments, comma }], Both (Both word _) (Both fine _) =>
-      Both (freeToken comments name fine (wordToken name word)) rfl
-    | [{ name, comments, comma }, next, ..rest], Both (Both word _) (Both fine (Both fineComma others)) =>
-      Both
-        (passesTwo
-          (token comments name)
-          (token comma ",")
-          Free
-          Meets
-          Meets
-          (freeToken comments name fine (wordToken name word))
-          (meetingToken comma "," fineComma (signToken Comma commaSign) closingComma))
-        (parameterDocsPass [next, ..rest] others)
+      ((freeToken comments name fine (wordToken name word)), rfl)
+    | [{ name, comments, comma }, next, ..rest], Both (Both word _) (Both fine (Both fineComma others)) => (
+      (passesTwo
+        (token comments name)
+        (token comma ",")
+        Free
+        Meets
+        Meets
+        (freeToken comments name fine (wordToken name word))
+        (meetingToken comma "," fineComma (signToken Comma commaSign) closingComma)),
+      (parameterDocsPass [next, ..rest] others)
+    )
 
 theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments open: Comments)
     (parameters: List Parameter) (close equals: Comments)
@@ -937,7 +940,7 @@ theorem declarationLinesPass ∀ (index: Nat) (declarations: List (Spaced Declar
 --| read whole before, whichever way the layout goes.
 theorem fileJoins ∀ (file: SourceFile) (lexical: LexicalFile file): Passes file.layout Loose Open :=
   match file, lexical with
-    | { declarations = [] }, _ => Both rfl (edge next holds after => after edge rfl)
+    | { declarations = [] }, _ => (rfl, (edge next holds after => after edge rfl))
     | { declarations = [first, ..rest] }, lexical =>
       passesTwo
         (Doc.concat (declarationLines 0 [first, ..rest]))
@@ -959,14 +962,14 @@ theorem lexicalExample: LexicalFile {
         }
       ]
     } :=
-  Both
-    (Both
-      (Both rfl rfl)
-      (Both
-        (Both (Witness 'x' (Witness [] (Both rfl (Both rfl rfl)))) rfl)
-        (Both
-          (Both rfl rfl)
-          (Both
-            (Both rfl rfl)
-            (Both (Both (Both (Witness '1' (Witness [] (Both rfl (Both rfl rfl)))) (Both rfl rfl)) rfl) rfl)))))
+  (
+    ((
+      ((rfl, rfl)),
+      (((('x', [], rfl, rfl, rfl)), rfl)),
+      ((rfl, rfl)),
+      ((rfl, rfl)),
+      (((((('1', [], rfl, rfl, rfl)), rfl, rfl)), rfl)),
+      rfl
+    )),
     rfl
+  )

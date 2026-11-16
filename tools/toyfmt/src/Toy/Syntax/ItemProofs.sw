@@ -24,8 +24,7 @@ theorem runsSignThere ∀ (what: Text) (wanted: Punctuation)
         rest
         ()
         (runsSkip token rest)
-    match core state starts honest with
-      | Witness m (Both ran after) => Witness m (Both (rewrite starts, there in ran) after)
+    match core state starts honest with | (m, ran, after) => (m, (rewrite starts, there in ran), after)
 
 theorem signAbsentRun ∀ (what: Text) (wanted: Punctuation) (state: Parse.State (Parse.Located Token))
     (absent: signAhead wanted state.at.rest = False):
@@ -41,7 +40,7 @@ theorem runsSignAbsent ∀ (what: Text) (wanted: Punctuation) (rest: List (Parse
   state starts honest =>
     let same := Parse.noteAt state (Parse.Problem.Expected what)
     let run := signAbsentRun what wanted state (rewrite starts in absent)
-    Witness state.at (Both (rewrite same at run in run) (Both starts (Both (rewrite starts at honest in honest) rfl)))
+    (state.at, (rewrite same at run in run), starts, (rewrite starts at honest in honest), rfl)
 
 --| `item` on a value with no comma after it: the last item of a list.
 theorem runsItemLast ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)

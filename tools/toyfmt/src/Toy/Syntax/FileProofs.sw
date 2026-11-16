@@ -144,8 +144,7 @@ theorem declarationsRun ∀ (isFirst: Bool) (pending lines: List (Spaced Declara
         = pending ++ lines :=
   match lines, shaped, spelled with
     | [], shaped, Both noTokens notes =>
-      Witness []
-        (Both (Eq.sym noTokens) (Both (declarationDeclines [] rfl) (Eq.trans notes (Eq.sym (List.appendNil pending)))))
+      ([], (Eq.sym noTokens), (declarationDeclines [] rfl), (Eq.trans notes (Eq.sym (List.appendNil pending))))
     | [{ blankBefore, line = DeclarationNote comment }, ..more], Both lineShaped moreShaped, spelled =>
       match declarationsRun isFirst
         (pending ++ [{ blankBefore, line = DeclarationNote comment }])
@@ -154,11 +153,12 @@ theorem declarationsRun ∀ (isFirst: Bool) (pending lines: List (Spaced Declara
         endTrivia
         moreShaped
         spelled with
-        | Witness steps (Both joined (Both runs values)) =>
-          Witness steps
-            (Both joined
-              (Both runs
-                (Eq.trans values (List.appendAssoc pending [{ blankBefore, line = DeclarationNote comment }] more))))
+        | Witness steps (Both joined (Both runs values)) => (
+          steps,
+          joined,
+          runs,
+          (Eq.trans values (List.appendAssoc pending [{ blankBefore, line = DeclarationNote comment }] more))
+        )
     | [{ blankBefore, line = Value letComments name nameComments equalsComments inner }, ..more], Both innerShaped
           moreShaped, Witness first
         (Witness named
@@ -179,27 +179,26 @@ theorem declarationsRun ∀ (isFirst: Bool) (pending lines: List (Spaced Declara
       match declarationsRun False [] more later endTrivia moreShaped laterSpelled with
         | Witness steps (Both joined (Both runs values)) =>
           let values2: (Parse.stepValues steps).concat ++ (spacedNotes DeclarationNote endTrivia).fst = more := values
-          Witness
-            [([first, named, equals, ..bodyTokens], notedDeclaration first.value.above line), ..steps]
-            (Both
-              (rewrite split, joined in rfl)
-              (Both
-                (Both
-                  (same => cases)
-                  (Both
-                    (rewrite joined, List.appendNil later, letCommented, nameCommented, equalsCommented in
-                      runsValueSpelled first named equals bodyTokens later name inner atMargin isLet isName nameAllowed
-                          isEquals equalsAllowed innerShaped innerSpelled)
-                    runs))
-                (groupValues isFirst
-                  (notedDeclaration first.value.above line)
-                  (Parse.stepValues steps).concat
-                  (spacedNotes DeclarationNote endTrivia).fst
-                  pending
-                  more
-                  { blankBefore, line }
-                  noted
-                  values2)))
+          (
+            [([first, named, equals, ..bodyTokens], notedDeclaration first.value.above line), ..steps],
+            (rewrite split, joined in rfl),
+            ((
+              (same => cases),
+              (rewrite joined, List.appendNil later, letCommented, nameCommented, equalsCommented in
+                runsValueSpelled first named equals bodyTokens later name inner atMargin isLet isName nameAllowed
+                    isEquals equalsAllowed innerShaped innerSpelled),
+              runs
+            )),
+            (groupValues isFirst
+              (notedDeclaration first.value.above line)
+              (Parse.stepValues steps).concat
+              (spacedNotes DeclarationNote endTrivia).fst
+              pending
+              more
+              { blankBefore, line }
+              noted
+              values2)
+          )
     | [
         {
           blankBefore,
@@ -239,44 +238,43 @@ theorem declarationsRun ∀ (isFirst: Bool) (pending lines: List (Spaced Declara
       match declarationsRun False [] more later endTrivia moreShaped laterSpelled with
         | Witness steps (Both joined (Both runs values)) =>
           let values2: (Parse.stepValues steps).concat ++ (spacedNotes DeclarationNote endTrivia).fst = more := values
-          Witness
+          (
             [
               (
                 [first, named, open, ..parameterTokens ++ [close, equals, ..bodyTokens]],
                 notedDeclaration first.value.above line
               ),
               ..steps
-            ]
-            (Both
-              (rewrite split, joined in
-                Eq.cong
-                  ((tail: List (Parse.Located Token)) => [first, named, open, ..tail])
-                  (List.appendAssoc parameterTokens [close, equals, ..bodyTokens] later))
-              (Both
-                (Both
-                  (same => cases)
-                  (Both
-                    (rewrite joined,
-                        List.appendNil later,
-                        listedSame,
-                        fnCommented,
-                        nameCommented,
-                        openCommented,
-                        closeCommented,
-                        equalsCommented in
-                      runsFunctionSpelled first named open close equals parameterTokens bodyTokens later name listed
-                          inner atMargin isFn isName nameAllowed opens openAllowed closes isEquals equalsAllowed
-                          runsNames innerShaped innerSpelled)
-                    runs))
-                (groupValues isFirst
-                  (notedDeclaration first.value.above line)
-                  (Parse.stepValues steps).concat
-                  (spacedNotes DeclarationNote endTrivia).fst
-                  pending
-                  more
-                  { blankBefore, line }
-                  noted
-                  values2)))
+            ],
+            (rewrite split, joined in
+              Eq.cong
+                ((tail: List (Parse.Located Token)) => [first, named, open, ..tail])
+                (List.appendAssoc parameterTokens [close, equals, ..bodyTokens] later)),
+            ((
+              (same => cases),
+              (rewrite joined,
+                  List.appendNil later,
+                  listedSame,
+                  fnCommented,
+                  nameCommented,
+                  openCommented,
+                  closeCommented,
+                  equalsCommented in
+                runsFunctionSpelled first named open close equals parameterTokens bodyTokens later name listed inner
+                    atMargin isFn isName nameAllowed opens openAllowed closes isEquals equalsAllowed runsNames
+                    innerShaped innerSpelled),
+              runs
+            )),
+            (groupValues isFirst
+              (notedDeclaration first.value.above line)
+              (Parse.stepValues steps).concat
+              (spacedNotes DeclarationNote endTrivia).fst
+              pending
+              more
+              { blankBefore, line }
+              noted
+              values2)
+          )
 
 --| `fileOf`, with the notes after the last declaration named.
 theorem fileOfNotes ∀ (declarations: List (Spaced Declaration)) (endTrivia: List Trivia):
@@ -294,7 +292,7 @@ theorem runsFileSpelled ∀ (file: SourceFile) (tokens: List (Parse.Located Toke
   match file, shaped, spelled with
     | { declarations }, shaped, spelled =>
       match declarationsRun True [] declarations tokens endTrivia shaped spelled with
-        | Witness steps (Both joined (Both runs values)) =>
+        | (steps, joined, runs, values) =>
           let same: fileOf (Parse.stepValues steps).concat endTrivia = { declarations } :=
             Eq.trans
               (fileOfNotes (Parse.stepValues steps).concat endTrivia)

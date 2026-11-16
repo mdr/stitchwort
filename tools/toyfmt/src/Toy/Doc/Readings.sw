@@ -83,40 +83,43 @@ theorem stepIsReading ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List
         | False => Inr rfl
         | True =>
           match fit: fits total [(Flat, item)] rest (printer.left - 1) with
-            | True => Inl (Both rfl rfl)
+            | True => Inl ((rfl, rfl))
             | False => Inr rfl
     | Print indent mode doc =>
       match doc with
         | Group inner hard =>
           match mode with
-            | Flat => Inl (Both (Inl rfl) rfl)
+            | Flat => Inl (((Inl rfl), rfl))
             | Break =>
               match hard with
-                | True => Inr (Both rfl rfl)
+                | True => Inr ((rfl, rfl))
                 | False =>
                   match fit: printer.fitsHere total [(Flat, inner)] rest with
-                    | True => Inl (Both (Inr rfl) rfl)
-                    | False => Inr (Both rfl rfl)
+                    | True => Inl (((Inr rfl), rfl))
+                    | False => Inr ((rfl, rfl))
         | Fill [] => rfl
         | Fill [first, ..others] =>
           match mode with
-            | Flat => Inl (Both rfl rfl)
+            | Flat => Inl ((rfl, rfl))
             | Break =>
               Inr
-                (Both rfl
-                  (Witness
-                    (if printer.fitsHere total [(Flat, first)] (others.map (FillSep indent) ++ rest) then Flat
-                     else Break)
-                    rfl))
+                ((
+                  rfl,
+                  (if printer.fitsHere total [(Flat, first)] (others.map (FillSep indent) ++ rest) then Flat
+                   else Break),
+                  rfl
+                ))
         | Choice options =>
           match mode with
-            | Flat => Inl (Both rfl rfl)
+            | Flat => Inl ((rfl, rfl))
             | Break =>
               Inr
-                (Both rfl
-                  (Witness
-                    (printer.choose total indent rest options)
-                    (Both (chooseIsOption printer total indent rest options) rfl)))
+                ((
+                  rfl,
+                  (printer.choose total indent rest options),
+                  (chooseIsOption printer total indent rest options),
+                  rfl
+                ))
         | Empty => rfl
         | Chunk text width => rfl
         | Line => rfl
@@ -142,7 +145,7 @@ theorem runIsReading ∀ (printer: Printer) (total fuel: Nat) (stack: List Cmd):
     | Succ more, [cmd, ..rest] =>
       let isStep := stepIsReading printer total cmd rest
       match stepped: printer.step total cmd rest with
-        | (next, later) => Witness next (Witness later (Both isStep (runIsReading next total more later)))
+        | (next, later) => (next, later, isStep, (runIsReading next total more later))
 
 --| `print` is one of the readings: at every width, the text it gives is
 --| what some reading of the document, from the empty printer, leaves
@@ -151,6 +154,8 @@ theorem runIsReading ∀ (printer: Printer) (total fuel: Nat) (stack: List Cmd):
 theorem printIsReading ∀ (doc: Doc) (width: Nat):
     ∃ (final: Printer) => Reads (Printer.start width) (3 * doc.size + 3) [Print 0 Break doc] final
       ∧ print doc width = final.flushSuffixes.out.reverse.joinWith "" :=
-  Witness
-    ((Printer.start width).run (3 * doc.size + 3) (3 * doc.size + 3) [Print 0 Break doc])
-    (Both (runIsReading (Printer.start width) (3 * doc.size + 3) (3 * doc.size + 3) [Print 0 Break doc]) rfl)
+  (
+    ((Printer.start width).run (3 * doc.size + 3) (3 * doc.size + 3) [Print 0 Break doc]),
+    (runIsReading (Printer.start width) (3 * doc.size + 3) (3 * doc.size + 3) [Print 0 Break doc]),
+    rfl
+  )

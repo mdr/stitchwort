@@ -26,23 +26,17 @@ theorem parsedPrintPlaced ∀ (source: Text) (file: SourceFile) (width: Nat)
         ∧ endTrivia = (viewsOf events).pending
         ∧ Descending (tokens.map (token => token.offset)) :=
   match parsedPrintTokens source file width parsed with
-    | Both _ (Both _ lexed) =>
-      Witness
-        (eventsOf (printedPieces file.layout width).reverse)
-        (Witness
-          (Parse.locatedSteps 0 (stepsOnto (printedPieces file.layout width).reverse []))
-          (Witness
-            (placed (printedPieces file.layout width).reverse).tokens
-            (Witness
-              (placed (printedPieces file.layout width).reverse).pending
-              (Both
-                (parsedPrintEvents source file width parsed)
-                (Both lexed
-                  (Both
-                    (Eq.cong ((seen: Views) => seen.views) (placedViews (printedPieces file.layout width).reverse))
-                    (Both
-                      (Eq.cong ((seen: Views) => seen.pending) (placedViews (printedPieces file.layout width).reverse))
-                      (placedOffsets (printedPieces file.layout width).reverse))))))))
+    | (_, _, lexed) => (
+      (eventsOf (printedPieces file.layout width).reverse),
+      (Parse.locatedSteps 0 (stepsOnto (printedPieces file.layout width).reverse [])),
+      (placed (printedPieces file.layout width).reverse).tokens,
+      (placed (printedPieces file.layout width).reverse).pending,
+      (parsedPrintEvents source file width parsed),
+      lexed,
+      (Eq.cong ((seen: Views) => seen.views) (placedViews (printedPieces file.layout width).reverse)),
+      (Eq.cong ((seen: Views) => seen.pending) (placedViews (printedPieces file.layout width).reverse)),
+      (placedOffsets (printedPieces file.layout width).reverse)
+    )
 
 --| The printed text of a parsed file parses to the same file, at every
 --| width.
@@ -50,9 +44,7 @@ theorem printParses ∀ (source: Text) (file: SourceFile) (width: Nat)
     (parsed: parse source = Ok file):
     parse (file.print width) = Ok file :=
   match parsedPrintPlaced source file width parsed with
-    | Witness events
-        (Witness lexemes
-          (Witness tokens (Witness endTrivia (Both laid (Both lexed (Both views (Both pending offsets))))))) =>
+    | (events, lexemes, tokens, endTrivia, laid, lexed, views, pending, offsets) =>
       parseReads
         (file.print width)
         { lexemes, tokens = tokens.reverse, endTrivia = endTrivia.reverse }
@@ -83,7 +75,7 @@ theorem formatRoundTrip ∀ (source: Text) (width: Nat) (output: Text)
   match e: parse source with
     | Ok tree =>
       let same := formattedInjective (tree.print width) output h
-      Witness tree (Both rfl (Both (Eq.sym same) (rewrite <- same in printParses source tree width e)))
+      (tree, rfl, (Eq.sym same), (rewrite <- same in printParses source tree width e))
 
 --| Idempotence: formatting the output again, at the same width, gives
 --| the output.
@@ -91,5 +83,5 @@ theorem formatIdempotent ∀ (source: Text) (width: Nat) (output: Text)
     (h: format source width = Formatted output):
     format output width = Formatted output :=
   match formatRoundTrip source width output h with
-    | Witness tree (Both parsed (Both same reparsed)) =>
+    | (tree, parsed, same, reparsed) =>
       rewrite same in formatAnswers (tree.print width) width tree (rewrite <- same in reparsed)

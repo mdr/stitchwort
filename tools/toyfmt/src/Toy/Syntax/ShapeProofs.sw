@@ -19,9 +19,9 @@ theorem shapedItemsAppend ∀ (front: List Item) (last: Item)
     (lastShaped: Shaped last.value):
     ShapedItems (front ++ [last]) :=
   match front, shaped, last, lastShaped with
-    | [], shaped, { value, comma }, lastShaped => Both lastShaped rfl
+    | [], shaped, { value, comma }, lastShaped => (lastShaped, rfl)
     | [{ value, comma }, ..rest], Both valueShaped restShaped, last, lastShaped =>
-      Both valueShaped (shapedItemsAppend rest last restShaped lastShaped)
+      (valueShaped, (shapedItemsAppend rest last restShaped lastShaped))
 
 theorem shapedItemsReverse ∀ (found: List Item) (shaped: ShapedItems found): ShapedItems found.reverse :=
   match found, shaped with
@@ -105,7 +105,7 @@ theorem operatorOfKinds ∀ (layout: Layout) (token: Parse.Located Token):
   match kind: token.value.kind with
     | Op operator =>
       match allowed: layout.allows token with
-        | True => Inr (Witness operator (Both rfl rfl))
+        | True => Inr ((operator, rfl, rfl))
         | False => Inl (level =>
           match same: operator.level == level with
             | True => rfl
@@ -123,7 +123,7 @@ theorem operatorShape ∀ (layout: Layout) (token: Parse.Located Token):
     | Inl none => rewrite none 1, none 2, none 3, none 4, none 5, none 6 in rfl
     | Inr (Witness operator (Both kind allowed)) =>
       rewrite operatorFound layout token operator kind allowed in
-        Witness operator (Witness (layout.comments token) (Both rfl (Both (omega [(levelRange operator).left]) rfl)))
+        (operator, (layout.comments token), rfl, (omega [(levelRange operator).left]), rfl)
 
 --| An operator read after a chain, with its right side grouped tighter,
 --| makes a chain of the parser's shape.
@@ -147,11 +147,11 @@ theorem chainStep ∀ (layout: Layout) (lowest highest level: Nat) (associativit
         | Inl isOperand => omega [operandLevel right isOperand, (levelRange operator).right]
         | Inr low => omega [low, level1]
       rewrite isBinary in
-        Both
-          (Both leftBound
-            (Both rightBound
-              (Both chained.right.left (Both groupedLeft.right.left (Both chained.left groupedLeft.left)))))
-          (Both rfl (Inr (Both (omega [above, level1]) (omega [level1]))))
+        (
+          ((leftBound, rightBound, chained.right.left, groupedLeft.right.left, chained.left, groupedLeft.left)),
+          rfl,
+          (Inr (((omega [above, level1]), (omega [level1]))))
+        )
 
 -- Bodies and blocks.
 
@@ -165,7 +165,7 @@ theorem shapedLinesAppend ∀ (front back: List (Spaced Statement))
   match front, frontShaped with
     | [], frontShaped => backShaped
     | [{ blankBefore, line }, ..rest], Both lineShaped restShaped =>
-      Both lineShaped (shapedLinesAppend rest back restShaped backShaped)
+      (lineShaped, (shapedLinesAppend rest back restShaped backShaped))
 
 theorem shapedNotes ∀ (trivia: List Trivia) (found: (List (Spaced Statement), Bool))
     (shaped: ShapedLines found.fst):
@@ -176,7 +176,7 @@ theorem shapedNotes ∀ (trivia: List Trivia) (found: (List (Spaced Statement), 
     | [OwnLine comment, ..rest] =>
       shapedNotes rest
         (noteStep StatementNote found (OwnLine comment))
-        (shapedLinesAppend found.fst [{ blankBefore = found.snd, line = StatementNote comment }] shaped (Both rfl rfl))
+        (shapedLinesAppend found.fst [{ blankBefore = found.snd, line = StatementNote comment }] shaped ((rfl, rfl)))
 
 --| A statement's lines, the notes above it and itself, are of the
 --| parser's shape when it is.
@@ -185,7 +185,7 @@ theorem shapedNoted ∀ (above: List Trivia) (line: Statement)
     ShapedLines (notedStatement above line) :=
   let notesShaped: ShapedLines (spacedNotes StatementNote above).fst := shapedNotes above ([], False) rfl
   match found: spacedNotes StatementNote above with
-    | (notes, blankBefore) => shapedLinesAppend notes [{ blankBefore, line }] notesShaped (Both shaped rfl)
+    | (notes, blankBefore) => shapedLinesAppend notes [{ blankBefore, line }] notesShaped ((shaped, rfl))
 
 theorem closedCons ∀ (first: Spaced Statement) (lines: List (Spaced Statement))
     (closed: ClosedLines lines):
@@ -221,7 +221,7 @@ theorem shapedWithoutFirstBlank ∀ (lines: List (Spaced Statement))
     ShapedLines (withoutFirstBlank lines) :=
   match lines, shaped with
     | [], shaped => rfl
-    | [{ blankBefore, line }, ..rest], Both lineShaped restShaped => Both lineShaped restShaped
+    | [{ blankBefore, line }, ..rest], Both lineShaped restShaped => (lineShaped, restShaped)
 
 --| Lines of the parser's shape that end in a statement.
 def ClosedShaped (lines: List (Spaced Statement)): Prop := ShapedLines lines ∧ ClosedLines lines
@@ -240,8 +240,8 @@ theorem closedConcat ∀ (first: List (Spaced Statement)) (rest: List (List (Spa
     (all: List.All ClosedShaped [first, ..rest]):
     ClosedLines [first, ..rest].concat :=
   match rest, all with
-    | [], Both (Both _ closed) _ => rewrite List.appendNil first in closed
-    | [second, ..more], Both _ others => closedAppend first [second, ..more].concat (closedConcat second more others)
+    | [], (((_, closed)), _) => rewrite List.appendNil first in closed
+    | [second, ..more], (_, others) => closedAppend first [second, ..more].concat (closedConcat second more others)
 
 -- `if`, and the expression parser.
 
@@ -257,8 +257,8 @@ def BareLast: List Parameter → Prop
 theorem withCommasCons ∀ (first: (Text, Comments)) (others: List (Comments, (Text, Comments))):
     ∃ (head: Parameter) => ∃ (tail: List Parameter) => withCommas first others = [head, ..tail] :=
   match others with
-    | [] => Witness _ (Witness [] rfl)
-    | [(comma, next), ..rest] => Witness _ (Witness (withCommas next rest) rfl)
+    | [] => (_, [], rfl)
+    | [(comma, next), ..rest] => (_, (withCommas next rest), rfl)
 
 theorem withCommasBare ∀ (first: (Text, Comments)) (others: List (Comments, (Text, Comments))):
     BareLast (withCommas first others) :=
@@ -267,7 +267,7 @@ theorem withCommasBare ∀ (first: (Text, Comments)) (others: List (Comments, (T
     | [(comma, next), ..rest] =>
       let bare := withCommasBare next rest
       match withCommasCons next rest with
-        | Witness head (Witness tail same) => rewrite same in (rewrite same at bare in bare)
+        | (head, tail, same) => rewrite same in (rewrite same at bare in bare)
 
 --| The parameters the parser builds end in one with no comma.
 theorem parametersBare ∀ (found: Option ((Text, Comments), List (Comments, (Text, Comments)))):
@@ -299,7 +299,7 @@ theorem declarationsAppend ∀ (front back: List (Spaced Declaration))
   match front, frontShaped with
     | [], frontShaped => backShaped
     | [{ blankBefore, line }, ..rest], Both lineShaped restShaped =>
-      Both lineShaped (declarationsAppend rest back restShaped backShaped)
+      (lineShaped, (declarationsAppend rest back restShaped backShaped))
 
 theorem declarationNotes ∀ (trivia: List Trivia) (found: (List (Spaced Declaration), Bool))
     (shaped: ShapedDeclarations found.fst):
@@ -310,24 +310,21 @@ theorem declarationNotes ∀ (trivia: List Trivia) (found: (List (Spaced Declara
     | [OwnLine comment, ..rest] =>
       declarationNotes rest
         (noteStep DeclarationNote found (OwnLine comment))
-        (declarationsAppend found.fst
-          [{ blankBefore = found.snd, line = DeclarationNote comment }]
-          shaped
-          (Both rfl rfl))
+        (declarationsAppend found.fst [{ blankBefore = found.snd, line = DeclarationNote comment }] shaped ((rfl, rfl)))
 
 theorem shapedNotedDeclaration ∀ (above: List Trivia) (line: Declaration)
     (shaped: ShapedDeclaration line):
     ShapedDeclarations (notedDeclaration above line) :=
   let notesShaped: ShapedDeclarations (spacedNotes DeclarationNote above).fst := declarationNotes above ([], False) rfl
   match found: spacedNotes DeclarationNote above with
-    | (notes, blankBefore) => declarationsAppend notes [{ blankBefore, line }] notesShaped (Both shaped rfl)
+    | (notes, blankBefore) => declarationsAppend notes [{ blankBefore, line }] notesShaped ((shaped, rfl))
 
 theorem declarationsWithoutFirstBlank ∀ (lines: List (Spaced Declaration))
     (shaped: ShapedDeclarations lines):
     ShapedDeclarations (withoutFirstBlank lines) :=
   match lines, shaped with
     | [], shaped => rfl
-    | [{ blankBefore, line }, ..rest], Both lineShaped restShaped => Both lineShaped restShaped
+    | [{ blankBefore, line }, ..rest], Both lineShaped restShaped => (lineShaped, restShaped)
 
 theorem declarationsConcat ∀ (groups: List (List (Spaced Declaration)))
     (all: List.All ShapedDeclarations groups):

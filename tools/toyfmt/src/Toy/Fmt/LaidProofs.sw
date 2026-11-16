@@ -83,17 +83,17 @@ theorem wordLays ∀ (indent: Nat) (text: Text) (place: Place) (trace: List Even
     (reached: next (Mid (wordLine indent place)) (trace ++ [{ word = text, start = wordStart indent place }])):
     WriteLays indent text place trace next :=
   match solid with
-    | Both filled (Both noGap layout) =>
+    | (filled, noGap, layout) =>
       match text.isEmpty, filled with
         | True, never => Void.exfalso (Bool.falseNotTrue (Eq.sym never))
         | False, _ =>
           match gap: text.all (char => char == ' '), noGap, layout with
             | False, _, oneLine =>
               match place, reached with
-                | AtStart at, reached => Both oneLine reached
-                | Broken at, reached => Both oneLine reached
-                | Mid at, reached => Both oneLine reached
-                | Held at, reached => Both oneLine reached
+                | AtStart at, reached => (oneLine, reached)
+                | Broken at, reached => (oneLine, reached)
+                | Mid at, reached => (oneLine, reached)
+                | Held at, reached => (oneLine, reached)
 
 -- A token's comments.
 
@@ -164,7 +164,8 @@ theorem notesLay ∀ (comments: List Comment) (indent column: Nat) (trace: List 
                 written
                 next))
           (commentSolid comment.text first)
-          (Both rfl
+          ((
+            rfl,
             (notesLay rest indent column
               (trace ++ [{ word = comment.text, start = Some column }])
               next
@@ -172,7 +173,8 @@ theorem notesLay ∀ (comments: List Comment) (indent column: Nat) (trace: List 
               (rewrite List.appendAssoc trace
                     [{ word = comment.text, start = Some column }]
                     (aboveEvents column rest) in
-                reached))))
+                reached))
+          )))
 
 --| The comments above a token: each on a line of its own at one column,
 --| where the token then starts its line.
@@ -204,7 +206,7 @@ theorem trailingLays ∀ (after: Option Comment) (indent line: Nat) (trace: List
     | None, _, reached => rewrite <- List.appendNil trace in reached
     | Some comment, fine, reached =>
       match commentSolid comment.text fine with
-        | Both _ (Both _ layout) => Both layout reached
+        | (_, _, layout) => (layout, reached)
 
 -- A token.
 
@@ -228,7 +230,7 @@ theorem tokenLays ∀ (comments: Comments) (text: Text) (indent: Nat) (place: Pl
     (reached: next (tokenEnd indent place comments) (trace ++ tokenEvents indent place comments text)):
     Lays (token comments text) indent place trace next :=
   match fine with
-    | Both fineAbove fineAfter =>
+    | (fineAbove, fineAfter) =>
       let above := aboveEvents (breakColumn indent place) comments.above
       let word: Event := { word = text, start = wordStart indent (aboveEnd indent place comments.above) }
       concatLays
@@ -390,7 +392,7 @@ theorem ruleCons ∀ (within: Nat → Prop) (doc: Doc) (docs: List Doc)
       (between front isFirst met =>
         others indent between (trace ++ front) next inside met (after back isSecond reached =>
           rewrite List.appendAssoc trace front back in
-            onward after (front ++ back) (Witness front (Witness back (Both rfl (Both isFirst isSecond)))) reached))
+            onward after (front ++ back) ((front, back, rfl, isFirst, isSecond)) reached))
 
 --| `Doc.concat` is its documents one after another.
 theorem ruleConcat ∀ (within: Nat → Prop) (docs: List Doc) (pre post: Place → Prop) (spec: List Event → Prop)
@@ -428,11 +430,12 @@ theorem tokenRule ∀ (zone: Zone) (comments: Comments) (text: Text)
       (onward
         (tokenEnd indent place comments)
         (tokenEvents indent place comments text)
-        (Witness
-          (breakColumn indent place)
-          (Witness
-            (wordStart indent (aboveEnd indent place comments.above))
-            (Both (innerStart zone indent place comments.above inside inner) rfl)))
+        ((
+          (breakColumn indent place),
+          (wordStart indent (aboveEnd indent place comments.above)),
+          (innerStart zone indent place comments.above inside inner),
+          rfl
+        ))
         (trailEnded zone _ comments.after (innerLine zone indent place comments.above inside inner)))
 
 --| A place whose line is indented no less than the zone's statement.
@@ -486,7 +489,7 @@ theorem closerNotes ∀ (comment: Comment) (rest: List Comment) (indent: Nat)
       trace
       next :=
   match fine with
-    | Both first others =>
+    | (first, others) =>
       match rest, others, reached with
         | [], _, reached =>
           wordLays indent comment.text
@@ -507,7 +510,8 @@ theorem closerNotes ∀ (comment: Comment) (rest: List Comment) (indent: Nat)
                 later
                 next)
             (commentSolid comment.text first)
-            (Both rfl
+            ((
+              rfl,
               (Inr
                 (closerNotes second more indent
                   (trace ++ [{ word = comment.text, start = Some indent }])
@@ -516,7 +520,8 @@ theorem closerNotes ∀ (comment: Comment) (rest: List Comment) (indent: Nat)
                   (rewrite List.appendAssoc trace
                         [{ word = comment.text, start = Some indent }]
                         (aboveEvents indent [second, ..more]) in
-                    reached))))
+                    reached)))
+            ))
 
 --| A closing bracket with its comments (`closer`): own-line comments
 --| above it at the items' column, the bracket then on a line of its own;
@@ -540,9 +545,9 @@ theorem closerRule ∀ (zone: Zone) (comments: Comments) (text: Text)
           (onward
             (tokenEnd indent place { above = [], after })
             (tokenEvents indent place { above = [], after } text)
-            (Witness 0 (Witness (wordStart indent place) (Both rfl rfl)))
+            ((0, (wordStart indent place), rfl, rfl))
             (trailEnded zone _ after (seatedLine zone indent place inside seated)))
-      | { above = [comment, ..rest], after }, Both fineAbove fineAfter =>
+      | { above = [comment, ..rest], after }, (fineAbove, fineAfter) =>
         let notes := aboveEvents (indent + 2) [comment, ..rest]
         let word: Event := { word = text, start = Some indent }
         concatLays
@@ -579,7 +584,8 @@ theorem closerRule ∀ (zone: Zone) (comments: Comments) (text: Text)
                     LaysAll [] (indent + 2) left laid (out all =>
                       LaysAll [HardLine, Doc.text text, trailingComment after] indent out all next)))
                 fineAbove
-                (Both rfl
+                ((
+                  rfl,
                   (Inr
                     (wordLays indent text
                       (AtStart indent)
@@ -595,8 +601,9 @@ theorem closerRule ∀ (zone: Zone) (comments: Comments) (text: Text)
                             onward
                               (trailEnd indent after)
                               (notes ++ [word, ..afterEvents after])
-                              (Witness (indent + 2) (Witness (Some indent) (Both rfl rfl)))
-                              (trailEnded zone indent after inside)))))))))
+                              (((indent + 2), (Some indent), rfl, rfl))
+                              (trailEnded zone indent after inside)))))
+                )))))
 
 -- Rules put together.
 

@@ -189,8 +189,7 @@ theorem runsOperatorChar ∀ (char: Char) (rest: List Char)
         rest
         (Some char)
         (Parse.runsNext (char => True) char rest rfl)
-    match core state starts honest with
-      | Witness m (Both ran after) => Witness m (Both (rewrite starts, next in ran) after)
+    match core state starts honest with | (m, ran, after) => (m, (rewrite starts, next in ran), after)
 
 theorem operatorCharStops ∀ (state: Parse.State Char)
     (none: operatorNext state.at.rest = False):
@@ -224,12 +223,11 @@ theorem operatorRunSteps ∀ (run rest: List Char)
     Parse.ManyRuns operatorChar (charSteps run) rest :=
   match run, isRun with
     | [], isRun => operatorCharDeclines rest isRun
-    | [char, ..more], Both next later =>
-      Both
-        (same => cases)
-        (Both
-          (rewrite charStepsJoin more in runsOperatorChar char (more ++ rest) next)
-          (operatorRunSteps more rest later))
+    | [char, ..more], Both next later => (
+      (same => cases),
+      (rewrite charStepsJoin more in runsOperatorChar char (more ++ rest) next),
+      (operatorRunSteps more rest later)
+    )
 
 --| `lexemeAt` reads a run of operator characters, up to a character that
 --| isn't one or to a comment's `--`.
@@ -275,7 +273,7 @@ theorem runsEscapeSegment ∀ (escaped: Char) (rest: List Char)
           rest
           escaped
           (Parse.runsSatisfy "'\"', '\\' or 'n' after '\\'" isEscaped escaped rest allowed))
-    match core state starts honest with | Witness m (Both ran after) => Witness m (Both (rewrite starts in ran) after)
+    match core state starts honest with | (m, ran, after) => (m, (rewrite starts in ran), after)
 
 --| A string's plain run: characters up to a quote, a backslash or the end
 --| of the line.
@@ -293,8 +291,7 @@ theorem runsPlainSegment ∀ (first: Char) (others rest: List Char)
         rest
         [first, ..others]
         (Parse.runsSpan isPlainChar [first, ..others] rest plain ends)
-    match core state starts honest with
-      | Witness m (Both ran after) => Witness m (Both (rewrite starts, plainStart in ran) after)
+    match core state starts honest with | (m, ran, after) => (m, (rewrite starts, plainStart in ran), after)
 
 theorem stringSegmentStops ∀ (state: Parse.State Char)
     (none: segmentStart state.at.rest = None):
@@ -363,11 +360,13 @@ theorem runsStringExample ∀ (rest: List Char):
   runsStringLexeme
     [(['a'], ()), (['\\', 'n'], ())]
     rest
-    (Both
-      (same => cases)
-      (Both
-        (runsPlainSegment 'a' [] (['\\', 'n', '"'] ++ rest) rfl rfl rfl)
-        (Both (same => cases) (Both (runsEscapeSegment 'n' (['"'] ++ rest) rfl) (stringSegmentDeclines rest)))))
+    ((
+      (same => cases),
+      (runsPlainSegment 'a' [] (['\\', 'n', '"'] ++ rest) rfl rfl rfl),
+      (same => cases),
+      (runsEscapeSegment 'n' (['"'] ++ rest) rfl),
+      (stringSegmentDeclines rest)
+    ))
 
 -- The whole source, and the tokens made of its lexemes.
 
