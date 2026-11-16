@@ -89,15 +89,18 @@ theorem inOrderPrintedBefore ∀ (rules: List Rule) (pages: List Nat):
     | [] => Eq.flipped (List.allTrue rules (rule => printedBefore rule.before rule.after []) (rule => byComputing))
     | [page, ..later] =>
       let keptHere := rules.all (rule => printedBefore rule.before rule.after later)
-      Eq.trans
-        (Eq.cong
-          (keptLater => later.all (laterPage => !(ruleSays rules laterPage page)) && keptLater)
-          (inOrderPrintedBefore rules later))
-        (Eq.trans
-          (Eq.cong (keptByPage => keptByPage && keptHere) (noRuleBroken rules page later))
-          (Eq.flipped
+      calc inOrder (ruleSays rules) [page, ..later]
+        _ = later.all (laterPage => !(ruleSays rules laterPage page))
+            && rules.all (rule => printedBefore rule.before rule.after later) :=
+          Eq.cong
+            (keptLater => later.all (laterPage => !(ruleSays rules laterPage page)) && keptLater)
+            (inOrderPrintedBefore rules later)
+        _ = rules.all (rule => !(page == rule.after) || !(later.any (== rule.before))) && keptHere :=
+          Eq.cong (keptByPage => keptByPage && keptHere) (noRuleBroken rules page later)
+        _ = rules.all (rule => printedBefore rule.before rule.after [page, ..later]) :=
+          Eq.flipped
             (List.allAnd rules (rule => !(page == rule.after) || !(later.any (== rule.before))) (rule =>
-              printedBefore rule.before rule.after later))))
+              printedBefore rule.before rule.after later))
 
 --| The check by the rules as written is the puzzle's "in the right order".
 theorem inOrderRuleSays ∀ (rules: List Rule) (update: Update):
