@@ -18655,7 +18655,7 @@
     {
       "id": 2071,
       "title": "[DeepSeek] Fix the 20 stale status lines in docs/proposals (\"nothing is built\" on built work, decided D numbers shown open), from the stale-claims list in docs/proposals/README.md",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -18664,7 +18664,7 @@
       "epic": "docs-tutorials",
       "body": "From docs/proposals/README.md. D2952 [rec: yes]. 30 min.\n\nFrom docs/reviews/SW-2072-widen-in-prototype.md: also fix delayed-translate.md's status line and §5 (merged 24 Oct as 8046d40cc, unreviewed; D1152's limit never written), the stale limit bullet in proof-reification.md:589-594, line numbers cited in effect-runtime.md:228, and the delayed-translate row and stale claim 16 in docs/proposals/README.md. About 15 min more.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
@@ -20828,7 +20828,7 @@
     {
       "id": 2215,
       "title": "[DeepSeek] Tour page web/guide/30-decreasing.sw:9 and docs/proving-guide.md:286-287 still write if h:; show the unnamed forms from decreasing stages 1 and 2",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -20837,7 +20837,7 @@
       "epic": "docs-tutorials",
       "body": "From docs/reviews/SW-2213-guide-coverage.md, lane B. Not beside SW-2165. 30 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-16",
       "commits": []
     },
     {
