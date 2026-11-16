@@ -1,5 +1,5 @@
 {
-  "next": 3588,
+  "next": 3589,
   "tickets": [
     {
       "id": 47,
@@ -40089,12 +40089,12 @@
     {
       "id": 3577,
       "title": "[Sonnet] After E2 (unknowns print as _name), code that tests printed text for '?' to detect unknowns is stale: crates/driver/src/search_at.rs lines ~1100, 1490, 1722, 1744 (search may now accept a call or goal with unknowns). Replace with a real check for unsolved metas, as check.rs's partial_callback now does; add a test that fails before",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Lane notes (Sonnet), commit 2de7897bb on lane/SW-3577:\n- GoalData.has_unknown (set from Shown::unknown, the one path every unknown prints through) replaces target.contains('?') at search_at.rs 1722/1744. Sites 1100 and 1490 test search's own rendered \"?\" placeholder, not printed unknowns: left alone.\n- Output choice (orchestrator's call): search follows E2's style, _ or _name, instead of numbered ?n (the numbers were arbitrary meta counters, not identities; _ mirrors what the user typed). Updated search_match.rs, server/search.rs, the_json_contract snapshot.\n- New test: search_at::a_goal_left_about_an_unknown_is_not_suggested (failed with the old text check: Std.Omega.subLeLeft left \"a = c - _b\").\n- Ran: the four failing tests, search_match:: (11), new test; passing. cargo fmt, clippy clean.\nModel result: Sonnet, worked\n",
+      "body": "Lane notes (Sonnet), commit 2de7897bb on lane/SW-3577:\n- GoalData.has_unknown (set from Shown::unknown, the one path every unknown prints through) replaces target.contains('?') at search_at.rs 1722/1744. Sites 1100 and 1490 test search's own rendered \"?\" placeholder, not printed unknowns: left alone.\n- Output choice (orchestrator's call): search follows E2's style, _ or _name, instead of numbered ?n (the numbers were arbitrary meta counters, not identities; _ mirrors what the user typed). Updated search_match.rs, server/search.rs, the_json_contract snapshot.\n- New test: search_at::a_goal_left_about_an_unknown_is_not_suggested (failed with the old text check: Std.Omega.subLeLeft left \"a = c - _b\").\n- Ran: the four failing tests, search_match:: (11), new test; passing. cargo fmt, clippy clean.\nModel result: Sonnet, worked\n\nModel result: sonnet, worked, ~45 min (est. 35). Has_unknown set by the Shown::unknown hook; new test caught a partial fix. Follow-up SW-3588.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -40228,6 +40228,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3588,
+      "title": "[Sonnet] search_at render and checks at ~1100/1490 treat any '?' in rendered text as a placeholder; a name like isEmpty? would trip them. Use a structured placeholder flag (from SW-3577)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
