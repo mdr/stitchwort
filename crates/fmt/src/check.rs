@@ -44,6 +44,41 @@ pub(crate) fn same_tokens(
     Ok(())
 }
 
+/// The same comments in the same order, read straight from the lexer: the
+/// comment anchors ([`crate::printer`]) compare both texts after rule N
+/// ([`crate::tidy`]) has placed their comments, so a comment N lost would be
+/// lost from both and pass them (SW-3606). This check shares no code with
+/// the formatter's placement. Text is compared without trailing spaces,
+/// which N removes.
+pub(crate) fn same_comments(before: &Lexed, after: &Lexed) -> Result<(), String> {
+    let texts = |lexed: &Lexed| -> Vec<String> {
+        let mut out: Vec<(u32, String)> = lexed
+            .trivia
+            .iter()
+            .chain(std::iter::once(&lexed.eof))
+            .flat_map(|t| t.leading.iter().chain(&t.trailing))
+            .map(|c| (c.span.start, c.text.trim_end_matches(' ').to_string()))
+            .collect();
+        out.sort();
+        out.into_iter().map(|(_, text)| text).collect()
+    };
+    let (a, b) = (texts(before), texts(after));
+    let at = a
+        .iter()
+        .zip(&b)
+        .position(|(x, y)| x != y)
+        .unwrap_or(a.len().min(b.len()));
+    match (a.get(at), b.get(at)) {
+        (None, None) => Ok(()),
+        (Some(x), Some(y)) => Err(format!(
+            "comment {} is `{x}` in the input and `{y}` in the output",
+            at + 1
+        )),
+        (Some(x), None) => Err(format!("the comment `{x}` was lost")),
+        (None, Some(y)) => Err(format!("the output has a comment `{y}` the input hasn't")),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use stitchwort_syntax::{SourceMap, lex_with_trivia};

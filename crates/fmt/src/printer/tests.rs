@@ -927,3 +927,21 @@ fn a_result_type_that_is_a_block_starts_below_its_colon() {
         "def names:\n    List\n    Text :=\n  x\n",
     );
 }
+
+/// Two closers that each end a line with a comment keep both comments
+/// (SW-3606: the second overwrote the first, and the file was written).
+#[test]
+fn comments_after_two_closers_on_two_lines_are_both_kept() {
+    let out = fmt("def a: Nat := (f (1) -- c1\n  ) -- c2\n");
+    assert!(out.contains("-- c1") && out.contains("-- c2"), "{out}");
+}
+
+/// The comments check counts comments as written, so an output missing one
+/// is refused even where rule N reads both texts' comments alike.
+#[test]
+fn an_output_missing_a_comment_is_refused() {
+    let file = SourceMap::new().add("input.sw", "");
+    let before = "def a: Nat := (f (1) -- c1\n  ) -- c2\n";
+    let error = check_file(file, before, before, "def a: Nat := (f (1)) -- c2\n").unwrap_err();
+    assert!(error.contains("-- c1"), "{error}");
+}

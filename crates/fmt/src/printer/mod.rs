@@ -60,7 +60,7 @@ pub fn format_tree(text: &str) -> Result<TreeFormatted, Error> {
 /// Like [`format_tree`], with `file` in the diagnostics of a refused file.
 pub fn format_tree_in(file: FileId, text: &str) -> Result<TreeFormatted, Error> {
     let printed = print_file(file, text)?;
-    check_file(file, &printed.input, &printed.text).map_err(Error::Internal)?;
+    check_file(file, text, &printed.input, &printed.text).map_err(Error::Internal)?;
     Ok(TreeFormatted {
         text: printed.text,
         stats: printed.stats,
@@ -86,7 +86,7 @@ pub struct Gate {
 pub fn gate(text: &str) -> Result<Gate, Error> {
     let file = SourceMap::new().add("input.sw", text);
     let printed = print_file(file, text)?;
-    let check = check_file(file, &printed.input, &printed.text);
+    let check = check_file(file, text, &printed.input, &printed.text);
     let idempotent = match print_file(file, &printed.text) {
         Ok(again) => again.text == printed.text,
         Err(_) => false,
@@ -262,7 +262,15 @@ fn first_difference(before: &str, after: &str) -> Option<String> {
     }
 }
 
-fn check_file(file: FileId, before: &str, after: &str) -> Result<(), String> {
+/// The checks on `after`, the printed `original`, whose tidied text is
+/// `before`.
+fn check_file(file: FileId, original: &str, before: &str, after: &str) -> Result<(), String> {
+    if let (Ok(a), Ok(b)) = (
+        lex_with_trivia(file, original),
+        lex_with_trivia(file, after),
+    ) {
+        check::same_comments(&a, &b).map_err(|e| format!("comments: {e}"))?;
+    }
     compare(file, before, after, || {
         let a = parse_module_within(file, before, DEFAULT_STACK)
             .map_err(|_| "the input doesn't parse".to_string())?;
