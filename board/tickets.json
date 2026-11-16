@@ -1,5 +1,5 @@
 {
-  "next": 3652,
+  "next": 3653,
   "tickets": [
     {
       "id": 47,
@@ -40879,12 +40879,12 @@
     {
       "id": 3637,
       "title": "[Sonnet] Cached re-check after stitchwort fmt reports spurious W-ARROW-FORALL on plain 'theorem name ∀ (…)' (15+ in toyfmt CarryProofs.sw, 9 in Degenerate.sw) and a W-MATCH-NOT-FOUND that comes and goes; --no-cache reports none. Find why the cache keeps stale warnings; failing-first test",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "SW-3641 saw 380 spurious W-ARROW-FORALL from a cached check in tools/toyfmt (none with --no-cache).",
+      "body": "SW-3641 saw 380 spurious W-ARROW-FORALL from a cached check in tools/toyfmt (none with --no-cache).\n\nModel result: sonnet, worked (W-ARROW-FORALL; W-MATCH-NOT-FOUND not reproduced), 5 min (est. 30). Follow-up SW-3652.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41071,6 +41071,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3652,
+      "title": "[Sonnet] Follow-ups to SW-3637: (1) the intermittent W-MATCH-NOT-FOUND in toyfmt after an fmt edit (Toy/Syntax/OperatorReads.sw): repro, then fix if it's the cache-entry family; (2) check whether elab library.rs:1452, live.rs and the LSP paths skip the W-ARROW-FORALL text filter on a cache hit. Failing-first tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
