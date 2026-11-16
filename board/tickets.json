@@ -40163,7 +40163,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Second layout-changes-the-parse case (Overmind, seed 0x956 case 244012, 'input has ], where the output has Alt {'): fmtbugs/arms.sw — a match whose arms sit at inconsistent columns (15 then 6) after a one-line header; the formatter's re-indent regroups the arms. Decide the right parse for both cases; both caught by the tree check, nothing written.",
+      "body": "Second layout-changes-the-parse case (Overmind, seed 0x956 case 244012, 'input has ], where the output has Alt {'): fmtbugs/arms.sw — a match whose arms sit at inconsistent columns (15 then 6) after a one-line header; the formatter's re-indent regroups the arms. Decide the right parse for both cases; both caught by the tree check, nothing written.\n\nThird case (Overmind, seed 0x959 case 93278, 'input has ty: Seq( where output has ty: App('): fmtbugs/seqtype.sw — def names: / List / Text := … : a type split over lines parses as a sequence; the formatter joins it into an application. All three cases: the parser treats continuation lines in a type or match position as layout structure. Decide the parser's rule for continuation lines once, then make the formatter agree (or refuse).",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
