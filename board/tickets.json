@@ -1,5 +1,5 @@
 {
-  "next": 3599,
+  "next": 3600,
   "tickets": [
     {
       "id": 47,
@@ -40371,6 +40371,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3599,
+      "title": "[Opus] Explore premise selection in search --at (D3660, Matt, 16 Nov 2026: 'could be worth exploring', no strong opinion — an exploration, measured): when asked about a goal, also try arithmetic [lemma args] (and cases/rewrite) with top-k std lemmas chosen by the goal's operators and head symbols, args by unification, kernel-checked. Measure on open goals vs plain closers. SMT hammer stopped at stage 0; reopen bar per docs/research/hammer-stage0.md (≥15% of ≥100 goals both fail, checked)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
