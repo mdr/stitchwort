@@ -168,10 +168,21 @@ pub(crate) fn drop_parens(text: &str) -> Option<(String, usize)> {
         loop {
             let mut found = None;
             for k in range.clone() {
-                if dropped.iter().any(|&(open, close)| k == open || k == close) {
+                let is_dropped = |k| dropped.iter().any(|&(open, close)| k == open || k == close);
+                if is_dropped(k) {
                     continue;
                 }
-                let row = after_row(k) && !dropped.iter().any(|&(open, _)| open == k - 1);
+                // An inner pair follows the row once the pairs around it are
+                // gone: look past the tokens already dropped.
+                let row = {
+                    let mut before = k;
+                    while before > range.start && is_dropped(before - 1) {
+                        before -= 1;
+                    }
+                    before > range.start
+                        && tokens[before - 1].tok == Tok::RBrace
+                        && roles[before - 1] == Role::Row
+                };
                 let binder = binders.contains(&k);
                 if tokens[k].tok != Tok::LParen || !(row || binder) {
                     continue;
@@ -245,6 +256,23 @@ mod tests {
             "def a: {Fail} List Nat := []\n\
              def b: {Fail} (Nat, Nat) := (0, 0)\n\
              theorem c ∀ (h: ∀ (i: Nat) => i = i): True := h\n"
+        );
+    }
+
+    #[test]
+    fn nested_pairs_after_a_row_all_go_in_one_pass() {
+        let text = "def a: {IO} ((halvings 100 0))\n\
+                    def b: {IO} ((halvings 100 0)) := halvings 100 0\n\
+                    def c: {IO} (((halvings 100 0)))\n\
+                    def d: {IO} (((halvings 100 0))) := halvings 100 0\n";
+        let (out, pairs) = drop_parens(text).unwrap();
+        assert_eq!(pairs, 10);
+        assert_eq!(
+            out,
+            "def a: {IO} halvings 100 0\n\
+             def b: {IO} halvings 100 0 := halvings 100 0\n\
+             def c: {IO} halvings 100 0\n\
+             def d: {IO} halvings 100 0 := halvings 100 0\n"
         );
     }
 
