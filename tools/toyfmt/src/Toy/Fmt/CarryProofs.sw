@@ -122,8 +122,7 @@ theorem bracketsPast ∀ (tokens: List Tok): List.All (Layout.past InBrackets) t
   | [] => ()
   | [head, ..tail] => (byComputing, (bracketsPast tail))
 
-theorem allCarriedOne ∀ (token: Tok): allCarried [token] = token.value.comments :=
-  List.appendNil token.value.comments
+theorem allCarriedOne ∀ (token: Tok): allCarried [token] = token.value.comments := List.appendNil token.value.comments
 
 -- What the lexer's tokens are like: the walk's invariant.
 
@@ -143,7 +142,8 @@ theorem risingAfter ∀ (read rest: List Tok) (rising: Rising (read ++ rest)): R
   | [head, ..tail], Both apart later => risingAfter tail rest later
 
 --| What the walk assumes of the input left: tidy tokens at rising offsets.
-def Lexer: Parse.Invariant Tok := Parse.Invariant.both (Parse.Invariant.every Tidy) { holds = Rising, kept = risingAfter }
+def Lexer: Parse.Invariant Tok :=
+  Parse.Invariant.both (Parse.Invariant.every Tidy) { holds = Rising, kept = risingAfter }
 
 -- The specs.
 
@@ -189,8 +189,12 @@ theorem startedOpened ∀ [measure: a → List Comment] [extra: a → Prop] (lay
   match started with | (more, split, holds, carried) => rewrite split then carried
 
 theorem startedExpr ∀ (layout: Layout) (token: Tok)
-    (allowed: layout.allows token = True) (read: List Tok) (value: Expr)
-    (started: Started layout token Expr.comments (found => found.firstAbove = (layout.comments token).above) read value):
+    (allowed: layout.allows token = True)
+    (read: List Tok) (value: Expr)
+    (started: Started layout token Expr.comments
+      (found => found.firstAbove = (layout.comments token).above)
+      read
+      value):
     ExprSpec layout read value :=
   match started with | (more, split, above, carried) => rewrite split then (allowed, above, carried)
 
@@ -314,7 +318,9 @@ theorem skipStarted ∀ [inv: Parse.Invariant Tok] [j: () → {Parse Tok} b] [me
     (layout: Layout) (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
     (fine: Parse.Fits Tok inv [token, ..later])
     (shape: start.rest = [token, ..later])
-    (rest: ∀ (done: ()) => Parse.ReadsIn inv (() => j done) (Onto layout (more => layout.kept token ++ more) measure extra)):
+    (rest: ∀ (done: ()) => Parse.ReadsIn inv
+      (() => j done)
+      (Onto layout (more => layout.kept token ++ more) measure extra)):
     Parse.ReadsAt start (() => j (skip())) (Started layout token measure extra) :=
   Parse.readsAtThen (readsSkipAt start token later shape) (read done after starts single =>
     readsAtWeaken (rest done after (fine.after (rewrite <- shape then starts))) (taken value onto =>
@@ -360,8 +366,7 @@ theorem andThen ∀ [inv: Parse.Invariant Tok] [p: () → {Parse Tok} a] [j: a �
 
 --| The last step: a value whose measure is what the chain built.
 theorem ontoDone ∀ [inv: Parse.Invariant Tok] [measure: a → List Comment] [extra: a → Prop] [layout: Layout]
-    [before: List Comment → List Comment] [x: a]
-    (holds: extra x)
+    [before: List Comment → List Comment] [x: a] (holds: extra x)
     (same: measure x = before []):
     Parse.ReadsIn inv (() => x) (Onto layout before measure extra) :=
   Parse.readsDone x _ (holds, (past => same))
