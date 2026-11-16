@@ -451,11 +451,6 @@ impl<'a> Rules<'a> {
         })
     }
 
-    /// Whether a comment ends the line after the element's last token.
-    fn trails_comment(&self, el: Element<'_>) -> bool {
-        self.file.trivia()[Self::last(el)].trailing.is_some()
-    }
-
     /// Whether a comment ends a line at the element's end, or before only
     /// the closers and commas that end it: it is printed after them either
     /// way (a comment before a closing bracket moves to the line end), so
@@ -1345,7 +1340,7 @@ impl<'a> Rules<'a> {
         let mut keep = 1;
         while keep < n
             && (self.simple(children[keep]) || self.section(children[keep]))
-            && !self.trails_comment(children[keep - 1])
+            && !self.comment_ends_at_closers(children[keep - 1])
         {
             keep += 1;
         }
@@ -1373,7 +1368,7 @@ impl<'a> Rules<'a> {
         };
         let mut rest = Vec::new();
         for k in keep..n {
-            if self.section(children[k]) && !self.trails_comment(children[k - 1]) {
+            if self.section(children[k]) && !self.comment_ends_at_closers(children[k - 1]) {
                 rest.push(self.space_el(children[k - 1], children[k]));
             } else {
                 rest.push(Doc::HardLine);
