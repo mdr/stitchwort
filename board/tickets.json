@@ -40643,7 +40643,7 @@
     {
       "id": 3619,
       "title": "[Sonnet] REPL tab completion (Matt, 16 Nov 2026): rustyline Completer: names in scope (imports, session definitions per D3661), namespaces after 'import', :commands, and members after '.', reusing the LSP's completion logic (crates/lsp) rather than a second implementation. After SW-3614",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
