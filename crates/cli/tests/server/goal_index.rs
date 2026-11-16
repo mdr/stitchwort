@@ -302,6 +302,33 @@ fn long_goal_lines_are_cut_in_the_middle() {
     assert!(!full.contains("left out"), "{full}");
 }
 
+/// `--color=always` colours the messages on a pipe, and `never` and the
+/// default (a pipe isn't a terminal) leave the same text without codes.
+#[test]
+fn color_flag_adds_escapes_only() {
+    let dir = scratch("color");
+    std::fs::write(dir.join("c.sw"), "def x: Nat := nope\n").unwrap();
+    let text = |args: &[&str]| String::from_utf8(stitchwort(&dir, args).stderr).unwrap();
+    let always = text(&["check", "--color=always", "c.sw"]);
+    assert!(always.contains("\u{1b}[31m"), "{always:?}");
+    let never = text(&["check", "--color=never", "c.sw"]);
+    assert!(!never.contains('\u{1b}'), "{never:?}");
+    assert_eq!(text(&["check", "c.sw"]), never);
+    let stripped: String = {
+        let mut out = String::new();
+        let mut chars = always.chars();
+        while let Some(c) = chars.next() {
+            if c == '\u{1b}' {
+                chars.by_ref().find(|&c| c == 'm');
+            } else {
+                out.push(c);
+            }
+        }
+        out
+    };
+    assert_eq!(stripped, never);
+}
+
 /// A goal printed in a file, pasted back into that file as the statement of
 /// a lemma, checks with no error and is the same goal (SW-918): each name
 /// is printed as that file can write it. `List.count` needs `import Std

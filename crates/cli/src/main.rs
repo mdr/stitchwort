@@ -10,7 +10,7 @@ use stitchwort_cli::project::{
     DiskFiles, Load, Target, TheoremCount, analyse, find_project, namespace_of, project_sources,
     run_unknown_namespace, unknown_namespace,
 };
-use stitchwort_cli::render::render;
+use stitchwort_cli::render::{ColorChoice, render};
 use stitchwort_cli::run::Main;
 use stitchwort_elab::project::FileModeContext;
 use stitchwort_fmt::Error as FmtError;
@@ -43,6 +43,37 @@ struct Cli {
     /// goal
     #[arg(long, global = true)]
     full_goals: bool,
+    /// When to colour error messages: `auto` (the default) colours them
+    /// when stderr is a terminal and the environment variable `NO_COLOR`
+    /// isn't set to anything; `always` and `never` decide it whatever the
+    /// output is or `NO_COLOR` says. The text is the same either way:
+    /// colour only adds to it
+    #[arg(long, global = true, value_enum, default_value_t = ColorArg::Auto, value_name = "WHEN")]
+    color: ColorArg,
+}
+
+/// `--color`'s values.
+#[derive(Clone, Copy, clap::ValueEnum)]
+enum ColorArg {
+    Auto,
+    Always,
+    Never,
+}
+
+/// How `--color` was given; see [`report`].
+static COLOR: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// Whether diagnostics on stderr are coloured: `--color`, then `NO_COLOR`
+/// (<https://no-color.org>: any non-empty value), then whether stderr is
+/// a terminal.
+fn color_on_stderr() -> bool {
+    let choice = match COLOR.load(std::sync::atomic::Ordering::Relaxed) {
+        1 => ColorChoice::Always,
+        2 => ColorChoice::Never,
+        _ => ColorChoice::Auto,
+    };
+    let no_color = std::env::var("NO_COLOR").ok();
+    choice.enabled(std::io::stderr().is_terminal(), no_color.as_deref())
 }
 
 /// Whether goals are shown in full (`--full-goals`).
@@ -921,6 +952,7 @@ fn main() -> ExitCode {
     exit_quietly_on_broken_pipe();
     let cli = Cli::parse();
     FULL_GOALS.store(cli.full_goals, std::sync::atomic::Ordering::Relaxed);
+    COLOR.store(cli.color as u8, std::sync::atomic::Ordering::Relaxed);
     if let Some(dir) = &cli.std_dir
         && let Err(e) = stitchwort_elab::use_std_dir(dir)
     {
@@ -5126,7 +5158,7 @@ fn relative_path(from: &Path, path: &Path) -> String {
 }
 
 fn report(sources: &SourceMap, diagnostics: &[Diagnostic]) {
-    let color = std::io::stderr().is_terminal();
+    let color = color_on_stderr();
     let full_goals = FULL_GOALS.load(std::sync::atomic::Ordering::Relaxed);
     for diagnostic in diagnostics {
         if diagnostic.code == "GOAL" && !full_goals {
