@@ -1620,8 +1620,12 @@ theorem groupOut ∀ (group: ParameterGroup) (events: List Event)
                 match bracketFits only (Name name) start comments onlySame with
                   | (kind, _, notes) => rewrite notes then runsUntyped only name rest kind endsNames endsGroup))
         )
-    | Typed ({ head = { name, comments }, tail }) colon annotation, ((isName, fine), lexNames, fineColon, lexType), (
-        headEvents, afterHead, split, headAt, namesEvents, afterNames, namesSplit, namesLaid, colonEvents, typeEvents,
+    | Typed ({ head = { name, comments }, tail }) colon annotation, (
+        (isName, fine),
+        lexNames,
+        fineColon,
+        lexType
+      ), (headEvents, afterHead, split, headAt, namesEvents, afterNames, namesSplit, namesLaid, colonEvents, typeEvents,
         colonSplit, colonAt, typeLaid) =>
       match tokenSeen anyStart comments name
         (Name name)
@@ -1706,25 +1710,26 @@ theorem parametersOut ∀ (parameter: Parameter) (others: List Parameter) (event
     (bare: BareLast [parameter, ..others])
     (laid: ParameterEvents [parameter, ..others] events):
     ∃ (views: List TokenView) => Seen [] events views
-      ∧ (∀ (tokens: List (Parse.Located Token)) (close: Parse.Located Token) (rest: List (Parse.Located Token)) =>
-        tokens.map viewOf = views
-          → close.value.kind = Sign CloseParen
-          → ParametersGoal [parameter, ..others] tokens [close, ..rest]) :=
+      ∧ (∀ (tokens: List (Parse.Located Token)) (close: Parse.Located Token) (rest: List
+        (Parse.Located Token)) => tokens.map viewOf = views
+        → close.value.kind = Sign CloseParen
+        → ParametersGoal [parameter, ..others] tokens [close, ..rest]) :=
   match parameter, others, lexical, bare, laid with
     | { group, comma }, [], (lexGroup, _), bare, laid =>
       match groupOut group events lexGroup laid with
         | (views, seen, spells) => (
           views,
           seen,
-          (tokens close rest same closeKind => (
-            group,
-            tokens,
-            [],
-            (List.appendNil tokens).flipped,
-            (spells tokens [close, ..rest] same (rewrite closeKind) (rewrite closeKind)),
-            byComputing,
-            (rewrite bare)
-          ))
+          (tokens close rest same closeKind =>
+            (
+              group,
+              tokens,
+              [],
+              (List.appendNil tokens).flipped,
+              (spells tokens [close, ..rest] same (rewrite closeKind) (rewrite closeKind)),
+              byComputing,
+              (rewrite bare)
+            ))
         )
     | { group, comma }, [next, ..more], (lexGroup, fineComma, lexRest), bare, (groupEvents, afterGroup, split,
         groupLaid, commaEvents, restEvents, commaSplit, commaAt, restLaid) =>
@@ -1779,7 +1784,10 @@ theorem parametersOut ∀ (parameter: Parameter) (others: List Parameter) (event
                               groupSame
                               (rewrite commaKind)
                               (rewrite commaKind)),
-                            ((commaToken, nextTokens, nextGroup, byComputing, commaKind, byComputing, runsNext), stepsSpelled),
+                            (
+                              (commaToken, nextTokens, nextGroup, byComputing, commaKind, byComputing, runsNext),
+                              stepsSpelled
+                            ),
                             (rewrite commaNotes, values)
                           ))))
           )
@@ -1826,7 +1834,8 @@ theorem parameterListOut ∀ (parameters: List Parameter) (events: List Event)
             match spells tokens close rest same closeKind with
               | (first, firstTokens, steps, split, runsFirst, stepsSpelled, values) => (
                 (Some (first, Parse.stepValues steps)),
-                (rewrite split then runsParameters firstTokens first steps [close, ..rest] runsFirst stepsSpelled (rewrite closeKind)),
+                (rewrite split then
+                  runsParameters firstTokens first steps [close, ..rest] runsFirst stepsSpelled (rewrite closeKind)),
                 values
               ))
         )
@@ -1910,8 +1919,8 @@ theorem takesOut ∀ (takes: Option Comments) (events: List Event)
 --| Tokens with the views of a function's header after its name, from
 --| `takes` or `(` to `)`, are read back by `functionHeader` at the
 --| declaration's layout.
-theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: List Parameter) (close: Comments)
-    (takesEvents openEvents parameterEvents closeEvents: List Event)
+theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: List Parameter)
+    (close: Comments) (takesEvents openEvents parameterEvents closeEvents: List Event)
     (fineTakes: FineTakes takes)
     (fineOpen: Fine open)
     (lexical: LexicalParameters parameters)
@@ -1961,7 +1970,9 @@ theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: Lis
         (from tokens rest same apart =>
           let layout := InStatement 0 from
           viewsSplit
-            (found => AllApart layout found → Parse.Runs (() => functionHeader layout) found rest { takes, open, parameters, close })
+            (found =>
+              AllApart layout found
+                → Parse.Runs (() => functionHeader layout) found rest { takes, open, parameters, close })
             tokens
             takesViews
             [openView, ..parameterViews ++ [closeView]]
@@ -1969,7 +1980,13 @@ theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: Lis
             (takesTokens afterTakes takesSame afterSame =>
               viewsCons
                 (found =>
-                  AllApart layout (takesTokens ++ found) → Parse.Runs (() => functionHeader layout) (takesTokens ++ found) rest { takes, open, parameters, close })
+                  AllApart layout (takesTokens ++ found)
+                    → Parse.Runs (() => functionHeader layout) (takesTokens ++ found) rest {
+                      takes,
+                      open,
+                      parameters,
+                      close
+                    })
                 afterTakes
                 openView
                 (parameterViews ++ [closeView])
@@ -1978,7 +1995,12 @@ theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: Lis
                   viewsSplit
                     (found =>
                       AllApart layout (takesTokens ++ [openToken, ..found])
-                        → Parse.Runs (() => functionHeader layout) (takesTokens ++ [openToken, ..found]) rest { takes, open, parameters, close })
+                        → Parse.Runs (() => functionHeader layout) (takesTokens ++ [openToken, ..found]) rest {
+                          takes,
+                          open,
+                          parameters,
+                          close
+                        })
                     afterOpen
                     parameterViews
                     [closeView]
@@ -1996,7 +2018,8 @@ theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: Lis
                         closeView
                         closeSame
                         (closeToken closeTokenSame apartAll =>
-                          let apartOpen := apartBack layout takesTokens [openToken, ..parameterTokens ++ [closeToken]] apartAll
+                          let apartOpen :=
+                            apartBack layout takesTokens [openToken, ..parameterTokens ++ [closeToken]] apartAll
                           match innerFits
                             (Deeper 0)
                             layout
@@ -2016,7 +2039,9 @@ theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: Lis
                                       (takesSpells from takesTokens openToken
                                         ((parameterTokens ++ [closeToken]) ++ rest)
                                         takesSame
-                                        (apartFront layout takesTokens [openToken, ..parameterTokens ++ [closeToken]] apartAll)
+                                        (apartFront layout takesTokens
+                                          [openToken, ..parameterTokens ++ [closeToken]]
+                                          apartAll)
                                         openKind)
                                       openKind
                                       openAllows
@@ -2459,16 +2484,29 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
                                   (risingBack [firstToken, named, equalsToken, ..bodyTokens] laterTokens rising))
                               ))))))
         )
-    | [
-        { blankBefore, line = Function fnComments name nameComments takes open parameters close equals body },
-        ..more
-      ], ((bare, shapedBody), shapedMore), (
+    | [{ blankBefore, line = Function fnComments name nameComments takes open parameters close equals body }, ..more], (
+        (bare, shapedBody),
+        shapedMore
+      ), (
         (fineFn, isName, fineName, fineTakes, fineOpen, parametersLexical, fineClose, fineEquals, bodyLexical),
-        lexicalMore), ((fnAbove, headedBody), headedMore), unspaced, (later, split, front, back, thenSplit, (
-        headEvents, tailEvents, headSplit, (fnEvents, afterFn, fnSplit, fnAt, nameEvents, afterName, nameSplit, nameAt,
-        takesEvents, openEvents, takesSplit, takesLaid, openAt), (parameterEvents, afterParameters, parameterSplit,
-        parametersLaid, closeEvents, afterClose, closeSplit, closeAt, equalsEvents, bodyEvents, equalsSplit, equalsAt,
-        bodyLaid)), moreLaid) =>
+        lexicalMore
+      ), ((fnAbove, headedBody), headedMore), unspaced, (
+        later,
+        split,
+        front,
+        back,
+        thenSplit,
+        (
+          headEvents,
+          tailEvents,
+          headSplit,
+          (fnEvents, afterFn, fnSplit, fnAt, nameEvents, afterName, nameSplit, nameAt, takesEvents, openEvents,
+            takesSplit, takesLaid, openAt),
+          (parameterEvents, afterParameters, parameterSplit, parametersLaid, closeEvents, afterClose, closeSplit,
+            closeAt, equalsEvents, bodyEvents, equalsSplit, equalsAt, bodyLaid)
+        ),
+        moreLaid
+      ) =>
       let declared := Function fnComments name nameComments takes open parameters close equals body
       let headerEvents := takesEvents ++ (openEvents ++ (parameterEvents ++ closeEvents))
       match tokenSeen
@@ -2489,14 +2527,8 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
         []
         fineName
         (seen start => nameEvent seen name start isName)
-        nameAt, headerOut takes open parameters close takesEvents openEvents parameterEvents closeEvents fineTakes fineOpen
-          parametersLexical
-          bare
-          fineClose
-          takesLaid
-          openAt
-          parametersLaid
-          closeAt, tokenSeen
+        nameAt, headerOut takes open parameters close takesEvents openEvents parameterEvents closeEvents fineTakes
+          fineOpen parametersLexical bare fineClose takesLaid openAt parametersLaid closeAt, tokenSeen
         (Deeper 0).allows
         equals
         "="
@@ -2510,9 +2542,9 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
           (never => falseFirst (Unspaced ([] ++ more)) never)
           byComputing
           moreLaid with
-        | (fnStart, fnAllowed, fnSeen), (nameStart, nameAllowed, nameSeen), (headerViews, headerSeen, headerSpells), (
-            equalsStart, equalsAllowed, equalsSeen), (bodyFirst, bodyOthers, bodySeen, bodySpells), (moreViews, left,
-            moreSeen, moreStarts, moreSpells) =>
+        | (fnStart, fnAllowed, fnSeen), (nameStart, nameAllowed, nameSeen), (headerViews, headerSeen,
+            headerSpells), (equalsStart, equalsAllowed, equalsSeen), (bodyFirst, bodyOthers, bodySeen,
+            bodySpells), (moreViews, left, moreSeen, moreStarts, moreSpells) =>
           let fnView := tokenView (blankOf blankBefore pending) (Reserved FnKeyword) fnStart fnComments
           let nameView := tokenView [] (Name name) nameStart nameComments
           let equalsView := tokenView [] (Sign Defines) equalsStart equals
@@ -2524,13 +2556,28 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
           (
             (statementViews ++ moreViews),
             left,
-            (rewrite split, thenSplit, headSplit, fnSplit, nameSplit, takesSplit, parameterSplit, closeSplit, equalsSplit,
+            (rewrite split,
+                thenSplit,
+                headSplit,
+                fnSplit,
+                nameSplit,
+                takesSplit,
+                parameterSplit,
+                closeSplit,
+                equalsSplit,
                 headerEventsTogether fnEvents nameEvents takesEvents openEvents parameterEvents closeEvents
                   (equalsEvents ++ bodyEvents) then
               seenBlank blankBefore pending left
                 (statementEvents ++ back)
                 (statementViews ++ moreViews)
-                (seenToThen (blankOf blankBefore pending) [] left statementEvents back statementViews moreViews
+                (seenToThen
+                  (blankOf blankBefore pending)
+                  []
+                  left
+                  statementEvents
+                  back
+                  statementViews
+                  moreViews
                   (seenThen
                     (blankOf blankBefore pending)
                     fnEvents
@@ -2548,11 +2595,17 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
                         headerViews
                         afterHeader
                         headerSeen
-                        (seenThen [] equalsEvents bodyEvents [equalsView] [bodyFirst, ..bodyOthers] equalsSeen bodySeen))))
+                        (seenThen [] equalsEvents bodyEvents
+                          [equalsView]
+                          [bodyFirst, ..bodyOthers]
+                          equalsSeen
+                          bodySeen))))
                   moreSeen)),
             fnAllowed,
             (tokens same =>
-              viewsCons goal tokens fnView (([nameView] ++ (headerViews ++ afterHeader)) ++ moreViews) same
+              viewsCons goal tokens fnView
+                (([nameView] ++ (headerViews ++ afterHeader)) ++ moreViews)
+                same
                 (firstToken afterFirst firstSame afterFirstSame =>
                   viewsCons
                     (found => goal [firstToken, ..found])
@@ -2588,7 +2641,9 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
                                   let apart := laterApart 0 firstToken statement risingStatement
                                   let apartTail := apartBack layout headerTokens [equalsToken, ..bodyTokens] apart.right
                                   let after :=
-                                    lastAfter 0 firstToken statement laterTokens (rewrite laterSame then moreStarts) rising
+                                    lastAfter 0 firstToken statement laterTokens
+                                      (rewrite laterSame then moreStarts)
+                                      rising
                                   match innerFits
                                     (Deeper 0)
                                     layout
@@ -2641,22 +2696,28 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
                                       nameNotes,
                                       equalsNotes,
                                       (notedDeclarationLine isFirst pending noted more blankBefore declared
-                                        firstToken.value.above
-                                        (Eq.trans
-                                          (Eq.cong ((view: TokenView) => view.above) firstSame)
-                                          (Eq.cong
-                                            ((comments: List Comment) =>
-                                              (waiting (blankOf blankBefore pending) comments).reverse)
-                                            fnAbove))
-                                        waits
-                                        unspaced),
+                                          firstToken.value.above
+                                          (Eq.trans
+                                            (Eq.cong ((view: TokenView) => view.above) firstSame)
+                                            (Eq.cong
+                                              ((comments: List Comment) =>
+                                                (waiting (blankOf blankBefore pending) comments).reverse)
+                                              fnAbove))
+                                          waits
+                                          unspaced),
                                       (bodySpells firstToken.offset bodyTokens laterTokens bodySame
-                                        (risingBack [equalsToken] bodyTokens
-                                          (risingBack [firstToken, named, ..headerTokens]
+                                        (risingBack
+                                          [equalsToken]
+                                          bodyTokens
+                                          (risingBack
+                                            [firstToken, named, ..headerTokens]
                                             [equalsToken, ..bodyTokens]
                                             risingStatement))
                                         apartTail.right
-                                        (afterBack layout [equalsToken] bodyTokens laterTokens
+                                        (afterBack layout
+                                          [equalsToken]
+                                          bodyTokens
+                                          laterTokens
                                           (afterBack layout
                                             [firstToken, named, ..headerTokens]
                                             [equalsToken, ..bodyTokens]

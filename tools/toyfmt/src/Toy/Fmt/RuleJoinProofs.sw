@@ -845,7 +845,12 @@ theorem namesAfterPasses ∀ (names: List Named) (lexical: LexicalNames names): 
     | [], _ => passesEmpty Meets
     | [{ name, comments }, ..rest], Both (Both (Both word _) fine) others =>
       passesConcat _ Meets Meets
-        (passesCons (Doc.text " ") _ Meets Loose Meets passesSpace
+        (passesCons
+          (Doc.text " ") _
+          Meets
+          Loose
+          Meets
+          passesSpace
           (passesCons _ _ Loose Meets Meets
             (looseToken comments name fine (wordToken name word))
             (passesLast _ Meets Meets (namesAfterPasses rest others))))
@@ -863,7 +868,12 @@ theorem groupPasses ∀ (group: ParameterGroup) (lexical: LexicalGroup group): P
             (namesAfterPasses names.tail lexNames)
             (passesCons _ _ Meets Meets Meets
               (meetingToken colon ":" fineColon (signToken Colon colonSign) closingColon)
-              (passesCons (Doc.text " ") _ Meets Loose Meets passesSpace
+              (passesCons
+                (Doc.text " ") _
+                Meets
+                Loose
+                Meets
+                passesSpace
                 (passesLast _ Loose Meets (passesFrom _ _ Loose _ (typePasses annotation lexType) looseFree))))))
 
 theorem parameterDocsPass ∀ (parameters: List Parameter)
@@ -873,8 +883,7 @@ theorem parameterDocsPass ∀ (parameters: List Parameter)
     | [], _ => byComputing
     | [{ group, comma }], Both lexGroup _ => ((groupPasses group lexGroup), byComputing)
     | [{ group, comma }, next, ..rest], Both lexGroup (Both fineComma others) => (
-      (passesTwo
-        group.layout
+      (passesTwo group.layout
         (token comma ",")
         Free
         Meets
@@ -889,7 +898,12 @@ theorem takesPasses ∀ (takes: Option Comments) (fine: FineTakes takes): Passes
     | None, _ => passesEmpty Meets
     | Some comments, fineTakes =>
       passesConcat _ Meets Meets
-        (passesCons (Doc.text " ") _ Meets Loose Meets passesSpace
+        (passesCons
+          (Doc.text " ") _
+          Meets
+          Loose
+          Meets
+          passesSpace
           (passesCons _ _ Loose Meets Meets
             (looseKeyword comments TakesKeyword fineTakes)
             (passesLast _ Meets Meets (passesTo _ _ Loose Meets passesSpace looseMeets))))
@@ -973,8 +987,17 @@ theorem declarationPasses ∀ (declaration: Declaration)
     (lexical: LexicalDeclaration declaration):
     Passes declaration.layout Loose Open :=
   match declaration, lexical with
-    | Function fnComments name nameComments takes open parameters close equals body,
-      (fineFn, (word, _), fineName, fineTakes, fineOpen, lexParameters, fineClose, fineEquals, lexBody) =>
+    | Function fnComments name nameComments takes open parameters close equals body, (
+        fineFn,
+        (word, _),
+        fineName,
+        fineTakes,
+        fineOpen,
+        lexParameters,
+        fineClose,
+        fineEquals,
+        lexBody
+      ) =>
       passesTo _ _ Meets Open
         (passesTwo
           (header fnComments name nameComments takes open parameters close equals)

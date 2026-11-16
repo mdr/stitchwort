@@ -2143,8 +2143,7 @@ theorem tokenInside ∀ (zone: Zone) (comments: Comments) (text: Text)
     (tokenHead zone.inside comments text fine solid)
 
 --| Where a rule puts down nothing.
-theorem ruleEmpty ∀ (zone: Zone) (doc: Doc) (empty: doc = Empty):
-    Rule zone.holds doc (Ended zone) Done (Ended zone) :=
+theorem ruleEmpty ∀ (zone: Zone) (doc: Doc) (empty: doc = Empty): Rule zone.holds doc (Ended zone) Done (Ended zone) :=
   indent place trace next inside ended onward =>
     rewrite empty, <- List.appendNil trace then onward place [] byComputing ended
 
@@ -2172,8 +2171,7 @@ theorem typeLays ∀ (zone: Zone) (annotation: TypeExpr)
           (TokenAt anyStart open "(")
           (Then (TypeEvents inner) (TokenAt anyStart close ")"))
           (tokenInside zone open "(" fineOpen solidOpenParen)
-          (ruleCons zone.holds
-            inner.layout
+          (ruleCons zone.holds inner.layout
             [closer close ")"]
             (Ended zone)
             (Ended zone)
@@ -2282,13 +2280,11 @@ theorem groupLays ∀ (zone: Zone) (group: ParameterGroup)
                 [annotation.layout]
                 (TypeEvents annotation)
                 (Ended zone)
-                (ruleLast zone.holds
-                  annotation.layout
+                (ruleLast zone.holds annotation.layout
                   (Ended zone)
                   (Ended zone)
                   (TypeEvents annotation)
-                  (fromEnded zone zone.holds
-                    annotation.layout
+                  (fromEnded zone zone.holds annotation.layout
                     (TypeEvents annotation)
                     (Ended zone)
                     (typeLays zone annotation lexType)))))))
@@ -2307,8 +2303,7 @@ theorem parameterRule ∀ (zone: Zone) (group: ParameterGroup) (comma: Comments)
     (Seated zone)
     (Ended zone)
     (Then (GroupEvents group) (TokenAt anyStart comma ","))
-    (ruleCons zone.holds
-      group.layout
+    (ruleCons zone.holds group.layout
       [token comma ","]
       (Seated zone)
       (Ended zone)
