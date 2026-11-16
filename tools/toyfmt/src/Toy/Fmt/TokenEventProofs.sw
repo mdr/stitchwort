@@ -2,9 +2,9 @@
 --| their offsets, are a function of the printer's trace alone
 --| (`placedViews`). With `parsedPrintTokens` and `parsedPrintEvents` this
 --| says what a parsed file's printed text lexes to, at every width, from
---| the file's events (`parsedPrintViews`): each token's kind, whether it
---| starts its line and at which column, the comments and blank lines
---| above it and the comment after it.
+--| the file's events: each token's kind, whether it starts its line and at
+--| which column, the comments and blank lines above it and the comment
+--| after it. `DirectProofs` uses the three together.
 
 namespace Toy.Fmt.Proofs
 import Toy.Doc (..)
@@ -182,37 +182,6 @@ theorem pieceViews ∀ (piece: Text) (earlier: List Text) (spaces isBreak: Bool)
 theorem placedViews ∀ (out: List Text): (placed out).views = viewsOf (eventsOf out) := match out with
   | [] => rfl
   | [piece, ..earlier] => pieceViews piece earlier _ _ rfl rfl (placedViews earlier)
-
---| What a parsed file's printed text lexes to, at every width: tokens
---| and end trivia (here the newest first) whose views are those of a
---| trace that is the file's events. Each token's kind, line start and
---| column, the comments and blank lines above it and the comment after
---| it are as `viewsOf` reads them from `FileEvents`.
-theorem parsedPrintViews ∀ (source: Text) (file: SourceFile) (width: Nat)
-    (parsed: parse source = Ok file):
-    ∃ (events: List Event) => ∃ (lexemes: List (Parse.Located Lexeme)) => ∃ (tokens: List (Parse.Located Token)) =>
-      ∃ (endTrivia: List Trivia) => FileEvents file events
-        ∧ lex (file.print width) = Ok { lexemes, tokens = tokens.reverse, endTrivia = endTrivia.reverse }
-        ∧ tokens.map viewOf = (viewsOf events).views
-        ∧ endTrivia = (viewsOf events).pending :=
-  match parsedPrintTokens source file width parsed with
-    | Both _ (Both _ lexed) =>
-      Witness
-        (eventsOf (printedPieces file.layout width).reverse)
-        (Witness
-          (Parse.locatedSteps 0 (stepsOnto (printedPieces file.layout width).reverse []))
-          (Witness
-            (placed (printedPieces file.layout width).reverse).tokens
-            (Witness
-              (placed (printedPieces file.layout width).reverse).pending
-              (Both
-                (parsedPrintEvents source file width parsed)
-                (Both lexed
-                  (Both
-                    (Eq.cong ((seen: Views) => seen.views) (placedViews (printedPieces file.layout width).reverse))
-                    (Eq.cong
-                      ((seen: Views) => seen.pending)
-                      (placedViews (printedPieces file.layout width).reverse))))))))
 
 --| `viewsOf` computes: `f`, a blank line, then `x` at column 2 with a
 --| comment after it.
