@@ -332,6 +332,11 @@ that most of the time the tests being run are fast ones:
 - **all**, hours: `task test:all`, every test over the whole corpus; paused
   (Matt, 12 Nov 2026).
 
+Every tier's nextest profile sets a slow-timeout with `terminate-after`, so a
+hung test is killed and fails the run instead of running forever: the lane
+profiles inherit the default profile's 60 s × 10, quick is 60 s × 5, and broad
+and all are 120 s × 10.
+
 New files must be `git add`ed first, since the flake only sees tracked
 files. Long runs (the broad tier, browser tests, builds) go in the
 background.

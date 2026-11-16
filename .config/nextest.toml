@@ -35,18 +35,26 @@
 [profile.default]
 # The lanes (and `task test:one`): mostly tests of under a second, where
 # starting a process per test is much of the cost, so one per core.
+#
+# The lane profiles inherit this profile, so its slow-timeout covers them too.
+# A test hung for ten periods (ten minutes) is killed, so a hang fails the run
+# instead of holding it forever; `test:one` can run the long tests, which took
+# 400 s and more in the broad tier, so it needs the wider margin.
 test-threads = "num-cpus"
 fail-fast = false
-slow-timeout = { period = "60s" }
+slow-timeout = { period = "60s", terminate-after = 10 }
 
 [profile.broad]
 # Memory, more than cores, is the limit. The corpus sweeps, which run pools of
 # their own (`par_map`), go one at a time (the `corpus-sweeps` group below);
 # 8 bounds the rest, some of which hold a whole session each. The tasks run
 # under dev/memguard's cap as well (docs/testing.md, "Memory").
+#
+# A hung test is killed after ten periods (twenty minutes), well past the
+# longest normal test (400 s and more in the broad run of 2 Nov 2026).
 test-threads = 8
 fail-fast = false
-slow-timeout = { period = "60s" }
+slow-timeout = { period = "120s", terminate-after = 10 }
 default-filter = "all()"
 
 # Every test's time, for cutting the tier when it grows past its budget:
@@ -57,7 +65,9 @@ path = "junit.xml"
 [profile.all]
 test-threads = 6
 fail-fast = false
-slow-timeout = { period = "120s" }
+# As the broad profile: ten periods is twenty minutes, far past the longest
+# normal test.
+slow-timeout = { period = "120s", terminate-after = 10 }
 default-filter = "all()"
 
 [profile.all.junit]
@@ -79,7 +89,10 @@ path = "junit.xml"
 [profile.quick]
 test-threads = "num-cpus"
 fail-fast = false
-slow-timeout = { period = "30s" }
+# The tier's budget is 90 s; a test hung for five periods (five minutes) is
+# killed, so a hang fails the run but still leaves a wide margin over the
+# slowest normal test.
+slow-timeout = { period = "60s", terminate-after = 5 }
 default-filter = """
 (package(stitchwort-syntax))
 | ((package(stitchwort-core) & (kind(lib) | (binary(it) & test(/^kernel::/)) | (binary(it) & test(/^hash::/)) | (binary(it) & test(/^admission::/)) | (binary(it) & test(/^opaque::/)) | (binary(it) & test(/^trusted::/)) | (binary(it) & test(/^universe_levels::/)) | (binary(it) & test(/^kernel_bugs_2026::/)))) | (package(stitchwort-driver) & ((binary(proofs) & test(/^nested_oracle::/)) | (binary(elaboration) & test(/^division::/)))))
