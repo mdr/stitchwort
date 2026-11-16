@@ -531,6 +531,29 @@ theorem Parse.readsSpan ∀ [inv: Parse.Invariant t] (passes: t → Bool):
             (Both (omega [honest.left, lengths]) (omega [honest.left, honest.right, lengths]))
             (Both rfl (List.allTakeWhile passes state.at.rest)))))
 
+--| `span` from the mark `start` reads the items it gives: the longest start
+--| of what is left whose items all pass. [`Parse.readsSpan`] says only that
+--| they pass; this is for a parser given what it is about to read, as
+--| [`Parse.locatedToEnd`]'s lexeme is.
+theorem Parse.readsAtSpan ∀ (start: Parse.Mark t) (passes: t → Bool):
+    Parse.ReadsAt start (() => Parse.span passes) (read taken => read = taken ∧ taken = start.rest.takeWhile passes) :=
+  total state value after here honestStart h =>
+    let honest: Parse.Honest total state.at := rewrite here in honestStart
+    let same := Result.okInjective h
+    let valueSame: (state.at.rest.span passes).fst = value := Pair.mkInjectiveFst same
+    let atSame: (state.advance (state.at.rest.span passes).snd (state.at.rest.span passes).fst.length).at = after :=
+      Pair.mkInjectiveSnd same
+    let whole := List.takeWhileDropWhile passes state.at.rest
+    let lengths: state.at.rest.length
+      = (state.at.rest.takeWhile passes).length + (state.at.rest.dropWhile passes).length :=
+      rewrite <- List.lengthAppend (state.at.rest.takeWhile passes) (state.at.rest.dropWhile passes), whole in rfl
+    rewrite <- here in
+      Witness value
+        (rewrite <- valueSame, <- atSame, List.spanTakeDrop state.at.rest passes in
+          Both
+            (Eq.sym whole)
+            (Both (Both (omega [honest.left, lengths]) (omega [honest.left, honest.right, lengths])) (Both rfl rfl)))
+
 --| `next` reads the item it gives, which passes, or nothing.
 theorem Parse.readsNext ∀ [inv: Parse.Invariant t] (passes: t → Bool):
     Parse.ReadsIn inv (() => Parse.next passes) (Parse.Maybe (read char => read = [char] ∧ passes char = True)) :=
@@ -1184,9 +1207,11 @@ theorem Parse.endOk ∀ (s: Parse.State t) (x w: a)
     s.at.left = 0 ∧ x = w :=
   match e: s.at.left with | Zero => Both rfl (Result.okInjective h)
 
---| `whole chars p` succeeded: `p` read all of `chars`.
-theorem Parse.wholeReads ∀ (chars: List t) (p: () → {Parse t} a) (spec: List t → a → Prop) (value: a)
-    (reads: Parse.Reads p spec)
+--| `whole chars p` succeeded, on input where `inv` holds: `p` read all of `chars`.
+theorem Parse.wholeReadsIn ∀ [inv: Parse.Invariant t] (chars: List t) (p: () → {Parse t} a)
+    (spec: List t → a → Prop) (value: a)
+    (reads: Parse.ReadsIn inv p spec)
+    (fits: Parse.Fits t inv chars)
     (h: Parse.whole chars p = Ok value):
     spec chars value :=
   match Parse.runFromThenOk p
@@ -1199,7 +1224,7 @@ theorem Parse.wholeReads ∀ (chars: List t) (p: () → {Parse t} a) (spec: List
     | Witness v (Witness middle (Both ran rest)) =>
       match reads
         (Parse.State.start chars).at
-        { holds = Trivial }
+        fits
         chars.length
         (Parse.State.start chars)
         v
@@ -1212,6 +1237,14 @@ theorem Parse.wholeReads ∀ (chars: List t) (p: () → {Parse t} a) (spec: List
             | Both atEnd same =>
               let empty := List.lengthZero middle.at.rest (omega [honest.left, atEnd])
               rewrite starts, empty, List.appendNil read, <- same in holds
+
+--| `whole chars p` succeeded, so `p` read all of `chars` as `spec` says.
+--| [`Parse.wholeReadsIn`] with no assumption of the input.
+theorem Parse.wholeReads ∀ (chars: List t) (p: () → {Parse t} a) (spec: List t → a → Prop) (value: a)
+    (reads: Parse.Reads p spec)
+    (h: Parse.whole chars p = Ok value):
+    spec chars value :=
+  Parse.wholeReadsIn chars p spec value reads { holds = Trivial } h
 
 --| What each part of a repetition read, under a weaker spec.
 theorem Parse.eachWeaken ∀ [spec weaker: List t → a → Prop]

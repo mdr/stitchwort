@@ -5,7 +5,7 @@
 --| are those tokens', and its bodies end in statements. So `LexicalFile`
 --| holds of every parsed file (`parseLexical`), and a parsed file
 --| printed at any width lexes to its pieces (`parsedPrintTokens`). Built
---| from std's `Parse.ReadsAmong`, soundness over items known to be good.
+--| from std's `Parse.ReadsIn` under `Parse.Invariant.every`, soundness over items known to be good.
 
 namespace Toy.Fmt.Proofs
 import Toy.Doc (..)
@@ -30,9 +30,9 @@ def Good (token: Parse.Located Token): Prop :=
 --| Given tokens that are all `Good`, whenever `parser` succeeds, `holds`
 --| of its value.
 def Fair (parser: () → {Parse (Parse.Located Token)} a) (holds: a → Prop): Prop :=
-  Parse.ReadsAmong Good parser (taken value => holds value)
+  Parse.ReadsIn (Parse.Invariant.every Good) parser (taken value => holds value)
 
-theorem fairDone ∀ (x: a) (holds: a → Prop) (proved: holds x): Fair (() => x) holds := Parse.amongDone x _ proved
+theorem fairDone ∀ (x: a) (holds: a → Prop) (proved: holds x): Fair (() => x) holds := Parse.readsDone x _ proved
 
 --| `p`, then `j` of its value.
 theorem fairThen ∀ (p: () → {Parse (Parse.Located Token)} a) (j: a → {Parse (Parse.Located Token)} b)
@@ -40,11 +40,11 @@ theorem fairThen ∀ (p: () → {Parse (Parse.Located Token)} a) (j: a → {Pars
     (fairFirst: Fair p first)
     (rest: ∀ (v: a) => first v → Fair (() => j v) holds):
     Fair (() => j (p())) holds :=
-  Parse.amongThenOf p j _ _ fairFirst (firstRead v facts => rest v facts)
+  Parse.readsThenOf p j _ _ fairFirst (firstRead v facts => rest v facts)
 
 --| What a parser gives from any tokens, it gives from good ones.
 theorem fairOf ∀ (p: () → {Parse (Parse.Located Token)} a) (holds: a → Prop) (gives: Gives p holds): Fair p holds :=
-  Parse.amongOf gives
+  Parse.readsInOfReads gives
 
 theorem fairSkip: Fair (() => skip()) (skipped => True) := fairOf _ _ givesSkip
 
@@ -84,14 +84,14 @@ theorem selectedComments ∀ (layout: Layout) (select: Kind → Option a) (token
 
 --| A sign's comments are comments.
 theorem fairSign ∀ (layout: Layout) (what: Text) (wanted: Punctuation): Fair (() => sign layout what wanted) Fine :=
-  Parse.amongWeaken (Parse.amongOne what (selectComments layout (signIs wanted))) (taken value found =>
+  Parse.readsWeaken (Parse.readsOneEvery what (selectComments layout (signIs wanted))) (taken value found =>
     match found with
       | Witness token (Both single (Both good selected)) =>
         rewrite selectedComments layout (signIs wanted) token value selected in fineComments layout token good)
 
 theorem fairKeyword ∀ (layout: Layout) (wanted: Keyword): Fair (() => keyword layout wanted) Fine :=
-  Parse.amongWeaken
-    (Parse.amongOne "'${wanted.spelling}'" (selectComments layout (keywordIs wanted)))
+  Parse.readsWeaken
+    (Parse.readsOneEvery "'${wanted.spelling}'" (selectComments layout (keywordIs wanted)))
     (taken value found =>
       match found with
         | Witness token (Both single (Both good selected)) =>
@@ -111,27 +111,40 @@ theorem selectedName ∀ (layout: Layout) (token: Parse.Located Token) (named: (
         | Name text => rewrite <- Option.someInjective selected in Both goodKind fine
 
 theorem fairName ∀ (layout: Layout): Fair (() => name layout) FineNamed :=
-  Parse.amongWeaken (Parse.amongOne "a name" (selectWithComments layout nameOf)) (taken value found =>
+  Parse.readsWeaken (Parse.readsOneEvery "a name" (selectWithComments layout nameOf)) (taken value found =>
     match found with
       | Witness token (Both single (Both good selected)) =>
         selectedName layout token value good.left (fineComments layout token good) selected)
 
 theorem fairSignInBrackets ∀ (what: Text) (wanted: Punctuation):
     Fair (() => signInBrackets what wanted) (Perhaps Fine) :=
-  state value after honest among h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match e: state.at.rest with
       | [] =>
-        fairOf _ _ (givesNoted (Parse.Problem.Expected what) None (Perhaps Fine) rfl) state value after honest among h
+        fairOf _ _
+          (givesNoted (Parse.Problem.Expected what) None (Perhaps Fine) rfl)
+          state.at
+          fine
+          total
+          state
+          value
+          after
+          rfl
+          honest
+          h
       | [token, ..later] =>
         match isSign: (signIs wanted token.value.kind).isSome with
           | False =>
             fairOf _ _
               (givesNoted (Parse.Problem.Expected what) None (Perhaps Fine) rfl)
+              state.at
+              fine
+              total
               state
               value
               after
+              rfl
               honest
-              among
               h
           | True =>
             fairThen
@@ -140,13 +153,16 @@ theorem fairSignInBrackets ∀ (what: Text) (wanted: Punctuation):
               (skipped => True)
               (Perhaps Fine)
               fairSkip
-              (skipped holds => fairDone _ (Perhaps Fine) (fineComments InBrackets token among.left))
+              (skipped holds => fairDone _ (Perhaps Fine) (fineComments InBrackets token fine.holds.left))
+              state.at
+              fine
+              total
               state
               value
               after
+              rfl
               honest
-              among
-              h
+              h)
 
 -- Items.
 
@@ -223,9 +239,9 @@ def LexicalList (found: (List Item, Comments)): Prop := LexicalItems found.fst �
 theorem fairItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (closer: Punctuation)
     (nested: ∀ (inner: Layout) => Fair (() => self inner) Lexical):
     Fair (() => items self closer) LexicalList :=
-  Parse.amongThen (fairSignInBrackets "'${closer.spelling}'" closer) (firstRead closed facts =>
+  Parse.readsThen (fairSignInBrackets "'${closer.spelling}'" closer) (firstRead closed facts =>
     match closed, facts with
-      | Some close, fine => Parse.amongDone ([], close) _ (Both rfl fine)
+      | Some close, fine => Parse.readsDone ([], close) _ (Both rfl fine)
       | None, none =>
         fairThen
           (() => Parse.mark())
@@ -311,11 +327,11 @@ theorem fairAtomOf ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (co
                 Lexical
                 (fairSign InBrackets "')'" CloseParen)
                 (close closeFine => fairDone _ Lexical (Both fine (Both lexical closeFine)))))
-    | Sign OpenSquare, _ => Parse.amongThen fairSkip (skipRead skipped done =>
-      Parse.amongThen (fairItems self CloseSquare nested) (itemsRead pair lexical =>
+    | Sign OpenSquare, _ => Parse.readsThen fairSkip (skipRead skipped done =>
+      Parse.readsThen (fairItems self CloseSquare nested) (itemsRead pair lexical =>
         match pair, lexical with
           | (found, close), Both itemsLexical closeFine =>
-            Parse.amongDone (ListLiteral comments found close) _ (Both fine (Both itemsLexical closeFine))))
+            Parse.readsDone (ListLiteral comments found close) _ (Both fine (Both itemsLexical closeFine))))
     | Sign CloseParen, _ => fairExpected "an expression" Lexical
     | Sign CloseSquare, _ => fairExpected "an expression" Lexical
     | Sign Comma, _ => fairExpected "an expression" Lexical
@@ -328,7 +344,7 @@ theorem fairAtomOf ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (co
 theorem fairAtom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Fair (() => self inner) Lexical):
     Fair (() => atom self layout) Lexical :=
-  state value after honest among h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match e: state.at.rest with
       | [token, ..later] =>
         match allowed: layout.allows token with
@@ -337,25 +353,28 @@ theorem fairAtom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layo
               (layout.comments token)
               token.value.kind
               nested
-              (fineComments layout token among.left)
-              among.left.left
+              (fineComments layout token fine.holds.left)
+              fine.holds.left.left
+              state.at
+              fine
+              total
               state
               value
               after
+              rfl
               honest
-              among
-              h
+              h)
 
 theorem fairCallAfter ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (target: Expr) (open: Comments)
     (nested: ∀ (inner: Layout) => Fair (() => self inner) Lexical)
     (lexical: Lexical target)
     (fine: Fine open):
     Fair (() => callAfter self target open) Lexical :=
-  Parse.amongThen fairSkip (skipRead skipped done =>
-    Parse.amongThen (fairItems self CloseParen nested) (itemsRead pair itemsLexical =>
+  Parse.readsThen fairSkip (skipRead skipped done =>
+    Parse.readsThen (fairItems self CloseParen nested) (itemsRead pair itemsLexical =>
       match pair, itemsLexical with
         | (arguments, close), Both argumentsLexical closeFine =>
-          Parse.amongDone
+          Parse.readsDone
             (Call target open arguments close) _
             (Both lexical (Both fine (Both argumentsLexical closeFine)))))
 
@@ -363,11 +382,11 @@ theorem fairFieldAfter ∀ (layout: Layout) (target: Expr) (dot: Comments)
     (lexical: Lexical target)
     (fine: Fine dot):
     Fair (() => fieldAfter layout target dot) Lexical :=
-  Parse.amongThen fairSkip (skipRead skipped done =>
-    Parse.amongThen (fairName layout) (nameRead pair named =>
+  Parse.readsThen fairSkip (skipRead skipped done =>
+    Parse.readsThen (fairName layout) (nameRead pair named =>
       match pair, named with
         | (text, nameComments), Both isName nameFine =>
-          Parse.amongDone (Field target dot text nameComments) _ (Both lexical (Both fine (Both isName nameFine)))))
+          Parse.readsDone (Field target dot text nameComments) _ (Both lexical (Both fine (Both isName nameFine)))))
 
 --| Where `suffixesFrom` stops: it notes what it expected and gives the
 --| target.
@@ -386,7 +405,8 @@ theorem fairSuffixesStop ∀ (target: Expr)
       target)
     (noted => True)
     Lexical
-    (Parse.amongOf (Parse.readsWeaken (Parse.readsNote (Parse.Problem.Expected "'('")) (taken noted none => rfl)))
+    (Parse.readsInOfReads
+      (Parse.readsWeaken (Parse.readsNote (Parse.Problem.Expected "'('")) (taken noted none => rfl)))
     (noted done => fairOf _ _ (givesNoted (Parse.Problem.Expected "'.'") target Lexical lexical))
 
 theorem fairSuffixesAfter ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (more: Nat)
@@ -400,7 +420,7 @@ theorem fairSuffixesAfter ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
     (suffixesAfter more self layout target)
     (Perhaps Lexical)
     Lexical
-    (Parse.amongWeaken (Parse.amongOptional fairTried) (taken value maybe =>
+    (Parse.readsWeaken (Parse.readsOptional fairTried) (taken value maybe =>
       match value, maybe with
         | Some found, proved => proved
         | None, none => rfl))
@@ -416,14 +436,14 @@ theorem fairSuffixes ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (
     (lexical: Lexical target):
     Fair (() => suffixesFrom fuel self layout target) Lexical :=
   match fuel with
-    | Zero => state value after honest among h =>
+    | Zero => Parse.readsInOfRuns (total state value after fine honest h =>
       match e: state.at.rest with
-        | [] => fairSuffixesStop target lexical state value after honest among h
+        | [] => fairSuffixesStop target lexical state.at fine total state value after rfl honest h
         | [token, ..later] =>
           match allowed: layout.allows token with
-            | False => fairSuffixesStop target lexical state value after honest among h
+            | False => fairSuffixesStop target lexical state.at fine total state value after rfl honest h
             | True =>
-              let stop := fairSuffixesStop target lexical state value after honest among
+              let stop := fairSuffixesStop target lexical state.at fine total state value after rfl honest
               match kind: token.value.kind with
                 | Sign OpenParen => stop h
                 | Sign Dot => stop h
@@ -437,38 +457,44 @@ theorem fairSuffixes ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (
                 | Str written => stop h
                 | Reserved keyword => stop h
                 | Op operator => stop h
-                | Stray text => stop h
-    | Succ more => state value after honest among h =>
+                | Stray text => stop h)
+    | Succ more => Parse.readsInOfRuns (total state value after fine honest h =>
       match e: state.at.rest with
-        | [] => fairSuffixesStop target lexical state value after honest among h
+        | [] => fairSuffixesStop target lexical state.at fine total state value after rfl honest h
         | [token, ..later] =>
-          let commentsFine: Fine (layout.comments token) := fineComments layout token among.left
+          let commentsFine: Fine (layout.comments token) := fineComments layout token fine.holds.left
           match allowed: layout.allows token with
-            | False => fairSuffixesStop target lexical state value after honest among h
+            | False => fairSuffixesStop target lexical state.at fine total state value after rfl honest h
             | True =>
-              let stop := fairSuffixesStop target lexical state value after honest among
+              let stop := fairSuffixesStop target lexical state.at fine total state value after rfl honest
               let call :=
                 fairSuffixesAfter self layout more target
                   (() => callAfter self target (layout.comments token))
                   lexical
                   (fairCallAfter self target (layout.comments token) nested lexical commentsFine)
                   (longer longerLexical => fairSuffixes self layout nested more longer longerLexical)
+                  state.at
+                  fine
+                  total
                   state
                   value
                   after
+                  rfl
                   honest
-                  among
               let field :=
                 fairSuffixesAfter self layout more target
                   (() => fieldAfter layout target (layout.comments token))
                   lexical
                   (fairFieldAfter layout target (layout.comments token) lexical commentsFine)
                   (longer longerLexical => fairSuffixes self layout nested more longer longerLexical)
+                  state.at
+                  fine
+                  total
                   state
                   value
                   after
+                  rfl
                   honest
-                  among
               match kind: token.value.kind with
                 | Sign OpenParen => call h
                 | Sign Dot => field h
@@ -482,7 +508,7 @@ theorem fairSuffixes ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (
                 | Str written => stop h
                 | Reserved keyword => stop h
                 | Op operator => stop h
-                | Stray text => stop h
+                | Stray text => stop h)
 
 theorem fairPostfix ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Fair (() => self inner) Lexical):
@@ -494,7 +520,7 @@ theorem fairPostfix ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (l
       suffixesFrom (Parse.mark().left + 1) self layout first)
     (noted => True)
     Lexical
-    (Parse.amongOf
+    (Parse.readsInOfReads
       (Parse.readsWeaken (Parse.readsNote (Parse.Problem.Expected "an expression")) (taken noted none => rfl)))
     (noted done =>
       fairThen
@@ -517,13 +543,14 @@ theorem fairNegations ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
     (nested: ∀ (inner: Layout) => Fair (() => self inner) Lexical) (fuel: Nat):
     Fair (() => negationsFrom fuel self layout) Lexical :=
   match fuel with
-    | Zero => state value after honest among h => fairPostfix self layout nested state value after honest among h
-    | Succ more => state value after honest among h =>
+    | Zero => Parse.readsInOfRuns (total state value after fine honest h =>
+      fairPostfix self layout nested state.at fine total state value after rfl honest h)
+    | Succ more => Parse.readsInOfRuns (total state value after fine honest h =>
       match e: state.at.rest with
-        | [] => fairPostfix self layout nested state value after honest among h
+        | [] => fairPostfix self layout nested state.at fine total state value after rfl honest h
         | [token, ..later] =>
           match minus: isMinus layout token with
-            | False => fairPostfix self layout nested state value after honest among h
+            | False => fairPostfix self layout nested state.at fine total state value after rfl honest h
             | True =>
               fairThen
                 (() => skip())
@@ -538,13 +565,16 @@ theorem fairNegations ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
                     Lexical
                     Lexical
                     (fairNegations self layout nested more)
-                    (inner lexical => fairDone _ Lexical (Both (fineComments layout token among.left) lexical)))
+                    (inner lexical => fairDone _ Lexical (Both (fineComments layout token fine.holds.left) lexical)))
+                state.at
+                fine
+                total
                 state
                 value
                 after
+                rfl
                 honest
-                among
-                h
+                h)
 
 theorem fairOperand ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Fair (() => self inner) Lexical):
@@ -594,7 +624,7 @@ theorem lexicalStep ∀ (layout: Layout) (lowest highest level: Nat) (associativ
 theorem fairChain ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Fair (() => self inner) Lexical):
     Fair (() => Parse.operators "an operator" (operatorLevels layout) (() => operand self layout)) Lexical :=
-  Parse.amongOperators "an operator"
+  Parse.readsOperatorsEvery "an operator"
     (operatorLevels layout)
     (() => operand self layout)
     Lexical
@@ -732,8 +762,8 @@ theorem fairStatementLine ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
     (fine: Fine (layout.comments first)):
     Fair (() => statementLine fuel self layout first kind) CodedLexical :=
   match kind with
-    | Reserved LetKeyword => Parse.amongThen fairSkip (skipRead skipped done =>
-      Parse.amongThen (fairName layout) (nameRead pair named =>
+    | Reserved LetKeyword => Parse.readsThen fairSkip (skipRead skipped done =>
+      Parse.readsThen (fairName layout) (nameRead pair named =>
         match pair, named with
           | (bound, nameComments), Both isName nameFine =>
             fairThen
@@ -767,7 +797,7 @@ theorem fairStatement ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (nested: ∀ (inner: Layout) => Fair (() => self inner) Lexical) (fuel: Nat)
     (fairBody: ∀ (inner: Layout) => Fair (() => bodyFuel fuel self inner) LexicalBody) (column: Nat):
     Fair (() => statement fuel self column) ClosedLexical :=
-  state value after honest among h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match e: state.at.rest with
       | [first, ..later] =>
         match starts: first.value.startsLine && first.value.column == column with
@@ -781,20 +811,23 @@ theorem fairStatement ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
                 (InStatement column first.offset)
                 first
                 first.value.kind
-                (fineComments (InStatement column first.offset) first among.left))
+                (fineComments (InStatement column first.offset) first fine.holds.left))
               (line found =>
                 match found with
                   | Both lexical coded =>
                     fairDone _ ClosedLexical
                       (Both
-                        (lexicalNoted first.value.above line among.left.right.left lexical)
+                        (lexicalNoted first.value.above line fine.holds.left.right.left lexical)
                         (closedNoted first.value.above line coded)))
+              state.at
+              fine
+              total
               state
               value
               after
+              rfl
               honest
-              among
-              h
+              h)
 
 theorem fairBlock ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (nested: ∀ (inner: Layout) => Fair (() => self inner) Lexical) (fuel: Nat)
@@ -805,8 +838,8 @@ theorem fairBlock ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (lines => { statements = lines.toList.concat |> withoutFirstBlank })
     (lines => AllLexical lines.toList)
     LexicalBody
-    (Parse.amongWeaken
-      (Parse.amongMany1
+    (Parse.readsWeaken
+      (Parse.readsMany1
         (() => statement fuel self column)
         (taken lines => ClosedLexical lines)
         (fairStatement self nested fuel fairBody column))
@@ -824,26 +857,30 @@ theorem fairBodyFuel ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (fuel: Nat) (layout: Layout):
     Fair (() => bodyFuel fuel self layout) LexicalBody :=
   match fuel with
-    | Zero => state value after honest among h => Void.exfalso (Result.errNotOk h)
-    | Succ more => state value after honest among h =>
+    | Zero => Parse.readsInOfRuns (total state value after fine honest h => Void.exfalso (Result.errNotOk h))
+    | Succ more => Parse.readsInOfRuns (total state value after fine honest h =>
       match layout with
-        | InBrackets => fairInline self InBrackets nested state value after honest among h
+        | InBrackets => fairInline self InBrackets nested state.at fine total state value after rfl honest h
         | InStatement column start =>
           match e: state.at.rest with
-            | [] => fairInline self (InStatement column start) nested state value after honest among h
+            | [] => fairInline self (InStatement column start) nested state.at fine total state value after rfl honest h
             | [token, ..later] =>
               match deeper: token.value.startsLine && token.value.column > column with
-                | False => fairInline self (InStatement column start) nested state value after honest among h
+                | False =>
+                  fairInline self (InStatement column start) nested state.at fine total state value after rfl honest h
                 | True =>
                   fairBlock self nested more
                     (inner => fairBodyFuel self nested more inner)
                     token.value.column
+                    state.at
+                    fine
+                    total
                     state
                     value
                     after
+                    rfl
                     honest
-                    among
-                    h
+                    h)
 
 theorem fairBody ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Fair (() => self inner) Lexical):
@@ -858,41 +895,45 @@ theorem fairBody ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layo
 
 -- `if`, and the expression parser.
 
-theorem fairElse ∀ (layout: Layout): Fair (() => elseKeyword layout) Fine := state value after honest among h =>
-  match e: state.at.rest with
-    | [] => fairKeyword layout ElseKeyword state value after honest among h
-    | [token, ..later] =>
-      match isElse: (keywordIs ElseKeyword token.value.kind).isSome with
-        | False => fairKeyword layout ElseKeyword state value after honest among h
-        | True =>
-          match allowed: layout.allowsElse token with
-            | True =>
-              fairThen
-                (() => skip())
-                (skipped => layout.comments token)
-                (skipped => True)
-                Fine
-                fairSkip
-                (skipped done => fairDone _ Fine (fineComments layout token among.left))
-                state
-                value
-                after
-                honest
-                among
-                h
+theorem fairElse ∀ (layout: Layout): Fair (() => elseKeyword layout) Fine :=
+  Parse.readsInOfRuns (total state value after fine honest h =>
+    match e: state.at.rest with
+      | [] => fairKeyword layout ElseKeyword state.at fine total state value after rfl honest h
+      | [token, ..later] =>
+        match isElse: (keywordIs ElseKeyword token.value.kind).isSome with
+          | False => fairKeyword layout ElseKeyword state.at fine total state value after rfl honest h
+          | True =>
+            match allowed: layout.allowsElse token with
+              | True =>
+                fairThen
+                  (() => skip())
+                  (skipped => layout.comments token)
+                  (skipped => True)
+                  Fine
+                  fairSkip
+                  (skipped done => fairDone _ Fine (fineComments layout token fine.holds.left))
+                  state.at
+                  fine
+                  total
+                  state
+                  value
+                  after
+                  rfl
+                  honest
+                  h)
 
 --| One level of the expression parser keeps the lexer's texts, given
 --| that `self` does for the expressions nested in it.
 theorem fairExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Fair (() => self inner) Lexical):
     Fair (() => expressionRule self layout) Lexical :=
-  state value after honest among h =>
+  Parse.readsInOfRuns (total state value after fine honest h =>
     match e: state.at.rest with
-      | [] => fairChain self layout nested state value after honest among h
+      | [] => fairChain self layout nested state.at fine total state value after rfl honest h
       | [token, ..later] =>
-        let ifFine: Fine (layout.comments token) := fineComments layout token among.left
+        let ifFine: Fine (layout.comments token) := fineComments layout token fine.holds.left
         match found: isIf layout token with
-          | False => fairChain self layout nested state value after honest among h
+          | False => fairChain self layout nested state.at fine total state value after rfl honest h
           | True =>
             fairThen
               (() => skip())
@@ -961,18 +1002,21 @@ theorem fairExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
                                       (Both ifFine
                                         (Both conditionLexical
                                           (Both thenFine (Both trueLexical (Both elseFine falseLexical)))))))))))
+              state.at
+              fine
+              total
               state
               value
               after
+              rfl
               honest
-              among
-              h
+              h)
 
 --| Every expression the parser gives from good tokens has the lexer's
 --| texts: each name, number, string and comment in it is a token's, and
 --| each body of an `if` ends in a statement.
 theorem fairExpression ∀ (layout: Layout): Fair (() => expression layout) Lexical :=
-  Parse.amongRecursiveWith expressionRule
+  Parse.readsRecursiveWith expressionRule
     (inner taken expr => Lexical expr)
     (self nested argument => fairExpressionRule self argument nested)
     layout
@@ -1031,8 +1075,8 @@ theorem fairParameterList: Fair parameterList FineList :=
         (others => (first, others))
         AllSteps
         FineList
-        (Parse.amongWeaken
-          (Parse.amongMany parameterStep (taken step => FineStep step) fairParameterStep)
+        (Parse.readsWeaken
+          (Parse.readsMany parameterStep (taken step => FineStep step) fairParameterStep)
           (taken others each => eachSteps others taken each))
         (others steps => fairDone _ FineList (Both named steps)))
 
@@ -1051,7 +1095,7 @@ theorem fairParameters: Fair (() => parametersOf (Parse.optional parameterList))
     (found => parametersOf found)
     (Perhaps FineList)
     LexicalParameters
-    (Parse.amongWeaken (Parse.amongOptional fairParameterList) (taken value maybe =>
+    (Parse.readsWeaken (Parse.readsOptional fairParameterList) (taken value maybe =>
       match value, maybe with
         | Some found, proved => proved
         | None, none => rfl))
@@ -1064,8 +1108,8 @@ theorem fairParameters: Fair (() => parametersOf (Parse.optional parameterList))
 theorem fairFunctionLine ∀ (layout: Layout) (first: Parse.Located Token)
     (fine: Fine (layout.comments first)):
     Fair (() => functionLine layout first) LexicalDeclaration :=
-  Parse.amongThen fairSkip (skipRead skipped done =>
-    Parse.amongThen (fairName layout) (nameRead pair named =>
+  Parse.readsThen fairSkip (skipRead skipped done =>
+    Parse.readsThen (fairName layout) (nameRead pair named =>
       match pair, named with
         | (declared, nameComments), Both isName nameFine =>
           fairThen
@@ -1155,8 +1199,8 @@ theorem fairFunctionLine ∀ (layout: Layout) (first: Parse.Located Token)
 theorem fairValueLine ∀ (layout: Layout) (first: Parse.Located Token)
     (fine: Fine (layout.comments first)):
     Fair (() => valueLine layout first) LexicalDeclaration :=
-  Parse.amongThen fairSkip (skipRead skipped done =>
-    Parse.amongThen (fairName layout) (nameRead pair named =>
+  Parse.readsThen fairSkip (skipRead skipped done =>
+    Parse.readsThen (fairName layout) (nameRead pair named =>
       match pair, named with
         | (declared, nameComments), Both isName nameFine =>
           fairThen
@@ -1178,10 +1222,10 @@ theorem fairValueLine ∀ (layout: Layout) (first: Parse.Located Token)
 theorem fairDeclarationLine ∀ (layout: Layout) (first: Parse.Located Token)
     (fine: Fine (layout.comments first)):
     Fair (() => declarationLine layout first) LexicalDeclaration :=
-  state value after honest among h =>
+  Parse.readsInOfRuns (total state value after fits honest h =>
     match kind: first.value.kind with
-      | Reserved FnKeyword => fairFunctionLine layout first fine state value after honest among h
-      | Reserved LetKeyword => fairValueLine layout first fine state value after honest among h
+      | Reserved FnKeyword => fairFunctionLine layout first fine state.at fits total state value after rfl honest h
+      | Reserved LetKeyword => fairValueLine layout first fine state.at fits total state value after rfl honest h)
 
 theorem lexicalDeclarationsAppend ∀ (front back: List (Spaced Declaration))
     (frontLexical: LexicalDeclarations front)
@@ -1245,29 +1289,33 @@ theorem lexicalDeclarationsConcat ∀ (groups: List (List (Spaced Declaration)))
     | [first, ..rest], Both firstLexical restLexical =>
       lexicalDeclarationsAppend first rest.concat firstLexical (lexicalDeclarationsConcat rest restLexical)
 
-theorem fairDeclaration: Fair declaration LexicalDeclarations := state value after honest among h =>
-  match e: state.at.rest with
-    | [first, ..later] =>
-      match starts: first.value.startsLine && first.value.column == 0 with
-        | True =>
-          fairThen
-            (() => declarationLine (InStatement 0 first.offset) first)
-            (parsed => notedDeclaration first.value.above parsed)
-            LexicalDeclaration
-            LexicalDeclarations
-            (fairDeclarationLine
-              (InStatement 0 first.offset)
-              first
-              (fineComments (InStatement 0 first.offset) first among.left))
-            (parsed lexical =>
-              fairDone _ LexicalDeclarations
-                (lexicalNotedDeclaration first.value.above parsed among.left.right.left lexical))
-            state
-            value
-            after
-            honest
-            among
-            h
+theorem fairDeclaration: Fair declaration LexicalDeclarations :=
+  Parse.readsInOfRuns (total state value after fine honest h =>
+    match e: state.at.rest with
+      | [first, ..later] =>
+        match starts: first.value.startsLine && first.value.column == 0 with
+          | True =>
+            fairThen
+              (() => declarationLine (InStatement 0 first.offset) first)
+              (parsed => notedDeclaration first.value.above parsed)
+              LexicalDeclaration
+              LexicalDeclarations
+              (fairDeclarationLine
+                (InStatement 0 first.offset)
+                first
+                (fineComments (InStatement 0 first.offset) first fine.holds.left))
+              (parsed lexical =>
+                fairDone _ LexicalDeclarations
+                  (lexicalNotedDeclaration first.value.above parsed fine.holds.left.right.left lexical))
+              state.at
+              fine
+              total
+              state
+              value
+              after
+              rfl
+              honest
+              h)
 
 theorem lexicalFileOf ∀ (declarations: List (Spaced Declaration)) (endTrivia: List Trivia)
     (fine: FineTrivia endTrivia)
@@ -1285,18 +1333,21 @@ theorem fairFileEnd ∀ (declarations: List (Spaced Declaration)) (endTrivia: Li
     (fine: FineTrivia endTrivia)
     (lexical: LexicalDeclarations declarations):
     Fair (() => fileEnd declarations endTrivia) LexicalFile :=
-  state value after honest among h =>
+  Parse.readsInOfRuns (total state value after fits honest h =>
     match e: state.at.rest with
       | [] =>
         fairDone
           (fileOf declarations endTrivia)
           LexicalFile
           (lexicalFileOf declarations endTrivia fine lexical)
+          state.at
+          fits
+          total
           state
           value
           after
+          rfl
           honest
-          among
           h
       | [token, ..later] =>
         match indented: token.value.startsLine && token.value.column > 0 with
@@ -1305,12 +1356,15 @@ theorem fairFileEnd ∀ (declarations: List (Spaced Declaration)) (endTrivia: Li
               (fileOf declarations endTrivia)
               LexicalFile
               (lexicalFileOf declarations endTrivia fine lexical)
+              state.at
+              fits
+              total
               state
               value
               after
+              rfl
               honest
-              among
-              h
+              h)
 
 --| The file the parser gives from good tokens and end trivia has the
 --| lexer's texts.
@@ -1322,8 +1376,8 @@ theorem fairSourceFile ∀ (endTrivia: List Trivia)
     (found => fileEnd found.concat endTrivia)
     AllLexicalDeclarations
     LexicalFile
-    (Parse.amongWeaken
-      (Parse.amongMany declaration (taken lines => LexicalDeclarations lines) fairDeclaration)
+    (Parse.readsWeaken
+      (Parse.readsMany declaration (taken lines => LexicalDeclarations lines) fairDeclaration)
       (taken found each => eachLexicalDeclarations found taken each))
     (found all => fairFileEnd found.concat endTrivia fine (lexicalDeclarationsConcat found all))
 
@@ -1360,10 +1414,10 @@ theorem parseLexical ∀ (source: Text) (file: SourceFile) (parsed: parse source
           let same: found = file := Result.okInjective parsed
           let texts := lexTexts source tokens lexed
           rewrite <- same in
-            Parse.wholeAmong Good tokens.tokens
+            Parse.wholeReadsIn tokens.tokens
               (() => sourceFile tokens.endTrivia)
               (taken value => LexicalFile value)
               found
               (fairSourceFile tokens.endTrivia texts.right)
-              (goodTokens tokens.tokens texts.left)
+              { holds = goodTokens tokens.tokens texts.left }
               whole

@@ -4,13 +4,14 @@ import Effect.AlwaysTreeOf (AlwaysCall)
 -- `Parse.Reads` lemmas for the character pieces of Parse/Chars.sw and the
 -- text runners; the generic ones are in Parse/Reads.sw.
 
-theorem Parse.readsChar ∀ (expected: Char): Parse.Reads (() => Parse.char expected) (read u => read = [expected]) :=
+theorem Parse.readsChar ∀ [inv: Parse.Invariant Char] (expected: Char):
+    Parse.ReadsIn inv (() => Parse.char expected) (read u => read = [expected]) :=
   Parse.readsWeaken
     (Parse.readsMap (() => Parse.satisfy "'${expected}'" (== expected)) (char => ()) _ (Parse.readsSatisfy))
     (read u h => match h with | Witness char (Both (Both one same) unit) => rewrite one, same.read in rfl)
 
-theorem Parse.readsText ∀ (expected: Text):
-    Parse.Reads (() => Parse.text expected) (read u => read = expected.toList) :=
+theorem Parse.readsText ∀ [inv: Parse.Invariant Char] (expected: Text):
+    Parse.ReadsIn inv (() => Parse.text expected) (read u => read = expected.toList) :=
   Parse.readsWeaken
     (Parse.readsBind
       (() => Parse.literal { items = expected.toList, same = Text.sameChar })
@@ -30,13 +31,14 @@ theorem Parse.readsText ∀ (expected: Text):
         | Witness firstRead (Witness nextRead (Witness found (Both split (Both literal (Both isTrue none))))) =>
           rewrite split, none, List.appendNil firstRead, literal, isTrue in rfl)
 
-theorem Parse.readsTakeWhile ∀ (passes: Char → Bool):
-    Parse.Reads (() => Parse.takeWhile passes) (read taken => taken = Text.fromList read ∧ read.all passes = True) :=
+theorem Parse.readsTakeWhile ∀ [inv: Parse.Invariant Char] (passes: Char → Bool):
+    Parse.ReadsIn inv (() => Parse.takeWhile passes) (read taken =>
+      taken = Text.fromList read ∧ read.all passes = True) :=
   Parse.readsWeaken (Parse.readsMap (() => Parse.span passes) Text.fromList _ (Parse.readsSpan passes)) (read taken h =>
     match h with | Witness chars (Both (Both same all) made) => rewrite made, <- same in Both rfl (rewrite same in all))
 
-theorem Parse.readsTakeWhile1 [what: Text] [passes: Char → Bool]:
-    Parse.Reads (() => Parse.takeWhile1 what passes) (read taken =>
+theorem Parse.readsTakeWhile1 [inv: Parse.Invariant Char] [what: Text] [passes: Char → Bool]:
+    Parse.ReadsIn inv (() => Parse.takeWhile1 what passes) (read taken =>
       read ≠ [] ∧ read.all passes = True ∧ taken = Text.fromList read) :=
   Parse.readsSpanNonEmpty passes what Text.fromList
 
@@ -44,8 +46,8 @@ theorem Parse.readsTakeWhile1 [what: Text] [passes: Char → Bool]:
 def Parse.digitsValue (digits: List Char): Nat := digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
 
 --| `nat` reads one or more digits, and gives their value.
-theorem Parse.readsNat: Parse.Reads Parse.nat (read n =>
-      read ≠ [] ∧ read.all Parse.isDigit = True ∧ n = Parse.digitsValue read) :=
+theorem Parse.readsNat [inv: Parse.Invariant Char]:
+    Parse.ReadsIn inv Parse.nat (read n => read ≠ [] ∧ read.all Parse.isDigit = True ∧ n = Parse.digitsValue read) :=
   Parse.readsSpanNonEmpty Parse.isDigit "a number" Parse.digitsValue
 
 --| What `Text.toNat` reads: a text of one or more ASCII digits is
@@ -63,7 +65,8 @@ theorem Text.toNatDigits ∀ (chars: List Char):
         Text.readDigitsValue 0 [char, ..rest]
 
 --| `digit` reads one digit and gives its value.
-theorem Parse.readsDigit: Parse.Reads Parse.digit (read d => ∃ (char: Char) => read = [char] ∧ char.toDigit = Some d) :=
+theorem Parse.readsDigit [inv: Parse.Invariant Char]:
+    Parse.ReadsIn inv Parse.digit (read d => ∃ (char: Char) => read = [char] ∧ char.toDigit = Some d) :=
   Parse.readsWeaken
     (Parse.readsBind
       (() => Parse.satisfy "a digit" Parse.isDigit)
@@ -76,12 +79,14 @@ theorem Parse.readsDigit: Parse.Reads Parse.digit (read d => ∃ (char: Char) =>
         | Witness firstRead (Witness nextRead (Witness char (Both split (Both (Both one digit) (Both none made))))) =>
           Witness char (Both (rewrite split, none, List.appendNil firstRead, one in rfl) made))
 
-theorem Parse.readsSpaces: Parse.Reads Parse.spaces (read u => read.all Parse.isSpace = True) :=
+theorem Parse.readsSpaces [inv: Parse.Invariant Char]:
+    Parse.ReadsIn inv Parse.spaces (read u => read.all Parse.isSpace = True) :=
   Parse.readsWeaken
     (Parse.readsMap (() => Parse.span Parse.isSpace) (skipped => ()) _ (Parse.readsSpan Parse.isSpace))
     (read u h => match h with | Witness skipped (Both (Both same all) unit) => rewrite same in all)
 
-theorem Parse.readsSpaces1: Parse.Reads Parse.spaces1 (read u => read ≠ [] ∧ read.all Parse.isSpace = True) :=
+theorem Parse.readsSpaces1 [inv: Parse.Invariant Char]:
+    Parse.ReadsIn inv Parse.spaces1 (read u => read ≠ [] ∧ read.all Parse.isSpace = True) :=
   Parse.readsWeaken
     (Parse.readsMap (() => Parse.takeWhile1 "a space" Parse.isSpace) (skipped => ()) _ (Parse.readsTakeWhile1))
     (read u h => match h with | Witness skipped (Both (Both some (Both all made)) unit) => Both some all)
@@ -93,9 +98,9 @@ def Parse.Padded (spec: List Char → a → Prop) (read: List Char) (value: a): 
     ∧ spec middle value
     ∧ after.all Parse.isSpace = True
 
-theorem Parse.readsToken ∀ (p: () → {Parse Char} a) (spec: List Char → a → Prop)
-    (reads: Parse.Reads p spec):
-    Parse.Reads (() => Parse.token p) (Parse.Padded spec) :=
+theorem Parse.readsToken ∀ [inv: Parse.Invariant Char] (p: () → {Parse Char} a) (spec: List Char → a → Prop)
+    (reads: Parse.ReadsIn inv p spec):
+    Parse.ReadsIn inv (() => Parse.token p) (Parse.Padded spec) :=
   Parse.readsWeaken
     (Parse.readsBind _ _ _
       (u => Parse.Then spec (v read w => read.all Parse.isSpace = True ∧ w = v))
@@ -125,8 +130,8 @@ theorem Parse.readsToken ∀ (p: () → {Parse Char} a) (spec: List Char → a �
 def Parse.LineBreak (read: List Char): Prop := read = ['\n'] ∨ read = ['\r', '\n']
 
 --| "\n", else "\r\n", else fail: `newline`, and `lineEnd` away from the end.
-theorem Parse.readsLineBreak ∀ (what: Text):
-    Parse.Reads
+theorem Parse.readsLineBreak ∀ [inv: Parse.Invariant Char] (what: Text):
+    Parse.ReadsIn inv
       (() =>
         if Parse.literal { items = ['\n'], same = Text.sameChar } then ()
         else if Parse.literal { items = ['\r', '\n'], same = Text.sameChar } then ()
@@ -168,11 +173,13 @@ theorem Parse.readsLineBreak ∀ (what: Text):
             (Witness nextRead (Witness found (Both split (Both literal (Inr (Both isFalse breaks)))))) =>
           rewrite split, literal, isFalse in breaks)
 
-theorem Parse.readsNewline: Parse.Reads Parse.newline (read u => Parse.LineBreak read) :=
+theorem Parse.readsNewline [inv: Parse.Invariant Char]:
+    Parse.ReadsIn inv Parse.newline (read u => Parse.LineBreak read) :=
   Parse.readsLineBreak "a line break"
 
 --| `lineEnd` reads a line break, or nothing (at the end).
-theorem Parse.readsLineEnd: Parse.Reads Parse.lineEnd (read u => read = [] ∨ Parse.LineBreak read) :=
+theorem Parse.readsLineEnd [inv: Parse.Invariant Char]:
+    Parse.ReadsIn inv Parse.lineEnd (read u => read = [] ∨ Parse.LineBreak read) :=
   Parse.readsWeaken
     (Parse.readsBind
       (() => Parse.mark())
@@ -190,8 +197,8 @@ theorem Parse.readsLineEnd: Parse.Reads Parse.lineEnd (read u => read = [] ∨ P
           (Parse.readsWeaken (Parse.readsLineBreak "the end of the line") (read u breaks => Inr breaks))))
     (read u h => match Parse.thenNothing _ read u h with | Witness at holds => holds)
 
-theorem Parse.readsBefore ∀ (value: a) (suffix: Text):
-    Parse.Reads (() => Parse.before value suffix) (read v => read = suffix.toList ∧ v = value) :=
+theorem Parse.readsBefore ∀ [inv: Parse.Invariant Char] (value: a) (suffix: Text):
+    Parse.ReadsIn inv (() => Parse.before value suffix) (read v => read = suffix.toList ∧ v = value) :=
   Parse.readsWeaken (Parse.readsMap (() => Parse.text suffix) (u => value) _ (Parse.readsText suffix)) (read v h =>
     match h with | Witness u (Both same made) => Both same made)
 
@@ -199,8 +206,8 @@ theorem Parse.readsBefore ∀ (value: a) (suffix: Text):
 def Parse.Picked (choices: List (Text, a)) (read: List Char) (choice: (Text, a)): Prop :=
   choice ∈ choices ∧ read = choice.fst.toList
 
-theorem Parse.readsFindWord ∀ (choices: List (Text, a)):
-    Parse.Reads
+theorem Parse.readsFindWord ∀ [inv: Parse.Invariant Char] (choices: List (Text, a)):
+    Parse.ReadsIn inv
       (() => choices.find (choice => Parse.literal { items = choice.fst.toList, same = Text.sameChar }))
       (Parse.Maybe (Parse.Picked choices)) :=
   match choices with
@@ -242,8 +249,8 @@ theorem Parse.findLater ∀ (first: (Text, a)) (rest: List (Text, a)) (read: Lis
         | Both member same => Both (Inr member) (rewrite split, none in same)
 
 --| `pick` reads one of its words, and gives that word's value.
-theorem Parse.readsPick ∀ (choices: List (Text, a)):
-    Parse.Reads (() => Parse.pick choices) (read value =>
+theorem Parse.readsPick ∀ [inv: Parse.Invariant Char] (choices: List (Text, a)):
+    Parse.ReadsIn inv (() => Parse.pick choices) (read value =>
       ∃ (word: Text) => (word, value) ∈ choices ∧ read = word.toList) :=
   Parse.readsWeaken
     [weaker := (read value => ∃ (word: Text) => (word, value) ∈ choices ∧ read = word.toList)]
@@ -271,15 +278,15 @@ theorem Parse.readsPick ∀ (choices: List (Text, a)):
               Witness word (Both member (rewrite split, none, List.appendNil firstRead, read in rfl)))
 
 --| `lines p`: one value per line, line breaks between.
-theorem Parse.readsLines ∀ (p: () → {Parse Char} a) (spec: List Char → a → Prop)
-    (reads: Parse.Reads p spec):
-    Parse.Reads (() => Parse.lines p) (Parse.SepBy spec (read u => Parse.LineBreak read)) :=
+theorem Parse.readsLines ∀ [inv: Parse.Invariant Char] (p: () → {Parse Char} a) (spec: List Char → a → Prop)
+    (reads: Parse.ReadsIn inv p spec):
+    Parse.ReadsIn inv (() => Parse.lines p) (Parse.SepBy spec (read u => Parse.LineBreak read)) :=
   Parse.readsSepBy1 p Parse.newline spec _ reads Parse.readsNewline
 
 --| `grid cell`: rows of one or more cells, line breaks between.
-theorem Parse.readsGrid ∀ (cell: () → {Parse Char} a) (spec: List Char → a → Prop)
-    (reads: Parse.Reads cell spec):
-    Parse.Reads
+theorem Parse.readsGrid ∀ [inv: Parse.Invariant Char] (cell: () → {Parse Char} a) (spec: List Char → a → Prop)
+    (reads: Parse.ReadsIn inv cell spec):
+    Parse.ReadsIn inv
       (() => Parse.grid cell)
       (Parse.SepBy (read row => Parse.Each spec read row.toList) (read u => Parse.LineBreak read)) :=
   Parse.readsLines _ _ (Parse.readsMany1 cell spec reads)
@@ -290,9 +297,9 @@ def Parse.LooseRow (spec: List Char → a → Prop) (read: List Char) (cells: Li
     ∧ Parse.Each spec cellsRead cells
     ∧ (endRead = [] ∨ Parse.LineBreak endRead)
 
-theorem Parse.readsLooseRow ∀ (cell: () → {Parse Char} a) (spec: List Char → a → Prop)
-    (reads: Parse.Reads cell spec):
-    Parse.Reads (() => Parse.looseRow cell) (Parse.LooseRow spec) :=
+theorem Parse.readsLooseRow ∀ [inv: Parse.Invariant Char] (cell: () → {Parse Char} a) (spec: List Char → a → Prop)
+    (reads: Parse.ReadsIn inv cell spec):
+    Parse.ReadsIn inv (() => Parse.looseRow cell) (Parse.LooseRow spec) :=
   Parse.readsWeaken
     (Parse.readsBind
       (() => Parse.mark())
@@ -330,9 +337,9 @@ theorem Parse.readsLooseRow ∀ (cell: () → {Parse Char} a) (spec: List Char �
     (read row h => match Parse.thenNothing (at => Parse.LooseRow spec) read row h with | Witness at holds => holds)
 
 --| `looseGrid cell`: one row per line, each its cells and its line break.
-theorem Parse.readsLooseGrid ∀ (cell: () → {Parse Char} a) (spec: List Char → a → Prop)
-    (reads: Parse.Reads cell spec):
-    Parse.Reads (() => Parse.looseGrid cell) (Parse.Each (Parse.LooseRow spec)) :=
+theorem Parse.readsLooseGrid ∀ [inv: Parse.Invariant Char] (cell: () → {Parse Char} a) (spec: List Char → a → Prop)
+    (reads: Parse.ReadsIn inv cell spec):
+    Parse.ReadsIn inv (() => Parse.looseGrid cell) (Parse.Each (Parse.LooseRow spec)) :=
   Parse.readsMany _ _ (Parse.readsLooseRow cell spec reads)
 
 --| One line of `eachLine`, read.
@@ -373,8 +380,8 @@ theorem Parse.eachLineReads ∀ (input: Text) (p: () → {Parse Char} a) (spec: 
 --| `pick` over values each with its own word, `word x` for `x`: it reads one
 --| of the values' words and gives that value. A table made from a printer
 --| this way makes the parser's guarantee a fact about the printer.
-theorem Parse.readsPickBy ∀ (values: List a) (word: a → Text):
-    Parse.Reads (() => Parse.pick (values.map (value => (word value, value)))) (read value =>
+theorem Parse.readsPickBy ∀ [inv: Parse.Invariant Char] (values: List a) (word: a → Text):
+    Parse.ReadsIn inv (() => Parse.pick (values.map (value => (word value, value)))) (read value =>
       value ∈ values ∧ read = (word value).toList) :=
   Parse.readsWeaken (Parse.readsPick (values.map (value => (word value, value)))) (read value h =>
     match h with
@@ -427,15 +434,15 @@ theorem Parse.lineEnding ∀ (ending: List Char) (found: Option ())
     | None, none => Inl none
     | Some u, breaks => Inr breaks
 
-theorem Parse.readsExtraBlankLine ∀ (start: Parse.Mark Char) (spec: List Char → () → Prop):
-    Parse.Reads (() => Parse.extraBlankLine start) spec :=
+theorem Parse.readsExtraBlankLine ∀ [inv: Parse.Invariant Char] (start: Parse.Mark Char) (spec: List Char → () → Prop):
+    Parse.ReadsIn inv (() => Parse.extraBlankLine start) spec :=
   Parse.readsThenStop
     (() => (Parse.reset start; Parse.newline(); Parse.note (Message "expected the end of the input, got a blank line")))
     spec
 
 --| `withFinalLineBreaks (() => v)` reads final line breaks, and gives `v`.
-theorem Parse.readsFinalLineBreaks ∀ (v: a):
-    Parse.Reads (() => Parse.withFinalLineBreaks (() => v)) (read w =>
+theorem Parse.readsFinalLineBreaks ∀ [inv: Parse.Invariant Char] (v: a):
+    Parse.ReadsIn inv (() => Parse.withFinalLineBreaks (() => v)) (read w =>
       read.all (char => char == '\n' ∨ char == '\r') = True ∧ w = v) :=
   Parse.readsWeaken
     (Parse.readsBind
@@ -535,7 +542,7 @@ def Parse.IntRead (read: List Char) (n: Int): Prop :=
       ∨ (read = ['+', ..digits] ∧ n = (Parse.digitsValue digits).toInt)
       ∨ (read = digits ∧ n = (Parse.digitsValue digits).toInt))
 
-theorem Parse.readsInt: Parse.Reads Parse.int Parse.IntRead :=
+theorem Parse.readsInt [inv: Parse.Invariant Char]: Parse.ReadsIn inv Parse.int Parse.IntRead :=
   Parse.readsWeaken
     (Parse.readsBind
       (() => Parse.literal { items = ['-'], same = Text.sameChar })
@@ -678,9 +685,9 @@ theorem Parse.runFromSectionLineFromOkTree ∀ (q: () → {Parse Char} a)
     | Parse.fatal message, r => Void.exfalso (Result.errNotOk h)
 
 --| `sectionLine p` reads what `p` read.
-theorem Parse.readsSectionLine ∀ (p: () → {Parse Char} a) (spec: List Char → a → Prop)
-    (reads: Parse.Reads p spec):
-    Parse.Reads (() => Parse.sectionLine p) spec :=
+theorem Parse.readsSectionLine ∀ [inv: Parse.Invariant Char] (p: () → {Parse Char} a) (spec: List Char → a → Prop)
+    (reads: Parse.ReadsIn inv p spec):
+    Parse.ReadsIn inv (() => Parse.sectionLine p) spec :=
   Parse.readsInOfRuns (total state value after fine honest h =>
     match Parse.runFromSectionLineFromOkTree p
       (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ())))
@@ -699,7 +706,8 @@ def Parse.BlankLine (read: List Char): Prop :=
     ∧ middle.all Parse.isSpace = True
     ∧ Parse.LineBreak last
 
-theorem Parse.readsBlankLine: Parse.Reads Parse.blankLine (read u => Parse.BlankLine read) :=
+theorem Parse.readsBlankLine [inv: Parse.Invariant Char]:
+    Parse.ReadsIn inv Parse.blankLine (read u => Parse.BlankLine read) :=
   Parse.readsLabelWhole "a blank line"
     (() =>
       Parse.newline()
@@ -728,9 +736,9 @@ theorem Parse.readsBlankLine: Parse.Reads Parse.blankLine (read u => Parse.Blank
                     (Witness last (Both (rewrite split, split2 in rfl) (Both breaks (Both spaced breaks2)))))))
 
 --| `sections p`: `p`'s blocks, a blank line between each two.
-theorem Parse.readsSections ∀ (p: () → {Parse Char} a) (spec: List Char → a → Prop)
-    (reads: Parse.Reads p spec):
-    Parse.Reads (() => Parse.sections p) (Parse.SepBy spec (read u => Parse.BlankLine read)) :=
+theorem Parse.readsSections ∀ [inv: Parse.Invariant Char] (p: () → {Parse Char} a) (spec: List Char → a → Prop)
+    (reads: Parse.ReadsIn inv p spec):
+    Parse.ReadsIn inv (() => Parse.sections p) (Parse.SepBy spec (read u => Parse.BlankLine read)) :=
   Parse.readsSepBy1 p Parse.blankLine spec _ reads Parse.readsBlankLine
 
 --| What `section p` reads: one value per line, line breaks between, then a
@@ -740,9 +748,9 @@ def Parse.Section (spec: List Char → a → Prop) (read: List Char) (values: No
     ∧ Parse.SepBy spec (read u => Parse.LineBreak read) linesRead values
     ∧ Parse.BlankLine blankRead
 
-theorem Parse.readsSection ∀ (p: () → {Parse Char} a) (spec: List Char → a → Prop)
-    (reads: Parse.Reads p spec):
-    Parse.Reads (() => Parse.section p) (Parse.Section spec) :=
+theorem Parse.readsSection ∀ [inv: Parse.Invariant Char] (p: () → {Parse Char} a) (spec: List Char → a → Prop)
+    (reads: Parse.ReadsIn inv p spec):
+    Parse.ReadsIn inv (() => Parse.section p) (Parse.Section spec) :=
   Parse.readsWeaken
     (Parse.readsBind p
       (first =>
@@ -934,13 +942,13 @@ theorem Parse.sectionsLines ∀ (input: Text) (p: () → {Parse Char} a)
 def Parse.DigitsRead (atLeast atMost: Nat) (read: List Char) (n: Nat): Prop :=
   read.all Parse.isDigit = True ∧ 0 < read.length ∧ atLeast ≤ read.length ≤ atMost ∧ n = Parse.digitsValue read
 
-theorem Parse.readsNatDigits ∀ (atLeast atMost: Nat):
-    Parse.Reads (() => Parse.natDigits atLeast atMost) (Parse.DigitsRead atLeast atMost) :=
+theorem Parse.readsNatDigits ∀ [inv: Parse.Invariant Char] (atLeast atMost: Nat):
+    Parse.ReadsIn inv (() => Parse.natDigits atLeast atMost) (Parse.DigitsRead atLeast atMost) :=
   Parse.readsWeaken
     (Parse.readsBind _ _ (read at => read = []) (start => Parse.DigitsRead atLeast atMost) Parse.readsMark (start =>
       Parse.readsWeaken
         (Parse.readsBind
-          [inv := Parse.Invariant.any]
+          [inv := inv]
           (() => Parse.span Parse.isDigit)
           (digits =>
             let count := digits.length
