@@ -466,6 +466,33 @@ fn plain_check_skipping_unneeded_namespaces_is_the_same_after_edits() {
 /// A namespace entry that can't be read is a miss when the plain `check`
 /// plans what to load: the namespace is checked again, not left out, and
 /// so is what uses it; what is printed is what loading everything prints.
+/// The cache holds the elaborator's candidates for `W-ARROW-FORALL`, which
+/// only the file's text can confirm; a namespace reported from its entry
+/// without loading it must still be filtered by that text (SW-3637), as one
+/// that is loaded is.
+#[test]
+fn plain_check_reports_no_arrow_forall_for_a_header_parameter_from_an_entry() {
+    let project = temp_dir("skip-arrow-project");
+    std::fs::write(project.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::create_dir_all(project.join("src")).unwrap();
+    std::fs::write(
+        project.join("src/Lib.sw"),
+        "namespace Lib\n\ntheorem same (n: Nat): n = n := byComputing\n",
+    )
+    .unwrap();
+    let skipping = temp_dir("skip-arrow-on");
+    let loading = temp_dir("skip-arrow-off");
+    for what in ["cold", "warm"] {
+        let left_out = assert_skipping_unchanged(&project, &skipping, &loading, what);
+        if what == "warm" {
+            assert_eq!(left_out, ["Lib"], "the warm run reports Lib from its entry");
+        }
+    }
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&skipping);
+    let _ = std::fs::remove_dir_all(&loading);
+}
+
 #[test]
 fn plain_check_checks_a_namespace_whose_entry_is_corrupt() {
     let project = temp_dir("skip-corrupt-project");
