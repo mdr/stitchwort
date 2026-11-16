@@ -1,5 +1,5 @@
 {
-  "next": 3675,
+  "next": 3677,
   "tickets": [
     {
       "id": 47,
@@ -41388,6 +41388,32 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3675,
+      "title": "[Fable] Toy++ T3a (docs/proposals/toy-plus-plus.md §5 T3, rule N): the engine half: Closing in the layout engine and its theory, settle; first of two lanes on one branch. Keep every proved theorem proved (list in SW-3667's notes); rewrite repeatedly with named sets is available (SW-3642/3654). Est. 90 min",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3676,
+      "title": "[Fable] Toy++ T3b, on T3a's branch: commas lose their comments (Item goes), Settled, settledViews, settledKeepsComments beside tokensCarry; the toy checks fully; merge T3. Est. 90 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
