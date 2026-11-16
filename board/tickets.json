@@ -40630,12 +40630,12 @@
     {
       "id": 3618,
       "title": "[Sonnet] REPL syntax colouring (Matt, 16 Nov 2026: 'consider syntax coloring for expressions ... code in the REPL'): colour input as it's typed via rustyline's Highlighter, from our lexer's tokens with the same categories the LSP's semantic tokens use (keywords, literals, types/constructors, operators, comments); also colour printed values and their types; off under --color=never/NO_COLOR. After SW-3614 (same file)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\n\n\nProgress: REPL colouring done on lane/SW-3618 (e99acb6e4): lexical classes in driver::marks, helper in cli repl_color.rs; tests pass; capture in scratch sw3618.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
