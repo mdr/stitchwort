@@ -2327,7 +2327,16 @@ fn blocker(cx: &Ctx, value: &Value) -> Result<Option<(Value, DataId)>> {
 fn visible_condition(cx: &Ctx, run: &Run, goal: &Value) -> Result<Option<Atom>> {
     let ite = builtin_def(cx, Builtin::IfThenElse)?;
     let bool_data = builtin_data(cx, Builtin::Bool)?;
-    let written = cx.quote_folded(goal)?;
+    // A goal too large to read back has no condition to show: the usual
+    // search goes on, and the budget check before a split reports it.
+    let written = match cx.quote_folded(goal) {
+        Ok(written) => written,
+        Err(e) if crate::undo::recoverable(cx, &e) => {
+            crate::undo::recovered(cx);
+            return Ok(None);
+        }
+        Err(e) => return Err(e),
+    };
     let finder = Finder::new(cx, run);
     for (term, under) in written.subterms() {
         if under > 0 {

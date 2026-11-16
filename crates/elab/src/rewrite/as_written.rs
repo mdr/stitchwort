@@ -264,6 +264,13 @@ fn attempt(
             recovered(cx);
             (Outcome::RanOut, None)
         }
+        // A rescue that runs out reading the goal back found nothing: the
+        // error stays the `E-REWRITE-NOTHING` it was before the rescue.
+        Err(e) if mode == Mode::Rescue && recoverable(cx, &e) => {
+            snapshot.restore(cx);
+            recovered(cx);
+            (Outcome::Failed, None)
+        }
         Err(e) if fatal(&e) => return Err(e),
         Err(_) => {
             snapshot.restore(cx);

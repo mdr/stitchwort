@@ -388,10 +388,11 @@ Import what you use: std's theorems live in namespaces that need an import
   argument is known: `(printer.write " ").words`) is still found, with the
   rule's open arguments solved from the call's. Arithmetic the goal already
   unfolded is not there to find (8 items in agentic-proving.md §5 E). Give
-  the rule its arguments when you can (§6). Inside a function argument it goes through the
-  call's congruence lemma (`List.mapCong`, …). A rule for `/` also rewrites
-  the `/` inside `x % 2`, since `%` computes to `x - x / 2 * 2`: rewrite the
-  `%` rule first (SW-976 item 4, AoC 2021 day 16 notes).
+  the rule its arguments when you can (§6). Inside a function argument it
+  goes through the call's congruence lemma (`List.mapCong`, …). A rule for
+  `/` also rewrites the `/` inside `x % 2`, since `%` computes to
+  `x - x / 2 * 2`: rewrite the `%` rule first (SW-976 item 4, AoC 2021
+  day 16 notes).
 - **`match e:` and `cases`** look for `e` the same way: in the goal and
   the hypotheses *as written* first, comparing up to computation, so
   `xs.map (f a)` finds the goal's `xs.map (y => f a y)` and the arms keep

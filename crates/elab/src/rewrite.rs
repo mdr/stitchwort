@@ -1516,6 +1516,10 @@ struct Search<'a, 'e> {
     reading: Reading,
     /// Metavariables from this index on were made for the rule.
     rule_metas: usize,
+    /// The rule's unknowns that stand for proofs of its premises
+    /// ([`Equation::premises`] of a proof type): [`discharge`] proves them
+    /// after a match.
+    premise_metas: Vec<usize>,
     remaining: Cell<u64>,
     stats: RefCell<Stats>,
     /// Why the search stopped, if it did.
@@ -1548,6 +1552,14 @@ impl<'a, 'e> Search<'a, 'e> {
         remaining: u64,
     ) -> Result<Self> {
         let kcx = kernel_context(cx)?;
+        let mut premise_metas = Vec::new();
+        for premise in &equation.premises {
+            if let Term::Meta(m) = premise.meta.spine().0
+                && is_proof_type(cx, &premise.ty)?
+            {
+                premise_metas.push(*m);
+            }
+        }
         Ok(Search {
             kcx: RefCell::new(kcx),
             cx: RefCell::new(cx),
@@ -1561,6 +1573,7 @@ impl<'a, 'e> Search<'a, 'e> {
             by_instances,
             reading,
             rule_metas: equation.rule_metas,
+            premise_metas,
             remaining: Cell::new(remaining),
             stats: RefCell::new(Stats::default()),
             error: RefCell::new(None),
@@ -1718,12 +1731,39 @@ impl Search<'_, '_> {
         ))
     }
 
-    /// Whether the left side still holds one of the rule's own unknowns.
+    /// Whether the left side still holds one of the rule's own unknowns
+    /// that stands for data. A proof's unknown (a premise, an `auto`
+    /// argument) is left to [`discharge`] or `auto`, as it always was: a
+    /// call shown with its proof argument (folded, `pick n h`) would
+    /// otherwise take the goal's proof for it, and change the term of a
+    /// rewrite that checked.
     fn leaves_open(&self, cx: &Ctx) -> Result<bool> {
         let lhs = self.reading.quote(cx, self.lhs)?;
-        Ok(lhs
+        let mut open: Vec<usize> = lhs
             .subterms()
-            .any(|(t, _)| matches!(t, Term::Meta(m) if *m >= self.rule_metas)))
+            .filter_map(|(t, _)| match t {
+                Term::Meta(m) if *m >= self.rule_metas && !self.premise_metas.contains(m) => {
+                    Some(*m)
+                }
+                _ => None,
+            })
+            .collect();
+        open.dedup();
+        for m in open {
+            let (ty, auto) = {
+                let metas = cx.metas().metas.borrow();
+                let meta = &metas[m];
+                (meta.ty.clone(), meta.ignorable.is_some())
+            };
+            if auto {
+                continue;
+            }
+            match ty {
+                Some((ty, at)) if at <= cx.level() && is_proof_type(cx, &ty)? => {}
+                _ => return Ok(true),
+            }
+        }
+        Ok(false)
     }
 
     /// Whether `t` is an occurrence of the left side, solving the rule's
@@ -1778,6 +1818,7 @@ impl Search<'_, '_> {
                     let Some(before) = before else {
                         return Ok(true);
                     };
+
                     if !self.leaves_open(cx)? {
                         return Ok(true);
                     }
