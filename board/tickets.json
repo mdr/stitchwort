@@ -39035,7 +39035,7 @@
     {
       "id": 3497,
       "title": "[Sonnet] fmt passes L4: exact checks; remove fallbacks F1-F4, Doc::Verbatim and the CLI's verbatim report (count first whether any F4 guard is reachable); whole-file check per D-A. After L3. Est. 45 min",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
