@@ -4,6 +4,13 @@ Fable paper lane, SW-3434, 16 November 2026. No builds or tests were run
 and no code was changed. Code read at `868637b09` (the toy is tagged
 `toy-v1` at `0aeac051d`, D3626).
 
+Stage T0 is done (SW-3600): the statements are in code in
+`tools/toyfmt/plus/`, and
+[SKETCH-PLUS.md](../../tools/toyfmt/plus/SKETCH-PLUS.md) records what
+changed from this note (rule N never moves a comment onto a token that
+has one; `Settled`'s clause is wider; P3 has one more condition), route
+(A) for `Settled`, and revised estimates for T1 to T7.
+
 How claims are marked:
 
 - **[measured]**: counted here with `grep` and `wc` over
