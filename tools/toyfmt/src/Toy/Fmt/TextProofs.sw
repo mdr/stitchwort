@@ -59,10 +59,11 @@ def TokenText (text: Text): Prop := Solid text ∧ Ends text
 def Opens (text: Text): Prop := ∀ (later: List Char) => StopsAt isOperatorChar (text.toList ++ later)
 
 --| Text before which every token's text is read whole: a space, a
---| bracket, a comma, a dot.
-def Closing (next: Text): Prop := ∀ (later: List Char) => Shut (next.toList ++ later)
+--| bracket, a comma, a dot. (Not `Closing`, which is the engine's leaf
+--| for a closing bracket or comma.)
+def Shuts (next: Text): Prop := ∀ (later: List Char) => Shut (next.toList ++ later)
 
-theorem endsBefore ∀ (word next: Text) (ends: Ends word) (closing: Closing next): standsBefore word next := later =>
+theorem endsBefore ∀ (word next: Text) (ends: Ends word) (closing: Shuts next): standsBefore word next := later =>
   ends (next.toList ++ later) (closing later)
 
 --| What is read whole before anything shut is read whole at the end of

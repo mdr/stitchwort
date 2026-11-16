@@ -78,6 +78,7 @@ def Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: D
     | Empty => (printer, rest)
     | BreakParent => (printer, rest)
     | Chunk text width => (printer.write indent text width, rest)
+    | Closing text => (printer.close text, rest)
     -- A trailing comment that is waiting ends its line at a `Line` or
     -- `SoftLine` even in a flat group. `fits` already keeps such a group
     -- from being flat; breaking here too makes "no code after a comment on
@@ -155,6 +156,11 @@ def Printer.write (printer: Printer) (indent: Nat) (text: Text) (width: Nat): Pr
   else if text.all (char => char == ' ') then printer
   else (printer.newline (printer.continuation indent)).put text width
 
+--| A closing bracket or comma: on the line as it stands, before any
+--| trailing comment waiting there.
+def Printer.close (printer: Printer) (text: Text): Printer :=
+  if text.isEmpty then printer else printer.put text text.length
+
 def Printer.put (printer: Printer) (text: Text) (width: Nat): Printer :=
   let paid := printer.payIndent
   { paid |
@@ -214,8 +220,9 @@ def Printer.blank (printer: Printer): Printer :=
 def fits (fuel: Nat) (next: List (Mode, Doc)) (rest: List Cmd) (left: Nat): Bool := fitsFrom fuel next rest left False
 
 --| `fits`, where `suffix` says a trailing comment is waiting for the end of
---| the line: any text after it would start a new line (a comment break),
---| so the line ends there for the measure's purposes, and doesn't fit.
+--| the line: a chunk after it would start a new line (a comment break),
+--| so the line ends there for the measure's purposes, and doesn't fit. A
+--| closer after it is on the line, and counts towards its width.
 def fitsFrom (fuel: Nat) (stack: List (Mode, Doc)) (rest: List Cmd) (left: Nat) (suffix: Bool): Bool := match fuel with
   | 0 => True
   | Succ more =>
@@ -233,6 +240,8 @@ def fitsFrom (fuel: Nat) (stack: List (Mode, Doc)) (rest: List Cmd) (left: Nat) 
           | BreakParent => not mode.isFlat && fitsFrom more stack rest left suffix
           | Chunk text width =>
             if suffix then False else width <= left && fitsFrom more stack rest (left - width) suffix
+          -- It joins the line of a waiting comment, which still waits.
+          | Closing text => text.length <= left && fitsFrom more stack rest (left - text.length) suffix
           | Line => not mode.isFlat || (not suffix && 1 <= left && fitsFrom more stack rest (left - 1) suffix)
           | SoftLine => not mode.isFlat || (not suffix && fitsFrom more stack rest left suffix)
           | HardLine => not mode.isFlat

@@ -192,22 +192,12 @@ def commentsOf (tokens: List (Parse.Located Token)) (endTrivia: List Trivia): Li
 
 def ownLines (trivia: List Trivia): List Comment := trivia.filterMap (match some | OwnLine comment => comment)
 
---| Rule N loses no comment and keeps their order.
---|
---| Proof idea: a comment moves back only past tokens that hold none, and
---| a comma's go to the front of the next token's.
-theorem settledKeepsComments ∀ (lexed: Lexed):
-    commentsOf lexed.settled.tokens lexed.settled.endTrivia = commentsOf lexed.tokens lexed.endTrivia :=
-  ?
+-- `settledKeepsComments`, `settledOffsets` (and `settledBare`: the
+-- tokens are the same tokens but for their comments) are proved in the
+-- toy, `Toy/Syntax/SettleProofs.sw` (T3a). Idempotence is still open.
 
 --| Rule N changes nothing the second time.
 theorem settledIdempotent ∀ (lexed: Lexed): lexed.settled.settled = lexed.settled := ?
-
---| After rule N, the tokens are the same tokens at the same places: only
---| comments moved.
-theorem settledOffsets ∀ (lexed: Lexed):
-    lexed.settled.tokens.map (token => token.offset) = lexed.tokens.map (token => token.offset) :=
-  ?
 
 --| The trace of the printing rules over this tree: the toy's
 --| `FileEvents`, with a comment after a closer's event where `Closing`

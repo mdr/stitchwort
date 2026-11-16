@@ -46,8 +46,8 @@ test "a choice takes the first option whose first line fits" :=
 test "a trailing comment waits for the end of its line" :=
   print (Doc.concat [t "x", LineSuffix "-- c", HardLine, t "y"]) 120 == "x -- c\ny"
 
---| Sprig gives a trailing comment to the token before it, so not even a
---| closing bracket may follow it on its line: that would take the comment.
+--| A chunk after a trailing comment starts a line, a bracket's text too:
+--| only a `Closing` joins the comment's line.
 test "code after a trailing comment starts a continuation line, without the space before it" :=
   print (Doc.concat [t "x", LineSuffix "-- c", t ")", HardLine, t "y"]) 120 == "x -- c\n  )\ny"
     && print (Nest 6 (Doc.concat [t "x", LineSuffix "-- c", t " ", t "y"])) 120 == "x -- c\n      y"
@@ -71,3 +71,33 @@ test "a group that would put code after a trailing comment breaks" :=
 
 test "a group after a waiting trailing comment breaks rather than put code after it" :=
   print (Doc.concat [t "f a", LineSuffix "-- c", Doc.group (Doc.concat [Line, t "b"])]) 120 == "f a -- c\nb"
+
+test "a closer joins the line of a waiting trailing comment, before it" :=
+  print (Doc.concat [t "[a", LineSuffix "-- c", Closing "]", HardLine, t "y"]) 120 == "[a] -- c\ny"
+    && print (Doc.concat [t "f(g(a", LineSuffix "-- c", Closing ")", Closing ")"]) 120 == "f(g(a)) -- c"
+    && print (Doc.concat [t "a", LineSuffix "-- c", Closing ",", Line, t "b"]) 120 == "a, -- c\nb"
+
+test "a closer after the comment's line has ended is on the next line" :=
+  print (Doc.concat [t "a", LineSuffix "-- c", HardLine, Closing ")"]) 120 == "a -- c\n)"
+
+--| `[a, b -- c]`: the `]` is measured on the comment's line.
+def closedList: Doc := Doc.group (Doc.concat [t "[", Fill [t "a,", Doc.concat [t "b", LineSuffix "-- c"]], Closing "]"])
+
+test "a group stays flat when only closers follow a trailing comment" :=
+  print closedList 120 == "[a, b] -- c" && print closedList 6 == "[a, b] -- c" && print closedList 5 == "[a,\nb] -- c"
+
+test "a closer with no comment waiting is a chunk" :=
+  print (Doc.concat [t "(", t "a", Closing ")"]) 120 == "(a)" && print (Closing "") 120 == ""
+
+--| A call keeps a `SoftLine` before its `)`, which breaks where a comment
+--| waits; a rule that wants `f(a, b) -- c` offers the flat call, with no
+--| `SoftLine`, as the first option of a choice.
+def closedCall: Doc :=
+  let arguments := Doc.concat [t "a,", Line, t "b", LineSuffix "-- c"]
+  Choice [
+    Flatten (Doc.concat [t "f(", arguments, Closing ")"]),
+    Doc.group (Doc.concat [t "f(", Nest 2 (Doc.concat [SoftLine, arguments]), SoftLine, Closing ")"])
+  ]
+
+test "a choice puts a call's closer on its comment's line when the call fits" :=
+  print closedCall 120 == "f(a, b) -- c" && print closedCall 6 == "f(\n  a,\n  b -- c\n)"

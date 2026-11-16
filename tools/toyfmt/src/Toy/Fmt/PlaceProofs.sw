@@ -303,22 +303,21 @@ theorem joinedPlaced ∀ (doc: Doc) (width: Nat)
     (joins: Joins standsBefore doc (Plain None) (after => True))
     (proper: AllProper doc.words):
     print doc width = (printedPieces doc width).joinWith ""
-      ∧ wordsOf (printedPieces doc width) = doc.words
       ∧ lex (print doc width)
         = Ok {
           lexemes = Parse.locatedSteps 0 (stepsOnto (printedPieces doc width).reverse []),
           tokens = (placed (printedPieces doc width).reverse).tokens.reverse,
           endTrivia = (placed (printedPieces doc width).reverse).pending.reverse
         } :=
-  match printedJoins standsBefore doc width uniform joins with
+  match printedJoins standsBefore Proper doc width uniform joins (everyProper doc.words proper) with
     | (printed, words, pairs) =>
       let reads: (print doc width).toList = charsOnto (printedPieces doc width).reverse [] :=
         rewrite printed then joinedChars (printedPieces doc width)
-      let properWords: AllProper (wordsOf (printedPieces doc width)) := rewrite words then proper
+      let properWords := properEvery (wordsOf (printedPieces doc width)) words
       let properPieces := properReverse (printedPieces doc width) (properOfWords (printedPieces doc width) properWords)
       let lexed := piecesLex (print doc width) (printedPieces doc width).reverse reads pairs properPieces
       let tokens := piecesTokens (print doc width) (printedPieces doc width).reverse reads properPieces
-      (printed, words, (rewrite tokens at lexed then lexed))
+      (printed, (rewrite tokens at lexed then lexed))
 
 --| A file with the lexer's texts, printed at any width, lexes to the
 --| tokens `placed` gives of its printed pieces: the pieces between whose
@@ -328,7 +327,6 @@ theorem joinedPlaced ∀ (doc: Doc) (width: Nat)
 theorem printedTokens ∀ (file: SourceFile) (width: Nat)
     (lexical: LexicalFile file):
     (file.print width) = (printedPieces file.layout width).joinWith ""
-      ∧ wordsOf (printedPieces file.layout width) = wordsOf file.pieces
       ∧ lex (file.print width)
         = Ok {
           lexemes = Parse.locatedSteps 0 (stepsOnto (printedPieces file.layout width).reverse []),
@@ -336,11 +334,11 @@ theorem printedTokens ∀ (file: SourceFile) (width: Nat)
           endTrivia = (placed (printedPieces file.layout width).reverse).pending.reverse
         } :=
   match fileJoins file lexical, fileWrites file with
-    | (proper, joins), (uniform, words) =>
+    | (proper, joins), (uniform, _) =>
       match joinedPlaced file.layout width uniform
         (joins (Plain None) (after => True) byComputing (after reached => byComputing))
         proper with
-        | (printed, same, lexed) => (printed, (Eq.trans same words), lexed)
+        | (printed, lexed) => (printed, lexed)
 
 --| `placed` computes: `f x`, a line break, two spaces and `y` are three
 --| tokens, the last starting its line at column 2.

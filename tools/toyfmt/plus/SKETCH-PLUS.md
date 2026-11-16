@@ -678,3 +678,194 @@ new theorems, against the plan's "about 100".
   `Typed ({ head = { name, comments }, tail }) colon annotation`
   (`Typed { … }` is read as the constructor's named fields).
 
+
+## T3a: rule N, the engine half (SW-3675)
+
+Fable, 16 November 2026. **[checked]**: `stitchwort check` in
+`tools/toyfmt` (13 namespaces, clean) and here (47 goals open: the 49
+less `settledKeepsComments` and `settledOffsets`, proved in the toy);
+`stitchwort audit Toy.Doc.Proofs Toy.Syntax.Proofs Toy.Fmt.Carry` (633
+theorems and 510 generated lemmas: 0 failed, 5 with warnings, the same
+five as before this stage) and `Toy.Fmt.Proofs Toy.Fmt.KeepsComments
+Toy.Fmt.Degenerate` (0 failed, 9 with warnings, none new). **[run]**: the
+engine's tests, the settle tests, the goldens, `Parsing.sw`, the
+disturbance tests. `printParses`, `formatRoundTrip`, `formatIdempotent`,
+`formatKeepsComments`, `formatSameTree`, `formatRefuses(Only)` and
+`Degenerate.sw` check as before: no rule uses `Closing` yet and `parse`
+doesn't call `settle` yet, so every printed text and every tree is what
+it was.
+
+About 40 minutes of agent time against 90 estimated.
+
+### What is in the toy now
+
+- **`Closing (text: Text)`**, a leaf of `Doc` (`Doc/Doc.sw`): written by
+  `Printer.close` (`Doc/Print.sw`) on its line as it stands, so before a
+  trailing comment that waits there; `fitsFrom` counts it on the
+  comment's line. Five engine tests (`Doc/Tests/Engine.sw`).
+- **`Lexed.settled`**, rule N on the lexer's tokens
+  (`Syntax/Settle.sw`): this sketch's `Settle.sw`, moved, with `passes`
+  and `forward` renamed `movesPast` and `carryForward`. Ten tests
+  (`Syntax/Tests/Settle.sw`). The sketch project reads it from the toy.
+
+| File | New theorems | Holds |
+|---|---|---|
+| `Doc/Words.sw` | 28 (and `readingWords` restated) | `closeWords`, `stepWords` restated, `readingEvery`, `Marked` and its step lemma, `stepQuiet`, `readingWords` |
+| `Doc/Joins.sw` | 7 | `CloseJoins`, `closeHolds`, `putWaiting`; `printedJoins` restated, `printedWords` and an example |
+| `Doc/Places.sw` | 5 | `tucked`, `CloseLays`, `putHeld`, `closeStays`, `closerLaysExample` |
+| `Doc/Proofs.sw`, `Doc/Readings.sw` | 0 | one arm each in the five theorems that match on `Doc` |
+| `Syntax/SettleProofs.sw` | 19 | `settledKeepsComments`, `settledSame`, `settledBare`, `settledOffsets`, `settledLexemes` |
+| `Fmt/CarrySettle.sw` | 8 | `settledTidy`, `settledBareCommas` |
+| `Fmt/JoinProofs.sw`, `Fmt/PieceProofs.sw` | 3 | `closerJoinsExample`; `everyProper`, `properEvery` |
+
+70 new theorems, about 1,400 lines added (tests and program text included).
+
+### The engine's theory with `Closing`
+
+**Words.** The order of the words a reading writes is no longer a
+function of the document. After `x` and its trailing comment, a choice
+between a closer below a `HardLine` and the closer alone has the same
+words either way, and prints `x -- c` with the closer below, or
+`x) -- c`. So the one equation became three statements [checked]:
+
+- `stepWords`: a step moves words from the work list to the printer in
+  order, a closer alone going before the comments that wait
+  (`Cmd.wordsFrom` is the exact list);
+- `readingEvery`: what holds of every word of the document holds of
+  every word written. This is all `joinedPlaced` used the old equation
+  for (every printed word is `Proper`);
+- `readingWords`, `printedWords`: the words a filter keeps are the
+  document's, in order, if the filter keeps no closer, or keeps no
+  trailing comment. That is T0's "two theorems, one for code words and
+  one for comment words", as one: `Marked closer suffix doc` says which
+  texts the document's closers and trailing comments are, and the
+  filter must drop one kind. With no closer in the document every
+  filter qualifies, which is the old theorem.
+
+**Joins.** `Edge.Waiting` now carries what the line ends with
+(`Waiting (touching: Option Text)`), as `Plain` does. `CloseJoins` at
+`Waiting touching` asks that the closer isn't spaces, may follow
+`touching`, and may be followed by a space (the comment's); it leaves
+`Waiting (textTouch text)`, so `))` chains. `closerJoinsExample` meets it
+for `x) -- c` with `standsBefore`, from `endsBefore` and `signFree`.
+
+**Places.** A comment that waits is the trace's last event already
+(`Held`). A closer written then is the event before it:
+`CloseLays` at `Held at` hands on `tucked closerEvent trace`, and
+`tuckedSnoc` says `tucked e (before ++ [last]) = before ++ [e, last]`. So
+the trace stays exactly what the lexer will see, in order: the comment
+after the closers of its line. `closerLaysExample` computes it.
+
+### What changed from the plan, and why
+
+1. **`Waiting` carries the touching piece.** The first `CloseJoins`
+   asked, of a closer where a comment waits, that it may follow *every*
+   text a space may follow, since the old `Waiting` forgot what the line
+   ends with. That can't be met cheaply for `standsBefore` [inferred]: a string
+   stands before a space by a `Parse.ManyRuns` stated for that rest, and
+   moving it to another rest is a lemma about every string segment. With
+   the piece in the edge the condition is the one `Plain` already asks.
+   45 mechanical edits (`Waiting` to `Waiting _`).
+2. **`printedTokens` no longer says the printed words are the file's
+   pieces in order** (`wordsOf printed = wordsOf file.pieces`). Nothing
+   used it (`printedPlaced` ignored it), keeping it would have needed
+   "no closer anywhere in the rules' documents" proved over every rule,
+   and with rule N it is false. `printedEvents` says the same and more.
+3. **The proofs' predicate `Closing`** (text every token is read whole
+   before) **is now `Shuts`**, with `shutsSpace`, `shutsClose` and the
+   rest, so that `Closing` in a rule proof is the engine's leaf.
+4. **`settle` is not yet called by `parse`.** It can't be while the tree
+   keeps a comma's comments: `settle` empties them, and `printParses`
+   would be false of trees that hold some.
+
+### Findings
+
+**1. `Tidy` is false of settled tokens.** The comment walk's invariant
+(`Lexer`, `Fmt/CarryProofs.sw`) says a token that doesn't start its line
+has no own-line comments above it. Rule N's second half gives a comma's
+own-line comments to the next token, which may be on the comma's line:
+
+```text
+[a
+-- c
+, b]
+```
+
+puts `-- c` above `b`, which doesn't start its line [run: the test "a
+token given a comma's comments keeps its place on the comma's line"].
+T1c's note for T3 ("`tokensCarry` then needs `Lexer` of the settled
+tokens") is therefore not available as stated. What is true, and
+proved: every settled token is `Tidy` but one straight after a comma
+(`settledTidy`, with `TidyFrom`), and a comma holds no comment
+(`settledBareCommas`). The walk uses `Tidy` only for the first token of
+an inline body (`inlineClear`; the one use, by `grep`), which follows
+`=`, `then` or `else`, never a comma [inferred], so the fact it needs is
+there; but it is a fact about a
+token and the one before it, so T3b's invariant can't be
+`Parse.Invariant.every`.
+
+**2. A call's `)` doesn't join a comment's line by `Closing` alone.**
+`argumentsLayout` and `header` put a `SoftLine` before the closer, and
+a `SoftLine` in a flat group breaks when a comment waits (`Print.sw`
+does this on purpose, so that "no code after a comment" needs nothing of
+`fits`). So `f(a, b -- c` then `)` still prints the `)` below, as today.
+The Rust engine defers that break (`flat_break`,
+`crates/fmt/src/printer/engine.rs`); doing the same here would make
+every rule lemma for a `SoftLine` at `Held` answer for the case that
+stays. The rules can get `f(a, b) -- c` without it: a `Choice` whose
+first option is the call flat with `Closing ")"` and no `SoftLine`
+(`Flatten`), and whose last is today's layout [run: the engine test "a
+choice puts a call's closer on its comment's line when the call fits"].
+`Lays` and `Joins` ask a `Choice` for every option, with nothing about
+`fits`. Brackets, lists,
+commas and types have no `SoftLine` before the closer and need only the
+leaf.
+
+**3. `settledIdempotent` is not proved.** It holds on the six inputs of
+the test "rule N a second time changes nothing" [run]. It isn't used by
+any theorem of §3 (`formatIdempotent` goes through `printParses`). A
+proof needs the normal form said as a predicate (a comma holds nothing;
+a closer's trailing comment is blocked by an own-line comment above it
+or a trailing comment before it) and that the second half keeps a
+blocked closer blocked when a comma's comment goes above it: 15 or so
+lemmas [estimated].
+
+### Open for T3b (SW-3676)
+
+Nothing in the toy is marked open: the engine half needed nothing of
+T3b's. What T3b starts from:
+
+- `parse` calls `settle`; commas lose their comments (`Item` and
+  `Parameter.comma` go); the rules use `Closing` for `)`, `]` and `,`
+  where the token has no own-line comments above it (and see finding 2
+  for calls and parameter lists). `closeAfter` keeps its job where the
+  closer has a trailing comment of its own: two comments can't wait
+  (`SuffixJoins` at `Waiting` is `False`).
+- `Settled` by route (A), `settledViews`, `parseParsed` with `Settled`.
+- The rule predicates of `Fmt/JoinProofs.sw` (`Meets`, `Admits`, `Free`,
+  `Enters`) are `True` at `Waiting`. For a closer they need the content
+  they have at `Plain`: `Meets (Waiting (Some word))` should say `word`
+  stands before anything that `Shuts`.
+- The rules' events (`FileEvents`) put a closer's event before the
+  waiting comment's: `tuckedSnoc` is the step. `settledViews` then says
+  `settle` moves that comment back; `settledBare` and `settledOffsets`
+  give that nothing else changed.
+- `tokensCarry` over `lexed.settled.tokens`, from `settledTidy`,
+  `settledBareCommas` and `settledOffsets` (finding 1), then
+  `settledKeepsComments` beside it for `formatKeepsComments`.
+- `settledIdempotent` (finding 3), if wanted.
+
+### Friction
+
+- **A `match e: expr` replaces `expr` only where it shows.** In
+  `homeStepHeld` the arm for `token.value.trailing = None` had the goal
+  `heldBy [token, ..earlier] = heldBy earlier ++ token.value.comments`:
+  the right side had been rewritten (`… ++ []`), and the left computed to
+  the unrewritten `match token.value.trailing with …` only afterwards, so
+  `byComputing` refused two equal sides. Destructuring the token with a
+  record pattern worked. The message did name the inner `match`.
+- **`&&` chains are right-nested**, so `Bool.andLeft`/`andRight` on
+  `a && b && c` take `a` and `b && c`. The mismatch message was clear.
+- **An unused word-order equation cost nothing to drop but would have
+  cost a rule sweep to keep** (change 2): a statement exported and never
+  read is a liability when the layer under it changes.

@@ -354,6 +354,14 @@ theorem properReverse ∀ (pieces: List Text) (proper: AllProper pieces): AllPro
       rewrite List.reverseCons piece rest then properSnoc rest.reverse piece (properReverse rest others) first
 
 --| Pieces whose words are proper are proper: layout always is.
+theorem everyProper ∀ (pieces: List Text) (proper: AllProper pieces): Every Proper pieces := match pieces, proper with
+  | [], _ => byComputing
+  | [piece, ..rest], (first, others) => (first, (everyProper rest others))
+
+theorem properEvery ∀ (pieces: List Text) (proper: Every Proper pieces): AllProper pieces := match pieces, proper with
+  | [], _ => byComputing
+  | [piece, ..rest], (first, others) => (first, (properEvery rest others))
+
 theorem properOfWords ∀ (pieces: List Text) (proper: AllProper (wordsOf pieces)): AllProper pieces :=
   match pieces, proper with
     | [], _ => byComputing

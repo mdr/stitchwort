@@ -115,6 +115,7 @@ theorem stepLighter ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List C
         | Empty => arithmetic
         | BreakParent => arithmetic
         | Chunk text width => arithmetic
+        | Closing text => arithmetic
         | Line =>
           ifPairBound _
             (printer.write indent " " 1, rest)
@@ -230,6 +231,7 @@ theorem stepsUnderSize ∀ (doc: Doc): doc.steps ≤ 2 * doc.size := match doc w
   | Empty => arithmetic
   | BreakParent => arithmetic
   | Chunk text width => arithmetic
+  | Closing text => arithmetic
   | Line => arithmetic
   | SoftLine => arithmetic
   | HardLine => arithmetic
@@ -323,6 +325,7 @@ theorem fitsFromEnough ∀ (fuel extra: Nat) (stack: List (Mode, Doc)) (rest: Li
             | LineSuffix comment => rewrite fitsFromEnough more extra stack rest left True (arithmetic)
             | BreakParent => rewrite fitsFromEnough more extra stack rest left suffix (arithmetic)
             | Chunk text width => rewrite fitsFromEnough more extra stack rest (left - width) suffix (arithmetic)
+            | Closing text => rewrite fitsFromEnough more extra stack rest (left - text.length) suffix (arithmetic)
             | Line => rewrite fitsFromEnough more extra stack rest (left - 1) suffix (arithmetic)
             | SoftLine => rewrite fitsFromEnough more extra stack rest left suffix (arithmetic)
             | HardLine => byComputing
@@ -458,6 +461,7 @@ theorem stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cm
         | Empty => arithmetic
         | BreakParent => arithmetic
         | Chunk text width => arithmetic
+        | Closing text => arithmetic
         | Line =>
           ifPairWeight _
             (printer.write indent " " 1, rest)

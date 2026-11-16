@@ -37,7 +37,7 @@ def Free (edge: Edge): Prop := match edge with
 
 --| A space, a closing bracket, a comma, a dot or `(` may come next.
 def Meets (edge: Edge): Prop := match edge with
-  | Plain (Some word) => ∀ (next: Text) => Closing next → standsBefore word next
+  | Plain (Some word) => ∀ (next: Text) => Shuts next → standsBefore word next
   | _ => True
 
 --| `text` may come next.
@@ -49,7 +49,7 @@ def Admits (text: Text) (edge: Edge): Prop := match edge with
 def Left (text: Text) (edge: Edge): Prop := match edge with
   | Plain (Some word) => word = text
   | Plain None => False
-  | Edge.Waiting => True
+  | Edge.Waiting _ => True
 
 --| `expr` may come next: its first token is `-` or starts with no
 --| operator character.
@@ -60,35 +60,35 @@ def Enters (expr: Expr) (edge: Edge): Prop := match edge with
 
 theorem looseFree ∀ (edge: Edge) (loose: Loose edge): Free edge := match edge, loose with
   | Plain None, _ => byComputing
-  | Edge.Waiting, _ => byComputing
+  | Edge.Waiting _, _ => byComputing
   | Plain (Some word), never =>
     match never with
       | ()
 
 theorem freeMeets ∀ (edge: Edge) (free: Free edge): Meets edge := match edge, free with
   | Plain None, _ => byComputing
-  | Edge.Waiting, _ => byComputing
+  | Edge.Waiting _, _ => byComputing
   | Plain (Some word), any => (following closing => any following)
 
 theorem looseMeets ∀ (edge: Edge) (loose: Loose edge): Meets edge := freeMeets edge (looseFree edge loose)
 
 theorem freeAdmits ∀ (text: Text) (edge: Edge) (free: Free edge): Admits text edge := match edge, free with
   | Plain None, _ => byComputing
-  | Edge.Waiting, _ => byComputing
+  | Edge.Waiting _, _ => byComputing
   | Plain (Some word), any => any text
 
 theorem looseAdmits ∀ (text: Text) (edge: Edge) (loose: Loose edge): Admits text edge :=
   freeAdmits text edge (looseFree edge loose)
 
-theorem meetsAdmits ∀ (text: Text) (closing: Closing text) (edge: Edge) (meets: Meets edge): Admits text edge :=
+theorem meetsAdmits ∀ (text: Text) (closing: Shuts text) (edge: Edge) (meets: Meets edge): Admits text edge :=
   match edge, meets with
     | Plain None, _ => byComputing
-    | Edge.Waiting, _ => byComputing
+    | Edge.Waiting _, _ => byComputing
     | Plain (Some word), any => any text closing
 
 theorem freeEnters ∀ (expr: Expr) (edge: Edge) (free: Free edge): Enters expr edge := match edge, free with
   | Plain None, _ => byComputing
-  | Edge.Waiting, _ => byComputing
+  | Edge.Waiting _, _ => byComputing
   | Plain (Some word), any => ((text opens => any text), (minus => any "-"))
 
 theorem looseEnters ∀ (expr: Expr) (edge: Edge) (loose: Loose edge): Enters expr edge :=
@@ -100,13 +100,13 @@ theorem entersAdmits ∀ (expr: Expr) (text: Text)
     Admits text edge :=
   match edge, enters with
     | Plain None, _ => byComputing
-    | Edge.Waiting, _ => byComputing
+    | Edge.Waiting _, _ => byComputing
     | Plain (Some word), Both any _ => any text opens
 
 theorem leftMeets ∀ (text: Text) (ends: Ends text) (edge: Edge) (left: Left text edge): Meets edge :=
   match edge, left with
     | Plain None, never => (Bool.falseNotTrue never).impossible
-    | Edge.Waiting, _ => byComputing
+    | Edge.Waiting _, _ => byComputing
     | Plain (Some word), same => rewrite same then (following closing => endsBefore text following ends closing)
 
 theorem leftFree ∀ (text: Text) (free: ∀ (next: Text) => standsBefore text next) (edge: Edge)
@@ -114,7 +114,7 @@ theorem leftFree ∀ (text: Text) (free: ∀ (next: Text) => standsBefore text n
     Free edge :=
   match edge, left with
     | Plain None, never => (Bool.falseNotTrue never).impossible
-    | Edge.Waiting, _ => byComputing
+    | Edge.Waiting _, _ => byComputing
     | Plain (Some word), same => rewrite same then free
 
 --| After a `-`, an expression that doesn't start with one.
@@ -124,7 +124,7 @@ theorem minusEnters ∀ (operand: Expr) (edge: Edge)
     Enters operand edge :=
   match edge, left with
     | Plain None, never => (Bool.falseNotTrue never).impossible
-    | Edge.Waiting, _ => byComputing
+    | Edge.Waiting _, _ => byComputing
     | Plain (Some word), same =>
       rewrite same then
         (
@@ -132,17 +132,17 @@ theorem minusEnters ∀ (operand: Expr) (edge: Edge)
           (minus => Void.impossible (Bool.falseNotTrue (Eq.trans plain.flipped minus)))
         )
 
-theorem closingSpace: Closing " " := later => (byComputing, byComputing, byComputing)
+theorem shutsSpace: Shuts " " := later => (byComputing, byComputing, byComputing)
 
-theorem closingOpen: Closing "(" := later => (byComputing, byComputing, byComputing)
+theorem shutsOpen: Shuts "(" := later => (byComputing, byComputing, byComputing)
 
-theorem closingClose: Closing ")" := later => (byComputing, byComputing, byComputing)
+theorem shutsClose: Shuts ")" := later => (byComputing, byComputing, byComputing)
 
-theorem closingSquare: Closing "]" := later => (byComputing, byComputing, byComputing)
+theorem shutsSquare: Shuts "]" := later => (byComputing, byComputing, byComputing)
 
-theorem closingComma: Closing "," := later => (byComputing, byComputing, byComputing)
+theorem shutsComma: Shuts "," := later => (byComputing, byComputing, byComputing)
 
-theorem closingDot: Closing "." := later => (byComputing, byComputing, byComputing)
+theorem shutsDot: Shuts "." := later => (byComputing, byComputing, byComputing)
 
 -- The triples.
 
@@ -291,7 +291,7 @@ theorem textJoins ∀ (text: Text) (edge: Edge) (next: Edge → Prop)
           match edge, admits with
             | Plain None, _ => (byComputing, touched)
             | Plain (Some word), ok => ((rewrite gapSolid text noGap then ok), touched)
-            | Edge.Waiting, _ =>
+            | Edge.Waiting _, _ =>
               match text.all (char => char == ' '), noGap with
                 | False, _ => touched
 
@@ -308,8 +308,8 @@ theorem passesSpace: Passes (Doc.text " ") Meets Loose := (
   (edge next meets after =>
     match edge, meets with
       | Plain None, _ => (byComputing, (after (Plain None) byComputing))
-      | Plain (Some word), any => ((any " " closingSpace), (after (Plain None) byComputing))
-      | Edge.Waiting, _ => after Edge.Waiting byComputing)
+      | Plain (Some word), any => ((any " " shutsSpace), (after (Plain None) byComputing))
+      | Edge.Waiting waited, _ => after (Edge.Waiting waited) byComputing)
 )
 
 --| The empty text `Negate` writes before an operand that doesn't start
@@ -322,8 +322,8 @@ theorem passesLine: Passes Line Meets Loose := (
   (edge next meets after =>
     match edge, meets with
       | Plain None, _ => (byComputing, (after (Plain None) byComputing))
-      | Plain (Some word), any => ((any " " closingSpace), (after (Plain None) byComputing))
-      | Edge.Waiting, _ => after (Plain None) byComputing)
+      | Plain (Some word), any => ((any " " shutsSpace), (after (Plain None) byComputing))
+      | Edge.Waiting _, _ => after (Plain None) byComputing)
 )
 
 theorem passesHard ∀ (pre: Edge → Prop): Passes HardLine pre Loose :=
@@ -339,7 +339,7 @@ theorem passesSoft ∀ (pre post: Edge → Prop) (keeps: ∀ (edge: Edge) => pre
     (edge next holds after =>
       match edge, holds with
         | Plain touching, holds => ((after (Plain touching) (keeps (Plain touching) holds)), (after (Plain None) fresh))
-        | Edge.Waiting, _ => after (Plain None) fresh)
+        | Edge.Waiting _, _ => after (Plain None) fresh)
   )
 
 theorem passesStart ∀ (pre: Edge → Prop): Passes LineStart pre Loose := (
@@ -347,7 +347,7 @@ theorem passesStart ∀ (pre: Edge → Prop): Passes LineStart pre Loose := (
   (edge next holds after =>
     match edge with
       | Plain touching => after (Plain None) byComputing
-      | Edge.Waiting => ((after Edge.Waiting byComputing), (after (Plain None) byComputing)))
+      | Edge.Waiting waited => ((after (Edge.Waiting waited) byComputing), (after (Plain None) byComputing)))
 )
 
 theorem passesStartHere ∀ (pre: Edge → Prop): Passes LineStartHere pre Loose := (
@@ -355,7 +355,7 @@ theorem passesStartHere ∀ (pre: Edge → Prop): Passes LineStartHere pre Loose
   (edge next holds after =>
     match edge with
       | Plain touching => after (Plain None) byComputing
-      | Edge.Waiting => ((after Edge.Waiting byComputing), (after (Plain None) byComputing)))
+      | Edge.Waiting waited => ((after (Edge.Waiting waited) byComputing), (after (Plain None) byComputing)))
 )
 
 theorem passesBelow ∀ (doc: Doc) (pre post: Edge → Prop) (passes: Passes doc Loose post): Passes (below doc) pre post :=
@@ -455,7 +455,7 @@ theorem trailingPasses ∀ (after: Option Comment) (text: Text)
         | (filled, _) => (
           (properWord comment.text (commentProper comment.text fine)),
           (edge next same reached =>
-            rewrite same then (filled, (endsBefore text " " ends closingSpace), (reached Edge.Waiting byComputing)))
+            rewrite same then (filled, (endsBefore text " " ends shutsSpace), (reached (Edge.Waiting _) byComputing)))
         )
 
 --| A token with its comments: after anything its text may follow, and
@@ -528,7 +528,7 @@ theorem closerPasses ∀ (comments: Comments) (text: Text)
 theorem meetingToken ∀ (comments: Comments) (text: Text)
     (fine: Fine comments)
     (spelled: TokenText text)
-    (closing: Closing text):
+    (closing: Shuts text):
     Passes (token comments text) Meets Meets :=
   match spelled with
     | (solid, ends) =>
@@ -539,7 +539,7 @@ theorem meetingToken ∀ (comments: Comments) (text: Text)
 theorem meetingCloser ∀ (comments: Comments) (text: Text)
     (fine: Fine comments)
     (spelled: TokenText text)
-    (closing: Closing text):
+    (closing: Shuts text):
     Passes (closer comments text) Meets Meets :=
   match spelled with
     | (solid, ends) =>
@@ -576,3 +576,23 @@ theorem closeAfterPasses ∀ (expr: Expr) (doc: Doc) (post: Edge → Prop)
     | True =>
       passesTwo HardLine doc Meets Loose post (passesHard Meets) (passesFrom doc Meets Loose post passes looseMeets)
     | False => passes
+
+--| A closer may join the line of a waiting comment, by the lexer's own
+--| relation: `x) -- c`, written as `x`, its trailing comment, then the
+--| closer, joins from a line start. `x` is read whole before `)`, and
+--| `)` before the space that precedes the comment.
+theorem closerJoinsExample: Joins standsBefore
+      (Concat [Chunk "x" 1, LineSuffix "-- c", Closing ")"])
+      (Plain None)
+      (after => True) :=
+  let name: Ends "x" := (wordToken "x" (('x', [], byComputing, byComputing, byComputing))).right
+  (
+    byComputing,
+    byComputing,
+    (endsBefore "x" " " name shutsSpace),
+    byComputing,
+    byComputing,
+    (endsBefore "x" ")" name shutsClose),
+    (signFree CloseParen (same => cases) " "),
+    byComputing
+  )
