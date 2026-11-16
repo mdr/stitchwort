@@ -41201,12 +41201,12 @@
     {
       "id": 3660,
       "title": "[Opus] conv_shortcut differential fails since 77c2ef273: examples/reject/lemma-on-large-normal-form.sw gets E-TYPE-MISMATCH with the conversion shortcut but E-RESOURCE (unfolding grow) without it (Overmind, quiet run at a73d93bd7, crates/driver/tests/proofs/conv_shortcut.rs:81). The example has no rewrite; find which commit in 77c2ef273..a73d93bd7 made the no-shortcut path unfold grow 30, and fix it, or, if it's the accepted kind of shortcut dependence, add it to NEEDS_THE_SHORTCUT with the reason. Also: the whole test runs ~800+ s quiet, past its cap: split or sample it",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\n16 Nov (lane, Opus, 5d34e654d): cause found and fixed. Not a regression in the range: the two fin-pattern-* reject examples (SW-2467) shifted the corpus by two, moving this example (index 442 -> 444) into the broad tier's every-fourth sample; it had never been compared. Mechanism: Ctx::goal_as_written (check.rs, error path, for the mismatch message) compares the statement with the expected type by conv. With shortcuts on, the equal sides are answered by their arguments (CallMemo); off, two separately evaluated `grow 30` trees are compared node by node (2^30), running out the declaration's budget, so the verdict became E-RESOURCE (370 s). Fix: that comparison runs under Budget::aside(side_limits()), falling back to the expected type; both ways now E-TYPE-MISMATCH with the same text, 5 s each. Test change: broad stride 8 (was 4), sample start rotated daily (CONV_SHORTCUT_SEED, printed); EXAMPLES=name compares only those; examples over 20 s named in the output. Tests: conv_shortcut with EXAMPLES=lemma-on-large (failed before the fix, passes after), lane-tier sample 27 s, task test:example NAME=lemma-on-large-normal-form passes. Full broad/all time not measured (Overmind).\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []

@@ -361,9 +361,11 @@ slow-timeout = { period = "60s", terminate-after = 30 }
 filter = 'binary(soundness_fuzz) | binary(fuzz_elab) | (binary(it) & test(/^fuzz::/))'
 slow-timeout = { period = "60s", terminate-after = 240 }
 
-# A test that runs every rejected example twice, with and without the
-# conversion shortcut: 690 s beside a fuzzer on 16 Nov 2026, past the default
-# ten minutes, so a wider cap.
+# A test that runs rejected examples twice, with and without the conversion
+# shortcut: 690 s beside a fuzzer on 16 Nov 2026, past the default ten
+# minutes, so a wider cap. Since SW-3660 the broad tier compares one example
+# in eight rather than four, and the one example that took 370 s alone no
+# longer does, so the cap is for the all tier, which compares every one.
 [[profile.default.overrides]]
 filter = "package(stitchwort-driver) & binary(proofs) & test(=conv_shortcut::every_rejected_example_gets_the_same_verdict_without_the_shortcut)"
 slow-timeout = { period = "120s", terminate-after = 10 }

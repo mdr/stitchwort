@@ -56,8 +56,9 @@ pub(crate) struct Assumed(Cell<Option<Floor>>);
 /// The budget for stating a goal, or comparing it with an earlier one's
 /// (which may compute: the two statements are compared by conversion): a
 /// goal that would take more falls back, without running out the
-/// declaration's own budget.
-fn side_limits() -> stitchwort_core::Limits {
+/// declaration's own budget. Also the budget of a message's own comparisons
+/// (`Ctx::goal_as_written`).
+pub(crate) fn side_limits() -> stitchwort_core::Limits {
     stitchwort_core::Limits {
         work: 1_000_000,
         size: 50_000,
