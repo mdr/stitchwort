@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: these patterns match a `Pair`, but the argument has type `1 = 1 ∧ 2 = 2`
+    ╭─[ reject/proof-tuple-mkpair-after-tuple.sw:9:48 ]
+    │
+  9 │ ╭─▶ theorem mixed ∀ (b c: Bool) (h: P b): 2 = 2 := match b, h, c with
+    ┆ ┆   
+ 12 │ ├─▶   | False, _, _ => byComputing
+    │ │                                    
+    │ ╰──────────────────────────────────── these patterns match a `Pair`, but the argument has type `1 = 1 ∧ 2 = 2`
+────╯

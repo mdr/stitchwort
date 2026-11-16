@@ -4883,6 +4883,27 @@ impl Elaborator {
             return self.compile_guard(guard, leaf, rows, depth, columns, types, span);
         };
 
+        // The split is a tuple one only if every row that splits this column
+        // wrote a tuple: a written `MkPair` stays a pair. A written `Both` or
+        // `Witness` among tuples names the data the tuples are `Both` or
+        // `Witness` shorter, whatever the row order.
+        let (d, tuple) = {
+            let mut d = d;
+            let mut tuple = tuple;
+            for row in rows {
+                let pattern = &row.pats[j];
+                if matches!(**pattern, Pattern::Tuple(..)) {
+                    continue;
+                }
+                if let Some(ctor) = self.pattern_ctor(pattern, types[j].as_ref())? {
+                    tuple = false;
+                    if self.is_proof_pair(ctor.data) && !self.is_proof_pair(d) {
+                        d = ctor.data;
+                    }
+                }
+            }
+            (d, tuple)
+        };
         let level = columns[j];
         let data = self.kernel.data(d);
         if Some(d) == self.kernel.env.registry().data(Builtin::Int) {
@@ -4919,7 +4940,13 @@ impl Elaborator {
                         args,
                         span: pattern_span,
                     }) => {
-                        if d2 != d {
+                        // A tuple pattern is a `Pair` for the compiler, and
+                        // `Both` or `Witness` where the column's other rows
+                        // wrote those.
+                        let tuple_row = matches!(**pattern, Pattern::Tuple(..))
+                            && self.is_proof_pair(d)
+                            && Some(d2) == self.kernel.env.registry().data(Builtin::Pair);
+                        if d2 != d && !tuple_row {
                             let written = self.kernel.data(d2).ctors()[c2].name.clone();
                             // The other type has a constructor of this name
                             // too: this one hides it (`W-CTOR-HIDES`).
@@ -5053,6 +5080,12 @@ impl Elaborator {
             pattern,
             tuple,
         })
+    }
+
+    /// Whether `d` is `∧` or `∃`, whose proofs a tuple builds and opens.
+    fn is_proof_pair(&self, d: DataId) -> bool {
+        let registry = self.kernel.env.registry();
+        registry.is_data(Builtin::And, d) || registry.is_data(Builtin::Exists, d)
     }
 
     /// The first row of `rows` is guarded and has nothing left to match
