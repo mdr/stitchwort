@@ -1,5 +1,5 @@
 {
-  "next": 3677,
+  "next": 3679,
   "tickets": [
     {
       "id": 47,
@@ -41396,12 +41396,12 @@
     {
       "id": 3675,
       "title": "[Fable] Toy++ T3a (docs/proposals/toy-plus-plus.md §5 T3, rule N): the engine half: Closing in the layout engine and its theory, settle; first of two lanes on one branch. Keep every proved theorem proved (list in SW-3667's notes); rewrite repeatedly with named sets is available (SW-3642/3654). Est. 90 min",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "T3a done on lane/SW-3675 (Fable), 16 Nov 2026, about 40 min against 90. Details: tools/toyfmt/plus/SKETCH-PLUS.md, \"T3a: rule N, the engine half\".\n\nDone:\n- `Closing (text)` in the toy's engine (Doc.sw, Print.sw): written before a trailing comment that waits on its line, measured so by `fitsFrom`. No rule uses it yet, so every printed text is unchanged.\n- Engine theory, all proved: Words (`stepWords`, `readingEvery`, `readingWords`/`printedWords` for any filter that keeps no closer or no trailing comment), Joins (`CloseJoins`, `closeHolds`; `Edge.Waiting` now carries what the line ends with), Places (`CloseLays`, `tucked`, `closeStays`).\n- `Lexed.settled` (rule N on tokens) moved from the sketch into the toy (Syntax/Settle.sw), not yet called by `parse`. Proved: `settledKeepsComments`, `settledSame`/`settledBare`/`settledOffsets`, `settledTidy`, `settledBareCommas`.\n- 70 new theorems. Every theorem proved before is still proved (`printParses`, `formatRoundTrip`, `formatIdempotent`, `formatKeepsComments`, `formatSameTree`, `formatRefuses(Only)`, Degenerate.sw).\n\nChecks: `stitchwort check` in tools/toyfmt (clean, also --no-cache) and plus (47 goals open, was 49); engine, settle, goldens, parsing, disturbance tests pass; audit Toy.Doc.Proofs Toy.Syntax.Proofs Toy.Fmt.Carry: 633 theorems and 510 generated lemmas, 0 failed, 5 with warnings (the same five as on main); Toy.Fmt.Proofs Toy.Fmt.KeepsComments Toy.Fmt.Degenerate: 684 and 420, 0 failed, 9 with warnings (none new).\n\nFor T3b (SW-3676):\n- `Tidy` is false of settled tokens (a comma's own-line comments go above the next token, which needn't start its line). `tokensCarry` over settled tokens starts from `settledTidy` (Tidy but straight after a comma), not from `Lexer`.\n- A call's and a parameter list's `)` has a `SoftLine` before it, which breaks where a comment waits: `Closing` alone doesn't give `f(a, b) -- c`. A `Choice` with the flat call first does (engine test added).\n- The rule predicates in Fmt/JoinProofs.sw are `True` at `Waiting`; for a closer they need what they say at `Plain`.\n- The proofs' predicate `Closing` is renamed `Shuts`.\n\nNot done: `settledIdempotent` (tested on six inputs, not proved; nothing uses it).\n",
+      "body": "T3a done on lane/SW-3675 (Fable), 16 Nov 2026, about 40 min against 90. Details: tools/toyfmt/plus/SKETCH-PLUS.md, \"T3a: rule N, the engine half\".\n\nDone:\n- `Closing (text)` in the toy's engine (Doc.sw, Print.sw): written before a trailing comment that waits on its line, measured so by `fitsFrom`. No rule uses it yet, so every printed text is unchanged.\n- Engine theory, all proved: Words (`stepWords`, `readingEvery`, `readingWords`/`printedWords` for any filter that keeps no closer or no trailing comment), Joins (`CloseJoins`, `closeHolds`; `Edge.Waiting` now carries what the line ends with), Places (`CloseLays`, `tucked`, `closeStays`).\n- `Lexed.settled` (rule N on tokens) moved from the sketch into the toy (Syntax/Settle.sw), not yet called by `parse`. Proved: `settledKeepsComments`, `settledSame`/`settledBare`/`settledOffsets`, `settledTidy`, `settledBareCommas`.\n- 70 new theorems. Every theorem proved before is still proved (`printParses`, `formatRoundTrip`, `formatIdempotent`, `formatKeepsComments`, `formatSameTree`, `formatRefuses(Only)`, Degenerate.sw).\n\nChecks: `stitchwort check` in tools/toyfmt (clean, also --no-cache) and plus (47 goals open, was 49); engine, settle, goldens, parsing, disturbance tests pass; audit Toy.Doc.Proofs Toy.Syntax.Proofs Toy.Fmt.Carry: 633 theorems and 510 generated lemmas, 0 failed, 5 with warnings (the same five as on main); Toy.Fmt.Proofs Toy.Fmt.KeepsComments Toy.Fmt.Degenerate: 684 and 420, 0 failed, 9 with warnings (none new).\n\nFor T3b (SW-3676):\n- `Tidy` is false of settled tokens (a comma's own-line comments go above the next token, which needn't start its line). `tokensCarry` over settled tokens starts from `settledTidy` (Tidy but straight after a comma), not from `Lexer`.\n- A call's and a parameter list's `)` has a `SoftLine` before it, which breaks where a comment waits: `Closing` alone doesn't give `f(a, b) -- c`. A `Choice` with the flat call first does (engine test added).\n- The rule predicates in Fmt/JoinProofs.sw are `True` at `Waiting`; for a closer they need what they say at `Plain`.\n- The proofs' predicate `Closing` is renamed `Shuts`.\n\nNot done: `settledIdempotent` (tested on six inputs, not proved; nothing uses it).\n\nModel result: fable, worked, 40 min (est. 90). Learnt: Tidy is false of settled tokens (comma's own-line comments go to a token not starting its line), so T3b's invariant is pairwise. Review SW-3677 after T3b. Follow-up SW-3678.",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
@@ -41414,6 +41414,32 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3677,
+      "title": "[Opus paper] Review Toy++ T3 once T3b merges (D2364: a theorem was weakened): printedTokens lost its 'printed words are the file's pieces in order' clause in T3a (rule N makes it false; printedEvents keeps exact order); check each changed statement still says what its name claims, and T3b's Settled/settledViews/tokensCarry statements. 30 min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-16",
+      "updated": "2026-11-16",
+      "commits": []
+    },
+    {
+      "id": 3678,
+      "title": "[Sonnet] From Toy++ T3a: 'match e: expr' replaces expr only where visible, not inside a computed inner match (Token.comments), so byComputing refuses equal sides; at least say so in the message. And a proving-guide line: a && b && c nests right, so Bool.andLeft/andRight take a and b && c",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-16",
       "updated": "2026-11-16",
