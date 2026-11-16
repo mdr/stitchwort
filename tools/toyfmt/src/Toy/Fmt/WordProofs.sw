@@ -582,7 +582,13 @@ theorem argumentsWrite ∀ (open: Comments) (arguments: List Expr) (close: Comme
   match arguments with
     | [] => writesTwo _ _ _ _ (writesToken open "(") (writesCloser close ")")
     | [first, ..rest] =>
-      writesGroup _ _
+      writesChoiceTwo _ _ _
+        (writesFlatten _ _
+          (writesThree _ _ _ _ _ _
+            (writesToken open "(")
+            (writesJoined _ Line _ ((byComputing, byComputing)) (itemDocsWrite [first, ..rest]))
+            (writesCloser close ")")))
+       (writesGroup _ _
         (writesConcat _ _
           (writesCons _ _
             (tokenPieces open "(")
@@ -603,7 +609,7 @@ theorem argumentsWrite ∀ (open: Comments) (arguments: List Expr) (close: Comme
               (writesCons SoftLine _ []
                 (tokenPieces close ")")
                 ((byComputing, byComputing))
-                (writesLast _ _ (writesCloser close ")"))))))
+                (writesLast _ _ (writesCloser close ")")))))))
 
 theorem linesWrite ∀ (index: Nat) (statements: List (Spaced Statement)):
     WritesAll (statementLines index statements) (linePieces statements) :=
@@ -817,7 +823,15 @@ theorem headerWrites ∀ (fnComments: Comments) (name: Text) (nameComments: Comm
   match parameters with
     | [] => writesTwo _ _ openingPieces closingPieces opening closing
     | [first, ..others] =>
-      writesGroup _ _
+      writesChoiceTwo _ _ _
+        (writesFlatten _ _
+          (writesThree _ _ _ openingPieces
+            (parameterPieces [first, ..others])
+            closingPieces
+            opening
+            (writesJoined _ Line _ ((byComputing, byComputing)) (parameterDocsWrite [first, ..others]))
+            closing))
+       (writesGroup _ _
         (writesConcat _ _
           (writesCons _ _ openingPieces
             (parameterPieces [first, ..others] ++ closingPieces)
@@ -834,7 +848,7 @@ theorem headerWrites ∀ (fnComments: Comments) (name: Text) (nameComments: Comm
                     ((byComputing, byComputing))
                     (writesLast _ _
                       (writesJoined _ Line _ ((byComputing, byComputing)) (parameterDocsWrite [first, ..others]))))))
-              (writesCons SoftLine _ [] closingPieces ((byComputing, byComputing)) (writesLast _ _ closing)))))
+              (writesCons SoftLine _ [] closingPieces ((byComputing, byComputing)) (writesLast _ _ closing))))))
 
 --| A declaration's document writes its tokens and comments in order.
 theorem declarationWrites ∀ (declaration: Declaration): Writes declaration.layout declaration.pieces :=

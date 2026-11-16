@@ -92,7 +92,9 @@ def binding (letComments: Comments) (name: Text) (nameComments equals: Comments)
 ]
 
 --| P2: the parameters on the header's line, else one a line at +4, with
---| `) =` back at the header's column.
+--| `) =` back at the header's column. The header on one line is the first
+--| of two choices, as a call is (`argumentsLayout`), so that its `)`
+--| joins the line of a trailing comment the last parameter ends in.
 def header (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: Option Comments) (open: Comments)
     (parameters: List ParameterGroup) (close equals: Comments):
     Doc :=
@@ -103,7 +105,10 @@ def header (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: 
     | [] => Doc.concat [opening, closing]
     | _ =>
       let listed := parameterDocs parameters |> joined Line
-      Doc.group (Doc.concat [opening, Nest 4 (Doc.concat [SoftLine, listed]), SoftLine, closing])
+      Choice [
+        Flatten (Doc.concat [opening, listed, closing]),
+        Doc.group (Doc.concat [opening, Nest 4 (Doc.concat [SoftLine, listed]), SoftLine, closing])
+      ]
 
 --| ` takes ` where it was written, as written.
 def takesDoc: Option Comments → Doc
@@ -252,17 +257,25 @@ def elseBranch (elseComments: Comments) (body: Body): Doc := match body with
   | _ => branch elseComments body
 
 --| P4: the arguments on the call's line, else one a line at +2 with `)` at
---| the call's line.
+--| the call's line. The call on one line is the first of two choices, so
+--| that its `)` joins the line of a trailing comment the last argument
+--| ends in (`f(a, b) -- c`): after a `SoftLine`, as the second has it,
+--| the engine breaks the line where a comment waits.
 def argumentsLayout (open: Comments) (arguments: List Expr) (close: Comments): Doc := match arguments with
   | [] => Doc.concat [token open "(", closer close ")"]
-  | _ =>
-    Doc.group
-      (Doc.concat [
-        token open "(",
-        Nest 2 (Doc.concat [SoftLine, itemDocs arguments |> joined Line]),
-        SoftLine,
-        closer close ")"
-      ])
+  | _ => Choice [Flatten (flatArguments open arguments close), brokenArguments open arguments close]
+
+def flatArguments (open: Comments) (arguments: List Expr) (close: Comments): Doc :=
+  Doc.concat [token open "(", itemDocs arguments |> joined Line, closer close ")"]
+
+def brokenArguments (open: Comments) (arguments: List Expr) (close: Comments): Doc :=
+  Doc.group
+    (Doc.concat [
+      token open "(",
+      Nest 2 (Doc.concat [SoftLine, itemDocs arguments |> joined Line]),
+      SoftLine,
+      closer close ")"
+    ])
 
 --| P5: list items fill their lines, the `]` after the last, before a
 --| trailing comment the last item ends in.

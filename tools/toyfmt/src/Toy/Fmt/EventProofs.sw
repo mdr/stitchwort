@@ -569,6 +569,72 @@ theorem nestJoined ∀ (zone: Zone) (more: Nat) (docs: List Doc) (spec: List Eve
                 seated
                 onward))))
 
+--| Either of two documents that lay the same events.
+theorem ruleChoice ∀ (within: Nat → Prop) (first second: Doc) (pre post: Place → Prop) (spec: List Event → Prop)
+    (one: Rule within first pre spec post)
+    (other: Rule within second pre spec post):
+    Rule within (Choice [first, second]) pre spec post :=
+  indent place trace next inside holds onward =>
+    ((one indent place trace next inside holds onward), (other indent place trace next inside holds onward))
+
+--| Items joined by `Line`, at the indentation in force.
+theorem joinedRule ∀ (zone: Zone) (docs: List Doc) (spec: List Event → Prop)
+    (fill: FillRule zone docs spec):
+    Rule zone.holds (joined docs Line) (Ended zone) spec (Ended zone) :=
+  indent place trace next inside ended onward =>
+    concatLays
+      (Doc.joinedWith Line docs)
+      indent
+      place
+      trace
+      next
+      (joinedFill docs indent place trace next
+        (fill indent place trace next inside (endedSeated zone place ended) onward))
+
+--| A call on one line: `(`, the arguments, and `)` where they end, before
+--| a trailing comment the last of them ends in.
+theorem flatArgumentsRule ∀ (zone: Zone) (open close: Comments) (docs: List Doc) (spec: List Event → Prop)
+    (fineOpen: Fine open)
+    (fineClose: Fine close)
+    (fill: FillRule zone docs spec):
+    Rule zone.holds
+      (Flatten (Doc.concat [token open "(", joined docs Line, closer close ")"]))
+      (Ended zone)
+      (Then (TokenAt zone.allows open "(") (Then spec (TokenAt anyStart close ")")))
+      (Ended zone) :=
+  ruleConcat zone.holds
+    [token open "(", joined docs Line, closer close ")"]
+    (Ended zone)
+    (Ended zone)
+    (Then (TokenAt zone.allows open "(") (Then spec (TokenAt anyStart close ")")))
+    (ruleCons zone.holds
+      (token open "(")
+      [joined docs Line, closer close ")"]
+      (Ended zone)
+      (Ended zone)
+      (Ended zone)
+      (TokenAt zone.allows open "(")
+      (Then spec (TokenAt anyStart close ")"))
+      (tokenAfter zone open "(" fineOpen solidOpenParen)
+      (ruleCons zone.holds
+        (joined docs Line)
+        [closer close ")"]
+        (Ended zone)
+        (Ended zone)
+        (Ended zone)
+        spec
+        (TokenAt anyStart close ")")
+        (joinedRule zone docs spec fill)
+        (ruleLast zone.holds
+          (closer close ")")
+          (Ended zone)
+          (Ended zone)
+          (TokenAt anyStart close ")")
+          (indent place trace next inside ended onward =>
+            closerRule zone close ")" fineClose solidCloseParen byComputing indent place trace next inside
+              (endedSeated zone place ended)
+              onward))))
+
 --| A closing bracket after a `SoftLine`: on the items' line or on its own.
 theorem softCloser ∀ (zone: Zone) (comments: Comments) (text: Text)
     (fine: Fine comments)
@@ -1342,7 +1408,21 @@ theorem exprLays ∀ (expr: Expr)
               (Then
                 (TokenAt zone.allows open "(")
                 (Then (ItemEvents zone.inside [first, ..rest]) (TokenAt anyStart close ")")))
-              (ruleConcat zone.holds
+              (ruleChoice zone.holds
+                (Flatten (flatArguments open [first, ..rest] close))
+                (brokenArguments open [first, ..rest] close)
+                (Ended zone)
+                (Ended zone)
+                (Then
+                  (TokenAt zone.allows open "(")
+                  (Then (ItemEvents zone.inside [first, ..rest]) (TokenAt anyStart close ")")))
+                (flatArgumentsRule zone open close
+                  (itemDocs [first, ..rest])
+                  (ItemEvents zone.inside [first, ..rest])
+                  fineOpen
+                  fineClose
+                  (fillItems first rest lexArguments zone))
+               (ruleConcat zone.holds
                 [
                   token open "(",
                   Nest 2 (Doc.concat [SoftLine, joined (itemDocs [first, ..rest]) Line]),
@@ -1375,7 +1455,7 @@ theorem exprLays ∀ (expr: Expr)
                       (itemDocs [first, ..rest])
                       (ItemEvents zone.inside [first, ..rest])
                       (fillItems first rest lexArguments zone))
-                    (softCloser zone close ")" fineClose solidCloseParen byComputing)))))
+                    (softCloser zone close ")" fineClose solidCloseParen byComputing))))))
             head
             indent
             place
@@ -2668,12 +2748,95 @@ theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments: Comm
                           met))))
         | [first, ..others], lexParameters, onward =>
           let listed := Nest 4 (Doc.concat [SoftLine, joined (parameterDocs [first, ..others]) Line])
+          let flatListed := joined (parameterDocs [first, ..others]) Line
           concatLays
-            [Doc.group (Doc.concat [opening, listed, SoftLine, closing]), body.afterEquals equals]
+            [
+              Choice [
+                Flatten (Doc.concat [opening, flatListed, closing]),
+                Doc.group (Doc.concat [opening, listed, SoftLine, closing])
+              ],
+              body.afterEquals equals
+            ]
             0
             (AtStart 0)
             trace
             next
+           ((
+            (concatLays
+              [opening, flatListed, closing]
+              0
+              (AtStart 0)
+              trace
+              (after later => LaysAll [body.afterEquals equals] 0 after later next)
+              (openingRule
+                (Deeper 0)
+                fnComments
+                name
+                nameComments
+                takes
+                open
+                fineFn
+                isName
+                fineName
+                fineTakes
+                fineOpen
+                (atColumn 0)
+                0
+                (AtStart 0)
+                trace
+                (after later =>
+                  LaysAll [flatListed, closing] 0 after later (reached written =>
+                    LaysAll [body.afterEquals equals] 0 reached written next))
+                (ownHolds 0)
+                (ownHolds 0)
+                (startAt 0 0 fnComments.above)
+                (after events isOpening ended =>
+                  joinedRule
+                    (Deeper 0)
+                    (parameterDocs [first, ..others])
+                    (ParameterEvents [first, ..others])
+                    (fillParameters first others lexParameters (Deeper 0))
+                    0
+                    after
+                    (trace ++ events)
+                    (middle between =>
+                      LaysAll [closing] 0 middle between (reached written =>
+                        LaysAll [body.afterEquals equals] 0 reached written next))
+                    (ownHolds 0)
+                    ended
+                    (listEnd listedEvents areParameters listEnded =>
+                      closingLays
+                        (Deeper 0)
+                        close
+                        equals
+                        (body.afterEquals equals)
+                        body
+                        fineClose
+                        fineEquals
+                        bodyRule
+                        0
+                        listEnd
+                        ((trace ++ events) ++ listedEvents)
+                        next
+                        (ownHolds 0)
+                        (endedSeated (Deeper 0) listEnd listEnded)
+                        (reached rest isClosing met =>
+                          rewrite List.appendAssoc (trace ++ events) listedEvents rest,
+                              List.appendAssoc trace events (listedEvents ++ rest) then
+                            onward reached
+                              (events ++ (listedEvents ++ rest))
+                              ((
+                                events,
+                                (listedEvents ++ rest),
+                                byComputing,
+                                isOpening,
+                                listedEvents,
+                                rest,
+                                byComputing,
+                                areParameters,
+                                isClosing
+                              ))
+                              met))))),
             (concatLays
               [opening, listed, SoftLine, closing]
               0
@@ -2761,6 +2924,7 @@ theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments: Comm
                                     isClosing
                                   ))
                                   met))))))
+           ))
 
 --| A declaration, from the start of its line at column 0.
 theorem declarationLays ∀ (declaration: Declaration)

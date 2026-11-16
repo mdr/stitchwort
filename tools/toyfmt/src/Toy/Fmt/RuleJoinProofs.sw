@@ -107,6 +107,11 @@ theorem passesGroup ∀ (inner: Doc) (pre post: Edge → Prop)
     Passes (Doc.group inner) pre post :=
   passes
 
+theorem passesFlatten ∀ (inner: Doc) (pre post: Edge → Prop)
+    (passes: Passes inner pre post):
+    Passes (Flatten inner) pre post :=
+  passes
+
 theorem passesEmpty ∀ (pre: Edge → Prop): Passes Empty pre pre :=
   (byComputing, (edge next holds after => after edge holds))
 
@@ -619,7 +624,24 @@ theorem argumentsPass ∀ (open: Comments) (arguments: List Expr) (close: Commen
           (meetingCloser close ")" fineClose (signToken CloseParen closeSign) shutsClose)
           freeMeets)
     | [first, ..rest] =>
-      passesGroup _ Meets Meets
+      passesChoiceTwo _ _ Meets Meets
+        (passesFlatten _ Meets Meets
+          (passesConcat _ Meets Meets
+            (passesCons
+              (token open "(") _
+              Meets
+              Free
+              Meets
+              (openingToken open OpenParen Meets fineOpen openSign (meetsAdmits "(" shutsOpen))
+              (passesCons
+                (itemDocs [first, ..rest] |> joined Line) _
+                Free
+                Meets
+                Meets
+                (joinedPasses (itemDocs [first, ..rest]) each)
+                (passesLast _ Meets Meets
+                  (meetingCloser close ")" fineClose (signToken CloseParen closeSign) shutsClose))))))
+       (passesGroup _ Meets Meets
         (passesConcat _ Meets Meets
           (passesCons
             (token open "(") _
@@ -642,7 +664,7 @@ theorem argumentsPass ∀ (open: Comments) (arguments: List Expr) (close: Commen
               (passesCons SoftLine _ Meets Meets Meets
                 (passesSoft Meets Meets (edge holds => holds) byComputing)
                 (passesLast _ Meets Meets
-                  (meetingCloser close ")" fineClose (signToken CloseParen closeSign) shutsClose))))))
+                  (meetingCloser close ")" fineClose (signToken CloseParen closeSign) shutsClose)))))))
 
 theorem linesPass ∀ (index: Nat) (statements: List (Spaced Statement))
     (pre: Edge → Prop) (first: (index == 0) = True → ∀ (edge: Edge) => pre edge → Loose edge)
@@ -964,7 +986,18 @@ theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments: Comm
   match parameters with
     | [] => passesTwo _ _ Loose Free Meets opening (passesFrom _ Meets Free Meets closing freeMeets)
     | [first, ..others] =>
-      passesGroup _ Loose Meets
+      passesChoiceTwo _ _ Loose Meets
+        (passesFlatten _ Loose Meets
+          (passesConcat _ Loose Meets
+            (passesCons _ _ Loose Free Meets opening
+              (passesCons
+                (parameterDocs [first, ..others] |> joined Line) _
+                Free
+                Meets
+                Meets
+                (joinedPasses (parameterDocs [first, ..others]) (parameterDocsPass [first, ..others] lexParameters))
+                (passesLast _ Meets Meets closing)))))
+       (passesGroup _ Loose Meets
         (passesConcat _ Loose Meets
           (passesCons _ _ Loose Free Meets opening
             (passesCons
@@ -981,7 +1014,7 @@ theorem headerPasses ∀ (fnComments: Comments) (name: Text) (nameComments: Comm
                 (joinedPasses (parameterDocs [first, ..others]) (parameterDocsPass [first, ..others] lexParameters)))
               (passesCons SoftLine _ Meets Meets Meets
                 (passesSoft Meets Meets (edge holds => holds) byComputing)
-                (passesLast _ Meets Meets closing)))))
+                (passesLast _ Meets Meets closing))))))
 
 theorem declarationPasses ∀ (declaration: Declaration)
     (lexical: LexicalDeclaration declaration):
