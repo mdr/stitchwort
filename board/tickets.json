@@ -39072,12 +39072,12 @@
     {
       "id": 3500,
       "title": "[Fable paper] Why is the toy proof 16x its program? (D3627, Matt, 16 Nov 2026): intrinsic to the task, our approach, or Stitchwort's gaps. Literature on verified pretty printers/parsers/formatters and their tricks; published proof-to-code ratios; how the toy proof would go in idiomatic Lean 4 and Coq/Rocq, layer by layer; verdict per cause; whether to run a measured Lean port of one layer",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\n**Lane note (Fable paper, 16 Nov 2026, about 15 min against 45 expected).** Note written: `docs/proposals/toy-proof-complexity.md` (commit 51e1dee36 on `lane/SW-3500`). Verdict [estimated]: roughly a quarter the task (3-6x), a quarter our approach (3-4x: 2,000 dead lines, the walk done three times, tokens recovered from printed text), half Stitchwort (6-8x: no simplifier, `Witness`/`Both` written 4,157 times [measured], no rule sets or walker). Published ratios [cited]: functional programs 3-10x (CompCert about 6, a Lean printer proof 9, ZipLex lexer 10), seL4 about 20. No verified source formatter found in the literature; the toy already uses its best tricks. Proposes a measured Lean 4 port of the engine layer (two versions, with and without automation). Two decisions for Matt in section 6: run the Lean port [rec yes]; make short proofs a language goal now (exists/and syntax first, then `simp`) [rec yes]. No builds or tests run. Web research was done by two research subagents; quotations are theirs from fetched sources.\n",
       "created": "2026-11-16",
       "updated": "2026-11-16",
       "commits": []
