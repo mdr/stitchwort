@@ -93,6 +93,12 @@ def StartJoins (edge: Edge) (next: Edge → Prop): Prop := match edge with
   | Plain touching => next (Plain None)
   | Waiting touching => next (Waiting touching) ∧ next (Plain None)
 
+--| A `Displaced` element's contents, from where they start: where they
+--| are, or after a line break if a comment waits (none at a line start).
+def DisplacedJoins (edge: Edge) (inner: Edge → Prop): Prop := match edge with
+  | Plain _ => inner edge
+  | Waiting touching => inner (Waiting touching) ∧ inner (Plain None)
+
 --| A trailing comment (`Joins` asks that it isn't empty): written after a
 --| space at the end of the line. A
 --| second one while the first waits is refused: both would be flushed on
@@ -116,7 +122,11 @@ def Joins (follows: Text → Text → Prop) (doc: Doc) (edge: Edge) (next: Edge 
   | LineStart => StartJoins edge next
   | LineStartHere => StartJoins edge next
   | Nest _ inner => Joins follows inner edge next
+  | Align inner => Joins follows inner edge next
+  | AlignInset inner => Joins follows inner edge next
+  | Displaced inner => DisplacedJoins edge (start => Joins follows inner start next)
   | Group inner _ => Joins follows inner edge next
+  | NarrowGroup _ inner _ => Joins follows inner edge next
   | IdGroup _ inner _ => Joins follows inner edge next
   | IfBroken _ broken flat => Joins follows broken edge next ∧ Joins follows flat edge next
   | Flatten inner => Joins follows inner edge next
@@ -241,7 +251,17 @@ theorem joinsWeaker ∀ (follows: Text → Text → Prop) (doc: Doc) (edge: Edge
     | LineStart, joins => startWeaker edge strong weak implies joins
     | LineStartHere, joins => startWeaker edge strong weak implies joins
     | Nest more inner, joins => joinsWeaker follows inner edge strong weak implies joins
+    | Align inner, joins => joinsWeaker follows inner edge strong weak implies joins
+    | AlignInset inner, joins => joinsWeaker follows inner edge strong weak implies joins
+    | Displaced inner, joins =>
+      match edge, joins with
+        | Plain touching, joins => joinsWeaker follows inner (Plain touching) strong weak implies joins
+        | Waiting touching, Both stays broken => (
+          (joinsWeaker follows inner (Waiting touching) strong weak implies stays),
+          (joinsWeaker follows inner (Plain None) strong weak implies broken)
+        )
     | Group inner hard, joins => joinsWeaker follows inner edge strong weak implies joins
+    | NarrowGroup max inner hard, joins => joinsWeaker follows inner edge strong weak implies joins
     | IdGroup id inner hard, joins => joinsWeaker follows inner edge strong weak implies joins
     | IfBroken id broken flat, Both brokenJoins flatJoins => (
       (joinsWeaker follows broken edge strong weak implies brokenJoins),
@@ -914,6 +934,16 @@ theorem lineStartHolds ∀ (follows: Text → Text → Prop) (next: Edge → Pro
     | False =>
       newlineHolds follows next printer (printer.continuation indent) sound (startBreak next printer.edge joins)
 
+--| A `Displaced` element leaves a sound printer sound: a comment waiting
+--| ends its line first.
+theorem displaceHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
+    (sound: Sound follows printer)
+    (joins: DisplacedJoins printer.edge next):
+    Holds follows next (printer.displace indent) :=
+  match waiting: printer.suffixes.isEmpty, joins with
+    | True, joins => (sound, joins)
+    | False, joins => lineStartHolds follows next printer indent sound joins
+
 --| A line start here, at a line's start, leaves the printer sound.
 theorem hereHolds ∀ (follows: Text → Text → Prop) (next: Edge → Prop) (printer: Printer) (indent: Nat)
     (sound: Sound follows printer)
@@ -1102,13 +1132,25 @@ theorem stepJoins ∀ (follows: Text → Text → Prop) (printer: Printer) (cmd:
         | Blank, steps, joins =>
           rewrite steps then blankHolds follows (edge => StackJoins follows rest edge) printer sound joins
         | Nest more inner, steps, joins => rewrite steps then (sound, joins)
+        | Align inner, steps, joins => rewrite steps then (sound, joins)
+        | AlignInset inner, steps, joins => rewrite steps then (sound, joins)
+        | Displaced inner, steps, joins =>
+          rewrite steps then
+            displaceHolds follows
+              (edge => StackJoins follows [Print (printer.displacedAt indent) mode inner, ..rest] edge)
+              printer
+              indent
+              sound
+              joins
         | OneLineBelow inner, steps, joins => rewrite steps then (sound, joins)
         | Flatten inner, steps, joins => rewrite steps then (sound, joins)
         | LineSuffix comment, steps, Both filled joins =>
           rewrite steps then
             suffixHolds follows (edge => StackJoins follows rest edge) printer comment sound filled joins
         | Group inner hard, Inl (Both _ flat), joins => rewrite flat then (sound, joins)
+        | NarrowGroup max inner hard, Inl (Both _ flat), joins => rewrite flat then (sound, joins)
         | Group inner hard, Inr (Both _ broken), joins => rewrite broken then (sound, joins)
+        | NarrowGroup max inner hard, Inr (Both _ broken), joins => rewrite broken then (sound, joins)
         | IdGroup id inner hard, Inl (Both _ flat), joins => rewrite flat then (sound, joins)
         | IdGroup id inner hard, Inr (Both _ broken), joins => rewrite broken then (sound, joins)
         | IfBroken id broken flat, steps, joins =>

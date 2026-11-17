@@ -14,9 +14,9 @@
 --| time and `Ref ID` after, so a declaration's size is small even where
 --| written out in full it is not.
 --|
---| Nodes `Doc` doesn't have yet are read too (as their first child, or
---| empty) and make the declaration "unsupported" for the kinds they are,
---| so it is counted and not compared.
+--| Nodes `Doc` doesn't have yet are read too (as empty) and make the
+--| declaration "unsupported" for the kinds they are, so it is counted and
+--| not compared.
 
 namespace Fmt.DocDump
 import Std (Bool, Char, List, Nat, Option, Result, Text)
@@ -102,9 +102,6 @@ def numbered (tag line argument: Text) (build: Nat → Doc → Doc): (Node, Opti
   | Some number => (Open 1 (docs => build number (first docs)), None)
   | None => (Bad "${tag}: no number in `${line}`", None)
 
---| A node `Doc` doesn't have, read as its first child.
-def missing (tag: Text) (children: Nat): (Node, Option Text) := (Open children first, Some tag)
-
 --| The node a line stands for, and the kind of node `Doc` lacks if it is one.
 def parseNode (line: Text): (Node, Option Text) :=
   let (tag, argument) := match line.splitOnce " " with
@@ -136,10 +133,10 @@ def parseNode (line: Text): (Node, Option Text) :=
     | "Concat" => counted tag line argument Doc.concat
     | "Fill" => counted tag line argument Fill
     | "Choice" => counted tag line argument Choice
-    | "Align" => missing tag 1
-    | "AlignInset" => missing tag 1
-    | "Displaced" => missing tag 1
-    | "NarrowGroup" => missing tag 1
+    | "Align" => (Open 1 (docs => Align (first docs)), None)
+    | "AlignInset" => (Open 1 (docs => AlignInset (first docs)), None)
+    | "Displaced" => (Open 1 (docs => Displaced (first docs)), None)
+    | "NarrowGroup" => numbered tag line argument (max inner => inner.narrowGroup max)
     | "IdGroup" => numbered tag line argument (id inner => inner.idGroup id)
     | "IfBroken" =>
       match argument.toNat with

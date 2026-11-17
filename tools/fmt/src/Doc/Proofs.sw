@@ -15,7 +15,11 @@ import Std (Bool, List, Nat, Option, Text, Void)
 --| node replaces it by its parts, which weigh less.
 def Doc.steps: Doc → Nat
   | Nest _ inner => 1 + inner.steps
+  | Align inner => 1 + inner.steps
+  | AlignInset inner => 1 + inner.steps
+  | Displaced inner => 1 + inner.steps
   | Group inner _ => 1 + inner.steps
+  | NarrowGroup _ inner _ => 1 + inner.steps
   | IdGroup _ inner _ => 1 + inner.steps
   | IfBroken _ broken flat => 1 + broken.steps + flat.steps
   | Flatten inner => 1 + inner.steps
@@ -43,7 +47,11 @@ def stackCost: List Cmd → Nat
 --| Every doc takes at least one step.
 theorem stepsPositive ∀ (doc: Doc): 1 ≤ doc.steps := match doc with
   | Nest more inner => arithmetic
+  | Align inner => arithmetic
+  | AlignInset inner => arithmetic
+  | Displaced inner => arithmetic
   | Group inner hard => arithmetic
+  | NarrowGroup max inner hard => arithmetic
   | IdGroup id inner hard => arithmetic
   | IfBroken id broken flat => arithmetic
   | Flatten inner => arithmetic
@@ -160,9 +168,13 @@ theorem stepLighter ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List C
         | Blank => arithmetic
         | LineSuffix comment => arithmetic
         | Nest more inner => arithmetic
+        | Align inner => arithmetic
+        | AlignInset inner => arithmetic
+        | Displaced inner => arithmetic
         | OneLineBelow inner => arithmetic
         | Flatten inner => arithmetic
         | Group inner hard => arithmetic
+        | NarrowGroup max inner hard => arithmetic
         | IdGroup id inner hard => arithmetic
         | IfBroken id broken flat =>
           let bound := pickSteps printer.modes id broken flat
@@ -218,7 +230,11 @@ theorem runFuelEnough ∀ (printer: Printer) (total fuel extra: Nat) (stack: Lis
 --| Every doc has at least one node.
 theorem sizePositive ∀ (doc: Doc): 1 ≤ doc.size := match doc with
   | Nest more inner => arithmetic
+  | Align inner => arithmetic
+  | AlignInset inner => arithmetic
+  | Displaced inner => arithmetic
   | Group inner hard => arithmetic
+  | NarrowGroup max inner hard => arithmetic
   | IdGroup id inner hard => arithmetic
   | IfBroken id broken flat => arithmetic
   | Flatten inner => arithmetic
@@ -244,7 +260,19 @@ theorem stepsUnderSize ∀ (doc: Doc): doc.steps ≤ 2 * doc.size := match doc w
   | Group inner hard =>
     let inside := stepsUnderSize inner
     arithmetic
+  | NarrowGroup max inner hard =>
+    let inside := stepsUnderSize inner
+    arithmetic
   | IdGroup id inner hard =>
+    let inside := stepsUnderSize inner
+    arithmetic
+  | Align inner =>
+    let inside := stepsUnderSize inner
+    arithmetic
+  | AlignInset inner =>
+    let inside := stepsUnderSize inner
+    arithmetic
+  | Displaced inner =>
     let inside := stepsUnderSize inner
     arithmetic
   | IfBroken id broken flat =>
@@ -421,6 +449,39 @@ theorem fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat, Mode)) (st
                 lineIndent
                 suffix
                 (arithmetic)
+            | NarrowGroup max inner hard =>
+              let measured := if hard then Break else mode
+              rewrite fitsFromEnough more extra width modes
+                [(indent, measured, inner), ..stack]
+                rest
+                left
+                lineIndent
+                suffix
+                (arithmetic)
+            | Align inner =>
+              rewrite fitsFromEnough more extra width modes
+                [(indent, mode, inner), ..stack]
+                rest
+                left
+                lineIndent
+                suffix
+                (arithmetic)
+            | AlignInset inner =>
+              rewrite fitsFromEnough more extra width modes
+                [(indent, mode, inner), ..stack]
+                rest
+                left
+                lineIndent
+                suffix
+                (arithmetic)
+            | Displaced inner =>
+              rewrite fitsFromEnough more extra width modes
+                [(indent, mode, inner), ..stack]
+                rest
+                left
+                lineIndent
+                suffix
+                (arithmetic)
             | IdGroup id inner hard =>
               let measured := if hard then Break else mode
               rewrite fitsFromEnough more extra width modes
@@ -466,7 +527,7 @@ theorem fitsFromEnough ∀ (fuel extra width: Nat) (modes: List (Nat, Mode)) (st
                   match items with
                     | [] => byComputing
                     | [first, ..others] =>
-                      rewrite fitsFromEnough more extra width []
+                      rewrite fitsFromEnough more extra width modes
                         [(indent, Flat, first)]
                         []
                         left
@@ -622,9 +683,13 @@ theorem stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cm
         | Blank => arithmetic
         | LineSuffix comment => arithmetic
         | Nest more inner => arithmetic
+        | Align inner => arithmetic
+        | AlignInset inner => arithmetic
+        | Displaced inner => arithmetic
         | OneLineBelow inner => arithmetic
         | Flatten inner => arithmetic
         | Group inner hard => arithmetic
+        | NarrowGroup max inner hard => arithmetic
         | IdGroup id inner hard => arithmetic
         | IfBroken id broken flat =>
           let bound := pickWeight printer.modes id broken flat
@@ -677,7 +742,7 @@ theorem chooseEnough ∀ (printer: Printer) (total extra indent: Nat) (rest: Lis
       let later := chooseEnough printer total extra indent rest [next, ..others] (arithmetic)
       match option with
         | OneLineBelow inner =>
-          rewrite fitsFromEnough total extra printer.width []
+          rewrite fitsFromEnough total extra printer.width printer.modes
                 [(indent + 2, Flat, inner)]
                 []
                 (printer.width - indent - 2)
@@ -718,6 +783,14 @@ theorem stepEnough ∀ (printer: Printer) (total extra: Nat) (cmd: Cmd) (rest: L
             [(indent, Flat, inner)]
             rest
             printer.left
+            printer.lineIndent
+            (not printer.suffixes.isEmpty)
+            (arithmetic)
+        | NarrowGroup max inner hard =>
+          rewrite fitsFromEnough total extra printer.width printer.modes
+            [(indent, Flat, inner)]
+            rest
+            (Nat.min printer.left (max - printer.owed.getOrElse printer.column))
             printer.lineIndent
             (not printer.suffixes.isEmpty)
             (arithmetic)

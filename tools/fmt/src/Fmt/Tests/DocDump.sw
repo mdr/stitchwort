@@ -24,8 +24,13 @@ test "a breaking group prints broken in the width" :=
   answer (decl "1" "a\\nb" "Group\nConcat 3\nText a\nHardLine\nText b\n") == Ok "decl 1 matched\n"
 
 test "nodes Doc lacks are unsupported, by kind, and not compared" :=
-  answer (decl "2" "whatever" "Concat 3\nAlign\nText x\nNarrowGroup 40\nText y\nMark 4\n")
-    == Ok "decl 2 unsupported Align,Mark,NarrowGroup\n"
+  answer (decl "2" "whatever" "Concat 3\nMark 4\nText x\nCloserLine 4\n") == Ok "decl 2 unsupported CloserLine,Mark\n"
+
+test "an align and a narrow group are read" :=
+  answer (decl "1" "(let a\\n     b" "Concat 2\nText (let \nAlign\nConcat 3\nText a\nHardLine\nText b\n")
+    == Ok "decl 1 matched\n"
+    && answer (decl "2" "xxaaaa\\nbbbb" "Concat 2\nText xx\nNarrowGroup 10\nConcat 3\nText aaaa\nLine\nText bbbb\n")
+      == Ok "decl 2 matched\n"
 
 test "an IfBroken reads the mode its IdGroup printed in" :=
   answer (decl "1" "(a, b) ok" "Concat 2\nIdGroup 7\nText (a, b)\nIfBroken 7\nText broke\nText  ok\n")

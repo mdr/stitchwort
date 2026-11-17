@@ -23226,12 +23226,12 @@
     {
       "id": 3926,
       "title": "[Sonnet] Fmt.Doc: a broken Fill's first item and a OneLineBelow option are measured with the real modes, as Rust's engine does since SW-3913 (Fmt.Doc copied the old empty-map behaviour); a Doc/Tests/Engine.sw test mirroring SW-3913's Rust one; keep theorems checking",
-      "status": "doing",
-      "agent": "",
+      "status": "review",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Done in lane/SW-3927 (3fa6d7605), with SW-3927. Fmt.Doc's choose (OneLineBelow option) and fitsFrom (broken Fill's first item) pass the recorded modes; fitsFromEnough/chooseEnough follow. Test \"an IfBroken in a one-line-below option sees an earlier group's mode\" (Doc/Tests/Engine.sw), ported from SW-3913's Rust test; fails with the empty record, passes now. check passes; audit Fmt.Doc 0 failed.\nModel result: Opus (in the SW-3927 lane), worked, ~3 min.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -23239,12 +23239,12 @@
     {
       "id": 3927,
       "title": "[Opus] Engine E2 part 2: NarrowGroup (1,388 repo declarations need only it), Align/AlignInset, Displaced in Fmt.Doc with proofs extended; gate: engine harness identical on every declaration using only supported kinds (SW-3921 counts: 2,278 unsupported)",
-      "status": "doing",
-      "agent": "",
+      "status": "review",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Started 22:06, estimate 50 min; done 22:22 (about 16 min).\nCommits on lane/SW-3927: a109f048d (the four nodes, proofs, DocDump, tests), NOTES commit after it.\n- Doc: NarrowGroup max inner hard, Align, AlignInset, Displaced (Doc.narrowGroup builds the hard flag). Printer: NarrowGroup measured in min left (max - column); Printer.alignAt, Printer.displacedAt, Printer.displace; fitsFrom as Rust's fits_in.\n- Proofs: every theorem keeps its statement, none restricted. New: DisplacedJoins, AlignHolds, DisplacedHolds and 11 lemmas (see tools/fmt/NOTES.md, E2 part 2).\n- Harness: goldens 614 matched, 12 mismatched, 18 unsupported (were 548/10/86); repo 34,795: 34,207 matched, 0 mismatched, 198 unsupported (TextBlock only), 390 oversized (were 32,085/0/2,278/390 of 34,753). All 12 golden mismatches are E3: 10 from part 1 plus paren-comment-in-body (held space before a closer after a waiting comment).\n- Tests: check, test (119 passed), audit Fmt.Doc (330 theorems, 0 failed, 3 known warnings), new engine and DocDump tests.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
