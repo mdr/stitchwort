@@ -1116,6 +1116,34 @@ fn a_minus_before_an_applied_numeral_keeps_its_space() {
     );
 }
 
+/// Every combination of a spaced or glued unary minus, an operand that is a
+/// numeral, a name or bracketed, and an argument that is a numeral, a
+/// negative one, a name, bracketed or a negative name (SW-3771): each must
+/// print to a program with the same tree, and to a fixed point. A spaced
+/// minus before a numeral is the only one that turns into a negative numeral
+/// when glued, which would make the operand the head of the application
+/// instead of the argument (SW-3716).
+#[test]
+fn a_unary_minus_keeps_its_operand_apart_from_every_kind_of_argument() {
+    for minus in ["- ", "-"] {
+        for operand in ["1", "x", "(x)"] {
+            for argument in ["2", "-2", "n", "(n)", "-x"] {
+                let source = format!("def f (x n: Int): Int := {minus}{operand} {argument}\n");
+                let gate = gate(&source).expect("it parses");
+                assert_eq!(gate.check, Ok(()), "{source}=> {}", gate.text);
+                assert!(gate.idempotent, "not idempotent:\n{}", gate.text);
+            }
+        }
+    }
+    // The fuzzer's minimal case: the argument is a negative literal, so the
+    // space after the first `-` is what keeps the `Neg` outside the
+    // application.
+    check(
+        "def decrement (xs: List Int): List Int := xs.map (- 1 -1)\n",
+        "def decrement (xs: List Int): List Int := xs.map (- 1 -1)\n",
+    );
+}
+
 #[test]
 fn a_calc_proof_never_wraps_a_hole_to_the_start_of_a_line() {
     // S35: a line starting with `_` would read as the next step. SW-3683.
@@ -1209,5 +1237,31 @@ fn a_comment_between_binder_names_keeps_a_commented_body_block_together() {
     check(
         "theorem t (x: Nat): ∀ (a-- c\n b: Bool) =>-- c\n f a\n b = f b a := same\n",
         "theorem t ∀ (x: Nat):\n    ∀ (a -- c\n      b: Bool) => -- c\n        f a\n        b = f b a :=\n  same\n",
+    );
+}
+
+/// A parameter's function type split by comments after its colon and around
+/// its arrow must print so the arrow stays inside the parameter (SW-3770):
+/// left of the type's first line it closed the parameter, and the output
+/// didn't parse. The arrow's comment comes before the arrow, as rule N has
+/// it, whether the source wrote it after the arrow or on the line below.
+#[test]
+fn comments_around_a_parameter_types_arrow_stay_inside_the_parameter() {
+    let after = "\
+def apply (xs: List Nat)
+    (kif: -- c
+      List Nat
+        -- c
+        → Nat):
+    Nat :=
+  k [0, 0, ..xs]
+";
+    check(
+        "def apply (xs: List Nat) (kif:-- c\n List Nat →\n-- c\n Nat): Nat := k [0, 0, ..xs]\n",
+        after,
+    );
+    check(
+        "def apply (xs: List Nat) (kif:-- c\n List Nat → -- c\n Nat): Nat := k [0, 0, ..xs]\n",
+        after,
     );
 }
