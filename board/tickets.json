@@ -22845,12 +22845,12 @@
     {
       "id": 3897,
       "title": "[Sonnet] After D3679: narrow Expr::Pi names to one name (lowering always emits one; the derive modules build Pi with names, ~20 files), and consider splitting Param::Named groups in headers earlier (SW-3891 findings)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Lane SW-3897 (Sonnet): Expr::Pi now has one `name`; builders that wrote several names (derive_ord::pi, derive_ext, two derive.rs sites, forall_of) make a Pi per name. hash_stability, lower::tests, binder_sweep, example kinds, soundness, same_program, tools/fmt check all green. Param::Named left grouped (splitting would touch four callers for little gain).",
+      "body": "Lane SW-3897 (Sonnet): Expr::Pi now has one `name`; builders that wrote several names (derive_ord::pi, derive_ext, two derive.rs sites, forall_of) make a Pi per name. hash_stability, lower::tests, binder_sweep, example kinds, soundness, same_program, tools/fmt check all green. Param::Named left grouped (splitting would touch four callers for little gain).\n\nModel result: sonnet, worked, 11 min (est. 30). Param::Named kept grouped (not clearly simpler).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
