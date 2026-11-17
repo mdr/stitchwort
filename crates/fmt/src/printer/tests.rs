@@ -1239,3 +1239,29 @@ fn a_comment_between_binder_names_keeps_a_commented_body_block_together() {
         "theorem t ∀ (x: Nat):\n    ∀ (a -- c\n      b: Bool) => -- c\n        f a\n        b = f b a :=\n  same\n",
     );
 }
+
+/// A parameter's function type split by comments after its colon and around
+/// its arrow must print so the arrow stays inside the parameter (SW-3770):
+/// left of the type's first line it closed the parameter, and the output
+/// didn't parse. The arrow's comment comes before the arrow, as rule N has
+/// it, whether the source wrote it after the arrow or on the line below.
+#[test]
+fn comments_around_a_parameter_types_arrow_stay_inside_the_parameter() {
+    let after = "\
+def apply (xs: List Nat)
+    (kif: -- c
+      List Nat
+        -- c
+        → Nat):
+    Nat :=
+  k [0, 0, ..xs]
+";
+    check(
+        "def apply (xs: List Nat) (kif:-- c\n List Nat →\n-- c\n Nat): Nat := k [0, 0, ..xs]\n",
+        after,
+    );
+    check(
+        "def apply (xs: List Nat) (kif:-- c\n List Nat → -- c\n Nat): Nat := k [0, 0, ..xs]\n",
+        after,
+    );
+}
