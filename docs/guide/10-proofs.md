@@ -820,7 +820,7 @@ theorem bigWhenNot ∀ (n: Nat) (h: isSmall n = False): 3 < n := h
 1 error: in `bigWhenNot`
 ```
 
-Here `h.read` is the answer. Equality works the same way. For a record with `==`, a fact `(a == b) = True` reads as `a = b`, the equation of the two records, not a list of what each field says, so it can be handed to `rewrite`:
+Here `h.read` is the answer. A fact about a longer chain of `&&` is taken apart in one go with a tuple pattern: `let (a, b, c) := h.read` gives the first part, then the others as facts of their own, each usable as its proposition with `.read`. Equality works the same way. For a record with `==`, a fact `(a == b) = True` reads as `a = b`, the equation of the two records, not a list of what each field says, so it can be handed to `rewrite`:
 
 <!-- snippet: tests-and-propositions.sw#same -->
 ```stitchwort

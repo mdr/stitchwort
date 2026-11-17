@@ -310,6 +310,10 @@ fn destructure(
         // At an unknown proposition a pair can't be right: the `match` the
         // pattern falls back to says so, and fails in place.
         Pattern::Tuple(..) if crate::prop_unknown(cx, &ty) => Ok(false),
+        // A test fact (`rest: (b && c) = True`, the second part of
+        // `h.read` on a longer chain) is taken apart by what it reads as,
+        // which the `match` the pattern falls back to does (SW-3740).
+        Pattern::Tuple(..) if crate::reading::test_fact(cx, &ty)?.is_some() => Ok(false),
         Pattern::Tuple(a, b, span) => {
             let pair = builtin_data(cx, Builtin::Pair)?;
             let params = match ty {

@@ -3347,10 +3347,28 @@ impl<'t> Parser<'t> {
         }
         if self.peek() == Some(&Tok::KwThen) || own_line(Tok::KwThen) {
             self.bump();
-            self.expr()?;
+            self.then_body()?;
         }
         self.node(start, NodeKind::Rewrite);
         Ok(())
+    }
+
+    /// The body after a `then` that ends its line: the lines that follow it
+    /// at the enclosing block's own column are the body (a block of its
+    /// own), not new statements of the block, since a `rewrite … then` with
+    /// nothing after it can't be a statement of its own. Otherwise an
+    /// ordinary expression (SW-3733).
+    fn then_body(&mut self) -> Result<()> {
+        if let Some(token) = self.tokens.get(self.pos)
+            && token.line_start
+            && self.pos > 0
+            && self.modes.allow != Some(self.pos)
+            && !self.ends_construct(self.pos)
+            && self.modes.limit == Some(token.column)
+        {
+            return self.block(token.column, true);
+        }
+        self.expr()
     }
 
     /// `cases` or `cases then t`, after the `cases` (docs/proposals/simp.md
@@ -3363,7 +3381,7 @@ impl<'t> Parser<'t> {
             return Ok(());
         }
         self.bump();
-        self.expr()?;
+        self.then_body()?;
         self.node(start, NodeKind::Cases);
         Ok(())
     }
