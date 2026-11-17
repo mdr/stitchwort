@@ -1,5 +1,5 @@
 {
-  "next": 3858,
+  "next": 3861,
   "tickets": [
     {
       "id": 47,
@@ -21990,7 +21990,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "SW-3830 hit it too: arithmetic rejects goals once a hypothesis mentioning pow2 1074 * bound is in scope, even when not passed to it.",
+      "body": "SW-3830 hit it too: arithmetic rejects goals once a hypothesis mentioning pow2 1074 * bound is in scope, even when not passed to it.\n\nSW-3844 hit it again: the error points at the goal, not the hypothesis with Nat.pow 2 2097 that caused it.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22154,12 +22154,12 @@
     {
       "id": 3844,
       "title": "[Opus] Whereabouts answer in band: the step-0.1 case (error bounds for / and *, a spec for round, / 10.0 error), the margin row, latitude clamps, longitude's wrapped interval (apps/whereabouts/NOTES.md table, SW-3830 report); after SW-3843",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "whereabouts",
-      "body": "Expected 60 min (Opus); started 16:53, finished about 17:30.\n\nDone (lane/SW-3844):\n- Latitude clamps proved: latitudeClampRange, clampFromKeeps, clampToKeeps.\n- Margin row, float (monotone) form proved: placeAtRange, shareOfWidth, marginRow (lat - 0.85*width <= lat - placeAt unit*width <= lat - 0.15*width, each operation rounded). The exact form (margin 0.15*width minus a few ulps) is left.\n- Step 0.1: NOTES' bound floorTo x 0.1 <= x + 2^-45 for |x| <= 360 is false: floorTo (-359.90000000000003) 0.1 = -359.9, 2^-44 above (floorToTenthOneUlpAbove, ceilToTenthOneUlpBelow, by computing). A search of 800,000 inputs found at most one ulp of x. Provable target: x + 2^-42.\n- std: the standard error model, Float.Theory.roundsToRelError (|r d - t| 2^53 <= t + d 2^52 for a finite rounding below 2^2097 units) and Float.addRelError, Float.mulRelError, Float.divRelError; round's spec Float.roundNear; Float.negAntitone, negFinite, subMonotoneLeft, subAntitoneRight, finiteBetween, mulCommFinite, zeroMulNonneg.\n- Not done: the step-0.1 chain (round trip round (k*0.1*10.0) = k, then divRelError twice with floorLe), the exact margin, longitude's wrapped interval, the answer-in-band theorem.\n- Tests: hash_stability::prelude (additions only, re-accepted), fmt_repo:: pass; audit Whereabouts.Hints.Proofs 29/29.\n",
+      "body": "Expected 60 min (Opus); started 16:53, finished about 17:30.\n\nDone (lane/SW-3844):\n- Latitude clamps proved: latitudeClampRange, clampFromKeeps, clampToKeeps.\n- Margin row, float (monotone) form proved: placeAtRange, shareOfWidth, marginRow (lat - 0.85*width <= lat - placeAt unit*width <= lat - 0.15*width, each operation rounded). The exact form (margin 0.15*width minus a few ulps) is left.\n- Step 0.1: NOTES' bound floorTo x 0.1 <= x + 2^-45 for |x| <= 360 is false: floorTo (-359.90000000000003) 0.1 = -359.9, 2^-44 above (floorToTenthOneUlpAbove, ceilToTenthOneUlpBelow, by computing). A search of 800,000 inputs found at most one ulp of x. Provable target: x + 2^-42.\n- std: the standard error model, Float.Theory.roundsToRelError (|r d - t| 2^53 <= t + d 2^52 for a finite rounding below 2^2097 units) and Float.addRelError, Float.mulRelError, Float.divRelError; round's spec Float.roundNear; Float.negAntitone, negFinite, subMonotoneLeft, subAntitoneRight, finiteBetween, mulCommFinite, zeroMulNonneg.\n- Not done: the step-0.1 chain (round trip round (k*0.1*10.0) = k, then divRelError twice with floorLe), the exact margin, longitude's wrapped interval, the answer-in-band theorem.\n- Tests: hash_stability::prelude (additions only, re-accepted), fmt_repo:: pass; audit Whereabouts.Hints.Proofs 29/29.\n\nModel result: opus, worked, 35 min (est. 60). Follow-ups SW-3858 SW-3859 SW-3860.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22328,6 +22328,45 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3858,
+      "title": "[Opus] Whereabouts answer in band, part 2: the round trip round (k * 0.1 * 10.0) = k (1 <= |k| <= 3601), the step-0.1 bound floorTo x 0.1 <= x + 2^-42, the exact margin row, longitude's wrap of whole-degree edges and the wrapped interval, then the full theorem with the tolerance's lower bound and the ieeeLe bridge (SW-3844 report)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "whereabouts",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3859,
+      "title": "[Sonnet] A duplicate std theorem name panics the checker ('Std.Float.Theory.mulLeLeft is declared twice' as a Rust panic, no [E-...] line), so filtered output looks like a pass: report E-DUPLICATE as for user code (SW-3732); test with a std file declaring a name twice (SW-3844 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3860,
+      "title": "[Sonnet] check --std should print how many declarations and theorems it checked, so a lane can tell a real pass from a run that checked nothing; and k * x with a literal k near 2^53 runs out of resources (E-RESOURCE unfolding Nat.mul) even in a lemma's type, while x * k is fine (SW-3844 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
