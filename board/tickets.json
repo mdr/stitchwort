@@ -1,5 +1,5 @@
 {
-  "next": 3918,
+  "next": 3920,
   "tickets": [
     {
       "id": 47,
@@ -22676,12 +22676,12 @@
     {
       "id": 3884,
       "title": "[Opus] Stage 5 planning: make meaning genuinely comment-free (today a meaning still stores every token's comments, unread). Options: (a) Meaning as the dump of the plain tree (least code; trusts the dump, which Twin already does; proofs then go through the dumper), (b) a map blanking every comment (~90 places of trusted code). Orchestrator's call under D3678 when stage 5's top theorem is set up, weighing proof cost (SW-3882 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Decided by SW-3902's plan (orchestrator's call): option (b), a blanking map applied before meaning's steps; fails safe; stage 5's top theorem gets meaning by congruence.\n\nNow needed: SW-3877 showed P4 doesn't keep meaning as written (split group pieces all carry the opening bracket's comments). Do (b) the blanking map, then P4's merge fact and the four-pass theorem.\n\nProgress (Opus lane, 17 Nov 2026, branch lane/SW-3884):\n- Done: Fmt/Blank.sw, the blanking map (a step-shaped function a traversal step, each blanking the node's own comments and those of step-less records inside it); meaning's steps blank each node first and meaning blanks the end comments. BlankProofs.sw: meaningBlanksFirst, file.withoutComments.meaning = file.meaning (no axioms). P1-P3 proofs fixed (firstThreeKeepMeaning, no axioms). Test: a merged group's pieces hold no comments.\n- Checked: Twin --stage meaning kept on 132 goldens + 224 repo files; meaning oracle 103 agreed, 0 findings; twin passes goldens 132/132, repo 300/300.\n- Not done: P4's Keeps fact and tidyKeepsMeaning. Stopped per brief: joins reads the raw type's dump (typeLines) where meaning reads the walked type, for type equality (false over all trees: the dump omits an atom's Tok) and for self-naming; closing it changes joins (proposed: compare walked types with Expr's derived ==, and self-naming on the walked merged type). See tools/fmt/NOTES.md, \"A comment-free meaning\".\n\n\nResumed (orchestrator: joins = rustJoins AND meaningJoins): P4 and tidyKeepsMeaning proved, no axioms (MergeProofs.sw). Twin (interpreted) passes goldens 132/132, repo 300/300; meaning stage kept 132 + 224; oracle 103 agreed, 0 findings.\n",
+      "body": "Decided by SW-3902's plan (orchestrator's call): option (b), a blanking map applied before meaning's steps; fails safe; stage 5's top theorem gets meaning by congruence.\n\nNow needed: SW-3877 showed P4 doesn't keep meaning as written (split group pieces all carry the opening bracket's comments). Do (b) the blanking map, then P4's merge fact and the four-pass theorem.\n\nProgress (Opus lane, 17 Nov 2026, branch lane/SW-3884):\n- Done: Fmt/Blank.sw, the blanking map (a step-shaped function a traversal step, each blanking the node's own comments and those of step-less records inside it); meaning's steps blank each node first and meaning blanks the end comments. BlankProofs.sw: meaningBlanksFirst, file.withoutComments.meaning = file.meaning (no axioms). P1-P3 proofs fixed (firstThreeKeepMeaning, no axioms). Test: a merged group's pieces hold no comments.\n- Checked: Twin --stage meaning kept on 132 goldens + 224 repo files; meaning oracle 103 agreed, 0 findings; twin passes goldens 132/132, repo 300/300.\n- Not done: P4's Keeps fact and tidyKeepsMeaning. Stopped per brief: joins reads the raw type's dump (typeLines) where meaning reads the walked type, for type equality (false over all trees: the dump omits an atom's Tok) and for self-naming; closing it changes joins (proposed: compare walked types with Expr's derived ==, and self-naming on the walked merged type). See tools/fmt/NOTES.md, \"A comment-free meaning\".\n\n\nResumed (orchestrator: joins = rustJoins AND meaningJoins): P4 and tidyKeepsMeaning proved, no axioms (MergeProofs.sw). Twin (interpreted) passes goldens 132/132, repo 300/300; meaning stage kept 132 + 224; oracle 103 agreed, 0 findings.\n\nModel result: opus, worked, 30 min over two parts (est. 45). Orchestrator's call: joins conjoins Rust's test with meaning's (subset of Rust's merges; output byte-identical). Statement checked: tidyKeepsMeaning ∀ file, file.tidy.meaning = file.meaning, with tidy the four passes in order. Follow-ups SW-3918 SW-3919.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22988,7 +22988,7 @@
     {
       "id": 3908,
       "title": "[DeepSeek] tools/fmt Passes.sw: joins compares the two groups' GroupKind (harmless on parsed files; needed for P4's proof) (SW-3877 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
@@ -23110,6 +23110,32 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3918,
+      "title": "[DeepSeek] tools/fmt/NOTES.md: mark stage 4b's 'What 5 inherits' and SW-3877's 'P4 doesn't keep meaning as stated' superseded by the P4 section; add a ready-made wrapper for the interpreted Fmt.Twin (absolute batch paths, run from tools/fmt); note the native twin build peaks at 2.4 GB (SW-3884 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3919,
+      "title": "[DeepSeek] Proving guide: a {Fail} step whose body never fails won't evaluate under Fail.toResult and blows cases' budget; declare such steps pure (SW-3884, stage 4b) — merge with SW-3910",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
