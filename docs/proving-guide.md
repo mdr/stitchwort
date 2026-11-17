@@ -824,6 +824,53 @@ premises) before using it. `Nat.addComm`, `Nat.addZero`, `Nat.modLess`,
 If std lacks a lemma you needed, prove it in your namespace and list it in
 the report as a std candidate (agentic-proving.md §5 A, about 40 items, is the largest category).
 
+### Checking, auditing and testing a std lemma
+
+Std is a folder of files (`crates/elab/src/std`), not a project, so the
+commands that name a project's namespaces take a different form
+([testing.md](testing.md#editing-the-standard-library), SW-2863). The
+checkout's library is found from the binary, so they run from any folder;
+`--std-dir DIR` names another copy.
+
+- **Check the file** a lemma is in, with its path relative to the library:
+  `stitchwort check --std Float/Theory.sw` (or `Std.Float.Theory`, or a
+  folder, `Float`). It checks that file in full, proof bodies included, and
+  the files it needs:
+
+  ```
+  checked 1 standard library file
+  ```
+
+  The cache is `.stitchwort/cache` in the current folder, as for `check`.
+
+- **Audit a lemma by its full name**, from any folder, including a project's:
+  `stitchwort audit Std.Float.Theory.absBelowOf`. With no findings it prints
+  the summary alone (rule 3 asks for that line in the report); `--verbose`
+  adds a line per theorem, with its axioms and search result:
+
+  ```
+  audited 1 theorem: 0 failed, 0 with warnings, 1 passed
+  ```
+
+- **Test a `test` block.** `check` checks the block's statement but doesn't
+  run it, and a library file has no project to name, so copy the test into a
+  scratch `.sw` file with an import of what it uses, and run
+  `stitchwort test FILE`:
+
+  ```
+  import Std (Float, Int, Nat)
+
+  test "abs" := Float.abs (-2.0) == 2.0
+  ```
+
+  ```
+    ✓ abs  ran
+  1 test(s): 1 passed, 0 failed (0 from the cache)
+  ```
+
+  `--only NAME` runs one test of the file. Tests are runtime checks of
+  closed `Bool` expressions, not proofs.
+
 ## 6. Performance pitfalls
 
 Checking compares terms by computing them. On unknown arguments, a cheap
