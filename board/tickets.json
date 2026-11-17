@@ -1,5 +1,5 @@
 {
-  "next": 3865,
+  "next": 3866,
   "tickets": [
     {
       "id": 47,
@@ -22198,7 +22198,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Started 16:59, est. 70 min. Done 17:31 (32 min).\n- 693716992: every 2c construct parsed (Statements.sw); goldens 124/124, repo sample 300/300, fuzz 235/235 identical, tree and refusal.\n- b9ab0e7fe / c96c179bc: R1 gaps report the error Rust sorts first; skipGroup pairs brackets by kind (mismatched-bracket case fixed); lambda_result_type ported; 19 tests in Syntax.Tests.Statements.\n- c2be19657: NOTES.md stage 2c (gate, block representation and read-back, speed 3.2 s/MB tree vs 2b's 3.0, friction, left). notYet removed.\n- Refusals: 1,600 broken copies of 2c-heavy repo files (3 seeds) and 92 hand cases identical.\n- SW-3853 (f !!b): not reproducible; Rust refuses it too and the twin agrees.\n\nModel result: opus, worked, 31 min (est. 70). Parser complete: 0 not parsed yet. Follow-ups SW-3861 SW-3862; SW-3853 closed.",
+      "body": "Started 16:59, est. 70 min. Done 17:31 (32 min).\n- 693716992: every 2c construct parsed (Statements.sw); goldens 124/124, repo sample 300/300, fuzz 235/235 identical, tree and refusal.\n- b9ab0e7fe / c96c179bc: R1 gaps report the error Rust sorts first; skipGroup pairs brackets by kind (mismatched-bracket case fixed); lambda_result_type ported; 19 tests in Syntax.Tests.Statements.\n- c2be19657: NOTES.md stage 2c (gate, block representation and read-back, speed 3.2 s/MB tree vs 2b's 3.0, friction, left). notYet removed.\n- Refusals: 1,600 broken copies of 2c-heavy repo files (3 seeds) and 92 hand cases identical.\n- SW-3853 (f !!b): not reproducible; Rust refuses it too and the twin agrees.\n\nModel result: opus, worked, 31 min (est. 70). Parser complete: 0 not parsed yet. Follow-ups SW-3861 SW-3862; SW-3853 closed.\n\nVerifier on main: tokens 3754/3756 (the 2 are SW-3816 escaping), refusal 3756/3756, tree goldens 124/124, repo 1931/1936 (5 real differences, SW-3865), old layout 1217/1696 (files the current grammar refuses; Rust dumps a tree with errors, the twin stops).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22414,6 +22414,19 @@
     {
       "id": 3864,
       "title": "[Opus] Self-hosted formatter stage 4b: meaning (D3678: the narrow form, forgetting only what a pass changes where it changes it), on the shared traversal; correct self-hosted-fmt.md §3.4's first row and the 94 kinds to 98; prove the sketch's per-pass 'keeps meaning' step facts that are cheap; Opus review of Meaning.sw with Traverse.sw (after SW-3863)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3865,
+      "title": "[Sonnet] Self-hosted formatter tree stage: 5 of 1,936 repo files differ from Rust after stage 2c, first aoc/src/Aoc/Year2024/Day04/Tests/Examples.sw line 30 (Rust: FieldAccess; twin: a \"\"\" text, i.e. a method or field on a \"\"\" text literal); fix all five with tests. The 479 old-layout differences are files the current grammar refuses (refusal stage identical on all 1,696), out of scope (SW-3847 verifier)",
       "status": "backlog",
       "agent": "",
       "where": "",
