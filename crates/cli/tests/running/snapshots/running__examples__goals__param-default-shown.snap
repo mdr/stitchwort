@@ -47,7 +47,7 @@ expression: output
     │ 
     │ Note 1: computing the left side gives `a + (a * 2)`
     │ 
-    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+    │ Note 2: (see the note above: "`byComputing` proves `a =…")
     │ 
     │ Note 3: this statement is false; a counterexample:
     │           a = 1

@@ -1229,7 +1229,7 @@ fn prove_goal(
     };
     let void = Value::Data(lib.void, Vec::new().into());
     let Ok(proof) = linear(cx, lib, Goal::Void, &void, extra, span) else {
-        return Err(unsupported.with_note(
+        return Err(unsupported.with_generic_note(
             "for any other goal, `arithmetic` looks for facts that contradict each other, and found none",
         ));
     };

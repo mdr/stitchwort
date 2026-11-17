@@ -848,7 +848,7 @@ struct MeasureFrame;
 impl crate::queue::ErrorFrame for MeasureFrame {
     fn map(&self, _cx: &mut Ctx, d: Diagnostic) -> Diagnostic {
         if d.code == "E-TYPE-MISMATCH" {
-            d.with_note(
+            d.with_generic_note(
                 "the measure after `decreasing` is a `Nat` that gets smaller at every recursive \
                  call",
             )

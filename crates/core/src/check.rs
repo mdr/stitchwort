@@ -821,7 +821,7 @@ fn check_other(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
                         "`byComputing` can't prove this",
                         format!("`{}` and `{}` aren't equal", cx.show(a), cx.show(b)),
                     )
-                    .with_note(
+                    .with_generic_note(
                         "`byComputing` proves `a = b` only when both sides compute to the same value",
                     ))
             }

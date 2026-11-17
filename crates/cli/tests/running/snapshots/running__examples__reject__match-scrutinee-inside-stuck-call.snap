@@ -26,5 +26,5 @@ expression: output
     │ 
     │ Note 2: the `match` on `t.note` replaces it only where the goal shows it, as written or computed, not inside a call that is stuck: a record pattern that destructures the value, or a helper lemma taking the matched part as a variable, reaches the inner `match`
     │ 
-    │ Note 3: `byComputing` proves `a = b` only when both sides compute to the same value
+    │ Note 3: (see the note above: "`byComputing` proves `a =…")
 ────╯

@@ -25,5 +25,5 @@ expression: output
    │                                                                      ─────┬─────  
    │                                                                           ╰─────── `a - b + b` and `a` aren't equal
    │ 
-   │ Note: `byComputing` proves `a = b` only when both sides compute to the same value
+   │ Note: (see the note above: "`byComputing` proves `a =…")
 ───╯

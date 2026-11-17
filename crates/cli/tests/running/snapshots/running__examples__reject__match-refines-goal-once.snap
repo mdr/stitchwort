@@ -38,7 +38,7 @@ expression: output
     │     
     │     Note 1: the left side is stuck on `n` and the right side on `rest`: neither can compute further until its variable is known; a `match` (or `cases`) on one splits it
     │     
-    │     Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+    │     Note 2: (see the note above: "`byComputing` proves `a =…")
     │     
     │     Note 3: the `match` inside `run` has generated equations, one for each way through it: `run.eq2.some`, `run.eq2.none`, each under the hypothesis its branch is taken under; `stitchwort doc run` lists them
     │     

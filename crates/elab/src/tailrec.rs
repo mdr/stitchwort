@@ -350,12 +350,12 @@ impl Walk<'_> {
         for (span, why) in &self.errors {
             d = d.with_label(*span, why.label());
         }
-        d = d.with_note(
+        d = d.with_generic_note(
             "a call is in tail position when its result is the function's result, with nothing \
              left to do after it returns; then each call is a turn of a loop, not a new frame",
         );
         if self.errors.iter().any(|(_, why)| why.is_field()) {
-            d = d.with_note(
+            d = d.with_generic_note(
                 "building a list or a tree around the call is cheap on `stitchwort run` and in \
                  JavaScript, but @[tailrec] promises only true tail calls: carry the result in \
                  an extra parameter and reverse it at the end",
@@ -371,7 +371,7 @@ impl Walk<'_> {
                     | Why::Effect { .. }
             )
         }) {
-            d = d.with_note(
+            d = d.with_generic_note(
                 "to use the result, carry it along in an extra parameter (an accumulator) that \
                  the call updates",
             );

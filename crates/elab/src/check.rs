@@ -1693,7 +1693,7 @@ impl<'e> Ctx<'e> {
             if contains(&expected) || contains(&found) {
                 return d
                     .with_label(*span, "the `match`'s scrutinee, still in this type")
-                    .with_note(
+                    .with_generic_note(
                         "a term written out inside a branch (an explicit argument, or a type you \
                      wrote) isn't refined by the `match`: only the goal and the variables in scope \
                      are, so it still has the scrutinee in it. Write `_` for such an argument, so \
@@ -9933,8 +9933,9 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
             error = error.with_note(note);
         }
     }
-    let error = error
-        .with_note("`byComputing` proves `a = b` only when both sides compute to the same value");
+    let error = error.with_generic_note(
+        "`byComputing` proves `a = b` only when both sides compute to the same value",
+    );
     let error = match match_equation_note(cx, &sides[0], &sides[1]) {
         Some(note) => error.with_note(note),
         None => error,

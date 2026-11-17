@@ -335,7 +335,7 @@ fn budget_error(run: &Run) -> Diagnostic {
             vars.join(", ")
         ));
     }
-    d.with_note(
+    d.with_generic_note(
         "prove a fact that decides some of the cases at once and give it as `cases then t`, \
          or split by hand with `match`",
     )
@@ -696,7 +696,7 @@ fn open_case(
                 "a"
             }
         )),
-        None => d.with_note(
+        None => d.with_generic_note(
             "the goal isn't stuck on anything `cases` can take apart, and neither `byComputing`, a \
              contradiction, a hypothesis, `arithmetic` nor deciding it (as `byDecision` does) proves \
              it; give this case's proof as `cases then t`",

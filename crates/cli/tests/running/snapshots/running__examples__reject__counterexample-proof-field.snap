@@ -18,7 +18,7 @@ expression: output
    │                                               ─────┬─────  
    │                                                    ╰─────── `r.lo` and `r.hi` aren't equal
    │ 
-   │ Note 1: `byComputing` proves `a = b` only when both sides compute to the same value
+   │ Note 1: (see the note above: "`byComputing` proves `a =…")
    │ 
    │ Note 2: this statement is false; a counterexample:
    │           r = { lo = 0, hi = 1, ok = byComputing }

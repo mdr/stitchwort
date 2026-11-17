@@ -20,9 +20,9 @@ expression: output
     │                           ────────────────┬───────────────  
     │                                           ╰───────────────── this recursive call might not terminate: the 1st argument, `MkRose [k, k, ..rest]`, isn't seen as smaller
     │ 
-    │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ Note 1: (see the note above: "however the recursive calls…")
     │ 
-    │ Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type. A depth limit keeps it total and provable: an extra `fuel: Nat` argument that decreases on each call, failing (or returning a default) when it runs out
+    │ Note 2: (see the note above: "non-terminating definitions are rejected…")
 ────╯
 [E-TERMINATION] Error: can't show that `roseFirst` terminates
     ╭─[ reject/termination-wrapper-same-size.sw:20:27 ]
@@ -31,9 +31,9 @@ expression: output
     │                           ──────────┬──────────  
     │                                     ╰──────────── this recursive call might not terminate: the 1st argument, `MkRose [k]`, isn't seen as smaller
     │ 
-    │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ Note 1: (see the note above: "however the recursive calls…")
     │ 
-    │ Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type. A depth limit keeps it total and provable: an extra `fuel: Nat` argument that decreases on each call, failing (or returning a default) when it runs out
+    │ Note 2: (see the note above: "non-terminating definitions are rejected…")
 ────╯
 [E-TERMINATION] Error: can't show that `vecAgain` terminates
     ╭─[ reject/termination-wrapper-same-size.sw:30:38 ]
@@ -42,9 +42,9 @@ expression: output
     │                                      ──────────────────┬──────────────────  
     │                                                        ╰──────────────────── this recursive call might not terminate: the 1st argument, `MkWv (VCons (Succ n) x (VCons n y rest))`, stays the same
     │ 
-    │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ Note 1: (see the note above: "however the recursive calls…")
     │ 
-    │ Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type. A depth limit keeps it total and provable: an extra `fuel: Nat` argument that decreases on each call, failing (or returning a default) when it runs out
+    │ Note 2: (see the note above: "non-terminating definitions are rejected…")
 ────╯
 [E-TERMINATION] Error: can't show that `vecSameLength` terminates
     ╭─[ reject/termination-wrapper-same-size.sw:34:38 ]
@@ -53,7 +53,7 @@ expression: output
     │                                      ─────────────────────┬────────────────────  
     │                                                           ╰────────────────────── this recursive call might not terminate: the 1st argument, `MkWv (VCons (Succ n) y (VCons n y rest))`, isn't seen as smaller
     │ 
-    │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ Note 1: (see the note above: "however the recursive calls…")
     │ 
-    │ Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type. A depth limit keeps it total and provable: an extra `fuel: Nat` argument that decreases on each call, failing (or returning a default) when it runs out
+    │ Note 2: (see the note above: "non-terminating definitions are rejected…")
 ────╯

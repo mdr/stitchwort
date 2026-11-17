@@ -26,7 +26,7 @@ expression: output
     │                                                  ─────┬─────  
     │                                                       ╰─────── `i.toNat <= 3` and `True` aren't equal
     │ 
-    │ Note 1: `byComputing` proves `a = b` only when both sides compute to the same value
+    │ Note 1: (see the note above: "`byComputing` proves `a =…")
     │ 
     │ Note 2: this statement is false; a counterexample:
     │           i = 4
@@ -39,7 +39,7 @@ expression: output
     │                                                      ─────┬─────  
     │                                                           ╰─────── `v.head` and `0` aren't equal
     │ 
-    │ Note 1: `byComputing` proves `a = b` only when both sides compute to the same value
+    │ Note 1: (see the note above: "`byComputing` proves `a =…")
     │ 
     │ Note 2: this statement is false; a counterexample:
     │           v = Vec.fromList [1, 0, 0]
@@ -54,7 +54,7 @@ expression: output
     │                                                      ─────┬─────  
     │                                                           ╰─────── `m.size` and `0` aren't equal
     │ 
-    │ Note 1: `byComputing` proves `a = b` only when both sides compute to the same value
+    │ Note 1: (see the note above: "`byComputing` proves `a =…")
     │ 
     │ Note 2: this statement is false; a counterexample:
     │           m = Map.fromList [(0, 0)]
@@ -71,7 +71,7 @@ expression: output
     │ 
     │ Note 1: computing the left side gives `s.items.size`
     │ 
-    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+    │ Note 2: (see the note above: "`byComputing` proves `a =…")
     │ 
     │ Note 3: this statement is false; a counterexample:
     │           s = { items = Map.fromList [(0, ())] }

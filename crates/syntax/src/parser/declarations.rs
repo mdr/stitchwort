@@ -20,7 +20,7 @@ use crate::{Diagnostic, Span};
 pub(super) fn misplaced_attributes(first: &FirstAttribute, what: &str) -> Diagnostic {
     Diagnostic::error("E-ATTRIBUTE", format!("attributes can't be used on {what}"))
         .with_label(first.span, format!("`{}` is on {what}", first.name))
-        .with_note(ATTRIBUTE_PLACES)
+        .with_generic_note(ATTRIBUTE_PLACES)
 }
 
 /// Where attributes may be written, for messages.

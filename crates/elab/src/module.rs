@@ -2702,7 +2702,7 @@ impl Elaborator {
                 format!("`{}` is defined here", items[first].name),
             )
             .with_note(format!("the cycle is `{}`", trail.join(" -> ")))
-            .with_note(
+            .with_generic_note(
                 "a type synonym stands for its definition, so a cycle never reaches a type; \
                  break the cycle by defining at least one of them as a data type with \
                  constructors",

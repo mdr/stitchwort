@@ -360,7 +360,7 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
                     // didn't compute (games/rogue/NOTES.md §2).
                     "it involves values that aren't known here, and computing it doesn't settle it",
                 )
-                .with_note("establish it first, with `if h: … then … else …`");
+                .with_generic_note("establish it first, with `if h: … then … else …`");
             if let Some(note) = hidden_name_note(&shown) {
                 error = error.with_note(note);
             }
@@ -1107,7 +1107,7 @@ fn decide_unglued(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
             format!("no way to decide `{shown}`"),
             "the compiler needs a proof of this",
         )
-        .with_note("supply a proof by name, or write a decision procedure: an `instance` returning `Decidable …`");
+        .with_generic_note("supply a proof by name, or write a decision procedure: an `instance` returning `Decidable …`");
     if mentions_match(cx, prop) {
         error = error.with_note(
             "the `match` is checked where it's written: hold it in a small helper definition, \

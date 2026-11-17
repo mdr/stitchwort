@@ -22,7 +22,7 @@ expression: output
     │ 
     │ Note 1: making this call twice in a row, over and over, no argument is known to get smaller
     │ 
-    │ Note 2: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ Note 2: (see the note above: "however the recursive calls…")
     │ 
-    │ Note 3: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type. A depth limit keeps it total and provable: an extra `fuel: Nat` argument that decreases on each call, failing (or returning a default) when it runs out
+    │ Note 3: (see the note above: "non-terminating definitions are rejected…")
 ────╯

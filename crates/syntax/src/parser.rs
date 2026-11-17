@@ -916,7 +916,7 @@ impl<'t> Parser<'t> {
         if !self.is_stop(self.pos) && self.tokens.get(self.pos).map(|t| &t.tok) == Some(&Tok::At) {
             return Diagnostic::error("E-ATTRIBUTE", "attributes can't be written here")
                 .with_label(self.here(), format!("expected {expected}"))
-                .with_note(declarations::ATTRIBUTE_PLACES);
+                .with_generic_note(declarations::ATTRIBUTE_PLACES);
         }
         let found = match self.tokens.get(self.pos) {
             Some(_) if self.modes.calc_depth > 0 && self.starts_calc_step(self.pos) => {

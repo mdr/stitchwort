@@ -1079,7 +1079,7 @@ pub(crate) fn article(name: &str) -> &'static str {
 fn negative_nat(span: Span) -> Diagnostic {
     Diagnostic::error("E-TYPE-MISMATCH", "a `Nat` can't be negative")
         .with_label(span, "this is negative, but it matches a `Nat`")
-        .with_note("use an `Int` for numbers that can be negative")
+        .with_generic_note("use an `Int` for numbers that can be negative")
 }
 
 /// The error for the number pattern `k` on a `Fin`, above `MAX_FIN_PATTERN`.
