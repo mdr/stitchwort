@@ -22715,12 +22715,12 @@
     {
       "id": 3887,
       "title": "[Opus] Elaborator: with a local pv: Float.Model.pow2 1074 = v * 2^55 in scope, .left on a value whose type mentions k * 0.1 fails with 'expected Float.isValid 4591870180066957722, but this has type pow2 1074 = …': a float literal's validity proof seems filled from an unrelated local; reduce and fix with a failing-first example (SW-3872 finding)",
-      "status": "doing",
-      "agent": "",
-      "where": "",
+      "status": "review",
+      "agent": "Opus",
+      "where": "lane/SW-3887",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "Estimate 35 min; took ~30 min (19:49-20:20).\n\nRepro (any `let` of a type-ambiguous value, then an implicit solved from a goal holding another such form):\n    theorem t ∀ (x: Float) (rb: Float.leq 1.0 x = True ∧ True): Float.leq 1.0 x = True :=\n      let e: 2 = 2 := byComputing\n      rb.left\nCause: `unify::refold` (via `lift.rs` `around` and `zonk_let`) folds every syntactic occurrence of a `let`'s value normal form in a solution back to the `let`'s variable. `Refl` is untyped, so the Float literal's `Refl` witness became `e`. Same for `[]`, `None`, lambdas (`let xs: List Nat := []` broke `[]: List Bool`). Kernel caught it: no soundness issue.\nFix: `worth_folding` also requires `type_fixed` (crates/elab/src/unify.rs). Example: examples/accept/let-folding-keeps-types.sw (4 errors before, checks after).\nHashes: std proofs (131, mostly Float.Theory) and 6 examples change, because let-bound `byComputing`s and lambdas are no longer folded back; no pinned hash affected.\nTests: hash_stability::examples/prelude (regenerated), accepted_examples_check (EXAMPLES=let-folding-keeps-types), soundness_examples_fail_for_the_expected_reason, Float/Theory.sw check, Whereabouts check: all pass.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
