@@ -1,5 +1,5 @@
 {
-  "next": 3758,
+  "next": 3763,
   "tickets": [
     {
       "id": 47,
@@ -38459,9 +38459,9 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "D3672 (Matt, 17 Nov 2026): adopt 'in an arm, the scrutinee is the pattern, for everything' as an experiment we may back out of. Built as SW-3758, SW-3759, checkpoint SW-3760, then SW-3761, SW-3762.",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -38485,9 +38485,9 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "D3672 (Matt, 17 Nov 2026): adopt 'in an arm, the scrutinee is the pattern, for everything' as an experiment we may back out of. Built as SW-3758, SW-3759, checkpoint SW-3760, then SW-3761, SW-3762.",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -40740,9 +40740,9 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "D3672 (Matt, 17 Nov 2026): adopt 'in an arm, the scrutinee is the pattern, for everything' as an experiment we may back out of. Built as SW-3758, SW-3759, checkpoint SW-3760, then SW-3761, SW-3762.",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -40904,9 +40904,9 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "D3672 (Matt, 17 Nov 2026): adopt 'in an arm, the scrutinee is the pattern, for everything' as an experiment we may back out of. Built as SW-3758, SW-3759, checkpoint SW-3760, then SW-3761, SW-3762.",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -42091,7 +42091,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "D3672 (Matt, 17 Nov 2026): adopt 'in an arm, the scrutinee is the pattern, for everything' as an experiment we may back out of. Built as SW-3758, SW-3759, checkpoint SW-3760, then SW-3761, SW-3762.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42307,6 +42307,71 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3758,
+      "title": "[Opus] match refinement S1+S2 (D3672 experiment (docs/proposals/match-refinement.md) §7): hidden equation for an unnamed match made when an arm needs it (arguments), and rewrite along it when a closer's computed goal still has e; §2's repros as accept examples; record elab lines added and std/AoC step counts before/after",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3759,
+      "title": "[Opus] match refinement S3 (D3672 experiment (docs/proposals/match-refinement.md) §7): comparison carries on past e against p (implicits solved), rewrite rules retried along the equation; makes kernel terms in a new place: Opus review (D2364) and examples::soundness. After SW-3758",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3760,
+      "title": "[Opus paper] D3672 checkpoint after SW-3758 and SW-3759: review the experiment against its stop signals (elab complexity: one mechanism or a pile of special cases, lines added; hashes of checking proofs unchanged; std/AoC elaboration steps; repros of §2 all pass; internal errors or round caps hit); recommend continue (S4-S6) or back out",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "Matt's stop signal: 'exploding complexity in the code ... how complex is this to implement and maintain'. Until this checkpoint passes, std, aoc and the toy don't rely on the new behaviour (no sweep), so backing out is a revert.",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3761,
+      "title": "[Opus] match refinement S4 + S6 (D3672 experiment (docs/proposals/match-refinement.md) §7): a let's name as a scrutinee is a hypothesis (SW-3468); unknowns: written forms first, abstraction as last resort, guesses held back (SW-3650 items 2-3). After checkpoint SW-3760",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3762,
+      "title": "[Sonnet] match refinement S5 (D3672 experiment (docs/proposals/match-refinement.md) §7): messages: goal view marks refined hypotheses, errors in an arm name the match first, headline leads with a guessed implicit, 'guessed' note. After checkpoint SW-3760",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
