@@ -64,7 +64,7 @@ NaN, ±Infinity, -0 and 2^60): `hintBand`'s edges (`Object.is`),
 
 ## Theorems
 
-Proved (`stitchwort audit Whereabouts.Hints.Proofs`: 21 theorems, 0 failed,
+Proved (`stitchwort audit Whereabouts.Hints.Proofs`: 29 theorems, 0 failed,
 0 with warnings):
 
 - `finalWordBelow`: mulberry32's last word is below 2^32. Unconditional.
@@ -100,6 +100,21 @@ Proved (`stitchwort audit Whereabouts.Hints.Proofs`: 21 theorems, 0 failed,
   edge; finding 2 is that longitude edges aren't tenths.
 - `floatLeTrans`, `floatLeLtTrans`: transitivity of the total order, for
   the above (std has it only inside `Ord`; see "std gaps").
+- Latitude's clamps (SW-3844): `latitudeClampRange` (`Float.max (-90.0)
+  (Float.min 90.0 y)` is in [-90, 90] for every `y` but the NaN), and the
+  two the band uses: `clampFromKeeps` (clamping a lower edge at -90 keeps
+  it at most an answer with `-90 <= lat`) and `clampToKeeps` (likewise the
+  upper edge at 90).
+- The margin row, in its monotone form (SW-3844): `placeAtRange` (`0.15 <=
+  placeAt unit <= 0.85` for `0 <= unit <= 1`, rounding included) and
+  `marginRow`: `lat - 0.85 * width <= lat - placeAt unit * width <= lat -
+  0.15 * width` for finite `lat`, finite non-negative `width`, every
+  operation rounded as the code rounds it. With std's new
+  `Float.subAntitoneRight`, `Float.finiteBetween`, `Float.mulCommFinite`
+  and `Float.zeroMulNonneg`.
+- By computing (SW-3844): `floorToTenthOneUlpAbove` and
+  `ceilToTenthOneUlpBelow`, the counterexamples to the earlier step-0.1
+  bound (see the table).
 
 Not proved, with the law each needs. Each holds only for finite inputs in
 range (|lat| ≤ 90, -180 ≤ lon < 180, 0 ≤ unit ≤ 1, 0 < width ≤ 120 for
@@ -108,10 +123,10 @@ finding 1.
 
 | Theorem | Laws it needs (stage 3 or 4) |
 |---|---|
-| margin before rounding: the answer is at least 0.15 · width from each unrounded edge | `placeAt 0 = 0.15` and `placeAt 1 = 0.85` compute; it needs `*` and `+` monotone (done, SW-3843: `Float.mulMonotoneLeft` and `Float.mulMonotone` for a non-negative finite factor, `Float.addMonotoneLeft` and `Float.addMonotone`, all for finite operands), and an error bound on `lat - at * width` against the exact value (the standard model, `|fl(a ∘ b) − (a ∘ b)| ≤ 2^-53 · |a ∘ b|` for `∘` in `+ - * /` without overflow). The real-number statement is not quite the float one: with rounding the margin is 0.15 · width minus a few ulps. |
+| margin before rounding: the answer is at least 0.15 · width from each unrounded edge | The float form is done (`marginRow`, SW-3844): the edge is between `lat - 0.85 * width` and `lat - 0.15 * width`, each rounded. Left: the exact form, `lat − from ≥ 0.15 · width − ε` with ε a few ulps, which the containment theorem needs to beat the step-0.1 error. std now has the standard model for `+`, `*` and `/` (`Float.addRelError`, `Float.mulRelError`, `Float.divRelError`, SW-3844: relative error at most 2^-53 for a finite result below 2^1023, or half a unit below the normal range, stated over units of 2^-1074); `-` is `+` of the negation (`Float.subAddNeg`). |
 | outward rounding contains the unrounded band, step 1 | Done (`outwardRoundingWhole`, SW-3830), for edges below 2^49 in size. |
-| outward rounding, step 0.1 | false as stated (finding 1). True form: `floorTo x 0.1 <= x + 2^-45` for `|x| ≤ 360` (and `ceilTo` symmetric), which needs the error bounds of `/` and `*`, `floor`'s spec, and `round` within ½ of its argument. |
-| the answer is in its band | the step 0.1 row (wide bands need only step 1, done) and the margin row; `Float.min`/`Float.max` laws for non-NaN operands (done, SW-3843: `Float.minLeLeft`, `minLeRight`, `minEither`, `leMin`, `max`'s likewise, and `minIeeeLeLeft` and so on in JS's order); latitude's clamps (`Float.max (-90.0) _`, `Float.min 90.0 _`) keep an answer with `|lat| ≤ 90`; the bridge from the total order to JS's comparison, which `inHintBand` uses (done, SW-3843: `Float.ieeeLeOfLe`, and back `Float.leOfIeeeLe`, which allows two zeros; `Float.ieeeLtOfLt` and `Float.ltOfIeeeLt` for `<`); the tolerance's lower bound from finding 1; and for longitude, that `wrap` of a whole-degree edge is the edge shifted by an exact multiple of 360 (sums of whole numbers below 2^53 are exact, `Float.Theory.addWhole`, and `rem` is exact), and the wrapped-interval reading of `inHintBand` (`from > to` means `[from, 180) ∪ [-180, to]`) against the unwrapped band. |
+| outward rounding, step 0.1 | false as stated (finding 1). The bound given here before, `floorTo x 0.1 <= x + 2^-45` for `\|x\| ≤ 360`, is false too (SW-3844, `floorToTenthOneUlpAbove`): from 256° an ulp is 2^-44, and `floorTo (-359.90000000000003) 0.1` is -359.9, 2^-44 above. A search of 800,000 inputs within 370° (each tenth ±40 ulps, and random) found `floorTo x 0.1` at most one ulp of `x` above `x`, and `ceilTo` likewise below. The standard model proves about 3 · 2^-44 (errors of `x / 0.1`, of 0.1 against a tenth, and of `k / 10.0`), so the form to prove is `floorTo x 0.1 <= x + 2^-42` for `\|x\| ≤ 360`, in exact units. The laws are now in std: `Float.divRelError`, `Float.mulRelError`, `Float.roundNear` (`round y = k` for `y` within half of the whole double `k`, SW-3844), `Float.floorLe`. Left: (1) the round trip `round (k * 0.1 * 10.0) = k` for whole `k` with `1 ≤ \|k\| ≤ 3601` (two `mulRelError`s and `roundNear`; zeros by computing), so `floorTo x 0.1 = floor (x / 0.1) / 10.0`; (2) chaining `divRelError` for `x / 0.1` and `k / 10.0` with `floorLe`, by sign, with 2^1074 kept as a variable (`arithmetic` refuses numbers that size). |
+| the answer is in its band | the step 0.1 row (wide bands need only step 1, done) and the margin row; `Float.min`/`Float.max` laws for non-NaN operands (done, SW-3843: `Float.minLeLeft`, `minLeRight`, `minEither`, `leMin`, `max`'s likewise, and `minIeeeLeLeft` and so on in JS's order); latitude's clamps (done, SW-3844: `latitudeClampRange`, `clampFromKeeps`, `clampToKeeps`); the bridge from the total order to JS's comparison, which `inHintBand` uses (done, SW-3843: `Float.ieeeLeOfLe`, and back `Float.leOfIeeeLe`, which allows two zeros; `Float.ieeeLtOfLt` and `Float.ltOfIeeeLt` for `<`); the tolerance's lower bound from finding 1; and for longitude, that `wrap` of a whole-degree edge is the edge shifted by an exact multiple of 360 (sums of whole numbers below 2^53 are exact, `Float.Theory.addWhole`, and `rem` is exact), and the wrapped-interval reading of `inHintBand` (`from > to` means `[from, 180) ∪ [-180, to]`) against the unwrapped band. |
 | `wrap` ∈ [-180, 180) for finite input | Done (`wrapRange`, SW-3805). It used: `rem`'s range: `y > 0` finite, `x` finite → `|x % y| < y`, sign of `x`, exact (`x − n·y` for the whole `n` of truncated division); `+ 360.0` of a value in (-360, 360) lands in [0, 720] (rounding may reach 720, which `% 360` maps to 0); Sterbenz for `z - 180.0` with `z` in [90, 360) (exact), and `z - 180.0 < 180.0` for `z < 360` below 90 by monotonicity. |
 | `describeHint` names the edges | nothing about `Float.toText` can be proved (only the runtimes compute it). What can be stated is `tenthsKeepTheirLabel` (done), and for every input, that latitude edges are tenths: `round` returns a whole double (`Float.toInt (round x) = Some k`), and `/ 10.0` of a whole double is `tenth k`. Longitude edges aren't (finding 2). |
 
@@ -143,12 +158,9 @@ What was awkward to express:
   `seededUnit(parts)`: the TypeScript callers would need `[ ]` around their
   arguments.
 
-Missing laws: see the table. In short, stage 3 and 4's customer here wants,
-in order of how much they unlock: monotonicity of `*` (`/` and `ofNat` are
-done, SW-639); `+`
-monotone on the left for finite operands; the standard-model error bound;
-`floor`/`ceil`/`round` specs (`floor x <= x` and `x <= ceil x` are done;
-whole, within 1); `rem`'s range and exactness; Sterbenz.
+Missing laws: see the table. Monotonicity, the standard-model error bound
+(SW-3844), `round`'s spec (SW-3844), `rem`'s range and Sterbenz are done;
+what is left is using them: the step-0.1 chain and the exact margin.
 
 Other std gaps:
 
