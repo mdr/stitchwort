@@ -393,7 +393,10 @@ fn refused_after_editing_the_core(edits: &[(&str, &str)]) -> Vec<stitchwort_synt
 #[test]
 fn a_renamed_binder_of_a_shaped_builtin_is_refused() {
     let errors = refused_after_editing_the_core(&[
-        ("(yesEq: ∀ (h: p) => y h = z)", "(yesEqual: ∀ (h: p) => y h = z)"),
+        (
+            "(yesEq: ∀ (h: p) => y h = z)",
+            "(yesEqual: ∀ (h: p) => y h = z)",
+        ),
         ("=> yesEq (s byComputing)", "=> yesEqual (s byComputing)"),
     ]);
     let e = errors
