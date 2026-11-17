@@ -22141,7 +22141,7 @@
     {
       "id": 3843,
       "title": "[Opus] std Float: a law bridging the total order to IEEE comparison (x <= y with neither NaN gives Float.ieeeLe x y, and back), plus jsMin/jsMax laws for non-NaN operands; every JS-comparison port needs them (SW-3830 finding; Whereabouts answer-in-band)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
