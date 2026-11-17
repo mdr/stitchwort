@@ -1,5 +1,5 @@
 {
-  "next": 3911,
+  "next": 3913,
   "tickets": [
     {
       "id": 47,
@@ -22728,12 +22728,12 @@
     {
       "id": 3888,
       "title": "[Opus] A closed statement such as List.all … = True is evaluated in full by the checker even when its proof is general (17 s for 3,601 items), so a table can't be replaced by a proof without changing the statement; find where and whether it's needed (SW-3872 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Expected: 45 min (Opus). Started 20:56, done 21:15.\n\nProgress (Opus, lane/SW-3888):\n- Reproduced in a scratch project: a closed `(List.range 0 3601).all slow = True` proved by List.allTrue from a per-element lemma checks in 9.6 s, against 2.0 s with 3 items.\n- Cause (samply): two kernel sites, none in the elaborator. 67% in admit_group's conv (found_as_expected): the proof's glued type, a call, against Def::ty_value, already unfolded to `True = True`, so the call is forced. 21% in push_def: ty_value is evaluated unglued, so the closed statement is computed at once. Not needed for soundness or a feature: a side effect of folded-calls.md stage 4's \"a type's kept value is made unglued\".\n- Fix found but not built (kernel change): evaluate ty_value glued in push_def (and retype_def). Prototype: 9.6 s -> 1.95 s; byComputing closed statements 9.6 -> 10.9 s (the kernel's run of it is now glued, ~1.4x); Whereabouts and two AoC 2020 proof namespaces unchanged within noise; soundness examples and hash_stability::{examples,prelude} pass. Written up in docs/proposals/glued-kept-types.md for Matt and an Opus review.\n",
+      "body": "Expected: 45 min (Opus). Started 20:56, done 21:15.\n\nProgress (Opus, lane/SW-3888):\n- Reproduced in a scratch project: a closed `(List.range 0 3601).all slow = True` proved by List.allTrue from a per-element lemma checks in 9.6 s, against 2.0 s with 3 items.\n- Cause (samply): two kernel sites, none in the elaborator. 67% in admit_group's conv (found_as_expected): the proof's glued type, a call, against Def::ty_value, already unfolded to `True = True`, so the call is forced. 21% in push_def: ty_value is evaluated unglued, so the closed statement is computed at once. Not needed for soundness or a feature: a side effect of folded-calls.md stage 4's \"a type's kept value is made unglued\".\n- Fix found but not built (kernel change): evaluate ty_value glued in push_def (and retype_def). Prototype: 9.6 s -> 1.95 s; byComputing closed statements 9.6 -> 10.9 s (the kernel's run of it is now glued, ~1.4x); Whereabouts and two AoC 2020 proof namespaces unchanged within noise; soundness examples and hash_stability::{examples,prelude} pass. Written up in docs/proposals/glued-kept-types.md for Matt and an Opus review.\n\nModel result: opus, worked, 21 min (est. 45). Kernel cause, so stopped at a proposal as briefed. Prototype patch kept in the session scratchpad (sw3888/toggle.patch). Review SW-3911 (Fable) before the D question to Matt. Finding SW-3912.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -23014,6 +23014,32 @@
     {
       "id": 3910,
       "title": "[DeepSeek] Proving guide: state facts about {Fail} functions through a named wrapper (Fail.toResult (() => x.traverse on) otherwise wraps the thunk as a value) (SW-3877 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3911,
+      "title": "[Fable paper] Review docs/proposals/glued-kept-types.md (SW-3888): evaluating a definition's kept type glued in push_def/retype_def; soundness, opacity, readers of Def::ty_value, messages, byComputing cost",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3912,
+      "title": "[DeepSeek] docs/proposals/README.md index is out of date (says 156 notes; the folder has ~235): regenerate or list the missing ones (SW-3888 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
