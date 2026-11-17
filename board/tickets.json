@@ -41749,7 +41749,7 @@
     {
       "id": 3702,
       "title": "[DeepSeek] Broad tier D, G: goal_index snapshots (goal_examples_in_the_index: goal_index__arm-as-written-computes; lemmas_check_as_the_same_goal: goal_index__lemmas, lines shifted by a new goal line) and guide::the_guide_quotes_its_examples_and_the_compiler (10-proofs.md:204, :768, :891 quote snippets that changed: proofs.sw#stated, tests-and-propositions.sw#same, proofs.sw#readings-decisions). Check each change is a deliberate source change, update snapshots/quotes",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
