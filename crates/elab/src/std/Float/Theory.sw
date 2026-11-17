@@ -6253,3 +6253,124 @@ theorem Float.Theory.roundsToSpacingAt ∀ (t d r e q h: Nat)
       above
       (Eq.trans (Eq.cong (u => Nat.absDiff u t) eq2) (Float.Theory.absDiffAbove t (q * p) h p split hp)))
     hp
+
+theorem Float.Theory.powLessReflect ∀ (a b: Nat) (h: Nat.pow 2 a < Nat.pow 2 b): a < b := match c: Nat.leq b a with
+  | True => Void.impossible (arithmetic [h, Nat.powMono 1 b a (arithmetic [c])])
+  | False => arithmetic [c]
+
+--| `d · 2^a ≤ t < d · 2^b` puts `a` below `b`.
+theorem Float.Theory.powRoom ∀ (d t a b: Nat) (low: d * Nat.pow 2 a ≤ t) (small: t < d * Nat.pow 2 b): a < b :=
+  match c: Nat.leq b a with
+    | True =>
+      Void.impossible
+        (arithmetic [
+          low,
+          small,
+          Float.Theory.mulLeLeft (Nat.pow 2 b) (Nat.pow 2 a) d (Nat.powMono 1 b a (arithmetic [c]))
+        ])
+    | False => arithmetic [c]
+
+--| The relative error bound in the normal range: `t / d` from 2^53 units up,
+--| whose bit length is `b`.
+theorem Float.Theory.relErrorNormal ∀ (t d r n rem b: Nat)
+    (spec: Float.Theory.RoundsTo t d r)
+    (fr: r < 9218868437227405312)
+    (pd: 0 < d)
+    (split0: t = n * d + rem)
+    (rlt: rem < d)
+    (big: 9007199254740992 ≤ n)
+    (bs: Float.Theory.IsBitLength n b)
+    (roomOf: ∀ (e: Nat) => d * Nat.pow 2 (e + 52) ≤ t → 53 + e ≤ 2097):
+    Nat.absDiff (Float.Theory.magUnits r * d) t * 9007199254740992 ≤ t + d * 4503599627370496 :=
+  let b53: 53 < b :=
+    Float.Theory.powLessReflect 53 b (Float.Theory.leLessTrans (Nat.pow 2 53) n (Nat.pow 2 b) big bs.left)
+  let e: Nat := b - 53
+  let eb: b = e + 53 := arithmetic [b53]
+  let x: Nat := Nat.pow 2 e
+  let pb: Nat.pow 2 b = x * 9007199254740992 := rewrite eb then Nat.powAdd 2 e 53
+  let nHigh: n + 1 ≤ x * 9007199254740992 := arithmetic [bs.left, pb]
+  let nLow: x * 4503599627370496 ≤ n := arithmetic [bs.right, pb]
+  let pp: Nat := d * x
+  let lowN: x * 4503599627370496 * d ≤ n * d := Nat.leMulRight (x * 4503599627370496) n d nLow
+  let lowE: x * 4503599627370496 * d = pp * 4503599627370496 := algebra
+  let low: pp * 4503599627370496 ≤ t := arithmetic [lowN, lowE, split0]
+  let highN: (n + 1) * d ≤ x * 9007199254740992 * d := Nat.leMulRight (n + 1) (x * 9007199254740992) d nHigh
+  let highE1: (n + 1) * d = n * d + d := algebra
+  let highE2: x * 9007199254740992 * d = pp * 9007199254740992 := algebra
+  let top: t < pp * 9007199254740992 := arithmetic [highN, highE1, highE2, split0, rlt]
+  let xPos: 0 < x := Nat.powSuccPos 1 e
+  let ppPos: 0 < pp := arithmetic [Float.Theory.mulLeLeft 1 x d (arithmetic [xPos]), pd]
+  let q: Nat := t / pp
+  let h: Nat := t % pp
+  let split: t = q * pp + h := Nat.divModEq t pp
+  let hp: h < pp := Nat.modLess t pp (arithmetic [ppPos])
+  let qTop: q + 1 ≤ 9007199254740992 := Float.Theory.quotientRoom t pp q h split top
+  let lowPow: d * Nat.pow 2 (e + 52) ≤ t :=
+    J
+      (y w => d * y ≤ t)
+      (rewrite (algebra: d * (x * Nat.pow 2 52) = pp * 4503599627370496) then low)
+      (Nat.powAdd 2 e 52).flipped
+  let room: 53 + e ≤ 2097 := roomOf e lowPow
+  let sp := Float.Theory.roundsToSpacingAt t d r e q h spec fr split hp qTop room
+  arithmetic [sp, low]
+
+theorem Float.Theory.succLeOf ∀ (a b: Nat) (h: a + 52 < b): 53 + a ≤ b := arithmetic [h]
+
+--| Below 2^2097 units, every binade's grid has room for its next point.
+theorem Float.Theory.roomFromSmall ∀ (d t: Nat)
+    (small: t < d * Nat.pow 2 2097):
+    ∀ (e: Nat) => d * Nat.pow 2 (e + 52) ≤ t → 53 + e ≤ 2097 :=
+  e low => Float.Theory.succLeOf e 2097 (Float.Theory.powRoom d t (e + 52) 2097 low small)
+
+theorem Float.Theory.posNonzeroNat ∀ (n: Nat) (h: 0 < n): n ≠ 0 := arithmetic [h]
+
+theorem Float.Theory.relErrorBy ∀ (t d r n rem: Nat)
+    (spec: Float.Theory.RoundsTo t d r)
+    (fr: r < 9218868437227405312)
+    (pd: 0 < d)
+    (split0: t = n * d + rem)
+    (rlt: rem < d)
+    (roomOf: ∀ (e: Nat) => d * Nat.pow 2 (e + 52) ≤ t → 53 + e ≤ 2097):
+    Nat.absDiff (Float.Theory.magUnits r * d) t * 9007199254740992 ≤ t + d * 4503599627370496 :=
+  match c: Nat.leq 9007199254740992 n with
+    | True =>
+      Float.Theory.relErrorNormal t d r n rem
+        (Float.Model.bitLength n)
+        spec
+        fr
+        pd
+        split0
+        rlt
+        (arithmetic [c])
+        (Float.Theory.bitLengthSpec n (arithmetic [c]))
+        roomOf
+    | False =>
+      let e0: d * Nat.pow 2 0 = d := algebra
+      let sp: Nat.absDiff (Float.Theory.magUnits r * d) t + Nat.absDiff (Float.Theory.magUnits r * d) t
+        ≤ d * Nat.pow 2 0 :=
+        Float.Theory.roundsToSpacingAt t d r 0 n rem spec fr
+          (rewrite e0 then split0)
+          (rewrite e0 then rlt)
+          (arithmetic [c])
+          byComputing
+      arithmetic [sp, e0]
+
+--| The standard error model, from the rounding specification: a rounding
+--| to a finite pattern `r` of `t / d` units, below 2^2097 units (2^1023),
+--| misses by at most `t / d` × 2^-53 in the normal range and half a unit
+--| (2^-1075) below it: `2^53 |r − t/d| ≤ t/d + 2^52` units.
+theorem Float.Theory.roundsToRelError ∀ (t d r: Nat)
+    (spec: Float.Theory.RoundsTo t d r)
+    (fr: r < 9218868437227405312)
+    (pd: 0 < d)
+    (small: t < d * Nat.pow 2 2097):
+    Nat.absDiff (Float.Theory.magUnits r * d) t * 9007199254740992 ≤ t + d * 4503599627370496 :=
+  Float.Theory.relErrorBy t d r
+    (t / d)
+    (t % d)
+    spec
+    fr
+    pd
+    (Nat.divModEq t d)
+    (Nat.modLess t d (Float.Theory.posNonzeroNat d pd))
+    (Float.Theory.roomFromSmall d t small)
