@@ -74,6 +74,37 @@ fn a_project_file_is_loaded_with_its_project() {
     assert_eq!(String::from_utf8_lossy(&evaluated.stdout).trim(), "2: Nat");
 }
 
+/// A project file's imports are in scope for the expressions `eval` takes,
+/// as they are for the file's own declarations: the expression may name what
+/// the file imports, not only the namespace's own names (SW-3735).
+#[test]
+fn a_project_files_imports_are_in_scope() {
+    let dir = std::env::temp_dir().join(format!("sw-repl-imports-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).expect("make the project folder");
+    std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").expect("write the config");
+    std::fs::write(
+        dir.join("src/Base.sw"),
+        "namespace Demo.Base\n\ndef one: Nat := 1\n",
+    )
+    .expect("write Base.sw");
+    std::fs::write(
+        dir.join("src/Top.sw"),
+        "namespace Demo.Top\nimport Demo.Base (one)\n\ndef two: Nat := one + one\n",
+    )
+    .expect("write Top.sw");
+    let evaluated = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["eval", "src/Top.sw", "one"])
+        .current_dir(&dir)
+        .stdin(Stdio::null())
+        .output()
+        .expect("run stitchwort");
+    let _ = std::fs::remove_dir_all(&dir);
+    let stderr = String::from_utf8_lossy(&evaluated.stderr);
+    assert!(evaluated.status.success(), "{stderr}");
+    assert_eq!(String::from_utf8_lossy(&evaluated.stdout).trim(), "1: Nat");
+}
+
 /// A project that allows open goals prints one line for them when a file
 /// loads, not a box for each; errors in the project still print in full.
 #[test]
