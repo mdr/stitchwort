@@ -1425,7 +1425,7 @@ fn a_failed_layout_probe_fails_the_build() {
 const TOYFMT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tools/toyfmt");
 
 /// A Sprig file the formatter leaves alone, and one it rewrites to it.
-const TIDY: &str = "fn add(a, b) = a + b\n";
+const TIDY: &str = "fn add takes (a, b) = a + b\n";
 const UNTIDY: &str = "fn add(a,b) = a+b\n";
 const BROKEN: &str = "let x =";
 
