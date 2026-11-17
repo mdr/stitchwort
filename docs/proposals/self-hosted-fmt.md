@@ -545,6 +545,13 @@ Not proved, and why:
 
 ### 7.3 Size, by layer [estimated]
 
+**Replaced by stage 3's sketch (SW-3820, 17 Nov 2026):**
+[tools/fmt-sketch/SKETCH.md](../../tools/fmt-sketch/SKETCH.md) §5 has the
+counts of stated theorems per layer (66 stated, 44 open, the top theorems
+proved from them) and a re-estimate from the toy's measured rate per
+function: about 3,200–5,900 theorems, middle 4,400. The node kinds are 98,
+not 94. The table below is the estimate made before the sketch.
+
 From the toy's layers after Toy++ T3, scaled by what each layer grows with.
 The toy figures are after the tidy-up and the parser-proof library (the
 three walks are one walk since L4, SW-3506), so the library's saving is
