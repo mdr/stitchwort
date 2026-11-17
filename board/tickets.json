@@ -30822,12 +30822,12 @@
     {
       "id": 2901,
       "title": "[DeepSeek] Book G10: False in a statement reads as the Bool (False = True): a hover or note saying so, suggesting Void (proving-with-stitchwort-outline.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~20 min (est. 25). Note only at holes; E-CASES goals not covered.",
       "created": "2026-11-11",
       "updated": "2026-11-17",
       "commits": []
@@ -41539,12 +41539,12 @@
     {
       "id": 3686,
       "title": "[DeepSeek] E-AUTO-NONE on a statement that spells out a match returning a Prop: the fix is the proving guide's helper definition; the message should point there (note + guide anchor)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~20 min (est. 25). Overlaps a little with the existing inner-match note (local def); fine.",
       "created": "2026-11-16",
       "updated": "2026-11-17",
       "commits": []
