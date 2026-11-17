@@ -41734,15 +41734,17 @@
     {
       "id": 3701,
       "title": "[Sonnet] Broad tier E: five LSP code-action tests fail (cli::server lsp.rs): a_document_edited_during_a_search_gets_no_stale_edit (2991) and a_newer_action_request_supersedes_and_a_cancelled_one_is_answered (3012) now get a code action where they expect none; a_code_action_at_a_goal_offers_what_closes_it (2643), ..._in_a_project_... (2709), proof_searches_are_bounded_by_the_pool (3047) fail their asserts. Likely one change to what a goal's code action offers; find it, decide which side is right",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\n\nNotes (Sonnet lane): not one cause. The three search-timing tests were written before D3519 (3a7450165, 11 Nov): the code action now answers at once with the Search for a proof command, so a null answer is gone; they now start the search by executeCommand. The two goal tests: m + n = n + m is closed by the ladder (SW-2966, 95f6af139) with omega, now arithmetic, so only that is offered; they fail the same way at d551aaa44^. Fixtures changed to (xs ++ ys).length = xs.length + ys.length. Commit a0e02cfa6.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
-      "commits": []
+      "commits": [
+        "a0e02cfa6"
+      ]
     },
     {
       "id": 3702,
