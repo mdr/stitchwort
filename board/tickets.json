@@ -22596,12 +22596,12 @@
     {
       "id": 3878,
       "title": "[Opus] Independent review of the self-hosted formatter's meaning (tools/fmt/src/Fmt/Meaning.sw, trusted, D3678): does each forgotten thing really not change the compiler's reading (check lower/exprs.rs and the parser), are all 98 kinds covered, and does leaving comments out (orchestrator's call under D3678) leave a gap tidyKeepsComments must close; paper lane",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (Opus, 17 Nov 2026, 18:32-18:45): review written, docs/reviews/SW-3878-meaning.md.\n- M1 must-fix: a merged group's type is elaborated once (infer_pi), so `∀ (x y: _)` / `(a b: Box)` with an implicit share a metavariable; meaning equates them with the split form, which checks while the merged fails. The shipping `stitchwort fmt` (P4) makes the breaking rewrite. Needs Matt: compiler reads `(a b: T)` as one binder a name (rec), or no merge/split for ∀ and headers.\n- M2 must-fix: `(C { r | x = 1 }) b` at an application's head is Bracketed (finishes a defaulted call); meaning's `atomic` and the Twin's P3 drop it. Rust fmt fine.\n- S1-S4: what tidyKeepsComments must state (docs' blank line), drop comment tests from meaning, doc grounds, a check-based oracle.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
