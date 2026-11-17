@@ -413,7 +413,7 @@ hand-written parser and a check; this drops the check and pays for
 **Target (unchanged):** all of the repo in one process in under 30 s on
 Speedwell, aiming at 20 s; peak memory under 500 MB. Toy++ T7's bar
 (3.0 s/MB) is set from it. If the real parser misses, the work is `Parse`
-speed (operations in place, D3430, paused under D3465), which D3636 made
+speed (operations in place, D3430), which D3636 made
 formatter work too.
 
 ### What in Stitchwort was missing, and is now
@@ -614,8 +614,8 @@ behind this plan. What the plan implies:
   orchestrator's call), with a performance-log entry, and needs no
   decision from Matt. It is most of `fmt --check`'s time on a formatted
   repo (86% is the check, §5) [estimated: the check is skipped for every
-  file `--check` passes]. Speed work is paused (D3465), so it waits with
-  SW-3147 unless the orchestrator judges it worth doing now.
+  file `--check` passes]. It is scheduled on its merits, with
+  SW-3147.
 
 ## 8. Stages
 
@@ -656,7 +656,7 @@ guarantee.
 - *The rules layer.* Largest, least certain, and moving. Proving it last
   limits churn; it may still be where the estimate is wrong.
 - *`Parse` speed.* If stage 2's rate misses §5, the fix is `Parse` work
-  that is paused (D3465). Toy++ T7 gives the first warning.
+  that would then be scheduled. Toy++ T7 gives the first warning.
 - *The target moves.* Every change to the Rust formatter or parser needs
   the Stitchwort one caught up, and after stage 8, its proofs too (Q3).
 - *Check time* for a project of 5,000 theorems is unmeasured; the toy's at
@@ -731,8 +731,8 @@ this formatter and an optimisation (D3447) for the Rust one.
 ## Findings worth tickets
 
 - **D3617 for the Rust formatter** (§7.6): skip the check when the output
-  equals the input. An optimisation under D3447; parked with speed work
-  (D3465) unless the orchestrator wants it now. No ticket exists.
+  equals the input. An optimisation under D3447, scheduled on its merits
+  (SW-3721).
 - **The Rust passes parse again after each pass with edits**
   (`passes.rs`, `run`). Nothing measured; it adds to the 1.1 s of real
   work only on files that change. A tree-to-tree pass, as planned here,
