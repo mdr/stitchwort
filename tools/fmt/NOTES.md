@@ -162,3 +162,122 @@ it is `Parse`'s handler: a lexeme costs about six operations (`mark`,
   `Syntax`, each with a `dump (depth)` built from `nodeLine` and
   `Leaf.treeLine`, and `--stage tree` and `--stage refusal` in `Fmt.Twin`.
 - A profile of the lexer, if stage 2's timing makes it matter.
+
+## Stage 2a (SW-3819): expressions and patterns
+
+### What is here
+
+- `Syntax.Expr`: the tree's expressions and patterns, and their dump in
+  `dev tree --print`'s form (each node gives a list of lines, joined once:
+  building one text from the next node's text copied a long list's tail
+  per item and made a 3,000-item list 8 times slower than a 1,000-item
+  one).
+- `Syntax.Parser`: the parser on `Parse` over stage 1's settled leaves,
+  following `crates/syntax/src/parser.rs` function by function (`expr`,
+  `block`, `cmp_expr`, `app`, `atom`, `match_expr`, the pattern levels…),
+  total: fuel from `Parse.recursiveWithFuel` and from the items left, no
+  `partial`. It never backs up: lookaheads are pure functions over the
+  items left, and every error is `Parse.fatal` with the Rust message.
+- `stitchwort dev tree --expression FILE` (Rust): the file read as one
+  expression (`parse_expression_tree`), dumped under an `Expression` root,
+  or `error: …`. `dev/fmt-twin expr` and `fmt --stage expr` compare the
+  two. `--stage tree` and `--stage refusal` stay stubs: they need
+  declarations (2b).
+- `Syntax.Tests.Exprs`: the layout rules and the tree's shape on small
+  cases.
+
+### The tree's shape (from SKETCH.md §1 and the SW-3824 follow-up)
+
+- Leaves are `Word`s, text and `Comments` (own-line notes above, each with
+  a `blankBefore` flag, and a trailing comment): no column, no line start,
+  no blank-line counts. The parser reads `Item`s, which keep the layout
+  (column, line start, bracket depth, the line's indent, `glued`) for the
+  layout rules, and drops it when it builds a node. Nothing in the dump
+  needed a column.
+- Commas aren't kept: a list has its items and `trailingComma`; the dump
+  writes the `,` lines back, and one before a list pattern's tail or a
+  record pattern's `..` when there are items.
+- Shapes with tags: `Infix InfixKind` (Binary, Membership, Range, Pipe,
+  Arrow, Iff, Seq), `Binding BindingKind` (lambda, `∀`, `∃`), `Facts
+  FactsKind`, and `Atom (kind: Tok)` / `PatternWord (kind: Tok)` for a
+  token on its own. `Paren` is its own constructor; `(f) x` is an `App`
+  with a `Paren` head.
+- Folded in from the sketch: 1, 2, 3, 7, 11, and 5 for this subset (no
+  error, gap or derived nodes). Not done, for 2b: 6 (a traversal), 8 (one
+  parameter-group constructor: `Param` has four, as the dump's node kinds
+  do), 9 (`∀` as `Option Comments`: kept as a `Word` here, since the dump
+  prints `∀` or `forall` as written), 10 (fixed tokens as `Comments` only:
+  the dump prints each token's spelling, and `→`/`->`, `∧`/`&&` differ, so
+  matching the dump wins until the dump normalises them), 12 (the
+  or-pattern check is done while parsing, not as `SourceFile → Option
+  Text`: Rust does it in its lowering, so the messages differ only when a
+  later syntax error follows), 13 (fuel is `2 * left + 2`, since a level
+  hands over to another without reading).
+
+### Layout
+
+Continued lines are read as Rust reads them: `expr` opens a block at a
+line's column when the line starts further right than the enclosing block
+(or at its column, a block of one line); `Modes.stops` is `is_stop`
+(a line at or left of the block's column ends what is read, unless it
+closes or continues a bracket or starts with an infix-only operator at the
+column); `then`/`else`, `|>` lines and `match` arms (which must line up)
+follow their own rules; a line can't start with `.method`. A block of
+several lines, a block's `let` and local definitions are `notYet` (2c).
+
+### The gate [measured, Speedwell, load 15 to 37]
+
+Files read as one expression, through `dev tree --expression` and `fmt
+--stage expr`, all identical but for "not parsed yet":
+
+| Set | Files | Identical | Not parsed yet |
+|---|---|---|---|
+| Corpus: every expression body, match arm and pattern in the repo's `.sw` files, one per file | 22,373 | 21,135 | 1,238 (`rewrite` 1,127, `calc` 57, `let` 21, `cases` 21, function types with named parameters 7, `match induct` 4, effect row 1) |
+| Broken: each of those cut or with a token swapped (refusals) | 2,032 | 1,925 | 107 |
+| Hand cases (precedence, sections, patterns, messages) | 82 | 82 | 0 |
+| Continued lines | 20 | 20 | 0 |
+
+The generators are scratch scripts, not committed (no repo bloat): the
+corpus takes each `:=` body, arm and pattern that fits on a line.
+
+### Speed [measured, Speedwell, load 15 to 37, so high]
+
+7,709 expression bodies in one bracketed list, 333 KB, dump identical to
+Rust's: 2.1–2.5 s, of which lexing and rule N 1.0–1.15 s; so about
+**3.5–4 s/MB for the parser and the dump**, 6.5–7.5 s/MB in all. The
+same in 78 files of 100 items: 2.0 s. Rust: 0.06 s. Linear from 1,000 to
+7,709 items after the fixes below. This is dense input (no comments, no
+blank lines, no declarations), so real files should do better per byte,
+but it is over §5's 2.5–3.5 s/MB for the whole formatter: 2b should time
+whole files and profile before changing anything (the lexer alone is
+about half of it).
+
+### Friction
+
+- **`List.length` in fuel is quadratic.** `left().length + 1` as fuel at
+  every list and `done.length` in the comma loop made a 3,000-item list
+  take 10 s; `Parse.mark().left` is O(1). Nothing warns, and the toy never
+  had inputs long enough to show it.
+- **Text built by nested interpolation is quadratic** for a long list
+  (above). A dump wants a list of lines, or a builder.
+- **Constructor names share one namespace with `Tok`'s**: `Arrow`,
+  `Pipe`, `Word` clashed, hence `InfixArrow`, `Atom`.
+- **Keywords can't be field names** (`type`, `with`, `then`):
+  `annotation`, `withKeyword`, `accepts`.
+- **No effects in a guard**, and a `match` can't be lifted out of a
+  lambda: bind with `let` first, or move it to a function.
+- **Termination through a record field** (`fields.fields`) needs the
+  record destructured in the pattern; mutual recursion between pattern
+  functions needed one more level through `pself`.
+- **`build --native` needs a `native` build of the CLI**: the worktree's
+  release binary had none, so the twin was built with main's.
+
+### Left for 2b and 2c
+
+- 2b: declarations, headers and types (function types with named
+  parameters, effect rows), so `--stage tree` and `--stage refusal` can
+  run on whole files; the sketch's items 6, 8, 9, 10 and 12; a timing on
+  whole files.
+- 2c: blocks of several lines, `let`, local definitions, `handle`,
+  `calc`, `rewrite`, `cases`, `match induct`/`reify` (each a `notYet`
+  today).

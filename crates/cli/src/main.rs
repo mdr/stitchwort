@@ -1442,12 +1442,9 @@ fn run(cli: Cli) -> ExitCode {
         ),
         Command::Dev(DevCommand::Tree {
             paths,
-            print,
-            time,
-            parse_only,
-            spans,
-            expression,
-        }) if expression => expression_tree_command(&paths),
+            expression: true,
+            ..
+        }) => expression_tree_command(&paths),
         Command::Dev(DevCommand::Tree {
             paths,
             print,

@@ -1,331 +1,381 @@
---| The tree's expressions and patterns (stage 2a): a constructor for each
---| of `crates/syntax`'s expression and pattern `NodeKind`s that stage 2a
---| parses, holding its tokens as `Leaf`s and its parts as subtrees, in the
---| order written, so the dump can print it as `dev tree --print` does.
+--| The tree's expressions and patterns (stage 2a), and their dump in
+--| `stitchwort dev tree --print`'s form.
 --|
---| A token that stands alone, with no node of its own in the Rust tree (a
---| name, a number, a text, `_`), is a `Word`. Each constructor's comment
---| names its Rust `NodeKind` where the two names differ.
+--| What the tree keeps of a token is what printing must reproduce and
+--| nothing of the author's layout (tools/fmt-sketch/SKETCH.md §1): its
+--| text and its comments, a `Word`, with no column, no "starts its line"
+--| and no count of blank lines. Commas aren't kept, since rule N leaves
+--| them no comments: a list keeps its items and whether a comma followed
+--| the last (`trailingComma`), and the dump writes the `,` lines back.
+--|
+--| A constructor is a shape, with a tag where shapes coincide (`Infix`
+--| for every "left, operator, right"); the dump prints the Rust
+--| `NodeKind` each stands for. A token with no node of its own (a name, a
+--| number, a text, `_`) is an `Atom`, tagged with its token kind, which
+--| the parser's checks read (a text before `++` in a pattern, a name an
+--| or-pattern would bind).
 
 namespace Syntax
-import Std (List, Nat, Option, Text)
+import Std (Bool, List, Nat, Option, Text)
 
---| An item of a list written with commas, and the comma after it, if one
---| was written: the last item's is a trailing comma.
-type Sep (a: Type) = { item: a, comma: Option Leaf }
+--| An own-line comment, `--` included, and whether a blank line was above
+--| it.
+type Note = { text: Text, blankBefore: Bool }
+
+--| The comments a token holds once rule N has run: the own-line comments
+--| above it, in order, and the trailing comment after it on its line.
+type Comments = { above: List Note, after: Option Text }
+
+--| A token in the tree: its text as written and its comments.
+type Word = { text: Text, comments: Comments }
+
+--| A leaf's text and comments; its layout is left behind.
+def Leaf.word (leaf: Leaf): Word :=
+  let above := leaf.trivia.leading.map (comment => { text = comment.text, blankBefore = comment.blankLines > 0 })
+  { text = leaf.token.text, comments = { above, after = leaf.trivia.trailing.map (comment => comment.text) } }
+
+--| The "left, operator, right" kinds.
+type InfixKind =
+  | InfixBinary
+  | InfixMembership
+  | InfixRange
+  | InfixPipe
+  | InfixArrow
+  | InfixIff
+  | InfixSeq
+
+def InfixKind.name: InfixKind → Text
+  | InfixBinary => "Binary"
+  | InfixMembership => "Membership"
+  | InfixRange => "Range"
+  | InfixPipe => "Pipe"
+  | InfixArrow => "Arrow"
+  | InfixIff => "Iff"
+  | InfixSeq => "Seq"
+
+--| What binds parameters before a `=>`.
+type BindingKind = | BindsLambda | BindsForall | BindsExists
+
+def BindingKind.name: BindingKind → Text
+  | BindsLambda => "Lambda"
+  | BindsForall => "Forall"
+  | BindsExists => "Exists"
+
+--| `arithmetic [h]` (`Omega`) or `algebra [h]` (`Ring`).
+type FactsKind = | FactsOmega | FactsRing
 
 type Expr =
-  | Word (leaf: Leaf)
-  | Paren (open: Leaf) (inner: Expr) (close: Leaf)
-  | Unit (open: Leaf) (close: Leaf)
+  --| A token alone: a name, a number, a text, `_`, `?`, `Type`.
+  | Atom (kind: Tok) (word: Word)
+  | Paren (open: Word) (inner: Expr) (close: Word)
+  | Unit (open: Word) (close: Word)
   --| `Type 1`
-  | Universe (keyword: Leaf) (level: Leaf)
-  | Include (keyword: Leaf) (path: Leaf)
-  | Tuple (open: Leaf) (items: List (Sep Expr)) (close: Leaf)
+  | Universe (keyword: Word) (level: Word)
+  | Include (keyword: Word) (path: Word)
+  | Tuple (open: Word) (items: List Expr) (trailingComma: Bool) (close: Word)
   --| `List`: `[a, ..xs]`, its spreads `Spread`s among the items.
-  | ListOf (open: Leaf) (items: List (Sep Expr)) (close: Leaf)
-  | Spread (dots: Leaf) (list: Expr)
+  | ListOf (open: Word) (items: List Expr) (trailingComma: Bool) (close: Word)
+  | Spread (dots: Word) (list: Expr)
   --| `{ x = 1, y }` or `{ r | x = 1 }`: `base` is the updated record and
-  --| its `|`. A field is a `RecordField`, or a `Word` when punned.
-  | Record (open: Leaf) (base: Option (Expr, Leaf)) (fields: List (Sep Expr)) (close: Leaf)
-  | RecordField (name: Leaf) (equals: Leaf) (value: Expr)
+  --| its `|`. A field is a `RecordField`, or an `Atom` when punned.
+  | Record (open: Word) (base: Option (Expr, Word)) (fields: List Expr) (trailingComma: Bool) (close: Word)
+  | RecordField (name: Word) (equals: Word) (value: Expr)
   | CtorFields (ctor: Expr) (record: Expr)
   --| `f a b`, one node however many arguments.
   | App (head: Expr) (arguments: List Expr)
   --| `(x := e)` or `[x := e]`.
-  | NamedArg (open: Leaf) (name: Leaf) (colonEq: Leaf) (value: Expr) (close: Leaf)
+  | NamedArg (open: Word) (name: Word) (colonEq: Word) (value: Expr) (close: Word)
   --| `e.f`, or `.f` (no receiver) at the start of a method section.
-  | FieldAccess (target: Option Expr) (dot: Leaf) (field: Leaf)
+  | FieldAccess (target: Option Expr) (dot: Word) (field: Word)
   | Section (body: Expr)
   --| `(+ 1)`, `(k +)`, `(&&)`.
-  | OperatorSection (open: Leaf) (left: Option Expr) (operator: Leaf) (right: Option Expr) (close: Leaf)
-  | Binary (left: Expr) (operator: Leaf) (right: Expr)
+  | OperatorSection (open: Word) (left: Option Expr) (operator: Word) (right: Option Expr) (close: Word)
+  --| `a + b`, `x ∈ xs`, `a ..< b`, `x |> f`, `A → B`, `p ↔ q`, `a; b`.
+  | Infix (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr)
   --| `a ≤ b < c`: the first operand, then each operator and operand.
-  | Chain (first: Expr) (rest: List (Leaf, Expr))
-  | Membership (element: Expr) (operator: Leaf) (collection: Expr)
-  | Range (low: Expr) (operator: Leaf) (high: Expr)
-  | Prefix (operator: Leaf) (operand: Expr)
-  | Piped (value: Expr) (operator: Leaf) (function: Expr)
-  | ArrowType (domain: Expr) (arrow: Leaf) (codomain: Expr)
-  | Iff (left: Expr) (operator: Leaf) (right: Expr)
-  | Seq (first: Expr) (semicolon: Leaf) (rest: Expr)
-  --| `x (a, b) => e`; with a keyword, `∀ x => P` (`Forall`) or `∃ x => P`
-  --| (`Exists`), the keyword's token naming which.
-  | Lambda (keyword: Option Leaf) (params: List Param) (arrow: Leaf) (body: Expr)
+  | Chain (first: Expr) (rest: List (Word, Expr))
+  | Prefix (operator: Word) (operand: Expr)
+  --| `x (a, b) => e`, `∀ x => P`, `∃ x => P`: the keyword (for `∀` and
+  --| `∃`), the parameters, `=>` and the body.
+  | Binding (kind: BindingKind) (keyword: Option Word) (params: List Param) (arrow: Word) (body: Expr)
   --| `if c then a else b`; `binder` is `h` and `:` in `if h: c then …`.
   | If
-      (keyword: Leaf)
-      (binder: Option (Leaf, Leaf))
+      (keyword: Word)
+      (binder: Option (Word, Word))
       (condition: Expr)
-      (thenKeyword: Leaf)
+      (thenKeyword: Word)
       (whenTrue: Expr)
-      (elseKeyword: Leaf)
+      (elseKeyword: Word)
       (whenFalse: Expr)
-  | Annotation (open: Leaf) (value: Expr) (colon: Leaf) (annotation: Expr) (close: Leaf)
+  | Annotation (open: Word) (value: Expr) (colon: Word) (annotation: Expr) (close: Word)
   --| `"a${x}b"`: the text pieces and the interpolations between them.
   | Interpolated (pieces: List Piece)
   --| `match e, f with | …`
-  | Match (keyword: Leaf) (scrutinees: List (Sep Scrutinee)) (withKeyword: Leaf) (arms: List Arm)
+  | Match (keyword: Word) (scrutinees: List Scrutinee) (withKeyword: Word) (arms: List Arm)
   --| `match | …`, `match some | …` (`some` is `word`), `matches | …` (the
   --| keyword is `matches`).
-  | ClauseLambda (keyword: Leaf) (word: Option Leaf) (arms: List Arm)
-  --| `Omega` (`arithmetic [h]`) or `Ring` (`algebra [h]`): the keyword and
-  --| its facts, a list.
-  | Facts (keyword: Leaf) (facts: Expr)
+  | ClauseLambda (keyword: Word) (word: Option Word) (arms: List Arm)
+  --| `arithmetic [h]` or `algebra [h]`: the keyword and its facts, a list.
+  | Facts (kind: FactsKind) (keyword: Word) (facts: Expr)
 
 --| A piece of an interpolated text: a token of text, or `${e}`.
 type Piece =
-  | TextPiece (leaf: Leaf)
-  | Interpolation (open: Leaf) (value: Expr) (close: Leaf)
+  | TextPiece (word: Word)
+  | Interpolation (open: Word) (value: Expr) (close: Word)
 
 --| A lambda's (or `∀`'s, `∃`'s) parameter: a name or `_`, a pattern, or a
 --| `LambdaParam` with a written type, `(x y: A)` or `[a: Type]`;
 --| `[auto P]` has `auto` for its names and no colon.
 type Param =
-  | NameParam (leaf: Leaf)
+  | NameParam (word: Word)
   | PatternParam (pattern: Pattern)
-  | TypedParam (open: Leaf) (names: List Leaf) (colon: Option Leaf) (annotation: Expr) (close: Leaf)
+  | TypedParam (open: Word) (names: List Word) (colon: Option Word) (annotation: Expr) (close: Word)
   --| `PatternTyped`: `((a, b): A)`.
-  | TypedPattern (open: Leaf) (pattern: Pattern) (colon: Leaf) (annotation: Expr) (close: Leaf)
+  | TypedPattern (open: Word) (pattern: Pattern) (colon: Word) (annotation: Expr) (close: Word)
 
 --| One matched expression, `h: e` or `e`.
-type Scrutinee = { name: Option (Leaf, Leaf), value: Expr }
+type Scrutinee = { name: Option (Word, Word), value: Expr }
 
 --| `| p, q if c => e`; with an absurd pattern and no `=>`, no body. A
 --| `matches` arm may stop after its guard.
 type Arm = {
-  bar: Leaf,
-  patterns: List (Sep Pattern),
+  bar: Word,
+  patterns: List Pattern,
   guard: Option Guard,
-  body: Option (Leaf, Expr)
+  body: Option (Word, Expr)
 }
 
 --| `if c` or `if h: c` after an arm's patterns.
-type Guard = { keyword: Leaf, binder: Option (Leaf, Leaf), condition: Expr }
+type Guard = { keyword: Word, binder: Option (Word, Word), condition: Expr }
 
 type Pattern =
-  | PatternWord (leaf: Leaf)
+  --| A token alone: a name, a constructor, a literal, `_`.
+  | PatternWord (kind: Tok) (word: Word)
   --| `Cons x xs`: its arguments are patterns, `PatternNegative`s and
   --| `PatternRecord`s.
-  | PatternCtor (name: Leaf) (arguments: List Pattern)
-  | PatternCtorFields (name: Leaf) (fields: FieldsPattern)
+  | PatternCtor (name: Word) (arguments: List Pattern)
+  | PatternCtorFields (name: Word) (fields: FieldsPattern)
   | PatternRecord (fields: FieldsPattern)
-  | PatternTuple (open: Leaf) (items: List (Sep Pattern)) (close: Leaf)
-  --| `[a, ..rest]`: the items, then the tail's `..` and pattern.
-  | PatternList (open: Leaf) (items: List (Sep Pattern)) (tail: Option (Leaf, Pattern)) (close: Leaf)
-  | PatternNamed (open: Leaf) (name: Leaf) (colonEq: Leaf) (value: Pattern) (close: Leaf)
-  | PatternOr (first: Pattern) (rest: List (Leaf, Pattern))
-  | PatternParen (open: Leaf) (inner: Pattern) (close: Leaf)
-  | PatternNegative (minus: Leaf) (number: Leaf)
-  | PatternAbsurd (open: Leaf) (close: Leaf)
-  | PatternAppend (start: Pattern) (operator: Leaf) (rest: Pattern)
+  | PatternTuple (open: Word) (items: List Pattern) (trailingComma: Bool) (close: Word)
+  --| `[a, ..rest]`: the items, then the tail's `..` and pattern; a comma
+  --| stands before the tail when there are items.
+  | PatternList (open: Word) (items: List Pattern) (trailingComma: Bool) (tail: Option (Word, Pattern)) (close: Word)
+  | PatternNamed (open: Word) (name: Word) (colonEq: Word) (value: Pattern) (close: Word)
+  | PatternOr (first: Pattern) (rest: List (Word, Pattern))
+  | PatternParen (open: Word) (inner: Pattern) (close: Word)
+  | PatternNegative (minus: Word) (number: Word)
+  | PatternAbsurd (open: Word) (close: Word)
+  | PatternAppend (start: Pattern) (operator: Word) (rest: Pattern)
 
---| `{ x, y = p, .. }`, which has no node of its own.
+--| `{ x, y = p, .. }`, which has no node of its own; a comma stands before
+--| the `..` when there are fields.
 type FieldsPattern = {
-  open: Leaf,
-  fields: List (Sep FieldPattern),
-  rest: Option Leaf,
-  close: Leaf
+  open: Word,
+  fields: List FieldPattern,
+  trailingComma: Bool,
+  rest: Option Word,
+  close: Word
 }
 
 --| `x` or `x = p` in a record pattern.
-type FieldPattern = { name: Leaf, value: Option (Leaf, Pattern) }
+type FieldPattern = { name: Word, value: Option (Word, Pattern) }
 
 -- The dump: each node's kind on a line, its children one level deeper.
+-- Each node gives its lines as a list, joined once at the end: building one
+-- text from the pieces of the next would copy the rest of a long list once
+-- per item.
 
-def Expr.dump (expr: Expr) (depth: Nat): Text := match expr with
-  | Word leaf => leaf.treeLine depth
-  | Paren open inner close =>
-    node depth "Paren" "${open.treeLine (depth + 1)}${inner.dump (depth + 1)}${close.treeLine (depth + 1)}"
-  | Unit open close => node depth "Unit" "${open.treeLine (depth + 1)}${close.treeLine (depth + 1)}"
-  | Universe keyword level => node depth "Universe" "${keyword.treeLine (depth + 1)}${level.treeLine (depth + 1)}"
-  | Include keyword path => node depth "Include" "${keyword.treeLine (depth + 1)}${path.treeLine (depth + 1)}"
-  | Tuple open items close =>
-    node depth "Tuple" "${open.treeLine (depth + 1)}${dumpSepExprs (depth + 1) items}${close.treeLine (depth + 1)}"
-  | ListOf open items close =>
-    node depth "List" "${open.treeLine (depth + 1)}${dumpSepExprs (depth + 1) items}${close.treeLine (depth + 1)}"
-  | Spread dots list => node depth "Spread" "${dots.treeLine (depth + 1)}${list.dump (depth + 1)}"
-  | Record open base fields close =>
-    let based := match base with
-      | Some (record, bar) => "${record.dump (depth + 1)}${bar.treeLine (depth + 1)}"
-      | None => ""
-    node depth "Record"
-      "${open.treeLine (depth + 1)}${based}${dumpSepExprs (depth + 1) fields}${close.treeLine (depth + 1)}"
-  | RecordField name equals value =>
-    node depth "RecordField" "${name.treeLine (depth + 1)}${equals.treeLine (depth + 1)}${value.dump (depth + 1)}"
-  | CtorFields ctor record => node depth "CtorFields" "${ctor.dump (depth + 1)}${record.dump (depth + 1)}"
-  | App head arguments => node depth "App" "${head.dump (depth + 1)}${dumpExprs (depth + 1) arguments}"
-  | NamedArg open name colonEq value close =>
-    node depth "NamedArg"
-      "${open.treeLine (depth + 1)}${name.treeLine (depth + 1)}${colonEq.treeLine (depth + 1)}${value.dump (depth + 1)}${close.treeLine (depth + 1)}"
-  | FieldAccess target dot field =>
-    let receiver := match target with
-      | Some target => target.dump (depth + 1)
-      | None => ""
-    node depth "FieldAccess" "${receiver}${dot.treeLine (depth + 1)}${field.treeLine (depth + 1)}"
-  | Section body => node depth "Section" (body.dump (depth + 1))
-  | OperatorSection open left operator right close =>
-    let leftPart := match left with
-      | Some left => left.dump (depth + 1)
-      | None => ""
-    let rightPart := match right with
-      | Some right => right.dump (depth + 1)
-      | None => ""
-    node depth "OperatorSection"
-      "${open.treeLine (depth + 1)}${leftPart}${operator.treeLine (depth + 1)}${rightPart}${close.treeLine (depth + 1)}"
-  | Binary left operator right => infix depth "Binary" (left.dump (depth + 1)) operator (right.dump (depth + 1))
-  | Chain first rest => node depth "Chain" "${first.dump (depth + 1)}${dumpLinks (depth + 1) rest}"
-  | Membership element operator collection =>
-    infix depth "Membership" (element.dump (depth + 1)) operator (collection.dump (depth + 1))
-  | Range low operator high => infix depth "Range" (low.dump (depth + 1)) operator (high.dump (depth + 1))
-  | Prefix operator operand => node depth "Prefix" "${operator.treeLine (depth + 1)}${operand.dump (depth + 1)}"
-  | Piped value operator function => infix depth "Pipe" (value.dump (depth + 1)) operator (function.dump (depth + 1))
-  | ArrowType domain arrow codomain => infix depth "Arrow" (domain.dump (depth + 1)) arrow (codomain.dump (depth + 1))
-  | Iff left operator right => infix depth "Iff" (left.dump (depth + 1)) operator (right.dump (depth + 1))
-  | Seq first semicolon rest => infix depth "Seq" (first.dump (depth + 1)) semicolon (rest.dump (depth + 1))
-  | Lambda keyword params arrow body =>
-    let (kind, word) := match keyword with
-      | Some keyword => (if keyword.token.kind == KwForall then "Forall" else "Exists", keyword.treeLine (depth + 1))
-      | None => ("Lambda", "")
-    node depth kind "${word}${dumpParams (depth + 1) params}${arrow.treeLine (depth + 1)}${body.dump (depth + 1)}"
-  | If keyword binder condition thenKeyword whenTrue elseKeyword whenFalse =>
-    node depth "If"
-      "${keyword.treeLine (depth + 1)}${dumpBinder (depth + 1) binder}${condition.dump (depth + 1)}${thenKeyword.treeLine (depth + 1)}${whenTrue.dump (depth + 1)}${elseKeyword.treeLine (depth + 1)}${whenFalse.dump (depth + 1)}"
-  | Annotation open value colon annotation close =>
-    node depth "Annotation"
-      "${open.treeLine (depth + 1)}${value.dump (depth + 1)}${colon.treeLine (depth + 1)}${annotation.dump (depth + 1)}${close.treeLine (depth + 1)}"
-  | Interpolated pieces => node depth "Interpolated" (dumpPieces (depth + 1) pieces)
-  | Match keyword scrutinees withKeyword arms =>
-    node depth "Match"
-      "${keyword.treeLine (depth + 1)}${dumpScrutinees (depth + 1) scrutinees}${withKeyword.treeLine (depth + 1)}${dumpArms (depth + 1) arms}"
-  | ClauseLambda keyword word arms =>
-    node depth "ClauseLambda" "${keyword.treeLine (depth + 1)}${dumpLeaf (depth + 1) word}${dumpArms (depth + 1) arms}"
-  | Facts keyword facts =>
-    node depth
-      (if keyword.token.kind == KwArithmetic then "Omega" else "Ring")
-      "${keyword.treeLine (depth + 1)}${facts.dump (depth + 1)}"
+def Expr.dump (expr: Expr) (depth: Nat): Text := Text.concat (expr.lines depth)
+
+def Word.line (word: Word) (depth: Nat): List Text := ["${indent depth}${word.text}\n"]
+
+def commaLine (depth: Nat): List Text := ["${indent depth},\n"]
 
 --| A node's line, then its children's lines (already one level deeper).
-def node (depth: Nat) (kind children: Text): Text := "${nodeLine depth kind}${children}"
+def node (depth: Nat) (kind: Text) (children: List Text): List Text := [nodeLine depth kind, ..children]
 
---| A node of an operand, an operator token and an operand.
-def infix (depth: Nat) (kind left: Text) (operator: Leaf) (right: Text): Text :=
-  node depth kind "${left}${operator.treeLine (depth + 1)}${right}"
+def Expr.lines (expr: Expr) (depth: Nat): List Text :=
+  let d := depth + 1
+  match expr with
+    | Atom _ word => word.line depth
+    | Paren open inner close => node depth "Paren" (open.line d ++ inner.lines d ++ close.line d)
+    | Unit open close => node depth "Unit" (open.line d ++ close.line d)
+    | Universe keyword level => node depth "Universe" (keyword.line d ++ level.line d)
+    | Include keyword path => node depth "Include" (keyword.line d ++ path.line d)
+    | Tuple open items trailingComma close =>
+      node depth "Tuple" (open.line d ++ commaExprs d trailingComma items ++ close.line d)
+    | ListOf open items trailingComma close =>
+      node depth "List" (open.line d ++ commaExprs d trailingComma items ++ close.line d)
+    | Spread dots list => node depth "Spread" (dots.line d ++ list.lines d)
+    | Record open base fields trailingComma close =>
+      let based := match base with
+        | Some (record, bar) => record.lines d ++ bar.line d
+        | None => []
+      node depth "Record" (open.line d ++ based ++ commaExprs d trailingComma fields ++ close.line d)
+    | RecordField name equals value => node depth "RecordField" (name.line d ++ equals.line d ++ value.lines d)
+    | CtorFields ctor record => node depth "CtorFields" (ctor.lines d ++ record.lines d)
+    | App head arguments => node depth "App" (head.lines d ++ exprLines d arguments)
+    | NamedArg open name colonEq value close =>
+      node depth "NamedArg" (open.line d ++ name.line d ++ colonEq.line d ++ value.lines d ++ close.line d)
+    | FieldAccess target dot field =>
+      let receiver := match target with
+        | Some target => target.lines d
+        | None => []
+      node depth "FieldAccess" (receiver ++ dot.line d ++ field.line d)
+    | Section body => node depth "Section" (body.lines d)
+    | OperatorSection open left operator right close =>
+      let leftPart := match left with
+        | Some left => left.lines d
+        | None => []
+      let rightPart := match right with
+        | Some right => right.lines d
+        | None => []
+      node depth "OperatorSection" (open.line d ++ leftPart ++ operator.line d ++ rightPart ++ close.line d)
+    | Infix kind left operator right => node depth kind.name (left.lines d ++ operator.line d ++ right.lines d)
+    | Chain first rest => node depth "Chain" (first.lines d ++ linkLines d rest)
+    | Prefix operator operand => node depth "Prefix" (operator.line d ++ operand.lines d)
+    | Binding kind keyword params arrow body =>
+      node depth kind.name (wordLines d keyword ++ paramLines d params ++ arrow.line d ++ body.lines d)
+    | If keyword binder condition thenKeyword whenTrue elseKeyword whenFalse =>
+      node depth "If"
+        (keyword.line d
+          ++ binderLines d binder
+          ++ condition.lines d
+          ++ thenKeyword.line d
+          ++ whenTrue.lines d
+          ++ elseKeyword.line d
+          ++ whenFalse.lines d)
+    | Annotation open value colon annotation close =>
+      node depth "Annotation" (open.line d ++ value.lines d ++ colon.line d ++ annotation.lines d ++ close.line d)
+    | Interpolated pieces => node depth "Interpolated" (pieceLines d pieces)
+    | Match keyword scrutinees withKeyword arms =>
+      node depth "Match" (keyword.line d ++ scrutineeLines d scrutinees ++ withKeyword.line d ++ armLines d arms)
+    | ClauseLambda keyword word arms =>
+      node depth "ClauseLambda" (keyword.line d ++ wordLines d word ++ armLines d arms)
+    | Facts kind keyword facts =>
+      let name := match kind with
+        | FactsOmega => "Omega"
+        | FactsRing => "Ring"
+      node depth name (keyword.line d ++ facts.lines d)
 
-def dumpLeaf (depth: Nat): Option Leaf → Text
-  | Some leaf => leaf.treeLine depth
-  | None => ""
+def wordLines (depth: Nat): Option Word → List Text
+  | Some word => word.line depth
+  | None => []
 
-def dumpBinder (depth: Nat): Option (Leaf, Leaf) → Text
-  | Some (name, colon) => "${name.treeLine depth}${colon.treeLine depth}"
-  | None => ""
+def binderLines (depth: Nat): Option (Word, Word) → List Text
+  | Some (name, colon) => name.line depth ++ colon.line depth
+  | None => []
 
-def dumpExprs (depth: Nat): List Expr → Text
-  | [] => ""
-  | [first, ..rest] => "${first.dump depth}${dumpExprs depth rest}"
+def exprLines (depth: Nat): List Expr → List Text
+  | [] => []
+  | [first, ..rest] => first.lines depth ++ exprLines depth rest
 
-def dumpSepExprs (depth: Nat): List (Sep Expr) → Text
-  | [] => ""
-  | [{ item, comma }, ..rest] => "${item.dump depth}${dumpLeaf depth comma}${dumpSepExprs depth rest}"
+--| Items with a `,` line between each two, and after the last if
+--| `trailingComma`.
+def commaExprs (depth: Nat) (trailingComma: Bool): List Expr → List Text
+  | [] => []
+  | [last] => last.lines depth ++ (if trailingComma then commaLine depth else [])
+  | [first, ..rest] => first.lines depth ++ commaLine depth ++ commaExprs depth trailingComma rest
 
-def dumpLinks (depth: Nat): List (Leaf, Expr) → Text
-  | [] => ""
-  | [(operator, operand), ..rest] => "${operator.treeLine depth}${operand.dump depth}${dumpLinks depth rest}"
+def linkLines (depth: Nat): List (Word, Expr) → List Text
+  | [] => []
+  | [(operator, operand), ..rest] => operator.line depth ++ operand.lines depth ++ linkLines depth rest
 
-def dumpPieces (depth: Nat): List Piece → Text
-  | [] => ""
-  | [TextPiece leaf, ..rest] => "${leaf.treeLine depth}${dumpPieces depth rest}"
+def pieceLines (depth: Nat): List Piece → List Text
+  | [] => []
+  | [TextPiece word, ..rest] => word.line depth ++ pieceLines depth rest
   | [Interpolation open value close, ..rest] =>
-    let inner := "${open.treeLine (depth + 1)}${value.dump (depth + 1)}${close.treeLine (depth + 1)}"
-    "${node depth "Interpolation" inner}${dumpPieces depth rest}"
+    let d := depth + 1
+    node depth "Interpolation" (open.line d ++ value.lines d ++ close.line d) ++ pieceLines depth rest
 
-def dumpParams (depth: Nat): List Param → Text
-  | [] => ""
-  | [NameParam leaf, ..rest] => "${leaf.treeLine depth}${dumpParams depth rest}"
-  | [PatternParam pattern, ..rest] => "${pattern.dump depth}${dumpParams depth rest}"
+def paramLines (depth: Nat): List Param → List Text
+  | [] => []
+  | [NameParam word, ..rest] => word.line depth ++ paramLines depth rest
+  | [PatternParam pattern, ..rest] => pattern.lines depth ++ paramLines depth rest
   | [TypedParam open names colon annotation close, ..rest] =>
-    let inner :=
-      "${open.treeLine (depth + 1)}${dumpLeaves (depth + 1) names}${dumpLeaf (depth + 1) colon}${annotation.dump (depth + 1)}${close.treeLine (depth + 1)}"
-    "${node depth "LambdaParam" inner}${dumpParams depth rest}"
+    let d := depth + 1
+    node depth "LambdaParam"
+      (open.line d ++ wordsLines d names ++ wordLines d colon ++ annotation.lines d ++ close.line d)
+      ++ paramLines depth rest
   | [TypedPattern open pattern colon annotation close, ..rest] =>
-    let inner :=
-      "${open.treeLine (depth + 1)}${pattern.dump (depth + 1)}${colon.treeLine (depth + 1)}${annotation.dump (depth + 1)}${close.treeLine (depth + 1)}"
-    "${node depth "PatternTyped" inner}${dumpParams depth rest}"
+    let d := depth + 1
+    node depth "PatternTyped" (open.line d ++ pattern.lines d ++ colon.line d ++ annotation.lines d ++ close.line d)
+      ++ paramLines depth rest
 
-def dumpLeaves (depth: Nat): List Leaf → Text
-  | [] => ""
-  | [leaf, ..rest] => "${leaf.treeLine depth}${dumpLeaves depth rest}"
+def wordsLines (depth: Nat): List Word → List Text
+  | [] => []
+  | [word, ..rest] => word.line depth ++ wordsLines depth rest
 
-def dumpScrutinees (depth: Nat): List (Sep Scrutinee) → Text
-  | [] => ""
-  | [{ item = { name, value }, comma }, ..rest] =>
-    let inner := "${dumpBinder (depth + 1) name}${value.dump (depth + 1)}"
-    "${node depth "Scrutinee" inner}${dumpLeaf depth comma}${dumpScrutinees depth rest}"
+--| Scrutinees, a `,` line between each two.
+def scrutineeLines (depth: Nat): List Scrutinee → List Text
+  | [] => []
+  | [{ name, value }] => node depth "Scrutinee" (binderLines (depth + 1) name ++ value.lines (depth + 1))
+  | [{ name, value }, ..rest] =>
+    node depth "Scrutinee" (binderLines (depth + 1) name ++ value.lines (depth + 1))
+      ++ commaLine depth
+      ++ scrutineeLines depth rest
 
-def dumpArms (depth: Nat): List Arm → Text
-  | [] => ""
+def armLines (depth: Nat): List Arm → List Text
+  | [] => []
   | [{ bar, patterns, guard, body }, ..rest] =>
+    let d := depth + 1
     let guarded := match guard with
       | Some { keyword, binder, condition } =>
-        node
-          (depth + 1)
-          "Guard"
-          "${keyword.treeLine (depth + 2)}${dumpBinder (depth + 2) binder}${condition.dump (depth + 2)}"
-      | None => ""
+        node d "Guard" (keyword.line (d + 1) ++ binderLines (d + 1) binder ++ condition.lines (d + 1))
+      | None => []
     let bodied := match body with
-      | Some (arrow, value) => "${arrow.treeLine (depth + 1)}${value.dump (depth + 1)}"
-      | None => ""
-    let inner := "${bar.treeLine (depth + 1)}${dumpSepPatterns (depth + 1) patterns}${guarded}${bodied}"
-    "${node depth "Arm" inner}${dumpArms depth rest}"
+      | Some (arrow, value) => arrow.line d ++ value.lines d
+      | None => []
+    node depth "Arm" (bar.line d ++ commaPatterns d False patterns ++ guarded ++ bodied) ++ armLines depth rest
 
-def Pattern.dump (pattern: Pattern) (depth: Nat): Text := match pattern with
-  | PatternWord leaf => leaf.treeLine depth
-  | PatternCtor name arguments =>
-    node depth "PatternCtor" "${name.treeLine (depth + 1)}${dumpPatterns (depth + 1) arguments}"
-  | PatternCtorFields name fields =>
-    node depth "PatternCtorFields" "${name.treeLine (depth + 1)}${dumpFields (depth + 1) fields}"
-  | PatternRecord fields => node depth "PatternRecord" (dumpFields (depth + 1) fields)
-  | PatternTuple open items close =>
-    node depth "PatternTuple"
-      "${open.treeLine (depth + 1)}${dumpSepPatterns (depth + 1) items}${close.treeLine (depth + 1)}"
-  | PatternList open items tail close =>
-    let tailed := match tail with
-      | Some (dots, rest) => "${dots.treeLine (depth + 1)}${rest.dump (depth + 1)}"
-      | None => ""
-    node depth "PatternList"
-      "${open.treeLine (depth + 1)}${dumpSepPatterns (depth + 1) items}${tailed}${close.treeLine (depth + 1)}"
-  | PatternNamed open name colonEq value close =>
-    node depth "PatternNamed"
-      "${open.treeLine (depth + 1)}${name.treeLine (depth + 1)}${colonEq.treeLine (depth + 1)}${value.dump (depth + 1)}${close.treeLine (depth + 1)}"
-  | PatternOr first rest => node depth "PatternOr" "${first.dump (depth + 1)}${dumpPatternLinks (depth + 1) rest}"
-  | PatternParen open inner close =>
-    node depth "PatternParen" "${open.treeLine (depth + 1)}${inner.dump (depth + 1)}${close.treeLine (depth + 1)}"
-  | PatternNegative minus number =>
-    node depth "PatternNegative" "${minus.treeLine (depth + 1)}${number.treeLine (depth + 1)}"
-  | PatternAbsurd open close => node depth "PatternAbsurd" "${open.treeLine (depth + 1)}${close.treeLine (depth + 1)}"
-  | PatternAppend start operator rest =>
-    infix depth "PatternAppend" (start.dump (depth + 1)) operator (rest.dump (depth + 1))
+def Pattern.lines (pattern: Pattern) (depth: Nat): List Text :=
+  let d := depth + 1
+  match pattern with
+    | PatternWord _ word => word.line depth
+    | PatternCtor name arguments => node depth "PatternCtor" (name.line d ++ patternLines d arguments)
+    | PatternCtorFields name fields => node depth "PatternCtorFields" (name.line d ++ fieldsLines d fields)
+    | PatternRecord fields => node depth "PatternRecord" (fieldsLines d fields)
+    | PatternTuple open items trailingComma close =>
+      node depth "PatternTuple" (open.line d ++ commaPatterns d trailingComma items ++ close.line d)
+    | PatternList open items trailingComma tail close =>
+      let tailed := match tail with
+        | Some (dots, rest) => (if items.isEmpty then [] else commaLine d) ++ dots.line d ++ rest.lines d
+        | None => []
+      node depth "PatternList" (open.line d ++ commaPatterns d trailingComma items ++ tailed ++ close.line d)
+    | PatternNamed open name colonEq value close =>
+      node depth "PatternNamed" (open.line d ++ name.line d ++ colonEq.line d ++ value.lines d ++ close.line d)
+    | PatternOr first rest => node depth "PatternOr" (first.lines d ++ patternLinkLines d rest)
+    | PatternParen open inner close => node depth "PatternParen" (open.line d ++ inner.lines d ++ close.line d)
+    | PatternNegative minus number => node depth "PatternNegative" (minus.line d ++ number.line d)
+    | PatternAbsurd open close => node depth "PatternAbsurd" (open.line d ++ close.line d)
+    | PatternAppend start operator rest => node depth "PatternAppend" (start.lines d ++ operator.line d ++ rest.lines d)
 
-def dumpPatterns (depth: Nat): List Pattern → Text
-  | [] => ""
-  | [first, ..rest] => "${first.dump depth}${dumpPatterns depth rest}"
+def patternLines (depth: Nat): List Pattern → List Text
+  | [] => []
+  | [first, ..rest] => first.lines depth ++ patternLines depth rest
 
-def dumpSepPatterns (depth: Nat): List (Sep Pattern) → Text
-  | [] => ""
-  | [{ item, comma }, ..rest] => "${item.dump depth}${dumpLeaf depth comma}${dumpSepPatterns depth rest}"
+def commaPatterns (depth: Nat) (trailingComma: Bool): List Pattern → List Text
+  | [] => []
+  | [last] => last.lines depth ++ (if trailingComma then commaLine depth else [])
+  | [first, ..rest] => first.lines depth ++ commaLine depth ++ commaPatterns depth trailingComma rest
 
-def dumpPatternLinks (depth: Nat): List (Leaf, Pattern) → Text
-  | [] => ""
-  | [(bar, alternative), ..rest] => "${bar.treeLine depth}${alternative.dump depth}${dumpPatternLinks depth rest}"
+def patternLinkLines (depth: Nat): List (Word, Pattern) → List Text
+  | [] => []
+  | [(bar, alternative), ..rest] => bar.line depth ++ alternative.lines depth ++ patternLinkLines depth rest
 
-def dumpFields (depth: Nat): FieldsPattern → Text
-  | { open, fields, rest, close } =>
-    "${open.treeLine depth}${dumpFieldPatterns depth fields}${dumpLeaf depth rest}${close.treeLine depth}"
+--| `{ … }`; a `,` line stands before `..` when there are fields.
+def fieldsLines (depth: Nat): FieldsPattern → List Text
+  | { open, fields, trailingComma, rest, close } =>
+    let restLines := match rest with
+      | Some dots => (if fields.isEmpty then [] else commaLine depth) ++ dots.line depth
+      | None => []
+    open.line depth ++ fieldPatternLines depth trailingComma fields ++ restLines ++ close.line depth
 
-def dumpFieldPatterns (depth: Nat): List (Sep FieldPattern) → Text
-  | [] => ""
-  | [{ item = { name, value }, comma }, ..rest] =>
-    let valued := match value with
-      | Some (equals, pattern) => "${equals.treeLine depth}${pattern.dump depth}"
-      | None => ""
-    "${name.treeLine depth}${valued}${dumpLeaf depth comma}${dumpFieldPatterns depth rest}"
+def fieldPatternLines (depth: Nat) (trailingComma: Bool): List FieldPattern → List Text
+  | [] => []
+  | [last] => fieldLines depth last ++ (if trailingComma then commaLine depth else [])
+  | [first, ..rest] => fieldLines depth first ++ commaLine depth ++ fieldPatternLines depth trailingComma rest
+
+def fieldLines (depth: Nat): FieldPattern → List Text
+  | { name, value = Some (equals, pattern) } => name.line depth ++ equals.line depth ++ pattern.lines depth
+  | { name, value = None } => name.line depth
