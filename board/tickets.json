@@ -23066,12 +23066,12 @@
     {
       "id": 3914,
       "title": "[Sonnet] Fmt.Doc: add Doc.flatWidth (balanced_fill measures items with it) and std-style API docs (engine plan E0 remainder); fix the plan's E0 wording (namespace Fmt.Doc, since plain Doc clashes with the type: E-FOREIGN-NAMESPACE)",
-      "status": "doing",
-      "agent": "",
+      "status": "review",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Sonnet, 17 Nov 2026: added Fmt.Doc.flatWidth (tools/fmt/src/Doc/Measure.sw), proved flatWidthForced and flatWidthPrint, 3 tests in Tests/Engine.sw; doc comments on every def/theorem in Fmt.Doc (256 added); plan E0 wording fixed. check, test (99), audit Fmt.Doc (0 failed, 4 known warnings) pass.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
