@@ -41617,12 +41617,12 @@
     {
       "id": 3692,
       "title": "[DeepSeek] Broad tier 9ff2833ca stale expectations: (1) projects reject snapshots import-namespace-item-alone and nested-short-name gained a final 'try: add `import Shop (Spec)`' / 'try: add `import Aoc (Grid)`' line: check it's right and accept; (2) driver search_at_aoc search_at_on_real_2021_goals (search_at_aoc.rs:565) looks for the exact text 'rewrite Nat.fromBitsFrom acc (Nat.toBits 4 group), Nat.fromBitsToBits 4 group fits then byComputing' in Day16/Proofs/Answers.sw, which SW-3648's sweep changed: update the expected text",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~25 min (est. 20).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
