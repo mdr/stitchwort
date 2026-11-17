@@ -37768,12 +37768,12 @@
     {
       "id": 3417,
       "title": "[Opus paper] Refresh docs/proposals/self-hosted-fmt.md before stage 0: §3.2 option C (Parse now reads tokens; keep the hand-written parser per SW-3414), SW-3149/SW-3150 status, theorem estimates from the toy (SW-3414 report)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3636 (Matt, 16 Nov 2026): yes, 'let's plan to write it with standard parse'. The proved Stitchwort formatter's parser uses std Parse (reverses SW-3414's hand-written recommendation); Parse speed becomes formatter work too. Toy++ records a timing (s per MB, no check) to confirm before the real formatter's stage 0.",
+      "body": "D3636 (Matt, 16 Nov 2026): yes, 'let's plan to write it with standard parse'. The proved Stitchwort formatter's parser uses std Parse (reverses SW-3414's hand-written recommendation); Parse speed becomes formatter work too. Toy++ records a timing (s per MB, no check) to confirm before the real formatter's stage 0.\n\nLane (Opus paper, 17 Nov 2026, est. 40 min): commit 1b500b58f on lane/SW-3417. docs/proposals/self-hosted-fmt.md is now the third plan, with \"What changed (17 Nov 2026)\" at the top: direction C (D3623) with no run-time check (D3620; toy proved in SW-3418, dcda74fb2); \"same program\" = meaning (D3635/D3643), lossless tree exact only between tidied tree and output, fuzzer hash cross-check kept; parser on Parse (D3636; SW-3414's hand-written finding restated and why it was overruled); typed tree; SW-3149 and SW-3150 done; Toy++ status and its inputs (rule N/Closing, trailing commas, passes) plus SW-3452 and SW-3416 as engine prerequisites; D3617 dropped for this formatter, an optimisation under D3447 for the Rust one. Estimates from actuals (Toy++ 256 min vs 575 est; net 348 theorems in ~235 min, ~90/h; toy now 1,491): build stages 0-7 16-27 agent h, proofs stage 8 40-70 agent h (3,700-6,500 theorems, low confidence; a Fable sketch stage resizes it). Questions for Matt: start stages 0-2 after Toy++ T7's timing [rec yes]; D3663 must set for the real formatter [rec yes]; D3577 restated, two formatters in step [rec no gate, decide replacement after stage 7]. No builds or tests (paper).\n",
       "created": "2026-11-15",
       "updated": "2026-11-17",
       "commits": []
