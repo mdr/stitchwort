@@ -30953,12 +30953,12 @@
     {
       "id": 2924,
       "title": "[DeepSeek] The same sum prints as (a + 1) before a rewrite and as Succ b after it in the Goals panel's steps (SW-2921)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Model result: deepseek, needed fixes (first version changed Step.goal, used by elaboration; reworked to display-only), ~60 min. No hash change.",
       "created": "2026-11-11",
       "updated": "2026-11-17",
       "commits": []
