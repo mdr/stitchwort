@@ -1,5 +1,5 @@
 {
-  "next": 3853,
+  "next": 3855,
   "tickets": [
     {
       "id": 47,
@@ -21920,12 +21920,12 @@
     {
       "id": 3826,
       "title": "[Opus] Proof plan spike K4: fuel in stage 2a's parser: does Parse.recursiveWith's items-left+1 run out under deep nesting? Measure, then fix the accounting (charge per token consumed) before 2b (after SW-3819 merges; time box 30 min)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Started 16:37, est. 30 min (Opus).\n\n16:55 done. Verdict (b): enough after a small change, made. Fuel never ran out (31 deep cases to depth 1000, twin = Rust except `f !!b`, not fuel). Expressions need only left+1: ladder levels are plain calls, every `self` call follows a read. Patterns did hand over without reading (tupleComponent → pself Plain), so 2·left+2 was exactly their bound; now a plain call. Both recursions are `Parse.recursiveWith` (left+1). `fuelEnough` restated in tools/fmt-sketch as `grammarWith extra = grammarWith 0`. Gate unchanged (goldens 78/124). Two 200-deep tests in Syntax.Tests (fail at half/third fuel). Findings: proof plan §11.\n",
+      "body": "Started 16:37, est. 30 min (Opus).\n\n16:55 done. Verdict (b): enough after a small change, made. Fuel never ran out (31 deep cases to depth 1000, twin = Rust except `f !!b`, not fuel). Expressions need only left+1: ladder levels are plain calls, every `self` call follows a read. Patterns did hand over without reading (tupleComponent → pself Plain), so 2·left+2 was exactly their bound; now a plain call. Both recursions are `Parse.recursiveWith` (left+1). `fuelEnough` restated in tools/fmt-sketch as `grammarWith extra = grammarWith 0`. Gate unchanged (goldens 78/124). Two 200-deep tests in Syntax.Tests (fail at half/third fuel). Findings: proof plan §11.\n\nModel result: opus, worked, 18 min (est. 30). Verdict (b). Follow-ups SW-3853 SW-3854. dev/fmt-twin docs: the tree stage runs lowering checks, so | (a | b) => is refused there but not by dev tree --print (note for SW-3849's --list work).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22263,6 +22263,32 @@
       "where": "",
       "labels": [],
       "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3853,
+      "title": "[DeepSeek] Self-hosted formatter: the twin refuses f !!b (glued ! chains as an argument), which Rust accepts; f !b works. Likely argumentBang or startsAtom/argumentPrefix in tools/fmt/src/Syntax/Parser.sw; add a test (SW-3826 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3854,
+      "title": "[Sonnet] std Parse: lemma that recursiveWithFuel with a body that reads before each self call gives the same result with more fuel (fuelEnough needs it; pairs with proof plan F5's loop combinator SW-3827) (SW-3826 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
