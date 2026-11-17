@@ -344,7 +344,7 @@ theorem closingSettled ∀ (close: Comments) (before: Bool): settledCloser befor
 theorem closingSame ∀ (close: Comments) (before: Bool)
     (settled: settledCloser before close = True):
     close.closing before = close :=
-  match close, before, settled with | _, _, _ => cases
+  cases
 
 --| `tokens` spell `expr` at `layout`: its tokens in order, each of the kind
 --| the expression has there and standing where the layout allows it
@@ -1613,11 +1613,11 @@ theorem spelledHeaded ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Loc
     | InStatement column start, spelled, none =>
       noAboveCleared expr (Eq.trans (spelledFirstAbove (InStatement column start) expr tokens shaped spelled) none)
 
-theorem clearedPostfix ∀ (expr: Expr): expr.withoutFirstAbove.isPostfix = expr.isPostfix := match expr with | _ => cases
+theorem clearedPostfix ∀ (expr: Expr): expr.withoutFirstAbove.isPostfix = expr.isPostfix := cases
 
-theorem clearedChain ∀ (expr: Expr): expr.withoutFirstAbove.isChain = expr.isChain := match expr with | _ => cases
+theorem clearedChain ∀ (expr: Expr): expr.withoutFirstAbove.isChain = expr.isChain := cases
 
-theorem clearedLevel ∀ (expr: Expr): expr.withoutFirstAbove.chainLevel = expr.chainLevel := match expr with | _ => cases
+theorem clearedLevel ∀ (expr: Expr): expr.withoutFirstAbove.chainLevel = expr.chainLevel := cases
 
 --| Whether the token before a closing bracket has a trailing comment
 --| doesn't depend on the comments above the opening one.

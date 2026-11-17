@@ -342,11 +342,9 @@ theorem startNotLet ∀ (kind: Kind) (starts: startsExpression kind = True): kin
 
 -- Expressions outside brackets, `if` included.
 
-theorem postfixChain ∀ (expr: Expr) (postfix: expr.isPostfix = True): expr.isChain = True := match expr, postfix with
-  | _, _ => cases
+theorem postfixChain ∀ (expr: Expr) (postfix: expr.isPostfix = True): expr.isChain = True := cases
 
-theorem operandChain ∀ (expr: Expr) (operand: expr.isOperand = True): expr.isChain = True := match expr, operand with
-  | _, _ => cases
+theorem operandChain ∀ (expr: Expr) (operand: expr.isOperand = True): expr.isChain = True := cases
 
 --| An `if` stands only as a whole expression: an operator chain or an
 --| operand of the parser's shape holds none outside brackets.

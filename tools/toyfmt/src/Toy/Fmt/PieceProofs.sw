@@ -86,7 +86,7 @@ theorem notSpaceBy ∀ (passes: Char → Bool) (first: Char)
     (first == ' ') = False :=
   DecEq.falseOfNe (apartBy passes first ' ' holds fails)
 
-theorem signNoSpace ∀ (mark: Punctuation): (signChar mark == ' ') = False := match mark with | _ => cases
+theorem signNoSpace ∀ (mark: Punctuation): (signChar mark == ' ') = False := cases
 
 theorem spaceStartsSpaces ∀ (first: Char) (others rest: List Char)
     (space: first = ' '):

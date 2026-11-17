@@ -477,7 +477,7 @@ theorem bracketsKeepCommas ∀ (file: SourceFile)
 theorem declarationTakesBrackets ∀ (line: Declaration):
     (line.traverseBody dropPair).withoutSpareTypeBrackets.withTakes
       = line.withTakes.traverseBody dropPair |>.withoutSpareTypeBrackets :=
-  match line with | _ => cases
+  cases
 
 theorem declarationsTakesBrackets ∀ (lines: List (Spaced Declaration)):
     declarationsWithTakes (traverseDeclarations dropPair (line => line.withoutSpareTypeBrackets) lines)

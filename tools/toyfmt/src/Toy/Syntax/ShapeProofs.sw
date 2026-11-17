@@ -45,8 +45,7 @@ theorem postfixIsOperand ∀ (expr: Expr) (postfix: expr.isPostfix = True): expr
 
 theorem operandIsChain ∀ (expr: Expr) (operand: expr.isOperand = True): expr.isChain = True := cases
 
-theorem operandLevel ∀ (expr: Expr) (isOperand: expr.isOperand = True): expr.chainLevel = 7 :=
-  match expr, isOperand with | _, _ => cases
+theorem operandLevel ∀ (expr: Expr) (isOperand: expr.isOperand = True): expr.chainLevel = 7 := cases
 
 -- Operator chains.
 

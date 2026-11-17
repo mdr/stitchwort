@@ -186,8 +186,7 @@ theorem bracketsKeepComments ∀ (file: SourceFile): file.withoutSpareBrackets.c
 
 theorem dropCommaComments: StepKeepsComments dropComma := position expr => match expr with | _ => cases
 
-theorem declareCommaComments ∀ (line: Declaration): line.withoutTrailingComma.comments = line.comments :=
-  match line with | _ => cases
+theorem declareCommaComments ∀ (line: Declaration): line.withoutTrailingComma.comments = line.comments := cases
 
 --| P2 keeps every comment the tree holds, in order.
 theorem commasKeepComments ∀ (file: SourceFile): file.withoutTrailingCommas.comments = file.comments :=

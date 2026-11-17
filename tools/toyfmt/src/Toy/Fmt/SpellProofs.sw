@@ -93,17 +93,17 @@ theorem stringEvent ∀ (seen: Views) (text: Text) (start: Option Nat)
 --| A keyword's event is its `Reserved` token.
 theorem keywordEvent ∀ (seen: Views) (keyword: Keyword) (start: Option Nat):
     viewEvent seen { word = keyword.spelling, start } = codeView seen (Reserved keyword) start :=
-  match keyword with | _ => cases
+  cases
 
 --| The event of a bracket, the comma, the dot or `=` is its `Sign` token.
 theorem signEvent ∀ (seen: Views) (mark: Punctuation) (start: Option Nat):
     viewEvent seen { word = mark.spelling, start } = codeView seen (Sign mark) start :=
-  match mark with | _ => cases
+  cases
 
 --| An operator's event is its `Op` token.
 theorem operatorEvent ∀ (seen: Views) (operator: Operator) (start: Option Nat):
     viewEvent seen { word = operator.spelling, start } = codeView seen (Op operator) start :=
-  match operator with | _ => cases
+  cases
 
 theorem commentNoBreak ∀ (text: Text) (comment: IsComment text) (isBreak: (text == "\n") = True): Void :=
   let same: text = "\n" := DecEq.sound isBreak
