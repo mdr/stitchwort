@@ -22936,7 +22936,7 @@
     {
       "id": 3904,
       "title": "[Sonnet] Engine E0: copy Toy.Doc and its 302 theorems into tools/fmt/src/Doc as the start of Std.Doc (docs/proposals/self-hosted-fmt-engine-plan.md stage E0)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
