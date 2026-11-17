@@ -58,15 +58,17 @@ pub(crate) fn lower_header(params: Vec<Param>, result: Expr) -> (Expr, Vec<Patte
                 span,
                 default: _,
             } => {
+                // A group is shorthand for a parameter per name (D3679),
+                // each checking its own copy of the type.
                 let span = span.to(cod.span());
-                Expr::Pi {
-                    names,
+                names.into_iter().rev().fold(cod, |cod, name| Expr::Pi {
+                    names: vec![name],
                     implicit,
                     auto,
-                    dom: Box::new(ty),
+                    dom: Box::new(ty.clone()),
                     cod: Box::new(cod),
                     span,
-                }
+                })
             }
         });
     (ty, patterns)

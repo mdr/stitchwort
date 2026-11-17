@@ -23,6 +23,8 @@
 --|   against `tree`.
 --| - `meaning` (stage 4b): `kept` if the four passes keep the file's
 --|   `meaning`, as the dump shows it, or where they don't. No Rust side.
+--| - `meaningdump`: the file's `meaning`, as the dump shows it, for
+--|   `dev/fmt-meaning-oracle` to compare two files' meanings. No Rust side.
 --| - the later stages are still the stage 0 stub: the file as it is.
 --|
 --| `--batch LIST` answers for every path in LIST (one per line) in one run,
@@ -48,7 +50,7 @@ def options: Args.Spec Options :=
       (Args.option "stage"
         (default := "text")
         (metavar := "STAGE")
-        (help := "tokens, expr, tree, refusal, passes, meaning or text."))
+        (help := "tokens, expr, tree, refusal, passes, meaning, meaningdump or text."))
     |> .and
       (Args.optional "batch" (metavar := "LIST") (help := "A file of paths, one per line, to answer for in one run."))
     |> .and (Args.arguments "FILE" (atLeast := 0) (help := "The files to answer for, one after another."))
@@ -101,6 +103,13 @@ def stageAnswer (stage source: Text): Answer := match stage with
   | "meaning" =>
     match lex source with
       | Ok lexed => meaningAnswer lexed
+      | Err message => { out = "", status = 2, message = "[E-PARSE] Error: ${message}" }
+  | "meaningdump" =>
+    match lex source with
+      | Ok lexed =>
+        match parseFile lexed.settled with
+          | Ok file => { out = file.meaning.plain.dump, status = 0, message = "" }
+          | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
       | Err message => { out = "", status = 2, message = "[E-PARSE] Error: ${message}" }
   | _ => { out = source, status = 0, message = "" }
 

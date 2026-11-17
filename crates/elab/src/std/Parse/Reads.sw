@@ -1116,10 +1116,6 @@ theorem Parse.readsLoopFrom ∀ [inv: Parse.Invariant t] (step: () → {Parse t}
       ∧ Parse.Honest total after
       ∧ ∃ (more: List a) => value = found.reverse ++ more ∧ Parse.Rounds spec read more :=
   match fuel with
-    | Zero =>
-      let err := Parse.runFromFatal state "`loop`: the step went on without reading anything" (x =>
-        (Empty.absurd x, Parse.mark()))
-      (Result.errNotOk (Eq.trans (Eq.flipped err) h)).impossible
     | Succ more =>
       match Parse.runFromThenOk2 step state
         (found2 => Parse.loopRound more step found state.at found2)

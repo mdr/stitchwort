@@ -1,5 +1,5 @@
 {
-  "next": 3890,
+  "next": 3895,
   "tickets": [
     {
       "id": 47,
@@ -22440,12 +22440,12 @@
     {
       "id": 3866,
       "title": "[DeepSeek] tools/fmt: move the remaining ~28 hand-fuelled loops to std Parse.loop (list on SW-3827), mechanically, keeping token/tree/refusal dumps identical; delete dead leavesOf in Parser.sw (SW-3827 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Started 18:50 on DeepSeek (scratch clone scratch-sw-3866), est. 25 min.",
+      "body": "Started 18:50 on DeepSeek (scratch clone scratch-sw-3866), est. 25 min.\n\nModel result: deepseek, worked, 31 min (est. 25). 14 loops converted; 13 left (thread state, or a round reads nothing): pipesFrom, suffixes, commaListFrom, matchArms, clauseArms, listPatternItems, attributeItems, fieldsFrom, importItems, unfoldingNames, dataIndices, qualified, pieces. Reviewed line by line by the orchestrator: interpolations now accepts a wider token order than the lexer produces (fine).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22531,12 +22531,12 @@
     {
       "id": 3873,
       "title": "[Sonnet] std Float candidates from Whereabouts: unitsNeg, sumNear (two-sided addRelError with signs handled), and the cancel-the-scale lemmas absDiffBelow, scaleLeft, scaleRight, shareErrorScaled: move to Float.Theory with docs (SW-3858 findings)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "Lane notes: moved to std/Float/Theory.sw (all additions): Float.Theory.unitsNeg (+signFlipBits, signedNot), sumNear (generalised: bounds lo/hi Float, units bound m ≤ 7e15 w; +roundedSumNear, sumSmallNear, leTrans, intLessZeroOfNotNonneg, intLeOfLess), relCancelUp/Down/relCancel, relCancelScaled (was shareErrorScaled; +scaleLeft, scaleRight, scaledAbsDiffLe (was absDiffBelow, name taken)), remUnitsExact, addWholeExact, Float.mulBetween. Whereabouts keeps a thin sumNear361 instance. Audit Whereabouts.Hints.Proofs 0 failed. prelude snapshot re-accepted, search:: 15 pass, fmt_repo pass.\n\nModel result: sonnet, worked, 10 min (est. 35), with SW-3886. Renames: shareErrorScaled -> relCancelScaled, absDiffBelow -> scaledAbsDiffLe (std had one), floatLeTrans -> leTrans. Follow-up SW-3894.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22609,7 +22609,7 @@
     {
       "id": 3879,
       "title": "[DeepSeek] Proving guide: cases on a large record (e.g. Header, 11 fields) exhausts its 64-case budget by splitting every field; split by hand first. Also note that {e} alone may read as a record (SW-3864 friction)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22622,12 +22622,12 @@
     {
       "id": 3880,
       "title": "[Opus] D3679 (decided): a parameter group (a b: T) is pure sugar for (a: T) (b: T): the elaborator checks the type once per name (infer_pi, crates/elab/src/check.rs ~2896), so (x y: _) and (a b: Box) with an implicit check exactly when the split form does; repros in docs/reviews/SW-3878-meaning.md M1; guide and syntax.md say so",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "D3679 decided (Matt, 17 Nov 2026): option 1, 'Yeah, I'm happy with option one. Let's keep it as a pure syntax sugar.' The compiler reads (a b: T) exactly as (a: T) (b: T), elaborating the type once per name; the formatter's merge and meaning's split stay as they are. Lane: Opus (elaborator, core language), next free build slot.",
+      "body": "D3679 decided (Matt, 17 Nov 2026): option 1, 'Yeah, I'm happy with option one. Let's keep it as a pure syntax sugar.' The compiler reads (a b: T) exactly as (a: T) (b: T), elaborating the type once per name; the formatter's merge and meaning's split stay as they are. Lane: Opus (elaborator, core language), next free build slot.\n\nLane (Opus, 17 Nov 2026, 18:59-19:20, est. 40 min): done in the lowering, not the elaborator. Every place a group is lowered (header params via lower_header, `∀` via forall, `(x y: A) -> B`, data, interface and ability params, constructor fields; lambdas and `∃` already split) now gives each name its own binder and its own copy of the type (ast::Binder::split), so the elaborator checks it once per name, as for the split form. No elaborator or kernel change. The theorem-binders sweep (driver/binder_sweep.rs) gathers a split group's binders back into one token group. Messages unchanged (an error in the type is reported once; a `?` there shows one goal). One reading change, as the split form has it: in `∀ (a b: a)`, b's type is the parameter a, not an outer a. Tests: 4 examples (group-hole-forall, group-hole-header, group-implicit-argument, group-hole-positions; all failed before), lowering test a_group_is_a_binder_per_name, hash test a_group_hashes_as_its_split_form; std hashes unchanged (hash_stability::prelude), no existing example hash changed. Docs: syntax.md bullet, guide ch. 2.\n\nModel result: opus, worked, 21 min (est. 40). One consequence of pure sugar (orchestrator: it's exactly D3679's split form, as lambdas already did): in ∀ (a b: a), b's type now refers to the parameter a. Constructor fields' _ can't be solved from later fields even split (not filed: same as split form). Follow-ups SW-3890 SW-3891.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22661,15 +22661,17 @@
     {
       "id": 3883,
       "title": "[Sonnet] An oracle for the self-hosted formatter's meaning: check both sides of a meaning-equal pair and compare declaration hashes, with generated inputs for the group-split and head-bracket shapes; catches a wrong meaning, which Twin --stage meaning cannot (SW-3878 S4)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nSW-3883 (Sonnet): dev/fmt-meaning-oracle + Twin meaningdump stage; 118 pairs, 101 agreed, 0 findings; notes in tools/fmt/NOTES.md. Model result: Sonnet, worked, 20 min (est. 30).\n\nModel result: sonnet, worked, 19 min (est. 30). Verified it catches a regression (SW-3881 reverted). Not yet a task wrapper; run by hand or from Overmind.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
-      "commits": []
+      "commits": [
+        "2568b14c1"
+      ]
     },
     {
       "id": 3884,
@@ -22700,12 +22702,12 @@
     {
       "id": 3886,
       "title": "[Sonnet] std Float candidates from Whereabouts (SW-3872): remUnitsExact (exact value of x % y, which remExact proves but doesn't state), addWholeExact, relCancel, mulBetween; move to Float.Theory with docs (add to SW-3873's batch)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "Lane notes: moved to std/Float/Theory.sw (all additions): Float.Theory.unitsNeg (+signFlipBits, signedNot), sumNear (generalised: bounds lo/hi Float, units bound m ≤ 7e15 w; +roundedSumNear, sumSmallNear, leTrans, intLessZeroOfNotNonneg, intLeOfLess), relCancelUp/Down/relCancel, relCancelScaled (was shareErrorScaled; +scaleLeft, scaleRight, scaledAbsDiffLe (was absDiffBelow, name taken)), remUnitsExact, addWholeExact, Float.mulBetween. Whereabouts keeps a thin sumNear361 instance. Audit Whereabouts.Hints.Proofs 0 failed. prelude snapshot re-accepted, search:: 15 pass, fmt_repo pass.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22726,7 +22728,7 @@
     {
       "id": 3888,
       "title": "[Opus] A closed statement such as List.all … = True is evaluated in full by the checker even when its proof is general (17 s for 3,601 items), so a table can't be replaced by a proof without changing the statement; find where and whether it's needed (SW-3872 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22744,6 +22746,71 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3890,
+      "title": "[Opus] Lambda applied directly to arguments: ((a: Box) (b: Box) => a.length + b.length) [1] [True] fails with 'expected _ [1], but this has type Bool' (Box [t: Type]: Type := List t); looks like inference not working out each binder's implicit from its argument; reduce, failing-first example, fix (SW-3880 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3891,
+      "title": "[Sonnet] Clean-up after D3679: lowering now always gives one name per Binder/Expr::Pi; narrow names: Vec to a single name where safe, and correct the self-hosted formatter's meaning doc to cite ast::Binder::split and the lowering (SW-3880 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3892,
+      "title": "[Opus] Regression from SW-3880 (D3679): examples/accept/as-written-unconfirmed.sw panics in the elaborator, matching.rs:2274 dependency_order 'index out of bounds: the len is 0 but the index is 3' (bind_generalised via unconfirmed_now, a generalised match in a theorem with ∀ (x k answer: Nat)); hash_stability::examples fails on main. Fix forward with a failing-first test",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3893,
+      "title": "[Sonnet] std_library::the_library_has_no_unreachable_arms fails on main: std/Parse/Reads.sw:1119 'this case can't happen' (SW-3867's readsLoopFrom Zero arm); remove or restructure the arm, keep the theorem (Overmind rolling check on 29b9fcbd4)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "\n\nLane note: removed the `| Zero =>` arm of readsLoopFrom (the checker proves it unreachable: h would make runFrom an Err). Statement unchanged. Reads.sw checks; unreachable-arms test passes; prelude snapshot re-accepted (readsLoop, givesLoop, readsLoopFrom and its matches only).\n\nModel result: sonnet, worked, 3 min (est. 10).",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3894,
+      "title": "[DeepSeek] Whereabouts: use std Float.Theory.leTrans, intLessZeroOfNotNonneg and intLeOfLess instead of the app's duplicates floatLeTrans, intNegOfNotNonneg, intLeOfLess; derive std signedNot from signedFlip (SW-3873 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",

@@ -40,18 +40,16 @@ def misplaced (what: Text): Text := "attributes can't be used on ${what}"
 -- Attributes.
 
 --| The attribute groups next, `@[a, b "x"] @[c]`.
-def attributesOf (modes: Modes): {Parse Item} List Attributes := attributeGroups (Parse.mark().left + 1) modes []
+def attributesOf (modes: Modes): {Parse Item} List Attributes := attributeGroups modes
 
-def attributeGroups (fuel: Nat) (modes: Modes) (found: List Attributes): {Parse Item} List Attributes :=
-  let ahead := modes.at At
-  match fuel with
-    | Succ more if ahead =>
-      let at := fixedFrom()
-      let open := modes.expectFixed LBracket "`[`"
-      let (items, trailingComma) := attributeItems (Parse.mark().left + 1) modes []
-      let close := modes.expectFixed RBracket "`,` or `]` after the attribute"
-      attributeGroups more modes [{ at, open, items, trailingComma, close }, ..found]
-    | _ => found.reverse
+def attributeGroups (modes: Modes): {Parse Item} List Attributes := Parse.loop (() =>
+  if modes.at At then
+    let at := fixedFrom()
+    let open := modes.expectFixed LBracket "`[`"
+    let (items, trailingComma) := attributeItems (Parse.mark().left + 1) modes []
+    let close := modes.expectFixed RBracket "`,` or `]` after the attribute"
+    Some { at, open, items, trailingComma, close }
+  else None)
 
 --| The attributes in one group, and whether a comma ended them.
 def attributeItems (fuel: Nat) (modes: Modes) (found: List Attribute): {Parse Item} (List Attribute, Bool) :=
@@ -60,7 +58,7 @@ def attributeItems (fuel: Nat) (modes: Modes) (found: List Attribute): {Parse It
       if modes.at RBracket && !found.isEmpty then (found.reverse, True)
       else
         let name := modes.lowerQualified "an attribute's name, such as `js.name`"
-        let parts := attributeParts (Parse.mark().left + 1) modes []
+        let parts := attributeParts modes
         let argument :=
           if modes.at Str then Some bump()
           else if modes.at StrStart then fatal "an attribute's argument is a plain string, without `\${…}`"
@@ -72,14 +70,12 @@ def attributeItems (fuel: Nat) (modes: Modes) (found: List Attribute): {Parse It
         else (done.reverse, False)
     | Zero => (found.reverse, False)
 
-def attributeParts (fuel: Nat) (modes: Modes) (found: List (Comments, Word)): {Parse Item} List (Comments, Word) :=
-  let ahead := modes.at Dot
-  match fuel with
-    | Succ more if ahead =>
-      let dot := fixedFrom()
-      let part := modes.lowerQualified "the rest of the attribute's name"
-      attributeParts more modes [(dot, part), ..found]
-    | _ => found.reverse
+def attributeParts (modes: Modes): {Parse Item} List (Comments, Word) := Parse.loop (() =>
+  if modes.at Dot then
+    let dot := fixedFrom()
+    let part := modes.lowerQualified "the rest of the attribute's name"
+    Some (dot, part)
+  else None)
 
 --| A lowercase name, possibly qualified (`lower_q`).
 def Modes.lowerQualified (modes: Modes) (what: Text): {Parse Item} Word :=
@@ -574,7 +570,7 @@ def definitionParts (self: Goal → {Parse Item} Expr) (modes: Modes)
         if modes.at LParen || modes.at LBracket then Some word
         else modes.fail "a parameter such as `(x: Nat)` after `∀`"
     else None
-  let params := headerParams (Parse.mark().left + 1) self modes.sealed []
+  let params := headerParams self modes.sealed
   let colon := fixedFrom()
   let headerModes := match local with
     | Some _ => { modes | lines = [{ column = 0, many = False, kind = DefHeaderLine }] }
@@ -623,13 +619,8 @@ def allowColonEq (modes: Modes): {Parse Item} Modes := match left() with
   | [next, .._] if next.kind == ColonEq && next.leaf.token.lineStart => { modes | allow = Some next.index }
   | _ => modes
 
-def headerParams (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (found: List Group):
-    {Parse Item} List Group :=
-  let ahead := !modes.at Colon
-  match fuel with
-    | Succ more if ahead => headerParams more self modes [headerGroup self modes GroupParam None, ..found]
-    | _ =>
-      if ahead then modes.fail "a parameter such as `(x: Nat)`, or `:` and the definition's type" else found.reverse
+def headerParams (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} List Group :=
+  Parse.loop (() => if !modes.at Colon then Some (headerGroup self modes GroupParam None) else None)
 
 def unfoldingNames (fuel: Nat) (modes: Modes) (found: List Word): {Parse Item} List Word := match fuel with
   | Succ more =>
@@ -672,26 +663,21 @@ def definitionArms (self: Goal → {Parse Item} Expr) (modes: Modes) (d: Nat): {
   | [first, .._] =>
     if !first.leaf.token.lineStart then fatal "arms start on their own lines"
     else if first.leaf.token.column <= d then fatal "arms are indented further than the definition they belong to"
-    else definitionArmsFrom (Parse.mark().left + 1) self { modes | limit = Some first.leaf.token.column } d []
+    else definitionArmsFrom self { modes | limit = Some first.leaf.token.column } d
   | [] => modes.fail "`|`"
 
-def definitionArmsFrom (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (d: Nat) (found: List Arm):
-    {Parse Item} List Arm :=
-  match fuel with
-    | Zero => found.reverse
-    | Succ more =>
-      let armModes := { modes | allow = Some offset() }
-      let arm := definitionArm self armModes
-      let done := [arm, ..found]
-      let column := modes.limit.getOrElse 0
-      match left() with
-        | [] => done.reverse
-        | [next, .._] =>
-          if !next.leaf.token.lineStart then armModes.fail "the end of the arm"
-          else if next.leaf.token.column <= d || next.kind == KwWhere then done.reverse
-          else if next.kind == Pipe && next.leaf.token.column == column then definitionArmsFrom more self modes d done
-          else if next.kind == Pipe then fatal "this `|` doesn't line up with the definition's arms"
-          else fatal "expected `|` and another arm, or the end of the definition, but found ${next.spelled}"
+def definitionArmsFrom (self: Goal → {Parse Item} Expr) (modes: Modes) (d: Nat): {Parse Item} List Arm :=
+  let column := modes.limit.getOrElse 0
+  Parse.loop (() =>
+    match left() with
+      | [] => None
+      | [next, .._] =>
+        if !next.leaf.token.lineStart then modes.fail "the end of the arm"
+        else if next.leaf.token.column <= d || next.kind == KwWhere then None
+        else if next.kind == Pipe && next.leaf.token.column == column then
+          Some (definitionArm self { modes | allow = Some offset() })
+        else if next.kind == Pipe then fatal "this `|` doesn't line up with the definition's arms"
+        else fatal "expected `|` and another arm, or the end of the definition, but found ${next.spelled}")
 
 def definitionArm (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Arm :=
   let bar := bump()
@@ -708,7 +694,7 @@ def dataDecl (modes: Modes) (attributes: List Attributes): {Parse Item} Decl :=
     if isInterface then modes.upperQualified "an interface name (starting with an uppercase letter)"
     else modes.upperQualified "a data type name (starting with an uppercase letter)"
   let word := if isInterface then "interface" else "type"
-  let params := dataParams (Parse.mark().left + 1) modes word name []
+  let params := dataParams modes word name
   let indices :=
     if modes.at Colon then
       let colon := fixedFrom()
@@ -735,29 +721,26 @@ def dataDecl (modes: Modes) (attributes: List Attributes): {Parse Item} Decl :=
             "an ability row like `{${row}}` can't be given a name with `type` yet; write the row where it's used, such as `() -> {${row}} Nat`"
         | None => Data attributes False keyword name params indices (RecordBody equals (bracedFields modes))
     else
-      let constructors := constructorsOf (Parse.mark().left + 1) modes []
+      let constructors := constructorsOf modes
       Data attributes False keyword name params indices (Sum equals constructors)
 
-def dataParams (fuel: Nat) (modes: Modes) (word: Text) (name: Word) (found: List Group): {Parse Item} List Group :=
-  match fuel with
-    | Zero => found.reverse
-    | Succ more =>
-      if modes.at LParen then
-        let binder := binderGroup expressionAt modes False
-        refuseAttributes binder.attributes "a data type's parameter"
-        dataParams more modes word name [binder, ..found]
-      else if modes.at LBracket && implicitBinderAhead (Parse.mark().left + 1) left() then
-        let binder := implicitBinder expressionAt modes
-        refuseAttributes binder.attributes "a data type's parameter"
-        if binder.auto.isNone then fatal "a type's parameters in brackets must be `auto`, like `[auto ord: Ord k]`"
-        else if binder.names.isEmpty then
-          fatal "a type's `auto` parameter needs a name, so it can be given by name: `[auto ord: Ord k]`"
-        else dataParams more modes word name [binder, ..found]
-      else
-        match left() with
-          | [param, .._] if param.kind == Lower && !isQualified param && !modes.stops param =>
-            fatal "a ${word}'s parameter `${param.text}` needs its type, in brackets"
-          | _ => found.reverse
+def dataParams (modes: Modes) (word: Text) (name: Word): {Parse Item} List Group := Parse.loop (() =>
+  if modes.at LParen then
+    let binder := binderGroup expressionAt modes False
+    refuseAttributes binder.attributes "a data type's parameter"
+    Some binder
+  else if modes.at LBracket && implicitBinderAhead (Parse.mark().left + 1) left() then
+    let binder := implicitBinder expressionAt modes
+    refuseAttributes binder.attributes "a data type's parameter"
+    if binder.auto.isNone then fatal "a type's parameters in brackets must be `auto`, like `[auto ord: Ord k]`"
+    else if binder.names.isEmpty then
+      fatal "a type's `auto` parameter needs a name, so it can be given by name: `[auto ord: Ord k]`"
+    else Some binder
+  else
+    match left() with
+      | [param, .._] if param.kind == Lower && !isQualified param && !modes.stops param =>
+        fatal "a ${word}'s parameter `${param.text}` needs its type, in brackets"
+      | _ => None)
 
 --| The indices after a data type's `:`, each with its arrow, and the last
 --| type.
@@ -834,21 +817,22 @@ def fieldsFrom (fuel: Nat) (modes: Modes) (found: List Field): {Parse Item} (Lis
         fieldsFrom more modes done
       else (done.reverse, False)
 
-def constructorsOf (fuel: Nat) (modes: Modes) (found: List Constructor): {Parse Item} List Constructor :=
-  let ahead := modes.at Pipe
-  match fuel with
-    | Succ more if ahead =>
-      let bar := fixedFrom()
-      let attributes := attributesOf modes
-      let name := modes.upper "a constructor name (starting with an uppercase letter)"
-      let fields := constructorParts (Parse.mark().left + 1) modes name False False []
-      let result :=
-        if modes.at Colon then
-          let colon := fixedFrom()
-          Some (colon, expressionAt { modes, level = LevelApp })
-        else None
-      constructorsOf more modes [{ bar, attributes, name, fields, result }, ..found]
-    | _ => if found.isEmpty then modes.fail "`|` and a constructor, or `{` and a record's fields" else found.reverse
+def constructorsOf (modes: Modes): {Parse Item} List Constructor :=
+  if modes.at Pipe then
+    Parse.loop (() =>
+      if modes.at Pipe then
+        let bar := fixedFrom()
+        let attributes := attributesOf modes
+        let name := modes.upper "a constructor name (starting with an uppercase letter)"
+        let fields := constructorParts (Parse.mark().left + 1) modes name False False []
+        let result :=
+          if modes.at Colon then
+            let colon := fixedFrom()
+            Some (colon, expressionAt { modes, level = LevelApp })
+          else None
+        Some { bar, attributes, name, fields, result }
+      else None)
+  else modes.fail "`|` and a constructor, or `{` and a record's fields"
 
 --| A constructor's fields: in brackets or in braces, not both, and its
 --| implicit ones.
@@ -880,37 +864,36 @@ def constructorParts (fuel: Nat) (modes: Modes) (name: Word) (bracketed braced: 
 def abilityDecl (modes: Modes): {Parse Item} Decl :=
   let keyword := fixedFrom()
   let name := modes.upperQualified "an ability name (starting with an uppercase letter)"
-  let params := abilityParams (Parse.mark().left + 1) modes []
+  let params := abilityParams modes
   let whereKeyword := modes.expectFixed KwWhere "`where`"
   match modes.peek, left() with
     | Some _, [first, .._] =>
       let column := first.leaf.token.column
-      Ability keyword name params whereKeyword
-        (operations (Parse.mark().left + 1) { modes | limit = Some column } column [])
+      Ability keyword name params whereKeyword (operations { modes | limit = Some column } column)
     | _, _ => modes.fail "the ability's operations"
 
-def abilityParams (fuel: Nat) (modes: Modes) (found: List Group): {Parse Item} List Group :=
-  let ahead := modes.at LParen
-  match fuel with
-    | Succ more if ahead =>
-      let binder := binderGroup expressionAt modes False
-      refuseAttributes binder.attributes "an ability's parameter"
-      abilityParams more modes [binder, ..found]
-    | _ => found.reverse
+def abilityParams (modes: Modes): {Parse Item} List Group := Parse.loop (() =>
+  if modes.at LParen then
+    let binder := binderGroup expressionAt modes False
+    refuseAttributes binder.attributes "an ability's parameter"
+    Some binder
+  else None)
 
-def operations (fuel: Nat) (modes: Modes) (column: Nat) (found: List Operation): {Parse Item} List Operation :=
-  match fuel with
-    | Zero => found.reverse
-    | Succ more =>
-      let opModes := { modes | allow = Some offset() }
-      let name := opModes.lower "an operation name"
-      let colon := opModes.expectFixed Colon "`:`"
-      let annotation := expressionAt { modes = opModes, level = LevelInline }
-      let done := [{ name, colon, annotation }, ..found]
-      match left() with
-        | [next, .._] if next.leaf.token.lineStart && next.leaf.token.column == column =>
-          operations more modes column done
-        | _ => done.reverse
+--| One operation, with the `allow` that keeps its first token.
+def operation (modes: Modes): {Parse Item} Operation :=
+  let opModes := { modes | allow = Some offset() }
+  let name := opModes.lower "an operation name"
+  let colon := opModes.expectFixed Colon "`:`"
+  let annotation := expressionAt { modes = opModes, level = LevelInline }
+  { name, colon, annotation }
+
+def operations (modes: Modes) (column: Nat): {Parse Item} List Operation :=
+  let first := operation modes
+  let rest := Parse.loop (() =>
+    match left() with
+      | [next, .._] if next.leaf.token.lineStart && next.leaf.token.column == column => Some (operation modes)
+      | _ => None)
+  [first, ..rest]
 
 -- The file.
 
