@@ -446,6 +446,13 @@ follow lane, which is recorded.
 
 **Q2. `meaning` forgets exactly what a pass changes, where it changes
 it?** [rec: yes; needed before slice 2's sketch, not before slice 1]
+**Decided (D3678, 17 Nov 2026):** Matt left it to the orchestrator ("I'm
+happy for you to take a considered view of what the same program should
+mean in the context of this theorem development"); the orchestrator chose
+the narrow `meaning`, as recommended: it forgets a bracket pair only after
+a row or around a parameter's whole type, a group's split only for groups
+P4 could have made, and `∀` only where P1 writes it. §3.4's wider first
+row is superseded.
 See §6.
 
 Decided here as implementation (say if you disagree): the slice as a

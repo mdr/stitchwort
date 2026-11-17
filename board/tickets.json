@@ -1,5 +1,5 @@
 {
-  "next": 3864,
+  "next": 3865,
   "tickets": [
     {
       "id": 47,
@@ -21897,7 +21897,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Matt, 17 Nov 2026 (direction): aim for the full end-to-end proof of the self-hosted formatter ('a really cool milestone'); happy to keep two formatters in step for a while; re-proving after a style change is 'the cost of doing business'. Wants it built incrementally and de-risked, so hidden complexities show up early ('maybe we could do proofs about a cut-down version of Stitchwort'), and the foundations (std lemmas, proof tactics) invested in first so the proofs are easy.\n\nLane note (Fable, 17 Nov 2026): plan written, docs/proposals/self-hosted-fmt-proof-plan.md (commit 0c3c958bc). Seven slices cut from the real tree by a Bool function (probe checked); spikes K1 (rule N re-layout) and K4 (parser fuel) can start now; foundations F1 (stage 2 tree without layout in leaves) and F2 (Std.Doc) gate slice 1. Finding: stage 2a's tree keeps column and lineStart in its leaves, against the sketch's section 1. Two questions for Matt: slices with rules proved per slice; the narrow meaning (before slice 2). About 11 min (est. 45).\n\nModel result: fable, worked, 11 min (est. 45). Tree-leaf finding relayed to SW-3819. Decisions for Matt: (1) prove each slice's rules in it, not last [rec yes]; (2) meaning forgets only what a pass changes [rec yes], needed before S2. Filed SW-3825 SW-3826 SW-3827 SW-3828.\n\nD3676 (Matt, 17 Nov 2026): yes, prove each slice's rules with the slice. D3677 (Matt, 17 Nov 2026): minimise Rust formatter changes during the build and proofs, except bugs; a bug found by the proofs is fixed in both formatters when Rust has it too.",
+      "body": "Matt, 17 Nov 2026 (direction): aim for the full end-to-end proof of the self-hosted formatter ('a really cool milestone'); happy to keep two formatters in step for a while; re-proving after a style change is 'the cost of doing business'. Wants it built incrementally and de-risked, so hidden complexities show up early ('maybe we could do proofs about a cut-down version of Stitchwort'), and the foundations (std lemmas, proof tactics) invested in first so the proofs are easy.\n\nLane note (Fable, 17 Nov 2026): plan written, docs/proposals/self-hosted-fmt-proof-plan.md (commit 0c3c958bc). Seven slices cut from the real tree by a Bool function (probe checked); spikes K1 (rule N re-layout) and K4 (parser fuel) can start now; foundations F1 (stage 2 tree without layout in leaves) and F2 (Std.Doc) gate slice 1. Finding: stage 2a's tree keeps column and lineStart in its leaves, against the sketch's section 1. Two questions for Matt: slices with rules proved per slice; the narrow meaning (before slice 2). About 11 min (est. 45).\n\nModel result: fable, worked, 11 min (est. 45). Tree-leaf finding relayed to SW-3819. Decisions for Matt: (1) prove each slice's rules in it, not last [rec yes]; (2) meaning forgets only what a pass changes [rec yes], needed before S2. Filed SW-3825 SW-3826 SW-3827 SW-3828.\n\nD3676 (Matt, 17 Nov 2026): yes, prove each slice's rules with the slice. D3677 (Matt, 17 Nov 2026): minimise Rust formatter changes during the build and proofs, except bugs; a bug found by the proofs is fixed in both formatters when Rust has it too.\n\nD3678 (17 Nov 2026): Matt delegated the meaning decision ('take a considered view'); the orchestrator chose the narrow meaning (rec). Stage 4b: SW-3864.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": [
@@ -22402,6 +22402,19 @@
       "id": 3863,
       "title": "[Sonnet] Self-hosted formatter stage 4a: the four passes P1-P4 on the shared traversal (Syntax/Traverse.sw), with the parking-comma order from K1 (last commas out before rule N, Lexed.settledBare); gate: the tidied tree's dump identical to the Rust passes' on every file (self-hosted-fmt.md §8 stage 4; meaning is 4b, waiting on Matt's decision)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3864,
+      "title": "[Opus] Self-hosted formatter stage 4b: meaning (D3678: the narrow form, forgetting only what a pass changes where it changes it), on the shared traversal; correct self-hosted-fmt.md §3.4's first row and the 94 kinds to 98; prove the sketch's per-pass 'keeps meaning' step facts that are cheap; Opus review of Meaning.sw with Traverse.sw (after SW-3863)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
