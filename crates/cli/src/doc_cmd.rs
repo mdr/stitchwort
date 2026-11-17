@@ -255,7 +255,10 @@ fn answer(
     let mut result = decls.report(index, &within);
 
     // The elaborated type and the theorems need the check (D2152).
-    let checkable = !matches!(entry.kind, Kind::Type | Kind::Interface | Kind::Ability);
+    let checkable = !matches!(
+        entry.kind,
+        Kind::Type | Kind::Interface | Kind::Ability | Kind::Rules
+    );
     if args.theorems > 0 && checkable {
         let mut extra = String::new();
         if let Some(names) = &dependents {

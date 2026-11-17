@@ -246,6 +246,10 @@ pub struct ExpandedRule {
     pub source: RuleSource,
     pub fields: Vec<String>,
     pub reverse: bool,
+    /// One step of a definition (its name, not an equation), proved by
+    /// computing: `rewrite` has no step for it, so it is kept only where
+    /// the call stays one `rewrite repeatedly`.
+    pub unfold: bool,
     /// Its place among the call's rules, sets' and definitions' put in.
     pub order: usize,
 }
@@ -451,13 +455,24 @@ fn expansion_steps(
             )),
         };
     }
+    // A definition's step is proved by computing, so the goal after it is
+    // the goal before to `rewrite`, whose search reads what the goal
+    // computes to: it has no `rewrite` step of its own. Folding one back
+    // (`<- f`) is not read that way.
+    if let Some(fold) = first.rules.iter().find(|r| r.unfold && r.reverse) {
+        let name = rule_text(fold, slice);
+        return Err(format!(
+            "it folds a definition (`{name}`), which `rewrite` has no step for"
+        ));
+    }
     let closer = match &first.closer {
         Closer::Computing => None,
         Closer::Hypothesis(name) => Some(name.clone()),
         Closer::Cases => Some("cases".to_string()),
         Closer::Body(span) => Some(slice(*span)),
     };
-    if first.rules.is_empty() {
+    let steps: Vec<&ExpandedRule> = first.rules.iter().filter(|r| !r.unfold).collect();
+    if steps.is_empty() {
         return Ok(match (first.target, closer) {
             // Nothing rewritten: the body, or the target unchanged.
             (_, Some(closer)) => closer,
@@ -465,9 +480,8 @@ fn expansion_steps(
             (None, None) => "byComputing".to_string(),
         });
     }
-    let rules = first
-        .rules
-        .iter()
+    let rules = steps
+        .into_iter()
         .map(|r| rule_text(r, slice))
         .collect::<Vec<_>>();
     let mut out = format!("rewrite {}{at}", rules.join(", "));
@@ -737,6 +751,7 @@ pub(super) fn rewrite_repeatedly(
                     },
                     fields: added_fields(&member.proof, &rule.proof),
                     reverse: rule.reverse,
+                    unfold: rule.unfold,
                     order: rules.len(),
                 };
                 rules.push(Listed {
@@ -1013,12 +1028,8 @@ fn record_expansion(
     if let Some(expansions) = cx.e.session.expansions.borrow_mut().as_mut() {
         expansions.push(Expansion {
             call: expr.span(),
-            // A definition's step is proved by computing, so the goal after
-            // it is the goal before to `rewrite`, whose search reads what
-            // the goal computes to: it has no `rewrite` step of its own.
             rules: trail
                 .iter()
-                .filter(|(index, _, _)| !rules[*index].rule.unfold)
                 .map(|(index, _, _)| rules[*index].source.clone())
                 .collect(),
             target: target.as_ref().map(|t| t.span()),
@@ -1903,6 +1914,7 @@ mod tests {
             source: RuleSource::Written(span),
             fields: Vec::new(),
             reverse: false,
+            unfold: false,
             order,
         }
     }
@@ -1922,6 +1934,7 @@ mod tests {
             source: RuleSource::Named("List.appendNil".into()),
             fields: vec!["eq2".into()],
             reverse: true,
+            unfold: false,
             order: 0,
         };
         let expansions = [
@@ -1970,5 +1983,40 @@ mod tests {
         // One chain followed by a comma is bracketed.
         let (out, _, _) = expand_file(text, file, &[case(vec![written(q, 1)])]);
         assert_eq!(out, "a := cases then (rewrite Q), x");
+    }
+
+    /// A definition's one-step unfold has no `rewrite` step, so a single
+    /// chain leaves it out, but a call kept as `rewrite repeatedly` lists
+    /// it (SW-3662); a chain that folds one is refused.
+    #[test]
+    fn expand_file_keeps_unfolds_where_it_stays_repeatedly() {
+        let text = "a := cases then rewrite repeatedly [f, Q, R], x";
+        let mut sources = stitchwort_syntax::SourceMap::new();
+        let file = sources.add("t.sw", text);
+        let call = Span::new(file, 16, text.find("R]").unwrap() as u32 + 1);
+        let [f, q, r] = ["f", "Q", "R"].map(|n| at(file, text, n, 0));
+        let unfold = |reverse: bool| ExpandedRule {
+            reverse,
+            unfold: true,
+            ..written(f, 0)
+        };
+        let case = |rules: Vec<ExpandedRule>| Expansion {
+            call,
+            rules,
+            target: None,
+            closer: Closer::Computing,
+        };
+        let checks = [
+            case(vec![unfold(false), written(q, 1)]),
+            case(vec![unfold(false), written(r, 2)]),
+        ];
+        let (out, _, _) = expand_file(text, file, &checks);
+        assert_eq!(out, "a := cases then rewrite repeatedly [f, Q, R], x");
+        let (out, _, _) = expand_file(text, file, &[case(vec![unfold(false), written(q, 1)])]);
+        assert_eq!(out, "a := cases then (rewrite Q), x");
+        let (out, done, refused) =
+            expand_file(text, file, &[case(vec![unfold(true), written(q, 1)])]);
+        assert_eq!((out.as_str(), done), (text, 0));
+        assert!(refused[0].1.contains("folds a definition"), "{refused:?}");
     }
 }

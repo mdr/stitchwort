@@ -41227,12 +41227,12 @@
     {
       "id": 3662,
       "title": "[Sonnet] Follow-ups to SW-3655: hover on a set's name inside a rewrite repeatedly [set] call shows nothing (set_named restores a snapshot that drops the nav record); doc pages skip Decl::Rules; the expand action offers itself on any line containing the words; expand drops definition one-step unfolds",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Lane notes (Sonnet, commit 10fcca6a2 on lane/SW-3662):\n- Hover: the cause wasn't the snapshot restore: each set member is checked at the set name's span and its reference overwrote the set's. `Elaborator::note` now keeps a rule set's reference at a span. Test hover_on_a_set_named_in_a_call_shows_its_members (failed before: showed List.appendAssoc).\n- Docs: Kind::Rules, header is the whole declaration. Unit test a_rule_set_has_a_page_showing_its_rules.\n- Expand action: offered only when the cursor is within a lexed `rewrite repeatedly [` ... `]`; words in a comment or string aren't tokens. Tests: a_rewrite_repeatedly_call_expands_into_its_steps (off the call on the same line, failed before), expand_is_not_offered_on_the_words_in_a_comment_or_string.\n- Unfolds: a definition's forward unfold has no rewrite spelling and rewrite's search reads the computed goal, so a single chain still leaves it out (docs/syntax.md says so deliberately). Now recorded in the expansion: kept in the one-`rewrite repeatedly` form of a per-case call, and a chain that folds one (`<- f`) is refused. Tests: expand_is_not_offered_where_a_call_folds_a_definition (failed before: offered a chain that doesn't prove it), expand_file_keeps_unfolds_where_it_stays_repeatedly.\nModel result: sonnet, worked, ~25 min (est. 40).\n",
       "created": "2026-11-16",
       "updated": "2026-11-17",
       "commits": []

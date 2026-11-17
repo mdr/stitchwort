@@ -1944,19 +1944,20 @@ fn a_rewrite_repeatedly_call_expands_into_its_steps() {
     big_stack(|| {
         let text = "namespace Demo\n\nimport Std (Eq, List, Nat)\n\nrules appends := [List.appendAssoc, List.appendNil]\n\ntheorem regroup ∀ (xs ys zs: List Nat): ((xs ++ ys) ++ zs) ++ [] = xs ++ (ys ++ zs) := rewrite repeatedly [appends]\n\ntheorem plain (n: Nat): n = n := byComputing\n";
         let mut s = Session::open(text);
-        let expand = |s: &mut Session, line: u32| {
+        let expand = |s: &mut Session, line: u32, character: u32| {
             let actions = s.request_any(
                 "textDocument/codeAction",
                 json!({"textDocument": {"uri": URI},
-                       "range": {"start": {"line": line, "character": 4},
-                                 "end": {"line": line, "character": 4}},
+                       "range": {"start": {"line": line, "character": character},
+                                 "end": {"line": line, "character": character}},
                        "context": {"diagnostics": []}}),
             );
             (actions.as_array().into_iter().flatten())
                 .find(|a| a["title"] == "Expand rewrite repeatedly")
                 .cloned()
         };
-        let action = expand(&mut s, 6).expect("an action on the call");
+        let on_call = text.lines().nth(6).unwrap().find("repeatedly").unwrap() as u32;
+        let action = expand(&mut s, 6, on_call).expect("an action on the call");
         let edit = &action["edit"]["documentChanges"][0]["edits"][0];
         let new_text = edit["newText"].as_str().unwrap();
         assert!(
@@ -1965,7 +1966,87 @@ fn a_rewrite_repeatedly_call_expands_into_its_steps() {
         );
         assert!(new_text.contains("List.appendAssoc"), "{new_text}");
         assert_eq!(edit["range"]["start"]["line"], 6);
-        assert!(expand(&mut s, 8).is_none(), "offered where there's no call");
+        assert!(
+            expand(&mut s, 8, 4).is_none(),
+            "offered where there's no call"
+        );
+        assert!(
+            expand(&mut s, 6, 4).is_none(),
+            "offered on the same line, off the call"
+        );
+        let on_set = text.lines().nth(6).unwrap().find("[appends]").unwrap() as u32 + 2;
+        assert!(expand(&mut s, 6, on_set).is_some(), "offered on the set");
+    });
+}
+
+/// A call that folds a definition (`<- double`) has no `rewrite` steps to
+/// stand for it: the action isn't offered, rather than offering a chain
+/// that doesn't prove the theorem (SW-3662).
+#[test]
+fn expand_is_not_offered_where_a_call_folds_a_definition() {
+    big_stack(|| {
+        let text = "namespace Demo\n\nimport Std (Eq, Nat)\n\ndef double (n: Nat): Nat := n + n\n\ntheorem folded (n: Nat) (h: double n = 4): n + n = 4 := rewrite repeatedly [<- double, h]\n";
+        let mut s = Session::open(text);
+        let line = 6;
+        let character = text.lines().nth(line).unwrap().find("repeatedly").unwrap() as u32;
+        let actions = s.request_any(
+            "textDocument/codeAction",
+            json!({"textDocument": {"uri": URI},
+                   "range": {"start": {"line": line, "character": character},
+                             "end": {"line": line, "character": character}},
+                   "context": {"diagnostics": []}}),
+        );
+        let offered = (actions.as_array().into_iter().flatten())
+            .find(|a| a["title"] == "Expand rewrite repeatedly");
+        assert!(offered.is_none(), "{offered:?}");
+    });
+}
+
+/// The words `rewrite repeatedly [set]` in a comment or a string are not a
+/// call: nothing is offered there (SW-3662).
+#[test]
+fn expand_is_not_offered_on_the_words_in_a_comment_or_string() {
+    big_stack(|| {
+        let text = "namespace Demo\n\nimport Std (Eq, List, Nat)\n\nrules appends := [List.appendAssoc, List.appendNil]\n\n-- try rewrite repeatedly [appends] here\ndef note: Text := \"rewrite repeatedly [appends]\"\n\ntheorem regroup ∀ (xs ys zs: List Nat): ((xs ++ ys) ++ zs) ++ [] = xs ++ (ys ++ zs) := rewrite repeatedly [appends]\n";
+        let mut s = Session::open(text);
+        for (line, needle) in [(6, "repeatedly"), (7, "repeatedly"), (9, "repeatedly")] {
+            let character = text.lines().nth(line).unwrap().find(needle).unwrap() as u32;
+            let actions = s.request_any(
+                "textDocument/codeAction",
+                json!({"textDocument": {"uri": URI},
+                       "range": {"start": {"line": line, "character": character},
+                                 "end": {"line": line, "character": character}},
+                       "context": {"diagnostics": []}}),
+            );
+            let offered = (actions.as_array().into_iter().flatten())
+                .any(|a| a["title"] == "Expand rewrite repeatedly");
+            assert_eq!(offered, line == 9, "line {line}: {actions}");
+        }
+    });
+}
+
+/// Hover on a set's name inside a `rewrite repeatedly [set]` call shows the
+/// set too (SW-3662).
+#[test]
+fn hover_on_a_set_named_in_a_call_shows_its_members() {
+    big_stack(|| {
+        let text = "namespace Demo\n\nimport Std (Eq, List, Nat)\n\nrules appends := [List.appendAssoc, List.appendNil]\n\ntheorem t ∀ (xs ys zs: List Nat): ((xs ++ ys) ++ zs) ++ [] = xs ++ (ys ++ zs) := rewrite repeatedly [appends]\n";
+        let mut s = Session::open(text);
+        let call = text.find("repeatedly [appends]").unwrap();
+        let at = call + "repeatedly [".len();
+        let before = &text[..at + 3];
+        let hover = s.request(
+            "textDocument/hover",
+            json!({"textDocument": {"uri": URI},
+                   "position": {"line": before.matches('\n').count(),
+                                "character": before.rsplit('\n').next().unwrap().chars().count()}}),
+        );
+        let shown = hover["contents"]["value"].as_str().unwrap_or_default();
+        assert!(
+            shown.contains("rules `Demo.appends`")
+                && shown.contains("[List.appendAssoc, List.appendNil]"),
+            "{shown}"
+        );
     });
 }
 
