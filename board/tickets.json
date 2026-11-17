@@ -1,5 +1,5 @@
 {
-  "next": 3737,
+  "next": 3738,
   "tickets": [
     {
       "id": 47,
@@ -42026,6 +42026,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3737,
+      "title": "[Opus] Toy++ T5: P3, spare brackets dropped (the precedence argument), and toy-plus-plus.md §3.4's shared-traversal experiment; P3's fixed-point, keeps-meaning, keeps-Parsed, idempotence family and how it composes with P1/P2; tidy restated for three passes. About 70 theorems",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
