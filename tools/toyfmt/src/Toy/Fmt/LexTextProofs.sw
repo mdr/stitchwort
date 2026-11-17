@@ -204,12 +204,14 @@ theorem commentStartOf ∀ (rest: List Char)
 --| A text that starts with a word starts with a letter or `_`.
 theorem wordStartOf ∀ (first: Char) (tail: List Char)
     (starts: lexemeStart [first, ..tail] = Some WordLexeme):
-    isWordStart first = True := cases
+    isWordStart first = True :=
+  cases
 
 --| A text that starts with a number starts with a digit.
 theorem digitStartOf ∀ (first: Char) (tail: List Char)
     (starts: lexemeStart [first, ..tail] = Some DigitsLexeme):
-    first.isAsciiDigit = True := cases
+    first.isAsciiDigit = True :=
+  cases
 
 -- The texts of the lexemes a token keeps.
 
@@ -260,11 +262,7 @@ theorem lexemeText ∀ (read later: List Char) (lexeme: Lexeme)
               (List.allTakeWhile (char => char != '\n') tail)
             )
         | StringLexeme, _, shape => shape
-        | Spaces, _, _ => byComputing
-        | LineBreak, _, _ => byComputing
-        | SignLexeme, _, _ => byComputing
-        | SymbolsLexeme, _, _ => byComputing
-        | StrayLexeme, _, _ => byComputing
+        | _, _, _ => cases
 
 --| A lex that succeeded: the source is its lexemes one after another
 --| (`steps`), each read as [`LexemeSpec`] says and never empty; the
@@ -401,10 +399,7 @@ theorem lexemeKindFine ∀ (lexeme: Lexeme) (read: List Char)
     | StringLexeme, isString => isString
     | SignLexeme, _ => signKindFine (MkText read)
     | SymbolsLexeme, _ => symbolsKindFine (MkText read)
-    | StrayLexeme, _ => byComputing
-    | Spaces, _ => byComputing
-    | LineBreak, _ => byComputing
-    | CommentLexeme, _ => byComputing
+    | _, _ => cases
 
 theorem commentCut ∀ (text: Text) (read: List Char)
     (same: text = MkText read)

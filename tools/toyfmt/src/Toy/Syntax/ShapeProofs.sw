@@ -46,15 +46,7 @@ theorem postfixIsOperand ∀ (expr: Expr) (postfix: expr.isPostfix = True): expr
 theorem operandIsChain ∀ (expr: Expr) (operand: expr.isOperand = True): expr.isChain = True := cases
 
 theorem operandLevel ∀ (expr: Expr) (isOperand: expr.isOperand = True): expr.chainLevel = 7 :=
-  match expr, isOperand with
-    | Var _ _, _ => byComputing
-    | NumberLiteral _ _, _ => byComputing
-    | StringLiteral _ _, _ => byComputing
-    | Bracketed _ _ _, _ => byComputing
-    | ListLiteral _ _ _ _, _ => byComputing
-    | Call _ _ _ _ _, _ => byComputing
-    | Field _ _ _ _, _ => byComputing
-    | Negate _ _, _ => byComputing
+  match expr, isOperand with | _, _ => cases
 
 -- Operator chains.
 

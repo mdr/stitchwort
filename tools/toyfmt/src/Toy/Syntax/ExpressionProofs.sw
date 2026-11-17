@@ -344,10 +344,7 @@ theorem closingSettled ∀ (close: Comments) (before: Bool): settledCloser befor
 theorem closingSame ∀ (close: Comments) (before: Bool)
     (settled: settledCloser before close = True):
     close.closing before = close :=
-  match close, before, settled with
-    | { above, after = None }, _, _ => byComputing
-    | { above = [], after = Some comment }, True, _ => byComputing
-    | { above = [first, ..rest], after = Some comment }, _, _ => byComputing
+  match close, before, settled with | _, _, _ => cases
 
 --| `tokens` spell `expr` at `layout`: its tokens in order, each of the kind
 --| the expression has there and standing where the layout allows it
@@ -1616,41 +1613,11 @@ theorem spelledHeaded ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Loc
     | InStatement column start, spelled, none =>
       noAboveCleared expr (Eq.trans (spelledFirstAbove (InStatement column start) expr tokens shaped spelled) none)
 
-theorem clearedPostfix ∀ (expr: Expr): expr.withoutFirstAbove.isPostfix = expr.isPostfix := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
-  | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ _ => byComputing
-  | Call _ _ _ _ _ => byComputing
-  | Field _ _ _ _ => byComputing
-  | Negate _ _ => byComputing
-  | Binary _ _ _ _ => byComputing
-  | If _ _ _ _ _ _ => byComputing
+theorem clearedPostfix ∀ (expr: Expr): expr.withoutFirstAbove.isPostfix = expr.isPostfix := match expr with | _ => cases
 
-theorem clearedChain ∀ (expr: Expr): expr.withoutFirstAbove.isChain = expr.isChain := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
-  | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ _ => byComputing
-  | Call _ _ _ _ _ => byComputing
-  | Field _ _ _ _ => byComputing
-  | Negate _ _ => byComputing
-  | Binary _ _ _ _ => byComputing
-  | If _ _ _ _ _ _ => byComputing
+theorem clearedChain ∀ (expr: Expr): expr.withoutFirstAbove.isChain = expr.isChain := match expr with | _ => cases
 
-theorem clearedLevel ∀ (expr: Expr): expr.withoutFirstAbove.chainLevel = expr.chainLevel := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
-  | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ _ => byComputing
-  | Call _ _ _ _ _ => byComputing
-  | Field _ _ _ _ => byComputing
-  | Negate _ _ => byComputing
-  | Binary _ _ _ _ => byComputing
-  | If _ _ _ _ _ _ => byComputing
+theorem clearedLevel ∀ (expr: Expr): expr.withoutFirstAbove.chainLevel = expr.chainLevel := match expr with | _ => cases
 
 --| Whether the token before a closing bracket has a trailing comment
 --| doesn't depend on the comments above the opening one.
@@ -1707,10 +1674,7 @@ theorem startNoBracket ∀ (kind: Kind) (wanted: Punctuation)
     | Reserved keyword => byComputing
     | Sign punctuation =>
       match punctuation, wanted with
-        | OpenParen, CloseParen => byComputing
-        | OpenParen, CloseSquare => byComputing
-        | OpenSquare, CloseParen => byComputing
-        | OpenSquare, CloseSquare => byComputing
+        | _, _ => cases
 
 theorem endsAtSign ∀ (token: Parse.Located Token) (punctuation: Punctuation) (rest: List (Parse.Located Token))
     (signed: token.value.kind = Sign punctuation)
@@ -2146,11 +2110,7 @@ theorem notIfAtReserved ∀ (layout: Layout) (token: Parse.Located Token) (keywo
       rewrite reserved then
         match keyword, notIf with
           | IfKeyword, notIf => (notIf byComputing).impossible
-          | FnKeyword, notIf => byComputing
-          | LetKeyword, notIf => byComputing
-          | ThenKeyword, notIf => byComputing
-          | ElseKeyword, notIf => byComputing
-          | TakesKeyword, notIf => byComputing
+          | _, _ => cases
 
 --| No atom starts with a keyword.
 theorem atomDeclines ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (token: Parse.Located Token)

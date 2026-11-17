@@ -49,15 +49,7 @@ theorem dropPlain: StepKeepsPlain dropPair := position expr =>
           let (openNone, closeNone, _) := spareParts position open inner close isSpare
           rewrite openNone, closeNone
         | False => byComputing
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
-    | ListLiteral _ _ _ _ => byComputing
-    | Call _ _ _ _ _ => byComputing
-    | Field _ _ _ _ => byComputing
-    | Negate _ _ => byComputing
-    | Binary _ _ _ _ => byComputing
-    | If _ _ _ _ _ _ => byComputing
+    | _ => cases
 
 -- The step keeps the parser's shape: the precedence argument. A pair is
 -- dropped only where its content fits the pair's slot, and a pair with
@@ -227,15 +219,7 @@ theorem dropFixes: StepFixes dropPair NoSparePair := position expr kept =>
     | Bracketed open inner close =>
       match isSpare: spare position open inner close with
         | False => byComputing
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
-    | ListLiteral _ _ _ _ => byComputing
-    | Call _ _ _ _ _ => byComputing
-    | Field _ _ _ _ => byComputing
-    | Negate _ _ => byComputing
-    | Binary _ _ _ _ => byComputing
-    | If _ _ _ _ _ _ => byComputing
+    | _ => cases
 
 --| A pair spare somewhere is spare inside brackets as a whole expression.
 theorem spareWhole ∀ (position: Position) (open: Comments) (inner: Expr) (close: Comments)
@@ -254,15 +238,7 @@ theorem keptAnywhere ∀ (expr: Expr) (position: Position) (kept: NoSparePair { 
     NoSparePair position expr :=
   match expr with
     | Bracketed open inner close => spareWhole position open inner close kept
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
-    | ListLiteral _ _ _ _ => byComputing
-    | Call _ _ _ _ _ => byComputing
-    | Field _ _ _ _ => byComputing
-    | Negate _ _ => byComputing
-    | Binary _ _ _ _ => byComputing
-    | If _ _ _ _ _ _ => byComputing
+    | _ => cases
 
 --| A pair kept inside brackets is kept outside them: `spare` asks more
 --| outside (`standsOutside`), so by cases on the parts it asks for.
@@ -283,15 +259,7 @@ theorem keptOutside: DoneOutside NoSparePair := slot bracketed expr kept =>
                     | True =>
                       match fits: inner.fits slot with
                         | False => byComputing
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
-    | ListLiteral _ _ _ _ => byComputing
-    | Call _ _ _ _ _ => byComputing
-    | Field _ _ _ _ => byComputing
-    | Negate _ _ => byComputing
-    | Binary _ _ _ _ => byComputing
-    | If _ _ _ _ _ _ => byComputing
+    | _ => cases
 
 --| A pair kept is done, and its content was done inside it. A pair dropped
 --| leaves its content, done as a whole expression inside brackets, and
@@ -509,11 +477,7 @@ theorem bracketsKeepCommas ∀ (file: SourceFile)
 theorem declarationTakesBrackets ∀ (line: Declaration):
     (line.traverseBody dropPair).withoutSpareTypeBrackets.withTakes
       = line.withTakes.traverseBody dropPair |>.withoutSpareTypeBrackets :=
-  match line with
-    | Function _ _ _ _ _ [] _ _ _ _ => byComputing
-    | Function _ _ _ _ _ [_, .._] _ _ _ _ => byComputing
-    | Value _ _ _ _ _ => byComputing
-    | DeclarationNote _ => byComputing
+  match line with | _ => cases
 
 theorem declarationsTakesBrackets ∀ (lines: List (Spaced Declaration)):
     declarationsWithTakes (traverseDeclarations dropPair (line => line.withoutSpareTypeBrackets) lines)

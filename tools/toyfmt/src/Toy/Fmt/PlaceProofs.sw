@@ -94,14 +94,7 @@ theorem gapFold ∀ (source: Text) (spaces: List Char) (steps: List (List Char, 
     | [(read, lexeme), ..more] =>
       match lexeme with
         | Spaces => rewrite List.lengthAppend spaces read, Nat.addAssoc offset spaces.length read.length
-        | LineBreak => byComputing
-        | CommentLexeme => byComputing
-        | WordLexeme => byComputing
-        | DigitsLexeme => byComputing
-        | StringLexeme => byComputing
-        | SignLexeme => byComputing
-        | SymbolsLexeme => byComputing
-        | StrayLexeme => byComputing
+        | _ => cases
 
 --| The steps a piece adds are, to `assemble`, the piece as one lexeme.
 theorem addPieceFold ∀ (source piece: Text) (steps: List (List Char, Lexeme)) (offset: Nat) (assembly: Assembly):

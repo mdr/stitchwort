@@ -86,15 +86,7 @@ theorem notSpaceBy ∀ (passes: Char → Bool) (first: Char)
     (first == ' ') = False :=
   DecEq.falseOfNe (apartBy passes first ' ' holds fails)
 
-theorem signNoSpace ∀ (mark: Punctuation): (signChar mark == ' ') = False := match mark with
-  | OpenParen => byComputing
-  | CloseParen => byComputing
-  | OpenSquare => byComputing
-  | CloseSquare => byComputing
-  | Comma => byComputing
-  | Dot => byComputing
-  | Colon => byComputing
-  | Defines => byComputing
+theorem signNoSpace ∀ (mark: Punctuation): (signChar mark == ' ') = False := match mark with | _ => cases
 
 theorem spaceStartsSpaces ∀ (first: Char) (others rest: List Char)
     (space: first = ' '):
@@ -138,14 +130,7 @@ theorem gapConsJoin ∀ (spaces: List Char) (steps: List (List Char, Lexeme)):
     | [(read, lexeme), ..more] =>
       match lexeme with
         | Spaces => List.appendAssoc spaces read (Parse.joinReads more)
-        | LineBreak => byComputing
-        | CommentLexeme => byComputing
-        | WordLexeme => byComputing
-        | DigitsLexeme => byComputing
-        | StringLexeme => byComputing
-        | SignLexeme => byComputing
-        | SymbolsLexeme => byComputing
-        | StrayLexeme => byComputing
+        | _ => cases
 
 theorem gapStep ∀ (tail read: List Char) (lexeme: Lexeme) (more: List (List Char, Lexeme))
     (spaces: tail.all (char => char == ' ') = True)

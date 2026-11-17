@@ -927,12 +927,7 @@ theorem operatorOfUnallowed ∀ (layout: Layout) (level: Nat) (token: Parse.Loca
       match same: operator.level == level with
         | True => rewrite unallowed
         | False => byComputing
-    | Name text => byComputing
-    | Number digits => byComputing
-    | Str written => byComputing
-    | Reserved keyword => byComputing
-    | Sign punctuation => byComputing
-    | Stray text => byComputing
+    | _ => cases
 
 --| A token the layout turns away ends an expression.
 theorem endsUnallowed ∀ (layout: Layout) (token: Parse.Located Token) (rest: List (Parse.Located Token))

@@ -362,11 +362,7 @@ theorem mergedMergesInto ∀ (names more: NonEmptyList Named) (colon colon2 comm
     (annotation: TypeExpr) (after: ParameterGroup):
     (Typed (joinNames names more) colon2 annotation).mergesInto after
       = (Typed more colon2 annotation).mergesInto after :=
-  match annotation, after with
-    | TypeName _ _, Untyped _ => byComputing
-    | TypeName _ _, Typed _ _ _ => byComputing
-    | TypeBracketed _ _ _, Untyped _ => byComputing
-    | TypeBracketed _ _ _, Typed _ _ _ => byComputing
+  match annotation, after with | _, _ => cases
 
 --| Folding a group onto a list with nothing mergeable leaves nothing
 --| mergeable. Proof idea: by cases on the two groups; a merged group has

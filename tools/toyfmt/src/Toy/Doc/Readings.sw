@@ -120,22 +120,7 @@ theorem stepIsReading ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List
                   (chooseIsOption printer total indent rest options),
                   byComputing
                 ))
-        | Empty => byComputing
-        | Chunk text width => byComputing
-        | Closing text => byComputing
-        | Line => byComputing
-        | SoftLine => byComputing
-        | HardLine => byComputing
-        | Blank => byComputing
-        | Nest more inner => byComputing
-        | Concat docs => byComputing
-        | Flatten inner => byComputing
-        | OneLineBelow inner => byComputing
-        | LineSuffix comment => byComputing
-        | LineStart => byComputing
-        | CommentEnd => byComputing
-        | LineStartHere => byComputing
-        | BreakParent => byComputing
+        | _ => cases
 
 --| A run of the printer, at any width and budget, is a reading.
 theorem runIsReading ∀ (printer: Printer) (total fuel: Nat) (stack: List Cmd):

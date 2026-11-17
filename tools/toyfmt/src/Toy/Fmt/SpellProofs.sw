@@ -46,13 +46,7 @@ theorem codeEvent ∀ (seen: Views) (text: Text) (start: Option Nat)
       match lexeme: lexemeOf text, code with
         | CommentLexeme, never => (Bool.falseNotTrue never).impossible
         | LineBreak, never => (Bool.falseNotTrue never).impossible
-        | Spaces, _ => byComputing
-        | WordLexeme, _ => byComputing
-        | DigitsLexeme, _ => byComputing
-        | StringLexeme, _ => byComputing
-        | SignLexeme, _ => byComputing
-        | SymbolsLexeme, _ => byComputing
-        | StrayLexeme, _ => byComputing
+        | _, _ => cases
 
 --| A name's event is a `Name` token of its text.
 theorem nameEvent ∀ (seen: Views) (text: Text) (start: Option Nat)
@@ -99,43 +93,17 @@ theorem stringEvent ∀ (seen: Views) (text: Text) (start: Option Nat)
 --| A keyword's event is its `Reserved` token.
 theorem keywordEvent ∀ (seen: Views) (keyword: Keyword) (start: Option Nat):
     viewEvent seen { word = keyword.spelling, start } = codeView seen (Reserved keyword) start :=
-  match keyword with
-    | FnKeyword => byComputing
-    | LetKeyword => byComputing
-    | IfKeyword => byComputing
-    | ThenKeyword => byComputing
-    | ElseKeyword => byComputing
-    | TakesKeyword => byComputing
+  match keyword with | _ => cases
 
 --| The event of a bracket, the comma, the dot or `=` is its `Sign` token.
 theorem signEvent ∀ (seen: Views) (mark: Punctuation) (start: Option Nat):
     viewEvent seen { word = mark.spelling, start } = codeView seen (Sign mark) start :=
-  match mark with
-    | OpenParen => byComputing
-    | CloseParen => byComputing
-    | OpenSquare => byComputing
-    | CloseSquare => byComputing
-    | Comma => byComputing
-    | Dot => byComputing
-    | Colon => byComputing
-    | Defines => byComputing
+  match mark with | _ => cases
 
 --| An operator's event is its `Op` token.
 theorem operatorEvent ∀ (seen: Views) (operator: Operator) (start: Option Nat):
     viewEvent seen { word = operator.spelling, start } = codeView seen (Op operator) start :=
-  match operator with
-    | Or => byComputing
-    | And => byComputing
-    | EqualTo => byComputing
-    | NotEqual => byComputing
-    | LessThan => byComputing
-    | LessEqual => byComputing
-    | Append => byComputing
-    | Plus => byComputing
-    | Minus => byComputing
-    | Times => byComputing
-    | Divide => byComputing
-    | Remainder => byComputing
+  match operator with | _ => cases
 
 theorem commentNoBreak ∀ (text: Text) (comment: IsComment text) (isBreak: (text == "\n") = True): Void :=
   let same: text = "\n" := DecEq.sound isBreak

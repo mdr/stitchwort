@@ -147,15 +147,7 @@ theorem dropComments: StepKeepsComments dropPair := position expr =>
           let (openNone, closeNone, _) := spareParts position open inner close isSpare
           rewrite noneAll open openNone, noneAll close closeNone then (List.appendNil inner.comments).flipped
         | False => byComputing
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
-    | ListLiteral _ _ _ _ => byComputing
-    | Call _ _ _ _ _ => byComputing
-    | Field _ _ _ _ => byComputing
-    | Negate _ _ => byComputing
-    | Binary _ _ _ _ => byComputing
-    | If _ _ _ _ _ _ => byComputing
+    | _ => cases
 
 theorem typeSpareComments ∀ (annotation: TypeExpr): annotation.withoutSpareBrackets.comments = annotation.comments :=
   match annotation with
@@ -192,24 +184,10 @@ theorem bracketsKeepComments ∀ (file: SourceFile): file.withoutSpareBrackets.c
 -- P2 keeps every comment: it drops only commas, which hold none. P1
 -- adds a `takes` with none.
 
-theorem dropCommaComments: StepKeepsComments dropComma := position expr =>
-  match expr with
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
-    | Bracketed _ _ _ => byComputing
-    | ListLiteral _ _ _ _ => byComputing
-    | Call _ _ _ _ _ => byComputing
-    | Field _ _ _ _ => byComputing
-    | Negate _ _ => byComputing
-    | Binary _ _ _ _ => byComputing
-    | If _ _ _ _ _ _ => byComputing
+theorem dropCommaComments: StepKeepsComments dropComma := position expr => match expr with | _ => cases
 
 theorem declareCommaComments ∀ (line: Declaration): line.withoutTrailingComma.comments = line.comments :=
-  match line with
-    | Function _ _ _ _ _ _ _ _ _ _ => byComputing
-    | Value _ _ _ _ _ => byComputing
-    | DeclarationNote _ => byComputing
+  match line with | _ => cases
 
 --| P2 keeps every comment the tree holds, in order.
 theorem commasKeepComments ∀ (file: SourceFile): file.withoutTrailingCommas.comments = file.comments :=

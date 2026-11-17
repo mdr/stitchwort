@@ -109,14 +109,7 @@ theorem wordViews ∀ (piece: Text) (placed: Placed) (blank: Bool) (column offse
               Eq.cong
                 ((views: List TokenView) => ({ views, pending = placed.pending }: Views))
                 (trailingViews placed.tokens { value = { text = piece }, offset, length = piece.length })
-        | Spaces => byComputing
-        | LineBreak => byComputing
-        | WordLexeme => byComputing
-        | DigitsLexeme => byComputing
-        | StringLexeme => byComputing
-        | SignLexeme => byComputing
-        | SymbolsLexeme => byComputing
-        | StrayLexeme => byComputing
+        | _ => cases
 
 theorem breakViews ∀ (earlier: List Text) (blank: Bool)
     (is: lineBlank earlier = blank)

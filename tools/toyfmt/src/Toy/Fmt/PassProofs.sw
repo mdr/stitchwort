@@ -248,9 +248,7 @@ theorem dropCommaHeaded: StepKeepsHeaded dropComma := position expr headed =>
     | If _ _ _ _ _ _, headed => (headed, byComputing)
 
 theorem declareCommaPlain ∀ (line: Declaration): line.withoutTrailingComma.plain = line.plain := match line with
-  | Function _ _ _ _ _ _ _ _ _ _ => byComputing
-  | Value _ _ _ _ _ => byComputing
-  | DeclarationNote _ => byComputing
+  | _ => cases
 
 theorem declareCommaParsed: DeclareKeepsParsed (line => line.withoutTrailingComma) := line shaped lexical headed =>
   match line with
@@ -373,11 +371,7 @@ theorem takesKeepParsed ∀ (file: SourceFile) (parsed: Parsed file): Parsed fil
 theorem declarationTakesCommas ∀ (line: Declaration):
     (line.traverseBody dropComma).withoutTrailingComma.withTakes
       = line.withTakes.traverseBody dropComma |>.withoutTrailingComma :=
-  match line with
-    | Function _ _ _ _ _ [] _ _ _ _ => byComputing
-    | Function _ _ _ _ _ [_, .._] _ _ _ _ => byComputing
-    | Value _ _ _ _ _ => byComputing
-    | DeclarationNote _ => byComputing
+  match line with | _ => cases
 
 theorem declarationsTakesCommas ∀ (lines: List (Spaced Declaration)):
     declarationsWithTakes (traverseDeclarations dropComma (line => line.withoutTrailingComma) lines)

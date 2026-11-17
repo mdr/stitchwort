@@ -436,13 +436,7 @@ theorem addCode ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located L
         pending = [],
         lineEmpty = False
       } :=
-  match lexeme, code with
-    | { value = WordLexeme, offset, length }, code => byComputing
-    | { value = DigitsLexeme, offset, length }, code => byComputing
-    | { value = StringLexeme, offset, length }, code => byComputing
-    | { value = SignLexeme, offset, length }, code => byComputing
-    | { value = SymbolsLexeme, offset, length }, code => byComputing
-    | { value = StrayLexeme, offset, length }, code => byComputing
+  match lexeme, code with | _, _ => cases
 
 --| A digit starts no word: it is no letter and not `_`.
 theorem digitIsNoWordStart ∀ (char: Char) (digit: char.isAsciiDigit = True): isWordStart char = False :=
