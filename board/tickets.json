@@ -22728,7 +22728,7 @@
     {
       "id": 3888,
       "title": "[Opus] A closed statement such as List.all … = True is evaluated in full by the checker even when its proof is general (17 s for 3,601 items), so a table can't be replaced by a proof without changing the statement; find where and whether it's needed (SW-3872 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
