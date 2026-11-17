@@ -756,9 +756,9 @@ fn fits_in(next: &[Cmd<'_>], rest: &[Cmd<'_>], left: usize, at: &Measure<'_>) ->
                     let here = Measure {
                         modes: &BTreeMap::new(),
                         width,
-                        suffix: false,
+                        suffix,
                         line_indent,
-                        flat_break: false,
+                        flat_break,
                     };
                     return items
                         .first()
@@ -1089,5 +1089,18 @@ mod tests {
             t(&y),
         ])]);
         assert_eq!(print(&choice(option), 120).text, "alt");
+    }
+
+    #[test]
+    fn a_fill_item_is_measured_with_the_comment_that_waits() {
+        // The comment waits when the fill's first item is measured, so the
+        // item starts a line at 2: 2 + 119 > 120.
+        let y = "y".repeat(119);
+        let doc = Doc::concat([
+            t("x"),
+            Doc::LineSuffix("-- c".into()),
+            choice(Doc::Fill(vec![t(&y)])),
+        ]);
+        assert_eq!(print(&doc, 120).text, "x -- c\n  alt");
     }
 }
