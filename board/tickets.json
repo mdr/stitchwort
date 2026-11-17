@@ -1,5 +1,5 @@
 {
-  "next": 3714,
+  "next": 3715,
   "tickets": [
     {
       "id": 47,
@@ -41513,12 +41513,12 @@
     {
       "id": 3684,
       "title": "[Sonnet] Elab friction (Toy++ T3b): two match scrutinees where one's type mentions the other are refused with E-MATCH-MOTIVE; a helper lemma with a variable scrutinee works. At least say so in the note (generalise into a helper); ideally abstract the dependent one",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Lane note: variable scrutinees (n, v) and (x, h) already generalise together; only a non-variable expression mentioned by another scrutinee's type is refused (let-binding it does not help). Not abstracting; added Note 2 showing a helper (top-level or local def) with both as parameters. Commit db2553fc4. Accept: examples/accept/match-dependent-scrutinee-helper.sw.\n",
+      "body": "Lane note: variable scrutinees (n, v) and (x, h) already generalise together; only a non-variable expression mentioned by another scrutinee's type is refused (let-binding it does not help). Not abstracting; added Note 2 showing a helper (top-level or local def) with both as parameters. Commit db2553fc4. Accept: examples/accept/match-dependent-scrutinee-helper.sw.\n\nModel result: sonnet, worked, 8 min (est. 40). Message only; generalisation is SW-3714.",
       "created": "2026-11-16",
       "updated": "2026-11-17",
       "commits": []
@@ -41899,6 +41899,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3714,
+      "title": "[Opus] Generalise an expression scrutinee that another scrutinee's type mentions (match List.length xs, tag xs with, tag xs: Tagged (List.length xs)): abstract both together as variables already are, so the helper-def workaround (SW-3684) isn't needed. Motive design",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
