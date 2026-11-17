@@ -231,8 +231,10 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
         ) {
             Ok(steps) => {
                 let used = cx.e.take_rule();
+                let mut shown_ty = None;
                 for step in steps {
                     ty = step.goal;
+                    shown_ty = step.shown_goal;
                     term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
                 }
                 if before.is_some() {
@@ -240,7 +242,7 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
                         rule.span,
                         (index, rules.len()),
                         before,
-                        &ty,
+                        shown_ty.as_ref().unwrap_or(&ty),
                         used,
                         extra.clone(),
                     );
@@ -368,8 +370,10 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             Ok(found) => {
                 let used = cx.e.take_rule();
                 let before = cx.e.records_steps(rule.span).then(|| goal.clone());
+                let mut shown_goal = None;
                 for step in found {
                     goal = step.goal.clone();
+                    shown_goal = step.shown_goal.clone();
                     steps.push(step);
                 }
                 if before.is_some() {
@@ -377,7 +381,7 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
                         rule.span,
                         (index, rules.len()),
                         before,
-                        &goal,
+                        shown_goal.as_ref().unwrap_or(&goal),
                         used,
                         extra.clone(),
                     );
@@ -467,6 +471,10 @@ struct Step {
     /// `G[rhs]`: what the rest of the `rewrite` proves (or the target's new
     /// type).
     goal: Value,
+    /// [`shown_after`] of this step's goal, for the steps view only: it
+    /// keeps a sum the motive read back as `Succ` printed `base + k`
+    /// (SW-2924). `goal`, which elaboration uses, is unchanged.
+    shown_goal: Option<Value>,
     /// The rule's two sides as used, its unknowns solved: what
     /// `rewrite repeatedly` replaces in the goal as written.
     sides: Box<(Value, Value)>,
@@ -1229,6 +1237,41 @@ fn replace_occurrences(
     )
 }
 
+/// [`after`], the goal a rewrite leaves, with the surface form of its sums
+/// kept, for the steps view only: a `Succ b` the rewrite made from a
+/// `b + 1` would otherwise print as `Succ b` while the goal before the step
+/// prints `b + 1` (SW-2924).
+///
+/// The kernel motive reads the goal back with `Succ` for `k + 1`
+/// ([`stitchwort_core::value::quote`]), so applying it loses the sum. Read
+/// the goal as it prints instead ([`stitchwort_core::value::quote_shown`]):
+/// a stuck sum stays `base + k`, and a `Succ` written as one stays `Succ`.
+/// Replace the rule's left side there, evaluate, and use the result only if
+/// it is convertible with `after`. The result is printed, never elaborated
+/// against, so what later rules match and the hashes don't change.
+fn shown_after(cx: &Ctx, before: &Value, equation: &Equation, after: &Value) -> Option<Value> {
+    let g = cx.g();
+    let shown = stitchwort_core::value::quote_shown(&g, cx.level(), before).ok()?;
+    let lhs = cx.quote(&equation.lhs).ok()?;
+    let rhs = cx.quote(&equation.rhs).ok()?;
+    let replaced = replace_with(
+        &g,
+        &shown,
+        cx.level(),
+        &|l| Ok(Term::Var(cx.level() - 1 - l)),
+        &|t, under| {
+            crate::matching::same_shifted(&lhs, t, under, 0)
+                .then(|| rhs.shift(&g, under, 0).ok())
+                .flatten()
+        },
+    )
+    .ok()?;
+    let value = cx.eval(&replaced).ok()?;
+    stitchwort_core::value::conv(&g, cx.level(), &value, after)
+        .ok()?
+        .then_some(value)
+}
+
 /// How a search reads the goal and the rule's left side back.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Reading {
@@ -1501,11 +1544,16 @@ fn replace_occurrences_carrying(
             next = refreshed;
         }
     }
+    let shown_goal =
+        cx.e.records_steps(rule.span)
+            .then(|| shown_after(cx, goal, equation, &next))
+            .flatten();
     Ok(Replaced {
         step: Some(Step {
             motive,
             proof: equation.to_lhs.clone(),
             goal: next,
+            shown_goal,
             sides: Box::new((equation.lhs.clone(), equation.rhs.clone())),
         }),
         stats: found,

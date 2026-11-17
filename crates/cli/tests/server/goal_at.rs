@@ -296,6 +296,37 @@ fn goal_at_steps() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A rewrite's step keeps a sum's written form: `a + 1` before prints
+/// `b + 1` after, not `Succ b`, while a `Succ` written as one stays `Succ`
+/// (SW-2924).
+#[test]
+fn goal_at_rewrite_step_keeps_sums_as_written() {
+    let dir = folder("rewrite-sums");
+    let file = "\
+def f (n: Nat): Nat := n * 2
+
+theorem sumStep ∀ (a b: Nat) (same: a = b): f (a + 1) = f (b + 1) :=
+  rewrite same
+
+theorem succStep ∀ (a b: Nat) (same: a = b): Succ a = Succ b :=
+  rewrite same
+";
+    std::fs::write(dir.join("s.sw"), file).unwrap();
+    assert_eq!(
+        step_at(&dir, "4:3"),
+        "in `sumStep`, rule 1 of 1 of `rewrite`\n  a: Nat\n  b: Nat\n  \
+         same: a = b\n  before ⊢ f (a + 1) = f (b + 1)\n  rule   a = b\n  \
+         after  ⊢ f (b + 1) = f (b + 1)\n"
+    );
+    assert_eq!(
+        step_at(&dir, "7:3"),
+        "in `succStep`, rule 1 of 1 of `rewrite`\n  a: Nat\n  b: Nat\n  \
+         same: a = b\n  before ⊢ Succ a = Succ b\n  rule   a = b\n  \
+         after  ⊢ Succ b = Succ b\n"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A `calc` line with a `:=` shows its own statement, not the chain's end:
 /// the previous value is computed (`_` stands for it) but the line's own
 /// right side stays as written, even when it computes to something else

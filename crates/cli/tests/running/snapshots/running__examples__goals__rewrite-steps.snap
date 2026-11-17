@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `rewriteSteps`
+   ╭─[ goals/rewrite-steps.sw:5:93 ]
+   │
+ 5 │ theorem rewriteSteps ∀ (a b: Nat) (same: a = b): f (a + 1) = f (b + 1) := rewrite same then ?
+   │                                                                                             ┬  
+   │                                                                                             ╰── a: Nat
+   │                                                                                                 b: Nat
+   │                                                                                                 same: a = b
+   │                                                                                                 ⊢ f (Succ b) = f (Succ b)
+───╯
