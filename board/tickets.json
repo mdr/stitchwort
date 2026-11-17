@@ -22635,7 +22635,7 @@
     {
       "id": 3881,
       "title": "[Sonnet] Self-hosted fmt: P3 drops the brackets around a constructor update (C { r | x = 1 }) at an application's head; the compiler keeps them (finishes a call with defaults). Count CtorFields with a base as an application in Expr.atomic and Expr.level; repro test (SW-3878 M2; Rust keeps them already)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
