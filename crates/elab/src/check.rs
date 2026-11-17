@@ -8412,7 +8412,11 @@ fn propagation_plan<'a>(
         }
         return Ok(None);
     };
-    if cx.e.decl.no_holding.get() == 0
+    // `applies_unknown` and `has_implicit_function` evaluate and quote, a
+    // few steps a call: a call that made no unknown (`f x`, `f (f x)`, for
+    // a `f` with no implicit parameters) has nothing for them to find.
+    if cx.metas().metas.borrow().len() > metas_from
+        && cx.e.decl.no_holding.get() == 0
         && has_implicit_function(cx, &head.1)?
         && applies_unknown(cx, &written, metas_from)?
     {

@@ -41643,12 +41643,12 @@
     {
       "id": 3694,
       "title": "[Sonnet] Bench regression (broad tier 9ff2833ca, bench::baseline counts_have_not_regressed): check-nested-apps steps +23% (26,081 -> 32,081), peak heap +37.7% (1.9 -> 2.6 MB); text-literal-walk heap +18%. Find the commit (bench that row only on a few commits since the baseline), profile, and fix if it is an accident; if it is a deliberate cost (e.g. a new check), report with the numbers. Results unchanged (D3447); performance-log entry",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Lane notes (Sonnet): two accidents. Steps +3/application from the SW-3561 holding-lambdas trigger (fd79bb763, 0bc8e177f) evaluating on calls that made no unknown; heap from SW-3322 (72b280851) adding an unboxed Option<ProbePending> to undo::Snapshot. Fix on lane/SW-3694 ab65cbf44: steps 26,081 (was 32,081), heap 1.9 MB (was 2.6), text-literal-walk 3 kB. Perf log entry added; baseline untouched. Model result: Sonnet, worked, 45 min (est. 45).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
