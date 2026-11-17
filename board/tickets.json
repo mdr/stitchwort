@@ -22793,12 +22793,12 @@
     {
       "id": 3893,
       "title": "[Sonnet] std_library::the_library_has_no_unreachable_arms fails on main: std/Parse/Reads.sw:1119 'this case can't happen' (SW-3867's readsLoopFrom Zero arm); remove or restructure the arm, keep the theorem (Overmind rolling check on 29b9fcbd4)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nLane note: removed the `| Zero =>` arm of readsLoopFrom (the checker proves it unreachable: h would make runFrom an Err). Statement unchanged. Reads.sw checks; unreachable-arms test passes; prelude snapshot re-accepted (readsLoop, givesLoop, readsLoopFrom and its matches only).\n",
+      "body": "\n\nLane note: removed the `| Zero =>` arm of readsLoopFrom (the checker proves it unreachable: h would make runFrom an Err). Statement unchanged. Reads.sw checks; unreachable-arms test passes; prelude snapshot re-accepted (readsLoop, givesLoop, readsLoopFrom and its matches only).\n\nModel result: sonnet, worked, 3 min (est. 10).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
