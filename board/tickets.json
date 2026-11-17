@@ -1,5 +1,5 @@
 {
-  "next": 3894,
+  "next": 3895,
   "tickets": [
     {
       "id": 47,
@@ -22531,12 +22531,12 @@
     {
       "id": 3873,
       "title": "[Sonnet] std Float candidates from Whereabouts: unitsNeg, sumNear (two-sided addRelError with signs handled), and the cancel-the-scale lemmas absDiffBelow, scaleLeft, scaleRight, shareErrorScaled: move to Float.Theory with docs (SW-3858 findings)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "Lane notes: moved to std/Float/Theory.sw (all additions): Float.Theory.unitsNeg (+signFlipBits, signedNot), sumNear (generalised: bounds lo/hi Float, units bound m ≤ 7e15 w; +roundedSumNear, sumSmallNear, leTrans, intLessZeroOfNotNonneg, intLeOfLess), relCancelUp/Down/relCancel, relCancelScaled (was shareErrorScaled; +scaleLeft, scaleRight, scaledAbsDiffLe (was absDiffBelow, name taken)), remUnitsExact, addWholeExact, Float.mulBetween. Whereabouts keeps a thin sumNear361 instance. Audit Whereabouts.Hints.Proofs 0 failed. prelude snapshot re-accepted, search:: 15 pass, fmt_repo pass.",
+      "body": "Lane notes: moved to std/Float/Theory.sw (all additions): Float.Theory.unitsNeg (+signFlipBits, signedNot), sumNear (generalised: bounds lo/hi Float, units bound m ≤ 7e15 w; +roundedSumNear, sumSmallNear, leTrans, intLessZeroOfNotNonneg, intLeOfLess), relCancelUp/Down/relCancel, relCancelScaled (was shareErrorScaled; +scaleLeft, scaleRight, scaledAbsDiffLe (was absDiffBelow, name taken)), remUnitsExact, addWholeExact, Float.mulBetween. Whereabouts keeps a thin sumNear361 instance. Audit Whereabouts.Hints.Proofs 0 failed. prelude snapshot re-accepted, search:: 15 pass, fmt_repo pass.\n\nModel result: sonnet, worked, 10 min (est. 35), with SW-3886. Renames: shareErrorScaled -> relCancelScaled, absDiffBelow -> scaledAbsDiffLe (std had one), floatLeTrans -> leTrans. Follow-up SW-3894.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22702,7 +22702,7 @@
     {
       "id": 3886,
       "title": "[Sonnet] std Float candidates from Whereabouts (SW-3872): remUnitsExact (exact value of x % y, which remExact proves but doesn't state), addWholeExact, relCancel, mulBetween; move to Float.Theory with docs (add to SW-3873's batch)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22798,6 +22798,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3894,
+      "title": "[DeepSeek] Whereabouts: use std Float.Theory.leTrans, intLessZeroOfNotNonneg and intLeOfLess instead of the app's duplicates floatLeTrans, intNegOfNotNonneg, intLeOfLess; derive std signedNot from signedFlip (SW-3873 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
