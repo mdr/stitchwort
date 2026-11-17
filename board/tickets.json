@@ -22754,7 +22754,7 @@
     {
       "id": 3890,
       "title": "[Opus] Lambda applied directly to arguments: ((a: Box) (b: Box) => a.length + b.length) [1] [True] fails with 'expected _ [1], but this has type Bool' (Box [t: Type]: Type := List t); looks like inference not working out each binder's implicit from its argument; reduce, failing-first example, fix (SW-3880 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
