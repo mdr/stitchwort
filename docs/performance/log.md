@@ -46,6 +46,29 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 17 Nov 2026
 
+### SW-3710: std's derived instances cost every importer +40-60% on a cold load; profiled, fix proposed, nothing changed yet
+
+- **Status:** profiled (Opus); fix waiting for a decision in
+  [derived-instances-import-cost.md](../proposals/derived-instances-import-cost.md).
+- **Measured.** `check --no-cache` of import_cost's programs, before
+  (`8b9c6ace9`) and after (`da665940f`) SW-3369 (D3609): Nat 11.2M → 20.7M
+  steps, 1.11 → 1.77 s; Int 17.3M → 27.1M, 1.62 → 2.40 s; Text 10.4M →
+  18.9M, 1.06 → 1.66 s; Map 31.7M → 45.0M, 2.76 → 3.90 s (best of three,
+  load about 8).
+- **Profile.** By instance: derived `Ord` two thirds, `DecEq` one third,
+  `Show` and `Finite` negligible. By type: twelve `Std.Omega`/`Std.Ring`
+  reflection types are 9.0M of Nat's 9.5M extra (`Omega.Fact` alone 4.2M,
+  its `%equal` law 2.3M); `Map.Tree` adds 2.0M for Map. Cost is linear in
+  constructors (about 50K steps each for `%sameSound` and `%equal` with two
+  `Nat` fields). samply: elaborating the generated source about 80%, the
+  kernel 19%; no single hotspot inside elaboration (`infer_j` 37%
+  inclusive, instance unification 27%).
+- **Tried as a measurement only.** Skipping derivation for `Omega.*` and
+  `Ring.*`: Nat 11.6M steps, 1.23 s; Map 35.9M, 3.08 s. Not kept: it
+  changes what's derived (an exception to D3609).
+- **Proposed.** Derive std types' instances on first use (keeps D3609,
+  expected back to the before column).
+
 ### SW-3694: check-nested-apps regression (steps +23%, peak heap +38%) from two accidents; both undone
 
 - **Status:** kept (Sonnet). Results, messages and hashes unchanged
