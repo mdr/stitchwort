@@ -39725,14 +39725,14 @@
     {
       "id": 3549,
       "title": "[Sonnet] Errors E3: a generic note once per run (later errors say 'see above'; JSON keeps all) (docs/proposals/helpful-errors.md §5 rank 3). Est. 45 min",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
