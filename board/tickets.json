@@ -41868,12 +41868,12 @@
     {
       "id": 3711,
       "title": "[Sonnet] Under a small --size limit, std's lazily checked Omega.* declarations (Fact reads back ~3,300 nodes) fail with E-RESOURCE blamed on std, before the user's file is reached (SW-3704). Std's own declarations shouldn't be read back or limited by the user's size budget; find why they are and fix",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Model result: sonnet, worked, 5 min (est. 40). Orchestrator's call: a user limit below the default doesn't bound std's loading; above it, it still applies. Possible follow-up: load_libraries_that_check under tiny limits.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
