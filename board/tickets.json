@@ -23014,12 +23014,12 @@
     {
       "id": 3910,
       "title": "[DeepSeek] Proving guide: state facts about {Fail} functions through a named wrapper (Fail.toResult (() => x.traverse on) otherwise wraps the thunk as a value) (SW-3877 friction)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "Model result: deepseek, worked, 12 min (est. 20), with SW-3919 and SW-3912. Reviewed: guide entries accurate and cite real code; index has every note (loop prints nothing).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -23040,7 +23040,7 @@
     {
       "id": 3912,
       "title": "[DeepSeek] docs/proposals/README.md index is out of date (says 156 notes; the folder has ~235): regenerate or list the missing ones (SW-3888 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23133,7 +23133,7 @@
     {
       "id": 3919,
       "title": "[DeepSeek] Proving guide: a {Fail} step whose body never fails won't evaluate under Fail.toResult and blows cases' budget; declare such steps pure (SW-3884, stage 4b) — merge with SW-3910",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
