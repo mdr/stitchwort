@@ -1,5 +1,5 @@
 {
-  "next": 3783,
+  "next": 3784,
   "tickets": [
     {
       "id": 47,
@@ -42631,6 +42631,18 @@
       "id": 3782,
       "title": "[DeepSeek] docs/proposals/equation-lemmas.md:841 and aoc/NOTES-2024.md:5068 name reject examples SW-3758 moved to accept: point them at the new names",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3783,
+      "title": "[Fable paper] Floats: transcendental functions (exp, log, cos, ...) whose JS results are implementation-approximated (ECMA-262 §21.3.2): how can theorems hold about the code that runs in the browser without giving up native Math speed? Survey prior art, options, recommendation; docs/proposals/float-transcendentals.md",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
