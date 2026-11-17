@@ -1,0 +1,408 @@
+#!/usr/bin/env python3
+"""The comparison harness of the self-hosted formatter (task fmt:twin).
+
+docs/proposals/self-hosted-fmt.md section 6: run the Stitchwort formatter's
+native executable over a list of files and compare each answer with the Rust
+side's, printing counts and the first difference.
+
+    dev/fmt-twin STAGE [--inputs GROUP,...] [options]
+
+STAGE is what is compared (the Rust side's dump in brackets):
+
+    tokens   (1)  tokens with trivia after rule N     [stitchwort dev tokens]
+    tree     (2)  the lossless tree                   [stitchwort dev tree --print]
+    refusal  (2)  formatted or refused, and why       [stitchwort fmt -]
+    passes   (4)  the tidied tree after each pass     [not built yet]
+    text     (5)  the formatted text                  [stitchwort fmt -]
+                  (6 is the same comparison on more inputs)
+
+The executable is called as `EXE --stage NAME FILE` and answers on standard
+output (and, for a refused file, standard error and a non-zero exit status)
+in the Rust side's form, which is the same lines as the dump above. Each
+Rust answer is cached, outside the repository, keyed by the input's hash and
+the hash of crates/syntax and crates/fmt.
+
+Nothing is written into the repository. Everything the harness generates
+(the old layout, the fuzzer's programs, the disturbed files, the answers) is
+under $FMT_TWIN_CACHE, default ~/.cache/stitchwort/fmt-twin.
+"""
+
+import argparse
+import concurrent.futures
+import hashlib
+import json
+import os
+import random
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+CACHE = Path(os.environ.get("FMT_TWIN_CACHE") or Path.home() / ".cache/stitchwort/fmt-twin")
+
+STAGES = {
+    "1": "tokens", "tokens": "tokens",
+    "2": "tree", "tree": "tree", "refusal": "refusal",
+    "4": "passes", "passes": "passes",
+    "5": "text", "6": "text", "text": "text",
+}
+
+# The commit that reformatted the repo with the tree printer: "the old layout"
+# is its parent (docs/proposals/self-hosted-fmt.md section 6).
+REFORMAT_COMMIT = "39de3aa7d"
+
+INPUT_GROUPS = {
+    "goldens": "the golden pairs, both files of each (crates/fmt/tests/it/golden)",
+    "goldens-before": "the golden `before` files: unformatted input",
+    "goldens-after": "the golden `after` files: formatted input",
+    "repo": "every .sw file of the repo as it is (the fixed point), less what the formatter leaves alone",
+    "old": f"the repo before the reformat: the parent of {REFORMAT_COMMIT}, made in the cache",
+    "fuzz": "the formatter fuzzer's programs from --fuzz-seed (--fuzz-cases of them)",
+    "disturbed": "files with their layout disturbed from --disturb-seed (of --disturb-of)",
+    "files:PATH": "named files or folders (`files:a.sw:b.sw`, or --files)",
+}
+
+
+class Stop(Exception):
+    pass
+
+
+def sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()[:32]
+
+
+# -------------------------------------------------------- the Rust side's key
+
+
+def tool_hash() -> str:
+    """The hash of the Rust sources an answer depends on."""
+    h = hashlib.sha256()
+    for crate in ("crates/syntax", "crates/fmt"):
+        for path in sorted((ROOT / crate).rglob("*")):
+            if path.is_file() and path.suffix in (".rs", ".toml") and "target" not in path.parts:
+                h.update(str(path.relative_to(ROOT)).encode())
+                h.update(path.read_bytes())
+    return h.hexdigest()[:16]
+
+
+# ------------------------------------------------------------------- inputs
+
+
+def untouched_prefixes() -> list:
+    """crates/fmt's list of paths the formatter leaves alone, read from its source."""
+    text = (ROOT / "crates/fmt/src/lib.rs").read_text()
+    body = text.split("pub const DELIBERATELY_UNFORMATTED", 1)[1].split("];", 1)[0]
+    return re.findall(r'^\s*"([^"]+)",', body, re.M)
+
+
+def sw_files(folder: Path) -> list:
+    return sorted(p for p in folder.rglob("*.sw") if p.is_file())
+
+
+def without_untouched(root: Path, files: list) -> list:
+    skip = untouched_prefixes()
+    return [f for f in files if not any(str(f.relative_to(root)).startswith(s) for s in skip)]
+
+
+def repo_files() -> list:
+    out = subprocess.run(["git", "ls-files", "*.sw"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    files = [ROOT / line for line in out.splitlines() if (ROOT / line).is_file()]
+    return without_untouched(ROOT, files)
+
+
+def old_layout_files() -> list:
+    rev = subprocess.run(["git", "rev-parse", f"{REFORMAT_COMMIT}^"], cwd=ROOT, capture_output=True, text=True)
+    if rev.returncode != 0:
+        raise Stop(f"can't find {REFORMAT_COMMIT}^ in this checkout")
+    rev = rev.stdout.strip()
+    folder = CACHE / "old" / rev
+    if not folder.is_dir():
+        folder.parent.mkdir(parents=True, exist_ok=True)
+        part = folder.with_name(rev + ".part")
+        subprocess.run(["rm", "-rf", str(part)], check=True)
+        part.mkdir()
+        archive = subprocess.Popen(["git", "archive", rev, "--", ":(glob)**/*.sw"], cwd=ROOT, stdout=subprocess.PIPE)
+        subprocess.run(["tar", "-x", "-C", str(part)], stdin=archive.stdout, check=True)
+        if archive.wait() != 0:
+            raise Stop("git archive failed")
+        part.rename(folder)
+    return without_untouched(folder, sw_files(folder))
+
+
+def golden_files(which: str) -> list:
+    folder = ROOT / "crates/fmt/tests/it/golden"
+    suffixes = {"goldens": (".before.sw", ".after.sw"), "goldens-before": (".before.sw",), "goldens-after": (".after.sw",)}[which]
+    return sorted(p for p in folder.iterdir() if p.name.endswith(suffixes))
+
+
+def fuzz_files(seed: str, cases: int, comments: str, key: str) -> list:
+    folder = CACHE / "fuzz" / f"{key}-seed{seed}-n{cases}-c{comments or 0}"
+    if not (folder / ".done").is_file():
+        subprocess.run(["rm", "-rf", str(folder)], check=True)
+        env = dict(os.environ, FUZZ_WRITE_DIR=str(folder), FUZZ_CASES=str(cases), FUZZ_SEED=seed,
+                   STITCHWORT_TEST_THREADS="2", NEXTEST_TEST_THREADS="2")
+        if comments:
+            env["FUZZ_COMMENTS"] = comments
+        command = ["nice", "-n", "15", "cargo", "nextest", "run", "--release", "-p", "stitchwort-fmt", "--no-capture",
+                   "-E", "package(stitchwort-fmt) & binary(it) & test(/^fuzz::the_formatter_never_panics/)"]
+        print(f"writing the fuzzer's programs: seed {seed}, {cases} cases ...", flush=True)
+        done = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True)
+        if done.returncode != 0:
+            raise Stop("the fuzzer run failed (a formatter bug it found?):\n" + done.stderr[-2000:])
+        (folder / ".done").write_text("")
+    return sw_files(folder)
+
+
+def disturb(text: str, rng: random.Random) -> str:
+    """The text with its layout disturbed, one way chosen from the seed.
+
+    Not meant to keep the program: where the result no longer parses, the
+    Rust side's refusal is the answer to match. The ways: double the spaces
+    between words; scale the indentation by 2 or 3; add trailing spaces and
+    blank lines between declarations. Text blocks, strings and comments are
+    left alone (a line with a quote or a `--` is only re-indented).
+    """
+    mode = rng.choice(["spaces", "indent", "blank"])
+    out, in_block = [], False
+    for line in text.split("\n"):
+        was_in_block = in_block
+        if line.count('"""') % 2 == 1:
+            in_block = not in_block
+        if was_in_block or in_block or line.count('"""'):
+            out.append(line)
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        body = line[indent:]
+        plain = '"' not in body and "'" not in body and "--" not in body
+        if mode == "spaces" and plain and body:
+            body = re.sub(r"(?<=\S) (?=\S)", lambda m: "  " if rng.random() < 0.5 else " ", body)
+        elif mode == "indent" and body:
+            indent *= rng.choice([2, 3]) if indent else 1
+        elif mode == "blank":
+            if body and indent == 0 and rng.random() < 0.3:
+                out.append("")
+            if plain and body and rng.random() < 0.2:
+                body += "  "
+        out.append(" " * indent + body)
+    return "\n".join(out)
+
+
+def disturbed_files(seed: str, base: list, key: str) -> list:
+    folder = CACHE / "disturbed" / f"{key}-seed{seed}"
+    folder.mkdir(parents=True, exist_ok=True)
+    out = []
+    for i, path in enumerate(base):
+        target = folder / f"{i:05d}-{path.name}"
+        if not target.is_file():
+            rng = random.Random(f"{seed}:{path.name}:{sha(path.read_bytes())}")
+            target.write_text(disturb(path.read_text(errors="replace"), rng))
+        out.append(target)
+    return out
+
+
+def resolve(args) -> list:
+    """The (group, files) pairs the run compares."""
+    groups = []
+    names = [n for n in args.inputs.split(",") if n] if args.inputs else []
+    if args.files and "files" not in names and not any(n.startswith("files:") for n in names):
+        names.append("files")
+    for name in names:
+        if name in ("goldens", "goldens-before", "goldens-after"):
+            groups.append((name, golden_files(name)))
+        elif name == "repo":
+            groups.append((name, repo_files()))
+        elif name == "old":
+            groups.append((name, old_layout_files()))
+        elif name == "fuzz":
+            groups.append((name, fuzz_files(args.fuzz_seed, args.fuzz_cases, args.fuzz_comments, tool_hash())))
+        elif name == "disturbed":
+            base = args.disturb_of or "goldens-after"
+            files = dict(resolve(argparse.Namespace(**{**vars(args), "inputs": base, "files": []}))).get(base, [])
+            groups.append((name, disturbed_files(args.disturb_seed, files, sha(base.encode()))))
+        elif name == "files" or name.startswith("files:"):
+            paths = list(args.files) + [p for p in name.split(":")[1:] if p]
+            files = []
+            for p in paths:
+                p = Path(p)
+                files += sw_files(p) if p.is_dir() else [p]
+            groups.append(("files", [f.resolve() for f in files]))
+        else:
+            raise Stop(f"unknown input group {name!r}; the groups are: " + "; ".join(INPUT_GROUPS))
+    if not groups:
+        raise Stop("no inputs: say --inputs GROUP,... (" + ", ".join(INPUT_GROUPS) + ") or --files")
+    out = []
+    for name, files in groups:
+        if args.sample and len(files) > args.sample:
+            files = sorted(random.Random(f"sample:{args.sample_seed}").sample(files, args.sample))
+        elif args.limit:
+            files = files[: args.limit]
+        out.append((name, files))
+    return out
+
+
+# ----------------------------------------------------------- the Rust answers
+
+
+def first_line(text: str) -> str:
+    return text.strip().split("\n", 1)[0] if text.strip() else ""
+
+
+def rust_answer(sw: Path, stage: str, path: Path) -> dict:
+    """(exit, out, err) as the Rust side gives it for this stage."""
+    data = path.read_bytes()
+    if stage == "tokens":
+        done = subprocess.run(["nice", "-n", "15", str(sw), "dev", "tokens", str(path)], capture_output=True)
+        out, err = done.stdout.decode(errors="replace"), first_line(done.stderr.decode(errors="replace"))
+        return {"exit": done.returncode, "out": out, "err": err}
+    if stage == "tree":
+        done = subprocess.run(["nice", "-n", "15", str(sw), "dev", "tree", "--print", str(path)], capture_output=True)
+        if done.returncode != 0:
+            return {"exit": done.returncode, "out": "", "err": first_line(done.stderr.decode(errors="replace"))}
+        lines = done.stdout.decode(errors="replace").split("\n")
+        # The "PATH:" header comes first and the totals line last.
+        end = max((i for i, line in enumerate(lines) if re.match(r"\d+ files \(", line)), default=len(lines))
+        body = lines[1:end]
+        return {"exit": 0, "out": "\n".join(body).rstrip("\n") + "\n", "err": ""}
+    if stage in ("refusal", "text"):
+        done = subprocess.run(["nice", "-n", "15", str(sw), "fmt", "-"], input=data, capture_output=True)
+        err = first_line(done.stderr.decode(errors="replace"))
+        if stage == "refusal":
+            return {"exit": done.returncode, "out": "", "err": err}
+        return {"exit": done.returncode, "out": done.stdout.decode(errors="replace"), "err": err}
+    raise Stop(f"the Rust side has no dump for stage {stage!r} yet")
+
+
+def cached_rust_answer(sw: Path, stage: str, path: Path, key: str) -> tuple:
+    """The answer, and whether it came from the cache."""
+    entry = CACHE / "answers" / key / stage / (sha(path.read_bytes()) + ".json")
+    if entry.is_file():
+        return json.loads(entry.read_text()), True
+    answer = rust_answer(sw, stage, path)
+    entry.parent.mkdir(parents=True, exist_ok=True)
+    tmp = entry.with_suffix(f".{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(answer))
+    tmp.rename(entry)
+    return answer, False
+
+
+# ------------------------------------------------------------- the twin side
+
+
+def twin_answer(exe: Path, stage: str, path: Path, timeout: float) -> dict:
+    try:
+        done = subprocess.run(["nice", "-n", "15", str(exe), "--stage", stage, str(path)],
+                              capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return {"exit": -1, "out": "", "err": f"timed out after {timeout:.0f} s"}
+    return {"exit": done.returncode, "out": done.stdout.decode(errors="replace"),
+            "err": first_line(done.stderr.decode(errors="replace"))}
+
+
+def difference(want: dict, got: dict) -> str:
+    """Why the answers differ, or '' if they match: the first line that differs."""
+    if want["exit"] != got["exit"]:
+        return f"exit status: expected {want['exit']}, got {got['exit']}" + (
+            f" ({got['err']})" if got["err"] else "")
+    if want["out"] != got["out"]:
+        a, b = want["out"].split("\n"), got["out"].split("\n")
+        for i in range(max(len(a), len(b))):
+            x, y = a[i] if i < len(a) else "<end>", b[i] if i < len(b) else "<end>"
+            if x != y:
+                return f"line {i + 1}:\n    expected: {x}\n    got:      {y}"
+    if want["exit"] != 0 and want["err"] != got["err"]:
+        return f"message:\n    expected: {want['err']}\n    got:      {got['err']}"
+    return ""
+
+
+def run_one(sw, exe, stage, path, key, timeout):
+    want, cached = cached_rust_answer(sw, stage, path, key)
+    start = time.monotonic()
+    got = twin_answer(exe, stage, path, timeout)
+    return path, want, got, cached, time.monotonic() - start
+
+
+# ----------------------------------------------------------------------- main
+
+
+def build_exe(args, sw: Path) -> Path:
+    if args.exe:
+        return Path(args.exe).resolve()
+    out = ROOT / "target/fmt-twin/fmt"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    print(f"building {args.project}'s {args.main} natively ...", flush=True)
+    done = subprocess.run(["nice", "-n", "15", str(sw), "build", "--native", args.main, "-o", str(out)],
+                          cwd=ROOT / args.project, capture_output=True, text=True)
+    if done.returncode != 0:
+        raise Stop("the native build failed:\n" + done.stdout[-2000:] + done.stderr[-2000:])
+    return out
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter,
+                                 epilog="input groups:\n" + "\n".join(f"  {k:15} {v}" for k, v in INPUT_GROUPS.items()))
+    ap.add_argument("stage", help="tokens (1), tree (2), refusal, passes (4) or text (5, 6)")
+    ap.add_argument("--inputs", default="", help="comma-separated input groups (see below)")
+    ap.add_argument("--files", nargs="*", default=[], help="named files or folders")
+    ap.add_argument("--exe", help="the executable to compare (default: build --project's --main natively)")
+    ap.add_argument("--project", default="tools/fmt", help="the Stitchwort formatter's project folder")
+    ap.add_argument("--main", default="Fmt.Twin.main", help="the function to build as the executable")
+    ap.add_argument("--sw", default=str(ROOT / "target/release/stitchwort"), help="the Rust side's stitchwort")
+    ap.add_argument("--fuzz-seed", default="0x9e3779b97f4a7c15")
+    ap.add_argument("--fuzz-cases", type=int, default=200)
+    ap.add_argument("--fuzz-comments", default="", help="the fuzzer's comment rate, 0 to 1")
+    ap.add_argument("--disturb-seed", default="1")
+    ap.add_argument("--disturb-of", default="", help="the group the disturber starts from (default goldens-after)")
+    ap.add_argument("--limit", type=int, default=0, help="only the first N files of each group")
+    ap.add_argument("--sample", type=int, default=0, help="a random N files of each group (with --sample-seed)")
+    ap.add_argument("--sample-seed", default="1")
+    ap.add_argument("--show", type=int, default=1, help="how many differences to print per group")
+    ap.add_argument("--jobs", type=int, default=2)
+    ap.add_argument("--timeout", type=float, default=30.0, help="seconds the executable may take on one file")
+    args = ap.parse_args()
+    try:
+        stage = STAGES.get(args.stage)
+        if stage is None:
+            raise Stop(f"unknown stage {args.stage!r}: tokens, tree, refusal, passes or text")
+        if stage == "passes":
+            raise Stop("stage 4's pass-by-pass dump isn't built yet: the Rust side needs a dev dump after "
+                       "passes::run (a stub entry, SW-3772)")
+        sw = Path(args.sw)
+        if not sw.is_file():
+            raise Stop(f"{sw} doesn't exist: run `task build`")
+        groups = resolve(args)
+        exe = build_exe(args, sw)
+        key = tool_hash()
+        total_identical = total = 0
+        print(f"stage {stage}; Rust side {sw}; sources hash {key}; cache {CACHE}")
+        for name, files in groups:
+            start = time.monotonic()
+            identical, cached_hits, twin_time = 0, 0, 0.0
+            shown = []
+            with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
+                for path, want, got, cached, took in pool.map(
+                        lambda f: run_one(sw, exe, stage, f, key, args.timeout), files):
+                    cached_hits += cached
+                    twin_time += took
+                    why = difference(want, got)
+                    if not why:
+                        identical += 1
+                    elif len(shown) < args.show:
+                        shown.append((path, why))
+            total_identical += identical
+            total += len(files)
+            print(f"{name}: {identical} of {len(files)} identical  "
+                  f"(Rust answers cached {cached_hits}/{len(files)}; the executable took {twin_time:.1f} s; "
+                  f"whole group {time.monotonic() - start:.1f} s)")
+            for path, why in shown:
+                print(f"  first difference, {path}: {why}")
+        print(f"total: {total_identical} of {total} identical")
+        return 0 if total_identical == total else 1
+    except Stop as stop:
+        print(f"fmt-twin: {stop}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

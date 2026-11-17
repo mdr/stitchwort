@@ -279,6 +279,14 @@ enum DevCommand {
         #[command(flatten)]
         cache: CacheArgs,
     },
+    /// Print every `.sw` file's tokens with their trivia after the
+    /// formatter's rule N, one line a token (the dump the self-hosted
+    /// formatter's lexer is compared with, `task fmt:twin`). A file that
+    /// doesn't lex prints `error: MESSAGE` on standard error; exit status 1
+    Tokens {
+        /// Files or folders
+        paths: Vec<PathBuf>,
+    },
     /// The formatter's report over a tree of files: format every `.sw` file
     /// under the paths, without writing anything, and check each result: the
     /// same tokens up to the tidy passes' rewrites, the same comments on the
@@ -1457,6 +1465,7 @@ fn run(cli: Cli) -> ExitCode {
             cache: &cache,
         }),
         Command::Dev(DevCommand::FmtTree { paths, print }) => fmt_tree_command(&paths, print),
+        Command::Dev(DevCommand::Tokens { paths }) => tokens_command(&paths),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
             native_spike(rounds, memory.as_deref())
         }
@@ -5486,6 +5495,36 @@ fn fmt_tree_command(paths: &[PathBuf], print: bool) -> ExitCode {
     } else {
         ExitCode::SUCCESS
     }
+}
+
+/// `dev tokens`: the tokens with trivia after rule N, one line a token.
+fn tokens_command(paths: &[PathBuf]) -> ExitCode {
+    let mut files = Vec::new();
+    for path in paths {
+        if let Err(e) = sw_files(path, &mut files) {
+            eprintln!("error: {}: {e}", path.display());
+            return ExitCode::FAILURE;
+        }
+    }
+    let id = SourceMap::new().next_id();
+    let mut status = ExitCode::SUCCESS;
+    for file in &files {
+        let text = match std::fs::read_to_string(file) {
+            Ok(text) => text,
+            Err(e) => {
+                eprintln!("error: {}: {e}", file.display());
+                return ExitCode::FAILURE;
+            }
+        };
+        match stitchwort_fmt::tidy::token_dump(id, &text) {
+            Ok(dump) => print!("{dump}"),
+            Err(message) => {
+                eprintln!("error: {message}");
+                status = ExitCode::FAILURE;
+            }
+        }
+    }
+    status
 }
 
 /// The `.sw` files under `path`, in name order.

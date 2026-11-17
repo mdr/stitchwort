@@ -42497,12 +42497,12 @@
     {
       "id": 3772,
       "title": "[Sonnet] Real formatter stage 0 (docs/proposals/self-hosted-fmt.md §6, §8; D3670): the comparison harness task fmt:twin: Rust-side token dump, cached Rust answers keyed by input and crates/syntax+fmt hashes, the old-layout checkout made at run time, fuzzer programs written out from a seed, the disturber; gate: a stub that copies its input scores 0/N on unformatted input and N/N on the repo",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\nLane notes (Sonnet, 17 Nov 2026): harness built on lane/SW-3772 (0676cff60): dev/fmt-twin, task fmt:twin, dev tokens, FUZZ_WRITE_DIR, stub in tools/fmt. Gate on goldens: 0/62 unformatted, 62/62 formatted; 17/17 on named repo files. Full repo and old layout left to the verifier. Details in tools/fmt/NOTES.md. Wall clock 10:37 to 10:46 by `date` (est. 45 min).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []

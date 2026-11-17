@@ -765,6 +765,27 @@ tasks:
     cmds:
       - cargo fmt
 
+  fmt:twin:
+    desc: 'Compare the Stitchwort formatter with the Rust one (task fmt:twin STAGE=text INPUTS=goldens; more options after --)'
+    summary: |
+      The comparison harness of the self-hosted formatter
+      (docs/proposals/self-hosted-fmt.md section 6, tools/fmt/NOTES.md): builds
+      tools/fmt's executable natively (Fmt.Twin.main), runs it over the inputs,
+      and compares each answer with the Rust side's, printing counts and the
+      first difference. STAGE is tokens (1), tree (2), refusal, passes (4) or
+      text (5, 6); INPUTS is a comma-separated list of goldens, goldens-before,
+      goldens-after, repo, old (the repo before the reformat), fuzz,
+      disturbed and files (named with FILES or `-- --files A B`). The Rust answers are
+      cached in ~/.cache/stitchwort/fmt-twin, keyed by the input and the hash
+      of crates/syntax and crates/fmt; the generated inputs are there too.
+      Other options go after `--`: `task fmt:twin STAGE=text INPUTS=fuzz --
+      --fuzz-seed 7 --fuzz-cases 100`, `-- --exe PATH`, `-- --sample 50`; see
+      `dev/fmt-twin --help`. The repo and old inputs are broad runs: not for
+      lanes (docs/testing.md).
+    deps: [build]
+    cmds:
+      - nice -n 15 python3 dev/fmt-twin '{{.STAGE | default "text"}}' --inputs '{{.INPUTS | default "goldens"}}' --sw '{{.SW}}' {{.CLI_ARGS}}
+
   fmt:sw:
     desc: 'Format .sw files in place (stitchwort fmt; files after --, the project in the current folder if none)'
     deps: [build]
