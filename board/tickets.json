@@ -22780,12 +22780,12 @@
     {
       "id": 3892,
       "title": "[Opus] Regression from SW-3880 (D3679): examples/accept/as-written-unconfirmed.sw panics in the elaborator, matching.rs:2274 dependency_order 'index out of bounds: the len is 0 but the index is 3' (bind_generalised via unconfirmed_now, a generalised match in a theorem with ∀ (x k answer: Nat)); hash_stability::examples fails on main. Fix forward with a failing-first test",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected 25 min (Opus lane).\n\nNotes (lane, 17 Nov):\n- Cause is SW-3752 (82c053f4b, dependency_order), not SW-3880: the parent of the SW-3880 merge (391c94a71) panics the same, and so does the example with its group written out. dependency_order read today.type_terms, empty on the unconfirmed (as-written) path. Now it reads each copy's type as bound (the written type there).\n- SW-3880 did break one spot: attributes.rs rejected field attributes on a group by names.len() > 1, dead after the split; reject/attribute-several-fields.sw gave E-JS-NAME-CLASH. Now detected by consecutive fields sharing the attribute's span.\n- Tests: accept scan of 588 examples, no panic or error; the reject examples with groups give their expected codes; hash_stability examples+prelude, running accepted/rejected (EXAMPLES=as-written,group-,attribute-), soundness examples, lower::tests::declarations, binder_sweep: all pass.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
