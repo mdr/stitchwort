@@ -74,6 +74,8 @@ test "all small" := List.all (parse "1,2,3") (n => n < 3)
 - **"both parts"** is an `&&` of comparisons: the failure names the first one that was false, with its text and position (`in:`).
 - **"sorted"** and **"all small"** are neither, so all the test can say is that the condition was `False`. When a test like that fails, rewrite it as a comparison to see the values: `parse "3,1,2" == [1, 2, 3]` would show what `parse` gave.
 
+A test that is a `match` shows the comparison in the arm that ran, so `test "parses" := match parse text with | Ok tree => tree.dump == expected | Err _ => False` says what `tree.dump` was and what `expected` was, as `tree.dump == expected` would outside the `match`. (If the arm that ran is `Err _ => False`, or a guarded arm, there is no comparison to show.)
+
 The sides are computed again only when a test fails, so passing tests don't pay for the explanation.
 
 ## Testing effectful code

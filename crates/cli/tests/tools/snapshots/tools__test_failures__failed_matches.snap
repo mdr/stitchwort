@@ -1,0 +1,30 @@
+---
+source: crates/cli/tests/tools/test_failures.rs
+expression: "&out"
+---
+  ✗ ok arm                          ran  (`==` is False)
+      left:  [3, 3]
+      right: [3, 4]
+      first difference at [1]: 3 vs 4
+      in: dump tree == [3, 4]  (t.sw:11:16)
+  ✗ err arm                         ran  (`==` is False)
+      left:  "zero"
+      right: "fine"
+      first difference at [0]: 'z' vs 'f'
+      in: why == "fine"  (t.sw:15:16)
+  ✗ greater                         ran  (`>` is False)
+      left:  2
+      right: 5
+      in: tree.kids.length > 5  (t.sw:17:16)
+  ✗ under a let                     ran  (`==` is False)
+      left:  [3, 3]
+      right: [3]
+      first difference at [1]: right ends, left has 3 (left has 2 elements, right has 1 element)
+      in: dump tree == expected  (t.sw:20:16)
+  ✗ in a conjunction                ran  (`==` is False)
+      left:  [3, 3]
+      right: []
+      first difference at [0]: right ends, left has 3 (left has 2 elements, right has 0 elements)
+      in: dump tree == []  (t.sw:23:16)
+  ✗ an arm that isn't a comparison  ran  (evaluated to False)
+6 test(s): 0 passed, 6 failed (0 from the cache)

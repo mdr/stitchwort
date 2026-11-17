@@ -78,7 +78,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 35;
+pub const FORMAT: u32 = 36;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1176,6 +1176,16 @@ impl Encoding<'_> {
                 self.probe(a);
                 self.probe(b);
             }
+            crate::ProbeKind::Arms { term, marker, arms } => {
+                self.w.u8(3);
+                self.term(term);
+                self.data(*marker);
+                self.w.usize(arms.len());
+                for (op, span) in arms {
+                    self.str(op);
+                    self.span(*span);
+                }
+            }
         }
     }
 
@@ -2229,6 +2239,20 @@ impl Body<'_> {
                 Box::new(self.probe(depth + 1)?),
                 Box::new(self.probe(depth + 1)?),
             ),
+            3 => {
+                let term = self.term()?;
+                let marker = self.data()?;
+                let count = self.r.usize()?;
+                let mut arms = Vec::new();
+                for _ in 0..count.min(1 << 16) {
+                    let op = self.string()?;
+                    let Some(op) = TEST_OPS.iter().find(|o| **o == op) else {
+                        return bad(format!("no operator `{op}`"));
+                    };
+                    arms.push((*op, self.span()?));
+                }
+                crate::ProbeKind::Arms { term, marker, arms }
+            }
             _ => return bad("an unknown kind of probe".to_string()),
         };
         Ok(crate::Probe {
