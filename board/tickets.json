@@ -42016,7 +42016,7 @@
     {
       "id": 3735,
       "title": "[DeepSeek] stitchwort eval with a project file can't see names the file imports (SourceFile.tidy): load the file's imports (Toy++ T4 friction, SW-3724)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -42029,7 +42029,7 @@
     {
       "id": 3736,
       "title": "[DeepSeek] A test whose match evaluates to False shows no left/right values (through a helper def it does): show them for a match too (Toy++ T4 friction, SW-3724)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
