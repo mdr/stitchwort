@@ -16981,14 +16981,14 @@
     {
       "id": 3452,
       "title": "[Opus] Toy engine: fits measures from the new line after a trailing comment (as SW-3447's Rust printer does), removing most odd layouts (s05, s06, s08, s11, s17, s19) and the call whose ) sits left of its argument; needs indent and width in fits, so the budget proofs change (SW-3450 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
-      "epic": "syntax-language",
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
