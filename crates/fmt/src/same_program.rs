@@ -317,8 +317,9 @@ mod tests {
             "def f (a: Nat) [b: Nat]: Nat := a\n",
             "def f (a b: Nat): Nat := a\n"
         ));
-        // Splitting this group would make the second `x` mean the first.
-        assert!(!same(
+        // A group is its split form (D3679), so in both the second `x`
+        // means the first parameter.
+        assert!(same(
             "def f (x: P x) (y: P x): Nat := 1\n",
             "def f (x y: P x): Nat := 1\n"
         ));
