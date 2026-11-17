@@ -41816,7 +41816,7 @@
     {
       "id": 3707,
       "title": "[Sonnet] fuzz_elab checks std afresh in every case (~20 s CPU in debug for a std-heavy mutant, x3 for cache cases): share one std cache across cases in the test process, then put the watchdog back to 60 s (SW-3705)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
