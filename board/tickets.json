@@ -1,5 +1,5 @@
 {
-  "next": 3914,
+  "next": 3916,
   "tickets": [
     {
       "id": 47,
@@ -22936,12 +22936,12 @@
     {
       "id": 3904,
       "title": "[Sonnet] Engine E0: copy Toy.Doc and its 302 theorems into tools/fmt/src/Doc as the start of Std.Doc (docs/proposals/self-hosted-fmt-engine-plan.md stage E0)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nProgress (Sonnet, E0): copied Toy.Doc to tools/fmt/src/Doc as namespace Fmt.Doc (plain `Doc` clashes with the type's own `Doc.steps` extension decls: E-FOREIGN-NAMESPACE). check clean; 19 tests pass; audit Fmt.Doc = 302 theorems, 0 failed, same as Toy.Doc. flatWidth, std-style docs and the held-spaces measure fix not done (held spaces do not exist in the toy: E2/E3).\n",
+      "body": "\n\nProgress (Sonnet, E0): copied Toy.Doc to tools/fmt/src/Doc as namespace Fmt.Doc (plain `Doc` clashes with the type's own `Doc.steps` extension decls: E-FOREIGN-NAMESPACE). check clean; 19 tests pass; audit Fmt.Doc = 302 theorems, 0 failed, same as Toy.Doc. flatWidth, std-style docs and the held-spaces measure fix not done (held spaces do not exist in the toy: E2/E3).\n\nModel result: sonnet, worked, 5 min (est. 25). Held-spaces measure fix left for E3 (the toy has no held spaces). Follow-ups SW-3914 SW-3915.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -23053,6 +23053,32 @@
     {
       "id": 3913,
       "title": "[DeepSeek] crates/fmt engine: fits_flat and Choice's OneLineBelow measure use an empty modes map (IfBroken inside can't see an earlier group's mode), and OneLineBelow is the only measure not through fits_here: route it through fits_here, with a test (SW-3903 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3914,
+      "title": "[Sonnet] Fmt.Doc: add Doc.flatWidth (balanced_fill measures items with it) and std-style API docs (engine plan E0 remainder); fix the plan's E0 wording (namespace Fmt.Doc, since plain Doc clashes with the type: E-FOREIGN-NAMESPACE)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3915,
+      "title": "[Opus] Toy.Doc/Fmt.Doc audit warnings: closesWord, putMid, putSpaces and one more have hypotheses no generated input satisfies (0 of 1500); check each is not vacuous, before E1 (SW-3904 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
