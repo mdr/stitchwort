@@ -117,6 +117,11 @@ type Expr =
   | ClauseLambda (keyword: Word) (word: Option Word) (arms: List Arm)
   --| `arithmetic [h]` or `algebra [h]`: the keyword and its facts, a list.
   | Facts (kind: FactsKind) (keyword: Word) (facts: Expr)
+  --| `(x: A) -> B` or `[x: A] -> B`: a `Binder` group, the arrow and the
+  --| result type.
+  | FunctionType (binder: Group) (arrow: Word) (result: Expr)
+  --| `{IO, State s} T`: a result type with abilities.
+  | Effect (row: Row) (result: Expr)
 
 --| A piece of an interpolated text: a token of text, or `${e}`.
 type Piece =
@@ -124,12 +129,11 @@ type Piece =
   | Interpolation (open: Word) (value: Expr) (close: Word)
 
 --| A lambda's (or `∀`'s, `∃`'s) parameter: a name or `_`, a pattern, or a
---| `LambdaParam` with a written type, `(x y: A)` or `[a: Type]`;
---| `[auto P]` has `auto` for its names and no colon.
+--| group with a written type, `(x y: A)` or `[a: Type]` (a `LambdaParam`).
 type Param =
   | NameParam (word: Word)
   | PatternParam (pattern: Pattern)
-  | TypedParam (open: Word) (names: List Word) (colon: Option Word) (annotation: Expr) (close: Word)
+  | Grouped (group: Group)
   --| `PatternTyped`: `((a, b): A)`.
   | TypedPattern (open: Word) (pattern: Pattern) (colon: Word) (annotation: Expr) (close: Word)
 
@@ -257,6 +261,8 @@ def Expr.lines (expr: Expr) (depth: Nat): List Text :=
         | FactsOmega => "Omega"
         | FactsRing => "Ring"
       node depth name (keyword.line d ++ facts.lines d)
+    | FunctionType binder arrow result => node depth "FunctionType" (binder.lines d ++ arrow.line d ++ result.lines d)
+    | Effect row result => node depth "Effect" (row.lines d ++ result.lines d)
 
 def wordLines (depth: Nat): Option Word → List Text
   | Some word => word.line depth
@@ -292,11 +298,7 @@ def paramLines (depth: Nat): List Param → List Text
   | [] => []
   | [NameParam word, ..rest] => word.line depth ++ paramLines depth rest
   | [PatternParam pattern, ..rest] => pattern.lines depth ++ paramLines depth rest
-  | [TypedParam open names colon annotation close, ..rest] =>
-    let d := depth + 1
-    node depth "LambdaParam"
-      (open.line d ++ wordsLines d names ++ wordLines d colon ++ annotation.lines d ++ close.line d)
-      ++ paramLines depth rest
+  | [Grouped group, ..rest] => group.lines depth ++ paramLines depth rest
   | [TypedPattern open pattern colon annotation close, ..rest] =>
     let d := depth + 1
     node depth "PatternTyped" (open.line d ++ pattern.lines d ++ colon.line d ++ annotation.lines d ++ close.line d)

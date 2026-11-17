@@ -281,3 +281,168 @@ about half of it).
 - 2c: blocks of several lines, `let`, local definitions, `handle`,
   `calc`, `rewrite`, `cases`, `match induct`/`reify` (each a `notYet`
   today).
+
+## Stage 2b (SW-3836): declarations, headers and types
+
+Opus, 17 November 2026.
+
+### What is here
+
+| File | What | Rust counterpart |
+|---|---|---|
+| `Syntax/Decl.sw` | `SourceFile`, `Decl` (namespace, import, definition, data, ability, test), `Header`, `Group`, `Attributes`, `Row`, `Fields`, `Constructor`, `Operation`; their dump | `tree.rs`'s declaration `NodeKind`s |
+| `Syntax/DeclParser.sw` | attributes, the parameter groups, `binder_type`, `result_type`, `row`, `pi_expr`, every declaration, `split_decls` and the file loop (`parseFile`), the codes of the few messages that aren't `E-PARSE` | `declarations.rs`, `data`, `ability`, the binders, `entry.rs`'s `parse_tokens` |
+| `Syntax/Traverse.sw` | the traversal: one function per family that rebuilds a node from its traversed children, then applies a step (`onExpr`, `onPattern`) | |
+| `Syntax/Lowering.sw` | the lowering's three checks as `Decl → Option Text`, called by `parseFile` after each declaration parses: or-patterns that bind, a parameter named twice, a guard on an arm with `()` and no body | `lower/patterns.rs`, `header.rs`, `matching.rs` |
+| `Syntax.Tests.Decls` | shapes and the order of errors | |
+| `Fmt.Twin` | `--stage tree` and `--stage refusal`, single-file and batch | `dev tree --print`, `fmt -` |
+
+Function types with named parameters (`FunctionType`) and result types
+with abilities (`Effect`, `Row`) joined `Expr`; `->`'s right side is now a
+result type, as in Rust.
+
+### The tree's shape
+
+- **One parameter-group constructor** (sketch item 8): `Group` with a
+  `kind` (`GroupParam`, `GroupBinder`, `GroupLambda`, the dump's `Param`,
+  `Binder`, `LambdaParam`), `implicit`, attributes, `auto`, the names, the
+  colon, the type and the default, each optional where a form lacks it
+  (`()`, `[auto P]`). A lambda's typed group is `Grouped group`. The
+  fourth node kind, `PatternTyped` (`((a, b): A)`), holds a pattern, not
+  names, so it stays its own `Param` constructor.
+- **Fixed tokens as `Comments`** (item 10, as the orchestrator decided):
+  the new types hold a token with one spelling (keywords, brackets, `:=`,
+  `:`, `=`, `|`, `@`, `.`, `as`, `auto`) as its comments, and the dump
+  writes the text; a token with a choice (`->`/`→`, `∀`/`forall`) or a text
+  of its own is a `Word`. Checked: `stitchwort fmt` keeps `forall`, `->`,
+  `<=`, `&&`, `!` and their Unicode forms as written. Stage 2a's
+  expression constructors still hold every token as a `Word`; converting
+  them is a mechanical follow-up.
+- No commas: `trailingComma` on `Attributes` and `Fields` (imports, rows
+  and `unfolding` lists can't end with one).
+- `DefKind` tags `def`, `theorem` and `instance`; a data type's root kind
+  (`DataType`, `RecordType`, `TypeSynonym`, `Interface`) is derived from
+  `isInterface` and the body, not stored.
+
+### The file loop
+
+`parseFile` splits the leaves into groups as `split_decls` does, parses
+each group on its own items (as the Rust parser makes one `Parser` per
+group, so a lookahead never crosses a declaration), then runs the
+lowering's checks on it, and stops at the first error. That is the first
+error in file order, which is `fmt -`'s first line: a later declaration's
+error can't come before an earlier one's, and a lowering error replaces
+only the parser's errors after it in the same declaration. The namespace
+and import ordering rules are checked as the Rust loop does, before the
+group is parsed.
+
+A top-level `def` or `theorem` body is where the Rust parser recovers
+from errors; the one message that changes there ("expected an expression,
+but the line ends here") comes from a `recover` flag in `Modes`.
+
+The tree stage answers only for files that parse: a file with a
+declaration that doesn't (an `Error` node in the Rust dump, holding what
+parsed before the error) is answered with status 1 and the message. The
+strict parser has no partial nodes to dump (sketch item 5).
+
+### Sketch items
+
+- Done: 6 (the traversal), 8 (one group constructor, three of the four
+  kinds), 10 for the new types, 12 (the lowering's three errors, called
+  inside `parseFile`; the or-pattern check moved out of the parser, and
+  `parseExpression` runs the same checks), 13 (below).
+- Fuel (13): `2 · left + 2` is kept, and written down at `expressionAt`:
+  every call of `self` either reads an item before the next call or hands
+  over to a lower level without reading, and a level never hands back up
+  without reading, so between two reads there are at most as many calls
+  as levels, and the levels are entered in a strict descent; two per item
+  and two to start is the bound if no read is followed by more than one
+  hand-over. That last step is the claim spike K4 should test: a chain
+  `LevelFull → LevelInline → … → LevelArgument` hands over several times
+  without reading, so the honest bound may be `levels · left + levels`.
+  It has never run out on the corpus (it would show as "the parser ran
+  out of fuel" or a wrong tree).
+- Left: 9 (`∀` as `Option Comments`: kept a `Word`, since `∀` and `forall`
+  are both spellings the formatter keeps); 10 for stage 2a's expressions.
+
+### The gate [measured, Speedwell, load about 5]
+
+The honest subset is the files whose every construct 2a or 2b reads;
+"not parsed yet" names the first construct of 2c in a file.
+
+| Input | Identical | Not parsed yet | Other differences |
+|---|---|---|---|
+| `tree`, `goldens` (124) | 78 | 46 | 0 |
+| `tree`, `repo --sample 300` | 125 | 175 | 0 |
+| `tree`, `fuzz --fuzz-cases 300` (235 lex) | 206 | 29 | 0 |
+| `refusal`, the same three groups | 78, 125, 206 | 46, 175, 29 | 0 |
+| `refusal`, 687 broken copies of 346 files in the subset (cut, a token deleted, swapped or inserted) | 683 | 3 | 1 |
+
+So every file in the subset is identical: 409 in the tree stage, and 409
+plus 683 refusals. The one difference is a mismatched bracket inside a
+lambda's implicit group, `[a: (x: Type] a) => x`, where the Rust parser's
+bracket table pairs `(` with `]` and reads a header group the Twin
+doesn't. Over the 2,022 repo files outside the reject and repro folders,
+972 (1.50 MB) are in the subset.
+
+"Not parsed yet" by construct, in the sampled goldens and repo files (the
+first in each file): a block's `let` 117, `rewrite` 61, `cases` 12, a block
+of several lines 7, `handle` 7, a local definition 5, `calc` 5, an
+expression `let` 4, `match induct`/`reify` 3. In the fuzz cases: a block's
+`let` 11, `rewrite` 7, a local definition 4, a block of several lines 2,
+`match induct` 2, `cases` 2, `handle` 1. 109 of the fuzz cases are
+comments only (no tokens); the harness's tree for those is now empty, not
+one blank line (`dev/fmt-twin`).
+
+### Speed [measured, Speedwell, load about 5]
+
+The 972 subset files, 1.50 MB, one process, `--batch`:
+
+| Stage | Time | Per MB | Peak memory |
+|---|---|---|---|
+| `tokens` (lex, rule N, the token dump) | 2.55 s | 1.7 s/MB | 31 MB |
+| `tree` (lex, rule N, parse, lowering checks, the tree dump) | 4.5 s | 3.0 s/MB | 48 MB |
+
+The largest file in the subset (`std/Omega/Omega.sw`, 31 KB) takes
+0.11 s, 3.5 s/MB with the process's start, so nothing grows faster than
+linearly. Whole files run at 3.0 s/MB against 2a's dense list at 6.5–7.5:
+comments, blank lines and short declarations are cheap. That is the top
+of §5's 2.5–3.5 s/MB for the whole formatter before any pass or printing,
+so SW-3837 (speed) has work to do; nothing was changed for speed here,
+and so nothing was profiled.
+
+### Friction
+
+- **A row-polymorphic traversal didn't check.** With the steps' abilities
+  a row variable (`onExpr: Expr → {e} Expr`, as `List.any` has), the
+  mutually recursive functions were refused with E-NOT-A-FUNCTION ("this
+  isn't a function: it's applied to an argument") at a call from one to
+  another as a `let`'s value, and with E-ABILITY ("its row variable isn't
+  part of the enclosing function's abilities") inside a `match` that is a
+  `let`'s value. Fixing the ability to `Fail` cured the first; the second
+  stayed for `Fail` too, so each optional part has a helper function
+  (`traverseOptional`, `traverseAfter`). About 15 minutes.
+- **Keywords as names, again**: `type`, `interface`, `export`, `opaque`,
+  `forall`, `decreasing`, `unfolding`, `namespace`, `instance` can't be
+  fields or variables, so `isInterface`, `exportKeyword`,
+  `decreasingClause`, `hasNamespace`.
+- **A lambda calling a recursive function isn't seen as a smaller call**:
+  `let ex := (inner: Expr) => inner.traverse …` failed termination.
+- **A record pattern can't follow a constructor in a pattern**
+  (`Effect { open, … } result`: "braces after `Effect` take no further
+  arguments"): bind the record, then match it.
+- **The native build takes 1 min 50 s** and makes a 300 MB executable, so
+  each round of the gate costs two minutes before it starts.
+
+### Left for 2c
+
+- Blocks of several lines, a block's `let` and local definitions (and with
+  them `decreasing` and `unfolding` placing `:=` on a line of its own,
+  `allow` in a block), `handle`, `calc`, `rewrite` (and `rules` sets),
+  `cases`, `match induct`/`reify`, each a `notYet`.
+- The fixed tokens of stage 2a's expressions as `Comments`.
+- `lambda_result_type`'s error (a lambda written `(x: A): B => …`) is not
+  ported; such a file gets another first line.
+- Mismatched brackets: the Rust parser pairs brackets by a stack that
+  ignores their kind, and so does `skipGroup`, but its lambda lookahead
+  reads one case differently (the gate's one difference).

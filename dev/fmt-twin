@@ -285,8 +285,8 @@ def rust_answer(sw: Path, stage: str, path: Path) -> dict:
         lines = done.stdout.decode(errors="replace").split("\n")
         # The "PATH:" header comes first and the totals line last.
         end = max((i for i, line in enumerate(lines) if re.match(r"\d+ files \(", line)), default=len(lines))
-        body = lines[1:end]
-        return {"exit": 0, "out": "\n".join(body).rstrip("\n") + "\n", "err": ""}
+        body = "\n".join(lines[1:end]).rstrip("\n")
+        return {"exit": 0, "out": body + "\n" if body else "", "err": ""}
     if stage == "expr":
         done = subprocess.run(["nice", "-n", "15", str(sw), "dev", "tree", "--expression", str(path)], capture_output=True)
         return {"exit": done.returncode, "out": done.stdout.decode(errors="replace"),
@@ -304,7 +304,12 @@ def cached_rust_answer(sw: Path, stage: str, path: Path, key: str) -> tuple:
     """The answer, and whether it came from the cache."""
     entry = CACHE / "answers" / key / stage / (sha(path.read_bytes()) + ".json")
     if entry.is_file():
-        return json.loads(entry.read_text()), True
+        answer = json.loads(entry.read_text())
+        # A file without declarations was cached as one empty line before
+        # its tree became empty (SW-3836).
+        if stage == "tree" and answer["out"] == "\n":
+            answer["out"] = ""
+        return answer, True
     answer = rust_answer(sw, stage, path)
     entry.parent.mkdir(parents=True, exist_ok=True)
     tmp = entry.with_suffix(f".{os.getpid()}.tmp")
