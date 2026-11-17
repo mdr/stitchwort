@@ -22440,12 +22440,12 @@
     {
       "id": 3866,
       "title": "[DeepSeek] tools/fmt: move the remaining ~28 hand-fuelled loops to std Parse.loop (list on SW-3827), mechanically, keeping token/tree/refusal dumps identical; delete dead leavesOf in Parser.sw (SW-3827 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Started 18:50 on DeepSeek (scratch clone scratch-sw-3866), est. 25 min.",
+      "body": "Started 18:50 on DeepSeek (scratch clone scratch-sw-3866), est. 25 min.\n\nModel result: deepseek, worked, 31 min (est. 25). 14 loops converted; 13 left (thread state, or a round reads nothing): pipesFrom, suffixes, commaListFrom, matchArms, clauseArms, listPatternItems, attributeItems, fieldsFrom, importItems, unfoldingNames, dataIndices, qualified, pieces. Reviewed line by line by the orchestrator: interpolations now accepts a wider token order than the lexer produces (fine).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
