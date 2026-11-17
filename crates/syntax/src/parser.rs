@@ -1682,12 +1682,21 @@ impl<'t> Parser<'t> {
     /// pattern with more is written `C ({ … }) …`.
     fn ctor_args(&mut self, name: u32, stop: fn(Option<&Tok>) -> bool) -> Result<()> {
         if self.peek() == Some(&Tok::LBrace) {
+            let open = self.here();
             self.record_pattern_braces()?;
             if !stop(self.peek()) {
                 let name = self.text_at(name);
+                let braces = Span {
+                    end: self.tokens[self.pos - 1].span.end,
+                    ..open
+                };
                 return Err(error(
                     self.here(),
                     format!("braces after `{name}` in a pattern take no further arguments"),
+                )
+                .with_label(
+                    braces,
+                    format!("these braces are matched as `{name}`'s own"),
                 )
                 .with_note(format!(
                     "to match a record as `{name}`'s first argument and then more, write it \
