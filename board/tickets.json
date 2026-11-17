@@ -1,5 +1,5 @@
 {
-  "next": 3928,
+  "next": 3929,
   "tickets": [
     {
       "id": 47,
@@ -9512,16 +9512,16 @@
     {
       "id": 2358,
       "title": "Audit vacuity check: accept a witness (a theorem in the namespace proving the hypotheses hold for a concrete input), and skip generated equation lemmas (step.eq.*), so false alarms like 2021 day 11/12 stop warning",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "test-infra",
-      "body": "From SW-2344 (8 Nov 2026): stableOfCount, parseNoBigNeighbours, endsVisited are false alarms with rfl witnesses in Tests/Examples.sw; three Day12 step.eq.* equation lemmas warn too. Design choice (how to name a witness) may be Matt's if user-visible syntax. 45 min.",
+      "body": "From SW-2344 (8 Nov 2026): stableOfCount, parseNoBigNeighbours, endsVisited are false alarms with rfl witnesses in Tests/Examples.sw; three Day12 step.eq.* equation lemmas warn too. Design choice (how to name a witness) may be Matt's if user-visible syntax. 45 min.\n\nDone by SW-3920 (witness by inference; generated-equation skipping stays SW-2232).",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -23146,12 +23146,12 @@
     {
       "id": 3920,
       "title": "[Sonnet] Audit: let a witness silence the vacuity warning (a theorem applying the warned one to closed arguments, or an attribute naming it); and when every case is thrown out on one hypothesis, name it in the warning (SW-3915 findings; 4 Doc warnings recur otherwise)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "Lane SW-3918's branch (lane/SW-3918) did this ticket: the orchestrator briefed it under the wrong number. Witness by inference (closed application of the warned theorem); rejecting hypothesis named. Fmt.Doc 4 warnings -> 0. Supersedes SW-2358; covers SW-2768's warning text.",
+      "body": "Lane SW-3918's branch (lane/SW-3918) did this ticket: the orchestrator briefed it under the wrong number. Witness by inference (closed application of the warned theorem); rejecting hypothesis named. Fmt.Doc 4 warnings -> 0. Supersedes SW-2358; covers SW-2768's warning text.\n\nModel result: sonnet, worked, 15 min (est. 30). Review: sound for syntactic Pi statements; nickname edge filed SW-3928. Supersedes SW-2358.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -23244,6 +23244,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3928,
+      "title": "[DeepSeek] audit.rs witness_of: count the warned theorem's arity after unfolding its type (whnf), not syntactically, so a theorem restating a nicknamed ∀ statement isn't taken for a witness (SW-3920 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
