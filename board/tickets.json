@@ -23226,7 +23226,7 @@
     {
       "id": 3926,
       "title": "[Sonnet] Fmt.Doc: a broken Fill's first item and a OneLineBelow option are measured with the real modes, as Rust's engine does since SW-3913 (Fmt.Doc copied the old empty-map behaviour); a Doc/Tests/Engine.sw test mirroring SW-3913's Rust one; keep theorems checking",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23239,7 +23239,7 @@
     {
       "id": 3927,
       "title": "[Opus] Engine E2 part 2: NarrowGroup (1,388 repo declarations need only it), Align/AlignInset, Displaced in Fmt.Doc with proofs extended; gate: engine harness identical on every declaration using only supported kinds (SW-3921 counts: 2,278 unsupported)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
