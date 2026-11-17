@@ -58,3 +58,8 @@ test "patterns nested 200 deep" :=
     && readsWhole "match y with | ${nested 200 "(-1, " "-2" ")"} => 1"
     && readsWhole "match y with | ${nested 200 "[A | " "B" "]"} => 1"
     && readsWhole "match y with | ${nested 200 "(\"s\" ++ " "r" ")"} => 1"
+
+--| The `.` after a `"""` text is glued to its closing quotes, which are
+--| at the end of the text's last line, not a text's length after its start.
+test "a field access on a block text" :=
+  dumped "f \"\"\"\n  x\n  \"\"\".lines" == "App\n  f\n  FieldAccess\n    \"\"\"\n  x\n  \"\"\"\n    .\n    lines\n"

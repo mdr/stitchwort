@@ -43,12 +43,18 @@ def Item.text (item: Item): Text := item.leaf.token.text
 
 def items (leaves: List Leaf): List Item := itemsAfter None 0 0 0 leaves
 
+--| The column just past a token: a `"""` text spans lines, so its end is the
+--| length of its last line, which starts at column 0.
+def endColumn (token: Token): Nat := match token.text.split '\n' |> .reverse with
+  | [last, _, .._] => last.utf8Length
+  | _ => token.column + token.text.utf8Length
+
 def itemsAfter (before: Option Token) (index depth lineIndent: Nat): List Leaf → List Item
   | [] => []
   | [leaf, ..rest] =>
     let token := leaf.token
     let glued := match before with
-      | Some previous => !token.lineStart && previous.column + previous.text.utf8Length == token.column
+      | Some previous => !token.lineStart && endColumn previous == token.column
       | None => False
     let afterOperand := before.map (previous => previous.kind.closesOperand) |> .getOrElse False
     let afterDot := before.map (previous => previous.kind == Dot) |> .getOrElse False
