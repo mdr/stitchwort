@@ -80,23 +80,7 @@ theorem solidChars ∀ (first: Char) (others: List Char)
     Solid (MkText [first, ..others]) :=
   rewrite noSpace, noBreak then (byComputing, byComputing, byComputing)
 
-theorem symbolApart ∀ (first symbol: Char)
-    (starts: isWordStart first = True)
-    (apart: isWordStart symbol = False):
-    (symbol == first) = False :=
-  DecEq.falseOfNe (same => apartBy isWordStart first symbol starts apart same.flipped)
-
-theorem wordNoOperator ∀ (first: Char) (starts: isWordStart first = True): isOperatorChar first = False :=
-  rewrite symbolApart first '=' starts byComputing,
-      symbolApart first '|' starts byComputing,
-      symbolApart first '&' starts byComputing,
-      symbolApart first '!' starts byComputing,
-      symbolApart first '<' starts byComputing,
-      symbolApart first '+' starts byComputing,
-      symbolApart first '-' starts byComputing,
-      symbolApart first '*' starts byComputing,
-      symbolApart first '/' starts byComputing,
-      symbolApart first '%' starts byComputing
+theorem wordNoOperator ∀ (first: Char) (starts: isWordStart first = True): isOperatorChar first = False := cases
 
 theorem digitNoOperator ∀ (first: Char) (digit: first.isAsciiDigit = True): isOperatorChar first = False := cases
 
@@ -114,9 +98,7 @@ theorem wordToken ∀ (text: Text) (word: IsWord text): TokenText text := match 
   | (first, others, same, starts, all) =>
     rewrite textOf text [first, ..others] same then
       (
-        (solidChars first others
-          (DecEq.falseOfNe (apartBy isWordStart first ' ' starts byComputing))
-          (DecEq.falseOfNe (apartBy isWordStart first '\n' starts byComputing))),
+        (solidChars first others cases cases),
         (rest shut =>
           match shut with
             | (stops, _) => wordChars first others rest starts all stops)
@@ -142,9 +124,7 @@ theorem digitsToken ∀ (text: Text) (number: IsDigits text): TokenText text := 
   | (first, others, same, digit, digits) =>
     rewrite textOf text [first, ..others] same then
       (
-        (solidChars first others
-          (DecEq.falseOfNe (apartBy (char => char.isAsciiDigit) first ' ' digit byComputing))
-          (DecEq.falseOfNe (apartBy (char => char.isAsciiDigit) first '\n' digit byComputing))),
+        (solidChars first others cases cases),
         (rest shut =>
           match shut with
             | (_, stops, _) => digitsChars first others rest digit digits stops)

@@ -161,20 +161,7 @@ theorem lastGoesOn ∀ (char: Char) (rest: List Char)
 theorem minusStarts ∀ (rest: List Char)
     (stops: StopsAt isOperatorChar rest):
     lexemeStart (['-'] ++ rest) = Some SymbolsLexeme :=
-  match rest, stops with
-    | [], _ => byComputing
-    | [next, ..later], fails =>
-      lexemeStart.eq8 '-'
-        [next, ..later]
-        (notAmong '-' (same => cases) (same => cases) (same => cases))
-        (tail isMinus same =>
-          let head: next = '-' := Eq.cong ((chars: List Char) => chars.headOr ' ') same
-          let minus: isOperatorChar '-' = False := rewrite <- head then fails
-          Bool.falseNotTrue minus.flipped)
-        byComputing
-        byComputing
-        byComputing
-        byComputing
+  cases
 
 --| One operator character stands before text that starts with none.
 theorem oneStands ∀ (char: Char) (rest: List Char)

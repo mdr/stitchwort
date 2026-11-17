@@ -6,31 +6,13 @@ namespace Toy.Syntax.Proofs
 import Toy.Syntax (..)
 import Std (DecEq, Eq, Fail, List, Option, Parse, Text, Void)
 
---| A character that starts a word is not one that doesn't: for the
---| characters `lexemeStart` tries before a word.
-theorem wordStartApart ∀ (first other: Char)
-    (starts: isWordStart first = True)
-    (apart: isWordStart other = False):
-    first ≠ other :=
-  same =>
-    let both: isWordStart other = True := rewrite <- same then starts
-    cases
-
 theorem wordStartIsChar ∀ (first: Char) (starts: isWordStart first = True): isWordChar first = True := cases
 
 --| A text that starts with a letter or `_` starts with a word.
 theorem wordLexemeStart ∀ (first: Char) (tail: List Char)
     (starts: isWordStart first = True):
     lexemeStart [first, ..tail] = Some WordLexeme :=
-  lexemeStart.eq5 first tail
-    (among =>
-      match among with
-        | Inl same => wordStartApart first ' ' starts byComputing same.flipped
-        | Inr (Inl same) => wordStartApart first '\n' starts byComputing same.flipped
-        | Inr (Inr (Inl same)) => wordStartApart first '"' starts byComputing same.flipped
-        | Inr (Inr (Inr never)) => never)
-    (tail1 isMinus sameTail => wordStartApart first '-' starts byComputing isMinus)
-    starts
+  cases
 
 --| `lexemeAt` reads a word: a letter or `_`, then letters, digits and `_`s,
 --| up to a character that is none of these.
@@ -49,42 +31,12 @@ theorem runsWordLexeme ∀ (first: Char) (others rest: List Char)
       [first, ..others]
       (Parse.runsSpan isWordChar [first, ..others] rest all ends)
 
---| A character that passes a test is not one that fails it.
-theorem apartBy ∀ (passes: Char → Bool) (first other: Char)
-    (holds: passes first = True)
-    (fails: passes other = False):
-    first ≠ other :=
-  same =>
-    let both: passes other = True := rewrite <- same then holds
-    cases
-
---| A character that is none of the three is not among them: the first
---| condition of `lexemeStart`'s later arms.
-theorem notAmong ∀ (char: Char)
-    (noSpace: char ≠ ' ')
-    (noBreak: char ≠ '\n')
-    (noQuote: char ≠ '"'):
-    char ∉ [' ', '\n', '"'] :=
-  among =>
-    match among with
-      | Inl same => noSpace same.flipped
-      | Inr (Inl same) => noBreak same.flipped
-      | Inr (Inr (Inl same)) => noQuote same.flipped
-      | Inr (Inr (Inr never)) => never
-
 --| A text that starts with a digit starts with a number.
 theorem digitsLexemeStart ∀ (first: Char) (tail: List Char)
     (digit: first.isAsciiDigit = True)
     (notWord: isWordStart first = False):
     lexemeStart [first, ..tail] = Some DigitsLexeme :=
-  lexemeStart.eq6 first tail
-    (notAmong first
-      (apartBy (char => char.isAsciiDigit) first ' ' digit byComputing)
-      (apartBy (char => char.isAsciiDigit) first '\n' digit byComputing)
-      (apartBy (char => char.isAsciiDigit) first '"' digit byComputing))
-    (tail1 isMinus sameTail => apartBy (char => char.isAsciiDigit) first '-' digit byComputing isMinus)
-    notWord
-    digit
+  cases
 
 --| `lexemeAt` reads spaces up to a character that isn't one.
 theorem runsSpacesLexeme ∀ (others rest: List Char)
