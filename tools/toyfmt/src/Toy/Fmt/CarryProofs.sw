@@ -35,7 +35,8 @@ def Expr.comments: Expr → List Comment
   | StringLiteral _ comments => comments.all
   | Bracketed open inner close => open.all ++ inner.comments ++ close.all
   | ListLiteral open items trailingComma close => open.all ++ itemsComments items ++ close.all
-  | Call callee open arguments trailingComma close => callee.comments ++ open.all ++ itemsComments arguments ++ close.all
+  | Call callee open arguments trailingComma close =>
+    callee.comments ++ open.all ++ itemsComments arguments ++ close.all
   | Field target dot _ nameComments => target.comments ++ dot.all ++ nameComments.all
   | Negate minus operand => minus.all ++ operand.comments
   | Binary _ sign left right => left.comments ++ sign.all ++ right.comments

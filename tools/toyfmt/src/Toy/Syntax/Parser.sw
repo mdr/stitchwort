@@ -285,8 +285,8 @@ def itemsFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) 
 --| it: on to the next item after a comma, unless `closer` comes next (the
 --| comma was a trailing one), else the items found.
 -- A function of its own so that proofs (ExpressionProofs.sw) can name it.
-def itemsAfter (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (closer: Punctuation) (found: List Expr)
-    (read: (Expr, Bool)):
+def itemsAfter (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (closer: Punctuation)
+    (found: List Expr) (read: (Expr, Bool)):
     {Parse (Parse.Located Token)} (List Expr, Bool) :=
   if read.snd then
     if closingNext closer then ([read.fst, ..found].reverse, True) else itemsFrom more self closer [read.fst, ..found]

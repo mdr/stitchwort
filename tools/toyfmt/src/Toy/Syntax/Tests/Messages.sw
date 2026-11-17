@@ -62,6 +62,7 @@ test "something after a complete declaration" :=
 test "a missing comma between arguments" :=
   failure "let x = f(a b)" == "line 1, column 13: expected '(', '.', an operator, ',' or ')', got 'b'"
 
-test "a comma alone is no item" := failure "let x = [,]" == "line 1, column 10: expected an expression or ']', got ','"
+test "a comma alone is no item" := failure "let x = [,]" == "line 1, column 10: expected ']' or an expression, got ','"
 
-test "no comma before the first parameter" := failure "fn f(,) = 1" == "line 1, column 6: expected a name or ')', got ','"
+test "no comma before the first parameter" :=
+  failure "fn f(,) = 1" == "line 1, column 6: expected a name or ')', got ','"

@@ -791,7 +791,14 @@ theorem afterEqualsPasses ∀ (body: Body) (equals: Comments)
                   Meets
                   passesSpace
                   whole)
-                (passesTwo (Doc.text " ") (ListLiteral open items trailingComma close).layout Meets Loose Meets passesSpace whole)
+                (passesTwo
+                  (Doc.text " ")
+                  (ListLiteral open items trailingComma close).layout
+                  Meets
+                  Loose
+                  Meets
+                  passesSpace
+                  whole)
             | _ =>
               passesChoiceThree _ _ _ Meets Meets
                 (passesTwo (Doc.text " ") (Flatten value.layout) Meets Loose Meets passesSpace whole)

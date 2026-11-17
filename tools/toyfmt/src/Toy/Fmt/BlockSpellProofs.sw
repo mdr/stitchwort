@@ -558,13 +558,40 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
     | Var name comments, shaped, lexical, headed, laid =>
       plainOut column head (Var name comments) events pending shaped lexical headed commaless byComputing laid
     | NumberLiteral digits comments, shaped, lexical, headed, laid =>
-      plainOut column head (NumberLiteral digits comments) events pending shaped lexical headed commaless byComputing laid
+      plainOut column head
+        (NumberLiteral digits comments)
+        events
+        pending
+        shaped
+        lexical
+        headed
+        commaless
+        byComputing
+        laid
     | StringLiteral written comments, shaped, lexical, headed, laid =>
-      plainOut column head (StringLiteral written comments) events pending shaped lexical headed commaless byComputing laid
+      plainOut column head
+        (StringLiteral written comments)
+        events
+        pending
+        shaped
+        lexical
+        headed
+        commaless
+        byComputing
+        laid
     | Bracketed open inner close, shaped, lexical, headed, laid =>
       plainOut column head (Bracketed open inner close) events pending shaped lexical headed commaless byComputing laid
     | ListLiteral open items trailingComma close, shaped, lexical, headed, laid =>
-      plainOut column head (ListLiteral open items trailingComma close) events pending shaped lexical headed commaless byComputing laid
+      plainOut column head
+        (ListLiteral open items trailingComma close)
+        events
+        pending
+        shaped
+        lexical
+        headed
+        commaless
+        byComputing
+        laid
     | Call callee open arguments trailingComma close, shaped, lexical, headed, laid =>
       plainOut column head
         (Call callee open arguments trailingComma close)
@@ -657,7 +684,8 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
         []
         fineThen
         (seen start => keywordEvent seen ThenKeyword start)
-        thenLaid, bodyOut column whenTrue trueEvents shapedTrue trueLexical headedTrue commaless.right.left trueLaid, tokenSeen
+        thenLaid, bodyOut column whenTrue trueEvents shapedTrue trueLexical headedTrue commaless.right.left
+          trueLaid, tokenSeen
         (Deeper column).reaches
         elseComments
         "else"
@@ -666,7 +694,8 @@ theorem exprOut ∀ (column: Nat) (head: Option Nat → Prop) (expr: Expr) (even
         []
         fineElse
         (seen start => keywordEvent seen ElseKeyword start)
-        elseLaid, bodyOut column whenFalse falseEvents shapedFalse falseLexical headedFalse commaless.right.right falseLaid with
+        elseLaid, bodyOut column whenFalse falseEvents shapedFalse falseLexical headedFalse commaless.right.right
+          falseLaid with
         | Witness ifStart (Both ifAllowed ifSeen), Witness conditionFirst
             (Witness conditionOthers (Both conditionSeen (Both conditionSpells _))), Witness thenStart
             (Both thenAllowed thenSeen), Witness trueFirst
@@ -1990,7 +2019,13 @@ theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: Lis
           viewsSplit
             (found =>
               AllApart layout found
-                → Parse.Runs (() => functionHeader layout) found rest { takes, open, parameters, trailingComma = False, close })
+                → Parse.Runs (() => functionHeader layout) found rest {
+                  takes,
+                  open,
+                  parameters,
+                  trailingComma = False,
+                  close
+                })
             tokens
             takesViews
             [openView, ..parameterViews ++ [closeView]]
@@ -2074,9 +2109,9 @@ theorem headerOut ∀ (takes: Option Comments) (open: Comments) (parameters: Lis
                                       closeKind
                                   let closed :=
                                     rewrite closingSame
-                                        (Layout.comments InBrackets closeToken)
-                                        (groupsEndWithComment (layout.comments openToken) (parametersOf listed).fst)
-                                        settled at ran then
+                                          (Layout.comments InBrackets closeToken)
+                                          (groupsEndWithComment (layout.comments openToken) (parametersOf listed).fst)
+                                          settled at ran then
                                       ran
                                   rewrite openNotes, closeNotes then (rewrite <- listedSame at closed then closed)))))
             apart)
@@ -2518,10 +2553,13 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
                                   (risingBack [firstToken, named, equalsToken, ..bodyTokens] laterTokens rising))
                               ))))))
         )
-    | [{ blankBefore, line = Function fnComments name nameComments takes open parameters trailingComma close equals body }, ..more], (
-        (bare, shapedBody),
-        shapedMore
-      ), (
+    | [
+        {
+          blankBefore,
+          line = Function fnComments name nameComments takes open parameters trailingComma close equals body
+        },
+        ..more
+      ], ((bare, shapedBody), shapedMore), (
         (fineFn, isName, fineName, fineTakes, fineOpen, parametersLexical, fineClose, fineEquals, bodyLexical),
         lexicalMore
       ), ((fnAbove, headedBody), headedMore), unspaced, (
@@ -2572,11 +2610,11 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
           []
           fineEquals
           (seen start => signEvent seen Defines start)
-          equalsAt, bodyOut 0 body bodyEvents shapedBody bodyLexical headedBody commaless.left.right bodyLaid,
-            declarationsOut False [] more back [] shapedMore lexicalMore headedMore commaless.right
-            (never => falseFirst (Unspaced ([] ++ more)) never)
-            byComputing
-            moreLaid with
+          equalsAt, bodyOut 0 body bodyEvents shapedBody bodyLexical headedBody commaless.left.right
+            bodyLaid, declarationsOut False [] more back [] shapedMore lexicalMore headedMore commaless.right
+          (never => falseFirst (Unspaced ([] ++ more)) never)
+          byComputing
+          moreLaid with
           | (fnStart, fnAllowed, fnSeen), (nameStart, nameAllowed, nameSeen), (headerViews, headerSeen,
               headerSpells), (equalsStart, equalsAllowed, equalsSeen), (bodyFirst, bodyOthers, bodySeen,
               bodySpells), (moreViews, left, moreSeen, moreStarts, moreSpells) =>
@@ -2674,7 +2712,8 @@ theorem declarationsOut ∀ (isFirst: Bool) (noted lines: List (Spaced Declarati
                                     let statement := [named, ..headerTokens ++ [equalsToken, ..bodyTokens]]
                                     let risingStatement := risingFront [firstToken, ..statement] laterTokens rising
                                     let apart := laterApart 0 firstToken statement risingStatement
-                                    let apartTail := apartBack layout headerTokens [equalsToken, ..bodyTokens] apart.right
+                                    let apartTail :=
+                                      apartBack layout headerTokens [equalsToken, ..bodyTokens] apart.right
                                     let after :=
                                       lastAfter 0 firstToken statement laterTokens
                                         (rewrite laterSame then moreStarts)

@@ -71,7 +71,8 @@ def sample (index: Nat): List (Spaced Declaration) :=
                   (var "discount")
                   none
                   [name "order", Var "rates" { above = [], after = Some { text = "-- loyal" } }]
-                  False none)))
+                  False
+                  none)))
             none
             (bare (binary Plus (var "base") (var "tax"))))
       }

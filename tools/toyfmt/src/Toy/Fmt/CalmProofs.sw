@@ -676,8 +676,8 @@ theorem exprCalms ∀ (zone: Zone) (head: Option Nat → Prop) (expr: Expr)
             byComputing
             byComputing
             settled))
-    | Call callee open arguments trailingComma close, (postfix, shapedCallee, shapedArguments, settled), (lexCallee, fineOpen,
-        lexArguments, fineClose) =>
+    | Call callee open arguments trailingComma close, (postfix, shapedCallee, shapedArguments, settled), (lexCallee,
+        fineOpen, lexArguments, fineClose) =>
       calmsThen
         (calmsLoose (exprCalms zone head callee shapedCallee lexCallee))
         (calmsThen

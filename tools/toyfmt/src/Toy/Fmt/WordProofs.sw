@@ -521,7 +521,8 @@ theorem exprWrites ∀ (expr: Expr): Writes expr.layout expr.pieces := match exp
   | Bracketed open inner close =>
     writesThree _ _ _ _ _ _ (writesToken open "(") (exprWrites inner) (writesCloseAfter inner close ")")
   | ListLiteral open items trailingComma close => listWrites open items trailingComma close
-  | Call callee open arguments trailingComma close => writesTwo _ _ _ _ (exprWrites callee) (argumentsWrite open arguments close)
+  | Call callee open arguments trailingComma close =>
+    writesTwo _ _ _ _ (exprWrites callee) (argumentsWrite open arguments close)
   | Field target dot name nameComments =>
     writesThree _ _ _ _ _ _ (exprWrites target) (writesToken dot ".") (writesToken nameComments name)
   | Negate minus operand =>
@@ -701,7 +702,8 @@ theorem afterEqualsWrites ∀ (body: Body) (equals: Comments): Writes (body.afte
           match value with
             | ListLiteral open items trailingComma close =>
               writesChoiceTwo _ _ _
-                (writesTwo _ _ [] _ writesSpace (writesFlatten _ _ (exprWrites (ListLiteral open items trailingComma close))))
+                (writesTwo _ _ [] _ writesSpace
+                  (writesFlatten _ _ (exprWrites (ListLiteral open items trailingComma close))))
                 (writesTwo _ _ [] _ writesSpace (exprWrites (ListLiteral open items trailingComma close)))
             | _ =>
               writesChoiceThree _ _ _ _

@@ -41,7 +41,7 @@ def Expr.withoutTrailingCommas: Expr → Expr
   | Binary operator sign left right => Binary operator sign left.withoutTrailingCommas right.withoutTrailingCommas
   | If ifComments condition thenComments whenTrue elseComments whenFalse =>
     If ifComments condition.withoutTrailingCommas thenComments whenTrue.withoutTrailingCommas elseComments
-      whenFalse.withoutTrailingCommas
+        whenFalse.withoutTrailingCommas
   | leaf => leaf
 
 def itemsWithoutTrailingCommas: List Expr → List Expr
@@ -57,8 +57,7 @@ def linesWithoutTrailingCommas: List (Spaced Statement) → List (Spaced Stateme
     [{ blankBefore, line = line.withoutTrailingCommas }, ..linesWithoutTrailingCommas rest]
 
 def Statement.withoutTrailingCommas: Statement → Statement
-  | Let letComments name nameComments equals body =>
-    Let letComments name nameComments equals body.withoutTrailingCommas
+  | Let letComments name nameComments equals body => Let letComments name nameComments equals body.withoutTrailingCommas
   | Bare value => Bare value.withoutTrailingCommas
   | StatementNote comment => StatementNote comment
 

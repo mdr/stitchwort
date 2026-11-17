@@ -59,8 +59,10 @@ def Expr.dump: Expr → Text
   | NumberLiteral digits comments => "(number ${digits}${comments.dump})"
   | StringLiteral written comments => "(string ${written}${comments.dump})"
   | Bracketed open inner close => "(bracketed${open.dump} ${inner.dump}${close.dump})"
-  | ListLiteral open items trailingComma close => "(list${open.dump}${dumpItems items}${commaMark trailingComma}${close.dump})"
-  | Call callee open arguments trailingComma close => "(call ${callee.dump}${open.dump}${dumpItems arguments}${commaMark trailingComma}${close.dump})"
+  | ListLiteral open items trailingComma close =>
+    "(list${open.dump}${dumpItems items}${commaMark trailingComma}${close.dump})"
+  | Call callee open arguments trailingComma close =>
+    "(call ${callee.dump}${open.dump}${dumpItems arguments}${commaMark trailingComma}${close.dump})"
   | Field target dot name nameComments => "(field ${target.dump}${dot.dump} ${name}${nameComments.dump})"
   | Negate minus operand => "(negate${minus.dump} ${operand.dump})"
   | Binary operator sign left right => "(${operator.spelling}${sign.dump} ${left.dump} ${right.dump})"

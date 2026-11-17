@@ -252,7 +252,8 @@ def ShapedParameters (open: Comments) (parameters: List ParameterGroup) (close: 
 --| Each expression in the declaration is of the parser's shape, and a
 --| function's parameters are (`ShapedParameters`).
 def ShapedDeclaration: Declaration → Prop
-  | Function _ _ _ _ open parameters trailingComma close _ found => ShapedParameters open parameters close ∧ ShapedBody found
+  | Function _ _ _ _ open parameters trailingComma close _ found =>
+    ShapedParameters open parameters close ∧ ShapedBody found
   | Value _ _ _ _ found => ShapedBody found
   | DeclarationNote _ => True
 

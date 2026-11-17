@@ -37,8 +37,10 @@ def KeepsComments (formatter: Formatter): Prop :=
 --| `formatKeepsMeaning`'s statement: the output parses, to a tree that
 --| means what the source's does.
 def RoundTrips (formatter: Formatter): Prop :=
-  ∀ (source: Text) (width: Nat) (output: Text) (formats: formatter source width = Formatted output) =>
-    ∃ (before after: SourceFile) => parse source = Ok before ∧ parse output = Ok after ∧ after.meaning = before.meaning
+  ∀ (source: Text) (width: Nat) (output: Text) (formats: formatter source width
+    = Formatted output) => ∃ (before after: SourceFile) => parse source = Ok before
+    ∧ parse output = Ok after
+    ∧ after.meaning = before.meaning
 
 theorem formatHasSameTree: SameTree format := formatSameTree
 

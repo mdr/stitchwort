@@ -43,7 +43,8 @@ def SpelledDeclarations (isFirst: Bool) (pending lines: List (Spaced Declaration
     | [
         {
           blankBefore,
-          line = Function fnComments name nameComments takes openComments parameters trailingComma closeComments equalsComments inner
+          line = Function fnComments name nameComments takes openComments parameters trailingComma closeComments
+              equalsComments inner
         },
         ..more
       ] =>
@@ -67,14 +68,14 @@ def SpelledDeclarations (isFirst: Bool) (pending lines: List (Spaced Declaration
             ∧ equalsComments = (InStatement 0 first.offset).comments equals
             ∧ firstBlankOf isFirst
               (notedDeclaration first.value.above
-                (Function fnComments name nameComments takes openComments parameters trailingComma closeComments equalsComments
-                    inner))
+                (Function fnComments name nameComments takes openComments parameters trailingComma closeComments
+                    equalsComments inner))
               = pending
                 ++ [
                   {
                     blankBefore,
-                    line = Function fnComments name nameComments takes openComments parameters trailingComma closeComments
-                        equalsComments inner
+                    line = Function fnComments name nameComments takes openComments parameters trailingComma
+                        closeComments equalsComments inner
                   }
                 ]
             ∧ SpelledBody (InStatement 0 first.offset) inner bodyTokens later
@@ -195,7 +196,8 @@ theorem declarationsRun ∀ (isFirst: Bool) (pending lines: List (Spaced Declara
     | [
         {
           blankBefore,
-          line = Function fnComments name nameComments takes openComments parameters trailingComma closeComments equalsComments inner
+          line = Function fnComments name nameComments takes openComments parameters trailingComma closeComments
+              equalsComments inner
         },
         ..more
       ], Both (Both bare innerShaped) moreShaped, Witness first
@@ -216,7 +218,9 @@ theorem declarationsRun ∀ (isFirst: Bool) (pending lines: List (Spaced Declara
                                     (Both nameCommented
                                       (Both equalsCommented
                                         (Both noted (Both innerSpelled laterSpelled)))))))))))))))))) =>
-      let line := Function fnComments name nameComments takes openComments parameters trailingComma closeComments equalsComments inner
+      let line :=
+        Function fnComments name nameComments takes openComments parameters trailingComma closeComments equalsComments
+            inner
       match declarationsRun False [] more later endTrivia moreShaped laterSpelled with
         | Witness steps (Both joined (Both runs values)) =>
           let values2: (Parse.stepValues steps).concat ++ (spacedNotes DeclarationNote endTrivia).fst = more := values

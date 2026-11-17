@@ -842,14 +842,14 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         pending
         fineOpen
         (seen start => signEvent seen OpenSquare start)
-        openLaid, itemsSpell zone.inside items mid shapedItems itemsLexical headedItems commaless.right itemsLaid, tokenSeen anyStart
-          close "]"
-          (Sign CloseSquare)
-          tail
-          []
-          fineClose
-          (seen start => signEvent seen CloseSquare start)
-          closeLaid with
+        openLaid, itemsSpell zone.inside items mid shapedItems itemsLexical headedItems commaless.right
+          itemsLaid, tokenSeen anyStart close "]"
+        (Sign CloseSquare)
+        tail
+        []
+        fineClose
+        (seen start => signEvent seen CloseSquare start)
+        closeLaid with
         | Witness openStart (Both openAllowed openSeen), Witness found (Both itemsSeen itemsSpelled), Witness closeStart
             (Both _ closeSeen) => (
           (tokenView pending (Sign OpenSquare) openStart { above, after }),
@@ -874,7 +874,10 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                 viewsSplit
                   (later =>
                     Leads (restart layout from) pending head above [opener, ..later]
-                      → Spelled (restart layout from) (ListLiteral ({ above, after }) items trailingComma close) [opener, ..later])
+                      → Spelled (restart layout from) (ListLiteral ({ above, after }) items trailingComma close) [
+                        opener,
+                        ..later
+                      ])
                   rest
                   found
                   [(tokenView [] (Sign CloseSquare) closeStart close)]
@@ -920,7 +923,8 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
           openAllowed,
           byComputing
         )
-    | Call callee open arguments trailingComma close, Both _ (Both shapedCallee (Both shapedArguments bare)), Both calleeLexical
+    | Call callee open arguments trailingComma close, Both _
+        (Both shapedCallee (Both shapedArguments bare)), Both calleeLexical
         (Both fineOpen (Both argumentsLexical fineClose)), Both headedCallee headedArguments, plain, Witness front
         (Witness back
           (Both split
@@ -931,9 +935,9 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                     (Both openLaid
                       (Witness inner (Witness tail (Both innerSplit (Both argumentsLaid closeLaid))))))))))) =>
       match exprSpells zone layout head callee front pending suits shapedCallee calleeLexical headedCallee
-        commaless.right.left
-        (coveredPart layout (Call callee open arguments trailingComma close) callee (noIf => noIf) plain)
-        calleeLaid, tokenSeen zone.allows open "("
+          commaless.right.left
+          (coveredPart layout (Call callee open arguments trailingComma close) callee (noIf => noIf) plain)
+          calleeLaid, tokenSeen zone.allows open "("
         (Sign OpenParen)
         mid
         []
@@ -1084,8 +1088,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         (Both fineDot (Both isName fineName)), headedTarget, plain, Witness front
         (Witness back
           (Both split (Both targetLaid (Witness mid (Witness tail (Both backSplit (Both dotLaid nameLaid))))))) =>
-      match exprSpells zone layout head target front pending suits shapedTarget targetLexical headedTarget
-        commaless
+      match exprSpells zone layout head target front pending suits shapedTarget targetLexical headedTarget commaless
         (coveredPart layout (Field target dot name nameComments) target (noIf => noIf) plain)
         targetLaid, tokenSeen zone.allows dot "."
         (Sign Dot)
@@ -1219,9 +1222,9 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         fineMinus
         (seen start => operatorEvent seen Minus start)
         minusLaid, exprSpells zone layout zone.allows operand back [] suits shapedOperand operandLexical headedOperand
-        commaless
-        (coveredPart layout (Negate ({ above, after }) operand) operand (noIf => noIf) plain)
-        operandLaid with
+          commaless
+          (coveredPart layout (Negate ({ above, after }) operand) operand (noIf => noIf) plain)
+          operandLaid with
         | Witness minusStart (Both minusAllowed minusSeen), Witness first
             (Witness others (Both operandSeen (Both operandSpells _))) => (
           (tokenView pending (Op Minus) minusStart { above, after }),
@@ -1277,8 +1280,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         (Both leftLexical rightLexical), Both headedLeft headedRight, plain, Witness front
         (Witness back
           (Both split (Both leftLaid (Witness mid (Witness tail (Both backSplit (Both signLaid rightLaid))))))) =>
-      match exprSpells zone layout head left front pending suits shapedLeft leftLexical headedLeft
-        commaless.left
+      match exprSpells zone layout head left front pending suits shapedLeft leftLexical headedLeft commaless.left
         (coveredPart layout (Binary operator sign left right) left (noIf => noIf.left) plain)
         leftLaid, tokenSeen zone.allows sign operator.spelling
         (Op operator)
@@ -1287,9 +1289,9 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         fineSign
         (seen start => operatorEvent seen operator start)
         signLaid, exprSpells zone layout zone.allows right tail [] suits shapedRight rightLexical headedRight
-        commaless.right
-        (coveredPart layout (Binary operator sign left right) right (noIf => noIf.right) plain)
-        rightLaid with
+          commaless.right
+          (coveredPart layout (Binary operator sign left right) right (noIf => noIf.right) plain)
+          rightLaid with
         | Witness leftFirst (Witness leftOthers (Both leftSeen (Both leftSpells leftStarts))), Witness signStart
             (Both signAllowed signSeen), Witness rightFirst
             (Witness rightOthers (Both rightSeen (Both rightSpells _))) => (
@@ -1407,20 +1409,22 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
             fineIf
             (seen start => keywordEvent seen IfKeyword start)
             ifLaid, exprSpells zone InBrackets zone.allows condition conditionEvents [] byComputing shapedCondition
-              conditionLexical headedCondition commaless.left byComputing conditionLaid, tokenSeen zone.allows thenComments "then"
-            (Reserved ThenKeyword)
-            thenEvents
-            []
-            fineThen
-            (seen start => keywordEvent seen ThenKeyword start)
-            thenLaid, bodySpells zone whenTrue trueEvents shapedTrue trueLexical headedTrue commaless.right.left trueLaid, tokenSeen
-              zone.reaches elseComments "else"
-              (Reserved ElseKeyword)
-              elseEvents
+              conditionLexical headedCondition commaless.left byComputing conditionLaid, tokenSeen zone.allows
+              thenComments "then"
+              (Reserved ThenKeyword)
+              thenEvents
               []
-              fineElse
-              (seen start => keywordEvent seen ElseKeyword start)
-              elseLaid, bodySpells zone whenFalse falseEvents shapedFalse falseLexical headedFalse commaless.right.right falseLaid with
+              fineThen
+              (seen start => keywordEvent seen ThenKeyword start)
+              thenLaid, bodySpells zone whenTrue trueEvents shapedTrue trueLexical headedTrue commaless.right.left
+              trueLaid, tokenSeen zone.reaches elseComments "else"
+            (Reserved ElseKeyword)
+            elseEvents
+            []
+            fineElse
+            (seen start => keywordEvent seen ElseKeyword start)
+            elseLaid, bodySpells zone whenFalse falseEvents shapedFalse falseLexical headedFalse commaless.right.right
+              falseLaid with
             | Witness ifStart (Both ifAllowed ifSeen), Witness conditionFirst
                 (Witness conditionOthers (Both conditionSeen (Both conditionSpells _))), Witness thenStart
                 (Both _ thenSeen), Witness trueFirst (Witness trueOthers (Both trueSeen trueSpells)), Witness elseStart

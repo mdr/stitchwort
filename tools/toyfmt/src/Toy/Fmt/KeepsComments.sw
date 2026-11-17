@@ -75,8 +75,7 @@ theorem statementCommasComments ∀ (line: Statement): line.withoutTrailingComma
     | Bare value => rewrite exprCommasComments value
     | StatementNote _ => byComputing
 
-theorem declarationTidyComments ∀ (line: Declaration):
-    line.withTakes.withoutTrailingCommas.comments = line.comments :=
+theorem declarationTidyComments ∀ (line: Declaration): line.withTakes.withoutTrailingCommas.comments = line.comments :=
   match line with
     | Function _ _ _ None _ [] _ _ _ body => rewrite bodyCommasComments body
     | Function _ _ _ None _ [_, .._] _ _ _ body => rewrite bodyCommasComments body

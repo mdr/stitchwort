@@ -138,7 +138,8 @@ theorem lexicalCleared ∀ (expr: Expr) (lexical: Lexical expr): Lexical expr.wi
     | StringLiteral written comments, Both isString fine => (isString, (fineCleared comments fine))
     | Bracketed open inner close, Both fine others => ((fineCleared open fine), others)
     | ListLiteral open items trailingComma close, Both fine others => ((fineCleared open fine), others)
-    | Call callee open arguments trailingComma close, Both lexicalCallee others => ((lexicalCleared callee lexicalCallee), others)
+    | Call callee open arguments trailingComma close, Both lexicalCallee others =>
+      ((lexicalCleared callee lexicalCallee), others)
     | Field target dot name nameComments, Both lexicalTarget others => ((lexicalCleared target lexicalTarget), others)
     | Negate minus operand, Both fine others => ((fineCleared minus fine), others)
     | Binary operator sign left right, Both fine (Both lexicalLeft lexicalRight) =>

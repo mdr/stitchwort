@@ -415,17 +415,15 @@ theorem ontoItemsFrom ∀ (self: Layout → {Parse Tok} Expr)
     | Zero => Parse.readsFatal _ _
     | Succ more => andThen (innerItem self nested) (read =>
       match read with
-        | (item, True) =>
-          andThen (innerClosingNext closer) (ahead =>
-            match ahead with
-              | True =>
-                ontoDone byComputing
-                  (Eq.trans
-                    (List.appendNil (itemsComments [item, ..found].reverse)).flipped
-                    (itemsReverseCons found item []))
-              | False =>
-                ontoBefore (ontoItemsFrom self nested closer more [item, ..found]) (later =>
-                  itemsReverseCons found item later))
+        | (item, True) => andThen (innerClosingNext closer) (ahead =>
+          match ahead with
+            | True =>
+              ontoDone byComputing
+                (Eq.trans
+                  (List.appendNil (itemsComments [item, ..found].reverse)).flipped
+                  (itemsReverseCons found item []))
+            | False => ontoBefore (ontoItemsFrom self nested closer more [item, ..found]) (later =>
+              itemsReverseCons found item later))
         | (item, False) =>
           ontoDone byComputing
             (Eq.trans

@@ -188,9 +188,11 @@ theorem givesItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (cl
     match closed, found with
       | Some close, fine => Parse.givesDone ((((byComputing, byComputing, byComputing)), fine))
       | None, none => Parse.readsWithMark _ _ (at marked =>
-        Parse.givesThen (givesItemsFrom self closer nested at.left [] byComputing byComputing byComputing) (found parsed =>
-          Parse.givesThen (givesSign InBrackets "'${closer.spelling}'" closer) (close fine =>
-            Parse.givesDone ((parsed, fine))))))
+        Parse.givesThen
+          (givesItemsFrom self closer nested at.left [] byComputing byComputing byComputing)
+          (found parsed =>
+            Parse.givesThen (givesSign InBrackets "'${closer.spelling}'" closer) (close fine =>
+              Parse.givesDone ((parsed, fine))))))
 
 -- Atoms and their calls and fields.
 

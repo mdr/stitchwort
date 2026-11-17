@@ -2663,7 +2663,8 @@ theorem closingLays ∀ (zone: Zone) (close equals: Comments) (bodyDoc: Doc) (bo
 --| `DeclarationEvents`' parts in that order.
 theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: Option Comments)
     (open: Comments) (parameters: List ParameterGroup) (trailingComma: Bool) (close equals: Comments) (body: Body)
-    (lexical: LexicalDeclaration (Function fnComments name nameComments takes open parameters trailingComma close equals body))
+    (lexical: LexicalDeclaration
+      (Function fnComments name nameComments takes open parameters trailingComma close equals body))
     (trace: List Event) (next: Place → List Event → Prop)
     (onward: ∀ (reached: Place) (events: List Event) => DeclarationEvents
       (Function fnComments name nameComments takes open parameters trailingComma close equals body)
@@ -2857,7 +2858,8 @@ theorem declarationLays ∀ (declaration: Declaration)
     Lays declaration.layout 0 (AtStart 0) trace next :=
   match declaration, lexical, onward with
     | Function fnComments name nameComments takes open parameters trailingComma close equals body, lexical, onward =>
-      functionLays fnComments name nameComments takes open parameters trailingComma close equals body lexical trace next onward
+      functionLays fnComments name nameComments takes open parameters trailingComma close equals body lexical trace next
+          onward
     | Value letComments name nameComments equals body, Both fineLet
         (Both isName (Both fineName (Both fineEquals lexBody))), onward =>
       bindingRule

@@ -123,11 +123,11 @@ theorem printParses ∀ (file: SourceFile) (width: Nat)
         (rewrite sameTokens, sameTrivia then
           runsFileSpelled file tokens.reverse endTrivia.reverse parsed.left
             (spellsFile file events tokens endTrivia parsed.left parsed.right.left parsed.right.right
-                (commasTidyNone file bare)
-                laid
-                views
-                pending
-                offsets))
+              (commasTidyNone file bare)
+              laid
+              views
+              pending
+              offsets))
 
 --| `format` answers every source that parses, with its tree tidied and
 --| printed; it refuses only what the parser refuses.
@@ -155,7 +155,9 @@ theorem formatRoundTrip ∀ (source: Text) (width: Nat) (output: Text)
 --| as the source's.
 theorem formatKeepsMeaning ∀ (source: Text) (width: Nat) (output: Text)
     (h: format source width = Formatted output):
-    ∃ (before after: SourceFile) => parse source = Ok before ∧ parse output = Ok after ∧ after.meaning = before.meaning :=
+    ∃ (before after: SourceFile) => parse source = Ok before
+      ∧ parse output = Ok after
+      ∧ after.meaning = before.meaning :=
   match formatRoundTrip source width output h with
     | (tree, parsed, _, reparsed) => (tree, tree.tidy, parsed, reparsed, tidyKeepsMeaning tree)
 

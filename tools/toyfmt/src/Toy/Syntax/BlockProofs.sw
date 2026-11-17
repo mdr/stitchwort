@@ -585,8 +585,8 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
   let nameComments := layout.comments named
   let equalsComments := layout.comments equals
   let read :=
-    Function fnComments declared nameComments header.takes header.open header.parameters header.trailingComma header.close equalsComments
-        found
+    Function fnComments declared nameComments header.takes header.open header.parameters header.trailingComma
+        header.close equalsComments found
   rewrite isFn then
     Parse.runsBind
       (() => skip())
@@ -594,8 +594,9 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
         let (declared1, nameComments1) := name layout
         let header1 := functionHeader layout
         let equals1 := sign layout "'='" Defines
-        Function fnComments declared1 nameComments1 header1.takes header1.open header1.parameters header1.trailingComma header1.close equals1
-          (body expression layout))
+        Function fnComments declared1 nameComments1 header1.takes header1.open header1.parameters header1.trailingComma
+            header1.close equals1
+            (body expression layout))
       [first]
       [named, ..headerTokens ++ [equals, ..bodyTokens]]
       [first, named, ..headerTokens ++ [equals, ..bodyTokens]]
@@ -610,8 +611,8 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
           let (declared1, nameComments1) := named1
           let header1 := functionHeader layout
           let equals1 := sign layout "'='" Defines
-          Function fnComments declared1 nameComments1 header1.takes header1.open header1.parameters header1.trailingComma header1.close
-              equals1
+          Function fnComments declared1 nameComments1 header1.takes header1.open header1.parameters
+              header1.trailingComma header1.close equals1
               (body expression layout))
         [named]
         (headerTokens ++ [equals, ..bodyTokens])
@@ -625,8 +626,8 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
           (() => functionHeader layout)
           (header1 =>
             let equals1 := sign layout "'='" Defines
-            Function fnComments declared nameComments header1.takes header1.open header1.parameters header1.trailingComma header1.close
-                equals1
+            Function fnComments declared nameComments header1.takes header1.open header1.parameters
+                header1.trailingComma header1.close equals1
                 (body expression layout))
           headerTokens
           [equals, ..bodyTokens]
@@ -639,8 +640,9 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
           (Parse.runsBind
             (() => sign layout "'='" Defines)
             (equals1 =>
-              Function fnComments declared nameComments header.takes header.open header.parameters header.trailingComma header.close equals1
-                (body expression layout))
+              Function fnComments declared nameComments header.takes header.open header.parameters header.trailingComma
+                  header.close equals1
+                  (body expression layout))
             [equals]
             bodyTokens
             [equals, ..bodyTokens]
@@ -652,8 +654,8 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
             (Parse.runsMap
               (() => body expression layout)
               (inner =>
-                Function fnComments declared nameComments header.takes header.open header.parameters header.trailingComma header.close
-                    equalsComments inner)
+                Function fnComments declared nameComments header.takes header.open header.parameters
+                    header.trailingComma header.close equalsComments inner)
               bodyTokens
               rest
               found

@@ -23,8 +23,7 @@ def Comments.isNone (comments: Comments): Bool := comments.above.isEmpty && comm
 def Expr.plain: Expr → Expr
   -- A pair that holds no comment is forgotten: the tree's shape says how
   -- the expression groups. A pair that holds one is kept, with it.
-  | Bracketed open inner close =>
-    if open.isNone && close.isNone then inner.plain else Bracketed open inner.plain close
+  | Bracketed open inner close => if open.isNone && close.isNone then inner.plain else Bracketed open inner.plain close
   | ListLiteral open items _ close => ListLiteral open (plainItems items) False close
   | Call callee open arguments _ close => Call callee.plain open (plainItems arguments) False close
   | Field target dot name nameComments => Field target.plain dot name nameComments
