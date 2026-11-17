@@ -544,3 +544,200 @@ theorem commasKeepParsed ∀ (file: SourceFile) (parsed: Parsed file): Parsed fi
         declarationsCommasLexical declarations lexical,
         (declarationsCommasHeaded declarations headed, declarationsCommasUnspaced declarations unspaced)
       )
+
+-- P2 keeps the meaning: `plain` sets every trailing comma's flag to
+-- `False` already.
+
+theorem exprCommasPlain ∀ (expr: Expr): expr.withoutTrailingCommas.plain = expr.plain := match expr with
+  | Var _ _ => byComputing
+  | NumberLiteral _ _ => byComputing
+  | StringLiteral _ _ => byComputing
+  | Bracketed _ inner _ => rewrite exprCommasPlain inner
+  | ListLiteral _ items _ _ => rewrite itemsCommasPlain items
+  | Call callee _ arguments _ _ => rewrite exprCommasPlain callee, itemsCommasPlain arguments
+  | Field target _ _ _ => rewrite exprCommasPlain target
+  | Negate _ operand => rewrite exprCommasPlain operand
+  | Binary _ _ left right => rewrite exprCommasPlain left, exprCommasPlain right
+  | If _ condition _ whenTrue _ whenFalse =>
+    rewrite exprCommasPlain condition, bodyCommasPlain whenTrue, bodyCommasPlain whenFalse
+
+theorem itemsCommasPlain ∀ (items: List Expr): plainItems (itemsWithoutTrailingCommas items) = plainItems items :=
+  match items with
+    | [] => byComputing
+    | [value, ..rest] => rewrite exprCommasPlain value, itemsCommasPlain rest
+
+theorem bodyCommasPlain ∀ (body: Body): body.withoutTrailingCommas.plain = body.plain := match body with
+  | { statements } => rewrite linesCommasPlain statements
+
+theorem linesCommasPlain ∀ (lines: List (Spaced Statement)):
+    plainLines (linesWithoutTrailingCommas lines) = plainLines lines :=
+  match lines with
+    | [] => byComputing
+    | [{ blankBefore, line }, ..rest] => rewrite statementCommasPlain line, linesCommasPlain rest
+
+theorem statementCommasPlain ∀ (line: Statement): line.withoutTrailingCommas.plain = line.plain := match line with
+  | Let _ _ _ _ body => rewrite bodyCommasPlain body
+  | Bare value => rewrite exprCommasPlain value
+  | StatementNote _ => byComputing
+
+theorem declarationCommasPlain ∀ (line: Declaration): line.withoutTrailingCommas.plain = line.plain :=
+  match line with
+    | Function _ _ _ _ _ _ _ _ _ body => rewrite bodyCommasPlain body
+    | Value _ _ _ _ body => rewrite bodyCommasPlain body
+    | DeclarationNote _ => byComputing
+
+theorem declarationsCommasPlain ∀ (lines: List (Spaced Declaration)):
+    plainDeclarations (declarationsWithoutTrailingCommas lines) = plainDeclarations lines :=
+  match lines with
+    | [] => byComputing
+    | [{ blankBefore, line }, ..rest] => rewrite declarationCommasPlain line, declarationsCommasPlain rest
+
+--| P2 keeps the meaning, on every tree.
+theorem commasKeepMeaning ∀ (file: SourceFile): file.withoutTrailingCommas.meaning = file.meaning :=
+  rewrite declarationsCommasPlain file.declarations
+
+-- P1: `takes` on every function with parameters.
+
+theorem takesForPlain ∀ (takes: Option Comments) (parameters: List ParameterGroup):
+    (takesFor takes parameters).getOrElse Comments.none = takes.getOrElse Comments.none :=
+  match parameters with
+    | [] => byComputing
+    | [_, .._] => byComputing
+
+theorem takesForTwice ∀ (takes: Option Comments) (parameters: List ParameterGroup):
+    takesFor (takesFor takes parameters) parameters = takesFor takes parameters :=
+  match parameters with
+    | [] => byComputing
+    | [_, .._] => byComputing
+
+theorem takesForFine ∀ (takes: Option Comments) (parameters: List ParameterGroup) (fine: FineTakes takes):
+    FineTakes (takesFor takes parameters) :=
+  match parameters, takes, fine with
+    | [], _, fine => fine
+    | [_, .._], None, _ => fineNone
+    | [_, .._], Some comments, fine => fine
+
+theorem declarationTakesPlain ∀ (line: Declaration): line.withTakes.plain = line.plain := match line with
+  | Function _ _ _ takes _ parameters _ _ _ _ => rewrite takesForPlain takes parameters
+  | Value _ _ _ _ _ => byComputing
+  | DeclarationNote _ => byComputing
+
+theorem declarationsTakesPlain ∀ (lines: List (Spaced Declaration)):
+    plainDeclarations (declarationsWithTakes lines) = plainDeclarations lines :=
+  match lines with
+    | [] => byComputing
+    | [{ blankBefore, line }, ..rest] => rewrite declarationTakesPlain line, declarationsTakesPlain rest
+
+--| P1 keeps the meaning, on every tree: `plain` writes `takes` on every
+--| function already.
+theorem takesKeepMeaning ∀ (file: SourceFile): file.withTakes.meaning = file.meaning :=
+  rewrite declarationsTakesPlain file.declarations
+
+theorem declarationTakesTwice ∀ (line: Declaration): line.withTakes.withTakes = line.withTakes := match line with
+  | Function _ _ _ takes _ parameters _ _ _ _ => rewrite takesForTwice takes parameters
+  | Value _ _ _ _ _ => byComputing
+  | DeclarationNote _ => byComputing
+
+theorem declarationsTakesTwice ∀ (lines: List (Spaced Declaration)):
+    declarationsWithTakes (declarationsWithTakes lines) = declarationsWithTakes lines :=
+  match lines with
+    | [] => byComputing
+    | [{ blankBefore, line }, ..rest] => rewrite declarationTakesTwice line, declarationsTakesTwice rest
+
+--| P1 finishes in one run.
+theorem takesIdempotent ∀ (file: SourceFile): file.withTakes.withTakes = file.withTakes :=
+  rewrite declarationsTakesTwice file.declarations
+
+theorem declarationTakesParsed ∀ (line: Declaration)
+    (shaped: ShapedDeclaration line)
+    (lexical: LexicalDeclaration line)
+    (headed: HeadedDeclaration line):
+    ShapedDeclaration line.withTakes ∧ LexicalDeclaration line.withTakes ∧ HeadedDeclaration line.withTakes :=
+  match line, lexical with
+    | Function _ _ _ takes _ parameters _ _ _ _, (fnFine, isName, nameFine, takesFine, others) =>
+      (shaped, (fnFine, isName, nameFine, takesForFine takes parameters takesFine, others), headed)
+    | Value _ _ _ _ _, lexical => (shaped, lexical, headed)
+    | DeclarationNote _, lexical => (shaped, lexical, headed)
+
+theorem declarationsTakesParsed ∀ (lines: List (Spaced Declaration))
+    (shaped: ShapedDeclarations lines)
+    (lexical: LexicalDeclarations lines)
+    (headed: HeadedDeclarations lines):
+    ShapedDeclarations (declarationsWithTakes lines)
+      ∧ LexicalDeclarations (declarationsWithTakes lines)
+      ∧ HeadedDeclarations (declarationsWithTakes lines) :=
+  match lines, shaped, lexical, headed with
+    | [], _, _, _ => (byComputing, byComputing, byComputing)
+    | [{ blankBefore, line }, ..rest], (lineShaped, restShaped), (lineLexical, restLexical), (lineHeaded,
+        restHeaded) =>
+      let (lineShaped1, lineLexical1, lineHeaded1) := declarationTakesParsed line lineShaped lineLexical lineHeaded
+      let (restShaped1, restLexical1, restHeaded1) := declarationsTakesParsed rest restShaped restLexical restHeaded
+      ((lineShaped1, restShaped1), (lineLexical1, restLexical1), (lineHeaded1, restHeaded1))
+
+theorem declarationsTakesUnspaced ∀ (lines: List (Spaced Declaration)) (unspaced: Unspaced lines):
+    Unspaced (declarationsWithTakes lines) :=
+  match lines, unspaced with
+    | [], _ => byComputing
+    | [{ blankBefore = False, line }, ..rest], _ => byComputing
+    | [{ blankBefore = True, line }, ..rest], unspaced => cases
+
+--| P1 keeps the parser's guarantees: none of them reads `takes` but for
+--| its comments, and the `takes` it adds holds none.
+theorem takesKeepParsed ∀ (file: SourceFile) (parsed: Parsed file): Parsed file.withTakes :=
+  match file, parsed with
+    | { declarations }, (shaped, lexical, (headed, unspaced)) =>
+      let (shaped1, lexical1, headed1) := declarationsTakesParsed declarations shaped lexical headed
+      (shaped1, lexical1, (headed1, declarationsTakesUnspaced declarations unspaced))
+
+-- P2 keeps P1's work: the two passes change different fields.
+
+theorem declarationTakesCommas ∀ (line: Declaration):
+    line.withoutTrailingCommas.withTakes = line.withTakes.withoutTrailingCommas :=
+  match line with
+    | Function _ _ _ _ _ _ _ _ _ _ => byComputing
+    | Value _ _ _ _ _ => byComputing
+    | DeclarationNote _ => byComputing
+
+theorem declarationsTakesCommas ∀ (lines: List (Spaced Declaration)):
+    declarationsWithTakes (declarationsWithoutTrailingCommas lines)
+      = declarationsWithoutTrailingCommas (declarationsWithTakes lines) :=
+  match lines with
+    | [] => byComputing
+    | [{ blankBefore, line }, ..rest] => rewrite declarationTakesCommas line, declarationsTakesCommas rest
+
+--| P1 and P2 commute.
+theorem takesCommasCommute ∀ (file: SourceFile):
+    file.withoutTrailingCommas.withTakes = file.withTakes.withoutTrailingCommas :=
+  rewrite declarationsTakesCommas file.declarations
+
+--| P2 keeps P1's work: a tree P1 leaves alone, P1 leaves alone after P2.
+theorem commasKeepTakes ∀ (file: SourceFile) (tidy: file.withTakes = file):
+    file.withoutTrailingCommas.withTakes = file.withoutTrailingCommas :=
+  rewrite takesCommasCommute file, tidy
+
+-- The passes together (toy-plus-plus.md §3.3).
+
+--| The passes keep the meaning, on every tree.
+theorem tidyKeepsMeaning ∀ (file: SourceFile): file.tidy.meaning = file.meaning :=
+  calc file.tidy.meaning
+    _ = file.withTakes.meaning := commasKeepMeaning file.withTakes
+    _ = file.meaning := takesKeepMeaning file
+
+--| The passes keep the parser's guarantees.
+theorem tidyParsed ∀ (file: SourceFile) (parsed: Parsed file): Parsed file.tidy :=
+  commasKeepParsed file.withTakes (takesKeepParsed file parsed)
+
+--| A tidy tree has no trailing comma, as the printer needs.
+theorem tidyBare ∀ (file: SourceFile): file.tidy.withoutTrailingCommas = file.tidy := commasIdempotent file.withTakes
+
+--| A tidy tree is P1-tidy too: P2 kept P1's work.
+theorem tidyTakes ∀ (file: SourceFile): file.tidy.withTakes = file.tidy :=
+  commasKeepTakes file.withTakes (takesIdempotent file)
+
+--| The passes finish in one run.
+theorem tidyIdempotent ∀ (file: SourceFile): file.tidy.tidy = file.tidy :=
+  calc file.tidy.tidy
+    _ = file.tidy.withTakes.withoutTrailingCommas := byComputing
+    _ = file.tidy.withoutTrailingCommas :=
+      Eq.cong ((tree: SourceFile) => tree.withoutTrailingCommas) (tidyTakes file)
+    _ = file.tidy := tidyBare file

@@ -397,18 +397,35 @@ theorem itemsReverseCons ∀ (found: List Expr) (item: Expr) (later: List Commen
     _ = itemsComments found.reverse ++ (itemComments item ++ later) :=
       Eq.cong ((one: List Comment) => itemsComments found.reverse ++ (one ++ later)) (itemsOne item)
 
+--| Looking at the next token reads none.
+theorem innerClosingNext ∀ (closer: Punctuation):
+    Parse.ReadsIn Lexer (() => closingNext closer) (Inner InBrackets ((ahead: Bool) => [])) :=
+  Parse.readsWithMark _ _ (start fine => Parse.readsDone _ _ (past => byComputing))
+
+--| Items read so far: their comments, whatever followed the last.
+def foundComments (found: (List Expr, Bool)): List Comment := itemsComments found.fst
+
 theorem ontoItemsFrom ∀ (self: Layout → {Parse Tok} Expr)
     (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner))
-    (fuel: Nat) (found: List Expr):
+    (closer: Punctuation) (fuel: Nat) (found: List Expr):
     Parse.ReadsIn Lexer
-      (() => itemsFrom fuel self found)
-      (Onto InBrackets (later => itemsComments found.reverse ++ later) itemsComments (items => True)) :=
+      (() => itemsFrom fuel self closer found)
+      (Onto InBrackets (later => itemsComments found.reverse ++ later) foundComments (items => True)) :=
   match fuel with
     | Zero => Parse.readsFatal _ _
     | Succ more => andThen (innerItem self nested) (read =>
       match read with
         | (item, True) =>
-          ontoBefore (ontoItemsFrom self nested more [item, ..found]) (later => itemsReverseCons found item later)
+          andThen (innerClosingNext closer) (ahead =>
+            match ahead with
+              | True =>
+                ontoDone byComputing
+                  (Eq.trans
+                    (List.appendNil (itemsComments [item, ..found].reverse)).flipped
+                    (itemsReverseCons found item []))
+              | False =>
+                ontoBefore (ontoItemsFrom self nested closer more [item, ..found]) (later =>
+                  itemsReverseCons found item later))
         | (item, False) =>
           ontoDone byComputing
             (Eq.trans
@@ -416,7 +433,7 @@ theorem ontoItemsFrom ∀ (self: Layout → {Parse Tok} Expr)
               (itemsReverseCons found item [])))
 
 --| Items and their closing bracket's comments.
-def closedComments (found: (List Expr, Comments)): List Comment := itemsComments found.fst ++ found.snd.all
+def closedComments (found: (List Expr, Bool, Comments)): List Comment := itemsComments found.fst ++ found.snd.snd.all
 
 theorem innerItems ∀ (self: Layout → {Parse Tok} Expr) (closer: Punctuation)
     (nested: ∀ (inner: Layout) => Parse.ReadsIn Lexer (() => self inner) (ExprSpec inner)):
@@ -426,7 +443,7 @@ theorem innerItems ∀ (self: Layout → {Parse Tok} Expr) (closer: Punctuation)
       match closed with
         | Some close => ontoDone byComputing (List.appendNil close.all).flipped
         | None => Parse.readsWithMark _ _ (at fine =>
-          andThen (innerOf (ontoItemsFrom self nested at.left [])) (found =>
+          andThen (innerOf (ontoItemsFrom self nested closer at.left [])) (found =>
             lastly (innerSign InBrackets "'${closer.spelling}'" closer) (close => byComputing) (close =>
               byComputing)))))
 
@@ -460,10 +477,10 @@ theorem exprAtomOf ∀ (self: Layout → {Parse Tok} Expr) (layout: Layout)
         (inBrackets layout (innerItems self CloseSquare nested))
         (pair =>
           match pair with
-            | (found, close) => byComputing)
+            | (found, _, close) => byComputing)
         (pair =>
           match pair with
-            | (found, close) => rewrite closingAll close (itemsEndWithComment (layout.comments token) found)))
+            | (found, _, close) => rewrite closingAll close (itemsEndWithComment (layout.comments token) found)))
     | Sign CloseParen => Parse.readsExpected "an expression" start (rewrite shape then fine)
     | Sign CloseSquare => Parse.readsExpected "an expression" start (rewrite shape then fine)
     | Sign Comma => Parse.readsExpected "an expression" start (rewrite shape then fine)
@@ -522,10 +539,10 @@ theorem growsCall ∀ (self: Layout → {Parse Tok} Expr) (layout: Layout)
   skipOnto layout start token later fine shape (done =>
     lastly
       (inBrackets layout (innerItems self CloseParen nested))
-      (pair => match pair with | (arguments, close) => byComputing)
+      (pair => match pair with | (arguments, _, close) => byComputing)
       (pair =>
         match pair with
-          | (arguments, close) => rewrite closingAll close (itemsEndWithComment (layout.comments token) arguments)))
+          | (arguments, _, close) => rewrite closingAll close (itemsEndWithComment (layout.comments token) arguments)))
 
 theorem growsField ∀ (layout: Layout) (target: Expr) (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
     (fine: Parse.Fits Tok Lexer [token, ..later])
@@ -1435,27 +1452,28 @@ theorem innerParameterStep: Parse.ReadsIn Lexer parameterStep (Inner InBrackets 
     (andThen innerComma (comma =>
       Parse.readsWeaken innerGroup (read group inner => (byComputing, (past => inner past)))))
 
-def listComments (found: (ParameterGroup, List ParameterGroup)): List Comment :=
-  found.fst.comments ++ found.snd.flatMap (group => group.comments)
+def listComments (found: (ParameterGroup, List ParameterGroup, Bool)): List Comment :=
+  found.fst.comments ++ found.snd.fst.flatMap (group => group.comments)
 
 theorem innerParameterList: Parse.ReadsIn Lexer parameterList (Inner InBrackets listComments) :=
   innerOf
     (andThen innerGroup (first =>
-      lastly
+      andThen
         (Parse.readsWeaken
           (Parse.readsMany parameterStep (Inner InBrackets ParameterGroup.comments) innerParameterStep)
           (eachInner [measure := ParameterGroup.comments] InBrackets))
-        (others => byComputing)
-        (others => byComputing)))
+        (others =>
+          lastly innerCommaInBrackets (trailing => byComputing) (trailing =>
+            rewrite List.appendNil (others.flatMap (group => group.comments))))))
 
 theorem innerParameters: Parse.ReadsIn Lexer
       (() => parametersOf (Parse.optional parameterList))
-      (Inner InBrackets parametersComments) :=
+      (Inner InBrackets ((found: (List ParameterGroup, Bool)) => parametersComments found.fst)) :=
   Parse.readsThen (Parse.readsOptional innerParameterList) (read found maybe =>
     match found, maybe with
-      | None, none => Parse.readsDone [] _ (rewrite none then (past => byComputing))
-      | Some (first, others), inner =>
-        Parse.readsDone [first, ..others] _ (rewrite List.appendNil read then (past => inner past)))
+      | None, none => Parse.readsDone ([], False) _ (rewrite none then (past => byComputing))
+      | Some (first, others, trailing), inner =>
+        Parse.readsDone ([first, ..others], trailing) _ (rewrite List.appendNil read then (past => inner past)))
 
 def Header.comments (header: Header): List Comment :=
   headerComments header.takes header.open header.parameters header.close
@@ -1469,7 +1487,7 @@ theorem innerHeader ∀ (layout: Layout):
       andThen (innerSign layout "'('" OpenParen) (open =>
         andThen (inBrackets layout innerParameters) (parameters =>
           lastly (inBrackets layout (innerSign InBrackets "')'" CloseParen)) (close => byComputing) (close =>
-            rewrite closingAll close (groupsEndWithComment open parameters))))))
+            rewrite closingAll close (groupsEndWithComment open parameters.fst))))))
 
 theorem openedFunctionLine ∀ (layout: Layout) (start: Parse.Mark Tok) (first: Tok) (later: List Tok)
     (fine: Parse.Fits Tok Lexer [first, ..later])
