@@ -21,6 +21,8 @@
 --|   `refusal`.
 --| - `tidied`: the tree after the last pass alone, for timing the passes
 --|   against `tree`.
+--| - `meaning` (stage 4b): `kept` if the four passes keep the file's
+--|   `meaning`, as the dump shows it, or where they don't. No Rust side.
 --| - the later stages are still the stage 0 stub: the file as it is.
 --|
 --| `--batch LIST` answers for every path in LIST (one per line) in one run,
@@ -46,7 +48,7 @@ def options: Args.Spec Options :=
       (Args.option "stage"
         (default := "text")
         (metavar := "STAGE")
-        (help := "tokens, expr, tree, refusal, passes or text."))
+        (help := "tokens, expr, tree, refusal, passes, meaning or text."))
     |> .and
       (Args.optional "batch" (metavar := "LIST") (help := "A file of paths, one per line, to answer for in one run."))
     |> .and (Args.arguments "FILE" (atLeast := 0) (help := "The files to answer for, one after another."))
@@ -96,7 +98,36 @@ def stageAnswer (stage source: Text): Answer := match stage with
           | Ok tidied => { out = tidied.fourth.dump, status = 0, message = "" }
           | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
       | Err message => { out = "", status = 2, message = "[E-PARSE] Error: ${message}" }
+  | "meaning" =>
+    match lex source with
+      | Ok lexed => meaningAnswer lexed
+      | Err message => { out = "", status = 2, message = "[E-PARSE] Error: ${message}" }
   | _ => { out = source, status = 0, message = "" }
+
+def meaningAnswer (lexed: Lexed): Answer := match parseFile lexed.settled with
+  | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
+  | Ok file =>
+    match lexed.tidied with
+      | Ok tidied => { out = meaningKept file tidied, status = 0, message = "" }
+      | Err message => { out = "", status = 2, message = "[${codeOf message}] Error: ${message}" }
+
+--| Whether `tidy`, and the tidied tree the driver uses, keep the file's
+--| `meaning`, as the dump shows it (the dump has no comments): `kept`, or
+--| the first line where the meanings' dumps differ.
+def meaningKept (file: SourceFile) (tidied: Tidied): Text :=
+  let want := file.meaning.plain.dump
+  match firstDifference want.lines file.tidy.meaning.plain.dump.lines, firstDifference want.lines
+      tidied.fourth.meaning.plain.dump.lines with
+    | None, None => "kept\n"
+    | Some line, _ => "tidy changed it at: ${line}\n"
+    | None, Some line => "tidied changed it at: ${line}\n"
+
+def firstDifference: List Text → List Text → Option Text
+  | [], [] => None
+  | [first, ..rest], [other, ..others] =>
+    if first == other then firstDifference rest others else Some "${first.trim} / ${other.trim}"
+  | [first, .._], [] => Some "${first.trim} / nothing"
+  | [], [other, .._] => Some "nothing / ${other.trim}"
 
 --| The tree after each tidy pass, each under its `== Pn ==` line.
 def passesDump (tidied: Tidied): Text :=

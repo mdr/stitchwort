@@ -65,7 +65,7 @@ def Word.bare (word: Word): Bool := word.comments.above.isEmpty && word.comments
 --| A group written with `(`: a theorem's explicit parameter.
 def Group.explicit (group: Group): Bool := group.kind == GroupParam && !group.implicit
 
-def withForall (header: Header): {Fail} Header := match header with
+def withForall (header: Header): Header := match header with
   | { kind = DefTheorem, forallKeyword = None, params, .. } =>
     if params.any Group.explicit then
       { header | forallKeyword = Some { text = "∀", comments = { above = [], after = None } } }
@@ -76,13 +76,13 @@ def SourceFile.withForall (file: SourceFile): SourceFile := file.apply { Steps.k
 
 -- P2: no comma before a closer.
 
-def withoutCommaExpr: Expr → {Fail} Expr
+def withoutCommaExpr: Expr → Expr
   | Tuple open items _ close => Tuple open items False close
   | ListOf open items _ close => ListOf open items False close
   | Record open base fields _ close => Record open base fields False close
   | other => other
 
-def withoutCommaPattern: Pattern → {Fail} Pattern
+def withoutCommaPattern: Pattern → Pattern
   | PatternTuple open items _ close => PatternTuple open items False close
   | PatternList open items _ tail close => PatternList open items False tail close
   | PatternRecord fields => PatternRecord { fields | trailingComma = False }
@@ -208,7 +208,7 @@ def dropLeft (floor: Nat) (membership: Bool): Expr → Expr
   | FieldAccess (Some target) dot field => FieldAccess (Some (dropLeft (Nat.max floor 22) membership target)) dot field
   | other => other
 
-def dropAfterRow: Expr → {Fail} Expr
+def dropAfterRow: Expr → Expr
   | Effect row result => Effect row (dropLeft 0 False result)
   | other => other
 

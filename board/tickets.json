@@ -22414,12 +22414,12 @@
     {
       "id": 3864,
       "title": "[Opus] Self-hosted formatter stage 4b: meaning (D3678: the narrow form, forgetting only what a pass changes where it changes it), on the shared traversal; correct self-hosted-fmt.md §3.4's first row and the 94 kinds to 98; prove the sketch's per-pass 'keeps meaning' step facts that are cheap; Opus review of Meaning.sw with Traverse.sw (after SW-3863)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane (Opus, 17 Nov 2026, lane/SW-3864, commit \"Self-hosted formatter stage 4b: meaning…\"):\n\n- `meaning` in tools/fmt/src/Fmt/Meaning.sw, narrow form (D3678): comma flag; `∀` where P1 writes it; comment-free `(…)` at a row's result's left end (only around atomic forms at an application's head, never a negative numeral's) and around a binder's/annotation's whole type; a group split only where P4 could have merged it (not `instance`, not `∃`). Doc cites the compiler's reading (`lower/exprs.rs`: Bracketed, list range, NegForm).\n- Proved (MeaningProofs.sw): P2's five step facts, P1's header fact, P3's row fact (`dropLeftForgotten`) and binder-type facts. Left: generic traversal lemma (strong form for P3), P4's merge fact (rests on `typeLines`).\n- Tests: Tests/Meaning.sw 7/7; fmt project tests 71/71; Twin `--stage meaning` kept on 124 goldens and 223 repo files; `dev/fmt-twin passes --inputs goldens` 124/124.\n- Docs: self-hosted-fmt.md §3.4 rows, 94 → 98; sketch Meaning.sw points at the real one; NOTES.md stage 4b.\n- Found: P3's table wrong after a lone row variable `{e}` (6 repros, 0/6 identical with Rust); comments in `meaning` vs K1's parked comma (decision).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
