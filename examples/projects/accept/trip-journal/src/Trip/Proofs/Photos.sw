@@ -24,7 +24,7 @@ theorem stillHoldsGives ∀ (albums: List Album) (id: Nat) (o: Option Nat)
                 album
                 albums
                 inAlbums
-                (Both (rewrite DecEq.sound same then byComputing) h)
+                (Both (rewrite DecEq.sound same) h)
         | None => cases
 
 -- Every photo of the merged albums has an owner among them that holds it.

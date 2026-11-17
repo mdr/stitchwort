@@ -45,8 +45,8 @@ theorem resolveSelf ∀ (leg: Leg): resolveLeg leg leg = leg := match leg with
       | False => byComputing
   | { id, start, duration, points, notes = Some notes } =>
     match c: Nat.leq (List.length points + 1) (List.length points) with
-      | True => rewrite DecEq.refl start then byComputing
-      | False => rewrite DecEq.refl start then byComputing
+      | True => rewrite DecEq.refl start
+      | False => rewrite DecEq.refl start
 
 theorem resolveAgainstSelf ∀ (legs: List Leg)
     (ids: List.Distinct (List.map legs (leg => leg.id))) (leg: Leg)
@@ -67,14 +67,14 @@ theorem mergeLegsSelf ∀ (legs: List Leg)
     mergeLegs legs legs = legs :=
   calc mergeLegs legs legs
     _ = layout 0.0 (List.appendNewBy (resolvedLegs legs legs) legs (leg => leg.id))
-    _ = layout 0.0 (List.appendNewBy legs legs (leg => leg.id)) := rewrite resolvedSelf legs ids then byComputing
-    _ = layout 0.0 legs := rewrite List.appendNewBySelf legs (leg => leg.id) then byComputing
+    _ = layout 0.0 (List.appendNewBy legs legs (leg => leg.id)) := rewrite resolvedSelf legs ids
+    _ = layout 0.0 legs := rewrite List.appendNewBySelf legs (leg => leg.id)
     _ = legs := layoutSame 0.0 legs c
 
 -- Stops
 
 theorem planReplacedSelf ∀ (plan: Option Itinerary): planReplaced plan plan = False := match plan with
-  | Some plan => rewrite DecEq.refl plan.fileId then byComputing
+  | Some plan => rewrite DecEq.refl plan.fileId
   | None => byComputing
 
 theorem mergeStopsSelf ∀ (trip: Trip)
@@ -84,9 +84,9 @@ theorem mergeStopsSelf ∀ (trip: Trip)
   let entries := trip.stops.map (stop => (stop, locate trip.legs stop.start))
   calc mergeStops trip trip trip.legs
     _ = (List.appendNewBy entries entries (entry => entry.fst.id)).map (entry =>
-        entry.fst.startAt (settle trip.legs entry.snd)) := rewrite planReplacedSelf trip.itinerary then byComputing
+        entry.fst.startAt (settle trip.legs entry.snd)) := rewrite planReplacedSelf trip.itinerary
     _ = entries.map (entry => entry.fst.startAt (settle trip.legs entry.snd)) :=
-      rewrite List.appendNewBySelf entries (entry => entry.fst.id) then byComputing
+      rewrite List.appendNewBySelf entries (entry => entry.fst.id)
     _ = trip.stops.map (stop => stop.startAt (settle trip.legs (locate trip.legs stop.start))) :=
       List.mapMap trip.stops (entry => entry.fst.startAt (settle trip.legs entry.snd)) (stop =>
         (stop, locate trip.legs stop.start))
@@ -114,15 +114,13 @@ theorem mergePinsSelf ∀ (trip: Trip)
         placePin trip.legs entry.fst entry.snd))
       byStart
     _ = List.sortWith (entries.filterMap (entry => placePin trip.legs entry.fst entry.snd)) byStart :=
-      rewrite List.appendNewBySelf entries (entry => entry.fst.id) then byComputing
+      rewrite List.appendNewBySelf entries (entry => entry.fst.id)
     _ = List.sortWith trip.pins byStart :=
       rewrite List.filterMapMapSelf
-            (pin => (pin, locate trip.legs pin.start))
-            (entry => placePin trip.legs entry.fst entry.snd)
-            trip.pins
-            (pin m =>
-              placePinSelf trip.legs ids pin (List.memOfAll (p => pinFits trip.legs p = True) trip.pins fit pin m)) then
-        byComputing
+        (pin => (pin, locate trip.legs pin.start))
+        (entry => placePin trip.legs entry.fst entry.snd)
+        trip.pins
+        (pin m => placePinSelf trip.legs ids pin (List.memOfAll (p => pinFits trip.legs p = True) trip.pins fit pin m))
     _ = trip.pins := List.sortWithOfSorted byStart byStartTrans trip.pins sorted
 
 -- Albums
@@ -136,7 +134,7 @@ theorem holderOf: ∀ (albums: List Album) => List.Distinct (photoIds albums)
       → ∀ (album: Album) => album ∈ albums
         → ∀ (photo: Photo) => photo ∈ album.photos → holder albums photo.id = Some album.id
   | [], d, album, m, photo, p => m.impossible
-  | [first, ..rest], d, album, Inl e, photo, p => rewrite e, holdsOf album photo p then byComputing
+  | [first, ..rest], d, album, Inl e, photo, p => rewrite e, holdsOf album photo p
   | [first, ..rest], d, album, Inr m, photo, p =>
     let inRest: photo.id ∈ photoIds rest :=
       List.memFlatMapIntro
@@ -158,10 +156,7 @@ theorem ownerSelf ∀ (albums: List Album)
     (m: album ∈ albums) (photo: Photo)
     (p: photo ∈ album.photos):
     owner albums albums albums photo.id = Some album.id :=
-  rewrite holderOf albums pd album m photo p,
-      List.findKeyDistinct (a => a.id) albums ids album m,
-      holdsOf album photo p then
-    byComputing
+  rewrite holderOf albums pd album m photo p, List.findKeyDistinct (a => a.id) albums ids album m, holdsOf album photo p
 
 theorem keepOwnedSelf ∀ (own: Nat → Option Nat) (album: Album)
     (h: ∀ (photo: Photo) => photo ∈ album.photos → own photo.id = Some album.id):
@@ -188,10 +183,9 @@ theorem albumEntriesSelf ∀ (trip: Trip)
       (entry => entry.fst.id)
     _ = List.appendNewBy entries entries (entry => entry.fst.id) :=
       rewrite List.mapCongMem trip.albums
-            (album => (withPhotosOf trip.albums album, locate trip.legs album.start))
-            (album => (album, locate trip.legs album.start))
-            (album m => rewrite withPhotosOfSelf trip.albums ids album m then byComputing) then
-        byComputing
+        (album => (withPhotosOf trip.albums album, locate trip.legs album.start))
+        (album => (album, locate trip.legs album.start))
+        (album m => rewrite withPhotosOfSelf trip.albums ids album m)
     _ = entries := List.appendNewBySelf entries (entry => entry.fst.id)
 
 theorem combinedSelf ∀ (trip: Trip)
@@ -212,20 +206,17 @@ theorem mergeAlbumsSelf ∀ (trip: Trip)
       mergeAlbumsIs trip trip trip.legs
     _ = (trip.albums.map (album => album.startAt (settle trip.legs (locate trip.legs album.start)))).map (album =>
         keepOwned (ownerIn trip trip) album) :=
-      rewrite albumEntriesSelf trip ids,
-          List.mapMap trip.albums (entry => entry.fst.startAt (settle trip.legs entry.snd)) (album =>
-            (album, locate trip.legs album.start)) then
-        byComputing
+      rewrite albumEntriesSelf trip ids, List.mapMap trip.albums
+        (entry => entry.fst.startAt (settle trip.legs entry.snd))
+        (album => (album, locate trip.legs album.start))
     _ = trip.albums.map (album => keepOwned (ownerIn trip trip) album) :=
       rewrite List.mapCongMem trip.albums
-            (album => album.startAt (settle trip.legs (locate trip.legs album.start)))
-            (album => album)
-            (album m =>
-              rewrite settleSelf trip.legs lids album.start
-                    (List.memOfAll (a => within trip.legs a.start = True) trip.albums w album m) then
-                albumStartAtSame album),
-          List.mapId trip.albums then
-        byComputing
+        (album => album.startAt (settle trip.legs (locate trip.legs album.start)))
+        (album => album)
+        (album m =>
+          rewrite settleSelf trip.legs lids album.start
+                (List.memOfAll (a => within trip.legs a.start = True) trip.albums w album m) then
+            albumStartAtSame album), List.mapId trip.albums
     _ = trip.albums.map (album => album) :=
       List.mapCongMem trip.albums (album => keepOwned (ownerIn trip trip) album) (album => album) (album m =>
         keepOwnedSelf (ownerIn trip trip) album (photo p =>
@@ -236,11 +227,9 @@ theorem mergeAlbumsSelf ∀ (trip: Trip)
 
 theorem mergeItinerarySelf ∀ (plan: Option Itinerary): mergeItinerary plan plan = plan := match plan with
   | None => byComputing
-  | Some { fileId, places } =>
-    rewrite DecEq.refl fileId, List.appendNewBySelf places (place => place.id) then byComputing
+  | Some { fileId, places } => rewrite DecEq.refl fileId, List.appendNewBySelf places (place => place.id)
 
-theorem mergeSummarySelf ∀ (trip: Trip): mergeSummary trip trip trip.legs = trip.summary :=
-  rewrite DecEq.refl trip.legs then byComputing
+theorem mergeSummarySelf ∀ (trip: Trip): mergeSummary trip trip trip.legs = trip.summary := rewrite DecEq.refl trip.legs
 
 -- The theorem
 
@@ -257,12 +246,7 @@ theorem mergeSelf ∀ (trip: Trip) (wf: WellFormed trip): merge trip trip = trip
     summary = mergeSummary trip trip (mergeLegs trip.legs trip.legs)
   }
   _ = rebuildTrip trip :=
-    rewrite mergeLegsSelf trip.legs wf.legIds wf.contiguous,
-        ifSame (isBlank trip.name) trip.name,
-        mergeStopsSelf trip wf.legIds wf.stopsWithin,
-        mergePinsSelf trip wf.legIds wf.pinsFit wf.pinsSorted,
-        mergeAlbumsSelf trip wf.legIds wf.albumIds wf.photoIdsDistinct wf.albumsWithin,
-        mergeItinerarySelf trip.itinerary,
-        mergeSummarySelf trip then
-      byComputing
+    rewrite mergeLegsSelf trip.legs wf.legIds wf.contiguous, ifSame (isBlank trip.name) trip.name, mergeStopsSelf trip
+        wf.legIds wf.stopsWithin, mergePinsSelf trip wf.legIds wf.pinsFit wf.pinsSorted, mergeAlbumsSelf trip wf.legIds
+        wf.albumIds wf.photoIdsDistinct wf.albumsWithin, mergeItinerarySelf trip.itinerary, mergeSummarySelf trip
   _ = trip := tripEta trip
