@@ -6394,9 +6394,9 @@ theorem Float.Theory.ratioMagnitudeBound ∀ (num: Int) (den: Nat) (scale: Int) 
     Float.Model.roundMagnitude False (Int.natAbs num) den (Int.add scale (OfNat 1074)) ≤ 9218868437227405312 :=
   (Float.Theory.roundMagnitudeSpec (Int.natAbs num) den (Int.add scale (OfNat 1074)) nz pd).bounded
 
-theorem Float.Theory.ratioZeroUnits ∀ (num: Int) (den: Nat) (z: Bool)
+theorem Float.Theory.ratioZeroUnitsAt ∀ (num: Int) (den: Nat) (scale: Int) (z: Bool)
     (n0: Int.natAbs num = 0):
-    Float.Theory.magUnits (Float.Model.magnitude (Float.Model.roundRatio num den (OfNat 0) z)) = 0 :=
+    Float.Theory.magUnits (Float.Model.magnitude (Float.Model.roundRatio num den scale z)) = 0 :=
   let e: num = OfNat 0 := arithmetic [n0]
   rewrite e then
     match z with
@@ -6444,7 +6444,7 @@ theorem Float.divRelError ∀ (x d: Float)
         n
         (Float.Model.pow2 1074)
         n0
-        (rewrite qAbs, qb then Float.Theory.ratioZeroUnits ux den (Float.Model.signBit x.bits) n0)
+        (rewrite qAbs, qb then Float.Theory.ratioZeroUnitsAt ux den (OfNat 0) (Float.Model.signBit x.bits) n0)
     | Inr np =>
       let m: Nat := Float.Model.roundMagnitude False n den (OfNat 1074)
       let mm: Float.Model.magnitude (x / d).bits = m :=
@@ -6473,3 +6473,57 @@ test "Float.divRelError" :=
     ∧ err (-359.9) 0.1 ≤ bound (-359.9) 0.1
     ∧ err 5e-324 3.0 ≤ bound 5e-324 3.0
     ∧ 0 < err 1.0 3.0
+
+theorem Float.Theory.mulRelErrorZero ∀ (a n p: Nat)
+    (n0: n = 0)
+    (a0: a = 0):
+    Nat.absDiff (a * p) n * 9007199254740992 ≤ n + p * 4503599627370496 :=
+  rewrite n0, a0
+
+--| The standard error model for `*` of finite doubles: for a finite
+--| product below 2^1023 in size, `|x * c|` misses `|x|·|c|` by at most 2^-53
+--| of it, or half a unit (2^-1075) below the normal range. In units of
+--| 2^-1074, with `n` the size of the units' product (2^1074 times the exact
+--| product's): `2^53 |p·2^1074 − n| ≤ n + 2^1074·2^52`.
+theorem Float.mulRelError ∀ (x c: Float)
+    (fx: Float.isFinite x = True)
+    (fc: Float.isFinite c = True)
+    (fp: Float.isFinite (x * c) = True)
+    (small: Int.natAbs (Int.mul (Float.Theory.units x) (Float.Theory.units c))
+      < Float.Model.pow2 1074 * Nat.pow 2 2097):
+    Nat.absDiff
+      (Int.natAbs (Float.Theory.units (x * c)) * Float.Model.pow2 1074)
+      (Int.natAbs (Int.mul (Float.Theory.units x) (Float.Theory.units c)))
+      * 9007199254740992
+      ≤ Int.natAbs (Int.mul (Float.Theory.units x) (Float.Theory.units c)) + Float.Model.pow2 1074 * 4503599627370496 :=
+  let num: Int := Int.mul (Float.Theory.units x) (Float.Theory.units c)
+  let n: Nat := Int.natAbs num
+  let z: Bool := Bool.xor (Float.Model.signBit x.bits) (Float.Model.signBit c.bits)
+  let pb: (x * c).bits = Float.Model.roundRatio num 1 (-2148) z := Float.Theory.mulBitsOf x c fx fc
+  let fpb: Float.Theory.FiniteBits (x * c).bits := Float.Theory.finiteBits (x * c) fp
+  let pAbs: Int.natAbs (Float.Theory.units (x * c)) = Float.Theory.magUnits (Float.Model.magnitude (x * c).bits) :=
+    Float.Theory.natAbsUnits (x * c).bits
+  let pd: 0 < Float.Model.pow2 1074 := byComputing
+  match zn: Float.Theory.zeroOrPos n with
+    | Inl n0 =>
+      Float.Theory.mulRelErrorZero
+        (Int.natAbs (Float.Theory.units (x * c)))
+        n
+        (Float.Model.pow2 1074)
+        n0
+        (rewrite pAbs, pb then Float.Theory.ratioZeroUnitsAt num 1 (-2148) z n0)
+    | Inr np =>
+      let m: Nat := Float.Model.roundMagnitude False n 1 (-1074)
+      let mm: Float.Model.magnitude (x * c).bits = m :=
+        J
+          (b w => Float.Model.magnitude b = m)
+          (Float.Theory.ratioMagnitude num 1
+            (-2148)
+            z
+            np
+            (Float.Theory.ratioMagnitudeBound num 1 (-2148) z np byComputing))
+          pb.flipped
+      let spec: Float.Theory.RoundsTo n (Float.Model.pow2 1074) m :=
+        Float.Theory.roundMagnitudeSpec n 1 (-1074) np byComputing
+      let fm: m < 9218868437227405312 := J (y w => y < 9218868437227405312) fpb mm
+      rewrite pAbs, mm then Float.Theory.roundsToRelError n (Float.Model.pow2 1074) m spec fm pd small
