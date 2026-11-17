@@ -531,12 +531,12 @@
     {
       "id": 638,
       "title": "Float laws stage 3: mul, ofInt, ofNat defined through roundScaled (docs/proposals/float-laws.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "The problem: docs/proposals/float-laws.md replaces the built-in Float operations by definitions the kernel can reason about. Stages 1-2 (add and the trigger law) are done; stage 3 (638) covers mul, ofInt, ofNat via roundScaled, stage 4 (639) covers div (roundRatio), rem, floor, ceil, trunc, round. The note itself says \"stages 3 and 4 have no program waiting for them\". Unchecked: whether stages 1-2 are fully merged; confirm before starting.\n\nThe change: define the operations as in the note, one lane per stage, with the Float.Model tests against the hardware.\n\nWhat it should do: after stage 4, no float primitive has a reduction rule, and the float tests agree with hardware. Wait for SW-652 (can TestFloat/UCBTest cases be used?) before starting.",
+      "body": "The problem: docs/proposals/float-laws.md replaces the built-in Float operations by definitions the kernel can reason about. Stages 1-2 (add and the trigger law) are done; stage 3 (638) covers mul, ofInt, ofNat via roundScaled, stage 4 (639) covers div (roundRatio), rem, floor, ceil, trunc, round. The note itself says \"stages 3 and 4 have no program waiting for them\". Unchecked: whether stages 1-2 are fully merged; confirm before starting.\n\nThe change: define the operations as in the note, one lane per stage, with the Float.Model tests against the hardware.\n\nWhat it should do: after stage 4, no float primitive has a reduction rule, and the float tests agree with hardware. Wait for SW-652 (can TestFloat/UCBTest cases be used?) before starting.\n\nProgress (lane, Opus, 17 Nov 2026, 12:57-13:45, est. 60 min): done in 7872dea99 on lane/SW-638. mul, ofInt, ofNat are definitions (Float.Model.mulBits, ofIntBits); natives fire only in runs; pins, gate (2463 checks), DESIGN.md and docs/core.md updated. Laws: Float.mulOneRight, Float.ofNatOfInt, Float.ofIntMonotone, Float.ofNatExact (n <= 2^53), Float.ofNatMul (a, b <= 2^53). Not done: general toInt/ofInt theorem, mul monotone (needs a finite third operand), x * 10.0 exactness beyond the tests. Cost: closed mul in checking ~0.75 ms (was ~0); Float import row 22566104 steps. Tests: float::* gate tests pass (n0 test timed out, see report), float_paths mul/add_sub pass, four_paths passes without its Node leg (Node leg hits E-RESOURCE nesting in the JS generator), examples::soundness pass, hash_stability::prelude re-accepted. hash_stability::float-operations and trip-journal's snapshots likely move (not run).\n",
       "created": "2026-10-26",
       "updated": "2026-11-17",
       "commits": []
@@ -595,12 +595,12 @@
     {
       "id": 652,
       "title": "Float model tests: check whether Berkeley TestFloat / UCBTest cases (Lean uses them) can be used to test Float.Model against the hardware (licence, format) — before float laws stages 3–4",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "Checked by SW-638's lane (17 Nov 2026): usable. TestFloat 3e is BSD 3-clause (redistribution with the UC notice); cases come from testfloat_gen, one per line, hex 'a b result flags'. Built with clang via nix shell (its Makefile hardcodes gcc). 150 sampled level-1 f64_mul cases are in crates/cli/tests/running/testfloat_f64_mul.txt, used by float_paths::mul_rounds_like_the_hardware. Stage 4 (SW-639) can take div slices the same way. UCBTest not needed.\n",
       "created": "2026-10-26",
       "updated": "2026-11-17",
       "commits": []
