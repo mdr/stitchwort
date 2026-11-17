@@ -1156,3 +1156,31 @@ fn a_rewrite_without_then_in_a_calc_step_keeps_the_steps_lined_up() {
         ),
     );
 }
+
+#[test]
+fn a_rule_list_that_fits_drops_its_trailing_comma() {
+    // D1012, P2: a rule list is a comma bracket, so its trailing comma goes
+    // like a list literal's (SW-3729).
+    check(
+        "rules appends := [List.appendAssoc, ]\n",
+        "rules appends := [List.appendAssoc]\n",
+    );
+    check(
+        "theorem t ∀ (a: Nat): a = a := rewrite repeatedly [f _, ]\n",
+        "theorem t ∀ (a: Nat): a = a := rewrite repeatedly [f _]\n",
+    );
+}
+
+#[test]
+fn a_rule_list_that_breaks_drops_its_trailing_comma() {
+    let a = long(60);
+    let b = format!("{a}b");
+    check(
+        &format!("rules appends := [{a}, {b}, ]\n"),
+        &format!("rules appends :=\n  [\n    {a},\n    {b}\n  ]\n"),
+    );
+    check(
+        &format!("rules appends := [\n  {a},\n  {b},\n]\n"),
+        &format!("rules appends :=\n  [\n    {a},\n    {b}\n  ]\n"),
+    );
+}

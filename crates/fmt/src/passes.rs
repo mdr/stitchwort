@@ -187,6 +187,7 @@ pub fn trailing_comma(tree: &SyntaxFile, _text: &str) -> Vec<Edit> {
                 | PatternRecord
                 | Attributes
                 | Import
+                | RewriteRules
         ) {
             return;
         }
