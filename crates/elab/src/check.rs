@@ -9826,6 +9826,37 @@ fn stuck_side_note(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
     }
 }
 
+/// SW-3678: a side is stuck on a variable inside a generalised `match` on an
+/// expression. The `match` replaces the expression only where the goal shows
+/// it, as written or computed; a copy that exists only inside a stuck
+/// definition's own `match` (on a part its patterns bind) is out of reach.
+fn match_not_inside_note(cx: &Ctx, sides: &[NoteSide; 2]) -> Option<String> {
+    let g = cx.g();
+    let level = cx.level();
+    let (base, needle, ..) = cx
+        .scrutinees
+        .iter()
+        .rev()
+        .find(|(_, needle, ..)| !matches!(needle.strip_loc(), Term::Var(_)))?;
+    let needle = needle.shift(&g, level - base, 0).ok()?;
+    // A copy still visible in a computed side was meant to be replaced: the cause
+    // is something else.
+    if sides
+        .iter()
+        .filter_map(|s| cx.normal_of(s))
+        .any(|t| crate::matching::occurs(&needle, t))
+    {
+        return None;
+    }
+    let shown = pretty::term_for_message_in(&g, cx.e, &cx.shown_names(false), &needle);
+    Some(format!(
+        "the `match` on `{shown}` replaces it only where the goal shows it, as written or \
+         computed, not inside a call that is stuck: a record pattern that destructures the \
+         value, or a helper lemma taking the matched part as a variable, reaches the inner \
+         `match`"
+    ))
+}
+
 /// The `E-REFL` error for sides `a` and `b` that aren't equal (kept out of
 /// `check`, whose stack frame is on every recursion).
 #[inline(never)]
@@ -9898,6 +9929,9 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     }
     if let Some(note) = stuck_side_note(cx, a, b) {
         error = error.with_note(note);
+        if let Some(note) = match_not_inside_note(cx, &sides) {
+            error = error.with_note(note);
+        }
     }
     let error = error
         .with_note("`byComputing` proves `a = b` only when both sides compute to the same value");

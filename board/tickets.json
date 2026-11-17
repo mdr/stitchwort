@@ -41435,12 +41435,12 @@
     {
       "id": 3678,
       "title": "[Sonnet] From Toy++ T3a: 'match e: expr' replaces expr only where visible, not inside a computed inner match (Token.comments), so byComputing refuses equal sides; at least say so in the message. And a proving-guide line: a && b && c nests right, so Bool.andLeft/andRight take a and b && c",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\n\n\nLane (Sonnet): E-REFL gets a note when a side is stuck on a variable inside a generalised match on an expression (reject example match-scrutinee-inside-stuck-call.sw, 2 other snapshots changed); syntax.md bullet; proving-guide line on && nesting. Commit 8e18aa3b9 on lane/SW-3678.\n",
       "created": "2026-11-16",
       "updated": "2026-11-17",
       "commits": []

@@ -153,6 +153,11 @@ When one call does need a value of an implicit parameter, name it:
 `Bool.andLeft [a := Set.contains a key] [b := Set.contains b key]
 (rewrite … in held)`.
 
+A chain `a && b && c` nests to the right, `a && (b && c)`, so `Bool.andLeft`
+gives `a = True` and `Bool.andRight` gives `(b && c) = True`, not `b = True`.
+To reach `b`, take the right part first: `Bool.andLeft (Bool.andRight held)`,
+and `c` is `Bool.andRight (Bool.andRight held)`.
+
 Two kinds of lemma keep their parameters and binder kinds, because the
 compiler applies them itself. Congruence lemmas (`FCong`, `FCongMem`,
 `FCongRange`) have the parameters of `F`: `rewrite` and `decreasing` check
