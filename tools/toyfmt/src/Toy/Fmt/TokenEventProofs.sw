@@ -80,7 +80,8 @@ theorem viewsSnoc ∀ (seen: Views) (events: List Event) (last: Event):
     | [event, ..rest] => viewsSnoc (viewEvent seen event) rest last
 
 theorem trailingViews ∀ (tokens: List (Parse.Located Token)) (comment: Parse.Located Comment):
-    (withTrailing tokens comment).map viewOf = viewTrailing (tokens.map viewOf) comment.value := cases
+    (withTrailing tokens comment).map viewOf = viewTrailing (tokens.map viewOf) comment.value :=
+  cases
 
 theorem gapPlaced ∀ (piece: Text) (placed: Placed) (blank: Bool) (column offset: Nat)
     (gap: piece.all (char => char == ' ') = True):

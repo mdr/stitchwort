@@ -835,7 +835,8 @@ theorem linesFlat ∀ (lines: List (Spaced Statement)): linesComments lines = sp
     | [{ blankBefore, line }, ..rest] => Eq.cong ((back: List Comment) => line.comments ++ back) (linesFlat rest)
 
 theorem unblankedSame ∀ (measure: a → List Comment) (lines: List (Spaced a)):
-    spacedComments measure (withoutFirstBlank lines) = spacedComments measure lines := cases
+    spacedComments measure (withoutFirstBlank lines) = spacedComments measure lines :=
+  cases
 
 --| One more note among those found adds its comment.
 theorem snocNote ∀ [note: Comment → a] (measure: a → List Comment)

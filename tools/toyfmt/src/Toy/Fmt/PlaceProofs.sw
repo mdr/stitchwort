@@ -375,7 +375,8 @@ theorem wordLength ∀ (piece: Text) (word: piece.all (char => char == ' ') = Fa
     | MkText [first, ..rest], word => arithmetic
 
 theorem withTrailingOffsets ∀ (tokens: List (Parse.Located Token)) (comment: Parse.Located Comment):
-    (withTrailing tokens comment).map (token => token.offset) = tokens.map (token => token.offset) := cases
+    (withTrailing tokens comment).map (token => token.offset) = tokens.map (token => token.offset) :=
+  cases
 
 --| A word adds no token (a comment), or one at its own offset.
 theorem wordOffsets ∀ (placed: Placed) (piece: Text) (blank: Bool) (column offset: Nat):

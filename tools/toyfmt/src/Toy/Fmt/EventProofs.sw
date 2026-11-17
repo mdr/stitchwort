@@ -203,7 +203,8 @@ theorem seatedReach ∀ (zone: Zone) (indent: Nat) (place: Place) (above: List C
 --| At the start of a line, a token starts that line, with or without
 --| comments above it.
 theorem startAt ∀ (indent at: Nat) (above: List Comment):
-    atColumn at (wordStart indent (aboveEnd indent (AtStart at) above)) := cases
+    atColumn at (wordStart indent (aboveEnd indent (AtStart at) above)) :=
+  cases
 
 theorem commentsNotNil ∀ (first: Comment) (rest: List Comment) (wrong: [first, ..rest] = []): Void := cases
 

@@ -259,7 +259,8 @@ theorem ownComments ∀ (above: List Comment): ownLineComments (above.map OwnLin
   | [comment, ..rest] => Eq.cong (Cons comment) (ownComments rest)
 
 theorem trailingOf ∀ (trailing: Option (Parse.Located Comment)):
-    trailing.map (comment => comment.value) = commentOf trailing := cases
+    trailing.map (comment => comment.value) = commentOf trailing :=
+  cases
 
 theorem commentsSame ∀ (comments: Comments) (above: List Comment) (after: Option Comment)
     (sameAbove: above = comments.above)

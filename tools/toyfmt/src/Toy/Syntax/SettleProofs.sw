@@ -89,7 +89,8 @@ theorem joinOwn ∀ (front back: List Trivia):
     | None, back => rewrite repeatedly [List.flatMapAppend]
 
 theorem trailingOwn ∀ (token: Parse.Located Token):
-    token.value.comments = ownComments token.value.above ++ ownComments (trailingTrivia token.value.trailing) := cases
+    token.value.comments = ownComments token.value.above ++ ownComments (trailingTrivia token.value.trailing) :=
+  cases
 
 --| What a comma held is carried to the next token, or to the end: the
 --| comments after carrying are those carried in, the tokens' and the

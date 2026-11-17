@@ -275,10 +275,12 @@ theorem commasKeepMeaning ∀ (file: SourceFile): file.withoutTrailingCommas.mea
 -- P1: `takes` on every function with parameters.
 
 theorem takesForPlain ∀ (takes: Option Comments) (parameters: List ParameterGroup):
-    (takesFor takes parameters).getOrElse Comments.none = takes.getOrElse Comments.none := cases
+    (takesFor takes parameters).getOrElse Comments.none = takes.getOrElse Comments.none :=
+  cases
 
 theorem takesForTwice ∀ (takes: Option Comments) (parameters: List ParameterGroup):
-    takesFor (takesFor takes parameters) parameters = takesFor takes parameters := cases
+    takesFor (takesFor takes parameters) parameters = takesFor takes parameters :=
+  cases
 
 theorem takesForFine ∀ (takes: Option Comments) (parameters: List ParameterGroup)
     (fine: FineTakes takes):

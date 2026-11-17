@@ -1679,7 +1679,8 @@ theorem endsAtSign ∀ (token: Parse.Located Token) (punctuation: Punctuation) (
     EndsExpression InBrackets [token, ..rest] :=
   ((rewrite signed then quiet), (noOperatorAtSign InBrackets 0 token punctuation rest signed))
 
-theorem bracketQuiet ∀ (closer: Punctuation) (bracket: bracketSign closer = True): endsSuffixes (Sign closer) = True := cases
+theorem bracketQuiet ∀ (closer: Punctuation) (bracket: bracketSign closer = True): endsSuffixes (Sign closer) = True :=
+  cases
 
 theorem noCommaAtBracket ∀ (close: Parse.Located Token) (closer: Punctuation) (after: List (Parse.Located Token))
     (closes: close.value.kind = Sign closer)
