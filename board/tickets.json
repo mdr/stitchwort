@@ -22297,12 +22297,12 @@
     {
       "id": 3855,
       "title": "[Sonnet] proofs::differential::the_evaluators_agree_on_the_prelude_and_every_example: 219 comparisons 'too big to compare' (budget 5,000,000 steps) against at most 60, since float stages 3/4 made Float operations definitions: find which comparisons grew (likely Float.Model terms), and restore coverage (skip float-model internals deliberately, or compare them at a cheaper level), not just raise the guard. The test takes ~12 min; run it filtered or capped, never over 2 GB (Overmind, rolling check at b375ebc98)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "SW-3855 progress (Sonnet lane): prelude alone 0 skips; the 220 skips were all in 3 examples importing Float (float-playlist 153, float-times 33, ord-proofs 33, let-chain-match 1): Float.Theory types and Float.Model floor/ceil/roundBits and their conversion pairs. Fix: left_out() excludes Float.Theory.* and those three Model defs by name; 22 skips remain (21 Float.Model add/mul/div/rem conversion pairs, 1 let-chain-match). Full sweep passed, 195 s, peak 1.10 GB. Model result: Sonnet, worked, 25 min (est. 45).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
