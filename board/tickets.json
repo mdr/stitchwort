@@ -1,5 +1,5 @@
 {
-  "next": 3802,
+  "next": 3803,
   "tickets": [
     {
       "id": 47,
@@ -531,12 +531,12 @@
     {
       "id": 638,
       "title": "Float laws stage 3: mul, ofInt, ofNat defined through roundScaled (docs/proposals/float-laws.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "The problem: docs/proposals/float-laws.md replaces the built-in Float operations by definitions the kernel can reason about. Stages 1-2 (add and the trigger law) are done; stage 3 (638) covers mul, ofInt, ofNat via roundScaled, stage 4 (639) covers div (roundRatio), rem, floor, ceil, trunc, round. The note itself says \"stages 3 and 4 have no program waiting for them\". Unchecked: whether stages 1-2 are fully merged; confirm before starting.\n\nThe change: define the operations as in the note, one lane per stage, with the Float.Model tests against the hardware.\n\nWhat it should do: after stage 4, no float primitive has a reduction rule, and the float tests agree with hardware. Wait for SW-652 (can TestFloat/UCBTest cases be used?) before starting.\n\nCustomer SW-3790 (merged) needs from stage 3: Float.ofNat monotone (m ≤ n → ofNat m <= ofNat n); and later, from stage 4: x/d monotone in x for d > 0, floor x <= x, x * 1.0 = x, whole numbers times/divided by 10 exact, round of a whole double is itself, rem's range. See apps/whereabouts/NOTES.md.",
+      "body": "The problem: docs/proposals/float-laws.md replaces the built-in Float operations by definitions the kernel can reason about. Stages 1-2 (add and the trigger law) are done; stage 3 (638) covers mul, ofInt, ofNat via roundScaled, stage 4 (639) covers div (roundRatio), rem, floor, ceil, trunc, round. The note itself says \"stages 3 and 4 have no program waiting for them\". Unchecked: whether stages 1-2 are fully merged; confirm before starting.\n\nThe change: define the operations as in the note, one lane per stage, with the Float.Model tests against the hardware.\n\nWhat it should do: after stage 4, no float primitive has a reduction rule, and the float tests agree with hardware. Wait for SW-652 (can TestFloat/UCBTest cases be used?) before starting.\n\nCustomer SW-3790 (merged) needs from stage 3: Float.ofNat monotone (m ≤ n → ofNat m <= ofNat n); and later, from stage 4: x/d monotone in x for d > 0, floor x <= x, x * 1.0 = x, whole numbers times/divided by 10 exact, round of a whole double is itself, rem's range. See apps/whereabouts/NOTES.md.\n\nModel result: opus, worked, 44 min + 7 min follow-up (est. 60). Four-paths Node failure: debug-build depth limit on a 20,000-element list, same on main in debug; release passes on both (filed SW-3802). JS still emits a * b and Number(n). Review SW-3796: merge after fixes; F2, F3 done in 64bbb758e; F4-F7 filed SW-3798..SW-3801.",
       "created": "2026-10-26",
       "updated": "2026-11-17",
       "commits": []
@@ -595,7 +595,7 @@
     {
       "id": 652,
       "title": "Float model tests: check whether Berkeley TestFloat / UCBTest cases (Lean uses them) can be used to test Float.Model against the hardware (licence, format) — before float laws stages 3–4",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -42817,12 +42817,12 @@
     {
       "id": 3796,
       "title": "[Fable review] SW-638 (float stage 3: mul, ofInt, ofNat as definitions through roundScaled): soundness review of the runtime-only native gate, mulBits against IEEE 754, pins, docs/core.md; docs/reviews/SW-638-float-stage3-review.md",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "\n\nProgress (Fable paper lane, 17 Nov 2026, 13:42-13:51, est. 30 min): review in docs/reviews/SW-638-float-stage3-review.md. Verdict: merge after fixes. No soundness finding (run-only gate, mulBits against IEEE 754, pins and the five theorem statements all hold on paper). Blocking: SW-638 breaks the four-paths Node leg (passes on main; cause not found on paper; the lane fix was not yet on the branch at a0c1ed9cc, so unreviewed), and two hash snapshots unrun. Docs: no as-built stage 3 in float-laws.md, toInt/ofInt theorem not proved, stale comment at value.rs:2529. Follow-ups: F4-F8 in the review.\n",
+      "body": "\n\nProgress (Fable paper lane, 17 Nov 2026, 13:42-13:51, est. 30 min): review in docs/reviews/SW-638-float-stage3-review.md. Verdict: merge after fixes. No soundness finding (run-only gate, mulBits against IEEE 754, pins and the five theorem statements all hold on paper). Blocking: SW-638 breaks the four-paths Node leg (passes on main; cause not found on paper; the lane fix was not yet on the branch at a0c1ed9cc, so unreviewed), and two hash snapshots unrun. Docs: no as-built stage 3 in float-laws.md, toInt/ofInt theorem not proved, stale comment at value.rs:2529. Follow-ups: F4-F8 in the review.\n\nModel result: fable, worked, 9 min (est. 30).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42887,6 +42887,19 @@
       "where": "",
       "labels": [],
       "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3802,
+      "title": "[Sonnet] JS generator: expr recurses once per list element, so a 20,000-element list literal hits the depth guard in debug builds ('nested too deeply for the JavaScript generator'; float_paths four-paths Node leg fails under debug nextest); build list literals iteratively (SW-638 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
