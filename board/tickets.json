@@ -1,5 +1,5 @@
 {
-  "next": 3924,
+  "next": 3926,
   "tickets": [
     {
       "id": 47,
@@ -22858,12 +22858,12 @@
     {
       "id": 3898,
       "title": "[Sonnet] std Float: absBelowOf (-b <= x, x <= b, b < c gives abs x < c) to replace Whereabouts' absWithin360/absWithin3600; and divNear, quotientNear's signed bound for any positive divisor, beside divRelError (SW-3895 findings)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "Lane note (Sonnet): added Float.Theory.absBelowOf (x b c, nb: isNaN b = False, -b <= x, x <= b, b < c gives abs x < c), Float.divNear (signed, scaled form of divRelError, with Float.Theory.divNearArith), in std Float/Theory.sw. Whereabouts' absWithin360, absWithin3600, absWithin360Below53 deleted, uses are absBelowOf with byComputing. divNear not used in the app (quotientNear cancels 2^1019 via relCancel instead). Checked: std check, audits, whereabouts check and audit (0 failed), prelude snapshot regenerated (6 names added), search:: 15 pass. trip-journal snapshot drift not mine (left alone).\n",
+      "body": "Lane note (Sonnet): added Float.Theory.absBelowOf (x b c, nb: isNaN b = False, -b <= x, x <= b, b < c gives abs x < c), Float.divNear (signed, scaled form of divRelError, with Float.Theory.divNearArith), in std Float/Theory.sw. Whereabouts' absWithin360, absWithin3600, absWithin360Below53 deleted, uses are absBelowOf with byComputing. divNear not used in the app (quotientNear cancels 2^1019 via relCancel instead). Checked: std check, audits, whereabouts check and audit (0 failed), prelude snapshot regenerated (6 names added), search:: 15 pass. trip-journal snapshot drift not mine (left alone).\n\nModel result: sonnet, worked, 25 min (est. 25). divNear has no app caller yet. Found hash_stability::projects trip-journal snapshot stale on main (verifier gap, see work log). Follow-ups SW-3924 SW-3925.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -23190,6 +23190,32 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3924,
+      "title": "[Sonnet] std: 0.0 / d = 0.0 and -0.0 / d = -0.0 for finite positive d; then drop Float.divNear's sign hypothesis and move Whereabouts' divNonnegUnits/divNonposUnits into std (SW-3898 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3925,
+      "title": "[DeepSeek] Proving guide: how to check, audit and test a std lemma (check --std Float/Theory.sw relative to the std folder; audit Std.… from a project folder; test FILE with import Std (…)) (SW-3898 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
