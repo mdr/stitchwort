@@ -1,5 +1,5 @@
 {
-  "next": 3713,
+  "next": 3714,
   "tickets": [
     {
       "id": 47,
@@ -41749,12 +41749,12 @@
     {
       "id": 3702,
       "title": "[DeepSeek] Broad tier D, G: goal_index snapshots (goal_examples_in_the_index: goal_index__arm-as-written-computes; lemmas_check_as_the_same_goal: goal_index__lemmas, lines shifted by a new goal line) and guide::the_guide_quotes_its_examples_and_the_compiler (10-proofs.md:204, :768, :891 quote snippets that changed: proofs.sw#stated, tests-and-propositions.sw#same, proofs.sw#readings-decisions). Check each change is a deliberate source change, update snapshots/quotes",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~25 min (est. 20). Accepted all 56 goal-index snapshots (same deliberate fixes field change).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -41762,12 +41762,12 @@
     {
       "id": 3703,
       "title": "[DeepSeek] E6 follow-up (broad tier H): REPL 'foo' gets 'did you mean `Bool`?' (repl::a_one_line_error_is_a_caret_without_a_box). Distance 2 on a 3-letter name is too loose: use a stricter threshold for short names (e.g. <= 1 when the name has <= 4 chars; check what fields use and keep both the same), then the REPL test passes unchanged",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~15 min (est. 15). Follow-up SW-3713 (transpositions).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -41829,12 +41829,12 @@
     {
       "id": 3708,
       "title": "[DeepSeek] E5 bug (SW-3551): the 'if this was meant as a lambda ... =>, not ->' note is added to every E-NOT-A-TYPE inside a binder, and once per enclosing binder: reject/not-a-type-not-equal-unicode (a ≠ in a statement) now gets it three times (Notes 2-4). Add it at most once, and only where the codomain is a value written after (x: A) ->, not a proposition/statement mistake; that example's snapshot must stay as it was",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~15 min (est. 20).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -41886,6 +41886,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3713,
+      "title": "[DeepSeek] Did-you-mean: count a transposition as one edit (Damerau), so nmae -> name (4 chars, plain distance 2) is suggested again after SW-3703's short-name rule",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
