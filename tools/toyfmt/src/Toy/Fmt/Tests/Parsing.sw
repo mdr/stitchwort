@@ -70,9 +70,8 @@ test "format drops spare brackets and keeps the rest" := format spareBrackets 80
   let f = f(x)
   let g = a - b - c
   let h = a - (b - c)
-  let i =
-    ( -- kept
-      x)
+  let i = ( -- kept
+    x)
   let j = [1, if a then b else c]
   let k =
     (if a then

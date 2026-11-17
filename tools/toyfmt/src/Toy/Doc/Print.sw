@@ -67,7 +67,8 @@ def Printer.run (printer: Printer) (total fuel: Nat) (stack: List Cmd): Printer 
 
 def Printer.step (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cmd): (Printer, List Cmd) := match cmd with
   | FillSep indent item =>
-    if printer.suffixes.isEmpty && fits total [(Flat, item)] rest (printer.left - 1) then
+    if printer.suffixes.isEmpty
+      && fitsFrom total printer.width [(indent, Flat, item)] rest (printer.left - 1) printer.lineIndent False then
       (printer.write indent " " 1, [Print indent Flat item, ..rest])
     else (printer.newline indent, [Print indent Break item, ..rest])
   | Print indent mode doc => printer.printDoc total indent mode doc rest
@@ -99,7 +100,7 @@ def Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: D
     | OneLineBelow inner => (printer, [Print (indent + 2) mode HardLine, Print (indent + 2) mode inner, ..rest])
     | Flatten inner => (printer, [Print indent Flat inner, ..rest])
     | Group inner hard =>
-      let flat := mode.isFlat || (not hard && printer.fitsHere total [(Flat, inner)] rest)
+      let flat := mode.isFlat || (not hard && printer.fitsHere total [(indent, Flat, inner)] rest)
       (printer, [Print indent (if flat then Flat else Break) inner, ..rest])
     | Concat docs => (printer, docs.map (Print indent mode) ++ rest)
     | Fill items =>
@@ -109,7 +110,7 @@ def Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: D
           if mode.isFlat then (printer, Doc.joinLines items |> .map (Print indent Flat) |> (cmds => cmds ++ rest))
           else
             let stack := others.map (FillSep indent) ++ rest
-            let firstMode := if printer.fitsHere total [(Flat, first)] stack then Flat else Break
+            let firstMode := if printer.fitsHere total [(indent, Flat, first)] stack then Flat else Break
             (printer, [Print indent firstMode first, ..stack])
     | Choice options =>
       let chosen := if mode.isFlat then options.headOr Empty else printer.choose total indent rest options
@@ -122,15 +123,17 @@ def Printer.choose (printer: Printer) (total indent: Nat) (rest: List Cmd): (opt
   | [last] => last
   | [option, ..others] =>
     let fitting := match option with
-      | OneLineBelow inner => printer.width >= indent + 2 && fitsFlat total inner (printer.width - indent - 2)
-      | _ => printer.fitsHere total [(Break, option)] rest
+      | OneLineBelow inner =>
+        printer.width >= indent + 2
+          && fitsFrom total printer.width [(indent + 2, Flat, inner)] [] (printer.width - indent - 2) (indent + 2) False
+      | _ => printer.fitsHere total [(indent, Break, option)] rest
     if fitting then option else printer.choose total indent rest others
 
 --| Whether `next`, then the rest of the work list, fits on this line, as
---| `fits` measures it, with any trailing comment already waiting counted:
---| a line that would print as a space after it must break instead.
-def Printer.fitsHere (printer: Printer) (total: Nat) (next: List (Mode, Doc)) (rest: List Cmd): Bool :=
-  fitsFrom total next rest printer.left (not printer.suffixes.isEmpty)
+--| `fitsFrom` measures it, with any trailing comment already waiting
+--| counted.
+def Printer.fitsHere (printer: Printer) (total: Nat) (next: List (Nat, Mode, Doc)) (rest: List Cmd): Bool :=
+  fitsFrom total printer.width next rest printer.left printer.lineIndent (not printer.suffixes.isEmpty)
 
 --| The items with a `Line` between each two.
 def Doc.joinLines: List Doc → List Doc
@@ -213,65 +216,82 @@ def Printer.blank (printer: Printer): Printer :=
   else printer
 
 --| Whether `next`, then the rest of the work list, fits in `left` columns
---| up to the first line break the work would make. Groups are measured in
---| the mode of what holds them unless they must break, as Prettier's `fits`
---| does: a group that won't fit flat breaks at its first line, so measuring
---| up to there is enough.
-def fits (fuel: Nat) (next: List (Mode, Doc)) (rest: List Cmd) (left: Nat): Bool := fitsFrom fuel next rest left False
-
---| `fits`, where `suffix` says a trailing comment is waiting for the end of
---| the line: a chunk after it would start a new line (a comment break),
---| so the line ends there for the measure's purposes, and doesn't fit. A
---| closer after it is on the line, and counts towards its width.
-def fitsFrom (fuel: Nat) (stack: List (Mode, Doc)) (rest: List Cmd) (left: Nat) (suffix: Bool): Bool := match fuel with
-  | 0 => True
-  | Succ more =>
-    match stack with
-      | [] =>
-        match rest with
-          | [Print _ mode doc, ..others] => fitsFrom more [(mode, doc)] others left suffix
-          -- The next fill item starts with a separator that may break.
-          | _ => True
-      | [(mode, doc), ..stack] =>
-        match doc with
-          | Empty => fitsFrom more stack rest left suffix
-          | Blank => fitsFrom more stack rest left suffix
-          | LineSuffix _ => fitsFrom more stack rest left True
-          | BreakParent => not mode.isFlat && fitsFrom more stack rest left suffix
-          | Chunk text width =>
-            if suffix then False else width <= left && fitsFrom more stack rest (left - width) suffix
-          -- It joins the line of a waiting comment, which still waits.
-          | Closing text => text.length <= left && fitsFrom more stack rest (left - text.length) suffix
-          | Line => not mode.isFlat || (not suffix && 1 <= left && fitsFrom more stack rest (left - 1) suffix)
-          | SoftLine => not mode.isFlat || (not suffix && fitsFrom more stack rest left suffix)
-          | HardLine => not mode.isFlat
-          | LineStart => not mode.isFlat
-          | CommentEnd => not mode.isFlat
-          | LineStartHere => not mode.isFlat
-          | Nest _ inner => fitsFrom more [(mode, inner), ..stack] rest left suffix
-          | Flatten inner => fitsFrom more [(Flat, inner), ..stack] rest left suffix
-          | Group inner hard =>
-            if hard && mode.isFlat then False
-            else fitsFrom more [(if hard then Break else mode, inner), ..stack] rest left suffix
-          | Concat docs => fitsFrom more (docs.map (inner => (mode, inner)) ++ stack) rest left suffix
-          | Fill items =>
-            if mode.isFlat then
-              fitsFrom more
-                (Doc.joinLines items |> .map (inner => (mode, inner)) |> (inners => inners ++ stack))
-                rest
-                left
-                suffix
-            -- Only the first item is sure to be on this line; the separator
-            -- after it may break.
-            else
-              match items with
-                | [] => True
-                | [first, .._] => fitsFlat more first left
-          | OneLineBelow _ => True
-          | Choice options =>
-            match (if mode.isFlat then options.head else options.last) with
-              | None => fitsFrom more stack rest left suffix
-              | Some option => fitsFrom more [(mode, option), ..stack] rest left suffix
-
---| Whether `doc`, printed flat, fits in `left` columns.
-def fitsFlat (fuel: Nat) (doc: Doc) (left: Nat): Bool := fits fuel [(Flat, doc)] [] left
+--| up to the first line break the work would make, on a page `width` wide
+--| whose current line is indented `lineIndent`. Each piece of work carries
+--| the indentation of its construct. Groups are measured in the mode of
+--| what holds them unless they must break, as Prettier's `fits` does: a
+--| group that won't fit flat breaks at its first line, so measuring up to
+--| there is enough.
+--|
+--| `suffix` says a trailing comment is waiting for the end of the line.
+--| Code text after it starts a new line (a comment break, as
+--| `Printer.write` makes), at `max indent (lineIndent + 2)`, and the
+--| measure goes on from there with the whole width less that
+--| indentation, as SW-3447's Rust printer measures; spaces there are
+--| dropped, so they take no room. A closer after it stays on the line and
+--| counts towards its width. A line break in a flat group after it
+--| doesn't fit: the printer would break it, where the measure assumed
+--| none.
+def fitsFrom (fuel width: Nat) (stack: List (Nat, Mode, Doc)) (rest: List Cmd) (left lineIndent: Nat) (suffix: Bool):
+    Bool :=
+  match fuel with
+    | 0 => True
+    | Succ more =>
+      match stack with
+        | [] =>
+          match rest with
+            | [Print indent mode doc, ..others] =>
+              fitsFrom more width [(indent, mode, doc)] others left lineIndent suffix
+            -- The next fill item starts with a separator that may break.
+            | _ => True
+        | [(indent, mode, doc), ..stack] =>
+          match doc with
+            | Empty => fitsFrom more width stack rest left lineIndent suffix
+            | Blank => fitsFrom more width stack rest left lineIndent suffix
+            | LineSuffix _ => fitsFrom more width stack rest left lineIndent True
+            | BreakParent => not mode.isFlat && fitsFrom more width stack rest left lineIndent suffix
+            | Chunk text textWidth =>
+              if not suffix then textWidth <= left && fitsFrom more width stack rest (left - textWidth) lineIndent False
+              else if text.all (char => char == ' ') then fitsFrom more width stack rest left lineIndent True
+              else
+                let broken := Nat.max indent (lineIndent + 2)
+                broken + textWidth <= width && fitsFrom more width stack rest (width - broken - textWidth) broken False
+            -- It joins the line of a waiting comment, which still waits.
+            | Closing text =>
+              text.length <= left && fitsFrom more width stack rest (left - text.length) lineIndent suffix
+            | Line =>
+              not mode.isFlat
+                || (not suffix && 1 <= left && fitsFrom more width stack rest (left - 1) lineIndent suffix)
+            | SoftLine => not mode.isFlat || (not suffix && fitsFrom more width stack rest left lineIndent suffix)
+            | HardLine => not mode.isFlat
+            | LineStart => not mode.isFlat
+            | CommentEnd => not mode.isFlat
+            | LineStartHere => not mode.isFlat
+            | Nest extra inner =>
+              fitsFrom more width [(indent + extra, mode, inner), ..stack] rest left lineIndent suffix
+            | Flatten inner => fitsFrom more width [(indent, Flat, inner), ..stack] rest left lineIndent suffix
+            | Group inner hard =>
+              if hard && mode.isFlat then False
+              else
+                fitsFrom more width [(indent, if hard then Break else mode, inner), ..stack] rest left lineIndent suffix
+            | Concat docs =>
+              fitsFrom more width (docs.map (inner => (indent, mode, inner)) ++ stack) rest left lineIndent suffix
+            | Fill items =>
+              if mode.isFlat then
+                fitsFrom more width
+                  (Doc.joinLines items |> .map (inner => (indent, mode, inner)) |> (inners => inners ++ stack))
+                  rest
+                  left
+                  lineIndent
+                  suffix
+              -- Only the first item is sure to be on this line; the separator
+              -- after it may break.
+              else
+                match items with
+                  | [] => True
+                  | [first, .._] => fitsFrom more width [(indent, Flat, first)] [] left lineIndent suffix
+            | OneLineBelow _ => True
+            | Choice options =>
+              match (if mode.isFlat then options.head else options.last) with
+                | None => fitsFrom more width stack rest left lineIndent suffix
+                | Some option => fitsFrom more width [(indent, mode, option), ..stack] rest left lineIndent suffix

@@ -16981,12 +16981,12 @@
     {
       "id": 3452,
       "title": "[Opus] Toy engine: fits measures from the new line after a trailing comment (as SW-3447's Rust printer does), removing most odd layouts (s05, s06, s08, s11, s17, s19) and the call whose ) sits left of its argument; needs indent and width in fits, so the budget proofs change (SW-3450 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane (Opus, 17 Nov 2026, est. 50 min): started 18:21, finished 18:30. Branch lane/SW-3452, commit 80143a767.\n\nRule: in fitsFrom, code text after a waiting trailing comment starts a new line at max indent (lineIndent + 2) and the measure goes on with width - that indentation (spaces dropped, closers still join the comment's line, a flat Line/SoftLine after a comment still doesn't fit). The stack carries each construct's indentation (List (Nat, Mode, Doc)); fitsFrom takes width and lineIndent; lineIndent moves at a comment break, as the printer's does (Rust's doesn't). `fits` and `fitsFlat` are gone: every measure uses the real width.\n\nProofs: only the budget proofs. fitsFromEnough and pairStepsMap restated (new arguments); chooseEnough, stepEnough, stepIsReading re-proved, same statements. audit Toy.Doc.Proofs: 302 theorems, 0 failed, same 4 warnings. No top theorem changed. Whole toy project checks; Toy++ examples check.\n\nLayouts: 7 of 22 probes now keep the author's shape (after a call's (, operator, callee [the ) left of its argument], ., unary -, fn, if before a field's )); the Sprig++ header golden and Parsing's spare-brackets golden follow. Still odd (not fits): comment after a header's ( or ), own-line comment before a call's ( (its ) still left of its argument).\n\nTests: Toy.Doc.Tests 19/19 (2 new, failing on the old engine); Probes 4/4, Goldens 17/17, Parsing 10/10, Driver 18/18, Places 5/5, Validation 7/7, Disturbance 15/15.\n",
       "created": "2026-11-15",
       "updated": "2026-11-17",
       "commits": []

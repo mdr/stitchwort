@@ -81,7 +81,12 @@ theorem stepIsReading ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List
       match empty: printer.suffixes.isEmpty with
         | False => Inr byComputing
         | True =>
-          match fit: fits total [(Flat, item)] rest (printer.left - 1) with
+          match fit: fitsFrom total printer.width
+            [(indent, Flat, item)]
+            rest
+            (printer.left - 1)
+            printer.lineIndent
+            False with
             | True => Inl ((byComputing, byComputing))
             | False => Inr byComputing
     | Print indent mode doc =>
@@ -93,7 +98,7 @@ theorem stepIsReading ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List
               match hard with
                 | True => Inr ((byComputing, byComputing))
                 | False =>
-                  match fit: printer.fitsHere total [(Flat, inner)] rest with
+                  match fit: printer.fitsHere total [(indent, Flat, inner)] rest with
                     | True => Inl (((Inr byComputing), byComputing))
                     | False => Inr ((byComputing, byComputing))
         | Fill [] => byComputing
@@ -104,7 +109,7 @@ theorem stepIsReading ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List
               Inr
                 ((
                   byComputing,
-                  (if printer.fitsHere total [(Flat, first)] (others.map (FillSep indent) ++ rest) then Flat
+                  (if printer.fitsHere total [(indent, Flat, first)] (others.map (FillSep indent) ++ rest) then Flat
                    else Break),
                   byComputing
                 ))

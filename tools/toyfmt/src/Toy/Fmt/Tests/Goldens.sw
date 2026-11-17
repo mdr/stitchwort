@@ -499,11 +499,8 @@ def parameterGroups: Golden :=
     formatted = """
       fn area takes (w h: Int) = w * h
       fn readVec takes (v: Vec) = v
-      fn stream takes (
-          head: Int,
-          rest: -- c
-            Nat
-      ) = rest
+      fn stream takes (head: Int, rest: -- c
+          Nat) = rest
       fn next takes -- why
         (
           n: Nat
