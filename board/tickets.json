@@ -41656,12 +41656,12 @@
     {
       "id": 3695,
       "title": "[DeepSeek] examples/projects/** still have redundant then byComputing (trip-journal Trip/Proofs/Self.sw: 18 warnings, and others): apply the quick fixes (stitchwort check --index ranges), keep each project checking, refresh its snapshots (SW-3681 follow-up)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~20 min (est. 20).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -41708,12 +41708,12 @@
     {
       "id": 3699,
       "title": "[DeepSeek] Cheap guard for SW-3694's heap regression: a unit test pinning size_of::<undo::Snapshot>() (and Held) with a comment saying a deep recursion keeps one per level, so a field added there must be boxed or justified",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~10 min (est. 10).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
