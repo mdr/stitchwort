@@ -41990,12 +41990,12 @@
     {
       "id": 3733,
       "title": "[Sonnet] After 'rewrite … then', a let on the next line at the same indent doesn't parse; the block must be indented further. Accept it, or say so in the error (Toy++ T4 friction, SW-3724)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Group 4 (Matt, 17 Nov 2026: 'group 4 fine, I agree'): scheduled as slots free. SW-3733: accept the let at the same indent; guide gets a line.",
+      "body": "\nGroup 4 (Matt, 17 Nov 2026: 'group 4 fine, I agree'): scheduled as slots free. SW-3733: accept the let at the same indent; guide gets a line.\n\nLane note: accepted. then_body in the parser: a then ending its line takes the same-column lines below as its body. Example examples/accept/rewrite-then-let-same-column.sw.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42081,12 +42081,12 @@
     {
       "id": 3740,
       "title": "[Sonnet] .read takes apart only one &&: a five-part conjunction needs four nested lets; destructure the whole chain (Toy++ T5 friction, SW-3737)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Group 4 (Matt, 17 Nov 2026: 'group 4 fine, I agree'): scheduled as slots free. SW-3733: accept the let at the same indent; guide gets a line.",
+      "body": "\nGroup 4 (Matt, 17 Nov 2026: 'group 4 fine, I agree'): scheduled as slots free. SW-3733: accept the let at the same indent; guide gets a line.\n\nLane note: a tuple pattern in a let now reads a test fact component (patlet.rs destructure falls back to the match path, which reads it), so let (a, b, c, d, e) := h.read takes a five-part && chain apart; leaves are test facts (use .read). Example examples/accept/proof-tuple-test-chain.sw.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42986,12 +42986,12 @@
     {
       "id": 3809,
       "title": "[Sonnet] Toy++ friction group 4: SW-3740 (.read destructures a whole && chain) and SW-3733 (a let after 'rewrite … then' at the same indent)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\n\nLane note: done, commit 32de99103 on lane/SW-3809; both tickets in review.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
