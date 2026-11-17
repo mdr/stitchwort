@@ -22453,7 +22453,7 @@
     {
       "id": 3867,
       "title": "[Sonnet] std Parse: a runFrom decomposition lemma for j (p()) when p fails (only runFromThenOk2 exists), to prove ReadsBeforeCalls for bodies that read through an arbitrary parser; and Gives/ReadsIn lemmas for Parse.loop (SW-3854 left)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
