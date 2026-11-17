@@ -1,5 +1,5 @@
 {
-  "next": 3744,
+  "next": 3748,
   "tickets": [
     {
       "id": 47,
@@ -41891,12 +41891,12 @@
     {
       "id": 3726,
       "title": "[Opus] Elaborator: a right-nested chain of (DecEq.decide a b).holds && … is cubic in its length (32 terms 1.54M steps vs 54K as a == b), and And.left (And.right^k q) chains likewise; Eq.trans of Eq.congs 16x the raw J chain. Profile and fix (SW-3725 note, reproducers gen2.py/gen4.py in its appendix). First lane of SW-3719",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "D3669 (Matt, 17 Nov 2026): 'agree with recommendation': keep deriving every type's instances eagerly (D3609) and fix the cost where it arises (C: the elaborator slow path SW-3726, then cheaper generated proofs SW-3719), not derive-on-first-use (SW-3725).\n\nLane (Opus, 17 Nov, 08:47-09:20): fixed, commit on lane/SW-3726. Cause 1: as_bool zonked each level's right operand (the whole tail) out of its binder for a conjunction nothing used when neither side is a decided proposition; now only when one side is. Cause 2: applying a solved unknown's solution copied the environment once per lambda (quadratic in the variables in scope); force_solved and Frame::Replay now enter a run of lambdas at once. 32-term DecEq chain 1.54M -> 245K steps; projection chain at depth 30 896K -> 418K; 16-field record 19.27M -> 16.85M; Nat import program -4%. No hashes changed. Test derive_cost::decide_chains_grow_quadratically (fails before: 1.54M, 6.8x). Left (other mechanisms, in docs/performance/log.md): .holds infers its receiver twice (dot::prefix_form) plus instance search; projection chains still ~cubic (unifier re-forces the chain of unknowns at each level); decided-proposition && chains cubic in solve_ready_instances_keeping; derived record cost mostly effects::call_performs and infer_j.\n",
+      "body": "D3669 (Matt, 17 Nov 2026): 'agree with recommendation': keep deriving every type's instances eagerly (D3609) and fix the cost where it arises (C: the elaborator slow path SW-3726, then cheaper generated proofs SW-3719), not derive-on-first-use (SW-3725).\n\nLane (Opus, 17 Nov, 08:47-09:20): fixed, commit on lane/SW-3726. Cause 1: as_bool zonked each level's right operand (the whole tail) out of its binder for a conjunction nothing used when neither side is a decided proposition; now only when one side is. Cause 2: applying a solved unknown's solution copied the environment once per lambda (quadratic in the variables in scope); force_solved and Frame::Replay now enter a run of lambdas at once. 32-term DecEq chain 1.54M -> 245K steps; projection chain at depth 30 896K -> 418K; 16-field record 19.27M -> 16.85M; Nat import program -4%. No hashes changed. Test derive_cost::decide_chains_grow_quadratically (fails before: 1.54M, 6.8x). Left (other mechanisms, in docs/performance/log.md): .holds infers its receiver twice (dot::prefix_form) plus instance search; projection chains still ~cubic (unifier re-forces the chain of unknowns at each level); decided-proposition && chains cubic in solve_ready_instances_keeping; derived record cost mostly effects::call_performs and infer_j.\n\nModel result: opus, worked, 30 min (est. 60). No hash change. 16-field record 19.27M -> 16.85M; the rest is in SW-3744 SW-3745 SW-3746 SW-3747  and SW-3719 (reshaping the proofs).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -42117,6 +42117,66 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3744,
+      "title": "[Opus] The unifier re-forces chains of solved unknowns at every level, so And.left (And.right^k q) is still about cubic (6.5x per doubling; depth 30: 418K steps): path compression or a design change in forcing (SW-3726 finding; gen6.py)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3745,
+      "title": "[Sonnet] A chain of decided propositions joined by && (a0 = b0 && …, read as a Bool) is cubic: half its time in solve_ready_instances_keeping -> unsolved_placeholder; 32 terms 448K steps (SW-3726 finding; gen5.py)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3746,
+      "title": "[Sonnet] .holds on a call infers its receiver twice, once for dot notation and once as an argument (dot::prefix_form, 29% of a DecEq.decide chain) (SW-3726 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3747,
+      "title": "[Opus] effects::call_performs is 31% of a 16-field derived record's elaboration: the effect check seems to re-walk nested generated syntax at each level; profile and fix (SW-3726 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
