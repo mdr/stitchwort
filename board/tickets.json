@@ -41868,7 +41868,7 @@
     {
       "id": 3711,
       "title": "[Sonnet] Under a small --size limit, std's lazily checked Omega.* declarations (Fact reads back ~3,300 nodes) fail with E-RESOURCE blamed on std, before the user's file is reached (SW-3704). Std's own declarations shouldn't be read back or limited by the user's size budget; find why they are and fix",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
