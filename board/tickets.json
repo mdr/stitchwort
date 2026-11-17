@@ -22661,12 +22661,12 @@
     {
       "id": 3883,
       "title": "[Sonnet] An oracle for the self-hosted formatter's meaning: check both sides of a meaning-equal pair and compare declaration hashes, with generated inputs for the group-split and head-bracket shapes; catches a wrong meaning, which Twin --stage meaning cannot (SW-3878 S4)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nSW-3883 (Sonnet): dev/fmt-meaning-oracle + Twin meaningdump stage; 118 pairs, 101 agreed, 0 findings; notes in tools/fmt/NOTES.md. Model result: Sonnet, worked, 20 min (est. 30).\n",
+      "body": "\n\nSW-3883 (Sonnet): dev/fmt-meaning-oracle + Twin meaningdump stage; 118 pairs, 101 agreed, 0 findings; notes in tools/fmt/NOTES.md. Model result: Sonnet, worked, 20 min (est. 30).\n\nModel result: sonnet, worked, 19 min (est. 30). Verified it catches a regression (SW-3881 reverted). Not yet a task wrapper; run by hand or from Overmind.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": [
