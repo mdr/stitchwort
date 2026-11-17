@@ -1,5 +1,5 @@
 {
-  "next": 3732,
+  "next": 3737,
   "tickets": [
     {
       "id": 47,
@@ -41961,6 +41961,71 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3732,
+      "title": "[DeepSeek] A local def shadowed silently by a (..)-imported name of the same name gives a misleading type error ('expected List, got Punctuation': closerAhead vs BlockProofs.closerAhead): say which closerAhead was used and that the local one is hidden (Toy++ T4 friction, SW-3724)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3733,
+      "title": "[Sonnet] After 'rewrite … then', a let on the next line at the same indent doesn't parse; the block must be indented further. Accept it, or say so in the error (Toy++ T4 friction, SW-3724)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3734,
+      "title": "[Sonnet] cases on an equality between values of a non-recursive type (isPostfix t = True after a pass) finds 'nothing to split on'; a ten-arm match was needed. Split by the type's constructors (Toy++ T4 friction, SW-3724)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3735,
+      "title": "[DeepSeek] stitchwort eval with a project file can't see names the file imports (SourceFile.tidy): load the file's imports (Toy++ T4 friction, SW-3724)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3736,
+      "title": "[DeepSeek] A test whose match evaluates to False shows no left/right values (through a helper def it does): show them for a match too (Toy++ T4 friction, SW-3724)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
