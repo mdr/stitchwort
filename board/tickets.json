@@ -1,5 +1,5 @@
 {
-  "next": 3851,
+  "next": 3853,
   "tickets": [
     {
       "id": 47,
@@ -22141,12 +22141,12 @@
     {
       "id": 3843,
       "title": "[Opus] std Float: a law bridging the total order to IEEE comparison (x <= y with neither NaN gives Float.ieeeLe x y, and back), plus jsMin/jsMax laws for non-NaN operands; every JS-comparison port needs them (SW-3830 finding; Whereabouts answer-in-band)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "Progress (Opus lane, 16:21-16:53, est. 30 min): done in commit d4c603517 on lane/SW-3843.\n- Bridge: Float.ieeeLeOfLe, Float.leOfIeeeLe (or both zeros), Float.ieeeLtOfLt (needs not both zeros), Float.ltOfIeeeLt (Float.sw).\n- jsMin/jsMax moved to std as Float.min/Float.max (JS Math.min/max of two) with laws in both orders (Float.sw); Whereabouts.Hints uses them.\n- Float.addMonotoneLeft/addMonotone, Float.mulMonotoneLeft/mulMonotone (non-negative finite factor), all finite operands (Theory.sw).\n- Tests: hash_stability::prelude (48 additions, re-accepted), fmt_repo:: pass; std tests via scratch file pass; whereabouts check and audit Whereabouts.Hints.Proofs (21 passed).\n",
+      "body": "Progress (Opus lane, 16:21-16:53, est. 30 min): done in commit d4c603517 on lane/SW-3843.\n- Bridge: Float.ieeeLeOfLe, Float.leOfIeeeLe (or both zeros), Float.ieeeLtOfLt (needs not both zeros), Float.ltOfIeeeLt (Float.sw).\n- jsMin/jsMax moved to std as Float.min/Float.max (JS Math.min/max of two) with laws in both orders (Float.sw); Whereabouts.Hints uses them.\n- Float.addMonotoneLeft/addMonotone, Float.mulMonotoneLeft/mulMonotone (non-negative finite factor), all finite operands (Theory.sw).\n- Tests: hash_stability::prelude (48 additions, re-accepted), fmt_repo:: pass; std tests via scratch file pass; whereabouts check and audit Whereabouts.Hints.Proofs (21 passed).\n\nModel result: opus, worked, 32 min (est. 30). Names Float.min/Float.max (JS Math.min/max semantics: NaN wins, -0 below +0), differing from Ord.min/max where the NaN loses: orchestrator's call to keep them, matching Float.floor/round = Math.*; told Matt in one line. Follow-ups SW-3851 SW-3852.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22237,6 +22237,32 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3851,
+      "title": "[DeepSeek] check --std prints only 'checked 1 standard library file' on success and hides its warnings (they show only when the file fails): show warnings on success (SW-3843 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3852,
+      "title": "[Sonnet] std Float: Float.addComm and Float.mulComm (bits-level lemma: Int.mulComm and xor commuting), then derive mulMonotone from mulMonotoneLeft (SW-3843 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
