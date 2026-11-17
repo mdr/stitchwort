@@ -204,7 +204,7 @@ A `rewrite` closes the goal by computing by itself, so `rewrite h then byComputi
 ```stitchwort
 theorem swappedSum ∀ (a b c: Nat): (a + b) * 1 + c = b + a + c :=
   let swapped: (a + b) * 1 = b + a := rewrite Nat.mulOne (a + b), Nat.addComm a b
-  rewrite swapped then byComputing
+  rewrite swapped
 ```
 
 A change to one of the rules then breaks at the stated fact, with its goal to compare, and the rest of the proof is unaffected. A theorem whose proof runs over about 15 lines ends its `--|` doc with the proof idea in a sentence or two (the induction, the key lemma, the invariant), not a narration of the steps.
@@ -766,7 +766,7 @@ Here `h.read` is the answer. Equality works the same way. For a record with `==`
 
 <!-- snippet: tests-and-propositions.sw#same -->
 ```stitchwort
-theorem sameName ∀ (a b: Booking) (h: a == b): a.name = b.name := rewrite h.read then byComputing
+theorem sameName ∀ (a b: Booking) (h: a == b): a.name = b.name := rewrite h.read
 ```
 
 ### Building a fact
@@ -890,7 +890,7 @@ For a test that is `==`, no reading is needed: the fact reads as what the decisi
 <!-- snippet: proofs.sw#readings-decisions -->
 ```stitchwort
 theorem sameKey ∀ [auto eq: DecEq k] (a b c: k) (h: (a == b && b == c) = True): a = c := match h with
-  | Both ab bc => rewrite ab.read, bc.read then byComputing
+  | Both ab bc => rewrite ab.read, bc.read
 
 theorem differ ∀ [auto eq: DecEq k] (a b: k) (h: (a == b) = False): a ≠ b := h.read
 ```

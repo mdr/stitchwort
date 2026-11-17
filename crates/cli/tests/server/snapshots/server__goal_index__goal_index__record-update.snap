@@ -6,6 +6,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -45,6 +46,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -92,6 +94,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {

@@ -6,6 +6,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [],
       "lemma": "theorem addZeroGoal1: 0 = 0 := ?",
@@ -36,6 +37,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {

@@ -6,6 +6,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -41,6 +42,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -76,6 +78,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "facts": [
         "m ≠ 5",
@@ -121,6 +124,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -155,6 +159,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "facts": [
         "d ≠ 'k'"
@@ -199,6 +204,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -233,6 +239,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -267,6 +274,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "facts": [
         "t ≠ \"ab\"",
@@ -313,6 +321,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -348,6 +357,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -383,6 +393,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "facts": [
         "m ≠ -1",
@@ -429,6 +440,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -464,6 +476,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "facts": [
         "n ≠ 5"
@@ -508,6 +521,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -547,6 +561,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -586,6 +601,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "facts": [
         "m ≠ 6"
@@ -635,6 +651,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -672,6 +689,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "facts": [
         "m ≠ 1",
@@ -717,6 +735,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
@@ -756,6 +775,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "facts": [
         "x ≠ 0"
@@ -800,6 +820,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "facts": [
         "x ≠ 0",
@@ -849,6 +870,7 @@ expression: json
   {
     "code": "GOAL",
     "file": 0,
+    "fixes": [],
     "goal": {
       "hypotheses": [
         {
