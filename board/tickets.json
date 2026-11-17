@@ -41917,7 +41917,7 @@
     {
       "id": 3728,
       "title": "[DeepSeek] fmt: a trailing comment between two names of a binder group in a statement's ∀ ('(a-- c' newline 'b: Bool)') makes the output fail to parse ('expected := … found b'); the formatter refuses. Fuzz seed 0x1011 COMMENTS=0.3 case 44514; minimal 8 lines: 'theorem byHyp ∀ (f: Bool → Bool → Bool) (same: ∀ (a-- c' / ' b:' / ' Bool) => f a' / ' a): ∀' / ' (a-- c' / ' b: Bool) =>-- c' / ' f a' / ' b = f b a := cas'. Same family as 0x920/0x953 (comments in binder groups)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -42211,7 +42211,7 @@
     {
       "id": 3750,
       "title": "[DeepSeek] fmt: a trailing comment right after a let's := in a bracketed sequence makes the output fail to parse ('; needs an expression after it'); formatter refuses. Minimal: 'def value: Text :=' / ' (let x :=-- c' / ' 1; 2; x)'. Fuzz seed 0x1017 COMMENTS=0.3 case 223232. The ; family (0x925 fixed; this is a new shape)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
