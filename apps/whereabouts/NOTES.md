@@ -179,13 +179,14 @@ SW-3807 replaced the three, which had taken it to 2.7 minutes):
   The upper edge: unclamped (`latitudeToAboveUnclamped`), likewise; clamped
   at 90° (`latitudeToAboveClamped`), `(90 - width) + width` is above
   89.95° (`nearNinety`) and `ceil` is whole, so it rounds up to 90° or more
-  (`ceilAtLeast`, `ceilStepAtLeastNinety`). (A search of 2 million widths
+  (`Float.Theory.ceilAtLeast`, `ceilStepAtLeastNinety`). (A search of 2 million widths
   found `(90 - w) + w` exactly 90, but the standard model alone can't show
-  that, and the rounding argument doesn't need it.) Bridges: `leOfUnitsPos`
-  and `leOfUnitsNeg` (units in order give `<=` when the larger is positive
-  or the smaller negative; std candidates), `Float.ieeeLeOfLe`.
+  that, and the rounding argument doesn't need it.) Bridges:
+  `Float.Theory.leOfUnitsPos` and `leOfUnitsNeg` (units in order give
+  `<=` when the larger is positive or the smaller negative; in std since
+  SW-3896), `Float.ieeeLeOfLe`.
   Longitude: `wrapNear` (`wrap x`, `|x| ≤ 361`, is `x` less whole turns
-  to within 6 · 2^-44: `remStep` for each exact `%`, `sumNear` for each
+  to within 6 · 2^-44: `Float.Theory.remStep` for each exact `%`, `sumNear` for each
   sum). That answers finding 2 without a change to hints.ts: the band's
   margin, over 10 · 2^-44 after rounding takes 4 · 2^-44 of it, outlasts
   `wrap`'s error, so a narrow band doesn't need `wrap` exact on tenths.
@@ -194,8 +195,15 @@ SW-3807 replaced the three, which had taken it to 2.7 minutes):
   1`: `longitudeCases` sorts the edges' turns (none, the lower edge
   wrapped up, or the upper wrapped down: the band crosses ±180° and
   `from > to`), and `inLongitudeOfCases` reads that as `inHintBand` does.
-  `answerInBand` puts both axes together, with two hypotheses still
-  stated rather than proved (below).
+  `answerInBand` puts both axes together (SW-3895), for a cosine in
+  [1e-17, 1] (`Math.cos` of a latitude within ±π/2 is at least about
+  6.1e-17): `longitudeWidthRange` gives the width from it
+  (`Float.divAntitone`, `Float.divNotNaN`), and `floorCoarse` and
+  `ceilCoarse` bound the rounding at a band's step by 2°: at step 1 from
+  `Float.Theory.floorUnitsAbove` and `ceilUnitsBelow` (`x` within one of
+  its floor and ceiling, exactly), at step 0.1 from `quotientNear`
+  (`quotientCoarse` signed: the quotient has the dividend's sign) and
+  `tenthsCheck`'s bounds on `(t ± tenthsSlack) / 0.1`.
 
 Not proved, with the law each needs. Each holds only for finite inputs in
 range (|lat| ≤ 90, -180 ≤ lon < 180, 0 ≤ unit ≤ 1, 0 < width ≤ 120 for
@@ -207,7 +215,7 @@ finding 1.
 | margin before rounding: the answer is at least 0.15 · width from each unrounded edge | Done (SW-3858): `marginBelowExact` and `marginAboveExact`, at least 2^-42 in exact units for a width of at least 1e-11° (the float form, `marginRow`, SW-3844, is what they start from). |
 | outward rounding contains the unrounded band, step 1 | Done (`outwardRoundingWhole`, SW-3830), for edges below 2^49 in size. |
 | outward rounding, step 0.1 | false as stated (finding 1), and the bound `floorTo x 0.1 <= x + 2^-45` given here before is false too (SW-3844, `floorToTenthOneUlpAbove`: from 256° an ulp is 2^-44). Done in its true form (SW-3858): `floorToTenthBound` and `ceilToTenthBound`, 2^-42 for `\|x\| ≤ 360` in exact units, with the round trip (`tenthsRoundTrip`) on the way. A search of 800,000 inputs found the error at most one ulp (2^-44 at most within 360°), so 2^-42 has room to spare. |
-| the answer is in its band | Assembled (SW-3871): `answerInBand`, both axes; latitude in full (`answerInLatitudeBand`). Two hypotheses of the longitude half are stated, not proved: (a) `lonWidth`, the width `min (span / cosLatitude) 120` from 1e-11° to 120°, which needs std's division to be antitone in the divisor (`0 < d ≤ e`, `0 ≤ x` finite → `x / e <= x / d`) and `x / d` finite for finite `x` and positive `d` ≥ 1e-17, with the caller's cosine in [1e-17, 1]; (b) `floorCoarse`, `ceilCoarse`, rounding at a band's step moves an edge within 360° outwards by at most 2° (by one step in fact): at step 1 from `Float.ltFloorAddOne` and `Float.ceilSubOneLt` with whole sums exact; at step 0.1 it needs signed forms of `quotientCoarse` and `tenthCoarse` (they bound sizes, not signed values). Finding 2 needs no hints.ts change (`wrapNear`). Parts proved before SW-3871: step 1 (`outwardRoundingWhole`) and step 0.1 (`floorToTenthBound`, `ceilToTenthBound`); the exact margin (`marginBelowExact`, `marginAboveExact`), which carries finding 1's tolerance bound as `1e-11 <= width`; the `Float.min`/`Float.max` laws (SW-3843); latitude's clamps (SW-3844); the bridge to JS's comparison (`Float.ieeeLeOfLe`, SW-3843); `wrap` on whole degrees (`wrapWholeExact`). SW-3871 did the rest it listed: latitude's clamps, the width from the tolerance, `wrap`'s error on any double, and the wrapped reading. |
+| the answer is in its band | Done (SW-3871, SW-3895): `answerInBand`, both axes, with no hypotheses beyond the input ranges and a cosine in [1e-17, 1]. Latitude: `answerInLatitudeBand`. Longitude: `longitudeBandContains`, with the width from `longitudeWidthRange` (std's `Float.divAntitone` and `Float.divNotNaN`, SW-3896) and the rounding bound from `floorCoarse` and `ceilCoarse` (step 1: `Float.Theory.floorUnitsAbove`, `ceilUnitsBelow`; step 0.1: `quotientNear`, the signed form of `quotientCoarse`). Finding 2 needs no hints.ts change (`wrapNear`). |
 | `wrap` ∈ [-180, 180) for finite input | Done (`wrapRange`, SW-3805). It used: `rem`'s range: `y > 0` finite, `x` finite → `|x % y| < y`, sign of `x`, exact (`x − n·y` for the whole `n` of truncated division); `+ 360.0` of a value in (-360, 360) lands in [0, 720] (rounding may reach 720, which `% 360` maps to 0); Sterbenz for `z - 180.0` with `z` in [90, 360) (exact), and `z - 180.0 < 180.0` for `z < 360` below 90 by monotonicity. |
 | `describeHint` names the edges | nothing about `Float.toText` can be proved (only the runtimes compute it). What can be stated is `tenthsKeepTheirLabel` (done), and for every input, that latitude edges are tenths: `round` returns a whole double (`Float.toInt (round x) = Some k`), and `/ 10.0` of a whole double is `tenth k`. Longitude edges aren't (finding 2). |
 
@@ -241,19 +249,21 @@ What was awkward to express:
 
 Missing laws: see the table. Monotonicity, the standard-model error bound
 (SW-3844), `round`'s spec (SW-3844), `rem`'s range and Sterbenz are done;
-the step-0.1 chain and the exact margin use them (SW-3858). What is left of
-the containment theorem is the two stated hypotheses in the table's row. The
-lemmas that were std candidates (SW-3858, SW-3872) are now in std
+the step-0.1 chain and the exact margin use them (SW-3858). The containment
+theorem is proved in full (SW-3895). The lemmas that were std candidates (SW-3858, SW-3872) are now in std
 (`Float.Theory.unitsNeg`, `sumNear`, `remUnitsExact`, `addWholeExact`,
 `relCancel`, `relCancelScaled`, `Float.mulBetween`; SW-3873, SW-3886).
-From SW-3871: `leOfUnitsPos` and `leOfUnitsNeg` (units in order give the
-total order when the larger is positive or the smaller negative; with
-`lessOfUnits` they close most of the gap between units and `<=`),
-`ceilAtLeast` (`ceil` reaches the next whole number), `wrapNear`'s
-`remStep` (`x % y` as `x` less whole `y`s, signed), and `floorFinite360`
-(floor and ceil of a bounded double are finite). Missing from std:
-division antitone in the divisor, and that a finite double over a
-positive one isn't the NaN (both for `lonWidth`).
+From SW-3871, now in std too (SW-3896): `Float.Theory.leOfUnitsPos` and
+`leOfUnitsNeg` (units in order give the total order when the larger is
+positive or the smaller negative; with `lessOfUnits` they close most of
+the gap between units and `<=`), `Float.Theory.ceilAtLeast` (`ceil`
+reaches the next whole number, for any double below 2^53),
+`Float.Theory.remStep` (`x % y` as `x` less whole `y`s, signed, for any
+positive finite `y`), and `Float.floorIsFinite` and `Float.ceilIsFinite`
+(below 2^53; they replace `floorFinite360` and `ceilFinite360`). With
+them: division antitone in the divisor (`Float.divAntitone`) and a finite
+double over a positive one not the NaN (`Float.divNotNaN`), for the
+longitude width.
 
 Other std gaps:
 
