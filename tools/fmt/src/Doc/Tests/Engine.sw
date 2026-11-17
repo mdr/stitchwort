@@ -119,3 +119,22 @@ test "the measure after a comment break starts 2 in from the comment's line" :=
   let group := Doc.group (Doc.concat [t "a", Line, t "b"])
   let doc := Nest 4 (Doc.concat [HardLine, t "x", LineSuffix "-- c", t " ", group])
   print doc 9 == "\n    x -- c\n      a b" && print doc 8 == "\n    x -- c\n      a\n    b"
+
+--| What `balanced_fill` measures its items with (`Doc.flatWidth` here).
+test "flat width counts characters, with a line as one space" :=
+  wide.flatWidth == Some 6
+    && (bracketList ["a", "b"]).flatWidth == Some 6
+    && (Empty |> .flatWidth) == Some 0
+    && (t "→").flatWidth == Some 1
+
+test "a document that must break has no flat width" :=
+  (Doc.concat [t "a", HardLine, t "b"]).flatWidth == None
+    && (BreakParent |> .flatWidth) == None
+    && (OneLineBelow (t "a")).flatWidth == None
+    && (Doc.concat [t "a", LineStart, t "-- c"]).flatWidth == None
+
+test "a flat width is that of the flat print, whatever the layout would do" :=
+  (Fill [t "aaa", t "bbb", t "ccc"]).flatWidth == Some 11
+    && (Choice [Flatten (t "f a"), Doc.concat [t "f", HardLine, t "a"]]).flatWidth == Some 3
+    && (Doc.concat [t "x", LineSuffix "-- c"]).flatWidth == Some 6
+    && (Doc.concat [t "a", Closing ")"]).flatWidth == Some 2

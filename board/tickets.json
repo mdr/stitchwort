@@ -1,5 +1,5 @@
 {
-  "next": 3916,
+  "next": 3921,
   "tickets": [
     {
       "id": 47,
@@ -22676,12 +22676,12 @@
     {
       "id": 3884,
       "title": "[Opus] Stage 5 planning: make meaning genuinely comment-free (today a meaning still stores every token's comments, unread). Options: (a) Meaning as the dump of the plain tree (least code; trusts the dump, which Twin already does; proofs then go through the dumper), (b) a map blanking every comment (~90 places of trusted code). Orchestrator's call under D3678 when stage 5's top theorem is set up, weighing proof cost (SW-3882 finding)",
-      "status": "doing",
-      "agent": "",
+      "status": "done",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Decided by SW-3902's plan (orchestrator's call): option (b), a blanking map applied before meaning's steps; fails safe; stage 5's top theorem gets meaning by congruence.\n\nNow needed: SW-3877 showed P4 doesn't keep meaning as written (split group pieces all carry the opening bracket's comments). Do (b) the blanking map, then P4's merge fact and the four-pass theorem.",
+      "body": "Decided by SW-3902's plan (orchestrator's call): option (b), a blanking map applied before meaning's steps; fails safe; stage 5's top theorem gets meaning by congruence.\n\nNow needed: SW-3877 showed P4 doesn't keep meaning as written (split group pieces all carry the opening bracket's comments). Do (b) the blanking map, then P4's merge fact and the four-pass theorem.\n\nProgress (Opus lane, 17 Nov 2026, branch lane/SW-3884):\n- Done: Fmt/Blank.sw, the blanking map (a step-shaped function a traversal step, each blanking the node's own comments and those of step-less records inside it); meaning's steps blank each node first and meaning blanks the end comments. BlankProofs.sw: meaningBlanksFirst, file.withoutComments.meaning = file.meaning (no axioms). P1-P3 proofs fixed (firstThreeKeepMeaning, no axioms). Test: a merged group's pieces hold no comments.\n- Checked: Twin --stage meaning kept on 132 goldens + 224 repo files; meaning oracle 103 agreed, 0 findings; twin passes goldens 132/132, repo 300/300.\n- Not done: P4's Keeps fact and tidyKeepsMeaning. Stopped per brief: joins reads the raw type's dump (typeLines) where meaning reads the walked type, for type equality (false over all trees: the dump omits an atom's Tok) and for self-naming; closing it changes joins (proposed: compare walked types with Expr's derived ==, and self-naming on the walked merged type). See tools/fmt/NOTES.md, \"A comment-free meaning\".\n\n\nResumed (orchestrator: joins = rustJoins AND meaningJoins): P4 and tidyKeepsMeaning proved, no axioms (MergeProofs.sw). Twin (interpreted) passes goldens 132/132, repo 300/300; meaning stage kept 132 + 224; oracle 103 agreed, 0 findings.\n\nModel result: opus, worked, 30 min over two parts (est. 45). Orchestrator's call: joins conjoins Rust's test with meaning's (subset of Rust's merges; output byte-identical). Statement checked: tidyKeepsMeaning ∀ file, file.tidy.meaning = file.meaning, with tidy the four passes in order. Follow-ups SW-3918 SW-3919.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22733,7 +22733,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Expected: 45 min (Opus). Started 20:56, done 21:15.\n\nProgress (Opus, lane/SW-3888):\n- Reproduced in a scratch project: a closed `(List.range 0 3601).all slow = True` proved by List.allTrue from a per-element lemma checks in 9.6 s, against 2.0 s with 3 items.\n- Cause (samply): two kernel sites, none in the elaborator. 67% in admit_group's conv (found_as_expected): the proof's glued type, a call, against Def::ty_value, already unfolded to `True = True`, so the call is forced. 21% in push_def: ty_value is evaluated unglued, so the closed statement is computed at once. Not needed for soundness or a feature: a side effect of folded-calls.md stage 4's \"a type's kept value is made unglued\".\n- Fix found but not built (kernel change): evaluate ty_value glued in push_def (and retype_def). Prototype: 9.6 s -> 1.95 s; byComputing closed statements 9.6 -> 10.9 s (the kernel's run of it is now glued, ~1.4x); Whereabouts and two AoC 2020 proof namespaces unchanged within noise; soundness examples and hash_stability::{examples,prelude} pass. Written up in docs/proposals/glued-kept-types.md for Matt and an Opus review.\n\nModel result: opus, worked, 21 min (est. 45). Kernel cause, so stopped at a proposal as briefed. Prototype patch kept in the session scratchpad (sw3888/toggle.patch). Review SW-3911 (Fable) before the D question to Matt. Finding SW-3912.",
+      "body": "Expected: 45 min (Opus). Started 20:56, done 21:15.\n\nProgress (Opus, lane/SW-3888):\n- Reproduced in a scratch project: a closed `(List.range 0 3601).all slow = True` proved by List.allTrue from a per-element lemma checks in 9.6 s, against 2.0 s with 3 items.\n- Cause (samply): two kernel sites, none in the elaborator. 67% in admit_group's conv (found_as_expected): the proof's glued type, a call, against Def::ty_value, already unfolded to `True = True`, so the call is forced. 21% in push_def: ty_value is evaluated unglued, so the closed statement is computed at once. Not needed for soundness or a feature: a side effect of folded-calls.md stage 4's \"a type's kept value is made unglued\".\n- Fix found but not built (kernel change): evaluate ty_value glued in push_def (and retype_def). Prototype: 9.6 s -> 1.95 s; byComputing closed statements 9.6 -> 10.9 s (the kernel's run of it is now glued, ~1.4x); Whereabouts and two AoC 2020 proof namespaces unchanged within noise; soundness examples and hash_stability::{examples,prelude} pass. Written up in docs/proposals/glued-kept-types.md for Matt and an Opus review.\n\nModel result: opus, worked, 21 min (est. 45). Kernel cause, so stopped at a proposal as briefed. Prototype patch kept in the session scratchpad (sw3888/toggle.patch). Review SW-3911 (Fable) before the D question to Matt. Finding SW-3912.\n\nD3680 (build glued kept types with SW-3911's R1-R5?) raised 17 Nov; Matt: discuss tomorrow when fresh (18 Nov). Not started.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22858,7 +22858,7 @@
     {
       "id": 3898,
       "title": "[Sonnet] std Float: absBelowOf (-b <= x, x <= b, b < c gives abs x < c) to replace Whereabouts' absWithin360/absWithin3600; and divNear, quotientNear's signed bound for any positive divisor, beside divRelError (SW-3895 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22988,12 +22988,12 @@
     {
       "id": 3908,
       "title": "[DeepSeek] tools/fmt Passes.sw: joins compares the two groups' GroupKind (harmless on parsed files; needed for P4's proof) (SW-3877 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "done",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nDone in the SW-3884 lane (Opus, 17 Nov 2026): joins compares current.kind == next.kind. Twin passes: goldens 132/132, repo sample 300/300 identical.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -23014,7 +23014,7 @@
     {
       "id": 3910,
       "title": "[DeepSeek] Proving guide: state facts about {Fail} functions through a named wrapper (Fail.toResult (() => x.traverse on) otherwise wraps the thunk as a value) (SW-3877 friction)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23027,12 +23027,12 @@
     {
       "id": 3911,
       "title": "[Fable paper] Review docs/proposals/glued-kept-types.md (SW-3888): evaluating a definition's kept type glued in push_def/retype_def; soundness, opacity, readers of Def::ty_value, messages, byComputing cost",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Expected: 30 min (Fable, paper). Started 21:15, done 21:25.\n\nReview: docs/reviews/SW-3911-glued-kept-types.md\n\nVerdict (Fable, lane/SW-3911): sound as proposed for what the kernel accepts; land with changes. Required: R1 record the kernel flag in value.rs Modes (else a kernel-made unfolding kept in a type reaches the elaborator, and goals differ between a checked and a cached body); R2 force in five readers that match the kept type's top without forcing (auto.rs result_head, dot.rs:2013 and :2042, interfaces.rs:1293, library.rs:964); R3 a step-budget kernel test; R4 comments, folded-calls.md, core.md; R5 measure by-computing closed statements and peak memory before landing. Recommended: R6 glue on before def_type in admit_group. Nothing was built or run (paper lane, no patched binary): claims about behaviour with the change are from reading.\n\nFindings: F1 determined.rs and erase.rs read ty_value where def_type is meant (exists today); F2 set_run_body checks with gluing off.\n\nModel result: fable, worked, 10 min (est. 30). Verdict: sound as proposed; land with R1-R5. D3680 to Matt. Findings SW-3916 SW-3917.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -23040,7 +23040,7 @@
     {
       "id": 3912,
       "title": "[DeepSeek] docs/proposals/README.md index is out of date (says 156 notes; the folder has ~235): regenerate or list the missing ones (SW-3888 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23066,6 +23066,60 @@
     {
       "id": 3914,
       "title": "[Sonnet] Fmt.Doc: add Doc.flatWidth (balanced_fill measures items with it) and std-style API docs (engine plan E0 remainder); fix the plan's E0 wording (namespace Fmt.Doc, since plain Doc clashes with the type: E-FOREIGN-NAMESPACE)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Sonnet, 17 Nov 2026: added Fmt.Doc.flatWidth (tools/fmt/src/Doc/Measure.sw), proved flatWidthForced and flatWidthPrint, 3 tests in Tests/Engine.sw; doc comments on every def/theorem in Fmt.Doc (256 added); plan E0 wording fixed. check, test (99), audit Fmt.Doc (0 failed, 4 known warnings) pass.\n\nModel result: sonnet, worked, 20 min (est. 25). flatWidth defined through print (agreement by construction); structural width formula not needed yet. Docs sampled in review: terse, accurate.",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3915,
+      "title": "[Opus] Toy.Doc/Fmt.Doc audit warnings: closesWord, putMid, putSpaces and one more have hypotheses no generated input satisfies (0 of 1500); check each is not vacuous, before E1 (SW-3904 finding)",
+      "status": "done",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Expected 25 min (started 21:38).\n\nResult (Opus, 17 Nov): none of the four is vacuous; each has a checked witness.\n- closesWord: `)` (closesWordExample, new). Random texts are rarely exactly `)`, `]` or `,`.\n- spacesAfterComment: spacesAfterCommentExample (already there): \" \" after a waiting `-- c`. Random texts are rarely non-empty and all spaces.\n- putMid, putSpaces: putMidExample, putSpacesExample (new), built on midExample. `Agrees printer (Mid at) trace` is a 7-part invariant tying the printer's output to the trace; random printers never meet it.\nSame change in tools/fmt and tools/toyfmt. The warnings stay: the audit has no way to take a witness into account (finding: let audit accept a named witness theorem).\nTests: check, test (19/19), audit (0 failed, the same 4 warnings, 305 theorems) on Fmt.Doc and Toy.Doc; fmt on touched files.\n\nModel result: opus, worked, 2 min (est. 25). No statement changed; witnesses added. Follow-up SW-3920.",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": [
+        "e255554a2"
+      ]
+    },
+    {
+      "id": 3916,
+      "title": "[Opus] Kernel readers determined.rs:189 and erase.rs:195/238 read Def::ty_value where def_type is meant: what the telescope sees behind an opaque nickname depends on how the type is written (and for erasure, the mode at first use); probe sketched in docs/reviews/SW-3911-glued-kept-types.md (F1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3917,
+      "title": "[Opus] check.rs set_run_body checks with gluing off, unlike admit_group: deliberate or not? (SW-3911 F2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3918,
+      "title": "[DeepSeek] tools/fmt/NOTES.md: mark stage 4b's 'What 5 inherits' and SW-3877's 'P4 doesn't keep meaning as stated' superseded by the P4 section; add a ready-made wrapper for the interpreted Fmt.Twin (absolute batch paths, run from tools/fmt); note the native twin build peaks at 2.4 GB (SW-3884 friction)",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -23077,13 +23131,26 @@
       "commits": []
     },
     {
-      "id": 3915,
-      "title": "[Opus] Toy.Doc/Fmt.Doc audit warnings: closesWord, putMid, putSpaces and one more have hypotheses no generated input satisfies (0 of 1500); check each is not vacuous, before E1 (SW-3904 finding)",
+      "id": 3919,
+      "title": "[DeepSeek] Proving guide: a {Fail} step whose body never fails won't evaluate under Fail.toResult and blows cases' budget; declare such steps pure (SW-3884, stage 4b) — merge with SW-3910",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3920,
+      "title": "[Sonnet] Audit: let a witness silence the vacuity warning (a theorem applying the warned one to closed arguments, or an attribute naming it); and when every case is thrown out on one hypothesis, name it in the warning (SW-3915 findings; 4 Doc warnings recur otherwise)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "epic": "parser-proofs",
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",

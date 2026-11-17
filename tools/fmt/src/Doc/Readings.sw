@@ -54,6 +54,7 @@ def Reads (printer: Printer) (fuel: Nat) (stack: List Cmd) (final: Printer): Pro
   | Succ more, [cmd, ..rest] =>
     ∃ (next: Printer) => ∃ (later: List Cmd) => StepsTo printer cmd rest (next, later) ∧ Reads next more later final
 
+--| An `if` between two options of a choice picks one of them.
 theorem ifIsOption ∀ (condition: Bool) (option later: Doc) (others: List Doc)
     (laterIs: IsOption later others):
     (if condition then option else later) = option ∨ IsOption (if condition then option else later) others :=

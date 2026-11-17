@@ -9,8 +9,11 @@
 namespace Fmt.Doc
 import Std (List, Nat, Option, Text)
 
+--| How a group is being printed: all its breaks as spaces (`Flat`), or each as
+--| a line break (`Break`).
 type Mode = | Flat | Break
 
+--| Whether the mode is `Flat`.
 def Mode.isFlat: Mode → Bool := matches | Flat
 
 --| One step of the printer's work.
@@ -20,6 +23,7 @@ type Cmd =
   --| the line, otherwise a line break.
   | FillSep (indent: Nat) (item: Doc)
 
+--| The printer's state: what it has written, and the line it is on.
 type Printer = {
   width: Nat,
   --| What is printed so far, in pieces, the last first.
@@ -58,6 +62,8 @@ def Printer.start (width: Nat): Printer := {
   started = False
 }
 
+--| Runs the work list for at most `fuel` steps; `total` is the budget given to
+--| each `fits` question.
 def Printer.run (printer: Printer) (total fuel: Nat) (stack: List Cmd): Printer := match fuel, stack with
   | 0, _ => printer
   | _, [] => printer
@@ -65,6 +71,8 @@ def Printer.run (printer: Printer) (total fuel: Nat) (stack: List Cmd): Printer 
     let (next, stack) := printer.step total cmd rest
     next.run total more stack
 
+--| One step of the printer: the first command on the work list, and what it
+--| leaves of the list.
 def Printer.step (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cmd): (Printer, List Cmd) := match cmd with
   | FillSep indent item =>
     if printer.suffixes.isEmpty
@@ -73,6 +81,8 @@ def Printer.step (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cmd): (P
     else (printer.newline indent, [Print indent Break item, ..rest])
   | Print indent mode doc => printer.printDoc total indent mode doc rest
 
+--| The step for a `Print` command: writes or breaks at a leaf, and replaces a
+--| composite by its parts.
 def Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: Doc) (rest: List Cmd):
     (Printer, List Cmd) :=
   match doc with
@@ -144,6 +154,7 @@ def Doc.joinLines: List Doc → List Doc
 --| Columns left on this line.
 def Printer.left (printer: Printer): Nat := printer.width - printer.owed.getOrElse printer.column
 
+--| Writes the indentation owed, if any, before text on a fresh line.
 def Printer.payIndent (printer: Printer): Printer := match printer.owed with
   | None => printer
   | Some 0 => { printer | owed = None, column = 0 }
@@ -164,6 +175,8 @@ def Printer.write (printer: Printer) (indent: Nat) (text: Text) (width: Nat): Pr
 def Printer.close (printer: Printer) (text: Text): Printer :=
   if text.isEmpty then printer else printer.put text text.length
 
+--| Writes `text`, `width` columns wide, on the current line, after any
+--| indentation owed.
 def Printer.put (printer: Printer) (text: Text) (width: Nat): Printer :=
   let paid := printer.payIndent
   { paid |
@@ -182,6 +195,8 @@ def Printer.continuation (printer: Printer) (indent: Nat): Nat := Nat.max indent
 def Printer.lineStart (printer: Printer) (indent: Nat): Printer :=
   if printer.atLineStart then printer else printer.newline (printer.continuation indent)
 
+--| Writes the trailing comments that wait, each after a space, ending their
+--| line.
 def Printer.flushSuffixes (printer: Printer): Printer :=
   printer.suffixes.foldLeft { printer | suffixes = [] } Printer.flushOne
 
@@ -191,6 +206,8 @@ def Printer.flushOne (printer: Printer) (comment: Text): Printer :=
   let spaced := if printer.atLineStart then printer.payIndent else { printer | out = [" ", ..printer.out] }
   { spaced | out = [comment, ..spaced.out], atLineStart = False, newlinesAtEnd = 0, started = True }
 
+--| Ends the line: drops the spaces at its end, writes the waiting comments and
+--| a line break, and owes `indent` columns on the next.
 def Printer.newline (printer: Printer) (indent: Nat): Printer :=
   let flushed := { printer | out = trimSpaces printer.out }.flushSuffixes
   { flushed |
@@ -210,6 +227,8 @@ def trimSpaces (out: List Text): List Text := match out with
   | [last, ..earlier] if last.all (char => char == ' ') => trimSpaces earlier
   | _ => out
 
+--| An empty line, if the printer is at a line start after some output and the
+--| line before isn't already empty.
 def Printer.blank (printer: Printer): Printer :=
   if printer.atLineStart && printer.started && printer.newlinesAtEnd < 2 then
     { printer | out = ["\n", ..printer.out], newlinesAtEnd = printer.newlinesAtEnd + 1 }

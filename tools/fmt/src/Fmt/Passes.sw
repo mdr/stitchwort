@@ -326,15 +326,48 @@ def Group.typeLines (group: Group): List Text := match group.annotation with
   | None => []
 
 --| Whether `next` goes into the group `current` is the merge of so far:
---| the same brackets and the same type, no comment between them, and a type
---| that doesn't name any of their names (a dependent `(x: P x) (y: P x)`).
-def joins (current next: Group): Bool :=
+--| the same kind of group, the same brackets and the same type, no comment
+--| between them, and a type that doesn't name any of their names (a
+--| dependent `(x: P x) (y: P x)`); and `meaning` reading them alike. So
+--| P4 merges what the Rust pass merges, or less: never two types that
+--| differ only in what `meaning` forgets, such as a comment.
+def joins (current next: Group): Bool := rustJoins current next && meaningJoins current next
+
+--| `joins`' test as the Rust pass has it, on the groups' tokens.
+def rustJoins (current next: Group): Bool :=
   current.mergeable
     && next.mergeable
+    && current.kind == next.kind
     && current.implicit == next.implicit
     && next.open.above.isEmpty
     && current.typeLines == next.typeLines
     && !next.typeLines.any (line => (current.names ++ next.names).any (name => line.trim == name.text))
+
+--| Whether `meaning` reads the two groups alike but for their names, and
+--| splits each of them and their merge into one group a name, so that
+--| merging them keeps `meaning`. On a parsed file `rustJoins` implies it
+--| (`meaning` blanks comments and forgets brackets the earlier passes have
+--| already dropped); it is checked so that the proof needn't go through
+--| the dump.
+def meaningJoins (current next: Group): Bool :=
+  !current.names.isEmpty
+    && !next.names.isEmpty
+    && next.meaningForm.map Group.withoutNames == current.meaningForm.map Group.withoutNames
+    && current.meaningSplits
+    && next.meaningSplits
+    && { current | names = current.names ++ next.names }.meaningSplits
+
+--| The group as `meaning` reads it: its type walked with `meaning`'s
+--| steps, its comments blanked and its whole type unwrapped.
+def Group.meaningForm (group: Group): Option Group := match Fail.toResult (() => group.traverse meaningSteps) with
+  | Ok done => Some done.blank.plainType
+  | Err _ => None
+
+def Group.withoutNames (group: Group): Group := { group | names = [] }
+
+def Group.meaningSplits (group: Group): Bool := match group.meaningForm with
+  | Some form => form.splits
+  | None => False
 
 def mergeGroups: List Group → List Group
   | [] => []
@@ -358,11 +391,11 @@ def mergeParamsFrom (current: Group): List Param → List Param
     else [Grouped current, ..mergeParamsFrom next rest]
   | [other, ..rest] => [Grouped current, other, ..mergeParams rest]
 
-def mergeHeader (header: Header): {Fail} Header := match header.kind with
+def mergeHeader (header: Header): Header := match header.kind with
   | DefInstance => header
   | _ => { header | params = mergeGroups header.params }
 
-def mergeBinding: Expr → {Fail} Expr
+def mergeBinding: Expr → Expr
   | Binding BindsExists keyword params arrow body => Binding BindsExists keyword params arrow body
   | Binding kind keyword params arrow body => Binding kind keyword (mergeParams params) arrow body
   | other => other

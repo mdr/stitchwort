@@ -1506,3 +1506,17 @@ theorem midExample: Agrees ((Printer.start 80).put "f" 1) (Mid 0) [{ word = "f",
     []
     ((byComputing, byComputing, byComputing, byComputing, byComputing, byComputing, byComputing))
     byComputing
+
+--| An instance of `putMid` with all its hypotheses met, so it isn't
+--| vacuous: `g` after `f` doesn't start the line. The audit's random search
+--| can't find one, since a random printer almost never agrees with a trace.
+theorem putMidExample: Agrees (((Printer.start 80).put "f" 1).put "g" 1) (Mid 0) [
+      { word = "f", start = Some 0 },
+      { word = "g", start = None }
+    ] :=
+  putMid ((Printer.start 80).put "f" 1) "g" 1 0 [{ word = "f", start = Some 0 }] midExample byComputing
+
+--| An instance of `putSpaces` with all its hypotheses met, as for
+--| `putMidExample`: a space after `f` leaves the trace alone.
+theorem putSpacesExample: Agrees (((Printer.start 80).put "f" 1).put " " 1) (Mid 0) [{ word = "f", start = Some 0 }] :=
+  putSpaces ((Printer.start 80).put "f" 1) " " 1 0 [{ word = "f", start = Some 0 }] midExample byComputing

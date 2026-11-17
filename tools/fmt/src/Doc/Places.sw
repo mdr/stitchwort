@@ -176,17 +176,23 @@ def Puts (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Plac
     | Choice options => OptionsPut options indent place trace next
     | LineSuffix comment => isLayout comment = False ∧ SuffixPuts comment place trace next
 
+--| Each of the docs in turn puts its words, from the place and trace the one
+--| before left.
 def PutsAll (docs: List Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop): Prop :=
   match docs with
     | [] => next place trace
     | [doc, ..rest] => Puts doc indent place trace (after later => PutsAll rest indent after later next)
 
+--| The items of a fill put their words, each after a separator that is a space
+--| or a line break.
 def FillPuts (items: List Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop):
     Prop :=
   match items with
     | [] => next place trace
     | [first, ..others] => Puts first indent place trace (after later => SepsPut others indent after later next)
 
+--| The separators before the items of a fill, and the items, put their words in
+--| turn.
 def SepsPut (items: List Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop):
     Prop :=
   match items with
@@ -194,6 +200,7 @@ def SepsPut (items: List Doc) (indent: Nat) (place: Place) (trace: List Event) (
     | [item, ..more] => SepPuts indent place trace (middle between =>
       Puts item indent middle between (after later => SepsPut more indent after later next))
 
+--| Every option a choice may take puts its words.
 def OptionsPut (options: List Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop):
     Prop :=
   match options with
@@ -212,6 +219,8 @@ def StackPuts (spec: Place → List Event → Prop) (stack: List Cmd) (place: Pl
 
 -- A weaker continuation still holds.
 
+--| `WritePuts` holds with a weaker requirement on what follows, if it holds
+--| with a stronger one.
 theorem writePutsWeaker ∀ (indent: Nat) (text: Text) (place: Place) (trace: List Event)
     (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
@@ -234,6 +243,8 @@ theorem writePutsWeaker ∀ (indent: Nat) (text: Text) (place: Place) (trace: Li
             | Mid at, lays => (oneLine, (implies _ _ lays))
             | Held at, lays => (oneLine, (implies _ _ lays))
 
+--| `ClosePuts` holds with a weaker requirement on what follows, if it holds
+--| with a stronger one.
 theorem closePutsWeaker ∀ (indent: Nat) (text: Text) (place: Place) (trace: List Event)
     (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
@@ -245,6 +256,8 @@ theorem closePutsWeaker ∀ (indent: Nat) (text: Text) (place: Place) (trace: Li
     | Broken at, lays => writePutsWeaker indent text (Broken at) trace strong weak implies lays
     | Mid at, lays => writePutsWeaker indent text (Mid at) trace strong weak implies lays
 
+--| `SepPuts` holds with a weaker requirement on what follows, if it holds with
+--| a stronger one.
 theorem sepPutsWeaker ∀ (indent: Nat) (place: Place) (trace: List Event) (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: SepPuts indent place trace strong):
@@ -255,6 +268,8 @@ theorem sepPutsWeaker ∀ (indent: Nat) (place: Place) (trace: List Event) (stro
     | Mid at, Both same broken => ((implies _ _ same), (implies _ _ broken))
     | Held at, broken => implies _ _ broken
 
+--| `SoftPuts` holds with a weaker requirement on what follows, if it holds with
+--| a stronger one.
 theorem softPutsWeaker ∀ (indent: Nat) (place: Place) (trace: List Event) (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: SoftPuts indent place trace strong):
@@ -265,6 +280,8 @@ theorem softPutsWeaker ∀ (indent: Nat) (place: Place) (trace: List Event) (str
     | Mid at, Both same broken => ((implies _ _ same), (implies _ _ broken))
     | Held at, broken => implies _ _ broken
 
+--| `StartPuts` holds with a weaker requirement on what follows, if it holds
+--| with a stronger one.
 theorem startPutsWeaker ∀ (indent: Nat) (place: Place) (trace: List Event) (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: StartPuts indent place trace strong):
@@ -275,6 +292,8 @@ theorem startPutsWeaker ∀ (indent: Nat) (place: Place) (trace: List Event) (st
     | Mid at, lays => implies _ _ lays
     | Held at, lays => implies _ _ lays
 
+--| `SuffixPuts` holds with a weaker requirement on what follows, if it holds
+--| with a stronger one.
 theorem suffixPutsWeaker ∀ (comment: Text) (place: Place) (trace: List Event) (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: SuffixPuts comment place trace strong):
@@ -285,6 +304,8 @@ theorem suffixPutsWeaker ∀ (comment: Text) (place: Place) (trace: List Event) 
     | Mid at, lays => implies _ _ lays
     | Held at, never => never
 
+--| `BlankPuts` holds with a weaker requirement on what follows, if it holds
+--| with a stronger one.
 theorem blankPutsWeaker ∀ (place: Place) (trace: List Event) (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
     (lays: BlankPuts place trace strong):
@@ -324,6 +345,8 @@ theorem putsWeaker ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Even
     | Choice options, lays => optionsPutWeaker options indent place trace strong weak implies lays
     | LineSuffix comment, Both word lays => (word, (suffixPutsWeaker comment place trace strong weak implies lays))
 
+--| `PutsAll` holds with a weaker requirement on what follows, if it holds with
+--| a stronger one.
 theorem allPutsWeaker ∀ (docs: List Doc) (indent: Nat) (place: Place) (trace: List Event)
     (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
@@ -338,6 +361,8 @@ theorem allPutsWeaker ∀ (docs: List Doc) (indent: Nat) (place: Place) (trace: 
         (after later others => allPutsWeaker rest indent after later strong weak implies others)
         lays
 
+--| `FillPuts` holds with a weaker requirement on what follows, if it holds with
+--| a stronger one.
 theorem fillPutsWeaker ∀ (items: List Doc) (indent: Nat) (place: Place) (trace: List Event)
     (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
@@ -352,6 +377,8 @@ theorem fillPutsWeaker ∀ (items: List Doc) (indent: Nat) (place: Place) (trace
         (after later seps => sepsPutWeaker others indent after later strong weak implies seps)
         lays
 
+--| `SepsPut` holds with a weaker requirement on what follows, if it holds with
+--| a stronger one.
 theorem sepsPutWeaker ∀ (items: List Doc) (indent: Nat) (place: Place) (trace: List Event)
     (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
@@ -371,6 +398,8 @@ theorem sepsPutWeaker ∀ (items: List Doc) (indent: Nat) (place: Place) (trace:
             inner)
         lays
 
+--| `OptionsPut` holds with a weaker requirement on what follows, if it holds
+--| with a stronger one.
 theorem optionsPutWeaker ∀ (options: List Doc) (indent: Nat) (place: Place) (trace: List Event)
     (strong weak: Place → List Event → Prop)
     (implies: ∀ (after: Place) (later: List Event) => strong after later → weak after later)
@@ -386,6 +415,8 @@ theorem optionsPutWeaker ∀ (options: List Doc) (indent: Nat) (place: Place) (t
 
 -- What a step pushes on the work list lays as the document it came from.
 
+--| Docs printed in order, then the work list, put their words if the docs do
+--| and then the work list.
 theorem printsPut ∀ (spec: Place → List Event → Prop) (indent: Nat) (mode: Mode) (docs: List Doc) (rest: List Cmd)
     (place: Place) (trace: List Event)
     (lays: PutsAll docs indent place trace (after later => StackPuts spec rest after later)):
@@ -399,6 +430,8 @@ theorem printsPut ∀ (spec: Place → List Event → Prop) (indent: Nat) (mode:
         (after later more => printsPut spec indent mode others rest after later more)
         lays
 
+--| Items with a `Line` between each two put their words if the first does and
+--| then the rest, each after a separator.
 theorem linesPut ∀ (first: Doc) (others: List Doc) (indent: Nat) (place: Place)
     (trace: List Event) (next: Place → List Event → Prop)
     (lays: Puts first indent place trace (after later => SepsPut others indent after later next)):
@@ -417,6 +450,8 @@ theorem linesPut ∀ (first: Doc) (others: List Doc) (indent: Nat) (place: Place
             seps)
         lays
 
+--| The separators before a fill's items, then the work list, put their words if
+--| the items do and then the work list.
 theorem fillSepsPut ∀ (spec: Place → List Event → Prop) (indent: Nat) (items: List Doc) (rest: List Cmd)
     (place: Place) (trace: List Event)
     (lays: SepsPut items indent place trace (after later => StackPuts spec rest after later)):
@@ -439,6 +474,8 @@ theorem fillSepsPut ∀ (spec: Place → List Event → Prop) (indent: Nat) (ite
             inner)
         lays
 
+--| A doc that is one of the options of a choice puts its words as the options
+--| do.
 theorem optionPuts ∀ (chosen: Doc) (options: List Doc) (indent: Nat) (place: Place)
     (trace: List Event) (next: Place → List Event → Prop)
     (isOption: IsOption chosen options)
@@ -451,6 +488,7 @@ theorem optionPuts ∀ (chosen: Doc) (options: List Doc) (indent: Nat) (place: P
     | [option, second, ..others], Inr later, Both _ rest =>
       optionPuts chosen [second, ..others] indent place trace next later rest
 
+--| The first option of a choice puts its words as the options do.
 theorem headOrPuts ∀ (options: List Doc) (indent: Nat) (place: Place)
     (trace: List Event) (next: Place → List Event → Prop)
     (lays: OptionsPut options indent place trace next):
@@ -462,6 +500,7 @@ theorem headOrPuts ∀ (options: List Doc) (indent: Nat) (place: Place)
 
 -- The output's side: events, blank lines and widths, a piece at a time.
 
+--| Spaces aren't a line break.
 theorem gapNoBreak ∀ (piece: Text) (gap: piece.all (char => char == ' ') = True): (piece == "\n") = False :=
   match isBreak: piece == "\n" with
     | False => byComputing
@@ -471,9 +510,12 @@ theorem gapNoBreak ∀ (piece: Text) (gap: piece.all (char => char == ' ') = Tru
       match never with
         | ()
 
+--| Spaces are layout.
 theorem gapLayout ∀ (piece: Text) (gap: piece.all (char => char == ' ') = True): isLayout piece = True :=
   Eq.cong ((spaces: Bool) => spaces || piece == "\n") gap
 
+--| A word on top of the output is an event at its line's start, if only layout
+--| is before it, else not at a line start.
 theorem eventsWord ∀ (piece: Text) (earlier: List Text)
     (word: isLayout piece = False):
     eventsOf [piece, ..earlier]
@@ -502,6 +544,7 @@ theorem eventsBlank ∀ (earlier: List Text)
     eventsOf ["\n", ..earlier] = eventsOf earlier ++ [Event.blankLine] :=
   rewrite blank
 
+--| A line with a word on it isn't blank.
 theorem blankWord ∀ (piece: Text) (earlier: List Text)
     (word: isLayout piece = False):
     lineBlank [piece, ..earlier] = False :=
@@ -509,6 +552,7 @@ theorem blankWord ∀ (piece: Text) (earlier: List Text)
     | True, never => (Bool.falseNotTrue never.flipped).impossible
     | False, word => word
 
+--| Spaces don't change whether a line is blank.
 theorem blankGap ∀ (piece: Text) (earlier: List Text)
     (gap: piece.all (char => char == ' ') = True):
     lineBlank [piece, ..earlier] = lineBlank earlier :=
@@ -518,6 +562,7 @@ theorem blankGap ∀ (piece: Text) (earlier: List Text)
       match never with
         | ()
 
+--| A piece that isn't a line break adds its length to the line's width.
 theorem widthPiece ∀ (piece: Text) (earlier: List Text)
     (oneLine: (piece == "\n") = False):
     lineWidth [piece, ..earlier] = piece.length + lineWidth earlier :=
@@ -527,6 +572,8 @@ theorem widthPiece ∀ (piece: Text) (earlier: List Text)
       match never with
         | ()
 
+--| A last piece that isn't only spaces is kept when spaces at the end are
+--| dropped.
 theorem trimKeep ∀ (last: Text) (earlier: List Text)
     (word: last.all (char => char == ' ') = False):
     trimSpaces [last, ..earlier] = [last, ..earlier] :=
@@ -536,6 +583,7 @@ theorem trimKeep ∀ (last: Text) (earlier: List Text)
       match never with
         | ()
 
+--| A last piece of spaces is dropped with any spaces before it.
 theorem trimDrop ∀ (last: Text) (earlier: List Text)
     (gap: last.all (char => char == ' ') = True):
     trimSpaces [last, ..earlier] = trimSpaces earlier :=
@@ -545,6 +593,8 @@ theorem trimDrop ∀ (last: Text) (earlier: List Text)
       match never with
         | ()
 
+--| Dropping the spaces at the end of the output leaves its events the same,
+--| given the same for the earlier output.
 theorem trimEventsBy ∀ (last: Text) (earlier: List Text) (spaces: Bool)
     (is: last.all (char => char == ' ') = spaces)
     (rest: eventsOf (trimSpaces earlier) = eventsOf earlier):
@@ -558,6 +608,8 @@ theorem trimEvents ∀ (out: List Text): eventsOf (trimSpaces out) = eventsOf ou
   | [] => byComputing
   | [last, ..earlier] => trimEventsBy last earlier _ byComputing (trimEvents earlier)
 
+--| Dropping the spaces at the end of the output leaves a line's blankness the
+--| same, given the same for the earlier output.
 theorem trimBlankBy ∀ (last: Text) (earlier: List Text) (spaces: Bool)
     (is: last.all (char => char == ' ') = spaces)
     (rest: lineBlank (trimSpaces earlier) = lineBlank earlier):
@@ -566,6 +618,8 @@ theorem trimBlankBy ∀ (last: Text) (earlier: List Text) (spaces: Bool)
     | True, gap => rewrite trimDrop last earlier gap then Eq.trans rest (blankGap last earlier gap).flipped
     | False, word => rewrite trimKeep last earlier word
 
+--| Dropping the spaces at the end of the output leaves a line's blankness the
+--| same.
 theorem trimBlank ∀ (out: List Text): lineBlank (trimSpaces out) = lineBlank out := match out with
   | [] => byComputing
   | [last, ..earlier] => trimBlankBy last earlier _ byComputing (trimBlank earlier)
@@ -616,6 +670,8 @@ def AgreesParts (out: List Text) (owed: Option Nat) (atLineStart: Bool) (suffixe
         ∧ owed = None
         ∧ lineIndent = at
 
+--| The printer is at `place` with `trace` printed: its output, indentation owed
+--| and waiting comments are what the place says.
 def Agrees (printer: Printer) (place: Place) (trace: List Event): Prop :=
   AgreesParts printer.out printer.owed printer.atLineStart printer.suffixes printer.lineIndent printer.started
       printer.newlinesAtEnd place trace
@@ -624,8 +680,10 @@ def Agrees (printer: Printer) (place: Place) (trace: List Event): Prop :=
 def Stays (next: Place → List Event → Prop) (printer: Printer): Prop :=
   ∃ (place: Place) => ∃ (trace: List Event) => Agrees printer place trace ∧ next place trace
 
+--| `Some` isn't `None`.
 theorem someNotNone ∀ (value: Nat) (wrong: Some value = None): Void := cases
 
+--| A list with a first item isn't empty.
 theorem consNotNil ∀ (first: Text) (more: List Text) (wrong: [first, ..more] = []): Void := cases
 
 --| A word put at a line start starts the line, at the indentation owed.
@@ -767,12 +825,15 @@ theorem brokenStart ∀ (printer: Printer) (at: Nat) (trace: List Event)
   match agrees with
     | (start, none, blank, empty, owes, indent, events, _) => (start, none, blank, empty, owes, indent, events)
 
+--| A line break from the middle of a line leaves the printer at the start of a
+--| line with the same trace.
 theorem newlineAgrees ∀ (printer: Printer) (indent: Nat) (place: Place) (trace: List Event)
     (agrees: Agrees printer place trace)
     (mid: place.midLine = True):
     Agrees (printer.newline indent) (AtStart indent) trace :=
   brokenStart (printer.newline indent) indent trace (newlineBroken printer indent place trace agrees mid)
 
+--| A printer agreeing with a place has the place's indentation as its line's.
 theorem agreesIndent ∀ (printer: Printer) (place: Place) (trace: List Event)
     (agrees: Agrees printer place trace):
     printer.lineIndent = place.indent :=
@@ -798,6 +859,8 @@ theorem agreesClear ∀ (printer: Printer) (place: Place) (trace: List Event)
     | Mid at, Both _ (Both none _) => rewrite none
     | Held at, Both _ (Both (Witness comment (Both one _)) _) => rewrite one
 
+--| A printer agreeing with a place is at a line start exactly at the places
+--| that start a line.
 theorem agreesStart ∀ (printer: Printer) (place: Place) (trace: List Event)
     (agrees: Agrees printer place trace):
     printer.atLineStart
@@ -812,6 +875,7 @@ theorem agreesStart ∀ (printer: Printer) (place: Place) (trace: List Event)
     | Mid at, Both start _ => start
     | Held at, Both start _ => start
 
+--| Text that isn't only spaces or a line break is a word.
 theorem wordNotLayout ∀ (text: Text)
     (word: text.all (char => char == ' ') = False)
     (oneLine: (text == "\n") = False):
@@ -822,6 +886,8 @@ theorem wordNotLayout ∀ (text: Text)
       match never with
         | ()
 
+--| A line break from the middle of a line leaves the printer at a place that
+--| satisfies what follows.
 theorem newlineStays ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat)
     (place: Place) (trace: List Event)
     (agrees: Agrees printer place trace)
@@ -839,6 +905,8 @@ theorem breakStays ∀ (next: Place → List Event → Prop) (printer: Printer) 
     rewrite agreesIndent printer place trace agrees then after
   newlineStays next printer (printer.continuation indent) place trace agrees mid deeper
 
+--| Writing at a line start, with no comment waiting, leaves the printer at a
+--| place that satisfies what follows.
 theorem writeStart ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (text: Text)
     (width at: Nat) (trace: List Event)
     (agrees: Agrees printer (AtStart at) trace)
@@ -855,6 +923,8 @@ theorem writeStart ∀ (next: Place → List Event → Prop) (printer: Printer) 
             | True, _ =>
               ((Mid at), _, (putStart printer text width at trace agrees (wordNotLayout text spaces oneLine)), lays)
 
+--| Writing in the middle of a line, with no comment waiting, leaves the printer
+--| at a place that satisfies what follows.
 theorem writeMid ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (text: Text)
     (width at: Nat) (trace: List Event)
     (agrees: Agrees printer (Mid at) trace)
@@ -873,6 +943,8 @@ theorem writeMid ∀ (next: Place → List Event → Prop) (printer: Printer) (i
             | True, _ =>
               ((Mid at), _, (putMid printer text width at trace agrees (wordNotLayout text spaces oneLine)), lays)
 
+--| Writing while a comment waits leaves the printer at a place that satisfies
+--| what follows.
 theorem writeHeld ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (text: Text)
     (width at: Nat) (trace: List Event)
     (agrees: Agrees printer (Held at) trace)
@@ -906,6 +978,8 @@ theorem writeHeld ∀ (next: Place → List Event → Prop) (printer: Printer) (
               deeper
             )
 
+--| Writing after a blank line, with no comment waiting, leaves the printer at a
+--| place that satisfies what follows.
 theorem writeBroken ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (text: Text)
     (width at: Nat) (trace: List Event)
     (agrees: Agrees printer (Broken at) trace)
@@ -944,6 +1018,7 @@ theorem writeStays ∀ (next: Place → List Event → Prop) (printer: Printer) 
     | Held at, agrees, lays =>
       writeHeld next printer indent text width at trace agrees (agreesClear printer (Held at) trace agrees) lays
 
+--| A comment tucked into events that end with `last` goes before `last`.
 theorem tuckedSnoc ∀ (event last: Event) (before: List Event):
     tucked event (before ++ [last]) = before ++ [event, last] :=
   match before with
@@ -999,6 +1074,7 @@ theorem closeStays ∀ (next: Place → List Event → Prop) (printer: Printer) 
           lays
         )
 
+--| A separator's puts, where it breaks, hold `next` at the start of a line.
 theorem sepBroken ∀ (next: Place → List Event → Prop) (indent: Nat) (place: Place) (trace: List Event)
     (lays: SepPuts indent place trace next):
     next (AtStart indent) trace :=
@@ -1008,6 +1084,7 @@ theorem sepBroken ∀ (next: Place → List Event → Prop) (indent: Nat) (place
     | Mid at, Both _ broken => broken
     | Held at, broken => broken
 
+--| A separator's puts are only met in the middle of a line.
 theorem sepMid ∀ (next: Place → List Event → Prop) (indent: Nat) (place: Place) (trace: List Event)
     (lays: SepPuts indent place trace next):
     place.midLine = True :=
@@ -1016,6 +1093,7 @@ theorem sepMid ∀ (next: Place → List Event → Prop) (indent: Nat) (place: P
     | Broken at, never => never
     | _, _ => cases
 
+--| A soft line's puts are only met in the middle of a line.
 theorem softMid ∀ (next: Place → List Event → Prop) (indent: Nat) (place: Place) (trace: List Event)
     (lays: SoftPuts indent place trace next):
     place.midLine = True :=
@@ -1049,6 +1127,7 @@ theorem sepSpace ∀ (next: Place → List Event → Prop) (printer: Printer) (i
     | Held at, agrees, _ =>
       Void.impossible (Bool.falseNotTrue (Eq.trans (Eq.flipped (agreesClear printer (Held at) trace agrees)) clear))
 
+--| A soft line's puts, where it breaks, hold `next` at the start of a line.
 theorem softBroken ∀ (next: Place → List Event → Prop) (indent: Nat) (place: Place) (trace: List Event)
     (lays: SoftPuts indent place trace next):
     next (AtStart indent) trace :=
@@ -1058,6 +1137,8 @@ theorem softBroken ∀ (next: Place → List Event → Prop) (indent: Nat) (plac
     | Mid at, Both _ broken => broken
     | Held at, broken => broken
 
+--| A soft line's puts, where it stays flat with no comment waiting, hold `next`
+--| at the place as it was.
 theorem softSame ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat) (place: Place) (trace: List Event)
     (agrees: Agrees printer place trace)
     (clear: printer.suffixes.isEmpty = True)
@@ -1070,16 +1151,19 @@ theorem softSame ∀ (next: Place → List Event → Prop) (printer: Printer) (i
     | Held at, agrees, _ =>
       Void.impossible (Bool.falseNotTrue (Eq.trans (Eq.flipped (agreesClear printer (Held at) trace agrees)) clear))
 
+--| A line start at a line's start changes nothing.
 theorem lineStartSame ∀ (printer: Printer) (indent: Nat)
     (start: printer.atLineStart = True):
     printer.lineStart indent = printer :=
   match at: printer.atLineStart, start with | True, _ => byComputing
 
+--| A line start after text breaks the line at the continuation indentation.
 theorem lineStartBreaks ∀ (printer: Printer) (indent: Nat)
     (start: printer.atLineStart = False):
     printer.lineStart indent = printer.newline (printer.continuation indent) :=
   match at: printer.atLineStart, start with | False, _ => byComputing
 
+--| A line start leaves the printer at a place that satisfies what follows.
 theorem lineStartStays ∀ (next: Place → List Event → Prop) (printer: Printer) (indent: Nat)
     (place: Place) (trace: List Event)
     (agrees: Agrees printer place trace)
@@ -1112,6 +1196,7 @@ theorem hereAgrees ∀ (printer: Printer) (indent: Nat) (place: Place) (trace: L
     | Mid at, Both other _ => Void.impossible (Bool.falseNotTrue (Eq.trans other.flipped start))
     | Held at, Both other _ => Void.impossible (Bool.falseNotTrue (Eq.trans other.flipped start))
 
+--| A blank line after text, not at a line start, changes nothing.
 theorem blankSame ∀ (printer: Printer) (start: printer.atLineStart = False): printer.blank = printer :=
   match at: printer.atLineStart, start with | False, _ => byComputing
 
@@ -1187,6 +1272,8 @@ theorem suffixStays ∀ (next: Place → List Event → Prop) (printer: Printer)
         lays
       )
 
+--| A step that goes one way or the other leaves the printer at a place that
+--| satisfies what follows if each way does.
 theorem eitherStays ∀ (spec: Place → List Event → Prop) (flat clear: Bool) (yes no: Printer) (rest: List Cmd)
     (whenYes: clear = True → Stays (place trace => StackPuts spec rest place trace) yes)
     (whenNo: Stays (place trace => StackPuts spec rest place trace) no):
@@ -1443,6 +1530,7 @@ theorem flushAgrees ∀ (printer: Printer) (place: Place) (trace: List Event)
 def printedPieces (doc: Doc) (width: Nat): List Text :=
   ((Printer.start width).run (3 * doc.size + 3) (3 * doc.size + 3) [Print 0 Break doc] |> .flushSuffixes).out.reverse
 
+--| `print` is the printer's pieces joined.
 theorem printIsPieces ∀ (doc: Doc) (width: Nat): print doc width = (printedPieces doc width).joinWith "" := byComputing
 
 --| A document that lays from the start of an unindented line, printed at
@@ -1506,3 +1594,17 @@ theorem midExample: Agrees ((Printer.start 80).put "f" 1) (Mid 0) [{ word = "f",
     []
     ((byComputing, byComputing, byComputing, byComputing, byComputing, byComputing, byComputing))
     byComputing
+
+--| An instance of `putMid` with all its hypotheses met, so it isn't
+--| vacuous: `g` after `f` doesn't start the line. The audit's random search
+--| can't find one, since a random printer almost never agrees with a trace.
+theorem putMidExample: Agrees (((Printer.start 80).put "f" 1).put "g" 1) (Mid 0) [
+      { word = "f", start = Some 0 },
+      { word = "g", start = None }
+    ] :=
+  putMid ((Printer.start 80).put "f" 1) "g" 1 0 [{ word = "f", start = Some 0 }] midExample byComputing
+
+--| An instance of `putSpaces` with all its hypotheses met, as for
+--| `putMidExample`: a space after `f` leaves the trace alone.
+theorem putSpacesExample: Agrees (((Printer.start 80).put "f" 1).put " " 1) (Mid 0) [{ word = "f", start = Some 0 }] :=
+  putSpaces ((Printer.start 80).put "f" 1) " " 1 0 [{ word = "f", start = Some 0 }] midExample byComputing

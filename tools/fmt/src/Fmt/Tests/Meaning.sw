@@ -5,7 +5,7 @@
 namespace Fmt.Tests
 import Fmt (..)
 import Std (Bool, List, Option, Result, Text)
-import Syntax (SourceFile)
+import Syntax (Decl, Group, SourceFile)
 
 def sameMeaning (one other: Text): Bool := match parsed one, parsed other with
   | Ok first, Ok second => first.meaning.plain.dump == second.meaning.plain.dump
@@ -68,3 +68,14 @@ test "meaning: the four passes keep it" :=
     && tidyKeepsMeaning "def f: {IO} ((f a)) + (g) x := [1, 2,]"
     && tidyKeepsMeaning "def f (x: P x) (y: P x) (z: Nat) (w: Nat): Nat := fun (a: Nat) (b: (Nat)) => a"
     && tidyKeepsMeaning "def f: {Fail} (-1) → z := (1, 2,)"
+
+--| How many comments are above each of the first declaration's parameter
+--| groups' opening brackets, in `meaning`.
+def groupNotes (file: SourceFile): List Nat := match file.meaning.plain.decls with
+  | [Definition _ header _, .._] => header.params.map (group => group.open.above.length)
+  | _ => []
+
+test "meaning: a merged group's pieces hold no comments" :=
+  match parsed "def f\n  -- note\n  (x: Nat) (y: Nat): Nat := x" with
+    | Ok file => groupNotes file == [0, 0] && groupNotes file.tidy == [0, 0]
+    | Err _ => False
