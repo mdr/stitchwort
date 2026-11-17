@@ -16,7 +16,7 @@
 use std::ops::Range;
 
 use stitchwort_syntax::tree::{Element, Node, NodeKind, SyntaxFile};
-use stitchwort_syntax::{DEFAULT_STACK, FileId, Tok, parse_tree};
+use stitchwort_syntax::{DEFAULT_STACK, FileId, SourceMap, Tok, parse_module_within, parse_tree};
 
 pub use crate::merge::merge_parameters;
 pub use crate::parens::drop_parens;
@@ -164,9 +164,18 @@ pub fn theorem_forall(tree: &SyntaxFile, _text: &str) -> Vec<Edit> {
 }
 
 /// P2, D1012: no comma before the closing bracket of a comma bracket. Rule
-/// N has already moved the comma's comments elsewhere, so deleting it
-/// leaves every comment on the token it belongs to.
-pub fn trailing_comma(tree: &SyntaxFile, _text: &str) -> Vec<Edit> {
+/// N has already moved the comma's own comments to the next token, so
+/// deleting it leaves them there. A trailing comment rule 1 stopped on the
+/// comma (it starts its line, with comments above it) is not moved: after
+/// the deletion rule N reads the text again and places it by the tokens
+/// that remain (SW-3840).
+///
+/// Without its comma an item can end its line before a closer that
+/// starts the next line at the item's column, which the parser reads as a
+/// new line of the item's block and rejects (SW-3839, `g ([⏎    1,⏎    ]⏎
+/// )`). The closer then moves in two columns, so the text still parses; the
+/// printer sets the closer's column again.
+pub fn trailing_comma(tree: &SyntaxFile, text: &str) -> Vec<Edit> {
     use NodeKind::*;
     let tokens = tree.tokens();
     fn tok<'f>(element: &Element<'f>) -> Option<&'f Tok> {
@@ -206,10 +215,24 @@ pub fn trailing_comma(tree: &SyntaxFile, _text: &str) -> Vec<Edit> {
         );
         if opens && ends && has_item && matches!(tok(comma), Some(Tok::Comma)) {
             let span = tokens[first_token(*comma)].span;
+            let range = span.start as usize..span.end as usize;
             edits.push(Edit {
-                range: span.start as usize..span.end as usize,
+                range: range.clone(),
                 text: String::new(),
             });
+            let parses = |candidate: &str| {
+                let file = SourceMap::new().add("candidate.sw", candidate);
+                parse_module_within(file, candidate, DEFAULT_STACK).is_ok()
+            };
+            let closer = &tokens[first_token(*closer)];
+            let mut candidate = text.to_string();
+            candidate.replace_range(range, "");
+            if closer.line_start && !parses(&candidate) {
+                edits.push(Edit {
+                    range: closer.span.start as usize..closer.span.start as usize,
+                    text: "  ".to_string(),
+                });
+            }
         }
     });
     edits
@@ -275,6 +298,16 @@ mod tests {
         );
         let text = "def x: T := [1, 2]\n";
         assert_eq!(tidied(text, &PASSES), text);
+    }
+
+    #[test]
+    fn a_trailing_comma_before_a_closer_at_the_items_column_leaves_a_parsing_text() {
+        // SW-3839: without the comma the `]` would read as a new line of
+        // the item's block.
+        assert_eq!(
+            tidied("def f: List Nat :=\n  g ([\n    1,\n    ]\n  )\n", &PASSES),
+            "def f: List Nat :=\n  g ([\n    1\n      ]\n  )\n"
+        );
     }
 
     #[test]

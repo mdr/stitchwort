@@ -22089,12 +22089,12 @@
     {
       "id": 3839,
       "title": "[Sonnet] Rust fmt refuses a valid file with 'formatter bug ... a Error node at line 2 isn't part of a file the parser accepts': def f: List Nat :=⏎  g ([⏎    1,⏎    ]⏎  ) (check parses it). Fix with a failing-first test; same bug in the self-hosted formatter if present (D3677) (SW-3825 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (Sonnet, 17 Nov 2026): cause: P2 deleted the last comma, and with the closer on its own line at the item column the text no longer parsed. Fix: passes.rs P2 indents the closer two columns when the plain deletion would not parse. Tests: golden trailing-comma-closer-at-item-column (failed before the fix), passes.rs unit test. Twin: tree and refusal identical on the repro; P2 is not built in tools/fmt yet (needs the same care at stage 4).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22102,12 +22102,12 @@
     {
       "id": 3840,
       "title": "[Sonnet] Rule N not idempotent on a parking comma: g ([⏎1⏎-- above⏎, ] -- b⏎) -- c: applied twice, c moves to 1 past two comments. passes.rs P2's note is false there; tidy.rs's doc omits that rule 1 stops on a comma; add the case to tidy.rs's placed tests (SW-3825 findings 2, 3)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (Sonnet, 17 Nov 2026): rule N is not idempotent on a parking comma, but the formatter only reads text after P2, where it is. Documented in tidy.rs (module doc, rule 1) and passes.rs P2 (false note fixed); tidy test rule_n_is_idempotent_once_the_last_commas_are_deleted pins the composition. No output change; rule N alone not changed (a fixpoint would change dev tokens, rule 1 never stopping on a comma would be a style change under D3677).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []

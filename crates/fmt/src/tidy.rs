@@ -13,7 +13,15 @@
 //! 4. no `->` has a trailing comment or own-line comments after it (the
 //!    type that follows has none before it): they come before the `->`.
 //!
-//! Applying it to its own result changes nothing.
+//! Applying it to its own result changes nothing, on the texts the
+//! formatter reads: those after pass P2 ([`crate::passes`]) has deleted the
+//! last comma of each comma bracket. Rule 1 stops on a comma that starts
+//! its line and has own-line comments above it, and rule 2 then moves those
+//! comments to the token after the comma; on a last comma that is the
+//! closer, so a second application finds the comments above the closer and
+//! moves a trailing comment further back than the first did
+//! (`g ([⏎1⏎-- above⏎, ] -- b⏎) -- c`, SW-3840). With the comma gone the
+//! first application already puts everything where it stays.
 
 use stitchwort_syntax::{Comment, Tok, Token, Trivia};
 
@@ -54,9 +62,9 @@ pub fn token_dump(file: stitchwort_syntax::FileId, text: &str) -> Result<String,
 ///
 /// 1. A trailing comment on a comma, a closing bracket or a record update's
 ///    `|` moves to the nearest token before it that is none of those. It
-///    stops early, staying on a closer or bar that starts its line, when
-///    going further would pass that token's own-line comments, or the line
-///    before ends with a comment (on its last token, or moved back from
+///    stops early, staying on a closer, bar or comma that starts its line,
+///    when going further would pass that token's own-line comments, or the
+///    line before ends with a comment (on its last token, or moved back from
 ///    it by this rule).
 ///    A bar's trailing comment that stays where it is although the base
 ///    before it ends its line with a comment becomes an own-line comment of
@@ -370,6 +378,26 @@ mod tests {
         one("def x := [ 1\n  , -- c\n  2 ]\n", "-- c", true, "2");
         one("def x := [ 1\n  -- c\n  , 2 ]\n", "-- c", true, "2");
         one("def x := [ 1,\n  -- c\n  , ]\n", "-- c", true, "]");
+    }
+
+    #[test]
+    fn rule_n_is_idempotent_once_the_last_commas_are_deleted() {
+        // SW-3840: rule N alone moves `-- c` again, from `)` to `1`; the
+        // formatter reads the text after P2, where it stays.
+        let text = "def f: T := g ([\n    1\n    -- above\n      , ] -- b\n  ) -- c\n";
+        let file = SourceMap::new().add("t.sw", text);
+        let tidied = crate::passes::run(file, text, &crate::passes::PASSES).text;
+        assert_eq!(
+            placed(&tidied)
+                .iter()
+                .map(|(c, own, token)| (c.as_str(), *own, token.as_str()))
+                .collect::<Vec<_>>(),
+            [
+                ("-- above", true, "]"),
+                ("-- b", false, "]"),
+                ("-- c", false, ")"),
+            ]
+        );
     }
 
     #[test]
