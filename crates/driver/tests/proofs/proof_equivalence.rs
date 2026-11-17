@@ -681,7 +681,7 @@ fn compared_alike(g: &Ev, sig: &Sig, terms: &[(String, Term)]) -> usize {
 // ---------------------------------------------------------------------------
 
 const WRAP_PROGRAM: &str = r#"
-import Std (Nat, Float, List, Char)
+import Std (Nat, List, Char)
 
 type Box = { value: Nat }
 
@@ -782,7 +782,6 @@ fn wrap_sig(g: &Ev) -> Sig {
             "textB",
             "Nat.add",
             "Nat.mul",
-            "Float.ofNat",
         ],
     )
 }
@@ -892,10 +891,6 @@ struct Ctx {
     name: &'static str,
     closed_only: bool,
     build: fn(&Sig, base: &Term, k: Option<usize>, hole: Term) -> (Term, Term),
-}
-
-fn float_of(sig: &Sig, t: Term) -> Term {
-    app(sig.def("Float.ofNat"), vec![t])
 }
 
 fn contexts() -> Vec<Ctx> {
@@ -1033,11 +1028,6 @@ fn contexts() -> Vec<Ctx> {
                 )
             },
         },
-        Ctx {
-            name: "Float.ofNat",
-            closed_only: false,
-            build: |sig, b, _, h| (float_of(sig, b.clone()), float_of(sig, h)),
-        },
     ]
 }
 
@@ -1135,7 +1125,6 @@ fn known_gap(p: &Wrapped) -> Option<(&'static str, &'static str)> {
     let over = p.place == "over";
     match p.context {
         // (With `n` a number, the pairs over `n` are these too.)
-        "Float.ofNat" if p.device == "decreasing" => Some(("G4", "SW-2244")),
         // A number `match` on `Succ` of a folded call.
         "number match" if p.device == "decreasing" && !over && closed => Some(("G5", "SW-2244")),
         // New: a number's partial `+` on `Succ` of a folded call.
@@ -1232,12 +1221,6 @@ fn known_wrapping(gap: &str) {
             bad.join("\n")
         );
     })
-}
-
-#[test]
-#[ignore = "known failure G4 (a float primitive on a folded number), fixed by SW-2244"]
-fn wrapping_known_failure_g4() {
-    known_wrapping("G4")
 }
 
 #[test]
@@ -1465,15 +1448,6 @@ fn probe_g3_number_scrutinee() {
     load_probe(
         "g3.sw",
         include_str!("../../../../docs/repros/sw-2236/g3.sw"),
-    );
-}
-
-#[test]
-#[ignore = "known failure G4 (a float primitive on a folded number), fixed by SW-2244"]
-fn probe_g4_float_of_a_folded_number() {
-    load_probe(
-        "g4.sw",
-        include_str!("../../../../docs/repros/sw-2236/g4.sw"),
     );
 }
 
