@@ -41250,12 +41250,12 @@
     {
       "id": 3677,
       "title": "[Opus paper] Review Toy++ T3 once T3b merges (D2364: a theorem was weakened): printedTokens lost its 'printed words are the file's pieces in order' clause in T3a (rule N makes it false; printedEvents keeps exact order); check each changed statement still says what its name claims, and T3b's Settled/settledViews/tokensCarry statements. 30 min",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Review done (Opus, 17 Nov 2026, about 15 min against 30): docs/reviews/SW-3677-toy-t3-review.md.\nVerdict: T4 can start, yes; nothing wrong, nothing must be fixed first.\nFindings: (1) printedTokens' doc still claims the dropped pieces-in-order clause (wording); (2) lexFits no longer states Parse.Fits, rename lexTidy (wording); (3) Comments.closing's doc states \"never fires on settled tokens\" as fact, unproved (wording; route (A) is sound regardless: closingAll, closingSettled, closingSame); (4) settledIdempotent still open, unused; (5) for T4: Parsed now carries settledCloser, so tidyParsed must keep it (P2's trailing commas, NoTrailingCommas returns).\nRan: check Toy.Fmt.KeepsComments (clean), axioms on printParses/formatIdempotent/formatKeepsComments (none), 12 probe sources via dumped/toyfmt.\n",
       "created": "2026-11-16",
       "updated": "2026-11-17",
       "commits": []
