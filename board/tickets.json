@@ -39725,12 +39725,12 @@
     {
       "id": 3549,
       "title": "[Sonnet] Errors E3: a generic note once per run (later errors say 'see above'; JSON keeps all) (docs/proposals/helpful-errors.md §5 rank 3). Est. 45 min",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Lane/SW-3549 commit 7a3afb28c: with_generic_note in the diagnostic type (texts kept in Detail), CLI text output cuts repeats via render::with_repeated_generic_notes_cut; 20 reject/goal snapshots changed; largest (termination-wrapper-same-size) 5315 -> 4027 bytes. JSON/LSP untouched.\n",
+      "body": "Lane/SW-3549 commit 7a3afb28c: with_generic_note in the diagnostic type (texts kept in Detail), CLI text output cuts repeats via render::with_repeated_generic_notes_cut; 20 reject/goal snapshots changed; largest (termination-wrapper-same-size) 5315 -> 4027 bytes. JSON/LSP untouched.\n\nModel result: sonnet, worked, 15 min (est. 35). Pointer wording '(see the note above: \"first words…\")' is a first pass; explain CODE (rank 9) could name a topic.",
       "created": "2026-11-16",
       "updated": "2026-11-17",
       "commits": []
