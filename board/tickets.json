@@ -22819,12 +22819,12 @@
     {
       "id": 3895,
       "title": "[Opus] Whereabouts answerInBand: discharge its two remaining hypotheses. floorCoarse/ceilCoarse (rounding at a band's step moves an edge within 360° outwards by at most 2°: signed quotientCoarse/tenthCoarse at step 0.1, short at step 1) and lonWidth (from a cosLatitude in [1e-17, 1], needing std laws: division antitone in the divisor, finite / positive isn't NaN). Until then the theorem is conditional on them; believed true, but a false one would make it vacuous (SW-3871 left)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "whereabouts",
-      "body": "",
+      "body": "Progress (Opus lane, 17 Nov 2026, 19:49-20:12):\n- floorCoarse, ceilCoarse proved (Proofs.sw): step 1 from std's new Float.Theory.floorUnitsAbove/ceilUnitsBelow; step 0.1 from quotientNear (quotientCoarse signed, sign from divNonnegUnits/divNonposUnits) and tenthsCheck's (t +- tenthsSlack)/0.1 bounds, closed by floorTenthArith/ceilTenthArith (coefficients under 2^110).\n- lonWidth proved: longitudeWidthRange, from std's Float.divAntitone and Float.divNotNaN (SW-3896); spanRange factored out of latitudeWidthRange.\n- answerInBand restated: lonWidth, floorCoarse, ceilCoarse gone; cosLo: 1e-17 <= cosLatitude, cosHi: cosLatitude <= 1.0 instead (doc: Math.cos(Math.PI/2) = 6.123e-17).\n- Checks: Whereabouts check --no-cache 12.75 s user; audit Whereabouts.Hints.Proofs 187 theorems, 0 failed (24 warnings, all pre-existing arithmetic helpers).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22832,12 +22832,12 @@
     {
       "id": 3896,
       "title": "[Sonnet] std Float candidates from SW-3871: leOfUnitsPos/leOfUnitsNeg, ceilAtLeast, remStep, floorFinite360/ceilFinite360 (generalised bound), plus division antitone in the divisor and finite / positive not NaN; add to Float.Theory with docs; use from Whereabouts",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "Done in the SW-3895 lane (Opus, 17 Nov 2026), additions only to Float/Theory.sw:\n- Float.divAntitone (0 < d <= e finite, finite x >= 0.0: x / e <= x / d), via Float.Theory.magnitudeAntiDen and roundKeyAntiDen.\n- Float.divNotNaN (finite x over positive finite d isn't the NaN).\n- Float.floorIsFinite, Float.ceilIsFinite (|x| < 2^53; replace floorFinite360/ceilFinite360).\n- Float.Theory.floorUnitsAbove, ceilUnitsBelow (x within one of floor/ceil, exactly in units).\n- Float.Theory.leOfUnitsPos, leOfUnitsNeg (moved from Whereabouts).\n- Float.Theory.ceilAtLeast (|y| < 2^53 instead of 3600), with helpers halfStep, mulLeOf, intMulOfNat, intMulNegSucc, doubleMul.\n- Float.Theory.remStep (any positive finite divisor, not just 360.0), with remStepArith, signedScaled.\nWhereabouts now uses them; its local copies are deleted. hash_stability::prelude re-accepted (28 additions only).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
