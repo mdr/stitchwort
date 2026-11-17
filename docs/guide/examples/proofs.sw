@@ -236,6 +236,18 @@ theorem clampToFits ∀ (limit n: Nat): clampTo limit n ≤ limit ∧ clampTo li
   | False => Both (clampToAtMost limit n) arithmetic
 -- end match-lemma
 
+-- begin match-uncovered
+def spare (n: Nat): Bool := 10 < n
+def drop (n: Nat): Option Nat := if spare n then None else Some n
+def kept (x: Option Nat): Bool := match x with
+  | Some n => not (spare n)
+  | None => True
+
+theorem keptAfter ∀ (n: Nat): kept (drop n) = True := match spare n with
+  | True => byComputing
+  | False => byComputing
+-- end match-uncovered
+
 -- begin decide
 def firstOr (fallback: Nat) (xs: List Nat): Nat := if nonempty: 0 < xs.length then xs.headOr fallback else fallback
 

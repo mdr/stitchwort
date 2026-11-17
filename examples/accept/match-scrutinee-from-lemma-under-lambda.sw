@@ -1,9 +1,8 @@
--- expect-error: E-REFL
 -- `match step: ok x with` replaces `ok x` in the goal, inside lambdas too, so
 -- the right side is `anyR (ys => all2 ok ys) rest` in the `True` branch. But
--- `gIs` brings in a new `ok x`, inside the lambda, after the `match`, and
--- `byComputing` doesn't rewrite with `step`: the error says `rewrite step` would
--- (SW-882). The `False` branch does that.
+-- `gIs` brings in a new `ok x`, inside the lambda, after the `match` (SW-882).
+-- `byComputing`, closing the `rewrite`, rewrites it along `step` and tries
+-- again (match-refinement.md R3); the `False` branch does that by hand.
 def all2 (ok: Nat → Bool): List Nat → Bool
   | Nil => True
   | Cons x xs => ok x && all2 ok xs
