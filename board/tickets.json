@@ -22791,7 +22791,7 @@
     {
       "id": 3893,
       "title": "[Sonnet] std_library::the_library_has_no_unreachable_arms fails on main: std/Parse/Reads.sw:1119 'this case can't happen' (SW-3867's readsLoopFrom Zero arm); remove or restructure the arm, keep the theorem (Overmind rolling check on 29b9fcbd4)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
