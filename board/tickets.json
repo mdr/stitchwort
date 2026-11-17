@@ -1,5 +1,5 @@
 {
-  "next": 3729,
+  "next": 3730,
   "tickets": [
     {
       "id": 47,
@@ -41917,6 +41917,19 @@
     {
       "id": 3728,
       "title": "[DeepSeek] fmt: a trailing comment between two names of a binder group in a statement's ∀ ('(a-- c' newline 'b: Bool)') makes the output fail to parse ('expected := … found b'); the formatter refuses. Fuzz seed 0x1011 COMMENTS=0.3 case 44514; minimal 8 lines: 'theorem byHyp ∀ (f: Bool → Bool → Bool) (same: ∀ (a-- c' / ' b:' / ' Bool) => f a' / ' a): ∀' / ' (a-- c' / ' b: Bool) =>-- c' / ' f a' / ' b = f b a := cas'. Same family as 0x920/0x953 (comments in binder groups)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3729,
+      "title": "[DeepSeek] fmt refuses a rule list with a trailing comma: 'rules appends := [List.appendAssoc, ]' gives 'a RewriteRules node … isn't a bracket whose last item follows its last comma' (crates/fmt/src/printer/rules.rs:1244, since 04039b751, not SW-3690). Drop the trailing comma (as other lists do) or lay it out; also for rewrite repeatedly [r, ]. Fuzz seed 0x1012 plain case 177307",
       "status": "backlog",
       "agent": "",
       "where": "",
