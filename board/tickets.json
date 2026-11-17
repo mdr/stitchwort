@@ -23066,7 +23066,7 @@
     {
       "id": 3914,
       "title": "[Sonnet] Fmt.Doc: add Doc.flatWidth (balanced_fill measures items with it) and std-style API docs (engine plan E0 remainder); fix the plan's E0 wording (namespace Fmt.Doc, since plain Doc clashes with the type: E-FOREIGN-NAMESPACE)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
