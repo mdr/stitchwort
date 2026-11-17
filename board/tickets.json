@@ -1,5 +1,5 @@
 {
-  "next": 3724,
+  "next": 3725,
   "tickets": [
     {
       "id": 47,
@@ -41853,6 +41853,19 @@
       "id": 3723,
       "title": "[Sonnet] Toy++: prove settledIdempotent (plus/src/Proofs.sw; ~15 lemmas; unused so far) (SW-3677 finding 4)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3724,
+      "title": "[Opus] Toy++ T4: the pass frame: meaning, tidy, format and toy-plus-plus.md §3.3's theorems, with P1 (withTakes) and P2 (withoutTrailingCommas: the parser accepts a trailing comma, with its flag). About 60 theorems",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
