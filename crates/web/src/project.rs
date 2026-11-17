@@ -621,10 +621,10 @@ mod tests {
             answer.contains(r#""file":"src/Aoc/Common/Range.sw","line":"#),
             "{answer}"
         );
-        // The `byComputing` at the end of `def broken : Nat := byComputing`, line 28 counted
-        // from 1: the end is line 27 counted from 0, after the 23rd unit.
+        // The `byComputing` in `def broken : Nat := byComputing`: line 28 and column 21
+        // counted from 1; the end is line 27, column 31 counted from 0, after its 11 characters.
         assert!(
-            answer.contains(r#""line":28,"column":21,"endLine":27,"endColumn":23,"#),
+            answer.contains(r#""line":28,"column":21,"endLine":27,"endColumn":31,"#),
             "{answer}"
         );
     }
