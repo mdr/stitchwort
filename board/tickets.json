@@ -1,5 +1,5 @@
 {
-  "next": 3886,
+  "next": 3890,
   "tickets": [
     {
       "id": 47,
@@ -21671,7 +21671,7 @@
     {
       "id": 3807,
       "title": "[Sonnet] apps/whereabouts: tenthsKeepTheirLabel computes round and / 10.0 3,601 times through the model (2.8 s -> 9.3 s after SW-639); prove it per tenth from roundOfWhole and ofNatDivExact instead",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22518,12 +22518,12 @@
     {
       "id": 3872,
       "title": "[Opus] Whereabouts check went from about 25 s to 2.5 min: SW-3858's tenthsTable computes 7,203 rows of float operations in the checker's model (~1 ms each). Replace it with the generic divRelError/mulRelError chain (or narrow it), together with SW-3807's per-tenth tenthsKeepTheirLabel; target the check back under 30 s with results unchanged",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "whereabouts",
-      "body": "Expected: 50 min (Opus lane with SW-3807). Started 18:28, done 19:05.\n\nProgress (Opus, lane/SW-3872):\n- tenthsTable (7,203 computed rows) replaced by a general proof of tenthsAt: the round trip from mulRelError twice and roundNear (tripNonzero), the step-0.1 slack from divRelError, slackSum and divRelError again (slackBelow, slackAbove). Every downstream statement unchanged, the 2^-42 bound kept (the error terms come to about 27.5 of the 30 · 2^-44 the slack moves it at |k| = 3601).\n- wrapWholeExact: wrapTable (801 rows) replaced by exact rem on whole numbers (remUnitsExact, remWholeStep, addWholeExact, wrapArith); statement unchanged.\n- tenthsKeepTheirLabel: see SW-3807.\n- Check without cache: 162.7 s -> 10.7 s (8.5-9 s of it std's own check). Per theorem (--only, no cache, less the 9.3 s baseline): tenthsAt chain about 0.7 s (was most of 2 min), wrapWholeExact 0.15 s (was 7.6 s), tenthsKeepTheirLabel 0.15 s (was 17 s).\n- Audit: 143 theorems, 0 failed, 17 warnings (no random input met the hypotheses of 17 arithmetic helpers; each is used with its hypotheses proved).\n",
+      "body": "Expected: 50 min (Opus lane with SW-3807). Started 18:28, done 19:05.\n\nProgress (Opus, lane/SW-3872):\n- tenthsTable (7,203 computed rows) replaced by a general proof of tenthsAt: the round trip from mulRelError twice and roundNear (tripNonzero), the step-0.1 slack from divRelError, slackSum and divRelError again (slackBelow, slackAbove). Every downstream statement unchanged, the 2^-42 bound kept (the error terms come to about 27.5 of the 30 · 2^-44 the slack moves it at |k| = 3601).\n- wrapWholeExact: wrapTable (801 rows) replaced by exact rem on whole numbers (remUnitsExact, remWholeStep, addWholeExact, wrapArith); statement unchanged.\n- tenthsKeepTheirLabel: see SW-3807.\n- Check without cache: 162.7 s -> 10.7 s (8.5-9 s of it std's own check). Per theorem (--only, no cache, less the 9.3 s baseline): tenthsAt chain about 0.7 s (was most of 2 min), wrapWholeExact 0.15 s (was 7.6 s), tenthsKeepTheirLabel 0.15 s (was 17 s).\n- Audit: 143 theorems, 0 failed, 17 warnings (no random input met the hypotheses of 17 arithmetic helpers; each is used with its hypotheses proved).\n\nModel result: opus, worked, 33 min (est. 50), with SW-3807. tenthsKeepTheirLabel strengthened to the quantified law over |r| <= 3601 (orchestrator checked: implies the old list statement); audit 143, 0 failed. Follow-ups SW-3886 SW-3887 SW-3888 SW-3889.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22692,6 +22692,58 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3886,
+      "title": "[Sonnet] std Float candidates from Whereabouts (SW-3872): remUnitsExact (exact value of x % y, which remExact proves but doesn't state), addWholeExact, relCancel, mulBetween; move to Float.Theory with docs (add to SW-3873's batch)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3887,
+      "title": "[Opus] Elaborator: with a local pv: Float.Model.pow2 1074 = v * 2^55 in scope, .left on a value whose type mentions k * 0.1 fails with 'expected Float.isValid 4591870180066957722, but this has type pow2 1074 = …': a float literal's validity proof seems filled from an unrelated local; reduce and fix with a failing-first example (SW-3872 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3888,
+      "title": "[Opus] A closed statement such as List.all … = True is evaluated in full by the checker even when its proof is general (17 s for 3,601 items), so a table can't be replaced by a proof without changing the statement; find where and whether it's needed (SW-3872 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3889,
+      "title": "[DeepSeek] Proving guide: arithmetic rejects coefficients around 2^160 and runs out on chains near 2^106 (keep under ~2^110, one variable per call); rewrite's 'goal already computed past it' hint means use byComputing; stitchwort check has no --timings, use --only with --no-cache less std's ~9 s (SW-3872 findings; add to SW-3879)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
