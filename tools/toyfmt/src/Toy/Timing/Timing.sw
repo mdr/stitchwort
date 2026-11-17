@@ -1,14 +1,15 @@
 --| Times the toy's phases on a generated Sprig file: `stitchwort run
 --| Toy.Timing.main -- PHASE COPIES` lays out COPIES copies of a sample of
 --| every construct (about 400 characters each), then, by PHASE, stops
---| (`print`), lexes the printed text (`lex`), parses it (`parse`) or formats
---| it again (`format`), and says how much it made. The toy has no clock, so
---| time it from outside and subtract `print`'s time from the others.
+--| (`print`), lexes the printed text (`lex`), applies rule N to the tokens
+--| (`settle`), parses it (`parse`), parses and runs the four passes (`tidy`)
+--| or formats it again (`format`), and says how much it made. The toy has no clock, so
+--| time it from outside and subtract the time of the phase before from each: print, lex, settle, parse, tidy, format.
 
 namespace Toy.Timing
 import Toy.Fmt (..)
 import Toy.Syntax (..)
-import Std (Fail, List, Option, Parse, Result, Text)
+import Std (Fail, List, NonEmptyList, Option, Parse, Result, Text)
 
 def main(): {IO} () :=
   let args := IO.args()
@@ -22,6 +23,14 @@ def measure (phase source: Text): Text := match phase with
   | "lex" =>
     match lex source with
       | Ok found => "${found.tokens.length} tokens"
+      | Err message => message
+  | "settle" =>
+    match lex source with
+      | Ok found => "${found.settled.tokens.length} settled tokens"
+      | Err message => message
+  | "tidy" =>
+    match parse source with
+      | Ok parsed => "${parsed.tidy.declarations.length} declarations"
       | Err message => message
   | "parse" =>
     match parse source with
@@ -47,32 +56,52 @@ def field (target: Expr) (named: Text): Expr := Field target none named none
 
 def bare (value: Expr): Body := { statements = [plainLine (Bare value)] }
 
+def spare (value: Expr): Expr := Bracketed none value none
+
+--| A group of names sharing one type, with no comments.
+def group (names: NonEmptyList Named) (typeName: Text): ParameterGroup := Typed names none (TypeName typeName none)
+
 --| A function with a block, an `if`, operators and calls, and a long list:
---| about 400 characters printed.
+--| about 450 characters printed. Sprig++'s constructs are at about the rates
+--| of toy-plus-plus.md §6, per copy of 15 lines: typed groups on every
+--| function (one of two names, one of one); `takes` on every second function;
+--| a spare bracket pair on 4 lines and a trailing comma on 4 lines; and a
+--| comment before a closer on every second copy (one in 30 lines).
 def sample (index: Nat): List (Spaced Declaration) :=
   let suffix := "${index}"
-  let parameters := ["order", "rates"].map (text => Untyped { name = text, comments = none })
-  let total := Function none "total${suffix}" none None none parameters False none none {
+  let parameters := [
+    group { head = { name = "order", comments = none }, tail = [{ name = "items", comments = none }] } "Order",
+    group { head = { name = "rates", comments = none }, tail = [] } "Rates"
+  ]
+  let takes := if index % 2 == 0 then Some none else None
+  let endComment: Comments :=
+    if index % 2 == 0 then { above = [{ text = "-- end of the names" }], after = None } else none
+  let total := Function none "total${suffix}" none takes none parameters True none none {
     statements = [
-      plainLine (Let none "base" none none (bare (Call (var "sum") none [name "order", name "items"] False none))),
+      plainLine
+        (Let none "base" none none (bare (Call (var "sum") none [name "order", spare (name "items")] True none))),
       plainLine
         (Let none "tax" none none
-          (bare (binary Divide (binary Times (var "base") (field (var "rates") "tax")) (NumberLiteral "100" none)))),
+          (bare
+            (binary Divide
+              (spare (binary Times (var "base") (field (var "rates") "tax")))
+              (NumberLiteral "100" none)))),
       {
         blankBefore = True,
         line = Bare
           (If none
-            (binary LessThan (field (var "rates") "threshold") (var "base"))
+            (spare (binary LessThan (field (var "rates") "threshold") (var "base")))
             none
             (bare
               (binary Minus
                 (binary Plus (var "base") (var "tax"))
-                (Call
-                  (var "discount")
-                  none
-                  [name "order", Var "rates" { above = [], after = Some { text = "-- loyal" } }]
-                  False
-                  none)))
+                (spare
+                  (Call
+                    (var "discount")
+                    none
+                    [name "order", Var "rates" { above = [], after = Some { text = "-- loyal" } }]
+                    True
+                    none))))
             none
             (bare (binary Plus (var "base") (var "tax"))))
       }
@@ -83,5 +112,5 @@ def sample (index: Nat): List (Spaced Declaration) :=
   [
     plainLine (DeclarationNote { text = "-- Totals for one order." }),
     plainLine total,
-    { blankBefore = True, line = Value none "names${suffix}" none none (bare (ListLiteral none names False none)) }
+    { blankBefore = True, line = Value none "names${suffix}" none none (bare (ListLiteral none names True endComment)) }
   ]

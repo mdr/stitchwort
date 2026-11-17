@@ -25,7 +25,7 @@ by stage. Compiler built from `main` at e2b1cb075, 15 November 2026.
 | `Toy.Fmt.Proofs` | `Fmt/LexTextProofs.sw`, `Fmt/StringProofs.sw`, `Fmt/ParsedProofs.sw` | SW-3418 parts 8 and 9: the lexer's tokens have the lexer's texts; the parser copies them into the tree (`parseLexical`); a parsed file, printed at any width, lexes to its pieces (`parsedPrintLexes`) |
 | `Toy.Doc.Proofs`, `Toy.Fmt.Proofs`, `Toy.Fmt.Tests` | `Doc/Places.sw`, `Fmt/PlaceProofs.sw`, `Fmt/Tests/Places.sw` | SW-3418 part 10: the printed tokens from the pieces alone, each with its line start and column (`placed`, `parsedPrintTokens`); every word of a print is where its document lays it (`Lays`, `printLays`); a runnable probe of `Lays` over the goldens |
 | `Toy.Fmt.Proofs` | `Fmt/LaidProofs.sw` | SW-3418 part 11: a token and a closing bracket with their comments lay exactly their events (`tokenLays`, `closerRule`); zones and rule triples for the rules' half of positions (`Zone`, `Rule`, `tokenRule`) |
-| `Toy.Timing` | `Timing/Timing.sw` | A generated file printed, then lexed, parsed or formatted, for timings |
+| `Toy.Timing` | `Timing/Timing.sw` | A generated file (with Sprig++'s constructs) printed, then lexed, settled, parsed, tidied or formatted, for timings |
 
 Stage C adds the `{Files}` driver and `main`, calling `Toy.Fmt.format
 source width`, which gives the `Printed` text or the parse error as
@@ -2782,3 +2782,215 @@ SW-3486: `FormatResult` is now `Formatted`/`ParseError`, `Printed` is gone (`Sou
 SW-3488: the driver's `Outcome.Formatted` is `Outcome.Done`, so `FormatResult.Formatted` is written unqualified (`Formatted`) everywhere; `ParseError` was already unqualified.
 
 SW-3490 (tidy): 1,262 theorems and 23,000 theorem-block lines (31,097 lines in all) before; 1,143 theorems and 21,770 theorem-block lines (29,554 lines in all) after (118 deleted, `sameOffset` merged into `ownOffset`, `lexCovers` kept as the lexer's own result, and the engine's `printIsReading`, `printIsPieces` and budget proofs kept for std).
+
+## Toy++ closed (SW-3749, T7; tag `toy-v2`)
+
+Sonnet, 17 November 2026. Toy++ is the toy with Sprig++'s syntax (`takes`,
+typed parameter groups and types, trailing commas, spare brackets), rule N
+as `settle`, `meaning`, four passes (P1 `takes`, P2 trailing commas, P3
+spare brackets, P4 merged groups) in `tidy`, and the theorems about them.
+The design is `docs/proposals/toy-plus-plus.md`; the stage-by-stage notes
+and findings are in `plus/SKETCH-PLUS.md`. This section is the end of it.
+
+### The timing for D3636 [measured]
+
+`Toy.Timing.main` now builds a file of about 1 MB (2,600 copies of a
+15-line sample, 1,044,880 characters) with Sprig++'s constructs at the
+rates of the proposal's §6: typed groups on every function (a group of two
+names and one of one), `takes` on every second function, a spare bracket
+pair on 4 lines and a trailing comma on 4 of 15, and a comment before a
+closer on every second copy (one in 30 lines). Built with `stitchwort build
+--native Toy.Timing.main -o timing`, run one phase at a time under `nice -n
+19` on Speedwell with other lanes running, three runs each, median shown;
+load from `uptime` before each run was 3.7 to 4.3 (under the bar's 5).
+Instructions are `/usr/bin/time -l`'s "instructions retired". A phase's
+cost is its time less the line above's (there is no clock in `IO`).
+
+| Phase run | User s (median) | Instructions (median) | Phase alone: s | Phase alone: G instr | Load |
+|---|---|---|---|---|---|
+| `print` (build the tree, print it: the harness) | 0.41 | 6.27 G | 0.41 | 6.27 | 3.9-4.2 |
+| `lex` | 1.20 | 16.70 G | 0.79 | 10.43 | 4.2 |
+| `settle` (rule N on the tokens) | 1.26 | 17.38 G | 0.06 | 0.68 | 4.0 |
+| `parse` | 2.51 | 32.90 G | 1.25 | 15.52 | 4.0 |
+| `tidy` (parse, then the four passes) | 2.54 | 33.47 G | 0.03 | 0.57 | 4.0-4.2 |
+| `format` (parse, tidy, print the tidy tree) | 2.95 | 38.97 G | 0.41 | 5.50 | 3.7-4.0 |
+
+The whole format of the printed text, without the harness's `print`, is
+38.97 - 6.27 = **32.69 G instructions and 2.54 s: 2.43 s/MB** (1.0449 MB),
+31.3 G/MB. With the harness included (what a tool that built the tree
+first would pay) it is 2.95 s, 2.82 s/MB. **Against the bar (3.0 s/MB at
+load under 5): passes**, with 0.57 s/MB to spare on the harness-included
+figure and 19% on the other. Against the baseline (2.05 s/MB at 933 KB,
+27.8 G/MB): 18% more time (2.43 vs 2.05) and 13% more instructions (31.3
+vs 27.8 G/MB). The baseline's file had no Sprig++ constructs and was
+formatted by the old toy (lex 9.97 G/MB, parse 13.1, print 4.7); now lex
+9.98, settle plus parse 15.5, print 5.3, passes 0.55 G/MB.
+
+- **The passes and `settle` are 3.8% of the instructions** (0.57 + 0.68 =
+  1.25 of 32.69 G; time 0.09 s of 2.54 s, 3.5%): the passes alone 1.7%,
+  `settle` alone 2.1%. The bar of a quarter is met by a factor of 6.
+  Four linear walks that rebuild the tree cost less than the proposal's
+  estimate (0.3 to 0.5 s/MB; measured 0.03 s/MB, though the sample's
+  trees are shallow).
+- **Where the extra went** against the baseline: the parser. Rule N's
+  tokens, typed groups and brackets make `parse` beyond the lexer 1.2
+  G/MB (9%) dearer, and printing 0.6 G/MB (13%) dearer (more tokens per
+  character: commas and brackets the passes later drop are printed here
+  because the harness prints the untidy tree; the final print is of the
+  tidy tree and costs the same).
+- Instructions between runs were within 0.2% (`lex` 16.69-16.70 G); user
+  seconds within 4%. The load stayed under 5 throughout, so the seconds
+  are as steady as the counts here.
+- **What it does not show** (§6): the real grammar has 234 parser
+  functions to this toy's 72. `Parse` is 49% of the time already here; at
+  the real parser's size it will be what decides the 20 s target for
+  6.5 MB, not the passes. 2.43 s/MB times 6.5 MB is 15.8 s; if the
+  parser's share (49%) grew with the function count (234 / 72, a crude
+  guess [estimated]) it would be about 30 s, so the real rate depends on
+  `Parse` speed work, not on Toy++'s additions.
+  The bar is met; no fix is needed here.
+- To rerun: `stitchwort build --native Toy.Timing.main -o timing` in
+  `tools/toyfmt`, then `/usr/bin/time -l ./timing PHASE 2600` for PHASE in
+  `print lex settle parse tidy format`.
+
+### Theorems by layer [counted: `theorem` declarations in each file]
+
+1,741 theorems in the toy in all (no axioms: `stitchwort axioms` on
+`printParses`, `formatKeepsMeaning`, `formatIdempotent`, `tidyIdempotent`,
+`tidyMerged` and `formatSameTree` says so). By layer, files grouped as
+the layers' names suggest, so the figures are approximate at the borders:
+
+| Layer | Theorems | Files |
+|---|---|---|
+| Lexer | 84 | `Syntax/LexProofs`, `Fmt/CarryLex`, `Fmt/LexTextProofs` |
+| `settle` (rule N) | 46 | `Syntax/SettleProofs`, `Fmt/CarrySettle`, `Fmt/SettleFine` |
+| Parser (shape, walk, carry, parsed) | 403 | `Syntax/*Proofs` but lexer and settle, `Fmt/CarryProofs`, `CarryWalk`, `ParsedProofs`, `HeadProofs`, `KeepsComments` |
+| Layout engine (`Doc`) | 302 | `Doc/*` |
+| Printing rules, spelling and read-back | 689 | `Fmt/` events, joins, words, places, spelling, `Degenerate` and the rest |
+| Passes P1 to P4 | 147 | `Fmt/PassProofs`, `BracketProofs`, `MergeProofs` |
+| Shared traversal | 70 | `Fmt/TraverseProofs` |
+| Top (the file loop's, `formatFile*`) | 9 | `Fmt/Proofs` |
+
+(The top of the formatter, `printParses`, `formatKeepsMeaning`,
+`formatIdempotent`, `formatKeepsComments`, `formatSameTree` and
+`tidy*`, sit in `DirectProofs`, `KeepsComments` and `PassProofs` and are
+counted with the layers they close.) Growth over the stages, from each
+stage's notes in `plus/SKETCH-PLUS.md` [as reported there]: T2 about 55
+new theorems (plan: about 100), T3a 70 and T3b 174 (total 1,491 after
+it), T6 64 (57 in `MergeProofs.sw` and 7 in `KeepsComments.sw`; plan:
+about 25, because the estimate counted statements, not the list
+helpers). The proposal's §4 estimated 280 to 450 new lemmas for Toy++ in all.
+
+### Friction, stage by stage
+
+- **T0 (sketch).** `check` found a false statement in the sketch
+  (`(expr.receive comment).endsWithComment = True` fails for the empty
+  list); sketching in code does this. A function passed bare
+  (`Declaration.withoutSpareBrackets`) is `E-TERMINATION` when a
+  same-named method on another type is recursive; a lambda works. The
+  Rust formatter loses a comment in `place_comments` (`f(1) -- c1\n) --
+  c2`); Toy++'s `settle` keeps both.
+- **T1b/T1c (`formatKeepsComments` on today's toy).** Bigger than the
+  paper's 15 to 25 lemmas: the walk can't take a conjunct (a second walk
+  over all 49 parser functions: 1.7 lemmas and about 29 lines a
+  function); std said nothing of what `Parse.operators` read; "peek, then
+  skip" needs lemmas from one mark; `itemsFrom`'s unreachable `Zero` case
+  needs a fuel argument; about 50 `(rewrite e then fine)` after a `match`
+  refined the hypothesis. `before` as a function, not a list, saved a
+  reassociation proof per chain. The std lemmas that belong in std are
+  filed (SW-3454, SW-3457, SW-3476, SW-3653).
+- **T2a/T2b (the syntax).** About 3.9 lemmas for each new parser function
+  (one in each of three walks), and one lemma per layer for each new tree
+  form, of the shape of the nearest old one. A record pattern under a
+  constructor needs brackets. The `Function` case of `declarationsOut`
+  went from 500 to 245 lines by regrouping the header's events once.
+  Proof tuples (SW-3566) replaced the `Witness`/`Both` towers.
+- **T3a/T3b (rule N).** `Tidy` is false of settled tokens (a comma's
+  own-line comments make a token that doesn't start its line have some),
+  so the invariant isn't `Parse.Invariant.every`. A call's `)` doesn't
+  join a comment's line by `Closing` alone (a `SoftLine` breaks in a flat
+  group when a comment waits); a `Choice` of flat-with-`Closing` first
+  fixes it. `match e: expr` replaces `expr` only where it shows; `&&`
+  chains are right-nested; two `match` scrutinees where one's type
+  mentions the other is `E-MATCH-MOTIVE` (a helper with the scrutinee as
+  a variable); names collide across `(..)` imports and the error is at
+  every use (`Spaced`: 34 errors); `W-MATCH-NOT-FOUND` noise. A statement
+  that spells out a `match` over a `Prop` is read as a `Bool` test
+  (`E-AUTO-NONE`) without pointing at the helper definition the guide
+  recommends.
+- **T4.** Left no friction section; the frame (`meaning`, `tidy`,
+  `format`, the glue's twelve proofs) moved over as written.
+- **T5 (P3 and the traversal).** The traversal works: six generic facts
+  proved once, and each pass's family follows. The bare-function
+  `E-TERMINATION` again, wider. A stuck `match` isn't compared arm by arm
+  (`insideFits`, `dropCommaFits` bridge it); `.read` takes one `&&`
+  apart; `match isSpare:` refined `dropPair`'s `if` but not the same test
+  inside `AllAt`; `W-MATCH-NOT-FOUND` multiplies (10 warnings for one
+  wrong `fits`). Precedence: a pair stays inside `if`'s own-line comment
+  context (`standsOutside`).
+- **T6 (P4).** Each lemma about `mergeOnto` repeats a five-arm `match
+  group, rest` of which four close by computing (about 30 lines each;
+  SW-3748 files a `cases` that closes them and a `StepIsIdentity`
+  family). `W-REWRITE-THEN-COMPUTING` / `W-REWRITE-THEN-REWRITE` fire on
+  natural first drafts (quick fixes were right). `rewrite repeatedly
+  [List.appendAssoc, List.appendNil] then byComputing` closed a goal that
+  needed six re-associations by hand.
+- **T7 (this stage).**
+  - The disturber's seeds `0..49` barely vary the first roll: its
+    generator, with `state = seed * 7919 + 17`, gives bits 16-17 that
+    take few values over 50 neighbouring seeds, so a change with one
+    candidate per text (a lone group to split) never fired in the
+    goldens. The new test spreads its seeds; the disturber's own first
+    rolls (stretch, shift) are as correlated as before. A better mixing
+    of the seed (one or two throwaway rolls, or a hash) is a small fix.
+  - A termination check for a pass over a list that sometimes re-visits
+    a rebuilt tail needs fuel or a shape where the recursion is on the
+    pattern's tail (`moveCommentsBeforeClosers` now matches `[before,
+    ..tail]` and the closer in `tail`). The message was clear.
+  - The timing harness needed two phases (`settle`, `tidy`) so the
+    passes' share could be got by differencing; the old phases already
+    ended at `parse` and `format`.
+
+### What carries to the real formatter
+
+- **The shared traversal: yes.** One generic `traverse` (`Expr.traverse`) with an
+  expression step and a declaration step, and its facts proved once for
+  every step (`traversePlain`, `traverseLexical`, and the rest of
+  `TraverseProofs.sw`) gave P2, P3 and P4's families for the price of
+  their steps' own one-node facts (P2's went from 63 theorems down); P2 and P4 are instances (P4's expression step is the
+  identity). The traversal's file has 70 theorems; P4 then needed 57, mostly list
+  helpers on groups. It is the way to carry passes into the real formatter:
+  state each pass as a step, not as a recursion. A generic `StepIsIdentity`
+  family (SW-3748) would make a declaration-only pass cheaper.
+- **The pass order is P1, P2, P3, P4, and P3 must come before P4**: P3
+  leaves a bare `TypeName` where a type's brackets held no comment, which
+  is what P4's merging condition reads; so they don't commute, and
+  `mergeKeepBrackets` is proved as a lemma that takes P3's output.
+  P1 and P4 commute (`mergeTakesCommute`); P2 touches no groups. Any
+  extra pass is stated with "keeps the earlier passes' work" lemmas
+  (`tidyKeepsMeaning`, `tidyBrackets`, `tidyMerged`, `tidyIdempotent` are
+  proved from the per-pass families and 6 "keeps the earlier pass"
+  lemmas; 18 theorems for four passes).
+- **Rule N as a reading rule on the tokens, not a pass.** `settle` between
+  lexer and parser, with `Settled` (route A: a small tree function
+  re-homes a closer's comment where the parser builds it) and
+  `settledViews` as the one lemma where printed tokens meet the tree.
+  Its run-time cost is 2.1% of a format (above).
+- **`meaning` as a tree in plain form wrapped in `Meaning`.** Two files
+  are the same program when their plain forms are equal; "a pair that
+  holds a comment stays" and "every comment kept" fall out of it. The
+  disturber now tests the passes against it with five changes of the
+  tree's freedoms.
+- **Proving the parser walks costs about 1.7 lemmas and 29 lines per
+  function, then 3.9 per new function** (three walks); the real parser's
+  234 functions mean about 400 lemmas for `parseCarries` and the same
+  again for its other walks, unless the generic every-function walk
+  (SW-3478) takes them.
+- **Timing**: passes plus rule N are under 4% of a format. The risk to the
+  20 s target is `Parse`, not these.
+- **What did not carry**: P4's list lemmas were twice the estimate; the
+  `Tidy` invariant had to be weakened for settled tokens; the engine
+  needed a `Closing` leaf and a `Choice` for a call's closer on the
+  comment's line.
+- **Not done (known)**: `settledIdempotent` (SW-3723), the `match` arms
+  `cases` (SW-3748), experiment (b) and (c) of §3.4.
