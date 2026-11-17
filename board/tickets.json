@@ -22661,7 +22661,7 @@
     {
       "id": 3883,
       "title": "[Sonnet] An oracle for the self-hosted formatter's meaning: check both sides of a meaning-equal pair and compare declaration hashes, with generated inputs for the group-split and head-bracket shapes; catches a wrong meaning, which Twin --stage meaning cannot (SW-3878 S4)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
