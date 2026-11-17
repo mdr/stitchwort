@@ -4,10 +4,13 @@
 //!
 //! A native computes what one particular declaration computes. If the
 //! library changes that declaration's body and the native stays bound, the
-//! native's answers and the declaration's own equations disagree. For the
-//! kernel's natives that is unsound: conversion computes `Nat.sub 3 1`
-//! natively to the old answer while a proof by induction over the new body
-//! proves the new one, and together they prove `False`. So a pinned
+//! native's answers and the declaration's own equations disagree. For a
+//! native that conversion uses (the `Nat` natives, `+`'s rules) that is
+//! unsound: conversion computes `Nat.sub 3 1` natively to the old answer
+//! while a proof by induction over the new body proves the new one, and
+//! together they prove `False`. The float natives fire only while a program
+//! runs, so a stale one would make a run disagree with what was checked,
+//! not prove `False`; they are pinned the same way. So a pinned
 //! declaration is bound only if its content hash is the one in [`PINS`]. A
 //! content hash covers the declaration's type, its body and everything they
 //! refer to, so a pin on `Nat.add` pins `Nat` as well.
@@ -40,7 +43,8 @@ use crate::term::{DataId, DefId};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum User {
     /// The kernel's natives and reduction rules (`native.rs`, `float.rs`,
-    /// `nat_add.rs`): a stale one is unsound.
+    /// `nat_add.rs`): a stale one that conversion uses is unsound, and a
+    /// stale float native makes runs disagree with checking.
     Kernel,
 }
 

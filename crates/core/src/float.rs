@@ -715,25 +715,22 @@ pub fn run(g: &Ev, id: DefId, spine: &[Elim], force: Force) -> budget::Result<Op
         return Ok(None);
     }
     // The conversions take a number.
-    match native {
-        n @ (FloatNative::OfInt | FloatNative::OfNat) => {
-            let Elim::App(v, Icit::Explicit) = &spine[0] else {
-                return Ok(None);
-            };
-            let x = if n == FloatNative::OfNat {
-                match as_nat_with(g, v, force)? {
-                    Some(n) => nat_to_f64(&n),
-                    None => return Ok(None),
-                }
-            } else {
-                match known_int(g, v, force)? {
-                    Some(n) => int_to_f64(&n),
-                    None => return Ok(None),
-                }
-            };
-            return Ok(Some(float_value(data, canonical_bits(x))));
-        }
-        _ => {}
+    if let n @ (FloatNative::OfInt | FloatNative::OfNat) = native {
+        let Elim::App(v, Icit::Explicit) = &spine[0] else {
+            return Ok(None);
+        };
+        let x = if n == FloatNative::OfNat {
+            match as_nat_with(g, v, force)? {
+                Some(n) => nat_to_f64(&n),
+                None => return Ok(None),
+            }
+        } else {
+            match known_int(g, v, force)? {
+                Some(n) => int_to_f64(&n),
+                None => return Ok(None),
+            }
+        };
+        return Ok(Some(float_value(data, canonical_bits(x))));
     }
     let mut args = Vec::with_capacity(arity);
     let mut bits = Vec::with_capacity(arity);

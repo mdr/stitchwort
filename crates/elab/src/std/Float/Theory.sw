@@ -3302,14 +3302,13 @@ theorem Float.Theory.positiveNotZero ∀ (d: Float) (pos: 0.0 < d): Float.Model.
   let mb: Float.Model.magnitude d.bits = d.bits := rewrite sb
   (arithmetic [pos, kb, mb]: Nat.equal (Float.Model.magnitude d.bits) 0 = False)
 
---| The key of a finite double over a positive finite one: its units'
---| quotient's, rounded.
-theorem Float.Theory.quotientKeyFinite ∀ (x d: Float)
+--| The bits of `x / d` for finite `x` and positive finite `d`: the units' quotient, rounded.
+theorem Float.Theory.quotientBits ∀ (x d: Float)
     (pos: 0.0 < d)
     (fd: Float.isFinite d = True)
     (fx: Float.isFinite x = True):
-    Float.orderKey (x / d)
-      = Float.Theory.roundKey
+    (x / d).bits
+      = Float.Model.roundRatio
         (Float.Model.units x.bits)
         (Int.natAbs (Float.Model.units d.bits))
         (OfNat 0)
@@ -3325,18 +3324,31 @@ theorem Float.Theory.quotientKeyFinite ∀ (x d: Float)
       (Float.Theory.positiveSignClear d pos)
       (Float.Theory.positiveNotZero d pos)
   let pd: 0 < den := Float.Theory.natAbsPos (Float.Model.units b) (Float.Theory.unitsPositive d pos)
-  Eq.cong Float.Theory.key
-    (calc (x / d).bits
-      _ = (Float.ofBits (Float.Model.divBits a b)).bits := Eq.cong (q => q.bits) (Float.Theory.divOfBits x d)
-      _ = Float.Model.divBits a b :=
-        Float.Theory.ofBitsBits
+  calc (x / d).bits
+    _ = (Float.ofBits (Float.Model.divBits a b)).bits := Eq.cong (q => q.bits) (Float.Theory.divOfBits x d)
+    _ = Float.Model.divBits a b :=
+      Float.Theory.ofBitsBits
+        (Float.Model.divBits a b)
+        (Float.Theory.validTo
           (Float.Model.divBits a b)
-          (Float.Theory.validTo
-            (Float.Model.divBits a b)
-            r
-            e
-            (Float.Theory.roundRatioValid den (OfNat 0) (Float.Model.signBit a) pd (Float.Model.units a)))
-      _ = r := e)
+          r
+          e
+          (Float.Theory.roundRatioValid den (OfNat 0) (Float.Model.signBit a) pd (Float.Model.units a)))
+    _ = r := e
+
+--| The key of a finite double over a positive finite one: its units'
+--| quotient's, rounded.
+theorem Float.Theory.quotientKeyFinite ∀ (x d: Float)
+    (pos: 0.0 < d)
+    (fd: Float.isFinite d = True)
+    (fx: Float.isFinite x = True):
+    Float.orderKey (x / d)
+      = Float.Theory.roundKey
+        (Float.Model.units x.bits)
+        (Int.natAbs (Float.Model.units d.bits))
+        (OfNat 0)
+        (Float.Model.signBit x.bits) :=
+  Eq.cong Float.Theory.key (Float.Theory.quotientBits x d pos fd fx)
 
 --| A NaN or infinite double over a positive finite one is itself.
 theorem Float.Theory.quotientSpecial ∀ (x d: Float)
@@ -3956,40 +3968,6 @@ theorem Float.ofNatPositive ∀ (d: Nat) (h: 1 ≤ d): 0.0 < Float.ofNat d :=
     (Float.orderKey (Float.ofNat d))
     byComputing
     (Float.ofNatMonotone 1 d h)
-
---| The bits of `x / d` for finite `x` and positive finite `d`: the units' quotient, rounded.
-theorem Float.Theory.quotientBits ∀ (x d: Float)
-    (pos: 0.0 < d)
-    (fd: Float.isFinite d = True)
-    (fx: Float.isFinite x = True):
-    (x / d).bits
-      = Float.Model.roundRatio
-        (Float.Model.units x.bits)
-        (Int.natAbs (Float.Model.units d.bits))
-        (OfNat 0)
-        (Float.Model.signBit x.bits) :=
-  let a: Nat := x.bits
-  let b: Nat := d.bits
-  let den: Nat := Int.natAbs (Float.Model.units b)
-  let r: Nat := Float.Model.roundRatio (Float.Model.units a) den (OfNat 0) (Float.Model.signBit a)
-  let e: Float.Model.divBits a b = r :=
-    Float.Theory.divPosBits a b
-      (Float.Theory.finiteBits x fx)
-      (Float.Theory.finiteBits d fd)
-      (Float.Theory.positiveSignClear d pos)
-      (Float.Theory.positiveNotZero d pos)
-  let pd: 0 < den := Float.Theory.natAbsPos (Float.Model.units b) (Float.Theory.unitsPositive d pos)
-  calc (x / d).bits
-    _ = (Float.ofBits (Float.Model.divBits a b)).bits := Eq.cong (q => q.bits) (Float.Theory.divOfBits x d)
-    _ = Float.Model.divBits a b :=
-      Float.Theory.ofBitsBits
-        (Float.Model.divBits a b)
-        (Float.Theory.validTo
-          (Float.Model.divBits a b)
-          r
-          e
-          (Float.Theory.roundRatioValid den (OfNat 0) (Float.Model.signBit a) pd (Float.Model.units a)))
-    _ = r := e
 
 theorem Float.Theory.crossWhole ∀ (k d p q: Nat): k * d * p * q * 1 = k * q * (d * p) := algebra
 
