@@ -385,8 +385,7 @@ theorem signKindFine ∀ (text: Text): FineKind (lexemeKind SignLexeme text) := 
   | [] => byComputing
   | [char] =>
     match p: punctuation char with
-      | Some mark => byComputing
-      | None => byComputing
+      | _ => cases
   | [first, second, ..rest] => byComputing
 
 --| The kind made of a lexeme with its kind's text has the lexer's text.

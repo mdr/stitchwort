@@ -148,9 +148,7 @@ theorem headedWithoutFirstBlank ∀ (lines: List (Spaced Statement))
     | [{ blankBefore, line }, ..rest], Both lineHeaded restHeaded => (lineHeaded, restHeaded)
 
 --| `withoutFirstBlank` leaves no blank line above the first line.
-theorem unspacedWithout ∀ (lines: List (Spaced a)): Unspaced (withoutFirstBlank lines) := match lines with
-  | [] => byComputing
-  | [{ blankBefore, line }, ..rest] => byComputing
+theorem unspacedWithout ∀ (lines: List (Spaced a)): Unspaced (withoutFirstBlank lines) := cases
 
 theorem headedConcat ∀ (groups: List (List (Spaced Statement)))
     (all: List.All (HeadedLines False) groups):

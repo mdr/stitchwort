@@ -170,8 +170,7 @@ theorem groupsSpareComments ∀ (groups: List ParameterGroup):
 theorem declareSpareComments ∀ (line: Declaration): line.withoutSpareTypeBrackets.comments = line.comments :=
   match line with
     | Function _ _ _ _ _ parameters _ _ _ _ => rewrite groupsSpareComments parameters
-    | Value _ _ _ _ _ => byComputing
-    | DeclarationNote _ => byComputing
+    | _ => cases
 
 --| P3 keeps every comment the tree holds, in order.
 theorem bracketsKeepComments ∀ (file: SourceFile): file.withoutSpareBrackets.comments = file.comments :=
@@ -262,8 +261,7 @@ theorem groupsMergeComments ∀ (groups: List ParameterGroup):
 theorem declareMergeComments ∀ (line: Declaration): line.withMergedParameters.comments = line.comments :=
   match line with
     | Function _ _ _ _ _ parameters _ _ _ _ => rewrite groupsMergeComments parameters
-    | Value _ _ _ _ _ => byComputing
-    | DeclarationNote _ => byComputing
+    | _ => cases
 
 theorem keepComments: StepKeepsComments keepExpr := position expr => byComputing
 

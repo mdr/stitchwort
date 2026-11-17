@@ -381,8 +381,7 @@ theorem groupsSpareLexical ∀ (groups: List ParameterGroup)
 
 theorem declareSparePlain ∀ (line: Declaration): line.withoutSpareTypeBrackets.plain = line.plain := match line with
   | Function _ _ _ _ _ parameters _ _ _ _ => rewrite groupsSparePlain parameters
-  | Value _ _ _ _ _ => byComputing
-  | DeclarationNote _ => byComputing
+  | _ => cases
 
 --| Only the parameters' types change: each keeps its shape and texts
 --| (`groupsSpareShaped`, `groupsSpareLexical`), and the list's `)` stays

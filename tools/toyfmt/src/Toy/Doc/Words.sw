@@ -363,9 +363,7 @@ theorem eitherUniform ∀ (condition: Bool) (yes no: (Printer, List Cmd))
     | True => whenYes
     | False => whenNo
 
-theorem headOrWords ∀ (options: List Doc): (options.headOr Empty).words = wordsFirst options := match options with
-  | [] => byComputing
-  | [option, ..others] => byComputing
+theorem headOrWords ∀ (options: List Doc): (options.headOr Empty).words = wordsFirst options := cases
 
 theorem headOrUniform ∀ (options: List Doc) (uniform: AllUniform options): Uniform (options.headOr Empty) :=
   match options, uniform with

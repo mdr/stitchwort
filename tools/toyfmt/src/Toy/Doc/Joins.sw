@@ -520,8 +520,7 @@ theorem trimmedReady ∀ (follows: Text → Text → Prop) (out: List Text)
 
 theorem payOwed ∀ (printer: Printer): printer.payIndent.owed = None := match owed: printer.owed with
   | None => owed
-  | Some Zero => byComputing
-  | Some (Succ less) => byComputing
+  | _ => cases
 
 --| Indentation is paid on an empty line, so text may follow it.
 theorem payPairs ∀ (follows: Text → Text → Prop) (printer: Printer) (text: Text)

@@ -173,10 +173,7 @@ theorem ownLineReversed ∀ (comment: Comment) (rest: List Trivia): hasOwnLine [
 --| Whether a trailing comment stays on a token doesn't depend on which
 --| comment it is.
 theorem blockedTrailing ∀ (top: TokenView) (rest: List TokenView) (trailing: Option Comment):
-    blockedBy { top | trailing } rest = blockedBy top rest :=
-  match rest with
-    | [] => byComputing
-    | [previous, ..others] => byComputing
+    blockedBy { top | trailing } rest = blockedBy top rest := cases
 
 --| A token just read, which is no comma, is steady: it has no trailing
 --| comment yet.
@@ -416,9 +413,7 @@ theorem aboveCalm ∀ (above: List Comment) (column: Nat) (prior: Prior)
             ((found: Option Prior) => calmFrom found (aboveEvents column rest))
             (ownLineCalm prior comment.text column first)
         _ = Some (afterAbove Noted rest) := aboveCalm rest column Noted others
-        _ = Some Noted := match rest with
-          | [] => byComputing
-          | [_, .._] => byComputing
+        _ = Some Noted := cases
 
 def afterComment (worded: Prior) (after: Option Comment): Option Prior := match after with
   | None => Some worded
@@ -631,10 +626,7 @@ theorem commaCalms ∀ (before: Bool): Calms (TokenAt anyStart Comments.none ","
 def afterBlank (prior: Prior) (blankBefore: Bool): Prior := if blankBefore then Blanked else prior
 
 theorem blankCalm ∀ (blankBefore: Bool) (later: List Event) (prior: Prior):
-    calm prior (blankEvents blankBefore ++ later) = calm (afterBlank prior blankBefore) later :=
-  match blankBefore with
-    | True => byComputing
-    | False => byComputing
+    calm prior (blankEvents blankBefore ++ later) = calm (afterBlank prior blankBefore) later := cases
 
 --| An expression's events are calm after any event, and end as its last
 --| token does: by induction on the expression, one `calmsThen` per part,

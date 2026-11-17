@@ -996,10 +996,7 @@ theorem operatorOfOp ∀ (layout: Layout) (level: Nat) (sign: Parse.Located Toke
     (kind: sign.value.kind = Op operator)
     (allowed: layout.allows sign = True):
     operatorOf layout level sign = operatorAt operator (layout.comments sign) level :=
-  rewrite kind, allowed then
-    match same: operator.level == level with
-      | True => byComputing
-      | False => byComputing
+  rewrite kind, allowed then match same: operator.level == level with | _ => cases
 
 theorem levelRange ∀ (operator: Operator): 1 <= operator.level ∧ operator.level <= 6 := match operator with
   | Or => ((arithmetic []), (arithmetic []))
@@ -1682,28 +1679,19 @@ theorem endsAtSign ∀ (token: Parse.Located Token) (punctuation: Punctuation) (
     EndsExpression InBrackets [token, ..rest] :=
   ((rewrite signed then quiet), (noOperatorAtSign InBrackets 0 token punctuation rest signed))
 
-theorem bracketQuiet ∀ (closer: Punctuation) (bracket: bracketSign closer = True): endsSuffixes (Sign closer) = True :=
-  match closer with
-    | CloseParen => byComputing
-    | CloseSquare => byComputing
+theorem bracketQuiet ∀ (closer: Punctuation) (bracket: bracketSign closer = True): endsSuffixes (Sign closer) = True := cases
 
 theorem noCommaAtBracket ∀ (close: Parse.Located Token) (closer: Punctuation) (after: List (Parse.Located Token))
     (closes: close.value.kind = Sign closer)
     (bracket: bracketSign closer = True):
     signAhead Comma [close, ..after] = False :=
-  rewrite closes then
-    match closer with
-      | CloseParen => byComputing
-      | CloseSquare => byComputing
+  rewrite closes then match closer with | _ => cases
 
 theorem bracketThere ∀ (close: Parse.Located Token) (closer: Punctuation)
     (closes: close.value.kind = Sign closer)
     (bracket: bracketSign closer = True):
     (signIs closer close.value.kind).isSome = True :=
-  rewrite closes then
-    match closer with
-      | CloseParen => byComputing
-      | CloseSquare => byComputing
+  rewrite closes then match closer with | _ => cases
 
 --| `closingNext` reads nothing and says whether `closer` comes next.
 theorem runsClosingNext ∀ (closer: Punctuation) (rest: List (Parse.Located Token)):

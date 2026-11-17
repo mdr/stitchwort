@@ -158,8 +158,7 @@ theorem groupsMergePlain ∀ (groups: List ParameterGroup): plainGroups (mergeGr
 
 theorem declareMergePlain ∀ (line: Declaration): line.withMergedParameters.plain = line.plain := match line with
   | Function _ _ _ _ _ parameters _ _ _ _ => rewrite groupsMergePlain parameters
-  | Value _ _ _ _ _ => byComputing
-  | DeclarationNote _ => byComputing
+  | _ => cases
 
 theorem keepPlain: StepKeepsPlain keepExpr := position expr => byComputing
 
@@ -196,8 +195,7 @@ theorem mergeOntoEnds ∀ (open: Comments) (group: ParameterGroup) (rest: List P
         | False => byComputing
         | True =>
           match others with
-            | [] => byComputing
-            | [_, .._] => byComputing
+            | _ => cases
 
 theorem groupsMergeEnds ∀ (open: Comments) (groups: List ParameterGroup):
     groupsEndWithComment open (mergeGroups groups) = groupsEndWithComment open groups :=
@@ -465,8 +463,7 @@ theorem declarationTakesMerge ∀ (line: Declaration):
     line.withMergedParameters.withTakes = line.withTakes.withMergedParameters :=
   match line with
     | Function _ _ _ takes _ parameters _ _ _ _ => rewrite takesForMerge takes parameters
-    | Value _ _ _ _ _ => byComputing
-    | DeclarationNote _ => byComputing
+    | _ => cases
 
 theorem declarationsTakesMerge ∀ (lines: List (Spaced Declaration)):
     declarationsWithTakes (declarationsMerged lines) = declarationsMerged (declarationsWithTakes lines) :=

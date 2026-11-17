@@ -259,10 +259,7 @@ theorem ownComments ∀ (above: List Comment): ownLineComments (above.map OwnLin
   | [comment, ..rest] => Eq.cong (Cons comment) (ownComments rest)
 
 theorem trailingOf ∀ (trailing: Option (Parse.Located Comment)):
-    trailing.map (comment => comment.value) = commentOf trailing :=
-  match trailing with
-    | None => byComputing
-    | Some _ => byComputing
+    trailing.map (comment => comment.value) = commentOf trailing := cases
 
 theorem commentsSame ∀ (comments: Comments) (above: List Comment) (after: Option Comment)
     (sameAbove: above = comments.above)
@@ -631,10 +628,7 @@ theorem leafSpells ∀ (layout: Layout) (pending: List Trivia) (head: Option Nat
         | (kindSame, allows, notes) => (found, byComputing, kindSame, allows, notes))
     leads
 
-theorem blockAheadBrackets ∀ (tokens: List (Parse.Located Token)): blockAhead InBrackets tokens = False :=
-  match tokens with
-    | [] => byComputing
-    | [_, .._] => byComputing
+theorem blockAheadBrackets ∀ (tokens: List (Parse.Located Token)): blockAhead InBrackets tokens = False := cases
 
 --| Tokens with the views of an expression's events spell it.
 theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop) (expr: Expr)

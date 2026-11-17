@@ -51,9 +51,7 @@ theorem homeTidy ∀ (tokens earlier: List Tok)
     | [token, ..rest], (tidy, others) =>
       homeTidy rest (homeStep earlier token) others (homeStepTidy earlier token tidy before)
 
-theorem joinNothing ∀ (back: List Trivia): joinTrivia [] back = back := match back with
-  | [] => byComputing
-  | [first, ..rest] => byComputing
+theorem joinNothing ∀ (back: List Trivia): joinTrivia [] back = back := cases
 
 --| Rule N's second half gives own-line comments only to a token straight
 --| after a comma.

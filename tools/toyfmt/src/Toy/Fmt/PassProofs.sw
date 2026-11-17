@@ -275,16 +275,10 @@ theorem commasKeepMeaning ∀ (file: SourceFile): file.withoutTrailingCommas.mea
 -- P1: `takes` on every function with parameters.
 
 theorem takesForPlain ∀ (takes: Option Comments) (parameters: List ParameterGroup):
-    (takesFor takes parameters).getOrElse Comments.none = takes.getOrElse Comments.none :=
-  match parameters with
-    | [] => byComputing
-    | [_, .._] => byComputing
+    (takesFor takes parameters).getOrElse Comments.none = takes.getOrElse Comments.none := cases
 
 theorem takesForTwice ∀ (takes: Option Comments) (parameters: List ParameterGroup):
-    takesFor (takesFor takes parameters) parameters = takesFor takes parameters :=
-  match parameters with
-    | [] => byComputing
-    | [_, .._] => byComputing
+    takesFor (takesFor takes parameters) parameters = takesFor takes parameters := cases
 
 theorem takesForFine ∀ (takes: Option Comments) (parameters: List ParameterGroup)
     (fine: FineTakes takes):
@@ -296,8 +290,7 @@ theorem takesForFine ∀ (takes: Option Comments) (parameters: List ParameterGro
 
 theorem declarationTakesPlain ∀ (line: Declaration): line.withTakes.plain = line.plain := match line with
   | Function _ _ _ takes _ parameters _ _ _ _ => rewrite takesForPlain takes parameters
-  | Value _ _ _ _ _ => byComputing
-  | DeclarationNote _ => byComputing
+  | _ => cases
 
 theorem declarationsTakesPlain ∀ (lines: List (Spaced Declaration)):
     plainDeclarations (declarationsWithTakes lines) = plainDeclarations lines :=
@@ -312,8 +305,7 @@ theorem takesKeepMeaning ∀ (file: SourceFile): file.withTakes.meaning = file.m
 
 theorem declarationTakesTwice ∀ (line: Declaration): line.withTakes.withTakes = line.withTakes := match line with
   | Function _ _ _ takes _ parameters _ _ _ _ => rewrite takesForTwice takes parameters
-  | Value _ _ _ _ _ => byComputing
-  | DeclarationNote _ => byComputing
+  | _ => cases
 
 theorem declarationsTakesTwice ∀ (lines: List (Spaced Declaration)):
     declarationsWithTakes (declarationsWithTakes lines) = declarationsWithTakes lines :=

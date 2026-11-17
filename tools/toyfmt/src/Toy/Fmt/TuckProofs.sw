@@ -281,8 +281,7 @@ theorem homedTrailing ∀ (comment: Comment) (current: TokenView) (held: Option 
   match current with
     | { kind, start, above, trailing } =>
       match earlier with
-        | [] => byComputing
-        | [previous, ..rest] => byComputing
+        | _ => cases
 
 theorem closerHomes ∀ (comment: Comment) (view: TokenView) (earlier: List TokenView)
     (closes: (view.kind.isCloser || view.kind.isComma) = True):

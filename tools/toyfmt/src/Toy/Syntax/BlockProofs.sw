@@ -198,8 +198,7 @@ theorem inlineBodyRun ∀ (more: Nat) (self: Layout → {Parse (Parse.Located To
   match layout with
     | InBrackets =>
       match state with
-        | { at = { rest = [], offset, left }, furthest, expected, messages } => byComputing
-        | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => byComputing
+        | _ => cases
     | InStatement column from =>
       match state with
         | { at = { rest = [], offset, left }, furthest, expected, messages } => byComputing
