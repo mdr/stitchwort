@@ -889,6 +889,18 @@ Each stage is one lane; each ends with the named tests passing.
    is the `Nat` natives', plus `toText`, which the kernel never computes), and `FLOAT_CONTRACT`
    governs only the runtimes (§3.3 of the float note).
 
+**As built (stage 3, SW-638).** `Float.mul` is `Float.Model.mulBits`: the IEEE special cases, then
+`roundScaled (units a * units b) (-2148)` with the xor of the signs; `Float.ofInt i` is
+`roundScaled i 0`, and `Float.ofNat n` is `Float.ofInt (OfNat n)`. Their natives fire only while a
+program runs, like `add`'s. Laws proved in `Float.Theory`: `Float.mulOneRight` (`x * 1.0 = x`),
+`Float.ofNatOfInt`, `Float.ofIntMonotone`, `Float.ofNatExact` (`ofNat n` is exact for
+`n <= 2^53`) and `Float.ofNatMul` (`ofNat a * ofNat b = ofNat (a * b)` for `a, b <= 2^53`). Tests:
+the gate's `mul`, `ofInt` and `ofNat` checks, and `float_paths`' boundary products with 150
+Berkeley TestFloat `f64_mul` cases (SW-652). A closed `mul` costs about 0.75 ms in checking, from
+about 0 as a primitive. Not done, moved to stage 4 or a ticket of their own: the general
+`toInt`/`ofInt` theorem (`float.md:1150-1156`), and `mul` monotone in each argument for
+non-negative operands (it needs the third operand finite: `infinity * 0.0` is the NaN).
+
 Stages 3 and 4 have no program waiting for them; they can wait for one, but leaving a mix of
 "definition" and "primitive with rule" is a permanent two-mechanism cost, so doing them soon after
 is reasonable [inferred].
