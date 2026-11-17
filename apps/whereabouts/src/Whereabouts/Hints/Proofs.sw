@@ -372,3 +372,175 @@ theorem floorToTenthOneUlpAbove: floorTo (-359.90000000000003) 0.1 = -359.9
 theorem ceilToTenthOneUlpBelow: ceilTo 256.40000000000003 0.1 = 256.4
       ∧ 256.40000000000003 - 256.4 = 5.684341886080802e-14 :=
   (byComputing, byComputing)
+
+-- Outward rounding to tenths, proved
+
+--| The double for the whole number `i` with sign bit `s`, as `floor`,
+--| `ceil` and `round` build it; the sign matters only for zero.
+def wholeAt (i: Int) (s: Bool): Float := Float.ofBits (Float.Model.roundScaled i 0 s)
+
+--| What `floorTo` and `ceilTo` give at step 0.1 from the whole number `k` of tenths.
+def tenthOf (k: Float): Float := Float.round (k * 0.1 * 10.0) / 10.0
+
+--| 3 · 2^-44: a double this far below a tenth divides by 0.1 to below its
+--| whole number of tenths, and it is under 2^-42 even after rounding.
+def tenthsSlack: Float := 1.7053025658242404e-13
+
+--| What is checked for each whole number `k` of tenths: the round trip; that
+--| `tenthsSlack` below its tenth divides by 0.1 to below `k`, and above it
+--| to above `k`; and that the tenth is within 361°.
+def tenthsCheck (k: Float): Bool :=
+  let whole := Float.round (k * 0.1 * 10.0)
+  let t := whole / 10.0
+  Nat.equal whole.bits k.bits
+    ∧ (Float.less ((t - tenthsSlack) / 0.1) k
+      ∧ (Float.less k ((t + tenthsSlack) / 0.1) ∧ (Float.leq (-361.0) t ∧ Float.leq t 361.0)))
+
+def tenthsRow (j: Nat): Bool := tenthsCheck (wholeAt (Int.sub (OfNat j) (OfNat 3601)) False)
+
+--| Every whole number of tenths from -3601 to 3601 passes `tenthsCheck`.
+theorem tenthsTable: List.all (List.range 0 (7202 + 1)) tenthsRow = True := byComputing
+
+theorem wholeAtValid ∀ (i: Int) (s: Bool): Float.isValid (Float.Model.roundScaled i 0 s) = True :=
+  Float.Theory.roundRatioValid 1 (OfNat 0) s byComputing i
+
+theorem wholeAtOf ∀ (k: Float) (i: Int) (s: Bool) (e: k.bits = Float.Model.roundScaled i 0 s): k = wholeAt i s :=
+  Float.bitsExt k
+    (wholeAt i s)
+    (Eq.trans e (Float.Theory.ofBitsBits (Float.Model.roundScaled i 0 s) (wholeAtValid i s)).flipped)
+
+theorem tenthsRowIndex ∀ (i: Int)
+    (h: Int.natAbs i ≤ 3601):
+    Int.sub (OfNat (Int.natAbs (Int.add i (OfNat 3601)))) (OfNat 3601) = i :=
+  arithmetic [h]
+
+theorem tenthsRowBelow ∀ (i: Int) (h: Int.natAbs i ≤ 3601): Int.natAbs (Int.add i (OfNat 3601)) ≤ 7202 := arithmetic [h]
+
+--| Every whole number of tenths up to 3601 in size, of either zero sign, passes `tenthsCheck`.
+theorem tenthsAt ∀ (i: Int) (s: Bool) (h: Int.natAbs i ≤ 3601): tenthsCheck (wholeAt i s) = True :=
+  let j: Nat := Int.natAbs (Int.add i (OfNat 3601))
+  let row: tenthsRow j = True :=
+    List.allBetweenElim [q := tenthsRow] [lo := 0] [hi := 7202] tenthsTable [k := j] (arithmetic) (tenthsRowBelow i h)
+  let plain: tenthsCheck (wholeAt i False) = True :=
+    J (y w => tenthsCheck (wholeAt y False) = True) row (tenthsRowIndex i h)
+  match s with
+    | False => plain
+    | True =>
+      Float.Theory.orCase
+        [goal := tenthsCheck (wholeAt i True) = True]
+        (Float.Theory.intZeroCases i)
+        (i0 =>
+          J
+            (y w => tenthsCheck (wholeAt y True) = True)
+            (byComputing: tenthsCheck (wholeAt (OfNat 0) True) = True)
+            i0.flipped)
+        (nz =>
+          J
+            (b w => tenthsCheck (Float.ofBits b) = True)
+            plain
+            (Float.Theory.roundRatioSignIrrelevant 1 (OfNat 0) False True i nz))
+
+theorem roundTripOf ∀ (k: Float) (c: tenthsCheck k = True): Float.round (k * 0.1 * 10.0) = k :=
+  Float.bitsExt
+    (Float.round (k * 0.1 * 10.0))
+    k
+    (Nat.equalSound (Float.round (k * 0.1 * 10.0)).bits k.bits (Bool.andLeft c))
+
+--| The round trip in `floorTo` and `ceilTo` at step 0.1: a whole double `k`
+--| of `n` (up to 3601 in size) comes back from `round (k * 0.1 * 10.0)`,
+--| though neither product need be exact. Checked for each `n`, by computing,
+--| zeros of both signs included.
+theorem tenthsRoundTrip ∀ (k: Float) (n: Int)
+    (fk: Float.isFinite k = True)
+    (whole: Float.Theory.units k = Int.mul n (OfNat (Float.Model.pow2 1074)))
+    (h: Int.natAbs n ≤ 3601):
+    Float.round (k * 0.1 * 10.0) = k :=
+  let a: Nat := k.bits
+  let sb: Bool := Float.Model.signBit a
+  let e: k.bits = Float.Model.roundScaled n 0 sb := calc k.bits
+    _ = Float.Model.roundRatio (Float.Model.units a) 1 (-1074) sb :=
+      (Float.Theory.roundRatioUnitsBits a (Float.Theory.finiteBits k fk)).flipped
+    _ = Float.Model.roundRatio (Int.mul n (OfNat (Float.Model.pow2 1074))) 1 (-1074) sb :=
+      Eq.cong (u => Float.Model.roundRatio u 1 (-1074) sb) whole
+    _ = Float.Model.roundScaled n 0 sb := (Float.Theory.roundWhole n sb).flipped
+  roundTripOf k (J (y w => tenthsCheck y = True) (tenthsAt n sb h) (wholeAtOf k n sb e).flipped)
+
+theorem unitsWithin ∀ (u lo hi: Int) (p: Nat)
+    (pp: 0 < p)
+    (el: lo = Int.neg (OfNat (p * 3600)))
+    (eh: hi = OfNat (p * 3600))
+    (a: Int.leq lo u = True)
+    (b: Int.leq u hi = True):
+    Int.natAbs u < p * 3601 :=
+  arithmetic [pp, el, eh, a, b]
+
+--| `x / 0.1` for `|x| ≤ 360` is finite and under 3601 in size.
+theorem tenthsQuotient ∀ (x: Float)
+    (lo: -360.0 <= x)
+    (hi: x <= 360.0):
+    (Float.isFinite (x / 0.1) = True) ∧ (Int.natAbs (Float.Theory.units (x / 0.1)) < Float.Model.pow2 1074 * 3601) :=
+  let y: Float := x / 0.1
+  let pos: 0.0 < 0.1 := byComputing
+  let f01: Float.isFinite 0.1 = True := byComputing
+  let ylo: -3600.0 <= y :=
+    J (z w => z <= y) (Float.divMonotone (-360.0) x 0.1 pos f01 lo) (byComputing: -360.0 / 0.1 = -3600.0)
+  let yhi: y <= 3600.0 :=
+    J (z w => y <= z) (Float.divMonotone x 360.0 0.1 pos f01 hi) (byComputing: 360.0 / 0.1 = 3600.0)
+  Both
+    (Float.finiteBetween (-3600.0) y 3600.0 byComputing byComputing ylo yhi)
+    (unitsWithin
+      (Float.Theory.units y)
+      (Float.Theory.units (-3600.0))
+      (Float.Theory.units 3600.0)
+      (Float.Model.pow2 1074)
+      byComputing
+      byComputing
+      byComputing
+      (Float.Theory.unitsMonoKey (-3600.0).bits y.bits ylo)
+      (Float.Theory.unitsMonoKey y.bits 3600.0.bits yhi))
+
+--| For `|x| ≤ 360`, `floor (x / 0.1)` is a whole number of tenths that passes `tenthsCheck`.
+theorem floorTenthsChecked ∀ (x: Float)
+    (lo: -360.0 <= x)
+    (hi: x <= 360.0):
+    tenthsCheck (Float.floor (x / 0.1)) = True :=
+  let y: Float := x / 0.1
+  let q := tenthsQuotient x lo hi
+  let a: Nat := y.bits
+  let s: Bool := Float.Model.signBit a
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let f: Int := Float.Model.floorDiv s n (Float.Model.pow2 1074)
+  let fb: Int.natAbs f ≤ 3601 := Float.Theory.floorDivBelow s n (Float.Model.pow2 1074) 3601 byComputing q.right
+  let fl: (Float.floor y).bits = Float.Model.roundScaled f 0 s :=
+    Eq.trans
+      (Float.Theory.floorOfBits y)
+      (Float.Theory.floorFinite a (Float.Theory.notSpecialOf a (Float.Theory.finiteBits y q.left)))
+  J (k w => tenthsCheck k = True) (tenthsAt f s fb) (wholeAtOf (Float.floor y) f s fl).flipped
+
+theorem natAbsNegAtMost ∀ (g: Int) (h: Int.natAbs g ≤ 3601): Int.natAbs (Int.neg g) ≤ 3601 := arithmetic [h]
+
+--| The same for `ceil (x / 0.1)`.
+theorem ceilTenthsChecked ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): tenthsCheck (Float.ceil (x / 0.1)) = True :=
+  let y: Float := x / 0.1
+  let q := tenthsQuotient x lo hi
+  let a: Nat := y.bits
+  let s: Bool := Float.Model.signBit a
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let g: Int := Float.Model.floorDiv (¬s) n (Float.Model.pow2 1074)
+  let gb: Int.natAbs g ≤ 3601 := Float.Theory.floorDivBelow (¬s) n (Float.Model.pow2 1074) 3601 byComputing q.right
+  let cl: (Float.ceil y).bits = Float.Model.roundScaled (Int.neg g) 0 s :=
+    Eq.trans
+      (Float.Theory.ceilOfBits y)
+      (Float.Theory.ceilFinite a (Float.Theory.notSpecialOf a (Float.Theory.finiteBits y q.left)))
+  J
+    (k w => tenthsCheck k = True)
+    (tenthsAt (Int.neg g) s (natAbsNegAtMost g gb))
+    (wholeAtOf (Float.ceil y) (Int.neg g) s cl).flipped
+
+--| `floorTo x 0.1` is the floor of `x / 0.1` over ten, for `|x| ≤ 360`.
+theorem floorToTenth ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): floorTo x 0.1 = Float.floor (x / 0.1) / 10.0 :=
+  Eq.cong (r => r / 10.0) (roundTripOf (Float.floor (x / 0.1)) (floorTenthsChecked x lo hi))
+
+--| `ceilTo x 0.1` is the ceiling of `x / 0.1` over ten, for `|x| ≤ 360`.
+theorem ceilToTenth ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): ceilTo x 0.1 = Float.ceil (x / 0.1) / 10.0 :=
+  Eq.cong (r => r / 10.0) (roundTripOf (Float.ceil (x / 0.1)) (ceilTenthsChecked x lo hi))
