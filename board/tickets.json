@@ -22715,7 +22715,7 @@
     {
       "id": 3887,
       "title": "[Opus] Elaborator: with a local pv: Float.Model.pow2 1074 = v * 2^55 in scope, .left on a value whose type mentions k * 0.1 fails with 'expected Float.isValid 4591870180066957722, but this has type pow2 1074 = …': a float literal's validity proof seems filled from an unrelated local; reduce and fix with a failing-first example (SW-3872 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22767,7 +22767,7 @@
     {
       "id": 3891,
       "title": "[Sonnet] Clean-up after D3679: lowering now always gives one name per Binder/Expr::Pi; narrow names: Vec to a single name where safe, and correct the self-hosted formatter's meaning doc to cite ast::Binder::split and the lowering (SW-3880 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
