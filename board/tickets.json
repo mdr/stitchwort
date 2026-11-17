@@ -42934,12 +42934,12 @@
     {
       "id": 3805,
       "title": "[Opus] Float.Theory: a whole number of units (|n| below 2^53 × the spacing) is representable as a double; then x < floor x + 1, ceil likewise, |x % y| < |y|, Sterbenz (SW-639 finding; unlocks Whereabouts wrap and outward rounding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "\n\nLane notes (Opus, 17 Nov 2026, 15:13-15:45; est. 55 min):\n- Representability: Float.Theory.roundGrid: ±q × 2^e units with q ≤ 2^53 and below 2^2098 round (any zero sign) to a finite pattern with exactly those units (pattern = q's own, doubled e times). roundWholeUnits/roundScaledWhole: n × 2^1074 for whole |n| ≤ 2^53. combinationExact: r + k·B = j·A with r ≤ A, B (two finite doubles' units) is a double.\n- Laws: Float.ltFloorAddOne (x < floor x + 1.0 for |x| < 2^53), Float.ceilSubOneLt (ceil x - 1.0 < x; the brief's ceil x < x + 1.0 is false: x = 2^-60 gives 1.0 = 1.0), Float.remAbsLt (|x % y| < |y|, finite x, finite nonzero y), Float.remNonneg/remNonpos (sign of x), Float.sterbenz (positive finite x, y with x <= y + y, y <= x + x: units (x - y) = units x - units y). Helpers worth reuse: Float.Theory.addAtLeast/addAtMost (a sum between two finite doubles' exact values is between them in the order), roundFinite, addFiniteOf, remUnits, lessOfUnits.\n- Whereabouts: wrapRange (-180.0 <= wrap lon < 180.0 for every finite lon) proved; Sterbenz not needed (bound by 359.99999999999994). Outward rounding, step 1: not done; missing x / 1.0 = x and exact * 10.0, / 10.0 for negative whole numbers.\n- Tests: check --std Float/Theory.sw; scratch `stitchwort test` of the 4 new test blocks 4/4; whereabouts check + audit Whereabouts.Hints.Proofs 18/18 (with --std-dir); hash_stability::prelude passes after re-accepting (94 names added, none changed); fmt_repo fails only on Float/Model.sw, which main already fixed in 6f49c9d24.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
