@@ -1,0 +1,23 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-AUTO-NONE] Error: no way to decide `(match t with …)`
+    ╭─[ reject/match-statement-auto-none.sw:21:5 ]
+    │
+ 11 │ ╭─▶     [auto h: match t with
+    ┆ ┆   
+ 13 │ ├─▶       | B => 2 = 2]:
+    │ │                          
+    │ ╰────────────────────────── this `match`
+    │ 
+ 21 │         needsMatch t = 1 :=
+    │         ────────┬───────  
+    │                 ╰───────── the compiler needs a proof of this
+    │     
+    │     Note 1: supply a proof by name, or write a decision procedure: an `instance` returning `Decidable …`
+    │     
+    │     Note 2: the `match` is checked where it's written: hold it in a small helper definition, and state the theorem about the helper (docs/proving-guide.md, "A statement that spells out a match")
+    │     
+    │     Note 3: `(match …)` is a `match` written inside `needsMatch`, marked "this `match`" above; the compiler turned it into a function that source can't name. The same `match` written again is another such function, equal to it only if neither calls the definition it's written in. To state a lemma about it, make it a local `def` in its arm and refer to it as `owner.name`, where `owner` is the definition it is written in (docs/syntax.md, "Proving things about a definition with an inner `match`")
+────╯

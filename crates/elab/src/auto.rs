@@ -1101,13 +1101,20 @@ fn decide_unglued(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
         return interfaces::decide_eq(cx, &ty, &x, &y);
     }
     let shown = cx.show(prop);
-    let error = cx
+    let mut error = cx
         .error(
             "E-AUTO-NONE",
             format!("no way to decide `{shown}`"),
             "the compiler needs a proof of this",
         )
         .with_note("supply a proof by name, or write a decision procedure: an `instance` returning `Decidable …`");
+    if mentions_match(cx, prop) {
+        error = error.with_note(
+            "the `match` is checked where it's written: hold it in a small helper definition, \
+             and state the theorem about the helper (docs/proving-guide.md, \"A statement that \
+             spells out a match\")",
+        );
+    }
     // A record of propositions whose decision couldn't be derived: why.
     let error = match force(&cx.g(), prop.clone())? {
         Value::Data(d, _) if cx.e.tables.no_decide.contains_key(&d) => error.with_note(format!(
@@ -1140,6 +1147,17 @@ fn give_up_on<T>(e: Diagnostic) -> Result<Option<T>> {
     } else {
         Ok(None)
     }
+}
+
+/// Whether `prop` mentions a `match` written in source, which the compiler
+/// lifted to a helper (`owner.%matchN`): a statement that spells one out
+/// needs a decision for the helper, which the search can't find.
+fn mentions_match(cx: &Ctx, prop: &Value) -> bool {
+    let Ok(term) = cx.quote_folded(prop) else {
+        return false;
+    };
+    term.subterms()
+        .any(|(t, _)| matches!(t, Term::Def(id) if cx.g().def(*id).name().contains(".%match")))
 }
 
 fn decidable(cx: &Ctx) -> Result<DataId> {
