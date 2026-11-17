@@ -36,6 +36,12 @@ test "a record, a synonym and a sum" :=
   tree "type R = { x: Nat, }\ntype S = List Nat\ntype T = | A | B (n: Nat)"
     == "RecordType\n  type\n  R\n  =\n  Fields\n    {\n    Field\n      x\n      :\n      Nat\n    ,\n    }\nTypeSynonym\n  type\n  S\n  Body\n    =\n    App\n      List\n      Nat\nDataType\n  type\n  T\n  =\n  Constructor\n    |\n    A\n  Constructor\n    |\n    B\n    Binder\n      (\n      n\n      :\n      Nat\n      )\n"
 
+test "an ability's first operation may share its `where` line; the rest line up with it" :=
+  match file "ability A where op: Nat\n                next: Bool" with
+    | Ok { decls = [Ability _ _ _ _ operations], end } =>
+      operations.map (operation => operation.name.text) == ["op", "next"]
+    | _ => False
+
 test "the first error in file order wins" :=
   tree "def a: Nat := 1\ndef b: Nat = 2\ndef c: Nat := (" == "error: a definition's body follows `:=`; `=` is equality"
 
