@@ -133,3 +133,46 @@ fn decide_chains_grow_quadratically() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+/// Guards what a wide constructor derives. The laws' proofs decide `C a… =
+/// C b…` as the equality of the fields' nested pairs (`Pair.decMk`,
+/// `Ordering.thenPairEqual`) and state each decision once; reading each
+/// field's equation out of one conjunction, `And.left (And.right^k q)`, and
+/// stating the decision twice made them cubic in a constructor's fields:
+/// 16.9 M steps for a record of 16 `Nat`s and 202 M for 32 (SW-3719,
+/// docs/proposals/derived-instances-rethink.md). A record of 8 and of 16
+/// fields, and 16 constructors of three fields each.
+#[test]
+fn derived_instances_of_wide_constructors_stay_cheap() {
+    let record = |fields: usize| {
+        let fields: Vec<String> = (0..fields).map(|k| format!("(f{k}: Nat)")).collect();
+        format!("type Wide = | MkWide {}\n", fields.join(" "))
+    };
+    let three = |_: usize| " (a: Nat) (b: Text) (c: Bool)".to_string();
+    let cases = [record(8), record(16), program(16, &three)];
+    let counts = par_map(STACK, &cases, |text| steps(text));
+    let [eight, sixteen, many] = counts[..] else {
+        unreachable!()
+    };
+    println!("record of 8 fields {eight} steps, of 16 {sixteen}; 16 constructors of 3: {many}");
+    let mut failures = Vec::new();
+    // Quadratic quadruples, cubic is eight times and more (9.7 before).
+    if sixteen * 10 > eight * 55 {
+        failures.push(format!(
+            "a record of 16 fields took {sixteen} steps, {:.1} times 8's {eight}",
+            sixteen as f64 / eight as f64
+        ));
+    }
+    // 1.33 M and 2.29 M steps after SW-3719 (16.9 M and 5.4 M before).
+    if sixteen > 2_000_000 {
+        failures.push(format!(
+            "a record of 16 fields took {sixteen} steps, over 2 M"
+        ));
+    }
+    if many > 3_000_000 {
+        failures.push(format!(
+            "16 constructors of 3 fields took {many} steps, over 3 M"
+        ));
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

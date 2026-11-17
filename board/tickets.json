@@ -41800,12 +41800,12 @@
     {
       "id": 3719,
       "title": "[Opus] Profile and cheapen derived ==/< proofs' elaboration (80% elaboration, J-step inference 37%, instance matching 27%; ~50K steps per constructor per proof): helps every program's own types (SW-3710 option C)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "SW-3725 (Fable): cost is cubic in fields per constructor, not ~50K per constructor; first fix the elaborator slow path (SW-3726), then reshape the generated proofs (nested pairs, Pair.decMk; prototype of == is 3-26x cheaper). Est. 2 Opus lanes, ~3.5 h.\n\nD3669 (Matt, 17 Nov 2026): 'agree with recommendation': keep deriving every type's instances eagerly (D3609) and fix the cost where it arises (C: the elaborator slow path SW-3726, then cheaper generated proofs SW-3719), not derive-on-first-use (SW-3725).",
+      "body": "SW-3725 (Fable): cost is cubic in fields per constructor, not ~50K per constructor; first fix the elaborator slow path (SW-3726), then reshape the generated proofs (nested pairs, Pair.decMk; prototype of == is 3-26x cheaper). Est. 2 Opus lanes, ~3.5 h.\n\nD3669 (Matt, 17 Nov 2026): 'agree with recommendation': keep deriving every type's instances eagerly (D3609) and fix the cost where it arises (C: the elaborator slow path SW-3726, then cheaper generated proofs SW-3719), not derive-on-first-use (SW-3725).\n\nLane (Opus), 17 Nov 2026, 09:28-10:25 (est. 90 min). Branch lane/SW-3719. == decides a constructor's fields as nested pairs (T.%C%unpack/%pack kernel helpers + Pair.decMk), once, in a new T.%sameIff (sound/complete are its two directions); Ord's %equal through the pairs by new core lemma Ordering.thenPairEqual; %trans (and multi-ctor %equal) bind each field's Ord instance once (new core Ord.instanceFor). Statements unchanged; proof hashes change. Steps: record of 16 fields 16.85M -> 1.33M, of 32 202M -> 6.8M; 16 ctors x 3 5.58M -> 2.16M; Omega.Fact 4.14M -> 1.48M; import Nat 19.79M -> 14.59M, Map 43.92M -> 35.03M. Step budget test derive_cost::derived_instances_of_wide_constructors_stay_cheap (SW-3727's ask; fails before, passes after). Perf log entry added. NOT done: example hash snapshots (hash_stability::examples, ~257 examples declare derived types) need re-accepting: whole sweep, left to the orchestrator.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -41904,12 +41904,12 @@
     {
       "id": 3727,
       "title": "[Sonnet] Step-budget test beside import_cost.rs: declaring a 16-field one-constructor record (19.3M steps today) and a many-constructor type, so derived-instance cost can't regress (SW-3725)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Done in SW-3719's lane: derive_cost::derived_instances_of_wide_constructors_stay_cheap (record of 8 and 16 Nat fields, 16 constructors x 3 fields; bounds 2 M and 3 M steps, 16/8 ratio under 5.5). Fails before SW-3719's reshape (16.85 M, 5.42 M, ratio 9.7), passes after (1.33 M, 2.29 M).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []

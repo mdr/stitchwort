@@ -28,27 +28,27 @@ const BOUNDS: &[(&str, &str, u64)] = &[
     (
         "List",
         "import Std (List, Nat)\ndef n : Nat := List.length (List.range 0 20)\n",
-        1250163,
+        1210272,
     ),
     (
         "Nat",
         "import Std (Nat)\ndef n : Nat := Nat.gcd (Nat.pow 3 4) (Nat.max 6 9)\n",
-        19792309,
+        14586205,
     ),
     (
         "Int",
         "import Std (Int, Nat)\ndef n : Int := Int.neg 5 + Nat.toInt (Nat.digitCount 12345)\n",
-        26144065,
+        20460978,
     ),
     (
         "Text",
         "import Std (Text, Nat)\ndef t : Text := Text.trim (Nat.toText (Text.length \"x\"))\n",
-        17905153,
+        12873979,
     ),
     (
         "Map",
         "import Std (Map, Nat)\ndef m : Map Nat Nat := Map.insert Map.empty 1 2\n",
-        43919740,
+        35034451,
     ),
 ];
 

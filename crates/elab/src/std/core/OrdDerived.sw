@@ -13,6 +13,18 @@
 theorem Ordering.thenEqual ∀ [c d: Ordering] (h: Ordering.andThen c d = Equal): (c = Equal) ∧ (d = Equal) :=
   Ordering.andThenEqual c d h
 
+--| Equal pairs, when comparing their first parts then their second is
+--| `Equal`: a constructor's fields, paired up, are equal one pair at a time.
+--| `h` comes first, so that `c` and `d` are known from it before `second`,
+--| which is the rest of the fields' proof, is checked.
+theorem Ordering.thenPairEqual ∀ [c d: Ordering] [x1 x2: a] [y1 y2: b]
+    (h: Ordering.andThen c d = Equal)
+    (first: c = Equal → x1 = x2)
+    (second: d = Equal → y1 = y2):
+    MkPair x1 y1 = MkPair x2 y2 :=
+  let both := Ordering.andThenEqual c d h
+  J (x p => MkPair x1 y1 = MkPair x y2) (Eq.cong (MkPair x1) (second both.right)) (first both.left)
+
 --| Comparing the other way round, field by field.
 theorem Ordering.thenFlip ∀ [c d c2 d2: Ordering]
     (hc: c2 = Ordering.flip c)
@@ -42,6 +54,12 @@ theorem Ordering.thenTransBy ∀ (cmp: a → a → Ordering) (x y z: a) [r1 r2 r
     tr
     h1
     h2
+
+--| The `Ord` instance `x` is compared by. A derived law finds each field's
+--| instance once, with this, and passes it by name to the lemmas for that
+--| field, rather than having each lemma find it in a context that has grown
+--| by the hypotheses of the fields before.
+def Ord.instanceFor [auto ord: Ord a] (x: a): Ord a := ord
 
 --| `Less` is transitive for a field compared by its `Ord` instance, then the rest.
 theorem Ord.thenTrans ∀ [auto ord: Ord a] (x y z: a) [r1 r2 r3: Ordering]

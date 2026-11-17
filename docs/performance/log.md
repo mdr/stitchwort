@@ -46,6 +46,65 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 17 Nov 2026
 
+### SW-3719: derived `==` and `<` laws decide a constructor's fields as nested pairs, once; cubic in fields to about quadratic
+
+- **Status:** kept (Opus), the derivers (`derive.rs`, `derive_ord.rs`) and
+  two additions to the core (`Ordering.thenPairEqual`, `Ord.instanceFor`,
+  `core/OrdDerived.sw`). Second fix under D3669, from
+  [derived-instances-rethink.md](../proposals/derived-instances-rethink.md)
+  §3.2. Statements of every derived declaration unchanged; their proof
+  terms, and so the hashes of derived declarations and of what uses std's
+  derived instances (`Std.Disk`, the `Std.Files` simulators), change
+  (D2303). New hidden declarations: `T.%C%unpack`, `T.%C%pack`,
+  `T.%sameIff`.
+- **Profile** (steps per generated definition, a temporary counter around
+  `Elaborator::definition`; 16-field record after the `==` half):
+  `%sameIff` 0.20M, `%equal` 0.72M, `%trans` 0.72M, `%flip` 0.11M, the
+  record's 256 update lemmas 0.38M. `%equal` read each field's `Equal` out
+  of `Ordering.thenEqual`'s conjunction `k` deep and inferred the pairs'
+  equality bottom-up; `%trans`'s cost was `Ord.thenTrans` finding the
+  field's instance at every level under the hypotheses of the fields
+  before (a probe with the instance fixed: 0.16M against 0.72M).
+- **Change.** (1) `T.%C%unpack : Pair A0 (Pair A1 …) → T` and `T.%C%pack`
+  (kernel terms) for each constructor whose fields are all data; the
+  decision of `C a… = C b…` is `Decidable.map` of `Pair.decMk` a field at a
+  time, carried back by `Eq.cong` of them (no conjunction, no `J` chain).
+  (2) `T.%sameIff : Iff (T.%same r s = True) (r = s)` states each
+  constructor's decision once; `%sameSound` and `%sameComplete` are its two
+  directions (with two constructors or more, one `J` along `T.%etaAt`
+  carries both). (3) `T.%equal` proves the pairs equal by
+  `Ordering.thenPairEqual h first (h' => rest)`, `h` first so each level's
+  comparisons are known, annotated with the pairs' equation, and carries it
+  back with `Eq.cong T.%C%unpack`. (4) `T.%trans`, and `T.%equal` with two
+  constructors or more, bind `let %ok := Ord.instanceFor %ak` once per field
+  and pass `[ord := %ok]`. Constructors with proof fields keep the old
+  shapes. Tried and dropped: the same instance binding for `%flip` (0.11M →
+  0.20M on the record) and for `DecEq.decide` in `%sameIff` (no change); a
+  `%equal` without the pairs' annotation (2× dearer).
+- **Measured** (steps, `STITCHWORT_TIMINGS=decls check --no-cache`, the
+  type's row; elaboration ms in brackets, machine load 10 to 38):
+
+  | Probe | Before | After |
+  |---|---|---|
+  | record of 4 `Nat`s | 252K (16 ms) | 110K (8 ms) |
+  | record of 8 | 1.75M (104 ms) | 348K (27 ms) |
+  | record of 16 | 16.85M (1,319 ms) | 1.33M (129 ms) |
+  | record of 32 | 202.4M (23,339 ms) | 6.79M (773 ms) |
+  | 16 constructors × 2 `Nat`s | 2.26M (140 ms) | 1.33M (89 ms) |
+  | 16 constructors × 3 `Nat`s | 5.58M (323 ms) | 2.16M (142 ms) |
+  | `Std.Omega.Fact` (15 constructors of 2–3 fields) | 4.14M | 1.48M |
+  | `Std.Map.Tree` | 1.81M | 0.85M |
+  | import programs (`import_cost.rs`): Nat / Int / Text / Map | 19.79M / 26.14M / 17.91M / 43.92M | 14.59M / 20.46M / 12.87M / 35.03M |
+
+  Doubling a record's fields now multiplies the steps by 3.2 to 5.1 (7 to
+  12 before). Guarded by `derive_cost::derived_instances_of_wide_constructors_stay_cheap`.
+- **Left.** What remains at 16 fields: the record's update lemmas (0.38M,
+  `f²` of them; not derived instances), `%trans` 0.29M, `%equal` 0.23M,
+  `%sameIff` 0.20M, `%flip` 0.11M. Many constructors of few fields gain
+  least (1.7× at 16 × 2): per constructor, the tag and `T.%etaAt` work in
+  `%sameIff`, `%equal` and `%trans` (about 25K steps each for `Fact`)
+  dominates, not the fields.
+
 ### SW-3726: `&&` chains of `Bool`s no longer zonk their tail at every level; a solution's lambdas take their arguments at once
 
 - **Status:** kept (Opus), elaborator (`logic.rs`) and the evaluator's
