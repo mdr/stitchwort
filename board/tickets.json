@@ -1,5 +1,5 @@
 {
-  "next": 3866,
+  "next": 3868,
   "tickets": [
     {
       "id": 47,
@@ -21933,12 +21933,12 @@
     {
       "id": 3827,
       "title": "[Sonnet] Proof plan F5: a fuelled-loop combinator in std Parse with its lemmas, replacing hand-fuelled loops (2a has 21) (self-hosted-fmt-proof-plan.md)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "commits: -\n\n\n\nLane notes (Sonnet, 17 Nov 2026): `Parse.loop (step: () → {Parse t} Option a)` in Parse.sw (loopFrom, loopRound): a round is step(); None stops, Some must have read (else fatal), fuel = items left + 1, step is also called at the end of input. Laws in Runs.sw: LoopRuns, loopStepsShort (fuel enough), runsLoopFrom (any fuel above the rounds gives the same, so extra fuel is harmless), runsLoop, loopRoundStuck (a Some that read nothing is the fatal). Six std tests in Chars.sw. Converted in tools/fmt: paramNames, lowerNames (DeclParser.sw), arguments (Parser.sw); twin dumps tokens 124/124, tree 78/124, refusal 78/124 (the gate, unchanged). Left: the other ~17 `(fuel: Nat)` sites in Parser.sw/DeclParser.sw/Lexer.sw (attributeGroups, attributeItems, attributeParts, importItems, headerParams, unfoldingNames, definitionArmsFrom, dataParams, dataIndices, fieldsFrom, constructorsOf, constructorParts, abilityParams, operations, logicLinks, forallParams, lambdaParams, pipesFrom, chainLinks, operatorLinks, suffixes, commaListFrom, interpolations, matchArms, clauseArms, listPatternItems, Lexer qualified/pieces; the lookahead ones lambdaAheadFrom, annotatedFrom, pastAttributes, groupLogic are pure, not Parse loops); leavesOf is unused. Not done: Gives/ReadsIn lemmas for loop; a functional (runFrom) fuel-independence law for loop itself (only the Runs form).\n",
+      "body": "commits: -\n\n\n\nLane notes (Sonnet, 17 Nov 2026): `Parse.loop (step: () → {Parse t} Option a)` in Parse.sw (loopFrom, loopRound): a round is step(); None stops, Some must have read (else fatal), fuel = items left + 1, step is also called at the end of input. Laws in Runs.sw: LoopRuns, loopStepsShort (fuel enough), runsLoopFrom (any fuel above the rounds gives the same, so extra fuel is harmless), runsLoop, loopRoundStuck (a Some that read nothing is the fatal). Six std tests in Chars.sw. Converted in tools/fmt: paramNames, lowerNames (DeclParser.sw), arguments (Parser.sw); twin dumps tokens 124/124, tree 78/124, refusal 78/124 (the gate, unchanged). Left: the other ~17 `(fuel: Nat)` sites in Parser.sw/DeclParser.sw/Lexer.sw (attributeGroups, attributeItems, attributeParts, importItems, headerParams, unfoldingNames, definitionArmsFrom, dataParams, dataIndices, fieldsFrom, constructorsOf, constructorParts, abilityParams, operations, logicLinks, forallParams, lambdaParams, pipesFrom, chainLinks, operatorLinks, suffixes, commaListFrom, interpolations, matchArms, clauseArms, listPatternItems, Lexer qualified/pieces; the lookahead ones lambdaAheadFrom, annotatedFrom, pastAttributes, groupLogic are pure, not Parse loops); leavesOf is unused. Not done: Gives/ReadsIn lemmas for loop; a functional (runFrom) fuel-independence law for loop itself (only the Runs form).\n\nModel result: sonnet, worked, 20 min (est. 45), with SW-3854. Follow-ups SW-3866 SW-3867.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22284,7 +22284,7 @@
     {
       "id": 3854,
       "title": "[Sonnet] std Parse: lemma that recursiveWithFuel with a body that reads before each self call gives the same result with more fuel (fuelEnough needs it; pairs with proof plan F5's loop combinator SW-3827) (SW-3826 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -22427,6 +22427,32 @@
     {
       "id": 3865,
       "title": "[Sonnet] Self-hosted formatter tree stage: 5 of 1,936 repo files differ from Rust after stage 2c, first aoc/src/Aoc/Year2024/Day04/Tests/Examples.sw line 30 (Rust: FieldAccess; twin: a \"\"\" text, i.e. a method or field on a \"\"\" text literal); fix all five with tests. The 479 old-layout differences are files the current grammar refuses (refusal stage identical on all 1,696), out of scope (SW-3847 verifier)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3866,
+      "title": "[DeepSeek] tools/fmt: move the remaining ~28 hand-fuelled loops to std Parse.loop (list on SW-3827), mechanically, keeping token/tree/refusal dumps identical; delete dead leavesOf in Parser.sw (SW-3827 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3867,
+      "title": "[Sonnet] std Parse: a runFrom decomposition lemma for j (p()) when p fails (only runFromThenOk2 exists), to prove ReadsBeforeCalls for bodies that read through an arbitrary parser; and Gives/ReadsIn lemmas for Parse.loop (SW-3854 left)",
       "status": "backlog",
       "agent": "",
       "where": "",
