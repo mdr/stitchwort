@@ -146,15 +146,16 @@ SW-3807 replaced the three, which had taken it to 2.7 minutes):
   per-`k` work with a computed table of 7,203 rows (2 minutes of
   checking); SW-3872 replaced it with the general proof above, with the
   same statements and the same 2^-42 bound.
-- The margin, exactly (SW-3858). `marginBelowExact`: for `|lat| ≤ 361`,
+- The margin, exactly (SW-3858; strict and widened to 10 · 2^-44 in
+  SW-3871). `marginBelowExact`: for `|lat| ≤ 361`,
   `0 ≤ unit ≤ 1` and a width from 1e-11° to 361°, the unrounded lower
-  edge is at least 2^-42 below the answer in exact units:
-  `units (lat - placeAt unit * width) + 2^1032 ≤ units lat`.
+  edge is more than 10 · 2^-44 below the answer in exact units:
+  `units (lat - placeAt unit * width) + 10 · 2^1030 < units lat`.
   `marginAboveExact`: for `|lat| ≤ 180` and a width from 1e-11° to 180°,
-  the unrounded upper edge `from + width` is at least 2^-42 above it. With
+  the unrounded upper edge `from + width` is more than 10 · 2^-44 above it. With
   `sumNear361` (a rounded sum within 361° is within 2^-43 of the exact one,
   std's `Float.Theory.sumNear` at ±361), `shareAbove` (`0.85 *
-  width` is at least 8 · 2^-44 below `width`, by `Float.mulRelError`) and
+  width` is at least 16 · 2^-44 below `width`, by `Float.mulRelError`) and
   std's `Float.Theory.unitsNeg` (`units (-x) = -units x`). A width of 1e-11° is a tolerance of about 1.1e-10 km (10 tolerances wide,
   111 km a degree on latitude); finding 1's counterexamples are at 1e-13 and
   2.6e-12 km.
@@ -166,6 +167,35 @@ SW-3807 replaced the three, which had taken it to 2.7 minutes):
   by `remWholeStep` from `Float.Theory.remUnitsExact` (`x % y` is `x` less a whole
   number of `y`s, with `x`'s sign, which std's `remExact` proves inside
   but doesn't state), and `wrapArith` for the integers' side.
+- The answer in its band (SW-3871). Latitude, in full:
+  `answerInLatitudeBand` (`inHintBand (hintBand answer tolerance
+  Latitude unit c) answer` for a latitude in [-90°, 90°], a tolerance
+  from 1.2e-10 km to 20,000 km and `0 ≤ unit ≤ 1`), from
+  `latitudeBandContains` and `latitudeWidthRange` (the tolerance's bounds
+  give a width from 1e-11° to 180°, through `kmToDegrees` and `min span
+  180`). The lower edge (`latitudeFromBelow`): unclamped, the margin
+  outlasts rounding (`floorStepBound`: either step moves an edge within
+  360° by at most 2^-42); clamped, it is -90° exactly (`floorAtSouthPole`).
+  The upper edge: unclamped (`latitudeToAboveUnclamped`), likewise; clamped
+  at 90° (`latitudeToAboveClamped`), `(90 - width) + width` is above
+  89.95° (`nearNinety`) and `ceil` is whole, so it rounds up to 90° or more
+  (`ceilAtLeast`, `ceilStepAtLeastNinety`). (A search of 2 million widths
+  found `(90 - w) + w` exactly 90, but the standard model alone can't show
+  that, and the rounding argument doesn't need it.) Bridges: `leOfUnitsPos`
+  and `leOfUnitsNeg` (units in order give `<=` when the larger is positive
+  or the smaller negative; std candidates), `Float.ieeeLeOfLe`.
+  Longitude: `wrapNear` (`wrap x`, `|x| ≤ 361`, is `x` less whole turns
+  to within 6 · 2^-44: `remStep` for each exact `%`, `sumNear` for each
+  sum). That answers finding 2 without a change to hints.ts: the band's
+  margin, over 10 · 2^-44 after rounding takes 4 · 2^-44 of it, outlasts
+  `wrap`'s error, so a narrow band doesn't need `wrap` exact on tenths.
+  `longitudeBandContains` then proves the answer in the wrapped band for a
+  longitude in [-180°, 180°), a width from 1e-11° to 120° and `0 ≤ unit ≤
+  1`: `longitudeCases` sorts the edges' turns (none, the lower edge
+  wrapped up, or the upper wrapped down: the band crosses ±180° and
+  `from > to`), and `inLongitudeOfCases` reads that as `inHintBand` does.
+  `answerInBand` puts both axes together, with two hypotheses still
+  stated rather than proved (below).
 
 Not proved, with the law each needs. Each holds only for finite inputs in
 range (|lat| ≤ 90, -180 ≤ lon < 180, 0 ≤ unit ≤ 1, 0 < width ≤ 120 for
@@ -177,7 +207,7 @@ finding 1.
 | margin before rounding: the answer is at least 0.15 · width from each unrounded edge | Done (SW-3858): `marginBelowExact` and `marginAboveExact`, at least 2^-42 in exact units for a width of at least 1e-11° (the float form, `marginRow`, SW-3844, is what they start from). |
 | outward rounding contains the unrounded band, step 1 | Done (`outwardRoundingWhole`, SW-3830), for edges below 2^49 in size. |
 | outward rounding, step 0.1 | false as stated (finding 1), and the bound `floorTo x 0.1 <= x + 2^-45` given here before is false too (SW-3844, `floorToTenthOneUlpAbove`: from 256° an ulp is 2^-44). Done in its true form (SW-3858): `floorToTenthBound` and `ceilToTenthBound`, 2^-42 for `\|x\| ≤ 360` in exact units, with the round trip (`tenthsRoundTrip`) on the way. A search of 800,000 inputs found the error at most one ulp (2^-44 at most within 360°), so 2^-42 has room to spare. |
-| the answer is in its band | Not assembled yet (SW-3858 stopped here); every part below is proved. Done: step 1 (`outwardRoundingWhole`) and step 0.1 (`floorToTenthBound`, `ceilToTenthBound`); the exact margin (`marginBelowExact`, `marginAboveExact`), which carries finding 1's tolerance bound as `1e-11 <= width`; the `Float.min`/`Float.max` laws (SW-3843); latitude's clamps (SW-3844); the bridge to JS's comparison (`Float.ieeeLeOfLe`, SW-3843); `wrap` on whole degrees (`wrapWholeExact`). Left: (1) latitude: the clamps move `from` towards the answer, or to -90 itself, where `floorTo (-90.0) 0.1` is exactly -90 (by computing), and likewise `from + width` at 90, though the clamped `from + width` needs its own margin (when `unclamped < -90`, `-90 + width` against `lat`); chaining the unit bounds into `<=` (`Float.Theory.lessOfUnits`, `unitsMonoKey`) and then `ieeeLeOfLe`; and the width's lower bound from the tolerance's, through `kmToDegrees` and `Float.min span 180.0`. (2) longitude: a narrow band rounds to tenths, and `wrap` is not exact on tenths (finding 2), so its containment needs `wrap`'s error on a tenth (a few ulps, by `addRelError` and `remUnits`) inside the margin, or finding 2's fix in hints.ts; a wide band needs `wrapWholeExact` and the wrapped-interval reading of `inHintBand` (`from > to` means `[from, 180) ∪ [-180, to]`) against the unwrapped band, split by whether the band crosses ±180; and `span / cosLatitude`, which needs a bound on the caller's cosine. |
+| the answer is in its band | Assembled (SW-3871): `answerInBand`, both axes; latitude in full (`answerInLatitudeBand`). Two hypotheses of the longitude half are stated, not proved: (a) `lonWidth`, the width `min (span / cosLatitude) 120` from 1e-11° to 120°, which needs std's division to be antitone in the divisor (`0 < d ≤ e`, `0 ≤ x` finite → `x / e <= x / d`) and `x / d` finite for finite `x` and positive `d` ≥ 1e-17, with the caller's cosine in [1e-17, 1]; (b) `floorCoarse`, `ceilCoarse`, rounding at a band's step moves an edge within 360° outwards by at most 2° (by one step in fact): at step 1 from `Float.ltFloorAddOne` and `Float.ceilSubOneLt` with whole sums exact; at step 0.1 it needs signed forms of `quotientCoarse` and `tenthCoarse` (they bound sizes, not signed values). Finding 2 needs no hints.ts change (`wrapNear`). Parts proved before SW-3871: step 1 (`outwardRoundingWhole`) and step 0.1 (`floorToTenthBound`, `ceilToTenthBound`); the exact margin (`marginBelowExact`, `marginAboveExact`), which carries finding 1's tolerance bound as `1e-11 <= width`; the `Float.min`/`Float.max` laws (SW-3843); latitude's clamps (SW-3844); the bridge to JS's comparison (`Float.ieeeLeOfLe`, SW-3843); `wrap` on whole degrees (`wrapWholeExact`). SW-3871 did the rest it listed: latitude's clamps, the width from the tolerance, `wrap`'s error on any double, and the wrapped reading. |
 | `wrap` ∈ [-180, 180) for finite input | Done (`wrapRange`, SW-3805). It used: `rem`'s range: `y > 0` finite, `x` finite → `|x % y| < y`, sign of `x`, exact (`x − n·y` for the whole `n` of truncated division); `+ 360.0` of a value in (-360, 360) lands in [0, 720] (rounding may reach 720, which `% 360` maps to 0); Sterbenz for `z - 180.0` with `z` in [90, 360) (exact), and `z - 180.0 < 180.0` for `z < 360` below 90 by monotonicity. |
 | `describeHint` names the edges | nothing about `Float.toText` can be proved (only the runtimes compute it). What can be stated is `tenthsKeepTheirLabel` (done), and for every input, that latitude edges are tenths: `round` returns a whole double (`Float.toInt (round x) = Some k`), and `/ 10.0` of a whole double is `tenth k`. Longitude edges aren't (finding 2). |
 
@@ -211,10 +241,19 @@ What was awkward to express:
 
 Missing laws: see the table. Monotonicity, the standard-model error bound
 (SW-3844), `round`'s spec (SW-3844), `rem`'s range and Sterbenz are done;
-the step-0.1 chain and the exact margin use them (SW-3858). What is left is
-assembling the containment theorem (the table's last rows). The lemmas that were std candidates (SW-3858, SW-3872) are now in std
+the step-0.1 chain and the exact margin use them (SW-3858). What is left of
+the containment theorem is the two stated hypotheses in the table's row. The
+lemmas that were std candidates (SW-3858, SW-3872) are now in std
 (`Float.Theory.unitsNeg`, `sumNear`, `remUnitsExact`, `addWholeExact`,
 `relCancel`, `relCancelScaled`, `Float.mulBetween`; SW-3873, SW-3886).
+From SW-3871: `leOfUnitsPos` and `leOfUnitsNeg` (units in order give the
+total order when the larger is positive or the smaller negative; with
+`lessOfUnits` they close most of the gap between units and `<=`),
+`ceilAtLeast` (`ceil` reaches the next whole number), `wrapNear`'s
+`remStep` (`x % y` as `x` less whole `y`s, signed), and `floorFinite360`
+(floor and ceil of a bounded double are finite). Missing from std:
+division antitone in the divisor, and that a finite double over a
+positive one isn't the NaN (both for `lonWidth`).
 
 Other std gaps:
 

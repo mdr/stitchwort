@@ -22505,12 +22505,12 @@
     {
       "id": 3871,
       "title": "[Opus] Whereabouts answer in band, part 3: the wrapped-interval reading of inHintBand (bands crossing ±180), latitude's clamped edges into the unit bounds and then ieeeLe, the width's lower bound from the tolerance via kmToDegrees, longitude's narrow bands (wrap's error on tenths, finding 2) and the cosine bound; then the full theorem (SW-3858 report)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "whereabouts",
-      "body": "",
+      "body": "Expected: 60 min (brief). Started 19:02, done about 19:40.\n\nProgress (lane, Opus):\n- Margins made strict and widened to 10 · 2^-44 (marginBelowExact, marginAboveExact; shareAbove 16 · 2^-44).\n- Latitude in full: answerInLatitudeBand (latitude in [-90, 90], tolerance 1.2e-10..20000 km, 0 ≤ unit ≤ 1), via latitudeBandContains, latitudeFromBelow, latitudeToAbove (clamped at 90° through nearNinety + ceilAtLeast), latitudeWidthRange.\n- Longitude: wrapNear (wrap x is x less whole turns to within 6 · 2^-44, any |x| ≤ 361), so finding 2 needs no hints.ts change. longitudeBandContains (lon in [-180, 180), width 1e-11..120°) with the wrapped reading (longitudeCases, inLongitudeOfCases).\n- answerInBand, both axes. Stated, not proved: lonWidth (needs std: division antitone in the divisor, finite/positive not NaN) and floorCoarse/ceilCoarse (rounding moves an edge ≤ 2°; step 0.1 needs signed quotientCoarse/tenthCoarse).\n- Check 16.7 s uncached (was ~11 s); audit 204 theorems, 0 failed, 24 vacuity warnings (arithmetic helpers).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
