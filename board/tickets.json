@@ -22923,7 +22923,7 @@
     {
       "id": 3903,
       "title": "[Sonnet] Engine R0: fix the four measure bugs in crates/fmt's engine (line indent at a second comment break, real width in fits_flat, the waiting comment in a broken fill's first item, spaces held before a closer), each with a golden; count changed outputs over goldens and the repo; if many change or any looks worse, stop for a D question (docs/proposals/self-hosted-fmt-engine-plan.md, SW-3902)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
