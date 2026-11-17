@@ -623,10 +623,8 @@ pub(crate) fn written_reading(decl: &Decl) -> Option<(WrittenHead, bool)> {
     let mut params: Vec<(&str, &Expr)> = Vec::new();
     let lhs = loop {
         match ty {
-            Expr::Pi {
-                names, dom, cod, ..
-            } => {
-                params.extend(names.iter().map(|n| (n.text.as_str(), &**dom)));
+            Expr::Pi { name, dom, cod, .. } => {
+                params.push((name.text.as_str(), &**dom));
                 ty = cod;
             }
             Expr::Bracketed(inner, _) => ty = inner,

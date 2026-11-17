@@ -302,16 +302,14 @@ impl<'a> Walk<'a> {
                 self.expr(body);
             }
             Expr::Pi {
-                names,
+                name,
                 dom,
                 cod,
                 span,
                 ..
             } => {
                 self.tagged(what, *span, why);
-                for name in names {
-                    self.name("Pi parameter", name);
-                }
+                self.name("Pi parameter", name);
                 self.expr(dom);
                 self.expr(cod);
             }
@@ -662,16 +660,14 @@ impl<'a> Walk<'a> {
                 loop {
                     match ty {
                         Expr::Pi {
-                            names,
+                            name,
                             dom,
                             cod,
                             span,
                             ..
                         } => {
                             self.made("Expr::Pi", *span, Synthetic::Header);
-                            for name in names {
-                                self.name("Pi parameter", name);
-                            }
+                            self.name("Pi parameter", name);
                             self.expr(dom);
                             ty = cod;
                         }

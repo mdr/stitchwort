@@ -1785,7 +1785,7 @@ impl Elaborator {
             Expr::Lam(names.iter().map(|x| n(x)).collect(), Box::new(body), span)
         };
         let pi = |x: &str, implicit: bool, auto: bool, dom: Expr, cod: Expr| Expr::Pi {
-            names: vec![n(x)],
+            name: n(x),
             implicit,
             auto,
             dom: Box::new(dom),
@@ -1866,14 +1866,14 @@ impl Elaborator {
             // T.%same : … -> (%r %s : T %p0 …) -> Bool, and its two proofs.
             let pair = |cod: Expr| {
                 with_params(
-                    Expr::Pi {
-                        names: vec![n("%r"), n("%s")],
+                    ["%s", "%r"].into_iter().fold(cod, |cod, who| Expr::Pi {
+                        name: n(who),
                         implicit: false,
                         auto: false,
                         dom: Box::new(this.clone()),
                         cod: Box::new(cod),
                         span,
-                    },
+                    }),
                     true,
                 )
             };
@@ -2320,14 +2320,17 @@ impl Elaborator {
             };
             let decide_name = n(&format!("{ty_name}.%decide"));
             let decide_ty = with_params(
-                Expr::Pi {
-                    names: vec![n("%r"), n("%s")],
-                    implicit: false,
-                    auto: false,
-                    dom: Box::new(this.clone()),
-                    cod: Box::new(apps(var("Std.Decidable"), vec![eq(var("%r"), var("%s"))])),
-                    span,
-                },
+                ["%s", "%r"].into_iter().fold(
+                    apps(var("Std.Decidable"), vec![eq(var("%r"), var("%s"))]),
+                    |cod, who| Expr::Pi {
+                        name: n(who),
+                        implicit: false,
+                        auto: false,
+                        dom: Box::new(this.clone()),
+                        cod: Box::new(cod),
+                        span,
+                    },
+                ),
                 true,
             );
             let decide = (
@@ -2406,7 +2409,7 @@ pub(crate) fn fields_equal(
         Expr::Lam(names.iter().map(|x| n(x)).collect(), Box::new(body), span)
     };
     let pi = |x: &str, dom: Expr, cod: Expr| Expr::Pi {
-        names: vec![n(x)],
+        name: n(x),
         implicit: false,
         auto: false,
         dom: Box::new(dom),

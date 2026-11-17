@@ -385,12 +385,10 @@ fn walk_at(
                 walk_at(e, arg, bound, position, uses)?;
             }
         }
-        Expr::Pi {
-            names, dom, cod, ..
-        } => {
+        Expr::Pi { name, dom, cod, .. } => {
             walk(e, dom, bound, true, uses)?;
             let before = bound.len();
-            bound.extend(names.iter().map(|n| n.text.clone()));
+            bound.push(name.text.clone());
             walk(e, cod, bound, true, uses)?;
             bound.truncate(before);
         }

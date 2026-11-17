@@ -327,7 +327,7 @@ impl Elaborator {
         // (%p0: T.%param%0) -> (%p1: T.%param%1 %p0) -> … -> rest
         let params_pi = |rest: Expr| {
             (0..np).rev().fold(rest, |cod, j| Expr::Pi {
-                names: vec![n(&own(j))],
+                name: n(&own(j)),
                 implicit: false,
                 auto: false,
                 dom: Box::new(apps(
@@ -474,7 +474,7 @@ impl Elaborator {
         let mut ty = apps(var("Std.Decidable"), vec![own_this]);
         for j in (0..np).rev() {
             ty = Expr::Pi {
-                names: vec![n(&param(j))],
+                name: n(&param(j)),
                 implicit: true,
                 auto: false,
                 dom: Box::new(Expr::Hole(span)),

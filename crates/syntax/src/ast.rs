@@ -101,10 +101,10 @@ pub enum Expr {
     /// lambda whose parameter has a written type (one parameter; several
     /// are nested), with the mode saying which kind of function it is.
     TypedLam(Name, Mode, Box<Expr>, Box<Expr>, Span),
-    /// `(x y : A) -> B`, `[x y : A] -> B` with `implicit`, or
+    /// `(x : A) -> B`, `[x : A] -> B` with `implicit`, or
     /// `[auto x : P] -> B` with `implicit` and `auto`.
     Pi {
-        names: Vec<Name>,
+        name: Name,
         implicit: bool,
         auto: bool,
         dom: Box<Expr>,

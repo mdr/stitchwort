@@ -2878,7 +2878,7 @@ fn infer_typed_lambda(
 #[inline(never)]
 fn infer_pi(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     let Expr::Pi {
-        names,
+        name,
         implicit,
         auto,
         dom,
@@ -2888,6 +2888,7 @@ fn infer_pi(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     else {
         unreachable!("called on a function type")
     };
+    let names = std::slice::from_ref(name);
     let icit = match (implicit, auto) {
         (_, true) => Icit::Auto,
         (true, false) => Icit::Implicit,

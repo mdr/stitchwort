@@ -1143,13 +1143,13 @@ impl Src {
         dom: Expr,
         cod: Expr,
     ) -> Expr {
-        Expr::Pi {
-            names: names.iter().map(|x| self.n(x)).collect(),
+        names.iter().rev().fold(cod, |cod, x| Expr::Pi {
+            name: self.n(x),
             implicit,
             auto,
-            dom: Box::new(dom),
+            dom: Box::new(dom.clone()),
             cod: Box::new(cod),
             span: self.span,
-        }
+        })
     }
 }

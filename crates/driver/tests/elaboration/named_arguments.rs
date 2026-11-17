@@ -212,12 +212,8 @@ impl Walk {
                 self.expr(ty);
                 self.expr(body);
             }
-            Expr::Pi {
-                names, dom, cod, ..
-            } => {
-                names.iter().for_each(|n| {
-                    self.bound.insert(n.text.clone());
-                });
+            Expr::Pi { name, dom, cod, .. } => {
+                self.bound.insert(name.text.clone());
                 self.expr(dom);
                 self.expr(cod);
             }

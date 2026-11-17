@@ -537,7 +537,7 @@ impl<'a> Source<'a> {
                     Tok::LParen | Tok::LBracket => {
                         let close = self.matching(g, arrow).ok_or(Reason::Shape)?;
                         let Expr::Pi {
-                            names,
+                            name,
                             implicit,
                             cod,
                             span,
@@ -549,28 +549,23 @@ impl<'a> Source<'a> {
                         if span.start != forall_at {
                             return Err(Reason::Shape);
                         }
-                        let mut found = Vec::new();
-                        for name in names {
-                            let at = self.token_at(name.span.start);
-                            if at < g || at > close {
-                                return Err(Reason::Shape);
-                            }
-                            found.push((at, name.text.clone()));
+                        let at = self.token_at(name.span.start);
+                        if at < g || at > close {
+                            return Err(Reason::Shape);
                         }
+                        let mut found = vec![(at, name.text.clone())];
                         // The lowering gives a group's later names a
                         // binder each (D3679): take those into this group.
                         let mut node_cod = cod;
                         while let Expr::Pi {
-                            names, cod, span, ..
+                            name, cod, span, ..
                         } = &**node_cod
                         {
-                            let ats: Vec<usize> =
-                                names.iter().map(|n| self.token_at(n.span.start)).collect();
-                            if span.start != forall_at || ats.iter().any(|&at| at < g || at > close)
-                            {
+                            let at = self.token_at(name.span.start);
+                            if span.start != forall_at || at < g || at > close {
                                 break;
                             }
-                            found.extend(ats.into_iter().zip(names.iter().map(|n| n.text.clone())));
+                            found.push((at, name.text.clone()));
                             node_cod = cod;
                         }
                         let line_start = toks[g].line_start || (g == k + 1 && toks[k].line_start);
@@ -1055,9 +1050,9 @@ fn header_names(th: &Theorem, colon_at: u32) -> BTreeSet<String> {
     loop {
         match node {
             Expr::Pi {
-                names, span, cod, ..
+                name, span, cod, ..
             } if span.start < colon_at => {
-                out.extend(names.iter().map(|n| n.text.clone()));
+                out.insert(name.text.clone());
                 node = cod;
             }
             Expr::Arrow(dom, cod) if dom.span().start < colon_at => node = cod,

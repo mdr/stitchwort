@@ -381,7 +381,7 @@ impl<'f> Lower<'f> {
         let span = start.to(cod.span());
         Ok(names.into_iter().rev().fold(cod, |cod, name| Expr::Pi {
             span,
-            names: vec![name],
+            name,
             implicit,
             auto,
             dom: Box::new(ty.clone()),

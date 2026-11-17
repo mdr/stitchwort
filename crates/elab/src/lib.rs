@@ -2200,15 +2200,13 @@ impl Elaborator {
                     _ => return Err(bad()),
                 },
                 Expr::Pi {
-                    names,
+                    name,
                     implicit: false,
                     dom,
                     cod,
                     ..
-                } if names.len() == 1 => match cod.as_ref() {
-                    Expr::Effect(row, cod) => {
-                        (Some(names[0].clone()), dom.as_ref(), row, cod.as_ref())
-                    }
+                } => match cod.as_ref() {
+                    Expr::Effect(row, cod) => (Some(name.clone()), dom.as_ref(), row, cod.as_ref()),
                     _ => return Err(bad()),
                 },
                 _ => return Err(bad()),
@@ -2299,7 +2297,7 @@ impl Elaborator {
         let mut res_ty = Expr::Arrow(Box::new(applied.clone()), Box::new(Expr::Type(0, *span)));
         for binder in params.iter().rev() {
             res_ty = Expr::Pi {
-                names: vec![binder.name.clone()],
+                name: binder.name.clone(),
                 implicit: false,
                 auto: false,
                 dom: Box::new(binder.ty.clone()),
@@ -2364,7 +2362,7 @@ impl Elaborator {
                 .collect(),
         );
         let mut elim_ty = Expr::Pi {
-            names: vec![n("%o".into())],
+            name: n("%o".into()),
             implicit: false,
             auto: false,
             dom: Box::new(applied.clone()),
@@ -2377,7 +2375,7 @@ impl Elaborator {
         for (i, (_, x, dom, cod)) in sigs.iter().enumerate().rev() {
             let k_ty = Expr::Arrow(Box::new(cod.clone()), Box::new(r()));
             let clause_ty = Expr::Pi {
-                names: vec![x_name(x)],
+                name: x_name(x),
                 implicit: false,
                 auto: false,
                 dom: Box::new(dom.clone()),
@@ -2385,7 +2383,7 @@ impl Elaborator {
                 span: *span,
             };
             elim_ty = Expr::Pi {
-                names: vec![n(clause(i))],
+                name: n(clause(i)),
                 implicit: false,
                 auto: false,
                 dom: Box::new(clause_ty),
@@ -2394,7 +2392,7 @@ impl Elaborator {
             };
         }
         elim_ty = Expr::Pi {
-            names: vec![n("%r".into())],
+            name: n("%r".into()),
             implicit: true,
             auto: false,
             dom: Box::new(Expr::Type(0, *span)),
@@ -2403,7 +2401,7 @@ impl Elaborator {
         };
         for binder in params.iter().rev() {
             elim_ty = Expr::Pi {
-                names: vec![binder.name.clone()],
+                name: binder.name.clone(),
                 implicit: true,
                 auto: false,
                 dom: Box::new(binder.ty.clone()),

@@ -83,7 +83,7 @@ impl Elaborator {
         let mut ty = ctor.result.clone().unwrap_or(Expr::Hole(span));
         for (binder, implicit) in ctor.fields.iter().zip(implicits(ctor)).rev() {
             ty = Expr::Pi {
-                names: vec![binder.name.clone()],
+                name: binder.name.clone(),
                 implicit,
                 auto: false,
                 dom: Box::new(binder.ty.clone()),

@@ -155,8 +155,8 @@ fn parses_both_kinds_of_if() {
 /// The names of the binders on `ty`'s spine, one list per binder.
 fn spine_names(mut ty: &Expr) -> Vec<Vec<&str>> {
     let mut out = Vec::new();
-    while let Expr::Pi { names, cod, .. } = ty {
-        out.push(names.iter().map(|n| n.text.as_str()).collect());
+    while let Expr::Pi { name, cod, .. } = ty {
+        out.push(vec![name.text.as_str()]);
         ty = cod;
     }
     out
@@ -222,7 +222,7 @@ fn parses_auto_binders_and_absurd_patterns() {
         panic!("expected a function type");
     };
     assert!(
-        matches!(cod.as_ref(), Expr::Pi { implicit: true, auto: true, names, .. } if names[0].text == "ok")
+        matches!(cod.as_ref(), Expr::Pi { implicit: true, auto: true, name, .. } if name.text == "ok")
     );
     let Decl::Equation { patterns, rhs, .. } = &module.decls[2] else {
         panic!("expected an equation");
@@ -255,7 +255,7 @@ fn parses_interfaces_instances_and_auto_binders_without_names() {
     assert!(*instance);
     assert!(matches!(
         ty,
-        Expr::Pi { implicit: true, auto: true, names, .. } if names[0].text == crate::ast::NAMELESS
+        Expr::Pi { implicit: true, auto: true, name, .. } if name.text == crate::ast::NAMELESS
     ));
     let Decl::Signature { ty, instance, .. } = &module.decls[3] else {
         panic!("expected a signature");
@@ -263,7 +263,7 @@ fn parses_interfaces_instances_and_auto_binders_without_names() {
     assert!(!*instance);
     assert!(matches!(
         ty,
-        Expr::Pi { implicit: true, auto: true, names, .. } if names[0].text == crate::ast::NAMELESS
+        Expr::Pi { implicit: true, auto: true, name, .. } if name.text == crate::ast::NAMELESS
     ));
     // `[auto]` is still a list.
     let Decl::Signature { ty, .. } = &module.decls[5] else {
@@ -306,7 +306,7 @@ fn parses_auto_parameters_of_types() {
     };
     assert!(matches!(
         &**cod,
-        Expr::Pi { implicit: true, auto: true, names, .. } if names[0].text == "ord"
+        Expr::Pi { implicit: true, auto: true, name, .. } if name.text == "ord"
     ));
     let d = parse_error("type T [a: Type] = { x: a }\n");
     assert!(d.message.contains("must be `auto`"), "{}", d.message);
