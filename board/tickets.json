@@ -42739,12 +42739,12 @@
     {
       "id": 3790,
       "title": "[Opus] Whereabouts pilot: port hint bands (hintBand, inHintBand, describeHint, seededUnit, floorTo/ceilTo/wrap) to a Stitchwort project apps/whereabouts; tests from hints.test.ts; theorems stated (answer in band, margin, outward rounding, label = band, wrap range), proved where today's laws allow; friction notes",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "whereabouts",
-      "body": "",
+      "body": "\n\nProgress (lane, Opus, 17 Nov 2026): ported to apps/whereabouts (Whereabouts.Hints), 16 tests pass; extracted JS matches the TypeScript on 100,000 random inputs. Proved: finalWordBelow, seededUnit ∈ [0,1) conditional on ofNat/div monotonicity (hypotheses), and by computing two counterexamples (outward rounding pulls an edge past the answer at tolerance ≤ ~2.6e-12 km), wrap 0.1 = 0.10000000000002274 (narrow longitude edges aren't their labels), tenths keep their labels. Laws each stuck theorem needs: apps/whereabouts/NOTES.md.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
