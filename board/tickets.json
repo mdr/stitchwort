@@ -1,5 +1,5 @@
 {
-  "next": 3709,
+  "next": 3711,
   "tickets": [
     {
       "id": 47,
@@ -41832,6 +41832,32 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3709,
+      "title": "[Opus] Step regression: reads_chain_cost (driver library reads_chain_proofs_stay_within_recorded_step_counts) bisected to SW-3561's merge 09e7f3b4c (readsThen reads p off its first lemma, then j off the goal): readsTwo 38k -> 175k steps (generic), 32k -> 100k (chars), undoing most of SW-3281's 498k -> 61k. Re-measure after SW-3694 (which narrowed SW-3561's trigger), then find and fix the rest with results unchanged (SW-3698)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3710,
+      "title": "[Opus paper] Std import cost roughly doubled with D3609's derived ==, < and printing for std types (SW-3369, 2f4c14504): Nat 10.3M -> 19.8M steps, Int 16.4M -> 26.1M, Text 9.5M -> 17.9M, Map 30.8M -> 43.9M (import_cost bounds raised in SW-3698). Profile where the derived instances cost and propose cheaper derivation (lazy? shared?), with measured gains",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
