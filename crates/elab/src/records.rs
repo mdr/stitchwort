@@ -220,7 +220,8 @@ impl Elaborator {
                     "E-NOT-A-RECORD",
                     span,
                     format!(
-                        "this is a record pattern, but it matches a `{}`, which isn't a record",
+                        "this is a record pattern, but it matches {} `{}`, which isn't a record",
+                        crate::article(g.data(d).name()),
                         g.data(d).name()
                     ),
                 );
