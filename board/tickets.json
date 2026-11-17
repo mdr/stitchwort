@@ -41791,7 +41791,7 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "Reproducer: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw3705/hang.sw = examples/accept/parse-lex-then-parse.sw with 'sumIsTwentyFour ... = Ok 25 := byComputing' (a false statement by computing); hangs only with the cache (fuzz_elab oracle 4).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
