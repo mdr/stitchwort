@@ -1,5 +1,5 @@
 {
-  "next": 3755,
+  "next": 3758,
   "tickets": [
     {
       "id": 47,
@@ -42263,12 +42263,51 @@
     {
       "id": 3754,
       "title": "[Fable paper] What a match refines (Toy++ friction 2b and 2c): which hypotheses a match on e rewrites, whether it unfolds definitions to find e, how that shows in goals and errors, and what's known about implicits after a refinement; compare Lean, Agda, Rocq, Idris from sources; recommend a rule (Matt, 17 Nov 2026)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Fable paper lane, 17 Nov 2026. Note: docs/proposals/match-refinement.md (branch lane/SW-3754).\n\n- Today's rule stated from matching.rs and docs/syntax.md; all friction cases reproduced small with the release binary (repros are in the note, §2).\n- Diagnosis: hypotheses and goal are refined once, looking through definitions; terms written in the arm are not; a copy uncovered by the refinement is missed; a lemma's conclusion stops comparing at `e` against the pattern, so implicits stay unknown. SW-3468: a `let`'s name is an expression when a scrutinee but a hypothesis otherwise.\n- Proposed rule: in an arm the scrutinee is the pattern, for everything the arm reads or writes (R1 to R5), in pieces S1 to S6, about 4 to 5 h of agent time [estimated]; optional S7 (arm goals as written) after an Overmind measurement.\n- SW-3650 items 2 and 3 (`k` not found; implicits guessed from an equation) are about solving unknowns, with their own fixes (§6).\n- Two questions for Matt in §8, each with a recommendation. Nothing built; no code changed.\n",
+      "body": "Fable paper lane, 17 Nov 2026. Note: docs/proposals/match-refinement.md (branch lane/SW-3754).\n\n- Today's rule stated from matching.rs and docs/syntax.md; all friction cases reproduced small with the release binary (repros are in the note, §2).\n- Diagnosis: hypotheses and goal are refined once, looking through definitions; terms written in the arm are not; a copy uncovered by the refinement is missed; a lemma's conclusion stops comparing at `e` against the pattern, so implicits stay unknown. SW-3468: a `let`'s name is an expression when a scrutinee but a hypothesis otherwise.\n- Proposed rule: in an arm the scrutinee is the pattern, for everything the arm reads or writes (R1 to R5), in pieces S1 to S6, about 4 to 5 h of agent time [estimated]; optional S7 (arm goals as written) after an Overmind measurement.\n- SW-3650 items 2 and 3 (`k` not found; implicits guessed from an equation) are about solving unknowns, with their own fixes (§6).\n- Two questions for Matt in §8, each with a recommendation. Nothing built; no code changed.\n\nModel result: fable, worked, 12 min (est. 45). Rule proposed; two questions for Matt (adopt vs Lean's; written-form goals measured first). Est. 4-5 h in six pieces. Filed SW-3755 SW-3756 SW-3757 ; toy sweep after the rule lands.",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3755,
+      "title": "[Sonnet] E-REFL in a match arm gives no note pointing at the arm's equation when the goal mentions the scrutinee, though docs/syntax.md says it does (SW-3754 §2.2 pairKept repro)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3756,
+      "title": "[Opus] Implicits under a small Prop definition: pass _ _ g with g: Holds 3 small fails because the small definition unfolds before types are compared; compare written forms first (SW-3754 §6, SW-3650 item 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3757,
+      "title": "[Sonnet] Mismatch headline should lead with a guessed or unsolved implicit ('token here, but Some token expected' when the cause is an implicit) (SW-3754 §6.2, SW-3650 item 4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
