@@ -874,6 +874,21 @@ program can be an enormous term.
   false-looking: opacity never makes a false statement provable, but it can
   make a proof depend on a property you then never prove. If proofs need
   to unfold it everywhere, it shouldn't be opaque.
+- **State facts about a `{Fail}` function through a named wrapper.**
+  `Fail.toResult (() => x.traverse on) = Ok …` written inline is elaborated
+  wrongly: the thunk's computation is wrapped as a value, so the right side
+  comes out `Ok (Done …)`. Define a small wrapper,
+  `def runExpr (on: Steps) (input: Expr): Result (Expr) Text :=
+  Fail.toResult (() => input.traverse on)`, and state the facts about
+  `runExpr`; that is how `exprOk` is stated just below it in
+  `tools/fmt/src/Fmt/Walk.sw`. `tools/fmt/src/Fmt/MeaningProofs.sw` keeps
+  its inline `Fail.toResult` statement against a named pure result
+  (`declBindersAgree`, with `dropDeclBindersPure`).
+- **A `{Fail}` step that never fails.** A step declared `{Fail}` whose body
+  never fails won't evaluate under `Fail.toResult`, and `cases` hits its
+  64-case budget on it; declare the step pure (no `{Fail}`). `mergeHeader`
+  and `mergeBinding` in `tools/fmt/src/Fmt/Passes.sw` are pure for this
+  reason.
 - **Time it.** `time stitchwort check --no-cache NAMESPACE`. A proof
   namespace taking several seconds cold has something unfolding; halving
   the file (or replacing proofs with `?`) finds it. On day 23 one 100-line
