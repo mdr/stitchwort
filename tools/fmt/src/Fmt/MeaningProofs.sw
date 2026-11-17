@@ -11,12 +11,7 @@
 --| included (`Keeps`). P3's steps rebuild descendants, so their facts are
 --| stated through the walk (`dropLeftWalk`, `spineWalk`).
 --|
---| Not here: P4. Its `joins` reads the raw type's dump
---| (`Group.typeLines`) where `meaning` reads the walked type, in two
---| tests: equal dumps don't give equal walked types (the dump leaves out
---| an atom's token kind, so the fact is false for trees the lexer can't
---| make), and a raw type that doesn't name a group's names doesn't, as
---| proved so far, give a walked type that doesn't.
+--| P4, and the four passes together, are in `MergeProofs.sw`.
 
 namespace Fmt.Proofs
 import Fmt (..)
