@@ -5998,3 +5998,134 @@ test "Float.roundTenthsOfFloor" :=
     ∧ Float.round (Float.ceil -0.5 * 10.0) / 10.0 == Float.ceil -0.5
     ∧ (Float.round (Float.ceil -0.5 * 10.0) / 10.0).bits == 9223372036854775808
     ∧ Float.round (Float.ceil 562949953421311.5 * 10.0) / 10.0 == 562949953421312.0
+
+-- Negation and subtraction in the total order
+
+theorem Float.Theory.bitsBelow ∀ (x: Float): x.bits < 18446744073709551616 := arithmetic [x.valid]
+
+--| Flipping the sign of a pattern mirrors its key about -½: `key (flip n) = -1 - key n`.
+theorem Float.Theory.keyFlip ∀ (n: Nat)
+    (v: n < 18446744073709551616):
+    Float.Theory.key (Float.flipSignBits n) = Int.sub (NegSucc 0) (Float.Theory.key n) :=
+  match c: Nat.leq 9223372036854775808 n with
+    | True =>
+      let c2: Nat.leq 9223372036854775808 (n - 9223372036854775808) = False := arithmetic [c, v]
+      rewrite c2 then arithmetic [c]
+    | False =>
+      let c2: Nat.leq 9223372036854775808 (n + 9223372036854775808) = True := arithmetic
+      rewrite c2 then arithmetic
+
+--| Flipping the sign keeps the magnitude.
+theorem Float.Theory.magFlip ∀ (n: Nat)
+    (v: n < 18446744073709551616):
+    Float.Model.magnitude (Float.flipSignBits n) = Float.Model.magnitude n :=
+  match c: Nat.leq 9223372036854775808 n with
+    | True =>
+      let c2: Nat.leq 9223372036854775808 (n - 9223372036854775808) = False := arithmetic [c, v]
+      rewrite c2
+    | False =>
+      let c2: Nat.leq 9223372036854775808 (n + 9223372036854775808) = True := arithmetic
+      rewrite c2 then arithmetic
+
+--| Negation reverses the total order, for doubles other than the NaN.
+theorem Float.negAntitone ∀ (x y: Float)
+    (nx: Float.isNaN x = False)
+    (ny: Float.isNaN y = False)
+    (h: x <= y):
+    -y <= -x :=
+  let hk: Int.leq (Float.Theory.key x.bits) (Float.Theory.key y.bits) = True := h
+  Float.Theory.leqVia
+    (Float.orderKey (-y))
+    (Float.orderKey (-x))
+    (Int.sub (NegSucc 0) (Float.Theory.key y.bits))
+    (Int.sub (NegSucc 0) (Float.Theory.key x.bits))
+    (Eq.trans
+      (Eq.cong Float.Theory.key (Float.Theory.negBits y ny))
+      (Float.Theory.keyFlip y.bits (Float.Theory.bitsBelow y)))
+    (Eq.trans
+      (Eq.cong Float.Theory.key (Float.Theory.negBits x nx))
+      (Float.Theory.keyFlip x.bits (Float.Theory.bitsBelow x)))
+    (arithmetic [hk])
+
+--| The negation of a finite double is finite.
+theorem Float.negFinite ∀ (x: Float) (fx: Float.isFinite x = True): Float.isFinite (-x) = True :=
+  let fb: Float.Theory.FiniteBits x.bits := Float.Theory.finiteBits x fx
+  let nx: Float.isNaN x = False := Float.Theory.finiteNotNaN x.bits fb
+  Float.Theory.isFiniteOf
+    (-x)
+    (J
+      (b w => Float.Theory.FiniteBits b)
+      (J (m w => m < 9218868437227405312) fb (Float.Theory.magFlip x.bits (Float.Theory.bitsBelow x)).flipped)
+      (Float.Theory.negBits x nx).flipped)
+
+test "Float.negAntitone" := -2.0 <= -1.0 ∧ -0.0 <= -(-0.0) ∧ -Float.infinity <= -1e308 ∧ Float.isFinite (-5e-324)
+
+--| Subtracting the same finite double from finite doubles keeps their order.
+theorem Float.subMonotoneLeft ∀ (x y c: Float)
+    (fx: Float.isFinite x = True)
+    (fy: Float.isFinite y = True)
+    (fc: Float.isFinite c = True)
+    (h: x <= y):
+    x - c <= y - c :=
+  rewrite Float.subAddNeg x c, Float.subAddNeg y c then Float.addMonotoneLeft x y (-c) fx fy (Float.negFinite c fc) h
+
+--| Subtracting more from a finite double gives no more.
+theorem Float.subAntitoneRight ∀ (x a b: Float)
+    (fx: Float.isFinite x = True)
+    (fa: Float.isFinite a = True)
+    (fb: Float.isFinite b = True)
+    (h: a <= b):
+    x - b <= x - a :=
+  rewrite Float.subAddNeg x b, Float.subAddNeg x a then
+    Float.addMonotone
+      (-b)
+      (-a)
+      x
+      (Float.negFinite b fb)
+      (Float.negFinite a fa)
+      fx
+      (Float.negAntitone a b
+        (Float.Theory.finiteNotNaN a.bits (Float.Theory.finiteBits a fa))
+        (Float.Theory.finiteNotNaN b.bits (Float.Theory.finiteBits b fb))
+        h)
+
+test "Float.subAntitoneRight" := 1.0 - 0.3 <= 1.0 - 0.2 ∧ 0.0 - 0.0 <= 0.0 - (-0.0) ∧ 5.0 - 1.0 <= 6.0 - 1.0
+
+--| A finite pattern's key lies strictly between the infinities'.
+theorem Float.Theory.keyFiniteRange ∀ (n: Nat)
+    (v: n < 18446744073709551616)
+    (f: Float.Theory.FiniteBits n):
+    (Int.less (NegSucc 9218868437227405312) (Float.Theory.key n) = True)
+      ∧ (Int.less (Float.Theory.key n) (OfNat 9218868437227405312) = True) :=
+  match c: Nat.leq 9223372036854775808 n with
+    | True =>
+      let m: Float.Model.magnitude n = n - 9223372036854775808 := rewrite c
+      (arithmetic [c, f, m], arithmetic)
+    | False =>
+      let m: Float.Model.magnitude n = n := rewrite c
+      (arithmetic, arithmetic [f, m])
+
+--| A double between two finite doubles is finite.
+theorem Float.finiteBetween ∀ (lo x hi: Float)
+    (flo: Float.isFinite lo = True)
+    (fhi: Float.isFinite hi = True)
+    (a: lo <= x)
+    (b: x <= hi):
+    Float.isFinite x = True :=
+  let ka: Int.leq (Float.Theory.key lo.bits) (Float.Theory.key x.bits) = True := a
+  let kb: Int.leq (Float.Theory.key x.bits) (Float.Theory.key hi.bits) = True := b
+  let rl := Float.Theory.keyFiniteRange lo.bits (Float.Theory.bitsBelow lo) (Float.Theory.finiteBits lo flo)
+  let rh := Float.Theory.keyFiniteRange hi.bits (Float.Theory.bitsBelow hi) (Float.Theory.finiteBits hi fhi)
+  let v: x.bits < 18446744073709551616 := Float.Theory.bitsBelow x
+  Float.Theory.isFiniteOf x
+    (match c: Nat.leq 9223372036854775808 x.bits with
+      | True =>
+        let m: Float.Model.magnitude x.bits = x.bits - 9223372036854775808 := rewrite c
+        let k: Float.Theory.key x.bits = NegSucc (x.bits - 9223372036854775808) := Float.Theory.keySet x.bits c
+        (arithmetic [m, k, ka, rl.left, c]: Float.Model.magnitude x.bits < 9218868437227405312)
+      | False =>
+        let m: Float.Model.magnitude x.bits = x.bits := rewrite c
+        let k: Float.Theory.key x.bits = OfNat x.bits := Float.Theory.keyClear x.bits c
+        (arithmetic [m, k, kb, rh.right]: Float.Model.magnitude x.bits < 9218868437227405312))
+
+test "Float.finiteBetween" := Float.isFinite (0.5 * 0.7) ∧ ¬Float.isFinite Float.infinity
