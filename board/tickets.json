@@ -41878,12 +41878,12 @@
     {
       "id": 3725,
       "title": "[Fable paper] Think through derived instances' cost (SW-3710): why generated ==/< law proofs are expensive, whether std's internal types need them at all, and the space of solutions (lazy, cheaper proofs, direct terms, shipped cache, others), with a recommendation (Matt, 17 Nov 2026)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Paper lane (Fable), 17 Nov 2026, about 15 min (est. 60). Note: docs/proposals/derived-instances-rethink.md.\n\nFindings (all measured with the release CLI at 0d09b858a, synthetic types):\n- The cost is cubic in fields per constructor, linear in constructors. One constructor: 4 fields 0.28M steps, 8 fields 2.0M, 16 fields 19.3M (1.6 s), 32 fields 233M (30 s). SW-3710's \"50K per constructor per proof\" is the two-field case.\n- Causes isolated: (a) reading field k's equation as And.left (And.right^k q) is cubic (1.15M steps at 16 fields; 75K with tails let-bound; the J chain itself 9K); (b) an elaborator slow path: a 32-term chain of (DecEq.decide a b).holds && ... is 1.54M steps where a == b && ... is 54K; (c) the decision and the congruence are stated two or three times.\n- A prototype of == through nested pairs (Pair.decMk + one Eq.cong) checks and is 3x cheaper at 4 fields, 13x at 16, 26x at 32.\n- Warm check cache: Nat importer 1.95 s cold, 0.34 s warm, 0.28 s with no import.\n- Field types matter little (derived field 1.4x, not 3x); instances in scope don't matter.\n\nRecommendation: C (fix the elaborator path, reshape proofs, step-budget test) and D (per-user std cache, reopening D281); neither A nor B. Two questions for Matt at the note's end.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
