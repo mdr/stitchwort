@@ -1733,15 +1733,167 @@ impl<'e> Ctx<'e> {
     ) -> Result<Option<Term>> {
         // Only on the way to a mismatch: anything that fails here but for
         // running out of resources leaves that mismatch to be reported.
-        if self.scrutinees.iter().all(|s| s.4.is_none())
+        if self.scrutinees.is_empty()
             || !crate::rewrite::is_proof_type(self, found).unwrap_or(false)
         {
+            return Ok(None);
+        }
+        self.note_equation_wanted(&[found, expected]);
+        if self.scrutinees.iter().all(|s| s.4.is_none()) {
             return Ok(None);
         }
         let attempt = crate::undo::attempt(self, |cx| {
             cx.along_match_equation_now(term, found, expected)
         });
         Ok(attempt?.flatten())
+    }
+
+    /// Notes, for each enclosing unnamed `match` whose scrutinee occurs in
+    /// one of `sides` (as types hold them), that an arm wanted its equation:
+    /// if the arms fail, the `match` checks them again with a hidden one
+    /// (`matching::in_arms_or_equation`, match-refinement.md R2).
+    pub(crate) fn note_equation_wanted(&self, sides: &[&Value]) {
+        if self.scrutinees.iter().all(|s| s.4.is_some()) {
+            return;
+        }
+        let g = self.g();
+        let level = self.level();
+        let quoted: Vec<Term> = sides
+            .iter()
+            .filter_map(|side| quote(&g, level, side).ok())
+            .collect();
+        let mut wanted = self.e.decl.equation_wanted.borrow_mut();
+        for (base, needle, span, _, equation) in &self.scrutinees {
+            if equation.is_some() || wanted.contains(span) {
+                continue;
+            }
+            let Ok(needle) = needle.shift(&g, level - base, 0) else {
+                continue;
+            };
+            if quoted.iter().any(|t| crate::matching::occurs(&needle, t)) {
+                wanted.push(*span);
+            }
+        }
+    }
+
+    /// `prove(goal)`, where `goal` is `expected` with an enclosing
+    /// `match`'s scrutinee `e` rewritten to the arm's value `p` along the
+    /// `match`'s equation, carried back to a proof of `expected`: for a
+    /// closer (`byComputing`) whose goal still has `e` once computed, a
+    /// copy that a definition uncovered only once the `match` had replaced
+    /// another (match-refinement.md R3). Each round rewrites every `e` the
+    /// goal shows, and may let it compute to show another; at most
+    /// [`REFINE_ROUNDS`] rounds, then `E-MATCH-ROUNDS`. `None` if no
+    /// enclosing `match` with an equation has its scrutinee in the goal, or
+    /// if `prove` still fails on the rewritten goal; whatever was solved is
+    /// then undone. Tried only after `prove` failed on `expected` itself.
+    pub(crate) fn refined_again(
+        &mut self,
+        expected: &Value,
+        prove: &dyn Fn(&mut Ctx, &Value) -> Result<Term>,
+    ) -> Result<Option<Term>> {
+        if self.scrutinees.is_empty() {
+            return Ok(None);
+        }
+        self.note_equation_wanted(&[expected]);
+        if self.scrutinees.iter().all(|s| s.4.is_none()) {
+            return Ok(None);
+        }
+        let attempt = crate::undo::transaction(self, |cx| {
+            let mut goal = expected.clone();
+            // Each round's rewrite and the goal it rewrote.
+            let mut rounds: Vec<(ScrutineeRewrite, Value)> = Vec::new();
+            while let Some((rewrite, rewritten)) = cx.rewrite_scrutinee(&goal)? {
+                if rounds.len() == REFINE_ROUNDS {
+                    return Err(rounds_error(cx, rewrite.span));
+                }
+                rounds.push((rewrite, goal));
+                goal = rewritten;
+                let Some(mut term) = crate::undo::attempt(cx, |cx| prove(cx, &goal))? else {
+                    continue;
+                };
+                let mut proved = goal;
+                for (rewrite, before) in rounds.into_iter().rev() {
+                    let Some(back) = cx.carry_back(&rewrite, &term, &before, &proved)? else {
+                        return Ok(None);
+                    };
+                    term = back;
+                    proved = before;
+                }
+                return Ok(Some(term));
+            }
+            Ok(None)
+        });
+        match attempt {
+            Err(e) if !crate::undo::fatal(&e) && e.code != "E-MATCH-ROUNDS" => Ok(None),
+            other => other,
+        }
+    }
+
+    /// One round of [`Ctx::refined_again`]: `goal` with the innermost
+    /// enclosing scrutinee that has an equation and occurs in it rewritten
+    /// to the arm's value, and how.
+    fn rewrite_scrutinee(&mut self, goal: &Value) -> Result<Option<(ScrutineeRewrite, Value)>> {
+        let g = self.g();
+        let level = self.level();
+        let goal_term = quote(&g, level, goal)?;
+        for (base, needle, span, _, equation) in self.scrutinees.clone().iter().rev() {
+            let Some(equation) = *equation else { continue };
+            let Ok(needle) = needle.shift(&g, level - base, 0) else {
+                continue;
+            };
+            if !crate::matching::occurs(&needle, &goal_term) {
+                continue;
+            }
+            let Value::Eq(carrier, lhs_value, rhs_value) = force(&g, self.types[equation].clone())?
+            else {
+                continue;
+            };
+            let generalised = abstract_needle(&g, &goal_term, level, &needle, 1, &Term::Var(0))?;
+            let rhs = quote(&g, level, &rhs_value)?;
+            let rewritten = self.eval(&Term::app(
+                Term::Lam("y".into(), Icit::Explicit, Rc::new(generalised.clone())),
+                rhs.clone(),
+            ))?;
+            let rewrite = ScrutineeRewrite {
+                carrier: (*carrier).clone(),
+                lhs: quote(&g, level, &lhs_value)?,
+                lhs_value: (*lhs_value).clone(),
+                rhs,
+                equation,
+                generalised,
+                goal_term,
+                span: *span,
+            };
+            return Ok(Some((rewrite, rewritten)));
+        }
+        Ok(None)
+    }
+
+    /// `term`, a proof of `proved` (`before` rewritten by `rewrite`),
+    /// carried back along the equation to a proof of `before`.
+    fn carry_back(
+        &mut self,
+        rewrite: &ScrutineeRewrite,
+        term: &Term,
+        before: &Value,
+        proved: &Value,
+    ) -> Result<Option<Term>> {
+        let along = Along {
+            term,
+            carrier: &rewrite.carrier,
+            lhs_value: &rewrite.lhs_value,
+            lhs: &rewrite.lhs,
+            rhs: &rewrite.rhs,
+            equation: rewrite.equation,
+        };
+        self.transport_along(
+            &along,
+            false,
+            (&rewrite.generalised, &rewrite.goal_term),
+            before,
+            proved,
+        )
     }
 
     /// [`Ctx::along_match_equation`], its errors not yet turned into `None`.
@@ -1975,6 +2127,46 @@ impl<'e> Ctx<'e> {
         };
         quote(&g, level, &value).is_ok_and(|t| crate::matching::same(&t, refined))
     }
+}
+
+/// [`Ctx::refined_again`] gave up after [`REFINE_ROUNDS`] rounds.
+fn rounds_error(cx: &Ctx, span: Span) -> Diagnostic {
+    cx.error(
+        "E-MATCH-ROUNDS",
+        "this goal keeps uncovering the `match`'s scrutinee",
+        format!(
+            "after {REFINE_ROUNDS} rewrites along the `match`'s equation, the goal still \
+             computes to one with the scrutinee in it"
+        ),
+    )
+    .with_label(span, "the `match` whose scrutinee this is")
+    .with_note(
+        "each rewrite of the scrutinee to this arm's value let the goal compute further and \
+         uncover another copy. Prove a lemma about the definition that keeps uncovering it, or \
+         `rewrite` along the equation by hand where it is needed",
+    )
+}
+
+/// How many times [`Ctx::refined_again`] rewrites a goal along a `match`'s
+/// equation before giving up: two rounds were enough in every case
+/// match-refinement.md §4 (R3) looked at.
+const REFINE_ROUNDS: usize = 8;
+
+/// A goal with a scrutinee in it, generalised over it, and the equation to
+/// rewrite it along ([`Ctx::rewrite_scrutinee`]).
+struct ScrutineeRewrite {
+    carrier: Value,
+    lhs_value: Value,
+    lhs: Term,
+    rhs: Term,
+    equation: usize,
+    /// The goal with the scrutinee replaced by a variable one past the
+    /// context.
+    generalised: Term,
+    /// The goal, read back.
+    goal_term: Term,
+    /// Where the scrutinee is written.
+    span: Span,
 }
 
 /// What [`Ctx::transport_along`] rewrites, and along which equation.
@@ -6273,7 +6465,7 @@ pub(crate) fn check_value(
         (Expr::Var(name), Value::Eq(_, a, b))
             if name.text == "byComputing" && cx.lookup("byComputing").is_none() =>
         {
-            rfl_against_equation(cx, name, a, b)
+            rfl_against_equation(cx, name, (a, b), &expected)
         }
         (Expr::Var(name), _)
             if name.text == "byComputing" && cx.lookup("byComputing").is_none() =>
@@ -6604,7 +6796,12 @@ fn explicit_lambda(
 
 /// The builtin `byComputing` checked against the equation `a = b`.
 #[inline(never)]
-fn rfl_against_equation(cx: &mut Ctx, name: &AstName, a: &Value, b: &Value) -> Result<Term> {
+fn rfl_against_equation(
+    cx: &mut Ctx,
+    name: &AstName,
+    (a, b): (&Value, &Value),
+    expected: &Value,
+) -> Result<Term> {
     cx.e.note_builtin(name);
     if crate::undo::unify(cx, a, b)?
         || crate::lift::await_helpers(cx, a, b, crate::lift::Failure::Refl)?
@@ -6612,6 +6809,8 @@ fn rfl_against_equation(cx: &mut Ctx, name: &AstName, a: &Value, b: &Value) -> R
         || crate::queue::compare_waiting(cx, a, b, crate::queue::Failure::Refl)?
     {
         Ok(Term::Refl)
+    } else if let Some(term) = refl_refined_again(cx, expected)? {
+        Ok(term)
     } else if cx.e.decl.quiet_refl.get() > 0 {
         Err(Diagnostic::error(
             "E-REFL",
@@ -6623,6 +6822,25 @@ fn rfl_against_equation(cx: &mut Ctx, name: &AstName, a: &Value, b: &Value) -> R
         cx.unify(a, b)?;
         Err(refl_error(cx, a, b))
     }
+}
+
+/// `byComputing` after it failed on `a = b`, in an arm of a `match` whose
+/// scrutinee is still in it: on the equation rewritten along the `match`'s
+/// ([`Ctx::refined_again`]).
+fn refl_refined_again(cx: &mut Ctx, expected: &Value) -> Result<Option<Term>> {
+    if cx.scrutinees.is_empty() {
+        return Ok(None);
+    }
+    cx.refined_again(expected, &|cx, goal| {
+        let g = cx.g();
+        match force(&g, goal.clone())? {
+            Value::Eq(_, a, b) if crate::undo::unify(cx, &a, &b)? => Ok(Term::Refl),
+            _ => Err(Diagnostic::error(
+                "E-REFL",
+                "`byComputing` can't prove this",
+            )),
+        }
+    })
 }
 
 /// The builtin `byComputing` checked against `expected`, which isn't an equation.

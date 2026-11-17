@@ -677,7 +677,22 @@ theorem clampToFits ∀ (limit n: Nat): clampTo limit n ≤ limit ∧ clampTo li
   | False => Both (clampToAtMost limit n) arithmetic
 ```
 
-The lemma's type is searched for `e` as the goal is, so it fits even where it writes `e` differently, up to computation (`xs.map (y => f a y)` for `xs.map (f a)`). That needs the equation's name: in a `match` without one, the error says to add it. If the expression isn't in the goal at all, every arm gets the goal unchanged, and when an arm then fails the compiler warns (`W-MATCH-NOT-FOUND`), showing the goal as written: write the expression as the goal shows it, or bind it with a `let` first. The same goes the other way: a lemma's premise `Nat.leq n limit = True`, written in the `True` branch, is proved by `fits`, which says exactly that, and `byComputing` can't prove it.
+The lemma's type is searched for `e` as the goal is, so it fits even where it writes `e` differently, up to computation (`xs.map (y => f a y)` for `xs.map (f a)`). It works without the name too: a `match` without one gets the equation, hidden, when a branch needs it. If the expression isn't in the goal at all, every arm gets the goal unchanged, and when an arm then fails the compiler warns (`W-MATCH-NOT-FOUND`), showing the goal as written: write the expression as the goal shows it, or bind it with a `let` first. The same goes the other way: a lemma's premise `Nat.leq n limit = True`, written in the `True` branch, is proved by `fits`, which says exactly that, and by `byComputing`, which rewrites `e` along the equation when computing alone doesn't prove a goal that still has it. That also covers a copy of `e` that appears only once the branch's value is put in and the goal computes further:
+
+<!-- snippet: proofs.sw#match-uncovered -->
+```stitchwort
+def spare (n: Nat): Bool := 10 < n
+def drop (n: Nat): Option Nat := if spare n then None else Some n
+def kept (x: Option Nat): Bool := match x with
+  | Some n => not (spare n)
+  | None => True
+
+theorem keptAfter ∀ (n: Nat): kept (drop n) = True := match spare n with
+  | True => byComputing
+  | False => byComputing
+```
+
+In the `False` branch the goal is `kept (if False then None else Some n) = True`, which computes to `not (spare n) = True`: the second `spare n` was inside `kept`, out of reach until `drop n` computed. `byComputing` replaces it with `False` and tries again.
 
 To split on an `if`, match on its condition. Matching on the comparison's decision (`match Nat.decLessThan n limit with | { holds = True, sound = s, complete = _ } => … | { holds = False, … } => …`) refines the `if` as well, and also gives you evidence: `s byComputing` proves `n < limit` in the first arm (`examples/accept/match-decision-refines-if.sw`).
 

@@ -1108,6 +1108,7 @@ fn generalised_now(
     // with the usual test, and if its motive checks now: check 3 of
     // `as_written`, made even for `cases`, whose usual motive is left to the
     // kernel. Otherwise the usual one, exactly as before.
+    let before_bind = crate::undo::Snapshot::take(cx);
     let snapshot = crate::undo::Snapshot::take(cx);
     let mut kept = None;
     if let Some(w) = &written {
@@ -1128,6 +1129,7 @@ fn generalised_now(
             snapshot.restore(cx);
         }
     }
+    let as_written = kept.is_some();
     let (bound, motive_later) = match kept {
         Some(bound) => (bound, false),
         None => {
@@ -1190,21 +1192,102 @@ fn generalised_now(
             first?
         }
     };
-    in_arms(
+    let arms = |cx: &mut Ctx, exprs: &[Scrut], bound, motive_later, not_found| {
+        in_arms(
+            cx,
+            &columns,
+            exprs,
+            alts,
+            absurd,
+            span,
+            kind,
+            base,
+            bound,
+            motive_later,
+            &normals,
+            not_found,
+            false,
+        )
+    };
+    // Binds the scrutinees again, as they were bound above, for
+    // [`with_hidden_equation`]: the usual way's other two attempts (a
+    // `cases`' and a decision's) name every scrutinee, so never retry.
+    let rebind = |cx: &mut Ctx, exprs: &[Scrut]| -> Result<(Bound, bool)> {
+        let w = written.as_ref().filter(|_| as_written);
+        let bound = bind_generalised(cx, exprs, &today, w, base, None)?;
+        let later = w.is_none() && check_motive(cx, base, &bound.extra, &bound.motive, span)?;
+        Ok((bound, later))
+    };
+    if skip.is_some() {
+        return arms(cx, &exprs, bound, motive_later, not_found);
+    }
+    with_hidden_equation(
         cx,
-        &columns,
         &exprs,
-        alts,
-        absurd,
-        span,
-        kind,
-        base,
-        bound,
-        motive_later,
-        &normals,
+        before_bind,
         not_found,
-        false,
+        |cx, exprs, first, not_found| {
+            let (bound, later) = match first {
+                Some(first) => first,
+                None => rebind(cx, exprs)?,
+            };
+            arms(cx, exprs, bound, later, not_found)
+        },
+        (bound, motive_later),
     )
+}
+
+/// match-refinement.md R2 (S1): checks the arms of a `match` generalised
+/// with `exprs` (`arms`, given the binding already made, or `None` to bind
+/// again). If they fail, and an arm met a comparison in which an unnamed
+/// scrutinee's equation would have carried a proof across
+/// ([`Ctx::note_equation_wanted`]), the binding is undone (`before`) and the
+/// arms are checked again with that scrutinee named [`TESTED`], so that the
+/// comparisons that carry proofs along a named `match`'s equation
+/// ([`Ctx::along_match_equation`], [`Ctx::refined_again`]) have one. If that
+/// fails too, the first way is checked again, so that its error and
+/// everything it noted are what is reported. A `match` that checks the
+/// first time is unchanged, and so is its helper.
+fn with_hidden_equation(
+    cx: &mut Ctx,
+    exprs: &[Scrut],
+    before: crate::undo::Snapshot,
+    not_found: Vec<(usize, Diagnostic)>,
+    arms: impl Fn(&mut Ctx, &[Scrut], Option<(Bound, bool)>, Vec<(usize, Diagnostic)>) -> Result<Term>,
+    bound: (Bound, bool),
+) -> Result<Term> {
+    let unnamed: Vec<stitchwort_syntax::Span> = (exprs.iter())
+        .filter(|s| s.name.is_none())
+        .map(|s| s.span)
+        .collect();
+    let first = arms(cx, exprs, Some(bound), not_found.clone());
+    let wanted = {
+        let mut wanted = cx.e.decl.equation_wanted.borrow_mut();
+        let ours = wanted.iter().any(|w| unnamed.contains(w));
+        wanted.retain(|w| !unnamed.contains(w));
+        ours
+    };
+    match first {
+        Err(e) if wanted && !crate::undo::fatal(&e) => {
+            before.restore(cx);
+            let named: Vec<Scrut> = (exprs.iter())
+                .map(|s| {
+                    let mut s = s.clone();
+                    s.name.get_or_insert_with(|| ast::Name {
+                        text: TESTED.into(),
+                        span: s.span,
+                    });
+                    s
+                })
+                .collect();
+            let again = crate::undo::attempt(cx, |cx| arms(cx, &named, None, not_found.clone()))?;
+            match again {
+                Some(term) => Ok(term),
+                None => arms(cx, exprs, None, not_found),
+            }
+        }
+        other => other,
+    }
 }
 
 /// The generalisation as written, for when the goal or a variable's type is

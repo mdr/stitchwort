@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-MATCH-ROUNDS] Error: this goal keeps uncovering the `match`'s scrutinee
+    ╭─[ reject/match-refine-rounds.sw:22:13 ]
+    │
+ 21 │ theorem many ∀ (n: Nat): chain n 20 (spare n) = spare n := match s: spare n with
+    │                                                                     ───┬───  
+    │                                                                        ╰───── the `match` whose scrutinee this is
+ 22 │   | True => byComputing
+    │             ─────┬─────  
+    │                  ╰─────── after 8 rewrites along the `match`'s equation, the goal still computes to one with the scrutinee in it
+    │ 
+    │ Note: each rewrite of the scrutinee to this arm's value let the goal compute further and uncover another copy. Prove a lemma about the definition that keeps uncovering it, or `rewrite` along the equation by hand where it is needed
+────╯

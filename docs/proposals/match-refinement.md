@@ -580,6 +580,52 @@ bounded (a cap and an error), and S3 must not solve an unknown *to* `e` or
 `p` on the strength of the equation alone (it only skips the pair), or
 implicits would depend on which arm they are in.
 
+### S1/S2 measured (SW-3758, 17 Nov 2026)
+
+Built on Opus in about 35 minutes of agent time. **[measured]** unless marked.
+
+- **Size.** `crates/elab`: +325 −14 lines over three files (`check.rs`
+  +224, `matching.rs` +105 −14, `state/decl.rs` +10), 55 of the added
+  lines comments.
+- **One mechanism or several.** Two pieces, each used once.
+  *S1* is one wrapper around a generalised `match`'s arms
+  (`matching::with_hidden_equation`): if the arms fail and an arm noted
+  that an unnamed scrutinee was on one side of a failed proof comparison
+  (`Ctx::note_equation_wanted`, called from the existing transport in
+  `compare` and from S2), the arms are checked again with the scrutinee
+  named `%tested`, the name the decision retry already used. Everything
+  that reads a named equation then works unchanged; nothing new is done at
+  any comparison site. If the second check fails, the first is run again
+  so the error and goals are exactly today's (three checks of the arms, on
+  that failure path only). *S2* is one function, `Ctx::refined_again`
+  (rewrite the goal along the innermost equation whose scrutinee it
+  contains, try the closer, carry the proof back with the existing
+  `transport_along`; at most 8 rounds, then `E-MATCH-ROUNDS`), called from
+  one site, `byComputing`. Other closers (`cases`, `arithmetic`) would each
+  be one more call of the same function; not done.
+- **Hashes.** `hash_stability::prelude` unchanged, and
+  `hash_stability::examples` with `EXAMPLES=match` changed no existing
+  snapshot (only the new accept examples' were added).
+- **Steps.** `import_cost` before → after: List 1,210,272 → 1,210,272;
+  Nat 14,586,205 → 14,586,205; Int 20,460,978 → 20,462,225 (+0.006%);
+  Text 12,873,979 → 12,873,979; Map 35,034,451 → 35,035,698 (+0.004%). The
+  +1,247 in Int and Map is the read-back that `note_equation_wanted` and
+  `refined_again` do on a std proof's failed comparison inside an arm
+  **[inferred]**. AoC: no step counter on the command line, so wall time:
+  `check --no-cache Aoc.Year2024.Day24` (the 2024 day with the most named
+  `match`es), user time 7.21 s
+  and 7.91 s against main's binary's 7.18 s and 7.92 s, flat.
+- **Cap and internal errors.** No internal error seen. The cap was hit
+  only by the example built to hit it
+  (`examples/reject/match-refine-rounds.sw`: 20 nested copies); its
+  3-round twin checks.
+- **Five reject examples now check**, all of them cases the rule says
+  should: `match-lemma-unnamed-equation`, `match-written-argument-not-refined`
+  (S1), `match-equation-not-rfl`, `match-refines-goal-once`,
+  `match-scrutinee-from-lemma-under-lambda` (S2). They were moved to
+  `examples/accept/` under new names. Reject examples whose names don't
+  contain `match` weren't run; the verifier's examples run covers them.
+
 ## 8. Questions for Matt
 
 The orchestrator numbers these.
