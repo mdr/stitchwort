@@ -41816,12 +41816,12 @@
     {
       "id": 3707,
       "title": "[Sonnet] fuzz_elab checks std afresh in every case (~20 s CPU in debug for a std-heavy mutant, x3 for cache cases): share one std cache across cases in the test process, then put the watchdog back to 60 s (SW-3705)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "Model result: sonnet, worked, 8 min (est. 35). Oracle 5 now compares std-replayed vs cold (was no-cache vs cold); case 80 of seed 0x5eed still >5 s.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
