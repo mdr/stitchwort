@@ -1,5 +1,5 @@
 {
-  "next": 3738,
+  "next": 3743,
   "tickets": [
     {
       "id": 47,
@@ -42034,12 +42034,77 @@
     {
       "id": 3737,
       "title": "[Opus] Toy++ T5: P3, spare brackets dropped (the precedence argument), and toy-plus-plus.md §3.4's shared-traversal experiment; P3's fixed-point, keeps-meaning, keeps-Parsed, idempotence family and how it composes with P1/P2; tidy restated for three passes. About 70 theorems",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Progress (lane, 17 Nov 2026, 08:41-09:12):\n- Fmt/Traverse.sw: `Expr.traverse step position` (bottom-up; Position = slot + bracketed flag) and `SourceFile.traverse step declare`. Termination accepted as written.\n- Fmt/TraverseProofs.sw: 70 generic lemmas, proved once for every step: meaning, Shaped (as ShapedAt slot + EndKept), Lexical, HeadedExpr, no trailing commas, idempotence (AllAt done, StepFixes, StepReaches, DoneOutside), declaration and file level. 8 more for comments in KeepsComments.sw.\n- P3 `withoutSpareBrackets` (Passes.sw: spare, dropPair, standsOutside, type brackets) in tidy; BracketProofs.sw 41 theorems: bracketsKeepMeaning, bracketsKeepParsed (precedence via dropShaped), bracketsIdempotent, bracketsKeepCommas, bracketsKeepTakes, takesBracketsCommute; bracketsKeepComments; bracketsPrintParses (DirectProofs).\n- P2 moved onto the traversal: 63+5 theorems down to 28.\n- tidy theorems restated for three passes (+ tidyBrackets); format* unchanged. axioms: none on all 23 top theorems checked.\n- isPostfix/isOperand/isChain/chainLevel moved to program code (Syntax/Shape.sw).\n- Tests: Sprig++ golden `(v: (Vec))` -> `(v: Vec)`; two bracket probes lose their pair, two new ones keep it where needed; `-(-x) - -x` now `- -x - -x`; new P3 format test + idempotence test.\n- Net +88 theorems (1,588 -> 1,676). Notes and counts: tools/toyfmt/plus/SKETCH-PLUS.md \"T5\".\n",
+      "body": "Progress (lane, 17 Nov 2026, 08:41-09:12):\n- Fmt/Traverse.sw: `Expr.traverse step position` (bottom-up; Position = slot + bracketed flag) and `SourceFile.traverse step declare`. Termination accepted as written.\n- Fmt/TraverseProofs.sw: 70 generic lemmas, proved once for every step: meaning, Shaped (as ShapedAt slot + EndKept), Lexical, HeadedExpr, no trailing commas, idempotence (AllAt done, StepFixes, StepReaches, DoneOutside), declaration and file level. 8 more for comments in KeepsComments.sw.\n- P3 `withoutSpareBrackets` (Passes.sw: spare, dropPair, standsOutside, type brackets) in tidy; BracketProofs.sw 41 theorems: bracketsKeepMeaning, bracketsKeepParsed (precedence via dropShaped), bracketsIdempotent, bracketsKeepCommas, bracketsKeepTakes, takesBracketsCommute; bracketsKeepComments; bracketsPrintParses (DirectProofs).\n- P2 moved onto the traversal: 63+5 theorems down to 28.\n- tidy theorems restated for three passes (+ tidyBrackets); format* unchanged. axioms: none on all 23 top theorems checked.\n- isPostfix/isOperand/isChain/chainLevel moved to program code (Syntax/Shape.sw).\n- Tests: Sprig++ golden `(v: (Vec))` -> `(v: Vec)`; two bracket probes lose their pair, two new ones keep it where needed; `-(-x) - -x` now `- -x - -x`; new P3 format test + idempotence test.\n- Net +88 theorems (1,588 -> 1,676). Notes and counts: tools/toyfmt/plus/SKETCH-PLUS.md \"T5\".\n\nModel result: opus, worked, 27 min (est. 60). Statements checked by the orchestrator (D2436). Traversal experiment works: shared 78 theorems once; P2 68 -> 28, P3 48 (vs ~115 direct). Friction SW-3738 SW-3739 SW-3740 SW-3741 SW-3742 ",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3738,
+      "title": "[Opus] E-TERMINATION refuses a non-recursive function passed without arguments when a same-named method elsewhere is recursive (Declaration.withoutSpareTypeBrackets refused because TypeExpr.withoutSpareBrackets is recursive); a lambda works (Toy++ T5 friction, SW-3737)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3739,
+      "title": "[Opus] Conversion doesn't compare a stuck match arm by arm: (Bracketed o i' c).fits slot vs (Bracketed o i c).fits slot are equal in every arm yet a type mismatch; needed cases lemmas (Toy++ T5 friction, SW-3737)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3740,
+      "title": "[Sonnet] .read takes apart only one &&: a five-part conjunction needs four nested lets; destructure the whole chain (Toy++ T5 friction, SW-3737)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3741,
+      "title": "[Sonnet] match on a test refines the goal's if in one place but not the same test inside another definition in the other half of the goal (dropReaches); Eq.cong workaround (Toy++ T5 friction, SW-3737)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3742,
+      "title": "[DeepSeek] One wrong proof in a proof-tuple let gives a W-MATCH-NOT-FOUND warning per let (10 from one error): report the root error only (Toy++ T5 friction, SW-3737)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
