@@ -807,10 +807,12 @@ impl<'p> Interp<'p> {
                         let (x, y) = (a?, bits(&args[1])?);
                         boolean(x != NAN && (x == y || (x | y) & !SIGN == 0))
                     }
-                    FloatPrim::Mul | FloatPrim::Div | FloatPrim::Rem => {
+                    FloatPrim::Mul => V::Float(canonical(
+                        f64::from_bits(a?) * f64::from_bits(bits(&args[1])?),
+                    )),
+                    FloatPrim::Div | FloatPrim::Rem => {
                         use stitchwort_core::float::FloatOp;
                         let op = match f {
-                            FloatPrim::Mul => FloatOp::Mul,
                             FloatPrim::Div => FloatOp::Div,
                             _ => FloatOp::Rem,
                         };

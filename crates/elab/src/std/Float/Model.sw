@@ -167,6 +167,30 @@ def Float.Model.addBits (a b: Nat): Nat :=
       (-1074)
       (Float.Model.signBit a ∧ Float.Model.signBit b)
 
+--| The infinity with sign bit `negative`.
+def Float.Model.infinityBits (negative: Bool): Nat := if negative then 18442240474082181120 else 9218868437227405312
+
+--| Whether a bit pattern is a zero's, of either sign.
+def Float.Model.isZero (bits: Nat): Bool := Nat.equal (Float.Model.magnitude bits) 0
+
+--| `x * y`: the NaN if either is, or for an infinity times a zero; an
+--| infinity if either is; otherwise the exact product, rounded. The sign is
+--| the operands' signs combined, for zeros and infinities too.
+-- The product of two units is in units of 2^-2148.
+def Float.Model.mulBits (a b: Nat): Nat :=
+  if Float.Model.isNaN a ∨ Float.Model.isNaN b then 9221120237041090560
+  else if Float.Model.isInfinite a ∨ Float.Model.isInfinite b then
+    (if Float.Model.isZero a ∨ Float.Model.isZero b then 9221120237041090560
+     else Float.Model.infinityBits (Bool.xor (Float.Model.signBit a) (Float.Model.signBit b)))
+  else
+    Float.Model.roundScaled
+      (Int.mul (Float.Model.units a) (Float.Model.units b))
+      (-2148)
+      (Bool.xor (Float.Model.signBit a) (Float.Model.signBit b))
+
+--| The double nearest the integer `i`; `0.0` for 0.
+def Float.Model.ofIntBits (i: Int): Nat := Float.Model.roundScaled i 0 False
+
 test "Float.Model.pow2" :=
   Float.Model.pow2 0 == 1 ∧ Float.Model.pow2 1 == 2 ∧ Float.Model.pow2 64 == 18446744073709551616
 test "Float.Model.bitLength" :=
@@ -183,3 +207,20 @@ test "Float.Model.units" :=
 test "Float.Model.addBits" :=
   Float.Model.addBits 4591870180066957722 4596373779694328218 == 4599075939470750516
     ∧ Float.Model.addBits 4607182418800017408 4368491638549381120 == 4607182418800017408
+--| 0.1 × 3.0; 1.0 + 2^-52 times itself (2^-104 drops, below the tie); the
+--| smallest subnormal halved (a tie, to even: `+0.0`) and times 1.5 (up);
+--| `-0.0 × 1.0`; infinity times `-0.0`, and times `-1.0`.
+test "Float.Model.mulBits" :=
+  Float.Model.mulBits 4591870180066957722 4613937818241073152 == 4599075939470750516
+    ∧ Float.Model.mulBits 4607182418800017409 4607182418800017409 == 4607182418800017410
+    ∧ Float.Model.mulBits 1 4602678819172646912 == 0
+    ∧ Float.Model.mulBits 1 4609434218613702656 == 2
+    ∧ Float.Model.mulBits 9223372036854775808 4607182418800017408 == 9223372036854775808
+    ∧ Float.Model.mulBits 9218868437227405312 9223372036854775808 == 9221120237041090560
+    ∧ Float.Model.mulBits 9218868437227405312 13830554455654793216 == 18442240474082181120
+--| 2^53 + 1 (a tie, to even: 2^53), -(2^53 + 3) (a tie, up), 2^1024 (overflow).
+test "Float.Model.ofIntBits" :=
+  Float.Model.ofIntBits (OfNat 9007199254740993) == 4845873199050653696
+    ∧ Float.Model.ofIntBits (Int.neg (OfNat 9007199254740995)) == 14069245235905429506
+    ∧ Float.Model.ofIntBits (OfNat (Nat.pow 2 1024)) == 9218868437227405312
+    ∧ Float.Model.ofIntBits (OfNat 0) == 0

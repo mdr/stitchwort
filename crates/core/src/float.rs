@@ -9,13 +9,12 @@
 //! Two kinds of definitions compute here:
 //!
 //! - **Primitives** ([`FloatOp`]): the rounding operations without a
-//!   definition yet, `Float.mul`, `div`, `rem`, `floor`, `ceil`, `trunc`,
-//!   `round`, `ofInt` and `ofNat`, which have no body. They're admitted here once their types
+//!   definition yet, `Float.div`, `rem`, `floor`, `ceil`, `trunc` and
+//!   `round`, which have no body. They're admitted here once their types
 //!   are checked to be exactly the ones [`Signature`] gives, as `Delay`'s
-//!   constants are (`partial.rs`). Applied to records whose bits are known
-//!   (to a known number, for the conversions), the evaluator computes the
-//!   result with Rust's `f64` (JS's rules for `round`, [`js_round`]; the
-//!   nearest double for the conversions, [`nat_to_f64`]) and returns `{ bits
+//!   constants are (`partial.rs`). Applied to records whose bits are known,
+//!   the evaluator computes the result with Rust's `f64` (JS's rules for
+//!   `round`, [`js_round`]) and returns `{ bits
 //!   = k, valid = Eq.refl True }`, the NaN made canonical; otherwise the
 //!   application is stuck, and conversion compares it structurally. This
 //!   reduction rule is part of evaluation, always on: it isn't a native, so
@@ -23,8 +22,10 @@
 //!   definition to fall back to). `Float.toText` is a primitive too, with
 //!   no reduction rule at all: each runtime supplies it (§2.6, D688).
 //! - **Natives** ([`FloatNative`]): `neg`, `abs`, `isNaN`, `isFinite`,
-//!   `ieeeLt`, `ieeeLe`, `toInt`, `Float.decEq`, `add` and `sub`, ordinary
-//!   definitions over the bits with an implementation here. They fire only
+//!   `ieeeLt`, `ieeeLe`, `toInt`, `Float.decEq`, `add`, `sub`, `mul`,
+//!   `ofInt` and `ofNat`, ordinary definitions over the bits with an
+//!   implementation here (the conversions' the nearest double,
+//!   [`nat_to_f64`]). They fire only
 //!   while a program or test runs (`Erasure::program_running`): checking,
 //!   conversion included, always computes through the definitions, so no
 //!   float code here can make the kernel accept a false equation
@@ -72,7 +73,7 @@ pub const FLOAT_CONTRACT: u32 = 1;
 
 /// The definitions bound here, each with a native or put in one's result,
 /// all pinned in [`crate::pins`].
-pub const PINNED_DEFS: [Builtin; 10] = [
+pub const PINNED_DEFS: [Builtin; 13] = [
     Builtin::FloatNeg,
     Builtin::FloatAbs,
     Builtin::FloatIsNaN,
@@ -83,6 +84,9 @@ pub const PINNED_DEFS: [Builtin; 10] = [
     Builtin::FloatToInt,
     Builtin::FloatAdd,
     Builtin::FloatSub,
+    Builtin::FloatMul,
+    Builtin::FloatOfInt,
+    Builtin::FloatOfNat,
 ];
 
 /// The sign bit.
@@ -123,15 +127,12 @@ pub fn source(bits: u64) -> String {
 /// which has none and doesn't reduce.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum FloatOp {
-    Mul,
     Div,
     Rem,
     Floor,
     Ceil,
     Trunc,
     Round,
-    OfInt,
-    OfNat,
     /// `Float.toText : Float -> Text`: opaque in the kernel, supplied by
     /// each runtime (docs/proposals/float.md §2.6, D688).
     ToText,
@@ -144,10 +145,6 @@ pub enum Signature {
     Binary,
     /// `Float -> Float`
     Unary,
-    /// `Int -> Float`
-    OfInt,
-    /// `Nat -> Float`
-    OfNat,
     /// `Float -> Text`
     ToText,
 }
@@ -157,24 +154,19 @@ impl Signature {
         match self {
             Signature::Binary => "Float -> Float -> Float",
             Signature::Unary => "Float -> Float",
-            Signature::OfInt => "Int -> Float",
-            Signature::OfNat => "Nat -> Float",
             Signature::ToText => "Float -> Text",
         }
     }
 }
 
 impl FloatOp {
-    pub const ALL: [FloatOp; 10] = [
-        FloatOp::Mul,
+    pub const ALL: [FloatOp; 7] = [
         FloatOp::Div,
         FloatOp::Rem,
         FloatOp::Floor,
         FloatOp::Ceil,
         FloatOp::Trunc,
         FloatOp::Round,
-        FloatOp::OfInt,
-        FloatOp::OfNat,
         FloatOp::ToText,
     ];
 
@@ -185,15 +177,12 @@ impl FloatOp {
 
     pub fn builtin(self) -> Builtin {
         match self {
-            FloatOp::Mul => Builtin::FloatMul,
             FloatOp::Div => Builtin::FloatDiv,
             FloatOp::Rem => Builtin::FloatRem,
             FloatOp::Floor => Builtin::FloatFloor,
             FloatOp::Ceil => Builtin::FloatCeil,
             FloatOp::Trunc => Builtin::FloatTrunc,
             FloatOp::Round => Builtin::FloatRound,
-            FloatOp::OfInt => Builtin::FloatOfInt,
-            FloatOp::OfNat => Builtin::FloatOfNat,
             FloatOp::ToText => Builtin::FloatToText,
         }
     }
@@ -204,10 +193,8 @@ impl FloatOp {
 
     pub fn signature(self) -> Signature {
         match self {
-            FloatOp::Mul | FloatOp::Div | FloatOp::Rem => Signature::Binary,
+            FloatOp::Div | FloatOp::Rem => Signature::Binary,
             FloatOp::Floor | FloatOp::Ceil | FloatOp::Trunc | FloatOp::Round => Signature::Unary,
-            FloatOp::OfInt => Signature::OfInt,
-            FloatOp::OfNat => Signature::OfNat,
             FloatOp::ToText => Signature::ToText,
         }
     }
@@ -225,7 +212,6 @@ impl FloatOp {
     /// caller makes a NaN result canonical.
     pub fn apply(self, a: f64, b: f64) -> f64 {
         match self {
-            FloatOp::Mul => a * b,
             FloatOp::Div => a / b,
             FloatOp::Rem => a % b,
             _ => unreachable!("`{}` isn't a binary operation", self.name()),
@@ -438,10 +424,16 @@ pub enum FloatNative {
     Add,
     /// `Float.sub x y`, defined as `x + (-y)`.
     Sub,
+    /// `Float.mul x y`, defined through `Float.Model`.
+    Mul,
+    /// `Float.ofInt i`, defined through `Float.Model`.
+    OfInt,
+    /// `Float.ofNat n`, defined as `Float.ofInt (OfNat n)`.
+    OfNat,
 }
 
 impl FloatNative {
-    pub const ALL: [FloatNative; 10] = [
+    pub const ALL: [FloatNative; 13] = [
         FloatNative::Neg,
         FloatNative::Abs,
         FloatNative::IsNaN,
@@ -452,6 +444,9 @@ impl FloatNative {
         FloatNative::ToInt,
         FloatNative::Add,
         FloatNative::Sub,
+        FloatNative::Mul,
+        FloatNative::OfInt,
+        FloatNative::OfNat,
     ];
 
     pub fn builtin(self) -> Builtin {
@@ -466,6 +461,9 @@ impl FloatNative {
             FloatNative::ToInt => Builtin::FloatToInt,
             FloatNative::Add => Builtin::FloatAdd,
             FloatNative::Sub => Builtin::FloatSub,
+            FloatNative::Mul => Builtin::FloatMul,
+            FloatNative::OfInt => Builtin::FloatOfInt,
+            FloatNative::OfNat => Builtin::FloatOfNat,
         }
     }
 
@@ -479,7 +477,8 @@ impl FloatNative {
             | FloatNative::IeeeLt
             | FloatNative::IeeeLe
             | FloatNative::Add
-            | FloatNative::Sub => 2,
+            | FloatNative::Sub
+            | FloatNative::Mul => 2,
             _ => 1,
         }
     }
@@ -494,13 +493,14 @@ impl FloatNative {
         }
     }
 
-    /// `add` or `sub` on two operands' bits: the machine's double
+    /// `add`, `sub` or `mul` on two operands' bits: the machine's double
     /// arithmetic, the NaN canonical.
     pub fn on_pair(self, a: u64, b: u64) -> u64 {
         let (x, y) = (f64::from_bits(a), f64::from_bits(b));
         match self {
             FloatNative::Add => canonical_bits(x + y),
             FloatNative::Sub => canonical_bits(x - y),
+            FloatNative::Mul => canonical_bits(x * y),
             _ => unreachable!("`{}` isn't arithmetic on two doubles", self.name()),
         }
     }
@@ -595,7 +595,7 @@ fn float_ty(g: &Ev) -> Option<Term> {
 }
 
 /// The type primitive `op` must have, for the bound `Float` and the core's
-/// `Int`, `Nat` and `Text`.
+/// `Text`.
 fn primitive_type(g: &Ev, op: FloatOp) -> Option<Term> {
     let arrow =
         |dom: Term, cod: Term| Term::Pi("x".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
@@ -604,15 +604,13 @@ fn primitive_type(g: &Ev, op: FloatOp) -> Option<Term> {
     Some(match op.signature() {
         Signature::Binary => arrow(f.clone(), arrow(f.clone(), f)),
         Signature::Unary => arrow(f.clone(), f),
-        Signature::OfInt => arrow(data(g.env.registry().loaded_data(Builtin::Int)?), f),
-        Signature::OfNat => arrow(data(g.env.builtins().nat?), f),
         Signature::ToText => arrow(f, data(g.env.registry().loaded_data(Builtin::Text)?)),
     })
 }
 
 /// Admits pending definition `id`, declared with only a signature, as
 /// primitive `op`: final, with no body. Its type must be exactly the one
-/// [`Signature`] gives it (`Float -> Float -> Float` for `add`), for the
+/// [`Signature`] gives it (`Float -> Float -> Float` for `div`), for the
 /// bound `Float`.
 pub fn define_primitive(g: &mut Kernel, id: DefId, op: FloatOp) -> Result<()> {
     in_kernel_modes(g, |g| {
@@ -740,23 +738,27 @@ pub fn run(g: &Ev, id: DefId, spine: &[Elim], force: Force) -> budget::Result<Op
     if spine.len() != arity {
         return Ok(None);
     }
-    // The conversions take a number, and `toText` never computes.
-    if let FloatDef::Primitive(op @ (FloatOp::OfInt | FloatOp::OfNat | FloatOp::ToText)) = def {
-        let Elim::App(v, Icit::Explicit) = &spine[0] else {
-            return Ok(None);
-        };
-        let x = match op {
-            FloatOp::OfNat => match as_nat_with(g, v, force)? {
-                Some(n) => nat_to_f64(&n),
-                None => return Ok(None),
-            },
-            FloatOp::OfInt => match known_int(g, v, force)? {
-                Some(n) => int_to_f64(&n),
-                None => return Ok(None),
-            },
-            _ => return Ok(None),
-        };
-        return Ok(Some(float_value(data, canonical_bits(x))));
+    // `toText` never computes, and the conversions take a number.
+    match def {
+        FloatDef::Primitive(FloatOp::ToText) => return Ok(None),
+        FloatDef::Native(n @ (FloatNative::OfInt | FloatNative::OfNat)) => {
+            let Elim::App(v, Icit::Explicit) = &spine[0] else {
+                return Ok(None);
+            };
+            let x = if n == FloatNative::OfNat {
+                match as_nat_with(g, v, force)? {
+                    Some(n) => nat_to_f64(&n),
+                    None => return Ok(None),
+                }
+            } else {
+                match known_int(g, v, force)? {
+                    Some(n) => int_to_f64(&n),
+                    None => return Ok(None),
+                }
+            };
+            return Ok(Some(float_value(data, canonical_bits(x))));
+        }
+        _ => {}
     }
     let mut args = Vec::with_capacity(arity);
     let mut bits = Vec::with_capacity(arity);
@@ -794,7 +796,7 @@ pub fn run(g: &Ev, id: DefId, spine: &[Elim], force: Force) -> budget::Result<Op
         // replace it.
         FloatDef::Native(FloatNative::DecEq) => None,
         FloatDef::Native(FloatNative::ToInt) => to_int_value(g, bits[0]),
-        FloatDef::Native(n @ (FloatNative::Add | FloatNative::Sub)) => {
+        FloatDef::Native(n @ (FloatNative::Add | FloatNative::Sub | FloatNative::Mul)) => {
             Some(float_value(data, n.on_pair(bits[0], bits[1])))
         }
         FloatDef::Native(n) => Some(float_value(data, n.on_bits(bits[0]))),

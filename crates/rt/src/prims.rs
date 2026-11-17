@@ -541,7 +541,7 @@ fn float(s: &Shapes, f: FloatPrim, args: &[&Value]) -> Value {
     match f {
         FloatPrim::Add => Value::float(x(0) + x(1)),
         FloatPrim::Sub => Value::float(x(0) - x(1)),
-        FloatPrim::Mul => Value::float(FloatOp::Mul.apply(x(0), x(1))),
+        FloatPrim::Mul => Value::float(x(0) * x(1)),
         FloatPrim::Div => Value::float(FloatOp::Div.apply(x(0), x(1))),
         FloatPrim::Rem => Value::float(FloatOp::Rem.apply(x(0), x(1))),
         FloatPrim::Floor => Value::float(FloatOp::Floor.apply_unary(x(0))),

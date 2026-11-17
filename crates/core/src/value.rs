@@ -2526,8 +2526,8 @@ fn eta_case(g: &Ev, d: DataId) -> bool {
 /// its model's arithmetic on unknown bits: all stuck, far larger than the
 /// call, and saying nothing more. Conversion then decides fewer equalities,
 /// never more, so this is sound; the reference evaluator holds the same
-/// definitions (`reference::eval_tree`). Today only `Float.add` has both a
-/// native and a record pattern.
+/// definitions (`reference::eval_tree`). Today `Float.add` and `Float.mul`
+/// have both a native and a record pattern.
 pub fn eta_held(g: &Ev, id: DefId) -> bool {
     g.env.builtins().has_native(id)
 }
