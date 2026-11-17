@@ -1713,7 +1713,7 @@ impl Elaborator {
         };
         let mut diagnostic =
             Diagnostic::goal(format!("in {}", p.owner)).with_label(p.span, lines.join("\n"));
-        if known && is_false_eq_true(g, computed.unwrap_or(&p.expected)) {
+        if known && is_false_eq_true(g, &p.expected) {
             diagnostic = diagnostic.with_note(
                 "`False` here is the Bool, so this goal is `False = True`, which has no proof \
                  unless the hypotheses contradict each other; for a proposition with no proof, \
