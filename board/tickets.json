@@ -41721,12 +41721,12 @@
     {
       "id": 3700,
       "title": "[DeepSeek] Broad tier B: 22 docs/proposals/**/*.sw files still use 'in' after rewrite/cases (E-PARSE: write then, not in), so cli fmt_repo::tracked_sw_files_are_formatted fails. Find them with stitchwort fmt --check docs/, change in to then, run stitchwort fmt on them, and the fmt_repo test",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~30 min (est. 20). Renamed consumes.sw's def arithmetic (now a keyword) to arithmeticExpr.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
