@@ -352,11 +352,8 @@ theorem freshOf ∀ (found: Option Prior) (printed: Views) (top: TokenView) (res
     (free: top.trailing = None):
     FreshAt found printed :=
   match found with
-    | None => byComputing
-    | Some Blanked => byComputing
-    | Some Noted => byComputing
-    | Some Trailed => byComputing
     | Some (Worded able) => (top, rest, same, free)
+    | _ => cases
 
 --| A token read onto both: the same view on top of each.
 theorem wordHome ∀ (prior: Prior) (kind: Kind) (start: Option Nat) (laid printed: Views)

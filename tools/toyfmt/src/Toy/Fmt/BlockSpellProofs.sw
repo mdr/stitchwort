@@ -350,11 +350,6 @@ theorem operandChain ∀ (expr: Expr) (operand: expr.isOperand = True): expr.isC
 --| operand of the parser's shape holds none outside brackets.
 theorem chainNoIf ∀ (expr: Expr) (shaped: Shaped expr) (chain: expr.isChain = True): NoIf expr :=
   match expr, shaped, chain with
-    | Var _ _, _, _ => byComputing
-    | NumberLiteral _ _, _, _ => byComputing
-    | StringLiteral _ _, _, _ => byComputing
-    | Bracketed _ _ _, _, _ => byComputing
-    | ListLiteral _ _ _ _, _, _ => byComputing
     | Call callee _ _ trailingComma _, Both postfix (Both shapedCallee _), _ =>
       chainNoIf callee shapedCallee (postfixChain callee postfix)
     | Field target _ _ _, Both postfix shapedTarget, _ => chainNoIf target shapedTarget (postfixChain target postfix)
@@ -362,6 +357,7 @@ theorem chainNoIf ∀ (expr: Expr) (shaped: Shaped expr) (chain: expr.isChain = 
       chainNoIf operand shapedOperand (operandChain operand isOperand)
     | Binary _ _ left right, Both _ (Both _ (Both leftChain (Both rightChain (Both shapedLeft shapedRight)))), _ =>
       ((chainNoIf left shapedLeft leftChain), (chainNoIf right shapedRight rightChain))
+    | _, _, _ => cases
 
 --| `Spells` outside brackets, in a statement at `column`: the tokens'
 --| offsets rise too, which a block inside the expression needs to tell

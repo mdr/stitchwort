@@ -21,9 +21,6 @@ theorem keepTraverse ∀ (expr: Expr) (position: Position): expr.traverse keepEx
   keepInside expr position.bracketed
 
 theorem keepInside ∀ (expr: Expr) (bracketed: Bool): expr.traverseInside keepExpr bracketed = expr := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
   | Bracketed _ inner _ => rewrite keepTraverse inner { bracketed = True, slot = Whole }
   | ListLiteral _ items _ _ => rewrite keepItems items
   | Call callee _ arguments _ _ => rewrite keepTraverse callee { bracketed, slot = PostfixSlot }, keepItems arguments
@@ -36,6 +33,7 @@ theorem keepInside ∀ (expr: Expr) (bracketed: Bool): expr.traverseInside keepE
     rewrite keepTraverse condition { bracketed, slot = Whole },
         keepBody whenTrue bracketed,
         keepBody whenFalse bracketed
+  | _ => cases
 
 theorem keepItems ∀ (items: List Expr): traverseItems keepExpr items = items := match items with
   | [] => byComputing
@@ -186,16 +184,13 @@ theorem mergeOntoCons ∀ (group: ParameterGroup) (rest: List ParameterGroup):
 theorem mergeOntoEnds ∀ (open: Comments) (group: ParameterGroup) (rest: List ParameterGroup):
     groupsEndWithComment open (mergeOnto group rest) = groupsEndWithComment open [group, ..rest] :=
   match group, rest with
-    | _, [] => byComputing
-    | Untyped _, [_, .._] => byComputing
-    | Typed _ _ (TypeBracketed _ _ _), [_, .._] => byComputing
-    | Typed _ _ (TypeName _ _), [Untyped _, .._] => byComputing
     | Typed names colon (TypeName name comments), [Typed more colon2 annotation, ..others] =>
       match merges: (Typed names colon (TypeName name comments)).mergesInto (Typed more colon2 annotation) with
         | False => byComputing
         | True =>
           match others with
             | _ => cases
+    | _, _ => cases
 
 theorem groupsMergeEnds ∀ (open: Comments) (groups: List ParameterGroup):
     groupsEndWithComment open (mergeGroups groups) = groupsEndWithComment open groups :=

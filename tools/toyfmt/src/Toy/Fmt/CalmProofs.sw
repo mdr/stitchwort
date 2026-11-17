@@ -295,10 +295,6 @@ theorem calmStepViews ∀ (prior: Prior) (event: Event) (seen: Views)
                 | Some column => ((({ text = word }), seen.pending, byComputing), stable)
                 | None =>
                   match seen, prior, suited, stable with
-                    | { views, pending }, Blanked, _, _ => byComputing
-                    | { views, pending }, Noted, _, _ => byComputing
-                    | { views, pending }, Trailed, _, _ => byComputing
-                    | { views, pending }, Worded False, _, _ => byComputing
                     | { views, pending }, Worded True, (none, top, rest, same, bare, free), stable =>
                       let facts := free byComputing
                       let held: SteadyView top rest ∧ StableViews rest := rewrite same at stable then stable
@@ -312,6 +308,7 @@ theorem calmStepViews ∀ (prior: Prior) (event: Event) (seen: Views)
                           ),
                           held.right
                         )
+                    | _, _, _, _ => cases
             | Spaces => afterWordViews prior (lexemeKind Spaces word) start seen suited stable
             | LineBreak => afterWordViews prior (lexemeKind LineBreak word) start seen suited stable
             | WordLexeme => afterWordViews prior (lexemeKind WordLexeme word) start seen suited stable
@@ -432,10 +429,8 @@ theorem trailCalm ∀ (found: Option Prior) (after: Option Comment)
     (fine: FineAfter after):
     calmFrom found (afterEvents after) = afterToken found after :=
   match after, fine, found with
-    | None, _, None => byComputing
-    | None, _, Some worded => byComputing
-    | Some comment, fine, None => byComputing
     | Some comment, fine, Some worded => trailingCalm worded comment.text fine
+    | _, _, _ => cases
 
 --| A token's events, read: its comments above, the token, its trailing
 --| comment.

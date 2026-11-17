@@ -1664,14 +1664,10 @@ theorem startNoBracket ∀ (kind: Kind) (wanted: Punctuation)
     (bracket: bracketSign wanted = True):
     (signIs wanted kind).isSome = False :=
   match kind with
-    | Name text => byComputing
-    | Number digits => byComputing
-    | Str written => byComputing
-    | Op operator => byComputing
-    | Reserved keyword => byComputing
     | Sign punctuation =>
       match punctuation, wanted with
         | _, _ => cases
+    | _ => cases
 
 theorem endsAtSign ∀ (token: Parse.Located Token) (punctuation: Punctuation) (rest: List (Parse.Located Token))
     (signed: token.value.kind = Sign punctuation)

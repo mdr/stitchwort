@@ -61,9 +61,6 @@ theorem insideComments ∀ (step: Position → Expr → Expr)
     (expr: Expr) (bracketed: Bool):
     (expr.traverseInside step bracketed).comments = expr.comments :=
   match expr with
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
     | Bracketed _ inner _ => rewrite traverseComments step keeps inner { bracketed = True, slot = Whole }
     | ListLiteral _ items _ _ => rewrite itemsTraverseComments step keeps items
     | Call callee _ arguments _ _ =>
@@ -78,6 +75,7 @@ theorem insideComments ∀ (step: Position → Expr → Expr)
       rewrite traverseComments step keeps condition { bracketed, slot = Whole },
           bodyTraverseComments step keeps whenTrue bracketed,
           bodyTraverseComments step keeps whenFalse bracketed
+    | _ => cases
 
 theorem itemsTraverseComments ∀ (step: Position → Expr → Expr)
     (keeps: StepKeepsComments step) (items: List Expr):
@@ -237,17 +235,13 @@ theorem mergedComments ∀ (names more: NonEmptyList Named) (colon: Comments) (a
 theorem mergeOntoComments ∀ (group: ParameterGroup) (rest: List ParameterGroup):
     parametersComments (mergeOnto group rest) = parametersComments [group, ..rest] :=
   match group, rest with
-    | Untyped _, [] => byComputing
-    | Typed _ _ _, [] => byComputing
-    | Untyped _, [_, .._] => byComputing
-    | Typed _ _ (TypeBracketed _ _ _), [_, .._] => byComputing
-    | Typed _ _ (TypeName _ _), [Untyped _, .._] => byComputing
     | Typed names colon (TypeName name comments), [Typed more colon2 annotation, ..others] =>
       match merges: (Typed names colon (TypeName name comments)).mergesInto (Typed more colon2 annotation) with
         | False => byComputing
         | True =>
           let (colonNone, commentsNone, _) := mergesParts names more colon colon2 comments name annotation merges
           rewrite colonNone, commentsNone then mergedComments names more colon2 annotation name others
+    | _, _ => cases
 
 theorem groupsMergeComments ∀ (groups: List ParameterGroup):
     parametersComments (mergeGroups groups) = parametersComments groups :=

@@ -57,9 +57,6 @@ def NoTrailingCommasFile: SourceFile → Prop
 --| and each child was traversed first.
 theorem exprCommasNone ∀ (expr: Expr) (position: Position): NoTrailingCommas (expr.traverse dropComma position) :=
   match expr with
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
     | Bracketed _ inner _ => exprCommasNone inner { bracketed = True, slot = Whole }
     | ListLiteral _ items _ _ => (byComputing, itemsCommasNone items)
     | Call callee _ arguments _ _ => (
@@ -78,6 +75,7 @@ theorem exprCommasNone ∀ (expr: Expr) (position: Position): NoTrailingCommas (
       bodyCommasNone whenTrue position.bracketed,
       bodyCommasNone whenFalse position.bracketed
     )
+    | _ => cases
 
 theorem itemsCommasNone ∀ (items: List Expr): NoTrailingCommasItems (traverseItems dropComma items) := match items with
   | [] => byComputing
@@ -118,9 +116,6 @@ theorem exprCommasFixed ∀ (expr: Expr) (position: Position)
     (none: NoTrailingCommas expr):
     expr.traverse dropComma position = expr :=
   match expr, none with
-    | Var _ _, _ => byComputing
-    | NumberLiteral _ _, _ => byComputing
-    | StringLiteral _ _, _ => byComputing
     | Bracketed _ inner _, none => rewrite exprCommasFixed inner { bracketed = True, slot = Whole } none
     | ListLiteral _ items _ _, (unwritten, itemsNone) => rewrite itemsCommasFixed items itemsNone, unwritten
     | Call callee _ arguments _ _, (unwritten, calleeNone, argumentsNone) =>
@@ -138,6 +133,7 @@ theorem exprCommasFixed ∀ (expr: Expr) (position: Position)
       rewrite exprCommasFixed condition { bracketed = position.bracketed, slot = Whole } conditionNone,
           bodyCommasFixed whenTrue position.bracketed trueNone,
           bodyCommasFixed whenFalse position.bracketed falseNone
+    | _, _ => cases
 
 theorem itemsCommasFixed ∀ (items: List Expr)
     (none: NoTrailingCommasItems items):
