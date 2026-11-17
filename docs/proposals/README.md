@@ -47,6 +47,7 @@ status line now says the wrong thing; the details are in
 | [literal-match-facts.md](literal-match-facts.md) | A literal match's catch-all arm knows the value is none of the listed ones | built: merged `91eead3c9`; `crates/core/src/value.rs:157` | SW-533 |
 | [nat-add-recursion.md](nat-add-recursion.md) | `m + Zero` and `m + Succ n` both compute | built | SW-787 |
 | [folded-calls.md](folded-calls.md) | Glued values: keep calls folded while checking | built, stages 1-4: `crates/core/src/value.rs` | SW-251, SW-256, SW-257 |
+| [glued-kept-types.md](glued-kept-types.md) | Keep a declaration's type glued, so a closed statement proved generally isn't computed | proposed: Matt's decision, then an Opus review | SW-3888 |
 | [checker-evaluation.md](checker-evaluation.md) | The checker computes only what it needs | built, stages 1A, 1B: `crates/elab/src/bind.rs`; option (b) shelved | SW-8, SW-46, SW-59, SW-79 |
 | [let.md](let.md) | `let` that holds proofs and data, with a value the checker sees | built | SW-124 |
 | [stack-safe-evaluation.md](stack-safe-evaluation.md) | The evaluator as a machine, so evaluation doesn't overflow the stack | built, steps 0-4: `crates/core/src/machine.rs` | SW-83, SW-82 |
