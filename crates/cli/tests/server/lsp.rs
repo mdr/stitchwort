@@ -2619,7 +2619,7 @@ fn a_code_action_at_a_goal_offers_what_closes_it() {
     let dir = temp_dir("code-action");
     use_shared_cache(&dir);
     let file = dir.join("swap.sw");
-    let text = "import Std (Nat)\n\ntheorem swap (m: Nat) (n: Nat): m + n = n + m := ?\n";
+    let text = "import Std (List, Nat)\n\ntheorem joined (xs: List Nat) (ys: List Nat): (xs ++ ys).length = xs.length + ys.length := ?\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
     let mut client = Client::start_with(first_proof_only());
@@ -2633,7 +2633,8 @@ fn a_code_action_at_a_goal_offers_what_closes_it() {
                    "context": {"diagnostics": []}}),
         )
     };
-    let found = actions(&mut client, 2, 50);
+    let hole = text.lines().nth(2).unwrap().find('?').unwrap() as u32;
+    let found = actions(&mut client, 2, hole + 1);
     let answer = run_proof_search(&mut client, &found);
     let proofs = answer["proofs"].as_array().expect("proofs");
     let titles: Vec<&str> = proofs
@@ -2641,16 +2642,16 @@ fn a_code_action_at_a_goal_offers_what_closes_it() {
         .map(|p| p["title"].as_str().unwrap())
         .collect();
     assert!(
-        titles.contains(&"Replace ? with `Nat.addComm m n` (exact, Std.Nat.addComm)"),
+        titles.contains(&"Replace ? with `List.lengthAppend xs ys` (exact, Std.List.lengthAppend)"),
         "{titles:?}"
     );
     let first = (proofs.iter())
-        .find(|p| p["title"].as_str().unwrap().contains("Nat.addComm"))
+        .find(|p| p["title"].as_str().unwrap().contains("List.lengthAppend"))
         .unwrap();
-    assert_eq!(first["newText"], "Nat.addComm m n");
+    assert_eq!(first["newText"], "List.lengthAppend xs ys");
     assert_eq!(
         answer["range"]["start"],
-        json!({"line": 2, "character": 49})
+        json!({"line": 2, "character": hole})
     );
     assert_eq!(answer["version"], 1);
     assert_eq!(actions(&mut client, 0, 3), Value::Null);
@@ -2676,25 +2677,27 @@ fn a_code_action_at_a_goal_in_a_project_offers_what_closes_it() {
     write(
         "src/Shop/Spec/Spec.sw",
         "namespace Shop.Spec\n\
-         import Std (Nat)\n\n\
-         def double (n: Nat): Nat := n + n\n\n\
-         theorem doubleSwap (m: Nat) (n: Nat): double (m + n) = double (n + m) :=\n  \
-         rewrite Nat.addComm m n then byComputing\n",
+         import Std (List, Nat)\n\n\
+         def total (xs: List Nat): Nat := xs.length\n\n\
+         theorem totalAppend (xs: List Nat) (ys: List Nat):\n    \
+         total (xs ++ ys) = total xs + total ys :=\n  List.lengthAppend xs ys\n",
     );
     let saved = "namespace Shop.Proofs\n\
-                 import Shop.Spec (double as twice)\n\
-                 import Std (Nat)\n\n\
-                 theorem twiceTwo (a: Nat): twice a = a + a := byComputing\n";
+                 import Shop.Spec (total as count)\n\
+                 import Std (List, Nat)\n\n\
+                 theorem countTwo (a: Nat): count [a, a] = 2 := byComputing\n";
     write("src/Shop/Proofs/Proofs.sw", saved);
     let file = dir.join("src/Shop/Proofs/Proofs.sw");
     let uri = uri(&file);
-    let text =
-        format!("{saved}\ntheorem swapped (a: Nat) (b: Nat): twice (a + b) = twice (b + a) := ?\n");
+    let text = format!(
+        "{saved}\ntheorem joined (xs: List Nat) (ys: List Nat): count (xs ++ ys) = count xs + count ys := ?\n"
+    );
+    let hole = text.lines().nth(6).unwrap().find('?').unwrap() as u32;
     let mut client = Client::start_with(first_proof_only());
     client.open(&uri, &text);
     let published = client.diagnostics(&uri, 1);
     assert_eq!(published.len(), 1, "{published:?}");
-    let at = json!({"line": 6, "character": 69});
+    let at = json!({"line": 6, "character": hole + 1});
     let found = client.request(
         "textDocument/codeAction",
         json!({"textDocument": {"uri": uri}, "range": {"start": at, "end": at},
@@ -2707,17 +2710,18 @@ fn a_code_action_at_a_goal_in_a_project_offers_what_closes_it() {
         .map(|p| p["title"].as_str().unwrap())
         .collect();
     assert!(
-        titles.contains(&"Replace ? with `Shop.Spec.doubleSwap a b` (exact, Shop.Spec.doubleSwap)"),
+        titles
+            .contains(&"Replace ? with `Shop.Spec.totalAppend _ _` (exact, Shop.Spec.totalAppend)"),
         "{titles:?}"
     );
     assert_eq!(
         answer["range"]["start"],
-        json!({"line": 6, "character": 68})
+        json!({"line": 6, "character": hole})
     );
     assert!(
         proofs
             .iter()
-            .any(|p| p["newText"] == "Shop.Spec.doubleSwap a b"),
+            .any(|p| p["newText"] == "Shop.Spec.totalAppend _ _"),
         "{proofs:?}"
     );
     client.shutdown();
@@ -2936,6 +2940,26 @@ fn swap_action(client: &mut Client, uri: &str) -> RequestId {
     )
 }
 
+/// Starts the "Search for a proof" of `SWAP`'s `?` the way the editor does
+/// (D3519): the code action is answered at once with the command, and
+/// picking it runs the search, whose request is the one returned.
+fn swap_search(client: &mut Client, uri: &str) -> RequestId {
+    let at = json!({"line": 2, "character": 50});
+    let actions = client.request(
+        "textDocument/codeAction",
+        json!({"textDocument": {"uri": uri}, "range": {"start": at, "end": at},
+               "context": {"diagnostics": []}}),
+    );
+    let search = (actions.as_array().expect("actions").iter())
+        .find(|a| a["title"] == "Search for a proof")
+        .unwrap_or_else(|| panic!("{actions:?}"));
+    client.send(
+        "workspace/executeCommand",
+        json!({"command": search["command"]["command"],
+               "arguments": search["command"]["arguments"]}),
+    )
+}
+
 /// Options for a test that reads one closing proof: the search stops at
 /// the first, rather than trying every candidate within a wall-clock budget
 /// (one candidate takes seconds to check, more under load).
@@ -2985,7 +3009,7 @@ fn a_document_edited_during_a_search_gets_no_stale_edit() {
     let mut client = Client::start_with(options);
     client.open(&uri, SWAP);
     client.diagnostics(&uri, 1);
-    let id = swap_action(&mut client, &uri);
+    let id = swap_search(&mut client, &uri);
     client.change(&uri, 2, &format!("\n{SWAP}"));
     let started = Instant::now();
     assert_eq!(client.response(&id), Ok(Value::Null));
@@ -3007,8 +3031,8 @@ fn a_newer_action_request_supersedes_and_a_cancelled_one_is_answered() {
     let mut client = Client::start_with(options);
     client.open(&uri, SWAP);
     client.diagnostics(&uri, 1);
-    let first = swap_action(&mut client, &uri);
-    let second = swap_action(&mut client, &uri);
+    let first = swap_search(&mut client, &uri);
+    let second = swap_search(&mut client, &uri);
     assert_eq!(client.response(&first), Ok(Value::Null));
     client.notify("$/cancelRequest", json!({"id": second}));
     // RequestCancelled.
@@ -3039,7 +3063,7 @@ fn proof_searches_are_bounded_by_the_pool() {
             u
         })
         .collect();
-    let ids: Vec<_> = uris.iter().map(|u| swap_action(&mut client, u)).collect();
+    let ids: Vec<_> = uris.iter().map(|u| swap_search(&mut client, u)).collect();
     // Two searches start, the other two wait; cancel them all (a real
     // search would take seconds).
     let deadline = Instant::now() + Duration::from_secs(30);
