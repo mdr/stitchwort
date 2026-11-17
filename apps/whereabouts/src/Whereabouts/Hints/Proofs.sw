@@ -4,7 +4,7 @@
 
 namespace Whereabouts.Hints.Proofs
 import Whereabouts.Hints (..)
-import Std (Bool, Eq, Float, Int, List, Nat, Ord)
+import Std (Bool, Eq, Float, Int, List, Nat, Ord, Void)
 
 --| mulberry32's last word is a word.
 theorem finalWordBelow ∀ (parts: List Float): finalWord parts < 4294967296 :=
@@ -3203,3 +3203,21 @@ theorem latitudeToAboveUnclamped ∀ (lat width unit: Float)
     (notNaNOfFinite lat fl)
     (Float.minNotNaN 90.0 c byComputing nc)
     (clampToKeeps lat c nc latHi (floatLeOfLt lat c lt))
+
+--| Units in order give the total order when the larger is positive: a
+--| negative or zero `x` with its sign bit set is below every positive
+--| double, and on positive patterns the units are monotone both ways
+--| (`magUnitsLeReflect`). A std candidate.
+theorem leOfUnitsPos ∀ (x y: Float)
+    (pos: Int.less (OfNat 0) (Float.Theory.units y) = True)
+    (h: Int.leq (Float.Theory.units x) (Float.Theory.units y) = True):
+    x <= y :=
+  let uy := Float.Theory.unitsMag y.bits
+  match sy: Nat.leq 9223372036854775808 y.bits with
+    | True => Void.impossible (arithmetic [pos, uy])
+    | False =>
+      match sx: Nat.leq 9223372036854775808 x.bits with
+        | True => byComputing
+        | False =>
+          let le: Float.Theory.magUnits x.bits ≤ Float.Theory.magUnits y.bits := arithmetic [h]
+          arithmetic [Float.Theory.magUnitsLeReflect x.bits y.bits le]
