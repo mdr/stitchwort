@@ -538,8 +538,12 @@ impl Elaborator {
             for (b, binder) in ctor.fields.iter().enumerate() {
                 // Empty when no field has a default.
                 let default = ctor.defaults.get(b).and_then(Option::as_ref);
-                if binder.names.len() > 1
-                    && let Some(a) = binder.attrs.first()
+                // A group `(@[…] x y: T)` is lowered to a field per name,
+                // each with a copy of the attributes (D3679): the next field
+                // carrying this one's very attributes was written with it.
+                let next = ctor.fields.get(b + 1);
+                if let (Some(a), Some(next)) = (binder.attrs.first(), next)
+                    && next.attrs.first().is_some_and(|n| n.span == a.span)
                 {
                     return Err(Diagnostic::error(
                         "E-ATTRIBUTE",
@@ -548,7 +552,7 @@ impl Elaborator {
                     .with_label(a.span, "on all of these fields")
                     .with_note(format!(
                         "write each field in brackets of its own: `({} …) ({}: …)`",
-                        binder.names[0].text, binder.names[1].text
+                        binder.names[0].text, next.names[0].text
                     )));
                 }
                 for n in &binder.names {

@@ -1628,8 +1628,15 @@ fn bind_generalised(
         Some(w) => w.copied.iter().map(|(l, _)| *l).collect(),
         None => today.copied.to_vec(),
     };
+    // Each copy's type as it will be bound: as written, it is in the
+    // `match`'s context and its scrutinees' variables (`today` has no
+    // types then).
+    let mentions = |i: usize| match written {
+        Some(w) => free_levels(&w.copied[i].1, base + e),
+        None => free_levels(&today.type_terms[copied[i]], base),
+    };
     let mut copies = HashMap::default();
-    for i in dependency_order(&copied, today.type_terms, base) {
+    for i in dependency_order(&copied, mentions) {
         let l = copied[i];
         let depth = cx.level();
         let ty = match written {
@@ -2263,15 +2270,16 @@ pub(crate) fn same_shifted(a: &Term, b: &Term, by: usize, cutoff: usize) -> bool
 /// but for a type that mentions a variable bound after it (a split's
 /// equation names the fields bound after it), which waits for that one's
 /// copy. Its copy would otherwise mention the variable itself, not its
-/// copy, and be ill-typed.
-fn dependency_order(copied: &[usize], type_terms: &[Term], base: usize) -> Vec<usize> {
+/// copy, and be ill-typed. `mentions(i)` is the levels free in the type of
+/// copy `i`.
+fn dependency_order(copied: &[usize], mentions: impl Fn(usize) -> Vec<usize>) -> Vec<usize> {
     let mut left: Vec<usize> = (0..copied.len()).collect();
     let mut order = Vec::with_capacity(copied.len());
     while !left.is_empty() {
         let ready = left
             .iter()
             .position(|&i| {
-                free_levels(&type_terms[copied[i]], base)
+                mentions(i)
                     .iter()
                     .all(|f| *f == copied[i] || left.iter().all(|&j| copied[j] != *f))
             })
