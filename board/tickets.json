@@ -1,5 +1,5 @@
 {
-  "next": 3716,
+  "next": 3717,
   "tickets": [
     {
       "id": 47,
@@ -41926,6 +41926,19 @@
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "Orchestrator: not the mutant. examples/accept/reads-then-finds-split.sw itself takes 6.6 s with --no-cache on Speedwell (a trivial file importing Std (Char, Nat, Parse) takes 0.26 s); the mutant 6.7 s, warm cache 0.44 s. So this is SW-3709's cost (reads chains 3-5x more steps since SW-3561, whose example this is). Closed as a duplicate of SW-3709.",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3716,
+      "title": "[DeepSeek] fmt: a unary minus with a space before a numeral that is applied to arguments ('- 2 is …', parsed as Neg of the application) is refused with 'the output parses to a different tree' (original Neg(, output App(); a variable ('- x y' -> '-x y') is fine. Keep the space, or bracket, when the negated operand is an application headed by a numeral. Fuzz seed 0x100a plain case 187949; minimal 2 lines: 'def f: Ieft withEnt → Nat' / '  | 0 => - 2 is alreas are left withE-NONEXHAUSTIVE'. Same family as SW-3680 (- omega)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
