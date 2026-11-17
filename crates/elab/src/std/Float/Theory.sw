@@ -7024,3 +7024,156 @@ theorem Float.Theory.sumNear ∀ (g d lo hi: Float) (w m: Nat)
               (Float.Theory.unitsMonoKey (g + d).bits 0.0.bits atMost)
               (byComputing: Float.Theory.units 0.0 = OfNat 0))))
   Both fs (Float.Theory.roundedSumNear (Float.Theory.units g) (Float.Theory.units d) s w m w2 mw gl gh dl dh err sign)
+
+-- Division by a larger divisor
+
+--| A larger denominator rounds a positive ratio to a pattern no larger:
+--| `n / d2` and `n / d1` over the common denominator `d1 · d2` are in order,
+--| and rounding keeps their order (`roundsToMono`).
+theorem Float.Theory.magnitudeAntiDen ∀ (n d1 d2: Nat) (s: Int)
+    (pn: 0 < n)
+    (p1: 0 < d1)
+    (le: d1 ≤ d2):
+    Float.Model.roundMagnitude False n d2 s ≤ Float.Model.roundMagnitude False n d1 s :=
+  let u: Nat := Float.Model.scaleUp n s
+  let p2: 0 < d2 := arithmetic [p1, le]
+  let pa: 0 < Float.Model.scaleDown d1 s := Float.Theory.scaleDownPos d1 s p1
+  let pb: 0 < Float.Model.scaleDown d2 s := Float.Theory.scaleDownPos d2 s p2
+  let pab: 0 < Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s :=
+    Float.Theory.mulPos (Float.Model.scaleDown d2 s) (Float.Model.scaleDown d1 s) pb pa
+  let ab: Float.Model.scaleDown d1 s ≤ Float.Model.scaleDown d2 s :=
+    rewrite Float.Theory.scaleDownPow d1 s, Float.Theory.scaleDownPow d2 s then
+      Nat.leMulRight d1 d2 (Float.Theory.downPow s) le
+  Float.Theory.roundsToMono
+    (u * Float.Model.scaleDown d1 s)
+    (u * Float.Model.scaleDown d2 s)
+    (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
+    (Float.Model.roundMagnitude False n d2 s)
+    (Float.Model.roundMagnitude False n d1 s)
+    pab
+    (Float.Theory.roundsToScale
+      u
+      (Float.Model.scaleDown d2 s)
+      (u * Float.Model.scaleDown d1 s)
+      (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
+      (Float.Model.roundMagnitude False n d2 s)
+      pb
+      pab
+      (algebra:
+        u * (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
+          = u * Float.Model.scaleDown d1 s * Float.Model.scaleDown d2 s)
+      (Float.Theory.roundMagnitudeSpec n d2 s pn p2))
+    (Float.Theory.roundsToScale
+      u
+      (Float.Model.scaleDown d1 s)
+      (u * Float.Model.scaleDown d2 s)
+      (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
+      (Float.Model.roundMagnitude False n d1 s)
+      pa
+      pab
+      (algebra:
+        u * (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
+          = u * Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
+      (Float.Theory.roundMagnitudeSpec n d1 s pn p1))
+    (Float.Theory.mulLeLeft (Float.Model.scaleDown d1 s) (Float.Model.scaleDown d2 s) u ab)
+
+--| A nonnegative numerator over a larger denominator rounds no higher in
+--| the total order, whatever the zero's sign.
+theorem Float.Theory.roundKeyAntiDen ∀ (num: Int) (d1 d2: Nat) (scale: Int) (z: Bool)
+    (p1: 0 < d1)
+    (le: d1 ≤ d2)
+    (nonneg: Int.leq (OfNat 0) num = True):
+    Int.leq (Float.Theory.roundKey num d2 scale z) (Float.Theory.roundKey num d1 scale z) = True :=
+  match num with
+    | OfNat Zero =>
+      match z with
+        | True => byComputing
+        | False => byComputing
+    | OfNat (Succ k) =>
+      Float.Theory.leqVia
+        (Float.Theory.roundKey (OfNat (Succ k)) d2 scale z)
+        (Float.Theory.roundKey (OfNat (Succ k)) d1 scale z)
+        (OfNat (Float.Model.roundMagnitude False (Succ k) d2 (Int.add scale (OfNat 1074))))
+        (OfNat (Float.Model.roundMagnitude False (Succ k) d1 (Int.add scale (OfNat 1074))))
+        (Float.Theory.roundKeyPos k d2 scale z (arithmetic [p1, le]))
+        (Float.Theory.roundKeyPos k d1 scale z p1)
+        (arithmetic [
+          Float.Theory.magnitudeAntiDen (Succ k) d1 d2 (Int.add scale (OfNat 1074)) byComputing p1 le
+        ])
+    | NegSucc k => Void.impossible (arithmetic [nonneg])
+
+--| Division is antitone in a positive divisor: for `0 < d <= e`, both
+--| finite, and a finite `x` with `0.0 <= x`, `x / e <= x / d`. The exact
+--| quotients are in order, and rounding keeps it (`magnitudeAntiDen`).
+--| `0.0 <= x` leaves out `-0.0`, whose quotients are `-0.0` either way, and
+--| negative `x`, for which the order flips.
+theorem Float.divAntitone ∀ (x d e: Float)
+    (pos: 0.0 < d)
+    (fd: Float.isFinite d = True)
+    (fe: Float.isFinite e = True)
+    (de: d <= e)
+    (fx: Float.isFinite x = True)
+    (nonneg: 0.0 <= x):
+    x / e <= x / d :=
+  let ud: Int := Float.Model.units d.bits
+  let ue: Int := Float.Model.units e.bits
+  let dpos: Int.less (OfNat 0) ud = True := Float.Theory.unitsPositive d pos
+  let dle: Int.leq ud ue = True := Float.Theory.unitsMonoKey d.bits e.bits de
+  let epos: 0.0 < e := Float.Theory.ltLeTrans (Float.orderKey 0.0) (Float.orderKey d) (Float.orderKey e) pos de
+  let xnn: Int.leq (OfNat 0) (Float.Model.units x.bits) = True :=
+    J
+      (v w => Int.leq v (Float.Model.units x.bits) = True)
+      (Float.Theory.unitsMonoKey 0.0.bits x.bits nonneg)
+      (byComputing: Float.Theory.units 0.0 = OfNat 0)
+  Float.Theory.leqVia
+    (Float.orderKey (x / e))
+    (Float.orderKey (x / d))
+    (Float.Theory.roundKey (Float.Model.units x.bits) (Int.natAbs ue) (OfNat 0) (Float.Model.signBit x.bits))
+    (Float.Theory.roundKey (Float.Model.units x.bits) (Int.natAbs ud) (OfNat 0) (Float.Model.signBit x.bits))
+    (Float.Theory.quotientKeyFinite x e epos fe fx)
+    (Float.Theory.quotientKeyFinite x d pos fd fx)
+    (Float.Theory.roundKeyAntiDen
+      (Float.Model.units x.bits)
+      (Int.natAbs ud)
+      (Int.natAbs ue)
+      (OfNat 0)
+      (Float.Model.signBit x.bits)
+      (Float.Theory.natAbsPos ud dpos)
+      (arithmetic [dpos, dle])
+      xnn)
+
+test "Float.divAntitone" :=
+  1.0 / 3.0 <= 1.0 / 2.0
+    ∧ 0.0 / 5.0 <= 0.0 / 5e-324
+    ∧ 1e300 / 1e-10 <= 1e300 / 1e-20
+    ∧ 5e-324 / 3.0 <= 5e-324 / 2.0
+
+--| A finite double over a positive finite one isn't the NaN: its key is
+--| at most +infinity's (`roundKeyLeInf`), below the NaN's. It can overflow
+--| to an infinity, as `1e300 / 1e-300` does.
+theorem Float.divNotNaN ∀ (x d: Float)
+    (pos: 0.0 < d)
+    (fd: Float.isFinite d = True)
+    (fx: Float.isFinite x = True):
+    Float.isNaN (x / d) = False :=
+  let pd: 0 < Int.natAbs (Float.Model.units d.bits) :=
+    Float.Theory.natAbsPos (Float.Model.units d.bits) (Float.Theory.unitsPositive d pos)
+  let low: Int.leq (Float.orderKey (x / d)) (OfNat 9218868437227405312) = True :=
+    J
+      (k w => Int.leq k (OfNat 9218868437227405312) = True)
+      (Float.Theory.roundKeyLeInf
+        (Int.natAbs (Float.Model.units d.bits))
+        (OfNat 0)
+        (Float.Model.signBit x.bits)
+        pd
+        (Float.Model.units x.bits))
+      (Float.Theory.quotientKeyFinite x d pos fd fx).flipped
+  match c: Float.isNaN (x / d) with
+    | False => byComputing
+    | True =>
+      let b: (x / d).bits = 9221120237041090560 := Nat.equalSound (x / d).bits 9221120237041090560 c
+      let k: Float.orderKey (x / d) = OfNat 9221120237041090560 := rewrite b
+      Void.impossible (arithmetic [low, k])
+
+test "Float.divNotNaN" :=
+  ¬Float.isNaN (1e300 / 1e-300) ∧ ¬Float.isNaN (0.0 / 5e-324) ∧ ¬Float.isNaN (-1.0 / 3.0)
