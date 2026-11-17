@@ -7032,7 +7032,8 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                         "E-TYPE-MISMATCH",
                         *span,
                         format!(
-                            "these patterns match a `{}`, but the argument has type `{}`",
+                            "these patterns match {} `{}`, but the argument has type `{}`",
+                            article(data.name()),
                             data.name(),
                             cx.show(&other)
                         ),

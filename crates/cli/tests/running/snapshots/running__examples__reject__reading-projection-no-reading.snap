@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NO-READING] Error: this test fact can't be taken apart with `Both`
+    ╭─[ reject/reading-projection-no-reading.sw:11:7 ]
+    │
+ 11 │   let Both left _ := h
+    │       ─────┬─────  
+    │            ╰─────── `mystery n` has no reading, so it has no parts
+    │ 
+    │ Note 1: a reading says what a test means: a theorem `mystery … = True ↔ P` marked `@[reading]`, declared with `mystery`
+    │ 
+    │ Note 2: a test fact can always be matched by a name
+────╯
