@@ -22796,7 +22796,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nLane note: removed the `| Zero =>` arm of readsLoopFrom (the checker proves it unreachable: h would make runFrom an Err). Statement unchanged. Reads.sw checks; unreachable-arms test passes; prelude snapshot re-accepted (readsLoop, givesLoop, readsLoopFrom and its matches only).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
