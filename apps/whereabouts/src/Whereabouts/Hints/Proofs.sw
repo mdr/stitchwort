@@ -3263,15 +3263,15 @@ theorem latitudeBandContains ∀ (lat lon width unit: Float)
     (latitudeFromBelow lat width unit latLo latHi wLo wHi low high)
     (latitudeToAbove lat width unit latLo latHi wLo wHi low high)
 
---| A latitude band's width, `min span 180`, is from 1e-11° to 180° for a
---| tolerance from 1.2e-10 km to 20,000 km: `span`, ten tolerances in
---| degrees of arc, is monotone in the tolerance, and ten times 1.2e-10 km
---| is 1.08e-11° (111.19 km to the degree).
-theorem latitudeWidthRange ∀ (tolerance: Float)
+--| A band's span, ten tolerances in degrees of arc, is finite and at least
+--| 1e-11° for a tolerance from 1.2e-10 km to 20,000 km: `span` is monotone
+--| in the tolerance, and ten times 1.2e-10 km is 1.08e-11° (111.19 km to
+--| the degree).
+theorem spanRange ∀ (tolerance: Float)
     (tolLo: 1.2e-10 <= tolerance)
     (tolHi: tolerance <= 20000.0):
-    (1e-11 <= Float.min (kmToDegrees (hintWidthTolerances * tolerance)) 180.0)
-      ∧ (Float.min (kmToDegrees (hintWidthTolerances * tolerance)) 180.0 <= 180.0) :=
+    (Float.isFinite (kmToDegrees (hintWidthTolerances * tolerance)) = True)
+      ∧ (1e-11 <= kmToDegrees (hintWidthTolerances * tolerance)) :=
   let ft: Float.isFinite tolerance = True :=
     Float.finiteBetween 1.2e-10 tolerance 20000.0 byComputing byComputing tolLo tolHi
   let k: Float := (earthRadius * pi) / 180.0
@@ -3286,21 +3286,56 @@ theorem latitudeWidthRange ∀ (tolerance: Float)
     Float.divMonotone (hintWidthTolerances * 1.2e-10) (hintWidthTolerances * tolerance) k pos fk a
   let hi: span <= (hintWidthTolerances * 20000.0) / k :=
     Float.divMonotone (hintWidthTolerances * tolerance) (hintWidthTolerances * 20000.0) k pos fk b
-  let fs: Float.isFinite span = True :=
-    Float.finiteBetween
+  Both
+    (Float.finiteBetween
       ((hintWidthTolerances * 1.2e-10) / k)
       span
       ((hintWidthTolerances * 20000.0) / k)
       byComputing
       byComputing
       lo
-      hi
-  let ns: Float.isNaN span = False := notNaNOfFinite span fs
+      hi)
+    (floatLeTrans 1e-11 ((hintWidthTolerances * 1.2e-10) / k) span byComputing lo)
+
+--| A latitude band's width, `min span 180`, is from 1e-11° to 180° for a
+--| tolerance from 1.2e-10 km to 20,000 km (`spanRange`).
+theorem latitudeWidthRange ∀ (tolerance: Float)
+    (tolLo: 1.2e-10 <= tolerance)
+    (tolHi: tolerance <= 20000.0):
+    (1e-11 <= Float.min (kmToDegrees (hintWidthTolerances * tolerance)) 180.0)
+      ∧ (Float.min (kmToDegrees (hintWidthTolerances * tolerance)) 180.0 <= 180.0) :=
+  let span: Float := kmToDegrees (hintWidthTolerances * tolerance)
+  let sr := spanRange tolerance tolLo tolHi
+  let ns: Float.isNaN span = False := notNaNOfFinite span sr.left
+  Both (Float.leMin span 180.0 1e-11 ns byComputing sr.right byComputing) (Float.minLeRight span 180.0 ns byComputing)
+
+--| A longitude band's width, `min (span / cosLatitude) 120`, is from 1e-11°
+--| to 120° for a tolerance from 1.2e-10 km to 20,000 km and a cosine from
+--| 1e-17 to 1: dividing by a cosine of at most 1 doesn't shrink the span
+--| (`Float.divAntitone`), and the quotient isn't the NaN
+--| (`Float.divNotNaN`), so `min` is the smaller of the two.
+theorem longitudeWidthRange ∀ (tolerance cosLatitude: Float)
+    (tolLo: 1.2e-10 <= tolerance)
+    (tolHi: tolerance <= 20000.0)
+    (cosLo: 1e-17 <= cosLatitude)
+    (cosHi: cosLatitude <= 1.0):
+    (1e-11 <= Float.min (kmToDegrees (hintWidthTolerances * tolerance) / cosLatitude) maxLongitudeSpan)
+      ∧ (Float.min (kmToDegrees (hintWidthTolerances * tolerance) / cosLatitude) maxLongitudeSpan <= 120.0) :=
+  let span: Float := kmToDegrees (hintWidthTolerances * tolerance)
+  let sr := spanRange tolerance tolLo tolHi
+  let cpos: 0.0 < cosLatitude :=
+    Float.Theory.ltLeTrans (Float.orderKey 0.0) (Float.orderKey 1e-17) (Float.orderKey cosLatitude) byComputing cosLo
+  let fc: Float.isFinite cosLatitude = True :=
+    Float.finiteBetween 1e-17 cosLatitude 1.0 byComputing byComputing cosLo cosHi
+  let grow: span / 1.0 <= span / cosLatitude :=
+    Float.divAntitone span cosLatitude 1.0 cpos fc byComputing cosHi sr.left
+      (floatLeTrans 0.0 1e-11 span byComputing sr.right)
+  let atLeast: 1e-11 <= span / cosLatitude :=
+    floatLeTrans 1e-11 span (span / cosLatitude) sr.right (J (y w => y <= span / cosLatitude) grow (Float.divOneRight span))
+  let nq: Float.isNaN (span / cosLatitude) = False := Float.divNotNaN span cosLatitude cpos fc sr.left
   Both
-    (Float.leMin span 180.0 1e-11 ns byComputing
-      (floatLeTrans 1e-11 ((hintWidthTolerances * 1.2e-10) / k) span byComputing lo)
-      byComputing)
-    (Float.minLeRight span 180.0 ns byComputing)
+    (Float.leMin (span / cosLatitude) maxLongitudeSpan 1e-11 nq byComputing atLeast byComputing)
+    (Float.minLeRight (span / cosLatitude) maxLongitudeSpan nq byComputing)
 
 --| The answer is in its latitude hint band, by JS's comparisons, the TypeScript's
 --| `inHintBand(hintBand(answer, tolerance, LATITUDE, unit, …), answer)`.

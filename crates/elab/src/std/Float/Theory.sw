@@ -7177,3 +7177,121 @@ theorem Float.divNotNaN ∀ (x d: Float)
 
 test "Float.divNotNaN" :=
   ¬Float.isNaN (1e300 / 1e-300) ∧ ¬Float.isNaN (0.0 / 5e-324) ∧ ¬Float.isNaN (-1.0 / 3.0)
+
+-- Floor and ceiling within one
+
+--| The floor of a double below 2^53 in size is finite: a whole number of
+--| that size (`roundScaledWhole`).
+theorem Float.floorIsFinite ∀ (x: Float) (small: Float.abs x < 9007199254740992.0): Float.isFinite (Float.floor x) = True :=
+  let a: Nat := x.bits
+  let s: Bool := Float.Model.signBit a
+  let p: Nat := Float.Model.pow2 1074
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let f: Int := Float.Model.floorDiv s n p
+  let fin: Float.Theory.FiniteBits a ∧ (n < p * 9007199254740992) := Float.Theory.absBelowUnits x small
+  let fl: (Float.floor x).bits = Float.Model.roundScaled f 0 s :=
+    Eq.trans (Float.Theory.floorOfBits x) (Float.Theory.floorFinite a (Float.Theory.notSpecialOf a fin.left))
+  Float.Theory.isFiniteOf
+    (Float.floor x)
+    (J
+      (r w => Float.Theory.FiniteBits r)
+      (Float.Theory.roundScaledWhole f s (Float.Theory.floorDivBelow s n p 9007199254740992 byComputing fin.right)).left
+      fl.flipped)
+
+--| The ceiling of a double below 2^53 in size is finite, as `Float.floorIsFinite`.
+theorem Float.ceilIsFinite ∀ (x: Float) (small: Float.abs x < 9007199254740992.0): Float.isFinite (Float.ceil x) = True :=
+  let a: Nat := x.bits
+  let s: Bool := Float.Model.signBit a
+  let p: Nat := Float.Model.pow2 1074
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let g: Int := Float.Model.floorDiv (¬s) n p
+  let fin: Float.Theory.FiniteBits a ∧ (n < p * 9007199254740992) := Float.Theory.absBelowUnits x small
+  let cl: (Float.ceil x).bits = Float.Model.roundScaled (Int.neg g) 0 s :=
+    Eq.trans (Float.Theory.ceilOfBits x) (Float.Theory.ceilFinite a (Float.Theory.notSpecialOf a fin.left))
+  Float.Theory.isFiniteOf
+    (Float.ceil x)
+    (J
+      (r w => Float.Theory.FiniteBits r)
+      (Float.Theory.roundScaledWhole
+        (Int.neg g)
+        s
+        (Float.Theory.natAbsNegLe g (Float.Theory.floorDivBelow (¬s) n p 9007199254740992 byComputing fin.right))).left
+      cl.flipped)
+
+test "Float.floorIsFinite" :=
+  Float.isFinite (Float.floor -2.5) ∧ Float.isFinite (Float.ceil 9007199254740991.0) ∧ Float.isFinite (Float.floor 5e-324)
+
+theorem Float.Theory.belowNextWhole ∀ (u v f: Int) (p: Nat)
+    (h: Int.less u (Int.mul (Int.add f (OfNat 1)) (OfNat p)) = True)
+    (ev: v = Int.mul f (OfNat p)):
+    Int.less u (Int.add v (OfNat p)) = True :=
+  let d: Int.mul (Int.add f (OfNat 1)) (OfNat p) = Int.add (Int.mul f (OfNat p)) (OfNat p) := algebra
+  arithmetic [h, ev, d]
+
+theorem Float.Theory.aboveNextWhole ∀ (u w v g: Int) (p: Nat)
+    (h: Int.less w (Int.mul (Int.add g (OfNat 1)) (OfNat p)) = True)
+    (eu: u = Int.neg w)
+    (ev: v = Int.mul (Int.neg g) (OfNat p)):
+    Int.less v (Int.add u (OfNat p)) = True :=
+  let d: Int.mul (Int.add g (OfNat 1)) (OfNat p) = Int.add (Int.mul g (OfNat p)) (OfNat p) := algebra
+  let n: Int.mul (Int.neg g) (OfNat p) = Int.neg (Int.mul g (OfNat p)) := algebra
+  arithmetic [h, eu, ev, d, n]
+
+--| A double below 2^53 in size is less than one above its floor, exactly:
+--| in units of 2^-1074, `x < floor x + 1`, with no rounding in the sum
+--| (`Float.ltFloorAddOne` says it of the double sum).
+theorem Float.Theory.floorUnitsAbove ∀ (x: Float)
+    (small: Float.abs x < 9007199254740992.0):
+    Int.less (Float.Theory.units x) (Int.add (Float.Theory.units (Float.floor x)) (OfNat (Float.Model.pow2 1074))) = True :=
+  let a: Nat := x.bits
+  let s: Bool := Float.Model.signBit a
+  let p: Nat := Float.Model.pow2 1074
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let f: Int := Float.Model.floorDiv s n p
+  let fin: Float.Theory.FiniteBits a ∧ (n < p * 9007199254740992) := Float.Theory.absBelowUnits x small
+  let range: ((Int.natAbs f ≤ 9007199254740992) ∧ (Int.natAbs (Int.add f (OfNat 1)) ≤ 9007199254740992))
+    ∧ (Int.less (Int.signed s n) (Int.mul (Int.add f (OfNat 1)) (OfNat p)) = True) :=
+    Float.Theory.floorDivRange s n p byComputing fin.right
+  let fl: (Float.floor x).bits = Float.Model.roundScaled f 0 s :=
+    Eq.trans (Float.Theory.floorOfBits x) (Float.Theory.floorFinite a (Float.Theory.notSpecialOf a fin.left))
+  let uf: Float.Model.units (Float.floor x).bits = Int.mul f (OfNat p) :=
+    J
+      (r w => Float.Model.units r = Int.mul f (OfNat p))
+      (Float.Theory.roundScaledWhole f s range.left.left).right
+      fl.flipped
+  J
+    (y w => Int.less y (Int.add (Float.Theory.units (Float.floor x)) (OfNat p)) = True)
+    (Float.Theory.belowNextWhole (Int.signed s n) (Float.Theory.units (Float.floor x)) f p range.right uf)
+    (Float.Theory.unitsSigned a)
+
+--| A double below 2^53 in size is more than one below its ceiling, exactly:
+--| in units of 2^-1074, `ceil x < x + 1` (as doubles, `x + 1.0` can round
+--| down to the ceiling; `Float.ceilSubOneLt`).
+theorem Float.Theory.ceilUnitsBelow ∀ (x: Float)
+    (small: Float.abs x < 9007199254740992.0):
+    Int.less (Float.Theory.units (Float.ceil x)) (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1074))) = True :=
+  let a: Nat := x.bits
+  let s: Bool := Float.Model.signBit a
+  let p: Nat := Float.Model.pow2 1074
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let g: Int := Float.Model.floorDiv (¬s) n p
+  let fin: Float.Theory.FiniteBits a ∧ (n < p * 9007199254740992) := Float.Theory.absBelowUnits x small
+  let range: ((Int.natAbs g ≤ 9007199254740992) ∧ (Int.natAbs (Int.add g (OfNat 1)) ≤ 9007199254740992))
+    ∧ (Int.less (Int.signed (¬s) n) (Int.mul (Int.add g (OfNat 1)) (OfNat p)) = True) :=
+    Float.Theory.floorDivRange (¬s) n p byComputing fin.right
+  let cl: (Float.ceil x).bits = Float.Model.roundScaled (Int.neg g) 0 s :=
+    Eq.trans (Float.Theory.ceilOfBits x) (Float.Theory.ceilFinite a (Float.Theory.notSpecialOf a fin.left))
+  let uc: Float.Model.units (Float.ceil x).bits = Int.mul (Int.neg g) (OfNat p) :=
+    J
+      (r w => Float.Model.units r = Int.mul (Int.neg g) (OfNat p))
+      (Float.Theory.roundScaledWhole (Int.neg g) s (Float.Theory.natAbsNegLe g range.left.left)).right
+      cl.flipped
+  Float.Theory.aboveNextWhole
+    (Float.Theory.units x)
+    (Int.signed (¬s) n)
+    (Float.Theory.units (Float.ceil x))
+    g
+    p
+    range.right
+    (Eq.trans (Float.Theory.unitsSigned a).flipped (Float.Theory.signedFlip s n))
+    uc
