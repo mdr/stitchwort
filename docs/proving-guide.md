@@ -197,6 +197,12 @@ theorem selectedIsValueViaHelper ∀ (chosen: Option Nat) (value: Nat) (selected
   rewrite selected then byComputing
 ```
 
+A statement that spells out a Prop-valued `match` (`match t with | A => x = 1
+| B => True`) can also fail with `E-AUTO-NONE` when `auto` needs a proof of
+it: the match is checked where it is written, and the same match written again
+is a different helper, so hold it in a helper definition and state the
+theorem, its hypotheses and the lemmas about the helper, as above.
+
 ## 2. Workflow
 
 1. **State it with `?` first, and read the goal.** Write the statement with
