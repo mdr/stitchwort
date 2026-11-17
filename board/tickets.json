@@ -23159,15 +23159,17 @@
     {
       "id": 3921,
       "title": "[Opus] Engine E2 part 1: IdGroup and IfBroken in Fmt.Doc (print and measure, matching crates/fmt engine.rs), with the toy proofs extended; gate: dev/fmt-twin engine identical on every goldens and repo declaration using only them (25,442 + 2,126 in the repo) (SW-3905 counts; plan stage E2)",
-      "status": "doing",
-      "agent": "",
+      "status": "review",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (Opus, 21:50-22:06, est. 60 min): IdGroup and IfBroken in Fmt.Doc (Doc, printer with a modes record, fitsFrom with modes; fill first item and OneLineBelow measured with no modes, as Rust's fits_flat); DocDump reads them. All Fmt.Doc theorems keep their statements, none restricted; 9 new lemmas; audit 319 theorems, 0 failed, 3 warnings. Harness: goldens 548 matched / 10 mismatched / 86 unsupported (was 22/0/622); repo 32,085 / 0 / 2,278, 390 oversized (was 4,303 / 0 / 29,838). The 10 golden mismatches are plan §1.1 comment differences (flat SoftLine while a comment waits x4, comment floor vs CommentEnd x6), not this port. Commit 94eeea548.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
-      "commits": []
+      "commits": [
+        "94eeea548"
+      ]
     },
     {
       "id": 3922,
