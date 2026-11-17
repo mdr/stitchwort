@@ -194,5 +194,8 @@ fn the_largest_read_back_and_deepest_frames_are_reported() {
         .lines()
         .rfind(|l| l.trim_start().starts_with("Main.t "))
         .unwrap_or_else(|| panic!("{stderr}"));
-    assert_eq!(row.split_whitespace().collect::<Vec<_>>(), ["Main.t", "205", "5"]);
+    assert_eq!(
+        row.split_whitespace().collect::<Vec<_>>(),
+        ["Main.t", "205", "5"]
+    );
 }

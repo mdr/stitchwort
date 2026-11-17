@@ -380,7 +380,8 @@ fn a_nested_number_column_reports_the_numbers_the_outer_arms_leave_out() {
     let e = error(text);
     assert_eq!(e.code, "E-NONEXHAUSTIVE");
     assert!(
-        e.message.ends_with("matches numbers other than 0 and 1"),
+        e.message
+            .contains("matches numbers other than 0 and 1, in the case `_, _`"),
         "{}",
         e.message
     );
