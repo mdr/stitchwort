@@ -3482,3 +3482,69 @@ theorem latitudeBandContains ∀ (lat lon width unit: Float)
   Bool.andIntro
     (latitudeFromBelow lat width unit latLo latHi wLo wHi low high)
     (latitudeToAbove lat width unit latLo latHi wLo wHi low high)
+
+--| A latitude band's width, `min span 180`, is from 1e-11° to 180° for a
+--| tolerance from 1.2e-10 km to 20,000 km: `span`, ten tolerances in
+--| degrees of arc, is monotone in the tolerance, and ten times 1.2e-10 km
+--| is 1.08e-11° (111.19 km to the degree).
+theorem latitudeWidthRange ∀ (tolerance: Float)
+    (tolLo: 1.2e-10 <= tolerance)
+    (tolHi: tolerance <= 20000.0):
+    (1e-11 <= Float.min (kmToDegrees (hintWidthTolerances * tolerance)) 180.0)
+      ∧ (Float.min (kmToDegrees (hintWidthTolerances * tolerance)) 180.0 <= 180.0) :=
+  let ft: Float.isFinite tolerance = True := Float.finiteBetween 1.2e-10 tolerance 20000.0 byComputing byComputing tolLo tolHi
+  let k: Float := (earthRadius * pi) / 180.0
+  let pos: 0.0 < k := byComputing
+  let fk: Float.isFinite k = True := byComputing
+  let span: Float := kmToDegrees (hintWidthTolerances * tolerance)
+  let a: hintWidthTolerances * 1.2e-10 <= hintWidthTolerances * tolerance :=
+    Float.mulMonotone 1.2e-10 tolerance hintWidthTolerances byComputing ft byComputing byComputing tolLo
+  let b: hintWidthTolerances * tolerance <= hintWidthTolerances * 20000.0 :=
+    Float.mulMonotone tolerance 20000.0 hintWidthTolerances ft byComputing byComputing byComputing tolHi
+  let lo: (hintWidthTolerances * 1.2e-10) / k <= span :=
+    Float.divMonotone (hintWidthTolerances * 1.2e-10) (hintWidthTolerances * tolerance) k pos fk a
+  let hi: span <= (hintWidthTolerances * 20000.0) / k :=
+    Float.divMonotone (hintWidthTolerances * tolerance) (hintWidthTolerances * 20000.0) k pos fk b
+  let fs: Float.isFinite span = True :=
+    Float.finiteBetween ((hintWidthTolerances * 1.2e-10) / k) span ((hintWidthTolerances * 20000.0) / k) byComputing byComputing lo hi
+  let ns: Float.isNaN span = False := notNaNOfFinite span fs
+  Both
+    (Float.leMin span 180.0 1e-11 ns byComputing (floatLeTrans 1e-11 ((hintWidthTolerances * 1.2e-10) / k) span byComputing lo) byComputing)
+    (Float.minLeRight span 180.0 ns byComputing)
+
+--| The answer is in its latitude hint band, by JS's comparisons, the TypeScript's
+--| `inHintBand(hintBand(answer, tolerance, LATITUDE, unit, …), answer)`.
+--| Each hypothesis holds of every real round:
+--|
+--| - `latLo`, `latHi`: a latitude is within [-90°, 90°].
+--| - `tolLo`: the tolerance is at least 1.2e-10 km (0.12 µm), so the band
+--|   is at least 1e-11° wide and its 15 % margin outlasts rounding to
+--|   tenths (2^-42). Below about 1e-13 km the answer can fall outside
+--|   (`narrowLatitudeBandMissesAnswer`, finding 1); a real tolerance is
+--|   metres at least.
+--| - `tolHi`: the tolerance is at most 20,000 km, half the Earth's
+--|   circumference, past which no tolerance means anything; it keeps the
+--|   width finite.
+--| - `low`, `high`: `unit` is from 0 to 1, as `seededUnit` gives
+--|   (`seededUnitInUnit`).
+--|
+--| `cosLatitude` plays no part in a latitude band.
+theorem answerInLatitudeBand ∀ (answer: LatLon) (tolerance: Km) (unit cosLatitude: Float)
+    (latLo: -90.0 <= answer.lat.value)
+    (latHi: answer.lat.value <= 90.0)
+    (tolLo: 1.2e-10 <= tolerance.value)
+    (tolHi: tolerance.value <= 20000.0)
+    (low: 0.0 <= unit)
+    (high: unit <= 1.0):
+    inHintBand (hintBand answer tolerance Latitude unit cosLatitude) answer = True :=
+  let w := latitudeWidthRange tolerance.value tolLo tolHi
+  latitudeBandContains answer.lat.value
+    answer.lon.value
+    (Float.min (kmToDegrees (hintWidthTolerances * tolerance.value)) 180.0)
+    unit
+    latLo
+    latHi
+    w.left
+    w.right
+    low
+    high
