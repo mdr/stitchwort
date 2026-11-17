@@ -179,18 +179,20 @@ pub(crate) fn lambda_of(params: Vec<LamParam>, body: Expr, start: Span, end: Spa
 pub(crate) type ForallGroup = (Vec<Name>, bool, bool, Expr);
 
 /// `forall` at `keyword` with parameter groups `groups`: a function type
-/// for each group, every one spanning the whole `forall`.
+/// for each name of each group, every one spanning the whole `forall`.
 pub(crate) fn forall_of(groups: Vec<ForallGroup>, mut body: Expr, keyword: Span) -> Expr {
     let span = keyword.to(body.span());
     for (names, implicit, auto, dom) in groups.into_iter().rev() {
-        body = Expr::Pi {
-            names,
-            implicit,
-            auto,
-            dom: Box::new(dom),
-            cod: Box::new(body),
-            span,
-        };
+        for name in names.into_iter().rev() {
+            body = Expr::Pi {
+                name,
+                implicit,
+                auto,
+                dom: Box::new(dom.clone()),
+                cod: Box::new(body),
+                span,
+            };
+        }
     }
     body
 }

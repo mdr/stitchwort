@@ -62,7 +62,7 @@ pub(crate) fn lower_header(params: Vec<Param>, result: Expr) -> (Expr, Vec<Patte
                 // each checking its own copy of the type.
                 let span = span.to(cod.span());
                 names.into_iter().rev().fold(cod, |cod, name| Expr::Pi {
-                    names: vec![name],
+                    name,
                     implicit,
                     auto,
                     dom: Box::new(ty.clone()),
@@ -154,15 +154,13 @@ pub(crate) fn check_duplicates(def: &Name, params: &[Param], result: &Expr) -> L
     loop {
         match ty {
             Expr::Pi {
-                names,
+                name,
                 implicit,
                 cod,
                 ..
             } => {
-                if *implicit {
-                    for name in names.iter().filter(|n| n.text != NAMELESS) {
-                        check(&seen, name)?;
-                    }
+                if *implicit && name.text != NAMELESS {
+                    check(&seen, name)?;
                 }
                 ty = cod;
             }

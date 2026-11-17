@@ -1856,14 +1856,12 @@ impl Walk<'_> {
         let mut ty = ty;
         loop {
             match ty {
-                Expr::Pi { names, cod, .. } => {
-                    for name in names {
-                        self.nav.params.push(ParamBinder {
-                            owner,
-                            name: name.text.clone(),
-                            binder: name.span,
-                        });
-                    }
+                Expr::Pi { name, cod, .. } => {
+                    self.nav.params.push(ParamBinder {
+                        owner,
+                        name: name.text.clone(),
+                        binder: name.span,
+                    });
                     ty = cod;
                 }
                 Expr::Arrow(_, cod) => ty = cod,
@@ -1929,8 +1927,8 @@ impl Walk<'_> {
         let mut cursor = ty;
         loop {
             match cursor {
-                Expr::Pi { names: ns, cod, .. } => {
-                    names.extend(ns.iter().map(Some));
+                Expr::Pi { name, cod, .. } => {
+                    names.push(Some(name));
                     cursor = cod;
                 }
                 Expr::Arrow(_, cod) => {
@@ -2138,13 +2136,10 @@ impl Walk<'_> {
                         Work::Unbind(&name.text),
                     ],
                 ),
-                Expr::Pi {
-                    names, dom, cod, ..
-                } => {
-                    let mut steps = vec![Work::Expr(dom)];
-                    steps.extend(names.iter().map(Work::Bind));
+                Expr::Pi { name, dom, cod, .. } => {
+                    let mut steps = vec![Work::Expr(dom), Work::Bind(name)];
                     steps.push(Work::Expr(cod));
-                    steps.extend(names.iter().map(|n| Work::Unbind(&n.text)));
+                    steps.push(Work::Unbind(&name.text));
                     then(&mut stack, steps);
                 }
                 Expr::NamedArg(_, value, _, _) => stack.push(Work::Expr(value)),
@@ -2392,16 +2387,16 @@ fn body_binders<'a>(ty: &'a Expr, equations: &[Decl]) -> Vec<&'a ast::Name> {
     loop {
         match ty {
             Expr::Pi {
-                names: ns,
+                name,
                 implicit: true,
                 cod,
                 ..
             } => {
-                names.extend(ns.iter());
+                names.push(name);
                 ty = cod;
             }
-            Expr::Pi { names: ns, cod, .. } if explicit + ns.len() <= arity => {
-                explicit += ns.len();
+            Expr::Pi { cod, .. } if explicit < arity => {
+                explicit += 1;
                 ty = cod;
             }
             Expr::Arrow(_, cod) if explicit < arity => {

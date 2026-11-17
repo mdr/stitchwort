@@ -225,7 +225,7 @@ impl Elaborator {
             None => Expr::Field(Box::new(var(&base)), n(&lemma.read)),
         };
         let pi = |x: &str, implicit: bool, dom: Expr, cod: Expr| Expr::Pi {
-            names: vec![n(x)],
+            name: n(x),
             implicit,
             auto: false,
             dom: Box::new(dom),

@@ -105,7 +105,7 @@ impl Elaborator {
         let var = |text: &str| Expr::Var(n(text));
         let eq = |a: Expr, b: Expr| Expr::Binary(BinOp::Eq, Box::new(a), Box::new(b));
         let pi = |x: &str, implicit: bool, dom: Expr, cod: Expr| Expr::Pi {
-            names: vec![n(x)],
+            name: n(x),
             implicit,
             auto: false,
             dom: Box::new(dom),
@@ -156,14 +156,16 @@ impl Elaborator {
             let right = Expr::Field(Box::new(var(&y)), field);
             ty = pi(&hyp(k), false, eq(left, right), ty);
         }
-        ty = Expr::Pi {
-            names: vec![n(&x), n(&y)],
-            implicit: false,
-            auto: false,
-            dom: Box::new(this.clone()),
-            cod: Box::new(ty),
-            span,
-        };
+        for who in [&y, &x] {
+            ty = Expr::Pi {
+                name: n(who),
+                implicit: false,
+                auto: false,
+                dom: Box::new(this.clone()),
+                cod: Box::new(ty),
+                span,
+            };
+        }
         for p in params.iter().rev() {
             ty = pi(p, true, Expr::Hole(span), ty);
         }

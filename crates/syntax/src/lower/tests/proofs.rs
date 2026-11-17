@@ -102,7 +102,6 @@ fn forall_is_a_function_type() {
     // A group is a function type per name (D3679); the body takes the rest.
     let e = expr("forall (a b: Nat) [c: Nat] => a + b = c -> p");
     let Expr::Pi {
-        names,
         implicit: false,
         cod,
         ..
@@ -110,9 +109,7 @@ fn forall_is_a_function_type() {
     else {
         panic!("expected a function type");
     };
-    assert_eq!(names.len(), 1);
     let Expr::Pi {
-        names,
         implicit: false,
         cod,
         ..
@@ -120,7 +117,6 @@ fn forall_is_a_function_type() {
     else {
         panic!("expected a function type for the group's second name");
     };
-    assert_eq!(names.len(), 1);
     let Expr::Pi {
         implicit: true,
         cod,

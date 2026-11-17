@@ -3545,16 +3545,16 @@ fn body_binders<'a>(ty: &'a Expr, equations: &[Decl]) -> Vec<&'a str> {
     loop {
         match ty {
             Expr::Pi {
-                names: ns,
+                name,
                 implicit: true,
                 cod,
                 ..
             } => {
-                names.extend(ns.iter().map(|n| n.text.as_str()));
+                names.push(name.text.as_str());
                 ty = cod;
             }
-            Expr::Pi { names: ns, cod, .. } if explicit + ns.len() <= arity => {
-                explicit += ns.len();
+            Expr::Pi { cod, .. } if explicit < arity => {
+                explicit += 1;
                 ty = cod;
             }
             Expr::Arrow(_, cod) if explicit < arity => {
@@ -3587,22 +3587,17 @@ fn explicit_param_types<'a>(ty: &'a Expr, equations: &[Decl]) -> Vec<Option<&'a 
     loop {
         match ty {
             Expr::Pi {
-                names: ns,
+                name,
                 implicit: true,
                 cod,
                 ..
             } => {
-                binders.extend(ns.iter().map(|n| n.text.as_str()));
+                binders.push(name.text.as_str());
                 ty = cod;
             }
-            Expr::Pi {
-                names: ns,
-                dom,
-                cod,
-                ..
-            } if types.len() + ns.len() <= arity => {
-                types.extend(ns.iter().map(|_| known(dom, &binders)));
-                binders.extend(ns.iter().map(|n| n.text.as_str()));
+            Expr::Pi { name, dom, cod, .. } if types.len() < arity => {
+                types.push(known(dom, &binders));
+                binders.push(name.text.as_str());
                 ty = cod;
             }
             Expr::Arrow(dom, cod) if types.len() < arity => {
@@ -3667,8 +3662,8 @@ fn defaults_work<'a>(ty: &'a Expr, defaults: &'a [Option<Expr>]) -> Vec<Work<'a>
     let mut ty = ty;
     while names.len() < defaults.len() {
         match ty {
-            Expr::Pi { names: ns, cod, .. } => {
-                names.extend(ns.iter().map(|n| n.text.as_str()));
+            Expr::Pi { name, cod, .. } => {
+                names.push(name.text.as_str());
                 ty = cod;
             }
             Expr::Arrow(_, cod) => {
@@ -4217,10 +4212,8 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 steps.extend(unbind);
                 then(&mut stack, steps);
             }
-            Expr::Pi {
-                names, dom, cod, ..
-            } => {
-                let (bind, unbind) = typed_binds(names, dom);
+            Expr::Pi { name, dom, cod, .. } => {
+                let (bind, unbind) = typed_binds(std::slice::from_ref(name), dom);
                 let mut steps = vec![Work::Expr(dom)];
                 steps.extend(bind);
                 steps.push(Work::Expr(cod));

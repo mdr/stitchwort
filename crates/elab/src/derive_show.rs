@@ -336,7 +336,7 @@ impl Elaborator {
                 .fold(head, |f, a| Expr::App(Box::new(f), Box::new(a)))
         };
         let pi = |x: &str, implicit: bool, auto: bool, dom: Expr, cod: Expr| Expr::Pi {
-            names: vec![n(x)],
+            name: n(x),
             implicit,
             auto,
             dom: Box::new(dom),
@@ -391,7 +391,7 @@ impl Elaborator {
         // `%r : this` to `Std.Text`.
         let function_ty = |this: Expr| {
             with_params(Expr::Pi {
-                names: vec![n("%r")],
+                name: n("%r"),
                 implicit: false,
                 auto: false,
                 dom: Box::new(this),
