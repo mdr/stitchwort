@@ -22180,12 +22180,12 @@
     {
       "id": 3846,
       "title": "[Opus] A bare 'cases' on Rogue's terrainColumns goal runs 2e9+ evaluation steps (15 min, unfinished) before it could fail: find what cases (SW-3752's second try?) evaluates and fail early with the real error (soundness fuzz 0x3100 mutant 2893-3; reproducer on the ticket)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Reproducer (Overmind, 17 Nov 2026): in games/rogue/src/Rogue/Proofs/Bounds.sw (line 196 at 6f49c9d24) replace the whole proof of terrainColumns with a bare cases:\ntheorem terrainColumns ∀ (level: Level) (row: Nat) (small: row < levelRows): ((drawTerrain level).getOr row []).length = levelColumns := cases\nthen cd games/rogue && stitchwort check --no-cache Rogue.Proofs. Unmutated: 7.5 s. Mutant: 900 s unfinished, 'over 2,000,000,000 evaluation steps so far, unfolding Nat.add (it stops at 10,000,000,000)'; earlier notes 250 M Nat.leq, 500 M Nat.sub, 1 G Nat.add. Likely a bare cases (SW-3752's second try) evaluating drawTerrain for a symbolic level. Lane: run it only under 'timeout 60' and a 2 GB memory watch.",
+      "body": "Reproducer (Overmind, 17 Nov 2026): in games/rogue/src/Rogue/Proofs/Bounds.sw (line 196 at 6f49c9d24) replace the whole proof of terrainColumns with a bare cases:\ntheorem terrainColumns ∀ (level: Level) (row: Nat) (small: row < levelRows): ((drawTerrain level).getOr row []).length = levelColumns := cases\nthen cd games/rogue && stitchwort check --no-cache Rogue.Proofs. Unmutated: 7.5 s. Mutant: 900 s unfinished, 'over 2,000,000,000 evaluation steps so far, unfolding Nat.add (it stops at 10,000,000,000)'; earlier notes 250 M Nat.leq, 500 M Nat.sub, 1 G Nat.add. Likely a bare cases (SW-3752's second try) evaluating drawTerrain for a symbolic level. Lane: run it only under 'timeout 60' and a 2 GB memory watch.\n\nLane (Opus, 17 Nov 2026): cause: not the second try but the per-case cost. The goal holds drawTerrain level, 1,320 cells each stuck on the level's fields; each case's atom search and split cost 10-30 M evaluation steps (and more time in read-back/same comparisons), so 64 cases then 256 on the second try ran for tens of minutes. Fix: each try of a cases runs under Budget::limited with 20 M steps (const STEPS in cases.rs); past it E-CASES-BUDGET at once, no second try. Largest legit cases measured: 5.6 M (Toy.Fmt.Proofs), 1.4 M (examples), 13 k (rogue). Mutant now fails in 5.1 s (E-CASES-BUDGET), was still running at 60 s. Regression: examples/reject/cases-step-budget.sw (before: still running at 60 s, >250 M steps, 1.1 GB). Commit 9466c7483. Not run: whole aoc (Overmind's rolling check should catch any legit cases over 20 M).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
