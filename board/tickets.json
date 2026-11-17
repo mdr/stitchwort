@@ -23187,7 +23187,7 @@
     {
       "id": 3923,
       "title": "[DeepSeek] dev/fmt-twin: a memory cap per child (watch RSS, kill above a limit) alongside the 20 s timeout; ulimit -v doesn't work on macOS (SW-3905)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
