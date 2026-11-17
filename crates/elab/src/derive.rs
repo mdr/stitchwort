@@ -364,6 +364,7 @@ impl Elaborator {
                         _ => self.derive_field(r, c, k)?,
                     }
                 }
+                self.derive_tuple_in(r, r, "%", c)?;
             }
         }
         for member in &plan.members[plan.roots..] {
@@ -376,6 +377,10 @@ impl Elaborator {
         result = result.and_then(|()| self.definitions(&source.tests));
         self.clear_metas();
         result = result.and_then(|()| self.definitions(&source.proofs));
+        for (signature, equations) in &source.laws {
+            self.clear_metas();
+            result = result.and_then(|()| self.definition(signature, equations));
+        }
         for (ri, (decide, instance)) in source.instances.into_iter().enumerate() {
             if own[ri] {
                 continue;
@@ -980,6 +985,7 @@ impl Elaborator {
                         self.derive_field_in(d, member.data, prefix, c, k)?;
                     }
                 }
+                self.derive_tuple_in(d, member.data, prefix, c)?;
             }
         }
         Ok(())
@@ -1096,6 +1102,143 @@ impl Elaborator {
         );
         let member = format!("{prefix}{}%{k}", ctor.name);
         self.declare_member(owner, d, &member, ty, body)
+    }
+
+    /// Declares, for constructor `c` of `D` (`d`, `T` itself or a container
+    /// of it) whose fields are all data, its fields as nested pairs and
+    /// back, in `T`'s (`owner`'s) namespace:
+    ///
+    /// ```text
+    /// T.{prefix}C%unpack : [params] -> Pair A0 (Pair A1 … An) -> D params   -- C x0 … xn
+    /// T.{prefix}C%pack : [params] -> (default : Pair A0 …) -> D params -> Pair A0 …
+    /// ```
+    ///
+    /// `pack` gives the fields of a `C` and `default` for another
+    /// constructor. With `Std.Pair.decMk`, they let derived proofs decide
+    /// `C a… = C b…` as the equality of two tuples, carried back by one
+    /// `Eq.cong` each way, instead of a conjunction read field by field
+    /// (docs/proposals/derived-instances-rethink.md §3.2). Nothing is
+    /// declared for a constructor without fields or with an erased one, or
+    /// before the core's `Pair` exists.
+    pub(crate) fn derive_tuple_in(
+        &mut self,
+        owner: DataId,
+        d: DataId,
+        prefix: &str,
+        c: usize,
+    ) -> Result<()> {
+        let Some(pair) = self.kernel.env.registry().data(Builtin::Pair) else {
+            return Ok(());
+        };
+        let g = &self.ev();
+        let data = g.data(d);
+        let np = data.params().len();
+        let ctor = &data.ctors()[c];
+        let n = ctor.fields.len();
+        let unpack_name = format!("{prefix}{}%unpack", ctor.name);
+        let pack_name = format!("{prefix}{}%pack", ctor.name);
+        if n == 0 || ctor.field_erased.iter().any(|e| *e) || self.has_member(owner, &unpack_name) {
+            return Ok(());
+        }
+        // Field `k`'s type, which mentions only the parameters (a data
+        // field doesn't depend on earlier fields), at `depth`.
+        let mut fields = Vec::with_capacity(n);
+        for k in 0..n {
+            let env: Vec<Value> = (0..np)
+                .map(Value::var)
+                .chain((0..k).map(|_| unused()))
+                .collect();
+            fields.push(eval(g, &env, &ctor.fields[k].1)?);
+        }
+        let tuple = |depth: usize| -> Result<Term> {
+            let mut ty = quote(g, depth, &fields[n - 1])?;
+            for k in (0..n - 1).rev() {
+                ty = Term::data(pair, vec![quote(g, depth, &fields[k])?, ty]);
+            }
+            Ok(ty)
+        };
+        let params =
+            |depth: usize| -> Vec<Term> { (0..np).map(|j| Term::Var(depth - 1 - j)).collect() };
+        // unpack: in the context `params, p`, each pair is matched in turn,
+        // adding its first part and the rest; the last part is the rest.
+        let unpack_ty = Term::Pi(
+            "p".into(),
+            Icit::Explicit,
+            Rc::new(tuple(np)?),
+            Rc::new(Term::data(d, params(np + 1))),
+        );
+        let mut levels = Vec::with_capacity(n);
+        let mut rest = np;
+        let mut depth = np + 1;
+        for _ in 0..n - 1 {
+            levels.push(depth);
+            rest = depth + 1;
+            depth += 2;
+        }
+        levels.push(rest);
+        let mut body = Term::ctor(
+            d,
+            c,
+            levels.iter().map(|l| Term::Var(depth - 1 - l)).collect(),
+        );
+        for k in (0..n - 1).rev() {
+            depth -= 2;
+            let scrutinee = if k == 0 { np } else { depth - 1 };
+            body = Term::Case(
+                depth - 1 - scrutinee,
+                pair,
+                Rc::from([Branch {
+                    names: vec![format!("x{k}").into(), "rest".into()],
+                    body: Some(Rc::new(body)),
+                }]),
+            );
+        }
+        let unpack_body = Term::Lam("p".into(), Icit::Explicit, Rc::new(body));
+        // pack: in the context `params, default, r`, a `C`'s fields paired
+        // up, or `default`.
+        let pack_ty = Term::Pi(
+            "default".into(),
+            Icit::Explicit,
+            Rc::new(tuple(np)?),
+            Rc::new(Term::Pi(
+                "r".into(),
+                Icit::Explicit,
+                Rc::new(Term::data(d, params(np + 1))),
+                Rc::new(tuple(np + 2)?),
+            )),
+        );
+        let branches: Vec<Branch> = data
+            .ctors()
+            .iter()
+            .enumerate()
+            .map(|(other, o)| {
+                let m = o.fields.len();
+                let body = if other == c {
+                    let mut t = Term::Var(0);
+                    for k in (0..n - 1).rev() {
+                        t = Term::ctor(pair, 0, vec![Term::Var(n - 1 - k), t]);
+                    }
+                    t
+                } else {
+                    Term::Var(m + 1)
+                };
+                Branch {
+                    body: Some(Rc::new(body)),
+                    names: o.fields.iter().map(|(x, _)| x.clone()).collect(),
+                }
+            })
+            .collect();
+        let pack_body = Term::Lam(
+            "default".into(),
+            Icit::Explicit,
+            Rc::new(Term::Lam(
+                "r".into(),
+                Icit::Explicit,
+                Rc::new(Term::Case(0, d, branches.into())),
+            )),
+        );
+        self.declare_member(owner, d, &unpack_name, unpack_ty, unpack_body)?;
+        self.declare_member(owner, d, &pack_name, pack_ty, pack_body)
     }
 
     /// The definition `T.member` in `T`'s (`owner`'s) namespace.
@@ -1662,6 +1805,13 @@ impl Elaborator {
         let same_of = |m: usize| format!("{}same", names[m]);
         let sound_of = |m: usize| format!("{}sameSound", names[m]);
         let complete_of = |m: usize| format!("{}sameComplete", names[m]);
+        let iff_of = |m: usize| format!("{}sameIff", names[m]);
+        let iff = |a: Expr, b: Expr| apps(var("Std.Iff"), vec![a, b]);
+        let record = |fields: Vec<(&str, Expr)>| Expr::Record {
+            base: None,
+            fields: fields.into_iter().map(|(f, e)| (n(f), e)).collect(),
+            span,
+        };
         let deciders: Vec<usize> = (0..np).filter(|j| plan.deciders[*j]).collect();
         // The dictionaries' names: `decEq`, or one per parameter after it
         // (`decEqA` for `a`) when there are several.
@@ -1693,6 +1843,7 @@ impl Elaborator {
         };
         let mut tests = Vec::new();
         let mut proofs = Vec::new();
+        let mut laws = Vec::new();
         let mut readings = Vec::new();
         for (m, prefix) in names.iter().enumerate() {
             let prefix = prefix.clone();
@@ -1719,9 +1870,15 @@ impl Elaborator {
             let same_name = n(&same_of(m));
             let sound_name = n(&sound_of(m));
             let complete_name = n(&complete_of(m));
+            let iff_name = n(&iff_of(m));
             let same_test = apps(var(&same_name.text), vec![var("%r"), var("%s")]);
             let is_true = eq(same_test, var("Std.Bool.True"));
             let same_signature = signature(&same_name, pair(var("Std.Bool")), false);
+            let iff_signature = signature(
+                &iff_name,
+                pair(iff(is_true.clone(), eq(var("%r"), var("%s")))),
+                false,
+            );
             let sound_signature = signature(
                 &sound_name,
                 pair(Expr::Arrow(
@@ -1740,8 +1897,7 @@ impl Elaborator {
             );
 
             let mut same_equations = Vec::new();
-            let mut sound_equations = Vec::new();
-            let mut complete_equations = Vec::new();
+            let mut iff_equations = Vec::new();
             for (c, ctor) in ctors.iter().enumerate() {
                 let ctor_name = format!("{ctor_prefix}.{}", ctor.name);
                 let kinds = &member_fields[c];
@@ -1757,6 +1913,10 @@ impl Elaborator {
                     (0..count).filter(|k| kinds[*k] != Field::Proof).collect();
                 let is_proof: Vec<bool> = kinds.iter().map(|k| *k == Field::Proof).collect();
                 let last = data_fields.len().saturating_sub(1);
+                let tupled = self.has_member(
+                    plan.members[m].owner,
+                    &format!("{}{}%unpack", plan.members[m].prefix, ctor.name),
+                );
                 // Data field `k`'s equation, from `%q`, the conjunction of
                 // all of them: `And.left (And.right … %q)`.
                 let part = |k: usize| {
@@ -1810,8 +1970,9 @@ impl Elaborator {
                     // and its two proofs, called on a part of the argument.
                     let decision = |k: usize| match kinds[k] {
                         Field::Recursive(target) => {
-                            let call = |f: String, x: &str| {
-                                apps(var(&f), vec![var(&a(k)), var(&b(k)), var(x)])
+                            let call = |f: &str, x: &str| {
+                                let law = apps(var(&iff_of(target)), vec![var(&a(k)), var(&b(k))]);
+                                apps(var(f), vec![law, var(x)])
                             };
                             Expr::Record {
                                 base: None,
@@ -1820,8 +1981,8 @@ impl Elaborator {
                                         n("holds"),
                                         apps(var(&same_of(target)), vec![var(&a(k)), var(&b(k))]),
                                     ),
-                                    (n("sound"), lam(&["%x"], call(sound_of(target), "%x"))),
-                                    (n("complete"), lam(&["%x"], call(complete_of(target), "%x"))),
+                                    (n("sound"), lam(&["%x"], call("Std.Iff.forward", "%x"))),
+                                    (n("complete"), lam(&["%x"], call("Std.Iff.backward", "%x"))),
                                 ],
                                 span,
                             }
@@ -1835,8 +1996,44 @@ impl Elaborator {
                             vec![apps(var(&field), vec![var(&a(k))]), var("%e")],
                         )
                     };
+                    // `C %a… = C %b…` as `MkPair %a0 (MkPair %a1 …) = MkPair %b0 …`,
+                    // decided by `Pair.decMk` a field at a time and carried
+                    // back by `T.%C%unpack`, when the constructor has them.
+                    let tuple = |x: &dyn Fn(usize) -> String, from: usize| {
+                        let mut t = var(&x(data_fields[last]));
+                        for &k in data_fields[from..last].iter().rev() {
+                            t = apps(var("Std.Pair.MkPair"), vec![var(&x(k)), t]);
+                        }
+                        t
+                    };
+                    let unpack = format!("{prefix}{}%unpack", ctor.name);
                     let whole = if data_fields.is_empty() {
                         apps(var("Std.Decidable.yes"), vec![proof])
+                    } else if tupled {
+                        let mut all = decision(data_fields[last]);
+                        for (i, &k) in data_fields[..last].iter().enumerate().rev() {
+                            all = apps(
+                                var("Std.Pair.decMk"),
+                                vec![
+                                    var(&a(k)),
+                                    var(&b(k)),
+                                    tuple(&a, i + 1),
+                                    tuple(b, i + 1),
+                                    decision(k),
+                                    all,
+                                ],
+                            );
+                        }
+                        let pack = apps(
+                            var(&format!("{prefix}{}%pack", ctor.name)),
+                            vec![tuple(&a, 0)],
+                        );
+                        let cong =
+                            |f: Expr| lam(&["%e"], apps(var("Std.Eq.cong"), vec![f, var("%e")]));
+                        apps(
+                            var("Std.Decidable.map"),
+                            vec![all, cong(var(&unpack)), cong(pack)],
+                        )
                     } else {
                         let mut all = decision(data_fields[last]);
                         let mut equal = cong(data_fields[last]);
@@ -1878,20 +2075,22 @@ impl Elaborator {
                     patterns.extend(extra.map(|x| Pattern::Var(n(x))));
                     patterns
                 };
+                // Both directions from one decision `%d` of `C %a… = C %b…`.
+                let both_ways = |b: &dyn Fn(usize) -> String| {
+                    let laws = record(vec![
+                        ("forward", apps(var("Std.Decidable.sound"), vec![var("%d")])),
+                        (
+                            "backward",
+                            apps(var("Std.Decidable.complete"), vec![var("%d")]),
+                        ),
+                    ]);
+                    let_in(span, "%d", None, whole(b), laws)
+                };
                 if ctors.len() == 1 {
                     let both = |extra| with(pattern(&b), extra);
                     let by_b = |k: usize| var(&b(k));
                     same_equations.push(equation(&same_name, both(None), tests(&by_b)));
-                    sound_equations.push(equation(
-                        &sound_name,
-                        both(Some("%h")),
-                        apps(var("Std.Decidable.sound"), vec![whole(&b), var("%h")]),
-                    ));
-                    complete_equations.push(equation(
-                        &complete_name,
-                        both(Some("%e")),
-                        apps(var("Std.Decidable.complete"), vec![whole(&b), var("%e")]),
-                    ));
+                    iff_equations.push(equation(&iff_name, both(None), both_ways(&b)));
                     continue;
                 }
                 // Two constructors or more: the tags first, then the fields
@@ -1916,11 +2115,14 @@ impl Elaborator {
                 };
                 let second = || Pattern::Var(n("%s"));
                 same_equations.push(equation(&same_name, with(second(), None), rhs));
-                // T.%sameSound (C %a0 …) %s %h =
-                //   let %e : T.%tag %s = c := Eq.sym (DecEq.tagsSame c (T.%tag %s) %h)
-                //   let %b0 := T.%C%0%at %s %e …
-                //   let %v := J (%y %q => T.%same (C %a0 …) %y = True) %h (Eq.sym (T.%etaAt %s c %e))
-                //   Eq.trans (Decidable.sound (… : Decidable (C %a0 … = C %b0 …)) %v) (T.%etaAt %s c %e)
+                // T.%sameIff (C %a0 …) %s =
+                //   let %k : T.%tag %s = c -> Iff (T.%same (C %a0 …) %s = True) (C %a0 … = %s) := %e =>
+                //     let %b0 := T.%C%0%at %s %e …
+                //     J (%y %q => Iff (T.%same (C %a0 …) %y = True) (C %a0 … = %y))
+                //       (let %d := (… : Decidable (C %a0 … = C %b0 …)); { forward = Decidable.sound %d, … })
+                //       (T.%etaAt %s c %e)
+                //   { forward = %h => (%k (Eq.sym (DecEq.tagsSame c (T.%tag %s) %h))).forward %h,
+                //     backward = %x => (%k (Eq.sym (Eq.cong T.%tag %x))).backward %x }
                 let first = Expr::Ann(
                     Box::new(apps(
                         var(&ctor_name),
@@ -1929,13 +2131,13 @@ impl Elaborator {
                     Box::new(this.clone()),
                     span,
                 );
-                let same_as = |y: &str| {
-                    lam(
-                        &[y, "%q"],
+                let claim = |y: Expr| {
+                    iff(
                         eq(
-                            apps(var(&same_name.text), vec![first.clone(), var(y)]),
+                            apps(var(&same_name.text), vec![first.clone(), y.clone()]),
                             var("Std.Bool.True"),
                         ),
+                        eq(first.clone(), y),
                     )
                 };
                 let eta_at = apps(
@@ -1953,57 +2155,71 @@ impl Elaborator {
                         vec![number.clone(), tag_s.clone(), var("%h")],
                     )
                 };
-                let viewed = apps(
+                let mut at_c = apps(
                     var("J"),
-                    vec![
-                        same_as("%y"),
-                        var("%h"),
-                        apps(var("Std.Eq.flipped"), vec![eta_at.clone()]),
-                    ],
+                    vec![lam(&["%y", "%q"], claim(var("%y"))), both_ways(&b), eta_at],
                 );
-                let mut body = apps(
-                    var("Std.Eq.trans"),
-                    vec![
-                        apps(var("Std.Decidable.sound"), vec![whole(&b), var("%v")]),
-                        eta_at,
-                    ],
-                );
-                let by_b = |k: usize| var(&b(k));
-                let viewed_ty = eq(tests(&by_b), var("Std.Bool.True"));
-                body = let_in(span, "%v", Some(viewed_ty), viewed, body);
                 for k in (0..count).rev() {
                     let field = format!("{prefix}{}%{k}%at", ctor.name);
-                    body = let_in(
+                    at_c = let_in(
                         span,
                         &b(k),
                         None,
                         apps(var(&field), vec![var("%s"), var("%e")]),
-                        body,
+                        at_c,
                     );
                 }
-                body = let_in(
-                    span,
-                    "%e",
-                    Some(eq(tag_s.clone(), number.clone())),
-                    apps(var("Std.Eq.flipped"), vec![tags_same]),
-                    body,
+                let at_c_ty = Expr::Arrow(
+                    Box::new(eq(tag_s.clone(), number.clone())),
+                    Box::new(claim(var("%s"))),
                 );
-                sound_equations.push(equation(&sound_name, with(second(), Some("%h")), body));
-                // T.%sameComplete (C %a0 …) %s %e =
-                //   J (%y %q => T.%same (C %a0 …) %y = True) (Decidable.complete (… : Decidable (C %a0 … = C %a0 …)) rfl) %e
-                let refl = apps(
-                    var("Std.Decidable.complete"),
-                    vec![whole(&a), var("byComputing")],
+                let flipped = |e: Expr| apps(var("Std.Eq.flipped"), vec![e]);
+                let tag_of_x = apps(
+                    var("Std.Eq.cong"),
+                    vec![lam(&["%z"], apps(var(&tag), vec![var("%z")])), var("%x")],
                 );
-                complete_equations.push(equation(
-                    &complete_name,
-                    with(second(), Some("%e")),
-                    apps(var("J"), vec![same_as("%y"), refl, var("%e")]),
-                ));
+                let direction = |field: &str, tags: Expr, x: &str| {
+                    let law = apps(var(field), vec![apps(var("%k"), vec![flipped(tags)])]);
+                    lam(&[x], apps(law, vec![var(x)]))
+                };
+                let body = record(vec![
+                    ("forward", direction("Std.Iff.forward", tags_same, "%h")),
+                    ("backward", direction("Std.Iff.backward", tag_of_x, "%x")),
+                ]);
+                let body = let_in(span, "%k", Some(at_c_ty), lam(&["%e"], at_c), body);
+                iff_equations.push(equation(&iff_name, with(second(), None), body));
             }
             tests.push((same_signature, same_equations));
-            proofs.push((sound_signature, sound_equations));
-            proofs.push((complete_signature, complete_equations));
+            proofs.push((iff_signature, iff_equations));
+            // T.%sameSound %r %s %h = (T.%sameIff %r %s).forward %h, and
+            // T.%sameComplete likewise.
+            let by_iff = |name: &ast::Name, sig: Decl, field: &str, x: &str| {
+                let law = apps(
+                    var(field),
+                    vec![apps(var(&iff_name.text), vec![var("%r"), var("%s")])],
+                );
+                let equation = Decl::Equation {
+                    guard: None,
+                    name: name.clone(),
+                    patterns: ["%r", "%s", x].iter().map(|v| Pattern::Var(n(v))).collect(),
+                    rhs: Some(apps(law, vec![var(x)])),
+                    arm: None,
+                    span,
+                };
+                (sig, vec![equation])
+            };
+            laws.push(by_iff(
+                &sound_name,
+                sound_signature,
+                "Std.Iff.forward",
+                "%h",
+            ));
+            laws.push(by_iff(
+                &complete_name,
+                complete_signature,
+                "Std.Iff.backward",
+                "%e",
+            ));
             // The test's two readings (§5.4), from its two proofs; the
             // negative one by `Decidable.refute` and `toBoolOfNot` on the
             // decision the instance is made of.
@@ -2026,12 +2242,6 @@ impl Elaborator {
                     span,
                 };
                 (sig, vec![equation])
-            };
-            let iff = |a: Expr, b: Expr| apps(var("Std.Iff"), vec![a, b]);
-            let record = |fields: Vec<(&str, Expr)>| Expr::Record {
-                base: None,
-                fields: fields.into_iter().map(|(f, e)| (n(f), e)).collect(),
-                span,
             };
             let by_pair = |f: String| apps(var(&f), vec![var("%r"), var("%s")]);
             let test = by_pair(same_name.text.clone());
@@ -2144,6 +2354,7 @@ impl Elaborator {
         Source {
             tests,
             proofs,
+            laws,
             instances,
             readings,
         }
@@ -2288,9 +2499,12 @@ type Definition = (Decl, Vec<Decl>);
 struct Source {
     /// `T.%same`, then each container's, defined together.
     tests: Vec<(Decl, Vec<Decl>)>,
-    /// `T.%sameSound` and `T.%sameComplete`, then each container's, defined
-    /// together after the tests, which their types mention.
+    /// `T.%sameIff`, then each container's, defined together after the
+    /// tests, which their types mention.
     proofs: Vec<(Decl, Vec<Decl>)>,
+    /// `T.%sameSound` and `T.%sameComplete`, then each container's: the two
+    /// directions of `T.%sameIff`.
+    laws: Vec<(Decl, Vec<Decl>)>,
     /// For each type `T` of the group: `T.%decide`, the decision made of
     /// `T.%same` and its proofs, and `T.%instDecEq`.
     instances: Vec<(Definition, Definition)>,
