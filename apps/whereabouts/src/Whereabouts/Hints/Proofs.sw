@@ -4,7 +4,7 @@
 
 namespace Whereabouts.Hints.Proofs
 import Whereabouts.Hints (..)
-import Std (Bool, Eq, Float, Int, List, Nat)
+import Std (Bool, Eq, Float, Int, List, Nat, Ord)
 
 --| mulberry32's last word is a word.
 theorem finalWordBelow ∀ (parts: List Float): finalWord parts < 4294967296 :=
@@ -2960,3 +2960,152 @@ theorem ceilStepBound ∀ (x width: Float)
           (Both (ceilFinite360 x lo hi) b)
           w.flipped)
         e.flipped
+
+theorem lessOfAddNat ∀ (a b: Int) (p: Nat) (h: Int.less (Int.add a (OfNat p)) b = True): Int.less a b = True :=
+  arithmetic [h]
+
+theorem notNaNOfFinite ∀ (x: Float) (f: Float.isFinite x = True): Float.isNaN x = False :=
+  Float.Theory.finiteNotNaN x.bits (Float.Theory.finiteBits x f)
+
+--| The unclamped lower edge of a latitude band, `lat - placeAt unit * width`,
+--| is finite, at least -270° and below the answer.
+theorem unclampedFacts ∀ (lat width unit: Float)
+    (latLo: -90.0 <= lat)
+    (latHi: lat <= 90.0)
+    (wLo: 1e-11 <= width)
+    (wHi: width <= 180.0)
+    (low: 0.0 <= unit)
+    (high: unit <= 1.0):
+    (Float.isFinite (lat - placeAt unit * width) = True)
+      ∧ ((-270.0 <= lat - placeAt unit * width) ∧ (lat - placeAt unit * width < lat)) :=
+  let unc: Float := lat - placeAt unit * width
+  let fl: Float.isFinite lat = True := Float.finiteBetween (-90.0) lat 90.0 byComputing byComputing latLo latHi
+  let fw: Float.isFinite width = True := Float.finiteBetween 1e-11 width 180.0 byComputing byComputing wLo wHi
+  let w0: 0.0 <= width := floatLeTrans 0.0 1e-11 width byComputing wLo
+  let row := marginRow lat width unit fl fw w0 low high
+  let s85 := shareOfWidth 0.85 width byComputing byComputing fw w0
+  let a: -90.0 - 0.85 * width <= lat - 0.85 * width :=
+    Float.subMonotoneLeft (-90.0) lat (0.85 * width) byComputing fl s85.left latLo
+  let b: -90.0 - 180.0 <= -90.0 - 0.85 * width :=
+    Float.subAntitoneRight (-90.0) (0.85 * width) 180.0 byComputing s85.left byComputing
+      (floatLeTrans (0.85 * width) width 180.0 s85.right.right wHi)
+  let lo: -270.0 <= unc :=
+    J
+      (y z => y <= unc)
+      (floatLeTrans (-90.0 - 180.0) (lat - 0.85 * width) unc (floatLeTrans (-90.0 - 180.0) (-90.0 - 0.85 * width) (lat - 0.85 * width) b a) row.left)
+      (byComputing: -90.0 - 180.0 = -270.0)
+  let lt: unc < lat :=
+    Float.Theory.lessOfUnits unc lat
+      (lessOfAddNat
+        (Float.Theory.units unc)
+        (Float.Theory.units lat)
+        (Float.Model.pow2 1032)
+        (marginBelowExact lat
+          width
+          unit
+          (floatLeTrans (-361.0) (-90.0) lat byComputing latLo)
+          (floatLeTrans lat 90.0 361.0 latHi byComputing)
+          wLo
+          (floatLeTrans width 180.0 361.0 wHi byComputing)
+          low
+          high))
+  Both (Float.finiteBetween (-270.0) unc lat byComputing fl lo (floatLeOfLt unc lat lt)) (Both lo lt)
+
+--| `90 - width` for a width from 0 to 180° is finite and from -90° to 90°.
+theorem topEdgeRange ∀ (width: Float)
+    (fw: Float.isFinite width = True)
+    (w0: 0.0 <= width)
+    (wHi: width <= 180.0):
+    (Float.isFinite (90.0 - width) = True) ∧ ((-90.0 <= 90.0 - width) ∧ (90.0 - width <= 90.0)) :=
+  let lo: -90.0 <= 90.0 - width :=
+    J
+      (y z => y <= 90.0 - width)
+      (Float.subAntitoneRight 90.0 width 180.0 byComputing fw byComputing wHi)
+      (byComputing: 90.0 - 180.0 = -90.0)
+  let hi: 90.0 - width <= 90.0 :=
+    J
+      (y z => 90.0 - width <= y)
+      (Float.subAntitoneRight 90.0 0.0 width byComputing byComputing fw w0)
+      (byComputing: 90.0 - 0.0 = 90.0)
+  Both (Float.finiteBetween (-90.0) (90.0 - width) 90.0 byComputing byComputing lo hi) (Both lo hi)
+
+theorem chainBelow ∀ (a b c d: Int) (p: Nat)
+    (h1: Int.leq a (Int.add b (OfNat p)) = True)
+    (h2: Int.leq b c = True)
+    (h3: Int.less (Int.add c (OfNat p)) d = True):
+    Int.less a d = True :=
+  arithmetic [h1, h2, h3]
+
+--| `floorTo (-90.0)` is -90° at either step.
+theorem floorAtSouthPole ∀ (width: Float): floorTo (-90.0) (stepFor width) = -90.0 :=
+  match stepEither width with
+    | Inl e => J (s z => floorTo (-90.0) s = -90.0) byComputing e.flipped
+    | Inr e => J (s z => floorTo (-90.0) s = -90.0) byComputing e.flipped
+
+--| A latitude band's lower edge is at most the answer, by JS's `<=`, for
+--| the answer within [-90°, 90°], a width from 1e-11° to 180° (`latitudeWidthRange`
+--| gives one from the tolerance) and `unit` from 0 to 1.
+--|
+--| The proof: when the edge isn't clamped at -90°, it is at most the
+--| unclamped edge, which is more than 2^-42 below the answer
+--| (`marginBelowExact`), and rounding moves it up by at most 2^-42
+--| (`floorStepBound`). When it is clamped, it is -90° exactly (`90 - width`
+--| is at least -90°), which both steps keep.
+theorem latitudeFromBelow ∀ (lat width unit: Float)
+    (latLo: -90.0 <= lat)
+    (latHi: lat <= 90.0)
+    (wLo: 1e-11 <= width)
+    (wHi: width <= 180.0)
+    (low: 0.0 <= unit)
+    (high: unit <= 1.0):
+    Float.ieeeLe (latitudeBand lat width (placeAt unit)).from.value lat = True :=
+  let fl: Float.isFinite lat = True := Float.finiteBetween (-90.0) lat 90.0 byComputing byComputing latLo latHi
+  let fw: Float.isFinite width = True := Float.finiteBetween 1e-11 width 180.0 byComputing byComputing wLo wHi
+  let w0: 0.0 <= width := floatLeTrans 0.0 1e-11 width byComputing wLo
+  let unc: Float := lat - placeAt unit * width
+  let u := unclampedFacts lat width unit latLo latHi wLo wHi low high
+  let nu: Float.isNaN unc = False := notNaNOfFinite unc u.left
+  let m: Float := Float.max unc (-90.0)
+  let nm: Float.isNaN m = False := Float.maxNotNaN unc (-90.0) nu byComputing
+  let top := topEdgeRange width fw w0 wHi
+  let nt: Float.isNaN (90.0 - width) = False := notNaNOfFinite (90.0 - width) top.left
+  let from: Float := Float.min m (90.0 - width)
+  let fromM: from <= m := Float.minLeLeft m (90.0 - width) nm nt
+  let fromLo: -90.0 <= from := Float.leMin m (90.0 - width) (-90.0) nm nt (Float.leMaxRight unc (-90.0) nu byComputing) top.right.left
+  let fromHi: from <= 90.0 := floatLeTrans from (90.0 - width) 90.0 (Float.minLeRight m (90.0 - width) nm nt) top.right.right
+  let step: Float := stepFor width
+  let fs :=
+    floorStepBound from width (floatLeTrans (-360.0) (-90.0) from byComputing fromLo) (floatLeTrans from 90.0 360.0 fromHi byComputing)
+  let nf: Float.isNaN (floorTo from step) = False := notNaNOfFinite (floorTo from step) fs.left
+  let below: floorTo from step <= lat := Float.Theory.orCase
+    (Float.maxEither unc (-90.0) nu byComputing)
+    (e =>
+      let fu: from <= unc := J (y z => from <= y) fromM e
+      floatLeOfLt (floorTo from step) lat
+        (Float.Theory.lessOfUnits (floorTo from step) lat
+          (chainBelow
+            (Float.Theory.units (floorTo from step))
+            (Float.Theory.units from)
+            (Float.Theory.units unc)
+            (Float.Theory.units lat)
+            (Float.Model.pow2 1032)
+            fs.right
+            (Float.Theory.unitsMonoKey from.bits unc.bits fu)
+            (marginBelowExact lat
+              width
+              unit
+              (floatLeTrans (-361.0) (-90.0) lat byComputing latLo)
+              (floatLeTrans lat 90.0 361.0 latHi byComputing)
+              wLo
+              (floatLeTrans width 180.0 361.0 wHi byComputing)
+              low
+              high))))
+    (e =>
+      let atPole: from = -90.0 := Ord.leAntisymm from (-90.0) (J (y z => from <= y) fromM e) fromLo
+      J (y z => floorTo y step <= lat) (J (y z => y <= lat) latLo (floorAtSouthPole width).flipped) atPole.flipped)
+  Float.ieeeLeOfLe
+    (Float.max (-90.0) (floorTo from step))
+    lat
+    (Float.maxNotNaN (-90.0) (floorTo from step) byComputing nf)
+    (notNaNOfFinite lat fl)
+    (clampFromKeeps lat (floorTo from step) nf latLo below)
