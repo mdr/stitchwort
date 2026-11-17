@@ -85,4 +85,4 @@ theorem inCalc ∀ (a n: Nat): a * Succ n = a * n + a := calc a * Succ n
   _ = a * n + a := rewrite Nat.addComm a (a * n)
 
 -- `in` may start its own line, at the `rewrite`'s column or right of it.
-theorem inOwnLine ∀ (a b c: Nat) (h: a = b) (k: b = c): a + 0 = c + 0 := rewrite h, k then byComputing
+theorem inOwnLine ∀ (a b c: Nat) (h: a = b) (k: b = c): a + 0 = c + 0 := rewrite h, k

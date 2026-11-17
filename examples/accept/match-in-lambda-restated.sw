@@ -43,8 +43,7 @@ theorem labelThenSuccRewritten ∀ (xs: List Nat):
   rewrite List.mapMap xs (m => m + 1) (n =>
         match n with
           | Zero => 1
-          | Succ k => k) then
-    byComputing
+          | Succ k => k)
 
 -- Under `byComputing`, with the binders renamed.
 theorem labelRefl ∀ (xs: List Nat):

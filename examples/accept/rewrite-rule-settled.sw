@@ -13,7 +13,7 @@ def keep (a: t): t := a
 
 theorem keepSame ∀ (a: t): keep a = a := byComputing
 
-theorem kept: keep { label = 3 } = ({ label = 3 }: Tag) := rewrite keepSame { label = 3 } then byComputing
+theorem kept: keep { label = 3 } = ({ label = 3 }: Tag) := rewrite keepSame { label = 3 }
 
 -- With the literal's type written, nothing waits.
-theorem annotated: keep { label = 3 } = ({ label = 3 }: Tag) := rewrite keepSame ({ label = 3 }: Tag) then byComputing
+theorem annotated: keep { label = 3 } = ({ label = 3 }: Tag) := rewrite keepSame ({ label = 3 }: Tag)

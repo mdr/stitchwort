@@ -10,4 +10,4 @@ import Std (Eq, List, Nat)
 theorem mulOneRight (n: Nat): n * 1 = n := arithmetic
 
 theorem wrongCong (xs: List Nat): List.map xs (x => x + 1) = List.map xs (x => x) :=
-  List.mapCong xs _ _ (x => rewrite mulOneRight x then byComputing)
+  List.mapCong xs _ _ (x => rewrite mulOneRight x)

@@ -10,18 +10,18 @@ opaque def small: Nat -> Nat
   | 2 => 12
   | n => n
 
-theorem smallTwo: small 2 = 12 := rewrite small.unfold then byComputing
+theorem smallTwo: small 2 = 12 := rewrite small.unfold
 
-theorem smallFive: small 5 = 5 := rewrite small.unfold then byComputing
+theorem smallFive: small 5 = 5 := rewrite small.unfold
 
 opaque def size: List Nat -> Nat
   | [] => 0
   | [_, ..rest] => 1 + size rest
 
-theorem sizeNil: size [] = 0 := rewrite size.unfold then byComputing
+theorem sizeNil: size [] = 0 := rewrite size.unfold
 
 -- Without `unfolding`, `size rest` is stuck: what's known is its type.
-theorem sizeCons ∀ (x: Nat) (rest: List Nat): size [x, ..rest] = 1 + size rest := rewrite size.unfold then byComputing
+theorem sizeCons ∀ (x: Nat) (rest: List Nat): size [x, ..rest] = 1 + size rest := rewrite size.unfold
 
 theorem sizeTwo ∀ (x y: Nat): size [x, y] = 2 unfolding size := byComputing
 

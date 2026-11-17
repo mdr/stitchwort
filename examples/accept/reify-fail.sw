@@ -40,8 +40,8 @@ theorem toResultMap ∀ (f: a → {Fail} b) (xs: List a):
         match reify (() => f x) with
           | return y =>
             match reify (() => xs.map f) with
-              | return ys => rewrite <- rest then byComputing
-              | Fail.stop msg, _ => rewrite <- rest then byComputing
+              | return ys => rewrite <- rest
+              | Fail.stop msg, _ => rewrite <- rest
           | Fail.stop msg, _ => byComputing
 
 -- Std's own, used.

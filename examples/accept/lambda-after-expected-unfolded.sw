@@ -9,4 +9,4 @@ theorem mulOneRight ∀ (n: Nat): n * 1 = n := arithmetic
 
 theorem unfolded ∀ (xs: List Nat):
     List.foldLeft xs 0 (acc x => acc + (x * 1)) = List.foldLeft xs 0 (acc x => acc + x) :=
-  List.sumByCong xs _ _ (x => rewrite mulOneRight x then byComputing)
+  List.sumByCong xs _ _ (x => rewrite mulOneRight x)

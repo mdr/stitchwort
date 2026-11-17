@@ -8,4 +8,4 @@ import Std (Bool, Decidable, Eq, List, Nat)
 def zeros (xs: List Nat): List Nat := xs.filter (n => n == 0)
 
 theorem skipThenRest (x: Nat) (rest: List Nat) (h: x = 0) (e: zeros rest = Nil): zeros (Cons x rest) = Nil :=
-  Eq.trans (List.filterSkip _ _ _ (rewrite h then byComputing)) e
+  Eq.trans (List.filterSkip _ _ _ (rewrite h)) e

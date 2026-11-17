@@ -18,12 +18,12 @@ def pick (n: Nat) (bag: Bag): Bag
   if n ≤ 1 then bag else pick (n / 2) { items = [n, ..bag.items] } [decreasing := arithmetic]
 
 theorem callFound ∀ (n: Nat) (h: pick n empty = empty): (pick n empty).items = [] := match same: pick n empty with
-  | result => rewrite h then byComputing
+  | result => rewrite h
 
 theorem armsKeepCall ∀ (n: Nat): (pick n empty).items.length = (pick n empty).items.length + 0 :=
   match small: Nat.leq n 1 with
-    | True => rewrite pick.unfold n empty, small then byComputing
-    | False => rewrite pick.unfold n empty, small then byComputing
+    | True => rewrite pick.unfold n empty, small
+    | False => rewrite pick.unfold n empty, small
 
 -- The field still computes to the field of the unfolding.
 theorem computes: (pick 6 empty).items = [3, 6] := byComputing

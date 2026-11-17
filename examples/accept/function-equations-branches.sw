@@ -81,7 +81,7 @@ def bothAfter (k: Nat) (a: Option Nat): Nat := match a, k + 1 with
   | _, _ => 0
 
 theorem bothAfterSome ∀ (k: Nat) (a: Option Nat) (x: Nat) (h: a = Some x): bothAfter k a = x + k :=
-  bothAfter.eq.alt1 k a x k (rewrite h then byComputing)
+  bothAfter.eq.alt1 k a x k (rewrite h)
 
 -- Nested: a `match` on the alternative's variable.
 def firstTwo (xs: List Nat): Nat := match List.head xs with

@@ -13,7 +13,7 @@ def Version.decide (x y: Version): Decidable (x = y) :=
 
 theorem Version.sameParts ∀ (x y: Version) (h: (x.major, x.minor) = (y.major, y.minor)): x = y := match x, y with
   | { major = a1, minor = b1 }, { major = a2, minor = b2 } =>
-    rewrite Eq.cong Pair.fst h, Eq.cong Pair.snd h then byComputing
+    rewrite Eq.cong Pair.fst h, Eq.cong Pair.snd h
 
 instance Version.instDecEq: DecEq Version := { decide = Version.decide }
 

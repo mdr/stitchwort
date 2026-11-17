@@ -11,10 +11,10 @@ type Box = { size: Nat }
 theorem addZeroAgain ∀ (n: Nat): n + 0 = n := Nat.addZero n
 
 def sizes (b: Box): b.size + 0 = b.size :=
-  let f := c => (rewrite addZeroAgain c.size then byComputing: c.size + 0 = c.size)
+  let f := c => (rewrite addZeroAgain c.size: c.size + 0 = c.size)
   f b
 
 -- With `c`'s type written, nothing waits.
 def annotated (b: Box): b.size + 0 = b.size :=
-  let f := (c: Box) => (rewrite addZeroAgain c.size then byComputing: c.size + 0 = c.size)
+  let f := (c: Box) => (rewrite addZeroAgain c.size: c.size + 0 = c.size)
   f b

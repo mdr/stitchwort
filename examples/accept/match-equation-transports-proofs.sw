@@ -13,7 +13,7 @@ def width (field: Option Nat) (size: Nat): Nat := match field with
   | Some n => n
 
 theorem emptyWidth ∀ (slot: Slot) (empty: slot.field = None): width slot.field slot.size = slot.size :=
-  rewrite empty then byComputing
+  rewrite empty
 
 -- The lemma's result has `slot.field` where the arm's goal has `None`.
 theorem widthOrSet ∀ (slot: Slot)

@@ -69,8 +69,7 @@ theorem layoutContiguous ∀ (start: Nat) (items: List Item) (k: Nat)
         start
         k
         arithmetic,
-      List.foldLeftTakeSucc (offset item => offset + item.size) blank items start k arithmetic then
-    byComputing
+      List.foldLeftTakeSucc (offset item => offset + item.size) blank items start k arithmetic
 
 -- The same placement as `mapAccumLeft`, threading the offset.
 theorem layoutMapAccum ∀ (start: Nat) (items: List Item):

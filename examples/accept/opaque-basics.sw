@@ -12,10 +12,10 @@ theorem doubleThree: double 3 = 6 unfolding double := byComputing
 
 -- `double.unfold n: double n = double.%body n`, where `double.%body` is a
 -- copy of the body that computes when something looks inside it.
-theorem doubleTwo: double 2 = 4 := rewrite double.unfold then byComputing
+theorem doubleTwo: double 2 = 4 := rewrite double.unfold
 
 -- Calls are compared by their arguments, as for a function variable.
-theorem sameCall ∀ (a b: Nat) (e: a = b): double a = double b := rewrite e then byComputing
+theorem sameCall ∀ (a b: Nat) (e: a = b): double a = double b := rewrite e
 
 -- A transparent definition may call it; a theorem about that one unfolds
 -- what it needs. (`double.%body` stays folded inside arithmetic, so
