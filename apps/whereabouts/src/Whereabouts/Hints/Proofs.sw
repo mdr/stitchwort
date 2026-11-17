@@ -2107,20 +2107,21 @@ theorem sumNear ∀ (g d: Float)
 
 theorem marginArith ∀ (l d s f: Int) (w e: Nat)
     (ee: e = w * 4)
-    (dHi: Int.leq d (Int.neg (OfNat (w * 6))) = True)
+    (pw: 1 ≤ w)
+    (dHi: Int.leq d (Int.neg (OfNat (w * 7))) = True)
     (near: Int.leq s (Int.add (Int.add l d) (OfNat (w * 2))) = True)
     (fs: Int.leq f s = True):
-    Int.leq (Int.add f (OfNat e)) l = True :=
-  arithmetic [ee, dHi, near, fs]
+    Int.less (Int.add f (OfNat e)) l = True :=
+  arithmetic [ee, pw, dHi, near, fs]
 
 --| The exact margin at the lower edge: for a band at least 1e-11° wide, the
---| unrounded lower edge `lat - placeAt unit * width` is at least 2^-42
+--| unrounded lower edge `lat - placeAt unit * width` is more than 2^-42
 --| below the answer, in exact units, so `floorTo`'s error at step 0.1
 --| (`floorToTenthBound`) can't carry it past the answer. (The margin is
 --| 0.15 of the width; 1e-11° is far below any real band.)
 --|
 --| The proof: the edge is at most `lat - 0.15 * width` (`marginRow`), and
---| `0.15 * width` is at least `0.15 * 1e-11`, over 6 · 2^-44; the standard
+--| `0.15 * width` is at least `0.15 * 1e-11`, over 7 · 2^-44; the standard
 --| model for the subtraction (`sumNear`) loses at most 2^-43 of it.
 theorem marginBelowExact ∀ (lat width unit: Float)
     (latLo: -361.0 <= lat)
@@ -2129,7 +2130,7 @@ theorem marginBelowExact ∀ (lat width unit: Float)
     (wHi: width <= 361.0)
     (low: 0.0 <= unit)
     (high: unit <= 1.0):
-    Int.leq
+    Int.less
       (Int.add (Float.Theory.units (lat - placeAt unit * width)) (OfNat (Float.Model.pow2 1032)))
       (Float.Theory.units lat)
       = True :=
@@ -2154,11 +2155,11 @@ theorem marginBelowExact ∀ (lat width unit: Float)
   let dLo: -361.0 <= d := Float.negAntitone q 361.0 nq byComputing qHi
   let e: lat - q = lat + d := Float.subAddNeg lat q
   let near := (sumNear lat d latLo latHi dLo (floatLeTrans d (-(0.15 * 1e-11)) 361.0 dHi byComputing)).right.right
-  let du: Int.leq (Float.Theory.units d) (Int.neg (OfNat (Float.Model.pow2 1030 * 6))) = True :=
+  let du: Int.leq (Float.Theory.units d) (Int.neg (OfNat (Float.Model.pow2 1030 * 7))) = True :=
     intLeTransOf
       (Float.Theory.units d)
       (Float.Theory.units (-(0.15 * 1e-11)))
-      (Int.neg (OfNat (Float.Model.pow2 1030 * 6)))
+      (Int.neg (OfNat (Float.Model.pow2 1030 * 7)))
       (Float.Theory.unitsMonoKey d.bits (-(0.15 * 1e-11)).bits dHi)
       byComputing
   let edge: Int.leq (Float.Theory.units (lat - placeAt unit * width)) (Float.Theory.units (lat + d)) = True :=
@@ -2173,6 +2174,7 @@ theorem marginBelowExact ∀ (lat width unit: Float)
     (Float.Theory.units (lat - placeAt unit * width))
     (Float.Model.pow2 1030)
     (Float.Model.pow2 1032)
+    byComputing
     byComputing
     du
     near
@@ -2225,8 +2227,8 @@ theorem natOfIntAbove ∀ (lo u: Int) (m wd: Nat)
 theorem shareFinal ∀ (ur uw: Int) (r wd v e: Nat)
     (er: ur = OfNat r)
     (ew: uw = OfNat wd)
-    (ee: e = v * 4096)
-    (g: r + v * 4096 ≤ wd):
+    (ee: e = v * 8192)
+    (g: r + v * 8192 ≤ wd):
     Int.leq (Int.add ur (OfNat e)) uw = True :=
   arithmetic [er, ew, ee, g]
 
@@ -2240,7 +2242,7 @@ theorem shareGap ∀ (r wd v: Nat)
     (scaled: r * (9007199254740992 * 9007199254740992)
       ≤ wd * (7656119366529843 * 9007199254740992 + 7656119366529843) + 9007199254740992 * 4503599627370496)
     (big: v * 90071 ≤ wd):
-    r + v * 4096 ≤ wd :=
+    r + v * 8192 ≤ wd :=
   arithmetic [pv, scaled, big]
 
 theorem absDiffBelow ∀ (a b m c: Nat) (h: Nat.absDiff a b * m ≤ c): a * m ≤ b * m + c :=
@@ -2270,7 +2272,7 @@ theorem shareAboveAt ∀ (width: Float) (v e: Nat)
     (u1e11: Int.leq (OfNat (v * 90071)) (Float.Theory.units 1e-11) = True)
     (p1074: Float.Model.pow2 1074 = v * 9007199254740992)
     (top: v * 1621295865853378560 * (v * 7656119366529843) < Float.Model.pow2 1074 * Nat.pow 2 2097)
-    (ee: e = v * 4096)
+    (ee: e = v * 8192)
     (wLo: 1e-11 <= width)
     (wHi: width <= 180.0):
     Int.leq (Int.add (Float.Theory.units (0.85 * width)) (OfNat e)) (Float.Theory.units width) = True :=
@@ -2341,21 +2343,17 @@ theorem shareAboveAt ∀ (width: Float) (v e: Nat)
       big
   shareFinal (Float.Theory.units r) (Float.Theory.units width) rn wd v e ru wu ee gap
 
---| `0.85 * width` is at least 8 · 2^-44 below `width`, in exact units, for
+--| `0.85 * width` is at least 16 · 2^-44 below `width`, in exact units, for
 --| a width from 1e-11° to 180°: the standard model for `*` puts it within
---| 2^-53 of 0.85 of the width, and 0.15 of 1e-11° is over 8 · 2^-44.
-
---| `0.85 * width` is at least 8 · 2^-44 below `width`, in exact units, for
---| a width from 1e-11° to 180°: the standard model for `*` puts it within
---| 2^-53 of 0.85 of the width, and 0.15 of 1e-11° is over 8 · 2^-44.
+--| 2^-53 of 0.85 of the width, and 0.15 of 1e-11° is over 26 · 2^-44.
 theorem shareAbove ∀ (width: Float)
     (wLo: 1e-11 <= width)
     (wHi: width <= 180.0):
-    Int.leq (Int.add (Float.Theory.units (0.85 * width)) (OfNat (Float.Model.pow2 1030 * 8))) (Float.Theory.units width)
+    Int.leq (Int.add (Float.Theory.units (0.85 * width)) (OfNat (Float.Model.pow2 1030 * 16))) (Float.Theory.units width)
       = True :=
   shareAboveAt width
     (Float.Model.pow2 1021)
-    (Float.Model.pow2 1030 * 8)
+    (Float.Model.pow2 1030 * 16)
     byComputing
     byComputing
     byComputing
@@ -2368,13 +2366,14 @@ theorem shareAbove ∀ (width: Float)
 
 theorem marginUpArith ∀ (l dd rr c wd t2 t: Int) (w e: Nat)
     (ee: e = w * 4)
+    (pw: 1 ≤ w)
     (dn: dd = Int.neg rr)
-    (core: Int.leq (Int.add rr (OfNat (w * 8))) wd = True)
+    (core: Int.leq (Int.add rr (OfNat (w * 16))) wd = True)
     (s1: Int.leq (Int.add l dd) (Int.add c (OfNat (w * 2))) = True)
     (s2: Int.leq (Int.add c wd) (Int.add t2 (OfNat (w * 2))) = True)
     (mono: Int.leq t2 t = True):
-    Int.leq (Int.add l (OfNat e)) t = True :=
-  arithmetic [ee, dn, core, s1, s2, mono]
+    Int.less (Int.add l (OfNat e)) t = True :=
+  arithmetic [ee, pw, dn, core, s1, s2, mono]
 
 --| A share of the width negated: from -180° to -0.
 theorem negShare ∀ (a width: Float)
@@ -2391,15 +2390,15 @@ theorem negShare ∀ (a width: Float)
       (Float.negAntitone 0.0 (a * width) byComputing n low))
 
 --| The exact margin at the upper edge: for a band from 1e-11° to 180° wide
---| around `lat` within 180°, the unrounded upper edge `from + width` is at
---| least 2^-42 above the answer, in exact units, so `ceilTo`'s error at
+--| around `lat` within 180°, the unrounded upper edge `from + width` is more
+--| than 2^-42 above the answer, in exact units, so `ceilTo`'s error at
 --| step 0.1 (`ceilToTenthBound`) can't carry it below the answer.
 --|
 --| The proof: `from` is at least `lat - 0.85 * width` (`marginRow`), so
 --| `from + width` is at least `(lat - 0.85 * width) + width`, which the
 --| standard model for `+` (`sumNear`, twice) puts within 2^-42 of
 --| `lat + (width - 0.85 * width)`, and `shareAbove` puts the bracket over
---| 8 · 2^-44.
+--| 16 · 2^-44.
 theorem marginAboveExact ∀ (lat width unit: Float)
     (latLo: -180.0 <= lat)
     (latHi: lat <= 180.0)
@@ -2407,7 +2406,7 @@ theorem marginAboveExact ∀ (lat width unit: Float)
     (wHi: width <= 180.0)
     (low: 0.0 <= unit)
     (high: unit <= 1.0):
-    Int.leq
+    Int.less
       (Int.add (Float.Theory.units lat) (OfNat (Float.Model.pow2 1032)))
       (Float.Theory.units (lat - placeAt unit * width + width))
       = True :=
@@ -2480,6 +2479,7 @@ theorem marginAboveExact ∀ (lat width unit: Float)
     (Float.Theory.units (fr + width))
     (Float.Model.pow2 1030)
     (Float.Model.pow2 1032)
+    byComputing
     byComputing
     (unitsNeg r nr.left)
     (shareAbove width wLo wHi)
