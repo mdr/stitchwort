@@ -1,5 +1,5 @@
 {
-  "next": 3699,
+  "next": 3700,
   "tickets": [
     {
       "id": 47,
@@ -41643,12 +41643,12 @@
     {
       "id": 3694,
       "title": "[Sonnet] Bench regression (broad tier 9ff2833ca, bench::baseline counts_have_not_regressed): check-nested-apps steps +23% (26,081 -> 32,081), peak heap +37.7% (1.9 -> 2.6 MB); text-literal-walk heap +18%. Find the commit (bench that row only on a few commits since the baseline), profile, and fix if it is an accident; if it is a deliberate cost (e.g. a new check), report with the numbers. Results unchanged (D3447); performance-log entry",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Lane notes (Sonnet): two accidents. Steps +3/application from the SW-3561 holding-lambdas trigger (fd79bb763, 0bc8e177f) evaluating on calls that made no unknown; heap from SW-3322 (72b280851) adding an unboxed Option<ProbePending> to undo::Snapshot. Fix on lane/SW-3694 ab65cbf44: steps 26,081 (was 32,081), heap 1.9 MB (was 2.6), text-literal-walk 3 kB. Perf log entry added; baseline untouched. Model result: Sonnet, worked, 45 min (est. 45).\n",
+      "body": "Lane notes (Sonnet): two accidents. Steps +3/application from the SW-3561 holding-lambdas trigger (fd79bb763, 0bc8e177f) evaluating on calls that made no unknown; heap from SW-3322 (72b280851) adding an unboxed Option<ProbePending> to undo::Snapshot. Fix on lane/SW-3694 ab65cbf44: steps 26,081 (was 32,081), heap 1.9 MB (was 2.6), text-literal-walk 3 kB. Perf log entry added; baseline untouched. Model result: Sonnet, worked, 45 min (est. 45).\n\nModel result: sonnet, worked, 50 min (est. 45). Causes: SW-3561 trigger ran on every application; SW-3322 unboxed ProbePending in Snapshot. Follow-up SW-3699.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -41696,6 +41696,19 @@
       "id": 3698,
       "title": "[Sonnet] Broad tier 9ff2833ca, driver library/elaboration reds: natives::the_real_prelude_registers_every_native, builtins::a_renamed_binder_of_a_shaped_builtin_is_refused, builtins::a_reordered_binder_of_a_shaped_builtin_is_refused, hash_stability::examples, import_cost::importing_std_namespaces_stays_within_recorded_step_counts, reads_chain_cost::reads_chain_proofs_stay_within_recorded_step_counts. Run each alone, read the failure, find the cause; fix or update the recorded counts/snapshots only where the change was deliberate (say which commit and why)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3699,
+      "title": "[DeepSeek] Cheap guard for SW-3694's heap regression: a unit test pinning size_of::<undo::Snapshot>() (and Held) with a comment saying a deep recursion keeps one per level, so a field added there must be boxed or justified",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
