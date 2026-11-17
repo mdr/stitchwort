@@ -1538,7 +1538,7 @@ theorem Float.Theory.roundsToExact ∀ (m r: Nat)
         (Float.Theory.capAbsurd Float.Theory.overflowUnits
           (Float.Theory.magUnits m)
           (Float.Theory.magUnits 9218868437227405311)
-          (spec.overflow (arithmetic [c, spec.bounded]))
+          (spec.overflow (Float.Theory.atInfinity r c spec.bounded))
           (Float.Theory.magUnitsLe m 9218868437227405311 (arithmetic [hm]))
           Float.Theory.largestUnder)
     | False =>
@@ -5216,3 +5216,179 @@ test "Float.sterbenz" :=
     ∧ Float.Theory.units (359.9 - 180.0) == Int.sub (Float.Theory.units 359.9) (Float.Theory.units 180.0)
     ∧ Float.Theory.units (1e-310 - 6e-311) == Int.sub (Float.Theory.units 1e-310) (Float.Theory.units 6e-311)
     ∧ ¬(Float.Theory.units (1.0 - 1e-17) == Int.sub (Float.Theory.units 1.0) (Float.Theory.units 1e-17))
+
+-- Sums between two doubles
+
+theorem Float.Theory.overflowAbsurd ∀ (o x b: Nat) (eb: b = x * 1) (h1: 1 * o ≤ b) (h2: x < o): Void :=
+  arithmetic [eb, h1, h2]
+
+theorem Float.Theory.atInfinity ∀ (r: Nat)
+    (c: Nat.leq 9218868437227405312 r = True)
+    (b: r ≤ 9218868437227405312):
+    r = 9218868437227405312 :=
+  arithmetic [c, b]
+
+--| A positive number of units below the overflow threshold rounds to a finite pattern.
+theorem Float.Theory.magnitudeFinite ∀ (x: Nat)
+    (px: 0 < x)
+    (h: x < Float.Theory.overflowUnits):
+    Float.Model.roundMagnitude False x 1 (OfNat 0) < 9218868437227405312 :=
+  let r: Nat := Float.Model.roundMagnitude False x 1 (OfNat 0)
+  let spec: Float.Theory.RoundsTo (Float.Model.scaleUp x (OfNat 0)) (Float.Model.scaleDown 1 (OfNat 0)) r :=
+    Float.Theory.roundMagnitudeSpec x 1 (OfNat 0) px byComputing
+  Float.Theory.orCase (Float.Theory.boolCases (Nat.leq 9218868437227405312 r))
+    (c =>
+      Void.impossible
+        (Float.Theory.overflowAbsurd Float.Theory.overflowUnits
+          x
+          (Float.Model.scaleUp x (OfNat 0))
+          byComputing
+          (spec.overflow (Float.Theory.atInfinity r c spec.bounded))
+          h))
+    (c => Float.Theory.belowInfinity r c)
+
+--| A sum of units below the overflow threshold in size rounds to a finite
+--| double.
+theorem Float.Theory.roundFinite ∀ (num: Int) (z: Bool)
+    (h: Int.natAbs num < Float.Theory.overflowUnits):
+    Float.Theory.FiniteBits (Float.Model.roundRatio num 1 (-1074) z) :=
+  match num with
+    | OfNat Zero =>
+      match z with
+        | True => byComputing
+        | False => byComputing
+    | OfNat (Succ k) =>
+      J
+        (r w => Float.Theory.FiniteBits r)
+        (Float.Theory.unitsOfMagnitude
+          (Float.Model.roundMagnitude False (Succ k) 1 (OfNat 0))
+          False
+          (Float.Theory.magnitudeFinite (Succ k) byComputing h)).left
+        (Float.Theory.roundRatioOfPos 1 (-1074) z (Succ k) byComputing).flipped
+    | NegSucc k =>
+      J
+        (r w => Float.Theory.FiniteBits r)
+        (Float.Theory.unitsOfMagnitude
+          (Float.Model.roundMagnitude False (Succ k) 1 (OfNat 0))
+          True
+          (Float.Theory.magnitudeFinite (Succ k) byComputing h)).left
+        (Float.Theory.roundRatioOfNeg 1 (-1074) z (Succ k) byComputing).flipped
+
+--| The bits of a sum of finite doubles: their units' sum, rounded.
+theorem Float.Theory.addBitsOf ∀ (x c: Float)
+    (fx: Float.isFinite x = True)
+    (fc: Float.isFinite c = True):
+    (x + c).bits
+      = Float.Model.roundRatio
+        (Int.add (Float.Theory.units x) (Float.Theory.units c))
+        1
+        (-1074)
+        (Float.Model.signBit x.bits ∧ Float.Model.signBit c.bits) :=
+  let z: Bool := Float.Model.signBit x.bits ∧ Float.Model.signBit c.bits
+  let n: Int := Int.add (Float.Theory.units x) (Float.Theory.units c)
+  Eq.trans
+    (Eq.cong (w => w.bits) (Float.Theory.addFinite x c fx fc))
+    (Float.Theory.ofBitsBits (Float.Model.roundRatio n 1 (-1074) z)
+      (Float.Theory.roundRatioValid 1 (-1074) z byComputing n))
+
+--| A sum of finite doubles with fewer units than the overflow threshold is finite.
+theorem Float.Theory.addFiniteOf ∀ (x c: Float)
+    (fx: Float.isFinite x = True)
+    (fc: Float.isFinite c = True)
+    (h: Int.natAbs (Int.add (Float.Theory.units x) (Float.Theory.units c)) < Float.Theory.overflowUnits):
+    Float.isFinite (x + c) = True :=
+  Float.Theory.isFiniteOf (x + c)
+    (J
+      (r w => Float.Theory.FiniteBits r)
+      (Float.Theory.roundFinite
+        (Int.add (Float.Theory.units x) (Float.Theory.units c))
+        (Float.Model.signBit x.bits ∧ Float.Model.signBit c.bits)
+        h)
+      (Float.Theory.addBitsOf x c fx fc).flipped)
+
+--| A sum of finite doubles whose exact value is at least a finite double's is
+--| at least it in the total order, unless the bound is `0.0` and the sum a
+--| `-0.0`.
+theorem Float.Theory.addAtLeast ∀ (x c lo: Float)
+    (fx: Float.isFinite x = True)
+    (fc: Float.isFinite c = True)
+    (flo: Float.isFinite lo = True)
+    (h: Int.leq (Float.Theory.units lo) (Int.add (Float.Theory.units x) (Float.Theory.units c)) = True)
+    (zs: Float.Model.signBit lo.bits = False → (Float.Model.signBit x.bits ∧ Float.Model.signBit c.bits) = False):
+    lo <= x + c :=
+  Float.Theory.leqVia
+    (Float.orderKey lo)
+    (Float.orderKey (x + c))
+    (Float.Theory.roundKey (Float.Theory.units lo) 1 (-1074) (Float.Model.signBit lo.bits))
+    (Float.Theory.roundKey
+      (Int.add (Float.Theory.units x) (Float.Theory.units c))
+      1
+      (-1074)
+      (Float.Model.signBit x.bits ∧ Float.Model.signBit c.bits))
+    (Eq.cong Float.Theory.key (Float.Theory.roundRatioUnitsBits lo.bits (Float.Theory.finiteBits lo flo)).flipped)
+    (Eq.cong Float.Theory.key (Float.Theory.addBitsOf x c fx fc))
+    (Float.Theory.roundKeyMonoLe 1
+      (-1074)
+      (Float.Model.signBit lo.bits)
+      (Float.Model.signBit x.bits ∧ Float.Model.signBit c.bits)
+      byComputing
+      (Float.Theory.units lo)
+      (Int.add (Float.Theory.units x) (Float.Theory.units c))
+      h
+      zs)
+
+--| A sum of finite doubles whose exact value is at most a finite double's is
+--| at most it, unless the sum is a `0.0` and the bound `-0.0`.
+theorem Float.Theory.addAtMost ∀ (x c hi: Float)
+    (fx: Float.isFinite x = True)
+    (fc: Float.isFinite c = True)
+    (fhi: Float.isFinite hi = True)
+    (h: Int.leq (Int.add (Float.Theory.units x) (Float.Theory.units c)) (Float.Theory.units hi) = True)
+    (zs: (Float.Model.signBit x.bits ∧ Float.Model.signBit c.bits) = False → Float.Model.signBit hi.bits = False):
+    x + c <= hi :=
+  Float.Theory.leqVia
+    (Float.orderKey (x + c))
+    (Float.orderKey hi)
+    (Float.Theory.roundKey
+      (Int.add (Float.Theory.units x) (Float.Theory.units c))
+      1
+      (-1074)
+      (Float.Model.signBit x.bits ∧ Float.Model.signBit c.bits))
+    (Float.Theory.roundKey (Float.Theory.units hi) 1 (-1074) (Float.Model.signBit hi.bits))
+    (Eq.cong Float.Theory.key (Float.Theory.addBitsOf x c fx fc))
+    (Eq.cong Float.Theory.key (Float.Theory.roundRatioUnitsBits hi.bits (Float.Theory.finiteBits hi fhi)).flipped)
+    (Float.Theory.roundKeyMonoLe 1
+      (-1074)
+      (Float.Model.signBit x.bits ∧ Float.Model.signBit c.bits)
+      (Float.Model.signBit hi.bits)
+      byComputing
+      (Int.add (Float.Theory.units x) (Float.Theory.units c))
+      (Float.Theory.units hi)
+      h
+      zs)
+
+--| A finite double has at most the largest finite double's units in size.
+theorem Float.Theory.unitsAtMostMax ∀ (x: Float)
+    (fx: Float.isFinite x = True):
+    Int.natAbs (Float.Theory.units x) ≤ Float.Theory.magUnits 9218868437227405311 :=
+  J
+    (u w => u ≤ Float.Theory.magUnits 9218868437227405311)
+    (Float.Theory.magUnitsLe (Float.Model.magnitude x.bits) 9218868437227405311 (arithmetic [Float.Theory.finiteBits x fx]))
+    (Float.Theory.natAbsUnits x.bits).flipped
+
+--| `x % y` for finite `x` and finite nonzero `y`: finite, and of fewer
+--| units than `y` in size.
+theorem Float.Theory.remUnits ∀ (x y: Float)
+    (fx: Float.isFinite x = True)
+    (fy: Float.isFinite y = True)
+    (zy: Float.isZero y = False):
+    (Float.isFinite (x % y) = True) ∧ (Int.natAbs (Float.Theory.units (x % y)) < Int.natAbs (Float.Theory.units y)) :=
+  let ex := Float.Theory.remExact x.bits
+    y.bits
+    (Float.Theory.finiteBits x fx)
+    (Float.Theory.finiteBits y fy)
+    (Float.Theory.modelNotZero y zy)
+  let rb: (x % y).bits = Float.Model.remBits x.bits y.bits := Float.Theory.remOfBits x y fx fy zy
+  Both
+    (Float.Theory.isFiniteOf (x % y) (J (r w => Float.Theory.FiniteBits r) ex.left.left rb.flipped))
+    (J (r w => Int.natAbs (Float.Model.units r) < Int.natAbs (Float.Model.units y.bits)) ex.right rb.flipped)
