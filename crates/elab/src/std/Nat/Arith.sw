@@ -214,7 +214,10 @@ theorem Nat.quotUnique ∀ (d q r q2 r2: Nat) (h1: r < d) (h2: r2 < d) (e: q * d
           (Nat.addCancelLeft d
             (a * d + r)
             (b * d + r2)
-            (Eq.trans (Eq.flipped (Nat.addAssoc d (a * d) r)) (Eq.trans e (Nat.addAssoc d (b * d) r2)))))
+            (calc d + (a * d + r)
+              _ = d + a * d + r := Eq.flipped (Nat.addAssoc d (a * d) r)
+              _ = d + b * d + r2 := e
+              _ = d + (b * d + r2) := Nat.addAssoc d (b * d) r2)))
 
 theorem Nat.divUnique ∀ (n d q r: Nat) (h: r < d) (e: n = q * d + r): n / d = q :=
   Nat.quotUnique d
@@ -350,7 +353,10 @@ theorem Nat.halfDouble ∀ (n: Nat): (n + n) / 2 = n :=
     n
     0
     byComputing
-    (Eq.flipped (Eq.trans (Nat.addZero (n * 2)) (Eq.trans (Nat.mulSucc n 1) (Eq.cong (t => n + t) (Nat.mulOne n)))))
+    (calc n + n
+      _ = n + n * 1 := Eq.flipped (Eq.cong (t => n + t) (Nat.mulOne n))
+      _ = n * 2 := Eq.flipped (Nat.mulSucc n 1)
+      _ = n * 2 + 0 := Eq.flipped (Nat.addZero (n * 2)))
 
 -- Remainders and shifts. A multiple of `d` can be added or dropped without
 -- changing the remainder, and a sum can be reduced early.
@@ -365,7 +371,11 @@ theorem Nat.addMulDivMod ∀ (a b d: Nat): a + b * d = (a / d + b) * d + a % d :
 
 --| `(a + b * d) % d = a % d`
 theorem Nat.modAddMul ∀ (a b d: Nat): (a + b * d) % d = a % d := match d with
-  | Zero => Eq.trans (Nat.modZero (a + b * 0)) (Eq.trans (Eq.cong (t => a + t) (Nat.mulZero b)) (Nat.modZero a).flipped)
+  | Zero =>
+    calc (a + b * 0) % 0
+      _ = a + b * 0 := Nat.modZero (a + b * 0)
+      _ = a + 0 := Eq.cong (t => a + t) (Nat.mulZero b)
+      _ = a % 0 := (Nat.modZero a).flipped
   | Succ d =>
     Nat.modUnique
       (a + b * Succ d)
@@ -585,7 +595,11 @@ theorem Nat.mulSuccCancel ∀ (b v m: Nat) (e: b * Succ m = v * Succ m): b = v :
 theorem Nat.mulCancelLeft: ∀ (n: Nat) => 1 ≤ n → ∀ (a b: Nat) => n * a = n * b → a = b
   | Zero, h, a, b, e => cases
   | Succ m, h, a, b, e =>
-    Nat.mulSuccCancel a b m (Eq.trans (Nat.mulComm a (Succ m)) (Eq.trans e (Nat.mulComm (Succ m) b)))
+    Nat.mulSuccCancel a b m
+      (calc a * Succ m
+        _ = Succ m * a := Nat.mulComm a (Succ m)
+        _ = Succ m * b := e
+        _ = b * Succ m := Nat.mulComm (Succ m) b)
 
 --| Cancelling a nonzero factor on the right.
 theorem Nat.mulRightCancel ∀ (a b c: Nat) (nz: c ≠ 0) (e: a * c = b * c): a = b := match c with
@@ -706,8 +720,10 @@ theorem Nat.minSucc ∀ (m n: Nat): Nat.min (Succ m) (Succ n) = Succ (Nat.min m 
 def Nat.absDiff (m n: Nat): Nat := (m - n) + (n - m)
 
 --| The distance from a number to itself is 0.
-theorem Nat.absDiffSelf ∀ (m: Nat): Nat.absDiff m m = 0 :=
-  Eq.trans (Eq.cong (t => t + (m - m)) (Nat.subSelf m)) (Eq.trans (Eq.cong (t => 0 + t) (Nat.subSelf m)) byComputing)
+theorem Nat.absDiffSelf ∀ (m: Nat): Nat.absDiff m m = 0 := calc m - m + (m - m)
+  _ = 0 + (m - m) := Eq.cong (t => t + (m - m)) (Nat.subSelf m)
+  _ = 0 + 0 := Eq.cong (t => 0 + t) (Nat.subSelf m)
+  _ = 0 := byComputing
 
 --| The distance is symmetric.
 theorem Nat.absDiffComm ∀ (m n: Nat): Nat.absDiff m n = Nat.absDiff n m := Nat.addComm (m - n) (n - m)

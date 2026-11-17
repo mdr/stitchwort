@@ -41682,12 +41682,12 @@
     {
       "id": 3697,
       "title": "[Sonnet] W-PROOF-CHAIN counts lines, so stitchwort fmt silences it whenever a nest fits in 120 columns (SW-3696). Make it count the nest (two or more nested trans, any layout?) and recheck the std pins (SW-3611 lowered 205 to 157 by exempting one-line nests: measure what the new rule warns on before choosing)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\n\n\nLane: removed the one-line exemption (keep_written_arrows); the rule now counts the nest. Example reverted to short natural names plus a one-line case. std: at least 37 warnings in 11 files (crude list), aoc at least 6 in 4 files; not fixed. Branch lane/SW-3697.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []

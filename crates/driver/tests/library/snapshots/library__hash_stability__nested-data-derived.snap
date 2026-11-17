@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 data Main.Packet d0756ea353430c72484beddcdbb003e107792db167f942b45ea75fcf158804e5
@@ -74,7 +73,7 @@ Main.test "show empty" d1b83eefc16e9aed3afd54633cdaf4db4f6c1dcda53117df21a3161e8
 Main.test "show in a list" a4069d536b285167cb14038194b9c0a8de888cebcc98b0e60138e3b80c1f2cdb
 Main.test "sort" fed6e19a7cb97a2b48c4b419ae8b8f8acd39eb1f8e68673562dabbf318c5bd9c
 Main.test "contains" 1d540ea39c695c979e94673648d6a80b01810115fdb02f63c18e3b27d6c5a5ff
-Main.test "map keys" 4de812c1d15dcf995df19ac799ad66ee3557fb84645f675d4a02c07b6863ba8d
+Main.test "map keys" 3fd9ccb1553818867ff86b254c78ec7401e9163ef2c4fb2df8f835024b24a4a6
 Main.needsSame 1c0ad60463b42a27d2ecde5ee23d6e649c2a97620b3e2ee07b9fe72b12ffe4bf
 Main.test "auto" 6c4875e86d30e3309ede5d7f7064d3daa221b3c7b0687929dfa2156416115ba9
 Main.test "if" 6fa0c5b25cfd2544df8c3707de70bd2120585f60fb0bde8eb5e17d0b907684f1

@@ -165,7 +165,10 @@ theorem Int.negSubNatNat ∀ (m n: Nat): Int.neg (Int.subNatNat m n) = Int.subNa
   | Zero, Succ n => byComputing
   | Succ m, Zero => byComputing
   | Succ m, Succ n =>
-    Eq.trans (Eq.cong Int.neg (Int.subNatNatSucc m n)) (Eq.trans (Int.negSubNatNat m n) (Int.subNatNatSucc n m).flipped)
+    calc Int.neg (Int.subNatNat (Succ m) (Succ n))
+      _ = Int.neg (Int.subNatNat m n) := Eq.cong Int.neg (Int.subNatNatSucc m n)
+      _ = Int.subNatNat n m := Int.negSubNatNat m n
+      _ = Int.subNatNat (Succ n) (Succ m) := (Int.subNatNatSucc n m).flipped
 
 theorem Int.addNeg ∀ (a: Int): Int.add a (Int.neg a) = OfNat 0 := match a with
   | OfNat Zero => byComputing
@@ -259,8 +262,10 @@ theorem Int.addNegAdd ∀ (x y: Int): Int.add (Int.add x (Int.neg y)) y = x := c
   _ = x + 0 := Eq.cong (Int.add x) (Int.addNeg y)
   _ = x := Int.addZero x
 
-theorem Int.addAddNeg ∀ (x y: Int): Int.add (Int.add x y) (Int.neg y) = x :=
-  Eq.trans (Int.addAssoc x y (Int.neg y)) (Eq.trans (Eq.cong (Int.add x) (Int.addNeg y)) (Int.addZero x))
+theorem Int.addAddNeg ∀ (x y: Int): Int.add (Int.add x y) (Int.neg y) = x := calc Int.add (Int.add x y) (Int.neg y)
+  _ = Int.add x (Int.add y (Int.neg y)) := Int.addAssoc x y (Int.neg y)
+  _ = Int.add x (OfNat 0) := Eq.cong (Int.add x) (Int.addNeg y)
+  _ = x := Int.addZero x
 
 --| Adding a multiple of `d`, a negative one too, keeps the remainder.
 theorem Int.modNatAddMulInt ∀ (x: Int) (d: Nat) (q: Int):
@@ -291,8 +296,12 @@ theorem Int.divAddModNat ∀ (x: Int) (d: Nat)
     (Int.divAddMod x (Nat.toInt d))
 
 --| Only the remainder of `x` matters to the remainders of `x + y` and `-x`.
-theorem Int.addSwapOf ∀ (m r x y: Int) (h: Int.add m r = x): Int.add (Int.add r y) m = Int.add x y :=
-  Eq.trans (Int.addComm (Int.add r y) m) (Eq.trans (Int.addAssoc m r y).flipped (Eq.cong (t => Int.add t y) h))
+theorem Int.addSwapOf ∀ (m r x y: Int) (h: Int.add m r = x): Int.add (Int.add r y) m = Int.add x y := calc Int.add
+  (Int.add r y)
+  m
+  _ = Int.add m (Int.add r y) := Int.addComm (Int.add r y) m
+  _ = Int.add (Int.add m r) y := (Int.addAssoc m r y).flipped
+  _ = Int.add x y := Eq.cong (t => Int.add t y) h
 
 theorem Int.modNatModAdd ∀ (x y: Int) (d: Nat)
     [auto ok: d ≠ 0]:
@@ -308,8 +317,12 @@ theorem Int.modNatModAdd ∀ (x y: Int) (d: Nat)
         y
         (Int.divAddModNat x d [ok := ok])))
 
-theorem Int.negAddOf ∀ (m r x: Int) (h: Int.add m r = x): Int.add (Int.neg r) (Int.neg m) = Int.neg x :=
-  Eq.trans (Int.addComm (Int.neg r) (Int.neg m)) (Eq.trans (Int.negAdd m r).flipped (Eq.cong Int.neg h))
+theorem Int.negAddOf ∀ (m r x: Int) (h: Int.add m r = x): Int.add (Int.neg r) (Int.neg m) = Int.neg x := calc Int.add
+  (Int.neg r)
+  (Int.neg m)
+  _ = Int.add (Int.neg m) (Int.neg r) := Int.addComm (Int.neg r) (Int.neg m)
+  _ = Int.neg (Int.add m r) := (Int.negAdd m r).flipped
+  _ = Int.neg x := Eq.cong Int.neg h
 
 theorem Int.modNatModNeg ∀ (x: Int) (d: Nat)
     [auto ok: d ≠ 0]:

@@ -16,11 +16,17 @@ import Ring.Mono (MkMono)
 
 -- Rearranging sums and products
 
-theorem Ring.addLeftComm ∀ (a b c: Int): Int.add a (Int.add b c) = Int.add b (Int.add a c) :=
-  Eq.trans (Int.addAssoc a b c).flipped (Eq.trans (Eq.cong (t => Int.add t c) (Int.addComm a b)) (Int.addAssoc b a c))
+theorem Ring.addLeftComm ∀ (a b c: Int): Int.add a (Int.add b c) = Int.add b (Int.add a c) := calc Int.add a
+  (Int.add b c)
+  _ = Int.add (Int.add a b) c := (Int.addAssoc a b c).flipped
+  _ = Int.add (Int.add b a) c := Eq.cong (t => Int.add t c) (Int.addComm a b)
+  _ = Int.add b (Int.add a c) := Int.addAssoc b a c
 
-theorem Ring.mulLeftComm ∀ (a b c: Int): Int.mul a (Int.mul b c) = Int.mul b (Int.mul a c) :=
-  Eq.trans (Int.mulAssoc a b c).flipped (Eq.trans (Eq.cong (t => Int.mul t c) (Int.mulComm a b)) (Int.mulAssoc b a c))
+theorem Ring.mulLeftComm ∀ (a b c: Int): Int.mul a (Int.mul b c) = Int.mul b (Int.mul a c) := calc Int.mul a
+  (Int.mul b c)
+  _ = Int.mul (Int.mul a b) c := (Int.mulAssoc a b c).flipped
+  _ = Int.mul (Int.mul b a) c := Eq.cong (t => Int.mul t c) (Int.mulComm a b)
+  _ = Int.mul b (Int.mul a c) := Int.mulAssoc b a c
 
 theorem Ring.mulMulSwap ∀ (a b c d: Int): Int.mul (Int.mul a b) (Int.mul c d) = Int.mul (Int.mul a c) (Int.mul b d) :=
   calc a * b * (c * d)
@@ -28,11 +34,15 @@ theorem Ring.mulMulSwap ∀ (a b c d: Int): Int.mul (Int.mul a b) (Int.mul c d) 
     _ = a * (c * (b * d)) := Eq.cong (Int.mul a) (Ring.mulLeftComm b c d)
     _ = a * c * (b * d) := Eq.flipped (Int.mulAssoc a c (Int.mul b d))
 
-theorem Ring.addNegCancel ∀ (a c: Int): Int.add (Int.add a c) (Int.neg c) = a :=
-  Eq.trans (Int.addAssoc a c (Int.neg c)) (Eq.trans (Eq.cong (Int.add a) (Int.addNeg c)) (Int.addZero a))
+theorem Ring.addNegCancel ∀ (a c: Int): Int.add (Int.add a c) (Int.neg c) = a := calc Int.add (Int.add a c) (Int.neg c)
+  _ = Int.add a (Int.add c (Int.neg c)) := Int.addAssoc a c (Int.neg c)
+  _ = Int.add a (OfNat 0) := Eq.cong (Int.add a) (Int.addNeg c)
+  _ = a := Int.addZero a
 
-theorem Ring.addRightCancel ∀ (a b c: Int) (h: Int.add a c = Int.add b c): a = b :=
-  Eq.trans (Ring.addNegCancel a c).flipped (Eq.trans (Eq.cong (t => Int.add t (Int.neg c)) h) (Ring.addNegCancel b c))
+theorem Ring.addRightCancel ∀ (a b c: Int) (h: Int.add a c = Int.add b c): a = b := calc a
+  _ = Int.add (Int.add a c) (Int.neg c) := (Ring.addNegCancel a c).flipped
+  _ = Int.add (Int.add b c) (Int.neg c) := Eq.cong (t => Int.add t (Int.neg c)) h
+  _ = b := Ring.addNegCancel b c
 
 theorem Ring.natAddRightCancel ∀ (a b c: Nat) (h: a + c = b + c): a = b :=
   Int.ofNatInjective a b (Ring.addRightCancel (OfNat a) (OfNat b) (OfNat c) (Eq.cong OfNat h))
@@ -188,8 +198,11 @@ theorem Ring.evalNeg ∀ (env: Ring.Env) (p: List Ring.Mono):
     Ring.Poly.eval env (Ring.neg p) = Int.neg (Ring.Poly.eval env p) :=
   Eq.trans (Ring.evalScale env (NegSucc 0) [] p) (Int.negOneMul (Ring.Poly.eval env p))
 
-theorem Ring.evalConst ∀ (env: Ring.Env) (c: Int): Ring.Poly.eval env (Ring.const c) = c :=
-  Eq.trans (Ring.evalCons env c [] []) (Eq.trans (Int.addZero (Int.mul c (OfNat 1))) (Int.mulOne c))
+theorem Ring.evalConst ∀ (env: Ring.Env) (c: Int): Ring.Poly.eval env (Ring.const c) = c := calc Ring.Poly.eval env
+  (Ring.const c)
+  _ = Int.add (Int.mul c (Ring.prod env [])) (Ring.Poly.eval env []) := Ring.evalCons env c [] []
+  _ = Int.mul c (OfNat 1) := Int.addZero (Int.mul c (OfNat 1))
+  _ = c := Int.mulOne c
 
 theorem Ring.evalSingle ∀ (env: Ring.Env) (v: Nat): Ring.Poly.eval env (Ring.single v) = Ring.var env v := calc 1
   * (Ring.var env v * 1)
@@ -261,12 +274,18 @@ theorem Ring.proveNat ∀ (env: Ring.Env) (a b: Ring.NExpr)
   Int.ofNatInjective
     (Ring.NExpr.eval env a)
     (Ring.NExpr.eval env b)
-    (Eq.trans (Ring.NExpr.sound env a).flipped (Eq.trans (Eq.cong (Ring.Poly.eval env) ok) (Ring.NExpr.sound env b)))
+    (calc OfNat (Ring.NExpr.eval env a)
+      _ = Ring.Poly.eval env (Ring.NExpr.poly a) := (Ring.NExpr.sound env a).flipped
+      _ = Ring.Poly.eval env (Ring.NExpr.poly b) := Eq.cong (Ring.Poly.eval env) ok
+      _ = OfNat (Ring.NExpr.eval env b) := Ring.NExpr.sound env b)
 
 theorem Ring.proveInt ∀ (env: Ring.Env) (a b: Ring.ZExpr)
     (ok: Ring.ZExpr.poly a = Ring.ZExpr.poly b):
     Ring.ZExpr.eval env a = Ring.ZExpr.eval env b :=
-  Eq.trans (Ring.ZExpr.sound env a).flipped (Eq.trans (Eq.cong (Ring.Poly.eval env) ok) (Ring.ZExpr.sound env b))
+  calc Ring.ZExpr.eval env a
+    _ = Ring.Poly.eval env (Ring.ZExpr.poly a) := (Ring.ZExpr.sound env a).flipped
+    _ = Ring.Poly.eval env (Ring.ZExpr.poly b) := Eq.cong (Ring.Poly.eval env) ok
+    _ = Ring.ZExpr.eval env b := Ring.ZExpr.sound env b
 
 -- With hypotheses `l1 = r1`, ...: `a + (r1 + ...) = b + (l1 + ...)` as
 -- polynomials, and the two sums are equal, so `a = b` (`algebra [h1, ...]`).

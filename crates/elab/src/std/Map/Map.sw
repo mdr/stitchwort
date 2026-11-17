@@ -413,7 +413,10 @@ theorem Map.containsReadsFalse ∀ [auto ord: Ord k] (m: Map k v) (key: k):
 theorem Map.ext ∀ (m n: Map k v [ord := o]) (h: ∀ (key: k) => Map.get m key = Map.get n key): m = n :=
   Map.toListInjective m n
     (Map.Spec.extLookup None (Map.toList m) (Map.toList n) (Map.toListSorted m) (Map.toListSorted n) (key =>
-      Eq.trans (Map.getToList m key).flipped (Eq.trans (h key) (Map.getToList n key))))
+      calc Map.Tree.lookupList key (Map.toList m)
+        _ = Map.get m key := (Map.getToList m key).flipped
+        _ = Map.get n key := h key
+        _ = Map.Tree.lookupList key (Map.toList n) := Map.getToList n key))
 
 --| `==`: compare the entry lists, the keys by the map's ordering. The branch
 --| is chosen by the list comparison; `Quot.sound` is only inside the yes
@@ -631,7 +634,11 @@ theorem Map.popMinRespects ∀ (a b: Map.Raw k v [ord := o])
   Map.viewsAgree
     (Map.Raw.popMin a)
     (Map.Raw.popMin b)
-    (Eq.trans (Map.Raw.popMinToList a) (Eq.trans (Eq.cong Map.Spec.uncons same) (Map.Raw.popMinToList b).flipped))
+    (calc Option.map (Map.Raw.popMin a) (view => (view.fst, Map.Raw.toList view.snd))
+      _ = Map.Spec.uncons (Map.Raw.toList a) := Map.Raw.popMinToList a
+      _ = Map.Spec.uncons (Map.Raw.toList b) := Eq.cong Map.Spec.uncons same
+      _ = Option.map (Map.Raw.popMin b) (view => (view.fst, Map.Raw.toList view.snd)) :=
+        (Map.Raw.popMinToList b).flipped)
 
 --| `popMinSpec` for one representative, given its view and its entries.
 theorem Map.popMinSpecRaw ∀ [auto ord: Ord k] (r: Map.Raw k v) (x: Option ((k, v), Map.Raw k v)) (entries: List (k, v))
@@ -1590,8 +1597,10 @@ theorem Map.inductionToList ∀ [auto ord: Ord k] [p: Map k v → Prop] (base: p
   match xs with
     | [] => rewrite Map.toListInjective m Map.empty h then base
     | [(kk, vv), ..rest] =>
-      let found: Map.get m kk = Some vv :=
-        Eq.trans (Map.getToList m kk) (Eq.trans (Eq.cong (Map.Tree.lookupList kk) h) (Map.Spec.lookupHead kk vv rest))
+      let found: Map.get m kk = Some vv := calc Map.get m kk
+        _ = Map.Tree.lookupList kk (Map.toList m) := Map.getToList m kk
+        _ = Map.Tree.lookupList kk [(kk, vv), ..rest] := Eq.cong (Map.Tree.lookupList kk) h
+        _ = Some vv := Map.Spec.lookupHead kk vv rest
       let back: Map.insert (Map.remove m kk) kk vv = m := Map.ext ((m.remove kk).insert kk vv) m (other =>
         if e: other = kk then rewrite e then Eq.trans (Map.getInsert kk vv (m.remove kk)) found.flipped
         else Eq.trans (Map.getInsertOther kk vv other e (m.remove kk)) (Map.getRemoveOther m kk other e))

@@ -90,7 +90,12 @@ theorem neighboursOfMem ∀ (passages: List Passage) (cave y: Cave):
             | Inl (Both fromC toY) => rewrite fromC then Inl toY.read
             | Inr (Both fromY tc) =>
               match fc: from == cave with
-                | True => Inl (Eq.trans tc.read (Eq.trans fc.read.flipped fromY.read))
+                | True =>
+                  Inl
+                    (calc to
+                      _ = cave := tc.read
+                      _ = from := fc.read.flipped
+                      _ = y := fromY.read)
                 | False => rewrite tc then Inl fromY.read
           (List.memUnique y _).backward (List.memFlatMapIntro leadsTo { from, to } y passages member inEdge)
   }

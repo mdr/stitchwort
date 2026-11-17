@@ -341,7 +341,10 @@ theorem Omega.subCases ∀ (t a b: Nat)
       kl
         (Both e
           (Both
-            (Eq.trans (Eq.cong (x => x + b) h) (Eq.trans (Nat.addComm (a - b) b) (Nat.addSubCancel b a e)))
+            (calc t + b
+              _ = a - b + b := Eq.cong (x => x + b) h
+              _ = b + (a - b) := Nat.addComm (a - b) b
+              _ = a := Nat.addSubCancel b a e)
             Trivial)))
     (e => kr (Both e.read (Both (Eq.trans h (Nat.subEqZero a b (Nat.lessLe a b e.read))) Trivial)))
 

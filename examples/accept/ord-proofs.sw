@@ -21,7 +21,12 @@ theorem lessIrreflexive ∀ [auto ord: Ord a] (x: a): Ord.compare x x ≠ Less
 
 -- `Less` is asymmetric: from `flip`.
 theorem lessAsymmetric ∀ [auto ord: Ord a] (x y: a) (h: Ord.compare x y = Less): Ord.compare y x ≠ Less
-  | e => Ordering.greaterNotLess (Eq.trans (Eq.cong Ordering.flip h).flipped (Eq.trans (ord.flip x y).flipped e))
+  | e =>
+    Ordering.greaterNotLess
+      (calc Ordering.flip Less
+        _ = Ordering.flip (Ord.compare x y) := (Eq.cong Ordering.flip h).flipped
+        _ = Ord.compare y x := (ord.flip x y).flipped
+        _ = Less := e)
 
 -- The relation agrees with the comparison, by the law that says so.
 theorem notBack ∀ [auto ord: Ord a] (x y: a) (h: Ord.lessThan x y): ¬(Ord.lessThan y x)

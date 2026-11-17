@@ -3,32 +3,38 @@ source: crates/cli/tests/running/examples.rs
 expression: warnings
 ---
 [W-PROOF-CHAIN] Warning: a chain of equalities is written with `trans` nested; a `calc` states each step
-    ╭─[ accept/proof-chain-warning.sw:17:3 ]
+    ╭─[ accept/proof-chain-warning.sw:10:79 ]
     │
- 17 │ ╭─▶   Eq.trans theVeryFirstStepOfTheLongChainOfEqualitiesFromAToB
- 18 │ ├─▶     (Eq.trans theVerySecondStepOfTheLongChainOfEqualitiesFromBToC theVeryThirdStepOfTheLongChainOfEqualitiesFromCToD)
-    │ │                                                                                                                           
-    │ ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── write this chain as a `calc`
-    │     
-    │     Note: `calc a` followed by one line `_ = b := proof` per step names every intermediate term, so a broken step is reported on its own line, and the goal at each step can be read (docs/proving-guide.md, "State, don't chain")
+ 10 │ theorem nested ∀ (a b c d: Nat) (ab: a = b) (bc: b = c) (cd: c = d): a = d := Eq.trans ab (Eq.trans bc cd)
+    │                                                                               ─────────────┬─────────────  
+    │                                                                                            ╰─────────────── write this chain as a `calc`
+    │ 
+    │ Note: `calc a` followed by one line `_ = b := proof` per step names every intermediate term, so a broken step is reported on its own line, and the goal at each step can be read (docs/proving-guide.md, "State, don't chain")
 ────╯
 [W-PROOF-CHAIN] Warning: a chain of equalities is written with `trans` nested; a `calc` states each step
-    ╭─[ accept/proof-chain-warning.sw:25:3 ]
+    ╭─[ accept/proof-chain-warning.sw:12:79 ]
     │
- 25 │ ╭─▶   theVeryFirstStepOfTheLongChainOfEqualitiesFromAToB.trans
- 26 │ ├─▶     (theVerySecondStepOfTheLongChainOfEqualitiesFromBToC.trans theVeryThirdStepOfTheLongChainOfEqualitiesFromCToD)
-    │ │                                                                                                                        
-    │ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── write this chain as a `calc`
-    │     
-    │     Note: `calc a` followed by one line `_ = b := proof` per step names every intermediate term, so a broken step is reported on its own line, and the goal at each step can be read (docs/proving-guide.md, "State, don't chain")
+ 12 │ theorem method ∀ (a b c d: Nat) (ab: a = b) (bc: b = c) (cd: c = d): a = d := ab.trans (bc.trans cd)
+    │                                                                               ──────────┬──────────  
+    │                                                                                         ╰──────────── write this chain as a `calc`
+    │ 
+    │ Note: `calc a` followed by one line `_ = b := proof` per step names every intermediate term, so a broken step is reported on its own line, and the goal at each step can be read (docs/proving-guide.md, "State, don't chain")
 ────╯
 [W-PROOF-CHAIN] Warning: a chain of equalities is written with `trans` nested; a `calc` states each step
-    ╭─[ accept/proof-chain-warning.sw:33:4 ]
+    ╭─[ accept/proof-chain-warning.sw:14:82 ]
     │
- 33 │ ╭─▶   (theVeryFirstStepOfTheLongChainOfEqualitiesFromAToB.trans theVerySecondStepOfTheLongChainOfEqualitiesFromBToC).trans
- 34 │ ├─▶       theVeryThirdStepOfTheLongChainOfEqualitiesFromCToD
-    │ │                                                              
-    │ ╰────────────────────────────────────────────────────────────── write this chain as a `calc`
-    │     
-    │     Note: `calc a` followed by one line `_ = b := proof` per step names every intermediate term, so a broken step is reported on its own line, and the goal at each step can be read (docs/proving-guide.md, "State, don't chain")
+ 14 │ theorem receiver ∀ (a b c d: Nat) (ab: a = b) (bc: b = c) (cd: c = d): a = d := (ab.trans bc).trans cd
+    │                                                                                  ──────────┬──────────  
+    │                                                                                            ╰──────────── write this chain as a `calc`
+    │ 
+    │ Note: `calc a` followed by one line `_ = b := proof` per step names every intermediate term, so a broken step is reported on its own line, and the goal at each step can be read (docs/proving-guide.md, "State, don't chain")
+────╯
+[W-PROOF-CHAIN] Warning: a chain of equalities is written with `trans` nested; a `calc` states each step
+    ╭─[ accept/proof-chain-warning.sw:16:80 ]
+    │
+ 16 │ theorem oneLine ∀ (a b c d: Nat) (ab: a = b) (bc: b = c) (cd: c = d): a = d := Eq.trans ab (Eq.trans bc cd)
+    │                                                                                ─────────────┬─────────────  
+    │                                                                                             ╰─────────────── write this chain as a `calc`
+    │ 
+    │ Note: `calc a` followed by one line `_ = b := proof` per step names every intermediate term, so a broken step is reported on its own line, and the goal at each step can be read (docs/proving-guide.md, "State, don't chain")
 ────╯

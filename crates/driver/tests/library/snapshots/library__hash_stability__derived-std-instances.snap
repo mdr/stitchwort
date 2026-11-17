@@ -11,4 +11,4 @@ Main.test "the kinds of a path" abd12f0ed6e51eeeb3c8dd0978486d86f8e993dbc2ecb615
 Main.test "file errors compare by constructor, then by what they carry" 9b55cbb6fbf1b4f8231627defa424e76ac2b1469daa6dbc8819683fecfbff0f2
 Main.test "entries and file information compare" 18893ec0249acbef64f0ab9c72fa83c07ffe528b54e91c183c25dcdb94a1854a
 Main.test "paths order by parts, then relative before absolute" e92b935f18e509ebc17297787d3ee9a007e836a1bbfdd5e3f243e280845a6216
-Main.test "disks compare" 1259becdf7f17c79d50864d289223c8b216e0cffd545b0afb6799af73254d32d
+Main.test "disks compare" 4501162527114ffbf540ab0506b7bbb2fc8dacd156cd153413277f95b7310021

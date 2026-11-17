@@ -82,23 +82,13 @@ pub(crate) fn note(
 
 /// Drops the candidates among `diagnostics` that aren't written with an
 /// arrow after their binder group (a header's parameter, a `∀`), and the
-/// `W-PROOF-CHAIN` nests that sit on one line, and the `rewrite … then`
-/// warnings whose `then` is followed by a bracket.
+/// `rewrite … then` warnings whose `then` is followed by a bracket.
 /// `text` is the text of a file.
 pub fn keep_written_arrows<'a>(
     diagnostics: &mut Vec<Diagnostic>,
     text: impl Fn(FileId) -> Option<&'a str>,
 ) {
     diagnostics.retain(|d| {
-        // A `trans` nest on one line reads fine (SW-3611): only a nest
-        // spanning lines is a chain a `calc` would help with.
-        if d.code == crate::proof_chain::CODE {
-            return d.labels.first().is_none_or(|l| {
-                text(l.span.file)
-                    .and_then(|t| t.get(l.span.range()))
-                    .is_none_or(|t| t.contains('\n'))
-            });
-        }
         // `then (rewrite …)` and `then (byComputing)` keep brackets the fix
         // would leave unmatched: only `then` and the word alone are fixed.
         if d.code == crate::rewrite_then::COMPUTING || d.code == crate::rewrite_then::REWRITE {
