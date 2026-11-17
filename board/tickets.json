@@ -42237,7 +42237,7 @@
     {
       "id": 3752,
       "title": "[Opus] cases: split an equality between constructor values (isPostfix t = True), split a hypothesis not only the goal, close arms that compute, and a budget that copes with ten character comparisons (Toy++ friction group 2a: SW-3734, SW-3461, SW-3459, SW-3748's cases part)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
