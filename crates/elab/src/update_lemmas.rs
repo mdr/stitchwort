@@ -59,12 +59,7 @@ impl Elaborator {
             };
             ctors
                 .first()
-                .and_then(|c| {
-                    c.fields
-                        .iter()
-                        .flat_map(|b| &b.names)
-                        .find(|n| n.text == field)
-                })
+                .and_then(|c| c.fields.iter().map(|b| &b.name).find(|n| n.text == field))
                 .map_or(data.span(), |n| n.span)
         };
         let lemmas = self.update_lemmas_of(d)?;

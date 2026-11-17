@@ -1714,7 +1714,7 @@ impl Walk<'_> {
                     let mut work = Vec::new();
                     for binder in params {
                         work.push(Work::Expr(&binder.ty));
-                        work.extend(binder.names.iter().map(Work::Bind));
+                        work.push(Work::Bind(&binder.name));
                     }
                     for (op, ty) in ops {
                         self.item(
@@ -1726,11 +1726,7 @@ impl Walk<'_> {
                         );
                         work.push(Work::Expr(ty));
                     }
-                    work.extend(
-                        params
-                            .iter()
-                            .flat_map(|b| b.names.iter().map(|n| Work::Unbind(&n.text))),
-                    );
+                    work.extend(params.iter().map(|b| Work::Unbind(&b.name.text)));
                     self.run(work);
                 }
                 Decl::Test { name, expr, span } => {
@@ -1792,36 +1788,34 @@ impl Walk<'_> {
         };
         let owner = self.item(&name.text, kind, name.span, span, None);
         for binder in params {
-            for param in &binder.names {
-                self.nav.params.push(ParamBinder {
-                    owner: name.span,
-                    name: param.text.clone(),
-                    binder: param.span,
-                });
-            }
+            let param = &binder.name;
+            self.nav.params.push(ParamBinder {
+                owner: name.span,
+                name: param.text.clone(),
+                binder: param.span,
+            });
         }
         let mut work = Vec::new();
         for binder in params {
             work.push(Work::Expr(&binder.ty));
-            work.extend(binder.names.iter().map(Work::Bind));
+            work.push(Work::Bind(&binder.name));
         }
         work.extend(indices.iter().map(|(_, e)| Work::Expr(e)));
         work.extend(sort.map(Work::Expr));
         for ctor in ctors {
             if record {
                 for binder in &ctor.fields {
-                    for field in &binder.names {
-                        self.item(
-                            &format!("{}.{}", name.text, field.text),
-                            "field",
-                            field.span,
-                            field.span,
-                            Some(owner),
-                        );
-                        self.nav
-                            .field_spans
-                            .insert((span, field.text.clone()), field.span);
-                    }
+                    let field = &binder.name;
+                    self.item(
+                        &format!("{}.{}", name.text, field.text),
+                        "field",
+                        field.span,
+                        field.span,
+                        Some(owner),
+                    );
+                    self.nav
+                        .field_spans
+                        .insert((span, field.text.clone()), field.span);
                 }
             } else {
                 self.item(
@@ -1836,34 +1830,23 @@ impl Walk<'_> {
                 // type's declaration: the first constructor's field
                 // (docs/proposals/variant-fields.md §9.3).
                 for binder in &ctor.fields {
-                    for field in &binder.names {
-                        self.nav
-                            .field_spans
-                            .insert((ctor.name.span, field.text.clone()), field.span);
-                        self.nav
-                            .field_spans
-                            .insert_absent((span, field.text.clone()), field.span);
-                    }
+                    let field = &binder.name;
+                    self.nav
+                        .field_spans
+                        .insert((ctor.name.span, field.text.clone()), field.span);
+                    self.nav
+                        .field_spans
+                        .insert_absent((span, field.text.clone()), field.span);
                 }
             }
             for binder in &ctor.fields {
                 work.push(Work::Expr(&binder.ty));
-                work.extend(binder.names.iter().map(Work::Bind));
+                work.push(Work::Bind(&binder.name));
             }
             work.extend(ctor.result.iter().map(Work::Expr));
-            work.extend(
-                ctor.fields
-                    .iter()
-                    .rev()
-                    .flat_map(|b| b.names.iter().rev().map(|n| Work::Unbind(&n.text))),
-            );
+            work.extend(ctor.fields.iter().rev().map(|b| Work::Unbind(&b.name.text)));
         }
-        work.extend(
-            params
-                .iter()
-                .rev()
-                .flat_map(|b| b.names.iter().rev().map(|n| Work::Unbind(&n.text))),
-        );
+        work.extend(params.iter().rev().map(|b| Work::Unbind(&b.name.text)));
         self.run(work);
     }
 

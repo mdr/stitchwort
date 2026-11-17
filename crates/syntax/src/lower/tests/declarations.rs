@@ -55,7 +55,7 @@ fn a_record_declaration_is_one_constructor() {
     let names: Vec<&str> = ctors[0]
         .fields
         .iter()
-        .map(|b| b.names[0].text.as_str())
+        .map(|b| b.name.text.as_str())
         .collect();
     assert_eq!(names, ["name", "age"]);
     assert!(
@@ -195,16 +195,15 @@ fn a_group_is_a_binder_per_name() {
     else {
         panic!("expected a data type");
     };
-    let one = |bs: &[Binder]| bs.iter().map(|b| b.names.len()).collect::<Vec<_>>();
-    assert_eq!(one(params), [1, 1]);
+    assert_eq!(params.len(), 2);
     assert_eq!(auto_params, &[false, false]);
-    assert_eq!(one(&ctors[0].fields), [1, 1, 1, 1, 1]);
+    assert_eq!(ctors[0].fields.len(), 5);
     assert_eq!(ctors[0].implicit, [false, false, true, true, false]);
     assert_eq!(ctors[0].defaults.len(), 5);
     let Decl::Ability { params, .. } = &module.decls[6] else {
         panic!("expected an ability");
     };
-    assert_eq!(one(params), [1, 1]);
+    assert_eq!(params.len(), 2);
 }
 
 #[test]

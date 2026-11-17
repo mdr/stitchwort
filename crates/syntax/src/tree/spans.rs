@@ -155,9 +155,7 @@ impl<'a> Walk<'a> {
 
     fn binders(&mut self, binders: &'a [Binder]) {
         for binder in binders {
-            for name in &binder.names {
-                self.name("Binder name", name);
-            }
+            self.name("Binder name", &binder.name);
             self.expr(&binder.ty);
             self.attrs(&binder.attrs);
         }

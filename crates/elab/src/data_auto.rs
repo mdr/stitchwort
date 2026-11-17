@@ -46,19 +46,10 @@ impl Elaborator {
     /// For each of data type `decl`'s parameters (one per name), whether it's
     /// `auto`.
     pub(crate) fn data_auto_params(decl: &Decl) -> Vec<bool> {
-        let Decl::Data {
-            params,
-            auto_params,
-            ..
-        } = decl
-        else {
+        let Decl::Data { auto_params, .. } = decl else {
             unreachable!()
         };
-        params
-            .iter()
-            .zip(auto_params)
-            .flat_map(|(b, auto)| std::iter::repeat_n(*auto, b.names.len()))
-            .collect()
+        auto_params.clone()
     }
 
     /// Data types defined together share their parameters, so the same ones

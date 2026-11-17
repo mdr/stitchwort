@@ -483,27 +483,24 @@ impl Elaborator {
             }
             for (c, ctor) in ctors.iter().enumerate() {
                 let core = &data.ctors()[c];
-                let mut i = 0;
-                for binder in &ctor.fields {
-                    for n in &binder.names {
-                        if !core.field_erased.get(i).copied().unwrap_or(false) {
-                            return Err(Diagnostic::error(
-                                "E-ATTRIBUTE",
-                                format!(
-                                    "`js.enum` can't be used on `{}`: constructor `{}` has the \
+                for (i, binder) in ctor.fields.iter().enumerate() {
+                    let n = &binder.name;
+                    if !core.field_erased.get(i).copied().unwrap_or(false) {
+                        return Err(Diagnostic::error(
+                            "E-ATTRIBUTE",
+                            format!(
+                                "`js.enum` can't be used on `{}`: constructor `{}` has the \
                                      field `{}`",
-                                    name.text, ctor.name.text, n.text
-                                ),
-                            )
-                            .with_label(n.span, "a field, so it has a property in JavaScript")
-                            .with_label(a.span, "every constructor must be without fields")
-                            .with_note(
-                                "a string union can't hold a field's value: remove `js.enum` to \
+                                name.text, ctor.name.text, n.text
+                            ),
+                        )
+                        .with_label(n.span, "a field, so it has a property in JavaScript")
+                        .with_label(a.span, "every constructor must be without fields")
+                        .with_note(
+                            "a string union can't hold a field's value: remove `js.enum` to \
                                  cross as tagged objects, or the field. A proof or a type \
                                  field, which has no property, is allowed",
-                            ));
-                        }
-                        i += 1;
+                        ));
                     }
                 }
             }
@@ -552,97 +549,95 @@ impl Elaborator {
                     .with_label(a.span, "on all of these fields")
                     .with_note(format!(
                         "write each field in brackets of its own: `({} …) ({}: …)`",
-                        binder.names[0].text, next.names[0].text
+                        binder.name.text, next.name.text
                     )));
                 }
-                for n in &binder.names {
-                    let i = ctor_sites.len();
-                    ctor_sites.push((n.span, binder.attrs.as_slice()));
-                    if binder.attrs.is_empty() {
-                        keys.push(None);
-                        optionals.push(false);
-                        continue;
-                    }
-                    let field_attrs = check(&binder.attrs, Place::Target(Target::Field))?;
-                    // Only a field with a property can have attributes: the
-                    // kernel's erasure decides, not implicitness (§4.2).
-                    if core.field_erased.get(i).copied().unwrap_or(false) {
-                        let what = if core.field_sorts.get(i) == Some(&stitchwort_core::Sort::Prop)
-                        {
-                            "a proof"
-                        } else {
-                            "a type"
-                        };
-                        let a = &binder.attrs[0];
+                let n = &binder.name;
+                let i = ctor_sites.len();
+                ctor_sites.push((n.span, binder.attrs.as_slice()));
+                if binder.attrs.is_empty() {
+                    keys.push(None);
+                    optionals.push(false);
+                    continue;
+                }
+                let field_attrs = check(&binder.attrs, Place::Target(Target::Field))?;
+                // Only a field with a property can have attributes: the
+                // kernel's erasure decides, not implicitness (§4.2).
+                if core.field_erased.get(i).copied().unwrap_or(false) {
+                    let what = if core.field_sorts.get(i) == Some(&stitchwort_core::Sort::Prop) {
+                        "a proof"
+                    } else {
+                        "a type"
+                    };
+                    let a = &binder.attrs[0];
+                    return Err(Diagnostic::error(
+                        "E-ATTRIBUTE",
+                        format!(
+                            "`{}` can't be used on `{}`: it's {what}, so it has no \
+                                 property in JavaScript",
+                            a.name.text, n.text
+                        ),
+                    )
+                    .with_label(a.span, format!("`{}` is {what}", n.text)));
+                }
+                let mut key = None;
+                if let Some((a, value)) = field_attrs.get("js.name") {
+                    non_empty(a, value, "a field's key")?;
+                    key = Some(value.to_string());
+                }
+                keys.push(key);
+                let optional = field_attrs.get("js.optional");
+                if let Some((a, _)) = optional {
+                    let is_option = matches!(
+                        core.fields[i].1.strip_loc(),
+                        Term::Data(od, _) if Some(*od) == option
+                    );
+                    if *record {
                         return Err(Diagnostic::error(
                             "E-ATTRIBUTE",
                             format!(
-                                "`{}` can't be used on `{}`: it's {what}, so it has no \
-                                 property in JavaScript",
-                                a.name.text, n.text
+                                "`js.optional` can't be used on the record field `{}`",
+                                n.text
                             ),
                         )
-                        .with_label(a.span, format!("`{}` is {what}", n.text)));
-                    }
-                    let mut key = None;
-                    if let Some((a, value)) = field_attrs.get("js.name") {
-                        non_empty(a, value, "a field's key")?;
-                        key = Some(value.to_string());
-                    }
-                    keys.push(key);
-                    let optional = field_attrs.get("js.optional");
-                    if let Some((a, _)) = optional {
-                        let is_option = matches!(
-                            core.fields[i].1.strip_loc(),
-                            Term::Data(od, _) if Some(*od) == option
-                        );
-                        if *record {
-                            return Err(Diagnostic::error(
-                                "E-ATTRIBUTE",
-                                format!(
-                                    "`js.optional` can't be used on the record field `{}`",
-                                    n.text
-                                ),
-                            )
-                            .with_label(a.span, "on a record field")
-                            .with_note(
-                                "a record's `Option` field already crosses as an optional \
+                        .with_label(a.span, "on a record field")
+                        .with_note(
+                            "a record's `Option` field already crosses as an optional \
                                  property, `f?: T`",
-                            ));
-                        }
-                        if !is_option {
-                            return Err(Diagnostic::error(
-                                "E-ATTRIBUTE",
-                                format!(
-                                    "`js.optional` can't be used on `{}`: its type isn't `Option _`",
-                                    n.text
-                                ),
-                            )
-                            .with_label(a.span, "this field isn't an `Option`")
-                            .with_note(
-                                "`js.optional` applies to a constructor field written with the \
-                                 type `Option T` itself: it makes the property optional, `f?: T`",
-                            ));
-                        }
-                        // A missing property already asks for the default
-                        // (docs/proposals/named-arguments.md §5.3, D1114).
-                        if default.is_some() {
-                            return Err(Diagnostic::error(
-                                "E-ATTRIBUTE",
-                                format!(
-                                    "`js.optional` can't be used on `{}`: it has a default value",
-                                    n.text
-                                ),
-                            )
-                            .with_label(a.span, "on a field with a default")
-                            .with_note(
-                                "a field with a default is already optional in JavaScript: a \
-                                 missing property is the default, and `undefined` is `None`",
-                            ));
-                        }
+                        ));
                     }
-                    optionals.push(optional.is_some());
+                    if !is_option {
+                        return Err(Diagnostic::error(
+                            "E-ATTRIBUTE",
+                            format!(
+                                "`js.optional` can't be used on `{}`: its type isn't `Option _`",
+                                n.text
+                            ),
+                        )
+                        .with_label(a.span, "this field isn't an `Option`")
+                        .with_note(
+                            "`js.optional` applies to a constructor field written with the \
+                                 type `Option T` itself: it makes the property optional, `f?: T`",
+                        ));
+                    }
+                    // A missing property already asks for the default
+                    // (docs/proposals/named-arguments.md §5.3, D1114).
+                    if default.is_some() {
+                        return Err(Diagnostic::error(
+                            "E-ATTRIBUTE",
+                            format!(
+                                "`js.optional` can't be used on `{}`: it has a default value",
+                                n.text
+                            ),
+                        )
+                        .with_label(a.span, "on a field with a default")
+                        .with_note(
+                            "a field with a default is already optional in JavaScript: a \
+                                 missing property is the default, and `undefined` is `None`",
+                        ));
+                    }
                 }
+                optionals.push(optional.is_some());
             }
             if ctor_sites.len() != core.fields.len() {
                 // Not written as declared (a type the compiler made): the
@@ -711,8 +706,7 @@ fn unboxed_record(
     let written: Vec<Span> = ctors
         .iter()
         .flat_map(|c| &c.fields)
-        .flat_map(|b| &b.names)
-        .map(|n| n.span)
+        .map(|b| b.name.span)
         .collect();
     let site = |i: usize| written.get(i).copied().unwrap_or(name.span);
     let runtime: Vec<usize> = (0..ctor.fields.len())

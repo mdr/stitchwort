@@ -159,15 +159,11 @@ impl Walk {
             Decl::Rules { rules, .. } => rules.iter().for_each(|r| self.expr(&r.proof)),
             Decl::Data { params, ctors, .. } => {
                 for b in params {
-                    b.names.iter().for_each(|n| {
-                        self.bound.insert(n.text.clone());
-                    });
+                    self.bound.insert(b.name.text.clone());
                 }
                 for c in ctors {
                     for b in &c.fields {
-                        b.names.iter().for_each(|n| {
-                            self.bound.insert(n.text.clone());
-                        });
+                        self.bound.insert(b.name.text.clone());
                     }
                     c.defaults.iter().flatten().for_each(|e| self.expr(e));
                 }

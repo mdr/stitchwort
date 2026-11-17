@@ -2174,7 +2174,7 @@ impl Elaborator {
             args.into_iter()
                 .fold(head, |f, a| Expr::App(Box::new(f), Box::new(a)))
         };
-        let param_names: Vec<ast::Name> = params.iter().flat_map(|b| b.names.clone()).collect();
+        let param_names: Vec<ast::Name> = params.iter().map(|b| b.name.clone()).collect();
         let applied = apps(
             var(&ability.text),
             param_names.iter().map(|p| var(&p.text)).collect(),
@@ -2274,7 +2274,7 @@ impl Elaborator {
                     attrs: Vec::new(),
                     name: ctor_name(op),
                     fields: vec![Binder {
-                        names: vec![x_name(x)],
+                        name: x_name(x),
                         ty: dom.clone(),
                         attrs: Vec::new(),
                     }],
@@ -2299,7 +2299,7 @@ impl Elaborator {
         let mut res_ty = Expr::Arrow(Box::new(applied.clone()), Box::new(Expr::Type(0, *span)));
         for binder in params.iter().rev() {
             res_ty = Expr::Pi {
-                names: binder.names.clone(),
+                names: vec![binder.name.clone()],
                 implicit: false,
                 auto: false,
                 dom: Box::new(binder.ty.clone()),
@@ -2403,7 +2403,7 @@ impl Elaborator {
         };
         for binder in params.iter().rev() {
             elim_ty = Expr::Pi {
-                names: binder.names.clone(),
+                names: vec![binder.name.clone()],
                 implicit: true,
                 auto: false,
                 dom: Box::new(binder.ty.clone()),
@@ -2803,12 +2803,10 @@ impl Elaborator {
             if *auto {
                 self.check_data_auto(&mut cx, binder, &ty)?;
             }
-            for (k, n) in binder.names.iter().enumerate() {
-                let ty = self.finish(&ty.shift(&self.ev(), k, 0)?, cx.level())?;
-                let value = cx.eval(&ty)?;
-                checked.push((name(n), ty));
-                cx.bind(&n.text, value);
-            }
+            let ty = self.finish(&ty, cx.level())?;
+            let value = cx.eval(&ty)?;
+            checked.push((name(&binder.name), ty));
+            cx.bind(&binder.name.text, value);
         }
         // The indices, in the context of the parameters (docs/proposals/indexed-families.md).
         if *record && let Some((_, ty)) = indices.first() {
@@ -3003,26 +3001,25 @@ impl Elaborator {
             for (k, binder) in ctor.fields.iter().enumerate() {
                 if let Some(earlier) = ctor.fields[..k]
                     .iter()
-                    .flat_map(|b| &b.names)
-                    .find(|e| binder.names.iter().any(|n| n.text == e.text))
+                    .map(|b| &b.name)
+                    .find(|e| binder.name.text == e.text)
                 {
                     return Err(error(
                         "E-DUPLICATE",
-                        binder.names[0].span,
+                        binder.name.span,
                         format!("there's already a field `{}`", earlier.text),
                     )
                     .with_label(earlier.span, "first declared here"));
                 }
                 let (ty, _) = check_type(&mut cx, &binder.ty)?;
-                for (k, n) in binder.names.iter().enumerate() {
-                    let ty = self.finish(&ty.shift(&self.ev(), k, 0)?, cx.level())?;
-                    let value = cx.eval(&ty)?;
-                    if *interface {
-                        self.check_interface_field(d, group_interfaces, n, &value)?;
-                    }
-                    fields.push((name(n), ty, binder.ty.span()));
-                    cx.bind(&n.text, value);
+                let n = &binder.name;
+                let ty = self.finish(&ty, cx.level())?;
+                let value = cx.eval(&ty)?;
+                if *interface {
+                    self.check_interface_field(d, group_interfaces, n, &value)?;
                 }
+                fields.push((name(n), ty, binder.ty.span()));
+                cx.bind(&n.text, value);
             }
             core_ctors.push(kernel::CtorDecl {
                 name: name(&ctor.name),

@@ -36,12 +36,12 @@ impl Elaborator {
         for (k, binder) in ctor.fields.iter().enumerate() {
             if let Some(earlier) = ctor.fields[..k]
                 .iter()
-                .flat_map(|b| &b.names)
-                .find(|e| binder.names.iter().any(|n| n.text == e.text))
+                .map(|b| &b.name)
+                .find(|e| binder.name.text == e.text)
             {
                 return Err(error(
                     "E-DUPLICATE",
-                    binder.names[0].span,
+                    binder.name.span,
                     format!("there's already a field `{}`", earlier.text),
                 )
                 .with_label(earlier.span, "first declared here"));
@@ -83,7 +83,7 @@ impl Elaborator {
         let mut ty = ctor.result.clone().unwrap_or(Expr::Hole(span));
         for (binder, implicit) in ctor.fields.iter().zip(implicits(ctor)).rev() {
             ty = Expr::Pi {
-                names: binder.names.clone(),
+                names: vec![binder.name.clone()],
                 implicit,
                 auto: false,
                 dom: Box::new(binder.ty.clone()),
@@ -131,12 +131,9 @@ impl Elaborator {
         }
         for (binder, implicit) in ctor.fields.iter().zip(implicits(ctor)) {
             let (ty, _) = check_type(&mut cx, &binder.ty)?;
-            for (k, n) in binder.names.iter().enumerate() {
-                let ty = ty.shift(g, k, 0)?;
-                let value = cx.eval(&ty)?;
-                fields.push((name(n), ty, binder.ty.span(), implicit));
-                cx.bind(&n.text, value);
-            }
+            let value = cx.eval(&ty)?;
+            fields.push((name(&binder.name), ty, binder.ty.span(), implicit));
+            cx.bind(&binder.name.text, value);
         }
         if !front {
             bind_autos(&mut cx, &mut fields)?;

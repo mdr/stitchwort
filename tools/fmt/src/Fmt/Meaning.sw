@@ -55,9 +55,9 @@
 --|   names becomes one group a name, where P4 could have made it by
 --|   merging: no `auto`, attributes or default, and a type that names none
 --|   of its names. The compiler reads a group exactly as its split form
---|   (D3679; SW-3880 makes the elaborator do so: before it, `infer_pi`
---|   checks a `∀`'s or header's group type once for all its names, so a
---|   hole in it is shared). A type naming one of the names would mean the
+--|   (D3679: the lowering splits a group, `Written::binders` in `lower/types.rs`, so each
+--|   name checks its own copy of the type and a hole in it is solved per
+--|   name). A type naming one of the names would mean the
 --|   earlier name in the split form, so such a group stays whole. The test
 --|   for naming is every token's text in the type: a use of a local name
 --|   is a token with that text, so it may say "names" wrongly, never

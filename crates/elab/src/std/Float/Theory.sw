@@ -7024,3 +7024,452 @@ theorem Float.Theory.sumNear ∀ (g d lo hi: Float) (w m: Nat)
               (Float.Theory.unitsMonoKey (g + d).bits 0.0.bits atMost)
               (byComputing: Float.Theory.units 0.0 = OfNat 0))))
   Both fs (Float.Theory.roundedSumNear (Float.Theory.units g) (Float.Theory.units d) s w m w2 mw gl gh dl dh err sign)
+
+-- Division by a larger divisor
+
+--| A larger denominator rounds a positive ratio to a pattern no larger:
+--| `n / d2` and `n / d1` over the common denominator `d1 · d2` are in order,
+--| and rounding keeps their order (`roundsToMono`).
+theorem Float.Theory.magnitudeAntiDen ∀ (n d1 d2: Nat) (s: Int)
+    (pn: 0 < n)
+    (p1: 0 < d1)
+    (le: d1 ≤ d2):
+    Float.Model.roundMagnitude False n d2 s ≤ Float.Model.roundMagnitude False n d1 s :=
+  let u: Nat := Float.Model.scaleUp n s
+  let p2: 0 < d2 := arithmetic [p1, le]
+  let pa: 0 < Float.Model.scaleDown d1 s := Float.Theory.scaleDownPos d1 s p1
+  let pb: 0 < Float.Model.scaleDown d2 s := Float.Theory.scaleDownPos d2 s p2
+  let pab: 0 < Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s :=
+    Float.Theory.mulPos (Float.Model.scaleDown d2 s) (Float.Model.scaleDown d1 s) pb pa
+  let ab: Float.Model.scaleDown d1 s ≤ Float.Model.scaleDown d2 s :=
+    rewrite Float.Theory.scaleDownPow d1 s, Float.Theory.scaleDownPow d2 s then
+      Nat.leMulRight d1 d2 (Float.Theory.downPow s) le
+  Float.Theory.roundsToMono
+    (u * Float.Model.scaleDown d1 s)
+    (u * Float.Model.scaleDown d2 s)
+    (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
+    (Float.Model.roundMagnitude False n d2 s)
+    (Float.Model.roundMagnitude False n d1 s)
+    pab
+    (Float.Theory.roundsToScale u
+      (Float.Model.scaleDown d2 s)
+      (u * Float.Model.scaleDown d1 s)
+      (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
+      (Float.Model.roundMagnitude False n d2 s)
+      pb
+      pab
+      (algebra: u * (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
+        = u * Float.Model.scaleDown d1 s * Float.Model.scaleDown d2 s)
+      (Float.Theory.roundMagnitudeSpec n d2 s pn p2))
+    (Float.Theory.roundsToScale u
+      (Float.Model.scaleDown d1 s)
+      (u * Float.Model.scaleDown d2 s)
+      (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
+      (Float.Model.roundMagnitude False n d1 s)
+      pa
+      pab
+      (algebra: u * (Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
+        = u * Float.Model.scaleDown d2 s * Float.Model.scaleDown d1 s)
+      (Float.Theory.roundMagnitudeSpec n d1 s pn p1))
+    (Float.Theory.mulLeLeft (Float.Model.scaleDown d1 s) (Float.Model.scaleDown d2 s) u ab)
+
+--| A nonnegative numerator over a larger denominator rounds no higher in
+--| the total order, whatever the zero's sign.
+theorem Float.Theory.roundKeyAntiDen ∀ (num: Int) (d1 d2: Nat) (scale: Int) (z: Bool)
+    (p1: 0 < d1)
+    (le: d1 ≤ d2)
+    (nonneg: Int.leq (OfNat 0) num = True):
+    Int.leq (Float.Theory.roundKey num d2 scale z) (Float.Theory.roundKey num d1 scale z) = True :=
+  match num with
+    | OfNat Zero =>
+      match z with
+        | True => byComputing
+        | False => byComputing
+    | OfNat (Succ k) =>
+      Float.Theory.leqVia
+        (Float.Theory.roundKey (OfNat (Succ k)) d2 scale z)
+        (Float.Theory.roundKey (OfNat (Succ k)) d1 scale z)
+        (OfNat (Float.Model.roundMagnitude False (Succ k) d2 (Int.add scale (OfNat 1074))))
+        (OfNat (Float.Model.roundMagnitude False (Succ k) d1 (Int.add scale (OfNat 1074))))
+        (Float.Theory.roundKeyPos k d2 scale z (arithmetic [p1, le]))
+        (Float.Theory.roundKeyPos k d1 scale z p1)
+        (arithmetic [Float.Theory.magnitudeAntiDen (Succ k) d1 d2 (Int.add scale (OfNat 1074)) byComputing p1 le])
+
+--| Division is antitone in a positive divisor: for `0 < d <= e`, both
+--| finite, and a finite `x` with `0.0 <= x`, `x / e <= x / d`. The exact
+--| quotients are in order, and rounding keeps it (`magnitudeAntiDen`).
+--| `0.0 <= x` leaves out `-0.0`, whose quotients are `-0.0` either way, and
+--| negative `x`, for which the order flips.
+theorem Float.divAntitone ∀ (x d e: Float)
+    (pos: 0.0 < d)
+    (fd: Float.isFinite d = True)
+    (fe: Float.isFinite e = True)
+    (de: d <= e)
+    (fx: Float.isFinite x = True)
+    (nonneg: 0.0 <= x):
+    x / e <= x / d :=
+  let ud: Int := Float.Model.units d.bits
+  let ue: Int := Float.Model.units e.bits
+  let dpos: Int.less (OfNat 0) ud = True := Float.Theory.unitsPositive d pos
+  let dle: Int.leq ud ue = True := Float.Theory.unitsMonoKey d.bits e.bits de
+  let epos: 0.0 < e := Float.Theory.ltLeTrans (Float.orderKey 0.0) (Float.orderKey d) (Float.orderKey e) pos de
+  let xnn: Int.leq (OfNat 0) (Float.Model.units x.bits) = True :=
+    J
+      (v w => Int.leq v (Float.Model.units x.bits) = True)
+      (Float.Theory.unitsMonoKey 0.0.bits x.bits nonneg)
+      (byComputing: Float.Theory.units 0.0 = OfNat 0)
+  Float.Theory.leqVia
+    (Float.orderKey (x / e))
+    (Float.orderKey (x / d))
+    (Float.Theory.roundKey (Float.Model.units x.bits) (Int.natAbs ue) (OfNat 0) (Float.Model.signBit x.bits))
+    (Float.Theory.roundKey (Float.Model.units x.bits) (Int.natAbs ud) (OfNat 0) (Float.Model.signBit x.bits))
+    (Float.Theory.quotientKeyFinite x e epos fe fx)
+    (Float.Theory.quotientKeyFinite x d pos fd fx)
+    (Float.Theory.roundKeyAntiDen
+      (Float.Model.units x.bits)
+      (Int.natAbs ud)
+      (Int.natAbs ue)
+      (OfNat 0)
+      (Float.Model.signBit x.bits)
+      (Float.Theory.natAbsPos ud dpos)
+      (arithmetic [dpos, dle])
+      xnn)
+
+test "Float.divAntitone" :=
+  1.0 / 3.0 <= 1.0 / 2.0 ∧ 0.0 / 5.0 <= 0.0 / 5e-324 ∧ 1e300 / 1e-10 <= 1e300 / 1e-20 ∧ 5e-324 / 3.0 <= 5e-324 / 2.0
+
+--| A finite double over a positive finite one isn't the NaN: its key is
+--| at most +infinity's (`roundKeyLeInf`), below the NaN's. It can overflow
+--| to an infinity, as `1e300 / 1e-300` does.
+theorem Float.divNotNaN ∀ (x d: Float)
+    (pos: 0.0 < d)
+    (fd: Float.isFinite d = True)
+    (fx: Float.isFinite x = True):
+    Float.isNaN (x / d) = False :=
+  let pd: 0 < Int.natAbs (Float.Model.units d.bits) :=
+    Float.Theory.natAbsPos (Float.Model.units d.bits) (Float.Theory.unitsPositive d pos)
+  let low: Int.leq (Float.orderKey (x / d)) (OfNat 9218868437227405312) = True :=
+    J
+      (k w => Int.leq k (OfNat 9218868437227405312) = True)
+      (Float.Theory.roundKeyLeInf
+        (Int.natAbs (Float.Model.units d.bits))
+        (OfNat 0)
+        (Float.Model.signBit x.bits)
+        pd
+        (Float.Model.units x.bits))
+      (Float.Theory.quotientKeyFinite x d pos fd fx).flipped
+  match c: Float.isNaN (x / d) with
+    | False => byComputing
+    | True =>
+      let b: (x / d).bits = 9221120237041090560 := Nat.equalSound (x / d).bits 9221120237041090560 c
+      let k: Float.orderKey (x / d) = OfNat 9221120237041090560 := rewrite b
+      Void.impossible (arithmetic [low, k])
+
+test "Float.divNotNaN" := ¬Float.isNaN (1e300 / 1e-300) ∧ ¬Float.isNaN (0.0 / 5e-324) ∧ ¬Float.isNaN (-1.0 / 3.0)
+
+-- Floor and ceiling within one
+
+--| The floor of a double below 2^53 in size is finite: a whole number of
+--| that size (`roundScaledWhole`).
+theorem Float.floorIsFinite ∀ (x: Float)
+    (small: Float.abs x < 9007199254740992.0):
+    Float.isFinite (Float.floor x) = True :=
+  let a: Nat := x.bits
+  let s: Bool := Float.Model.signBit a
+  let p: Nat := Float.Model.pow2 1074
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let f: Int := Float.Model.floorDiv s n p
+  let fin: Float.Theory.FiniteBits a ∧ (n < p * 9007199254740992) := Float.Theory.absBelowUnits x small
+  let fl: (Float.floor x).bits = Float.Model.roundScaled f 0 s :=
+    Eq.trans (Float.Theory.floorOfBits x) (Float.Theory.floorFinite a (Float.Theory.notSpecialOf a fin.left))
+  Float.Theory.isFiniteOf
+    (Float.floor x)
+    (J
+      (r w => Float.Theory.FiniteBits r)
+      (Float.Theory.roundScaledWhole f s (Float.Theory.floorDivBelow s n p 9007199254740992 byComputing fin.right)).left
+      fl.flipped)
+
+--| The ceiling of a double below 2^53 in size is finite, as `Float.floorIsFinite`.
+theorem Float.ceilIsFinite ∀ (x: Float)
+    (small: Float.abs x < 9007199254740992.0):
+    Float.isFinite (Float.ceil x) = True :=
+  let a: Nat := x.bits
+  let s: Bool := Float.Model.signBit a
+  let p: Nat := Float.Model.pow2 1074
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let g: Int := Float.Model.floorDiv (¬s) n p
+  let fin: Float.Theory.FiniteBits a ∧ (n < p * 9007199254740992) := Float.Theory.absBelowUnits x small
+  let cl: (Float.ceil x).bits = Float.Model.roundScaled (Int.neg g) 0 s :=
+    Eq.trans (Float.Theory.ceilOfBits x) (Float.Theory.ceilFinite a (Float.Theory.notSpecialOf a fin.left))
+  Float.Theory.isFiniteOf
+    (Float.ceil x)
+    (J
+      (r w => Float.Theory.FiniteBits r)
+      (Float.Theory.roundScaledWhole
+        (Int.neg g)
+        s
+        (Float.Theory.natAbsNegLe g (Float.Theory.floorDivBelow (¬s) n p 9007199254740992 byComputing fin.right))).left
+      cl.flipped)
+
+test "Float.floorIsFinite" :=
+  Float.isFinite (Float.floor -2.5)
+    ∧ Float.isFinite (Float.ceil 9007199254740991.0)
+    ∧ Float.isFinite (Float.floor 5e-324)
+
+theorem Float.Theory.belowNextWhole ∀ (u v f: Int) (p: Nat)
+    (h: Int.less u (Int.mul (Int.add f (OfNat 1)) (OfNat p)) = True)
+    (ev: v = Int.mul f (OfNat p)):
+    Int.less u (Int.add v (OfNat p)) = True :=
+  let d: Int.mul (Int.add f (OfNat 1)) (OfNat p) = Int.add (Int.mul f (OfNat p)) (OfNat p) := algebra
+  arithmetic [h, ev, d]
+
+theorem Float.Theory.aboveNextWhole ∀ (u w v g: Int) (p: Nat)
+    (h: Int.less w (Int.mul (Int.add g (OfNat 1)) (OfNat p)) = True)
+    (eu: u = Int.neg w)
+    (ev: v = Int.mul (Int.neg g) (OfNat p)):
+    Int.less v (Int.add u (OfNat p)) = True :=
+  let d: Int.mul (Int.add g (OfNat 1)) (OfNat p) = Int.add (Int.mul g (OfNat p)) (OfNat p) := algebra
+  let n: Int.mul (Int.neg g) (OfNat p) = Int.neg (Int.mul g (OfNat p)) := algebra
+  arithmetic [h, eu, ev, d, n]
+
+--| A double below 2^53 in size is less than one above its floor, exactly:
+--| in units of 2^-1074, `x < floor x + 1`, with no rounding in the sum
+--| (`Float.ltFloorAddOne` says it of the double sum).
+theorem Float.Theory.floorUnitsAbove ∀ (x: Float)
+    (small: Float.abs x < 9007199254740992.0):
+    Int.less (Float.Theory.units x) (Int.add (Float.Theory.units (Float.floor x)) (OfNat (Float.Model.pow2 1074)))
+      = True :=
+  let a: Nat := x.bits
+  let s: Bool := Float.Model.signBit a
+  let p: Nat := Float.Model.pow2 1074
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let f: Int := Float.Model.floorDiv s n p
+  let fin: Float.Theory.FiniteBits a ∧ (n < p * 9007199254740992) := Float.Theory.absBelowUnits x small
+  let range: ((Int.natAbs f ≤ 9007199254740992) ∧ (Int.natAbs (Int.add f (OfNat 1)) ≤ 9007199254740992))
+    ∧ (Int.less (Int.signed s n) (Int.mul (Int.add f (OfNat 1)) (OfNat p)) = True) :=
+    Float.Theory.floorDivRange s n p byComputing fin.right
+  let fl: (Float.floor x).bits = Float.Model.roundScaled f 0 s :=
+    Eq.trans (Float.Theory.floorOfBits x) (Float.Theory.floorFinite a (Float.Theory.notSpecialOf a fin.left))
+  let uf: Float.Model.units (Float.floor x).bits = Int.mul f (OfNat p) :=
+    J
+      (r w => Float.Model.units r = Int.mul f (OfNat p))
+      (Float.Theory.roundScaledWhole f s range.left.left).right
+      fl.flipped
+  J
+    (y w => Int.less y (Int.add (Float.Theory.units (Float.floor x)) (OfNat p)) = True)
+    (Float.Theory.belowNextWhole (Int.signed s n) (Float.Theory.units (Float.floor x)) f p range.right uf)
+    (Float.Theory.unitsSigned a)
+
+--| A double below 2^53 in size is more than one below its ceiling, exactly:
+--| in units of 2^-1074, `ceil x < x + 1` (as doubles, `x + 1.0` can round
+--| down to the ceiling; `Float.ceilSubOneLt`).
+theorem Float.Theory.ceilUnitsBelow ∀ (x: Float)
+    (small: Float.abs x < 9007199254740992.0):
+    Int.less (Float.Theory.units (Float.ceil x)) (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1074)))
+      = True :=
+  let a: Nat := x.bits
+  let s: Bool := Float.Model.signBit a
+  let p: Nat := Float.Model.pow2 1074
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let g: Int := Float.Model.floorDiv (¬s) n p
+  let fin: Float.Theory.FiniteBits a ∧ (n < p * 9007199254740992) := Float.Theory.absBelowUnits x small
+  let range: ((Int.natAbs g ≤ 9007199254740992) ∧ (Int.natAbs (Int.add g (OfNat 1)) ≤ 9007199254740992))
+    ∧ (Int.less (Int.signed (¬s) n) (Int.mul (Int.add g (OfNat 1)) (OfNat p)) = True) :=
+    Float.Theory.floorDivRange (¬s) n p byComputing fin.right
+  let cl: (Float.ceil x).bits = Float.Model.roundScaled (Int.neg g) 0 s :=
+    Eq.trans (Float.Theory.ceilOfBits x) (Float.Theory.ceilFinite a (Float.Theory.notSpecialOf a fin.left))
+  let uc: Float.Model.units (Float.ceil x).bits = Int.mul (Int.neg g) (OfNat p) :=
+    J
+      (r w => Float.Model.units r = Int.mul (Int.neg g) (OfNat p))
+      (Float.Theory.roundScaledWhole (Int.neg g) s (Float.Theory.natAbsNegLe g range.left.left)).right
+      cl.flipped
+  Float.Theory.aboveNextWhole
+    (Float.Theory.units x)
+    (Int.signed (¬s) n)
+    (Float.Theory.units (Float.ceil x))
+    g
+    p
+    range.right
+    (Eq.trans (Float.Theory.unitsSigned a).flipped (Float.Theory.signedFlip s n))
+    uc
+
+-- From units back to the order
+
+--| Units in order give the total order when the larger is positive:
+--| `units x ≤ units y` and `0 < units y` give `x <= y`. A negative or zero
+--| `x` is below every positive double (`-0.0` and `0.0` included), and on
+--| positive patterns the units are monotone both ways
+--| (`magUnitsLeReflect`). Units alone can't order `-0.0` and `0.0`, hence
+--| the condition; `Float.Theory.leOfUnitsNeg` is the other side.
+theorem Float.Theory.leOfUnitsPos ∀ (x y: Float)
+    (pos: Int.less (OfNat 0) (Float.Theory.units y) = True)
+    (h: Int.leq (Float.Theory.units x) (Float.Theory.units y) = True):
+    x <= y :=
+  let uy := Float.Theory.unitsMag y.bits
+  match sy: Nat.leq 9223372036854775808 y.bits with
+    | True => Void.impossible (arithmetic [pos, uy])
+    | False =>
+      match sx: Nat.leq 9223372036854775808 x.bits with
+        | True => byComputing
+        | False =>
+          let le: Float.Theory.magUnits x.bits ≤ Float.Theory.magUnits y.bits := arithmetic [h]
+          arithmetic [Float.Theory.magUnitsLeReflect x.bits y.bits le]
+
+--| Units in order give the total order when the smaller is negative:
+--| `units x ≤ units y` and `units x < 0` give `x <= y`, as
+--| `Float.Theory.leOfUnitsPos`.
+theorem Float.Theory.leOfUnitsNeg ∀ (x y: Float)
+    (neg: Int.less (Float.Theory.units x) (OfNat 0) = True)
+    (h: Int.leq (Float.Theory.units x) (Float.Theory.units y) = True):
+    x <= y :=
+  let ux := Float.Theory.unitsMag x.bits
+  match sx: Nat.leq 9223372036854775808 x.bits with
+    | True =>
+      match sy: Nat.leq 9223372036854775808 y.bits with
+        | False => byComputing
+        | True =>
+          let le: Float.Theory.magUnits (y.bits - 9223372036854775808)
+            ≤ Float.Theory.magUnits (x.bits - 9223372036854775808) :=
+            arithmetic [h]
+          arithmetic [Float.Theory.magUnitsLeReflect (y.bits - 9223372036854775808) (x.bits - 9223372036854775808) le]
+
+test "Float.Theory.leOfUnitsPos" := -0.0 <= 5e-324 ∧ 0.0 <= 5e-324 ∧ -1.0 <= -0.0 ∧ -1.0 <= 0.0
+
+-- The ceiling past a half
+
+--| The product of two naturals as integers.
+theorem Float.Theory.intMulOfNat ∀ (a b: Nat): Int.mul (OfNat a) (OfNat b) = OfNat (a * b) := algebra
+
+--| A negative integer times a natural.
+theorem Float.Theory.intMulNegSucc ∀ (j m: Nat): Int.mul (NegSucc j) (OfNat m) = Int.neg (OfNat ((j + 1) * m)) :=
+  algebra
+
+theorem Float.Theory.doubleMul ∀ (j h: Nat): j * (h * 2) = (2 * j) * h := algebra
+
+--| A whole number `c` of units `h * 2` at least `(k + 1/2)` of them is at least `k + 1`.
+theorem Float.Theory.halfStep ∀ (c u: Int) (h k p: Nat)
+    (hp: 0 < h)
+    (ep: p = h * 2)
+    (hu: Int.leq (OfNat ((2 * k + 1) * h)) u = True)
+    (hc: Int.leq u (Int.mul c (OfNat p)) = True):
+    Int.leq (OfNat (k + 1)) c = True :=
+  let hc2: Int.leq u (Int.mul c (OfNat (h * 2))) = True := J (q z => Int.leq u (Int.mul c (OfNat q)) = True) hc ep
+  match c with
+    | OfNat j =>
+      let e: Int.mul (OfNat j) (OfNat (h * 2)) = OfNat (j * (h * 2)) := Float.Theory.intMulOfNat j (h * 2)
+      let a: (2 * k + 1) * h ≤ (2 * j) * h := arithmetic [hu, hc2, e, Float.Theory.doubleMul j h]
+      arithmetic [Float.Theory.cancelLe (2 * k + 1) (2 * j) h hp a]
+    | NegSucc j =>
+      let big: 1 * (h * 2) ≤ (j + 1) * (h * 2) := Nat.leMulRight 1 (j + 1) (h * 2) (arithmetic)
+      Void.impossible (arithmetic [hu, hc2, Float.Theory.intMulNegSucc j (h * 2), hp, big])
+
+--| `k ≤ c` scaled by `p`, for a natural `k`.
+theorem Float.Theory.mulLeOf ∀ (c: Int) (k p: Nat)
+    (h: Int.leq (OfNat k) c = True):
+    Int.leq (OfNat (k * p)) (Int.mul c (OfNat p)) = True :=
+  match c with | OfNat j => arithmetic [Nat.leMulRight k j p (arithmetic [h]), Float.Theory.intMulOfNat j p]
+
+--| The ceiling of a double `y` below 2^53 in size that is at least
+--| `k + 1/2` is at least `k + 1`, in units of 2^-1074: `ceil` gives a
+--| whole number of units of 2^1074 at least `y`'s (`ceilDivGe`), and the
+--| next whole number above `k` is `k + 1`. Stated with the half so that a
+--| bound on `y` from the standard model, which is never exact, still
+--| decides the ceiling.
+theorem Float.Theory.ceilAtLeast ∀ (y: Float) (k: Nat)
+    (small: Float.abs y < 9007199254740992.0)
+    (hu: Int.leq (OfNat ((2 * k + 1) * Float.Model.pow2 1073)) (Float.Theory.units y) = True):
+    Int.leq (OfNat ((k + 1) * Float.Model.pow2 1074)) (Float.Theory.units (Float.ceil y)) = True :=
+  let a: Nat := y.bits
+  let s: Bool := Float.Model.signBit a
+  let p: Nat := Float.Model.pow2 1074
+  let n: Nat := Int.natAbs (Float.Model.units a)
+  let fin: Float.Theory.FiniteBits a ∧ (n < p * 9007199254740992) := Float.Theory.absBelowUnits y small
+  let g: Int := Float.Model.floorDiv (¬s) n p
+  let gb: Int.natAbs g ≤ 9007199254740992 := Float.Theory.floorDivBelow (¬s) n p 9007199254740992 byComputing fin.right
+  let c: Int := Int.neg g
+  let cl: (Float.ceil y).bits = Float.Model.roundScaled c 0 s :=
+    Eq.trans (Float.Theory.ceilOfBits y) (Float.Theory.ceilFinite a (Float.Theory.notSpecialOf a fin.left))
+  let uc: Float.Model.units (Float.ceil y).bits = Int.mul c (OfNat p) :=
+    J
+      (r w => Float.Model.units r = Int.mul c (OfNat p))
+      (Float.Theory.roundScaledWhole c s (Float.Theory.natAbsNegLe g gb)).right
+      cl.flipped
+  let ge: Int.leq (Float.Theory.units y) (Int.mul c (OfNat p)) = True :=
+    J
+      (v z => Int.leq v (Int.mul c (OfNat p)) = True)
+      (Float.Theory.ceilDivGe s n p byComputing)
+      (Float.Theory.unitsSigned a)
+  let ck := Float.Theory.halfStep c (Float.Theory.units y) (Float.Model.pow2 1073) k p byComputing byComputing hu ge
+  J (v z => Int.leq (OfNat ((k + 1) * p)) v = True) (Float.Theory.mulLeOf c (k + 1) p ck) uc.flipped
+
+-- The remainder as whole steps
+
+--| A signed product, the sign moved out.
+theorem Float.Theory.signedScaled ∀ (s: Bool) (r p: Nat): Int.signed s (r * p) = Int.mul (Int.signed s r) (OfNat p) :=
+  match s with
+    | False => algebra
+    | True => algebra
+
+theorem Float.Theory.remStepArith ∀ (s: Bool) (m q d r: Nat) (ux ur qd: Int)
+    (eu: ux = Int.signed s m)
+    (er: ur = Int.signed s r)
+    (eq: qd = Int.mul (Int.signed s q) (OfNat d))
+    (eqd: Int.mul (Int.signed s q) (OfNat d) = Int.signed s (q * d))
+    (low: q * d ≤ m)
+    (rr: r = m - q * d)
+    (high: m < Succ q * d):
+    (Int.add ur qd = ux) ∧ ((Int.natAbs ur < d) ∧ (Int.leq (OfNat 0) ux = True → Int.leq (OfNat 0) ur = True)) :=
+  let lt: m < q * d + d := arithmetic [high, Float.Theory.succMul q d]
+  match s with
+    | False => Both (arithmetic [eu, er, eq, eqd, low, rr]) (Both (arithmetic [er, rr, lt, low]) (n => arithmetic [er]))
+    | True =>
+      Both
+        (arithmetic [eu, er, eq, eqd, low, rr])
+        (Both (arithmetic [er, rr, lt, low]) (n => arithmetic [n, eu, er, rr, low]))
+
+--| `x % y`, for finite `x` and a positive finite `y`, is `x` less a whole
+--| number `t` of `y`s, exactly, smaller than `y` in size, and not negative
+--| when `x` isn't: `remUnitsExact` with truncated division's quotient. The
+--| facts are handed to `k` with `t`, since `t` has no closed form worth
+--| stating.
+theorem Float.Theory.remStep ∀ (x y: Float)
+    (fx: Float.isFinite x = True)
+    (fy: Float.isFinite y = True)
+    (pos: 0.0 < y)
+    [goal: Prop]
+    (k: ∀ (t: Int) => Int.add (Float.Theory.units (x % y)) (Int.mul t (Float.Theory.units y)) = Float.Theory.units x
+      → Int.natAbs (Float.Theory.units (x % y)) < Int.natAbs (Float.Theory.units y)
+      → (Int.leq (OfNat 0) (Float.Theory.units x) = True → Int.leq (OfNat 0) (Float.Theory.units (x % y)) = True)
+      → goal):
+    goal :=
+  let s: Bool := Float.Model.signBit x.bits
+  let m: Nat := Int.natAbs (Float.Theory.units x)
+  let d: Nat := Int.natAbs (Float.Theory.units y)
+  let q: Nat := Nat.divFuel m m d
+  let up: Int.less (OfNat 0) (Float.Theory.units y) = True := Float.Theory.unitsPositive y pos
+  let dpos: 0 < d := Float.Theory.natAbsPos (Float.Theory.units y) up
+  let low: q * d ≤ m := Nat.divFuelLe m m d
+  let high: m < Succ q * d := Nat.divFuelBound m m d (Nat.nonzeroOfPos d dpos) (Nat.leRefl m)
+  let du: Float.Theory.units y = OfNat d := arithmetic [up]
+  let sb: Nat.leq 9223372036854775808 y.bits = False := Float.Theory.positiveSignClear y pos
+  let mz: Float.Model.isZero y.bits = False := Float.Theory.positiveNotZero y pos
+  let mb: Float.Model.magnitude y.bits = y.bits := rewrite sb
+  let zy: Float.isZero y = False := Both (arithmetic [mz, mb]) (arithmetic [sb])
+  let sa :=
+    Float.Theory.remStepArith s m q d
+      (m - q * d)
+      (Float.Theory.units x)
+      (Float.Theory.units (x % y))
+      (Int.mul (Int.signed s q) (Float.Theory.units y))
+      (Float.Theory.unitsSigned x.bits).flipped
+      (Float.Theory.remUnitsExact x y fx fy zy)
+      (Eq.cong (u => Int.mul (Int.signed s q) u) du)
+      (Float.Theory.signedScaled s q d).flipped
+      low
+      byComputing
+      high
+  k
+    (Int.signed s q)
+    sa.left
+    (J (v z => Int.natAbs (Float.Theory.units (x % y)) < v) sa.right.left (Eq.cong Int.natAbs du).flipped)
+    sa.right.right
