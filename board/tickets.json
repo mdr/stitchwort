@@ -1,5 +1,5 @@
 {
-  "next": 3715,
+  "next": 3716,
   "tickets": [
     {
       "id": 47,
@@ -41912,6 +41912,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3715,
+      "title": "[Sonnet] An elab-fuzz mutant of reads-then-finds-split.sw (seed 0x4001 case 1655; Overmind's scratchpad chain/filler/sw-1655-slow-cached.sw) takes 12.9 s uncached and 9.1 s even with the check cache: profile where the cached time goes (stitchwort check --timings) and file or fix the hotspot",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
