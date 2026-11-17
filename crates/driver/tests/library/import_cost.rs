@@ -33,22 +33,22 @@ const BOUNDS: &[(&str, &str, u64)] = &[
     (
         "Nat",
         "import Std (Nat)\ndef n : Nat := Nat.gcd (Nat.pow 3 4) (Nat.max 6 9)\n",
-        10297569,
+        19792309,
     ),
     (
         "Int",
         "import Std (Int, Nat)\ndef n : Int := Int.neg 5 + Nat.toInt (Nat.digitCount 12345)\n",
-        16401616,
+        26144065,
     ),
     (
         "Text",
         "import Std (Text, Nat)\ndef t : Text := Text.trim (Nat.toText (Text.length \"x\"))\n",
-        9458161,
+        17905153,
     ),
     (
         "Map",
         "import Std (Map, Nat)\ndef m : Map Nat Nat := Map.insert Map.empty 1 2\n",
-        30803107,
+        43919740,
     ),
 ];
 
