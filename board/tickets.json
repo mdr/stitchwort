@@ -1,5 +1,5 @@
 {
-  "next": 3695,
+  "next": 3696,
   "tickets": [
     {
       "id": 47,
@@ -19864,16 +19864,16 @@
     {
       "id": 2151,
       "title": "[DeepSeek] Goal printer: a spread in the middle of a list prints as written ([0, ..chain, highest + 3], not [0, ..chain ++ [highest + 3]]); ++ stays ++ at the top of a term",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "goals"
       ],
       "epic": "diagnostics",
-      "body": "From docs/proposals/goal-printing-gaps.md. Lane A; replaces SW-1469's first half. 30 min.",
+      "body": "From docs/proposals/goal-printing-gaps.md. Lane A; replaces SW-1469's first half. 30 min.\n\nModel result: deepseek, worked, ~15 min (est. 30).",
       "created": "2026-11-07",
-      "updated": "2026-11-16",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -41474,14 +41474,14 @@
     {
       "id": 3681,
       "title": "[DeepSeek] More examples still emit W-REWRITE-THEN-COMPUTING/THEN-REWRITE outside SW-3679's filter: reject/opaque-note-body-name, implicit-interface-not-searched, unfold-of-failed-definition, quot-lift-folded-goal, reads-chain-swapped-pair, blanks-proof-argument-error-against-goal, update-lemma-unknown, lambda-after-expected-type; accept rewrite.sw and others. Apply the quick fix where the then isn't the example's point; refresh snapshots; find the rest with stitchwort check over examples/ grepping the two codes",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~30 min (est. 20). 62 examples. Projects left: SW-3695.",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-17",
       "commits": []
     },
     {
@@ -41648,6 +41648,19 @@
       "where": "",
       "labels": [],
       "epic": "performance",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3695,
+      "title": "[DeepSeek] examples/projects/** still have redundant then byComputing (trip-journal Trip/Proofs/Self.sw: 18 warnings, and others): apply the quick fixes (stitchwort check --index ranges), keep each project checking, refresh its snapshots (SW-3681 follow-up)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
