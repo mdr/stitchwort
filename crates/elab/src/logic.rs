@@ -157,12 +157,11 @@ impl Conjunct {
         }))
     }
 
-    /// The right operand, checked under the left one's branch binder, in
-    /// the scope outside it; `None` if it mentions the binder. Its decision
-    /// stays under the binder, as the body of the function
-    /// `Decidable.andThen` takes.
-    fn outside_binder(self, cx: &Ctx) -> Result<Option<Conjunct>> {
-        let level = cx.level();
+    /// The right operand, checked under the left one's branch binder (the
+    /// last of `level` variables in scope), in the scope outside it; `None`
+    /// if it mentions the binder. Its decision stays under the binder, as
+    /// the body of the function `Decidable.andThen` takes.
+    fn outside_binder(self, cx: &Ctx, level: usize) -> Result<Option<Conjunct>> {
         let zonked = |term: &Term| -> Result<Term> {
             crate::unify::zonk_in(&cx.u(), level, term, &|_| true, &[]).map_err(|e| match e {
                 crate::unify::ZonkError::Resource(e) => Diagnostic::from(e),
@@ -437,6 +436,14 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
         );
     }
     let mut lhs = None;
+    // `b` as a conjunct, with the level of the binder it was checked under.
+    // Taking it out of the binder zonks it, and in a chain `a && (b && (c
+    // && …))` each level's `b` holds the whole tail: zonked at every level,
+    // that is quadratic in the chain's length, and cubic in steps, since
+    // each unknown's solution is applied to every variable in scope. So it's
+    // taken out only if the conjunction is wanted: one side at least is a
+    // decided proposition (`conjunction`), which a chain of `Bool`s never
+    // is (SW-3726).
     let mut rhs = None;
     let term = short_circuit(
         cx,
@@ -446,15 +453,16 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
         bool_ty,
         &mut |cx| {
             let condition = condition(cx, b, what)?;
-            rhs = match Conjunct::of(cx, &condition)? {
-                Some(part) => part.outside_binder(cx)?,
-                None => None,
-            };
+            rhs = Conjunct::of(cx, &condition)?.map(|part| (part, cx.level()));
             condition_bool(cx, b, condition)
         },
         &constant,
         Some(&mut lhs),
     )?;
+    let rhs = match (&lhs, rhs) {
+        (Some(l), Some((r, level))) if l.decided || r.decided => r.outside_binder(cx, level)?,
+        _ => None,
+    };
     if let (Some(lhs), Some(rhs)) = (lhs, rhs)
         && let Some(found) = conjunction(cx, lhs, rhs)?
         && let Some(slot) = cx.e.decl.conjunction.borrow_mut().as_mut()

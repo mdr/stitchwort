@@ -82,3 +82,54 @@ fn derived_instances_grow_linearly_with_constructors() {
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+/// `(DecEq.decide a0 b0).holds && ((DecEq.decide a1 b1).holds && …)` over
+/// `terms` pairs of `Nat`s: the shape of a derived `==`'s test.
+fn decide_chain(terms: usize) -> String {
+    let params: Vec<String> = (0..terms)
+        .flat_map(|k| [format!("(a{k}: Nat)"), format!("(b{k}: Nat)")])
+        .collect();
+    let mut body = format!("(DecEq.decide a{0} b{0}).holds", terms - 1);
+    for k in (0..terms - 1).rev() {
+        body = format!("(DecEq.decide a{k} b{k}).holds && ({body})");
+    }
+    format!(
+        "import Std (Decidable, DecEq, Nat)\ndef same {}: Bool := {body}\n",
+        params.join(" ")
+    )
+}
+
+/// The steps of `decide_chain(terms)`'s definition, the import's taken away.
+fn chain_steps(terms: &usize) -> u64 {
+    let mut session = Session::for_stack(STACK);
+    load(&mut session, "import Std (Decidable, DecEq, Nat)\n");
+    load(&mut session, &decide_chain(*terms))
+}
+
+/// Guards a chain of `&&` over `Bool`s. Each level's right operand is the
+/// whole rest of the chain; taking it out of its branch binder for the
+/// conjunction an `if` may use zonks it, so doing that at every level, when
+/// no operand is a decided proposition and nothing can use it, was cubic:
+/// 1.54 M steps at 32 terms, 6.8 times 16's (SW-3726). What remains grows
+/// with the variables in scope (two per term) too, about four times per
+/// doubling.
+#[test]
+fn decide_chains_grow_quadratically() {
+    let counts = par_map(STACK, &[16, 32], chain_steps);
+    let [half, full] = counts[..] else {
+        unreachable!()
+    };
+    println!("16 terms {half} steps, 32 terms {full}");
+    let mut failures = Vec::new();
+    if full * 10 > half * 50 {
+        failures.push(format!(
+            "32 terms took {full} steps, {:.1} times 16's {half}",
+            full as f64 / half as f64
+        ));
+    }
+    // 0.24 M steps after SW-3726 (1.54 M before).
+    if full > 300_000 {
+        failures.push(format!("32 terms took {full} steps, over 300 K"));
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

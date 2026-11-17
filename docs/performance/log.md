@@ -46,6 +46,66 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 17 Nov 2026
 
+### SW-3726: `&&` chains of `Bool`s no longer zonk their tail at every level; a solution's lambdas take their arguments at once
+
+- **Status:** kept (Opus), elaborator (`logic.rs`) and the evaluator's
+  forcing of solved unknowns (`value.rs`: `force_solved`, `Frame::Replay`;
+  neither runs in the kernel, which has no unknowns). Terms, results and
+  messages unchanged: every probe below elaborates to the same node and
+  read-back counts. First fix under D3669 (derived instances stay eager;
+  their cost is fixed where it arises), from
+  [derived-instances-rethink.md](../proposals/derived-instances-rethink.md) §2.3.
+- **Profile.** samply (4 kHz) on nine copies of gen4's 32-term
+  `(DecEq.decide a b).holds && (…)`: 71% under `as_bool`'s right-operand
+  closure in `zonk_changed`, from `Conjunct::outside_binder`. `as_bool`
+  takes each level's right operand, the whole rest of the chain, out of
+  the branch binder (zonking it) to offer the conjunction to an `if` that
+  may use its proof; a chain of `Bool`s re-zonks its tail at every level,
+  and `logic::conjunction` throws the result away, since neither side
+  is a decided proposition. The zonk's own cost was the second cause: 67%
+  in `zonk_solved`'s `eval`, 27% self in `Rc<[Value]>::from_iter_exact`,
+  the environment copied to add one variable as each of a solution's
+  lambdas is entered; a solution is a function of all the variables in
+  scope (65 to 97 here), so each look at an unknown was quadratic in them.
+  The projection chain (`And.left (And.right^k q)`) spent 38% in the same
+  per-lambda copying, through the unifier's `force_solved`/`force_now`.
+- **Change.** (1) The right operand is taken out of its binder only when
+  the left or right side is a decided proposition (after the left side's
+  kind is known); otherwise the conjunction can't be formed and nothing is
+  zonked. (2) Applying a solved unknown's solution (`force_solved`, and the
+  machine's `Frame::Replay`) enters a closure's run of nested lambdas with
+  all their arguments at once, one environment built (`enter_run`).
+- **Measured** (steps; `STITCHWORT_TIMINGS=decls check --no-cache`, the
+  sw3725 probes; elaboration ms in brackets, machine load 10 to 26):
+
+  | Probe | Before | After |
+  |---|---|---|
+  | gen4 `(DecEq.decide a b).holds && …`, 8 / 16 / 32 | 37.4K / 225K / 1.54M (250 ms) | 18.0K / 64.8K / 245K (26 ms) |
+  | gen4 `(Nat.decEq a b).holds && …`, 32 | 465K | 42.6K |
+  | gen4 `a == b && …`, 32 | 54.1K | 44.0K |
+  | `if` of the `DecEq.decide` chain, 32 | 1.66M | 292K |
+  | gen2 `congConj` (projection chains), 8 / 16 | 103K / 1.15M | 75.2K / 744K |
+  | gen2 `congTrans` (`Eq.trans` of `Eq.cong`s), 8 / 16 | 38.7K / 149K | 32.3K / 121K |
+  | one `And.left (And.right^30 q)`, 32 | 896K (136 ms) | 418K (37 ms) |
+  | 16-field record with derived instances | 19.27M (1,513 ms) | 16.85M (1,211 ms) |
+  | Nat import program, sum over std's declarations | 21.43M (1.88 s wall) | 20.51M (1.81 s) |
+
+- **Left, not this mechanism.** The `DecEq.decide` chain is now as
+  quadratic as `a == b` (3.8 times per doubling, from the two variables
+  each term adds to the scope) but 5.6 times its steps: `.holds` on a call
+  infers the receiver once for dot notation and again as an argument
+  (`dot::prefix_form`, 29%), and the instance is found by
+  `find_ready_dictionaries` (29%). Projection chains are still about cubic
+  (6.5 times per doubling): each level's unification forces the chain of
+  unknowns below it (`forced_rules` → `force_now`), so a depth-`k` chain
+  re-forces `k` levels `k` times; and naming the tails (`congConjLet`) or
+  reshaping the proofs (§3.2 of the note) is still the larger win for the
+  derivers. A chain of decided propositions (`a = b && …` as a `Bool`) is
+  cubic for another reason: 50% in `solve_ready_instances_keeping` →
+  `unsolved_placeholder` under `short_circuit`'s `undo::attempt`
+  (448K steps at 32, unchanged). The derived record's main cost is
+  elsewhere: `effects::call_performs` 31%, `infer_j` 66% inclusive.
+
 ### SW-3709: readsThen chains 3-5x the steps after SW-3561; the first lemma is compared by its arguments first
 
 - **Status:** kept (Opus). Statements, accept/reject results and messages
