@@ -19,8 +19,8 @@ def Expr.endsWithComment: Expr → Bool
   | NumberLiteral _ comments => comments.after.isSome
   | StringLiteral _ comments => comments.after.isSome
   | Bracketed _ _ close => close.after.isSome
-  | ListLiteral _ _ close => close.after.isSome
-  | Call _ _ _ close => close.after.isSome
+  | ListLiteral _ _ trailingComma close => close.after.isSome
+  | Call _ _ _ trailingComma close => close.after.isSome
   | Field _ _ _ nameComments => nameComments.after.isSome
   | Negate _ operand => operand.endsWithComment
   | Binary _ _ _ right => right.endsWithComment

@@ -76,7 +76,7 @@ def bareCloser (comments: Comments) (text: Text): Doc := match comments.after wi
   | Some _ => token comments text
 
 def Declaration.layout: Declaration → Doc
-  | Function fnComments name nameComments takes open parameters close equals body =>
+  | Function fnComments name nameComments takes open parameters trailingComma close equals body =>
     Doc.concat [header fnComments name nameComments takes open parameters close equals, body.afterEquals equals]
   | Value letComments name nameComments equals body => binding letComments name nameComments equals body
   | DeclarationNote comment => Doc.text comment.text
@@ -145,7 +145,7 @@ def Body.afterEquals (body: Body) (equals: Comments): Doc := match body with
   | { statements = [{ line = Bare value, .. }] } if equals.after.isNone =>
     let doc := value.layout
     match value with
-      | ListLiteral _ _ _ => Choice [Doc.concat [Doc.text " ", Flatten doc], Doc.concat [Doc.text " ", doc]]
+      | ListLiteral _ _ _ _ => Choice [Doc.concat [Doc.text " ", Flatten doc], Doc.concat [Doc.text " ", doc]]
       | _ => Choice [Doc.concat [Doc.text " ", Flatten doc], OneLineBelow doc, below doc]
   | { statements = [{ line = Bare value, .. }] } => below value.layout
   | _ => below body.block
@@ -171,8 +171,8 @@ def Expr.layout: Expr → Doc
   | NumberLiteral digits comments => token comments digits
   | StringLiteral written comments => token comments written
   | Bracketed open inner close => Doc.concat [token open "(", inner.layout, closeAfter inner close ")"]
-  | ListLiteral open items close => listLayout open items close
-  | Call callee open arguments close => Doc.concat [callee.layout, argumentsLayout open arguments close]
+  | ListLiteral open items trailingComma close => listLayout open items close
+  | Call callee open arguments trailingComma close => Doc.concat [callee.layout, argumentsLayout open arguments close]
   | Field target dot name nameComments => Doc.concat [target.layout, token dot ".", token nameComments name]
   | Negate minus operand =>
     Doc.concat [token minus "-", Doc.text (if operand.startsWithMinus then " " else ""), operand.layout]
@@ -188,7 +188,7 @@ def Expr.layout: Expr → Doc
 def Expr.startsWithMinus: Expr → Bool
   | Negate _ _ => True
   | Binary _ _ left _ => left.startsWithMinus
-  | Call callee _ _ _ => callee.startsWithMinus
+  | Call callee _ _ trailingComma _ => callee.startsWithMinus
   | Field target _ _ _ => target.startsWithMinus
   | _ => False
 

@@ -89,8 +89,9 @@ type Expr =
   | StringLiteral (written: Text) (comments: Comments)
   --| `( … )`: brackets are kept as written.
   | Bracketed (open: Comments) (inner: Expr) (close: Comments)
-  | ListLiteral (open: Comments) (items: List Expr) (close: Comments)
-  | Call (callee: Expr) (open: Comments) (arguments: List Expr) (close: Comments)
+  --| `trailingComma`: whether a comma was written after the last item.
+  | ListLiteral (open: Comments) (items: List Expr) (trailingComma: Bool) (close: Comments)
+  | Call (callee: Expr) (open: Comments) (arguments: List Expr) (trailingComma: Bool) (close: Comments)
   | Field (target: Expr) (dot: Comments) (name: Text) (nameComments: Comments)
   | Negate (minus: Comments) (operand: Expr)
   --| Left-nested for a chain of one level: `a - b + c` is `(a - b) + c`.
@@ -139,6 +140,7 @@ type Declaration =
       (takes: Option Comments)
       (open: Comments)
       (parameters: List ParameterGroup)
+      (trailingComma: Bool)
       (close: Comments)
       (equals: Comments)
       (body: Body)

@@ -34,8 +34,8 @@ def Expr.comments: Expr → List Comment
   | NumberLiteral _ comments => comments.all
   | StringLiteral _ comments => comments.all
   | Bracketed open inner close => open.all ++ inner.comments ++ close.all
-  | ListLiteral open items close => open.all ++ itemsComments items ++ close.all
-  | Call callee open arguments close => callee.comments ++ open.all ++ itemsComments arguments ++ close.all
+  | ListLiteral open items trailingComma close => open.all ++ itemsComments items ++ close.all
+  | Call callee open arguments trailingComma close => callee.comments ++ open.all ++ itemsComments arguments ++ close.all
   | Field target dot _ nameComments => target.comments ++ dot.all ++ nameComments.all
   | Negate minus operand => minus.all ++ operand.comments
   | Binary _ sign left right => left.comments ++ sign.all ++ right.comments
@@ -90,7 +90,7 @@ def headerComments (takes: Option Comments) (open: Comments) (parameters: List P
 def parametersComments (parameters: List ParameterGroup): List Comment := parameters.flatMap (group => group.comments)
 
 def Declaration.comments: Declaration → List Comment
-  | Function fnComments _ nameComments takes open parameters close equals body =>
+  | Function fnComments _ nameComments takes open parameters trailingComma close equals body =>
     fnComments.all ++ nameComments.all ++ headerComments takes open parameters close ++ equals.all ++ body.comments
   | Value letComments _ nameComments equals body => letComments.all ++ nameComments.all ++ equals.all ++ body.comments
   | DeclarationNote comment => [comment]

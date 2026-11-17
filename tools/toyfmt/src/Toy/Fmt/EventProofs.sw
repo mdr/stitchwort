@@ -47,9 +47,9 @@ def Events (zone: Zone) (head: Option Nat → Prop) (expr: Expr): List Event →
   | StringLiteral written comments => TokenAt head comments written
   | Bracketed open inner close =>
     Then (TokenAt head open "(") (Then (Events zone.inside anyStart inner) (TokenAt anyStart close ")"))
-  | ListLiteral open items close =>
+  | ListLiteral open items trailingComma close =>
     Then (TokenAt head open "[") (Then (ItemEvents zone.inside items) (TokenAt anyStart close "]"))
-  | Call callee open arguments close =>
+  | Call callee open arguments trailingComma close =>
     Then
       (Events zone head callee)
       (Then (TokenAt zone.allows open "(") (Then (ItemEvents zone.inside arguments) (TokenAt anyStart close ")")))
@@ -1040,7 +1040,7 @@ theorem bareAfterEquals ∀ (blankBefore: Bool) (value: Expr) (above: List Comme
       trace
       next :=
   match value, flat, opened, oneLine, under with
-    | ListLiteral open items close, flat, opened, oneLine, under => (flat, opened)
+    | ListLiteral open items trailingComma close, flat, opened, oneLine, under => (flat, opened)
     | _, flat, opened, oneLine, under => (flat, oneLine, under)
 
 --| An `else` whose branch is one expression: an `if` stays on the
@@ -1197,14 +1197,14 @@ theorem chainLays ∀ (level: Nat) (expr: Expr)
         seated
         isHead
         onward
-    | ListLiteral open items close, _, whole, isHead, onward =>
+    | ListLiteral open items trailingComma close, _, whole, isHead, onward =>
       whole head indent place trace
         (after later => LaysAll more (indent + 2) after later next)
         inside
         seated
         isHead
         onward
-    | Call callee open arguments close, _, whole, isHead, onward =>
+    | Call callee open arguments trailingComma close, _, whole, isHead, onward =>
       whole head indent place trace
         (after later => LaysAll more (indent + 2) after later next)
         inside
@@ -1304,7 +1304,7 @@ theorem exprLays ∀ (expr: Expr)
           seated
           isHead
           onward
-    | ListLiteral open items close, Both fineOpen (Both lexItems fineClose) =>
+    | ListLiteral open items trailingComma close, Both fineOpen (Both lexItems fineClose) =>
       match items, lexItems with
         | [], _ => head indent place trace next inside seated isHead onward =>
           headCons zone
@@ -1362,7 +1362,7 @@ theorem exprLays ∀ (expr: Expr)
                   seated
                   isHead
                   onward
-    | Call callee open arguments close, Both lexCallee (Both fineOpen (Both lexArguments fineClose)) =>
+    | Call callee open arguments trailingComma close, Both lexCallee (Both fineOpen (Both lexArguments fineClose)) =>
       match arguments, lexArguments with
         | [], _ => head indent place trace next inside seated isHead onward =>
           headCons zone callee.layout
@@ -2166,7 +2166,7 @@ def TakesEvents (zone: Zone) (takes: Option Comments): List Event → Prop := ma
 --| function is `fn name (`, with `takes` before `(` if it was written,
 --| the parameters, then `) =` and the body.
 def DeclarationEvents (declaration: Declaration): List Event → Prop := match declaration with
-  | Function fnComments name nameComments takes open parameters close equals body =>
+  | Function fnComments name nameComments takes open parameters trailingComma close equals body =>
     Then
       (Then
         (TokenAt (atColumn 0) fnComments "fn")
@@ -2662,16 +2662,16 @@ theorem closingLays ∀ (zone: Zone) (close equals: Comments) (bodyDoc: Doc) (bo
 --| lays them (none: nothing), then `closingLays`; the events are
 --| `DeclarationEvents`' parts in that order.
 theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments: Comments) (takes: Option Comments)
-    (open: Comments) (parameters: List ParameterGroup) (close equals: Comments) (body: Body)
-    (lexical: LexicalDeclaration (Function fnComments name nameComments takes open parameters close equals body))
+    (open: Comments) (parameters: List ParameterGroup) (trailingComma: Bool) (close equals: Comments) (body: Body)
+    (lexical: LexicalDeclaration (Function fnComments name nameComments takes open parameters trailingComma close equals body))
     (trace: List Event) (next: Place → List Event → Prop)
     (onward: ∀ (reached: Place) (events: List Event) => DeclarationEvents
-      (Function fnComments name nameComments takes open parameters close equals body)
+      (Function fnComments name nameComments takes open parameters trailingComma close equals body)
       events
       → Ended (Deeper 0) reached
       → next reached (trace ++ events)):
     Lays
-      (Declaration.layout (Function fnComments name nameComments takes open parameters close equals body))
+      (Declaration.layout (Function fnComments name nameComments takes open parameters trailingComma close equals body))
       0
       (AtStart 0)
       trace
@@ -2856,8 +2856,8 @@ theorem declarationLays ∀ (declaration: Declaration)
       → next reached (trace ++ events)):
     Lays declaration.layout 0 (AtStart 0) trace next :=
   match declaration, lexical, onward with
-    | Function fnComments name nameComments takes open parameters close equals body, lexical, onward =>
-      functionLays fnComments name nameComments takes open parameters close equals body lexical trace next onward
+    | Function fnComments name nameComments takes open parameters trailingComma close equals body, lexical, onward =>
+      functionLays fnComments name nameComments takes open parameters trailingComma close equals body lexical trace next onward
     | Value letComments name nameComments equals body, Both fineLet
         (Both isName (Both fineName (Both fineEquals lexBody))), onward =>
       bindingRule

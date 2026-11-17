@@ -51,7 +51,10 @@ def ParsedItem (read: (Expr, Bool)): Prop := ShapedItem read ∧ Lexical read.fs
 def ParsedList (items: List Expr): Prop := ShapedItems items ∧ LexicalItems items ∧ HeadedItems items
 
 --| Items and the closing bracket's comments.
-def ParsedItems (found: (List Expr, Comments)): Prop := ParsedList found.fst ∧ Fine found.snd
+def ParsedItems (found: (List Expr, Bool, Comments)): Prop := ParsedList found.fst ∧ Fine found.snd.snd
+
+--| Items, whether a trailing comma followed them.
+def ParsedListFound (found: (List Expr, Bool)): Prop := ParsedList found.fst
 
 --| What `bareStatement` gives at `layout`.
 def ParsedBare (layout: Layout) (line: Statement): Prop :=
@@ -139,23 +142,37 @@ theorem givesItem ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     Parse.givesThen (givesSignInBrackets "','" Comma) (comma found =>
       Parse.givesDone ((parsed.left, parsed.right.left, parsed.right.right))))
 
-theorem givesItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
+--| `closingNext` reads nothing.
+theorem givesClosingNext ∀ (closer: Punctuation):
+    Parse.Gives GoodTokens (() => closingNext closer) ((ahead: Bool) => True) :=
+  Parse.readsWithMark _ _ (start fine => Parse.givesDone byComputing)
+
+theorem givesItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (closer: Punctuation)
     (nested: ∀ (inner: Layout) => Parse.Gives GoodTokens (() => self inner) (ParsedExpr inner))
     (fuel: Nat) (found: List Expr)
     (shaped: ShapedItems found)
     (lexical: LexicalItems found)
     (headed: HeadedItems found):
-    Parse.Gives GoodTokens (() => itemsFrom fuel self found) ParsedList :=
+    Parse.Gives GoodTokens (() => itemsFrom fuel self closer found) ParsedListFound :=
   match fuel with
     | Zero => Parse.readsFatal _ _
     | Succ more => Parse.givesThen (givesItem self nested) (read parsed =>
       match read, parsed with
         | (value, True), (valueShaped, valueLexical, valueHeaded) =>
-          givesItemsFrom self nested more
-            [value, ..found]
-            ((valueShaped, shaped))
-            ((valueLexical, lexical))
-            ((valueHeaded, headed))
+          let done: ParsedList [value, ..found].reverse := (
+            (shapedItemsReverse [value, ..found] ((valueShaped, shaped))),
+            (lexicalItemsReverse [value, ..found] ((valueLexical, lexical))),
+            (headedItemsReverse [value, ..found] ((valueHeaded, headed)))
+          )
+          Parse.givesThen (givesClosingNext closer) (ahead _ =>
+            match ahead with
+              | True => Parse.givesDone done
+              | False =>
+                givesItemsFrom self closer nested more
+                  [value, ..found]
+                  ((valueShaped, shaped))
+                  ((valueLexical, lexical))
+                  ((valueHeaded, headed)))
         | (value, False), (valueShaped, valueLexical, valueHeaded) =>
           Parse.givesDone
             ((
@@ -171,7 +188,7 @@ theorem givesItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (cl
     match closed, found with
       | Some close, fine => Parse.givesDone ((((byComputing, byComputing, byComputing)), fine))
       | None, none => Parse.readsWithMark _ _ (at marked =>
-        Parse.givesThen (givesItemsFrom self nested at.left [] byComputing byComputing byComputing) (found parsed =>
+        Parse.givesThen (givesItemsFrom self closer nested at.left [] byComputing byComputing byComputing) (found parsed =>
           Parse.givesThen (givesSign InBrackets "'${closer.spelling}'" closer) (close fine =>
             Parse.givesDone ((parsed, fine))))))
 
@@ -202,7 +219,7 @@ theorem givesAtomOf ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (l
     | Sign OpenSquare, _ => Parse.givesThen givesSkip (skipped done =>
       Parse.givesThen (givesItems self CloseSquare nested) (pair parsed =>
         match pair, parsed with
-          | (found, close), (((shapedItems, lexicalItems, headedItems)), closeFine) =>
+          | (found, _, close), (((shapedItems, lexicalItems, headedItems)), closeFine) =>
             Parse.givesDone
               ((
                 ((byComputing, shapedItems, (closingSettled close (itemsEndWithComment comments found)))),
@@ -245,7 +262,7 @@ theorem givesCallAfter ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
   Parse.givesThen givesSkip (skipped done =>
     Parse.givesThen (givesItems self CloseParen nested) (pair found =>
       match pair, found with
-        | (arguments, close), (((shapedArguments, lexicalArguments, headedArguments)), closeFine) =>
+        | (arguments, _, close), (((shapedArguments, lexicalArguments, headedArguments)), closeFine) =>
           Parse.givesDone
             ((
               ((
@@ -718,13 +735,18 @@ theorem givesParameterStep: Parse.Gives GoodTokens parameterStep ParsedGroup :=
 
 theorem givesParameterList: Parse.Gives GoodTokens parameterList FineList :=
   Parse.givesThen givesGroup (first grouped =>
-    Parse.givesThen (Parse.givesMany givesParameterStep) (others steps => Parse.givesDone ((grouped, steps))))
+    Parse.givesThen (Parse.givesMany givesParameterStep) (others steps =>
+      Parse.givesThen (givesSignInBrackets "','" Comma) (trailing _ => Parse.givesDone ((grouped, steps)))))
 
-theorem givesParameters: Parse.Gives GoodTokens (() => parametersOf (Parse.optional parameterList)) ParsedParameters :=
+--| The groups, and whether a trailing comma followed them.
+def ParsedGroupsFound (found: (List ParameterGroup, Bool)): Prop := ParsedParameters found.fst
+
+theorem givesParameters: Parse.Gives GoodTokens (() => parametersOf (Parse.optional parameterList)) ParsedGroupsFound :=
   Parse.givesThen (Parse.givesOptional givesParameterList) (found listed =>
     match found, listed with
       | None, _ => Parse.givesDone ((byComputing, byComputing))
-      | Some (first, others), Both grouped steps => Parse.givesDone (parsedGroups [first, ..others] ((grouped, steps))))
+      | Some (first, others, trailing), Both grouped steps =>
+        Parse.givesDone (parsedGroups [first, ..others] ((grouped, steps))))
 
 --| A function's header: `takes`, the brackets and the parameters, each
 --| as the parser gives them.
@@ -745,8 +767,8 @@ theorem givesHeader ∀ (layout: Layout): Parse.Gives GoodTokens (() => function
               takesFine,
               openFine,
               listed,
-              (closingFine close (groupsEndWithComment open parameters) closeFine),
-              (closingSettled close (groupsEndWithComment open parameters))
+              (closingFine close (groupsEndWithComment open parameters.fst) closeFine),
+              (closingSettled close (groupsEndWithComment open parameters.fst))
             ))))))
 
 theorem givesFunctionLine ∀ (column start: Nat) (first: Parse.Located Token)

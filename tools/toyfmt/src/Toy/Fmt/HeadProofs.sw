@@ -31,8 +31,8 @@ theorem clearedFirstAbove ∀ (expr: Expr): expr.withoutFirstAbove.firstAbove = 
   | NumberLiteral _ _ => byComputing
   | StringLiteral _ _ => byComputing
   | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ => byComputing
-  | Call callee _ _ _ => clearedFirstAbove callee
+  | ListLiteral _ _ _ _ => byComputing
+  | Call callee _ _ trailingComma _ => clearedFirstAbove callee
   | Field target _ _ _ => clearedFirstAbove target
   | Negate _ _ => byComputing
   | Binary _ _ left _ => clearedFirstAbove left
@@ -46,8 +46,8 @@ theorem headedCleared ∀ (bracketed: Bool) (expr: Expr)
     | NumberLiteral digits comments, headed => headed
     | StringLiteral written comments, headed => headed
     | Bracketed open inner close, headed => headed
-    | ListLiteral open items close, headed => headed
-    | Call callee open arguments close, Both calleeHeaded others =>
+    | ListLiteral open items trailingComma close, headed => headed
+    | Call callee open arguments trailingComma close, Both calleeHeaded others =>
       ((headedCleared bracketed callee calleeHeaded), others)
     | Field target dot name nameComments, headed => headedCleared bracketed target headed
     | Negate minus operand, headed => headed

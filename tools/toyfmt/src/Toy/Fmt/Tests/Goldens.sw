@@ -272,15 +272,15 @@ def comments: Golden :=
         (block [
           plain (StatementNote { text = "-- the base price" }),
           plain
-            (letBody "base" (expr (Call (v "sum") none [Field (v "order") none "items" (after "-- before tax")] none))),
+            (letBody "base" (expr (Call (v "sum") none [Field (v "order") none "items" (after "-- before tax")] False none))),
           bare (op Plus (v "base") (call "tax" [v "base"]))
         ]),
       value "weights"
-        (ListLiteral none [NumberLiteral "1" (above ["-- light"]), NumberLiteral "2" (after "-- two"), num "3"] none),
+        (ListLiteral none [NumberLiteral "1" (above ["-- light"]), NumberLiteral "2" (after "-- two"), num "3"] False none),
       plain
         (Function none "odd" none None none
           [parameter "x"]
-          none
+          False none
           (after "-- why")
           (expr (op Remainder (v "x") (num "2"))))
     ],
@@ -392,7 +392,7 @@ def order: Golden :=
                 (expr
                   (op Minus
                     (op Plus (v "base") (v "tax"))
-                    (Call (v "discount") none [v "order", Var "rates" (after "-- loyal")] none)))
+                    (Call (v "discount") none [v "order", Var "rates" (after "-- loyal")] False none)))
                 (expr (op Plus (v "base") (v "tax")))))
         ]),
       afterBlank
@@ -511,7 +511,7 @@ test "a dump shows takes, groups and types" :=
     == "(fn area (takes) ((group w h : Int)) (body (bare (* (var w) (var h)))))\n(fn readVec ((group v : (bracketed Vec))) (body (bare (var v))))\n(fn stream ((group head : Nat) (group rest :{ after -- c } Nat)) (body (bare (var rest))))\n(fn next (takes{ after -- why }) ((group n : Nat)){ above -- c } (body (bare (+ (var n) (number 1)))))\n"
 
 test "P8: a ] joins the line of a trailing comment on a list's last item" :=
-  let tree := sprig [value "pair" (ListLiteral none [num "1", NumberLiteral "2" (after "-- two")] none)]
+  let tree := sprig [value "pair" (ListLiteral none [num "1", NumberLiteral "2" (after "-- two")] False none)]
   tree.print 40 == "let pair = [1, 2] -- two\n"
 
 test "a tree's dump shows its structure" :=

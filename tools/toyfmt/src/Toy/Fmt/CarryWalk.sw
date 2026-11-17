@@ -983,9 +983,9 @@ theorem withoutFirstAboveSame ∀ (expr: Expr)
     | StringLiteral written comments => clearedAll comments none
     | Bracketed open inner close =>
       Eq.cong ((front: List Comment) => front ++ (inner.comments ++ close.all)) (clearedAll open none)
-    | ListLiteral open items close =>
+    | ListLiteral open items trailingComma close =>
       Eq.cong ((front: List Comment) => front ++ (itemsComments items ++ close.all)) (clearedAll open none)
-    | Call callee open arguments close =>
+    | Call callee open arguments trailingComma close =>
       Eq.cong
         ((front: List Comment) => front ++ (open.all ++ (itemsComments arguments ++ close.all)))
         (withoutFirstAboveSame callee none)

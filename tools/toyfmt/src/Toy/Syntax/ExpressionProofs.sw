@@ -275,8 +275,8 @@ def Expr.isPostfix: Expr → Bool
   | NumberLiteral _ _ => True
   | StringLiteral _ _ => True
   | Bracketed _ _ _ => True
-  | ListLiteral _ _ _ => True
-  | Call _ _ _ _ => True
+  | ListLiteral _ _ _ _ => True
+  | Call _ _ _ _ _ => True
   | Field _ _ _ _ => True
   | _ => False
 
@@ -320,8 +320,8 @@ def Shaped: Expr → Prop
       ∧ right.isChain = True
       ∧ Shaped left
       ∧ Shaped right
-  | ListLiteral open items close => ShapedItems items ∧ settledCloser (itemsEndWithComment open items) close = True
-  | Call callee open arguments close =>
+  | ListLiteral open items trailingComma close => ShapedItems items ∧ settledCloser (itemsEndWithComment open items) close = True
+  | Call callee open arguments trailingComma close =>
     callee.isPostfix = True
       ∧ Shaped callee
       ∧ ShapedItems arguments
@@ -384,7 +384,8 @@ theorem closingSame ∀ (close: Comments) (before: Bool)
 --| those the parser takes from it (`Layout.comments`). An `if`'s `else` may
 --| also start a line at the statement's column, and each of its branches
 --| is spelled as a body (`SpelledBody`: one expression or a block)
---| whatever comes after it that may (`After`). For the forms `Shaped`
+--| whatever comes after it that may (`After`). A list or call has no
+--| trailing comma: the printer writes none. For the forms `Shaped`
 --| covers.
 def Spelled (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token)): Prop := match expr with
   | Var name comments =>
@@ -435,7 +436,7 @@ def Spelled (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token)): 
         ∧ Spelled layout left leftTokens
         ∧ Spelled layout right rightTokens
         ∧ signComments = layout.comments sign
-  | ListLiteral opened items closed =>
+  | ListLiteral opened items trailingComma closed =>
     ∃ (open: Parse.Located Token) => ∃ (itemTokens: List (Parse.Located Token)) => ∃ (close: Parse.Located Token) =>
       tokens = [open, ..itemTokens ++ [close]]
         ∧ open.value.kind = Sign OpenSquare
@@ -444,7 +445,8 @@ def Spelled (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token)): 
         ∧ SpelledItems items itemTokens
         ∧ opened = layout.comments open
         ∧ closed = Layout.comments InBrackets close
-  | Call callee opened arguments closed =>
+        ∧ trailingComma = False
+  | Call callee opened arguments trailingComma closed =>
     ∃ (calleeTokens: List (Parse.Located Token)) => ∃ (open: Parse.Located Token) =>
       ∃ (argumentTokens: List (Parse.Located Token)) => ∃ (close: Parse.Located Token) => tokens
         = calleeTokens ++ [open, ..argumentTokens ++ [close]]
@@ -455,6 +457,7 @@ def Spelled (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token)): 
         ∧ SpelledItems arguments argumentTokens
         ∧ opened = layout.comments open
         ∧ closed = Layout.comments InBrackets close
+        ∧ trailingComma = False
   | If ifComments condition thenComments whenTrue elseComments whenFalse =>
     ∃ (ifToken: Parse.Located Token) => ∃ (conditionTokens: List (Parse.Located Token)) =>
       ∃ (thenToken: Parse.Located Token) => ∃ (trueTokens: List (Parse.Located Token)) =>
@@ -598,11 +601,11 @@ theorem postfixStart ∀ (layout: Layout) (expr: Expr) (tokens rest: List (Parse
             nameCommented) =>
           rewrite split, List.appendAssoc targetTokens [dot, named] rest then
             postfixStart layout target targetTokens [dot, named, ..rest] shaped.left shaped.right spelledTarget
-    | ListLiteral opened listed closed =>
+    | ListLiteral opened listed trailingComma closed =>
       match spelled with
         | (open, itemTokens, close, split, opens, allowed, others) =>
           rewrite split, opens, allowed then (byComputing, byComputing)
-    | Call callee opened arguments closed =>
+    | Call callee opened arguments trailingComma closed =>
       match spelled with
         | (calleeTokens, open, argumentTokens, close, split, opens, allowed, closes, spelledCallee, spelledArguments,
             openCommented, closeCommented) =>
@@ -774,9 +777,10 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
                       runsSuffixesField less self layout target dot named name more rest value dotted dotAllowed isName
                           nameAllowed
                           (continues less (arithmetic [enough])))
-    | ListLiteral opened listed closed =>
+    | ListLiteral opened listed trailingComma closed =>
       match spelled with
-        | (open, itemTokens, close, split, opens, allowed, closes, spelledItems, openCommented, closeCommented) =>
+        | (open, itemTokens, close, split, opens, allowed, closes, spelledItems, openCommented, closeCommented,
+            bareComma) =>
           let size: tokens.length = (itemTokens ++ [close]).length + 1 := rewrite split
           let sizes: (itemTokens ++ [close]).length = itemTokens.length + 1 := List.lengthAppend itemTokens [close]
           let settled: settledCloser
@@ -789,6 +793,7 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
               (more ++ rest)
               close
               listed
+              False
               opens
               allowed
               (runsItems self bound nested listed itemTokens
@@ -800,13 +805,13 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
                 shaped.left
                 spelledItems
                 (arithmetic [small, size, sizes]))
-          rewrite openCommented, closeCommented at continues then
+          rewrite openCommented, closeCommented, bareComma at continues then
             rewrite split then
               runsAtomThenSuffixes self layout
                 [open, ..itemTokens ++ [close]]
                 more
                 rest
-                (ListLiteral (layout.comments open) listed (Layout.comments InBrackets close))
+                (ListLiteral (layout.comments open) listed False (Layout.comments InBrackets close))
                 value
                 (rewrite closingSame
                       (Layout.comments InBrackets close)
@@ -814,10 +819,10 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
                       settled at ranAtom then
                   ranAtom)
                 continues
-    | Call callee opened arguments closed =>
+    | Call callee opened arguments trailingComma closed =>
       match spelled with
         | (calleeTokens, open, argumentTokens, close, split, opens, allowed, closes, spelledCallee, spelledArguments,
-            openCommented, closeCommented) =>
+            openCommented, closeCommented, bareComma) =>
           let size: tokens.length = calleeTokens.length + ((argumentTokens ++ [close]).length + 1) :=
             rewrite split then List.lengthAppend calleeTokens [open, ..argumentTokens ++ [close]]
           let sizes: (argumentTokens ++ [close]).length = argumentTokens.length + 1 :=
@@ -827,7 +832,7 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
             (Layout.comments InBrackets close)
             = True :=
             rewrite <- openCommented, <- closeCommented then shaped.right.right.right
-          rewrite openCommented, closeCommented at continues then
+          rewrite openCommented, closeCommented, bareComma at continues then
             rewrite split, List.appendAssoc calleeTokens [open, ..argumentTokens ++ [close]] more then
               runsPostfixPrefix self layout bound nested callee calleeTokens
                 ([open, ..argumentTokens ++ [close]] ++ more)
@@ -840,7 +845,7 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
                 (fuel enough =>
                   match fuel with
                     | Succ less =>
-                      runsSuffixesCall less self layout callee open argumentTokens close more rest arguments value opens
+                      runsSuffixesCall less self layout callee open argumentTokens close more rest arguments False value opens
                           allowed
                           (runsItems self bound nested arguments argumentTokens
                             (more ++ rest)
@@ -960,9 +965,9 @@ theorem runsNegations ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
         spelled
         ends
         small
-    | ListLiteral opened listed closed =>
+    | ListLiteral opened listed trailingComma closed =>
       runsNegationsPostfix self layout bound nested
-        (ListLiteral opened listed closed)
+        (ListLiteral opened listed trailingComma closed)
         fuel
         tokens
         rest
@@ -971,9 +976,9 @@ theorem runsNegations ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
         spelled
         ends
         small
-    | Call callee opened arguments closed =>
+    | Call callee opened arguments trailingComma closed =>
       runsNegationsPostfix self layout bound nested
-        (Call callee opened arguments closed)
+        (Call callee opened arguments trailingComma closed)
         fuel
         tokens
         rest
@@ -1223,9 +1228,9 @@ theorem chainTree ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
         spelled
         ends
         small
-    | ListLiteral opened listed closed =>
+    | ListLiteral opened listed trailingComma closed =>
       chainTreeOperand self layout bound nested
-        (ListLiteral opened listed closed)
+        (ListLiteral opened listed trailingComma closed)
         tokens
         rest
         byComputing
@@ -1234,9 +1239,9 @@ theorem chainTree ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
         spelled
         ends
         small
-    | Call callee opened arguments closed =>
+    | Call callee opened arguments trailingComma closed =>
       chainTreeOperand self layout bound nested
-        (Call callee opened arguments closed)
+        (Call callee opened arguments trailingComma closed)
         tokens
         rest
         byComputing
@@ -1271,10 +1276,10 @@ theorem chainStart ∀ (layout: Layout) (expr: Expr) (tokens rest: List (Parse.L
       (postfixStart layout (Bracketed opened inner closed) tokens rest byComputing shaped spelled).right
     | Field target dotComments name nameComments =>
       (postfixStart layout (Field target dotComments name nameComments) tokens rest byComputing shaped spelled).right
-    | ListLiteral opened listed closed =>
-      (postfixStart layout (ListLiteral opened listed closed) tokens rest byComputing shaped spelled).right
-    | Call callee opened arguments closed =>
-      (postfixStart layout (Call callee opened arguments closed) tokens rest byComputing shaped spelled).right
+    | ListLiteral opened listed trailingComma closed =>
+      (postfixStart layout (ListLiteral opened listed trailingComma closed) tokens rest byComputing shaped spelled).right
+    | Call callee opened arguments trailingComma closed =>
+      (postfixStart layout (Call callee opened arguments trailingComma closed) tokens rest byComputing shaped spelled).right
 
 theorem chainRuleRun ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (layout: Layout) (state: Parse.State (Parse.Located Token))
@@ -1402,9 +1407,9 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
         spelled
         after.left
         small
-    | ListLiteral opened listed closed, shaped, spelled =>
+    | ListLiteral opened listed trailingComma closed, shaped, spelled =>
       runsChainRule self layout bound nested
-        (ListLiteral opened listed closed)
+        (ListLiteral opened listed trailingComma closed)
         tokens
         rest
         byComputing
@@ -1412,9 +1417,9 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
         spelled
         after.left
         small
-    | Call callee opened arguments closed, shaped, spelled =>
+    | Call callee opened arguments trailingComma closed, shaped, spelled =>
       runsChainRule self layout bound nested
-        (Call callee opened arguments closed)
+        (Call callee opened arguments trailingComma closed)
         tokens
         rest
         byComputing
@@ -1502,7 +1507,7 @@ theorem spelledStart ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Loca
     | Bracketed opened inner closed =>
       match spelled with
         | (open, innerTokens, close, split, opens, others) => (open, (innerTokens ++ [close]), split, (rewrite opens))
-    | ListLiteral opened listed closed =>
+    | ListLiteral opened listed trailingComma closed =>
       match spelled with
         | (open, itemTokens, close, split, opens, others) => (open, (itemTokens ++ [close]), split, (rewrite opens))
     | Negate minusComments operand =>
@@ -1515,7 +1520,7 @@ theorem spelledStart ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Loca
           match spelledStart layout target targetTokens shaped.right spelledTarget with
             | (first, others, targetSplit, startKind) =>
               (first, (others ++ [dot, named]), (rewrite split, targetSplit), startKind)
-    | Call callee opened arguments closed =>
+    | Call callee opened arguments trailingComma closed =>
       match spelled with
         | (calleeTokens, open, argumentTokens, close, split, opens, allowed, closes, spelledCallee, spelledArguments,
             openCommented, closeCommented) =>
@@ -1545,8 +1550,8 @@ theorem noAboveCleared ∀ (expr: Expr) (none: expr.firstAbove = []): expr.witho
     | NumberLiteral digits { above, after }, none => rewrite none
     | StringLiteral written { above, after }, none => rewrite none
     | Bracketed ({ above, after }) inner close, none => rewrite none
-    | ListLiteral ({ above, after }) items close, none => rewrite none
-    | Call callee open arguments close, none => rewrite noAboveCleared callee none
+    | ListLiteral ({ above, after }) items trailingComma close, none => rewrite none
+    | Call callee open arguments trailingComma close, none => rewrite noAboveCleared callee none
     | Field target dot name nameComments, none => rewrite noAboveCleared target none
     | Negate ({ above, after }) operand, none => rewrite none
     | Binary operator sign left right, none => rewrite noAboveCleared left none
@@ -1576,7 +1581,7 @@ theorem spelledFirstAbove ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse
       match spelled with
         | (open, innerTokens, close, split, opens, allowed, closes, spelledInner, openCommented, others) =>
           rewrite split, openCommented
-    | ListLiteral opened listed closed =>
+    | ListLiteral opened listed trailingComma closed =>
       match spelled with
         | (open, itemTokens, close, split, opens, allowed, closes, spelledItems, openCommented, others) =>
           rewrite split, openCommented
@@ -1591,7 +1596,7 @@ theorem spelledFirstAbove ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse
             | (first, others, targetSplit, startKind) =>
               let inner := spelledFirstAbove layout target targetTokens shaped.right spelledTarget
               rewrite split, targetSplit then (rewrite targetSplit at inner then inner)
-    | Call callee opened arguments closed =>
+    | Call callee opened arguments trailingComma closed =>
       match spelled with
         | (calleeTokens, open, argumentTokens, close, split, opens, allowed, closes, spelledCallee, spelledArguments,
             openCommented, closeCommented) =>
@@ -1633,8 +1638,8 @@ theorem clearedPostfix ∀ (expr: Expr): expr.withoutFirstAbove.isPostfix = expr
   | NumberLiteral _ _ => byComputing
   | StringLiteral _ _ => byComputing
   | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ => byComputing
-  | Call _ _ _ _ => byComputing
+  | ListLiteral _ _ _ _ => byComputing
+  | Call _ _ _ _ _ => byComputing
   | Field _ _ _ _ => byComputing
   | Negate _ _ => byComputing
   | Binary _ _ _ _ => byComputing
@@ -1645,8 +1650,8 @@ theorem clearedChain ∀ (expr: Expr): expr.withoutFirstAbove.isChain = expr.isC
   | NumberLiteral _ _ => byComputing
   | StringLiteral _ _ => byComputing
   | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ => byComputing
-  | Call _ _ _ _ => byComputing
+  | ListLiteral _ _ _ _ => byComputing
+  | Call _ _ _ _ _ => byComputing
   | Field _ _ _ _ => byComputing
   | Negate _ _ => byComputing
   | Binary _ _ _ _ => byComputing
@@ -1657,8 +1662,8 @@ theorem clearedLevel ∀ (expr: Expr): expr.withoutFirstAbove.chainLevel = expr.
   | NumberLiteral _ _ => byComputing
   | StringLiteral _ _ => byComputing
   | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ => byComputing
-  | Call _ _ _ _ => byComputing
+  | ListLiteral _ _ _ _ => byComputing
+  | Call _ _ _ _ _ => byComputing
   | Field _ _ _ _ => byComputing
   | Negate _ _ => byComputing
   | Binary _ _ _ _ => byComputing
@@ -1678,9 +1683,9 @@ theorem shapedCleared ∀ (expr: Expr) (shaped: Shaped expr): Shaped expr.withou
   | NumberLiteral digits comments, shaped => shaped
   | StringLiteral written comments, shaped => shaped
   | Bracketed open inner close, shaped => shaped
-  | ListLiteral open items close, Both shapedItems settled =>
+  | ListLiteral open items trailingComma close, Both shapedItems settled =>
     (shapedItems, (rewrite clearedOpenEnds open items then settled))
-  | Call callee open arguments close, Both postfix (Both shapedCallee others) =>
+  | Call callee open arguments trailingComma close, Both postfix (Both shapedCallee others) =>
     ((Eq.trans (clearedPostfix callee) postfix), (shapedCleared callee shapedCallee), others)
   | Field target dot name nameComments, Both postfix shapedTarget =>
     ((Eq.trans (clearedPostfix target) postfix), (shapedCleared target shapedTarget))
@@ -1753,9 +1758,27 @@ theorem bracketThere ∀ (close: Parse.Located Token) (closer: Punctuation)
       | CloseParen => byComputing
       | CloseSquare => byComputing
 
+--| `closingNext` reads nothing and says whether `closer` comes next.
+theorem runsClosingNext ∀ (closer: Punctuation) (rest: List (Parse.Located Token)):
+    Parse.Runs (() => closingNext closer) [] rest (signAhead closer rest) :=
+  state starts honest =>
+    let core := Parse.runsPure (signAhead closer rest) rest state starts honest
+    match core with
+      | (m, ran, others) =>
+        (
+          m,
+          (rewrite <- starts then (Eq.trans (Parse.runFromMark state (at => (signAhead closer at.rest, Parse.mark())))
+              (rewrite starts then ran))),
+          others
+        )
+
 --| `itemsFrom` reads the items of a list or call up to its closing
 --| bracket: each item with its comma, the last without, given that `self`
---| reads each value.
+--| reads each value; no comma follows the last.
+--|
+--| Proof idea: by induction on the items. After each comma the next
+--| item's first token starts an expression, so it is not `closer`
+--| (`itemsStart`) and the loop goes on.
 theorem runsItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bound: Nat)
     (nested: ReadsNested self bound)
     (head: Expr) (tail found: List Expr) (fuel: Nat) (tokens after: List (Parse.Located Token))
@@ -1766,20 +1789,20 @@ theorem runsItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
     (spelled: SpelledItems [head, ..tail] tokens)
     (small: tokens.length < bound)
     (enough: tail.length < fuel):
-    Parse.Runs (() => itemsFrom fuel self found) tokens [close, ..after] (found.reverse ++ [head, ..tail]) :=
+    Parse.Runs (() => itemsFrom fuel self closer found) tokens [close, ..after] (found.reverse ++ [head, ..tail], False) :=
   match tail with
     | [] =>
       match fuel with
         | Succ more =>
           Parse.runsBind
             (() => item self)
-            (itemsAfter more self found)
+            (itemsAfter more self closer found)
             tokens
             []
             tokens
             [close, ..after]
             (head, False)
-            (found.reverse ++ [head])
+            (found.reverse ++ [head], False)
             (List.appendNil tokens).flipped
             (runsItemLast self head tokens
               [close, ..after]
@@ -1799,16 +1822,39 @@ theorem runsItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
             shapedLater), Succ less =>
           let sizes: tokens.length = valueTokens.length + (laterTokens.length + 1) :=
             rewrite split then List.lengthAppend valueTokens [commaToken, ..laterTokens]
+          let notClosed: signAhead closer (laterTokens ++ [close, ..after]) = False :=
+            match itemsStart next more laterTokens shapedLater spelledLater with
+              | (first, others, laterSplit, startKind, _) =>
+                rewrite laterSplit then startNoBracket first.value.kind closer startKind bracket
+          let rounds: Parse.Runs
+            (() => itemsFrom less self closer [head, ..found])
+            laterTokens
+            [close, ..after]
+            (found.reverse ++ [head, next, ..more], False) :=
+            rewrite <- List.appendAssoc found.reverse [head] [next, ..more], <- List.reverseCons head found then
+              runsItemsFrom self bound nested next more
+                [head, ..found]
+                less
+                laterTokens
+                after
+                close
+                closer
+                closes
+                bracket
+                shapedLater
+                spelledLater
+                (arithmetic [small, sizes])
+                (arithmetic [enough])
           rewrite split then
             Parse.runsBind
               (() => item self)
-              (itemsAfter less self found)
+              (itemsAfter less self closer found)
               (valueTokens ++ [commaToken])
               laterTokens
               (valueTokens ++ [commaToken, ..laterTokens])
               [close, ..after]
               (head, True)
-              (found.reverse ++ [head, next, ..more])
+              (found.reverse ++ [head, next, ..more], False)
               (Eq.flipped (List.appendAssoc valueTokens [commaToken] laterTokens))
               (runsItemComma self head commaToken valueTokens
                 (laterTokens ++ [close, ..after])
@@ -1821,20 +1867,19 @@ theorem runsItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
                     (endsAtSign commaToken Comma (laterTokens ++ [close, ..after]) isComma byComputing))
                   (arithmetic [small, sizes]))
                 isComma)
-              (rewrite <- List.appendAssoc found.reverse [head] [next, ..more], <- List.reverseCons head found then
-                runsItemsFrom self bound nested next more
-                  [head, ..found]
-                  less
-                  laterTokens
-                  after
-                  close
-                  closer
-                  closes
-                  bracket
-                  shapedLater
-                  spelledLater
-                  (arithmetic [small, sizes])
-                  (arithmetic [enough]))
+              (Parse.runsBind
+                (() => closingNext closer)
+                (ahead =>
+                  if ahead then ([head, ..found].reverse, True) else itemsFrom less self closer [head, ..found])
+                []
+                laterTokens
+                laterTokens
+                [close, ..after]
+                (signAhead closer (laterTokens ++ [close, ..after]))
+                (found.reverse ++ [head, next, ..more], False)
+                byComputing
+                (runsClosingNext closer (laterTokens ++ [close, ..after]))
+                (rewrite notClosed then rounds))
 
 --| The tokens of one or more items start with a token that starts an
 --| expression, and there are at least as many as items.
@@ -1873,7 +1918,7 @@ theorem runsItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bou
     (shaped: ShapedItems listed)
     (spelled: SpelledItems listed tokens)
     (small: tokens.length < bound):
-    Parse.Runs (() => items self closer) (tokens ++ [close]) after (listed, Layout.comments InBrackets close) :=
+    Parse.Runs (() => items self closer) (tokens ++ [close]) after (listed, False, Layout.comments InBrackets close) :=
   let closed := Layout.comments InBrackets close
   match listed with
     | [] =>
@@ -1882,20 +1927,20 @@ theorem runsItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bou
           (() => signInBrackets "'${closer.spelling}'" closer)
           (found =>
             match found with
-              | Some close => ([], close)
+              | Some close => ([], False, close)
               | None =>
-                let found := itemsFrom (Parse.mark().left) self []
+                let (found, trailingComma) := itemsFrom (Parse.mark().left) self closer []
                 let close := sign InBrackets "'${closer.spelling}'" closer
-                (found, close))
+                (found, trailingComma, close))
           [close]
           []
           [close]
           after
           (Some closed)
-          ([], closed)
+          ([], False, closed)
           byComputing
           (runsSignThere "'${closer.spelling}'" closer close after (bracketThere close closer closes bracket))
-          (Parse.runsPure ([], closed) after)
+          (Parse.runsPure ([], False, closed) after)
     | [head, ..tail] =>
       match itemsStart head tail tokens shaped spelled with
         | (first, others, split, startKind, short) =>
@@ -1906,17 +1951,17 @@ theorem runsItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bou
             (() => signInBrackets "'${closer.spelling}'" closer)
             (found =>
               match found with
-                | Some close => ([], close)
+                | Some close => ([], False, close)
                 | None =>
-                  let found := itemsFrom (Parse.mark().left) self []
+                  let (found, trailingComma) := itemsFrom (Parse.mark().left) self closer []
                   let close := sign InBrackets "'${closer.spelling}'" closer
-                  (found, close))
+                  (found, trailingComma, close))
             []
             (tokens ++ [close])
             (tokens ++ [close])
             after
             None
-            ([head, ..tail], closed)
+            ([head, ..tail], False, closed)
             byComputing
             (runsSignAbsent "'${closer.spelling}'" closer ((tokens ++ [close]) ++ after) absent)
             (state starts honest =>
@@ -1924,23 +1969,24 @@ theorem runsItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bou
                 rewrite starts then List.lengthAppend (tokens ++ [close]) after
               Parse.runsFromMark state
                 (at =>
-                  let found := itemsFrom at.left self []
+                  let (found, trailingComma) := itemsFrom at.left self closer []
                   let close := sign InBrackets "'${closer.spelling}'" closer
-                  (found, close))
+                  (found, trailingComma, close))
                 (tokens ++ [close])
                 after
-                ([head, ..tail], closed)
+                ([head, ..tail], False, closed)
                 (Parse.runsFromBind state
-                  (() => itemsFrom state.at.left self [])
-                  (found =>
+                  (() => itemsFrom state.at.left self closer [])
+                  (read =>
+                    let (found, trailingComma) := read
                     let close := sign InBrackets "'${closer.spelling}'" closer
-                    (found, close))
+                    (found, trailingComma, close))
                   tokens
                   [close]
                   (tokens ++ [close])
                   after
-                  [head, ..tail]
-                  ([head, ..tail], closed)
+                  ([head, ..tail], False)
+                  ([head, ..tail], False, closed)
                   byComputing
                   (runsItemsFrom self bound nested head tail [] state.at.left tokens after close closer closes bracket
                       shaped spelled small
@@ -1948,7 +1994,7 @@ theorem runsItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bou
                   (middle atRest honest1 offset =>
                     Parse.runsMap
                       (() => sign InBrackets "'${closer.spelling}'" closer)
-                      (close => ([head, ..tail], close))
+                      (close => ([head, ..tail], False, close))
                       [close]
                       after
                       closed
@@ -1959,10 +2005,12 @@ theorem runsItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bou
 
 theorem runsAtomList ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (open: Parse.Located Token)
     (itemTokens rest: List (Parse.Located Token)) (close: Parse.Located Token) (listed: List Expr)
+    (trailingComma: Bool)
     (opens: open.value.kind = Sign OpenSquare)
     (allowed: layout.allows open = True)
     (runsInside: Parse.Runs (() => items self CloseSquare) (itemTokens ++ [close]) rest (
       listed,
+      trailingComma,
       Layout.comments InBrackets close
     )):
     Parse.Runs
@@ -1972,31 +2020,31 @@ theorem runsAtomList ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (
       (ListLiteral
         (layout.comments open)
         listed
-        ((Layout.comments InBrackets close).closing (itemsEndWithComment (layout.comments open) listed))) :=
+        trailingComma ((Layout.comments InBrackets close).closing (itemsEndWithComment (layout.comments open) listed))) :=
   state starts honest =>
     let opened := layout.comments open
     let core :=
       Parse.runsBind
         (() => skip())
         (skipped =>
-          let (found, close) := items self CloseSquare
-          ListLiteral opened found (close.closing (itemsEndWithComment opened found)))
+          let (found, trailingComma, close) := items self CloseSquare
+          ListLiteral opened found trailingComma (close.closing (itemsEndWithComment opened found)))
         [open]
         (itemTokens ++ [close])
         [open, ..itemTokens ++ [close]]
         rest
         ()
-        (ListLiteral opened listed ((Layout.comments InBrackets close).closing (itemsEndWithComment opened listed)))
+        (ListLiteral opened listed trailingComma ((Layout.comments InBrackets close).closing (itemsEndWithComment opened listed)))
         byComputing
         (runsSkip open ((itemTokens ++ [close]) ++ rest))
         (Parse.runsMap
           (() => items self CloseSquare)
           (read =>
-            let (found, close) := read
-            ListLiteral opened found (close.closing (itemsEndWithComment opened found)))
+            let (found, trailingComma, close) := read
+            ListLiteral opened found trailingComma (close.closing (itemsEndWithComment opened found)))
           (itemTokens ++ [close])
           rest
-          (listed, Layout.comments InBrackets close)
+          (listed, trailingComma, Layout.comments InBrackets close)
           runsInside)
     match core state starts honest with | (m, ran, after) => (m, (rewrite starts, allowed, opens then ran), after)
 
@@ -2004,16 +2052,17 @@ theorem runsAtomList ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (
 --| and on from the target with the call.
 theorem runsSuffixesCall ∀ (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (target: Expr) (open: Parse.Located Token) (argumentTokens: List (Parse.Located Token)) (close: Parse.Located Token)
-    (after rest: List (Parse.Located Token)) (arguments: List Expr) (value: Expr)
+    (after rest: List (Parse.Located Token)) (arguments: List Expr) (trailingComma: Bool) (value: Expr)
     (opens: open.value.kind = Sign OpenParen)
     (allowed: layout.allows open = True)
     (runsInside: Parse.Runs (() => items self CloseParen) (argumentTokens ++ [close]) (after ++ rest) (
       arguments,
+      trailingComma,
       Layout.comments InBrackets close
     ))
     (runsMore: Parse.Runs
       (() =>
-        suffixesFrom more self layout (Call target (layout.comments open) arguments (Layout.comments InBrackets close)))
+        suffixesFrom more self layout (Call target (layout.comments open) arguments trailingComma (Layout.comments InBrackets close)))
       after
       rest
       value)
@@ -2027,14 +2076,14 @@ theorem runsSuffixesCall ∀ (more: Nat) (self: Layout → {Parse (Parse.Located
   state starts honest =>
     let opened := layout.comments open
     let read :=
-      Call target opened arguments ((Layout.comments InBrackets close).closing (itemsEndWithComment opened arguments))
+      Call target opened arguments trailingComma ((Layout.comments InBrackets close).closing (itemsEndWithComment opened arguments))
     let core :=
       Parse.runsBind
         (() =>
           Parse.optional (() =>
             skip()
-            let (arguments, close) := items self CloseParen
-            Call target opened arguments (close.closing (itemsEndWithComment opened arguments))))
+            let (arguments, trailingComma, close) := items self CloseParen
+            Call target opened arguments trailingComma (close.closing (itemsEndWithComment opened arguments))))
         (suffixesAfter more self layout target)
         [open, ..argumentTokens ++ [close]]
         after
@@ -2046,16 +2095,16 @@ theorem runsSuffixesCall ∀ (more: Nat) (self: Layout → {Parse (Parse.Located
         (Parse.runsOptional
           (() =>
             skip()
-            let (arguments, close) := items self CloseParen
-            Call target opened arguments (close.closing (itemsEndWithComment opened arguments)))
+            let (arguments, trailingComma, close) := items self CloseParen
+            Call target opened arguments trailingComma (close.closing (itemsEndWithComment opened arguments)))
           [open, ..argumentTokens ++ [close]]
           (after ++ rest)
           read
           (Parse.runsBind
             (() => skip())
             (skipped =>
-              let (arguments, close) := items self CloseParen
-              Call target opened arguments (close.closing (itemsEndWithComment opened arguments)))
+              let (arguments, trailingComma, close) := items self CloseParen
+              Call target opened arguments trailingComma (close.closing (itemsEndWithComment opened arguments)))
             [open]
             (argumentTokens ++ [close])
             [open, ..argumentTokens ++ [close]]
@@ -2067,11 +2116,11 @@ theorem runsSuffixesCall ∀ (more: Nat) (self: Layout → {Parse (Parse.Located
             (Parse.runsMap
               (() => items self CloseParen)
               (found =>
-                let (arguments, close) := found
-                Call target opened arguments (close.closing (itemsEndWithComment opened arguments)))
+                let (arguments, trailingComma, close) := found
+                Call target opened arguments trailingComma (close.closing (itemsEndWithComment opened arguments)))
               (argumentTokens ++ [close])
               (after ++ rest)
-              (arguments, Layout.comments InBrackets close)
+              (arguments, trailingComma, Layout.comments InBrackets close)
               runsInside)))
         (rewrite closingSame
               (Layout.comments InBrackets close)
@@ -2210,7 +2259,7 @@ def exampleTokens: List (Parse.Located Token) := [
   exampleToken (Name "b") 7
 ]
 
-def exampleCall: Expr := Call (Var "f" Comments.none) Comments.none [Var "a" Comments.none] Comments.none
+def exampleCall: Expr := Call (Var "f" Comments.none) Comments.none [Var "a" Comments.none] False Comments.none
 
 def exampleExpr: Expr := Binary Plus Comments.none exampleCall (Var "b" Comments.none)
 
@@ -2232,6 +2281,7 @@ theorem runsExpressionExample: Parse.run exampleTokens (() => expression InBrack
     byComputing,
     ((f, byComputing, byComputing, byComputing, byComputing)),
     ((a, byComputing, byComputing, byComputing, byComputing)),
+    byComputing,
     byComputing,
     byComputing
   )

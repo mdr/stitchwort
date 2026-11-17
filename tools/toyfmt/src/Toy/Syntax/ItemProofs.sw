@@ -6,11 +6,6 @@ namespace Toy.Syntax.Proofs
 import Toy.Syntax (..)
 import Std (Eq, List, Option, Parse, Text, Void)
 
---| Whether the sign `wanted` comes next: what `signInBrackets` reads.
-def signAhead (wanted: Punctuation) (input: List (Parse.Located Token)): Bool := match input with
-  | [token, .._] => (signIs wanted token.value.kind).isSome
-  | [] => False
-
 theorem runsSignThere ∀ (what: Text) (wanted: Punctuation)
     (token: Parse.Located Token) (rest: List (Parse.Located Token))
     (there: (signIs wanted token.value.kind).isSome = True):

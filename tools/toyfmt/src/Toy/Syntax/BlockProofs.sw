@@ -577,6 +577,7 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
         header.takes
         header.open
         header.parameters
+        header.trailingComma
         header.close
         (layout.comments equals)
         found) :=
@@ -584,7 +585,7 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
   let nameComments := layout.comments named
   let equalsComments := layout.comments equals
   let read :=
-    Function fnComments declared nameComments header.takes header.open header.parameters header.close equalsComments
+    Function fnComments declared nameComments header.takes header.open header.parameters header.trailingComma header.close equalsComments
         found
   rewrite isFn then
     Parse.runsBind
@@ -593,7 +594,7 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
         let (declared1, nameComments1) := name layout
         let header1 := functionHeader layout
         let equals1 := sign layout "'='" Defines
-        Function fnComments declared1 nameComments1 header1.takes header1.open header1.parameters header1.close equals1
+        Function fnComments declared1 nameComments1 header1.takes header1.open header1.parameters header1.trailingComma header1.close equals1
           (body expression layout))
       [first]
       [named, ..headerTokens ++ [equals, ..bodyTokens]]
@@ -609,7 +610,7 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
           let (declared1, nameComments1) := named1
           let header1 := functionHeader layout
           let equals1 := sign layout "'='" Defines
-          Function fnComments declared1 nameComments1 header1.takes header1.open header1.parameters header1.close
+          Function fnComments declared1 nameComments1 header1.takes header1.open header1.parameters header1.trailingComma header1.close
               equals1
               (body expression layout))
         [named]
@@ -624,7 +625,7 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
           (() => functionHeader layout)
           (header1 =>
             let equals1 := sign layout "'='" Defines
-            Function fnComments declared nameComments header1.takes header1.open header1.parameters header1.close
+            Function fnComments declared nameComments header1.takes header1.open header1.parameters header1.trailingComma header1.close
                 equals1
                 (body expression layout))
           headerTokens
@@ -638,7 +639,7 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
           (Parse.runsBind
             (() => sign layout "'='" Defines)
             (equals1 =>
-              Function fnComments declared nameComments header.takes header.open header.parameters header.close equals1
+              Function fnComments declared nameComments header.takes header.open header.parameters header.trailingComma header.close equals1
                 (body expression layout))
             [equals]
             bodyTokens
@@ -651,7 +652,7 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
             (Parse.runsMap
               (() => body expression layout)
               (inner =>
-                Function fnComments declared nameComments header.takes header.open header.parameters header.close
+                Function fnComments declared nameComments header.takes header.open header.parameters header.trailingComma header.close
                     equalsComments inner)
               bodyTokens
               rest
@@ -663,7 +664,7 @@ theorem runsDeclarationFunction ∀ (layout: Layout) (first named equals: Parse.
 --| `runsNoParameters` read them) and `)`.
 theorem runsHeader ∀ (layout: Layout) (open close: Parse.Located Token)
     (takesTokens parameterTokens rest: List (Parse.Located Token))
-    (takes: Option Comments) (listed: Option (ParameterGroup, List ParameterGroup))
+    (takes: Option Comments) (listed: Option (ParameterGroup, List ParameterGroup, Bool))
     (runsTakes: Parse.Runs
       (() => Parse.optional (() => keyword layout TakesKeyword))
       takesTokens
@@ -676,28 +677,31 @@ theorem runsHeader ∀ (layout: Layout) (open close: Parse.Located Token)
     Parse.Runs (() => functionHeader layout) (takesTokens ++ [open, ..parameterTokens ++ [close]]) rest {
       takes,
       open = layout.comments open,
-      parameters = parametersOf listed,
+      parameters = (parametersOf listed).fst,
+      trailingComma = (parametersOf listed).snd,
       close = (Layout.comments InBrackets close).closing
-        (groupsEndWithComment (layout.comments open) (parametersOf listed))
+        (groupsEndWithComment (layout.comments open) (parametersOf listed).fst)
     } :=
   let opened := layout.comments open
   let closed := Layout.comments InBrackets close
   let read: Header := {
     takes,
     open = opened,
-    parameters = parametersOf listed,
-    close = closed.closing (groupsEndWithComment opened (parametersOf listed))
+    parameters = (parametersOf listed).fst,
+    trailingComma = (parametersOf listed).snd,
+    close = closed.closing (groupsEndWithComment opened (parametersOf listed).fst)
   }
   Parse.runsBind
     (() => Parse.optional (() => keyword layout TakesKeyword))
     (takes1 =>
       let open1 := sign layout "'('" OpenParen
-      let parameters1 := parametersOf (Parse.optional parameterList)
+      let (parameters1, trailing1) := parametersOf (Parse.optional parameterList)
       let close1 := sign InBrackets "')'" CloseParen
       ({
         takes = takes1,
         open = open1,
         parameters = parameters1,
+        trailingComma = trailing1,
         close = close1.closing (groupsEndWithComment open1 parameters1)
       }: Header))
     takesTokens
@@ -711,12 +715,13 @@ theorem runsHeader ∀ (layout: Layout) (open close: Parse.Located Token)
     (Parse.runsBind
       (() => sign layout "'('" OpenParen)
       (open1 =>
-        let parameters1 := parametersOf (Parse.optional parameterList)
+        let (parameters1, trailing1) := parametersOf (Parse.optional parameterList)
         let close1 := sign InBrackets "')'" CloseParen
         ({
           takes,
           open = open1,
           parameters = parameters1,
+          trailingComma = trailing1,
           close = close1.closing (groupsEndWithComment open1 parameters1)
         }: Header))
       [open]
@@ -729,12 +734,14 @@ theorem runsHeader ∀ (layout: Layout) (open close: Parse.Located Token)
       (runsSign layout "'('" OpenParen open ((parameterTokens ++ [close]) ++ rest) opens openAllowed)
       (Parse.runsBind
         (() => parametersOf (Parse.optional parameterList))
-        (parameters1 =>
+        (found =>
+          let (parameters1, trailing1) := found
           let close1 := sign InBrackets "')'" CloseParen
           ({
             takes,
             open = opened,
             parameters = parameters1,
+            trailingComma = trailing1,
             close = close1.closing (groupsEndWithComment opened parameters1)
           }: Header))
         parameterTokens
@@ -757,8 +764,9 @@ theorem runsHeader ∀ (layout: Layout) (open close: Parse.Located Token)
             ({
               takes,
               open = opened,
-              parameters = parametersOf listed,
-              close = close1.closing (groupsEndWithComment opened (parametersOf listed))
+              parameters = (parametersOf listed).fst,
+              trailingComma = (parametersOf listed).snd,
+              close = close1.closing (groupsEndWithComment opened (parametersOf listed).fst)
             }: Header))
           [close]
           rest
@@ -1791,6 +1799,7 @@ theorem runsFunctionSpelled ∀ (first named equals: Parse.Located Token)
           header.takes
           header.open
           header.parameters
+          header.trailingComma
           header.close
           ((InStatement 0 first.offset).comments equals)
           found)) :=
@@ -1804,6 +1813,7 @@ theorem runsFunctionSpelled ∀ (first named equals: Parse.Located Token)
       header.takes
       header.open
       header.parameters
+      header.trailingComma
       header.close
       ((InStatement 0 first.offset).comments equals)
       found)

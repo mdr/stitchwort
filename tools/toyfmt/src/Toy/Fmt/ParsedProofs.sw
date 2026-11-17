@@ -137,8 +137,8 @@ theorem lexicalCleared ∀ (expr: Expr) (lexical: Lexical expr): Lexical expr.wi
     | NumberLiteral digits comments, Both isDigits fine => (isDigits, (fineCleared comments fine))
     | StringLiteral written comments, Both isString fine => (isString, (fineCleared comments fine))
     | Bracketed open inner close, Both fine others => ((fineCleared open fine), others)
-    | ListLiteral open items close, Both fine others => ((fineCleared open fine), others)
-    | Call callee open arguments close, Both lexicalCallee others => ((lexicalCleared callee lexicalCallee), others)
+    | ListLiteral open items trailingComma close, Both fine others => ((fineCleared open fine), others)
+    | Call callee open arguments trailingComma close, Both lexicalCallee others => ((lexicalCleared callee lexicalCallee), others)
     | Field target dot name nameComments, Both lexicalTarget others => ((lexicalCleared target lexicalTarget), others)
     | Negate minus operand, Both fine others => ((fineCleared minus fine), others)
     | Binary operator sign left right, Both fine (Both lexicalLeft lexicalRight) =>
@@ -230,8 +230,9 @@ def ParsedType (annotation: TypeExpr): Prop := ShapedType annotation ∧ Lexical
 def ParsedGroup (group: ParameterGroup): Prop := ShapedGroup group ∧ LexicalGroup group
 
 --| A first group and the groups after it.
-def FineList (found: (ParameterGroup, List ParameterGroup)): Prop :=
-  ParsedGroup found.fst ∧ List.All ParsedGroup found.snd
+--| The trailing comma's flag says nothing about the groups.
+def FineList (found: (ParameterGroup, List ParameterGroup, Bool)): Prop :=
+  ParsedGroup found.fst ∧ List.All ParsedGroup found.snd.fst
 
 theorem parsedGroups ∀ (groups: List ParameterGroup)
     (all: List.All ParsedGroup groups):

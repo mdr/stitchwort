@@ -665,7 +665,7 @@ theorem exprCalms ∀ (zone: Zone) (head: Option Nat → Prop) (expr: Expr)
         (calmsThen
           (exprCalms zone.inside anyStart inner shapedInner lexInner)
           (closerCalms anyStart close CloseParen inner.endsWithComment fineClose byComputing byComputing settled))
-    | ListLiteral open items close, (shapedItems, settled), (fineOpen, lexItems, fineClose) =>
+    | ListLiteral open items trailingComma close, (shapedItems, settled), (fineOpen, lexItems, fineClose) =>
       calmsThen
         (signCalms head open OpenSquare fineOpen byComputing byComputing)
         (calmsThen
@@ -676,7 +676,7 @@ theorem exprCalms ∀ (zone: Zone) (head: Option Nat → Prop) (expr: Expr)
             byComputing
             byComputing
             settled))
-    | Call callee open arguments close, (postfix, shapedCallee, shapedArguments, settled), (lexCallee, fineOpen,
+    | Call callee open arguments trailingComma close, (postfix, shapedCallee, shapedArguments, settled), (lexCallee, fineOpen,
         lexArguments, fineClose) =>
       calmsThen
         (calmsLoose (exprCalms zone head callee shapedCallee lexCallee))
@@ -917,7 +917,7 @@ theorem declarationCalms ∀ (declaration: Declaration)
     (lexical: LexicalDeclaration declaration):
     Calms (DeclarationEvents declaration) anyPrior anyPrior :=
   match declaration, shaped, lexical with
-    | Function fnComments name nameComments takes open parameters close equals body, (
+    | Function fnComments name nameComments takes open parameters trailingComma close equals body, (
         (shapedGroups, settled),
         shapedBody
       ), (fineFn, isName, fineName, fineTakes, fineOpen, lexParameters, fineClose, fineEquals, lexBody) =>

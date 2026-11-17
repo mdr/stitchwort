@@ -227,16 +227,16 @@ def atomOf (self: Layout → {Parse (Parse.Located Token)} Expr) (comments: Comm
       Bracketed comments inner (close.closing inner.endsWithComment)
     | Sign OpenSquare =>
       skip()
-      let (found, close) := items self CloseSquare
-      ListLiteral comments found (close.closing (itemsEndWithComment comments found))
+      let (found, trailingComma, close) := items self CloseSquare
+      ListLiteral comments found trailingComma (close.closing (itemsEndWithComment comments found))
     | _ => Parse.expected "an expression"
 
 --| A call of `target`, from its `(`, whose comments are `open`.
 def callAfter (self: Layout → {Parse (Parse.Located Token)} Expr) (target: Expr) (open: Comments):
     {Parse (Parse.Located Token)} Expr :=
   skip()
-  let (arguments, close) := items self CloseParen
-  Call target open arguments (close.closing (itemsEndWithComment open arguments))
+  let (arguments, trailingComma, close) := items self CloseParen
+  Call target open arguments trailingComma (close.closing (itemsEndWithComment open arguments))
 
 --| A field of `target`, from its `.`, whose comments are `dot`.
 def fieldAfter (layout: Layout) (target: Expr) (dot: Comments): {Parse (Parse.Located Token)} Expr :=
@@ -244,17 +244,18 @@ def fieldAfter (layout: Layout) (target: Expr) (dot: Comments): {Parse (Parse.Lo
   let (named, nameComments) := name layout
   Field target dot named nameComments
 
---| A list's items or a call's arguments, then `closer` and its comments;
---| the opening bracket has been read.
+--| A list's items or a call's arguments, whether a comma followed the
+--| last of them, then `closer` and its comments; the opening bracket has
+--| been read.
 def items (self: Layout → {Parse (Parse.Located Token)} Expr) (closer: Punctuation):
-    {Parse (Parse.Located Token)} (List Expr, Comments) :=
+    {Parse (Parse.Located Token)} (List Expr, Bool, Comments) :=
   let closing := "'${closer.spelling}'"
   match signInBrackets closing closer with
-    | Some close => ([], close)
+    | Some close => ([], False, close)
     | None =>
-      let found := itemsFrom (Parse.mark().left) self []
+      let (found, trailingComma) := itemsFrom (Parse.mark().left) self closer []
       let close := sign InBrackets closing closer
-      (found, close)
+      (found, trailingComma, close)
 
 --| The comments of the sign `wanted` if it comes next, read if it does,
 --| else noted as expected: `Parse.optional (() => sign InBrackets what
@@ -269,22 +270,35 @@ def signInBrackets (what: Text) (wanted: Punctuation): {Parse (Parse.Located Tok
       Parse.note (Parse.Problem.Expected what)
       None
 
---| Items while each is followed by a comma, at most `fuel` more. `found`
---| is newest first.
-def itemsFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (found: List Expr):
-    {Parse (Parse.Located Token)} List Expr :=
+--| Items while each is followed by a comma and no `closer`, at most
+--| `fuel` more, and whether a comma followed the last. `found` is newest
+--| first.
+def itemsFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (closer: Punctuation) (found: List Expr):
+    {Parse (Parse.Located Token)} (List Expr, Bool) :=
   match fuel with
     -- Never reached: every round reads a token, and `fuel` starts as the
     -- tokens left.
     | Zero => Empty.absurd (Parse.fatal "more items than tokens")
-    | Succ more => itemsAfter more self found (item self)
+    | Succ more => itemsAfter more self closer found (item self)
 
 --| What `itemsFrom` does with the item it read and whether a comma followed
---| it: on to the next item after a comma, else the items found.
+--| it: on to the next item after a comma, unless `closer` comes next (the
+--| comma was a trailing one), else the items found.
 -- A function of its own so that proofs (ExpressionProofs.sw) can name it.
-def itemsAfter (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (found: List Expr) (read: (Expr, Bool)):
-    {Parse (Parse.Located Token)} List Expr :=
-  if read.snd then itemsFrom more self [read.fst, ..found] else [read.fst, ..found].reverse
+def itemsAfter (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (closer: Punctuation) (found: List Expr)
+    (read: (Expr, Bool)):
+    {Parse (Parse.Located Token)} (List Expr, Bool) :=
+  if read.snd then
+    if closingNext closer then ([read.fst, ..found].reverse, True) else itemsFrom more self closer [read.fst, ..found]
+  else ([read.fst, ..found].reverse, False)
+
+--| Whether the sign `wanted` comes next.
+def signAhead (wanted: Punctuation) (input: List (Parse.Located Token)): Bool := match input with
+  | [token, .._] => (signIs wanted token.value.kind).isSome
+  | [] => False
+
+--| Whether `closer` comes next, without reading it.
+def closingNext (closer: Punctuation): {Parse (Parse.Located Token)} Bool := signAhead closer Parse.mark().rest
 
 --| An item, and whether a comma followed it. The comma is read and holds
 --| nothing: rule N has emptied it.
@@ -340,8 +354,8 @@ def Expr.firstAbove: Expr → List Comment
   | NumberLiteral _ comments => comments.above
   | StringLiteral _ comments => comments.above
   | Bracketed open _ _ => open.above
-  | ListLiteral open _ _ => open.above
-  | Call callee _ _ _ => callee.firstAbove
+  | ListLiteral open _ _ _ => open.above
+  | Call callee _ _ _ _ => callee.firstAbove
   | Field target _ _ _ => target.firstAbove
   | Negate minus _ => minus.above
   | Binary _ _ left _ => left.firstAbove
@@ -353,8 +367,8 @@ def Expr.withoutFirstAbove: Expr → Expr
   | NumberLiteral digits comments => NumberLiteral digits { comments | above = [] }
   | StringLiteral written comments => StringLiteral written { comments | above = [] }
   | Bracketed open inner close => Bracketed { open | above = [] } inner close
-  | ListLiteral open items close => ListLiteral { open | above = [] } items close
-  | Call callee open arguments close => Call callee.withoutFirstAbove open arguments close
+  | ListLiteral open items trailingComma close => ListLiteral { open | above = [] } items trailingComma close
+  | Call callee open arguments trailingComma close => Call callee.withoutFirstAbove open arguments trailingComma close
   | Field target dot name nameComments => Field target.withoutFirstAbove dot name nameComments
   | Negate minus operand => Negate { minus | above = [] } operand
   | Binary operator sign left right => Binary operator sign left.withoutFirstAbove right
@@ -445,6 +459,7 @@ def functionLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse.Lo
     header.takes
     header.open
     header.parameters
+    header.trailingComma
     header.close
     equals
     (body expression layout)
@@ -455,15 +470,16 @@ type Header = {
   takes: Option Comments,
   open: Comments,
   parameters: List ParameterGroup,
+  trailingComma: Bool,
   close: Comments
 }
 
 def functionHeader (layout: Layout): {Parse (Parse.Located Token)} Header :=
   let takes := Parse.optional (() => keyword layout TakesKeyword)
   let open := sign layout "'('" OpenParen
-  let parameters := parametersOf (Parse.optional parameterList)
+  let (parameters, trailingComma) := parametersOf (Parse.optional parameterList)
   let close := sign InBrackets "')'" CloseParen
-  { takes, open, parameters, close = close.closing (groupsEndWithComment open parameters) }
+  { takes, open, parameters, trailingComma, close = close.closing (groupsEndWithComment open parameters) }
 
 --| A value declaration, from its `let`, the token `first`.
 def valueLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse.Located Token)} Declaration :=
@@ -473,11 +489,13 @@ def valueLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse.Locat
   Value (layout.comments first) declared nameComments equals (body expression layout)
 
 --| A header's parameter groups: a group, then a comma and a group as long
---| as both come, as `Parse.sepBy1` reads them.
-def parameterList(): {Parse (Parse.Located Token)} (ParameterGroup, List ParameterGroup) :=
+--| as both come, as `Parse.sepBy1` reads them; then whether a trailing
+--| comma follows them.
+def parameterList(): {Parse (Parse.Located Token)} (ParameterGroup, List ParameterGroup, Bool) :=
   let first := parameterGroup()
   let others := Parse.many parameterStep
-  (first, others)
+  let trailing := signInBrackets "','" Comma
+  (first, others, trailing.isSome)
 
 --| A comma, which holds nothing (rule N has emptied it), and the group
 --| after it.
@@ -533,9 +551,10 @@ def typeOf (self: () → {Parse (Parse.Located Token)} TypeExpr) (comments: Comm
       TypeBracketed comments inner (close.closing inner.endsWithComment)
     | _ => Parse.expected "a type"
 
-def parametersOf (found: Option (ParameterGroup, List ParameterGroup)): List ParameterGroup := match found with
-  | None => []
-  | Some (first, others) => [first, ..others]
+def parametersOf (found: Option (ParameterGroup, List ParameterGroup, Bool)): (List ParameterGroup, Bool) :=
+  match found with
+    | None => ([], False)
+    | Some (first, others, trailing) => ([first, ..others], trailing)
 
 --| A declaration's lines: the own-line comments in `above`, the trivia on
 --| its first token, then `parsed`.

@@ -24,11 +24,11 @@ def str (text: Text): Expr := StringLiteral "\"${text}\"" none
 def dots (target: Text) (names: List Text): Expr :=
   names.foldLeft (v target) (target name => Field target none name none)
 
-def callOn (callee: Expr) (arguments: List Expr): Expr := Call callee none arguments none
+def callOn (callee: Expr) (arguments: List Expr): Expr := Call callee none arguments False none
 
 def call (callee: Text) (arguments: List Expr): Expr := callOn (v callee) arguments
 
-def list (items: List Expr): Expr := ListLiteral none items none
+def list (items: List Expr): Expr := ListLiteral none items False none
 
 def op (operator: Operator) (left right: Expr): Expr := Binary operator none left right
 
@@ -65,10 +65,10 @@ def typed (first: Text) (others: List Text) (colon: Comments) (annotation: TypeE
 def fnGroups (name: Text) (takes: Option Comments) (open: Comments) (parameters: List ParameterGroup)
     (close: Comments) (body: Body):
     Spaced Declaration :=
-  plain (Function none name none takes open parameters close none body)
+  plain (Function none name none takes open parameters False close none body)
 
 def fn (name: Text) (parameters: List Text) (body: Body): Spaced Declaration :=
-  plain (Function none name none None none (parameters.map parameter) none none body)
+  plain (Function none name none None none (parameters.map parameter) False none none body)
 
 def valueBody (name: Text) (body: Body): Declaration := Value none name none none body
 

@@ -533,8 +533,8 @@ def HeadedExpr (bracketed: Bool): Expr → Prop
   | NumberLiteral _ _ => True
   | StringLiteral _ _ => True
   | Bracketed _ inner _ => HeadedExpr True inner
-  | ListLiteral _ items _ => HeadedItems items
-  | Call callee _ arguments _ => HeadedExpr bracketed callee ∧ HeadedItems arguments
+  | ListLiteral _ items trailingComma _ => HeadedItems items
+  | Call callee _ arguments trailingComma _ => HeadedExpr bracketed callee ∧ HeadedItems arguments
   | Field target _ _ _ => HeadedExpr bracketed target
   | Negate _ operand => HeadedExpr bracketed operand
   | Binary _ _ left right => HeadedExpr bracketed left ∧ HeadedExpr bracketed right
@@ -559,7 +559,7 @@ def HeadedStatement (bracketed: Bool): Statement → Prop
   | StatementNote _ => True
 
 def HeadedDeclaration: Declaration → Prop
-  | Function fnComments _ _ _ _ _ _ _ body => fnComments.above = [] ∧ HeadedBody False body
+  | Function fnComments _ _ _ _ _ trailingComma _ _ body => fnComments.above = [] ∧ HeadedBody False body
   | Value letComments _ _ _ body => letComments.above = [] ∧ HeadedBody False body
   | DeclarationNote _ => True
 
@@ -587,8 +587,8 @@ def NoIf: Expr → Prop
   | NumberLiteral _ _ => True
   | StringLiteral _ _ => True
   | Bracketed _ _ _ => True
-  | ListLiteral _ _ _ => True
-  | Call callee _ _ _ => NoIf callee
+  | ListLiteral _ _ _ _ => True
+  | Call callee _ _ trailingComma _ => NoIf callee
   | Field target _ _ _ => NoIf target
   | Negate _ operand => NoIf operand
   | Binary _ _ left right => NoIf left ∧ NoIf right
@@ -675,6 +675,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
     (shaped: Shaped expr)
     (lexical: Lexical expr)
     (headed: HeadedExpr (bracketedOf layout) expr)
+    (commaless: NoTrailingCommas expr)
     (plain: Covered layout expr)
     (laid: Events zone head expr events):
     Spells layout pending head expr events :=
@@ -749,7 +750,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         fineOpen
         (seen start => signEvent seen OpenParen start)
         openLaid, exprSpells zone.inside InBrackets anyStart inner mid [] byComputing shapedInner innerLexical
-          headedInner byComputing innerLaid, tokenSeen anyStart close ")"
+          headedInner commaless byComputing innerLaid, tokenSeen anyStart close ")"
         (Sign CloseParen)
         tail
         []
@@ -829,7 +830,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
           openAllowed,
           byComputing
         )
-    | ListLiteral ({ above, after }) items close, Both shapedItems bare, Both fineOpen
+    | ListLiteral ({ above, after }) items trailingComma close, Both shapedItems bare, Both fineOpen
         (Both itemsLexical fineClose), headedItems, _, Witness front
         (Witness back
           (Both split (Both openLaid (Witness mid (Witness tail (Both backSplit (Both itemsLaid closeLaid))))))) =>
@@ -841,7 +842,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         pending
         fineOpen
         (seen start => signEvent seen OpenSquare start)
-        openLaid, itemsSpell zone.inside items mid shapedItems itemsLexical headedItems itemsLaid, tokenSeen anyStart
+        openLaid, itemsSpell zone.inside items mid shapedItems itemsLexical headedItems commaless.right itemsLaid, tokenSeen anyStart
           close "]"
           (Sign CloseSquare)
           tail
@@ -864,7 +865,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
             viewsCons
               (later =>
                 Leads (restart layout from) pending head above later
-                  → Spelled (restart layout from) (ListLiteral ({ above, after }) items close) later)
+                  → Spelled (restart layout from) (ListLiteral ({ above, after }) items trailingComma close) later)
               tokens
               (tokenView pending (Sign OpenSquare) openStart { above, after })
               (found ++ [(tokenView [] (Sign CloseSquare) closeStart close)])
@@ -873,7 +874,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                 viewsSplit
                   (later =>
                     Leads (restart layout from) pending head above [opener, ..later]
-                      → Spelled (restart layout from) (ListLiteral ({ above, after }) items close) [opener, ..later])
+                      → Spelled (restart layout from) (ListLiteral ({ above, after }) items trailingComma close) [opener, ..later])
                   rest
                   found
                   [(tokenView [] (Sign CloseSquare) closeStart close)]
@@ -882,7 +883,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                     viewsOne
                       (later =>
                         Leads (restart layout from) pending head above [opener, ..itemTokens ++ later]
-                          → Spelled (restart layout from) (ListLiteral ({ above, after }) items close) [
+                          → Spelled (restart layout from) (ListLiteral ({ above, after }) items trailingComma close) [
                             opener,
                             ..itemTokens ++ later
                           ])
@@ -913,12 +914,13 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                             closeKind,
                             (itemsSpelled itemTokens itemsSame),
                             openNotes,
-                            closeNotes
+                            closeNotes,
+                            commaless.left
                           ))))),
           openAllowed,
           byComputing
         )
-    | Call callee open arguments close, Both _ (Both shapedCallee (Both shapedArguments bare)), Both calleeLexical
+    | Call callee open arguments trailingComma close, Both _ (Both shapedCallee (Both shapedArguments bare)), Both calleeLexical
         (Both fineOpen (Both argumentsLexical fineClose)), Both headedCallee headedArguments, plain, Witness front
         (Witness back
           (Both split
@@ -929,7 +931,8 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                     (Both openLaid
                       (Witness inner (Witness tail (Both innerSplit (Both argumentsLaid closeLaid))))))))))) =>
       match exprSpells zone layout head callee front pending suits shapedCallee calleeLexical headedCallee
-        (coveredPart layout (Call callee open arguments close) callee (noIf => noIf) plain)
+        commaless.right.left
+        (coveredPart layout (Call callee open arguments trailingComma close) callee (noIf => noIf) plain)
         calleeLaid, tokenSeen zone.allows open "("
         (Sign OpenParen)
         mid
@@ -937,7 +940,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         fineOpen
         (seen start => signEvent seen OpenParen start)
         openLaid, itemsSpell zone.inside arguments inner shapedArguments argumentsLexical headedArguments
-          argumentsLaid, tokenSeen anyStart close ")"
+          commaless.right.right argumentsLaid, tokenSeen anyStart close ")"
         (Sign CloseParen)
         tail
         []
@@ -972,7 +975,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
             viewsCons
               (later =>
                 Leads (restart layout from) pending head callee.firstAbove later
-                  → Spelled (restart layout from) (Call callee open arguments close) later)
+                  → Spelled (restart layout from) (Call callee open arguments trailingComma close) later)
               tokens
               calleeFirst
               (calleeOthers
@@ -983,7 +986,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                 viewsSplit
                   (later =>
                     Leads (restart layout from) pending head callee.firstAbove [lead, ..later]
-                      → Spelled (restart layout from) (Call callee open arguments close) [lead, ..later])
+                      → Spelled (restart layout from) (Call callee open arguments trailingComma close) [lead, ..later])
                   rest
                   calleeOthers
                   ([(tokenView [] (Sign OpenParen) openStart open)]
@@ -993,7 +996,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                     viewsCons
                       (later =>
                         Leads (restart layout from) pending head callee.firstAbove [lead, ..calleeRest ++ later]
-                          → Spelled (restart layout from) (Call callee open arguments close) [
+                          → Spelled (restart layout from) (Call callee open arguments trailingComma close) [
                             lead,
                             ..calleeRest ++ later
                           ])
@@ -1008,7 +1011,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                               lead,
                               ..calleeRest ++ [opener, ..later]
                             ]
-                              → Spelled (restart layout from) (Call callee open arguments close) [
+                              → Spelled (restart layout from) (Call callee open arguments trailingComma close) [
                                 lead,
                                 ..calleeRest ++ [opener, ..later]
                               ])
@@ -1023,7 +1026,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                                   lead,
                                   ..calleeRest ++ [opener, ..argumentTokens ++ later]
                                 ]
-                                  → Spelled (restart layout from) (Call callee open arguments close) [
+                                  → Spelled (restart layout from) (Call callee open arguments trailingComma close) [
                                     lead,
                                     ..calleeRest ++ [opener, ..argumentTokens ++ later]
                                   ])
@@ -1072,7 +1075,8 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                                               ))),
                                             (argumentsSpelled argumentTokens argumentsSame),
                                             openNotes,
-                                            closeNotes
+                                            closeNotes,
+                                            commaless.left
                                           ))))))),
           calleeStarts
         )
@@ -1081,6 +1085,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         (Witness back
           (Both split (Both targetLaid (Witness mid (Witness tail (Both backSplit (Both dotLaid nameLaid))))))) =>
       match exprSpells zone layout head target front pending suits shapedTarget targetLexical headedTarget
+        commaless
         (coveredPart layout (Field target dot name nameComments) target (noIf => noIf) plain)
         targetLaid, tokenSeen zone.allows dot "."
         (Sign Dot)
@@ -1214,6 +1219,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         fineMinus
         (seen start => operatorEvent seen Minus start)
         minusLaid, exprSpells zone layout zone.allows operand back [] suits shapedOperand operandLexical headedOperand
+        commaless
         (coveredPart layout (Negate ({ above, after }) operand) operand (noIf => noIf) plain)
         operandLaid with
         | Witness minusStart (Both minusAllowed minusSeen), Witness first
@@ -1272,6 +1278,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         (Witness back
           (Both split (Both leftLaid (Witness mid (Witness tail (Both backSplit (Both signLaid rightLaid))))))) =>
       match exprSpells zone layout head left front pending suits shapedLeft leftLexical headedLeft
+        commaless.left
         (coveredPart layout (Binary operator sign left right) left (noIf => noIf.left) plain)
         leftLaid, tokenSeen zone.allows sign operator.spelling
         (Op operator)
@@ -1280,6 +1287,7 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
         fineSign
         (seen start => operatorEvent seen operator start)
         signLaid, exprSpells zone layout zone.allows right tail [] suits shapedRight rightLexical headedRight
+        commaless.right
         (coveredPart layout (Binary operator sign left right) right (noIf => noIf.right) plain)
         rightLaid with
         | Witness leftFirst (Witness leftOthers (Both leftSeen (Both leftSpells leftStarts))), Witness signStart
@@ -1399,20 +1407,20 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
             fineIf
             (seen start => keywordEvent seen IfKeyword start)
             ifLaid, exprSpells zone InBrackets zone.allows condition conditionEvents [] byComputing shapedCondition
-              conditionLexical headedCondition byComputing conditionLaid, tokenSeen zone.allows thenComments "then"
+              conditionLexical headedCondition commaless.left byComputing conditionLaid, tokenSeen zone.allows thenComments "then"
             (Reserved ThenKeyword)
             thenEvents
             []
             fineThen
             (seen start => keywordEvent seen ThenKeyword start)
-            thenLaid, bodySpells zone whenTrue trueEvents shapedTrue trueLexical headedTrue trueLaid, tokenSeen
+            thenLaid, bodySpells zone whenTrue trueEvents shapedTrue trueLexical headedTrue commaless.right.left trueLaid, tokenSeen
               zone.reaches elseComments "else"
               (Reserved ElseKeyword)
               elseEvents
               []
               fineElse
               (seen start => keywordEvent seen ElseKeyword start)
-              elseLaid, bodySpells zone whenFalse falseEvents shapedFalse falseLexical headedFalse falseLaid with
+              elseLaid, bodySpells zone whenFalse falseEvents shapedFalse falseLexical headedFalse commaless.right.right falseLaid with
             | Witness ifStart (Both ifAllowed ifSeen), Witness conditionFirst
                 (Witness conditionOthers (Both conditionSeen (Both conditionSpells _))), Witness thenStart
                 (Both _ thenSeen), Witness trueFirst (Witness trueOthers (Both trueSeen trueSpells)), Witness elseStart
@@ -1582,6 +1590,7 @@ theorem itemsSpell ∀ (zone: Zone) (items: List Expr) (events: List Event)
     (shaped: ShapedItems items)
     (lexical: LexicalItems items)
     (headed: HeadedItems items)
+    (commaless: NoTrailingCommasItems items)
     (laid: ItemEvents zone items events):
     ∃ (found: List TokenView) => Seen [] events found
       ∧ (∀ (tokens: List (Parse.Located Token)) => tokens.map viewOf = found → SpelledItems items tokens) :=
@@ -1593,7 +1602,7 @@ theorem itemsSpell ∀ (zone: Zone) (items: List Expr) (events: List Event)
     )
     | [value], Both shapedValue _, Both valueLexical _, Both headedValue _, laid =>
       match exprSpells zone InBrackets anyStart value events [] byComputing shapedValue valueLexical headedValue
-          byComputing laid with
+          commaless.left byComputing laid with
         | Witness first (Witness others (Both seen (Both spells _))) => (
           [first, ..others],
           seen,
@@ -1604,13 +1613,13 @@ theorem itemsSpell ∀ (zone: Zone) (items: List Expr) (events: List Event)
         (Witness back
           (Both split (Both valueLaid (Witness mid (Witness tail (Both backSplit (Both commaLaid restLaid))))))) =>
       match exprSpells zone InBrackets anyStart value front [] byComputing shapedValue valueLexical headedValue
-          byComputing valueLaid, tokenSeen anyStart Comments.none ","
+          commaless.left byComputing valueLaid, tokenSeen anyStart Comments.none ","
         (Sign Comma)
         mid
         []
         fineNone
         (seen start => signEvent seen Comma start)
-        commaLaid, itemsSpell zone [second, ..rest] tail shapedRest restLexical headedRest restLaid with
+        commaLaid, itemsSpell zone [second, ..rest] tail shapedRest restLexical headedRest commaless.right restLaid with
         | Witness first (Witness others (Both valueSeen (Both valueSpells _))), Witness commaStart
             (Both _ commaSeen), Witness found (Both restSeen restSpelled) => (
           ([first, ..others] ++ ([tokenView [] (Sign Comma) commaStart Comments.none] ++ found)),
@@ -1654,6 +1663,7 @@ theorem bodySpells ∀ (zone: Zone) (body: Body) (events: List Event)
     (shaped: ShapedBody body)
     (lexical: LexicalBody body)
     (headed: HeadedBody True body)
+    (commaless: NoTrailingCommasBody body)
     (laid: BodyEvents zone body events):
     ∃ (first: TokenView) => ∃ (others: List TokenView) => Seen [] events [first, ..others]
       ∧ (∀ (tokens: List (Parse.Located Token)) => tokens.map viewOf = [first, ..others]
@@ -1672,6 +1682,7 @@ theorem bodySpells ∀ (zone: Zone) (body: Body) (events: List Event)
         shapedValue
         valueLexical
         headedValue
+        commaless.left
         byComputing
         (bodyFree zone blankBefore value events laid) with
         | Witness first (Witness others (Both seen (Both spells _))) => (
