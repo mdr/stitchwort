@@ -685,6 +685,214 @@ theorem Float.ieeeLtTransExample: Float.ieeeLt (-1.5) 2.0 = True :=
 theorem Float.ieeeLeTotalExample: Float.ieeeLe 1.0 2.0 = True :=
   Float.ieeeLeTotal 2.0 1.0 byComputing byComputing byComputing
 
+-- JS's comparison and the total order
+
+theorem Float.notNotAndOr ∀ (a b c d: Bool)
+    (ha: a = False)
+    (hb: b = False)
+    (hd: d = True):
+    (¬a ∧ ¬b ∧ (c ∨ d)) = True :=
+  rewrite ha, hb, hd then
+    match c with
+      | True => byComputing
+      | False => byComputing
+
+--| The total order's `<=` gives JS's, for doubles other than the NaN.
+theorem Float.ieeeLeOfLe ∀ (x y: Float)
+    (nx: Float.isNaN x = False)
+    (ny: Float.isNaN y = False)
+    (h: x <= y):
+    Float.ieeeLe x y = True :=
+  Float.notNotAndOr
+    (Float.isNaN x)
+    (Float.isNaN y)
+    (Float.isZero x ∧ Float.isZero y)
+    (Int.leq (Float.orderKey x) (Float.orderKey y))
+    nx
+    ny
+    h
+
+--| JS's `<=` gives the total order's, or both are zeros: JS's `0.0 <= -0.0`
+--| holds, and the total order's doesn't.
+theorem Float.leOfIeeeLe ∀ (x y: Float)
+    (h: Float.ieeeLe x y = True):
+    (x <= y) ∨ ((Float.isZero x = True) ∧ (Float.isZero y = True)) :=
+  let Both _ (Both _ rest) := h
+  match rest with
+    | Inl (Both zeroX zeroY) => Inr (Both zeroX zeroY)
+    | Inr l => Inl l
+
+test "Float.leOfIeeeLe" :=
+  Float.ieeeLe 0.0 (-0.0) ∧ ¬(0.0 <= -0.0) ∧ Float.ieeeLe (-0.0) 0.0 ∧ -0.0 <= 0.0 ∧ ¬(Float.ieeeLe Float.nan Float.nan)
+
+theorem Float.notNotAndNotAnd ∀ (a b c d: Bool)
+    (ha: a = False)
+    (hb: b = False)
+    (hc: c = False)
+    (hd: d = True):
+    (¬a ∧ ¬b ∧ ¬c ∧ d) = True :=
+  rewrite ha, hb, hc, hd
+
+--| The total order's `<` gives JS's, for doubles other than the NaN that
+--| aren't both zeros (`-0.0 < 0.0` in the total order, not in JS's).
+theorem Float.ieeeLtOfLt ∀ (x y: Float)
+    (nx: Float.isNaN x = False)
+    (ny: Float.isNaN y = False)
+    (nz: (Float.isZero x ∧ Float.isZero y) = False)
+    (h: x < y):
+    Float.ieeeLt x y = True :=
+  Float.notNotAndNotAnd
+    (Float.isNaN x)
+    (Float.isNaN y)
+    (Float.isZero x ∧ Float.isZero y)
+    (Int.less (Float.orderKey x) (Float.orderKey y))
+    nx
+    ny
+    nz
+    h
+
+--| JS's `<` gives the total order's.
+theorem Float.ltOfIeeeLt ∀ (x y: Float) (h: Float.ieeeLt x y = True): x < y :=
+  let Both _ (Both _ (Both _ less)) := h
+  less
+
+test "Float.ieeeLtOfLt" := -0.0 < 0.0 ∧ ¬(Float.ieeeLt (-0.0) 0.0) ∧ Float.ieeeLt (-1.0) 0.0 ∧ Float.nan > 1.0
+
+-- JS's Math.min and Math.max
+
+--| JS's `Math.min` of two: the NaN if either is; otherwise the smaller in the
+--| total order, so `-0.0` below `0.0`, as in JS (`Ord.min` alone would put
+--| the NaN above everything instead).
+def Float.min (a b: Float): Float := if Float.isNaN a ∨ Float.isNaN b then Float.nan else Ord.min a b
+
+--| JS's `Math.max` of two: the NaN if either is; otherwise the larger in the
+--| total order, so `0.0` above `-0.0`.
+def Float.max (a b: Float): Float := if Float.isNaN a ∨ Float.isNaN b then Float.nan else Ord.max a b
+
+test "Float.min" :=
+  Float.min 1.0 2.0 = 1.0
+    ∧ Float.min (-0.0) 0.0 = -0.0
+    ∧ Float.min 0.0 (-0.0) = -0.0
+    ∧ Float.min Float.nan 1.0 = Float.nan
+    ∧ Float.min 1.0 Float.nan = Float.nan
+    ∧ Float.min (-Float.infinity) 1.0 = -Float.infinity
+
+test "Float.max" :=
+  Float.max 1.0 2.0 = 2.0
+    ∧ Float.max (-0.0) 0.0 = 0.0
+    ∧ Float.max 0.0 (-0.0) = 0.0
+    ∧ Float.max Float.nan 1.0 = Float.nan
+    ∧ Float.max 1.0 Float.nan = Float.nan
+    ∧ Float.max Float.infinity 1.0 = Float.infinity
+
+--| With either the NaN, `min` and `max` are the NaN.
+theorem Float.minNaN ∀ (a b: Float) (h: (Float.isNaN a ∨ Float.isNaN b) = True): Float.min a b = Float.nan := rewrite h
+
+theorem Float.maxNaN ∀ (a b: Float) (h: (Float.isNaN a ∨ Float.isNaN b) = True): Float.max a b = Float.nan := rewrite h
+
+--| Without the NaN, `min` and `max` are the total order's.
+theorem Float.minOrd ∀ (a b: Float)
+    (na: Float.isNaN a = False)
+    (nb: Float.isNaN b = False):
+    Float.min a b = Ord.min a b :=
+  rewrite na, nb
+
+theorem Float.maxOrd ∀ (a b: Float)
+    (na: Float.isNaN a = False)
+    (nb: Float.isNaN b = False):
+    Float.max a b = Ord.max a b :=
+  rewrite na, nb
+
+--| Without the NaN, `min` is one of its arguments, at most each, and at
+--| least anything at most both.
+theorem Float.minEither ∀ (a b: Float)
+    (na: Float.isNaN a = False)
+    (nb: Float.isNaN b = False):
+    (Float.min a b = a) ∨ (Float.min a b = b) :=
+  rewrite Float.minOrd a b na nb then Ord.minEither a b
+
+theorem Float.minLeLeft ∀ (a b: Float) (na: Float.isNaN a = False) (nb: Float.isNaN b = False): Float.min a b <= a :=
+  rewrite Float.minOrd a b na nb then Ord.minLeLeft a b
+
+theorem Float.minLeRight ∀ (a b: Float) (na: Float.isNaN a = False) (nb: Float.isNaN b = False): Float.min a b <= b :=
+  rewrite Float.minOrd a b na nb then Ord.minLeRight a b
+
+theorem Float.leMin ∀ (a b c: Float)
+    (na: Float.isNaN a = False)
+    (nb: Float.isNaN b = False)
+    (ha: c <= a)
+    (hb: c <= b):
+    c <= Float.min a b :=
+  match Float.minEither a b na nb with
+    | Inl e => rewrite e then ha
+    | Inr e => rewrite e then hb
+
+--| Without the NaN, `max` is one of its arguments, at least each, and at
+--| most anything at least both.
+theorem Float.maxEither ∀ (a b: Float)
+    (na: Float.isNaN a = False)
+    (nb: Float.isNaN b = False):
+    (Float.max a b = a) ∨ (Float.max a b = b) :=
+  rewrite Float.maxOrd a b na nb then Ord.maxEither a b
+
+theorem Float.leMaxLeft ∀ (a b: Float) (na: Float.isNaN a = False) (nb: Float.isNaN b = False): a <= Float.max a b :=
+  rewrite Float.maxOrd a b na nb then Ord.leMaxLeft a b
+
+theorem Float.leMaxRight ∀ (a b: Float) (na: Float.isNaN a = False) (nb: Float.isNaN b = False): b <= Float.max a b :=
+  rewrite Float.maxOrd a b na nb then Ord.leMaxRight a b
+
+theorem Float.maxLe ∀ (a b c: Float)
+    (na: Float.isNaN a = False)
+    (nb: Float.isNaN b = False)
+    (ha: a <= c)
+    (hb: b <= c):
+    Float.max a b <= c :=
+  match Float.maxEither a b na nb with
+    | Inl e => rewrite e then ha
+    | Inr e => rewrite e then hb
+
+--| Without the NaN in, none comes out.
+theorem Float.minNotNaN ∀ (a b: Float)
+    (na: Float.isNaN a = False)
+    (nb: Float.isNaN b = False):
+    Float.isNaN (Float.min a b) = False :=
+  match Float.minEither a b na nb with
+    | Inl e => rewrite e then na
+    | Inr e => rewrite e then nb
+
+theorem Float.maxNotNaN ∀ (a b: Float)
+    (na: Float.isNaN a = False)
+    (nb: Float.isNaN b = False):
+    Float.isNaN (Float.max a b) = False :=
+  match Float.maxEither a b na nb with
+    | Inl e => rewrite e then na
+    | Inr e => rewrite e then nb
+
+--| The same in JS's order: `min` at most each, `max` at least each.
+theorem Float.minIeeeLeLeft ∀ (a b: Float)
+    (na: Float.isNaN a = False)
+    (nb: Float.isNaN b = False):
+    Float.ieeeLe (Float.min a b) a = True :=
+  Float.ieeeLeOfLe (Float.min a b) a (Float.minNotNaN a b na nb) na (Float.minLeLeft a b na nb)
+
+theorem Float.minIeeeLeRight ∀ (a b: Float)
+    (na: Float.isNaN a = False)
+    (nb: Float.isNaN b = False):
+    Float.ieeeLe (Float.min a b) b = True :=
+  Float.ieeeLeOfLe (Float.min a b) b (Float.minNotNaN a b na nb) nb (Float.minLeRight a b na nb)
+
+theorem Float.maxIeeeLeLeft ∀ (a b: Float)
+    (na: Float.isNaN a = False)
+    (nb: Float.isNaN b = False):
+    Float.ieeeLe a (Float.max a b) = True :=
+  Float.ieeeLeOfLe a (Float.max a b) na (Float.maxNotNaN a b na nb) (Float.leMaxLeft a b na nb)
+
+theorem Float.maxIeeeLeRight ∀ (a b: Float)
+    (na: Float.isNaN a = False)
+    (nb: Float.isNaN b = False):
+    Float.ieeeLe b (Float.max a b) = True :=
+  Float.ieeeLeOfLe b (Float.max a b) nb (Float.maxNotNaN a b na nb) (Float.leMaxRight a b na nb)
+
 --| `m / divisor`, if `divisor` (positive) divides `m`.
 def Float.exactDiv (m divisor: Nat): Option Nat :=
   if Nat.equal (Nat.divFuel m m divisor * divisor) m then Some (Nat.divFuel m m divisor) else None
