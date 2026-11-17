@@ -2477,47 +2477,6 @@ theorem wrapWholeExact ∀ (e: Float) (n: Int)
 
 -- The answer in its band: latitude
 
---| A double from -360° to 360° is under 2^49 in size, as `floorToWhole` and `ceilToWhole` need.
-theorem absWithin360 ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): Float.abs x < 562949953421312.0 :=
-  match c: Nat.leq 9223372036854775808 x.bits with
-    | True =>
-      let kl: Int.leq (Float.Theory.key (-360.0).bits) (Float.Theory.key x.bits) = True := lo
-      let kn360: Float.Theory.key (-360.0).bits = NegSucc 4645040803167600640 := byComputing
-      let big: Float.orderKey 562949953421312.0 = OfNat 4827858800541171712 := byComputing
-      let ks := Float.Theory.keySet x.bits c
-      let low: Nat.leq 9223372036854775808 (x.bits - 9223372036854775808) = False := arithmetic [kl, kn360, ks]
-      arithmetic [kl, kn360, ks, Float.Theory.keyClear (x.bits - 9223372036854775808) low, big]
-    | False =>
-      let kh: Int.leq (Float.Theory.key x.bits) (Float.Theory.key 360.0.bits) = True := hi
-      let k360: Float.Theory.key 360.0.bits = OfNat 4645040803167600640 := byComputing
-      let big: Float.orderKey 562949953421312.0 = OfNat 4827858800541171712 := byComputing
-      let m: Float.Model.magnitude x.bits = x.bits := rewrite c
-      arithmetic [kh, k360, Float.Theory.keyClear x.bits c, m, Float.Theory.absKey x, big]
-
---| A double from -3600 to 3600 is under 2^53 in size, as
---| `Float.Theory.floorUnitsAbove` and `Float.Theory.ceilUnitsBelow` need.
-theorem absWithin3600 ∀ (x: Float) (lo: -3600.0 <= x) (hi: x <= 3600.0): Float.abs x < 9007199254740992.0 :=
-  match c: Nat.leq 9223372036854775808 x.bits with
-    | True =>
-      let kl: Int.leq (Float.Theory.key (-3600.0).bits) (Float.Theory.key x.bits) = True := lo
-      let kn: Float.Theory.key (-3600.0).bits = NegSucc 4660134898793709568 := byComputing
-      let big: Float.orderKey 9007199254740992.0 = OfNat 4845873199050653696 := byComputing
-      let ks := Float.Theory.keySet x.bits c
-      let low: Nat.leq 9223372036854775808 (x.bits - 9223372036854775808) = False := arithmetic [kl, kn, ks]
-      arithmetic [kl, kn, ks, Float.Theory.keyClear (x.bits - 9223372036854775808) low, big]
-    | False =>
-      let kh: Int.leq (Float.Theory.key x.bits) (Float.Theory.key 3600.0.bits) = True := hi
-      let k: Float.Theory.key 3600.0.bits = OfNat 4660134898793709568 := byComputing
-      let big: Float.orderKey 9007199254740992.0 = OfNat 4845873199050653696 := byComputing
-      let m: Float.Model.magnitude x.bits = x.bits := rewrite c
-      arithmetic [kh, k, Float.Theory.keyClear x.bits c, m, Float.Theory.absKey x, big]
-
---| A double from -360° to 360° is under 2^53 in size, as `Float.floorIsFinite` and its kin need.
-theorem absWithin360Below53 ∀ (x: Float) (lo: -360.0 <= x) (hi: x <= 360.0): Float.abs x < 9007199254740992.0 :=
-  absWithin3600 x
-    (Float.Theory.leTrans (-3600.0) (-360.0) x byComputing lo)
-    (Float.Theory.leTrans x 360.0 3600.0 hi byComputing)
-
 theorem unitsWithinDegrees ∀ (u lo hi: Int) (p: Nat)
     (pp: 0 < p)
     (el: lo = Int.neg (OfNat (p * 360)))
@@ -2598,7 +2557,8 @@ theorem floorStepBound ∀ (x width: Float)
         (Both (floorTenthFinite x lo hi) (floorToTenthBound x lo hi))
         e.flipped
     | Inr e =>
-      let w: floorTo x 1.0 = Float.floor x := floorToWhole x (absWithin360 x lo hi)
+      let w: floorTo x 1.0 = Float.floor x :=
+        floorToWhole x (Float.Theory.absBelowOf x 360.0 562949953421312.0 byComputing lo hi byComputing)
       let b: Int.leq
         (Float.Theory.units (Float.floor x))
         (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1032)))
@@ -2620,7 +2580,9 @@ theorem floorStepBound ∀ (x width: Float)
             (Float.isFinite y = True)
               ∧ (Int.leq (Float.Theory.units y) (Int.add (Float.Theory.units x) (OfNat (Float.Model.pow2 1032)))
                 = True))
-          (Both (Float.floorIsFinite x (absWithin360Below53 x lo hi)) b)
+          (Both
+            (Float.floorIsFinite x (Float.Theory.absBelowOf x 360.0 9007199254740992.0 byComputing lo hi byComputing))
+            b)
           w.flipped)
         e.flipped
 
@@ -2647,7 +2609,8 @@ theorem ceilStepBound ∀ (x width: Float)
         (Both (ceilTenthFinite x lo hi) (ceilToTenthBound x lo hi))
         e.flipped
     | Inr e =>
-      let w: ceilTo x 1.0 = Float.ceil x := ceilToWhole x (absWithin360 x lo hi)
+      let w: ceilTo x 1.0 = Float.ceil x :=
+        ceilToWhole x (Float.Theory.absBelowOf x 360.0 562949953421312.0 byComputing lo hi byComputing)
       let b: Int.leq
         (Float.Theory.units x)
         (Int.add (Float.Theory.units (Float.ceil x)) (OfNat (Float.Model.pow2 1032)))
@@ -2669,7 +2632,9 @@ theorem ceilStepBound ∀ (x width: Float)
             (Float.isFinite y = True)
               ∧ (Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units y) (OfNat (Float.Model.pow2 1032)))
                 = True))
-          (Both (Float.ceilIsFinite x (absWithin360Below53 x lo hi)) b)
+          (Both
+            (Float.ceilIsFinite x (Float.Theory.absBelowOf x 360.0 9007199254740992.0 byComputing lo hi byComputing))
+            b)
           w.flipped)
         e.flipped
 
@@ -2847,7 +2812,8 @@ theorem floorTenthCoarse ∀ (x: Float)
     (Float.Model.pow2 1030)
     (Float.Model.pow2 1019)
     qx.right
-    (Float.Theory.floorUnitsAbove y (absWithin3600 y yr.left yr.right))
+    (Float.Theory.floorUnitsAbove y
+      (Float.Theory.absBelowOf y 3600.0 9007199254740992.0 byComputing yr.left yr.right byComputing))
     (Float.Theory.unitsMonoKey k.bits ((g + tenthsSlack) / 0.1).bits (floatLeOfLt k ((g + tenthsSlack) / 0.1) lt))
     qc.left
     sum.right
@@ -2891,7 +2857,8 @@ theorem ceilTenthCoarse ∀ (x: Float)
     (Float.Model.pow2 1030)
     (Float.Model.pow2 1019)
     qx.left
-    (Float.Theory.ceilUnitsBelow y (absWithin3600 y yr.left yr.right))
+    (Float.Theory.ceilUnitsBelow y
+      (Float.Theory.absBelowOf y 3600.0 9007199254740992.0 byComputing yr.left yr.right byComputing))
     (Float.Theory.unitsMonoKey ((g + d) / 0.1).bits k.bits (floatLeOfLt ((g + d) / 0.1) k lt))
     qc.right
     sum.left
@@ -2923,7 +2890,8 @@ theorem floorCoarse ∀ (width x: Float)
         (floorTenthCoarse x lo hi)
         e.flipped
     | Inr e =>
-      let small: Float.abs x < 9007199254740992.0 := absWithin360Below53 x lo hi
+      let small: Float.abs x < 9007199254740992.0 :=
+        Float.Theory.absBelowOf x 360.0 9007199254740992.0 byComputing lo hi byComputing
       J
         (s z =>
           Int.leq (Float.Theory.units x) (Int.add (Float.Theory.units (floorTo x s)) (Float.Theory.units 2.0)) = True)
@@ -2936,7 +2904,7 @@ theorem floorCoarse ∀ (width x: Float)
             (Float.Model.pow2 1074)
             (Float.Theory.floorUnitsAbove x small)
             byComputing)
-          (floorToWhole x (absWithin360 x lo hi)).flipped)
+          (floorToWhole x (Float.Theory.absBelowOf x 360.0 562949953421312.0 byComputing lo hi byComputing)).flipped)
         e.flipped
 
 --| Outward rounding at a band's step moves an upper edge `x` within 360°
@@ -2954,7 +2922,8 @@ theorem ceilCoarse ∀ (width x: Float)
         (ceilTenthCoarse x lo hi)
         e.flipped
     | Inr e =>
-      let small: Float.abs x < 9007199254740992.0 := absWithin360Below53 x lo hi
+      let small: Float.abs x < 9007199254740992.0 :=
+        Float.Theory.absBelowOf x 360.0 9007199254740992.0 byComputing lo hi byComputing
       J
         (s z =>
           Int.leq (Float.Theory.units (ceilTo x s)) (Int.add (Float.Theory.units x) (Float.Theory.units 2.0)) = True)
@@ -2967,7 +2936,7 @@ theorem ceilCoarse ∀ (width x: Float)
             (Float.Model.pow2 1074)
             (Float.Theory.ceilUnitsBelow x small)
             byComputing)
-          (ceilToWhole x (absWithin360 x lo hi)).flipped)
+          (ceilToWhole x (Float.Theory.absBelowOf x 360.0 562949953421312.0 byComputing lo hi byComputing)).flipped)
         e.flipped
 
 theorem lessOfAddNat ∀ (a b: Int) (p: Nat) (h: Int.less (Int.add a (OfNat p)) b = True): Int.less a b = True :=
@@ -3327,7 +3296,10 @@ theorem ceilStepAtLeastNinety ∀ (x width: Float)
           (v z => Int.leq v (Float.Theory.units y) = True)
           (Float.Theory.unitsMonoKey 899.5.bits y.bits yNear)
           (byComputing: Float.Theory.units 899.5 = OfNat ((2 * 899 + 1) * Float.Model.pow2 1073))
-      let cu := Float.Theory.ceilAtLeast y 899 (absWithin3600 y yLo yHi) hu
+      let cu :=
+        Float.Theory.ceilAtLeast y 899
+          (Float.Theory.absBelowOf y 3600.0 9007199254740992.0 byComputing yLo yHi byComputing)
+          hu
       let c900: 900.0 <= Float.ceil y :=
         Float.Theory.leOfUnitsPos 900.0
           (Float.ceil y)
@@ -3349,7 +3321,10 @@ theorem ceilStepAtLeastNinety ∀ (x width: Float)
           (v z => Int.leq v (Float.Theory.units x) = True)
           (Float.Theory.unitsMonoKey 89.5.bits x.bits (Float.Theory.leTrans 89.5 89.95 x byComputing near2))
           (byComputing: Float.Theory.units 89.5 = OfNat ((2 * 89 + 1) * Float.Model.pow2 1073))
-      let cu := Float.Theory.ceilAtLeast x 89 (absWithin3600 x xLo xHi) hu
+      let cu :=
+        Float.Theory.ceilAtLeast x 89
+          (Float.Theory.absBelowOf x 3600.0 9007199254740992.0 byComputing xLo xHi byComputing)
+          hu
       let c90: 90.0 <= Float.ceil x :=
         Float.Theory.leOfUnitsPos 90.0
           (Float.ceil x)
@@ -3358,7 +3333,11 @@ theorem ceilStepAtLeastNinety ∀ (x width: Float)
             (v z => Int.leq v (Float.Theory.units (Float.ceil x)) = True)
             cu
             (byComputing: OfNat ((89 + 1) * Float.Model.pow2 1074) = Float.Theory.units 90.0))
-      let r2: 90.0 <= ceilTo x 1.0 := J (v z => 90.0 <= v) c90 (ceilToWhole x (absWithin360 x lo hi)).flipped
+      let r2: 90.0 <= ceilTo x 1.0 :=
+        J
+          (v z => 90.0 <= v)
+          c90
+          (ceilToWhole x (Float.Theory.absBelowOf x 360.0 562949953421312.0 byComputing lo hi byComputing)).flipped
       J (st z => 90.0 <= ceilTo x st) r2 e.flipped)
 
 --| The upper edge `to` of a latitude band clamped at 90° is at least the

@@ -22858,12 +22858,12 @@
     {
       "id": 3898,
       "title": "[Sonnet] std Float: absBelowOf (-b <= x, x <= b, b < c gives abs x < c) to replace Whereabouts' absWithin360/absWithin3600; and divNear, quotientNear's signed bound for any positive divisor, beside divRelError (SW-3895 findings)",
-      "status": "doing",
-      "agent": "",
+      "status": "review",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "Lane note (Sonnet): added Float.Theory.absBelowOf (x b c, nb: isNaN b = False, -b <= x, x <= b, b < c gives abs x < c), Float.divNear (signed, scaled form of divRelError, with Float.Theory.divNearArith), in std Float/Theory.sw. Whereabouts' absWithin360, absWithin3600, absWithin360Below53 deleted, uses are absBelowOf with byComputing. divNear not used in the app (quotientNear cancels 2^1019 via relCancel instead). Checked: std check, audits, whereabouts check and audit (0 failed), prelude snapshot regenerated (6 names added), search:: 15 pass. trip-journal snapshot drift not mine (left alone).\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
