@@ -41969,7 +41969,7 @@
     {
       "id": 3732,
       "title": "[DeepSeek] A local def shadowed silently by a (..)-imported name of the same name gives a misleading type error ('expected List, got Punctuation': closerAhead vs BlockProofs.closerAhead): say which closerAhead was used and that the local one is hidden (Toy++ T4 friction, SW-3724)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -42603,7 +42603,7 @@
     },
     {
       "id": 3780,
-      "title": "[DeepSeek] In a named number match, the default arm's variable name still refers to the variable from before the split and gives W-MATCH-NOT-FOUND (SW-3752 finding)|",
+      "title": "[DeepSeek] In a named number match, the default arm's variable name still refers to the variable from before the split and gives W-MATCH-NOT-FOUND (SW-3752 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
