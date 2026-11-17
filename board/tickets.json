@@ -1,5 +1,5 @@
 {
-  "next": 3861,
+  "next": 3863,
   "tickets": [
     {
       "id": 47,
@@ -22271,12 +22271,12 @@
     {
       "id": 3853,
       "title": "[DeepSeek] Self-hosted formatter: the twin refuses f !!b (glued ! chains as an argument), which Rust accepts; f !b works. Likely argumentBang or startsAtom/argumentPrefix in tools/fmt/src/Syntax/Parser.sw; add a test (SW-3826 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Closed: doesn't reproduce. SW-3847 found the current Rust binary refuses f !!b too ('expected the end of the declaration, but found !'), and the twin agrees; K4's note in the proof plan (around line 611) is wrong (fixed with SW-3847's merge or a follow-up).",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -22367,6 +22367,32 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3861,
+      "title": "[Sonnet] A method call on a record update doesn't run its effect: match { modes | allow = Some before }.peek with ... refused with 'these patterns match an Option, but the argument has type {Parse Item} Option Tok', not pointing at the call. Fix or make the error point at the call (SW-3847 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3862,
+      "title": "[DeepSeek] dev/fmt-twin: an --interpreted option (run stitchwort run --project tools/fmt Fmt.Twin.main) to skip the 2-minute native build on small inputs, and a gate script running the six stage gates; document both in docs/testing.md, with R1 recovery's sort-by-position rule for refusals (SW-3847 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
