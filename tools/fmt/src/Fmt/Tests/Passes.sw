@@ -67,6 +67,21 @@ test "P3: a bracket that holds the grammar together stays" :=
     && unchanged "def a (x: (T) := 1): T := x" SourceFile.withoutSpareBrackets
     && unchanged "def a: {Fail} ( -- c\n  List Nat) := x" SourceFile.withoutSpareBrackets
 
+test "P3: a row that reads as a record keeps the bracket before what would join it" :=
+  unchanged "def a: {e} (.f) := x" SourceFile.withoutSpareBrackets
+    && unchanged "def a: {e} (match x with | _ => 1) := z" SourceFile.withoutSpareBrackets
+    && unchanged "def a: {e} (include \"x\") y := z" SourceFile.withoutSpareBrackets
+    && unchanged "def a: {e} (-x) * y := z" SourceFile.withoutSpareBrackets
+    && unchanged "def a: {e} (!x) ∧ y := z" SourceFile.withoutSpareBrackets
+    && unchanged "def a: {e} (if a then b else c) := z" SourceFile.withoutSpareBrackets
+    && unchanged "def a: {e, f} (.f) := x" SourceFile.withoutSpareBrackets
+    && unchanged "def a: {E.e} (.f) := x" SourceFile.withoutSpareBrackets
+    && unchanged "def a: {} (.f) := x" SourceFile.withoutSpareBrackets
+    && sameTree "def a: {e} (x + y) := z" SourceFile.withoutSpareBrackets "def a: {e} x + y := z"
+    && sameTree "def a: {e} (fun x => x) := z" SourceFile.withoutSpareBrackets "def a: {e} fun x => x := z"
+    && sameTree "def a: {Fail, e} (.f) := x" SourceFile.withoutSpareBrackets "def a: {Fail, e} .f := x"
+    && sameTree "def a: {IO | e} (-x) := x" SourceFile.withoutSpareBrackets "def a: {IO | e} -x := x"
+
 test "P3: an operator's left side stands bare as the grammar's levels allow" :=
   sameTree "def a: {Fail} (a + b) + c := x" SourceFile.withoutSpareBrackets "def a: {Fail} a + b + c := x"
     && sameTree "def a: {Fail} (List Nat) → B := x" SourceFile.withoutSpareBrackets "def a: {Fail} List Nat → B := x"
