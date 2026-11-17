@@ -21,7 +21,7 @@ use serde::Serialize;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::globals::{HashKey, State};
 use stitchwort_core::value::force;
-use stitchwort_core::{DefId, Ev, Limits, Value};
+use stitchwort_core::{DefId, Ev, Limits, Term, Value};
 use stitchwort_elab::counterexample::{Budget, STATEMENT_STEPS};
 use stitchwort_syntax::Span;
 
@@ -130,6 +130,11 @@ pub struct SearchSummary {
     /// Whether it concludes an empty type, so claims its hypotheses
     /// contradict each other ([`concludes_empty`]).
     pub refutes: bool,
+    /// For a theorem whose hypotheses held for no input, a checked theorem
+    /// that applies it to arguments for all its parameters and hypotheses
+    /// ([`witness_of`]): they can hold together, so it isn't vacuous.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub witness: Option<String>,
 }
 
 impl TheoremAudit {
@@ -406,6 +411,7 @@ impl Session {
         let search = self.search_theorem(id, name, true, budget);
         let (verdict, line) = search.verdict();
         let log = &search.log;
+        let mut witness = None;
         let held = log.tried.saturating_sub(log.discarded + log.out_of_steps);
         match verdict {
             Verdict::False => audit.findings.push(Finding {
@@ -417,15 +423,19 @@ impl Session {
                 ),
             }),
             Verdict::NeverHeld if !search.refutes && !audit.generated => {
-                audit.findings.push(Finding {
-                    check: Check::Vacuous,
-                    severity: Severity::Warn,
-                    message: format!(
-                        "no input made the hypotheses true ({held} of {} cases): if they \
-                         contradict each other, the theorem is vacuous",
-                        log.tried
-                    ),
-                });
+                witness = self.witness_of(id);
+                if witness.is_none() {
+                    audit.findings.push(Finding {
+                        check: Check::Vacuous,
+                        severity: Severity::Warn,
+                        message: format!(
+                            "no input made the hypotheses true ({held} of {} cases){}: if they \
+                             contradict each other, the theorem is vacuous",
+                            log.tried,
+                            rejecting(log)
+                        ),
+                    });
+                }
             }
             _ => {}
         }
@@ -435,8 +445,37 @@ impl Session {
             tried: log.tried,
             held,
             refutes: search.refutes,
+            witness,
         });
         audit
+    }
+
+    /// A witness that theorem `id`'s hypotheses can hold together: a
+    /// checked theorem of no parameters whose proof is `id` applied to
+    /// arguments for every parameter and hypothesis of its statement
+    /// (`closesWordExample := closesWord ")" byComputing`). Its statement
+    /// has no free variables, so those arguments are closed proofs of the
+    /// hypotheses at one input. Only an application of `id` itself counts,
+    /// not a theorem that mentions it. Of those, the first declared.
+    fn witness_of(&self, id: DefId) -> Option<String> {
+        let g = &self.elab.ev();
+        let arity = pi_arity(g.def(id).ty());
+        (0..g.env.defs().len()).map(DefId).find_map(|w| {
+            let def = g.def(w);
+            let closed = !matches!(def.ty(), Term::Pi(..));
+            let applies = def.body().is_some_and(|body| {
+                let (head, args) = spine(body);
+                matches!(head, Term::Def(d) if *d == id) && args >= arity
+            });
+            (w != id
+                && def.theorem()
+                && def.assumption().is_none()
+                && closed
+                && applies
+                && matches!(def.state(), State::Final)
+                && !self.elab.relies_on_goal(w))
+            .then(|| def.path().to_string())
+        })
     }
 
     /// Searches one theorem's statement within `budget`.
@@ -463,6 +502,45 @@ impl Session {
             log,
             note,
         }
+    }
+}
+
+/// The leading binders of a statement: its parameters and hypotheses.
+fn pi_arity(mut ty: &Term) -> usize {
+    let mut n = 0;
+    while let Term::Pi(_, _, _, cod) = ty {
+        n += 1;
+        ty = cod;
+    }
+    n
+}
+
+/// A proof term's head and how many arguments it is applied to.
+fn spine(mut term: &Term) -> (&Term, usize) {
+    let mut args = 0;
+    loop {
+        match term {
+            Term::App(f, _, _) => {
+                args += 1;
+                term = f;
+            }
+            Term::Ann(t, _) | Term::Loc(_, t) => term = t,
+            _ => return (term, args),
+        }
+    }
+}
+
+/// What the warning says of the hypothesis that rejected the inputs, when
+/// one hypothesis was the first false one for every input discarded and
+/// none held: ` — all rejected by `h: n + 1 = 0``.
+fn rejecting(log: &stitchwort_elab::counterexample::SearchLog) -> String {
+    let mut named = log.rejected_by.iter().enumerate().filter(|(_, n)| **n > 0);
+    match (named.next(), named.next()) {
+        (Some((j, _)), None) if log.discarded > 0 => match log.hypotheses.get(j) {
+            Some(h) => format!(", every one rejected by hypothesis `{h}`"),
+            None => String::new(),
+        },
+        _ => String::new(),
     }
 }
 

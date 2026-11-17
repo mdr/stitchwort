@@ -179,6 +179,10 @@ pub struct SearchLog {
     pub random: usize,
     /// Inputs some hypothesis was false for.
     pub discarded: usize,
+    /// The hypotheses as shown, and for each how many inputs it was the
+    /// first false one for (they sum to `discarded`).
+    pub hypotheses: Vec<String>,
+    pub rejected_by: Vec<usize>,
     pub out_of_steps: usize,
     /// The largest total size enumerated, and the size random inputs grew
     /// to.
@@ -597,6 +601,8 @@ impl Elaborator {
         log: &mut SearchLog,
     ) -> Option<String> {
         let g = &self.ev();
+        log.hypotheses = checker.shown_hypotheses.clone();
+        log.rejected_by = vec![0; checker.hypotheses];
         let mut inputs = Inputs::new(g, 4 * budget.inputs);
         let mut plans = Vec::new();
         {
@@ -794,7 +800,12 @@ impl Elaborator {
                 let size = size(i);
                 log.tried_shape = log.tried_shape.max(size.shape);
                 match result {
-                    Some(code) if code < falsified - 1 => log.discarded += 1,
+                    Some(code) if code < falsified - 1 => {
+                        log.discarded += 1;
+                        if let Some(n) = log.rejected_by.get_mut(code as usize) {
+                            *n += 1;
+                        }
+                    }
                     None => log.out_of_steps += 1,
                     Some(_) => {
                         log.held_size = log.held_size.max(size.total);
