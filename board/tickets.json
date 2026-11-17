@@ -22583,12 +22583,12 @@
     {
       "id": 3877,
       "title": "[Opus] Self-hosted fmt proofs: the generic traversal lemma in its strong form (steps that rebuild nodes below the one they act on), then P3's header step (dropDeclBinders) and P4's merge fact (splitting merged groups gives back the originals, via Group.typeLines) (SW-3864 left)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Opus lane, 17 Nov 2026, 20:49 to 21:10 (expected 60 min).\n\n- Done: the traversal lemma in its strong form (`Fmt.Walk.applyKeeps`, over a pure copy of the traversal, `walk`: 39 `…Ok` and 39 `…Twice` theorems, generated arm by arm); P3's header step and row step through `meaning`'s walk; P1, P2, P3 keep `meaning` file by file and together (`firstThreeKeepMeaning`, no axioms).\n- Not done, stopped as the brief says: P4's merge fact needs a statement change. As `meaning` is stated, P4 doesn't keep it: `Group.pieces` gives every piece the group's `open`, so a comment above the first of two merged groups ends up on both pieces after P4 (scratch test: `open.above` lengths `[1, 0]` before, `[1, 1]` after). Needs comments blanked in the comparison, plus a dump-injectivity lemma for `typeLines` and equal `GroupKind`s in `joins`. See tools/fmt/NOTES.md, \"P4 doesn't keep `meaning` as stated\".\n- Tests: `check`, `test` (76 passed), `audit Fmt.Walk` (193 passed), `audit Fmt.Proofs` (41 passed), `axioms` on the top theorems: none.\n",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
