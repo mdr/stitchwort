@@ -2,7 +2,9 @@
 //! D1037 and D1039 (docs/proposals/formatter.md §3, §8; still in force), copying the source
 //! wherever spacing can change meaning (§2.3).
 
-use stitchwort_syntax::{Tok, Token, argument_minus, closes_operand, opens_atom, record_braces};
+use stitchwort_syntax::{
+    Tok, Token, argument_minus, argument_prefix, closes_operand, opens_atom, record_braces,
+};
 
 /// What a token is, where its spelling alone doesn't say. Worked out from
 /// the position in the program (see [`roles`]), the way the parser
@@ -277,10 +279,13 @@ pub(crate) fn roles(tokens: &[Token]) -> Vec<Role> {
 /// Whether the numeral after the `-` at `k` is the head of an application:
 /// `- 2 n` is `Neg (App 2 n)`, where `-2 n` applies the negative numeral `-2`
 /// instead (SW-3716). The argument may sit on a later source line; the
-/// printer may still put it on the numeral's line.
+/// printer may still put it on the numeral's line. It may also be an
+/// argument prefix, as in `- 1 -2` (SW-3771): glued, the first `-` and `1`
+/// become a negative numeral and the `-2` becomes its argument.
 fn numeral_application(tokens: &[Token], k: usize) -> bool {
     let (Some(numeral), Some(after)) = (tokens.get(k + 1), tokens.get(k + 2)) else {
         return false;
     };
-    matches!(numeral.tok, Tok::Num(_) | Tok::Float(_)) && opens_atom(&after.tok)
+    matches!(numeral.tok, Tok::Num(_) | Tok::Float(_))
+        && (opens_atom(&after.tok) || argument_prefix(tokens, k + 2))
 }

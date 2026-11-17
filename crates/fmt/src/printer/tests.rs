@@ -1116,6 +1116,34 @@ fn a_minus_before_an_applied_numeral_keeps_its_space() {
     );
 }
 
+/// Every combination of a spaced or glued unary minus, an operand that is a
+/// numeral, a name or bracketed, and an argument that is a numeral, a
+/// negative one, a name, bracketed or a negative name (SW-3771): each must
+/// print to a program with the same tree, and to a fixed point. A spaced
+/// minus before a numeral is the only one that turns into a negative numeral
+/// when glued, which would make the operand the head of the application
+/// instead of the argument (SW-3716).
+#[test]
+fn a_unary_minus_keeps_its_operand_apart_from_every_kind_of_argument() {
+    for minus in ["- ", "-"] {
+        for operand in ["1", "x", "(x)"] {
+            for argument in ["2", "-2", "n", "(n)", "-x"] {
+                let source = format!("def f (x n: Int): Int := {minus}{operand} {argument}\n");
+                let gate = gate(&source).expect("it parses");
+                assert_eq!(gate.check, Ok(()), "{source}=> {}", gate.text);
+                assert!(gate.idempotent, "not idempotent:\n{}", gate.text);
+            }
+        }
+    }
+    // The fuzzer's minimal case: the argument is a negative literal, so the
+    // space after the first `-` is what keeps the `Neg` outside the
+    // application.
+    check(
+        "def decrement (xs: List Int): List Int := xs.map (- 1 -1)\n",
+        "def decrement (xs: List Int): List Int := xs.map (- 1 -1)\n",
+    );
+}
+
 #[test]
 fn a_calc_proof_never_wraps_a_hole_to_the_start_of_a_line() {
     // S35: a line starting with `_` would read as the next step. SW-3683.
