@@ -1,5 +1,5 @@
 {
-  "next": 3830,
+  "next": 3834,
   "tickets": [
     {
       "id": 47,
@@ -21645,12 +21645,12 @@
     {
       "id": 3805,
       "title": "[Opus] Float.Theory: a whole number of units (|n| below 2^53 × the spacing) is representable as a double; then x < floor x + 1, ceil likewise, |x % y| < |y|, Sterbenz (SW-639 finding; unlocks Whereabouts wrap and outward rounding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "\n\nLane notes (Opus, 17 Nov 2026, 15:13-15:45; est. 55 min):\n- Representability: Float.Theory.roundGrid: ±q × 2^e units with q ≤ 2^53 and below 2^2098 round (any zero sign) to a finite pattern with exactly those units (pattern = q's own, doubled e times). roundWholeUnits/roundScaledWhole: n × 2^1074 for whole |n| ≤ 2^53. combinationExact: r + k·B = j·A with r ≤ A, B (two finite doubles' units) is a double.\n- Laws: Float.ltFloorAddOne (x < floor x + 1.0 for |x| < 2^53), Float.ceilSubOneLt (ceil x - 1.0 < x; the brief's ceil x < x + 1.0 is false: x = 2^-60 gives 1.0 = 1.0), Float.remAbsLt (|x % y| < |y|, finite x, finite nonzero y), Float.remNonneg/remNonpos (sign of x), Float.sterbenz (positive finite x, y with x <= y + y, y <= x + x: units (x - y) = units x - units y). Helpers worth reuse: Float.Theory.addAtLeast/addAtMost (a sum between two finite doubles' exact values is between them in the order), roundFinite, addFiniteOf, remUnits, lessOfUnits.\n- Whereabouts: wrapRange (-180.0 <= wrap lon < 180.0 for every finite lon) proved; Sterbenz not needed (bound by 359.99999999999994). Outward rounding, step 1: not done; missing x / 1.0 = x and exact * 10.0, / 10.0 for negative whole numbers.\n- Tests: check --std Float/Theory.sw; scratch `stitchwort test` of the 4 new test blocks 4/4; whereabouts check + audit Whereabouts.Hints.Proofs 18/18 (with --std-dir); hash_stability::prelude passes after re-accepting (94 names added, none changed); fmt_repo fails only on Float/Model.sw, which main already fixed in 6f49c9d24.\n",
+      "body": "\n\nLane notes (Opus, 17 Nov 2026, 15:13-15:45; est. 55 min):\n- Representability: Float.Theory.roundGrid: ±q × 2^e units with q ≤ 2^53 and below 2^2098 round (any zero sign) to a finite pattern with exactly those units (pattern = q's own, doubled e times). roundWholeUnits/roundScaledWhole: n × 2^1074 for whole |n| ≤ 2^53. combinationExact: r + k·B = j·A with r ≤ A, B (two finite doubles' units) is a double.\n- Laws: Float.ltFloorAddOne (x < floor x + 1.0 for |x| < 2^53), Float.ceilSubOneLt (ceil x - 1.0 < x; the brief's ceil x < x + 1.0 is false: x = 2^-60 gives 1.0 = 1.0), Float.remAbsLt (|x % y| < |y|, finite x, finite nonzero y), Float.remNonneg/remNonpos (sign of x), Float.sterbenz (positive finite x, y with x <= y + y, y <= x + x: units (x - y) = units x - units y). Helpers worth reuse: Float.Theory.addAtLeast/addAtMost (a sum between two finite doubles' exact values is between them in the order), roundFinite, addFiniteOf, remUnits, lessOfUnits.\n- Whereabouts: wrapRange (-180.0 <= wrap lon < 180.0 for every finite lon) proved; Sterbenz not needed (bound by 359.99999999999994). Outward rounding, step 1: not done; missing x / 1.0 = x and exact * 10.0, / 10.0 for negative whole numbers.\n- Tests: check --std Float/Theory.sw; scratch `stitchwort test` of the 4 new test blocks 4/4; whereabouts check + audit Whereabouts.Hints.Proofs 18/18 (with --std-dir); hash_stability::prelude passes after re-accepting (94 names added, none changed); fmt_repo fails only on Float/Model.sw, which main already fixed in 6f49c9d24.\n\nModel result: opus, worked, 33 min (est. 55). wrapRange proved; ceil law corrected to ceilSubOneLt; follow-ups SW-3830 SW-3831 SW-3832 SW-3833.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
@@ -21964,6 +21964,58 @@
       "where": "",
       "labels": [],
       "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3830,
+      "title": "[Opus] Whereabouts outward rounding for whole-degree steps: x / 1.0 = x, and * 10.0 and / 10.0 exact on negative whole numbers via roundWholeUnits; then the theorem (SW-3805 says 20-30 min plus the theorem)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "whereabouts",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3831,
+      "title": "[Sonnet] arithmetic gives up ('can't handle numbers this large') when any fact in scope holds a number like Nat.pow 2 2098, or a let unfolds to a big computation: ignore or name the offending fact in the error (SW-3805 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3832,
+      "title": "[DeepSeek] Float.Theory: addBitsOf (bits of x + c for finite operands) repeats inline in addWhole, leDouble and sterbenz; factor it out (SW-3805 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "floats",
+      "body": "",
+      "created": "2026-11-17",
+      "updated": "2026-11-17",
+      "commits": []
+    },
+    {
+      "id": 3833,
+      "title": "[DeepSeek] Proving guide and docs/testing.md: checking std or an app from a worktree needs --std-dir <worktree>/crates/elab/src/std; and lanes run tests in the foreground (a subagent can't wait on a background notification) (SW-3805 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-17",
       "updated": "2026-11-17",
