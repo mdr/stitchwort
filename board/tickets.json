@@ -43134,7 +43134,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Matt, 17 Nov 2026: happy for the sketch to run, but wants to discuss the practicalities before any theorem-proving stage of the self-hosted formatter starts. No proof lanes until that discussion.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
