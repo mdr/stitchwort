@@ -63,21 +63,16 @@ def probes: List Probe :=
         """,
       dump = "(let y (body (bare (call (var f){ after -- after ( } (item (number 1)) (item (number 2))))))\n",
       formatted = """
-        let y =
-          f( -- after (
-            1,
-            2
-          )
+        let y = f( -- after (
+          1, 2)
         """
     },
     { name = "a trailing comment after an operator", source = """
       let y = a + -- after +
         b
       """, dump = "(let y (body (bare (+{ after -- after + } (var a) (var b)))))\n", formatted = """
-        let y =
-          a
-            + -- after +
-              b
+        let y = a + -- after +
+          b
         """ },
     {
       name = "a trailing comment after the callee",
@@ -87,11 +82,8 @@ def probes: List Probe :=
         """,
       dump = "(let y (body (bare (call (var f{ after -- after the callee }) (item (number 1))))))\n",
       formatted = """
-        let y =
-          f -- after the callee
-            (
-            1
-          )
+        let y = f -- after the callee
+          (1)
         """
     },
     { name = "a trailing comment after a header's (", source = """
@@ -193,17 +185,15 @@ def probes: List Probe :=
       let y = order. -- after .
         items
       """, dump = "(let y (body (bare (field (var order){ after -- after . } items))))\n", formatted = """
-        let y =
-          order. -- after .
-            items
+        let y = order. -- after .
+          items
         """ },
     { name = "a trailing comment after a unary -", source = """
       let y = - -- after unary minus
         x
       """, dump = "(let y (body (bare (negate{ after -- after unary minus } (var x)))))\n", formatted = """
-        let y =
-          - -- after unary minus
-            x
+        let y = - -- after unary minus
+          x
         """ },
     {
       name = "a trailing comment after a comma",
@@ -251,9 +241,7 @@ def probes: List Probe :=
         f(x) = x
       """, dump = "(fn{ after -- after fn } f (x) (body (bare (var x))))\n", formatted = """
         fn -- after fn
-          f takes (
-            x
-        ) = x
+          f takes (x) = x
         """ },
     {
       name = "an if's trailing comment before )",
@@ -274,11 +262,8 @@ def probes: List Probe :=
         """,
       dump = "(let y (body (bare (field (bracketed (if (var a) (body (bare (var b))) (body (bare (var c{ after -- k }))))) d))))\n",
       formatted = """
-        let y =
-          (if a then b
-          else
-            c) -- k
-              .d
+        let y = (if a then b else c) -- k
+          .d
         """
     }
   ]

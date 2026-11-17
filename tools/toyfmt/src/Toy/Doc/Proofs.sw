@@ -258,9 +258,9 @@ theorem printStepsEnough ∀ (printer: Printer) (total extra: Nat) (doc: Doc) (i
   runFuelEnough printer total (3 * doc.size + 3) extra [Print indent mode doc] (arithmetic)
 
 --| The steps `fits` can take measuring `stack`.
-def pairSteps: List (Mode, Doc) → Nat
+def pairSteps: List (Nat, Mode, Doc) → Nat
   | [] => 0
-  | [(_, doc), ..stack] => doc.steps + pairSteps stack
+  | [(_, _, doc), ..stack] => doc.steps + pairSteps stack
 
 --| The steps `fits` can take reading on into the work list, up to the
 --| first fill separator, where it stops.
@@ -268,13 +268,13 @@ def restNeed: List Cmd → Nat
   | [Print _ _ doc, ..others] => 1 + doc.steps + restNeed others
   | _ => 0
 
-def fitsNeed (stack: List (Mode, Doc)) (rest: List Cmd): Nat := pairSteps stack + restNeed rest
+def fitsNeed (stack: List (Nat, Mode, Doc)) (rest: List Cmd): Nat := pairSteps stack + restNeed rest
 
-theorem pairStepsMap ∀ (mode: Mode) (docs: List Doc) (stack: List (Mode, Doc)):
-    pairSteps (docs.map (inner => (mode, inner)) ++ stack) = stepsOf docs + pairSteps stack :=
+theorem pairStepsMap ∀ (indent: Nat) (mode: Mode) (docs: List Doc) (stack: List (Nat, Mode, Doc)):
+    pairSteps (docs.map (inner => (indent, mode, inner)) ++ stack) = stepsOf docs + pairSteps stack :=
   match docs with
     | [] => byComputing
-    | [doc, ..rest] => rewrite pairStepsMap mode rest stack then arithmetic
+    | [doc, ..rest] => rewrite pairStepsMap indent mode rest stack then arithmetic
 
 theorem lastSteps ∀ (options: List Doc) (option: Doc)
     (picked: options.last = Some option):
@@ -293,9 +293,11 @@ theorem headSteps ∀ (options: List Doc) (option: Doc)
 --| With fuel for every step it could take, `fits` gives the same answer
 --| as with more: it never stops for want of fuel, where it would answer
 --| "fits" without looking.
-theorem fitsFromEnough ∀ (fuel extra: Nat) (stack: List (Mode, Doc)) (rest: List Cmd) (left: Nat) (suffix: Bool)
+theorem fitsFromEnough ∀ (fuel extra width: Nat) (stack: List (Nat, Mode, Doc)) (rest: List Cmd)
+    (left lineIndent: Nat) (suffix: Bool)
     (enough: fitsNeed stack rest ≤ fuel):
-    fitsFrom (fuel + extra) stack rest left suffix = fitsFrom fuel stack rest left suffix :=
+    fitsFrom (fuel + extra) width stack rest left lineIndent suffix
+      = fitsFrom fuel width stack rest left lineIndent suffix :=
   match fuel with
     | Zero =>
       match stack, rest with
@@ -307,7 +309,7 @@ theorem fitsFromEnough ∀ (fuel extra: Nat) (stack: List (Mode, Doc)) (rest: Li
           match extra with
             | Zero => byComputing
             | Succ more => byComputing
-        | [(mode, doc), ..stack], _ =>
+        | [(indent, mode, doc), ..stack], _ =>
           let positive := stepsPositive doc
           Void.impossible (arithmetic)
     | Succ more =>
@@ -317,66 +319,116 @@ theorem fitsFromEnough ∀ (fuel extra: Nat) (stack: List (Mode, Doc)) (rest: Li
             | [] => byComputing
             | [FillSep indent item, ..others] => byComputing
             | [Print indent mode doc, ..others] =>
-              rewrite fitsFromEnough more extra [(mode, doc)] others left suffix (arithmetic)
-        | [(mode, doc), ..stack] =>
+              rewrite fitsFromEnough more extra width [(indent, mode, doc)] others left lineIndent suffix (arithmetic)
+        | [(indent, mode, doc), ..stack] =>
+          let same := (at to: Nat) (waits: Bool) (fewer: fitsNeed stack rest ≤ more) =>
+            fitsFromEnough more extra width stack rest at to waits fewer
           match doc with
-            | Empty => rewrite fitsFromEnough more extra stack rest left suffix (arithmetic)
-            | Blank => rewrite fitsFromEnough more extra stack rest left suffix (arithmetic)
-            | LineSuffix comment => rewrite fitsFromEnough more extra stack rest left True (arithmetic)
-            | BreakParent => rewrite fitsFromEnough more extra stack rest left suffix (arithmetic)
-            | Chunk text width => rewrite fitsFromEnough more extra stack rest (left - width) suffix (arithmetic)
-            | Closing text => rewrite fitsFromEnough more extra stack rest (left - text.length) suffix (arithmetic)
-            | Line => rewrite fitsFromEnough more extra stack rest (left - 1) suffix (arithmetic)
-            | SoftLine => rewrite fitsFromEnough more extra stack rest left suffix (arithmetic)
+            | Empty => rewrite same left lineIndent suffix (arithmetic)
+            | Blank => rewrite same left lineIndent suffix (arithmetic)
+            | LineSuffix comment => rewrite same left lineIndent True (arithmetic)
+            | BreakParent => rewrite same left lineIndent suffix (arithmetic)
+            | Chunk text textWidth =>
+              match suffix with
+                | False => rewrite same (left - textWidth) lineIndent False (arithmetic)
+                | True =>
+                  match spaces: text.all (char => char == ' ') with
+                    | True => rewrite same left lineIndent True (arithmetic)
+                    | False =>
+                      let broken := Nat.max indent (lineIndent + 2)
+                      rewrite same (width - broken - textWidth) broken False (arithmetic)
+            | Closing text => rewrite same (left - text.length) lineIndent suffix (arithmetic)
+            | Line => rewrite same (left - 1) lineIndent suffix (arithmetic)
+            | SoftLine => rewrite same left lineIndent suffix (arithmetic)
             | HardLine => byComputing
             | LineStart => byComputing
             | CommentEnd => byComputing
             | LineStartHere => byComputing
-            | Nest indent inner =>
-              rewrite fitsFromEnough more extra [(mode, inner), ..stack] rest left suffix (arithmetic)
-            | Flatten inner => rewrite fitsFromEnough more extra [(Flat, inner), ..stack] rest left suffix (arithmetic)
-            | Group inner hard =>
-              let measured := if hard then Break else mode
-              rewrite fitsFromEnough more extra [(measured, inner), ..stack] rest left suffix (arithmetic)
-            | Concat docs =>
-              let laid := pairStepsMap mode docs stack
-              rewrite fitsFromEnough more extra
-                (docs.map (inner => (mode, inner)) ++ stack)
+            | Nest extraIndent inner =>
+              rewrite fitsFromEnough more extra width
+                [(indent + extraIndent, mode, inner), ..stack]
                 rest
                 left
+                lineIndent
+                suffix
+                (arithmetic)
+            | Flatten inner =>
+              rewrite fitsFromEnough more extra width
+                [(indent, Flat, inner), ..stack]
+                rest
+                left
+                lineIndent
+                suffix
+                (arithmetic)
+            | Group inner hard =>
+              let measured := if hard then Break else mode
+              rewrite fitsFromEnough more extra width
+                [(indent, measured, inner), ..stack]
+                rest
+                left
+                lineIndent
+                suffix
+                (arithmetic)
+            | Concat docs =>
+              let laid := pairStepsMap indent mode docs stack
+              rewrite fitsFromEnough more extra width
+                (docs.map (inner => (indent, mode, inner)) ++ stack)
+                rest
+                left
+                lineIndent
                 suffix
                 (arithmetic)
             | Fill items =>
               match mode with
                 | Flat =>
                   let joinedLines := Doc.joinLines items
-                  let laid := pairStepsMap Flat joinedLines stack
+                  let laid := pairStepsMap indent Flat joinedLines stack
                   let bound := joinLinesSteps items
-                  rewrite fitsFromEnough more extra
-                    (joinedLines.map (inner => (Flat, inner)) ++ stack)
+                  rewrite fitsFromEnough more extra width
+                    (joinedLines.map (inner => (indent, Flat, inner)) ++ stack)
                     rest
                     left
+                    lineIndent
                     suffix
                     (arithmetic)
                 | Break =>
                   match items with
                     | [] => byComputing
-                    | [first, ..others] => rewrite fitsFromEnough more extra [(Flat, first)] [] left False (arithmetic)
+                    | [first, ..others] =>
+                      rewrite fitsFromEnough more extra width
+                        [(indent, Flat, first)]
+                        []
+                        left
+                        lineIndent
+                        suffix
+                        (arithmetic)
             | OneLineBelow inner => byComputing
             | Choice options =>
               match mode with
                 | Flat =>
                   match picked: options.head with
-                    | None => rewrite fitsFromEnough more extra stack rest left suffix (arithmetic)
+                    | None => rewrite same left lineIndent suffix (arithmetic)
                     | Some option =>
                       let bound := headSteps options option picked
-                      rewrite fitsFromEnough more extra [(Flat, option), ..stack] rest left suffix (arithmetic)
+                      rewrite fitsFromEnough more extra width
+                        [(indent, Flat, option), ..stack]
+                        rest
+                        left
+                        lineIndent
+                        suffix
+                        (arithmetic)
                 | Break =>
                   match picked: options.last with
-                    | None => rewrite fitsFromEnough more extra stack rest left suffix (arithmetic)
+                    | None => rewrite same left lineIndent suffix (arithmetic)
                     | Some option =>
                       let bound := lastSteps options option picked
-                      rewrite fitsFromEnough more extra [(Break, option), ..stack] rest left suffix (arithmetic)
+                      rewrite fitsFromEnough more extra width
+                        [(indent, Break, option), ..stack]
+                        rest
+                        left
+                        lineIndent
+                        suffix
+                        (arithmetic)
 
 --| What the work list can still cost `fits`, all calls together: a
 --| command's steps, and one more step for each node, which reading it out
@@ -532,12 +584,20 @@ theorem chooseEnough ∀ (printer: Printer) (total extra indent: Nat) (rest: Lis
       let later := chooseEnough printer total extra indent rest [next, ..others] (arithmetic)
       match option with
         | OneLineBelow inner =>
-          rewrite fitsFromEnough total extra [(Flat, inner)] [] (printer.width - indent - 2) False (arithmetic), later
+          rewrite fitsFromEnough total extra printer.width
+                [(indent + 2, Flat, inner)]
+                []
+                (printer.width - indent - 2)
+                (indent + 2)
+                False
+                (arithmetic),
+              later
         | _ =>
-          rewrite fitsFromEnough total extra
-                [(Break, option)]
+          rewrite fitsFromEnough total extra printer.width
+                [(indent, Break, option)]
                 rest
                 printer.left
+                printer.lineIndent
                 (not printer.suffixes.isEmpty)
                 (arithmetic),
               later
@@ -551,14 +611,21 @@ theorem stepEnough ∀ (printer: Printer) (total extra: Nat) (cmd: Cmd) (rest: L
   let under := restNeedUnder rest
   match cmd with
     | FillSep indent item =>
-      rewrite fitsFromEnough total extra [(Flat, item)] rest (printer.left - 1) False (arithmetic)
+      rewrite fitsFromEnough total extra printer.width
+        [(indent, Flat, item)]
+        rest
+        (printer.left - 1)
+        printer.lineIndent
+        False
+        (arithmetic)
     | Print indent mode doc =>
       match doc with
         | Group inner hard =>
-          rewrite fitsFromEnough total extra
-            [(Flat, inner)]
+          rewrite fitsFromEnough total extra printer.width
+            [(indent, Flat, inner)]
             rest
             printer.left
+            printer.lineIndent
             (not printer.suffixes.isEmpty)
             (arithmetic)
         | Fill items =>
@@ -569,10 +636,11 @@ theorem stepEnough ∀ (printer: Printer) (total extra: Nat) (cmd: Cmd) (rest: L
               let laid := stackWeightAppend (others.map (FillSep indent)) rest
               let seps := weightFillSeps indent others
               let need := restNeedUnder stack
-              rewrite fitsFromEnough total extra
-                [(Flat, first)]
+              rewrite fitsFromEnough total extra printer.width
+                [(indent, Flat, first)]
                 stack
                 printer.left
+                printer.lineIndent
                 (not printer.suffixes.isEmpty)
                 (arithmetic)
         | Choice options =>
