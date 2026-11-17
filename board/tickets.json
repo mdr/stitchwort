@@ -41630,12 +41630,12 @@
     {
       "id": 3693,
       "title": "[Sonnet] Broad tier 9ff2833ca: run_js::examples_print_the_same_both_ways panics at run_js.rs:180 on examples/accept/main-exit-status.sw (message empty in the log). Run it alone, see the two outputs, find the cause (SW-3345's exit-status area?), fix with the test as failing-first",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "",
+      "body": "Model result: sonnet, worked, 10 min (est. 30). Stale test assumption since SW-3402.",
       "created": "2026-11-17",
       "updated": "2026-11-17",
       "commits": []
