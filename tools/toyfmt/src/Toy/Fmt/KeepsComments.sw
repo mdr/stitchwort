@@ -91,9 +91,148 @@ theorem declarationsTidyComments ∀ (lines: List (Spaced Declaration)):
     | [] => byComputing
     | [{ blankBefore, line }, ..rest] => rewrite declarationTidyComments line, declarationsTidyComments rest
 
---| The passes keep every comment the tree holds, in order.
-theorem tidyKeepsComments ∀ (file: SourceFile): file.tidy.comments = file.comments :=
+--| P1 and P2 keep every comment the tree holds, in order.
+theorem commasKeepComments ∀ (file: SourceFile): file.withTakes.withoutTrailingCommas.comments = file.comments :=
   declarationsTidyComments file.declarations
+
+-- The traversal keeps the comments where its step does (as
+-- `TraverseProofs.sw` for the other facts).
+
+def StepKeepsComments (step: Position → Expr → Expr): Prop :=
+  ∀ (position: Position) (expr: Expr) => (step position expr).comments = expr.comments
+
+theorem traverseComments ∀ (step: Position → Expr → Expr) (keeps: StepKeepsComments step) (expr: Expr)
+    (position: Position):
+    (expr.traverse step position).comments = expr.comments :=
+  rewrite keeps position (expr.traverseInside step position.bracketed) then
+    insideComments step keeps expr position.bracketed
+
+theorem insideComments ∀ (step: Position → Expr → Expr) (keeps: StepKeepsComments step) (expr: Expr) (bracketed: Bool):
+    (expr.traverseInside step bracketed).comments = expr.comments :=
+  match expr with
+    | Var _ _ => byComputing
+    | NumberLiteral _ _ => byComputing
+    | StringLiteral _ _ => byComputing
+    | Bracketed _ inner _ => rewrite traverseComments step keeps inner { bracketed = True, slot = Whole }
+    | ListLiteral _ items _ _ => rewrite itemsTraverseComments step keeps items
+    | Call callee _ arguments _ _ =>
+      rewrite traverseComments step keeps callee { bracketed, slot = PostfixSlot },
+          itemsTraverseComments step keeps arguments
+    | Field target _ _ _ => rewrite traverseComments step keeps target { bracketed, slot = PostfixSlot }
+    | Negate _ operand => rewrite traverseComments step keeps operand { bracketed, slot = OperandSlot }
+    | Binary operator _ left right =>
+      rewrite traverseComments step keeps left { bracketed, slot = LeftOf operator.level },
+          traverseComments step keeps right { bracketed, slot = RightOf operator.level }
+    | If _ condition _ whenTrue _ whenFalse =>
+      rewrite traverseComments step keeps condition { bracketed, slot = Whole },
+          bodyTraverseComments step keeps whenTrue bracketed,
+          bodyTraverseComments step keeps whenFalse bracketed
+
+theorem itemsTraverseComments ∀ (step: Position → Expr → Expr) (keeps: StepKeepsComments step) (items: List Expr):
+    itemsComments (traverseItems step items) = itemsComments items :=
+  match items with
+    | [] => byComputing
+    | [value, ..rest] =>
+      rewrite traverseComments step keeps value { bracketed = True, slot = Whole }, itemsTraverseComments step keeps rest
+
+theorem bodyTraverseComments ∀ (step: Position → Expr → Expr) (keeps: StepKeepsComments step) (body: Body)
+    (bracketed: Bool):
+    (body.traverse step bracketed).comments = body.comments :=
+  match body with | { statements } => rewrite linesTraverseComments step keeps statements bracketed
+
+theorem linesTraverseComments ∀ (step: Position → Expr → Expr) (keeps: StepKeepsComments step)
+    (lines: List (Spaced Statement)) (bracketed: Bool):
+    linesComments (traverseLines step bracketed lines) = linesComments lines :=
+  match lines with
+    | [] => byComputing
+    | [{ blankBefore, line }, ..rest] =>
+      rewrite statementTraverseComments step keeps line bracketed, linesTraverseComments step keeps rest bracketed
+
+theorem statementTraverseComments ∀ (step: Position → Expr → Expr) (keeps: StepKeepsComments step) (line: Statement)
+    (bracketed: Bool):
+    (line.traverse step bracketed).comments = line.comments :=
+  match line with
+    | Let _ _ _ _ body => rewrite bodyTraverseComments step keeps body False
+    | Bare value => rewrite traverseComments step keeps value { bracketed, slot = Whole }
+    | StatementNote _ => byComputing
+
+theorem declarationTraverseComments ∀ (step: Position → Expr → Expr) (keeps: StepKeepsComments step)
+    (line: Declaration):
+    (line.traverseBody step).comments = line.comments :=
+  match line with
+    | Function _ _ _ _ _ _ _ _ _ body => rewrite bodyTraverseComments step keeps body False
+    | Value _ _ _ _ body => rewrite bodyTraverseComments step keeps body False
+    | DeclarationNote _ => byComputing
+
+theorem declarationsTraverseComments ∀ (step: Position → Expr → Expr) (declare: Declaration → Declaration)
+    (keeps: StepKeepsComments step)
+    (declareKeeps: ∀ (line: Declaration) => (declare line).comments = line.comments)
+    (lines: List (Spaced Declaration)):
+    (traverseDeclarations step declare lines).flatMap (spaced => spaced.line.comments)
+      = lines.flatMap (spaced => spaced.line.comments) :=
+  match lines with
+    | [] => byComputing
+    | [{ blankBefore, line }, ..rest] =>
+      rewrite declareKeeps (line.traverseBody step),
+          declarationTraverseComments step keeps line,
+          declarationsTraverseComments step declare keeps declareKeeps rest
+
+-- P3 keeps every comment: it drops only pairs that hold none.
+
+theorem noneAll ∀ (comments: Comments) (none: comments.isNone = True): comments.all = [] :=
+  match comments, none with | { above = [], after = None }, _ => byComputing
+
+theorem dropComments: StepKeepsComments dropPair := position expr =>
+  match expr with
+    | Bracketed open inner close =>
+      match isSpare: spare position open inner close with
+        | True =>
+          let (openNone, closeNone, _) := spareParts position open inner close isSpare
+          rewrite noneAll open openNone, noneAll close closeNone then (List.appendNil inner.comments).flipped
+        | False => byComputing
+    | Var _ _ => byComputing
+    | NumberLiteral _ _ => byComputing
+    | StringLiteral _ _ => byComputing
+    | ListLiteral _ _ _ _ => byComputing
+    | Call _ _ _ _ _ => byComputing
+    | Field _ _ _ _ => byComputing
+    | Negate _ _ => byComputing
+    | Binary _ _ _ _ => byComputing
+    | If _ _ _ _ _ _ => byComputing
+
+theorem typeSpareComments ∀ (annotation: TypeExpr): annotation.withoutSpareBrackets.comments = annotation.comments :=
+  match annotation with
+    | TypeName _ _ => byComputing
+    | TypeBracketed open inner close =>
+      match none: open.isNone && close.isNone with
+        | True =>
+          let (openNone, closeNone) := none.read
+          rewrite typeSpareComments inner, noneAll open openNone, noneAll close closeNone then
+            (List.appendNil inner.comments).flipped
+        | False => rewrite typeSpareComments inner
+
+theorem groupsSpareComments ∀ (groups: List ParameterGroup):
+    parametersComments (groupsWithoutSpareBrackets groups) = parametersComments groups :=
+  match groups with
+    | [] => byComputing
+    | [Untyped _, ..rest] => rewrite groupsSpareComments rest
+    | [Typed _ _ annotation, ..rest] => rewrite typeSpareComments annotation, groupsSpareComments rest
+
+theorem declareSpareComments ∀ (line: Declaration): line.withoutSpareTypeBrackets.comments = line.comments :=
+  match line with
+    | Function _ _ _ _ _ parameters _ _ _ _ => rewrite groupsSpareComments parameters
+    | Value _ _ _ _ _ => byComputing
+    | DeclarationNote _ => byComputing
+
+--| P3 keeps every comment the tree holds, in order.
+theorem bracketsKeepComments ∀ (file: SourceFile): file.withoutSpareBrackets.comments = file.comments :=
+  declarationsTraverseComments dropPair (line => line.withoutSpareTypeBrackets) dropComments declareSpareComments
+    file.declarations
+
+--| The passes keep every comment the tree holds, in order.
+theorem tidyKeepsComments ∀ (file: SourceFile): file.tidy.comments = file.comments := calc file.tidy.comments
+  _ = file.withTakes.withoutTrailingCommas.comments := bracketsKeepComments file.withTakes.withoutTrailingCommas
+  _ = file.comments := commasKeepComments file
 
 --| Formatting keeps every comment, with the same text and in the same
 --| order: the comments the lexer finds in the output are those it finds

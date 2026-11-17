@@ -725,22 +725,31 @@ theorem commasKeepTakes ∀ (file: SourceFile)
 
 --| The passes keep the meaning, on every tree.
 theorem tidyKeepsMeaning ∀ (file: SourceFile): file.tidy.meaning = file.meaning := calc file.tidy.meaning
+  _ = file.withTakes.withoutTrailingCommas.meaning := bracketsKeepMeaning file.withTakes.withoutTrailingCommas
   _ = file.withTakes.meaning := commasKeepMeaning file.withTakes
   _ = file.meaning := takesKeepMeaning file
 
 --| The passes keep the parser's guarantees.
 theorem tidyParsed ∀ (file: SourceFile) (parsed: Parsed file): Parsed file.tidy :=
-  commasKeepParsed file.withTakes (takesKeepParsed file parsed)
+  bracketsKeepParsed file.withTakes.withoutTrailingCommas (commasKeepParsed file.withTakes (takesKeepParsed file parsed))
 
---| A tidy tree has no trailing comma, as the printer needs.
-theorem tidyBare ∀ (file: SourceFile): file.tidy.withoutTrailingCommas = file.tidy := commasIdempotent file.withTakes
+--| A tidy tree has no trailing comma, as the printer needs: P3 kept P2's
+--| work.
+theorem tidyBare ∀ (file: SourceFile): file.tidy.withoutTrailingCommas = file.tidy :=
+  bracketsKeepCommas file.withTakes.withoutTrailingCommas (commasIdempotent file.withTakes)
 
---| A tidy tree is P1-tidy too: P2 kept P1's work.
+--| A tidy tree is P1-tidy too: P2 and P3 kept P1's work.
 theorem tidyTakes ∀ (file: SourceFile): file.tidy.withTakes = file.tidy :=
-  commasKeepTakes file.withTakes (takesIdempotent file)
+  bracketsKeepTakes file.withTakes.withoutTrailingCommas (commasKeepTakes file.withTakes (takesIdempotent file))
 
---| The passes finish in one run.
+--| A tidy tree has no spare brackets.
+theorem tidyBrackets ∀ (file: SourceFile): file.tidy.withoutSpareBrackets = file.tidy :=
+  bracketsIdempotent file.withTakes.withoutTrailingCommas
+
+--| The passes finish in one run: a tidy tree is tidy for each pass.
 theorem tidyIdempotent ∀ (file: SourceFile): file.tidy.tidy = file.tidy := calc file.tidy.tidy
-  _ = file.tidy.withTakes.withoutTrailingCommas := byComputing
-  _ = file.tidy.withoutTrailingCommas := Eq.cong ((tree: SourceFile) => tree.withoutTrailingCommas) (tidyTakes file)
-  _ = file.tidy := tidyBare file
+  _ = file.tidy.withTakes.withoutTrailingCommas.withoutSpareBrackets := byComputing
+  _ = file.tidy.withoutTrailingCommas.withoutSpareBrackets :=
+    Eq.cong ((tree: SourceFile) => tree.withoutTrailingCommas.withoutSpareBrackets) (tidyTakes file)
+  _ = file.tidy.withoutSpareBrackets := Eq.cong ((tree: SourceFile) => tree.withoutSpareBrackets) (tidyBare file)
+  _ = file.tidy := tidyBrackets file
