@@ -22858,7 +22858,7 @@
     {
       "id": 3898,
       "title": "[Sonnet] std Float: absBelowOf (-b <= x, x <= b, b < c gives abs x < c) to replace Whereabouts' absWithin360/absWithin3600; and divNear, quotientNear's signed bound for any positive divisor, beside divRelError (SW-3895 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -23079,7 +23079,7 @@
     {
       "id": 3915,
       "title": "[Opus] Toy.Doc/Fmt.Doc audit warnings: closesWord, putMid, putSpaces and one more have hypotheses no generated input satisfies (0 of 1500); check each is not vacuous, before E1 (SW-3904 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
