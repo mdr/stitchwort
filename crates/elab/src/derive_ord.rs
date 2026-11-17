@@ -15,9 +15,15 @@
 //! after it. Why not is kept for the note when an `Ord` is needed for `T`.
 //!
 //! The laws are put together from lemmas in the core, proved once
-//! (`Ordering.thenEqual`, `Ordering.thenFlip`, `Ord.thenTrans`,
+//! (`Ordering.thenPairEqual`, `Ordering.thenFlip`, `Ord.thenTrans`,
 //! `Ordering.tagsTrans`, …): each constructor's case follows its fields, one
-//! lemma per field. With two constructors or more the tags are compared
+//! lemma per field. `equal` proves the fields' nested pairs equal and
+//! carries that back with `T.%C%unpack`, as `==` does (`derive.rs`); a
+//! constructor with proof fields uses `Ordering.thenEqual` and `J`s instead.
+//! `trans`, and `equal` with two constructors or more, find each field's
+//! `Ord` instance once, `let %o0 := Ord.instanceFor %a0`, and pass it by
+//! name (`[ord := %o0]`): found again under each field's hypotheses, the
+//! search cost more with every field. With two constructors or more the tags are compared
 //! first, and the fields only for the same constructor, so only the first
 //! value is matched and each law has one equation per constructor, not one
 //! per pair (docs/proposals/derived-equality.md §5.6). For

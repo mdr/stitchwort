@@ -62,17 +62,18 @@
 //!   (DecEq.decide a0 (T.%C2%0 a0 s)).holds && (DecEq.decide a1 (T.%C2%1 a1 s)).holds
 //! …   -- one equation for each constructor
 //!
-//! T.%sameSound : … -> (r : T a) -> (s : T a) -> T.%same r s = True -> r = s
-//! T.%sameSound (C2 a0 a1) s h =
-//!   let e : T.%tag s = 1 := Eq.sym (DecEq.tagsSame 1 (T.%tag s) h)
-//!   let b0 := T.%C2%0%at s e; let b1 := T.%C2%1%at s e
-//!   let v : (DecEq.decide a0 b0).holds && (DecEq.decide a1 b1).holds = True :=
-//!     J (y q => T.%same (C2 a0 a1) y = True) h (Eq.sym (T.%etaAt s 1 e))
-//!   Eq.trans (Decidable.sound (… : Decidable (C2 a0 a1 = C2 b0 b1)) v) (T.%etaAt s 1 e)
+//! T.%sameIff : … -> (r : T a) -> (s : T a) -> Iff (T.%same r s = True) (r = s)
+//! T.%sameIff (C2 a0 a1) s =
+//!   let k : T.%tag s = 1 -> Iff (T.%same (C2 a0 a1) s = True) (C2 a0 a1 = s) := e =>
+//!     let b0 := T.%C2%0%at s e; let b1 := T.%C2%1%at s e
+//!     J (y q => Iff (T.%same (C2 a0 a1) y = True) (C2 a0 a1 = y))
+//!       (let d := (… : Decidable (C2 a0 a1 = C2 b0 b1)); { forward = Decidable.sound d, backward = Decidable.complete d })
+//!       (T.%etaAt s 1 e)
+//!   { forward = h => (k (Eq.sym (DecEq.tagsSame 1 (T.%tag s) h))).forward h,
+//!     backward = x => (k (Eq.sym (Eq.cong T.%tag x))).backward x }
 //!
-//! T.%sameComplete : … -> (r : T a) -> (s : T a) -> r = s -> T.%same r s = True
-//! T.%sameComplete (C2 a0 a1) s e =
-//!   J (y q => T.%same (C2 a0 a1) y = True) (Decidable.complete (… : Decidable (C2 a0 a1 = C2 a0 a1)) rfl) e
+//! T.%sameSound r s h = (T.%sameIff r s).forward h
+//! T.%sameComplete r s e = (T.%sameIff r s).backward e
 //!
 //! T.%decide : … -> (r : T a) -> (s : T a) -> Decidable (r = s)
 //! T.%decide r s = { holds = T.%same r s, sound = T.%sameSound r s, complete = T.%sameComplete r s }
@@ -92,18 +93,27 @@
 //! dictionaries in scope among the candidates. The proofs are erased, so a
 //! run builds none of them.
 //!
-//! The proofs state each constructor's decision once, from `Decidable.map`
-//! and `andThen` over the fields' decisions (a field of type `T a` has one
-//! made of `T.%same` and the proofs), so that its `holds` is exactly the
-//! test, and take its `sound` and `complete`. With one constructor both
+//! The proofs state each constructor's decision once, in `T.%sameIff`, so
+//! that its `holds` is exactly the test, and take its `sound` and
+//! `complete` (a field of type `T a` is decided by `T.%same` and its
+//! `T.%sameIff`). A constructor whose fields are all data is decided as
+//! the equality of its fields paired up, `MkPair a0 (MkPair a1 …)`, by
+//! `Pair.decMk` a field at a time, and carried back to `C a… = C b…` by
+//! `Eq.cong` of `T.%C%unpack` and `T.%C%pack` ([`Elaborator::
+//! derive_tuple_in`]); with proof fields, by `Decidable.andThen` and the
+//! `J`s below. Reading each field's equation out of one conjunction
+//! instead, `And.left (And.right^k q)`, made the proofs cubic in the
+//! fields: 16.9 M steps for a record of 16 (SW-3719,
+//! docs/proposals/derived-instances-rethink.md). With one constructor both
 //! values are matched (`T.%same (C a0 a1) (C b0 b1)`). With more, only the
 //! first is, and the second's fields are read by projection, once the tags
 //! agree: `T.%etaAt s c e` turns `s`, whose tag is `c`, into the constructor
 //! `c` of its fields, so each equation's proof is about two values of one
 //! constructor. Matching both values would make a case tree of n² leaves
 //! for n constructors, each checked; this is n leaves (docs/proposals/
-//! derived-equality.md §5.6). `T.%sameSound` and `T.%sameComplete` are
-//! defined after `T.%same` and together, since their types mention it.
+//! derived-equality.md §5.6). The `T.%sameIff`s are defined after the
+//! `T.%same`s and together, since their types mention them, then each
+//! `T.%sameSound` and `T.%sameComplete`.
 //!
 //! With proof fields, the proof that equal data gives equal values goes in
 //! two steps. First, for any proofs `z` of the proof fields' types (with
@@ -123,7 +133,7 @@
 //! the root whose field first led to it and numbered from 1 there, with
 //! the same generated functions under `T.%m1%`: `T.%m1%type` (its type, so
 //! source can name it), `T.%m1%tag`, `T.%m1%Cons%0`, `T.%m1%Cons%0%at`,
-//! `T.%m1%view`, `T.%m1%eta`, `T.%m1%etaAt`, `T.%m1%same` and its two
+//! `T.%m1%view`, `T.%m1%eta`, `T.%m1%etaAt`, `T.%m1%same` and its
 //! proofs, made as for a data type whose fields are its constructors' with
 //! the container's arguments: `T.%m1%same (Cons a0 a1) (Cons b0 b1)` tests
 //! `a0` by `T.%same` and `a1` by itself. The `same`s are defined together
