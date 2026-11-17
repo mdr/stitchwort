@@ -21,9 +21,6 @@ theorem keepTraverse ∀ (expr: Expr) (position: Position): expr.traverse keepEx
   keepInside expr position.bracketed
 
 theorem keepInside ∀ (expr: Expr) (bracketed: Bool): expr.traverseInside keepExpr bracketed = expr := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
   | Bracketed _ inner _ => rewrite keepTraverse inner { bracketed = True, slot = Whole }
   | ListLiteral _ items _ _ => rewrite keepItems items
   | Call callee _ arguments _ _ => rewrite keepTraverse callee { bracketed, slot = PostfixSlot }, keepItems arguments
@@ -36,6 +33,7 @@ theorem keepInside ∀ (expr: Expr) (bracketed: Bool): expr.traverseInside keepE
     rewrite keepTraverse condition { bracketed, slot = Whole },
         keepBody whenTrue bracketed,
         keepBody whenFalse bracketed
+  | _ => cases
 
 theorem keepItems ∀ (items: List Expr): traverseItems keepExpr items = items := match items with
   | [] => byComputing
@@ -140,18 +138,13 @@ theorem mergedPlain ∀ (names more: NonEmptyList Named) (colon: Comments) (anno
 theorem mergeOntoPlain ∀ (group: ParameterGroup) (rest: List ParameterGroup):
     plainGroups (mergeOnto group rest) = plainGroups [group, ..rest] :=
   match group, rest with
-    | Untyped _, [] => byComputing
-    | Untyped _, [_, .._] => byComputing
-    | Typed _ _ (TypeBracketed _ _ _), [] => byComputing
-    | Typed _ _ (TypeBracketed _ _ _), [_, .._] => byComputing
-    | Typed _ _ (TypeName _ _), [] => byComputing
-    | Typed _ _ (TypeName _ _), [Untyped _, .._] => byComputing
     | Typed names colon (TypeName name comments), [Typed more colon2 annotation, ..others] =>
       match merges: (Typed names colon (TypeName name comments)).mergesInto (Typed more colon2 annotation) with
         | False => byComputing
         | True =>
           let (colonNone, commentsNone, bare) := mergesParts names more colon colon2 comments name annotation merges
           rewrite colonNone, commentsNone then mergedPlain names more colon2 annotation name bare others
+    | _, _ => cases
 
 theorem groupsMergePlain ∀ (groups: List ParameterGroup): plainGroups (mergeGroups groups) = plainGroups groups :=
   match groups with
@@ -163,8 +156,7 @@ theorem groupsMergePlain ∀ (groups: List ParameterGroup): plainGroups (mergeGr
 
 theorem declareMergePlain ∀ (line: Declaration): line.withMergedParameters.plain = line.plain := match line with
   | Function _ _ _ _ _ parameters _ _ _ _ => rewrite groupsMergePlain parameters
-  | Value _ _ _ _ _ => byComputing
-  | DeclarationNote _ => byComputing
+  | _ => cases
 
 theorem keepPlain: StepKeepsPlain keepExpr := position expr => byComputing
 
@@ -192,17 +184,13 @@ theorem mergeOntoCons ∀ (group: ParameterGroup) (rest: List ParameterGroup):
 theorem mergeOntoEnds ∀ (open: Comments) (group: ParameterGroup) (rest: List ParameterGroup):
     groupsEndWithComment open (mergeOnto group rest) = groupsEndWithComment open [group, ..rest] :=
   match group, rest with
-    | _, [] => byComputing
-    | Untyped _, [_, .._] => byComputing
-    | Typed _ _ (TypeBracketed _ _ _), [_, .._] => byComputing
-    | Typed _ _ (TypeName _ _), [Untyped _, .._] => byComputing
     | Typed names colon (TypeName name comments), [Typed more colon2 annotation, ..others] =>
       match merges: (Typed names colon (TypeName name comments)).mergesInto (Typed more colon2 annotation) with
         | False => byComputing
         | True =>
           match others with
-            | [] => byComputing
-            | [_, .._] => byComputing
+            | _ => cases
+    | _, _ => cases
 
 theorem groupsMergeEnds ∀ (open: Comments) (groups: List ParameterGroup):
     groupsEndWithComment open (mergeGroups groups) = groupsEndWithComment open groups :=
@@ -367,11 +355,7 @@ theorem mergedMergesInto ∀ (names more: NonEmptyList Named) (colon colon2 comm
     (annotation: TypeExpr) (after: ParameterGroup):
     (Typed (joinNames names more) colon2 annotation).mergesInto after
       = (Typed more colon2 annotation).mergesInto after :=
-  match annotation, after with
-    | TypeName _ _, Untyped _ => byComputing
-    | TypeName _ _, Typed _ _ _ => byComputing
-    | TypeBracketed _ _ _, Untyped _ => byComputing
-    | TypeBracketed _ _ _, Typed _ _ _ => byComputing
+  cases
 
 --| Folding a group onto a list with nothing mergeable leaves nothing
 --| mergeable. Proof idea: by cases on the two groups; a merged group has
@@ -474,8 +458,7 @@ theorem declarationTakesMerge ∀ (line: Declaration):
     line.withMergedParameters.withTakes = line.withTakes.withMergedParameters :=
   match line with
     | Function _ _ _ takes _ parameters _ _ _ _ => rewrite takesForMerge takes parameters
-    | Value _ _ _ _ _ => byComputing
-    | DeclarationNote _ => byComputing
+    | _ => cases
 
 theorem declarationsTakesMerge ∀ (lines: List (Spaced Declaration)):
     declarationsWithTakes (declarationsMerged lines) = declarationsMerged (declarationsWithTakes lines) :=

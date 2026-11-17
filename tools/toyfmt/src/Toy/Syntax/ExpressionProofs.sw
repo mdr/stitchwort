@@ -344,10 +344,7 @@ theorem closingSettled ∀ (close: Comments) (before: Bool): settledCloser befor
 theorem closingSame ∀ (close: Comments) (before: Bool)
     (settled: settledCloser before close = True):
     close.closing before = close :=
-  match close, before, settled with
-    | { above, after = None }, _, _ => byComputing
-    | { above = [], after = Some comment }, True, _ => byComputing
-    | { above = [first, ..rest], after = Some comment }, _, _ => byComputing
+  cases
 
 --| `tokens` spell `expr` at `layout`: its tokens in order, each of the kind
 --| the expression has there and standing where the layout allows it
@@ -999,10 +996,7 @@ theorem operatorOfOp ∀ (layout: Layout) (level: Nat) (sign: Parse.Located Toke
     (kind: sign.value.kind = Op operator)
     (allowed: layout.allows sign = True):
     operatorOf layout level sign = operatorAt operator (layout.comments sign) level :=
-  rewrite kind, allowed then
-    match same: operator.level == level with
-      | True => byComputing
-      | False => byComputing
+  rewrite kind, allowed then match same: operator.level == level with | _ => cases
 
 theorem levelRange ∀ (operator: Operator): 1 <= operator.level ∧ operator.level <= 6 := match operator with
   | Or => ((arithmetic []), (arithmetic []))
@@ -1616,50 +1610,19 @@ theorem spelledHeaded ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Loc
     | InStatement column start, spelled, none =>
       noAboveCleared expr (Eq.trans (spelledFirstAbove (InStatement column start) expr tokens shaped spelled) none)
 
-theorem clearedPostfix ∀ (expr: Expr): expr.withoutFirstAbove.isPostfix = expr.isPostfix := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
-  | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ _ => byComputing
-  | Call _ _ _ _ _ => byComputing
-  | Field _ _ _ _ => byComputing
-  | Negate _ _ => byComputing
-  | Binary _ _ _ _ => byComputing
-  | If _ _ _ _ _ _ => byComputing
+theorem clearedPostfix ∀ (expr: Expr): expr.withoutFirstAbove.isPostfix = expr.isPostfix := cases
 
-theorem clearedChain ∀ (expr: Expr): expr.withoutFirstAbove.isChain = expr.isChain := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
-  | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ _ => byComputing
-  | Call _ _ _ _ _ => byComputing
-  | Field _ _ _ _ => byComputing
-  | Negate _ _ => byComputing
-  | Binary _ _ _ _ => byComputing
-  | If _ _ _ _ _ _ => byComputing
+theorem clearedChain ∀ (expr: Expr): expr.withoutFirstAbove.isChain = expr.isChain := cases
 
-theorem clearedLevel ∀ (expr: Expr): expr.withoutFirstAbove.chainLevel = expr.chainLevel := match expr with
-  | Var _ _ => byComputing
-  | NumberLiteral _ _ => byComputing
-  | StringLiteral _ _ => byComputing
-  | Bracketed _ _ _ => byComputing
-  | ListLiteral _ _ _ _ => byComputing
-  | Call _ _ _ _ _ => byComputing
-  | Field _ _ _ _ => byComputing
-  | Negate _ _ => byComputing
-  | Binary _ _ _ _ => byComputing
-  | If _ _ _ _ _ _ => byComputing
+theorem clearedLevel ∀ (expr: Expr): expr.withoutFirstAbove.chainLevel = expr.chainLevel := cases
 
 --| Whether the token before a closing bracket has a trailing comment
 --| doesn't depend on the comments above the opening one.
 theorem clearedOpenEnds ∀ (open: Comments) (items: List Expr):
     itemsEndWithComment { open | above = [] } items = itemsEndWithComment open items :=
   match items with
-    | [] => byComputing
-    | [last] => byComputing
     | [first, second, ..rest] => clearedOpenEnds open [second, ..rest]
+    | _ => cases
 
 theorem shapedCleared ∀ (expr: Expr) (shaped: Shaped expr): Shaped expr.withoutFirstAbove := match expr, shaped with
   | Var name comments, shaped => shaped
@@ -1700,17 +1663,10 @@ theorem startNoBracket ∀ (kind: Kind) (wanted: Punctuation)
     (bracket: bracketSign wanted = True):
     (signIs wanted kind).isSome = False :=
   match kind with
-    | Name text => byComputing
-    | Number digits => byComputing
-    | Str written => byComputing
-    | Op operator => byComputing
-    | Reserved keyword => byComputing
     | Sign punctuation =>
       match punctuation, wanted with
-        | OpenParen, CloseParen => byComputing
-        | OpenParen, CloseSquare => byComputing
-        | OpenSquare, CloseParen => byComputing
-        | OpenSquare, CloseSquare => byComputing
+        | _, _ => cases
+    | _ => cases
 
 theorem endsAtSign ∀ (token: Parse.Located Token) (punctuation: Punctuation) (rest: List (Parse.Located Token))
     (signed: token.value.kind = Sign punctuation)
@@ -1719,27 +1675,19 @@ theorem endsAtSign ∀ (token: Parse.Located Token) (punctuation: Punctuation) (
   ((rewrite signed then quiet), (noOperatorAtSign InBrackets 0 token punctuation rest signed))
 
 theorem bracketQuiet ∀ (closer: Punctuation) (bracket: bracketSign closer = True): endsSuffixes (Sign closer) = True :=
-  match closer with
-    | CloseParen => byComputing
-    | CloseSquare => byComputing
+  cases
 
 theorem noCommaAtBracket ∀ (close: Parse.Located Token) (closer: Punctuation) (after: List (Parse.Located Token))
     (closes: close.value.kind = Sign closer)
     (bracket: bracketSign closer = True):
     signAhead Comma [close, ..after] = False :=
-  rewrite closes then
-    match closer with
-      | CloseParen => byComputing
-      | CloseSquare => byComputing
+  rewrite closes then match closer with | _ => cases
 
 theorem bracketThere ∀ (close: Parse.Located Token) (closer: Punctuation)
     (closes: close.value.kind = Sign closer)
     (bracket: bracketSign closer = True):
     (signIs closer close.value.kind).isSome = True :=
-  rewrite closes then
-    match closer with
-      | CloseParen => byComputing
-      | CloseSquare => byComputing
+  rewrite closes then match closer with | _ => cases
 
 --| `closingNext` reads nothing and says whether `closer` comes next.
 theorem runsClosingNext ∀ (closer: Punctuation) (rest: List (Parse.Located Token)):
@@ -2146,11 +2094,7 @@ theorem notIfAtReserved ∀ (layout: Layout) (token: Parse.Located Token) (keywo
       rewrite reserved then
         match keyword, notIf with
           | IfKeyword, notIf => (notIf byComputing).impossible
-          | FnKeyword, notIf => byComputing
-          | LetKeyword, notIf => byComputing
-          | ThenKeyword, notIf => byComputing
-          | ElseKeyword, notIf => byComputing
-          | TakesKeyword, notIf => byComputing
+          | _, _ => cases
 
 --| No atom starts with a keyword.
 theorem atomDeclines ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (token: Parse.Located Token)

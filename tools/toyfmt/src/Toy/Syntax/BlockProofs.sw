@@ -198,8 +198,7 @@ theorem inlineBodyRun ∀ (more: Nat) (self: Layout → {Parse (Parse.Located To
   match layout with
     | InBrackets =>
       match state with
-        | { at = { rest = [], offset, left }, furthest, expected, messages } => byComputing
-        | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => byComputing
+        | _ => cases
     | InStatement column from =>
       match state with
         | { at = { rest = [], offset, left }, furthest, expected, messages } => byComputing
@@ -927,12 +926,7 @@ theorem operatorOfUnallowed ∀ (layout: Layout) (level: Nat) (token: Parse.Loca
       match same: operator.level == level with
         | True => rewrite unallowed
         | False => byComputing
-    | Name text => byComputing
-    | Number digits => byComputing
-    | Str written => byComputing
-    | Reserved keyword => byComputing
-    | Sign punctuation => byComputing
-    | Stray text => byComputing
+    | _ => cases
 
 --| A token the layout turns away ends an expression.
 theorem endsUnallowed ∀ (layout: Layout) (token: Parse.Located Token) (rest: List (Parse.Located Token))

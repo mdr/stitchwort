@@ -90,9 +90,7 @@ theorem joinOwn ∀ (front back: List Trivia):
 
 theorem trailingOwn ∀ (token: Parse.Located Token):
     token.value.comments = ownComments token.value.above ++ ownComments (trailingTrivia token.value.trailing) :=
-  match trailing: token.value.trailing with
-    | None => byComputing
-    | Some comment => byComputing
+  cases
 
 --| What a comma held is carried to the next token, or to the end: the
 --| comments after carrying are those carried in, the tokens' and the
@@ -278,9 +276,7 @@ theorem homeStable ∀ (newest: List (Parse.Located Token))
           Eq.cong ((found: List (Parse.Located Token)) => homeStep found token) (homeStable earlier others)
         _ = [token, ..earlier] := steady
 
-theorem joinEmpty ∀ (back: List Trivia): joinTrivia [] back = back := match back with
-  | [] => byComputing
-  | [first, ..rest] => byComputing
+theorem joinEmpty ∀ (back: List Trivia): joinTrivia [] back = back := cases
 
 --| Rule N's second half changes nothing where no comma holds a comment:
 --| by induction on the tokens, nothing being carried.

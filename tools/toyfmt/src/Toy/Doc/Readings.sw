@@ -65,13 +65,12 @@ theorem ifIsOption ∀ (condition: Bool) (option later: Doc) (others: List Doc)
 theorem chooseIsOption ∀ (printer: Printer) (total indent: Nat) (rest: List Cmd) (options: List Doc):
     IsOption (printer.choose total indent rest options) options :=
   match options with
-    | [] => byComputing
-    | [last] => byComputing
     | [option, next, ..others] =>
       ifIsOption _ option
         (printer.choose total indent rest [next, ..others])
         [next, ..others]
         (chooseIsOption printer total indent rest [next, ..others])
+    | _ => cases
 
 --| Every step of the printer, at any width and budget, is a step of a
 --| reading.
@@ -120,33 +119,17 @@ theorem stepIsReading ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List
                   (chooseIsOption printer total indent rest options),
                   byComputing
                 ))
-        | Empty => byComputing
-        | Chunk text width => byComputing
-        | Closing text => byComputing
-        | Line => byComputing
-        | SoftLine => byComputing
-        | HardLine => byComputing
-        | Blank => byComputing
-        | Nest more inner => byComputing
-        | Concat docs => byComputing
-        | Flatten inner => byComputing
-        | OneLineBelow inner => byComputing
-        | LineSuffix comment => byComputing
-        | LineStart => byComputing
-        | CommentEnd => byComputing
-        | LineStartHere => byComputing
-        | BreakParent => byComputing
+        | _ => cases
 
 --| A run of the printer, at any width and budget, is a reading.
 theorem runIsReading ∀ (printer: Printer) (total fuel: Nat) (stack: List Cmd):
     Reads printer fuel stack (printer.run total fuel stack) :=
   match fuel, stack with
-    | 0, stack => byComputing
-    | Succ more, [] => byComputing
     | Succ more, [cmd, ..rest] =>
       let isStep := stepIsReading printer total cmd rest
       match stepped: printer.step total cmd rest with
         | (next, later) => (next, later, isStep, (runIsReading next total more later))
+    | _, _ => cases
 
 --| `print` is one of the readings: at every width, the text it gives is
 --| what some reading of the document, from the empty printer, leaves

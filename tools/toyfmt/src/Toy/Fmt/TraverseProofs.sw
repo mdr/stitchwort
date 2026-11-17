@@ -35,9 +35,6 @@ theorem insidePlain ∀ (step: Position → Expr → Expr)
     (expr: Expr) (bracketed: Bool):
     (expr.traverseInside step bracketed).plain = expr.plain :=
   match expr with
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
     | Bracketed _ inner _ => rewrite traversePlain step keeps inner { bracketed = True, slot = Whole }
     | ListLiteral _ items _ _ => rewrite itemsTraversePlain step keeps items
     | Call callee _ arguments _ _ =>
@@ -51,6 +48,7 @@ theorem insidePlain ∀ (step: Position → Expr → Expr)
       rewrite traversePlain step keeps condition { bracketed, slot = Whole },
           bodyTraversePlain step keeps whenTrue bracketed,
           bodyTraversePlain step keeps whenFalse bracketed
+    | _ => cases
 
 theorem itemsTraversePlain ∀ (step: Position → Expr → Expr)
     (keeps: StepKeepsPlain step) (items: List Expr):
@@ -188,9 +186,8 @@ theorem statementTraverseCoded ∀ (step: Position → Expr → Expr) (line: Sta
     (coded: Coded line):
     Coded (line.traverse step bracketed) :=
   match line, coded with
-    | Let _ _ _ _ _, _ => byComputing
-    | Bare _, _ => byComputing
     | StatementNote _, coded => coded
+    | _, _ => cases
 
 --| The traversal keeps every statement a statement, so a body still ends
 --| in one.
@@ -222,9 +219,6 @@ theorem insideCommas ∀ (step: Position → Expr → Expr)
     (none: NoTrailingCommas expr):
     NoTrailingCommas (expr.traverseInside step bracketed) :=
   match expr, none with
-    | Var _ _, _ => byComputing
-    | NumberLiteral _ _, _ => byComputing
-    | StringLiteral _ _, _ => byComputing
     | Bracketed _ inner _, none => traverseCommas step keeps inner { bracketed = True, slot = Whole } none
     | ListLiteral _ items _ _, (unwritten, itemsNone) => (unwritten, itemsTraverseCommas step keeps items itemsNone)
     | Call callee _ arguments _ _, (unwritten, calleeNone, argumentsNone) => (
@@ -243,6 +237,7 @@ theorem insideCommas ∀ (step: Position → Expr → Expr)
       bodyTraverseCommas step keeps whenTrue bracketed trueNone,
       bodyTraverseCommas step keeps whenFalse bracketed falseNone
     )
+    | _, _ => cases
 
 theorem itemsTraverseCommas ∀ (step: Position → Expr → Expr)
     (keeps: StepKeepsCommas step) (items: List Expr)
@@ -341,8 +336,7 @@ theorem traverseShaped ∀ (step: Position → Expr → Expr)
     (shaped: ShapedAt position.slot expr):
     ShapedAt position.slot (expr.traverse step position) ∧ EndKept expr (expr.traverse step position) :=
   let (insideShaped, insideEnd) := insideShaped step keeps expr position.bracketed shaped.left
-  let insideFits: (expr.traverseInside step position.bracketed).fits position.slot = True :=
-    rewrite insideFits step expr position.bracketed position.slot then shaped.right
+  let insideFits: (expr.traverseInside step position.bracketed).fits position.slot = True := cases
   let (stepShaped, stepEnd) := keeps position (expr.traverseInside step position.bracketed) (insideShaped, insideFits)
   (stepShaped, (ends => stepEnd (insideEnd ends)))
 
@@ -563,9 +557,8 @@ theorem linesTraverseUnspaced ∀ (step: Position → Expr → Expr) (lines: Lis
     (unspaced: Unspaced lines):
     Unspaced (traverseLines step bracketed lines) :=
   match lines, unspaced with
-    | [], _ => byComputing
-    | [{ blankBefore = False, line }, ..rest], _ => byComputing
     | [{ blankBefore = True, line }, ..rest], unspaced => cases
+    | _, _ => cases
 
 theorem linesTraverseOne ∀ (step: Position → Expr → Expr) (lines: List (Spaced Statement)) (bracketed: Bool)
     (one: OneExpression lines):
@@ -633,9 +626,6 @@ theorem insideFixed ∀ (step: Position → Expr → Expr) (done: Position → E
     (all: AllInside done bracketed expr):
     expr.traverseInside step bracketed = expr :=
   match expr, all with
-    | Var _ _, _ => byComputing
-    | NumberLiteral _ _, _ => byComputing
-    | StringLiteral _ _, _ => byComputing
     | Bracketed _ inner _, all => rewrite traverseFixed step done fixes inner { bracketed = True, slot = Whole } all
     | ListLiteral _ items _ _, all => rewrite itemsFixed step done fixes items all
     | Call callee _ arguments _ _, (calleeAll, argumentsAll) =>
@@ -650,6 +640,7 @@ theorem insideFixed ∀ (step: Position → Expr → Expr) (done: Position → E
       rewrite traverseFixed step done fixes condition { bracketed, slot = Whole } conditionAll,
           bodyFixed step done fixes whenTrue bracketed trueAll,
           bodyFixed step done fixes whenFalse bracketed falseAll
+    | _, _ => cases
 
 theorem itemsFixed ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
     (fixes: StepFixes step done) (items: List Expr)
@@ -703,9 +694,6 @@ theorem insideReaches ∀ (step: Position → Expr → Expr) (done: Position →
     (expr: Expr) (bracketed: Bool):
     AllInside done bracketed (expr.traverseInside step bracketed) :=
   match expr with
-    | Var _ _ => byComputing
-    | NumberLiteral _ _ => byComputing
-    | StringLiteral _ _ => byComputing
     | Bracketed _ inner _ => traverseReaches step done reaches inner { bracketed = True, slot = Whole }
     | ListLiteral _ items _ _ => itemsReaches step done reaches items
     | Call callee _ arguments _ _ => (
@@ -723,6 +711,7 @@ theorem insideReaches ∀ (step: Position → Expr → Expr) (done: Position →
       bodyReaches step done reaches whenTrue bracketed,
       bodyReaches step done reaches whenFalse bracketed
     )
+    | _ => cases
 
 theorem itemsReaches ∀ (step: Position → Expr → Expr) (done: Position → Expr → Prop)
     (reaches: StepReaches step done) (items: List Expr):
@@ -789,9 +778,6 @@ theorem insideOutside ∀ (done: Position → Expr → Prop)
     (all: AllInside done True expr):
     AllInside done bracketed expr :=
   match expr, all with
-    | Var _ _, _ => byComputing
-    | NumberLiteral _ _, _ => byComputing
-    | StringLiteral _ _, _ => byComputing
     | Bracketed _ _ _, all => all
     | ListLiteral _ _ _ _, all => all
     | Call callee _ _ _ _, (calleeAll, argumentsAll) =>
@@ -807,6 +793,7 @@ theorem insideOutside ∀ (done: Position → Expr → Prop)
       bodyOutside done outside whenTrue bracketed trueAll,
       bodyOutside done outside whenFalse bracketed falseAll
     )
+    | _, _ => cases
 
 theorem bodyOutside ∀ (done: Position → Expr → Prop)
     (outside: DoneOutside done)
@@ -930,9 +917,8 @@ theorem declarationsTraverseUnspaced ∀ (step: Position → Expr → Expr)
     (unspaced: Unspaced lines):
     Unspaced (traverseDeclarations step declare lines) :=
   match lines, unspaced with
-    | [], _ => byComputing
-    | [{ blankBefore = False, line }, ..rest], _ => byComputing
     | [{ blankBefore = True, line }, ..rest], unspaced => cases
+    | _, _ => cases
 
 --| A traversal whose step and `declare` keep the parser's guarantees
 --| keeps the file's.

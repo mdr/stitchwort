@@ -528,8 +528,6 @@ theorem chooseEnough ∀ (printer: Printer) (total extra indent: Nat) (rest: Lis
     (enough: stepsOf options + restNeed rest ≤ total):
     printer.choose (total + extra) indent rest options = printer.choose total indent rest options :=
   match options with
-    | [] => byComputing
-    | [last] => byComputing
     | [option, next, ..others] =>
       let later := chooseEnough printer total extra indent rest [next, ..others] (arithmetic)
       match option with
@@ -543,6 +541,7 @@ theorem chooseEnough ∀ (printer: Printer) (total extra indent: Nat) (rest: Lis
                 (not printer.suffixes.isEmpty)
                 (arithmetic),
               later
+    | _ => cases
 
 --| With `fits`'s budget covering the work list's weight, a step takes the
 --| same choices as with a larger budget.
@@ -588,13 +587,12 @@ theorem runTotalEnough ∀ (printer: Printer) (total extra fuel: Nat) (stack: Li
     (enough: stackWeight stack ≤ total):
     printer.run (total + extra) fuel stack = printer.run total fuel stack :=
   match fuel, stack with
-    | Zero, _ => byComputing
-    | Succ more, [] => byComputing
     | Succ more, [cmd, ..rest] =>
       let heavier := stepWeight printer total cmd rest
       rewrite stepEnough printer total extra cmd rest enough then
         match stepped: printer.step total cmd rest with
           | (next, stack) => runTotalEnough next total extra more stack (arithmetic)
+    | _, _ => cases
 
 --| `print`'s budget, 3 * size + 3, is enough both for the printer's steps
 --| and for every `fits` it asks: printing with any larger budgets gives

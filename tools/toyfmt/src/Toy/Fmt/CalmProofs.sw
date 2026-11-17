@@ -163,9 +163,8 @@ def StaysCalm (found: Option Prior) (seen: Views): Prop := match found with
 
 theorem ownLineLast ∀ (front: List Trivia) (comment: Comment): hasOwnLine (front ++ [OwnLine comment]) = True :=
   match front with
-    | [] => byComputing
-    | [OwnLine first, ..rest] => byComputing
     | [BlankLine, ..rest] => ownLineLast rest comment
+    | _ => cases
 
 theorem ownLineReversed ∀ (comment: Comment) (rest: List Trivia): hasOwnLine [OwnLine comment, ..rest].reverse = True :=
   rewrite List.reverseCons (OwnLine comment) rest then ownLineLast rest.reverse comment
@@ -174,9 +173,7 @@ theorem ownLineReversed ∀ (comment: Comment) (rest: List Trivia): hasOwnLine [
 --| comment it is.
 theorem blockedTrailing ∀ (top: TokenView) (rest: List TokenView) (trailing: Option Comment):
     blockedBy { top | trailing } rest = blockedBy top rest :=
-  match rest with
-    | [] => byComputing
-    | [previous, ..others] => byComputing
+  cases
 
 --| A token just read, which is no comma, is steady: it has no trailing
 --| comment yet.
@@ -199,8 +196,6 @@ theorem afterWordViews ∀ (prior: Prior) (kind: Kind) (start: Option Nat) (seen
           let bare: pending = [] → SteadyView view views := none =>
             ((isComma => ((rewrite none), byComputing)), (wrong => (Bool.falseNotTrue wrong).impossible))
           match prior, suited with
-            | Blanked, _ => byComputing
-            | Noted, _ => byComputing
             | Worded free, (none, _) => (
               (byComputing, view, views, byComputing, byComputing, (wrong => (Bool.falseNotTrue wrong).impossible)),
               (bare none),
@@ -211,6 +206,7 @@ theorem afterWordViews ∀ (prior: Prior) (kind: Kind) (start: Option Nat) (seen
               (bare none),
               stable
             )
+            | _, _ => cases
         | False =>
           let steady: SteadyView view views := freshSteady kind start pending.reverse views comma
           match closer: kind.isCloser with
@@ -297,10 +293,6 @@ theorem calmStepViews ∀ (prior: Prior) (event: Event) (seen: Views)
                 | Some column => ((({ text = word }), seen.pending, byComputing), stable)
                 | None =>
                   match seen, prior, suited, stable with
-                    | { views, pending }, Blanked, _, _ => byComputing
-                    | { views, pending }, Noted, _, _ => byComputing
-                    | { views, pending }, Trailed, _, _ => byComputing
-                    | { views, pending }, Worded False, _, _ => byComputing
                     | { views, pending }, Worded True, (none, top, rest, same, bare, free), stable =>
                       let facts := free byComputing
                       let held: SteadyView top rest ∧ StableViews rest := rewrite same at stable then stable
@@ -314,6 +306,7 @@ theorem calmStepViews ∀ (prior: Prior) (event: Event) (seen: Views)
                           ),
                           held.right
                         )
+                    | _, _, _, _ => cases
             | Spaces => afterWordViews prior (lexemeKind Spaces word) start seen suited stable
             | LineBreak => afterWordViews prior (lexemeKind LineBreak word) start seen suited stable
             | WordLexeme => afterWordViews prior (lexemeKind WordLexeme word) start seen suited stable
@@ -416,9 +409,7 @@ theorem aboveCalm ∀ (above: List Comment) (column: Nat) (prior: Prior)
             ((found: Option Prior) => calmFrom found (aboveEvents column rest))
             (ownLineCalm prior comment.text column first)
         _ = Some (afterAbove Noted rest) := aboveCalm rest column Noted others
-        _ = Some Noted := match rest with
-          | [] => byComputing
-          | [_, .._] => byComputing
+        _ = Some Noted := cases
 
 def afterComment (worded: Prior) (after: Option Comment): Option Prior := match after with
   | None => Some worded
@@ -436,10 +427,8 @@ theorem trailCalm ∀ (found: Option Prior) (after: Option Comment)
     (fine: FineAfter after):
     calmFrom found (afterEvents after) = afterToken found after :=
   match after, fine, found with
-    | None, _, None => byComputing
-    | None, _, Some worded => byComputing
-    | Some comment, fine, None => byComputing
     | Some comment, fine, Some worded => trailingCalm worded comment.text fine
+    | _, _, _ => cases
 
 --| A token's events, read: its comments above, the token, its trailing
 --| comment.
@@ -632,9 +621,7 @@ def afterBlank (prior: Prior) (blankBefore: Bool): Prior := if blankBefore then 
 
 theorem blankCalm ∀ (blankBefore: Bool) (later: List Event) (prior: Prior):
     calm prior (blankEvents blankBefore ++ later) = calm (afterBlank prior blankBefore) later :=
-  match blankBefore with
-    | True => byComputing
-    | False => byComputing
+  cases
 
 --| An expression's events are calm after any event, and end as its last
 --| token does: by induction on the expression, one `calmsThen` per part,

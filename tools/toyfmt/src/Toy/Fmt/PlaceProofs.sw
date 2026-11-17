@@ -94,14 +94,7 @@ theorem gapFold ∀ (source: Text) (spaces: List Char) (steps: List (List Char, 
     | [(read, lexeme), ..more] =>
       match lexeme with
         | Spaces => rewrite List.lengthAppend spaces read, Nat.addAssoc offset spaces.length read.length
-        | LineBreak => byComputing
-        | CommentLexeme => byComputing
-        | WordLexeme => byComputing
-        | DigitsLexeme => byComputing
-        | StringLexeme => byComputing
-        | SignLexeme => byComputing
-        | SymbolsLexeme => byComputing
-        | StrayLexeme => byComputing
+        | _ => cases
 
 --| The steps a piece adds are, to `assemble`, the piece as one lexeme.
 theorem addPieceFold ∀ (source piece: Text) (steps: List (List Char, Lexeme)) (offset: Nat) (assembly: Assembly):
@@ -362,10 +355,9 @@ def DescendingBelow (bound: Nat): List Nat → Prop
 
 theorem belowDescending ∀ (bound: Nat) (offsets: List Nat) (below: DescendingBelow bound offsets): Descending offsets :=
   match offsets, below with
-    | [], below => byComputing
-    | [only], below => byComputing
     | [newer, older, ..rest], Both first (Both second others) =>
       (second, (belowDescending newer [older, ..rest] ((second, others))))
+    | _, _ => cases
 
 theorem belowWider ∀ (bound wider: Nat) (offsets: List Nat)
     (grows: bound ≤ wider)
@@ -383,9 +375,7 @@ theorem wordLength ∀ (piece: Text) (word: piece.all (char => char == ' ') = Fa
 
 theorem withTrailingOffsets ∀ (tokens: List (Parse.Located Token)) (comment: Parse.Located Comment):
     (withTrailing tokens comment).map (token => token.offset) = tokens.map (token => token.offset) :=
-  match tokens with
-    | [] => byComputing
-    | [last, ..earlier] => byComputing
+  cases
 
 --| A word adds no token (a comment), or one at its own offset.
 theorem wordOffsets ∀ (placed: Placed) (piece: Text) (blank: Bool) (column offset: Nat):
